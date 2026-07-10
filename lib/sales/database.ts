@@ -157,6 +157,33 @@ const schemaStatements = [
     ON sales_order_lines (platform)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_last_batch_idx
     ON sales_order_lines (last_import_batch_id)`,
+  `CREATE TABLE IF NOT EXISTS sales_import_uploads (
+    id TEXT PRIMARY KEY NOT NULL,
+    fingerprint TEXT NOT NULL UNIQUE,
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    chunk_size_bytes INTEGER NOT NULL,
+    chunk_count INTEGER NOT NULL,
+    received_chunk_count INTEGER NOT NULL DEFAULT 0,
+    received_bytes INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'uploading',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS sales_import_uploads_expires_at_idx
+    ON sales_import_uploads (expires_at)`,
+  `CREATE TABLE IF NOT EXISTS sales_import_upload_chunks (
+    upload_id TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    object_key TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (upload_id, chunk_index)
+  )`,
+  `CREATE INDEX IF NOT EXISTS sales_import_upload_chunks_upload_id_idx
+    ON sales_import_upload_chunks (upload_id)`,
 ] as const;
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();

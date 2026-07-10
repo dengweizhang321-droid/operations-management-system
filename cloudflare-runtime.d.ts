@@ -25,9 +25,20 @@ interface D1Database {
   ): Promise<Array<D1Result<T>>>;
 }
 
+interface R2ObjectBody {
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+interface R2Bucket {
+  put(key: string, value: ArrayBuffer | Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<R2ObjectBody | null>;
+  delete(keys: string | string[]): Promise<void>;
+}
+
 declare module "cloudflare:workers" {
   export const env: {
     DB?: D1Database;
+    SALES_IMPORT_FILES?: R2Bucket;
     [binding: string]: unknown;
   };
 }

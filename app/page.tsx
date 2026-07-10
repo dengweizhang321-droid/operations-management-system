@@ -100,6 +100,18 @@ type SalesImportResponse = {
   errors?: ImportIssue[];
 };
 
+type ChunkUploadResponse = {
+  ok: boolean;
+  status?: string;
+  message?: string;
+  upload?: {
+    id: string;
+    receivedChunkIndexes: number[];
+    receivedBytes: number;
+    chunkCount: number;
+  };
+} & Partial<SalesImportResponse>;
+
 type ImportFeedback = {
   tone: "success" | "warning" | "error" | "duplicate";
   title: string;
@@ -117,7 +129,9 @@ const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
 
 const channelTones = ["blue", "purple", "green", "orange"] as const;
 const channelColors = ["#4776e6", "#8167d9", "#27a978", "#e99436"];
-const MAX_IMPORT_FILE_SIZE = 15 * 1024 * 1024;
+const DIRECT_IMPORT_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_IMPORT_FILE_SIZE = 60 * 1024 * 1024;
+const SALES_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024;
 
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
@@ -554,6 +568,8 @@ function ImportView() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
   const [feedback, setFeedback] = useState<ImportFeedback | null>(null);
   const [history, setHistory] = useState<SalesImportBatch[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -597,8 +613,8 @@ function ImportView() {
       setSelectedFile(null);
       setFeedback({
         tone: "error",
-        title: "文件超过 15MB",
-        message: `当前文件为 ${formatFileSize(candidate.size)}，请拆分后重新上传。`,
+        title: "文件超过 60MB",
+        message: `当前文件为 ${formatFileSize(candidate.size)}。单个销售明细账最大支持 60MB。`,
         details: [],
       });
       return;
@@ -607,61 +623,121 @@ function ImportView() {
     setFeedback(null);
   }, []);
 
+  const showImportResult = (payload: SalesImportResponse | null, responseStatus: number) => {
+    const warnings = payload?.warnings ?? payload?.batch?.warnings ?? [];
+    const errors = payload?.errors ?? [];
+    if (!payload?.ok || payload.status === "rejected") {
+      setFeedback({
+        tone: "error",
+        title: "导入未完成",
+        message: payload?.message || `文件校验或导入失败（${responseStatus}）`,
+        details: errors.slice(0, 8).map(issueText),
+      });
+      return false;
+    }
+    if (payload.status === "duplicate") {
+      setFeedback({
+        tone: "duplicate",
+        title: "检测到重复文件",
+        message: payload.message || "该文件已导入，系统没有重复写入销售数据。",
+        details: warnings.slice(0, 8).map(issueText),
+      });
+    } else if (warnings.length || (payload.batch?.warningCount ?? 0) > 0) {
+      setFeedback({
+        tone: "warning",
+        title: `导入完成，含 ${payload.batch?.warningCount ?? warnings.length} 条提示`,
+        message: payload.message || `成功写入 ${formatCount(payload.batch?.insertedCount)} 行销售明细。`,
+        details: warnings.slice(0, 8).map(issueText),
+      });
+    } else {
+      setFeedback({
+        tone: "success",
+        title: "销售明细导入成功",
+        message: payload.message || `成功写入 ${formatCount(payload.batch?.insertedCount)} 行，销售分析已更新。`,
+        details: [],
+      });
+    }
+    return true;
+  };
+
+  const importChunkedFile = async (file: File): Promise<{ payload: SalesImportResponse | null; status: number }> => {
+    const chunkCount = Math.ceil(file.size / SALES_UPLOAD_CHUNK_SIZE);
+    const fingerprint = `sales-v1:${file.name}:${file.size}:${file.lastModified}:${SALES_UPLOAD_CHUNK_SIZE}`;
+    setUploadStage("正在检查可续传的上传进度…");
+    const initResponse = await fetch("/api/imports/sales/chunks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "init", fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint }),
+    });
+    const initPayload = await initResponse.json().catch(() => null) as ChunkUploadResponse | null;
+    if (!initResponse.ok || !initPayload?.ok || !initPayload.upload) {
+      throw new Error(initPayload?.message || "无法创建分片上传任务");
+    }
+    const uploaded = new Set(initPayload.upload.receivedChunkIndexes);
+    let uploadedBytes = 0;
+    for (const index of uploaded) {
+      const start = index * SALES_UPLOAD_CHUNK_SIZE;
+      uploadedBytes += Math.min(SALES_UPLOAD_CHUNK_SIZE, file.size - start);
+    }
+    setUploadProgress(Math.round((uploadedBytes / file.size) * 100));
+
+    for (let index = 0; index < chunkCount; index += 1) {
+      if (uploaded.has(index)) continue;
+      const start = index * SALES_UPLOAD_CHUNK_SIZE;
+      const part = file.slice(start, Math.min(start + SALES_UPLOAD_CHUNK_SIZE, file.size));
+      setUploadStage(`正在上传第 ${index + 1}/${chunkCount} 个分片…`);
+      const partResponse = await fetch("/api/imports/sales/chunks", {
+        method: "PUT",
+        headers: { "x-upload-id": initPayload.upload.id, "x-chunk-index": String(index), "content-type": "application/octet-stream" },
+        body: part,
+      });
+      const partPayload = await partResponse.json().catch(() => null) as ChunkUploadResponse | null;
+      if (!partResponse.ok || !partPayload?.ok) throw new Error(partPayload?.message || `第 ${index + 1} 个分片上传失败`);
+      uploadedBytes += part.size;
+      setUploadProgress(Math.min(99, Math.round((uploadedBytes / file.size) * 100)));
+    }
+
+    setUploadProgress(100);
+    setUploadStage("分片已上传，正在合并并校验销售明细…");
+    const completeResponse = await fetch("/api/imports/sales/chunks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "complete", uploadId: initPayload.upload.id }),
+    });
+    return {
+      payload: await completeResponse.json().catch(() => null) as SalesImportResponse | null,
+      status: completeResponse.status,
+    };
+  };
+
   const importFile = async () => {
     if (!selectedFile || uploading) return;
     setUploading(true);
     setFeedback(null);
+    setUploadProgress(0);
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("source", "jky");
-      const response = await fetch("/api/imports/sales", { method: "POST", body: formData });
-      const payload = await response.json().catch(() => null) as SalesImportResponse | null;
-      const warnings = payload?.warnings ?? payload?.batch?.warnings ?? [];
-      const errors = payload?.errors ?? [];
-
-      if (!response.ok || !payload?.ok || payload.status === "rejected") {
-        setFeedback({
-          tone: "error",
-          title: "导入未完成",
-          message: payload?.message || `文件校验或导入失败（${response.status}）`,
-          details: errors.slice(0, 8).map(issueText),
-        });
-        return;
-      }
-
-      if (payload.status === "duplicate") {
-        setFeedback({
-          tone: "duplicate",
-          title: "检测到重复文件",
-          message: payload.message || "该文件已导入，系统没有重复写入销售数据。",
-          details: warnings.slice(0, 8).map(issueText),
-        });
-      } else if (warnings.length || (payload.batch?.warningCount ?? 0) > 0) {
-        setFeedback({
-          tone: "warning",
-          title: `导入完成，含 ${payload.batch?.warningCount ?? warnings.length} 条警告`,
-          message: payload.message || `成功写入 ${formatCount(payload.batch?.insertedCount)} 行销售明细。`,
-          details: warnings.slice(0, 8).map(issueText),
-        });
+      let outcome: { payload: SalesImportResponse | null; status: number };
+      if (selectedFile.size > DIRECT_IMPORT_FILE_SIZE) {
+        outcome = await importChunkedFile(selectedFile);
       } else {
-        setFeedback({
-          tone: "success",
-          title: "销售明细导入成功",
-          message: payload.message || `成功写入 ${formatCount(payload.batch?.insertedCount)} 行，销售分析已更新。`,
-          details: [],
-        });
+        setUploadStage("正在上传并校验销售明细…");
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("source", "jky");
+        const response = await fetch("/api/imports/sales", { method: "POST", body: formData });
+        outcome = { payload: await response.json().catch(() => null) as SalesImportResponse | null, status: response.status };
       }
-      await loadHistory();
+      if (showImportResult(outcome.payload, outcome.status)) await loadHistory();
     } catch (requestError) {
       setFeedback({
         tone: "error",
         title: "导入请求失败",
-        message: requestError instanceof Error ? requestError.message : "网络异常，请稍后重试。",
+        message: requestError instanceof Error ? `${requestError.message}；重新选择同一文件后会自动续传已完成的分片。` : "网络异常，请稍后重试。",
         details: [],
       });
     } finally {
       setUploading(false);
+      setUploadStage("");
     }
   };
 
@@ -681,7 +757,7 @@ function ImportView() {
           <div className="source-grid">{sourceOptions.map((item, index) => <button type="button" className={index === 0 ? "selected" : ""} disabled={index !== 0} aria-pressed={index === 0} key={item[1]}><span>{item[0]}</span><strong>{item[1]}</strong><small>{item[2]}</small></button>)}</div>
         </article>
         <article className="panel import-panel">
-          <span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>仅支持 .xlsx，单文件最大 15MB。系统会校验表头、金额与重复批次。</p>
+          <span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>仅支持 .xlsx，单文件最大 60MB；超过 10MB 会自动按 5MB 分片上传，网络中断后可续传。</p>
           <input
             ref={inputRef}
             className="file-input-hidden"
@@ -703,12 +779,13 @@ function ImportView() {
           >
             <span>{selectedFile ? "✓" : "↑"}</span>
             <strong>{selectedFile ? selectedFile.name : "将 .xlsx 文件拖到此处，或点击选择"}</strong>
-            <small>{selectedFile ? `${formatFileSize(selectedFile.size)} · 已通过格式与大小检查` : "上传后将写入销售分析正式数据"}</small>
+            <small>{selectedFile ? `${formatFileSize(selectedFile.size)} · ${selectedFile.size > DIRECT_IMPORT_FILE_SIZE ? "将启用分片上传与断点续传" : "将直接上传并校验"}` : "上传后将写入销售分析正式数据"}</small>
           </button>
           <div className="import-actions">
-            <span>{selectedFile ? "准备导入吉客云 ERP 销售明细" : "请选择待导入文件"}</span>
-            <button type="button" className="primary-button" disabled={!selectedFile || uploading} onClick={() => void importFile()}>{uploading ? "正在导入…" : "开始导入"}</button>
+            <span>{uploading ? uploadStage : selectedFile ? "准备导入吉客云 ERP 销售明细" : "请选择待导入文件"}</span>
+            <button type="button" className="primary-button" disabled={!selectedFile || uploading} onClick={() => void importFile()}>{uploading ? `${uploadProgress}%` : "开始导入"}</button>
           </div>
+          {uploading && selectedFile && <div className="import-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress} aria-label="销售明细上传进度"><span style={{ width: `${uploadProgress}%` }} /></div>}
         </article>
       </section>
 

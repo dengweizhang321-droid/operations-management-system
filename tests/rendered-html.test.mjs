@@ -23,12 +23,14 @@ test("build emits the operations console", async () => {
 });
 
 test("wires the sales import and analytics capabilities", async () => {
-  const [page, layout, schema, importRoute, summaryRoute, packageJson, hosting, og] =
+  const [page, layout, schema, importRoute, chunkRoute, chunkService, summaryRoute, packageJson, hosting, og] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/imports/sales/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/imports/sales/chunks/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/sales/chunked-upload.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/sales/summary/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
@@ -42,10 +44,14 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(layout, /\/og\.png/);
   assert.match(schema, /sales_import_batches/);
   assert.match(schema, /sales_order_lines/);
-  assert.match(importRoute, /parseSalesLedgerXlsx/);
+  assert.match(schema, /sales_import_uploads/);
+  assert.match(importRoute, /importSalesLedgerBytes/);
+  assert.match(chunkRoute, /assembleSalesUpload/);
+  assert.match(chunkService, /SALES_UPLOAD_CHUNK_BYTES/);
   assert.match(summaryRoute, /gross_sales_cents/);
   assert.match(packageJson, /"fflate"/);
   assert.equal(JSON.parse(hosting).d1, "DB");
+  assert.equal(JSON.parse(hosting).r2, "SALES_IMPORT_FILES");
   assert.ok(og.size > 10_000);
 
   await assert.rejects(access(new URL("app/_sites-preview", templateRoot)));

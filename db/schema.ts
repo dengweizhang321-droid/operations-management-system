@@ -84,3 +84,42 @@ export const salesOrderLines = sqliteTable(
     index("sales_order_lines_last_batch_idx").on(table.lastImportBatchId),
   ],
 );
+
+/** Temporary metadata for resumable chunked Excel uploads. File bytes live in R2. */
+export const salesImportUploads = sqliteTable(
+  "sales_import_uploads",
+  {
+    id: text("id").primaryKey(),
+    fingerprint: text("fingerprint").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    chunkSizeBytes: integer("chunk_size_bytes").notNull(),
+    chunkCount: integer("chunk_count").notNull(),
+    receivedChunkCount: integer("received_chunk_count").notNull().default(0),
+    receivedBytes: integer("received_bytes").notNull().default(0),
+    status: text("status").notNull().default("uploading"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sales_import_uploads_fingerprint_uq").on(table.fingerprint),
+    index("sales_import_uploads_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+export const salesImportUploadChunks = sqliteTable(
+  "sales_import_upload_chunks",
+  {
+    uploadId: text("upload_id").notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    objectKey: text("object_key").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("sales_import_upload_chunks_upload_chunk_uq").on(table.uploadId, table.chunkIndex),
+    index("sales_import_upload_chunks_upload_id_idx").on(table.uploadId),
+  ],
+);
