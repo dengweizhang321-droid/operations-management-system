@@ -125,7 +125,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .change-down { background: var(--red-soft); color: var(--red); }
 .metric-card p { margin: 12px 0 2px; color: #79869a; font-size: 10px; }
 .metric-card > strong { display: block; font-size: 23px; letter-spacing: -.6px; }
-.metric-card > small { display: block; margin-top: 6px; color: #657286; font-size: 9px; font-weight: 500; }
+.metric-card > small { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; color: #657286; font-size: 9px; font-weight: 500; line-height: 1.35; }
+.metric-card > small > span { display: block; }
 .dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--blue); }
 .dot-blue { background: var(--blue); }.dot-green { background: var(--green); }.dot-orange { background: var(--orange); }.dot-purple { background: var(--purple); }.dot-red,.dot-danger { background: var(--red); }.dot-gray { background: #94a0b2; }
 .panel { border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: var(--shadow); }

@@ -30,6 +30,7 @@ type SalesStats = {
   refundAmountCents: number;
   orderCount: number;
   lineCount: number;
+  netQuantity: number;
   averageOrderValueCents: number;
   grossMarginRate: number;
   refundRate: number;
@@ -164,8 +165,9 @@ const formatChange = (current = 0, previous = 0) => {
   if (previous === 0) return current === 0 ? "0.0%" : "新增";
   return `${(((current - previous) / Math.abs(previous)) * 100).toFixed(1)}%`;
 };
-const comparisonHint = (current = 0, previous = 0, yearAgo = 0) =>
-  `同比 ${formatChange(current, yearAgo)} · 环比 ${formatChange(current, previous)}`;
+const comparisonHint = (current = 0, previous = 0, yearAgo = 0) => (
+  <><span>同比 {formatChange(current, yearAgo)}</span><span>环比 {formatChange(current, previous)}</span></>
+);
 const issueText = (issue: ImportIssue) =>
   issue.sourceRowNumber || issue.row
     ? `第 ${issue.sourceRowNumber ?? issue.row} 行：${issue.message}`
@@ -208,7 +210,7 @@ function MetricCard({
   label: string;
   value: string;
   change: string;
-  hint: string;
+  hint: React.ReactNode;
   tone?: string;
 }) {
   const down = change.startsWith("-");
@@ -462,12 +464,12 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
         {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
       <section className="metrics-grid sales-metrics-grid">
-        <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint="退货前成交金额" tone="blue" />
+        <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint={comparisonHint(current.grossSalesCents, previous?.grossSalesCents, yearAgo?.grossSalesCents)} tone="blue" />
         <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="green" />
         <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="purple" />
         <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={comparisonHint(current.refundAmountCents, previous?.refundAmountCents, yearAgo?.refundAmountCents)} tone="orange" />
-        <MetricCard label="订单数" value={formatCount(current.orderCount)} change={formatChange(current.orderCount, previous?.orderCount)} hint={comparisonHint(current.orderCount, previous?.orderCount, yearAgo?.orderCount)} tone="blue" />
-        <MetricCard label="客单价" value={formatCurrencyFromCents(current.averageOrderValueCents)} change={formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents)} hint="销售净额 / 去重订单数" tone="purple" />
+        <MetricCard label="净销量" value={formatCount(current.netQuantity)} change={formatChange(current.netQuantity, previous?.netQuantity)} hint={comparisonHint(current.netQuantity, previous?.netQuantity, yearAgo?.netQuantity)} tone="blue" />
+        <MetricCard label="客单价" value={formatCurrencyFromCents(current.averageOrderValueCents)} change={formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents)} hint={comparisonHint(current.averageOrderValueCents, previous?.averageOrderValueCents, yearAgo?.averageOrderValueCents)} tone="purple" />
         <MetricCard label="退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" />
         <MetricCard label="大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="green" />
       </section>
