@@ -8,7 +8,7 @@ import {
   listSalesImportBatches,
 } from "@/lib/sales/database";
 
-const MAX_DIRECT_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
 
 function errorResponse(status: number, message: string, details: Record<string, unknown> = {}) {
   return Response.json({ ok: false, status: "rejected", message, ...details }, { status });
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > MAX_DIRECT_FILE_BYTES + 1024 * 1024) {
-      return errorResponse(413, "超过 10MB 的报表请使用分片上传接口");
+      return errorResponse(413, "超过 2MB 的报表请使用分片上传接口");
     }
 
     const formData = await request.formData().catch(() => null);
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (!(entry instanceof File)) return errorResponse(400, "缺少名为 file 的 Excel 文件");
     if (!entry.name.toLowerCase().endsWith(".xlsx")) return errorResponse(400, "仅支持 .xlsx 格式的销售单明细账");
     if (entry.size === 0) return errorResponse(400, "上传文件为空");
-    if (entry.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "超过 10MB 的报表请使用分片上传接口");
+    if (entry.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "超过 2MB 的报表请使用分片上传接口");
 
     const payload = await importSalesLedgerBytes({
       bytes: new Uint8Array(await entry.arrayBuffer()),

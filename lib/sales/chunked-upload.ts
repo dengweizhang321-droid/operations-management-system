@@ -1,7 +1,9 @@
 import { env } from "cloudflare:workers";
 import { ensureSalesSchema, getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
 
-export const SALES_UPLOAD_CHUNK_BYTES = 5 * 1024 * 1024;
+// Keep requests beneath conservative development-proxy body limits as well as
+// production edge limits. The client uploads these sequentially and resumes by index.
+export const SALES_UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 export const MAX_CHUNKED_SALES_FILE_BYTES = 60 * 1024 * 1024;
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 

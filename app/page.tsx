@@ -129,9 +129,9 @@ const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
 
 const channelTones = ["blue", "purple", "green", "orange"] as const;
 const channelColors = ["#4776e6", "#8167d9", "#27a978", "#e99436"];
-const DIRECT_IMPORT_FILE_SIZE = 10 * 1024 * 1024;
+const DIRECT_IMPORT_FILE_SIZE = 2 * 1024 * 1024;
 const MAX_IMPORT_FILE_SIZE = 60 * 1024 * 1024;
-const SALES_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024;
+const SALES_UPLOAD_CHUNK_SIZE = 2 * 1024 * 1024;
 
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
@@ -757,7 +757,7 @@ function ImportView() {
           <div className="source-grid">{sourceOptions.map((item, index) => <button type="button" className={index === 0 ? "selected" : ""} disabled={index !== 0} aria-pressed={index === 0} key={item[1]}><span>{item[0]}</span><strong>{item[1]}</strong><small>{item[2]}</small></button>)}</div>
         </article>
         <article className="panel import-panel">
-          <span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>仅支持 .xlsx，单文件最大 60MB；超过 10MB 会自动按 5MB 分片上传，网络中断后可续传。</p>
+          <span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>仅支持 .xlsx，单文件最大 60MB；超过 2MB 会自动按 2MB 分片上传，网络中断后可续传。</p>
           <input
             ref={inputRef}
             className="file-input-hidden"

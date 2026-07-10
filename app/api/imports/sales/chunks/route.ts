@@ -62,7 +62,7 @@ export async function PUT(request: Request) {
     const chunkIndex = headerNumber(request, "x-chunk-index");
     if (!uploadId || !Number.isSafeInteger(chunkIndex)) return reject(400, "缺少有效的分片上传标识");
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > SALES_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 5MB");
+    if (contentLength > SALES_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 2MB");
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
     const upload = await receiveSalesUploadChunk({ uploadId, chunkIndex, bytes });

@@ -48,9 +48,11 @@ export class XlsxParseError extends Error {
 }
 
 export const DEFAULT_XLSX_LIMITS = Object.freeze({
-  maxCompressedBytes: 20 * 1024 * 1024,
-  maxUncompressedBytes: 32 * 1024 * 1024,
-  maxWorksheetBytes: 24 * 1024 * 1024,
+  // Sales exports are uploaded in chunks up to 60 MiB. These limits remain
+  // bounded against ZIP bombs while allowing a normal month-level ERP ledger.
+  maxCompressedBytes: 64 * 1024 * 1024,
+  maxUncompressedBytes: 96 * 1024 * 1024,
+  maxWorksheetBytes: 80 * 1024 * 1024,
   maxRows: 100_001,
 });
 

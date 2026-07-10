@@ -5,7 +5,7 @@ import {
   type XlsxRow,
 } from "./xlsx";
 
-export const MAX_SALES_LEDGER_ROWS = 10_000;
+export const MAX_SALES_LEDGER_ROWS = 100_000;
 
 export const GEEKCLOUD_SALES_LEDGER_REQUIRED_HEADERS = Object.freeze([
   "订单编号",
@@ -361,7 +361,15 @@ function parseSalesRow(
   const beforeErrors = errors.length;
   const orderNo = requiredText(reader, "订单编号", "orderNo", sourceRowNumber, errors);
   const channel = requiredText(reader, "销售渠道", "channel", sourceRowNumber, errors);
-  const productCode = requiredText(reader, "货品编号", "productCode", sourceRowNumber, errors);
+  const productName = reader.text("货品名称");
+  const sourceProductCode = reader.text("货品编号");
+  // 吉客云会把“补差价专用”作为订单金额调整行导出，且不提供货品编号。
+  // Keep the revenue/profit in sales analysis while assigning a stable virtual SKU
+  // so it neither fails validation nor merges into an actual product.
+  const isPriceAdjustment = !sourceProductCode && productName === "补差价专用";
+  const productCode = isPriceAdjustment
+    ? "ERP_PRICE_ADJUSTMENT"
+    : requiredText(reader, "货品编号", "productCode", sourceRowNumber, errors);
   const quantity = requiredNumber(reader.raw("数量"), "quantity", "数量", sourceRowNumber, errors);
   const listUnitPriceCents = requiredMoney(
     reader.raw("单价"),
@@ -468,7 +476,7 @@ function parseSalesRow(
     warehouse: reader.text("发货仓库"),
     customerCode: reader.text("客户编号"),
     productCode,
-    productName: reader.text("货品名称"),
+    productName,
     specification: reader.text("规格"),
     barcode: reader.text("货品条码"),
     quantity,
@@ -482,7 +490,7 @@ function parseSalesRow(
     grossMarginBps,
     untaxedGrossProfitCents,
     untaxedGrossMarginBps,
-    category: reader.text("货品分类"),
+    category: reader.text("货品分类") || (isPriceAdjustment ? "价格补差" : ""),
     customerNote: reader.text("客服备注"),
     sourceRowNumber,
     businessType: quantity < 0 || allocatedAmountCents < 0 ? "return" : "sale",
