@@ -153,7 +153,6 @@ const metricsSql = `
     COUNT(*) AS line_count
   FROM sales_order_lines
   WHERE sales_time >= ? AND sales_time < ?
-    AND COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件')
 `;
 
 function metric(row: MetricRow | null) {
@@ -194,7 +193,6 @@ async function groupedMetrics(
       COUNT(*) AS line_count
     FROM sales_order_lines
     WHERE sales_time >= ? AND sales_time < ?
-      AND COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件')
     GROUP BY name
     ORDER BY (gross_sales_cents - refund_amount_cents) DESC, name ASC
   `);
@@ -264,7 +262,6 @@ export async function GET(request: Request) {
           COUNT(*) AS line_count
         FROM sales_order_lines
         WHERE sales_time >= ? AND sales_time < ?
-          AND COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件')
         GROUP BY date
         ORDER BY date ASC
       `),
