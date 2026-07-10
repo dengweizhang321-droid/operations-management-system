@@ -1,0 +1,417 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+type ModuleKey =
+  | "dashboard"
+  | "shop"
+  | "sales"
+  | "inventory"
+  | "product"
+  | "workflow"
+  | "import"
+  | "settings";
+
+type NavItem = {
+  key: ModuleKey;
+  label: string;
+  short: string;
+  description: string;
+  badge?: string;
+};
+
+const navItems: NavItem[] = [
+  { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
+  { key: "shop", label: "网店分析", short: "店", description: "多平台经营分析" },
+  { key: "sales", label: "销售分析", short: "销", description: "利润与渠道表现" },
+  { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货", badge: "12" },
+  { key: "product", label: "货品详情", short: "品", description: "商品与毛利测算" },
+  { key: "workflow", label: "运营事务", short: "务", description: "计划、巡店与新品", badge: "7" },
+  { key: "import", label: "数据导入", short: "入", description: "批次导入与校验" },
+  { key: "settings", label: "系统设置", short: "设", description: "参数、映射与权限" },
+];
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency: "CNY",
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const shopRows = [
+  { name: "京东自营旗舰店", platform: "京东自营", sales: 1468200, orders: 8412, rate: "23.8%", trend: 15.2 },
+  { name: "天猫官方旗舰店", platform: "天猫", sales: 1086300, orders: 6917, rate: "22.4%", trend: 9.7 },
+  { name: "京东 POP 旗舰店", platform: "京东 POP", sales: 734600, orders: 4258, rate: "19.6%", trend: 6.1 },
+  { name: "京东专营店", platform: "京东 POP", sales: 426800, orders: 2671, rate: "18.9%", trend: -2.4 },
+];
+
+const inventoryRows = [
+  { sku: "TRS-CM-2407", name: "云感轻柔乳霜 50g", warehouse: "上海一号仓", stock: 128, days: 6, status: "紧急补货", tone: "danger" },
+  { sku: "TRS-SM-1182", name: "净透焕亮精华液 30ml", warehouse: "京东华东 RDC", stock: 246, days: 11, status: "建议补货", tone: "warning" },
+  { sku: "TRS-MK-0316", name: "深润修护面膜 10片", warehouse: "广州二号仓", stock: 864, days: 58, status: "低周转", tone: "purple" },
+  { sku: "TRS-CL-0928", name: "氨基酸洁面慕斯 150ml", warehouse: "京东华北 RDC", stock: 1524, days: 32, status: "库存健康", tone: "success" },
+  { sku: "TRS-ES-2011", name: "塑颜紧致眼霜 20g", warehouse: "上海一号仓", stock: 97, days: 4, status: "紧急补货", tone: "danger" },
+];
+
+const products = [
+  { sku: "TRS-SM-1182", name: "净透焕亮精华液 30ml", category: "面部精华", price: 269, cost: 76.4, margin: "48.6%", sales: 684200 },
+  { sku: "TRS-CM-2407", name: "云感轻柔乳霜 50g", category: "面霜", price: 239, cost: 68.2, margin: "46.1%", sales: 521600 },
+  { sku: "TRS-MK-0316", name: "深润修护面膜 10片", category: "面膜", price: 159, cost: 42.8, margin: "43.7%", sales: 446300 },
+  { sku: "TRS-CL-0928", name: "氨基酸洁面慕斯 150ml", category: "洁面", price: 129, cost: 31.6, margin: "41.9%", sales: 318900 },
+  { sku: "TRS-ES-2011", name: "塑颜紧致眼霜 20g", category: "眼部护理", price: 299, cost: 88.5, margin: "45.3%", sales: 287400 },
+];
+
+const imports = [
+  { source: "京东自营 · 交易概况", file: "京东交易概况_20260709.xlsx", rows: "1,284", result: "成功", time: "今天 09:42", user: "管理员" },
+  { source: "吉客云 · 销售明细", file: "销售单明细账_0709.xlsx", rows: "18,690", result: "成功", time: "今天 09:36", user: "管理员" },
+  { source: "天猫 · 商品数据", file: "生意参谋商品_0708.xls", rows: "2,416", result: "成功", time: "昨天 18:21", user: "张婷" },
+  { source: "库存 · 分仓库存", file: "分仓库存查询_0708.xlsx", rows: "6,538", result: "2 条异常", time: "昨天 17:58", user: "李哲" },
+];
+
+function Dot({ tone = "blue" }: { tone?: string }) {
+  return <span className={`dot dot-${tone}`} aria-hidden="true" />;
+}
+
+function MetricCard({
+  label,
+  value,
+  change,
+  hint,
+  tone = "blue",
+}: {
+  label: string;
+  value: string;
+  change: string;
+  hint: string;
+  tone?: string;
+}) {
+  const down = change.startsWith("-");
+  return (
+    <article className="metric-card">
+      <div className="metric-top">
+        <span className={`metric-icon metric-icon-${tone}`}><Dot tone={tone} /></span>
+        <span className={`change ${down ? "change-down" : ""}`}>{down ? "↘" : "↗"} {change}</span>
+      </div>
+      <p>{label}</p>
+      <strong>{value}</strong>
+      <small>{hint}</small>
+    </article>
+  );
+}
+
+function SectionHeader({ title, note, action }: { title: string; note?: string; action?: string }) {
+  return (
+    <div className="section-header">
+      <div>
+        <h2>{title}</h2>
+        {note && <p>{note}</p>}
+      </div>
+      {action && <button className="text-button">{action} <span>→</span></button>}
+    </div>
+  );
+}
+
+function DashboardView() {
+  const bars = [52, 61, 48, 68, 74, 64, 81, 76, 88, 69, 92, 84, 96, 91];
+  const profit = [30, 35, 26, 39, 44, 36, 47, 43, 54, 38, 57, 51, 63, 58];
+  return (
+    <>
+      <section className="metrics-grid">
+        <MetricCard label="净销售额" value="¥ 3,862,900" change="12.8%" hint="较上周期增加 ¥437,600" tone="blue" />
+        <MetricCard label="净毛利" value="¥ 846,210" change="8.6%" hint="已完成本月目标 72%" tone="green" />
+        <MetricCard label="综合毛利率" value="21.9%" change="1.2%" hint="目标毛利率 22.5%" tone="purple" />
+        <MetricCard label="销售退货率" value="4.7%" change="-0.6%" hint="低于行业均值 1.3%" tone="orange" />
+      </section>
+
+      <section className="dashboard-main-grid">
+        <article className="panel trend-panel">
+          <SectionHeader title="销售与毛利趋势" note="近 14 日经营表现" />
+          <div className="chart-legend">
+            <span><Dot tone="blue" />净销售额</span>
+            <span><Dot tone="green" />净毛利</span>
+            <div className="chart-tabs"><button>日</button><button className="active">周</button><button>月</button></div>
+          </div>
+          <div className="bar-chart" aria-label="近14日销售和毛利柱状趋势图">
+            {bars.map((height, index) => (
+              <div className="bar-group" key={index}>
+                <div className="bar-stack">
+                  <span className="bar sales-bar" style={{ height: `${height}%` }} />
+                  <span className="bar profit-bar" style={{ height: `${profit[index]}%` }} />
+                </div>
+                <small>{index % 2 === 0 ? `${index + 1}日` : ""}</small>
+              </div>
+            ))}
+          </div>
+          <div className="chart-summary">
+            <div><span>日均销售额</span><strong>¥ 276,000</strong></div>
+            <div><span>峰值日期</span><strong>07月07日</strong></div>
+            <div><span>目标完成率</span><strong className="green-text">72.4%</strong></div>
+          </div>
+        </article>
+
+        <article className="panel alert-panel">
+          <SectionHeader title="预警中心" note="需要及时处理的异常" action="查看全部" />
+          <div className="alert-score">
+            <div className="score-ring"><strong>86</strong><small>健康分</small></div>
+            <div><strong>整体经营稳定</strong><p>较昨日提升 3 分</p></div>
+          </div>
+          <div className="alert-list">
+            <button><span className="alert-icon danger">!</span><span><b>库存即将售罄</b><small>5 个货品低于 7 天库存</small></span><em>5</em></button>
+            <button><span className="alert-icon warning">↓</span><span><b>销售连续下降</b><small>3 个店铺连续 3 日下降</small></span><em>3</em></button>
+            <button><span className="alert-icon purple">◷</span><span><b>低周转库存</b><small>12 个货品周转超过 45 天</small></span><em>12</em></button>
+          </div>
+        </article>
+      </section>
+
+      <section className="dashboard-bottom-grid">
+        <article className="panel">
+          <SectionHeader title="店铺经营排行" note="按净销售额排序" action="进入网店分析" />
+          <div className="rank-list">
+            {shopRows.map((shop, index) => (
+              <div className="rank-row" key={shop.name}>
+                <span className={`rank-number rank-${index + 1}`}>{index + 1}</span>
+                <div className="shop-avatar">{shop.platform.slice(0, 1)}</div>
+                <div className="rank-name"><strong>{shop.name}</strong><small>{shop.platform} · {shop.orders.toLocaleString()} 单</small></div>
+                <div className="mini-progress"><i style={{ width: `${90 - index * 17}%` }} /></div>
+                <div className="rank-value"><strong>{formatCurrency(shop.sales)}</strong><small className={shop.trend < 0 ? "red-text" : "green-text"}>{shop.trend > 0 ? "+" : ""}{shop.trend}%</small></div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel todo-panel">
+          <SectionHeader title="今日待办" note="7 项任务等待推进" action="运营事务" />
+          <div className="todo-progress"><span><i style={{ width: "58%" }} /></span><small>已完成 7 / 12</small></div>
+          {[
+            ["检查京东旗舰店活动价格", "今天 11:30", "高"],
+            ["新品精华液主图复核", "今天 14:00", "中"],
+            ["华东 RDC 缺货补单", "今天 17:00", "高"],
+            ["天猫评价晒图维护", "明天 10:00", "普通"],
+          ].map((item) => (
+            <label className="todo-item" key={item[0]}>
+              <input type="checkbox" />
+              <span><b>{item[0]}</b><small>{item[1]}</small></span>
+              <em className={`priority priority-${item[2]}`}>{item[2]}</em>
+            </label>
+          ))}
+        </article>
+      </section>
+    </>
+  );
+}
+
+function ShopView() {
+  const [platform, setPlatform] = useState("全部平台");
+  const filtered = platform === "全部平台" ? shopRows : shopRows.filter((row) => row.platform === platform);
+  return (
+    <>
+      <div className="subnav">
+        {['店铺数据', '商品数据', '企业购分析', '推广分析', '商品信息'].map((tab, index) => <button className={index === 0 ? "active" : ""} key={tab}>{tab}</button>)}
+      </div>
+      <section className="metrics-grid">
+        <MetricCard label="店铺成交金额" value="¥ 3,715,900" change="11.4%" hint="4 家店铺 · 22,258 笔订单" tone="blue" />
+        <MetricCard label="访客数" value="684,320" change="18.2%" hint="访客价值 ¥5.43" tone="purple" />
+        <MetricCard label="成交转化率" value="3.25%" change="0.4%" hint="高于上月平均水平" tone="green" />
+        <MetricCard label="推广投入产出比" value="4.68" change="6.7%" hint="推广花费 ¥176,800" tone="orange" />
+      </section>
+      <section className="panel table-panel">
+        <div className="table-toolbar">
+          <div><h2>店铺经营表现</h2><p>统一查看京东自营、POP 与天猫店铺</p></div>
+          <div className="segmented">
+            {["全部平台", "京东自营", "京东 POP", "天猫"].map((item) => <button key={item} className={platform === item ? "active" : ""} onClick={() => setPlatform(item)}>{item}</button>)}
+          </div>
+        </div>
+        <div className="data-table-wrap"><table className="data-table">
+          <thead><tr><th>店铺</th><th>平台</th><th>净销售额</th><th>订单量</th><th>毛利率</th><th>环比</th><th>经营状态</th></tr></thead>
+          <tbody>{filtered.map((row) => <tr key={row.name}>
+            <td><div className="cell-name"><span className="shop-avatar">{row.platform[0]}</span><strong>{row.name}</strong></div></td>
+            <td><span className="soft-tag">{row.platform}</span></td><td><strong>{formatCurrency(row.sales)}</strong></td><td>{row.orders.toLocaleString()}</td><td>{row.rate}</td>
+            <td className={row.trend < 0 ? "red-text" : "green-text"}>{row.trend > 0 ? "↑" : "↓"} {Math.abs(row.trend)}%</td><td><span className={`status ${row.trend < 0 ? "status-warning" : "status-success"}`}><Dot tone={row.trend < 0 ? "orange" : "green"} />{row.trend < 0 ? "需要关注" : "表现良好"}</span></td>
+          </tr>)}</tbody>
+        </table></div>
+      </section>
+    </>
+  );
+}
+
+function SalesView() {
+  const channels = [
+    { name: "京东自营", value: "¥ 1,468,200", percent: 38, color: "blue", profit: "23.8%" },
+    { name: "天猫", value: "¥ 1,086,300", percent: 28, color: "purple", profit: "22.4%" },
+    { name: "京东 POP", value: "¥ 1,161,400", percent: 30, color: "green", profit: "19.3%" },
+    { name: "线下及其他", value: "¥ 147,000", percent: 4, color: "orange", profit: "17.6%" },
+  ];
+  return (
+    <>
+      <div className="subnav"><button className="active">销售总览</button><button>渠道分析</button><button>财报分析</button><button>参数配置</button></div>
+      <section className="metrics-grid">
+        <MetricCard label="销售毛额" value="¥ 4,054,600" change="13.2%" hint="退货前销售额" tone="blue" />
+        <MetricCard label="销售净额" value="¥ 3,862,900" change="12.8%" hint="净额占毛额 95.3%" tone="green" />
+        <MetricCard label="订单毛利" value="¥ 846,210" change="8.6%" hint="平均每单毛利 ¥38.02" tone="purple" />
+        <MetricCard label="退货金额" value="¥ 191,700" change="-7.5%" hint="退货率 4.7%" tone="orange" />
+      </section>
+      <section className="split-panels">
+        <article className="panel">
+          <SectionHeader title="渠道销售构成" note="销售额占比与渠道毛利" />
+          <div className="channel-chart"><div className="donut"><div><strong>386.3</strong><small>万元</small></div></div>
+            <div className="channel-list">{channels.map((item) => <div key={item.name}><span><Dot tone={item.color} />{item.name}</span><strong>{item.value}</strong><em>{item.percent}%</em></div>)}</div>
+          </div>
+        </article>
+        <article className="panel">
+          <SectionHeader title="渠道毛利表现" note="目标毛利率 22.5%" />
+          <div className="progress-list">{channels.map((item) => <div key={item.name}><div><span>{item.name}</span><strong>{item.profit}</strong></div><span className="progress-track"><i className={`bg-${item.color}`} style={{ width: item.profit }} /></span></div>)}</div>
+          <div className="insight-card"><span>经营建议</span><p>京东 POP 毛利率低于目标 3.2%，建议检查推广投入及平台费用。</p></div>
+        </article>
+      </section>
+    </>
+  );
+}
+
+function InventoryView() {
+  return (
+    <>
+      <div className="subnav"><button className="active">库存总览</button><button>库龄分析</button><button>备货计划</button><button>滞销清理</button></div>
+      <section className="metrics-grid">
+        <MetricCard label="库存总货值" value="¥ 2,684,700" change="3.1%" hint="共 18,642 件商品" tone="blue" />
+        <MetricCard label="库存周转天数" value="31.6 天" change="-2.4%" hint="周转效率持续改善" tone="green" />
+        <MetricCard label="待补货货品" value="12 个" change="20.0%" hint="其中 5 个需要紧急处理" tone="orange" />
+        <MetricCard label="低周转货值" value="¥ 386,200" change="-5.8%" hint="占库存总额 14.4%" tone="purple" />
+      </section>
+      <section className="panel table-panel">
+        <div className="table-toolbar"><div><h2>库存健康明细</h2><p>自有仓与京东 RDC 库存统一监控</p></div><button className="primary-button">＋ 新建备货计划</button></div>
+        <div className="filter-row"><div className="search-box compact">⌕ <input placeholder="搜索货品编号或名称" /></div><button className="filter-button">全部仓库⌄</button><button className="filter-button">全部状态⌄</button><button className="filter-button">导出明细</button></div>
+        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>货品</th><th>所在仓库</th><th>可用库存</th><th>预计可售</th><th>库存状态</th><th>建议操作</th></tr></thead>
+          <tbody>{inventoryRows.map((row) => <tr key={row.sku}><td><div className="product-cell"><span className="product-thumb">{row.name[0]}</span><span><strong>{row.name}</strong><small>{row.sku}</small></span></div></td><td>{row.warehouse}</td><td><strong>{row.stock.toLocaleString()}</strong> 件</td><td>{row.days} 天</td><td><span className={`status status-${row.tone}`}><Dot tone={row.tone === "danger" ? "red" : row.tone === "warning" ? "orange" : row.tone} />{row.status}</span></td><td><button className="row-action">{row.tone === "danger" || row.tone === "warning" ? "创建补货" : "查看详情"}</button></td></tr>)}</tbody>
+        </table></div>
+      </section>
+    </>
+  );
+}
+
+function ProductView() {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => products.filter((p) => `${p.name}${p.sku}${p.category}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  return (
+    <>
+      <div className="subnav"><button className="active">货品查询</button><button>毛利测算</button><button>参数查询</button><button>参数配置</button></div>
+      <section className="product-search-hero"><div><span className="eyebrow">统一商品中心</span><h2>快速查询货品经营信息</h2><p>整合销售、成本、库存与平台商品映射，一处查看完整数据。</p></div><div className="hero-search">⌕<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="输入货品编号、名称或品类" /><button>查询</button></div></section>
+      <section className="panel table-panel">
+        <div className="table-toolbar"><div><h2>货品列表</h2><p>共收录 286 个有效货品</p></div><button className="secondary-button">批量导出</button></div>
+        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>货品信息</th><th>品类</th><th>建议零售价</th><th>最新成本</th><th>实际毛利率</th><th>近30日销售额</th><th></th></tr></thead><tbody>
+          {filtered.map((row) => <tr key={row.sku}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{row.name[0]}</span><span><strong>{row.name}</strong><small>{row.sku}</small></span></div></td><td><span className="soft-tag">{row.category}</span></td><td>¥ {row.price}</td><td>¥ {row.cost}</td><td className="green-text"><strong>{row.margin}</strong></td><td><strong>{formatCurrency(row.sales)}</strong></td><td><button className="row-action">查看详情</button></td></tr>)}
+        </tbody></table></div>
+      </section>
+    </>
+  );
+}
+
+function WorkflowView() {
+  const columns = [
+    { title: "待开始", count: 3, tone: "gray", cards: [["完成 7 月大促价格检查", "京东自营", "今天"], ["新品成分资料归档", "新品上架", "7月12日"], ["面膜套装赠品确认", "天猫", "7月13日"]] },
+    { title: "进行中", count: 4, tone: "blue", cards: [["净透精华主图升级", "新品上架", "今天"], ["华东仓缺货补单", "库存协同", "今天"], ["POP 店铺巡店检查", "巡店", "7月11日"]] },
+    { title: "待审核", count: 2, tone: "orange", cards: [["618 复盘报告", "数据分析", "今天"], ["评价晒图素材第 3 批", "评价维护", "7月11日"]] },
+    { title: "已完成", count: 7, tone: "green", cards: [["天猫周报数据核对", "周报", "昨天"], ["新品 SKU 映射", "新品上架", "昨天"], ["京东活动报名", "京东自营", "7月8日"]] },
+  ];
+  return (
+    <>
+      <div className="subnav"><button className="active">工作计划</button><button>巡店检查</button><button>评价维护</button><button>新品上架</button><button>变量配置</button></div>
+      <section className="workflow-toolbar"><div><span className="eyebrow">运营协作</span><h2>工作计划看板</h2><p>集中管理日常任务、巡店事项与新品推进。</p></div><button className="primary-button">＋ 新建工作项</button></section>
+      <section className="kanban">{columns.map((column) => <div className="kanban-column" key={column.title}><div className="kanban-title"><span><Dot tone={column.tone} />{column.title}</span><em>{column.count}</em></div><div className="kanban-cards">{column.cards.map((card, index) => <article className="task-card" key={card[0]}><div><span className={`task-priority priority-line-${index === 1 ? "orange" : column.tone}`} /><button>•••</button></div><h3>{card[0]}</h3><span className="soft-tag">{card[1]}</span><footer><span className="avatar-stack"><i>张</i><i>李</i></span><small>{card[2]}</small></footer></article>)}</div><button className="add-card">＋ 添加工作项</button></div>)}</section>
+    </>
+  );
+}
+
+function ImportView() {
+  const [uploaded, setUploaded] = useState(false);
+  return (
+    <>
+      <div className="subnav"><button className="active">文件导入</button><button>导入历史</button><button>数据连续性</button></div>
+      <section className="import-grid">
+        <article className="panel import-panel"><span className="eyebrow">第 1 步</span><h2>选择数据来源</h2><p>系统会根据文件名与表头自动识别报表类型。</p><div className="source-grid">{[["吉", "吉客云 ERP", "销售与库存"], ["京", "京东", "自营 / POP"], ["猫", "天猫", "生意参谋"], ["财", "财务报表", "月度财报"]].map((item, index) => <button className={index === 1 ? "selected" : ""} key={item[1]}><span>{item[0]}</span><strong>{item[1]}</strong><small>{item[2]}</small></button>)}</div></article>
+        <article className="panel import-panel"><span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>支持 xlsx、xls、csv 和 zip，单文件最大 100MB。</p><button className={`dropzone ${uploaded ? "uploaded" : ""}`} onClick={() => setUploaded(!uploaded)}><span>{uploaded ? "✓" : "↑"}</span><strong>{uploaded ? "文件已通过预检查" : "将文件拖到此处，或点击选择"}</strong><small>{uploaded ? "京东交易概况_20260710.xlsx · 2.8MB" : "上传前不会写入任何正式数据"}</small></button></article>
+      </section>
+      <section className="panel table-panel"><SectionHeader title="最近导入记录" note="所有批次均可追溯和回滚" action="查看完整历史" /><div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>数据行数</th><th>导入结果</th><th>操作人</th><th>完成时间</th><th></th></tr></thead><tbody>{imports.map((row) => <tr key={row.file}><td><strong>{row.source}</strong></td><td>{row.file}</td><td>{row.rows}</td><td><span className={`status ${row.result === "成功" ? "status-success" : "status-warning"}`}><Dot tone={row.result === "成功" ? "green" : "orange"} />{row.result}</span></td><td>{row.user}</td><td>{row.time}</td><td><button className="row-action">详情</button></td></tr>)}</tbody></table></div></section>
+    </>
+  );
+}
+
+function SettingsView() {
+  const [toggles, setToggles] = useState([true, true, false]);
+  const toggle = (index: number) => setToggles((current) => current.map((value, i) => i === index ? !value : value));
+  return (
+    <>
+      <div className="subnav"><button className="active">系统参数</button><button>主数据与映射</button><button>权限管理</button><button>数据备份</button></div>
+      <section className="settings-grid">
+        <article className="panel settings-menu"><h2>设置中心</h2><p>管理系统运行参数与基础数据。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["BI 看板", "统计周期与经营目标", "BI"], ["消息通知", "钉钉机器人与推送时间", "铃"], ["店铺与平台", "店铺、品牌和渠道配置", "店"], ["用户与权限", "模块查看及编辑权限", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article>
+        <article className="panel settings-form"><SectionHeader title="库存参数" note="用于库存健康评估与智能补货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input defaultValue="30" /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input defaultValue="7" /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input defaultValue="45" /><em>天</em></div><small>高于该天数标记为低周转</small></label><label><span>呆滞库存判定</span><div><input defaultValue="90" /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "每天根据销量和在途数量计算建议补货", 0], ["库存异常钉钉提醒", "紧急缺货与高货值呆滞库存自动推送", 1], ["允许负库存", "导入销售数据时允许库存出现负数", 2]].map((item) => <div className="toggle-row" key={item[0]}><div><strong>{item[0]}</strong><small>{item[1]}</small></div><button onClick={() => toggle(item[2] as number)} className={`toggle ${toggles[item[2] as number] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：今天 09:18，管理员</span><button className="primary-button">保存设置</button></footer></article>
+      </section>
+    </>
+  );
+}
+
+const viewMap: Record<ModuleKey, () => React.ReactNode> = {
+  dashboard: DashboardView,
+  shop: ShopView,
+  sales: SalesView,
+  inventory: InventoryView,
+  product: ProductView,
+  workflow: WorkflowView,
+  import: ImportView,
+  settings: SettingsView,
+};
+
+export default function Home() {
+  const [active, setActive] = useState<ModuleKey>("dashboard");
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const [range, setRange] = useState("本月");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const current = navItems.find((item) => item.key === active) ?? navItems[0];
+  const View = viewMap[active];
+
+  const selectModule = (key: ModuleKey) => {
+    setActive(key);
+    setMobileMenu(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  return (
+    <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <aside className={`sidebar ${mobileMenu ? "mobile-open" : ""}`}>
+        <div className="brand">
+          <div className="brand-mark"><span>T</span></div>
+          <div className="brand-copy"><strong>TERUISI</strong><small>电商运营中台</small></div>
+          <button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label="收起侧边栏">‹</button>
+        </div>
+        <nav className="main-nav" aria-label="主导航">
+          <p>经营管理</p>
+          {navItems.slice(0, 6).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}
+          <p>系统管理</p>
+          {navItems.slice(6).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
+        </nav>
+        <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
+        <div className="sidebar-user"><span>林</span><div><strong>林晓 · 管理员</strong><small>拥有全部模块权限</small></div><button>⋮</button></div>
+      </aside>
+      {mobileMenu && <button className="mobile-overlay" onClick={() => setMobileMenu(false)} aria-label="关闭导航" />}
+
+      <section className="workspace">
+        <header className="topbar">
+          <div className="title-area"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}>☰</button><div><span>运营中心 / {current.label}</span><h1>{current.description}</h1></div></div>
+          <div className="topbar-actions">
+            <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索货品、订单或功能</em><kbd>⌘ K</kbd></button>
+            <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
+            <div className="date-selector"><span>统计周期</span><select value={range} onChange={(e) => setRange(e.target.value)}><option>今日</option><option>近7天</option><option>本月</option><option>本季度</option></select></div>
+          </div>
+        </header>
+
+        <div className="content">
+          <div className="page-intro"><div><p>{active === "dashboard" ? "2026年07月01日 — 07月10日" : current.label}</p><h2>{current.description}</h2><span>{active === "dashboard" ? "数据更新于今天 10:18" : "演示数据 · 数据更新于今天 10:18"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <View />
+          <footer className="page-footer"><span>TERUISI 电商运营中台 · 前端展示原型</span><span>数据仅用于界面演示</span></footer>
+        </div>
+      </section>
+
+      {searchOpen && <div className="modal-backdrop" onClick={() => setSearchOpen(false)}><div className="search-modal" onClick={(event) => event.stopPropagation()}><div className="modal-search">⌕<input autoFocus placeholder="搜索货品、订单或功能…" /><button onClick={() => setSearchOpen(false)}>ESC</button></div><p>快速访问</p><div className="quick-links">{navItems.slice(0, 5).map((item) => <button key={item.key} onClick={() => { selectModule(item.key); setSearchOpen(false); }}><span>{item.short}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><em>↗</em></button>)}</div></div></div>}
+    </main>
+  );
+}
