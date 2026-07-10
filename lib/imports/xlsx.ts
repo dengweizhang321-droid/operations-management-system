@@ -51,9 +51,9 @@ export const DEFAULT_XLSX_LIMITS = Object.freeze({
   // Sales exports are uploaded in chunks up to 60 MiB. These limits remain
   // bounded against ZIP bombs while allowing a normal month-level ERP ledger.
   maxCompressedBytes: 64 * 1024 * 1024,
-  maxUncompressedBytes: 96 * 1024 * 1024,
-  maxWorksheetBytes: 80 * 1024 * 1024,
-  maxRows: 100_001,
+  maxUncompressedBytes: 512 * 1024 * 1024,
+  maxWorksheetBytes: 384 * 1024 * 1024,
+  maxRows: 500_001,
 });
 
 const WORKBOOK_PATH = "xl/workbook.xml";
@@ -310,7 +310,16 @@ function resolveZipTarget(sourcePath: string, target: string): string {
 }
 
 function decodeXmlPart(bytes: Uint8Array): string {
-  return strFromU8(bytes).replace(/^\uFEFF/, "");
+  // Large ERP worksheets can exceed a runtime's single TextDecoder input size.
+  // Decode in bounded slices while preserving UTF-8 character boundaries.
+  if (bytes.byteLength <= 16 * 1024 * 1024) return strFromU8(bytes).replace(/^\uFEFF/, "");
+  const decoder = new TextDecoder("utf-8");
+  const chunkSize = 4 * 1024 * 1024;
+  let xml = "";
+  for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+    xml += decoder.decode(bytes.subarray(offset, Math.min(offset + chunkSize, bytes.byteLength)), { stream: true });
+  }
+  return (xml + decoder.decode()).replace(/^\uFEFF/, "");
 }
 
 function findFirstStartTag(xml: string, localName: string): string | null {

@@ -49,6 +49,8 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(chunkRoute, /assembleSalesUpload/);
   assert.match(chunkService, /SALES_UPLOAD_CHUNK_BYTES/);
   assert.match(summaryRoute, /gross_sales_cents/);
+  assert.match(summaryRoute, /net_sales_excluding_accessories_cents/);
+  assert.match(summaryRoute, /赠品配件/);
   assert.match(packageJson, /"fflate"/);
   assert.equal(JSON.parse(hosting).d1, "DB");
   assert.equal(JSON.parse(hosting).r2, "SALES_IMPORT_FILES");

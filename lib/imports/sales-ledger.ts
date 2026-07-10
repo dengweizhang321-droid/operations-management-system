@@ -5,7 +5,7 @@ import {
   type XlsxRow,
 } from "./xlsx";
 
-export const MAX_SALES_LEDGER_ROWS = 100_000;
+export const MAX_SALES_LEDGER_ROWS = 500_000;
 
 export const GEEKCLOUD_SALES_LEDGER_REQUIRED_HEADERS = Object.freeze([
   "订单编号",

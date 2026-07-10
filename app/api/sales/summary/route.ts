@@ -18,6 +18,7 @@ type Period = {
 type MetricRow = {
   gross_sales_cents: number | null;
   refund_amount_cents: number | null;
+  net_sales_excluding_accessories_cents: number | null;
   gross_profit_cents: number | null;
   net_quantity: number | null;
   order_count: number;
@@ -143,8 +144,9 @@ const metricsSql = `
   SELECT
     COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
     COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+    COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
     COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-    COALESCE(SUM(CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END), 0) AS net_quantity,
+    COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
     COUNT(DISTINCT CASE
       WHEN order_no <> '' THEN order_no
       WHEN online_order_no <> '' THEN online_order_no
@@ -159,18 +161,20 @@ function metric(row: MetricRow | null) {
   const grossSalesCents = Number(row?.gross_sales_cents ?? 0);
   const refundAmountCents = Number(row?.refund_amount_cents ?? 0);
   const netSalesCents = grossSalesCents - refundAmountCents;
+  const netSalesExcludingAccessoriesCents = Number(row?.net_sales_excluding_accessories_cents ?? 0);
   const grossProfitCents = Number(row?.gross_profit_cents ?? 0);
   const orderCount = Number(row?.order_count ?? 0);
   const netQuantity = Number(row?.net_quantity ?? 0);
   return {
     grossSalesCents,
     netSalesCents,
+    netSalesExcludingAccessoriesCents,
     grossProfitCents,
     refundAmountCents,
     orderCount,
     lineCount: Number(row?.line_count ?? 0),
     netQuantity,
-    averageOrderValueCents: netQuantity === 0 ? 0 : netSalesCents / netQuantity,
+    averageOrderValueCents: netQuantity === 0 ? 0 : netSalesExcludingAccessoriesCents / netQuantity,
     grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
     refundRate: grossSalesCents === 0 ? 0 : refundAmountCents / grossSalesCents,
   };
@@ -187,8 +191,9 @@ async function groupedMetrics(
       COALESCE(NULLIF(${dimension}, ''), NULLIF(${fallback}, ''), '未分类') AS name,
       COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
       COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+      COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
       COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-      COALESCE(SUM(CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END), 0) AS net_quantity,
+      COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
       COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
       COUNT(*) AS line_count
     FROM sales_order_lines
@@ -256,8 +261,9 @@ export async function GET(request: Request) {
           substr(sales_time, 1, 10) AS date,
           COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
           COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+          COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
           COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-          COALESCE(SUM(CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END), 0) AS net_quantity,
+          COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
           COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
           COUNT(*) AS line_count
         FROM sales_order_lines
