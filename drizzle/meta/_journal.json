@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1783685092025,
+      "tag": "0000_tired_shinobi_shaw",
+      "breakpoints": true
+    }
+  ]
 }

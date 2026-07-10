@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ModuleKey =
   | "dashboard"
@@ -20,6 +20,101 @@ type NavItem = {
   badge?: string;
 };
 
+type SalesRangeLabel = "今日" | "近7天" | "本月" | "本季度";
+type SalesRange = "today" | "last7" | "month" | "quarter";
+
+type SalesStats = {
+  grossSalesCents: number;
+  netSalesCents: number;
+  grossProfitCents: number;
+  refundAmountCents: number;
+  orderCount: number;
+  lineCount: number;
+  grossMarginRate: number;
+  refundRate: number;
+};
+
+type SalesChannel = {
+  name: string;
+  grossSalesCents: number;
+  netSalesCents: number;
+  grossProfitCents: number;
+  grossMarginRate: number;
+  shareRate: number;
+  orderCount: number;
+  lineCount: number;
+};
+
+type SalesSummaryResponse = {
+  range: SalesRange;
+  startDate: string;
+  endDate: string;
+  previousStartDate?: string;
+  previousEndDate?: string;
+  current: SalesStats;
+  previous?: SalesStats;
+  channels: SalesChannel[];
+  latestBatch?: {
+    id: string;
+    fileName: string;
+    completedAt?: string | null;
+  } | null;
+};
+
+type ImportIssue = {
+  code?: string;
+  message: string;
+  row?: number;
+  sourceRowNumber?: number;
+};
+
+type SalesImportBatch = {
+  id: string;
+  source: string;
+  fileName: string;
+  fileSizeBytes: number;
+  sheetName?: string | null;
+  status: "imported" | "duplicate" | "rejected" | string;
+  rowCount: number;
+  insertedCount: number;
+  duplicateCount: number;
+  warningCount: number;
+  warnings?: ImportIssue[];
+  createdAt: string;
+  completedAt?: string | null;
+};
+
+type ImportHistoryResponse = {
+  items: SalesImportBatch[];
+};
+
+type SalesImportResponse = {
+  ok: boolean;
+  status: "imported" | "duplicate" | "rejected" | string;
+  message?: string;
+  batch?: SalesImportBatch;
+  warnings?: ImportIssue[];
+  errors?: ImportIssue[];
+};
+
+type ImportFeedback = {
+  tone: "success" | "warning" | "error" | "duplicate";
+  title: string;
+  message: string;
+  details: string[];
+};
+
+const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
+  今日: "today",
+  近7天: "last7",
+  本月: "month",
+  本季度: "quarter",
+};
+
+const channelTones = ["blue", "purple", "green", "orange"] as const;
+const channelColors = ["#4776e6", "#8167d9", "#27a978", "#e99436"];
+const MAX_IMPORT_FILE_SIZE = 15 * 1024 * 1024;
+
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
   { key: "shop", label: "网店分析", short: "店", description: "多平台经营分析" },
@@ -37,6 +132,39 @@ const formatCurrency = (value: number) =>
     currency: "CNY",
     maximumFractionDigits: 0,
   }).format(value);
+
+const formatCurrencyFromCents = (value = 0) => formatCurrency(value / 100);
+const formatCount = (value = 0) => new Intl.NumberFormat("zh-CN").format(value);
+const rateAsPercent = (value = 0) => Math.abs(value) <= 1 ? value * 100 : value;
+const formatRate = (value = 0) => `${rateAsPercent(value).toFixed(1)}%`;
+const formatFileSize = (bytes = 0) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "—";
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+};
+const formatChange = (current = 0, previous = 0) => {
+  if (previous === 0) return current === 0 ? "0.0%" : "新增";
+  return `${(((current - previous) / Math.abs(previous)) * 100).toFixed(1)}%`;
+};
+const issueText = (issue: ImportIssue) =>
+  issue.sourceRowNumber || issue.row
+    ? `第 ${issue.sourceRowNumber ?? issue.row} 行：${issue.message}`
+    : issue.message;
 
 const shopRows = [
   { name: "京东自营旗舰店", platform: "京东自营", sales: 1468200, orders: 8412, rate: "23.8%", trend: 15.2 },
@@ -59,13 +187,6 @@ const products = [
   { sku: "TRS-MK-0316", name: "深润修护面膜 10片", category: "面膜", price: 159, cost: 42.8, margin: "43.7%", sales: 446300 },
   { sku: "TRS-CL-0928", name: "氨基酸洁面慕斯 150ml", category: "洁面", price: 129, cost: 31.6, margin: "41.9%", sales: 318900 },
   { sku: "TRS-ES-2011", name: "塑颜紧致眼霜 20g", category: "眼部护理", price: 299, cost: 88.5, margin: "45.3%", sales: 287400 },
-];
-
-const imports = [
-  { source: "京东自营 · 交易概况", file: "京东交易概况_20260709.xlsx", rows: "1,284", result: "成功", time: "今天 09:42", user: "管理员" },
-  { source: "吉客云 · 销售明细", file: "销售单明细账_0709.xlsx", rows: "18,690", result: "成功", time: "今天 09:36", user: "管理员" },
-  { source: "天猫 · 商品数据", file: "生意参谋商品_0708.xls", rows: "2,416", result: "成功", time: "昨天 18:21", user: "张婷" },
-  { source: "库存 · 分仓库存", file: "分仓库存查询_0708.xlsx", rows: "6,538", result: "2 条异常", time: "昨天 17:58", user: "李哲" },
 ];
 
 function Dot({ tone = "blue" }: { tone?: string }) {
@@ -234,33 +355,125 @@ function ShopView() {
   );
 }
 
-function SalesView() {
-  const channels = [
-    { name: "京东自营", value: "¥ 1,468,200", percent: 38, color: "blue", profit: "23.8%" },
-    { name: "天猫", value: "¥ 1,086,300", percent: 28, color: "purple", profit: "22.4%" },
-    { name: "京东 POP", value: "¥ 1,161,400", percent: 30, color: "green", profit: "19.3%" },
-    { name: "线下及其他", value: "¥ 147,000", percent: 4, color: "orange", profit: "17.6%" },
-  ];
+function SalesView({ range }: { range: SalesRangeLabel }) {
+  const apiRange = salesRangeMap[range];
+  const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await fetch(`/api/sales/summary?range=${apiRange}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string }) | null;
+        if (!response.ok) throw new Error(payload?.message || `销售汇总读取失败（${response.status}）`);
+        if (!payload?.current || !Array.isArray(payload.channels)) throw new Error("销售汇总响应格式不完整");
+        setSummary(payload);
+      } catch (requestError) {
+        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
+        setSummary(null);
+        setError(requestError instanceof Error ? requestError.message : "暂时无法读取销售汇总");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [apiRange, retryKey]);
+
+  const current = summary?.current;
+  const previous = summary?.previous;
+  const channels = useMemo(() => summary?.channels ?? [], [summary?.channels]);
+  const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.grossSalesCents !== 0 || current.netSalesCents !== 0));
+  const donutBackground = useMemo(() => {
+    if (!channels.length) return "#eef1f5";
+    let cursor = 0;
+    const stops = channels.map((channel, index) => {
+      const start = cursor;
+      cursor += Math.max(0, rateAsPercent(channel.shareRate));
+      return `${channelColors[index % channelColors.length]} ${start}% ${Math.min(cursor, 100)}%`;
+    });
+    if (cursor < 100) stops.push(`#eef1f5 ${cursor}% 100%`);
+    return `conic-gradient(${stops.join(",")})`;
+  }, [channels]);
+
+  if (loading) {
+    return (
+      <section className="panel data-state sales-data-state" role="status" aria-live="polite">
+        <span className="state-spinner" aria-hidden="true" />
+        <strong>正在读取{range}销售数据</strong>
+        <p>正在汇总销售额、毛利与渠道构成…</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="panel data-state sales-data-state data-state-error" role="alert">
+        <span className="state-symbol" aria-hidden="true">!</span>
+        <strong>销售数据加载失败</strong>
+        <p>{error}</p>
+        <button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button>
+      </section>
+    );
+  }
+
+  if (!hasData || !current) {
+    return (
+      <section className="panel data-state sales-data-state">
+        <span className="state-symbol" aria-hidden="true">∅</span>
+        <strong>{range}暂无销售数据</strong>
+        <p>请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。</p>
+      </section>
+    );
+  }
+
+  const rangeNote = summary?.startDate && summary?.endDate
+    ? `${summary.startDate} 至 ${summary.endDate}`
+    : `${range}实时汇总`;
+
   return (
     <>
       <div className="subnav"><button className="active">销售总览</button><button>渠道分析</button><button>财报分析</button><button>参数配置</button></div>
-      <section className="metrics-grid">
-        <MetricCard label="销售毛额" value="¥ 4,054,600" change="13.2%" hint="退货前销售额" tone="blue" />
-        <MetricCard label="销售净额" value="¥ 3,862,900" change="12.8%" hint="净额占毛额 95.3%" tone="green" />
-        <MetricCard label="订单毛利" value="¥ 846,210" change="8.6%" hint="平均每单毛利 ¥38.02" tone="purple" />
-        <MetricCard label="退货金额" value="¥ 191,700" change="-7.5%" hint="退货率 4.7%" tone="orange" />
+      <div className="sales-period-note">
+        <span><Dot tone="green" />已加载真实明细</span>
+        <strong>{rangeNote}</strong>
+        {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
+      </div>
+      <section className="metrics-grid sales-metrics-grid">
+        <MetricCard label="销售毛额" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint="退货前销售额" tone="blue" />
+        <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={`净额占毛额 ${formatRate(current.grossSalesCents ? current.netSalesCents / current.grossSalesCents : 0)}`} tone="green" />
+        <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={`综合毛利率 ${formatRate(current.grossMarginRate)}`} tone="purple" />
+        <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={`退货率 ${formatRate(current.refundRate)}`} tone="orange" />
+        <MetricCard label="订单 / 明细行" value={`${formatCount(current.orderCount)} / ${formatCount(current.lineCount)}`} change={formatChange(current.orderCount, previous?.orderCount)} hint="去重订单数 / 有效销售行" tone="blue" />
+        <MetricCard label="综合毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={`毛利 ${formatCurrencyFromCents(current.grossProfitCents)}`} tone="green" />
       </section>
       <section className="split-panels">
         <article className="panel">
-          <SectionHeader title="渠道销售构成" note="销售额占比与渠道毛利" />
-          <div className="channel-chart"><div className="donut"><div><strong>386.3</strong><small>万元</small></div></div>
-            <div className="channel-list">{channels.map((item) => <div key={item.name}><span><Dot tone={item.color} />{item.name}</span><strong>{item.value}</strong><em>{item.percent}%</em></div>)}</div>
+          <SectionHeader title="渠道销售构成" note="按销售净额统计渠道占比" />
+          <div className="channel-chart">
+            <div className="donut" style={{ background: donutBackground }}><div><strong>{(current.netSalesCents / 1000000).toFixed(1)}</strong><small>万元净额</small></div></div>
+            <div className="channel-list">{channels.map((item, index) => <div key={item.name}><span><Dot tone={channelTones[index % channelTones.length]} />{item.name || "未分类"}</span><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong><em>{formatRate(item.shareRate)}</em></div>)}</div>
           </div>
         </article>
         <article className="panel">
-          <SectionHeader title="渠道毛利表现" note="目标毛利率 22.5%" />
-          <div className="progress-list">{channels.map((item) => <div key={item.name}><div><span>{item.name}</span><strong>{item.profit}</strong></div><span className="progress-track"><i className={`bg-${item.color}`} style={{ width: item.profit }} /></span></div>)}</div>
-          <div className="insight-card"><span>经营建议</span><p>京东 POP 毛利率低于目标 3.2%，建议检查推广投入及平台费用。</p></div>
+          <SectionHeader title="渠道毛利表现" note={`综合毛利率 ${formatRate(current.grossMarginRate)}`} />
+          <div className="progress-list">{channels.map((item, index) => {
+            const margin = Math.max(0, Math.min(rateAsPercent(item.grossMarginRate), 100));
+            const tone = channelTones[index % channelTones.length];
+            return <div key={item.name}><div><span>{item.name || "未分类"}<small>{formatCount(item.orderCount)} 单 · {formatCount(item.lineCount)} 行</small></span><strong>{formatRate(item.grossMarginRate)}</strong></div><span className="progress-track"><i className={`bg-${tone}`} style={{ width: `${margin}%` }} /></span></div>;
+          })}</div>
+          <div className="insight-card"><span>数据口径</span><p>渠道构成、毛利率与订单行数均来自当前统计周期内已成功导入的吉客云销售明细。</p></div>
         </article>
       </section>
     </>
@@ -322,15 +535,187 @@ function WorkflowView() {
 }
 
 function ImportView() {
-  const [uploaded, setUploaded] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [feedback, setFeedback] = useState<ImportFeedback | null>(null);
+  const [history, setHistory] = useState<SalesImportBatch[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const response = await fetch("/api/imports/sales", { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as (ImportHistoryResponse & { message?: string }) | null;
+      if (!response.ok) throw new Error(payload?.message || `导入历史读取失败（${response.status}）`);
+      if (!Array.isArray(payload?.items)) throw new Error("导入历史响应格式不完整");
+      setHistory(payload.items);
+    } catch (requestError) {
+      setHistoryError(requestError instanceof Error ? requestError.message : "暂时无法读取导入历史");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadHistory(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadHistory]);
+
+  const acceptFile = useCallback((candidate?: File) => {
+    setDragging(false);
+    if (!candidate) return;
+    if (!candidate.name.toLowerCase().endsWith(".xlsx")) {
+      setSelectedFile(null);
+      setFeedback({
+        tone: "error",
+        title: "文件格式不支持",
+        message: "请选择吉客云 ERP 导出的 .xlsx 销售单明细账。",
+        details: [],
+      });
+      return;
+    }
+    if (candidate.size > MAX_IMPORT_FILE_SIZE) {
+      setSelectedFile(null);
+      setFeedback({
+        tone: "error",
+        title: "文件超过 15MB",
+        message: `当前文件为 ${formatFileSize(candidate.size)}，请拆分后重新上传。`,
+        details: [],
+      });
+      return;
+    }
+    setSelectedFile(candidate);
+    setFeedback(null);
+  }, []);
+
+  const importFile = async () => {
+    if (!selectedFile || uploading) return;
+    setUploading(true);
+    setFeedback(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("source", "jky");
+      const response = await fetch("/api/imports/sales", { method: "POST", body: formData });
+      const payload = await response.json().catch(() => null) as SalesImportResponse | null;
+      const warnings = payload?.warnings ?? payload?.batch?.warnings ?? [];
+      const errors = payload?.errors ?? [];
+
+      if (!response.ok || !payload?.ok || payload.status === "rejected") {
+        setFeedback({
+          tone: "error",
+          title: "导入未完成",
+          message: payload?.message || `文件校验或导入失败（${response.status}）`,
+          details: errors.slice(0, 8).map(issueText),
+        });
+        return;
+      }
+
+      if (payload.status === "duplicate") {
+        setFeedback({
+          tone: "duplicate",
+          title: "检测到重复文件",
+          message: payload.message || "该文件已导入，系统没有重复写入销售数据。",
+          details: warnings.slice(0, 8).map(issueText),
+        });
+      } else if (warnings.length || (payload.batch?.warningCount ?? 0) > 0) {
+        setFeedback({
+          tone: "warning",
+          title: `导入完成，含 ${payload.batch?.warningCount ?? warnings.length} 条警告`,
+          message: payload.message || `成功写入 ${formatCount(payload.batch?.insertedCount)} 行销售明细。`,
+          details: warnings.slice(0, 8).map(issueText),
+        });
+      } else {
+        setFeedback({
+          tone: "success",
+          title: "销售明细导入成功",
+          message: payload.message || `成功写入 ${formatCount(payload.batch?.insertedCount)} 行，销售分析已更新。`,
+          details: [],
+        });
+      }
+      await loadHistory();
+    } catch (requestError) {
+      setFeedback({
+        tone: "error",
+        title: "导入请求失败",
+        message: requestError instanceof Error ? requestError.message : "网络异常，请稍后重试。",
+        details: [],
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const sourceOptions = [
+    ["吉", "吉客云 ERP", "销售单明细账"],
+    ["京", "京东", "暂未开放"],
+    ["猫", "天猫", "暂未开放"],
+    ["财", "财务报表", "暂未开放"],
+  ];
+
   return (
     <>
       <div className="subnav"><button className="active">文件导入</button><button>导入历史</button><button>数据连续性</button></div>
       <section className="import-grid">
-        <article className="panel import-panel"><span className="eyebrow">第 1 步</span><h2>选择数据来源</h2><p>系统会根据文件名与表头自动识别报表类型。</p><div className="source-grid">{[["吉", "吉客云 ERP", "销售与库存"], ["京", "京东", "自营 / POP"], ["猫", "天猫", "生意参谋"], ["财", "财务报表", "月度财报"]].map((item, index) => <button className={index === 1 ? "selected" : ""} key={item[1]}><span>{item[0]}</span><strong>{item[1]}</strong><small>{item[2]}</small></button>)}</div></article>
-        <article className="panel import-panel"><span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>支持 xlsx、xls、csv 和 zip，单文件最大 100MB。</p><button className={`dropzone ${uploaded ? "uploaded" : ""}`} onClick={() => setUploaded(!uploaded)}><span>{uploaded ? "✓" : "↑"}</span><strong>{uploaded ? "文件已通过预检查" : "将文件拖到此处，或点击选择"}</strong><small>{uploaded ? "京东交易概况_20260710.xlsx · 2.8MB" : "上传前不会写入任何正式数据"}</small></button></article>
+        <article className="panel import-panel">
+          <span className="eyebrow">第 1 步</span><h2>选择数据来源</h2><p>当前仅开放吉客云 ERP 销售单明细账导入。</p>
+          <div className="source-grid">{sourceOptions.map((item, index) => <button type="button" className={index === 0 ? "selected" : ""} disabled={index !== 0} aria-pressed={index === 0} key={item[1]}><span>{item[0]}</span><strong>{item[1]}</strong><small>{item[2]}</small></button>)}</div>
+        </article>
+        <article className="panel import-panel">
+          <span className="eyebrow">第 2 步</span><h2>上传报表文件</h2><p>仅支持 .xlsx，单文件最大 15MB。系统会校验表头、金额与重复批次。</p>
+          <input
+            ref={inputRef}
+            className="file-input-hidden"
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={(event) => {
+              acceptFile(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className={`dropzone ${selectedFile ? "uploaded" : ""} ${dragging ? "dragging" : ""}`}
+            onClick={() => inputRef.current?.click()}
+            onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
+            onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
+            onDragLeave={(event) => { event.preventDefault(); if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
+            onDrop={(event) => { event.preventDefault(); acceptFile(event.dataTransfer.files?.[0]); }}
+          >
+            <span>{selectedFile ? "✓" : "↑"}</span>
+            <strong>{selectedFile ? selectedFile.name : "将 .xlsx 文件拖到此处，或点击选择"}</strong>
+            <small>{selectedFile ? `${formatFileSize(selectedFile.size)} · 已通过格式与大小检查` : "上传后将写入销售分析正式数据"}</small>
+          </button>
+          <div className="import-actions">
+            <span>{selectedFile ? "准备导入吉客云 ERP 销售明细" : "请选择待导入文件"}</span>
+            <button type="button" className="primary-button" disabled={!selectedFile || uploading} onClick={() => void importFile()}>{uploading ? "正在导入…" : "开始导入"}</button>
+          </div>
+        </article>
       </section>
-      <section className="panel table-panel"><SectionHeader title="最近导入记录" note="所有批次均可追溯和回滚" action="查看完整历史" /><div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>数据行数</th><th>导入结果</th><th>操作人</th><th>完成时间</th><th></th></tr></thead><tbody>{imports.map((row) => <tr key={row.file}><td><strong>{row.source}</strong></td><td>{row.file}</td><td>{row.rows}</td><td><span className={`status ${row.result === "成功" ? "status-success" : "status-warning"}`}><Dot tone={row.result === "成功" ? "green" : "orange"} />{row.result}</span></td><td>{row.user}</td><td>{row.time}</td><td><button className="row-action">详情</button></td></tr>)}</tbody></table></div></section>
+
+      {feedback && <section className={`import-feedback import-feedback-${feedback.tone}`} role={feedback.tone === "error" ? "alert" : "status"} aria-live="polite"><span className="feedback-symbol">{feedback.tone === "success" ? "✓" : feedback.tone === "duplicate" ? "≡" : feedback.tone === "warning" ? "!" : "×"}</span><div><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.details.length > 0 && <ul>{feedback.details.map((detail, index) => <li key={`${detail}-${index}`}>{detail}</li>)}</ul>}</div></section>}
+
+      <section className="panel table-panel import-history-panel">
+        <div className="section-header"><div><h2>最近导入记录</h2><p>来自导入接口的真实批次记录</p></div><button className="text-button" disabled={historyLoading} onClick={() => void loadHistory()}>{historyLoading ? "刷新中…" : "刷新记录"} <span>↻</span></button></div>
+        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
+          {historyLoading && history.length === 0 && <tr><td colSpan={6}><div className="table-state"><span className="state-spinner" />正在读取导入记录…</div></td></tr>}
+          {!historyLoading && historyError && <tr><td colSpan={6}><div className="table-state table-state-error"><span>{historyError}</span><button className="row-action" onClick={() => void loadHistory()}>重试</button></div></td></tr>}
+          {!historyLoading && !historyError && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请上传第一份吉客云销售单明细账。</div></td></tr>}
+          {history.map((row) => {
+            const rejected = row.status === "rejected";
+            const duplicate = row.status === "duplicate";
+            const warned = row.warningCount > 0;
+            const resultText = rejected ? "导入失败" : duplicate ? "重复文件" : warned ? `成功 · ${row.warningCount} 条警告` : "成功";
+            const statusClass = rejected ? "status-danger" : duplicate || warned ? "status-warning" : "status-success";
+            const dotTone = rejected ? "red" : duplicate || warned ? "orange" : "green";
+            return <tr key={row.id}><td><strong>{row.source || "吉客云 ERP · 销售单明细账"}</strong></td><td><div className="history-file"><strong>{row.fileName}</strong>{row.sheetName && <small>工作表：{row.sheetName}</small>}</div></td><td>{formatFileSize(row.fileSizeBytes)}</td><td><div className="history-count"><strong>{formatCount(row.rowCount)}</strong><small>新增 {formatCount(row.insertedCount)} · 重复 {formatCount(row.duplicateCount)}</small></div></td><td><span className={`status ${statusClass}`}><Dot tone={dotTone} />{resultText}</span></td><td>{formatDateTime(row.completedAt || row.createdAt)}</td></tr>;
+          })}
+        </tbody></table></div>
+      </section>
     </>
   );
 }
@@ -349,7 +734,7 @@ function SettingsView() {
   );
 }
 
-const viewMap: Record<ModuleKey, () => React.ReactNode> = {
+const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
   sales: SalesView,
@@ -364,7 +749,7 @@ export default function Home() {
   const [active, setActive] = useState<ModuleKey>("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [range, setRange] = useState("本月");
+  const [range, setRange] = useState<SalesRangeLabel>("本月");
   const [searchOpen, setSearchOpen] = useState(false);
   const current = navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
@@ -400,14 +785,14 @@ export default function Home() {
           <div className="topbar-actions">
             <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索货品、订单或功能</em><kbd>⌘ K</kbd></button>
             <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
-            <div className="date-selector"><span>统计周期</span><select value={range} onChange={(e) => setRange(e.target.value)}><option>今日</option><option>近7天</option><option>本月</option><option>本季度</option></select></div>
+            <div className="date-selector"><span>统计周期</span><select value={range} onChange={(e) => setRange(e.target.value as SalesRangeLabel)}><option>今日</option><option>近7天</option><option>本月</option><option>本季度</option></select></div>
           </div>
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "2026年07月01日 — 07月10日" : current.label}</p><h2>{current.description}</h2><span>{active === "dashboard" ? "数据更新于今天 10:18" : "演示数据 · 数据更新于今天 10:18"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && <button className="primary-button">＋ 新建</button>}</div></div>
-          <View />
-          <footer className="page-footer"><span>TERUISI 电商运营中台 · 前端展示原型</span><span>数据仅用于界面演示</span></footer>
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && active !== "sales" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <View range={range} />
+          <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>
 
