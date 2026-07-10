@@ -144,9 +144,9 @@ const metricsSql = `
   SELECT
     COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
     COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-    COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+    COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
     COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-    COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
+    COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
     COUNT(DISTINCT CASE
       WHEN order_no <> '' THEN order_no
       WHEN online_order_no <> '' THEN online_order_no
@@ -191,9 +191,9 @@ async function groupedMetrics(
       COALESCE(NULLIF(${dimension}, ''), NULLIF(${fallback}, ''), '未分类') AS name,
       COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
       COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-      COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+      COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
       COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-      COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
+      COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
       COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
       COUNT(*) AS line_count
     FROM sales_order_lines
@@ -261,9 +261,9 @@ export async function GET(request: Request) {
           substr(sales_time, 1, 10) AS date,
           COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
           COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-          COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+          COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
           COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-          COALESCE(SUM(CASE WHEN COALESCE(TRIM(category), '') NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
+          COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN CASE WHEN business_type = 'return' THEN -ABS(quantity) ELSE ABS(quantity) END ELSE 0 END), 0) AS net_quantity,
           COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
           COUNT(*) AS line_count
         FROM sales_order_lines
