@@ -20,8 +20,8 @@ type NavItem = {
   badge?: string;
 };
 
-type SalesRangeLabel = "今日" | "近7天" | "本月" | "本季度";
-type SalesRange = "today" | "last7" | "month" | "quarter";
+type SalesRangeLabel = "今日" | "近7天" | "本月" | "本季度" | "自定义";
+type SalesRange = "today" | "last7" | "month" | "quarter" | "custom";
 
 type SalesStats = {
   grossSalesCents: number;
@@ -30,6 +30,7 @@ type SalesStats = {
   refundAmountCents: number;
   orderCount: number;
   lineCount: number;
+  averageOrderValueCents: number;
   grossMarginRate: number;
   refundRate: number;
 };
@@ -53,6 +54,7 @@ type SalesSummaryResponse = {
   previousEndDate?: string;
   current: SalesStats;
   previous?: SalesStats;
+  yearAgo?: SalesStats;
   channels: SalesChannel[];
   latestBatch?: {
     id: string;
@@ -109,6 +111,7 @@ const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
   近7天: "last7",
   本月: "month",
   本季度: "quarter",
+  自定义: "custom",
 };
 
 const channelTones = ["blue", "purple", "green", "orange"] as const;
@@ -161,6 +164,8 @@ const formatChange = (current = 0, previous = 0) => {
   if (previous === 0) return current === 0 ? "0.0%" : "新增";
   return `${(((current - previous) / Math.abs(previous)) * 100).toFixed(1)}%`;
 };
+const comparisonHint = (current = 0, previous = 0, yearAgo = 0) =>
+  `同比 ${formatChange(current, yearAgo)} · 环比 ${formatChange(current, previous)}`;
 const issueText = (issue: ImportIssue) =>
   issue.sourceRowNumber || issue.row
     ? `第 ${issue.sourceRowNumber ?? issue.row} 行：${issue.message}`
@@ -355,7 +360,7 @@ function ShopView() {
   );
 }
 
-function SalesView({ range }: { range: SalesRangeLabel }) {
+function SalesView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
   const apiRange = salesRangeMap[range];
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -371,7 +376,12 @@ function SalesView({ range }: { range: SalesRangeLabel }) {
       setError("");
 
       try {
-        const response = await fetch(`/api/sales/summary?range=${apiRange}`, {
+        const query = new URLSearchParams({ range: apiRange });
+        if (apiRange === "custom") {
+          query.set("startDate", customStartDate);
+          query.set("endDate", customEndDate);
+        }
+        const response = await fetch(`/api/sales/summary?${query.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -389,10 +399,11 @@ function SalesView({ range }: { range: SalesRangeLabel }) {
     })();
 
     return () => controller.abort();
-  }, [apiRange, retryKey]);
+  }, [apiRange, customStartDate, customEndDate, retryKey]);
 
   const current = summary?.current;
   const previous = summary?.previous;
+  const yearAgo = summary?.yearAgo;
   const channels = useMemo(() => summary?.channels ?? [], [summary?.channels]);
   const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.grossSalesCents !== 0 || current.netSalesCents !== 0));
   const donutBackground = useMemo(() => {
@@ -451,12 +462,14 @@ function SalesView({ range }: { range: SalesRangeLabel }) {
         {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
       <section className="metrics-grid sales-metrics-grid">
-        <MetricCard label="销售毛额" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint="退货前销售额" tone="blue" />
-        <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={`净额占毛额 ${formatRate(current.grossSalesCents ? current.netSalesCents / current.grossSalesCents : 0)}`} tone="green" />
-        <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={`综合毛利率 ${formatRate(current.grossMarginRate)}`} tone="purple" />
-        <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={`退货率 ${formatRate(current.refundRate)}`} tone="orange" />
-        <MetricCard label="订单 / 明细行" value={`${formatCount(current.orderCount)} / ${formatCount(current.lineCount)}`} change={formatChange(current.orderCount, previous?.orderCount)} hint="去重订单数 / 有效销售行" tone="blue" />
-        <MetricCard label="综合毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={`毛利 ${formatCurrencyFromCents(current.grossProfitCents)}`} tone="green" />
+        <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint="退货前成交金额" tone="blue" />
+        <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="green" />
+        <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="purple" />
+        <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={comparisonHint(current.refundAmountCents, previous?.refundAmountCents, yearAgo?.refundAmountCents)} tone="orange" />
+        <MetricCard label="订单数" value={formatCount(current.orderCount)} change={formatChange(current.orderCount, previous?.orderCount)} hint={comparisonHint(current.orderCount, previous?.orderCount, yearAgo?.orderCount)} tone="blue" />
+        <MetricCard label="客单价" value={formatCurrencyFromCents(current.averageOrderValueCents)} change={formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents)} hint="销售净额 / 去重订单数" tone="purple" />
+        <MetricCard label="退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" />
+        <MetricCard label="大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="green" />
       </section>
       <section className="split-panels">
         <article className="panel">
@@ -734,7 +747,7 @@ function SettingsView() {
   );
 }
 
-const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel }) => React.ReactNode> = {
+const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
   sales: SalesView,
@@ -750,6 +763,8 @@ export default function Home() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [range, setRange] = useState<SalesRangeLabel>("本月");
+  const [customStartDate, setCustomStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchOpen, setSearchOpen] = useState(false);
   const current = navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
@@ -785,13 +800,21 @@ export default function Home() {
           <div className="topbar-actions">
             <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索货品、订单或功能</em><kbd>⌘ K</kbd></button>
             <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
-            <div className="date-selector"><span>统计周期</span><select value={range} onChange={(e) => setRange(e.target.value as SalesRangeLabel)}><option>今日</option><option>近7天</option><option>本月</option><option>本季度</option></select></div>
+            <div className={`date-selector ${range === "自定义" ? "date-selector-custom" : ""}`}>
+              <span>统计周期</span>
+              <select value={range} onChange={(e) => setRange(e.target.value as SalesRangeLabel)}><option>今日</option><option>近7天</option><option>本月</option><option>本季度</option><option>自定义</option></select>
+              {range === "自定义" && <div className="custom-date-range" aria-label="自定义统计周期">
+                <input type="date" value={customStartDate} max={customEndDate} onChange={(event) => setCustomStartDate(event.target.value)} aria-label="开始日期" />
+                <span>至</span>
+                <input type="date" value={customEndDate} min={customStartDate} onChange={(event) => setCustomEndDate(event.target.value)} aria-label="结束日期" />
+              </div>}
+            </div>
           </div>
         </header>
 
         <div className="content">
           <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && active !== "sales" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
-          <View range={range} />
+          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>

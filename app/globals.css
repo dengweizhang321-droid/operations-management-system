@@ -101,6 +101,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .date-selector { min-width: 142px; height: 38px; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 11px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .date-selector span { color: #9aa4b3; font-size: 9px; white-space: nowrap; }
 .date-selector select { min-width: 62px; border: 0; outline: 0; background: transparent; color: #344154; font-size: 11px; font-weight: 600; }
+.date-selector-custom { min-width: 428px; }
+.custom-date-range { display: flex; align-items: center; gap: 5px; padding-left: 7px; border-left: 1px solid var(--line); }
+.custom-date-range input { width: 116px; border: 0; outline: 0; color: #405067; background: transparent; font-size: 10px; }
+.custom-date-range > span { color: #748196; font-size: 9px; }
 .content { max-width: 1640px; margin: 0 auto; padding: 24px 30px 34px; }
 .page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 21px; }
 .page-intro p { margin: 0 0 4px; color: #708099; font-size: 10px; }
@@ -121,7 +125,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .change-down { background: var(--red-soft); color: var(--red); }
 .metric-card p { margin: 12px 0 2px; color: #79869a; font-size: 10px; }
 .metric-card > strong { display: block; font-size: 23px; letter-spacing: -.6px; }
-.metric-card > small { display: block; margin-top: 6px; color: #a0a9b6; font-size: 9px; }
+.metric-card > small { display: block; margin-top: 6px; color: #657286; font-size: 9px; font-weight: 500; }
 .dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--blue); }
 .dot-blue { background: var(--blue); }.dot-green { background: var(--green); }.dot-orange { background: var(--orange); }.dot-purple { background: var(--purple); }.dot-red,.dot-danger { background: var(--red); }.dot-gray { background: #94a0b2; }
 .panel { border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: var(--shadow); }
@@ -185,7 +189,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .cell-name, .product-cell { display: flex; align-items: center; gap: 9px; }.soft-tag { display: inline-flex; padding: 3px 7px; border-radius: 5px; color: #5b6d8b; background: #f1f4f8; font-size: 8px; }
 .status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 12px; font-size: 8px; }.status-success { color: #188a61; background: var(--green-soft); }.status-warning { color: #c57924; background: var(--orange-soft); }.status-danger { color: var(--red); background: var(--red-soft); }.status-purple { color: var(--purple); background: var(--purple-soft); }
 .split-panels { display: grid; grid-template-columns: 1.1fr .9fr; gap: 15px; }
-.sales-metrics-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.sales-metrics-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
 .sales-period-note { min-height: 36px; display: flex; align-items: center; gap: 10px; margin: -7px 0 13px; padding: 7px 11px; border: 1px solid #dfe9e5; border-radius: 8px; color: #607067; background: #f8fcfa; font-size: 9px; }
 .sales-period-note > span { display: flex; align-items: center; gap: 6px; color: #258461; font-weight: 700; }
 .sales-period-note > strong { color: #405047; font-size: 9px; }
@@ -231,6 +235,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-menu-button { display: grid; place-items: center; }
   .mobile-overlay { position: fixed; inset: 0; z-index: 35; display: block; border: 0; background: rgba(13,21,34,.42); }
   .topbar { padding: 12px 18px; }
+  .date-selector-custom { min-width: 0; }
+  .custom-date-range { position: absolute; top: 47px; right: 18px; z-index: 5; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: var(--shadow); }
   .global-search { width: 40px; padding: 0; justify-content: center; }
   .global-search em, .global-search kbd { display: none; }
   .content { padding: 21px 18px 30px; }
@@ -242,9 +248,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 @media (max-width: 620px) {
   .topbar { min-height: 67px; }
-  .title-area span, .date-selector span, .icon-button { display: none; }
+  .title-area span, .date-selector > span, .icon-button { display: none; }
   .title-area h1 { font-size: 15px; }
   .date-selector { min-width: 92px; }
+  .date-selector-custom { min-width: 92px; }
+  .custom-date-range { right: 13px; }
   .content { padding: 17px 13px 26px; }
   .page-intro { align-items: flex-start; }.page-intro h2 { font-size: 19px; }.intro-actions { display: none; }
   .metrics-grid { grid-template-columns: 1fr 1fr; gap: 9px; }.metric-card { min-height: 135px; padding: 14px; }.metric-card > strong { font-size: 18px; }

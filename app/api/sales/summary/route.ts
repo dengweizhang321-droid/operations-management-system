@@ -5,7 +5,7 @@ import {
   type SalesDatabase,
 } from "@/lib/sales/database";
 
-const ranges = ["today", "last7", "month", "quarter", "all"] as const;
+const ranges = ["today", "last7", "month", "quarter", "custom", "all"] as const;
 type SalesRange = (typeof ranges)[number];
 
 type Period = {
@@ -26,6 +26,8 @@ type MetricRow = {
 type GroupRow = MetricRow & { name: string };
 type DailyRow = MetricRow & { date: string };
 
+class SalesSummaryRequestError extends Error {}
+
 function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -40,6 +42,20 @@ function addMonths(value: string, months: number) {
   const date = new Date(`${value}T00:00:00Z`);
   date.setUTCMonth(date.getUTCMonth() + months);
   return isoDate(date);
+}
+
+function addYears(value: string, years: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const targetYear = year + years;
+  const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
+  return `${targetYear.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${Math.min(day, lastDay).toString().padStart(2, "0")}`;
+}
+
+function isIsoDate(value: string | null): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
 function dayDifference(start: string, end: string) {
@@ -60,7 +76,7 @@ function shanghaiToday() {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-function periodFor(range: Exclude<SalesRange, "all">, today: string): Period {
+function periodFor(range: Exclude<SalesRange, "all" | "custom">, today: string): Period {
   if (range === "today") {
     const yesterday = addDays(today, -1);
     return { startDate: today, endDate: today, previousStartDate: yesterday, previousEndDate: yesterday };
@@ -98,6 +114,26 @@ function periodFor(range: Exclude<SalesRange, "all">, today: string): Period {
   };
 }
 
+function customPeriod(startDate: string, endDate: string): Period {
+  if (!isIsoDate(startDate) || !isIsoDate(endDate)) {
+    throw new SalesSummaryRequestError("自定义统计周期需要有效的起止日期（YYYY-MM-DD）");
+  }
+  if (startDate > endDate) {
+    throw new SalesSummaryRequestError("自定义统计周期的开始日期不能晚于结束日期");
+  }
+
+  const days = dayDifference(startDate, endDate) + 1;
+  if (days > 366) throw new SalesSummaryRequestError("自定义统计周期最长支持 366 天");
+
+  const previousEndDate = addDays(startDate, -1);
+  return {
+    startDate,
+    endDate,
+    previousStartDate: addDays(previousEndDate, -(days - 1)),
+    previousEndDate,
+  };
+}
+
 function bindPeriod(statement: ReturnType<SalesDatabase["prepare"]>, startDate: string, endDate: string) {
   return statement.bind(startDate, addDays(endDate, 1));
 }
@@ -122,13 +158,15 @@ function metric(row: MetricRow | null) {
   const refundAmountCents = Number(row?.refund_amount_cents ?? 0);
   const netSalesCents = grossSalesCents - refundAmountCents;
   const grossProfitCents = Number(row?.gross_profit_cents ?? 0);
+  const orderCount = Number(row?.order_count ?? 0);
   return {
     grossSalesCents,
     netSalesCents,
     grossProfitCents,
     refundAmountCents,
-    orderCount: Number(row?.order_count ?? 0),
+    orderCount,
     lineCount: Number(row?.line_count ?? 0),
+    averageOrderValueCents: orderCount === 0 ? 0 : netSalesCents / orderCount,
     grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
     refundRate: grossSalesCents === 0 ? 0 : refundAmountCents / grossSalesCents,
   };
@@ -169,7 +207,8 @@ async function groupedMetrics(
 
 export async function GET(request: Request) {
   try {
-    const requested = new URL(request.url).searchParams.get("range") ?? "month";
+    const searchParams = new URL(request.url).searchParams;
+    const requested = searchParams.get("range") ?? "month";
     if (!ranges.includes(requested as SalesRange)) {
       return Response.json(
         { error: `range 必须是 ${ranges.join(", ")} 之一` },
@@ -188,6 +227,8 @@ export async function GET(request: Request) {
         .prepare("SELECT MIN(substr(sales_time, 1, 10)) AS start_date, MAX(substr(sales_time, 1, 10)) AS end_date FROM sales_order_lines")
         .first<{ start_date: string | null; end_date: string | null }>();
       period = { startDate: bounds?.start_date ?? today, endDate: bounds?.end_date ?? today };
+    } else if (range === "custom") {
+      period = customPeriod(searchParams.get("startDate") ?? "", searchParams.get("endDate") ?? "");
     } else {
       period = periodFor(range, today);
     }
@@ -197,6 +238,11 @@ export async function GET(request: Request) {
       period.previousStartDate && period.previousEndDate
         ? await bindPeriod(db.prepare(metricsSql), period.previousStartDate, period.previousEndDate).first<MetricRow>()
         : null;
+    const yearAgoPeriod = {
+      startDate: addYears(period.startDate, -1),
+      endDate: addYears(period.endDate, -1),
+    };
+    const yearAgoRow = await bindPeriod(db.prepare(metricsSql), yearAgoPeriod.startDate, yearAgoPeriod.endDate).first<MetricRow>();
     const shops = await groupedMetrics(db, "channel", period);
     const platforms = await groupedMetrics(db, "platform", period);
     const dailyResult = await bindPeriod(
@@ -223,6 +269,9 @@ export async function GET(request: Request) {
       ...period,
       current: metric(currentRow),
       ...(previousRow ? { previous: metric(previousRow) } : {}),
+      yearAgo: metric(yearAgoRow),
+      yearAgoStartDate: yearAgoPeriod.startDate,
+      yearAgoEndDate: yearAgoPeriod.endDate,
       channels: platforms,
       shops,
       platforms,
@@ -234,6 +283,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "读取销售汇总失败";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: message }, { status: error instanceof SalesSummaryRequestError ? 400 : 500 });
   }
 }
