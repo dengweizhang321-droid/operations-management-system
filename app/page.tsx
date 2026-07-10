@@ -218,7 +218,7 @@ function MetricCard({
     <article className="metric-card">
       <div className="metric-top">
         <span className={`metric-icon metric-icon-${tone}`}><Dot tone={tone} /></span>
-        <span className={`change ${down ? "change-down" : ""}`}>{down ? "↘" : "↗"} {change}</span>
+        <span className={`change ${down ? "change-down" : ""}`}>{change} {down ? "↘" : "↗"}</span>
       </div>
       <p>{label}</p>
       <strong>{value}</strong>

@@ -123,7 +123,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .metric-icon-blue { background: var(--blue-soft); }.metric-icon-green { background: var(--green-soft); }.metric-icon-purple { background: var(--purple-soft); }.metric-icon-orange { background: var(--orange-soft); }
 .change { padding: 3px 7px; border-radius: 12px; background: var(--green-soft); color: #1a8c63; font-size: 9px; font-weight: 700; }
 .change-down { background: var(--red-soft); color: var(--red); }
-.metric-card p { margin: 12px 0 2px; color: #79869a; font-size: 10px; }
+.metric-card p { margin: 12px 0 3px; color: #687890; font-size: 12px; font-weight: 600; }
 .metric-card > strong { display: block; font-size: 23px; letter-spacing: -.6px; }
 .metric-card > small { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; color: #657286; font-size: 9px; font-weight: 500; line-height: 1.35; }
 .metric-card > small > span { display: block; }
