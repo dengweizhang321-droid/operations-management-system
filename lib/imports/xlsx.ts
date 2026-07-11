@@ -48,11 +48,11 @@ export class XlsxParseError extends Error {
 }
 
 export const DEFAULT_XLSX_LIMITS = Object.freeze({
-  // Sales exports are uploaded in chunks up to 60 MiB. These limits remain
-  // bounded against ZIP bombs while allowing a normal month-level ERP ledger.
-  maxCompressedBytes: 64 * 1024 * 1024,
-  maxUncompressedBytes: 512 * 1024 * 1024,
-  maxWorksheetBytes: 384 * 1024 * 1024,
+  // Sales exports are uploaded in chunks up to 128 MiB. These limits remain
+  // bounded against ZIP bombs while allowing a full-year ERP ledger.
+  maxCompressedBytes: 128 * 1024 * 1024,
+  maxUncompressedBytes: 768 * 1024 * 1024,
+  maxWorksheetBytes: 640 * 1024 * 1024,
   maxRows: 500_001,
 });
 
@@ -182,14 +182,18 @@ export function parseXlsxFirstSheet(
   const selectedPaths = new Set([worksheetPath]);
   if (sharedStringsPath) selectedPaths.add(sharedStringsPath);
   const parts = extractZipParts(bytes, selectedPaths, limits.maxWorksheetBytes, budget, worksheetPath);
-  const worksheetBytes = parts[worksheetPath];
+  let worksheetBytes: Uint8Array | undefined = parts[worksheetPath];
   if (!worksheetBytes) {
     throw new XlsxParseError("INVALID_WORKBOOK", "XLSX 缺少首个工作表内容");
   }
 
-  const sharedStringsBytes = sharedStringsPath ? parts[sharedStringsPath] : undefined;
+  let sharedStringsBytes = sharedStringsPath ? parts[sharedStringsPath] : undefined;
   const sharedStrings = sharedStringsBytes ? parseSharedStrings(decodeXmlPart(sharedStringsBytes)) : [];
+  if (sharedStringsPath) delete parts[sharedStringsPath];
+  sharedStringsBytes = undefined;
   const worksheetXml = decodeXmlPart(worksheetBytes);
+  delete parts[worksheetPath];
+  worksheetBytes = undefined;
   const parsed = parseWorksheet(worksheetXml, sharedStrings, limits.maxRows);
   const workbookPrTag = findFirstStartTag(workbookXml, "workbookPr");
   const date1904Value = workbookPrTag ? xmlAttribute(workbookPrTag, "date1904") : null;
@@ -399,14 +403,14 @@ function parseWorksheet(
   if (sheetDataEnd === -1) {
     throw new XlsxParseError("INVALID_WORKSHEET", "工作表 sheetData 标签未闭合");
   }
-  const sheetData = xml.slice(sheetDataStart, sheetDataEnd);
   const rowExpression = /<(?:[A-Za-z_][\w.-]*:)?row\b([^>]*)>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?row\s*>|<(?:[A-Za-z_][\w.-]*:)?row\b([^>]*)\/>/gi;
   const rows: XlsxRow[] = [];
   let maxColumns = 0;
   let previousRowNumber = 0;
   let rowMatch: RegExpExecArray | null;
+  rowExpression.lastIndex = sheetDataStart;
 
-  while ((rowMatch = rowExpression.exec(sheetData)) !== null) {
+  while ((rowMatch = rowExpression.exec(xml)) !== null && rowMatch.index < sheetDataEnd) {
     if (rows.length >= maxRows) {
       throw new XlsxParseError("ROW_LIMIT", `工作表超过 ${maxRows} 行限制`);
     }
@@ -513,9 +517,10 @@ function findOpeningElementEnd(xml: string, localName: string): number {
 
 function findClosingElementStart(xml: string, localName: string, fromIndex: number): number {
   const escapedName = escapeRegExp(localName);
-  const expression = new RegExp(`<\\/(?:[A-Za-z_][\\w.-]*:)?${escapedName}\\s*>`, "i");
-  const match = expression.exec(xml.slice(fromIndex));
-  return match ? fromIndex + match.index : -1;
+  const expression = new RegExp(`<\\/(?:[A-Za-z_][\\w.-]*:)?${escapedName}\\s*>`, "ig");
+  expression.lastIndex = fromIndex;
+  const match = expression.exec(xml);
+  return match?.index ?? -1;
 }
 
 function escapeRegExp(value: string): string {

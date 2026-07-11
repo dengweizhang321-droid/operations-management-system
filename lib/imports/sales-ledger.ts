@@ -294,7 +294,14 @@ function locateHeader(rows: XlsxRow[]): HeaderLocation {
   const required = new Set<string>(GEEKCLOUD_SALES_LEDGER_REQUIRED_HEADERS);
 
   for (let rowIndex = 0; rowIndex < Math.min(rows.length, HEADER_SEARCH_ROWS); rowIndex += 1) {
-    const headers = rows[rowIndex].cells.map(normalizeHeader);
+    const sourceHeaders = rows[rowIndex].cells.map(normalizeHeader);
+    // 2025 年 ERP 同时导出“货品分类”和更细的“货品细分”时，以货品细分
+    // 作为销售分析统一使用的货品分类，避免同名字段发生歧义。
+    const hasProductSubdivision = sourceHeaders.includes("货品细分");
+    const headers = sourceHeaders.map((header) => {
+      if (header === "货品细分") return "货品分类";
+      return hasProductSubdivision && header === "货品分类" ? "" : header;
+    });
     const matchedCount = headers.reduce((count, header) => count + (required.has(header) ? 1 : 0), 0);
     if (matchedCount > bestMatchedCount) {
       bestMatchedCount = matchedCount;

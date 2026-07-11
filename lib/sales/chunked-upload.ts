@@ -4,7 +4,7 @@ import { ensureSalesSchema, getSalesDatabase, type SalesDatabase } from "@/lib/s
 // Keep requests beneath conservative development-proxy body limits as well as
 // production edge limits. The client uploads these sequentially and resumes by index.
 export const SALES_UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
-export const MAX_CHUNKED_SALES_FILE_BYTES = 60 * 1024 * 1024;
+export const MAX_CHUNKED_SALES_FILE_BYTES = 128 * 1024 * 1024;
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 
 type UploadRow = {
@@ -97,7 +97,7 @@ export async function beginSalesUpload(input: {
 }): Promise<SalesUploadSession> {
   if (!input.fileName.toLowerCase().endsWith(".xlsx")) throw new Error("仅支持 .xlsx 格式的销售单明细账");
   if (!Number.isSafeInteger(input.fileSizeBytes) || input.fileSizeBytes <= 0) throw new Error("文件大小无效");
-  if (input.fileSizeBytes > MAX_CHUNKED_SALES_FILE_BYTES) throw new Error("单个报表最大支持 60MB");
+  if (input.fileSizeBytes > MAX_CHUNKED_SALES_FILE_BYTES) throw new Error("单个报表最大支持 128MB");
   const expectedCount = Math.ceil(input.fileSizeBytes / SALES_UPLOAD_CHUNK_BYTES);
   if (!Number.isSafeInteger(input.chunkCount) || input.chunkCount !== expectedCount) throw new Error("分片数量与文件大小不一致");
   if (!input.fingerprint || input.fingerprint.length > 255) throw new Error("上传指纹无效");
