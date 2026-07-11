@@ -155,6 +155,8 @@ const schemaStatements = [
     ON sales_order_lines (channel)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_platform_idx
     ON sales_order_lines (platform)`,
+  `CREATE INDEX IF NOT EXISTS sales_order_lines_inventory_demand_idx
+    ON sales_order_lines (sales_time, product_code, warehouse)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_last_batch_idx
     ON sales_order_lines (last_import_batch_id)`,
   `CREATE TABLE IF NOT EXISTS sales_import_uploads (

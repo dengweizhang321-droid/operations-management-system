@@ -16,6 +16,10 @@ test("build emits the operations console", async () => {
   ]);
   assert.match(server, /api\/imports\/sales/);
   assert.match(server, /api\/sales\/summary/);
+  assert.match(server, /api\/imports\/inventory/);
+  assert.match(server, /api\/imports\/inventory\/chunks/);
+  assert.match(server, /api\/inventory\/overview/);
+  assert.match(server, /api\/inventory\/replenishment/);
   assert.match(page, /TERUISI/);
   assert.match(page, /销售分析/);
   assert.match(page, /渠道经营诊断/);
@@ -62,4 +66,54 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.ok(og.size > 10_000);
 
   await assert.rejects(access(new URL("app/_sites-preview", templateRoot)));
+});
+
+test("wires inventory health, synchronization, and replenishment", async () => {
+  const [page, schema, parser, importRoute, chunkRoute, chunkService, overview, overviewRoute, replenishmentRoute, database, migration, uploadMigration, completionMigration] =
+    await Promise.all([
+      readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/imports/inventory-stock.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/imports/inventory/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/imports/inventory/chunks/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/inventory/chunked-upload.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/inventory/replenishment/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/inventory/database.ts", import.meta.url), "utf8"),
+      readFile(new URL("../drizzle/0002_broken_kid_colt.sql", import.meta.url), "utf8"),
+      readFile(new URL("../drizzle/0003_strange_energizer.sql", import.meta.url), "utf8"),
+      readFile(new URL("../drizzle/0004_purple_runaways.sql", import.meta.url), "utf8"),
+    ]);
+
+  assert.match(page, /\/api\/inventory\/overview/);
+  assert.match(page, /\/api\/imports\/inventory/);
+  assert.match(page, /\/api\/imports\/inventory\/chunks/);
+  assert.match(page, /\/api\/inventory\/replenishment/);
+  assert.match(page, /库存与销售数据已联动/);
+  assert.match(page, /备货计划/);
+  assert.match(page, /payload\?\.errors/);
+  assert.doesNotMatch(page, /2,684,700/);
+  assert.match(schema, /inventory_import_batches/);
+  assert.match(schema, /inventory_stock_lines/);
+  assert.match(schema, /replenishment_plan_items/);
+  assert.match(parser, /实盘数量/);
+  assert.match(parser, /固定成本价/);
+  assert.match(parser, /吉客云库龄/);
+  assert.match(importRoute, /importInventoryStockBytes/);
+  assert.match(chunkRoute, /assembleInventoryUpload/);
+  assert.match(chunkRoute, /claimInventoryUpload/);
+  assert.match(chunkService, /inventory_import_upload_results/);
+  assert.match(chunkService, /chunk\.sha256/);
+  assert.match(overview, /normalizedWarehouseKey/);
+  assert.match(overview, /pendingCurrentSnapshot/);
+  assert.match(overviewRoute, /getInventoryOverview/);
+  assert.match(replenishmentRoute, /upsertReplenishmentPlan/);
+  assert.match(replenishmentRoute, /acknowledgeStale/);
+  assert.match(database, /ensureInventorySchema/);
+  assert.match(migration, /CREATE TABLE `inventory_stock_lines`/);
+  assert.match(migration, /sales_order_lines_inventory_demand_idx/);
+  assert.match(uploadMigration, /CREATE TABLE `inventory_import_uploads`/);
+  assert.match(completionMigration, /inventory_import_upload_results/);
+  assert.match(completionMigration, /replenishment_plan_items_draft_key_uq/);
 });

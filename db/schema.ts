@@ -81,6 +81,7 @@ export const salesOrderLines = sqliteTable(
     index("sales_order_lines_sales_time_idx").on(table.salesTime),
     index("sales_order_lines_channel_idx").on(table.channel),
     index("sales_order_lines_platform_idx").on(table.platform),
+    index("sales_order_lines_inventory_demand_idx").on(table.salesTime, table.productCode, table.warehouse),
     index("sales_order_lines_last_batch_idx").on(table.lastImportBatchId),
   ],
 );
@@ -121,5 +122,139 @@ export const salesImportUploadChunks = sqliteTable(
   (table) => [
     uniqueIndex("sales_import_upload_chunks_upload_chunk_uq").on(table.uploadId, table.chunkIndex),
     index("sales_import_upload_chunks_upload_id_idx").on(table.uploadId),
+  ],
+);
+
+/** Audit trail for immutable warehouse-stock snapshot imports. */
+export const inventoryImportBatches = sqliteTable(
+  "inventory_import_batches",
+  {
+    id: text("id").primaryKey(),
+    source: text("source").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    fileHash: text("file_hash").notNull(),
+    sheetName: text("sheet_name").notNull(),
+    snapshotDate: text("snapshot_date").notNull(),
+    status: text("status").notNull(),
+    rowCount: integer("row_count").notNull().default(0),
+    insertedCount: integer("inserted_count").notNull().default(0),
+    warningCount: integer("warning_count").notNull().default(0),
+    warningsJson: text("warnings_json").notNull().default("[]"),
+    totalsJson: text("totals_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("inventory_import_batches_file_hash_uq").on(table.fileHash),
+    index("inventory_import_batches_completed_at_idx").on(table.completedAt),
+  ],
+);
+
+/** Analysis-safe stock facts for a single imported snapshot. */
+export const inventoryStockLines = sqliteTable(
+  "inventory_stock_lines",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    batchId: text("batch_id").notNull(),
+    rowKey: text("row_key").notNull(),
+    sourceRowNumber: integer("source_row_number").notNull(),
+    snapshotDate: text("snapshot_date").notNull(),
+    warehouse: text("warehouse").notNull(),
+    warehouseType: text("warehouse_type").notNull(),
+    productCode: text("product_code").notNull(),
+    productName: text("product_name").notNull(),
+    specification: text("specification").notNull(),
+    barcode: text("barcode").notNull(),
+    category: text("category").notNull(),
+    onHandQuantity: integer("on_hand_quantity").notNull(),
+    availableQuantity: integer("available_quantity").notNull(),
+    lockedQuantity: integer("locked_quantity").notNull(),
+    inTransitQuantity: integer("in_transit_quantity").notNull(),
+    unitCostCents: integer("unit_cost_cents").notNull(),
+    inventoryAgeDays: integer("inventory_age_days"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("inventory_stock_lines_batch_row_uq").on(table.batchId, table.rowKey),
+    index("inventory_stock_lines_batch_idx").on(table.batchId),
+    index("inventory_stock_lines_product_idx").on(table.productCode),
+    index("inventory_stock_lines_warehouse_idx").on(table.warehouse),
+  ],
+);
+
+/** Temporary metadata for resumable inventory snapshot uploads. */
+export const inventoryImportUploads = sqliteTable(
+  "inventory_import_uploads",
+  {
+    id: text("id").primaryKey(),
+    fingerprint: text("fingerprint").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    chunkSizeBytes: integer("chunk_size_bytes").notNull(),
+    chunkCount: integer("chunk_count").notNull(),
+    receivedChunkCount: integer("received_chunk_count").notNull().default(0),
+    receivedBytes: integer("received_bytes").notNull().default(0),
+    status: text("status").notNull().default("uploading"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("inventory_import_uploads_fingerprint_uq").on(table.fingerprint),
+    index("inventory_import_uploads_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+export const inventoryImportUploadChunks = sqliteTable(
+  "inventory_import_upload_chunks",
+  {
+    uploadId: text("upload_id").notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    objectKey: text("object_key").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("inventory_import_upload_chunks_upload_chunk_uq").on(table.uploadId, table.chunkIndex),
+    index("inventory_import_upload_chunks_upload_id_idx").on(table.uploadId),
+  ],
+);
+
+/** Stored completion payload makes chunked upload completion safe to retry. */
+export const inventoryImportUploadResults = sqliteTable(
+  "inventory_import_upload_results",
+  {
+    uploadId: text("upload_id").primaryKey(),
+    resultJson: text("result_json").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+);
+
+/** Durable replenishment workflow created from a specific inventory snapshot. */
+export const replenishmentPlanItems = sqliteTable(
+  "replenishment_plan_items",
+  {
+    id: text("id").primaryKey(),
+    sourceBatchId: text("source_batch_id").notNull(),
+    productCode: text("product_code").notNull(),
+    productName: text("product_name").notNull(),
+    warehouse: text("warehouse").notNull(),
+    suggestedQuantity: integer("suggested_quantity").notNull(),
+    plannedQuantity: integer("planned_quantity").notNull(),
+    coverageDaysTenths: integer("coverage_days_tenths"),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("draft"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("replenishment_plan_items_draft_key_uq")
+      .on(table.sourceBatchId, table.productCode, table.warehouse)
+      .where(sql`${table.status} = 'draft'`),
+    index("replenishment_plan_items_status_idx").on(table.status),
+    index("replenishment_plan_items_product_idx").on(table.productCode),
+    index("replenishment_plan_items_source_batch_idx").on(table.sourceBatchId),
   ],
 );
