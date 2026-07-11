@@ -41,10 +41,13 @@ type SalesChannel = {
   grossSalesCents: number;
   netSalesCents: number;
   grossProfitCents: number;
+  refundAmountCents: number;
   grossMarginRate: number;
   shareRate: number;
   orderCount: number;
   lineCount: number;
+  netQuantity: number;
+  averageOrderValueCents: number;
 };
 
 type SalesSummaryResponse = {
@@ -57,6 +60,8 @@ type SalesSummaryResponse = {
   previous?: SalesStats;
   yearAgo?: SalesStats;
   channels: SalesChannel[];
+  shops?: SalesChannel[];
+  platforms?: SalesChannel[];
   latestBatch?: {
     id: string;
     fileName: string;
@@ -153,7 +158,7 @@ const formatCurrency = (value: number) =>
 
 const formatCurrencyFromCents = (value = 0) => formatCurrency(value / 100);
 const formatCount = (value = 0) => new Intl.NumberFormat("zh-CN").format(value);
-const rateAsPercent = (value = 0) => Math.abs(value) <= 1 ? value * 100 : value;
+const rateAsPercent = (value = 0) => value * 100;
 const formatRate = (value = 0) => `${rateAsPercent(value).toFixed(1)}%`;
 const formatFileSize = (bytes = 0) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -376,8 +381,173 @@ function ShopView() {
   );
 }
 
+type SalesTab = "overview" | "channel";
+type ChannelDimension = "channel" | "platform";
+
+function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: SalesTab) => void }) {
+  return (
+    <div className="subnav sales-subnav" role="tablist" aria-label="销售分析子版块">
+      <button type="button" role="tab" aria-selected={active === "overview"} className={active === "overview" ? "active" : ""} onClick={() => onChange("overview")}>销售总览</button>
+      <button type="button" role="tab" aria-selected={active === "channel"} className={active === "channel" ? "active" : ""} onClick={() => onChange("channel")}>渠道分析</button>
+      <button type="button" disabled title="该版块正在规划中">财报分析</button>
+      <button type="button" disabled title="该版块正在规划中">参数配置</button>
+    </div>
+  );
+}
+
+function ChannelAnalysisView({
+  channels,
+  platforms,
+  current,
+}: {
+  channels: SalesChannel[];
+  platforms: SalesChannel[];
+  current: SalesStats;
+}) {
+  const [dimension, setDimension] = useState<ChannelDimension>("channel");
+  const rows = useMemo(
+    () => [...(dimension === "channel" ? channels : platforms)].sort((a, b) => b.netSalesCents - a.netSalesCents),
+    [channels, dimension, platforms],
+  );
+
+  if (!rows.length) {
+    return (
+      <section className="panel data-state channel-empty-state">
+        <span className="state-symbol" aria-hidden="true">渠</span>
+        <strong>暂未识别到渠道数据</strong>
+        <p>当前销售明细已有成交记录，但渠道字段为空。请检查导入文件中的渠道或平台映射。</p>
+      </section>
+    );
+  }
+
+  const topChannel = rows[0];
+  const marginLeader = rows.reduce((best, item) => item.grossMarginRate > best.grossMarginRate ? item : best, rows[0]);
+  const refundLeader = rows.reduce((highest, item) => {
+    const itemRate = item.grossSalesCents === 0 ? 0 : item.refundAmountCents / item.grossSalesCents;
+    const highestRate = highest.grossSalesCents === 0 ? 0 : highest.refundAmountCents / highest.grossSalesCents;
+    return itemRate > highestRate ? item : highest;
+  }, rows[0]);
+  const topThreeShare = Math.min(1, Math.max(0, rows.slice(0, 3).reduce((sum, item) => sum + item.shareRate, 0)));
+  const concentrationLabel = topThreeShare >= .75 ? "集中度较高" : topThreeShare >= .5 ? "集中度适中" : "渠道较均衡";
+  const maxSales = Math.max(1, ...rows.map((item) => Math.max(0, item.netSalesCents)));
+  const dimensionLabel = dimension === "channel" ? "销售渠道" : "平台";
+  const refundLeaderRate = refundLeader.grossSalesCents === 0 ? 0 : refundLeader.refundAmountCents / refundLeader.grossSalesCents;
+
+  return (
+    <>
+      <section className="channel-analysis-toolbar" aria-label="渠道分析维度">
+        <div>
+          <span className="eyebrow">渠道经营诊断</span>
+          <h2>看清渠道贡献与经营质量</h2>
+          <p>从销售规模、利润质量和退货风险三个角度，识别核心渠道与改善机会。</p>
+        </div>
+        <div className="segmented" role="group" aria-label="渠道分析口径">
+          <button type="button" className={dimension === "channel" ? "active" : ""} aria-pressed={dimension === "channel"} onClick={() => setDimension("channel")}>销售渠道</button>
+          <button type="button" className={dimension === "platform" ? "active" : ""} aria-pressed={dimension === "platform"} onClick={() => setDimension("platform")}>平台汇总</button>
+        </div>
+      </section>
+
+      <section className="channel-kpi-grid">
+        <article className="channel-kpi-card">
+          <div><span>有效{dimensionLabel}</span><i className="channel-kpi-icon blue">渠</i></div>
+          <strong>{formatCount(rows.length)}<small> 个</small></strong>
+          <p>本周期产生销售净额的{dimensionLabel}</p>
+        </article>
+        <article className="channel-kpi-card">
+          <div><span>头部{dimensionLabel}</span><i className="channel-kpi-icon purple">冠</i></div>
+          <strong>{formatCurrencyFromCents(topChannel.netSalesCents)}</strong>
+          <p title={topChannel.name}>{topChannel.name || "未分类"} · 占比 {formatRate(topChannel.shareRate)}</p>
+        </article>
+        <article className="channel-kpi-card">
+          <div><span>Top 3 集中度</span><i className="channel-kpi-icon orange">集</i></div>
+          <strong>{formatRate(topThreeShare)}</strong>
+          <p>{concentrationLabel} · 按销售净额计算</p>
+        </article>
+        <article className="channel-kpi-card">
+          <div><span>毛利表现最佳</span><i className="channel-kpi-icon green">利</i></div>
+          <strong>{formatRate(marginLeader.grossMarginRate)}</strong>
+          <p title={marginLeader.name}>{marginLeader.name || "未分类"} · 综合 {formatRate(current.grossMarginRate)}</p>
+        </article>
+      </section>
+
+      <section className="channel-analysis-grid">
+        <article className="panel channel-ranking-panel">
+          <SectionHeader title={`${dimensionLabel}贡献排行`} note="销售净额、占比与毛利率综合查看" />
+          <div className="channel-ranking-list">
+            {rows.slice(0, 8).map((item, index) => (
+              <div className="channel-ranking-row" key={item.name}>
+                <span className={`channel-rank-number ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span>
+                <div className="channel-ranking-main">
+                  <div><strong title={item.name}>{item.name || "未分类"}</strong><small>{formatCurrencyFromCents(item.netSalesCents)} · {formatRate(item.shareRate)}</small></div>
+                  <span><i style={{ width: `${Math.max(2, Math.max(0, item.netSalesCents) / maxSales * 100)}%` }} /></span>
+                </div>
+                <div className="channel-ranking-margin"><small>毛利率</small><strong className={item.grossMarginRate < current.grossMarginRate ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</strong></div>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel channel-insight-panel">
+          <SectionHeader title="经营洞察" note="基于当前周期自动识别" />
+          <div className="channel-insight-list">
+            <article>
+              <span className="insight-badge blue">集中度</span>
+              <div><strong>{concentrationLabel}</strong><p>Top 3 {dimensionLabel}贡献 {formatRate(topThreeShare)} 的销售净额。</p></div>
+            </article>
+            <article>
+              <span className="insight-badge green">利润</span>
+              <div><strong title={marginLeader.name}>{marginLeader.name || "未分类"}</strong><p>毛利率 {formatRate(marginLeader.grossMarginRate)}，高于综合水平 {formatRate(marginLeader.grossMarginRate - current.grossMarginRate)}。</p></div>
+            </article>
+            <article>
+              <span className="insight-badge orange">退货</span>
+              <div><strong title={refundLeader.name}>{refundLeader.name || "未分类"}</strong><p>退货率 {formatRate(refundLeaderRate)}，为当前{dimensionLabel}中的最高值。</p></div>
+            </article>
+          </div>
+          <div className="channel-benchmark">
+            <div><span>综合毛利率</span><strong>{formatRate(current.grossMarginRate)}</strong></div>
+            <div><span>综合退货率</span><strong>{formatRate(current.refundRate)}</strong></div>
+            <div><span>订单总量</span><strong>{formatCount(current.orderCount)}</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section className="panel table-panel channel-detail-panel">
+        <div className="table-toolbar">
+          <div><h2>{dimensionLabel}经营明细</h2><p>按销售净额从高到低排列，数据随顶部统计周期同步更新</p></div>
+          <span className="soft-tag">共 {formatCount(rows.length)} 个{dimensionLabel}</span>
+        </div>
+        <div className="data-table-wrap">
+          <table className="data-table channel-data-table">
+            <thead><tr><th>排名</th><th>{dimensionLabel}</th><th>销售额（GMV）</th><th>销售净额</th><th>净额占比</th><th>订单毛利</th><th>毛利率</th><th>订单量</th><th>退货率</th><th>经营状态</th></tr></thead>
+            <tbody>{rows.map((item, index) => {
+              const refundRate = item.grossSalesCents === 0 ? 0 : item.refundAmountCents / item.grossSalesCents;
+              const needsAttention = item.grossMarginRate < current.grossMarginRate - .05 || refundRate > current.refundRate + .03;
+              const isCore = index < 3 && item.shareRate >= .1;
+              const statusText = needsAttention ? "需要关注" : isCore ? "核心渠道" : "经营稳健";
+              const statusTone = needsAttention ? "warning" : "success";
+              return <tr key={item.name}>
+                <td><span className={`table-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span></td>
+                <td><div className="channel-name-cell"><span>{(item.name || "未").slice(0, 1)}</span><strong title={item.name}>{item.name || "未分类"}</strong></div></td>
+                <td>{formatCurrencyFromCents(item.grossSalesCents)}</td>
+                <td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td>
+                <td><div className="share-cell"><strong>{formatRate(item.shareRate)}</strong><span><i style={{ width: `${Math.max(0, Math.min(100, rateAsPercent(item.shareRate)))}%` }} /></span></div></td>
+                <td>{formatCurrencyFromCents(item.grossProfitCents)}</td>
+                <td className={item.grossMarginRate < current.grossMarginRate ? "orange-text" : "green-text"}><strong>{formatRate(item.grossMarginRate)}</strong></td>
+                <td>{formatCount(item.orderCount)}</td>
+                <td className={refundRate > current.refundRate ? "orange-text" : ""}>{formatRate(refundRate)}</td>
+                <td><span className={`status status-${statusTone}`}><Dot tone={statusTone === "warning" ? "orange" : "green"} />{statusText}</span></td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+}
+
 function SalesView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
   const apiRange = salesRangeMap[range];
+  const [activeTab, setActiveTab] = useState<SalesTab>("overview");
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -401,8 +571,8 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
           cache: "no-store",
           signal: controller.signal,
         });
-        const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string }) | null;
-        if (!response.ok) throw new Error(payload?.message || `销售汇总读取失败（${response.status}）`);
+        const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string; error?: string }) | null;
+        if (!response.ok) throw new Error(payload?.message || payload?.error || `销售汇总读取失败（${response.status}）`);
         if (!payload?.current || !Array.isArray(payload.channels)) throw new Error("销售汇总响应格式不完整");
         setSummary(payload);
       } catch (requestError) {
@@ -421,6 +591,8 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   const previous = summary?.previous;
   const yearAgo = summary?.yearAgo;
   const channels = useMemo(() => summary?.channels ?? [], [summary?.channels]);
+  const salesChannels = summary?.shops?.length ? summary.shops : channels;
+  const platforms = summary?.platforms?.length ? summary.platforms : channels;
   const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.grossSalesCents !== 0 || current.netSalesCents !== 0));
   const donutBackground = useMemo(() => {
     if (!channels.length) return "#eef1f5";
@@ -433,35 +605,36 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     if (cursor < 100) stops.push(`#eef1f5 ${cursor}% 100%`);
     return `conic-gradient(${stops.join(",")})`;
   }, [channels]);
+  const salesSubnav = <SalesSubnav active={activeTab} onChange={setActiveTab} />;
 
   if (loading) {
     return (
-      <section className="panel data-state sales-data-state" role="status" aria-live="polite">
-        <span className="state-spinner" aria-hidden="true" />
-        <strong>正在读取{range}销售数据</strong>
-        <p>正在汇总销售额、毛利与渠道构成…</p>
-      </section>
+      <>{salesSubnav}<section className="panel data-state sales-data-state" role="status" aria-live="polite">
+          <span className="state-spinner" aria-hidden="true" />
+          <strong>正在读取{range}销售数据</strong>
+          <p>正在汇总销售额、毛利与渠道构成…</p>
+        </section></>
     );
   }
 
   if (error) {
     return (
-      <section className="panel data-state sales-data-state data-state-error" role="alert">
-        <span className="state-symbol" aria-hidden="true">!</span>
-        <strong>销售数据加载失败</strong>
-        <p>{error}</p>
-        <button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button>
-      </section>
+      <>{salesSubnav}<section className="panel data-state sales-data-state data-state-error" role="alert">
+          <span className="state-symbol" aria-hidden="true">!</span>
+          <strong>销售数据加载失败</strong>
+          <p>{error}</p>
+          <button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button>
+        </section></>
     );
   }
 
   if (!hasData || !current) {
     return (
-      <section className="panel data-state sales-data-state">
-        <span className="state-symbol" aria-hidden="true">∅</span>
-        <strong>{range}暂无销售数据</strong>
-        <p>请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。</p>
-      </section>
+      <>{salesSubnav}<section className="panel data-state sales-data-state">
+          <span className="state-symbol" aria-hidden="true">∅</span>
+          <strong>{range}暂无销售数据</strong>
+          <p>请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。</p>
+        </section></>
     );
   }
 
@@ -471,40 +644,44 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
 
   return (
     <>
-      <div className="subnav"><button className="active">销售总览</button><button>渠道分析</button><button>财报分析</button><button>参数配置</button></div>
+      {salesSubnav}
       <div className="sales-period-note">
         <span><Dot tone="green" />已加载真实明细</span>
         <strong>{rangeNote}</strong>
         {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
-      <section className="metrics-grid sales-metrics-grid">
-        <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint={comparisonHint(current.grossSalesCents, previous?.grossSalesCents, yearAgo?.grossSalesCents)} tone="blue" />
-        <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="green" />
-        <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="purple" />
-        <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={comparisonHint(current.refundAmountCents, previous?.refundAmountCents, yearAgo?.refundAmountCents)} tone="orange" />
-        <MetricCard label="净销量" value={formatCount(current.netQuantity)} change={formatChange(current.netQuantity, previous?.netQuantity)} hint={comparisonHint(current.netQuantity, previous?.netQuantity, yearAgo?.netQuantity)} tone="blue" />
-        <MetricCard label="客单价" value={formatCurrencyFromCents(current.averageOrderValueCents)} change={formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents)} hint={comparisonHint(current.averageOrderValueCents, previous?.averageOrderValueCents, yearAgo?.averageOrderValueCents)} tone="purple" />
-        <MetricCard label="退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" />
-        <MetricCard label="大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="green" />
-      </section>
-      <section className="split-panels">
-        <article className="panel">
-          <SectionHeader title="渠道销售构成" note="按销售净额统计渠道占比" />
-          <div className="channel-chart">
-            <div className="donut" style={{ background: donutBackground }}><div><strong>{(current.netSalesCents / 1000000).toFixed(1)}</strong><small>万元净额</small></div></div>
-            <div className="channel-list">{channels.map((item, index) => <div key={item.name}><span><Dot tone={channelTones[index % channelTones.length]} />{item.name || "未分类"}</span><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong><em>{formatRate(item.shareRate)}</em></div>)}</div>
-          </div>
-        </article>
-        <article className="panel">
-          <SectionHeader title="渠道毛利表现" note={`综合毛利率 ${formatRate(current.grossMarginRate)}`} />
-          <div className="progress-list">{channels.map((item, index) => {
-            const margin = Math.max(0, Math.min(rateAsPercent(item.grossMarginRate), 100));
-            const tone = channelTones[index % channelTones.length];
-            return <div key={item.name}><div><span>{item.name || "未分类"}<small>{formatCount(item.orderCount)} 单 · {formatCount(item.lineCount)} 行</small></span><strong>{formatRate(item.grossMarginRate)}</strong></div><span className="progress-track"><i className={`bg-${tone}`} style={{ width: `${margin}%` }} /></span></div>;
-          })}</div>
-          <div className="insight-card"><span>数据口径</span><p>渠道构成、毛利率与订单行数均来自当前统计周期内已成功导入的吉客云销售明细。</p></div>
-        </article>
-      </section>
+      {activeTab === "channel" ? (
+        <ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} />
+      ) : <>
+        <section className="metrics-grid sales-metrics-grid">
+          <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint={comparisonHint(current.grossSalesCents, previous?.grossSalesCents, yearAgo?.grossSalesCents)} tone="blue" />
+          <MetricCard label="销售净额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="green" />
+          <MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="purple" />
+          <MetricCard label="退货金额" value={formatCurrencyFromCents(current.refundAmountCents)} change={formatChange(current.refundAmountCents, previous?.refundAmountCents)} hint={comparisonHint(current.refundAmountCents, previous?.refundAmountCents, yearAgo?.refundAmountCents)} tone="orange" />
+          <MetricCard label="净销量" value={formatCount(current.netQuantity)} change={formatChange(current.netQuantity, previous?.netQuantity)} hint={comparisonHint(current.netQuantity, previous?.netQuantity, yearAgo?.netQuantity)} tone="blue" />
+          <MetricCard label="客单价" value={formatCurrencyFromCents(current.averageOrderValueCents)} change={formatChange(current.averageOrderValueCents, previous?.averageOrderValueCents)} hint={comparisonHint(current.averageOrderValueCents, previous?.averageOrderValueCents, yearAgo?.averageOrderValueCents)} tone="purple" />
+          <MetricCard label="退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" />
+          <MetricCard label="大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="green" />
+        </section>
+        <section className="split-panels">
+          <article className="panel">
+            <SectionHeader title="渠道销售构成" note="按销售净额统计渠道占比" />
+            <div className="channel-chart">
+              <div className="donut" style={{ background: donutBackground }}><div><strong>{(current.netSalesCents / 1000000).toFixed(1)}</strong><small>万元净额</small></div></div>
+              <div className="channel-list">{channels.map((item, index) => <div key={item.name}><span><Dot tone={channelTones[index % channelTones.length]} />{item.name || "未分类"}</span><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong><em>{formatRate(item.shareRate)}</em></div>)}</div>
+            </div>
+          </article>
+          <article className="panel">
+            <SectionHeader title="渠道毛利表现" note={`综合毛利率 ${formatRate(current.grossMarginRate)}`} />
+            <div className="progress-list">{channels.map((item, index) => {
+              const margin = Math.max(0, Math.min(rateAsPercent(item.grossMarginRate), 100));
+              const tone = channelTones[index % channelTones.length];
+              return <div key={item.name}><div><span>{item.name || "未分类"}<small>{formatCount(item.orderCount)} 单 · {formatCount(item.lineCount)} 行</small></span><strong>{formatRate(item.grossMarginRate)}</strong></div><span className="progress-track"><i className={`bg-${tone}`} style={{ width: `${margin}%` }} /></span></div>;
+            })}</div>
+            <div className="insight-card"><span>数据口径</span><p>渠道构成、毛利率与订单行数均来自当前统计周期内已成功导入的吉客云销售明细。</p></div>
+          </article>
+        </section>
+      </>}
     </>
   );
 }

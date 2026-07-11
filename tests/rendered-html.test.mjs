@@ -18,6 +18,8 @@ test("build emits the operations console", async () => {
   assert.match(server, /api\/sales\/summary/);
   assert.match(page, /TERUISI/);
   assert.match(page, /销售分析/);
+  assert.match(page, /渠道经营诊断/);
+  assert.match(page, /channel-detail-panel/);
   assert.match(page, /数据导入/);
   assert.doesNotMatch(page, /codex-preview|Your site is taking shape/i);
 });
@@ -39,6 +41,9 @@ test("wires the sales import and analytics capabilities", async () => {
 
   assert.match(page, /\/api\/imports\/sales/);
   assert.match(page, /\/api\/sales\/summary/);
+  assert.match(page, /setActiveTab/);
+  assert.match(page, /平台汇总/);
+  assert.match(page, /summary\?\.shops/);
   assert.match(page, /type="file"/);
   assert.match(layout, /generateMetadata/);
   assert.match(layout, /\/og\.png/);
