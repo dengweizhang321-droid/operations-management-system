@@ -20,6 +20,8 @@ test("build emits the operations console", async () => {
   assert.match(server, /api\/imports\/inventory\/chunks/);
   assert.match(server, /api\/inventory\/overview/);
   assert.match(server, /api\/inventory\/replenishment/);
+  assert.match(server, /api\/products\/summary/);
+  assert.match(server, /api\/auth\/me/);
   assert.match(page, /TERUISI/);
   assert.match(page, /销售分析/);
   assert.match(page, /渠道经营诊断/);
@@ -116,4 +118,60 @@ test("wires inventory health, synchronization, and replenishment", async () => {
   assert.match(uploadMigration, /CREATE TABLE `inventory_import_uploads`/);
   assert.match(completionMigration, /inventory_import_upload_results/);
   assert.match(completionMigration, /replenishment_plan_items_draft_key_uq/);
+});
+
+test("wires product profitability to synchronized sales and inventory facts", async () => {
+  const [page, route, summary] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/products/summary/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /\/api\/products\/summary/);
+  assert.match(page, /毛利测算/);
+  assert.match(page, /销售数据截止/);
+  assert.doesNotMatch(page, /TRS-SM-1182/);
+  assert.match(route, /getProductSummary/);
+  assert.match(summary, /sales_order_lines/);
+  assert.match(summary, /inventory_stock_lines/);
+  assert.match(summary, /gross_profit_cents/);
+});
+
+test("enforces authenticated administrator access across operational APIs", async () => {
+  const routeUrls = [
+    "../app/api/imports/sales/route.ts",
+    "../app/api/imports/sales/chunks/route.ts",
+    "../app/api/imports/inventory/route.ts",
+    "../app/api/imports/inventory/chunks/route.ts",
+    "../app/api/sales/summary/route.ts",
+    "../app/api/inventory/overview/route.ts",
+    "../app/api/inventory/replenishment/route.ts",
+    "../app/api/products/summary/route.ts",
+  ];
+  const [page, schema, authorization, authRoute, migration, ...protectedRoutes] =
+    await Promise.all([
+      readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/auth/authorization.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/api/auth/me/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../drizzle/0005_slow_tyrannus.sql", import.meta.url), "utf8"),
+      ...routeUrls.map((url) => readFile(new URL(url, import.meta.url), "utf8")),
+    ]);
+
+  assert.match(page, /\/api\/auth\/me/);
+  assert.match(page, /signin-with-chatgpt/);
+  assert.doesNotMatch(page, /林晓 · 管理员/);
+  assert.match(schema, /app_users/);
+  assert.match(schema, /ai_tool_audit_logs/);
+  assert.match(authorization, /dengweizhang321@gmail\.com/);
+  assert.match(authorization, /getChatGPTUser/);
+  assert.match(authorization, /WHERE email = \? COLLATE NOCASE/);
+  assert.match(authRoute, /requireAppPrincipal/);
+  assert.match(migration, /INSERT INTO `app_users`/);
+  assert.match(migration, /dengweizhang321@gmail\.com/);
+
+  for (const route of protectedRoutes) {
+    assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
+    assert.match(route, /authorizationErrorResponse/);
+  }
 });

@@ -9,6 +9,10 @@ import {
   releaseInventoryUpload,
 } from "@/lib/inventory/chunked-upload";
 import { importInventoryStockBytes } from "@/lib/inventory/import-service";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+} from "@/lib/auth/authorization";
 
 function reject(status: number, message: string, extra: Record<string, unknown> = {}) {
   return Response.json({ ok: false, status: "rejected", message, ...extra }, { status });
@@ -21,6 +25,7 @@ function headerNumber(request: Request, name: string) {
 
 export async function POST(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "请求内容无效");
     if (body.action === "init") {
@@ -62,6 +67,8 @@ export async function POST(request: Request) {
     }
     return reject(400, "未知的分片上传操作");
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "库存分片上传初始化或合并失败";
     return reject(500, message);
   }
@@ -69,6 +76,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const uploadId = request.headers.get("x-upload-id") ?? "";
     const chunkIndex = headerNumber(request, "x-chunk-index");
     if (!uploadId || !Number.isSafeInteger(chunkIndex)) return reject(400, "缺少有效的分片上传标识");
@@ -79,6 +87,8 @@ export async function PUT(request: Request) {
     const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
     return Response.json({ ok: true, status: "uploading", upload });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "库存分片上传失败";
     return reject(422, message);
   }

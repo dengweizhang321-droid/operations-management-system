@@ -9,6 +9,10 @@ import {
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
 import { ensureSalesSchema } from "@/lib/sales/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+} from "@/lib/auth/authorization";
 
 function errorResponse(status: number, message: string) {
   return Response.json({ ok: false, message }, { status });
@@ -22,9 +26,12 @@ async function readyDatabase() {
 
 export async function GET() {
   try {
+    await requireAppPrincipal(["admin"]);
     const db = await readyDatabase();
     return Response.json({ items: await listReplenishmentPlans(db) }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取备货计划失败";
     return Response.json({ error: message }, { status: 500 });
   }
@@ -32,6 +39,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as {
       key?: unknown;
       plannedQuantity?: unknown;
@@ -70,6 +78,8 @@ export async function POST(request: Request) {
     });
     return Response.json({ ok: true, item: plan }, { status: 201 });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "创建备货计划失败";
     return Response.json({ ok: false, message }, { status: 500 });
   }
@@ -77,6 +87,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as {
       id?: unknown;
       status?: unknown;
@@ -104,6 +115,8 @@ export async function PATCH(request: Request) {
     if (!plan) return errorResponse(404, "备货计划不存在");
     return Response.json({ ok: true, item: plan });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "更新备货计划失败";
     return Response.json({ ok: false, message }, { status: error instanceof ReplenishmentPlanTransitionError ? 409 : 500 });
   }

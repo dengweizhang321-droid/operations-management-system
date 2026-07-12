@@ -4,6 +4,10 @@ import {
   getSalesDatabase,
   type SalesDatabase,
 } from "@/lib/sales/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+} from "@/lib/auth/authorization";
 
 const ranges = ["today", "last7", "month", "quarter", "custom", "all"] as const;
 type SalesRange = (typeof ranges)[number];
@@ -217,6 +221,7 @@ async function groupedMetrics(
 
 export async function GET(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const searchParams = new URL(request.url).searchParams;
     const requested = searchParams.get("range") ?? "month";
     if (!ranges.includes(requested as SalesRange)) {
@@ -294,6 +299,8 @@ export async function GET(request: Request) {
       latestBatch,
     });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取销售汇总失败";
     return Response.json({ error: message }, { status: error instanceof SalesSummaryRequestError ? 400 : 500 });
   }

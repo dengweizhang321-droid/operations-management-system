@@ -7,6 +7,10 @@ import {
   getSalesDatabase,
   listSalesImportBatches,
 } from "@/lib/sales/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+} from "@/lib/auth/authorization";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -16,12 +20,15 @@ function errorResponse(status: number, message: string, details: Record<string, 
 
 export async function GET(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const db = getSalesDatabase();
     await ensureSalesSchema(db);
     const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
     const items = await listSalesImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取销售导入历史失败";
     return Response.json({ error: message }, { status: 500 });
   }
@@ -30,6 +37,7 @@ export async function GET(request: Request) {
 /** Small reports keep the original single-request import path. Larger files use /chunks. */
 export async function POST(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传 .xlsx 文件");
@@ -57,6 +65,8 @@ export async function POST(request: Request) {
       headers: { "x-import-content-type": XLSX_CONTENT_TYPE },
     });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "销售数据导入失败";
     return Response.json({ ok: false, status: "rejected", message }, { status: 500 });
   }

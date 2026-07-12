@@ -4,6 +4,10 @@ import {
   getInventoryDatabase,
   listInventoryImportBatches,
 } from "@/lib/inventory/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+} from "@/lib/auth/authorization";
 
 const MAX_DIRECT_INVENTORY_FILE_BYTES = 1024 * 1024;
 
@@ -13,12 +17,15 @@ function errorResponse(status: number, message: string, details: Record<string, 
 
 export async function GET(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const db = getInventoryDatabase();
     await ensureInventorySchema(db);
     const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
     const items = await listInventoryImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取库存同步历史失败";
     return Response.json({ error: message }, { status: 500 });
   }
@@ -26,6 +33,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传 .xlsx 文件");
@@ -52,6 +60,8 @@ export async function POST(request: Request) {
       status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422,
     });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "库存数据同步失败";
     return Response.json({ ok: false, status: "rejected", message }, { status: 500 });
   }

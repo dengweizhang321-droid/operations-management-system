@@ -20,6 +20,23 @@ type NavItem = {
   badge?: string;
 };
 
+type CurrentUser = {
+  email: string;
+  displayName: string;
+  role: "viewer" | "analyst" | "operator" | "admin";
+  roleLabel: string;
+};
+
+type IdentityState =
+  | { status: "loading" }
+  | { status: "authenticated"; user: CurrentUser }
+  | { status: "denied" | "error"; message: string };
+
+type IdentityGateState = Exclude<IdentityState, { status: "authenticated" }>;
+type IdentityLookupResult =
+  | Exclude<IdentityState, { status: "loading" }>
+  | { status: "signin" };
+
 type SalesRangeLabel = "今日" | "近7天" | "本月" | "本季度" | "自定义";
 type SalesRange = "today" | "last7" | "month" | "quarter" | "custom";
 
@@ -67,6 +84,45 @@ type SalesSummaryResponse = {
     fileName: string;
     completedAt?: string | null;
   } | null;
+};
+
+type ProductSummaryItem = {
+  productCode: string;
+  productName: string;
+  specification: string;
+  category: string;
+  netQuantity: number;
+  grossSalesCents: number;
+  netSalesCents: number;
+  costCents: number;
+  feeCents: number;
+  grossProfitCents: number;
+  grossMarginRate: number | null;
+  averageSalePriceCents: number | null;
+  averageCostCents: number | null;
+  observedFeeRate: number | null;
+  availableQuantity: number | null;
+  stockValueCents: number | null;
+};
+
+type ProductSummaryResponse = {
+  hasSales: boolean;
+  sync: {
+    salesThrough: string | null;
+    salesWindowStart: string | null;
+    inventoryAsOf: string | null;
+    latestSalesFile: string | null;
+  };
+  metrics: {
+    skuCount: number;
+    grossSalesCents: number;
+    netSalesCents: number;
+    grossProfitCents: number;
+    grossMarginRate: number | null;
+    lossSkuCount: number;
+    stockedSkuCount: number;
+  };
+  items: ProductSummaryItem[];
 };
 
 type InventoryHealthStatus = "urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales";
@@ -326,14 +382,6 @@ const shopRows = [
   { name: "天猫官方旗舰店", platform: "天猫", sales: 1086300, orders: 6917, rate: "22.4%", trend: 9.7 },
   { name: "京东 POP 旗舰店", platform: "京东 POP", sales: 734600, orders: 4258, rate: "19.6%", trend: 6.1 },
   { name: "京东专营店", platform: "京东 POP", sales: 426800, orders: 2671, rate: "18.9%", trend: -2.4 },
-];
-
-const products = [
-  { sku: "TRS-SM-1182", name: "净透焕亮精华液 30ml", category: "面部精华", price: 269, cost: 76.4, margin: "48.6%", sales: 684200 },
-  { sku: "TRS-CM-2407", name: "云感轻柔乳霜 50g", category: "面霜", price: 239, cost: 68.2, margin: "46.1%", sales: 521600 },
-  { sku: "TRS-MK-0316", name: "深润修护面膜 10片", category: "面膜", price: 159, cost: 42.8, margin: "43.7%", sales: 446300 },
-  { sku: "TRS-CL-0928", name: "氨基酸洁面慕斯 150ml", category: "洁面", price: 129, cost: 31.6, margin: "41.9%", sales: 318900 },
-  { sku: "TRS-ES-2011", name: "塑颜紧致眼霜 20g", category: "眼部护理", price: 299, cost: 88.5, margin: "45.3%", sales: 287400 },
 ];
 
 function Dot({ tone = "blue" }: { tone?: string }) {
@@ -1177,19 +1225,136 @@ function InventoryView() {
   );
 }
 
+type ProductTab = "overview" | "calculator";
+type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
+
 function ProductView() {
+  const [activeTab, setActiveTab] = useState<ProductTab>("overview");
+  const [days, setDays] = useState(30);
+  const [summary, setSummary] = useState<ProductSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
   const [query, setQuery] = useState("");
-  const filtered = useMemo(() => products.filter((p) => `${p.name}${p.sku}${p.category}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  const [category, setCategory] = useState("全部品类");
+  const [marginFilter, setMarginFilter] = useState("全部毛利");
+  const [sortBy, setSortBy] = useState("sales");
+  const [selectedCode, setSelectedCode] = useState("");
+  const [calculatorOverrides, setCalculatorOverrides] = useState<Record<string, ProductCalculatorInput>>({});
+
+  const loadSummary = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/products/summary?days=${days}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as (ProductSummaryResponse & { error?: string }) | null;
+      if (!response.ok || !payload || !payload.metrics || !Array.isArray(payload.items)) {
+        throw new Error(payload?.error || `商品数据读取失败（${response.status}）`);
+      }
+      setSummary(payload);
+      setSelectedCode((current) => current || payload.items[0]?.productCode || "");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "暂时无法读取商品数据");
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadSummary(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadSummary, retryKey]);
+
+  const selectedProduct = useMemo(
+    () => summary?.items.find((item) => item.productCode === selectedCode) ?? null,
+    [selectedCode, summary?.items],
+  );
+
+  const calculator = useMemo<ProductCalculatorInput>(() => {
+    if (!selectedProduct) return { salePrice: 0, unitCost: 0, feeRate: 0, promotionCost: 0 };
+    return calculatorOverrides[selectedProduct.productCode] ?? {
+      salePrice: Number(((selectedProduct.averageSalePriceCents ?? 0) / 100).toFixed(2)),
+      unitCost: Number(((selectedProduct.averageCostCents ?? 0) / 100).toFixed(2)),
+      feeRate: Number(((selectedProduct.observedFeeRate ?? 0) * 100).toFixed(2)),
+      promotionCost: 0,
+    };
+  }, [calculatorOverrides, selectedProduct]);
+
+  const categories = useMemo(
+    () => [...new Set((summary?.items ?? []).map((item) => item.category))].sort((left, right) => left.localeCompare(right, "zh-CN")),
+    [summary?.items],
+  );
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    const items = (summary?.items ?? []).filter((item) => {
+      const matchesKeyword = !keyword || `${item.productCode}${item.productName}${item.specification}${item.category}`.toLowerCase().includes(keyword);
+      const matchesCategory = category === "全部品类" || item.category === category;
+      const matchesMargin = marginFilter === "全部毛利"
+        || (marginFilter === "盈利" && item.grossProfitCents >= 0)
+        || (marginFilter === "亏损" && item.grossProfitCents < 0)
+        || (marginFilter === "低毛利" && item.grossMarginRate !== null && item.grossMarginRate >= 0 && item.grossMarginRate < 0.2);
+      return matchesKeyword && matchesCategory && matchesMargin;
+    });
+    return items.sort((left, right) => {
+      if (sortBy === "margin") return (right.grossMarginRate ?? -Infinity) - (left.grossMarginRate ?? -Infinity);
+      if (sortBy === "profit") return right.grossProfitCents - left.grossProfitCents;
+      if (sortBy === "stock") return (right.availableQuantity ?? -1) - (left.availableQuantity ?? -1);
+      return right.netSalesCents - left.netSalesCents;
+    });
+  }, [category, marginFilter, query, sortBy, summary?.items]);
+
+  const estimatedFee = calculator.salePrice * calculator.feeRate / 100;
+  const estimatedProfit = calculator.salePrice - calculator.unitCost - estimatedFee - calculator.promotionCost;
+  const estimatedMargin = calculator.salePrice > 0 ? estimatedProfit / calculator.salePrice : null;
+  const updateCalculator = (field: keyof ProductCalculatorInput, value: number) => {
+    if (!selectedProduct) return;
+    setCalculatorOverrides((current) => ({
+      ...current,
+      [selectedProduct.productCode]: { ...calculator, [field]: Math.max(0, Number.isFinite(value) ? value : 0) },
+    }));
+  };
+  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator"} className={activeTab === "calculator" ? "active" : ""} onClick={() => setActiveTab("calculator")}>毛利测算</button></div>;
+
+  if (loading && !summary) {
+    return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步商品与毛利数据</strong><p>正在汇总已导入销售明细与最新库存快照…</p></section></>;
+  }
+  if (!summary) {
+    return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>商品数据加载失败</strong><p>{error || "暂时无法读取商品与毛利数据"}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section></>;
+  }
+  if (!summary.hasSales) {
+    return <>{subnav}<section className="panel data-state inventory-empty-state"><span className="state-symbol">品</span><strong>还没有可用于毛利测算的销售明细</strong><p>请先在“数据导入”同步销售单明细账。商品价格、成本、费用和实际毛利会随销售数据同步更新。</p></section></>;
+  }
+
   return (
     <>
-      <div className="subnav"><button className="active">货品查询</button><button>毛利测算</button><button>参数查询</button><button>参数配置</button></div>
-      <section className="product-search-hero"><div><span className="eyebrow">统一商品中心</span><h2>快速查询货品经营信息</h2><p>整合销售、成本、库存与平台商品映射，一处查看完整数据。</p></div><div className="hero-search">⌕<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="输入货品编号、名称或品类" /><button>查询</button></div></section>
-      <section className="panel table-panel">
-        <div className="table-toolbar"><div><h2>货品列表</h2><p>共收录 286 个有效货品</p></div><button className="secondary-button">批量导出</button></div>
-        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>货品信息</th><th>品类</th><th>建议零售价</th><th>最新成本</th><th>实际毛利率</th><th>近30日销售额</th><th></th></tr></thead><tbody>
-          {filtered.map((row) => <tr key={row.sku}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{row.name[0]}</span><span><strong>{row.name}</strong><small>{row.sku}</small></span></div></td><td><span className="soft-tag">{row.category}</span></td><td>¥ {row.price}</td><td>¥ {row.cost}</td><td className="green-text"><strong>{row.margin}</strong></td><td><strong>{formatCurrency(row.sales)}</strong></td><td><button className="row-action">查看详情</button></td></tr>)}
-        </tbody></table></div>
-      </section>
+      {subnav}
+      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>销售数据截止 {summary.sync.salesThrough} · 库存快照 {summary.sync.inventoryAsOf ?? "未同步"}</p></div><div className="product-hero-actions"><div className="product-window-toggle" role="group" aria-label="商品统计周期"><button className={days === 30 ? "active" : ""} onClick={() => setDays(30)}>近30日</button><button className={days === 90 ? "active" : ""} onClick={() => setDays(90)}>近90日</button></div><button className="secondary-button product-refresh" onClick={() => void loadSummary()} disabled={loading}>{loading ? "同步中…" : "↻ 同步数据"}</button></div></section>
+
+      {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}
+
+      {activeTab === "overview" ? <>
+        <section className="inventory-kpi-grid product-kpi-grid">
+          <InventoryKpiCard label="活跃商品" value={`${formatCount(summary.metrics.skuCount)} 个`} note={`已覆盖 ${formatCount(summary.metrics.stockedSkuCount)} 个有库存商品`} tone="blue" icon="品" />
+          <InventoryKpiCard label="商品销售净额" value={formatCurrencyFromCents(summary.metrics.netSalesCents)} note={`近 ${days} 日已扣除退货`} tone="purple" icon="销" />
+          <InventoryKpiCard label="实际订单毛利" value={formatCurrencyFromCents(summary.metrics.grossProfitCents)} note={`综合毛利率 ${summary.metrics.grossMarginRate === null ? "—" : formatRate(summary.metrics.grossMarginRate)}`} tone="green" icon="利" />
+          <InventoryKpiCard label="亏损商品" value={`${formatCount(summary.metrics.lossSkuCount)} 个`} note="按销售净额与订单毛利识别" tone="orange" icon="警" />
+        </section>
+
+        <section className="panel product-filter-panel">
+          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>销售单价、成本、费用与毛利均由已导入订单明细聚合，不使用演示数据。</p></div><span className="soft-tag">显示 {formatCount(Math.min(filtered.length, 300))} / {formatCount(filtered.length)}</span></div>
+          <div className="filter-row product-filter-row"><div className="search-box compact">⌕ <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索货品编号、名称、规格或品类" /></div><select className="filter-select" value={category} onChange={(event) => setCategory(event.target.value)} aria-label="商品品类"><option>全部品类</option>{categories.map((item) => <option key={item}>{item}</option>)}</select><select className="filter-select" value={marginFilter} onChange={(event) => setMarginFilter(event.target.value)} aria-label="毛利状态"><option>全部毛利</option><option>盈利</option><option>低毛利</option><option>亏损</option></select><select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="排序方式"><option value="sales">按销售净额</option><option value="profit">按订单毛利</option><option value="margin">按毛利率</option><option value="stock">按可用库存</option></select></div>
+          <div className="data-table-wrap"><table className="data-table product-live-table"><thead><tr><th>货品</th><th>品类</th><th>近{days}日销量</th><th>销售净额</th><th>均价 / 均成本</th><th>费用</th><th>订单毛利</th><th>实际毛利率</th><th>可用库存</th><th>操作</th></tr></thead><tbody>
+            {filtered.slice(0, 300).map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td>{formatCurrencyFromCents(item.feeCents)}</td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.2 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td>{item.availableQuantity === null ? "未同步" : formatCount(item.availableQuantity)}</td><td><button className="row-action" onClick={() => { setSelectedCode(item.productCode); setActiveTab("calculator"); }}>测算</button></td></tr>; })}
+            {filtered.length === 0 && <tr><td colSpan={10}><div className="table-state">没有符合当前筛选条件的商品。</div></td></tr>}
+          </tbody></table></div>
+        </section>
+      </> : <>
+        <section className="product-calculator-grid">
+          <article className="panel calculator-input-panel"><SectionHeader title="毛利测算" note="默认带入所选商品近期开单均价、成本与费用率，可按活动方案调整" /><div className="calculator-fields"><label><span>选择商品</span><select value={selectedCode} onChange={(event) => setSelectedCode(event.target.value)} aria-label="选择用于测算的商品">{summary.items.map((item) => <option value={item.productCode} key={item.productCode}>{item.productName} · {item.productCode}</option>)}</select></label><label><span>预计成交价（元）</span><input type="number" min={0} step="0.01" value={calculator.salePrice} onChange={(event) => updateCalculator("salePrice", Number(event.target.value))} /></label><label><span>单位成本（元）</span><input type="number" min={0} step="0.01" value={calculator.unitCost} onChange={(event) => updateCalculator("unitCost", Number(event.target.value))} /></label><label><span>平台综合费率（%）</span><input type="number" min={0} step="0.01" value={calculator.feeRate} onChange={(event) => updateCalculator("feeRate", Number(event.target.value))} /></label><label><span>单件促销/履约成本（元）</span><input type="number" min={0} step="0.01" value={calculator.promotionCost} onChange={(event) => updateCalculator("promotionCost", Number(event.target.value))} /></label></div><div className="calculator-source"><Dot tone="blue" /><span>{selectedProduct ? `${selectedProduct.productName} · 最近实际毛利率 ${selectedProduct.grossMarginRate === null ? "—" : formatRate(selectedProduct.grossMarginRate)}` : "请选择商品"}</span></div></article>
+          <article className="panel calculator-result-panel"><SectionHeader title="预计单件收益" note="成交价 − 单位成本 − 平台费 − 促销/履约成本" /><div className="calculator-result"><div><span>预计单件毛利</span><strong className={estimatedProfit < 0 ? "red-text" : "green-text"}>{formatCurrency(estimatedProfit)}</strong></div><div><span>预计毛利率</span><strong className={estimatedMargin === null ? "" : estimatedMargin < 0 ? "red-text" : "green-text"}>{estimatedMargin === null ? "—" : formatRate(estimatedMargin)}</strong></div><div><span>预计平台费用</span><strong>{formatCurrency(estimatedFee)}</strong></div></div><div className={`calculator-decision ${estimatedMargin !== null && estimatedMargin < 0 ? "danger" : estimatedMargin !== null && estimatedMargin < 0.2 ? "warning" : "success"}`}><strong>{estimatedMargin === null ? "请输入成交价" : estimatedMargin < 0 ? "该方案预计亏损" : estimatedMargin < 0.2 ? "该方案毛利偏低" : "该方案毛利健康"}</strong><p>{estimatedMargin === null ? "成交价大于 0 后即可得到测算结果。" : `每售出 1 件，预计保留 ${formatCurrency(estimatedProfit)} 毛利。`}</p></div></article>
+        </section>
+        <section className="panel product-reference-panel"><SectionHeader title="实际经营参考" note="用于对照测算方案与近期真实订单表现" /><div className="product-reference-grid"><div><span>近{days}日销售净额</span><strong>{selectedProduct ? formatCurrencyFromCents(selectedProduct.netSalesCents) : "—"}</strong></div><div><span>近{days}日订单毛利</span><strong className={selectedProduct && selectedProduct.grossProfitCents < 0 ? "red-text" : "green-text"}>{selectedProduct ? formatCurrencyFromCents(selectedProduct.grossProfitCents) : "—"}</strong></div><div><span>实际平台费用率</span><strong>{selectedProduct?.observedFeeRate === null || !selectedProduct ? "—" : formatRate(selectedProduct.observedFeeRate)}</strong></div><div><span>当前可用库存</span><strong>{selectedProduct?.availableQuantity === null || !selectedProduct ? "未同步" : `${formatCount(selectedProduct.availableQuantity)} 件`}</strong></div></div></section>
+      </>}
     </>
   );
 }
@@ -1484,7 +1649,54 @@ const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDa
   settings: SettingsView,
 };
 
+function IdentityGate({ state, onRetry }: { state: IdentityGateState; onRetry: () => void }) {
+  const isLoading = state.status === "loading";
+  const isDenied = state.status === "denied";
+  const message = "message" in state ? state.message : "正在安全连接 TERUISI 运营管理系统…";
+  return (
+    <main className="identity-gate">
+      <section className="identity-card" role={isLoading ? "status" : "alert"}>
+        <div className="brand-mark identity-brand"><span>T</span></div>
+        <span className={`identity-symbol ${isLoading ? "identity-spinner" : ""}`}>
+          {isLoading ? "" : isDenied ? "!" : "×"}
+        </span>
+        <h1>{isLoading ? "正在验证登录身份" : isDenied ? "账号尚未获得访问权限" : "身份验证暂时失败"}</h1>
+        <p>{message}</p>
+        {!isLoading && <button className="primary-button" onClick={onRetry}>重新验证</button>}
+      </section>
+    </main>
+  );
+}
+
+async function fetchCurrentIdentity(signal?: AbortSignal): Promise<IdentityLookupResult> {
+  try {
+    const response = await fetch("/api/auth/me", { cache: "no-store", signal });
+    const payload = await response.json().catch(() => ({})) as {
+      user?: CurrentUser;
+      error?: string;
+    };
+    if (response.status === 401) return { status: "signin" };
+    if (response.status === 403) {
+      return {
+        status: "denied",
+        message: payload.error ?? "请联系管理员为当前邮箱开通权限。",
+      };
+    }
+    if (!response.ok || !payload.user) {
+      throw new Error(payload.error ?? "暂时无法读取登录身份");
+    }
+    return { status: "authenticated", user: payload.user };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "暂时无法读取登录身份",
+    };
+  }
+}
+
 export default function Home() {
+  const [identity, setIdentity] = useState<IdentityState>({ status: "loading" });
   const [active, setActive] = useState<ModuleKey>("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -1492,6 +1704,33 @@ export default function Home() {
   const [customStartDate, setCustomStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchOpen, setSearchOpen] = useState(false);
+  const retryIdentity = useCallback(() => {
+    setIdentity({ status: "loading" });
+    void fetchCurrentIdentity().then((result) => {
+      if (result.status === "signin") {
+        window.location.assign("/signin-with-chatgpt?return_to=%2F");
+        return;
+      }
+      setIdentity(result);
+    });
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchCurrentIdentity(controller.signal).then((result) => {
+      if (result.status === "signin") {
+        window.location.assign("/signin-with-chatgpt?return_to=%2F");
+        return;
+      }
+      setIdentity(result);
+    }).catch((error: unknown) => {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setIdentity({ status: "error", message: "暂时无法读取登录身份" });
+      }
+    });
+    return () => controller.abort();
+  }, []);
+
   const current = navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
 
@@ -1500,6 +1739,13 @@ export default function Home() {
     setMobileMenu(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  if (identity.status !== "authenticated") {
+    return <IdentityGate state={identity} onRetry={retryIdentity} />;
+  }
+
+  const currentUser = identity.user;
+  const avatarText = [...currentUser.displayName.trim()][0]?.toUpperCase() ?? "管";
 
   return (
     <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -1516,7 +1762,7 @@ export default function Home() {
           {navItems.slice(6).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
         </nav>
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
-        <div className="sidebar-user"><span>林</span><div><strong>林晓 · 管理员</strong><small>拥有全部模块权限</small></div><button>⋮</button></div>
+        <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser.displayName} · {currentUser.roleLabel}</strong><small>{currentUser.email}</small></div><button onClick={() => window.location.assign("/signout-with-chatgpt?return_to=%2F")} aria-label="退出登录">⋮</button></div>
       </aside>
       {mobileMenu && <button className="mobile-overlay" onClick={() => setMobileMenu(false)} aria-label="关闭导航" />}
 
@@ -1539,7 +1785,7 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
           <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>

@@ -1,6 +1,47 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+/** Server-side allowlist and authorization source for the operations console. */
+export const appUsers = sqliteTable(
+  "app_users",
+  {
+    email: text("email").primaryKey(),
+    displayName: text("display_name").notNull().default(""),
+    role: text("role").notNull(),
+    status: text("status").notNull().default("active"),
+    scopeJson: text("scope_json"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("app_users_role_status_idx").on(table.role, table.status),
+  ],
+);
+
+/** Durable, metadata-only audit trail for future AI tool executions. */
+export const aiToolAuditLogs = sqliteTable(
+  "ai_tool_audit_logs",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    actorRole: text("actor_role").notNull(),
+    surface: text("surface").notNull(),
+    toolName: text("tool_name").notNull(),
+    argumentsJson: text("arguments_json").notNull().default("{}"),
+    status: text("status").notNull(),
+    rowCount: integer("row_count"),
+    durationMs: integer("duration_ms"),
+    responseDigest: text("response_digest"),
+    errorCode: text("error_code"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("ai_tool_audit_logs_actor_created_idx").on(table.actorEmail, table.createdAt),
+    index("ai_tool_audit_logs_tool_created_idx").on(table.toolName, table.createdAt),
+  ],
+);
+
 /**
  * Import audit data. The file hash is also used as the stable batch id, which
  * makes concurrent retries of the same upload safe.

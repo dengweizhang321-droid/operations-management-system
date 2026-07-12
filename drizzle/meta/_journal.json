@@ -36,6 +36,13 @@
       "when": 1783780321606,
       "tag": "0004_purple_runaways",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1783865111266,
+      "tag": "0005_slow_tyrannus",
+      "breakpoints": true
     }
   ]
 }
