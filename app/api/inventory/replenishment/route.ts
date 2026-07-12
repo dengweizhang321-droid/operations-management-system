@@ -26,12 +26,9 @@ async function readyDatabase() {
 
 export async function GET() {
   try {
-    await requireAppPrincipal(["admin"]);
     const db = await readyDatabase();
     return Response.json({ items: await listReplenishmentPlans(db) }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
-    const authResponse = authorizationErrorResponse(error);
-    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取备货计划失败";
     return Response.json({ error: message }, { status: 500 });
   }

@@ -27,16 +27,6 @@ type CurrentUser = {
   roleLabel: string;
 };
 
-type IdentityState =
-  | { status: "loading" }
-  | { status: "authenticated"; user: CurrentUser }
-  | { status: "denied" | "error"; message: string };
-
-type IdentityGateState = Exclude<IdentityState, { status: "authenticated" }>;
-type IdentityLookupResult =
-  | Exclude<IdentityState, { status: "loading" }>
-  | { status: "signin" };
-
 type SalesRangeLabel = "今日" | "近7天" | "本月" | "本季度" | "自定义";
 type SalesRange = "today" | "last7" | "month" | "quarter" | "custom";
 
@@ -1649,54 +1639,8 @@ const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDa
   settings: SettingsView,
 };
 
-function IdentityGate({ state, onRetry }: { state: IdentityGateState; onRetry: () => void }) {
-  const isLoading = state.status === "loading";
-  const isDenied = state.status === "denied";
-  const message = "message" in state ? state.message : "正在安全连接 TERUISI 运营管理系统…";
-  return (
-    <main className="identity-gate">
-      <section className="identity-card" role={isLoading ? "status" : "alert"}>
-        <div className="brand-mark identity-brand"><span>T</span></div>
-        <span className={`identity-symbol ${isLoading ? "identity-spinner" : ""}`}>
-          {isLoading ? "" : isDenied ? "!" : "×"}
-        </span>
-        <h1>{isLoading ? "正在验证登录身份" : isDenied ? "账号尚未获得访问权限" : "身份验证暂时失败"}</h1>
-        <p>{message}</p>
-        {!isLoading && <button className="primary-button" onClick={onRetry}>重新验证</button>}
-      </section>
-    </main>
-  );
-}
-
-async function fetchCurrentIdentity(signal?: AbortSignal): Promise<IdentityLookupResult> {
-  try {
-    const response = await fetch("/api/auth/me", { cache: "no-store", signal });
-    const payload = await response.json().catch(() => ({})) as {
-      user?: CurrentUser;
-      error?: string;
-    };
-    if (response.status === 401) return { status: "signin" };
-    if (response.status === 403) {
-      return {
-        status: "denied",
-        message: payload.error ?? "请联系管理员为当前邮箱开通权限。",
-      };
-    }
-    if (!response.ok || !payload.user) {
-      throw new Error(payload.error ?? "暂时无法读取登录身份");
-    }
-    return { status: "authenticated", user: payload.user };
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    return {
-      status: "error",
-      message: error instanceof Error ? error.message : "暂时无法读取登录身份",
-    };
-  }
-}
-
 export default function Home() {
-  const [identity, setIdentity] = useState<IdentityState>({ status: "loading" });
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [active, setActive] = useState<ModuleKey>("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -1704,30 +1648,15 @@ export default function Home() {
   const [customStartDate, setCustomStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchOpen, setSearchOpen] = useState(false);
-  const retryIdentity = useCallback(() => {
-    setIdentity({ status: "loading" });
-    void fetchCurrentIdentity().then((result) => {
-      if (result.status === "signin") {
-        window.location.assign("/signin-with-chatgpt?return_to=%2F");
-        return;
-      }
-      setIdentity(result);
-    });
-  }, []);
-
   useEffect(() => {
     const controller = new AbortController();
-    void fetchCurrentIdentity(controller.signal).then((result) => {
-      if (result.status === "signin") {
-        window.location.assign("/signin-with-chatgpt?return_to=%2F");
-        return;
-      }
-      setIdentity(result);
-    }).catch((error: unknown) => {
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setIdentity({ status: "error", message: "暂时无法读取登录身份" });
-      }
-    });
+    void fetch("/api/auth/me", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => ({})) as { user?: CurrentUser };
+        if (payload.user) setCurrentUser(payload.user);
+      })
+      .catch(() => undefined);
     return () => controller.abort();
   }, []);
 
@@ -1740,12 +1669,9 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  if (identity.status !== "authenticated") {
-    return <IdentityGate state={identity} onRetry={retryIdentity} />;
-  }
-
-  const currentUser = identity.user;
-  const avatarText = [...currentUser.displayName.trim()][0]?.toUpperCase() ?? "管";
+  const avatarText = currentUser
+    ? [...currentUser.displayName.trim()][0]?.toUpperCase() ?? "管"
+    : "访";
 
   return (
     <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -1762,7 +1688,7 @@ export default function Home() {
           {navItems.slice(6).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
         </nav>
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
-        <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser.displayName} · {currentUser.roleLabel}</strong><small>{currentUser.email}</small></div><button onClick={() => window.location.assign("/signout-with-chatgpt?return_to=%2F")} aria-label="退出登录">⋮</button></div>
+        <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser ? `${currentUser.displayName} · ${currentUser.roleLabel}` : "访客 · 只读查看者"}</strong><small>{currentUser ? currentUser.email : "可查看经营数据"}</small></div><button onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
       </aside>
       {mobileMenu && <button className="mobile-overlay" onClick={() => setMobileMenu(false)} aria-label="关闭导航" />}
 

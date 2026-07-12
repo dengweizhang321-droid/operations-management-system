@@ -31,7 +31,7 @@ test("build emits the operations console", async () => {
 });
 
 test("wires the sales import and analytics capabilities", async () => {
-  const [page, layout, schema, importRoute, chunkRoute, chunkService, summaryRoute, packageJson, hosting, og] =
+  const [page, layout, schema, importRoute, chunkRoute, chunkService, summaryRoute, summaryService, packageJson, hosting, og] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -40,6 +40,7 @@ test("wires the sales import and analytics capabilities", async () => {
       readFile(new URL("../app/api/imports/sales/chunks/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/sales/chunked-upload.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/sales/summary/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
       stat(new URL("../public/og.png", import.meta.url)),
@@ -59,9 +60,10 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(importRoute, /importSalesLedgerBytes/);
   assert.match(chunkRoute, /assembleSalesUpload/);
   assert.match(chunkService, /SALES_UPLOAD_CHUNK_BYTES/);
-  assert.match(summaryRoute, /gross_sales_cents/);
-  assert.match(summaryRoute, /net_sales_excluding_accessories_cents/);
-  assert.match(summaryRoute, /赠品配件/);
+  assert.match(summaryRoute, /getSalesSummary/);
+  assert.match(summaryService, /gross_sales_cents/);
+  assert.match(summaryService, /net_sales_excluding_accessories_cents/);
+  assert.match(summaryService, /赠品配件/);
   assert.match(packageJson, /"fflate"/);
   assert.equal(JSON.parse(hosting).d1, "DB");
   assert.equal(JSON.parse(hosting).r2, "SALES_IMPORT_FILES");
@@ -137,29 +139,36 @@ test("wires product profitability to synchronized sales and inventory facts", as
   assert.match(summary, /gross_profit_cents/);
 });
 
-test("enforces authenticated administrator access across operational APIs", async () => {
-  const routeUrls = [
-    "../app/api/imports/sales/route.ts",
-    "../app/api/imports/sales/chunks/route.ts",
-    "../app/api/imports/inventory/route.ts",
-    "../app/api/imports/inventory/chunks/route.ts",
+test("opens read-only data while keeping operational writes administrator-only", async () => {
+  const readRouteUrls = [
     "../app/api/sales/summary/route.ts",
     "../app/api/inventory/overview/route.ts",
     "../app/api/inventory/replenishment/route.ts",
     "../app/api/products/summary/route.ts",
+    "../app/api/imports/sales/route.ts",
+    "../app/api/imports/inventory/route.ts",
   ];
-  const [page, schema, authorization, authRoute, migration, ...protectedRoutes] =
+  const writeRouteUrls = [
+    "../app/api/imports/sales/route.ts",
+    "../app/api/imports/sales/chunks/route.ts",
+    "../app/api/imports/inventory/route.ts",
+    "../app/api/imports/inventory/chunks/route.ts",
+    "../app/api/inventory/replenishment/route.ts",
+  ];
+  const [page, schema, authorization, authRoute, migration, ...routes] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/auth/authorization.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/auth/me/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../drizzle/0005_slow_tyrannus.sql", import.meta.url), "utf8"),
-      ...routeUrls.map((url) => readFile(new URL(url, import.meta.url), "utf8")),
+      ...[...readRouteUrls, ...writeRouteUrls].map((url) => readFile(new URL(url, import.meta.url), "utf8")),
     ]);
 
   assert.match(page, /\/api\/auth\/me/);
   assert.match(page, /signin-with-chatgpt/);
+  assert.match(page, /只读查看者/);
+  assert.doesNotMatch(page, /IdentityGate/);
   assert.doesNotMatch(page, /林晓 · 管理员/);
   assert.match(schema, /app_users/);
   assert.match(schema, /ai_tool_audit_logs/);
@@ -170,8 +179,37 @@ test("enforces authenticated administrator access across operational APIs", asyn
   assert.match(migration, /INSERT INTO `app_users`/);
   assert.match(migration, /dengweizhang321@gmail\.com/);
 
-  for (const route of protectedRoutes) {
+  const readRoutes = routes.slice(0, readRouteUrls.length);
+  const writeRoutes = routes.slice(readRouteUrls.length);
+  for (const route of readRoutes) {
+    assert.doesNotMatch(route, /requireAppPrincipal\(\)/);
+  }
+  for (const route of writeRoutes) {
     assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
     assert.match(route, /authorizationErrorResponse/);
   }
+});
+
+test("exposes the audited read-only Codex MCP connection", async () => {
+  const [mcpRoute, tools, audit, config, agents] = await Promise.all([
+    readFile(new URL("../app/mcp/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/operations-tools.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-audit.ts", import.meta.url), "utf8"),
+    readFile(new URL("../.codex/config.toml", import.meta.url), "utf8"),
+    readFile(new URL("../AGENTS.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(mcpRoute, /CODEX_MCP_TOKEN/);
+  assert.match(mcpRoute, /tools\/list/);
+  assert.match(mcpRoute, /tools\/call/);
+  assert.match(mcpRoute, /Bearer/);
+  for (const toolName of ["get_data_freshness", "get_sales_summary", "get_inventory_health", "get_product_performance", "list_replenishment_plans"]) {
+    assert.match(tools, new RegExp(toolName));
+  }
+  assert.match(tools, /readOnlyHint: true/);
+  assert.match(audit, /ai_tool_audit_logs/);
+  assert.match(config, /mcp_servers\.teruisi_operations/);
+  assert.match(config, /TERUISI_CODEX_MCP_TOKEN/);
+  assert.match(agents, /get_data_freshness/);
+  assert.match(agents, /read-only/i);
 });

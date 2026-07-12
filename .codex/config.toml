@@ -1,0 +1,8 @@
+[mcp_servers.teruisi_operations]
+url = "https://teruisi-ops-console.dengweizhang321.chatgpt.site/mcp"
+bearer_token_env_var = "TERUISI_CODEX_MCP_TOKEN"
+enabled = true
+enabled_tools = ["get_data_freshness", "get_sales_summary", "get_inventory_health", "get_product_performance", "list_replenishment_plans"]
+default_tools_approval_mode = "auto"
+startup_timeout_sec = 20
+tool_timeout_sec = 60

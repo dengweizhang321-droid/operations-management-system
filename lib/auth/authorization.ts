@@ -125,15 +125,19 @@ export async function requireAppPrincipal(
   const db = getSalesDatabase();
   await ensureAuthorizationSchema(db);
   const normalizedEmail = identity.email.trim().toLowerCase();
-  const row = await db
-    .prepare(
-      `SELECT email, display_name, role, status, scope_json
-       FROM app_users
-       WHERE email = ? COLLATE NOCASE
-       LIMIT 1`,
-    )
-    .bind(normalizedEmail)
-    .first<AppUserRow>();
+  let row = await findAppUser(db, normalizedEmail);
+
+  if (!row) {
+    await db.prepare(
+      `INSERT INTO app_users (email, display_name, role, status, scope_json)
+       VALUES (?, ?, 'viewer', 'active', NULL)
+       ON CONFLICT(email) DO NOTHING`,
+    ).bind(
+      normalizedEmail,
+      identity.fullName ?? identity.displayName ?? normalizedEmail,
+    ).run();
+    row = await findAppUser(db, normalizedEmail);
+  }
 
   if (!row || row.status !== "active" || !isAppRole(row.role)) {
     throw new AuthorizationError(
@@ -169,6 +173,18 @@ export function authorizationErrorResponse(error: unknown): Response | null {
 
 function isAppRole(value: string): value is AppRole {
   return appRoles.includes(value as AppRole);
+}
+
+function findAppUser(db: SalesDatabase, email: string) {
+  return db
+    .prepare(
+      `SELECT email, display_name, role, status, scope_json
+       FROM app_users
+       WHERE email = ? COLLATE NOCASE
+       LIMIT 1`,
+    )
+    .bind(email)
+    .first<AppUserRow>();
 }
 
 function parseScope(value: string | null): AppDataScope {

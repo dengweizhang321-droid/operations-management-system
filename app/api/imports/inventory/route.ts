@@ -17,15 +17,12 @@ function errorResponse(status: number, message: string, details: Record<string, 
 
 export async function GET(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
     const db = getInventoryDatabase();
     await ensureInventorySchema(db);
     const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
     const items = await listInventoryImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {
-    const authResponse = authorizationErrorResponse(error);
-    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取库存同步历史失败";
     return Response.json({ error: message }, { status: 500 });
   }
