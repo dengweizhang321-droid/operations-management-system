@@ -385,13 +385,12 @@ function parseSalesRow(
     sourceRowNumber,
     errors,
   );
-  const costAmountCents = requiredMoney(
-    reader.raw("货品成本"),
-    "costAmountCents",
-    "货品成本",
-    sourceRowNumber,
-    errors,
-  );
+  const sourceCost = reader.raw("货品成本");
+  // ERP 的“补差价专用”虚拟行没有实际货品成本，并会导出为 #N/A；
+  // 该行仅调整订单金额，按零成本写入才能保留销售额且不阻塞整表导入。
+  const costAmountCents = isPriceAdjustment && sourceCost === "#N/A"
+    ? 0
+    : requiredMoney(sourceCost, "costAmountCents", "货品成本", sourceRowNumber, errors);
   const allocatedUnitPriceCents = requiredMoney(
     reader.raw("分摊后单价"),
     "allocatedUnitPriceCents",
