@@ -18,6 +18,7 @@ export type InventoryStockRow = {
   warehouseType: InventoryWarehouseType;
   productCode: string;
   productName: string;
+  brand: string;
   specification: string;
   barcode: string;
   category: string;
@@ -27,6 +28,8 @@ export type InventoryStockRow = {
   inTransitQuantity: number;
   unitCostCents: number;
   inventoryAgeDays: number | null;
+  sales7dQuantity: number;
+  sales30dQuantity: number;
 };
 
 export type InventoryStockIssue = {
@@ -47,7 +50,10 @@ export type InventoryStockParseResult = {
     hasLockedQuantity: boolean;
     hasInTransitQuantity: boolean;
     hasUnitCost: boolean;
+    hasBrand: boolean;
     hasInventoryAgeDays: boolean;
+    hasSales7dQuantity: boolean;
+    hasSales30dQuantity: boolean;
     hasSnapshotDate: boolean;
   };
   totals: {
@@ -60,6 +66,8 @@ export type InventoryStockParseResult = {
     lockedQuantity: number;
     inTransitQuantity: number;
     stockValueCents: number;
+    sales7dQuantity: number;
+    sales30dQuantity: number;
   };
 };
 
@@ -88,6 +96,7 @@ type CanonicalHeader =
   | "warehouse"
   | "productCode"
   | "productName"
+  | "brand"
   | "specification"
   | "barcode"
   | "category"
@@ -97,6 +106,8 @@ type CanonicalHeader =
   | "inTransitQuantity"
   | "unitCost"
   | "inventoryAgeDays"
+  | "sales7dQuantity"
+  | "sales30dQuantity"
   | "snapshotDate";
 
 type HeaderLocation = {
@@ -110,6 +121,7 @@ const headerAliases: Record<CanonicalHeader, readonly string[]> = {
   warehouse: ["仓库名称", "仓库", "分仓", "仓库名"],
   productCode: ["货品编号", "商品编码", "商品编号", "SKU编码", "SKU编号", "商家编码", "货号"],
   productName: ["货品名称", "商品名称", "商品", "品名"],
+  brand: ["品牌", "品牌名称", "商品品牌", "货品品牌"],
   specification: ["规格", "规格名称", "货品规格", "商品规格"],
   barcode: ["条码", "商品条码", "货品条码", "国际条码"],
   category: ["货品分类", "商品分类", "分类", "品类", "货品细分"],
@@ -119,6 +131,8 @@ const headerAliases: Record<CanonicalHeader, readonly string[]> = {
   inTransitQuantity: ["采购在途数", "在途数量", "在途库存", "采购在途", "调拨在途", "在途数"],
   unitCost: ["成本价", "单位成本", "库存成本价", "采购价", "含税成本价", "固定成本价"],
   inventoryAgeDays: ["吉客云库龄", "库龄(天)", "库龄天数", "库龄"],
+  sales7dQuantity: ["前7天销量", "近7天销量", "7天销量"],
+  sales30dQuantity: ["前30天销量", "近30天销量", "30天销量"],
   snapshotDate: ["库存日期", "快照日期", "统计日期", "数据日期", "日期"],
 };
 
@@ -172,6 +186,8 @@ export function parseInventoryStockXlsx(
       result.lockedQuantity += row.lockedQuantity;
       result.inTransitQuantity += row.inTransitQuantity;
       result.stockValueCents += Math.max(0, row.availableQuantity) * row.unitCostCents;
+      result.sales7dQuantity += row.sales7dQuantity;
+      result.sales30dQuantity += row.sales30dQuantity;
       return result;
     },
     {
@@ -184,6 +200,8 @@ export function parseInventoryStockXlsx(
       lockedQuantity: 0,
       inTransitQuantity: 0,
       stockValueCents: 0,
+      sales7dQuantity: 0,
+      sales30dQuantity: 0,
     },
   );
 
@@ -193,7 +211,10 @@ export function parseInventoryStockXlsx(
     hasLockedQuantity: header.indexByCanonical.has("lockedQuantity"),
     hasInTransitQuantity: header.indexByCanonical.has("inTransitQuantity"),
     hasUnitCost: header.indexByCanonical.has("unitCost"),
+    hasBrand: header.indexByCanonical.has("brand"),
     hasInventoryAgeDays: header.indexByCanonical.has("inventoryAgeDays"),
+    hasSales7dQuantity: header.indexByCanonical.has("sales7dQuantity"),
+    hasSales30dQuantity: header.indexByCanonical.has("sales30dQuantity"),
     hasSnapshotDate: header.indexByCanonical.has("snapshotDate"),
   };
 
@@ -270,6 +291,8 @@ function parseRow(
   const inventoryAgeDays = isBlank(raw("inventoryAgeDays"))
     ? null
     : optionalDays(raw("inventoryAgeDays"), "inventoryAgeDays", "库龄", row.rowNumber, errors);
+  const sales7dQuantity = optionalInteger(raw("sales7dQuantity"), "sales7dQuantity", "前7天销量", row.rowNumber, errors);
+  const sales30dQuantity = optionalInteger(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors);
 
   if (errors.length > beforeErrors) return null;
   return {
@@ -280,6 +303,7 @@ function parseRow(
     warehouseType: inferWarehouseType(warehouse),
     productCode,
     productName: text("productName"),
+    brand: text("brand"),
     specification: text("specification"),
     barcode: text("barcode"),
     category: text("category"),
@@ -289,6 +313,8 @@ function parseRow(
     inTransitQuantity,
     unitCostCents,
     inventoryAgeDays,
+    sales7dQuantity,
+    sales30dQuantity,
   };
 }
 

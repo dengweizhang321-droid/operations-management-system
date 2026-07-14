@@ -18,6 +18,17 @@ export const appUsers = sqliteTable(
   ],
 );
 
+/** Administrator-managed operating thresholds used by inventory analysis. */
+export const systemSettings = sqliteTable(
+  "system_settings",
+  {
+    key: text("key").primaryKey(),
+    valueJson: text("value_json").notNull(),
+    updatedBy: text("updated_by").notNull().default(""),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+);
+
 /** Durable, metadata-only audit trail for future AI tool executions. */
 export const aiToolAuditLogs = sqliteTable(
   "ai_tool_audit_logs",
@@ -120,9 +131,11 @@ export const salesOrderLines = sqliteTable(
   (table) => [
     uniqueIndex("sales_order_lines_source_line_key_uq").on(table.sourceLineKey),
     index("sales_order_lines_sales_time_idx").on(table.salesTime),
+    index("sales_order_lines_ship_time_idx").on(table.shipTime),
     index("sales_order_lines_channel_idx").on(table.channel),
     index("sales_order_lines_platform_idx").on(table.platform),
     index("sales_order_lines_inventory_demand_idx").on(table.salesTime, table.productCode, table.warehouse),
+    index("sales_order_lines_ship_time_inventory_demand_idx").on(table.shipTime, table.productCode, table.warehouse),
     index("sales_order_lines_last_batch_idx").on(table.lastImportBatchId),
   ],
 );
@@ -205,6 +218,7 @@ export const inventoryStockLines = sqliteTable(
     warehouseType: text("warehouse_type").notNull(),
     productCode: text("product_code").notNull(),
     productName: text("product_name").notNull(),
+    brand: text("brand").notNull().default(""),
     specification: text("specification").notNull(),
     barcode: text("barcode").notNull(),
     category: text("category").notNull(),
@@ -221,6 +235,22 @@ export const inventoryStockLines = sqliteTable(
     index("inventory_stock_lines_batch_idx").on(table.batchId),
     index("inventory_stock_lines_product_idx").on(table.productCode),
     index("inventory_stock_lines_warehouse_idx").on(table.warehouse),
+  ],
+);
+
+/** Per-row rolling sales counters supplied by a warehouse-age analysis export. */
+export const inventoryAgeMetrics = sqliteTable(
+  "inventory_age_metrics",
+  {
+    batchId: text("batch_id").notNull(),
+    rowKey: text("row_key").notNull(),
+    sales7dQuantity: integer("sales_7d_quantity").notNull().default(0),
+    sales30dQuantity: integer("sales_30d_quantity").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("inventory_age_metrics_batch_row_uq").on(table.batchId, table.rowKey),
+    index("inventory_age_metrics_batch_idx").on(table.batchId),
   ],
 );
 
@@ -271,6 +301,114 @@ export const inventoryImportUploadResults = sqliteTable(
     resultJson: text("result_json").notNull(),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
+);
+
+/** Audit trail shared by product-master, inventory-age, and combo imports. */
+export const erpReferenceImportBatches = sqliteTable(
+  "erp_reference_import_batches",
+  {
+    id: text("id").primaryKey(),
+    sourceKey: text("source_key").notNull(),
+    sourceLabel: text("source_label").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    fileHash: text("file_hash").notNull(),
+    sheetName: text("sheet_name").notNull(),
+    snapshotDate: text("snapshot_date"),
+    status: text("status").notNull(),
+    rowCount: integer("row_count").notNull().default(0),
+    insertedCount: integer("inserted_count").notNull().default(0),
+    updatedCount: integer("updated_count").notNull().default(0),
+    excludedCount: integer("excluded_count").notNull().default(0),
+    warningCount: integer("warning_count").notNull().default(0),
+    warningsJson: text("warnings_json").notNull().default("[]"),
+    totalsJson: text("totals_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("erp_reference_import_batches_source_hash_uq").on(table.sourceKey, table.fileHash),
+    index("erp_reference_import_batches_source_created_idx").on(table.sourceKey, table.createdAt),
+  ],
+);
+
+/** Current 吉客云 product master, updated idempotently by product code. */
+export const erpProductMaster = sqliteTable(
+  "erp_product_master",
+  {
+    productCode: text("product_code").primaryKey(),
+    productName: text("product_name").notNull(),
+    brand: text("brand").notNull().default(""),
+    specification: text("specification").notNull().default(""),
+    barcode: text("barcode").notNull().default(""),
+    category: text("category").notNull().default(""),
+    supplier: text("supplier").notNull().default(""),
+    productStatus: text("product_status").notNull().default(""),
+    sourceRowNumber: integer("source_row_number").notNull(),
+    lastImportBatchId: text("last_import_batch_id").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("erp_product_master_name_idx").on(table.productName),
+    index("erp_product_master_barcode_idx").on(table.barcode),
+  ],
+);
+
+/** Daily inventory-age facts, replaced by snapshot date on re-import. */
+export const erpInventoryAgeLines = sqliteTable(
+  "erp_inventory_age_lines",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    snapshotDate: text("snapshot_date").notNull(),
+    warehouse: text("warehouse").notNull(),
+    warehouseType: text("warehouse_type").notNull(),
+    productCode: text("product_code").notNull(),
+    productName: text("product_name").notNull().default(""),
+    specification: text("specification").notNull().default(""),
+    category: text("category").notNull().default(""),
+    availableQuantity: integer("available_quantity").notNull().default(0),
+    inventoryAgeDays: integer("inventory_age_days"),
+    sales7dQuantity: integer("sales_7d_quantity"),
+    sales30dQuantity: integer("sales_30d_quantity"),
+    unitCostCents: integer("unit_cost_cents").notNull().default(0),
+    stockValueCents: integer("stock_value_cents").notNull().default(0),
+    sourceRowNumber: integer("source_row_number").notNull(),
+    lastImportBatchId: text("last_import_batch_id").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("erp_inventory_age_snapshot_warehouse_product_uq").on(
+      table.snapshotDate,
+      table.warehouse,
+      table.productCode,
+    ),
+    index("erp_inventory_age_snapshot_idx").on(table.snapshotDate),
+    index("erp_inventory_age_product_idx").on(table.productCode),
+  ],
+);
+
+/** Current combo bill-of-materials exported by 吉客云. */
+export const erpComboItems = sqliteTable(
+  "erp_combo_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    parentCode: text("parent_code").notNull(),
+    parentName: text("parent_name").notNull().default(""),
+    childCode: text("child_code").notNull(),
+    childName: text("child_name").notNull().default(""),
+    childQuantityMilli: integer("child_quantity_milli").notNull(),
+    sourceRowNumber: integer("source_row_number").notNull(),
+    lastImportBatchId: text("last_import_batch_id").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("erp_combo_items_parent_child_uq").on(table.parentCode, table.childCode),
+    index("erp_combo_items_parent_idx").on(table.parentCode),
+    index("erp_combo_items_child_idx").on(table.childCode),
+  ],
 );
 
 /** Durable replenishment workflow created from a specific inventory snapshot. */

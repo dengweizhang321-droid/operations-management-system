@@ -43,6 +43,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData().catch(() => null);
     const entry = formData?.get("file");
+    const snapshotDate = typeof formData?.get("snapshotDate") === "string" ? String(formData?.get("snapshotDate")) : undefined;
     if (!(entry instanceof File)) return errorResponse(400, "缺少名为 file 的 Excel 文件");
     if (!entry.name.toLowerCase().endsWith(".xlsx")) return errorResponse(400, "仅支持 .xlsx 格式的分仓库存查询报表");
     if (entry.size === 0) return errorResponse(400, "上传文件为空");
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
       bytes: new Uint8Array(await entry.arrayBuffer()),
       fileName: entry.name,
       fileSizeBytes: entry.size,
+      snapshotDateOverride: snapshotDate,
     });
     return Response.json(payload, {
       status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422,

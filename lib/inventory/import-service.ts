@@ -8,6 +8,7 @@ import {
   findInventoryImportBatchByHash,
   getInventoryDatabase,
   saveInventoryImport,
+  syncInventoryStockDimensions,
   type InventoryImportIssue,
 } from "@/lib/inventory/database";
 
@@ -38,6 +39,13 @@ function dateFromFileName(fileName: string): string | null {
   return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 }
 
+function isIsoDate(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 function mapIssue(issue: InventoryStockIssue): InventoryImportIssue {
   return {
     row: issue.sourceRowNumber,
@@ -61,6 +69,7 @@ export async function importInventoryStockBytes(input: {
   bytes: Uint8Array;
   fileName: string;
   fileSizeBytes: number;
+  snapshotDateOverride?: string;
 }): Promise<InventoryImportExecution> {
   if (!isXlsxSignature(input.bytes)) {
     return {
@@ -77,15 +86,6 @@ export async function importInventoryStockBytes(input: {
   const db = getInventoryDatabase();
   await ensureInventorySchema(db);
   const previous = await findInventoryImportBatchByHash(db, fileHash);
-  if (previous?.status === "completed") {
-    return {
-      ok: true,
-      status: "duplicate",
-      message: "该库存快照已经同步，无需重复处理",
-      batch: previous,
-      warnings: previous.warnings,
-    };
-  }
 
   let parsed: ReturnType<typeof parseInventoryStockXlsx>;
   try {
@@ -117,7 +117,22 @@ export async function importInventoryStockBytes(input: {
     };
   }
 
-  const rowDates = [...new Set(parsed.rows.map((row) => row.snapshotDate).filter((value): value is string => Boolean(value)))];
+  const excludedBrushWarehouseRows = parsed.rows.filter((row) => row.warehouse.trim() === "刷刷仓").length;
+  const importRows = parsed.rows.filter((row) => row.warehouse.trim() !== "刷刷仓");
+  if (importRows.length === 0) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "剔除刷刷仓后没有可导入的库存数据",
+      warnings: excludedBrushWarehouseRows > 0
+        ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已识别刷刷仓 ${excludedBrushWarehouseRows} 行` }]
+        : [],
+      errors: [{ code: "NO_DATA_ROWS_AFTER_FILTER", message: "没有符合经营分析口径的库存明细行" }],
+      errorCount: 1,
+    };
+  }
+
+  const rowDates = [...new Set(importRows.map((row) => row.snapshotDate).filter((value): value is string => Boolean(value)))];
   if (rowDates.length > 1) {
     return {
       ok: false,
@@ -129,21 +144,43 @@ export async function importInventoryStockBytes(input: {
     };
   }
 
+  const suppliedSnapshotDate = input.snapshotDateOverride?.trim();
+  if (suppliedSnapshotDate && !isIsoDate(suppliedSnapshotDate)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "手工填写的快照日期无效",
+      warnings: [],
+      errors: [{ code: "INVALID_SNAPSHOT_DATE", message: "快照日期必须为 YYYY-MM-DD" }],
+      errorCount: 1,
+    };
+  }
   const fileNameDate = dateFromFileName(input.fileName);
-  const snapshotDate = rowDates[0] ?? fileNameDate;
+  const snapshotDate = rowDates[0] ?? fileNameDate ?? suppliedSnapshotDate ?? previous?.snapshotDate;
   if (!snapshotDate) {
     return {
       ok: false,
       status: "rejected",
       message: "无法确定库存快照日期",
       warnings: [],
-      errors: [{ code: "MISSING_SNAPSHOT_DATE", message: "报表没有库存日期，请在文件名中加入日期，例如“分仓库存2026.07.11.xlsx”" }],
+      errors: [{ code: "MISSING_SNAPSHOT_DATE", message: "报表没有库存日期，请在同步时填写快照日期，或在文件名中加入日期，例如“分仓库存2026.07.11.xlsx”" }],
       errorCount: 1,
     };
   }
 
-  const missingCostRows = parsed.rows.filter((row) => row.unitCostCents <= 0).length;
-  const missingNameRows = parsed.rows.filter((row) => !row.productName).length;
+  if (previous?.status === "completed") {
+    await syncInventoryStockDimensions(db, { batchId: previous.id, snapshotDate: previous.snapshotDate, rows: importRows });
+    return {
+      ok: true,
+      status: "duplicate",
+      message: "该库存快照已经同步，品牌等商品维度已重新核对",
+      batch: previous,
+      warnings: previous.warnings,
+    };
+  }
+
+  const missingCostRows = importRows.filter((row) => row.unitCostCents <= 0).length;
+  const missingNameRows = importRows.filter((row) => !row.productName).length;
   const warnings: InventoryImportIssue[] = [
     ...(missingCostRows > 0
       ? [{ code: "MISSING_UNIT_COST", message: `${missingCostRows} 行缺少成本价，货值将优先使用销售历史单位成本补全` }]
@@ -163,6 +200,15 @@ export async function importInventoryStockBytes(input: {
     ...(rowDates[0] && fileNameDate && rowDates[0] !== fileNameDate
       ? [{ code: "SNAPSHOT_DATE_FILENAME_MISMATCH", message: `报表日期 ${rowDates[0]} 与文件名日期 ${fileNameDate} 不一致，已采用报表日期` }]
       : []),
+    ...(!rowDates[0] && !fileNameDate && suppliedSnapshotDate
+      ? [{ code: "MANUAL_SNAPSHOT_DATE", message: `报表未提供库存日期，已采用手工填写的快照日期 ${suppliedSnapshotDate}` }]
+      : []),
+    ...(!parsed.coverage.hasSales30dQuantity
+      ? [{ code: "MISSING_AGE_SALES", message: "报表未提供前30天销量，滞销清理将只显示库龄风险，不生成零销量判定" }]
+      : []),
+    ...(excludedBrushWarehouseRows > 0
+      ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }]
+      : []),
   ];
   const result = await saveInventoryImport(db, {
     fileHash,
@@ -170,9 +216,9 @@ export async function importInventoryStockBytes(input: {
     fileSizeBytes: input.fileSizeBytes,
     sheetName: parsed.sheetName,
     snapshotDate,
-    rows: parsed.rows,
+    rows: importRows,
     warnings,
-    totals: parsed.totals,
+    totals: { ...parsed.totals, coverage: parsed.coverage, excludedBrushWarehouseRows },
   });
 
   return {

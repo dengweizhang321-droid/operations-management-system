@@ -63,7 +63,10 @@ function mapAnalysisSafeRow(row: SalesLedgerRow): SalesLineInput {
     untaxedGrossMarginBps: row.untaxedGrossMarginBps ?? 0,
     orderTime: row.orderTime,
     salesTime: row.salesTime,
-    shipTime: row.shipTime ?? "",
+    // “补差价专用”等虚拟金额调整行没有实际发货时间。为保持发货时间
+    // 为主口径，同时避免将这类订单金额排除在统计周期外，按货品级发货
+    // 时间、下单时间依次兜底。
+    shipTime: row.shipTime ?? row.lineShipTime ?? row.orderTime,
     lineShipTime: row.lineShipTime ?? "",
     businessType: row.businessType,
   };
@@ -142,8 +145,15 @@ export async function importSalesLedgerBytes(input: {
   }
 
   const parserErrors = sanitizeSalesIssues(parsed.errors ?? []);
-  const warnings = sanitizeSalesIssues(parsed.warnings ?? []);
-  const rows = parsed.rows.map(mapAnalysisSafeRow);
+  const mappedRows = parsed.rows.map(mapAnalysisSafeRow);
+  const excludedBrushWarehouseRows = mappedRows.filter((row) => row.warehouse.trim() === "刷刷仓").length;
+  const rows = mappedRows.filter((row) => row.warehouse.trim() !== "刷刷仓");
+  const warnings = sanitizeSalesIssues([
+    ...(parsed.warnings ?? []),
+    ...(excludedBrushWarehouseRows > 0
+      ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }]
+      : []),
+  ]);
   const rowErrors = validateRows(rows);
   const errors = [...parserErrors, ...rowErrors].slice(0, 200);
   if (errors.length > 0) {
@@ -164,7 +174,7 @@ export async function importSalesLedgerBytes(input: {
     sheetName: parsed.sheetName,
     rows,
     warnings,
-    totals: parsed.totals,
+    totals: { ...parsed.totals, excludedBrushWarehouseRows },
   });
   return {
     ok: true,

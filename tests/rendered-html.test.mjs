@@ -18,16 +18,37 @@ test("build emits the operations console", async () => {
   assert.match(server, /api\/sales\/summary/);
   assert.match(server, /api\/imports\/inventory/);
   assert.match(server, /api\/imports\/inventory\/chunks/);
+  assert.match(server, /api\/imports\/erp/);
+  assert.match(server, /api\/imports\/erp\/chunks/);
   assert.match(server, /api\/inventory\/overview/);
   assert.match(server, /api\/inventory\/replenishment/);
+  assert.match(server, /api\/inventory\/age-analysis/);
   assert.match(server, /api\/products\/summary/);
+  assert.match(server, /api\/settings/);
   assert.match(server, /api\/auth\/me/);
+  assert.match(server, /api\/search/);
   assert.match(page, /TERUISI/);
   assert.match(page, /销售分析/);
   assert.match(page, /渠道经营诊断/);
   assert.match(page, /channel-detail-panel/);
   assert.match(page, /数据导入/);
   assert.doesNotMatch(page, /codex-preview|Your site is taking shape/i);
+});
+
+test("searches synchronized products, specifications, and orders", async () => {
+  const [page, route] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/search/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /\/api\/search\?q=/);
+  assert.match(page, /搜索货品名称、编码、规格或订单号/);
+  assert.match(page, /货品结果/);
+  assert.match(page, /订单结果/);
+  assert.match(route, /product_name LIKE/);
+  assert.match(route, /product_code LIKE/);
+  assert.match(route, /specification LIKE/);
+  assert.match(route, /online_order_no LIKE/);
 });
 
 test("wires the sales import and analytics capabilities", async () => {
@@ -50,6 +71,47 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /\/api\/sales\/summary/);
   assert.match(page, /setActiveTab/);
   assert.match(page, /平台汇总/);
+  assert.match(page, /网店总览/);
+  assert.match(page, /outlets/);
+  assert.match(page, /近15天/);
+  assert.match(page, /昨天/);
+  assert.match(page, /<option>月度<\/option>/);
+  assert.doesNotMatch(page, /<option>本季度<\/option>/);
+  assert.doesNotMatch(page, /DateRangeSlider/);
+  assert.match(page, /选择统计月份/);
+  assert.match(page, /productPeriodPickerOpen/);
+  assert.match(page, /货品情况/);
+  assert.match(page, /销售分布/);
+  assert.match(page, /平台维度/);
+  assert.match(page, /净销量已按退货后的销量计算/);
+  assert.match(page, /多个货品编码/);
+  assert.match(page, /MultiFilterSelect/);
+  assert.match(page, /aria-multiselectable/);
+  assert.match(page, /platformFilters/);
+  assert.match(page, /shopFilters/);
+  assert.match(page, /stat-period-picker/);
+  assert.match(page, /趋势指标选择/);
+  assert.match(page, /对应数据/);
+  assert.match(page, /当前日期的净销售额、净销量和大毛利率/);
+  assert.match(page, /product-trend-detail-area/);
+  assert.match(page, /valueLabel/);
+  assert.match(page, /trend-data-hint/);
+  assert.match(page, /setStatPeriodPickerOpen\(false\)/);
+  assert.match(page, /日维度/);
+  assert.match(page, /周维度/);
+  assert.match(page, /月维度/);
+  assert.match(page, /<canvas/);
+  assert.match(page, /销售同比/);
+  assert.match(page, /净销售同比/);
+  assert.match(page, /formatNetSalesYearOverYear/);
+  assert.match(page, /netSalesYearOverYearTone/);
+  assert.match(page, /inventory-multi-query/);
+  assert.match(page, /输入或粘贴多个货品编码/);
+  assert.match(page, /multi-filter-search/);
+  assert.match(page, /多个货品编码/);
+  assert.match(page, /正在同步 BI 经营看板/);
+  assert.match(page, /数据同步状态/);
+  assert.match(page, /库存快照/);
   assert.match(page, /summary\?\.shops/);
   assert.match(page, /type="file"/);
   assert.match(layout, /generateMetadata/);
@@ -64,12 +126,39 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(summaryService, /gross_sales_cents/);
   assert.match(summaryService, /net_sales_excluding_accessories_cents/);
   assert.match(summaryService, /赠品配件/);
+  assert.match(summaryService, /salesYearOverYearRate/);
+  assert.match(summaryService, /last15/);
+  assert.match(summaryService, /dailyResult/);
+  assert.match(summaryService, /product_code IN/);
+  assert.match(summaryRoute, /productCodes/);
+  assert.match(summaryService, /shop_name/);
   assert.match(packageJson, /"fflate"/);
   assert.equal(JSON.parse(hosting).d1, "DB");
   assert.equal(JSON.parse(hosting).r2, "SALES_IMPORT_FILES");
   assert.ok(og.size > 10_000);
 
   await assert.rejects(access(new URL("app/_sites-preview", templateRoot)));
+});
+
+test("keeps shop analysis isolated by platform and matches year-over-year by the same shop key", async () => {
+  const [page, summaryService] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
+  ]);
+
+  // A shop name can legitimately occur on several marketplaces.  Its platform
+  // is therefore part of both the aggregation key and the year-over-year key.
+  assert.match(summaryService, /const groupKey = dimension === "shop"/);
+  assert.match(summaryService, /COALESCE\(NULLIF\(platform, ''\), '未分类'\) \|\| char\(31\)/);
+  assert.match(summaryService, /GROUP BY \$\{groupKey\}/);
+  assert.match(summaryService, /yearAgoByGroupKey/);
+  assert.doesNotMatch(summaryService, /yearAgoByName/);
+
+  // Stable, platform-qualified keys prevent React from reusing a 拼多多 row
+  // while the user has filtered the table to 京东.
+  assert.match(page, /key=\{`\$\{activeTab\}-\$\{item\.platform\}-\$\{item\.name\}`\}/);
+  assert.match(page, /label: "网店分析"/);
+  assert.match(page, /aria-label="网店分析子版块"/);
 });
 
 test("wires inventory health, synchronization, and replenishment", async () => {
@@ -123,20 +212,96 @@ test("wires inventory health, synchronization, and replenishment", async () => {
 });
 
 test("wires product profitability to synchronized sales and inventory facts", async () => {
-  const [page, route, summary] = await Promise.all([
+  const [page, route, summary, parser, inventoryDatabase, migration] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/products/summary/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/imports/inventory-stock.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0008_young_sunspot.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /\/api\/products\/summary/);
   assert.match(page, /毛利测算/);
-  assert.match(page, /销售数据截止/);
+  assert.match(page, /近30天/);
+  assert.match(page, /近90天/);
+  assert.match(page, /近半年/);
+  assert.match(page, /自定义时间/);
+  assert.match(page, /ariaLabel="销售平台"/);
+  assert.match(page, /ariaLabel="销售店铺"/);
+  assert.match(page, /<th>品牌<\/th><th>供应商<\/th>/);
   assert.doesNotMatch(page, /TRS-SM-1182/);
   assert.match(route, /getProductSummary/);
+  assert.match(route, /startDate/);
+  assert.match(route, /endDate/);
   assert.match(summary, /sales_order_lines/);
   assert.match(summary, /inventory_stock_lines/);
   assert.match(summary, /gross_profit_cents/);
+  assert.match(summary, /supplier/);
+  assert.match(summary, /shop_name/);
+  assert.match(summary, /MAX\(NULLIF\(brand/);
+  assert.match(parser, /品牌名称/);
+  assert.match(inventoryDatabase, /syncInventoryStockDimensions/);
+  assert.match(migration, /ADD `brand`/);
+});
+
+test("wires inventory age analysis and stale cleanup", async () => {
+  const [page, parser, route, analysis, migration] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/imports/inventory-stock.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/inventory/age-analysis/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0006_quiet_forgotten_one.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /库龄分析/);
+  assert.match(page, /滞销清理/);
+  assert.match(page, /snapshotDate/);
+  assert.match(parser, /前30天销量/);
+  assert.match(route, /getInventoryAgeAnalysis/);
+  assert.match(analysis, /inventory_age_metrics/);
+  assert.match(analysis, /滞销清理/);
+  assert.match(migration, /inventory_age_metrics/);
+});
+
+test("wires all five ERP imports and excludes 刷刷仓 from operating analysis", async () => {
+  const [page, schema, parser, service, route, chunkRoute, salesService, inventoryService, salesSummary, inventoryOverview, productSummary, ageAnalysis, migration] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/imports/erp-reference.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/erp-reference/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/imports/erp/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/imports/erp/chunks/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/sales/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0009_wonderful_blindfold.sql", import.meta.url), "utf8"),
+  ]);
+
+  for (const label of ["销售明细", "分仓库存", "货品主数据", "库龄", "组合装"]) assert.match(page, new RegExp(label));
+  assert.match(page, /\/api\/imports\/erp/);
+  assert.match(page, /inventory_age/);
+  assert.match(schema, /erp_reference_import_batches/);
+  assert.match(schema, /erp_product_master/);
+  assert.match(schema, /erp_inventory_age_lines/);
+  assert.match(schema, /erp_combo_items/);
+  assert.match(parser, /货品编号/);
+  assert.match(parser, /库存天数/);
+  assert.match(parser, /子件编号/);
+  assert.match(service, /EXCLUDED_BRUSH_WAREHOUSE/);
+  assert.match(route, /importErpReferenceBytes/);
+  assert.match(chunkRoute, /assembleInventoryUpload/);
+  assert.match(salesService, /EXCLUDED_BRUSH_WAREHOUSE/);
+  assert.match(inventoryService, /EXCLUDED_BRUSH_WAREHOUSE/);
+  for (const analysis of [salesSummary, inventoryOverview, productSummary, ageAnalysis]) assert.match(analysis, /刷刷仓/);
+  assert.match(ageAnalysis, /erp_inventory_age_lines/);
+  assert.match(productSummary, /erp_product_master/);
+  assert.match(migration, /CREATE TABLE `erp_product_master`/);
+  assert.match(migration, /CREATE TABLE `erp_inventory_age_lines`/);
+  assert.match(migration, /CREATE TABLE `erp_combo_items`/);
 });
 
 test("opens read-only data while keeping operational writes administrator-only", async () => {
@@ -147,12 +312,15 @@ test("opens read-only data while keeping operational writes administrator-only",
     "../app/api/products/summary/route.ts",
     "../app/api/imports/sales/route.ts",
     "../app/api/imports/inventory/route.ts",
+    "../app/api/imports/erp/route.ts",
   ];
   const writeRouteUrls = [
     "../app/api/imports/sales/route.ts",
     "../app/api/imports/sales/chunks/route.ts",
     "../app/api/imports/inventory/route.ts",
     "../app/api/imports/inventory/chunks/route.ts",
+    "../app/api/imports/erp/route.ts",
+    "../app/api/imports/erp/chunks/route.ts",
     "../app/api/inventory/replenishment/route.ts",
   ];
   const [page, schema, authorization, authRoute, migration, ...routes] =

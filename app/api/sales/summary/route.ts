@@ -22,10 +22,16 @@ export async function GET(request: Request) {
 
     const db = getSalesDatabase();
     await ensureSalesSchema(db);
+    const productCodes = (searchParams.get("productCodes") ?? "")
+      .split(/[\s,，;；]+/)
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 100);
     const payload = await getSalesSummary(db, {
       range: requested,
       startDate: searchParams.get("startDate") ?? undefined,
       endDate: searchParams.get("endDate") ?? undefined,
+      productCodes,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

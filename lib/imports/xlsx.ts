@@ -109,7 +109,7 @@ export function decodeXmlEntities(value: string): string {
 }
 
 /**
- * Parse the first worksheet in an XLSX archive.
+ * Parse the preferred sales worksheet in an XLSX archive.
  *
  * The implementation intentionally uses only Uint8Array, fflate, and string
  * scanning so it can run unchanged in a Cloudflare Worker.
@@ -154,13 +154,13 @@ export function parseXlsxFirstSheet(
 
   const workbookXml = decodeXmlPart(workbookBytes);
   const relationshipsXml = decodeXmlPart(relationshipsBytes);
-  const firstSheetTag = findFirstStartTag(workbookXml, "sheet");
-  if (!firstSheetTag) {
+  const selectedSheetTag = findPreferredSheetTag(workbookXml);
+  if (!selectedSheetTag) {
     throw new XlsxParseError("INVALID_WORKBOOK", "工作簿中没有工作表");
   }
 
-  const sheetName = xmlAttribute(firstSheetTag, "name") ?? "Sheet1";
-  const relationshipId = xmlAttribute(firstSheetTag, "id");
+  const sheetName = xmlAttribute(selectedSheetTag, "name") ?? "Sheet1";
+  const relationshipId = xmlAttribute(selectedSheetTag, "id");
   if (!relationshipId) {
     throw new XlsxParseError("INVALID_WORKBOOK", "首个工作表缺少关系 ID");
   }
@@ -330,6 +330,21 @@ function findFirstStartTag(xml: string, localName: string): string | null {
   const escapedName = escapeRegExp(localName);
   const expression = new RegExp(`<(?:[A-Za-z_][\\w.-]*:)?${escapedName}\\b([^>]*)>`, "i");
   return expression.exec(xml)?.[1] ?? null;
+}
+
+/** Prefer the 吉客云 sales detail sheet when a workbook also has pivot sheets. */
+function findPreferredSheetTag(xml: string): string | null {
+  const expression = /<(?:[A-Za-z_][\w.-]*:)?sheet\b([^>]*)\/?\s*>/gi;
+  let first: string | null = null;
+  let match: RegExpExecArray | null;
+  while ((match = expression.exec(xml)) !== null) {
+    const attributes = match[1];
+    first ??= attributes;
+    if (xmlAttribute(attributes, "name")?.trim().toLowerCase() === "sheettitle") {
+      return attributes;
+    }
+  }
+  return first;
 }
 
 function xmlAttribute(attributes: string, localName: string): string | null {

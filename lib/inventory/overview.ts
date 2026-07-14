@@ -4,6 +4,7 @@ import {
   type InventoryDatabase,
   type ReplenishmentPlanItem,
 } from "@/lib/inventory/database";
+import { readOperatingSettings } from "@/lib/settings/service";
 
 export type InventoryHealthStatus =
   | "urgent"
@@ -65,7 +66,16 @@ type SalesRow = {
   absolute_cost_cents: number;
 };
 
-const SETTINGS = Object.freeze({
+type InventoryThresholdSettings = {
+  targetDays: number;
+  criticalDays: number;
+  replenishDays: number;
+  slowDays: number;
+  stagnantDays: number;
+  salesWindowDays: number;
+};
+
+const DEFAULT_SETTINGS: Readonly<InventoryThresholdSettings> = Object.freeze({
   targetDays: 30,
   criticalDays: 7,
   replenishDays: 30,
@@ -116,7 +126,7 @@ function statusFor(input: {
   dailySales: number | null;
   coverageDays: number | null;
   inventoryAgeDays: number | null;
-}) {
+}, settings: Readonly<InventoryThresholdSettings> = DEFAULT_SETTINGS) {
   if (input.dailySales === null) {
     return {
       status: "no_sales" as const,
@@ -125,7 +135,7 @@ function statusFor(input: {
     };
   }
   if (input.dailySales <= 0) {
-    if (input.available > 0 && (input.inventoryAgeDays ?? 0) >= SETTINGS.stagnantDays) {
+    if (input.available > 0 && (input.inventoryAgeDays ?? 0) >= settings.stagnantDays) {
       return { status: "stagnant" as const, label: "呆滞风险", reason: `库龄已达到 ${input.inventoryAgeDays} 天且近 30 日无有效销量` };
     }
     return {
@@ -134,17 +144,17 @@ function statusFor(input: {
       reason: input.available > 0 ? "近 30 日无有效销量，暂不生成补货量" : "暂无库存且近 30 日无有效销量",
     };
   }
-  if (input.available <= 0 || (input.coverageDays ?? Infinity) <= SETTINGS.criticalDays) {
-    return { status: "urgent" as const, label: input.available <= 0 ? "库存告急" : "紧急补货", reason: `预计可售不超过 ${SETTINGS.criticalDays} 天` };
+  if (input.available <= 0 || (input.coverageDays ?? Infinity) <= settings.criticalDays) {
+    return { status: "urgent" as const, label: input.available <= 0 ? "库存告急" : "紧急补货", reason: `预计可售不超过 ${settings.criticalDays} 天` };
   }
-  if ((input.coverageDays ?? Infinity) < SETTINGS.replenishDays) {
-    return { status: "replenish" as const, label: "建议补货", reason: `预计可售低于 ${SETTINGS.replenishDays} 天` };
+  if ((input.coverageDays ?? Infinity) < settings.replenishDays) {
+    return { status: "replenish" as const, label: "建议补货", reason: `预计可售低于 ${settings.replenishDays} 天` };
   }
-  if ((input.coverageDays ?? 0) >= SETTINGS.stagnantDays) {
-    return { status: "stagnant" as const, label: "呆滞风险", reason: `预计可售达到 ${SETTINGS.stagnantDays} 天以上` };
+  if ((input.coverageDays ?? 0) >= settings.stagnantDays) {
+    return { status: "stagnant" as const, label: "呆滞风险", reason: `预计可售达到 ${settings.stagnantDays} 天以上` };
   }
-  if ((input.coverageDays ?? 0) >= SETTINGS.slowDays) {
-    return { status: "slow" as const, label: "低周转", reason: `预计可售达到 ${SETTINGS.slowDays} 天以上` };
+  if ((input.coverageDays ?? 0) >= settings.slowDays) {
+    return { status: "slow" as const, label: "低周转", reason: `预计可售达到 ${settings.slowDays} 天以上` };
   }
   return { status: "healthy" as const, label: "库存健康", reason: "库存覆盖处于目标区间" };
 }
@@ -171,15 +181,24 @@ function planSummary(plans: ReplenishmentPlanItem[], currentBatchId: string | nu
 }
 
 export async function getInventoryOverview(db: InventoryDatabase) {
-  const [latestBatch, salesBounds, plans] = await Promise.all([
+  const [latestBatch, salesBounds, plans, persistedSettings] = await Promise.all([
     findLatestInventoryImportBatch(db),
     db
-      .prepare("SELECT MAX(substr(sales_time, 1, 10)) AS end_date FROM sales_order_lines")
+      .prepare("SELECT MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines WHERE TRIM(warehouse) <> '刷刷仓'")
       .first<{ end_date: string | null }>(),
     listReplenishmentPlans(db),
+    readOperatingSettings(db),
   ]);
+  const settings = {
+    targetDays: persistedSettings.targetDays,
+    criticalDays: persistedSettings.criticalDays,
+    replenishDays: persistedSettings.targetDays,
+    slowDays: persistedSettings.slowDays,
+    stagnantDays: persistedSettings.stagnantDays,
+    salesWindowDays: DEFAULT_SETTINGS.salesWindowDays,
+  };
   const salesEndDate = salesBounds?.end_date ?? null;
-  const salesStartDate = salesEndDate ? addDays(salesEndDate, -(SETTINGS.salesWindowDays - 1)) : null;
+  const salesStartDate = salesEndDate ? addDays(salesEndDate, -(settings.salesWindowDays - 1)) : null;
 
   if (!latestBatch) {
     return {
@@ -193,7 +212,7 @@ export async function getInventoryOverview(db: InventoryDatabase) {
         latestInventoryFile: null,
         inventoryStale: false,
       },
-      settings: SETTINGS,
+      settings,
       metrics: {
         skuWarehouseCount: 0,
         totalAvailableQuantity: 0,
@@ -236,7 +255,7 @@ export async function getInventoryOverview(db: InventoryDatabase) {
         SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) ELSE 0 END) AS priced_available_quantity,
         MAX(inventory_age_days) AS inventory_age_days
        FROM inventory_stock_lines
-       WHERE batch_id = ?
+       WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓'
        GROUP BY product_code, warehouse, warehouse_type
        ORDER BY product_code, warehouse`,
     )
@@ -257,7 +276,8 @@ export async function getInventoryOverview(db: InventoryDatabase) {
           COALESCE(SUM(ABS(quantity)), 0) AS absolute_quantity,
           COALESCE(SUM(ABS(cost_amount_cents)), 0) AS absolute_cost_cents
          FROM sales_order_lines
-         WHERE sales_time >= ? AND sales_time < ?
+         WHERE ship_time >= ? AND ship_time < ?
+           AND TRIM(warehouse) <> '刷刷仓'
          GROUP BY product_code, warehouse`,
       )
       .bind(`${salesStartDate} 00:00:00`, `${addDays(salesEndDate, 1)} 00:00:00`)
@@ -293,16 +313,16 @@ export async function getInventoryOverview(db: InventoryDatabase) {
     const sales = salesByKey.get(demandKey(stock.product_code, stock.warehouse));
     const available = Number(stock.available_quantity ?? 0);
     const sales30d = salesEndDate && sales ? Math.max(0, Number(sales.net_quantity ?? 0)) : null;
-    const dailySales = sales30d === null ? null : sales30d / SETTINGS.salesWindowDays;
+    const dailySales = sales30d === null ? null : sales30d / settings.salesWindowDays;
     const coverageDays = dailySales && dailySales > 0 ? Math.max(0, available) / dailySales : null;
     const activePlans = plansByKey.get(key) ?? [];
     const plannedInTransit = activePlans.reduce((sum, plan) => sum + plan.plannedQuantity, 0);
     const sourceInTransit = Number(stock.in_transit_quantity ?? 0);
     const inventoryAgeDays = stock.inventory_age_days === null ? null : Number(stock.inventory_age_days);
-    const status = statusFor({ available, dailySales, coverageDays, inventoryAgeDays });
+    const status = statusFor({ available, dailySales, coverageDays, inventoryAgeDays }, settings);
     const suggestedQuantity = dailySales === null || dailySales <= 0
       ? null
-      : Math.max(0, Math.ceil(dailySales * SETTINGS.targetDays - available - sourceInTransit - plannedInTransit));
+      : Math.max(0, Math.ceil(dailySales * settings.targetDays - available - sourceInTransit - plannedInTransit));
     const absoluteQuantity = Number(sales?.absolute_quantity ?? 0);
     const salesUnitCost = absoluteQuantity > 0 ? Number(sales?.absolute_cost_cents ?? 0) / absoluteQuantity : 0;
     const importedValue = Number(stock.imported_stock_value_cents ?? 0);
@@ -385,7 +405,7 @@ export async function getInventoryOverview(db: InventoryDatabase) {
       latestInventoryFile: latestBatch.fileName,
       inventoryStale,
     },
-    settings: SETTINGS,
+    settings,
     metrics: {
       skuWarehouseCount: items.length,
       totalAvailableQuantity: items.reduce((sum, item) => sum + item.availableQuantity, 0),

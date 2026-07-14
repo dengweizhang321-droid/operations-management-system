@@ -1,5 +1,7 @@
 # Operations data connection
 
+Before answering an operating-data question, read and follow [docs/OPERATIONS_DATA_QUERY.md](docs/OPERATIONS_DATA_QUERY.md). It defines the required source fallback, encoding, validation, metric, and response rules.
+
 For questions about current TERUISI operating data, use the `teruisi_operations` MCP server instead of relying on memory or sample data.
 
 - Start with `get_data_freshness`, then state the data cutoff date and filters used.

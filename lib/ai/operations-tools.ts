@@ -137,7 +137,7 @@ export async function callOperationsTool(
     const [salesBatch, inventoryBatch, salesBounds] = await Promise.all([
       findLatestSalesImportBatch(db),
       findLatestInventoryImportBatch(db),
-      db.prepare("SELECT MAX(substr(sales_time, 1, 10)) AS end_date FROM sales_order_lines")
+      db.prepare("SELECT MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines")
         .first<{ end_date: string | null }>(),
     ]);
     return {

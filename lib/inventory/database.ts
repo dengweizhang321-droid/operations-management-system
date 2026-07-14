@@ -119,6 +119,7 @@ const schemaStatements = [
     warehouse_type TEXT NOT NULL,
     product_code TEXT NOT NULL,
     product_name TEXT NOT NULL,
+    brand TEXT NOT NULL DEFAULT '',
     specification TEXT NOT NULL,
     barcode TEXT NOT NULL,
     category TEXT NOT NULL,
@@ -137,6 +138,16 @@ const schemaStatements = [
     ON inventory_stock_lines (product_code)`,
   `CREATE INDEX IF NOT EXISTS inventory_stock_lines_warehouse_idx
     ON inventory_stock_lines (warehouse)`,
+  `CREATE TABLE IF NOT EXISTS inventory_age_metrics (
+    batch_id TEXT NOT NULL,
+    row_key TEXT NOT NULL,
+    sales_7d_quantity INTEGER NOT NULL DEFAULT 0,
+    sales_30d_quantity INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (batch_id, row_key)
+  )`,
+  `CREATE INDEX IF NOT EXISTS inventory_age_metrics_batch_idx
+    ON inventory_age_metrics (batch_id)`,
   `CREATE TABLE IF NOT EXISTS inventory_import_uploads (
     id TEXT PRIMARY KEY NOT NULL,
     fingerprint TEXT NOT NULL UNIQUE,
@@ -206,7 +217,12 @@ export async function ensureInventorySchema(db = getInventoryDatabase()): Promis
   if (existing) return existing;
   const setup = db
     .batch(schemaStatements.map((statement) => db.prepare(statement)))
-    .then(() => undefined)
+    .then(async () => {
+      const columns = await db.prepare("PRAGMA table_info(inventory_stock_lines)").all<{ name: string }>();
+      if (!columns.results.some((column) => column.name === "brand")) {
+        await db.prepare("ALTER TABLE inventory_stock_lines ADD COLUMN brand TEXT NOT NULL DEFAULT ''").run();
+      }
+    })
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
       throw error;
@@ -294,7 +310,7 @@ export async function listInventoryImportBatches(
 const insertStockSql = `
   INSERT INTO inventory_stock_lines (
     batch_id, row_key, source_row_number, snapshot_date, warehouse, warehouse_type,
-    product_code, product_name, specification, barcode, category,
+    product_code, product_name, brand, specification, barcode, category,
     on_hand_quantity, available_quantity, locked_quantity, in_transit_quantity,
     unit_cost_cents, inventory_age_days
   )
@@ -307,6 +323,7 @@ const insertStockSql = `
     json_extract(item.value, '$.warehouseType'),
     json_extract(item.value, '$.productCode'),
     json_extract(item.value, '$.productName'),
+    COALESCE(json_extract(item.value, '$.brand'), ''),
     json_extract(item.value, '$.specification'),
     json_extract(item.value, '$.barcode'),
     json_extract(item.value, '$.category'),
@@ -318,8 +335,35 @@ const insertStockSql = `
     CAST(json_extract(item.value, '$.inventoryAgeDays') AS INTEGER)
   FROM json_each(?) AS item
   WHERE 1
+  ON CONFLICT(batch_id, row_key) DO UPDATE SET
+    brand = CASE WHEN excluded.brand <> '' THEN excluded.brand ELSE inventory_stock_lines.brand END
+`;
+
+const insertAgeMetricsSql = `
+  INSERT INTO inventory_age_metrics (
+    batch_id, row_key, sales_7d_quantity, sales_30d_quantity
+  )
+  SELECT
+    ?,
+    json_extract(item.value, '$.rowKey'),
+    CAST(json_extract(item.value, '$.sales7dQuantity') AS INTEGER),
+    CAST(json_extract(item.value, '$.sales30dQuantity') AS INTEGER)
+  FROM json_each(?) AS item
+  WHERE 1
   ON CONFLICT(batch_id, row_key) DO NOTHING
 `;
+
+export async function syncInventoryStockDimensions(
+  db: InventoryDatabase,
+  input: { batchId: string; snapshotDate: string; rows: InventoryStockRow[] },
+): Promise<void> {
+  const statements = [];
+  for (let offset = 0; offset < input.rows.length; offset += INVENTORY_IMPORT_CHUNK_SIZE) {
+    const chunk = input.rows.slice(offset, offset + INVENTORY_IMPORT_CHUNK_SIZE);
+    statements.push(db.prepare(insertStockSql).bind(input.batchId, input.snapshotDate, JSON.stringify(chunk)));
+  }
+  if (statements.length > 0) await db.batch(statements);
+}
 
 export async function saveInventoryImport(
   db: InventoryDatabase,
@@ -363,6 +407,7 @@ export async function saveInventoryImport(
     const chunk = input.rows.slice(offset, offset + INVENTORY_IMPORT_CHUNK_SIZE);
     statements.push(
       db.prepare(insertStockSql).bind(batchId, input.snapshotDate, JSON.stringify(chunk)),
+      db.prepare(insertAgeMetricsSql).bind(batchId, JSON.stringify(chunk)),
     );
   }
 

@@ -151,12 +151,16 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_sales_time_idx
     ON sales_order_lines (sales_time)`,
+  `CREATE INDEX IF NOT EXISTS sales_order_lines_ship_time_idx
+    ON sales_order_lines (ship_time)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_channel_idx
     ON sales_order_lines (channel)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_platform_idx
     ON sales_order_lines (platform)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_inventory_demand_idx
     ON sales_order_lines (sales_time, product_code, warehouse)`,
+  `CREATE INDEX IF NOT EXISTS sales_order_lines_ship_time_inventory_demand_idx
+    ON sales_order_lines (ship_time, product_code, warehouse)`,
   `CREATE INDEX IF NOT EXISTS sales_order_lines_last_batch_idx
     ON sales_order_lines (last_import_batch_id)`,
   `CREATE TABLE IF NOT EXISTS sales_import_uploads (
@@ -409,11 +413,38 @@ type SaveSalesImportInput = {
   totals: unknown;
 };
 
+type SalesImportShipTimeScope = {
+  start: string;
+  endExclusive: string;
+};
+
+function addUtcDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * 吉客云销售明细账按发货时间筛选后导出的是一个完整期间快照。
+ * 每次导入应以该快照替换期间内旧行，避免旧版本中已删除或更正的
+ * 明细继续参与销售分析。
+ */
+function fullShipTimeScope(rows: readonly SalesLineInput[]): SalesImportShipTimeScope | null {
+  const dates = rows.map((row) => row.shipTime.slice(0, 10));
+  if (!dates.length || dates.some((date) => !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
+    return null;
+  }
+  const start = dates.reduce((earliest, date) => date < earliest ? date : earliest);
+  const end = dates.reduce((latest, date) => date > latest ? date : latest);
+  return { start, endExclusive: addUtcDays(end, 1) };
+}
+
 export async function saveSalesImport(
   db: SalesDatabase,
   input: SaveSalesImportInput,
 ): Promise<{ batch: SalesImportBatch; created: boolean }> {
   const batchId = input.fileHash;
+  const shipTimeScope = fullShipTimeScope(input.rows);
   const warningsJson = JSON.stringify(input.warnings);
   const totalsJson = JSON.stringify(input.totals ?? {});
   const statements = [
@@ -443,6 +474,15 @@ export async function saveSalesImport(
     const chunk = input.rows.slice(offset, offset + SALES_IMPORT_CHUNK_SIZE);
     statements.push(
       db.prepare(upsertSalesLinesSql).bind(batchId, batchId, JSON.stringify(chunk)),
+    );
+  }
+
+  if (shipTimeScope) {
+    statements.push(
+      db.prepare(
+        `DELETE FROM sales_order_lines
+         WHERE ship_time >= ? AND ship_time < ? AND last_import_batch_id <> ?`,
+      ).bind(shipTimeScope.start, shipTimeScope.endExclusive, batchId),
     );
   }
 

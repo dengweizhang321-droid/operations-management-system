@@ -6,6 +6,16 @@ import {
 
 export const BOOTSTRAP_ADMIN_EMAIL = "dengweizhang321@gmail.com";
 
+// 本地运营管理系统采用直连模式：不依赖 ChatGPT 登录，也不做角色或数据范围校验。
+// 若后续需要恢复账号权限管理，将此值改为 false 即可恢复原有流程。
+const LOCAL_DIRECT_ACCESS_ENABLED = true;
+const LOCAL_DIRECT_ACCESS_PRINCIPAL: AppPrincipal = {
+  email: "local-admin@teruisi.local",
+  displayName: "本地管理员",
+  role: "admin",
+  scope: null,
+};
+
 export const appRoles = ["viewer", "analyst", "operator", "admin"] as const;
 export type AppRole = (typeof appRoles)[number];
 
@@ -113,6 +123,10 @@ export async function ensureAuthorizationSchema(
 export async function requireAppPrincipal(
   allowedRoles: readonly AppRole[] = appRoles,
 ): Promise<AppPrincipal> {
+  if (LOCAL_DIRECT_ACCESS_ENABLED) {
+    return LOCAL_DIRECT_ACCESS_PRINCIPAL;
+  }
+
   const identity = await getChatGPTUser();
   if (!identity) {
     throw new AuthorizationError(

@@ -8,7 +8,8 @@ import {
   receiveInventoryUploadChunk,
   releaseInventoryUpload,
 } from "@/lib/inventory/chunked-upload";
-import { importInventoryStockBytes } from "@/lib/inventory/import-service";
+import { importErpReferenceBytes } from "@/lib/erp-reference/import-service";
+import { isErpReferenceSourceKey } from "@/lib/imports/erp-reference";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -28,6 +29,8 @@ export async function POST(request: Request) {
     await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "请求内容无效");
+    if (!isErpReferenceSourceKey(body.source)) return reject(400, "缺少有效的数据来源");
+
     if (body.action === "init") {
       const upload = await beginInventoryUpload({
         fileName: typeof body.fileName === "string" ? body.fileName : "",
@@ -53,11 +56,12 @@ export async function POST(request: Request) {
       }
       try {
         const assembled = await assembleInventoryUpload(uploadId);
-      const result = await importInventoryStockBytes({
+        const result = await importErpReferenceBytes({
+          source: body.source,
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
-          snapshotDateOverride: typeof body.snapshotDate === "string" ? body.snapshotDate : undefined,
+          snapshotDate: typeof body.snapshotDate === "string" ? body.snapshotDate : undefined,
         });
         await finishInventoryUpload(uploadId, assembled.objectKeys, result);
         return Response.json(result, { status: result.ok ? (result.status === "imported" ? 201 : 200) : 422 });
@@ -70,7 +74,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "库存分片上传初始化或合并失败";
+    const message = error instanceof Error ? error.message : "ERP 分片上传失败";
     return reject(500, message);
   }
 }
@@ -90,7 +94,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "库存分片上传失败";
+    const message = error instanceof Error ? error.message : "ERP 分片上传失败";
     return reject(422, message);
   }
 }

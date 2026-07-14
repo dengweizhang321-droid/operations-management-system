@@ -3,7 +3,7 @@ import {
   type SalesDatabase,
 } from "@/lib/sales/database";
 
-export const salesRanges = ["today", "last7", "month", "quarter", "custom", "all"] as const;
+export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
 
 type Period = {
@@ -23,7 +23,7 @@ type MetricRow = {
   line_count: number;
 };
 
-type GroupRow = MetricRow & { name: string };
+type GroupRow = MetricRow & { group_key: string; name: string; platform: string | null };
 type DailyRow = MetricRow & { date: string };
 
 export class SalesSummaryRequestError extends Error {}
@@ -93,12 +93,31 @@ function periodFor(range: Exclude<SalesRange, "all" | "custom">, today: string):
     };
   }
 
+  if (range === "yesterday") {
+    const yesterday = addDays(today, -1);
+    return {
+      startDate: yesterday,
+      endDate: yesterday,
+      previousStartDate: addDays(today, -2),
+      previousEndDate: addDays(today, -2),
+    };
+  }
+
   if (range === "last7") {
     return {
       startDate: addDays(today, -6),
       endDate: today,
       previousStartDate: addDays(today, -13),
       previousEndDate: addDays(today, -7),
+    };
+  }
+
+  if (range === "last15") {
+    return {
+      startDate: addDays(today, -14),
+      endDate: today,
+      previousStartDate: addDays(today, -29),
+      previousEndDate: addDays(today, -15),
     };
   }
 
@@ -149,11 +168,21 @@ function bindPeriod(
   statement: ReturnType<SalesDatabase["prepare"]>,
   startDate: string,
   endDate: string,
+  productCodes: string[] = [],
 ) {
-  return statement.bind(startDate, addDays(endDate, 1));
+  return statement.bind(startDate, addDays(endDate, 1), ...productCodes);
 }
 
-const metricsSql = `
+function productCodeClause(productCodes: string[]) {
+  return productCodes.length > 0 ? ` AND product_code IN (${productCodes.map(() => "?").join(", ")})` : "";
+}
+
+function normalizeProductCodes(values: string[] | undefined) {
+  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 100);
+}
+
+function metricsSql(productCodes: string[]) {
+  return `
   SELECT
     COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
     COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
@@ -167,8 +196,10 @@ const metricsSql = `
     END) AS order_count,
     COUNT(*) AS line_count
   FROM sales_order_lines
-  WHERE sales_time >= ? AND sales_time < ?
+  WHERE ship_time >= ? AND ship_time < ?
+    AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
 `;
+}
 
 function metric(row: MetricRow | null) {
   const grossSalesCents = Number(row?.gross_sales_cents ?? 0);
@@ -195,13 +226,25 @@ function metric(row: MetricRow | null) {
 
 async function groupedMetrics(
   db: SalesDatabase,
-  dimension: "channel" | "platform",
+  dimension: "shop" | "channel" | "platform",
   period: Period,
+  productCodes: string[],
 ) {
-  const fallback = dimension === "channel" ? "platform" : "channel";
+  const displayName = dimension === "shop"
+    ? "COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类')"
+    : dimension === "channel"
+      ? "COALESCE(NULLIF(channel, ''), NULLIF(platform, ''), '未分类')"
+      : "COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类')";
+  // 店铺简称会在不同平台重复。网点页需要按“平台 + 店铺”分组，避免将
+  // 京东、拼多多等同名店铺合并后错误归属到某一个平台。
+  const groupKey = dimension === "shop"
+    ? `COALESCE(NULLIF(platform, ''), '未分类') || char(31) || ${displayName}`
+    : displayName;
   const statement = db.prepare(`
     SELECT
-      COALESCE(NULLIF(${dimension}, ''), NULLIF(${fallback}, ''), '未分类') AS name,
+      ${groupKey} AS group_key,
+      ${displayName} AS name,
+      MAX(NULLIF(platform, '')) AS platform,
       COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
       COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
       COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
@@ -210,11 +253,12 @@ async function groupedMetrics(
       COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
       COUNT(*) AS line_count
     FROM sales_order_lines
-    WHERE sales_time >= ? AND sales_time < ?
-    GROUP BY name
+    WHERE ship_time >= ? AND ship_time < ?
+      AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
+    GROUP BY ${groupKey}
     ORDER BY (gross_sales_cents - refund_amount_cents) DESC, name ASC
   `);
-  const result = await bindPeriod(statement, period.startDate, period.endDate).all<GroupRow>();
+  const result = await bindPeriod(statement, period.startDate, period.endDate, productCodes).all<GroupRow>();
   const groupedRows = result.results;
   const totalNet = groupedRows.reduce(
     (sum, row) => sum + Number(row.gross_sales_cents ?? 0) - Number(row.refund_amount_cents ?? 0),
@@ -224,25 +268,56 @@ async function groupedMetrics(
   return groupedRows.map((row) => {
     const values = metric(row);
     return {
+      groupKey: row.group_key,
       name: row.name,
+      platform: row.platform || (dimension === "platform" ? row.name : "未分类"),
       ...values,
       shareRate: totalNet === 0 ? 0 : values.netSalesCents / totalNet,
     };
   });
 }
 
+async function groupedMetricsWithYearOverYear(
+  db: SalesDatabase,
+  dimension: "shop" | "channel" | "platform",
+  period: Period,
+  yearAgoPeriod: Pick<Period, "startDate" | "endDate">,
+  productCodes: string[],
+) {
+  const [current, yearAgo] = await Promise.all([
+    groupedMetrics(db, dimension, period, productCodes),
+    groupedMetrics(db, dimension, yearAgoPeriod, productCodes),
+  ]);
+  const yearAgoByGroupKey = new Map(yearAgo.map((item) => [item.groupKey, item]));
+
+  return current.map((item) => {
+    const yearAgoNetSalesCents = yearAgoByGroupKey.get(item.groupKey)?.netSalesCents ?? 0;
+    return {
+      ...item,
+      yearAgoNetSalesCents,
+      salesYearOverYearRate: yearAgoNetSalesCents === 0
+        ? null
+        : (item.netSalesCents - yearAgoNetSalesCents) / Math.abs(yearAgoNetSalesCents),
+    };
+  });
+}
+
 export async function getSalesSummary(
   db: SalesDatabase,
-  input: { range: SalesRange; startDate?: string; endDate?: string },
+  input: { range: SalesRange; startDate?: string; endDate?: string; productCodes?: string[] },
 ) {
   const today = shanghaiToday();
+  const productCodes = normalizeProductCodes(input.productCodes);
   let period: Period;
 
   if (input.range === "all") {
     const bounds = await db
       .prepare(
-        "SELECT MIN(substr(sales_time, 1, 10)) AS start_date, MAX(substr(sales_time, 1, 10)) AS end_date FROM sales_order_lines",
+        `SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date
+         FROM sales_order_lines
+         WHERE TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}`,
       )
+      .bind(...productCodes)
       .first<{ start_date: string | null; end_date: string | null }>();
     period = {
       startDate: bounds?.start_date ?? today,
@@ -255,15 +330,17 @@ export async function getSalesSummary(
   }
 
   const currentRow = await bindPeriod(
-    db.prepare(metricsSql),
+    db.prepare(metricsSql(productCodes)),
     period.startDate,
     period.endDate,
+    productCodes,
   ).first<MetricRow>();
   const previousRow = period.previousStartDate && period.previousEndDate
     ? await bindPeriod(
-      db.prepare(metricsSql),
+      db.prepare(metricsSql(productCodes)),
       period.previousStartDate,
       period.previousEndDate,
+      productCodes,
     ).first<MetricRow>()
     : null;
   const yearAgoPeriod = {
@@ -271,16 +348,20 @@ export async function getSalesSummary(
     endDate: addYears(period.endDate, -1),
   };
   const yearAgoRow = await bindPeriod(
-    db.prepare(metricsSql),
+    db.prepare(metricsSql(productCodes)),
     yearAgoPeriod.startDate,
     yearAgoPeriod.endDate,
+    productCodes,
   ).first<MetricRow>();
-  const shops = await groupedMetrics(db, "channel", period);
-  const platforms = await groupedMetrics(db, "platform", period);
+  const [outlets, shops, platforms] = await Promise.all([
+    groupedMetricsWithYearOverYear(db, "shop", period, yearAgoPeriod, productCodes),
+    groupedMetricsWithYearOverYear(db, "channel", period, yearAgoPeriod, productCodes),
+    groupedMetricsWithYearOverYear(db, "platform", period, yearAgoPeriod, productCodes),
+  ]);
   const dailyResult = await bindPeriod(
     db.prepare(`
       SELECT
-        substr(sales_time, 1, 10) AS date,
+        substr(ship_time, 1, 10) AS date,
         COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
         COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
         COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
@@ -289,17 +370,20 @@ export async function getSalesSummary(
         COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
         COUNT(*) AS line_count
       FROM sales_order_lines
-      WHERE sales_time >= ? AND sales_time < ?
+      WHERE ship_time >= ? AND ship_time < ?
+        AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
       GROUP BY date
       ORDER BY date ASC
     `),
     period.startDate,
     period.endDate,
+    productCodes,
   ).all<DailyRow>();
   const latestBatch = await findLatestSalesImportBatch(db);
 
   return {
     range: input.range,
+    filters: { productCodes },
     ...period,
     current: metric(currentRow),
     ...(previousRow ? { previous: metric(previousRow) } : {}),
@@ -307,6 +391,7 @@ export async function getSalesSummary(
     yearAgoStartDate: yearAgoPeriod.startDate,
     yearAgoEndDate: yearAgoPeriod.endDate,
     channels: platforms,
+    outlets,
     shops,
     platforms,
     daily: dailyResult.results.map((row) => ({ date: row.date, ...metric(row) })),

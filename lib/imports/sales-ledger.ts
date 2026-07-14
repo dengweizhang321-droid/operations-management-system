@@ -470,7 +470,10 @@ function parseSalesRow(
   return {
     orderNo,
     onlineOrderNo: reader.text("网店订单号"),
-    salesTime: lineShipTime ?? shipTime ?? orderTime,
+    // All operating views use the ERP shipment date as their single date
+    // dimension. Keep salesTime aligned for downstream consumers that still
+    // read this legacy field.
+    salesTime: shipTime ?? lineShipTime ?? orderTime,
     orderTime,
     shipTime,
     lineShipTime,
