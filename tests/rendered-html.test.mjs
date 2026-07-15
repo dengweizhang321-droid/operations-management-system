@@ -335,6 +335,7 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(analysis, /returnRateBps/);
   assert.match(analysis, /feeRateBps/);
   assert.match(analysis, /platformFilter/);
+  assert.match(analysis, /isSelectableShopName/);
   assert.match(analysis, /momRate/);
   assert.match(page, /formatFinanceWan/);
   assert.match(page, /FinanceSortButton/);

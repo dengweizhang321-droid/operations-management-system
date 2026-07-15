@@ -103,6 +103,13 @@ function shiftMonth(month: string, delta: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function isSelectableShopName(name: string) {
+  const compact = name.replace(/[\s　]+/g, "");
+  if (/^分销[-—]/.test(compact)) return false;
+  if (/^(?:[1-9]|1[0-2])月(?:项目费率)?$/.test(compact)) return false;
+  return true;
+}
+
 function changeRate(current: number, comparison: number | null) {
   if (comparison === null || comparison === 0) return null;
   return (current - comparison) / Math.abs(comparison);
@@ -284,6 +291,7 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
 
   const shopOptionsByName = new Map<string, { name: string; platform: string }>();
   summaryResult.results.filter((row) => row.scope_type === "shop").forEach((row) => {
+    if (!isSelectableShopName(row.scope_name)) return;
     if (!shopOptionsByName.has(row.scope_name)) {
       shopOptionsByName.set(row.scope_name, { name: row.scope_name, platform: row.group_name || "未分组" });
     }
