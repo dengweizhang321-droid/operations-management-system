@@ -409,6 +409,37 @@ export async function listFinanceTargets(db: FinanceDatabase): Promise<FinanceTa
 export async function upsertFinanceTarget(db: FinanceDatabase, input: FinanceTargetInput & { id: string }) {
   const shopName = input.shopName?.trim() ?? "";
   const category = input.category?.trim() ?? "";
+  const values = [
+    input.periodType,
+    input.periodKey,
+    shopName,
+    category,
+    input.manager?.trim() ?? "",
+    Math.trunc(input.salesTargetCents ?? 0),
+    Math.trunc(input.profitTargetCents ?? 0),
+    Math.trunc(input.smallMarginBps ?? 0),
+    Math.trunc(input.inventoryCleanupTargetCents ?? 0),
+    Math.trunc(input.promotionFeeRatioBps ?? 0),
+    Math.trunc(input.stagnantInventoryTargetCents ?? 0),
+  ] as const;
+  const existingById = await db.prepare(`SELECT id FROM finance_targets WHERE id = ? LIMIT 1`)
+    .bind(input.id)
+    .first<{ id: string }>();
+  if (existingById) {
+    await db.prepare(
+      `UPDATE finance_targets SET
+        period_type = ?, period_key = ?, shop_name = ?, category = ?, manager = ?,
+        sales_target_cents = ?, profit_target_cents = ?, small_margin_bps = ?,
+        inventory_cleanup_target_cents = ?, promotion_fee_ratio_bps = ?,
+        stagnant_inventory_target_cents = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+    ).bind(...values, input.id).run();
+    const updated = await db.prepare(`SELECT ${targetColumns} FROM finance_targets WHERE id = ? LIMIT 1`)
+      .bind(input.id)
+      .first<FinanceTargetRow>();
+    if (!updated) throw new Error("目标修改后无法读取");
+    return mapTarget(updated);
+  }
   await db.prepare(
     `INSERT INTO finance_targets (
       id, period_type, period_key, shop_name, category, manager,
@@ -427,17 +458,7 @@ export async function upsertFinanceTarget(db: FinanceDatabase, input: FinanceTar
       updated_at = CURRENT_TIMESTAMP`,
   ).bind(
     input.id,
-    input.periodType,
-    input.periodKey,
-    shopName,
-    category,
-    input.manager?.trim() ?? "",
-    Math.trunc(input.salesTargetCents ?? 0),
-    Math.trunc(input.profitTargetCents ?? 0),
-    Math.trunc(input.smallMarginBps ?? 0),
-    Math.trunc(input.inventoryCleanupTargetCents ?? 0),
-    Math.trunc(input.promotionFeeRatioBps ?? 0),
-    Math.trunc(input.stagnantInventoryTargetCents ?? 0),
+    ...values,
   ).run();
   const row = await db.prepare(
     `SELECT ${targetColumns} FROM finance_targets

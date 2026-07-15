@@ -427,6 +427,7 @@ type FinanceActualMetrics = {
   netCostCents: number;
   grossProfitCents: number;
   grossMarginBps: number;
+  returnRateBps: number;
   sellingExpenseCents: number;
   smallProfitCents: number;
   smallMarginBps: number;
@@ -474,8 +475,12 @@ type FinanceTarget = {
 type FinanceAnalysisResponse = {
   hasData: boolean;
   selectedMonth: string | null;
+  selectedMonths?: string[];
+  periodLabel?: string;
   previousMonth?: string | null;
+  previousMonths?: string[];
   yearAgoMonth?: string | null;
+  yearAgoMonths?: string[];
   months: Array<{ month: string; fileName: string; importedAt: string; shopCount: number; subjectCount: number }>;
   current?: FinanceActualMetrics;
   previous?: FinanceActualMetrics | null;
@@ -484,9 +489,11 @@ type FinanceAnalysisResponse = {
   timeline: Array<{ month: string } & FinanceActualMetrics>;
   targets?: { month: FinanceTargetTotals; year: FinanceTargetTotals; projects: FinanceTarget[] };
   progress?: { month: FinanceProgress; year: FinanceProgress };
-  expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
+  expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; feeRateBps: number; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
   shops: Array<{ name: string; groupName: string; manager: string; actual: FinanceActualMetrics; target: FinanceTargetTotals; progress: FinanceProgress }>;
   anomalies: Array<{ level: "critical" | "warning" | "info"; title: string; detail: string }>;
+  filters?: { platforms: string[]; shops: Array<{ name: string; platform: string }> };
+  selection?: { allMonths: boolean; months: string[]; platforms: string[]; shops: string[] };
   sync?: { dataCutoffMonth: string; sourceFileName: string; importedAt: string };
   error?: string;
 };
@@ -1608,12 +1615,13 @@ const financeChangeTone = (current: number, comparison: number | null | undefine
   return positive !== inverse ? "green-text" : "red-text";
 };
 const financeMonthLabel = (month: string) => `${month.slice(0, 4)}年${Number(month.slice(5))}月`;
+const formatFinanceWan = (value: number) => new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 1 }).format(value / 1_000_000);
 const financeProgressWidth = (value: number | null) => `${Math.max(0, Math.min(100, (value ?? 0) * 100))}%`;
 
 function FinanceTrendChart({ rows }: { rows: Array<{ month: string } & FinanceActualMetrics> }) {
-  const width = 760;
-  const height = 250;
-  const plot = { left: 36, right: 738, top: 28, bottom: 205 };
+  const width = Math.max(760, rows.length * 92);
+  const height = 270;
+  const plot = { left: 42, right: width - 24, top: 38, bottom: 216 };
   const valuesFor = (key: "netSalesCents" | "profitCents") => rows.map((row) => row[key]);
   const coordinateSeries = (key: "netSalesCents" | "profitCents") => {
     const values = valuesFor(key);
@@ -1630,29 +1638,30 @@ function FinanceTrendChart({ rows }: { rows: Array<{ month: string } & FinanceAc
   const profitPoints = coordinateSeries("profitCents");
   const pointsText = (points: Array<{ x: number; y: number }>) => points.map((point) => `${point.x},${point.y}`).join(" ");
   return <div className="finance-trend-chart">
-    <div className="finance-chart-legend"><span><i className="blue" />净销售额</span><span><i className="green" />利润</span></div>
-    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="月度净销售额与利润趋势">
+    <div className="finance-chart-legend"><span><i className="blue" />净销售额（万）</span><span><i className="green" />利润（万）</span></div>
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label="月度净销售额与利润趋势，节点单位万元">
       {[0, 1, 2, 3, 4].map((index) => { const y = plot.top + (plot.bottom - plot.top) * index / 4; return <line key={index} x1={plot.left} x2={plot.right} y1={y} y2={y} className="finance-grid-line" />; })}
       {salesPoints.length > 0 && <polyline points={pointsText(salesPoints)} className="finance-line sales" />}
       {profitPoints.length > 0 && <polyline points={pointsText(profitPoints)} className="finance-line profit" />}
-      {salesPoints.map((point, index) => <g key={`sales-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point sales"><title>{`${financeMonthLabel(rows[index].month)} 净销售额 ${formatCurrencyFromCents(point.value)}`}</title></circle></g>)}
-      {profitPoints.map((point, index) => <g key={`profit-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point profit"><title>{`${financeMonthLabel(rows[index].month)} 利润 ${formatCurrencyFromCents(point.value)}`}</title></circle></g>)}
-      {rows.map((row, index) => { const x = rows.length <= 1 ? (plot.left + plot.right) / 2 : plot.left + (plot.right - plot.left) * index / (rows.length - 1); return <text key={row.month} x={x} y="232" textAnchor="middle" className="finance-axis-label">{row.month.slice(2)}</text>; })}
+      {salesPoints.map((point, index) => <g key={`sales-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point sales"><title>{`${financeMonthLabel(rows[index].month)} 净销售额 ${formatCurrencyFromCents(point.value)}`}</title></circle><text x={point.x} y={Math.max(16, point.y - 10)} textAnchor="middle" className="finance-node-label sales">{formatFinanceWan(point.value)}</text></g>)}
+      {profitPoints.map((point, index) => <g key={`profit-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point profit"><title>{`${financeMonthLabel(rows[index].month)} 利润 ${formatCurrencyFromCents(point.value)}`}</title></circle><text x={point.x} y={Math.min(234, point.y + 17)} textAnchor="middle" className="finance-node-label profit">{formatFinanceWan(point.value)}</text></g>)}
+      {rows.map((row, index) => { const x = rows.length <= 1 ? (plot.left + plot.right) / 2 : plot.left + (plot.right - plot.left) * index / (rows.length - 1); return <text key={row.month} x={x} y="258" textAnchor="middle" className="finance-axis-label">{row.month.slice(2)}</text>; })}
     </svg>
   </div>;
 }
 
-function FinanceKpiCard({ label, value, targetLabel, progress, mom, yoy, tone }: {
+function FinanceKpiCard({ label, value, targetLabel, progress, mom, yoy, tone, icon }: {
   label: string;
   value: string;
   targetLabel: string;
   progress: number | null;
   mom: { text: string; tone: string };
   yoy: { text: string; tone: string };
-  tone: "blue" | "green" | "purple" | "orange";
+  tone: "blue" | "green" | "purple" | "orange" | "cyan" | "red";
+  icon?: string;
 }) {
   return <article className={`panel finance-kpi-card finance-kpi-${tone}`}>
-    <div><span>{label}</span><i>{tone === "blue" ? "销" : tone === "green" ? "利" : tone === "purple" ? "毛" : "费"}</i></div>
+    <div><span>{label}</span><i>{icon ?? (tone === "blue" ? "销" : tone === "green" ? "利" : tone === "purple" ? "毛" : "费")}</i></div>
     <strong>{value}</strong>
     <div className="finance-kpi-comparison"><small className={mom.tone}>环比 {mom.text}</small><small className={yoy.tone}>同比 {yoy.text}</small></div>
     <footer><span>{targetLabel}</span>{progress !== null && <b>{(progress * 100).toFixed(1)}%</b>}</footer>
@@ -1660,8 +1669,61 @@ function FinanceKpiCard({ label, value, targetLabel, progress, mom, yoy, tone }:
   </article>;
 }
 
+type FinanceFilterOption = string | { value: string; label: string };
+
+function FinanceMultiFilterSelect({ label, allLabel, options, selected, onChange }: {
+  label: string;
+  allLabel: string;
+  options: FinanceFilterOption[];
+  selected: string[] | null;
+  onChange: (next: string[] | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const normalizedOptions = options.map((option) => typeof option === "string" ? { value: option, label: option } : option);
+  const visibleOptions = normalizedOptions.filter((option) => option.label.toLowerCase().includes(search.trim().toLowerCase()));
+  const isAll = selected === null;
+  const selectedValues = selected ?? [];
+  const summary = isAll ? allLabel : `已选 ${formatCount(selectedValues.length)} 个${label}`;
+  const toggleOption = (value: string) => {
+    if (isAll) {
+      onChange([value]);
+      return;
+    }
+    const next = selectedValues.includes(value) ? selectedValues.filter((item) => item !== value) : [...selectedValues, value];
+    if (next.length === 0 || next.length === normalizedOptions.length) onChange(null);
+    else onChange(next);
+  };
+  return <div className={`multi-filter-select finance-multi-filter ${open ? "open" : ""}`}>
+    <button type="button" className="multi-filter-trigger" aria-label={`${label}多选`} aria-haspopup="listbox" aria-expanded={open} onClick={() => { setOpen((value) => !value); setSearch(""); }}><span title={summary}>{summary}</span><i>⌄</i></button>
+    {open && <div className="multi-filter-menu" role="listbox" aria-label={`${label}多选`} aria-multiselectable="true">
+      <div className="multi-filter-menu-head"><strong>{label}筛选</strong><button type="button" onClick={() => onChange(null)} disabled={isAll}>全选</button></div>
+      {normalizedOptions.length > 7 && <label className="multi-filter-search">⌕<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`搜索${label}`} aria-label={`搜索${label}`} /></label>}
+      <button type="button" className={isAll ? "selected" : ""} role="option" aria-selected={isAll} onClick={() => onChange(null)}><i>{isAll ? "✓" : ""}</i><span>{allLabel}</span></button>
+      {visibleOptions.map((option) => { const checked = isAll || selectedValues.includes(option.value); return <button type="button" key={option.value} className={checked ? "selected" : ""} role="option" aria-selected={checked} onClick={() => toggleOption(option.value)}><i>{checked ? "✓" : ""}</i><span title={option.label}>{option.label}</span></button>; })}
+      {visibleOptions.length === 0 && <p className="multi-filter-menu-empty">没有匹配项</p>}
+    </div>}
+  </div>;
+}
+
+type FinanceExpenseSortKey = "name" | "current" | "feeRateBps" | "previous" | "momRate" | "yearAgo" | "yoyRate" | "abnormal";
+
+function FinanceSortButton({ label, column, activeColumn, direction, onSort }: {
+  label: string;
+  column: FinanceExpenseSortKey;
+  activeColumn: FinanceExpenseSortKey;
+  direction: "asc" | "desc";
+  onSort: (column: FinanceExpenseSortKey) => void;
+}) {
+  const active = column === activeColumn;
+  return <button type="button" className={`finance-sort-button ${active ? "active" : ""}`} onClick={() => onSort(column)} title={active ? (direction === "desc" ? "当前从高到低，点击切换为从低到高" : "当前从低到高，点击切换为从高到低") : `按${label}排序`}><span>{label}</span><i aria-hidden="true">{active ? (direction === "desc" ? "↓" : "↑") : "⇅"}</i></button>;
+}
+
 function FinanceAnalysisView() {
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedMonths, setSelectedMonths] = useState<string[] | null | undefined>(undefined);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[] | null>(null);
+  const [selectedShops, setSelectedShops] = useState<string[] | null>(null);
+  const [expenseSort, setExpenseSort] = useState<{ column: FinanceExpenseSortKey; direction: "asc" | "desc" }>({ column: "current", direction: "desc" });
   const [data, setData] = useState<FinanceAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1673,12 +1735,17 @@ function FinanceAnalysisView() {
       setLoading(true);
       setError("");
       try {
-        const query = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : "";
-        const response = await fetch(`/api/finance/analysis${query}`, { cache: "no-store", signal: controller.signal });
+        const query = new URLSearchParams();
+        if (selectedMonths === null) query.append("month", "*");
+        else selectedMonths?.forEach((month) => query.append("month", month));
+        selectedPlatforms?.forEach((platform) => query.append("platform", platform));
+        selectedShops?.forEach((shop) => query.append("shop", shop));
+        const queryText = query.toString();
+        const response = await fetch(`/api/finance/analysis${queryText ? `?${queryText}` : ""}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as FinanceAnalysisResponse | null;
         if (!response.ok || !payload) throw new Error(payload?.error || `财报分析读取失败（${response.status}）`);
         setData(payload);
-        if (!selectedMonth && payload.selectedMonth) setSelectedMonth(payload.selectedMonth);
+        if (selectedMonths === undefined && payload.selectedMonth) setSelectedMonths([payload.selectedMonth]);
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
         setError(requestError instanceof Error ? requestError.message : "暂时无法读取财报分析");
@@ -1687,7 +1754,7 @@ function FinanceAnalysisView() {
       }
     })();
     return () => controller.abort();
-  }, [retryKey, selectedMonth]);
+  }, [retryKey, selectedMonths, selectedPlatforms, selectedShops]);
 
   if (loading && !data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在生成财报分析</strong><p>正在汇总利润、目标进度和费用异常…</p></section>;
   if (error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>财报分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section>;
@@ -1698,27 +1765,62 @@ function FinanceAnalysisView() {
   const yearAgo = data.yearAgo;
   const targets = data.targets.month;
   const progress = data.progress.month;
-  const selectedMonthName = financeMonthLabel(data.selectedMonth!);
-  const expenseRows = data.expenses.slice(0, 18);
+  const selectedPeriodName = data.selectedMonths && data.selectedMonths.length > 1
+    ? `${financeMonthLabel(data.selectedMonths[0])}—${financeMonthLabel(data.selectedMonths.at(-1)!)}（${data.selectedMonths.length}个月）`
+    : financeMonthLabel(data.selectedMonth!);
+  const monthOptions = data.months.map((item) => ({ value: item.month, label: financeMonthLabel(item.month) }));
+  const platformOptions = data.filters?.platforms ?? [];
+  const shopOptions = (data.filters?.shops ?? []).map((shop) => ({ value: shop.name, label: shop.name }));
+  const activeMonthSelection = selectedMonths === undefined ? [data.selectedMonth!] : selectedMonths;
+  const expenseRows = [...data.expenses].sort((left, right) => {
+    if (expenseSort.column === "name") {
+      const result = left.name.localeCompare(right.name, "zh-CN");
+      return expenseSort.direction === "asc" ? result : -result;
+    }
+    const leftValue = left[expenseSort.column];
+    const rightValue = right[expenseSort.column];
+    if (leftValue === null && rightValue === null) return 0;
+    if (leftValue === null) return 1;
+    if (rightValue === null) return -1;
+    const result = Number(leftValue) - Number(rightValue);
+    return expenseSort.direction === "asc" ? result : -result;
+  });
+  const updateExpenseSort = (column: FinanceExpenseSortKey) => setExpenseSort((currentSort) => ({
+    column,
+    direction: currentSort.column === column ? (currentSort.direction === "desc" ? "asc" : "desc") : column === "name" ? "asc" : "desc",
+  }));
 
   return <div className="finance-analysis-page">
     <section className="finance-analysis-hero">
       <div><span className="eyebrow">FINANCIAL PERFORMANCE</span><h2>财报经营分析</h2><p>以月度财报与经营目标为口径，追踪销售、利润、毛利和动态费用异常。</p></div>
-      <div className="finance-period-control"><label><span>分析月份</span><select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{data.months.map((item) => <option key={item.month} value={item.month}>{financeMonthLabel(item.month)}</option>)}</select></label><small>数据截止 {data.sync?.dataCutoffMonth} · {data.sync?.sourceFileName}</small></div>
+      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>店铺选择</span><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /></div><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div></div><small>当前口径 {selectedPeriodName} · 数据截止 {data.sync?.dataCutoffMonth} · {data.sync?.sourceFileName}</small></div>
     </section>
     {error && <div className="inline-feedback warning"><strong>刷新提示</strong><span>{error}</span></div>}
     <section className="finance-kpi-grid">
       <FinanceKpiCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} targetLabel={targets.salesTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.salesTargetCents)}` : "尚未设置销售目标"} progress={progress.sales} mom={{ text: formatFinanceChange(current.netSalesCents, previous?.netSalesCents), tone: financeChangeTone(current.netSalesCents, previous?.netSalesCents) }} yoy={{ text: formatFinanceChange(current.netSalesCents, yearAgo?.netSalesCents), tone: financeChangeTone(current.netSalesCents, yearAgo?.netSalesCents) }} tone="blue" />
       <FinanceKpiCard label="利润" value={formatCurrencyFromCents(current.profitCents)} targetLabel={targets.profitTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.profitTargetCents)}` : "尚未设置利润目标"} progress={progress.profit} mom={{ text: formatFinanceChange(current.profitCents, previous?.profitCents), tone: financeChangeTone(current.profitCents, previous?.profitCents) }} yoy={{ text: formatFinanceChange(current.profitCents, yearAgo?.profitCents), tone: financeChangeTone(current.profitCents, yearAgo?.profitCents) }} tone="green" />
+      <FinanceKpiCard label="大毛利率" value={formatFinanceBps(current.grossMarginBps)} targetLabel="大毛利 ÷ 净销售额" progress={null} mom={{ text: formatFinanceChange(current.grossMarginBps, previous?.grossMarginBps, true), tone: financeChangeTone(current.grossMarginBps, previous?.grossMarginBps) }} yoy={{ text: formatFinanceChange(current.grossMarginBps, yearAgo?.grossMarginBps, true), tone: financeChangeTone(current.grossMarginBps, yearAgo?.grossMarginBps) }} tone="cyan" icon="大" />
       <FinanceKpiCard label="小毛利率" value={formatFinanceBps(current.smallMarginBps)} targetLabel={targets.smallMarginBps > 0 ? `目标 ${formatFinanceBps(targets.smallMarginBps)}` : "尚未设置小毛利率目标"} progress={targets.smallMarginBps > 0 ? current.smallMarginBps / targets.smallMarginBps : null} mom={{ text: formatFinanceChange(current.smallMarginBps, previous?.smallMarginBps, true), tone: financeChangeTone(current.smallMarginBps, previous?.smallMarginBps) }} yoy={{ text: formatFinanceChange(current.smallMarginBps, yearAgo?.smallMarginBps, true), tone: financeChangeTone(current.smallMarginBps, yearAgo?.smallMarginBps) }} tone="purple" />
       <FinanceKpiCard label="推广费占比" value={formatFinanceBps(current.promotionFeeRatioBps)} targetLabel={targets.promotionFeeRatioBps > 0 ? `目标不高于 ${formatFinanceBps(targets.promotionFeeRatioBps)}` : "尚未设置推广费占比目标"} progress={targets.promotionFeeRatioBps > 0 ? current.promotionFeeRatioBps / targets.promotionFeeRatioBps : null} mom={{ text: formatFinanceChange(current.promotionFeeRatioBps, previous?.promotionFeeRatioBps, true), tone: financeChangeTone(current.promotionFeeRatioBps, previous?.promotionFeeRatioBps, true) }} yoy={{ text: formatFinanceChange(current.promotionFeeRatioBps, yearAgo?.promotionFeeRatioBps, true), tone: financeChangeTone(current.promotionFeeRatioBps, yearAgo?.promotionFeeRatioBps, true) }} tone="orange" />
+      <FinanceKpiCard label="退货率" value={formatFinanceBps(current.returnRateBps)} targetLabel={`退货额 ${formatCurrencyFromCents(current.returnAmountCents)}`} progress={null} mom={{ text: formatFinanceChange(current.returnRateBps, previous?.returnRateBps, true), tone: financeChangeTone(current.returnRateBps, previous?.returnRateBps, true) }} yoy={{ text: formatFinanceChange(current.returnRateBps, yearAgo?.returnRateBps, true), tone: financeChangeTone(current.returnRateBps, yearAgo?.returnRateBps, true) }} tone="red" icon="退" />
+    </section>
+    <section className="panel finance-profit-bridge" aria-label="利润结构">
+      <div><span>大毛利</span><strong>{formatCurrencyFromCents(current.grossProfitCents)}</strong><small>大毛利率 {formatFinanceBps(current.grossMarginBps)}</small></div><i>−</i>
+      <div><span>销售费用</span><strong>{formatCurrencyFromCents(current.sellingExpenseCents)}</strong><small>占净销售 {current.netSalesCents ? formatFinanceBps(Math.round(current.sellingExpenseCents / current.netSalesCents * 10_000)) : "—"}</small></div><i>=</i>
+      <div><span>小毛利</span><strong>{formatCurrencyFromCents(current.smallProfitCents)}</strong><small>小毛利率 {formatFinanceBps(current.smallMarginBps)}</small></div><i>−</i>
+      <div><span>其他费用</span><strong>{formatCurrencyFromCents(current.otherExpenseCents)}</strong><small>管理、财务及税费</small></div><i>=</i>
+      <div className={current.profitCents < 0 ? "loss" : "profit"}><span>利润</span><strong>{formatCurrencyFromCents(current.profitCents)}</strong><small>利润率 {formatFinanceBps(current.profitMarginBps)}</small></div>
     </section>
     <section className="finance-overview-grid">
-      <article className="panel finance-trend-panel"><div className="finance-panel-heading"><div><span className="eyebrow">MONTHLY TREND</span><h2>销售与利润趋势</h2><p>两条折线分别按自身量级归一化，用于识别方向和拐点。</p></div><span className="soft-tag">{data.timeline.length} 个月</span></div><FinanceTrendChart rows={data.timeline} /><div className="finance-ytd-summary"><span>本年累计净销售<strong>{formatCurrencyFromCents(data.yearToDate.netSalesCents)}</strong></span><span>本年累计利润<strong>{formatCurrencyFromCents(data.yearToDate.profitCents)}</strong></span><span>累计小毛利率<strong>{formatFinanceBps(data.yearToDate.smallMarginBps)}</strong></span></div></article>
-      <article className="panel finance-anomaly-panel"><div className="finance-panel-heading"><div><span className="eyebrow">EXCEPTION WATCH</span><h2>{selectedMonthName}异常雷达</h2><p>按利润、目标差距及费用环比阈值自动识别。</p></div><span className="soft-tag">{data.anomalies.length} 项</span></div><div className="finance-anomaly-list">{data.anomalies.map((item, index) => <div className={`finance-anomaly ${item.level}`} key={`${item.title}-${index}`}><i>{item.level === "critical" ? "!" : item.level === "warning" ? "△" : "i"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</div></article>
+      <article className="panel finance-trend-panel"><div className="finance-panel-heading"><div><span className="eyebrow">MONTHLY TREND</span><h2>销售与利润趋势</h2><p>每个节点直接展示净销售额与利润，数值单位为万元。</p></div><span className="soft-tag">{data.timeline.length} 个月</span></div><FinanceTrendChart rows={data.timeline} /><div className="finance-ytd-summary"><span>本年累计净销售<strong>{formatCurrencyFromCents(data.yearToDate.netSalesCents)}</strong></span><span>本年累计利润<strong>{formatCurrencyFromCents(data.yearToDate.profitCents)}</strong></span><span>累计小毛利率<strong>{formatFinanceBps(data.yearToDate.smallMarginBps)}</strong></span></div></article>
+      <article className="panel finance-anomaly-panel"><div className="finance-panel-heading"><div><span className="eyebrow">EXCEPTION WATCH</span><h2>{selectedPeriodName}异常雷达</h2><p>按利润、目标差距及费用环比阈值自动识别。</p></div><span className="soft-tag">{data.anomalies.length} 项</span></div><div className="finance-anomaly-list">{data.anomalies.map((item, index) => <div className={`finance-anomaly ${item.level}`} key={`${item.title}-${index}`}><i>{item.level === "critical" ? "!" : item.level === "warning" ? "△" : "i"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</div></article>
     </section>
-    <section className="panel finance-expense-panel"><div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">显示 {expenseRows.length} / {data.expenses.length} 项</span></div><div className="data-table-wrap"><table className="data-table finance-expense-table"><thead><tr><th>费用科目</th><th>本月金额</th><th>上月金额</th><th>环比</th><th>去年同期</th><th>同比</th><th>状态</th></tr></thead><tbody>{expenseRows.map((item) => <tr key={item.name}><td><strong title={item.name}>{item.name.replace(/^销售费用_/, "").replaceAll("_", " / ")}</strong></td><td>{formatCurrencyFromCents(item.current)}</td><td>{item.previous === null ? "—" : formatCurrencyFromCents(item.previous)}</td><td className={item.momRate === null ? "muted-text" : item.momRate > 0 ? "orange-text" : "green-text"}>{item.momRate === null ? "—" : `${item.momRate >= 0 ? "+" : ""}${(item.momRate * 100).toFixed(1)}%`}</td><td>{item.yearAgo === null ? "—" : formatCurrencyFromCents(item.yearAgo)}</td><td>{item.yoyRate === null ? "—" : `${item.yoyRate >= 0 ? "+" : ""}${(item.yoyRate * 100).toFixed(1)}%`}</td><td><span className={`status ${item.abnormal ? "status-warning" : "status-success"}`}><Dot tone={item.abnormal ? "orange" : "green"} />{item.abnormal ? "波动异常" : "正常"}</span></td></tr>)}</tbody></table></div></section>
-    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与月度目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.name}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
+    <section className="panel finance-expense-panel">
+      <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">共 {expenseRows.length} 项</span></div>
+      <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份、平台与店铺支持多选，所有指标同步更新</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={setSelectedPlatforms} /><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /><button type="button" className="finance-filter-reset" onClick={() => { setSelectedMonths([data.months.at(-1)!.month]); setSelectedPlatforms(null); setSelectedShops(null); }}>重置筛选</button></div>
+      <div className="data-table-wrap finance-expense-scroll"><table className="data-table finance-expense-table"><thead><tr><th><FinanceSortButton label="费用科目" column="name" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "所选期间金额" : "本月金额"} column="current" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="费用率" column="feeRateBps" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "上期金额" : "上月金额"} column="previous" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="环比" column="momRate" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="去年同期" column="yearAgo" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="同比" column="yoyRate" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="状态" column="abnormal" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th></tr></thead><tbody>{expenseRows.map((item) => <tr key={item.name}><td><strong title={item.name}>{item.name.replace(/^销售费用_/, "").replaceAll("_", " / ")}</strong></td><td>{formatCurrencyFromCents(item.current)}</td><td><strong className="finance-fee-rate">{formatFinanceBps(item.feeRateBps)}</strong></td><td>{item.previous === null ? "—" : formatCurrencyFromCents(item.previous)}</td><td className={item.momRate === null ? "muted-text" : item.momRate > 0 ? "orange-text" : "green-text"}>{item.momRate === null ? "—" : `${item.momRate >= 0 ? "+" : ""}${(item.momRate * 100).toFixed(1)}%`}</td><td>{item.yearAgo === null ? "—" : formatCurrencyFromCents(item.yearAgo)}</td><td>{item.yoyRate === null ? "—" : `${item.yoyRate >= 0 ? "+" : ""}${(item.yoyRate * 100).toFixed(1)}%`}</td><td><span className={`status ${item.abnormal ? "status-warning" : "status-success"}`}><Dot tone={item.abnormal ? "orange" : "green"} />{item.abnormal ? "波动异常" : "正常"}</span></td></tr>)}</tbody></table></div>
+    </section>
+    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={setSelectedPlatforms} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.name}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
   </div>;
 }
 

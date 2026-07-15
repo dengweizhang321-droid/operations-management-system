@@ -13,6 +13,7 @@ type FinanceLineRow = {
   month: string;
   metric_key: string;
   subject_name: string;
+  scope_type: "business" | "shop";
   scope_name: string;
   group_name: string;
   amount_cents: number | null;
@@ -44,6 +45,7 @@ export type FinanceActualMetrics = {
   netCostCents: number;
   grossProfitCents: number;
   grossMarginBps: number;
+  returnRateBps: number;
   sellingExpenseCents: number;
   smallProfitCents: number;
   smallMarginBps: number;
@@ -52,6 +54,13 @@ export type FinanceActualMetrics = {
   profitMarginBps: number;
   promotionExpenseCents: number;
   promotionFeeRatioBps: number;
+};
+
+export type FinanceAnalysisOptions = {
+  requestedMonths?: string[];
+  allMonths?: boolean;
+  platformNames?: string[];
+  shopNames?: string[];
 };
 
 export type FinanceTargetTotals = {
@@ -77,6 +86,7 @@ const emptyMetrics = (): FinanceActualMetrics => ({
   netCostCents: 0,
   grossProfitCents: 0,
   grossMarginBps: 0,
+  returnRateBps: 0,
   sellingExpenseCents: 0,
   smallProfitCents: 0,
   smallMarginBps: 0,
@@ -112,6 +122,8 @@ function metricsFromRows(rows: FinanceLineRow[], promotionExpenseCents = 0): Fin
   const amount = (key: string) => values.get(key)?.amount ?? 0;
   const rate = (key: string) => values.get(key)?.rate ?? 0;
   const netSalesCents = amount("net_sales");
+  const grossSalesCents = amount("gross_sales");
+  const returnAmountCents = amount("return_amount");
   const grossProfitCents = amount("gross_profit");
   const smallProfitCents = amount("small_profit");
   const otherExpenseCents = amount("other_expense_total");
@@ -120,12 +132,13 @@ function metricsFromRows(rows: FinanceLineRow[], promotionExpenseCents = 0): Fin
   // when an older imported month lacks the canonical metric key.
   const profitCents = values.has("profit") ? amount("profit") : smallProfitCents - otherExpenseCents;
   return {
-    grossSalesCents: amount("gross_sales"),
-    returnAmountCents: amount("return_amount"),
+    grossSalesCents,
+    returnAmountCents,
     netSalesCents,
     netCostCents: amount("net_cost"),
     grossProfitCents,
     grossMarginBps: rate("gross_margin") || (netSalesCents === 0 ? 0 : Math.round(grossProfitCents / netSalesCents * 10_000)),
+    returnRateBps: grossSalesCents === 0 ? 0 : Math.round(Math.abs(returnAmountCents) / Math.abs(grossSalesCents) * 10_000),
     sellingExpenseCents: amount("selling_expense_total"),
     smallProfitCents,
     smallMarginBps: rate("small_margin") || (netSalesCents === 0 ? 0 : Math.round(smallProfitCents / netSalesCents * 10_000)),
@@ -152,6 +165,7 @@ function sumMetrics(items: FinanceActualMetrics[]) {
     return result;
   }, emptyMetrics());
   total.grossMarginBps = total.netSalesCents === 0 ? 0 : Math.round(total.grossProfitCents / total.netSalesCents * 10_000);
+  total.returnRateBps = total.grossSalesCents === 0 ? 0 : Math.round(Math.abs(total.returnAmountCents) / Math.abs(total.grossSalesCents) * 10_000);
   total.smallMarginBps = total.netSalesCents === 0 ? 0 : Math.round(total.smallProfitCents / total.netSalesCents * 10_000);
   total.profitMarginBps = total.netSalesCents === 0 ? 0 : Math.round(total.profitCents / total.netSalesCents * 10_000);
   total.promotionFeeRatioBps = total.netSalesCents === 0 ? 0 : Math.round(total.promotionExpenseCents / total.netSalesCents * 10_000);
@@ -205,152 +219,236 @@ function progress(actual: FinanceActualMetrics, target: FinanceTargetTotals) {
   };
 }
 
-export async function getFinanceAnalysis(db: FinanceDatabase, requestedMonth?: string | null) {
+export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAnalysisOptions = {}) {
   const monthResult = await db.prepare(
     `SELECT month, source_file_name, imported_at, shop_count, subject_count
      FROM finance_months WHERE status = 'completed' ORDER BY month`,
   ).all<FinanceMonthRow>();
   const months = monthResult.results;
   if (months.length === 0) {
-    return { hasData: false, months: [], selectedMonth: null, anomalies: [], expenses: [], shops: [], timeline: [] };
+    return {
+      hasData: false,
+      months: [],
+      selectedMonth: null,
+      selectedMonths: [],
+      anomalies: [],
+      expenses: [],
+      shops: [],
+      timeline: [],
+      filters: { platforms: [], shops: [] },
+    };
   }
-  const selectedMonth = months.some((item) => item.month === requestedMonth)
-    ? String(requestedMonth)
-    : months.at(-1)!.month;
-  const previousMonth = shiftMonth(selectedMonth, -1);
-  const yearAgoMonth = shiftMonth(selectedMonth, -12);
   const monthKeys = months.map((item) => item.month);
+  const requestedMonths = [...new Set(options.requestedMonths ?? [])]
+    .filter((month) => monthKeys.includes(month))
+    .sort();
+  const selectedMonths = options.allMonths
+    ? monthKeys
+    : requestedMonths.length > 0
+      ? requestedMonths
+      : [monthKeys.at(-1)!];
+  const selectedMonth = selectedMonths.at(-1)!;
+  const firstSelectedMonth = selectedMonths[0];
+  const previousPeriodMonths = Array.from(
+    { length: selectedMonths.length },
+    (_, index) => shiftMonth(firstSelectedMonth, index - selectedMonths.length),
+  );
+  const yearAgoMonths = selectedMonths.map((month) => shiftMonth(month, -12));
+  const previousPeriodAvailable = previousPeriodMonths.every((month) => monthKeys.includes(month));
+  const yearAgoPeriodAvailable = yearAgoMonths.every((month) => monthKeys.includes(month));
   const placeholders = monthKeys.map(() => "?").join(",");
   const summaryResult = await db.prepare(
-    `SELECT month, metric_key, subject_name, scope_name, group_name,
+    `SELECT month, metric_key, subject_name, scope_type, scope_name, group_name,
             amount_cents, rate_bps, sort_order
      FROM finance_lines
-     WHERE section = 'summary' AND scope_type = 'business'
+     WHERE section = 'summary' AND scope_type IN ('business', 'shop')
        AND metric_key IN (${metricKeys.map(() => "?").join(",")})
        AND month IN (${placeholders})
-     ORDER BY month, sort_order`,
+     ORDER BY month, scope_type, scope_name, sort_order`,
   ).bind(...metricKeys, ...monthKeys).all<FinanceLineRow>();
   const promotionResult = await db.prepare(
-    `SELECT month, COALESCE(SUM(amount_cents), 0) AS amount_cents
+    `SELECT month, scope_type, scope_name, group_name,
+            COALESCE(SUM(amount_cents), 0) AS amount_cents
      FROM finance_lines
-     WHERE section = 'kingdee' AND scope_type = 'business'
+     WHERE section = 'kingdee' AND scope_type IN ('business', 'shop')
        AND subject_name LIKE '销售费用_推广费用_%'
        AND month IN (${placeholders})
-     GROUP BY month`,
-  ).bind(...monthKeys).all<{ month: string; amount_cents: number }>();
-  const promotions = new Map(promotionResult.results.map((item) => [item.month, Number(item.amount_cents)]));
-  const summaryByMonth = new Map<string, FinanceLineRow[]>();
-  summaryResult.results.forEach((row) => {
-    const items = summaryByMonth.get(row.month) ?? [];
-    items.push(row);
-    summaryByMonth.set(row.month, items);
+     GROUP BY month, scope_type, scope_name, group_name`,
+  ).bind(...monthKeys).all<{
+    month: string;
+    scope_type: "business" | "shop";
+    scope_name: string;
+    group_name: string;
+    amount_cents: number;
+  }>();
+
+  const shopOptionsByName = new Map<string, { name: string; platform: string }>();
+  summaryResult.results.filter((row) => row.scope_type === "shop").forEach((row) => {
+    if (!shopOptionsByName.has(row.scope_name)) {
+      shopOptionsByName.set(row.scope_name, { name: row.scope_name, platform: row.group_name || "未分组" });
+    }
   });
-  const actualByMonth = new Map(monthKeys.map((month) => [
-    month,
-    metricsFromRows(summaryByMonth.get(month) ?? [], promotions.get(month) ?? 0),
-  ]));
-  const current = actualByMonth.get(selectedMonth) ?? emptyMetrics();
-  const previous = actualByMonth.get(previousMonth) ?? null;
-  const yearAgo = actualByMonth.get(yearAgoMonth) ?? null;
+  const shopOptions = [...shopOptionsByName.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
+  const platforms = [...new Set(shopOptions.map((item) => item.platform))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+  const shopFilter = new Set((options.shopNames ?? []).filter((name) => shopOptionsByName.has(name)));
+  const platformFilter = new Set((options.platformNames ?? []).filter((name) => platforms.includes(name)));
+  const hasDimensionFilter = shopFilter.size > 0 || platformFilter.size > 0;
+  const matchesShop = (shopName: string, platformName: string) => (
+    (shopFilter.size === 0 || shopFilter.has(shopName))
+    && (platformFilter.size === 0 || platformFilter.has(platformName || "未分组"))
+  );
+
+  const businessRowsByMonth = new Map<string, FinanceLineRow[]>();
+  const shopRowsByMonthAndName = new Map<string, FinanceLineRow[]>();
+  summaryResult.results.forEach((row) => {
+    if (row.scope_type === "business") {
+      const items = businessRowsByMonth.get(row.month) ?? [];
+      items.push(row);
+      businessRowsByMonth.set(row.month, items);
+      return;
+    }
+    const key = `${row.month}\u0000${row.scope_name}`;
+    const items = shopRowsByMonthAndName.get(key) ?? [];
+    items.push(row);
+    shopRowsByMonthAndName.set(key, items);
+  });
+
+  const businessPromotions = new Map<string, number>();
+  const shopPromotions = new Map<string, number>();
+  promotionResult.results.forEach((row) => {
+    if (row.scope_type === "business") {
+      businessPromotions.set(row.month, (businessPromotions.get(row.month) ?? 0) + Number(row.amount_cents));
+      return;
+    }
+    const key = `${row.month}\u0000${row.scope_name}`;
+    shopPromotions.set(key, (shopPromotions.get(key) ?? 0) + Number(row.amount_cents));
+  });
+
+  const shopActualByMonthAndName = new Map<string, FinanceActualMetrics>();
+  shopRowsByMonthAndName.forEach((rows, key) => {
+    shopActualByMonthAndName.set(key, metricsFromRows(rows, shopPromotions.get(key) ?? 0));
+  });
+
+  const actualByMonth = new Map<string, FinanceActualMetrics>();
+  monthKeys.forEach((month) => {
+    if (!hasDimensionFilter) {
+      actualByMonth.set(month, metricsFromRows(businessRowsByMonth.get(month) ?? [], businessPromotions.get(month) ?? 0));
+      return;
+    }
+    const matching = shopOptions
+      .filter((shop) => matchesShop(shop.name, shop.platform))
+      .map((shop) => shopActualByMonthAndName.get(`${month}\u0000${shop.name}`))
+      .filter((item): item is FinanceActualMetrics => Boolean(item));
+    actualByMonth.set(month, sumMetrics(matching));
+  });
+
+  const sumPeriod = (periodMonths: string[]) => sumMetrics(periodMonths.map((month) => actualByMonth.get(month) ?? emptyMetrics()));
+  const current = sumPeriod(selectedMonths);
+  const previous = previousPeriodAvailable ? sumPeriod(previousPeriodMonths) : null;
+  const yearAgo = yearAgoPeriodAvailable ? sumPeriod(yearAgoMonths) : null;
+  const selectedYears = [...new Set(selectedMonths.map((month) => month.slice(0, 4)))];
   const selectedYear = selectedMonth.slice(0, 4);
   const yearMonths = monthKeys.filter((month) => month.startsWith(`${selectedYear}-`) && month <= selectedMonth);
-  const yearToDate = sumMetrics(yearMonths.map((month) => actualByMonth.get(month) ?? emptyMetrics()));
+  const yearToDate = sumPeriod(yearMonths);
 
   const targetResult = await db.prepare(
     `SELECT id, period_type, period_key, shop_name, category, manager,
             sales_target_cents, profit_target_cents, small_margin_bps,
             inventory_cleanup_target_cents, promotion_fee_ratio_bps,
             stagnant_inventory_target_cents, created_at, updated_at
-     FROM finance_targets WHERE (period_type = 'month' AND period_key = ?)
-        OR (period_type = 'year' AND period_key = ?)
-        OR period_type = 'project'`,
-  ).bind(selectedMonth, selectedYear).all<TargetRow>();
+     FROM finance_targets`,
+  ).all<TargetRow>();
+  const matchesTargetDimension = (target: FinanceTarget) => {
+    if (!hasDimensionFilter) return true;
+    if (!target.shopName) return false;
+    const shop = shopOptionsByName.get(target.shopName);
+    return Boolean(shop && matchesShop(shop.name, shop.platform));
+  };
   const targets = targetResult.results.map(mapTarget);
-  const monthlyTargetRows = targets.filter((item) => item.periodType === "month" && item.periodKey === selectedMonth);
-  const annualTargetRows = targets.filter((item) => item.periodType === "year" && item.periodKey === selectedYear);
+  const monthlyTargetRows = targets.filter((item) => item.periodType === "month" && selectedMonths.includes(item.periodKey) && matchesTargetDimension(item));
+  const annualTargetRows = targets.filter((item) => item.periodType === "year" && selectedYears.includes(item.periodKey) && matchesTargetDimension(item));
   const monthTargets = aggregateTargets(monthlyTargetRows);
   const yearTargets = aggregateTargets(annualTargetRows);
 
-  const compareMonths = [selectedMonth, previousMonth, yearAgoMonth];
-  const comparePlaceholders = compareMonths.map(() => "?").join(",");
   const expenseResult = await db.prepare(
-    `SELECT month, metric_key, subject_name, scope_name, group_name,
+    `SELECT month, metric_key, subject_name, scope_type, scope_name, group_name,
             amount_cents, rate_bps, sort_order
      FROM finance_lines
-     WHERE section = 'kingdee' AND scope_type = 'business'
-       AND is_total = 0 AND month IN (${comparePlaceholders})
-     ORDER BY sort_order`,
-  ).bind(...compareMonths).all<FinanceLineRow>();
-  const expenseByName = new Map<string, { name: string; current: number; previous: number | null; yearAgo: number | null; sortOrder: number }>();
-  expenseResult.results.forEach((row) => {
-    const item = expenseByName.get(row.subject_name) ?? {
-      name: row.subject_name,
-      current: 0,
-      previous: null,
-      yearAgo: null,
-      sortOrder: row.sort_order,
-    };
-    if (row.month === selectedMonth) item.current = Number(row.amount_cents ?? 0);
-    if (row.month === previousMonth) item.previous = Number(row.amount_cents ?? 0);
-    if (row.month === yearAgoMonth) item.yearAgo = Number(row.amount_cents ?? 0);
-    expenseByName.set(row.subject_name, item);
-  });
-  const expenses = [...expenseByName.values()]
-    .filter((item) => item.current !== 0 || item.previous !== null || item.yearAgo !== null)
-    .map((item) => ({
-      ...item,
-      momRate: changeRate(item.current, item.previous),
-      yoyRate: changeRate(item.current, item.yearAgo),
-      abnormal: item.previous !== null
-        && Math.abs(item.current - item.previous) >= 100_000
-        && Math.abs(changeRate(item.current, item.previous) ?? 0) >= 0.3,
-    }))
-    .sort((left, right) => Math.abs(right.current) - Math.abs(left.current));
-
-  const shopSummaryResult = await db.prepare(
-    `SELECT month, metric_key, subject_name, scope_name, group_name,
-            amount_cents, rate_bps, sort_order
-     FROM finance_lines
-     WHERE month = ? AND section = 'summary' AND scope_type = 'shop'
-       AND metric_key IN (${metricKeys.map(() => "?").join(",")})
-     ORDER BY scope_name, sort_order`,
-  ).bind(selectedMonth, ...metricKeys).all<FinanceLineRow>();
-  const shopPromotionResult = await db.prepare(
-    `SELECT scope_name, COALESCE(SUM(amount_cents), 0) AS amount_cents
-     FROM finance_lines
-     WHERE month = ? AND section = 'kingdee' AND scope_type = 'shop'
-       AND subject_name LIKE '销售费用_推广费用_%'
-     GROUP BY scope_name`,
-  ).bind(selectedMonth).all<{ scope_name: string; amount_cents: number }>();
-  const shopPromotions = new Map(shopPromotionResult.results.map((item) => [item.scope_name, Number(item.amount_cents)]));
-  const shopRows = new Map<string, FinanceLineRow[]>();
-  shopSummaryResult.results.forEach((row) => {
-    const items = shopRows.get(row.scope_name) ?? [];
-    items.push(row);
-    shopRows.set(row.scope_name, items);
-  });
-  const shops = [...shopRows.entries()].map(([name, rows]) => {
-    const actual = metricsFromRows(rows, shopPromotions.get(name) ?? 0);
-    const targetRows = monthlyTargetRows.filter((target) => target.shopName === name);
-    const target = aggregateTargets(targetRows);
+     WHERE section = 'kingdee' AND scope_type IN ('business', 'shop')
+       AND is_total = 0 AND month IN (${placeholders})
+     ORDER BY month, scope_type, scope_name, sort_order`,
+  ).bind(...monthKeys).all<FinanceLineRow>();
+  const expenseTotals = (periodMonths: string[]) => {
+    const period = new Set(periodMonths);
+    const totals = new Map<string, { amount: number; sortOrder: number }>();
+    expenseResult.results.forEach((row) => {
+      if (!period.has(row.month)) return;
+      if (hasDimensionFilter) {
+        if (row.scope_type !== "shop" || !matchesShop(row.scope_name, row.group_name || "未分组")) return;
+      } else if (row.scope_type !== "business") return;
+      const existing = totals.get(row.subject_name) ?? { amount: 0, sortOrder: row.sort_order };
+      existing.amount += Number(row.amount_cents ?? 0);
+      existing.sortOrder = Math.min(existing.sortOrder, row.sort_order);
+      totals.set(row.subject_name, existing);
+    });
+    return totals;
+  };
+  const currentExpenses = expenseTotals(selectedMonths);
+  const previousExpenses = previousPeriodAvailable ? expenseTotals(previousPeriodMonths) : null;
+  const yearAgoExpenses = yearAgoPeriodAvailable ? expenseTotals(yearAgoMonths) : null;
+  const expenseNames = new Set([
+    ...currentExpenses.keys(),
+    ...(previousExpenses?.keys() ?? []),
+    ...(yearAgoExpenses?.keys() ?? []),
+  ]);
+  const expenses = [...expenseNames].map((name) => {
+    const currentAmount = currentExpenses.get(name)?.amount ?? 0;
+    const previousAmount = previousExpenses ? previousExpenses.get(name)?.amount ?? 0 : null;
+    const yearAgoAmount = yearAgoExpenses ? yearAgoExpenses.get(name)?.amount ?? 0 : null;
+    const momRate = changeRate(currentAmount, previousAmount);
     return {
       name,
-      groupName: rows[0]?.group_name ?? "",
+      current: currentAmount,
+      previous: previousAmount,
+      yearAgo: yearAgoAmount,
+      sortOrder: currentExpenses.get(name)?.sortOrder ?? previousExpenses?.get(name)?.sortOrder ?? yearAgoExpenses?.get(name)?.sortOrder ?? 0,
+      feeRateBps: current.netSalesCents === 0 ? 0 : Math.round(currentAmount / current.netSalesCents * 10_000),
+      momRate,
+      yoyRate: changeRate(currentAmount, yearAgoAmount),
+      abnormal: previousAmount !== null
+        && Math.abs(currentAmount - previousAmount) >= 100_000
+        && Math.abs(momRate ?? 0) >= 0.3,
+    };
+  })
+    .filter((item) => item.current !== 0 || item.previous !== null || item.yearAgo !== null)
+    .sort((left, right) => Math.abs(right.current) - Math.abs(left.current));
+
+  const shops = shopOptions.filter((shop) => matchesShop(shop.name, shop.platform)).map((shop) => {
+    const actuals = selectedMonths
+      .map((month) => shopActualByMonthAndName.get(`${month}\u0000${shop.name}`))
+      .filter((item): item is FinanceActualMetrics => Boolean(item));
+    const actual = sumMetrics(actuals);
+    const targetRows = targets.filter((target) => target.periodType === "month" && selectedMonths.includes(target.periodKey) && target.shopName === shop.name);
+    const target = aggregateTargets(targetRows);
+    return {
+      name: shop.name,
+      groupName: shop.platform,
       manager: targetRows.find((item) => item.manager)?.manager ?? "",
       actual,
       target,
       progress: progress(actual, target),
     };
-  }).sort((left, right) => right.actual.netSalesCents - left.actual.netSalesCents);
+  }).filter((shop) => shop.actual.netSalesCents !== 0 || shop.actual.grossSalesCents !== 0 || shop.target.targetCount > 0)
+    .sort((left, right) => right.actual.netSalesCents - left.actual.netSalesCents);
 
   const anomalies: Array<{ level: "critical" | "warning" | "info"; title: string; detail: string }> = [];
-  if (current.profitCents < 0) anomalies.push({ level: "critical", title: "本月利润为负", detail: "建议优先检查销售费用、退货和异常成本科目。" });
+  if (current.profitCents < 0) anomalies.push({ level: "critical", title: "所选期间利润为负", detail: "建议优先检查销售费用、退货和异常成本科目。" });
   if (monthTargets.smallMarginBps > 0 && current.smallMarginBps < monthTargets.smallMarginBps) {
     anomalies.push({ level: "warning", title: "小毛利率低于目标", detail: `低于目标 ${((monthTargets.smallMarginBps - current.smallMarginBps) / 100).toFixed(1)} 个百分点。` });
   }
   const monthProgress = progress(current, monthTargets);
   if (monthProgress.sales !== null && monthProgress.sales < 0.9) {
-    anomalies.push({ level: "warning", title: "销售目标完成度偏低", detail: `本月销售目标完成 ${(monthProgress.sales * 100).toFixed(1)}%。` });
+    anomalies.push({ level: "warning", title: "销售目标完成度偏低", detail: `所选期间销售目标完成 ${(monthProgress.sales * 100).toFixed(1)}%。` });
   }
   expenses.filter((item) => item.abnormal && item.momRate !== null).slice(0, 5).forEach((item) => {
     anomalies.push({
@@ -362,6 +460,12 @@ export async function getFinanceAnalysis(db: FinanceDatabase, requestedMonth?: s
   if (anomalies.length === 0) anomalies.push({ level: "info", title: "暂未发现明显异常", detail: "当前月份利润、目标进度与费用波动均在规则阈值内。" });
 
   const selectedMonthMeta = months.find((item) => item.month === selectedMonth)!;
+  const periodLabel = selectedMonths.length === 1
+    ? selectedMonth
+    : `${selectedMonths[0]} 至 ${selectedMonths.at(-1)}（${selectedMonths.length}个月）`;
+  const timelineMonths = selectedMonths.length === 1
+    ? monthKeys.filter((month) => month <= selectedMonth)
+    : selectedMonths;
   return {
     hasData: true,
     months: months.map((item) => ({
@@ -372,18 +476,29 @@ export async function getFinanceAnalysis(db: FinanceDatabase, requestedMonth?: s
       subjectCount: Number(item.subject_count),
     })),
     selectedMonth,
-    previousMonth: actualByMonth.has(previousMonth) ? previousMonth : null,
-    yearAgoMonth: actualByMonth.has(yearAgoMonth) ? yearAgoMonth : null,
+    selectedMonths,
+    periodLabel,
+    previousMonth: previousPeriodAvailable && previousPeriodMonths.length === 1 ? previousPeriodMonths[0] : null,
+    previousMonths: previousPeriodAvailable ? previousPeriodMonths : [],
+    yearAgoMonth: yearAgoPeriodAvailable && yearAgoMonths.length === 1 ? yearAgoMonths[0] : null,
+    yearAgoMonths: yearAgoPeriodAvailable ? yearAgoMonths : [],
     current,
     previous,
     yearAgo,
     yearToDate,
-    timeline: monthKeys.map((month) => ({ month, ...(actualByMonth.get(month) ?? emptyMetrics()) })),
+    timeline: timelineMonths.map((month) => ({ month, ...(actualByMonth.get(month) ?? emptyMetrics()) })),
     targets: { month: monthTargets, year: yearTargets, projects: targets.filter((item) => item.periodType === "project") },
     progress: { month: monthProgress, year: progress(yearToDate, yearTargets) },
     expenses,
     shops,
     anomalies,
+    filters: { platforms, shops: shopOptions },
+    selection: {
+      allMonths: Boolean(options.allMonths),
+      months: selectedMonths,
+      platforms: [...platformFilter],
+      shops: [...shopFilter],
+    },
     sync: {
       dataCutoffMonth: selectedMonth,
       sourceFileName: selectedMonthMeta.source_file_name,

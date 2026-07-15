@@ -305,19 +305,20 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
 });
 
 test("imports dynamic monthly financial reports and exposes target-linked analysis", async () => {
-  const [page, schema, parser, database, analysis, importRoute, targetRoute, migration, packageJson] = await Promise.all([
+  const [page, schema, parser, database, analysis, importRoute, analysisRoute, targetRoute, migration, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/finance/parser.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/finance/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/finance/analysis.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/imports/finance/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/finance/analysis/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/finance/targets/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0010_finance_reporting.sql", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  for (const label of ["财报分析", "目标设置", "月度财报", "费用同环比与异常点", "8系列"]) assert.match(page, new RegExp(label));
+  for (const label of ["财报分析", "目标设置", "月度财报", "费用同环比与异常点", "大毛利率", "退货率", "费用率", "全部月份", "8系列"]) assert.match(page, new RegExp(label));
   assert.match(page, /\.xls/);
   assert.match(page, /\/api\/finance\/analysis/);
   assert.match(page, /\/api\/finance\/targets/);
@@ -331,9 +332,16 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(database, /existingMonth\?\.status === "completed"/);
   assert.match(database, /ON CONFLICT\(month, section, scope_key, subject_name\)/);
   assert.match(analysis, /promotionFeeRatioBps/);
+  assert.match(analysis, /returnRateBps/);
+  assert.match(analysis, /feeRateBps/);
+  assert.match(analysis, /platformFilter/);
   assert.match(analysis, /momRate/);
+  assert.match(page, /formatFinanceWan/);
+  assert.match(page, /FinanceSortButton/);
   assert.match(importRoute, /application\/octet-stream/);
   assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(analysisRoute, /getAll\("platform"\)/);
+  assert.match(analysisRoute, /getAll\("shop"\)/);
   assert.match(targetRoute, /periodType === "project"/);
   assert.match(targetRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(migration, /CREATE TABLE `finance_lines`/);
