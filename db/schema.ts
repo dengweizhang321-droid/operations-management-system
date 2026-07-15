@@ -437,3 +437,109 @@ export const replenishmentPlanItems = sqliteTable(
     index("replenishment_plan_items_source_batch_idx").on(table.sourceBatchId),
   ],
 );
+
+/** One immutable audit batch per uploaded monthly financial-report file. */
+export const financeImportBatches = sqliteTable(
+  "finance_import_batches",
+  {
+    id: text("id").primaryKey(),
+    source: text("source").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    fileHash: text("file_hash").notNull(),
+    status: text("status").notNull(),
+    rowCount: integer("row_count").notNull().default(0),
+    insertedCount: integer("inserted_count").notNull().default(0),
+    duplicateCount: integer("duplicate_count").notNull().default(0),
+    warningCount: integer("warning_count").notNull().default(0),
+    parsedMonthCount: integer("parsed_month_count").notNull().default(0),
+    importedMonthCount: integer("imported_month_count").notNull().default(0),
+    skippedMonthCount: integer("skipped_month_count").notNull().default(0),
+    subjectCount: integer("subject_count").notNull().default(0),
+    monthsJson: text("months_json").notNull().default("[]"),
+    warningsJson: text("warnings_json").notNull().default("[]"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("finance_import_batches_file_hash_uq").on(table.fileHash),
+    index("finance_import_batches_created_idx").on(table.createdAt),
+  ],
+);
+
+/** Month is the idempotency anchor: a later file cannot duplicate a closed month. */
+export const financeMonths = sqliteTable(
+  "finance_months",
+  {
+    month: text("month").primaryKey(),
+    batchId: text("batch_id").notNull(),
+    sheetName: text("sheet_name").notNull(),
+    businessName: text("business_name").notNull(),
+    sourceFileName: text("source_file_name").notNull(),
+    status: text("status").notNull().default("processing"),
+    shopCount: integer("shop_count").notNull().default(0),
+    subjectCount: integer("subject_count").notNull().default(0),
+    importedAt: text("imported_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("finance_months_status_month_idx").on(table.status, table.month)],
+);
+
+/** Dynamic subject-name facts avoid a schema migration when Kingdee fields change. */
+export const financeLines = sqliteTable(
+  "finance_lines",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    month: text("month").notNull(),
+    section: text("section").notNull(),
+    metricKey: text("metric_key").notNull(),
+    subjectName: text("subject_name").notNull(),
+    scopeKey: text("scope_key").notNull(),
+    scopeType: text("scope_type").notNull(),
+    scopeName: text("scope_name").notNull(),
+    groupName: text("group_name").notNull().default(""),
+    valueType: text("value_type").notNull(),
+    amountCents: integer("amount_cents"),
+    rateBps: integer("rate_bps"),
+    rawValue: text("raw_value").notNull().default(""),
+    sourceRowCount: integer("source_row_count").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isTotal: integer("is_total", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("finance_lines_month_section_scope_subject_uq").on(
+      table.month,
+      table.section,
+      table.scopeKey,
+      table.subjectName,
+    ),
+    index("finance_lines_month_section_scope_idx").on(table.month, table.section, table.scopeType, table.scopeName),
+    index("finance_lines_metric_month_idx").on(table.metricKey, table.month),
+    index("finance_lines_subject_month_idx").on(table.subjectName, table.month),
+  ],
+);
+
+/** Monthly, annual, and project targets used by financial progress analysis. */
+export const financeTargets = sqliteTable(
+  "finance_targets",
+  {
+    id: text("id").primaryKey(),
+    periodType: text("period_type").notNull(),
+    periodKey: text("period_key").notNull(),
+    shopName: text("shop_name").notNull().default(""),
+    category: text("category").notNull().default(""),
+    manager: text("manager").notNull().default(""),
+    salesTargetCents: integer("sales_target_cents").notNull().default(0),
+    profitTargetCents: integer("profit_target_cents").notNull().default(0),
+    smallMarginBps: integer("small_margin_bps").notNull().default(0),
+    inventoryCleanupTargetCents: integer("inventory_cleanup_target_cents").notNull().default(0),
+    promotionFeeRatioBps: integer("promotion_fee_ratio_bps").notNull().default(0),
+    stagnantInventoryTargetCents: integer("stagnant_inventory_target_cents").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("finance_targets_period_scope_uq").on(table.periodType, table.periodKey, table.shopName, table.category),
+    index("finance_targets_period_idx").on(table.periodType, table.periodKey),
+  ],
+);

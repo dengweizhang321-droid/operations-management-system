@@ -1,0 +1,46 @@
+{
+  "version": "2026-07-15",
+  "timeZone": "Asia/Shanghai",
+  "download": {
+    "directory": "D:\\谷歌浏览器",
+    "fileNamePattern": "^销售单明细账(?: \\(\\d+\\))?\\.xlsx$"
+  },
+  "dateRule": {
+    "type": "month_to_previous_day",
+    "field": "发货时间",
+    "fallbackFields": ["货品级发货时间", "下单时间"]
+  },
+  "excludedWarehouses": ["刷刷仓"],
+  "approvedSalesChannels": [
+    "抖店-志高炊之王专卖店",
+    "抖店-志高商业设备旗舰店",
+    "京东-志高切肉机旗舰店（志高迈德豪）",
+    "京东-志高商用厨电旗舰店",
+    "京东-志高商用厨电自营旗舰店",
+    "京东-志高商用设备旗舰店（亿用）",
+    "京东-志高商用洗碗机旗舰店（志高炊之王）",
+    "拼多多-志高商用餐厨旗舰店（志高乐度）",
+    "拼多多-志高商用厨电旗舰店",
+    "拼多多-志高商用厨具旗舰店（志高丽力）",
+    "拼多多-志高商用设备旗舰店",
+    "拼多多-志高中式厨电旗舰店（志高亿玖）",
+    "天猫-志高炊之王专卖店",
+    "天猫-志高丽力专卖店",
+    "天猫-志高马思图专卖店",
+    "天猫-志高拓丰专卖店",
+    "天猫-志高亿玖专卖店",
+    "天猫-志高亿用专卖店",
+    "天猫-志高驰梦专卖店",
+    "天猫-志高乐度专卖店",
+    "亿玖淘工厂"
+  ],
+  "costSource": {
+    "searchRoot": "outputs",
+    "folderPrefix": "inventory-filter-",
+    "fileName": "分仓库存查询_已剔除刷刷仓.xlsx",
+    "productCodeHeader": "货品编号",
+    "productNameHeader": "货品名称",
+    "unitCostHeader": "固定成本价",
+    "zeroCostProductNames": ["补差价专用"]
+  }
+}

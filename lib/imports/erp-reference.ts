@@ -1,4 +1,5 @@
 import {
+  parseXlsxFirstSheets,
   parseXlsxFirstSheet,
   type XlsxCellValue,
   type XlsxRow,
@@ -101,6 +102,18 @@ const COMBO_ALIASES = {
   childQuantity: ["子件数量", "子件用量", "数量", "用量", "组成数量", "配比数量"],
 } as const satisfies AliasMap;
 
+const JKY_COMBO_PARENT_ALIASES = {
+  parentCode: ["货品编号"],
+  parentName: ["货品名称"],
+} as const satisfies AliasMap;
+
+const JKY_COMBO_CHILD_ALIASES = {
+  parentCode: ["母件编号"],
+  childCode: ["编号"],
+  childName: ["名称"],
+  childQuantity: ["数量"],
+} as const satisfies AliasMap;
+
 const HEADER_SEARCH_ROWS = 30;
 const MAX_REFERENCE_ROWS = 100_000;
 const MAX_ISSUES = 200;
@@ -137,6 +150,14 @@ function findHeader(rows: XlsxRow[], aliases: AliasMap, required: string[]) {
   }
   const missing = required.filter((field) => !best?.fields.has(field));
   throw new Error(`未识别到报表表头，缺少必要列：${missing.join("、")}`);
+}
+
+function hasHeader(rows: XlsxRow[], aliases: AliasMap, required: string[]) {
+  for (let rowIndex = 0; rowIndex < Math.min(rows.length, HEADER_SEARCH_ROWS); rowIndex += 1) {
+    const fields = headerIndex(rows[rowIndex], aliases);
+    if (required.every((field) => fields.has(field))) return true;
+  }
+  return false;
 }
 
 function candidateRows(rows: XlsxRow[], headerRowIndex: number) {
@@ -315,6 +336,75 @@ function parseCombos(rows: XlsxRow[]) {
   };
 }
 
+function parseJkyComboWorkbook(parentRows: XlsxRow[], childRows: XlsxRow[]) {
+  const parentHeader = findHeader(parentRows, JKY_COMBO_PARENT_ALIASES, ["parentCode"]);
+  const childHeader = findHeader(childRows, JKY_COMBO_CHILD_ALIASES, ["parentCode", "childCode", "childQuantity"]);
+  const errors: ErpReferenceIssue[] = [];
+  const warnings: ErpReferenceIssue[] = [];
+  const parentDataRows = candidateRows(parentRows, parentHeader.rowIndex);
+  const childDataRows = candidateRows(childRows, childHeader.rowIndex);
+  const parentNames = new Map<string, string>();
+  let parentRowsMissingCode = 0;
+
+  for (const row of parentDataRows) {
+    const parentCode = read(row, parentHeader.fields, "parentCode");
+    if (!parentCode) {
+      parentRowsMissingCode += 1;
+      continue;
+    }
+    parentNames.set(parentCode, read(row, parentHeader.fields, "parentName"));
+  }
+  if (parentRowsMissingCode > 0) {
+    warnings.push({ code: "MISSING_PARENT_CODE", message: `母件表中有 ${parentRowsMissingCode} 行缺少货品编号，未用于名称映射` });
+  }
+
+  const parsed: ComboItemImportRow[] = [];
+  for (const row of childDataRows) {
+    const before = errors.length;
+    const parentCode = requiredText(read(row, childHeader.fields, "parentCode"), "parentCode", "母件编号", row, errors);
+    const childCode = requiredText(read(row, childHeader.fields, "childCode"), "childCode", "子件编号", row, errors);
+    const childQuantity = parseNumber(read(row, childHeader.fields, "childQuantity"));
+    if (childQuantity === null || childQuantity <= 0) {
+      errors.push({ sourceRowNumber: row.rowNumber, field: "childQuantity", code: "INVALID_NUMBER", message: "子件数量必须大于 0" });
+    }
+    if (errors.length > before) {
+      if (errors.length >= MAX_ISSUES) break;
+      continue;
+    }
+    parsed.push({
+      sourceRowNumber: row.rowNumber,
+      parentCode,
+      parentName: parentNames.get(parentCode) ?? "",
+      childCode,
+      childName: read(row, childHeader.fields, "childName"),
+      childQuantityMilli: Math.round((childQuantity ?? 0) * 1000),
+    });
+  }
+
+  const unresolvedParentCodes = new Set(parsed.filter((row) => !parentNames.has(row.parentCode)).map((row) => row.parentCode));
+  if (unresolvedParentCodes.size > 0) {
+    warnings.push({
+      code: "MISSING_PARENT_NAME",
+      message: `子件表中有 ${unresolvedParentCodes.size} 个母件编号未在母件表找到名称，已保留编号`,
+    });
+  }
+  pushDuplicateWarnings(parsed.map((row) => `${row.parentCode}\u001f${row.childCode}`), "母件与子件组合", warnings);
+  const deduplicated = [...new Map(parsed.map((row) => [`${row.parentCode}\u001f${row.childCode}`, row])).values()];
+  return {
+    rows: deduplicated,
+    errors,
+    warnings,
+    totals: {
+      parentSheetRowCount: parentDataRows.length,
+      childSheetRowCount: childDataRows.length,
+      sourceRowCount: parsed.length,
+      comboItemCount: deduplicated.length,
+      parentCount: new Set(deduplicated.map((row) => row.parentCode)).size,
+      childCount: new Set(deduplicated.map((row) => row.childCode)).size,
+    },
+  };
+}
+
 export function isErpReferenceSourceKey(value: unknown): value is ErpReferenceSourceKey {
   return typeof value === "string" && (ERP_REFERENCE_SOURCE_KEYS as readonly string[]).includes(value);
 }
@@ -323,6 +413,23 @@ export function parseErpReferenceXlsx(
   source: ErpReferenceSourceKey,
   input: ArrayBuffer | Uint8Array,
 ): ErpReferenceParseResult {
+  if (source === "combos") {
+    const sheets = parseXlsxFirstSheets(input, 2, { maxRows: MAX_REFERENCE_ROWS + 1 });
+    const parentSheet = sheets[0];
+    const childSheet = sheets[1];
+    if (
+      parentSheet
+      && childSheet
+      && hasHeader(parentSheet.rows, JKY_COMBO_PARENT_ALIASES, ["parentCode"])
+      && hasHeader(childSheet.rows, JKY_COMBO_CHILD_ALIASES, ["parentCode", "childCode", "childQuantity"])
+    ) {
+      const parsed = parseJkyComboWorkbook(parentSheet.rows, childSheet.rows);
+      return { source, sheetName: `${parentSheet.sheetName} + ${childSheet.sheetName}`, ...parsed };
+    }
+    const fallbackSheet = parseXlsxFirstSheet(input, { maxRows: MAX_REFERENCE_ROWS + 1 });
+    return { source, sheetName: fallbackSheet.sheetName, ...parseCombos(fallbackSheet.rows) };
+  }
+
   const sheet = parseXlsxFirstSheet(input, { maxRows: MAX_REFERENCE_ROWS + 1 });
   const parsed = source === "products"
     ? parseProducts(sheet.rows)

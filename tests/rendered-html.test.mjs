@@ -304,6 +304,43 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
   assert.match(migration, /CREATE TABLE `erp_combo_items`/);
 });
 
+test("imports dynamic monthly financial reports and exposes target-linked analysis", async () => {
+  const [page, schema, parser, database, analysis, importRoute, targetRoute, migration, packageJson] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/finance/parser.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/finance/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/finance/analysis.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/imports/finance/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/finance/targets/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0010_finance_reporting.sql", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+
+  for (const label of ["财报分析", "目标设置", "月度财报", "费用同环比与异常点", "8系列"]) assert.match(page, new RegExp(label));
+  assert.match(page, /\.xls/);
+  assert.match(page, /\/api\/finance\/analysis/);
+  assert.match(page, /\/api\/finance\/targets/);
+  assert.match(schema, /financeImportBatches/);
+  assert.match(schema, /financeMonths/);
+  assert.match(schema, /financeLines/);
+  assert.match(schema, /financeTargets/);
+  assert.match(parser, /aggregateLines/);
+  assert.match(parser, /sourceRowCount/);
+  assert.match(parser, /销售费用/);
+  assert.match(database, /existingMonth\?\.status === "completed"/);
+  assert.match(database, /ON CONFLICT\(month, section, scope_key, subject_name\)/);
+  assert.match(analysis, /promotionFeeRatioBps/);
+  assert.match(analysis, /momRate/);
+  assert.match(importRoute, /application\/octet-stream/);
+  assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(targetRoute, /periodType === "project"/);
+  assert.match(targetRoute, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(migration, /CREATE TABLE `finance_lines`/);
+  assert.match(migration, /CREATE TABLE `finance_targets`/);
+  assert.match(packageJson, /"xlsx": "0\.18\.5"/);
+});
+
 test("opens read-only data while keeping operational writes administrator-only", async () => {
   const readRouteUrls = [
     "../app/api/sales/summary/route.ts",
@@ -313,6 +350,9 @@ test("opens read-only data while keeping operational writes administrator-only",
     "../app/api/imports/sales/route.ts",
     "../app/api/imports/inventory/route.ts",
     "../app/api/imports/erp/route.ts",
+    "../app/api/imports/finance/route.ts",
+    "../app/api/finance/analysis/route.ts",
+    "../app/api/finance/targets/route.ts",
   ];
   const writeRouteUrls = [
     "../app/api/imports/sales/route.ts",
@@ -321,6 +361,8 @@ test("opens read-only data while keeping operational writes administrator-only",
     "../app/api/imports/inventory/chunks/route.ts",
     "../app/api/imports/erp/route.ts",
     "../app/api/imports/erp/chunks/route.ts",
+    "../app/api/imports/finance/route.ts",
+    "../app/api/finance/targets/route.ts",
     "../app/api/inventory/replenishment/route.ts",
   ];
   const [page, schema, authorization, authRoute, migration, ...routes] =

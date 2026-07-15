@@ -32,6 +32,8 @@ export async function GET(request: Request) {
       startDate: searchParams.get("startDate") ?? undefined,
       endDate: searchParams.get("endDate") ?? undefined,
       productCodes,
+      platform: searchParams.get("platform") ?? undefined,
+      shop: searchParams.get("shop") ?? undefined,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

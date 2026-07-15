@@ -181,7 +181,7 @@ export function parseXlsxFirstSheet(
 
   const selectedPaths = new Set([worksheetPath]);
   if (sharedStringsPath) selectedPaths.add(sharedStringsPath);
-  const parts = extractZipParts(bytes, selectedPaths, limits.maxWorksheetBytes, budget, worksheetPath);
+  const parts = extractZipParts(bytes, selectedPaths, limits.maxWorksheetBytes, budget, new Set([worksheetPath]));
   let worksheetBytes: Uint8Array | undefined = parts[worksheetPath];
   if (!worksheetBytes) {
     throw new XlsxParseError("INVALID_WORKBOOK", "XLSX 缺少首个工作表内容");
@@ -206,6 +206,92 @@ export function parseXlsxFirstSheet(
   };
 }
 
+/** Parse up to the first N workbook sheets in workbook order. */
+export function parseXlsxFirstSheets(
+  input: ArrayBuffer | Uint8Array,
+  sheetCount: number,
+  options: XlsxParseOptions = {},
+): XlsxFirstSheet[] {
+  if (!Number.isSafeInteger(sheetCount) || sheetCount <= 0) {
+    throw new XlsxParseError("INVALID_INPUT", "工作表数量必须是正整数");
+  }
+
+  const bytes = toUint8Array(input);
+  const limits = {
+    maxCompressedBytes: positiveInteger(options.maxCompressedBytes, DEFAULT_XLSX_LIMITS.maxCompressedBytes),
+    maxUncompressedBytes: positiveInteger(
+      options.maxUncompressedBytes,
+      DEFAULT_XLSX_LIMITS.maxUncompressedBytes,
+    ),
+    maxWorksheetBytes: positiveInteger(options.maxWorksheetBytes, DEFAULT_XLSX_LIMITS.maxWorksheetBytes),
+    maxRows: positiveInteger(options.maxRows, DEFAULT_XLSX_LIMITS.maxRows),
+  };
+
+  if (bytes.byteLength === 0) throw new XlsxParseError("INVALID_INPUT", "XLSX 文件为空");
+  if (bytes.byteLength > limits.maxCompressedBytes) {
+    throw new XlsxParseError(
+      "COMPRESSED_SIZE_LIMIT",
+      `XLSX 压缩文件超过 ${limits.maxCompressedBytes} 字节限制`,
+    );
+  }
+
+  const budget: InflateBudget = { used: 0, max: limits.maxUncompressedBytes };
+  const metadata = extractZipParts(
+    bytes,
+    new Set([WORKBOOK_PATH, WORKBOOK_RELS_PATH]),
+    METADATA_PART_LIMIT,
+    budget,
+  );
+  const workbookBytes = metadata[WORKBOOK_PATH];
+  const relationshipsBytes = metadata[WORKBOOK_RELS_PATH];
+  if (!workbookBytes || !relationshipsBytes) {
+    throw new XlsxParseError("INVALID_WORKBOOK", "XLSX 缺少工作簿或工作簿关系文件");
+  }
+
+  const workbookXml = decodeXmlPart(workbookBytes);
+  const relationships = parseRelationships(decodeXmlPart(relationshipsBytes));
+  const sheetTags = findSheetTags(workbookXml).slice(0, sheetCount);
+  if (sheetTags.length === 0) throw new XlsxParseError("INVALID_WORKBOOK", "工作簿中没有工作表");
+
+  const worksheets = sheetTags.map((sheetTag) => {
+    const sheetName = xmlAttribute(sheetTag, "name") ?? "Sheet1";
+    const relationshipId = xmlAttribute(sheetTag, "id");
+    if (!relationshipId) throw new XlsxParseError("INVALID_WORKBOOK", `工作表缺少关系 ID：${sheetName}`);
+    const relationship = relationships.find((item) => item.id === relationshipId && !item.external);
+    if (!relationship) throw new XlsxParseError("INVALID_WORKBOOK", `无法定位工作表文件：${sheetName}`);
+    return { sheetName, worksheetPath: resolveZipTarget(WORKBOOK_PATH, relationship.target) };
+  });
+
+  const sharedStringsRelationship = relationships.find(
+    (item) => !item.external && item.type.toLowerCase().endsWith("/sharedstrings"),
+  );
+  const sharedStringsPath = sharedStringsRelationship
+    ? resolveZipTarget(WORKBOOK_PATH, sharedStringsRelationship.target)
+    : null;
+  const worksheetPaths = new Set(worksheets.map((sheet) => sheet.worksheetPath));
+  const selectedPaths = new Set(worksheetPaths);
+  if (sharedStringsPath) selectedPaths.add(sharedStringsPath);
+  const parts = extractZipParts(bytes, selectedPaths, limits.maxWorksheetBytes, budget, worksheetPaths);
+  const sharedStringsBytes = sharedStringsPath ? parts[sharedStringsPath] : undefined;
+  const sharedStrings = sharedStringsBytes ? parseSharedStrings(decodeXmlPart(sharedStringsBytes)) : [];
+  if (sharedStringsPath) delete parts[sharedStringsPath];
+  const workbookPrTag = findFirstStartTag(workbookXml, "workbookPr");
+  const date1904Value = workbookPrTag ? xmlAttribute(workbookPrTag, "date1904") : null;
+
+  return worksheets.map(({ sheetName, worksheetPath }) => {
+    const worksheetBytes = parts[worksheetPath];
+    if (!worksheetBytes) throw new XlsxParseError("INVALID_WORKBOOK", `XLSX 缺少工作表内容：${sheetName}`);
+    delete parts[worksheetPath];
+    const parsed = parseWorksheet(decodeXmlPart(worksheetBytes), sharedStrings, limits.maxRows);
+    return {
+      sheetName,
+      date1904: date1904Value === "1" || date1904Value?.toLowerCase() === "true",
+      rows: parsed.rows,
+      maxColumns: parsed.maxColumns,
+    };
+  });
+}
+
 function toUint8Array(input: ArrayBuffer | Uint8Array): Uint8Array {
   if (input instanceof Uint8Array) return input;
   if (input instanceof ArrayBuffer) return new Uint8Array(input);
@@ -225,7 +311,7 @@ function extractZipParts(
   selectedPaths: Set<string>,
   perPartLimit: number,
   budget: InflateBudget,
-  worksheetPath?: string,
+  worksheetPaths?: ReadonlySet<string>,
 ): Record<string, Uint8Array> {
   const normalizedSelected = new Set([...selectedPaths].map(normalizeZipPath));
   const budgetBefore = budget.used;
@@ -237,7 +323,7 @@ function extractZipParts(
       filter(file) {
         const path = normalizeZipPath(file.name);
         if (!normalizedSelected.has(path)) return false;
-        const isWorksheet = worksheetPath !== undefined && path === normalizeZipPath(worksheetPath);
+        const isWorksheet = worksheetPaths?.has(path) ?? false;
         if (file.originalSize > perPartLimit) {
           throw new XlsxParseError(
             isWorksheet ? "WORKSHEET_SIZE_LIMIT" : "UNCOMPRESSED_SIZE_LIMIT",
@@ -265,7 +351,7 @@ function extractZipParts(
     const path = normalizeZipPath(name);
     if (!normalizedSelected.has(path)) continue;
     if (data.byteLength > perPartLimit) {
-      const isWorksheet = worksheetPath !== undefined && path === normalizeZipPath(worksheetPath);
+      const isWorksheet = worksheetPaths?.has(path) ?? false;
       throw new XlsxParseError(
         isWorksheet ? "WORKSHEET_SIZE_LIMIT" : "UNCOMPRESSED_SIZE_LIMIT",
         `${path} 解压后超过 ${perPartLimit} 字节限制`,
@@ -334,17 +420,20 @@ function findFirstStartTag(xml: string, localName: string): string | null {
 
 /** Prefer the 吉客云 sales detail sheet when a workbook also has pivot sheets. */
 function findPreferredSheetTag(xml: string): string | null {
+  const sheetTags = findSheetTags(xml);
+  return sheetTags.find((attributes) => xmlAttribute(attributes, "name")?.trim().toLowerCase() === "sheettitle")
+    ?? sheetTags[0]
+    ?? null;
+}
+
+function findSheetTags(xml: string): string[] {
   const expression = /<(?:[A-Za-z_][\w.-]*:)?sheet\b([^>]*)\/?\s*>/gi;
-  let first: string | null = null;
+  const sheetTags: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = expression.exec(xml)) !== null) {
-    const attributes = match[1];
-    first ??= attributes;
-    if (xmlAttribute(attributes, "name")?.trim().toLowerCase() === "sheettitle") {
-      return attributes;
-    }
+    sheetTags.push(match[1]);
   }
-  return first;
+  return sheetTags;
 }
 
 function xmlAttribute(attributes: string, localName: string): string | null {
@@ -442,20 +531,23 @@ function parseWorksheet(
 }
 
 function parseCells(rowXml: string, sharedStrings: string[]): XlsxCellValue[] {
-  const expression = /<(?:[A-Za-z_][\w.-]*:)?c\b([^>]*)>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?c\s*>|<(?:[A-Za-z_][\w.-]*:)?c\b([^>]*)\/>/gi;
+  // Match self-closing cells first. If the normal opening-tag branch comes
+  // first, `<c ... />` can consume the next cell's closing tag and make its
+  // text value inherit the blank cell's numeric type.
+  const expression = /<(?:[A-Za-z_][\w.-]*:)?c\b([^>]*)\/>|<(?:[A-Za-z_][\w.-]*:)?c\b([^>]*)>([\s\S]*?)<\/(?:[A-Za-z_][\w.-]*:)?c\s*>/gi;
   const cells: XlsxCellValue[] = [];
   let nextColumnIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = expression.exec(rowXml)) !== null) {
-    const attributes = match[1] ?? match[3] ?? "";
+    const attributes = match[1] ?? match[2] ?? "";
     const reference = xmlAttribute(attributes, "r");
     const columnIndex = reference === null ? nextColumnIndex : columnIndexFromReference(reference);
     if (columnIndex < 0 || columnIndex >= 16_384) {
       throw new XlsxParseError("INVALID_WORKSHEET", `无效单元格引用: ${reference ?? "(缺失)"}`);
     }
     while (cells.length < columnIndex) cells.push(null);
-    cells[columnIndex] = parseCellValue(match[2] ?? "", xmlAttribute(attributes, "t"), sharedStrings);
+    cells[columnIndex] = parseCellValue(match[3] ?? "", xmlAttribute(attributes, "t"), sharedStrings);
     nextColumnIndex = columnIndex + 1;
   }
 

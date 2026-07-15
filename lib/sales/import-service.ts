@@ -11,6 +11,10 @@ import {
   type SalesImportIssue,
   type SalesLineInput,
 } from "@/lib/sales/database";
+import {
+  isApprovedSalesChannel,
+  isExcludedSalesWarehouse,
+} from "@/lib/sales/import-policy";
 
 export const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -146,16 +150,23 @@ export async function importSalesLedgerBytes(input: {
 
   const parserErrors = sanitizeSalesIssues(parsed.errors ?? []);
   const mappedRows = parsed.rows.map(mapAnalysisSafeRow);
-  const excludedBrushWarehouseRows = mappedRows.filter((row) => row.warehouse.trim() === "刷刷仓").length;
-  const rows = mappedRows.filter((row) => row.warehouse.trim() !== "刷刷仓");
+  const excludedBrushWarehouseRows = mappedRows.filter((row) => isExcludedSalesWarehouse(row.warehouse)).length;
+  const rows = mappedRows.filter((row) => !isExcludedSalesWarehouse(row.warehouse));
+  const disallowedChannelRows = rows.filter((row) => !isApprovedSalesChannel(row.channel));
   const warnings = sanitizeSalesIssues([
     ...(parsed.warnings ?? []),
     ...(excludedBrushWarehouseRows > 0
       ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }]
       : []),
   ]);
+  const policyErrors: SalesImportIssue[] = disallowedChannelRows.map((row) => ({
+    row: row.sourceRowNumber,
+    field: "channel",
+    code: "UNAPPROVED_SALES_CHANNEL",
+    message: `销售渠道不在当前导入白名单中：${row.channel}`,
+  }));
   const rowErrors = validateRows(rows);
-  const errors = [...parserErrors, ...rowErrors].slice(0, 200);
+  const errors = [...parserErrors, ...policyErrors, ...rowErrors].slice(0, 200);
   if (errors.length > 0) {
     return {
       ok: false,

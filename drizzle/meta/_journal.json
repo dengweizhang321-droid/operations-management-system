@@ -71,6 +71,13 @@
       "when": 1784039692272,
       "tag": "0009_wonderful_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784129777497,
+      "tag": "0010_finance_reporting",
+      "breakpoints": true
     }
   ]
 }

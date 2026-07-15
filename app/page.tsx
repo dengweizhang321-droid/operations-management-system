@@ -45,6 +45,7 @@ type SalesStats = {
 };
 
 type SalesChannel = {
+  groupKey: string;
   name: string;
   platform: string;
   grossSalesCents: number;
@@ -81,7 +82,9 @@ type SalesSummaryResponse = {
     completedAt?: string | null;
   } | null;
   daily?: Array<{ date: string } & SalesStats>;
-  filters?: { productCodes: string[] };
+  previousDaily?: Array<{ date: string } & SalesStats>;
+  yearAgoDaily?: Array<{ date: string } & SalesStats>;
+  filters?: { productCodes: string[]; platform?: string | null; shop?: string | null };
 };
 
 type GlobalSearchProduct = {
@@ -347,7 +350,7 @@ type ImportHistoryResponse = {
 
 type InventoryImportHistoryItem = Pick<SalesImportBatch, "id" | "fileName" | "status" | "rowCount" | "insertedCount" | "warningCount" | "createdAt" | "completedAt"> & { snapshotDate: string };
 
-type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos";
+type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance";
 
 type ErpReferenceImportBatch = {
   id: string;
@@ -417,6 +420,79 @@ type UnifiedHistoryItem = {
   completedAt?: string | null;
 };
 
+type FinanceActualMetrics = {
+  grossSalesCents: number;
+  returnAmountCents: number;
+  netSalesCents: number;
+  netCostCents: number;
+  grossProfitCents: number;
+  grossMarginBps: number;
+  sellingExpenseCents: number;
+  smallProfitCents: number;
+  smallMarginBps: number;
+  otherExpenseCents: number;
+  profitCents: number;
+  profitMarginBps: number;
+  promotionExpenseCents: number;
+  promotionFeeRatioBps: number;
+};
+
+type FinanceTargetTotals = {
+  salesTargetCents: number;
+  profitTargetCents: number;
+  smallMarginBps: number;
+  inventoryCleanupTargetCents: number;
+  promotionFeeRatioBps: number;
+  stagnantInventoryTargetCents: number;
+  targetCount: number;
+};
+
+type FinanceProgress = {
+  sales: number | null;
+  profit: number | null;
+  smallMarginGapBps: number | null;
+  promotionFeeGapBps: number | null;
+};
+
+type FinanceTarget = {
+  id: string;
+  periodType: "month" | "year" | "project";
+  periodKey: string;
+  shopName: string;
+  category: string;
+  manager: string;
+  salesTargetCents: number;
+  profitTargetCents: number;
+  smallMarginBps: number;
+  inventoryCleanupTargetCents: number;
+  promotionFeeRatioBps: number;
+  stagnantInventoryTargetCents: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type FinanceAnalysisResponse = {
+  hasData: boolean;
+  selectedMonth: string | null;
+  previousMonth?: string | null;
+  yearAgoMonth?: string | null;
+  months: Array<{ month: string; fileName: string; importedAt: string; shopCount: number; subjectCount: number }>;
+  current?: FinanceActualMetrics;
+  previous?: FinanceActualMetrics | null;
+  yearAgo?: FinanceActualMetrics | null;
+  yearToDate?: FinanceActualMetrics;
+  timeline: Array<{ month: string } & FinanceActualMetrics>;
+  targets?: { month: FinanceTargetTotals; year: FinanceTargetTotals; projects: FinanceTarget[] };
+  progress?: { month: FinanceProgress; year: FinanceProgress };
+  expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
+  shops: Array<{ name: string; groupName: string; manager: string; actual: FinanceActualMetrics; target: FinanceTargetTotals; progress: FinanceProgress }>;
+  anomalies: Array<{ level: "critical" | "warning" | "info"; title: string; detail: string }>;
+  sync?: { dataCutoffMonth: string; sourceFileName: string; importedAt: string };
+  error?: string;
+};
+
+type FinanceTargetOptions = { shops: string[]; categories: string[]; projects: string[] };
+
 type SalesImportResponse = {
   ok: boolean;
   status: "imported" | "duplicate" | "rejected" | string;
@@ -451,6 +527,7 @@ const SALES_UPLOAD_CHUNK_SIZE = 2 * 1024 * 1024;
 const MAX_INVENTORY_FILE_SIZE = 20 * 1024 * 1024;
 const DIRECT_INVENTORY_FILE_SIZE = 1024 * 1024;
 const INVENTORY_UPLOAD_CHUNK_SIZE = 1024 * 1024;
+const MAX_FINANCE_FILE_SIZE = 8 * 1024 * 1024;
 
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
@@ -526,6 +603,12 @@ const addIsoMonths = (value: string, months: number) => {
   const target = new Date(Date.UTC(year, month - 1 + months, 1));
   const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
   return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+};
+const addIsoYears = (value: string, years: number) => {
+  const [year, month, day] = value.split("-").map(Number);
+  const targetYear = year + years;
+  const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
+  return `${targetYear}-${String(month).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
 };
 const clampIsoDate = (value: string, minDate: string, maxDate: string) => value < minDate ? minDate : value > maxDate ? maxDate : value;
 
@@ -705,12 +788,352 @@ function DashboardView({ range, customStartDate, customEndDate }: { range: Sales
   return <><section className="dashboard-sync-bar"><span><Dot tone="green" />已同步经营数据</span><strong>{sales.startDate} 至 {sales.endDate}</strong><small>销售批次 {sales.latestBatch?.fileName ?? "暂无"} · 库存快照 {inventory.sync.inventoryAsOf ?? "暂无"}</small><button className="row-action" onClick={() => void load()} disabled={loading}>{loading ? "同步中…" : "↻ 刷新"}</button></section><section className="metrics-grid"><MetricCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="blue" /><MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="green" /><MetricCard label="综合大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="purple" /><MetricCard label="销售退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" /></section><section className="dashboard-main-grid"><article className="panel trend-panel"><SectionHeader title="销售与毛利趋势" note="按当前统计周期内的已导入日度明细汇总" /><div className="chart-legend"><span><Dot tone="blue" />净销售额</span><span><Dot tone="green" />订单毛利</span></div><div className="bar-chart">{daily.map((item, index) => <div className="bar-group" key={item.date}><div className="bar-stack"><span className="bar sales-bar" style={{ height: `${Math.max(2, Math.max(0, item.netSalesCents) / maxSales * 100)}%` }} /><span className="bar profit-bar" style={{ height: `${Math.max(2, Math.max(0, item.grossProfitCents) / maxProfit * 100)}%` }} /></div><small>{daily.length <= 7 || index % Math.ceil(daily.length / 7) === 0 ? item.date.slice(5) : ""}</small></div>)}</div><div className="chart-summary"><div><span>日均净销售额</span><strong>{formatCurrencyFromCents(daily.length ? current.netSalesCents / daily.length : 0)}</strong></div><div><span>活跃网店</span><strong>{formatCount((sales.outlets ?? []).length)} 个</strong></div><div><span>库存健康度</span><strong className={healthScore < 70 ? "orange-text" : "green-text"}>{healthScore} 分</strong></div></div></article><article className="panel alert-panel"><SectionHeader title="库存预警中心" note="来自最新库存快照与销售需求联动" /><div className="alert-score"><div className="score-ring"><strong>{healthScore}</strong><small>健康分</small></div><div><strong>{healthScore >= 80 ? "整体经营稳定" : "建议关注库存风险"}</strong><p>库存快照 {inventory.sync.inventoryAsOf ?? "未同步"}</p></div></div><div className="alert-list"><button><span className="alert-icon danger">!</span><span><b>紧急补货</b><small>可售天数低于预警线的货品</small></span><em>{formatCount(inventory.metrics.urgentCount)}</em></button><button><span className="alert-icon warning">↓</span><span><b>建议补货</b><small>销量需求与可用库存计算得出</small></span><em>{formatCount(inventory.metrics.replenishCount)}</em></button><button><span className="alert-icon purple">◷</span><span><b>低动销库存</b><small>当前未匹配销售需求的库存商品</small></span><em>{formatCount(inventory.metrics.noSalesCount)}</em></button></div></article></section><section className="dashboard-bottom-grid"><article className="panel"><SectionHeader title="网店经营排行" note="按销售净额排序" /><div className="rank-list">{outlets.map((outlet, index) => <div className="rank-row" key={outlet.name}><span className={`rank-number rank-${index + 1}`}>{index + 1}</span><div className="shop-avatar">{outlet.platform.slice(0, 1)}</div><div className="rank-name"><strong>{outlet.name}</strong><small>{outlet.platform} · {formatCount(outlet.orderCount)} 单</small></div><div className="mini-progress"><i style={{ width: `${Math.max(4, outlet.shareRate * 100)}%` }} /></div><div className="rank-value"><strong>{formatCurrencyFromCents(outlet.netSalesCents)}</strong><small className={outlet.salesYearOverYearRate !== null && outlet.salesYearOverYearRate < 0 ? "red-text" : "green-text"}>{formatYearOverYear(outlet.salesYearOverYearRate)}</small></div></div>)}{outlets.length === 0 && <div className="table-state">当前周期没有可展示的网店数据。</div>}</div></article><article className="panel todo-panel"><SectionHeader title="数据同步状态" note="所有分析以最近成功导入为准" /><div className="dashboard-data-status"><div><span>销售明细</span><strong>{sales.latestBatch?.fileName ?? "未导入"}</strong><small>{sales.latestBatch?.completedAt ? formatDateTime(sales.latestBatch.completedAt) : "请前往数据导入"}</small></div><div><span>库存快照</span><strong>{inventory.sync.latestInventoryFile ?? "未导入"}</strong><small>{inventory.sync.inventoryAsOf ?? "请前往库存管理同步"}</small></div><div><span>销售需求匹配</span><strong>{formatRate(inventory.metrics.salesDemandMatchRate)}</strong><small>库存商品已匹配销售需求的比例</small></div></div></article></section></>;
 }
 
-type OutletTab = "outlets" | "platforms";
+type StoreGranularity = "day" | "week" | "month";
+type StoreComparisonMode = "period" | "year";
+type StorePeriodRow = SalesStats & { key: string; label: string };
+
+function storePeriodKey(dateValue: string, granularity: StoreGranularity) {
+  if (granularity === "day") return dateValue;
+  if (granularity === "month") return dateValue.slice(0, 7);
+  const date = new Date(`${dateValue}T00:00:00Z`);
+  const weekDay = date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() + (weekDay === 0 ? -6 : 1 - weekDay));
+  return date.toISOString().slice(0, 10);
+}
+
+function aggregateStorePeriods(daily: Array<{ date: string } & SalesStats>, granularity: StoreGranularity): StorePeriodRow[] {
+  const buckets = new Map<string, StorePeriodRow>();
+  for (const item of daily) {
+    const key = storePeriodKey(item.date, granularity);
+    const label = granularity === "week" ? `${key} 周` : key;
+    const row = buckets.get(key) ?? {
+      key,
+      label,
+      grossSalesCents: 0,
+      netSalesCents: 0,
+      grossProfitCents: 0,
+      refundAmountCents: 0,
+      orderCount: 0,
+      lineCount: 0,
+      netQuantity: 0,
+      averageOrderValueCents: 0,
+      grossMarginRate: 0,
+      refundRate: 0,
+    };
+    row.grossSalesCents += item.grossSalesCents;
+    row.netSalesCents += item.netSalesCents;
+    row.grossProfitCents += item.grossProfitCents;
+    row.refundAmountCents += item.refundAmountCents;
+    row.orderCount += item.orderCount;
+    row.lineCount += item.lineCount;
+    row.netQuantity += item.netQuantity;
+    row.averageOrderValueCents = row.orderCount === 0 ? 0 : row.netSalesCents / row.orderCount;
+    row.grossMarginRate = row.netSalesCents === 0 ? 0 : row.grossProfitCents / row.netSalesCents;
+    row.refundRate = row.grossSalesCents === 0 ? 0 : row.refundAmountCents / row.grossSalesCents;
+    buckets.set(key, row);
+  }
+  return [...buckets.values()].sort((left, right) => left.key.localeCompare(right.key));
+}
+
+const storeComparisonRate = (value: number, baseline?: number) => !baseline ? null : (value - baseline) / Math.abs(baseline);
+const formatStoreComparison = (value: number, baseline?: number) => {
+  const rate = storeComparisonRate(value, baseline);
+  return rate === null ? "无可比数据" : `${rate >= 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`;
+};
+
+function StoreMetricCard({ label, value, change, note, unavailable = false }: {
+  label: string;
+  value: string;
+  change?: number | null;
+  note?: string;
+  unavailable?: boolean;
+}) {
+  return <article className={`store-metric-card ${unavailable ? "unavailable" : ""}`}>
+    <div><span>{label}</span>{unavailable && <em>待接入</em>}</div>
+    <strong>{value}</strong>
+    <small className={change === null || change === undefined ? "muted-text" : change < 0 ? "red-text" : "green-text"}>{note ?? (change === null || change === undefined ? "暂无可比数据" : `${change >= 0 ? "+" : ""}${(change * 100).toFixed(1)}%`)}</small>
+  </article>;
+}
+
+function StoreTableMetric({ value, baseline, formatter, showComparison, showActual }: {
+  value: number;
+  baseline?: number;
+  formatter: (value: number) => string;
+  showComparison: boolean;
+  showActual: boolean;
+}) {
+  const rate = storeComparisonRate(value, baseline);
+  return <div className="store-table-metric"><strong>{formatter(value)}</strong>{showComparison && <small className={rate === null ? "muted-text" : rate < 0 ? "red-text" : "green-text"}>{showActual && baseline !== undefined ? `对比 ${formatter(baseline)}` : rate === null ? "无可比数据" : `${rate >= 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`}</small>}</div>;
+}
+
+function StoreUnavailableCell() {
+  return <div className="store-unavailable-cell"><strong>—</strong><small>待接入</small></div>;
+}
+
+type StoreTableColumnKey =
+  | "visitors"
+  | "netSales"
+  | "averageOrderValue"
+  | "uvValue"
+  | "conversionRate"
+  | "promotionSpend"
+  | "promotionShare"
+  | "retailShare"
+  | "b2bShare"
+  | "promotionClicks"
+  | "paidVisitors"
+  | "freeVisitors"
+  | "orderCount"
+  | "grossMarginRate"
+  | "refundRate";
+
+const storeTableColumns: Array<{ key: StoreTableColumnKey; label: string; available: boolean }> = [
+  { key: "visitors", label: "访客", available: false },
+  { key: "netSales", label: "销售净额", available: true },
+  { key: "averageOrderValue", label: "客单价", available: true },
+  { key: "uvValue", label: "UV 价值", available: false },
+  { key: "conversionRate", label: "转化率", available: false },
+  { key: "promotionSpend", label: "推广花费", available: false },
+  { key: "promotionShare", label: "推广占比", available: false },
+  { key: "retailShare", label: "零售占比", available: false },
+  { key: "b2bShare", label: "B 端占比", available: false },
+  { key: "promotionClicks", label: "推广点击数", available: false },
+  { key: "paidVisitors", label: "付费访客", available: false },
+  { key: "freeVisitors", label: "免费访客", available: false },
+  { key: "orderCount", label: "订单量", available: true },
+  { key: "grossMarginRate", label: "大毛利率", available: true },
+  { key: "refundRate", label: "退货率", available: true },
+];
+
+const connectedStoreTableColumns = storeTableColumns.filter((column) => column.available).map((column) => column.key);
+
+function StoreDataCell({ column, row, compared, showComparison, showActual }: {
+  column: StoreTableColumnKey;
+  row: StorePeriodRow;
+  compared?: StorePeriodRow;
+  showComparison: boolean;
+  showActual: boolean;
+}) {
+  if (column === "netSales") return <StoreTableMetric value={row.netSalesCents} baseline={compared?.netSalesCents} formatter={formatCurrencyFromCents} showComparison={showComparison} showActual={showActual} />;
+  if (column === "averageOrderValue") return <StoreTableMetric value={row.averageOrderValueCents} baseline={compared?.averageOrderValueCents} formatter={formatCurrencyFromCents} showComparison={showComparison} showActual={showActual} />;
+  if (column === "orderCount") return <StoreTableMetric value={row.orderCount} baseline={compared?.orderCount} formatter={formatCount} showComparison={showComparison} showActual={showActual} />;
+  if (column === "grossMarginRate") return <StoreTableMetric value={row.grossMarginRate} baseline={compared?.grossMarginRate} formatter={formatRate} showComparison={showComparison} showActual={showActual} />;
+  if (column === "refundRate") return <StoreTableMetric value={row.refundRate} baseline={compared?.refundRate} formatter={formatRate} showComparison={showComparison} showActual={showActual} />;
+  return <StoreUnavailableCell />;
+}
+
+function StoreTrendChart({ rows, comparisonRows, showComparison, comparisonLabel }: {
+  rows: StorePeriodRow[];
+  comparisonRows: Array<StorePeriodRow | undefined>;
+  showComparison: boolean;
+  comparisonLabel: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const highlightedIndex = rows.length === 0 ? null : Math.min(activeIndex ?? rows.length - 1, rows.length - 1);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = canvas?.parentElement;
+    if (!canvas || !container) return;
+    const draw = () => {
+      const width = Math.max(360, Math.floor(container.getBoundingClientRect().width));
+      const height = 330;
+      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, width, height);
+      const plot = { left: 56, right: width - 42, top: 28, bottom: height - 44 };
+      context.font = "10px sans-serif";
+      context.textAlign = "right";
+      const maxSales = Math.max(1, ...rows.map((row) => Math.max(0, row.netSalesCents)), ...(showComparison ? comparisonRows.map((row) => Math.max(0, row?.netSalesCents ?? 0)) : []));
+      const maxOrders = Math.max(1, ...rows.map((row) => Math.max(0, row.orderCount)));
+      for (let index = 0; index <= 4; index += 1) {
+        const y = plot.top + (plot.bottom - plot.top) * index / 4;
+        context.strokeStyle = "#e8edf4";
+        context.lineWidth = 1;
+        context.beginPath(); context.moveTo(plot.left, y); context.lineTo(plot.right, y); context.stroke();
+        context.fillStyle = "#8b97a8";
+        context.fillText(formatCount(Math.round(maxSales / 100 * (1 - index / 4))), plot.left - 8, y + 3);
+      }
+      if (!rows.length) return;
+      const slot = (plot.right - plot.left) / rows.length;
+      const barWidth = Math.max(4, Math.min(26, slot * .52));
+      rows.forEach((row, index) => {
+        const x = plot.left + slot * index + slot / 2;
+        const barHeight = Math.max(2, Math.max(0, row.netSalesCents) / maxSales * (plot.bottom - plot.top));
+        const gradient = context.createLinearGradient(0, plot.bottom - barHeight, 0, plot.bottom);
+        gradient.addColorStop(0, "#6f91e9"); gradient.addColorStop(1, "#4776e6");
+        context.fillStyle = gradient;
+        context.fillRect(x - barWidth / 2, plot.bottom - barHeight, barWidth, barHeight);
+      });
+      context.beginPath();
+      rows.forEach((row, index) => {
+        const x = plot.left + slot * index + slot / 2;
+        const y = plot.bottom - Math.max(0, row.orderCount) / maxOrders * (plot.bottom - plot.top);
+        if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+      });
+      context.strokeStyle = "#65b76e"; context.lineWidth = 2.2; context.lineJoin = "round"; context.stroke();
+      rows.forEach((row, index) => {
+        const x = plot.left + slot * index + slot / 2;
+        const y = plot.bottom - Math.max(0, row.orderCount) / maxOrders * (plot.bottom - plot.top);
+        context.fillStyle = "#fff"; context.strokeStyle = "#65b76e"; context.lineWidth = 2;
+        context.beginPath(); context.arc(x, y, 3.5, 0, Math.PI * 2); context.fill(); context.stroke();
+      });
+      if (showComparison && comparisonRows.length) {
+        context.save(); context.beginPath(); context.setLineDash([5, 4]);
+        let segmentStarted = false;
+        comparisonRows.slice(0, rows.length).forEach((row, index) => {
+          if (!row) { segmentStarted = false; return; }
+          const x = plot.left + slot * index + slot / 2;
+          const y = plot.bottom - Math.max(0, row.netSalesCents) / maxSales * (plot.bottom - plot.top);
+          if (!segmentStarted) context.moveTo(x, y); else context.lineTo(x, y);
+          segmentStarted = true;
+        });
+        context.strokeStyle = "#aab4c3"; context.lineWidth = 1.5; context.stroke(); context.restore();
+      }
+      const labelStep = Math.max(1, Math.ceil(rows.length / 8));
+      context.fillStyle = "#8793a4"; context.textAlign = "center";
+      rows.forEach((row, index) => { if (index % labelStep === 0 || index === rows.length - 1) context.fillText(row.label.slice(5), plot.left + slot * index + slot / 2, height - 17); });
+      if (highlightedIndex !== null) {
+        const x = plot.left + slot * highlightedIndex + slot / 2;
+        context.save(); context.strokeStyle = "#b4bfce"; context.setLineDash([3, 4]); context.beginPath(); context.moveTo(x, plot.top); context.lineTo(x, plot.bottom); context.stroke(); context.restore();
+      }
+    };
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [comparisonRows, highlightedIndex, rows, showComparison]);
+
+  const active = highlightedIndex === null ? null : rows[highlightedIndex];
+  const comparison = highlightedIndex === null ? undefined : comparisonRows[highlightedIndex];
+  return <section className="panel store-trend-panel">
+    <div className="store-section-header"><div><span className="eyebrow">STORE TREND</span><h2>趋势图</h2><p>蓝色柱为销售净额，绿色折线为订单量；灰色虚线为{comparisonLabel}销售净额。</p></div><div className="store-trend-legend"><span><i className="sales" />销售净额</span><span><i className="orders" />订单量</span>{showComparison && <span><i className="compare" />{comparisonLabel}</span>}</div></div>
+    <div className="store-trend-canvas"><canvas ref={canvasRef} role="img" aria-label="店铺销售净额与订单量趋势图" onPointerMove={(event) => { if (!rows.length) return; const bounds = event.currentTarget.getBoundingClientRect(); const progress = Math.min(1, Math.max(0, (event.clientX - bounds.left - 56) / Math.max(1, bounds.width - 98))); setActiveIndex(Math.round(progress * (rows.length - 1))); }} onPointerLeave={() => setActiveIndex(null)} />{!rows.length && <div className="trend-empty">当前周期没有可绘制的店铺销售数据。</div>}</div>
+    {active && <div className="store-trend-summary"><strong>{active.label}</strong><span>销售净额 <b>{formatCurrencyFromCents(active.netSalesCents)}</b></span><span>订单量 <b>{formatCount(active.orderCount)}</b></span><span>客单价 <b>{formatCurrencyFromCents(active.averageOrderValueCents)}</b></span>{showComparison && <span>{comparisonLabel} <b>{comparison ? formatStoreComparison(active.netSalesCents, comparison.netSalesCents) : "无数据"}</b></span>}</div>}
+  </section>;
+}
+
+function StoreAnalysisView({ summary, outlets, selectedOutletKey, onSelectOutlet, loading }: {
+  summary: SalesSummaryResponse;
+  outlets: SalesChannel[];
+  selectedOutletKey: string;
+  onSelectOutlet: (key: string) => void;
+  loading: boolean;
+}) {
+  const [granularity, setGranularity] = useState<StoreGranularity>("day");
+  const [comparisonMode, setComparisonMode] = useState<StoreComparisonMode>("period");
+  const [showComparison, setShowComparison] = useState(true);
+  const [showActual, setShowActual] = useState(false);
+  const [columnPickerOpen, setColumnPickerOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<StoreTableColumnKey[]>(() => storeTableColumns.map((column) => column.key));
+  const columnPickerRef = useRef<HTMLDivElement>(null);
+  const current = summary.current;
+  const baseline = comparisonMode === "period" ? summary.previous : summary.yearAgo;
+  const comparisonLabel = comparisonMode === "period" ? "环比" : "同比";
+  const rows = useMemo(() => aggregateStorePeriods(summary.daily ?? [], granularity), [granularity, summary.daily]);
+  const comparisonRows = useMemo(() => {
+    const available = aggregateStorePeriods(comparisonMode === "period" ? summary.previousDaily ?? [] : summary.yearAgoDaily ?? [], granularity);
+    const byKey = new Map(available.map((row) => [row.key, row]));
+    return rows.map((row) => {
+      const targetDate = comparisonMode === "period" && summary.previousStartDate
+        ? addIsoDays(summary.previousStartDate, isoDayDifference(summary.startDate, row.key))
+        : addIsoYears(row.key.length === 7 ? `${row.key}-01` : row.key, -1);
+      return byKey.get(storePeriodKey(targetDate, granularity));
+    });
+  }, [comparisonMode, granularity, rows, summary.previousDaily, summary.previousStartDate, summary.startDate, summary.yearAgoDaily]);
+  const currentAov = current.orderCount === 0 ? 0 : current.netSalesCents / current.orderCount;
+  const baselineAov = !baseline?.orderCount ? 0 : baseline.netSalesCents / baseline.orderCount;
+  const salesChange = storeComparisonRate(current.netSalesCents, baseline?.netSalesCents);
+  const aovChange = storeComparisonRate(currentAov, baselineAov);
+  const selectedOutlet = outlets.find((item) => item.groupKey === selectedOutletKey);
+  const daily = summary.daily ?? [];
+  const dataCutoff = daily.length > 0 ? daily[daily.length - 1].date : "暂无";
+
+  useEffect(() => {
+    if (!columnPickerOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!columnPickerRef.current?.contains(event.target as Node)) setColumnPickerOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setColumnPickerOpen(false);
+    };
+    window.addEventListener("pointerdown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [columnPickerOpen]);
+
+  const toggleStoreColumn = (column: StoreTableColumnKey) => setVisibleColumns((currentColumns) => {
+    if (currentColumns.includes(column)) return currentColumns.length === 1 ? currentColumns : currentColumns.filter((item) => item !== column);
+    return storeTableColumns.map((item) => item.key).filter((key) => currentColumns.includes(key) || key === column);
+  });
+
+  return <>
+    <section className="panel store-filter-panel" aria-label="店铺分析筛选条件">
+      <label className="store-select-field"><span>店铺</span><select value={selectedOutletKey} onChange={(event) => onSelectOutlet(event.target.value)} aria-label="选择分析店铺"><option value="all">全部店铺</option>{outlets.map((outlet) => <option key={outlet.groupKey} value={outlet.groupKey}>{outlet.name} · {outlet.platform}</option>)}</select></label>
+      <div className="store-period-context"><span>统计周期</span><strong>{summary.startDate} → {summary.endDate}</strong><small>{selectedOutlet ? `${selectedOutlet.platform} · ${selectedOutlet.name}` : "全部平台与店铺"} · 数据截止 {dataCutoff}</small></div>
+      <div className="segmented store-granularity" role="group" aria-label="店铺分析时间粒度"><button type="button" className={granularity === "day" ? "active" : ""} onClick={() => setGranularity("day")}>按日</button><button type="button" className={granularity === "week" ? "active" : ""} onClick={() => setGranularity("week")}>按周</button><button type="button" className={granularity === "month" ? "active" : ""} onClick={() => setGranularity("month")}>按月</button></div>
+      <label className="store-check"><input type="checkbox" checked={showComparison} onChange={(event) => setShowComparison(event.target.checked)} /><span>显示对比数据</span></label>
+      <div className="segmented store-compare-mode" role="group" aria-label="店铺分析对比口径"><button type="button" className={comparisonMode === "period" ? "active" : ""} disabled={!showComparison} onClick={() => setComparisonMode("period")}>环比</button><button type="button" className={comparisonMode === "year" ? "active" : ""} disabled={!showComparison} onClick={() => setComparisonMode("year")}>同比</button></div>
+      <label className="store-check"><input type="checkbox" checked={showActual} disabled={!showComparison} onChange={(event) => setShowActual(event.target.checked)} /><span>显示对比值</span></label>
+      <button type="button" className="row-action store-refresh" disabled={loading} onClick={() => onSelectOutlet(selectedOutletKey)}>{loading ? "刷新中…" : "↻ 刷新"}</button>
+    </section>
+
+    <section className="store-source-status" role="note">
+      <div><span className="source-status-ready">✓ 已接入</span><strong>销售净额、订单量、客单价、毛利率、退货率</strong></div>
+      <div><span className="source-status-missing">○ 待接入</span><strong>访客、UV、推广、企业购/零售拆分</strong></div>
+      <p>页面只展示有可靠来源的经营值；流量与推广字段不会用订单数据反推。</p>
+    </section>
+
+    <section className="store-metrics-grid">
+      <StoreMetricCard label="访客" value="—" note="待接入平台流量报表" unavailable />
+      <StoreMetricCard label="销售额（净额）" value={formatCurrencyFromCents(current.netSalesCents)} change={salesChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(current.netSalesCents, baseline?.netSalesCents)}` : "来自已导入销售明细"} />
+      <StoreMetricCard label="客单价" value={formatCurrencyFromCents(currentAov)} change={aovChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(currentAov, baselineAov)}` : `${formatCount(current.orderCount)} 笔订单`} />
+      <StoreMetricCard label="UV 价值" value="—" note="缺少访客数据，不做推算" unavailable />
+      <StoreMetricCard label="转化率" value="—" note="需访客与成交人数" unavailable />
+      <StoreMetricCard label="推广花费" value="—" note="待接入推广报表" unavailable />
+      <StoreMetricCard label="推广占比" value="—" note="需推广花费与销售口径" unavailable />
+      <StoreMetricCard label="零售占比" value="—" note="待接入订单类型标记" unavailable />
+      <StoreMetricCard label="B 端占比" value="—" note="待接入企业购明细" unavailable />
+      <StoreMetricCard label="推广点击数" value="—" note="待接入推广点击明细" unavailable />
+      <StoreMetricCard label="付费访客" value="不推算" note="避免用点击数替代访客" unavailable />
+      <StoreMetricCard label="免费访客" value="不推算" note="需平台自然流量数据" unavailable />
+    </section>
+
+    <section className="store-reliable-strip">
+      <div><span>订单量</span><strong>{formatCount(current.orderCount)}</strong><small>{showComparison ? `${comparisonLabel} ${formatStoreComparison(current.orderCount, baseline?.orderCount)}` : "笔"}</small></div>
+      <div><span>净销量</span><strong>{formatCount(current.netQuantity)}</strong><small>{showComparison ? `${comparisonLabel} ${formatStoreComparison(current.netQuantity, baseline?.netQuantity)}` : "件"}</small></div>
+      <div><span>订单毛利</span><strong>{formatCurrencyFromCents(current.grossProfitCents)}</strong><small>{showComparison ? `${comparisonLabel} ${formatStoreComparison(current.grossProfitCents, baseline?.grossProfitCents)}` : "已导入成本口径"}</small></div>
+      <div><span>大毛利率</span><strong>{formatRate(current.grossMarginRate)}</strong><small>{showComparison ? `${comparisonLabel} ${formatStoreComparison(current.grossMarginRate, baseline?.grossMarginRate)}` : "毛利 / 净销售额"}</small></div>
+      <div><span>退货率</span><strong>{formatRate(current.refundRate)}</strong><small>{showComparison ? `${comparisonLabel} ${formatStoreComparison(current.refundRate, baseline?.refundRate)}` : "退货额 / 正向销售额"}</small></div>
+    </section>
+
+    <StoreTrendChart rows={rows} comparisonRows={comparisonRows} showComparison={showComparison} comparisonLabel={comparisonLabel} />
+
+    <section className="panel table-panel store-detail-panel">
+      <div className="table-toolbar"><div><h2>数据明细</h2><p>按{granularity === "day" ? "日" : granularity === "week" ? "自然周" : "自然月"}汇总；金额均为人民币元，退货以负值参与净额。</p></div><div className="store-table-toolbar-actions"><span className="soft-tag">{formatCount(rows.length)} 个周期</span><div className={`store-column-picker ${columnPickerOpen ? "open" : ""}`} ref={columnPickerRef}><button type="button" className="store-column-picker-trigger" aria-haspopup="dialog" aria-expanded={columnPickerOpen} onClick={() => setColumnPickerOpen((open) => !open)}><span>☷</span>指标选择 <em>{visibleColumns.length}/{storeTableColumns.length}</em></button>{columnPickerOpen && <div className="store-column-picker-menu" role="dialog" aria-label="选择数据明细指标"><div className="store-column-picker-head"><div><strong>显示指标</strong><small>周期列固定显示，至少保留 1 个指标</small></div><button type="button" onClick={() => setColumnPickerOpen(false)} aria-label="关闭指标选择">×</button></div><div className="store-column-picker-actions"><button type="button" onClick={() => setVisibleColumns(storeTableColumns.map((column) => column.key))}>全选</button><button type="button" onClick={() => setVisibleColumns(connectedStoreTableColumns)}>仅看已接入</button></div><div className="store-column-picker-options">{storeTableColumns.map((column) => { const checked = visibleColumns.includes(column.key); return <label key={column.key} className={checked ? "selected" : ""}><input type="checkbox" checked={checked} disabled={checked && visibleColumns.length === 1} onChange={() => toggleStoreColumn(column.key)} /><span>{column.label}</span><em className={column.available ? "available" : "pending"}>{column.available ? "已接入" : "待接入"}</em></label>; })}</div></div>}</div></div></div>
+      <div className="data-table-wrap store-detail-scroll-area"><table className="data-table store-detail-table" style={{ minWidth: `${Math.max(760, 180 + visibleColumns.length * 112)}px` }}><thead><tr><th>周期</th>{storeTableColumns.filter((column) => visibleColumns.includes(column.key)).map((column) => <th key={column.key}>{column.label}</th>)}</tr></thead><tbody>{rows.map((row, index) => { const compared = comparisonRows[index]; return <tr key={row.key}><td><strong>{row.label}</strong></td>{storeTableColumns.filter((column) => visibleColumns.includes(column.key)).map((column) => <td key={column.key}><StoreDataCell column={column.key} row={row} compared={compared} showComparison={showComparison} showActual={showActual} /></td>)}</tr>; })}{rows.length === 0 && <tr><td colSpan={visibleColumns.length + 1}><div className="table-state">当前周期没有可展示的店铺明细。</div></td></tr>}</tbody></table></div>
+    </section>
+  </>;
+}
+
+type OutletTab = "analysis" | "outlets" | "platforms";
 
 function ShopView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
   const apiRange = salesRangeMap[range];
-  const [activeTab, setActiveTab] = useState<OutletTab>("outlets");
+  const [activeTab, setActiveTab] = useState<OutletTab>("analysis");
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
+  const [analysisSummary, setAnalysisSummary] = useState<SalesSummaryResponse | null>(null);
+  const [selectedOutletKey, setSelectedOutletKey] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
@@ -731,13 +1154,27 @@ function ShopView({ range, customStartDate, customEndDate }: { range: SalesRange
         throw new Error(payload?.message || payload?.error || `网店数据读取失败（${response.status}）`);
       }
       setSummary(payload);
+      const selectedOutlet = selectedOutletKey === "all" ? null : payload.outlets.find((item) => item.groupKey === selectedOutletKey);
+      if (!selectedOutlet) {
+        if (selectedOutletKey !== "all") setSelectedOutletKey("all");
+        setAnalysisSummary(payload);
+      } else {
+        const filteredQuery = new URLSearchParams(query);
+        filteredQuery.set("platform", selectedOutlet.platform);
+        filteredQuery.set("shop", selectedOutlet.name);
+        const filteredResponse = await fetch(`/api/sales/summary?${filteredQuery.toString()}`, { cache: "no-store" });
+        const filteredPayload = await filteredResponse.json().catch(() => null) as (SalesSummaryResponse & { error?: string; message?: string }) | null;
+        if (!filteredResponse.ok || !filteredPayload?.current) throw new Error(filteredPayload?.message || filteredPayload?.error || `店铺分析读取失败（${filteredResponse.status}）`);
+        setAnalysisSummary(filteredPayload);
+      }
     } catch (requestError) {
       setSummary(null);
+      setAnalysisSummary(null);
       setError(requestError instanceof Error ? requestError.message : "暂时无法读取网店数据");
     } finally {
       setLoading(false);
     }
-  }, [apiRange, customEndDate, customStartDate]);
+  }, [apiRange, customEndDate, customStartDate, selectedOutletKey]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadOutlets(), 0);
@@ -763,11 +1200,13 @@ function ShopView({ range, customStartDate, customEndDate }: { range: SalesRange
   const rowLabel = activeTab === "outlets" ? "网店" : "平台";
   const rangeNote = summary ? `${summary.startDate} 至 ${summary.endDate}` : range;
 
-  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button></div>;
+  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => setActiveTab("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button><button type="button" disabled title="待接入网店商品报表">商品数据</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入推广报表">推广分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
 
   if (loading && !summary) return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步网店经营数据</strong><p>正在汇总已导入销售明细中的网店、平台、毛利与退货信息…</p></section></>;
-  if (!summary) return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>网店数据加载失败</strong><p>{error || "暂时无法读取网店数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;
+  if (!summary || !analysisSummary) return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>网店数据加载失败</strong><p>{error || "暂时无法读取网店数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;
   if (!current || !hasData) return <>{subnav}<section className="panel data-state"><span className="state-symbol">店</span><strong>{range}暂无网店销售数据</strong><p>请先在“数据导入”同步销售单明细账；系统会优先按店铺名称汇总，缺失时回退为渠道或平台。</p></section></>;
+
+  if (activeTab === "analysis") return <>{subnav}<StoreAnalysisView summary={analysisSummary} outlets={outlets} selectedOutletKey={selectedOutletKey} onSelectOutlet={(key) => { setSelectedOutletKey(key); if (key === selectedOutletKey) setRetryKey((value) => value + 1); }} loading={loading} /></>;
 
   return <>
     {subnav}
@@ -786,16 +1225,16 @@ function ShopView({ range, customStartDate, customEndDate }: { range: SalesRange
   </>;
 }
 
-type SalesTab = "overview" | "channel";
+type SalesTab = "overview" | "channel" | "finance" | "targets";
 type ChannelDimension = "channel" | "platform";
 
 function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: SalesTab) => void }) {
   return (
-    <div className="subnav sales-subnav" role="tablist" aria-label="销售分析子版块">
+    <div className="subnav inventory-subnav sales-subnav" role="tablist" aria-label="销售分析子版块">
       <button type="button" role="tab" aria-selected={active === "overview"} className={active === "overview" ? "active" : ""} onClick={() => onChange("overview")}>销售总览</button>
       <button type="button" role="tab" aria-selected={active === "channel"} className={active === "channel" ? "active" : ""} onClick={() => onChange("channel")}>渠道分析</button>
-      <button type="button" disabled title="该版块正在规划中">财报分析</button>
-      <button type="button" disabled title="该版块正在规划中">参数配置</button>
+      <button type="button" role="tab" aria-selected={active === "finance"} className={active === "finance" ? "active" : ""} onClick={() => onChange("finance")}>财报分析</button>
+      <button type="button" role="tab" aria-selected={active === "targets"} className={active === "targets" ? "active" : ""} onClick={() => onChange("targets")}>目标设置</button>
     </div>
   );
 }
@@ -1152,6 +1591,272 @@ function ProductCodeSearch({ value, onChange, codeCount }: { value: string; onCh
   return <section className="panel product-code-search-panel"><div className="search-box product-code-search">⌕ <textarea rows={1} value={value} onChange={(event) => onChange(event.target.value)} placeholder="输入或粘贴多个货品编码（空格、逗号或换行分隔）" aria-label="输入或粘贴多个货品编码" /><span aria-hidden="true">⌕</span></div><small>{codeCount > 0 ? `已按 ${formatCount(codeCount)} 个货品编码筛选，趋势与店铺分布同步更新。` : "可输入一个或多个货品编码，留空则查看全部货品。"}</small></section>;
 }
 
+const formatFinanceBps = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${(value / 100).toFixed(1)}%`;
+const formatFinanceChange = (current: number, comparison: number | null | undefined, points = false) => {
+  if (comparison === null || comparison === undefined) return "暂无可比数据";
+  if (points) {
+    const difference = (current - comparison) / 100;
+    return `${difference >= 0 ? "+" : ""}${difference.toFixed(1)} 个百分点`;
+  }
+  if (comparison === 0) return "基期为 0";
+  const rate = (current - comparison) / Math.abs(comparison);
+  return `${rate >= 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`;
+};
+const financeChangeTone = (current: number, comparison: number | null | undefined, inverse = false) => {
+  if (comparison === null || comparison === undefined || current === comparison) return "muted-text";
+  const positive = current > comparison;
+  return positive !== inverse ? "green-text" : "red-text";
+};
+const financeMonthLabel = (month: string) => `${month.slice(0, 4)}年${Number(month.slice(5))}月`;
+const financeProgressWidth = (value: number | null) => `${Math.max(0, Math.min(100, (value ?? 0) * 100))}%`;
+
+function FinanceTrendChart({ rows }: { rows: Array<{ month: string } & FinanceActualMetrics> }) {
+  const width = 760;
+  const height = 250;
+  const plot = { left: 36, right: 738, top: 28, bottom: 205 };
+  const valuesFor = (key: "netSalesCents" | "profitCents") => rows.map((row) => row[key]);
+  const coordinateSeries = (key: "netSalesCents" | "profitCents") => {
+    const values = valuesFor(key);
+    const minimum = Math.min(0, ...values);
+    const maximum = Math.max(0, ...values);
+    const span = maximum - minimum || 1;
+    return values.map((value, index) => ({
+      x: rows.length <= 1 ? (plot.left + plot.right) / 2 : plot.left + (plot.right - plot.left) * index / (rows.length - 1),
+      y: plot.bottom - (value - minimum) / span * (plot.bottom - plot.top),
+      value,
+    }));
+  };
+  const salesPoints = coordinateSeries("netSalesCents");
+  const profitPoints = coordinateSeries("profitCents");
+  const pointsText = (points: Array<{ x: number; y: number }>) => points.map((point) => `${point.x},${point.y}`).join(" ");
+  return <div className="finance-trend-chart">
+    <div className="finance-chart-legend"><span><i className="blue" />净销售额</span><span><i className="green" />利润</span></div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="月度净销售额与利润趋势">
+      {[0, 1, 2, 3, 4].map((index) => { const y = plot.top + (plot.bottom - plot.top) * index / 4; return <line key={index} x1={plot.left} x2={plot.right} y1={y} y2={y} className="finance-grid-line" />; })}
+      {salesPoints.length > 0 && <polyline points={pointsText(salesPoints)} className="finance-line sales" />}
+      {profitPoints.length > 0 && <polyline points={pointsText(profitPoints)} className="finance-line profit" />}
+      {salesPoints.map((point, index) => <g key={`sales-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point sales"><title>{`${financeMonthLabel(rows[index].month)} 净销售额 ${formatCurrencyFromCents(point.value)}`}</title></circle></g>)}
+      {profitPoints.map((point, index) => <g key={`profit-${rows[index].month}`}><circle cx={point.x} cy={point.y} r="4" className="finance-point profit"><title>{`${financeMonthLabel(rows[index].month)} 利润 ${formatCurrencyFromCents(point.value)}`}</title></circle></g>)}
+      {rows.map((row, index) => { const x = rows.length <= 1 ? (plot.left + plot.right) / 2 : plot.left + (plot.right - plot.left) * index / (rows.length - 1); return <text key={row.month} x={x} y="232" textAnchor="middle" className="finance-axis-label">{row.month.slice(2)}</text>; })}
+    </svg>
+  </div>;
+}
+
+function FinanceKpiCard({ label, value, targetLabel, progress, mom, yoy, tone }: {
+  label: string;
+  value: string;
+  targetLabel: string;
+  progress: number | null;
+  mom: { text: string; tone: string };
+  yoy: { text: string; tone: string };
+  tone: "blue" | "green" | "purple" | "orange";
+}) {
+  return <article className={`panel finance-kpi-card finance-kpi-${tone}`}>
+    <div><span>{label}</span><i>{tone === "blue" ? "销" : tone === "green" ? "利" : tone === "purple" ? "毛" : "费"}</i></div>
+    <strong>{value}</strong>
+    <div className="finance-kpi-comparison"><small className={mom.tone}>环比 {mom.text}</small><small className={yoy.tone}>同比 {yoy.text}</small></div>
+    <footer><span>{targetLabel}</span>{progress !== null && <b>{(progress * 100).toFixed(1)}%</b>}</footer>
+    {progress !== null && <div className="finance-progress-track"><span style={{ width: financeProgressWidth(progress) }} /></div>}
+  </article>;
+}
+
+function FinanceAnalysisView() {
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [data, setData] = useState<FinanceAnalysisResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const query = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : "";
+        const response = await fetch(`/api/finance/analysis${query}`, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json().catch(() => null) as FinanceAnalysisResponse | null;
+        if (!response.ok || !payload) throw new Error(payload?.error || `财报分析读取失败（${response.status}）`);
+        setData(payload);
+        if (!selectedMonth && payload.selectedMonth) setSelectedMonth(payload.selectedMonth);
+      } catch (requestError) {
+        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
+        setError(requestError instanceof Error ? requestError.message : "暂时无法读取财报分析");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [retryKey, selectedMonth]);
+
+  if (loading && !data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在生成财报分析</strong><p>正在汇总利润、目标进度和费用异常…</p></section>;
+  if (error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>财报分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section>;
+  if (!data?.hasData || !data.current || !data.targets || !data.progress || !data.yearToDate) return <section className="panel data-state finance-empty-state"><span className="state-symbol">财</span><strong>还没有月度财报数据</strong><p>请到“数据导入”选择“月度财报”，上传志高事业部 .xls 文件；系统会自动识别月份并排除已导入月份。</p></section>;
+
+  const current = data.current;
+  const previous = data.previous;
+  const yearAgo = data.yearAgo;
+  const targets = data.targets.month;
+  const progress = data.progress.month;
+  const selectedMonthName = financeMonthLabel(data.selectedMonth!);
+  const expenseRows = data.expenses.slice(0, 18);
+
+  return <div className="finance-analysis-page">
+    <section className="finance-analysis-hero">
+      <div><span className="eyebrow">FINANCIAL PERFORMANCE</span><h2>财报经营分析</h2><p>以月度财报与经营目标为口径，追踪销售、利润、毛利和动态费用异常。</p></div>
+      <div className="finance-period-control"><label><span>分析月份</span><select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{data.months.map((item) => <option key={item.month} value={item.month}>{financeMonthLabel(item.month)}</option>)}</select></label><small>数据截止 {data.sync?.dataCutoffMonth} · {data.sync?.sourceFileName}</small></div>
+    </section>
+    {error && <div className="inline-feedback warning"><strong>刷新提示</strong><span>{error}</span></div>}
+    <section className="finance-kpi-grid">
+      <FinanceKpiCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} targetLabel={targets.salesTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.salesTargetCents)}` : "尚未设置销售目标"} progress={progress.sales} mom={{ text: formatFinanceChange(current.netSalesCents, previous?.netSalesCents), tone: financeChangeTone(current.netSalesCents, previous?.netSalesCents) }} yoy={{ text: formatFinanceChange(current.netSalesCents, yearAgo?.netSalesCents), tone: financeChangeTone(current.netSalesCents, yearAgo?.netSalesCents) }} tone="blue" />
+      <FinanceKpiCard label="利润" value={formatCurrencyFromCents(current.profitCents)} targetLabel={targets.profitTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.profitTargetCents)}` : "尚未设置利润目标"} progress={progress.profit} mom={{ text: formatFinanceChange(current.profitCents, previous?.profitCents), tone: financeChangeTone(current.profitCents, previous?.profitCents) }} yoy={{ text: formatFinanceChange(current.profitCents, yearAgo?.profitCents), tone: financeChangeTone(current.profitCents, yearAgo?.profitCents) }} tone="green" />
+      <FinanceKpiCard label="小毛利率" value={formatFinanceBps(current.smallMarginBps)} targetLabel={targets.smallMarginBps > 0 ? `目标 ${formatFinanceBps(targets.smallMarginBps)}` : "尚未设置小毛利率目标"} progress={targets.smallMarginBps > 0 ? current.smallMarginBps / targets.smallMarginBps : null} mom={{ text: formatFinanceChange(current.smallMarginBps, previous?.smallMarginBps, true), tone: financeChangeTone(current.smallMarginBps, previous?.smallMarginBps) }} yoy={{ text: formatFinanceChange(current.smallMarginBps, yearAgo?.smallMarginBps, true), tone: financeChangeTone(current.smallMarginBps, yearAgo?.smallMarginBps) }} tone="purple" />
+      <FinanceKpiCard label="推广费占比" value={formatFinanceBps(current.promotionFeeRatioBps)} targetLabel={targets.promotionFeeRatioBps > 0 ? `目标不高于 ${formatFinanceBps(targets.promotionFeeRatioBps)}` : "尚未设置推广费占比目标"} progress={targets.promotionFeeRatioBps > 0 ? current.promotionFeeRatioBps / targets.promotionFeeRatioBps : null} mom={{ text: formatFinanceChange(current.promotionFeeRatioBps, previous?.promotionFeeRatioBps, true), tone: financeChangeTone(current.promotionFeeRatioBps, previous?.promotionFeeRatioBps, true) }} yoy={{ text: formatFinanceChange(current.promotionFeeRatioBps, yearAgo?.promotionFeeRatioBps, true), tone: financeChangeTone(current.promotionFeeRatioBps, yearAgo?.promotionFeeRatioBps, true) }} tone="orange" />
+    </section>
+    <section className="finance-overview-grid">
+      <article className="panel finance-trend-panel"><div className="finance-panel-heading"><div><span className="eyebrow">MONTHLY TREND</span><h2>销售与利润趋势</h2><p>两条折线分别按自身量级归一化，用于识别方向和拐点。</p></div><span className="soft-tag">{data.timeline.length} 个月</span></div><FinanceTrendChart rows={data.timeline} /><div className="finance-ytd-summary"><span>本年累计净销售<strong>{formatCurrencyFromCents(data.yearToDate.netSalesCents)}</strong></span><span>本年累计利润<strong>{formatCurrencyFromCents(data.yearToDate.profitCents)}</strong></span><span>累计小毛利率<strong>{formatFinanceBps(data.yearToDate.smallMarginBps)}</strong></span></div></article>
+      <article className="panel finance-anomaly-panel"><div className="finance-panel-heading"><div><span className="eyebrow">EXCEPTION WATCH</span><h2>{selectedMonthName}异常雷达</h2><p>按利润、目标差距及费用环比阈值自动识别。</p></div><span className="soft-tag">{data.anomalies.length} 项</span></div><div className="finance-anomaly-list">{data.anomalies.map((item, index) => <div className={`finance-anomaly ${item.level}`} key={`${item.title}-${index}`}><i>{item.level === "critical" ? "!" : item.level === "warning" ? "△" : "i"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</div></article>
+    </section>
+    <section className="panel finance-expense-panel"><div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">显示 {expenseRows.length} / {data.expenses.length} 项</span></div><div className="data-table-wrap"><table className="data-table finance-expense-table"><thead><tr><th>费用科目</th><th>本月金额</th><th>上月金额</th><th>环比</th><th>去年同期</th><th>同比</th><th>状态</th></tr></thead><tbody>{expenseRows.map((item) => <tr key={item.name}><td><strong title={item.name}>{item.name.replace(/^销售费用_/, "").replaceAll("_", " / ")}</strong></td><td>{formatCurrencyFromCents(item.current)}</td><td>{item.previous === null ? "—" : formatCurrencyFromCents(item.previous)}</td><td className={item.momRate === null ? "muted-text" : item.momRate > 0 ? "orange-text" : "green-text"}>{item.momRate === null ? "—" : `${item.momRate >= 0 ? "+" : ""}${(item.momRate * 100).toFixed(1)}%`}</td><td>{item.yearAgo === null ? "—" : formatCurrencyFromCents(item.yearAgo)}</td><td>{item.yoyRate === null ? "—" : `${item.yoyRate >= 0 ? "+" : ""}${(item.yoyRate * 100).toFixed(1)}%`}</td><td><span className={`status ${item.abnormal ? "status-warning" : "status-success"}`}><Dot tone={item.abnormal ? "orange" : "green"} />{item.abnormal ? "波动异常" : "正常"}</span></td></tr>)}</tbody></table></div></section>
+    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与月度目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.name}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
+  </div>;
+}
+
+type FinanceTargetFormState = {
+  id: string;
+  periodType: "month" | "year" | "project";
+  periodKey: string;
+  shopName: string;
+  category: string;
+  manager: string;
+  salesTarget: string;
+  profitTarget: string;
+  smallMargin: string;
+  inventoryCleanupTarget: string;
+  promotionFeeRatio: string;
+  stagnantInventoryTarget: string;
+};
+
+const currentShanghaiMonth = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
+const emptyFinanceTargetForm = (): FinanceTargetFormState => ({
+  id: "",
+  periodType: "month",
+  periodKey: currentShanghaiMonth(),
+  shopName: "",
+  category: "",
+  manager: "",
+  salesTarget: "",
+  profitTarget: "",
+  smallMargin: "",
+  inventoryCleanupTarget: "",
+  promotionFeeRatio: "",
+  stagnantInventoryTarget: "",
+});
+
+function FinanceTargetSettingsView() {
+  const [items, setItems] = useState<FinanceTarget[]>([]);
+  const [options, setOptions] = useState<FinanceTargetOptions>({ shops: [], categories: [], projects: ["8系列"] });
+  const [form, setForm] = useState<FinanceTargetFormState>(emptyFinanceTargetForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  const loadTargets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/finance/targets", { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as { items?: FinanceTarget[]; options?: FinanceTargetOptions; error?: string } | null;
+      if (!response.ok || !Array.isArray(payload?.items) || !payload?.options) throw new Error(payload?.error || "目标设置读取失败");
+      setItems(payload.items);
+      setOptions(payload.options);
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标设置读取失败" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadTargets(); }, [loadTargets]);
+  const patchForm = (patch: Partial<FinanceTargetFormState>) => setForm((current) => ({ ...current, ...patch }));
+  const toCents = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value) * 100)) : 0;
+  const toBps = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value) * 100)) : 0;
+  const saveTarget = async () => {
+    if (saving) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/finance/targets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: form.id || undefined,
+          periodType: form.periodType,
+          periodKey: form.periodKey,
+          shopName: form.shopName,
+          category: form.category,
+          manager: form.manager,
+          salesTargetCents: toCents(form.salesTarget),
+          profitTargetCents: toCents(form.profitTarget),
+          smallMarginBps: toBps(form.smallMargin),
+          inventoryCleanupTargetCents: toCents(form.inventoryCleanupTarget),
+          promotionFeeRatioBps: toBps(form.promotionFeeRatio),
+          stagnantInventoryTargetCents: toCents(form.stagnantInventoryTarget),
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { item?: FinanceTarget; error?: string } | null;
+      if (!response.ok || !payload?.item) throw new Error(payload?.error || "目标保存失败");
+      setMessage({ tone: "success", text: "目标已保存，财报分析进度已同步更新。" });
+      setForm(emptyFinanceTargetForm());
+      await loadTargets();
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标保存失败" });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const editTarget = (item: FinanceTarget) => setForm({
+    id: item.id,
+    periodType: item.periodType,
+    periodKey: item.periodKey,
+    shopName: item.shopName,
+    category: item.category,
+    manager: item.manager,
+    salesTarget: item.salesTargetCents ? String(item.salesTargetCents / 100) : "",
+    profitTarget: item.profitTargetCents ? String(item.profitTargetCents / 100) : "",
+    smallMargin: item.smallMarginBps ? String(item.smallMarginBps / 100) : "",
+    inventoryCleanupTarget: item.inventoryCleanupTargetCents ? String(item.inventoryCleanupTargetCents / 100) : "",
+    promotionFeeRatio: item.promotionFeeRatioBps ? String(item.promotionFeeRatioBps / 100) : "",
+    stagnantInventoryTarget: item.stagnantInventoryTargetCents ? String(item.stagnantInventoryTargetCents / 100) : "",
+  });
+  const removeTarget = async (id: string) => {
+    const response = await fetch(`/api/finance/targets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    if (!response.ok) {
+      setMessage({ tone: "error", text: payload?.error || "目标删除失败" });
+      return;
+    }
+    setMessage({ tone: "success", text: "目标已删除。" });
+    await loadTargets();
+  };
+
+  return <div className="finance-target-page">
+    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">TARGET MANAGEMENT</span><h2>经营目标设置</h2><p>按月度或年度设置店铺/店铺+品类目标，并单独管理 8 系列呆滞库存项目。</p></div><span className="soft-tag">已设置 {items.length} 项</span></section>
+    {message && <div className={`inline-feedback ${message.tone}`}><strong>{message.tone === "success" ? "操作成功" : "操作失败"}</strong><span>{message.text}</span></div>}
+    <section className="panel finance-target-form-panel">
+      <div className="finance-panel-heading"><div><span className="eyebrow">{form.id ? "EDIT TARGET" : "NEW TARGET"}</span><h2>{form.id ? "编辑目标" : "新增目标"}</h2><p>金额单位为元，比率单位为百分比；同周期、同店铺和同品类再次保存会自动更新。</p></div>{form.id && <button className="secondary-button" onClick={() => setForm(emptyFinanceTargetForm())}>取消编辑</button>}</div>
+      <div className="finance-target-period-tabs" role="group" aria-label="目标类型">{(["month", "year", "project"] as const).map((type) => <button type="button" key={type} className={form.periodType === type ? "active" : ""} onClick={() => patchForm({ periodType: type, periodKey: type === "month" ? currentShanghaiMonth() : type === "year" ? currentShanghaiMonth().slice(0, 4) : "8系列", shopName: type === "project" ? "" : form.shopName, category: type === "project" ? "" : form.category })}>{type === "month" ? "月度目标" : type === "year" ? "年度目标" : "项目目标"}</button>)}</div>
+      <div className="finance-target-form-grid">
+        <label><span>{form.periodType === "project" ? "项目名称" : "目标周期"}</span>{form.periodType === "month" ? <input type="month" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} /> : form.periodType === "year" ? <input type="number" min="2020" max="2100" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} /> : <input list="finance-project-options" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} />}</label>
+        {form.periodType !== "project" && <><label><span>店铺</span><input list="finance-shop-options" value={form.shopName} onChange={(event) => patchForm({ shopName: event.target.value })} placeholder="选择或输入店铺" /></label><label><span>品类（可选）</span><input list="finance-category-options" value={form.category} onChange={(event) => patchForm({ category: event.target.value })} placeholder="留空表示整店" /></label><label><span>店长 / 负责人</span><input value={form.manager} onChange={(event) => patchForm({ manager: event.target.value })} placeholder="输入姓名" /></label></>}
+        {form.periodType === "project" ? <label><span>呆滞库存目标（元）</span><input type="number" min="0" step="0.01" value={form.stagnantInventoryTarget} onChange={(event) => patchForm({ stagnantInventoryTarget: event.target.value })} /></label> : <><label><span>销售额目标（元）</span><input type="number" min="0" step="0.01" value={form.salesTarget} onChange={(event) => patchForm({ salesTarget: event.target.value })} /></label><label><span>利润目标（元）</span><input type="number" min="0" step="0.01" value={form.profitTarget} onChange={(event) => patchForm({ profitTarget: event.target.value })} /></label><label><span>小毛利率目标（%）</span><input type="number" min="0" step="0.01" value={form.smallMargin} onChange={(event) => patchForm({ smallMargin: event.target.value })} /></label><label><span>库存清理目标（元）</span><input type="number" min="0" step="0.01" value={form.inventoryCleanupTarget} onChange={(event) => patchForm({ inventoryCleanupTarget: event.target.value })} /></label><label><span>推广费占比目标（%）</span><input type="number" min="0" step="0.01" value={form.promotionFeeRatio} onChange={(event) => patchForm({ promotionFeeRatio: event.target.value })} /></label></>}
+      </div>
+      <datalist id="finance-shop-options">{options.shops.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-category-options">{options.categories.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-project-options">{options.projects.map((item) => <option key={item} value={item} />)}</datalist>
+      <div className="finance-target-actions"><span>{form.periodType === "project" ? "项目目标独立统计呆滞库存清理进度" : "品类留空时按整店目标统计"}</span><button type="button" className="primary-button" disabled={saving} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
+    </section>
+    <section className="panel finance-target-list-panel"><div className="finance-panel-heading"><div><span className="eyebrow">TARGET LIST</span><h2>已设置目标</h2><p>目标保存后立即参与财报分析中的月度、年度和店铺进度计算。</p></div></div>{loading ? <div className="table-state">正在读取目标…</div> : <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>类型 / 周期</th><th>店铺 / 品类</th><th>负责人</th><th>销售目标</th><th>利润目标</th><th>小毛利率</th><th>库存清理 / 呆滞目标</th><th>推广费占比</th><th>操作</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.category || (item.periodType === "project" ? "呆滞库存" : "整店")}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.smallMarginBps)}</td><td>{formatCurrencyFromCents(item.periodType === "project" ? item.stagnantInventoryTargetCents : item.inventoryCleanupTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.promotionFeeRatioBps)}</td><td><div className="finance-target-row-actions"><button onClick={() => editTarget(item)}>编辑</button><button className="danger" onClick={() => void removeTarget(item.id)}>删除</button></div></td></tr>)}{items.length === 0 && <tr><td colSpan={9}><div className="table-state">还没有目标，先在上方新增一项。</div></td></tr>}</tbody></table></div>}</section>
+  </div>;
+}
+
 function SalesView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
   const apiRange = salesRangeMap[range];
   const [activeTab, setActiveTab] = useState<SalesTab>("overview");
@@ -1217,6 +1922,9 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     return `conic-gradient(${stops.join(",")})`;
   }, [channels]);
   const salesSubnav = <SalesSubnav active={activeTab} onChange={setActiveTab} />;
+
+  if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView /></>;
+  if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView /></>;
 
   if (loading) {
     return (
@@ -1955,22 +2663,26 @@ function ImportView() {
     setHistoryLoading(true);
     setHistoryError("");
     try {
-      const [response, inventoryResponse, erpResponse] = await Promise.all([
+      const [response, inventoryResponse, erpResponse, financeResponse] = await Promise.all([
         fetch("/api/imports/sales", { cache: "no-store" }),
         fetch("/api/imports/inventory", { cache: "no-store" }),
         fetch("/api/imports/erp", { cache: "no-store" }),
+        fetch("/api/imports/finance", { cache: "no-store" }),
       ]);
       const payload = await response.json().catch(() => null) as (ImportHistoryResponse & { message?: string }) | null;
       const inventoryPayload = await inventoryResponse.json().catch(() => null) as { items?: InventoryImportHistoryItem[]; error?: string } | null;
       const erpPayload = await erpResponse.json().catch(() => null) as { items?: ErpReferenceImportBatch[]; error?: string } | null;
+      const financePayload = await financeResponse.json().catch(() => null) as { items?: SalesImportBatch[]; error?: string } | null;
       if (!response.ok) throw new Error(payload?.message || `销售导入历史读取失败（${response.status}）`);
       if (!inventoryResponse.ok) throw new Error(inventoryPayload?.error || `库存导入历史读取失败（${inventoryResponse.status}）`);
       if (!erpResponse.ok) throw new Error(erpPayload?.error || `ERP 主数据导入历史读取失败（${erpResponse.status}）`);
-      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items)) throw new Error("导入历史响应格式不完整");
+      if (!financeResponse.ok) throw new Error(financePayload?.error || `财报导入历史读取失败（${financeResponse.status}）`);
+      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items) || !Array.isArray(financePayload?.items)) throw new Error("导入历史响应格式不完整");
       const combined: UnifiedHistoryItem[] = [
         ...payload.items.map((item) => ({ ...item, sourceKey: "sales" as const, sourceLabel: "吉客云 ERP · 销售明细" })),
         ...inventoryPayload.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
         ...erpPayload.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
+        ...financePayload.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
       setHistory(combined);
     } catch (requestError) {
@@ -1996,24 +2708,28 @@ function ImportView() {
     maxFileSize: number;
     chunkSize: number;
     needsSnapshotDate: boolean;
+    extensions: string[];
+    accept: string;
+    systemLabel: string;
   }> = [
-    { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false },
-    { key: "inventory", icon: "库", label: "分仓库存", report: "分仓库存快照", directEndpoint: "/api/imports/inventory", chunkEndpoint: "/api/imports/inventory/chunks", directFileSize: DIRECT_INVENTORY_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true },
-    { key: "products", icon: "品", label: "货品主数据", report: "货品资料", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false },
-    { key: "inventory_age", icon: "龄", label: "库龄", report: "库龄分析表", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true },
-    { key: "combos", icon: "组", label: "组合装", report: "组合装及子件", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false },
+    { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
+    { key: "inventory", icon: "库", label: "分仓库存", report: "分仓库存快照", directEndpoint: "/api/imports/inventory", chunkEndpoint: "/api/imports/inventory/chunks", directFileSize: DIRECT_INVENTORY_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
+    { key: "products", icon: "品", label: "货品主数据", report: "货品资料", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
+    { key: "inventory_age", icon: "龄", label: "库龄", report: "库龄分析表", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
+    { key: "combos", icon: "组", label: "组合装", report: "组合装及子件", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
+    { key: "finance", icon: "财", label: "月度财报", report: "志高事业部销售财报", directEndpoint: "/api/imports/finance", chunkEndpoint: "", directFileSize: MAX_FINANCE_FILE_SIZE, maxFileSize: MAX_FINANCE_FILE_SIZE, chunkSize: MAX_FINANCE_FILE_SIZE, needsSnapshotDate: false, extensions: [".xls", ".xlsx"], accept: ".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "月度财报" },
   ];
   const activeSource = sourceOptions.find((item) => item.key === selectedSource)!;
 
   const acceptFile = useCallback((candidate?: File) => {
     setDragging(false);
     if (!candidate) return;
-    if (!candidate.name.toLowerCase().endsWith(".xlsx")) {
+    if (!activeSource.extensions.some((extension) => candidate.name.toLowerCase().endsWith(extension))) {
       setSelectedFile(null);
       setFeedback({
         tone: "error",
         title: "文件格式不支持",
-        message: `请选择吉客云 ERP 导出的 .xlsx ${activeSource.report}。`,
+        message: `请选择${activeSource.systemLabel}的 ${activeSource.extensions.join(" / ")} ${activeSource.report}。`,
         details: [],
       });
       return;
@@ -2030,7 +2746,7 @@ function ImportView() {
     }
     setSelectedFile(candidate);
     setFeedback(null);
-  }, [activeSource.label, activeSource.maxFileSize, activeSource.report]);
+  }, [activeSource.extensions, activeSource.label, activeSource.maxFileSize, activeSource.report, activeSource.systemLabel]);
 
   const showImportResult = (payload: UnifiedImportResponse | null, responseStatus: number) => {
     const warnings = payload?.warnings ?? payload?.batch?.warnings ?? [];
@@ -2134,11 +2850,20 @@ function ImportView() {
         outcome = await importChunkedFile(selectedFile);
       } else {
         setUploadStage(`正在上传并校验${activeSource.label}…`);
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("source", selectedSource === "sales" ? "jky" : selectedSource);
-        if (activeSource.needsSnapshotDate) formData.append("snapshotDate", snapshotDate);
-        const response = await fetch(activeSource.directEndpoint, { method: "POST", body: formData });
+        let response: Response;
+        if (selectedSource === "finance") {
+          response = await fetch(activeSource.directEndpoint, {
+            method: "POST",
+            headers: { "content-type": "application/octet-stream", "x-file-name": encodeURIComponent(selectedFile.name) },
+            body: selectedFile,
+          });
+        } else {
+          const formData = new FormData();
+          formData.append("file", selectedFile);
+          formData.append("source", selectedSource === "sales" ? "jky" : selectedSource);
+          if (activeSource.needsSnapshotDate) formData.append("snapshotDate", snapshotDate);
+          response = await fetch(activeSource.directEndpoint, { method: "POST", body: formData });
+        }
         outcome = { payload: await response.json().catch(() => null) as UnifiedImportResponse | null, status: response.status };
       }
       if (showImportResult(outcome.payload, outcome.status)) await loadHistory();
@@ -2165,17 +2890,17 @@ function ImportView() {
       <div className="subnav"><button className="active">文件导入</button><button>导入历史</button><button>数据连续性</button></div>
       <section className="import-grid">
         <article className="panel import-panel">
-          <span className="eyebrow">第 1 步</span><h2>选择吉客云数据类型</h2><p>销售、库存、货品、库龄和组合装均使用同一套登录与导入历史。</p>
+          <span className="eyebrow">第 1 步</span><h2>选择数据类型</h2><p>销售、库存、主数据与月度财报使用同一套登录、校验和导入历史。</p>
           <div className="source-grid">{sourceOptions.map((item) => <button type="button" className={item.key === selectedSource ? "selected" : ""} aria-pressed={item.key === selectedSource} key={item.key} onClick={() => { setSelectedSource(item.key); setSelectedFile(null); setFeedback(null); setUploadProgress(0); }}><span>{item.icon}</span><strong>{item.label}</strong><small>{item.report}</small></button>)}</div>
         </article>
         <article className="panel import-panel">
-          <span className="eyebrow">第 2 步</span><h2>上传{activeSource.label}报表</h2><p>仅支持 .xlsx，单文件最大 {formatFileSize(activeSource.maxFileSize)}；大文件自动分片上传，网络中断后可续传。</p>
+          <span className="eyebrow">第 2 步</span><h2>上传{activeSource.label}报表</h2><p>支持 {activeSource.extensions.join(" / ")}，单文件最大 {formatFileSize(activeSource.maxFileSize)}；月度财报按月份自动去重并合并同名科目。</p>
           {activeSource.needsSnapshotDate && <label className="import-snapshot-field"><span>数据快照日期</span><input type="date" value={snapshotDate} max={shanghaiIsoToday()} onChange={(event) => setSnapshotDate(event.target.value)} /></label>}
           <input
             ref={inputRef}
             className="file-input-hidden"
             type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept={activeSource.accept}
             onChange={(event) => {
               acceptFile(event.currentTarget.files?.[0]);
               event.currentTarget.value = "";
@@ -2191,11 +2916,11 @@ function ImportView() {
             onDrop={(event) => { event.preventDefault(); acceptFile(event.dataTransfer.files?.[0]); }}
           >
             <span>{selectedFile ? "✓" : "↑"}</span>
-            <strong>{selectedFile ? selectedFile.name : "将 .xlsx 文件拖到此处，或点击选择"}</strong>
+            <strong>{selectedFile ? selectedFile.name : `将 ${activeSource.extensions.join(" / ")} 文件拖到此处，或点击选择`}</strong>
             <small>{selectedFile ? `${formatFileSize(selectedFile.size)} · ${selectedFile.size > activeSource.directFileSize ? "将启用分片上传与断点续传" : "将直接上传并校验"}` : `上传后将写入${activeSource.label}正式数据`}</small>
           </button>
           <div className="import-actions">
-            <span>{uploading ? uploadStage : selectedFile ? `准备导入吉客云 ERP ${activeSource.label}` : "请选择待导入文件"}</span>
+            <span>{uploading ? uploadStage : selectedFile ? `准备导入${activeSource.systemLabel} ${activeSource.label}` : "请选择待导入文件"}</span>
             <button type="button" className="primary-button" disabled={!selectedFile || uploading} onClick={() => void importFile()}>{uploading ? `${uploadProgress}%` : "开始导入"}</button>
           </div>
           {uploading && selectedFile && <div className="import-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress} aria-label={`${activeSource.label}上传进度`}><span style={{ width: `${uploadProgress}%` }} /></div>}
@@ -2408,7 +3133,7 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；流量与推广指标未接入前不做推算" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
           <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>

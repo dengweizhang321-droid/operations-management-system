@@ -92,6 +92,16 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm test`: build the starter and verify its rendered loading skeleton
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
+## Windows 控制面板
+
+双击项目根目录的 `运营管理系统控制台.cmd`，即可打开本地控制窗口：
+
+- **启动系统**：启动本地服务。
+- **暂停／停止**：停止由该项目启动的本地服务；再次点击启动即可恢复。
+- **打开系统**：在浏览器中打开 `http://localhost:3000/`。
+
+控制面板不会停止其他占用 3000 端口的程序，以避免误操作。
+
 ## Learn More
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
