@@ -3,6 +3,12 @@ import {
   type InventoryDatabase,
 } from "@/lib/inventory/database";
 import { findLatestSalesImportBatch } from "@/lib/sales/database";
+import {
+  canonicalizeShopIdentity,
+  expandShopAliases,
+  parseShopFilterKey,
+  shopFilterKey,
+} from "@/lib/sales/shop-identity";
 
 export type ProductSummaryItem = {
   productCode: string;
@@ -53,6 +59,7 @@ type OutletRow = {
   product_code: string;
   platform: string;
   shop_name: string;
+  channel: string;
 };
 
 type ProductMasterDbRow = {
@@ -71,6 +78,13 @@ export type ProductSummaryOptions = {
   startDate?: string | null;
   endDate?: string | null;
   days?: number;
+  platforms?: string[];
+  shopKeys?: string[];
+};
+
+type ProductSummaryFilters = {
+  platforms: string[];
+  shops: Array<{ key: string; platform: string; shop: string }>;
 };
 
 export class ProductSummaryRequestError extends Error {
@@ -93,6 +107,37 @@ function rate(numerator: number, denominator: number) {
 function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
     && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  return [...new Set(values.map((value) => value?.trim() ?? "").filter(Boolean))];
+}
+
+function normalizeFilters(options: ProductSummaryOptions) {
+  return {
+    platforms: uniqueStrings(options.platforms ?? []),
+    shops: uniqueStrings(options.shopKeys ?? [])
+      .map(parseShopFilterKey)
+      .filter((shop): shop is NonNullable<typeof shop> => shop !== null),
+  };
+}
+
+function salesFilterClause(filters: ReturnType<typeof normalizeFilters>) {
+  const clauses: string[] = [];
+  const values: string[] = [];
+  if (filters.platforms.length > 0) {
+    clauses.push(`COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') IN (${filters.platforms.map(() => "?").join(", ")})`);
+    values.push(...filters.platforms);
+  }
+  if (filters.shops.length > 0) {
+    const shopClauses = filters.shops.map((shop) => {
+      const aliases = expandShopAliases(shop);
+      values.push(shop.platform, ...aliases);
+      return `(COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') = ? AND COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') IN (${aliases.map(() => "?").join(", ")}))`;
+    });
+    clauses.push(`(${shopClauses.join(" OR ")})`);
+  }
+  return { sql: clauses.length > 0 ? `\n      AND ${clauses.join("\n      AND ")}` : "", values };
 }
 
 function resolvePeriod(dataCutoffDate: string, options: ProductSummaryOptions) {
@@ -144,6 +189,7 @@ function summaryMetrics(items: ProductSummaryItem[]) {
 
 export async function getProductSummary(db: InventoryDatabase, optionsOrDays: ProductSummaryOptions | number = {}) {
   const options = typeof optionsOrDays === "number" ? { days: optionsOrDays } : optionsOrDays;
+  const appliedFilters = normalizeFilters(options);
   const [salesBounds, latestSalesBatch, latestInventoryBatch] = await Promise.all([
     db.prepare("SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines WHERE TRIM(warehouse) <> '刷刷仓'")
       .first<{ start_date: string | null; end_date: string | null }>(),
@@ -164,7 +210,8 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
         inventoryAsOf: latestInventoryBatch?.snapshotDate ?? null,
         latestSalesFile: latestSalesBatch?.fileName ?? null,
       },
-      filters: { platforms: [] as string[], shops: [] as string[] },
+      filters: { platforms: [] as string[], shops: [] as ProductSummaryFilters["shops"] },
+      filtersApplied: appliedFilters,
       metrics: summaryMetrics([]),
       items: [] as ProductSummaryItem[],
     };
@@ -175,6 +222,7 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
   const salesThrough = period.endDate;
   const rangeStart = `${salesWindowStart} 00:00:00`;
   const rangeEndExclusive = `${addDays(salesThrough, 1)} 00:00:00`;
+  const salesFilter = salesFilterClause(appliedFilters);
 
   const salesPromise = db.prepare(
     `SELECT
@@ -196,23 +244,40 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
       AND TRIM(warehouse) <> '刷刷仓'
       AND product_code <> 'ERP_PRICE_ADJUSTMENT'
       AND TRIM(product_name) <> '补差价专用'
+      ${salesFilter.sql}
     GROUP BY product_code
     ORDER BY net_sales_cents DESC, product_code ASC`,
-  ).bind(rangeStart, rangeEndExclusive).all<SalesRow>();
+  ).bind(rangeStart, rangeEndExclusive, ...salesFilter.values).all<SalesRow>();
 
   const outletsPromise = db.prepare(
     `SELECT
       product_code,
       COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
-      COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name
+      COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
+      COALESCE(channel, '') AS channel
     FROM sales_order_lines
     WHERE ship_time >= ? AND ship_time < ?
       AND TRIM(warehouse) <> '刷刷仓'
       AND product_code <> 'ERP_PRICE_ADJUSTMENT'
       AND TRIM(product_name) <> '补差价专用'
-    GROUP BY product_code, platform, shop_name
+      ${salesFilter.sql}
+    GROUP BY product_code, platform, shop_name, channel
     ORDER BY product_code, platform, shop_name`,
-  ).bind(rangeStart, rangeEndExclusive).all<OutletRow>();
+  ).bind(rangeStart, rangeEndExclusive, ...salesFilter.values).all<OutletRow>();
+
+  const outletOptionsPromise = db.prepare(
+    `SELECT
+      COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
+      COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
+      COALESCE(channel, '') AS channel
+    FROM sales_order_lines
+    WHERE ship_time >= ? AND ship_time < ?
+      AND TRIM(warehouse) <> '刷刷仓'
+      AND product_code <> 'ERP_PRICE_ADJUSTMENT'
+      AND TRIM(product_name) <> '补差价专用'
+    GROUP BY platform, shop_name, channel
+    ORDER BY platform, shop_name`,
+  ).bind(rangeStart, rangeEndExclusive).all<Omit<OutletRow, "product_code">>();
 
   const stockPromise = latestInventoryBatch
     ? db.prepare(
@@ -232,18 +297,22 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
      FROM erp_product_master`,
   ).all<ProductMasterDbRow>();
 
-  const [salesResult, stockResult, outletsResult, productMasterResult] = await Promise.all([
+  const [salesResult, stockResult, outletsResult, productMasterResult, outletOptionsResult] = await Promise.all([
     salesPromise,
     stockPromise,
     outletsPromise,
     productMasterPromise,
+    outletOptionsPromise,
   ]);
   const stockByProduct = new Map(stockResult.results.map((row) => [row.product_code, row]));
   const masterByProduct = new Map(productMasterResult.results.map((row) => [row.product_code, row]));
   const outletsByProduct = new Map<string, Array<{ platform: string; shop: string }>>();
   for (const row of outletsResult.results) {
     const outlets = outletsByProduct.get(row.product_code) ?? [];
-    outlets.push({ platform: row.platform, shop: row.shop_name });
+    const identity = canonicalizeShopIdentity(row.platform, row.shop_name, row.channel);
+    if (!outlets.some((outlet) => outlet.platform === identity.platform && outlet.shop === identity.shopName)) {
+      outlets.push({ platform: identity.platform, shop: identity.shopName });
+    }
     outletsByProduct.set(row.product_code, outlets);
   }
   const items = salesResult.results.map((row): ProductSummaryItem => {
@@ -280,8 +349,14 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
     };
   });
 
-  const platforms = [...new Set(items.flatMap((item) => item.outlets.map((outlet) => outlet.platform)))].sort((left, right) => left.localeCompare(right, "zh-CN"));
-  const shops = [...new Set(items.flatMap((item) => item.outlets.map((outlet) => outlet.shop)))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+  const optionsByShopKey = new Map<string, ProductSummaryFilters["shops"][number]>();
+  for (const row of outletOptionsResult.results) {
+    const identity = canonicalizeShopIdentity(row.platform, row.shop_name, row.channel);
+    const key = shopFilterKey(identity);
+    optionsByShopKey.set(key, { key, platform: identity.platform, shop: identity.shopName });
+  }
+  const platforms = [...new Set([...optionsByShopKey.values()].map((shop) => shop.platform))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+  const shops = [...optionsByShopKey.values()].sort((left, right) => left.platform.localeCompare(right.platform, "zh-CN") || left.shop.localeCompare(right.shop, "zh-CN"));
 
   return {
     hasSales: true,
@@ -295,6 +370,7 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
       latestSalesFile: latestSalesBatch?.fileName ?? null,
     },
     filters: { platforms, shops },
+    filtersApplied: appliedFilters,
     metrics: summaryMetrics(items),
     items,
   };

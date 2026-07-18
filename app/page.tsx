@@ -144,6 +144,8 @@ type ProductSummaryItem = {
   stockValueCents: number | null;
 };
 
+type ProductShopFilterOption = { key: string; platform: string; shop: string };
+
 type ProductSummaryResponse = {
   hasSales: boolean;
   range: "last30" | "last90" | "halfYear" | "custom";
@@ -155,7 +157,8 @@ type ProductSummaryResponse = {
     inventoryAsOf: string | null;
     latestSalesFile: string | null;
   };
-  filters: { platforms: string[]; shops: string[] };
+  filters: { platforms: string[]; shops: ProductShopFilterOption[] };
+  filtersApplied: { platforms: string[]; shops: ProductShopFilterOption[] };
   metrics: {
     skuCount: number;
     grossSalesCents: number;
@@ -2592,6 +2595,8 @@ function ProductView() {
         params.set("startDate", customStartDate);
         params.set("endDate", customEndDate);
       }
+      platformFilters.forEach((platform) => params.append("platform", platform));
+      shopFilters.forEach((shop) => params.append("shop", shop));
       const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store" });
       const payload = await response.json().catch(() => null) as (ProductSummaryResponse & { error?: string }) | null;
       if (!response.ok || !payload || !payload.metrics || !Array.isArray(payload.items)) {
@@ -2604,7 +2609,7 @@ function ProductView() {
     } finally {
       setLoading(false);
     }
-  }, [customEndDate, customStartDate, timeRange]);
+  }, [customEndDate, customStartDate, platformFilters, shopFilters, timeRange]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadSummary(), timeRange === "custom" ? 260 : 0);
@@ -2635,13 +2640,14 @@ function ProductView() {
     [summary?.filters.platforms],
   );
   const shopOptions = useMemo(
-    () => [...new Set((summary?.items ?? []).flatMap((item) => item.outlets
-      .filter((outlet) => platformFilters.length === 0 || platformFilters.includes(outlet.platform))
-      .map((outlet) => outlet.shop)))].sort((left, right) => left.localeCompare(right, "zh-CN")),
-    [platformFilters, summary?.items],
+    () => (summary?.filters.shops ?? [])
+      .filter((shop) => platformFilters.length === 0 || platformFilters.includes(shop.platform))
+      .map((shop) => ({ value: shop.key, label: `${shop.platform} · ${shop.shop}` }))
+      .sort((left, right) => left.label.localeCompare(right.label, "zh-CN")),
+    [platformFilters, summary?.filters.shops],
   );
   useEffect(() => {
-    setShopFilters((current) => current.filter((item) => shopOptions.includes(item)));
+    setShopFilters((current) => current.filter((item) => shopOptions.some((option) => option.value === item)));
   }, [shopOptions]);
   const filtered = useMemo(() => {
     const keywords = query.trim().toLowerCase().split(/[\s,，;；]+/).filter(Boolean);
@@ -2651,7 +2657,7 @@ function ProductView() {
       const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(item.category);
       const matchesOutlet = (platformFilters.length === 0 && shopFilters.length === 0) || item.outlets.some((outlet) => (
         (platformFilters.length === 0 || platformFilters.includes(outlet.platform))
-        && (shopFilters.length === 0 || shopFilters.includes(outlet.shop))
+        && (shopFilters.length === 0 || shopFilters.includes(`${outlet.platform}\u001f${outlet.shop}`))
       ));
       const matchesMargin = marginFilter === "全部毛利"
         || (marginFilter === "盈利" && item.grossProfitCents >= 0)
@@ -2671,6 +2677,13 @@ function ProductView() {
     [query],
   );
   const rangeLabel = timeRange === "last30" ? "近30天" : timeRange === "last90" ? "近90天" : timeRange === "halfYear" ? "近半年" : "自定义时间";
+  const appliedScope = useMemo(() => {
+    const platforms = summary.filtersApplied?.platforms ?? [];
+    const shops = summary.filtersApplied?.shops ?? [];
+    if (shops.length > 0) return shops.map((shop) => `${shop.platform} · ${shop.shop}`).join("、");
+    if (platforms.length > 0) return platforms.join("、");
+    return "全部渠道和店铺";
+  }, [summary.filtersApplied]);
   const selectCustomRange = () => {
     const maxDate = summary?.sync.dataCutoffDate || summary?.sync.salesThrough || shanghaiIsoToday();
     const minDate = summary?.sync.dataStartDate || addIsoDays(maxDate, -365);
@@ -2719,7 +2732,7 @@ function ProductView() {
         </section>
 
         <section className="panel product-filter-panel">
-          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>销售单价、成本、费用与毛利均由已导入订单明细聚合，不使用演示数据。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个编码 · ` : ""}显示 {formatCount(Math.min(filtered.length, 300))} / {formatCount(filtered.length)}</span></div>
+          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>已按 {appliedScope} 汇总；净销量已扣除退货，销售单价、成本、费用与毛利均由已导入订单明细聚合。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个编码 · ` : ""}显示 {formatCount(Math.min(filtered.length, 300))} / {formatCount(filtered.length)}</span></div>
           <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴多个货品编码（空格、逗号或换行分隔）" aria-label="搜索一个或多个货品编码、名称、品牌、供应商、规格或品类" /></div><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /><select className="filter-select" value={marginFilter} onChange={(event) => setMarginFilter(event.target.value)} aria-label="毛利状态"><option>全部毛利</option><option>盈利</option><option>低毛利</option><option>亏损</option></select><select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="排序方式"><option value="sales">按销售净额</option><option value="profit">按订单毛利</option><option value="margin">按毛利率</option><option value="stock">按可用库存</option></select></div>
           <div className="data-table-wrap"><table className="data-table product-live-table"><thead><tr><th>货品</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>费用</th><th>订单毛利</th><th>实际毛利率</th><th>可用库存</th><th>操作</th></tr></thead><tbody>
             {filtered.slice(0, 300).map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td>{formatCurrencyFromCents(item.feeCents)}</td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.2 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td>{item.availableQuantity === null ? "未同步" : formatCount(item.availableQuantity)}</td><td><button className="row-action" onClick={() => { setSelectedCode(item.productCode); setActiveTab("calculator"); }}>测算</button></td></tr>; })}
