@@ -1,5 +1,6 @@
 import {
   parseInventoryStockXlsx,
+  type InventoryStockRow,
   type InventoryStockIssue,
 } from "@/lib/imports/inventory-stock";
 import { isXlsxSignature } from "@/lib/sales/import-service";
@@ -53,6 +54,39 @@ function mapIssue(issue: InventoryStockIssue): InventoryImportIssue {
     code: issue.code,
     message: issue.message,
   };
+}
+
+function summarizeInventoryRows(rows: InventoryStockRow[], sourceRowCount: number) {
+  const warehouses = new Set<string>();
+  const products = new Set<string>();
+  const result = {
+    sourceRowCount,
+    rowCount: 0,
+    warehouseCount: 0,
+    productCount: 0,
+    onHandQuantity: 0,
+    availableQuantity: 0,
+    lockedQuantity: 0,
+    inTransitQuantity: 0,
+    stockValueCents: 0,
+    sales7dQuantity: 0,
+    sales30dQuantity: 0,
+  };
+  for (const row of rows) {
+    warehouses.add(row.warehouse);
+    products.add(row.productCode);
+    result.rowCount += 1;
+    result.onHandQuantity += row.onHandQuantity;
+    result.availableQuantity += row.availableQuantity;
+    result.lockedQuantity += row.lockedQuantity;
+    result.inTransitQuantity += row.inTransitQuantity;
+    result.stockValueCents += Math.max(0, row.availableQuantity) * row.unitCostCents;
+    result.sales7dQuantity += row.sales7dQuantity;
+    result.sales30dQuantity += row.sales30dQuantity;
+  }
+  result.warehouseCount = warehouses.size;
+  result.productCount = products.size;
+  return result;
 }
 
 export type InventoryImportExecution = {
@@ -117,13 +151,19 @@ export async function importInventoryStockBytes(input: {
     };
   }
 
-  const excludedBrushWarehouseRows = parsed.rows.filter((row) => row.warehouse.trim() === "刷刷仓").length;
-  const importRows = parsed.rows.filter((row) => row.warehouse.trim() !== "刷刷仓");
+  let excludedBrushWarehouseRows = 0;
+  let excludedZeroCostRows = 0;
+  const importRows: InventoryStockRow[] = [];
+  for (const row of parsed.rows) {
+    if (row.warehouse.trim() === "刷刷仓") excludedBrushWarehouseRows += 1;
+    else if (row.unitCostCents <= 0) excludedZeroCostRows += 1;
+    else importRows.push(row);
+  }
   if (importRows.length === 0) {
     return {
       ok: false,
       status: "rejected",
-      message: "剔除刷刷仓后没有可导入的库存数据",
+      message: "剔除刷刷仓和成本价为 0 的明细后没有可导入的库存数据",
       warnings: excludedBrushWarehouseRows > 0
         ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已识别刷刷仓 ${excludedBrushWarehouseRows} 行` }]
         : [],
@@ -179,11 +219,10 @@ export async function importInventoryStockBytes(input: {
     };
   }
 
-  const missingCostRows = importRows.filter((row) => row.unitCostCents <= 0).length;
   const missingNameRows = importRows.filter((row) => !row.productName).length;
   const warnings: InventoryImportIssue[] = [
-    ...(missingCostRows > 0
-      ? [{ code: "MISSING_UNIT_COST", message: `${missingCostRows} 行缺少成本价，货值将优先使用销售历史单位成本补全` }]
+    ...(excludedZeroCostRows > 0
+      ? [{ code: "EXCLUDED_ZERO_UNIT_COST", message: `${excludedZeroCostRows} 行成本价为 0，已自动剔除` }]
       : []),
     ...(missingNameRows > 0
       ? [{ code: "MISSING_PRODUCT_NAME", message: `${missingNameRows} 行缺少货品名称，页面将使用销售明细中的名称补全` }]
@@ -210,6 +249,7 @@ export async function importInventoryStockBytes(input: {
       ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }]
       : []),
   ];
+  const totals = summarizeInventoryRows(importRows, parsed.totals.sourceRowCount);
   const result = await saveInventoryImport(db, {
     fileHash,
     fileName: safeFileName(input.fileName),
@@ -218,7 +258,13 @@ export async function importInventoryStockBytes(input: {
     snapshotDate,
     rows: importRows,
     warnings,
-    totals: { ...parsed.totals, coverage: parsed.coverage, excludedBrushWarehouseRows },
+    totals: {
+      ...parsed.totals,
+      ...totals,
+      coverage: parsed.coverage,
+      excludedBrushWarehouseRows,
+      excludedZeroCostRows,
+    },
   });
 
   return {

@@ -1,0 +1,886 @@
+import { env } from "cloudflare:workers";
+
+export type NetshopDatabase = NonNullable<typeof env.DB>;
+
+export type NetshopImportIssue = {
+  row?: number;
+  field?: string;
+  code?: string;
+  message: string;
+};
+
+export type NetshopSource =
+  | "jd_shop_overview"
+  | "jd_sku_daily"
+  | "jd_promotion"
+  | "jd_b2b"
+  | "jd_product_master"
+  | "jd_cs"
+  | "jd_yimei_sku"
+  | "inv_selfop";
+
+export type NetshopRowInput = {
+  sourceRowNumber: number;
+  sourceRowKey: string;
+  sourceRowHash: string;
+  source: NetshopSource;
+  dataset: string;
+  platform: string;
+  shopName: string;
+  businessDate: string;
+  snapshotDate: string;
+  productCode: string;
+  productName: string;
+  skuId: string;
+  spuId: string;
+  warehouseType: string;
+  metrics: Record<string, number | string | null>;
+  raw: Record<string, string | number | boolean | null>;
+};
+
+type NetshopBatchRow = {
+  id: string;
+  source: NetshopSource;
+  dataset: string;
+  platform: string;
+  shop_name: string;
+  file_name: string;
+  file_size_bytes: number;
+  file_hash: string;
+  sheet_name: string;
+  status: string;
+  row_count: number;
+  inserted_count: number;
+  duplicate_count: number;
+  warning_count: number;
+  date_min: string | null;
+  date_max: string | null;
+  snapshot_date: string | null;
+  warnings_json: string;
+  totals_json: string;
+  note: string;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type NetshopImportBatch = {
+  id: string;
+  source: NetshopSource;
+  dataset: string;
+  platform: string;
+  shopName: string;
+  fileName: string;
+  fileSizeBytes: number;
+  fileHash: string;
+  sheetName: string;
+  status: string;
+  rowCount: number;
+  insertedCount: number;
+  duplicateCount: number;
+  warningCount: number;
+  dateMin: string | null;
+  dateMax: string | null;
+  snapshotDate: string | null;
+  warnings: NetshopImportIssue[];
+  totals: unknown;
+  note: string;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type NetshopOverviewDataset = {
+  source: string;
+  dataset: string;
+  dateMin: string | null;
+  dateMax: string | null;
+  snapshotDate: string | null;
+  rowCount: number;
+  latestBatchId: string | null;
+  latestFileName: string | null;
+  completedAt: string | null;
+};
+
+export type NetshopProductCatalogItem = {
+  shopName: string;
+  skuId: string;
+  productCode: string;
+  productName: string;
+  imageUrl: string;
+  saleAttribute: string;
+  category: string;
+  brand: string;
+  price: number | null;
+  totalInventory: number | null;
+  availableInventory: number | null;
+  status: string;
+  productUrl: string;
+  createdAt: string;
+  costPriceCents: number | null;
+  netSalesCents: number | null;
+  grossMarginRate: number | null;
+  refundRate: number | null;
+  salesMatched: boolean;
+};
+
+export type NetshopProductCatalog = {
+  batch: NetshopImportBatch | null;
+  summary: {
+    totalSkus: number;
+    onSaleSkus: number;
+    totalInventory: number;
+    availableInventory: number;
+  };
+  shops: Array<{
+    shopName: string;
+    platform: string;
+    snapshotDate: string | null;
+    completedAt: string | null;
+  }>;
+  sales: {
+    periodStart: string | null;
+    periodEnd: string | null;
+    dataCutoffDate: string | null;
+    platform: string;
+  };
+  items: NetshopProductCatalogItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
+};
+
+const batchColumns = `
+  id, source, dataset, platform, shop_name, file_name, file_size_bytes, file_hash,
+  sheet_name, status, row_count, inserted_count, duplicate_count, warning_count,
+  date_min, date_max, snapshot_date, warnings_json, totals_json, note,
+  created_at, completed_at
+`;
+
+const schemaStatements = [
+  `CREATE TABLE IF NOT EXISTS netshop_import_batches (
+    id TEXT PRIMARY KEY NOT NULL,
+    source TEXT NOT NULL,
+    dataset TEXT NOT NULL DEFAULT '',
+    platform TEXT NOT NULL DEFAULT '',
+    shop_name TEXT NOT NULL DEFAULT '',
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    file_hash TEXT NOT NULL,
+    sheet_name TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    row_count INTEGER NOT NULL DEFAULT 0,
+    inserted_count INTEGER NOT NULL DEFAULT 0,
+    duplicate_count INTEGER NOT NULL DEFAULT 0,
+    warning_count INTEGER NOT NULL DEFAULT 0,
+    date_min TEXT,
+    date_max TEXT,
+    snapshot_date TEXT,
+    warnings_json TEXT NOT NULL DEFAULT '[]',
+    totals_json TEXT NOT NULL DEFAULT '{}',
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+    UNIQUE(source, file_hash)
+  )`,
+  `CREATE INDEX IF NOT EXISTS netshop_import_batches_source_created_idx
+    ON netshop_import_batches (source, created_at)`,
+  `CREATE INDEX IF NOT EXISTS netshop_import_batches_shop_dataset_idx
+    ON netshop_import_batches (shop_name, dataset, completed_at)`,
+  `CREATE TABLE IF NOT EXISTS netshop_rows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_row_key TEXT NOT NULL UNIQUE,
+    source_row_hash TEXT NOT NULL,
+    first_import_batch_id TEXT NOT NULL,
+    last_import_batch_id TEXT NOT NULL,
+    source_row_number INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    dataset TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT '',
+    shop_name TEXT NOT NULL DEFAULT '',
+    business_date TEXT,
+    snapshot_date TEXT,
+    product_code TEXT NOT NULL DEFAULT '',
+    product_name TEXT NOT NULL DEFAULT '',
+    sku_id TEXT NOT NULL DEFAULT '',
+    spu_id TEXT NOT NULL DEFAULT '',
+    warehouse_type TEXT NOT NULL DEFAULT '',
+    metrics_json TEXT NOT NULL DEFAULT '{}',
+    raw_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_shop_dataset_date_idx
+    ON netshop_rows (shop_name, dataset, business_date)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_source_date_idx
+    ON netshop_rows (source, business_date)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_snapshot_idx
+    ON netshop_rows (source, snapshot_date, warehouse_type)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_source_sku_idx
+    ON netshop_rows (source, sku_id, product_code)`,
+  `UPDATE netshop_rows
+    SET platform = '京东', shop_name = '志高商用设备旗舰店', updated_at = CURRENT_TIMESTAMP
+    WHERE source = 'jd_product_master'
+      AND last_import_batch_id IN (
+        SELECT id FROM netshop_import_batches
+        WHERE source = 'jd_product_master'
+          AND file_name LIKE '%POP%'
+          AND shop_name = '特睿思（TERUISI）京东自营旗舰店'
+      )`,
+  `UPDATE netshop_import_batches
+    SET platform = '京东', shop_name = '志高商用设备旗舰店'
+    WHERE source = 'jd_product_master'
+      AND file_name LIKE '%POP%'
+      AND shop_name = '特睿思（TERUISI）京东自营旗舰店'`,
+] as const;
+
+const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
+
+export function getNetshopDatabase(): NetshopDatabase {
+  if (!env.DB) {
+    throw new Error("Cloudflare D1 binding `DB` is unavailable.");
+  }
+  return env.DB;
+}
+
+export async function ensureNetshopSchema(db = getNetshopDatabase()) {
+  const key = db as unknown as object;
+  const existing = schemaReadyByDatabase.get(key);
+  if (existing) return existing;
+  const setup = db
+    .batch(schemaStatements.map((statement) => db.prepare(statement)))
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      schemaReadyByDatabase.delete(key);
+      throw error;
+    });
+  schemaReadyByDatabase.set(key, setup);
+  return setup;
+}
+
+function parseJson<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function mapBatch(row: NetshopBatchRow): NetshopImportBatch {
+  return {
+    id: row.id,
+    source: row.source,
+    dataset: row.dataset,
+    platform: row.platform,
+    shopName: row.shop_name,
+    fileName: row.file_name,
+    fileSizeBytes: Number(row.file_size_bytes),
+    fileHash: row.file_hash,
+    sheetName: row.sheet_name,
+    status: row.status,
+    rowCount: Number(row.row_count),
+    insertedCount: Number(row.inserted_count),
+    duplicateCount: Number(row.duplicate_count),
+    warningCount: Number(row.warning_count),
+    dateMin: row.date_min,
+    dateMax: row.date_max,
+    snapshotDate: row.snapshot_date,
+    warnings: parseJson<NetshopImportIssue[]>(row.warnings_json, []),
+    totals: parseJson<unknown>(row.totals_json, {}),
+    note: row.note,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  };
+}
+
+export function sanitizeNetshopIssues(issues: readonly unknown[]): NetshopImportIssue[] {
+  return issues.slice(0, 200).map((issue) => {
+    if (typeof issue === "string") return { message: issue.slice(0, 500) };
+    if (!issue || typeof issue !== "object") return { message: String(issue).slice(0, 500) };
+    const record = issue as Record<string, unknown>;
+    const row = Number(record.row ?? record.rowNumber ?? record.sourceRowNumber);
+    const safe: NetshopImportIssue = {
+      message: String(record.message ?? record.reason ?? record.code ?? "Import warning").slice(0, 500),
+    };
+    if (Number.isInteger(row) && row > 0) safe.row = row;
+    if (typeof record.field === "string") safe.field = record.field.slice(0, 100);
+    if (typeof record.code === "string") safe.code = record.code.slice(0, 100);
+    return safe;
+  });
+}
+
+export async function findNetshopImportBatchByHash(
+  db: NetshopDatabase,
+  source: NetshopSource,
+  fileHash: string,
+) {
+  const row = await db
+    .prepare(`SELECT ${batchColumns} FROM netshop_import_batches WHERE source = ? AND file_hash = ? LIMIT 1`)
+    .bind(source, fileHash)
+    .first<NetshopBatchRow>();
+  return row ? mapBatch(row) : null;
+}
+
+export async function listNetshopImportBatches(db: NetshopDatabase, limit = 20) {
+  const result = await db
+    .prepare(
+      `SELECT ${batchColumns}
+       FROM netshop_import_batches
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?`,
+    )
+    .bind(Math.max(1, Math.min(100, Math.trunc(limit))))
+    .all<NetshopBatchRow>();
+  return result.results.map(mapBatch);
+}
+
+const upsertRowsSql = `
+  INSERT INTO netshop_rows (
+    source_row_key, source_row_hash, first_import_batch_id, last_import_batch_id,
+    source_row_number, source, dataset, platform, shop_name, business_date,
+    snapshot_date, product_code, product_name, sku_id, spu_id, warehouse_type,
+    metrics_json, raw_json
+  )
+  SELECT
+    json_extract(item.value, '$.sourceRowKey'),
+    json_extract(item.value, '$.sourceRowHash'),
+    ?, ?,
+    CAST(json_extract(item.value, '$.sourceRowNumber') AS INTEGER),
+    json_extract(item.value, '$.source'),
+    json_extract(item.value, '$.dataset'),
+    json_extract(item.value, '$.platform'),
+    json_extract(item.value, '$.shopName'),
+    NULLIF(json_extract(item.value, '$.businessDate'), ''),
+    NULLIF(json_extract(item.value, '$.snapshotDate'), ''),
+    json_extract(item.value, '$.productCode'),
+    json_extract(item.value, '$.productName'),
+    json_extract(item.value, '$.skuId'),
+    json_extract(item.value, '$.spuId'),
+    json_extract(item.value, '$.warehouseType'),
+    json(json_extract(item.value, '$.metrics')),
+    json(json_extract(item.value, '$.raw'))
+  FROM json_each(?) AS item
+  WHERE 1
+  ON CONFLICT(source_row_key) DO UPDATE SET
+    source_row_hash = excluded.source_row_hash,
+    last_import_batch_id = excluded.last_import_batch_id,
+    source_row_number = excluded.source_row_number,
+    source = excluded.source,
+    dataset = excluded.dataset,
+    platform = excluded.platform,
+    shop_name = excluded.shop_name,
+    business_date = excluded.business_date,
+    snapshot_date = excluded.snapshot_date,
+    product_code = excluded.product_code,
+    product_name = excluded.product_name,
+    sku_id = excluded.sku_id,
+    spu_id = excluded.spu_id,
+    warehouse_type = excluded.warehouse_type,
+    metrics_json = excluded.metrics_json,
+    raw_json = excluded.raw_json,
+    updated_at = CURRENT_TIMESTAMP
+`;
+
+export async function saveNetshopImport(
+  db: NetshopDatabase,
+  input: {
+    source: NetshopSource;
+    dataset: string;
+    platform: string;
+    shopName: string;
+    fileHash: string;
+    fileName: string;
+    fileSizeBytes: number;
+    sheetName: string;
+    rows: NetshopRowInput[];
+    warnings: NetshopImportIssue[];
+    totals: unknown;
+    note: string;
+  },
+): Promise<{ batch: NetshopImportBatch; created: boolean }> {
+  const batchId = `${input.source}:${input.fileHash}`;
+  const dates = input.rows.map((row) => row.businessDate).filter(Boolean).sort();
+  const snapshots = input.rows.map((row) => row.snapshotDate).filter(Boolean).sort();
+  const dateMin = dates[0] ?? null;
+  const dateMax = dates[dates.length - 1] ?? null;
+  const snapshotDate = snapshots[snapshots.length - 1] ?? null;
+  const statements = [
+    db
+      .prepare(
+        `INSERT INTO netshop_import_batches (
+          id, source, dataset, platform, shop_name, file_name, file_size_bytes,
+          file_hash, sheet_name, status, row_count, warning_count,
+          date_min, date_max, snapshot_date, warnings_json, totals_json, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source, file_hash) DO NOTHING`,
+      )
+      .bind(
+        batchId,
+        input.source,
+        input.dataset,
+        input.platform,
+        input.shopName,
+        input.fileName,
+        input.fileSizeBytes,
+        input.fileHash,
+        input.sheetName,
+        input.rows.length,
+        input.warnings.length,
+        dateMin,
+        dateMax,
+        snapshotDate,
+        JSON.stringify(input.warnings),
+        JSON.stringify(input.totals ?? {}),
+        input.note,
+      ),
+  ];
+
+  for (let offset = 0; offset < input.rows.length; offset += 300) {
+    const chunk = input.rows.slice(offset, offset + 300);
+    statements.push(db.prepare(upsertRowsSql).bind(batchId, batchId, JSON.stringify(chunk)));
+  }
+
+  statements.push(
+    db
+      .prepare(
+        `UPDATE netshop_import_batches
+         SET status = 'completed',
+             inserted_count = (
+               SELECT COUNT(*) FROM netshop_rows WHERE first_import_batch_id = ?
+             ),
+             duplicate_count = row_count - (
+               SELECT COUNT(*) FROM netshop_rows WHERE first_import_batch_id = ?
+             ),
+             completed_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .bind(batchId, batchId, batchId),
+  );
+
+  const result = await db.batch(statements);
+  const created = Number(result[0]?.meta?.changes ?? 0) > 0;
+  const batch = await findNetshopImportBatchByHash(db, input.source, input.fileHash);
+  if (!batch) throw new Error("Netshop import batch was not readable after save.");
+  return { batch, created };
+}
+
+export async function normalizeJdProductMasterRows(
+  db: NetshopDatabase,
+  batchId: string,
+) {
+  await db
+    .prepare(
+      `UPDATE netshop_rows
+       SET product_code = COALESCE(NULLIF(CAST(json_extract(raw_json, '$."商品编码"') AS TEXT), ''), product_code),
+           spu_id = COALESCE(NULLIF(CAST(json_extract(raw_json, '$."商品编码"') AS TEXT), ''), spu_id),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE source = 'jd_product_master' AND last_import_batch_id = ?`,
+    )
+    .bind(batchId)
+    .run();
+}
+
+export async function getNetshopOverview(db: NetshopDatabase, shop: string | null) {
+  const rows = await db
+    .prepare(
+      `SELECT
+         dataset,
+         source,
+         MIN(business_date) AS date_min,
+         MAX(business_date) AS date_max,
+         MAX(snapshot_date) AS snapshot_date,
+         COUNT(*) AS row_count,
+         (
+           SELECT b.id
+           FROM netshop_import_batches b
+           WHERE b.dataset = r.dataset
+             AND (? = '' OR b.shop_name = ? OR b.source = 'inv_selfop')
+             AND b.status = 'completed'
+           ORDER BY b.completed_at DESC, b.created_at DESC
+           LIMIT 1
+         ) AS latest_batch_id,
+         (
+           SELECT b.file_name
+           FROM netshop_import_batches b
+           WHERE b.dataset = r.dataset
+             AND (? = '' OR b.shop_name = ? OR b.source = 'inv_selfop')
+             AND b.status = 'completed'
+           ORDER BY b.completed_at DESC, b.created_at DESC
+           LIMIT 1
+         ) AS latest_file_name,
+         (
+           SELECT b.completed_at
+           FROM netshop_import_batches b
+           WHERE b.dataset = r.dataset
+             AND (? = '' OR b.shop_name = ? OR b.source = 'inv_selfop')
+             AND b.status = 'completed'
+           ORDER BY b.completed_at DESC, b.created_at DESC
+           LIMIT 1
+         ) AS completed_at
+       FROM netshop_rows r
+       WHERE (? = '' OR r.shop_name = ? OR r.source = 'inv_selfop')
+       GROUP BY dataset, source
+       ORDER BY dataset`,
+    )
+    .bind(shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "")
+    .all<{
+      dataset: string;
+      source: string;
+      date_min: string | null;
+      date_max: string | null;
+      snapshot_date: string | null;
+      row_count: number;
+      latest_batch_id: string | null;
+      latest_file_name: string | null;
+      completed_at: string | null;
+    }>();
+
+  const datasets: Record<string, NetshopOverviewDataset> = {};
+  for (const row of rows.results) {
+    datasets[row.dataset] = {
+      source: row.source,
+      dataset: row.dataset,
+      dateMin: row.date_min,
+      dateMax: row.date_max,
+      snapshotDate: row.snapshot_date,
+      rowCount: Number(row.row_count),
+      latestBatchId: row.latest_batch_id,
+      latestFileName: row.latest_file_name,
+      completedAt: row.completed_at,
+    };
+  }
+  return {
+    shop,
+    filters: { shop },
+    datasets,
+    date_max: Object.fromEntries(Object.entries(datasets).map(([key, value]) => [key, value.dateMax])),
+  };
+}
+
+type NetshopProductRow = {
+  shop_name: string;
+  sku_id: string;
+  product_code: string;
+  product_name: string;
+  raw_json: string;
+  image_raw_json: string | null;
+};
+
+type NetshopProductSummaryRow = {
+  total_skus: number;
+  on_sale_skus: number | null;
+  total_inventory: number | null;
+  available_inventory: number | null;
+};
+
+type NetshopProductSalesMetricRow = {
+  product_code: string;
+  gross_sales_cents: number | null;
+  refund_amount_cents: number | null;
+  net_sales_cents: number | null;
+  gross_profit_cents: number | null;
+  absolute_quantity: number | null;
+  absolute_cost_cents: number | null;
+};
+
+type NetshopProductSalesMetrics = Pick<
+  NetshopProductCatalogItem,
+  "costPriceCents" | "netSalesCents" | "grossMarginRate" | "refundRate" | "salesMatched"
+>;
+
+type NetshopProductCatalogInternalItem = NetshopProductCatalogItem & {
+  salesProductCode: string;
+};
+
+function rawText(raw: Record<string, unknown>, key: string) {
+  const value = raw[key];
+  return value === null || value === undefined ? "" : String(value).trim();
+}
+
+function rawNumber(raw: Record<string, unknown>, key: string) {
+  const value = raw[key];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(String(value ?? "").replace(/[￥¥,]/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeImageUrl(value: string) {
+  const match = value.trim().match(/(?:https?:)?\/\/[^\s"'<>]+/i);
+  if (!match) return "";
+  return match[0].startsWith("//") ? `https:${match[0]}` : match[0];
+}
+
+function productImageUrl(...rawSources: Array<Record<string, unknown>>) {
+  const preferredKeys = [
+    "主图链接", "商品主图链接", "SKU主图链接", "图片链接", "商品图片链接",
+    "主图", "商品主图", "SKU主图", "图片", "商品图片", "imageUrl", "image_url", "image", "img", "pic",
+  ];
+  for (const raw of rawSources) {
+    for (const key of preferredKeys) {
+      const imageUrl = normalizeImageUrl(rawText(raw, key));
+      if (imageUrl) return imageUrl;
+    }
+    for (const [key, value] of Object.entries(raw)) {
+      if (!/(主图|图片|image|img|pic)/i.test(key)) continue;
+      const imageUrl = normalizeImageUrl(String(value ?? ""));
+      if (imageUrl) return imageUrl;
+    }
+  }
+  return "";
+}
+
+function isIsoDate(value: string | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return date.toISOString().slice(0, 10) === value;
+}
+
+function addIsoDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function latestJdProductBatches(db: NetshopDatabase) {
+  const rows = await db
+    .prepare(
+      `SELECT ${batchColumns}
+       FROM netshop_import_batches
+       WHERE source = 'jd_product_master' AND status = 'completed'
+       ORDER BY completed_at DESC, created_at DESC, id DESC`,
+    )
+    .all<NetshopBatchRow>();
+  const latestByShop = new Map<string, NetshopImportBatch>();
+  for (const row of rows.results) {
+    const batch = mapBatch(row);
+    const key = `${batch.platform}\u001f${batch.shopName}`;
+    if (!latestByShop.has(key)) latestByShop.set(key, batch);
+  }
+  return [...latestByShop.values()];
+}
+
+function emptyNetshopProductSalesMetrics(): NetshopProductSalesMetrics {
+  return {
+    costPriceCents: null,
+    netSalesCents: null,
+    grossMarginRate: null,
+    refundRate: null,
+    salesMatched: false,
+  };
+}
+
+async function readJdProductSalesMetrics(
+  db: NetshopDatabase,
+  salesProductCodes: readonly string[],
+  salesStartDate?: string,
+  salesEndDate?: string,
+) {
+  const skuSet = [...new Set(salesProductCodes.map((value) => value.trim()).filter((value) => value && value !== "--"))];
+  const salesScope = "京东";
+  const dataCutoff = await db
+    .prepare(
+      `SELECT MAX(substr(ship_time, 1, 10)) AS data_cutoff_date
+       FROM sales_order_lines
+       WHERE TRIM(warehouse) <> '刷刷仓'
+         AND COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '') LIKE ?`,
+    )
+    .bind(`${salesScope}%`)
+    .first<{ data_cutoff_date: string | null }>();
+
+  if (!isIsoDate(salesStartDate) || !isIsoDate(salesEndDate) || salesStartDate > salesEndDate || skuSet.length === 0) {
+    return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
+  }
+
+  const rows = await db
+    .prepare(
+      `SELECT
+         product_code,
+         COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
+         COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+         COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
+         COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
+         COALESCE(SUM(ABS(quantity)), 0) AS absolute_quantity,
+         COALESCE(SUM(ABS(cost_amount_cents)), 0) AS absolute_cost_cents
+       FROM sales_order_lines
+       WHERE ship_time >= ? AND ship_time < ?
+         AND TRIM(warehouse) <> '刷刷仓'
+         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
+         AND TRIM(product_name) <> '补差价专用'
+         AND COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '') LIKE ?
+         AND product_code IN (${skuSet.map(() => "?").join(", ")})
+       GROUP BY product_code`,
+    )
+    .bind(
+      `${salesStartDate} 00:00:00`,
+      `${addIsoDays(salesEndDate, 1)} 00:00:00`,
+      `${salesScope}%`,
+      ...skuSet,
+    )
+    .all<NetshopProductSalesMetricRow>();
+
+  const metrics = new Map<string, NetshopProductSalesMetrics>();
+  for (const row of rows.results) {
+    const grossSalesCents = Number(row.gross_sales_cents ?? 0);
+    const netSalesCents = Number(row.net_sales_cents ?? 0);
+    const grossProfitCents = Number(row.gross_profit_cents ?? 0);
+    const absoluteQuantity = Number(row.absolute_quantity ?? 0);
+    const absoluteCostCents = Number(row.absolute_cost_cents ?? 0);
+    metrics.set(row.product_code, {
+      costPriceCents: absoluteQuantity > 0 ? absoluteCostCents / absoluteQuantity : null,
+      netSalesCents,
+      grossMarginRate: netSalesCents !== 0 ? grossProfitCents / netSalesCents : null,
+      refundRate: grossSalesCents > 0 ? Number(row.refund_amount_cents ?? 0) / grossSalesCents : null,
+      salesMatched: true,
+    });
+  }
+  return { metrics, dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
+}
+
+function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInternalItem {
+  const raw = parseJson<Record<string, unknown>>(row.raw_json, {});
+  const imageRaw = parseJson<Record<string, unknown>>(row.image_raw_json ?? "{}", {});
+  const category = ["一级类目", "二级类目", "三级类目", "末级类目"]
+    .map((key) => rawText(raw, key))
+    .filter((value) => value && value !== "--")
+    .join(" / ");
+  return {
+    shopName: row.shop_name,
+    skuId: row.sku_id || rawText(raw, "SKUID"),
+    productCode: rawText(raw, "商品编码") || row.product_code,
+    productName: row.product_name || rawText(raw, "商品名称"),
+    imageUrl: productImageUrl(raw, imageRaw),
+    salesProductCode: rawText(raw, "商家SKU"),
+    saleAttribute: rawText(raw, "销售属性"),
+    category,
+    brand: rawText(raw, "品牌"),
+    price: rawNumber(raw, "京东价"),
+    totalInventory: rawNumber(raw, "商品总库存"),
+    availableInventory: rawNumber(raw, "商品可用库存"),
+    status: rawText(raw, "商品状态"),
+    productUrl: rawText(raw, "商品链接"),
+    createdAt: rawText(raw, "创建时间"),
+    ...emptyNetshopProductSalesMetrics(),
+  };
+}
+
+export async function getNetshopProductCatalog(
+  db: NetshopDatabase,
+  input: { query?: string; page?: number; pageSize?: number; shopName?: string; salesStartDate?: string; salesEndDate?: string } = {},
+): Promise<NetshopProductCatalog> {
+  const page = Math.max(1, Math.trunc(input.page ?? 1));
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(input.pageSize ?? 50)));
+  const latestBatches = await latestJdProductBatches(db);
+  const requestedShopName = input.shopName?.trim() ?? "";
+  const batches = requestedShopName
+    ? latestBatches.filter((batch) => batch.shopName === requestedShopName)
+    : latestBatches;
+  const batch = batches[0] ?? null;
+  const shops = latestBatches
+    .map((item) => ({ shopName: item.shopName, platform: item.platform, snapshotDate: item.snapshotDate, completedAt: item.completedAt }))
+    .sort((left, right) => left.platform.localeCompare(right.platform, "zh-CN") || left.shopName.localeCompare(right.shopName, "zh-CN"));
+  const emptySales = {
+    periodStart: isIsoDate(input.salesStartDate) ? input.salesStartDate : null,
+    periodEnd: isIsoDate(input.salesEndDate) ? input.salesEndDate : null,
+    dataCutoffDate: null,
+    platform: "京东",
+  };
+  if (!batch) {
+    return {
+      batch: null,
+      summary: { totalSkus: 0, onSaleSkus: 0, totalInventory: 0, availableInventory: 0 },
+      shops,
+      sales: emptySales,
+      items: [],
+      pagination: { page, pageSize, total: 0 },
+    };
+  }
+
+  const batchIds = batches.map((item) => item.id);
+  const batchClause = `last_import_batch_id IN (${batchIds.map(() => "?").join(", ")})`;
+
+  const summary = await db
+    .prepare(
+      `SELECT
+         COUNT(*) AS total_skus,
+         SUM(CASE WHEN json_extract(raw_json, '$."商品状态"') = '上架' THEN 1 ELSE 0 END) AS on_sale_skus,
+         SUM(COALESCE(CAST(json_extract(raw_json, '$."商品总库存"') AS REAL), 0)) AS total_inventory,
+         SUM(COALESCE(CAST(json_extract(raw_json, '$."商品可用库存"') AS REAL), 0)) AS available_inventory
+       FROM netshop_rows
+       WHERE ${batchClause}`,
+    )
+    .bind(...batchIds)
+    .first<NetshopProductSummaryRow>();
+
+  const query = (input.query ?? "").trim().slice(0, 120);
+  const searchClause = query
+    ? " AND (shop_name LIKE ? OR sku_id LIKE ? OR product_code LIKE ? OR product_name LIKE ?)"
+    : "";
+  const searchTerm = `%${query}%`;
+  const bindings = query
+    ? [...batchIds, searchTerm, searchTerm, searchTerm, searchTerm]
+    : batchIds;
+  const totalRow = await db
+    .prepare(`SELECT COUNT(*) AS total FROM netshop_rows WHERE ${batchClause}${searchClause}`)
+    .bind(...bindings)
+    .first<{ total: number }>();
+  const offset = (page - 1) * pageSize;
+  const rows = await db
+    .prepare(
+      `SELECT
+         product.shop_name,
+         product.sku_id,
+         product.product_code,
+         product.product_name,
+         product.raw_json,
+         (
+           SELECT image_row.raw_json
+           FROM netshop_rows image_row
+           JOIN netshop_import_batches image_batch
+             ON image_batch.id = image_row.last_import_batch_id
+           WHERE image_row.source = 'jd_yimei_sku'
+             AND image_batch.status = 'completed'
+             AND (image_row.shop_name = product.shop_name OR image_row.shop_name = '')
+             AND (
+               (image_row.sku_id <> '' AND image_row.sku_id = product.sku_id)
+               OR (image_row.product_code <> '' AND image_row.product_code = product.product_code)
+             )
+           ORDER BY image_batch.completed_at DESC, image_batch.created_at DESC, image_row.id DESC
+           LIMIT 1
+         ) AS image_raw_json
+       FROM netshop_rows product
+       WHERE ${batchClause}${searchClause}
+       ORDER BY product.shop_name ASC, product.product_name ASC, product.sku_id ASC
+       LIMIT ? OFFSET ?`,
+    )
+    .bind(...bindings, pageSize, offset)
+    .all<NetshopProductRow>();
+
+  const rawItems = rows.results.map(mapNetshopProductRow);
+  const sales = await readJdProductSalesMetrics(
+    db,
+    rawItems.map((item) => item.salesProductCode),
+    input.salesStartDate,
+    input.salesEndDate,
+  );
+  return {
+    batch,
+    summary: {
+      totalSkus: Number(summary?.total_skus ?? 0),
+      onSaleSkus: Number(summary?.on_sale_skus ?? 0),
+      totalInventory: Number(summary?.total_inventory ?? 0),
+      availableInventory: Number(summary?.available_inventory ?? 0),
+    },
+    shops,
+    sales: {
+      periodStart: isIsoDate(input.salesStartDate) ? input.salesStartDate : null,
+      periodEnd: isIsoDate(input.salesEndDate) ? input.salesEndDate : null,
+      dataCutoffDate: sales.dataCutoffDate,
+      platform: sales.platform,
+    },
+    items: rawItems.map(({ salesProductCode, ...item }) => ({
+      ...item,
+      ...(sales.metrics.get(salesProductCode) ?? emptyNetshopProductSalesMetrics()),
+    })),
+    pagination: { page, pageSize, total: Number(totalRow?.total ?? 0) },
+  };
+}

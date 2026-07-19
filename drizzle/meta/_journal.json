@@ -78,6 +78,20 @@
       "when": 1784129777497,
       "tag": "0010_finance_reporting",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784284800000,
+      "tag": "0011_netshop_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784419200000,
+      "tag": "0012_workflow_tasks",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,39 @@ export const systemSettings = sqliteTable(
   },
 );
 
+/** Durable work-plan items shown by the operations collaboration workspace. */
+export const workflowTasks = sqliteTable(
+  "workflow_tasks",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    workContent: text("work_content").notNull().default(""),
+    category: text("category").notNull().default("工作计划"),
+    owner: text("owner").notNull().default(""),
+    shopName: text("shop_name").notNull().default(""),
+    startDate: text("start_date").notNull().default(""),
+    dueDate: text("due_date").notNull().default(""),
+    status: text("status").notNull(),
+    priority: text("priority").notNull(),
+    createdBy: text("created_by").notNull().default(""),
+    updatedBy: text("updated_by").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("workflow_tasks_status_created_idx").on(table.status, table.createdAt),
+  ],
+);
+
+/** Prevents deleted default tasks from being seeded again after a refresh. */
+export const workflowTaskBootstrap = sqliteTable(
+  "workflow_task_bootstrap",
+  {
+    key: text("key").primaryKey(),
+    seededAt: text("seeded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+);
+
 /** Durable, metadata-only audit trail for future AI tool executions. */
 export const aiToolAuditLogs = sqliteTable(
   "ai_tool_audit_logs",

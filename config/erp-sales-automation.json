@@ -1,0 +1,21 @@
+{
+  "version": "2026-07-17.1",
+  "timeZone": "Asia/Shanghai",
+  "weekdays": [1, 2, 3, 4, 5],
+  "baseUrl": "http://localhost:3000",
+  "jackyun": {
+    "startUrl": "https://web.jackyun.com/home/mainframe_web_horizontal.html",
+    "pageName": "销售单明细账",
+    "searchPlaceholder": "功能码/菜单名...",
+    "salesFrameUrlContains": "/oms/order/order_detail_list.html",
+    "chromePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "profileDirectory": ".runtime/erp-sales-chrome-profile"
+  },
+  "outputDirectory": "outputs/erp-sales-automation",
+  "timeouts": {
+    "pageMs": 60000,
+    "queryMs": 120000,
+    "downloadMs": 300000,
+    "importMs": 600000
+  }
+}

@@ -21,6 +21,7 @@ type ShopRow = {
   platform: string;
   shop_name: string;
   row_count: number;
+  net_sales_cents: number;
 };
 
 function isIsoDate(value: string | null): value is string {
@@ -40,6 +41,9 @@ export async function GET(request: Request) {
   try {
     await requireAppPrincipal(["admin"]);
     const query = new URL(request.url).searchParams;
+    if (query.get("policyOnly") === "1") {
+      return Response.json({ policyVersion: salesImportPolicy.version });
+    }
     const startDate = query.get("startDate");
     const endDate = query.get("endDate");
     const batchId = query.get("batchId")?.trim() || null;
@@ -62,7 +66,12 @@ export async function GET(request: Request) {
     ).bind(...salesImportPolicy.excludedWarehouses, startDate, endExclusive).first<PeriodStats>();
 
     const shopResult = await db.prepare(
-      `SELECT channel, platform, shop_name, COUNT(*) AS row_count
+      `SELECT
+         channel,
+         platform,
+         shop_name,
+         COUNT(*) AS row_count,
+         COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents
        FROM sales_order_lines
        WHERE ship_time >= ? AND ship_time < ?
        GROUP BY channel, platform, shop_name
@@ -98,6 +107,7 @@ export async function GET(request: Request) {
         platform: row.platform,
         shopName: row.shop_name,
         rowCount: Number(row.row_count),
+        netSalesCents: Number(row.net_sales_cents),
       })),
       nonWhitelistChannels,
       whitelistWithNoData: salesImportPolicy.approvedSalesChannels.filter((channel) => !actualChannels.has(channel)),

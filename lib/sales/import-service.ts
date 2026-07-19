@@ -1,7 +1,9 @@
 import {
   parseSalesLedgerXlsx,
   type SalesLedgerRow,
+  type SalesLedgerTotals,
 } from "@/lib/imports/sales-ledger";
+import { findLatestSystemCostSnapshot } from "@/lib/inventory/database";
 import {
   ensureSalesSchema,
   findSalesImportBatchByHash,
@@ -14,7 +16,9 @@ import {
 import {
   isApprovedSalesChannel,
   isExcludedSalesWarehouse,
+  isZeroCostProductName,
 } from "@/lib/sales/import-policy";
+import { cleanZeroCostSalesRows } from "@/lib/sales/system-cost-cleaning";
 
 export const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -29,6 +33,10 @@ function toHex(buffer: ArrayBuffer) {
 function sha256(bytes: Uint8Array) {
   const input = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   return crypto.subtle.digest("SHA-256", input);
+}
+
+async function cleanedImportHash(rawFileHash: string, systemCostBatchId: string) {
+  return toHex(await sha256(new TextEncoder().encode(`${rawFileHash}\nSYSTEM_COST:${systemCostBatchId}`)));
 }
 
 function safeFileName(name: string) {
@@ -70,9 +78,92 @@ function mapAnalysisSafeRow(row: SalesLedgerRow): SalesLineInput {
     // “补差价专用”等虚拟金额调整行没有实际发货时间。为保持发货时间
     // 为主口径，同时避免将这类订单金额排除在统计周期外，按货品级发货
     // 时间、下单时间依次兜底。
-    shipTime: row.shipTime ?? row.lineShipTime ?? row.orderTime,
+    shipTime: row.shipTime ?? row.orderTime,
     lineShipTime: row.lineShipTime ?? "",
     businessType: row.businessType,
+  };
+}
+
+function shanghaiToday() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function addUtcDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function hasCleanableZeroCostRows(rows: readonly SalesLineInput[]) {
+  return rows.some((row) => row.costAmountCents === 0
+    && row.productCode !== "ERP_PRICE_ADJUSTMENT"
+    && !isZeroCostProductName(row.productName));
+}
+
+function safeTotal(total: number, value: number, field: string) {
+  const result = total + value;
+  if (!Number.isSafeInteger(result)) throw new Error(`${field} 汇总超出安全整数范围`);
+  return result;
+}
+
+function calculateStoredTotals(
+  sourceTotals: SalesLedgerTotals,
+  rows: readonly SalesLineInput[],
+  input: {
+    rawFileHash: string;
+    excludedBrushWarehouseRows: number;
+    excludedFutureDateRows: number;
+    systemCost?: {
+      sourceBatchId: string;
+      snapshotDate: string;
+      cleanedRows: number;
+      matchedByWarehouseRows: number;
+      matchedByProductFallbackRows: number;
+      skippedPriceAdjustmentRows: number;
+      unresolvedRows: number;
+    };
+  },
+) {
+  let saleRowCount = 0;
+  let returnRowCount = 0;
+  let quantity = 0;
+  let netSalesCents = 0;
+  let costAmountCents = 0;
+  let feeAllocationCents = 0;
+  let grossProfitCents = 0;
+  let untaxedGrossProfitCents = 0;
+  for (const row of rows) {
+    if (row.businessType === "return") returnRowCount += 1;
+    else saleRowCount += 1;
+    quantity = safeTotal(quantity, row.quantity, "销售数量");
+    netSalesCents = safeTotal(netSalesCents, row.allocatedAmountCents, "销售金额");
+    costAmountCents = safeTotal(costAmountCents, row.costAmountCents, "货品成本");
+    feeAllocationCents = safeTotal(feeAllocationCents, row.feeAllocationCents, "费用分摊");
+    grossProfitCents = safeTotal(grossProfitCents, row.grossProfitCents, "毛利");
+    untaxedGrossProfitCents = safeTotal(untaxedGrossProfitCents, row.untaxedGrossProfitCents, "未税毛利");
+  }
+  return {
+    ...sourceTotals,
+    rowCount: rows.length,
+    saleRowCount,
+    returnRowCount,
+    quantity,
+    netSalesCents,
+    costAmountCents,
+    feeAllocationCents,
+    grossProfitCents,
+    untaxedGrossProfitCents,
+    rawFileHash: input.rawFileHash,
+    excludedBrushWarehouseRows: input.excludedBrushWarehouseRows,
+    excludedFutureDateRows: input.excludedFutureDateRows,
+    ...(input.systemCost ? { systemCost: input.systemCost } : {}),
   };
 }
 
@@ -132,13 +223,9 @@ export async function importSalesLedgerBytes(input: {
     return { ok: false, status: "rejected", message: "文件签名不是有效的 .xlsx（ZIP）格式", warnings: [], errors: [{ code: "INVALID_XLSX_SIGNATURE", message: "文件签名无效" }], errorCount: 1 };
   }
 
-  const fileHash = toHex(await sha256(input.bytes));
+  const rawFileHash = toHex(await sha256(input.bytes));
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
-  const previous = await findSalesImportBatchByHash(db, fileHash);
-  if (previous?.status === "completed") {
-    return { ok: true, status: "duplicate", message: "该文件已经导入，无需重复处理", batch: previous, warnings: previous.warnings };
-  }
 
   let parsed: Awaited<ReturnType<typeof parseSalesLedgerXlsx>>;
   try {
@@ -150,23 +237,39 @@ export async function importSalesLedgerBytes(input: {
 
   const parserErrors = sanitizeSalesIssues(parsed.errors ?? []);
   const mappedRows = parsed.rows.map(mapAnalysisSafeRow);
-  const excludedBrushWarehouseRows = mappedRows.filter((row) => isExcludedSalesWarehouse(row.warehouse)).length;
-  const rows = mappedRows.filter((row) => !isExcludedSalesWarehouse(row.warehouse));
+  const today = shanghaiToday();
+  const cutoffDate = addUtcDays(today, -1);
+  const excludedFutureDateRows = mappedRows.filter((row) => row.shipTime.slice(0, 10) === today).length;
+  const invalidFutureDateRows = mappedRows.filter((row) => row.shipTime.slice(0, 10) > today);
+  const rowsWithinCutoff = mappedRows.filter((row) => row.shipTime.slice(0, 10) <= cutoffDate);
+  const excludedBrushWarehouseRows = rowsWithinCutoff.filter((row) => isExcludedSalesWarehouse(row.warehouse)).length;
+  let rows = rowsWithinCutoff.filter((row) => !isExcludedSalesWarehouse(row.warehouse));
   const disallowedChannelRows = rows.filter((row) => !isApprovedSalesChannel(row.channel));
-  const warnings = sanitizeSalesIssues([
+  rows = rows.filter((row) => isApprovedSalesChannel(row.channel));
+  const baseWarnings: Array<{ code: string; message: string; sourceRowNumber?: number }> = [
     ...(parsed.warnings ?? []),
+    ...(excludedFutureDateRows > 0
+      ? [{ code: "EXCLUDED_FUTURE_DATE_ROWS", message: `已剔除晚于截止日期的 ${excludedFutureDateRows} 行当天订单明细` }]
+      : []),
     ...(excludedBrushWarehouseRows > 0
       ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }]
       : []),
-  ]);
-  const policyErrors: SalesImportIssue[] = disallowedChannelRows.map((row) => ({
+    ...(disallowedChannelRows.length > 0
+      ? [{ code: "EXCLUDED_NON_WHITELIST_CHANNEL", message: `已剔除白名单外店铺 ${disallowedChannelRows.length} 行，不写入经营分析数据` }]
+      : []),
+  ];
+  let warnings = sanitizeSalesIssues(baseWarnings);
+  const policyErrors: SalesImportIssue[] = invalidFutureDateRows.map((row) => ({
     row: row.sourceRowNumber,
-    field: "channel",
-    code: "UNAPPROVED_SALES_CHANNEL",
-    message: `销售渠道不在当前导入白名单中：${row.channel}`,
+    field: "shipTime",
+    code: "INVALID_FUTURE_SHIP_TIME",
+    message: `发货日期晚于执行当天，不能按当天订单自动剔除：${row.shipTime}`,
   }));
   const rowErrors = validateRows(rows);
   const errors = [...parserErrors, ...policyErrors, ...rowErrors].slice(0, 200);
+  if (rows.length === 0) {
+    errors.unshift({ code: "NO_DATA_ROWS", message: "剔除当天订单明细、刷刷仓和白名单外店铺后没有可导入的销售数据" });
+  }
   if (errors.length > 0) {
     return {
       ok: false,
@@ -174,8 +277,83 @@ export async function importSalesLedgerBytes(input: {
       message: "文件校验未通过，未写入任何销售数据",
       warnings,
       errors,
-      errorCount: (parsed.errors?.length ?? 0) + rowErrors.length,
+      errorCount: (parsed.errors?.length ?? 0) + policyErrors.length + rowErrors.length,
     };
+  }
+
+  let systemCost: {
+    sourceBatchId: string;
+    snapshotDate: string;
+    cleanedRows: number;
+    matchedByWarehouseRows: number;
+    matchedByProductFallbackRows: number;
+    skippedPriceAdjustmentRows: number;
+    unresolvedRows: number;
+  } | undefined;
+  if (hasCleanableZeroCostRows(rows)) {
+    const snapshot = await findLatestSystemCostSnapshot(db);
+    if (!snapshot) {
+      return {
+        ok: false,
+        status: "rejected",
+        message: "检测到货品成本为 0 的销售明细，但没有可用的系统成本快照",
+        warnings,
+        errors: [{
+          code: "MISSING_SYSTEM_COST_SNAPSHOT",
+          field: "costAmountCents",
+          message: "请先同步包含正固定成本价的分仓库存快照，再重新导入销售明细",
+        }],
+        errorCount: 1,
+      };
+    }
+
+    const cleaned = cleanZeroCostSalesRows(rows, snapshot.costs);
+    rows = cleaned.rows;
+    const cleanedRowNumbers = new Set(cleaned.cleanedRowNumbers);
+    const unresolvedSamples = [...new Set(cleaned.unresolvedRows
+      .map((row) => row.productCode || row.productName)
+      .filter(Boolean))]
+      .slice(0, 8)
+      .join("、");
+    warnings = sanitizeSalesIssues([
+      ...baseWarnings.filter((warning) => !(warning.code === "GROSS_PROFIT_MISMATCH"
+        && cleanedRowNumbers.has(Number(warning.sourceRowNumber)))),
+      ...(cleaned.cleanedRowNumbers.length > 0
+        ? [{
+          code: "SYSTEM_COST_CLEANED",
+          message: `已按系统成本快照 ${snapshot.snapshotDate} 清洗 ${cleaned.cleanedRowNumbers.length} 行原始成本为 0 的销售明细`,
+        }]
+        : []),
+      ...(cleaned.unresolvedRows.length > 0
+        ? [{
+          code: "SYSTEM_COST_UNRESOLVED",
+          message: `系统成本快照未匹配 ${cleaned.unresolvedRows.length} 行 0 成本明细，已保留原始 0 成本继续导入${unresolvedSamples ? `；样例：${unresolvedSamples}` : ""}`,
+        }]
+        : []),
+      ...(cleaned.matchedByProductFallbackRows > 0
+        ? [{
+          code: "SYSTEM_COST_PRODUCT_FALLBACK",
+          message: `${cleaned.matchedByProductFallbackRows} 行未匹配到同仓成本，已使用货品唯一系统成本`,
+        }]
+        : []),
+    ]);
+    systemCost = {
+      sourceBatchId: snapshot.batchId,
+      snapshotDate: snapshot.snapshotDate,
+      cleanedRows: cleaned.cleanedRowNumbers.length,
+      matchedByWarehouseRows: cleaned.matchedByWarehouseRows,
+      matchedByProductFallbackRows: cleaned.matchedByProductFallbackRows,
+      skippedPriceAdjustmentRows: cleaned.skippedPriceAdjustmentRows,
+      unresolvedRows: cleaned.unresolvedRows.length,
+    };
+  }
+
+  const fileHash = systemCost
+    ? await cleanedImportHash(rawFileHash, systemCost.sourceBatchId)
+    : rawFileHash;
+  const previous = await findSalesImportBatchByHash(db, fileHash);
+  if (previous?.status === "completed") {
+    return { ok: true, status: "duplicate", message: "该文件已经导入，无需重复处理", batch: previous, warnings: previous.warnings };
   }
 
   const result = await saveSalesImport(db, {
@@ -185,12 +363,21 @@ export async function importSalesLedgerBytes(input: {
     sheetName: parsed.sheetName,
     rows,
     warnings,
-    totals: { ...parsed.totals, excludedBrushWarehouseRows },
+    totals: calculateStoredTotals(parsed.totals, rows, {
+      rawFileHash,
+      excludedBrushWarehouseRows,
+      excludedFutureDateRows,
+      systemCost,
+    }),
   });
   return {
     ok: true,
     status: result.created ? "imported" : "duplicate",
-    message: result.created ? "销售单明细账导入成功" : "该文件已经导入，无需重复处理",
+    message: result.created
+      ? systemCost
+        ? `销售单明细账导入成功，已用系统成本清洗 ${systemCost.cleanedRows} 行零成本明细`
+        : "销售单明细账导入成功"
+      : "该文件已经导入，无需重复处理",
     batch: result.batch,
     warnings,
   };

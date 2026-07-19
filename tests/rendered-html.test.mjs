@@ -230,6 +230,15 @@ test("wires product profitability to synchronized sales and inventory facts", as
   assert.match(page, /ariaLabel="销售平台"/);
   assert.match(page, /ariaLabel="销售店铺"/);
   assert.match(page, /<th>品牌<\/th><th>供应商<\/th>/);
+  assert.match(page, /实际大毛利率低于35%/);
+  assert.match(page, /实际大毛利率35%/);
+  assert.match(page, /规格代码：/);
+  assert.match(page, /<th>退货率<\/th><th>操作<\/th>/);
+  assert.match(page, /ProductDetailView/);
+  assert.match(page, /ProductPlatformSalesShare/);
+  assert.match(page, /shopOptions\.some\(\(option\) => option\.value === item\)/);
+  assert.match(page, /next\.length === current\.length \? current : next/);
+  assert.match(page, /\/api\/sales\/summary/);
   assert.doesNotMatch(page, /TRS-SM-1182/);
   assert.match(route, /getProductSummary/);
   assert.match(route, /startDate/);
@@ -237,6 +246,8 @@ test("wires product profitability to synchronized sales and inventory facts", as
   assert.match(summary, /sales_order_lines/);
   assert.match(summary, /inventory_stock_lines/);
   assert.match(summary, /gross_profit_cents/);
+  assert.match(summary, /refund_amount_cents/);
+  assert.match(summary, /marginBuckets/);
   assert.match(summary, /supplier/);
   assert.match(summary, /shop_name/);
   assert.match(summary, /MAX\(NULLIF\(brand/);
@@ -334,11 +345,14 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(analysis, /promotionFeeRatioBps/);
   assert.match(analysis, /returnRateBps/);
   assert.match(analysis, /feeRateBps/);
+  assert.match(analysis, /yearAgoFeeRateBps/);
   assert.match(analysis, /platformFilter/);
   assert.match(analysis, /isSelectableShopName/);
   assert.match(analysis, /momRate/);
   assert.match(page, /formatFinanceWan/);
   assert.match(page, /FinanceSortButton/);
+  assert.match(page, /expenseSearch/);
+  assert.match(page, /yearAgoFeeRateBps/);
   assert.match(importRoute, /application\/octet-stream/);
   assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(analysisRoute, /getAll\("platform"\)/);
@@ -348,6 +362,49 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(migration, /CREATE TABLE `finance_lines`/);
   assert.match(migration, /CREATE TABLE `finance_targets`/);
   assert.match(packageJson, /"xlsx": "0\.18\.5"/);
+});
+
+test("exposes the four operational collaboration workspaces", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  for (const label of ["工作计划", "巡店查询", "评价维护", "新品上架"]) assert.match(page, new RegExp(label));
+  assert.match(page, /运营事务子版块/);
+  assert.match(page, /搜索工作计划/);
+  assert.match(page, /搜索巡店记录/);
+  assert.match(page, /搜索评价内容/);
+  assert.match(page, /搜索新品项目/);
+  for (const action of ["标记工作中", "标记完成", "退回待开始", "返还待开始", "返还工作中"]) assert.match(page, new RegExp(action));
+  assert.match(page, /WorkflowTransitionActions/);
+  assert.match(page, /WorkflowAttachmentList/);
+  assert.match(page, /添加附件/);
+  assert.match(page, /支持图片 \/ 文件/);
+  for (const field of ["工作事项", "工作内容", "跟进人", "店铺名称", "开始时间", "截止时间", "紧急程度"]) assert.match(page, new RegExp(field));
+  assert.match(page, /WorkflowDeleteConfirm/);
+  assert.match(page, /确认删除工作项/);
+  assert.match(page, /确认删除/);
+  assert.match(page, /未命名工作项/);
+  assert.match(page, /未命名新品项目/);
+  assert.doesNotMatch(page, /请先补充：/);
+  assert.doesNotMatch(page, /先登录，再继续自动导出/);
+  assert.doesNotMatch(page, /openJackyunLogin/);
+});
+
+test("persists work-plan creation, status changes, and deletion", async () => {
+  const [page, route, tasks, migration] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/workflow/tasks/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/workflow/tasks.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0012_workflow_tasks.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /fetch\("\/api\/workflow\/tasks"/);
+  assert.match(page, /method: "DELETE"/);
+  assert.match(page, /method: "PATCH"/);
+  assert.match(page, /taskMutationPending/);
+  assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(route, /export async function DELETE/);
+  assert.match(tasks, /workflow_task_bootstrap/);
+  assert.match(tasks, /DELETE FROM workflow_tasks/);
+  assert.match(migration, /CREATE TABLE `workflow_tasks`/);
 });
 
 test("opens read-only data while keeping operational writes administrator-only", async () => {

@@ -145,7 +145,15 @@ $openButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
 $openButton.Size = New-Object System.Drawing.Size(115, 42)
 $openButton.Location = New-Object System.Drawing.Point(285, 194)
 
-$form.Controls.AddRange(@($title, $subtitle, $statusDot, $status, $details, $startButton, $stopButton, $openButton))
+$runContinueButton = New-Object System.Windows.Forms.Button
+$runContinueButton.Text = "执行待处理继续任务"
+$runContinueButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
+$runContinueButton.Size = New-Object System.Drawing.Size(175, 34)
+$runContinueButton.Location = New-Object System.Drawing.Point(31, 240)
+$runContinueButton.Enabled = $true
+
+$form.ClientSize = New-Object System.Drawing.Size(430, 285)
+$form.Controls.AddRange(@($title, $subtitle, $statusDot, $status, $details, $startButton, $stopButton, $openButton, $runContinueButton))
 
 function Update-Status {
   $systemState = Get-SystemState
@@ -234,6 +242,31 @@ $openButton.Add_Click({
   } else {
     Update-Status
   }
+})
+
+$runContinueButton.Add_Click({
+  $nodeExecutable = Get-NodeExecutable
+  if (-not $nodeExecutable) {
+    [System.Windows.Forms.MessageBox]::Show("未找到 Node.js。请安装 Node.js 22.13 或更高版本后重试。", "无法执行", "OK", "Error") | Out-Null
+    return
+  }
+
+  $helperScript = Join-Path $ProjectRoot "tools\jackyun-continue-helper.ts"
+  if (-not (Test-Path $helperScript)) {
+    [System.Windows.Forms.MessageBox]::Show("未找到继续任务脚本。", "无法执行", "OK", "Error") | Out-Null
+    return
+  }
+
+  $runContinueButton.Enabled = $false
+  $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(28, 118, 235)
+  $status.Text = "正在执行待处理任务…"
+  $details.Text = "请保持吉客云已登录状态。"
+  $form.Refresh()
+
+  Start-Process -FilePath $nodeExecutable -ArgumentList @("--import", "tsx", $helperScript) -WorkingDirectory $ProjectRoot -WindowStyle Hidden | Out-Null
+  Start-Sleep -Milliseconds 500
+  Update-Status
+  $runContinueButton.Enabled = $true
 })
 
 $statusTimer = New-Object System.Windows.Forms.Timer

@@ -421,6 +421,9 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
       yearAgo: yearAgoAmount,
       sortOrder: currentExpenses.get(name)?.sortOrder ?? previousExpenses?.get(name)?.sortOrder ?? yearAgoExpenses?.get(name)?.sortOrder ?? 0,
       feeRateBps: current.netSalesCents === 0 ? 0 : Math.round(currentAmount / current.netSalesCents * 10_000),
+      yearAgoFeeRateBps: yearAgoExpenses && yearAgo && yearAgo.netSalesCents !== 0
+        ? Math.round(yearAgoAmount! / yearAgo.netSalesCents * 10_000)
+        : null,
       momRate,
       yoyRate: changeRate(currentAmount, yearAgoAmount),
       abnormal: previousAmount !== null

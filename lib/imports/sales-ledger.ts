@@ -8,9 +8,11 @@ import {
 export const MAX_SALES_LEDGER_ROWS = 500_000;
 
 export const GEEKCLOUD_SALES_LEDGER_REQUIRED_HEADERS = Object.freeze([
-  "订单编号",
+  "网店订单号",
   "销售渠道",
+  "发货仓库",
   "货品编号",
+  "货品名称",
   "数量",
   "下单时间",
   "货品成本",
@@ -19,6 +21,9 @@ export const GEEKCLOUD_SALES_LEDGER_REQUIRED_HEADERS = Object.freeze([
   "费用分摊",
   "毛利",
 ] as const);
+
+/** 吉客云导出中"网店订单号"的已知别名；按优先级排列，第一个为规范名。 */
+const ONLINE_ORDER_NO_ALIASES = ["网店订单号", "订单编号"] as const;
 
 export type SalesBusinessType = "sale" | "return";
 
@@ -292,17 +297,29 @@ function locateHeader(rows: XlsxRow[]): HeaderLocation {
   let bestHeaders: string[] = [];
   let bestMatchedCount = -1;
   const required = new Set<string>(GEEKCLOUD_SALES_LEDGER_REQUIRED_HEADERS);
+  /** 将别名映射为规范名，用于匹配和索引。 */
+  const aliasToCanonical = new Map<string, string>();
+  for (const aliases of [ONLINE_ORDER_NO_ALIASES]) {
+    for (let i = 1; i < aliases.length; i += 1) {
+      aliasToCanonical.set(aliases[i], aliases[0]);
+    }
+  }
 
   for (let rowIndex = 0; rowIndex < Math.min(rows.length, HEADER_SEARCH_ROWS); rowIndex += 1) {
     const sourceHeaders = rows[rowIndex].cells.map(normalizeHeader);
-    // 2025 年 ERP 同时导出“货品分类”和更细的“货品细分”时，以货品细分
+    const hasCanonicalOnlineOrderNo = sourceHeaders.includes(ONLINE_ORDER_NO_ALIASES[0]);
+    // 2025 年 ERP 同时导出"货品分类"和更细的"货品细分"时，以货品细分
     // 作为销售分析统一使用的货品分类，避免同名字段发生歧义。
     const hasProductSubdivision = sourceHeaders.includes("货品细分");
     const headers = sourceHeaders.map((header) => {
       if (header === "货品细分") return "货品分类";
-      return hasProductSubdivision && header === "货品分类" ? "" : header;
+      if (hasProductSubdivision && header === "货品分类") return "";
+      // 别名归一化："订单编号" → "网店订单号"
+      const canonical = aliasToCanonical.get(header);
+      if (canonical && !(canonical === ONLINE_ORDER_NO_ALIASES[0] && hasCanonicalOnlineOrderNo)) return canonical;
+      return header;
     });
-    const matchedCount = headers.reduce((count, header) => count + (required.has(header) ? 1 : 0), 0);
+    const matchedCount = new Set(headers.filter((header) => required.has(header))).size;
     if (matchedCount > bestMatchedCount) {
       bestMatchedCount = matchedCount;
       bestHeaders = headers;
@@ -366,7 +383,8 @@ function parseSalesRow(
   errors: SalesLedgerRowError[],
 ): ParsedRowDraft | null {
   const beforeErrors = errors.length;
-  const orderNo = requiredText(reader, "订单编号", "orderNo", sourceRowNumber, errors);
+  const onlineOrderNo = reader.text("网店订单号");
+  const orderNo = reader.text("订单编号") || onlineOrderNo || `AUTO-${sourceRowNumber}`;
   const channel = requiredText(reader, "销售渠道", "channel", sourceRowNumber, errors);
   const productName = reader.text("货品名称");
   const sourceProductCode = reader.text("货品编号");
@@ -469,11 +487,11 @@ function parseSalesRow(
   const platform = normalizePlatform(channel);
   return {
     orderNo,
-    onlineOrderNo: reader.text("网店订单号"),
+    onlineOrderNo,
     // All operating views use the ERP shipment date as their single date
     // dimension. Keep salesTime aligned for downstream consumers that still
     // read this legacy field.
-    salesTime: shipTime ?? lineShipTime ?? orderTime,
+    salesTime: shipTime ?? orderTime,
     orderTime,
     shipTime,
     lineShipTime,

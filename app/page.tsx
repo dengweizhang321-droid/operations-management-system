@@ -132,16 +132,24 @@ type ProductSummaryItem = {
   outlets: Array<{ platform: string; shop: string }>;
   netQuantity: number;
   grossSalesCents: number;
+  refundAmountCents: number;
   netSalesCents: number;
   costCents: number;
   feeCents: number;
   grossProfitCents: number;
   grossMarginRate: number | null;
+  refundRate: number;
   averageSalePriceCents: number | null;
   averageCostCents: number | null;
   observedFeeRate: number | null;
   availableQuantity: number | null;
   stockValueCents: number | null;
+};
+
+type ProductShopFilterOption = {
+  key: string;
+  platform: string;
+  shop: string;
 };
 
 type ProductSummaryResponse = {
@@ -155,7 +163,8 @@ type ProductSummaryResponse = {
     inventoryAsOf: string | null;
     latestSalesFile: string | null;
   };
-  filters: { platforms: string[]; shops: string[] };
+  filters: { platforms: string[]; shops: ProductShopFilterOption[] };
+  filtersApplied: { platforms: string[]; shops: ProductShopFilterOption[] };
   metrics: {
     skuCount: number;
     grossSalesCents: number;
@@ -164,6 +173,12 @@ type ProductSummaryResponse = {
     grossMarginRate: number | null;
     lossSkuCount: number;
     stockedSkuCount: number;
+    marginBuckets: {
+      below35Count: number;
+      between35And40Count: number;
+      between40And45Count: number;
+      atLeast45Count: number;
+    };
   };
   items: ProductSummaryItem[];
 };
@@ -350,7 +365,7 @@ type ImportHistoryResponse = {
 
 type InventoryImportHistoryItem = Pick<SalesImportBatch, "id" | "fileName" | "status" | "rowCount" | "insertedCount" | "warningCount" | "createdAt" | "completedAt"> & { snapshotDate: string };
 
-type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance";
+type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance" | "jd_sku" | "jd_sku_images";
 
 type ErpReferenceImportBatch = {
   id: string;
@@ -418,6 +433,54 @@ type UnifiedHistoryItem = {
   warningCount: number;
   createdAt: string;
   completedAt?: string | null;
+};
+
+type NetshopImportHistoryItem = {
+  id: string;
+  source: string;
+  fileName: string;
+  fileSizeBytes: number;
+  sheetName?: string | null;
+  snapshotDate?: string | null;
+  status: string;
+  rowCount: number;
+  insertedCount: number;
+  duplicateCount: number;
+  warningCount: number;
+  warnings?: ImportIssue[];
+  createdAt: string;
+  completedAt?: string | null;
+};
+
+type JdSkuCatalogItem = {
+  shopName: string;
+  skuId: string;
+  productCode: string;
+  productName: string;
+  imageUrl: string;
+  saleAttribute: string;
+  category: string;
+  brand: string;
+  price: number | null;
+  totalInventory: number | null;
+  availableInventory: number | null;
+  status: string;
+  productUrl: string;
+  createdAt: string;
+  costPriceCents: number | null;
+  netSalesCents: number | null;
+  grossMarginRate: number | null;
+  refundRate: number | null;
+  salesMatched: boolean;
+};
+
+type JdSkuCatalogResponse = {
+  batch: Pick<NetshopImportHistoryItem, "fileName" | "snapshotDate" | "rowCount" | "completedAt"> | null;
+  summary: { totalSkus: number; onSaleSkus: number; totalInventory: number; availableInventory: number };
+  shops: Array<{ shopName: string; platform: string; snapshotDate: string | null; completedAt: string | null }>;
+  sales: { periodStart: string | null; periodEnd: string | null; dataCutoffDate: string | null; platform: string };
+  items: JdSkuCatalogItem[];
+  pagination: { page: number; pageSize: number; total: number };
 };
 
 type FinanceActualMetrics = {
@@ -489,7 +552,7 @@ type FinanceAnalysisResponse = {
   timeline: Array<{ month: string } & FinanceActualMetrics>;
   targets?: { month: FinanceTargetTotals; year: FinanceTargetTotals; projects: FinanceTarget[] };
   progress?: { month: FinanceProgress; year: FinanceProgress };
-  expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; feeRateBps: number; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
+  expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; feeRateBps: number; yearAgoFeeRateBps: number | null; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
   shops: Array<{ name: string; groupName: string; manager: string; actual: FinanceActualMetrics; target: FinanceTargetTotals; progress: FinanceProgress }>;
   anomalies: Array<{ level: "critical" | "warning" | "info"; title: string; detail: string }>;
   filters?: { platforms: string[]; shops: Array<{ name: string; platform: string }> };
@@ -535,6 +598,7 @@ const MAX_INVENTORY_FILE_SIZE = 20 * 1024 * 1024;
 const DIRECT_INVENTORY_FILE_SIZE = 1024 * 1024;
 const INVENTORY_UPLOAD_CHUNK_SIZE = 1024 * 1024;
 const MAX_FINANCE_FILE_SIZE = 8 * 1024 * 1024;
+const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
@@ -555,6 +619,8 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const formatCurrencyFromCents = (value = 0) => formatCurrency(value / 100);
+const formatOptionalCurrencyFromCents = (value?: number | null) => value === null || value === undefined ? "—" : formatCurrencyFromCents(value);
+const formatOptionalRate = (value?: number | null) => value === null || value === undefined ? "—" : formatRate(value);
 const formatCount = (value = 0) => new Intl.NumberFormat("zh-CN").format(value);
 const rateAsPercent = (value = 0) => value * 100;
 const formatRate = (value = 0) => `${rateAsPercent(value).toFixed(1)}%`;
@@ -589,6 +655,18 @@ const selectedMonthPeriod = (month: string) => {
   const [year, monthNumber] = month.split("-").map(Number);
   const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
   return { startDate: `${month}-01`, endDate: `${month}-${String(lastDay).padStart(2, "0")}` };
+};
+const skuSalesPeriod = (range: SalesRangeLabel, customStartDate: string, customEndDate: string) => {
+  const today = shanghaiIsoToday();
+  if (range === "今日") return { startDate: today, endDate: today };
+  if (range === "昨天") {
+    const yesterday = addIsoDays(today, -1);
+    return { startDate: yesterday, endDate: yesterday };
+  }
+  if (range === "近7天") return { startDate: addIsoDays(today, -6), endDate: today };
+  if (range === "近15天") return { startDate: addIsoDays(today, -14), endDate: today };
+  if (range === "月度" || range === "自定义") return { startDate: customStartDate, endDate: customEndDate };
+  return { startDate: `${today.slice(0, 7)}-01`, endDate: today };
 };
 
 function useDebouncedValue<T>(value: T, delay = 260) {
@@ -1133,9 +1211,95 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKey, onSelectOutlet
   </>;
 }
 
-type OutletTab = "analysis" | "outlets" | "platforms";
+function ShopSkuView({
+  onOpenImport,
+  range,
+  customStartDate,
+  customEndDate,
+}: {
+  onOpenImport: () => void;
+  range: SalesRangeLabel;
+  customStartDate: string;
+  customEndDate: string;
+}) {
+  const [catalog, setCatalog] = useState<JdSkuCatalogResponse | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedShop, setSelectedShop] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 280);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const salesPeriod = useMemo(
+    () => skuSalesPeriod(range, customStartDate, customEndDate),
+    [customEndDate, customStartDate, range],
+  );
 
-function ShopView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: "50" });
+      params.set("startDate", salesPeriod.startDate);
+      params.set("endDate", salesPeriod.endDate);
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      if (selectedShop) params.set("shop", selectedShop);
+      const response = await fetch("/api/netshop/products?" + params.toString(), { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as (JdSkuCatalogResponse & { error?: string }) | null;
+      if (!response.ok || !payload?.summary || !Array.isArray(payload.items)) {
+        throw new Error(payload?.error || "京东 SKU 数据读取失败（" + response.status + "）");
+      }
+      setCatalog(payload);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "暂时无法读取京东 SKU 数据");
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedQuery, page, salesPeriod.endDate, salesPeriod.startDate, selectedShop]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load, retryKey]);
+
+  if (loading && !catalog) {
+    return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取京东店铺商品 SKU</strong><p>正在加载最近一次成功导入的商品目录与当前统计周期经营指标…</p></section>;
+  }
+  if (error && !catalog) {
+    return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>京东 SKU 数据加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
+  }
+  if (!catalog?.batch) {
+    return <section className="panel data-state"><span className="state-symbol">京</span><strong>尚未导入京东店铺商品 SKU</strong><p>请先上传京东后台“导出查询商品 → SKU 导出”生成的 Excel 文件；导入完成后会在这里展示 SKU 与经营指标。</p><button className="primary-button" onClick={onOpenImport}>前往导入京东 SKU</button></section>;
+  }
+
+  const { summary, pagination } = catalog;
+  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
+  const shops = catalog.shops ?? [];
+  const sales = catalog.sales;
+  return <>
+    <section className="panel jd-sku-hero">
+      <div><span className="eyebrow">JD PRODUCT CATALOG</span><h2>京东店铺商品 SKU</h2><p>商品目录来自最近一次成功导入的 SKU 文件；经营指标按顶部统计周期汇总京东平台已导入销售明细。</p></div>
+      <div className="jd-sku-hero-actions"><span><Dot tone="green" />已同步 {catalog.batch.snapshotDate ?? "最新"} 快照</span><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新"}</button><button type="button" className="primary-button" onClick={onOpenImport}>＋ 导入新 SKU 文件</button></div>
+    </section>
+    <section className="metrics-grid jd-sku-metrics">
+      <MetricCard label="SKU 总数" value={formatCount(summary.totalSkus) + " 个"} change="已同步" hint={"文件：" + catalog.batch.fileName} tone="blue" />
+      <MetricCard label="上架 SKU" value={formatCount(summary.onSaleSkus) + " 个"} change="当前状态" hint="以京东商品状态字段为准" tone="green" />
+      <MetricCard label="商品总库存" value={formatCount(summary.totalInventory)} change="最新快照" hint="SKU 商品总库存汇总" tone="purple" />
+      <MetricCard label="商品可用库存" value={formatCount(summary.availableInventory)} change="最新快照" hint={"导入完成：" + formatDateTime(catalog.batch.completedAt)} tone="orange" />
+    </section>
+    {sales?.periodStart && sales?.periodEnd && <section className="jd-sku-sales-context"><strong>经营指标口径</strong><span>{sales.platform}平台已导入销售明细 · 统计周期 {sales.periodStart} 至 {sales.periodEnd} · 数据截止 {sales.dataCutoffDate ?? "暂无"}</span><small>成本价为当前周期销量加权成本；净销售额、毛利率与退货率均不按店铺名称推算。</small></section>}
+    {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((value) => value + 1)}>重试</button></section>}
+    <section className="panel table-panel jd-sku-table-panel">
+      <div className="table-toolbar jd-sku-toolbar"><div><h2>SKU 商品目录</h2><p>共 {formatCount(pagination.total)} 条；可按店铺名称、SKU、商品编码或商品名称搜索。</p></div><div className="jd-sku-toolbar-actions"><label className="jd-sku-store-select"><span>店铺</span><select value={selectedShop} onChange={(event) => { setSelectedShop(event.target.value); setPage(1); }} aria-label="按店铺名称筛选"><option value="">全部店铺</option>{shops.map((shop) => <option key={shop.platform + "-" + shop.shopName} value={shop.shopName}>{shop.shopName || "未命名店铺"}</option>)}</select></label><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、商品编码或名称" aria-label="搜索京东商品 SKU" /></label></div></div>
+      <div className="data-table-wrap"><table className="data-table jd-sku-data-table"><thead><tr><th>SKU图</th><th>店铺名称</th><th>SKU ID</th><th>商品编码</th><th>商品名称 / 销售属性</th><th>成本价</th><th>净销售额</th><th>大毛利率</th><th>退货率</th><th>类目</th><th>商品状态</th></tr></thead><tbody>{catalog.items.map((item) => { const link = item.productUrl ? (item.productUrl.startsWith("http") ? item.productUrl : "https://" + item.productUrl) : ""; const isOnSale = item.status === "上架"; const thumb = item.imageUrl ? <img className="jd-sku-thumb" src={item.imageUrl} alt={item.productName ? `${item.productName} SKU 主图` : "SKU 主图"} loading="lazy" referrerPolicy="no-referrer" /> : <span className="jd-sku-thumb jd-sku-thumb-missing" title="请在数据导入中补充京东 SKU 主图文件">暂无主图</span>; return <tr key={item.skuId}><td>{link ? <a className="jd-sku-thumb-link" href={link} target="_blank" rel="noreferrer">{thumb}</a> : thumb}</td><td><span className="jd-sku-shop-name" title={item.shopName}>{item.shopName || "未命名店铺"}</span></td><td>{link ? <a className="jd-sku-link" href={link} target="_blank" rel="noreferrer">{item.skuId}</a> : item.skuId || "—"}</td><td>{item.productCode || "—"}</td><td><div className="jd-sku-product-name"><strong title={item.productName}>{item.productName || "未命名商品"}</strong><small>{item.saleAttribute || item.brand || "—"}</small></div></td><td className="jd-sku-money-cell"><strong>{formatOptionalCurrencyFromCents(item.costPriceCents)}</strong>{!item.salesMatched && <small>本周期暂无</small>}</td><td className="jd-sku-money-cell"><strong>{formatOptionalCurrencyFromCents(item.netSalesCents)}</strong></td><td className={item.grossMarginRate !== null && item.grossMarginRate < 0 ? "red-text" : item.grossMarginRate !== null && item.grossMarginRate < 0.35 ? "orange-text" : "green-text"}><strong>{formatOptionalRate(item.grossMarginRate)}</strong></td><td className={item.refundRate !== null && item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatOptionalRate(item.refundRate)}</strong></td><td><span className="jd-sku-category" title={item.category}>{item.category || "—"}</span></td><td><span className={"status " + (isOnSale ? "status-success" : "status-warning")}><Dot tone={isOnSale ? "green" : "orange"} />{item.status || "未标记"}</span></td></tr>; })}{!loading && catalog.items.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的 SKU 数据。</div></td></tr>}{loading && <tr><td colSpan={11}><div className="table-state"><span className="state-spinner" />正在刷新 SKU 目录…</div></td></tr>}</tbody></table></div>
+      <footer className="jd-sku-pagination"><span>第 {pagination.page} / {totalPages} 页</span><div><button type="button" className="row-action" disabled={loading || pagination.page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || pagination.page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</button></div></footer>
+    </section>
+  </>;
+}
+
+type OutletTab = "analysis" | "outlets" | "platforms" | "products";
+
+function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey) => void }) {
   const apiRange = salesRangeMap[range];
   const [activeTab, setActiveTab] = useState<OutletTab>("analysis");
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
@@ -1207,7 +1371,9 @@ function ShopView({ range, customStartDate, customEndDate }: { range: SalesRange
   const rowLabel = activeTab === "outlets" ? "网店" : "平台";
   const rangeNote = summary ? `${summary.startDate} 至 ${summary.endDate}` : range;
 
-  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => setActiveTab("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button><button type="button" disabled title="待接入网店商品报表">商品数据</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入推广报表">推广分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
+  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => setActiveTab("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button><button type="button" role="tab" aria-selected={activeTab === "products"} className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>商品数据</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入推广报表">推广分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
+
+  if (activeTab === "products") return <>{subnav}<ShopSkuView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenImport={() => onNavigate("import")} /></>;
 
   if (loading && !summary) return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步网店经营数据</strong><p>正在汇总已导入销售明细中的网店、平台、毛利与退货信息…</p></section></>;
   if (!summary || !analysisSummary) return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>网店数据加载失败</strong><p>{error || "暂时无法读取网店数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;
@@ -1478,6 +1644,7 @@ function ProductSalesTrend({ daily, selectedCodeCount }: { daily: Array<{ date: 
       if (points.length === 0 || selectedMetrics.length === 0) return;
       const xFor = (index: number) => points.length === 1 ? (plot.left + plot.right) / 2 : plot.left + (plot.right - plot.left) * index / (points.length - 1);
       const metricValue = (point: ProductTrendPoint, metric: TrendMetric) => metric === "netSales" ? point.netSalesCents / 100 : metric === "netQuantity" ? point.netQuantity : point.grossMarginRate * 100;
+      const showPointLabels = points.length <= 12;
       for (const [metricIndex, metric] of selectedMetrics.entries()) {
         const values = points.map((point) => metricValue(point, metric));
         const minimum = Math.min(0, ...values);
@@ -1499,6 +1666,7 @@ function ProductSalesTrend({ daily, selectedCodeCount }: { daily: Array<{ date: 
           const y = plot.bottom - (value - minimum) / span * (plot.bottom - plot.top);
           context.fillStyle = "#fff"; context.strokeStyle = trendMetricMeta[metric].color; context.lineWidth = 2;
           context.beginPath(); context.arc(x, y, 3, 0, Math.PI * 2); context.fill(); context.stroke();
+          if (!showPointLabels) return;
           const point = points[index];
           const valueLabel = metric === "netSales" ? formatCurrencyFromCents(point.netSalesCents) : metric === "netQuantity" ? `${formatCount(point.netQuantity)}件` : formatRate(point.grossMarginRate);
           const labelY = Math.max(plot.top + 10, y - 10 - metricIndex * 12);
@@ -1592,6 +1760,23 @@ function ShopSalesDistribution({ shops }: { shops: SalesChannel[] }) {
   const label = dimension === "shop" ? "店铺" : "平台";
   const countLabel = dimension === "shop" ? "家店铺" : "个平台";
   return <section className="panel shop-sales-distribution"><div className="shop-distribution-header"><div><span className="eyebrow">SALES DISTRIBUTION</span><h2>销售分布</h2><p>可切换店铺或平台维度；净销量已按退货后的销量计算。</p></div><div className="shop-distribution-actions"><div className="segmented shop-distribution-dimension" role="group" aria-label="销售分布维度"><button type="button" className={dimension === "shop" ? "active" : ""} onClick={() => setDimension("shop")}>店铺维度</button><button type="button" className={dimension === "platform" ? "active" : ""} onClick={() => setDimension("platform")}>平台维度</button></div><span className="soft-tag">{formatCount(sortedRows.length)} {countLabel}</span></div></div><div className="shop-distribution-columns"><span>{label}</span><span>净销售额</span><span>净销量</span><span>退货率</span></div><div className="shop-distribution-list">{sortedRows.map((row) => <article key={`${dimension}-${row.platform}-${row.name}`}><div className="shop-distribution-name"><strong title={row.name}>{row.name}</strong><small>{dimension === "shop" ? row.platform : `${formatCount(row.shopCount)} 家店铺`}<i><b style={{ width: `${Math.max(2, Math.max(0, row.netSalesCents) / maxNetSales * 100)}%` }} /></i></small></div><strong>{formatCurrencyFromCents(row.netSalesCents)}</strong><span>{formatCount(row.netQuantity)}</span><em className={row.refundRate > .1 ? "orange-text" : ""}>{formatRate(row.refundRate)}</em></article>)}{sortedRows.length === 0 && <div className="shop-distribution-empty">当前筛选条件没有{label}销售记录。</div>}</div></section>;
+}
+
+function ProductPlatformSalesShare({ platforms }: { platforms: SalesChannel[] }) {
+  const rows = useMemo(
+    () => [...platforms].sort((left, right) => right.grossSalesCents - left.grossSalesCents),
+    [platforms],
+  );
+  const totalSalesCents = rows.reduce((sum, item) => sum + item.grossSalesCents, 0);
+
+  return <section className="panel product-platform-sales-share">
+    <div className="product-platform-share-header"><div><span className="eyebrow">PLATFORM MIX</span><h2>平台销售占比</h2><p>按正向销售额计算；退货额在下方店铺销售分布中单独展示。</p></div><span className="soft-tag">{formatCount(rows.length)} 个平台</span></div>
+    <div className="product-platform-share-columns"><span>平台</span><span>销售额</span><span>占比</span></div>
+    <div className="product-platform-share-list">{rows.map((row) => {
+      const shareRate = totalSalesCents > 0 ? row.grossSalesCents / totalSalesCents : 0;
+      return <article key={`${row.platform}-${row.groupKey}`}><div><strong title={row.name}>{row.name || "未分类"}</strong><i><b style={{ width: `${Math.max(2, Math.min(100, shareRate * 100))}%` }} /></i></div><strong>{formatCurrencyFromCents(row.grossSalesCents)}</strong><span>{formatRate(shareRate)}</span></article>;
+    })}{rows.length === 0 && <div className="product-platform-share-empty">当前规格在所选周期内没有平台销售记录。</div>}</div>
+  </section>;
 }
 
 function ProductCodeSearch({ value, onChange, codeCount }: { value: string; onChange: (value: string) => void; codeCount: number }) {
@@ -1706,7 +1891,7 @@ function FinanceMultiFilterSelect({ label, allLabel, options, selected, onChange
   </div>;
 }
 
-type FinanceExpenseSortKey = "name" | "current" | "feeRateBps" | "previous" | "momRate" | "yearAgo" | "yoyRate" | "abnormal";
+type FinanceExpenseSortKey = "name" | "current" | "feeRateBps" | "previous" | "momRate" | "yearAgo" | "yearAgoFeeRateBps" | "yoyRate" | "abnormal";
 
 function FinanceSortButton({ label, column, activeColumn, direction, onSort }: {
   label: string;
@@ -1723,6 +1908,7 @@ function FinanceAnalysisView() {
   const [selectedMonths, setSelectedMonths] = useState<string[] | null | undefined>(undefined);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[] | null>(null);
   const [selectedShops, setSelectedShops] = useState<string[] | null>(null);
+  const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseSort, setExpenseSort] = useState<{ column: FinanceExpenseSortKey; direction: "asc" | "desc" }>({ column: "current", direction: "desc" });
   const [data, setData] = useState<FinanceAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1778,7 +1964,12 @@ function FinanceAnalysisView() {
     setSelectedPlatforms(next);
     setSelectedShops(null);
   };
-  const expenseRows = [...data.expenses].sort((left, right) => {
+  const normalizedExpenseSearch = expenseSearch.trim().toLocaleLowerCase("zh-CN");
+  const expenseRows = data.expenses.filter((item) => {
+    if (!normalizedExpenseSearch) return true;
+    const displayName = item.name.replace(/^销售费用_/, "").replaceAll("_", " / ");
+    return `${item.name} ${displayName}`.toLocaleLowerCase("zh-CN").includes(normalizedExpenseSearch);
+  }).sort((left, right) => {
     if (expenseSort.column === "name") {
       const result = left.name.localeCompare(right.name, "zh-CN");
       return expenseSort.direction === "asc" ? result : -result;
@@ -1822,9 +2013,34 @@ function FinanceAnalysisView() {
       <article className="panel finance-anomaly-panel"><div className="finance-panel-heading"><div><span className="eyebrow">EXCEPTION WATCH</span><h2>{selectedPeriodName}异常雷达</h2><p>按利润、目标差距及费用环比阈值自动识别。</p></div><span className="soft-tag">{data.anomalies.length} 项</span></div><div className="finance-anomaly-list">{data.anomalies.map((item, index) => <div className={`finance-anomaly ${item.level}`} key={`${item.title}-${index}`}><i>{item.level === "critical" ? "!" : item.level === "warning" ? "△" : "i"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</div></article>
     </section>
     <section className="panel finance-expense-panel">
-      <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">共 {expenseRows.length} 项</span></div>
+      <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${data.expenses.length} 项` : `共 ${expenseRows.length} 项`}</span></div>
       <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份、平台与店铺支持多选，所有指标同步更新</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /><button type="button" className="finance-filter-reset" onClick={() => { setSelectedMonths([data.months.at(-1)!.month]); setSelectedPlatforms(null); setSelectedShops(null); }}>重置筛选</button></div>
-      <div className="data-table-wrap finance-expense-scroll"><table className="data-table finance-expense-table"><thead><tr><th><FinanceSortButton label="费用科目" column="name" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "所选期间金额" : "本月金额"} column="current" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="费用率" column="feeRateBps" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "上期金额" : "上月金额"} column="previous" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="环比" column="momRate" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="去年同期" column="yearAgo" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="同比" column="yoyRate" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th><th><FinanceSortButton label="状态" column="abnormal" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th></tr></thead><tbody>{expenseRows.map((item) => <tr key={item.name}><td><strong title={item.name}>{item.name.replace(/^销售费用_/, "").replaceAll("_", " / ")}</strong></td><td>{formatCurrencyFromCents(item.current)}</td><td><strong className="finance-fee-rate">{formatFinanceBps(item.feeRateBps)}</strong></td><td>{item.previous === null ? "—" : formatCurrencyFromCents(item.previous)}</td><td className={item.momRate === null ? "muted-text" : item.momRate > 0 ? "orange-text" : "green-text"}>{item.momRate === null ? "—" : `${item.momRate >= 0 ? "+" : ""}${(item.momRate * 100).toFixed(1)}%`}</td><td>{item.yearAgo === null ? "—" : formatCurrencyFromCents(item.yearAgo)}</td><td>{item.yoyRate === null ? "—" : `${item.yoyRate >= 0 ? "+" : ""}${(item.yoyRate * 100).toFixed(1)}%`}</td><td><span className={`status ${item.abnormal ? "status-warning" : "status-success"}`}><Dot tone={item.abnormal ? "orange" : "green"} />{item.abnormal ? "波动异常" : "正常"}</span></td></tr>)}</tbody></table></div>
+      <div className="data-table-wrap finance-expense-scroll">
+        <table className="data-table finance-expense-table">
+          <thead><tr>
+            <th><div className="finance-expense-name-head"><FinanceSortButton label="费用科目" column="name" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /><label className="finance-expense-name-search"><span aria-hidden="true">⌕</span><input type="search" value={expenseSearch} onChange={(event) => setExpenseSearch(event.target.value)} placeholder="搜索费用名称" aria-label="搜索费用名称" /></label></div></th>
+            <th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "所选期间金额" : "本月金额"} column="current" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label="费用率" column="feeRateBps" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "上期金额" : "上月金额"} column="previous" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label="环比" column="momRate" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label="去年同期" column="yearAgo" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label="同期费率" column="yearAgoFeeRateBps" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label="同比" column="yoyRate" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+            <th><FinanceSortButton label="状态" column="abnormal" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
+          </tr></thead>
+          <tbody>{expenseRows.map((item) => <tr key={item.name}>
+            <td><strong title={item.name}>{item.name.replace(/^销售费用_/, "").replaceAll("_", " / ")}</strong></td>
+            <td>{formatCurrencyFromCents(item.current)}</td>
+            <td><strong className="finance-fee-rate">{formatFinanceBps(item.feeRateBps)}</strong></td>
+            <td>{item.previous === null ? "—" : formatCurrencyFromCents(item.previous)}</td>
+            <td className={item.momRate === null ? "muted-text" : item.momRate > 0 ? "orange-text" : "green-text"}>{item.momRate === null ? "—" : `${item.momRate >= 0 ? "+" : ""}${(item.momRate * 100).toFixed(1)}%`}</td>
+            <td>{item.yearAgo === null ? "—" : formatCurrencyFromCents(item.yearAgo)}</td>
+            <td><strong className="finance-fee-rate">{item.yearAgoFeeRateBps === null ? "—" : formatFinanceBps(item.yearAgoFeeRateBps)}</strong></td>
+            <td>{item.yoyRate === null ? "—" : `${item.yoyRate >= 0 ? "+" : ""}${(item.yoyRate * 100).toFixed(1)}%`}</td>
+            <td><span className={`status ${item.abnormal ? "status-warning" : "status-success"}`}><Dot tone={item.abnormal ? "orange" : "green"} />{item.abnormal ? "波动异常" : "正常"}</span></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
     </section>
     <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.name}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
   </div>;
@@ -2547,9 +2763,10 @@ function InventoryView() {
   );
 }
 
-type ProductTab = "overview" | "calculator";
+type ProductTab = "overview" | "calculator" | "detail";
 type ProductTimeRange = "last30" | "last90" | "halfYear" | "custom";
 type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
+type ProductMarginFilter = "全部毛利" | "低于35%" | "35%-40%" | "40%-45%" | "45%以上" | "暂无有效毛利率";
 
 type MultiFilterOption = string | { value: string; label: string };
 
@@ -2561,6 +2778,47 @@ function MultiFilterSelect({ label, allLabel, ariaLabel, options, selected, onCh
   const toggleOption = (option: string) => onChange(selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option]);
   const summary = selected.length === 0 ? allLabel : `已选 ${formatCount(selected.length)} 个${label}`;
   return <div className={`multi-filter-select ${open ? "open" : ""}`}><button type="button" className="multi-filter-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={() => { setOpen((value) => !value); setSearch(""); }}><span title={summary}>{summary}</span><i>⌄</i></button>{open && <div className="multi-filter-menu" role="listbox" aria-label={`${ariaLabel}多选`} aria-multiselectable="true"><div className="multi-filter-menu-head"><strong>{label}筛选</strong><button type="button" onClick={() => onChange([])} disabled={selected.length === 0}>清空</button></div><label className="multi-filter-search">⌕<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`搜索${label}`} aria-label={`搜索${label}`} /></label><button type="button" className={selected.length === 0 ? "selected" : ""} role="option" aria-selected={selected.length === 0} onClick={() => onChange([])}><i>{selected.length === 0 ? "✓" : ""}</i>{allLabel}</button>{visibleOptions.map((option) => <button type="button" key={option.value} className={selected.includes(option.value) ? "selected" : ""} role="option" aria-selected={selected.includes(option.value)} onClick={() => toggleOption(option.value)}><i>{selected.includes(option.value) ? "✓" : ""}</i><span title={option.label}>{option.label}</span></button>)}{visibleOptions.length === 0 && <p className="multi-filter-menu-empty">没有匹配项</p>}</div>}</div>;
+}
+
+function ProductDetailView({
+  item,
+  detail,
+  loading,
+  error,
+  rangeLabel,
+  onBack,
+  onRetry,
+}: {
+  item: ProductSummaryItem;
+  detail: SalesSummaryResponse | null;
+  loading: boolean;
+  error: string;
+  rangeLabel: string;
+  onBack: () => void;
+  onRetry: () => void;
+}) {
+  return <>
+    <section className="panel product-detail-heading">
+      <button type="button" className="product-detail-back" onClick={onBack}>← 返回商品经营</button>
+      <div className="product-detail-heading-main"><div className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</div><div><span className="eyebrow">SPECIFICATION DETAIL</span><h2 title={item.productName}>{item.productName}</h2><p><b>规格代码：{item.productCode}</b>{item.specification ? ` · ${item.specification}` : " · 默认规格"}</p></div></div>
+      <div className="product-detail-heading-meta"><strong>{rangeLabel}</strong><span>{detail ? `${detail.startDate} 至 ${detail.endDate}` : "正在载入统计周期"}</span><small>可通过上方周期切换查看趋势</small></div>
+    </section>
+
+    {loading && !detail && <section className="panel data-state product-detail-state" role="status"><span className="state-spinner" /><strong>正在汇总该规格的销售明细</strong><p>正在读取销量、销售额、平台和店铺分布…</p></section>}
+    {!loading && !detail && <section className="panel data-state data-state-error product-detail-state" role="alert"><span className="state-symbol">!</span><strong>规格详情加载失败</strong><p>{error || "暂时无法读取该规格的销售明细"}</p><button className="secondary-button" onClick={onRetry}>重新加载</button></section>}
+
+    {detail && <>
+      {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>详情刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={onRetry}>重试</button></section>}
+      <section className="inventory-kpi-grid product-detail-kpi-grid">
+        <InventoryKpiCard label={`${rangeLabel}销量`} value={`${formatCount(detail.current.netQuantity)} 件`} note="按净销量统计，已扣除退货数量" tone="blue" icon="量" />
+        <InventoryKpiCard label="销售额（GMV）" value={formatCurrencyFromCents(detail.current.grossSalesCents)} note="正向销售金额，未扣除退货" tone="purple" icon="销" />
+        <InventoryKpiCard label="销售净额" value={formatCurrencyFromCents(detail.current.netSalesCents)} note={`退货金额 ${formatCurrencyFromCents(detail.current.refundAmountCents)}`} tone="green" icon="净" />
+        <InventoryKpiCard label="退货率" value={formatRate(detail.current.refundRate)} note={`实际大毛利率 ${formatRate(detail.current.grossMarginRate)}`} tone="orange" icon="退" />
+      </section>
+      <section className="product-detail-insights-grid"><ProductSalesTrend daily={detail.daily ?? []} selectedCodeCount={1} /><ProductPlatformSalesShare platforms={detail.platforms ?? []} /></section>
+      <section className="product-detail-store-section"><ShopSalesDistribution shops={detail.outlets ?? []} /></section>
+    </>}
+  </>;
 }
 
 function ProductView() {
@@ -2577,10 +2835,13 @@ function ProductView() {
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [platformFilters, setPlatformFilters] = useState<string[]>([]);
   const [shopFilters, setShopFilters] = useState<string[]>([]);
-  const [marginFilter, setMarginFilter] = useState("全部毛利");
+  const [marginFilter, setMarginFilter] = useState<ProductMarginFilter>("全部毛利");
   const [sortBy, setSortBy] = useState("sales");
   const [selectedCode, setSelectedCode] = useState("");
   const [calculatorOverrides, setCalculatorOverrides] = useState<Record<string, ProductCalculatorInput>>({});
+  const [productDetail, setProductDetail] = useState<SalesSummaryResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -2592,6 +2853,8 @@ function ProductView() {
         params.set("startDate", customStartDate);
         params.set("endDate", customEndDate);
       }
+      platformFilters.forEach((platform) => params.append("platform", platform));
+      shopFilters.forEach((shop) => params.append("shop", shop));
       const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store" });
       const payload = await response.json().catch(() => null) as (ProductSummaryResponse & { error?: string }) | null;
       if (!response.ok || !payload || !payload.metrics || !Array.isArray(payload.items)) {
@@ -2604,7 +2867,7 @@ function ProductView() {
     } finally {
       setLoading(false);
     }
-  }, [customEndDate, customStartDate, timeRange]);
+  }, [customEndDate, customStartDate, platformFilters, shopFilters, timeRange]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadSummary(), timeRange === "custom" ? 260 : 0);
@@ -2615,6 +2878,38 @@ function ProductView() {
     () => summary?.items.find((item) => item.productCode === selectedCode) ?? null,
     [selectedCode, summary?.items],
   );
+  const detailStartDate = summary?.sync.salesWindowStart ?? "";
+  const detailEndDate = summary?.sync.salesThrough ?? "";
+  const loadProductDetail = useCallback(async (signal?: AbortSignal) => {
+    if (!selectedCode || !detailStartDate || !detailEndDate) return;
+    setDetailLoading(true);
+    setDetailError("");
+    setProductDetail(null);
+    try {
+      const params = new URLSearchParams({
+        range: "custom",
+        startDate: detailStartDate,
+        endDate: detailEndDate,
+        productCodes: selectedCode,
+      });
+      const response = await fetch(`/api/sales/summary?${params}`, { cache: "no-store", signal });
+      const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { error?: string }) | null;
+      if (!response.ok || !payload || !payload.current || !Array.isArray(payload.daily)) {
+        throw new Error(payload?.error || `规格详情读取失败（${response.status}）`);
+      }
+      if (!signal?.aborted) setProductDetail(payload);
+    } catch (requestError) {
+      if (!signal?.aborted) setDetailError(requestError instanceof Error ? requestError.message : "暂时无法读取规格详情");
+    } finally {
+      if (!signal?.aborted) setDetailLoading(false);
+    }
+  }, [detailEndDate, detailStartDate, selectedCode]);
+  useEffect(() => {
+    if (activeTab !== "detail" || !selectedCode || !detailStartDate || !detailEndDate) return;
+    const controller = new AbortController();
+    void loadProductDetail(controller.signal);
+    return () => controller.abort();
+  }, [activeTab, detailEndDate, detailStartDate, loadProductDetail, selectedCode]);
 
   const calculator = useMemo<ProductCalculatorInput>(() => {
     if (!selectedProduct) return { salePrice: 0, unitCost: 0, feeRate: 0, promotionCost: 0 };
@@ -2635,13 +2930,16 @@ function ProductView() {
     [summary?.filters.platforms],
   );
   const shopOptions = useMemo(
-    () => [...new Set((summary?.items ?? []).flatMap((item) => item.outlets
+    () => (summary?.filters.shops ?? [])
       .filter((outlet) => platformFilters.length === 0 || platformFilters.includes(outlet.platform))
-      .map((outlet) => outlet.shop)))].sort((left, right) => left.localeCompare(right, "zh-CN")),
-    [platformFilters, summary?.items],
+      .map((outlet) => ({ value: outlet.key, label: `${outlet.platform} · ${outlet.shop}` })),
+    [platformFilters, summary?.filters.shops],
   );
   useEffect(() => {
-    setShopFilters((current) => current.filter((item) => shopOptions.includes(item)));
+    setShopFilters((current) => {
+      const next = current.filter((item) => shopOptions.some((option) => option.value === item));
+      return next.length === current.length ? current : next;
+    });
   }, [shopOptions]);
   const filtered = useMemo(() => {
     const keywords = query.trim().toLowerCase().split(/[\s,，;；]+/).filter(Boolean);
@@ -2651,18 +2949,20 @@ function ProductView() {
       const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(item.category);
       const matchesOutlet = (platformFilters.length === 0 && shopFilters.length === 0) || item.outlets.some((outlet) => (
         (platformFilters.length === 0 || platformFilters.includes(outlet.platform))
-        && (shopFilters.length === 0 || shopFilters.includes(outlet.shop))
+        && (shopFilters.length === 0 || shopFilters.includes(`${outlet.platform}\u001f${outlet.shop}`))
       ));
       const matchesMargin = marginFilter === "全部毛利"
-        || (marginFilter === "盈利" && item.grossProfitCents >= 0)
-        || (marginFilter === "亏损" && item.grossProfitCents < 0)
-        || (marginFilter === "低毛利" && item.grossMarginRate !== null && item.grossMarginRate >= 0 && item.grossMarginRate < 0.2);
+        || (marginFilter === "低于35%" && item.grossMarginRate !== null && item.grossMarginRate < 0.35)
+        || (marginFilter === "35%-40%" && item.grossMarginRate !== null && item.grossMarginRate >= 0.35 && item.grossMarginRate < 0.4)
+        || (marginFilter === "40%-45%" && item.grossMarginRate !== null && item.grossMarginRate >= 0.4 && item.grossMarginRate < 0.45)
+        || (marginFilter === "45%以上" && item.grossMarginRate !== null && item.grossMarginRate >= 0.45)
+        || (marginFilter === "暂无有效毛利率" && item.grossMarginRate === null);
       return matchesKeyword && matchesCategory && matchesOutlet && matchesMargin;
     });
     return items.sort((left, right) => {
       if (sortBy === "margin") return (right.grossMarginRate ?? -Infinity) - (left.grossMarginRate ?? -Infinity);
       if (sortBy === "profit") return right.grossProfitCents - left.grossProfitCents;
-      if (sortBy === "stock") return (right.availableQuantity ?? -1) - (left.availableQuantity ?? -1);
+      if (sortBy === "refund") return right.refundRate - left.refundRate;
       return right.netSalesCents - left.netSalesCents;
     });
   }, [categoryFilters, marginFilter, platformFilters, query, shopFilters, sortBy, summary?.items]);
@@ -2671,6 +2971,12 @@ function ProductView() {
     [query],
   );
   const rangeLabel = timeRange === "last30" ? "近30天" : timeRange === "last90" ? "近90天" : timeRange === "halfYear" ? "近半年" : "自定义时间";
+  const appliedScope = useMemo(() => {
+    const applied = summary?.filtersApplied;
+    if (!applied || (applied.platforms.length === 0 && applied.shops.length === 0)) return "全渠道、全部店铺";
+    const shops = applied.shops.map((shop) => `${shop.platform} · ${shop.shop}`);
+    return shops.length > 0 ? shops.join("；") : applied.platforms.join("、");
+  }, [summary?.filtersApplied]);
   const selectCustomRange = () => {
     const maxDate = summary?.sync.dataCutoffDate || summary?.sync.salesThrough || shanghaiIsoToday();
     const minDate = summary?.sync.dataStartDate || addIsoDays(maxDate, -365);
@@ -2680,6 +2986,18 @@ function ProductView() {
   };
   const productCustomMaxDate = summary?.sync.dataCutoffDate || summary?.sync.salesThrough || shanghaiIsoToday();
   const productCustomMinDate = summary?.sync.dataStartDate || addIsoDays(productCustomMaxDate, -365);
+  const marginBuckets = summary?.metrics.marginBuckets ?? {
+    below35Count: 0,
+    between35And40Count: 0,
+    between40And45Count: 0,
+    atLeast45Count: 0,
+  };
+  const marginBucketCards: Array<{ filter: ProductMarginFilter; label: string; value: number; note: string; tone: "blue" | "green" | "orange" | "purple"; icon: string }> = [
+    { filter: "低于35%", label: "实际大毛利率低于35%", value: marginBuckets.below35Count, note: "包含低毛利与亏损货品", tone: "orange", icon: "<35" },
+    { filter: "35%-40%", label: "实际大毛利率35%–40%", value: marginBuckets.between35And40Count, note: "按当前统计周期实际毛利率", tone: "blue", icon: "35" },
+    { filter: "40%-45%", label: "实际大毛利率40%–45%", value: marginBuckets.between40And45Count, note: "按当前统计周期实际毛利率", tone: "green", icon: "40" },
+    { filter: "45%以上", label: "实际大毛利率45%以上", value: marginBuckets.atLeast45Count, note: "按当前统计周期实际毛利率", tone: "purple", icon: "45" },
+  ];
 
   const estimatedFee = calculator.salePrice * calculator.feeRate / 100;
   const estimatedProfit = calculator.salePrice - calculator.unitCost - estimatedFee - calculator.promotionCost;
@@ -2691,7 +3009,12 @@ function ProductView() {
       [selectedProduct.productCode]: { ...calculator, [field]: Math.max(0, Number.isFinite(value) ? value : 0) },
     }));
   };
-  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator"} className={activeTab === "calculator" ? "active" : ""} onClick={() => setActiveTab("calculator")}>毛利测算</button></div>;
+  const openProductDetail = (productCode: string) => {
+    setSelectedCode(productCode);
+    setActiveTab("detail");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator"} className={activeTab === "calculator" ? "active" : ""} onClick={() => setActiveTab("calculator")}>毛利测算</button>{activeTab === "detail" && <button type="button" role="tab" aria-selected className="active">规格详情</button>}</div>;
 
   if (loading && !summary) {
     return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步商品与毛利数据</strong><p>正在汇总已导入销售明细与最新库存快照…</p></section></>;
@@ -2712,21 +3035,18 @@ function ProductView() {
 
       {activeTab === "overview" ? <>
         <section className="inventory-kpi-grid product-kpi-grid">
-          <InventoryKpiCard label="活跃商品" value={`${formatCount(summary.metrics.skuCount)} 个`} note={`已覆盖 ${formatCount(summary.metrics.stockedSkuCount)} 个有库存商品`} tone="blue" icon="品" />
-          <InventoryKpiCard label="商品销售净额" value={formatCurrencyFromCents(summary.metrics.netSalesCents)} note={`${rangeLabel}已扣除退货`} tone="purple" icon="销" />
-          <InventoryKpiCard label="实际订单毛利" value={formatCurrencyFromCents(summary.metrics.grossProfitCents)} note={`综合毛利率 ${summary.metrics.grossMarginRate === null ? "—" : formatRate(summary.metrics.grossMarginRate)}`} tone="green" icon="利" />
-          <InventoryKpiCard label="亏损商品" value={`${formatCount(summary.metrics.lossSkuCount)} 个`} note="按销售净额与订单毛利识别" tone="orange" icon="警" />
+          {marginBucketCards.map((bucket) => <article className={`inventory-kpi-card product-margin-kpi ${marginFilter === bucket.filter ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{formatCount(bucket.value)} 个</strong><p>{bucket.note}</p><button type="button" onClick={() => setMarginFilter(bucket.filter)}>查看明细 →</button></article>)}
         </section>
 
         <section className="panel product-filter-panel">
-          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>销售单价、成本、费用与毛利均由已导入订单明细聚合，不使用演示数据。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个编码 · ` : ""}显示 {formatCount(Math.min(filtered.length, 300))} / {formatCount(filtered.length)}</span></div>
-          <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴多个货品编码（空格、逗号或换行分隔）" aria-label="搜索一个或多个货品编码、名称、品牌、供应商、规格或品类" /></div><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /><select className="filter-select" value={marginFilter} onChange={(event) => setMarginFilter(event.target.value)} aria-label="毛利状态"><option>全部毛利</option><option>盈利</option><option>低毛利</option><option>亏损</option></select><select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="排序方式"><option value="sales">按销售净额</option><option value="profit">按订单毛利</option><option value="margin">按毛利率</option><option value="stock">按可用库存</option></select></div>
-          <div className="data-table-wrap"><table className="data-table product-live-table"><thead><tr><th>货品</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>费用</th><th>订单毛利</th><th>实际毛利率</th><th>可用库存</th><th>操作</th></tr></thead><tbody>
-            {filtered.slice(0, 300).map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td>{formatCurrencyFromCents(item.feeCents)}</td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.2 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td>{item.availableQuantity === null ? "未同步" : formatCount(item.availableQuantity)}</td><td><button className="row-action" onClick={() => { setSelectedCode(item.productCode); setActiveTab("calculator"); }}>测算</button></td></tr>; })}
+          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>已按 {appliedScope} 汇总；净销量已扣除退货。销售单价、成本、费用和实际毛利均来自已导入订单明细。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个规格代码 · ` : ""}显示 {formatCount(Math.min(filtered.length, 300))} / {formatCount(filtered.length)}</span></div>
+          <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /><select className="filter-select" value={marginFilter} onChange={(event) => setMarginFilter(event.target.value as ProductMarginFilter)} aria-label="实际大毛利率区间"><option>全部毛利</option><option>低于35%</option><option>35%-40%</option><option>40%-45%</option><option>45%以上</option><option>暂无有效毛利率</option></select><select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="排序方式"><option value="sales">按销售净额</option><option value="profit">按订单毛利</option><option value="margin">按毛利率</option><option value="refund">按退货率</option></select></div>
+          <div className="data-table-wrap"><table className="data-table product-live-table"><thead><tr><th>货品 / 规格代码</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>费用</th><th>订单毛利</th><th>实际毛利率</th><th>退货率</th><th>操作</th></tr></thead><tbody>
+            {filtered.slice(0, 300).map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>规格代码：{item.productCode}{item.specification ? ` · ${item.specification}` : " · 默认规格"}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td>{formatCurrencyFromCents(item.feeCents)}</td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.35 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td className={item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatRate(item.refundRate)}</strong></td><td><button className="row-action" onClick={() => openProductDetail(item.productCode)}>详情</button></td></tr>; })}
             {filtered.length === 0 && <tr><td colSpan={12}><div className="table-state">没有符合当前筛选条件的商品。</div></td></tr>}
           </tbody></table></div>
         </section>
-      </> : <>
+      </> : activeTab === "detail" && selectedProduct ? <ProductDetailView item={selectedProduct} detail={productDetail} loading={detailLoading} error={detailError} rangeLabel={rangeLabel} onBack={() => setActiveTab("overview")} onRetry={() => void loadProductDetail()} /> : <>
         <section className="product-calculator-grid">
           <article className="panel calculator-input-panel"><SectionHeader title="毛利测算" note="默认带入所选商品近期开单均价、成本与费用率，可按活动方案调整" /><div className="calculator-fields"><label><span>选择商品</span><select value={selectedCode} onChange={(event) => setSelectedCode(event.target.value)} aria-label="选择用于测算的商品">{summary.items.map((item) => <option value={item.productCode} key={item.productCode}>{item.productName} · {item.productCode}</option>)}</select></label><label><span>预计成交价（元）</span><input type="number" min={0} step="0.01" value={calculator.salePrice} onChange={(event) => updateCalculator("salePrice", Number(event.target.value))} /></label><label><span>单位成本（元）</span><input type="number" min={0} step="0.01" value={calculator.unitCost} onChange={(event) => updateCalculator("unitCost", Number(event.target.value))} /></label><label><span>平台综合费率（%）</span><input type="number" min={0} step="0.01" value={calculator.feeRate} onChange={(event) => updateCalculator("feeRate", Number(event.target.value))} /></label><label><span>单件促销/履约成本（元）</span><input type="number" min={0} step="0.01" value={calculator.promotionCost} onChange={(event) => updateCalculator("promotionCost", Number(event.target.value))} /></label></div><div className="calculator-source"><Dot tone="blue" /><span>{selectedProduct ? `${selectedProduct.productName} · 最近实际毛利率 ${selectedProduct.grossMarginRate === null ? "—" : formatRate(selectedProduct.grossMarginRate)}` : "请选择商品"}</span></div></article>
           <article className="panel calculator-result-panel"><SectionHeader title="预计单件收益" note="成交价 − 单位成本 − 平台费 − 促销/履约成本" /><div className="calculator-result"><div><span>预计单件毛利</span><strong className={estimatedProfit < 0 ? "red-text" : "green-text"}>{formatCurrency(estimatedProfit)}</strong></div><div><span>预计毛利率</span><strong className={estimatedMargin === null ? "" : estimatedMargin < 0 ? "red-text" : "green-text"}>{estimatedMargin === null ? "—" : formatRate(estimatedMargin)}</strong></div><div><span>预计平台费用</span><strong>{formatCurrency(estimatedFee)}</strong></div></div><div className={`calculator-decision ${estimatedMargin !== null && estimatedMargin < 0 ? "danger" : estimatedMargin !== null && estimatedMargin < 0.2 ? "warning" : "success"}`}><strong>{estimatedMargin === null ? "请输入成交价" : estimatedMargin < 0 ? "该方案预计亏损" : estimatedMargin < 0.2 ? "该方案毛利偏低" : "该方案毛利健康"}</strong><p>{estimatedMargin === null ? "成交价大于 0 后即可得到测算结果。" : `每售出 1 件，预计保留 ${formatCurrency(estimatedProfit)} 毛利。`}</p></div></article>
@@ -2737,21 +3057,580 @@ function ProductView() {
   );
 }
 
-function WorkflowView() {
-  const columns = [
-    { title: "待开始", count: 3, tone: "gray", cards: [["完成 7 月大促价格检查", "京东自营", "今天"], ["新品成分资料归档", "新品上架", "7月12日"], ["面膜套装赠品确认", "天猫", "7月13日"]] },
-    { title: "进行中", count: 4, tone: "blue", cards: [["净透精华主图升级", "新品上架", "今天"], ["华东仓缺货补单", "库存协同", "今天"], ["POP 店铺巡店检查", "巡店", "7月11日"]] },
-    { title: "待审核", count: 2, tone: "orange", cards: [["618 复盘报告", "数据分析", "今天"], ["评价晒图素材第 3 批", "评价维护", "7月11日"]] },
-    { title: "已完成", count: 7, tone: "green", cards: [["天猫周报数据核对", "周报", "昨天"], ["新品 SKU 映射", "新品上架", "昨天"], ["京东活动报名", "京东自营", "7月8日"]] },
+function LegacyWorkflowView() {
+  type WorkflowTab = "plan" | "inspection" | "reviews" | "launch";
+  type TaskStatus = "待开始" | "进行中" | "待审核" | "已完成";
+  const [activeTab, setActiveTab] = useState<WorkflowTab>("plan");
+  const [taskQuery, setTaskQuery] = useState("");
+  const [taskStatus, setTaskStatus] = useState<"全部状态" | TaskStatus>("全部状态");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftOwner, setDraftOwner] = useState("运营组");
+  const [draftStatus, setDraftStatus] = useState<TaskStatus>("待开始");
+  const [tasks, setTasks] = useState(() => [
+    { id: "task-1", title: "完成 7 月大促价格检查", category: "活动运营", owner: "京东自营", due: "今天", status: "待开始" as TaskStatus, priority: "high" },
+    { id: "task-2", title: "新品成分资料归档", category: "新品上架", owner: "商品组", due: "7月18日", status: "待开始" as TaskStatus, priority: "normal" },
+    { id: "task-3", title: "净透精华主图升级", category: "新品上架", owner: "天猫组", due: "今天", status: "进行中" as TaskStatus, priority: "high" },
+    { id: "task-4", title: "POP 店铺巡店检查", category: "巡店查询", owner: "运营组", due: "7月17日", status: "进行中" as TaskStatus, priority: "normal" },
+    { id: "task-5", title: "评价晒图素材第 3 批", category: "评价维护", owner: "客服组", due: "7月18日", status: "待审核" as TaskStatus, priority: "normal" },
+    { id: "task-6", title: "天猫周报数据核对", category: "数据分析", owner: "运营组", due: "昨天", status: "已完成" as TaskStatus, priority: "low" },
+    { id: "task-7", title: "新品 SKU 映射", category: "新品上架", owner: "商品组", due: "昨天", status: "已完成" as TaskStatus, priority: "low" },
+  ]);
+  const filteredTasks = useMemo(() => tasks.filter((item) => {
+    const matchesQuery = !taskQuery.trim() || `${item.title} ${item.category} ${item.owner}`.toLocaleLowerCase("zh-CN").includes(taskQuery.trim().toLocaleLowerCase("zh-CN"));
+    return matchesQuery && (taskStatus === "全部状态" || item.status === taskStatus);
+  }), [taskQuery, taskStatus, tasks]);
+  const createTask = () => {
+    const title = draftTitle.trim();
+    if (!title) return;
+    setTasks((current) => [{ id: `task-${Date.now()}`, title, category: "工作计划", owner: draftOwner.trim() || "运营组", due: "待排期", status: draftStatus, priority: "normal" }, ...current]);
+    setDraftTitle("");
+  };
+  const statuses: Array<{ value: TaskStatus; tone: "gray" | "blue" | "orange" | "green" }> = [
+    { value: "待开始", tone: "gray" }, { value: "进行中", tone: "blue" }, { value: "待审核", tone: "orange" }, { value: "已完成", tone: "green" },
   ];
+  const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">
+    <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => setActiveTab("plan")}>工作计划</button>
+    <button type="button" role="tab" aria-selected={activeTab === "inspection"} className={activeTab === "inspection" ? "active" : ""} onClick={() => setActiveTab("inspection")}>巡店查询</button>
+    <button type="button" role="tab" aria-selected={activeTab === "reviews"} className={activeTab === "reviews" ? "active" : ""} onClick={() => setActiveTab("reviews")}>评价维护</button>
+    <button type="button" role="tab" aria-selected={activeTab === "launch"} className={activeTab === "launch" ? "active" : ""} onClick={() => setActiveTab("launch")}>新品上架</button>
+  </div>;
+  if (activeTab === "inspection") {
+    const inspections = [
+      ["天猫-志高亿用专卖店", "天猫", "7月16日 10:20", "商品详情页", "主图与卖点完整", "正常"],
+      ["京东-志高商用设备旗舰店", "京东", "7月16日 09:42", "价格与库存", "2 个 SKU 库存偏低", "待处理"],
+      ["拼多多-志高商用厨电旗舰店", "拼多多", "7月15日 16:18", "活动报名", "活动库存已锁定", "正常"],
+      ["抖店-志高商业设备旗舰店", "抖音", "7月15日 14:05", "评价与问大家", "3 条低分评价待回复", "待处理"],
+    ];
+    return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">STORE INSPECTION</span><h2>巡店查询</h2><p>按店铺追溯每日巡检记录，快速定位价格、库存、页面与服务异常。</p></div><button className="secondary-button">↻ 刷新记录</button></section><section className="workflow-kpi-grid"><article><span>今日已巡店</span><strong>18 / 22</strong><small>完成率 81.8%</small></article><article><span>待处理问题</span><strong className="orange-text">6 项</strong><small>价格、库存与评价事项</small></article><article><span>高优先级</span><strong className="red-text">2 项</strong><small>需在今日闭环</small></article><article><span>最近巡检</span><strong>10:20</strong><small>天猫 · 亿用专卖店</small></article></section><section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>巡店记录</h2><p>保留最近一次巡检结果与需要跟进的异常项。</p></div><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索店铺、巡检项或结论" aria-label="搜索巡店记录" /><select aria-label="巡店状态"><option>全部状态</option><option>待处理</option><option>正常</option></select></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table"><thead><tr><th>店铺</th><th>平台</th><th>巡检时间</th><th>巡检事项</th><th>巡检结论</th><th>状态</th><th>操作</th></tr></thead><tbody>{inspections.filter((item) => !taskQuery.trim() || item.join(" ").includes(taskQuery.trim())).map((item) => <tr key={item[0]}><td><strong>{item[0]}</strong></td><td><span className="soft-tag">{item[1]}</span></td><td>{item[2]}</td><td>{item[3]}</td><td>{item[4]}</td><td><span className={`status ${item[5] === "正常" ? "status-success" : "status-warning"}`}><Dot tone={item[5] === "正常" ? "green" : "orange"} />{item[5]}</span></td><td><button className="row-action">查看详情</button></td></tr>)}</tbody></table></div></section></>;
+  }
+  if (activeTab === "reviews") {
+    const reviews = [["天猫-志高亿用专卖店", "5 星", "商品使用方便，出水很快。", "已回复", "7月16日"], ["抖店-志高商业设备旗舰店", "2 星", "包装有破损，希望改善。", "待回复", "7月16日"], ["京东-志高商用设备旗舰店", "3 星", "物流略慢，产品正常。", "待回复", "7月15日"], ["拼多多-志高商用厨电旗舰店", "5 星", "复购第二次，满意。", "已回复", "7月15日"]];
+    return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">REVIEW CARE</span><h2>评价维护</h2><p>集中跟进各平台商品评价，优先处理低分、售后与未回复内容。</p></div><button className="primary-button">＋ 新建回复模板</button></section><section className="workflow-kpi-grid"><article><span>近 30 天评价</span><strong>1,286</strong><small>较上周期 +8.4%</small></article><article><span>好评率</span><strong className="green-text">96.8%</strong><small>4–5 星评价占比</small></article><article><span>待回复评价</span><strong className="orange-text">18 条</strong><small>其中 3 条低于 3 星</small></article><article><span>平均响应时长</span><strong>3.2 小时</strong><small>目标：12 小时内</small></article></section><section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>评价跟进清单</h2><p>支持按店铺与处理状态筛选，回复后自动记录处理时间。</p></div><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索店铺或评价内容" aria-label="搜索评价内容" /><select aria-label="评价处理状态"><option>全部处理状态</option><option>待回复</option><option>已回复</option></select></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table"><thead><tr><th>店铺</th><th>星级</th><th>评价内容</th><th>处理状态</th><th>评价日期</th><th>操作</th></tr></thead><tbody>{reviews.filter((item) => !taskQuery.trim() || item.join(" ").includes(taskQuery.trim())).map((item) => <tr key={`${item[0]}-${item[4]}`}><td><strong>{item[0]}</strong></td><td><span className={item[1] === "5 星" ? "green-text" : item[1] === "2 星" ? "red-text" : "orange-text"}>{item[1]}</span></td><td>{item[2]}</td><td><span className={`status ${item[3] === "已回复" ? "status-success" : "status-warning"}`}><Dot tone={item[3] === "已回复" ? "green" : "orange"} />{item[3]}</span></td><td>{item[4]}</td><td><button className="row-action">{item[3] === "已回复" ? "查看回复" : "立即回复"}</button></td></tr>)}</tbody></table></div></section></>;
+  }
+  if (activeTab === "launch") {
+    const launches = [["志高 ZK-30 商用开水器", "ZK-30-003", "商品资料", "已完成", "商品组", "7月18日"], ["志高 YT-2H 榨汁机", "ZG-2H-004", "主图与详情页", "进行中", "运营组", "7月19日"], ["志高 8 系列滤芯", "CH-800-002", "平台建档", "待开始", "天猫组", "7月22日"], ["志高商用洗碗机", "DW-160-001", "首批备货", "风险待处理", "供应链", "7月20日"]];
+    return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">NEW PRODUCT LAUNCH</span><h2>新品上架</h2><p>从资料建档、页面素材、平台建档到首批备货，统一追踪新品上架节点。</p></div><button className="primary-button">＋ 新增新品项目</button></section><section className="launch-progress"><div><span>新品池</span><strong>24</strong><small>待评估</small></div><i>→</i><div><span>资料准备</span><strong>8</strong><small>推进中</small></div><i>→</i><div><span>平台建档</span><strong>5</strong><small>待审核</small></div><i>→</i><div><span>已上架</span><strong className="green-text">16</strong><small>本月累计</small></div></section><section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>新品项目进度</h2><p>每个阶段均可跟踪负责人、计划上架日期和异常原因。</p></div><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索新品名称或编码" aria-label="搜索新品项目" /><select aria-label="新品上架状态"><option>全部状态</option><option>进行中</option><option>待开始</option><option>风险待处理</option></select></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table"><thead><tr><th>新品名称</th><th>商品编码</th><th>当前节点</th><th>状态</th><th>负责人</th><th>计划上架</th><th>操作</th></tr></thead><tbody>{launches.filter((item) => !taskQuery.trim() || item.join(" ").includes(taskQuery.trim())).map((item) => <tr key={item[1]}><td><strong>{item[0]}</strong></td><td>{item[1]}</td><td>{item[2]}</td><td><span className={`status ${item[3] === "已完成" ? "status-success" : item[3] === "风险待处理" ? "status-danger" : item[3] === "进行中" ? "status-info" : "status-gray"}`}><Dot tone={item[3] === "已完成" ? "green" : item[3] === "风险待处理" ? "red" : item[3] === "进行中" ? "blue" : "gray"} />{item[3]}</span></td><td>{item[4]}</td><td>{item[5]}</td><td><button className="row-action">推进节点</button></td></tr>)}</tbody></table></div></section></>;
+  }
+  return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">OPERATION COLLABORATION</span><h2>工作计划</h2><p>集中管理日常任务、巡店事项、评价跟进与新品推进。</p></div><div className="workflow-toolbar-actions"><input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="输入新工作项" aria-label="新工作项名称" onKeyDown={(event) => { if (event.key === "Enter") createTask(); }} /><button className="primary-button" onClick={createTask}>＋ 新建工作项</button></div></section><section className="workflow-plan-controls panel"><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索工作项、归属或负责人" aria-label="搜索工作计划" /><select value={taskStatus} onChange={(event) => setTaskStatus(event.target.value as "全部状态" | TaskStatus)} aria-label="工作计划状态"><option>全部状态</option>{statuses.map((item) => <option key={item.value}>{item.value}</option>)}</select><input value={draftOwner} onChange={(event) => setDraftOwner(event.target.value)} placeholder="负责人" aria-label="新工作项负责人" /><select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value as TaskStatus)} aria-label="新工作项状态">{statuses.map((item) => <option key={item.value}>{item.value}</option>)}</select></div><span className="soft-tag">显示 {filteredTasks.length} 项</span></section><section className="kanban">{statuses.map((column) => { const columnTasks = filteredTasks.filter((item) => item.status === column.value); return <div className="kanban-column" key={column.value}><div className="kanban-title"><span><Dot tone={column.tone} />{column.value}</span><em>{columnTasks.length}</em></div><div className="kanban-cards">{columnTasks.map((task) => <article className="task-card" key={task.id}><div><span className={`task-priority priority-line-${task.priority === "high" ? "orange" : task.priority === "low" ? "green" : column.tone}`} /><button type="button" title="更多操作">•••</button></div><h3>{task.title}</h3><span className="soft-tag">{task.category}</span><footer><span className="avatar-stack"><i>{task.owner.slice(0, 1)}</i><i>{task.owner.slice(-1)}</i></span><small>{task.due}</small></footer></article>)}</div><button className="add-card" onClick={() => { setDraftStatus(column.value); setDraftTitle(""); }}>＋ 添加工作项</button></div>; })}</section></>;
+}
+
+type WorkflowTab = "plan" | "inspection" | "reviews" | "launch";
+type WorkflowStatus = "待开始" | "工作中" | "已完成";
+type WorkflowPriority = "high" | "normal" | "low";
+
+type WorkflowAttachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  url: string;
+  kind: "image" | "file";
+};
+
+type WorkflowTask = {
+  id: string;
+  title: string;
+  workContent: string;
+  category: string;
+  owner: string;
+  shopName: string;
+  startDate: string;
+  due: string;
+  status: WorkflowStatus;
+  priority: WorkflowPriority;
+  attachments: WorkflowAttachment[];
+};
+
+type WorkflowLaunch = {
+  id: string;
+  productName: string;
+  productCode: string;
+  stage: string;
+  owner: string;
+  due: string;
+  status: WorkflowStatus;
+  attachments: WorkflowAttachment[];
+};
+
+const workflowStages: Array<{ value: WorkflowStatus; tone: "gray" | "blue" | "green" }> = [
+  { value: "待开始", tone: "gray" },
+  { value: "工作中", tone: "blue" },
+  { value: "已完成", tone: "green" },
+];
+
+function workflowStatusTone(status: WorkflowStatus) {
+  return status === "已完成" ? "green" : status === "工作中" ? "blue" : "gray";
+}
+
+function workflowStatusClass(status: WorkflowStatus) {
+  return status === "已完成" ? "status-success" : status === "工作中" ? "status-info" : "status-gray";
+}
+
+function workflowPriorityLabel(priority: WorkflowPriority) {
+  return priority === "high" ? "紧急" : priority === "low" ? "低" : "普通";
+}
+
+function formatWorkflowFileSize(size: number) {
+  if (size < 1024) return size + " B";
+  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + " KB";
+  return (size / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function buildWorkflowAttachments(files: FileList | null): WorkflowAttachment[] {
+  return Array.from(files ?? []).slice(0, 8).map((file, index) => ({
+    id: "attachment-" + Date.now().toString(36) + "-" + index + "-" + Math.random().toString(36).slice(2, 8),
+    name: file.name,
+    type: file.type || "application/octet-stream",
+    size: file.size,
+    url: URL.createObjectURL(file),
+    kind: file.type.startsWith("image/") ? "image" : "file",
+  }));
+}
+
+function WorkflowTransitionActions({
+  status,
+  onTransition,
+  disabled = false,
+}: {
+  status: WorkflowStatus;
+  onTransition: (nextStatus: WorkflowStatus) => void;
+  disabled?: boolean;
+}) {
+  const actions: Array<{ status: WorkflowStatus; label: string; primary?: boolean }> = status === "待开始"
+    ? [{ status: "工作中", label: "标记工作中", primary: true }]
+    : status === "工作中"
+      ? [
+        { status: "待开始", label: "退回待开始" },
+        { status: "已完成", label: "标记完成", primary: true },
+      ]
+      : [
+        { status: "待开始", label: "返还待开始" },
+        { status: "工作中", label: "返还工作中", primary: true },
+      ];
+
+  return <div className="workflow-transition-actions" aria-label="任务状态操作">
+    {actions.map((action) => <button
+      type="button"
+      className={"row-action workflow-transition-button" + (action.primary ? " primary-row-action" : "")}
+      key={action.status}
+      disabled={disabled}
+      onClick={() => onTransition(action.status)}
+    >{action.label}</button>)}
+  </div>;
+}
+
+function WorkflowAttachmentList({
+  attachments,
+  inputId,
+  onFiles,
+  onRemove,
+  onPreview,
+}: {
+  attachments: WorkflowAttachment[];
+  inputId: string;
+  onFiles: (files: FileList | null) => void;
+  onRemove: (attachmentId: string) => void;
+  onPreview: (attachment: WorkflowAttachment) => void;
+}) {
+  return <div className="workflow-attachment-list">
+    <div className="workflow-attachment-toolbar">
+      <label className="workflow-attachment-add" htmlFor={inputId}>＋ 添加附件</label>
+      <small>支持图片 / 文件</small>
+    </div>
+    <input
+      id={inputId}
+      className="file-input-hidden"
+      type="file"
+      multiple
+      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
+      onChange={(event) => {
+        onFiles(event.currentTarget.files);
+        event.currentTarget.value = "";
+      }}
+    />
+    {attachments.length === 0 ? <span className="workflow-attachment-empty">暂无附件</span> : <div className="workflow-attachment-chips">
+      {attachments.map((attachment) => <div className="workflow-attachment-chip" key={attachment.id}>
+        <button type="button" className="workflow-attachment-preview" onClick={() => onPreview(attachment)} aria-label={"预览附件 " + attachment.name}>
+          {attachment.kind === "image" ? <img src={attachment.url} alt="" /> : <i>文件</i>}
+          <span title={attachment.name}>{attachment.name}</span>
+        </button>
+        <a href={attachment.url} download={attachment.name}>下载</a>
+        <button type="button" className="workflow-attachment-remove" onClick={() => onRemove(attachment.id)} aria-label={"移除附件 " + attachment.name}>×</button>
+      </div>)}
+    </div>}
+  </div>;
+}
+
+function WorkflowAttachmentPreview({
+  attachment,
+  onClose,
+}: {
+  attachment: WorkflowAttachment;
+  onClose: () => void;
+}) {
+  return <div className="workflow-attachment-modal-backdrop" role="presentation" onMouseDown={(event) => {
+    if (event.currentTarget === event.target) onClose();
+  }}>
+    <section className="workflow-attachment-modal" role="dialog" aria-modal="true" aria-labelledby="workflow-attachment-preview-title">
+      <button type="button" className="workflow-modal-close" onClick={onClose} aria-label="关闭附件预览">×</button>
+      <span className="eyebrow">TASK ATTACHMENT</span>
+      <h2 id="workflow-attachment-preview-title">{attachment.name}</h2>
+      {attachment.kind === "image"
+        ? <img className="workflow-attachment-full-image" src={attachment.url} alt={attachment.name} />
+        : <div className="workflow-file-preview"><i>文件</i><strong>{attachment.name}</strong><small>{formatWorkflowFileSize(attachment.size)} · {attachment.type}</small></div>}
+      <div className="workflow-modal-actions">
+        <a className="primary-button" href={attachment.url} download={attachment.name}>下载附件</a>
+        <button type="button" className="secondary-button" onClick={onClose}>关闭</button>
+      </div>
+    </section>
+  </div>;
+}
+
+function WorkflowDeleteConfirm({
+  task,
+  onCancel,
+  onConfirm,
+  disabled = false,
+}: {
+  task: WorkflowTask;
+  onCancel: () => void;
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  return <div className="workflow-attachment-modal-backdrop" role="presentation" onMouseDown={(event) => {
+    if (event.currentTarget === event.target) onCancel();
+  }}>
+    <section className="workflow-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="workflow-delete-confirm-title">
+      <span className="eyebrow">DELETE TASK</span>
+      <h2 id="workflow-delete-confirm-title">确认删除工作项？</h2>
+      <p>将删除“{task.title}”及其当前会话中的附件；此操作无法撤销。</p>
+      <div className="workflow-modal-actions">
+        <button type="button" className="secondary-button" onClick={onCancel} disabled={disabled}>取消</button>
+        <button type="button" className="danger-button" onClick={onConfirm} disabled={disabled}>{disabled ? "删除中…" : "确认删除"}</button>
+      </div>
+    </section>
+  </div>;
+}
+
+function WorkflowView() {
+  const [activeTab, setActiveTab] = useState<WorkflowTab>("plan");
+  const [taskQuery, setTaskQuery] = useState("");
+  const [taskStatus, setTaskStatus] = useState<"全部状态" | WorkflowStatus>("全部状态");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [draftOwner, setDraftOwner] = useState("");
+  const [draftShopName, setDraftShopName] = useState("");
+  const [draftStartDate, setDraftStartDate] = useState("");
+  const [draftDueDate, setDraftDueDate] = useState("");
+  const [draftPriority, setDraftPriority] = useState<WorkflowPriority | "">("");
+  const [workflowFeedback, setWorkflowFeedback] = useState("");
+  const [attachmentViewer, setAttachmentViewer] = useState<WorkflowAttachment | null>(null);
+  const [taskPendingDeletion, setTaskPendingDeletion] = useState<WorkflowTask | null>(null);
+  const [tasks, setTasks] = useState<WorkflowTask[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [taskMutationPending, setTaskMutationPending] = useState(false);
+  const [launches, setLaunches] = useState<WorkflowLaunch[]>(() => [
+    { id: "launch-1", productName: "志高 ZK-30 商用开水器", productCode: "ZK-30-003", stage: "商品资料", owner: "商品组", due: "7月18日", status: "已完成", attachments: [] },
+    { id: "launch-2", productName: "志高 YT-2H 榨汁机", productCode: "ZG-2H-004", stage: "主图与详情页", owner: "运营组", due: "7月19日", status: "工作中", attachments: [] },
+    { id: "launch-3", productName: "志高 8 系列滤芯", productCode: "CH-800-002", stage: "平台建档", owner: "天猫组", due: "7月22日", status: "待开始", attachments: [] },
+    { id: "launch-4", productName: "志高商用洗碗机", productCode: "DW-160-001", stage: "首批备货", owner: "供应链", due: "7月20日", status: "工作中", attachments: [] },
+  ]);
+  const [launchQuery, setLaunchQuery] = useState("");
+  const [launchStatus, setLaunchStatus] = useState<"全部状态" | WorkflowStatus>("全部状态");
+  const [launchCreateOpen, setLaunchCreateOpen] = useState(false);
+  const [launchDraftName, setLaunchDraftName] = useState("");
+  const [launchDraftCode, setLaunchDraftCode] = useState("");
+  const [launchDraftStage, setLaunchDraftStage] = useState("资料建档");
+  const [launchDraftOwner, setLaunchDraftOwner] = useState("商品组");
+  const [launchDraftDue, setLaunchDraftDue] = useState("");
+
+  const loadTasks = useCallback(async () => {
+    setTasksLoading(true);
+    try {
+      const response = await fetch("/api/workflow/tasks", { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as { items?: WorkflowTask[]; error?: string } | null;
+      if (!response.ok || !Array.isArray(payload?.items)) {
+        throw new Error(payload?.error || `工作计划读取失败（${response.status}）`);
+      }
+      setTasks(payload.items);
+    } catch (error) {
+      setWorkflowFeedback(error instanceof Error ? error.message : "工作计划读取失败，请稍后重试。");
+    } finally {
+      setTasksLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  const filteredTasks = useMemo(() => tasks.filter((item) => {
+    const matchesQuery = !taskQuery.trim() || [item.title, item.workContent, item.category, item.owner, item.shopName, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(taskQuery.trim().toLocaleLowerCase("zh-CN"));
+    return matchesQuery && (taskStatus === "全部状态" || item.status === taskStatus);
+  }), [taskQuery, taskStatus, tasks]);
+
+  const filteredLaunches = useMemo(() => launches.filter((item) => {
+    const matchesQuery = !launchQuery.trim() || [item.productName, item.productCode, item.stage, item.owner, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(launchQuery.trim().toLocaleLowerCase("zh-CN"));
+    return matchesQuery && (launchStatus === "全部状态" || item.status === launchStatus);
+  }), [launchQuery, launchStatus, launches]);
+
+  const createTask = async () => {
+    if (tasksLoading || taskMutationPending) return;
+    const title = draftTitle.trim() || "未命名工作项";
+    const workContent = draftContent.trim() || "未填写工作内容";
+    const owner = draftOwner.trim() || "未指定跟进人";
+    const shopName = draftShopName.trim() || "未关联店铺";
+    if (draftStartDate && draftDueDate && draftDueDate < draftStartDate) {
+      setWorkflowFeedback("截止时间不能早于开始时间。");
+      return;
+    }
+    setTaskMutationPending(true);
+    try {
+      const response = await fetch("/api/workflow/tasks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title,
+          workContent,
+          owner,
+          shopName,
+          startDate: draftStartDate || "待排期",
+          due: draftDueDate || "待排期",
+          priority: draftPriority || "normal",
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { item?: WorkflowTask; error?: string } | null;
+      if (!response.ok || !payload?.item) {
+        throw new Error(payload?.error || `工作项保存失败（${response.status}）`);
+      }
+      setTasks((current) => [payload.item!, ...current]);
+      setDraftTitle("");
+      setDraftContent("");
+      setDraftOwner("");
+      setDraftShopName("");
+      setDraftStartDate("");
+      setDraftDueDate("");
+      setDraftPriority("");
+      setWorkflowFeedback("「" + title + "」已创建并保存，当前状态为待开始，可按需继续补充信息。");
+    } catch (error) {
+      setWorkflowFeedback(error instanceof Error ? error.message : "工作项保存失败，请稍后重试。");
+    } finally {
+      setTaskMutationPending(false);
+    }
+  };
+
+  const createLaunch = () => {
+    const productName = launchDraftName.trim() || "未命名新品项目";
+    const productCode = launchDraftCode.trim() || "NEW-" + Date.now().toString().slice(-6);
+    setLaunches((current) => [{
+      id: "launch-" + Date.now(),
+      productName,
+      productCode,
+      stage: launchDraftStage.trim() || "资料建档",
+      owner: launchDraftOwner.trim() || "商品组",
+      due: launchDraftDue.trim() || "待排期",
+      status: "待开始",
+      attachments: [],
+    }, ...current]);
+    setLaunchDraftName("");
+    setLaunchDraftCode("");
+    setLaunchDraftStage("资料建档");
+    setLaunchDraftDue("");
+    setLaunchCreateOpen(false);
+    setWorkflowFeedback("新品「" + productName + "」已创建，当前状态为待开始。");
+  };
+
+  const transitionTask = async (taskId: string, nextStatus: WorkflowStatus) => {
+    if (tasksLoading || taskMutationPending) return;
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || task.status === nextStatus) return;
+    setTaskMutationPending(true);
+    try {
+      const response = await fetch("/api/workflow/tasks?id=" + encodeURIComponent(taskId), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const payload = await response.json().catch(() => null) as { item?: WorkflowTask; error?: string } | null;
+      if (!response.ok || !payload?.item) {
+        throw new Error(payload?.error || `工作项状态保存失败（${response.status}）`);
+      }
+      setTasks((current) => current.map((item) => item.id === taskId ? { ...payload.item!, attachments: item.attachments } : item));
+      setWorkflowFeedback("「" + task.title + "」已标记为" + nextStatus + "并保存。");
+    } catch (error) {
+      setWorkflowFeedback(error instanceof Error ? error.message : "工作项状态保存失败，请稍后重试。");
+    } finally {
+      setTaskMutationPending(false);
+    }
+  };
+
+  const transitionLaunch = (launchId: string, nextStatus: WorkflowStatus) => {
+    const launch = launches.find((item) => item.id === launchId);
+    if (!launch || launch.status === nextStatus) return;
+    setLaunches((current) => current.map((item) => item.id === launchId ? { ...item, status: nextStatus } : item));
+    setWorkflowFeedback("新品「" + launch.productName + "」已标记为" + nextStatus + "。");
+  };
+
+  const addTaskAttachments = (taskId: string, files: FileList | null) => {
+    const attachments = buildWorkflowAttachments(files);
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || attachments.length === 0) return;
+    setTasks((current) => current.map((item) => item.id === taskId ? { ...item, attachments: [...item.attachments, ...attachments] } : item));
+    setWorkflowFeedback("已为「" + task.title + "」添加 " + attachments.length + " 个附件。");
+  };
+
+  const addLaunchAttachments = (launchId: string, files: FileList | null) => {
+    const attachments = buildWorkflowAttachments(files);
+    const launch = launches.find((item) => item.id === launchId);
+    if (!launch || attachments.length === 0) return;
+    setLaunches((current) => current.map((item) => item.id === launchId ? { ...item, attachments: [...item.attachments, ...attachments] } : item));
+    setWorkflowFeedback("已为新品「" + launch.productName + "」添加 " + attachments.length + " 个附件。");
+  };
+
+  const removeTaskAttachment = (taskId: string, attachmentId: string) => {
+    const attachment = tasks.find((item) => item.id === taskId)?.attachments.find((item) => item.id === attachmentId);
+    if (!attachment) return;
+    URL.revokeObjectURL(attachment.url);
+    setTasks((current) => current.map((item) => item.id === taskId ? { ...item, attachments: item.attachments.filter((entry) => entry.id !== attachmentId) } : item));
+    if (attachmentViewer?.id === attachmentId) setAttachmentViewer(null);
+    setWorkflowFeedback("附件已移除。");
+  };
+
+  const removeLaunchAttachment = (launchId: string, attachmentId: string) => {
+    const attachment = launches.find((item) => item.id === launchId)?.attachments.find((item) => item.id === attachmentId);
+    if (!attachment) return;
+    URL.revokeObjectURL(attachment.url);
+    setLaunches((current) => current.map((item) => item.id === launchId ? { ...item, attachments: item.attachments.filter((entry) => entry.id !== attachmentId) } : item));
+    if (attachmentViewer?.id === attachmentId) setAttachmentViewer(null);
+    setWorkflowFeedback("附件已移除。");
+  };
+
+  const confirmTaskDeletion = async () => {
+    if (taskMutationPending) return;
+    const task = taskPendingDeletion;
+    if (!task) return;
+    setTaskMutationPending(true);
+    try {
+      const response = await fetch("/api/workflow/tasks?id=" + encodeURIComponent(task.id), { method: "DELETE" });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || `工作项删除失败（${response.status}）`);
+      }
+      task.attachments.forEach((attachment) => URL.revokeObjectURL(attachment.url));
+      setTasks((current) => current.filter((item) => item.id !== task.id));
+      setTaskPendingDeletion(null);
+      setWorkflowFeedback("「" + task.title + "」已删除并保存。");
+    } catch (error) {
+      setWorkflowFeedback(error instanceof Error ? error.message : "工作项删除失败，请稍后重试。");
+    } finally {
+      setTaskMutationPending(false);
+    }
+  };
+
+  const taskCount = (status: WorkflowStatus) => tasks.filter((item) => item.status === status).length;
+  const launchCount = (status: WorkflowStatus) => launches.filter((item) => item.status === status).length;
+  const taskStatusBadge = (status: WorkflowStatus) => <span className={"status " + workflowStatusClass(status)}><Dot tone={workflowStatusTone(status)} />{status}</span>;
+  const feedback = workflowFeedback ? <section className="workflow-feedback" role="status"><span>✓</span><p>{workflowFeedback}</p><button type="button" onClick={() => setWorkflowFeedback("")} aria-label="关闭提示">×</button></section> : null;
+  const attachmentModal = attachmentViewer ? <WorkflowAttachmentPreview attachment={attachmentViewer} onClose={() => setAttachmentViewer(null)} /> : null;
+  const taskDeletionModal = taskPendingDeletion ? <WorkflowDeleteConfirm task={taskPendingDeletion} onCancel={() => setTaskPendingDeletion(null)} onConfirm={() => void confirmTaskDeletion()} disabled={taskMutationPending} /> : null;
+
+  const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">
+    <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => setActiveTab("plan")}>工作计划</button>
+    <button type="button" role="tab" aria-selected={activeTab === "inspection"} className={activeTab === "inspection" ? "active" : ""} onClick={() => setActiveTab("inspection")}>巡店查询</button>
+    <button type="button" role="tab" aria-selected={activeTab === "reviews"} className={activeTab === "reviews" ? "active" : ""} onClick={() => setActiveTab("reviews")}>评价维护</button>
+    <button type="button" role="tab" aria-selected={activeTab === "launch"} className={activeTab === "launch" ? "active" : ""} onClick={() => setActiveTab("launch")}>新品上架</button>
+  </div>;
+
+  if (activeTab === "inspection") {
+    const inspections = [
+      ["天猫-志高亿用专卖店", "天猫", "7月16日 10:20", "商品详情页", "主图与卖点完整", "正常"],
+      ["京东-志高商用设备旗舰店", "京东", "7月16日 09:42", "价格与库存", "2 个 SKU 库存偏低", "待处理"],
+      ["拼多多-志高商用厨电旗舰店", "拼多多", "7月15日 16:18", "活动报名", "活动库存已锁定", "正常"],
+      ["抖店-志高商业设备旗舰店", "抖音", "7月15日 14:05", "评价与问大家", "3 条低分评价待回复", "待处理"],
+    ];
+    return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">STORE INSPECTION</span><h2>巡店查询</h2><p>按店铺追溯每日巡检记录，快速定位价格、库存、页面与服务异常。</p></div><button className="secondary-button">↻ 刷新记录</button></section><section className="workflow-kpi-grid"><article><span>今日已巡店</span><strong>18 / 22</strong><small>完成率 81.8%</small></article><article><span>待处理问题</span><strong className="orange-text">6 项</strong><small>价格、库存与评价事项</small></article><article><span>高优先级</span><strong className="red-text">2 项</strong><small>需在今日闭环</small></article><article><span>最近巡检</span><strong>10:20</strong><small>天猫 · 亿用专卖店</small></article></section><section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>巡店记录</h2><p>保留最近一次巡检结果与需要跟进的异常项。</p></div><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索店铺、巡检项或结论" aria-label="搜索巡店记录" /><select aria-label="巡店状态"><option>全部状态</option><option>待处理</option><option>正常</option></select></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table"><thead><tr><th>店铺</th><th>平台</th><th>巡检时间</th><th>巡检事项</th><th>巡检结论</th><th>状态</th><th>操作</th></tr></thead><tbody>{inspections.filter((item) => !taskQuery.trim() || item.join(" ").includes(taskQuery.trim())).map((item) => <tr key={item[0]}><td><strong>{item[0]}</strong></td><td><span className="soft-tag">{item[1]}</span></td><td>{item[2]}</td><td>{item[3]}</td><td>{item[4]}</td><td><span className={"status " + (item[5] === "正常" ? "status-success" : "status-warning")}><Dot tone={item[5] === "正常" ? "green" : "orange"} />{item[5]}</span></td><td><button className="row-action">查看详情</button></td></tr>)}</tbody></table></div></section>{attachmentModal}</>;
+  }
+
+  if (activeTab === "reviews") {
+    const reviews = [["天猫-志高亿用专卖店", "5 星", "商品使用方便，出水很快。", "已回复", "7月16日"], ["抖店-志高商业设备旗舰店", "2 星", "包装有破损，希望改善。", "待回复", "7月16日"], ["京东-志高商用设备旗舰店", "3 星", "物流略慢，产品正常。", "待回复", "7月15日"], ["拼多多-志高商用厨电旗舰店", "5 星", "复购第二次，满意。", "已回复", "7月15日"]];
+    return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">REVIEW CARE</span><h2>评价维护</h2><p>集中跟进各平台商品评价，优先处理低分、售后与未回复内容。</p></div><button className="primary-button">＋ 新建回复模板</button></section><section className="workflow-kpi-grid"><article><span>近 30 天评价</span><strong>1,286</strong><small>较上周期 +8.4%</small></article><article><span>好评率</span><strong className="green-text">96.8%</strong><small>4–5 星评价占比</small></article><article><span>待回复评价</span><strong className="orange-text">18 条</strong><small>其中 3 条低于 3 星</small></article><article><span>平均响应时长</span><strong>3.2 小时</strong><small>目标：12 小时内</small></article></section><section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>评价跟进清单</h2><p>支持按店铺与处理状态筛选，回复后自动记录处理时间。</p></div><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索店铺或评价内容" aria-label="搜索评价内容" /><select aria-label="评价处理状态"><option>全部处理状态</option><option>待回复</option><option>已回复</option></select></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table"><thead><tr><th>店铺</th><th>星级</th><th>评价内容</th><th>处理状态</th><th>评价日期</th><th>操作</th></tr></thead><tbody>{reviews.filter((item) => !taskQuery.trim() || item.join(" ").includes(taskQuery.trim())).map((item) => <tr key={item[0] + "-" + item[4]}><td><strong>{item[0]}</strong></td><td><span className={item[1] === "5 星" ? "green-text" : item[1] === "2 星" ? "red-text" : "orange-text"}>{item[1]}</span></td><td>{item[2]}</td><td><span className={"status " + (item[3] === "已回复" ? "status-success" : "status-warning")}><Dot tone={item[3] === "已回复" ? "green" : "orange"} />{item[3]}</span></td><td>{item[4]}</td><td><button className="row-action">{item[3] === "已回复" ? "查看回复" : "立即回复"}</button></td></tr>)}</tbody></table></div></section>{attachmentModal}</>;
+  }
+
+  if (activeTab === "launch") {
+    return <>{subnav}<section className="workflow-toolbar"><div><span className="eyebrow">NEW PRODUCT LAUNCH</span><h2>新品上架</h2><p>新品项目同样使用待开始、工作中、已完成三阶段流转，并保留对应资料附件。</p></div><button className="primary-button" onClick={() => setLaunchCreateOpen((open) => !open)}>{launchCreateOpen ? "收起新增面板" : "＋ 新增新品项目"}</button></section>{feedback}{launchCreateOpen && <section className="panel workflow-create-panel"><div><h3>新增新品项目</h3><p>新项目默认进入“待开始”，随后可按实际进度推进或回退。</p></div><div className="workflow-create-fields"><input value={launchDraftName} onChange={(event) => setLaunchDraftName(event.target.value)} placeholder="新品名称" aria-label="新品名称" /><input value={launchDraftCode} onChange={(event) => setLaunchDraftCode(event.target.value)} placeholder="商品规格代码（可选）" aria-label="新品规格代码" /><input value={launchDraftStage} onChange={(event) => setLaunchDraftStage(event.target.value)} placeholder="当前节点" aria-label="新品当前节点" /><input value={launchDraftOwner} onChange={(event) => setLaunchDraftOwner(event.target.value)} placeholder="负责人" aria-label="新品负责人" /><input value={launchDraftDue} onChange={(event) => setLaunchDraftDue(event.target.value)} placeholder="计划上架日期" aria-label="新品计划上架日期" /><button className="primary-button" onClick={createLaunch}>创建新品项目</button></div></section>}<section className="launch-progress"><div><span>待开始</span><strong>{launchCount("待开始")}</strong><small>等待排期或资料准备</small></div><i>→</i><div><span>工作中</span><strong className="blue-text">{launchCount("工作中")}</strong><small>正在推进上架节点</small></div><i>→</i><div><span>已完成</span><strong className="green-text">{launchCount("已完成")}</strong><small>已完成当前上架流程</small></div><i>→</i><div><span>含附件项目</span><strong>{launches.filter((item) => item.attachments.length > 0).length}</strong><small>图片、资料或表格附件</small></div></section><section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>新品项目进度</h2><p>每个新品可推进或退回状态，并按项目保存图片、资料与交接文件。</p></div><div className="workflow-filter-row"><input value={launchQuery} onChange={(event) => setLaunchQuery(event.target.value)} placeholder="搜索新品名称、编码或节点" aria-label="搜索新品项目" /><select value={launchStatus} onChange={(event) => setLaunchStatus(event.target.value as "全部状态" | WorkflowStatus)} aria-label="新品上架状态"><option>全部状态</option>{workflowStages.map((stage) => <option key={stage.value}>{stage.value}</option>)}</select></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table workflow-launch-table"><thead><tr><th>新品名称</th><th>商品规格代码</th><th>当前节点</th><th>状态</th><th>负责人</th><th>计划上架</th><th>附件</th><th>操作</th></tr></thead><tbody>{filteredLaunches.map((launch) => <tr key={launch.id}><td><strong>{launch.productName}</strong></td><td>{launch.productCode}</td><td>{launch.stage}</td><td>{taskStatusBadge(launch.status)}</td><td>{launch.owner}</td><td>{launch.due}</td><td className="workflow-attachment-cell"><WorkflowAttachmentList attachments={launch.attachments} inputId={"workflow-launch-file-" + launch.id} onFiles={(files) => addLaunchAttachments(launch.id, files)} onRemove={(attachmentId) => removeLaunchAttachment(launch.id, attachmentId)} onPreview={setAttachmentViewer} /></td><td><WorkflowTransitionActions status={launch.status} onTransition={(nextStatus) => transitionLaunch(launch.id, nextStatus)} /></td></tr>)}{filteredLaunches.length === 0 && <tr><td colSpan={8}><div className="table-state">没有符合当前筛选条件的新品项目。</div></td></tr>}</tbody></table></div></section>{attachmentModal}</>;
+  }
+
   return (
     <>
-      <div className="subnav"><button className="active">工作计划</button><button>巡店检查</button><button>评价维护</button><button>新品上架</button><button>变量配置</button></div>
-      <section className="workflow-toolbar"><div><span className="eyebrow">运营协作</span><h2>工作计划看板</h2><p>集中管理日常任务、巡店事项与新品推进。</p></div><button className="primary-button">＋ 新建工作项</button></section>
-      <section className="kanban">{columns.map((column) => <div className="kanban-column" key={column.title}><div className="kanban-title"><span><Dot tone={column.tone} />{column.title}</span><em>{column.count}</em></div><div className="kanban-cards">{column.cards.map((card, index) => <article className="task-card" key={card[0]}><div><span className={`task-priority priority-line-${index === 1 ? "orange" : column.tone}`} /><button>•••</button></div><h3>{card[0]}</h3><span className="soft-tag">{card[1]}</span><footer><span className="avatar-stack"><i>张</i><i>李</i></span><small>{card[2]}</small></footer></article>)}</div><button className="add-card">＋ 添加工作项</button></div>)}</section>
+      {subnav}
+      <section className="workflow-toolbar workflow-plan-toolbar">
+        <div>
+          <span className="eyebrow">OPERATION COLLABORATION</span>
+          <h2>工作计划</h2>
+          <p>新工作项可按需补充工作事项、内容、跟进人、店铺、时间与紧急程度；未填写项会保留默认提示。</p>
+        </div>
+        <form className="workflow-task-create-fields" onSubmit={(event) => {
+          event.preventDefault();
+          void createTask();
+        }}>
+          <label><span>工作事项</span><input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="如：大促价格检查（可选）" aria-label="工作事项" /></label>
+          <label><span>工作内容</span><input value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="填写需完成的内容（可选）" aria-label="工作内容" /></label>
+          <label><span>跟进人</span><input value={draftOwner} onChange={(event) => setDraftOwner(event.target.value)} placeholder="负责人姓名或小组（可选）" aria-label="跟进人" /></label>
+          <label><span>店铺名称</span><input value={draftShopName} onChange={(event) => setDraftShopName(event.target.value)} placeholder="关联店铺名称（可选）" aria-label="店铺名称" /></label>
+          <label><span>开始时间</span><input type="date" value={draftStartDate} onChange={(event) => setDraftStartDate(event.target.value)} aria-label="开始时间" /></label>
+          <label><span>截止时间</span><input type="date" min={draftStartDate || undefined} value={draftDueDate} onChange={(event) => setDraftDueDate(event.target.value)} aria-label="截止时间" /></label>
+          <label><span>紧急程度</span><select value={draftPriority} onChange={(event) => setDraftPriority(event.target.value as WorkflowPriority | "")} aria-label="紧急程度"><option value="">未设置</option><option value="high">紧急</option><option value="normal">普通</option><option value="low">低</option></select></label>
+          <button type="submit" className="primary-button" disabled={tasksLoading || taskMutationPending}>{tasksLoading ? "读取中…" : taskMutationPending ? "保存中…" : "＋ 新建工作项"}</button>
+        </form>
+      </section>
+      {feedback}
+      <section className="panel workflow-flow-guide">
+        <div><span className="eyebrow">WORKFLOW</span><h3>任务流转规则</h3><p>状态调整立即生效，并显示操作结果。</p></div>
+        <div className="workflow-stage-track">{workflowStages.map((stage, index) => <span className="workflow-stage-step" key={stage.value}><b>{index + 1}</b><strong>{stage.value}</strong>{index < workflowStages.length - 1 && <i>→</i>}</span>)}</div>
+        <small>工作中可退回待开始；已完成可返还到待开始或工作中。</small>
+      </section>
+      <section className="workflow-kpi-grid">
+        <article><span>待开始</span><strong>{taskCount("待开始")}</strong><small>等待启动的工作项</small></article>
+        <article><span>工作中</span><strong className="blue-text">{taskCount("工作中")}</strong><small>可继续推进或退回</small></article>
+        <article><span>已完成</span><strong className="green-text">{taskCount("已完成")}</strong><small>可按需返还处理</small></article>
+        <article><span>含附件任务</span><strong>{tasks.filter((item) => item.attachments.length > 0).length}</strong><small>图片、文件与交接材料</small></article>
+      </section>
+      <section className="workflow-plan-controls panel">
+        <div className="workflow-filter-row">
+          <input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索工作事项、内容、店铺或跟进人" aria-label="搜索工作计划" />
+          <select value={taskStatus} onChange={(event) => setTaskStatus(event.target.value as "全部状态" | WorkflowStatus)} aria-label="工作计划状态"><option>全部状态</option>{workflowStages.map((stage) => <option key={stage.value}>{stage.value}</option>)}</select>
+        </div>
+        <span className="soft-tag">显示 {filteredTasks.length} 项</span>
+      </section>
+      <section className="kanban workflow-kanban">
+        {workflowStages.map((column) => {
+          const columnTasks = filteredTasks.filter((item) => item.status === column.value);
+          return <div className="kanban-column" key={column.value}>
+            <div className="kanban-title"><span><Dot tone={column.tone} />{column.value}</span><em>{columnTasks.length}</em></div>
+            <div className="kanban-cards">{columnTasks.map((task) => {
+              const stageIndex = workflowStages.findIndex((stage) => stage.value === task.status);
+              return <article className="task-card workflow-task-card" key={task.id}>
+                <div className="workflow-task-card-heading"><span className={"task-priority priority-line-" + (task.priority === "high" ? "orange" : task.priority === "low" ? "green" : column.tone)} />{taskStatusBadge(task.status)}</div>
+                <h3>{task.title}</h3>
+                <span className="soft-tag">{task.category}</span>
+                <p className="workflow-task-content">{task.workContent}</p>
+                <div className="workflow-task-meta"><span>{task.shopName}</span><span>{task.startDate} → {task.due}</span><strong className={"workflow-priority priority-" + task.priority}>{workflowPriorityLabel(task.priority)}</strong></div>
+                <div className="workflow-card-stage-line" aria-label={"当前状态：" + task.status}>{workflowStages.map((stage, index) => <span className={index <= stageIndex ? "active" : ""} key={stage.value}>{stage.value}</span>)}</div>
+                <WorkflowAttachmentList attachments={task.attachments} inputId={"workflow-plan-file-" + task.id} onFiles={(files) => addTaskAttachments(task.id, files)} onRemove={(attachmentId) => removeTaskAttachment(task.id, attachmentId)} onPreview={setAttachmentViewer} />
+                <div className="workflow-task-actions"><WorkflowTransitionActions status={task.status} onTransition={(nextStatus) => void transitionTask(task.id, nextStatus)} disabled={tasksLoading || taskMutationPending} /><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></div>
+                <footer><span className="avatar-stack"><i>{task.owner.slice(0, 1)}</i><i>{task.owner.slice(-1)}</i></span><small>{task.owner}</small></footer>
+              </article>;
+            })}</div>
+            <button className="add-card" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>＋ 添加工作项</button>
+          </div>;
+        })}
+      </section>
+      {attachmentModal}
+      {taskDeletionModal}
     </>
   );
 }
+
 
 function ImportView() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -2771,26 +3650,32 @@ function ImportView() {
     setHistoryLoading(true);
     setHistoryError("");
     try {
-      const [response, inventoryResponse, erpResponse, financeResponse] = await Promise.all([
+      const [response, inventoryResponse, erpResponse, financeResponse, netshopResponse] = await Promise.all([
         fetch("/api/imports/sales", { cache: "no-store" }),
         fetch("/api/imports/inventory", { cache: "no-store" }),
         fetch("/api/imports/erp", { cache: "no-store" }),
         fetch("/api/imports/finance", { cache: "no-store" }),
+        fetch("/api/netshop/import?limit=50", { cache: "no-store" }),
       ]);
       const payload = await response.json().catch(() => null) as (ImportHistoryResponse & { message?: string }) | null;
       const inventoryPayload = await inventoryResponse.json().catch(() => null) as { items?: InventoryImportHistoryItem[]; error?: string } | null;
       const erpPayload = await erpResponse.json().catch(() => null) as { items?: ErpReferenceImportBatch[]; error?: string } | null;
       const financePayload = await financeResponse.json().catch(() => null) as { items?: SalesImportBatch[]; error?: string } | null;
+      const netshopPayload = await netshopResponse.json().catch(() => null) as { items?: NetshopImportHistoryItem[]; error?: string } | null;
       if (!response.ok) throw new Error(payload?.message || `销售导入历史读取失败（${response.status}）`);
       if (!inventoryResponse.ok) throw new Error(inventoryPayload?.error || `库存导入历史读取失败（${inventoryResponse.status}）`);
       if (!erpResponse.ok) throw new Error(erpPayload?.error || `ERP 主数据导入历史读取失败（${erpResponse.status}）`);
       if (!financeResponse.ok) throw new Error(financePayload?.error || `财报导入历史读取失败（${financeResponse.status}）`);
-      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items) || !Array.isArray(financePayload?.items)) throw new Error("导入历史响应格式不完整");
+      if (!netshopResponse.ok) throw new Error(netshopPayload?.error || `京东 SKU 导入历史读取失败（${netshopResponse.status}）`);
+      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items) || !Array.isArray(financePayload?.items) || !Array.isArray(netshopPayload?.items)) throw new Error("导入历史响应格式不完整");
       const combined: UnifiedHistoryItem[] = [
         ...payload.items.map((item) => ({ ...item, sourceKey: "sales" as const, sourceLabel: "吉客云 ERP · 销售明细" })),
         ...inventoryPayload.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
         ...erpPayload.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
         ...financePayload.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
+        ...netshopPayload.items.filter((item) => item.source === "jd_product_master" || item.source === "jd_yimei_sku").map((item) => item.source === "jd_yimei_sku"
+          ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
+          : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
       setHistory(combined);
     } catch (requestError) {
@@ -2819,6 +3704,10 @@ function ImportView() {
     extensions: string[];
     accept: string;
     systemLabel: string;
+    formSource?: string;
+    platform?: string;
+    shopName?: string;
+    includeSnapshotDate?: boolean;
   }> = [
     { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "inventory", icon: "库", label: "分仓库存", report: "分仓库存快照", directEndpoint: "/api/imports/inventory", chunkEndpoint: "/api/imports/inventory/chunks", directFileSize: DIRECT_INVENTORY_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
@@ -2826,6 +3715,8 @@ function ImportView() {
     { key: "inventory_age", icon: "龄", label: "库龄", report: "库龄分析表", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "combos", icon: "组", label: "组合装", report: "组合装及子件", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "finance", icon: "财", label: "月度财报", report: "志高事业部销售财报", directEndpoint: "/api/imports/finance", chunkEndpoint: "", directFileSize: MAX_FINANCE_FILE_SIZE, maxFileSize: MAX_FINANCE_FILE_SIZE, chunkSize: MAX_FINANCE_FILE_SIZE, needsSnapshotDate: false, extensions: [".xls", ".xlsx"], accept: ".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "月度财报" },
+    { key: "jd_sku", icon: "京", label: "京东商品 SKU", report: "店铺后台 SKU 导出", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东店铺", formSource: "jd_product_master", platform: "京东", shopName: "志高商用设备旗舰店", includeSnapshotDate: true },
+    { key: "jd_sku_images", icon: "图", label: "京东 SKU 主图", report: "亿美/商品主图导出", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx", ".csv"], accept: ".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv", systemLabel: "京东 SKU 主图", formSource: "jd_yimei_sku", platform: "京东", shopName: "志高商用设备旗舰店" },
   ];
   const activeSource = sourceOptions.find((item) => item.key === selectedSource)!;
 
@@ -2900,7 +3791,7 @@ function ImportView() {
     const initResponse = await fetch(activeSource.chunkEndpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "init", source: selectedSource, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint }),
+      body: JSON.stringify({ action: "init", source: activeSource.formSource ?? selectedSource, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint }),
     });
     const initPayload = await initResponse.json().catch(() => null) as UnifiedImportResponse | null;
     if (!initResponse.ok || !initPayload?.ok || !initPayload.upload) {
@@ -2935,7 +3826,7 @@ function ImportView() {
     const completeResponse = await fetch(activeSource.chunkEndpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "complete", source: selectedSource, uploadId: initPayload.upload.id, ...(activeSource.needsSnapshotDate ? { snapshotDate } : {}) }),
+      body: JSON.stringify({ action: "complete", source: activeSource.formSource ?? selectedSource, uploadId: initPayload.upload.id, ...((activeSource.needsSnapshotDate || activeSource.includeSnapshotDate) ? { snapshotDate: activeSource.includeSnapshotDate ? shanghaiIsoToday() : snapshotDate } : {}) }),
     });
     return {
       payload: await completeResponse.json().catch(() => null) as UnifiedImportResponse | null,
@@ -2968,8 +3859,10 @@ function ImportView() {
         } else {
           const formData = new FormData();
           formData.append("file", selectedFile);
-          formData.append("source", selectedSource === "sales" ? "jky" : selectedSource);
-          if (activeSource.needsSnapshotDate) formData.append("snapshotDate", snapshotDate);
+          formData.append("source", activeSource.formSource ?? (selectedSource === "sales" ? "jky" : selectedSource));
+          if (activeSource.platform) formData.append("platform", activeSource.platform);
+          if (activeSource.shopName) formData.append("shopName", activeSource.shopName);
+          if (activeSource.needsSnapshotDate || activeSource.includeSnapshotDate) formData.append("snapshotDate", activeSource.includeSnapshotDate ? shanghaiIsoToday() : snapshotDate);
           response = await fetch(activeSource.directEndpoint, { method: "POST", body: formData });
         }
         outcome = { payload: await response.json().catch(() => null) as UnifiedImportResponse | null, status: response.status };
@@ -2998,7 +3891,7 @@ function ImportView() {
       <div className="subnav"><button className="active">文件导入</button><button>导入历史</button><button>数据连续性</button></div>
       <section className="import-grid">
         <article className="panel import-panel">
-          <span className="eyebrow">第 1 步</span><h2>选择数据类型</h2><p>销售、库存、主数据与月度财报使用同一套登录、校验和导入历史。</p>
+          <span className="eyebrow">第 1 步</span><h2>选择数据类型</h2><p>销售、库存、主数据、京东商品 SKU 与月度财报使用同一套校验和导入历史。</p>
           <div className="source-grid">{sourceOptions.map((item) => <button type="button" className={item.key === selectedSource ? "selected" : ""} aria-pressed={item.key === selectedSource} key={item.key} onClick={() => { setSelectedSource(item.key); setSelectedFile(null); setFeedback(null); setUploadProgress(0); }}><span>{item.icon}</span><strong>{item.label}</strong><small>{item.report}</small></button>)}</div>
         </article>
         <article className="panel import-panel">
@@ -3044,7 +3937,7 @@ function ImportView() {
         <div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
           {historyLoading && history.length === 0 && <tr><td colSpan={6}><div className="table-state"><span className="state-spinner" />正在读取导入记录…</div></td></tr>}
           {!historyLoading && historyError && <tr><td colSpan={6}><div className="table-state table-state-error"><span>{historyError}</span><button className="row-action" onClick={() => void loadHistory()}>重试</button></div></td></tr>}
-          {!historyLoading && !historyError && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请上传第一份吉客云 ERP 报表。</div></td></tr>}
+          {!historyLoading && !historyError && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请先上传业务报表。</div></td></tr>}
           {history.map((row) => {
             const rejected = row.status === "rejected";
             const duplicate = row.status === "duplicate";
@@ -3084,7 +3977,7 @@ function SettingsView() {
   return <><div className="subnav"><button className="active">系统参数</button><button disabled title="后续开放">主数据与映射</button><button disabled title="后续开放">权限管理</button></div>{(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "保存失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}<section className="settings-grid"><article className="panel settings-menu"><h2>设置中心</h2><p>管理员可保存库存健康、库龄和预警规则。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["数据同步", "销售与库存导入状态", "同"], ["权限管理", "仅管理员可保存设置", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article><article className="panel settings-form"><SectionHeader title="库存分析参数" note="保存后适用于后续库存健康、库龄分析与备货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input type="number" min={1} max={365} value={settings.targetDays} onChange={(event) => updateNumber("targetDays", Number(event.target.value))} /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input type="number" min={1} max={120} value={settings.criticalDays} onChange={(event) => updateNumber("criticalDays", Number(event.target.value))} /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input type="number" min={1} max={730} value={settings.slowDays} onChange={(event) => updateNumber("slowDays", Number(event.target.value))} /><em>天</em></div><small>用于识别低动销库存</small></label><label><span>呆滞库存判定</span><div><input type="number" min={1} max={1460} value={settings.stagnantDays} onChange={(event) => updateNumber("stagnantDays", Number(event.target.value))} /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "自动计算建议补货量，仍需人工确认草稿", "autoReplenishment"], ["库存异常提醒", "在 BI 看板集中显示库存健康风险", "inventoryAlert"], ["允许负库存", "仅影响导入校验，不会修改已有库存", "allowNegativeInventory"]].map(([label, note, key]) => <div className="toggle-row" key={key}><div><strong>{label}</strong><small>{note}</small></div><button type="button" onClick={() => toggle(key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory")} className={`toggle ${settings[key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory"] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：{settings.updatedAt ? `${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` · ${settings.updatedBy}` : ""}` : "尚未保存"}</span><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存设置"}</button></footer></article></section></>;
 }
 
-const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) => React.ReactNode> = {
+const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey) => void }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
   sales: SalesView,
@@ -3242,7 +4135,7 @@ export default function Home() {
 
         <div className="content">
           <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；流量与推广指标未接入前不做推算" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
-          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} />
+          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={selectModule} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>

@@ -291,6 +291,48 @@ export async function findLatestInventoryImportBatch(
   return row ? mapBatch(row) : null;
 }
 
+export type SystemCostSnapshot = {
+  batchId: string;
+  snapshotDate: string;
+  costs: Array<{
+    productCode: string;
+    warehouse: string;
+    unitCostCents: number;
+  }>;
+};
+
+/**
+ * Read the latest imported inventory snapshot as the system cost source for
+ * sales imports. Only positive fixed costs are eligible for automatic use.
+ */
+export async function findLatestSystemCostSnapshot(
+  db: InventoryDatabase,
+): Promise<SystemCostSnapshot | null> {
+  await ensureInventorySchema(db);
+  const batch = await findLatestInventoryImportBatch(db);
+  if (!batch) return null;
+
+  const result = await db.prepare(
+    `SELECT product_code, warehouse, unit_cost_cents
+     FROM inventory_stock_lines
+     WHERE batch_id = ? AND unit_cost_cents > 0 AND TRIM(warehouse) <> '刷刷仓'`,
+  ).bind(batch.id).all<{
+    product_code: string;
+    warehouse: string;
+    unit_cost_cents: number;
+  }>();
+
+  const costs = result.results.flatMap((row) => {
+    const productCode = String(row.product_code ?? "").trim();
+    const warehouse = String(row.warehouse ?? "").trim();
+    const unitCostCents = Number(row.unit_cost_cents);
+    if (!productCode || !Number.isSafeInteger(unitCostCents) || unitCostCents <= 0) return [];
+    return [{ productCode, warehouse, unitCostCents }];
+  });
+
+  return { batchId: batch.id, snapshotDate: batch.snapshotDate, costs };
+}
+
 export async function listInventoryImportBatches(
   db: InventoryDatabase,
   limit = 20,

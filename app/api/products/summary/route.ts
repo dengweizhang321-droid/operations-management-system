@@ -7,6 +7,10 @@ import {
 import { ensureSalesSchema } from "@/lib/sales/database";
 import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
 
+function readSelections(searchParams: URLSearchParams, key: string) {
+  return [...new Set(searchParams.getAll(key).map((value) => value.trim()).filter(Boolean))].slice(0, 100);
+}
+
 export async function GET(request: Request) {
   try {
     const db = getInventoryDatabase();
@@ -23,6 +27,8 @@ export async function GET(request: Request) {
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
       days: Number.isFinite(rawDays) && rawDays > 0 ? rawDays : undefined,
+      platforms: readSelections(searchParams, "platform"),
+      shopKeys: readSelections(searchParams, "shop"),
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
