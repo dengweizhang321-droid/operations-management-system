@@ -1209,6 +1209,64 @@ function StoreMetricCard({ label, value, change, note, unavailable = false }: {
   </article>;
 }
 
+function StoreSpuVisitorMetric({
+  startDate,
+  endDate,
+  outlets,
+  selectedOutletKeys,
+}: {
+  startDate: string;
+  endDate: string;
+  outlets: SalesChannel[];
+  selectedOutletKeys: string[];
+}) {
+  const [performance, setPerformance] = useState<NetshopProductPerformanceResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const selectedOutlets = useMemo(
+    () => selectedOutletKeys.length === 0 ? [] : outlets.filter((item) => selectedOutletKeys.includes(item.groupKey)),
+    [outlets, selectedOutletKeys],
+  );
+  const scope = useMemo(() => ({
+    platforms: [...new Set(selectedOutlets.map((item) => item.platform).filter((item) => item && item !== "未分类"))],
+    shops: [...new Set(selectedOutlets.map((item) => item.name).filter(Boolean))],
+  }), [selectedOutlets]);
+  const scopeKey = `${scope.platforms.join("\u0001")}\u0002${scope.shops.join("\u0001")}`;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      setLoading(true);
+      setError("");
+      setPerformance(null);
+      try {
+        const params = new URLSearchParams({ dimension: "spu", page: "1", pageSize: "1", startDate, endDate });
+        scope.platforms.forEach((platform) => params.append("platform", platform));
+        scope.shops.forEach((shop) => params.append("shop", shop));
+        const response = await fetch(`/api/netshop/product-performance?${params.toString()}`, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json().catch(() => null) as (NetshopProductPerformanceResponse & { error?: string }) | null;
+        if (!response.ok || !payload?.summary) throw new Error(payload?.error || `SPU 商品访客读取失败（${response.status}）`);
+        if (!controller.signal.aborted) setPerformance(payload);
+      } catch (requestError) {
+        if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取 SPU 商品访客");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [endDate, scopeKey, startDate]);
+
+  if (loading) return <StoreMetricCard label="访客" value="同步中…" note="正在汇总已导入 SPU 商品访客" />;
+  if (error || !performance?.dataCutoffDate) return <StoreMetricCard label="访客" value="—" note={error ? "未获取到匹配店铺的 SPU 日数据" : "待导入匹配店铺的 SPU 日数据"} unavailable />;
+
+  const sourceVisitors = performance.summary.visitors;
+  const estimatedVisitors = Math.round(sourceVisitors * 0.9);
+  const scopeNote = selectedOutletKeys.length === 0
+    ? `全部已导入 SPU 店铺 · 截止 ${performance.dataCutoffDate}`
+    : `已匹配 ${formatCount(performance.shops.length)} 个店铺 · 截止 ${performance.dataCutoffDate}`;
+  return <StoreMetricCard label="访客" value={formatCount(estimatedVisitors)} note={`SPU 商品访客 ${formatCount(sourceVisitors)} × 0.9 · ${scopeNote}`} />;
+}
+
 function StoreTableMetric({ value, baseline, formatter, showComparison, showActual }: {
   value: number;
   baseline?: number;
@@ -1454,13 +1512,13 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
     </section>
 
     <section className="store-source-status" role="note">
-      <div><span className="source-status-ready">✓ 已接入</span><strong>销售净额、订单量、客单价、毛利率、退货率</strong></div>
-      <div><span className="source-status-missing">○ 待接入</span><strong>访客、UV、推广、企业购/零售拆分</strong></div>
-      <p>页面只展示有可靠来源的经营值；流量与推广字段不会用订单数据反推。</p>
+      <div><span className="source-status-ready">✓ 已接入</span><strong>销售净额、订单量、客单价、毛利率、退货率、SPU 访客</strong></div>
+      <div><span className="source-status-missing">○ 待接入</span><strong>UV、推广、企业购/零售拆分</strong></div>
+      <p>访客按已导入 SPU 商品访客 × 0.9 估算；其余流量与推广字段不会用订单数据反推。</p>
     </section>
 
     <section className="store-metrics-grid">
-      <StoreMetricCard label="访客" value="—" note="待接入平台流量报表" unavailable />
+      <StoreSpuVisitorMetric startDate={summary.startDate} endDate={summary.endDate} outlets={outlets} selectedOutletKeys={selectedOutletKeys} />
       <StoreMetricCard label="销售额（净额）" value={formatCurrencyFromCents(current.netSalesCents)} change={salesChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(current.netSalesCents, baseline?.netSalesCents)}` : "来自已导入销售明细"} />
       <StoreMetricCard label="客单价" value={formatCurrencyFromCents(currentAov)} change={aovChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(currentAov, baselineAov)}` : `${formatCount(current.orderCount)} 笔订单`} />
       <StoreMetricCard label="UV 价值" value="—" note="缺少访客数据，不做推算" unavailable />
@@ -1622,7 +1680,7 @@ function ShopDailyProductPerformanceView({
   customEndDate,
 }: {
   dimension: NetshopProductPerformanceDimension;
-  onOpenImport: () => void;
+  onOpenImport: (dimension: NetshopProductPerformanceDimension) => void;
   range: SalesRangeLabel;
   customStartDate: string;
   customEndDate: string;
@@ -1756,10 +1814,20 @@ function ShopDailyProductPerformanceView({
     return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>{dimensionLabel} 商品表现加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
   }
   if (!performance || !performance.current.dataCutoffDate) {
-    return <section className="panel data-state"><span className="state-symbol">京</span><strong>尚未读取到{importLabel}</strong><p>商品数据会按“日期 + {dimensionLabel} + 店铺”汇总，并与京东商品页直接关联；导入完成后可在这里按平台、店铺或关键词查看。</p><button className="primary-button" onClick={onOpenImport}>前往导入{importLabel}</button></section>;
+    return <section className="panel data-state"><span className="state-symbol">京</span><strong>尚未读取到{importLabel}</strong><p>商品数据会按“日期 + {dimensionLabel} + 店铺”汇总，并与京东商品页直接关联；导入完成后可在这里按平台、店铺或关键词查看。</p><button className="primary-button" onClick={() => onOpenImport(dimension)}>前往导入并同步{importLabel}</button></section>;
   }
 
   const current = performance.current;
+  const comparisonSummary = performance.comparison?.summary;
+  const currentAverageTransactionValue = current.summary.transactionCustomers > 0
+    ? current.summary.transactionAmount / current.summary.transactionCustomers
+    : null;
+  const comparisonAverageTransactionValue = comparisonSummary && comparisonSummary.transactionCustomers > 0
+    ? comparisonSummary.transactionAmount / comparisonSummary.transactionCustomers
+    : null;
+  const productKpiNote = (source: string, value?: number | null, baseline?: number | null) => showComparison
+    ? `${comparisonLabel} ${formatProductComparison(value, baseline)}`
+    : source;
   const { pagination } = current;
   const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
   const periodLabel = current.dateMin && current.dataCutoffDate
@@ -1789,9 +1857,28 @@ function ShopDailyProductPerformanceView({
 
     <section className="panel netshop-performance-hero">
       <div><span className="eyebrow">JD BUSINESS INTELLIGENCE</span><h2>{dimensionLabel} 商品表现</h2><p>直接汇总已导入的京东商智商品明细日数据；金额保留商智原始口径（元），不以销售订单明细替代。</p></div>
-      <div className="netshop-performance-actions"><span><Dot tone="green" />数据截止 {current.dataCutoffDate}</span><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新"}</button><button type="button" className="primary-button" onClick={onOpenImport}>＋ 导入{dimensionLabel}日数据</button></div>
+      <div className="netshop-performance-actions"><span><Dot tone="green" />数据截止 {current.dataCutoffDate}</span><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新"}</button><button type="button" className="primary-button" onClick={() => onOpenImport(dimension)}>＋ 导入并同步{dimensionLabel}日数据</button></div>
     </section>
     <section className="netshop-performance-source"><span><Dot tone="blue" />已关联 {current.dataset === "sku_daily" ? "商智 SKU" : "商智 SPU"} 日数据</span><strong>{periodLabel}</strong><small>当前筛选周期 {selectedPeriod.startDate} 至 {selectedPeriod.endDate}{comparisonPeriod ? ` · ${comparisonLabel} ${comparisonPeriod.startDate} 至 ${comparisonPeriod.endDate}` : ""}。</small></section>
+    <section className="store-source-status product-performance-source-status" role="note">
+      <div><span className="source-status-ready">✓ 已接入</span><strong>访客、成交、加购、搜索、UV 价值、转化率</strong></div>
+      <div><span className="source-status-missing">○ 待接入</span><strong>推广、企业购/零售、付费/免费访客</strong></div>
+      <p>以下 KPI 随当前 {dimensionLabel}、平台、店铺和日期筛选同步汇总；金额采用京东商智成交口径。</p>
+    </section>
+    <section className="store-metrics-grid product-performance-kpi-grid" aria-label={`${dimensionLabel} 商品数据 KPI`}>
+      <StoreMetricCard label="访客" value={formatCount(current.summary.visitors)} change={showComparison ? productComparisonRate(current.summary.visitors, comparisonSummary?.visitors) : null} note={productKpiNote("商智商品访客", current.summary.visitors, comparisonSummary?.visitors)} />
+      <StoreMetricCard label="成交金额" value={formatMerchantCurrency(current.summary.transactionAmount)} change={showComparison ? productComparisonRate(current.summary.transactionAmount, comparisonSummary?.transactionAmount) : null} note={productKpiNote("商智成交金额，不等同销售净额", current.summary.transactionAmount, comparisonSummary?.transactionAmount)} />
+      <StoreMetricCard label="客单价" value={formatMerchantCurrency(currentAverageTransactionValue)} change={showComparison ? productComparisonRate(currentAverageTransactionValue, comparisonAverageTransactionValue) : null} note={currentAverageTransactionValue === null ? "当前周期没有成交人数" : productKpiNote("成交金额 / 成交人数", currentAverageTransactionValue, comparisonAverageTransactionValue)} unavailable={currentAverageTransactionValue === null} />
+      <StoreMetricCard label="UV 价值" value={formatMerchantCurrency(current.summary.uvValue)} change={showComparison ? productComparisonRate(current.summary.uvValue, comparisonSummary?.uvValue) : null} note={current.summary.uvValue === null ? "当前导入日数据未提供" : productKpiNote("商智 UV 价值", current.summary.uvValue, comparisonSummary?.uvValue)} unavailable={current.summary.uvValue === null} />
+      <StoreMetricCard label="转化率" value={formatOptionalRate(current.summary.conversionRate)} change={showComparison ? productComparisonRate(current.summary.conversionRate, comparisonSummary?.conversionRate) : null} note={current.summary.conversionRate === null ? "当前导入日数据未提供" : productKpiNote("商智总转化率", current.summary.conversionRate, comparisonSummary?.conversionRate)} unavailable={current.summary.conversionRate === null} />
+      <StoreMetricCard label="推广花费" value="—" note="待接入推广报表" unavailable />
+      <StoreMetricCard label="推广占比" value="—" note="需推广花费与成交口径" unavailable />
+      <StoreMetricCard label="零售占比" value="—" note="待接入订单类型标记" unavailable />
+      <StoreMetricCard label="B 端占比" value="—" note="待接入企业购明细" unavailable />
+      <StoreMetricCard label="推广点击数" value="—" note="待接入推广点击明细" unavailable />
+      <StoreMetricCard label="付费访客" value="不推算" note="避免用点击数替代访客" unavailable />
+      <StoreMetricCard label="免费访客" value="不推算" note="需平台自然流量数据" unavailable />
+    </section>
     {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((value) => value + 1)}>重试</button></section>}
     <section className="panel table-panel netshop-performance-table-panel">
       <div className="table-toolbar netshop-performance-toolbar"><div><h2>{dimensionLabel} 商品明细</h2><p>商智已接入指标可显示{comparisonLabel}百分比；推广与企业购指标保留为待接入列，不会以零值替代。</p></div><div className="netshop-performance-toolbar-actions"><span className="soft-tag">{formatCount(current.summary.productCount)} 个商品</span><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder={`搜索 ${dimensionLabel}、商品编码或名称`} aria-label={`搜索${dimensionLabel}商品表现`} /></label><div className={`store-column-picker product-performance-column-picker ${columnPickerOpen ? "open" : ""}`} ref={columnPickerRef}><button type="button" className="store-column-picker-trigger" aria-haspopup="dialog" aria-expanded={columnPickerOpen} onClick={() => { setColumnPickerOpen((open) => !open); setColumnPickerSearch(""); }}><span>☷</span>列设置 <em>{visibleColumns.length}/{productPerformanceColumns.length}</em></button>{columnPickerOpen && <div className="store-column-picker-menu" role="dialog" aria-label="选择商品明细指标"><div className="store-column-picker-head"><div><strong>显示指标</strong><small>商品信息、店铺名称和数据覆盖固定显示，至少保留 1 个指标</small></div><button type="button" onClick={() => setColumnPickerOpen(false)} aria-label="关闭列设置">×</button></div><div className="store-column-picker-actions"><button type="button" onClick={() => setVisibleColumns(productPerformanceColumns.map((column) => column.key))}>全选</button><button type="button" onClick={() => setVisibleColumns(connectedProductPerformanceColumns)}>仅商智已接入</button></div><label className="store-column-picker-search">⌕<input autoFocus type="search" value={columnPickerSearch} onChange={(event) => setColumnPickerSearch(event.target.value)} placeholder="搜索指标" aria-label="搜索商品明细指标" /></label><div className="store-column-picker-options">{matchedProductColumns.map((column) => { const checked = visibleColumns.includes(column.key); return <label key={column.key} className={checked ? "selected" : ""}><input type="checkbox" checked={checked} disabled={checked && visibleColumns.length === 1} onChange={() => toggleProductColumn(column.key)} /><span>{column.label}</span><em className={column.available ? "available" : "pending"}>{column.available ? "商智已接入" : "待接入"}</em></label>; })}{matchedProductColumns.length === 0 && <p className="store-column-picker-empty">没有匹配的指标</p>}</div></div>}</div></div></div>
@@ -1904,7 +1991,7 @@ function ShopProductDataView({
   customStartDate,
   customEndDate,
 }: {
-  onOpenImport: () => void;
+  onOpenImport: (dimension: NetshopProductPerformanceDimension) => void;
   range: SalesRangeLabel;
   customStartDate: string;
   customEndDate: string;
@@ -2007,7 +2094,7 @@ function ShopSkuView({
 
 type OutletTab = "analysis" | "outlets" | "platforms" | "products";
 
-function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey) => void }) {
+function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) {
   const apiRange = salesRangeMap[range];
   const [activeTab, setActiveTab] = useState<OutletTab>("analysis");
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
@@ -2080,7 +2167,7 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
 
   const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => setActiveTab("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button><button type="button" role="tab" aria-selected={activeTab === "products"} className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>商品数据</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入推广报表">推广分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
 
-  if (activeTab === "products") return <>{subnav}<ShopProductDataView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenImport={() => onNavigate("import")} /></>;
+  if (activeTab === "products") return <>{subnav}<ShopProductDataView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenImport={(dimension) => onNavigate("import", dimension === "sku" ? "jd_sku_daily" : "jd_spu_daily")} /></>;
 
   if (loading && !summary) return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步网店经营数据</strong><p>正在汇总已导入销售明细中的网店、平台、毛利与退货信息…</p></section></>;
   if (!summary || !analysisSummary) return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>网店数据加载失败</strong><p>{error || "暂时无法读取网店数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;
@@ -4340,7 +4427,7 @@ function WorkflowView() {
 }
 
 
-function ImportView() {
+function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>("sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
@@ -4355,6 +4442,13 @@ function ImportView() {
   const [history, setHistory] = useState<UnifiedHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState("");
+
+  useEffect(() => {
+    if (!importSource) return;
+    setSelectedSource(importSource);
+    setSelectedFile(null);
+    setFeedback(null);
+  }, [importSource]);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -4707,7 +4801,7 @@ function SettingsView() {
   return <><div className="subnav"><button className="active">系统参数</button><button disabled title="后续开放">主数据与映射</button><button disabled title="后续开放">权限管理</button></div>{(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "保存失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}<section className="settings-grid"><article className="panel settings-menu"><h2>设置中心</h2><p>管理员可保存库存健康、库龄和预警规则。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["数据同步", "销售与库存导入状态", "同"], ["权限管理", "仅管理员可保存设置", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article><article className="panel settings-form"><SectionHeader title="库存分析参数" note="保存后适用于后续库存健康、库龄分析与备货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input type="number" min={1} max={365} value={settings.targetDays} onChange={(event) => updateNumber("targetDays", Number(event.target.value))} /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input type="number" min={1} max={120} value={settings.criticalDays} onChange={(event) => updateNumber("criticalDays", Number(event.target.value))} /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input type="number" min={1} max={730} value={settings.slowDays} onChange={(event) => updateNumber("slowDays", Number(event.target.value))} /><em>天</em></div><small>用于识别低动销库存</small></label><label><span>呆滞库存判定</span><div><input type="number" min={1} max={1460} value={settings.stagnantDays} onChange={(event) => updateNumber("stagnantDays", Number(event.target.value))} /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "自动计算建议补货量，仍需人工确认草稿", "autoReplenishment"], ["库存异常提醒", "在 BI 看板集中显示库存健康风险", "inventoryAlert"], ["允许负库存", "仅影响导入校验，不会修改已有库存", "allowNegativeInventory"]].map(([label, note, key]) => <div className="toggle-row" key={key}><div><strong>{label}</strong><small>{note}</small></div><button type="button" onClick={() => toggle(key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory")} className={`toggle ${settings[key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory"] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：{settings.updatedAt ? `${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` · ${settings.updatedBy}` : ""}` : "尚未保存"}</span><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存设置"}</button></footer></article></section></>;
 }
 
-const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey) => void }) => React.ReactNode> = {
+const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
   sales: SalesView,
@@ -4721,6 +4815,7 @@ const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDa
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [active, setActive] = useState<ModuleKey>("dashboard");
+  const [importSource, setImportSource] = useState<ImportSourceKey | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [range, setRange] = useState<SalesRangeLabel>("本月");
@@ -4792,7 +4887,8 @@ export default function Home() {
   const current = navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
 
-  const selectModule = (key: ModuleKey) => {
+  const selectModule = (key: ModuleKey, nextImportSource?: ImportSourceKey) => {
+    if (key === "import") setImportSource(nextImportSource ?? null);
     setActive(key);
     setMobileMenu(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -4864,8 +4960,8 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；流量与推广指标未接入前不做推算" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
-          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={selectModule} />
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>

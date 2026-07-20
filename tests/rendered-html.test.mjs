@@ -439,7 +439,10 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   ]) {
     assert.match(page, new RegExp(label));
   }
-  assert.doesNotMatch(page, /<section className="metrics-grid netshop-performance-metrics">/);
+  assert.match(page, /product-performance-kpi-grid/);
+  assert.match(page, /商品数据 KPI/);
+  assert.match(page, /成交金额，不等同销售净额/);
+  assert.match(page, /导入并同步/);
   assert.match(page, /\/api\/netshop\/product-performance/);
   assert.match(page, /SearchableMultiSelect/);
   assert.match(page, /productComparisonPeriod/);
@@ -453,6 +456,17 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(route, /readDimension/);
   assert.match(route, /getAll\("platform"\)/);
   assert.match(route, /getAll\("shop"\)/);
+});
+
+test("derives the shop visitor KPI from filtered SPU visitors", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /function StoreSpuVisitorMetric/);
+  assert.match(page, /dimension: "spu"/);
+  assert.match(page, /Math\.round\(sourceVisitors \* 0\.9\)/);
+  assert.match(page, /SPU 商品访客/);
+  assert.match(page, /待导入匹配店铺的 SPU 日数据/);
+  assert.match(page, /jd_sku_daily" : "jd_spu_daily/);
 });
 
 test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {
