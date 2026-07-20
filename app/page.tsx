@@ -4429,7 +4429,7 @@ function WorkflowView() {
 
 function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [selectedSource, setSelectedSource] = useState<ImportSourceKey>("sales");
+  const [selectedSource, setSelectedSource] = useState<ImportSourceKey>(() => importSource ?? "sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
   const [dailyStartDate, setDailyStartDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
   const [dailyEndDate, setDailyEndDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
