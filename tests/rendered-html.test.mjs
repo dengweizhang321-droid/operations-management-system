@@ -75,8 +75,13 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /outlets/);
   assert.match(page, /近15天/);
   assert.match(page, /昨天/);
-  assert.match(page, /<option>月度<\/option>/);
-  assert.doesNotMatch(page, /<option>本季度<\/option>/);
+  assert.match(page, /function SearchableSelect/);
+  assert.match(page, /function SearchableMultiSelect/);
+  assert.match(page, /searchable-select-search/);
+  assert.match(page, /搜索店铺或平台/);
+  assert.match(page, /columnPickerSearch/);
+  assert.doesNotMatch(page, /<select\b/);
+  assert.doesNotMatch(page, /本季度/);
   assert.doesNotMatch(page, /DateRangeSlider/);
   assert.match(page, /选择统计月份/);
   assert.match(page, /productPeriodPickerOpen/);
@@ -113,6 +118,15 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /数据同步状态/);
   assert.match(page, /库存快照/);
   assert.match(page, /summary\?\.shops/);
+  assert.match(page, /SalesOverviewFilterBar/);
+  assert.match(page, /销售总览店铺/);
+  assert.match(page, /销售总览品类/);
+  assert.match(page, /selectedShopKeys/);
+  assert.match(page, /selectedCategories/);
+  assert.match(page, /selectedOutletKeys/);
+  assert.match(page, /selectedShops/);
+  assert.match(page, /marginFilters/);
+  assert.match(page, /taskStatuses/);
   assert.match(page, /type="file"/);
   assert.match(layout, /generateMetadata/);
   assert.match(layout, /\/og\.png/);
@@ -123,10 +137,18 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(chunkRoute, /assembleSalesUpload/);
   assert.match(chunkService, /SALES_UPLOAD_CHUNK_BYTES/);
   assert.match(summaryRoute, /getSalesSummary/);
+  assert.match(summaryRoute, /categories/);
+  assert.match(summaryRoute, /getAll\("outlet"\)/);
+  assert.match(summaryRoute, /parseShopFilterKey/);
   assert.match(summaryService, /gross_sales_cents/);
   assert.match(summaryService, /net_sales_excluding_accessories_cents/);
   assert.match(summaryService, /赠品配件/);
   assert.match(summaryService, /salesYearOverYearRate/);
+  assert.match(summaryService, /filterOptions/);
+  assert.match(summaryService, /categoryClause/);
+  assert.match(summaryService, /filterOptionsData/);
+  assert.match(summaryService, /outletBindings/);
+  assert.match(summaryService, /normalizeOutlets/);
   assert.match(summaryService, /last15/);
   assert.match(summaryService, /dailyResult/);
   assert.match(summaryService, /product_code IN/);
@@ -385,6 +407,27 @@ test("connects JD SPU daily workbooks to the netshop import API", async () => {
   assert.match(service, /=== "合计"/);
   assert.match(database, /spu_id/);
   assert.match(database, /business_date/);
+});
+
+test("links imported JD SKU and SPU daily data to shop product analysis", async () => {
+  const [page, database, route] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/netshop/product-performance/route.ts", import.meta.url), "utf8"),
+  ]);
+
+  for (const label of ["SKU 维度", "SPU 维度", "SKU 商品目录", "商品浏览量", "成交金额", "打开商品"]) {
+    assert.match(page, new RegExp(label));
+  }
+  assert.match(page, /\/api\/netshop\/product-performance/);
+  assert.match(page, /SearchableMultiSelect/);
+  assert.match(database, /getNetshopProductPerformance/);
+  assert.match(database, /dataset = input\.dimension === "sku" \? "sku_daily" : "spu_daily"/);
+  assert.match(database, /商品浏览量/);
+  assert.match(database, /成交金额/);
+  assert.match(database, /GROUP_CONCAT\(DISTINCT NULLIF\(r\.shop_name/);
+  assert.match(route, /readDimension/);
+  assert.match(route, /getAll\("shop"\)/);
 });
 
 test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {

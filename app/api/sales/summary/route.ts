@@ -8,6 +8,7 @@ import {
   salesRanges,
   SalesSummaryRequestError,
 } from "@/lib/sales/summary";
+import { parseShopFilterKey } from "@/lib/sales/shop-identity";
 
 export async function GET(request: Request) {
   try {
@@ -27,6 +28,19 @@ export async function GET(request: Request) {
       .map((value) => value.trim())
       .filter(Boolean)
       .slice(0, 100);
+    const categories = [...searchParams.getAll("categories"), ...searchParams.getAll("category")]
+      .flatMap((value) => value.split(/[，,;；]+/))
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .slice(0, 50);
+    const outlets = [...searchParams.getAll("outlet"), ...searchParams.getAll("outlets")]
+      .flatMap((value) => value.split(/[，,;；]+/))
+      .map((value) => parseShopFilterKey(value.trim()))
+      .filter((value): value is NonNullable<typeof value> => value !== null)
+      .filter((value, index, values) => values.findIndex((item) => item.platform === value.platform && item.shopName === value.shopName) === index)
+      .slice(0, 50)
+      .map((value) => ({ platform: value.platform, shop: value.shopName }));
     const payload = await getSalesSummary(db, {
       range: requested,
       startDate: searchParams.get("startDate") ?? undefined,
@@ -34,6 +48,8 @@ export async function GET(request: Request) {
       productCodes,
       platform: searchParams.get("platform") ?? undefined,
       shop: searchParams.get("shop") ?? undefined,
+      outlets,
+      categories,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

@@ -151,6 +151,51 @@ export type NetshopProductCatalog = {
   };
 };
 
+export type NetshopProductPerformanceDimension = "sku" | "spu";
+
+export type NetshopProductPerformanceItem = {
+  id: string;
+  skuId: string;
+  spuId: string;
+  productCode: string;
+  productName: string;
+  category: string;
+  shopNames: string[];
+  dateMin: string | null;
+  dateMax: string | null;
+  dataDays: number;
+  pageViews: number;
+  visitors: number;
+  addCartQuantity: number;
+  orderAmount: number;
+  transactionAmount: number;
+  transactionQuantity: number;
+  transactionCustomers: number;
+  conversionRate: number | null;
+};
+
+export type NetshopProductPerformance = {
+  dimension: NetshopProductPerformanceDimension;
+  dataset: "sku_daily" | "spu_daily";
+  requestedPeriod: { startDate: string | null; endDate: string | null };
+  dateMin: string | null;
+  dataCutoffDate: string | null;
+  shops: Array<{ shopName: string; platform: string; productCount: number }>;
+  summary: {
+    productCount: number;
+    pageViews: number;
+    visitors: number;
+    addCartQuantity: number;
+    orderAmount: number;
+    transactionAmount: number;
+    transactionQuantity: number;
+    transactionCustomers: number;
+    conversionRate: number | null;
+  };
+  items: NetshopProductPerformanceItem[];
+  pagination: { page: number; pageSize: number; total: number };
+};
+
 const batchColumns = `
   id, source, dataset, platform, shop_name, file_name, file_size_bytes, file_hash,
   sheet_name, status, row_count, inserted_count, duplicate_count, warning_count,
@@ -828,14 +873,14 @@ function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInte
 
 export async function getNetshopProductCatalog(
   db: NetshopDatabase,
-  input: { query?: string; page?: number; pageSize?: number; shopName?: string; salesStartDate?: string; salesEndDate?: string } = {},
+  input: { query?: string; page?: number; pageSize?: number; shopName?: string; shopNames?: string[]; salesStartDate?: string; salesEndDate?: string } = {},
 ): Promise<NetshopProductCatalog> {
   const page = Math.max(1, Math.trunc(input.page ?? 1));
   const pageSize = Math.max(1, Math.min(100, Math.trunc(input.pageSize ?? 50)));
   const latestBatches = await latestJdProductBatches(db);
-  const requestedShopName = input.shopName?.trim() ?? "";
-  const batches = requestedShopName
-    ? latestBatches.filter((batch) => batch.shopName === requestedShopName)
+  const requestedShopNames = [...new Set([input.shopName ?? "", ...(input.shopNames ?? [])].map((value) => value.trim()).filter(Boolean))];
+  const batches = requestedShopNames.length > 0
+    ? latestBatches.filter((batch) => requestedShopNames.includes(batch.shopName))
     : latestBatches;
   const batch = batches[0] ?? null;
   const shops = latestBatches
@@ -945,5 +990,234 @@ export async function getNetshopProductCatalog(
       ...(sales.metrics.get(salesProductCode) ?? emptyNetshopProductSalesMetrics()),
     })),
     pagination: { page, pageSize, total: Number(totalRow?.total ?? 0) },
+  };
+}
+
+type NetshopProductPerformanceSummaryRow = {
+  product_count: number | null;
+  date_min: string | null;
+  data_cutoff_date: string | null;
+  page_views: number | null;
+  visitors: number | null;
+  add_cart_quantity: number | null;
+  order_amount: number | null;
+  transaction_amount: number | null;
+  transaction_quantity: number | null;
+  transaction_customers: number | null;
+};
+
+type NetshopProductPerformanceRow = {
+  id: string;
+  sku_id: string;
+  spu_id: string;
+  product_code: string;
+  product_name: string;
+  category: string | null;
+  shop_names: string | null;
+  date_min: string | null;
+  date_max: string | null;
+  data_days: number | null;
+  page_views: number | null;
+  visitors: number | null;
+  add_cart_quantity: number | null;
+  order_amount: number | null;
+  transaction_amount: number | null;
+  transaction_quantity: number | null;
+  transaction_customers: number | null;
+};
+
+type NetshopProductPerformanceShopRow = {
+  shop_name: string;
+  platform: string;
+  product_count: number | null;
+};
+
+const dailyPerformanceMetrics = {
+  pageViews: `COALESCE(CAST(json_extract(r.metrics_json, '$."商品浏览量"') AS REAL), 0)`,
+  visitors: `COALESCE(CAST(json_extract(r.metrics_json, '$."商品访客数"') AS REAL), 0)`,
+  addCartQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."加购商品件数"') AS REAL), 0)`,
+  orderAmount: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单金额"') AS REAL), 0)`,
+  transactionAmount: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交金额"') AS REAL), 0)`,
+  transactionQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交商品件数"') AS REAL), 0)`,
+  transactionCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交客户数"') AS REAL), 0)`,
+} as const;
+
+function numberFromDailyMetric(value: number | null | undefined) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function dailyPerformanceCategorySql() {
+  return `COALESCE(
+    NULLIF(json_extract(r.raw_json, '$."三级类目"'), ''),
+    NULLIF(json_extract(r.raw_json, '$."二级类目"'), ''),
+    NULLIF(json_extract(r.raw_json, '$."一级类目"'), ''),
+    ''
+  )`;
+}
+
+/**
+ * Aggregates the imported JD Business Intelligence product-detail workbooks.
+ * The data is deliberately read-only: each SKU/SPU day remains the source of
+ * truth and is only summed for the selected analysis range.
+ */
+export async function getNetshopProductPerformance(
+  db: NetshopDatabase,
+  input: {
+    dimension: NetshopProductPerformanceDimension;
+    query?: string;
+    page?: number;
+    pageSize?: number;
+    shopNames?: string[];
+    startDate?: string;
+    endDate?: string;
+  },
+): Promise<NetshopProductPerformance> {
+  const page = Math.max(1, Math.trunc(input.page ?? 1));
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(input.pageSize ?? 50)));
+  const dataset = input.dimension === "sku" ? "sku_daily" : "spu_daily";
+  const dimensionSql = input.dimension === "sku" ? "r.sku_id" : "r.spu_id";
+  const startDate = isIsoDate(input.startDate) ? input.startDate! : null;
+  const endDate = isIsoDate(input.endDate) ? input.endDate! : null;
+  const selectedShops = [...new Set((input.shopNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
+  const query = (input.query ?? "").trim().slice(0, 120);
+  const whereParts = ["r.source = 'jd_sku_daily'", "r.dataset = ?", `${dimensionSql} <> ''`];
+  const bindings: string[] = [dataset];
+
+  if (startDate && endDate && startDate <= endDate) {
+    whereParts.push("r.business_date >= ?", "r.business_date <= ?");
+    bindings.push(startDate, endDate);
+  }
+  if (selectedShops.length > 0) {
+    whereParts.push(`r.shop_name IN (${selectedShops.map(() => "?").join(", ")})`);
+    bindings.push(...selectedShops);
+  }
+  if (query) {
+    whereParts.push(`(${dimensionSql} LIKE ? OR r.sku_id LIKE ? OR r.spu_id LIKE ? OR r.product_code LIKE ? OR r.product_name LIKE ?)`);
+    const searchTerm = `%${query}%`;
+    bindings.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+  const whereSql = whereParts.join(" AND ");
+  const categorySql = dailyPerformanceCategorySql();
+  const metric = dailyPerformanceMetrics;
+  const summary = await db
+    .prepare(
+      `SELECT
+         COUNT(DISTINCT ${dimensionSql}) AS product_count,
+         MIN(r.business_date) AS date_min,
+         MAX(r.business_date) AS data_cutoff_date,
+         SUM(${metric.pageViews}) AS page_views,
+         SUM(${metric.visitors}) AS visitors,
+         SUM(${metric.addCartQuantity}) AS add_cart_quantity,
+         SUM(${metric.orderAmount}) AS order_amount,
+         SUM(${metric.transactionAmount}) AS transaction_amount,
+         SUM(${metric.transactionQuantity}) AS transaction_quantity,
+         SUM(${metric.transactionCustomers}) AS transaction_customers
+       FROM netshop_rows r
+       WHERE ${whereSql}`,
+    )
+    .bind(...bindings)
+    .first<NetshopProductPerformanceSummaryRow>();
+
+  const totalRow = await db
+    .prepare(`SELECT COUNT(DISTINCT ${dimensionSql}) AS total FROM netshop_rows r WHERE ${whereSql}`)
+    .bind(...bindings)
+    .first<{ total: number | null }>();
+  const offset = (page - 1) * pageSize;
+  const rows = await db
+    .prepare(
+      `SELECT
+         ${dimensionSql} AS id,
+         MAX(r.sku_id) AS sku_id,
+         MAX(r.spu_id) AS spu_id,
+         MAX(NULLIF(r.product_code, '')) AS product_code,
+         MAX(NULLIF(r.product_name, '')) AS product_name,
+         MAX(${categorySql}) AS category,
+         GROUP_CONCAT(DISTINCT NULLIF(r.shop_name, '')) AS shop_names,
+         MIN(r.business_date) AS date_min,
+         MAX(r.business_date) AS date_max,
+         COUNT(DISTINCT r.business_date) AS data_days,
+         SUM(${metric.pageViews}) AS page_views,
+         SUM(${metric.visitors}) AS visitors,
+         SUM(${metric.addCartQuantity}) AS add_cart_quantity,
+         SUM(${metric.orderAmount}) AS order_amount,
+         SUM(${metric.transactionAmount}) AS transaction_amount,
+         SUM(${metric.transactionQuantity}) AS transaction_quantity,
+         SUM(${metric.transactionCustomers}) AS transaction_customers
+       FROM netshop_rows r
+       WHERE ${whereSql}
+       GROUP BY ${dimensionSql}
+       ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC, id ASC
+       LIMIT ? OFFSET ?`,
+    )
+    .bind(...bindings, pageSize, offset)
+    .all<NetshopProductPerformanceRow>();
+
+  const shops = await db
+    .prepare(
+      `SELECT
+         r.shop_name,
+         MAX(r.platform) AS platform,
+         COUNT(DISTINCT ${dimensionSql}) AS product_count
+       FROM netshop_rows r
+       WHERE r.source = 'jd_sku_daily'
+         AND r.dataset = ?
+         AND ${dimensionSql} <> ''
+         AND r.shop_name <> ''
+       GROUP BY r.shop_name
+       ORDER BY r.shop_name COLLATE NOCASE ASC`,
+    )
+    .bind(dataset)
+    .all<NetshopProductPerformanceShopRow>();
+
+  const visitors = numberFromDailyMetric(summary?.visitors);
+  const transactionCustomers = numberFromDailyMetric(summary?.transaction_customers);
+  return {
+    dimension: input.dimension,
+    dataset,
+    requestedPeriod: { startDate, endDate },
+    dateMin: summary?.date_min ?? null,
+    dataCutoffDate: summary?.data_cutoff_date ?? null,
+    shops: shops.results.map((shop) => ({
+      shopName: shop.shop_name,
+      platform: shop.platform || "京东",
+      productCount: numberFromDailyMetric(shop.product_count),
+    })),
+    summary: {
+      productCount: numberFromDailyMetric(summary?.product_count),
+      pageViews: numberFromDailyMetric(summary?.page_views),
+      visitors,
+      addCartQuantity: numberFromDailyMetric(summary?.add_cart_quantity),
+      orderAmount: numberFromDailyMetric(summary?.order_amount),
+      transactionAmount: numberFromDailyMetric(summary?.transaction_amount),
+      transactionQuantity: numberFromDailyMetric(summary?.transaction_quantity),
+      transactionCustomers,
+      conversionRate: visitors > 0 ? transactionCustomers / visitors : null,
+    },
+    items: rows.results.map((row) => {
+      const itemVisitors = numberFromDailyMetric(row.visitors);
+      const itemTransactionCustomers = numberFromDailyMetric(row.transaction_customers);
+      return {
+        id: row.id,
+        skuId: row.sku_id,
+        spuId: row.spu_id,
+        productCode: row.product_code,
+        productName: row.product_name,
+        category: row.category || "",
+        shopNames: (row.shop_names ?? "").split(",").map((value) => value.trim()).filter(Boolean),
+        dateMin: row.date_min,
+        dateMax: row.date_max,
+        dataDays: numberFromDailyMetric(row.data_days),
+        pageViews: numberFromDailyMetric(row.page_views),
+        visitors: itemVisitors,
+        addCartQuantity: numberFromDailyMetric(row.add_cart_quantity),
+        orderAmount: numberFromDailyMetric(row.order_amount),
+        transactionAmount: numberFromDailyMetric(row.transaction_amount),
+        transactionQuantity: numberFromDailyMetric(row.transaction_quantity),
+        transactionCustomers: itemTransactionCustomers,
+        conversionRate: itemVisitors > 0 ? itemTransactionCustomers / itemVisitors : null,
+      };
+    }),
+    pagination: { page, pageSize, total: numberFromDailyMetric(totalRow?.total) },
   };
 }
