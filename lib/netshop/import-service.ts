@@ -16,6 +16,7 @@ import {
   type NetshopRowInput,
   type NetshopSource,
 } from "@/lib/netshop/database";
+import { dailyDateCoverage, dailyRowKey, detectJdDailyDataset } from "@/lib/netshop/daily-contract";
 
 const DEFAULT_PLATFORM = "京东";
 const DEFAULT_SHOP_NAME = "志高商用设备旗舰店";
@@ -272,7 +273,12 @@ function firstDate(row: Record<string, unknown>) {
   return "";
 }
 
-function detectDataset(source: NetshopSource, fileName: string, headers: readonly string[]) {
+function isDailyAggregateRow(source: NetshopSource, row: Record<string, unknown>) {
+  if (source !== "jd_sku_daily") return false;
+  return normalizeText(findValue(row, [/^sku$/i, /^spu$/i])) === "合计";
+}
+
+export function detectDataset(source: NetshopSource, fileName: string, headers: readonly string[]) {
   const haystack = `${fileName} ${headers.join(" ")}`;
   if (source === "jd_shop_overview") return "trade_overview";
   if (source === "jd_promotion") return "ad";
@@ -287,8 +293,7 @@ function detectDataset(source: NetshopSource, fileName: string, headers: readonl
     return "cs";
   }
   if (source === "jd_sku_daily") {
-    if (/\bSPU\b|spu/i.test(haystack)) return "spu_daily";
-    return "sku_daily";
+    return detectJdDailyDataset(headers);
   }
   return source;
 }
@@ -327,6 +332,11 @@ function validateRows(rows: readonly NetshopRowInput[]) {
     else if (keys.has(row.sourceRowKey)) errors.push({ row: row.sourceRowNumber, code: "DUPLICATE_ROW_KEY", message: "文件内存在重复行" });
     else keys.add(row.sourceRowKey);
     if (!row.dataset) errors.push({ row: row.sourceRowNumber, code: "MISSING_DATASET", message: "未识别数据集" });
+    if ((row.dataset === "sku_daily" || row.dataset === "spu_daily") && !row.businessDate) {
+      errors.push({ row: row.sourceRowNumber, field: "时间", code: "MISSING_BUSINESS_DATE", message: "分天数据缺少有效日期" });
+    }
+    if (row.dataset === "sku_daily" && !row.skuId) errors.push({ row: row.sourceRowNumber, field: "SKU", code: "MISSING_SKU_ID", message: "SKU 分天数据缺少 SKU" });
+    if (row.dataset === "spu_daily" && !row.spuId) errors.push({ row: row.sourceRowNumber, field: "SPU", code: "MISSING_SPU_ID", message: "SPU 分天数据缺少 SPU" });
     if (errors.length >= 200) break;
   }
   return errors;
@@ -341,15 +351,14 @@ export async function importNetshopBytes(input: {
   shopName?: string;
   note?: string;
   snapshotDate?: string;
+  expectedDataset?: "sku_daily" | "spu_daily";
+  expectedStartDate?: string;
+  expectedEndDate?: string;
 }): Promise<NetshopImportExecution> {
   const fileHash = toHex(await sha256(input.bytes));
   const db = getNetshopDatabase();
   await ensureNetshopSchema(db);
   const previous = await findNetshopImportBatchByHash(db, input.source, fileHash);
-  if (previous?.status === "completed") {
-    if (input.source === "jd_product_master") await normalizeJdProductMasterRows(db, previous.id);
-    return { ok: true, status: "duplicate", message: "该文件已经导入，无需重复处理", batch: previous, warnings: previous.warnings };
-  }
 
   let parsed: ParsedTable;
   try {
@@ -367,14 +376,25 @@ export async function importNetshopBytes(input: {
     return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "HEADER_NOT_FOUND", message }], errorCount: 1 };
   }
 
-  const dataset = detectDataset(input.source, input.fileName, header.headers);
+  let dataset: string;
+  try {
+    dataset = detectDataset(input.source, input.fileName, header.headers);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "数据集识别失败";
+    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "DATASET_HEADER_MISMATCH", message }], errorCount: 1 };
+  }
+  if (input.source === "jd_sku_daily" && input.expectedDataset && input.expectedDataset !== dataset) {
+    const message = `上传文件数据集为 ${dataset}，与预期 ${input.expectedDataset} 不一致`;
+    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "EXPECTED_DATASET_MISMATCH", message }], errorCount: 1 };
+  }
   const platform = normalizeText(input.platform) || DEFAULT_PLATFORM;
   const shopName = normalizeText(input.shopName) || DEFAULT_SHOP_NAME;
   const snapshotDate = isoDateFromValue(input.snapshotDate) || fileDate(input.fileName) || "";
   const snapshotSource = usesSnapshotDate(input.source);
   const rawRows = parsed.rows.slice(header.index + 1)
     .map((row) => ({ rowNumber: row.rowNumber, raw: objectFromRow(header.headers, row.values) }))
-    .filter((row) => Object.values(row.raw).some((value) => normalizeText(value)));
+    .filter((row) => Object.values(row.raw).some((value) => normalizeText(value)))
+    .filter((row) => !isDailyAggregateRow(input.source, row.raw));
 
   const rows: NetshopRowInput[] = [];
   for (const row of rawRows) {
@@ -393,7 +413,9 @@ export async function importNetshopBytes(input: {
     const rowHash = await hashText(rawJson);
     rows.push({
       sourceRowNumber: row.rowNumber,
-      sourceRowKey: `${input.source}:${fileHash}:${row.rowNumber}:${rowHash.slice(0, 16)}`,
+      sourceRowKey: dataset === "sku_daily" || dataset === "spu_daily"
+        ? dailyRowKey(dataset, platform, shopName, businessDate, dataset === "sku_daily" ? skuId : spuId)
+        : `${input.source}:${fileHash}:${row.rowNumber}:${rowHash.slice(0, 16)}`,
       sourceRowHash: rowHash,
       source: input.source,
       dataset,
@@ -412,8 +434,24 @@ export async function importNetshopBytes(input: {
   }
 
   const errors = validateRows(rows);
+  if (input.source === "jd_sku_daily") {
+    const coverage = dailyDateCoverage(input.expectedStartDate, input.expectedEndDate, rows.map((row) => row.businessDate));
+    if (!coverage.validRange) {
+      errors.push({ code: "MISSING_EXPECTED_DATE_RANGE", message: "商智分天导入必须提供有效的目标起止日期" });
+    } else {
+      if (coverage.missingDates.length) errors.push({ code: "MISSING_EXPECTED_DATES", message: `目标区间缺少日期：${coverage.missingDates.join(", ")}` });
+      if (coverage.outOfRangeDates.length) errors.push({ code: "OUT_OF_RANGE_DATES", message: `文件包含目标区间外日期：${coverage.outOfRangeDates.join(", ")}` });
+    }
+  }
   if (errors.length > 0) {
     return { ok: false, status: "rejected", message: "文件校验未通过，未写入数据", warnings: [], errors, errorCount: errors.length };
+  }
+
+  // A file imported before these guards existed must not bypass the new
+  // schema and date-coverage validation merely because its hash is known.
+  if (previous?.status === "completed") {
+    if (input.source === "jd_product_master") await normalizeJdProductMasterRows(db, previous.id);
+    return { ok: true, status: "duplicate", message: "该文件已经导入，无需重复处理", batch: previous, warnings: previous.warnings };
   }
 
   const missingDateRows = rows.filter((row) => !row.businessDate && !snapshotSource).length;
@@ -474,5 +512,16 @@ export function readNetshopForm(formData: FormData) {
       : typeof formData.get("snapshotDate") === "string"
         ? String(formData.get("snapshotDate"))
         : undefined,
+    expectedDataset: (formData.get("expected_dataset") ?? formData.get("expectedDataset")) === "sku_daily"
+      ? "sku_daily"
+      : (formData.get("expected_dataset") ?? formData.get("expectedDataset")) === "spu_daily"
+        ? "spu_daily"
+        : undefined,
+    expectedStartDate: typeof (formData.get("expected_start_date") ?? formData.get("expectedStartDate")) === "string"
+      ? String(formData.get("expected_start_date") ?? formData.get("expectedStartDate"))
+      : undefined,
+    expectedEndDate: typeof (formData.get("expected_end_date") ?? formData.get("expectedEndDate")) === "string"
+      ? String(formData.get("expected_end_date") ?? formData.get("expectedEndDate"))
+      : undefined,
   };
 }

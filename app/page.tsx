@@ -365,7 +365,7 @@ type ImportHistoryResponse = {
 
 type InventoryImportHistoryItem = Pick<SalesImportBatch, "id" | "fileName" | "status" | "rowCount" | "insertedCount" | "warningCount" | "createdAt" | "completedAt"> & { snapshotDate: string };
 
-type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance" | "jd_sku" | "jd_sku_images";
+type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance" | "jd_sku" | "jd_sku_images" | "jd_sku_daily" | "jd_spu_daily";
 
 type ErpReferenceImportBatch = {
   id: string;
@@ -388,6 +388,7 @@ type ErpReferenceImportBatch = {
 
 type UnifiedImportBatch = {
   id?: string;
+  dataset?: string;
   fileName?: string;
   fileSizeBytes?: number;
   sheetName?: string | null;
@@ -438,6 +439,7 @@ type UnifiedHistoryItem = {
 type NetshopImportHistoryItem = {
   id: string;
   source: string;
+  dataset: string;
   fileName: string;
   fileSizeBytes: number;
   sheetName?: string | null;
@@ -3636,6 +3638,8 @@ function ImportView() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>("sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
+  const [dailyStartDate, setDailyStartDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
+  const [dailyEndDate, setDailyEndDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -3673,9 +3677,15 @@ function ImportView() {
         ...inventoryPayload.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
         ...erpPayload.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
         ...financePayload.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
-        ...netshopPayload.items.filter((item) => item.source === "jd_product_master" || item.source === "jd_yimei_sku").map((item) => item.source === "jd_yimei_sku"
-          ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
-          : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
+        ...netshopPayload.items
+          .filter((item) => item.source === "jd_product_master" || item.source === "jd_yimei_sku" || item.dataset === "spu_daily" || item.dataset === "sku_daily")
+          .map((item) => item.dataset === "spu_daily"
+            ? { ...item, sourceKey: "jd_spu_daily" as const, sourceLabel: "京东店铺 · 商品 SPU 日数据" }
+            : item.dataset === "sku_daily"
+              ? { ...item, sourceKey: "jd_sku_daily" as const, sourceLabel: "京东店铺 · 商品 SKU 日数据" }
+            : item.source === "jd_yimei_sku"
+              ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
+              : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
       setHistory(combined);
     } catch (requestError) {
@@ -3708,6 +3718,8 @@ function ImportView() {
     platform?: string;
     shopName?: string;
     includeSnapshotDate?: boolean;
+    expectedDataset?: "sku_daily" | "spu_daily";
+    needsDailyRange?: boolean;
   }> = [
     { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "inventory", icon: "库", label: "分仓库存", report: "分仓库存快照", directEndpoint: "/api/imports/inventory", chunkEndpoint: "/api/imports/inventory/chunks", directFileSize: DIRECT_INVENTORY_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
@@ -3716,6 +3728,8 @@ function ImportView() {
     { key: "combos", icon: "组", label: "组合装", report: "组合装及子件", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "finance", icon: "财", label: "月度财报", report: "志高事业部销售财报", directEndpoint: "/api/imports/finance", chunkEndpoint: "", directFileSize: MAX_FINANCE_FILE_SIZE, maxFileSize: MAX_FINANCE_FILE_SIZE, chunkSize: MAX_FINANCE_FILE_SIZE, needsSnapshotDate: false, extensions: [".xls", ".xlsx"], accept: ".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "月度财报" },
     { key: "jd_sku", icon: "京", label: "京东商品 SKU", report: "店铺后台 SKU 导出", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东店铺", formSource: "jd_product_master", platform: "京东", shopName: "志高商用设备旗舰店", includeSnapshotDate: true },
+    { key: "jd_sku_daily", icon: "日", label: "京东商品 SKU 日数据", report: "商品明细 SKU 分天下载", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东商智", formSource: "jd_sku_daily", platform: "京东", shopName: "志高商用设备旗舰店", expectedDataset: "sku_daily", needsDailyRange: true },
+    { key: "jd_spu_daily", icon: "日", label: "京东商品 SPU 日数据", report: "商品明细 SPU 分天下载", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东商智", formSource: "jd_sku_daily", platform: "京东", shopName: "志高商用设备旗舰店", expectedDataset: "spu_daily", needsDailyRange: true },
     { key: "jd_sku_images", icon: "图", label: "京东 SKU 主图", report: "亿美/商品主图导出", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx", ".csv"], accept: ".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv", systemLabel: "京东 SKU 主图", formSource: "jd_yimei_sku", platform: "京东", shopName: "志高商用设备旗舰店" },
   ];
   const activeSource = sourceOptions.find((item) => item.key === selectedSource)!;
@@ -3750,7 +3764,7 @@ function ImportView() {
   const showImportResult = (payload: UnifiedImportResponse | null, responseStatus: number) => {
     const warnings = payload?.warnings ?? payload?.batch?.warnings ?? [];
     const errors = payload?.errors ?? [];
-    if (!payload?.ok || payload.status === "rejected") {
+    if (!payload?.ok || payload.status === "rejected" || (activeSource.expectedDataset && (payload.batch as { dataset?: string } | undefined)?.dataset !== activeSource.expectedDataset)) {
       setFeedback({
         tone: "error",
         title: "导入未完成",
@@ -3840,6 +3854,10 @@ function ImportView() {
       setFeedback({ tone: "error", title: "请选择快照日期", message: "分仓库存和库龄报表必须指定有效的快照日期。", details: [] });
       return;
     }
+    if (activeSource.needsDailyRange && (!/^\d{4}-\d{2}-\d{2}$/.test(dailyStartDate) || !/^\d{4}-\d{2}-\d{2}$/.test(dailyEndDate) || dailyStartDate > dailyEndDate)) {
+      setFeedback({ tone: "error", title: "请选择有效目标日期区间", message: "SKU/SPU 分天数据必须与下载的起止日期逐日一致。", details: [] });
+      return;
+    }
     setUploading(true);
     setFeedback(null);
     setUploadProgress(0);
@@ -3862,6 +3880,11 @@ function ImportView() {
           formData.append("source", activeSource.formSource ?? (selectedSource === "sales" ? "jky" : selectedSource));
           if (activeSource.platform) formData.append("platform", activeSource.platform);
           if (activeSource.shopName) formData.append("shopName", activeSource.shopName);
+          if (activeSource.expectedDataset) formData.append("expectedDataset", activeSource.expectedDataset);
+          if (activeSource.needsDailyRange) {
+            formData.append("expectedStartDate", dailyStartDate);
+            formData.append("expectedEndDate", dailyEndDate);
+          }
           if (activeSource.needsSnapshotDate || activeSource.includeSnapshotDate) formData.append("snapshotDate", activeSource.includeSnapshotDate ? shanghaiIsoToday() : snapshotDate);
           response = await fetch(activeSource.directEndpoint, { method: "POST", body: formData });
         }
@@ -3897,6 +3920,7 @@ function ImportView() {
         <article className="panel import-panel">
           <span className="eyebrow">第 2 步</span><h2>上传{activeSource.label}报表</h2><p>支持 {activeSource.extensions.join(" / ")}，单文件最大 {formatFileSize(activeSource.maxFileSize)}；月度财报按月份自动去重并合并同名科目。</p>
           {activeSource.needsSnapshotDate && <label className="import-snapshot-field"><span>数据快照日期</span><input type="date" value={snapshotDate} max={shanghaiIsoToday()} onChange={(event) => setSnapshotDate(event.target.value)} /></label>}
+          {activeSource.needsDailyRange && <div className="import-snapshot-field"><label><span>目标起始日期</span><input type="date" value={dailyStartDate} max={dailyEndDate} onChange={(event) => setDailyStartDate(event.target.value)} /></label><label><span>目标结束日期</span><input type="date" value={dailyEndDate} min={dailyStartDate} max={addIsoDays(shanghaiIsoToday(), -1)} onChange={(event) => setDailyEndDate(event.target.value)} /></label></div>}
           <input
             ref={inputRef}
             className="file-input-hidden"

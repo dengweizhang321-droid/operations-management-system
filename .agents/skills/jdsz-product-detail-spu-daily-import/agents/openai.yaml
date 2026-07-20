@@ -1,0 +1,4 @@
+interface:
+  display_name: "京东商智 SPU 日数据导入"
+  short_description: "下载、校验并通过运营系统 API 导入京东 SPU 日数据"
+  default_prompt: "Use $jdsz-product-detail-spu-daily-import to download the missing JD SPU daily range, validate it, and import it through the operations API."

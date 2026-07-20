@@ -1,0 +1,154 @@
+# 京东店铺 SKU 下载和导出智能体
+
+> 本文描述 `wares-jdm.jd.com` 的商品主数据导出与导入。京东商智商品明细 SKU 日数据请改用[《京东商智商品明细 SKU 日数据下载》](./京东商智商品明细SKU日数据下载.md)和 `$jdsz-product-detail-sku-daily` Skill。
+
+## 目标
+
+自动完成以下流程：
+
+1. 打开京东商家后台商品列表。
+2. 进入“导出查询商品”。
+3. 选择“SKU 导出”。
+4. 创建并等待导出任务完成。
+5. 下载导出的 Excel 文件。
+6. 将文件自动导入运营管理系统的网店分析数据。
+
+京东页面：
+
+<https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare&businessModel=0>
+
+## 运行前准备
+
+- Node.js 版本不低于 22.13.0。
+- 已安装项目依赖。
+- 专用 Chrome 浏览器已完成京东商家后台登录。
+- 运营管理系统已启动，默认地址为 `http://localhost:3000`。
+
+## 一键运行
+
+在项目根目录 `D:\运营管理系统` 执行：
+
+```powershell
+npm run jackyun:ware-export
+```
+
+脚本默认等待京东任务最多 300 秒。下载成功后会自动调用：
+
+```text
+POST /api/netshop/import
+```
+
+导入参数固定为：
+
+- 数据源：`jd_product_master`
+- 平台：京东
+- 店铺：志高商用设备旗舰店
+- 快照日期：中国标准时间当天
+
+## 常用参数
+
+### 延长等待时间
+
+```powershell
+npm run jackyun:ware-export -- --task-timeout-seconds 600
+```
+
+### 继续已有任务或复用最近一次已完成任务
+
+```powershell
+npm run jackyun:ware-export -- --reuse-latest
+```
+
+### 跳过自动导入
+
+仅下载文件，不导入运营管理系统：
+
+```powershell
+npm run jackyun:ware-export -- --no-auto-import
+```
+
+### 指定运营管理系统地址
+
+```powershell
+npm run jackyun:ware-export -- --base-url http://localhost:3000
+```
+
+也可以设置环境变量：
+
+```powershell
+$env:OPERATIONS_SYSTEM_URL = "http://localhost:3000"
+npm run jackyun:ware-export
+```
+
+### 保存调试截图
+
+```powershell
+npm run jackyun:ware-export -- --debug
+```
+
+## 文件和审计结果
+
+下载文件保存到：
+
+```text
+outputs/jd-ware-export/downloads/<任务ID>-<原始文件名>.xlsx
+```
+
+每次运行的审计结果保存到：
+
+```text
+outputs/jd-ware-export/run-<时间戳>.json
+```
+
+审计结果会记录京东任务 ID、成功条数、下载路径、导入状态、导入批次号和导入行数。
+
+## 成功判定
+
+同时满足以下条件即表示完成：
+
+- 京东任务状态为“已完成”。
+- 执行结果显示“成功：N”。
+- 本地生成 `.xlsx` 文件。
+- 运营管理系统返回导入成功或已识别为重复文件。
+
+## 故障处理
+
+### 等待超时
+
+可以直接用同一命令重跑：脚本会从 `outputs/jd-ware-export/active-task.json` 按 taskId 接管原任务；即使它在两次运行之间已从 pending 变为 completed，也不会再次点击“确定导出”。若上次在取得 ID 前中断，则只接受相对持久化 baseline 的唯一新增任务；缺失或歧义时保留清单并安全停止。只有明确需要复用其他已完成记录时才加 `--reuse-latest`：
+
+```powershell
+npm run jackyun:ware-export -- --reuse-latest --task-timeout-seconds 600
+```
+
+### 提示未登录
+
+在专用 Chrome 配置中手工登录京东商家后台，然后重新运行脚本。
+
+### 下载成功但没有自动导入
+
+检查运营管理系统是否运行，并确认：
+
+```text
+http://localhost:3000/api/netshop/import
+```
+
+可先使用 `--no-auto-import` 下载文件，再在系统“数据导入 / 网店分析”页面手工上传。
+
+若下载点击已发送但本地文件未得到验证，运行会以失败状态退出并保留活动任务清单；重跑时接管同一任务，不会新建远端任务。
+
+### 重复导入
+
+运营管理系统按文件哈希去重。重复运行同一个文件时会返回“duplicate”，不会重复写入商品数据。
+
+## 自动化脚本位置
+
+```text
+tools/jackyun-ware-export.ts
+```
+
+项目命令定义在：
+
+```text
+package.json
+```

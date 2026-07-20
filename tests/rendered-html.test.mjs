@@ -364,6 +364,55 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(packageJson, /"xlsx": "0\.18\.5"/);
 });
 
+test("connects JD SPU daily workbooks to the netshop import API", async () => {
+  const [page, route, service, database, dailyContract] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/daily-contract.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /jd_spu_daily/);
+  assert.match(page, /京东商品 SPU 日数据/);
+  assert.match(page, /formSource: "jd_sku_daily"/);
+  assert.match(page, /dataset === "spu_daily"/);
+  assert.match(route, /importNetshopBytes/);
+  assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(service, /source === "jd_sku_daily"/);
+  assert.match(dailyContract, /return "spu_daily"/);
+  assert.match(service, /isDailyAggregateRow/);
+  assert.match(service, /=== "合计"/);
+  assert.match(database, /spu_id/);
+  assert.match(database, /business_date/);
+});
+
+test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {
+  const [page, service, database, dailyContract] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/daily-contract.ts", import.meta.url), "utf8"),
+  ]);
+
+  // A filename containing SPU must not override a SKU workbook's exact header contract.
+  assert.match(dailyContract, /hasTime && hasSku && hasSkuName && !hasSpu && !hasSpuName/);
+  assert.match(service, /DATASET_HEADER_MISMATCH/);
+  assert.match(service, /MISSING_SKU_ID/);
+  assert.match(service, /MISSING_SPU_ID/);
+  assert.match(service, /MISSING_EXPECTED_DATES/);
+  assert.match(service, /OUT_OF_RANGE_DATES/);
+  assert.match(service, /dailyRowKey\(dataset, platform, shopName, businessDate/);
+  assert.match(database, /migrateDailyRowKeys/);
+  assert.match(database, /DELETE FROM netshop_rows WHERE id =/);
+  // Both independent upload entries carry their expected dimension and range.
+  assert.match(page, /jd_sku_daily/);
+  assert.match(page, /expectedDataset: "sku_daily"/);
+  assert.match(page, /expectedDataset: "spu_daily"/);
+  assert.match(page, /expectedStartDate/);
+  assert.match(page, /dataset === "sku_daily"/);
+});
+
 test("exposes the four operational collaboration workspaces", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   for (const label of ["工作计划", "巡店查询", "评价维护", "新品上架"]) assert.match(page, new RegExp(label));

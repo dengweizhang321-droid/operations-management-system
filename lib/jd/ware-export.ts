@@ -72,3 +72,51 @@ export function unseenJdWareExportTasks(
 export function newestCompletedJdWareExportTask(tasks: readonly JdWareExportTask[]) {
   return tasks.find((task) => task.status === "completed") ?? null;
 }
+
+export type ExistingJdWareExportTaskSelection =
+  | { kind: "none" }
+  | { kind: "pending"; task: JdWareExportTask }
+  | { kind: "completed"; task: JdWareExportTask }
+  | { kind: "ambiguous_pending"; tasks: readonly JdWareExportTask[] };
+
+export type JdWareExportRecovery = {
+  version: 1;
+  baselineTaskIds: string[];
+  taskId?: string;
+  createdAt: string;
+};
+
+export type JdWareExportRecoverySelection =
+  | { kind: "task"; task: JdWareExportTask }
+  | { kind: "missing" }
+  | { kind: "ambiguous"; tasks: readonly JdWareExportTask[] };
+
+/** Resolve only the task durably associated with an interrupted submission. */
+export function selectRecoverableJdWareExportTask(
+  tasks: readonly JdWareExportTask[],
+  recovery: JdWareExportRecovery,
+): JdWareExportRecoverySelection {
+  const matches = recovery.taskId
+    ? tasks.filter((task) => task.taskId === recovery.taskId)
+    : tasks.filter((task) => !recovery.baselineTaskIds.includes(task.taskId));
+  if (matches.length > 1) return { kind: "ambiguous", tasks: matches };
+  return matches[0] ? { kind: "task", task: matches[0] } : { kind: "missing" };
+}
+
+/**
+ * Selects an existing task without ever silently ignoring an in-progress one.
+ * A pending task is the only safe continuation target after a prior process
+ * timed out: it has a stable JD task id, while a completed task may be older.
+ */
+export function selectExistingJdWareExportTask(
+  tasks: readonly JdWareExportTask[],
+  reuseLatest: boolean,
+): ExistingJdWareExportTaskSelection {
+  const pending = tasks.filter((task) => task.status === "pending");
+  if (pending.length > 1) return { kind: "ambiguous_pending", tasks: pending };
+  if (pending.length === 1) return { kind: "pending", task: pending[0] };
+
+  if (!reuseLatest) return { kind: "none" };
+  const completed = newestCompletedJdWareExportTask(tasks);
+  return completed ? { kind: "completed", task: completed } : { kind: "none" };
+}

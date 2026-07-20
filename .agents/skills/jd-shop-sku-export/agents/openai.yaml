@@ -1,0 +1,7 @@
+interface:
+  display_name: "京东店铺 SKU 导出"
+  short_description: "自动导出京东 SKU 并同步导入运营管理系统"
+  default_prompt: "使用 $jd-shop-sku-export 执行京东店铺 SKU 导出，下载 Excel 并自动导入运营管理系统。"
+
+policy:
+  allow_implicit_invocation: true

@@ -61,6 +61,9 @@ export async function POST(request: Request) {
       shopName: parsed.shopName,
       note: parsed.note,
       snapshotDate: parsed.snapshotDate,
+      expectedDataset: parsed.expectedDataset === "sku_daily" || parsed.expectedDataset === "spu_daily" ? parsed.expectedDataset : undefined,
+      expectedStartDate: parsed.expectedStartDate,
+      expectedEndDate: parsed.expectedEndDate,
     });
     return Response.json(payload, { status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422 });
   } catch (error) {
