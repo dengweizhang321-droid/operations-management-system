@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       query: params.get("q") ?? undefined,
       page: positiveInteger(params.get("page"), 1),
       pageSize: positiveInteger(params.get("pageSize"), 50),
+      platformNames: [...new Set(params.getAll("platform").map((value) => value.trim()).filter(Boolean))].slice(0, 20),
       shopNames: [...new Set(params.getAll("shop").map((value) => value.trim()).filter(Boolean))].slice(0, 50),
       startDate: params.get("startDate") ?? undefined,
       endDate: params.get("endDate") ?? undefined,

@@ -416,17 +416,42 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
     readFile(new URL("../app/api/netshop/product-performance/route.ts", import.meta.url), "utf8"),
   ]);
 
-  for (const label of ["SKU 维度", "SPU 维度", "SKU 商品目录", "商品浏览量", "成交金额", "打开商品"]) {
+  for (const label of [
+    "SKU",
+    "SPU",
+    "平台",
+    "店铺",
+    "显示对比数据",
+    "显示对比值",
+    "环比",
+    "同比",
+    "商品浏览量",
+    "访客数",
+    "成交人数",
+    "加购人数",
+    "UV价值",
+    "总转化率",
+    "搜索曝光次数",
+    "推广ROI",
+    "企业购出库金额",
+    "列设置",
+    "打开商品",
+  ]) {
     assert.match(page, new RegExp(label));
   }
+  assert.doesNotMatch(page, /<section className="metrics-grid netshop-performance-metrics">/);
   assert.match(page, /\/api\/netshop\/product-performance/);
   assert.match(page, /SearchableMultiSelect/);
+  assert.match(page, /productComparisonPeriod/);
   assert.match(database, /getNetshopProductPerformance/);
   assert.match(database, /dataset = input\.dimension === "sku" \? "sku_daily" : "spu_daily"/);
   assert.match(database, /商品浏览量/);
+  assert.match(database, /搜索曝光次数/);
+  assert.match(database, /加购客户数/);
   assert.match(database, /成交金额/);
   assert.match(database, /GROUP_CONCAT\(DISTINCT NULLIF\(r\.shop_name/);
   assert.match(route, /readDimension/);
+  assert.match(route, /getAll\("platform"\)/);
   assert.match(route, /getAll\("shop"\)/);
 });
 

@@ -166,11 +166,19 @@ export type NetshopProductPerformanceItem = {
   dataDays: number;
   pageViews: number;
   visitors: number;
+  searchImpressions: number;
+  searchClicks: number;
+  searchClickRate: number | null;
+  addCartCustomers: number;
   addCartQuantity: number;
+  orderCustomers: number;
+  orderQuantity: number;
   orderAmount: number;
+  transactionOrders: number;
   transactionAmount: number;
   transactionQuantity: number;
   transactionCustomers: number;
+  uvValue: number | null;
   conversionRate: number | null;
 };
 
@@ -180,16 +188,25 @@ export type NetshopProductPerformance = {
   requestedPeriod: { startDate: string | null; endDate: string | null };
   dateMin: string | null;
   dataCutoffDate: string | null;
+  platforms: string[];
   shops: Array<{ shopName: string; platform: string; productCount: number }>;
   summary: {
     productCount: number;
     pageViews: number;
     visitors: number;
+    searchImpressions: number;
+    searchClicks: number;
+    searchClickRate: number | null;
+    addCartCustomers: number;
     addCartQuantity: number;
+    orderCustomers: number;
+    orderQuantity: number;
     orderAmount: number;
+    transactionOrders: number;
     transactionAmount: number;
     transactionQuantity: number;
     transactionCustomers: number;
+    uvValue: number | null;
     conversionRate: number | null;
   };
   items: NetshopProductPerformanceItem[];
@@ -999,8 +1016,14 @@ type NetshopProductPerformanceSummaryRow = {
   data_cutoff_date: string | null;
   page_views: number | null;
   visitors: number | null;
+  search_impressions: number | null;
+  search_clicks: number | null;
+  add_cart_customers: number | null;
   add_cart_quantity: number | null;
+  order_customers: number | null;
+  order_quantity: number | null;
   order_amount: number | null;
+  transaction_orders: number | null;
   transaction_amount: number | null;
   transaction_quantity: number | null;
   transaction_customers: number | null;
@@ -1019,8 +1042,14 @@ type NetshopProductPerformanceRow = {
   data_days: number | null;
   page_views: number | null;
   visitors: number | null;
+  search_impressions: number | null;
+  search_clicks: number | null;
+  add_cart_customers: number | null;
   add_cart_quantity: number | null;
+  order_customers: number | null;
+  order_quantity: number | null;
   order_amount: number | null;
+  transaction_orders: number | null;
   transaction_amount: number | null;
   transaction_quantity: number | null;
   transaction_customers: number | null;
@@ -1035,8 +1064,14 @@ type NetshopProductPerformanceShopRow = {
 const dailyPerformanceMetrics = {
   pageViews: `COALESCE(CAST(json_extract(r.metrics_json, '$."商品浏览量"') AS REAL), 0)`,
   visitors: `COALESCE(CAST(json_extract(r.metrics_json, '$."商品访客数"') AS REAL), 0)`,
+  searchImpressions: `COALESCE(CAST(json_extract(r.metrics_json, '$."搜索曝光次数"') AS REAL), 0)`,
+  searchClicks: `COALESCE(CAST(json_extract(r.metrics_json, '$."搜索点击次数"') AS REAL), 0)`,
+  addCartCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."加购客户数"') AS REAL), 0)`,
   addCartQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."加购商品件数"') AS REAL), 0)`,
+  orderCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单客户数"') AS REAL), 0)`,
+  orderQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单商品件数"') AS REAL), 0)`,
   orderAmount: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单金额"') AS REAL), 0)`,
+  transactionOrders: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交单量"') AS REAL), 0)`,
   transactionAmount: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交金额"') AS REAL), 0)`,
   transactionQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交商品件数"') AS REAL), 0)`,
   transactionCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交客户数"') AS REAL), 0)`,
@@ -1068,6 +1103,7 @@ export async function getNetshopProductPerformance(
     query?: string;
     page?: number;
     pageSize?: number;
+    platformNames?: string[];
     shopNames?: string[];
     startDate?: string;
     endDate?: string;
@@ -1079,6 +1115,7 @@ export async function getNetshopProductPerformance(
   const dimensionSql = input.dimension === "sku" ? "r.sku_id" : "r.spu_id";
   const startDate = isIsoDate(input.startDate) ? input.startDate! : null;
   const endDate = isIsoDate(input.endDate) ? input.endDate! : null;
+  const selectedPlatforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
   const selectedShops = [...new Set((input.shopNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
   const query = (input.query ?? "").trim().slice(0, 120);
   const whereParts = ["r.source = 'jd_sku_daily'", "r.dataset = ?", `${dimensionSql} <> ''`];
@@ -1087,6 +1124,10 @@ export async function getNetshopProductPerformance(
   if (startDate && endDate && startDate <= endDate) {
     whereParts.push("r.business_date >= ?", "r.business_date <= ?");
     bindings.push(startDate, endDate);
+  }
+  if (selectedPlatforms.length > 0) {
+    whereParts.push(`r.platform IN (${selectedPlatforms.map(() => "?").join(", ")})`);
+    bindings.push(...selectedPlatforms);
   }
   if (selectedShops.length > 0) {
     whereParts.push(`r.shop_name IN (${selectedShops.map(() => "?").join(", ")})`);
@@ -1108,8 +1149,14 @@ export async function getNetshopProductPerformance(
          MAX(r.business_date) AS data_cutoff_date,
          SUM(${metric.pageViews}) AS page_views,
          SUM(${metric.visitors}) AS visitors,
+         SUM(${metric.searchImpressions}) AS search_impressions,
+         SUM(${metric.searchClicks}) AS search_clicks,
+         SUM(${metric.addCartCustomers}) AS add_cart_customers,
          SUM(${metric.addCartQuantity}) AS add_cart_quantity,
+         SUM(${metric.orderCustomers}) AS order_customers,
+         SUM(${metric.orderQuantity}) AS order_quantity,
          SUM(${metric.orderAmount}) AS order_amount,
+         SUM(${metric.transactionOrders}) AS transaction_orders,
          SUM(${metric.transactionAmount}) AS transaction_amount,
          SUM(${metric.transactionQuantity}) AS transaction_quantity,
          SUM(${metric.transactionCustomers}) AS transaction_customers
@@ -1139,8 +1186,14 @@ export async function getNetshopProductPerformance(
          COUNT(DISTINCT r.business_date) AS data_days,
          SUM(${metric.pageViews}) AS page_views,
          SUM(${metric.visitors}) AS visitors,
+         SUM(${metric.searchImpressions}) AS search_impressions,
+         SUM(${metric.searchClicks}) AS search_clicks,
+         SUM(${metric.addCartCustomers}) AS add_cart_customers,
          SUM(${metric.addCartQuantity}) AS add_cart_quantity,
+         SUM(${metric.orderCustomers}) AS order_customers,
+         SUM(${metric.orderQuantity}) AS order_quantity,
          SUM(${metric.orderAmount}) AS order_amount,
+         SUM(${metric.transactionOrders}) AS transaction_orders,
          SUM(${metric.transactionAmount}) AS transaction_amount,
          SUM(${metric.transactionQuantity}) AS transaction_quantity,
          SUM(${metric.transactionCustomers}) AS transaction_customers
@@ -1172,12 +1225,18 @@ export async function getNetshopProductPerformance(
 
   const visitors = numberFromDailyMetric(summary?.visitors);
   const transactionCustomers = numberFromDailyMetric(summary?.transaction_customers);
+  const searchImpressions = numberFromDailyMetric(summary?.search_impressions);
+  const searchClicks = numberFromDailyMetric(summary?.search_clicks);
+  const transactionAmount = numberFromDailyMetric(summary?.transaction_amount);
+  const platforms = [...new Set(shops.results.map((shop) => shop.platform.trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, "zh-CN"));
   return {
     dimension: input.dimension,
     dataset,
     requestedPeriod: { startDate, endDate },
     dateMin: summary?.date_min ?? null,
     dataCutoffDate: summary?.data_cutoff_date ?? null,
+    platforms,
     shops: shops.results.map((shop) => ({
       shopName: shop.shop_name,
       platform: shop.platform || "京东",
@@ -1187,16 +1246,27 @@ export async function getNetshopProductPerformance(
       productCount: numberFromDailyMetric(summary?.product_count),
       pageViews: numberFromDailyMetric(summary?.page_views),
       visitors,
+      searchImpressions,
+      searchClicks,
+      searchClickRate: searchImpressions > 0 ? searchClicks / searchImpressions : null,
+      addCartCustomers: numberFromDailyMetric(summary?.add_cart_customers),
       addCartQuantity: numberFromDailyMetric(summary?.add_cart_quantity),
+      orderCustomers: numberFromDailyMetric(summary?.order_customers),
+      orderQuantity: numberFromDailyMetric(summary?.order_quantity),
       orderAmount: numberFromDailyMetric(summary?.order_amount),
-      transactionAmount: numberFromDailyMetric(summary?.transaction_amount),
+      transactionOrders: numberFromDailyMetric(summary?.transaction_orders),
+      transactionAmount,
       transactionQuantity: numberFromDailyMetric(summary?.transaction_quantity),
       transactionCustomers,
+      uvValue: visitors > 0 ? transactionAmount / visitors : null,
       conversionRate: visitors > 0 ? transactionCustomers / visitors : null,
     },
     items: rows.results.map((row) => {
       const itemVisitors = numberFromDailyMetric(row.visitors);
       const itemTransactionCustomers = numberFromDailyMetric(row.transaction_customers);
+      const itemSearchImpressions = numberFromDailyMetric(row.search_impressions);
+      const itemSearchClicks = numberFromDailyMetric(row.search_clicks);
+      const itemTransactionAmount = numberFromDailyMetric(row.transaction_amount);
       return {
         id: row.id,
         skuId: row.sku_id,
@@ -1210,11 +1280,19 @@ export async function getNetshopProductPerformance(
         dataDays: numberFromDailyMetric(row.data_days),
         pageViews: numberFromDailyMetric(row.page_views),
         visitors: itemVisitors,
+        searchImpressions: itemSearchImpressions,
+        searchClicks: itemSearchClicks,
+        searchClickRate: itemSearchImpressions > 0 ? itemSearchClicks / itemSearchImpressions : null,
+        addCartCustomers: numberFromDailyMetric(row.add_cart_customers),
         addCartQuantity: numberFromDailyMetric(row.add_cart_quantity),
+        orderCustomers: numberFromDailyMetric(row.order_customers),
+        orderQuantity: numberFromDailyMetric(row.order_quantity),
         orderAmount: numberFromDailyMetric(row.order_amount),
-        transactionAmount: numberFromDailyMetric(row.transaction_amount),
+        transactionOrders: numberFromDailyMetric(row.transaction_orders),
+        transactionAmount: itemTransactionAmount,
         transactionQuantity: numberFromDailyMetric(row.transaction_quantity),
         transactionCustomers: itemTransactionCustomers,
+        uvValue: itemVisitors > 0 ? itemTransactionAmount / itemVisitors : null,
         conversionRate: itemVisitors > 0 ? itemTransactionCustomers / itemVisitors : null,
       };
     }),
