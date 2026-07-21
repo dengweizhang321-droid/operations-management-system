@@ -1,0 +1,3 @@
+import { listCustomerServiceBatches } from "@/lib/customer-service/database";
+import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+export async function GET(request: Request) { try { await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); return Response.json({ items: await listCustomerServiceBatches(Number(new URL(request.url).searchParams.get("limit") || 20)) }); } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return Response.json({ error: error instanceof Error ? error.message : "读取客服导入历史失败" }, { status: 500 }); } }

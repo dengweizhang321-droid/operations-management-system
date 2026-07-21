@@ -6,12 +6,13 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 type ModuleKey =
   | "dashboard"
   | "shop"
+  | "customer_service"
   | "sales"
   | "inventory"
   | "product"
   | "workflow"
   | "import"
-  | "settings";
+  | "settings"
 
 type NavItem = {
   key: ModuleKey;
@@ -26,6 +27,14 @@ type CurrentUser = {
   displayName: string;
   role: "viewer" | "analyst" | "operator" | "admin";
   roleLabel: string;
+};
+
+type CustomerServiceMessage = { sender: string; sentAt: string; content: string };
+type CustomerServiceConversation = {
+  id: number; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; productSpuId: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: "matched" | "session_only" | "chat_only" | "ambiguous"; matchConfidence: "exact" | "time_only" | "review" | "none"; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: CustomerServiceMessage[];
+};
+type CustomerServiceData = {
+  items: CustomerServiceConversation[]; agents: string[]; summary: { total: number; matched: number; sessionOnly: number; chatOnly: number }; pagination: { page: number; pageSize: number; total: number };
 };
 
 type SalesRangeLabel = "今日" | "昨天" | "近7天" | "近15天" | "本月" | "月度" | "自定义";
@@ -369,7 +378,7 @@ type ImportHistoryResponse = {
 
 type InventoryImportHistoryItem = Pick<SalesImportBatch, "id" | "fileName" | "status" | "rowCount" | "insertedCount" | "warningCount" | "createdAt" | "completedAt"> & { snapshotDate: string };
 
-type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance" | "jd_sku" | "jd_sku_images" | "jd_sku_daily" | "jd_spu_daily";
+type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance" | "jd_sku" | "jd_sku_images" | "jd_sku_daily" | "jd_spu_daily" | "customer_service";
 
 type ErpReferenceImportBatch = {
   id: string;
@@ -438,6 +447,10 @@ type UnifiedHistoryItem = {
   warningCount: number;
   createdAt: string;
   completedAt?: string | null;
+};
+
+type CustomerServiceImportHistoryItem = {
+  id: string; sessionFileName: string; chatFileName: string; status: string; conversationCount: number; matchedCount: number; warnings: string[]; createdAt: string; completedAt?: string | null;
 };
 
 type NetshopImportHistoryItem = {
@@ -671,12 +684,13 @@ const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
   { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
+  { key: "customer_service", label: "客服分析", short: "服", description: "会话导入与聊天分析" },
   { key: "sales", label: "销售分析", short: "销", description: "利润与渠道表现" },
   { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
   { key: "product", label: "货品详情", short: "品", description: "商品与毛利测算" },
   { key: "workflow", label: "运营事务", short: "务", description: "计划、巡店与新品", badge: "7" },
   { key: "import", label: "数据导入", short: "入", description: "批次导入与校验" },
-  { key: "settings", label: "系统设置", short: "设", description: "参数、映射与权限" },
+  { key: "settings", label: "系统设置", short: "设", description: "参数、映射与权限" },,
 ];
 
 const formatCurrency = (value: number) =>
@@ -4427,7 +4441,31 @@ function WorkflowView() {
 }
 
 
-function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
+function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: boolean; onCompleted: () => Promise<void> }) {
+  const sessionFileRef = useRef<HTMLInputElement>(null);
+  const chatFileRef = useRef<HTMLInputElement>(null);
+  const [sessionFile, setSessionFile] = useState<File | null>(null);
+  const [chatFile, setChatFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const submit = async () => {
+    if (!sessionFile || !chatFile || uploading || !canImport) return;
+    setUploading(true); setFeedback("");
+    try {
+      const form = new FormData(); form.append("sessionFile", sessionFile); form.append("chatFile", chatFile);
+      const response = await fetch("/api/customer-service/import", { method: "POST", body: form });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; status?: string; message?: string; summary?: { matchedCount: number; timeOnlyMatchedCount: number; sessionOnlyCount: number; chatOnlyCount: number } } | null;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "客服会话导入失败");
+      const summary = payload.summary;
+      setFeedback(`${payload.message || "导入完成"}${summary ? ` 已关联 ${formatCount(summary.matchedCount + summary.timeOnlyMatchedCount)} 条，待核对 ${formatCount(summary.sessionOnlyCount + summary.chatOnlyCount)} 条。` : ""}`);
+      setSessionFile(null); setChatFile(null); await onCompleted();
+    } catch (error) { setFeedback(error instanceof Error ? error.message : "客服会话导入失败"); }
+    finally { setUploading(false); }
+  };
+  return <section className="customer-service-import-in-data"><div className="customer-service-import-copy"><span className="eyebrow">双文件关联导入</span><h3>客服会话与聊天记录</h3><p>系统按咨询时间、顾客脱敏标识和会话顺序关联两份文件；存在并发歧义时会保留待核对，不会强行合并。</p></div><input className="file-input-hidden" ref={sessionFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.xlsx$/i.test(file.name)) setSessionFile(file); else if (file) setFeedback("会话记录请上传 .xlsx 文件。"); event.currentTarget.value = ""; }} /><input className="file-input-hidden" ref={chatFileRef} type="file" accept=".log,.txt,text/plain" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.(log|txt)$/i.test(file.name)) setChatFile(file); else if (file) setFeedback("聊天记录请上传 .log 或 .txt 文件。"); event.currentTarget.value = ""; }} /><div className="customer-service-import-files"><button type="button" className={`customer-file-field ${sessionFile ? "selected" : ""}`} onClick={() => sessionFileRef.current?.click()} disabled={!canImport}><span>①</span><strong>{sessionFile?.name || "选择会话记录 Excel"}</strong><small>{sessionFile ? formatFileSize(sessionFile.size) : "咨询时间、顾客、客服、商品等字段"}</small></button><button type="button" className={`customer-file-field ${chatFile ? "selected" : ""}`} onClick={() => chatFileRef.current?.click()} disabled={!canImport}><span>②</span><strong>{chatFile?.name || "选择聊天记录 LOG"}</strong><small>{chatFile ? formatFileSize(chatFile.size) : "以“以下为一通会话”为分隔符"}</small></button></div><div className="customer-service-import-actions"><small>单个文件最大 25MB；仅管理员可执行导入。</small><button type="button" className="primary-button" disabled={!sessionFile || !chatFile || uploading || !canImport} onClick={() => void submit()}>{uploading ? "导入匹配中…" : canImport ? "开始导入并匹配" : "仅管理员可导入"}</button></div>{feedback && <p className={`customer-service-feedback ${feedback.includes("失败") || feedback.includes("请上传") ? "error" : ""}`}>{feedback}</p>}</section>;
+}
+
+function ImportView({ importSource, currentUser }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>(() => importSource ?? "sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
@@ -4454,24 +4492,27 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
     setHistoryLoading(true);
     setHistoryError("");
     try {
-      const [response, inventoryResponse, erpResponse, financeResponse, netshopResponse] = await Promise.all([
+      const [response, inventoryResponse, erpResponse, financeResponse, netshopResponse, customerServiceResponse] = await Promise.all([
         fetch("/api/imports/sales", { cache: "no-store" }),
         fetch("/api/imports/inventory", { cache: "no-store" }),
         fetch("/api/imports/erp", { cache: "no-store" }),
         fetch("/api/imports/finance", { cache: "no-store" }),
         fetch("/api/netshop/import?limit=50", { cache: "no-store" }),
+        fetch("/api/customer-service/import-history?limit=50", { cache: "no-store" }),
       ]);
       const payload = await response.json().catch(() => null) as (ImportHistoryResponse & { message?: string }) | null;
       const inventoryPayload = await inventoryResponse.json().catch(() => null) as { items?: InventoryImportHistoryItem[]; error?: string } | null;
       const erpPayload = await erpResponse.json().catch(() => null) as { items?: ErpReferenceImportBatch[]; error?: string } | null;
       const financePayload = await financeResponse.json().catch(() => null) as { items?: SalesImportBatch[]; error?: string } | null;
       const netshopPayload = await netshopResponse.json().catch(() => null) as { items?: NetshopImportHistoryItem[]; error?: string } | null;
+      const customerServicePayload = await customerServiceResponse.json().catch(() => null) as { items?: CustomerServiceImportHistoryItem[]; error?: string } | null;
       if (!response.ok) throw new Error(payload?.message || `销售导入历史读取失败（${response.status}）`);
       if (!inventoryResponse.ok) throw new Error(inventoryPayload?.error || `库存导入历史读取失败（${inventoryResponse.status}）`);
       if (!erpResponse.ok) throw new Error(erpPayload?.error || `ERP 主数据导入历史读取失败（${erpResponse.status}）`);
       if (!financeResponse.ok) throw new Error(financePayload?.error || `财报导入历史读取失败（${financeResponse.status}）`);
       if (!netshopResponse.ok) throw new Error(netshopPayload?.error || `京东 SKU 导入历史读取失败（${netshopResponse.status}）`);
-      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items) || !Array.isArray(financePayload?.items) || !Array.isArray(netshopPayload?.items)) throw new Error("导入历史响应格式不完整");
+      if (!customerServiceResponse.ok) throw new Error(customerServicePayload?.error || `客服会话导入历史读取失败（${customerServiceResponse.status}）`);
+      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items) || !Array.isArray(financePayload?.items) || !Array.isArray(netshopPayload?.items) || !Array.isArray(customerServicePayload?.items)) throw new Error("导入历史响应格式不完整");
       const combined: UnifiedHistoryItem[] = [
         ...payload.items.map((item) => ({ ...item, sourceKey: "sales" as const, sourceLabel: "吉客云 ERP · 销售明细" })),
         ...inventoryPayload.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
@@ -4486,6 +4527,7 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
             : item.source === "jd_yimei_sku"
               ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
               : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
+        ...customerServicePayload.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: "客服会话 · 会话与聊天记录", fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, createdAt: item.createdAt, completedAt: item.completedAt })),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
       setHistory(combined);
     } catch (requestError) {
@@ -4520,6 +4562,7 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
     includeSnapshotDate?: boolean;
     expectedDataset?: "sku_daily" | "spu_daily";
     needsDailyRange?: boolean;
+    isCustomerService?: boolean;
   }> = [
     { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "inventory", icon: "库", label: "分仓库存", report: "分仓库存快照", directEndpoint: "/api/imports/inventory", chunkEndpoint: "/api/imports/inventory/chunks", directFileSize: DIRECT_INVENTORY_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
@@ -4527,6 +4570,7 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
     { key: "inventory_age", icon: "龄", label: "库龄", report: "库龄分析表", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "combos", icon: "组", label: "组合装", report: "组合装及子件", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "finance", icon: "财", label: "月度财报", report: "志高事业部销售财报", directEndpoint: "/api/imports/finance", chunkEndpoint: "", directFileSize: MAX_FINANCE_FILE_SIZE, maxFileSize: MAX_FINANCE_FILE_SIZE, chunkSize: MAX_FINANCE_FILE_SIZE, needsSnapshotDate: false, extensions: [".xls", ".xlsx"], accept: ".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "月度财报" },
+    { key: "customer_service", icon: "服", label: "客服会话", report: "会话记录与聊天记录关联", directEndpoint: "/api/customer-service/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx", ".log"], accept: ".xlsx,.log,.txt", systemLabel: "客服系统", isCustomerService: true },
     { key: "jd_sku", icon: "京", label: "京东商品 SKU", report: "店铺后台 SKU 导出", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东店铺", formSource: "jd_product_master", platform: "京东", shopName: "志高商用设备旗舰店", includeSnapshotDate: true },
     { key: "jd_sku_daily", icon: "日", label: "京东商品 SKU 日数据", report: "商品明细 SKU 分天下载", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东商智", formSource: "jd_sku_daily", platform: "京东", shopName: "志高商用设备旗舰店", expectedDataset: "sku_daily", needsDailyRange: true },
     { key: "jd_spu_daily", icon: "日", label: "京东商品 SPU 日数据", report: "商品明细 SPU 分天下载", directEndpoint: "/api/netshop/import", chunkEndpoint: "", directFileSize: MAX_JD_SKU_FILE_SIZE, maxFileSize: MAX_JD_SKU_FILE_SIZE, chunkSize: MAX_JD_SKU_FILE_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "京东商智", formSource: "jd_sku_daily", platform: "京东", shopName: "志高商用设备旗舰店", expectedDataset: "spu_daily", needsDailyRange: true },
@@ -4718,6 +4762,7 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
           <div className="source-grid">{sourceOptions.map((item) => <button type="button" className={item.key === selectedSource ? "selected" : ""} aria-pressed={item.key === selectedSource} key={item.key} onClick={() => { setSelectedSource(item.key); setSelectedFile(null); setFeedback(null); setUploadProgress(0); }}><span>{item.icon}</span><strong>{item.label}</strong><small>{item.report}</small></button>)}</div>
         </article>
         <article className="panel import-panel">
+          {activeSource.isCustomerService ? <CustomerServiceImportCard canImport={currentUser?.role === "admin"} onCompleted={loadHistory} /> : <>
           <span className="eyebrow">第 2 步</span><h2>上传{activeSource.label}报表</h2><p>支持 {activeSource.extensions.join(" / ")}，单文件最大 {formatFileSize(activeSource.maxFileSize)}；月度财报按月份自动去重并合并同名科目。</p>
           {activeSource.needsSnapshotDate && <label className="import-snapshot-field"><span>数据快照日期</span><input type="date" value={snapshotDate} max={shanghaiIsoToday()} onChange={(event) => setSnapshotDate(event.target.value)} /></label>}
           {activeSource.needsDailyRange && <div className="import-snapshot-field"><label><span>目标起始日期</span><input type="date" value={dailyStartDate} max={dailyEndDate} onChange={(event) => setDailyStartDate(event.target.value)} /></label><label><span>目标结束日期</span><input type="date" value={dailyEndDate} min={dailyStartDate} max={addIsoDays(shanghaiIsoToday(), -1)} onChange={(event) => setDailyEndDate(event.target.value)} /></label></div>}
@@ -4749,6 +4794,7 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
             <button type="button" className="primary-button" disabled={!selectedFile || uploading} onClick={() => void importFile()}>{uploading ? `${uploadProgress}%` : "开始导入"}</button>
           </div>
           {uploading && selectedFile && <div className="import-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress} aria-label={`${activeSource.label}上传进度`}><span style={{ width: `${uploadProgress}%` }} /></div>}
+          </>}
         </article>
       </section>
 
@@ -4780,6 +4826,75 @@ function ImportView({ importSource }: { importSource?: ImportSourceKey }) {
   );
 }
 
+function customerServiceStatusLabel(status: CustomerServiceConversation["matchStatus"]) {
+  return ({ matched: "已匹配", session_only: "缺聊天记录", chat_only: "缺会话记录", ambiguous: "待核对" })[status];
+}
+
+function CustomerServiceView({ customStartDate, customEndDate }: { customStartDate: string; customEndDate: string }) {
+  const [startDate, setStartDate] = useState(customStartDate);
+  const [endDate, setEndDate] = useState(customEndDate);
+  const [agent, setAgent] = useState("");
+  const [status, setStatus] = useState("");
+  const [query, setQuery] = useState("");
+  const [skuIds, setSkuIds] = useState("");
+  const [spuIds, setSpuIds] = useState("");
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "custom">("custom");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<CustomerServiceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState<CustomerServiceConversation | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: "30" });
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      if (agent) params.set("agent", agent);
+      if (status) params.set("status", status);
+      if (query.trim()) params.set("query", query.trim());
+      if (skuIds.trim()) params.set("skuIds", skuIds.trim());
+      if (spuIds.trim()) params.set("spuIds", spuIds.trim());
+      const response = await fetch(`/api/customer-service/conversations?${params.toString()}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as CustomerServiceData & { error?: string } | null;
+      if (!response.ok || !payload) throw new Error(payload?.error || "读取客服会话失败");
+      setData(payload);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "读取客服会话失败"); }
+    finally { setLoading(false); }
+  }, [agent, endDate, page, query, skuIds, spuIds, startDate, status]);
+
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+  useEffect(() => { setPage(1); }, [agent, endDate, query, skuIds, spuIds, startDate, status]);
+
+  const selectPeriod = (next: "day" | "week" | "month" | "custom") => {
+    setPeriod(next);
+    if (next === "custom") return;
+    const anchor = endDate || shanghaiIsoToday();
+    setEndDate(anchor);
+    setStartDate(next === "day" ? anchor : next === "week" ? addIsoDays(anchor, -6) : `${anchor.slice(0, 7)}-01`);
+  };
+  const firstCustomerMessage = (item: CustomerServiceConversation) => item.messages.find((message) => message.content && message.sender !== item.agent)?.content || item.messages.find((message) => message.content)?.content || "—";
+  const pageCount = Math.max(1, Math.ceil((data?.pagination.total ?? 0) / (data?.pagination.pageSize ?? 30)));
+
+  return <section className="customer-service-page">
+    <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>系统使用咨询开始时间与脱敏顾客 ID 的首尾信息建立关联；无法唯一确认的记录保留为待核对，避免错误合并。</p></div><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div>
+    <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>导入入口已移动至「数据导入 → 客服会话」；此处仅保留筛选、分析与会话详情。</span></section>
+    {error && <section className="customer-service-feedback error" role="alert">{error}</section>}
+    <section className="customer-service-kpis">{[
+      ["会话总数", data?.summary.total ?? 0, "blue"], ["已关联聊天", data?.summary.matched ?? 0, "green"], ["待补聊天", data?.summary.sessionOnly ?? 0, "orange"], ["仅有聊天", data?.summary.chatOnly ?? 0, "purple"],
+    ].map(([label, value, tone]) => <article className="panel" key={String(label)}><small>{label}</small><strong className={String(tone)}>{formatCount(Number(value))}</strong></article>)}</section>
+    <section className="customer-service-filters panel"><div className="customer-period-tabs" role="group" aria-label="时间维度">{(["day", "week", "month", "custom"] as const).map((value) => <button type="button" key={value} className={period === value ? "active" : ""} onClick={() => selectPeriod(value)}>{({ day: "日", week: "周", month: "月", custom: "自定义" })[value]}</button>)}</div><label>咨询日期<input type="date" value={startDate} onChange={(event) => { setPeriod("custom"); setStartDate(event.target.value); }} /></label><span>至</span><label><span className="sr-only">结束日期</span><input type="date" value={endDate} min={startDate} onChange={(event) => { setPeriod("custom"); setEndDate(event.target.value); }} /></label><label>客服<select value={agent} onChange={(event) => setAgent(event.target.value)}><option value="">全部客服</option>{(data?.agents ?? []).map((name) => <option key={name} value={name}>{name}</option>)}</select></label><label>匹配状态<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="matched">已匹配</option><option value="session_only">缺聊天记录</option><option value="chat_only">缺会话记录</option></select></label><label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品或聊天内容" /></label></section>
+    <section className="panel table-panel customer-service-table-panel"><div className="section-header"><div><h2>会话列表</h2><p>SKU/SPU 类目取自网店分析中已导入的商品主数据；未找到映射时保留为空。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKU / SPU</th><th>SKU 类目</th><th>消息数</th><th>首句</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
+      {loading && <tr><td colSpan={8}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}
+      {!loading && error && <tr><td colSpan={8}><div className="table-state table-state-error">{error}</div></td></tr>}
+      {!loading && !error && data?.items.length === 0 && <tr><td colSpan={8}><div className="table-state">暂无会话记录。请在数据导入模块完成客服会话导入。</div></td></tr>}
+      {data?.items.map((item) => <tr key={item.id}><td><div className="customer-time"><small>{item.consultedAt}</small><strong>{item.customerId || item.chatCustomerAlias || "未知顾客"}</strong></div></td><td><strong>{item.agent || "—"}</strong><small>{item.skillGroup || item.transferredAgent || ""}</small></td><td><strong>{item.productSku || "—"}</strong><small>{item.productSpuId ? `SPU ${item.productSpuId}` : item.productName || "未关联商品"}</small></td><td><span className="customer-category" title={item.productCategory}>{item.productCategory || "未匹配类目"}</span></td><td><strong>{item.messages.length || item.customerMessageCount || 0} / {item.agentMessageCount ?? "—"}</strong><small>客户 / 客服</small></td><td><p className="customer-first-message" title={firstCustomerMessage(item)}>{firstCustomerMessage(item)}</p></td><td><span className={`customer-match customer-match-${item.matchStatus}`}>{customerServiceStatusLabel(item.matchStatus)}<small>{item.matchConfidence === "exact" ? "时间 + 顾客" : item.matchConfidence === "time_only" ? "仅时间" : "待补充"}</small></span></td><td><button type="button" className="row-action" onClick={() => setSelected(item)}>{item.messages.length ? "查看会话" : "查看详情"}</button></td></tr>)}
+    </tbody></table></div>{pageCount > 1 && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {pageCount} 页</span><button type="button" className="row-action" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}</section>
+    {selected && <div className="modal-backdrop" onClick={() => setSelected(null)}><section className="customer-transcript" role="dialog" aria-modal="true" aria-label="客服会话详情" onClick={(event) => event.stopPropagation()}><header><div><span>{selected.consultedAt}</span><h3>{selected.customerId || selected.chatCustomerAlias || "未知顾客"} · {selected.agent || "未识别客服"}</h3><small>{selected.productSku ? `SKU ${selected.productSku}` : "未关联商品"} · {customerServiceStatusLabel(selected.matchStatus)}</small></div><button type="button" onClick={() => setSelected(null)} aria-label="关闭">×</button></header><div className="customer-transcript-metrics"><span>咨询类型：{selected.consultationType || "—"}</span><span>响应：{selected.responseSeconds === null ? "—" : `${selected.responseSeconds}s`}</span><span>时长：{selected.durationMinutes === null ? "—" : `${selected.durationMinutes} 分钟`}</span><span>满意度：{selected.satisfaction || "—"}</span></div><div className="customer-transcript-messages">{selected.messages.length ? selected.messages.map((message, index) => <article key={`${message.sentAt}-${index}`} className={message.sender === selected.agent ? "agent" : "customer"}><strong>{message.sender || "未知"}</strong><small>{message.sentAt}</small><p>{message.content || "（无文字内容）"}</p></article>) : <p className="soft-text">此会话未匹配到聊天记录；会话表中的结构化字段仍已完整导入。</p>}</div></section></div>}
+  </section>;
+}
+
 function SettingsView() {
   const [settings, setSettings] = useState<OperatingSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -4801,9 +4916,22 @@ function SettingsView() {
   return <><div className="subnav"><button className="active">系统参数</button><button disabled title="后续开放">主数据与映射</button><button disabled title="后续开放">权限管理</button></div>{(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "保存失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}<section className="settings-grid"><article className="panel settings-menu"><h2>设置中心</h2><p>管理员可保存库存健康、库龄和预警规则。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["数据同步", "销售与库存导入状态", "同"], ["权限管理", "仅管理员可保存设置", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article><article className="panel settings-form"><SectionHeader title="库存分析参数" note="保存后适用于后续库存健康、库龄分析与备货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input type="number" min={1} max={365} value={settings.targetDays} onChange={(event) => updateNumber("targetDays", Number(event.target.value))} /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input type="number" min={1} max={120} value={settings.criticalDays} onChange={(event) => updateNumber("criticalDays", Number(event.target.value))} /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input type="number" min={1} max={730} value={settings.slowDays} onChange={(event) => updateNumber("slowDays", Number(event.target.value))} /><em>天</em></div><small>用于识别低动销库存</small></label><label><span>呆滞库存判定</span><div><input type="number" min={1} max={1460} value={settings.stagnantDays} onChange={(event) => updateNumber("stagnantDays", Number(event.target.value))} /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "自动计算建议补货量，仍需人工确认草稿", "autoReplenishment"], ["库存异常提醒", "在 BI 看板集中显示库存健康风险", "inventoryAlert"], ["允许负库存", "仅影响导入校验，不会修改已有库存", "allowNegativeInventory"]].map(([label, note, key]) => <div className="toggle-row" key={key}><div><strong>{label}</strong><small>{note}</small></div><button type="button" onClick={() => toggle(key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory")} className={`toggle ${settings[key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory"] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：{settings.updatedAt ? `${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` · ${settings.updatedBy}` : ""}` : "尚未保存"}</span><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存设置"}</button></footer></article></section></>;
 }
 
-const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) => React.ReactNode> = {
+function newAiModelDraft(): AiModelDraft {
+  return { name: "", protocol: "openai_compatible", modelType: "text", modelName: "", baseUrl: "", apiKey: "", status: "enabled", isDefaultTextModel: false };
+}
+
+function newAiChannelDraft(): AiChannelDraft {
+  return { name: "", kind: "dingtalk_group_bot", status: "enabled", sendEnabled: true, callbackEnabled: false, webhookUrl: "", callbackToken: "", aesKey: "", receiverId: "" };
+}
+
+function channelKindLabel(kind: AiChannelKind): string {
+  return ({ dingtalk_group_bot: "钉钉群机器人", wechat_work_group_bot: "企业微信群机器人", dingtalk_app: "钉钉应用（暂未启用）", wechat_work_app: "企业微信应用回调" })[kind];
+}
+
+const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
+  customer_service: CustomerServiceView,
   sales: SalesView,
   inventory: InventoryView,
   product: ProductView,
@@ -4960,8 +5088,8 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
-          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} />
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>
