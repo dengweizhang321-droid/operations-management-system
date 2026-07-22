@@ -8,3 +8,7 @@ For questions about current TERUISI operating data, use the `teruisi_operations`
 - Monetary fields are CNY cents unless the tool result says otherwise.
 - This MCP connection is read-only: never claim to have imported data or created or changed a replenishment plan.
 - Do not infer operational figures when a relevant MCP tool can be called.
+
+# Git workflow
+
+After completing each system optimization, create a focused Git commit and push it to the configured remote repository.
