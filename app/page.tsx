@@ -5038,8 +5038,8 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
     const modelsPayload = await modelsResponse.json().catch(() => null) as { items?: AiModelRecord[]; error?: string } | null;
     const channelsPayload = await channelsResponse.json().catch(() => null) as { items?: AiChannelRecord[]; error?: string } | null;
     if (!modelsResponse.ok) throw new Error(modelsPayload?.error || "读取模型配置失败");
-    if (!channelsResponse.ok) throw new Error(channelsPayload?.error || "读取渠道配置失败");
     setModelItems(modelsPayload?.items ?? []);
+    if (!channelsResponse.ok) throw new Error(channelsPayload?.error || "读取渠道配置失败");
     setChannelItems(channelsPayload?.items ?? []);
   }, [isAdmin]);
 

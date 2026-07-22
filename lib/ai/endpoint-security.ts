@@ -21,6 +21,15 @@ export function normalizeAiEndpointUrl(value: string, target: "model" | "channel
   return url.toString().replace(/\/$/, "");
 }
 
+export function resolveAiModelEndpointUrl(value: string, protocol: "openai_compatible" | "anthropic"): string {
+  const normalized = normalizeAiEndpointUrl(value, "model");
+  const suffix = protocol === "anthropic" ? "/messages" : "/chat/completions";
+  const url = new URL(normalized);
+  const path = url.pathname.replace(/\/$/, "");
+  if (!path.toLowerCase().endsWith(suffix)) url.pathname = `${path}${suffix}`;
+  return url.toString();
+}
+
 /** Never expose a usable webhook URL. Paths and query strings can both contain credentials. */
 export function maskWebhookUrl(value: string): string {
   if (!value) return "未配置";

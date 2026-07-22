@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { ensureAuthorizationSchema, type AppPrincipal } from "@/lib/auth/authorization";
 import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
-import { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
+import { maskWebhookUrl, normalizeAiEndpointUrl, resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
 import { recordMcpToolAudit } from "@/lib/ai/tool-audit";
 import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
 
@@ -258,6 +258,13 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
 
   const setup = ensureAuthorizationSchema(db)
     .then(() => db.batch(schemaStatements.map((statement) => db.prepare(statement))))
+    .then(async () => {
+      const columns = await db.prepare("PRAGMA table_info(ai_channels)").all<{ name: string }>();
+      const names = new Set((columns.results ?? []).map((column) => column.name));
+      if (!names.has("receiver_id")) {
+        await db.prepare("ALTER TABLE ai_channels ADD COLUMN receiver_id TEXT NOT NULL DEFAULT ''").run();
+      }
+    })
     .then(() => undefined)
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
@@ -576,7 +583,7 @@ async function listConversationMessagesInternal(conversationId: string, db: Sale
 async function callOpenAiCompatibleModel(model: AiModelRow, messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<string> {
   const apiKey = await decryptSecret(model.api_key_encrypted);
   if (!apiKey) throw new Error("模型 API Key 未配置");
-  const response = await fetchWithTimeout(`${normalizeAiEndpointUrl(model.base_url, "model")}/chat/completions`, {
+  const response = await fetchWithTimeout(resolveAiModelEndpointUrl(model.base_url, "openai_compatible"), {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model: model.model_name, messages, temperature: 0.2 }),
@@ -589,7 +596,7 @@ async function callOpenAiCompatibleModel(model: AiModelRow, messages: Array<{ ro
 async function callAnthropicModel(model: AiModelRow, messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<string> {
   const apiKey = await decryptSecret(model.api_key_encrypted);
   if (!apiKey) throw new Error("模型 API Key 未配置");
-  const response = await fetchWithTimeout(`${normalizeAiEndpointUrl(model.base_url, "model")}/messages`, {
+  const response = await fetchWithTimeout(resolveAiModelEndpointUrl(model.base_url, "anthropic"), {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({

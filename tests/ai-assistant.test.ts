@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import {
   maskWebhookUrl,
   normalizeAiEndpointUrl,
+  resolveAiModelEndpointUrl,
 } from "../lib/ai/endpoint-security";
 import {
   createDingTalkSignature,
@@ -19,6 +20,12 @@ test("AI endpoint validation rejects insecure and private targets", () => {
   assert.throws(() => normalizeAiEndpointUrl("http://api.example.com/v1", "model"), /HTTPS/);
   assert.throws(() => normalizeAiEndpointUrl("https://127.0.0.1/private", "channel"), /内网|localhost/);
   assert.throws(() => normalizeAiEndpointUrl("https://user:pass@example.com/v1", "model"), /用户名/);
+});
+
+test("AI model endpoint accepts either a provider root or a complete request URL", () => {
+  assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "openai_compatible"), "https://api.example.com/v1/chat/completions");
+  assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1/chat/completions", "openai_compatible"), "https://api.example.com/v1/chat/completions");
+  assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "anthropic"), "https://api.example.com/v1/messages");
 });
 
 test("masked webhook never exposes route credentials", () => {
@@ -66,6 +73,8 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(webhookRoute, /recordAiChannelCallbackEvent/);
   assert.match(service, /redirect: "error"/);
   assert.match(service, /callback_token_encrypted/);
+  assert.match(service, /PRAGMA table_info\(ai_channels\)/);
+  assert.match(service, /ALTER TABLE ai_channels ADD COLUMN receiver_id/);
   assert.match(callbackMigration, /ai_channel_callback_events/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
 });
