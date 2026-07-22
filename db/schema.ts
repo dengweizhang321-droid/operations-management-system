@@ -627,3 +627,69 @@ export const financeTargets = sqliteTable(
     index("finance_targets_period_idx").on(table.periodType, table.periodKey),
   ],
 );
+
+/** Auditable uploads for competitor rankings and market SKU catalog files. */
+export const marketImportBatches = sqliteTable(
+  "market_import_batches",
+  {
+    id: text("id").primaryKey(),
+    sourceType: text("source_type").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull(),
+    fileHash: text("file_hash").notNull(),
+    sheetName: text("sheet_name").notNull().default(""),
+    status: text("status").notNull(),
+    rowCount: integer("row_count").notNull().default(0),
+    insertedCount: integer("inserted_count").notNull().default(0),
+    updatedCount: integer("updated_count").notNull().default(0),
+    warningCount: integer("warning_count").notNull().default(0),
+    periodStart: text("period_start"),
+    periodEnd: text("period_end"),
+    warningsJson: text("warnings_json").notNull().default("[]"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("market_import_batches_file_hash_uq").on(table.fileHash),
+    index("market_import_batches_created_idx").on(table.createdAt),
+  ],
+);
+
+/** Market ranking facts; own-product flags are resolved live against SKU/SPU and sales data. */
+export const marketRankingEntries = sqliteTable(
+  "market_ranking_entries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    naturalKey: text("natural_key").notNull(),
+    sourceRowNumber: integer("source_row_number").notNull(),
+    periodStart: text("period_start").notNull(),
+    periodEnd: text("period_end").notNull(),
+    category: text("category").notNull().default(""),
+    scope: text("scope").notNull().default("全部"),
+    rank: integer("rank"),
+    skuCode: text("sku_code").notNull(),
+    productName: text("product_name").notNull().default(""),
+    brand: text("brand").notNull().default(""),
+    priceCents: integer("price_cents"),
+    gmvCents: integer("gmv_cents").notNull().default(0),
+    quantity: integer("quantity").notNull().default(0),
+    pageViews: integer("page_views").notNull().default(0),
+    visitors: integer("visitors").notNull().default(0),
+    conversionBps: integer("conversion_bps"),
+    cartCustomers: integer("cart_customers").notNull().default(0),
+    searchClicks: integer("search_clicks").notNull().default(0),
+    imageUrl: text("image_url").notNull().default(""),
+    productUrl: text("product_url").notNull().default(""),
+    rawJson: text("raw_json").notNull().default("{}"),
+    lastImportBatchId: text("last_import_batch_id").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("market_ranking_entries_natural_key_uq").on(table.naturalKey),
+    index("market_entries_period_idx").on(table.periodEnd, table.periodStart),
+    index("market_entries_category_idx").on(table.category, table.periodEnd),
+    index("market_entries_sku_idx").on(table.skuCode, table.periodEnd),
+    index("market_entries_brand_idx").on(table.brand, table.periodEnd),
+  ],
+);
