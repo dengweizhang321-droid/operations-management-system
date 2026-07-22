@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { parseMarketRows } from "../lib/market/parser";
 
 function csvBytes(value: string) {
@@ -24,6 +25,17 @@ test("市场榜单 CSV 映射商品、周期和经营指标", () => {
   assert.equal(result.rows[0]?.gmvCents, 1_250_050);
   assert.equal(result.rows[0]?.conversionBps, 250);
   assert.equal(result.rows[0]?.naturalKey, "2026-07-01|2026-07-20|商用净水设备|自营|10001");
+});
+
+test("市场商品与自有商品关联字段具备独立索引", async () => {
+  const [salesDatabase, netshopDatabase] = await Promise.all([
+    readFile(new URL("../lib/sales/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(salesDatabase, /sales_order_lines_product_code_idx[\s\S]*ON sales_order_lines \(product_code\)/);
+  assert.match(netshopDatabase, /netshop_rows_sku_id_idx[\s\S]*ON netshop_rows \(sku_id\)/);
+  assert.match(netshopDatabase, /netshop_rows_spu_id_idx[\s\S]*ON netshop_rows \(spu_id\)/);
+  assert.match(netshopDatabase, /netshop_rows_product_code_idx[\s\S]*ON netshop_rows \(product_code\)/);
 });
 
 test("市场数据使用默认周期并阻止同周期重复 SKU", () => {

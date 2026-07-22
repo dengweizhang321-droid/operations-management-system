@@ -284,6 +284,12 @@ const schemaStatements = [
     ON netshop_rows (source, snapshot_date, warehouse_type)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_source_sku_idx
     ON netshop_rows (source, sku_id, product_code)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_sku_id_idx
+    ON netshop_rows (sku_id)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_spu_id_idx
+    ON netshop_rows (spu_id)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_product_code_idx
+    ON netshop_rows (product_code)`,
   `UPDATE netshop_rows
     SET platform = '京东', shop_name = '志高商用设备旗舰店', updated_at = CURRENT_TIMESTAMP
     WHERE source = 'jd_product_master'
