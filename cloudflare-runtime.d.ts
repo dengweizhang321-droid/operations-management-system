@@ -39,6 +39,7 @@ declare module "cloudflare:workers" {
   export const env: {
     DB?: D1Database;
     SALES_IMPORT_FILES?: R2Bucket;
+    AI_SECRET_ENCRYPTION_KEY?: string;
     [binding: string]: unknown;
   };
 }

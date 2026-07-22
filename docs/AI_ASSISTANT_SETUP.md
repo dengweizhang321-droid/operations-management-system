@@ -5,7 +5,7 @@ AI 助理在“AI 助理”菜单中提供两类能力：文本模型对话，�
 ## 上线前准备
 
 1. 先应用 Drizzle 数据库迁移，至少包含 `drizzle/0013_ai_assistant.sql` 与 `drizzle/0014_ai_channel_callbacks.sql`。
-2. 在服务器环境变量中设置强随机值 `AI_SECRET_ENCRYPTION_KEY`。缺少该变量时，系统会拒绝保存或解密密钥。
+2. 在服务器环境变量中设置强随机值 `AI_SECRET_ENCRYPTION_KEY`。Sites 项目必须把它设置为生产运行时 Secret，并在变更后重新发布版本；本地开发可通过进程环境变量或 `.dev.vars` 提供。缺少该变量时，系统会拒绝保存或解密密钥。
 3. 生产环境仅允许 HTTPS 的模型地址和 Webhook 地址。`AI_ALLOW_LOCAL_MODEL_ENDPOINTS=true` 只用于本机开发调试，不能用于生产。
 4. 只有管理员能新增、编辑、删除或测试模型和渠道；普通用户不读取这些敏感配置。
 

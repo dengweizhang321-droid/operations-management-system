@@ -14,9 +14,21 @@ function base64UrlDecode(value: string) {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
+async function configuredEncryptionKey() {
+  const processValue = globalThis.process?.env?.AI_SECRET_ENCRYPTION_KEY;
+  if (typeof processValue === "string" && processValue.trim()) return processValue.trim();
+  try {
+    const { env } = await import("cloudflare:workers");
+    const workerValue = env.AI_SECRET_ENCRYPTION_KEY;
+    return typeof workerValue === "string" ? workerValue.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
 async function getKeyMaterial() {
-  const key = globalThis.process?.env?.AI_SECRET_ENCRYPTION_KEY?.trim();
-  if (!key) throw new Error("缺少 AI_SECRET_ENCRYPTION_KEY，无法保存凭证");
+  const key = await configuredEncryptionKey();
+  if (!key) throw new Error("AI 凭证加密服务尚未初始化，请联系部署管理员配置后重试");
   const hash = await crypto.subtle.digest("SHA-256", encoder.encode(key));
   return crypto.subtle.importKey("raw", hash, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
