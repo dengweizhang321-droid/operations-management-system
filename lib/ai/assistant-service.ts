@@ -614,7 +614,11 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, redirect: "error", signal: controller.signal });
+    const response = await fetch(url, { ...init, redirect: "manual", signal: controller.signal });
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error("接口地址返回了重定向，请填写最终的 HTTPS 接口地址");
+    }
+    return response;
   } catch (error) {
     if (controller.signal.aborted) throw new Error("连接超时，请检查平台地址和网络");
     throw error;

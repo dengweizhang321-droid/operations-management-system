@@ -71,7 +71,8 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(channelsRoute, /deleteAiChannel/);
   assert.match(webhookRoute, /verifyWeComSignature/);
   assert.match(webhookRoute, /recordAiChannelCallbackEvent/);
-  assert.match(service, /redirect: "error"/);
+  assert.match(service, /redirect: "manual"/);
+  assert.match(service, /response\.status >= 300 && response\.status < 400/);
   assert.match(service, /callback_token_encrypted/);
   assert.match(service, /PRAGMA table_info\(ai_channels\)/);
   assert.match(service, /ALTER TABLE ai_channels ADD COLUMN receiver_id/);
