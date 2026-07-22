@@ -1042,8 +1042,18 @@ async function runController(options: CliOptions) {
         const retryPage = retryPages[0];
         const retryBody = retryPage ? await retryPage.evaluate(() => document.body?.innerText || "") : "";
         if (isLikelyJackyunLoginPage(retryBody)) {
-          console.log("检测到吉客云登录页。若已设置 JACKYUN_USERNAME / JACKYUN_PASSWORD，将尝试自动登录；否则请先手工登录一次。");
-          return { status: "login_required", profileDirectory, port };
+          // 文件已存在时不需要浏览器操作，跳过登录检测继续执行
+          const anyFileReady = await Promise.all(
+            (["products","inventory","inventory_age","sales","combos"] as const).map(
+              (mk) => findPreExistingDownload(policy.browser.downloadDirectory, mk)
+            )
+          ).then((results) => results.some(Boolean));
+          if (anyFileReady) {
+            console.log("检测到吉客云登录页，但下载目录有可用文件，跳过登录继续导入。");
+          } else {
+            console.log("检测到吉客云登录页。若已设置 JACKYUN_USERNAME / JACKYUN_PASSWORD，将尝试自动登录；否则请先手工登录一次。");
+            return { status: "login_required", profileDirectory, port };
+          }
         }
       } finally {
         await retryBrowser.close();

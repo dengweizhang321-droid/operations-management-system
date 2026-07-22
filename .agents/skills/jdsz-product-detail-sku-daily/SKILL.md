@@ -23,7 +23,7 @@ npm run jdsz:product-detail-export -- --start-date YYYY-MM-DD --end-date YYYY-MM
 2. 显式传入 `--start-date` 和 `--end-date`；只有确认需要整月时才使用默认范围。
 3. 让程序先复用最近一小时的本地同区间完整文件。
 4. 本地没有文件时，只接管本程序为该 SKU 区间保存了 manifest 指纹的任务；任务标题不含 SKU/SPU，禁止凭最近同名行猜维度。
-5. 没有 manifest 时，先保存同名任务基线，再创建一个新任务，并把唯一新增行的任务 ID 或“标题 + 创建时间”指纹持久化。
+5. 没有 manifest 时，先刷新下载中心并确认同名任务基线连续两次快照一致后再创建；首帧空数组不能作为已加载，真正无历史任务时第二次空快照即可继续。把唯一新增行的任务 ID 或“标题 + 创建时间”指纹持久化。
 6. 下载完成后验证文件非空、无 `.crdownload`、日期覆盖完整。
 
 ## 创建任务前硬门禁
@@ -40,6 +40,8 @@ npm run jdsz:product-detail-export -- --start-date YYYY-MM-DD --end-date YYYY-MM
 
 不要把 click 调用成功当成页面状态成功。京东页面存在 SKU 重绘、日历打开动画和日期点击被吞的竞态。
 
+单日区间也必须执行两次端点点击：第一次建立 `start`，第二次点击同一天闭合 `end`。日历仍打开且页面只显示“当前：YYYY-MM-DD HH:mm:ss”时，区间尚未生效；不得点击页面的品类/渠道“查询”作为兜底。若“下载数据”打开的是仅含“下载设置/最多 1000 行”的弹窗，它是实时汇总下载，必须在写 manifest 和点击“确定”前停止。
+
 ## 下载中心硬门禁
 
 只处理文件名匹配店铺、下载类型和目标日期区间的唯一一行；多行同名时停止，不按“最新”猜测。必须同时确认：
@@ -49,6 +51,8 @@ npm run jdsz:product-detail-export -- --start-date YYYY-MM-DD --end-date YYYY-MM
 - 下载按钮唯一、可见且可用。
 
 “生成中”行也可能显示“下载”文字。禁止提前点击，禁止改点较旧同名任务。
+
+如果 manifest 仍为 `submitting`，只可接管创建时间紧邻 `manifest.createdAt` 且标题完全一致的唯一行，并先补写指纹；不能唯一对应时保留 manifest 并停止，禁止重新创建或按“最新”猜测。
 
 ## 文件落盘与重试
 
@@ -83,3 +87,6 @@ npm run jdsz:product-detail-export -- --start-date YYYY-MM-DD --end-date YYYY-MM
 - 总耗时，并区分页面操作、京东后台生成和文件下载时间。
 
 没有验证工作簿时，不要声称日期完整；没有实际导入时，不要声称数据已经写入运营管理系统。
+
+脚本默认将 SKU 日数据通过正式 `/api/netshop/import` 自动入库，提交 `source=jd_sku_daily`、`expectedDataset=sku_daily` 和同一目标日期区间；可用 `--no-auto-import` 只下载，用 `--base-url` 覆盖系统地址。仅在 HTTP、`imported|duplicate`、批次 dataset/status/零 warning/date 范围全部通过时才报告导入。工作簿超过本地默认 1 MiB 请求体限制而得到纯文本 413 时，先确认 `next.config.ts` 的 `experimental.serverActions.bodySizeLimit="25mb"` 已生效并重启服务，再仅重传该已验证文件一次。
+多店铺运行时使用 `--store-key` 选择注册表中的店铺，例如 `npm run jdsz:product-detail-export -- --store-key jd-chudian-weizhang`。各店铺使用独立 Chrome profile、端口和下载目录；首次登录必须人工完成，密码不写入脚本。

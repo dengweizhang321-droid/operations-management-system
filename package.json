@@ -19,6 +19,7 @@
     "jackyun:ware-export": "node --import tsx tools/jackyun-ware-export.ts",
     "jackyun:day-sku-export": "node --import tsx tools/jackyun-day-sku-export.ts",
     "jdsz:product-detail-export": "node --import tsx tools/jdsz-product-detail-export.ts",
+    "jd:all-stores": "node --import tsx tools/jd-multi-store-runner.ts",
     "jackyun:run": "node --import tsx tools/jackyun-automation-runner.ts",
     "jackyun:continue-helper": "node --import tsx tools/jackyun-continue-helper.ts",
     "erp:sales:run": "node --import tsx tools/erp-sales-automation.ts",

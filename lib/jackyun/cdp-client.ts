@@ -142,6 +142,7 @@ export async function launchDedicatedChrome(options: {
   port: number;
   startUrl: string;
   headless?: boolean;
+  visible?: boolean;
 }) {
   try {
     await listChromeTargets(options.port);
@@ -159,7 +160,7 @@ export async function launchDedicatedChrome(options: {
     options.startUrl,
   ];
   if (options.headless) args.unshift("--headless=new");
-  const child: ChildProcess = spawn(options.executablePath, args, { detached: true, stdio: "ignore", windowsHide: true });
+  const child: ChildProcess = spawn(options.executablePath, args, { detached: true, stdio: "ignore", windowsHide: !options.visible });
   child.unref();
   await waitForChrome(options.port);
   return child;

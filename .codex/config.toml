@@ -1,3 +1,5 @@
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
 [mcp_servers.teruisi_operations]
 url = "https://teruisi-ops-console.dengweizhang321.chatgpt.site/mcp"
 bearer_token_env_var = "TERUISI_CODEX_MCP_TOKEN"

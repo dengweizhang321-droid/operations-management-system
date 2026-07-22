@@ -19,7 +19,7 @@
 | 项目 | 固定值或规则 |
 | --- | --- |
 | 平台 | 京东 |
-| 店铺 | 志高商用设备旗舰店 |
+| 店铺 | 所选注册表项的 `shopName` |
 | 页面维度 | SPU，不是 SKU |
 | 下载类型 | 分天下载 |
 | 对比范围 | 不包含对比时间 |
@@ -46,7 +46,7 @@ GROUP BY business_date
 ORDER BY business_date;
 ```
 
-参数依次传入：`spu_daily`、`京东`、`志高商用设备旗舰店`、月初、下月月初。中文值必须参数化并以 UTF-8 或 Unicode 安全方式传递。
+参数依次传入：`spu_daily`、`京东`、所选注册表项的 `shopName`、月初、下月月初。中文值必须参数化并以 UTF-8 或 Unicode 安全方式传递。
 
 本月没有 `spu_daily` 时下载月初至昨天；已有连续覆盖时下载最后覆盖日次日至昨天。发现中间断点时按实际缺口处理，不凭记忆推断。
 
@@ -71,13 +71,15 @@ npm run jdsz:product-detail-export -- --dimension SPU --start-date YYYY-MM-DD --
 5. 终点具有 `jmt-date-picker-calendar-cell-end`。
 6. 页面“当前”日期回显与目标区间完全一致。
 7. 下载弹窗唯一，包含“分天下载”和“不包含对比时间”。
+
+单日区间也必须点击同一天两次，分别取得 `start` 和 `end` 状态。仅显示“当前：YYYY-MM-DD HH:mm:ss”或日历仍打开时不得继续，也不得用商品筛选区的“查询”按钮兜底。若弹窗只显示“下载设置”并提示最多 1000 行，这是实时汇总下载，不是离线分天任务；必须在写 manifest 和确认前停止。
 8. 两个单选框的真实 `checked` 状态正确。
 
 任一门禁失败，停止创建任务并保存失败截图。点击调用成功不等于页面状态成功。
 
 ### 4.2 下载中心门禁
 
-- 创建任务前保存同区间任务基线；提交后把唯一新增行的任务 ID（或“标题 + 创建时间”指纹）写入本地 manifest。
+- 创建任务前刷新下载中心并保存连续两次相同的同区间任务基线；首帧空表不能作为 baseline，真正没有历史任务时第二次空快照即可继续。提交后把唯一新增行的任务 ID（或“标题 + 创建时间”指纹）写入本地 manifest。
 - 超时或进程重启后只按 manifest 接管原任务；找不到或匹配多行时停止，保留 manifest，禁止再建任务。
 - 状态必须包含“已生成”。“生成中”即使出现“下载”文字也不能点击。
 - 下载按钮必须唯一、可见且可用。
@@ -116,7 +118,7 @@ Content-Type: multipart/form-data
 | `file` | SPU 日数据 XLSX |
 | `source` | `jd_sku_daily` |
 | `platform` | `京东` |
-| `shopName` | `志高商用设备旗舰店` |
+| `shopName` | 所选注册表项的 `shopName` |
 | `expectedDataset` | `spu_daily` |
 | `expectedStartDate` | 本次目标起始日，`YYYY-MM-DD` |
 | `expectedEndDate` | 本次目标结束日，`YYYY-MM-DD` |
@@ -128,7 +130,18 @@ Content-Type: multipart/form-data
 
 客户端必须使用 UTF-8 multipart。不要在可能使用本地代码页的命令行中直接拼接中文参数。可使用支持 UTF-8 的 HTTP 库，或用 Unicode 码点构造平台、店铺和备注。
 
-导入后回查：`platform=京东`、`shop_name=志高商用设备旗舰店`，且中文备注无乱码。
+导入后回查：`platform=京东`、`shop_name=所选注册表项的 shopName`，且中文备注无乱码。
+
+### 6.2 本地运行时请求体上限
+
+路由的单文件上限是 25 MiB；本地 Vinext 开发服务也必须配置相同的 Server Action 上限：
+
+```ts
+// next.config.ts
+experimental: { serverActions: { bodySizeLimit: "25mb" } }
+```
+
+默认 1 MiB 限制会在路由解析前直接返回纯文本 `413 Payload Too Large`。此时没有批次写入：先确认服务已按新配置重启，再仅重传同一份已完成工作簿一次；不得重新下载或绕过正式 API。
 
 ## 7. 导入成功门禁
 

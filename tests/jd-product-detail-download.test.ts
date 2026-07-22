@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   acquireJdProductDetailDownload,
   findRecentJdProductDetailDownload,
+  validateJdProductDetailWorkbook,
 } from "../lib/jd/product-detail-download";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
 
@@ -138,6 +139,32 @@ test("chooses a recent workbook by verified dimension instead of newest mtime al
     assert.equal(await findRecentJdProductDetailDownload({ downloadDirectory: directory, expectedPrefix, nowMs: now, dimension: "SKU" }), sku);
     assert.equal(await findRecentJdProductDetailDownload({ downloadDirectory: directory, expectedPrefix, nowMs: now, dimension: "SPU" }), spu);
   });
+});
+
+test("validates exact daily coverage and rejects an out-of-range product-detail workbook", () => {
+  const valid = createXlsxWorkbookBytes([{ name: "data", rows: [
+    ["时间", "SKU", "SKU名称"],
+    ["2026-07-01", "1", "a"],
+    ["2026-07-02", "2", "b"],
+  ] }]);
+  assert.deepEqual(validateJdProductDetailWorkbook(valid, "SKU", { startDate: "2026-07-01", endDate: "2026-07-02" }).dates, ["2026-07-01", "2026-07-02"]);
+  const invalid = createXlsxWorkbookBytes([{ name: "data", rows: [
+    ["时间", "SKU", "SKU名称"],
+    ["2026-07-01", "1", "a"],
+    ["2026-07-03", "2", "b"],
+  ] }]);
+  assert.throws(() => validateJdProductDetailWorkbook(invalid, "SKU", { startDate: "2026-07-01", endDate: "2026-07-02" }), /outside/);
+});
+
+test("workbook validation handles a single day, cross-month coverage, exact aggregate skip, and empty IDs", () => {
+  const single = createXlsxWorkbookBytes([{ name: "data", rows: [["时间", "SPU", "SPU名称"], ["2026-07-31", "合计", "合计"], ["2026-07-31", "1", "a"]] }]);
+  assert.equal(validateJdProductDetailWorkbook(single, "SPU", { startDate: "2026-07-31", endDate: "2026-07-31" }).rowCount, 2);
+  const crossMonth = createXlsxWorkbookBytes([{ name: "data", rows: [["时间", "SKU", "SKU名称"], ["2026-07-31", "1", "a"], ["2026-08-01", "2", "b"]] }]);
+  assert.deepEqual(validateJdProductDetailWorkbook(crossMonth, "SKU", { startDate: "2026-07-31", endDate: "2026-08-01" }).dates, ["2026-07-31", "2026-08-01"]);
+  const missing = createXlsxWorkbookBytes([{ name: "data", rows: [["时间", "SKU", "SKU名称"], ["2026-07-01", "1", "a"], ["2026-07-03", "3", "c"]] }]);
+  assert.throws(() => validateJdProductDetailWorkbook(missing, "SKU", { startDate: "2026-07-01", endDate: "2026-07-03" }), /missing/);
+  const emptyId = createXlsxWorkbookBytes([{ name: "data", rows: [["时间", "SKU", "SKU名称"], ["2026-07-01", "", "a"]] }]);
+  assert.throws(() => validateJdProductDetailWorkbook(emptyId, "SKU", { startDate: "2026-07-01", endDate: "2026-07-01" }), /empty SKU/);
 });
 
 test("atomically marks a newly downloaded SPU workbook and verifies its header", async () => {

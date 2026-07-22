@@ -1,4 +1,4 @@
-import { mkdir, open, rm } from "node:fs/promises";
+import { mkdir, open, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Page } from "playwright-core";
@@ -18,6 +18,7 @@ import {
   type JdProductDetailTaskManifest,
 } from "../lib/jd/product-detail-task-manifest";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { getJdStore } from "../lib/jd/store-registry";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = path.join(projectRoot, "outputs", "jdsz-product-detail-export");
@@ -40,10 +41,13 @@ type CliOptions = {
   port: number;
   downloadDirectory: string;
   shopId: string;
+  shopName: string;
   startDate: string;
   endDate: string;
   dimension: "SKU" | "SPU";
   debug: boolean;
+  autoImport: boolean;
+  baseUrl: string;
 };
 
 function shanghaiToday() {
@@ -63,7 +67,7 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-function parseArgs(argv: string[]): CliOptions {
+async function parseArgs(argv: string[]): Promise<CliOptions> {
   const values = new Map<string, string>();
   const flags = new Set<string>();
   for (let index = 0; index < argv.length; index += 1) {
@@ -92,16 +96,22 @@ function parseArgs(argv: string[]): CliOptions {
     throw new Error("--dimension 必须是 SKU 或 SPU。");
   }
 
+  const store = await getJdStore(values.get("--store-key") ?? "jd-yiyong-director");
+  const shopId = values.get("--shop-id") ?? store.shopId;
+  if (!/^\d+$/.test(shopId)) throw new Error("--shop-id 必须是纯数字。");
   return {
     chromePath: values.get("--chrome-path") ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    profileDirectory: path.resolve(values.get("--profile-dir") ?? path.join(projectRoot, ".runtime", "jdsz-chrome-profile")),
-    port: Number(values.get("--port") ?? 9224),
-    downloadDirectory: path.resolve(values.get("--download-dir") ?? "D:\\谷歌浏览器"),
-    shopId: values.get("--shop-id") ?? "701455",
+    profileDirectory: path.resolve(values.get("--profile-dir") ?? store.browser.profileDir),
+    port: Number(values.get("--port") ?? store.browser.debugPort),
+    downloadDirectory: path.resolve(values.get("--download-dir") ?? store.browser.downloadDir),
+    shopId,
+    shopName: store.shopName,
     startDate,
     endDate,
     dimension,
     debug: flags.has("--debug"),
+    autoImport: !flags.has("--no-auto-import"),
+    baseUrl: (values.get("--base-url") ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   };
 }
 
@@ -109,8 +119,11 @@ export function jdProductDetailDownloadPrefix(options: Pick<CliOptions, "shopId"
   return `${options.shopId}_商品明细_离线_不包括对比时间_分天下载_${options.startDate}_${options.endDate}`;
 }
 
-function taskManifestPath(options: Pick<CliOptions, "dimension" | "shopId" | "startDate" | "endDate">) {
-  return path.join(artifactDir, `${options.dimension.toLowerCase()}-task-${options.shopId}-${options.startDate}-${options.endDate}.json`);
+export function taskManifestPath(options: Pick<CliOptions, "dimension" | "shopId" | "startDate" | "endDate">) {
+  if (!/^\d+$/.test(options.shopId) || !/^\d{4}-\d{2}-\d{2}$/.test(options.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(options.endDate)) throw new Error("JD task manifest path input is invalid.");
+  const file = path.resolve(artifactDir, `${options.dimension.toLowerCase()}-task-${options.shopId}-${options.startDate}-${options.endDate}.json`);
+  if (path.relative(artifactDir, file).startsWith("..") || path.dirname(file) !== artifactDir) throw new Error("JD task manifest path escapes artifact directory.");
+  return file;
 }
 
 async function saveFailureScreenshot(page: Page, name: string) {
@@ -124,12 +137,27 @@ async function currentDateEcho(page: Page) {
   return echo.innerText();
 }
 
+export function jdDateRangeSelectionPlan(startDate: string, endDate: string) {
+  // JD's range picker requires two endpoint clicks even when both endpoints
+  // are the same day.  Returning both entries intentionally preserves that
+  // second click instead of collapsing the range to one interaction.
+  return [startDate, endDate] as const;
+}
+
+export function isStaticCurrentTimestamp(echoText: string) {
+  return /^\s*当前[：:]\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s*$/.test(echoText);
+}
+
+export function isVerifiedJdDateRangeEcho(echoText: string, startDate: string, endDate: string) {
+  return !isStaticCurrentTimestamp(echoText) && jdDateRangeEchoMatches(echoText, startDate, endDate);
+}
+
 async function waitForSelectedDateRange(page: Page, startDate: string, endDate: string, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   let echoText = "";
   while (Date.now() < deadline) {
     echoText = await currentDateEcho(page);
-    if (jdDateRangeEchoMatches(echoText, startDate, endDate)) return echoText;
+    if (isVerifiedJdDateRangeEcho(echoText, startDate, endDate)) return echoText;
     await page.waitForTimeout(100);
   }
   throw new Error(`日期选择未生效：目标 ${startDate} ~ ${endDate}，页面显示 ${echoText.replace(/\s+/g, " ")}`);
@@ -147,13 +175,64 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
   const custom = page.locator('[data-event-content="当前时间_自定义"]').filter({ visible: true });
   if (await custom.count() !== 1) throw new Error("无法唯一识别自定义时间入口。");
   await custom.click();
-  // The JD date popover is visible before its opening transition can reliably
-  // receive day-cell clicks. A short stabilization delay prevents swallowed
-  // clicks; the selected-state gates below still provide the success signal.
   await page.waitForTimeout(300);
+
+  const monthKey = (date: string) => date.slice(0, 7);
   const cellSelector = (date: string) =>
-    `td[data-event-content="当前时间自定义_${date}"]:not(.jmt-date-picker-calendar-cell-diff-month)`;
+    `td[data-event-content="当前时间自定义_${date}"]`;
+  const popup = page.locator(".jmt-date-picker, .jmt-date-picker-panel, [class*='date-picker']").filter({ visible: true }).first();
+
+  const getHeaderText = async () => {
+    const candidates = [
+      page.locator(".jmt-date-picker-header").filter({ visible: true }).first(),
+      page.locator(".jmt-date-picker-calendar-header").filter({ visible: true }).first(),
+      popup.getByText(/\d{4}年\d{1,2}月/).first(),
+    ];
+    for (const candidate of candidates) {
+      if (await candidate.count().catch(() => 0)) return candidate.innerText().catch(() => "");
+    }
+    return "";
+  };
+
+  const clickCalendarNav = async (direction: "prev" | "next") => {
+    const selectors = direction === "prev"
+      ? ["button[aria-label*='上一月']", "button[title*='上一月']", ".jmt-date-picker-prev-btn", ".jmt-date-picker-calendar-prev-btn"]
+      : ["button[aria-label*='下一月']", "button[title*='下一月']", ".jmt-date-picker-next-btn", ".jmt-date-picker-calendar-next-btn"];
+    for (const selector of selectors) {
+      const button = popup.locator(selector).filter({ visible: true }).first();
+      if (await button.count().catch(() => 0)) {
+        await button.click().catch(() => undefined);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const ensureMonthVisible = async (targetMonth: string) => {
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const headerText = await getHeaderText();
+      if (headerText.includes(targetMonth.replace("-", "年").replace(/-(\d{2})$/, (_, m) => `${Number(m)}月`))) return;
+      if (headerText && /\d{4}年\d{1,2}月/.test(headerText)) {
+        const current = headerText.match(/(\d{4})年\s*(\d{1,2})月/);
+        if (current) {
+          const currentMonth = `${current[1]}-${String(Number(current[2])).padStart(2, "0")}`;
+          const direction = currentMonth < targetMonth ? "next" : "prev";
+          if (!(await clickCalendarNav(direction))) break;
+          await page.waitForTimeout(200);
+          continue;
+        }
+      }
+      if (await clickCalendarNav("prev") || await clickCalendarNav("next")) {
+        await page.waitForTimeout(200);
+        continue;
+      }
+      break;
+    }
+  };
+
   const selectDay = async (date: string) => {
+    await ensureMonthVisible(monthKey(date));
     const cell = page.locator(cellSelector(date)).filter({ visible: true });
     await cell.waitFor({ state: "visible", timeout: 10_000 });
     if (await cell.count() !== 1) throw new Error(`日期 ${date} 的可选单元格不是唯一元素。`);
@@ -168,22 +247,22 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
     }
     return false;
   };
-  await selectDay(startDate);
-  if (!await waitForCellState(startDate, "jmt-date-picker-calendar-cell-start", 1_000)) {
-    await selectDay(startDate);
-  }
+  const [startSelectionDate, endSelectionDate] = jdDateRangeSelectionPlan(startDate, endDate);
+  await selectDay(startSelectionDate);
+  if (!await waitForCellState(startDate, "jmt-date-picker-calendar-cell-start", 1_000)) await selectDay(startDate);
   if (!await waitForCellState(startDate, "jmt-date-picker-calendar-cell-start", 5_000)) {
     throw new Error(`起始日期 ${startDate} 点击后未进入区间起点状态。`);
   }
-  if (endDate !== startDate) {
-    await selectDay(endDate);
-    if (!await waitForCellState(endDate, "jmt-date-picker-calendar-cell-end", 1_000)) {
-      await selectDay(endDate);
-    }
-    if (!await waitForCellState(endDate, "jmt-date-picker-calendar-cell-end", 5_000)) {
-      throw new Error(`结束日期 ${endDate} 点击后未进入区间终点状态。`);
-    }
+  // A single-day range still needs a second click: the first establishes the
+  // start, while the second closes the range as its end.
+  await selectDay(endSelectionDate);
+  if (!await waitForCellState(endDate, "jmt-date-picker-calendar-cell-end", 1_000)) await selectDay(endSelectionDate);
+  if (!await waitForCellState(endDate, "jmt-date-picker-calendar-cell-end", 5_000)) {
+    throw new Error(`结束日期 ${endDate} 点击后未进入区间终点状态。`);
   }
+  // The picker itself applies the custom range.  Clicking the page-level
+  // Query action switches this JD page back to a realtime-summary flow, so it
+  // must not be used to validate an offline daily export.
   await waitForSelectedDateRange(page, startDate, endDate);
 }
 
@@ -208,6 +287,32 @@ async function selectDimensionAndWait(page: Page, dimension: CliOptions["dimensi
   await waitForDataRefresh(page);
 }
 
+async function clickAnyVisibleOption(dialog: ReturnType<Page["locator"]>, texts: string[]) {
+  for (const text of texts) {
+    const exact = dialog.getByText(text, { exact: true }).filter({ visible: true });
+    if (await exact.count() === 1) {
+      const label = exact.locator("xpath=ancestor::label[1]");
+      if (await label.count() === 1) {
+        await label.click();
+        return text;
+      }
+      await exact.click();
+      return text;
+    }
+    const partial = dialog.getByText(text).filter({ visible: true });
+    if (await partial.count() === 1) {
+      const label = partial.locator("xpath=ancestor::label[1]");
+      if (await label.count() === 1) {
+        await label.click();
+        return text;
+      }
+      await partial.click();
+      return text;
+    }
+  }
+  return null;
+}
+
 async function selectDialogRadio(dialog: ReturnType<Page["locator"]>, text: string) {
   const labelText = dialog.getByText(text, { exact: true }).filter({ visible: true });
   await labelText.waitFor({ state: "visible", timeout: 10_000 });
@@ -219,22 +324,42 @@ async function selectDialogRadio(dialog: ReturnType<Page["locator"]>, text: stri
   if (!await radio.isChecked()) throw new Error(`下载弹窗选项未成功选中：${text}`);
 }
 
+export function isRealtimeSummaryDownloadDialog(dialogText: string) {
+  return dialogText.includes("下载设置")
+    && !dialogText.includes("分天下载")
+    && !dialogText.includes("不包含对比时间");
+}
+
 async function configureDownloadDialog(page: Page, beforeConfirm?: () => Promise<void>) {
-  const downloadLabel = page.getByText("下载数据", { exact: true }).filter({ visible: true });
-  if (await downloadLabel.count() !== 1) throw new Error("无法唯一识别商品明细区域的下载数据按钮。");
-  const downloadButton = downloadLabel.locator("xpath=ancestor::button[1]");
-  if (await downloadButton.count() !== 1) throw new Error("下载数据文本不属于唯一按钮。");
+  const downloadButton = page.getByText("下载数据", { exact: true }).filter({ visible: true });
+  if (await downloadButton.count() !== 1) throw new Error("无法唯一识别商品明细区域的下载数据按钮。");
   await downloadButton.click();
 
-  const dialog = page.getByRole("dialog").filter({ hasText: "下载类型", visible: true });
+  const dialog = page.getByRole("dialog").filter({ visible: true });
   await dialog.waitFor({ state: "visible", timeout: 15_000 });
   if (await dialog.count() !== 1) throw new Error("未出现唯一的商品明细下载弹窗。");
   const dialogText = await dialog.innerText();
+  // This compact settings dialog creates a realtime-summary workbook.  It is
+  // not an offline daily task, so reject it before touching the confirmation
+  // callback (which is what persists a submitting manifest).
+  if (isRealtimeSummaryDownloadDialog(dialogText)) {
+    throw new Error("当前“下载设置”弹窗会创建实时汇总文件，不是离线分天下载；已禁止确认和写入任务清单。");
+  }
   if (!dialogText.includes("分天下载") || !dialogText.includes("不包含对比时间")) {
     throw new Error("当前弹窗不是商品明细分天下载弹窗，已禁止继续。");
   }
-  await selectDialogRadio(dialog, "分天下载");
-  await selectDialogRadio(dialog, "不包含对比时间");
+  try {
+    await selectDialogRadio(dialog, "分天下载");
+  } catch {
+    const selected = await clickAnyVisibleOption(dialog, ["分天下载", "按天下载", "按日下载"]);
+    if (!selected) throw new Error("无法在下载弹窗中找到分天下载选项。");
+  }
+  try {
+    await selectDialogRadio(dialog, "不包含对比时间");
+  } catch {
+    const selected = await clickAnyVisibleOption(dialog, ["不包含对比时间", "不含对比时间"]);
+    if (!selected) throw new Error("无法在下载弹窗中找到不包含对比时间选项。");
+  }
   const confirm = dialog.getByRole("button", { name: "确定", exact: true }).filter({ visible: true });
   if (await confirm.count() !== 1) throw new Error("无法唯一识别商品明细下载弹窗的确定按钮。");
   await beforeConfirm?.();
@@ -301,6 +426,117 @@ async function taskRows(page: Page, expectedPrefix: string) {
   return result;
 }
 
+export type TaskBaselineSnapshot<T extends { fingerprint: string }> = {
+  rows: T[];
+  emptyConfirmed: boolean;
+  // The download center may be populated exclusively by other date ranges.
+  // That still proves its table has loaded even when this request has no
+  // same-range historical rows.
+  tableReady?: boolean;
+};
+export async function waitForStableTaskBaseline<T extends { fingerprint: string }>(
+  readSnapshot: () => Promise<TaskBaselineSnapshot<T>>,
+  sleep: (ms: number) => Promise<void>,
+  // JD's download-center table can remain in a non-confirmed empty/loading
+  // state for several seconds after navigation or refresh.  Keep the fast
+  // path (two identical snapshots) but give that transient state enough
+  // time to settle before refusing a safe submission.
+  attempts = 40,
+) {
+  let previous: TaskBaselineSnapshot<T> | undefined;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const current = await readSnapshot();
+    const currentKey = current.rows.map((row) => row.fingerprint).sort().join("\u0000");
+    const previousKey = previous?.rows.map((row) => row.fingerprint).sort().join("\u0000");
+    // Empty target-range rows are valid only when the table itself has loaded.
+    // A true empty table still requires the UI's explicit empty-state signal.
+    const ready = current.rows.length > 0
+      || (current.emptyConfirmed && previous?.emptyConfirmed)
+      || (current.tableReady && previous?.tableReady);
+    if (previous && previousKey === currentKey && ready) return current.rows;
+    previous = current;
+    if (attempt + 1 < attempts) await sleep(500);
+  }
+  throw new Error("JD download-center task table did not reach a stable baseline; refusing to submit a new task.");
+}
+
+async function readReadyTaskBaseline(page: Page, expectedPrefix: string) {
+  await page.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await waitForDataRefresh(page);
+  const refresh = page.getByText("刷新", { exact: true }).filter({ visible: true }).first();
+  if (await refresh.count().catch(() => 0) === 1) {
+    await refresh.click().catch(() => undefined);
+    await waitForDataRefresh(page);
+  }
+  return waitForStableTaskBaseline(async () => {
+    const rows = await taskRows(page, expectedPrefix);
+    const body = await page.locator("body").innerText().catch(() => "");
+    const allVisibleTaskRows = page.locator("tr, [role='row']")
+      .filter({ hasText: /\d{4}-\d{2}-\d{2}/ })
+      .filter({ visible: true });
+    return {
+      rows,
+      emptyConfirmed: /暂无数据|暂无记录|暂无下载记录/.test(body),
+      tableReady: await allVisibleTaskRows.count() > 0,
+    };
+  }, (ms) => page.waitForTimeout(ms));
+}
+
+type DailyImportResult = { status: "imported" | "duplicate"; batchId: string; rowCount: number; warningCount: number; dateMin: string; dateMax: string; source: "jd_sku_daily"; dataset: "sku_daily" | "spu_daily"; platform: "京东"; shopName: string; batchStatus: "completed" };
+
+export async function importJdProductDetailFile(options: Pick<CliOptions, "baseUrl" | "shopName" | "dimension" | "startDate" | "endDate">, savedPath: string, request: typeof fetch = fetch): Promise<DailyImportResult> {
+  const form = new FormData();
+  form.set("source", "jd_sku_daily");
+  form.set("platform", "京东");
+  form.set("shopName", options.shopName);
+  form.set("expectedDataset", options.dimension === "SKU" ? "sku_daily" : "spu_daily");
+  form.set("expectedStartDate", options.startDate);
+  form.set("expectedEndDate", options.endDate);
+  form.set("file", new File([await readFile(savedPath)], path.basename(savedPath), { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  const response = await request(`${options.baseUrl}/api/netshop/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
+  const payload = await response.json().catch(() => null) as {
+    ok?: boolean; status?: "imported" | "duplicate"; message?: string;
+    batch?: { id?: string; source?: string; dataset?: string; platform?: string; shopName?: string; status?: string; warningCount?: number; rowCount?: number; dateMin?: string; dateMax?: string };
+  } | null;
+  const expectedDataset = options.dimension === "SKU" ? "sku_daily" : "spu_daily";
+  const batch = payload?.batch;
+  const expectedHttpStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
+  if (response.status !== expectedHttpStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
+    || batch?.dataset !== expectedDataset || batch.status !== "completed" || batch.warningCount !== 0
+    || batch.source !== "jd_sku_daily" || batch.platform !== "京东" || batch.shopName !== options.shopName
+    || batch.dateMin !== options.startDate || batch.dateMax !== options.endDate || !batch.id || !Number.isFinite(batch.rowCount)) {
+    throw new Error(payload?.message ?? `JD ${options.dimension} daily import failed validation (HTTP ${response.status}).`);
+  }
+  return { status: payload.status, batchId: batch.id, rowCount: batch.rowCount!, warningCount: batch.warningCount, dateMin: batch.dateMin, dateMax: batch.dateMax, source: "jd_sku_daily", dataset: expectedDataset, platform: "京东", shopName: options.shopName, batchStatus: "completed" };
+}
+
+function emitPipelineResult(result: Record<string, unknown>) {
+  console.log(`@@JD_PIPELINE_RESULT@@${JSON.stringify(result)}`);
+  console.log(JSON.stringify(result, null, 2));
+}
+
+export function createSubmittingTaskManifest(
+  options: Pick<CliOptions, "dimension" | "shopId" | "startDate" | "endDate">,
+  baseline: Array<{ fingerprint: string }>,
+  now = new Date(),
+): JdProductDetailTaskManifest {
+  return { version: 1, status: "submitting", dimension: options.dimension, shopId: options.shopId, startDate: options.startDate, endDate: options.endDate, baseline: baseline.map((row) => row.fingerprint), createdAt: now.toISOString() };
+}
+
+async function waitForManifestTaskRow(
+  page: Page,
+  expectedPrefix: string,
+  manifest: JdProductDetailTaskManifest,
+  timeoutMs = 30_000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    const matched = selectManifestTaskRow(manifest, await taskRows(page, expectedPrefix));
+    if (matched || Date.now() >= deadline) return matched;
+    await page.waitForTimeout(500);
+  }
+}
+
 async function taskRowByFingerprint(page: Page, expectedPrefix: string, fingerprint: string) {
   const candidates = await taskRows(page, expectedPrefix);
   const matching = candidates.filter((item) => item.fingerprint === fingerprint);
@@ -355,7 +591,7 @@ async function clickTaskDownload(page: Page, expectedPrefix: string, fingerprint
 }
 
 async function run() {
-  const options = parseArgs(process.argv.slice(2));
+  const options = await parseArgs(process.argv.slice(2));
   const expectedPrefix = jdProductDetailDownloadPrefix(options);
   const manifestPath = taskManifestPath(options);
   await mkdir(options.downloadDirectory, { recursive: true });
@@ -365,11 +601,14 @@ async function run() {
     expectedPrefix,
     maxAgeMs: JD_PRODUCT_DETAIL_REUSE_WINDOW_MS,
     dimension: options.dimension,
+    startDate: options.startDate,
+    endDate: options.endDate,
   });
   if (recent) {
-    const savedPath = await finalizeJdProductDetailDownload(recent, options.dimension);
+    const savedPath = await finalizeJdProductDetailDownload(recent, options.dimension, options);
+    const importResult = options.autoImport ? await importJdProductDetailFile(options, savedPath) : undefined;
     await rm(manifestPath, { force: true });
-    console.log(JSON.stringify({ status: "reused", dimension: options.dimension, savedPath, downloadClicks: 0 }, null, 2));
+    emitPipelineResult({ status: "reused", dimension: options.dimension, savedPath, importResult, batchId: importResult?.batchId, rowCount: importResult?.rowCount, downloadClicks: 0 });
     return;
   }
 
@@ -406,7 +645,7 @@ async function run() {
     if (manifest) {
       assertJdProductDetailTaskManifest(manifest, { dimension: options.dimension, shopId: options.shopId, startDate: options.startDate, endDate: options.endDate });
       await page.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-      const matched = selectManifestTaskRow(manifest, await taskRows(page, expectedPrefix));
+      const matched = await waitForManifestTaskRow(page, expectedPrefix, manifest);
       if (matched) {
         const rowText = await (await taskRowByFingerprint(page, expectedPrefix, matched.fingerprint)).innerText();
         if (rowText.includes("失败")) {
@@ -422,13 +661,17 @@ async function run() {
     }
     let downloadPage = page;
     if (!taskReused) {
-      await page.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-      const submitting: JdProductDetailTaskManifest = { version: 1, status: "submitting", dimension: options.dimension, shopId: options.shopId, startDate: options.startDate, endDate: options.endDate, baseline: (await taskRows(page, expectedPrefix)).map((row) => row.fingerprint), createdAt: new Date().toISOString() };
+      const baseline = await readReadyTaskBaseline(page, expectedPrefix);
+      let submitting: JdProductDetailTaskManifest | undefined;
       // Persist only after every selection/dialog gate has passed and directly
       // before the irreversible remote confirmation click.
-      await prepareExport(page, options, () => writeJsonAtomic(manifestPath, submitting));
+      await prepareExport(page, options, async () => {
+        submitting = createSubmittingTaskManifest(options, baseline);
+        await writeJsonAtomic(manifestPath, submitting);
+      });
+      if (!submitting) throw new Error("JD submitting manifest was not persisted before confirmation click.");
       downloadPage = await openDownloadCenter(page);
-      const created = selectManifestTaskRow(submitting, await taskRows(downloadPage, expectedPrefix));
+      const created = await waitForManifestTaskRow(downloadPage, expectedPrefix, submitting);
       if (!created) throw new Error("Submitted JD product-detail task is not uniquely visible in download center; manifest retained and no replacement task will be created.");
       taskFingerprint = created.fingerprint;
       await writeJsonAtomic(manifestPath, { ...submitting, status: "pending", rowFingerprint: created.fingerprint, taskId: created.taskId });
@@ -442,16 +685,22 @@ async function run() {
       partialGraceMs: 300_000,
       maxRetries: 1,
       dimension: options.dimension,
+      startDate: options.startDate,
+      endDate: options.endDate,
       triggerDownload: () => clickTaskDownload(downloadPage, expectedPrefix, taskFingerprint),
     });
+    const importResult = options.autoImport ? await importJdProductDetailFile(options, result.filePath) : undefined;
     await rm(manifestPath, { force: true });
-    console.log(JSON.stringify({
+    emitPipelineResult({
       status: result.reused ? "reused" : "downloaded",
       taskReused,
       dimension: options.dimension,
       savedPath: result.filePath,
+      importResult,
+      batchId: importResult?.batchId,
+      rowCount: importResult?.rowCount,
       downloadClicks: result.downloadClicks,
-    }, null, 2));
+    });
     client.close();
   } finally {
     await browser.close();

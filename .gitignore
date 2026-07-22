@@ -22,6 +22,11 @@
 .DS_Store
 *.pem
 /.codex-tmp/
+/.runtime/
+/.workbuddy/
+/credentials.json
+/exports/
+/tmp/
 
 # debug
 npm-debug.log*

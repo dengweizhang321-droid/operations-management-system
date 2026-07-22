@@ -1,0 +1,4 @@
+interface:
+  display_name: "京东多店铺切换"
+  short_description: "按注册表隔离会话并串行运行京东店铺数据任务"
+  default_prompt: "使用京东多店铺切换流程，检查注册表、人工登录各店铺 profile，并按顺序运行导出任务。"

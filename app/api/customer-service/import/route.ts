@@ -1,0 +1,25 @@
+import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { parseCustomerServiceImport } from "@/lib/customer-service/import-service";
+import { saveCustomerServiceImport } from "@/lib/customer-service/database";
+
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+async function digest(bytes: Uint8Array) { const copy = new Uint8Array(bytes); const hash = await crypto.subtle.digest("SHA-256", copy.buffer as ArrayBuffer); return [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, "0")).join(""); }
+
+export async function POST(request: Request) {
+  try {
+    await requireAppPrincipal(["admin"]);
+    const form = await request.formData();
+    const sessionFile = form.get("sessionFile"); const chatFile = form.get("chatFile");
+    if (!(sessionFile instanceof File) || !(chatFile instanceof File)) return Response.json({ ok: false, message: "请同时选择会话记录 Excel 和聊天记录 LOG 文件。" }, { status: 400 });
+    if (sessionFile.size === 0 || chatFile.size === 0 || sessionFile.size > MAX_FILE_BYTES || chatFile.size > MAX_FILE_BYTES) return Response.json({ ok: false, message: "文件不能为空且单个文件不得超过 25MB。" }, { status: 413 });
+    if (!/\.xlsx$/i.test(sessionFile.name) || !/\.(log|txt)$/i.test(chatFile.name)) return Response.json({ ok: false, message: "会话记录必须为 .xlsx，聊天记录必须为 .log 或 .txt。" }, { status: 422 });
+    const sessionBytes = new Uint8Array(await sessionFile.arrayBuffer()); const chatBytes = new Uint8Array(await chatFile.arrayBuffer());
+    const parsed = parseCustomerServiceImport(sessionBytes, new TextDecoder("utf-8", { fatal: true }).decode(chatBytes));
+    const fileHash = await digest(new TextEncoder().encode(`${await digest(sessionBytes)}:${await digest(chatBytes)}`));
+    const saved = await saveCustomerServiceImport({ sessionFileName: sessionFile.name, chatFileName: chatFile.name, fileHash, parsed });
+    return Response.json({ ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "两份源文件已导入过，未重复写入。" : `已导入 ${parsed.conversations.length} 条客服会话，其中 ${parsed.summary.matchedCount + parsed.summary.timeOnlyMatchedCount} 条已关联聊天记录。` }, { status: saved.status === "imported" ? 201 : 200 });
+  } catch (error) {
+    const auth = authorizationErrorResponse(error); if (auth) return auth;
+    return Response.json({ ok: false, message: error instanceof Error ? error.message : "客服数据导入失败" }, { status: 422 });
+  }
+}

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特睿思电商运营管理系统 — 架构线路图</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --ink: #1f2733;
+  --ink-2: #5a6472;
+  --line: #e3e7ec;
+  --accent: #2f6fed;
+  --accent-soft: #eaf1fe;
+  --green: #2e9e6b;
+  --green-soft: #e8f6ef;
+  --orange: #d97a1f;
+  --orange-soft: #fdf1e3;
+  --purple: #7c5cd6;
+  --purple-soft: #f1edfb;
+  --red: #cf4a4a;
+  --red-soft: #fbecec;
+  --teal: #158f9e;
+  --teal-soft: #e5f5f7;
+  --code-bg: #f0f2f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181f;
+    --card: #1d232d;
+    --ink: #e8ecf2;
+    --ink-2: #9aa5b3;
+    --line: #313a47;
+    --accent: #6b9bff;
+    --accent-soft: #22304a;
+    --green: #56c08d;
+    --green-soft: #1d3529;
+    --orange: #e5a05a;
+    --orange-soft: #3c2e1c;
+    --purple: #a78ef0;
+    --purple-soft: #2e2745;
+    --red: #e07f7f;
+    --red-soft: #3f2626;
+    --teal: #52bcc9;
+    --teal-soft: #1a3438;
+    --code-bg: #262e3a;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #1f2733; --ink-2: #5a6472; --line: #e3e7ec;
+  --accent: #2f6fed; --accent-soft: #eaf1fe; --green: #2e9e6b; --green-soft: #e8f6ef;
+  --orange: #d97a1f; --orange-soft: #fdf1e3; --purple: #7c5cd6; --purple-soft: #f1edfb;
+  --red: #cf4a4a; --red-soft: #fbecec; --teal: #158f9e; --teal-soft: #e5f5f7; --code-bg: #f0f2f5;
+}
+:root[data-theme="dark"] {
+  --bg: #14181f; --card: #1d232d; --ink: #e8ecf2; --ink-2: #9aa5b3; --line: #313a47;
+  --accent: #6b9bff; --accent-soft: #22304a; --green: #56c08d; --green-soft: #1d3529;
+  --orange: #e5a05a; --orange-soft: #3c2e1c; --purple: #a78ef0; --purple-soft: #2e2745;
+  --red: #e07f7f; --red-soft: #3f2626; --teal: #52bcc9; --teal-soft: #1a3438; --code-bg: #262e3a;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+  font-size: 14.5px; line-height: 1.65;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 20px; margin: 44px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+h2 .num { color: var(--accent); margin-right: 8px; }
+h3 { font-size: 16px; margin: 24px 0 10px; }
+p { margin: 8px 0; }
+.sub { color: var(--ink-2); margin-bottom: 18px; }
+code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
+.badge { background: var(--accent-soft); color: var(--accent); border-radius: 20px; padding: 3px 12px; font-size: 13px; font-weight: 500; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+.toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 20px; }
+.toc a { color: var(--accent); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+
+/* ---- 分层架构图 ---- */
+.arch { display: flex; flex-direction: column; gap: 10px; }
+.layer { border-radius: 10px; padding: 12px 16px; border: 1px solid var(--line); }
+.layer .lt { font-weight: 700; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.layer .lt .tag { font-weight: 400; color: var(--ink-2); font-size: 12px; }
+.boxes { display: flex; flex-wrap: wrap; gap: 8px; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+.box b { display: block; font-size: 13px; }
+.box span { color: var(--ink-2); font-size: 12px; }
+.l-fe { background: var(--accent-soft); } .l-fe .lt { color: var(--accent); }
+.l-api { background: var(--purple-soft); } .l-api .lt { color: var(--purple); }
+.l-app { background: var(--green-soft); } .l-app .lt { color: var(--green); }
+.l-data { background: var(--orange-soft); } .l-data .lt { color: var(--orange); }
+.l-infra { background: var(--teal-soft); } .l-infra .lt { color: var(--teal); }
+.arrow { text-align: center; color: var(--ink-2); font-size: 16px; line-height: 1; margin: -2px 0; }
+
+/* ---- 数据流 ---- */
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+.fstep { flex: 1 1 150px; min-width: 150px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; }
+.fstep b { display: block; margin-bottom: 4px; }
+.fstep small { color: var(--ink-2); display: block; line-height: 1.5; }
+.fsep { align-self: center; color: var(--ink-2); font-size: 18px; padding: 0 2px; }
+
+/* ---- 表格 ---- */
+.tblwrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13.5px; background: var(--card); }
+th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+td .dim { color: var(--ink-2); font-size: 12.5px; }
+
+/* ---- 模块卡片 ---- */
+.mod { border-left: 4px solid var(--accent); }
+.mod h3 { margin-top: 0; }
+.mod .role { color: var(--ink-2); font-size: 13px; margin: -6px 0 10px; }
+.kv { margin: 6px 0; }
+.kv b { color: var(--ink-2); font-weight: 600; font-size: 13px; }
+ul { margin: 6px 0; padding-left: 22px; }
+li { margin: 3px 0; }
+.pill { display: inline-block; border-radius: 4px; padding: 0 8px; font-size: 12px; margin-right: 6px; }
+.pill.admin { background: var(--red-soft); color: var(--red); }
+.pill.member { background: var(--orange-soft); color: var(--orange); }
+.pill.pub { background: var(--green-soft); color: var(--green); }
+.pill.auth { background: var(--accent-soft); color: var(--accent); }
+footer { margin-top: 60px; color: var(--ink-2); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>特睿思电商运营管理系统 · 架构线路图</h1>
+<p class="sub">内部 Web 系统（3 人团队）：统一导入多平台电商与 ERP 的销售 / 推广 / 库存数据，清洗入库、可视化分析，并管理巡店、新品上架、评价晒图等日常运营流程。文档生成日期：2026-07-08，基于 main 分支代码实况。</p>
+<div class="badges">
+  <span class="badge">Django + DRF</span>
+  <span class="badge">PostgreSQL 16</span>
+  <span class="badge">React + Vite</span>
+  <span class="badge">Ant Design</span>
+  <span class="badge">ECharts</span>
+  <span class="badge">Docker Compose</span>
+  <span class="badge">钉钉机器人 / 多维表</span>
+</div>
+
+<div class="card">
+  <b>目录</b>
+  <div class="toc" style="margin-top:8px">
+    <a href="#arch">1. 总体分层架构图</a>
+    <a href="#flow">2. 数据流线路图</a>
+    <a href="#frontend">3. 前端页面与导航</a>
+    <a href="#backend">4. 后端模块详解（8 个 App）</a>
+    <a href="#perm">5. 权限体系</a>
+    <a href="#tables">6. 数据模型清单</a>
+    <a href="#sources">7. 数据来源支持矩阵</a>
+    <a href="#deploy">8. 部署与运行</a>
+  </div>
+</div>
+
+<!-- ================= 1 总体架构 ================= -->
+<h2 id="arch"><span class="num">1</span>总体分层架构图</h2>
+
+<div class="card">
+<div class="arch">
+  <div class="layer l-fe">
+    <div class="lt">前端展示层 <span class="tag">React + Vite + Ant Design + ECharts（单页应用，左侧菜单切换，无路由）</span></div>
+    <div class="boxes">
+      <div class="box"><b>BI 看板</b><span>预警中心 / 运营待办 / 销售·库存概览</span></div>
+      <div class="box"><b>网店分析</b><span>店铺·商品·企业购·推广·商品信息·配置</span></div>
+      <div class="box"><b>销售分析</b><span>销售总览 / 渠道 / 财报 / 参数</span></div>
+      <div class="box"><b>库存管理</b><span>总览 / 库龄 / 备货 / 滞销清理</span></div>
+      <div class="box"><b>货品详情</b><span>货品查询 / 毛利测算</span></div>
+      <div class="box"><b>运营事务</b><span>工作计划 / 巡店 / 评价 / 新品</span></div>
+      <div class="box"><b>数据导入</b><span>上传·识别·批次回滚·连续性检查</span></div>
+      <div class="box"><b>系统设置</b><span>参数 / 主数据映射 / 备份</span></div>
+    </div>
+  </div>
+  <div class="arrow">▼ &nbsp;/api/ （Session 认证，/api/auth/me/ 下发模块能力驱动导航）&nbsp; ▼</div>
+  <div class="layer l-api">
+    <div class="lt">API 与权限层 <span class="tag">Django REST Framework</span></div>
+    <div class="boxes">
+      <div class="box"><b>ModulePermission</b><span>读走 read_access 配置，写走编辑授权表</span></div>
+      <div class="box"><b>AuthenticatedRead</b><span>含成本/价格的接口读也需登录</span></div>
+      <div class="box"><b>IsAdmin</b><span>财报分析 / 参数配置仅管理员</span></div>
+      <div class="box"><b>IsRowOwnerOrAdmin</b><span>行级：创建人或管理员可改</span></div>
+      <div class="box"><b>AuditLogMixin</b><span>增/删/改/导入自动记审计日志</span></div>
+    </div>
+  </div>
+  <div class="arrow">▼</div>
+  <div class="layer l-app">
+    <div class="lt">业务应用层 <span class="tag">8 个 Django App</span></div>
+    <div class="boxes">
+      <div class="box"><b>accounts</b><span>用户/角色/模块授权/审计/备份</span></div>
+      <div class="box"><b>erp</b><span>ERP 销售明细 + 导入批次（全局复用）</span></div>
+      <div class="box"><b>netshop</b><span>京东自营/POP/天猫 网店数据与分析</span></div>
+      <div class="box"><b>inventory</b><span>库存/主数据 MDM/毛利测算</span></div>
+      <div class="box"><b>finance</b><span>月度财报/经营目标/网店配置</span></div>
+      <div class="box"><b>ops</b><span>工作计划/巡店/新品/评价/预警中心</span></div>
+      <div class="box"><b>common</b><span>批量幂等 upsert 工具</span></div>
+      <div class="box"><b>modules</b><span>未实现模块占位接口</span></div>
+    </div>
+  </div>
+  <div class="arrow">▼</div>
+  <div class="layer l-data">
+    <div class="lt">数据层 <span class="tag">PostgreSQL（canonical 数仓：维度表 + 事实表 + 配置映射表）</span></div>
+    <div class="boxes">
+      <div class="box"><b>事实表</b><span>销售明细 / SKU·SPU 日 / 推广 / 企业购 / 店铺日 / 库存·库龄快照 / 财报行</span></div>
+      <div class="box"><b>主数据 MDM</b><span>商品 / 成本·价格历史（带生效时间）/ SKU 映射</span></div>
+      <div class="box"><b>配置映射</b><span>店铺→平台 / 品类 / 仓库 / 供应商 / 费用项 / 目标</span></div>
+      <div class="box"><b>贯穿表</b><span>ImportBatch 导入批次 / AuditLog / BackupRecord</span></div>
+    </div>
+  </div>
+  <div class="arrow">▼</div>
+  <div class="layer l-infra">
+    <div class="lt">基础设施 <span class="tag">Docker Compose，单台阿里云 VM，内网/VPN 部署</span></div>
+    <div class="boxes">
+      <div class="box"><b>db</b><span>postgres:16 + pgdata 卷</span></div>
+      <div class="box"><b>backend</b><span>Django :8000 + media 卷</span></div>
+      <div class="box"><b>frontend</b><span>Vite dev :5173（代理 → backend）</span></div>
+      <div class="box"><b>scheduler</b><span>每小时执行 push_alert_center → 钉钉</span></div>
+      <div class="box"><b>钉钉</b><span>机器人 webhook 加签 / 多维表 API</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ================= 2 数据流 ================= -->
+<h2 id="flow"><span class="num">2</span>数据流线路图</h2>
+
+<h3>2.1 导入主链路：上传 → 解析 → 幂等入库 → 派生 → 展示</h3>
+<div class="card">
+<div class="flow">
+  <div class="fstep"><b>① 上传</b><small>数据导入页选来源或按文件名正则自动识别（FILENAME_SOURCE_RULES），拖拽上传</small></div>
+  <div class="fsep">→</div>
+  <div class="fstep"><b>② 解析清洗</b><small>各 app importer：openpyxl 流式（read_only + reset_dimensions）/ xlrd（.xls）/ csv（编码自动探测）/ zip；表头按 mappings.py 映射；错误行进 ImportReport 明确报错，不静默丢弃</small></div>
+  <div class="fsep">→</div>
+  <div class="fstep"><b>③ 幂等入库</b><small>统一走 common/bulk.upsert()：bulk_create(update_conflicts) 按自然键（dedup_key / (shop,date) 等）冲突更新，2000 行分块；批次记 ImportBatch，可删除回滚</small></div>
+  <div class="fsep">→</div>
+  <div class="fstep"><b>④ 派生汇总</b><small>网店导入后汇总回 JdShopDaily 店铺日表；成本/价格仅变化时追加历史；异常剔除生成负值冲销行</small></div>
+  <div class="fsep">→</div>
+  <div class="fstep"><b>⑤ 查询展示</b><small>只存可加基础量，转化率/客单价等比率在查询时按日/周/月聚合后再派生，保证周月口径正确；前端表格 + ECharts</small></div>
+</div>
+</div>
+
+<h3>2.2 预警推送链路</h3>
+<div class="card">
+<div class="flow">
+  <div class="fstep"><b>scheduler 容器</b><small>每小时唤醒，到配置的整点触发（同日幂等）</small></div>
+  <div class="fsep">→</div>
+  <div class="fstep"><b>push_alert_center</b><small>汇总缺货预警、逾期/今日到期/即将到期工作计划</small></div>
+  <div class="fsep">→</div>
+  <div class="fstep"><b>钉钉机器人</b><small>webhook 加签发送；另可写入钉钉多维表（bitable.py）</small></div>
+</div>
+</div>
+
+<h3>2.3 幂等机制要点</h3>
+<div class="card">
+<ul>
+  <li><b>行级幂等</b>：事实表用 <code>dedup_key</code>（行哈希）或复合自然键（如 <code>(shop, sku, date)</code>、<code>(shop, date)</code>）唯一约束，重复导入同一文件不重复计数。</li>
+  <li><b>月级幂等</b>：财报以 <code>FinanceMonth.year_month</code> 为锚，已导月份整月跳过。</li>
+  <li><b>批次回滚</b>：所有导入统一记 <code>erp.ImportBatch</code>（source 前缀区分来源），支持删除批次回滚。</li>
+  <li><b>异常剔除</b>：<code>NetshopExclusion</code> 以负值冲销行方式生效，<code>resync_exclusions</code> 幂等重建并联动店铺日重算，删除剔除即恢复。</li>
+</ul>
+</div>
+
+<!-- ================= 3 前端 ================= -->
+<h2 id="frontend"><span class="num">3</span>前端页面与导航</h2>
+
+<p>单页应用：<code>main.jsx → AuthContext → AppShell</code>。左侧菜单由后端 <code>/api/auth/me/</code> 返回的模块能力驱动（顺序由 <code>ModuleConfig.sort_order</code> 决定），巡店/评价内嵌到「运营事务」不单列。无读权限的模块加 🔒。</p>
+
+<div class="tblwrap"><table>
+<tr><th>页面（模块 key）</th><th>组件</th><th>Tab / 子功能</th></tr>
+<tr><td><b>BI 看板</b><div class="dim">bi_report</div></td><td>BiPage.jsx</td><td>单页仪表盘：预警中心卡片、运营待办（计划/巡店/评价/新品）、销售概览（净销售额·净毛利·毛利率·退货率 + 趋势折线 + Top10 货品 + 明细抽屉）、库存概览（在库货品数/库存总额/低周转/建议补货）</td></tr>
+<tr><td><b>网店分析</b><div class="dim">netshop</div></td><td>NetshopPage.jsx</td><td>店铺数据 · 商品数据 · 企业购分析 · 推广分析 · 商品信息（登录可见）· 系统配置（登录可见）；全部支持店铺维度筛选（京东自营/POP/天猫）</td></tr>
+<tr><td><b>销售分析</b><div class="dim">margin_return</div></td><td>AnalysisPage.jsx</td><td>销售总览 · 渠道分析 · 财报分析（仅管理员）· 参数配置（仅管理员）；顶部 sticky 筛选工具条（时间/对比/模式/维度）</td></tr>
+<tr><td><b>库存管理</b><div class="dim">inventory</div></td><td>InventoryPage.jsx</td><td>库存总览（明细/汇总 + 纵版/横版，自营按 RDC 拆分）· 库龄分析（分桶明细抽屉）· 备货计划 · 滞销清理</td></tr>
+<tr><td><b>货品详情</b><div class="dim">product</div></td><td>ProductPage.jsx</td><td>货品查询 · 毛利测算 · 参数查询（占位）· 参数配置（仅管理员）</td></tr>
+<tr><td><b>运营事务</b><div class="dim">workflow</div></td><td>WorkflowPage.jsx</td><td>工作计划 · 巡店检查（内嵌 inspection）· 评价维护（内嵌 review_photo）· 新品上架（6 阶段看板 + 图片）· 变量配置（有编辑权时）</td></tr>
+<tr><td><b>数据导入</b><div class="dim">data_import</div></td><td>DataImportPage.jsx</td><td>来源选择 + 拖拽上传 + 文件名自动识别 + 导入历史/批次回滚 + 数据连续性（缺失天）检查；仅管理员</td></tr>
+<tr><td><b>系统设置</b><div class="dim">settings</div></td><td>SettingsPage.jsx</td><td>系统参数（库存参数/BI/钉钉/定时推送）· 主数据与映射（网店配置/品牌/供应商/仓库/品类/网店SKU映射/人员部门/货品配置/采购员等）· 数据备份（pg_dump 备份/恢复）；仅管理员</td></tr>
+</table></div>
+
+<!-- ================= 4 后端 ================= -->
+<h2 id="backend"><span class="num">4</span>后端模块详解（8 个 Django App）</h2>
+
+<div class="card mod">
+<h3>accounts — 认证 / 权限 / 审计 / 备份</h3>
+<p class="role">全站权限的单一事实源，所有其他模块的写操作校验都依赖它。</p>
+<div class="kv"><b>核心模型：</b></div>
+<ul>
+  <li><code>User</code>（AbstractUser + role：admin/member）、<code>ModuleEditPermission</code>（用户-模块编辑授权表，唯一键 (user, module)，只能授权给 member 且排除管理员专属模块）</li>
+  <li><code>ModuleConfig</code>（模块读权限 read_access：公开/登录/指定账户/仅管理员/隐藏 + 导航排序）</li>
+  <li><code>AuditLog</code>（导入/增/删/改/推送审计，只追加）、<code>BackupRecord</code>（pg_dump 备份记录）</li>
+</ul>
+<div class="kv"><b>权限注册表 module_registry.py：</b>10 个模块枚举；<code>ADMIN_ONLY_MODULES</code> = 数据导入/销售分析/网店分析/系统设置；核心函数 <code>can_read / can_edit / capabilities / serialize_me</code>。</div>
+<div class="kv"><b>API：</b><code>/api/auth/me|login|logout/</code>；<code>/api/backups/…</code>（备份列表/创建/导入/下载/恢复）。</div>
+<div class="kv"><b>命令：</b><code>seed_demo</code>（幂等种子账号：admin / member_a / member_b）。</div>
+</div>
+
+<div class="card mod">
+<h3>common — 批量幂等 upsert 工具</h3>
+<p class="role">所有导入器入库的统一入口。</p>
+<p><code>bulk.upsert(model, rows, unique_fields=…, update_fields=…, chunk=2000)</code>：用 <code>bulk_create(update_conflicts=True)</code> 按自然键冲突更新，分块避免大内存与逐行往返（数十万行秒级而非分钟级），返回 (created, updated)。</p>
+</div>
+
+<div class="card mod">
+<h3>erp — ERP（吉客云）销售明细</h3>
+<p class="role">销售分析（毛利/退货/渠道）的数据基座；ImportBatch 被全系统复用。</p>
+<div class="kv"><b>核心模型：</b></div>
+<ul>
+  <li><code>ImportBatch</code>：全局导入批次表（source 前缀区分 erp_sales / inv_ / jd_ / finance_report），记行数/新增/更新/错误/导入人，删除即回滚。</li>
+  <li><code>ErpSalesLine</code>：销售明细事实表。维度：订单号/店铺/仓库/品牌/货品编号/分类；度量带符号（退货为负）：数量/金额/成本；biz_type（销售/退货/换货）；自营入仓标记。幂等键 dedup_key。</li>
+</ul>
+<div class="kv"><b>导入器：</b>openpyxl 流式解析销售明细账，日期/金额清洗、缺字段报错；自营入仓识别（网店订单号 10 位数字 + 无需物流）。分析口径（净额/毛额/退货率）在 metrics.py。</div>
+<div class="kv"><b>API：</b><code>/api/erp/sales/import|batches/</code>（导入）；<code>/api/erp/sales/overview|filters|summary|ranking|trend|split_trend/</code>（销售总览/渠道分析数据源）。</div>
+<div class="kv"><b>关键口径：</b>刷单剔除（warehouse='刷刷仓' 必须 exclude）；套餐/客单分析按网店订单号归并。</div>
+</div>
+
+<div class="card mod">
+<h3>netshop — 网店分析（京东自营 / 京东 POP / 天猫）</h3>
+<p class="role">事实表最密集的模块。所有表带 shop 维度，唯一约束一律 (shop, 原自然键)；店铺→平台由 finance.FinanceShopConfig 权威定义。</p>
+<div class="kv"><b>核心模型：</b></div>
+<ul>
+  <li>主数据：<code>JdProductMaster</code>（商品主数据 + 全列 raw）、<code>JdPriceHistory</code>（采购价/京东价/到手价变化历史）、<code>YimeiSku(+History)</code>（亿美店长插件全字段 + 主图本地缓存）</li>
+  <li>分天事实：<code>JdSkuDaily</code> / <code>JdSpuDaily</code>（SKU/SPU×日；访客/成交客户数是去重人数不可加，SPU 口径取 JdSpuDaily）</li>
+  <li><code>JdAdRow</code>（推广行级：京东快车 CSV / 天猫万相台）、<code>JdB2bRow</code>（京东企业购出库明细，仅自营）</li>
+  <li><code>JdTradeOverview</code>（交易概况·分天，京东店铺日权威来源）→ 派生 <code>JdShopDaily</code>（店铺日汇总，只存可加量 + 三来源完整度标记）</li>
+  <li><code>NetshopExclusion</code>（异常数据剔除：店铺+SKU/SPU+日期 扣减销售/访客/成交人数/件数/推广成交额，负值冲销行引擎）</li>
+  <li><code>JdCustomGroup(+Member)</code>（自定义分组，混合 SPU/SKU/品类）、<code>JdProductNote</code>（筛选级备注）</li>
+</ul>
+<div class="kv"><b>导入器：</b>1500+ 行，xlsx/csv/zip 三格式，平台自动识别（含天猫生意参谋 .xls、发布模板、店透视 zip 抽取）；导入后自动汇总店铺日、联动完善库存 SKU 映射。</div>
+<div class="kv"><b>API：</b><code>/api/netshop/import|batches/</code>；分析：<code>shop-daily / overview / product-analysis / product-search / b2b-analysis / category-analysis / promotion-analysis / products / price-history / note / custom-groups / exclusions</code>。</div>
+<div class="kv"><b>命令：</b><code>cache_yimei_images</code>（主图本地缓存）。</div>
+</div>
+
+<div class="card mod">
+<h3>inventory — 库存 / 主数据 MDM / 毛利测算</h3>
+<p class="role">主数据地基：各平台商品编号 → 内部统一货品编号的映射；两套库存逻辑严格分开（自有仓 vs 京东自营仓）。</p>
+<div class="kv"><b>主数据 / 映射（MDM）：</b></div>
+<ul>
+  <li><code>Product</code>（商品主数据）+ <code>ProductCostHistory</code> / <code>SalePriceHistory</code>（成本/定价带时间版本，算历史毛利用当时成本）</li>
+  <li><code>SelfopSkuMap</code>（网店 SKU→内部货品编号，带 shop）、<code>CategoryMap(+CustomCategoryOrder)</code>、<code>SupplierAlias</code>、<code>BrandConfig</code>、<code>WarehouseTypeMap</code>、<code>WarehouseGroup(+Member)</code>、<code>PurchaserMap / PurchaserCategoryMap</code>、<code>StaffMap / DeptMap</code>（钉钉 unionId/deptId）</li>
+  <li><code>ProductParam</code>（销售定价/自营入仓/货品组/多级分类）、<code>ComboProduct(+Item)</code>(组合装，成本动态算）、<code>FeeItem</code>（毛利测算中间费用项：多级 × 经营模式，按优先级解析）</li>
+  <li><code>InventorySettings</code>（全局参数单例：目标库存天数/低周转阈值/钉钉配置/推送整点/BI 统计天数/自营扣点）</li>
+  <li><code>ReplenishmentPlan</code>（备货计划，draft/confirmed 计为在途）、<code>SlowMovingPlan</code>（滞销清理，行级权限）</li>
+</ul>
+<div class="kv"><b>快照事实表：</b><code>WarehouseStock</code>（自有仓日快照）、<code>InventoryAge</code>（库龄批次快照，FIFO）、<code>SelfopInventory</code>（京东自营供应链库存，RDC/DC，含 1/7/30/90 天出库）。</div>
+<div class="kv"><b>服务：</b>services.py（按货品汇总自有+自营+库龄+多窗口销量）、combo.py（组合装成本）、sync.py（商品↔映射↔配置打通）、bitable.py（钉钉多维表写入）、mapping_io.py（映射批量导入导出）。</div>
+<div class="kv"><b>API：</b>导入与映射 ViewSet 12+ 个（module=data_import）；<code>/api/inventory/overview|filters|age-analysis|age-detail|warnings|replenishment|slow-moving/</code>（module=inventory）；<code>/cost-history|margin-calc/</code>（module=product）；<code>/settings/</code>（module=settings）。</div>
+</div>
+
+<div class="card mod">
+<h3>finance — 月度财报 / 经营目标 / 网店店铺配置</h3>
+<p class="role">财报按名扁平存储（字段增减无需改表）；FinanceShopConfig 是全系统「店铺→平台」维度的权威表。</p>
+<div class="kv"><b>核心模型：</b><code>FinanceMonth</code>（月份幂等锚）、<code>FinanceLine</code>（财报行，section=汇总区/金蝶科目区，唯一键 (month, section, shop, name)）、<code>FinanceShopConfig</code>（店铺开关/平台/链接）、<code>FinanceFeeItemMap</code>（费用项合并改名排序）、<code>FinanceTarget</code>（经营目标：销售额/利润/毛利率/清库存/推广占比/呆滞）。</div>
+<div class="kv"><b>导入器：</b>WPS .xls（BIFF/xlrd），一 sheet 一月份，汇总区+金蝶科目区分段解析，同名科目按店铺列求和，从批注提取返点。</div>
+<div class="kv"><b>API：</b><code>/api/finance/import|batches/</code>；<code>/months|shops|analysis/</code> 与 <code>targets / shop-configs / fee-item-maps</code> ViewSet（仅管理员）。</div>
+<div class="kv"><b>口径：</b>财报销售额 = ERP − 返点单；自品牌事业部 = 6 店合计。</div>
+</div>
+
+<div class="card mod">
+<h3>ops — 运营事务 / 预警中心 / 钉钉推送</h3>
+<p class="role">日常流程管理 + 待办驾驶舱，唯一有定时推送的模块。</p>
+<div class="kv"><b>核心模型：</b><code>OptionItem</code>（变量字典：工作项/紧急度/跟进人/店铺）、<code>WorkMemo</code>（工作计划，「已逾期」动态派生）、<code>NewProduct</code>（新品上架 6 阶段 + 图片）、<code>InspectionItem</code>（巡店检查，可一键转工作计划）、<code>ReviewPhotoPlan</code>（评价晒图计划）。</div>
+<div class="kv"><b>API：</b>ViewSet（行级权限）：<code>/api/ops/options|memos|new-products|inspections|review-photos/</code>；<code>/api/ops/dashboard/</code>（BI 运营待办）、<code>/api/ops/alert-center/(push/)</code>、<code>/api/ops/dingtalk/test/</code>。</div>
+<div class="kv"><b>命令：</b><code>push_alert_center</code>（scheduler 每小时调，整点触发钉钉推送，同日幂等）。</div>
+</div>
+
+<div class="card mod">
+<h3>modules — 占位接口</h3>
+<p class="role">给尚未实现独立页面的模块提供统一占位列表接口：<code>GET /api/modules/&lt;module&gt;/items/</code>（Module 枚举白名单，未知 404），前端对应 ModulePage.jsx。</p>
+</div>
+
+<!-- ================= 5 权限 ================= -->
+<h2 id="perm"><span class="num">5</span>权限体系</h2>
+
+<div class="card">
+<div class="tblwrap"><table>
+<tr><th>角色</th><th>读</th><th>写</th></tr>
+<tr><td><span class="pill admin">管理员</span>（1 人）</td><td>全部</td><td>全部 + 用户/权限管理 + 数据导入 + 主数据维护 + 系统设置</td></tr>
+<tr><td><span class="pill member">编辑成员</span>（2 人）</td><td>按模块读权限配置</td><td>仅「用户-模块编辑授权表」授权的模块（当前：巡店、工作推进）；管理员专属模块（数据导入/销售分析/网店分析/系统设置）不可授权</td></tr>
+<tr><td><span class="pill pub">匿名</span></td><td>公开模块只读（内网/VPN 内）</td><td>无</td></tr>
+</table></div>
+<ul>
+  <li><b>数据驱动，不硬编码</b>：可编辑模块存 <code>ModuleEditPermission</code> 表；读权限存 <code>ModuleConfig.read_access</code>（公开/登录/指定账户/仅管理员/隐藏），未配置回退默认值。</li>
+  <li><b>后端强校验</b>：写操作（POST/PUT/DELETE）经 <code>ModulePermission.can_edit</code>；含成本/价格的读接口用 <code>AuthenticatedReadModulePermission</code>；财报/参数用 <code>IsAdmin</code>；工作计划等行级数据用 <code>IsRowOwnerOrAdmin</code>。</li>
+  <li><b>前端跟随</b>：<code>/api/auth/me/</code> 返回每模块 can_read/can_edit，驱动菜单、Tab 可见性与编辑按钮。</li>
+  <li><b>审计</b>：<code>AuditLogMixin</code> 自动记录增删改与导入，审计失败不阻断业务。</li>
+</ul>
+</div>
+
+<!-- ================= 6 数据模型 ================= -->
+<h2 id="tables"><span class="num">6</span>数据模型清单（canonical 数仓）</h2>
+
+<div class="tblwrap"><table>
+<tr><th>类别</th><th>表</th><th>说明</th></tr>
+<tr><td rowspan="4"><b>事实表</b></td><td>erp.ErpSalesLine</td><td>ERP 销售明细账，度量带符号（退货为负）</td></tr>
+<tr><td>netshop.JdSkuDaily / JdSpuDaily / JdAdRow / JdB2bRow / JdTradeOverview / JdShopDaily</td><td>SKU·SPU×日 / 推广行 / 企业购 / 交易概况（店铺日权威）/ 店铺日派生汇总</td></tr>
+<tr><td>inventory.WarehouseStock / InventoryAge / SelfopInventory</td><td>自有仓库存快照 / 库龄批次快照 / 京东自营供应链库存（RDC/DC）</td></tr>
+<tr><td>finance.FinanceLine</td><td>财报数据行（扁平按名存储）</td></tr>
+<tr><td><b>变化历史</b></td><td>ProductCostHistory / SalePriceHistory / JdPriceHistory / YimeiSkuHistory</td><td>成本 / 定价 / 京东价·到手价 / 插件字段的时间版本，算历史毛利取当时值</td></tr>
+<tr><td><b>主数据（维度）</b></td><td>inventory.Product、netshop.JdProductMaster / YimeiSku、finance.FinanceMonth / FinanceShopConfig</td><td>内部货品 / 平台商品 / 财报月份 / 店铺→平台权威维度</td></tr>
+<tr><td><b>映射 / 配置</b></td><td>SelfopSkuMap、CategoryMap、WarehouseTypeMap、SupplierAlias、BrandConfig、PurchaserMap、StaffMap/DeptMap、FeeItem、FinanceFeeItemMap、FinanceTarget、InventorySettings、NetshopExclusion、JdCustomGroup、ModuleConfig、ModuleEditPermission …</td><td>MDM 映射与业务参数，全部后台可维护，不硬编码</td></tr>
+<tr><td><b>业务流程</b></td><td>ReplenishmentPlan、SlowMovingPlan、WorkMemo、NewProduct、InspectionItem、ReviewPhotoPlan、ComboProduct(+Item)</td><td>备货 / 滞销清理 / 工作计划 / 新品 / 巡店 / 评价 / 组合装</td></tr>
+<tr><td><b>贯穿表</b></td><td>erp.ImportBatch、accounts.AuditLog、accounts.BackupRecord</td><td>全系统导入批次（可回滚）/ 操作审计 / 数据库备份</td></tr>
+</table></div>
+
+<!-- ================= 7 来源矩阵 ================= -->
+<h2 id="sources"><span class="num">7</span>数据来源支持矩阵</h2>
+
+<div class="tblwrap"><table>
+<tr><th>来源</th><th>报表 / 文件</th><th>格式</th><th>落库</th></tr>
+<tr><td rowspan="4"><b>吉客云 ERP</b></td><td>销售单明细账</td><td>xlsx</td><td>ErpSalesLine</td></tr>
+<tr><td>分仓库存查询</td><td>xlsx</td><td>WarehouseStock</td></tr>
+<tr><td>库龄分析</td><td>xlsx</td><td>InventoryAge</td></tr>
+<tr><td>货品导出</td><td>xlsx</td><td>Product（+成本历史）</td></tr>
+<tr><td rowspan="5"><b>京东自营（VC）</b></td><td>交易概况·分天</td><td>xlsx</td><td>JdTradeOverview（店铺日权威）</td></tr>
+<tr><td>商品明细·分天（SKU/SPU）</td><td>xlsx</td><td>JdSkuDaily / JdSpuDaily</td></tr>
+<tr><td>推广 SKU 报表</td><td>csv</td><td>JdAdRow</td></tr>
+<tr><td>企业购商品明细日报</td><td>zip</td><td>JdB2bRow</td></tr>
+<tr><td>供应链库存（RDC/配送中心 纵版）</td><td>xlsx</td><td>SelfopInventory</td></tr>
+<tr><td><b>京东 POP</b></td><td>6 类来源自动兼容 POP 表头（无企业购/采购价）</td><td>xlsx/csv</td><td>同京东各表（shop=POP 店）</td></tr>
+<tr><td><b>天猫</b></td><td>生意参谋（.xls，多天区间拒绝）/ 万相台报表 / 发布模板 / 店透视 zip</td><td>xls/xlsx/zip</td><td>JdSpuDaily / JdAdRow / JdProductMaster 等（SPU 维度，店铺日由 SPU 汇总）</td></tr>
+<tr><td><b>三方插件</b></td><td>亿美店长 SKU 全量（含主图）</td><td>csv</td><td>YimeiSku(+History)</td></tr>
+<tr><td><b>财务</b></td><td>月度财报（WPS，一 sheet 一月）</td><td>xls</td><td>FinanceLine / FinanceMonth</td></tr>
+</table></div>
+<p class="dim" style="color:var(--ink-2)">真实脱敏样本存放于 <code>samples/</code>，解析器字段映射一律以样本真实列名为准。</p>
+
+<!-- ================= 8 部署 ================= -->
+<h2 id="deploy"><span class="num">8</span>部署与运行</h2>
+
+<div class="card">
+<div class="tblwrap"><table>
+<tr><th>服务</th><th>说明</th></tr>
+<tr><td><code>db</code></td><td>postgres:16，pgdata 卷持久化，healthcheck</td></tr>
+<tr><td><code>backend</code></td><td>Django runserver :8000，源码挂载热重载，media 卷持久化上传图片，SEED_DEMO 种子，TZ=Asia/Shanghai</td></tr>
+<tr><td><code>scheduler</code></td><td>同 backend 镜像，循环每小时执行 <code>push_alert_center</code>（钉钉预警/到期提醒）</td></tr>
+<tr><td><code>frontend</code></td><td>Vite dev :5173，代理 /api → backend</td></tr>
+</table></div>
+<ul>
+  <li>一键启动：<code>cp .env.example .env && docker compose up --build</code>；前端 <code>:5173</code>、后端 <code>:8000</code>、Admin <code>/admin/</code>。</li>
+  <li>迁移：<code>docker compose exec backend python manage.py migrate</code>；种子：<code>seed_demo</code>（admin / member_a / member_b，密码 teruisi123）。</li>
+  <li>测试：<code>cd backend && DATABASE_URL="sqlite:///dev.sqlite3" python manage.py test</code>（sqlite 免装 Postgres）。</li>
+  <li>整站部署于公司内网 / VPN 之后，匿名只读仅对内网开放；数据导入/毛利/成本等敏感页面额外要求登录。</li>
+</ul>
+</div>
+
+<footer>特睿思电商运营管理系统 · 架构线路图 · 生成于 2026-07-08 · 依据 main 分支（6dab9fe）代码实况整理。技术栈与领域规则的长期规范见 <code>CLAUDE.md</code>。</footer>
+
+</div>
+</body>
+</html>

@@ -241,11 +241,14 @@ function assertStrictSequence(manifest: RunManifest, module: JackyunModule, dryR
 async function waitForStableFile(filePath: string) {
   let previous: { size: number; mtimeMs: number } | null = null;
   const deadline = Date.now() + 4_000;
+  // Reduced from 500ms to 200ms: the stat() calls themselves provide ~10ms granularity,
+  // so 200ms is sufficient to detect file stability while saving 300ms per module.
+  const pollIntervalMs = 200;
   while (Date.now() < deadline) {
     const partialExists = await stat(`${filePath}.crdownload`).then(() => true).catch(() => false);
     if (partialExists) {
       previous = null;
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
       continue;
     }
     const current = await stat(filePath);
@@ -254,7 +257,7 @@ async function waitForStableFile(filePath: string) {
       return { size: current.size, mtimeMs: current.mtimeMs, mtime: current.mtime } satisfies StableFileEvidence;
     }
     previous = { size: current.size, mtimeMs: current.mtimeMs };
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
   throw new Error("下载文件在 4 秒内仍持续变化或存在 .crdownload，未进入稳定状态。");
 }
@@ -354,20 +357,30 @@ async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule
   const upload = initBody.upload as { id?: string; receivedChunkIndexes?: number[] } | undefined;
   if (!upload?.id) throw new Error("初始化分片上传后未返回 upload id。");
   const received = new Set(upload.receivedChunkIndexes ?? []);
+  // Upload chunks in parallel with limited concurrency to reduce total upload time.
+  // The server tracks received chunks by index, so out-of-order arrival is safe.
+  const pendingIndexes: number[] = [];
   for (let index = 0; index < chunkCount; index += 1) {
-    if (received.has(index)) continue;
-    const start = index * chunkSize;
-    const end = Math.min(start + chunkSize, bytes.byteLength);
-    const chunk = new Uint8Array(end - start);
-    chunk.set(bytes.subarray(start, end));
-    await responseJson(await fetchWithTimeout(endpoint, {
-      method: "PUT",
-      headers: {
-        "content-type": "application/octet-stream",
-        "x-upload-id": upload.id,
-        "x-chunk-index": String(index),
-      },
-      body: chunk.buffer,
+    if (!received.has(index)) pendingIndexes.push(index);
+  }
+  const uploadId = upload.id;
+  const uploadConcurrency = 3;
+  for (let batchStart = 0; batchStart < pendingIndexes.length; batchStart += uploadConcurrency) {
+    const batch = pendingIndexes.slice(batchStart, batchStart + uploadConcurrency);
+    await Promise.all(batch.map(async (index) => {
+      const start = index * chunkSize;
+      const end = Math.min(start + chunkSize, bytes.byteLength);
+      const chunk = new Uint8Array(end - start);
+      chunk.set(bytes.subarray(start, end));
+      await responseJson(await fetchWithTimeout(endpoint, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/octet-stream",
+          "x-upload-id": uploadId,
+          "x-chunk-index": String(index),
+        },
+        body: chunk.buffer,
+      }));
     }));
   }
   return responseJson(await fetchWithTimeout(endpoint, {

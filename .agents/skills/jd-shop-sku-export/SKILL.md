@@ -9,7 +9,7 @@ description: 自动执行京东商家后台商品 SKU 导出、下载和运营�
 
 1. 确认专用 Chrome 已登录京东商家后台，运营管理系统已启动。
 2. 在项目根目录 `D:\运营管理系统` 执行 `npm run jackyun:ware-export`。
-3. 让脚本打开商品列表并进入“导出查询商品 → SKU 导出”。
+3. 让脚本先执行商品查询，确认结果数大于 0；新版页面经“批量操作 → 导出查询商品 → SKU 导出”进入导出抽屉。
 4. 等待导出任务状态变为“已完成”，核对“成功：N”条。
 5. 只下载当前任务对应的文件，保存到 `outputs/jd-ware-export/downloads/`。
 6. 下载验证成功后，将文件通过 `/api/netshop/import` 自动导入运营管理系统。
@@ -41,15 +41,18 @@ npm run jackyun:ware-export -- --no-auto-import
 POST http://localhost:3000/api/netshop/import
 ```
 
-表单字段：`source=jd_product_master`、`platform=京东`、`shop_name=志高商用设备旗舰店`、当天上海时区 `snapshot_date`，以及字段名为 `file` 的 `.xlsx` 文件。
+表单字段：`source=jd_product_master`、`platform=京东`、`shop_name=所选注册表项的 shopName`、当天上海时区 `snapshot_date`，以及字段名为 `file` 的 `.xlsx` 文件。
 
 导入返回 `imported` 表示新文件已写入；返回 `duplicate` 表示系统按文件哈希去重，不应重复处理。
 
 ## 安全与故障处理
 
+- 商品页签数量不等于当前查询有结果。若页面为 `共 0 条`，关闭残留抽屉后执行唯一“查询”；仍为 0 时禁止点击“确定导出”，不要创建空任务。
+- “导出查询商品”在新版后台默认隐藏在“批量操作”菜单中。打开菜单后再按唯一可见元素定位；不要等待隐藏按钮自行可见。
 - 未登录时停止并要求用户在专用 Chrome 中登录，不要尝试绕过登录。
-- 导出任务超时后直接重新运行同一命令：脚本会从 `active-task.json` 按 taskId 接管原任务；即使它已从 pending 变为 completed，也不会再次点击“确定导出”。若上次在取得 ID 前中断，则只接受相对持久化 baseline 的唯一新增任务；缺失或歧义时安全停止。
+- 导出任务超时后直接用同一 `--store-key` 重新运行：脚本会从 `active-task-<storeKey>.json` 按 taskId 接管原任务；即使它已从 pending 变为 completed，也不会再次点击“确定导出”。旧版全局 `active-task.json` 存在时安全停止，必须人工确认归属后处理；若上次在取得 ID 前中断，则只接受相对持久化 baseline 的唯一新增任务；缺失或歧义时安全停止。
 - 下载事件未验证时不自动导入未知文件，也不要重复点击下载按钮。
+- 点击下载后未落盘时，先检查配置的下载目录、`.crdownload` 与下载行为；首次点击没有可验证文件时保留审计并停止。
 - 运营管理系统不可用时保留本地 `.xlsx`；失败审计必须记录任务 ID、文件路径、API 地址、`stage=auto_import` 和错误，并保持非零退出，不声称导入成功。
 - 若存在多个新任务，停止自动下载，要求人工确认目标任务 ID。
 
@@ -59,3 +62,8 @@ POST http://localhost:3000/api/netshop/import
 - 可复制操作手册：`docs/京东店铺SKU下载和导出智能体.md`
 - 下载目录：`outputs/jd-ware-export/downloads/`
 - 审计目录：`outputs/jd-ware-export/`
+## 多店铺顺序执行
+
+店铺注册信息保存在 `config/jd-store-accounts.json`，只包含账号标签、店铺名称、shopId 和独立浏览器 profile/端口，不保存密码。首次使用每个 profile 时必须人工登录并完成验证；脚本不会输入或读取密码。
+
+单店运行：`npm run jackyun:ware-export -- --store-key jd-yiyong-director`。全部启用店铺按顺序运行：`npm run jd:all-stores`。执行器一次只运行一个店铺，单店失败会停止并保留现场，避免把任务或下载文件串到下一店铺。

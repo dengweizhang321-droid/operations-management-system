@@ -25,13 +25,22 @@ export function jdProductDetailTaskFingerprint(rowText: string, expectedPrefix: 
   return `title:${expectedPrefix}|created:${timestamp}`;
 }
 
+/** JD displays row timestamps in Shanghai time while manifests use ISO UTC. */
+export function isJdProductDetailTaskCreatedNear(manifestCreatedAt: string, rowCreatedAt: string | undefined, windowMs = 2 * 60_000) {
+  if (!rowCreatedAt || !Number.isFinite(Date.parse(manifestCreatedAt))) return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(rowCreatedAt);
+  if (!match) return false;
+  const rowUtc = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]) - 8, Number(match[5]), Number(match[6]));
+  return Math.abs(rowUtc - Date.parse(manifestCreatedAt)) <= windowMs;
+}
+
 export function selectManifestTaskRow(
   manifest: JdProductDetailTaskManifest,
   rows: JdProductDetailTaskRow[],
 ): JdProductDetailTaskRow | null {
   const matches = manifest.rowFingerprint
     ? rows.filter((row) => row.fingerprint === manifest.rowFingerprint)
-    : rows.filter((row) => !manifest.baseline.includes(row.fingerprint));
+    : rows.filter((row) => !manifest.baseline.includes(row.fingerprint) && isJdProductDetailTaskCreatedNear(manifest.createdAt, row.createdAt));
   if (matches.length > 1) throw new Error("Ambiguous JD product-detail download task rows; refusing to choose one.");
   return matches[0] ?? null;
 }

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { dailyRowKey } from "@/lib/netshop/daily-contract";
+import { netshopBatchId, sameNetshopBatchIdentity } from "@/lib/netshop/batch-identity";
 
 export type NetshopDatabase = NonNullable<typeof env.DB>;
 
@@ -220,8 +221,7 @@ const batchColumns = `
   created_at, completed_at
 `;
 
-const schemaStatements = [
-  `CREATE TABLE IF NOT EXISTS netshop_import_batches (
+const batchTableSql = `CREATE TABLE IF NOT EXISTS netshop_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source TEXT NOT NULL,
     dataset TEXT NOT NULL DEFAULT '',
@@ -244,8 +244,11 @@ const schemaStatements = [
     note TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TEXT,
-    UNIQUE(source, file_hash)
-  )`,
+    UNIQUE(source, platform, shop_name, file_hash)
+  )`;
+
+const schemaStatements = [
+  batchTableSql,
   `CREATE INDEX IF NOT EXISTS netshop_import_batches_source_created_idx
     ON netshop_import_batches (source, created_at)`,
   `CREATE INDEX IF NOT EXISTS netshop_import_batches_shop_dataset_idx
@@ -361,6 +364,28 @@ async function migrateDailyRowKeys(db: NetshopDatabase) {
   }
 }
 
+/** Upgrade the historical source+file-hash constraint without altering file_hash itself. */
+async function migrateBatchIdentityConstraint(db: NetshopDatabase) {
+  type IndexRow = { name: string; unique: number };
+  type IndexColumn = { name: string };
+  const indexes = await db.prepare("PRAGMA index_list('netshop_import_batches')").all<IndexRow>().catch(() => ({ results: [] as IndexRow[] }));
+  let legacyConstraint = false;
+  for (const index of indexes.results.filter((item) => Number(item.unique) === 1)) {
+    const columns = await db.prepare(`PRAGMA index_info('${index.name.replace(/'/g, "''")}')`).all<IndexColumn>().catch(() => ({ results: [] as IndexColumn[] }));
+    if (columns.results.map((column) => column.name).join(",") === "source,file_hash") legacyConstraint = true;
+  }
+  if (!legacyConstraint) return;
+  const legacy = "netshop_import_batches_legacy_scope";
+  const replacement = batchTableSql.replace("netshop_import_batches", "netshop_import_batches_scoped_tmp");
+  await db.batch([
+    db.prepare(`ALTER TABLE netshop_import_batches RENAME TO ${legacy}`),
+    db.prepare(replacement),
+    db.prepare(`INSERT INTO netshop_import_batches_scoped_tmp (${batchColumns}) SELECT ${batchColumns} FROM ${legacy}`),
+    db.prepare(`DROP TABLE ${legacy}`),
+    db.prepare("ALTER TABLE netshop_import_batches_scoped_tmp RENAME TO netshop_import_batches"),
+  ]);
+}
+
 export function getNetshopDatabase(): NetshopDatabase {
   if (!env.DB) {
     throw new Error("Cloudflare D1 binding `DB` is unavailable.");
@@ -372,8 +397,8 @@ export async function ensureNetshopSchema(db = getNetshopDatabase()) {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
   if (existing) return existing;
-  const setup = db
-    .batch(schemaStatements.map((statement) => db.prepare(statement)))
+  const setup = migrateBatchIdentityConstraint(db)
+    .then(() => db.batch(schemaStatements.map((statement) => db.prepare(statement))))
     .then(() => migrateDailyRowKeys(db))
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
@@ -438,12 +463,23 @@ export async function findNetshopImportBatchByHash(
   db: NetshopDatabase,
   source: NetshopSource,
   fileHash: string,
+  identity?: { platform: string; shopName: string },
 ) {
+  if (identity) {
+    const scoped = await db
+      .prepare(`SELECT ${batchColumns} FROM netshop_import_batches WHERE source = ? AND platform = ? AND shop_name = ? AND file_hash = ? LIMIT 1`)
+      .bind(source, identity.platform, identity.shopName, fileHash)
+      .first<NetshopBatchRow>();
+    if (scoped) return mapBatch(scoped);
+  }
   const row = await db
     .prepare(`SELECT ${batchColumns} FROM netshop_import_batches WHERE source = ? AND file_hash = ? LIMIT 1`)
     .bind(source, fileHash)
     .first<NetshopBatchRow>();
-  return row ? mapBatch(row) : null;
+  const batch = row ? mapBatch(row) : null;
+  // Legacy batches were keyed only by source/hash. They remain idempotent only
+  // for their recorded owner and must never suppress another shop's import.
+  return batch && (!identity || sameNetshopBatchIdentity(batch, { source, ...identity })) ? batch : null;
 }
 
 export async function listNetshopImportBatches(db: NetshopDatabase, limit = 20) {
@@ -523,7 +559,7 @@ export async function saveNetshopImport(
     note: string;
   },
 ): Promise<{ batch: NetshopImportBatch; created: boolean }> {
-  const batchId = `${input.source}:${input.fileHash}`;
+  const batchId = netshopBatchId(input);
   const dates = input.rows.map((row) => row.businessDate).filter(Boolean).sort();
   const snapshots = input.rows.map((row) => row.snapshotDate).filter(Boolean).sort();
   const dateMin = dates[0] ?? null;
@@ -537,7 +573,7 @@ export async function saveNetshopImport(
           file_hash, sheet_name, status, row_count, warning_count,
           date_min, date_max, snapshot_date, warnings_json, totals_json, note
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(source, file_hash) DO NOTHING`,
+        ON CONFLICT(source, platform, shop_name, file_hash) DO NOTHING`,
       )
       .bind(
         batchId,
@@ -584,7 +620,7 @@ export async function saveNetshopImport(
 
   const result = await db.batch(statements);
   const created = Number(result[0]?.meta?.changes ?? 0) > 0;
-  const batch = await findNetshopImportBatchByHash(db, input.source, input.fileHash);
+  const batch = await findNetshopImportBatchByHash(db, input.source, input.fileHash, input);
   if (!batch) throw new Error("Netshop import batch was not readable after save.");
   return { batch, created };
 }

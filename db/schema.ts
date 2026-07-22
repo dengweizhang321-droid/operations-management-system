@@ -18,6 +18,57 @@ export const appUsers = sqliteTable(
   ],
 );
 
+/** Configured AI model endpoints; credentials are stored encrypted. */
+export const aiModels = sqliteTable("ai_models", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  protocol: text("protocol").notNull(),
+  modelType: text("model_type").notNull(),
+  modelName: text("model_name").notNull(),
+  baseUrl: text("base_url").notNull().default(""),
+  apiKeyEncrypted: text("api_key_encrypted").notNull().default(""),
+  apiKeySuffix: text("api_key_suffix").notNull().default(""),
+  isDefaultTextModel: integer("is_default_text_model", { mode: "boolean" }).notNull().default(false),
+  status: text("status").notNull(),
+  lastTestResult: text("last_test_result"),
+  lastTestedAt: text("last_tested_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_models_default_text_uq").on(table.isDefaultTextModel).where(sql`${table.isDefaultTextModel} = 1 AND ${table.status} = 'enabled' AND ${table.modelType} = 'text'`),
+  index("ai_models_status_idx").on(table.status, table.modelType, table.updatedAt),
+]);
+
+export const aiChannels = sqliteTable("ai_channels", {
+  id: text("id").primaryKey(), name: text("name").notNull(), kind: text("kind").notNull(), status: text("status").notNull(),
+  sendEnabled: integer("send_enabled", { mode: "boolean" }).notNull().default(false), callbackEnabled: integer("callback_enabled", { mode: "boolean" }).notNull().default(false),
+  webhookUrl: text("webhook_url").notNull().default(""), callbackTokenEncrypted: text("callback_token_encrypted").notNull().default(""), callbackTokenSuffix: text("callback_token_suffix").notNull().default(""),
+  aesKeyEncrypted: text("aes_key_encrypted").notNull().default(""), aesKeySuffix: text("aes_key_suffix").notNull().default(""), receiverId: text("receiver_id").notNull().default(""), lastTestResult: text("last_test_result"), lastTestedAt: text("last_tested_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_channels_status_idx").on(table.status, table.kind, table.updatedAt)]);
+
+/** Idempotency receipts for signed chat-platform callbacks. Callback payloads are never retained. */
+export const aiChannelCallbackEvents = sqliteTable("ai_channel_callback_events", {
+  id: text("id").primaryKey(),
+  channelId: text("channel_id").notNull(),
+  eventKey: text("event_key").notNull(),
+  payloadDigest: text("payload_digest").notNull(),
+  receivedAt: text("received_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_channel_callback_events_channel_event_uq").on(table.channelId, table.eventKey),
+  index("ai_channel_callback_events_received_idx").on(table.channelId, table.receivedAt),
+]);
+
+export const aiConversations = sqliteTable("ai_conversations", {
+  id: text("id").primaryKey(), title: text("title").notNull(), modelId: text("model_id"), createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_conversations_creator_updated_idx").on(table.createdBy, table.updatedAt)]);
+
+export const aiConversationMessages = sqliteTable("ai_conversation_messages", {
+  id: text("id").primaryKey(), conversationId: text("conversation_id").notNull(), role: text("role").notNull(), content: text("content").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_conversation_messages_conversation_idx").on(table.conversationId, table.createdAt)]);
+
 /** Administrator-managed operating thresholds used by inventory analysis. */
 export const systemSettings = sqliteTable(
   "system_settings",

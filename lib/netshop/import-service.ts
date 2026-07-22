@@ -16,6 +16,7 @@ import {
   type NetshopRowInput,
   type NetshopSource,
 } from "@/lib/netshop/database";
+import { netshopMasterRowKey } from "@/lib/netshop/batch-identity";
 import { dailyDateCoverage, dailyRowKey, detectJdDailyDataset } from "@/lib/netshop/daily-contract";
 
 const DEFAULT_PLATFORM = "京东";
@@ -358,7 +359,6 @@ export async function importNetshopBytes(input: {
   const fileHash = toHex(await sha256(input.bytes));
   const db = getNetshopDatabase();
   await ensureNetshopSchema(db);
-  const previous = await findNetshopImportBatchByHash(db, input.source, fileHash);
 
   let parsed: ParsedTable;
   try {
@@ -389,6 +389,7 @@ export async function importNetshopBytes(input: {
   }
   const platform = normalizeText(input.platform) || DEFAULT_PLATFORM;
   const shopName = normalizeText(input.shopName) || DEFAULT_SHOP_NAME;
+  const previous = await findNetshopImportBatchByHash(db, input.source, fileHash, { platform, shopName });
   const snapshotDate = isoDateFromValue(input.snapshotDate) || fileDate(input.fileName) || "";
   const snapshotSource = usesSnapshotDate(input.source);
   const rawRows = parsed.rows.slice(header.index + 1)
@@ -415,7 +416,7 @@ export async function importNetshopBytes(input: {
       sourceRowNumber: row.rowNumber,
       sourceRowKey: dataset === "sku_daily" || dataset === "spu_daily"
         ? dailyRowKey(dataset, platform, shopName, businessDate, dataset === "sku_daily" ? skuId : spuId)
-        : `${input.source}:${fileHash}:${row.rowNumber}:${rowHash.slice(0, 16)}`,
+        : netshopMasterRowKey({ source: input.source, platform, shopName, fileHash, rowNumber: row.rowNumber, rowHash }),
       sourceRowHash: rowHash,
       source: input.source,
       dataset,

@@ -92,6 +92,20 @@
       "when": 1784419200000,
       "tag": "0012_workflow_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1784678400000,
+      "tag": "0013_ai_assistant",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1784678460000,
+      "tag": "0014_ai_channel_callbacks",
+      "breakpoints": true
     }
   ]
 }

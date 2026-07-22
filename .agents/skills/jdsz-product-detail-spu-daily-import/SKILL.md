@@ -25,21 +25,22 @@ description: Download, validate, and import JD Business Intelligence product-det
    npm run jdsz:product-detail-export -- --dimension SPU --start-date YYYY-MM-DD --end-date YYYY-MM-DD
    ```
 
-5. 创建任务前验证：SPU 标签唯一且 `aria-selected=true`、日期起止状态和页面回显正确、下载弹窗唯一、真实单选状态为“分天下载”和“不包含对比时间”。
-6. 创建任务前保存下载中心 baseline；在最终确认前落盘 SPU manifest，提交后补入唯一新增行的任务 ID 或“标题 + 创建时间”指纹。超时重跑必须按 manifest 精确接管，找不到或出现歧义时停止，禁止重新创建。SKU 使用独立 manifest，二者不能互用。
+5. 创建任务前验证：SPU 标签唯一且 `aria-selected=true`、日期起止状态和页面回显正确、下载弹窗唯一、真实单选状态为“分天下载”和“不包含对比时间”。单日区间必须连续点击同一天两次以分别建立 `start/end`；仅显示“当前：时间戳”或日历仍打开都不算成功。不得点击品类/渠道“查询”强行关闭日历；仅含“下载设置/最多 1000 行”的弹窗是实时汇总下载，必须在写 manifest 和确认前停止。
+6. 创建任务前刷新下载中心并确认 baseline 连续两次快照一致；首帧空数组不能视作已加载，真正无历史任务时第二次空快照即可继续。在最终确认前落盘 SPU manifest，提交后补入唯一新增行的任务 ID 或“标题 + 创建时间”指纹。若 manifest 仍为 `submitting`，只接管创建时间紧邻 manifest 的唯一同标题行并补写指纹；找不到或出现歧义时停止，禁止重新创建。SKU 使用独立 manifest，二者不能互用。
 7. 将最终文件名明确标记为 `SPU`，避免与相同区间的 SKU 文件混淆。
 8. 检查工作簿：第二列标题必须是 `SPU`，第二行可以是“合计”，但该行不得写入数据库；日期必须逐日覆盖目标区间。
-9. 通过正式接口导入：
+9. 默认通过正式接口自动导入（用 `--no-auto-import` 可只下载，`--base-url` 可覆盖地址）：
 
    - endpoint：`POST /api/netshop/import`
    - multipart `source`：`jd_sku_daily`
    - `platform`：`京东`
-   - `shopName`：`志高商用设备旗舰店`
+   - `shopName`：所选注册表项的 `shopName`
    - `expectedDataset`：`spu_daily`
    - `expectedStartDate` / `expectedEndDate`：本次下载的目标区间
    - 预期 `dataset`：`spu_daily`
 
 10. 使用 UTF-8 安全的 multipart 客户端。禁止用可能按本地代码页传参的命令拼接中文字段；必要时使用 Unicode 转义构造字符串。
+    本地 Vinext 服务还必须把 `experimental.serverActions.bodySizeLimit` 配置为 `25mb`，与路由上限一致；收到路由前的纯文本 413 时重启服务后仅重传同一已验证文件一次。
 11. 接口成功后只读回查批次与明细，验证：`status=completed`、日期完整、逐日行数之和等于批次行数、`spu_id='合计'` 为 0、平台和店铺无乱码、警告数为 0。
 
 ## API 未接通时
@@ -77,3 +78,4 @@ description: Download, validate, and import JD Business Intelligence product-det
 - 测试与构建结果。
 
 不要在仅下载后声称已导入；不要在未回查数据库时声称导入完整。
+多店铺运行时使用 `--store-key` 选择 `config/jd-store-accounts.json` 中的店铺；全部顺序执行可用 `npm run jd:all-stores -- --mode all`，仅 SPU 用 `--mode spu-daily`。执行器不会保存或代填密码。

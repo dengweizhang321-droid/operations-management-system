@@ -8,7 +8,7 @@ import {
   selectExistingJdWareExportTask,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createWareExportAudit, importSkuFile } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, createWareExportAudit, importSkuFile, isLikelyJdLoginPage, wareActiveTaskPath } from "../tools/jackyun-ware-export";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -116,6 +116,16 @@ test("preserves the task id in a timeout failure audit", () => {
   );
 });
 
+test("a resolved export-button click is not reported as a submitted JD task", () => {
+  const audit = advanceWareExportAudit(createWareExportAudit({ baseUrl: "http://localhost:3000", reuseLatest: false }), {
+    stage: "task_click_invoked", baselineTaskIds: ["9371817"],
+  });
+  assert.deepEqual(
+    { stage: audit.stage, taskId: audit.taskId, baselineTaskIds: audit.baselineTaskIds },
+    { stage: "task_click_invoked", taskId: undefined, baselineTaskIds: ["9371817"] },
+  );
+});
+
 test("records an auto-import failure audit after a rejected connection without browser startup", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "jd-ware-export-"));
   const workbook = path.join(directory, "task.xlsx");
@@ -151,4 +161,30 @@ test("records an auto-import HTTP 500 failure audit without browser startup", as
   });
   assert.equal(failed.stage, "auto_import");
   assert.equal(failed.error, "server failed");
+});
+
+test("master auto-import rejects a successful HTTP response with another shop's batch", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "jd-ware-export-"));
+  const workbook = path.join(directory, "task.xlsx");
+  await writeFile(workbook, "not-a-real-workbook");
+  await assert.rejects(
+    importSkuFile("http://127.0.0.1:3000", workbook, "A店", async () => Response.json({ ok: true, status: "duplicate", batch: { id: "b", source: "jd_product_master", dataset: "product_master", platform: "京东", shopName: "B店", status: "completed", warningCount: 0, rowCount: 1 } })),
+    /SKU 导入失败/,
+  );
+});
+
+test("master import requires imported=201 and duplicate=200 exactly", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "jd-ware-export-"));
+  const workbook = path.join(directory, "task.xlsx");
+  await writeFile(workbook, "not-a-real-workbook");
+  const payload = { ok: true, status: "duplicate", batch: { id: "b", source: "jd_product_master", dataset: "product_master", platform: "京东", shopName: "A店", status: "completed", warningCount: 0, rowCount: 1 } };
+  await assert.rejects(importSkuFile("http://127.0.0.1:3000", workbook, "A店", async () => Response.json(payload, { status: 201 })), /SKU 导入失败/);
+});
+
+test("per-store recovery manifests cannot collide and login redirects fail before export UI wait", () => {
+  assert.notEqual(wareActiveTaskPath("store-a"), wareActiveTaskPath("store-b"));
+  assert.equal(isLikelyJdLoginPage("https://passport.jd.com/login", "账号 登录"), true);
+  assert.equal(isLikelyJdLoginPage("https://wares-jdm.jd.com/ware", "登录 批量操作 导出查询商品"), false);
+  assert.equal(isLikelyJdLoginPage("https://wares-jdm.jd.com/ware", "账号中心 页面加载中"), false);
+  assert.equal(isLikelyJdLoginPage("https://wares-jdm.jd.com/ware", "账号 密码 登录", true), true);
 });

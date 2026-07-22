@@ -13,14 +13,13 @@ import {
 import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { getJdStore } from "../lib/jd/store-registry";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const targetUrl = "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare&businessModel=0";
 const artifactDir = path.join(projectRoot, "outputs", "jd-ware-export");
-const activeTaskPath = path.join(artifactDir, "active-task.json");
+const legacyActiveTaskPath = path.join(artifactDir, "active-task.json");
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const profileDirectory = path.resolve(path.join(projectRoot, ".runtime", "jackyun-chrome-profile"));
-const port = 9223;
 const pollIntervalMs = 700;
 const refreshIntervalMs = 3_000;
 
@@ -38,10 +37,28 @@ async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
   }
 }
 
+export function wareActiveTaskPath(storeKey: string) {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(storeKey)) throw new Error("店铺键不能用于活动任务清单路径。");
+  return path.join(artifactDir, `active-task-${storeKey}.json`);
+}
+
+export function isLikelyJdLoginPage(url: string, pageText: string, hasPasswordInput = false) {
+  if (/passport|login/i.test(url)) return true;
+  const hasLoginSignal = (hasPasswordInput || /密码/.test(pageText)) && /登录/.test(pageText) && /账号|手机|用户名/.test(pageText);
+  const hasMerchantUi = /导出查询商品|批量操作|商品管理|查询/.test(pageText);
+  return hasLoginSignal && !hasMerchantUi;
+}
+
 export type CliOptions = {
+  storeKey: string;
+  shopName: string;
+  profileDirectory: string;
+  port: number;
+  downloadDirectory: string;
   reuseLatest: boolean;
   taskTimeoutMs: number;
   debug: boolean;
+  interactiveLogin: boolean;
   autoImport: boolean;
   baseUrl: string;
 };
@@ -52,7 +69,7 @@ export type ScriptResult = {
   reusedLatest: boolean;
   task: JdWareExportTask;
   downloadSavedPath?: string;
-  importResult?: { status: string; message: string; batchId?: string; rowCount?: number };
+  importResult?: { status: "imported" | "duplicate"; message: string; batchId: string; rowCount: number; source: "jd_product_master"; dataset: "product_master"; platform: "京东"; shopName: string; batchStatus: "completed"; warningCount: 0 };
   notes: string[];
   elapsedMs: number;
 };
@@ -72,6 +89,7 @@ export type WareExportAudit = {
   result?: ScriptResult;
   error?: string;
 };
+type StoreWareExportRecovery = JdWareExportRecovery & { storeKey: string };
 
 export function createWareExportAudit(options: Pick<CliOptions, "baseUrl" | "reuseLatest">): WareExportAudit {
   const now = new Date().toISOString();
@@ -90,14 +108,16 @@ export function advanceWareExportAudit(audit: WareExportAudit, patch: Partial<Wa
   return { ...audit, ...patch, updatedAt: new Date().toISOString() };
 }
 
-function parseCliOptions(): CliOptions {
+async function parseCliOptions(): Promise<CliOptions> {
   const args = process.argv.slice(2);
   let reuseLatest = false;
   let debug = false;
+  let interactiveLogin = false;
   let autoImport = true;
   let baseUrl = (process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, "");
   // 京东导出任务通常需要数分钟，默认给足等待时间，避免任务已完成但脚本提前超时。
   let taskTimeoutMs = 300_000;
+  let storeKey = "jd-yiyong-director";
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -107,6 +127,17 @@ function parseCliOptions(): CliOptions {
     }
     if (argument === "--debug") {
       debug = true;
+      continue;
+    }
+    if (argument === "--interactive-login") {
+      interactiveLogin = true;
+      continue;
+    }
+    if (argument === "--store-key") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("--store-key 必须提供店铺注册键");
+      storeKey = value;
+      index += 1;
       continue;
     }
     if (argument === "--no-auto-import") {
@@ -130,7 +161,8 @@ function parseCliOptions(): CliOptions {
     throw new Error(`不支持的参数：${argument}`);
   }
 
-  return { reuseLatest, taskTimeoutMs, debug, autoImport, baseUrl };
+  const store = await getJdStore(storeKey);
+  return { storeKey: store.storeKey, shopName: store.shopName, profileDirectory: store.browser.profileDir, port: store.browser.debugPort, downloadDirectory: store.browser.downloadDir, reuseLatest, taskTimeoutMs, debug, interactiveLogin, autoImport, baseUrl };
 }
 
 async function ensureDir(directory: string) {
@@ -151,17 +183,35 @@ async function waitForExportEntry(page: Page) {
 
 async function openTargetPage(page: Page) {
   if (page.url() !== targetUrl) await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await waitForExportEntry(page);
-
-  const pageText = await page.locator("body").innerText({ timeout: 10_000 });
-  if (/登录|账号|密码|验证码/.test(pageText)) {
-    throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+  // Login redirects render faster than the merchant export button. Check them
+  // first so each unauthenticated store does not burn the 30-second UI wait.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const pageText = await page.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
+    if (isLikelyJdLoginPage(page.url(), pageText, await page.locator('input[type="password"]').count().then((count) => count > 0))) {
+      throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+    }
+    if (/导出查询商品|批量操作|商品管理/.test(pageText)) break;
+    await page.waitForTimeout(150);
   }
+  await waitForExportEntry(page);
 }
 
 async function readExportTasks(page: Page) {
-  const rows = await page.locator("tr").evaluateAll((elements) => elements.map((element) => (element.textContent ?? "").trim()));
+  const rows = await page.locator("tr").evaluateAll((elements) => elements.map((element) => ((element as HTMLElement).innerText ?? "").trim()));
   return parseJdWareExportTaskRows(rows);
+}
+
+async function readLoadedExportTasks(page: Page, timeoutMs = 15_000) {
+  const refresh = page.getByText("刷新列表", { exact: true });
+  await refresh.waitFor({ state: "visible", timeout: timeoutMs });
+
+  const deadline = Date.now() + timeoutMs;
+  let tasks = await readExportTasks(page);
+  while (tasks.length === 0 && Date.now() < deadline) {
+    await page.waitForTimeout(500);
+    tasks = await readExportTasks(page);
+  }
+  return tasks;
 }
 
 async function refreshExportRecords(page: Page) {
@@ -170,20 +220,31 @@ async function refreshExportRecords(page: Page) {
 }
 
 async function openSkuExportDialog(page: Page) {
-  const exportEntry = await waitForExportEntry(page);
-  await exportEntry.click();
-
   const skuTab = page.getByRole("tab", { name: "SKU导出", exact: true });
-  await skuTab.waitFor({ state: "visible", timeout: 15_000 });
+  const visibleSkuTabCount = await skuTab.count();
+  const dialogAlreadyOpen = visibleSkuTabCount === 1 && await skuTab.isVisible();
+  if (!dialogAlreadyOpen) {
+    if (visibleSkuTabCount > 1) throw new Error(`SKU导出页签应匹配 1 个元素，实际匹配 ${visibleSkuTabCount} 个。`);
+    const exportEntry = await waitForExportEntry(page);
+    await exportEntry.click();
+    await skuTab.waitFor({ state: "visible", timeout: 15_000 });
+  }
   await exactlyOne(skuTab, "SKU导出页签");
 
   // JD normally opens this tab by default.  Clicking only when needed saves a
   // UI round trip while still making the intended export dimension explicit.
-  if (await skuTab.getAttribute("aria-selected") !== "true") await skuTab.click();
+  if (await skuTab.getAttribute("aria-selected") !== "true") {
+    await skuTab.click();
+    if (await skuTab.getAttribute("aria-selected") !== "true") {
+      throw new Error("SKU导出页签未实际选中，已停止且不会点击确定导出。");
+    }
+  }
 
   const confirm = page.getByRole("button", { name: "确定导出", exact: true });
   await confirm.waitFor({ state: "visible", timeout: 15_000 });
-  return exactlyOne(confirm, "确定导出按钮");
+  const uniqueConfirm = await exactlyOne(confirm, "确定导出按钮");
+  if (!await uniqueConfirm.isEnabled()) throw new Error("确定导出按钮当前不可用，已停止且不会创建任务。");
+  return uniqueConfirm;
 }
 
 async function waitForTask(
@@ -274,12 +335,14 @@ function shanghaiToday() {
   return `${read("year")}-${read("month")}-${read("day")}`;
 }
 
-export async function importSkuFile(baseUrl: string, filePath: string, request: typeof fetch = fetch) {
+export async function importSkuFile(baseUrl: string, filePath: string, shopNameOrRequest: string | typeof fetch = "志高商用设备旗舰店", request: typeof fetch = fetch) {
+  const shopName = typeof shopNameOrRequest === "string" ? shopNameOrRequest : "志高商用设备旗舰店";
+  if (typeof shopNameOrRequest === "function") request = shopNameOrRequest;
   const bytes = await readFile(filePath);
   const form = new FormData();
   form.append("source", "jd_product_master");
   form.append("platform", "京东");
-  form.append("shop_name", "志高商用设备旗舰店");
+  form.set("shop_name", shopName);
   form.append("snapshot_date", shanghaiToday());
   form.append("note", "京东 SKU 自动下载后导入");
   form.append(
@@ -298,16 +361,27 @@ export async function importSkuFile(baseUrl: string, filePath: string, request: 
     ok?: boolean;
     status?: string;
     message?: string;
-    batch?: { id?: string; rowCount?: number };
+    batch?: { id?: string; source?: string; dataset?: string; platform?: string; shopName?: string; status?: string; warningCount?: number; rowCount?: number };
   } | null;
-  if (!response.ok || !payload?.ok) {
+  const batch = payload?.batch;
+  const expectedHttpStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
+  if (response.status !== expectedHttpStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
+    || !batch?.id || !Number.isFinite(batch.rowCount) || batch.rowCount! < 0
+    || batch.source !== "jd_product_master" || batch.dataset !== "product_master" || batch.platform !== "京东"
+    || batch.shopName !== shopName || batch.status !== "completed" || batch.warningCount !== 0) {
     throw new Error(payload?.message ?? `运营管理系统 SKU 导入失败（HTTP ${response.status}）`);
   }
   return {
-    status: payload.status ?? "imported",
+    status: payload.status,
     message: payload.message ?? "京东 SKU 已自动导入运营管理系统",
-    batchId: payload.batch?.id,
-    rowCount: payload.batch?.rowCount,
+    batchId: batch.id,
+    rowCount: batch.rowCount!,
+    source: "jd_product_master",
+    dataset: "product_master",
+    platform: "京东",
+    shopName,
+    batchStatus: "completed",
+    warningCount: 0,
   };
 }
 
@@ -328,7 +402,7 @@ export async function runShopSkuExport(
   await maybeCaptureDebug(page, "before-export", options.debug);
 
   const confirm = await openSkuExportDialog(page);
-  const existingTasks = await readExportTasks(page);
+  const existingTasks = await readLoadedExportTasks(page);
   await checkpoint({
     stage: "select_task",
     baselineTaskIds: existingTasks.map((task) => task.taskId),
@@ -381,11 +455,14 @@ export async function runShopSkuExport(
       // associate exactly one post-baseline row.
       await checkpoint({ stage: "task_submitting", baselineTaskIds: [...previousTaskIds] });
       await confirm.click();
-      await checkpoint({ stage: "task_submitted", baselineTaskIds: [...previousTaskIds] });
-      notes.push("已创建新的 SKU 导出任务。");
+      // A resolved Playwright click only proves the UI event was invoked.  JD
+      // can ignore it or delay creation, so do not report a submitted task
+      // until the export-record table exposes exactly one post-baseline row.
+      await checkpoint({ stage: "task_click_invoked", baselineTaskIds: [...previousTaskIds] });
       task = await waitForTask(page, previousTaskIds, options.taskTimeoutMs, async (observed) => {
-        await checkpoint({ stage: "wait_new_task", taskId: observed.taskId, taskStatus: observed.status });
+        await checkpoint({ stage: "task_observed", taskId: observed.taskId, taskStatus: observed.status });
       });
+      notes.push(`已确认新的 SKU 导出任务 ${task.taskId}。`);
     }
   }
 
@@ -395,7 +472,7 @@ export async function runShopSkuExport(
   let importResult: ScriptResult["importResult"];
   if (download.verified && download.savedPath && options.autoImport) {
     await checkpoint({ stage: "auto_import", taskId: task.taskId, taskStatus: task.status, savedPath: download.savedPath });
-    importResult = await importSkuFile(options.baseUrl, download.savedPath);
+    importResult = await importSkuFile(options.baseUrl, download.savedPath, options.shopName);
     notes.push(`auto-imported SKU file: ${importResult.message}`);
   } else if (download.verified && !options.autoImport) {
     notes.push("auto-import skipped by --no-auto-import");
@@ -416,20 +493,21 @@ export async function runShopSkuExport(
 }
 
 async function main() {
-  const options = parseCliOptions();
+  const options = await parseCliOptions();
   await ensureDir(artifactDir);
+  const activeTaskPath = wareActiveTaskPath(options.storeKey);
   const auditPath = path.join(artifactDir, `run-${Date.now()}.json`);
   let audit = createWareExportAudit(options);
-  let recovery: JdWareExportRecovery | null = null;
+  let recovery: StoreWareExportRecovery | null = null;
   const persistAudit = async (patch: Partial<WareExportAudit>) => {
     audit = advanceWareExportAudit(audit, patch);
     await writeJsonAtomic(auditPath, audit);
     if (patch.stage === "task_submitting" && patch.baselineTaskIds) {
-      recovery = { version: 1, baselineTaskIds: patch.baselineTaskIds, createdAt: new Date().toISOString() };
+      recovery = { version: 1, storeKey: options.storeKey, baselineTaskIds: patch.baselineTaskIds, createdAt: new Date().toISOString() };
       await writeJsonAtomic(activeTaskPath, recovery);
     } else if (patch.taskId) {
       recovery = {
-        version: 1,
+        version: 1, storeKey: options.storeKey,
         baselineTaskIds: recovery?.baselineTaskIds ?? audit.baselineTaskIds ?? [],
         taskId: patch.taskId,
         createdAt: recovery?.createdAt ?? new Date().toISOString(),
@@ -445,14 +523,18 @@ async function main() {
   await writeJsonAtomic(auditPath, audit);
   let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | undefined;
   try {
-    recovery = await readJsonFileOr<JdWareExportRecovery | null>(activeTaskPath, null);
-    if (recovery && (recovery.version !== 1 || !Array.isArray(recovery.baselineTaskIds))) {
+    const legacyRecovery = await readJsonFileOr<JdWareExportRecovery | null>(legacyActiveTaskPath, null);
+    if (legacyRecovery) {
+      throw new Error(`发现旧版跨店活动任务清单，无法安全判断所属店铺；请人工迁移或确认后删除：${legacyActiveTaskPath}`);
+    }
+    recovery = await readJsonFileOr<StoreWareExportRecovery | null>(activeTaskPath, null);
+    if (recovery && (recovery.version !== 1 || recovery.storeKey !== options.storeKey || !Array.isArray(recovery.baselineTaskIds))) {
       throw new Error(`SKU 活动任务清单格式无效，已停止以免重复提交：${activeTaskPath}`);
     }
     await persistAudit({ stage: "launch_browser" });
-    await launchDedicatedChrome({ executablePath: chromePath, profileDirectory, port, startUrl: targetUrl, headless: false });
-    await waitForChrome(port);
-    browser = await connectPlaywrightBrowser(port);
+    await launchDedicatedChrome({ executablePath: chromePath, profileDirectory: options.profileDirectory, port: options.port, startUrl: targetUrl, headless: false, visible: options.interactiveLogin });
+    await waitForChrome(options.port);
+    browser = await connectPlaywrightBrowser(options.port);
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
       startUrl: targetUrl,
       workerName: "codex-jd-ware-export",
@@ -465,6 +547,7 @@ async function main() {
         const message = "京东 SKU 下载点击已发送，但未验证本地文件；活动任务清单已保留，禁止自动新建任务。";
         await persistAudit({ status: "failed", stage: "download_unverified", taskId: result.task.taskId, taskStatus: result.task.status, result, error: message });
         console.error(message);
+        console.log(`@@JD_PIPELINE_RESULT@@${JSON.stringify({ ...result, auditPath })}`);
         console.log(JSON.stringify({ ...result, auditPath }, null, 2));
         process.exitCode = 1;
         return;
@@ -472,6 +555,7 @@ async function main() {
       await persistAudit({ status: "completed", stage: "completed", taskId: result.task.taskId, taskStatus: result.task.status, savedPath: result.downloadSavedPath, result });
       await rm(activeTaskPath, { force: true });
       recovery = null;
+      console.log(`@@JD_PIPELINE_RESULT@@${JSON.stringify({ ...result, auditPath })}`);
       console.log(JSON.stringify({ ...result, auditPath }, null, 2));
     } finally {
       client.close();
