@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import * as XLSX from "xlsx";
 import { parseMarketRows } from "../lib/market/parser";
 
 function csvBytes(value: string) {
   return new TextEncoder().encode(value);
+}
+
+function legacyXlsBytes(rows: Array<Array<string | number>>) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "sheet");
+  return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "biff8" }) as ArrayBuffer);
 }
 
 test("市场榜单 CSV 映射商品、周期和经营指标", () => {
@@ -36,6 +43,46 @@ test("市场商品与自有商品关联字段具备独立索引", async () => {
   assert.match(netshopDatabase, /netshop_rows_sku_id_idx[\s\S]*ON netshop_rows \(sku_id\)/);
   assert.match(netshopDatabase, /netshop_rows_spu_id_idx[\s\S]*ON netshop_rows \(spu_id\)/);
   assert.match(netshopDatabase, /netshop_rows_product_code_idx[\s\S]*ON netshop_rows \(product_code\)/);
+});
+
+test("旧版 XLS 商品榜单可直接解析并生成稳定的 SPU 市场标识", () => {
+  const bytes = legacyXlsBytes([
+    ["序号", "排名变化", "日期", "渠道", "行业名称", "商品名称", "所属店铺", "成交金额", "访客数", "搜索点击次数", "关注人数", "成交单量"],
+    [1, "新入榜", "20260721", "整体", "商用净水设备", "商用净水机 A", "示例旗舰店", "￥6万 ~ ￥8万", "100 ~ 200", "50 ~ 100", "0.0", "0 ~ 5"],
+  ]);
+  const first = parseMarketRows({
+    bytes,
+    fileName: "商品榜单_商用净水设备_整体SPU_20260721.xls",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-01",
+  });
+  const second = parseMarketRows({
+    bytes,
+    fileName: "商品榜单_商用净水设备_整体SPU_20260721.xls",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-01",
+  });
+  assert.equal(first.rows.length, 1);
+  assert.equal(first.rows[0]?.skuCode, second.rows[0]?.skuCode);
+  assert.match(first.rows[0]?.skuCode ?? "", /^JD-MKT-SPU-[A-F0-9]{16}$/);
+  assert.equal(first.rows[0]?.periodStart, "2026-07-21");
+  assert.equal(first.rows[0]?.periodEnd, "2026-07-21");
+  assert.equal(first.rows[0]?.category, "商用净水设备");
+  assert.equal(first.rows[0]?.scope, "整体SPU");
+  assert.equal(first.rows[0]?.rank, 1);
+  assert.equal(first.rows[0]?.gmvCents, 7_000_000);
+  assert.equal(first.rows[0]?.visitors, 150);
+  assert.equal(first.warnings.length, 1);
+  assert.match(first.warnings[0]?.message ?? "", /稳定市场标识/);
+});
+
+test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
+  const [route, view] = await Promise.all([
+    readFile(new URL("../app/api/market/import/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /\(xls\|xlsx\|csv\)/);
+  assert.match(view, /accept="\.xls,\.xlsx,\.csv"/);
 });
 
 test("市场数据使用默认周期并阻止同周期重复 SKU", () => {

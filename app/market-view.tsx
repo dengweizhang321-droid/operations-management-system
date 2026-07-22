@@ -123,7 +123,7 @@ function ImportPanel({ currentUser, data, onImported }: { currentUser: CurrentUs
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const upload = async () => {
-    if (!file) { setError("请先选择 XLSX 或 CSV 文件"); return; }
+    if (!file) { setError("请先选择 XLS、XLSX 或 CSV 文件"); return; }
     setBusy(true); setError(""); setFeedback("");
     try {
       const form = new FormData();
@@ -146,7 +146,7 @@ function ImportPanel({ currentUser, data, onImported }: { currentUser: CurrentUs
         <label><span>默认口径</span><input value={scope} onChange={(event) => setScope(event.target.value)} placeholder="全部 / POP / 自营" /></label>
         <label><span>周期开始</span><input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></label>
         <label><span>周期结束</span><input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></label>
-        <label className="market-file-picker"><span>数据文件</span><input type="file" accept=".xlsx,.csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><strong>{file ? file.name : "选择 XLSX / CSV"}</strong><small>最大 25MB；必须包含商品编号、SKU 或 SKUID 列</small></label>
+        <label className="market-file-picker"><span>数据文件</span><input type="file" accept=".xls,.xlsx,.csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><strong>{file ? file.name : "选择 XLS / XLSX / CSV"}</strong><small>最大 25MB；榜单文件缺少商品 ID 时，将按商品名称与店铺生成稳定市场标识</small></label>
       </div><button type="button" className="primary-button" disabled={busy} onClick={() => void upload()}>{busy ? "正在导入…" : "开始导入"}</button>
     </>}
   </section><section className="panel market-batch-list"><div className="section-header"><div><h2>最近导入批次</h2><p>保留文件、行数、更新结果和告警。</p></div></div>{data.batches.map((batch) => <article key={batch.id}><div><strong>{batch.fileName}</strong><small>{batch.sourceType} · {batch.completedAt ? new Date(batch.completedAt).toLocaleString("zh-CN") : "处理中"}</small></div><span>{count(batch.rowCount)} 行</span><small>新增 {count(batch.insertedCount)} · 更新 {count(batch.updatedCount)} · 告警 {count(batch.warningCount)}</small></article>)}{!data.batches.length && <p className="soft-text">暂无市场数据导入记录。</p>}</section></div>;

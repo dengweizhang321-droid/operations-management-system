@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     const form = await request.formData().catch(() => null);
     if (!form) return Response.json({ error: "无法读取上传表单" }, { status: 400 });
     const file = form.get("file");
-    if (!(file instanceof File)) return Response.json({ error: "请选择 XLSX 或 CSV 文件" }, { status: 400 });
-    if (!/\.(xlsx|csv)$/i.test(file.name)) return Response.json({ error: "仅支持 XLSX 或 CSV 文件" }, { status: 400 });
+    if (!(file instanceof File)) return Response.json({ error: "请选择 XLS、XLSX 或 CSV 文件" }, { status: 400 });
+    if (!/\.(xls|xlsx|csv)$/i.test(file.name)) return Response.json({ error: "仅支持 XLS、XLSX 或 CSV 文件" }, { status: 400 });
     if (!file.size || file.size > MAX_FILE_BYTES) return Response.json({ error: "文件须大于 0 且不超过 25MB" }, { status: 413 });
     const currentDate = today();
     const sourceType = formText(form, "sourceType", "market_ranking");
