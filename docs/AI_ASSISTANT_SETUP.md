@@ -9,6 +9,17 @@ AI 助理在“AI 助理”菜单中提供两类能力：文本模型对话，�
 3. 生产环境仅允许 HTTPS 的模型地址和 Webhook 地址。`AI_ALLOW_LOCAL_MODEL_ENDPOINTS=true` 只用于本机开发调试，不能用于生产。
 4. 只有管理员能新增、编辑、删除或测试模型和渠道；普通用户不读取这些敏感配置。
 
+## 本机开发直连
+
+本机 `npm run dev` 可选择跳过 ChatGPT 登录，但必须在未提交的 `.dev.vars` 中同时显式设置：
+
+```dotenv
+TERUISI_LOCAL_DIRECT_ACCESS=true
+TERUISI_RUNTIME_ENV=development
+```
+
+直连身份是 `admin`，仍然受每个接口的 `allowedRoles` 限制。系统还会验证 Vite 当前确实运行在开发模式；生产构建、`TERUISI_RUNTIME_ENV=production`、缺少任一配置或拼写不完全匹配时都会关闭匿名直连并恢复正常登录鉴权。生产 Cloudflare/Sites 环境不得配置 `TERUISI_LOCAL_DIRECT_ACCESS=true`。
+
 ## 模型配置
 
 在“新增模型配置”中填写名称、协议、模型标识、API 地址和 API Key。支持：
@@ -17,6 +28,8 @@ AI 助理在“AI 助理”菜单中提供两类能力：文本模型对话，�
 - **Anthropic**：地址填写 API 根地址；系统会调用 `/messages`。
 
 将需要用于小特对话的已启用文本模型设为“默认文本模型”。点击“测试连接”才会发出一次实际模型请求；测试结果会记录在配置卡中。编辑时 API Key 留空会保留原密钥。
+
+模型连接测试、普通对话和工具调用循环共用同一响应保护：请求总超时覆盖响应头和完整响应体，JSON 响应上限为 2 MiB；超时、重定向或超限时不会继续解析或把响应交给工具循环。
 
 ## 钉钉与企业微信渠道
 

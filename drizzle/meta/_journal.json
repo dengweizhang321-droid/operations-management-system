@@ -113,6 +113,20 @@
       "when": 1784764800000,
       "tag": "0015_market_analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1784822400000,
+      "tag": "0016_market_sku_annotations",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1784826000000,
+      "tag": "0017_market_annotation_reliability",
+      "breakpoints": true
     }
   ]
 }

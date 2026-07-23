@@ -38,7 +38,15 @@ export async function POST(request: Request) {
     const conversationId = payload.conversationId ?? await createConversation(payload.title || "新对话", principal.email, model.id, db);
     if (payload.conversationId) await requireConversationAccess(conversationId, principal, db);
     await appendConversationMessage(conversationId, "user", payload.message.trim(), db);
-    const reply = await generateAssistantReply({ prompt: payload.message.trim(), principal, conversationId, model }, db);
+    const requestId = request.headers.get("x-request-id")?.slice(0, 200) || crypto.randomUUID();
+    const reply = await generateAssistantReply({
+      prompt: payload.message.trim(),
+      principal,
+      conversationId,
+      model,
+      requestId,
+      surface: "ai_chat",
+    }, db);
     return Response.json({ conversationId, reply }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error);

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Imported competitor images use external, user-provided URLs. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import MarketAnnotationView from "@/app/market-annotation-view";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type FilterOption = { value: string; count: number };
@@ -22,7 +23,7 @@ type MarketOverview = {
   error?: string;
 };
 
-type TabKey = "ranking" | "overview" | "compare" | "import" | "ai";
+type TabKey = "ranking" | "overview" | "compare" | "import" | "ai" | "annotation";
 
 const money = (cents?: number | null) => cents === null || cents === undefined
   ? "—"
@@ -204,7 +205,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   }, [query, categories, scopes, brands, customStartDate, customEndDate]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 200); return () => window.clearTimeout(timer); }, [load, reloadKey]);
   const toggleCompare = (sku: string) => setCompareIds((current) => current.includes(sku) ? current.filter((item) => item !== sku) : current.length >= 5 ? current : [...current, sku]);
-  const tabs: Array<[TabKey, string]> = [["ranking", "商品榜单"], ["overview", "行业概览"], ["compare", `竞品对比${compareIds.length ? ` (${compareIds.length})` : ""}`], ["import", "数据导入"], ["ai", "AI 洞察"]];
+  const tabs: Array<[TabKey, string]> = [["ranking", "商品榜单"], ["overview", "行业概览"], ["compare", `竞品对比${compareIds.length ? ` (${compareIds.length})` : ""}`], ["import", "数据导入"], ["ai", "AI 洞察"], ["annotation", "SKU AI 标注"]];
   if (loading && !data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、SKU/SPU 与销售关联结果…</p></section>;
   if (error && !data) return <section className="panel data-state"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
   if (!data) return null;
@@ -213,11 +214,12 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     <div className="subnav market-subnav" role="tablist" aria-label="市场分析视图">{tabs.map(([key, label]) => <button type="button" key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>)}</div>
     <section className="panel market-filter-bar"><div><span className="eyebrow">MARKET INTELLIGENCE</span><h2>市场范围与数据关联</h2><p>榜单数据与运营系统中的京东 SKU/SPU、销售明细按商品编码实时关联。</p></div><div className="market-filter-controls"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品、SKU 或品牌" aria-label="搜索市场商品" /><SearchMultiFilter label="类目" values={categories} options={data.filters.categories} onChange={setCategories} /><SearchMultiFilter label="口径" values={scopes} options={data.filters.scopes} onChange={setScopes} /><SearchMultiFilter label="品牌" values={brands} options={data.filters.brands} onChange={setBrands} /></div><footer><span className="status status-success">已接入</span><strong>{data.dataRange.startDate ?? "暂无日期"} 至 {data.dataRange.endDate ?? "暂无日期"}</strong><small>当前筛选使用顶部统计周期</small></footer></section>
     {error && <div className="market-feedback error">{error}</div>}
-    {tab !== "import" && tab !== "ai" && <MarketKpis data={data} />}
+    {tab !== "import" && tab !== "ai" && tab !== "annotation" && <MarketKpis data={data} />}
     {tab === "ranking" && <RankingTable items={data.items} compareIds={compareIds} onToggleCompare={toggleCompare} />}
     {tab === "overview" && <IndustryOverview data={data} />}
     {tab === "compare" && <ComparePanel items={data.items} compareIds={compareIds} onRemove={toggleCompare} />}
     {tab === "import" && <ImportPanel currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />}
     {tab === "ai" && <AiPanel currentUser={currentUser} filters={aiFilters} />}
+    {tab === "annotation" && <MarketAnnotationView currentUser={currentUser} />}
   </div>;
 }

@@ -1,14 +1,13 @@
 import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { env } from "cloudflare:workers";
 import {
   getSalesDatabase,
   type SalesDatabase,
 } from "@/lib/sales/database";
+import { decideLocalDirectAccess } from "@/lib/auth/local-direct-access";
 
 export const BOOTSTRAP_ADMIN_EMAIL = "dengweizhang321@gmail.com";
 
-// 本地运营管理系统采用直连模式：不依赖 ChatGPT 登录，也不做角色或数据范围校验。
-// 若后续需要恢复账号权限管理，将此值改为 false 即可恢复原有流程。
-const LOCAL_DIRECT_ACCESS_ENABLED = true;
 const LOCAL_DIRECT_ACCESS_PRINCIPAL: AppPrincipal = {
   email: "local-admin@teruisi.local",
   displayName: "本地管理员",
@@ -123,8 +122,33 @@ export async function ensureAuthorizationSchema(
 export async function requireAppPrincipal(
   allowedRoles: readonly AppRole[] = appRoles,
 ): Promise<AppPrincipal> {
-  if (LOCAL_DIRECT_ACCESS_ENABLED) {
+  const viteEnvironment = (
+    import.meta as ImportMeta & {
+      readonly env?: { readonly DEV?: boolean; readonly PROD?: boolean };
+    }
+  ).env;
+  const localAccess = decideLocalDirectAccess(allowedRoles, {
+    enabled:
+      typeof env.TERUISI_LOCAL_DIRECT_ACCESS === "string"
+        ? env.TERUISI_LOCAL_DIRECT_ACCESS
+        : undefined,
+    runtimeEnvironment:
+      typeof env.TERUISI_RUNTIME_ENV === "string"
+        ? env.TERUISI_RUNTIME_ENV
+        : undefined,
+    viteDevelopment: viteEnvironment?.DEV === true,
+    viteProduction: viteEnvironment?.PROD === true,
+  });
+
+  if (localAccess === "allowed") {
     return LOCAL_DIRECT_ACCESS_PRINCIPAL;
+  }
+  if (localAccess === "role_denied") {
+    throw new AuthorizationError(
+      403,
+      "insufficient_role",
+      "本地直连身份没有执行此操作的权限",
+    );
   }
 
   const identity = await getChatGPTUser();

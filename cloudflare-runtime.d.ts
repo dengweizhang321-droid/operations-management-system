@@ -40,6 +40,8 @@ declare module "cloudflare:workers" {
     DB?: D1Database;
     SALES_IMPORT_FILES?: R2Bucket;
     AI_SECRET_ENCRYPTION_KEY?: string;
+    TERUISI_LOCAL_DIRECT_ACCESS?: string;
+    TERUISI_RUNTIME_ENV?: string;
     [binding: string]: unknown;
   };
 }

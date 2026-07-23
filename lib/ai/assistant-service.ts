@@ -4,7 +4,28 @@ import { ensureAuthorizationSchema, type AppPrincipal } from "@/lib/auth/authori
 import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
 import { maskWebhookUrl, normalizeAiEndpointUrl, resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
-import { recordMcpToolAudit } from "@/lib/ai/tool-audit";
+import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
+import {
+  executeRegisteredToolCall,
+  getAnthropicTools,
+  getOpenAiTools,
+  type AiToolExecutionContext,
+} from "@/lib/ai/tool-registry";
+import { recordAiToolAudit } from "@/lib/ai/tool-audit";
+import {
+  ModelProtocolError,
+  runAnthropicToolLoop,
+  runOpenAiCompatibleToolLoop,
+  type AnthropicMessagesResponse,
+  type ConversationTextMessage,
+  type OpenAiChatCompletionResponse,
+} from "@/lib/ai/tool-loop";
+
+export {
+  runAnthropicToolLoop,
+  runOpenAiCompatibleToolLoop,
+  ToolLoopLimitError,
+} from "@/lib/ai/tool-loop";
 import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
 
 export { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
@@ -522,17 +543,34 @@ export async function testAiChannelConnection(channelId: string, db: SalesDataba
   }
 }
 
-export async function generateAssistantReply(input: { prompt: string; principal: AppPrincipal; conversationId: string; model: AiModelRow }, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+export async function generateAssistantReply(input: {
+  prompt: string;
+  principal: AppPrincipal;
+  conversationId: string;
+  model: AiModelRow;
+  requestId?: string;
+  surface?: AiToolExecutionContext["surface"];
+}, db: SalesDatabase = getSalesDatabase()): Promise<string> {
   const startedAt = Date.now();
+  const requestId = input.requestId ?? `ai-chat-${randomUUID()}`;
+  const surface = input.surface ?? "ai_chat";
   try {
     const messages = await listConversationMessagesInternal(input.conversationId, db, 24);
+    const toolContext: AiToolExecutionContext = {
+      principal: input.principal,
+      requestId,
+      surface,
+    };
     const reply = input.model.protocol === "anthropic"
-      ? await callAnthropicModel(input.model, messages)
-      : await callOpenAiCompatibleModel(input.model, messages);
+      ? await callAnthropicModelWithTools(input.model, messages, toolContext)
+      : await callOpenAiCompatibleModelWithTools(input.model, messages, toolContext);
     if (!reply) throw new Error("模型未返回内容");
     await appendConversationMessage(input.conversationId, "assistant", reply, db);
-    await recordMcpToolAudit({
-      requestId: `ai-chat-${randomUUID()}`,
+    await recordAiToolAudit({
+      requestId,
+      actorEmail: input.principal.email,
+      actorRole: input.principal.role,
+      surface,
       toolName: "chat_message",
       arguments: { prompt: input.prompt.slice(0, 240) },
       status: "succeeded",
@@ -541,8 +579,11 @@ export async function generateAssistantReply(input: { prompt: string; principal:
     });
     return reply;
   } catch (error) {
-    await recordMcpToolAudit({
-      requestId: `ai-chat-${randomUUID()}`,
+    await recordAiToolAudit({
+      requestId,
+      actorEmail: input.principal.email,
+      actorRole: input.principal.role,
+      surface,
       toolName: "chat_message",
       arguments: { prompt: input.prompt.slice(0, 240) },
       status: "failed",
@@ -583,31 +624,97 @@ async function listConversationMessagesInternal(conversationId: string, db: Sale
 async function callOpenAiCompatibleModel(model: AiModelRow, messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<string> {
   const apiKey = await decryptSecret(model.api_key_encrypted);
   if (!apiKey) throw new Error("模型 API Key 未配置");
-  const response = await fetchWithTimeout(resolveAiModelEndpointUrl(model.base_url, "openai_compatible"), {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: model.model_name, messages, temperature: 0.2 }),
-  }, MODEL_REQUEST_TIMEOUT_MS);
-  const data = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } } | null;
+  const { response, data: rawData } = await fetchBoundedJson({
+    url: resolveAiModelEndpointUrl(model.base_url, "openai_compatible"),
+    init: {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: model.model_name, messages, temperature: 0.2 }),
+    },
+    timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
+  });
+  const data = rawData as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } } | null;
   if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
   return data?.choices?.[0]?.message?.content?.trim() || "";
+}
+
+async function callOpenAiCompatibleModelWithTools(
+  model: AiModelRow,
+  messages: ConversationTextMessage[],
+  context: AiToolExecutionContext,
+): Promise<string> {
+  const apiKey = await decryptSecret(model.api_key_encrypted);
+  if (!apiKey) throw new Error("模型 API Key 未配置");
+  return runOpenAiCompatibleToolLoop({
+    messages,
+    tools: getOpenAiTools(context.principal),
+    executeTool: (name, rawArguments) => executeRegisteredToolCall(name, rawArguments, context),
+    request: async (body) => {
+      const { response, data: rawData } = await fetchBoundedJson({
+        url: resolveAiModelEndpointUrl(model.base_url, "openai_compatible"),
+        init: {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: model.model_name, ...body, temperature: 0.2 }),
+        },
+        timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
+      });
+      const data = rawData as (OpenAiChatCompletionResponse & { error?: { message?: string } }) | null;
+      if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
+      if (!data) throw new ModelProtocolError("OpenAI-compatible 响应不是有效 JSON");
+      return data;
+    },
+  });
 }
 
 async function callAnthropicModel(model: AiModelRow, messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<string> {
   const apiKey = await decryptSecret(model.api_key_encrypted);
   if (!apiKey) throw new Error("模型 API Key 未配置");
-  const response = await fetchWithTimeout(resolveAiModelEndpointUrl(model.base_url, "anthropic"), {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: model.model_name,
-      max_tokens: 512,
-      messages: messages.map((message) => ({ role: message.role, content: [{ type: "text", text: message.content }] })),
-    }),
-  }, MODEL_REQUEST_TIMEOUT_MS);
-  const data = await response.json().catch(() => null) as { content?: Array<{ text?: string }>; error?: { message?: string } } | null;
+  const { response, data: rawData } = await fetchBoundedJson({
+    url: resolveAiModelEndpointUrl(model.base_url, "anthropic"),
+    init: {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: model.model_name,
+        max_tokens: 512,
+        messages: messages.map((message) => ({ role: message.role, content: [{ type: "text", text: message.content }] })),
+      }),
+    },
+    timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
+  });
+  const data = rawData as { content?: Array<{ text?: string }>; error?: { message?: string } } | null;
   if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
   return data?.content?.map((item) => item.text ?? "").join("").trim() || "";
+}
+
+async function callAnthropicModelWithTools(
+  model: AiModelRow,
+  messages: ConversationTextMessage[],
+  context: AiToolExecutionContext,
+): Promise<string> {
+  const apiKey = await decryptSecret(model.api_key_encrypted);
+  if (!apiKey) throw new Error("模型 API Key 未配置");
+  return runAnthropicToolLoop({
+    messages,
+    tools: getAnthropicTools(context.principal),
+    executeTool: (name, rawArguments) => executeRegisteredToolCall(name, rawArguments, context),
+    request: async (body) => {
+      const { response, data: rawData } = await fetchBoundedJson({
+        url: resolveAiModelEndpointUrl(model.base_url, "anthropic"),
+        init: {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({ model: model.model_name, max_tokens: 1_024, ...body }),
+        },
+        timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
+      });
+      const data = rawData as (AnthropicMessagesResponse & { error?: { message?: string } }) | null;
+      if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
+      if (!data) throw new ModelProtocolError("Anthropic 响应不是有效 JSON");
+      return data;
+    },
+  });
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {

@@ -26,6 +26,12 @@ function safeList(value: unknown): string[] {
 export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
+    if (principal.scope !== null) {
+      return Response.json(
+        { error: "市场数据没有可安全映射的账号数据范围，已阻止发送到云模型" },
+        { status: 403, headers: { "cache-control": "no-store" } },
+      );
+    }
     const body = await request.json().catch(() => null) as MarketAiRequest | null;
     if (!body) return Response.json({ error: "请求内容不是有效 JSON" }, { status: 400 });
     const db = getMarketDatabase();
@@ -64,7 +70,15 @@ export async function POST(request: Request) {
     ].join("\n");
     const conversationId = await createConversation(`市场分析：${question.slice(0, 36)}`, principal.email, model.id, db);
     await appendConversationMessage(conversationId, "user", prompt, db);
-    const answer = await generateAssistantReply({ prompt, principal, conversationId, model }, db);
+    const requestId = request.headers.get("x-request-id")?.slice(0, 200) || crypto.randomUUID();
+    const answer = await generateAssistantReply({
+      prompt,
+      principal,
+      conversationId,
+      model,
+      requestId,
+      surface: "market_ai",
+    }, db);
     return Response.json({ ok: true, answer, conversationId, dataRange: overview.dataRange });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

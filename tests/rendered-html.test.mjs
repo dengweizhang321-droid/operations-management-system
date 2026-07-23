@@ -35,20 +35,30 @@ test("build emits the operations console", async () => {
   assert.doesNotMatch(page, /codex-preview|Your site is taking shape/i);
 });
 
-test("searches synchronized products, specifications, and orders", async () => {
-  const [page, route] = await Promise.all([
+test("searches all allowlisted system data through the grouped authenticated search", async () => {
+  const [page, route, search] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/search/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/search/global-search.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /\/api\/search\?q=/);
-  assert.match(page, /搜索货品名称、编码、规格或订单号/);
-  assert.match(page, /货品结果/);
-  assert.match(page, /订单结果/);
-  assert.match(route, /product_name LIKE/);
-  assert.match(route, /product_code LIKE/);
-  assert.match(route, /specification LIKE/);
-  assert.match(route, /online_order_no LIKE/);
+  assert.match(page, /搜索系统全部数据/);
+  assert.match(page, /搜索商品、订单、库存、市场、客服、财务或批次/);
+  assert.match(page, /globalSearchResult\.groups/);
+  assert.match(page, /按字段白名单搜索/);
+  assert.match(route, /requireAppPrincipal/);
+  assert.match(route, /searchAllBusinessData/);
+  assert.match(route, /principal/);
+  for (const domain of [
+    "erp_product_master", "sales_order_lines", "netshop_rows", "inventory_stock_lines",
+    "erp_inventory_age_lines", "inventory_age_metrics", "erp_combo_items", "replenishment_plan_items",
+    "market_ranking_entries", "market_sku_annotations", "customer_service_conversations",
+    "finance_lines", "finance_targets", "workflow_tasks",
+  ]) assert.match(search, new RegExp(domain));
+  assert.match(search, /scopeSql\(principal/);
+  assert.match(search, /GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT/);
+  assert.doesNotMatch(route, /SELECT\s|LIKE\s|sqlite_master/i);
 });
 
 test("wires the sales import and analytics capabilities", async () => {
@@ -597,10 +607,12 @@ test("opens read-only data while keeping operational writes administrator-only",
   }
 });
 
-test("exposes the audited read-only Codex MCP connection", async () => {
-  const [mcpRoute, tools, audit, config, agents] = await Promise.all([
+test("exposes the centrally registered, fail-closed Codex MCP connection", async () => {
+  const [mcpRoute, registry, contract, budget, audit, config, agents] = await Promise.all([
     readFile(new URL("../app/mcp/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/operations-tools.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-registry-contract.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/mcp-execution-budget.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-audit.ts", import.meta.url), "utf8"),
     readFile(new URL("../.codex/config.toml", import.meta.url), "utf8"),
     readFile(new URL("../AGENTS.md", import.meta.url), "utf8"),
@@ -610,13 +622,28 @@ test("exposes the audited read-only Codex MCP connection", async () => {
   assert.match(mcpRoute, /tools\/list/);
   assert.match(mcpRoute, /tools\/call/);
   assert.match(mcpRoute, /Bearer/);
-  for (const toolName of ["get_data_freshness", "get_sales_summary", "get_inventory_health", "get_product_performance", "list_replenishment_plans"]) {
-    assert.match(tools, new RegExp(toolName));
+  assert.match(mcpRoute, /getVisibleToolCatalog/);
+  assert.match(mcpRoute, /executeRegisteredToolCall/);
+  assert.match(mcpRoute, /MAX_BATCH_REQUESTS = 20/);
+  assert.match(mcpRoute, /mcp-\$\{digest\.slice/);
+  assert.doesNotMatch(mcpRoute, /BOOTSTRAP_ADMIN_EMAIL/);
+  assert.match(budget, /still waits for the[\s\S]*underlying operation to settle/);
+  assert.match(budget, /runSequentialBatchWithinBudget/);
+  for (const toolName of ["get_data_freshness", "get_sales_summary", "get_inventory_health", "get_product_performance", "list_replenishment_plans", "search_system_data"]) {
+    assert.match(registry, new RegExp(`name: "${toolName}"`));
   }
-  assert.match(tools, /readOnlyHint: true/);
+  assert.match(registry, /readOnlyHint: true/);
+  assert.match(registry, /validateToolRegistry\(aiToolRegistry\)/);
+  assert.match(contract, /status: "started"/);
+  assert.match(contract, /if \(!preflightAudited\).*audit_unavailable/);
+  assert.match(contract, /if \(!audited\)/);
+  assert.match(contract, /工具执行未返回数据/);
   assert.match(audit, /ai_tool_audit_logs/);
+  assert.match(audit, /input\.actorEmail/);
+  assert.match(audit, /input\.actorRole/);
   assert.match(config, /mcp_servers\.teruisi_operations/);
   assert.match(config, /TERUISI_CODEX_MCP_TOKEN/);
   assert.match(agents, /get_data_freshness/);
   assert.match(agents, /read-only/i);
+  assert.match(agents, /lib\/ai\/tool-registry\.ts/);
 });

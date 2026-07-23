@@ -176,28 +176,35 @@ type SalesSummaryResponse = {
   };
 };
 
-type GlobalSearchProduct = {
-  product_code: string;
-  product_name: string;
-  specification: string;
-  supplier: string;
-  latest_ship_time: string;
-  net_quantity: number;
-  net_sales_cents: number;
+type GlobalSearchItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  detail: string;
+  updatedAt: string;
+  amountCents: number | null;
+  module: ModuleKey;
 };
 
-type GlobalSearchOrder = {
-  order_no: string;
-  online_order_no: string;
-  platform: string;
-  shop_name: string;
-  latest_ship_time: string;
-  product_names: string | null;
-  net_quantity: number;
-  net_sales_cents: number;
+type GlobalSearchGroup = {
+  key: string;
+  label: string;
+  icon: string;
+  module: ModuleKey;
+  available: boolean;
+  total: number;
+  hasMore: boolean;
+  items: GlobalSearchItem[];
 };
 
-type GlobalSearchResponse = { products: GlobalSearchProduct[]; orders: GlobalSearchOrder[]; error?: string };
+type GlobalSearchResponse = {
+  query: string;
+  returned: number;
+  truncated: boolean;
+  groups: GlobalSearchGroup[];
+  unavailableDomains: string[];
+  error?: string;
+};
 
 type OperatingSettings = {
   targetDays: number;
@@ -5263,12 +5270,7 @@ export default function Home() {
   useEffect(() => {
     if (!searchOpen) return;
     const query = debouncedGlobalSearchQuery.trim();
-    if (!query) {
-      setGlobalSearchResult(null);
-      setGlobalSearchError("");
-      setGlobalSearchLoading(false);
-      return;
-    }
+    if (Array.from(query).length < 2) return;
     const controller = new AbortController();
     void (async () => {
       setGlobalSearchLoading(true);
@@ -5277,7 +5279,7 @@ export default function Home() {
         const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as GlobalSearchResponse | null;
         if (!response.ok) throw new Error(payload?.error || "搜索失败");
-        if (!payload || !Array.isArray(payload.products) || !Array.isArray(payload.orders)) throw new Error("搜索结果格式不完整");
+        if (!payload || !Array.isArray(payload.groups)) throw new Error("搜索结果格式不完整");
         setGlobalSearchResult(payload);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -5304,6 +5306,13 @@ export default function Home() {
     setGlobalSearchQuery("");
     setGlobalSearchResult(null);
     setGlobalSearchError("");
+  };
+  const updateGlobalSearchQuery = (value: string) => {
+    setGlobalSearchQuery(value);
+    if (Array.from(value.trim()).length >= 2) return;
+    setGlobalSearchResult(null);
+    setGlobalSearchError("");
+    setGlobalSearchLoading(false);
   };
   const selectRange = (nextRange: SalesRangeLabel) => {
     setRange(nextRange);
@@ -5354,7 +5363,7 @@ export default function Home() {
         <header className="topbar">
           <div className="title-area"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}>☰</button><div><span>运营中心 / {current.label}</span><h1>{current.description}</h1></div></div>
           <div className="topbar-actions">
-            <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索货品、订单或功能</em><kbd>⌘ K</kbd></button>
+            <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
             <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
             <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
@@ -5372,7 +5381,28 @@ export default function Home() {
         </div>
       </section>
 
-      {searchOpen && <div className="modal-backdrop" onClick={closeGlobalSearch}><div className="search-modal" role="dialog" aria-modal="true" aria-label="全局业务搜索" onClick={(event) => event.stopPropagation()}><div className="modal-search">⌕<input autoFocus value={globalSearchQuery} onChange={(event) => setGlobalSearchQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") closeGlobalSearch(); }} placeholder="搜索货品名称、编码、规格或订单号…" aria-label="搜索货品名称、编码、规格或订单号" /><button onClick={closeGlobalSearch}>ESC</button></div>{globalSearchQuery.trim() ? <div className="search-results" aria-live="polite">{globalSearchLoading && <div className="search-state">正在搜索已同步的货品与订单…</div>}{globalSearchError && <div className="search-state search-state-error">{globalSearchError}</div>}{!globalSearchLoading && !globalSearchError && globalSearchResult && <><section className="search-result-section"><div><p>货品结果</p><small>{formatCount(globalSearchResult.products.length)} 条匹配</small></div>{globalSearchResult.products.map((product) => <button className="search-result-item" key={`${product.product_code}-${product.specification}`} onClick={() => { selectModule("product"); closeGlobalSearch(); }}><span className="search-result-icon">品</span><div><strong title={product.product_name}>{product.product_name || "未命名货品"}</strong><small>{product.product_code || "未编码"}{product.specification ? ` · ${product.specification}` : ""}{product.supplier ? ` · ${product.supplier}` : ""}</small></div><em><b>{formatCurrencyFromCents(product.net_sales_cents)}</b><small>净销量 {formatCount(product.net_quantity)} 件</small></em></button>)}</section><section className="search-result-section"><div><p>订单结果</p><small>{formatCount(globalSearchResult.orders.length)} 条匹配</small></div>{globalSearchResult.orders.map((order) => <button className="search-result-item" key={`${order.order_no}-${order.online_order_no}`} onClick={() => { selectModule("sales"); closeGlobalSearch(); }}><span className="search-result-icon order">单</span><div><strong title={order.order_no || order.online_order_no}>{order.order_no || order.online_order_no || "未编号订单"}</strong><small>{order.online_order_no && order.online_order_no !== order.order_no ? `${order.online_order_no} · ` : ""}{order.platform || "未分类平台"} · {order.shop_name || "未分类店铺"}{order.product_names ? ` · ${order.product_names}` : ""}</small></div><em><b>{formatCurrencyFromCents(order.net_sales_cents)}</b><small>净销量 {formatCount(order.net_quantity)} 件</small></em></button>)}</section>{globalSearchResult.products.length === 0 && globalSearchResult.orders.length === 0 && <div className="search-state">未找到匹配的货品、规格或订单号。</div>}</>}</div> : <><p>业务搜索</p><div className="search-guide"><strong>可搜索货品名称、商品编码、规格或订单号</strong><small>结果来自最近导入并已同步的销售明细。</small></div><p>快速访问</p><div className="quick-links">{navItems.slice(0, 5).map((item) => <button key={item.key} onClick={() => { selectModule(item.key); closeGlobalSearch(); }}><span>{item.short}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><em>↗</em></button>)}</div></>}</div></div>}
+      {searchOpen && <div className="modal-backdrop" onClick={closeGlobalSearch}>
+        <div className="search-modal search-modal-global" role="dialog" aria-modal="true" aria-label="全系统业务搜索" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-search">⌕<input autoFocus value={globalSearchQuery} onChange={(event) => updateGlobalSearchQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") closeGlobalSearch(); }} placeholder="搜索商品、订单、库存、市场、客服、财务或批次…" aria-label="搜索系统全部已接入数据" /><button onClick={closeGlobalSearch}>ESC</button></div>
+          {globalSearchQuery.trim() ? <div className="search-results" aria-live="polite">
+            {Array.from(globalSearchQuery.trim()).length < 2 && <div className="search-state">请输入至少 2 个字符。</div>}
+            {globalSearchLoading && <div className="search-state">正在按业务域搜索已接入数据…</div>}
+            {globalSearchError && <div className="search-state search-state-error">{globalSearchError}</div>}
+            {!globalSearchLoading && !globalSearchError && globalSearchResult && <>
+              {globalSearchResult.groups.filter((group) => group.items.length > 0).map((group) => <section className="search-result-section" key={group.key}>
+                <div><p>{group.label}</p><small>显示 {formatCount(group.items.length)} / {formatCount(group.total)} 条{group.hasMore ? " · 可继续分页" : ""}</small></div>
+                {group.items.map((item) => <button className="search-result-item" key={`${group.key}-${item.id}`} onClick={() => { selectModule(item.module); closeGlobalSearch(); }}>
+                  <span className={`search-result-icon search-result-icon-${group.key}`}>{group.icon}</span>
+                  <div><strong title={item.title}>{item.title || "未命名记录"}</strong><small>{item.subtitle || item.detail || "暂无摘要"}</small>{item.subtitle && item.detail && <small className="search-result-detail">{item.detail}</small>}</div>
+                  <em>{item.amountCents !== null && <b>{formatCurrencyFromCents(item.amountCents)}</b>}{item.updatedAt && <small>{item.updatedAt.slice(0, 10)}</small>}</em>
+                </button>)}
+              </section>)}
+              {globalSearchResult.returned === 0 && <div className="search-state">未在当前已接入业务域中找到匹配数据。</div>}
+              <div className="search-coverage-note">按字段白名单搜索，单域和总结果均有限额{globalSearchResult.unavailableDomains.length > 0 ? `；${globalSearchResult.unavailableDomains.length} 个未建表业务域已安全跳过` : ""}。</div>
+            </>}
+          </div> : <><p>全系统搜索</p><div className="search-guide"><strong>覆盖货品、订单、京东商品、库存、市场 SKU、客服、财务、目标、事务与导入批次</strong><small>按业务域分组返回；聊天正文可匹配，结果只展示必要摘要。</small></div><p>快速访问</p><div className="quick-links">{navItems.slice(0, 5).map((item) => <button key={item.key} onClick={() => { selectModule(item.key); closeGlobalSearch(); }}><span>{item.short}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><em>↗</em></button>)}</div></>}
+        </div>
+      </div>}
     </main>
   );
 }

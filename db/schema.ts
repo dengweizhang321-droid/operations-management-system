@@ -693,3 +693,104 @@ export const marketRankingEntries = sqliteTable(
     index("market_entries_brand_idx").on(table.brand, table.periodEnd),
   ],
 );
+
+/** Immutable prompts and durable review jobs for market-SKU AI annotation. */
+export const marketAnnotationPromptVersions = sqliteTable("market_annotation_prompt_versions", {
+  id: text("id").primaryKey(), category: text("category").notNull(), version: integer("version").notNull(),
+  parentId: text("parent_id"), source: text("source").notNull(), status: text("status").notNull().default("draft"),
+  segmentsJson: text("segments_json").notNull(), promptBody: text("prompt_body").notNull(), changeNote: text("change_note").notNull().default(""),
+  metricsJson: text("metrics_json").notNull().default("{}"), createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), activatedBy: text("activated_by"), activatedAt: text("activated_at"),
+}, (table) => [
+  uniqueIndex("market_annotation_prompts_category_version_uq").on(table.category, table.version),
+  uniqueIndex("market_annotation_prompts_active_uq").on(table.category).where(sql`${table.status} = 'active'`),
+]);
+
+export const marketAnnotationJobs = sqliteTable("market_annotation_jobs", {
+  id: text("id").primaryKey(), category: text("category").notNull(), promptVersionId: text("prompt_version_id").notNull(),
+  executor: text("executor").notNull(), modelId: text("model_id"), localModelName: text("local_model_name").notNull().default(""),
+  status: text("status").notNull().default("queued"), totalCount: integer("total_count").notNull().default(0),
+  completedCount: integer("completed_count").notNull().default(0), failedCount: integer("failed_count").notNull().default(0),
+  reviewedCount: integer("reviewed_count").notNull().default(0), committedCount: integer("committed_count").notNull().default(0),
+  createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  startedAt: text("started_at"), completedAt: text("completed_at"), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  commitTokenHash: text("commit_token_hash").notNull().default(""), commitStartedAt: text("commit_started_at"),
+}, (table) => [index("market_annotation_jobs_category_created_idx").on(table.category, table.createdAt)]);
+
+export const marketAnnotationItems = sqliteTable("market_annotation_items", {
+  id: text("id").primaryKey(), jobId: text("job_id").notNull(), skuCode: text("sku_code").notNull(),
+  productName: text("product_name").notNull().default(""), brand: text("brand").notNull().default(""),
+  sourceImageUrl: text("source_image_url").notNull().default(""), resolvedImageUrl: text("resolved_image_url").notNull().default(""),
+  imageSource: text("image_source").notNull().default("none"), status: text("status").notNull().default("queued"),
+  aiSegment: text("ai_segment").notNull().default(""), aiImagePriceCents: integer("ai_image_price_cents"),
+  aiConfidenceBps: integer("ai_confidence_bps"), aiReason: text("ai_reason").notNull().default(""), aiRawDigest: text("ai_raw_digest").notNull().default(""),
+  reviewedSegment: text("reviewed_segment").notNull().default(""), reviewedImagePriceCents: integer("reviewed_image_price_cents"),
+  selected: integer("selected", { mode: "boolean" }).notNull().default(false), reviewedBy: text("reviewed_by").notNull().default(""), reviewedAt: text("reviewed_at"),
+  leaseTokenHash: text("lease_token_hash").notNull().default(""), leaseAgentId: text("lease_agent_id").notNull().default(""), leaseExpiresAt: text("lease_expires_at"),
+  attemptCount: integer("attempt_count").notNull().default(0), errorMessage: text("error_message").notNull().default(""),
+  version: integer("version").notNull().default(0), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("market_annotation_items_job_sku_uq").on(table.jobId, table.skuCode),
+  index("market_annotation_items_job_status_idx").on(table.jobId, table.status, table.updatedAt),
+  index("market_annotation_items_lease_idx").on(table.leaseExpiresAt, table.status),
+]);
+
+export const marketSkuAnnotations = sqliteTable("market_sku_annotations", {
+  id: text("id").primaryKey(), category: text("category").notNull(), skuCode: text("sku_code").notNull(), segment: text("segment").notNull(),
+  imagePriceCents: integer("image_price_cents"), imageUrl: text("image_url").notNull().default(""), imageSource: text("image_source").notNull().default("none"),
+  confidenceBps: integer("confidence_bps"), sourceJobItemId: text("source_job_item_id").notNull(), promptVersionId: text("prompt_version_id").notNull(),
+  reviewedBy: text("reviewed_by").notNull(), reviewedAt: text("reviewed_at").notNull(), version: integer("version").notNull().default(1),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("market_sku_annotations_category_sku_uq").on(table.category, table.skuCode),
+  index("market_sku_annotations_segment_idx").on(table.category, table.segment, table.updatedAt),
+]);
+
+export const marketAnnotationCommitReceipts = sqliteTable("market_annotation_commit_receipts", {
+  id: text("id").primaryKey(), jobItemId: text("job_item_id").notNull(), annotationId: text("annotation_id").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(), beforeJson: text("before_json").notNull().default("{}"), afterJson: text("after_json").notNull(),
+  committedBy: text("committed_by").notNull(), committedAt: text("committed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  batchId: text("batch_id").notNull().default(""), requestDigest: text("request_digest").notNull().default(""),
+}, (table) => [
+  uniqueIndex("market_annotation_commits_item_uq").on(table.jobItemId), uniqueIndex("market_annotation_commits_idempotency_uq").on(table.idempotencyKey),
+  index("market_annotation_commits_batch_idx").on(table.batchId),
+]);
+
+export const marketAnnotationValidationSamples = sqliteTable("market_annotation_validation_samples", {
+  id: text("id").primaryKey(), category: text("category").notNull(), skuCode: text("sku_code").notNull(), productName: text("product_name").notNull().default(""),
+  brand: text("brand").notNull().default(""), imageUrl: text("image_url").notNull().default(""), goldSegment: text("gold_segment").notNull(),
+  goldImagePriceCents: integer("gold_image_price_cents"), sourceAnnotationId: text("source_annotation_id").notNull().default(""),
+  createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("market_annotation_samples_category_sku_uq").on(table.category, table.skuCode)]);
+
+export const marketAnnotationValidationRuns = sqliteTable("market_annotation_validation_runs", {
+  id: text("id").primaryKey(), category: text("category").notNull(), baselinePromptId: text("baseline_prompt_id"), candidatePromptId: text("candidate_prompt_id").notNull(),
+  modelId: text("model_id").notNull(), status: text("status").notNull().default("queued"), seed: text("seed").notNull(),
+  requestedSampleCount: integer("requested_sample_count").notNull().default(50), sampleCount: integer("sample_count").notNull().default(0),
+  sampleHash: text("sample_hash").notNull().default(""), metricsJson: text("metrics_json").notNull().default("{}"), gateJson: text("gate_json").notNull().default("{}"),
+  createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), completedAt: text("completed_at"),
+}, (table) => [index("market_annotation_validation_runs_prompt_idx").on(table.candidatePromptId, table.createdAt)]);
+
+export const marketAnnotationValidationResults = sqliteTable("market_annotation_validation_results", {
+  id: text("id").primaryKey(), runId: text("run_id").notNull(), sampleId: text("sample_id").notNull(), promptVersionId: text("prompt_version_id").notNull(),
+  status: text("status").notNull().default("queued"),
+  predictedSegment: text("predicted_segment").notNull().default(""), predictedImagePriceCents: integer("predicted_image_price_cents"), confidenceBps: integer("confidence_bps"),
+  isCorrect: integer("is_correct", { mode: "boolean" }).notNull().default(false), errorMessage: text("error_message").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  sampleSnapshotJson: text("sample_snapshot_json").notNull().default("{}"), claimTokenHash: text("claim_token_hash").notNull().default(""),
+  leaseExpiresAt: text("lease_expires_at"), attemptCount: integer("attempt_count").notNull().default(0), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("market_annotation_validation_result_uq").on(table.runId, table.sampleId, table.promptVersionId),
+  index("market_annotation_validation_result_lease_idx").on(table.runId, table.status, table.leaseExpiresAt),
+]);
+
+export const marketAnnotationPromptAudits = sqliteTable("market_annotation_prompt_audits", {
+  id: text("id").primaryKey(), promptId: text("prompt_id").notNull(), category: text("category").notNull(), action: text("action").notNull(),
+  reason: text("reason").notNull(), actor: text("actor").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("market_annotation_prompt_audits_prompt_idx").on(table.promptId, table.createdAt)]);
+
+export const marketAnnotationLocalAgents = sqliteTable("market_annotation_local_agents", {
+  id: text("id").primaryKey(), name: text("name").notNull(), tokenHash: text("token_hash").notNull(), status: text("status").notNull().default("enabled"),
+  capabilitiesJson: text("capabilities_json").notNull().default("{}"), createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), lastSeenAt: text("last_seen_at"), revokedAt: text("revoked_at"),
+}, (table) => [uniqueIndex("market_annotation_agents_token_uq").on(table.tokenHash)]);
