@@ -176,7 +176,9 @@ async function exactlyOne(locator: Locator, description: string) {
 }
 
 async function waitForExportEntry(page: Page) {
-  const entry = page.getByRole("button", { name: "导出查询商品", exact: true });
+  // JD keeps another same-named button inside a hidden batch-tools menu.
+  // Bind only the visible entry so locator waiting cannot attach to that copy.
+  const entry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
   await entry.waitFor({ state: "visible", timeout: 30_000 });
   return exactlyOne(entry, "导出查询商品按钮");
 }
