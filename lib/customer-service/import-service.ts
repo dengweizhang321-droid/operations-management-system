@@ -195,6 +195,38 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
   const warnings: string[] = [];
   const matchedChats = new Set<number>();
   const asMilliseconds = (value: string) => Date.parse(`${value.replace(" ", "T")}+08:00`);
+  const sessionsByTime = new Map<string, CustomerServiceSession[]>();
+  for (const session of sessions) {
+    const bucket = sessionsByTime.get(session.consultedAt);
+    if (bucket) bucket.push(session);
+    else sessionsByTime.set(session.consultedAt, [session]);
+  }
+  const sortedSessions = sessions
+    .map((session) => ({ session, timestamp: asMilliseconds(session.consultedAt) }))
+    .sort((left, right) => left.timestamp - right.timestamp);
+  const lowerBound = (timestamp: number) => {
+    let low = 0;
+    let high = sortedSessions.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (sortedSessions[middle].timestamp < timestamp) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  };
+  const availableAtTime = (timestamp: string) =>
+    (sessionsByTime.get(timestamp) ?? []).filter((session) => !usedSessionRows.has(session.sourceRowNumber));
+  const availableNearby = (timestamp: string) => {
+    const center = asMilliseconds(timestamp);
+    if (!Number.isFinite(center)) return [];
+    const candidates: CustomerServiceSession[] = [];
+    for (let index = lowerBound(center - 120_000); index < sortedSessions.length; index += 1) {
+      const item = sortedSessions[index];
+      if (item.timestamp > center + 120_000) break;
+      if (!usedSessionRows.has(item.session.sourceRowNumber)) candidates.push(item.session);
+    }
+    return candidates;
+  };
   const addMatch = (chat: ParsedChatSession, session: CustomerServiceSession, exact: boolean) => {
     usedSessionRows.add(session.sourceRowNumber); matchedChats.add(chat.sourceNumber);
     if (exact) matchedCount += 1; else timeOnlyMatchedCount += 1;
@@ -204,12 +236,12 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
   // fragments before considering agent-led fragments that can start seconds
   // after a transfer, preventing a later fragment from stealing the session.
   for (const chat of chats) {
-    const candidates = sessions.filter((session) => !usedSessionRows.has(session.sourceRowNumber) && session.consultedAt === chat.startedAt && aliasMatches(session.customerId, chat.customerAlias));
+    const candidates = availableAtTime(chat.startedAt).filter((session) => aliasMatches(session.customerId, chat.customerAlias));
     if (candidates.length === 1) addMatch(chat, candidates[0], true);
   }
   for (const chat of chats) {
     if (matchedChats.has(chat.sourceNumber)) continue;
-    const sameTime = sessions.filter((session) => !usedSessionRows.has(session.sourceRowNumber) && session.consultedAt === chat.startedAt);
+    const sameTime = availableAtTime(chat.startedAt);
     if (sameTime.length === 1) addMatch(chat, sameTime[0], false);
   }
   // A transfer/export can make the first visible chat line lag the consultation
@@ -217,7 +249,7 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
   // masking is available it remains the preferred discriminator.
   for (const chat of chats) {
     if (matchedChats.has(chat.sourceNumber)) continue;
-    const nearby = sessions.filter((session) => !usedSessionRows.has(session.sourceRowNumber) && Math.abs(asMilliseconds(session.consultedAt) - asMilliseconds(chat.startedAt)) <= 120_000);
+    const nearby = availableNearby(chat.startedAt);
     const identityMatches = nearby.filter((session) => aliasMatches(session.customerId, chat.customerAlias));
     const candidates = identityMatches.length ? identityMatches : nearby;
     if (candidates.length === 1) { addMatch(chat, candidates[0], false); continue; }
