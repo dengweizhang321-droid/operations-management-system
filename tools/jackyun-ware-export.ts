@@ -181,6 +181,29 @@ async function waitForExportEntry(page: Page) {
   return exactlyOne(entry, "导出查询商品按钮");
 }
 
+/** Only retry this reversible drawer-opening action after JD replaces its button mid-click. */
+export function isTransientJdExportEntryRepaint(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /element is not stable|detached from the DOM/i.test(message);
+}
+
+async function openExportEntryWithRepaintRetry(page: Page) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const exportEntry = await waitForExportEntry(page);
+    try {
+      await exportEntry.click({ timeout: 10_000 });
+      return;
+    } catch (error) {
+      if (attempt === 0 && isTransientJdExportEntryRepaint(error)) {
+        await page.waitForTimeout(250);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("京东导出入口在重绘后仍无法稳定打开。");
+}
+
 async function openTargetPage(page: Page) {
   if (page.url() !== targetUrl) await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   // Login redirects render faster than the merchant export button. Check them
@@ -225,8 +248,7 @@ async function openSkuExportDialog(page: Page) {
   const dialogAlreadyOpen = visibleSkuTabCount === 1 && await skuTab.isVisible();
   if (!dialogAlreadyOpen) {
     if (visibleSkuTabCount > 1) throw new Error(`SKU导出页签应匹配 1 个元素，实际匹配 ${visibleSkuTabCount} 个。`);
-    const exportEntry = await waitForExportEntry(page);
-    await exportEntry.click();
+    await openExportEntryWithRepaintRetry(page);
     await skuTab.waitFor({ state: "visible", timeout: 15_000 });
   }
   await exactlyOne(skuTab, "SKU导出页签");
