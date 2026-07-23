@@ -112,3 +112,16 @@ export async function listCustomerServiceConversations(filters: { startDate?: st
   }
   return { items: customerItems.map((item) => ({ ...item, productSpuId: catalog.get(item.productSku)?.spuId ?? "", productCategory: catalog.get(item.productSku)?.category ?? "" })), agents: agents.results.map((item) => item.agent), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(totalResult?.total ?? 0) } };
 }
+
+export async function deleteCustomerServiceConversationsByText(text: string) {
+  const term = text.trim();
+  if (term.length < 2 || term.length > 120) throw new Error("删除关键词长度必须为 2 到 120 个字符。");
+  if (/[\\%_]/.test(term)) throw new Error("删除关键词不得包含通配符。");
+  const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
+  const wildcard = `%${term}%`;
+  const statement = "customer_id LIKE ? OR customer_alias LIKE ? OR agent LIKE ? OR product_sku LIKE ? OR product_name LIKE ? OR messages_json LIKE ?";
+  const values = [wildcard, wildcard, wildcard, wildcard, wildcard, wildcard];
+  const before = await db.prepare(`SELECT COUNT(*) AS total FROM customer_service_conversations WHERE ${statement}`).bind(...values).first<{ total: number }>();
+  const result = await db.prepare(`DELETE FROM customer_service_conversations WHERE ${statement}`).bind(...values).run();
+  return { deletedCount: Number(before?.total ?? 0), databaseChanges: Number(result.meta.changes ?? 0) };
+}
