@@ -115,8 +115,16 @@ export async function listCustomerServiceConversations(filters: { startDate?: st
 
 export async function deleteCustomerServiceConversationsByText(text: string) {
   const term = text.trim();
-  if (term.length < 2 || term.length > 120) throw new Error("删除关键词长度必须为 2 到 120 个字符。");
-  if (/[\\%_]/.test(term)) throw new Error("删除关键词不得包含通配符。");
+  const isValidLength = term.length >= 2 && term.length <= 120;
+  if (!isValidLength) {
+    throw new Error("删除关键词长度必须为 2 到 120 个字符。");
+  }
+
+  // 关键词会被包裹进 LIKE 模式；拒绝模式字符以避免扩大删除范围。
+  if (/[\\%_]/.test(term)) {
+    throw new Error("删除关键词不得包含通配符。");
+  }
+
   const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
   const wildcard = `%${term}%`;
   const statement = "customer_id LIKE ? OR customer_alias LIKE ? OR agent LIKE ? OR product_sku LIKE ? OR product_name LIKE ? OR messages_json LIKE ?";
