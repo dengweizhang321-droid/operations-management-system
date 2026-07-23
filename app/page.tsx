@@ -4533,12 +4533,28 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
   const [chatFile, setChatFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const uploadFile = async (file: File, kind: "session" | "chat") => {
+    const chunkSize = 1024 * 1024;
+    const chunkCount = Math.ceil(file.size / chunkSize);
+    const init = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "init", kind, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint: `${kind}:${file.name}:${file.size}:${file.lastModified}` }) });
+    const initPayload = await init.json().catch(() => null) as { ok?: boolean; message?: string; upload?: { id: string; receivedChunkIndexes?: number[] } } | null;
+    if (!init.ok || !initPayload?.ok || !initPayload.upload) throw new Error(initPayload?.message || "无法创建分片上传任务");
+    const uploaded = new Set(initPayload.upload.receivedChunkIndexes ?? []);
+    for (let index = 0; index < chunkCount; index += 1) {
+      if (uploaded.has(index)) continue;
+      const part = file.slice(index * chunkSize, Math.min((index + 1) * chunkSize, file.size));
+      const response = await fetch("/api/customer-service/import/chunks", { method: "PUT", headers: { "x-upload-id": initPayload.upload.id, "x-chunk-index": String(index), "content-type": "application/octet-stream" }, body: part });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || `第 ${index + 1} 个分片上传失败`);
+    }
+    return initPayload.upload.id;
+  };
   const submit = async () => {
     if (!sessionFile || !chatFile || uploading || !canImport) return;
     setUploading(true); setFeedback("");
     try {
-      const form = new FormData(); form.append("sessionFile", sessionFile); form.append("chatFile", chatFile);
-      const response = await fetch("/api/customer-service/import", { method: "POST", body: form });
+      const [sessionUploadId, chatUploadId] = await Promise.all([uploadFile(sessionFile, "session"), uploadFile(chatFile, "chat")]);
+      const response = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "complete", sessionUploadId, chatUploadId, sessionFileName: sessionFile.name, chatFileName: chatFile.name }) });
       const payload = await response.json().catch(() => null) as { ok?: boolean; status?: string; message?: string; summary?: { matchedCount: number; timeOnlyMatchedCount: number; sessionOnlyCount: number; chatOnlyCount: number } } | null;
       if (!response.ok || !payload?.ok) throw new Error(payload?.message || "客服会话导入失败");
       const summary = payload.summary;
