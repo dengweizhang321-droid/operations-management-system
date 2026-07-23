@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import MarketView from "./market-view";
 
 type ModuleKey =
   | "dashboard"
   | "shop"
-  | "market"
   | "customer_service"
   | "sales"
   | "inventory"
@@ -686,7 +684,6 @@ const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
   { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
-  { key: "market", label: "市场分析", short: "市", description: "榜单、行业与竞品洞察" },
   { key: "customer_service", label: "客服分析", short: "服", description: "会话导入与聊天分析" },
   { key: "sales", label: "销售分析", short: "销", description: "利润与渠道表现" },
   { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
@@ -4950,7 +4947,6 @@ function channelKindLabel(kind: AiChannelKind): string {
 const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
-  market: MarketView,
   customer_service: CustomerServiceView,
   sales: SalesView,
   inventory: InventoryView,
@@ -5108,7 +5104,7 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "market" ? "市场榜单与运营系统 SKU/SPU、销售明细及 AI 模型实时关联" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "market" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
           <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
