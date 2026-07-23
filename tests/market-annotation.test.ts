@@ -9,6 +9,7 @@ import {
 } from "../lib/market/annotation-types";
 import { claimLocalAnnotation, completeLocalAnnotation, createValidationRun, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
+import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import type { MarketDatabase } from "../lib/market/database";
 
 test("annotation state machines reject unsafe skips", () => {
@@ -97,6 +98,15 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /candidateIds: selectedIds/);
   assert.match(ui, /完整市场 SKU 库检索/);
+  assert.match(ui, /const LOAD_TIMEOUT_MS = 15_000/);
+  assert.match(ui, /const ACTION_TIMEOUT_MS = 120_000/);
+  assert.match(ui, /signal: controller\.signal/);
+  assert.match(ui, /loadSequence !== loadSequenceRef\.current/);
+  assert.match(ui, /服务端可能仍在处理，请先刷新工作台再决定是否重试/);
+  assert.match(ui, /if \(!response\.ok \|\| !payload\) throw new Error\(payload\?\.error \|\| "操作失败"\)/);
+  assert.match(ui, /setInitialLoading\(false\)/);
+  assert.match(ui, /SKU AI 标注工作台加载失败/);
+  assert.match(ui, />重试<\/button>/);
   assert.match(runner, /TERUISI_ANNOTATION_AGENT_TOKEN/);
   assert.match(runner, /OLLAMA_BASE_URL must point to localhost/);
   assert.match(runner, /OLLAMA_TIMEOUT_MS = 120_000/);
@@ -231,6 +241,66 @@ test("agent errors expose only fixed status classes and hide unknown internals",
   assert.deepEqual(annotationAgentErrorResponse(new AnnotationAgentError("bad_request")), { status: 400, error: "本地 agent 请求参数无效" });
   assert.deepEqual(annotationAgentErrorResponse(new AnnotationAgentError("lease_conflict")), { status: 409, error: "任务 lease 已失效或发生版本冲突，请重新领取" });
   assert.deepEqual(annotationAgentErrorResponse(new Error("D1_ERROR: no such table secret")), { status: 500, error: "本地 agent 服务暂时不可用" });
+});
+
+test("runtime schema upgrades an existing 0016 database before creating new-column indexes", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"));
+  const firstConnection = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(firstConnection);
+
+  const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
+  assert.deepEqual([...columnNames("market_annotation_jobs")].filter((name) => name.startsWith("commit_")), ["commit_token_hash", "commit_started_at"]);
+  assert.ok(columnNames("market_annotation_commit_receipts").has("batch_id"));
+  assert.ok(columnNames("market_annotation_commit_receipts").has("request_digest"));
+  for (const column of ["sample_snapshot_json", "claim_token_hash", "lease_expires_at", "attempt_count", "updated_at"]) assert.ok(columnNames("market_annotation_validation_results").has(column));
+
+  const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
+  assert.ok(indexes.has("market_annotation_commits_batch_idx"));
+  assert.ok(indexes.has("market_annotation_validation_result_lease_idx"));
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
+
+  // A distinct runtime connection must also be safe after the first upgrade.
+  await ensureAnnotationSchema(sqliteAdapter(sqlite));
+  sqlite.close();
+});
+
+test("runtime schema shares concurrent initialization for one connection", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const baseConnection = sqliteAdapter(sqlite);
+  let batchCalls = 0;
+  const countingConnection = {
+    prepare: (sql: string) => baseConnection.prepare(sql),
+    batch: async (statements: Parameters<MarketDatabase["batch"]>[0]) => {
+      batchCalls += 1;
+      return baseConnection.batch(statements);
+    },
+  } as MarketDatabase;
+
+  await Promise.all([ensureAnnotationSchema(countingConnection), ensureAnnotationSchema(countingConnection)]);
+  assert.equal(batchCalls, 2);
+  sqlite.close();
+});
+
+test("runtime schema clears a failed readiness cache entry so the same connection can retry", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const baseConnection = sqliteAdapter(sqlite);
+  let failFirstBatch = true;
+  const flakyConnection = {
+    prepare: (sql: string) => baseConnection.prepare(sql),
+    batch: async (statements: Parameters<MarketDatabase["batch"]>[0]) => {
+      if (failFirstBatch) {
+        failFirstBatch = false;
+        throw new Error("injected schema setup failure");
+      }
+      return baseConnection.batch(statements);
+    },
+  } as MarketDatabase;
+
+  await assert.rejects(ensureAnnotationSchema(flakyConnection), /injected schema setup failure/);
+  await ensureAnnotationSchema(flakyConnection);
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_jobs'").get());
+  sqlite.close();
 });
 
 function sqliteAdapter(sqlite: DatabaseSync): MarketDatabase {

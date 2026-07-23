@@ -14,6 +14,8 @@ type ValidationResult = { id: string; runId: string; status: string; skuCode: st
 type Workspace = { categories: Array<{ value: string; count: number }>; prompts: Prompt[]; jobs: Job[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
+const LOAD_TIMEOUT_MS = 15_000;
+const ACTION_TIMEOUT_MS = 120_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
 const defaultSegments = "台式绞肉机\n立式绞肉机\n盆式绞肉机\n台式切肉机\n立式切肉机\n台式绞切一体机\n立式绞切一体机\n商用切片机\n家用切片机\n手动切片机\n切菜机\n切块机\n电动锯骨机\n电动切骨机\n去皮机\n粉碎机\n其他";
 
@@ -40,17 +42,38 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
   const [agentToken, setAgentToken] = useState("");
   const stopRef = useRef(false);
   const dirtyDraftIdsRef = useRef(new Set<string>());
+  const loadSequenceRef = useRef(0);
   const isAdmin = currentUser?.role === "admin";
   const canEdit = currentUser?.role === "admin" || currentUser?.role === "operator";
 
   const load = useCallback(async (nextJobId = jobId, q = search, page = searchPage, nextItemPage = itemPage, resetDrafts = false) => {
+    const loadSequence = ++loadSequenceRef.current;
     const params = new URLSearchParams({ q, page: String(page), pageSize: "30", itemPage: String(nextItemPage), itemPageSize: "100" });
     if (nextJobId) params.set("jobId", nextJobId);
-    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as Workspace | null;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+    let response: Response;
+    let payload: Workspace | null;
+    try {
+      response = await fetch("/api/market/annotations?" + params, { cache: "no-store", signal: controller.signal });
+      try {
+        payload = await response.json() as Workspace;
+      } catch (reason) {
+        if (controller.signal.aborted) throw reason;
+        payload = null;
+      }
+    } catch (reason) {
+      if (loadSequence !== loadSequenceRef.current) return;
+      if (controller.signal.aborted) throw new Error("读取标注工作台超时，请重试");
+      throw reason;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+    if (loadSequence !== loadSequenceRef.current) return;
     if (!response.ok || !payload) throw new Error(payload?.error || "读取标注工作台失败");
     setData(payload);
     const resolvedJobId = nextJobId || payload.jobs[0]?.id || "";
@@ -72,14 +95,42 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
     })));
   }, [jobId, search, searchPage, itemPage, category, promptId]);
 
-  useEffect(() => { const timer = window.setTimeout(() => void load().catch((reason) => setError(reason instanceof Error ? reason.message : "加载失败")), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadInitial = useCallback(async () => {
+    setInitialLoading(true);
+    setError("");
+    try {
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "加载失败");
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [load]);
+
+  useEffect(() => { const timer = window.setTimeout(() => void loadInitial(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!jobId) return; const timer = window.setTimeout(() => void load(jobId, search, searchPage, itemPage).catch(() => undefined), 0); return () => window.clearTimeout(timer); }, [jobId, itemPage]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!jobId) return; const timer = window.setTimeout(() => void load(jobId, search, searchPage, itemPage).catch(() => undefined), 260); return () => window.clearTimeout(timer); }, [search, searchPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const post = async (body: Record<string, unknown>) => {
-    const response = await fetch("/api/market/annotations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const payload = await response.json().catch(() => null) as { result?: unknown; error?: string } | null;
-    if (!response.ok) throw new Error(payload?.error || "操作失败");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
+    let response: Response;
+    let payload: { result?: unknown; error?: string } | null;
+    try {
+      response = await fetch("/api/market/annotations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller.signal });
+      try {
+        payload = await response.json() as { result?: unknown; error?: string };
+      } catch (reason) {
+        if (controller.signal.aborted) throw reason;
+        payload = null;
+      }
+    } catch (reason) {
+      if (controller.signal.aborted) throw new Error("操作等待超时；服务端可能仍在处理，请先刷新工作台再决定是否重试");
+      throw reason;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+    if (!response.ok || !payload) throw new Error(payload?.error || "操作失败");
     return payload?.result as Record<string, unknown> | undefined;
   };
   const act = async (name: string, fn: () => Promise<void>) => { setBusy(name); setError(""); setNotice(""); try { await fn(); } catch (reason) { setError(reason instanceof Error ? reason.message : "操作失败"); } finally { setBusy(""); } };
@@ -153,7 +204,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
   });
   const createAgent = () => act("agent", async () => { const name = window.prompt("本地 agent 名称", "办公室 Ollama") || ""; const result = await post({ action: "create_agent", name }); setAgentToken(String(result?.token || "")); await load(jobId); });
 
-  if (!data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在加载 SKU AI 标注工作台</strong></section>;
+  if (!data) return <section className="panel data-state">{initialLoading ? <><span className="state-spinner" /><strong>正在加载 SKU AI 标注工作台</strong></> : <><strong>SKU AI 标注工作台加载失败</strong><p>{error || "暂时无法读取数据，请稍后重试"}</p><button className="secondary-button" onClick={() => void loadInitial()}>重试</button></>}</section>;
   const currentRun = data.validationRuns[0];
   const currentResults = currentRun ? data.validationResults.filter((item) => item.runId === currentRun.id) : [];
   const reviewableItems = data.items.filter((item) => reviewableIds.has(item.id));
