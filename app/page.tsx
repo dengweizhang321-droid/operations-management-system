@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import MarketView from "./market-view";
 
 type ModuleKey =
   | "dashboard"
   | "shop"
+  | "market"
   | "customer_service"
   | "sales"
   | "inventory"
@@ -684,6 +686,7 @@ const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 const navItems: NavItem[] = [
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
   { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
+  { key: "market", label: "市场分析", short: "市", description: "榜单、行业与竞品洞察" },
   { key: "customer_service", label: "客服分析", short: "服", description: "会话导入与聊天分析" },
   { key: "sales", label: "销售分析", short: "销", description: "利润与渠道表现" },
   { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
@@ -4448,12 +4451,28 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
   const [chatFile, setChatFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const uploadFile = async (file: File, kind: "session" | "chat") => {
+    const chunkSize = 1024 * 1024;
+    const chunkCount = Math.ceil(file.size / chunkSize);
+    const init = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "init", kind, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint: `${kind}:${file.name}:${file.size}:${file.lastModified}` }) });
+    const initPayload = await init.json().catch(() => null) as { ok?: boolean; message?: string; upload?: { id: string; receivedChunkIndexes?: number[] } } | null;
+    if (!init.ok || !initPayload?.ok || !initPayload.upload) throw new Error(initPayload?.message || "无法创建分片上传任务");
+    const uploaded = new Set(initPayload.upload.receivedChunkIndexes ?? []);
+    for (let index = 0; index < chunkCount; index += 1) {
+      if (uploaded.has(index)) continue;
+      const part = file.slice(index * chunkSize, Math.min((index + 1) * chunkSize, file.size));
+      const response = await fetch("/api/customer-service/import/chunks", { method: "PUT", headers: { "x-upload-id": initPayload.upload.id, "x-chunk-index": String(index), "content-type": "application/octet-stream" }, body: part });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || `第 ${index + 1} 个分片上传失败`);
+    }
+    return initPayload.upload.id;
+  };
   const submit = async () => {
     if (!sessionFile || !chatFile || uploading || !canImport) return;
     setUploading(true); setFeedback("");
     try {
-      const form = new FormData(); form.append("sessionFile", sessionFile); form.append("chatFile", chatFile);
-      const response = await fetch("/api/customer-service/import", { method: "POST", body: form });
+      const [sessionUploadId, chatUploadId] = await Promise.all([uploadFile(sessionFile, "session"), uploadFile(chatFile, "chat")]);
+      const response = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "complete", sessionUploadId, chatUploadId, sessionFileName: sessionFile.name, chatFileName: chatFile.name }) });
       const payload = await response.json().catch(() => null) as { ok?: boolean; status?: string; message?: string; summary?: { matchedCount: number; timeOnlyMatchedCount: number; sessionOnlyCount: number; chatOnlyCount: number } } | null;
       if (!response.ok || !payload?.ok) throw new Error(payload?.message || "客服会话导入失败");
       const summary = payload.summary;
@@ -4884,7 +4903,7 @@ function CustomerServiceView({ customStartDate, customEndDate }: { customStartDa
     <section className="customer-service-kpis">{[
       ["会话总数", data?.summary.total ?? 0, "blue"], ["已关联聊天", data?.summary.matched ?? 0, "green"], ["待补聊天", data?.summary.sessionOnly ?? 0, "orange"], ["仅有聊天", data?.summary.chatOnly ?? 0, "purple"],
     ].map(([label, value, tone]) => <article className="panel" key={String(label)}><small>{label}</small><strong className={String(tone)}>{formatCount(Number(value))}</strong></article>)}</section>
-    <section className="customer-service-filters panel"><div className="customer-period-tabs" role="group" aria-label="时间维度">{(["day", "week", "month", "custom"] as const).map((value) => <button type="button" key={value} className={period === value ? "active" : ""} onClick={() => selectPeriod(value)}>{({ day: "日", week: "周", month: "月", custom: "自定义" })[value]}</button>)}</div><label>咨询日期<input type="date" value={startDate} onChange={(event) => { setPeriod("custom"); setStartDate(event.target.value); }} /></label><span>至</span><label><span className="sr-only">结束日期</span><input type="date" value={endDate} min={startDate} onChange={(event) => { setPeriod("custom"); setEndDate(event.target.value); }} /></label><label>客服<select value={agent} onChange={(event) => setAgent(event.target.value)}><option value="">全部客服</option>{(data?.agents ?? []).map((name) => <option key={name} value={name}>{name}</option>)}</select></label><label>匹配状态<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="matched">已匹配</option><option value="session_only">缺聊天记录</option><option value="chat_only">缺会话记录</option></select></label><label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品或聊天内容" /></label></section>
+    <section className="customer-service-filters panel"><div className="customer-period-tabs" role="group" aria-label="时间维度">{(["day", "week", "month", "custom"] as const).map((value) => <button type="button" key={value} className={period === value ? "active" : ""} onClick={() => selectPeriod(value)}>{({ day: "日", week: "周", month: "月", custom: "自定义" })[value]}</button>)}</div><label>咨询日期<input type="date" value={startDate} onChange={(event) => { setPeriod("custom"); setStartDate(event.target.value); }} /></label><span>至</span><label><span className="sr-only">结束日期</span><input type="date" value={endDate} min={startDate} onChange={(event) => { setPeriod("custom"); setEndDate(event.target.value); }} /></label><label><span>客服</span><SearchableSelect value={agent} onChange={setAgent} ariaLabel="客服筛选" searchPlaceholder="搜索客服" options={[{ value: "", label: "全部客服" }, ...(data?.agents ?? []).map((name) => ({ value: name, label: name }))]} /></label><label><span>匹配状态</span><SearchableSelect value={status} onChange={setStatus} ariaLabel="匹配状态筛选" searchPlaceholder="搜索匹配状态" options={[{ value: "", label: "全部状态" }, { value: "matched", label: "已匹配" }, { value: "session_only", label: "缺聊天记录" }, { value: "chat_only", label: "缺会话记录" }]} /></label><label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品或聊天内容" /></label></section>
     <section className="panel table-panel customer-service-table-panel"><div className="section-header"><div><h2>会话列表</h2><p>SKU/SPU 类目取自网店分析中已导入的商品主数据；未找到映射时保留为空。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKU / SPU</th><th>SKU 类目</th><th>消息数</th><th>首句</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
       {loading && <tr><td colSpan={8}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}
       {!loading && error && <tr><td colSpan={8}><div className="table-state table-state-error">{error}</div></td></tr>}
@@ -4931,6 +4950,7 @@ function channelKindLabel(kind: AiChannelKind): string {
 const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ShopView,
+  market: MarketView,
   customer_service: CustomerServiceView,
   sales: SalesView,
   inventory: InventoryView,
@@ -5063,9 +5083,9 @@ export default function Home() {
         </div>
         <nav className="main-nav" aria-label="主导航">
           <p>经营管理</p>
-          {navItems.slice(0, 6).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}
+          {navItems.slice(0, 8).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}
           <p>系统管理</p>
-          {navItems.slice(6).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
+          {navItems.slice(8).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
         </nav>
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
         <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser ? `${currentUser.displayName} · ${currentUser.roleLabel}` : "访客 · 只读查看者"}</strong><small>{currentUser ? currentUser.email : "可查看经营数据"}</small></div><button onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
@@ -5088,7 +5108,7 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "销售经营值来自已导入明细；访客按已导入 SPU 商品访客 × 0.9 估算，推广仍不做推算" : active === "market" ? "市场榜单与运营系统 SKU/SPU、销售明细及 AI 模型实时关联" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "market" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && <button className="primary-button">＋ 新建</button>}</div></div>
           <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
