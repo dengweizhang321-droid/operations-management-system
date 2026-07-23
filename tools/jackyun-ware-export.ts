@@ -179,8 +179,19 @@ async function waitForExportEntry(page: Page) {
   // JD keeps another same-named button inside a hidden batch-tools menu.
   // Bind only the visible entry so locator waiting cannot attach to that copy.
   const entry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
-  await entry.waitFor({ state: "visible", timeout: 30_000 });
-  return exactlyOne(entry, "导出查询商品按钮");
+  const deadline = Date.now() + 90_000;
+  const recentVisibleCounts: number[] = [];
+  while (Date.now() < deadline) {
+    recentVisibleCounts.push(await entry.count());
+    if (recentVisibleCounts.length > 2) recentVisibleCounts.shift();
+    if (hasStableUniqueVisibleJdExportEntry(recentVisibleCounts)) return exactlyOne(entry, "导出查询商品按钮");
+    await page.waitForTimeout(250);
+  }
+  throw new Error("导出查询商品按钮未达到连续可见稳定状态。");
+}
+
+export function hasStableUniqueVisibleJdExportEntry(samples: readonly number[]) {
+  return samples.length >= 2 && samples.at(-1) === 1 && samples.at(-2) === 1;
 }
 
 /** Only retry this reversible drawer-opening action after JD replaces its button mid-click. */

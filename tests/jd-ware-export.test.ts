@@ -8,7 +8,7 @@ import {
   selectExistingJdWareExportTask,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createWareExportAudit, importSkuFile, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, wareActiveTaskPath } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, createWareExportAudit, hasStableUniqueVisibleJdExportEntry, importSkuFile, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, wareActiveTaskPath } from "../tools/jackyun-ware-export";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -129,6 +129,12 @@ test("a resolved export-button click is not reported as a submitted JD task", ()
 test("retries the reversible export drawer action only for a JD repaint", () => {
   assert.equal(isTransientJdExportEntryRepaint(new Error("element is not stable; detached from the DOM")), true);
   assert.equal(isTransientJdExportEntryRepaint(new Error("intercepted by overlay")), false);
+});
+
+test("requires two consecutive unique visible export-entry samples", () => {
+  assert.equal(hasStableUniqueVisibleJdExportEntry([1]), false);
+  assert.equal(hasStableUniqueVisibleJdExportEntry([1, 0, 1]), false);
+  assert.equal(hasStableUniqueVisibleJdExportEntry([0, 1, 1]), true);
 });
 
 test("records an auto-import failure audit after a rejected connection without browser startup", async () => {
