@@ -34,7 +34,7 @@ type CurrentUser = {
 
 type CustomerServiceMessage = { sender: string; sentAt: string; content: string };
 type CustomerServiceConversation = {
-  id: number; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; productSpuId: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: "matched" | "session_only" | "chat_only" | "ambiguous"; matchConfidence: "exact" | "time_only" | "review" | "none"; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: CustomerServiceMessage[];
+  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; productSpuId: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: "matched" | "session_only" | "chat_only" | "ambiguous"; matchConfidence: "exact" | "time_only" | "review" | "none"; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: CustomerServiceMessage[];
 };
 type CustomerServiceData = {
   items: CustomerServiceConversation[]; agents: string[]; summary: { total: number; matched: number; sessionOnly: number; chatOnly: number }; pagination: { page: number; pageSize: number; total: number };
@@ -533,7 +533,7 @@ type UnifiedHistoryItem = {
 };
 
 type CustomerServiceImportHistoryItem = {
-  id: string; sessionFileName: string; chatFileName: string; status: string; conversationCount: number; matchedCount: number; warnings: string[]; createdAt: string; completedAt?: string | null;
+  id: string; shopName: string; sessionFileName: string; chatFileName: string; status: string; conversationCount: number; matchedCount: number; warnings: string[]; createdAt: string; completedAt?: string | null;
 };
 
 type NetshopImportHistoryItem = {
@@ -4531,6 +4531,7 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
   const chatFileRef = useRef<HTMLInputElement>(null);
   const [sessionFile, setSessionFile] = useState<File | null>(null);
   const [chatFile, setChatFile] = useState<File | null>(null);
+  const [shopName, setShopName] = useState("志高商用设备");
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState("");
   const uploadFile = async (file: File, kind: "session" | "chat") => {
@@ -4554,7 +4555,7 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
     setUploading(true); setFeedback("");
     try {
       const [sessionUploadId, chatUploadId] = await Promise.all([uploadFile(sessionFile, "session"), uploadFile(chatFile, "chat")]);
-      const response = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "complete", sessionUploadId, chatUploadId, sessionFileName: sessionFile.name, chatFileName: chatFile.name }) });
+      const response = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "complete", shopName, sessionUploadId, chatUploadId, sessionFileName: sessionFile.name, chatFileName: chatFile.name }) });
       const payload = await response.json().catch(() => null) as { ok?: boolean; status?: string; message?: string; summary?: { matchedCount: number; timeOnlyMatchedCount: number; sessionOnlyCount: number; chatOnlyCount: number } } | null;
       if (!response.ok || !payload?.ok) throw new Error(payload?.message || "客服会话导入失败");
       const summary = payload.summary;
@@ -4628,7 +4629,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
             : item.source === "jd_yimei_sku"
               ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
               : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
-        ...customerServicePayload.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: "客服会话 · 会话与聊天记录", fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, createdAt: item.createdAt, completedAt: item.completedAt })),
+        ...customerServicePayload.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: `客服会话 · ${item.shopName || "志高商用设备"}`, fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, createdAt: item.createdAt, completedAt: item.completedAt })),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
       setHistory(combined);
     } catch (requestError) {
