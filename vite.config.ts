@@ -44,6 +44,9 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Keep build transforms isolated from the shared workspace cache so a new
+    // deployment never reuses a stale client bundle.
+    cacheDir: ".vite-sites-cache",
     server: {
       watch: isCodexSeatbeltSandbox
         ? { useFsEvents: false, usePolling: true }
