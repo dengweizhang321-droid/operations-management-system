@@ -1,7 +1,9 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { getMarketDatabase } from "@/lib/market/database";
+import { executeMarketDownloadTask } from "@/lib/market/download-executor";
 import {
   confirmMarketPrice,
+  applyPublishedMarketMappings,
   createMarketPriceBandVersion,
   getMarketMasterWorkspace,
   getMarketSkuComparison,
@@ -88,6 +90,7 @@ export async function POST(request: Request) {
       case "confirm_price":
         result = await confirmMarketPrice(db, {
           category: text(parsed, "category"),
+          scope: text(parsed, "scope"),
           skuCode: text(parsed, "skuCode"),
           rankingDimension: text(parsed, "rankingDimension"),
           month: text(parsed, "month"),
@@ -98,6 +101,9 @@ export async function POST(request: Request) {
           priceHighCents: parsed.priceHighCents,
           note: text(parsed, "note"),
         }, principal);
+        break;
+      case "apply_mappings":
+        result = await applyPublishedMarketMappings(db, { category: text(parsed, "category") || undefined }, principal);
         break;
       case "upsert_mapping":
         result = await upsertMarketMapping(db, {
@@ -157,6 +163,9 @@ export async function POST(request: Request) {
           errorCode: text(parsed, "errorCode"),
           errorMessage: text(parsed, "errorMessage"),
         }, principal);
+        break;
+      case "execute_download_task":
+        result = await executeMarketDownloadTask(db, { taskId: text(parsed, "taskId") }, principal);
         break;
       case "compare":
         result = await getMarketSkuComparison(db, {
