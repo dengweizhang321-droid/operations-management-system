@@ -1,0 +1,412 @@
+export type MarketSchemaDatabase = {
+  prepare(sql: string): {
+    bind(...values: unknown[]): {
+      first<T = unknown>(): Promise<T | null>;
+      all<T = unknown>(): Promise<{ results?: T[] }>;
+      run(): Promise<unknown>;
+    };
+    first<T = unknown>(): Promise<T | null>;
+    all<T = unknown>(): Promise<{ results?: T[] }>;
+    run(): Promise<unknown>;
+  };
+  batch(statements: Array<{ run(): Promise<unknown> }>): Promise<unknown>;
+};
+
+const selfOperated = "\u81ea\u8425";
+const unknownMode = "\u672a\u77e5";
+const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
+
+export const marketBaseSchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS market_import_batches (
+    id TEXT PRIMARY KEY NOT NULL,
+    source_type TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    file_hash TEXT NOT NULL UNIQUE,
+    sheet_name TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    row_count INTEGER NOT NULL DEFAULT 0,
+    inserted_count INTEGER NOT NULL DEFAULT 0,
+    updated_count INTEGER NOT NULL DEFAULT 0,
+    warning_count INTEGER NOT NULL DEFAULT 0,
+    period_start TEXT,
+    period_end TEXT,
+    warnings_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_ranking_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    natural_key TEXT NOT NULL UNIQUE,
+    source_row_number INTEGER NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '',
+    scope TEXT NOT NULL DEFAULT '\u5168\u90e8',
+    ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
+    operation_mode TEXT NOT NULL DEFAULT '${unknownMode}',
+    subcategory TEXT NOT NULL DEFAULT '',
+    rank INTEGER,
+    sku_code TEXT NOT NULL,
+    product_name TEXT NOT NULL DEFAULT '',
+    brand TEXT NOT NULL DEFAULT '',
+    price_cents INTEGER,
+    price_low_cents INTEGER,
+    price_high_cents INTEGER,
+    price_estimated INTEGER NOT NULL DEFAULT 0,
+    gmv_cents INTEGER NOT NULL DEFAULT 0,
+    quantity INTEGER NOT NULL DEFAULT 0,
+    page_views INTEGER NOT NULL DEFAULT 0,
+    visitors INTEGER NOT NULL DEFAULT 0,
+    conversion_bps INTEGER,
+    cart_customers INTEGER NOT NULL DEFAULT 0,
+    search_clicks INTEGER NOT NULL DEFAULT 0,
+    image_url TEXT NOT NULL DEFAULT '',
+    product_url TEXT NOT NULL DEFAULT '',
+    raw_json TEXT NOT NULL DEFAULT '{}',
+    last_import_batch_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_price_snapshots (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL,
+    sku_code TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
+    month TEXT NOT NULL,
+    source_price_cents INTEGER,
+    ai_image_price_cents INTEGER,
+    ai_price_type TEXT NOT NULL DEFAULT '',
+    ai_confidence_bps INTEGER,
+    ai_reason TEXT NOT NULL DEFAULT '',
+    confirmed_market_price_cents INTEGER,
+    average_transaction_price_cents INTEGER,
+    price_low_cents INTEGER,
+    price_high_cents INTEGER,
+    image_content_sha256 TEXT NOT NULL DEFAULT '',
+    image_url TEXT NOT NULL DEFAULT '',
+    confirmation_status TEXT NOT NULL DEFAULT 'source_table',
+    confirmed_by TEXT NOT NULL DEFAULT '',
+    confirmed_at TEXT,
+    source_job_item_id TEXT NOT NULL DEFAULT '',
+    prompt_version_id TEXT NOT NULL DEFAULT '',
+    source_import_batch_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_image_cache (
+    source_url TEXT PRIMARY KEY NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    object_key TEXT NOT NULL DEFAULT '',
+    content_sha256 TEXT NOT NULL DEFAULT '',
+    mime_type TEXT NOT NULL DEFAULT '',
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    image_source TEXT NOT NULL DEFAULT '',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT NOT NULL DEFAULT '',
+    error_message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_price_band_versions (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL DEFAULT '*',
+    version INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    effective_from TEXT NOT NULL DEFAULT '1970-01-01',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_by TEXT NOT NULL DEFAULT '',
+    published_at TEXT,
+    rolled_back_from_id TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_price_band_items (
+    id TEXT PRIMARY KEY NOT NULL,
+    version_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    min_cents INTEGER,
+    max_cents INTEGER,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_master_mapping_rules (
+    id TEXT PRIMARY KEY NOT NULL,
+    kind TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '',
+    source_value TEXT NOT NULL,
+    target_value TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    version INTEGER NOT NULL DEFAULT 1,
+    effective_from TEXT NOT NULL DEFAULT '1970-01-01',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_download_tasks (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL,
+    month TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'planned',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    source_file_name TEXT NOT NULL DEFAULT '',
+    file_hash TEXT NOT NULL DEFAULT '',
+    row_count INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT NOT NULL DEFAULT '',
+    error_message TEXT NOT NULL DEFAULT '',
+    next_retry_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_master_audit_logs (
+    id TEXT PRIMARY KEY NOT NULL,
+    actor_email TEXT NOT NULL,
+    actor_role TEXT NOT NULL,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    before_json TEXT NOT NULL DEFAULT '{}',
+    after_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+] as const;
+
+const rankingEntryColumns: Array<[string, string]> = [
+  ["ranking_dimension", "TEXT NOT NULL DEFAULT 'SKU'"],
+  ["operation_mode", `TEXT NOT NULL DEFAULT '${unknownMode}'`],
+  ["subcategory", "TEXT NOT NULL DEFAULT ''"],
+  ["price_low_cents", "INTEGER"],
+  ["price_high_cents", "INTEGER"],
+  ["price_estimated", "INTEGER NOT NULL DEFAULT 0"],
+];
+
+const priceSnapshotColumns: Array<[string, string]> = [
+  ["ranking_dimension", "TEXT NOT NULL DEFAULT 'SKU'"],
+  ["source_price_cents", "INTEGER"],
+  ["ai_image_price_cents", "INTEGER"],
+  ["ai_price_type", "TEXT NOT NULL DEFAULT ''"],
+  ["ai_confidence_bps", "INTEGER"],
+  ["ai_reason", "TEXT NOT NULL DEFAULT ''"],
+  ["confirmed_market_price_cents", "INTEGER"],
+  ["average_transaction_price_cents", "INTEGER"],
+  ["price_low_cents", "INTEGER"],
+  ["price_high_cents", "INTEGER"],
+  ["image_content_sha256", "TEXT NOT NULL DEFAULT ''"],
+  ["image_url", "TEXT NOT NULL DEFAULT ''"],
+  ["confirmation_status", "TEXT NOT NULL DEFAULT 'source_table'"],
+  ["confirmed_by", "TEXT NOT NULL DEFAULT ''"],
+  ["confirmed_at", "TEXT"],
+  ["source_job_item_id", "TEXT NOT NULL DEFAULT ''"],
+  ["prompt_version_id", "TEXT NOT NULL DEFAULT ''"],
+  ["source_import_batch_id", "TEXT NOT NULL DEFAULT ''"],
+];
+
+export const marketPostUpgradeIndexStatements = [
+  `CREATE INDEX IF NOT EXISTS market_import_batches_created_idx ON market_import_batches (created_at)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_period_idx ON market_ranking_entries (period_end, period_start)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_category_idx ON market_ranking_entries (category, period_end)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_sku_idx ON market_ranking_entries (sku_code, period_end)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_brand_idx ON market_ranking_entries (brand, period_end)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_dimension_idx ON market_ranking_entries (ranking_dimension, operation_mode, period_end)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_uq ON market_ranking_entries (period_start, period_end, category, scope, ranking_dimension, sku_code)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, sku_code, ranking_dimension, month)`,
+  `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS market_price_snapshots_hash_idx ON market_price_snapshots (sku_code, image_content_sha256, confirmed_at)`,
+  `CREATE INDEX IF NOT EXISTS market_image_cache_object_key_idx ON market_image_cache (object_key)`,
+  `CREATE INDEX IF NOT EXISTS market_image_cache_status_idx ON market_image_cache (status, updated_at)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_price_band_versions_category_version_uq ON market_price_band_versions (category, version)`,
+  `CREATE INDEX IF NOT EXISTS market_price_band_versions_lookup_idx ON market_price_band_versions (category, status, effective_from, version)`,
+  `CREATE INDEX IF NOT EXISTS market_price_band_items_version_idx ON market_price_band_items (version_id, sort_order)`,
+  `CREATE INDEX IF NOT EXISTS market_master_mapping_rules_kind_idx ON market_master_mapping_rules (kind, category, status, effective_from)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, month, ranking_dimension)`,
+  `CREATE INDEX IF NOT EXISTS market_download_tasks_status_idx ON market_download_tasks (status, next_retry_at, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS market_master_audit_logs_entity_idx ON market_master_audit_logs (entity_type, entity_id, created_at)`,
+] as const;
+
+const defaultPriceBandItems = [
+  { label: "0-499", min: 0, max: 50_000, order: 10 },
+  { label: "500-999", min: 50_000, max: 100_000, order: 20 },
+  { label: "1000-1999", min: 100_000, max: 200_000, order: 30 },
+  { label: "2000-2999", min: 200_000, max: 300_000, order: 40 },
+  { label: "3000+", min: 300_000, max: null, order: 50 },
+] as const;
+
+async function addMissingColumns(db: MarketSchemaDatabase, table: string, columns: Array<[string, string]>) {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+  const existing = new Set((info.results ?? []).map((row) => row.name));
+  for (const [name, definition] of columns) {
+    if (!existing.has(name)) await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+  }
+}
+
+async function normalizeExistingRankingRows(db: MarketSchemaDatabase) {
+  await db.prepare(`
+    UPDATE market_ranking_entries
+    SET operation_mode = CASE
+      WHEN lower(COALESCE(scope, '') || ' ' || COALESCE(raw_json, '')) LIKE '%pop%'
+        OR COALESCE(scope, '') || ' ' || COALESCE(raw_json, '') LIKE '%\u5e97\u94fa%'
+        OR COALESCE(scope, '') || ' ' || COALESCE(raw_json, '') LIKE '%\u65d7\u8230\u5e97%' THEN 'POP'
+      WHEN COALESCE(scope, '') || ' ' || COALESCE(raw_json, '') LIKE '%\u81ea\u8425%' THEN '${selfOperated}'
+      ELSE '${unknownMode}'
+    END
+    WHERE operation_mode IS NULL OR operation_mode = '' OR operation_mode IN ('SKU','SPU','\u5168\u90e8','${unknownMode}')
+  `).run();
+  await db.prepare(`
+    UPDATE market_ranking_entries
+    SET ranking_dimension = CASE
+      WHEN upper(COALESCE(scope, '') || ' ' || COALESCE(raw_json, '') || ' ' || COALESCE((SELECT file_name FROM market_import_batches b WHERE b.id = last_import_batch_id), '')) LIKE '%SPU%' THEN 'SPU'
+      WHEN upper(COALESCE(scope, '') || ' ' || COALESCE(raw_json, '') || ' ' || COALESCE((SELECT file_name FROM market_import_batches b WHERE b.id = last_import_batch_id), '')) LIKE '%SKU%' THEN 'SKU'
+      ELSE 'SKU'
+    END
+  `).run();
+  await db.prepare(`
+    UPDATE market_ranking_entries
+    SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+  `).run();
+}
+
+async function removeCanonicalDuplicates(db: MarketSchemaDatabase) {
+  await db.prepare(`
+    DELETE FROM market_ranking_entries
+    WHERE id IN (
+      SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (
+          PARTITION BY period_start, period_end, category, scope, ranking_dimension, sku_code
+          ORDER BY datetime(updated_at) DESC, id DESC
+        ) AS rn
+        FROM market_ranking_entries
+      ) ranked
+      WHERE rn > 1
+    )
+  `).run();
+}
+
+async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
+  await db.prepare(`
+    INSERT INTO market_price_snapshots (
+      id, category, sku_code, ranking_dimension, month, source_price_cents,
+      average_transaction_price_cents, price_low_cents, price_high_cents,
+      image_content_sha256, image_url, confirmation_status, source_import_batch_id, updated_at
+    )
+    SELECT
+      'market-price-' || m.category || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
+      m.category,
+      m.sku_code,
+      m.ranking_dimension,
+      substr(m.period_end, 1, 7),
+      m.price_cents,
+      CASE WHEN m.quantity > 0 THEN CAST(ROUND(m.gmv_cents * 1.0 / m.quantity) AS INTEGER) ELSE NULL END,
+      m.price_low_cents,
+      m.price_high_cents,
+      COALESCE((SELECT content_sha256 FROM market_image_cache mic WHERE mic.source_url = m.image_url AND mic.status = 'ready' LIMIT 1), ''),
+      m.image_url,
+      CASE WHEN m.price_cents IS NULL THEN 'missing' ELSE 'source_table' END,
+      m.last_import_batch_id,
+      CURRENT_TIMESTAMP
+    FROM market_ranking_entries m
+    WHERE substr(m.period_end, 1, 7) <> ''
+      AND NOT EXISTS (
+        SELECT 1 FROM market_price_snapshots ps
+        WHERE ps.category = m.category
+          AND ps.sku_code = m.sku_code
+          AND ps.ranking_dimension = m.ranking_dimension
+          AND ps.month = substr(m.period_end, 1, 7)
+      )
+  `).run();
+  await db.prepare(`
+    UPDATE market_price_snapshots
+    SET
+      source_price_cents = (
+        SELECT m.price_cents FROM market_ranking_entries m
+        WHERE m.category = market_price_snapshots.category
+          AND m.sku_code = market_price_snapshots.sku_code
+          AND m.ranking_dimension = market_price_snapshots.ranking_dimension
+          AND substr(m.period_end, 1, 7) = market_price_snapshots.month
+        ORDER BY m.period_end DESC, m.id DESC LIMIT 1
+      ),
+      average_transaction_price_cents = (
+        SELECT CASE WHEN m.quantity > 0 THEN CAST(ROUND(m.gmv_cents * 1.0 / m.quantity) AS INTEGER) ELSE NULL END
+        FROM market_ranking_entries m
+        WHERE m.category = market_price_snapshots.category
+          AND m.sku_code = market_price_snapshots.sku_code
+          AND m.ranking_dimension = market_price_snapshots.ranking_dimension
+          AND substr(m.period_end, 1, 7) = market_price_snapshots.month
+        ORDER BY m.period_end DESC, m.id DESC LIMIT 1
+      ),
+      image_content_sha256 = COALESCE(NULLIF(image_content_sha256, ''), (
+        SELECT mic.content_sha256 FROM market_ranking_entries m
+        JOIN market_image_cache mic ON mic.source_url = m.image_url AND mic.status = 'ready'
+        WHERE m.category = market_price_snapshots.category
+          AND m.sku_code = market_price_snapshots.sku_code
+          AND m.ranking_dimension = market_price_snapshots.ranking_dimension
+          AND substr(m.period_end, 1, 7) = market_price_snapshots.month
+        ORDER BY m.period_end DESC, m.id DESC LIMIT 1
+      ), ''),
+      image_url = COALESCE(NULLIF(image_url, ''), (
+        SELECT m.image_url FROM market_ranking_entries m
+        WHERE m.category = market_price_snapshots.category
+          AND m.sku_code = market_price_snapshots.sku_code
+          AND m.ranking_dimension = market_price_snapshots.ranking_dimension
+          AND substr(m.period_end, 1, 7) = market_price_snapshots.month
+        ORDER BY m.period_end DESC, m.id DESC LIMIT 1
+      ), ''),
+      confirmation_status = CASE
+        WHEN confirmed_market_price_cents IS NOT NULL THEN confirmation_status
+        WHEN source_price_cents IS NULL THEN 'missing'
+        ELSE 'source_table'
+      END,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE EXISTS (
+      SELECT 1 FROM market_ranking_entries m
+      WHERE m.category = market_price_snapshots.category
+        AND m.sku_code = market_price_snapshots.sku_code
+        AND m.ranking_dimension = market_price_snapshots.ranking_dimension
+        AND substr(m.period_end, 1, 7) = market_price_snapshots.month
+    )
+  `).run();
+}
+
+async function seedDefaultPriceBands(db: MarketSchemaDatabase) {
+  const existing = await db.prepare("SELECT id FROM market_price_band_versions WHERE category='*' AND status='published' LIMIT 1").first<{ id: string }>();
+  if (existing) return;
+  const versionId = "market-price-band-default-v1";
+  await db.prepare(`
+    INSERT OR IGNORE INTO market_price_band_versions
+      (id, category, version, status, effective_from, created_by, published_by, published_at, note)
+    VALUES (?, '*', 1, 'published', '1970-01-01', 'system', 'system', CURRENT_TIMESTAMP, 'default seeded config')
+  `).bind(versionId).run();
+  await db.batch(defaultPriceBandItems.map((item) => db.prepare(`
+    INSERT OR IGNORE INTO market_price_band_items (id, version_id, label, min_cents, max_cents, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(`market-price-band-default-v1-${item.order}`, versionId, item.label, item.min, item.max, item.order)));
+}
+
+export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<void> {
+  await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
+  await addMissingColumns(db, "market_ranking_entries", rankingEntryColumns);
+  await addMissingColumns(db, "market_price_snapshots", priceSnapshotColumns);
+  await normalizeExistingRankingRows(db);
+  await removeCanonicalDuplicates(db);
+  await backfillPriceSnapshots(db);
+  await seedDefaultPriceBands(db);
+  await db.batch(marketPostUpgradeIndexStatements.map((statement) => db.prepare(statement)));
+}
+
+export function officialPriceBandSql(priceSql = "official_market_price_cents") {
+  return `CASE
+    WHEN ${priceSql} IS NULL THEN '${unknownPriceBand}'
+    ELSE COALESCE((
+      SELECT pbi.label
+      FROM market_price_band_versions pbv
+      JOIN market_price_band_items pbi ON pbi.version_id = pbv.id
+      WHERE pbv.status = 'published'
+        AND pbv.category IN ('*', m.category)
+        AND pbv.effective_from <= m.period_end
+        AND ${priceSql} >= COALESCE(pbi.min_cents, -9223372036854775808)
+        AND (${priceSql} < pbi.max_cents OR pbi.max_cents IS NULL)
+      ORDER BY CASE WHEN pbv.category = m.category THEN 0 ELSE 1 END, pbv.effective_from DESC, pbv.version DESC, pbi.sort_order
+      LIMIT 1
+    ), '${unknownPriceBand}')
+  END`;
+}

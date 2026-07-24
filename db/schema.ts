@@ -695,6 +695,7 @@ export const marketRankingEntries = sqliteTable(
   },
   (table) => [
     uniqueIndex("market_ranking_entries_natural_key_uq").on(table.naturalKey),
+    uniqueIndex("market_entries_canonical_uq").on(table.periodStart, table.periodEnd, table.category, table.scope, table.rankingDimension, table.skuCode),
     index("market_entries_period_idx").on(table.periodEnd, table.periodStart),
     index("market_entries_category_idx").on(table.category, table.periodEnd),
     index("market_entries_sku_idx").on(table.skuCode, table.periodEnd),
@@ -739,6 +740,84 @@ export const marketPriceSnapshots = sqliteTable(
     index("market_price_snapshots_hash_idx").on(table.skuCode, table.imageContentSha256, table.confirmedAt),
   ],
 );
+
+export const marketPriceBandVersions = sqliteTable("market_price_band_versions", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull().default("*"),
+  version: integer("version").notNull(),
+  status: text("status").notNull().default("draft"),
+  effectiveFrom: text("effective_from").notNull().default("1970-01-01"),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  publishedBy: text("published_by").notNull().default(""),
+  publishedAt: text("published_at"),
+  rolledBackFromId: text("rolled_back_from_id").notNull().default(""),
+  note: text("note").notNull().default(""),
+}, (table) => [
+  uniqueIndex("market_price_band_versions_category_version_uq").on(table.category, table.version),
+  index("market_price_band_versions_lookup_idx").on(table.category, table.status, table.effectiveFrom, table.version),
+]);
+
+export const marketPriceBandItems = sqliteTable("market_price_band_items", {
+  id: text("id").primaryKey(),
+  versionId: text("version_id").notNull(),
+  label: text("label").notNull(),
+  minCents: integer("min_cents"),
+  maxCents: integer("max_cents"),
+  sortOrder: integer("sort_order").notNull().default(0),
+}, (table) => [
+  index("market_price_band_items_version_idx").on(table.versionId, table.sortOrder),
+]);
+
+export const marketMasterMappingRules = sqliteTable("market_master_mapping_rules", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  category: text("category").notNull().default(""),
+  sourceValue: text("source_value").notNull(),
+  targetValue: text("target_value").notNull(),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  effectiveFrom: text("effective_from").notNull().default("1970-01-01"),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("market_master_mapping_rules_kind_idx").on(table.kind, table.category, table.status, table.effectiveFrom),
+]);
+
+export const marketDownloadTasks = sqliteTable("market_download_tasks", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  month: text("month").notNull(),
+  rankingDimension: text("ranking_dimension").notNull(),
+  status: text("status").notNull().default("planned"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  sourceFileName: text("source_file_name").notNull().default(""),
+  fileHash: text("file_hash").notNull().default(""),
+  rowCount: integer("row_count").notNull().default(0),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  nextRetryAt: text("next_retry_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("market_download_tasks_unique_uq").on(table.category, table.month, table.rankingDimension),
+  index("market_download_tasks_status_idx").on(table.status, table.nextRetryAt, table.updatedAt),
+]);
+
+export const marketMasterAuditLogs = sqliteTable("market_master_audit_logs", {
+  id: text("id").primaryKey(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  beforeJson: text("before_json").notNull().default("{}"),
+  afterJson: text("after_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("market_master_audit_logs_entity_idx").on(table.entityType, table.entityId, table.createdAt),
+]);
 
 /** Validated JD product image cache metadata; image bytes live in R2. */
 export const marketImageCache = sqliteTable(

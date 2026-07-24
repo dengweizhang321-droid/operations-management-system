@@ -1,4 +1,6 @@
 import { env } from "cloudflare:workers";
+import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
+import { ensureMarketSchemaCore, officialPriceBandSql } from "@/lib/market/schema-core";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -70,121 +72,7 @@ export type MarketOverviewFilters = {
   endDate?: string;
 };
 
-const schemaStatements = [
-  `CREATE TABLE IF NOT EXISTS market_import_batches (
-    id TEXT PRIMARY KEY NOT NULL,
-    source_type TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    file_size_bytes INTEGER NOT NULL,
-    file_hash TEXT NOT NULL UNIQUE,
-    sheet_name TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL,
-    row_count INTEGER NOT NULL DEFAULT 0,
-    inserted_count INTEGER NOT NULL DEFAULT 0,
-    updated_count INTEGER NOT NULL DEFAULT 0,
-    warning_count INTEGER NOT NULL DEFAULT 0,
-    period_start TEXT,
-    period_end TEXT,
-    warnings_json TEXT NOT NULL DEFAULT '[]',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT
-  )`,
-  `CREATE INDEX IF NOT EXISTS market_import_batches_created_idx ON market_import_batches (created_at)`,
-  `CREATE TABLE IF NOT EXISTS market_ranking_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    natural_key TEXT NOT NULL UNIQUE,
-    source_row_number INTEGER NOT NULL,
-    period_start TEXT NOT NULL,
-    period_end TEXT NOT NULL,
-    category TEXT NOT NULL DEFAULT '',
-    scope TEXT NOT NULL DEFAULT '全部',
-    ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
-    operation_mode TEXT NOT NULL DEFAULT '未知',
-    subcategory TEXT NOT NULL DEFAULT '',
-    rank INTEGER,
-    sku_code TEXT NOT NULL,
-    product_name TEXT NOT NULL DEFAULT '',
-    brand TEXT NOT NULL DEFAULT '',
-    price_cents INTEGER,
-    price_low_cents INTEGER,
-    price_high_cents INTEGER,
-    price_estimated INTEGER NOT NULL DEFAULT 0,
-    gmv_cents INTEGER NOT NULL DEFAULT 0,
-    quantity INTEGER NOT NULL DEFAULT 0,
-    page_views INTEGER NOT NULL DEFAULT 0,
-    visitors INTEGER NOT NULL DEFAULT 0,
-    conversion_bps INTEGER,
-    cart_customers INTEGER NOT NULL DEFAULT 0,
-    search_clicks INTEGER NOT NULL DEFAULT 0,
-    image_url TEXT NOT NULL DEFAULT '',
-    product_url TEXT NOT NULL DEFAULT '',
-    raw_json TEXT NOT NULL DEFAULT '{}',
-    last_import_batch_id TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE INDEX IF NOT EXISTS market_entries_period_idx ON market_ranking_entries (period_end, period_start)`,
-  `CREATE INDEX IF NOT EXISTS market_entries_category_idx ON market_ranking_entries (category, period_end)`,
-  `CREATE INDEX IF NOT EXISTS market_entries_sku_idx ON market_ranking_entries (sku_code, period_end)`,
-  `CREATE INDEX IF NOT EXISTS market_entries_brand_idx ON market_ranking_entries (brand, period_end)`,
-  `CREATE INDEX IF NOT EXISTS market_entries_dimension_idx ON market_ranking_entries (ranking_dimension, operation_mode, period_end)`,
-  `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
-  `CREATE TABLE IF NOT EXISTS market_price_snapshots (
-    id TEXT PRIMARY KEY NOT NULL,
-    category TEXT NOT NULL,
-    sku_code TEXT NOT NULL,
-    ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
-    month TEXT NOT NULL,
-    source_price_cents INTEGER,
-    ai_image_price_cents INTEGER,
-    ai_price_type TEXT NOT NULL DEFAULT '',
-    ai_confidence_bps INTEGER,
-    ai_reason TEXT NOT NULL DEFAULT '',
-    confirmed_market_price_cents INTEGER,
-    average_transaction_price_cents INTEGER,
-    price_low_cents INTEGER,
-    price_high_cents INTEGER,
-    image_content_sha256 TEXT NOT NULL DEFAULT '',
-    image_url TEXT NOT NULL DEFAULT '',
-    confirmation_status TEXT NOT NULL DEFAULT 'source_table',
-    confirmed_by TEXT NOT NULL DEFAULT '',
-    confirmed_at TEXT,
-    source_job_item_id TEXT NOT NULL DEFAULT '',
-    prompt_version_id TEXT NOT NULL DEFAULT '',
-    source_import_batch_id TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, sku_code, ranking_dimension, month)`,
-  `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
-  `CREATE INDEX IF NOT EXISTS market_price_snapshots_hash_idx ON market_price_snapshots (sku_code, image_content_sha256, confirmed_at)`,
-  `CREATE TABLE IF NOT EXISTS market_image_cache (
-    source_url TEXT PRIMARY KEY NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    object_key TEXT NOT NULL DEFAULT '',
-    content_sha256 TEXT NOT NULL DEFAULT '',
-    mime_type TEXT NOT NULL DEFAULT '',
-    size_bytes INTEGER NOT NULL DEFAULT 0,
-    image_source TEXT NOT NULL DEFAULT '',
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    error_code TEXT NOT NULL DEFAULT '',
-    error_message TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE INDEX IF NOT EXISTS market_image_cache_object_key_idx ON market_image_cache (object_key)`,
-  `CREATE INDEX IF NOT EXISTS market_image_cache_status_idx ON market_image_cache (status, updated_at)`,
-] as const;
-
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
-const rankingEntryColumns: Array<[string, string]> = [
-  ["ranking_dimension", "TEXT NOT NULL DEFAULT 'SKU'"],
-  ["operation_mode", "TEXT NOT NULL DEFAULT '未知'"],
-  ["subcategory", "TEXT NOT NULL DEFAULT ''"],
-  ["price_low_cents", "INTEGER"],
-  ["price_high_cents", "INTEGER"],
-  ["price_estimated", "INTEGER NOT NULL DEFAULT 0"],
-];
 
 export function getMarketDatabase(): MarketDatabase {
   if (!env.DB) throw new Error("市场分析数据库未配置");
@@ -195,10 +83,7 @@ export async function ensureMarketSchema(db: MarketDatabase = getMarketDatabase(
   const key = db as unknown as object;
   const ready = schemaReadyByDatabase.get(key);
   if (ready) return ready;
-  const setup = db.batch(schemaStatements.map((statement) => db.prepare(statement)))
-    .then(async () => {
-      await addMissingColumns(db, "market_ranking_entries", rankingEntryColumns);
-    })
+  const setup = ensureMarketSchemaCore(db)
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
       throw error;
@@ -207,64 +92,16 @@ export async function ensureMarketSchema(db: MarketDatabase = getMarketDatabase(
   return setup;
 }
 
-async function addMissingColumns(db: MarketDatabase, table: string, columns: Array<[string, string]>) {
-  const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
-  const existing = new Set((info.results ?? []).map((row) => row.name));
-  for (const [name, definition] of columns) {
-    if (!existing.has(name)) await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
-  }
-}
-
-function monthKey(date: string) {
-  return /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : "";
-}
-
-type BatchRow = {
-  id: string; source_type: string; file_name: string; file_size_bytes: number; file_hash: string;
-  sheet_name: string; status: string; row_count: number; inserted_count: number; updated_count: number;
-  warning_count: number; period_start: string | null; period_end: string | null; warnings_json: string;
-  created_at: string; completed_at: string | null;
-};
-
-function parseJson<T>(value: string, fallback: T): T {
-  try { return JSON.parse(value) as T; } catch { return fallback; }
-}
-
-function mapBatch(row: BatchRow): MarketImportBatch {
-  return {
-    id: row.id,
-    sourceType: row.source_type,
-    fileName: row.file_name,
-    fileSizeBytes: row.file_size_bytes,
-    fileHash: row.file_hash,
-    sheetName: row.sheet_name,
-    status: row.status,
-    rowCount: row.row_count,
-    insertedCount: row.inserted_count,
-    updatedCount: row.updated_count,
-    warningCount: row.warning_count,
-    periodStart: row.period_start,
-    periodEnd: row.period_end,
-    warnings: parseJson(row.warnings_json, []),
-    createdAt: row.created_at,
-    completedAt: row.completed_at,
-  };
-}
-
-const batchColumns = `id, source_type, file_name, file_size_bytes, file_hash, sheet_name, status,
-  row_count, inserted_count, updated_count, warning_count, period_start, period_end,
-  warnings_json, created_at, completed_at`;
-
 export async function findMarketBatchByHash(db: MarketDatabase, fileHash: string): Promise<MarketImportBatch | null> {
-  const row = await db.prepare(`SELECT ${batchColumns} FROM market_import_batches WHERE file_hash = ? LIMIT 1`)
-    .bind(fileHash).first<BatchRow>();
-  return row ? mapBatch(row) : null;
+  const row = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE file_hash = ? LIMIT 1`)
+    .bind(fileHash).first<Parameters<typeof mapMarketBatch>[0]>();
+  return row ? mapMarketBatch(row) as MarketImportBatch : null;
 }
 
 export async function listMarketImportBatches(db: MarketDatabase, limit = 8): Promise<MarketImportBatch[]> {
-  const rows = await db.prepare(`SELECT ${batchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT ?`)
-    .bind(Math.max(1, Math.min(50, Math.trunc(limit)))).all<BatchRow>();
-  return (rows.results ?? []).map(mapBatch);
+  const rows = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT ?`)
+    .bind(Math.max(1, Math.min(50, Math.trunc(limit)))).all<Parameters<typeof mapMarketBatch>[0]>();
+  return (rows.results ?? []).map((row) => mapMarketBatch(row) as MarketImportBatch);
 }
 
 export async function saveMarketImport(input: {
@@ -278,121 +115,9 @@ export async function saveMarketImport(input: {
   rows: MarketEntryInput[];
   warnings: MarketImportIssue[];
 }): Promise<MarketImportBatch> {
-  const { db } = input;
-  const dates = input.rows.flatMap((row) => [row.periodStart, row.periodEnd]).filter(Boolean).sort();
-  await db.prepare(
-    `INSERT INTO market_import_batches (
-      id, source_type, file_name, file_size_bytes, file_hash, sheet_name, status,
-      row_count, warning_count, period_start, period_end, warnings_json
-    ) VALUES (?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?, ?)`,
-  ).bind(
-    input.batchId, input.sourceType, input.fileName, input.fileSizeBytes, input.fileHash,
-    input.sheetName, input.rows.length, input.warnings.length, dates[0] ?? null,
-    dates.at(-1) ?? null, JSON.stringify(input.warnings.slice(0, 100)),
-  ).run();
-
-  try {
-    let inserted = 0;
-    let updated = 0;
-    for (let offset = 0; offset < input.rows.length; offset += 80) {
-      const chunk = input.rows.slice(offset, offset + 80);
-      const existingRows = await db.prepare(
-        `SELECT natural_key FROM market_ranking_entries WHERE natural_key IN (${chunk.map(() => "?").join(",")})`,
-      ).bind(...chunk.map((row) => row.naturalKey)).all<{ natural_key: string }>();
-      const existingKeys = new Set((existingRows.results ?? []).map((row) => row.natural_key));
-      inserted += chunk.filter((row) => !existingKeys.has(row.naturalKey)).length;
-      updated += chunk.filter((row) => existingKeys.has(row.naturalKey)).length;
-      await db.batch(chunk.map((row) => db.prepare(
-      `INSERT INTO market_ranking_entries (
-        natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension,
-        operation_mode, subcategory, rank, sku_code, product_name, brand, price_cents,
-        price_low_cents, price_high_cents, price_estimated, gmv_cents, quantity, page_views,
-        visitors, conversion_bps, cart_customers, search_clicks, image_url, product_url,
-        raw_json, last_import_batch_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(natural_key) DO UPDATE SET
-        source_row_number = excluded.source_row_number,
-        category = excluded.category,
-        scope = excluded.scope,
-        ranking_dimension = excluded.ranking_dimension,
-        operation_mode = excluded.operation_mode,
-        subcategory = excluded.subcategory,
-        rank = excluded.rank,
-        product_name = excluded.product_name,
-        brand = excluded.brand,
-        price_cents = excluded.price_cents,
-        price_low_cents = excluded.price_low_cents,
-        price_high_cents = excluded.price_high_cents,
-        price_estimated = excluded.price_estimated,
-        gmv_cents = excluded.gmv_cents,
-        quantity = excluded.quantity,
-        page_views = excluded.page_views,
-        visitors = excluded.visitors,
-        conversion_bps = excluded.conversion_bps,
-        cart_customers = excluded.cart_customers,
-        search_clicks = excluded.search_clicks,
-        image_url = excluded.image_url,
-        product_url = excluded.product_url,
-        raw_json = excluded.raw_json,
-        last_import_batch_id = excluded.last_import_batch_id,
-        updated_at = CURRENT_TIMESTAMP`,
-    ).bind(
-      row.naturalKey, row.sourceRowNumber, row.periodStart, row.periodEnd, row.category,
-      row.scope, row.rankingDimension, row.operationMode, row.subcategory, row.rank,
-      row.skuCode, row.productName, row.brand, row.priceCents, row.priceLowCents,
-      row.priceHighCents, row.priceEstimated ? 1 : 0, row.gmvCents, row.quantity, row.pageViews, row.visitors, row.conversionBps,
-      row.cartCustomers, row.searchClicks, row.imageUrl, row.productUrl,
-      JSON.stringify(row.raw), input.batchId,
-      )));
-      await db.batch(chunk.map((row) => db.prepare(
-        `INSERT INTO market_price_snapshots (
-          id, category, sku_code, ranking_dimension, month, source_price_cents,
-          average_transaction_price_cents, price_low_cents, price_high_cents,
-          image_url, confirmation_status, source_import_batch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(category, sku_code, ranking_dimension, month) DO UPDATE SET
-          source_price_cents = excluded.source_price_cents,
-          average_transaction_price_cents = excluded.average_transaction_price_cents,
-          price_low_cents = excluded.price_low_cents,
-          price_high_cents = excluded.price_high_cents,
-          image_url = CASE WHEN excluded.image_url <> '' THEN excluded.image_url ELSE market_price_snapshots.image_url END,
-          confirmation_status = CASE
-            WHEN market_price_snapshots.confirmed_market_price_cents IS NOT NULL THEN market_price_snapshots.confirmation_status
-            WHEN excluded.source_price_cents IS NOT NULL THEN 'source_table'
-            ELSE market_price_snapshots.confirmation_status
-          END,
-          source_import_batch_id = excluded.source_import_batch_id,
-          updated_at = CURRENT_TIMESTAMP`
-      ).bind(
-        `market-price-${row.category}-${row.rankingDimension}-${row.skuCode}-${monthKey(row.periodEnd)}`,
-        row.category,
-        row.skuCode,
-        row.rankingDimension,
-        monthKey(row.periodEnd),
-        row.priceCents,
-        row.quantity > 0 ? Math.round(row.gmvCents / row.quantity) : null,
-        row.priceLowCents,
-        row.priceHighCents,
-        row.imageUrl,
-        row.priceCents === null ? "missing" : "source_table",
-        input.batchId,
-      )));
-    }
-
-    await db.prepare(
-      `UPDATE market_import_batches SET status = 'completed', inserted_count = ?, updated_count = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    ).bind(inserted, updated, input.batchId).run();
-    const row = await db.prepare(`SELECT ${batchColumns} FROM market_import_batches WHERE id = ? LIMIT 1`)
-      .bind(input.batchId).first<BatchRow>();
-    if (!row) throw new Error("市场分析导入批次保存失败");
-    return mapBatch(row);
-  } catch (error) {
-    await db.prepare(
-      "UPDATE market_import_batches SET status = 'failed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-    ).bind(input.batchId).run().catch(() => undefined);
-    throw error;
-  }
+  return saveMarketImportCore(input) as Promise<MarketImportBatch>;
 }
+
 
 type SummaryRow = {
   product_count: number; category_count: number; brand_count: number; gmv_cents: number;
@@ -404,21 +129,12 @@ type EntryRow = {
   id: number; period_start: string; period_end: string; category: string; scope: string; ranking_dimension: "SKU" | "SPU";
   operation_mode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previous_rank: number | null;
   sku_code: string; product_name: string; brand: string; price_cents: number | null;
-  final_market_price_cents: number | null; market_price_source: string; average_transaction_price_cents: number | null;
+  official_market_price_cents: number | null; candidate_price_cents: number | null; market_price_source: string; candidate_price_source: string; average_transaction_price_cents: number | null;
   discount_bps: number | null; discount_reference: number;
   gmv_cents: number; quantity: number; page_views: number; visitors: number; conversion_bps: number | null;
   cart_customers: number; search_clicks: number; image_url: string; source_image_url: string; image_cache_status: string; product_url: string;
   is_own: number; own_sales_cents: number;
 };
-
-const priceBandSql = `CASE
-  WHEN final_market_price_cents IS NULL THEN '未确认价格'
-  WHEN final_market_price_cents < 50000 THEN '0-499'
-  WHEN final_market_price_cents < 100000 THEN '500-999'
-  WHEN final_market_price_cents < 200000 THEN '1000-1999'
-  WHEN final_market_price_cents < 300000 THEN '2000-2999'
-  ELSE '3000+'
-END`;
 
 function filterSql(filters: MarketOverviewFilters) {
   const clauses: string[] = [];
@@ -460,22 +176,19 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       ps.ai_confidence_bps,
       ps.confirmation_status,
       ps.average_transaction_price_cents,
-      COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) AS final_market_price_cents,
+      ps.confirmed_market_price_cents AS official_market_price_cents,
+      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) AS candidate_price_cents,
       CASE
         WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认'
+        ELSE '未确认价格'
+      END AS market_price_source,
+      CASE
         WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
         WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
         WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
         ELSE '暂无价格'
-      END AS market_price_source,
-      CASE
-        WHEN COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) IS NULL THEN '未确认价格'
-        WHEN COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) < 50000 THEN '0-499'
-        WHEN COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) < 100000 THEN '500-999'
-        WHEN COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) < 200000 THEN '1000-1999'
-        WHEN COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) < 300000 THEN '2000-2999'
-        ELSE '3000+'
-      END AS price_band,
+      END AS candidate_price_source,
+      ${officialPriceBandSql("ps.confirmed_market_price_cents")} AS price_band,
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id = m.sku_code OR n.product_code = m.sku_code OR n.spu_id = m.sku_code
@@ -510,12 +223,13 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     db.prepare(`${enriched} SELECT id, period_start, period_end, category, scope, ranking_dimension, operation_mode, subcategory, rank,
       (SELECT p.rank FROM market_ranking_entries p
         WHERE p.category=filtered.category AND p.sku_code=filtered.sku_code AND p.ranking_dimension=filtered.ranking_dimension
+          AND p.scope=filtered.scope AND p.operation_mode=filtered.operation_mode
           AND p.period_end < filtered.period_end
         ORDER BY p.period_end DESC, p.id DESC LIMIT 1) previous_rank,
-      sku_code, product_name, brand, price_cents, final_market_price_cents, market_price_source,
+      sku_code, product_name, brand, price_cents, official_market_price_cents, candidate_price_cents, market_price_source, candidate_price_source,
       average_transaction_price_cents,
-      CASE WHEN final_market_price_cents IS NOT NULL AND final_market_price_cents > 0 AND average_transaction_price_cents IS NOT NULL
-        THEN CAST(ROUND((1 - average_transaction_price_cents * 1.0 / final_market_price_cents) * 10000) AS INTEGER) ELSE NULL END discount_bps,
+      CASE WHEN official_market_price_cents IS NOT NULL AND official_market_price_cents > 0 AND average_transaction_price_cents IS NOT NULL
+        THEN CAST(ROUND((1 - average_transaction_price_cents * 1.0 / official_market_price_cents) * 10000) AS INTEGER) ELSE NULL END discount_bps,
       CASE WHEN price_estimated = 1 THEN 1 ELSE 0 END discount_reference,
       gmv_cents, quantity, page_views, visitors,
       conversion_bps, cart_customers, search_clicks,
@@ -529,7 +243,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END) pop_gmv_cents,
       SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
       CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
-      CASE WHEN SUM(gmv_cents)>0 THEN CAST(ROUND(SUM(COALESCE(final_market_price_cents,0)*gmv_cents)*1.0/SUM(CASE WHEN final_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)) AS INTEGER) ELSE NULL END weighted_market_price_cents
+      CASE WHEN SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)>0 THEN CAST(ROUND(SUM(COALESCE(official_market_price_cents,0)*gmv_cents)*1.0/SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)) AS INTEGER) ELSE NULL END weighted_market_price_cents
       FROM filtered GROUP BY substr(period_end, 1, 7) ORDER BY period ASC LIMIT 60`).bind(...bindings).all<Record<string, string | number | null>>(),
     db.prepare("SELECT category value, COUNT(*) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 100").all<{ value: string; count: number }>(),
     db.prepare("SELECT scope value, COUNT(*) count FROM market_ranking_entries WHERE scope <> '' GROUP BY scope ORDER BY count DESC, value LIMIT 30").all<{ value: string; count: number }>(),
@@ -546,15 +260,15 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       FROM filtered GROUP BY price_band ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
     db.prepare(`${enriched} SELECT brand, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, COUNT(DISTINCT sku_code) sku_count,
       MIN(rank) best_rank, GROUP_CONCAT(DISTINCT price_band) price_bands, GROUP_CONCAT(DISTINCT subcategory) subcategories
-      FROM filtered WHERE brand <> '' GROUP BY brand ORDER BY gmv_cents DESC LIMIT 30`).bind(...bindings).all<Record<string, string | number>>(),
+      FROM filtered WHERE brand <> '' GROUP BY brand ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
     db.prepare(`${enriched} SELECT subcategory, COUNT(DISTINCT sku_code) sku_count, SUM(gmv_cents) gmv_cents,
       SUM(quantity) quantity, SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
       CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
-      COUNT(DISTINCT CASE WHEN market_price_source IN ('AI待确认','暂无价格') THEN sku_code END) pending_count,
+      COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN sku_code END) pending_count,
       GROUP_CONCAT(DISTINCT brand) brands, GROUP_CONCAT(DISTINCT price_band) price_bands
       FROM filtered GROUP BY subcategory ORDER BY gmv_cents DESC LIMIT 60`).bind(...bindings).all<Record<string, string | number | null>>(),
-    db.prepare(`${enriched} SELECT final_market_price_cents price, gmv_cents, quantity
-      FROM filtered WHERE final_market_price_cents IS NOT NULL ORDER BY final_market_price_cents ASC`).bind(...bindings).all<{ price: number; gmv_cents: number; quantity: number }>(),
+    db.prepare(`${enriched} SELECT official_market_price_cents price, gmv_cents, quantity
+      FROM filtered WHERE official_market_price_cents IS NOT NULL ORDER BY official_market_price_cents ASC`).bind(...bindings).all<{ price: number; gmv_cents: number; quantity: number }>(),
     db.prepare(`${enriched} SELECT MIN(period_start) date_min, MAX(period_end) date_max FROM filtered`)
       .bind(...bindings).first<{ date_min: string | null; date_max: string | null }>(),
     listMarketImportBatches(db, 8),
@@ -574,7 +288,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     : null;
   const averageTransactionPrice = Number(summaryValue.quantity ?? 0) > 0 ? Math.round(Number(summaryValue.gmv_cents ?? 0) / Number(summaryValue.quantity ?? 0)) : null;
   const brandTotal = (brandRows.results ?? []).reduce((sum, row) => sum + Number(row.gmv_cents ?? 0), 0);
-  const brandShares = (brandRows.results ?? []).map((row) => ({
+  const brandSharesAll = (brandRows.results ?? []).map((row) => ({
     brand: String(row.brand ?? ""),
     gmvCents: Number(row.gmv_cents ?? 0),
     quantity: Number(row.quantity ?? 0),
@@ -584,7 +298,8 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     priceBands: String(row.price_bands ?? "").split(",").filter(Boolean).slice(0, 5),
     subcategories: String(row.subcategories ?? "").split(",").filter(Boolean).slice(0, 5),
   }));
-  const cr = (count: number) => brandTotal ? Math.round(brandShares.slice(0, count).reduce((sum, row) => sum + row.gmvCents, 0) / brandTotal * 10_000) : 0;
+  const brandShares = brandSharesAll.slice(0, 30);
+  const cr = (count: number) => brandTotal ? Math.round(brandSharesAll.slice(0, count).reduce((sum, row) => sum + row.gmvCents, 0) / brandTotal * 10_000) : 0;
   return {
     summary: {
       productCount: Number(summaryValue.product_count ?? 0),
@@ -608,8 +323,9 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       scope: row.scope, rankingDimension: row.ranking_dimension, operationMode: row.operation_mode, subcategory: row.subcategory,
       rank: row.rank, previousRank: row.previous_rank, rankChange: row.previous_rank !== null && row.rank !== null ? row.previous_rank - row.rank : null,
       skuCode: row.sku_code, productName: row.product_name,
-      brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.final_market_price_cents,
-      marketPriceSource: row.market_price_source, averageTransactionPriceCents: row.average_transaction_price_cents,
+      brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.official_market_price_cents,
+      candidatePriceCents: row.candidate_price_cents, marketPriceSource: row.market_price_source,
+      candidatePriceSource: row.candidate_price_source, averageTransactionPriceCents: row.average_transaction_price_cents,
       discountBps: row.discount_bps, discountReference: Boolean(row.discount_reference),
       gmvCents: row.gmv_cents, quantity: row.quantity,
       pageViews: row.page_views, visitors: row.visitors, conversionBps: row.conversion_bps,
@@ -676,16 +392,20 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
     SELECT m.period_start, m.period_end, substr(m.period_end, 1, 7) month, m.category, m.scope,
       m.ranking_dimension, m.operation_mode, m.subcategory, m.rank, m.sku_code, m.product_name, m.brand,
       m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
-      COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) market_price_cents,
+      ps.confirmed_market_price_cents market_price_cents,
+      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) candidate_price_cents,
       ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps,
       ps.confirmed_market_price_cents, ps.average_transaction_price_cents,
       CASE
         WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认'
+        ELSE '未确认价格'
+      END price_status,
+      CASE
         WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
         WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
         WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
         ELSE '暂无价格'
-      END price_status,
+      END candidate_price_status,
       COALESCE(ps.confirmation_status, 'missing') confirmation_status
     FROM market_ranking_entries m
     LEFT JOIN market_price_snapshots ps ON ps.category = m.category
@@ -716,6 +436,7 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
       visitors: Number(row.visitors ?? 0),
       conversionBps: row.conversion_bps === null ? null : Number(row.conversion_bps),
       marketPriceCents: row.market_price_cents === null ? null : Number(row.market_price_cents),
+      candidatePriceCents: row.candidate_price_cents === null ? null : Number(row.candidate_price_cents),
       averageTransactionPriceCents: row.average_transaction_price_cents === null ? null : Number(row.average_transaction_price_cents),
       sourcePriceCents: row.source_price_cents === null ? null : Number(row.source_price_cents),
       aiImagePriceCents: row.ai_image_price_cents === null ? null : Number(row.ai_image_price_cents),
@@ -723,6 +444,7 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
       aiConfidenceBps: row.ai_confidence_bps === null ? null : Number(row.ai_confidence_bps),
       confirmedMarketPriceCents: row.confirmed_market_price_cents === null ? null : Number(row.confirmed_market_price_cents),
       priceStatus: String(row.price_status ?? "暂无价格"),
+      candidatePriceStatus: String(row.candidate_price_status ?? "暂无价格"),
       confirmationStatus: String(row.confirmation_status ?? "missing"),
     })),
   };
