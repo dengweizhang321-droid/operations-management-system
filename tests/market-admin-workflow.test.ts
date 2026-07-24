@@ -187,6 +187,7 @@ test("download execution claim prevents concurrent imports and waiting login doe
   await startedPromise;
   const concurrent = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, { download: async () => ({ bytes: new TextEncoder().encode(csv), fileName: "claim.csv" }) });
   assert.equal(concurrent.busy, true);
+  await assert.rejects(() => recordMarketDownloadAttempt(db as never, { taskId: task.id, status: "waiting_login" }, admin), /不能从客户端改写/);
   release();
   assert.equal((await first).status, "imported");
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches").get() as { count: number }).count, 1);

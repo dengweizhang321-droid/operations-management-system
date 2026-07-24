@@ -149,7 +149,8 @@ export async function applyPublishedMarketMappings(db: MarketDatabase, input: { 
       operation_mode=source_operation_mode,
       subcategory=source_subcategory,
       updated_at=CURRENT_TIMESTAMP
-    WHERE (?='' OR category=?)`).bind(category, category).run();
+    WHERE (?='' OR category=?)
+      AND (brand<>source_brand OR operation_mode<>source_operation_mode OR subcategory<>source_subcategory)`).bind(category, category).run();
   const rules = await db.prepare(`SELECT id, kind, category, source_value, target_value, effective_from
     FROM market_master_mapping_rules
     WHERE status='published' AND (?='' OR category='' OR category=?)
@@ -310,10 +311,11 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
   const terminalFailed = input.status === "failed" && nextAttempt >= 3;
   const status = terminalFailed ? "failed" : input.status;
   const nextRetryAt = input.status === "failed" && !terminalFailed ? new Date(Date.now() + 15 * 60_000).toISOString() : null;
-  await db.prepare(`UPDATE market_download_tasks SET status=?, attempt_count=?, error_code=?, error_message=?,
+  const result = await db.prepare(`UPDATE market_download_tasks SET status=?, attempt_count=?, error_code=?, error_message=?,
       next_retry_at=?, last_attempt_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-    WHERE id=? AND status NOT IN ('imported','published')`)
-    .bind(status, nextAttempt, input.errorCode ?? "", input.errorMessage ?? "", nextRetryAt, input.taskId).run();
+    WHERE id=? AND status IN ('planned','created','failed','waiting_login')`)
+    .bind(status, nextAttempt, input.errorCode ?? "", input.errorMessage ?? "", nextRetryAt, input.taskId).run() as { meta?: { changes?: number } };
+  if (Number(result.meta?.changes ?? 0) !== 1) throw new Error("任务已被执行器领取或已完成，不能从客户端改写状态");
   const after = await db.prepare("SELECT * FROM market_download_tasks WHERE id=? LIMIT 1").bind(input.taskId).first<Record<string, unknown>>();
   await audit(db, actor, "record_download_attempt", "market_download_task", input.taskId, before, after);
   return after;
