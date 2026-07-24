@@ -25,6 +25,7 @@ export type SalesLineInput = {
   logisticsCompany: string;
   warehouse: string;
   productCode: string;
+  onlineSpecCode: string;
   productName: string;
   specification: string;
   barcode: string;
@@ -126,6 +127,7 @@ const schemaStatements = [
     logistics_company TEXT NOT NULL,
     warehouse TEXT NOT NULL,
     product_code TEXT NOT NULL,
+    online_spec_code TEXT NOT NULL DEFAULT '',
     product_name TEXT NOT NULL,
     specification TEXT NOT NULL,
     barcode TEXT NOT NULL,
@@ -194,6 +196,13 @@ const schemaStatements = [
     ON sales_import_upload_chunks (upload_id)`,
 ] as const;
 
+const additiveSchemaStatements = [
+  `CREATE INDEX IF NOT EXISTS sales_order_lines_online_spec_code_idx
+    ON sales_order_lines (online_spec_code)`,
+] as const;
+
+type TableColumnRow = { name: string };
+
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export function getSalesDatabase(): SalesDatabase {
@@ -213,9 +222,11 @@ export async function ensureSalesSchema(db = getSalesDatabase()): Promise<void> 
     return existing;
   }
 
-  const setup = db
-    .batch(schemaStatements.map((statement) => db.prepare(statement)))
-    .then(() => undefined)
+  const setup = (async () => {
+    await db.batch(schemaStatements.map((statement) => db.prepare(statement)));
+    await ensureSalesOrderLineColumn(db, "online_spec_code", "TEXT NOT NULL DEFAULT ''");
+    await db.batch(additiveSchemaStatements.map((statement) => db.prepare(statement)));
+  })()
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
       throw error;
@@ -223,6 +234,26 @@ export async function ensureSalesSchema(db = getSalesDatabase()): Promise<void> 
 
   schemaReadyByDatabase.set(key, setup);
   return setup;
+}
+
+async function hasSalesOrderLineColumn(db: SalesDatabase, name: string): Promise<boolean> {
+  const result = await db.prepare("PRAGMA table_info(sales_order_lines)").all<TableColumnRow>();
+  return (result.results ?? []).some((column) => column.name === name);
+}
+
+async function ensureSalesOrderLineColumn(
+  db: SalesDatabase,
+  name: string,
+  definition: string,
+): Promise<void> {
+  if (await hasSalesOrderLineColumn(db, name)) return;
+  try {
+    await db.prepare(`ALTER TABLE sales_order_lines ADD COLUMN ${name} ${definition}`).run();
+  } catch (error) {
+    // Multiple workers may detect the missing additive column together. Treat
+    // a concurrent successful migration as ready, but surface every other D1 error.
+    if (!(await hasSalesOrderLineColumn(db, name))) throw error;
+  }
 }
 
 function parseJson<T>(value: string, fallback: T): T {
@@ -327,7 +358,7 @@ const upsertSalesLinesSql = `
     source_row_number, source_line_key, source_row_hash,
     first_import_batch_id, last_import_batch_id,
     order_no, online_order_no, channel, platform, shop_name,
-    logistics_company, warehouse, product_code, product_name,
+    logistics_company, warehouse, product_code, online_spec_code, product_name,
     specification, barcode, supplier, category, quantity,
     list_unit_price_cents, cost_amount_cents, allocated_unit_price_cents,
     allocated_amount_cents, fee_allocation_cents, gross_profit_cents,
@@ -348,6 +379,7 @@ const upsertSalesLinesSql = `
     json_extract(item.value, '$.logisticsCompany'),
     json_extract(item.value, '$.warehouse'),
     json_extract(item.value, '$.productCode'),
+    json_extract(item.value, '$.onlineSpecCode'),
     json_extract(item.value, '$.productName'),
     json_extract(item.value, '$.specification'),
     json_extract(item.value, '$.barcode'),
@@ -382,6 +414,7 @@ const upsertSalesLinesSql = `
     logistics_company = excluded.logistics_company,
     warehouse = excluded.warehouse,
     product_code = excluded.product_code,
+    online_spec_code = excluded.online_spec_code,
     product_name = excluded.product_name,
     specification = excluded.specification,
     barcode = excluded.barcode,

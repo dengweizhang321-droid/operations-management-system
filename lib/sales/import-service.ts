@@ -58,6 +58,7 @@ function mapAnalysisSafeRow(row: SalesLedgerRow): SalesLineInput {
     logisticsCompany: row.logisticsCompany,
     warehouse: row.warehouse,
     productCode: row.productCode,
+    onlineSpecCode: row.onlineSpecCode,
     productName: row.productName,
     specification: row.specification,
     barcode: row.barcode,

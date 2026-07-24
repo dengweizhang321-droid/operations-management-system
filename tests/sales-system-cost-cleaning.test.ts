@@ -16,6 +16,7 @@ function salesRow(overrides: Partial<SalesLineInput> = {}): SalesLineInput {
     logisticsCompany: "",
     warehouse: "主仓",
     productCode: "SKU-1",
+    onlineSpecCode: "JD-SKU-1",
     productName: "测试货品",
     specification: "",
     barcode: "",

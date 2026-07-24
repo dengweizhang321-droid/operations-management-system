@@ -7,7 +7,7 @@
 | 分组 | 表（存在时） | 字段白名单摘要 | 导航模块 |
 | --- | --- | --- | --- |
 | 货品主数据 | `erp_product_master` | 编码、名称、规格、条码、品牌、品类、供应商 | 货品详情 |
-| 销售订单 | `sales_order_lines` | 订单号、线上单号、商品编码/名称、店铺、平台 | 销售分析 |
+| 销售订单 | `sales_order_lines` | 订单号、线上单号、ERP 商品编码、网店规格编码、商品名称、店铺、平台 | 销售分析 |
 | 京东 SKU/SPU 与网店商品 | `netshop_rows` | SKU、SPU、商品编码/名称、店铺、平台、数据集 | 网店分析 |
 | 库存记录 | `inventory_stock_lines` | 商品、仓库、仓型、规格、品牌、品类 | 库存管理 |
 | 库龄数据 | `erp_inventory_age_lines`、`inventory_age_metrics` + `inventory_stock_lines` | 商品、仓库、品类、规格、库龄、7/30 日销量 | 库存管理 |

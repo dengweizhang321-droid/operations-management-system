@@ -42,6 +42,8 @@ export interface SalesLedgerRow {
   warehouse: string;
   customerCode: string;
   productCode: string;
+  /** 店铺侧 SKU/规格编码；空值表示源表未补充。 */
+  onlineSpecCode: string;
   productName: string;
   specification: string;
   barcode: string;
@@ -242,6 +244,7 @@ export function parseSalesLedgerXlsx(
         draft.warehouse,
         draft.customerCode,
         draft.productCode,
+        draft.onlineSpecCode,
         draft.productName,
         draft.specification,
         draft.barcode,
@@ -503,6 +506,7 @@ function parseSalesRow(
     warehouse: reader.text("发货仓库"),
     customerCode: reader.text("客户编号"),
     productCode,
+    onlineSpecCode: reader.text("网店规格编码"),
     productName,
     specification: reader.text("规格"),
     barcode: reader.text("货品条码"),

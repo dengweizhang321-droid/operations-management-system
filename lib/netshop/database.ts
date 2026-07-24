@@ -741,7 +741,7 @@ type NetshopProductSummaryRow = {
 };
 
 type NetshopProductSalesMetricRow = {
-  product_code: string;
+  sales_product_code: string;
   gross_sales_cents: number | null;
   refund_amount_cents: number | null;
   net_sales_cents: number | null;
@@ -861,7 +861,7 @@ async function readJdProductSalesMetrics(
   const rows = await db
     .prepare(
       `SELECT
-         product_code,
+         COALESCE(NULLIF(online_spec_code, ''), product_code) AS sales_product_code,
          COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
          COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
          COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
@@ -874,8 +874,8 @@ async function readJdProductSalesMetrics(
          AND product_code <> 'ERP_PRICE_ADJUSTMENT'
          AND TRIM(product_name) <> '补差价专用'
          AND COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '') LIKE ?
-         AND product_code IN (${skuSet.map(() => "?").join(", ")})
-       GROUP BY product_code`,
+         AND COALESCE(NULLIF(online_spec_code, ''), product_code) IN (${skuSet.map(() => "?").join(", ")})
+       GROUP BY COALESCE(NULLIF(online_spec_code, ''), product_code)`,
     )
     .bind(
       `${salesStartDate} 00:00:00`,
@@ -892,7 +892,7 @@ async function readJdProductSalesMetrics(
     const grossProfitCents = Number(row.gross_profit_cents ?? 0);
     const absoluteQuantity = Number(row.absolute_quantity ?? 0);
     const absoluteCostCents = Number(row.absolute_cost_cents ?? 0);
-    metrics.set(row.product_code, {
+    metrics.set(row.sales_product_code, {
       costPriceCents: absoluteQuantity > 0 ? absoluteCostCents / absoluteQuantity : null,
       netSalesCents,
       grossMarginRate: netSalesCents !== 0 ? grossProfitCents / netSalesCents : null,

@@ -202,7 +202,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     icon: "单",
     module: "sales",
     requiredTables: ["sales_order_lines"],
-    likeParameterCount: 6,
+    likeParameterCount: 7,
     allowedRoles: allRoles,
     scopeKind: "channel_platform",
     sql: `
@@ -212,8 +212,9 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
           SUM(allocated_amount_cents) AS net_sales_cents
         FROM sales_order_lines
         WHERE (order_no LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_order_no LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE)
+          OR product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_spec_code LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE)
           /*SCOPE*/
         GROUP BY order_no, online_order_no
       )

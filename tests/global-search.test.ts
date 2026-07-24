@@ -184,8 +184,9 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
   assert.equal(calls.some((call) => call.sql.includes("messages_json") || call.sql.includes("finance_lines")), false);
   const sales = calls.find((call) => call.sql.includes("sales_order_lines"));
   assert.ok(sales);
+  assert.match(sales.sql, /online_spec_code LIKE \?/);
   assert.match(sales.sql, /channel IN \(\?\).*platform IN \(\?\)/s);
-  assert.deepEqual(sales.values.slice(6, 8), ["线上", "京东"]);
+  assert.deepEqual(sales.values.slice(7, 9), ["线上", "京东"]);
   assert.deepEqual(result.filtersApplied.dataScope, {
     mode: "restricted", warehouses: [], channels: ["线上"], platforms: ["京东"],
   });

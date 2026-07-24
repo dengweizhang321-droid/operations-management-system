@@ -33,6 +33,7 @@ test("sales ledger parser keeps order number when export also has online order n
         "未税毛利率(%)",
         "货品分类",
         "发货时间",
+        "网店规格编码",
       ],
       [
         "JY202607160001",
@@ -60,6 +61,7 @@ test("sales ledger parser keeps order number when export also has online order n
         65,
         "测试分类",
         "2026-07-16 11:00:00",
+        "JD-SKU-1",
       ],
     ],
   }]);
@@ -70,6 +72,7 @@ test("sales ledger parser keeps order number when export also has online order n
   assert.equal(parsed.rows.length, 1);
   assert.equal(parsed.rows[0].orderNo, "JY202607160001");
   assert.equal(parsed.rows[0].onlineOrderNo, "3561428013514429");
+  assert.equal(parsed.rows[0].onlineSpecCode, "JD-SKU-1");
   assert.ok(parsed.headers.includes("订单编号"));
   assert.ok(parsed.headers.includes("网店订单号"));
 });
