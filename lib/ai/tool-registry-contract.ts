@@ -16,7 +16,7 @@ export type AiToolAnnotations = {
 };
 
 export type AiToolRisk = "read_only" | "write" | "dangerous";
-export type AiToolSurface = "ai_chat" | "market_ai" | "codex_mcp" | "test";
+export type AiToolSurface = "ai_chat" | "market_ai" | "customer_service_ai" | "codex_mcp" | "test";
 
 export type AiToolExecutionContext = {
   principal: AppPrincipal;

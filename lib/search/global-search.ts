@@ -366,20 +366,22 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     icon: "服",
     module: "customer_service",
     requiredTables: ["customer_service_conversations"],
-    likeParameterCount: 8,
+    likeParameterCount: 11,
     allowedRoles: businessRoles,
     scopeKind: "unscoped_only",
     sql: `
       SELECT CAST(id AS TEXT) AS result_id,
         COALESCE(NULLIF(customer_alias, ''), NULLIF(customer_id, ''), NULLIF(chat_customer_alias, ''), '匿名顾客') AS title,
         COALESCE(NULLIF(product_name, ''), NULLIF(product_sku, ''), '未关联商品') || CASE WHEN agent <> '' THEN ' · ' || agent ELSE '' END AS subtitle,
-        consultation_type || CASE WHEN match_status <> '' THEN ' · ' || match_status ELSE '' END AS detail,
+        COALESCE(NULLIF(summary_text, ''), NULLIF(service_issues, ''), consultation_type) || CASE WHEN problem_type <> '' THEN ' · ' || problem_type ELSE '' END AS detail,
         consulted_at AS updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
       FROM customer_service_conversations
       WHERE customer_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR customer_alias LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR chat_customer_alias LIKE ? ESCAPE '\\' COLLATE NOCASE OR agent LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR product_sku LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR conversation_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR messages_json LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR problem_type LIKE ? ESCAPE '\\' COLLATE NOCASE OR service_issues LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR summary_text LIKE ? ESCAPE '\\' COLLATE NOCASE
       ORDER BY consulted_at DESC, id DESC LIMIT ? OFFSET ?`,
   },
   {
@@ -493,6 +495,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "replenishment_plan_items",
     "finance_import_batches", "finance_lines", "finance_targets",
     "market_import_batches", "market_ranking_entries", "market_sku_annotations",
+    "customer_service_conversations", "customer_service_import_batches",
   ],
   coveredByProjection: [
     "finance_months",

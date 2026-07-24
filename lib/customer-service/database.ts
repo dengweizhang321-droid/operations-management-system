@@ -1,6 +1,11 @@
 import { env } from "cloudflare:workers";
 import type { CustomerServiceConversationInput, CustomerServiceParseResult } from "./import-service";
 import { ensureNetshopSchema, getNetshopDatabase } from "@/lib/netshop/database";
+import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
+import { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes, type CustomerServiceAnnotationInput, type CustomerServiceConversionStatus, type CustomerServiceProblemType, type CustomerServiceRobotScope } from "./contracts";
+
+export { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes } from "./contracts";
+export type { CustomerServiceAnnotationInput, CustomerServiceConversionStatus, CustomerServiceProblemType, CustomerServiceRobotScope } from "./contracts";
 
 type CustomerServiceDatabase = NonNullable<typeof env.DB>;
 
@@ -9,7 +14,7 @@ export type CustomerServiceImportBatch = {
 };
 
 export type CustomerServiceConversation = {
-  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; productSpuId: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: string; matchConfidence: string; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: Array<{ sender: string; sentAt: string; content: string }>;
+  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; productSpuId: string; erpProductCode: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: string; matchConfidence: string; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: Array<{ sender: string; sentAt: string; content: string }>; robotScope: CustomerServiceRobotScope | ""; problemType: CustomerServiceProblemType | ""; conversionStatus: CustomerServiceConversionStatus | ""; serviceIssues: string; summaryText: string; analysisSource: "ai" | "manual" | ""; analyzedAt: string | null; annotatedAt: string | null;
 };
 
 const schemaStatements = [
@@ -20,7 +25,7 @@ const schemaStatements = [
   )`,
   `CREATE TABLE IF NOT EXISTS customer_service_conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_key TEXT NOT NULL UNIQUE, first_import_batch_id TEXT NOT NULL, last_import_batch_id TEXT NOT NULL,
-    shop_name TEXT NOT NULL DEFAULT '志高商用设备', consulted_at TEXT NOT NULL, customer_id TEXT NOT NULL DEFAULT '', customer_alias TEXT NOT NULL DEFAULT '', consultation_type TEXT NOT NULL DEFAULT '', agent TEXT NOT NULL DEFAULT '', transferred_agent TEXT NOT NULL DEFAULT '', skill_group TEXT NOT NULL DEFAULT '', product_sku TEXT NOT NULL DEFAULT '', product_name TEXT NOT NULL DEFAULT '', first_response_at TEXT NOT NULL DEFAULT '', response_seconds REAL, duration_minutes REAL, customer_message_count INTEGER, agent_message_count INTEGER, satisfaction TEXT NOT NULL DEFAULT '', resolved TEXT NOT NULL DEFAULT '', conversation_id TEXT NOT NULL DEFAULT '', match_status TEXT NOT NULL, match_confidence TEXT NOT NULL, chat_started_at TEXT NOT NULL DEFAULT '', chat_ended_at TEXT NOT NULL DEFAULT '', chat_customer_alias TEXT NOT NULL DEFAULT '', messages_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    shop_name TEXT NOT NULL DEFAULT '志高商用设备', consulted_at TEXT NOT NULL, customer_id TEXT NOT NULL DEFAULT '', customer_alias TEXT NOT NULL DEFAULT '', consultation_type TEXT NOT NULL DEFAULT '', agent TEXT NOT NULL DEFAULT '', transferred_agent TEXT NOT NULL DEFAULT '', skill_group TEXT NOT NULL DEFAULT '', product_sku TEXT NOT NULL DEFAULT '', product_name TEXT NOT NULL DEFAULT '', first_response_at TEXT NOT NULL DEFAULT '', response_seconds REAL, duration_minutes REAL, customer_message_count INTEGER, agent_message_count INTEGER, satisfaction TEXT NOT NULL DEFAULT '', resolved TEXT NOT NULL DEFAULT '', conversation_id TEXT NOT NULL DEFAULT '', match_status TEXT NOT NULL, match_confidence TEXT NOT NULL, chat_started_at TEXT NOT NULL DEFAULT '', chat_ended_at TEXT NOT NULL DEFAULT '', chat_customer_alias TEXT NOT NULL DEFAULT '', messages_json TEXT NOT NULL DEFAULT '[]', robot_scope TEXT NOT NULL DEFAULT '', problem_type TEXT NOT NULL DEFAULT '', conversion_status TEXT NOT NULL DEFAULT '', service_issues TEXT NOT NULL DEFAULT '', summary_text TEXT NOT NULL DEFAULT '', analysis_source TEXT NOT NULL DEFAULT '', analyzed_at TEXT, annotated_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS customer_service_conversations_consulted_idx ON customer_service_conversations (consulted_at DESC)`,
   `CREATE INDEX IF NOT EXISTS customer_service_conversations_filter_idx ON customer_service_conversations (agent, match_status, consulted_at DESC)`,
@@ -44,6 +49,11 @@ export async function ensureCustomerServiceSchema(db = getCustomerServiceDatabas
     const migrations = [];
     if (!batchColumns.results.some((column) => column.name === "shop_name")) migrations.push(db.prepare("ALTER TABLE customer_service_import_batches ADD COLUMN shop_name TEXT NOT NULL DEFAULT '志高商用设备'"));
     if (!conversationColumns.results.some((column) => column.name === "shop_name")) migrations.push(db.prepare("ALTER TABLE customer_service_conversations ADD COLUMN shop_name TEXT NOT NULL DEFAULT '志高商用设备'"));
+    for (const [name, definition] of [
+      ["robot_scope", "TEXT NOT NULL DEFAULT ''"], ["problem_type", "TEXT NOT NULL DEFAULT ''"], ["conversion_status", "TEXT NOT NULL DEFAULT ''"],
+      ["service_issues", "TEXT NOT NULL DEFAULT ''"], ["summary_text", "TEXT NOT NULL DEFAULT ''"], ["analysis_source", "TEXT NOT NULL DEFAULT ''"],
+      ["analyzed_at", "TEXT"], ["annotated_at", "TEXT"],
+    ] as const) if (!conversationColumns.results.some((column) => column.name === name)) migrations.push(db.prepare(`ALTER TABLE customer_service_conversations ADD COLUMN ${name} ${definition}`));
     if (migrations.length) await db.batch(migrations);
     await db.prepare("UPDATE customer_service_conversations SET conversation_key = shop_name || ':' || conversation_key WHERE conversation_key NOT LIKE shop_name || ':%'").run();
   })().catch((error: unknown) => { ready.delete(key); throw error; });
@@ -81,20 +91,19 @@ function upsertConversation(db: CustomerServiceDatabase, batchIdValue: string, s
 function splitIds(value?: string | null) {
   return [...new Set((value ?? "").split(/[\s,，;；]+/).map((item) => item.trim()).filter((item) => /^[A-Za-z0-9_-]{2,80}$/.test(item)))].slice(0, 100);
 }
-function productCategory(raw: Record<string, unknown>) {
-  return ["一级类目", "二级类目", "三级类目", "末级类目"].map((key) => String(raw[key] ?? "").trim()).filter((value) => value && value !== "--").join(" / ");
-}
-
-export async function listCustomerServiceConversations(filters: { shopName?: string | null; startDate?: string | null; endDate?: string | null; agent?: string | null; status?: string | null; query?: string | null; skuIds?: string | null; spuIds?: string | null; page?: number | null; pageSize?: number | null }) {
+export async function listCustomerServiceConversations(filters: { shopName?: string | null; startDate?: string | null; endDate?: string | null; agent?: string | null; status?: string | null; robotScope?: string | null; problemType?: string | null; conversionStatus?: string | null; query?: string | null; skuIds?: string | null; spuIds?: string | null; page?: number | null; pageSize?: number | null }) {
   const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
-  await ensureNetshopSchema(getNetshopDatabase());
+  await Promise.all([ensureNetshopSchema(getNetshopDatabase()), ensureSalesSchema(getSalesDatabase())]);
   const conditions: string[] = []; const values: unknown[] = [];
   if (filters.shopName) { conditions.push("shop_name = ?"); values.push(filters.shopName); }
   if (filters.startDate) { conditions.push("consulted_at >= ?"); values.push(`${filters.startDate} 00:00:00`); }
   if (filters.endDate) { conditions.push("consulted_at <= ?"); values.push(`${filters.endDate} 23:59:59`); }
   if (filters.agent) { conditions.push("agent = ?"); values.push(filters.agent); }
   if (filters.status) { conditions.push("match_status = ?"); values.push(filters.status); }
-  if (filters.query) { conditions.push("(customer_id LIKE ? OR customer_alias LIKE ? OR agent LIKE ? OR product_sku LIKE ? OR product_name LIKE ? OR messages_json LIKE ?)"); const wildcard = `%${filters.query.replace(/[\\%_]/g, "\\$&")}%`; values.push(wildcard, wildcard, wildcard, wildcard, wildcard, wildcard); }
+  if (filters.robotScope && customerServiceRobotScopes.includes(filters.robotScope as CustomerServiceRobotScope)) { conditions.push("robot_scope = ?"); values.push(filters.robotScope); }
+  if (filters.problemType && customerServiceProblemTypes.includes(filters.problemType as CustomerServiceProblemType)) { conditions.push("problem_type = ?"); values.push(filters.problemType); }
+  if (filters.conversionStatus && customerServiceConversionStatuses.includes(filters.conversionStatus as CustomerServiceConversionStatus)) { conditions.push("conversion_status = ?"); values.push(filters.conversionStatus); }
+  if (filters.query) { conditions.push("(customer_id LIKE ? OR customer_alias LIKE ? OR agent LIKE ? OR product_sku LIKE ? OR product_name LIKE ? OR messages_json LIKE ? OR service_issues LIKE ? OR summary_text LIKE ?)"); const wildcard = `%${filters.query.replace(/[\\%_]/g, "\\$&")}%`; values.push(wildcard, wildcard, wildcard, wildcard, wildcard, wildcard, wildcard, wildcard); }
   const skuIds = splitIds(filters.skuIds);
   const spuIds = splitIds(filters.spuIds);
   if (skuIds.length) { conditions.push(`product_sku IN (${skuIds.map(() => "?").join(",")})`); values.push(...skuIds); }
@@ -103,26 +112,78 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
     values.push(...spuIds, ...spuIds);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""; const pageSize = Math.max(10, Math.min(100, Number(filters.pageSize) || 30)); const page = Math.max(1, Number(filters.page) || 1);
-  const [items, totalResult, summaryResult, agents] = await Promise.all([
+  const [items, totalResult, summaryResult, agents, shops] = await Promise.all([
     db.prepare(`SELECT * FROM customer_service_conversations ${where} ORDER BY consulted_at DESC, id DESC LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>(),
     db.prepare(`SELECT COUNT(*) AS total FROM customer_service_conversations ${where}`).bind(...values).first<{ total: number }>(),
     db.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END) AS matched, SUM(CASE WHEN match_status = 'session_only' THEN 1 ELSE 0 END) AS session_only, SUM(CASE WHEN match_status = 'chat_only' THEN 1 ELSE 0 END) AS chat_only FROM customer_service_conversations ${where}`).bind(...values).first<Record<string, number | null>>(),
     db.prepare(`SELECT DISTINCT agent FROM customer_service_conversations WHERE agent <> '' ORDER BY agent COLLATE NOCASE ASC LIMIT 100`).all<{ agent: string }>(),
+    db.prepare(`SELECT DISTINCT shop_name FROM customer_service_conversations WHERE shop_name <> '' ORDER BY shop_name COLLATE NOCASE ASC LIMIT 100`).all<{ shop_name: string }>(),
   ]);
-  const map = (row: Record<string, unknown>): CustomerServiceConversation => ({ id: Number(row.id), shopName: String(row.shop_name || "志高商用设备"), consultedAt: String(row.consulted_at), customerId: String(row.customer_id), customerAlias: String(row.customer_alias), consultationType: String(row.consultation_type), agent: String(row.agent), transferredAgent: String(row.transferred_agent), skillGroup: String(row.skill_group), productSku: String(row.product_sku), productSpuId: "", productCategory: "", productName: String(row.product_name), firstResponseAt: String(row.first_response_at), responseSeconds: row.response_seconds === null ? null : Number(row.response_seconds), durationMinutes: row.duration_minutes === null ? null : Number(row.duration_minutes), customerMessageCount: row.customer_message_count === null ? null : Number(row.customer_message_count), agentMessageCount: row.agent_message_count === null ? null : Number(row.agent_message_count), satisfaction: String(row.satisfaction), resolved: String(row.resolved), conversationId: String(row.conversation_id), matchStatus: String(row.match_status), matchConfidence: String(row.match_confidence), chatStartedAt: String(row.chat_started_at), chatEndedAt: String(row.chat_ended_at), chatCustomerAlias: String(row.chat_customer_alias), messages: safeJson(String(row.messages_json), []) });
+  const map = (row: Record<string, unknown>): CustomerServiceConversation => mapCustomerServiceConversation(row);
   const customerItems = items.results.map(map);
   const productSkus = [...new Set(customerItems.map((item) => item.productSku).filter(Boolean))];
-  const catalog = new Map<string, { spuId: string; category: string }>();
+  const catalog = new Map<string, { spuId: string; category: string; erpProductCode: string }>();
   if (productSkus.length) {
     const rows = await db.prepare(`SELECT sku_id, spu_id, product_code, raw_json FROM netshop_rows WHERE source = 'jd_product_master' AND (sku_id IN (${productSkus.map(() => "?").join(",")}) OR product_code IN (${productSkus.map(() => "?").join(",")}))`).bind(...productSkus, ...productSkus).all<{ sku_id: string; spu_id: string; product_code: string; raw_json: string }>();
     for (const row of rows.results) {
       const raw = safeJson<Record<string, unknown>>(row.raw_json, {});
       const spuId = String(raw.SPUID ?? raw.spuId ?? row.spu_id ?? row.product_code ?? "").trim();
-      const entry = { spuId, category: productCategory(raw) };
-      for (const key of [row.sku_id, row.product_code].filter(Boolean)) if (!catalog.has(key) || entry.category) catalog.set(key, entry);
+      const entry = { spuId, category: "", erpProductCode: "" };
+      for (const key of [row.sku_id, row.product_code].filter(Boolean)) if (!catalog.has(key)) catalog.set(key, entry);
+    }
+    const erpRows = await db.prepare(`SELECT shop_name, online_spec_code, product_code, category, MAX(sales_time) AS latest_at FROM sales_order_lines WHERE online_spec_code IN (${productSkus.map(() => "?").join(",")}) GROUP BY shop_name, online_spec_code, product_code, category ORDER BY latest_at DESC`).bind(...productSkus).all<{ shop_name: string; online_spec_code: string; product_code: string; category: string }>();
+    for (const row of erpRows.results) {
+      const current = catalog.get(`${row.shop_name}\u001f${row.online_spec_code}`) ?? catalog.get(row.online_spec_code) ?? { spuId: "", category: "", erpProductCode: "" };
+      const entry = { ...current, category: row.category || current.category, erpProductCode: row.product_code || current.erpProductCode };
+      if (!catalog.has(`${row.shop_name}\u001f${row.online_spec_code}`)) catalog.set(`${row.shop_name}\u001f${row.online_spec_code}`, entry);
+      if (!catalog.has(row.online_spec_code) || !catalog.get(row.online_spec_code)?.erpProductCode) catalog.set(row.online_spec_code, entry);
     }
   }
-  return { items: customerItems.map((item) => ({ ...item, productSpuId: catalog.get(item.productSku)?.spuId ?? "", productCategory: catalog.get(item.productSku)?.category ?? "" })), agents: agents.results.map((item) => item.agent), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(totalResult?.total ?? 0) } };
+  return { items: customerItems.map((item) => { const matched = catalog.get(`${item.shopName}\u001f${item.productSku}`) ?? catalog.get(item.productSku); return { ...item, productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(totalResult?.total ?? 0) } };
+}
+
+function mapCustomerServiceConversation(row: Record<string, unknown>): CustomerServiceConversation {
+  return { id: Number(row.id), shopName: String(row.shop_name || "志高商用设备"), consultedAt: String(row.consulted_at), customerId: String(row.customer_id), customerAlias: String(row.customer_alias), consultationType: String(row.consultation_type), agent: String(row.agent), transferredAgent: String(row.transferred_agent), skillGroup: String(row.skill_group), productSku: String(row.product_sku), productSpuId: "", erpProductCode: "", productCategory: "", productName: String(row.product_name), firstResponseAt: String(row.first_response_at), responseSeconds: row.response_seconds === null ? null : Number(row.response_seconds), durationMinutes: row.duration_minutes === null ? null : Number(row.duration_minutes), customerMessageCount: row.customer_message_count === null ? null : Number(row.customer_message_count), agentMessageCount: row.agent_message_count === null ? null : Number(row.agent_message_count), satisfaction: String(row.satisfaction), resolved: String(row.resolved), conversationId: String(row.conversation_id), matchStatus: String(row.match_status), matchConfidence: String(row.match_confidence), chatStartedAt: String(row.chat_started_at), chatEndedAt: String(row.chat_ended_at), chatCustomerAlias: String(row.chat_customer_alias), messages: safeJson(String(row.messages_json), []), robotScope: String(row.robot_scope || "") as CustomerServiceConversation["robotScope"], problemType: String(row.problem_type || "") as CustomerServiceConversation["problemType"], conversionStatus: String(row.conversion_status || "") as CustomerServiceConversation["conversionStatus"], serviceIssues: String(row.service_issues || ""), summaryText: String(row.summary_text || ""), analysisSource: String(row.analysis_source || "") as CustomerServiceConversation["analysisSource"], analyzedAt: row.analyzed_at ? String(row.analyzed_at) : null, annotatedAt: row.annotated_at ? String(row.annotated_at) : null };
+}
+
+export async function getCustomerServiceConversationsByIds(ids: number[]) {
+  const normalized = [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 20);
+  if (!normalized.length) return [];
+  const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
+  const result = await db.prepare(`SELECT * FROM customer_service_conversations WHERE id IN (${normalized.map(() => "?").join(",")}) ORDER BY consulted_at DESC`).bind(...normalized).all<Record<string, unknown>>();
+  return result.results.map(mapCustomerServiceConversation);
+}
+
+function normalizedAnnotation(input: CustomerServiceAnnotationInput) {
+  const output: CustomerServiceAnnotationInput = {};
+  if (input.robotScope !== undefined) { if (!customerServiceRobotScopes.includes(input.robotScope)) throw new Error("机器人标注无效"); output.robotScope = input.robotScope; }
+  if (input.problemType !== undefined) { if (!customerServiceProblemTypes.includes(input.problemType)) throw new Error("问题类型无效"); output.problemType = input.problemType; }
+  if (input.conversionStatus !== undefined) { if (!customerServiceConversionStatuses.includes(input.conversionStatus)) throw new Error("订单转化状态无效"); output.conversionStatus = input.conversionStatus; }
+  if (input.serviceIssues !== undefined) output.serviceIssues = input.serviceIssues.trim().slice(0, 1000);
+  if (input.summaryText !== undefined) output.summaryText = input.summaryText.trim().slice(0, 1000);
+  if (input.analysisSource !== undefined) { if (!(["ai", "manual"] as const).includes(input.analysisSource)) throw new Error("分析来源无效"); output.analysisSource = input.analysisSource; }
+  return output;
+}
+
+export async function updateCustomerServiceConversationAnnotation(id: number, input: CustomerServiceAnnotationInput) {
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("会话 ID 无效");
+  const values = normalizedAnnotation(input);
+  const columns: Record<keyof CustomerServiceAnnotationInput, string> = { robotScope: "robot_scope", problemType: "problem_type", conversionStatus: "conversion_status", serviceIssues: "service_issues", summaryText: "summary_text", analysisSource: "analysis_source" };
+  const entries = Object.entries(values) as Array<[keyof CustomerServiceAnnotationInput, string]>;
+  if (!entries.length) throw new Error("没有可保存的标注内容");
+  const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
+  const assignments = entries.map(([key]) => `${columns[key]} = ?`);
+  const analyzedAt = values.analysisSource === "ai";
+  assignments.push("annotated_at = CURRENT_TIMESTAMP", "updated_at = CURRENT_TIMESTAMP");
+  if (analyzedAt) assignments.push("analyzed_at = CURRENT_TIMESTAMP");
+  const result = await db.prepare(`UPDATE customer_service_conversations SET ${assignments.join(", ")} WHERE id = ?`).bind(...entries.map(([, value]) => value), id).run();
+  if (!Number(result.meta.changes ?? 0)) throw new Error("客服会话不存在");
+  return { id, updated: true };
+}
+
+export async function getCustomerServiceConversationsForAi(args: Record<string, unknown>) {
+  const payload = await listCustomerServiceConversations({ startDate: typeof args.startDate === "string" ? args.startDate : null, endDate: typeof args.endDate === "string" ? args.endDate : null, agent: typeof args.agent === "string" ? args.agent : null, problemType: typeof args.problemType === "string" ? args.problemType : null, conversionStatus: typeof args.conversionStatus === "string" ? args.conversionStatus : null, query: typeof args.query === "string" ? args.query : null, page: 1, pageSize: Math.max(1, Math.min(50, Number(args.limit) || 20)) });
+  return { filtersApplied: { startDate: args.startDate ?? null, endDate: args.endDate ?? null, agent: args.agent ?? null, problemType: args.problemType ?? null, conversionStatus: args.conversionStatus ?? null, query: args.query ?? null }, returned: payload.items.length, totalMatched: payload.pagination.total, truncated: payload.pagination.total > payload.items.length, items: payload.items.map((item) => ({ id: item.id, shopName: item.shopName, consultedAt: item.consultedAt, agent: item.agent, productSku: item.productSku, productSpuId: item.productSpuId, productCategory: item.productCategory, robotScope: item.robotScope, problemType: item.problemType, conversionStatus: item.conversionStatus, serviceIssues: item.serviceIssues, summary: item.summaryText, matchStatus: item.matchStatus })) };
 }
 
 export async function deleteCustomerServiceConversationsByText(text: string) {
