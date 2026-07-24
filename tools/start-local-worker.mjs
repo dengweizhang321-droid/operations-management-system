@@ -13,6 +13,13 @@ export function getLocalWorkerBuildCommand(root = projectRoot) {
   };
 }
 
+export function parseLocalWorkerArguments(args = []) {
+  return {
+    shouldBuild: args.includes("--build"),
+    wranglerArgs: args.filter((argument) => argument !== "--build"),
+  };
+}
+
 async function waitForChild(child, operation) {
   const result = await new Promise((resolveExit, reject) => {
     child.once("error", reject);
@@ -58,7 +65,7 @@ export async function ensureRuntimeDevVarsLink(root = projectRoot) {
   }
 }
 
-export async function startLocalWorker() {
+export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
   const { runtimePath, created } = await ensureRuntimeDevVarsLink();
   const wranglerEntrypoint = resolve(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js");
   try {
@@ -70,7 +77,7 @@ export async function startLocalWorker() {
   console.log(`${created ? "已创建" : "复用"}运行时密钥链接：${runtimePath}`);
   const child = spawn(
     process.execPath,
-    [wranglerEntrypoint, "dev", "--config", "dist/server/wrangler.json", "--port", "3000", "--persist-to", ".wrangler/state", ...process.argv.slice(2)],
+    [wranglerEntrypoint, "dev", "--config", "dist/server/wrangler.json", "--port", "3000", "--persist-to", ".wrangler/state", ...wranglerArgs],
     { cwd: projectRoot, stdio: "inherit", windowsHide: true },
   );
 
@@ -78,8 +85,8 @@ export async function startLocalWorker() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const shouldBuild = process.argv.includes("--build");
-  (shouldBuild ? buildLocalWorker().then(() => startLocalWorker()) : startLocalWorker()).catch((error) => {
+  const { shouldBuild, wranglerArgs } = parseLocalWorkerArguments(process.argv.slice(2));
+  (shouldBuild ? buildLocalWorker().then(() => startLocalWorker(wranglerArgs)) : startLocalWorker(wranglerArgs)).catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   });

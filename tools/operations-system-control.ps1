@@ -186,13 +186,29 @@ function Update-Status {
         $startButton.Enabled = $false
         $stopButton.Enabled = $true
         $openButton.Enabled = $false
-      } elseif ($script:launchProcess -and $script:launchProcess.HasExited -and $script:launchProcess.ExitCode -ne 0) {
-        $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
-        $status.Text = "启动失败，退出码 $($script:launchProcess.ExitCode)"
-        $details.Text = "请点击【查看启动日志】。错误日志：$($script:launchStderrLog)"
-        $startButton.Enabled = $true
-        $stopButton.Enabled = $false
-        $openButton.Enabled = $false
+      } elseif ($script:launchProcess -and $script:launchProcess.HasExited) {
+        $script:launchProcess.WaitForExit()
+        $script:launchProcess.Refresh()
+        $exitCode = $script:launchProcess.ExitCode
+        if ($null -eq $exitCode -or "$exitCode" -eq "") {
+          $exitCode = "未知"
+        }
+        if ($exitCode -ne 0) {
+          $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
+          $status.Text = "启动失败，退出码 $exitCode"
+          $details.Text = "请点击【查看启动日志】。错误日志：$($script:launchStderrLog)"
+          $startButton.Enabled = $true
+          $stopButton.Enabled = $false
+          $openButton.Enabled = $false
+        } else {
+          $script:launchProcess = $null
+          $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(148, 158, 173)
+          $status.Text = "系统已暂停"
+          $details.Text = "本地 Worker 已退出。点击【启动系统】可重新启动。"
+          $startButton.Enabled = $true
+          $stopButton.Enabled = $false
+          $openButton.Enabled = $false
+        }
       } else {
         $script:launchProcess = $null
         $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(148, 158, 173)

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { ensureRuntimeDevVarsLink, getLocalWorkerBuildCommand } from "../tools/start-local-worker.mjs";
+import { ensureRuntimeDevVarsLink, getLocalWorkerBuildCommand, parseLocalWorkerArguments } from "../tools/start-local-worker.mjs";
 
 test("local Worker build always enables the local-only build flag", () => {
   const command = getLocalWorkerBuildCommand("D:/example-project");
@@ -12,6 +12,14 @@ test("local Worker build always enables the local-only build flag", () => {
   assert.equal(command.args.at(-1), "build");
   assert.match(command.args[0] ?? "", /example-project[\\/]node_modules[\\/]vinext[\\/]dist[\\/]cli\.js$/);
   assert.equal(command.env.VITE_TERUISI_LOCAL_BUILD, "true");
+});
+
+test("control-only build flag is consumed before arguments reach Wrangler", () => {
+  const parsed = parseLocalWorkerArguments(["--build", "--ip", "127.0.0.1"]);
+
+  assert.equal(parsed.shouldBuild, true);
+  assert.deepEqual(parsed.wranglerArgs, ["--ip", "127.0.0.1"]);
+  assert.equal(parseLocalWorkerArguments(["--log-level", "debug"]).shouldBuild, false);
 });
 
 test("prebuilt local Worker receives the ignored root .dev.vars through a hard link", async () => {

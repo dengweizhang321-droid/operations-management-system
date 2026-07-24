@@ -9,6 +9,8 @@ test("control panel starts the built local Worker and preserves launch diagnosti
   assert.match(panel, /-ArgumentList @\("`"\$LocalWorkerStarter`"", "--build"\)/);
   assert.match(panel, /-RedirectStandardOutput \$script:launchStdoutLog/);
   assert.match(panel, /-RedirectStandardError \$script:launchStderrLog/);
+  assert.match(panel, /\$script:launchProcess\.WaitForExit\(\)/);
+  assert.match(panel, /\$exitCode = "未知"/);
   assert.match(panel, /启动失败，退出码/);
   assert.doesNotMatch(panel, /\$VinextCli/);
   assert.doesNotMatch(panel, /Start-Sleep -Seconds 1/);
