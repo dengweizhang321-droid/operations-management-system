@@ -16,6 +16,10 @@ export async function GET(request: Request) {
       categories: params.getAll("category"),
       scopes: params.getAll("scope"),
       brands: params.getAll("brand"),
+      rankingDimensions: params.getAll("dimension"),
+      operationModes: params.getAll("operationMode"),
+      subcategories: params.getAll("subcategory"),
+      priceBands: params.getAll("priceBand"),
       startDate: validDate(params.get("startDate")),
       endDate: validDate(params.get("endDate")),
     });

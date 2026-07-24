@@ -10,6 +10,8 @@ const aliases = {
   periodEnd: ["结束日期", "周期止", "日期", "period_end", "end_date", "business_date"],
   periodRange: ["日期区间", "统计周期", "周期", "date_range"],
   category: ["类目", "商品类目", "三级类目", "行业名称", "category"],
+  subcategory: ["细分类目", "细分品类", "品类细分", "segment", "subcategory"],
+  rankingDimension: ["榜单维度", "榜单单位", "维度", "dimension"],
   scope: ["经营模式", "经营模式(自动)", "经营模式(人工)", "店铺类型", "口径", "渠道", "scope"],
   rank: ["排名", "商品排名", "序号", "rank"],
   skuCode: ["商品编号", "商品编码", "SKU", "SKUID", "sku_id", "sku_code", "product_code"],
@@ -59,6 +61,20 @@ function parseNumeric(value: unknown): number | null {
   const range = source.split(/\s*[~～至]\s*/).map(parseScalar).filter((item): item is number => item !== null);
   if (range.length >= 2) return (range[0] + range[1]) / 2;
   return parseScalar(source);
+}
+
+function parseNumericRange(value: unknown): { value: number | null; low: number | null; high: number | null; estimated: boolean } {
+  if (typeof value === "number") return Number.isFinite(value) ? { value, low: value, high: value, estimated: false } : { value: null, low: null, high: null, estimated: false };
+  const source = text(value);
+  if (!source || source === "-") return { value: null, low: null, high: null, estimated: false };
+  const range = source.split(/\s*[~～至]\s*/).map(parseScalar).filter((item): item is number => item !== null);
+  if (range.length >= 2) {
+    const low = Math.min(range[0], range[1]);
+    const high = Math.max(range[0], range[1]);
+    return { value: (low + high) / 2, low, high, estimated: true };
+  }
+  const parsedValue = parseScalar(source);
+  return { value: parsedValue, low: parsedValue, high: parsedValue, estimated: false };
 }
 
 function parsePercentBps(value: unknown): number | null {
@@ -162,6 +178,21 @@ function inferredDimension(fileName: string): "SPU" | "SKU" | null {
   return null;
 }
 
+function normalizeDimension(value: string, fallback: "SKU" | "SPU" | null): "SKU" | "SPU" {
+  const upper = value.toUpperCase();
+  if (upper.includes("SPU")) return "SPU";
+  if (upper.includes("SKU")) return "SKU";
+  return fallback ?? "SKU";
+}
+
+function normalizeOperationMode(value: string): "POP" | "自营" | "未知" {
+  const source = value.trim().toLowerCase();
+  if (!source) return "未知";
+  if (source.includes("自营") || source.includes("self") || source.includes("jd")) return "自营";
+  if (source.includes("pop") || source.includes("店铺") || source.includes("旗舰店")) return "POP";
+  return "未知";
+}
+
 function derivedMarketCode(dimension: "SPU" | "SKU", storeName: string, productName: string): string {
   const digest = createHash("sha256")
     .update(`${dimension}\0${storeName}\0${productName}`)
@@ -230,8 +261,11 @@ export function parseMarketRows(input: {
       : isoDate(get(source, "periodStart"), embeddedRange?.start ?? input.defaultStartDate);
     const category = text(get(source, "category")) || input.defaultCategory?.trim() || "未分类";
     const sourceScope = text(get(source, "scope")) || input.defaultScope?.trim() || "全部";
+    const rankingDimension = normalizeDimension(text(get(source, "rankingDimension")) || sourceScope || input.defaultScope || "", dimension);
     const scope = !explicitSkuCode && canDeriveMarketCode && dimension ? dimensionScope(sourceScope, dimension) : sourceScope;
-    const naturalKey = `${periodStart}|${periodEnd}|${category}|${scope}|${skuCode}`;
+    const operationMode = normalizeOperationMode(sourceScope);
+    const subcategory = text(get(source, "subcategory")) || "";
+    const naturalKey = `${periodStart}|${periodEnd}|${category}|${scope}|${rankingDimension}|${skuCode}`;
     if (seen.has(naturalKey)) {
       warnings.push({ row: source.rowNumber, field: "商品编号", message: `同一周期重复 SKU ${skuCode}，已保留首行` });
       continue;
@@ -240,7 +274,7 @@ export function parseMarketRows(input: {
     const numeric = (field: keyof typeof aliases) => parseNumeric(get(source, field));
     const raw = Object.fromEntries(header.map((name, index) => [text(name) || `列${index + 1}`, source.values[index] ?? null]));
     const rank = numeric("rank");
-    const price = numeric("price");
+    const price = parseNumericRange(get(source, "price"));
     rows.push({
       naturalKey,
       sourceRowNumber: source.rowNumber,
@@ -248,11 +282,17 @@ export function parseMarketRows(input: {
       periodEnd,
       category,
       scope,
+      rankingDimension,
+      operationMode,
+      subcategory: subcategory.slice(0, 120),
       rank: rank === null ? null : Math.max(1, Math.trunc(rank)),
       skuCode: skuCode.slice(0, 80),
       productName: productName.slice(0, 500),
       brand: text(get(source, "brand")).slice(0, 120),
-      priceCents: price === null ? null : Math.round(price * 100),
+      priceCents: price.value === null ? null : Math.round(price.value * 100),
+      priceLowCents: price.low === null ? null : Math.round(price.low * 100),
+      priceHighCents: price.high === null ? null : Math.round(price.high * 100),
+      priceEstimated: price.estimated,
       gmvCents: Math.round((numeric("gmv") ?? 0) * 100),
       quantity: Math.round(numeric("quantity") ?? 0),
       pageViews: Math.round(numeric("pageViews") ?? 0),

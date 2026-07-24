@@ -224,6 +224,8 @@ export async function updateAnnotationItems(db: MarketDatabase, jobId: string, u
 }
 
 export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: string; candidateIds: string[]; idempotencyKey: string }, actor: Actor) {
+  await ensureMarketSchemaLazy(db);
+  await ensureAnnotationSchema(db);
   const ids = [...new Set(input.candidateIds.map((id) => id.trim()).filter(Boolean))];
   if (!ids.length || ids.length > 500 || ids.length !== input.candidateIds.length) throw new Error("必须提交 1 到 500 个不重复的明确 candidate/item ID");
   const idempotencyKey = input.idempotencyKey.trim();
@@ -267,6 +269,31 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
       const statements = chunk.flatMap(({ item, old, annotationId, after, receiptKey }) => [
         db.prepare("INSERT INTO market_sku_annotations (id, category, sku_code, segment, image_price_cents, image_url, image_source, confidence_bps, source_job_item_id, prompt_version_id, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(category, sku_code) DO UPDATE SET segment=excluded.segment, image_price_cents=excluded.image_price_cents, image_url=excluded.image_url, image_source=excluded.image_source, confidence_bps=excluded.confidence_bps, source_job_item_id=excluded.source_job_item_id, prompt_version_id=excluded.prompt_version_id, reviewed_by=excluded.reviewed_by, reviewed_at=CURRENT_TIMESTAMP, version=market_sku_annotations.version+1, updated_at=CURRENT_TIMESTAMP")
           .bind(annotationId, job.category, item.sku_code, item.reviewed_segment, item.reviewed_image_price_cents, after.imageUrl, item.image_source, item.ai_confidence_bps, item.id, job.prompt_version_id, actor.email),
+        db.prepare(`INSERT INTO market_price_snapshots (
+          id, category, sku_code, ranking_dimension, month, ai_image_price_cents, ai_price_type,
+          ai_confidence_bps, ai_reason, confirmed_market_price_cents, image_url,
+          confirmation_status, confirmed_by, confirmed_at, source_job_item_id, prompt_version_id
+        )
+        SELECT 'market-price-' || m.category || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
+          m.category, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7), ?, '标准售价',
+          ?, ?, ?, ?, 'confirmed', ?, CURRENT_TIMESTAMP, ?, ?
+        FROM market_ranking_entries m
+        WHERE m.category=? AND m.sku_code=?
+        GROUP BY m.category, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7)
+        ON CONFLICT(category, sku_code, ranking_dimension, month) DO UPDATE SET
+          ai_image_price_cents = excluded.ai_image_price_cents,
+          ai_price_type = excluded.ai_price_type,
+          ai_confidence_bps = excluded.ai_confidence_bps,
+          ai_reason = excluded.ai_reason,
+          confirmed_market_price_cents = excluded.confirmed_market_price_cents,
+          image_url = CASE WHEN excluded.image_url <> '' THEN excluded.image_url ELSE market_price_snapshots.image_url END,
+          confirmation_status = 'confirmed',
+          confirmed_by = excluded.confirmed_by,
+          confirmed_at = CURRENT_TIMESTAMP,
+          source_job_item_id = excluded.source_job_item_id,
+          prompt_version_id = excluded.prompt_version_id,
+          updated_at = CURRENT_TIMESTAMP`)
+          .bind(item.ai_image_price_cents, item.ai_confidence_bps, item.ai_reason, item.reviewed_image_price_cents, after.imageUrl, actor.email, item.id, job.prompt_version_id, job.category, item.sku_code),
         db.prepare("INSERT INTO market_annotation_commit_receipts (id, job_item_id, annotation_id, idempotency_key, before_json, after_json, committed_by, batch_id, request_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
           .bind("market-commit-" + randomUUID(), item.id, annotationId, receiptKey, JSON.stringify(old ?? {}), JSON.stringify(after), actor.email, batchId, requestDigest),
         db.prepare("UPDATE market_annotation_items SET status='committed', selected=0, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved' AND selected=1 AND version=?").bind(item.id, item.version),

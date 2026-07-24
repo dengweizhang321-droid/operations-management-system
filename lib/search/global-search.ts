@@ -285,18 +285,22 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "市场 SKU",
     icon: "市",
     module: "market",
-    requiredTables: ["market_ranking_entries"],
+    requiredTables: ["market_ranking_entries", "market_price_snapshots"],
     likeParameterCount: 5,
     allowedRoles: allRoles,
     scopeKind: "unscoped_only",
     sql: `
       WITH ranked AS (
-        SELECT sku_code, product_name, brand, category, scope, period_end, price_cents, rank,
-          ROW_NUMBER() OVER (PARTITION BY sku_code, category, scope ORDER BY period_end DESC, id DESC) AS recency_rank
-        FROM market_ranking_entries
-        WHERE sku_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR brand LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR scope LIKE ? ESCAPE '\\' COLLATE NOCASE
+        SELECT m.sku_code, m.product_name, m.brand, m.category, m.scope, m.period_end,
+          COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents, m.price_cents) price_cents,
+          m.rank,
+          ROW_NUMBER() OVER (PARTITION BY m.sku_code, m.category, m.scope ORDER BY m.period_end DESC, m.id DESC) AS recency_rank
+        FROM market_ranking_entries m
+        LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.sku_code=m.sku_code
+          AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end, 1, 7)
+        WHERE m.sku_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR m.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR m.brand LIKE ? ESCAPE '\\' COLLATE NOCASE OR m.category LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR m.scope LIKE ? ESCAPE '\\' COLLATE NOCASE
       )
       SELECT sku_code || ':' || category || ':' || scope AS result_id, product_name AS title,
         sku_code || CASE WHEN brand <> '' THEN ' · ' || brand ELSE '' END AS subtitle,
@@ -499,6 +503,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   ],
   coveredByProjection: [
     "finance_months",
+    "market_price_snapshots",
   ],
   excludedSensitiveOrInternal: [
     "app_users", "ai_models", "ai_channels", "ai_channel_callback_events",

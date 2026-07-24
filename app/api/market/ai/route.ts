@@ -15,6 +15,10 @@ type MarketAiRequest = {
   categories?: string[];
   scopes?: string[];
   brands?: string[];
+  rankingDimensions?: string[];
+  operationModes?: string[];
+  subcategories?: string[];
+  priceBands?: string[];
   startDate?: string;
   endDate?: string;
 };
@@ -41,6 +45,10 @@ export async function POST(request: Request) {
       categories: safeList(body.categories),
       scopes: safeList(body.scopes),
       brands: safeList(body.brands),
+      rankingDimensions: safeList(body.rankingDimensions),
+      operationModes: safeList(body.operationModes),
+      subcategories: safeList(body.subcategories),
+      priceBands: safeList(body.priceBands),
       startDate: /^\d{4}-\d{2}-\d{2}$/.test(body.startDate ?? "") ? body.startDate : undefined,
       endDate: /^\d{4}-\d{2}-\d{2}$/.test(body.endDate ?? "") ? body.endDate : undefined,
     });
@@ -54,6 +62,10 @@ export async function POST(request: Request) {
       brand: item.brand,
       category: item.category,
       marketGmvCents: item.gmvCents,
+      marketPositionPriceCents: item.marketPriceCents,
+      averageTransactionPriceCents: item.averageTransactionPriceCents,
+      operationMode: item.operationMode,
+      rankingDimension: item.rankingDimension,
       visitors: item.visitors,
       conversionBps: item.conversionBps,
       ownProduct: item.isOwn,
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
     const question = body.question?.trim().slice(0, 1200) || "请总结市场机会、竞品风险与下一步运营动作";
     const prompt = [
       "你是 TERUISI 电商运营系统的市场分析助手。仅依据下面的真实导入数据回答，不要编造缺失指标。",
-      "金额单位为人民币分，转化率单位为基点（100 基点=1%）。请用中文输出：结论、依据、建议三个部分。",
+      "金额单位为人民币分，转化率单位为基点（100 基点=1%）。市场规模、品牌份额和自营占比均是当前 TOP 榜单覆盖口径，不代表完整行业市场。商品价格必须区分市场定位价（主图）与成交均价。",
       `用户问题：${question}`,
       `筛选数据范围：${overview.dataRange.startDate ?? "未知"} 至 ${overview.dataRange.endDate ?? "未知"}`,
       `汇总：${JSON.stringify(overview.summary)}`,

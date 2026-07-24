@@ -148,6 +148,13 @@
       "when": 1784875200000,
       "tag": "0020_market_image_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1784889600000,
+      "tag": "0021_market_analysis_2",
+      "breakpoints": true
     }
   ]
 }

@@ -31,7 +31,9 @@ test("市场榜单 CSV 映射商品、周期和经营指标", () => {
   assert.equal(result.rows[0]?.category, "商用净水设备");
   assert.equal(result.rows[0]?.gmvCents, 1_250_050);
   assert.equal(result.rows[0]?.conversionBps, 250);
-  assert.equal(result.rows[0]?.naturalKey, "2026-07-01|2026-07-20|商用净水设备|自营|10001");
+  assert.equal(result.rows[0]?.rankingDimension, "SKU");
+  assert.equal(result.rows[0]?.operationMode, "自营");
+  assert.equal(result.rows[0]?.naturalKey, "2026-07-01|2026-07-20|商用净水设备|自营|SKU|10001");
 });
 
 test("市场商品与自有商品关联字段具备独立索引", async () => {
