@@ -3,6 +3,7 @@ export type LocalDirectAccessContext = {
   runtimeEnvironment: string | undefined;
   viteDevelopment: boolean;
   viteProduction: boolean;
+  localBuild?: boolean;
 };
 
 export type LocalDirectAccessDecision =
@@ -12,9 +13,9 @@ export type LocalDirectAccessDecision =
 
 /**
  * Local direct access is deliberately fail-closed. Besides an explicit opt-in,
- * it requires both the deployment binding and the build runtime to agree that
- * this is a development instance. A production build can therefore never be
- * turned into anonymous admin access by a stray runtime variable alone.
+ * it requires both the deployment binding and either Vite development mode or
+ * an explicit local-only build stamp. A hosted production build therefore
+ * cannot be turned into anonymous admin access by a stray runtime variable.
  */
 export function decideLocalDirectAccess(
   allowedRoles: readonly string[],
@@ -25,7 +26,8 @@ export function decideLocalDirectAccess(
   const declaredDevelopment =
     context.runtimeEnvironment?.trim().toLowerCase() === "development";
   const verifiedDevelopment =
-    context.viteDevelopment === true && context.viteProduction === false;
+    (context.viteDevelopment === true && context.viteProduction === false) ||
+    context.localBuild === true;
 
   if (!enabled || !declaredDevelopment || !verifiedDevelopment) {
     return "disabled";

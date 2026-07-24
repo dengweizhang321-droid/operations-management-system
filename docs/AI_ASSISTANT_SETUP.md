@@ -18,7 +18,7 @@ TERUISI_LOCAL_DIRECT_ACCESS=true
 TERUISI_RUNTIME_ENV=development
 ```
 
-直连身份是 `admin`，仍然受每个接口的 `allowedRoles` 限制。系统还会验证 Vite 当前确实运行在开发模式；生产构建、`TERUISI_RUNTIME_ENV=production`、缺少任一配置或拼写不完全匹配时都会关闭匿名直连并恢复正常登录鉴权。生产 Cloudflare/Sites 环境不得配置 `TERUISI_LOCAL_DIRECT_ACCESS=true`。
+直连身份是 `admin`，仍然受每个接口的 `allowedRoles` 限制。系统还会验证 Vite 当前确实运行在开发模式；如果本机必须运行预构建的 Workers 产物，构建时还需额外设置 `VITE_TERUISI_LOCAL_BUILD=true`。该标记只允许用于本机产物，不能用于 Sites 发布包。`TERUISI_RUNTIME_ENV=production`、缺少任一配置或拼写不完全匹配时都会关闭匿名直连并恢复正常登录鉴权。生产 Cloudflare/Sites 环境不得配置 `TERUISI_LOCAL_DIRECT_ACCESS=true`。
 
 ## 模型配置
 

@@ -25,6 +25,17 @@ test("local direct access stays disabled in production despite explicit opt-in",
     }),
     "disabled",
   );
+
+  assert.equal(
+    decideLocalDirectAccess(allRoles, {
+      enabled: "true",
+      runtimeEnvironment: "production",
+      viteDevelopment: false,
+      viteProduction: true,
+      localBuild: true,
+    }),
+    "disabled",
+  );
 });
 
 test("local direct access requires explicit opt-in and verified development", () => {
@@ -60,5 +71,18 @@ test("local admin cannot bypass the caller's allowed roles", () => {
       viteProduction: false,
     }),
     "role_denied",
+  );
+});
+
+test("an explicitly stamped local worker build permits direct access", () => {
+  assert.equal(
+    decideLocalDirectAccess(allRoles, {
+      enabled: "true",
+      runtimeEnvironment: "development",
+      viteDevelopment: false,
+      viteProduction: true,
+      localBuild: true,
+    }),
+    "allowed",
   );
 });

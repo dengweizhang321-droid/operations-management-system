@@ -124,7 +124,11 @@ export async function requireAppPrincipal(
 ): Promise<AppPrincipal> {
   const viteEnvironment = (
     import.meta as ImportMeta & {
-      readonly env?: { readonly DEV?: boolean; readonly PROD?: boolean };
+      readonly env?: {
+        readonly DEV?: boolean;
+        readonly PROD?: boolean;
+        readonly VITE_TERUISI_LOCAL_BUILD?: string;
+      };
     }
   ).env;
   const localAccess = decideLocalDirectAccess(allowedRoles, {
@@ -138,6 +142,9 @@ export async function requireAppPrincipal(
         : undefined,
     viteDevelopment: viteEnvironment?.DEV === true,
     viteProduction: viteEnvironment?.PROD === true,
+    localBuild:
+      viteEnvironment?.VITE_TERUISI_LOCAL_BUILD?.trim().toLowerCase() ===
+      "true",
   });
 
   if (localAccess === "allowed") {
