@@ -374,6 +374,7 @@ test("production registry keeps all existing operations tools plus global system
     "get_inventory_health",
     "get_product_performance",
     "list_replenishment_plans",
+    "get_customer_service_conversations",
     "search_system_data",
   ]) assert.match(registry, new RegExp(`name: "${name}"`));
   assert.match(registry, /validateToolRegistry\(aiToolRegistry\)/);

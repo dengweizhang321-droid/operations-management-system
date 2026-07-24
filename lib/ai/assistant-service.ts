@@ -594,6 +594,38 @@ export async function generateAssistantReply(input: {
   }
 }
 
+export async function generateConfiguredAnalysisReply(input: {
+  prompt: string;
+  principal: AppPrincipal;
+  requestId: string;
+  auditArguments: Record<string, unknown>;
+}, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+  const startedAt = Date.now();
+  const model = await resolveChatModel(db);
+  if (!model) throw new Error("尚未配置可用的文本模型。请由管理员先在“AI 助理”中新增、启用并测试文本模型；客服数据导入不受影响。");
+  const auditBase = {
+    requestId: input.requestId,
+    actorEmail: input.principal.email,
+    actorRole: input.principal.role,
+    surface: "customer_service_ai",
+    toolName: "analyze_customer_service_conversations",
+    arguments: input.auditArguments,
+  } as const;
+  await recordAiToolAudit({ ...auditBase, status: "started", durationMs: 0 });
+  try {
+    const messages = [{ role: "user" as const, content: input.prompt }];
+    const reply = model.protocol === "anthropic"
+      ? await callAnthropicModel(model, messages)
+      : await callOpenAiCompatibleModel(model, messages);
+    if (!reply) throw new Error("模型未返回分析结果");
+    await recordAiToolAudit({ ...auditBase, status: "succeeded", durationMs: Date.now() - startedAt, result: { returned: 1, modelId: model.id, responseCharacters: reply.length } });
+    return reply;
+  } catch (error) {
+    await recordAiToolAudit({ ...auditBase, status: "failed", durationMs: Date.now() - startedAt, errorCode: "customer_service_analysis_failed" });
+    throw error;
+  }
+}
+
 async function getAiModelSecretById(id: string, db: SalesDatabase): Promise<AiModelRow | null> {
   await ensureAiAssistantSchema(db);
   return db.prepare(

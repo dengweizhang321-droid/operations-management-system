@@ -24,6 +24,7 @@ import {
   searchSystemDataForAi,
 } from "@/lib/search/ai-tool";
 import { GLOBAL_SEARCH_COVERAGE } from "@/lib/search/global-search";
+import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/database";
 
 export type {
   AiToolAnnotations,
@@ -154,6 +155,29 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     supportsScopedPrincipal: false,
     handler: (args) => callOperationsTool("list_replenishment_plans", args),
+  },
+  {
+    name: "get_customer_service_conversations",
+    title: "客服会话分析查询",
+    description: "只读查询已导入客服会话的店铺、时间、客服、SKU/SPU、吉客云类目、机器人标注、问题类型、转化状态、服务问题和小结。结果最多返回 50 条，不返回原始聊天全文。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", description: "可选，咨询开始日期，YYYY-MM-DD。" },
+        endDate: { type: "string", description: "可选，咨询结束日期，YYYY-MM-DD。" },
+        agent: { type: "string", maxLength: 100, description: "可选，精确客服名称。" },
+        problemType: { type: "string", enum: ["商品咨询", "价格优惠", "物流发货", "售后维修", "退换货", "安装使用", "发票开票", "催单改单", "其他"] },
+        conversionStatus: { type: "string", enum: ["converted", "not_converted"] },
+        query: { type: "string", minLength: 2, maxLength: 80, description: "可选，搜索顾客、客服、SKU、问题或小结。" },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+      },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    supportsScopedPrincipal: false,
+    handler: (args) => getCustomerServiceConversationsForAi(args),
   },
   {
     name: "search_system_data",

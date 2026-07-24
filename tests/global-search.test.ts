@@ -88,11 +88,11 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
   const migrations = (await readdir(migrationDirectory)).filter((name) => name.endsWith(".sql")).sort();
   for (const migration of migrations) sqlite.exec(await readFile(new URL(migration, migrationDirectory), "utf8"));
   sqlite.exec(`
-    CREATE TABLE customer_service_import_batches (
+    CREATE TABLE IF NOT EXISTS customer_service_import_batches (
       id TEXT PRIMARY KEY, session_file_name TEXT NOT NULL, chat_file_name TEXT NOT NULL,
       status TEXT NOT NULL, created_at TEXT, completed_at TEXT
     );
-    CREATE TABLE customer_service_conversations (
+    CREATE TABLE IF NOT EXISTS customer_service_conversations (
       id INTEGER PRIMARY KEY, consulted_at TEXT NOT NULL, customer_id TEXT NOT NULL DEFAULT '',
       customer_alias TEXT NOT NULL DEFAULT '', chat_customer_alias TEXT NOT NULL DEFAULT '',
       agent TEXT NOT NULL DEFAULT '', product_sku TEXT NOT NULL DEFAULT '', product_name TEXT NOT NULL DEFAULT '',

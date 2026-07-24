@@ -819,3 +819,24 @@ export const marketAnnotationLocalAgents = sqliteTable("market_annotation_local_
   capabilitiesJson: text("capabilities_json").notNull().default("{}"), createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), lastSeenAt: text("last_seen_at"), revokedAt: text("revoked_at"),
 }, (table) => [uniqueIndex("market_annotation_agents_token_uq").on(table.tokenHash)]);
+
+/** Paired customer-service session/chat imports and durable AI/manual review fields. */
+export const customerServiceImportBatches = sqliteTable("customer_service_import_batches", {
+  id: text("id").primaryKey(), shopName: text("shop_name").notNull().default("志高商用设备"),
+  sessionFileName: text("session_file_name").notNull(), chatFileName: text("chat_file_name").notNull(), fileHash: text("file_hash").notNull(), status: text("status").notNull(),
+  conversationCount: integer("conversation_count").notNull().default(0), matchedCount: integer("matched_count").notNull().default(0), sessionOnlyCount: integer("session_only_count").notNull().default(0), chatOnlyCount: integer("chat_only_count").notNull().default(0), ambiguousCount: integer("ambiguous_count").notNull().default(0),
+  warningsJson: text("warnings_json").notNull().default("[]"), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), completedAt: text("completed_at"),
+}, (table) => [uniqueIndex("customer_service_import_batches_file_hash_uq").on(table.fileHash)]);
+
+export const customerServiceConversations = sqliteTable("customer_service_conversations", {
+  id: integer("id").primaryKey({ autoIncrement: true }), conversationKey: text("conversation_key").notNull(), firstImportBatchId: text("first_import_batch_id").notNull(), lastImportBatchId: text("last_import_batch_id").notNull(),
+  shopName: text("shop_name").notNull().default("志高商用设备"), consultedAt: text("consulted_at").notNull(), customerId: text("customer_id").notNull().default(""), customerAlias: text("customer_alias").notNull().default(""), consultationType: text("consultation_type").notNull().default(""), agent: text("agent").notNull().default(""), transferredAgent: text("transferred_agent").notNull().default(""), skillGroup: text("skill_group").notNull().default(""),
+  productSku: text("product_sku").notNull().default(""), productName: text("product_name").notNull().default(""), firstResponseAt: text("first_response_at").notNull().default(""), responseSeconds: integer("response_seconds"), durationMinutes: integer("duration_minutes"), customerMessageCount: integer("customer_message_count"), agentMessageCount: integer("agent_message_count"), satisfaction: text("satisfaction").notNull().default(""), resolved: text("resolved").notNull().default(""), conversationId: text("conversation_id").notNull().default(""),
+  matchStatus: text("match_status").notNull(), matchConfidence: text("match_confidence").notNull(), chatStartedAt: text("chat_started_at").notNull().default(""), chatEndedAt: text("chat_ended_at").notNull().default(""), chatCustomerAlias: text("chat_customer_alias").notNull().default(""), messagesJson: text("messages_json").notNull().default("[]"),
+  robotScope: text("robot_scope").notNull().default(""), problemType: text("problem_type").notNull().default(""), conversionStatus: text("conversion_status").notNull().default(""), serviceIssues: text("service_issues").notNull().default(""), summaryText: text("summary_text").notNull().default(""), analysisSource: text("analysis_source").notNull().default(""), analyzedAt: text("analyzed_at"), annotatedAt: text("annotated_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("customer_service_conversations_key_uq").on(table.conversationKey),
+  index("customer_service_conversations_consulted_idx").on(table.consultedAt),
+  index("customer_service_conversations_filter_idx").on(table.agent, table.matchStatus, table.consultedAt),
+]);
