@@ -33,7 +33,25 @@ export function normalizeImagePriceCents(value: unknown): number | null {
   return number;
 }
 
-export type VisionAnnotation = { segment: string; imagePriceCents: number | null; confidenceBps: number; reason: string; rawText: string };
+export const marketAiPriceTypes = ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断"] as const;
+export type MarketAiPriceType = (typeof marketAiPriceTypes)[number];
+
+function normalizePriceType(value: unknown): MarketAiPriceType {
+  const text = typeof value === "string" ? value.trim() : "";
+  if ((marketAiPriceTypes as readonly string[]).includes(text)) return text as MarketAiPriceType;
+  return "无法判断";
+}
+
+export type VisionAnnotation = {
+  segment: string;
+  imagePriceCents: number | null;
+  priceLowCents: number | null;
+  priceHighCents: number | null;
+  priceType: MarketAiPriceType;
+  confidenceBps: number;
+  reason: string;
+  rawText: string;
+};
 
 export function parseVisionAnnotation(value: unknown, segments: readonly string[]): VisionAnnotation {
   const rawText = typeof value === "string" ? value.trim() : JSON.stringify(value);
@@ -47,10 +65,13 @@ export function parseVisionAnnotation(value: unknown, segments: readonly string[
   const segment = typeof record.segment === "string" ? record.segment.trim() : "";
   if (!segments.includes(segment)) throw new Error(`视觉模型返回了品类枚举之外的结果：${segment || "空"}`);
   const imagePriceCents = normalizeImagePriceCents(record.image_price_cents ?? record.imagePriceCents);
+  const priceLowCents = normalizeImagePriceCents(record.price_low_cents ?? record.priceLowCents);
+  const priceHighCents = normalizeImagePriceCents(record.price_high_cents ?? record.priceHighCents);
+  const priceType = normalizePriceType(record.price_type ?? record.priceType);
   const confidence = Number(record.confidence);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) throw new Error("视觉模型 confidence 必须在 0 到 1 之间");
   const reason = typeof record.reason === "string" ? record.reason.trim().slice(0, 600) : "";
-  return { segment, imagePriceCents, confidenceBps: Math.round(confidence * 10_000), reason, rawText };
+  return { segment, imagePriceCents, priceLowCents, priceHighCents, priceType, confidenceBps: Math.round(confidence * 10_000), reason, rawText };
 }
 
 export type ValidationMetricInput = { goldSegment: string; predictedSegment: string; goldImagePriceCents: number | null; predictedImagePriceCents: number | null };

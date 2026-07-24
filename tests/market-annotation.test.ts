@@ -7,9 +7,10 @@ import {
   activationGate, canTransitionItem, canTransitionJob, normalizeImagePriceCents, normalizeSegments,
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
-import { claimLocalAnnotation, completeLocalAnnotation, createValidationRun, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
+import { claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
+import { ensureMarketSchemaCore } from "../lib/market/schema-core";
 import type { MarketDatabase } from "../lib/market/database";
 
 test("annotation state machines reject unsafe skips", () => {
@@ -31,10 +32,13 @@ test("segments and image price are server-normalized", () => {
   assert.throws(() => normalizeImagePriceCents(-1), /整数分/);
 });
 
-test("vision results require structured enum, cents, and bounded confidence", () => {
-  const parsed = parseVisionAnnotation("```json\n{\"segment\":\"台式\",\"image_price_cents\":199900,\"confidence\":0.92,\"reason\":\"结构匹配\"}\n```", ["台式", "立式"]);
+test("vision results require structured enum, price type, cents, and bounded confidence", () => {
+  const parsed = parseVisionAnnotation("```json\n{\"segment\":\"台式\",\"image_price_cents\":199900,\"price_type\":\"到手价\",\"price_low_cents\":189900,\"price_high_cents\":209900,\"confidence\":0.92,\"reason\":\"结构匹配\"}\n```", ["台式", "立式"]);
   assert.equal(parsed.segment, "台式");
   assert.equal(parsed.imagePriceCents, 199900);
+  assert.equal(parsed.priceType, "到手价");
+  assert.equal(parsed.priceLowCents, 189900);
+  assert.equal(parsed.priceHighCents, 209900);
   assert.equal(parsed.confidenceBps, 9200);
   assert.throws(() => parseVisionAnnotation({ segment: "自造品类", image_price_cents: null, confidence: 0.5 }, ["台式", "立式"]), /枚举之外/);
   assert.throws(() => parseVisionAnnotation({ segment: "台式", image_price_cents: null, confidence: 1.1 }, ["台式", "立式"]), /0 到 1/);
@@ -255,14 +259,84 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(columnNames("market_annotation_commit_receipts").has("batch_id"));
   assert.ok(columnNames("market_annotation_commit_receipts").has("request_digest"));
   for (const column of ["sample_snapshot_json", "claim_token_hash", "lease_expires_at", "attempt_count", "updated_at"]) assert.ok(columnNames("market_annotation_validation_results").has(column));
+  for (const column of ["category", "ranking_dimension", "month", "image_content_sha256", "ai_price_type", "ai_price_low_cents", "ai_price_high_cents", "reviewed_price_type", "reviewed_price_low_cents", "reviewed_price_high_cents"]) assert.ok(columnNames("market_annotation_items").has(column));
 
   const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(indexes.has("market_annotation_commits_batch_idx"));
   assert.ok(indexes.has("market_annotation_validation_result_lease_idx"));
+  assert.ok(indexes.has("market_annotation_items_job_snapshot_uq"));
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
 
   // A distinct runtime connection must also be safe after the first upgrade.
   await ensureAnnotationSchema(sqliteAdapter(sqlite));
+  sqlite.close();
+});
+
+test("market annotation commit updates only the bound month and safely inherits adjacent same-image months", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec("CREATE TABLE ai_models (id TEXT PRIMARY KEY, status TEXT NOT NULL, model_type TEXT NOT NULL)");
+  sqlite.exec("INSERT INTO ai_models VALUES ('vision-1','enabled','vision')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('prompt-1','净水',1,'manual','active','["台式","立式"]','这是用于测试月度价格识别的正式 Prompt，正文长度满足校验要求。','admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, quantity, visitors, image_url, raw_json, last_import_batch_id)
+    VALUES
+      ('jan',1,'2026-01-01','2026-01-31','净水','pop','SKU','POP','SKU-1','商品','品牌',100000,1,1,'https://img10.360buyimg.com/imgzone/a.jpg','{}','batch'),
+      ('feb',2,'2026-02-01','2026-02-28','净水','pop','SKU','POP','SKU-1','商品','品牌',100000,1,1,'https://img10.360buyimg.com/imgzone/a.jpg','{}','batch'),
+      ('mar',3,'2026-03-01','2026-03-31','净水','pop','SKU','POP','SKU-1','商品','品牌',100000,1,1,'https://img10.360buyimg.com/imgzone/b.jpg','{}','batch');
+    INSERT INTO market_image_cache (source_url,status,content_sha256) VALUES
+      ('https://img10.360buyimg.com/imgzone/a.jpg','ready','hash-a'),
+      ('https://img10.360buyimg.com/imgzone/b.jpg','ready','hash-b');
+    INSERT INTO market_price_snapshots
+      (id, category, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+    VALUES
+      ('ps-jan','净水','SKU-1','SKU','2026-01','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing'),
+      ('ps-feb','净水','SKU-1','SKU','2026-02','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing'),
+      ('ps-mar','净水','SKU-1','SKU','2026-03','hash-b','https://img10.360buyimg.com/imgzone/b.jpg','missing');
+  `);
+  const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-1", executor: "cloud", modelId: "vision-1", limit: 10 }, { email: "operator@test", role: "operator" });
+  const items = sqlite.prepare("SELECT id, month, image_content_sha256 hash FROM market_annotation_items WHERE job_id=? ORDER BY month").all(job.id) as Array<{ id: string; month: string; hash: string }>;
+  assert.deepEqual(items.map((item) => ({ month: item.month, hash: item.hash })), [
+    { month: "2026-01", hash: "hash-a" },
+    { month: "2026-02", hash: "hash-a" },
+    { month: "2026-03", hash: "hash-b" },
+  ]);
+  sqlite.prepare("UPDATE market_annotation_items SET status='approved', selected=1, reviewed_segment='台式', reviewed_image_price_cents=199900, reviewed_price_type='标准售价', reviewed_price_low_cents=199900, reviewed_price_high_cents=199900, ai_image_price_cents=199900, ai_price_type='标准售价', ai_confidence_bps=9000, ai_reason='主图', image_source='imgzone', resolved_image_url=source_image_url WHERE id=?").run(items[1]!.id);
+  sqlite.prepare("UPDATE market_annotation_jobs SET status='review_ready' WHERE id=?").run(job.id);
+  await commitAnnotationItems(db, { jobId: job.id, candidateIds: [items[1]!.id], idempotencyKey: "monthly-price-commit-001" }, { email: "admin@test", role: "admin" });
+  const snapshots = sqlite.prepare("SELECT month, confirmed_market_price_cents price, confirmation_status status FROM market_price_snapshots ORDER BY month").all() as Array<{ month: string; price: number | null; status: string }>;
+  assert.deepEqual(snapshots.map((row) => ({ ...row })), [
+    { month: "2026-01", price: 199900, status: "confirmed" },
+    { month: "2026-02", price: 199900, status: "confirmed" },
+    { month: "2026-03", price: null, status: "missing" },
+  ]);
+  sqlite.close();
+});
+
+test("deposit and installment annotation commits do not create official market prices", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('prompt-1','净水',1,'manual','active','["台式","立式"]','这是用于测试定金和分期金额不形成正式价格的 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('job-1','净水','prompt-1','local','review_ready',1,'operator@test');
+    INSERT INTO market_price_snapshots (id, category, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+      VALUES ('ps-1','净水','SKU-1','SKU','2026-02','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, status, selected, reviewed_segment, reviewed_image_price_cents, reviewed_price_type, ai_image_price_cents, ai_price_type, ai_confidence_bps, ai_reason)
+    VALUES
+      ('item-1','job-1','净水','SKU-1','SKU','2026-02','hash-a','商品','品牌','https://img10.360buyimg.com/imgzone/a.jpg','approved',1,'台式',9900,'定金',9900,'定金',8800,'只看到定金');
+  `);
+  await commitAnnotationItems(db, { jobId: "job-1", candidateIds: ["item-1"], idempotencyKey: "deposit-price-001" }, { email: "admin@test", role: "admin" });
+  const row = sqlite.prepare("SELECT confirmed_market_price_cents price, ai_price_type aiType, confirmation_status status FROM market_price_snapshots WHERE id='ps-1'").get() as { price: number | null; aiType: string; status: string };
+  assert.deepEqual({ ...row }, { price: null, aiType: "定金", status: "review_pending" });
   sqlite.close();
 });
 

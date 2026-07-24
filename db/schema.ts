@@ -867,18 +867,22 @@ export const marketAnnotationJobs = sqliteTable("market_annotation_jobs", {
 
 export const marketAnnotationItems = sqliteTable("market_annotation_items", {
   id: text("id").primaryKey(), jobId: text("job_id").notNull(), skuCode: text("sku_code").notNull(),
+  category: text("category").notNull().default(""), rankingDimension: text("ranking_dimension").notNull().default("SKU"),
+  month: text("month").notNull().default(""), imageContentSha256: text("image_content_sha256").notNull().default(""),
   productName: text("product_name").notNull().default(""), brand: text("brand").notNull().default(""),
   sourceImageUrl: text("source_image_url").notNull().default(""), resolvedImageUrl: text("resolved_image_url").notNull().default(""),
   imageSource: text("image_source").notNull().default("none"), status: text("status").notNull().default("queued"),
   aiSegment: text("ai_segment").notNull().default(""), aiImagePriceCents: integer("ai_image_price_cents"),
+  aiPriceType: text("ai_price_type").notNull().default(""), aiPriceLowCents: integer("ai_price_low_cents"), aiPriceHighCents: integer("ai_price_high_cents"),
   aiConfidenceBps: integer("ai_confidence_bps"), aiReason: text("ai_reason").notNull().default(""), aiRawDigest: text("ai_raw_digest").notNull().default(""),
   reviewedSegment: text("reviewed_segment").notNull().default(""), reviewedImagePriceCents: integer("reviewed_image_price_cents"),
+  reviewedPriceType: text("reviewed_price_type").notNull().default(""), reviewedPriceLowCents: integer("reviewed_price_low_cents"), reviewedPriceHighCents: integer("reviewed_price_high_cents"),
   selected: integer("selected", { mode: "boolean" }).notNull().default(false), reviewedBy: text("reviewed_by").notNull().default(""), reviewedAt: text("reviewed_at"),
   leaseTokenHash: text("lease_token_hash").notNull().default(""), leaseAgentId: text("lease_agent_id").notNull().default(""), leaseExpiresAt: text("lease_expires_at"),
   attemptCount: integer("attempt_count").notNull().default(0), errorMessage: text("error_message").notNull().default(""),
   version: integer("version").notNull().default(0), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
-  uniqueIndex("market_annotation_items_job_sku_uq").on(table.jobId, table.skuCode),
+  uniqueIndex("market_annotation_items_job_snapshot_uq").on(table.jobId, table.category, table.skuCode, table.rankingDimension, table.month, table.imageContentSha256),
   index("market_annotation_items_job_status_idx").on(table.jobId, table.status, table.updatedAt),
   index("market_annotation_items_lease_idx").on(table.leaseExpiresAt, table.status),
 ]);

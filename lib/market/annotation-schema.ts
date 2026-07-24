@@ -6,8 +6,9 @@ const foundationStatements = [
   `CREATE UNIQUE INDEX IF NOT EXISTS market_annotation_prompts_active_uq ON market_annotation_prompt_versions(category) WHERE status = 'active'`,
   `CREATE TABLE IF NOT EXISTS market_annotation_jobs (id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, prompt_version_id TEXT NOT NULL, executor TEXT NOT NULL, model_id TEXT, local_model_name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'queued', total_count INTEGER NOT NULL DEFAULT 0, completed_count INTEGER NOT NULL DEFAULT 0, failed_count INTEGER NOT NULL DEFAULT 0, reviewed_count INTEGER NOT NULL DEFAULT 0, committed_count INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, started_at TEXT, completed_at TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, commit_token_hash TEXT NOT NULL DEFAULT '', commit_started_at TEXT)`,
   `CREATE INDEX IF NOT EXISTS market_annotation_jobs_category_created_idx ON market_annotation_jobs(category, created_at)`,
-  `CREATE TABLE IF NOT EXISTS market_annotation_items (id TEXT PRIMARY KEY NOT NULL, job_id TEXT NOT NULL, sku_code TEXT NOT NULL, product_name TEXT NOT NULL DEFAULT '', brand TEXT NOT NULL DEFAULT '', source_image_url TEXT NOT NULL DEFAULT '', resolved_image_url TEXT NOT NULL DEFAULT '', image_source TEXT NOT NULL DEFAULT 'none', status TEXT NOT NULL DEFAULT 'queued', ai_segment TEXT NOT NULL DEFAULT '', ai_image_price_cents INTEGER, ai_confidence_bps INTEGER, ai_reason TEXT NOT NULL DEFAULT '', ai_raw_digest TEXT NOT NULL DEFAULT '', reviewed_segment TEXT NOT NULL DEFAULT '', reviewed_image_price_cents INTEGER, selected INTEGER NOT NULL DEFAULT 0, reviewed_by TEXT NOT NULL DEFAULT '', reviewed_at TEXT, lease_token_hash TEXT NOT NULL DEFAULT '', lease_agent_id TEXT NOT NULL DEFAULT '', lease_expires_at TEXT, attempt_count INTEGER NOT NULL DEFAULT 0, error_message TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_annotation_items_job_sku_uq ON market_annotation_items(job_id, sku_code)`,
+  `CREATE TABLE IF NOT EXISTS market_annotation_items (id TEXT PRIMARY KEY NOT NULL, job_id TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', sku_code TEXT NOT NULL, ranking_dimension TEXT NOT NULL DEFAULT 'SKU', month TEXT NOT NULL DEFAULT '', image_content_sha256 TEXT NOT NULL DEFAULT '', product_name TEXT NOT NULL DEFAULT '', brand TEXT NOT NULL DEFAULT '', source_image_url TEXT NOT NULL DEFAULT '', resolved_image_url TEXT NOT NULL DEFAULT '', image_source TEXT NOT NULL DEFAULT 'none', status TEXT NOT NULL DEFAULT 'queued', ai_segment TEXT NOT NULL DEFAULT '', ai_image_price_cents INTEGER, ai_price_type TEXT NOT NULL DEFAULT '', ai_price_low_cents INTEGER, ai_price_high_cents INTEGER, ai_confidence_bps INTEGER, ai_reason TEXT NOT NULL DEFAULT '', ai_raw_digest TEXT NOT NULL DEFAULT '', reviewed_segment TEXT NOT NULL DEFAULT '', reviewed_image_price_cents INTEGER, reviewed_price_type TEXT NOT NULL DEFAULT '', reviewed_price_low_cents INTEGER, reviewed_price_high_cents INTEGER, selected INTEGER NOT NULL DEFAULT 0, reviewed_by TEXT NOT NULL DEFAULT '', reviewed_at TEXT, lease_token_hash TEXT NOT NULL DEFAULT '', lease_agent_id TEXT NOT NULL DEFAULT '', lease_expires_at TEXT, attempt_count INTEGER NOT NULL DEFAULT 0, error_message TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `DROP INDEX IF EXISTS market_annotation_items_job_sku_uq`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_annotation_items_job_snapshot_uq ON market_annotation_items(job_id, category, sku_code, ranking_dimension, month, image_content_sha256)`,
   `CREATE INDEX IF NOT EXISTS market_annotation_items_job_status_idx ON market_annotation_items(job_id, status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_annotation_items_lease_idx ON market_annotation_items(lease_expires_at, status)`,
   `CREATE TABLE IF NOT EXISTS market_sku_annotations (id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, sku_code TEXT NOT NULL, segment TEXT NOT NULL, image_price_cents INTEGER, image_url TEXT NOT NULL DEFAULT '', image_source TEXT NOT NULL DEFAULT 'none', confidence_bps INTEGER, source_job_item_id TEXT NOT NULL, prompt_version_id TEXT NOT NULL, reviewed_by TEXT NOT NULL, reviewed_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -44,6 +45,18 @@ const runtimeColumnUpgrades = {
     attempt_count: "INTEGER NOT NULL DEFAULT 0",
     updated_at: "TEXT NOT NULL DEFAULT ''",
   },
+  market_annotation_items: {
+    category: "TEXT NOT NULL DEFAULT ''",
+    ranking_dimension: "TEXT NOT NULL DEFAULT 'SKU'",
+    month: "TEXT NOT NULL DEFAULT ''",
+    image_content_sha256: "TEXT NOT NULL DEFAULT ''",
+    ai_price_type: "TEXT NOT NULL DEFAULT ''",
+    ai_price_low_cents: "INTEGER",
+    ai_price_high_cents: "INTEGER",
+    reviewed_price_type: "TEXT NOT NULL DEFAULT ''",
+    reviewed_price_low_cents: "INTEGER",
+    reviewed_price_high_cents: "INTEGER",
+  },
 } as const;
 
 const upgradedIndexStatements = [
@@ -52,7 +65,7 @@ const upgradedIndexStatements = [
 ] as const;
 
 const tableStatements = foundationStatements.filter((sql) => sql.startsWith("CREATE TABLE"));
-const existingColumnIndexStatements = foundationStatements.filter((sql) => sql.startsWith("CREATE INDEX") || sql.startsWith("CREATE UNIQUE INDEX"));
+const existingColumnIndexStatements = foundationStatements.filter((sql) => sql.startsWith("CREATE INDEX") || sql.startsWith("CREATE UNIQUE INDEX") || sql.startsWith("DROP INDEX"));
 
 const ready = new WeakMap<object, Promise<void>>();
 

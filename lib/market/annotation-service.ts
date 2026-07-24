@@ -13,14 +13,14 @@ import type { MarketDatabase } from "@/lib/market/database";
 type Actor = { email: string; role: string };
 type PromptRow = { id: string; category: string; version: number; parent_id: string | null; source: string; status: string; segments_json: string; prompt_body: string; change_note: string; metrics_json: string; created_by: string; created_at: string; activated_by: string | null; activated_at: string | null };
 type JobRow = { id: string; category: string; prompt_version_id: string; executor: string; model_id: string | null; local_model_name: string; status: string; total_count: number; completed_count: number; failed_count: number; reviewed_count: number; committed_count: number; created_by: string; created_at: string; started_at: string | null; completed_at: string | null; updated_at: string; commit_token_hash: string; commit_started_at: string | null };
-type ItemRow = { id: string; job_id: string; sku_code: string; product_name: string; brand: string; source_image_url: string; resolved_image_url: string; image_source: string; status: string; ai_segment: string; ai_image_price_cents: number | null; ai_confidence_bps: number | null; ai_reason: string; reviewed_segment: string; reviewed_image_price_cents: number | null; selected: number; reviewed_by: string; reviewed_at: string | null; lease_token_hash: string; lease_agent_id: string; lease_expires_at: string | null; attempt_count: number; error_message: string; version: number; created_at: string; updated_at: string };
+type ItemRow = { id: string; job_id: string; category: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; source_image_url: string; resolved_image_url: string; image_source: string; status: string; ai_segment: string; ai_image_price_cents: number | null; ai_price_type: string; ai_price_low_cents: number | null; ai_price_high_cents: number | null; ai_confidence_bps: number | null; ai_reason: string; reviewed_segment: string; reviewed_image_price_cents: number | null; reviewed_price_type: string; reviewed_price_low_cents: number | null; reviewed_price_high_cents: number | null; selected: number; reviewed_by: string; reviewed_at: string | null; lease_token_hash: string; lease_agent_id: string; lease_expires_at: string | null; attempt_count: number; error_message: string; version: number; created_at: string; updated_at: string };
 type ValidationSampleRow = { id: string; category: string; sku_code: string; product_name: string; brand: string; image_url: string; gold_segment: string; gold_image_price_cents: number | null };
 type ValidationSnapshot = { id: string; skuCode: string; productName: string; brand: string; imageUrl: string; goldSegment: string; goldImagePriceCents: number | null };
 type ValidationResultRow = { id: string; run_id: string; sample_id: string; prompt_version_id: string; status: string; predicted_segment: string; predicted_image_price_cents: number | null; confidence_bps: number | null; is_correct: number; error_message: string; sample_snapshot_json: string; claim_token_hash: string; lease_expires_at: string | null; attempt_count: number; updated_at: string };
 
 const promptColumns = "id, category, version, parent_id, source, status, segments_json, prompt_body, change_note, metrics_json, created_by, created_at, activated_by, activated_at";
 const jobColumns = "id, category, prompt_version_id, executor, model_id, local_model_name, status, total_count, completed_count, failed_count, reviewed_count, committed_count, created_by, created_at, started_at, completed_at, updated_at, commit_token_hash, commit_started_at";
-const itemColumns = "id, job_id, sku_code, product_name, brand, source_image_url, resolved_image_url, image_source, status, ai_segment, ai_image_price_cents, ai_confidence_bps, ai_reason, reviewed_segment, reviewed_image_price_cents, selected, reviewed_by, reviewed_at, lease_token_hash, lease_agent_id, lease_expires_at, attempt_count, error_message, version, created_at, updated_at";
+const itemColumns = "id, job_id, category, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, resolved_image_url, image_source, status, ai_segment, ai_image_price_cents, ai_price_type, ai_price_low_cents, ai_price_high_cents, ai_confidence_bps, ai_reason, reviewed_segment, reviewed_image_price_cents, reviewed_price_type, reviewed_price_low_cents, reviewed_price_high_cents, selected, reviewed_by, reviewed_at, lease_token_hash, lease_agent_id, lease_expires_at, attempt_count, error_message, version, created_at, updated_at";
 
 function json<T>(value: string, fallback: T): T { try { return JSON.parse(value) as T; } catch { return fallback; } }
 function strictInteger(value: number | undefined, fallback: number, minimum: number, maximum: number, name: string) {
@@ -38,12 +38,18 @@ function safeOperationalError(error: unknown, fallback: string) {
   return fallback;
 }
 async function ensureMarketSchemaLazy(db: MarketDatabase) {
-  const { ensureMarketSchema } = await import("@/lib/market/database");
-  await ensureMarketSchema(db);
+  try {
+    const { ensureMarketSchema } = await import("@/lib/market/database");
+    await ensureMarketSchema(db);
+  } catch (error) {
+    if (!(error instanceof Error) || !/cloudflare:/.test(error.message)) throw error;
+    const { ensureMarketSchemaCore } = await import("@/lib/market/schema-core");
+    await ensureMarketSchemaCore(db);
+  }
 }
 function promptValue(row: PromptRow) { return { id: row.id, category: row.category, version: row.version, parentId: row.parent_id, source: row.source, status: row.status, segments: json<string[]>(row.segments_json, []), promptBody: row.prompt_body, changeNote: row.change_note, metrics: json(row.metrics_json, {}), createdBy: row.created_by, createdAt: row.created_at, activatedBy: row.activated_by, activatedAt: row.activated_at }; }
 function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
-function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, skuCode: row.sku_code, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
 
 export async function getAnnotationWorkspace(db: MarketDatabase, input: { jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number; includeAgents?: boolean } = {}) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
@@ -142,15 +148,37 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     if (!model) throw new Error("所选云端视觉模型不存在或未启用");
   } else if (!input.localModelName?.trim()) throw new Error("本地任务必须填写 Ollama 模型名");
   const limit = strictInteger(input.limit, 500, 1, 5_000, "limit");
-  const rows = await db.prepare("SELECT sku_code, product_name, brand, image_url FROM (SELECT sku_code, product_name, brand, image_url, ROW_NUMBER() OVER (PARTITION BY sku_code ORDER BY period_end DESC, updated_at DESC, id DESC) rn FROM market_ranking_entries WHERE category = ?) WHERE rn=1 ORDER BY sku_code LIMIT ?")
-    .bind(category, limit).all<{ sku_code: string; product_name: string; brand: string; image_url: string }>();
-  if (!rows.results.length) throw new Error("该三级类目没有可标注的市场 SKU");
+  const rows = await db.prepare(`
+    WITH latest_market AS (
+      SELECT * FROM (
+        SELECT m.*, ROW_NUMBER() OVER (
+          PARTITION BY m.category, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7)
+          ORDER BY m.period_end DESC, m.updated_at DESC, m.id DESC
+        ) rn
+        FROM market_ranking_entries m
+        WHERE m.category = ?
+      ) WHERE rn = 1
+    )
+    SELECT ps.category, ps.sku_code, ps.ranking_dimension, ps.month,
+      COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '') image_content_sha256,
+      lm.product_name, lm.brand, COALESCE(NULLIF(ps.image_url, ''), lm.image_url) image_url
+    FROM market_price_snapshots ps
+    JOIN latest_market lm ON lm.category=ps.category AND lm.sku_code=ps.sku_code
+      AND lm.ranking_dimension=ps.ranking_dimension AND substr(lm.period_end, 1, 7)=ps.month
+    LEFT JOIN market_image_cache mic ON mic.source_url=COALESCE(NULLIF(ps.image_url, ''), lm.image_url) AND mic.status='ready'
+    WHERE ps.category=?
+      AND ps.confirmed_market_price_cents IS NULL
+      AND COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '') <> ''
+    ORDER BY ps.month, ps.ranking_dimension, ps.sku_code
+    LIMIT ?`)
+    .bind(category, category, limit).all<{ category: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; image_url: string }>();
+  if (!rows.results.length) throw new Error("该三级类目没有已缓存图片且待确认的月度市场价格快照");
   const id = "market-job-" + randomUUID();
   await db.prepare("INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, local_model_name, status, total_count, created_by) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)")
     .bind(id, category, prompt.id, executor, executor === "cloud" ? input.modelId : null, executor === "local" ? input.localModelName!.trim().slice(0, 160) : "", rows.results.length, actor.email).run();
   for (let offset = 0; offset < rows.results.length; offset += 80) {
-    await db.batch(rows.results.slice(offset, offset + 80).map((row) => db.prepare("INSERT INTO market_annotation_items (id, job_id, sku_code, product_name, brand, source_image_url, status) VALUES (?, ?, ?, ?, ?, ?, 'queued')")
-      .bind("market-item-" + randomUUID(), id, row.sku_code, row.product_name, row.brand, row.image_url)));
+    await db.batch(rows.results.slice(offset, offset + 80).map((row) => db.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')")
+      .bind("market-item-" + randomUUID(), id, row.category, row.sku_code, row.ranking_dimension, row.month, row.image_content_sha256, row.product_name, row.brand, row.image_url)));
   }
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=?").bind(id).first<JobRow>();
   if (!job) throw new Error("标注任务创建失败");
@@ -180,8 +208,8 @@ export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) 
   await db.prepare("UPDATE market_annotation_jobs SET status='running', started_at=COALESCE(started_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('queued','failed','running')").bind(jobId).run();
   try {
     const result = await runVisionAnnotation({ db, modelId: job.model_id, promptBody: prompt.prompt_body, segments: json(prompt.segments_json, []), skuCode: candidate.sku_code, productName: candidate.product_name, brand: candidate.brand, imageUrl: candidate.source_image_url });
-    await db.prepare("UPDATE market_annotation_items SET status='review_pending', ai_segment=?, ai_image_price_cents=?, ai_confidence_bps=?, ai_reason=?, ai_raw_digest=?, reviewed_segment=?, reviewed_image_price_cents=?, resolved_image_url=?, image_source=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
-      .bind(result.segment, result.imagePriceCents, result.confidenceBps, result.reason, result.rawDigest, result.segment, result.imagePriceCents, result.resolvedImageUrl, result.imageSource, candidate.id, claimHash).run();
+    await db.prepare("UPDATE market_annotation_items SET status='review_pending', ai_segment=?, ai_image_price_cents=?, ai_price_type=?, ai_price_low_cents=?, ai_price_high_cents=?, ai_confidence_bps=?, ai_reason=?, ai_raw_digest=?, reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=?, reviewed_price_low_cents=?, reviewed_price_high_cents=?, resolved_image_url=?, image_source=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
+      .bind(result.segment, result.imagePriceCents, result.priceType, result.priceLowCents, result.priceHighCents, result.confidenceBps, result.reason, result.rawDigest, result.segment, result.imagePriceCents, result.priceType, result.priceLowCents, result.priceHighCents, result.resolvedImageUrl, result.imageSource, candidate.id, claimHash).run();
   } catch (error) {
     await db.prepare("UPDATE market_annotation_items SET status='failed', error_message=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
       .bind(safeOperationalError(error, "识别失败"), candidate.id, claimHash).run();
@@ -190,7 +218,7 @@ export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) 
   return { done: false, itemId: candidate.id, job: await getJob(db, jobId) };
 }
 
-export async function updateAnnotationItems(db: MarketDatabase, jobId: string, updates: Array<{ id: string; version: number; segment: string; imagePriceCents: unknown; selected: boolean }>, actor: Actor) {
+export async function updateAnnotationItems(db: MarketDatabase, jobId: string, updates: Array<{ id: string; version: number; segment: string; imagePriceCents: unknown; priceType?: string; priceLowCents?: unknown; priceHighCents?: unknown; selected: boolean }>, actor: Actor) {
   if (!updates.length || updates.length > 500) throw new Error("每次必须更新 1 到 500 个明确候选项");
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=?").bind(jobId).first<JobRow>();
   if (!job) throw new Error("任务不存在");
@@ -208,10 +236,13 @@ export async function updateAnnotationItems(db: MarketDatabase, jobId: string, u
       const segment = update.segment.trim();
       if (!segments.includes(segment)) throw new Error("细分品类不在 Prompt 枚举中：" + segment);
       const price = normalizeImagePriceCents(update.imagePriceCents);
+      const priceType = typeof update.priceType === "string" && update.priceType.trim() ? update.priceType.trim().slice(0, 40) : "";
+      const priceLow = normalizeImagePriceCents(update.priceLowCents);
+      const priceHigh = normalizeImagePriceCents(update.priceHighCents);
       const current = await db.prepare("SELECT status, version FROM market_annotation_items WHERE id=? AND job_id=?").bind(update.id, jobId).first<{ status: string; version: number }>();
       if (!current || !["review_pending", "approved", "rejected"].includes(current.status) || current.version !== update.version) throw new Error("候选项 " + update.id + " 已被他人修改，请刷新后重试");
-      statements.push(db.prepare("UPDATE market_annotation_items SET reviewed_segment=?, reviewed_image_price_cents=?, selected=?, status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND job_id=? AND version=? AND status IN ('review_pending','approved','rejected')")
-        .bind(segment, price, update.selected ? 1 : 0, update.selected ? "approved" : "review_pending", actor.email, update.id, jobId, update.version));
+      statements.push(db.prepare("UPDATE market_annotation_items SET reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=COALESCE(NULLIF(?, ''), reviewed_price_type), reviewed_price_low_cents=?, reviewed_price_high_cents=?, selected=?, status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND job_id=? AND version=? AND status IN ('review_pending','approved','rejected')")
+        .bind(segment, price, priceType, priceLow, priceHigh, update.selected ? 1 : 0, update.selected ? "approved" : "review_pending", actor.email, update.id, jobId, update.version));
     }
     await db.batch(statements);
     await releaseJobMutex(db, jobId, mutex, false);
@@ -260,44 +291,41 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
       const old = await db.prepare("SELECT id, category, sku_code skuCode, segment, image_price_cents imagePriceCents, image_url imageUrl, image_source imageSource, confidence_bps confidenceBps, source_job_item_id sourceJobItemId, prompt_version_id promptVersionId, reviewed_by reviewedBy, reviewed_at reviewedAt, version, created_at createdAt, updated_at updatedAt FROM market_sku_annotations WHERE category=? AND sku_code=?")
         .bind(job.category, item.sku_code).first<Record<string, unknown>>();
       const annotationId = String(old?.id ?? ("market-annotation-" + randomUUID()));
-      const after = { id: annotationId, category: job.category, skuCode: item.sku_code, segment: item.reviewed_segment, imagePriceCents: item.reviewed_image_price_cents, imageUrl: item.resolved_image_url || item.source_image_url, imageSource: item.image_source, confidenceBps: item.ai_confidence_bps, sourceJobItemId: item.id, promptVersionId: job.prompt_version_id, reviewedBy: actor.email, reviewedAt: committedAt, version: Number(old?.version ?? 0) + 1, createdAt: old?.createdAt ?? committedAt, updatedAt: committedAt, batchId, requestDigest };
+      const after = { id: annotationId, category: job.category, skuCode: item.sku_code, rankingDimension: item.ranking_dimension, month: item.month, imageContentSha256: item.image_content_sha256, segment: item.reviewed_segment, imagePriceCents: item.reviewed_image_price_cents, priceType: item.reviewed_price_type || item.ai_price_type, priceLowCents: item.reviewed_price_low_cents, priceHighCents: item.reviewed_price_high_cents, imageUrl: item.resolved_image_url || item.source_image_url, imageSource: item.image_source, confidenceBps: item.ai_confidence_bps, sourceJobItemId: item.id, promptVersionId: job.prompt_version_id, reviewedBy: actor.email, reviewedAt: committedAt, version: Number(old?.version ?? 0) + 1, createdAt: old?.createdAt ?? committedAt, updatedAt: committedAt, batchId, requestDigest };
       prepared.push({ item, old, annotationId, after, receiptKey });
     }
     let committed = 0;
     for (let offset = 0; offset < prepared.length; offset += 25) {
       const chunk = prepared.slice(offset, offset + 25);
-      const statements = chunk.flatMap(({ item, old, annotationId, after, receiptKey }) => [
-        db.prepare("INSERT INTO market_sku_annotations (id, category, sku_code, segment, image_price_cents, image_url, image_source, confidence_bps, source_job_item_id, prompt_version_id, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(category, sku_code) DO UPDATE SET segment=excluded.segment, image_price_cents=excluded.image_price_cents, image_url=excluded.image_url, image_source=excluded.image_source, confidence_bps=excluded.confidence_bps, source_job_item_id=excluded.source_job_item_id, prompt_version_id=excluded.prompt_version_id, reviewed_by=excluded.reviewed_by, reviewed_at=CURRENT_TIMESTAMP, version=market_sku_annotations.version+1, updated_at=CURRENT_TIMESTAMP")
-          .bind(annotationId, job.category, item.sku_code, item.reviewed_segment, item.reviewed_image_price_cents, after.imageUrl, item.image_source, item.ai_confidence_bps, item.id, job.prompt_version_id, actor.email),
-        db.prepare(`INSERT INTO market_price_snapshots (
-          id, category, sku_code, ranking_dimension, month, ai_image_price_cents, ai_price_type,
-          ai_confidence_bps, ai_reason, confirmed_market_price_cents, image_url,
-          confirmation_status, confirmed_by, confirmed_at, source_job_item_id, prompt_version_id
-        )
-        SELECT 'market-price-' || m.category || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
-          m.category, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7), ?, '标准售价',
-          ?, ?, ?, ?, 'confirmed', ?, CURRENT_TIMESTAMP, ?, ?
-        FROM market_ranking_entries m
-        WHERE m.category=? AND m.sku_code=?
-        GROUP BY m.category, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7)
-        ON CONFLICT(category, sku_code, ranking_dimension, month) DO UPDATE SET
-          ai_image_price_cents = excluded.ai_image_price_cents,
-          ai_price_type = excluded.ai_price_type,
-          ai_confidence_bps = excluded.ai_confidence_bps,
-          ai_reason = excluded.ai_reason,
-          confirmed_market_price_cents = excluded.confirmed_market_price_cents,
-          image_url = CASE WHEN excluded.image_url <> '' THEN excluded.image_url ELSE market_price_snapshots.image_url END,
-          confirmation_status = 'confirmed',
-          confirmed_by = excluded.confirmed_by,
-          confirmed_at = CURRENT_TIMESTAMP,
-          source_job_item_id = excluded.source_job_item_id,
-          prompt_version_id = excluded.prompt_version_id,
-          updated_at = CURRENT_TIMESTAMP`)
-          .bind(item.ai_image_price_cents, item.ai_confidence_bps, item.ai_reason, item.reviewed_image_price_cents, after.imageUrl, actor.email, item.id, job.prompt_version_id, job.category, item.sku_code),
-        db.prepare("INSERT INTO market_annotation_commit_receipts (id, job_item_id, annotation_id, idempotency_key, before_json, after_json, committed_by, batch_id, request_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .bind("market-commit-" + randomUUID(), item.id, annotationId, receiptKey, JSON.stringify(old ?? {}), JSON.stringify(after), actor.email, batchId, requestDigest),
-        db.prepare("UPDATE market_annotation_items SET status='committed', selected=0, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved' AND selected=1 AND version=?").bind(item.id, item.version),
-      ]);
+      const statements = chunk.flatMap(({ item, old, annotationId, after, receiptKey }) => {
+        const priceType = item.reviewed_price_type || item.ai_price_type || "无法判断";
+        const formalPrice = ["定金", "分期金额", "无法判断"].includes(priceType) ? null : item.reviewed_image_price_cents;
+        const status = formalPrice === null ? "review_pending" : "confirmed";
+        return [
+          db.prepare("INSERT INTO market_sku_annotations (id, category, sku_code, segment, image_price_cents, image_url, image_source, confidence_bps, source_job_item_id, prompt_version_id, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(category, sku_code) DO UPDATE SET segment=excluded.segment, image_price_cents=excluded.image_price_cents, image_url=excluded.image_url, image_source=excluded.image_source, confidence_bps=excluded.confidence_bps, source_job_item_id=excluded.source_job_item_id, prompt_version_id=excluded.prompt_version_id, reviewed_by=excluded.reviewed_by, reviewed_at=CURRENT_TIMESTAMP, version=market_sku_annotations.version+1, updated_at=CURRENT_TIMESTAMP")
+            .bind(annotationId, job.category, item.sku_code, item.reviewed_segment, item.reviewed_image_price_cents, after.imageUrl, item.image_source, item.ai_confidence_bps, item.id, job.prompt_version_id, actor.email),
+          db.prepare(`UPDATE market_price_snapshots SET
+            ai_image_price_cents=?, ai_price_type=?, ai_confidence_bps=?, ai_reason=?,
+            price_low_cents=COALESCE(?, price_low_cents), price_high_cents=COALESCE(?, price_high_cents),
+            confirmed_market_price_cents=?, image_content_sha256=?,
+            image_url=CASE WHEN ? <> '' THEN ? ELSE image_url END,
+            confirmation_status=?, confirmed_by=?, confirmed_at=CASE WHEN ? IS NULL THEN confirmed_at ELSE CURRENT_TIMESTAMP END,
+            source_job_item_id=?, prompt_version_id=?, updated_at=CURRENT_TIMESTAMP
+            WHERE category=? AND sku_code=? AND ranking_dimension=? AND month=?
+              AND image_content_sha256=?`)
+            .bind(item.ai_image_price_cents, priceType, item.ai_confidence_bps, item.ai_reason, item.reviewed_price_low_cents, item.reviewed_price_high_cents, formalPrice, item.image_content_sha256, after.imageUrl, after.imageUrl, status, actor.email, formalPrice, item.id, job.prompt_version_id, item.category || job.category, item.sku_code, item.ranking_dimension, item.month, item.image_content_sha256),
+          db.prepare(`UPDATE market_price_snapshots SET
+            confirmed_market_price_cents=?, confirmation_status='confirmed', confirmed_by=?, confirmed_at=CURRENT_TIMESTAMP,
+            source_job_item_id=?, prompt_version_id=?, updated_at=CURRENT_TIMESTAMP
+            WHERE category=? AND sku_code=? AND ranking_dimension=? AND image_content_sha256=?
+              AND month IN (strftime('%Y-%m', date(? || '-01', '-1 month')), strftime('%Y-%m', date(? || '-01', '+1 month')))
+              AND confirmed_market_price_cents IS NULL AND ? IS NOT NULL`)
+            .bind(formalPrice, actor.email, item.id, job.prompt_version_id, item.category || job.category, item.sku_code, item.ranking_dimension, item.image_content_sha256, item.month, item.month, formalPrice),
+          db.prepare("INSERT INTO market_annotation_commit_receipts (id, job_item_id, annotation_id, idempotency_key, before_json, after_json, committed_by, batch_id, request_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind("market-commit-" + randomUUID(), item.id, annotationId, receiptKey, JSON.stringify(old ?? {}), JSON.stringify(after), actor.email, batchId, requestDigest),
+          db.prepare("UPDATE market_annotation_items SET status='committed', selected=0, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved' AND selected=1 AND version=?").bind(item.id, item.version),
+        ];
+      });
       try { await db.batch(statements); committed += chunk.length; }
       catch (error) {
         await releaseJobMutex(db, job.id, mutex, true);
@@ -493,9 +521,10 @@ export async function authenticateLocalAgent(db: MarketDatabase, authorization: 
 }
 
 export async function claimLocalAnnotation(db: MarketDatabase, agent: { id: string }) {
+  await ensureAnnotationSchema(db);
   await db.prepare("UPDATE market_annotation_items SET status=CASE WHEN attempt_count>=3 THEN 'failed' ELSE 'queued' END, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, error_message=CASE WHEN attempt_count>=3 THEN '本地执行租约连续超时，已达到最大尝试次数' ELSE error_message END, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE status='claimed' AND lease_expires_at IS NOT NULL AND datetime(lease_expires_at)<=datetime('now')").run();
-  const item = await db.prepare("SELECT i.id, i.job_id jobId, i.sku_code skuCode, i.product_name productName, i.brand, i.source_image_url sourceImageUrl, i.version, j.prompt_version_id promptVersionId, j.local_model_name localModelName FROM market_annotation_items i JOIN market_annotation_jobs j ON j.id=i.job_id WHERE j.executor='local' AND j.status IN ('queued','running','failed') AND i.status IN ('queued','failed') AND i.attempt_count<3 ORDER BY j.created_at, i.updated_at LIMIT 1")
-    .first<{ id: string; jobId: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; version: number; promptVersionId: string; localModelName: string }>();
+  const item = await db.prepare("SELECT i.id, i.job_id jobId, i.category, i.sku_code skuCode, i.ranking_dimension rankingDimension, i.month, i.image_content_sha256 imageContentSha256, i.product_name productName, i.brand, i.source_image_url sourceImageUrl, i.version, j.prompt_version_id promptVersionId, j.local_model_name localModelName FROM market_annotation_items i JOIN market_annotation_jobs j ON j.id=i.job_id WHERE j.executor='local' AND j.status IN ('queued','running','failed') AND i.status IN ('queued','failed') AND i.attempt_count<3 ORDER BY j.created_at, i.updated_at LIMIT 1")
+    .first<{ id: string; jobId: string; category: string; skuCode: string; rankingDimension: string; month: string; imageContentSha256: string; productName: string; brand: string; sourceImageUrl: string; version: number; promptVersionId: string; localModelName: string }>();
   if (!item) return { task: null };
   const leaseToken = randomBytes(24).toString("hex");
   const claimed = await db.prepare("UPDATE market_annotation_items SET status='claimed', lease_token_hash=?, lease_agent_id=?, lease_expires_at=datetime('now','+5 minutes'), attempt_count=attempt_count+1, error_message='', version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND version=? AND status IN ('queued','failed') AND attempt_count<3")
@@ -505,12 +534,13 @@ export async function claimLocalAnnotation(db: MarketDatabase, agent: { id: stri
   if (!prompt) throw new Error("本地任务绑定的 Prompt 不存在");
   const lease = await db.prepare("SELECT lease_expires_at leaseExpiresAt FROM market_annotation_items WHERE id=?").bind(item.id).first<{ leaseExpiresAt: string }>();
   await db.prepare("UPDATE market_annotation_jobs SET status='running', started_at=COALESCE(started_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(item.jobId).run();
-  return { task: { itemId: item.id, candidateId: item.id, jobId: item.jobId, skuCode: item.skuCode, productName: item.productName, brand: item.brand, sourceImageUrl: item.sourceImageUrl, imageCandidates: resolveAnnotationImageCandidates(item.sourceImageUrl), promptVersionId: prompt.id, promptBody: prompt.prompt_body, segments: json<string[]>(prompt.segments_json, []), localModelName: item.localModelName, leaseToken, leaseExpiresAt: lease?.leaseExpiresAt ?? "" } };
+  return { task: { itemId: item.id, candidateId: item.id, jobId: item.jobId, category: item.category, skuCode: item.skuCode, rankingDimension: item.rankingDimension, month: item.month, imageContentSha256: item.imageContentSha256, productName: item.productName, brand: item.brand, sourceImageUrl: item.sourceImageUrl, imageCandidates: resolveAnnotationImageCandidates(item.sourceImageUrl), promptVersionId: prompt.id, promptBody: prompt.prompt_body, segments: json<string[]>(prompt.segments_json, []), localModelName: item.localModelName, leaseToken, leaseExpiresAt: lease?.leaseExpiresAt ?? "" } };
 }
 
 export async function completeLocalAnnotation(db: MarketDatabase, agent: { id: string }, input: {
   itemId: string; leaseToken: string; result?: unknown; error?: string; imageSource?: string; resolvedImageUrl?: string;
 }) {
+  await ensureAnnotationSchema(db);
   const item = await db.prepare("SELECT " + itemColumns + " FROM market_annotation_items WHERE id=?").bind(input.itemId).first<ItemRow>();
   if (!item) throw new AnnotationAgentError("bad_request");
   if (item.status === "review_pending" || item.status === "approved" || item.status === "committed") return { ok: true, duplicate: true, itemId: item.id };
@@ -533,8 +563,8 @@ export async function completeLocalAnnotation(db: MarketDatabase, agent: { id: s
   const candidates = resolveAnnotationImageCandidates(item.source_image_url);
   const selectedImage = input.resolvedImageUrl ? candidates.find((candidate) => candidate.url === input.resolvedImageUrl && candidate.source === input.imageSource) : null;
   if (input.resolvedImageUrl && !selectedImage) throw new AnnotationAgentError("bad_request");
-  const result = await db.prepare("UPDATE market_annotation_items SET status='review_pending', ai_segment=?, ai_image_price_cents=?, ai_confidence_bps=?, ai_reason=?, ai_raw_digest=?, reviewed_segment=?, reviewed_image_price_cents=?, resolved_image_url=?, image_source=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='claimed' AND lease_agent_id=? AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
-    .bind(prediction.segment, prediction.imagePriceCents, prediction.confidenceBps, prediction.reason, digest(prediction.rawText), prediction.segment, prediction.imagePriceCents, selectedImage?.url ?? "", selectedImage?.source ?? "none", item.id, agent.id, digest(input.leaseToken)).run();
+  const result = await db.prepare("UPDATE market_annotation_items SET status='review_pending', ai_segment=?, ai_image_price_cents=?, ai_price_type=?, ai_price_low_cents=?, ai_price_high_cents=?, ai_confidence_bps=?, ai_reason=?, ai_raw_digest=?, reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=?, reviewed_price_low_cents=?, reviewed_price_high_cents=?, resolved_image_url=?, image_source=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='claimed' AND lease_agent_id=? AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
+    .bind(prediction.segment, prediction.imagePriceCents, prediction.priceType, prediction.priceLowCents, prediction.priceHighCents, prediction.confidenceBps, prediction.reason, digest(prediction.rawText), prediction.segment, prediction.imagePriceCents, prediction.priceType, prediction.priceLowCents, prediction.priceHighCents, selectedImage?.url ?? "", selectedImage?.source ?? "none", item.id, agent.id, digest(input.leaseToken)).run();
   if (!Number(result.meta.changes ?? 0)) throw new AnnotationAgentError("lease_conflict");
   await refreshJob(db, item.job_id);
   return { ok: true, itemId: item.id };

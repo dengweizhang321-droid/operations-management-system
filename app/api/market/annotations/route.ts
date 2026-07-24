@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       case "run_next": result = await runNextCloudAnnotation(db, text(parsed, "jobId")); break;
       case "review": {
         if (!Array.isArray(parsed.updates) || !parsed.updates.every(record)) throw new Error("updates 必须是对象数组");
-        result = await updateAnnotationItems(db, text(parsed, "jobId"), parsed.updates.map((item) => ({ id: text(item, "id"), version: Number(item.version), segment: text(item, "segment"), imagePriceCents: item.imagePriceCents, selected: item.selected === true })), principal); break;
+        result = await updateAnnotationItems(db, text(parsed, "jobId"), parsed.updates.map((item) => ({ id: text(item, "id"), version: Number(item.version), segment: text(item, "segment"), imagePriceCents: item.imagePriceCents, priceType: text(item, "priceType"), priceLowCents: item.priceLowCents, priceHighCents: item.priceHighCents, selected: item.selected === true })), principal); break;
       }
       case "commit": result = await commitAnnotationItems(db, { jobId: text(parsed, "jobId"), candidateIds: texts(parsed, "candidateIds"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
       case "create_prompt": result = await createPromptVersion(db, { category: text(parsed, "category"), segments: parsed.segments, promptBody: text(parsed, "promptBody"), parentId: text(parsed, "parentId") || undefined, source: "manual", changeNote: text(parsed, "changeNote") }, principal); break;
