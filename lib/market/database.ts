@@ -498,7 +498,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
   ), filtered AS (SELECT * FROM enriched ${priceBandWhere})`;
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const bindings = [...dateValues, ...values, ...priceBandValues];
-  const [summary, ranking, trend, categories, scopes, brands, dimensions, modes, subcategories, priceBands, brandRows, subcategoryRows, priceRows, cutoff, batches, imageCache] = await Promise.all([
+  const [summary, ranking, trend, categories, scopes, brands, dimensions, modes, subcategories, priceBands, priceBandRows, brandRows, subcategoryRows, priceRows, cutoff, batches, imageCache] = await Promise.all([
     db.prepare(`${enriched} SELECT COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT category) category_count,
       COUNT(DISTINCT brand) brand_count, COALESCE(SUM(gmv_cents), 0) gmv_cents,
       COALESCE(SUM(quantity), 0) quantity, COALESCE(SUM(page_views), 0) page_views,
@@ -538,6 +538,12 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     db.prepare("SELECT operation_mode value, COUNT(*) count FROM market_ranking_entries GROUP BY operation_mode ORDER BY value").all<{ value: string; count: number }>(),
     db.prepare("SELECT subcategory value, COUNT(*) count FROM market_ranking_entries WHERE subcategory <> '' GROUP BY subcategory ORDER BY count DESC, value LIMIT 100").all<{ value: string; count: number }>(),
     db.prepare(`${enriched} SELECT price_band value, COUNT(*) count FROM filtered GROUP BY price_band ORDER BY CASE price_band WHEN '未确认价格' THEN 9 WHEN '3000+' THEN 8 ELSE 1 END, price_band`).bind(...bindings).all<{ value: string; count: number }>(),
+    db.prepare(`${enriched} SELECT price_band, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
+      COUNT(DISTINCT sku_code) sku_count,
+      SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END) pop_gmv_cents,
+      SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
+      GROUP_CONCAT(DISTINCT brand) brands
+      FROM filtered GROUP BY price_band ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
     db.prepare(`${enriched} SELECT brand, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, COUNT(DISTINCT sku_code) sku_count,
       MIN(rank) best_rank, GROUP_CONCAT(DISTINCT price_band) price_bands, GROUP_CONCAT(DISTINCT subcategory) subcategories
       FROM filtered WHERE brand <> '' GROUP BY brand ORDER BY gmv_cents DESC LIMIT 30`).bind(...bindings).all<Record<string, string | number>>(),
@@ -613,6 +619,16 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     })),
     trend: trend.results ?? [],
     priceBands: (priceBands.results ?? []).map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
+    priceBandSummary: (priceBandRows.results ?? []).map((row) => ({
+      priceBand: String(row.price_band ?? "未确认价格"),
+      gmvCents: Number(row.gmv_cents ?? 0),
+      quantity: Number(row.quantity ?? 0),
+      skuCount: Number(row.sku_count ?? 0),
+      popGmvCents: Number(row.pop_gmv_cents ?? 0),
+      selfGmvCents: Number(row.self_gmv_cents ?? 0),
+      selfOperatedShareBps: Number(row.gmv_cents ?? 0) ? Math.round(Number(row.self_gmv_cents ?? 0) / Number(row.gmv_cents ?? 0) * 10_000) : null,
+      mainBrands: String(row.brands ?? "").split(",").filter(Boolean).slice(0, 5),
+    })),
     brandAnalysis: {
       items: brandShares,
       cr3Bps: cr(3),
