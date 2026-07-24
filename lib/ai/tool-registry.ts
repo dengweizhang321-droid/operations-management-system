@@ -25,6 +25,7 @@ import {
 } from "@/lib/search/ai-tool";
 import { GLOBAL_SEARCH_COVERAGE } from "@/lib/search/global-search";
 import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/database";
+import { callMarketTool } from "@/lib/market/ai-tools";
 
 export type {
   AiToolAnnotations,
@@ -178,6 +179,115 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     supportsScopedPrincipal: false,
     handler: (args) => getCustomerServiceConversationsForAi(args),
+  },
+  {
+    name: "get_market_overview",
+    title: "市场 TOP 榜单概览",
+    description: "只读查询市场分析 2.0 的核心 KPI、数据覆盖和正式确认主图市场定位价口径。返回范围仅代表当前 TOP 榜单覆盖口径，不代表完整行业市场。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        category: { type: "string", maxLength: 120 },
+        rankingDimension: { type: "string", enum: ["SKU", "SPU"] },
+        operationMode: { type: "string", enum: ["POP", "自营", "未知"] },
+        brand: { type: "string", maxLength: 120 },
+        subcategory: { type: "string", maxLength: 120 },
+        query: { type: "string", maxLength: 100 },
+      },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    supportsScopedPrincipal: false,
+    handler: (args) => callMarketTool("get_market_overview", args),
+  },
+  {
+    name: "get_market_sku_trend",
+    title: "市场 SKU 月度趋势",
+    description: "只读查询单个 SKU/SPU 在全量月度数据中的销售额、成交件数、正式市场定位价、成交均价、排名和价格确认状态。结果有上限。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        skuCode: { type: "string", minLength: 1, maxLength: 80 },
+        category: { type: "string", maxLength: 120 },
+        rankingDimension: { type: "string", enum: ["SKU", "SPU"] },
+        limit: { type: "integer", minimum: 1, maximum: 60, default: 24 },
+      },
+      required: ["skuCode"],
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    supportsScopedPrincipal: false,
+    handler: (args) => callMarketTool("get_market_sku_trend", args),
+  },
+  {
+    name: "get_market_brand_analysis",
+    title: "市场品牌份额分析",
+    description: "只读查询完整筛选范围内品牌销售额份额、销量、SKU 数、CR3、CR5 和集中度；仅展示列表限制为前 30，份额分母不截断。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        category: { type: "string", maxLength: 120 },
+        rankingDimension: { type: "string", enum: ["SKU", "SPU"] },
+        operationMode: { type: "string", enum: ["POP", "自营", "未知"] },
+        brand: { type: "string", maxLength: 120 },
+        subcategory: { type: "string", maxLength: 120 },
+      },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    supportsScopedPrincipal: false,
+    handler: (args) => callMarketTool("get_market_brand_analysis", args),
+  },
+  {
+    name: "get_market_price_band_analysis",
+    title: "市场价格带分析",
+    description: "只读查询按已发布版本化价格带配置计算的价格带销售额、成交件数、SKU 数和 POP/自营占比。未人工确认价格不会进入正式价格带。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        category: { type: "string", maxLength: 120 },
+        rankingDimension: { type: "string", enum: ["SKU", "SPU"] },
+        operationMode: { type: "string", enum: ["POP", "自营", "未知"] },
+        subcategory: { type: "string", maxLength: 120 },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+      },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    supportsScopedPrincipal: false,
+    handler: (args) => callMarketTool("get_market_price_band_analysis", args),
+  },
+  {
+    name: "get_market_pending_review_summary",
+    title: "市场价格待确认汇总",
+    description: "只读查询待人工确认的主图市场定位价列表摘要，返回候选价来源、月份、图片哈希和商品信息，结果有上限。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: { type: "string", maxLength: 120 },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+      },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    supportsScopedPrincipal: false,
+    handler: (args) => callMarketTool("get_market_pending_review_summary", args),
   },
   {
     name: "search_system_data",

@@ -169,6 +169,13 @@
       "when": 1784892000000,
       "tag": "0023_market_annotation_monthly_price",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1784893200000,
+      "tag": "0024_market_master_workflow",
+      "breakpoints": true
     }
   ]
 }

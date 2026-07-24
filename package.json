@@ -11,7 +11,7 @@
     "start": "vinext start",
     "start:local-worker": "node tools/start-local-worker.mjs",
     "test": "vinext build && node --import tsx --test tests/*.test.ts && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .runtime --ignore-pattern .codex-tmp --ignore-pattern .vite-sites-cache --ignore-pattern tmp --ignore-pattern outputs",
     "test:unit": "node --import tsx --test tests/*.test.ts",
     "jackyun:post-download": "node --import tsx tools/jackyun-download-runner.ts",
     "jackyun:daily": "node --import tsx tools/jackyun-automation-runner.ts",

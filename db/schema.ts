@@ -792,17 +792,42 @@ export const marketDownloadTasks = sqliteTable("market_download_tasks", {
   rankingDimension: text("ranking_dimension").notNull(),
   status: text("status").notNull().default("planned"),
   attemptCount: integer("attempt_count").notNull().default(0),
+  jdTaskId: text("jd_task_id").notNull().default(""),
   sourceFileName: text("source_file_name").notNull().default(""),
   fileHash: text("file_hash").notNull().default(""),
   rowCount: integer("row_count").notNull().default(0),
+  headerValid: integer("header_valid").notNull().default(0),
+  periodValid: integer("period_valid").notNull().default(0),
+  categoryValid: integer("category_valid").notNull().default(0),
+  dimensionValid: integer("dimension_valid").notNull().default(0),
+  stagingBatchId: text("staging_batch_id").notNull().default(""),
+  importBatchId: text("import_batch_id").notNull().default(""),
+  validationJson: text("validation_json").notNull().default("{}"),
   errorCode: text("error_code").notNull().default(""),
   errorMessage: text("error_message").notNull().default(""),
   nextRetryAt: text("next_retry_at"),
+  lastAttemptAt: text("last_attempt_at"),
+  completedAt: text("completed_at"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   uniqueIndex("market_download_tasks_unique_uq").on(table.category, table.month, table.rankingDimension),
   index("market_download_tasks_status_idx").on(table.status, table.nextRetryAt, table.updatedAt),
+]);
+
+export const marketDownloadConfigs = sqliteTable("market_download_configs", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  rankingDimension: text("ranking_dimension").notNull(),
+  monthStart: text("month_start").notNull(),
+  monthEnd: text("month_end").notNull(),
+  status: text("status").notNull().default("enabled"),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("market_download_configs_unique_uq").on(table.category, table.rankingDimension, table.monthStart, table.monthEnd),
+  index("market_download_configs_status_idx").on(table.status, table.category, table.rankingDimension),
 ]);
 
 export const marketMasterAuditLogs = sqliteTable("market_master_audit_logs", {
