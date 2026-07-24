@@ -134,6 +134,13 @@
       "when": 1784865792499,
       "tag": "0018_online_spec_code",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1784870400000,
+      "tag": "0019_market_image_cache",
+      "breakpoints": true
     }
   ]
 }

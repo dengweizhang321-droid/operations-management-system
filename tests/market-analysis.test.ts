@@ -134,3 +134,48 @@ test("参考模块的日期区间、品牌名称和中文金额单位可以直�
   assert.equal(result.rows[0]?.quantity, 30);
   assert.equal(result.rows[0]?.visitors, 200);
 });
+
+test("京东商智月度 TOP SKU CSV 识别原图、商品链接和区间中位数", () => {
+  const result = parseMarketRows({
+    bytes: csvBytes([
+      "日期区间,榜单单位,排名,商品名称,SKUID,图片URL(原图),商品链接,成交金额,成交单量,访客数,搜索点击次数,店铺名称,店铺类型",
+      "2026-01-01_2026-01-31,SKU,1,商用净饮水机,10047090465567,https://img10.360buyimg.com/imgzone/jfs/t1/a.jpg,https://item.jd.com/10047090465567.html,￥8万~￥10万,5~10,600~800,600~800,示例旗舰店,pop",
+    ].join("\n")),
+    fileName: "京东商智_交易榜单_SKU_商用净饮水设备_2026-01至2026-06.csv",
+    defaultStartDate: "2026-01-01",
+    defaultEndDate: "2026-06-30",
+    defaultCategory: "商用净饮水设备",
+    defaultScope: "整体SKU",
+  });
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0]?.periodStart, "2026-01-01");
+  assert.equal(result.rows[0]?.periodEnd, "2026-01-31");
+  assert.equal(result.rows[0]?.imageUrl, "https://img10.360buyimg.com/imgzone/jfs/t1/a.jpg");
+  assert.equal(result.rows[0]?.productUrl, "https://item.jd.com/10047090465567.html");
+  assert.equal(result.rows[0]?.gmvCents, 9_000_000);
+  assert.equal(result.rows[0]?.quantity, 8);
+  assert.equal(result.rows[0]?.visitors, 700);
+  assert.equal(result.rows[0]?.searchClicks, 700);
+});
+
+test("市场图片缓存使用受限京东抓取、R2、鉴权路由并接入标注目录", async () => {
+  const [cache, cacheRoute, imageRoute, database, view, annotation] = await Promise.all([
+    readFile(new URL("../lib/market/image-cache.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/images/cache/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/images/[hash]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(cache, /fetchAnnotationImage/);
+  assert.match(cache, /SALES_IMPORT_FILES/);
+  assert.match(cache, /MAX_CACHE_BATCH = 24/);
+  assert.match(cache, /CACHE_CONCURRENCY = 4/);
+  assert.match(cacheRoute, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(imageRoute, /requireAppPrincipal\(\)/);
+  assert.match(imageRoute, /x-content-type-options/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS market_image_cache/);
+  assert.match(database, /\/api\/market\/images\//);
+  assert.match(view, /正在自动缓存商品图/);
+  assert.match(annotation, /market_image_cache/);
+});

@@ -696,6 +696,29 @@ export const marketRankingEntries = sqliteTable(
   ],
 );
 
+/** Validated JD product image cache metadata; image bytes live in R2. */
+export const marketImageCache = sqliteTable(
+  "market_image_cache",
+  {
+    sourceUrl: text("source_url").primaryKey(),
+    status: text("status").notNull().default("pending"),
+    objectKey: text("object_key").notNull().default(""),
+    contentSha256: text("content_sha256").notNull().default(""),
+    mimeType: text("mime_type").notNull().default(""),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    imageSource: text("image_source").notNull().default(""),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    errorCode: text("error_code").notNull().default(""),
+    errorMessage: text("error_message").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("market_image_cache_object_key_idx").on(table.objectKey),
+    index("market_image_cache_status_idx").on(table.status, table.updatedAt),
+  ],
+);
+
 /** Immutable prompts and durable review jobs for market-SKU AI annotation. */
 export const marketAnnotationPromptVersions = sqliteTable("market_annotation_prompt_versions", {
   id: text("id").primaryKey(), category: text("category").notNull(), version: integer("version").notNull(),

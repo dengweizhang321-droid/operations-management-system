@@ -506,6 +506,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "market_annotation_prompt_versions", "market_annotation_prompt_audits", "market_annotation_jobs", "market_annotation_items",
     "market_annotation_commit_receipts", "market_annotation_validation_samples",
     "market_annotation_validation_runs", "market_annotation_validation_results", "market_annotation_local_agents",
+    "market_image_cache",
   ],
 } as const;
 

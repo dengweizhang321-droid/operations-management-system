@@ -111,6 +111,22 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_category_idx ON market_ranking_entries (category, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_sku_idx ON market_ranking_entries (sku_code, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_brand_idx ON market_ranking_entries (brand, period_end)`,
+  `CREATE TABLE IF NOT EXISTS market_image_cache (
+    source_url TEXT PRIMARY KEY NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    object_key TEXT NOT NULL DEFAULT '',
+    content_sha256 TEXT NOT NULL DEFAULT '',
+    mime_type TEXT NOT NULL DEFAULT '',
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    image_source TEXT NOT NULL DEFAULT '',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT NOT NULL DEFAULT '',
+    error_message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS market_image_cache_object_key_idx ON market_image_cache (object_key)`,
+  `CREATE INDEX IF NOT EXISTS market_image_cache_status_idx ON market_image_cache (status, updated_at)`,
 ] as const;
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
@@ -277,7 +293,7 @@ type EntryRow = {
   id: number; period_start: string; period_end: string; category: string; scope: string;
   rank: number | null; sku_code: string; product_name: string; brand: string; price_cents: number | null;
   gmv_cents: number; quantity: number; page_views: number; visitors: number; conversion_bps: number | null;
-  cart_customers: number; search_clicks: number; image_url: string; product_url: string;
+  cart_customers: number; search_clicks: number; image_url: string; source_image_url: string; image_cache_status: string; product_url: string;
   is_own: number; own_sales_cents: number;
 };
 
@@ -307,6 +323,8 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
   const { where, values } = filterSql(filters);
   const enriched = `WITH enriched AS (
     SELECT m.*,
+      mic.status AS image_cache_status_raw,
+      mic.content_sha256 AS image_content_sha256,
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id = m.sku_code OR n.product_code = m.sku_code OR n.spu_id = m.sku_code
@@ -319,11 +337,12 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
           AND (? = '' OR substr(COALESCE(NULLIF(s.sales_time, ''), s.ship_time), 1, 10) >= ?)
           AND (? = '' OR substr(COALESCE(NULLIF(s.sales_time, ''), s.ship_time), 1, 10) <= ?)
       ), 0) AS own_sales_cents
-    FROM market_ranking_entries m ${where}
+    FROM market_ranking_entries m
+    LEFT JOIN market_image_cache mic ON mic.source_url = m.image_url ${where}
   )`;
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const bindings = [...dateValues, ...values];
-  const [summary, ranking, trend, categories, scopes, brands, cutoff, batches] = await Promise.all([
+  const [summary, ranking, trend, categories, scopes, brands, cutoff, batches, imageCache] = await Promise.all([
     db.prepare(`${enriched} SELECT COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT category) category_count,
       COUNT(DISTINCT brand) brand_count, COALESCE(SUM(gmv_cents), 0) gmv_cents,
       COALESCE(SUM(quantity), 0) quantity, COALESCE(SUM(page_views), 0) page_views,
@@ -331,7 +350,10 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       .bind(...bindings).first<SummaryRow>(),
     db.prepare(`${enriched} SELECT id, period_start, period_end, category, scope, rank, sku_code,
       product_name, brand, price_cents, gmv_cents, quantity, page_views, visitors,
-      conversion_bps, cart_customers, search_clicks, image_url, product_url, is_own, own_sales_cents
+      conversion_bps, cart_customers, search_clicks,
+      CASE WHEN image_url <> '' AND image_cache_status_raw = 'ready' THEN '/api/market/images/' || image_content_sha256 ELSE image_url END image_url,
+      image_url source_image_url, COALESCE(image_cache_status_raw, CASE WHEN image_url = '' THEN 'missing' ELSE 'pending' END) image_cache_status,
+      product_url, is_own, own_sales_cents
       FROM enriched ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC LIMIT 200`)
       .bind(...bindings).all<EntryRow>(),
     db.prepare(`${enriched} SELECT period_end period, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
@@ -343,6 +365,11 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     db.prepare(`${enriched} SELECT MIN(period_start) date_min, MAX(period_end) date_max FROM enriched`)
       .bind(...bindings).first<{ date_min: string | null; date_max: string | null }>(),
     listMarketImportBatches(db, 8),
+    db.prepare(`SELECT COUNT(DISTINCT m.image_url) total,
+      COUNT(DISTINCT CASE WHEN mic.status='ready' THEN m.image_url END) cached,
+      COUNT(DISTINCT CASE WHEN mic.status='failed' AND mic.attempt_count>=3 THEN m.image_url END) failed
+      FROM market_ranking_entries m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
+      WHERE m.image_url<>''`).first<{ total: number; cached: number; failed: number }>(),
   ]);
   const summaryValue = summary ?? { product_count: 0, category_count: 0, brand_count: 0, gmv_cents: 0, quantity: 0, page_views: 0, visitors: 0, own_product_count: 0 };
   return {
@@ -362,6 +389,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       brand: row.brand, priceCents: row.price_cents, gmvCents: row.gmv_cents, quantity: row.quantity,
       pageViews: row.page_views, visitors: row.visitors, conversionBps: row.conversion_bps,
       cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
+      sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
       productUrl: row.product_url, isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
     })),
     trend: trend.results ?? [],
@@ -370,5 +398,9 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     },
     dataRange: { startDate: cutoff?.date_min ?? null, endDate: cutoff?.date_max ?? null },
     batches,
+    imageCache: {
+      total: Number(imageCache?.total ?? 0), cached: Number(imageCache?.cached ?? 0), failed: Number(imageCache?.failed ?? 0),
+      pending: Math.max(0, Number(imageCache?.total ?? 0) - Number(imageCache?.cached ?? 0) - Number(imageCache?.failed ?? 0)),
+    },
   };
 }

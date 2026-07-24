@@ -24,7 +24,7 @@ const aliases = {
   conversion: ["成交转化率", "转化率", "conversion_rate"],
   cartCustomers: ["加购人数", "加购客户数", "cart_customers"],
   searchClicks: ["搜索点击次数", "搜索点击数", "search_clicks"],
-  imageUrl: ["图片", "图片链接", "商品图片", "主图", "首图链接", "image_url"],
+  imageUrl: ["图片", "图片链接", "图片URL(原图)", "商品图片", "主图", "首图链接", "image_url"],
   productUrl: ["商品链接", "链接", "product_url"],
 } as const;
 

@@ -6,6 +6,7 @@ import {
   saveMarketImport,
 } from "@/lib/market/database";
 import { parseMarketRows } from "@/lib/market/parser";
+import { cacheMarketImages } from "@/lib/market/image-cache";
 
 export { parseMarketRows } from "@/lib/market/parser";
 
@@ -24,7 +25,8 @@ export async function importMarketFile(input: {
   const fileHash = createHash("sha256").update(input.bytes).digest("hex");
   const existing = await findMarketBatchByHash(db, fileHash);
   if (existing?.status === "completed") {
-    return { ok: true, status: "duplicate" as const, message: "该文件已经导入，无需重复操作", batch: existing };
+    const imageCache = await cacheMarketImages({ db, batchId: existing.id, limit: 4 });
+    return { ok: true, status: "duplicate" as const, message: "该文件已经导入，已继续检查商品图片缓存", batch: existing, imageCache };
   }
   if (existing?.status === "processing" && Date.now() - Date.parse(existing.createdAt) < 30 * 60 * 1000) {
     return { ok: true, status: "processing" as const, message: "该文件正在导入，请稍后刷新", batch: existing };
@@ -44,5 +46,6 @@ export async function importMarketFile(input: {
     rows: parsed.rows,
     warnings: parsed.warnings,
   });
-  return { ok: true, status: "imported" as const, message: `成功导入 ${batch.rowCount} 条市场商品数据`, batch };
+  const imageCache = await cacheMarketImages({ db, batchId: batch.id, limit: 4 });
+  return { ok: true, status: "imported" as const, message: `成功导入 ${batch.rowCount} 条市场商品数据`, batch, imageCache };
 }

@@ -86,7 +86,15 @@ export async function searchAnnotationCatalog(db: MarketDatabase, input: { q?: s
   const bindings = q ? [like, like, like, like, like] : [];
   const [countRow, rows] = await Promise.all([
     db.prepare(`${base} SELECT COUNT(*) total FROM latest_market m LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code ${where}`).bind(...bindings).first<{ total: number }>(),
-    db.prepare(`${base} SELECT m.sku_code skuCode, m.product_name productName, m.brand, m.category, m.image_url imageUrl, m.price_cents rankingPriceCents, a.id annotationId, a.segment finalSegment, a.image_price_cents finalImagePriceCents, COALESCE(r.status, CASE WHEN a.id IS NOT NULL THEN 'committed' ELSE 'unreviewed' END) reviewStatus FROM latest_market m LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code LEFT JOIN latest_review r ON r.item_category=m.category AND r.sku_code=m.sku_code ${where} ORDER BY m.category, m.sku_code LIMIT ? OFFSET ?`).bind(...bindings, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>(),
+    db.prepare(`${base} SELECT m.sku_code skuCode, m.product_name productName, m.brand, m.category,
+      CASE WHEN mic.status='ready' THEN '/api/market/images/' || mic.content_sha256 ELSE m.image_url END imageUrl,
+      COALESCE(mic.status, CASE WHEN m.image_url='' THEN 'missing' ELSE 'pending' END) imageCacheStatus,
+      m.price_cents rankingPriceCents, a.id annotationId, a.segment finalSegment, a.image_price_cents finalImagePriceCents,
+      COALESCE(r.status, CASE WHEN a.id IS NOT NULL THEN 'committed' ELSE 'unreviewed' END) reviewStatus
+      FROM latest_market m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
+      LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code
+      LEFT JOIN latest_review r ON r.item_category=m.category AND r.sku_code=m.sku_code ${where}
+      ORDER BY m.category, m.sku_code LIMIT ? OFFSET ?`).bind(...bindings, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>(),
   ]);
   return { items: rows.results ?? [], page, pageSize, total: Number(countRow?.total ?? 0), pageCount: Math.max(1, Math.ceil(Number(countRow?.total ?? 0) / pageSize)), query: q };
 }
