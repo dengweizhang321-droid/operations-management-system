@@ -6,6 +6,8 @@ import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import { executeToolCallWithRegistry, getOpenAiTools, type AiToolEntry } from "../lib/ai/tool-registry-contract";
 import {
+  applyPublishedMarketMappings,
+  confirmMarketPrice,
   createMarketPriceBandVersion,
   getMarketSkuComparison,
   planMissingMarketDownloads,
@@ -13,7 +15,9 @@ import {
   recordMarketDownloadAttempt,
   rollbackMarketPriceBandVersion,
   upsertMarketDownloadConfig,
+  upsertMarketMapping,
 } from "../lib/market/admin-service";
+import { executeMarketDownloadTask } from "../lib/market/download-executor";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
@@ -44,6 +48,84 @@ function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
 }
 
 const admin = { email: "admin@example.com", role: "admin" } as const;
+
+test("installment price confirmation is rejected and scoped confirmation cannot alter another scope", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  const installment = "\u5206\u671f\u91d1\u989d";
+  const standard = "\u6807\u51c6\u552e\u4ef7";
+  const selfOperated = "\u81ea\u8425";
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_price_snapshots (id, category, scope, sku_code, ranking_dimension, month, ai_price_type)
+    VALUES ('pop-price','category-1','pop','SKU-1','SKU','2026-06','分期金额'), ('self-price','category-1','自营','SKU-1','SKU','2026-06','标准售价');`);
+  await assert.rejects(() => confirmMarketPrice(db as never, {
+    category: "category-1", scope: "pop", skuCode: "SKU-1", rankingDimension: "SKU", month: "2026-06",
+    priceCents: 199900, priceType: installment,
+  }, admin));
+  await confirmMarketPrice(db as never, {
+    category: "category-1", scope: "pop", skuCode: "SKU-1", rankingDimension: "SKU", month: "2026-06",
+    priceCents: 199900, priceType: standard,
+  }, admin);
+  const prices = sqlite.prepare("SELECT scope, confirmed_market_price_cents price FROM market_price_snapshots ORDER BY scope").all() as Array<{ scope: string; price: number | null }>;
+  assert.deepEqual(prices.map((row) => ({ ...row })), [{ scope: "pop", price: 199900 }, { scope: selfOperated, price: null }]);
+  sqlite.close();
+});
+
+test("published master mappings apply to ranking facts and are audited", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, subcategory, sku_code, product_name, brand, raw_json, last_import_batch_id)
+    VALUES ('mapping-1',1,'2026-06-01','2026-06-30','category-map','raw-store','SKU','未知','old-segment','SKU-MAP','Fresh segment product','old-brand','{}','batch');`);
+  await upsertMarketMapping(db as never, { kind: "brand_alias", category: "category-map", sourceValue: "old-brand", targetValue: "new-brand", status: "published" }, admin);
+  await upsertMarketMapping(db as never, { kind: "operation_mode", category: "category-map", sourceValue: "raw-store", targetValue: "POP", status: "published" }, admin);
+  await upsertMarketMapping(db as never, { kind: "subcategory", category: "category-map", sourceValue: "Fresh", targetValue: "fresh-segment", status: "published" }, admin);
+  const result = await applyPublishedMarketMappings(db as never, { category: "category-map" }, admin);
+  assert.equal(result.changed, 3);
+  const row = sqlite.prepare("SELECT brand, operation_mode mode, subcategory FROM market_ranking_entries WHERE sku_code='SKU-MAP'").get() as { brand: string; mode: string; subcategory: string };
+  assert.deepEqual({ ...row }, { brand: "new-brand", mode: "POP", subcategory: "fresh-segment" });
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='apply_published_mappings'").get() as { count: number }).count, 1);
+  sqlite.close();
+});
+
+test("download executor validates, stages, imports, caches, creates price tasks, recovers, and remains idempotent", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await upsertMarketDownloadConfig(db as never, { category: "category-download", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(db as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  let attempts = 0;
+  let cached = 0;
+  let priceTasks = 0;
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,price,gmv,quantity,visitors,image_url",
+    "2026-06-01,2026-06-30,category-download,pop,SKU,1,SKU-DL,Download product,Brand,1999,10000,5,20,https://img.example/dl.jpg",
+  ].join("\n");
+  const deps = {
+    download: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("temporary JD download failure");
+      return { bytes: new TextEncoder().encode(csv), fileName: "market_SKU_2026-06.csv", jdTaskId: "jd-task-1" };
+    },
+    cacheImages: async () => { cached += 1; return { queued: 1 }; },
+    createPriceTasks: async () => { priceTasks += 1; return { created: 1 }; },
+  };
+  const failed = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, deps);
+  assert.equal(failed.status, "failed");
+  const imported = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, deps);
+  assert.equal(imported.status, "imported");
+  const duplicate = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, deps);
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(cached, 1);
+  assert.equal(priceTasks, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-DL'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_download_staging_rows").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT status, header_valid headerValid, period_valid periodValid, category_valid categoryValid, dimension_valid dimensionValid FROM market_download_tasks WHERE id=?").get(task.id) as { status: string; headerValid: number; periodValid: number; categoryValid: number; dimensionValid: number }).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches WHERE file_hash=(SELECT file_hash FROM market_download_tasks WHERE id=?)").get(task.id) as { count: number }).count, 1);
+  sqlite.close();
+});
 
 test("market price band configuration versions publish and rollback reproducibly", async () => {
   const sqlite = new DatabaseSync(":memory:");

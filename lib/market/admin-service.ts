@@ -51,7 +51,7 @@ export async function listPendingMarketPrices(db: MarketDatabase, input: { q?: s
 }
 
 export async function confirmMarketPrice(db: MarketDatabase, input: {
-  category: string; skuCode: string; rankingDimension: string; month: string; imageContentSha256?: string;
+  category: string; scope?: string; skuCode: string; rankingDimension: string; month: string; imageContentSha256?: string;
   priceCents: unknown; priceType?: string; priceLowCents?: unknown; priceHighCents?: unknown; note?: string;
 }, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
@@ -61,21 +61,26 @@ export async function confirmMarketPrice(db: MarketDatabase, input: {
   const month = requiredMonth(input.month);
   const priceCents = nullableInteger(input.priceCents, 0, 100_000_000);
   if (priceCents === null) throw new Error("人工确认市场定位价不能为空");
+  const priceType = optionalText(input.priceType, 40) ?? "";
+  if (["\u5b9a\u91d1", "\u5206\u671f\u91d1\u989d", "\u65e0\u6cd5\u5224\u65ad"].includes(priceType)) throw new Error("invalid official market price type");
   const hash = optionalText(input.imageContentSha256, 128);
-  const before = await db.prepare(`SELECT * FROM market_price_snapshots WHERE category=? AND sku_code=? AND ranking_dimension=? AND month=? LIMIT 1`)
-    .bind(category, skuCode, rankingDimension, month).first<Record<string, unknown>>();
+  const requestedScope = optionalText(input.scope, 120);
+  const beforeRows = await db.prepare(`SELECT * FROM market_price_snapshots WHERE category=? AND sku_code=? AND ranking_dimension=? AND month=? ${requestedScope ? "AND scope=?" : ""} ORDER BY scope`)
+    .bind(...[category, skuCode, rankingDimension, month, ...(requestedScope ? [requestedScope] : [])]).all<Record<string, unknown>>();
+  if (!requestedScope && (beforeRows.results ?? []).length !== 1) throw new Error("scope is required when multiple snapshots match");
+  const before = (beforeRows.results ?? [])[0] ?? null;
   if (!before) throw new Error("未找到对应月份价格快照");
   if (hash && String(before.image_content_sha256 ?? "") !== hash) throw new Error("图片哈希不匹配，不能跨图片确认价格");
   await db.prepare(`UPDATE market_price_snapshots
     SET confirmed_market_price_cents=?, price_low_cents=?, price_high_cents=?,
       ai_price_type=COALESCE(NULLIF(?, ''), ai_price_type), confirmation_status='confirmed',
       confirmed_by=?, confirmed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-    WHERE category=? AND sku_code=? AND ranking_dimension=? AND month=?`)
+    WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=?`)
     .bind(priceCents, nullableInteger(input.priceLowCents, 0, 100_000_000), nullableInteger(input.priceHighCents, 0, 100_000_000),
-      optionalText(input.priceType, 40) ?? "", actor.email, category, skuCode, rankingDimension, month).run();
-  const after = await db.prepare(`SELECT * FROM market_price_snapshots WHERE category=? AND sku_code=? AND ranking_dimension=? AND month=? LIMIT 1`)
-    .bind(category, skuCode, rankingDimension, month).first<Record<string, unknown>>();
-  await audit(db, actor, "confirm_market_price", "market_price_snapshot", `${category}|${rankingDimension}|${skuCode}|${month}`, before, { ...after, note: optionalText(input.note, 300) ?? "" });
+      priceType, actor.email, category, String(before.scope ?? ""), skuCode, rankingDimension, month).run();
+  const after = await db.prepare(`SELECT * FROM market_price_snapshots WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=? LIMIT 1`)
+    .bind(category, String(before.scope ?? ""), skuCode, rankingDimension, month).first<Record<string, unknown>>();
+  await audit(db, actor, "confirm_market_price", "market_price_snapshot", `${category}|${String(before.scope ?? "")}|${rankingDimension}|${skuCode}|${month}`, before, { ...after, note: optionalText(input.note, 300) ?? "" });
   return { ok: true, snapshot: after };
 }
 
@@ -118,6 +123,43 @@ export async function upsertMarketMapping(db: MarketDatabase, input: {
     .bind(after.id, after.kind, after.category, after.sourceValue, after.targetValue, after.status, after.version, after.effectiveFrom, actor.email).run();
   await audit(db, actor, "upsert_mapping", "market_mapping_rule", id, before, after);
   return after;
+}
+
+export async function applyPublishedMarketMappings(db: MarketDatabase, input: { category?: string } = {}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const category = optionalText(input.category, 120) ?? "";
+  const rules = await db.prepare(`SELECT id, kind, category, source_value, target_value, effective_from
+    FROM market_master_mapping_rules
+    WHERE status='published' AND (?='' OR category='' OR category=?)
+    ORDER BY effective_from DESC, version DESC, id`).bind(category, category).all<{
+      id: string; kind: string; category: string; source_value: string; target_value: string; effective_from: string;
+    }>();
+  let changed = 0;
+  const applied: Array<{ id: string; kind: string; changes: number }> = [];
+  for (const rule of rules.results ?? []) {
+    const categoryClause = rule.category ? " AND category=?" : "";
+    const categoryValues = rule.category ? [rule.category] : [];
+    let result: { meta?: { changes?: number } };
+    if (rule.kind === "brand_alias") {
+      result = await db.prepare(`UPDATE market_ranking_entries SET brand=?, updated_at=CURRENT_TIMESTAMP
+        WHERE brand=? AND period_end>=?${categoryClause}`)
+        .bind(rule.target_value, rule.source_value, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
+    } else if (rule.kind === "operation_mode") {
+      result = await db.prepare(`UPDATE market_ranking_entries SET operation_mode=?, updated_at=CURRENT_TIMESTAMP
+        WHERE (operation_mode=? OR scope=?) AND period_end>=?${categoryClause}`)
+        .bind(rule.target_value, rule.source_value, rule.source_value, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
+    } else {
+      const like = `%${rule.source_value.replace(/[\\%_]/g, (value) => `\\${value}`)}%`;
+      result = await db.prepare(`UPDATE market_ranking_entries SET subcategory=?, updated_at=CURRENT_TIMESTAMP
+        WHERE (subcategory=? OR sku_code=? OR product_name LIKE ? ESCAPE '\\') AND period_end>=?${categoryClause}`)
+        .bind(rule.target_value, rule.source_value, rule.source_value, like, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
+    }
+    const changes = Number(result.meta?.changes ?? 0);
+    changed += changes;
+    applied.push({ id: rule.id, kind: rule.kind, changes });
+  }
+  await audit(db, actor, "apply_published_mappings", "market_ranking_entries", category || "*", null, { category, changed, applied });
+  return { category, changed, applied };
 }
 
 export async function listMarketPriceBandVersions(db: MarketDatabase, category = "") {
@@ -317,7 +359,7 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
       MAX(ps.confirmed_market_price_cents) market_price_cents,
       CASE WHEN SUM(m.quantity)>0 THEN CAST(ROUND(SUM(m.gmv_cents)*1.0/SUM(m.quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents
     FROM market_ranking_entries m
-    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
     GROUP BY m.sku_code, m.product_name, m.brand, m.category, m.ranking_dimension
     ORDER BY gmv_cents DESC`).bind(...values).all<Record<string, string | number | null>>();
@@ -420,7 +462,7 @@ function masterBaseSql() {
       ps.average_transaction_price_cents, ps.price_low_cents, ps.price_high_cents, COALESCE(ps.confirmation_status,'missing') confirmation_status,
       ${officialPriceBandSql("ps.confirmed_market_price_cents")} price_band
     FROM market_ranking_entries m
-    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;
 }
 
@@ -437,7 +479,7 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
       ps.average_transaction_price_cents average_transaction_price_cents,
       COALESCE(ps.confirmation_status, 'missing') confirmation_status
     FROM market_ranking_entries m
-    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
     ORDER BY m.period_end ASC, m.id ASC
     LIMIT 120
