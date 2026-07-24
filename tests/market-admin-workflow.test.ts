@@ -62,9 +62,18 @@ test("installment price confirmation is rejected and scoped confirmation cannot 
     category: "category-1", scope: "pop", skuCode: "SKU-1", rankingDimension: "SKU", month: "2026-06",
     priceCents: 199900, priceType: installment,
   }, admin));
-  await confirmMarketPrice(db as never, {
+  await assert.rejects(() => confirmMarketPrice(db as never, {
+    category: "category-1", scope: "pop", skuCode: "SKU-1", rankingDimension: "SKU", month: "2026-06",
+    priceCents: 199900,
+  }, admin));
+  sqlite.prepare("UPDATE market_price_snapshots SET image_content_sha256='expected-hash' WHERE id='pop-price'").run();
+  await assert.rejects(() => confirmMarketPrice(db as never, {
     category: "category-1", scope: "pop", skuCode: "SKU-1", rankingDimension: "SKU", month: "2026-06",
     priceCents: 199900, priceType: standard,
+  }, admin));
+  await confirmMarketPrice(db as never, {
+    category: "category-1", scope: "pop", skuCode: "SKU-1", rankingDimension: "SKU", month: "2026-06",
+    imageContentSha256: "expected-hash", priceCents: 199900, priceType: standard,
   }, admin);
   const prices = sqlite.prepare("SELECT scope, confirmed_market_price_cents price FROM market_price_snapshots ORDER BY scope").all() as Array<{ scope: string; price: number | null }>;
   assert.deepEqual(prices.map((row) => ({ ...row })), [{ scope: "pop", price: 199900 }, { scope: selfOperated, price: null }]);

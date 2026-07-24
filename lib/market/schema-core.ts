@@ -466,6 +466,20 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   await db.batch(marketPostUpgradeIndexStatements.map((statement) => db.prepare(statement)));
 }
 
+const marketSchemaReadyByDatabase = new WeakMap<object, Promise<void>>();
+
+export function ensureMarketSchemaCached(db: MarketSchemaDatabase): Promise<void> {
+  const key = db as object;
+  const ready = marketSchemaReadyByDatabase.get(key);
+  if (ready) return ready;
+  const setup = ensureMarketSchemaCore(db).catch((error: unknown) => {
+    marketSchemaReadyByDatabase.delete(key);
+    throw error;
+  });
+  marketSchemaReadyByDatabase.set(key, setup);
+  return setup;
+}
+
 export function officialPriceBandSql(priceSql = "official_market_price_cents") {
   return `CASE
     WHEN ${priceSql} IS NULL

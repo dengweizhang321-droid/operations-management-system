@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { saveMarketImportCore, type MarketEntryForImport } from "@/lib/market/import-core";
 import { parseMarketRows } from "@/lib/market/parser";
-import { ensureMarketSchemaCore, type MarketSchemaDatabase } from "@/lib/market/schema-core";
+import { ensureMarketSchemaCached, type MarketSchemaDatabase } from "@/lib/market/schema-core";
 
 type DownloadTask = {
   id: string; category: string; month: string; ranking_dimension: string; status: string;
@@ -40,7 +40,7 @@ async function failTask(db: MarketSchemaDatabase, task: DownloadTask, actor: Mar
 }
 
 export async function executeMarketDownloadTask(db: MarketSchemaDatabase, input: { taskId: string }, actor: MarketDownloadExecutorActor, deps: MarketDownloadExecutorDeps = {}) {
-  await ensureMarketSchemaCore(db);
+  await ensureMarketSchemaCached(db);
   const task = await db.prepare("SELECT * FROM market_download_tasks WHERE id=? LIMIT 1").bind(input.taskId).first<DownloadTask>();
   if (!task) throw new Error("market download task not found");
   if (task.status === "imported" || task.status === "published") return { status: task.status, duplicate: true, taskId: task.id };

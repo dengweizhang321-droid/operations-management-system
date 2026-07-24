@@ -116,8 +116,7 @@ test("0025 forward migration deduplicates legacy facts and creates scoped snapsh
   for (const file of migrationFiles) {
     const sql = await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8");
     for (const statement of sql.split("--> statement-breakpoint")) if (statement.trim()) sqlite.exec(statement);
-    if (file === "0024_market_master_workflow.sql") {
-      sqlite.exec("DROP INDEX IF EXISTS market_entries_canonical_uq");
+    if (file === "0021_market_analysis_2.sql") {
       sqlite.exec(`
       INSERT INTO market_ranking_entries
         (natural_key, source_row_number, period_start, period_end, category, scope, sku_code, raw_json, last_import_batch_id, gmv_cents, quantity, price_cents)

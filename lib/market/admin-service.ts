@@ -1,6 +1,6 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import type { MarketDatabase } from "@/lib/market/database";
-import { ensureMarketSchemaCore, officialPriceBandSql } from "@/lib/market/schema-core";
+import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 
 export type MarketPrincipal = Pick<AppPrincipal, "email" | "role">;
 export type MarketDimension = "SKU" | "SPU";
@@ -21,11 +21,12 @@ const unknownMode = "\u672a\u77e5";
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
 const validDimensions = new Set(["SKU", "SPU"]);
 const validMappingKinds = new Set(["subcategory", "brand_alias", "operation_mode"]);
+const validOfficialPriceTypes = new Set(["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"]);
 
 type CountRow = { count: number };
 
 export async function ensureMarketAdminSchema(db: MarketDatabase) {
-  await ensureMarketSchemaCore(db);
+  await ensureMarketSchemaCached(db);
 }
 
 export async function listMarketMasterData(db: MarketDatabase, input: {
@@ -61,8 +62,6 @@ export async function confirmMarketPrice(db: MarketDatabase, input: {
   const month = requiredMonth(input.month);
   const priceCents = nullableInteger(input.priceCents, 0, 100_000_000);
   if (priceCents === null) throw new Error("人工确认市场定位价不能为空");
-  const priceType = optionalText(input.priceType, 40) ?? "";
-  if (["\u5b9a\u91d1", "\u5206\u671f\u91d1\u989d", "\u65e0\u6cd5\u5224\u65ad"].includes(priceType)) throw new Error("invalid official market price type");
   const hash = optionalText(input.imageContentSha256, 128);
   const requestedScope = optionalText(input.scope, 120);
   const beforeRows = await db.prepare(`SELECT * FROM market_price_snapshots WHERE category=? AND sku_code=? AND ranking_dimension=? AND month=? ${requestedScope ? "AND scope=?" : ""} ORDER BY scope`)
@@ -70,7 +69,10 @@ export async function confirmMarketPrice(db: MarketDatabase, input: {
   if (!requestedScope && (beforeRows.results ?? []).length !== 1) throw new Error("scope is required when multiple snapshots match");
   const before = (beforeRows.results ?? [])[0] ?? null;
   if (!before) throw new Error("未找到对应月份价格快照");
-  if (hash && String(before.image_content_sha256 ?? "") !== hash) throw new Error("图片哈希不匹配，不能跨图片确认价格");
+  const storedHash = String(before.image_content_sha256 ?? "");
+  if (storedHash && hash !== storedHash) throw new Error("图片哈希不匹配，不能跨图片确认价格");
+  const priceType = optionalText(input.priceType, 40) ?? String(before.ai_price_type ?? "");
+  if (!validOfficialPriceTypes.has(priceType)) throw new Error("正式市场定位价必须选择有效的完整售价类型");
   await db.prepare(`UPDATE market_price_snapshots
     SET confirmed_market_price_cents=?, price_low_cents=?, price_high_cents=?,
       ai_price_type=COALESCE(NULLIF(?, ''), ai_price_type), confirmation_status='confirmed',

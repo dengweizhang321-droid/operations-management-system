@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
-import { ensureMarketSchemaCore, officialPriceBandSql } from "@/lib/market/schema-core";
+import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -72,24 +72,13 @@ export type MarketOverviewFilters = {
   endDate?: string;
 };
 
-const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
-
 export function getMarketDatabase(): MarketDatabase {
   if (!env.DB) throw new Error("市场分析数据库未配置");
   return env.DB;
 }
 
 export async function ensureMarketSchema(db: MarketDatabase = getMarketDatabase()): Promise<void> {
-  const key = db as unknown as object;
-  const ready = schemaReadyByDatabase.get(key);
-  if (ready) return ready;
-  const setup = ensureMarketSchemaCore(db)
-    .catch((error: unknown) => {
-      schemaReadyByDatabase.delete(key);
-      throw error;
-    });
-  schemaReadyByDatabase.set(key, setup);
-  return setup;
+  return ensureMarketSchemaCached(db);
 }
 
 export async function findMarketBatchByHash(db: MarketDatabase, fileHash: string): Promise<MarketImportBatch | null> {

@@ -15,9 +15,6 @@ SET ranking_dimension = CASE
   ELSE 'SKU'
 END;
 --> statement-breakpoint
-UPDATE market_ranking_entries
-SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code;
---> statement-breakpoint
 DELETE FROM market_ranking_entries
 WHERE id IN (
   SELECT id FROM (
@@ -29,6 +26,9 @@ WHERE id IN (
   ) ranked
   WHERE rn > 1
 );
+--> statement-breakpoint
+UPDATE market_ranking_entries
+SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code;
 --> statement-breakpoint
 INSERT INTO market_price_snapshots (
   id, category, sku_code, ranking_dimension, month, source_price_cents,
@@ -50,8 +50,20 @@ SELECT
   CASE WHEN m.price_cents IS NULL THEN 'missing' ELSE 'source_table' END,
   m.last_import_batch_id,
   CURRENT_TIMESTAMP
-FROM market_ranking_entries m
-WHERE substr(m.period_end, 1, 7) <> ''
+FROM (
+  SELECT ranked.*
+  FROM (
+    SELECT source.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY source.category, source.sku_code, source.ranking_dimension, substr(source.period_end, 1, 7)
+        ORDER BY datetime(source.updated_at) DESC, source.id DESC
+      ) AS snapshot_rn
+    FROM market_ranking_entries source
+    WHERE substr(source.period_end, 1, 7) <> ''
+  ) ranked
+  WHERE ranked.snapshot_rn = 1
+) m
+WHERE 1 = 1
 ON CONFLICT(category, sku_code, ranking_dimension, month) DO UPDATE SET
   source_price_cents = excluded.source_price_cents,
   average_transaction_price_cents = excluded.average_transaction_price_cents,
