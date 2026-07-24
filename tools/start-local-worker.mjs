@@ -5,6 +5,37 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
+export function getLocalWorkerBuildCommand(root = projectRoot) {
+  return {
+    command: process.execPath,
+    args: [resolve(root, "node_modules", "vinext", "dist", "cli.js"), "build"],
+    env: { ...process.env, VITE_TERUISI_LOCAL_BUILD: "true" },
+  };
+}
+
+async function waitForChild(child, operation) {
+  const result = await new Promise((resolveExit, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => resolveExit({ code, signal }));
+  });
+
+  if (result.code !== 0) {
+    const reason = result.signal ? `被信号 ${result.signal} 中断` : `退出码 ${result.code ?? "未知"}`;
+    throw new Error(`${operation}失败：${reason}`);
+  }
+}
+
+export async function buildLocalWorker(root = projectRoot) {
+  const { command, args, env } = getLocalWorkerBuildCommand(root);
+  const child = spawn(command, args, {
+    cwd: root,
+    env,
+    stdio: "inherit",
+    windowsHide: true,
+  });
+  await waitForChild(child, "本地 Worker 构建");
+}
+
 export async function ensureRuntimeDevVarsLink(root = projectRoot) {
   const sourcePath = resolve(root, ".dev.vars");
   const runtimePath = resolve(root, "dist", "server", ".dev.vars");
@@ -43,14 +74,12 @@ export async function startLocalWorker() {
     { cwd: projectRoot, stdio: "inherit", windowsHide: true },
   );
 
-  await new Promise((resolveExit, reject) => {
-    child.once("error", reject);
-    child.once("exit", (code, signal) => resolveExit({ code, signal }));
-  });
+  await waitForChild(child, "本地 Worker");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  startLocalWorker().catch((error) => {
+  const shouldBuild = process.argv.includes("--build");
+  (shouldBuild ? buildLocalWorker().then(() => startLocalWorker()) : startLocalWorker()).catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   });

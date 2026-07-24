@@ -12,7 +12,11 @@ Add-Type -AssemblyName System.Drawing
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ServerUrl = "http://localhost:3000/"
 $ServerPort = 3000
-$VinextCli = Join-Path $ProjectRoot "node_modules\vinext\dist\cli.js"
+$LocalWorkerStarter = Join-Path $ProjectRoot "tools\start-local-worker.mjs"
+$script:launchProcess = $null
+$script:launchStartedAt = $null
+$script:launchStdoutLog = $null
+$script:launchStderrLog = $null
 
 function Get-NodeExecutable {
   $systemNode = Get-Command "node.exe" -ErrorAction SilentlyContinue
@@ -152,8 +156,15 @@ $runContinueButton.Size = New-Object System.Drawing.Size(175, 34)
 $runContinueButton.Location = New-Object System.Drawing.Point(31, 240)
 $runContinueButton.Enabled = $true
 
+$viewLogButton = New-Object System.Windows.Forms.Button
+$viewLogButton.Text = "查看启动日志"
+$viewLogButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
+$viewLogButton.Size = New-Object System.Drawing.Size(175, 34)
+$viewLogButton.Location = New-Object System.Drawing.Point(218, 240)
+$viewLogButton.Enabled = $true
+
 $form.ClientSize = New-Object System.Drawing.Size(430, 285)
-$form.Controls.AddRange(@($title, $subtitle, $statusDot, $status, $details, $startButton, $stopButton, $openButton, $runContinueButton))
+$form.Controls.AddRange(@($title, $subtitle, $statusDot, $status, $details, $startButton, $stopButton, $openButton, $runContinueButton, $viewLogButton))
 
 function Update-Status {
   $systemState = Get-SystemState
@@ -166,6 +177,32 @@ function Update-Status {
       $stopButton.Enabled = $true
       $openButton.Enabled = $true
     }
+    "Stopped" {
+      if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
+        $elapsed = [math]::Floor(((Get-Date) - $script:launchStartedAt).TotalSeconds)
+        $statusDot.ForeColor = if ($elapsed -ge 180) { [System.Drawing.Color]::FromArgb(224, 133, 27) } else { [System.Drawing.Color]::FromArgb(28, 118, 235) }
+        $status.Text = if ($elapsed -ge 180) { "启动耗时较长…" } else { "正在启动…" }
+        $details.Text = "正在构建并启动本地 Worker（已等待 $elapsed 秒）。日志：$($script:launchStdoutLog)"
+        $startButton.Enabled = $false
+        $stopButton.Enabled = $true
+        $openButton.Enabled = $false
+      } elseif ($script:launchProcess -and $script:launchProcess.HasExited -and $script:launchProcess.ExitCode -ne 0) {
+        $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
+        $status.Text = "启动失败，退出码 $($script:launchProcess.ExitCode)"
+        $details.Text = "请点击【查看启动日志】。错误日志：$($script:launchStderrLog)"
+        $startButton.Enabled = $true
+        $stopButton.Enabled = $false
+        $openButton.Enabled = $false
+      } else {
+        $script:launchProcess = $null
+        $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(148, 158, 173)
+        $status.Text = "系统已暂停"
+        $details.Text = "点击【启动系统】即可构建并恢复本地 Worker 服务。"
+        $startButton.Enabled = $true
+        $stopButton.Enabled = $false
+        $openButton.Enabled = $false
+      }
+    }
     "PortInUse" {
       $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(224, 133, 27)
       $status.Text = "端口 3000 正被其他程序使用"
@@ -174,19 +211,11 @@ function Update-Status {
       $stopButton.Enabled = $false
       $openButton.Enabled = $false
     }
-    default {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(148, 158, 173)
-      $status.Text = "系统已暂停"
-      $details.Text = "点击【启动系统】即可恢复服务。"
-      $startButton.Enabled = $true
-      $stopButton.Enabled = $false
-      $openButton.Enabled = $false
-    }
   }
 }
 
 $startButton.Add_Click({
-  if (-not (Test-Path $VinextCli)) {
+  if (-not (Test-Path $LocalWorkerStarter)) {
     [System.Windows.Forms.MessageBox]::Show("未找到系统启动文件。请确认此控制面板位于项目目录中。", "无法启动", "OK", "Error") | Out-Null
     return
   }
@@ -197,31 +226,25 @@ $startButton.Add_Click({
     return
   }
 
-  $startButton.Enabled = $false
-  $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(28, 118, 235)
-  $status.Text = "正在启动…"
-  $details.Text = "首次启动可能需要几十秒。"
-  $form.Refresh()
-
-  Start-Process -FilePath $nodeExecutable -ArgumentList @("`"$VinextCli`"", "dev") -WorkingDirectory $ProjectRoot -WindowStyle Hidden | Out-Null
-
-  $started = $false
-  for ($attempt = 0; $attempt -lt 45; $attempt++) {
-    Start-Sleep -Seconds 1
-    if ((Get-SystemState).State -eq "Running") {
-      $started = $true
-      break
-    }
-  }
-
+  $logDirectory = Join-Path $ProjectRoot "tmp"
+  New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+  $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+  $script:launchStdoutLog = Join-Path $logDirectory "local-worker-panel-$stamp.stdout.log"
+  $script:launchStderrLog = Join-Path $logDirectory "local-worker-panel-$stamp.stderr.log"
+  $script:launchStartedAt = Get-Date
+  $script:launchProcess = Start-Process -FilePath $nodeExecutable -ArgumentList @("`"$LocalWorkerStarter`"", "--build") -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $script:launchStdoutLog -RedirectStandardError $script:launchStderrLog -PassThru
   Update-Status
-  if (-not $started) {
-    [System.Windows.Forms.MessageBox]::Show("系统未能在 45 秒内启动。请检查 Node.js 是否可用，或确认端口 3000 没有被占用。", "启动超时", "OK", "Warning") | Out-Null
-  }
 })
 
 $stopButton.Add_Click({
   $systemState = Get-SystemState
+  if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
+    $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    Stop-ProcessTree -ProcessId $script:launchProcess.Id -AllProcesses $allProcesses
+    $script:launchProcess = $null
+    Update-Status
+    return
+  }
   if ($systemState.State -ne "Running") {
     Update-Status
     return
@@ -232,6 +255,7 @@ $stopButton.Add_Click({
     Stop-ProcessTree -ProcessId $processId -AllProcesses $allProcesses
   }
 
+  $script:launchProcess = $null
   Start-Sleep -Milliseconds 500
   Update-Status
 })
@@ -267,6 +291,15 @@ $runContinueButton.Add_Click({
   Start-Sleep -Milliseconds 500
   Update-Status
   $runContinueButton.Enabled = $true
+})
+
+$viewLogButton.Add_Click({
+  $logPath = if ($script:launchStderrLog -and (Test-Path $script:launchStderrLog) -and (Get-Item $script:launchStderrLog).Length -gt 0) { $script:launchStderrLog } else { $script:launchStdoutLog }
+  if (-not $logPath -or -not (Test-Path $logPath)) {
+    [System.Windows.Forms.MessageBox]::Show("尚未生成启动日志。请先启动系统。", "暂无日志", "OK", "Information") | Out-Null
+    return
+  }
+  Start-Process -FilePath "notepad.exe" -ArgumentList @("`"$logPath`"")
 })
 
 $statusTimer = New-Object System.Windows.Forms.Timer

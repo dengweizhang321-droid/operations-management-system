@@ -4,7 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { ensureRuntimeDevVarsLink } from "../tools/start-local-worker.mjs";
+import { ensureRuntimeDevVarsLink, getLocalWorkerBuildCommand } from "../tools/start-local-worker.mjs";
+
+test("local Worker build always enables the local-only build flag", () => {
+  const command = getLocalWorkerBuildCommand("D:/example-project");
+
+  assert.equal(command.args.at(-1), "build");
+  assert.match(command.args[0] ?? "", /example-project[\\/]node_modules[\\/]vinext[\\/]dist[\\/]cli\.js$/);
+  assert.equal(command.env.VITE_TERUISI_LOCAL_BUILD, "true");
+});
 
 test("prebuilt local Worker receives the ignored root .dev.vars through a hard link", async () => {
   const root = await mkdtemp(join(tmpdir(), "teruisi-local-worker-"));
