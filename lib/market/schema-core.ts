@@ -359,13 +359,17 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
     WHERE scope = ''
   `).run();
   await db.prepare(`
-    INSERT INTO market_price_snapshots (
+    INSERT OR IGNORE INTO market_price_snapshots (
       id, category, scope, sku_code, ranking_dimension, month, source_price_cents,
       average_transaction_price_cents, price_low_cents, price_high_cents,
       image_content_sha256, image_url, confirmation_status, source_import_batch_id, updated_at
     )
     SELECT
-      'market-price-' || m.category || '-' || m.scope || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
+      'market-price-backfill-v2-' ||
+        length(m.category) || ':' || m.category || '|' ||
+        length(m.scope) || ':' || m.scope || '|' ||
+        length(m.ranking_dimension) || ':' || m.ranking_dimension || '|' ||
+        length(m.sku_code) || ':' || m.sku_code || '|' || substr(m.period_end, 1, 7),
       m.category,
       m.scope,
       m.sku_code,
@@ -380,7 +384,19 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
       CASE WHEN m.price_cents IS NULL THEN 'missing' ELSE 'source_table' END,
       m.last_import_batch_id,
       CURRENT_TIMESTAMP
-    FROM market_ranking_entries m
+    FROM (
+      SELECT ranked.*
+      FROM (
+        SELECT source.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY source.category, source.scope, source.sku_code, source.ranking_dimension, substr(source.period_end, 1, 7)
+            ORDER BY source.period_end DESC, source.period_start DESC, datetime(source.updated_at) DESC, source.id DESC
+          ) AS snapshot_rn
+        FROM market_ranking_entries source
+        WHERE substr(source.period_end, 1, 7) <> ''
+      ) ranked
+      WHERE ranked.snapshot_rn = 1
+    ) m
     WHERE substr(m.period_end, 1, 7) <> ''
       AND NOT EXISTS (
         SELECT 1 FROM market_price_snapshots ps

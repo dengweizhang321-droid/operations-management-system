@@ -36,7 +36,10 @@ INSERT INTO market_price_snapshots (
   image_content_sha256, image_url, confirmation_status, source_import_batch_id, updated_at
 )
 SELECT
-  'market-price-' || m.category || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
+  'market-price-backfill-v1-' ||
+    length(m.category) || ':' || m.category || '|' ||
+    length(m.ranking_dimension) || ':' || m.ranking_dimension || '|' ||
+    length(m.sku_code) || ':' || m.sku_code || '|' || substr(m.period_end, 1, 7),
   m.category,
   m.sku_code,
   m.ranking_dimension,

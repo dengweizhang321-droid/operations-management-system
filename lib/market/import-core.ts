@@ -202,7 +202,7 @@ export async function saveMarketImportCore(input: {
           source_import_batch_id = excluded.source_import_batch_id,
           updated_at = CURRENT_TIMESTAMP`,
       ).bind(
-        `market-price-${row.category}-${row.scope}-${row.rankingDimension}-${row.skuCode}-${monthKey(row.periodEnd)}`,
+        `market-price-import-${crypto.randomUUID()}`,
         row.category,
         row.scope,
         row.skuCode,

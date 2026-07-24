@@ -123,14 +123,18 @@ test("0026 forward migrations deduplicate facts and preserve mapping/download sc
       VALUES
         ('legacy-a',1,'2026-07-01','2026-07-31','migration-category','pop','MIG-1','{"dimension":"SKU"}','batch-a',1000,1,100),
         ('legacy-b',2,'2026-07-01','2026-07-31','migration-category','pop','MIG-1','{"dimension":"SKU"}','batch-a',2000,2,200),
-        ('legacy-self',3,'2026-07-01','2026-07-31','migration-category','自营','MIG-1','{"dimension":"SKU"}','batch-a',3000,3,300);
+        ('legacy-c',3,'2026-07-02','2026-07-30','migration-category','pop','MIG-1','{"dimension":"SKU"}','batch-a',1500,1,150),
+        ('legacy-self',4,'2026-07-01','2026-07-31','migration-category','自营','MIG-1','{"dimension":"SKU"}','batch-a',3000,3,300),
+        ('separator-a',5,'2026-07-01','2026-07-31','a','pop','b-SKU-c','{"dimension":"SKU"}','batch-a',1000,1,100),
+        ('separator-b',6,'2026-07-01','2026-07-31','a-SKU-b','pop','c','{"dimension":"SKU"}','batch-a',1000,1,100);
       `);
     }
   }
   const facts = sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE category='migration-category' AND sku_code='MIG-1'").get() as { count: number };
   const snapshots = sqlite.prepare("SELECT scope, source_price_cents sourcePrice FROM market_price_snapshots WHERE category='migration-category' AND sku_code='MIG-1' ORDER BY scope").all() as Array<{ scope: string; sourcePrice: number }>;
-  assert.equal(facts.count, 2);
+  assert.equal(facts.count, 3);
   assert.deepEqual(snapshots.map((row) => ({ ...row })), [{ scope: "pop", sourcePrice: 200 }, { scope: "自营", sourcePrice: 300 }]);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_price_snapshots WHERE sku_code IN ('b-SKU-c','c')").get() as { count: number }).count, 2);
   assert.ok((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_price_snapshots_sku_month_uq'").get() as { name: string } | undefined)?.name);
   const source = sqlite.prepare("SELECT source_brand sourceBrand, source_operation_mode sourceMode FROM market_ranking_entries WHERE category='migration-category' LIMIT 1").get() as { sourceBrand: string; sourceMode: string };
   assert.equal(typeof source.sourceBrand, "string");
@@ -172,6 +176,36 @@ function entry(overrides: Partial<MarketEntryForImport> = {}): MarketEntryForImp
     ...overrides,
   };
 }
+
+test("monthly snapshot backfill selects one fact when a SKU has multiple date ranges in one month", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, price_cents, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
+    VALUES
+      ('partial',1,'2026-06-01','2026-06-15','category-month','pop','SKU','POP','SKU-MONTH','Partial','Brand',100,1000,1,1,'{}','batch'),
+      ('full',2,'2026-06-01','2026-06-30','category-month','pop','SKU','POP','SKU-MONTH','Full','Brand',200,2000,2,2,'{}','batch')`);
+  await ensureMarketSchemaCore(db);
+  const snapshots = sqlite.prepare("SELECT id, source_price_cents sourcePrice FROM market_price_snapshots WHERE category='category-month' AND sku_code='SKU-MONTH'").all() as Array<{ id: string; sourcePrice: number }>;
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0]?.sourcePrice, 200);
+  assert.match(snapshots[0]?.id ?? "", /^market-price-backfill-v2-/);
+  sqlite.close();
+});
+
+test("snapshot ids cannot collide when business-key components contain separators", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  const rows = [
+    entry({ naturalKey: "key-a", category: "a-b", scope: "c", skuCode: "X" }),
+    entry({ naturalKey: "key-b", category: "a", scope: "b-c", skuCode: "X", sourceRowNumber: 2 }),
+  ];
+  await saveMarketImportCore({ db, batchId: "separator-batch", sourceType: "jd", fileName: "separator.csv", fileSizeBytes: 10, fileHash: "separator-hash", sheetName: "CSV", rows, warnings: [] });
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_price_snapshots WHERE sku_code='X'").get() as { count: number }).count, 2);
+  sqlite.close();
+});
 
 test("same market fact with different file hashes updates the canonical fact instead of duplicating sales", async () => {
   const sqlite = new DatabaseSync(":memory:");
