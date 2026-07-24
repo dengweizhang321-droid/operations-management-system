@@ -87,14 +87,18 @@ test("published master mappings apply to ranking facts and are audited", async (
   sqlite.exec(`INSERT INTO market_ranking_entries
     (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, subcategory, sku_code, product_name, brand, raw_json, last_import_batch_id)
     VALUES ('mapping-1',1,'2026-06-01','2026-06-30','category-map','raw-store','SKU','未知','old-segment','SKU-MAP','Fresh segment product','old-brand','{}','batch');`);
-  await upsertMarketMapping(db as never, { kind: "brand_alias", category: "category-map", sourceValue: "old-brand", targetValue: "new-brand", status: "published" }, admin);
+  const brandRule = await upsertMarketMapping(db as never, { kind: "brand_alias", category: "category-map", sourceValue: "old-brand", targetValue: "new-brand", status: "published" }, admin);
   await upsertMarketMapping(db as never, { kind: "operation_mode", category: "category-map", sourceValue: "raw-store", targetValue: "POP", status: "published" }, admin);
   await upsertMarketMapping(db as never, { kind: "subcategory", category: "category-map", sourceValue: "Fresh", targetValue: "fresh-segment", status: "published" }, admin);
   const result = await applyPublishedMarketMappings(db as never, { category: "category-map" }, admin);
   assert.equal(result.changed, 3);
   const row = sqlite.prepare("SELECT brand, operation_mode mode, subcategory FROM market_ranking_entries WHERE sku_code='SKU-MAP'").get() as { brand: string; mode: string; subcategory: string };
   assert.deepEqual({ ...row }, { brand: "new-brand", mode: "POP", subcategory: "fresh-segment" });
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='apply_published_mappings'").get() as { count: number }).count, 1);
+  await upsertMarketMapping(db as never, { id: brandRule.id, kind: "brand_alias", category: "category-map", sourceValue: "old-brand", targetValue: "newest-brand", status: "published" }, admin);
+  await applyPublishedMarketMappings(db as never, { category: "category-map" }, admin);
+  assert.equal((sqlite.prepare("SELECT brand FROM market_ranking_entries WHERE sku_code='SKU-MAP'").get() as { brand: string }).brand, "newest-brand");
+  assert.equal((sqlite.prepare("SELECT source_brand sourceBrand FROM market_ranking_entries WHERE sku_code='SKU-MAP'").get() as { sourceBrand: string }).sourceBrand, "old-brand");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='apply_published_mappings'").get() as { count: number }).count, 2);
   sqlite.close();
 });
 
@@ -102,7 +106,7 @@ test("download executor validates, stages, imports, caches, creates price tasks,
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
-  await upsertMarketDownloadConfig(db as never, { category: "category-download", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await upsertMarketDownloadConfig(db as never, { category: "category-download", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
   await planMissingMarketDownloads(db as never, {}, admin);
   const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
   let attempts = 0;
@@ -123,6 +127,7 @@ test("download executor validates, stages, imports, caches, creates price tasks,
   };
   const failed = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, deps);
   assert.equal(failed.status, "failed");
+  sqlite.prepare("UPDATE market_download_tasks SET next_retry_at=NULL WHERE id=?").run(task.id);
   const imported = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, deps);
   assert.equal(imported.status, "imported");
   const duplicate = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, deps);
@@ -132,7 +137,60 @@ test("download executor validates, stages, imports, caches, creates price tasks,
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-DL'").get() as { count: number }).count, 1);
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_download_staging_rows").get() as { count: number }).count, 1);
   assert.equal((sqlite.prepare("SELECT status, header_valid headerValid, period_valid periodValid, category_valid categoryValid, dimension_valid dimensionValid FROM market_download_tasks WHERE id=?").get(task.id) as { status: string; headerValid: number; periodValid: number; categoryValid: number; dimensionValid: number }).status, "imported");
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches WHERE file_hash=(SELECT file_hash FROM market_download_tasks WHERE id=?)").get(task.id) as { count: number }).count, 1);
+  const validation = JSON.parse((sqlite.prepare("SELECT validation_json validation FROM market_download_tasks WHERE id=?").get(task.id) as { validation: string }).validation) as { importIdentityHash: string };
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches WHERE file_hash=?").get(validation.importIdentityHash) as { count: number }).count, 1);
+  sqlite.close();
+});
+
+test("same downloaded bytes remain idempotent per category scope dimension and month", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await upsertMarketDownloadConfig(db as never, { category: "category-identity", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-07" }, admin);
+  await planMissingMarketDownloads(db as never, {}, admin);
+  const tasks = sqlite.prepare("SELECT id, month FROM market_download_tasks ORDER BY month").all() as Array<{ id: string; month: string }>;
+  const csv = [
+    "category,scope,dimension,rank,sku_code,product_name,brand,price,gmv,quantity,visitors",
+    "category-identity,pop,SKU,1,SKU-SAME,Same bytes,Brand,1999,10000,5,20",
+  ].join("\n");
+  for (const task of tasks) {
+    const result = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, {
+      download: async () => ({ bytes: new TextEncoder().encode(csv), fileName: "same.csv" }),
+    });
+    assert.equal(result.status, "imported");
+  }
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches").get() as { count: number }).count, 2);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-SAME'").get() as { count: number }).count, 2);
+  assert.deepEqual((sqlite.prepare("SELECT DISTINCT substr(period_end,1,7) month FROM market_ranking_entries ORDER BY month").all() as Array<{ month: string }>).map((row) => row.month), ["2026-06", "2026-07"]);
+  sqlite.close();
+});
+
+test("download execution claim prevents concurrent imports and waiting login does not consume retries", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await upsertMarketDownloadConfig(db as never, { category: "category-claim", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(db as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const waiting = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin);
+  assert.equal(waiting.status, "waiting_login");
+  assert.equal((sqlite.prepare("SELECT attempt_count count FROM market_download_tasks WHERE id=?").get(task.id) as { count: number }).count, 0);
+  let release!: () => void;
+  let started!: () => void;
+  const startedPromise = new Promise<void>((resolve) => { started = resolve; });
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-claim,pop,SKU,1,SKU-CLAIM,Claim,Brand,100,1",
+  ].join("\n");
+  const first = executeMarketDownloadTask(db as never, { taskId: task.id }, admin, { download: async () => { started(); await gate; return { bytes: new TextEncoder().encode(csv), fileName: "claim.csv" }; } });
+  await startedPromise;
+  const concurrent = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, { download: async () => ({ bytes: new TextEncoder().encode(csv), fileName: "claim.csv" }) });
+  assert.equal(concurrent.busy, true);
+  release();
+  assert.equal((await first).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches").get() as { count: number }).count, 1);
+  await assert.rejects(() => recordMarketDownloadAttempt(db as never, { taskId: task.id, status: "imported" as never }, admin), /客户端/);
   sqlite.close();
 });
 
@@ -184,6 +242,10 @@ test("market download tasks are idempotent and failed tasks recover until the th
   await planMissingMarketDownloads(db as never, {}, admin);
   row = sqlite.prepare("SELECT status, attempt_count attemptCount FROM market_download_tasks WHERE id=?").get(task.id) as { status: string; attemptCount: number };
   assert.deepEqual({ ...row }, { status: "failed", attemptCount: 3 });
+  await upsertMarketDownloadConfig(db as never, { category: "scope-category", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await upsertMarketDownloadConfig(db as never, { category: "scope-category", scope: "self", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  assert.deepEqual(await planMissingMarketDownloads(db as never, { category: "scope-category" }, admin), { created: 2, reused: 0 });
+  assert.equal((sqlite.prepare("SELECT COUNT(DISTINCT scope) count FROM market_download_tasks WHERE category='scope-category'").get() as { count: number }).count, 2);
   sqlite.close();
 });
 
@@ -197,9 +259,12 @@ test("market SKU comparison returns real metrics and monthly trends for 2 to 5 S
   insert.run("a1", 1, "2026-05-01", "2026-05-31", 2, "SKU-A", "商品A", "品牌A", 1000, 2, 10);
   insert.run("a2", 2, "2026-06-01", "2026-06-30", 1, "SKU-A", "商品A", "品牌A", 3000, 3, 10);
   insert.run("b1", 3, "2026-06-01", "2026-06-30", 3, "SKU-B", "商品B", "品牌B", 2000, 4, 20);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
+    VALUES ('a-self',4,'2026-06-01','2026-06-30','净水','self','SKU','自营',5,'SKU-A','商品A','品牌A',9000,9,9,'{}','batch')`);
   sqlite.exec(`INSERT INTO market_price_snapshots (id, category, sku_code, ranking_dimension, month, confirmed_market_price_cents, average_transaction_price_cents, confirmation_status)
     VALUES ('pa','净水','SKU-A','SKU','2026-06',120000,1000,'confirmed'), ('pb','净水','SKU-B','SKU','2026-06',90000,500,'confirmed');`);
-  const compared = await getMarketSkuComparison(db as never, { skuCodes: ["SKU-A", "SKU-B"], category: "净水", rankingDimension: "SKU" });
+  const compared = await getMarketSkuComparison(db as never, { skuCodes: ["SKU-A", "SKU-B"], categories: ["净水"], rankingDimensions: ["SKU"], operationModes: ["POP"] });
   assert.equal(compared.items.length, 2);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.gmvCents, 4000);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.trend.length, 2);

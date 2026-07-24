@@ -137,10 +137,11 @@ export async function saveMarketImportCore(input: {
         `INSERT INTO market_ranking_entries (
           natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension,
           operation_mode, subcategory, rank, sku_code, product_name, brand, price_cents,
+          source_brand, source_operation_mode, source_subcategory,
           price_low_cents, price_high_cents, price_estimated, gmv_cents, quantity, page_views,
           visitors, conversion_bps, cart_customers, search_clicks, image_url, product_url,
           raw_json, last_import_batch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(period_start, period_end, category, scope, ranking_dimension, sku_code) DO UPDATE SET
           natural_key = excluded.natural_key,
           source_row_number = excluded.source_row_number,
@@ -152,6 +153,9 @@ export async function saveMarketImportCore(input: {
           rank = excluded.rank,
           product_name = excluded.product_name,
           brand = excluded.brand,
+          source_brand = excluded.source_brand,
+          source_operation_mode = excluded.source_operation_mode,
+          source_subcategory = excluded.source_subcategory,
           price_cents = excluded.price_cents,
           price_low_cents = excluded.price_low_cents,
           price_high_cents = excluded.price_high_cents,
@@ -171,7 +175,8 @@ export async function saveMarketImportCore(input: {
       ).bind(
         row.naturalKey, row.sourceRowNumber, row.periodStart, row.periodEnd, row.category,
         row.scope, row.rankingDimension, row.operationMode, row.subcategory, row.rank,
-        row.skuCode, row.productName, row.brand, row.priceCents, row.priceLowCents,
+        row.skuCode, row.productName, row.brand, row.priceCents,
+        row.brand, row.operationMode, row.subcategory, row.priceLowCents,
         row.priceHighCents, row.priceEstimated ? 1 : 0, row.gmvCents, row.quantity, row.pageViews, row.visitors, row.conversionBps,
         row.cartCustomers, row.searchClicks, row.imageUrl, row.productUrl,
         JSON.stringify(row.raw), input.batchId,

@@ -21,6 +21,7 @@ const unknownMode = "\u672a\u77e5";
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
 const validDimensions = new Set(["SKU", "SPU"]);
 const validMappingKinds = new Set(["subcategory", "brand_alias", "operation_mode"]);
+const validMappingStatuses = new Set(["draft", "published", "archived"]);
 const validOfficialPriceTypes = new Set(["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"]);
 
 type CountRow = { count: number };
@@ -107,15 +108,22 @@ export async function upsertMarketMapping(db: MarketDatabase, input: {
   const id = optionalText(input.id, 120) ?? `market-map-${crypto.randomUUID()}`;
   const before = await db.prepare("SELECT * FROM market_master_mapping_rules WHERE id=?").bind(id).first<Record<string, unknown>>();
   const version = before ? Number(before.version ?? 1) + 1 : 1;
+  const status = validMappingStatuses.has(input.status ?? "") ? String(input.status) : "published";
   const after = {
     id, kind,
     category: optionalText(input.category, 120) ?? "",
     sourceValue: requiredText(input.sourceValue, 200),
     targetValue: normalizeMappingTarget(kind, input.targetValue),
-    status: optionalText(input.status, 30) || "published",
+    status,
     effectiveFrom: date(input.effectiveFrom) ?? "1970-01-01",
     version,
   };
+  if (after.status === "published") {
+    const conflict = await db.prepare(`SELECT id FROM market_master_mapping_rules
+      WHERE id<>? AND kind=? AND category=? AND source_value=? AND effective_from=? AND status='published' LIMIT 1`)
+      .bind(id, after.kind, after.category, after.sourceValue, after.effectiveFrom).first<{ id: string }>();
+    if (conflict) throw new Error("同一来源值和生效日期只能有一条已发布规则");
+  }
   await db.prepare(`INSERT INTO market_master_mapping_rules
     (id, kind, category, source_value, target_value, status, version, effective_from, created_by, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -130,10 +138,22 @@ export async function upsertMarketMapping(db: MarketDatabase, input: {
 export async function applyPublishedMarketMappings(db: MarketDatabase, input: { category?: string } = {}, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
   const category = optionalText(input.category, 120) ?? "";
+  await db.prepare(`UPDATE market_ranking_entries SET
+      source_brand=brand,
+      source_operation_mode=operation_mode,
+      source_subcategory=subcategory
+    WHERE source_brand='' AND source_operation_mode='' AND source_subcategory=''
+      AND (?='' OR category=?)`).bind(category, category).run();
+  await db.prepare(`UPDATE market_ranking_entries SET
+      brand=source_brand,
+      operation_mode=source_operation_mode,
+      subcategory=source_subcategory,
+      updated_at=CURRENT_TIMESTAMP
+    WHERE (?='' OR category=?)`).bind(category, category).run();
   const rules = await db.prepare(`SELECT id, kind, category, source_value, target_value, effective_from
     FROM market_master_mapping_rules
     WHERE status='published' AND (?='' OR category='' OR category=?)
-    ORDER BY effective_from DESC, version DESC, id`).bind(category, category).all<{
+    ORDER BY CASE WHEN category='' THEN 0 ELSE 1 END, effective_from ASC, version ASC, id`).bind(category, category).all<{
       id: string; kind: string; category: string; source_value: string; target_value: string; effective_from: string;
     }>();
   let changed = 0;
@@ -144,16 +164,16 @@ export async function applyPublishedMarketMappings(db: MarketDatabase, input: { 
     let result: { meta?: { changes?: number } };
     if (rule.kind === "brand_alias") {
       result = await db.prepare(`UPDATE market_ranking_entries SET brand=?, updated_at=CURRENT_TIMESTAMP
-        WHERE brand=? AND period_end>=?${categoryClause}`)
+        WHERE source_brand=? AND period_end>=?${categoryClause}`)
         .bind(rule.target_value, rule.source_value, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
     } else if (rule.kind === "operation_mode") {
       result = await db.prepare(`UPDATE market_ranking_entries SET operation_mode=?, updated_at=CURRENT_TIMESTAMP
-        WHERE (operation_mode=? OR scope=?) AND period_end>=?${categoryClause}`)
+        WHERE (source_operation_mode=? OR scope=?) AND period_end>=?${categoryClause}`)
         .bind(rule.target_value, rule.source_value, rule.source_value, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
     } else {
       const like = `%${rule.source_value.replace(/[\\%_]/g, (value) => `\\${value}`)}%`;
       result = await db.prepare(`UPDATE market_ranking_entries SET subcategory=?, updated_at=CURRENT_TIMESTAMP
-        WHERE (subcategory=? OR sku_code=? OR product_name LIKE ? ESCAPE '\\') AND period_end>=?${categoryClause}`)
+        WHERE (source_subcategory=? OR sku_code=? OR product_name LIKE ? ESCAPE '\\') AND period_end>=?${categoryClause}`)
         .bind(rule.target_value, rule.source_value, rule.source_value, like, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
     }
     const changes = Number(result.meta?.changes ?? 0);
@@ -218,52 +238,61 @@ export async function rollbackMarketPriceBandVersion(db: MarketDatabase, input: 
   return after;
 }
 
-export async function upsertMarketDownloadConfig(db: MarketDatabase, input: { category: string; rankingDimension: string; monthStart: string; monthEnd: string; status?: string }, actor: MarketPrincipal) {
+export async function upsertMarketDownloadConfig(db: MarketDatabase, input: { category: string; scope?: string; rankingDimension: string; monthStart: string; monthEnd: string; status?: string }, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
   const config = {
     id: `market-download-config-${crypto.randomUUID()}`,
     category: requiredText(input.category, 120),
+    scope: optionalText(input.scope, 120) || "全部",
     rankingDimension: dimension(input.rankingDimension),
     monthStart: requiredMonth(input.monthStart),
     monthEnd: requiredMonth(input.monthEnd),
     status: optionalText(input.status, 30) || "enabled",
   };
   if (config.monthStart > config.monthEnd) throw new Error("起始月份不能晚于结束月份");
-  const existing = await db.prepare(`SELECT * FROM market_download_configs WHERE category=? AND ranking_dimension=? AND month_start=? AND month_end=? LIMIT 1`)
-    .bind(config.category, config.rankingDimension, config.monthStart, config.monthEnd).first<Record<string, unknown>>();
+  const existing = await db.prepare(`SELECT * FROM market_download_configs WHERE category=? AND scope=? AND ranking_dimension=? AND month_start=? AND month_end=? LIMIT 1`)
+    .bind(config.category, config.scope, config.rankingDimension, config.monthStart, config.monthEnd).first<Record<string, unknown>>();
   const id = String(existing?.id ?? config.id);
-  await db.prepare(`INSERT INTO market_download_configs (id, category, ranking_dimension, month_start, month_end, status, created_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(category, ranking_dimension, month_start, month_end)
+  await db.prepare(`INSERT INTO market_download_configs (id, category, scope, ranking_dimension, month_start, month_end, status, created_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(category, scope, ranking_dimension, month_start, month_end)
     DO UPDATE SET status=excluded.status, updated_at=CURRENT_TIMESTAMP`)
-    .bind(id, config.category, config.rankingDimension, config.monthStart, config.monthEnd, config.status, actor.email).run();
+    .bind(id, config.category, config.scope, config.rankingDimension, config.monthStart, config.monthEnd, config.status, actor.email).run();
   await audit(db, actor, "upsert_download_config", "market_download_config", id, existing, { ...config, id });
   return { ...config, id };
 }
 
-export async function planMissingMarketDownloads(db: MarketDatabase, input: { category?: string; rankingDimension?: string } = {}, actor: MarketPrincipal) {
+export async function planMissingMarketDownloads(db: MarketDatabase, input: { category?: string; scope?: string; rankingDimension?: string } = {}, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
   const configs = await db.prepare(`SELECT * FROM market_download_configs
-    WHERE status='enabled' AND (?='' OR category=?) AND (?='' OR ranking_dimension=?)
-    ORDER BY category, ranking_dimension, month_start`).bind(input.category ?? "", input.category ?? "", input.rankingDimension ?? "", input.rankingDimension ?? "")
+    WHERE status='enabled' AND (?='' OR category=?) AND (?='' OR scope=?) AND (?='' OR ranking_dimension=?)
+    ORDER BY category, scope, ranking_dimension, month_start`).bind(input.category ?? "", input.category ?? "", input.scope ?? "", input.scope ?? "", input.rankingDimension ?? "", input.rankingDimension ?? "")
     .all<Record<string, string>>();
   let created = 0;
   let reused = 0;
   for (const config of configs.results ?? []) {
     for (const month of monthsBetween(config.month_start, config.month_end)) {
-      const hasData = await db.prepare(`SELECT 1 FROM market_ranking_entries
-        WHERE category=? AND ranking_dimension=? AND substr(period_end,1,7)=? LIMIT 1`)
-        .bind(config.category, config.ranking_dimension, month).first();
-      if (hasData) continue;
-      const taskId = `market-download-${config.category}-${config.ranking_dimension}-${month}`.replace(/[^\w-]+/g, "_");
-      const result = await db.prepare(`INSERT INTO market_download_tasks (id, category, month, ranking_dimension, status, updated_at)
-        VALUES (?, ?, ?, ?, 'planned', CURRENT_TIMESTAMP)
-        ON CONFLICT(category, month, ranking_dimension) DO UPDATE SET
-          status=CASE WHEN market_download_tasks.status IN ('failed','planned','waiting_login') AND market_download_tasks.attempt_count < 3 THEN 'planned' ELSE market_download_tasks.status END,
-          next_retry_at=CASE WHEN market_download_tasks.attempt_count < 3 THEN NULL ELSE market_download_tasks.next_retry_at END,
-          updated_at=CURRENT_TIMESTAMP`)
-        .bind(taskId, config.category, month, config.ranking_dimension).run() as { meta?: { changes?: number } };
-      if (Number(result.meta?.changes ?? 0) > 0) created += 1; else reused += 1;
+      const verified = await db.prepare(`SELECT 1 FROM market_download_tasks
+        WHERE category=? AND scope=? AND ranking_dimension=? AND month=?
+          AND status IN ('imported','published') AND header_valid=1 AND period_valid=1
+          AND category_valid=1 AND dimension_valid=1 AND import_batch_id<>'' LIMIT 1`)
+        .bind(config.category, config.scope, config.ranking_dimension, month).first();
+      if (verified) continue;
+      const existingTask = await db.prepare(`SELECT id, attempt_count FROM market_download_tasks
+        WHERE category=? AND scope=? AND month=? AND ranking_dimension=? LIMIT 1`)
+        .bind(config.category, config.scope, month, config.ranking_dimension).first<{ id: string; attempt_count: number }>();
+      if (existingTask) {
+        await db.prepare(`UPDATE market_download_tasks SET
+          status=CASE WHEN status IN ('failed','planned','waiting_login') AND attempt_count < 3 THEN 'planned' ELSE status END,
+          next_retry_at=CASE WHEN attempt_count < 3 THEN NULL ELSE next_retry_at END,
+          updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(existingTask.id).run();
+        reused += 1;
+      } else {
+        await db.prepare(`INSERT INTO market_download_tasks (id, category, scope, month, ranking_dimension, status, updated_at)
+          VALUES (?, ?, ?, ?, ?, 'planned', CURRENT_TIMESTAMP)`)
+          .bind(`market-download-${crypto.randomUUID()}`, config.category, config.scope, month, config.ranking_dimension).run();
+        created += 1;
+      }
     }
   }
   await audit(db, actor, "plan_missing_downloads", "market_download_task", "*", null, { created, reused, filters: input });
@@ -271,30 +300,20 @@ export async function planMissingMarketDownloads(db: MarketDatabase, input: { ca
 }
 
 export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
-  taskId: string; status: "created" | "downloading" | "staged" | "imported" | "published" | "waiting_login" | "failed";
-  jdTaskId?: string; sourceFileName?: string; fileHash?: string; rowCount?: number; validation?: Record<string, unknown>;
-  importBatchId?: string; stagingBatchId?: string; errorCode?: string; errorMessage?: string;
+  taskId: string; status: "waiting_login" | "failed"; errorCode?: string; errorMessage?: string;
 }, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
   const before = await db.prepare("SELECT * FROM market_download_tasks WHERE id=? LIMIT 1").bind(input.taskId).first<Record<string, unknown>>();
   if (!before) throw new Error("下载任务不存在");
-  const nextAttempt = input.status === "failed" || input.status === "waiting_login" ? Number(before.attempt_count ?? 0) + 1 : Number(before.attempt_count ?? 0);
+  if (input.status !== "waiting_login" && input.status !== "failed") throw new Error("客户端只能记录等待登录或失败状态");
+  const nextAttempt = input.status === "failed" ? Number(before.attempt_count ?? 0) + 1 : Number(before.attempt_count ?? 0);
   const terminalFailed = input.status === "failed" && nextAttempt >= 3;
   const status = terminalFailed ? "failed" : input.status;
   const nextRetryAt = input.status === "failed" && !terminalFailed ? new Date(Date.now() + 15 * 60_000).toISOString() : null;
-  const validation = input.validation ?? {};
-  await db.prepare(`UPDATE market_download_tasks SET status=?, attempt_count=?, jd_task_id=COALESCE(NULLIF(?,''), jd_task_id),
-      source_file_name=COALESCE(NULLIF(?,''), source_file_name), file_hash=COALESCE(NULLIF(?,''), file_hash),
-      row_count=COALESCE(?, row_count), header_valid=?, period_valid=?, category_valid=?, dimension_valid=?,
-      staging_batch_id=COALESCE(NULLIF(?,''), staging_batch_id), import_batch_id=COALESCE(NULLIF(?,''), import_batch_id),
-      validation_json=?, error_code=?, error_message=?, next_retry_at=?, last_attempt_at=CURRENT_TIMESTAMP,
-      completed_at=CASE WHEN ? IN ('imported','published') THEN CURRENT_TIMESTAMP ELSE completed_at END,
-      updated_at=CURRENT_TIMESTAMP
-    WHERE id=?`)
-    .bind(status, nextAttempt, input.jdTaskId ?? "", input.sourceFileName ?? "", input.fileHash ?? "", input.rowCount ?? null,
-      truthy(validation.headerValid), truthy(validation.periodValid), truthy(validation.categoryValid), truthy(validation.dimensionValid),
-      input.stagingBatchId ?? "", input.importBatchId ?? "", JSON.stringify(validation), input.errorCode ?? "", input.errorMessage ?? "",
-      nextRetryAt, status, input.taskId).run();
+  await db.prepare(`UPDATE market_download_tasks SET status=?, attempt_count=?, error_code=?, error_message=?,
+      next_retry_at=?, last_attempt_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND status NOT IN ('imported','published')`)
+    .bind(status, nextAttempt, input.errorCode ?? "", input.errorMessage ?? "", nextRetryAt, input.taskId).run();
   const after = await db.prepare("SELECT * FROM market_download_tasks WHERE id=? LIMIT 1").bind(input.taskId).first<Record<string, unknown>>();
   await audit(db, actor, "record_download_attempt", "market_download_task", input.taskId, before, after);
   return after;
@@ -309,8 +328,8 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
     listMarketPriceBandVersions(db),
     db.prepare("SELECT * FROM market_download_tasks ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>(),
     db.prepare("SELECT * FROM market_download_configs ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>(),
-    db.prepare(`SELECT category, ranking_dimension, MIN(substr(period_end,1,7)) month_min, MAX(substr(period_end,1,7)) month_max, COUNT(DISTINCT substr(period_end,1,7)) month_count, COUNT(DISTINCT sku_code) sku_count
-      FROM market_ranking_entries GROUP BY category, ranking_dimension ORDER BY category, ranking_dimension LIMIT 200`).all<Record<string, unknown>>(),
+    db.prepare(`SELECT category, scope, ranking_dimension, MIN(substr(period_end,1,7)) month_min, MAX(substr(period_end,1,7)) month_max, COUNT(DISTINCT substr(period_end,1,7)) month_count, COUNT(DISTINCT sku_code) sku_count
+      FROM market_ranking_entries GROUP BY category, scope, ranking_dimension ORDER BY category, scope, ranking_dimension LIMIT 200`).all<Record<string, unknown>>(),
     db.prepare(`SELECT COUNT(*) total, SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END) cached, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed,
       SUM(CASE WHEN status NOT IN ('ready','failed') THEN 1 ELSE 0 END) pending FROM market_image_cache`).first<Record<string, number | null>>(),
     db.prepare("SELECT * FROM market_master_audit_logs ORDER BY created_at DESC LIMIT 100").all<Record<string, unknown>>(),
@@ -334,23 +353,40 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
 }
 
 export async function getMarketSkuComparison(db: MarketDatabase, input: {
-  skuCodes: string[]; category?: string; rankingDimension?: string; startDate?: string; endDate?: string;
+  skuCodes: string[]; category?: string; rankingDimension?: string;
+  categories?: string[]; scopes?: string[]; rankingDimensions?: string[]; operationModes?: string[];
+  brands?: string[]; subcategories?: string[]; priceBands?: string[]; startDate?: string; endDate?: string;
 }) {
   await ensureMarketAdminSchema(db);
   const skuCodes = [...new Set(input.skuCodes.map((sku) => sku.trim()).filter(Boolean))].slice(0, 5);
   if (skuCodes.length < 2 || skuCodes.length > 5) throw new Error("商品对比必须选择 2 到 5 个 SKU");
   const filters: MarketOverviewFilters = {
-    query: undefined,
-    categories: input.category ? [input.category] : undefined,
-    rankingDimensions: input.rankingDimension ? [dimension(input.rankingDimension)] : undefined,
+    categories: input.categories?.length ? input.categories : input.category ? [input.category] : undefined,
+    scopes: input.scopes,
+    rankingDimensions: input.rankingDimensions?.length ? input.rankingDimensions.map(dimension) : input.rankingDimension ? [dimension(input.rankingDimension)] : undefined,
+    operationModes: input.operationModes,
+    brands: input.brands,
+    subcategories: input.subcategories,
+    priceBands: input.priceBands,
     startDate: date(input.startDate),
     endDate: date(input.endDate),
   };
   const placeholders = skuCodes.map(() => "?").join(",");
   const clauses = [`m.sku_code IN (${placeholders})`];
   const values: unknown[] = [...skuCodes];
-  if (filters.categories?.[0]) { clauses.push("m.category=?"); values.push(filters.categories[0]); }
-  if (filters.rankingDimensions?.[0]) { clauses.push("m.ranking_dimension=?"); values.push(filters.rankingDimensions[0]); }
+  const list = (column: string, entries?: string[]) => {
+    const normalized = [...new Set((entries ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
+    if (!normalized.length) return;
+    clauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
+    values.push(...normalized);
+  };
+  list("m.category", filters.categories);
+  list("m.scope", filters.scopes);
+  list("m.ranking_dimension", filters.rankingDimensions);
+  list("m.operation_mode", filters.operationModes);
+  list("m.brand", filters.brands);
+  list("m.subcategory", filters.subcategories);
+  list(officialPriceBandSql("ps.confirmed_market_price_cents"), filters.priceBands);
   if (filters.startDate) { clauses.push("m.period_end>=?"); values.push(filters.startDate); }
   if (filters.endDate) { clauses.push("m.period_start<=?"); values.push(filters.endDate); }
   const rows = await db.prepare(`
@@ -367,8 +403,7 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
     ORDER BY gmv_cents DESC`).bind(...values).all<Record<string, string | number | null>>();
   const trends = await Promise.all(skuCodes.map((skuCode) => getMarketItemTrendLite(db, {
     skuCode,
-    category: input.category,
-    rankingDimension: input.rankingDimension === "SKU" || input.rankingDimension === "SPU" ? input.rankingDimension : undefined,
+    filters,
   })));
   return {
     items: (rows.results ?? []).map((row) => ({
@@ -468,12 +503,25 @@ function masterBaseSql() {
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;
 }
 
-async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: string; category?: string; rankingDimension?: "SKU" | "SPU" }) {
+async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: string; filters?: MarketOverviewFilters }) {
   const skuCode = input.skuCode.trim().slice(0, 80);
   const clauses = ["m.sku_code = ?"];
   const values: unknown[] = [skuCode];
-  if (input.category?.trim()) { clauses.push("m.category = ?"); values.push(input.category.trim().slice(0, 120)); }
-  if (input.rankingDimension === "SKU" || input.rankingDimension === "SPU") { clauses.push("m.ranking_dimension = ?"); values.push(input.rankingDimension); }
+  const list = (column: string, entries?: string[]) => {
+    const normalized = [...new Set((entries ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
+    if (!normalized.length) return;
+    clauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
+    values.push(...normalized);
+  };
+  list("m.category", input.filters?.categories);
+  list("m.scope", input.filters?.scopes);
+  list("m.ranking_dimension", input.filters?.rankingDimensions);
+  list("m.operation_mode", input.filters?.operationModes);
+  list("m.brand", input.filters?.brands);
+  list("m.subcategory", input.filters?.subcategories);
+  list(officialPriceBandSql("ps.confirmed_market_price_cents"), input.filters?.priceBands);
+  if (input.filters?.startDate) { clauses.push("m.period_end>=?"); values.push(input.filters.startDate); }
+  if (input.filters?.endDate) { clauses.push("m.period_start<=?"); values.push(input.filters.endDate); }
   const rows = await db.prepare(`
     SELECT substr(m.period_end, 1, 7) month, m.period_start, m.period_end, m.rank, m.operation_mode,
       m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
@@ -661,10 +709,6 @@ function nullableInteger(value: unknown, min: number, max: number) {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < min || number > max) throw new Error(`整数必须在 ${min} 到 ${max} 之间`);
   return number;
-}
-
-function truthy(value: unknown) {
-  return value === true || value === 1 || value === "true" ? 1 : 0;
 }
 
 function parseJsonArray(value: unknown) {

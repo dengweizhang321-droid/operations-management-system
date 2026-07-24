@@ -23,7 +23,8 @@ type MarketOverview = {
   items: MarketItem[];
   trend: Array<Record<string, string | number | null>>;
   priceBands: FilterOption[];
-  priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;
+  priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;
+  priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;
   brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; priceBands: string[]; subcategories: string[] }>; cr3Bps: number; cr5Bps: number; concentration: string };
   subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] }>;
   filters: { categories: FilterOption[]; scopes: FilterOption[]; brands: FilterOption[]; rankingDimensions: FilterOption[]; operationModes: FilterOption[]; subcategories: FilterOption[]; priceBands: FilterOption[] };
@@ -132,9 +133,10 @@ function PriceBandSection({ data }: { data: MarketOverview }) {
     <div className="market-price-band-grid">{data.priceBandSummary.map((item) => <article key={item.priceBand}>
       <div><strong>{item.priceBand}</strong><span>{money(item.gmvCents)}</span></div>
       <i><b style={{ width: `${item.gmvCents / max * 100}%` }} /></i>
-      <small>成交 {count(item.quantity)} · SKU {count(item.skuCount)} · 自营 {percent(item.selfOperatedShareBps)}</small>
+      <small>销售额占比 {percent(item.gmvShareBps)} · 成交 {count(item.quantity)} · SKU {count(item.skuCount)} · 自营 {percent(item.selfOperatedShareBps)}</small>
       <em>{item.mainBrands.slice(0, 3).join(" / ") || "暂无主要品牌"}</em>
     </article>)}</div>
+    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>月份</th><th>价格带</th><th>销售额</th><th>当月销售占比</th><th>成交件数</th></tr></thead><tbody>{data.priceBandTrend.map((item) => <tr key={`${item.period}-${item.priceBand}`}><td>{item.period}</td><td>{item.priceBand}</td><td>{money(item.gmvCents)}</td><td>{percent(item.gmvShareBps)}</td><td>{count(item.quantity)}</td></tr>)}{!data.priceBandTrend.length && <tr><td colSpan={5}><div className="table-state">暂无价格带月度变化数据。</div></td></tr>}</tbody></table></div>
   </section>;
 }
 
@@ -208,13 +210,17 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function CompareFloating({ items, compareIds, onClear }: { items: MarketItem[]; compareIds: string[]; onClear: () => void }) {
-  const selected = compareIds.map((sku) => items.find((item) => item.skuCode === sku)).filter(Boolean) as MarketItem[];
+  const selected = useMemo(() => compareIds.map((sku) => items.find((item) => item.skuCode === sku)).filter(Boolean) as MarketItem[], [compareIds, items]);
   if (selected.length < 2) return null;
   return <div className="market-compare-floating"><strong>已选择 {selected.length} 个 SKU</strong><div>{selected.map((item) => <span key={item.skuCode}>{item.productName || item.skuCode}</span>)}</div><button type="button" onClick={onClear}>清空</button></div>;
 }
 
-function CompareFloatingLive({ items, compareIds, onClear }: { items: MarketItem[]; compareIds: string[]; onClear: () => void }) {
-  const selected = compareIds.map((sku) => items.find((item) => item.skuCode === sku)).filter(Boolean) as MarketItem[];
+function CompareFloatingLive({ items, compareIds, onClear, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
+  items: MarketItem[]; compareIds: string[]; onClear: () => void;
+  categories: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
+  startDate: string; endDate: string;
+}) {
+  const selected = useMemo(() => compareIds.map((sku) => items.find((item) => item.skuCode === sku)).filter(Boolean) as MarketItem[], [compareIds, items]);
   const [data, setData] = useState<ComparePayload | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -222,6 +228,15 @@ function CompareFloatingLive({ items, compareIds, onClear }: { items: MarketItem
     const controller = new AbortController();
     const params = new URLSearchParams({ view: "compare" });
     compareIds.forEach((sku) => params.append("skuCode", sku));
+    categories.forEach((value) => params.append("category", value));
+    [...new Set(selected.map((item) => item.scope).filter(Boolean))].forEach((value) => params.append("scope", value));
+    rankingDimensions.forEach((value) => params.append("rankingDimension", value));
+    operationModes.forEach((value) => params.append("operationMode", value));
+    brands.forEach((value) => params.append("brand", value));
+    subcategories.forEach((value) => params.append("subcategory", value));
+    priceBands.forEach((value) => params.append("priceBand", value));
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
     void fetch(`/api/market/master?${params}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => null) as ComparePayload | null;
@@ -231,7 +246,7 @@ function CompareFloatingLive({ items, compareIds, onClear }: { items: MarketItem
       })
       .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "商品对比读取失败"); });
     return () => controller.abort();
-  }, [compareIds]);
+  }, [compareIds, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate, selected]);
   if (selected.length < 2) return null;
   const compared = data?.items ?? [];
   const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.map((row) => Number(row.gmvCents ?? 0))));
@@ -352,13 +367,28 @@ export function MarketMasterAdminPanel({ currentUser }: { currentUser: CurrentUs
     if (!sourceValue || !targetValue) return;
     void post({ action: "upsert_mapping", kind, sourceValue, targetValue, status: "published" });
   };
+  const editMapping = (row: Record<string, string | number | null>) => {
+    const targetValue = window.prompt("新的目标值", String(row.target_value ?? "")) ?? "";
+    if (!targetValue.trim()) return;
+    void post({
+      action: "upsert_mapping",
+      id: row.id,
+      kind: row.kind,
+      category: row.category,
+      sourceValue: row.source_value,
+      targetValue,
+      status: row.status,
+      effectiveFrom: row.effective_from,
+    });
+  };
   const createDownloadConfig = () => {
     const category = window.prompt("类目") ?? "";
+    const scope = window.prompt("榜单口径（例如：全部、POP、自营）", "全部") ?? "全部";
     const rankingDimension = window.prompt("榜单维度 SKU/SPU", "SKU") ?? "SKU";
     const monthStart = window.prompt("起始月份 YYYY-MM") ?? "";
     const monthEnd = window.prompt("结束月份 YYYY-MM", monthStart) ?? monthStart;
     if (!category || !monthStart || !monthEnd) return;
-    void post({ action: "upsert_download_config", category, rankingDimension, monthStart, monthEnd, status: "enabled" });
+    void post({ action: "upsert_download_config", category, scope, rankingDimension, monthStart, monthEnd, status: "enabled" });
   };
   const createPriceBandDraft = () => {
     const category = window.prompt("类目，留空表示全部", "*") ?? "*";
@@ -371,6 +401,20 @@ export function MarketMasterAdminPanel({ currentUser }: { currentUser: CurrentUs
     if (!items.length) return;
     void post({ action: "create_price_band_version", category, items });
   };
+  const importDownloadedTask = async (row: Record<string, string | number | null>, file: File) => {
+    setBusy("execute_download_task"); setError(""); setNotice("");
+    try {
+      const form = new FormData();
+      form.set("taskId", String(row.id));
+      form.set("file", file);
+      const response = await fetch("/api/market/master/execute", { method: "POST", body: form });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "榜单文件校验导入失败");
+      setNotice("文件已按任务口径校验并导入");
+      await load();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "榜单文件校验导入失败"); }
+    finally { setBusy(""); }
+  };
   if (!data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在读取 TOP SKU 主数据中心</strong></section>;
   return <section className="settings-market-master-live">
     {(error || notice) && <div className={`market-feedback ${error ? "error" : "success"}`}>{error || notice}</div>}
@@ -379,14 +423,14 @@ export function MarketMasterAdminPanel({ currentUser }: { currentUser: CurrentUs
     </article>
     <article className="panel"><div className="section-header"><div><h3>待确认价格</h3><p>只有人工确认价会进入正式价格带。</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>SKU</th><th>榜单口径</th><th>月份</th><th>候选价</th><th>来源</th><th>图片哈希</th><th>操作</th></tr></thead><tbody>{data.pendingPrices.items.map((row) => <tr key={`${row.category}-${row.scope}-${row.rankingDimension}-${row.skuCode}-${row.month}`}><td><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></td><td>{String(row.scope || row.operationMode || "-")}</td><td>{String(row.month)}</td><td>{money(Number(row.candidatePriceCents ?? 0) || null)}</td><td>{String(row.candidatePriceSource ?? "")}</td><td><code>{String(row.imageContentSha256 ?? "").slice(0, 16)}</code></td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmPrice(row)}>确认价格</button></td></tr>)}</tbody></table></div></article>
     <article className="panel"><div className="section-header"><div><h3>TOP SKU/SPU 数据库</h3><p>分页结果来自服务端，不按页面榜单二次汇总。</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>商品</th><th>维度</th><th>POP/自营</th><th>细分类目</th><th>确认价</th><th>价格带</th></tr></thead><tbody>{data.masterData.items.map((row) => <tr key={String(row.id)}><td><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></td><td>{String(row.rankingDimension)}</td><td>{String(row.operationMode)}</td><td>{String(row.subcategory ?? "")}</td><td>{money(row.officialMarketPriceCents === null ? null : Number(row.officialMarketPriceCents))}</td><td>{String(row.priceBand ?? "")}</td></tr>)}</tbody></table></div></article>
-    <article className="panel"><div className="section-header"><div><h3>映射与价格带</h3><p>细分类目、品牌别名、POP/自营映射和价格带配置均持久化并审计。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("subcategory")}>新增细分类目映射</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("brand_alias")}>新增品牌别名</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("operation_mode")}>新增经营模式规则</button><button className="secondary-button" disabled={!isAdmin} onClick={createPriceBandDraft}>新建价格带版本</button></div></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类型</th><th>来源</th><th>目标</th><th>状态</th><th>版本</th></tr></thead><tbody>{data.mappings.items.map((row) => <tr key={String(row.id)}><td>{String(row.kind)}</td><td>{String(row.source_value)}</td><td>{String(row.target_value)}</td><td>{String(row.status)}</td><td>{String(row.version)}</td></tr>)}</tbody></table></div>
+    <article className="panel"><div className="section-header"><div><h3>映射与价格带</h3><p>细分类目、品牌别名、POP/自营映射和价格带配置均持久化并审计。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("subcategory")}>新增细分类目映射</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("brand_alias")}>新增品牌别名</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("operation_mode")}>新增经营模式规则</button><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "apply_mappings" })}>重算并应用映射</button><button className="secondary-button" disabled={!isAdmin} onClick={createPriceBandDraft}>新建价格带版本</button></div></div>
+      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类型</th><th>来源</th><th>目标</th><th>状态</th><th>版本</th><th>操作</th></tr></thead><tbody>{data.mappings.items.map((row) => <tr key={String(row.id)}><td>{String(row.kind)}</td><td>{String(row.source_value)}</td><td>{String(row.target_value)}</td><td>{String(row.status)}</td><td>{String(row.version)}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => editMapping(row)}>编辑</button></td></tr>)}</tbody></table></div>
       <div className="market-brand-list">{data.priceBands.items.map((row) => <article key={String(row.id)}><label><strong>{String(row.category)} v{String(row.version)}</strong><span>{String(row.status)}</span></label><small>{String(row.effective_from)} · {String(row.note ?? "")}</small><div className="annotation-actions"><button className="row-action" disabled={!isAdmin || row.status === "published"} onClick={() => void post({ action: "publish_price_band_version", id: row.id })}>发布</button><button className="row-action" disabled={!isAdmin} onClick={() => void post({ action: "rollback_price_band_version", targetVersionId: row.id })}>回滚到此版本</button></div></article>)}</div>
     </article>
     <article className="panel"><div className="section-header"><div><h3>自动下载与导入工作流</h3><p>计算缺失范围、创建或复用下载任务，登录态未验证时保持 waiting_login。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={createDownloadConfig}>新增下载配置</button><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "plan_downloads" })}>计算缺失任务</button></div></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类目/月/维度</th><th>状态</th><th>次数</th><th>文件</th><th>错误</th><th>重试</th></tr></thead><tbody>{data.downloadTasks.map((row) => <tr key={String(row.id)}><td>{String(row.category)} · {String(row.month)} · {String(row.ranking_dimension)}</td><td>{String(row.status)}</td><td>{String(row.attempt_count)}</td><td>{String(row.source_file_name ?? "")}</td><td>{String(row.error_message ?? "")}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "record_download_attempt", taskId: row.id, status: "waiting_login", errorCode: "waiting_login", errorMessage: "等待京东登录验证" })}>标记等待登录验证</button></td></tr>)}</tbody></table></div>
+      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类目/口径/月/维度</th><th>状态</th><th>次数</th><th>文件</th><th>错误</th><th>执行</th></tr></thead><tbody>{data.downloadTasks.map((row) => <tr key={String(row.id)}><td>{String(row.category)} · {String(row.scope)} · {String(row.month)} · {String(row.ranking_dimension)}</td><td>{String(row.status)}</td><td>{String(row.attempt_count)}</td><td>{String(row.source_file_name ?? "")}</td><td>{String(row.error_message ?? "")}</td><td><div className="annotation-actions"><label className="row-action">上传并校验导入<input type="file" accept=".xls,.xlsx,.csv" hidden disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void importDownloadedTask(row, file); event.currentTarget.value = ""; }} /></label><button className="row-action" disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onClick={() => void post({ action: "record_download_attempt", taskId: row.id, status: "waiting_login", errorCode: "waiting_login", errorMessage: "等待京东登录验证" })}>等待登录</button></div></td></tr>)}</tbody></table></div>
     </article>
-    <article className="panel"><div className="section-header"><div><h3>数据覆盖、图片缓存与审计</h3><p>覆盖检查和完整审计记录来自市场主数据审计表。</p></div></div><div className="settings-master-cards">{data.coverage.slice(0, 8).map((row) => <div key={`${row.category}-${row.ranking_dimension}`}><strong>{String(row.month_min ?? "-")}~{String(row.month_max ?? "-")}</strong><span>{String(row.category)} · {String(row.ranking_dimension)} · SKU {String(row.sku_count)}</span></div>)}</div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>时间</th><th>人员</th><th>动作</th><th>对象</th></tr></thead><tbody>{data.audits.map((row) => <tr key={String(row.id)}><td>{String(row.created_at)}</td><td>{String(row.actor_email)}</td><td>{String(row.action)}</td><td>{String(row.entity_type)} · {String(row.entity_id)}</td></tr>)}</tbody></table></div></article>
+    <article className="panel"><div className="section-header"><div><h3>数据覆盖、图片缓存与审计</h3><p>覆盖检查和完整审计记录来自市场主数据审计表。</p></div></div><div className="settings-master-cards">{data.coverage.slice(0, 8).map((row) => <div key={`${row.category}-${row.scope}-${row.ranking_dimension}`}><strong>{String(row.month_min ?? "-")}~{String(row.month_max ?? "-")}</strong><span>{String(row.category)} · {String(row.scope)} · {String(row.ranking_dimension)} · SKU {String(row.sku_count)}</span></div>)}</div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>时间</th><th>人员</th><th>动作</th><th>对象</th></tr></thead><tbody>{data.audits.map((row) => <tr key={String(row.id)}><td>{String(row.created_at)}</td><td>{String(row.actor_email)}</td><td>{String(row.action)}</td><td>{String(row.entity_type)} · {String(row.entity_id)}</td></tr>)}</tbody></table></div></article>
   </section>;
 }
 
@@ -452,7 +496,7 @@ export default function MarketView({ customStartDate, customEndDate }: { customS
     <BrandSection data={data} />
     <SubcategorySection data={data} />
     <RankingTable items={data.items} compareIds={compareIds} onToggleCompare={toggleCompare} onTrend={setTrendItem} />
-    <CompareFloatingLive items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} />
+    <CompareFloatingLive items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={customStartDate} endDate={customEndDate} />
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
   </div>;
 }

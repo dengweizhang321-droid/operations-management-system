@@ -125,6 +125,8 @@ type EntryRow = {
   is_own: number; own_sales_cents: number;
 };
 
+const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
+
 function filterSql(filters: MarketOverviewFilters) {
   const clauses: string[] = [];
   const values: unknown[] = [];
@@ -201,9 +203,9 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
   ), filtered AS (SELECT * FROM enriched ${priceBandWhere})`;
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const bindings = [...dateValues, ...values, ...priceBandValues];
-  const [summary, ranking, trend, categories, scopes, brands, dimensions, modes, subcategories, priceBands, priceBandRows, brandRows, subcategoryRows, priceRows, cutoff, batches, imageCache] = await Promise.all([
+  const [summary, ranking, trend, categories, scopes, brands, dimensions, modes, subcategories, priceBands, priceBandRows, priceBandTrendRows, brandRows, subcategoryRows, priceRows, cutoff, batches, imageCache] = await Promise.all([
     db.prepare(`${enriched} SELECT COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT category) category_count,
-      COUNT(DISTINCT brand) brand_count, COALESCE(SUM(gmv_cents), 0) gmv_cents,
+      COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) brand_count, COALESCE(SUM(gmv_cents), 0) gmv_cents,
       COALESCE(SUM(quantity), 0) quantity, COALESCE(SUM(page_views), 0) page_views,
       COALESCE(SUM(visitors), 0) visitors, COUNT(DISTINCT CASE WHEN is_own = 1 THEN sku_code END) own_product_count,
       COALESCE(SUM(CASE WHEN operation_mode = '自营' THEN gmv_cents ELSE 0 END), 0) self_operated_gmv_cents,
@@ -248,9 +250,14 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
       GROUP_CONCAT(DISTINCT brand) brands
       FROM filtered GROUP BY price_band ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
-    db.prepare(`${enriched} SELECT brand, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, COUNT(DISTINCT sku_code) sku_count,
+    db.prepare(`${enriched} SELECT substr(period_end,1,7) period, price_band,
+      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
+      SUM(SUM(gmv_cents)) OVER (PARTITION BY substr(period_end,1,7)) period_gmv_cents
+      FROM filtered GROUP BY substr(period_end,1,7), price_band ORDER BY period, gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
+    db.prepare(`${enriched} SELECT COALESCE(NULLIF(brand,''), '未识别品牌') brand,
+      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, COUNT(DISTINCT sku_code) sku_count,
       MIN(rank) best_rank, GROUP_CONCAT(DISTINCT price_band) price_bands, GROUP_CONCAT(DISTINCT subcategory) subcategories
-      FROM filtered WHERE brand <> '' GROUP BY brand ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
+      FROM filtered GROUP BY COALESCE(NULLIF(brand,''), '未识别品牌') ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
     db.prepare(`${enriched} SELECT subcategory, COUNT(DISTINCT sku_code) sku_count, SUM(gmv_cents) gmv_cents,
       SUM(quantity) quantity, SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
       CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
@@ -277,7 +284,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     ? Math.round(weightedRows.reduce((sum, row) => sum + Number(row.price ?? 0) * Number(row.gmv_cents ?? 0), 0) / weightedDenominator)
     : null;
   const averageTransactionPrice = Number(summaryValue.quantity ?? 0) > 0 ? Math.round(Number(summaryValue.gmv_cents ?? 0) / Number(summaryValue.quantity ?? 0)) : null;
-  const brandTotal = (brandRows.results ?? []).reduce((sum, row) => sum + Number(row.gmv_cents ?? 0), 0);
+  const brandTotal = Number(summaryValue.gmv_cents ?? 0);
   const brandSharesAll = (brandRows.results ?? []).map((row) => ({
     brand: String(row.brand ?? ""),
     gmvCents: Number(row.gmv_cents ?? 0),
@@ -332,8 +339,16 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       skuCount: Number(row.sku_count ?? 0),
       popGmvCents: Number(row.pop_gmv_cents ?? 0),
       selfGmvCents: Number(row.self_gmv_cents ?? 0),
+      gmvShareBps: Number(summaryValue.gmv_cents ?? 0) ? Math.round(Number(row.gmv_cents ?? 0) / Number(summaryValue.gmv_cents ?? 0) * 10_000) : 0,
       selfOperatedShareBps: Number(row.gmv_cents ?? 0) ? Math.round(Number(row.self_gmv_cents ?? 0) / Number(row.gmv_cents ?? 0) * 10_000) : null,
       mainBrands: String(row.brands ?? "").split(",").filter(Boolean).slice(0, 5),
+    })),
+    priceBandTrend: (priceBandTrendRows.results ?? []).map((row) => ({
+      period: String(row.period ?? ""),
+      priceBand: String(row.price_band ?? unknownPriceBand),
+      gmvCents: Number(row.gmv_cents ?? 0),
+      quantity: Number(row.quantity ?? 0),
+      gmvShareBps: Number(row.period_gmv_cents ?? 0) ? Math.round(Number(row.gmv_cents ?? 0) / Number(row.period_gmv_cents ?? 0) * 10_000) : 0,
     })),
     brandAnalysis: {
       items: brandShares,

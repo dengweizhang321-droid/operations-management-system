@@ -321,8 +321,8 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
               AND month IN (strftime('%Y-%m', date(? || '-01', '-1 month')), strftime('%Y-%m', date(? || '-01', '+1 month')))
               AND confirmed_market_price_cents IS NULL AND ? IS NOT NULL`)
             .bind(formalPrice, actor.email, item.id, job.prompt_version_id, item.category || job.category, item.scope, item.sku_code, item.ranking_dimension, item.image_content_sha256, item.month, item.month, formalPrice),
-          db.prepare("UPDATE market_ranking_entries SET subcategory=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=?")
-            .bind(item.reviewed_segment, item.category || job.category, item.scope, item.sku_code, item.ranking_dimension),
+          db.prepare("UPDATE market_ranking_entries SET subcategory=?, source_subcategory=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=?")
+            .bind(item.reviewed_segment, item.reviewed_segment, item.category || job.category, item.scope, item.sku_code, item.ranking_dimension),
           db.prepare("INSERT INTO market_annotation_commit_receipts (id, job_item_id, annotation_id, idempotency_key, before_json, after_json, committed_by, batch_id, request_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .bind("market-commit-" + randomUUID(), item.id, annotationId, receiptKey, JSON.stringify(old ?? {}), JSON.stringify(after), actor.email, batchId, requestDigest),
           db.prepare("UPDATE market_annotation_items SET status='committed', selected=0, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved' AND selected=1 AND version=?").bind(item.id, item.version),

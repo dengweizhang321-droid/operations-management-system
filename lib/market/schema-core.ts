@@ -46,6 +46,9 @@ export const marketBaseSchemaStatements = [
     ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
     operation_mode TEXT NOT NULL DEFAULT '${unknownMode}',
     subcategory TEXT NOT NULL DEFAULT '',
+    source_brand TEXT NOT NULL DEFAULT '',
+    source_operation_mode TEXT NOT NULL DEFAULT '',
+    source_subcategory TEXT NOT NULL DEFAULT '',
     rank INTEGER,
     sku_code TEXT NOT NULL,
     product_name TEXT NOT NULL DEFAULT '',
@@ -146,6 +149,7 @@ export const marketBaseSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS market_download_configs (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT '全部',
     ranking_dimension TEXT NOT NULL,
     month_start TEXT NOT NULL,
     month_end TEXT NOT NULL,
@@ -157,6 +161,7 @@ export const marketBaseSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS market_download_tasks (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT '全部',
     month TEXT NOT NULL,
     ranking_dimension TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'planned',
@@ -206,9 +211,16 @@ const rankingEntryColumns: Array<[string, string]> = [
   ["ranking_dimension", "TEXT NOT NULL DEFAULT 'SKU'"],
   ["operation_mode", `TEXT NOT NULL DEFAULT '${unknownMode}'`],
   ["subcategory", "TEXT NOT NULL DEFAULT ''"],
+  ["source_brand", "TEXT NOT NULL DEFAULT ''"],
+  ["source_operation_mode", "TEXT NOT NULL DEFAULT ''"],
+  ["source_subcategory", "TEXT NOT NULL DEFAULT ''"],
   ["price_low_cents", "INTEGER"],
   ["price_high_cents", "INTEGER"],
   ["price_estimated", "INTEGER NOT NULL DEFAULT 0"],
+];
+
+const downloadConfigColumns: Array<[string, string]> = [
+  ["scope", "TEXT NOT NULL DEFAULT '全部'"],
 ];
 
 const priceSnapshotColumns: Array<[string, string]> = [
@@ -234,6 +246,7 @@ const priceSnapshotColumns: Array<[string, string]> = [
 ];
 
 const downloadTaskColumns: Array<[string, string]> = [
+  ["scope", "TEXT NOT NULL DEFAULT '全部'"],
   ["jd_task_id", "TEXT NOT NULL DEFAULT ''"],
   ["header_valid", "INTEGER NOT NULL DEFAULT 0"],
   ["period_valid", "INTEGER NOT NULL DEFAULT 0"],
@@ -264,9 +277,9 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_price_band_versions_lookup_idx ON market_price_band_versions (category, status, effective_from, version)`,
   `CREATE INDEX IF NOT EXISTS market_price_band_items_version_idx ON market_price_band_items (version_id, sort_order)`,
   `CREATE INDEX IF NOT EXISTS market_master_mapping_rules_kind_idx ON market_master_mapping_rules (kind, category, status, effective_from)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_download_configs_unique_uq ON market_download_configs (category, ranking_dimension, month_start, month_end)`,
-  `CREATE INDEX IF NOT EXISTS market_download_configs_status_idx ON market_download_configs (status, category, ranking_dimension)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, month, ranking_dimension)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_download_configs_unique_uq ON market_download_configs (category, scope, ranking_dimension, month_start, month_end)`,
+  `CREATE INDEX IF NOT EXISTS market_download_configs_status_idx ON market_download_configs (status, category, scope, ranking_dimension)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, scope, month, ranking_dimension)`,
   `CREATE INDEX IF NOT EXISTS market_download_tasks_status_idx ON market_download_tasks (status, next_retry_at, updated_at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_staging_rows_file_row_uq ON market_download_staging_rows (task_id, file_hash, row_number)`,
   `CREATE INDEX IF NOT EXISTS market_master_audit_logs_entity_idx ON market_master_audit_logs (entity_type, entity_id, created_at)`,
@@ -274,6 +287,8 @@ export const marketPostUpgradeIndexStatements = [
 
 const marketPreUpgradeIndexStatements = [
   `DROP INDEX IF EXISTS market_price_snapshots_sku_month_uq`,
+  `DROP INDEX IF EXISTS market_download_configs_unique_uq`,
+  `DROP INDEX IF EXISTS market_download_tasks_unique_uq`,
 ] as const;
 
 const defaultPriceBandItems = [
@@ -453,7 +468,13 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
   await addMissingColumns(db, "market_ranking_entries", rankingEntryColumns);
   await addMissingColumns(db, "market_price_snapshots", priceSnapshotColumns);
+  await addMissingColumns(db, "market_download_configs", downloadConfigColumns);
   await addMissingColumns(db, "market_download_tasks", downloadTaskColumns);
+  await db.prepare(`UPDATE market_ranking_entries SET
+    source_brand=brand,
+    source_operation_mode=operation_mode,
+    source_subcategory=subcategory
+    WHERE source_brand='' AND source_operation_mode='' AND source_subcategory=''`).run();
   await normalizeExistingRankingRows(db);
   await removeCanonicalDuplicates(db);
   await db.prepare(`

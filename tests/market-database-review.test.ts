@@ -105,13 +105,13 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   sqlite.close();
 });
 
-test("0025 forward migration deduplicates legacy facts and creates scoped snapshots", async () => {
+test("0026 forward migrations deduplicate facts and preserve mapping/download scope", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const migrationFiles = [
     "0015_market_analysis.sql", "0016_market_sku_annotations.sql", "0017_market_annotation_reliability.sql",
     "0019_young_ozymandias.sql", "0020_market_image_cache.sql",
     "0021_market_analysis_2.sql", "0022_market_analysis_review_fixes.sql", "0023_market_annotation_monthly_price.sql",
-    "0024_market_master_workflow.sql", "0025_market_scope_and_executor.sql",
+    "0024_market_master_workflow.sql", "0025_market_scope_and_executor.sql", "0026_market_mapping_and_download_scope.sql",
   ];
   for (const file of migrationFiles) {
     const sql = await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8");
@@ -132,6 +132,11 @@ test("0025 forward migration deduplicates legacy facts and creates scoped snapsh
   assert.equal(facts.count, 2);
   assert.deepEqual(snapshots.map((row) => ({ ...row })), [{ scope: "pop", sourcePrice: 200 }, { scope: "自营", sourcePrice: 300 }]);
   assert.ok((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_price_snapshots_sku_month_uq'").get() as { name: string } | undefined)?.name);
+  const source = sqlite.prepare("SELECT source_brand sourceBrand, source_operation_mode sourceMode FROM market_ranking_entries WHERE category='migration-category' LIMIT 1").get() as { sourceBrand: string; sourceMode: string };
+  assert.equal(typeof source.sourceBrand, "string");
+  assert.equal(typeof source.sourceMode, "string");
+  const taskIndex = String((sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='market_download_tasks_unique_uq'").get() as { sql: string }).sql);
+  assert.match(taskIndex, /category, scope, month, ranking_dimension/i);
   sqlite.close();
 });
 

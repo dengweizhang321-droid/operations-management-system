@@ -1,6 +1,5 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { getMarketDatabase } from "@/lib/market/database";
-import { executeMarketDownloadTask } from "@/lib/market/download-executor";
 import {
   confirmMarketPrice,
   applyPublishedMarketMappings,
@@ -60,8 +59,13 @@ export async function GET(request: Request) {
     if (view === "compare") {
       return Response.json(await getMarketSkuComparison(db, {
         skuCodes: params.getAll("skuCode"),
-        category: params.get("category") ?? undefined,
-        rankingDimension: params.get("rankingDimension") ?? undefined,
+        categories: params.getAll("category"),
+        scopes: params.getAll("scope"),
+        rankingDimensions: params.getAll("rankingDimension"),
+        operationModes: params.getAll("operationMode"),
+        brands: params.getAll("brand"),
+        subcategories: params.getAll("subcategory"),
+        priceBands: params.getAll("priceBand"),
         startDate: params.get("startDate") ?? undefined,
         endDate: params.get("endDate") ?? undefined,
       }), { headers: { "cache-control": "no-store" } });
@@ -137,6 +141,7 @@ export async function POST(request: Request) {
       case "upsert_download_config":
         result = await upsertMarketDownloadConfig(db, {
           category: text(parsed, "category"),
+          scope: text(parsed, "scope"),
           rankingDimension: text(parsed, "rankingDimension"),
           monthStart: text(parsed, "monthStart"),
           monthEnd: text(parsed, "monthEnd"),
@@ -146,6 +151,7 @@ export async function POST(request: Request) {
       case "plan_downloads":
         result = await planMissingMarketDownloads(db, {
           category: text(parsed, "category") || undefined,
+          scope: text(parsed, "scope") || undefined,
           rankingDimension: text(parsed, "rankingDimension") || undefined,
         }, principal);
         break;
@@ -153,25 +159,20 @@ export async function POST(request: Request) {
         result = await recordMarketDownloadAttempt(db, {
           taskId: text(parsed, "taskId"),
           status: text(parsed, "status") as never,
-          jdTaskId: text(parsed, "jdTaskId"),
-          sourceFileName: text(parsed, "sourceFileName"),
-          fileHash: text(parsed, "fileHash"),
-          rowCount: typeof parsed.rowCount === "number" ? parsed.rowCount : undefined,
-          validation: record(parsed.validation) ? parsed.validation : undefined,
-          importBatchId: text(parsed, "importBatchId"),
-          stagingBatchId: text(parsed, "stagingBatchId"),
           errorCode: text(parsed, "errorCode"),
           errorMessage: text(parsed, "errorMessage"),
         }, principal);
         break;
-      case "execute_download_task":
-        result = await executeMarketDownloadTask(db, { taskId: text(parsed, "taskId") }, principal);
-        break;
       case "compare":
         result = await getMarketSkuComparison(db, {
           skuCodes: texts(parsed, "skuCodes"),
-          category: text(parsed, "category"),
-          rankingDimension: text(parsed, "rankingDimension"),
+          categories: texts(parsed, "categories"),
+          scopes: texts(parsed, "scopes"),
+          rankingDimensions: texts(parsed, "rankingDimensions"),
+          operationModes: texts(parsed, "operationModes"),
+          brands: texts(parsed, "brands"),
+          subcategories: texts(parsed, "subcategories"),
+          priceBands: texts(parsed, "priceBands"),
           startDate: text(parsed, "startDate"),
           endDate: text(parsed, "endDate"),
         });
