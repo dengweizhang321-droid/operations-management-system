@@ -302,9 +302,60 @@ const defaultPriceBandItems = [
 async function addMissingColumns(db: MarketSchemaDatabase, table: string, columns: Array<[string, string]>) {
   const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   const existing = new Set((info.results ?? []).map((row) => row.name));
+  let changed = false;
   for (const [name, definition] of columns) {
-    if (!existing.has(name)) await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+    if (!existing.has(name)) {
+      await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+      changed = true;
+    }
   }
+  return changed;
+}
+
+const marketRuntimeSchemaMarker = "market-runtime-schema-v1";
+
+async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
+  try {
+    const marker = await db.prepare(`SELECT id FROM market_master_audit_logs
+      WHERE entity_type='runtime_schema' AND entity_id=? LIMIT 1`).bind(marketRuntimeSchemaMarker).first<{ id: string }>();
+    return Boolean(marker);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("no such table") || message.includes("does not exist")) return false;
+    throw error;
+  }
+}
+
+async function needsLegacyMarketDataUpgrade(db: MarketSchemaDatabase) {
+  const row = await db.prepare(`SELECT CASE WHEN
+    EXISTS (SELECT 1 FROM market_ranking_entries WHERE ranking_dimension NOT IN ('SKU','SPU') OR ranking_dimension IS NULL OR ranking_dimension='')
+    OR EXISTS (
+      SELECT 1 FROM market_ranking_entries
+      GROUP BY period_start, period_end, category, scope, ranking_dimension, sku_code
+      HAVING COUNT(*)>1 LIMIT 1
+    )
+    OR EXISTS (
+      SELECT 1 FROM market_ranking_entries
+      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+      LIMIT 1
+    )
+    OR EXISTS (
+      SELECT 1 FROM market_ranking_entries m
+      WHERE substr(m.period_end,1,7)<>'' AND NOT EXISTS (
+        SELECT 1 FROM market_price_snapshots ps
+        WHERE ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+          AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+      ) LIMIT 1
+    )
+    THEN 1 ELSE 0 END needs_upgrade`).first<{ needs_upgrade: number }>();
+  return Number(row?.needs_upgrade ?? 0) === 1;
+}
+
+async function recordMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
+  await db.prepare(`INSERT OR IGNORE INTO market_master_audit_logs
+    (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+    VALUES (?, 'system', 'system', 'complete_runtime_schema_upgrade', 'runtime_schema', ?, '{}', '{"version":1}')`)
+    .bind(marketRuntimeSchemaMarker, marketRuntimeSchemaMarker).run();
 }
 
 async function normalizeExistingRankingRows(db: MarketSchemaDatabase) {
@@ -481,26 +532,39 @@ async function seedDefaultPriceBands(db: MarketSchemaDatabase) {
 }
 
 export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<void> {
+  const fastMarker = await hasMarketRuntimeSchemaMarker(db);
+  if (fastMarker) return;
   await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
-  await addMissingColumns(db, "market_ranking_entries", rankingEntryColumns);
-  await addMissingColumns(db, "market_price_snapshots", priceSnapshotColumns);
-  await addMissingColumns(db, "market_download_configs", downloadConfigColumns);
-  await addMissingColumns(db, "market_download_tasks", downloadTaskColumns);
-  await db.prepare(`UPDATE market_ranking_entries SET
-    source_brand=brand,
-    source_operation_mode=operation_mode,
-    source_subcategory=subcategory
-    WHERE source_brand='' AND source_operation_mode='' AND source_subcategory=''`).run();
-  await normalizeExistingRankingRows(db);
-  await removeCanonicalDuplicates(db);
-  await db.prepare(`
-    UPDATE market_ranking_entries
-    SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
-  `).run();
-  await db.batch(marketPreUpgradeIndexStatements.map((statement) => db.prepare(statement)));
-  await backfillPriceSnapshots(db);
+  let columnsChanged = false;
+  for (const [table, columns] of [
+    ["market_ranking_entries", rankingEntryColumns],
+    ["market_price_snapshots", priceSnapshotColumns],
+    ["market_download_configs", downloadConfigColumns],
+    ["market_download_tasks", downloadTaskColumns],
+  ] as const) {
+    columnsChanged = await addMissingColumns(db, table, columns) || columnsChanged;
+  }
+  const alreadyUpgraded = await hasMarketRuntimeSchemaMarker(db);
+  const needsDataUpgrade = columnsChanged || await needsLegacyMarketDataUpgrade(db);
+  if (needsDataUpgrade) {
+    await db.prepare(`UPDATE market_ranking_entries SET
+      source_brand=brand,
+      source_operation_mode=operation_mode,
+      source_subcategory=subcategory
+      WHERE source_brand='' AND source_operation_mode='' AND source_subcategory=''`).run();
+    await normalizeExistingRankingRows(db);
+    await removeCanonicalDuplicates(db);
+    await db.prepare(`
+      UPDATE market_ranking_entries
+      SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+    `).run();
+    if (columnsChanged) await db.batch(marketPreUpgradeIndexStatements.map((statement) => db.prepare(statement)));
+    await backfillPriceSnapshots(db);
+  }
   await seedDefaultPriceBands(db);
   await db.batch(marketPostUpgradeIndexStatements.map((statement) => db.prepare(statement)));
+  if (!alreadyUpgraded) await recordMarketRuntimeSchemaMarker(db);
 }
 
 const marketSchemaReadyByDatabase = new WeakMap<object, Promise<void>>();

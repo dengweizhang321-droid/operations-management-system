@@ -4,6 +4,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
+import { buildMarketOverviewAnalyticsSql, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
@@ -71,7 +72,10 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   const sqlite = await oldMarketDatabase();
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
+  const changesAfterUpgrade = (sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes;
   await ensureMarketSchemaCore(db);
+  assert.equal((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes, changesAfterUpgrade);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v1'").get() as { count: number }).count, 1);
 
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   for (const column of ["ranking_dimension", "operation_mode", "subcategory", "price_low_cents", "price_high_cents", "price_estimated"]) {
@@ -186,6 +190,7 @@ test("monthly snapshot backfill selects one fact when a SKU has multiple date ra
     VALUES
       ('partial',1,'2026-06-01','2026-06-15','category-month','pop','SKU','POP','SKU-MONTH','Partial','Brand',100,1000,1,1,'{}','batch'),
       ('full',2,'2026-06-01','2026-06-30','category-month','pop','SKU','POP','SKU-MONTH','Full','Brand',200,2000,2,2,'{}','batch')`);
+  sqlite.prepare("DELETE FROM market_master_audit_logs WHERE entity_type='runtime_schema'").run();
   await ensureMarketSchemaCore(db);
   const snapshots = sqlite.prepare("SELECT id, source_price_cents sourcePrice FROM market_price_snapshots WHERE category='category-month' AND sku_code='SKU-MONTH'").all() as Array<{ id: string; sourcePrice: number }>;
   assert.equal(snapshots.length, 1);
@@ -264,6 +269,8 @@ test("official price band SQL is alias-safe and D1-compatible inside the overvie
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
   sqlite.exec(`
+    CREATE TABLE netshop_rows (sku_id TEXT, product_code TEXT, spu_id TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
     INSERT INTO market_ranking_entries
       (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
     VALUES
@@ -290,6 +297,24 @@ test("official price band SQL is alias-safe and D1-compatible inside the overvie
   ), filtered AS (SELECT * FROM enriched)
   SELECT sku_code sku, price_band band FROM filtered`).get() as { sku: string; band: string };
   assert.deepEqual({ ...row }, { sku: "SKU-ALIAS", band: "1000-1999" });
+  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql({ where: "WHERE m.ranking_dimension=?" })).get("SKU") as {
+    summary_json: string; trend_json: string; price_bands_json: string; date_min: string; date_max: string;
+  };
+  assert.deepEqual(JSON.parse(analytics.summary_json), {
+    product_count: 1, category_count: 1, brand_count: 1, gmv_cents: 1000000, quantity: 5,
+    page_views: 0, visitors: 10, own_product_count: 0, self_operated_gmv_cents: 0, pending_ai_count: 0,
+    median_market_price_cents: 159900, weighted_market_price_cents: 159900,
+  });
+  assert.deepEqual(JSON.parse(analytics.trend_json), [{
+    period: "2026-06", gmv_cents: 1000000, quantity: 5, visitors: 10, product_count: 1, brand_count: 1,
+    pop_gmv_cents: 1000000, self_gmv_cents: 0, average_transaction_price_cents: 200000,
+    weighted_market_price_cents: 159900,
+  }]);
+  assert.deepEqual(JSON.parse(analytics.price_bands_json), [{ value: "1000-1999", count: 1 }]);
+  assert.deepEqual({ start: analytics.date_min, end: analytics.date_max }, { start: "2026-06-01", end: "2026-06-30" });
+  const filterOptions = sqlite.prepare(marketOverviewFilterOptionsSql).get() as { categories_json: string; dimensions_json: string };
+  assert.deepEqual(JSON.parse(filterOptions.categories_json), [{ value: "净水", count: 1 }]);
+  assert.deepEqual(JSON.parse(filterOptions.dimensions_json), [{ value: "SKU", count: 1 }]);
   sqlite.close();
 });
 
@@ -314,4 +339,12 @@ test("brand share denominator uses all brands and display limiting happens after
   assert.equal(Math.round(displayed[0]!.gmv / brandTotal * 10000), 1892);
   assert.equal(cr3, 2432);
   sqlite.close();
+});
+
+test("market ranking limits candidates before previous-rank lookup and pins the selective index", async () => {
+  const source = await readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8");
+  const topRanked = source.indexOf("top_ranked AS MATERIALIZED");
+  const previousRank = source.indexOf("previous_rank", topRanked);
+  assert.ok(topRanked >= 0 && previousRank > topRanked);
+  assert.match(source, /market_ranking_entries p INDEXED BY market_entries_sku_idx/);
 });

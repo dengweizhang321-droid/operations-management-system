@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
-import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
+import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -112,6 +113,18 @@ type SummaryRow = {
   product_count: number; category_count: number; brand_count: number; gmv_cents: number;
   quantity: number; page_views: number; visitors: number; own_product_count: number;
   self_operated_gmv_cents: number; pending_ai_count: number;
+  median_market_price_cents: number | null; weighted_market_price_cents: number | null;
+};
+
+type AnalyticsRow = {
+  summary_json: string; trend_json: string; price_bands_json: string; price_band_summary_json: string;
+  price_band_trend_json: string; brand_rows_json: string; subcategory_rows_json: string;
+  date_min: string | null; date_max: string | null;
+};
+
+type FilterOptionsRow = {
+  categories_json: string; scopes_json: string; brands_json: string;
+  dimensions_json: string; modes_json: string; subcategories_json: string;
 };
 
 type EntryRow = {
@@ -126,6 +139,15 @@ type EntryRow = {
 };
 
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
+
+function parseSqlJson<T>(value: unknown, fallback: T): T {
+  if (typeof value !== "string" || value === "") return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
+function batchRows<T>(result: { results?: unknown[] } | undefined): T[] {
+  return (result?.results ?? []) as T[];
+}
 
 function filterSql(filters: MarketOverviewFilters) {
   const clauses: string[] = [];
@@ -156,69 +178,18 @@ function filterSql(filters: MarketOverviewFilters) {
 
 export async function getMarketOverview(db: MarketDatabase, filters: MarketOverviewFilters = {}) {
   const { where, values, priceBandWhere, priceBandValues } = filterSql(filters);
-  const enriched = `WITH enriched AS (
-    SELECT m.*,
-      mic.status AS image_cache_status_raw,
-      mic.content_sha256 AS image_content_sha256,
-      ps.confirmed_market_price_cents,
-      ps.source_price_cents,
-      ps.ai_image_price_cents,
-      ps.ai_price_type,
-      ps.ai_confidence_bps,
-      ps.confirmation_status,
-      ps.average_transaction_price_cents,
-      ps.confirmed_market_price_cents AS official_market_price_cents,
-      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) AS candidate_price_cents,
-      CASE
-        WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认'
-        ELSE '未确认价格'
-      END AS market_price_source,
-      CASE
-        WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
-        WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
-        WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
-        ELSE '暂无价格'
-      END AS candidate_price_source,
-      ${officialPriceBandSql("ps.confirmed_market_price_cents", {
-        confirmationStatusSql: "ps.confirmation_status",
-        aiPriceTypeSql: "ps.ai_price_type",
-        categorySql: "m.category",
-        periodEndSql: "m.period_end",
-      })} AS price_band,
-      CASE WHEN EXISTS (
-        SELECT 1 FROM netshop_rows n
-        WHERE n.sku_id = m.sku_code OR n.product_code = m.sku_code OR n.spu_id = m.sku_code
-      ) OR EXISTS (
-        SELECT 1 FROM sales_order_lines s WHERE s.product_code = m.sku_code
-      ) THEN 1 ELSE 0 END AS is_own,
-      COALESCE((SELECT SUM(s.allocated_amount_cents)
-        FROM sales_order_lines s
-        WHERE s.product_code = m.sku_code
-          AND (? = '' OR substr(COALESCE(NULLIF(s.sales_time, ''), s.ship_time), 1, 10) >= ?)
-          AND (? = '' OR substr(COALESCE(NULLIF(s.sales_time, ''), s.ship_time), 1, 10) <= ?)
-      ), 0) AS own_sales_cents
-    FROM market_ranking_entries m
-    LEFT JOIN market_image_cache mic ON mic.source_url = m.image_url
-    LEFT JOIN market_price_snapshots ps ON ps.category = m.category
-      AND ps.scope = m.scope
-      AND ps.sku_code = m.sku_code
-      AND ps.ranking_dimension = m.ranking_dimension
-      AND ps.month = substr(m.period_end, 1, 7)
-    ${where}
-  ), filtered AS (SELECT * FROM enriched ${priceBandWhere})`;
+  const enriched = buildMarketOverviewEnrichedSql({ where, priceBandWhere });
+  const analyticsSql = buildMarketOverviewAnalyticsSql({ where, priceBandWhere });
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
-  const bindings = [...dateValues, ...values, ...priceBandValues];
-  const [summary, ranking, trend, categories, scopes, brands, dimensions, modes, subcategories, priceBands, priceBandRows, priceBandTrendRows, brandRows, subcategoryRows, priceRows, cutoff, batches, imageCache] = await Promise.all([
-    db.prepare(`${enriched} SELECT COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT category) category_count,
-      COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) brand_count, COALESCE(SUM(gmv_cents), 0) gmv_cents,
-      COALESCE(SUM(quantity), 0) quantity, COALESCE(SUM(page_views), 0) page_views,
-      COALESCE(SUM(visitors), 0) visitors, COUNT(DISTINCT CASE WHEN is_own = 1 THEN sku_code END) own_product_count,
-      COALESCE(SUM(CASE WHEN operation_mode = '自营' THEN gmv_cents ELSE 0 END), 0) self_operated_gmv_cents,
-      COUNT(DISTINCT CASE WHEN COALESCE(confirmation_status, '') IN ('missing','ai_pending','review_pending') OR market_price_source = 'AI待确认' THEN sku_code END) pending_ai_count
-      FROM filtered`)
-      .bind(...bindings).first<SummaryRow>(),
-    db.prepare(`${enriched} SELECT id, period_start, period_end, category, scope, ranking_dimension, operation_mode, subcategory, rank,
-      (SELECT p.rank FROM market_ranking_entries p
+  const bindings = [...values, ...priceBandValues];
+  const [analyticsResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
+    db.prepare(analyticsSql).bind(...bindings),
+    db.prepare(`${enriched}, top_ranked AS MATERIALIZED (
+      SELECT * FROM filtered
+      ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC
+      LIMIT 200
+    ) SELECT id, period_start, period_end, category, scope, ranking_dimension, operation_mode, subcategory, rank,
+      (SELECT p.rank FROM market_ranking_entries p INDEXED BY market_entries_sku_idx
         WHERE p.category=filtered.category AND p.sku_code=filtered.sku_code AND p.ranking_dimension=filtered.ranking_dimension
           AND p.scope=filtered.scope AND p.operation_mode=filtered.operation_mode
           AND p.period_end < filtered.period_end
@@ -232,65 +203,52 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       conversion_bps, cart_customers, search_clicks,
       CASE WHEN image_url <> '' AND image_cache_status_raw = 'ready' THEN '/api/market/images/' || image_content_sha256 ELSE image_url END image_url,
       image_url source_image_url, COALESCE(image_cache_status_raw, CASE WHEN image_url = '' THEN 'missing' ELSE 'pending' END) image_cache_status,
-      product_url, is_own, own_sales_cents
-      FROM filtered ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC LIMIT 200`)
-      .bind(...bindings).all<EntryRow>(),
-    db.prepare(`${enriched} SELECT substr(period_end, 1, 7) period, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
-      SUM(visitors) visitors, COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT brand) brand_count,
-      SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END) pop_gmv_cents,
-      SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
-      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
-      CASE WHEN SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)>0 THEN CAST(ROUND(SUM(COALESCE(official_market_price_cents,0)*gmv_cents)*1.0/SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)) AS INTEGER) ELSE NULL END weighted_market_price_cents
-      FROM filtered GROUP BY substr(period_end, 1, 7) ORDER BY period ASC LIMIT 60`).bind(...bindings).all<Record<string, string | number | null>>(),
-    db.prepare("SELECT category value, COUNT(*) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 100").all<{ value: string; count: number }>(),
-    db.prepare("SELECT scope value, COUNT(*) count FROM market_ranking_entries WHERE scope <> '' GROUP BY scope ORDER BY count DESC, value LIMIT 30").all<{ value: string; count: number }>(),
-    db.prepare("SELECT brand value, COUNT(*) count FROM market_ranking_entries WHERE brand <> '' GROUP BY brand ORDER BY count DESC, value LIMIT 100").all<{ value: string; count: number }>(),
-    db.prepare("SELECT ranking_dimension value, COUNT(*) count FROM market_ranking_entries GROUP BY ranking_dimension ORDER BY value").all<{ value: string; count: number }>(),
-    db.prepare("SELECT operation_mode value, COUNT(*) count FROM market_ranking_entries GROUP BY operation_mode ORDER BY value").all<{ value: string; count: number }>(),
-    db.prepare("SELECT subcategory value, COUNT(*) count FROM market_ranking_entries WHERE subcategory <> '' GROUP BY subcategory ORDER BY count DESC, value LIMIT 100").all<{ value: string; count: number }>(),
-    db.prepare(`${enriched} SELECT price_band value, COUNT(*) count FROM filtered GROUP BY price_band ORDER BY CASE price_band WHEN '未确认价格' THEN 9 WHEN '3000+' THEN 8 ELSE 1 END, price_band`).bind(...bindings).all<{ value: string; count: number }>(),
-    db.prepare(`${enriched} SELECT price_band, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
-      COUNT(DISTINCT sku_code) sku_count,
-      SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END) pop_gmv_cents,
-      SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
-      GROUP_CONCAT(DISTINCT brand) brands
-      FROM filtered GROUP BY price_band ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
-    db.prepare(`${enriched} SELECT substr(period_end,1,7) period, price_band,
-      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
-      SUM(SUM(gmv_cents)) OVER (PARTITION BY substr(period_end,1,7)) period_gmv_cents
-      FROM filtered GROUP BY substr(period_end,1,7), price_band ORDER BY period, gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
-    db.prepare(`${enriched} SELECT COALESCE(NULLIF(brand,''), '未识别品牌') brand,
-      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, COUNT(DISTINCT sku_code) sku_count,
-      MIN(rank) best_rank, GROUP_CONCAT(DISTINCT price_band) price_bands, GROUP_CONCAT(DISTINCT subcategory) subcategories
-      FROM filtered GROUP BY COALESCE(NULLIF(brand,''), '未识别品牌') ORDER BY gmv_cents DESC`).bind(...bindings).all<Record<string, string | number>>(),
-    db.prepare(`${enriched} SELECT subcategory, COUNT(DISTINCT sku_code) sku_count, SUM(gmv_cents) gmv_cents,
-      SUM(quantity) quantity, SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
-      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
-      COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN sku_code END) pending_count,
-      GROUP_CONCAT(DISTINCT brand) brands, GROUP_CONCAT(DISTINCT price_band) price_bands
-      FROM filtered GROUP BY subcategory ORDER BY gmv_cents DESC LIMIT 60`).bind(...bindings).all<Record<string, string | number | null>>(),
-    db.prepare(`${enriched} SELECT official_market_price_cents price, gmv_cents, quantity
-      FROM filtered WHERE official_market_price_cents IS NOT NULL ORDER BY official_market_price_cents ASC`).bind(...bindings).all<{ price: number; gmv_cents: number; quantity: number }>(),
-    db.prepare(`${enriched} SELECT MIN(period_start) date_min, MAX(period_end) date_max FROM filtered`)
-      .bind(...bindings).first<{ date_min: string | null; date_max: string | null }>(),
-    listMarketImportBatches(db, 8),
+      product_url, is_own,
+      COALESCE((SELECT SUM(s.allocated_amount_cents)
+        FROM sales_order_lines s
+        WHERE s.product_code = filtered.sku_code
+          AND (? = '' OR substr(COALESCE(NULLIF(s.sales_time, ''), s.ship_time), 1, 10) >= ?)
+          AND (? = '' OR substr(COALESCE(NULLIF(s.sales_time, ''), s.ship_time), 1, 10) <= ?)
+      ), 0) AS own_sales_cents
+      FROM top_ranked filtered
+      ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC`)
+      .bind(...bindings, ...dateValues),
+    db.prepare(marketOverviewFilterOptionsSql),
+    db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT 8`),
     db.prepare(`SELECT COUNT(DISTINCT m.image_url) total,
       COUNT(DISTINCT CASE WHEN mic.status='ready' THEN m.image_url END) cached,
       COUNT(DISTINCT CASE WHEN mic.status='failed' AND mic.attempt_count>=3 THEN m.image_url END) failed
       FROM market_ranking_entries m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
-      WHERE m.image_url<>''`).first<{ total: number; cached: number; failed: number }>(),
+      WHERE m.image_url<>''`),
   ]);
-  const summaryValue = summary ?? { product_count: 0, category_count: 0, brand_count: 0, gmv_cents: 0, quantity: 0, page_views: 0, visitors: 0, own_product_count: 0, self_operated_gmv_cents: 0, pending_ai_count: 0 };
-  const prices = (priceRows.results ?? []).map((row) => Number(row.price)).filter(Number.isFinite).sort((a, b) => a - b);
-  const medianPrice = prices.length ? prices[Math.floor((prices.length - 1) / 2)] : null;
-  const weightedRows = priceRows.results ?? [];
-  const weightedDenominator = weightedRows.reduce((sum, row) => sum + Number(row.gmv_cents ?? 0), 0);
-  const weightedMarketPrice = weightedDenominator > 0
-    ? Math.round(weightedRows.reduce((sum, row) => sum + Number(row.price ?? 0) * Number(row.gmv_cents ?? 0), 0) / weightedDenominator)
-    : null;
+  const analytics = batchRows<AnalyticsRow>(analyticsResult)[0];
+  const ranking = batchRows<EntryRow>(rankingResult);
+  const filterOptions = batchRows<FilterOptionsRow>(filterOptionsResult)[0];
+  const batches = batchRows<Parameters<typeof mapMarketBatch>[0]>(batchesResult)
+    .map((row) => mapMarketBatch(row) as MarketImportBatch);
+  const imageCache = batchRows<{ total: number; cached: number; failed: number }>(imageCacheResult)[0];
+  const summaryValue = parseSqlJson<SummaryRow | null>(analytics?.summary_json, null) ?? {
+    product_count: 0, category_count: 0, brand_count: 0, gmv_cents: 0, quantity: 0, page_views: 0,
+    visitors: 0, own_product_count: 0, self_operated_gmv_cents: 0, pending_ai_count: 0,
+    median_market_price_cents: null, weighted_market_price_cents: null,
+  };
+  const trendRows = parseSqlJson<Array<Record<string, string | number | null>>>(analytics?.trend_json, []);
+  const priceBandOptions = parseSqlJson<Array<{ value: string; count: number }>>(analytics?.price_bands_json, []);
+  const priceBandRows = parseSqlJson<Array<Record<string, string | number>>>(analytics?.price_band_summary_json, []);
+  const priceBandTrendRows = parseSqlJson<Array<Record<string, string | number>>>(analytics?.price_band_trend_json, []);
+  const brandRows = parseSqlJson<Array<Record<string, string | number>>>(analytics?.brand_rows_json, []);
+  const subcategoryRows = parseSqlJson<Array<Record<string, string | number | null>>>(analytics?.subcategory_rows_json, []);
+  const categoryOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.categories_json, []);
+  const scopeOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.scopes_json, []);
+  const brandOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.brands_json, []);
+  const dimensionOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.dimensions_json, []);
+  const modeOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.modes_json, []);
+  const subcategoryOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.subcategories_json, []);
+  const medianPrice = summaryValue.median_market_price_cents;
+  const weightedMarketPrice = summaryValue.weighted_market_price_cents;
   const averageTransactionPrice = Number(summaryValue.quantity ?? 0) > 0 ? Math.round(Number(summaryValue.gmv_cents ?? 0) / Number(summaryValue.quantity ?? 0)) : null;
   const brandTotal = Number(summaryValue.gmv_cents ?? 0);
-  const brandSharesAll = (brandRows.results ?? []).map((row) => ({
+  const brandSharesAll = brandRows.map((row) => ({
     brand: String(row.brand ?? ""),
     gmvCents: Number(row.gmv_cents ?? 0),
     quantity: Number(row.quantity ?? 0),
@@ -320,7 +278,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       weightedMarketPriceCents: weightedMarketPrice,
       averageTransactionPriceCents: averageTransactionPrice,
     },
-    items: (ranking.results ?? []).map((row) => ({
+    items: ranking.map((row) => ({
       id: row.id, periodStart: row.period_start, periodEnd: row.period_end, category: row.category,
       scope: row.scope, rankingDimension: row.ranking_dimension, operationMode: row.operation_mode, subcategory: row.subcategory,
       rank: row.rank, previousRank: row.previous_rank, rankChange: row.previous_rank !== null && row.rank !== null ? row.previous_rank - row.rank : null,
@@ -335,9 +293,9 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
       productUrl: row.product_url, isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
     })),
-    trend: trend.results ?? [],
-    priceBands: (priceBands.results ?? []).map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
-    priceBandSummary: (priceBandRows.results ?? []).map((row) => ({
+    trend: trendRows,
+    priceBands: priceBandOptions.map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
+    priceBandSummary: priceBandRows.map((row) => ({
       priceBand: String(row.price_band ?? "未确认价格"),
       gmvCents: Number(row.gmv_cents ?? 0),
       quantity: Number(row.quantity ?? 0),
@@ -348,7 +306,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       selfOperatedShareBps: Number(row.gmv_cents ?? 0) ? Math.round(Number(row.self_gmv_cents ?? 0) / Number(row.gmv_cents ?? 0) * 10_000) : null,
       mainBrands: String(row.brands ?? "").split(",").filter(Boolean).slice(0, 5),
     })),
-    priceBandTrend: (priceBandTrendRows.results ?? []).map((row) => ({
+    priceBandTrend: priceBandTrendRows.map((row) => ({
       period: String(row.period ?? ""),
       priceBand: String(row.price_band ?? unknownPriceBand),
       gmvCents: Number(row.gmv_cents ?? 0),
@@ -361,7 +319,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       cr5Bps: cr(5),
       concentration: cr(3) >= 6000 ? "高" : cr(3) >= 3500 ? "中" : "低",
     },
-    subcategorySummary: (subcategoryRows.results ?? []).map((row) => ({
+    subcategorySummary: subcategoryRows.map((row) => ({
       subcategory: String(row.subcategory || "未分类"),
       skuCount: Number(row.sku_count ?? 0),
       gmvCents: Number(row.gmv_cents ?? 0),
@@ -374,11 +332,11 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       mainPriceBands: String(row.price_bands ?? "").split(",").filter(Boolean).slice(0, 5),
     })),
     filters: {
-      categories: categories.results ?? [], scopes: scopes.results ?? [], brands: brands.results ?? [],
-      rankingDimensions: dimensions.results ?? [], operationModes: modes.results ?? [], subcategories: subcategories.results ?? [],
-      priceBands: priceBands.results ?? [],
+      categories: categoryOptions, scopes: scopeOptions, brands: brandOptions,
+      rankingDimensions: dimensionOptions, operationModes: modeOptions, subcategories: subcategoryOptions,
+      priceBands: priceBandOptions,
     },
-    dataRange: { startDate: cutoff?.date_min ?? null, endDate: cutoff?.date_max ?? null },
+    dataRange: { startDate: analytics?.date_min ?? null, endDate: analytics?.date_max ?? null },
     batches,
     imageCache: {
       total: Number(imageCache?.total ?? 0), cached: Number(imageCache?.cached ?? 0), failed: Number(imageCache?.failed ?? 0),

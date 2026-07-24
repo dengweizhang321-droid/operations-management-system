@@ -292,11 +292,11 @@ test("market annotation commit updates only the bound month and safely inherits 
       ('https://img10.360buyimg.com/imgzone/a.jpg','ready','hash-a'),
       ('https://img10.360buyimg.com/imgzone/b.jpg','ready','hash-b');
     INSERT INTO market_price_snapshots
-      (id, category, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+      (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
     VALUES
-      ('ps-jan','净水','SKU-1','SKU','2026-01','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing'),
-      ('ps-feb','净水','SKU-1','SKU','2026-02','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing'),
-      ('ps-mar','净水','SKU-1','SKU','2026-03','hash-b','https://img10.360buyimg.com/imgzone/b.jpg','missing');
+      ('ps-jan','净水','pop','SKU-1','SKU','2026-01','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing'),
+      ('ps-feb','净水','pop','SKU-1','SKU','2026-02','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing'),
+      ('ps-mar','净水','pop','SKU-1','SKU','2026-03','hash-b','https://img10.360buyimg.com/imgzone/b.jpg','missing');
   `);
   const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-1", executor: "cloud", modelId: "vision-1", limit: 10 }, { email: "operator@test", role: "operator" });
   const items = sqlite.prepare("SELECT id, month, image_content_sha256 hash FROM market_annotation_items WHERE job_id=? ORDER BY month").all(job.id) as Array<{ id: string; month: string; hash: string }>;
