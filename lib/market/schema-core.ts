@@ -71,6 +71,7 @@ export const marketBaseSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS market_price_snapshots (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT '',
     sku_code TEXT NOT NULL,
     ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
     month TEXT NOT NULL,
@@ -179,6 +180,15 @@ export const marketBaseSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS market_download_staging_rows (
+    id TEXT PRIMARY KEY NOT NULL,
+    task_id TEXT NOT NULL,
+    file_hash TEXT NOT NULL,
+    row_number INTEGER NOT NULL,
+    row_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'staged',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS market_master_audit_logs (
     id TEXT PRIMARY KEY NOT NULL,
     actor_email TEXT NOT NULL,
@@ -202,6 +212,7 @@ const rankingEntryColumns: Array<[string, string]> = [
 ];
 
 const priceSnapshotColumns: Array<[string, string]> = [
+  ["scope", "TEXT NOT NULL DEFAULT ''"],
   ["ranking_dimension", "TEXT NOT NULL DEFAULT 'SKU'"],
   ["source_price_cents", "INTEGER"],
   ["ai_image_price_cents", "INTEGER"],
@@ -244,7 +255,7 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_dimension_idx ON market_ranking_entries (ranking_dimension, operation_mode, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_uq ON market_ranking_entries (period_start, period_end, category, scope, ranking_dimension, sku_code)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, sku_code, ranking_dimension, month)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, scope, sku_code, ranking_dimension, month)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_hash_idx ON market_price_snapshots (sku_code, image_content_sha256, confirmed_at)`,
   `CREATE INDEX IF NOT EXISTS market_image_cache_object_key_idx ON market_image_cache (object_key)`,
@@ -257,7 +268,12 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_download_configs_status_idx ON market_download_configs (status, category, ranking_dimension)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, month, ranking_dimension)`,
   `CREATE INDEX IF NOT EXISTS market_download_tasks_status_idx ON market_download_tasks (status, next_retry_at, updated_at)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_download_staging_rows_file_row_uq ON market_download_staging_rows (task_id, file_hash, row_number)`,
   `CREATE INDEX IF NOT EXISTS market_master_audit_logs_entity_idx ON market_master_audit_logs (entity_type, entity_id, created_at)`,
+] as const;
+
+const marketPreUpgradeIndexStatements = [
+  `DROP INDEX IF EXISTS market_price_snapshots_sku_month_uq`,
 ] as const;
 
 const defaultPriceBandItems = [
@@ -296,10 +312,6 @@ async function normalizeExistingRankingRows(db: MarketSchemaDatabase) {
       ELSE 'SKU'
     END
   `).run();
-  await db.prepare(`
-    UPDATE market_ranking_entries
-    SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
-  `).run();
 }
 
 async function removeCanonicalDuplicates(db: MarketSchemaDatabase) {
@@ -320,14 +332,27 @@ async function removeCanonicalDuplicates(db: MarketSchemaDatabase) {
 
 async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
   await db.prepare(`
+    UPDATE market_price_snapshots
+    SET scope = COALESCE((
+      SELECT m.scope FROM market_ranking_entries m
+      WHERE m.category = market_price_snapshots.category
+        AND m.sku_code = market_price_snapshots.sku_code
+        AND m.ranking_dimension = market_price_snapshots.ranking_dimension
+        AND substr(m.period_end, 1, 7) = market_price_snapshots.month
+      ORDER BY m.id DESC LIMIT 1
+    ), '')
+    WHERE scope = ''
+  `).run();
+  await db.prepare(`
     INSERT INTO market_price_snapshots (
-      id, category, sku_code, ranking_dimension, month, source_price_cents,
+      id, category, scope, sku_code, ranking_dimension, month, source_price_cents,
       average_transaction_price_cents, price_low_cents, price_high_cents,
       image_content_sha256, image_url, confirmation_status, source_import_batch_id, updated_at
     )
     SELECT
-      'market-price-' || m.category || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
+      'market-price-' || m.category || '-' || m.scope || '-' || m.ranking_dimension || '-' || m.sku_code || '-' || substr(m.period_end, 1, 7),
       m.category,
+      m.scope,
       m.sku_code,
       m.ranking_dimension,
       substr(m.period_end, 1, 7),
@@ -345,6 +370,7 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
       AND NOT EXISTS (
         SELECT 1 FROM market_price_snapshots ps
         WHERE ps.category = m.category
+          AND ps.scope = m.scope
           AND ps.sku_code = m.sku_code
           AND ps.ranking_dimension = m.ranking_dimension
           AND ps.month = substr(m.period_end, 1, 7)
@@ -356,6 +382,7 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
       source_price_cents = (
         SELECT m.price_cents FROM market_ranking_entries m
         WHERE m.category = market_price_snapshots.category
+          AND m.scope = market_price_snapshots.scope
           AND m.sku_code = market_price_snapshots.sku_code
           AND m.ranking_dimension = market_price_snapshots.ranking_dimension
           AND substr(m.period_end, 1, 7) = market_price_snapshots.month
@@ -365,6 +392,7 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
         SELECT CASE WHEN m.quantity > 0 THEN CAST(ROUND(m.gmv_cents * 1.0 / m.quantity) AS INTEGER) ELSE NULL END
         FROM market_ranking_entries m
         WHERE m.category = market_price_snapshots.category
+          AND m.scope = market_price_snapshots.scope
           AND m.sku_code = market_price_snapshots.sku_code
           AND m.ranking_dimension = market_price_snapshots.ranking_dimension
           AND substr(m.period_end, 1, 7) = market_price_snapshots.month
@@ -374,6 +402,7 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
         SELECT mic.content_sha256 FROM market_ranking_entries m
         JOIN market_image_cache mic ON mic.source_url = m.image_url AND mic.status = 'ready'
         WHERE m.category = market_price_snapshots.category
+          AND m.scope = market_price_snapshots.scope
           AND m.sku_code = market_price_snapshots.sku_code
           AND m.ranking_dimension = market_price_snapshots.ranking_dimension
           AND substr(m.period_end, 1, 7) = market_price_snapshots.month
@@ -382,6 +411,7 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
       image_url = COALESCE(NULLIF(image_url, ''), (
         SELECT m.image_url FROM market_ranking_entries m
         WHERE m.category = market_price_snapshots.category
+          AND m.scope = market_price_snapshots.scope
           AND m.sku_code = market_price_snapshots.sku_code
           AND m.ranking_dimension = market_price_snapshots.ranking_dimension
           AND substr(m.period_end, 1, 7) = market_price_snapshots.month
@@ -396,6 +426,7 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
     WHERE EXISTS (
       SELECT 1 FROM market_ranking_entries m
       WHERE m.category = market_price_snapshots.category
+        AND m.scope = market_price_snapshots.scope
         AND m.sku_code = market_price_snapshots.sku_code
         AND m.ranking_dimension = market_price_snapshots.ranking_dimension
         AND substr(m.period_end, 1, 7) = market_price_snapshots.month
@@ -425,6 +456,11 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   await addMissingColumns(db, "market_download_tasks", downloadTaskColumns);
   await normalizeExistingRankingRows(db);
   await removeCanonicalDuplicates(db);
+  await db.prepare(`
+    UPDATE market_ranking_entries
+    SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+  `).run();
+  await db.batch(marketPreUpgradeIndexStatements.map((statement) => db.prepare(statement)));
   await backfillPriceSnapshots(db);
   await seedDefaultPriceBands(db);
   await db.batch(marketPostUpgradeIndexStatements.map((statement) => db.prepare(statement)));
@@ -432,7 +468,9 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
 
 export function officialPriceBandSql(priceSql = "official_market_price_cents") {
   return `CASE
-    WHEN ${priceSql} IS NULL THEN '${unknownPriceBand}'
+    WHEN ${priceSql} IS NULL
+      OR COALESCE(ps.confirmation_status, '') <> 'confirmed'
+      OR COALESCE(ps.ai_price_type, '') IN (char(23450,37329), char(20998,26399,37329,39069), char(26080,27861,21028,26029)) THEN '${unknownPriceBand}'
     ELSE COALESCE((
       SELECT pbi.label
       FROM market_price_band_versions pbv

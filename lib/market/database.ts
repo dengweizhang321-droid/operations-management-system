@@ -204,6 +204,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
     FROM market_ranking_entries m
     LEFT JOIN market_image_cache mic ON mic.source_url = m.image_url
     LEFT JOIN market_price_snapshots ps ON ps.category = m.category
+      AND ps.scope = m.scope
       AND ps.sku_code = m.sku_code
       AND ps.ranking_dimension = m.ranking_dimension
       AND ps.month = substr(m.period_end, 1, 7)
@@ -409,6 +410,7 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
       COALESCE(ps.confirmation_status, 'missing') confirmation_status
     FROM market_ranking_entries m
     LEFT JOIN market_price_snapshots ps ON ps.category = m.category
+      AND ps.scope = m.scope
       AND ps.sku_code = m.sku_code
       AND ps.ranking_dimension = m.ranking_dimension
       AND ps.month = substr(m.period_end, 1, 7)

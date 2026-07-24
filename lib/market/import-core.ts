@@ -178,11 +178,11 @@ export async function saveMarketImportCore(input: {
       )));
       await db.batch(chunk.map((row) => db.prepare(
         `INSERT INTO market_price_snapshots (
-          id, category, sku_code, ranking_dimension, month, source_price_cents,
+          id, category, scope, sku_code, ranking_dimension, month, source_price_cents,
           average_transaction_price_cents, price_low_cents, price_high_cents,
           image_content_sha256, image_url, confirmation_status, source_import_batch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT content_sha256 FROM market_image_cache WHERE source_url=? AND status='ready' LIMIT 1), ''), ?, ?, ?)
-        ON CONFLICT(category, sku_code, ranking_dimension, month) DO UPDATE SET
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT content_sha256 FROM market_image_cache WHERE source_url=? AND status='ready' LIMIT 1), ''), ?, ?, ?)
+        ON CONFLICT(category, scope, sku_code, ranking_dimension, month) DO UPDATE SET
           source_price_cents = excluded.source_price_cents,
           average_transaction_price_cents = excluded.average_transaction_price_cents,
           price_low_cents = excluded.price_low_cents,
@@ -197,8 +197,9 @@ export async function saveMarketImportCore(input: {
           source_import_batch_id = excluded.source_import_batch_id,
           updated_at = CURRENT_TIMESTAMP`,
       ).bind(
-        `market-price-${row.category}-${row.rankingDimension}-${row.skuCode}-${monthKey(row.periodEnd)}`,
+        `market-price-${row.category}-${row.scope}-${row.rankingDimension}-${row.skuCode}-${monthKey(row.periodEnd)}`,
         row.category,
+        row.scope,
         row.skuCode,
         row.rankingDimension,
         monthKey(row.periodEnd),

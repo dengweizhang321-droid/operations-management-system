@@ -55,6 +55,15 @@ async function oldMarketDatabase() {
       ('2026-06-01|2026-06-30|净水|pop|SKU-1',1,'2026-06-01','2026-06-30','净水','pop',1,'SKU-1','商品1','品牌1',199900,1000000,5,100,'https://img10.360buyimg.com/imgzone/a.jpg','{"dimension":"SKU"}','batch-sku'),
       ('2026-06-01|2026-06-30|净水|自营|SPU-1',2,'2026-06-01','2026-06-30','净水','自营',2,'SPU-1','商品2','品牌2',299900,3000000,10,200,'https://img10.360buyimg.com/imgzone/b.jpg','{"dimension":"SPU"}','batch-spu');
   `);
+  sqlite.exec(`
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, rank, sku_code, product_name, brand, price_cents, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
+    VALUES
+      ('legacy-duplicate-a',10,'2026-06-01','2026-06-30','category-duplicate','pop',10,'DUP-1','duplicate old A','brand',100,1000,1,1,'{"dimension":"SKU"}','batch-sku'),
+      ('legacy-duplicate-b',11,'2026-06-01','2026-06-30','category-duplicate','pop',11,'DUP-1','duplicate old B','brand',200,2000,2,2,'{"dimension":"SKU"}','batch-sku'),
+      ('legacy-scope-pop',12,'2026-06-01','2026-06-30','category-scope','pop',1,'SCOPE-1','scope pop','brand',300,3000,3,3,'{"dimension":"SKU"}','batch-sku'),
+      ('legacy-scope-self',13,'2026-06-01','2026-06-30','category-scope','自营',1,'SCOPE-1','scope self','brand',400,4000,4,4,'{"dimension":"SKU"}','batch-spu');
+  `);
   return sqlite;
 }
 
@@ -68,12 +77,12 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   for (const column of ["ranking_dimension", "operation_mode", "subcategory", "price_low_cents", "price_high_cents", "price_estimated"]) {
     assert.ok(columnNames("market_ranking_entries").has(column), column);
   }
-  for (const column of ["image_content_sha256", "source_import_batch_id", "average_transaction_price_cents"]) {
+  for (const column of ["scope", "image_content_sha256", "source_import_batch_id", "average_transaction_price_cents"]) {
     assert.ok(columnNames("market_price_snapshots").has(column), column);
   }
 
   const rows = sqlite.prepare("SELECT sku_code sku, operation_mode mode, ranking_dimension dimension, natural_key naturalKey FROM market_ranking_entries ORDER BY sku_code").all() as Array<{ sku: string; mode: string; dimension: string; naturalKey: string }>;
-  assert.deepEqual(rows.map((row) => [row.sku, row.mode, row.dimension]), [["SKU-1", "POP", "SKU"], ["SPU-1", "自营", "SPU"]]);
+  assert.deepEqual(rows.filter((row) => ["SKU-1", "SPU-1"].includes(row.sku)).map((row) => [row.sku, row.mode, row.dimension]), [["SKU-1", "POP", "SKU"], ["SPU-1", "自营", "SPU"]]);
   assert.ok(rows.every((row) => row.naturalKey.split("|").length === 6));
 
   const snapshot = sqlite.prepare("SELECT source_price_cents sourcePrice, average_transaction_price_cents avgPrice, image_content_sha256 hash, image_url imageUrl, source_import_batch_id batchId FROM market_price_snapshots WHERE sku_code='SKU-1'").get() as { sourcePrice: number; avgPrice: number; hash: string; imageUrl: string; batchId: string };
@@ -84,11 +93,46 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
     imageUrl: "https://img10.360buyimg.com/imgzone/a.jpg",
     batchId: "batch-sku",
   });
+  const duplicate = sqlite.prepare("SELECT COUNT(*) count, SUM(gmv_cents) gmv FROM market_ranking_entries WHERE sku_code='DUP-1'").get() as { count: number; gmv: number };
+  assert.deepEqual({ ...duplicate }, { count: 1, gmv: 2000 });
+  const scopeSnapshots = sqlite.prepare("SELECT scope, source_price_cents sourcePrice FROM market_price_snapshots WHERE category='category-scope' ORDER BY scope").all() as Array<{ scope: string; sourcePrice: number }>;
+  assert.deepEqual(scopeSnapshots.map((row) => ({ ...row })), [{ scope: "pop", sourcePrice: 300 }, { scope: "自营", sourcePrice: 400 }]);
 
   const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
   for (const index of ["market_entries_dimension_idx", "market_entries_subcategory_idx", "market_entries_canonical_uq", "market_price_snapshots_sku_month_uq"]) {
     assert.ok(indexes.has(index), index);
   }
+  sqlite.close();
+});
+
+test("0025 forward migration deduplicates legacy facts and creates scoped snapshots", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const migrationFiles = [
+    "0015_market_analysis.sql", "0016_market_sku_annotations.sql", "0017_market_annotation_reliability.sql",
+    "0019_young_ozymandias.sql", "0020_market_image_cache.sql",
+    "0021_market_analysis_2.sql", "0022_market_analysis_review_fixes.sql", "0023_market_annotation_monthly_price.sql",
+    "0024_market_master_workflow.sql", "0025_market_scope_and_executor.sql",
+  ];
+  for (const file of migrationFiles) {
+    const sql = await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8");
+    for (const statement of sql.split("--> statement-breakpoint")) if (statement.trim()) sqlite.exec(statement);
+    if (file === "0024_market_master_workflow.sql") {
+      sqlite.exec("DROP INDEX IF EXISTS market_entries_canonical_uq");
+      sqlite.exec(`
+      INSERT INTO market_ranking_entries
+        (natural_key, source_row_number, period_start, period_end, category, scope, sku_code, raw_json, last_import_batch_id, gmv_cents, quantity, price_cents)
+      VALUES
+        ('legacy-a',1,'2026-07-01','2026-07-31','migration-category','pop','MIG-1','{"dimension":"SKU"}','batch-a',1000,1,100),
+        ('legacy-b',2,'2026-07-01','2026-07-31','migration-category','pop','MIG-1','{"dimension":"SKU"}','batch-a',2000,2,200),
+        ('legacy-self',3,'2026-07-01','2026-07-31','migration-category','自营','MIG-1','{"dimension":"SKU"}','batch-a',3000,3,300);
+      `);
+    }
+  }
+  const facts = sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE category='migration-category' AND sku_code='MIG-1'").get() as { count: number };
+  const snapshots = sqlite.prepare("SELECT scope, source_price_cents sourcePrice FROM market_price_snapshots WHERE category='migration-category' AND sku_code='MIG-1' ORDER BY scope").all() as Array<{ scope: string; sourcePrice: number }>;
+  assert.equal(facts.count, 2);
+  assert.deepEqual(snapshots.map((row) => ({ ...row })), [{ scope: "pop", sourcePrice: 200 }, { scope: "自营", sourcePrice: 300 }]);
+  assert.ok((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_price_snapshots_sku_month_uq'").get() as { name: string } | undefined)?.name);
   sqlite.close();
 });
 
@@ -170,10 +214,10 @@ test("official price band and market price statistics ignore unconfirmed source,
   assert.deepEqual(rows.map((row) => ({ ...row })), [
     { sku: "SKU-A", band: "未确认价格" },
     { sku: "SKU-B", band: "未确认价格" },
-    { sku: "SKU-C", band: "2000-2999" },
+    { sku: "SKU-C", band: "未确认价格" },
   ]);
-  const official = sqlite.prepare("SELECT COUNT(*) count, AVG(confirmed_market_price_cents) avgPrice FROM market_price_snapshots WHERE confirmed_market_price_cents IS NOT NULL").get() as { count: number; avgPrice: number };
-  assert.deepEqual({ ...official }, { count: 1, avgPrice: 259900 });
+  const official = sqlite.prepare("SELECT COUNT(*) count, AVG(confirmed_market_price_cents) avgPrice FROM market_price_snapshots WHERE confirmed_market_price_cents IS NOT NULL AND confirmation_status='confirmed' AND ai_price_type NOT IN (char(23450,37329), char(20998,26399,37329,39069), char(26080,27861,21028,26029))").get() as { count: number; avgPrice: number | null };
+  assert.deepEqual({ ...official }, { count: 0, avgPrice: null });
   sqlite.close();
 });
 

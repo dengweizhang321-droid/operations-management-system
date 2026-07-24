@@ -176,6 +176,13 @@
       "when": 1784893200000,
       "tag": "0024_market_master_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1784896800000,
+      "tag": "0025_market_scope_and_executor",
+      "breakpoints": true
     }
   ]
 }
