@@ -78,11 +78,34 @@ export async function saveCustomerServiceImport(input: { shopName: string; sessi
   if (existing) return { status: "duplicate" as const, batch: mapBatch(existing) };
   const id = batchId(); const { summary } = input.parsed;
   await db.prepare(`INSERT INTO customer_service_import_batches (id,shop_name,session_file_name,chat_file_name,file_hash,status,conversation_count,matched_count,session_only_count,chat_only_count,ambiguous_count,warnings_json,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(id, input.shopName.slice(0, 100), input.sessionFileName.slice(0, 240), input.chatFileName.slice(0, 240), input.fileHash, "completed", input.parsed.conversations.length, summary.matchedCount + summary.timeOnlyMatchedCount, summary.sessionOnlyCount, summary.chatOnlyCount, summary.ambiguousCount, JSON.stringify(input.parsed.warnings.slice(0, 200))).run();
-  const statements = input.parsed.conversations.map((item) => upsertConversation(db, id, input.shopName, item));
+  const statements = input.parsed.conversations.flatMap((item) => {
+    const cleanup = cleanupSupersededChatOnly(db, input.shopName, item);
+    return cleanup ? [cleanup, upsertConversation(db, id, input.shopName, item)] : [upsertConversation(db, id, input.shopName, item)];
+  });
   for (let offset = 0; offset < statements.length; offset += 80) await db.batch(statements.slice(offset, offset + 80));
   const batch = await db.prepare(`SELECT * FROM customer_service_import_batches WHERE id = ?`).bind(id).first<Record<string, unknown>>();
   if (!batch) throw new Error("客服会话导入批次写入失败");
   return { status: "imported" as const, batch: mapBatch(batch) };
+}
+function cleanupSupersededChatOnly(db: CustomerServiceDatabase, shopName: string, item: CustomerServiceConversationInput) {
+  // A later session workbook can turn a previously chat-only row into a
+  // matched conversation.  Remove the earlier copy before the matched row is
+  // written so supplementary imports replace old content instead of doubling
+  // the conversation.
+  if (!item.chatStartedAt || !item.messages.length) {
+    return null;
+  }
+  return db.prepare(`DELETE FROM customer_service_conversations
+    WHERE shop_name = ? AND match_status = 'chat_only' AND chat_started_at = ?
+      AND chat_ended_at = ? AND chat_customer_alias = ? AND messages_json = ?
+      AND conversation_key <> ?`).bind(
+    shopName,
+    item.chatStartedAt,
+    item.chatEndedAt,
+    item.chatCustomerAlias,
+    JSON.stringify(item.messages),
+    `${shopName}:${item.conversationKey}`,
+  );
 }
 function upsertConversation(db: CustomerServiceDatabase, batchIdValue: string, shopName: string, item: CustomerServiceConversationInput) {
   return db.prepare(`INSERT INTO customer_service_conversations (conversation_key,first_import_batch_id,last_import_batch_id,shop_name,consulted_at,customer_id,customer_alias,consultation_type,agent,transferred_agent,skill_group,product_sku,product_name,first_response_at,response_seconds,duration_minutes,customer_message_count,agent_message_count,satisfaction,resolved,conversation_id,match_status,match_confidence,chat_started_at,chat_ended_at,chat_customer_alias,messages_json,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(conversation_key) DO UPDATE SET last_import_batch_id=excluded.last_import_batch_id, shop_name=excluded.shop_name, consultation_type=excluded.consultation_type, agent=excluded.agent, transferred_agent=excluded.transferred_agent, skill_group=excluded.skill_group, product_sku=excluded.product_sku, product_name=excluded.product_name, first_response_at=excluded.first_response_at, response_seconds=excluded.response_seconds, duration_minutes=excluded.duration_minutes, customer_message_count=excluded.customer_message_count, agent_message_count=excluded.agent_message_count, satisfaction=excluded.satisfaction, resolved=excluded.resolved, match_status=excluded.match_status, match_confidence=excluded.match_confidence, chat_started_at=excluded.chat_started_at, chat_ended_at=excluded.chat_ended_at, chat_customer_alias=excluded.chat_customer_alias, messages_json=excluded.messages_json, updated_at=CURRENT_TIMESTAMP`).bind(`${shopName}:${item.conversationKey}`, batchIdValue, batchIdValue, shopName, item.consultedAt, item.customerId, item.customerAlias, item.consultationType, item.agent, item.transferredAgent, item.skillGroup, item.productSku, item.productName, item.firstResponseAt, item.responseSeconds, item.durationMinutes, item.customerMessageCount, item.agentMessageCount, item.satisfaction, item.resolved, item.conversationId, item.matchStatus, item.matchConfidence, item.chatStartedAt, item.chatEndedAt, item.chatCustomerAlias, JSON.stringify(item.messages));

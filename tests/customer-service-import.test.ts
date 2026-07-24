@@ -36,3 +36,15 @@ test("同一咨询时间存在多个候选时不强行匹配", () => {
   assert.equal(result.summary.chatOnlyCount, 1);
   assert.equal(result.summary.sessionOnlyCount, 2);
 });
+
+test("仅聊天记录的去重键不受导出顺序影响", () => {
+  const sessions = workbookBytes([
+    ["咨询时间", "顾客", "cid"],
+    ["2026-02-01 09:00:00", "jd_unrelated", "cid-unrelated"],
+  ]);
+  const first = `/*****************以下为一通会话************************************/\na****01 2026-02-02 10:00:00\n咨询A\n/*****************以下为一通会话************************************/\nb****02 2026-02-02 11:00:00\n咨询B\n`;
+  const reversed = `/*****************以下为一通会话************************************/\nb****02 2026-02-02 11:00:00\n咨询B\n/*****************以下为一通会话************************************/\na****01 2026-02-02 10:00:00\n咨询A\n`;
+  const firstKeys = parseCustomerServiceImport(new Uint8Array(sessions), first).conversations.filter((item) => item.matchStatus === "chat_only").map((item) => item.conversationKey).sort();
+  const reversedKeys = parseCustomerServiceImport(new Uint8Array(sessions), reversed).conversations.filter((item) => item.matchStatus === "chat_only").map((item) => item.conversationKey).sort();
+  assert.deepEqual(firstKeys, reversedKeys);
+});

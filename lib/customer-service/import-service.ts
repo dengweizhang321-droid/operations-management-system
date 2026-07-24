@@ -82,6 +82,17 @@ function numberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+function stableTextHash(value: string) {
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x85ebca6b);
+  }
+  return `${(first >>> 0).toString(16).padStart(8, "0")}${(second >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 export function customerAlias(value: string) {
   const text = asText(value);
   if (!text) return "";
@@ -179,9 +190,24 @@ export function parseChatLog(text: string): ParsedChatSession[] {
 }
 
 function chatOnlyConversation(chat: ParsedChatSession): CustomerServiceConversationInput {
+  const first = chat.messages[0];
+  const last = chat.messages[chat.messages.length - 1];
+  // Do not use the export ordinal here.  A supplementary log can contain the
+  // same chat in a different order, and the row number would create a second
+  // database identity for identical content.
+  const contentIdentity = [
+    chat.startedAt,
+    chat.customerAlias,
+    chat.endedAt,
+    chat.messages.length,
+    first?.sender ?? "",
+    first?.content ?? "",
+    last?.sender ?? "",
+    last?.content ?? "",
+  ].join("\u001f");
   return {
     sourceRowNumber: 0, consultedAt: chat.startedAt, customerId: "", customerAlias: "", consultationType: "", agent: "", transferredAgent: "", skillGroup: "", productSku: "", productName: "", firstResponseAt: "", responseSeconds: null, durationMinutes: null, customerMessageCount: null, agentMessageCount: null, satisfaction: "", resolved: "", conversationId: "",
-    conversationKey: `chat:${chat.startedAt}:${chat.customerAlias}:${chat.sourceNumber}`,
+    conversationKey: `chat:${chat.startedAt}:${chat.customerAlias}:${stableTextHash(contentIdentity)}`,
     matchStatus: "chat_only", matchConfidence: "none", chatStartedAt: chat.startedAt, chatEndedAt: chat.endedAt, chatCustomerAlias: chat.customerAlias, messages: chat.messages,
   };
 }

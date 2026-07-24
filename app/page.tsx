@@ -4534,6 +4534,15 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
   const [shopName, setShopName] = useState("志高商用设备");
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const acceptDroppedFiles = (files: FileList) => {
+    if (!canImport) return;
+    const candidates = Array.from(files);
+    const nextSession = candidates.find((file) => /\.xlsx$/i.test(file.name));
+    const nextChat = candidates.find((file) => /\.(log|txt)$/i.test(file.name));
+    if (nextSession) setSessionFile(nextSession);
+    if (nextChat) setChatFile(nextChat);
+    setFeedback(nextSession && nextChat ? "已识别 Excel 会话记录和 LOG 聊天记录，请确认店铺后开始导入。" : "请同时拖入一份 .xlsx 会话记录和一份 .log/.txt 聊天记录。");
+  };
   const uploadFile = async (file: File, kind: "session" | "chat") => {
     const chunkSize = 1024 * 1024;
     const chunkCount = Math.ceil(file.size / chunkSize);
@@ -4564,7 +4573,7 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
     } catch (error) { setFeedback(error instanceof Error ? error.message : "客服会话导入失败"); }
     finally { setUploading(false); }
   };
-  return <section className="customer-service-import-in-data"><div className="customer-service-import-copy"><span className="eyebrow">双文件关联导入</span><h3>客服会话与聊天记录</h3><p>系统按咨询时间、顾客脱敏标识和会话顺序关联两份文件；存在并发歧义时会保留待核对，不会强行合并。</p></div><input className="file-input-hidden" ref={sessionFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.xlsx$/i.test(file.name)) setSessionFile(file); else if (file) setFeedback("会话记录请上传 .xlsx 文件。"); event.currentTarget.value = ""; }} /><input className="file-input-hidden" ref={chatFileRef} type="file" accept=".log,.txt,text/plain" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.(log|txt)$/i.test(file.name)) setChatFile(file); else if (file) setFeedback("聊天记录请上传 .log 或 .txt 文件。"); event.currentTarget.value = ""; }} /><div className="customer-service-import-files"><button type="button" className={`customer-file-field ${sessionFile ? "selected" : ""}`} onClick={() => sessionFileRef.current?.click()} disabled={!canImport}><span>①</span><strong>{sessionFile?.name || "选择会话记录 Excel"}</strong><small>{sessionFile ? formatFileSize(sessionFile.size) : "咨询时间、顾客、客服、商品等字段"}</small></button><button type="button" className={`customer-file-field ${chatFile ? "selected" : ""}`} onClick={() => chatFileRef.current?.click()} disabled={!canImport}><span>②</span><strong>{chatFile?.name || "选择聊天记录 LOG"}</strong><small>{chatFile ? formatFileSize(chatFile.size) : "以“以下为一通会话”为分隔符"}</small></button></div><div className="customer-service-import-actions"><small>单个文件最大 25MB；仅管理员可执行导入。</small><button type="button" className="primary-button" disabled={!sessionFile || !chatFile || uploading || !canImport} onClick={() => void submit()}>{uploading ? "导入匹配中…" : canImport ? "开始导入并匹配" : "仅管理员可导入"}</button></div>{feedback && <p className={`customer-service-feedback ${feedback.includes("失败") || feedback.includes("请上传") ? "error" : ""}`}>{feedback}</p>}</section>;
+  return <section className="customer-service-import-in-data" onDragOver={(event) => { if (canImport) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); acceptDroppedFiles(event.dataTransfer.files); }}><div className="customer-service-import-copy"><span className="eyebrow">双文件关联导入</span><h3>客服会话与聊天记录</h3><p>可同时拖入一份 Excel 和一份 LOG；系统按咨询时间、顾客脱敏标识和会话顺序关联，补充日志会替换同一聊天的旧记录。</p></div><label className="customer-service-import-shop"><span>所属店铺</span><SearchableSelect value={shopName} onChange={setShopName} ariaLabel="客服导入店铺" searchPlaceholder="搜索客服店铺" options={[{ value: "志高商用设备", label: "志高商用设备" }, { value: "志高厨电", label: "志高厨电" }]} /></label><input className="file-input-hidden" ref={sessionFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.xlsx$/i.test(file.name)) setSessionFile(file); else if (file) setFeedback("会话记录请上传 .xlsx 文件。"); event.currentTarget.value = ""; }} /><input className="file-input-hidden" ref={chatFileRef} type="file" accept=".log,.txt,text/plain" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.(log|txt)$/i.test(file.name)) setChatFile(file); else if (file) setFeedback("聊天记录请上传 .log 或 .txt 文件。"); event.currentTarget.value = ""; }} /><div className="customer-service-import-files"><button type="button" className={`customer-file-field ${sessionFile ? "selected" : ""}`} onClick={() => sessionFileRef.current?.click()} disabled={!canImport}><span>①</span><strong>{sessionFile?.name || "选择会话记录 Excel"}</strong><small>{sessionFile ? formatFileSize(sessionFile.size) : "咨询时间、顾客、客服、商品等字段"}</small></button><button type="button" className={`customer-file-field ${chatFile ? "selected" : ""}`} onClick={() => chatFileRef.current?.click()} disabled={!canImport}><span>②</span><strong>{chatFile?.name || "选择聊天记录 LOG"}</strong><small>{chatFile ? formatFileSize(chatFile.size) : "以“以下为一通会话”为分隔符"}</small></button></div><div className="customer-service-import-actions"><small>支持整组拖入；单个文件最大 25MB，仅管理员可导入。</small><button type="button" className="primary-button" disabled={!sessionFile || !chatFile || uploading || !canImport} onClick={() => void submit()}>{uploading ? "导入匹配中…" : canImport ? "开始导入并匹配" : "仅管理员可导入"}</button></div>{feedback && <p className={`customer-service-feedback ${feedback.includes("失败") || feedback.includes("请同时") || feedback.includes("请上传") ? "error" : ""}`}>{feedback}</p>}</section>;
 }
 
 function ImportView({ importSource, currentUser }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null }) {
@@ -4936,7 +4945,7 @@ const customerProblemTypes = ["商品咨询", "价格优惠", "物流发货", "�
 const customerRobotOptions = [{ value: "robot_only", label: "仅机器人" }, { value: "contains_robot", label: "包含机器人" }, { value: "exclude_robot", label: "排除机器人" }] as const;
 const customerConversionOptions = [{ value: "converted", label: "已转化" }, { value: "not_converted", label: "未转化" }] as const;
 
-function CustomerServiceView({ customStartDate, customEndDate, currentUser }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser | null }) {
+function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNavigate }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser | null; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) {
   const [startDate, setStartDate] = useState(customStartDate);
   const [endDate, setEndDate] = useState(customEndDate);
   const [agent, setAgent] = useState("");
@@ -4955,7 +4964,21 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser }: { 
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<CustomerServiceConversation | null>(null);
   const [busyId, setBusyId] = useState<number | "batch" | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState("");
+  const [analysisReady, setAnalysisReady] = useState<boolean | null>(null);
   const canAnnotate = currentUser?.role === "operator" || currentUser?.role === "admin";
+
+  useEffect(() => {
+    if (!canAnnotate) return;
+    const controller = new AbortController();
+    void fetch("/api/customer-service/analyze", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as { configured?: boolean } | null;
+        if (!controller.signal.aborted) setAnalysisReady(response.ok && payload?.configured === true);
+      })
+      .catch(() => { if (!controller.signal.aborted) setAnalysisReady(false); });
+    return () => controller.abort();
+  }, [canAnnotate]);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -5010,18 +5033,27 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser }: { 
     if (!ids.length || !canAnnotate) return;
     setBusyId(marker); setError("");
     try {
-      const response = await fetch("/api/customer-service/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: ids.slice(0, 8) }) });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "AI 客服分析失败");
+      for (let offset = 0; offset < ids.length; offset += 8) {
+        const batch = ids.slice(offset, offset + 8);
+        setAnalysisProgress(`${Math.min(offset + batch.length, ids.length)}/${ids.length}`);
+        const response = await fetch("/api/customer-service/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: batch }) });
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "AI 客服分析失败");
+      }
       await load();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "AI 客服分析失败"); }
-    finally { setBusyId(null); }
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "AI 客服分析失败";
+      if (message.includes("尚未配置可用的文本模型")) setAnalysisReady(false);
+      setError(message);
+    }
+    finally { setBusyId(null); setAnalysisProgress(""); }
   };
 
   return <section className="customer-service-page">
-    <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).slice(0, 8).map((item) => item.id), "batch")} disabled={busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? "AI分析中…" : "AI分析本页未标注"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
+    <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).map((item) => item.id), "batch")} disabled={analysisReady !== true || busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? `AI分析中${analysisProgress ? ` ${analysisProgress}` : "…"}` : analysisReady === false ? "请先配置文本模型" : "AI分析本页未标注"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
     <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>导入入口已移动至「数据导入 → 客服会话」；此处仅保留筛选、分析与会话详情。</span><label className="customer-service-shop-select"><span>店铺</span><SearchableSelect value={shopName} onChange={setShopName} ariaLabel="客服店铺筛选" searchPlaceholder="搜索店铺" options={[{ value: "", label: "全部店铺" }, ...(data?.shops ?? []).map((name) => ({ value: name, label: name }))]} /></label></section>
     {error && <section className="customer-service-feedback error" role="alert">{error}</section>}
+    {canAnnotate && analysisReady === false && <section className="customer-service-feedback error customer-service-analysis-setup" role="status"><span>客服会话已导入；AI 标注尚缺文本模型。配置并测试成功后即可分批分析本页全部未标注记录。</span><button type="button" className="row-action" onClick={() => onNavigate("ai")}>前往 AI 助理配置</button></section>}
     <section className="customer-service-filters panel"><div className="customer-period-tabs" role="group" aria-label="时间维度">{(["day", "week", "month", "custom"] as const).map((value) => <button type="button" key={value} className={period === value ? "active" : ""} onClick={() => selectPeriod(value)}>{({ day: "日", week: "周", month: "月", custom: "自定义" })[value]}</button>)}</div><label>咨询日期<input type="date" value={startDate} onChange={(event) => { setPeriod("custom"); setStartDate(event.target.value); }} /></label><span>至</span><label><span className="sr-only">结束日期</span><input type="date" value={endDate} min={startDate} onChange={(event) => { setPeriod("custom"); setEndDate(event.target.value); }} /></label><label><span>客服</span><SearchableSelect value={agent} onChange={setAgent} ariaLabel="客服筛选" searchPlaceholder="搜索客服" options={[{ value: "", label: "全部客服" }, ...(data?.agents ?? []).map((name) => ({ value: name, label: name }))]} /></label><label><span>匹配状态</span><SearchableSelect value={status} onChange={setStatus} ariaLabel="匹配状态筛选" searchPlaceholder="搜索匹配状态" options={[{ value: "", label: "全部状态" }, { value: "matched", label: "已匹配" }, { value: "session_only", label: "缺聊天记录" }, { value: "chat_only", label: "缺会话记录" }]} /></label><label><span>机器人</span><SearchableSelect value={robotScope} onChange={setRobotScope} ariaLabel="机器人内容筛选" searchPlaceholder="搜索机器人标注" options={[{ value: "", label: "全部" }, ...customerRobotOptions]} /></label><label><span>问题类型</span><SearchableSelect value={problemType} onChange={setProblemType} ariaLabel="问题类型筛选" searchPlaceholder="搜索问题类型" options={[{ value: "", label: "全部" }, ...customerProblemTypes.map((value) => ({ value, label: value }))]} /></label><label><span>订单转化</span><SearchableSelect value={conversionStatus} onChange={setConversionStatus} ariaLabel="订单转化筛选" searchPlaceholder="搜索转化状态" options={[{ value: "", label: "全部" }, ...customerConversionOptions]} /></label><label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品、服务问题或小结" /></label></section>
     <section className="panel table-panel customer-service-table-panel"><div className="section-header"><div><h2>会话列表</h2><p>SKU ID 优先匹配吉客云销售明细中的线上规格编码，展示吉客云货品编码与类目；SPU 取自京东商品主数据。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table customer-service-analysis-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKU / SPU</th><th>吉客云类目</th><th>消息数</th><th>机器人内容</th><th>问题类型</th><th>订单转化</th><th>AI服务问题 / 小结</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
       {loading && <tr><td colSpan={11}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}

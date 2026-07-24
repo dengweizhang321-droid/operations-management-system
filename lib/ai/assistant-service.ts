@@ -602,7 +602,7 @@ export async function generateConfiguredAnalysisReply(input: {
 }, db: SalesDatabase = getSalesDatabase()): Promise<string> {
   const startedAt = Date.now();
   const model = await resolveChatModel(db);
-  if (!model) throw new Error("尚未配置可用的文本模型");
+  if (!model) throw new Error("尚未配置可用的文本模型。请由管理员先在“AI 助理”中新增、启用并测试文本模型；客服数据导入不受影响。");
   const auditBase = {
     requestId: input.requestId,
     actorEmail: input.principal.email,

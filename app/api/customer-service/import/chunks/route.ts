@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         const [session, chat] = await Promise.all([assembleInventoryUpload(sessionUploadId), assembleInventoryUpload(chatUploadId)]);
         const parsed = parseCustomerServiceImport(session.bytes, new TextDecoder("utf-8", { fatal: true }).decode(chat.bytes));
         const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
-        const fileHash = await digest(new TextEncoder().encode(`${await digest(session.bytes)}:${await digest(chat.bytes)}`));
+        const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(session.bytes)}:${await digest(chat.bytes)}`));
         const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName, chatFileName, fileHash, parsed });
         const result = { ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "Source files were already imported" : `Imported ${parsed.conversations.length} customer-service conversations` };
         await Promise.all([finishInventoryUpload(sessionUploadId, session.objectKeys, result), finishInventoryUpload(chatUploadId, chat.objectKeys, result)]);

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const sessionBytes = new Uint8Array(await sessionFile.arrayBuffer()); const chatBytes = new Uint8Array(await chatFile.arrayBuffer());
     const parsed = parseCustomerServiceImport(sessionBytes, new TextDecoder("utf-8", { fatal: true }).decode(chatBytes));
     const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
-    const fileHash = await digest(new TextEncoder().encode(`${await digest(sessionBytes)}:${await digest(chatBytes)}`));
+    const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(sessionBytes)}:${await digest(chatBytes)}`));
     const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName: sessionFile.name, chatFileName: chatFile.name, fileHash, parsed });
     return Response.json({ ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "两份源文件已导入过，未重复写入。" : `已导入 ${parsed.conversations.length} 条客服会话，其中 ${parsed.summary.matchedCount + parsed.summary.timeOnlyMatchedCount} 条已关联聊天记录。` }, { status: saved.status === "imported" ? 201 : 200 });
   } catch (error) {
