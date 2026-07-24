@@ -13,6 +13,12 @@ For questions about current TERUISI operating data, use the `teruisi_operations`
 
 After completing each system optimization, create a focused Git commit and push it to the configured remote repository.
 
+For every subsequent source or project-configuration modification, create a focused Git commit and push it to the configured remote before handoff.
+
+# Local service lifecycle
+
+Do not stop, restart, or otherwise interrupt a local development or Workers service unless the user explicitly approves that restart in the current conversation.
+
 # Central AI tool registry
 
 - All system queries or capabilities intended for AI use must be declared exactly once in `lib/ai/tool-registry.ts`. Each registry entry must include a stable name, title, precise description, object JSON schema with `additionalProperties: false`, allowed roles, an explicit read-only/write/dangerous risk marker, annotations, a bounded handler, and audit coverage.
@@ -20,3 +26,10 @@ After completing each system optimization, create a focused Git commit and push 
 - Never expose arbitrary SQL, database tables, application routes, or API handlers automatically. Only explicitly allowlisted, parameterized handlers may enter the registry; enforce field allowlists, server-side limits, and data-scope/role checks.
 - Model-supplied identity or role claims are untrusted. Tool visibility and execution authorization must use the authenticated application principal, and every execution must audit the real actor, surface, request ID, summarized arguments, status, row count, duration, response digest, and error code without exposing secrets.
 - Tests for every registry change must prove unique and complete entries, matching OpenAI/Anthropic schemas and handlers, role filtering, bounded results/calls, and synchronized registry/catalog/execution behavior. A new handler that is absent from the registry, or a registry schema without a callable handler, is a failing change.
+
+# Codex cross-project memory
+
+Before starting a task, read the relevant material in the shared Obsidian memory vault:
+`D:\Codex Obsidian Memory Vault\Home.md`.
+
+At task completion, record only durable, non-sensitive information (long-term plans, stable preferences, reusable workflows, important decisions and their rationale, or project state) in the appropriate vault note. Put uncertain items in `00 Inbox/Memory Inbox.md`. Current user instructions override stored memory.
