@@ -517,21 +517,35 @@ export function ensureMarketSchemaCached(db: MarketSchemaDatabase): Promise<void
   return setup;
 }
 
-export function officialPriceBandSql(priceSql = "official_market_price_cents") {
+type OfficialPriceBandSqlContext = {
+  confirmationStatusSql?: string;
+  aiPriceTypeSql?: string;
+  categorySql?: string;
+  periodEndSql?: string;
+};
+
+export function officialPriceBandSql(
+  priceSql = "official_market_price_cents",
+  context: OfficialPriceBandSqlContext = {},
+) {
+  const confirmationStatusSql = context.confirmationStatusSql ?? "ps.confirmation_status";
+  const aiPriceTypeSql = context.aiPriceTypeSql ?? "ps.ai_price_type";
+  const categorySql = context.categorySql ?? "m.category";
+  const periodEndSql = context.periodEndSql ?? "m.period_end";
   return `CASE
     WHEN ${priceSql} IS NULL
-      OR COALESCE(ps.confirmation_status, '') <> 'confirmed'
-      OR COALESCE(ps.ai_price_type, '') IN (char(23450,37329), char(20998,26399,37329,39069), char(26080,27861,21028,26029)) THEN '${unknownPriceBand}'
+      OR COALESCE(${confirmationStatusSql}, '') <> 'confirmed'
+      OR COALESCE(${aiPriceTypeSql}, '') IN (char(23450,37329), char(20998,26399,37329,39069), char(26080,27861,21028,26029)) THEN '${unknownPriceBand}'
     ELSE COALESCE((
       SELECT pbi.label
       FROM market_price_band_versions pbv
       JOIN market_price_band_items pbi ON pbi.version_id = pbv.id
       WHERE pbv.status = 'published'
-        AND pbv.category IN ('*', m.category)
-        AND pbv.effective_from <= m.period_end
+        AND pbv.category IN ('*', ${categorySql})
+        AND pbv.effective_from <= ${periodEndSql}
         AND ${priceSql} >= COALESCE(pbi.min_cents, -9223372036854775808)
         AND (${priceSql} < pbi.max_cents OR pbi.max_cents IS NULL)
-      ORDER BY CASE WHEN pbv.category = m.category THEN 0 ELSE 1 END, pbv.effective_from DESC, pbv.version DESC, pbi.sort_order
+      ORDER BY CASE WHEN pbv.category = '*' THEN 1 ELSE 0 END, pbv.effective_from DESC, pbv.version DESC, pbi.sort_order
       LIMIT 1
     ), '${unknownPriceBand}')
   END`;

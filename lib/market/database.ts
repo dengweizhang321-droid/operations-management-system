@@ -179,7 +179,12 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
         WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
         ELSE '暂无价格'
       END AS candidate_price_source,
-      ${officialPriceBandSql("ps.confirmed_market_price_cents")} AS price_band,
+      ${officialPriceBandSql("ps.confirmed_market_price_cents", {
+        confirmationStatusSql: "ps.confirmation_status",
+        aiPriceTypeSql: "ps.ai_price_type",
+        categorySql: "m.category",
+        periodEndSql: "m.period_end",
+      })} AS price_band,
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id = m.sku_code OR n.product_code = m.sku_code OR n.spu_id = m.sku_code

@@ -388,7 +388,12 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
   list("m.operation_mode", filters.operationModes);
   list("m.brand", filters.brands);
   list("m.subcategory", filters.subcategories);
-  list(officialPriceBandSql("ps.confirmed_market_price_cents"), filters.priceBands);
+  list(officialPriceBandSql("ps.confirmed_market_price_cents", {
+    confirmationStatusSql: "ps.confirmation_status",
+    aiPriceTypeSql: "ps.ai_price_type",
+    categorySql: "m.category",
+    periodEndSql: "m.period_end",
+  }), filters.priceBands);
   if (filters.startDate) { clauses.push("m.period_end>=?"); values.push(filters.startDate); }
   if (filters.endDate) { clauses.push("m.period_start<=?"); values.push(filters.endDate); }
   const rows = await db.prepare(`
@@ -499,7 +504,12 @@ function masterBaseSql() {
         WHEN ps.ai_image_price_cents IS NOT NULL THEN 'ai_suggestion'
         ELSE 'missing' END candidate_price_source,
       ps.average_transaction_price_cents, ps.price_low_cents, ps.price_high_cents, COALESCE(ps.confirmation_status,'missing') confirmation_status,
-      ${officialPriceBandSql("ps.confirmed_market_price_cents")} price_band
+      ${officialPriceBandSql("ps.confirmed_market_price_cents", {
+        confirmationStatusSql: "ps.confirmation_status",
+        aiPriceTypeSql: "ps.ai_price_type",
+        categorySql: "m.category",
+        periodEndSql: "m.period_end",
+      })} price_band
     FROM market_ranking_entries m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;
@@ -521,7 +531,12 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
   list("m.operation_mode", input.filters?.operationModes);
   list("m.brand", input.filters?.brands);
   list("m.subcategory", input.filters?.subcategories);
-  list(officialPriceBandSql("ps.confirmed_market_price_cents"), input.filters?.priceBands);
+  list(officialPriceBandSql("ps.confirmed_market_price_cents", {
+    confirmationStatusSql: "ps.confirmation_status",
+    aiPriceTypeSql: "ps.ai_price_type",
+    categorySql: "m.category",
+    periodEndSql: "m.period_end",
+  }), input.filters?.priceBands);
   if (input.filters?.startDate) { clauses.push("m.period_end>=?"); values.push(input.filters.startDate); }
   if (input.filters?.endDate) { clauses.push("m.period_start<=?"); values.push(input.filters.endDate); }
   const rows = await db.prepare(`

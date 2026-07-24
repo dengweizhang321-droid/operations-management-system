@@ -259,6 +259,40 @@ test("official price band and market price statistics ignore unconfirmed source,
   sqlite.close();
 });
 
+test("official price band SQL is alias-safe and D1-compatible inside the overview CTE", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
+    VALUES
+      ('overview-alias',1,'2026-06-01','2026-06-30','净水','pop','SKU','POP','SKU-ALIAS','别名测试商品','测试品牌',1000000,5,10,'{}','batch');
+    INSERT INTO market_price_snapshots
+      (id, category, scope, sku_code, ranking_dimension, month, ai_price_type, confirmed_market_price_cents, confirmation_status)
+    VALUES
+      ('ps-overview-alias','净水','pop','SKU-ALIAS','SKU','2026-06','标准售价',159900,'confirmed');
+  `);
+  const priceBandSql = officialPriceBandSql("snapshot.confirmed_market_price_cents", {
+    confirmationStatusSql: "snapshot.confirmation_status",
+    aiPriceTypeSql: "snapshot.ai_price_type",
+    categorySql: "entry.category",
+    periodEndSql: "entry.period_end",
+  });
+  assert.doesNotMatch(priceBandSql, /ORDER BY[^\n]*entry\.category/);
+  const row = sqlite.prepare(`WITH enriched AS (
+    SELECT entry.sku_code, ${priceBandSql} AS price_band
+    FROM market_ranking_entries entry
+    LEFT JOIN market_price_snapshots snapshot
+      ON snapshot.category=entry.category AND snapshot.scope=entry.scope
+      AND snapshot.sku_code=entry.sku_code AND snapshot.ranking_dimension=entry.ranking_dimension
+      AND snapshot.month=substr(entry.period_end,1,7)
+  ), filtered AS (SELECT * FROM enriched)
+  SELECT sku_code sku, price_band band FROM filtered`).get() as { sku: string; band: string };
+  assert.deepEqual({ ...row }, { sku: "SKU-ALIAS", band: "1000-1999" });
+  sqlite.close();
+});
+
 test("brand share denominator uses all brands and display limiting happens after CR calculations", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
