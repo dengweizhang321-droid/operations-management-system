@@ -1,10 +1,11 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
+import { runPromptTextCompletion } from "@/lib/market/annotation-model";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 
 export type MarketPrincipal = Pick<AppPrincipal, "email" | "role">;
 export type MarketDimension = "SKU" | "SPU";
-export type MappingKind = "subcategory" | "brand_alias" | "operation_mode";
+export type MappingKind = "subcategory" | "brand_alias" | "brand_override" | "operation_mode";
 type MarketOverviewFilters = {
   query?: string;
   categories?: string[];
@@ -20,7 +21,7 @@ const selfOperated = "\u81ea\u8425";
 const unknownMode = "\u672a\u77e5";
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
 const validDimensions = new Set(["SKU", "SPU"]);
-const validMappingKinds = new Set(["subcategory", "brand_alias", "operation_mode"]);
+const validMappingKinds = new Set(["subcategory", "brand_alias", "brand_override", "operation_mode"]);
 const validMappingStatuses = new Set(["draft", "published", "archived"]);
 const validOfficialPriceTypes = new Set(["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"]);
 
@@ -167,6 +168,12 @@ export async function applyPublishedMarketMappings(db: MarketDatabase, input: { 
       result = await db.prepare(`UPDATE market_ranking_entries SET brand=?, updated_at=CURRENT_TIMESTAMP
         WHERE source_brand=? AND period_end>=?${categoryClause}`)
         .bind(rule.target_value, rule.source_value, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
+    } else if (rule.kind === "brand_override") {
+      const identity = parseBrandOverrideIdentity(rule.source_value);
+      if (!identity) { applied.push({ id: rule.id, kind: rule.kind, changes: 0 }); continue; }
+      result = await db.prepare(`UPDATE market_ranking_entries SET brand=?, updated_at=CURRENT_TIMESTAMP
+        WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=? AND period_end>=?`)
+        .bind(rule.target_value, identity.category, identity.scope, identity.rankingDimension, identity.skuCode, rule.effective_from).run() as { meta?: { changes?: number } };
     } else if (rule.kind === "operation_mode") {
       result = await db.prepare(`UPDATE market_ranking_entries SET operation_mode=?, updated_at=CURRENT_TIMESTAMP
         WHERE (source_operation_mode=? OR scope=?) AND period_end>=?${categoryClause}`)
@@ -183,6 +190,59 @@ export async function applyPublishedMarketMappings(db: MarketDatabase, input: { 
   }
   await audit(db, actor, "apply_published_mappings", "market_ranking_entries", category || "*", null, { category, changed, applied });
   return { category, changed, applied };
+}
+
+export async function suggestMarketBrand(db: MarketDatabase, input: { modelId: string; productName: string }) {
+  await ensureMarketAdminSchema(db);
+  const modelId = requiredText(input.modelId, 120);
+  const productName = requiredText(input.productName, 500);
+  const raw = await runPromptTextCompletion(db, modelId, [
+    "你是电商商品品牌识别助手。只根据商品标题识别品牌，不要猜测制造商、店铺名或品类名。",
+    "无法可靠识别时 brand 必须为空字符串。只返回严格 JSON：{\"brand\":\"\"}。",
+    `商品标题：${JSON.stringify(productName)}`,
+  ].join("\n"));
+  const unfenced = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  let parsed: unknown;
+  try { parsed = JSON.parse(unfenced); } catch { throw new Error("AI 品牌识别没有返回有效 JSON"); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("AI 品牌识别结果格式无效");
+  const brand = typeof (parsed as Record<string, unknown>).brand === "string"
+    ? (parsed as Record<string, unknown>).brand as string
+    : "";
+  return { brand: brand.trim().slice(0, 120), modelId };
+}
+
+export async function confirmMarketBrand(db: MarketDatabase, input: {
+  category: string; scope: string; rankingDimension: string; skuCode: string; brand: string;
+}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const identity = {
+    category: requiredText(input.category, 120),
+    scope: requiredText(input.scope, 120),
+    rankingDimension: dimension(input.rankingDimension),
+    skuCode: requiredText(input.skuCode, 80),
+  };
+  const brand = requiredText(input.brand, 120);
+  const sourceValue = JSON.stringify(identity);
+  const before = await db.prepare(`SELECT COUNT(*) count, MIN(brand) sample_brand FROM market_ranking_entries
+    WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+    .bind(identity.category, identity.scope, identity.rankingDimension, identity.skuCode).first<Record<string, unknown>>();
+  if (!Number(before?.count ?? 0)) throw new Error("未找到需要确认品牌的商品");
+  const existing = await db.prepare(`SELECT id FROM market_master_mapping_rules
+    WHERE kind='brand_override' AND category=? AND source_value=? LIMIT 1`)
+    .bind(identity.category, sourceValue).first<{ id: string }>();
+  const rule = await upsertMarketMapping(db, {
+    id: existing?.id,
+    kind: "brand_override",
+    category: identity.category,
+    sourceValue,
+    targetValue: brand,
+    status: "published",
+  }, actor);
+  await db.prepare(`UPDATE market_ranking_entries SET brand=?, updated_at=CURRENT_TIMESTAMP
+    WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+    .bind(brand, identity.category, identity.scope, identity.rankingDimension, identity.skuCode).run();
+  await audit(db, actor, "confirm_market_brand", "market_product_brand", sourceValue, before, { ...identity, brand, mappingId: rule.id });
+  return { ok: true, ...identity, brand, mappingId: rule.id };
 }
 
 export async function listMarketPriceBandVersions(db: MarketDatabase, category = "") {
@@ -396,17 +456,24 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
   }), filters.priceBands);
   if (filters.startDate) { clauses.push("m.period_end>=?"); values.push(filters.startDate); }
   if (filters.endDate) { clauses.push("m.period_start<=?"); values.push(filters.endDate); }
-  const rows = await db.prepare(`
-    SELECT m.sku_code, m.product_name, m.brand, m.category, m.ranking_dimension,
-      SUM(m.gmv_cents) gmv_cents, SUM(m.quantity) quantity, SUM(m.visitors) visitors,
-      CASE WHEN SUM(m.visitors)>0 THEN CAST(ROUND(SUM(m.quantity)*10000.0/SUM(m.visitors)) AS INTEGER) ELSE NULL END conversion_bps,
-      MIN(m.rank) best_rank,
-      MAX(ps.confirmed_market_price_cents) market_price_cents,
-      CASE WHEN SUM(m.quantity)>0 THEN CAST(ROUND(SUM(m.gmv_cents)*1.0/SUM(m.quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents
+  const rows = await db.prepare(`WITH comparison_rows AS MATERIALIZED (
+    SELECT m.sku_code, m.product_name, m.brand, m.category, m.ranking_dimension, m.period_end, m.id,
+      m.gmv_cents, m.quantity, m.visitors, m.rank, ps.confirmed_market_price_cents,
+      ROW_NUMBER() OVER (PARTITION BY m.sku_code ORDER BY m.period_end DESC, m.id DESC) representative_rank
     FROM market_ranking_entries m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
-    GROUP BY m.sku_code, m.product_name, m.brand, m.category, m.ranking_dimension
+  ) SELECT sku_code,
+      MAX(CASE WHEN representative_rank=1 THEN product_name ELSE '' END) product_name,
+      MAX(CASE WHEN representative_rank=1 THEN brand ELSE '' END) brand,
+      MAX(CASE WHEN representative_rank=1 THEN category ELSE '' END) category,
+      MAX(CASE WHEN representative_rank=1 THEN ranking_dimension ELSE '' END) ranking_dimension,
+      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, SUM(visitors) visitors,
+      CASE WHEN SUM(visitors)>0 THEN CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER) ELSE NULL END conversion_bps,
+      MIN(rank) best_rank, MAX(confirmed_market_price_cents) market_price_cents,
+      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents
+    FROM comparison_rows
+    GROUP BY sku_code
     ORDER BY gmv_cents DESC`).bind(...values).all<Record<string, string | number | null>>();
   const trends = await Promise.all(skuCodes.map((skuCode) => getMarketItemTrendLite(db, {
     skuCode,
@@ -494,7 +561,7 @@ export async function getMarketPendingReviewSummaryForAi(db: MarketDatabase, arg
 function masterBaseSql() {
   return `SELECT m.id, m.period_start, m.period_end, substr(m.period_end,1,7) month, m.category, m.scope, m.ranking_dimension, m.operation_mode,
       m.subcategory, m.rank, m.sku_code, m.product_name, m.brand, m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
-      m.image_url, COALESCE(c.status, CASE WHEN m.image_url='' THEN 'missing' ELSE 'pending' END) image_cache_status,
+      m.image_url, m.product_url, COALESCE(c.status, CASE WHEN m.image_url='' THEN 'missing' ELSE 'pending' END) image_cache_status,
       COALESCE(c.content_sha256, ps.image_content_sha256, '') image_content_sha256,
       ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps, ps.ai_reason,
       ps.confirmed_market_price_cents official_market_price_cents,
@@ -608,6 +675,10 @@ function mapMasterRow(row: Record<string, string | number | null>) {
     visitors: Number(row.visitors ?? 0),
     conversionBps: row.conversion_bps === null ? null : Number(row.conversion_bps),
     imageUrl: String(row.image_url ?? ""),
+    displayImageUrl: row.image_cache_status === "ready" && row.image_content_sha256
+      ? `/api/market/images/${String(row.image_content_sha256)}`
+      : String(row.image_url ?? ""),
+    productUrl: String(row.product_url ?? ""),
     imageCacheStatus: String(row.image_cache_status ?? "missing"),
     imageContentSha256: String(row.image_content_sha256 ?? ""),
     officialMarketPriceCents: row.official_market_price_cents === null ? null : Number(row.official_market_price_cents),
@@ -648,6 +719,19 @@ function normalizeMappingTarget(kind: string, value: string) {
   const normalized = requiredText(value, 200);
   if (kind === "operation_mode") return normalizeOperationMode(normalized);
   return normalized;
+}
+
+function parseBrandOverrideIdentity(value: string): { category: string; scope: string; rankingDimension: MarketDimension; skuCode: string } | null {
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const category = typeof parsed.category === "string" ? parsed.category : "";
+    const scope = typeof parsed.scope === "string" ? parsed.scope : "";
+    const rankingDimension = typeof parsed.rankingDimension === "string" && validDimensions.has(parsed.rankingDimension)
+      ? parsed.rankingDimension as MarketDimension
+      : null;
+    const skuCode = typeof parsed.skuCode === "string" ? parsed.skuCode : "";
+    return category && scope && rankingDimension && skuCode ? { category, scope, rankingDimension, skuCode } : null;
+  } catch { return null; }
 }
 
 function normalizeOperationMode(value: string) {

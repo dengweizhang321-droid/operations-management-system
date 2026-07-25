@@ -102,6 +102,23 @@ test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI �
   assert.match(view, /市场分析 → 系统和 AI 设置/);
 });
 
+test("市场榜单与系统设置呈现商品链接、上榜期数、主图价格复核和系统 AI 算力", async () => {
+  const [view, database] = await Promise.all([
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(view, /market-product-title-link/);
+  assert.match(view, /上榜 \{count\(item\.periodCount\)\} 期/);
+  assert.match(database, /COUNT\(DISTINCT p\.period_start \|\| '\|' \|\| p\.period_end\)/);
+  for (const label of ["SKU 数据库", "AI 标注", "品牌确认", "映射配置", "数据配置"]) assert.match(view, new RegExp(label));
+  assert.match(view, /运营管理系统 AI 算力/);
+  assert.match(view, /fetch\("\/api\/ai\/models"/);
+  assert.match(view, /market-price-review-table/);
+  assert.match(view, /market-review-image/);
+  assert.match(view, /action: "infer_brand"/);
+  assert.match(view, /action: "confirm_brand"/);
+});
+
 test("市场数据使用默认周期并阻止同周期重复 SKU", () => {
   const result = parseMarketRows({
     bytes: csvBytes([

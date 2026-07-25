@@ -2,6 +2,7 @@ import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/auth
 import { getMarketDatabase } from "@/lib/market/database";
 import {
   confirmMarketPrice,
+  confirmMarketBrand,
   applyPublishedMarketMappings,
   createMarketPriceBandVersion,
   getMarketMasterWorkspace,
@@ -11,6 +12,7 @@ import {
   planMissingMarketDownloads,
   publishMarketPriceBandVersion,
   recordMarketDownloadAttempt,
+  suggestMarketBrand,
   rollbackMarketPriceBandVersion,
   upsertMarketDownloadConfig,
   upsertMarketMapping,
@@ -104,6 +106,21 @@ export async function POST(request: Request) {
           priceLowCents: parsed.priceLowCents,
           priceHighCents: parsed.priceHighCents,
           note: text(parsed, "note"),
+        }, principal);
+        break;
+      case "infer_brand":
+        result = await suggestMarketBrand(db, {
+          modelId: text(parsed, "modelId"),
+          productName: text(parsed, "productName"),
+        });
+        break;
+      case "confirm_brand":
+        result = await confirmMarketBrand(db, {
+          category: text(parsed, "category"),
+          scope: text(parsed, "scope"),
+          rankingDimension: text(parsed, "rankingDimension"),
+          skuCode: text(parsed, "skuCode"),
+          brand: text(parsed, "brand"),
         }, principal);
         break;
       case "apply_mappings":

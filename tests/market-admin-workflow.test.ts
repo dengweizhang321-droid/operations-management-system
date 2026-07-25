@@ -7,6 +7,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import { executeToolCallWithRegistry, getOpenAiTools, type AiToolEntry } from "../lib/ai/tool-registry-contract";
 import {
   applyPublishedMarketMappings,
+  confirmMarketBrand,
   confirmMarketPrice,
   createMarketPriceBandVersion,
   getMarketSkuComparison,
@@ -258,7 +259,7 @@ test("market SKU comparison returns real metrics and monthly trends for 2 to 5 S
     (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
     VALUES (?, ?, ?, ?, '净水', 'pop', 'SKU', 'POP', ?, ?, ?, ?, ?, ?, ?, '{}', 'batch')`);
   insert.run("a1", 1, "2026-05-01", "2026-05-31", 2, "SKU-A", "商品A", "品牌A", 1000, 2, 10);
-  insert.run("a2", 2, "2026-06-01", "2026-06-30", 1, "SKU-A", "商品A", "品牌A", 3000, 3, 10);
+  insert.run("a2", 2, "2026-06-01", "2026-06-30", 1, "SKU-A", "商品A新标题", "品牌A", 3000, 3, 10);
   insert.run("b1", 3, "2026-06-01", "2026-06-30", 3, "SKU-B", "商品B", "品牌B", 2000, 4, 20);
   sqlite.exec(`INSERT INTO market_ranking_entries
     (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
@@ -268,8 +269,28 @@ test("market SKU comparison returns real metrics and monthly trends for 2 to 5 S
   const compared = await getMarketSkuComparison(db as never, { skuCodes: ["SKU-A", "SKU-B"], categories: ["净水"], rankingDimensions: ["SKU"], operationModes: ["POP"] });
   assert.equal(compared.items.length, 2);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.gmvCents, 4000);
+  assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.productName, "商品A新标题");
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.trend.length, 2);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-B")?.bestRank, 3);
+  sqlite.close();
+});
+
+test("manual brand confirmation persists a replayable per-product override", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, raw_json, last_import_batch_id)
+    VALUES ('brand-empty',1,'2026-06-01','2026-06-30','净水','pop','SKU','POP',1,'SKU-BRAND','美的（Midea）商用净水机','', '{}','batch')`);
+  await confirmMarketBrand(db as never, {
+    category: "净水", scope: "pop", rankingDimension: "SKU", skuCode: "SKU-BRAND", brand: "美的",
+  }, admin);
+  assert.equal((sqlite.prepare("SELECT brand FROM market_ranking_entries WHERE sku_code='SKU-BRAND'").get() as { brand: string }).brand, "美的");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_mapping_rules WHERE kind='brand_override'").get() as { count: number }).count, 1);
+  sqlite.exec("UPDATE market_ranking_entries SET brand='' WHERE sku_code='SKU-BRAND'");
+  await applyPublishedMarketMappings(db as never, {}, admin);
+  assert.equal((sqlite.prepare("SELECT brand FROM market_ranking_entries WHERE sku_code='SKU-BRAND'").get() as { brand: string }).brand, "美的");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='confirm_market_brand'").get() as { count: number }).count, 1);
   sqlite.close();
 });
 

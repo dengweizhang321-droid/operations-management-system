@@ -135,7 +135,7 @@ type EntryRow = {
   discount_bps: number | null; discount_reference: number;
   gmv_cents: number; quantity: number; page_views: number; visitors: number; conversion_bps: number | null;
   cart_customers: number; search_clicks: number; image_url: string; source_image_url: string; image_cache_status: string; product_url: string;
-  is_own: number; own_sales_cents: number;
+  period_count: number; is_own: number; own_sales_cents: number;
 };
 
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
@@ -203,7 +203,13 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       conversion_bps, cart_customers, search_clicks,
       CASE WHEN image_url <> '' AND image_cache_status_raw = 'ready' THEN '/api/market/images/' || image_content_sha256 ELSE image_url END image_url,
       image_url source_image_url, COALESCE(image_cache_status_raw, CASE WHEN image_url = '' THEN 'missing' ELSE 'pending' END) image_cache_status,
-      product_url, is_own,
+      product_url,
+      COALESCE((SELECT COUNT(DISTINCT p.period_start || '|' || p.period_end)
+        FROM market_ranking_entries p INDEXED BY market_entries_sku_idx
+        WHERE p.category=filtered.category AND p.scope=filtered.scope AND p.sku_code=filtered.sku_code
+          AND p.ranking_dimension=filtered.ranking_dimension AND p.operation_mode=filtered.operation_mode
+          AND (? = '' OR p.period_end >= ?) AND (? = '' OR p.period_start <= ?)
+      ), 1) period_count, is_own,
       COALESCE((SELECT SUM(s.allocated_amount_cents)
         FROM sales_order_lines s
         WHERE s.product_code = filtered.sku_code
@@ -212,7 +218,7 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       ), 0) AS own_sales_cents
       FROM top_ranked filtered
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC`)
-      .bind(...bindings, ...dateValues),
+      .bind(...bindings, ...dateValues, ...dateValues),
     db.prepare(marketOverviewFilterOptionsSql),
     db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT 8`),
     db.prepare(`SELECT COUNT(DISTINCT m.image_url) total,
@@ -291,7 +297,8 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       pageViews: row.page_views, visitors: row.visitors, conversionBps: row.conversion_bps,
       cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
       sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
-      productUrl: row.product_url, isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
+      productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),
+      isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
     })),
     trend: trendRows,
     priceBands: priceBandOptions.map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
