@@ -9,12 +9,15 @@ import {
   applyPublishedMarketMappings,
   confirmMarketBrand,
   confirmMarketPrice,
+  createMarketBrandRecognitionJob,
   createMarketPriceBandVersion,
   getMarketSkuComparison,
+  getMarketBrandRecognitionJob,
   planMissingMarketDownloads,
   publishMarketPriceBandVersion,
   recordMarketDownloadAttempt,
   rollbackMarketPriceBandVersion,
+  setMarketBrandRecognitionJobStatus,
   upsertMarketDownloadConfig,
   upsertMarketMapping,
 } from "../lib/market/admin-service";
@@ -49,6 +52,31 @@ function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
 }
 
 const admin = { email: "admin@example.com", role: "admin" } as const;
+
+test("brand recognition jobs count unique pending identities and persist pause/resume progress", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
+    VALUES
+    ('brand-a-may',1,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-A','商品A旧标题','',100,1,1,'{}','batch'),
+    ('brand-a-jun',2,'2026-06-01','2026-06-30','净水','pop','SKU','POP','SKU-A','商品A新标题','',200,2,2,'{}','batch'),
+    ('brand-b-jun',3,'2026-06-01','2026-06-30','净水','pop','SKU','POP','SKU-B','商品B','',300,3,3,'{}','batch');
+    INSERT INTO market_brand_suggestions
+      (id, category, scope, ranking_dimension, sku_code, product_name, ai_brand, status, model_id)
+    VALUES ('suggestion-a','净水','pop','SKU','SKU-A','商品A新标题','品牌A','ai_pending','model-1');`);
+  const created = await createMarketBrandRecognitionJob(db as never, { modelId: "model-1", category: "净水" }, admin);
+  assert.equal(created.totalCount, 1);
+  assert.equal(created.remainingCount, 1);
+  const paused = await setMarketBrandRecognitionJobStatus(db as never, { id: created.id, status: "paused" }, admin);
+  assert.equal(paused?.status, "paused");
+  const resumed = await setMarketBrandRecognitionJobStatus(db as never, { id: created.id, status: "queued" }, admin);
+  assert.equal(resumed?.status, "queued");
+  const fetched = await getMarketBrandRecognitionJob(db as never, { category: "净水" });
+  assert.equal(fetched?.id, created.id);
+  assert.equal(fetched?.progressBps, 0);
+});
 
 test("installment price confirmation is rejected and scoped confirmation cannot alter another scope", async () => {
   const sqlite = new DatabaseSync(":memory:");

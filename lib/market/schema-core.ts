@@ -163,6 +163,26 @@ export const marketBaseSchemaStatements = [
     confirmed_by TEXT NOT NULL DEFAULT '',
     confirmed_at TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS market_brand_recognition_jobs (
+    id TEXT PRIMARY KEY NOT NULL,
+    model_id TEXT NOT NULL,
+    query_text TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'queued',
+    total_count INTEGER NOT NULL DEFAULT 0,
+    processed_count INTEGER NOT NULL DEFAULT 0,
+    recognized_count INTEGER NOT NULL DEFAULT 0,
+    empty_count INTEGER NOT NULL DEFAULT 0,
+    batch_size INTEGER NOT NULL DEFAULT 40,
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+    last_error TEXT NOT NULL DEFAULT '',
+    lease_token TEXT NOT NULL DEFAULT '',
+    lease_expires_at TEXT
+  )`,
   `CREATE TABLE IF NOT EXISTS market_download_configs (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -296,6 +316,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_master_mapping_rules_kind_idx ON market_master_mapping_rules (kind, category, status, effective_from)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_brand_suggestions_identity_uq ON market_brand_suggestions (category, scope, ranking_dimension, sku_code)`,
   `CREATE INDEX IF NOT EXISTS market_brand_suggestions_status_idx ON market_brand_suggestions (status, category, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS market_brand_recognition_jobs_filter_idx ON market_brand_recognition_jobs (category, query_text, created_at)`,
+  `CREATE INDEX IF NOT EXISTS market_brand_recognition_jobs_status_idx ON market_brand_recognition_jobs (status, updated_at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_configs_unique_uq ON market_download_configs (category, scope, ranking_dimension, month_start, month_end)`,
   `CREATE INDEX IF NOT EXISTS market_download_configs_status_idx ON market_download_configs (status, category, scope, ranking_dimension)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, scope, month, ranking_dimension)`,
@@ -331,7 +353,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return changed;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v2";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v3";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {

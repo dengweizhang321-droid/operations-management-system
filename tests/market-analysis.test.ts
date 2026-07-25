@@ -125,6 +125,10 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /AI 一键识别价格（最多100条）/);
   assert.match(source, /AI 一键识别品牌（所有页）/);
   assert.match(source, /一键确认全部候选/);
+  assert.match(source, /暂停识别/);
+  assert.match(source, /remainingCount/);
+  assert.match(source, /run_brand_recognition_job_batch/);
+  assert.match(source, /create_brand_recognition_job/);
   assert.match(source, /market-master-product-grid/);
   assert.match(service, /market_brand_suggestions/);
   assert.match(service, /PARTITION BY m\.category, m\.scope, m\.ranking_dimension, m\.sku_code/);

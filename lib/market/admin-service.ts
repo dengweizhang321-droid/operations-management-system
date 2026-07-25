@@ -274,6 +274,147 @@ export async function recognizeNextMarketBrandBatch(db: MarketDatabase, input: {
   return { processed: candidates.length, recognized, empty: candidates.length - recognized, done: candidates.length < batchSize };
 }
 
+type MarketBrandRecognitionJobRow = {
+  id: string; model_id: string; query_text: string; category: string; status: string;
+  total_count: number; processed_count: number; recognized_count: number; empty_count: number; batch_size: number;
+  created_by: string; created_at: string; started_at: string | null; updated_at: string; completed_at: string | null;
+  last_error: string; lease_token: string; lease_expires_at: string | null;
+};
+
+function marketBrandRecognitionJobValue(row: MarketBrandRecognitionJobRow) {
+  const totalCount = Number(row.total_count ?? 0);
+  const processedCount = Math.min(totalCount, Number(row.processed_count ?? 0));
+  return {
+    id: row.id,
+    modelId: row.model_id,
+    query: row.query_text,
+    category: row.category,
+    status: row.status,
+    totalCount,
+    processedCount,
+    remainingCount: Math.max(0, totalCount - processedCount),
+    recognizedCount: Number(row.recognized_count ?? 0),
+    emptyCount: Number(row.empty_count ?? 0),
+    batchSize: Number(row.batch_size ?? 40),
+    progressBps: totalCount ? Math.min(10_000, Math.round(processedCount * 10_000 / totalCount)) : 10_000,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+    lastError: row.last_error,
+  };
+}
+
+async function readMarketBrandRecognitionJob(db: MarketDatabase, id: string) {
+  const row = await db.prepare("SELECT * FROM market_brand_recognition_jobs WHERE id=? LIMIT 1")
+    .bind(id).first<MarketBrandRecognitionJobRow>();
+  return row ? marketBrandRecognitionJobValue(row) : null;
+}
+
+async function countRemainingMarketBrandCandidates(db: MarketDatabase, input: { q?: string; category?: string }) {
+  const category = optionalText(input.category, 120) ?? "";
+  const q = optionalText(input.q, 100) ?? "";
+  const clauses = ["r.rn=1", "(s.id IS NULL OR s.status='failed')"];
+  const values: unknown[] = [];
+  if (category) { clauses.push("r.category=?"); values.push(category); }
+  if (q) { clauses.push("(r.sku_code LIKE ? OR r.product_name LIKE ? OR r.brand LIKE ?)"); values.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+  const row = await db.prepare(`WITH ranked AS (
+      SELECT m.category, m.scope, m.ranking_dimension, m.sku_code, m.product_name, m.brand,
+        ROW_NUMBER() OVER (PARTITION BY m.category, m.scope, m.ranking_dimension, m.sku_code ORDER BY m.period_end DESC, m.id DESC) rn
+      FROM market_ranking_entries m
+    )
+    SELECT COUNT(*) count FROM ranked r LEFT JOIN market_brand_suggestions s
+      ON s.category=r.category AND s.scope=r.scope AND s.ranking_dimension=r.ranking_dimension AND s.sku_code=r.sku_code
+    WHERE ${clauses.join(" AND ")}`).bind(...values).first<CountRow>();
+  return Number(row?.count ?? 0);
+}
+
+export async function getMarketBrandRecognitionJob(db: MarketDatabase, input: { q?: string; category?: string } = {}) {
+  await ensureMarketAdminSchema(db);
+  const q = optionalText(input.q, 100) ?? "";
+  const category = optionalText(input.category, 120) ?? "";
+  const row = await db.prepare(`SELECT * FROM market_brand_recognition_jobs
+    WHERE query_text=? AND category=? ORDER BY created_at DESC LIMIT 1`)
+    .bind(q, category).first<MarketBrandRecognitionJobRow>();
+  return row ? marketBrandRecognitionJobValue(row) : null;
+}
+
+export async function createMarketBrandRecognitionJob(db: MarketDatabase, input: {
+  modelId: string; q?: string; category?: string; batchSize?: number;
+}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const modelId = requiredText(input.modelId, 120);
+  const q = optionalText(input.q, 100) ?? "";
+  const category = optionalText(input.category, 120) ?? "";
+  const batchSize = integer(input.batchSize, 40, 1, 50);
+  const existing = await db.prepare(`SELECT * FROM market_brand_recognition_jobs
+    WHERE query_text=? AND category=? AND status IN ('queued','running','paused','failed')
+    ORDER BY created_at DESC LIMIT 1`).bind(q, category).first<MarketBrandRecognitionJobRow>();
+  if (existing) return { ...marketBrandRecognitionJobValue(existing), reused: true };
+  const totalCount = await countRemainingMarketBrandCandidates(db, { q, category });
+  const id = `market-brand-job-${crypto.randomUUID()}`;
+  const status = totalCount ? "queued" : "completed";
+  await db.prepare(`INSERT INTO market_brand_recognition_jobs
+    (id, model_id, query_text, category, status, total_count, batch_size, created_by, completed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ?='completed' THEN CURRENT_TIMESTAMP ELSE NULL END)`)
+    .bind(id, modelId, q, category, status, totalCount, batchSize, actor.email, status).run();
+  await audit(db, actor, "create_market_brand_recognition_job", "market_brand_recognition_job", id, null, { modelId, q, category, totalCount, batchSize });
+  return { ...(await readMarketBrandRecognitionJob(db, id))!, reused: false };
+}
+
+export async function runMarketBrandRecognitionJobBatch(db: MarketDatabase, id: string, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const jobId = requiredText(id, 160);
+  const job = await db.prepare("SELECT * FROM market_brand_recognition_jobs WHERE id=? LIMIT 1")
+    .bind(jobId).first<MarketBrandRecognitionJobRow>();
+  if (!job) throw new Error("品牌识别任务不存在");
+  if (job.status === "completed") return { job: marketBrandRecognitionJobValue(job), done: true };
+  if (job.status === "paused") return { job: marketBrandRecognitionJobValue(job), done: false, paused: true };
+  const leaseToken = crypto.randomUUID();
+  const claim = await db.prepare(`UPDATE market_brand_recognition_jobs SET
+      status='running', started_at=COALESCE(started_at,CURRENT_TIMESTAMP), lease_token=?,
+      lease_expires_at=datetime('now','+3 minutes'), last_error='', updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND status IN ('queued','running','failed')
+      AND (lease_token='' OR lease_expires_at IS NULL OR datetime(lease_expires_at)<=datetime('now'))`)
+    .bind(leaseToken, jobId).run() as { meta?: { changes?: number } };
+  if (Number(claim.meta?.changes ?? 0) !== 1) return { job: await readMarketBrandRecognitionJob(db, jobId), done: false, waiting: true };
+  try {
+    const result = await recognizeNextMarketBrandBatch(db, {
+      modelId: job.model_id, q: job.query_text, category: job.category, batchSize: job.batch_size,
+    }, actor);
+    const remainingCount = await countRemainingMarketBrandCandidates(db, { q: job.query_text, category: job.category });
+    const minimumTotal = Number(job.processed_count ?? 0) + Number(result.processed ?? 0) + remainingCount;
+    const totalCount = Math.max(Number(job.total_count ?? 0), minimumTotal);
+    const processedCount = Math.max(Number(job.processed_count ?? 0) + Number(result.processed ?? 0), totalCount - remainingCount);
+    const completed = remainingCount === 0;
+    await db.prepare(`UPDATE market_brand_recognition_jobs SET
+        total_count=?, processed_count=?, recognized_count=recognized_count+?, empty_count=empty_count+?,
+        status=CASE WHEN status='paused' THEN 'paused' WHEN ?=1 THEN 'completed' ELSE 'running' END,
+        completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE completed_at END,
+        lease_token='', lease_expires_at=NULL, updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND lease_token=?`)
+      .bind(totalCount, processedCount, result.recognized, result.empty, completed ? 1 : 0, completed ? 1 : 0, jobId, leaseToken).run();
+    return { job: await readMarketBrandRecognitionJob(db, jobId), done: completed, processed: result.processed };
+  } catch (error) {
+    const message = (error instanceof Error ? error.message : "品牌识别失败").slice(0, 300);
+    await db.prepare(`UPDATE market_brand_recognition_jobs SET status='failed', last_error=?, lease_token='', lease_expires_at=NULL, updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND lease_token=?`).bind(message, jobId, leaseToken).run();
+    throw error;
+  }
+}
+
+export async function setMarketBrandRecognitionJobStatus(db: MarketDatabase, input: { id: string; status: "paused" | "queued" }, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const id = requiredText(input.id, 160);
+  if (input.status !== "paused" && input.status !== "queued") throw new Error("品牌识别任务状态无效");
+  const result = await db.prepare(`UPDATE market_brand_recognition_jobs SET status=?, last_error='', updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND status IN ('queued','running','paused','failed')`).bind(input.status, id).run() as { meta?: { changes?: number } };
+  if (Number(result.meta?.changes ?? 0) !== 1) throw new Error("品牌识别任务已经完成或不存在");
+  await audit(db, actor, input.status === "paused" ? "pause_market_brand_recognition_job" : "resume_market_brand_recognition_job", "market_brand_recognition_job", id, null, { status: input.status });
+  return await readMarketBrandRecognitionJob(db, id);
+}
+
 export async function confirmMarketBrandSuggestionsBatch(db: MarketDatabase, input: {
   q?: string; category?: string; batchSize?: number;
 }, actor: MarketPrincipal) {
@@ -474,7 +615,7 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
 export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: string; category?: string; page?: number; pageSize?: number } = {}) {
   await ensureMarketAdminSchema(db);
   await ensureAnnotationSchema(db);
-  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts] = await Promise.all([
+  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts, brandRecognitionJob] = await Promise.all([
     listMarketMasterData(db, input),
     listPendingMarketPrices(db, { category: input.category, page: 1, pageSize: 20 }),
     listMarketMappings(db),
@@ -490,6 +631,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
     db.prepare(`SELECT p.id prompt_id, p.category,
         (SELECT COUNT(*) FROM market_price_snapshots ps WHERE ps.category=p.category AND ps.confirmed_market_price_cents IS NULL AND ps.image_content_sha256<>'') pending_count
       FROM market_annotation_prompt_versions p WHERE p.status='active' ORDER BY p.category`).all<Record<string, unknown>>(),
+    getMarketBrandRecognitionJob(db, { q: input.q, category: input.category }),
   ]);
   return {
     masterData,
@@ -507,6 +649,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
     },
     categories: categories.results ?? [],
     priceRecognition: { prompts: pricePrompts.results ?? [] },
+    brandRecognitionJob,
     audits: audits.results ?? [],
   };
 }

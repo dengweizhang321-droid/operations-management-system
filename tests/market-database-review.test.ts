@@ -75,9 +75,10 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   const changesAfterUpgrade = (sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes;
   await ensureMarketSchemaCore(db);
   assert.equal((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes, changesAfterUpgrade);
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v2'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v3'").get() as { count: number }).count, 1);
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(columnNames("market_brand_suggestions").has("ai_brand"));
+  assert.ok(columnNames("market_brand_recognition_jobs").has("processed_count"));
   for (const column of ["ranking_dimension", "operation_mode", "subcategory", "price_low_cents", "price_high_cents", "price_estimated"]) {
     assert.ok(columnNames("market_ranking_entries").has(column), column);
   }

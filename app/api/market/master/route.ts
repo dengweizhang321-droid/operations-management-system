@@ -4,9 +4,11 @@ import {
   confirmMarketPrice,
   confirmMarketBrand,
   confirmMarketBrandSuggestionsBatch,
+  createMarketBrandRecognitionJob,
   applyPublishedMarketMappings,
   createMarketPriceBandVersion,
   getMarketMasterWorkspace,
+  getMarketBrandRecognitionJob,
   getMarketSkuComparison,
   listMarketMasterData,
   listPendingMarketPrices,
@@ -14,6 +16,8 @@ import {
   publishMarketPriceBandVersion,
   recordMarketDownloadAttempt,
   recognizeNextMarketBrandBatch,
+  runMarketBrandRecognitionJobBatch,
+  setMarketBrandRecognitionJobStatus,
   suggestMarketBrand,
   rollbackMarketPriceBandVersion,
   upsertMarketDownloadConfig,
@@ -75,6 +79,12 @@ export async function GET(request: Request) {
         endDate: params.get("endDate") ?? undefined,
       }), { headers: { "cache-control": "no-store" } });
     }
+    if (view === "brand_job") {
+      return Response.json(await getMarketBrandRecognitionJob(db, {
+        q: params.get("q") ?? undefined,
+        category: params.get("category") ?? undefined,
+      }), { headers: { "cache-control": "no-store" } });
+    }
     return Response.json(await getMarketMasterWorkspace(db, {
       q: params.get("q") ?? undefined,
       category: params.get("category") ?? undefined,
@@ -124,6 +134,24 @@ export async function POST(request: Request) {
           q: text(parsed, "q"),
           category: text(parsed, "category"),
           batchSize: typeof parsed.batchSize === "number" ? parsed.batchSize : undefined,
+        }, principal);
+        break;
+      case "create_brand_recognition_job":
+        result = await createMarketBrandRecognitionJob(db, {
+          modelId: text(parsed, "modelId"),
+          q: text(parsed, "q"),
+          category: text(parsed, "category"),
+          batchSize: typeof parsed.batchSize === "number" ? parsed.batchSize : undefined,
+        }, principal);
+        break;
+      case "run_brand_recognition_job_batch":
+        result = await runMarketBrandRecognitionJobBatch(db, text(parsed, "jobId"), principal);
+        break;
+      case "pause_brand_recognition_job":
+      case "resume_brand_recognition_job":
+        result = await setMarketBrandRecognitionJobStatus(db, {
+          id: text(parsed, "jobId"),
+          status: action === "pause_brand_recognition_job" ? "paused" : "queued",
         }, principal);
         break;
       case "confirm_brand_suggestions_batch":
