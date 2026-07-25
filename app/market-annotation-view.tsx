@@ -22,6 +22,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
   const [data, setData] = useState<Workspace | null>(null);
   const [jobId, setJobId] = useState("");
   const [category, setCategory] = useState("");
+  const [categoryQuery, setCategoryQuery] = useState("");
   const [executor, setExecutor] = useState<"cloud" | "local">("cloud");
   const [visionModelId, setVisionModelId] = useState("");
   const [textModelId, setTextModelId] = useState("");
@@ -78,8 +79,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
     const resolvedJobId = nextJobId || payload.jobs[0]?.id || "";
     setJobId(resolvedJobId);
     if (!nextJobId && resolvedJobId) setItemPage(1);
-    const resolvedCategory = category || payload.categories[0]?.value || "";
-    setCategory((current) => current || resolvedCategory);
+    const resolvedCategory = category;
     setVisionModelId((current) => current || payload.models[0]?.id || "");
     setTextModelId((current) => current || payload.textModels[0]?.id || "");
     if (!promptId) {
@@ -145,6 +145,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
 
   const choosePrompt = (item: Prompt) => { setPromptId(item.id); setCategory(item.category); setPromptBody(item.promptBody); setSegmentsText(item.segments.join("\n")); setChangeNote(""); };
   const chooseCategory = (nextCategory: string) => {
+    setCategoryQuery("");
     setCategory(nextCategory);
     const nextPrompt = data?.prompts.find((item) => item.category === nextCategory && item.status === "active") ?? data?.prompts.find((item) => item.category === nextCategory);
     if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText(defaultMarketSegmentsText(nextCategory)); }
@@ -177,6 +178,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
     if (result?.partial) throw new Error(`本批次部分成功：已入库 ${String(result.committed ?? 0)} 条；页面已刷新，可重新勾选剩余项续跑`);
   });
   const savePrompt = (mode: "manual" | "generate") => act("prompt", async () => {
+    if (!category) throw new Error("“全部三级类目”仅用于浏览和筛选；保存 Prompt 前请选择一个具体类目");
     const body = { category, segments: segmentsText.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean), parentId: selectedPrompt?.id, changeNote };
     const result = mode === "manual" ? await post({ action: "create_prompt", ...body, promptBody }) : await post({ action: "generate_prompt", ...body, textModelId });
     await load(jobId); setPromptId(String(result?.id || "")); setNotice(mode === "manual" ? "人工 Prompt 子版本已创建" : "AI Prompt 候选已生成");
@@ -227,7 +229,10 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
   const createAgent = () => act("agent", async () => { const name = window.prompt("本地 agent 名称", "办公室 Ollama") || ""; const result = await post({ action: "create_agent", name }); setAgentToken(String(result?.token || "")); await load(jobId); });
 
   if (!data) return <section className="panel data-state">{initialLoading ? <><span className="state-spinner" /><strong>正在加载 SKU AI 标注工作台</strong></> : <><strong>SKU AI 标注工作台加载失败</strong><p>{error || "暂时无法读取数据，请稍后重试"}</p><button className="secondary-button" onClick={() => void loadInitial()}>重试</button></>}</section>;
-  const currentRun = data.validationRuns[0];
+  const currentRun = data.validationRuns.find((run) => !category || run.category === category);
+  const normalizedCategoryQuery = categoryQuery.trim().toLocaleLowerCase("zh-CN");
+  const filteredCategories = data.categories.filter((item) => !normalizedCategoryQuery || item.value.toLocaleLowerCase("zh-CN").includes(normalizedCategoryQuery));
+  const categoryTotal = data.categories.reduce((sum, item) => sum + item.count, 0);
   const currentResults = currentRun ? data.validationResults.filter((item) => item.runId === currentRun.id) : [];
   const reviewableItems = data.items.filter((item) => reviewableIds.has(item.id));
   const allChecked = reviewableItems.length > 0 && reviewableItems.every((item) => drafts[item.id]?.selected);
@@ -238,13 +243,14 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
     <section className="panel annotation-hero"><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>市场 SKU 细分品类 AI 标注</h2><p>云端视觉为默认执行器；京东 imgzone 大图优先、n5 兼容回退。AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
     <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>每条云端请求只处理一个 SKU，D1 保存进度，关页后可继续。</p></div></div><div className="annotation-form-row">
-      <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}</select></label>
+      <label><span>筛选三级类目</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="输入类目关键词" /></label>
+      <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
       <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>
       {executor === "cloud" ? <label><span>enabled vision 模型</span><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)}>{data.models.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.modelName}</option>)}</select></label> : <label><span>Ollama 模型名</span><input value={localModelName} onChange={(event) => setLocalModelName(event.target.value)} /></label>}
       <label><span>任务上限</span><input type="number" min={1} max={5000} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /></label>
       <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
-    </div><small>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</small>
-    <div className="annotation-job-list">{data.jobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(item.id); void load(item.id, search, searchPage, 1); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
+    </div><small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
+    <div className="annotation-job-list">{data.jobs.filter((item) => !category || item.category === category).map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(item.id); void load(item.id, search, searchPage, 1); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
     {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? "云端识别中…" : "继续云端识别"}</button><button className="secondary-button" onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
     </section>
 
@@ -257,7 +263,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
       <div className="annotation-prompt-history">{data.prompts.filter((item) => !category || item.category === category).map((item) => <div key={item.id} className="annotation-prompt-version"><button className={`annotation-prompt-select ${selectedPrompt?.id === item.id ? "active" : ""}`} onClick={() => choosePrompt(item)}><strong>v{item.version} · {item.status}</strong><span>{item.source}</span><small>{item.id}</small></button>{isAdmin && item.status === "draft" && <button className="annotation-prompt-delete" disabled={busy !== ""} title={`删除 v${item.version} 草稿`} onClick={() => void deletePrompt(item)}>删除</button>}</div>)}</div>
       <label><span>细分品类枚举（每行一个）</span><textarea value={segmentsText} onChange={(event) => setSegmentsText(event.target.value)} /></label><label><span>Prompt 正文</span><textarea className="annotation-prompt-body" value={promptBody} onChange={(event) => setPromptBody(event.target.value)} placeholder="写明视觉分类规则、价格识别口径和严格 JSON 输出" /></label><label><span>版本说明</span><input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} /></label>
       <div className="annotation-form-row"><label><span>AI 文本模型</span><select value={textModelId} onChange={(event) => setTextModelId(event.target.value)}>{data.textModels.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label><span>抽样数</span><input type="number" min={1} max={500} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label><label><span>固定 seed</span><input value={seed} onChange={(event) => setSeed(event.target.value)} /></label></div>
-      <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={() => void savePrompt("manual")}>保存人工子版本</button><button className="secondary-button" disabled={!canEdit || !textModelId || busy !== ""} onClick={() => void savePrompt("generate")}>AI 生成</button><button className="secondary-button" disabled={!canEdit || !selectedPrompt || !textModelId || !visionModelId || busy !== ""} onClick={evolve}>AI 进化并测试</button><button className="secondary-button" disabled={!canEdit || !selectedPrompt || !visionModelId || busy !== ""} onClick={() => void testPrompt()}>冻结抽样测试</button>{selectedPrompt?.status === "active" ? <button className="primary-button" disabled>当前激活版本</button> : selectedPrompt && <button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void activate(selectedPrompt, selectedPrompt.status === "archived")}>{selectedPrompt.status === "archived" ? "回滚到此版" : "激活此版"}</button>}</div>
+      <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || !category || busy !== ""} onClick={() => void savePrompt("manual")}>保存人工子版本</button><button className="secondary-button" disabled={!canEdit || !category || !textModelId || busy !== ""} onClick={() => void savePrompt("generate")}>AI 生成</button><button className="secondary-button" disabled={!canEdit || !category || !selectedPrompt || !textModelId || !visionModelId || busy !== ""} onClick={evolve}>AI 进化并测试</button><button className="secondary-button" disabled={!canEdit || !category || !selectedPrompt || !visionModelId || busy !== ""} onClick={() => void testPrompt()}>冻结抽样测试</button>{selectedPrompt?.status === "active" ? <button className="primary-button" disabled>当前激活版本</button> : selectedPrompt && <button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void activate(selectedPrompt, selectedPrompt.status === "archived")}>{selectedPrompt.status === "archived" ? "回滚到此版" : "激活此版"}</button>}</div>
     </article>
     <article className="panel annotation-validation-card"><div className="section-header"><div><h3>冻结抽样验证</h3><p>默认 50 条，按品类分层并以 seed+hash 冻结；逐条错例永久保留。</p></div></div>{currentRun ? <><div className="annotation-validation-summary"><strong>{currentRun.status}</strong><span>{currentRun.sampleCount} 条 · hash {currentRun.sampleHash?.slice(0, 12)}</span><em className={currentRun.gate?.passed ? "green-text" : "orange-text"}>{currentRun.gate?.passed ? "门禁通过" : (currentRun.gate?.reasons || []).join("；") || "待完成"}</em></div><div className="annotation-validation-errors">{currentResults.filter((item) => !item.isCorrect || item.errorMessage).slice(0, 80).map((item) => <div key={item.id}><strong>{item.skuCode} · {item.goldSegment} → {item.predictedSegment || "失败"}</strong><small>{item.productName}</small><span>{item.errorMessage}</span></div>)}</div></> : <p className="soft-text">尚无冻结验证运行。</p>}</article>
     </section>

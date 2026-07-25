@@ -119,6 +119,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /datetime\('now','\+2 minutes'\)/);
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
+  assert.match(ui, /全部三级类目/);
+  assert.match(ui, /输入类目关键词/);
+  assert.match(ui, /filteredCategories/);
   assert.match(ui, /useEffect\(\(\) => \{ const timer = window\.setTimeout\(\(\) => void load\(jobId, search, searchPage, itemPage\)/);
   assert.match(ui, /candidateIds: selectedIds/);
   assert.match(ui, /完整市场 SKU 库检索/);
