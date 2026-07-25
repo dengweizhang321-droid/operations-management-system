@@ -210,6 +210,15 @@ export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) 
     const result = await runVisionAnnotation({ db, modelId: job.model_id, promptBody: prompt.prompt_body, segments: json(prompt.segments_json, []), skuCode: candidate.sku_code, productName: candidate.product_name, brand: candidate.brand, imageUrl: candidate.source_image_url });
     await db.prepare("UPDATE market_annotation_items SET status='review_pending', ai_segment=?, ai_image_price_cents=?, ai_price_type=?, ai_price_low_cents=?, ai_price_high_cents=?, ai_confidence_bps=?, ai_reason=?, ai_raw_digest=?, reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=?, reviewed_price_low_cents=?, reviewed_price_high_cents=?, resolved_image_url=?, image_source=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
       .bind(result.segment, result.imagePriceCents, result.priceType, result.priceLowCents, result.priceHighCents, result.confidenceBps, result.reason, result.rawDigest, result.segment, result.imagePriceCents, result.priceType, result.priceLowCents, result.priceHighCents, result.resolvedImageUrl, result.imageSource, candidate.id, claimHash).run();
+    await db.prepare(`UPDATE market_price_snapshots SET
+        ai_image_price_cents=?, ai_price_type=?, ai_confidence_bps=?, ai_reason=?,
+        price_low_cents=COALESCE(?, price_low_cents), price_high_cents=COALESCE(?, price_high_cents),
+        confirmation_status='ai_pending', source_job_item_id=?, prompt_version_id=?, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=?
+        AND image_content_sha256=? AND confirmed_market_price_cents IS NULL`)
+      .bind(result.imagePriceCents, result.priceType, result.confidenceBps, result.reason,
+        result.priceLowCents, result.priceHighCents, candidate.id, job.prompt_version_id,
+        candidate.category, candidate.scope, candidate.sku_code, candidate.ranking_dimension, candidate.month, candidate.image_content_sha256).run();
   } catch (error) {
     await db.prepare("UPDATE market_annotation_items SET status='failed', error_message=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
       .bind(safeOperationalError(error, "识别失败"), candidate.id, claimHash).run();

@@ -3,6 +3,7 @@ import { getMarketDatabase } from "@/lib/market/database";
 import {
   confirmMarketPrice,
   confirmMarketBrand,
+  confirmMarketBrandSuggestionsBatch,
   applyPublishedMarketMappings,
   createMarketPriceBandVersion,
   getMarketMasterWorkspace,
@@ -12,11 +13,13 @@ import {
   planMissingMarketDownloads,
   publishMarketPriceBandVersion,
   recordMarketDownloadAttempt,
+  recognizeNextMarketBrandBatch,
   suggestMarketBrand,
   rollbackMarketPriceBandVersion,
   upsertMarketDownloadConfig,
   upsertMarketMapping,
 } from "@/lib/market/admin-service";
+import { createAnnotationJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -74,6 +77,7 @@ export async function GET(request: Request) {
     }
     return Response.json(await getMarketMasterWorkspace(db, {
       q: params.get("q") ?? undefined,
+      category: params.get("category") ?? undefined,
       page: numberParam(params, "page", 1),
       pageSize: numberParam(params, "pageSize", 30),
     }), { headers: { "cache-control": "no-store" } });
@@ -114,6 +118,21 @@ export async function POST(request: Request) {
           productName: text(parsed, "productName"),
         });
         break;
+      case "recognize_brand_batch":
+        result = await recognizeNextMarketBrandBatch(db, {
+          modelId: text(parsed, "modelId"),
+          q: text(parsed, "q"),
+          category: text(parsed, "category"),
+          batchSize: typeof parsed.batchSize === "number" ? parsed.batchSize : undefined,
+        }, principal);
+        break;
+      case "confirm_brand_suggestions_batch":
+        result = await confirmMarketBrandSuggestionsBatch(db, {
+          q: text(parsed, "q"),
+          category: text(parsed, "category"),
+          batchSize: typeof parsed.batchSize === "number" ? parsed.batchSize : undefined,
+        }, principal);
+        break;
       case "confirm_brand":
         result = await confirmMarketBrand(db, {
           category: text(parsed, "category"),
@@ -122,6 +141,18 @@ export async function POST(request: Request) {
           skuCode: text(parsed, "skuCode"),
           brand: text(parsed, "brand"),
         }, principal);
+        break;
+      case "create_price_recognition_job":
+        result = await createAnnotationJob(db, {
+          category: text(parsed, "category"),
+          promptVersionId: text(parsed, "promptVersionId"),
+          executor: "cloud",
+          modelId: text(parsed, "modelId"),
+          limit: typeof parsed.limit === "number" ? parsed.limit : 100,
+        }, principal);
+        break;
+      case "run_price_recognition_next":
+        result = await runNextCloudAnnotation(db, text(parsed, "jobId"));
         break;
       case "apply_mappings":
         result = await applyPublishedMarketMappings(db, { category: text(parsed, "category") || undefined }, principal);

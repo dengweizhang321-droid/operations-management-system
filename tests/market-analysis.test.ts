@@ -119,6 +119,17 @@ test("市场榜单与系统设置呈现商品链接、上榜期数、主图价�
   assert.match(view, /action: "confirm_brand"/);
 });
 
+test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认入口", async () => {
+  const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  const service = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
+  assert.match(source, /AI 一键识别价格（最多100条）/);
+  assert.match(source, /AI 一键识别品牌（所有页）/);
+  assert.match(source, /一键确认全部候选/);
+  assert.match(source, /market-master-product-grid/);
+  assert.match(service, /market_brand_suggestions/);
+  assert.match(service, /PARTITION BY m\.category, m\.scope, m\.ranking_dimension, m\.sku_code/);
+});
+
 test("市场数据使用默认周期并阻止同周期重复 SKU", () => {
   const result = parseMarketRows({
     bytes: csvBytes([

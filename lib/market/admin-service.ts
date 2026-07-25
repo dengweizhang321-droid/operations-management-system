@@ -1,5 +1,6 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { runPromptTextCompletion } from "@/lib/market/annotation-model";
+import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 
@@ -211,6 +212,92 @@ export async function suggestMarketBrand(db: MarketDatabase, input: { modelId: s
   return { brand: brand.trim().slice(0, 120), modelId };
 }
 
+export async function recognizeNextMarketBrandBatch(db: MarketDatabase, input: {
+  modelId: string; q?: string; category?: string; batchSize?: number;
+}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const modelId = requiredText(input.modelId, 120);
+  const batchSize = integer(input.batchSize, 40, 1, 50);
+  const category = optionalText(input.category, 120) ?? "";
+  const q = optionalText(input.q, 100) ?? "";
+  const clauses = ["r.rn=1", "(s.id IS NULL OR s.status='failed')"];
+  const values: unknown[] = [];
+  if (category) { clauses.push("r.category=?"); values.push(category); }
+  if (q) { clauses.push("(r.sku_code LIKE ? OR r.product_name LIKE ? OR r.brand LIKE ?)"); values.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+  const rows = await db.prepare(`WITH ranked AS (
+      SELECT m.category, m.scope, m.ranking_dimension, m.sku_code, m.product_name, m.brand,
+        ROW_NUMBER() OVER (PARTITION BY m.category, m.scope, m.ranking_dimension, m.sku_code ORDER BY m.period_end DESC, m.id DESC) rn
+      FROM market_ranking_entries m
+    )
+    SELECT r.category, r.scope, r.ranking_dimension, r.sku_code, r.product_name, r.brand
+    FROM ranked r LEFT JOIN market_brand_suggestions s
+      ON s.category=r.category AND s.scope=r.scope AND s.ranking_dimension=r.ranking_dimension AND s.sku_code=r.sku_code
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY r.category, r.scope, r.ranking_dimension, r.sku_code LIMIT ?`)
+    .bind(...values, batchSize).all<{ category: string; scope: string; ranking_dimension: string; sku_code: string; product_name: string; brand: string }>();
+  const candidates = rows.results ?? [];
+  if (!candidates.length) return { processed: 0, recognized: 0, empty: 0, done: true };
+  const payload = candidates.map((row, index) => ({ key: String(index), title: row.product_name }));
+  const raw = await runPromptTextCompletion(db, modelId, [
+    "你是电商商品品牌识别助手。只根据标题识别明确出现或可可靠确定的品牌；不要把品类、店铺、规格或制造商当成品牌。",
+    "无法可靠识别时 brand 必须为空字符串。每个输入 key 必须原样返回且只返回严格 JSON：{\"items\":[{\"key\":\"0\",\"brand\":\"\"}]}。",
+    `输入：${JSON.stringify(payload)}`,
+  ].join("\n"));
+  const unfenced = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  let parsed: unknown;
+  try { parsed = JSON.parse(unfenced); } catch { throw new Error("AI 批量品牌识别没有返回有效 JSON"); }
+  const items = parsed && typeof parsed === "object" && !Array.isArray(parsed) && Array.isArray((parsed as { items?: unknown }).items)
+    ? (parsed as { items: unknown[] }).items : [];
+  const byKey = new Map<string, string>();
+  for (const item of items) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const value = item as Record<string, unknown>;
+    if (typeof value.key === "string" && typeof value.brand === "string") byKey.set(value.key, value.brand.trim().slice(0, 120));
+  }
+  let recognized = 0;
+  const statements = candidates.map((row, index) => {
+    const brand = byKey.get(String(index)) ?? "";
+    if (brand) recognized += 1;
+    return db.prepare(`INSERT INTO market_brand_suggestions
+      (id, category, scope, ranking_dimension, sku_code, product_name, current_brand, ai_brand, status, model_id, error_message, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', CURRENT_TIMESTAMP)
+      ON CONFLICT(category, scope, ranking_dimension, sku_code) DO UPDATE SET
+        product_name=excluded.product_name, current_brand=excluded.current_brand, ai_brand=excluded.ai_brand,
+        status=excluded.status, model_id=excluded.model_id, error_message='', updated_at=CURRENT_TIMESTAMP`)
+      .bind(`market-brand-${crypto.randomUUID()}`, row.category, row.scope, row.ranking_dimension, row.sku_code,
+        row.product_name, row.brand, brand, brand ? "ai_pending" : "ai_empty", modelId);
+  });
+  await db.batch(statements);
+  await audit(db, actor, "recognize_market_brand_batch", "market_brand_suggestion", category || "*", null, {
+    query: q, modelId, processed: candidates.length, recognized, empty: candidates.length - recognized,
+  });
+  return { processed: candidates.length, recognized, empty: candidates.length - recognized, done: candidates.length < batchSize };
+}
+
+export async function confirmMarketBrandSuggestionsBatch(db: MarketDatabase, input: {
+  q?: string; category?: string; batchSize?: number;
+}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const batchSize = integer(input.batchSize, 25, 1, 50);
+  const category = optionalText(input.category, 120) ?? "";
+  const q = optionalText(input.q, 100) ?? "";
+  const clauses = ["status='ai_pending'", "ai_brand<>''"];
+  const values: unknown[] = [];
+  if (category) { clauses.push("category=?"); values.push(category); }
+  if (q) { clauses.push("(sku_code LIKE ? OR product_name LIKE ? OR current_brand LIKE ? OR ai_brand LIKE ?)"); values.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`); }
+  const rows = await db.prepare(`SELECT id, category, scope, ranking_dimension, sku_code, ai_brand
+    FROM market_brand_suggestions WHERE ${clauses.join(" AND ")} ORDER BY updated_at, id LIMIT ?`)
+    .bind(...values, batchSize).all<{ id: string; category: string; scope: string; ranking_dimension: string; sku_code: string; ai_brand: string }>();
+  let confirmed = 0;
+  for (const row of rows.results ?? []) {
+    await confirmMarketBrand(db, { category: row.category, scope: row.scope, rankingDimension: row.ranking_dimension, skuCode: row.sku_code, brand: row.ai_brand }, actor);
+    await db.prepare("UPDATE market_brand_suggestions SET status='confirmed', confirmed_by=?, confirmed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='ai_pending'")
+      .bind(actor.email, row.id).run();
+    confirmed += 1;
+  }
+  return { confirmed, done: confirmed < batchSize };
+}
+
 export async function confirmMarketBrand(db: MarketDatabase, input: {
   category: string; scope: string; rankingDimension: string; skuCode: string; brand: string;
 }, actor: MarketPrincipal) {
@@ -241,6 +328,9 @@ export async function confirmMarketBrand(db: MarketDatabase, input: {
   await db.prepare(`UPDATE market_ranking_entries SET brand=?, updated_at=CURRENT_TIMESTAMP
     WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
     .bind(brand, identity.category, identity.scope, identity.rankingDimension, identity.skuCode).run();
+  await db.prepare(`UPDATE market_brand_suggestions SET ai_brand=?, status='confirmed', confirmed_by=?, confirmed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+    WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+    .bind(brand, actor.email, identity.category, identity.scope, identity.rankingDimension, identity.skuCode).run();
   await audit(db, actor, "confirm_market_brand", "market_product_brand", sourceValue, before, { ...identity, brand, mappingId: rule.id });
   return { ok: true, ...identity, brand, mappingId: rule.id };
 }
@@ -381,11 +471,12 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
   return after;
 }
 
-export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: string; page?: number; pageSize?: number } = {}) {
+export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: string; category?: string; page?: number; pageSize?: number } = {}) {
   await ensureMarketAdminSchema(db);
-  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits] = await Promise.all([
+  await ensureAnnotationSchema(db);
+  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts] = await Promise.all([
     listMarketMasterData(db, input),
-    listPendingMarketPrices(db, { page: 1, pageSize: 20 }),
+    listPendingMarketPrices(db, { category: input.category, page: 1, pageSize: 20 }),
     listMarketMappings(db),
     listMarketPriceBandVersions(db),
     db.prepare("SELECT * FROM market_download_tasks ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>(),
@@ -395,6 +486,10 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
     db.prepare(`SELECT COUNT(*) total, SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END) cached, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed,
       SUM(CASE WHEN status NOT IN ('ready','failed') THEN 1 ELSE 0 END) pending FROM market_image_cache`).first<Record<string, number | null>>(),
     db.prepare("SELECT * FROM market_master_audit_logs ORDER BY created_at DESC LIMIT 100").all<Record<string, unknown>>(),
+    db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries GROUP BY category ORDER BY count DESC, category LIMIT 200").all<{ value: string; count: number }>(),
+    db.prepare(`SELECT p.id prompt_id, p.category,
+        (SELECT COUNT(*) FROM market_price_snapshots ps WHERE ps.category=p.category AND ps.confirmed_market_price_cents IS NULL AND ps.image_content_sha256<>'') pending_count
+      FROM market_annotation_prompt_versions p WHERE p.status='active' ORDER BY p.category`).all<Record<string, unknown>>(),
   ]);
   return {
     masterData,
@@ -410,6 +505,8 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
       failed: Number(imageCache?.failed ?? 0),
       pending: Number(imageCache?.pending ?? 0),
     },
+    categories: categories.results ?? [],
+    priceRecognition: { prompts: pricePrompts.results ?? [] },
     audits: audits.results ?? [],
   };
 }
@@ -565,12 +662,15 @@ function masterBaseSql() {
       COALESCE(c.content_sha256, ps.image_content_sha256, '') image_content_sha256,
       ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps, ps.ai_reason,
       ps.confirmed_market_price_cents official_market_price_cents,
-      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) candidate_price_cents,
-      CASE WHEN ps.source_price_cents IS NOT NULL THEN 'source_table'
+      CASE WHEN ps.confirmation_status='ai_pending' AND ps.ai_image_price_cents IS NOT NULL THEN ps.ai_image_price_cents
+        ELSE COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) END candidate_price_cents,
+      CASE WHEN ps.confirmation_status='ai_pending' AND ps.ai_image_price_cents IS NOT NULL THEN 'ai_suggestion'
+        WHEN ps.source_price_cents IS NOT NULL THEN 'source_table'
         WHEN ps.average_transaction_price_cents IS NOT NULL THEN 'average_transaction'
         WHEN ps.ai_image_price_cents IS NOT NULL THEN 'ai_suggestion'
         ELSE 'missing' END candidate_price_source,
       ps.average_transaction_price_cents, ps.price_low_cents, ps.price_high_cents, COALESCE(ps.confirmation_status,'missing') confirmation_status,
+      bs.ai_brand suggested_brand, COALESCE(bs.status, '') brand_suggestion_status,
       ${officialPriceBandSql("ps.confirmed_market_price_cents", {
         confirmationStatusSql: "ps.confirmation_status",
         aiPriceTypeSql: "ps.ai_price_type",
@@ -579,6 +679,7 @@ function masterBaseSql() {
       })} price_band
     FROM market_ranking_entries m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+    LEFT JOIN market_brand_suggestions bs ON bs.category=m.category AND bs.scope=m.scope AND bs.ranking_dimension=m.ranking_dimension AND bs.sku_code=m.sku_code
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;
 }
 
@@ -692,6 +793,8 @@ function mapMasterRow(row: Record<string, string | number | null>) {
     aiConfidenceBps: row.ai_confidence_bps === null ? null : Number(row.ai_confidence_bps),
     aiReason: String(row.ai_reason ?? ""),
     confirmationStatus: String(row.confirmation_status ?? "missing"),
+    suggestedBrand: String(row.suggested_brand ?? ""),
+    brandSuggestionStatus: String(row.brand_suggestion_status ?? ""),
     priceBand: String(row.price_band ?? unknownPriceBand),
   };
 }

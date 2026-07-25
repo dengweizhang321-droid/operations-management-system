@@ -146,6 +146,23 @@ export const marketBaseSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS market_brand_suggestions (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
+    sku_code TEXT NOT NULL,
+    product_name TEXT NOT NULL DEFAULT '',
+    current_brand TEXT NOT NULL DEFAULT '',
+    ai_brand TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'ai_pending',
+    model_id TEXT NOT NULL DEFAULT '',
+    error_message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    confirmed_by TEXT NOT NULL DEFAULT '',
+    confirmed_at TEXT
+  )`,
   `CREATE TABLE IF NOT EXISTS market_download_configs (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -277,6 +294,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_price_band_versions_lookup_idx ON market_price_band_versions (category, status, effective_from, version)`,
   `CREATE INDEX IF NOT EXISTS market_price_band_items_version_idx ON market_price_band_items (version_id, sort_order)`,
   `CREATE INDEX IF NOT EXISTS market_master_mapping_rules_kind_idx ON market_master_mapping_rules (kind, category, status, effective_from)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_brand_suggestions_identity_uq ON market_brand_suggestions (category, scope, ranking_dimension, sku_code)`,
+  `CREATE INDEX IF NOT EXISTS market_brand_suggestions_status_idx ON market_brand_suggestions (status, category, updated_at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_configs_unique_uq ON market_download_configs (category, scope, ranking_dimension, month_start, month_end)`,
   `CREATE INDEX IF NOT EXISTS market_download_configs_status_idx ON market_download_configs (status, category, scope, ranking_dimension)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, scope, month, ranking_dimension)`,
@@ -312,7 +331,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return changed;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v1";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v2";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {
