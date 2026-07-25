@@ -7,6 +7,7 @@ import {
 } from "@/lib/market/database";
 import { parseMarketRows } from "@/lib/market/parser";
 import { cacheMarketImages } from "@/lib/market/image-cache";
+import { matchImportedMarketBrands, refreshSystemMarketBrandSeeds } from "@/lib/market/brand-seeds";
 
 export { parseMarketRows } from "@/lib/market/parser";
 
@@ -19,6 +20,7 @@ export async function importMarketFile(input: {
   defaultEndDate: string;
   defaultCategory?: string;
   defaultScope?: string;
+  actorEmail?: string;
 }) {
   const db = getMarketDatabase();
   await ensureMarketSchema(db);
@@ -35,6 +37,8 @@ export async function importMarketFile(input: {
     await db.prepare("DELETE FROM market_import_batches WHERE id = ? AND status <> 'completed'").bind(existing.id).run();
   }
   const parsed = parseMarketRows(input);
+  const brandSeedRefresh = await refreshSystemMarketBrandSeeds(db, input.actorEmail?.trim() || "market-import");
+  const brandMatch = await matchImportedMarketBrands(db, parsed.rows);
   const batch = await saveMarketImport({
     db,
     batchId: `market-${randomUUID()}`,
@@ -43,9 +47,17 @@ export async function importMarketFile(input: {
     fileSizeBytes: input.fileSizeBytes,
     fileHash,
     sheetName: parsed.sheetName,
-    rows: parsed.rows,
+    rows: brandMatch.rows,
     warnings: parsed.warnings,
   });
   const imageCache = await cacheMarketImages({ db, batchId: batch.id, limit: 4 });
-  return { ok: true, status: "imported" as const, message: `成功导入 ${batch.rowCount} 条市场商品数据`, batch, imageCache };
+  return {
+    ok: true,
+    status: "imported" as const,
+    message: `成功导入 ${batch.rowCount} 条市场商品数据，系统品牌种子自动匹配 ${brandMatch.summary.matched} 条`,
+    batch,
+    imageCache,
+    brandSeedRefresh,
+    brandMatch: brandMatch.summary,
+  };
 }

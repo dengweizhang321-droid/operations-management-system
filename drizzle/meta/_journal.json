@@ -204,6 +204,13 @@
       "when": 1784990400000,
       "tag": "0028_market_brand_recognition_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1784994000000,
+      "tag": "0029_market_brand_seeds",
+      "breakpoints": true
     }
   ]
 }

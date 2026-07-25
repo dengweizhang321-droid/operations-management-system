@@ -129,9 +129,26 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /remainingCount/);
   assert.match(source, /run_brand_recognition_job_batch/);
   assert.match(source, /create_brand_recognition_job/);
+  assert.match(source, /品牌种子词典/);
+  assert.match(source, /未知品牌 SKU 清单/);
+  assert.match(source, /refresh_brand_seeds/);
+  assert.match(source, /match_brand_seeds/);
   assert.match(source, /market-master-product-grid/);
   assert.match(service, /market_brand_suggestions/);
   assert.match(service, /PARTITION BY m\.category, m\.scope, m\.ranking_dimension, m\.sku_code/);
+});
+
+test("market imports automatically match enabled brand seeds", async () => {
+  const [service, matcher] = await Promise.all([
+    readFile(new URL("../lib/market/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/brand-seeds.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(service, /matchImportedMarketBrands/);
+  assert.match(service, /refreshSystemMarketBrandSeeds/);
+  assert.match(service, /brandMatch\.rows/);
+  assert.match(matcher, /title_prefix/);
+  assert.match(matcher, /title_anywhere/);
+  assert.match(matcher, /京东自营/);
 });
 
 test("市场数据使用默认周期并阻止同周期重复 SKU", () => {

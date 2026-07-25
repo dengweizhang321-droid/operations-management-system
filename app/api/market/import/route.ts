@@ -14,7 +14,7 @@ function today() {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data")) {
       return Response.json({ error: "请使用上传表单提交市场数据文件" }, { status: 415 });
     }
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       defaultEndDate: periodEnd,
       defaultCategory: formText(form, "category"),
       defaultScope: formText(form, "scope", "全部"),
+      actorEmail: principal.email,
     });
     return Response.json(payload, { status: payload.status === "imported" ? 201 : 200 });
   } catch (error) {

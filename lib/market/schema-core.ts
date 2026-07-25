@@ -183,6 +183,19 @@ export const marketBaseSchemaStatements = [
     lease_token TEXT NOT NULL DEFAULT '',
     lease_expires_at TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS market_brand_seeds (
+    id TEXT PRIMARY KEY NOT NULL,
+    canonical_brand TEXT NOT NULL,
+    seed_text TEXT NOT NULL,
+    normalized_seed TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'manual',
+    source_ref TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'enabled',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_refreshed_at TEXT
+  )`,
   `CREATE TABLE IF NOT EXISTS market_download_configs (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -318,6 +331,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_brand_suggestions_status_idx ON market_brand_suggestions (status, category, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_brand_recognition_jobs_filter_idx ON market_brand_recognition_jobs (category, query_text, created_at)`,
   `CREATE INDEX IF NOT EXISTS market_brand_recognition_jobs_status_idx ON market_brand_recognition_jobs (status, updated_at)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_brand_seeds_normalized_uq ON market_brand_seeds (normalized_seed)`,
+  `CREATE INDEX IF NOT EXISTS market_brand_seeds_lookup_idx ON market_brand_seeds (status, canonical_brand, source)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_configs_unique_uq ON market_download_configs (category, scope, ranking_dimension, month_start, month_end)`,
   `CREATE INDEX IF NOT EXISTS market_download_configs_status_idx ON market_download_configs (status, category, scope, ranking_dimension)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_download_tasks_unique_uq ON market_download_tasks (category, scope, month, ranking_dimension)`,
@@ -353,7 +368,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return changed;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v3";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v4";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {

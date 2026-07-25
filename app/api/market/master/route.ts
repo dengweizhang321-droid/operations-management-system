@@ -9,6 +9,7 @@ import {
   createMarketPriceBandVersion,
   getMarketMasterWorkspace,
   getMarketBrandRecognitionJob,
+  getMarketBrandSeedWorkspace,
   getMarketSkuComparison,
   listMarketMasterData,
   listPendingMarketPrices,
@@ -16,11 +17,14 @@ import {
   publishMarketPriceBandVersion,
   recordMarketDownloadAttempt,
   recognizeNextMarketBrandBatch,
+  refreshMarketBrandSeeds,
   runMarketBrandRecognitionJobBatch,
   setMarketBrandRecognitionJobStatus,
+  matchMarketBrandSeeds,
   suggestMarketBrand,
   rollbackMarketPriceBandVersion,
   upsertMarketDownloadConfig,
+  upsertMarketBrandSeed,
   upsertMarketMapping,
 } from "@/lib/market/admin-service";
 import { createAnnotationJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
@@ -83,6 +87,14 @@ export async function GET(request: Request) {
       return Response.json(await getMarketBrandRecognitionJob(db, {
         q: params.get("q") ?? undefined,
         category: params.get("category") ?? undefined,
+      }), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "brand_seeds") {
+      return Response.json(await getMarketBrandSeedWorkspace(db, {
+        q: params.get("q") ?? undefined,
+        category: params.get("category") ?? undefined,
+        page: numberParam(params, "page", 1),
+        pageSize: numberParam(params, "pageSize", 30),
       }), { headers: { "cache-control": "no-store" } });
     }
     return Response.json(await getMarketMasterWorkspace(db, {
@@ -169,6 +181,22 @@ export async function POST(request: Request) {
           skuCode: text(parsed, "skuCode"),
           brand: text(parsed, "brand"),
         }, principal);
+        break;
+      case "refresh_brand_seeds":
+        result = await refreshMarketBrandSeeds(db, principal);
+        break;
+      case "upsert_brand_seed":
+        result = await upsertMarketBrandSeed(db, {
+          canonicalBrand: text(parsed, "canonicalBrand"),
+          seedText: text(parsed, "seedText"),
+          category: text(parsed, "category"),
+          scope: text(parsed, "scope"),
+          rankingDimension: text(parsed, "rankingDimension"),
+          skuCode: text(parsed, "skuCode"),
+        }, principal);
+        break;
+      case "match_brand_seeds":
+        result = await matchMarketBrandSeeds(db, { category: text(parsed, "category") || undefined }, principal);
         break;
       case "create_price_recognition_job":
         result = await createAnnotationJob(db, {

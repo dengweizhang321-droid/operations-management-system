@@ -13,15 +13,20 @@ import {
   createMarketPriceBandVersion,
   getMarketSkuComparison,
   getMarketBrandRecognitionJob,
+  getMarketBrandSeedWorkspace,
+  matchMarketBrandSeeds,
   planMissingMarketDownloads,
   publishMarketPriceBandVersion,
   recordMarketDownloadAttempt,
+  refreshMarketBrandSeeds,
   rollbackMarketPriceBandVersion,
   setMarketBrandRecognitionJobStatus,
   upsertMarketDownloadConfig,
+  upsertMarketBrandSeed,
   upsertMarketMapping,
 } from "../lib/market/admin-service";
 import { executeMarketDownloadTask } from "../lib/market/download-executor";
+import { matchMarketBrandTitle, type MarketBrandSeed } from "../lib/market/brand-seeds";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
@@ -52,6 +57,55 @@ function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
 }
 
 const admin = { email: "admin@example.com", role: "admin" } as const;
+
+test("brand seed matching prefers the earliest title brand and protects short ASCII seeds", () => {
+  const seed = (canonicalBrand: string, seedText: string): MarketBrandSeed => ({
+    id: seedText, canonicalBrand, seedText, normalizedSeed: seedText.toLowerCase(), source: "system", sourceRef: "test", status: "enabled",
+  });
+  const seeds = [seed("DEMASHI", "DEMASHI"), seed("德玛仕", "德玛仕"), seed("CK", "CK")];
+  assert.equal(matchMarketBrandTitle("德玛仕（DEMASHI）商用净水器", seeds, "title_anywhere")?.brand, "德玛仕");
+  assert.equal(matchMarketBrandTitle("BLACK 商用设备", seeds, "title_anywhere"), null);
+});
+
+test("system brand seeds refresh and apply B-store prefix versus C-store anywhere rules", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE erp_product_master (brand TEXT NOT NULL DEFAULT '');
+    INSERT INTO erp_product_master (brand) VALUES ('品牌甲'), ('配件');
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, raw_json, last_import_batch_id)
+    VALUES
+      ('seed-b-prefix',1,'2026-06-01','2026-06-30','净水','B店','SKU','自营','B-PREFIX','品牌甲商用净水机','', '{"店铺类型":"B店"}','batch'),
+      ('seed-b-late',2,'2026-06-01','2026-06-30','净水','B店','SKU','自营','B-LATE','商用净水机品牌甲','', '{"店铺类型":"B店"}','batch'),
+      ('seed-c-late',3,'2026-06-01','2026-06-30','净水','C店','SKU','POP','C-LATE','商用净水机品牌甲','', '{"店铺类型":"C店"}','batch');`);
+
+  const refreshed = await refreshMarketBrandSeeds(db as never, admin);
+  assert.equal(refreshed.discovered, 1);
+  assert.equal(refreshed.inserted, 1);
+  const matched = await matchMarketBrandSeeds(db as never, { category: "净水" }, admin);
+  assert.deepEqual({
+    scanned: matched.scanned,
+    matchedSkuCount: matched.matchedSkuCount,
+    prefixMatched: matched.prefixMatched,
+    anywhereMatched: matched.anywhereMatched,
+    remainingSkuCount: matched.remainingSkuCount,
+  }, { scanned: 3, matchedSkuCount: 2, prefixMatched: 1, anywhereMatched: 1, remainingSkuCount: 1 });
+  assert.equal((sqlite.prepare("SELECT brand FROM market_ranking_entries WHERE sku_code='B-PREFIX'").get() as { brand: string }).brand, "品牌甲");
+  assert.equal((sqlite.prepare("SELECT brand FROM market_ranking_entries WHERE sku_code='B-LATE'").get() as { brand: string }).brand, "");
+  assert.equal((sqlite.prepare("SELECT brand FROM market_ranking_entries WHERE sku_code='C-LATE'").get() as { brand: string }).brand, "品牌甲");
+
+  let workspace = await getMarketBrandSeedWorkspace(db as never, { category: "净水" });
+  assert.equal(workspace.dictionary.counts.system, 1);
+  assert.equal(workspace.unknown.pagination.total, 1);
+  await upsertMarketBrandSeed(db as never, {
+    canonicalBrand: "品牌乙", seedText: "品牌乙", category: "净水", scope: "B店",
+    rankingDimension: "SKU", skuCode: "B-LATE",
+  }, admin);
+  workspace = await getMarketBrandSeedWorkspace(db as never, { category: "净水" });
+  assert.equal(workspace.dictionary.counts.manual, 1);
+  assert.equal(workspace.unknown.pagination.total, 0);
+});
 
 test("brand recognition jobs count unique pending identities and persist pause/resume progress", async () => {
   const sqlite = new DatabaseSync(":memory:");

@@ -3,6 +3,14 @@ import { runPromptTextCompletion } from "@/lib/market/annotation-model";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
+import {
+  applyManualBrandSeedToIdentity,
+  listMarketBrandSeeds,
+  listUnknownMarketBrands,
+  matchExistingUnknownMarketBrands,
+  refreshSystemMarketBrandSeeds,
+  upsertManualMarketBrandSeed,
+} from "@/lib/market/brand-seeds";
 
 export type MarketPrincipal = Pick<AppPrincipal, "email" | "role">;
 export type MarketDimension = "SKU" | "SPU";
@@ -30,6 +38,55 @@ type CountRow = { count: number };
 
 export async function ensureMarketAdminSchema(db: MarketDatabase) {
   await ensureMarketSchemaCached(db);
+}
+
+export async function getMarketBrandSeedWorkspace(db: MarketDatabase, input: {
+  q?: string; category?: string; page?: number; pageSize?: number;
+} = {}) {
+  await ensureMarketAdminSchema(db);
+  const [dictionary, unknown] = await Promise.all([
+    listMarketBrandSeeds(db, { q: input.q }),
+    listUnknownMarketBrands(db, input),
+  ]);
+  return { dictionary, unknown };
+}
+
+export async function refreshMarketBrandSeeds(db: MarketDatabase, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const result = await refreshSystemMarketBrandSeeds(db, actor.email);
+  await audit(db, actor, "refresh_market_brand_seeds", "market_brand_seed", "system", null, result);
+  return result;
+}
+
+export async function upsertMarketBrandSeed(db: MarketDatabase, input: {
+  canonicalBrand: string; seedText: string; category?: string; scope?: string;
+  rankingDimension?: string; skuCode?: string;
+}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const canonicalBrand = requiredText(input.canonicalBrand, 120);
+  const seedText = requiredText(input.seedText, 120);
+  const saved = await upsertManualMarketBrandSeed(db, { canonicalBrand, seedText, actorEmail: actor.email });
+  let appliedRows = 0;
+  if (input.category && input.scope && input.rankingDimension && input.skuCode) {
+    appliedRows = await applyManualBrandSeedToIdentity(db, {
+      category: requiredText(input.category, 120),
+      scope: requiredText(input.scope, 120),
+      rankingDimension: dimension(input.rankingDimension),
+      skuCode: requiredText(input.skuCode, 80),
+      brand: canonicalBrand,
+    });
+  }
+  const result = { seed: saved.after, appliedRows };
+  await audit(db, actor, "upsert_market_brand_seed", "market_brand_seed", saved.id, saved.before, result);
+  return result;
+}
+
+export async function matchMarketBrandSeeds(db: MarketDatabase, input: { category?: string } = {}, actor: MarketPrincipal) {
+  await ensureMarketAdminSchema(db);
+  const category = optionalText(input.category, 120) ?? "";
+  const result = await matchExistingUnknownMarketBrands(db, { category });
+  await audit(db, actor, "match_market_brand_seeds", "market_ranking_entries", category || "*", null, result);
+  return result;
 }
 
 export async function listMarketMasterData(db: MarketDatabase, input: {
@@ -615,7 +672,7 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
 export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: string; category?: string; page?: number; pageSize?: number } = {}) {
   await ensureMarketAdminSchema(db);
   await ensureAnnotationSchema(db);
-  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts, brandRecognitionJob] = await Promise.all([
+  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts, brandRecognitionJob, brandSeeds] = await Promise.all([
     listMarketMasterData(db, input),
     listPendingMarketPrices(db, { category: input.category, page: 1, pageSize: 20 }),
     listMarketMappings(db),
@@ -632,6 +689,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
         (SELECT COUNT(*) FROM market_price_snapshots ps WHERE ps.category=p.category AND ps.confirmed_market_price_cents IS NULL AND ps.image_content_sha256<>'') pending_count
       FROM market_annotation_prompt_versions p WHERE p.status='active' ORDER BY p.category`).all<Record<string, unknown>>(),
     getMarketBrandRecognitionJob(db, { q: input.q, category: input.category }),
+    getMarketBrandSeedWorkspace(db, input),
   ]);
   return {
     masterData,
@@ -650,6 +708,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
     categories: categories.results ?? [],
     priceRecognition: { prompts: pricePrompts.results ?? [] },
     brandRecognitionJob,
+    brandSeeds,
     audits: audits.results ?? [],
   };
 }
