@@ -88,6 +88,20 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
   assert.match(view, /accept="\.xls,\.xlsx,\.csv"/);
 });
 
+test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
+  const view = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  for (const label of ["商品榜单", "市场概括", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
+  assert.match(view, /useState<MarketSectionKey>\("ranking"\)/);
+  assert.match(view, /activeSection === "ranking"/);
+  assert.match(view, /activeSection === "overview"/);
+  assert.match(view, /activeSection === "compare"/);
+  assert.match(view, /activeSection === "settings"/);
+  assert.match(view, /<CompareWorkspace/);
+  assert.match(view, /<MarketMasterAdminPanel currentUser=\{currentUser\}/);
+  assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\}/);
+  assert.match(view, /市场分析 → 系统和 AI 设置/);
+});
+
 test("市场数据使用默认周期并阻止同周期重复 SKU", () => {
   const result = parseMarketRows({
     bytes: csvBytes([

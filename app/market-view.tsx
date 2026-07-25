@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import MarketAnnotationView from "./market-annotation-view";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type FilterOption = { value: string; count: number };
@@ -55,6 +56,7 @@ type MarketMasterWorkspace = {
   audits: Array<Record<string, string | number | null>>;
   error?: string;
 };
+type MarketSectionKey = "ranking" | "overview" | "compare" | "settings";
 
 const money = (cents?: number | null) => cents === null || cents === undefined
   ? "-"
@@ -90,6 +92,20 @@ function SearchMultiFilter({ label, values, options, onChange }: { label: string
 
 function KpiCard({ label, value, note, tone }: { label: string; value: string; note: string; tone: string }) {
   return <article className="panel"><span className={`market-kpi-dot ${tone}`} /><small>{label}</small><strong>{value}</strong><p>{note}</p></article>;
+}
+
+function MarketSectionNav({ active, compareCount, onChange }: { active: MarketSectionKey; compareCount: number; onChange: (section: MarketSectionKey) => void }) {
+  const sections: Array<{ key: MarketSectionKey; number: string; label: string; note: string }> = [
+    { key: "ranking", number: "01", label: "商品榜单", note: "TOP 商品、成交数据与单品趋势" },
+    { key: "overview", number: "02", label: "市场概括", note: "规模、价格带、品牌与细分类目" },
+    { key: "compare", number: "03", label: "竞品对比", note: "2–5 个 SKU 的指标与趋势对照" },
+    { key: "settings", number: "04", label: "系统和 AI 设置", note: "主数据、导入、映射与 AI 工作流" },
+  ];
+  return <nav className="panel market-section-nav" aria-label="市场分析子板块">
+    {sections.map((section) => <button type="button" key={section.key} className={active === section.key ? "active" : ""} aria-current={active === section.key ? "page" : undefined} onClick={() => onChange(section.key)}>
+      <span>{section.number}</span><div><strong>{section.label}</strong><small>{section.note}</small></div>{section.key === "compare" && compareCount > 0 ? <em>{compareCount}</em> : <i>›</i>}
+    </button>)}
+  </nav>;
 }
 
 function MarketKpis({ data }: { data: MarketOverview }) {
@@ -163,9 +179,9 @@ function SubcategorySection({ data }: { data: MarketOverview }) {
   </section>;
 }
 
-function RankingTable({ items, compareIds, onToggleCompare, onTrend }: { items: MarketItem[]; compareIds: string[]; onToggleCompare: (sku: string) => void; onTrend: (item: MarketItem) => void }) {
+function RankingTable({ items, compareIds, onToggleCompare, onTrend, onOpenCompare }: { items: MarketItem[]; compareIds: string[]; onToggleCompare: (sku: string) => void; onTrend: (item: MarketItem) => void; onOpenCompare: () => void }) {
   return <section className="panel market-table-panel">
-    <div className="section-header"><div><h2>商品榜单</h2><p>标题下方固定展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><span className="soft-tag">显示 {count(items.length)} 条</span></div>
+    <div className="section-header"><div><h2>商品榜单</h2><p>标题下方固定展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><div className="market-ranking-actions"><span className="soft-tag">显示 {count(items.length)} 条</span><button type="button" className="secondary-button" disabled={compareIds.length < 2} onClick={onOpenCompare}>进入竞品对比{compareIds.length ? `（${compareIds.length}）` : ""}</button></div></div>
     <div className="data-table-wrap"><table className="data-table market-ranking-table market-ranking-table-v2"><thead><tr>
       <th>对比</th><th>排名</th><th>商品主图和标题</th><th>销售额</th><th>成交件数</th><th>市场定位价（主图）</th><th>成交均价</th><th>访客</th><th>转化率</th><th>排名变化</th><th>趋势操作</th>
     </tr></thead><tbody>{items.map((item) => <tr key={item.id}>
@@ -208,15 +224,8 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
   </section></div>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function CompareFloating({ items, compareIds, onClear }: { items: MarketItem[]; compareIds: string[]; onClear: () => void }) {
-  const selected = useMemo(() => compareIds.map((sku) => items.find((item) => item.skuCode === sku)).filter(Boolean) as MarketItem[], [compareIds, items]);
-  if (selected.length < 2) return null;
-  return <div className="market-compare-floating"><strong>已选择 {selected.length} 个 SKU</strong><div>{selected.map((item) => <span key={item.skuCode}>{item.productName || item.skuCode}</span>)}</div><button type="button" onClick={onClear}>清空</button></div>;
-}
-
-function CompareFloatingLive({ items, compareIds, onClear, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
-  items: MarketItem[]; compareIds: string[]; onClear: () => void;
+function CompareWorkspace({ items, compareIds, onClear, onToggleCompare, onGoRanking, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
+  items: MarketItem[]; compareIds: string[]; onClear: () => void; onToggleCompare: (sku: string) => void; onGoRanking: () => void;
   categories: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
   startDate: string; endDate: string;
 }) {
@@ -247,23 +256,28 @@ function CompareFloatingLive({ items, compareIds, onClear, categories, rankingDi
       .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "商品对比读取失败"); });
     return () => controller.abort();
   }, [compareIds, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate, selected]);
-  if (selected.length < 2) return null;
+  if (selected.length < 2) return <section className="panel market-compare-workspace market-compare-empty">
+    <div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>请先从商品榜单勾选 2–5 个 SKU。系统将使用当前筛选口径，对比销售额、成交件数、主图价格、成交均价、访客、转化率、排名和月度趋势。</p></div>
+    <div className="market-compare-selection"><strong>已选择 {selected.length} / 5</strong>{selected.map((item) => <button type="button" key={item.skuCode} onClick={() => onToggleCompare(item.skuCode)}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
+    <button type="button" className="primary-button" onClick={onGoRanking}>前往商品榜单选择</button>
+  </section>;
   const compared = data?.items ?? [];
   const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.map((row) => Number(row.gmvCents ?? 0))));
-  return <div className="market-compare-floating market-compare-floating-expanded">
-    <header><strong>已选择 {selected.length} 个 SKU</strong><button type="button" onClick={onClear}>清空</button></header>
+  return <section className="panel market-compare-workspace">
+    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>当前筛选条件会同步应用到所选 SKU 的完整汇总和月度趋势。</p></div><div><strong>已选择 {selected.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
+    <div className="market-compare-selection">{selected.map((item) => <button type="button" key={item.skuCode} onClick={() => onToggleCompare(item.skuCode)}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
     {error && <small className="red-text">{error}</small>}
     {!data && !error && <small>正在读取对比数据...</small>}
     {data && <div className="market-compare-grid market-compare-grid-live">
       <div className="metric-labels"><strong>指标</strong>{["销售额", "成交件数", "市场定位价", "成交均价", "访客", "转化率", "最好排名", "月度趋势"].map((label) => <span key={label}>{label}</span>)}</div>
       {compared.map((item) => <article key={item.skuCode}>
-        <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.brand || "-"} · {item.rankingDimension}</small>
+        <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.brand || "-"} · {item.rankingDimension}</small><button type="button" aria-label={`移除 ${item.productName || item.skuCode}`} onClick={() => onToggleCompare(item.skuCode)}>×</button>
         <span>{money(item.gmvCents)}</span><span>{count(item.quantity)}</span><span>{money(item.marketPriceCents)}</span><span>{money(item.averageTransactionPriceCents)}</span>
         <span>{count(item.visitors)}</span><span>{percent(item.conversionBps)}</span><span>{item.bestRank ? `#${item.bestRank}` : "-"}</span>
         <span><i className="market-compare-spark">{item.trend.slice(-12).map((row) => <b key={String(row.month)} style={{ height: `${Math.max(4, Number(row.gmvCents ?? 0) / maxTrend * 28)}px` }} title={`${String(row.month)} ${money(Number(row.gmvCents ?? 0))}`} />)}</i></span>
       </article>)}
     </div>}
-  </div>;
+  </section>;
 }
 
 export function MarketDataImportPanel({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketOverview | null; onImported?: () => void }) {
@@ -306,7 +320,7 @@ export function MarketDataImportPanel({ currentUser, data, onImported }: { curre
     } catch (reason) { setError(reason instanceof Error ? reason.message : "导入失败"); }
     finally { setBusy(false); }
   };
-  return <section className="panel market-import-card"><div className="section-header"><div><h2>市场数据导入</h2><p>位于系统设置 → 主数据与映射；导入会保留原榜单、图片缓存和已确认价格。</p></div></div>
+  return <section className="panel market-import-card"><div className="section-header"><div><h2>市场数据导入</h2><p>位于市场分析 → 系统和 AI 设置；导入会保留原榜单、图片缓存和已确认价格。</p></div></div>
     {!currentUser || currentUser.role !== "admin" ? <div className="market-import-permission">仅管理员可导入市场数据。</div> : <>
       {(feedback || error) && <div className={`market-feedback ${error ? "error" : "success"}`}>{error || feedback}</div>}
       <div className="market-import-form">
@@ -434,7 +448,7 @@ export function MarketMasterAdminPanel({ currentUser }: { currentUser: CurrentUs
   </section>;
 }
 
-export default function MarketView({ customStartDate, customEndDate }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser }) {
+export default function MarketView({ customStartDate, customEndDate, currentUser }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser }) {
   const [data, setData] = useState<MarketOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -447,6 +461,7 @@ export default function MarketView({ customStartDate, customEndDate }: { customS
   const [priceBands, setPriceBands] = useState<string[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
+  const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
   const [reloadKey, setReloadKey] = useState(0);
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -475,9 +490,16 @@ export default function MarketView({ customStartDate, customEndDate }: { customS
   if (loading && !data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
   if (error && !data) return <section className="panel data-state"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
   if (!data) return null;
+  const sectionCopy: Record<Exclude<MarketSectionKey, "settings">, { eyebrow: string; title: string; note: string }> = {
+    ranking: { eyebrow: "PRODUCT RANKING", title: "商品榜单工作台", note: "查看 TOP 商品表现、成交均价、主图价格、排名变化和单品趋势。" },
+    overview: { eyebrow: "MARKET OVERVIEW", title: "市场概括", note: "按当前 TOP 榜单覆盖口径汇总规模、价格带、品牌竞争和细分类目。" },
+    compare: { eyebrow: "COMPETITOR BENCHMARK", title: "竞品对比", note: "使用统一筛选口径挑选 2–5 个 SKU，进行核心指标和月度趋势对照。" },
+  };
+  const activeCopy = activeSection === "settings" ? null : sectionCopy[activeSection];
   return <div className="market-module">
-    <section className="panel market-filter-bar market-filter-bar-v2">
-      <div><span className="eyebrow">MARKET INTELLIGENCE 2.0</span><h2>市场分析看板</h2><p>所有指标均为当前 TOP 榜单覆盖口径，不能描述为完整行业市场。</p></div>
+    <MarketSectionNav active={activeSection} compareCount={compareIds.length} onChange={setActiveSection} />
+    {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
+      <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p></div>
       <div className="market-filter-controls market-filter-controls-v2">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品标题或 SKU" aria-label="搜索商品标题或 SKU" />
         <SearchMultiFilter label="类目" values={categories} options={data.filters.categories} onChange={setCategories} />
@@ -488,15 +510,24 @@ export default function MarketView({ customStartDate, customEndDate }: { customS
         <SearchMultiFilter label="价格带" values={priceBands} options={data.filters.priceBands} onChange={setPriceBands} />
       </div>
       <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 SKU {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
-    </section>
+    </section>}
     {error && <div className="market-feedback error">{error}</div>}
-    <MarketKpis data={data} />
-    <TrendSection data={data} />
-    <PriceBandSection data={data} />
-    <BrandSection data={data} />
-    <SubcategorySection data={data} />
-    <RankingTable items={data.items} compareIds={compareIds} onToggleCompare={toggleCompare} onTrend={setTrendItem} />
-    <CompareFloatingLive items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={customStartDate} endDate={customEndDate} />
+    {activeSection === "ranking" && <RankingTable items={data.items} compareIds={compareIds} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
+    {activeSection === "overview" && <>
+      <MarketKpis data={data} />
+      <TrendSection data={data} />
+      <PriceBandSection data={data} />
+      <BrandSection data={data} />
+      <SubcategorySection data={data} />
+    </>}
+    {activeSection === "compare" && <CompareWorkspace items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} onToggleCompare={toggleCompare} onGoRanking={() => setActiveSection("ranking")} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={customStartDate} endDate={customEndDate} />}
+    {activeSection === "settings" && <section className="market-settings-workspace">
+      <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>统一维护 TOP SKU/SPU 主数据、榜单导入、字段映射、价格带、自动下载任务、图片价格识别和人工确认。这里的配置会直接映射到商品榜单和市场概括。</p></div><div><span><strong>{count(data.summary.activeSkuCount)}</strong>有效 SKU</span><span><strong>{count(data.summary.pendingAiCount)}</strong>待确认 AI 数据</span><span><strong>{count(data.imageCache.pending)}</strong>待缓存图片</span></div></article>
+      <MarketMasterAdminPanel currentUser={currentUser} />
+      <MarketDataImportPanel currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />
+      <MarketWorkflowPanel data={data} />
+      <MarketAnnotationView currentUser={currentUser} />
+    </section>}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
   </div>;
 }
