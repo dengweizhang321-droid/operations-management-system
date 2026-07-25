@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -96,7 +96,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
     readFile(new URL("../tools/market-annotation-runner.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"),
   ]);
-  assert.match(route, /adminActions.*commit.*activate_prompt.*create_agent/s);
+  assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
   assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
   assert.match(worker, /authenticateLocalAgent/);
   assert.match(worker, /annotationAgentErrorResponse/);
@@ -108,6 +108,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /ROW_NUMBER\(\) OVER \(PARTITION BY m\.category, m\.sku_code/);
   assert.match(service, /m\.sku_code LIKE \?.*a\.segment LIKE \?/s);
   assert.match(service, /lease_token_hash/);
+  assert.match(service, /status<>'deleted'/);
   assert.match(model, /type: "image_url"/);
   assert.match(model, /response_format: \{ type: "json_schema"/);
   assert.match(model, /tool_choice: \{ type: "tool"/);
@@ -137,6 +138,41 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(runner, /readLimitedBody\(response, OLLAMA_RESPONSE_MAX_BYTES\)/);
   assert.doesNotMatch(runner, /payload\?\.error \|\| \("Ollama/);
   for (const table of ["market_annotation_jobs", "market_annotation_items", "market_sku_annotations", "market_annotation_commit_receipts", "market_annotation_prompt_versions", "market_annotation_validation_samples", "market_annotation_validation_runs", "market_annotation_validation_results", "market_annotation_local_agents"]) assert.match(migration, new RegExp(table));
+});
+
+test("prompt deletion is admin-audited, soft, and blocked after task use", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  for (const migration of ["../drizzle/0016_market_sku_annotations.sql", "../drizzle/0017_market_annotation_reliability.sql"]) sqlite.exec(await readFile(new URL(migration, import.meta.url), "utf8"));
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('draft-1','净水设备',1,'manual','draft','["RO净水机","其他"]','这是一个尚未激活且长度足够的测试 Prompt 正文，用于验证安全删除规则。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('job-1','净水设备','draft-1','cloud','queued',0,'admin@test');
+  `);
+  const db = sqliteAdapter(sqlite);
+  await assert.rejects(() => deletePromptVersion(db, "draft-1", { email: "admin@test", role: "admin" }), /已被任务/);
+  sqlite.prepare("DELETE FROM market_annotation_jobs WHERE id='job-1'").run();
+  const deleted = await deletePromptVersion(db, "draft-1", { email: "admin@test", role: "admin" });
+  assert.equal(deleted.version, 1);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id='draft-1'").get() as { status: string }).status, "deleted");
+  const audit = sqlite.prepare("SELECT action, reason, actor FROM market_annotation_prompt_audits WHERE prompt_id='draft-1'").get() as { action: string; reason: string; actor: string };
+  assert.deepEqual({ ...audit }, { action: "delete_draft", reason: "管理员删除未使用的 Prompt 草稿", actor: "admin@test" });
+  await assert.rejects(() => deletePromptVersion(db, "draft-1", { email: "admin@test", role: "admin" }), /只能删除/);
+  sqlite.close();
+});
+
+test("an unvalidated prompt activates only with an explicit audited admin reason", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  for (const migration of ["../drizzle/0016_market_sku_annotations.sql", "../drizzle/0017_market_annotation_reliability.sql"]) sqlite.exec(await readFile(new URL(migration, import.meta.url), "utf8"));
+  sqlite.exec(`INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+    VALUES ('draft-activate','净水设备',1,'manual','draft','["RO净水机","其他"]','这是一个没有冻结验证结果、需要管理员显式确认后才能启用的测试 Prompt。','admin@test')`);
+  const db = sqliteAdapter(sqlite);
+  await assert.rejects(() => activatePromptVersion(db, { promptId: "draft-activate" }, { email: "admin@test", role: "admin" }), /尚未通过冻结样本门禁/);
+  await activatePromptVersion(db, { promptId: "draft-activate", explicitOverride: true, reason: "管理员人工确认启用首个版本" }, { email: "admin@test", role: "admin" });
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id='draft-activate'").get() as { status: string }).status, "active");
+  const audit = sqlite.prepare("SELECT action, reason FROM market_annotation_prompt_audits WHERE prompt_id='draft-activate'").get() as { action: string; reason: string };
+  assert.deepEqual({ ...audit }, { action: "activate_override", reason: "管理员人工确认启用首个版本" });
+  sqlite.close();
 });
 
 test("expired local lease is reclaimable and its old token cannot overwrite the new claim", async () => {

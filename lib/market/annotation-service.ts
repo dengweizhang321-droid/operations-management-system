@@ -61,7 +61,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: { jobId?
   const itemPageSize = strictInteger(input.itemPageSize, 100, 10, 200, "itemPageSize");
   const [categoryRows, promptRows, jobRows, items, itemCount, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
+    db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
     db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
     input.jobId ? db.prepare(`SELECT ${itemColumns} FROM market_annotation_items WHERE job_id = ? ORDER BY created_at, id LIMIT ? OFFSET ?`).bind(input.jobId, itemPageSize, (itemPage - 1) * itemPageSize).all<ItemRow>() : Promise.resolve({ results: [] as ItemRow[] }),
     input.jobId ? db.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE job_id=?").bind(input.jobId).first<{ count: number }>() : Promise.resolve({ count: 0 }),
@@ -115,7 +115,7 @@ export async function createPromptVersion(db: MarketDatabase, input: { category:
   let parent: PromptRow | null = null;
   if (input.parentId) {
     parent = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE id = ? LIMIT 1`).bind(input.parentId).first<PromptRow>();
-    if (!parent || parent.category !== category) throw new Error("父 Prompt 版本无效");
+    if (!parent || parent.category !== category || parent.status === "deleted") throw new Error("父 Prompt 版本无效");
   }
   const last = await db.prepare("SELECT MAX(version) version FROM market_annotation_prompt_versions WHERE category = ?").bind(category).first<{ version: number | null }>();
   const id = `market-prompt-${randomUUID()}`;
@@ -536,7 +536,34 @@ export async function activatePromptVersion(db: MarketDatabase, input: { promptI
     db.prepare("UPDATE market_annotation_prompt_versions SET status='active', activated_by=?, activated_at=CURRENT_TIMESTAMP, change_note=CASE WHEN ?<>'' THEN change_note || ' | 激活说明：' || ? ELSE change_note END WHERE id=?").bind(actor.email, input.reason?.trim() ?? "", input.reason?.trim() ?? "", prompt.id),
     db.prepare("INSERT INTO market_annotation_prompt_audits (id, prompt_id, category, action, reason, actor) VALUES (?, ?, ?, ?, ?, ?)").bind("market-prompt-audit-" + randomUUID(), prompt.id, prompt.category, input.rollback ? "rollback" : input.explicitOverride ? "activate_override" : "activate", input.reason?.trim() || "validation_gate_passed", actor.email),
   ]);
+  const activated = await db.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id=?").bind(prompt.id).first<{ status: string }>();
+  if (activated?.status !== "active") throw new Error("Prompt 激活写入未生效，请刷新后重试");
   return { ok: true, promptId: prompt.id, category: prompt.category, gate, explicitOverride: Boolean(input.explicitOverride), rollback: Boolean(input.rollback) };
+}
+
+export async function deletePromptVersion(db: MarketDatabase, promptIdValue: string, actor: Actor) {
+  const promptId = promptIdValue.trim();
+  const prompt = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=?").bind(promptId).first<PromptRow>();
+  if (!prompt) throw new Error("Prompt 版本不存在");
+  if (prompt.status !== "draft") throw new Error("只能删除尚未激活的草稿版本；激活或归档版本必须保留审计记录");
+  const references = await db.prepare(`SELECT
+      (SELECT COUNT(*) FROM market_annotation_jobs WHERE prompt_version_id=?) job_count,
+      (SELECT COUNT(*) FROM market_annotation_validation_runs WHERE candidate_prompt_id=? OR baseline_prompt_id=?) validation_count,
+      (SELECT COUNT(*) FROM market_annotation_validation_results WHERE prompt_version_id=?) validation_result_count,
+      (SELECT COUNT(*) FROM market_sku_annotations WHERE prompt_version_id=?) annotation_count`)
+    .bind(promptId, promptId, promptId, promptId, promptId)
+    .first<{ job_count: number; validation_count: number; validation_result_count: number; annotation_count: number }>();
+  const referenceCount = Number(references?.job_count ?? 0) + Number(references?.validation_count ?? 0)
+    + Number(references?.validation_result_count ?? 0) + Number(references?.annotation_count ?? 0);
+  if (referenceCount > 0) throw new Error("该草稿已被任务、冻结验证或正式标注引用，不能删除");
+  const reason = "管理员删除未使用的 Prompt 草稿";
+  await db.batch([
+    db.prepare("UPDATE market_annotation_prompt_versions SET status='deleted', change_note=CASE WHEN change_note='' THEN ? ELSE change_note || ' | ' || ? END WHERE id=? AND status='draft'").bind(reason, reason, promptId),
+    db.prepare("INSERT INTO market_annotation_prompt_audits (id, prompt_id, category, action, reason, actor) VALUES (?, ?, ?, 'delete_draft', ?, ?)").bind("market-prompt-audit-" + randomUUID(), promptId, prompt.category, reason, actor.email),
+  ]);
+  const deleted = await db.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id=?").bind(promptId).first<{ status: string }>();
+  if (deleted?.status !== "deleted") throw new Error("Prompt 草稿删除未生效，请刷新后重试");
+  return { ok: true, promptId, category: prompt.category, version: prompt.version };
 }
 
 export async function createLocalAgent(db: MarketDatabase, nameValue: string, actor: Actor) {

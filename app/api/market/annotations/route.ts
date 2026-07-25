@@ -4,7 +4,7 @@ import { getMarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
   activatePromptVersion, commitAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
-  createValidationRun, generatePromptVersion, getAnnotationWorkspace, markAnnotationsAsGold,
+  createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationWorkspace, markAnnotationsAsGold,
   revokeLocalAgent, runNextCloudAnnotation, runNextValidation, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const parsed: unknown = await request.json().catch(() => null);
     if (!record(parsed)) return Response.json({ error: "请求数据必须是 JSON 对象" }, { status: 400 });
     const action = text(parsed, "action");
-    const adminActions = new Set(["commit", "activate_prompt", "rollback_prompt", "create_agent", "revoke_agent", "mark_gold"]);
+    const adminActions = new Set(["commit", "activate_prompt", "rollback_prompt", "delete_prompt", "create_agent", "revoke_agent", "mark_gold"]);
     const principal = await requireAppPrincipal(adminActions.has(action) ? ["admin"] : ["operator", "admin"]);
     const db = getMarketDatabase();
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       case "run_validation_next": result = await runNextValidation(db, text(parsed, "runId")); break;
       case "activate_prompt": result = await activatePromptVersion(db, { promptId: text(parsed, "promptId"), explicitOverride: parsed.explicitOverride === true, reason: text(parsed, "reason") }, principal); break;
       case "rollback_prompt": result = await activatePromptVersion(db, { promptId: text(parsed, "promptId"), explicitOverride: true, reason: text(parsed, "reason"), rollback: true }, principal); break;
+      case "delete_prompt": result = await deletePromptVersion(db, text(parsed, "promptId"), principal); break;
       case "mark_gold": result = await markAnnotationsAsGold(db, texts(parsed, "annotationIds"), principal); break;
       case "create_agent": result = await createLocalAgent(db, text(parsed, "name"), principal); break;
       case "revoke_agent": result = await revokeLocalAgent(db, text(parsed, "agentId")); break;
