@@ -126,6 +126,40 @@ export async function createPromptVersion(db: MarketDatabase, input: { category:
   return promptValue(row);
 }
 
+export async function createPromptVersionsForAllCategories(db: MarketDatabase, input: { promptBody: string; changeNote?: string }, actor: Actor) {
+  await ensureAnnotationSchema(db);
+  const promptBody = input.promptBody.trim();
+  if (promptBody.length < 40 || promptBody.length > 12_000) throw new Error("Prompt 正文需在 40 到 12000 字符之间");
+  const categoryRows = await db.prepare("SELECT category FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY category LIMIT 200").all<{ category: string }>();
+  const categories = [...new Set((categoryRows.results ?? []).map((row) => row.category.trim()).filter(Boolean))];
+  if (!categories.length) throw new Error("系统中尚无可应用 Prompt 的三级类目");
+
+  const placeholders = categories.map(() => "?").join(", ");
+  const existingRows = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE category IN (${placeholders}) ORDER BY category, version DESC`)
+    .bind(...categories).all<PromptRow>();
+  const rowsByCategory = new Map<string, PromptRow[]>();
+  for (const row of existingRows.results ?? []) {
+    const rows = rowsByCategory.get(row.category) ?? [];
+    rows.push(row);
+    rowsByCategory.set(row.category, rows);
+  }
+
+  const changeNote = input.changeNote?.trim().slice(0, 500) || "批量应用至全部三级类目";
+  const created = categories.map((category) => {
+    const existing = rowsByCategory.get(category) ?? [];
+    return {
+      id: `market-prompt-${randomUUID()}`,
+      category,
+      version: Number(existing[0]?.version ?? 0) + 1,
+      parentId: existing.find((row) => row.status !== "deleted")?.id ?? null,
+      segments: marketSegmentsForCategory(category),
+    };
+  });
+  await db.batch(created.map((item) => db.prepare("INSERT INTO market_annotation_prompt_versions (id, category, version, parent_id, source, status, segments_json, prompt_body, change_note, created_by) VALUES (?, ?, ?, ?, 'manual_bulk', 'draft', ?, ?, ?, ?)")
+    .bind(item.id, item.category, item.version, item.parentId, JSON.stringify(item.segments), promptBody, changeNote, actor.email)));
+  return { count: created.length, items: created };
+}
+
 export async function generatePromptVersion(db: MarketDatabase, input: { textModelId: string; category: string; segments: unknown; parentId?: string; mode: "generate" | "evolve"; changeNote?: string }, actor: Actor) {
   const segments = normalizeSegments(input.segments);
   const parent = input.parentId ? await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE id = ?`).bind(input.parentId).first<PromptRow>() : null;

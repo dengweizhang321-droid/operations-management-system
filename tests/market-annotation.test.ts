@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPromptVersionsForAllCategories, createValidationRun, deletePromptVersion, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -60,6 +60,34 @@ test("every imported market category has a dedicated starter taxonomy", () => {
     assert.equal(segments.at(-1), "其他");
   }
   assert.deepEqual(marketSegmentsForCategory("未配置类目"), ["主要产品", "配件耗材", "其他"]);
+});
+
+test("one shared prompt can create independent draft versions for every market category", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE market_ranking_entries (category TEXT NOT NULL);
+    INSERT INTO market_ranking_entries (category) VALUES ('商用洗碗机'), ('商用洗碗机'), ('商用净饮水设备');
+    INSERT INTO market_annotation_prompt_versions
+      (id, category, version, source, status, segments_json, prompt_body, created_by)
+    VALUES
+      ('active-1', '商用洗碗机', 1, 'manual', 'active', '["洗碗机","其他"]', '这是一个满足长度要求且已经激活的测试提示词正文，用于验证批量创建时的父版本。', 'admin@test'),
+      ('deleted-2', '商用洗碗机', 2, 'manual', 'deleted', '["洗碗机","其他"]', '这是一个满足长度要求但已经删除的测试提示词正文，用于验证版本号不会重复。', 'admin@test');
+  `);
+  const promptBody = "你是电商商品分类与主图价格识别专家。请严格依据当前三级类目的细分品类枚举输出结构化结果，不得自造类目。";
+  const result = await createPromptVersionsForAllCategories(db, { promptBody }, { email: "operator@test", role: "operator" });
+  assert.equal(result.count, 2);
+  const rows = sqlite.prepare("SELECT category, version, parent_id parentId, source, status, segments_json segmentsJson, prompt_body promptBody FROM market_annotation_prompt_versions WHERE source='manual_bulk' ORDER BY category").all() as Array<{ category: string; version: number; parentId: string | null; source: string; status: string; segmentsJson: string; promptBody: string }>;
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find((row) => row.category === "商用洗碗机")?.version, 3);
+  assert.equal(rows.find((row) => row.category === "商用洗碗机")?.parentId, "active-1");
+  for (const row of rows) {
+    assert.equal(row.status, "draft");
+    assert.equal(row.promptBody, promptBody);
+    assert.deepEqual(JSON.parse(row.segmentsJson), marketSegmentsForCategory(row.category));
+  }
+  sqlite.close();
 });
 
 test("frozen validation sampling is deterministic and stratified", () => {
@@ -120,6 +148,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /全部三级类目/);
+  assert.match(ui, /create_prompts_for_all/);
+  assert.match(ui, /保存至全部类目/);
   assert.match(ui, /输入类目关键词/);
   assert.match(ui, /filteredCategories/);
   assert.match(ui, /useEffect\(\(\) => \{ const timer = window\.setTimeout\(\(\) => void load\(jobId, search, searchPage, itemPage\)/);
