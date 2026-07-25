@@ -33,6 +33,13 @@ export function normalizeImagePriceCents(value: unknown): number | null {
   return number;
 }
 
+export function normalizeImagePriceYuan(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 1_000_000) throw new Error("主图价格必须是 0 到 100 万元之间的数字");
+  return Math.round(number * 100);
+}
+
 export const marketAiPriceTypes = ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断"] as const;
 export type MarketAiPriceType = (typeof marketAiPriceTypes)[number];
 
@@ -64,9 +71,15 @@ export function parseVisionAnnotation(value: unknown, segments: readonly string[
   const record = parsed as Record<string, unknown>;
   const segment = typeof record.segment === "string" ? record.segment.trim() : "";
   if (!segments.includes(segment)) throw new Error(`视觉模型返回了品类枚举之外的结果：${segment || "空"}`);
-  const imagePriceCents = normalizeImagePriceCents(record.image_price_cents ?? record.imagePriceCents);
-  const priceLowCents = normalizeImagePriceCents(record.price_low_cents ?? record.priceLowCents);
-  const priceHighCents = normalizeImagePriceCents(record.price_high_cents ?? record.priceHighCents);
+  const imagePriceCents = record.image_price_yuan !== undefined || record.imagePriceYuan !== undefined
+    ? normalizeImagePriceYuan(record.image_price_yuan ?? record.imagePriceYuan)
+    : normalizeImagePriceCents(record.image_price_cents ?? record.imagePriceCents);
+  const priceLowCents = record.price_low_yuan !== undefined || record.priceLowYuan !== undefined
+    ? normalizeImagePriceYuan(record.price_low_yuan ?? record.priceLowYuan)
+    : normalizeImagePriceCents(record.price_low_cents ?? record.priceLowCents);
+  const priceHighCents = record.price_high_yuan !== undefined || record.priceHighYuan !== undefined
+    ? normalizeImagePriceYuan(record.price_high_yuan ?? record.priceHighYuan)
+    : normalizeImagePriceCents(record.price_high_cents ?? record.priceHighCents);
   const priceType = normalizePriceType(record.price_type ?? record.priceType);
   const confidence = Number(record.confidence);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) throw new Error("视觉模型 confidence 必须在 0 到 1 之间");

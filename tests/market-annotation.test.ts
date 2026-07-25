@@ -4,9 +4,10 @@ import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 
 import {
-  activationGate, canTransitionItem, canTransitionJob, normalizeImagePriceCents, normalizeSegments,
+  activationGate, canTransitionItem, canTransitionJob, normalizeImagePriceCents, normalizeImagePriceYuan, normalizeSegments,
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
+import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
 import { claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
@@ -30,6 +31,8 @@ test("segments and image price are server-normalized", () => {
   assert.equal(normalizeImagePriceCents(""), null);
   assert.throws(() => normalizeImagePriceCents(1.2), /整数分/);
   assert.throws(() => normalizeImagePriceCents(-1), /整数分/);
+  assert.equal(normalizeImagePriceYuan("1999.90"), 199990);
+  assert.equal(normalizeImagePriceYuan(null), null);
 });
 
 test("vision results require structured enum, price type, cents, and bounded confidence", () => {
@@ -40,8 +43,23 @@ test("vision results require structured enum, price type, cents, and bounded con
   assert.equal(parsed.priceLowCents, 189900);
   assert.equal(parsed.priceHighCents, 209900);
   assert.equal(parsed.confidenceBps, 9200);
+  const yuanParsed = parseVisionAnnotation({ segment: "台式", image_price_yuan: 1999.9, price_type: "标准售价", price_low_yuan: 1899, price_high_yuan: 2099, confidence: 0.88, reason: "主图标价" }, ["台式", "立式"]);
+  assert.equal(yuanParsed.imagePriceCents, 199990);
+  assert.equal(yuanParsed.priceLowCents, 189900);
+  assert.equal(yuanParsed.priceHighCents, 209900);
   assert.throws(() => parseVisionAnnotation({ segment: "自造品类", image_price_cents: null, confidence: 0.5 }, ["台式", "立式"]), /枚举之外/);
   assert.throws(() => parseVisionAnnotation({ segment: "台式", image_price_cents: null, confidence: 1.1 }, ["台式", "立式"]), /0 到 1/);
+});
+
+test("every imported market category has a dedicated starter taxonomy", () => {
+  const categories = ["商用洗碗机", "商用绞肉机切肉机切片机", "商用净水设备", "商用开水器蒸气奶泡机", "商用切菜机", "商用炒菜机", "商用净饮水设备"];
+  assert.deepEqual(Object.keys(DEFAULT_MARKET_SEGMENTS).sort(), [...categories].sort());
+  for (const category of categories) {
+    const segments = marketSegmentsForCategory(category);
+    assert.ok(segments.length >= 9, `${category} should have category-specific segments`);
+    assert.equal(segments.at(-1), "其他");
+  }
+  assert.deepEqual(marketSegmentsForCategory("未配置类目"), ["主要产品", "配件耗材", "其他"]);
 });
 
 test("frozen validation sampling is deterministic and stratified", () => {

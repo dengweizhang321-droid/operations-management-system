@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- JD competitor images are external audited sources. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { defaultMarketSegmentsText } from "@/lib/market/default-taxonomy";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
@@ -17,8 +18,6 @@ type Draft = { segment: string; price: string; selected: boolean; version: numbe
 const LOAD_TIMEOUT_MS = 15_000;
 const ACTION_TIMEOUT_MS = 120_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
-const defaultSegments = "台式绞肉机\n立式绞肉机\n盆式绞肉机\n台式切肉机\n立式切肉机\n台式绞切一体机\n立式绞切一体机\n商用切片机\n家用切片机\n手动切片机\n切菜机\n切块机\n电动锯骨机\n电动切骨机\n去皮机\n粉碎机\n其他";
-
 export default function MarketAnnotationView({ currentUser }: { currentUser: CurrentUser }) {
   const [data, setData] = useState<Workspace | null>(null);
   const [jobId, setJobId] = useState("");
@@ -31,7 +30,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [promptId, setPromptId] = useState("");
   const [promptBody, setPromptBody] = useState("");
-  const [segmentsText, setSegmentsText] = useState(defaultSegments);
+  const [segmentsText, setSegmentsText] = useState(defaultMarketSegmentsText(""));
   const [changeNote, setChangeNote] = useState("");
   const [search, setSearch] = useState("");
   const [searchPage, setSearchPage] = useState(1);
@@ -86,6 +85,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
     if (!promptId) {
       const initialPrompt = payload.prompts.find((item) => item.category === resolvedCategory && item.status === "active") ?? payload.prompts.find((item) => item.category === resolvedCategory);
       if (initialPrompt) { setPromptId(initialPrompt.id); setPromptBody(initialPrompt.promptBody); setSegmentsText(initialPrompt.segments.join("\n")); }
+      else if (resolvedCategory) setSegmentsText(defaultMarketSegmentsText(resolvedCategory));
     }
     setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
       const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: item.reviewedImagePriceCents === null ? "" : String(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
@@ -147,7 +147,7 @@ export default function MarketAnnotationView({ currentUser }: { currentUser: Cur
   const chooseCategory = (nextCategory: string) => {
     setCategory(nextCategory);
     const nextPrompt = data?.prompts.find((item) => item.category === nextCategory && item.status === "active") ?? data?.prompts.find((item) => item.category === nextCategory);
-    if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText(defaultSegments); }
+    if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText(defaultMarketSegmentsText(nextCategory)); }
   };
   const createJob = () => act("create-job", async () => {
     const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit });

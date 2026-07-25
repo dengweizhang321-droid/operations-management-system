@@ -4,6 +4,7 @@ import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { AnnotationAgentError } from "@/lib/market/annotation-agent-errors";
 import { resolveAnnotationImageCandidates } from "@/lib/market/annotation-image";
 import { listAnnotationModels, listPromptTextModels, runPromptTextCompletion, runVisionAnnotation } from "@/lib/market/annotation-model";
+import { marketSegmentsForCategory, systemPriceRecognitionPrompt } from "@/lib/market/default-taxonomy";
 import {
   activationGate, digest, normalizeImagePriceCents, normalizeSegments, parseVisionAnnotation,
   stableStratifiedSample, validationMetrics,
@@ -136,11 +137,11 @@ export async function generatePromptVersion(db: MarketDatabase, input: { textMod
   return createPromptVersion(db, { category: input.category, segments, promptBody: body, parentId: parent?.id, source: input.mode === "evolve" ? "evolved" : "ai_generated", changeNote: input.changeNote || (input.mode === "evolve" ? "AI 在不读取 holdout 的前提下生成候选" : "AI 生成初始候选") }, actor);
 }
 
-export async function createAnnotationJob(db: MarketDatabase, input: { category: string; promptVersionId: string; executor?: string; modelId?: string; localModelName?: string; limit?: number }, actor: Actor) {
+export async function createAnnotationJob(db: MarketDatabase, input: { category: string; promptVersionId: string; executor?: string; modelId?: string; localModelName?: string; limit?: number; allowInactivePrompt?: boolean }, actor: Actor) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const category = input.category.trim().slice(0, 120);
   const prompt = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=? LIMIT 1").bind(input.promptVersionId).first<PromptRow>();
-  if (!prompt || prompt.category !== category || prompt.status !== "active") throw new Error("只能使用该类目当前已激活的 Prompt 创建正式任务");
+  if (!prompt || prompt.category !== category || (!input.allowInactivePrompt && prompt.status !== "active")) throw new Error("只能使用该类目当前已激活的 Prompt 创建正式任务");
   const executor = input.executor === "local" ? "local" : "cloud";
   if (executor === "cloud") {
     if (!input.modelId) throw new Error("云端任务必须选择视觉模型");
@@ -183,6 +184,38 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=?").bind(id).first<JobRow>();
   if (!job) throw new Error("标注任务创建失败");
   return jobValue(job);
+}
+
+export async function createPriceRecognitionJob(db: MarketDatabase, input: { category: string; modelId: string; limit?: number }, actor: Actor) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  const category = input.category.trim().slice(0, 120);
+  if (!category) throw new Error("请选择需要识别价格的类目");
+  const categoryExists = await db.prepare("SELECT category FROM market_ranking_entries WHERE category=? LIMIT 1").bind(category).first<{ category: string }>();
+  if (!categoryExists) throw new Error("所选类目不存在或尚未导入商品数据");
+
+  let prompt = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE category=? AND status='active' ORDER BY version DESC LIMIT 1`).bind(category).first<PromptRow>();
+  if (!prompt) {
+    prompt = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE category=? AND source='system_price' ORDER BY version DESC LIMIT 1`).bind(category).first<PromptRow>();
+  }
+  if (!prompt) {
+    const created = await createPromptVersion(db, {
+      category,
+      segments: marketSegmentsForCategory(category),
+      promptBody: systemPriceRecognitionPrompt(category),
+      source: "system_price",
+      changeNote: "SKU 数据库一键识别价格使用的系统 Prompt；不替代人工验证后的细分类目 Prompt",
+    }, actor);
+    prompt = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE id=?`).bind(created.id).first<PromptRow>();
+  }
+  if (!prompt) throw new Error("系统价格识别 Prompt 创建失败");
+  return createAnnotationJob(db, {
+    category,
+    promptVersionId: prompt.id,
+    executor: "cloud",
+    modelId: input.modelId,
+    limit: input.limit,
+    allowInactivePrompt: true,
+  }, actor);
 }
 
 export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) {

@@ -685,9 +685,14 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: 
       SUM(CASE WHEN status NOT IN ('ready','failed') THEN 1 ELSE 0 END) pending FROM market_image_cache`).first<Record<string, number | null>>(),
     db.prepare("SELECT * FROM market_master_audit_logs ORDER BY created_at DESC LIMIT 100").all<Record<string, unknown>>(),
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries GROUP BY category ORDER BY count DESC, category LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare(`SELECT p.id prompt_id, p.category,
-        (SELECT COUNT(*) FROM market_price_snapshots ps WHERE ps.category=p.category AND ps.confirmed_market_price_cents IS NULL AND ps.image_content_sha256<>'') pending_count
-      FROM market_annotation_prompt_versions p WHERE p.status='active' ORDER BY p.category`).all<Record<string, unknown>>(),
+    db.prepare(`SELECT c.category,
+        COALESCE((SELECT p.id FROM market_annotation_prompt_versions p WHERE p.category=c.category AND p.status='active' ORDER BY p.version DESC LIMIT 1), '') prompt_id,
+        (SELECT COUNT(*) FROM market_price_snapshots ps
+          WHERE ps.category=c.category AND ps.confirmed_market_price_cents IS NULL
+            AND (ps.image_content_sha256<>'' OR EXISTS (
+              SELECT 1 FROM market_image_cache mic WHERE mic.source_url=ps.image_url AND mic.status='ready' AND mic.content_sha256<>''
+            ))) pending_count
+      FROM (SELECT DISTINCT category FROM market_ranking_entries WHERE category<>'') c ORDER BY c.category`).all<Record<string, unknown>>(),
     getMarketBrandRecognitionJob(db, { q: input.q, category: input.category }),
     getMarketBrandSeedWorkspace(db, input),
   ]);

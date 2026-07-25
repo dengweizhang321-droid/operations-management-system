@@ -30,15 +30,16 @@ export async function runVisionAnnotation(input: {
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string }> {
   const model = await getModel(input.db, input.modelId, "vision");
   const image = input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" };
-  const text = `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回细分品类、主图最醒目的主推价格（人民币分；没有则 null）、价格类型、价格区间最低/最高值（非区间可与主推价相同或 null）、0到1置信度和简短依据。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
+  if (image.kind !== "image") throw new Error(`主图获取失败：${image.message}`);
+  const text = `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回细分品类、主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
   const raw = model.protocol === "anthropic"
-    ? await callAnthropicVision(model, text, input.segments, image.kind === "image" ? image : null)
-    : await callOpenAiVision(model, text, input.segments, image.kind === "image" ? image : null);
+    ? await callAnthropicVision(model, text, input.segments, image)
+    : await callOpenAiVision(model, text, input.segments, image);
   const parsed = parseVisionAnnotation(raw, input.segments);
   return {
     ...parsed,
-    imageSource: image.kind === "image" ? image.source : "none",
-    resolvedImageUrl: image.kind === "image" ? image.url : "",
+    imageSource: image.source,
+    resolvedImageUrl: image.url,
     rawDigest: digest(parsed.rawText),
   };
 }
@@ -104,12 +105,12 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
 
 function annotationJsonSchema(segments: readonly string[]) {
   return { type: "object", additionalProperties: false, properties: {
-    segment: { type: "string", enum: segments }, image_price_cents: { anyOf: [{ type: "integer", minimum: 0 }, { type: "null" }] },
+    segment: { type: "string", enum: segments }, image_price_yuan: { anyOf: [{ type: "number", minimum: 0, maximum: 1_000_000 }, { type: "null" }] },
     price_type: { type: "string", enum: ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断"] },
-    price_low_cents: { anyOf: [{ type: "integer", minimum: 0 }, { type: "null" }] },
-    price_high_cents: { anyOf: [{ type: "integer", minimum: 0 }, { type: "null" }] },
+    price_low_yuan: { anyOf: [{ type: "number", minimum: 0, maximum: 1_000_000 }, { type: "null" }] },
+    price_high_yuan: { anyOf: [{ type: "number", minimum: 0, maximum: 1_000_000 }, { type: "null" }] },
     confidence: { type: "number", minimum: 0, maximum: 1 }, reason: { type: "string" },
-  }, required: ["segment", "image_price_cents", "price_type", "price_low_cents", "price_high_cents", "confidence", "reason"] };
+  }, required: ["segment", "image_price_yuan", "price_type", "price_low_yuan", "price_high_yuan", "confidence", "reason"] };
 }
 
 async function fetchJsonLimited<T>(url: string, init: RequestInit): Promise<{ response: Response; data: T | null }> {

@@ -27,7 +27,7 @@ import {
   upsertMarketBrandSeed,
   upsertMarketMapping,
 } from "@/lib/market/admin-service";
-import { createAnnotationJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
+import { createPriceRecognitionJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -199,10 +199,8 @@ export async function POST(request: Request) {
         result = await matchMarketBrandSeeds(db, { category: text(parsed, "category") || undefined }, principal);
         break;
       case "create_price_recognition_job":
-        result = await createAnnotationJob(db, {
+        result = await createPriceRecognitionJob(db, {
           category: text(parsed, "category"),
-          promptVersionId: text(parsed, "promptVersionId"),
-          executor: "cloud",
           modelId: text(parsed, "modelId"),
           limit: typeof parsed.limit === "number" ? parsed.limit : 100,
         }, principal);
