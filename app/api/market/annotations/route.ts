@@ -3,7 +3,7 @@ import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/auth
 import { getMarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
-  activatePromptVersion, commitAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion, createPromptVersionsForAllCategories,
+  activatePromptVersion, commitAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationWorkspace, markAnnotationsAsGold,
   revokeLocalAgent, runNextCloudAnnotation, runNextValidation, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
@@ -63,7 +63,6 @@ export async function POST(request: Request) {
       }
       case "commit": result = await commitAnnotationItems(db, { jobId: text(parsed, "jobId"), candidateIds: texts(parsed, "candidateIds"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
       case "create_prompt": result = await createPromptVersion(db, { category: text(parsed, "category"), segments: parsed.segments, promptBody: text(parsed, "promptBody"), parentId: text(parsed, "parentId") || undefined, source: "manual", changeNote: text(parsed, "changeNote") }, principal); break;
-      case "create_prompts_for_all": result = await createPromptVersionsForAllCategories(db, { promptBody: text(parsed, "promptBody"), changeNote: text(parsed, "changeNote") }, principal); break;
       case "generate_prompt": result = await generatePromptVersion(db, { textModelId: text(parsed, "textModelId"), category: text(parsed, "category"), segments: parsed.segments, parentId: text(parsed, "parentId") || undefined, mode: "generate", changeNote: text(parsed, "changeNote") }, principal); break;
       case "evolve_prompt": {
         const prompt = await generatePromptVersion(db, { textModelId: text(parsed, "textModelId"), category: text(parsed, "category"), segments: parsed.segments, parentId: text(parsed, "parentId"), mode: "evolve", changeNote: text(parsed, "changeNote") }, principal);
