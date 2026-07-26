@@ -20,6 +20,7 @@ export async function importMarketFile(input: {
   defaultEndDate: string;
   defaultCategory?: string;
   defaultScope?: string;
+  defaultPriceBandFilter?: string;
   actorEmail?: string;
 }) {
   const db = getMarketDatabase();

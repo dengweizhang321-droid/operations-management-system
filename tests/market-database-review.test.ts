@@ -75,12 +75,12 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   const changesAfterUpgrade = (sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes;
   await ensureMarketSchemaCore(db);
   assert.equal((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes, changesAfterUpgrade);
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v4'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v5'").get() as { count: number }).count, 1);
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(columnNames("market_brand_suggestions").has("ai_brand"));
   assert.ok(columnNames("market_brand_recognition_jobs").has("processed_count"));
   assert.ok(columnNames("market_brand_seeds").has("normalized_seed"));
-  for (const column of ["ranking_dimension", "operation_mode", "subcategory", "price_low_cents", "price_high_cents", "price_estimated"]) {
+  for (const column of ["ranking_dimension", "operation_mode", "subcategory", "price_band_filter", "price_low_cents", "price_high_cents", "price_estimated", "gmv_raw", "gmv_low_cents", "gmv_high_cents"]) {
     assert.ok(columnNames("market_ranking_entries").has(column), column);
   }
   for (const column of ["scope", "image_content_sha256", "source_import_batch_id", "average_transaction_price_cents"]) {
@@ -89,7 +89,7 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
 
   const rows = sqlite.prepare("SELECT sku_code sku, operation_mode mode, ranking_dimension dimension, natural_key naturalKey FROM market_ranking_entries ORDER BY sku_code").all() as Array<{ sku: string; mode: string; dimension: string; naturalKey: string }>;
   assert.deepEqual(rows.filter((row) => ["SKU-1", "SPU-1"].includes(row.sku)).map((row) => [row.sku, row.mode, row.dimension]), [["SKU-1", "POP", "SKU"], ["SPU-1", "自营", "SPU"]]);
-  assert.ok(rows.every((row) => row.naturalKey.split("|").length === 6));
+  assert.ok(rows.every((row) => row.naturalKey.split("|").length === 7));
 
   const snapshot = sqlite.prepare("SELECT source_price_cents sourcePrice, average_transaction_price_cents avgPrice, image_content_sha256 hash, image_url imageUrl, source_import_batch_id batchId FROM market_price_snapshots WHERE sku_code='SKU-1'").get() as { sourcePrice: number; avgPrice: number; hash: string; imageUrl: string; batchId: string };
   assert.deepEqual({ ...snapshot }, {
@@ -152,12 +152,13 @@ test("0026 forward migrations deduplicate facts and preserve mapping/download sc
 
 function entry(overrides: Partial<MarketEntryForImport> = {}): MarketEntryForImport {
   return {
-    naturalKey: "2026-06-01|2026-06-30|净水|pop|SKU|SKU-1",
+    naturalKey: "2026-06-01|2026-06-30|净水|pop|全部|SKU|SKU-1",
     sourceRowNumber: 1,
     periodStart: "2026-06-01",
     periodEnd: "2026-06-30",
     category: "净水",
     scope: "pop",
+    priceBandFilter: "全部",
     rankingDimension: "SKU",
     operationMode: "POP",
     subcategory: "台式",
@@ -169,13 +170,29 @@ function entry(overrides: Partial<MarketEntryForImport> = {}): MarketEntryForImp
     priceLowCents: 199900,
     priceHighCents: 199900,
     priceEstimated: false,
+    priceRaw: "1999",
     gmvCents: 1000000,
+    gmvLowCents: 900000,
+    gmvHighCents: 1100000,
+    gmvRaw: "9000~11000",
     quantity: 5,
+    quantityLow: 1,
+    quantityHigh: 10,
+    quantityRaw: "1~10",
     pageViews: 1000,
+    pageViewsRaw: "1000",
     visitors: 100,
+    visitorsLow: 50,
+    visitorsHigh: 150,
+    visitorsRaw: "50~150",
     conversionBps: 500,
+    conversionLowBps: 100,
+    conversionHighBps: 1000,
+    conversionRaw: "1%~10%",
     cartCustomers: 20,
+    cartCustomersRaw: "20",
     searchClicks: 30,
+    searchClicksRaw: "30",
     imageUrl: "https://img10.360buyimg.com/imgzone/a.jpg",
     productUrl: "https://item.jd.com/1.html",
     raw: { dimension: "SKU" },
@@ -221,7 +238,7 @@ test("same market fact with different file hashes updates the canonical fact ins
   sqlite.prepare("INSERT INTO market_image_cache (source_url,status,content_sha256) VALUES ('https://img10.360buyimg.com/imgzone/a.jpg','ready','hash-a')").run();
 
   const first = await saveMarketImportCore({ db, batchId: "batch-1", sourceType: "jd", fileName: "a.csv", fileSizeBytes: 10, fileHash: "hash-1", sheetName: "CSV", rows: [entry()], warnings: [] });
-  const second = await saveMarketImportCore({ db, batchId: "batch-2", sourceType: "jd", fileName: "b.csv", fileSizeBytes: 11, fileHash: "hash-2", sheetName: "CSV", rows: [entry({ gmvCents: 1200000, naturalKey: "2026-06-01|2026-06-30|净水|pop|SKU|SKU-1" })], warnings: [] });
+  const second = await saveMarketImportCore({ db, batchId: "batch-2", sourceType: "jd", fileName: "b.csv", fileSizeBytes: 11, fileHash: "hash-2", sheetName: "CSV", rows: [entry({ gmvCents: 1200000, naturalKey: "2026-06-01|2026-06-30|净水|pop|全部|SKU|SKU-1" })], warnings: [] });
 
   assert.equal(first.insertedCount, 1);
   assert.equal(second.updatedCount, 1);
@@ -271,7 +288,7 @@ test("official price band SQL is alias-safe and D1-compatible inside the overvie
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
   sqlite.exec(`
-    CREATE TABLE netshop_rows (sku_id TEXT, product_code TEXT, spu_id TEXT);
+    CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
     CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
     INSERT INTO market_ranking_entries
       (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
@@ -317,6 +334,31 @@ test("official price band SQL is alias-safe and D1-compatible inside the overvie
   const filterOptions = sqlite.prepare(marketOverviewFilterOptionsSql).get() as { categories_json: string; dimensions_json: string };
   assert.deepEqual(JSON.parse(filterOptions.categories_json), [{ value: "净水", count: 1 }]);
   assert.deepEqual(JSON.parse(filterOptions.dimensions_json), [{ value: "SKU", count: 1 }]);
+  sqlite.close();
+});
+
+test("overview analytics applies rank bounds and geometric interpolation between JD daily anchors", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`
+    CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,brand,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('r1',1,'2026-06-01','2026-06-30','净水','pop','全部','SKU','POP',1,'A','A','甲',1000000,100,1000,'{"成交金额":"￥9000~￥1.1万"}','b'),
+      ('r2',2,'2026-06-01','2026-06-30','净水','pop','全部','SKU','POP',2,'B','B','乙',600000,60,1000,'{"成交金额":"￥1000~￥9000"}','b'),
+      ('r3',3,'2026-06-01','2026-06-30','净水','pop','全部','SKU','POP',3,'C','C','丙',100000,10,1000,'{"成交金额":"￥900~￥1100"}','b');
+    INSERT INTO netshop_rows VALUES
+      ('jd_sku_daily','sku_daily','2026-06-15','A','','','{"成交金额":10000}'),
+      ('jd_sku_daily','sku_daily','2026-06-15','C','','','{"成交金额":1000}');
+  `);
+  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { summary_json: string; brand_rows_json: string };
+  const summary = JSON.parse(analytics.summary_json) as { gmv_cents: number };
+  assert.equal(summary.gmv_cents, 1_416_228);
+  const brands = JSON.parse(analytics.brand_rows_json) as Array<{ brand: string; gmv_cents: number }>;
+  assert.equal(brands.find((row) => row.brand === "乙")?.gmv_cents, 316_228);
   sqlite.close();
 });
 

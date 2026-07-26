@@ -13,7 +13,7 @@ type MarketItem = {
   averageTransactionPriceCents: number | null; discountBps: number | null; discountReference: boolean;
   gmvCents: number; quantity: number; pageViews: number; visitors: number; conversionBps: number | null;
   cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;
-  periodCount: number; isOwn: boolean; ownSalesCents: number;
+  periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;
 };
 type MarketOverview = {
   summary: {
@@ -50,7 +50,7 @@ type BrandRecognitionJob = {
   batchSize: number; progressBps: number; createdAt: string; startedAt: string | null; updatedAt: string; completedAt: string | null; lastError: string;
 };
 type MarketMasterWorkspace = {
-  masterData: { items: Array<Record<string, string | number | null>>; pagination: { total: number; page: number; pageCount: number } };
+  masterData: { items: Array<Record<string, string | number | null>>; pagination: { total: number; page: number; pageSize: number; pageCount: number } };
   pendingPrices: { items: Array<Record<string, string | number | null>>; pagination: { total: number; page: number; pageSize: number; pageCount: number } };
   mappings: { items: Array<Record<string, string | number | null>> };
   priceBands: { items: Array<Record<string, unknown>> };
@@ -325,6 +325,7 @@ export function MarketDataImportPanel({ currentUser, data, onImported }: { curre
   const [sourceType, setSourceType] = useState("market_ranking");
   const [category, setCategory] = useState("");
   const [scope, setScope] = useState("全部SKU");
+  const [priceBandFilter, setPriceBandFilter] = useState("全部");
   const [periodStart, setPeriodStart] = useState(data?.dataRange.startDate ?? new Date().toISOString().slice(0, 10));
   const [periodEnd, setPeriodEnd] = useState(data?.dataRange.endDate ?? new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
@@ -336,7 +337,7 @@ export function MarketDataImportPanel({ currentUser, data, onImported }: { curre
     try {
       const form = new FormData();
       form.set("file", file); form.set("sourceType", sourceType); form.set("category", category);
-      form.set("scope", scope); form.set("periodStart", periodStart); form.set("periodEnd", periodEnd);
+      form.set("scope", scope); form.set("priceBandFilter", priceBandFilter); form.set("periodStart", periodStart); form.set("periodEnd", periodEnd);
       const response = await fetch("/api/market/import", { method: "POST", body: form });
       const payload = await response.json().catch(() => null) as { error?: string; message?: string; batch?: { id: string }; imageCache?: { pending: number; cached: number; failed: number } } | null;
       if (!response.ok) throw new Error(payload?.error || "导入失败");
@@ -367,6 +368,7 @@ export function MarketDataImportPanel({ currentUser, data, onImported }: { curre
         <label><span>数据类型</span><div className="market-segmented"><button type="button" className={sourceType === "market_ranking" ? "active" : ""} onClick={() => setSourceType("market_ranking")}>商品榜单</button><button type="button" className={sourceType === "sku_catalog" ? "active" : ""} onClick={() => setSourceType("sku_catalog")}>SKU 资料</button></div></label>
         <label><span>默认类目</span><input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="文件无类目列时使用" /></label>
         <label><span>默认口径</span><input value={scope} onChange={(event) => setScope(event.target.value)} placeholder="全部SKU / POP SKU / 自营 SPU" /></label>
+        <label><span>榜单价格段</span><input value={priceBandFilter} onChange={(event) => setPriceBandFilter(event.target.value)} placeholder="全部 / 0-500 / 500-1000" /></label>
         <label><span>周期开始</span><input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></label>
         <label><span>周期结束</span><input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></label>
         <label className="market-file-picker"><span>数据文件</span><input type="file" accept=".xls,.xlsx,.csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><strong>{file ? file.name : "选择 XLS / XLSX / CSV"}</strong><small>最大 25MB；SKU/SPU 维度会独立保存。</small></label>
@@ -391,6 +393,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
+  const [masterPageSize, setMasterPageSize] = useState(30);
   const [databaseView, setDatabaseView] = useState<"cards" | "table">("cards");
   const [visionModelId, setVisionModelId] = useState("");
   const [priceCategory, setPriceCategory] = useState("");
@@ -408,6 +411,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     if (query.trim()) params.set("q", query.trim());
     if (category) params.set("category", category);
     params.set("page", String(page));
+    params.set("pageSize", String(masterPageSize));
     if (priceCategory) params.set("pendingPriceCategory", priceCategory);
     if (pendingPriceSource) params.set("pendingPriceSource", pendingPriceSource);
     params.set("pendingPricePage", String(pendingPricePage));
@@ -429,7 +433,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       setBrandModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "text" && item.isDefaultTextModel)?.id || models.find((item) => item.status === "enabled" && item.modelType === "text")?.id || "");
       setVisionModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "vision")?.id || "");
     }
-  }, [query, category, page, priceCategory, pendingPriceSource, pendingPricePage, pendingPricePageSize, isAdmin]);
+  }, [query, category, page, masterPageSize, priceCategory, pendingPriceSource, pendingPricePage, pendingPricePageSize, isAdmin]);
   useEffect(() => { const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败")); }, 200); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => () => { brandRunnerStop.current = true; }, []);
   const post = async (body: Record<string, unknown>) => {
@@ -444,13 +448,16 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     finally { setBusy(""); }
   };
   const confirmPrice = (row: Record<string, string | number | null>) => {
-    const value = window.prompt("人工确认市场定位价（分）", row.candidatePriceCents === null ? "" : String(row.candidatePriceCents ?? ""));
+    const initialYuan = row.candidatePriceCents === null ? "" : String(Number(row.candidatePriceCents ?? 0) / 100);
+    const value = window.prompt("人工确认市场定位价（元）", initialYuan);
     if (!value) return;
+    const priceYuan = Number(value);
+    if (!Number.isFinite(priceYuan) || priceYuan < 0 || priceYuan > 1_000_000) { setError("市场定位价必须是 0 到 1,000,000 元之间的数字"); return; }
     const officialTypes = ["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"];
     const suggestedType = officialTypes.includes(String(row.aiPriceType ?? "")) ? String(row.aiPriceType) : "标准售价";
     const priceType = window.prompt(`确认价格类型：${officialTypes.join(" / ")}`, suggestedType)?.trim() ?? "";
     if (!officialTypes.includes(priceType)) { setError("请选择可作为正式市场定位价的完整售价类型"); return; }
-    void post({ action: "confirm_price", category: row.category, scope: row.scope, skuCode: row.skuCode, rankingDimension: row.rankingDimension, month: row.month, imageContentSha256: row.imageContentSha256, priceCents: Number(value), priceType });
+    void post({ action: "confirm_price", category: row.category, scope: row.scope, skuCode: row.skuCode, rankingDimension: row.rankingDimension, month: row.month, imageContentSha256: row.imageContentSha256, priceCents: Math.round(priceYuan * 100), priceType });
   };
   const brandRowKey = (row: Record<string, string | number | null>) => `${row.category}|${row.scope}|${row.rankingDimension}|${row.skuCode}`;
   const inferBrand = async (row: Record<string, string | number | null>) => {
@@ -683,7 +690,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
         : "";
   return <section className="settings-market-master-live">
     {(error || notice) && <div className={`market-feedback ${error ? "error" : "success"}`}>{error || notice}</div>}
-    {mode === "database" && <><article className="panel settings-master-overview"><div className="section-header"><div><h2>TOP SKU/SPU 主数据中心</h2><p>主数据、待确认价格和图片均来自服务端数据库；主图和标题均可直接打开商品链接。</p></div><div className="market-master-toolbar"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" /><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">全部类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select></div></div>
+    {mode === "database" && <><article className="panel settings-master-overview"><div className="section-header"><div><h2>TOP SKU/SPU 主数据中心</h2><p>主数据、待确认价格和图片均来自服务端数据库；主图和标题均可直接打开商品链接。</p></div><div className="market-master-toolbar"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" /><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">全部类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select><select aria-label="SKU 数据库每页条数" value={masterPageSize} onChange={(event) => { setMasterPageSize(Number(event.target.value)); setPage(1); }}><option value={20}>每页 20 条</option><option value={30}>每页 30 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select></div></div>
       <div className="settings-master-cards"><div><strong>{count(data.masterData.pagination.total)}</strong><span>主数据</span></div><div><strong>{count(data.pendingPrices.pagination.total)}</strong><span>待确认价格</span></div><div><strong>{count(data.imageCache.cached)} / {count(data.imageCache.total)}</strong><span>图片缓存</span></div><div><strong>{count(data.downloadTasks.length)}</strong><span>下载任务</span></div></div>
     </article>
     <article className="panel"><div className="section-header"><div><h3>待确认价格</h3><p>本表同时包含源表参考价、成交均价和 AI 主图候选价；只有明确标注“AI 主图识别”的记录来自视觉模型，人工确认后才会进入正式价格带。</p></div><div className="market-master-toolbar"><select value={priceCategory} onChange={(event) => { setPriceCategory(event.target.value); setPendingPricePage(1); }}><option value="">选择类目</option>{data.priceRecognition.prompts.map((item) => <option key={item.category} value={item.category}>{item.category}（可识别 {count(Number(item.pending_count))}）</option>)}</select><select aria-label="候选价来源" value={pendingPriceSource} onChange={(event) => { setPendingPriceSource(event.target.value as "" | "ai" | "non_ai"); setPendingPricePage(1); }}><option value="">全部价格来源</option><option value="ai">AI 识别价</option><option value="non_ai">非 AI 识别价</option></select><select aria-label="每页条数" value={pendingPricePageSize} onChange={(event) => { setPendingPricePageSize(Number(event.target.value)); setPendingPricePage(1); }}><option value={20}>每页 20 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="primary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别价格（最多100条）"}</button></div></div>{priceRecognitionBlocker && <p className="market-price-blocker">{priceRecognitionBlocker}</p>}<div className="data-table-wrap"><table className="data-table market-price-review-table"><thead><tr><th>主图</th><th>SKU / 商品链接</th><th>榜单口径</th><th>月份</th><th>候选价</th><th>来源 / AI 依据</th><th>操作</th></tr></thead><tbody>{data.pendingPrices.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={`${row.category}-${row.scope}-${row.rankingDimension}-${row.skuCode}-${row.month}`}><td>{href && row.displayImageUrl ? <a href={href} target="_blank" rel="noreferrer"><img className="market-review-image" src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}<code>{String(row.imageContentSha256 ?? "").slice(0, 16)}</code></td><td>{String(row.scope || row.operationMode || "-")}</td><td>{String(row.month)}</td><td>{money(Number(row.candidatePriceCents ?? 0) || null)}</td><td><strong>{priceSourceLabel(row.candidatePriceSource)}</strong>{row.candidatePriceSource === "ai_suggestion" && <small>{String(row.aiPriceType || "待判断")} · 置信度 {percent(row.aiConfidenceBps === null ? null : Number(row.aiConfidenceBps))}<br />{String(row.aiReason || "未返回识别依据")}</small>}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmPrice(row)}>修改 / 确认价格</button></td></tr>; })}{!data.pendingPrices.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有待确认价格。</div></td></tr>}</tbody></table></div><div className="market-pagination"><button disabled={pendingPricePage <= 1} onClick={() => setPendingPricePage((current) => Math.max(1, current - 1))}>上一页</button><label>第 <select aria-label="待确认价格页码" value={pendingPricePage} onChange={(event) => setPendingPricePage(Number(event.target.value))}>{Array.from({ length: data.pendingPrices.pagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.pendingPrices.pagination.pageCount} 页</label><span>共 {count(data.pendingPrices.pagination.total)} 条</span><button disabled={pendingPricePage >= data.pendingPrices.pagination.pageCount} onClick={() => setPendingPricePage((current) => Math.min(data.pendingPrices.pagination.pageCount, current + 1))}>下一页</button></div></article>

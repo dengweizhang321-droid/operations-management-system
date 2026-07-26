@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import * as XLSX from "xlsx";
-import { parseMarketRows } from "../lib/market/parser";
+import { parseMarketRows, parseRange, parseRangeBounds } from "../lib/market/parser";
+import { aggregateMarketEstimates, annotateRankBounds } from "../lib/market/gmv-estimation";
 
 function csvBytes(value: string) {
   return new TextEncoder().encode(value);
@@ -33,7 +34,7 @@ test("市场榜单 CSV 映射商品、周期和经营指标", () => {
   assert.equal(result.rows[0]?.conversionBps, 250);
   assert.equal(result.rows[0]?.rankingDimension, "SKU");
   assert.equal(result.rows[0]?.operationMode, "自营");
-  assert.equal(result.rows[0]?.naturalKey, "2026-07-01|2026-07-20|商用净水设备|自营|SKU|10001");
+  assert.equal(result.rows[0]?.naturalKey, "2026-07-01|2026-07-20|商用净水设备|自营|全部|SKU|10001");
 });
 
 test("市场商品与自有商品关联字段具备独立索引", async () => {
@@ -121,6 +122,7 @@ test("市场榜单与系统设置呈现商品链接、上榜期数、主图价�
 
 test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认入口", async () => {
   const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  const annotation = await readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8");
   const service = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
   assert.match(source, /AI 一键识别价格（最多100条）/);
   assert.match(source, /pendingPriceSource/);
@@ -128,6 +130,11 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /非 AI 识别价/);
   assert.match(source, /pendingPricePageSize/);
   assert.match(source, /待确认价格页码/);
+  assert.match(source, /SKU 数据库每页条数/);
+  assert.match(source, /人工确认市场定位价（元）/);
+  assert.match(source, /Math\.round\(priceYuan \* 100\)/);
+  assert.match(annotation, /主图价格（元）/);
+  assert.doesNotMatch(annotation, /主图价格（分）/);
   assert.match(source, /AI 一键识别品牌（所有页）/);
   assert.match(source, /一键确认全部候选/);
   assert.match(source, /暂停识别/);
@@ -141,6 +148,10 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /market-master-product-grid/);
   assert.match(service, /market_brand_suggestions/);
   assert.match(service, /PARTITION BY m\.category, m\.scope, m\.ranking_dimension, m\.sku_code/);
+  assert.match(service, /period_kind='monthly'/);
+  assert.match(service, /period_kind='daily'/);
+  assert.match(service, /coverage_days DESC/);
+  assert.match(service, /gmv_total_cents DESC/);
 });
 
 test("market imports automatically match enabled brand seeds", async () => {
@@ -175,6 +186,64 @@ test("市场数据使用默认周期并阻止同周期重复 SKU", () => {
   assert.equal(result.rows[0]?.periodEnd, "2026-07-22");
   assert.equal(result.warnings.length, 1);
   assert.match(result.warnings[0]?.message ?? "", /重复 SKU/);
+});
+
+test("市场区间保留原文、中值和上下界，并把榜单价格段纳入自然键", () => {
+  assert.deepEqual(parseRangeBounds("￥8,000 ~ ￥1万"), [8_000, 10_000]);
+  assert.equal(parseRange("￥8,000 ~ ￥1万"), 9_000);
+  assert.deepEqual(parseRangeBounds("8% ~ 10%"), [0.08, 0.1]);
+  assert.equal(parseRange("8% ~ 10%"), 0.09);
+  const result = parseMarketRows({
+    bytes: csvBytes("商品编号,成交金额,成交件数,访客数,价格带筛选\nSKU-1,￥8万~￥10万,5~10,600~800,0-500"),
+    fileName: "range.csv",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-31",
+    defaultCategory: "净水设备",
+    defaultScope: "POP",
+  });
+  const row = result.rows[0]!;
+  assert.equal(row.gmvRaw, "￥8万~￥10万");
+  assert.equal(row.gmvCents, 9_000_000);
+  assert.equal(row.gmvLowCents, 8_000_000);
+  assert.equal(row.gmvHighCents, 10_000_000);
+  assert.equal(row.quantityLow, 5);
+  assert.equal(row.quantityHigh, 10);
+  assert.equal(row.visitorsLow, 600);
+  assert.equal(row.visitorsHigh, 800);
+  assert.equal(row.priceBandFilter, "0-500");
+  assert.equal(row.naturalKey, "2026-07-01|2026-07-31|净水设备|POP|0-500|SKU|SKU-1");
+});
+
+test("排名约束使用真实 GMV 锚点做几何插值并反推自洽指标", () => {
+  const base = {
+    category: "净水设备", periodStart: "2026-07-01", periodEnd: "2026-07-31", scope: "全部", priceBandFilter: "全部", rankingDimension: "SKU",
+    priceMidCents: 10_000, priceLowCents: 8_000, priceHighCents: 12_000,
+    quantityMid: 50, quantityLow: 1, quantityHigh: 200, visitorsMid: 1_000, conversionLowBps: 10, conversionHighBps: 5_000,
+  } as const;
+  const rows = annotateRankBounds([
+    { ...base, id: "a", rank: 1, gmvMidCents: 1_000_000, gmvLowCents: 900_000, gmvHighCents: 1_100_000, realGmvCents: 1_000_000 },
+    { ...base, id: "b", rank: 2, gmvMidCents: 600_000, gmvLowCents: 100_000, gmvHighCents: 900_000 },
+    { ...base, id: "c", rank: 3, gmvMidCents: 100_000, gmvLowCents: 90_000, gmvHighCents: 110_000, realGmvCents: 100_000 },
+  ]);
+  assert.equal(rows[0]?.effectiveGmvCents, 1_000_000);
+  assert.equal(rows[1]?.effectiveGmvCents, 316_228);
+  assert.equal(rows[2]?.effectiveGmvCents, 100_000);
+  assert.ok(rows[0]!.effectiveGmvCents >= rows[1]!.effectiveGmvCents);
+  assert.ok(rows[1]!.effectiveGmvCents >= rows[2]!.effectiveGmvCents);
+  assert.equal(rows[1]?.estimatedQuantity, 32);
+  assert.equal(rows[1]?.averageTransactionPriceCents, 9_882);
+  assert.equal(aggregateMarketEstimates(rows, 3).effectiveGmvCents, 1_416_228);
+});
+
+test("真实锚点超出榜单区间时保留真实值且不按粗区间截断", () => {
+  const [row] = annotateRankBounds([{
+    id: 1, category: "净水设备", periodStart: "2026-07-01", periodEnd: "2026-07-31", scope: "全部", rank: 1,
+    gmvMidCents: 100_000, gmvLowCents: 90_000, gmvHighCents: 110_000, realGmvCents: 300_000,
+    priceMidCents: 10_000, quantityMid: 10, quantityLow: 1, quantityHigh: 10, visitorsMid: 100,
+  }]);
+  assert.equal(row?.effectiveGmvCents, 300_000);
+  assert.equal(row?.gmvOutOfBand, true);
+  assert.equal(row?.estimatedQuantity, 30);
 });
 
 test("市场导入缺少商品编号列时拒绝文件", () => {

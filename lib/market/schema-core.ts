@@ -43,6 +43,7 @@ export const marketBaseSchemaStatements = [
     period_end TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT '',
     scope TEXT NOT NULL DEFAULT '\u5168\u90e8',
+    price_band_filter TEXT NOT NULL DEFAULT '\u5168\u90e8',
     ranking_dimension TEXT NOT NULL DEFAULT 'SKU',
     operation_mode TEXT NOT NULL DEFAULT '${unknownMode}',
     subcategory TEXT NOT NULL DEFAULT '',
@@ -57,13 +58,29 @@ export const marketBaseSchemaStatements = [
     price_low_cents INTEGER,
     price_high_cents INTEGER,
     price_estimated INTEGER NOT NULL DEFAULT 0,
+    price_raw TEXT NOT NULL DEFAULT '',
     gmv_cents INTEGER NOT NULL DEFAULT 0,
+    gmv_low_cents INTEGER,
+    gmv_high_cents INTEGER,
+    gmv_raw TEXT NOT NULL DEFAULT '',
     quantity INTEGER NOT NULL DEFAULT 0,
+    quantity_low INTEGER,
+    quantity_high INTEGER,
+    quantity_raw TEXT NOT NULL DEFAULT '',
     page_views INTEGER NOT NULL DEFAULT 0,
+    page_views_raw TEXT NOT NULL DEFAULT '',
     visitors INTEGER NOT NULL DEFAULT 0,
+    visitors_low INTEGER,
+    visitors_high INTEGER,
+    visitors_raw TEXT NOT NULL DEFAULT '',
     conversion_bps INTEGER,
+    conversion_low_bps INTEGER,
+    conversion_high_bps INTEGER,
+    conversion_raw TEXT NOT NULL DEFAULT '',
     cart_customers INTEGER NOT NULL DEFAULT 0,
+    cart_customers_raw TEXT NOT NULL DEFAULT '',
     search_clicks INTEGER NOT NULL DEFAULT 0,
+    search_clicks_raw TEXT NOT NULL DEFAULT '',
     image_url TEXT NOT NULL DEFAULT '',
     product_url TEXT NOT NULL DEFAULT '',
     raw_json TEXT NOT NULL DEFAULT '{}',
@@ -264,9 +281,26 @@ const rankingEntryColumns: Array<[string, string]> = [
   ["source_brand", "TEXT NOT NULL DEFAULT ''"],
   ["source_operation_mode", "TEXT NOT NULL DEFAULT ''"],
   ["source_subcategory", "TEXT NOT NULL DEFAULT ''"],
+  ["price_band_filter", "TEXT NOT NULL DEFAULT '全部'"],
   ["price_low_cents", "INTEGER"],
   ["price_high_cents", "INTEGER"],
   ["price_estimated", "INTEGER NOT NULL DEFAULT 0"],
+  ["price_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["gmv_low_cents", "INTEGER"],
+  ["gmv_high_cents", "INTEGER"],
+  ["gmv_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["quantity_low", "INTEGER"],
+  ["quantity_high", "INTEGER"],
+  ["quantity_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["page_views_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["visitors_low", "INTEGER"],
+  ["visitors_high", "INTEGER"],
+  ["visitors_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["conversion_low_bps", "INTEGER"],
+  ["conversion_high_bps", "INTEGER"],
+  ["conversion_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["cart_customers_raw", "TEXT NOT NULL DEFAULT ''"],
+  ["search_clicks_raw", "TEXT NOT NULL DEFAULT ''"],
 ];
 
 const downloadConfigColumns: Array<[string, string]> = [
@@ -317,7 +351,7 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_brand_idx ON market_ranking_entries (brand, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_dimension_idx ON market_ranking_entries (ranking_dimension, operation_mode, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_uq ON market_ranking_entries (period_start, period_end, category, scope, ranking_dimension, sku_code)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_uq ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, scope, sku_code, ranking_dimension, month)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_hash_idx ON market_price_snapshots (sku_code, image_content_sha256, confirmed_at)`,
@@ -342,6 +376,7 @@ export const marketPostUpgradeIndexStatements = [
 ] as const;
 
 const marketPreUpgradeIndexStatements = [
+  `DROP INDEX IF EXISTS market_entries_canonical_uq`,
   `DROP INDEX IF EXISTS market_price_snapshots_sku_month_uq`,
   `DROP INDEX IF EXISTS market_download_configs_unique_uq`,
   `DROP INDEX IF EXISTS market_download_tasks_unique_uq`,
@@ -368,7 +403,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return changed;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v4";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v5";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {
@@ -387,12 +422,12 @@ async function needsLegacyMarketDataUpgrade(db: MarketSchemaDatabase) {
     EXISTS (SELECT 1 FROM market_ranking_entries WHERE ranking_dimension NOT IN ('SKU','SPU') OR ranking_dimension IS NULL OR ranking_dimension='')
     OR EXISTS (
       SELECT 1 FROM market_ranking_entries
-      GROUP BY period_start, period_end, category, scope, ranking_dimension, sku_code
+      GROUP BY period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code
       HAVING COUNT(*)>1 LIMIT 1
     )
     OR EXISTS (
       SELECT 1 FROM market_ranking_entries
-      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
       LIMIT 1
     )
     OR EXISTS (
@@ -442,7 +477,7 @@ async function removeCanonicalDuplicates(db: MarketSchemaDatabase) {
     WHERE id IN (
       SELECT id FROM (
         SELECT id, ROW_NUMBER() OVER (
-          PARTITION BY period_start, period_end, category, scope, ranking_dimension, sku_code
+          PARTITION BY period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code
           ORDER BY datetime(updated_at) DESC, id DESC
         ) AS rn
         FROM market_ranking_entries
@@ -612,8 +647,8 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
     await removeCanonicalDuplicates(db);
     await db.prepare(`
       UPDATE market_ranking_entries
-      SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
-      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || ranking_dimension || '|' || sku_code
+      SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
+      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
     `).run();
     if (columnsChanged) await db.batch(marketPreUpgradeIndexStatements.map((statement) => db.prepare(statement)));
     await backfillPriceSnapshots(db);

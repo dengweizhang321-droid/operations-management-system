@@ -15,9 +15,126 @@ function overviewPriceBandSql() {
   });
 }
 
+export function marketEffectiveFactsCtes() {
+  const group = "category, period_start, period_end, scope, price_band_filter, ranking_dimension";
+  const order = "COALESCE(rank, 2147483647), id";
+  const reverseOrder = "COALESCE(rank, 2147483647) DESC, id DESC";
+  return `market_basis_ids AS MATERIALIZED (
+    SELECT id, ROW_NUMBER() OVER (
+      PARTITION BY period_start, period_end, category, scope, ranking_dimension, sku_code
+      ORDER BY CASE COALESCE(price_band_filter,'') WHEN '全部' THEN 0 WHEN '' THEN 1 ELSE 2 END,
+        COALESCE(price_band_filter,''), id DESC
+    ) price_band_preference
+    FROM market_ranking_entries
+  ), market_basis_rows AS MATERIALIZED (
+    SELECT source.* FROM market_ranking_entries source
+    JOIN market_basis_ids chosen ON chosen.id=source.id AND chosen.price_band_preference=1
+  ), real_gmv_anchors AS MATERIALIZED (
+    SELECT m.id, CAST(ROUND(SUM(COALESCE(CAST(json_extract(n.metrics_json, '$."成交金额"') AS REAL),0))*100) AS INTEGER) real_gmv_cents
+    FROM market_basis_rows m JOIN netshop_rows n
+      ON n.source='jd_sku_daily'
+      AND n.dataset=CASE WHEN m.ranking_dimension='SPU' THEN 'spu_daily' ELSE 'sku_daily' END
+      AND CASE WHEN m.ranking_dimension='SPU' THEN n.spu_id ELSE n.sku_id END=m.sku_code
+      AND n.business_date BETWEEN m.period_start AND m.period_end
+    GROUP BY m.id HAVING real_gmv_cents>0
+  ), anchor_groups AS MATERIALIZED (
+    SELECT DISTINCT ${group}
+    FROM market_basis_rows source JOIN real_gmv_anchors anchors ON anchors.id=source.id
+  ), range_texts AS MATERIALIZED (
+    SELECT m.*, COALESCE(a.real_gmv_cents,0) real_gmv_cents,
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        COALESCE(NULLIF(m.gmv_raw,''),json_extract(m.raw_json,'$."成交金额"'),json_extract(m.raw_json,'$."交易金额"'),json_extract(m.raw_json,'$."GMV"'),json_extract(m.raw_json,'$."销售额"'),''),
+        ',',''),'，',''),'￥',''),'¥',''),'元',''),'～','~'),'至','~') gmv_range_text
+    FROM market_basis_rows m JOIN anchor_groups USING (${group}) LEFT JOIN real_gmv_anchors a ON a.id=m.id
+  ), range_parts AS MATERIALIZED (
+    SELECT source.*,
+      CASE WHEN instr(gmv_range_text,'~')>0 THEN substr(gmv_range_text,1,instr(gmv_range_text,'~')-1) ELSE gmv_range_text END gmv_low_text,
+      CASE WHEN instr(gmv_range_text,'~')>0 THEN substr(gmv_range_text,instr(gmv_range_text,'~')+1) ELSE gmv_range_text END gmv_high_text
+    FROM range_texts source
+  ), parsed_ranges AS MATERIALIZED (
+    SELECT source.*,
+      CASE WHEN gmv_low_text<>'' THEN CAST(ROUND(CAST(REPLACE(REPLACE(REPLACE(TRIM(gmv_low_text),'亿',''),'万',''),'千','') AS REAL)
+        * CASE WHEN instr(gmv_low_text,'亿')>0 THEN 100000000 WHEN instr(gmv_low_text,'万')>0 THEN 10000 WHEN instr(gmv_low_text,'千')>0 THEN 1000 ELSE 1 END * 100) AS INTEGER) END parsed_gmv_low_cents,
+      CASE WHEN gmv_high_text<>'' THEN CAST(ROUND(CAST(REPLACE(REPLACE(REPLACE(TRIM(gmv_high_text),'亿',''),'万',''),'千','') AS REAL)
+        * CASE WHEN instr(gmv_high_text,'亿')>0 THEN 100000000 WHEN instr(gmv_high_text,'万')>0 THEN 10000 WHEN instr(gmv_high_text,'千')>0 THEN 1000 ELSE 1 END * 100) AS INTEGER) END parsed_gmv_high_cents
+    FROM range_parts source
+  ), rank_source AS MATERIALIZED (
+    SELECT m.*,
+      CASE WHEN m.real_gmv_cents>0 THEN m.real_gmv_cents ELSE COALESCE(m.gmv_low_cents,m.parsed_gmv_low_cents,0) END rank_low,
+      CASE WHEN m.real_gmv_cents>0 THEN m.real_gmv_cents ELSE COALESCE(m.gmv_high_cents,m.parsed_gmv_high_cents,9223372036854775807) END rank_high,
+      CASE WHEN m.real_gmv_cents>0
+        AND ((COALESCE(m.gmv_low_cents,m.parsed_gmv_low_cents) IS NOT NULL AND m.real_gmv_cents<COALESCE(m.gmv_low_cents,m.parsed_gmv_low_cents)) OR (COALESCE(m.gmv_high_cents,m.parsed_gmv_high_cents) IS NOT NULL AND m.real_gmv_cents>COALESCE(m.gmv_high_cents,m.parsed_gmv_high_cents)))
+        THEN 1 ELSE 0 END gmv_out_of_band
+    FROM parsed_ranges m
+  ), narrowed AS MATERIALIZED (
+    SELECT source.*,
+      MIN(rank_high) OVER (PARTITION BY ${group} ORDER BY ${order} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) narrowed_high,
+      MAX(rank_low) OVER (PARTITION BY ${group} ORDER BY ${order} ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) narrowed_low
+    FROM rank_source source
+  ), anchor_segments AS MATERIALIZED (
+    SELECT source.*,
+      SUM(CASE WHEN real_gmv_cents>0 THEN 1 ELSE 0 END) OVER (PARTITION BY ${group} ORDER BY ${order} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) left_segment,
+      SUM(CASE WHEN real_gmv_cents>0 THEN 1 ELSE 0 END) OVER (PARTITION BY ${group} ORDER BY ${reverseOrder} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) right_segment
+    FROM narrowed source
+  ), anchor_values AS MATERIALIZED (
+    SELECT source.*,
+      MAX(CASE WHEN real_gmv_cents>0 THEN rank END) OVER (PARTITION BY ${group}, left_segment) left_anchor_rank,
+      MAX(CASE WHEN real_gmv_cents>0 THEN real_gmv_cents END) OVER (PARTITION BY ${group}, left_segment) left_anchor_value,
+      MAX(CASE WHEN real_gmv_cents>0 THEN rank END) OVER (PARTITION BY ${group}, right_segment) right_anchor_rank,
+      MAX(CASE WHEN real_gmv_cents>0 THEN real_gmv_cents END) OVER (PARTITION BY ${group}, right_segment) right_anchor_value
+    FROM anchor_segments source
+  ), raw_candidates AS MATERIALIZED (
+    SELECT source.*,
+      CASE WHEN real_gmv_cents>0 THEN real_gmv_cents
+        WHEN left_anchor_value>0 AND right_anchor_value>0 AND right_anchor_rank<>left_anchor_rank AND rank IS NOT NULL
+          THEN CAST(ROUND(EXP(LN(left_anchor_value) + ((rank-left_anchor_rank)*1.0/(right_anchor_rank-left_anchor_rank))*(LN(right_anchor_value)-LN(left_anchor_value)))) AS INTEGER)
+        ELSE gmv_cents END raw_effective_gmv_cents
+    FROM anchor_values source
+  ), candidates AS MATERIALIZED (
+    SELECT source.*, MAX(MIN(raw_effective_gmv_cents, MAX(narrowed_low,narrowed_high)), MIN(narrowed_low,narrowed_high)) candidate_gmv_cents
+    FROM raw_candidates source
+  ), adjusted_rows AS MATERIALIZED (
+    SELECT source.*,
+      CASE WHEN real_gmv_cents>0 THEN real_gmv_cents
+        ELSE MIN(candidate_gmv_cents) OVER (PARTITION BY ${group} ORDER BY ${order} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+      END effective_gmv_cents
+    FROM candidates source
+  ), effective_values AS MATERIALIZED (
+    SELECT id, effective_gmv_cents, real_gmv_cents, gmv_out_of_band FROM adjusted_rows
+  ), effective_seeds AS MATERIALIZED (
+    SELECT source.*,
+      COALESCE(adjusted.effective_gmv_cents,source.gmv_cents) effective_gmv_cents,
+      COALESCE(adjusted.real_gmv_cents,0) real_gmv_cents,
+      COALESCE(adjusted.gmv_out_of_band,0) gmv_out_of_band
+    FROM market_basis_rows source LEFT JOIN effective_values adjusted ON adjusted.id=source.id
+  ), refined_quantities AS MATERIALIZED (
+    SELECT source.*,
+      CASE
+        WHEN COALESCE(NULLIF(price_cents,0), CASE WHEN quantity>0 THEN effective_gmv_cents*1.0/quantity END) IS NULL THEN MAX(1,quantity)
+        WHEN gmv_out_of_band=1 THEN MAX(1,CAST(ROUND(effective_gmv_cents*1.0/COALESCE(NULLIF(price_cents,0),effective_gmv_cents*1.0/NULLIF(quantity,0))) AS INTEGER))
+        ELSE MAX(1,MIN(
+          MAX(CAST(ROUND(effective_gmv_cents*1.0/COALESCE(NULLIF(price_cents,0),effective_gmv_cents*1.0/NULLIF(quantity,0))) AS INTEGER),COALESCE(quantity_low,1)),
+          COALESCE(quantity_high,9223372036854775807)
+        ))
+      END effective_quantity
+    FROM effective_seeds source
+  ), market_effective_rows AS MATERIALIZED (
+    SELECT source.*,
+      CASE WHEN effective_quantity>0 THEN CAST(ROUND(effective_gmv_cents*1.0/effective_quantity) AS INTEGER) END effective_average_transaction_price_cents,
+      CASE WHEN visitors<=0 THEN NULL
+        WHEN gmv_out_of_band=1 THEN MIN(10000,MAX(0,CAST(ROUND(effective_quantity*10000.0/visitors) AS INTEGER)))
+        ELSE MIN(10000,MAX(
+          COALESCE(conversion_low_bps,0),
+          MIN(CAST(ROUND(effective_quantity*10000.0/visitors) AS INTEGER),COALESCE(conversion_high_bps,10000))
+        ))
+      END effective_conversion_bps
+    FROM refined_quantities source
+  )`;
+}
+
 export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions = {}) {
   const materialized = options.materialized ? "MATERIALIZED " : "";
-  return `WITH enriched AS ${materialized}(
+  return `WITH ${marketEffectiveFactsCtes()}, enriched AS ${materialized}(
     SELECT m.*,
       mic.status AS image_cache_status_raw,
       mic.content_sha256 AS image_content_sha256,
@@ -47,7 +164,7 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
       ) OR EXISTS (
         SELECT 1 FROM sales_order_lines s WHERE s.product_code = m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
-    FROM market_ranking_entries m
+    FROM market_effective_rows m
     LEFT JOIN market_image_cache mic ON mic.source_url = m.image_url
     LEFT JOIN market_price_snapshots ps ON ps.category = m.category
       AND ps.scope = m.scope
@@ -59,9 +176,9 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
 }
 
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
-  return `WITH analytics_base AS MATERIALIZED (
+  return `WITH ${marketEffectiveFactsCtes()}, analytics_base AS MATERIALIZED (
     SELECT m.period_start, m.period_end, m.category, m.scope, m.ranking_dimension, m.operation_mode,
-      m.subcategory, m.rank, m.sku_code, m.brand, m.gmv_cents, m.quantity, m.page_views, m.visitors,
+      m.subcategory, m.rank, m.sku_code, m.brand, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
       ps.confirmed_market_price_cents AS official_market_price_cents,
       ps.confirmation_status,
       CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END AS market_price_source,
@@ -72,7 +189,7 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
       ) OR EXISTS (
         SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
-    FROM market_ranking_entries m
+    FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category
       AND ps.scope=m.scope AND ps.sku_code=m.sku_code
       AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)

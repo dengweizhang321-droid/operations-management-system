@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       defaultEndDate: periodEnd,
       defaultCategory: formText(form, "category"),
       defaultScope: formText(form, "scope", "全部"),
+      defaultPriceBandFilter: formText(form, "priceBandFilter", "全部"),
       actorEmail: principal.email,
     });
     return Response.json(payload, { status: payload.status === "imported" ? 201 : 200 });

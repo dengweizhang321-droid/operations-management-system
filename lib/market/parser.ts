@@ -13,6 +13,7 @@ const aliases = {
   subcategory: ["细分类目", "细分品类", "品类细分", "segment", "subcategory"],
   rankingDimension: ["榜单维度", "榜单单位", "维度", "dimension"],
   scope: ["经营模式", "经营模式(自动)", "经营模式(人工)", "店铺类型", "口径", "渠道", "scope"],
+  priceBandFilter: ["榜单价格段", "榜单价格带", "价格段筛选", "价格带筛选", "price_band_filter"],
   rank: ["排名", "商品排名", "序号", "rank"],
   skuCode: ["商品编号", "商品编码", "SKU", "SKUID", "sku_id", "sku_code", "product_code"],
   productName: ["商品名称", "商品信息", "商品标题", "标题", "product_name", "name"],
@@ -63,6 +64,17 @@ function parseNumeric(value: unknown): number | null {
   return parseScalar(source);
 }
 
+export function parseRangeBounds(value: unknown): [number | null, number | null] {
+  const parsed = parseNumericRange(value);
+  const divisor = text(value).includes("%") ? 100 : 1;
+  return [parsed.low === null ? null : parsed.low / divisor, parsed.high === null ? null : parsed.high / divisor];
+}
+
+export function parseRange(value: unknown): number | null {
+  const parsed = parseNumericRange(value).value;
+  return parsed === null ? null : parsed / (text(value).includes("%") ? 100 : 1);
+}
+
 function parseNumericRange(value: unknown): { value: number | null; low: number | null; high: number | null; estimated: boolean } {
   if (typeof value === "number") return Number.isFinite(value) ? { value, low: value, high: value, estimated: false } : { value: null, low: null, high: null, estimated: false };
   const source = text(value);
@@ -83,6 +95,12 @@ function parsePercentBps(value: unknown): number | null {
   const hasPercent = text(value).includes("%");
   const percentValue = hasPercent ? number : Math.abs(number) <= 1 ? number * 100 : number;
   return Math.round(percentValue * 100);
+}
+
+function rangePercentBps(value: number | null, rawValue: unknown): number | null {
+  if (value === null) return null;
+  if (text(rawValue).includes("%")) return Math.round(value * 100);
+  return Math.round((Math.abs(value) <= 1 ? value * 100 : value) * 100);
 }
 
 function isoDate(value: unknown, fallback: string) {
@@ -213,6 +231,7 @@ export function parseMarketRows(input: {
   defaultEndDate: string;
   defaultCategory?: string;
   defaultScope?: string;
+  defaultPriceBandFilter?: string;
 }): { sheetName: string; rows: MarketEntryInput[]; warnings: MarketImportIssue[] } {
   const isCsv = /\.csv$/i.test(input.fileName);
   const isLegacyXls = /\.xls$/i.test(input.fileName);
@@ -261,20 +280,29 @@ export function parseMarketRows(input: {
       : isoDate(get(source, "periodStart"), embeddedRange?.start ?? input.defaultStartDate);
     const category = text(get(source, "category")) || input.defaultCategory?.trim() || "未分类";
     const sourceScope = text(get(source, "scope")) || input.defaultScope?.trim() || "全部";
+    const priceBandFilter = text(get(source, "priceBandFilter")) || input.defaultPriceBandFilter?.trim() || "全部";
     const rankingDimension = normalizeDimension(text(get(source, "rankingDimension")) || sourceScope || input.defaultScope || "", dimension);
     const scope = !explicitSkuCode && canDeriveMarketCode && dimension ? dimensionScope(sourceScope, dimension) : sourceScope;
     const operationMode = normalizeOperationMode(sourceScope);
     const subcategory = text(get(source, "subcategory")) || "";
-    const naturalKey = `${periodStart}|${periodEnd}|${category}|${scope}|${rankingDimension}|${skuCode}`;
+    const naturalKey = `${periodStart}|${periodEnd}|${category}|${scope}|${priceBandFilter}|${rankingDimension}|${skuCode}`;
     if (seen.has(naturalKey)) {
       warnings.push({ row: source.rowNumber, field: "商品编号", message: `同一周期重复 SKU ${skuCode}，已保留首行` });
       continue;
     }
     seen.add(naturalKey);
     const numeric = (field: keyof typeof aliases) => parseNumeric(get(source, field));
+    const rawText = (field: keyof typeof aliases) => text(get(source, field));
     const raw = Object.fromEntries(header.map((name, index) => [text(name) || `列${index + 1}`, source.values[index] ?? null]));
     const rank = numeric("rank");
     const price = parseNumericRange(get(source, "price"));
+    const gmv = parseNumericRange(get(source, "gmv"));
+    const quantity = parseNumericRange(get(source, "quantity"));
+    const pageViews = parseNumericRange(get(source, "pageViews"));
+    const visitors = parseNumericRange(get(source, "visitors"));
+    const conversion = parseNumericRange(get(source, "conversion"));
+    const cartCustomers = parseNumericRange(get(source, "cartCustomers"));
+    const searchClicks = parseNumericRange(get(source, "searchClicks"));
     rows.push({
       naturalKey,
       sourceRowNumber: source.rowNumber,
@@ -282,6 +310,7 @@ export function parseMarketRows(input: {
       periodEnd,
       category,
       scope,
+      priceBandFilter,
       rankingDimension,
       operationMode,
       subcategory: subcategory.slice(0, 120),
@@ -293,13 +322,29 @@ export function parseMarketRows(input: {
       priceLowCents: price.low === null ? null : Math.round(price.low * 100),
       priceHighCents: price.high === null ? null : Math.round(price.high * 100),
       priceEstimated: price.estimated,
-      gmvCents: Math.round((numeric("gmv") ?? 0) * 100),
-      quantity: Math.round(numeric("quantity") ?? 0),
-      pageViews: Math.round(numeric("pageViews") ?? 0),
-      visitors: Math.round(numeric("visitors") ?? 0),
+      priceRaw: rawText("price"),
+      gmvCents: Math.round((gmv.value ?? 0) * 100),
+      gmvLowCents: gmv.low === null ? null : Math.round(gmv.low * 100),
+      gmvHighCents: gmv.high === null ? null : Math.round(gmv.high * 100),
+      gmvRaw: rawText("gmv"),
+      quantity: Math.round(quantity.value ?? 0),
+      quantityLow: quantity.low === null ? null : Math.round(quantity.low),
+      quantityHigh: quantity.high === null ? null : Math.round(quantity.high),
+      quantityRaw: rawText("quantity"),
+      pageViews: Math.round(pageViews.value ?? 0),
+      pageViewsRaw: rawText("pageViews"),
+      visitors: Math.round(visitors.value ?? 0),
+      visitorsLow: visitors.low === null ? null : Math.round(visitors.low),
+      visitorsHigh: visitors.high === null ? null : Math.round(visitors.high),
+      visitorsRaw: rawText("visitors"),
       conversionBps: parsePercentBps(get(source, "conversion")),
-      cartCustomers: Math.round(numeric("cartCustomers") ?? 0),
-      searchClicks: Math.round(numeric("searchClicks") ?? 0),
+      conversionLowBps: rangePercentBps(conversion.low, get(source, "conversion")),
+      conversionHighBps: rangePercentBps(conversion.high, get(source, "conversion")),
+      conversionRaw: rawText("conversion"),
+      cartCustomers: Math.round(cartCustomers.value ?? 0),
+      cartCustomersRaw: rawText("cartCustomers"),
+      searchClicks: Math.round(searchClicks.value ?? 0),
+      searchClicksRaw: rawText("searchClicks"),
       imageUrl: text(get(source, "imageUrl")).slice(0, 1000),
       productUrl: text(get(source, "productUrl")).slice(0, 1000),
       raw,

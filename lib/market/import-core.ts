@@ -7,6 +7,7 @@ export type MarketEntryForImport = {
   periodEnd: string;
   category: string;
   scope: string;
+  priceBandFilter: string;
   rankingDimension: "SKU" | "SPU";
   operationMode: "POP" | "自营" | "未知";
   subcategory: string;
@@ -18,13 +19,29 @@ export type MarketEntryForImport = {
   priceLowCents: number | null;
   priceHighCents: number | null;
   priceEstimated: boolean;
+  priceRaw: string;
   gmvCents: number;
+  gmvLowCents: number | null;
+  gmvHighCents: number | null;
+  gmvRaw: string;
   quantity: number;
+  quantityLow: number | null;
+  quantityHigh: number | null;
+  quantityRaw: string;
   pageViews: number;
+  pageViewsRaw: string;
   visitors: number;
+  visitorsLow: number | null;
+  visitorsHigh: number | null;
+  visitorsRaw: string;
   conversionBps: number | null;
+  conversionLowBps: number | null;
+  conversionHighBps: number | null;
+  conversionRaw: string;
   cartCustomers: number;
+  cartCustomersRaw: string;
   searchClicks: number;
+  searchClicksRaw: string;
   imageUrl: string;
   productUrl: string;
   raw: Record<string, string | number | boolean | null>;
@@ -127,26 +144,31 @@ export async function saveMarketImportCore(input: {
       for (const row of chunk) {
         const existing = await db.prepare(
           `SELECT id FROM market_ranking_entries
-          WHERE period_start=? AND period_end=? AND category=? AND scope=? AND ranking_dimension=? AND sku_code=?
+          WHERE period_start=? AND period_end=? AND category=? AND scope=? AND price_band_filter=? AND ranking_dimension=? AND sku_code=?
           LIMIT 1`,
-        ).bind(row.periodStart, row.periodEnd, row.category, row.scope, row.rankingDimension, row.skuCode).first<{ id: number }>();
+        ).bind(row.periodStart, row.periodEnd, row.category, row.scope, row.priceBandFilter, row.rankingDimension, row.skuCode).first<{ id: number }>();
         if (existing) updated += 1;
         else inserted += 1;
       }
       await db.batch(chunk.map((row) => db.prepare(
         `INSERT INTO market_ranking_entries (
-          natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension,
+          natural_key, source_row_number, period_start, period_end, category, scope, price_band_filter, ranking_dimension,
           operation_mode, subcategory, rank, sku_code, product_name, brand, price_cents,
           source_brand, source_operation_mode, source_subcategory,
-          price_low_cents, price_high_cents, price_estimated, gmv_cents, quantity, page_views,
-          visitors, conversion_bps, cart_customers, search_clicks, image_url, product_url,
+          price_low_cents, price_high_cents, price_estimated, price_raw,
+          gmv_cents, gmv_low_cents, gmv_high_cents, gmv_raw,
+          quantity, quantity_low, quantity_high, quantity_raw, page_views, page_views_raw,
+          visitors, visitors_low, visitors_high, visitors_raw,
+          conversion_bps, conversion_low_bps, conversion_high_bps, conversion_raw,
+          cart_customers, cart_customers_raw, search_clicks, search_clicks_raw, image_url, product_url,
           raw_json, last_import_batch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(period_start, period_end, category, scope, ranking_dimension, sku_code) DO UPDATE SET
+        ) VALUES (${Array.from({ length: 48 }, () => "?").join(", ")})
+        ON CONFLICT(period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code) DO UPDATE SET
           natural_key = excluded.natural_key,
           source_row_number = excluded.source_row_number,
           category = excluded.category,
           scope = excluded.scope,
+          price_band_filter = excluded.price_band_filter,
           ranking_dimension = excluded.ranking_dimension,
           operation_mode = excluded.operation_mode,
           subcategory = excluded.subcategory,
@@ -160,13 +182,29 @@ export async function saveMarketImportCore(input: {
           price_low_cents = excluded.price_low_cents,
           price_high_cents = excluded.price_high_cents,
           price_estimated = excluded.price_estimated,
+          price_raw = excluded.price_raw,
           gmv_cents = excluded.gmv_cents,
+          gmv_low_cents = excluded.gmv_low_cents,
+          gmv_high_cents = excluded.gmv_high_cents,
+          gmv_raw = excluded.gmv_raw,
           quantity = excluded.quantity,
+          quantity_low = excluded.quantity_low,
+          quantity_high = excluded.quantity_high,
+          quantity_raw = excluded.quantity_raw,
           page_views = excluded.page_views,
+          page_views_raw = excluded.page_views_raw,
           visitors = excluded.visitors,
+          visitors_low = excluded.visitors_low,
+          visitors_high = excluded.visitors_high,
+          visitors_raw = excluded.visitors_raw,
           conversion_bps = excluded.conversion_bps,
+          conversion_low_bps = excluded.conversion_low_bps,
+          conversion_high_bps = excluded.conversion_high_bps,
+          conversion_raw = excluded.conversion_raw,
           cart_customers = excluded.cart_customers,
+          cart_customers_raw = excluded.cart_customers_raw,
           search_clicks = excluded.search_clicks,
+          search_clicks_raw = excluded.search_clicks_raw,
           image_url = excluded.image_url,
           product_url = excluded.product_url,
           raw_json = excluded.raw_json,
@@ -174,11 +212,15 @@ export async function saveMarketImportCore(input: {
           updated_at = CURRENT_TIMESTAMP`,
       ).bind(
         row.naturalKey, row.sourceRowNumber, row.periodStart, row.periodEnd, row.category,
-        row.scope, row.rankingDimension, row.operationMode, row.subcategory, row.rank,
+        row.scope, row.priceBandFilter, row.rankingDimension, row.operationMode, row.subcategory, row.rank,
         row.skuCode, row.productName, row.brand, row.priceCents,
         row.brand, row.operationMode, row.subcategory, row.priceLowCents,
-        row.priceHighCents, row.priceEstimated ? 1 : 0, row.gmvCents, row.quantity, row.pageViews, row.visitors, row.conversionBps,
-        row.cartCustomers, row.searchClicks, row.imageUrl, row.productUrl,
+        row.priceHighCents, row.priceEstimated ? 1 : 0, row.priceRaw,
+        row.gmvCents, row.gmvLowCents, row.gmvHighCents, row.gmvRaw,
+        row.quantity, row.quantityLow, row.quantityHigh, row.quantityRaw, row.pageViews, row.pageViewsRaw,
+        row.visitors, row.visitorsLow, row.visitorsHigh, row.visitorsRaw,
+        row.conversionBps, row.conversionLowBps, row.conversionHighBps, row.conversionRaw,
+        row.cartCustomers, row.cartCustomersRaw, row.searchClicks, row.searchClicksRaw, row.imageUrl, row.productUrl,
         JSON.stringify(row.raw), input.batchId,
       )));
       await db.batch(chunk.map((row) => db.prepare(

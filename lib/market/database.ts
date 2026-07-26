@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
-import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
+import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -18,6 +19,7 @@ export type MarketEntryInput = {
   periodEnd: string;
   category: string;
   scope: string;
+  priceBandFilter: string;
   rankingDimension: "SKU" | "SPU";
   operationMode: "POP" | "自营" | "未知";
   subcategory: string;
@@ -29,13 +31,29 @@ export type MarketEntryInput = {
   priceLowCents: number | null;
   priceHighCents: number | null;
   priceEstimated: boolean;
+  priceRaw: string;
   gmvCents: number;
+  gmvLowCents: number | null;
+  gmvHighCents: number | null;
+  gmvRaw: string;
   quantity: number;
+  quantityLow: number | null;
+  quantityHigh: number | null;
+  quantityRaw: string;
   pageViews: number;
+  pageViewsRaw: string;
   visitors: number;
+  visitorsLow: number | null;
+  visitorsHigh: number | null;
+  visitorsRaw: string;
   conversionBps: number | null;
+  conversionLowBps: number | null;
+  conversionHighBps: number | null;
+  conversionRaw: string;
   cartCustomers: number;
+  cartCustomersRaw: string;
   searchClicks: number;
+  searchClicksRaw: string;
   imageUrl: string;
   productUrl: string;
   raw: Record<string, string | number | boolean | null>;
@@ -129,11 +147,15 @@ type FilterOptionsRow = {
 
 type EntryRow = {
   id: number; period_start: string; period_end: string; category: string; scope: string; ranking_dimension: "SKU" | "SPU";
+  price_band_filter: string;
   operation_mode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previous_rank: number | null;
   sku_code: string; product_name: string; brand: string; price_cents: number | null;
   official_market_price_cents: number | null; candidate_price_cents: number | null; market_price_source: string; candidate_price_source: string; average_transaction_price_cents: number | null;
   discount_bps: number | null; discount_reference: number;
   gmv_cents: number; quantity: number; page_views: number; visitors: number; conversion_bps: number | null;
+  gmv_low_cents: number | null; gmv_high_cents: number | null; quantity_low: number | null; quantity_high: number | null;
+  visitors_low: number | null; visitors_high: number | null; conversion_low_bps: number | null; conversion_high_bps: number | null;
+  real_gmv_cents: number;
   cart_customers: number; search_clicks: number; image_url: string; source_image_url: string; image_cache_status: string; product_url: string;
   period_count: number; is_own: number; own_sales_cents: number;
 };
@@ -188,19 +210,21 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       SELECT * FROM filtered
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC
       LIMIT 200
-    ) SELECT id, period_start, period_end, category, scope, ranking_dimension, operation_mode, subcategory, rank,
+    ) SELECT id, period_start, period_end, category, scope, price_band_filter, ranking_dimension, operation_mode, subcategory, rank,
       (SELECT p.rank FROM market_ranking_entries p INDEXED BY market_entries_sku_idx
         WHERE p.category=filtered.category AND p.sku_code=filtered.sku_code AND p.ranking_dimension=filtered.ranking_dimension
           AND p.scope=filtered.scope AND p.operation_mode=filtered.operation_mode
           AND p.period_end < filtered.period_end
         ORDER BY p.period_end DESC, p.id DESC LIMIT 1) previous_rank,
       sku_code, product_name, brand, price_cents, official_market_price_cents, candidate_price_cents, market_price_source, candidate_price_source,
-      average_transaction_price_cents,
+      effective_average_transaction_price_cents average_transaction_price_cents,
       CASE WHEN official_market_price_cents IS NOT NULL AND official_market_price_cents > 0 AND average_transaction_price_cents IS NOT NULL
         THEN CAST(ROUND((1 - average_transaction_price_cents * 1.0 / official_market_price_cents) * 10000) AS INTEGER) ELSE NULL END discount_bps,
       CASE WHEN price_estimated = 1 THEN 1 ELSE 0 END discount_reference,
-      gmv_cents, quantity, page_views, visitors,
-      conversion_bps, cart_customers, search_clicks,
+      effective_gmv_cents gmv_cents, gmv_low_cents, gmv_high_cents, effective_quantity quantity, quantity_low, quantity_high, page_views, visitors, visitors_low, visitors_high,
+      conversion_low_bps, conversion_high_bps,
+      real_gmv_cents,
+      effective_conversion_bps conversion_bps, cart_customers, search_clicks,
       CASE WHEN image_url <> '' AND image_cache_status_raw = 'ready' THEN '/api/market/images/' || image_content_sha256 ELSE image_url END image_url,
       image_url source_image_url, COALESCE(image_cache_status_raw, CASE WHEN image_url = '' THEN 'missing' ELSE 'pending' END) image_cache_status,
       product_url,
@@ -229,6 +253,31 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
   ]);
   const analytics = batchRows<AnalyticsRow>(analyticsResult)[0];
   const ranking = batchRows<EntryRow>(rankingResult);
+  const rankedEstimates = annotateRankBounds(ranking.map((row) => ({
+    id: row.id,
+    category: row.category,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    scope: row.scope,
+    priceBandFilter: row.price_band_filter,
+    rankingDimension: row.ranking_dimension,
+    rank: row.rank,
+    gmvMidCents: Number(row.gmv_cents ?? 0),
+    gmvLowCents: Number(row.gmv_cents ?? 0),
+    gmvHighCents: Number(row.gmv_cents ?? 0),
+    realGmvCents: null,
+    priceMidCents: row.price_cents,
+    priceLowCents: null,
+    priceHighCents: null,
+    manualPriceCents: row.official_market_price_cents,
+    quantityMid: row.quantity,
+    quantityLow: row.quantity_low,
+    quantityHigh: row.quantity_high,
+    visitorsMid: row.visitors,
+    conversionLowBps: row.conversion_low_bps,
+    conversionHighBps: row.conversion_high_bps,
+  })));
+  const estimateById = new Map(rankedEstimates.map((row) => [Number(row.id), row]));
   const filterOptions = batchRows<FilterOptionsRow>(filterOptionsResult)[0];
   const batches = batchRows<Parameters<typeof mapMarketBatch>[0]>(batchesResult)
     .map((row) => mapMarketBatch(row) as MarketImportBatch);
@@ -291,14 +340,17 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       skuCode: row.sku_code, productName: row.product_name,
       brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.official_market_price_cents,
       candidatePriceCents: row.candidate_price_cents, marketPriceSource: row.market_price_source,
-      candidatePriceSource: row.candidate_price_source, averageTransactionPriceCents: row.average_transaction_price_cents,
+      candidatePriceSource: row.candidate_price_source,
+      averageTransactionPriceCents: estimateById.get(row.id)?.averageTransactionPriceCents ?? row.average_transaction_price_cents,
       discountBps: row.discount_bps, discountReference: Boolean(row.discount_reference),
-      gmvCents: row.gmv_cents, quantity: row.quantity,
-      pageViews: row.page_views, visitors: row.visitors, conversionBps: row.conversion_bps,
+      gmvCents: estimateById.get(row.id)?.effectiveGmvCents ?? row.gmv_cents,
+      quantity: estimateById.get(row.id)?.estimatedQuantity ?? row.quantity,
+      pageViews: row.page_views, visitors: row.visitors, conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
       cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
       sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
       productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),
       isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
+      gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
     })),
     trend: trendRows,
     priceBands: priceBandOptions.map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
@@ -363,14 +415,14 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
   const values: unknown[] = [skuCode];
   if (input.category?.trim()) { clauses.push("m.category = ?"); values.push(input.category.trim().slice(0, 120)); }
   if (input.rankingDimension === "SKU" || input.rankingDimension === "SPU") { clauses.push("m.ranking_dimension = ?"); values.push(input.rankingDimension); }
-  const rows = await db.prepare(`
+  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}
     SELECT m.period_start, m.period_end, substr(m.period_end, 1, 7) month, m.category, m.scope,
       m.ranking_dimension, m.operation_mode, m.subcategory, m.rank, m.sku_code, m.product_name, m.brand,
-      m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
+      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.visitors, m.effective_conversion_bps conversion_bps,
       ps.confirmed_market_price_cents market_price_cents,
       COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) candidate_price_cents,
       ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps,
-      ps.confirmed_market_price_cents, ps.average_transaction_price_cents,
+      ps.confirmed_market_price_cents, m.effective_average_transaction_price_cents average_transaction_price_cents,
       CASE
         WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认'
         ELSE '未确认价格'
@@ -382,7 +434,7 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
         ELSE '暂无价格'
       END candidate_price_status,
       COALESCE(ps.confirmation_status, 'missing') confirmation_status
-    FROM market_ranking_entries m
+    FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category = m.category
       AND ps.scope = m.scope
       AND ps.sku_code = m.sku_code

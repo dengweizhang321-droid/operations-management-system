@@ -14,6 +14,7 @@ import {
   getMarketSkuComparison,
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
+  listMarketMasterData,
   listPendingMarketPrices,
   matchMarketBrandSeeds,
   planMissingMarketDownloads,
@@ -59,10 +60,33 @@ function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
 
 const admin = { email: "admin@example.com", role: "admin" } as const;
 
+test("market master GMV totals prefer full-month coverage, ignore rolling windows, and use child bands only as monthly fallback", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,sku_code,product_name,gmv_cents,raw_json,last_import_batch_id)
+    VALUES
+    ('a-month',1,'2026-06-01','2026-06-30','净水','POP','全部','SKU','POP','SKU-A','A',1000,'{}','batch'),
+    ('a-day-1',2,'2026-06-01','2026-06-01','净水','POP','全部','SKU','POP','SKU-A','A',100,'{}','batch'),
+    ('a-day-2',3,'2026-06-02','2026-06-02','净水','POP','全部','SKU','POP','SKU-A','A',100,'{}','batch'),
+    ('a-rolling',4,'2026-07-02','2026-07-31','净水','POP','全部','SKU','POP','SKU-A','A',999999,'{}','batch'),
+    ('b-basis',5,'2026-07-01','2026-07-01','净水','POP','全部','SKU','POP','SKU-B','B',100,'{}','batch'),
+    ('b-child-1',6,'2026-07-01','2026-07-01','净水','POP','0-500','SKU','POP','SKU-B','B',1000,'{}','batch'),
+    ('b-child-2',7,'2026-07-02','2026-07-02','净水','POP','0-500','SKU','POP','SKU-B','B',1000,'{}','batch'),
+    ('c-child-1',8,'2026-07-01','2026-07-01','净水','POP','0-500','SKU','POP','SKU-C','C',1000,'{}','batch'),
+    ('c-child-2',9,'2026-07-02','2026-07-02','净水','POP','0-500','SKU','POP','SKU-C','C',1000,'{}','batch');`);
+  const result = await listMarketMasterData(db as never, { pageSize: 20 });
+  const totals = Object.fromEntries(result.items.map((row) => [row.skuCode, row.gmvTotalCents]));
+  assert.deepEqual(totals, { "SKU-C": 2000, "SKU-A": 1000, "SKU-B": 100 });
+  sqlite.close();
+});
+
 test("pending market prices filter displayed AI sources and paginate non-AI sources", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
+  sqlite.exec("CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT)");
   sqlite.exec(`INSERT INTO market_ranking_entries
     (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, raw_json, last_import_batch_id)
     VALUES
@@ -372,6 +396,7 @@ test("market SKU comparison returns real metrics and monthly trends for 2 to 5 S
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
+  sqlite.exec("CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT)");
   const insert = sqlite.prepare(`INSERT INTO market_ranking_entries
     (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
     VALUES (?, ?, ?, ?, '净水', 'pop', 'SKU', 'POP', ?, ?, ?, ?, ?, ?, ?, '{}', 'batch')`);

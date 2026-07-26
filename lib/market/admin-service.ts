@@ -3,6 +3,7 @@ import { runPromptTextCompletion } from "@/lib/market/annotation-model";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
+import { marketEffectiveFactsCtes } from "@/lib/market/overview-sql";
 import {
   applyManualBrandSeedToIdentity,
   listMarketBrandSeeds,
@@ -18,10 +19,12 @@ export type MappingKind = "subcategory" | "brand_alias" | "brand_override" | "op
 type MarketOverviewFilters = {
   query?: string;
   categories?: string[];
+  scopes?: string[];
   rankingDimensions?: string[];
   operationModes?: string[];
   brands?: string[];
   subcategories?: string[];
+  priceBands?: string[];
   startDate?: string;
   endDate?: string;
 };
@@ -91,15 +94,15 @@ export async function matchMarketBrandSeeds(db: MarketDatabase, input: { categor
 
 export async function listMarketMasterData(db: MarketDatabase, input: {
   q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string;
-  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number;
+  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number; includeHistory?: boolean;
 } = {}) {
   await ensureMarketAdminSchema(db);
   const pageSize = integer(input.pageSize, 30, 1, 100);
   const page = integer(input.page, 1, 1, 10_000);
   const { where, values } = masterWhere(input);
-  const total = await db.prepare(`SELECT COUNT(*) count FROM (${masterBaseSql()} WHERE ${where}) t`).bind(...values).first<CountRow>();
-  const rows = await db.prepare(`${masterBaseSql()} WHERE ${where}
-    ORDER BY m.period_end DESC, CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank, m.gmv_cents DESC
+  const total = await db.prepare(`SELECT COUNT(*) count FROM (${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}) t`).bind(...values).first<CountRow>();
+  const rows = await db.prepare(`${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}
+    ORDER BY gmv_total_cents DESC, m.period_end DESC, CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank
     LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, string | number | null>>();
   return {
     items: (rows.results ?? []).map(mapMasterRow),
@@ -110,7 +113,7 @@ export async function listMarketMasterData(db: MarketDatabase, input: {
 export async function listPendingMarketPrices(db: MarketDatabase, input: {
   q?: string; category?: string; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number;
 } = {}) {
-  return listMarketMasterData(db, { ...input, priceStatus: "pending" });
+  return listMarketMasterData(db, { ...input, priceStatus: "pending", includeHistory: true });
 }
 
 export async function confirmMarketPrice(db: MarketDatabase, input: {
@@ -771,11 +774,11 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
   }), filters.priceBands);
   if (filters.startDate) { clauses.push("m.period_end>=?"); values.push(filters.startDate); }
   if (filters.endDate) { clauses.push("m.period_start<=?"); values.push(filters.endDate); }
-  const rows = await db.prepare(`WITH comparison_rows AS MATERIALIZED (
+  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, comparison_rows AS MATERIALIZED (
     SELECT m.sku_code, m.product_name, m.brand, m.category, m.ranking_dimension, m.period_end, m.id,
-      m.gmv_cents, m.quantity, m.visitors, m.rank, ps.confirmed_market_price_cents,
+      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.visitors, m.rank, ps.confirmed_market_price_cents,
       ROW_NUMBER() OVER (PARTITION BY m.sku_code ORDER BY m.period_end DESC, m.id DESC) representative_rank
-    FROM market_ranking_entries m
+    FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
   ) SELECT sku_code,
@@ -873,9 +876,51 @@ export async function getMarketPendingReviewSummaryForAi(db: MarketDatabase, arg
   };
 }
 
-function masterBaseSql() {
-  return `SELECT m.id, m.period_start, m.period_end, substr(m.period_end,1,7) month, m.category, m.scope, m.ranking_dimension, m.operation_mode,
+function masterBaseSql(includeHistory = false) {
+  return `WITH eligible_gmv_rows AS MATERIALIZED (
+      SELECT source.*,
+        substr(source.period_end,1,7) gmv_month,
+        CASE WHEN COALESCE(source.price_band_filter,'') IN ('','全部') THEN 0 ELSE 1 END band_priority,
+        MAX(CASE WHEN COALESCE(source.price_band_filter,'') IN ('','全部') THEN 1 ELSE 0 END)
+          OVER (PARTITION BY source.sku_code, substr(source.period_end,1,7)) month_has_basis,
+        CASE
+          WHEN source.period_start=source.period_end THEN 'daily'
+          WHEN source.period_start=date(source.period_start,'start of month')
+            AND source.period_end=date(source.period_start,'start of month','+1 month','-1 day') THEN 'monthly'
+          ELSE 'rolling'
+        END period_kind
+      FROM market_ranking_entries source
+    ), monthly_ranked AS MATERIALIZED (
+      SELECT source.*,
+        ROW_NUMBER() OVER (PARTITION BY sku_code, gmv_month ORDER BY band_priority, period_end DESC, updated_at DESC, id DESC) pick_rank
+      FROM eligible_gmv_rows source WHERE period_kind='monthly' AND (band_priority=0 OR month_has_basis=0)
+    ), daily_ranked AS MATERIALIZED (
+      SELECT source.*,
+        ROW_NUMBER() OVER (PARTITION BY sku_code, gmv_month, period_end ORDER BY band_priority, updated_at DESC, id DESC) pick_rank
+      FROM eligible_gmv_rows source WHERE period_kind='daily' AND (band_priority=0 OR month_has_basis=0)
+    ), month_candidates AS MATERIALIZED (
+      SELECT sku_code, gmv_month, gmv_cents, CAST(julianday(period_end)-julianday(period_start)+1 AS INTEGER) coverage_days, 0 source_priority
+      FROM monthly_ranked WHERE pick_rank=1
+      UNION ALL
+      SELECT sku_code, gmv_month, SUM(gmv_cents), COUNT(*), 1
+      FROM daily_ranked WHERE pick_rank=1 GROUP BY sku_code, gmv_month
+    ), month_picks AS MATERIALIZED (
+      SELECT source.*, ROW_NUMBER() OVER (
+        PARTITION BY sku_code, gmv_month ORDER BY coverage_days DESC, source_priority, gmv_cents DESC
+      ) month_pick_rank
+      FROM month_candidates source
+    ), gmv_totals AS MATERIALIZED (
+      SELECT sku_code, SUM(gmv_cents) gmv_total_cents FROM month_picks WHERE month_pick_rank=1 GROUP BY sku_code
+    ), representative_rows AS MATERIALIZED (
+      SELECT source.*, ROW_NUMBER() OVER (
+        PARTITION BY category, scope, ranking_dimension, sku_code
+        ORDER BY period_end DESC, period_start DESC, id DESC
+      ) representative_rank
+      FROM market_ranking_entries source
+    ), representatives AS MATERIALIZED (SELECT * FROM representative_rows ${includeHistory ? "" : "WHERE representative_rank=1"})
+    SELECT m.id, m.period_start, m.period_end, substr(m.period_end,1,7) month, m.category, m.scope, m.ranking_dimension, m.operation_mode,
       m.subcategory, m.rank, m.sku_code, m.product_name, m.brand, m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
+      COALESCE(gt.gmv_total_cents,0) gmv_total_cents,
       m.image_url, m.product_url, COALESCE(c.status, CASE WHEN m.image_url='' THEN 'missing' ELSE 'pending' END) image_cache_status,
       COALESCE(c.content_sha256, ps.image_content_sha256, '') image_content_sha256,
       ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps, ps.ai_reason,
@@ -895,7 +940,8 @@ function masterBaseSql() {
         categorySql: "m.category",
         periodEndSql: "m.period_end",
       })} price_band
-    FROM market_ranking_entries m
+    FROM representatives m
+    LEFT JOIN gmv_totals gt ON gt.sku_code=m.sku_code
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     LEFT JOIN market_brand_suggestions bs ON bs.category=m.category AND bs.scope=m.scope AND bs.ranking_dimension=m.ranking_dimension AND bs.sku_code=m.sku_code
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;
@@ -925,13 +971,13 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
   }), input.filters?.priceBands);
   if (input.filters?.startDate) { clauses.push("m.period_end>=?"); values.push(input.filters.startDate); }
   if (input.filters?.endDate) { clauses.push("m.period_start<=?"); values.push(input.filters.endDate); }
-  const rows = await db.prepare(`
+  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}
     SELECT substr(m.period_end, 1, 7) month, m.period_start, m.period_end, m.rank, m.operation_mode,
-      m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
+      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.visitors, m.effective_conversion_bps conversion_bps,
       ps.confirmed_market_price_cents market_price_cents,
-      ps.average_transaction_price_cents average_transaction_price_cents,
+      m.effective_average_transaction_price_cents average_transaction_price_cents,
       COALESCE(ps.confirmation_status, 'missing') confirmation_status
-    FROM market_ranking_entries m
+    FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
     ORDER BY m.period_end ASC, m.id ASC
@@ -999,6 +1045,7 @@ function mapMasterRow(row: Record<string, string | number | null>) {
     productName: String(row.product_name ?? ""),
     brand: String(row.brand ?? ""),
     gmvCents: Number(row.gmv_cents ?? 0),
+    gmvTotalCents: Number(row.gmv_total_cents ?? 0),
     quantity: Number(row.quantity ?? 0),
     visitors: Number(row.visitors ?? 0),
     conversionBps: row.conversion_bps === null ? null : Number(row.conversion_bps),
