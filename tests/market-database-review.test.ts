@@ -105,7 +105,7 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   assert.deepEqual(scopeSnapshots.map((row) => ({ ...row })), [{ scope: "pop", sourcePrice: 300 }, { scope: "自营", sourcePrice: 400 }]);
 
   const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
-  for (const index of ["market_entries_dimension_idx", "market_entries_subcategory_idx", "market_entries_canonical_uq", "market_price_snapshots_sku_month_uq"]) {
+  for (const index of ["market_entries_dimension_idx", "market_entries_subcategory_idx", "market_entries_canonical_price_band_uq", "market_price_snapshots_sku_month_uq"]) {
     assert.ok(indexes.has(index), index);
   }
   sqlite.close();
@@ -147,6 +147,37 @@ test("0026 forward migrations deduplicate facts and preserve mapping/download sc
   assert.equal(typeof source.sourceMode, "string");
   const taskIndex = String((sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='market_download_tasks_unique_uq'").get() as { sql: string }).sql);
   assert.match(taskIndex, /category, scope, month, ranking_dimension/i);
+  sqlite.close();
+});
+
+test("v5 runtime upgrade does not rewrite valid dimensions and swaps the canonical index safely", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const migrationFiles = [
+    "0015_market_analysis.sql", "0016_market_sku_annotations.sql", "0017_market_annotation_reliability.sql",
+    "0019_young_ozymandias.sql", "0020_market_image_cache.sql",
+    "0021_market_analysis_2.sql", "0022_market_analysis_review_fixes.sql", "0023_market_annotation_monthly_price.sql",
+    "0024_market_master_workflow.sql", "0025_market_scope_and_executor.sql", "0026_market_mapping_and_download_scope.sql",
+  ];
+  for (const file of migrationFiles) {
+    const sql = await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8");
+    for (const statement of sql.split("--> statement-breakpoint")) if (statement.trim()) sqlite.exec(statement);
+  }
+  sqlite.exec(`
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES ('v4-key',1,'2026-07-01','2026-07-31','净水','POP','SKU','POP','SKU-V5','商品','{}','batch');
+    CREATE TRIGGER reject_valid_dimension_rewrite
+    BEFORE UPDATE OF ranking_dimension ON market_ranking_entries
+    WHEN OLD.ranking_dimension IN ('SKU','SPU')
+    BEGIN SELECT RAISE(ABORT, 'valid dimension must not be rewritten'); END;
+  `);
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_uq'").get());
+
+  await ensureMarketSchemaCore(sqliteAdapter(sqlite));
+
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_price_band_uq'").get());
+  assert.equal(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_uq'").get(), undefined);
+  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v5'").get());
   sqlite.close();
 });
 

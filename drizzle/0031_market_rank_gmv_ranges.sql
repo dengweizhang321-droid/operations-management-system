@@ -42,10 +42,10 @@ UPDATE market_ranking_entries SET
   cart_customers_raw = COALESCE(json_extract(raw_json, '$."加购人数"'), json_extract(raw_json, '$."加购客户数"'), ''),
   search_clicks_raw = COALESCE(json_extract(raw_json, '$."搜索点击次数"'), json_extract(raw_json, '$."搜索点击数"'), '');
 --> statement-breakpoint
-DROP INDEX IF EXISTS market_entries_canonical_uq;
---> statement-breakpoint
 UPDATE market_ranking_entries
 SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code;
 --> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_uq
+CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_price_band_uq
   ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code);
+--> statement-breakpoint
+DROP INDEX IF EXISTS market_entries_canonical_uq;

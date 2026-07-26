@@ -351,7 +351,7 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_brand_idx ON market_ranking_entries (brand, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_dimension_idx ON market_ranking_entries (ranking_dimension, operation_mode, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_uq ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_price_band_uq ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, scope, sku_code, ranking_dimension, month)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_hash_idx ON market_price_snapshots (sku_code, image_content_sha256, confirmed_at)`,
@@ -375,12 +375,11 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_master_audit_logs_entity_idx ON market_master_audit_logs (entity_type, entity_id, created_at)`,
 ] as const;
 
-const marketPreUpgradeIndexStatements = [
-  `DROP INDEX IF EXISTS market_entries_canonical_uq`,
-  `DROP INDEX IF EXISTS market_price_snapshots_sku_month_uq`,
-  `DROP INDEX IF EXISTS market_download_configs_unique_uq`,
-  `DROP INDEX IF EXISTS market_download_tasks_unique_uq`,
-] as const;
+const marketPreUpgradeIndexStatements = {
+  market_price_snapshots: `DROP INDEX IF EXISTS market_price_snapshots_sku_month_uq`,
+  market_download_configs: `DROP INDEX IF EXISTS market_download_configs_unique_uq`,
+  market_download_tasks: `DROP INDEX IF EXISTS market_download_tasks_unique_uq`,
+} as const;
 
 const defaultPriceBandItems = [
   { label: "0-499", min: 0, max: 50_000, order: 10 },
@@ -393,14 +392,14 @@ const defaultPriceBandItems = [
 async function addMissingColumns(db: MarketSchemaDatabase, table: string, columns: Array<[string, string]>) {
   const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   const existing = new Set((info.results ?? []).map((row) => row.name));
-  let changed = false;
+  const added = new Set<string>();
   for (const [name, definition] of columns) {
     if (!existing.has(name)) {
       await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
-      changed = true;
+      added.add(name);
     }
   }
-  return changed;
+  return added;
 }
 
 const marketRuntimeSchemaMarker = "market-runtime-schema-v5";
@@ -449,7 +448,7 @@ async function recordMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
     .bind(marketRuntimeSchemaMarker, marketRuntimeSchemaMarker).run();
 }
 
-async function normalizeExistingRankingRows(db: MarketSchemaDatabase) {
+async function normalizeExistingRankingRows(db: MarketSchemaDatabase, rankingDimensionAdded: boolean) {
   await db.prepare(`
     UPDATE market_ranking_entries
     SET operation_mode = CASE
@@ -468,6 +467,7 @@ async function normalizeExistingRankingRows(db: MarketSchemaDatabase) {
       WHEN upper(COALESCE(scope, '') || ' ' || COALESCE(raw_json, '') || ' ' || COALESCE((SELECT file_name FROM market_import_batches b WHERE b.id = last_import_batch_id), '')) LIKE '%SKU%' THEN 'SKU'
       ELSE 'SKU'
     END
+    ${rankingDimensionAdded ? "" : "WHERE ranking_dimension IS NULL OR ranking_dimension = '' OR ranking_dimension NOT IN ('SKU','SPU')"}
   `).run();
 }
 
@@ -626,35 +626,44 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   const fastMarker = await hasMarketRuntimeSchemaMarker(db);
   if (fastMarker) return;
   await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
-  let columnsChanged = false;
+  const changedTables = new Set<string>();
+  const addedColumns = new Map<string, Set<string>>();
   for (const [table, columns] of [
     ["market_ranking_entries", rankingEntryColumns],
     ["market_price_snapshots", priceSnapshotColumns],
     ["market_download_configs", downloadConfigColumns],
     ["market_download_tasks", downloadTaskColumns],
   ] as const) {
-    columnsChanged = await addMissingColumns(db, table, columns) || columnsChanged;
+    const added = await addMissingColumns(db, table, columns);
+    if (added.size) {
+      changedTables.add(table);
+      addedColumns.set(table, added);
+    }
   }
   const alreadyUpgraded = await hasMarketRuntimeSchemaMarker(db);
-  const needsDataUpgrade = columnsChanged || await needsLegacyMarketDataUpgrade(db);
+  const needsDataUpgrade = changedTables.size > 0 || await needsLegacyMarketDataUpgrade(db);
   if (needsDataUpgrade) {
     await db.prepare(`UPDATE market_ranking_entries SET
       source_brand=brand,
       source_operation_mode=operation_mode,
       source_subcategory=subcategory
       WHERE source_brand='' AND source_operation_mode='' AND source_subcategory=''`).run();
-    await normalizeExistingRankingRows(db);
+    await normalizeExistingRankingRows(db, Boolean(addedColumns.get("market_ranking_entries")?.has("ranking_dimension")));
     await removeCanonicalDuplicates(db);
     await db.prepare(`
       UPDATE market_ranking_entries
       SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
       WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
     `).run();
-    if (columnsChanged) await db.batch(marketPreUpgradeIndexStatements.map((statement) => db.prepare(statement)));
+    const preUpgradeIndexes = Object.entries(marketPreUpgradeIndexStatements)
+      .filter(([table]) => changedTables.has(table))
+      .map(([, statement]) => db.prepare(statement));
+    if (preUpgradeIndexes.length) await db.batch(preUpgradeIndexes);
     await backfillPriceSnapshots(db);
   }
   await seedDefaultPriceBands(db);
-  await db.batch(marketPostUpgradeIndexStatements.map((statement) => db.prepare(statement)));
+  for (const statement of marketPostUpgradeIndexStatements) await db.prepare(statement).run();
+  await db.prepare(`DROP INDEX IF EXISTS market_entries_canonical_uq`).run();
   if (!alreadyUpgraded) await recordMarketRuntimeSchemaMarker(db);
 }
 

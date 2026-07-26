@@ -712,7 +712,7 @@ export const marketRankingEntries = sqliteTable(
   },
   (table) => [
     uniqueIndex("market_ranking_entries_natural_key_uq").on(table.naturalKey),
-    uniqueIndex("market_entries_canonical_uq").on(table.periodStart, table.periodEnd, table.category, table.scope, table.priceBandFilter, table.rankingDimension, table.skuCode),
+    uniqueIndex("market_entries_canonical_price_band_uq").on(table.periodStart, table.periodEnd, table.category, table.scope, table.priceBandFilter, table.rankingDimension, table.skuCode),
     index("market_entries_period_idx").on(table.periodEnd, table.periodStart),
     index("market_entries_category_idx").on(table.category, table.periodEnd),
     index("market_entries_sku_idx").on(table.skuCode, table.periodEnd),
