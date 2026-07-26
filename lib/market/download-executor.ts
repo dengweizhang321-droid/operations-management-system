@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { saveMarketImportCore, type MarketEntryForImport } from "@/lib/market/import-core";
 import { parseMarketRows } from "@/lib/market/parser";
 import { ensureMarketSchemaCached, type MarketSchemaDatabase } from "@/lib/market/schema-core";
+import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 
 type DownloadTask = {
   id: string; category: string; scope: string; month: string; ranking_dimension: string; status: string;
@@ -108,17 +109,20 @@ export async function executeMarketDownloadTask(db: MarketSchemaDatabase, input:
     }
     const existingBatch = await db.prepare("SELECT id FROM market_import_batches WHERE file_hash=? LIMIT 1").bind(importIdentityHash).first<{ id: string }>();
     const batchId = existingBatch?.id ?? `market-import-${task.id}-${importIdentityHash.slice(0, 16)}`;
-    if (!existingBatch) await saveMarketImportCore({
-      db,
-      batchId,
-      sourceType: "jd_market_download",
-      fileName: downloaded.fileName,
-      fileSizeBytes: downloaded.bytes.byteLength,
-      fileHash: importIdentityHash,
-      sheetName: parsed.sheetName,
-      rows,
-      warnings: parsed.warnings,
-    });
+    if (!existingBatch) {
+      await saveMarketImportCore({
+        db,
+        batchId,
+        sourceType: "jd_market_download",
+        fileName: downloaded.fileName,
+        fileSizeBytes: downloaded.bytes.byteLength,
+        fileHash: importIdentityHash,
+        sheetName: parsed.sheetName,
+        rows,
+        warnings: parsed.warnings,
+      });
+    }
+    await refreshMarketSkuGmvTotals(db);
     if (deps.cacheImages) await deps.cacheImages({ db, task, batchId, rows });
     if (deps.createPriceTasks) await deps.createPriceTasks({ db, task, batchId, rows });
     await db.prepare(`UPDATE market_download_tasks SET status='imported', jd_task_id=COALESCE(NULLIF(?,''), jd_task_id),

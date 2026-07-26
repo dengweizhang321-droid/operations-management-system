@@ -123,7 +123,10 @@ test("市场榜单与系统设置呈现商品链接、上榜期数、主图价�
 test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认入口", async () => {
   const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
   const annotation = await readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8");
-  const service = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
+  const [service, gmvTotals] = await Promise.all([
+    readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/gmv-total.ts", import.meta.url), "utf8"),
+  ]);
   assert.match(source, /AI 一键识别价格（最多100条）/);
   assert.match(source, /pendingPriceSource/);
   assert.match(source, /AI 识别价/);
@@ -148,9 +151,10 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /market-master-product-grid/);
   assert.match(service, /market_brand_suggestions/);
   assert.match(service, /PARTITION BY m\.category, m\.scope, m\.ranking_dimension, m\.sku_code/);
-  assert.match(service, /period_kind='monthly'/);
-  assert.match(service, /period_kind='daily'/);
-  assert.match(service, /coverage_days DESC/);
+  assert.match(gmvTotals, /period_kind='monthly'/);
+  assert.match(gmvTotals, /period_kind='daily'/);
+  assert.match(gmvTotals, /coverage_days DESC/);
+  assert.match(service, /market_sku_gmv_totals/);
   assert.match(service, /gmv_total_cents DESC/);
 });
 

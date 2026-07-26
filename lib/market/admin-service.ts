@@ -4,6 +4,7 @@ import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { marketEffectiveFactsCtes } from "@/lib/market/overview-sql";
+import { ensureMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 import {
   applyManualBrandSeedToIdentity,
   listMarketBrandSeeds,
@@ -97,6 +98,7 @@ export async function listMarketMasterData(db: MarketDatabase, input: {
   priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number; includeHistory?: boolean;
 } = {}) {
   await ensureMarketAdminSchema(db);
+  await ensureMarketSkuGmvTotals(db);
   const pageSize = integer(input.pageSize, 30, 1, 100);
   const page = integer(input.page, 1, 1, 10_000);
   const { where, values } = masterWhere(input);
@@ -877,41 +879,7 @@ export async function getMarketPendingReviewSummaryForAi(db: MarketDatabase, arg
 }
 
 function masterBaseSql(includeHistory = false) {
-  return `WITH eligible_gmv_rows AS MATERIALIZED (
-      SELECT source.*,
-        substr(source.period_end,1,7) gmv_month,
-        CASE WHEN COALESCE(source.price_band_filter,'') IN ('','全部') THEN 0 ELSE 1 END band_priority,
-        MAX(CASE WHEN COALESCE(source.price_band_filter,'') IN ('','全部') THEN 1 ELSE 0 END)
-          OVER (PARTITION BY source.sku_code, substr(source.period_end,1,7)) month_has_basis,
-        CASE
-          WHEN source.period_start=source.period_end THEN 'daily'
-          WHEN source.period_start=date(source.period_start,'start of month')
-            AND source.period_end=date(source.period_start,'start of month','+1 month','-1 day') THEN 'monthly'
-          ELSE 'rolling'
-        END period_kind
-      FROM market_ranking_entries source
-    ), monthly_ranked AS MATERIALIZED (
-      SELECT source.*,
-        ROW_NUMBER() OVER (PARTITION BY sku_code, gmv_month ORDER BY band_priority, period_end DESC, updated_at DESC, id DESC) pick_rank
-      FROM eligible_gmv_rows source WHERE period_kind='monthly' AND (band_priority=0 OR month_has_basis=0)
-    ), daily_ranked AS MATERIALIZED (
-      SELECT source.*,
-        ROW_NUMBER() OVER (PARTITION BY sku_code, gmv_month, period_end ORDER BY band_priority, updated_at DESC, id DESC) pick_rank
-      FROM eligible_gmv_rows source WHERE period_kind='daily' AND (band_priority=0 OR month_has_basis=0)
-    ), month_candidates AS MATERIALIZED (
-      SELECT sku_code, gmv_month, gmv_cents, CAST(julianday(period_end)-julianday(period_start)+1 AS INTEGER) coverage_days, 0 source_priority
-      FROM monthly_ranked WHERE pick_rank=1
-      UNION ALL
-      SELECT sku_code, gmv_month, SUM(gmv_cents), COUNT(*), 1
-      FROM daily_ranked WHERE pick_rank=1 GROUP BY sku_code, gmv_month
-    ), month_picks AS MATERIALIZED (
-      SELECT source.*, ROW_NUMBER() OVER (
-        PARTITION BY sku_code, gmv_month ORDER BY coverage_days DESC, source_priority, gmv_cents DESC
-      ) month_pick_rank
-      FROM month_candidates source
-    ), gmv_totals AS MATERIALIZED (
-      SELECT sku_code, SUM(gmv_cents) gmv_total_cents FROM month_picks WHERE month_pick_rank=1 GROUP BY sku_code
-    ), representative_rows AS MATERIALIZED (
+  return `WITH representative_rows AS MATERIALIZED (
       SELECT source.*, ROW_NUMBER() OVER (
         PARTITION BY category, scope, ranking_dimension, sku_code
         ORDER BY period_end DESC, period_start DESC, id DESC
@@ -941,7 +909,7 @@ function masterBaseSql(includeHistory = false) {
         periodEndSql: "m.period_end",
       })} price_band
     FROM representatives m
-    LEFT JOIN gmv_totals gt ON gt.sku_code=m.sku_code
+    LEFT JOIN market_sku_gmv_totals gt ON gt.sku_code=m.sku_code
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     LEFT JOIN market_brand_suggestions bs ON bs.category=m.category AND bs.scope=m.scope AND bs.ranking_dimension=m.ranking_dimension AND bs.sku_code=m.sku_code
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;

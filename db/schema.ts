@@ -719,8 +719,16 @@ export const marketRankingEntries = sqliteTable(
     index("market_entries_brand_idx").on(table.brand, table.periodEnd),
     index("market_entries_dimension_idx").on(table.rankingDimension, table.operationMode, table.periodEnd),
     index("market_entries_subcategory_idx").on(table.subcategory, table.periodEnd),
+    index("market_entries_representative_idx").on(table.category, table.scope, table.rankingDimension, table.skuCode, table.periodEnd, table.periodStart, table.id),
+    index("market_entries_annotation_catalog_idx").on(table.category, table.skuCode, table.periodEnd, table.updatedAt, table.id),
   ],
 );
+
+export const marketSkuGmvTotals = sqliteTable("market_sku_gmv_totals", {
+  skuCode: text("sku_code").primaryKey(),
+  gmvTotalCents: integer("gmv_total_cents").notNull().default(0),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 /** Monthly market-positioning price snapshots; manual confirmations survive re-imports. */
 export const marketPriceSnapshots = sqliteTable(

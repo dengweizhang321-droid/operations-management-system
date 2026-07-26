@@ -15,7 +15,7 @@ type ValidationResult = { id: string; runId: string; status: string; skuCode: st
 type Workspace = { categories: Array<{ value: string; count: number }>; prompts: Prompt[]; jobs: Job[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
-const LOAD_TIMEOUT_MS = 15_000;
+const LOAD_TIMEOUT_MS = 30_000;
 const ACTION_TIMEOUT_MS = 120_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
 const yuanInput = (cents: number | null | undefined) => cents === null || cents === undefined ? "" : String(cents / 100);

@@ -3,6 +3,7 @@ import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/
 import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
+import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -123,7 +124,9 @@ export async function saveMarketImport(input: {
   rows: MarketEntryInput[];
   warnings: MarketImportIssue[];
 }): Promise<MarketImportBatch> {
-  return saveMarketImportCore(input) as Promise<MarketImportBatch>;
+  const batch = await saveMarketImportCore(input) as MarketImportBatch;
+  await refreshMarketSkuGmvTotals(input.db);
+  return batch;
 }
 
 

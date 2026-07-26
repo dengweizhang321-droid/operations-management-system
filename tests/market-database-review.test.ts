@@ -75,7 +75,7 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   const changesAfterUpgrade = (sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes;
   await ensureMarketSchemaCore(db);
   assert.equal((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes, changesAfterUpgrade);
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v5'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v8'").get() as { count: number }).count, 1);
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(columnNames("market_brand_suggestions").has("ai_brand"));
   assert.ok(columnNames("market_brand_recognition_jobs").has("processed_count"));
@@ -150,7 +150,7 @@ test("0026 forward migrations deduplicate facts and preserve mapping/download sc
   sqlite.close();
 });
 
-test("v5 runtime upgrade does not rewrite valid dimensions and swaps the canonical index safely", async () => {
+test("runtime upgrade does not rewrite valid dimensions and swaps the canonical index safely", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const migrationFiles = [
     "0015_market_analysis.sql", "0016_market_sku_annotations.sql", "0017_market_annotation_reliability.sql",
@@ -177,7 +177,7 @@ test("v5 runtime upgrade does not rewrite valid dimensions and swaps the canonic
 
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_price_band_uq'").get());
   assert.equal(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_uq'").get(), undefined);
-  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v5'").get());
+  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v8'").get());
   sqlite.close();
 });
 

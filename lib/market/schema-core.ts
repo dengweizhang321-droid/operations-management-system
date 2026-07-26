@@ -88,6 +88,11 @@ export const marketBaseSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS market_sku_gmv_totals (
+    sku_code TEXT PRIMARY KEY NOT NULL,
+    gmv_total_cents INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS market_price_snapshots (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -351,6 +356,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_brand_idx ON market_ranking_entries (brand, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_dimension_idx ON market_ranking_entries (ranking_dimension, operation_mode, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_representative_idx ON market_ranking_entries (category, scope, ranking_dimension, sku_code, period_end DESC, period_start DESC, id DESC)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_annotation_catalog_idx ON market_ranking_entries (category, sku_code, period_end DESC, updated_at DESC, id DESC)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_price_band_uq ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, scope, sku_code, ranking_dimension, month)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
@@ -402,7 +409,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return added;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v5";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v8";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {
