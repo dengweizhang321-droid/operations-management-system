@@ -8,6 +8,7 @@ import {
 import { parseMarketRows } from "@/lib/market/parser";
 import { cacheMarketImages } from "@/lib/market/image-cache";
 import { matchImportedMarketBrands, refreshSystemMarketBrandSeeds } from "@/lib/market/brand-seeds";
+import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 
 export { parseMarketRows } from "@/lib/market/parser";
 
@@ -28,6 +29,7 @@ export async function importMarketFile(input: {
   const fileHash = createHash("sha256").update(input.bytes).digest("hex");
   const existing = await findMarketBatchByHash(db, fileHash);
   if (existing?.status === "completed") {
+    await refreshMarketSkuGmvTotals(db);
     const imageCache = await cacheMarketImages({ db, batchId: existing.id, limit: 4 });
     return { ok: true, status: "duplicate" as const, message: "该文件已经导入，已继续检查商品图片缓存", batch: existing, imageCache };
   }
