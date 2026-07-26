@@ -5,6 +5,7 @@ import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
 import { maskWebhookUrl, normalizeAiEndpointUrl, resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
+import { probeVisionModelConnection } from "@/lib/market/annotation-model";
 import {
   executeRegisteredToolCall,
   getAnthropicTools,
@@ -32,7 +33,7 @@ export { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-securi
 
 export const aiModelProtocols = ["openai_compatible", "anthropic"] as const;
 export type AiModelProtocol = (typeof aiModelProtocols)[number];
-export const aiModelTypes = ["text", "image", "vision"] as const;
+export const aiModelTypes = ["text", "vision"] as const;
 export type AiModelType = (typeof aiModelTypes)[number];
 export const aiModelStatuses = ["enabled", "disabled"] as const;
 export type AiModelStatus = (typeof aiModelStatuses)[number];
@@ -209,6 +210,19 @@ const schemaStatements = [
     WHERE is_default_text_model = 1 AND status = 'enabled' AND model_type = 'text'`,
   `CREATE INDEX IF NOT EXISTS ai_models_status_idx
     ON ai_models (status, model_type, updated_at)`,
+  `UPDATE ai_models
+    SET model_type = 'vision',
+        is_default_text_model = 0,
+        last_test_result = '需重新测试：历史“图片”类型已升级为视觉识别，请验证真实图片输入',
+        last_tested_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE model_type = 'image'`,
+  `UPDATE ai_models
+    SET last_test_result = '需重新测试：此前只验证了文本连接，请验证真实图片输入',
+        last_tested_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE model_type = 'vision'
+      AND last_test_result LIKE '连接成功：OK%'`,
   `CREATE TABLE IF NOT EXISTS ai_channels (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -314,12 +328,20 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
   const existing = normalized.id ? await getAiModelSecretById(id, db) : null;
   const apiKeyEncrypted = normalized.apiKey ? await encryptSecret(normalized.apiKey) : existing?.api_key_encrypted ?? "";
   const apiKeySuffix = normalized.apiKey ? maskSuffix(normalized.apiKey) : existing?.api_key_suffix ?? "";
+  const testStillApplies = Boolean(existing)
+    && !normalized.apiKey
+    && existing?.protocol === normalized.protocol
+    && asModelType(existing?.model_type) === normalized.modelType
+    && existing?.model_name === normalized.modelName
+    && existing?.base_url === normalized.baseUrl;
+  const lastTestResult = testStillApplies ? existing?.last_test_result ?? null : null;
+  const lastTestedAt = testStillApplies ? existing?.last_tested_at ?? null : null;
   if (normalized.isDefaultTextModel && normalized.modelType === "text" && normalized.status === "enabled") {
     await db.prepare("UPDATE ai_models SET is_default_text_model = 0 WHERE model_type = 'text'").run();
   }
   await db.prepare(
-    `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model, status, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model, status, last_test_result, last_tested_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        protocol = excluded.protocol,
@@ -330,8 +352,10 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
        api_key_suffix = excluded.api_key_suffix,
        is_default_text_model = excluded.is_default_text_model,
        status = excluded.status,
+       last_test_result = excluded.last_test_result,
+       last_tested_at = excluded.last_tested_at,
        updated_at = CURRENT_TIMESTAMP`,
-  ).bind(id, normalized.name, normalized.protocol, normalized.modelType, normalized.modelName, normalized.baseUrl, apiKeyEncrypted, apiKeySuffix, normalized.isDefaultTextModel ? 1 : 0, normalized.status).run();
+  ).bind(id, normalized.name, normalized.protocol, normalized.modelType, normalized.modelName, normalized.baseUrl, apiKeyEncrypted, apiKeySuffix, normalized.isDefaultTextModel ? 1 : 0, normalized.status, lastTestResult, lastTestedAt).run();
   const row = await getAiModelSecretById(id, db);
   if (!row) throw new Error("模型配置保存后无法读取");
   return mapAiModelRecord(row);
@@ -485,11 +509,13 @@ export async function testAiModelConnection(modelId: string, db: SalesDatabase =
   if (!model) throw new Error("模型不存在");
   try {
     if (!model.base_url || !model.api_key_encrypted) throw new Error("模型地址或 API Key 未配置");
-    const reply = model.protocol === "anthropic"
-      ? await callAnthropicModel(model, [{ role: "user", content: "仅回复 OK" }])
-      : await callOpenAiCompatibleModel(model, [{ role: "user", content: "仅回复 OK" }]);
+    const reply = model.model_type === "vision" || model.model_type === "image"
+      ? await probeVisionModelConnection(model)
+      : model.protocol === "anthropic"
+        ? await callAnthropicModel(model, [{ role: "user", content: "仅回复 OK" }])
+        : await callOpenAiCompatibleModel(model, [{ role: "user", content: "仅回复 OK" }]);
     await setModelTestResult(modelId, `连接成功：${reply.slice(0, 80)}`, db);
-    return { ok: true, message: "模型连接成功" };
+    return { ok: true, message: model.model_type === "vision" || model.model_type === "image" ? "视觉模型图片识别验证成功" : "文本模型连接成功" };
   } catch (error) {
     await setModelTestResult(modelId, `连接失败：${safeErrorMessage(error)}`, db);
     throw error;
@@ -860,6 +886,7 @@ function asModelProtocol(value: unknown): AiModelProtocol {
 }
 
 function asModelType(value: unknown): AiModelType {
+  if (value === "image") return "vision";
   if (aiModelTypes.includes(value as AiModelType)) return value as AiModelType;
   throw new Error("模型类型无效");
 }

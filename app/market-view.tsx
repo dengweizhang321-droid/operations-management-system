@@ -76,7 +76,7 @@ type MarketMasterWorkspace = {
 };
 type MarketSectionKey = "ranking" | "overview" | "compare" | "settings";
 type MarketSettingsTab = "database" | "ai" | "brand" | "mapping" | "data";
-type AiModelSummary = { id: string; name: string; modelType: "text" | "image" | "vision"; modelName: string; status: "enabled" | "disabled"; isDefaultTextModel: boolean };
+type AiModelSummary = { id: string; name: string; modelType: "text" | "vision"; modelName: string; status: "enabled" | "disabled"; isDefaultTextModel: boolean };
 
 const money = (cents?: number | null) => cents === null || cents === undefined
   ? "-"

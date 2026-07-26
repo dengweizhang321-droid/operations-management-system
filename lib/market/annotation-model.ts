@@ -4,12 +4,14 @@ import { fetchAnnotationImage } from "@/lib/market/annotation-image";
 import type { MarketDatabase } from "@/lib/market/database";
 import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
 
-type ModelRow = { id: string; name: string; protocol: "openai_compatible" | "anthropic"; model_type: string; model_name: string; base_url: string; api_key_encrypted: string; status: string };
+export type AnnotationModelConfig = { id: string; name: string; protocol: string; model_type: string; model_name: string; base_url: string; api_key_encrypted: string; status: string };
+type ModelRow = AnnotationModelConfig;
 const MODEL_TIMEOUT_MS = 90_000;
 const MODEL_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
+const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
 export async function listAnnotationModels(db: MarketDatabase) {
-  const rows = await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE status = 'enabled' AND model_type = 'vision' ORDER BY updated_at DESC").all<ModelRow>();
+  const rows = await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE status = 'enabled' AND model_type IN ('vision','image') ORDER BY updated_at DESC").all<ModelRow>();
   return (rows.results ?? []).map(({ id, name, protocol, model_name }) => ({ id, name, protocol, modelName: model_name }));
 }
 
@@ -19,9 +21,30 @@ export async function listPromptTextModels(db: MarketDatabase) {
 }
 
 async function getModel(db: MarketDatabase, id: string, type: "vision" | "text") {
-  const row = await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type = ? LIMIT 1").bind(id, type).first<ModelRow>();
+  const row = type === "vision"
+    ? await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type IN ('vision','image') LIMIT 1").bind(id).first<ModelRow>()
+    : await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type = ? LIMIT 1").bind(id, type).first<ModelRow>();
   if (!row) throw new Error(`所选 ${type === "vision" ? "视觉" : "文本"} 模型不存在或未启用`);
   return row;
+}
+
+export async function probeVisionModelConnection(model: AnnotationModelConfig): Promise<string> {
+  const segments = ["红色", "其他"] as const;
+  const image: LoadedImage = {
+    kind: "image",
+    source: "imgzone",
+    url: "inline://vision-capability-probe",
+    mimeType: "image/png",
+    bytes: new Uint8Array(),
+    base64: VISION_PROBE_IMAGE_BASE64,
+  };
+  const prompt = "请观察随请求发送的测试图片主色。segment 只能返回“红色”或“其他”；图片中没有商品价格，因此价格和价格区间返回 null，price_type 返回“无法判断”，并给出置信度和简短依据。不要根据文字猜测颜色。";
+  const raw = model.protocol === "anthropic"
+    ? await callAnthropicVision(model, prompt, segments, image)
+    : await callOpenAiVision(model, prompt, segments, image);
+  const parsed = parseVisionAnnotation(raw, segments);
+  if (parsed.segment !== "红色") throw new Error("模型接口可连接，但未能识别测试图片；请确认模型标识支持图片输入");
+  return "图片识别成功";
 }
 
 export async function runVisionAnnotation(input: {

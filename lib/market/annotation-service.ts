@@ -145,7 +145,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
   const executor = input.executor === "local" ? "local" : "cloud";
   if (executor === "cloud") {
     if (!input.modelId) throw new Error("云端任务必须选择视觉模型");
-    const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type='vision'").bind(input.modelId).first<{ id: string }>();
+    const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type IN ('vision','image')").bind(input.modelId).first<{ id: string }>();
     if (!model) throw new Error("所选云端视觉模型不存在或未启用");
   } else if (!input.localModelName?.trim()) throw new Error("本地任务必须填写 Ollama 模型名");
   const limit = strictInteger(input.limit, 500, 1, 5_000, "limit");
@@ -443,7 +443,7 @@ export async function createValidationRun(db: MarketDatabase, input: { candidate
   const candidate = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=?").bind(input.candidatePromptId).first<PromptRow>();
   if (!candidate) throw new Error("候选 Prompt 不存在");
   const baseline = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE category=? AND status='active' LIMIT 1").bind(candidate.category).first<PromptRow>();
-  const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type='vision'").bind(input.modelId).first<{ id: string }>();
+  const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type IN ('vision','image')").bind(input.modelId).first<{ id: string }>();
   if (!model) throw new Error("冻结验证必须选择已启用的视觉模型");
   const samples = await db.prepare("SELECT id, category, sku_code, product_name, brand, image_url, gold_segment, gold_image_price_cents FROM market_annotation_validation_samples WHERE category=? ORDER BY id").bind(candidate.category).all<ValidationSampleRow>();
   const requestedCount = strictInteger(input.sampleCount, 50, 50, 500, "sampleCount");

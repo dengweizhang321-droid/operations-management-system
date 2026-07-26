@@ -101,7 +101,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(worker, /authenticateLocalAgent/);
   assert.match(worker, /annotationAgentErrorResponse/);
   assert.doesNotMatch(worker, /error instanceof Error \? error\.message/);
-  assert.match(service, /model_type='vision'/);
+  assert.match(service, /model_type IN \('vision','image'\)/);
   assert.match(service, /candidateIds/);
   assert.match(service, /idempotency_key/);
   assert.match(service, /version=version\+1/);
