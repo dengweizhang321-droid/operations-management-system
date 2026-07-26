@@ -1,6 +1,7 @@
 import { officialPriceBandSql } from "@/lib/market/schema-core";
 
 type MarketOverviewSqlOptions = {
+  factWhere?: string;
   where?: string;
   priceBandWhere?: string;
   materialized?: boolean;
@@ -15,19 +16,21 @@ function overviewPriceBandSql() {
   });
 }
 
-export function marketEffectiveFactsCtes() {
+export function marketEffectiveFactsCtes(factWhere = "") {
   const group = "category, period_start, period_end, scope, price_band_filter, ranking_dimension";
   const order = "COALESCE(rank, 2147483647), id";
   const reverseOrder = "COALESCE(rank, 2147483647) DESC, id DESC";
-  return `market_basis_ids AS MATERIALIZED (
+  return `market_fact_source AS MATERIALIZED (
+    SELECT * FROM market_ranking_entries m ${factWhere}
+  ), market_basis_ids AS MATERIALIZED (
     SELECT id, ROW_NUMBER() OVER (
       PARTITION BY period_start, period_end, category, scope, ranking_dimension, sku_code
       ORDER BY CASE COALESCE(price_band_filter,'') WHEN '全部' THEN 0 WHEN '' THEN 1 ELSE 2 END,
         COALESCE(price_band_filter,''), id DESC
     ) price_band_preference
-    FROM market_ranking_entries
+    FROM market_fact_source
   ), market_basis_rows AS MATERIALIZED (
-    SELECT source.* FROM market_ranking_entries source
+    SELECT source.* FROM market_fact_source source
     JOIN market_basis_ids chosen ON chosen.id=source.id AND chosen.price_band_preference=1
   ), real_gmv_anchor_rows AS MATERIALIZED (
     SELECT m.id, CAST(json_extract(n.metrics_json, '$."成交金额"') AS REAL) real_gmv_yuan
@@ -141,7 +144,7 @@ export function marketEffectiveFactsCtes() {
 
 export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions = {}) {
   const materialized = options.materialized ? "MATERIALIZED " : "";
-  return `WITH ${marketEffectiveFactsCtes()}, enriched AS ${materialized}(
+  return `WITH ${marketEffectiveFactsCtes(options.factWhere)}, enriched AS ${materialized}(
     SELECT m.*,
       mic.status AS image_cache_status_raw,
       mic.content_sha256 AS image_content_sha256,
@@ -183,7 +186,7 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
 }
 
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
-  return `WITH ${marketEffectiveFactsCtes()}, analytics_base AS MATERIALIZED (
+  return `WITH ${marketEffectiveFactsCtes(options.factWhere)}, analytics_base AS MATERIALIZED (
     SELECT m.period_start, m.period_end, m.category, m.scope, m.ranking_dimension, m.operation_mode,
       m.subcategory, m.rank, m.sku_code, m.brand, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
       ps.confirmed_market_price_cents AS official_market_price_cents,

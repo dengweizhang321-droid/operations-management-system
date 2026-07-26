@@ -172,36 +172,44 @@ function batchRows<T>(result: { results?: unknown[] } | undefined): T[] {
 }
 
 function filterSql(filters: MarketOverviewFilters) {
+  const factClauses: string[] = [];
+  const factValues: unknown[] = [];
   const clauses: string[] = [];
   const values: unknown[] = [];
-  const list = (column: string, items?: string[]) => {
+  const list = (targetClauses: string[], targetValues: unknown[], column: string, items?: string[]) => {
     const normalized = [...new Set((items ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 30);
     if (!normalized.length) return;
-    clauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
-    values.push(...normalized);
+    targetClauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
+    targetValues.push(...normalized);
   };
   if (filters.query?.trim()) {
     const query = `%${filters.query.trim().slice(0, 100)}%`;
     clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)");
     values.push(query, query, query);
   }
-  list("m.category", filters.categories);
-  list("m.scope", filters.scopes);
-  list("m.brand", filters.brands);
-  list("m.ranking_dimension", filters.rankingDimensions);
-  list("m.operation_mode", filters.operationModes?.filter((item) => item !== "全部"));
-  list("m.subcategory", filters.subcategories);
-  if (filters.startDate) { clauses.push("m.period_end >= ?"); values.push(filters.startDate); }
-  if (filters.endDate) { clauses.push("m.period_start <= ?"); values.push(filters.endDate); }
+  list(factClauses, factValues, "m.category", filters.categories);
+  list(factClauses, factValues, "m.scope", filters.scopes);
+  list(clauses, values, "m.brand", filters.brands);
+  list(factClauses, factValues, "m.ranking_dimension", filters.rankingDimensions);
+  list(clauses, values, "m.operation_mode", filters.operationModes?.filter((item) => item !== "全部"));
+  list(clauses, values, "m.subcategory", filters.subcategories);
+  if (filters.startDate) { factClauses.push("m.period_end >= ?"); factValues.push(filters.startDate); }
+  if (filters.endDate) { factClauses.push("m.period_start <= ?"); factValues.push(filters.endDate); }
   const priceBands = [...new Set((filters.priceBands ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
   const priceBandWhere = priceBands.length ? `WHERE price_band IN (${priceBands.map(() => "?").join(",")})` : "";
-  return { where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", values, priceBandWhere, priceBandValues: priceBands };
+  return {
+    factWhere: factClauses.length ? `WHERE ${factClauses.join(" AND ")}` : "",
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    values: [...factValues, ...values],
+    priceBandWhere,
+    priceBandValues: priceBands,
+  };
 }
 
 export async function getMarketOverview(db: MarketDatabase, filters: MarketOverviewFilters = {}) {
-  const { where, values, priceBandWhere, priceBandValues } = filterSql(filters);
-  const enriched = buildMarketOverviewEnrichedSql({ where, priceBandWhere });
-  const analyticsSql = buildMarketOverviewAnalyticsSql({ where, priceBandWhere });
+  const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
+  const enriched = buildMarketOverviewEnrichedSql({ factWhere, where, priceBandWhere });
+  const analyticsSql = buildMarketOverviewAnalyticsSql({ factWhere, where, priceBandWhere });
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const bindings = [...values, ...priceBandValues];
   const [analyticsResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
