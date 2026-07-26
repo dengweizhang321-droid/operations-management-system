@@ -123,6 +123,11 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
   const service = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
   assert.match(source, /AI 一键识别价格（最多100条）/);
+  assert.match(source, /pendingPriceSource/);
+  assert.match(source, /AI 识别价/);
+  assert.match(source, /非 AI 识别价/);
+  assert.match(source, /pendingPricePageSize/);
+  assert.match(source, /待确认价格页码/);
   assert.match(source, /AI 一键识别品牌（所有页）/);
   assert.match(source, /一键确认全部候选/);
   assert.match(source, /暂停识别/);

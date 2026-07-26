@@ -91,7 +91,7 @@ export async function matchMarketBrandSeeds(db: MarketDatabase, input: { categor
 
 export async function listMarketMasterData(db: MarketDatabase, input: {
   q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string;
-  priceStatus?: "confirmed" | "pending" | "missing"; page?: number; pageSize?: number;
+  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number;
 } = {}) {
   await ensureMarketAdminSchema(db);
   const pageSize = integer(input.pageSize, 30, 1, 100);
@@ -107,7 +107,9 @@ export async function listMarketMasterData(db: MarketDatabase, input: {
   };
 }
 
-export async function listPendingMarketPrices(db: MarketDatabase, input: { q?: string; category?: string; page?: number; pageSize?: number } = {}) {
+export async function listPendingMarketPrices(db: MarketDatabase, input: {
+  q?: string; category?: string; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number;
+} = {}) {
   return listMarketMasterData(db, { ...input, priceStatus: "pending" });
 }
 
@@ -669,12 +671,21 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
   return after;
 }
 
-export async function getMarketMasterWorkspace(db: MarketDatabase, input: { q?: string; category?: string; page?: number; pageSize?: number } = {}) {
+export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
+  q?: string; category?: string; page?: number; pageSize?: number;
+  pendingPriceCategory?: string; pendingPriceSource?: "ai" | "non_ai";
+  pendingPricePage?: number; pendingPricePageSize?: number;
+} = {}) {
   await ensureMarketAdminSchema(db);
   await ensureAnnotationSchema(db);
   const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts, brandRecognitionJob, brandSeeds] = await Promise.all([
     listMarketMasterData(db, input),
-    listPendingMarketPrices(db, { category: input.category, page: 1, pageSize: 20 }),
+    listPendingMarketPrices(db, {
+      category: input.pendingPriceCategory,
+      candidatePriceSource: input.pendingPriceSource,
+      page: input.pendingPricePage,
+      pageSize: input.pendingPricePageSize,
+    }),
     listMarketMappings(db),
     listMarketPriceBandVersions(db),
     db.prepare("SELECT * FROM market_download_tasks ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>(),
@@ -947,6 +958,7 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
 
 function masterWhere(input: {
   q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string; priceStatus?: string;
+  candidatePriceSource?: string;
 }) {
   const clauses = ["1=1"];
   const values: unknown[] = [];
@@ -960,6 +972,14 @@ function masterWhere(input: {
   if (input.priceStatus === "confirmed") clauses.push("ps.confirmed_market_price_cents IS NOT NULL");
   if (input.priceStatus === "pending") clauses.push("ps.confirmed_market_price_cents IS NULL AND (ps.source_price_cents IS NOT NULL OR ps.ai_image_price_cents IS NOT NULL OR ps.average_transaction_price_cents IS NOT NULL OR ps.confirmation_status IN ('missing','ai_pending','review_pending','source_table'))");
   if (input.priceStatus === "missing") clauses.push("ps.confirmed_market_price_cents IS NULL AND ps.source_price_cents IS NULL AND ps.ai_image_price_cents IS NULL AND ps.average_transaction_price_cents IS NULL");
+  if (input.candidatePriceSource === "ai") clauses.push(`(
+    (ps.confirmation_status='ai_pending' AND ps.ai_image_price_cents IS NOT NULL)
+    OR (ps.source_price_cents IS NULL AND ps.average_transaction_price_cents IS NULL AND ps.ai_image_price_cents IS NOT NULL)
+  )`);
+  if (input.candidatePriceSource === "non_ai") clauses.push(`
+    NOT (COALESCE(ps.confirmation_status, '')='ai_pending' AND ps.ai_image_price_cents IS NOT NULL)
+    AND (ps.source_price_cents IS NOT NULL OR (ps.source_price_cents IS NULL AND ps.average_transaction_price_cents IS NOT NULL))
+  `);
   return { where: clauses.join(" AND "), values };
 }
 

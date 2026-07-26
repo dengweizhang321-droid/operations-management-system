@@ -41,6 +41,10 @@ const numberParam = (params: URLSearchParams, key: string, fallback: number) => 
   if (!Number.isSafeInteger(parsed)) throw new Error(`${key} must be an integer`);
   return parsed;
 };
+const pendingPriceSourceParam = (params: URLSearchParams, key: string) => {
+  const value = params.get(key);
+  return value === "ai" || value === "non_ai" ? value : undefined;
+};
 
 export async function GET(request: Request) {
   try {
@@ -65,6 +69,7 @@ export async function GET(request: Request) {
       return Response.json(await listPendingMarketPrices(db, {
         q: params.get("q") ?? undefined,
         category: params.get("category") ?? undefined,
+        candidatePriceSource: pendingPriceSourceParam(params, "priceSource"),
         page: numberParam(params, "page", 1),
         pageSize: numberParam(params, "pageSize", 30),
       }), { headers: { "cache-control": "no-store" } });
@@ -102,6 +107,10 @@ export async function GET(request: Request) {
       category: params.get("category") ?? undefined,
       page: numberParam(params, "page", 1),
       pageSize: numberParam(params, "pageSize", 30),
+      pendingPriceCategory: params.get("pendingPriceCategory") ?? undefined,
+      pendingPriceSource: pendingPriceSourceParam(params, "pendingPriceSource"),
+      pendingPricePage: numberParam(params, "pendingPricePage", 1),
+      pendingPricePageSize: numberParam(params, "pendingPricePageSize", 20),
     }), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error);

@@ -14,6 +14,7 @@ import {
   getMarketSkuComparison,
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
+  listPendingMarketPrices,
   matchMarketBrandSeeds,
   planMissingMarketDownloads,
   publishMarketPriceBandVersion,
@@ -57,6 +58,40 @@ function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
 }
 
 const admin = { email: "admin@example.com", role: "admin" } as const;
+
+test("pending market prices filter displayed AI sources and paginate non-AI sources", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, raw_json, last_import_batch_id)
+    VALUES
+    ('price-ai',1,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AI','AI price product','','{}','batch'),
+    ('price-source',2,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-SOURCE','Source price product','','{}','batch'),
+    ('price-average',3,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AVERAGE','Average price product','','{}','batch');
+    INSERT INTO market_price_snapshots
+    (id, category, scope, sku_code, ranking_dimension, month, source_price_cents, average_transaction_price_cents, ai_image_price_cents, confirmation_status)
+    VALUES
+    ('snapshot-ai','category-price','pop','SKU-AI','SKU','2026-06',NULL,500000,1150000,'ai_pending'),
+    ('snapshot-source','category-price','pop','SKU-SOURCE','SKU','2026-06',769900,NULL,NULL,'source_table'),
+    ('snapshot-average','category-price','pop','SKU-AVERAGE','SKU','2026-06',NULL,233300,NULL,'review_pending');`);
+
+  const ai = await listPendingMarketPrices(db as never, { category: "category-price", candidatePriceSource: "ai", page: 1, pageSize: 20 });
+  assert.equal(ai.pagination.total, 1);
+  assert.equal(ai.items[0]?.skuCode, "SKU-AI");
+  assert.equal(ai.items[0]?.candidatePriceSource, "ai_suggestion");
+
+  const nonAiFirst = await listPendingMarketPrices(db as never, { category: "category-price", candidatePriceSource: "non_ai", page: 1, pageSize: 1 });
+  const nonAiSecond = await listPendingMarketPrices(db as never, { category: "category-price", candidatePriceSource: "non_ai", page: 2, pageSize: 1 });
+  assert.equal(nonAiFirst.pagination.total, 2);
+  assert.equal(nonAiFirst.pagination.pageCount, 2);
+  assert.equal(nonAiFirst.items.length, 1);
+  assert.equal(nonAiSecond.items.length, 1);
+  assert.notEqual(nonAiFirst.items[0]?.skuCode, nonAiSecond.items[0]?.skuCode);
+  assert.ok(nonAiFirst.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
+  assert.ok(nonAiSecond.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
+  sqlite.close();
+});
 
 test("brand seed matching prefers the earliest title brand and protects short ASCII seeds", () => {
   const seed = (canonicalBrand: string, seedText: string): MarketBrandSeed => ({
