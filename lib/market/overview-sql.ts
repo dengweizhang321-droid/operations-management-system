@@ -29,14 +29,21 @@ export function marketEffectiveFactsCtes() {
   ), market_basis_rows AS MATERIALIZED (
     SELECT source.* FROM market_ranking_entries source
     JOIN market_basis_ids chosen ON chosen.id=source.id AND chosen.price_band_preference=1
-  ), real_gmv_anchors AS MATERIALIZED (
-    SELECT m.id, CAST(ROUND(SUM(COALESCE(CAST(json_extract(n.metrics_json, '$."成交金额"') AS REAL),0))*100) AS INTEGER) real_gmv_cents
+  ), real_gmv_anchor_rows AS MATERIALIZED (
+    SELECT m.id, CAST(json_extract(n.metrics_json, '$."成交金额"') AS REAL) real_gmv_yuan
     FROM market_basis_rows m JOIN netshop_rows n
-      ON n.source='jd_sku_daily'
-      AND n.dataset=CASE WHEN m.ranking_dimension='SPU' THEN 'spu_daily' ELSE 'sku_daily' END
-      AND CASE WHEN m.ranking_dimension='SPU' THEN n.spu_id ELSE n.sku_id END=m.sku_code
+      ON m.ranking_dimension<>'SPU' AND n.sku_id=m.sku_code
+      AND n.source='jd_sku_daily' AND n.dataset='sku_daily'
       AND n.business_date BETWEEN m.period_start AND m.period_end
-    GROUP BY m.id HAVING real_gmv_cents>0
+    UNION ALL
+    SELECT m.id, CAST(json_extract(n.metrics_json, '$."成交金额"') AS REAL) real_gmv_yuan
+    FROM market_basis_rows m JOIN netshop_rows n
+      ON m.ranking_dimension='SPU' AND n.spu_id=m.sku_code
+      AND n.source='jd_sku_daily' AND n.dataset='spu_daily'
+      AND n.business_date BETWEEN m.period_start AND m.period_end
+  ), real_gmv_anchors AS MATERIALIZED (
+    SELECT id, CAST(ROUND(SUM(COALESCE(real_gmv_yuan,0))*100) AS INTEGER) real_gmv_cents
+    FROM real_gmv_anchor_rows GROUP BY id HAVING real_gmv_cents>0
   ), anchor_groups AS MATERIALIZED (
     SELECT DISTINCT ${group}
     FROM market_basis_rows source JOIN real_gmv_anchors anchors ON anchors.id=source.id
