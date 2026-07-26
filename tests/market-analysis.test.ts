@@ -134,6 +134,10 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /pendingPricePageSize/);
   assert.match(source, /待确认价格页码/);
   assert.match(source, /SKU 数据库每页条数/);
+  assert.match(source, /setCategory\(nextCategory\); setPriceCategory\(nextCategory\); setPage\(1\); setPendingPricePage\(1\);/);
+  assert.match(source, /const requestId = \+\+loadRequestId\.current/);
+  assert.match(source, /if \(requestId !== loadRequestId\.current\) return/);
+  assert.match(source, /key=\{`pending-price-\$\{row\.id\}`\}/);
   assert.match(source, /人工确认市场定位价（元）/);
   assert.match(source, /Math\.round\(priceYuan \* 100\)/);
   assert.match(annotation, /主图价格（元）/);
