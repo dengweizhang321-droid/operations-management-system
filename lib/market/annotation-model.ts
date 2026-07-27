@@ -76,18 +76,43 @@ export async function runPromptTextCompletion(db: MarketDatabase, modelId: strin
       method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({ model: model.model_name, max_tokens: 1800, messages: [{ role: "user", content: instruction }] }),
     });
-    if (!response.ok) throw new Error(`文本模型调用失败（状态码 ${response.status}）`);
+    if (!response.ok) throw modelCallError("文本", response.status, data);
     return data?.content?.map((part) => part.text ?? "").join("").trim() || "";
   }
   const { response, data } = await fetchJsonLimited<{ choices?: Array<{ message?: { content?: string } }> }>(resolveAiModelEndpointUrl(model.base_url, "openai_compatible"), {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({ model: model.model_name, temperature: 0.2, messages: [{ role: "user", content: instruction }] }),
   });
-  if (!response.ok) throw new Error(`文本模型调用失败（状态码 ${response.status}）`);
+  if (!response.ok) throw modelCallError("文本", response.status, data);
   return data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
 type LoadedImage = Extract<Awaited<ReturnType<typeof fetchAnnotationImage>>, { kind: "image" }>;
+type ModelErrorEnvelope = { error?: string | { message?: unknown; code?: unknown; type?: unknown }; message?: unknown };
+
+function modelErrorDetail(data: unknown) {
+  if (!data || typeof data !== "object") return "";
+  const envelope = data as ModelErrorEnvelope;
+  const error = envelope.error;
+  const message = typeof error === "string" ? error : typeof error?.message === "string" ? error.message : typeof envelope.message === "string" ? envelope.message : "";
+  const code = typeof error === "object" && error && typeof error.code === "string" ? error.code : "";
+  const detail = [code, message].filter(Boolean).join(" · ").replace(/\s+/g, " ").trim();
+  return detail
+    .replace(/\b(sk-|key-)[A-Za-z0-9_-]{8,}\b/gi, "$1…")
+    .replace(/(authorization\s*[:=]?\s*bearer\s+)\S+/gi, "$1…")
+    .replace(/(api[_ -]?key\s*[:=]\s*)\S+/gi, "$1…")
+    .slice(0, 180);
+}
+
+function modelCallError(kind: "文本" | "视觉", status: number, data: unknown) {
+  const detail = modelErrorDetail(data);
+  const hint = status === 429
+    ? "模型供应商限流或额度不足，请稍后重试并检查额度"
+    : status === 400
+      ? "请求被接口拒绝，请核对模型标识、图片输入及结构化输出兼容性"
+      : "请检查模型服务状态和接口配置";
+  return new Error(`${kind}模型调用失败（状态码 ${status}：${detail || hint}）`);
+}
 
 async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null) {
   const key = await decryptSecret(model.api_key_encrypted);
@@ -101,7 +126,7 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
     }),
   });
-  if (!response.ok) throw new Error(`视觉模型调用失败（状态码 ${response.status}）`);
+  if (!response.ok) throw modelCallError("视觉", response.status, data);
   const contentValue = data?.choices?.[0]?.message?.content;
   return typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("") || "";
 }
@@ -120,7 +145,7 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
       tool_choice: { type: "tool", name: "submit_market_sku_annotation" },
     }),
   });
-  if (!response.ok) throw new Error(`视觉模型调用失败（状态码 ${response.status}）`);
+  if (!response.ok) throw modelCallError("视觉", response.status, data);
   const tool = data?.content?.find((part) => part.type === "tool_use" && part.name === "submit_market_sku_annotation");
   if (!tool?.input) throw new Error("Anthropic 视觉模型没有返回结构化工具结果");
   return tool.input;

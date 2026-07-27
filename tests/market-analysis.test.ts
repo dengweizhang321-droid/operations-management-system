@@ -177,8 +177,13 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /reviewView === "gallery"/);
   assert.match(annotation, /批量入库/);
   assert.match(annotation, /全选筛选结果（跨页/);
-  assert.match(annotation, /全部识别来源/);
-  assert.match(annotation, /非 AI \/ 未识别/);
+  assert.match(annotation, /全部 AI 结果/);
+  assert.match(annotation, /未生成 AI 结果（含失败）/);
+  assert.match(annotation, /此筛选不会调用模型/);
+  assert.match(annotation, /annotationProductHref/);
+  assert.match(annotation, /https:\/\/item\.jd\.com\/\$\{sku\}\.html/);
+  assert.match(annotation, /annotation-image-link/);
+  assert.match(annotation, /打开商品链接/);
   assert.match(annotation, /taxonomy/);
   assert.match(annotation, /readOnly/);
   assert.match(view, /market-master-database-table/);
@@ -192,6 +197,15 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(route, /workspaceModeParam/);
   assert.match(route, /case "update_sku_master"/);
   assert.match(route, /case "save_subcategory_settings"/);
+});
+
+test("视觉模型错误保留安全的供应商详情并给出状态码诊断", async () => {
+  const source = await readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8");
+  assert.match(source, /modelErrorDetail/);
+  assert.match(source, /模型供应商限流或额度不足/);
+  assert.match(source, /请求被接口拒绝/);
+  assert.match(source, /replace\(\/\\b\(sk-\|key-\)/);
+  assert.match(source, /throw modelCallError\("视觉", response\.status, data\)/);
 });
 
 test("market imports automatically match enabled brand seeds", async () => {

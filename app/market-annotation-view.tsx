@@ -19,6 +19,22 @@ const ACTION_TIMEOUT_MS = 120_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
 const yuanInput = (cents: number | null | undefined) => cents === null || cents === undefined ? "" : String(cents / 100);
 const centsInput = (yuan: string) => yuan.trim() === "" ? null : Math.round(Number(yuan) * 100);
+const annotationProductHref = (skuCode: unknown) => {
+  const sku = String(skuCode ?? "").trim();
+  return /^\d{6,20}$/.test(sku) ? `https://item.jd.com/${sku}.html` : "";
+};
+const annotationRecognitionLabel = (item: Pick<Item, "status" | "aiSegment" | "aiImagePriceCents" | "aiConfidenceBps" | "aiReason">) => {
+  const recognized = Boolean(item.aiSegment || item.aiImagePriceCents !== null || item.aiConfidenceBps !== null || item.aiReason);
+  if (recognized) return "AI 已识别";
+  return item.status === "failed" ? "AI 识别失败" : "未生成 AI 结果";
+};
+const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status">) => {
+  if (item.aiReason) return item.aiReason;
+  if (/状态码\s*429/.test(item.errorMessage)) return `${item.errorMessage}：模型供应商限流或额度不足，请稍后重试并检查额度`;
+  if (/状态码\s*400/.test(item.errorMessage)) return `${item.errorMessage}：请求被接口拒绝，请先在 AI 助理中重新执行图片能力测试，并核对模型标识及结构化输出兼容性`;
+  if (item.errorMessage) return item.errorMessage;
+  return item.status === "inferencing" ? "识别处理中" : "等待识别";
+};
 export default function MarketAnnotationView({ currentUser, embedded = false }: { currentUser: CurrentUser; embedded?: boolean }) {
   const [data, setData] = useState<Workspace | null>(null);
   const [jobId, setJobId] = useState("");
@@ -277,17 +293,50 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     </section>
 
     <section className="panel annotation-review-card">
-      <div className="section-header"><div><h3>2. 人工复核与批量入库</h3><p>支持按细分品类、入库状态和 AI 识别来源筛选；可跨页全选当前筛选结果。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div></div>
+      <div className="section-header">
+        <div><h3>2. 人工复核与批量入库</h3><p>支持按细分品类、入库状态和 AI 结果筛选；可跨页全选当前筛选结果。</p></div>
+        <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>
+      </div>
       <div className="annotation-review-toolbar">
         <label><span>细分品类</span><select value={itemSegment} onChange={(event) => setItemSegment(event.target.value)}><option value="">全部细分品类</option>{segments.map((value) => <option key={value}>{value}</option>)}</select></label>
         <label><span>入库状态</span><select value={storageStatus} onChange={(event) => setStorageStatus(event.target.value as "" | "pending" | "committed")}><option value="">全部状态</option><option value="pending">待入库</option><option value="committed">已入库</option></select></label>
-        <label><span>识别来源</span><select aria-label="AI 标注识别来源" value={recognitionSource} onChange={(event) => setRecognitionSource(event.target.value as "" | "ai" | "non_ai")}><option value="">全部识别来源</option><option value="ai">AI 识别</option><option value="non_ai">非 AI / 未识别</option></select></label>
+        <label><span>AI 结果</span><select aria-label="AI 标注识别来源" value={recognitionSource} onChange={(event) => setRecognitionSource(event.target.value as "" | "ai" | "non_ai")}><option value="">全部 AI 结果</option><option value="ai">AI 已识别</option><option value="non_ai">未生成 AI 结果（含失败）</option></select></label>
         <label className="annotation-select-page"><input type="checkbox" checked={allChecked} disabled={!canEdit || !reviewableItems.length} onChange={(event) => setDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, reviewableIds.has(id) ? { ...draft, selected: event.target.checked } : draft])))} />全选当前页可入库项</label>
         <label className="annotation-select-page annotation-select-filtered"><input type="checkbox" checked={allFilteredChecked} disabled={!canEdit || !data.selection.filteredReviewableCount || busy !== ""} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
         <div className="market-view-switch" role="group" aria-label="AI 标注展示方式"><button className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")}>列表</button><button className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")}>大图</button></div>
       </div>
+      {recognitionSource === "non_ai" && <p className="annotation-filter-note">此筛选不会调用模型；它显示尚未生成 AI 结果的候选，包括等待识别和此前识别失败的记录。</p>}
       <footer className="annotation-pagination"><span>筛选后 {data.itemPagination.total} 条</span><button disabled={itemPage <= 1 || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => { const page = itemPage - 1; setItemPage(page); void load(jobId, search, searchPage, page); }}>上一页</button><strong>{itemPage}/{data.itemPagination.pageCount}</strong><button disabled={itemPage >= data.itemPagination.pageCount || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => { const page = itemPage + 1; setItemPage(page); void load(jobId, search, searchPage, page); }}>下一页</button></footer>
-      {reviewView === "list" ? <div className="data-table-wrap"><table className="data-table annotation-review-table"><thead><tr><th>选择</th><th>大图 / 实际来源</th><th>SKU / 商品</th><th>AI 结果</th><th>人工细分品类</th><th>主图价格（元）</th><th>置信度 / 状态</th></tr></thead><tbody>{data.items.map((item) => { const draft = drafts[item.id]; const reviewable = reviewableIds.has(item.id); const recognizedByAi = Boolean(item.aiSegment || item.aiImagePriceCents !== null || item.aiConfidenceBps !== null || item.aiReason); return <tr key={item.id}><td><input type="checkbox" checked={reviewable && (draft?.selected ?? false)} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td><td>{(item.resolvedImageUrl || item.sourceImageUrl) ? <img className="annotation-image" src={item.resolvedImageUrl || item.sourceImageUrl} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}<small className={item.imageSource === "imgzone" ? "green-text" : "orange-text"}>{item.imageSource === "imgzone" ? "imgzone 大图" : item.imageSource === "n5" ? "n5 回退" : "未取到安全图片"}</small></td><td><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName}</small><code>{item.candidateId}</code></td><td><strong>{item.aiSegment || "—"}</strong><small>{item.aiReason || item.errorMessage || "等待识别"}</small></td><td><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{segments.map((value) => <option key={value}>{value}</option>)}</select></td><td><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>AI：{money(item.aiImagePriceCents)}</small></td><td><strong>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</strong><small>{recognizedByAi ? "AI 识别" : "非 AI / 未识别"} · {item.status} · v{item.version}</small></td></tr>; })}{!data.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有候选项。</div></td></tr>}</tbody></table></div> : <div className="annotation-review-gallery">{data.items.map((item) => { const draft = drafts[item.id]; const reviewable = reviewableIds.has(item.id); const recognizedByAi = Boolean(item.aiSegment || item.aiImagePriceCents !== null || item.aiConfidenceBps !== null || item.aiReason); return <article key={item.id}><label className="annotation-gallery-select"><input type="checkbox" checked={reviewable && (draft?.selected ?? false)} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : "加入本次入库"}</label><div className="annotation-gallery-image">{(item.resolvedImageUrl || item.sourceImageUrl) ? <img src={item.resolvedImageUrl || item.sourceImageUrl} alt={item.productName} loading="lazy" /> : <span>无图</span>}</div><h4>{item.productName || item.skuCode}</h4><small>{item.skuCode} · {recognizedByAi ? "AI 识别" : "非 AI / 未识别"} · {item.imageSource}</small><p>{item.aiReason || item.errorMessage || "等待识别"}</p><label><span>细分品类</span><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{segments.map((value) => <option key={value}>{value}</option>)}</select></label><label><span>主图价格（元）</span><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /></label><footer><strong>{item.aiSegment || "未识别"}</strong><span>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</span></footer></article>; })}{!data.items.length && <div className="table-state">当前筛选范围没有候选项。</div>}</div>}
+      {reviewView === "list" ? <div className="data-table-wrap"><table className="data-table annotation-review-table"><thead><tr><th>选择</th><th>大图 / 实际来源</th><th>SKU / 商品链接</th><th>AI 结果</th><th>人工细分品类</th><th>主图价格（元）</th><th>置信度 / 状态</th></tr></thead><tbody>{data.items.map((item) => {
+        const draft = drafts[item.id];
+        const reviewable = reviewableIds.has(item.id);
+        const href = annotationProductHref(item.skuCode);
+        const imageUrl = item.resolvedImageUrl || item.sourceImageUrl;
+        return <tr key={item.id}>
+          <td><input type="checkbox" checked={reviewable && (draft?.selected ?? false)} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
+          <td>{imageUrl ? (href ? <a className="annotation-image-link" href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span className="annotation-no-image">无图</span>}<small className={item.imageSource === "imgzone" ? "green-text" : "orange-text"}>{item.imageSource === "imgzone" ? "imgzone 大图" : item.imageSource === "n5" ? "n5 回退" : "未取到安全图片"}</small></td>
+          <td>{href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName || "未命名商品"}</small><span>打开商品链接 ↗</span></a> : <><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName}</small></>}<code>{item.candidateId}</code></td>
+          <td><strong>{item.aiSegment || "—"}</strong><small>{annotationResultMessage(item)}</small></td>
+          <td><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{segments.map((value) => <option key={value}>{value}</option>)}</select></td>
+          <td><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>AI：{money(item.aiImagePriceCents)}</small></td>
+          <td><strong>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</strong><small>{annotationRecognitionLabel(item)} · {item.status} · v{item.version}</small></td>
+        </tr>;
+      })}{!data.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有候选项。</div></td></tr>}</tbody></table></div> : <div className="annotation-review-gallery">{data.items.map((item) => {
+        const draft = drafts[item.id];
+        const reviewable = reviewableIds.has(item.id);
+        const href = annotationProductHref(item.skuCode);
+        const imageUrl = item.resolvedImageUrl || item.sourceImageUrl;
+        return <article key={item.id}>
+          <label className="annotation-gallery-select"><input type="checkbox" checked={reviewable && (draft?.selected ?? false)} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : "加入本次入库"}</label>
+          <div className="annotation-gallery-image">{imageUrl ? (href ? <a href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span>无图</span>}</div>
+          {href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><h4>{item.productName || item.skuCode}</h4><span>打开商品链接 ↗</span></a> : <h4>{item.productName || item.skuCode}</h4>}
+          <small>{item.skuCode} · {annotationRecognitionLabel(item)} · {item.imageSource}</small>
+          <p>{annotationResultMessage(item)}</p>
+          <label><span>细分品类</span><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{segments.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label><span>主图价格（元）</span><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /></label>
+          <footer><strong>{item.aiSegment || "未识别"}</strong><span>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</span></footer>
+        </article>;
+      })}{!data.items.length && <div className="table-state">当前筛选范围没有候选项。</div>}</div>}
     </section>
 
     <section className="annotation-two-column"><article className="panel annotation-prompt-card"><div className="section-header"><div><h3>3. Prompt 版本与自动进化</h3><p>正文与枚举始终明文可见；编辑只创建不可变子版本。未使用的草稿可以删除，激活及归档版本永久保留。</p></div></div>{error && <div className="market-feedback error">{error}</div>}
