@@ -746,3 +746,167 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .annotation-gallery-image>a{width:100%;height:100%;display:grid;place-items:center}.annotation-gallery-image>a img{width:100%;height:100%;object-fit:contain}.annotation-review-gallery .annotation-product-link h4{color:#33445c}
 .annotation-review-pagination{flex-wrap:wrap}.annotation-review-pagination>span{min-width:320px}.annotation-review-pagination label{display:flex;align-items:center;gap:5px;color:#6d7d91;font-size:9px;white-space:nowrap}.annotation-review-pagination select{height:32px;padding:0 8px;border:1px solid #d7e1ed;border-radius:6px;color:#526174;background:#fff}.annotation-review-pagination select:disabled{opacity:.5}
 @media(max-width:680px){.market-master-product-image{aspect-ratio:1/1}}
+
+/* Keep the AI annotation review workspace compact and fully visible without horizontal scrolling. */
+.annotation-task-card,
+.annotation-review-card {
+  padding: 13px;
+}
+.annotation-task-card .section-header,
+.annotation-review-card .section-header {
+  gap: 10px;
+}
+.annotation-form-row,
+.annotation-review-toolbar {
+  gap: 7px;
+  margin: 9px 0;
+}
+.annotation-form-row label {
+  min-width: 130px;
+}
+.annotation-review-toolbar label {
+  min-width: 130px;
+}
+.annotation-review-category-filter {
+  min-width: 185px;
+}
+.annotation-review-toolbar select,
+.annotation-review-category-filter summary {
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 9px;
+}
+.annotation-job-list {
+  flex-wrap: wrap;
+  overflow: visible;
+  gap: 6px;
+  margin: 9px 0;
+}
+.annotation-job-list button {
+  min-width: 160px;
+  flex: 1 1 180px;
+  padding: 8px;
+}
+.annotation-review-table-wrap {
+  width: 100%;
+  overflow-x: clip;
+}
+.annotation-review-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 9px;
+}
+.annotation-review-table th,
+.annotation-review-table td {
+  min-width: 0;
+  height: auto;
+  padding: 7px 5px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.annotation-review-table th:nth-child(n) {
+  min-width: 0;
+}
+.annotation-review-table th:nth-child(1) { width: 3%; }
+.annotation-review-table th:nth-child(2) { width: 8%; }
+.annotation-review-table th:nth-child(3) { width: 20%; }
+.annotation-review-table th:nth-child(4) { width: 13%; }
+.annotation-review-table th:nth-child(5) { width: 18%; }
+.annotation-review-table th:nth-child(6) { width: 14%; }
+.annotation-review-table th:nth-child(7) { width: 11%; }
+.annotation-review-table th:nth-child(8) { width: 13%; }
+.annotation-review-table td > strong,
+.annotation-review-table td > small,
+.annotation-review-table td > code,
+.annotation-review-table .annotation-product-link small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.annotation-review-table td > small,
+.annotation-review-table td > code {
+  line-height: 1.35;
+}
+.annotation-review-table td:nth-child(3) small,
+.annotation-review-table td:nth-child(5) small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.annotation-review-table td:nth-child(4) code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-review-table input[type="number"],
+.annotation-review-table select {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 4px 6px;
+  font-size: 9px;
+}
+.annotation-review-table input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+}
+.annotation-review-table .annotation-image,
+.annotation-review-table .annotation-no-image,
+.annotation-review-table .annotation-image-link {
+  width: 64px;
+  height: 64px;
+  max-width: 100%;
+}
+.annotation-review-table .annotation-image-link .annotation-image {
+  width: 100%;
+  height: 100%;
+}
+.annotation-review-pagination {
+  gap: 6px;
+}
+.annotation-review-pagination > span {
+  min-width: 0;
+}
+.annotation-review-pagination select {
+  height: 30px;
+}
+.annotation-review-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+@media(max-width:1180px) {
+  .annotation-review-table th:nth-child(1) { width: 4%; }
+  .annotation-review-table th:nth-child(2) { width: 9%; }
+  .annotation-review-table th:nth-child(3) { width: 20%; }
+  .annotation-review-table th:nth-child(4) { width: 12%; }
+  .annotation-review-table th:nth-child(5) { width: 18%; }
+  .annotation-review-table th:nth-child(6) { width: 15%; }
+  .annotation-review-table th:nth-child(7) { width: 11%; }
+  .annotation-review-table th:nth-child(8) { width: 11%; }
+  .annotation-review-table .annotation-image,
+  .annotation-review-table .annotation-no-image,
+  .annotation-review-table .annotation-image-link {
+    width: 54px;
+    height: 54px;
+  }
+}
+@media(max-width:760px) {
+  .annotation-task-card,
+  .annotation-review-card {
+    padding: 10px;
+  }
+  .annotation-review-toolbar label,
+  .annotation-review-category-filter {
+    flex: 1 1 145px;
+    min-width: 0;
+  }
+  .annotation-review-table {
+    font-size: 8px;
+  }
+  .annotation-review-table th,
+  .annotation-review-table td {
+    padding: 5px 3px;
+  }
+}

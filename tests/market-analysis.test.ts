@@ -163,11 +163,12 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
 });
 
 test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品类设置和概括时间筛选", async () => {
-  const [view, annotation, service, route] = await Promise.all([
+  const [view, annotation, service, route, styles] = await Promise.all([
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   for (const label of ["SKU 数据库与价格审核", "全部细分品类", "全部价格状态", "全部入库状态", "编辑 SKU 全部数据", "编辑 SKU 数据", "细分品类设置", "保存并刷新全部关联数据", "开始日期", "结束日期", "源表价格区间中位数兜底"]) assert.match(view, new RegExp(label));
   assert.match(view, /databaseArea === "annotation"/);
@@ -191,6 +192,7 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /annotationProductHref/);
   assert.match(annotation, /https:\/\/item\.jd\.com\/\$\{sku\}\.html/);
   assert.match(annotation, /annotation-image-link/);
+  assert.match(annotation, /annotation-review-table-wrap/);
   assert.match(annotation, /打开商品链接/);
   assert.match(annotation, /taxonomy/);
   assert.match(annotation, /readOnly/);
@@ -204,6 +206,9 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(service, /FROM market_subcategory_taxonomy t/);
   assert.match(route, /workspaceModeParam/);
   assert.match(route, /case "update_sku_master"/);
+  assert.match(styles, /\.annotation-review-table-wrap\s*\{[\s\S]*?overflow-x:\s*clip/);
+  assert.match(styles, /\.annotation-review-table\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?table-layout:\s*fixed/);
+  assert.match(styles, /\.annotation-job-list\s*\{[\s\S]*?flex-wrap:\s*wrap;[\s\S]*?overflow:\s*visible/);
   assert.match(route, /case "save_subcategory_settings"/);
 });
 

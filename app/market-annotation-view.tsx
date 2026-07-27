@@ -341,7 +341,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         <label>第 <select aria-label="AI 标注页码" value={itemPage} disabled={hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onChange={(event) => setItemPage(Number(event.target.value))}>{Array.from({ length: data.itemPagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.itemPagination.pageCount} 页</label>
         <button disabled={itemPage >= data.itemPagination.pageCount || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => setItemPage((page) => Math.min(data.itemPagination.pageCount, page + 1))}>下一页</button>
       </footer>
-      {reviewView === "list" ? <div className="data-table-wrap"><table className="data-table annotation-review-table"><thead><tr><th>选择</th><th>大图 / 实际来源</th><th>SKU / 商品链接</th><th>识别批次</th><th>AI 结果</th><th>人工细分品类</th><th>主图价格（元）</th><th>置信度 / 状态</th></tr></thead><tbody>{data.items.map((item) => {
+      {reviewView === "list" ? <div className="data-table-wrap annotation-review-table-wrap"><table className="data-table annotation-review-table"><thead><tr><th>选择</th><th>大图 / 实际来源</th><th>SKU / 商品链接</th><th>识别批次</th><th>AI 结果</th><th>人工细分品类</th><th>主图价格（元）</th><th>置信度 / 状态</th></tr></thead><tbody>{data.items.map((item) => {
         const draft = drafts[item.id];
         const reviewable = reviewableIds.has(item.id);
         const href = annotationProductHref(item.skuCode);
