@@ -81,11 +81,8 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
   if (input.recognitionSource === "non_ai") itemClauses.push(`NOT ${aiRecognitionClause}`);
   const itemWhere = itemClauses.join(" AND ");
   const hasReviewScope = Boolean(input.aggregateJobs || input.jobId);
-  const [categoryRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, items, itemCount, reviewSummary, selection, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
+  const [categoryRows, taxonomyRows, promptRows, jobRows, items, itemCount, reviewSummary, selection, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare(`SELECT category value, COUNT(DISTINCT job_id) jobCount, COUNT(*) recordCount,
-      COUNT(DISTINCT category || char(31) || scope || char(31) || sku_code || char(31) || ranking_dimension || char(31) || month || char(31) || image_content_sha256) uniqueCandidateCount
-      FROM market_annotation_items WHERE category<>'' GROUP BY category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200`).all<{ value: string; jobCount: number; recordCount: number; uniqueCandidateCount: number }>(),
     db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
     db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
@@ -105,7 +102,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
     db.prepare("SELECT id, run_id runId, prompt_version_id promptVersionId, status, predicted_segment predictedSegment, predicted_image_price_cents predictedImagePriceCents, confidence_bps confidenceBps, is_correct isCorrect, error_message errorMessage, sample_snapshot_json sampleSnapshotJson FROM market_annotation_validation_results ORDER BY created_at DESC LIMIT 500").all<Record<string, unknown>>(),
   ]);
   return {
-    categories: categoryRows.results ?? [], reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
+    categories: categoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
     items: (items.results ?? []).map(itemValue), itemPagination: { page: itemPage, pageSize: itemPageSize, total: Number(itemCount?.count ?? 0), pageCount: Math.max(1, Math.ceil(Number(itemCount?.count ?? 0) / itemPageSize)) },
     reviewSummary: { jobCount: Number(reviewSummary?.jobCount ?? 0), recordCount: Number(reviewSummary?.recordCount ?? 0), uniqueCandidateCount: Number(reviewSummary?.uniqueCandidateCount ?? 0) },
     selection: { filteredReviewableCount: Number(selection?.filteredReviewableCount ?? 0), filteredSelectedCount: Number(selection?.filteredSelectedCount ?? 0), scopeSelectedCount: Number(selection?.scopeSelectedCount ?? 0) },

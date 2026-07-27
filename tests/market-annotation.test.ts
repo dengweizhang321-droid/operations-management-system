@@ -490,10 +490,6 @@ test("annotation review aggregates historical jobs and filters by tertiary categ
 
   const all = await getAnnotationWorkspace(db, { aggregateJobs: true });
   assert.deepEqual(all.reviewSummary, { jobCount: 3, recordCount: 3, uniqueCandidateCount: 2 });
-  assert.deepEqual(all.reviewCategories.map((item) => ({ ...item })), [
-    { value: "三级类目甲", jobCount: 2, recordCount: 2, uniqueCandidateCount: 1 },
-    { value: "三级类目乙", jobCount: 1, recordCount: 1, uniqueCandidateCount: 1 },
-  ]);
   const category = await getAnnotationWorkspace(db, { aggregateJobs: true, itemCategory: "三级类目甲" });
   assert.equal(category.itemPagination.total, 2);
   assert.deepEqual(category.reviewSummary, { jobCount: 2, recordCount: 2, uniqueCandidateCount: 1 });

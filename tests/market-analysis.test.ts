@@ -179,8 +179,10 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /全选筛选结果（跨页/);
   assert.match(annotation, /AI 标注每页条数/);
   assert.match(annotation, /AI 标注页码/);
-  assert.match(annotation, /AI 标注三级类目/);
-  assert.match(annotation, /全部三级类目（\{data\.reviewCategories\.reduce/);
+  assert.doesNotMatch(annotation, /aria-label="AI 标注三级类目"/);
+  assert.match(annotation, /if \(category\) params\.set\("itemCategory", category\)/);
+  assert.match(annotation, /data\.taxonomy\.filter\(\(item\) => !category \|\| item\.category === category\)/);
+  assert.match(annotation, /setItemSegment\(""\)/);
   assert.match(annotation, /已汇总 \{data\.reviewSummary\.jobCount\} 个任务/);
   assert.match(annotation, /aggregateJobs: true/);
   assert.match(annotation, /全部 AI 结果/);
