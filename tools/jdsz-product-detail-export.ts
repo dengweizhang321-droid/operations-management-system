@@ -281,6 +281,10 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
   // Query action switches this JD page back to a realtime-summary flow, so it
   // must not be used to validate an offline daily export.
   await waitForSelectedDateRange(page, startDate, endDate);
+  // JD can retain the calendar portal after a valid range is applied, which
+  // otherwise blocks the following download action.
+  await page.keyboard.press("Escape").catch(() => undefined);
+  await page.waitForTimeout(100);
 }
 
 async function waitForDataRefresh(page: Page) {
