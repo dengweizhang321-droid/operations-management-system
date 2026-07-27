@@ -377,6 +377,51 @@ test("market annotation commit updates only the bound month and safely inherits 
   sqlite.close();
 });
 
+test("new annotation jobs reuse the latest confirmed standard price for the same historical image as a review default", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec("CREATE TABLE ai_models (id TEXT PRIMARY KEY, status TEXT NOT NULL, model_type TEXT NOT NULL)");
+  sqlite.exec("INSERT INTO ai_models VALUES ('vision-1','enabled','vision')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('prompt-1','净水',1,'manual','active','["台式","立式"]','这是用于测试历史同图价格复用的正式 Prompt，正文长度满足校验要求。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, completed_count, reviewed_count, committed_count, created_by)
+      VALUES ('old-job','净水','prompt-1','cloud','committed',1,1,1,1,'admin@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, source_image_url,
+       resolved_image_url, image_source, status, reviewed_segment, reviewed_image_price_cents, reviewed_price_type, reviewed_by)
+      VALUES ('old-item','old-job','净水','pop','SKU-1','SKU','2026-01','hash-a','历史商品','https://img10.360buyimg.com/imgzone/a.jpg',
+       'https://img10.360buyimg.com/imgzone/a.jpg','imgzone','committed','台式',199900,'标准售价','admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, quantity, visitors, image_url, raw_json, last_import_batch_id)
+    VALUES
+      ('feb',1,'2026-02-01','2026-02-28','净水','pop','SKU','POP','SKU-1','同图商品','品牌',100000,1,1,'https://img10.360buyimg.com/imgzone/a.jpg','{}','batch'),
+      ('mar',2,'2026-03-01','2026-03-31','净水','pop','SKU','POP','SKU-1','新图商品','品牌',100000,1,1,'https://img10.360buyimg.com/imgzone/b.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, ai_price_type,
+       confirmed_market_price_cents, price_low_cents, price_high_cents, confirmation_status, confirmed_at, source_job_item_id)
+    VALUES
+      ('ps-jan','净水','pop','SKU-1','SKU','2026-01','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','标准售价',199900,199900,199900,'confirmed','2026-02-01 00:00:00','old-item'),
+      ('ps-feb','净水','pop','SKU-1','SKU','2026-02','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','',NULL,NULL,NULL,'missing',NULL,''),
+      ('ps-mar','净水','pop','SKU-1','SKU','2026-03','hash-b','https://img10.360buyimg.com/imgzone/b.jpg','',NULL,NULL,NULL,'missing',NULL,'');
+  `);
+
+  const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-1", executor: "cloud", modelId: "vision-1", limit: 10 }, { email: "operator@test", role: "operator" });
+  const items = sqlite.prepare(`SELECT month, status, reviewed_segment segment, reviewed_image_price_cents price,
+    reviewed_price_type price_type, reviewed_by reviewer, ai_image_price_cents ai_price, image_source
+    FROM market_annotation_items WHERE job_id=? ORDER BY month`).all(job.id) as Array<Record<string, unknown>>;
+  assert.deepEqual(items.map((row) => ({ ...row })), [
+    { month: "2026-02", status: "review_pending", segment: "台式", price: 199900, price_type: "标准售价", reviewer: "system:history_same_image", ai_price: null, image_source: "imgzone" },
+    { month: "2026-03", status: "queued", segment: "", price: null, price_type: "", reviewer: "", ai_price: null, image_source: "none" },
+  ]);
+  assert.equal(job.totalCount, 2);
+  assert.equal(job.completedCount, 1);
+  assert.equal(job.status, "running");
+  sqlite.close();
+});
+
 test("deposit and installment annotation commits do not create official market prices", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);

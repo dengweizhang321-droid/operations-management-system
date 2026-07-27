@@ -7,7 +7,7 @@ type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "a
 type Model = { id: string; name: string; protocol: string; modelName: string };
 type Prompt = { id: string; category: string; version: number; parentId: string | null; source: string; status: string; segments: string[]; promptBody: string; changeNote: string; metrics: Record<string, unknown>; createdAt: string };
 type Job = { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; status: string; totalCount: number; completedCount: number; failedCount: number; reviewedCount: number; committedCount: number; createdAt: string };
-type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; reviewedSegment: string; reviewedImagePriceCents: number | null; selected: boolean; version: number; errorMessage: string; createdAt: string };
+type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; selected: boolean; version: number; errorMessage: string; createdAt: string };
 type CatalogItem = { skuCode: string; productName: string; brand: string; category: string; imageUrl: string; imageCacheStatus: string; rankingPriceCents: number | null; annotationId?: string; finalSegment?: string; finalImagePriceCents?: number | null; reviewStatus: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
@@ -23,12 +23,14 @@ const annotationProductHref = (skuCode: unknown) => {
   const sku = String(skuCode ?? "").trim();
   return /^\d{6,20}$/.test(sku) ? `https://item.jd.com/${sku}.html` : "";
 };
-const annotationRecognitionLabel = (item: Pick<Item, "status" | "aiSegment" | "aiImagePriceCents" | "aiConfidenceBps" | "aiReason">) => {
+const annotationRecognitionLabel = (item: Pick<Item, "status" | "aiSegment" | "aiImagePriceCents" | "aiConfidenceBps" | "aiReason" | "reviewPriceSource">) => {
+  if (item.reviewPriceSource === "history_same_image") return "历史同图价格待审";
   const recognized = Boolean(item.aiSegment || item.aiImagePriceCents !== null || item.aiConfidenceBps !== null || item.aiReason);
   if (recognized) return "AI 已识别";
   return item.status === "failed" ? "AI 识别失败" : "未生成 AI 结果";
 };
-const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status">) => {
+const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource">) => {
+  if (item.reviewPriceSource === "history_same_image") return "主图与历史已确认图片一致，默认沿用上次标准售价，请人工复核后入库";
   if (item.aiReason) return item.aiReason;
   if (/状态码\s*429/.test(item.errorMessage)) return `${item.errorMessage}：模型供应商限流或额度不足，请稍后重试并检查额度`;
   if (/状态码\s*400/.test(item.errorMessage)) return `${item.errorMessage}：请求被接口拒绝，请先在 AI 助理中重新执行图片能力测试，并核对模型标识及结构化输出兼容性`;
@@ -353,7 +355,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           <td><strong>{itemJob?.createdAt?.slice(0, 10) || item.createdAt.slice(0, 10)}</strong><small>{itemJob?.executor || "—"} · {itemJob?.status || "—"}</small><code>{item.jobId.slice(0, 18)}…</code></td>
           <td><strong>{item.aiSegment || "—"}</strong><small>{annotationResultMessage(item)}</small></td>
           <td><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{itemSegments.map((value) => <option key={value}>{value}</option>)}</select></td>
-          <td><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>AI：{money(item.aiImagePriceCents)}</small></td>
+          <td><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>{item.reviewPriceSource === "history_same_image" ? `历史同图：${money(item.reviewedImagePriceCents)}` : `AI：${money(item.aiImagePriceCents)}`}</small></td>
           <td><strong>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</strong><small>{annotationRecognitionLabel(item)} · {item.status} · v{item.version}</small></td>
         </tr>;
       })}{!data.items.length && <tr><td colSpan={8}><div className="table-state">当前筛选范围没有候选项。</div></td></tr>}</tbody></table></div> : <div className="annotation-review-gallery">{data.items.map((item) => {
@@ -371,7 +373,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           <small>批次：{itemJob?.createdAt?.slice(0, 10) || item.createdAt.slice(0, 10)} · {itemJob?.status || "—"}</small>
           <p>{annotationResultMessage(item)}</p>
           <label><span>细分品类</span><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{itemSegments.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label><span>主图价格（元）</span><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /></label>
+          <label><span>主图价格（元）</span><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>{item.reviewPriceSource === "history_same_image" ? `历史同图默认：${money(item.reviewedImagePriceCents)}` : `AI：${money(item.aiImagePriceCents)}`}</small></label>
           <footer><strong>{item.aiSegment || "未识别"}</strong><span>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</span></footer>
         </article>;
       })}{!data.items.length && <div className="table-state">当前筛选范围没有候选项。</div>}</div>}

@@ -23,6 +23,7 @@ type ValidationResultRow = { id: string; run_id: string; sample_id: string; prom
 const promptColumns = "id, category, version, parent_id, source, status, segments_json, prompt_body, change_note, metrics_json, created_by, created_at, activated_by, activated_at";
 const jobColumns = "id, category, prompt_version_id, executor, model_id, local_model_name, status, total_count, completed_count, failed_count, reviewed_count, committed_count, created_by, created_at, started_at, completed_at, updated_at, commit_token_hash, commit_started_at";
 const itemColumns = "id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, resolved_image_url, image_source, status, ai_segment, ai_image_price_cents, ai_price_type, ai_price_low_cents, ai_price_high_cents, ai_confidence_bps, ai_reason, reviewed_segment, reviewed_image_price_cents, reviewed_price_type, reviewed_price_low_cents, reviewed_price_high_cents, selected, reviewed_by, reviewed_at, lease_token_hash, lease_agent_id, lease_expires_at, attempt_count, error_message, version, created_at, updated_at";
+const HISTORY_SAME_IMAGE_REVIEWER = "system:history_same_image";
 
 function json<T>(value: string, fallback: T): T { try { return JSON.parse(value) as T; } catch { return fallback; } }
 function strictInteger(value: number | undefined, fallback: number, minimum: number, maximum: number, name: string) {
@@ -51,7 +52,7 @@ async function ensureMarketSchemaLazy(db: MarketDatabase) {
 }
 function promptValue(row: PromptRow) { return { id: row.id, category: row.category, version: row.version, parentId: row.parent_id, source: row.source, status: row.status, segments: json<string[]>(row.segments_json, []), promptBody: row.prompt_body, changeNote: row.change_note, metrics: json(row.metrics_json, {}), createdBy: row.created_by, createdAt: row.created_at, activatedBy: row.activated_by, activatedAt: row.activated_at }; }
 function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
-function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, reviewPriceSource: row.reviewed_by === HISTORY_SAME_IMAGE_REVIEWER ? "history_same_image" : (row.ai_segment || row.ai_image_price_cents !== null || row.ai_confidence_bps !== null || row.ai_reason) ? "ai" : "manual", selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
 const aiRecognitionClause = "(COALESCE(ai_segment,'')<>'' OR ai_image_price_cents IS NOT NULL OR ai_confidence_bps IS NOT NULL OR COALESCE(ai_reason,'')<>'')";
 
 function annotationCategoryList(values: string[] | undefined, legacy?: string) {
@@ -269,6 +270,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     if (!model) throw new Error("所选云端视觉模型不存在或未启用");
   } else if (!input.localModelName?.trim()) throw new Error("本地任务必须填写 Ollama 模型名");
   const limit = strictInteger(input.limit, 500, 1, 5_000, "limit");
+  const promptSegments = json<string[]>(prompt.segments_json, []);
   const rows = await db.prepare(`
     WITH latest_market AS (
       SELECT * FROM (
@@ -279,28 +281,63 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
         FROM market_ranking_entries m
         WHERE m.category = ?
       ) WHERE rn = 1
+    ), latest_standard_history AS (
+      SELECT * FROM (
+        SELECT history.category, history.scope, history.sku_code, history.ranking_dimension,
+          history.image_content_sha256, history.confirmed_market_price_cents historical_price_cents,
+          COALESCE(history.price_low_cents, history.confirmed_market_price_cents) historical_price_low_cents,
+          COALESCE(history.price_high_cents, history.confirmed_market_price_cents) historical_price_high_cents,
+          history.source_job_item_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY history.category, history.scope, history.sku_code, history.ranking_dimension, history.image_content_sha256
+            ORDER BY datetime(history.confirmed_at) DESC, datetime(history.updated_at) DESC, history.id DESC
+          ) rn
+        FROM market_price_snapshots history
+        WHERE history.confirmed_market_price_cents IS NOT NULL
+          AND history.ai_price_type='标准售价'
+          AND history.image_content_sha256<>''
+      ) WHERE rn=1
     )
     SELECT ps.category, ps.scope, ps.sku_code, ps.ranking_dimension, ps.month,
       COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '') image_content_sha256,
-      lm.product_name, lm.brand, COALESCE(NULLIF(ps.image_url, ''), lm.image_url) image_url
+      lm.product_name, lm.brand, COALESCE(NULLIF(ps.image_url, ''), lm.image_url) image_url,
+      history.historical_price_cents, history.historical_price_low_cents, history.historical_price_high_cents,
+      history_item.category historical_item_category, history_item.reviewed_segment historical_segment,
+      history_item.image_source historical_image_source
     FROM market_price_snapshots ps
     JOIN latest_market lm ON lm.category=ps.category AND lm.scope=ps.scope AND lm.sku_code=ps.sku_code
       AND lm.ranking_dimension=ps.ranking_dimension AND substr(lm.period_end, 1, 7)=ps.month
     LEFT JOIN market_image_cache mic ON mic.source_url=COALESCE(NULLIF(ps.image_url, ''), lm.image_url) AND mic.status='ready'
+    LEFT JOIN latest_standard_history history ON history.category=ps.category AND history.scope=ps.scope
+      AND history.sku_code=ps.sku_code AND history.ranking_dimension=ps.ranking_dimension
+      AND history.image_content_sha256=COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '')
+    LEFT JOIN market_annotation_items history_item ON history_item.id=history.source_job_item_id
     WHERE ps.category=?
       AND ps.confirmed_market_price_cents IS NULL
       AND COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '') <> ''
     ORDER BY ps.month, ps.ranking_dimension, ps.sku_code
     LIMIT ?`)
-    .bind(category, category, limit).all<{ category: string; scope: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; image_url: string }>();
+    .bind(category, category, limit).all<{ category: string; scope: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; image_url: string; historical_price_cents: number | null; historical_price_low_cents: number | null; historical_price_high_cents: number | null; historical_item_category: string | null; historical_segment: string | null; historical_image_source: string | null }>();
   if (!rows.results.length) throw new Error("该三级类目没有已缓存图片且待确认的月度市场价格快照");
   const id = "market-job-" + randomUUID();
   await db.prepare("INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, local_model_name, status, total_count, created_by) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)")
     .bind(id, category, prompt.id, executor, executor === "cloud" ? input.modelId : null, executor === "local" ? input.localModelName!.trim().slice(0, 160) : "", rows.results.length, actor.email).run();
   for (let offset = 0; offset < rows.results.length; offset += 80) {
-    await db.batch(rows.results.slice(offset, offset + 80).map((row) => db.prepare("INSERT INTO market_annotation_items (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')")
-      .bind("market-item-" + randomUUID(), id, row.category, row.scope, row.sku_code, row.ranking_dimension, row.month, row.image_content_sha256, row.product_name, row.brand, row.image_url)));
+    await db.batch(rows.results.slice(offset, offset + 80).map((row) => {
+      const inheritedPrice = row.historical_price_cents;
+      const inheritedSegment = row.historical_item_category === row.category && row.historical_segment && promptSegments.includes(row.historical_segment) ? row.historical_segment : "";
+      return db.prepare(`INSERT INTO market_annotation_items
+        (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand,
+          source_image_url, resolved_image_url, image_source, status, reviewed_segment, reviewed_image_price_cents,
+          reviewed_price_type, reviewed_price_low_cents, reviewed_price_high_cents, reviewed_by, reviewed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END)`)
+        .bind("market-item-" + randomUUID(), id, row.category, row.scope, row.sku_code, row.ranking_dimension, row.month, row.image_content_sha256, row.product_name, row.brand,
+          row.image_url, inheritedPrice === null ? "" : row.image_url, inheritedPrice === null ? "none" : (row.historical_image_source || "history_same_image"), inheritedPrice === null ? "queued" : "review_pending",
+          inheritedSegment, inheritedPrice, inheritedPrice === null ? "" : "标准售价", row.historical_price_low_cents, row.historical_price_high_cents,
+          inheritedPrice === null ? "" : HISTORY_SAME_IMAGE_REVIEWER, inheritedPrice);
+    }));
   }
+  await refreshJob(db, id);
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=?").bind(id).first<JobRow>();
   if (!job) throw new Error("标注任务创建失败");
   return jobValue(job);
