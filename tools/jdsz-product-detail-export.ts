@@ -236,7 +236,10 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
     const cell = page.locator(cellSelector(date)).filter({ visible: true });
     await cell.waitFor({ state: "visible", timeout: 10_000 });
     if (await cell.count() !== 1) throw new Error(`日期 ${date} 的可选单元格不是唯一元素。`);
-    await cell.click();
+    // A browser translation extension may inject a zero-size overlay over the
+    // calendar without changing the validated target cell. Force the click on
+    // the unique visible date cell so the export workflow remains deterministic.
+    await cell.click({ force: true });
   };
   const waitForCellState = async (date: string, stateClass: string, timeoutMs: number) => {
     const deadline = Date.now() + timeoutMs;
