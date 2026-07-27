@@ -172,7 +172,16 @@ async function assertDimensionAndDateSelection(page: Page, dimension: CliOptions
 }
 
 async function selectDateRange(page: Page, startDate: string, endDate: string) {
-  const custom = page.locator('[data-event-content="当前时间_自定义"]').filter({ visible: true });
+  // New JD sessions keep the custom-range item inside the collapsed date menu.
+  // Open the menu first; this is a no-op when it is already expanded.
+  const echo = page.locator(".jmt-combo-date-picker-echo-wrap").filter({ visible: true });
+  if (await echo.count() !== 1) throw new Error("无法唯一识别京东商智当前时间入口。");
+  const customSelector = '[data-event-content="当前时间_自定义"]';
+  if (await page.locator(customSelector).filter({ visible: true }).count() === 0) {
+    await echo.click();
+    await page.waitForTimeout(200);
+  }
+  const custom = page.locator(customSelector).filter({ visible: true });
   if (await custom.count() !== 1) throw new Error("无法唯一识别自定义时间入口。");
   await custom.click();
   await page.waitForTimeout(300);
