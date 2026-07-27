@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -465,6 +465,70 @@ test("annotation review paginates one task with a 20-row default", async () => {
   const last = await getAnnotationWorkspace(db, { jobId: "page-job", itemPage: 3 });
   assert.equal(last.items.length, 5);
   assert.equal(last.items[0]?.skuCode, "PAGE-41");
+  sqlite.close();
+});
+
+test("annotation review aggregates historical jobs and filters by tertiary category", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE ai_models (id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL, model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL, is_default_text_model INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by) VALUES
+      ('aggregate-prompt-a','三级类目甲',1,'manual','active','["甲一"]','这是三级类目甲用于跨任务汇总测试的 Prompt 正文。','admin@test'),
+      ('aggregate-prompt-b','三级类目乙',1,'manual','active','["乙一"]','这是三级类目乙用于独立筛选测试的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by) VALUES
+      ('aggregate-job-a1','三级类目甲','aggregate-prompt-a','local','review_ready',1,'operator@test'),
+      ('aggregate-job-a2','三级类目甲','aggregate-prompt-a','local','review_ready',1,'operator@test'),
+      ('aggregate-job-b1','三级类目乙','aggregate-prompt-b','local','review_ready',1,'operator@test');
+    INSERT INTO market_annotation_items (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, status, reviewed_segment) VALUES
+      ('aggregate-item-a1','aggregate-job-a1','三级类目甲','pop','AGG-A','SKU','2026-01','same-a','甲商品第一次识别','review_pending','甲一'),
+      ('aggregate-item-a2','aggregate-job-a2','三级类目甲','pop','AGG-A','SKU','2026-01','same-a','甲商品第二次识别','review_pending','甲一'),
+      ('aggregate-item-b1','aggregate-job-b1','三级类目乙','pop','AGG-B','SKU','2026-01','hash-b','乙商品','review_pending','乙一');
+  `);
+
+  const all = await getAnnotationWorkspace(db, { aggregateJobs: true });
+  assert.deepEqual(all.reviewSummary, { jobCount: 3, recordCount: 3, uniqueCandidateCount: 2 });
+  assert.deepEqual(all.reviewCategories.map((item) => ({ ...item })), [
+    { value: "三级类目甲", jobCount: 2, recordCount: 2, uniqueCandidateCount: 1 },
+    { value: "三级类目乙", jobCount: 1, recordCount: 1, uniqueCandidateCount: 1 },
+  ]);
+  const category = await getAnnotationWorkspace(db, { aggregateJobs: true, itemCategory: "三级类目甲" });
+  assert.equal(category.itemPagination.total, 2);
+  assert.deepEqual(category.reviewSummary, { jobCount: 2, recordCount: 2, uniqueCandidateCount: 1 });
+  assert.ok(category.items.every((item) => item.category === "三级类目甲"));
+
+  const selected = await setFilteredAnnotationSelection(db, { aggregateJobs: true, category: "三级类目甲", selected: true }, { email: "operator@test", role: "operator" });
+  assert.equal(selected.changed, 2);
+  assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["aggregate-item-a1", "aggregate-item-a2"]);
+  sqlite.close();
+});
+
+test("aggregate batch commit groups selected review items by job", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('commit-all-prompt','三级类目甲',1,'manual','active','["甲一"]','这是用于验证跨任务分组入库的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by) VALUES
+      ('commit-all-job-1','三级类目甲','commit-all-prompt','local','review_ready',1,'operator@test'),
+      ('commit-all-job-2','三级类目甲','commit-all-prompt','local','review_ready',1,'operator@test');
+    INSERT INTO market_price_snapshots (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status) VALUES
+      ('commit-all-price-1','三级类目甲','pop','COMMIT-1','SKU','2026-01','commit-hash-1','https://img10.360buyimg.com/imgzone/1.jpg','missing'),
+      ('commit-all-price-2','三级类目甲','pop','COMMIT-2','SKU','2026-01','commit-hash-2','https://img10.360buyimg.com/imgzone/2.jpg','missing');
+    INSERT INTO market_annotation_items (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, source_image_url, status, selected, reviewed_segment, reviewed_image_price_cents, reviewed_price_type) VALUES
+      ('commit-all-item-1','commit-all-job-1','三级类目甲','pop','COMMIT-1','SKU','2026-01','commit-hash-1','商品一','https://img10.360buyimg.com/imgzone/1.jpg','approved',1,'甲一',10000,'标准售价'),
+      ('commit-all-item-2','commit-all-job-2','三级类目甲','pop','COMMIT-2','SKU','2026-01','commit-hash-2','商品二','https://img10.360buyimg.com/imgzone/2.jpg','approved',1,'甲一',20000,'标准售价');
+  `);
+
+  const result = await commitSelectedAnnotationItems(db, { aggregateJobs: true, category: "三级类目甲", idempotencyKey: "aggregate-commit-001" }, { email: "admin@test", role: "admin" });
+  assert.equal(result.ok, true);
+  assert.equal(result.committed, 2);
+  assert.equal(result.jobs, 2);
+  assert.deepEqual((sqlite.prepare("SELECT status FROM market_annotation_items ORDER BY id").all() as Array<{ status: string }>).map((row) => row.status), ["committed", "committed"]);
   sqlite.close();
 });
 
