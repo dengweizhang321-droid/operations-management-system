@@ -285,6 +285,7 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
   // confirm action runs; closing with Escape leaves the calendar portal above
   // the subsequent download action.
   const confirm = page.locator('[data-event-name="confirm"][data-event-content="true"]').filter({ visible: true });
+  await confirm.waitFor({ state: "visible", timeout: 5_000 });
   if (await confirm.count() !== 1) throw new Error("无法唯一识别京东商智日期确认按钮。");
   await confirm.dispatchEvent("click");
   await page.waitForTimeout(200);
