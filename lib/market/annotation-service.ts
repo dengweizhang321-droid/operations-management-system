@@ -54,15 +54,21 @@ function jobValue(row: JobRow) { return { id: row.id, category: row.category, pr
 function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
 const aiRecognitionClause = "(COALESCE(ai_segment,'')<>'' OR ai_image_price_cents IS NOT NULL OR ai_confidence_bps IS NOT NULL OR COALESCE(ai_reason,'')<>'')";
 
-function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean; itemCategory?: string }) {
-  const category = input.itemCategory?.trim().slice(0, 120) ?? "";
-  if (input.aggregateJobs) return category ? { clause: "category=?", bindings: [category] as unknown[] } : { clause: "1=1", bindings: [] as unknown[] };
+function annotationCategoryList(values: string[] | undefined, legacy?: string) {
+  const categories = [...new Set([...(values ?? []), legacy ?? ""].map((value) => value.trim().slice(0, 120)).filter(Boolean))];
+  if (categories.length > 50) throw new Error("三级类目一次最多选择 50 个");
+  return categories;
+}
+
+function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[] }) {
+  const categories = annotationCategoryList(input.itemCategories, input.itemCategory);
+  if (input.aggregateJobs) return categories.length ? { clause: `category IN (${categories.map(() => "?").join(",")})`, bindings: categories as unknown[] } : { clause: "1=1", bindings: [] as unknown[] };
   return { clause: "job_id=?", bindings: [input.jobId ?? ""] as unknown[] };
 }
 
 export async function getAnnotationWorkspace(db: MarketDatabase, input: {
   jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number;
-  aggregateJobs?: boolean; itemCategory?: string; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai"; includeAgents?: boolean;
+  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai"; includeAgents?: boolean;
 } = {}) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const page = Math.max(1, Math.trunc(input.page ?? 1));
@@ -81,8 +87,9 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
   if (input.recognitionSource === "non_ai") itemClauses.push(`NOT ${aiRecognitionClause}`);
   const itemWhere = itemClauses.join(" AND ");
   const hasReviewScope = Boolean(input.aggregateJobs || input.jobId);
-  const [categoryRows, taxonomyRows, promptRows, jobRows, items, itemCount, reviewSummary, selection, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
+  const [categoryRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, items, itemCount, reviewSummary, selection, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
+    db.prepare("SELECT category value, COUNT(DISTINCT job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items WHERE category<>'' GROUP BY category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
     db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
     db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
@@ -102,7 +109,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
     db.prepare("SELECT id, run_id runId, prompt_version_id promptVersionId, status, predicted_segment predictedSegment, predicted_image_price_cents predictedImagePriceCents, confidence_bps confidenceBps, is_correct isCorrect, error_message errorMessage, sample_snapshot_json sampleSnapshotJson FROM market_annotation_validation_results ORDER BY created_at DESC LIMIT 500").all<Record<string, unknown>>(),
   ]);
   return {
-    categories: categoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
+    categories: categoryRows.results ?? [], reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
     items: (items.results ?? []).map(itemValue), itemPagination: { page: itemPage, pageSize: itemPageSize, total: Number(itemCount?.count ?? 0), pageCount: Math.max(1, Math.ceil(Number(itemCount?.count ?? 0) / itemPageSize)) },
     reviewSummary: { jobCount: Number(reviewSummary?.jobCount ?? 0), recordCount: Number(reviewSummary?.recordCount ?? 0), uniqueCandidateCount: Number(reviewSummary?.uniqueCandidateCount ?? 0) },
     selection: { filteredReviewableCount: Number(selection?.filteredReviewableCount ?? 0), filteredSelectedCount: Number(selection?.filteredSelectedCount ?? 0), scopeSelectedCount: Number(selection?.scopeSelectedCount ?? 0) },
@@ -114,16 +121,16 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
 }
 
 export async function setFilteredAnnotationSelection(db: MarketDatabase, input: {
-  jobId?: string; aggregateJobs?: boolean; category?: string; selected: boolean; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai";
+  jobId?: string; aggregateJobs?: boolean; category?: string; categories?: string[]; selected: boolean; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai";
 }, actor: Actor) {
   await ensureAnnotationSchema(db);
   const jobId = input.jobId?.trim() ?? "";
-  const category = input.category?.trim().slice(0, 120) ?? "";
+  const categories = annotationCategoryList(input.categories, input.category);
   const clauses = ["status IN ('review_pending','approved','rejected')"];
   const bindings: unknown[] = [];
   if (input.aggregateJobs) {
-    clauses.unshift(`job_id IN (SELECT id FROM market_annotation_jobs WHERE status IN ('running','review_ready')${category ? " AND category=?" : ""})`);
-    if (category) bindings.push(category);
+    clauses.unshift(`job_id IN (SELECT id FROM market_annotation_jobs WHERE status IN ('running','review_ready')${categories.length ? ` AND category IN (${categories.map(() => "?").join(",")})` : ""})`);
+    bindings.push(...categories);
   } else {
     const job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
     if (!job || !["running", "review_ready"].includes(job.status)) throw new Error("任务当前不可批量选择");
@@ -148,14 +155,14 @@ export async function setFilteredAnnotationSelection(db: MarketDatabase, input: 
   return { ok: true, changed: Number(result.meta.changes ?? 0), selected: input.selected };
 }
 
-export async function commitSelectedAnnotationItems(db: MarketDatabase, input: { jobId?: string; aggregateJobs?: boolean; category?: string; idempotencyKey: string }, actor: Actor) {
+export async function commitSelectedAnnotationItems(db: MarketDatabase, input: { jobId?: string; aggregateJobs?: boolean; category?: string; categories?: string[]; idempotencyKey: string }, actor: Actor) {
   await ensureAnnotationSchema(db);
   if (input.aggregateJobs) {
-    const category = input.category?.trim().slice(0, 120) ?? "";
+    const categories = annotationCategoryList(input.categories, input.category);
     const rows = await db.prepare(`SELECT i.id, i.job_id jobId FROM market_annotation_items i
       JOIN market_annotation_jobs j ON j.id=i.job_id
-      WHERE i.status='approved' AND i.selected=1 AND j.status IN ('review_ready','committing')${category ? " AND i.category=?" : ""}
-      ORDER BY j.created_at ASC, i.created_at, i.id LIMIT 501`).bind(...(category ? [category] : [])).all<{ id: string; jobId: string }>();
+      WHERE i.status='approved' AND i.selected=1 AND j.status IN ('review_ready','committing')${categories.length ? ` AND i.category IN (${categories.map(() => "?").join(",")})` : ""}
+      ORDER BY j.created_at ASC, i.created_at, i.id LIMIT 501`).bind(...categories).all<{ id: string; jobId: string }>();
     const selected = rows.results ?? [];
     if (selected.length > 500) throw new Error("汇总范围已选超过 500 条，请先缩小选择范围");
     if (!selected.length) return { ok: true, committed: 0, duplicates: 0, jobs: 0 };

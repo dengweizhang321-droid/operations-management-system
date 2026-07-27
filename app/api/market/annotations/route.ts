@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       jobId: params.get("jobId")?.trim() || undefined,
       aggregateJobs: params.get("aggregateJobs") === "1",
       itemCategory: params.get("itemCategory")?.trim() || undefined,
+      itemCategories: params.getAll("itemCategory"),
       q: params.get("q")?.trim() || undefined,
       page: integerParam(params, "page", 1), pageSize: integerParam(params, "pageSize", 30),
       itemPage: integerParam(params, "itemPage", 1), itemPageSize: integerParam(params, "itemPageSize", 20),
@@ -67,9 +68,9 @@ export async function POST(request: Request) {
         result = await updateAnnotationItems(db, text(parsed, "jobId"), parsed.updates.map((item) => ({ id: text(item, "id"), version: Number(item.version), segment: text(item, "segment"), imagePriceCents: item.imagePriceCents, priceType: text(item, "priceType"), priceLowCents: item.priceLowCents, priceHighCents: item.priceHighCents, selected: item.selected === true })), principal); break;
       }
       case "commit": result = await commitAnnotationItems(db, { jobId: text(parsed, "jobId"), candidateIds: texts(parsed, "candidateIds"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
-      case "commit_selected": result = await commitSelectedAnnotationItems(db, { jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
+      case "commit_selected": result = await commitSelectedAnnotationItems(db, { jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
       case "select_filtered": result = await setFilteredAnnotationSelection(db, {
-        jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, selected: parsed.selected === true,
+        jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), selected: parsed.selected === true,
         itemSegment: text(parsed, "itemSegment") || undefined,
         storageStatus: text(parsed, "storageStatus") === "committed" ? "committed" : text(parsed, "storageStatus") === "pending" ? "pending" : undefined,
         recognitionSource: text(parsed, "recognitionSource") === "ai" ? "ai" : text(parsed, "recognitionSource") === "non_ai" ? "non_ai" : undefined,

@@ -490,14 +490,21 @@ test("annotation review aggregates historical jobs and filters by tertiary categ
 
   const all = await getAnnotationWorkspace(db, { aggregateJobs: true });
   assert.deepEqual(all.reviewSummary, { jobCount: 3, recordCount: 3, uniqueCandidateCount: 2 });
+  assert.deepEqual(all.reviewCategories.map((item) => ({ ...item })), [
+    { value: "三级类目甲", jobCount: 2, recordCount: 2 },
+    { value: "三级类目乙", jobCount: 1, recordCount: 1 },
+  ]);
+  const both = await getAnnotationWorkspace(db, { aggregateJobs: true, itemCategories: ["三级类目甲", "三级类目乙"] });
+  assert.equal(both.itemPagination.total, 3);
+  await assert.rejects(() => getAnnotationWorkspace(db, { aggregateJobs: true, itemCategories: Array.from({ length: 51 }, (_, index) => `类目-${index}`) }), /最多选择 50 个/);
   const category = await getAnnotationWorkspace(db, { aggregateJobs: true, itemCategory: "三级类目甲" });
   assert.equal(category.itemPagination.total, 2);
   assert.deepEqual(category.reviewSummary, { jobCount: 2, recordCount: 2, uniqueCandidateCount: 1 });
   assert.ok(category.items.every((item) => item.category === "三级类目甲"));
 
-  const selected = await setFilteredAnnotationSelection(db, { aggregateJobs: true, category: "三级类目甲", selected: true }, { email: "operator@test", role: "operator" });
-  assert.equal(selected.changed, 2);
-  assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["aggregate-item-a1", "aggregate-item-a2"]);
+  const selected = await setFilteredAnnotationSelection(db, { aggregateJobs: true, categories: ["三级类目甲", "三级类目乙"], selected: true }, { email: "operator@test", role: "operator" });
+  assert.equal(selected.changed, 3);
+  assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["aggregate-item-a1", "aggregate-item-a2", "aggregate-item-b1"]);
   sqlite.close();
 });
 
@@ -520,7 +527,7 @@ test("aggregate batch commit groups selected review items by job", async () => {
       ('commit-all-item-2','commit-all-job-2','三级类目甲','pop','COMMIT-2','SKU','2026-01','commit-hash-2','商品二','https://img10.360buyimg.com/imgzone/2.jpg','approved',1,'甲一',20000,'标准售价');
   `);
 
-  const result = await commitSelectedAnnotationItems(db, { aggregateJobs: true, category: "三级类目甲", idempotencyKey: "aggregate-commit-001" }, { email: "admin@test", role: "admin" });
+  const result = await commitSelectedAnnotationItems(db, { aggregateJobs: true, categories: ["三级类目甲"], idempotencyKey: "aggregate-commit-001" }, { email: "admin@test", role: "admin" });
   assert.equal(result.ok, true);
   assert.equal(result.committed, 2);
   assert.equal(result.jobs, 2);
