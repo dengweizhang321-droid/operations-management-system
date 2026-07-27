@@ -245,7 +245,12 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
     const deadline = Date.now() + timeoutMs;
     const cell = page.locator(cellSelector(date)).filter({ visible: true });
     while (Date.now() < deadline) {
-      if ((await cell.getAttribute("class"))?.includes(stateClass)) return true;
+      try {
+        if ((await cell.getAttribute("class"))?.includes(stateClass)) return true;
+      } catch {
+        // JD may replace the calendar cell during the date-picker re-render.
+        // Treat that frame as an unconfirmed state and let the caller retry.
+      }
       await page.waitForTimeout(50);
     }
     return false;
