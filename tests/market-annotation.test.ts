@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -123,7 +123,10 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /输入类目关键词/);
   assert.match(ui, /filteredCategories/);
   assert.match(ui, /useEffect\(\(\) => \{ const timer = window\.setTimeout\(\(\) => void load\(jobId, search, searchPage, itemPage\)/);
-  assert.match(ui, /candidateIds: selectedIds/);
+  assert.match(ui, /action: "commit_selected"/);
+  assert.match(ui, /action: "select_filtered"/);
+  assert.match(ui, /全选筛选结果（跨页/);
+  assert.match(ui, /AI 标注识别来源/);
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 120_000/);
@@ -411,6 +414,33 @@ test("runtime schema shares concurrent initialization for one connection", async
 
   await Promise.all([ensureAnnotationSchema(countingConnection), ensureAnnotationSchema(countingConnection)]);
   assert.equal(batchCalls, 2);
+  sqlite.close();
+});
+
+test("annotation review filters AI sources and selects the filtered result across pages", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('selection-prompt','净水',1,'manual','active','["台式","立式"]','这是用于验证筛选来源和跨页全选功能的测试 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('selection-job','净水','selection-prompt','local','review_ready',3,'operator@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, sku_code, product_name, status, reviewed_segment, ai_segment, ai_image_price_cents, ai_confidence_bps, ai_reason)
+    VALUES
+      ('selection-ai-1','selection-job','净水','AI-1','AI 商品 1','review_pending','台式','台式',19900,9000,'主图识别'),
+      ('selection-ai-2','selection-job','净水','AI-2','AI 商品 2','review_pending','立式','立式',29900,8500,'主图识别'),
+      ('selection-manual','selection-job','净水','MANUAL-1','人工商品','review_pending','台式','',NULL,NULL,'');
+  `);
+  const ai = await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: true, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
+  assert.equal(ai.changed, 2);
+  assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["selection-ai-1", "selection-ai-2"]);
+  const nonAi = await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: true, recognitionSource: "non_ai" }, { email: "operator@test", role: "operator" });
+  assert.equal(nonAi.changed, 1);
+  assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='selection-manual'").get() as { selected: number }).selected, 1);
+  await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: false, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
+  assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["selection-manual"]);
   sqlite.close();
 });
 

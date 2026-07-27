@@ -3,9 +3,9 @@ import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/auth
 import { getMarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
-  activatePromptVersion, commitAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
+  activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationWorkspace, markAnnotationsAsGold,
-  revokeLocalAgent, runNextCloudAnnotation, runNextValidation, updateAnnotationItems,
+  revokeLocalAgent, runNextCloudAnnotation, runNextValidation, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
       itemPage: integerParam(params, "itemPage", 1), itemPageSize: integerParam(params, "itemPageSize", 100),
       itemSegment: params.get("itemSegment")?.trim() || undefined,
       storageStatus: params.get("storageStatus") === "committed" ? "committed" : params.get("storageStatus") === "pending" ? "pending" : undefined,
+      recognitionSource: params.get("recognitionSource") === "ai" ? "ai" : params.get("recognitionSource") === "non_ai" ? "non_ai" : undefined,
       includeAgents: principal.role === "admin",
     });
     return Response.json({ ...payload, principal }, { headers: { "cache-control": "no-store" } });
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     const parsed: unknown = await request.json().catch(() => null);
     if (!record(parsed)) return Response.json({ error: "请求数据必须是 JSON 对象" }, { status: 400 });
     const action = text(parsed, "action");
-    const adminActions = new Set(["commit", "activate_prompt", "rollback_prompt", "delete_prompt", "create_agent", "revoke_agent", "mark_gold"]);
+    const adminActions = new Set(["commit", "commit_selected", "activate_prompt", "rollback_prompt", "delete_prompt", "create_agent", "revoke_agent", "mark_gold"]);
     const principal = await requireAppPrincipal(adminActions.has(action) ? ["admin"] : ["operator", "admin"]);
     const db = getMarketDatabase();
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
@@ -64,6 +65,13 @@ export async function POST(request: Request) {
         result = await updateAnnotationItems(db, text(parsed, "jobId"), parsed.updates.map((item) => ({ id: text(item, "id"), version: Number(item.version), segment: text(item, "segment"), imagePriceCents: item.imagePriceCents, priceType: text(item, "priceType"), priceLowCents: item.priceLowCents, priceHighCents: item.priceHighCents, selected: item.selected === true })), principal); break;
       }
       case "commit": result = await commitAnnotationItems(db, { jobId: text(parsed, "jobId"), candidateIds: texts(parsed, "candidateIds"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
+      case "commit_selected": result = await commitSelectedAnnotationItems(db, { jobId: text(parsed, "jobId"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
+      case "select_filtered": result = await setFilteredAnnotationSelection(db, {
+        jobId: text(parsed, "jobId"), selected: parsed.selected === true,
+        itemSegment: text(parsed, "itemSegment") || undefined,
+        storageStatus: text(parsed, "storageStatus") === "committed" ? "committed" : text(parsed, "storageStatus") === "pending" ? "pending" : undefined,
+        recognitionSource: text(parsed, "recognitionSource") === "ai" ? "ai" : text(parsed, "recognitionSource") === "non_ai" ? "non_ai" : undefined,
+      }, principal); break;
       case "create_prompt": result = await createPromptVersion(db, { category: text(parsed, "category"), segments: parsed.segments, promptBody: text(parsed, "promptBody"), parentId: text(parsed, "parentId") || undefined, source: "manual", changeNote: text(parsed, "changeNote") }, principal); break;
       case "generate_prompt": result = await generatePromptVersion(db, { textModelId: text(parsed, "textModelId"), category: text(parsed, "category"), segments: parsed.segments, parentId: text(parsed, "parentId") || undefined, mode: "generate", changeNote: text(parsed, "changeNote") }, principal); break;
       case "evolve_prompt": {

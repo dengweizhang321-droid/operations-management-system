@@ -176,8 +176,14 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /itemSegment/);
   assert.match(annotation, /reviewView === "gallery"/);
   assert.match(annotation, /批量入库/);
+  assert.match(annotation, /全选筛选结果（跨页/);
+  assert.match(annotation, /全部识别来源/);
+  assert.match(annotation, /非 AI \/ 未识别/);
   assert.match(annotation, /taxonomy/);
   assert.match(annotation, /readOnly/);
+  assert.match(view, /market-master-database-table/);
+  assert.match(view, /market-master-table-image/);
+  assert.match(view, /打开商品链接/);
   assert.match(service, /COUNT\(\*\) OVER\(\) full_count/);
   assert.match(service, /wantsDatabase/);
   assert.match(service, /updateMarketSkuMasterData/);
