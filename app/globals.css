@@ -732,3 +732,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 @media(max-width:680px){.market-section-nav{position:static;grid-template-columns:1fr}.market-section-nav>button{grid-template-columns:34px minmax(0,1fr) auto}.market-ranking-actions,.market-compare-workspace>header,.market-compare-workspace>header>div:last-child{align-items:stretch;flex-direction:column}.market-compare-empty{grid-template-columns:1fr}.market-settings-intro>div:last-child{grid-template-columns:1fr}.market-master-toolbar{justify-content:stretch}.market-master-toolbar>*{width:100%}.market-master-product-grid{grid-template-columns:1fr}.market-master-product-image{height:300px}}
 .market-price-review-table td:nth-child(6) small{display:block;margin:4px 0;color:#8795a6}.market-price-blocker{margin:0 18px 14px;padding:9px 11px;border:1px solid #f0d7a5;border-radius:7px;color:#875d12;background:#fff8e8}
 .annotation-prompt-history .annotation-prompt-version{position:relative;min-width:190px}.annotation-prompt-history .annotation-prompt-select{width:100%;padding-right:58px}.annotation-prompt-history .annotation-prompt-delete{position:absolute;top:8px;right:8px;z-index:2;min-width:0;display:block;padding:4px 7px;border:1px solid #efc4c8;border-radius:5px;color:#b54650;background:#fff5f6;font-size:8px;text-align:center}.annotation-prompt-history .annotation-prompt-delete:hover{border-color:#dc7e88;background:#ffecee}.annotation-prompt-history .annotation-prompt-delete:disabled{cursor:not-allowed;opacity:.45}
+
+/* Compact SKU database cards keep images secondary to editable master data. */
+.market-master-product-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.market-master-product-image{height:144px;padding:8px}
+.market-master-product-image img{max-width:100%;max-height:100%;border-radius:7px}
+@media(max-width:680px){.market-master-product-image{height:180px}}

@@ -1,4 +1,5 @@
 import type { MarketSchemaDatabase } from "@/lib/market/schema-core";
+import { upsertMarketSubcategoryTaxonomy } from "@/lib/market/subcategory-taxonomy";
 
 export type MarketEntryForImport = {
   naturalKey: string;
@@ -260,6 +261,8 @@ export async function saveMarketImportCore(input: {
         input.batchId,
       )));
     }
+
+    await upsertMarketSubcategoryTaxonomy(db, input.rows.map((row) => ({ category: row.category, subcategory: row.subcategory })), "market-import");
 
     await db.prepare(
       `UPDATE market_import_batches SET status = 'completed', inserted_count = ?, updated_count = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,

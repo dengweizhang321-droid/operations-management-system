@@ -277,6 +277,7 @@ test("same market fact with different file hashes updates the canonical fact ins
   assert.equal((sqlite.prepare("SELECT SUM(gmv_cents) gmv FROM market_ranking_entries").get() as { gmv: number }).gmv, 1200000);
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches").get() as { count: number }).count, 2);
   assert.equal((sqlite.prepare("SELECT image_content_sha256 hash FROM market_price_snapshots WHERE sku_code='SKU-1'").get() as { hash: string }).hash, "hash-a");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_subcategory_taxonomy WHERE category='净水' AND subcategory='台式' AND status='active'").get() as { count: number }).count, 1);
   sqlite.close();
 });
 
@@ -365,6 +366,21 @@ test("official price band SQL is alias-safe and D1-compatible inside the overvie
   const filterOptions = sqlite.prepare(marketOverviewFilterOptionsSql).get() as { categories_json: string; dimensions_json: string };
   assert.deepEqual(JSON.parse(filterOptions.categories_json), [{ value: "净水", count: 1 }]);
   assert.deepEqual(JSON.parse(filterOptions.dimensions_json), [{ value: "SKU", count: 1 }]);
+  sqlite.close();
+});
+
+test("overview price bands fall back to the imported price-range midpoint", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,price_cents,price_low_cents,price_high_cents,price_estimated,gmv_cents,quantity,raw_json,last_import_batch_id)
+    VALUES ('midpoint-fallback',1,'2026-06-01','2026-06-30','净水','POP','SKU','POP','SKU-MID','中位数兜底商品',89900,79900,99900,1,1000000,10,'{}','batch');`);
+  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { price_bands_json: string; price_band_summary_json: string };
+  assert.deepEqual(JSON.parse(analytics.price_bands_json), [{ value: "500-999", count: 1 }]);
+  assert.equal(JSON.parse(analytics.price_band_summary_json)[0]?.price_band, "500-999");
   sqlite.close();
 });
 

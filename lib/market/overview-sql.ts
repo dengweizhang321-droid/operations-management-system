@@ -13,6 +13,7 @@ function overviewPriceBandSql() {
     aiPriceTypeSql: "ps.ai_price_type",
     categorySql: "m.category",
     periodEndSql: "m.period_end",
+    fallbackPriceSql: "NULLIF(m.price_cents, 0)",
   });
 }
 
@@ -309,5 +310,8 @@ export const marketOverviewFilterOptionsSql = `SELECT
     SELECT operation_mode value, COUNT(*) count FROM market_ranking_entries GROUP BY operation_mode ORDER BY value
   )) modes_json,
   (SELECT json_group_array(json_object('value', value, 'count', count)) FROM (
-    SELECT subcategory value, COUNT(*) count FROM market_ranking_entries WHERE subcategory<>'' GROUP BY subcategory ORDER BY count DESC, value LIMIT 100
+    SELECT t.subcategory value, COUNT(DISTINCT m.sku_code) count
+    FROM market_subcategory_taxonomy t
+    LEFT JOIN market_ranking_entries m ON m.category=t.category AND m.subcategory=t.subcategory
+    WHERE t.status='active' GROUP BY t.subcategory ORDER BY count DESC, value LIMIT 100
   )) subcategories_json`;

@@ -169,17 +169,20 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
   ]);
-  for (const label of ["SKU 数据库与价格审核", "全部细分品类", "全部价格状态", "全部入库状态", "编辑 SKU 全部数据", "细分品类设置", "保存并刷新全部关联数据", "开始日期", "结束日期"]) assert.match(view, new RegExp(label));
+  for (const label of ["SKU 数据库与价格审核", "全部细分品类", "全部价格状态", "全部入库状态", "编辑 SKU 全部数据", "编辑 SKU 数据", "细分品类设置", "保存并刷新全部关联数据", "开始日期", "结束日期", "源表价格区间中位数兜底"]) assert.match(view, new RegExp(label));
   assert.match(view, /databaseArea === "annotation"/);
   assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\} embedded/);
   assert.match(annotation, /storageStatus/);
   assert.match(annotation, /itemSegment/);
   assert.match(annotation, /reviewView === "gallery"/);
   assert.match(annotation, /批量入库/);
+  assert.match(annotation, /taxonomy/);
+  assert.match(annotation, /readOnly/);
   assert.match(service, /COUNT\(\*\) OVER\(\) full_count/);
   assert.match(service, /wantsDatabase/);
   assert.match(service, /updateMarketSkuMasterData/);
   assert.match(service, /saveMarketSubcategorySettings/);
+  assert.match(service, /FROM market_subcategory_taxonomy t/);
   assert.match(route, /workspaceModeParam/);
   assert.match(route, /case "update_sku_master"/);
   assert.match(route, /case "save_subcategory_settings"/);

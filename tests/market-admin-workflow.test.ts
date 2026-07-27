@@ -14,6 +14,7 @@ import {
   getMarketSkuComparison,
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
+  getMarketSubcategoryWorkspace,
   listMarketMasterData,
   listPendingMarketPrices,
   matchMarketBrandSeeds,
@@ -131,7 +132,9 @@ test("unified SKU database filters annotation storage status and updates all edi
     INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month,confirmation_status)
     VALUES ('edit-price','三级类目A','POP','SKU-EDIT','SKU','2026-06','missing');
     INSERT INTO market_sku_annotations (id,category,sku_code,segment,image_price_cents,source_job_item_id,prompt_version_id,reviewed_by,reviewed_at)
-    VALUES ('edit-annotation','三级类目A','SKU-EDIT','旧细分',10000,'source-item','source-prompt','admin@example.com',CURRENT_TIMESTAMP);`);
+    VALUES ('edit-annotation','三级类目A','SKU-EDIT','旧细分',10000,'source-item','source-prompt','admin@example.com',CURRENT_TIMESTAMP);
+    INSERT INTO market_subcategory_taxonomy (id,category,subcategory,status,created_by,updated_by)
+    VALUES ('edit-target-taxonomy','三级类目B','新细分','active','test','test');`);
 
   const committed = await listMarketMasterData(db as never, { annotationStatus: "committed" });
   const pending = await listMarketMasterData(db as never, { annotationStatus: "pending" });
@@ -150,6 +153,41 @@ test("unified SKU database filters annotation storage status and updates all edi
   const price = sqlite.prepare("SELECT category,confirmed_market_price_cents price FROM market_price_snapshots WHERE id='edit-price'").get() as { category: string; price: number };
   assert.deepEqual({ ...price }, { category: "三级类目B", price: 259900 });
   assert.deepEqual({ ...(sqlite.prepare("SELECT category,segment FROM market_sku_annotations WHERE id='edit-annotation'").get() as Record<string, unknown>) }, { category: "三级类目B", segment: "新细分" });
+  sqlite.close();
+});
+
+test("runtime taxonomy backfills existing subcategories and the settings workspace reads the dictionary table", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,subcategory,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES ('legacy-taxonomy-key',1,'2026-06-01','2026-06-30','历史三级类目','POP','SKU','POP','历史细分','SKU-LEGACY-TAX','商品','{}','batch');
+    DELETE FROM market_subcategory_taxonomy;
+    DELETE FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-subcategory-taxonomy-v1';`);
+  await ensureMarketSchemaCore(db);
+  const workspace = await getMarketSubcategoryWorkspace(db as never, "历史三级类目");
+  assert.deepEqual(workspace.items.map((item) => item.subcategory), ["历史细分"]);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_subcategory_taxonomy WHERE status='active'").get() as { count: number }).count > 1, true);
+  sqlite.close();
+});
+
+test("0036 migration moves ranking, annotation, and prompt taxonomies into the dictionary table", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db as never);
+  sqlite.exec(`DELETE FROM market_subcategory_taxonomy;
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,subcategory,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES ('migration-taxonomy',1,'2026-06-01','2026-06-30','迁移类目','POP','SKU','POP','榜单细分','SKU-MIGRATION','商品','{}','batch');
+    INSERT INTO market_sku_annotations (id,category,sku_code,segment,source_job_item_id,prompt_version_id,reviewed_by,reviewed_at)
+    VALUES ('migration-annotation','迁移类目','SKU-MIGRATION','标注细分','item','prompt','admin@example.com',CURRENT_TIMESTAMP);
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+    VALUES ('migration-prompt','迁移类目',1,'manual','active','["Prompt细分","其他"]','这是一个用于迁移测试且长度足够的 Prompt 正文内容。','admin@example.com');`);
+  sqlite.exec(await readFile(new URL("../drizzle/0036_backfill_market_subcategory_taxonomy.sql", import.meta.url), "utf8"));
+  const values = (sqlite.prepare("SELECT subcategory FROM market_subcategory_taxonomy WHERE category='迁移类目' ORDER BY subcategory").all() as Array<{ subcategory: string }>).map((row) => row.subcategory);
+  assert.deepEqual(values, ["Prompt细分", "其他", "标注细分", "榜单细分"]);
   sqlite.close();
 });
 

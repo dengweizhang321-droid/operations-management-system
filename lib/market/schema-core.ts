@@ -1,3 +1,5 @@
+import { ensureMarketSubcategoryTaxonomyData } from "@/lib/market/subcategory-taxonomy";
+
 export type MarketSchemaDatabase = {
   prepare(sql: string): {
     bind(...values: unknown[]): {
@@ -653,6 +655,7 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
     )`).run();
     await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS market_subcategory_taxonomy_category_name_uq ON market_subcategory_taxonomy (category, subcategory)").run();
     await db.prepare("CREATE INDEX IF NOT EXISTS market_subcategory_taxonomy_lookup_idx ON market_subcategory_taxonomy (category, status, sort_order)").run();
+    await ensureMarketSubcategoryTaxonomyData(db);
     return;
   }
   await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
@@ -694,6 +697,7 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   await seedDefaultPriceBands(db);
   for (const statement of marketPostUpgradeIndexStatements) await db.prepare(statement).run();
   await db.prepare(`DROP INDEX IF EXISTS market_entries_canonical_uq`).run();
+  await ensureMarketSubcategoryTaxonomyData(db);
   if (!alreadyUpgraded) await recordMarketRuntimeSchemaMarker(db);
 }
 
@@ -716,6 +720,7 @@ type OfficialPriceBandSqlContext = {
   aiPriceTypeSql?: string;
   categorySql?: string;
   periodEndSql?: string;
+  fallbackPriceSql?: string;
 };
 
 export function officialPriceBandSql(
@@ -726,10 +731,12 @@ export function officialPriceBandSql(
   const aiPriceTypeSql = context.aiPriceTypeSql ?? "ps.ai_price_type";
   const categorySql = context.categorySql ?? "m.category";
   const periodEndSql = context.periodEndSql ?? "m.period_end";
+  const fallbackPriceSql = context.fallbackPriceSql;
+  const effectivePriceSql = fallbackPriceSql ? `COALESCE(${priceSql}, ${fallbackPriceSql})` : priceSql;
   return `CASE
-    WHEN ${priceSql} IS NULL
-      OR COALESCE(${confirmationStatusSql}, '') <> 'confirmed'
-      OR COALESCE(${aiPriceTypeSql}, '') IN (char(23450,37329), char(20998,26399,37329,39069), char(26080,27861,21028,26029)) THEN '${unknownPriceBand}'
+    WHEN ${effectivePriceSql} IS NULL
+      OR (${priceSql} IS NOT NULL AND (COALESCE(${confirmationStatusSql}, '') <> 'confirmed'
+        OR COALESCE(${aiPriceTypeSql}, '') IN (char(23450,37329), char(20998,26399,37329,39069), char(26080,27861,21028,26029)))) THEN '${unknownPriceBand}'
     ELSE COALESCE((
       SELECT pbi.label
       FROM market_price_band_versions pbv
@@ -737,8 +744,8 @@ export function officialPriceBandSql(
       WHERE pbv.status = 'published'
         AND pbv.category IN ('*', ${categorySql})
         AND pbv.effective_from <= ${periodEndSql}
-        AND ${priceSql} >= COALESCE(pbi.min_cents, -9223372036854775808)
-        AND (${priceSql} < pbi.max_cents OR pbi.max_cents IS NULL)
+        AND ${effectivePriceSql} >= COALESCE(pbi.min_cents, -9223372036854775808)
+        AND (${effectivePriceSql} < pbi.max_cents OR pbi.max_cents IS NULL)
       ORDER BY CASE WHEN pbv.category = '*' THEN 1 ELSE 0 END, pbv.effective_from DESC, pbv.version DESC, pbi.sort_order
       LIMIT 1
     ), '${unknownPriceBand}')

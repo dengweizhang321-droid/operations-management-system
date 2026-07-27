@@ -4,7 +4,8 @@ import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { AnnotationAgentError } from "@/lib/market/annotation-agent-errors";
 import { resolveAnnotationImageCandidates } from "@/lib/market/annotation-image";
 import { listAnnotationModels, listPromptTextModels, runPromptTextCompletion, runVisionAnnotation } from "@/lib/market/annotation-model";
-import { marketSegmentsForCategory, systemPriceRecognitionPrompt } from "@/lib/market/default-taxonomy";
+import { systemPriceRecognitionPrompt } from "@/lib/market/default-taxonomy";
+import { listMarketSubcategoryTaxonomy } from "@/lib/market/subcategory-taxonomy";
 import {
   activationGate, digest, normalizeImagePriceCents, normalizeSegments, parseVisionAnnotation,
   stableStratifiedSample, validationMetrics,
@@ -69,8 +70,9 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
   if (input.storageStatus === "committed") itemClauses.push("status='committed'");
   if (input.storageStatus === "pending") itemClauses.push("status<>'committed'");
   const itemWhere = itemClauses.join(" AND ");
-  const [categoryRows, promptRows, jobRows, items, itemCount, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
+  const [categoryRows, taxonomyRows, promptRows, jobRows, items, itemCount, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
+    db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
     db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
     input.jobId ? db.prepare(`SELECT ${itemColumns} FROM market_annotation_items WHERE ${itemWhere} ORDER BY created_at, id LIMIT ? OFFSET ?`).bind(...itemBindings, itemPageSize, (itemPage - 1) * itemPageSize).all<ItemRow>() : Promise.resolve({ results: [] as ItemRow[] }),
@@ -81,7 +83,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
     db.prepare("SELECT id, run_id runId, prompt_version_id promptVersionId, status, predicted_segment predictedSegment, predicted_image_price_cents predictedImagePriceCents, confidence_bps confidenceBps, is_correct isCorrect, error_message errorMessage, sample_snapshot_json sampleSnapshotJson FROM market_annotation_validation_results ORDER BY created_at DESC LIMIT 500").all<Record<string, unknown>>(),
   ]);
   return {
-    categories: categoryRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
+    categories: categoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
     items: (items.results ?? []).map(itemValue), itemPagination: { page: itemPage, pageSize: itemPageSize, total: Number(itemCount?.count ?? 0), pageCount: Math.max(1, Math.ceil(Number(itemCount?.count ?? 0) / itemPageSize)) }, models, textModels, catalog,
     validationRuns: (runRows.results ?? []).map((row) => ({ ...row, metrics: json(String(row.metricsJson ?? "{}"), {}), gate: json(String(row.gateJson ?? "{}"), {}) })),
     validationResults: (validationRows.results ?? []).map((row) => ({ ...row, ...snapshotView(String(row.sampleSnapshotJson ?? "{}")) })),
@@ -117,9 +119,12 @@ export async function searchAnnotationCatalog(db: MarketDatabase, input: { q?: s
 }
 
 export async function createPromptVersion(db: MarketDatabase, input: { category: string; segments: unknown; promptBody: string; parentId?: string; source?: string; changeNote?: string }, actor: Actor) {
-  await ensureAnnotationSchema(db);
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const category = input.category.trim().slice(0, 120);
-  const segments = normalizeSegments(input.segments);
+  const requestedSegments = normalizeSegments(input.segments);
+  const segments = await listMarketSubcategoryTaxonomy(db, category);
+  if (segments.length < 2) throw new Error("该三级类目尚未配置细分品类，请先到细分品类设置中维护");
+  if (requestedSegments.join("\u0000") !== segments.join("\u0000")) throw new Error("细分品类字典已更新，请刷新后再创建 Prompt");
   const promptBody = input.promptBody.trim();
   if (!category || promptBody.length < 40 || promptBody.length > 12_000) throw new Error("类目不能为空，Prompt 正文需在 40 到 12000 字符之间");
   let parent: PromptRow | null = null;
@@ -137,7 +142,11 @@ export async function createPromptVersion(db: MarketDatabase, input: { category:
 }
 
 export async function generatePromptVersion(db: MarketDatabase, input: { textModelId: string; category: string; segments: unknown; parentId?: string; mode: "generate" | "evolve"; changeNote?: string }, actor: Actor) {
-  const segments = normalizeSegments(input.segments);
+  await ensureMarketSchemaLazy(db);
+  const requestedSegments = normalizeSegments(input.segments);
+  const segments = await listMarketSubcategoryTaxonomy(db, input.category);
+  if (segments.length < 2) throw new Error("该三级类目尚未配置细分品类，请先到细分品类设置中维护");
+  if (requestedSegments.join("\u0000") !== segments.join("\u0000")) throw new Error("细分品类字典已更新，请刷新后再生成 Prompt");
   const parent = input.parentId ? await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE id = ?`).bind(input.parentId).first<PromptRow>() : null;
   const instruction = input.mode === "evolve"
     ? `你是视觉分类 Prompt 工程师。请仅根据通用品类规则改进下面的 Prompt，保持可审计、可复用，只输出完整新 Prompt 正文，不要代码围栏。不得请求、推断或复述冻结 holdout 的金标、预测或错误信息。\n三级类目：${input.category}\n固定枚举：${segments.join("、")}\n旧 Prompt：\n${parent?.prompt_body ?? ""}`
@@ -208,9 +217,11 @@ export async function createPriceRecognitionJob(db: MarketDatabase, input: { cat
     prompt = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE category=? AND source='system_price' ORDER BY version DESC LIMIT 1`).bind(category).first<PromptRow>();
   }
   if (!prompt) {
+    const taxonomySegments = await listMarketSubcategoryTaxonomy(db, category);
+    if (taxonomySegments.length < 2) throw new Error("该三级类目尚未配置细分品类，请先到细分品类设置中维护");
     const created = await createPromptVersion(db, {
       category,
-      segments: marketSegmentsForCategory(category),
+      segments: taxonomySegments,
       promptBody: systemPriceRecognitionPrompt(category),
       source: "system_price",
       changeNote: "SKU 数据库一键识别价格使用的系统 Prompt；不替代人工验证后的细分类目 Prompt",

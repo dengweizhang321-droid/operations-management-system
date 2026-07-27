@@ -173,6 +173,11 @@ export async function updateMarketSkuMasterData(db: MarketDatabase, input: {
   const priceCents = nullableInteger(input.priceCents, 0, 100_000_000);
   const priceType = optionalText(input.priceType, 40) ?? "标准售价";
   if (priceCents !== null && !validOfficialPriceTypes.has(priceType)) throw new Error("确认价格必须选择有效的完整售价类型");
+  if (subcategory) {
+    const taxonomy = await db.prepare(`SELECT id FROM market_subcategory_taxonomy
+      WHERE category=? AND subcategory=? AND status='active' LIMIT 1`).bind(category, subcategory).first<{ id: string }>();
+    if (!taxonomy) throw new Error("细分品类不在当前三级类目的细分品类设置中");
+  }
 
   const before = await db.prepare(`SELECT id, category, scope, ranking_dimension, sku_code, product_name, brand, operation_mode, subcategory
     FROM market_ranking_entries WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?
@@ -231,18 +236,14 @@ export async function getMarketSubcategoryWorkspace(db: MarketDatabase, category
   const [categories, items] = await Promise.all([
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category<>'' GROUP BY category ORDER BY count DESC, category LIMIT 200").all<{ value: string; count: number }>(),
     normalizedCategory
-      ? db.prepare(`WITH values_in_use AS (
-          SELECT subcategory value FROM market_ranking_entries WHERE category=? AND subcategory<>''
-          UNION SELECT segment value FROM market_sku_annotations WHERE category=? AND segment<>''
-          UNION SELECT subcategory value FROM market_subcategory_taxonomy WHERE category=? AND subcategory<>''
-        )
-        SELECT v.value subcategory,
-          (SELECT COUNT(DISTINCT sku_code) FROM market_ranking_entries r WHERE r.category=? AND r.subcategory=v.value) sku_count,
-          (SELECT COUNT(*) FROM market_sku_annotations a WHERE a.category=? AND a.segment=v.value) annotation_count,
-          COALESCE((SELECT status FROM market_subcategory_taxonomy t WHERE t.category=? AND t.subcategory=v.value LIMIT 1),'active') status,
-          COALESCE((SELECT sort_order FROM market_subcategory_taxonomy t WHERE t.category=? AND t.subcategory=v.value LIMIT 1),999) sort_order
-        FROM values_in_use v ORDER BY sort_order, sku_count DESC, subcategory`)
-        .bind(normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory)
+      ? db.prepare(`SELECT t.subcategory,
+          (SELECT COUNT(DISTINCT sku_code) FROM market_ranking_entries r WHERE r.category=t.category AND r.subcategory=t.subcategory) sku_count,
+          (SELECT COUNT(*) FROM market_sku_annotations a WHERE a.category=t.category AND a.segment=t.subcategory) annotation_count,
+          t.status, t.sort_order
+        FROM market_subcategory_taxonomy t
+        WHERE t.category=? AND t.status='active'
+        ORDER BY t.sort_order, sku_count DESC, t.subcategory`)
+        .bind(normalizedCategory)
         .all<Record<string, string | number>>()
       : Promise.resolve({ results: [] as Record<string, string | number>[] }),
   ]);
@@ -850,7 +851,11 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
       SUM(CASE WHEN status NOT IN ('ready','failed') THEN 1 ELSE 0 END) pending FROM market_image_cache`).first<Record<string, number | null>>() : Promise.resolve(null),
     wantsData ? db.prepare("SELECT * FROM market_master_audit_logs ORDER BY created_at DESC LIMIT 100").all<Record<string, unknown>>() : Promise.resolve(emptyRows),
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries GROUP BY category ORDER BY count DESC, category LIMIT 200").all<{ value: string; count: number }>(),
-    wantsDatabase ? db.prepare("SELECT subcategory value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE subcategory<>'' AND (?='' OR category=?) GROUP BY subcategory ORDER BY count DESC, subcategory LIMIT 200").bind(input.category ?? "", input.category ?? "").all<{ value: string; count: number }>() : Promise.resolve({ results: [] as Array<{ value: string; count: number }> }),
+    wantsDatabase ? db.prepare(`SELECT t.subcategory value, COUNT(DISTINCT m.sku_code) count
+      FROM market_subcategory_taxonomy t
+      LEFT JOIN market_ranking_entries m ON m.category=t.category AND m.subcategory=t.subcategory
+      WHERE t.status='active' AND (?='' OR t.category=?)
+      GROUP BY t.subcategory ORDER BY count DESC, t.subcategory LIMIT 200`).bind(input.category ?? "", input.category ?? "").all<{ value: string; count: number }>() : Promise.resolve({ results: [] as Array<{ value: string; count: number }> }),
     wantsDatabase ? db.prepare(`SELECT c.category,
         COALESCE((SELECT p.id FROM market_annotation_prompt_versions p WHERE p.category=c.category AND p.status='active' ORDER BY p.version DESC LIMIT 1), '') prompt_id,
         (SELECT COUNT(*) FROM market_price_snapshots ps

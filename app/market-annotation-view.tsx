@@ -2,7 +2,6 @@
 /* eslint-disable @next/next/no-img-element -- JD competitor images are external audited sources. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { defaultMarketSegmentsText } from "@/lib/market/default-taxonomy";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
@@ -12,7 +11,7 @@ type Item = { id: string; candidateId: string; jobId: string; skuCode: string; p
 type CatalogItem = { skuCode: string; productName: string; brand: string; category: string; imageUrl: string; imageCacheStatus: string; rankingPriceCents: number | null; annotationId?: string; finalSegment?: string; finalImagePriceCents?: number | null; reviewStatus: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
-type Workspace = { categories: Array<{ value: string; count: number }>; prompts: Prompt[]; jobs: Job[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
 const LOAD_TIMEOUT_MS = 30_000;
@@ -33,7 +32,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [promptId, setPromptId] = useState("");
   const [promptBody, setPromptBody] = useState("");
-  const [segmentsText, setSegmentsText] = useState(defaultMarketSegmentsText(""));
+  const [segmentsText, setSegmentsText] = useState("");
   const [changeNote, setChangeNote] = useState("");
   const [search, setSearch] = useState("");
   const [searchPage, setSearchPage] = useState(1);
@@ -91,8 +90,9 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     setTextModelId((current) => current || payload.textModels[0]?.id || "");
     if (!promptId) {
       const initialPrompt = payload.prompts.find((item) => item.category === resolvedCategory && item.status === "active") ?? payload.prompts.find((item) => item.category === resolvedCategory);
-      if (initialPrompt) { setPromptId(initialPrompt.id); setPromptBody(initialPrompt.promptBody); setSegmentsText(initialPrompt.segments.join("\n")); }
-      else if (resolvedCategory) setSegmentsText(defaultMarketSegmentsText(resolvedCategory));
+      const taxonomyText = payload.taxonomy.filter((item) => item.category === resolvedCategory).map((item) => item.value).join("\n");
+      if (initialPrompt) { setPromptId(initialPrompt.id); setPromptBody(initialPrompt.promptBody); setSegmentsText(taxonomyText || initialPrompt.segments.join("\n")); }
+      else if (resolvedCategory) setSegmentsText(taxonomyText);
     }
     setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
       const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
@@ -146,17 +146,18 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const selectedPrompt = data?.prompts.find((item) => item.id === promptId && item.category === category) ?? activePrompt;
   const currentJob = data?.jobs.find((item) => item.id === jobId);
   const jobPrompt = data?.prompts.find((item) => item.id === currentJob?.promptVersionId);
-  const segments = jobPrompt?.segments ?? selectedPrompt?.segments ?? segmentsText.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean);
+  const taxonomySegments = (data?.taxonomy ?? []).filter((item) => item.category === (currentJob?.category || category)).map((item) => item.value);
+  const segments = taxonomySegments.length ? taxonomySegments : jobPrompt?.segments ?? selectedPrompt?.segments ?? [];
   const reviewableIds = new Set((data?.items ?? []).filter((item) => ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
   const selectedIds = Object.entries(drafts).filter(([id, draft]) => draft.selected && reviewableIds.has(id)).map(([id]) => id);
   const updateDraft = (id: string, patch: Partial<Draft>) => { dirtyDraftIdsRef.current.add(id); setDrafts((current) => ({ ...current, [id]: { ...current[id]!, ...patch } })); };
 
-  const choosePrompt = (item: Prompt) => { setPromptId(item.id); setCategory(item.category); setPromptBody(item.promptBody); setSegmentsText(item.segments.join("\n")); setChangeNote(""); };
+  const choosePrompt = (item: Prompt) => { setPromptId(item.id); setCategory(item.category); setPromptBody(item.promptBody); setSegmentsText((data?.taxonomy ?? []).filter((entry) => entry.category === item.category).map((entry) => entry.value).join("\n") || item.segments.join("\n")); setChangeNote(""); };
   const chooseCategory = (nextCategory: string) => {
     setCategoryQuery("");
     setCategory(nextCategory);
     const nextPrompt = data?.prompts.find((item) => item.category === nextCategory && item.status === "active") ?? data?.prompts.find((item) => item.category === nextCategory);
-    if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText(defaultMarketSegmentsText(nextCategory)); }
+    if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText((data?.taxonomy ?? []).filter((item) => item.category === nextCategory).map((item) => item.value).join("\n")); }
   };
   const createJob = () => act("create-job", async () => {
     const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit });
@@ -198,7 +199,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   });
   const evolve = () => act("evolve", async () => {
     if (!selectedPrompt) throw new Error("请选择需要进化的 Prompt");
-    const result = await post({ action: "evolve_prompt", category, parentId: selectedPrompt.id, segments: selectedPrompt.segments, textModelId, visionModelId, sampleCount, seed, changeNote });
+    const result = await post({ action: "evolve_prompt", category, parentId: selectedPrompt.id, segments: segmentsText.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean), textModelId, visionModelId, sampleCount, seed, changeNote });
     const validation = result?.validation as Record<string, unknown> | undefined;
     await pumpValidation(String(validation?.id || "")); setNotice("AI 已生成子版本并完成冻结验证");
   });
@@ -230,7 +231,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (selectedPrompt?.id === item.id) {
       const replacement = data?.prompts.find((prompt) => prompt.id !== item.id && prompt.category === item.category);
       if (replacement) choosePrompt(replacement);
-      else { setPromptId(""); setPromptBody(""); setSegmentsText(defaultMarketSegmentsText(item.category)); }
+      else { setPromptId(""); setPromptBody(""); setSegmentsText((data?.taxonomy ?? []).filter((entry) => entry.category === item.category).map((entry) => entry.value).join("\n")); }
     }
     await load(jobId); setNotice(`Prompt v${item.version} 草稿已删除`);
   });
@@ -276,7 +277,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
 
     <section className="annotation-two-column"><article className="panel annotation-prompt-card"><div className="section-header"><div><h3>3. Prompt 版本与自动进化</h3><p>正文与枚举始终明文可见；编辑只创建不可变子版本。未使用的草稿可以删除，激活及归档版本永久保留。</p></div></div>{error && <div className="market-feedback error">{error}</div>}
       <div className="annotation-prompt-history">{data.prompts.filter((item) => !category || item.category === category).map((item) => <div key={item.id} className="annotation-prompt-version"><button className={`annotation-prompt-select ${selectedPrompt?.id === item.id ? "active" : ""}`} onClick={() => choosePrompt(item)}><strong>v{item.version} · {item.status}</strong><span>{item.source}</span><small>{item.id}</small></button>{isAdmin && item.status === "draft" && <button className="annotation-prompt-delete" disabled={busy !== ""} title={`删除 v${item.version} 草稿`} onClick={() => void deletePrompt(item)}>删除</button>}</div>)}</div>
-      <label><span>细分品类枚举（每行一个）</span><textarea value={segmentsText} onChange={(event) => setSegmentsText(event.target.value)} /></label><label><span>Prompt 正文</span><textarea className="annotation-prompt-body" value={promptBody} onChange={(event) => setPromptBody(event.target.value)} placeholder="写明视觉分类规则、价格识别口径和严格 JSON 输出" /></label><label><span>版本说明</span><input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} /></label>
+      <label><span>细分品类枚举（由细分品类设置统一维护）</span><textarea value={segmentsText} readOnly /></label><label><span>Prompt 正文</span><textarea className="annotation-prompt-body" value={promptBody} onChange={(event) => setPromptBody(event.target.value)} placeholder="写明视觉分类规则、价格识别口径和严格 JSON 输出" /></label><label><span>版本说明</span><input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} /></label>
       <div className="annotation-form-row"><label><span>AI 文本模型</span><select value={textModelId} onChange={(event) => setTextModelId(event.target.value)}>{data.textModels.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label><span>抽样数</span><input type="number" min={1} max={500} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label><label><span>固定 seed</span><input value={seed} onChange={(event) => setSeed(event.target.value)} /></label></div>
       <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || !category || busy !== ""} onClick={() => void savePrompt("manual")}>保存人工子版本</button><button className="secondary-button" disabled={!canEdit || !category || !textModelId || busy !== ""} onClick={() => void savePrompt("generate")}>AI 生成</button><button className="secondary-button" disabled={!canEdit || !category || !selectedPrompt || !textModelId || !visionModelId || busy !== ""} onClick={evolve}>AI 进化并测试</button><button className="secondary-button" disabled={!canEdit || !category || !selectedPrompt || !visionModelId || busy !== ""} onClick={() => void testPrompt()}>冻结抽样测试</button>{selectedPrompt?.status === "active" ? <button className="primary-button" disabled>当前激活版本</button> : selectedPrompt && <button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void activate(selectedPrompt, selectedPrompt.status === "archived")}>{selectedPrompt.status === "archived" ? "回滚到此版" : "激活此版"}</button>}</div>
     </article>
