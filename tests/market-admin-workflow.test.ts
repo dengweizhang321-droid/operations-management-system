@@ -23,10 +23,13 @@ import {
   refreshMarketBrandSeeds,
   rollbackMarketPriceBandVersion,
   setMarketBrandRecognitionJobStatus,
+  saveMarketSubcategorySettings,
+  updateMarketSkuMasterData,
   upsertMarketDownloadConfig,
   upsertMarketBrandSeed,
   upsertMarketMapping,
 } from "../lib/market/admin-service";
+import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { executeMarketDownloadTask } from "../lib/market/download-executor";
 import { matchMarketBrandTitle, type MarketBrandSeed } from "../lib/market/brand-seeds";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
@@ -114,6 +117,66 @@ test("pending market prices filter displayed AI sources and paginate non-AI sour
   assert.notEqual(nonAiFirst.items[0]?.skuCode, nonAiSecond.items[0]?.skuCode);
   assert.ok(nonAiFirst.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
   assert.ok(nonAiSecond.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
+  sqlite.close();
+});
+
+test("unified SKU database filters annotation storage status and updates all editable master fields", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db as never);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,subcategory,sku_code,product_name,brand,raw_json,last_import_batch_id)
+    VALUES ('edit-key',1,'2026-06-01','2026-06-30','三级类目A','POP','SKU','POP','旧细分','SKU-EDIT','旧标题','旧品牌','{}','batch');
+    INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month,confirmation_status)
+    VALUES ('edit-price','三级类目A','POP','SKU-EDIT','SKU','2026-06','missing');
+    INSERT INTO market_sku_annotations (id,category,sku_code,segment,image_price_cents,source_job_item_id,prompt_version_id,reviewed_by,reviewed_at)
+    VALUES ('edit-annotation','三级类目A','SKU-EDIT','旧细分',10000,'source-item','source-prompt','admin@example.com',CURRENT_TIMESTAMP);`);
+
+  const committed = await listMarketMasterData(db as never, { annotationStatus: "committed" });
+  const pending = await listMarketMasterData(db as never, { annotationStatus: "pending" });
+  assert.equal(committed.pagination.total, 1);
+  assert.equal(pending.pagination.total, 0);
+  assert.equal(committed.items[0]?.annotationStatus, "committed");
+
+  await updateMarketSkuMasterData(db as never, {
+    originalCategory: "三级类目A", category: "三级类目B", scope: "POP", rankingDimension: "SKU", skuCode: "SKU-EDIT", month: "2026-06",
+    productName: "新标题", brand: "新品牌", operationMode: "自营", subcategory: "新细分", priceCents: 259900, priceType: "标准售价",
+  }, admin);
+  const master = sqlite.prepare("SELECT category,product_name productName,brand,operation_mode operationMode,subcategory,natural_key naturalKey FROM market_ranking_entries WHERE sku_code='SKU-EDIT'").get() as Record<string, string>;
+  assert.deepEqual({ category: master.category, productName: master.productName, brand: master.brand, operationMode: master.operationMode, subcategory: master.subcategory },
+    { category: "三级类目B", productName: "新标题", brand: "新品牌", operationMode: "自营", subcategory: "新细分" });
+  assert.match(master.naturalKey, /\|三级类目B\|/);
+  const price = sqlite.prepare("SELECT category,confirmed_market_price_cents price FROM market_price_snapshots WHERE id='edit-price'").get() as { category: string; price: number };
+  assert.deepEqual({ ...price }, { category: "三级类目B", price: 259900 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT category,segment FROM market_sku_annotations WHERE id='edit-annotation'").get() as Record<string, unknown>) }, { category: "三级类目B", segment: "新细分" });
+  sqlite.close();
+});
+
+test("subcategory settings rename and refresh ranking, committed annotations, pending candidates, and future mappings", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db as never);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,subcategory,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES ('taxonomy-key',1,'2026-06-01','2026-06-30','三级类目','POP','SKU','POP','旧品类','SKU-TAX','商品','{}','batch');
+    INSERT INTO market_sku_annotations (id,category,sku_code,segment,source_job_item_id,prompt_version_id,reviewed_by,reviewed_at)
+    VALUES ('taxonomy-annotation','三级类目','SKU-TAX','旧品类','source-item','source-prompt','admin@example.com',CURRENT_TIMESTAMP);
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+    VALUES ('taxonomy-prompt','三级类目',1,'manual','active','["旧品类"]','这是一个用于测试细分品类同步刷新的足够长 Prompt 正文。','admin@example.com');
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,total_count,created_by)
+    VALUES ('taxonomy-job','三级类目','taxonomy-prompt','cloud','running',1,'admin@example.com');
+    INSERT INTO market_annotation_items (id,job_id,category,scope,sku_code,ranking_dimension,month,product_name,status,ai_segment,reviewed_segment)
+    VALUES ('taxonomy-item','taxonomy-job','三级类目','POP','SKU-TAX','SKU','2026-06','商品','review_pending','旧品类','旧品类');`);
+
+  const result = await saveMarketSubcategorySettings(db as never, { category: "三级类目", renames: [{ source: "旧品类", target: "新品类" }], additions: ["新增品类"] }, admin);
+  assert.equal(result.changedRows, 3);
+  assert.equal((sqlite.prepare("SELECT subcategory FROM market_ranking_entries WHERE sku_code='SKU-TAX'").get() as { subcategory: string }).subcategory, "新品类");
+  assert.equal((sqlite.prepare("SELECT segment FROM market_sku_annotations WHERE id='taxonomy-annotation'").get() as { segment: string }).segment, "新品类");
+  assert.deepEqual({ ...(sqlite.prepare("SELECT ai_segment aiSegment,reviewed_segment reviewedSegment FROM market_annotation_items WHERE id='taxonomy-item'").get() as Record<string, unknown>) }, { aiSegment: "新品类", reviewedSegment: "新品类" });
+  assert.equal((sqlite.prepare("SELECT target_value targetValue FROM market_master_mapping_rules WHERE kind='subcategory' AND source_value='旧品类'").get() as { targetValue: string }).targetValue, "新品类");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_subcategory_taxonomy WHERE category='三级类目' AND status='active'").get() as { count: number }).count, 2);
   sqlite.close();
 });
 

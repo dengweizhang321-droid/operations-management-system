@@ -168,6 +168,17 @@ export const marketBaseSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS market_subcategory_taxonomy (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL,
+    subcategory TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_by TEXT NOT NULL DEFAULT '',
+    updated_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS market_brand_suggestions (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -368,6 +379,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_price_band_versions_lookup_idx ON market_price_band_versions (category, status, effective_from, version)`,
   `CREATE INDEX IF NOT EXISTS market_price_band_items_version_idx ON market_price_band_items (version_id, sort_order)`,
   `CREATE INDEX IF NOT EXISTS market_master_mapping_rules_kind_idx ON market_master_mapping_rules (kind, category, status, effective_from)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_subcategory_taxonomy_category_name_uq ON market_subcategory_taxonomy (category, subcategory)`,
+  `CREATE INDEX IF NOT EXISTS market_subcategory_taxonomy_lookup_idx ON market_subcategory_taxonomy (category, status, sort_order)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_brand_suggestions_identity_uq ON market_brand_suggestions (category, scope, ranking_dimension, sku_code)`,
   `CREATE INDEX IF NOT EXISTS market_brand_suggestions_status_idx ON market_brand_suggestions (status, category, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_brand_recognition_jobs_filter_idx ON market_brand_recognition_jobs (category, query_text, created_at)`,
@@ -631,7 +644,17 @@ async function seedDefaultPriceBands(db: MarketSchemaDatabase) {
 
 export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<void> {
   const fastMarker = await hasMarketRuntimeSchemaMarker(db);
-  if (fastMarker) return;
+  if (fastMarker) {
+    await db.prepare(`CREATE TABLE IF NOT EXISTS market_subcategory_taxonomy (
+      id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, subcategory TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active', sort_order INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`).run();
+    await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS market_subcategory_taxonomy_category_name_uq ON market_subcategory_taxonomy (category, subcategory)").run();
+    await db.prepare("CREATE INDEX IF NOT EXISTS market_subcategory_taxonomy_lookup_idx ON market_subcategory_taxonomy (category, status, sort_order)").run();
+    return;
+  }
   await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
   const changedTables = new Set<string>();
   const addedColumns = new Map<string, Set<string>>();

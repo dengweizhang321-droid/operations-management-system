@@ -59,6 +59,7 @@ type MarketMasterWorkspace = {
   coverage: Array<Record<string, string | number | null>>;
   imageCache: { total: number; cached: number; failed: number; pending: number };
   categories: FilterOption[];
+  subcategories: FilterOption[];
   priceRecognition: { prompts: Array<{ prompt_id: string; category: string; pending_count: number }> };
   brandRecognitionJob: BrandRecognitionJob | null;
   brandSeeds: {
@@ -71,11 +72,16 @@ type MarketMasterWorkspace = {
       pagination: { total: number; page: number; pageCount: number };
     };
   };
+  statusCounts: { total: number; pendingPrices: number; confirmedPrices: number };
+  subcategorySettings: {
+    category: string; categories: FilterOption[];
+    items: Array<{ subcategory: string; sku_count: number; annotation_count: number; status: string; sort_order: number }>;
+  };
   audits: Array<Record<string, string | number | null>>;
   error?: string;
 };
 type MarketSectionKey = "ranking" | "overview" | "compare" | "settings";
-type MarketSettingsTab = "database" | "ai" | "brand" | "mapping" | "data";
+type MarketSettingsTab = "database" | "subcategory" | "brand" | "mapping" | "data";
 type AiModelSummary = { id: string; name: string; modelType: "text" | "vision"; modelName: string; status: "enabled" | "disabled"; isDefaultTextModel: boolean };
 
 const money = (cents?: number | null) => cents === null || cents === undefined
@@ -96,6 +102,7 @@ const priceSourceLabel = (source: unknown) => ({
   average_transaction: "成交均价（非 AI）",
   missing: "暂无候选价",
 }[String(source ?? "")] ?? String(source ?? "未知来源"));
+const manualMarketPriceLabel = "人工确认市场定位价（元）";
 const brandJobEta = (job: BrandRecognitionJob | null) => {
   if (!job?.startedAt || job.processedCount <= 0 || job.remainingCount <= 0) return job?.status === "completed" ? "已完成" : "运行后计算";
   const elapsedSeconds = Math.max(1, (Date.now() - new Date(job.startedAt).getTime()) / 1000);
@@ -385,7 +392,7 @@ export function MarketWorkflowPanel({ data }: { data: MarketOverview | null }) {
   </section>;
 }
 
-export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { currentUser: CurrentUser; mode?: Exclude<MarketSettingsTab, "ai"> }) {
+export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { currentUser: CurrentUser; mode?: MarketSettingsTab }) {
   const [data, setData] = useState<MarketMasterWorkspace | null>(null);
   const [aiModels, setAiModels] = useState<AiModelSummary[]>([]);
   const [brandModelId, setBrandModelId] = useState("");
@@ -395,11 +402,20 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
   const [page, setPage] = useState(1);
   const [masterPageSize, setMasterPageSize] = useState(30);
   const [databaseView, setDatabaseView] = useState<"cards" | "table">("cards");
+  const [rankingDimension, setRankingDimension] = useState("");
+  const [operationMode, setOperationMode] = useState("");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("");
+  const [priceStatus, setPriceStatus] = useState<"" | "pending" | "confirmed" | "missing">("");
+  const [annotationStatus, setAnnotationStatus] = useState<"" | "pending" | "committed">("");
   const [visionModelId, setVisionModelId] = useState("");
   const [priceCategory, setPriceCategory] = useState("");
   const [pendingPriceSource, setPendingPriceSource] = useState<"" | "ai" | "non_ai">("");
   const [pendingPricePage, setPendingPricePage] = useState(1);
   const [pendingPricePageSize, setPendingPricePageSize] = useState(20);
+  const [editingSku, setEditingSku] = useState<Record<string, string | number | null> | null>(null);
+  const [skuDraft, setSkuDraft] = useState({ category: "", productName: "", brand: "", operationMode: "POP", subcategory: "", priceYuan: "", priceType: "标准售价" });
+  const [subcategoryDrafts, setSubcategoryDrafts] = useState<Record<string, string>>({});
+  const [newSubcategory, setNewSubcategory] = useState("");
   const [brandJob, setBrandJob] = useState<BrandRecognitionJob | null>(null);
   const brandRunnerStop = useRef(false);
   const loadRequestId = useRef(0);
@@ -410,17 +426,20 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
   const load = useCallback(async () => {
     const requestId = ++loadRequestId.current;
     const params = new URLSearchParams();
+    params.set("section", mode);
     if (query.trim()) params.set("q", query.trim());
     if (category) params.set("category", category);
+    if (rankingDimension) params.set("rankingDimension", rankingDimension);
+    if (operationMode) params.set("operationMode", operationMode);
+    if (subcategoryFilter) params.set("subcategory", subcategoryFilter);
+    if (priceStatus) params.set("priceStatus", priceStatus);
+    if (pendingPriceSource) params.set("priceSource", pendingPriceSource);
+    if (annotationStatus) params.set("annotationStatus", annotationStatus);
     params.set("page", String(page));
     params.set("pageSize", String(masterPageSize));
-    if (priceCategory) params.set("pendingPriceCategory", priceCategory);
-    if (pendingPriceSource) params.set("pendingPriceSource", pendingPriceSource);
-    params.set("pendingPricePage", String(pendingPricePage));
-    params.set("pendingPricePageSize", String(pendingPricePageSize));
     const [response, modelsResponse] = await Promise.all([
       fetch(`/api/market/master?${params}`, { cache: "no-store" }),
-      isAdmin ? fetch("/api/ai/models", { cache: "no-store" }) : Promise.resolve(null),
+      isAdmin && (mode === "database" || mode === "brand") ? fetch("/api/ai/models", { cache: "no-store" }) : Promise.resolve(null),
     ]);
     const payload = await response.json().catch(() => null) as MarketMasterWorkspace | null;
     const modelsPayload = modelsResponse
@@ -432,13 +451,14 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     setData(payload);
     setBrandJob(payload.brandRecognitionJob);
     setPriceCategory((current) => current || payload.priceRecognition.prompts[0]?.category || "");
+    setSubcategoryDrafts(Object.fromEntries(payload.subcategorySettings.items.map((item) => [String(item.subcategory), String(item.subcategory)])));
     if (modelsResponse) {
       const models = modelsPayload?.items ?? [];
       setAiModels(models);
       setBrandModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "text" && item.isDefaultTextModel)?.id || models.find((item) => item.status === "enabled" && item.modelType === "text")?.id || "");
       setVisionModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "vision")?.id || "");
     }
-  }, [query, category, page, masterPageSize, priceCategory, pendingPriceSource, pendingPricePage, pendingPricePageSize, isAdmin]);
+  }, [query, category, page, masterPageSize, pendingPriceSource, rankingDimension, operationMode, subcategoryFilter, priceStatus, annotationStatus, isAdmin, mode]);
   useEffect(() => { const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败")); }, 200); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => () => { brandRunnerStop.current = true; }, []);
   const post = async (body: Record<string, unknown>) => {
@@ -449,20 +469,9 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       if (!response.ok) throw new Error(payload?.error || "市场主数据操作失败");
       setNotice("操作已保存");
       await load();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "市场主数据操作失败"); }
+      return true;
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "市场主数据操作失败"); return false; }
     finally { setBusy(""); }
-  };
-  const confirmPrice = (row: Record<string, string | number | null>) => {
-    const initialYuan = row.candidatePriceCents === null ? "" : String(Number(row.candidatePriceCents ?? 0) / 100);
-    const value = window.prompt("人工确认市场定位价（元）", initialYuan);
-    if (!value) return;
-    const priceYuan = Number(value);
-    if (!Number.isFinite(priceYuan) || priceYuan < 0 || priceYuan > 1_000_000) { setError("市场定位价必须是 0 到 1,000,000 元之间的数字"); return; }
-    const officialTypes = ["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"];
-    const suggestedType = officialTypes.includes(String(row.aiPriceType ?? "")) ? String(row.aiPriceType) : "标准售价";
-    const priceType = window.prompt(`确认价格类型：${officialTypes.join(" / ")}`, suggestedType)?.trim() ?? "";
-    if (!officialTypes.includes(priceType)) { setError("请选择可作为正式市场定位价的完整售价类型"); return; }
-    void post({ action: "confirm_price", category: row.category, scope: row.scope, skuCode: row.skuCode, rankingDimension: row.rankingDimension, month: row.month, imageContentSha256: row.imageContentSha256, priceCents: Math.round(priceYuan * 100), priceType });
   };
   const brandRowKey = (row: Record<string, string | number | null>) => `${row.category}|${row.scope}|${row.rankingDimension}|${row.skuCode}`;
   const inferBrand = async (row: Record<string, string | number | null>) => {
@@ -485,10 +494,33 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     if (!brand) { setError("品牌为空时保持待识别；如需确认，请先填写品牌"); return; }
     void post({ action: "confirm_brand", category: row.category, scope: row.scope, rankingDimension: row.rankingDimension, skuCode: row.skuCode, brand });
   };
-  const modifyProductBrand = (row: Record<string, string | number | null>) => {
-    const brand = window.prompt("修改商品品牌", String(row.suggestedBrand || row.brand || ""))?.trim() ?? "";
-    if (!brand) return;
-    void post({ action: "confirm_brand", category: row.category, scope: row.scope, rankingDimension: row.rankingDimension, skuCode: row.skuCode, brand });
+  const editSku = (row: Record<string, string | number | null>) => {
+    setEditingSku(row);
+    setSkuDraft({
+      category: String(row.category ?? ""), productName: String(row.productName ?? ""), brand: String(row.brand ?? ""),
+      operationMode: String(row.operationMode ?? "POP"), subcategory: String(row.subcategory ?? ""),
+      priceYuan: row.officialMarketPriceCents === null ? (row.candidatePriceCents === null ? "" : String(Number(row.candidatePriceCents) / 100)) : String(Number(row.officialMarketPriceCents) / 100),
+      priceType: ["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"].includes(String(row.aiPriceType)) ? String(row.aiPriceType) : "标准售价",
+    });
+  };
+  const modifyProductBrand = editSku;
+  const confirmPrice = editSku;
+  const saveSku = async () => {
+    if (!editingSku) return;
+    const priceYuan = skuDraft.priceYuan.trim() === "" ? null : Number(skuDraft.priceYuan);
+    if (priceYuan !== null && (!Number.isFinite(priceYuan) || priceYuan < 0 || priceYuan > 1_000_000)) { setError(`${manualMarketPriceLabel}必须是 0 到 1,000,000 之间的数字`); return; }
+    const saved = await post({ action: "update_sku_master", originalCategory: editingSku.category, category: skuDraft.category, scope: editingSku.scope,
+      rankingDimension: editingSku.rankingDimension, skuCode: editingSku.skuCode, month: editingSku.month, productName: skuDraft.productName,
+      brand: skuDraft.brand, operationMode: skuDraft.operationMode, subcategory: skuDraft.subcategory,
+      priceCents: priceYuan === null ? null : Math.round(priceYuan * 100), priceType: skuDraft.priceType });
+    if (saved) setEditingSku(null);
+  };
+  const saveSubcategories = async () => {
+    if (!category) { setError("请先选择一个三级类目"); return; }
+    const renames = Object.entries(subcategoryDrafts).filter(([source, target]) => target.trim() && source !== target.trim()).map(([source, target]) => ({ source, target: target.trim() }));
+    const additions = newSubcategory.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean);
+    const saved = await post({ action: "save_subcategory_settings", category, renames, additions });
+    if (saved) setNewSubcategory("");
   };
   const runBrandRecognitionJob = async (jobId: string) => {
     brandRunnerStop.current = false;
@@ -695,6 +727,17 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
         : "";
   return <section className="settings-market-master-live">
     {(error || notice) && <div className={`market-feedback ${error ? "error" : "success"}`}>{error || notice}</div>}
+    {mode === "database" && <article className="panel market-master-unified-toolbar"><div className="section-header"><div><h2>SKU 数据库与价格审核</h2><p>待确认价格已合并到 TOP SKU/SPU 主数据；同一张列表可筛选、查看候选价并直接编辑完整 SKU 数据。</p></div><div className="market-view-switch"><button className={databaseView === "cards" ? "active" : ""} onClick={() => setDatabaseView("cards")}>大图</button><button className={databaseView === "table" ? "active" : ""} onClick={() => setDatabaseView("table")}>列表</button></div></div><div className="market-master-filter-grid">
+      <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" />
+      <select value={category} onChange={(event) => { const next = event.target.value; setCategory(next); setPriceCategory(next); setSubcategoryFilter(""); setPage(1); }}><option value="">全部三级类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select>
+      <select value={subcategoryFilter} onChange={(event) => { setSubcategoryFilter(event.target.value); setPage(1); }}><option value="">全部细分品类</option>{data.subcategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select>
+      <select value={rankingDimension} onChange={(event) => { setRankingDimension(event.target.value); setPage(1); }}><option value="">SKU + SPU</option><option value="SKU">SKU</option><option value="SPU">SPU</option></select>
+      <select value={operationMode} onChange={(event) => { setOperationMode(event.target.value); setPage(1); }}><option value="">全部经营模式</option><option value="POP">POP</option><option value="自营">自营</option><option value="未知">未知</option></select>
+      <select value={priceStatus} onChange={(event) => { setPriceStatus(event.target.value as typeof priceStatus); setPage(1); }}><option value="">全部价格状态</option><option value="pending">待确认价格</option><option value="confirmed">已确认价格</option><option value="missing">缺少价格</option></select>
+      <select value={pendingPriceSource} onChange={(event) => { setPendingPriceSource(event.target.value as typeof pendingPriceSource); setPage(1); }}><option value="">全部候选价来源</option><option value="ai">AI 识别价</option><option value="non_ai">非 AI 识别价</option></select>
+      <select value={annotationStatus} onChange={(event) => { setAnnotationStatus(event.target.value as typeof annotationStatus); setPage(1); }}><option value="">全部入库状态</option><option value="pending">待入库</option><option value="committed">已入库</option></select>
+      <select aria-label="SKU 数据库每页条数" value={masterPageSize} onChange={(event) => { setMasterPageSize(Number(event.target.value)); setPage(1); }}><option value={20}>每页 20 条</option><option value={30}>每页 30 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select>
+    </div><div className="market-price-recognition-inline"><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="secondary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别待确认价格（最多100条）"}</button>{priceRecognitionBlocker && <span>{priceRecognitionBlocker}</span>}</div></article>}
     {mode === "database" && <><article className="panel settings-master-overview"><div className="section-header"><div><h2>TOP SKU/SPU 主数据中心</h2><p>主数据、待确认价格和图片均来自服务端数据库；主图和标题均可直接打开商品链接。</p></div><div className="market-master-toolbar"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" /><select value={category} onChange={(event) => { const nextCategory = event.target.value; setCategory(nextCategory); setPriceCategory(nextCategory); setPage(1); setPendingPricePage(1); }}><option value="">全部类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select><select aria-label="SKU 数据库每页条数" value={masterPageSize} onChange={(event) => { setMasterPageSize(Number(event.target.value)); setPage(1); }}><option value={20}>每页 20 条</option><option value={30}>每页 30 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select></div></div>
       <div className="settings-master-cards"><div><strong>{count(data.masterData.pagination.total)}</strong><span>主数据</span></div><div><strong>{count(data.pendingPrices.pagination.total)}</strong><span>待确认价格</span></div><div><strong>{count(data.imageCache.cached)} / {count(data.imageCache.total)}</strong><span>图片缓存</span></div><div><strong>{count(data.downloadTasks.length)}</strong><span>下载任务</span></div></div>
     </article>
@@ -713,14 +756,17 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     </article>
     <article className="panel"><div className="section-header"><div><h3>数据覆盖、图片缓存与审计</h3><p>覆盖检查和完整审计记录来自市场主数据审计表。</p></div></div><div className="settings-master-cards">{data.coverage.slice(0, 8).map((row) => <div key={`${row.category}-${row.scope}-${row.ranking_dimension}`}><strong>{String(row.month_min ?? "-")}~{String(row.month_max ?? "-")}</strong><span>{String(row.category)} · {String(row.scope)} · {String(row.ranking_dimension)} · SKU {String(row.sku_count)}</span></div>)}</div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>时间</th><th>人员</th><th>动作</th><th>对象</th></tr></thead><tbody>{data.audits.map((row) => <tr key={String(row.id)}><td>{String(row.created_at)}</td><td>{String(row.actor_email)}</td><td>{String(row.action)}</td><td>{String(row.entity_type)} · {String(row.entity_id)}</td></tr>)}</tbody></table></div></article>
     </>}
+    {mode === "subcategory" && <article className="panel market-subcategory-settings"><div className="section-header"><div><h2>细分品类设置</h2><p>按三级类目维护统一细分品类。保存后会同步刷新榜单、SKU 入库标注和待复核候选，并发布映射供后续导入复用。</p></div><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">请选择三级类目</option>{data.subcategorySettings.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select></div>{category ? <><div className="data-table-wrap"><table className="data-table"><thead><tr><th>当前细分品类</th><th>关联 SKU</th><th>已入库标注</th><th>修改为</th></tr></thead><tbody>{data.subcategorySettings.items.map((item) => <tr key={item.subcategory}><td><strong>{item.subcategory}</strong></td><td>{count(Number(item.sku_count))}</td><td>{count(Number(item.annotation_count))}</td><td><input value={subcategoryDrafts[item.subcategory] ?? item.subcategory} onChange={(event) => setSubcategoryDrafts((current) => ({ ...current, [item.subcategory]: event.target.value }))} /></td></tr>)}{!data.subcategorySettings.items.length && <tr><td colSpan={4}><div className="table-state">该三级类目尚无细分品类，可直接新增。</div></td></tr>}</tbody></table></div><label className="market-subcategory-add"><span>新增细分品类（每行一个）</span><textarea value={newSubcategory} onChange={(event) => setNewSubcategory(event.target.value)} placeholder="例如：台式净饮机&#10;商用直饮机" /></label><div className="annotation-actions"><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void saveSubcategories()}>{busy === "save_subcategory_settings" ? "刷新关联数据中…" : "保存并刷新全部关联数据"}</button></div></> : <div className="table-state">请先选择三级类目。</div>}</article>}
+    {editingSku && <div className="market-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingSku(null); }}><section className="panel market-sku-editor" role="dialog" aria-modal="true" aria-label="编辑 SKU 全部数据"><div className="section-header"><div><h2>编辑 SKU 全部数据</h2><p>{String(editingSku.skuCode)} · {String(editingSku.scope)} · {String(editingSku.month)}</p></div><button className="row-action" onClick={() => setEditingSku(null)}>关闭</button></div><div className="market-sku-editor-grid"><label><span>三级类目</span><input value={skuDraft.category} onChange={(event) => setSkuDraft((current) => ({ ...current, category: event.target.value }))} /></label><label><span>细分品类</span><input value={skuDraft.subcategory} onChange={(event) => setSkuDraft((current) => ({ ...current, subcategory: event.target.value }))} /></label><label className="wide"><span>商品标题</span><input value={skuDraft.productName} onChange={(event) => setSkuDraft((current) => ({ ...current, productName: event.target.value }))} /></label><label><span>品牌</span><input value={skuDraft.brand} onChange={(event) => setSkuDraft((current) => ({ ...current, brand: event.target.value }))} /></label><label><span>经营模式</span><select value={skuDraft.operationMode} onChange={(event) => setSkuDraft((current) => ({ ...current, operationMode: event.target.value }))}><option value="POP">POP</option><option value="自营">自营</option><option value="未知">未知</option></select></label><label><span>市场定位价（元）</span><input type="number" min={0} step="0.01" value={skuDraft.priceYuan} onChange={(event) => setSkuDraft((current) => ({ ...current, priceYuan: event.target.value }))} /></label><label><span>价格类型</span><select value={skuDraft.priceType} onChange={(event) => setSkuDraft((current) => ({ ...current, priceType: event.target.value }))}>{["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"].map((item) => <option key={item}>{item}</option>)}</select></label></div><footer><span>类目、品牌、经营模式和细分品类会同步更新该 SKU 的关联历史；价格仅更新当前月份。</span><button className="primary-button" disabled={busy !== ""} onClick={() => void saveSku()}>{busy === "update_sku_master" ? "保存中…" : "保存全部数据"}</button></footer></section></div>}
   </section>;
 }
 
 function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketOverview; onImported: () => void }) {
   const [tab, setTab] = useState<MarketSettingsTab>("database");
+  const [databaseArea, setDatabaseArea] = useState<"master" | "annotation">("master");
   const tabs: Array<{ key: MarketSettingsTab; label: string; note: string }> = [
-    { key: "database", label: "SKU 数据库", note: "主数据与价格确认" },
-    { key: "ai", label: "AI 标注", note: "细分类目与主图价格" },
+    { key: "database", label: "SKU 数据库", note: "主数据、价格与 AI 入库" },
+    { key: "subcategory", label: "细分品类设置", note: "按三级类目统一维护" },
     { key: "brand", label: "品牌确认", note: "标题识别与人工修订" },
     { key: "mapping", label: "映射配置", note: "别名、品类与价格带" },
     { key: "data", label: "数据配置", note: "导入、下载与审计" },
@@ -728,7 +774,8 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   return <section className="market-settings-workspace">
     <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>参考现有市场系统的分栏结构，统一维护 SKU/SPU 主数据、品牌确认、价格、映射、导入与 AI 标注；模型算力直接继承运营管理系统的 AI 助理配置。</p></div><div><span><strong>{count(data.summary.activeSkuCount)}</strong>有效 SKU</span><span><strong>{count(data.summary.pendingAiCount)}</strong>待确认 AI 数据</span><span><strong>{count(data.imageCache.pending)}</strong>待缓存图片</span></div></article>
     <nav className="panel market-settings-tabs" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
-    {tab === "ai" ? <MarketAnnotationView currentUser={currentUser} /> : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}
+    {tab === "database" && <nav className="panel market-database-areas"><button className={databaseArea === "master" ? "active" : ""} onClick={() => setDatabaseArea("master")}><strong>主数据与价格</strong><small>统一筛选、查看和编辑 SKU/SPU</small></button><button className={databaseArea === "annotation" ? "active" : ""} onClick={() => setDatabaseArea("annotation")}><strong>AI 标注与批量入库</strong><small>筛选候选、列表/大图复核并入库</small></button></nav>}
+    {tab === "database" ? (databaseArea === "annotation" ? <MarketAnnotationView currentUser={currentUser} embedded /> : <MarketMasterAdminPanel currentUser={currentUser} mode="database" />) : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}
     {tab === "data" && <><MarketDataImportPanel currentUser={currentUser} data={data} onImported={onImported} /><MarketWorkflowPanel data={data} /></>}
   </section>;
 }
@@ -744,6 +791,8 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [brands, setBrands] = useState<string[]>([]);
   const [subcategories, setSubcategories] = useState<string[]>([]);
   const [priceBands, setPriceBands] = useState<string[]>([]);
+  const [marketStartDate, setMarketStartDate] = useState(customStartDate);
+  const [marketEndDate, setMarketEndDate] = useState(customEndDate);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
   const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
@@ -759,8 +808,8 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       brands.forEach((value) => params.append("brand", value));
       subcategories.forEach((value) => params.append("subcategory", value));
       priceBands.forEach((value) => params.append("priceBand", value));
-      if (customStartDate) params.set("startDate", customStartDate);
-      if (customEndDate) params.set("endDate", customEndDate);
+      if (marketStartDate) params.set("startDate", marketStartDate);
+      if (marketEndDate) params.set("endDate", marketEndDate);
       const response = await fetch(`/api/market/overview?${params}`, { cache: "no-store" });
       const payload = await response.json().catch(() => null) as MarketOverview | null;
       if (!response.ok) throw new Error(payload?.error || "市场分析数据读取失败");
@@ -768,7 +817,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       setData(payload);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "市场分析数据读取失败"); }
     finally { setLoading(false); }
-  }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, customStartDate, customEndDate]);
+  }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 200); return () => window.clearTimeout(timer); }, [load, reloadKey]);
   const toggleCompare = (sku: string) => setCompareIds((current) => current.includes(sku) ? current.filter((item) => item !== sku) : current.length >= 5 ? current : [...current, sku]);
   const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...(data?.filters.operationModes ?? [])].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [data]);
@@ -786,6 +835,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
       <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p></div>
       <div className="market-filter-controls market-filter-controls-v2">
+        {activeSection === "overview" && <div className="market-overview-period"><label><span>开始日期</span><input type="date" value={marketStartDate} max={marketEndDate || undefined} onChange={(event) => setMarketStartDate(event.target.value)} /></label><label><span>结束日期</span><input type="date" value={marketEndDate} min={marketStartDate || undefined} onChange={(event) => setMarketEndDate(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setMarketStartDate(""); setMarketEndDate(""); }}>全部时间</button></div>}
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品标题或 SKU" aria-label="搜索商品标题或 SKU" />
         <SearchMultiFilter label="类目" values={categories} options={data.filters.categories} onChange={setCategories} />
         <SearchMultiFilter label="榜单维度" values={dimensions} options={data.filters.rankingDimensions.length ? data.filters.rankingDimensions : [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }]} onChange={setDimensions} />
@@ -805,7 +855,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <BrandSection data={data} />
       <SubcategorySection data={data} />
     </>}
-    {activeSection === "compare" && <CompareWorkspace items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} onToggleCompare={toggleCompare} onGoRanking={() => setActiveSection("ranking")} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={customStartDate} endDate={customEndDate} />}
+    {activeSection === "compare" && <CompareWorkspace items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} onToggleCompare={toggleCompare} onGoRanking={() => setActiveSection("ranking")} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
     {activeSection === "settings" && <MarketSettingsWorkspace currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
   </div>;

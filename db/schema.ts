@@ -810,6 +810,21 @@ export const marketMasterMappingRules = sqliteTable("market_master_mapping_rules
   index("market_master_mapping_rules_kind_idx").on(table.kind, table.category, table.status, table.effectiveFrom),
 ]);
 
+export const marketSubcategoryTaxonomy = sqliteTable("market_subcategory_taxonomy", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  subcategory: text("subcategory").notNull(),
+  status: text("status").notNull().default("active"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdBy: text("created_by").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("market_subcategory_taxonomy_category_name_uq").on(table.category, table.subcategory),
+  index("market_subcategory_taxonomy_lookup_idx").on(table.category, table.status, table.sortOrder),
+]);
+
 export const marketDownloadTasks = sqliteTable("market_download_tasks", {
   id: text("id").primaryKey(),
   category: text("category").notNull(),

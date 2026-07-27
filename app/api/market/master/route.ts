@@ -8,6 +8,7 @@ import {
   applyPublishedMarketMappings,
   createMarketPriceBandVersion,
   getMarketMasterWorkspace,
+  getMarketSubcategoryWorkspace,
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
   getMarketSkuComparison,
@@ -26,6 +27,8 @@ import {
   upsertMarketDownloadConfig,
   upsertMarketBrandSeed,
   upsertMarketMapping,
+  updateMarketSkuMasterData,
+  saveMarketSubcategorySettings,
 } from "@/lib/market/admin-service";
 import { createPriceRecognitionJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
 
@@ -45,6 +48,10 @@ const pendingPriceSourceParam = (params: URLSearchParams, key: string) => {
   const value = params.get(key);
   return value === "ai" || value === "non_ai" ? value : undefined;
 };
+const workspaceModeParam = (params: URLSearchParams) => {
+  const value = params.get("section");
+  return value === "database" || value === "brand" || value === "mapping" || value === "subcategory" || value === "data" ? value : "all";
+};
 
 export async function GET(request: Request) {
   try {
@@ -61,6 +68,7 @@ export async function GET(request: Request) {
         brand: params.get("brand") ?? undefined,
         subcategory: params.get("subcategory") ?? undefined,
         priceStatus: params.get("priceStatus") as never,
+        annotationStatus: params.get("annotationStatus") as never,
         page: numberParam(params, "page", 1),
         pageSize: numberParam(params, "pageSize", 30),
       }), { headers: { "cache-control": "no-store" } });
@@ -102,9 +110,19 @@ export async function GET(request: Request) {
         pageSize: numberParam(params, "pageSize", 30),
       }), { headers: { "cache-control": "no-store" } });
     }
+    if (view === "subcategories") {
+      return Response.json(await getMarketSubcategoryWorkspace(db, params.get("category") ?? ""), { headers: { "cache-control": "no-store" } });
+    }
     return Response.json(await getMarketMasterWorkspace(db, {
+      mode: workspaceModeParam(params),
       q: params.get("q") ?? undefined,
       category: params.get("category") ?? undefined,
+      rankingDimension: params.get("rankingDimension") ?? undefined,
+      operationMode: params.get("operationMode") ?? undefined,
+      subcategory: params.get("subcategory") ?? undefined,
+      priceStatus: params.get("priceStatus") as never,
+      candidatePriceSource: pendingPriceSourceParam(params, "priceSource"),
+      annotationStatus: params.get("annotationStatus") as never,
       page: numberParam(params, "page", 1),
       pageSize: numberParam(params, "pageSize", 30),
       pendingPriceCategory: params.get("pendingPriceCategory") ?? undefined,
@@ -141,6 +159,21 @@ export async function POST(request: Request) {
           priceLowCents: parsed.priceLowCents,
           priceHighCents: parsed.priceHighCents,
           note: text(parsed, "note"),
+        }, principal);
+        break;
+      case "update_sku_master":
+        result = await updateMarketSkuMasterData(db, {
+          originalCategory: text(parsed, "originalCategory"), category: text(parsed, "category"), scope: text(parsed, "scope"),
+          rankingDimension: text(parsed, "rankingDimension"), skuCode: text(parsed, "skuCode"), month: text(parsed, "month"),
+          productName: text(parsed, "productName"), brand: text(parsed, "brand"), operationMode: text(parsed, "operationMode"),
+          subcategory: text(parsed, "subcategory"), priceCents: parsed.priceCents, priceType: text(parsed, "priceType"),
+        }, principal);
+        break;
+      case "save_subcategory_settings":
+        result = await saveMarketSubcategorySettings(db, {
+          category: text(parsed, "category"),
+          renames: Array.isArray(parsed.renames) ? parsed.renames.filter(record).map((item) => ({ source: text(item, "source"), target: text(item, "target") })) : [],
+          additions: texts(parsed, "additions"),
         }, principal);
         break;
       case "infer_brand":

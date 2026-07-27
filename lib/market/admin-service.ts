@@ -95,20 +95,21 @@ export async function matchMarketBrandSeeds(db: MarketDatabase, input: { categor
 
 export async function listMarketMasterData(db: MarketDatabase, input: {
   q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string;
-  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number; includeHistory?: boolean;
+  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai";
+  annotationStatus?: "committed" | "pending"; page?: number; pageSize?: number; includeHistory?: boolean;
 } = {}) {
-  await ensureMarketAdminSchema(db);
+  await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
   await ensureMarketSkuGmvTotals(db);
   const pageSize = integer(input.pageSize, 30, 1, 100);
   const page = integer(input.page, 1, 1, 10_000);
   const { where, values } = masterWhere(input);
-  const total = await db.prepare(`SELECT COUNT(*) count FROM (${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}) t`).bind(...values).first<CountRow>();
-  const rows = await db.prepare(`${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}
-    ORDER BY gmv_total_cents DESC, m.period_end DESC, CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank
+  const rows = await db.prepare(`SELECT filtered.*, COUNT(*) OVER() full_count FROM (${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}) filtered
+    ORDER BY gmv_total_cents DESC, period_end DESC, CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank
     LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, string | number | null>>();
+  const total = Number(rows.results?.[0]?.full_count ?? 0);
   return {
     items: (rows.results ?? []).map(mapMasterRow),
-    pagination: { page, pageSize, total: Number(total?.count ?? 0), pageCount: Math.max(1, Math.ceil(Number(total?.count ?? 0) / pageSize)) },
+    pagination: { page, pageSize, total, pageCount: Math.max(1, Math.ceil(total / pageSize)) },
   };
 }
 
@@ -151,6 +152,142 @@ export async function confirmMarketPrice(db: MarketDatabase, input: {
     .bind(category, String(before.scope ?? ""), skuCode, rankingDimension, month).first<Record<string, unknown>>();
   await audit(db, actor, "confirm_market_price", "market_price_snapshot", `${category}|${String(before.scope ?? "")}|${rankingDimension}|${skuCode}|${month}`, before, { ...after, note: optionalText(input.note, 300) ?? "" });
   return { ok: true, snapshot: after };
+}
+
+export async function updateMarketSkuMasterData(db: MarketDatabase, input: {
+  originalCategory: string; category: string; scope: string; rankingDimension: string; skuCode: string; month: string;
+  productName: string; brand: string; operationMode: string; subcategory: string;
+  priceCents: unknown; priceType?: string;
+}, actor: MarketPrincipal) {
+  await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
+  const originalCategory = requiredText(input.originalCategory, 120);
+  const category = requiredText(input.category, 120);
+  const scope = requiredText(input.scope, 120);
+  const rankingDimension = dimension(input.rankingDimension);
+  const skuCode = requiredText(input.skuCode, 80);
+  const month = requiredMonth(input.month);
+  const productName = requiredText(input.productName, 500);
+  const brand = optionalText(input.brand, 120) ?? "";
+  const operationMode = normalizeOperationMode(input.operationMode);
+  const subcategory = optionalText(input.subcategory, 120) ?? "";
+  const priceCents = nullableInteger(input.priceCents, 0, 100_000_000);
+  const priceType = optionalText(input.priceType, 40) ?? "标准售价";
+  if (priceCents !== null && !validOfficialPriceTypes.has(priceType)) throw new Error("确认价格必须选择有效的完整售价类型");
+
+  const before = await db.prepare(`SELECT id, category, scope, ranking_dimension, sku_code, product_name, brand, operation_mode, subcategory
+    FROM market_ranking_entries WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?
+    ORDER BY period_end DESC, period_start DESC, id DESC LIMIT 1`)
+    .bind(originalCategory, scope, rankingDimension, skuCode).first<Record<string, unknown>>();
+  if (!before) throw new Error("未找到要编辑的 SKU 主数据");
+  if (category !== originalCategory) {
+    const conflict = await db.prepare(`SELECT id FROM market_ranking_entries
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=? LIMIT 1`)
+      .bind(category, scope, rankingDimension, skuCode).first<{ id: number }>();
+    if (conflict) throw new Error("目标三级类目已经存在同一 SKU，请先合并重复数据后再修改类目");
+    const annotationConflict = await db.prepare("SELECT id FROM market_sku_annotations WHERE category=? AND sku_code=? LIMIT 1")
+      .bind(category, skuCode).first<{ id: string }>();
+    if (annotationConflict) throw new Error("目标三级类目已经存在该 SKU 的入库标注，不能直接迁移类目");
+    const priceConflict = await db.prepare(`SELECT id FROM market_price_snapshots
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=? LIMIT 1`)
+      .bind(category, scope, rankingDimension, skuCode).first<{ id: string }>();
+    if (priceConflict) throw new Error("目标三级类目已经存在该 SKU 的价格快照，不能直接迁移类目");
+  }
+
+  const statements = [
+    db.prepare(`UPDATE market_ranking_entries SET
+      category=?, product_name=?, brand=?, operation_mode=?, subcategory=?,
+      natural_key=period_start || '|' || period_end || '|' || ? || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code,
+      updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+      .bind(category, productName, brand, operationMode, subcategory, category, originalCategory, scope, rankingDimension, skuCode),
+    db.prepare(`UPDATE market_price_snapshots SET category=?, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+      .bind(category, originalCategory, scope, rankingDimension, skuCode),
+    db.prepare(`UPDATE market_sku_annotations SET category=?, segment=?, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND sku_code=?`)
+      .bind(category, subcategory, originalCategory, skuCode),
+    db.prepare(`UPDATE market_brand_suggestions SET category=?, product_name=?, current_brand=?, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+      .bind(category, productName, brand, originalCategory, scope, rankingDimension, skuCode),
+    db.prepare(`UPDATE market_price_snapshots SET confirmed_market_price_cents=?, ai_price_type=?,
+      confirmation_status=?, confirmed_by=?, confirmed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=? AND month=?`)
+      .bind(priceCents, priceCents === null ? "" : priceType, priceCents === null ? "missing" : "confirmed",
+        actor.email, category, scope, rankingDimension, skuCode, month),
+  ];
+  const results = await db.batch(statements) as Array<{ meta?: { changes?: number } }>;
+  const after = await db.prepare(`SELECT id, category, scope, ranking_dimension, sku_code, product_name, brand, operation_mode, subcategory
+    FROM market_ranking_entries WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?
+    ORDER BY period_end DESC, period_start DESC, id DESC LIMIT 1`)
+    .bind(category, scope, rankingDimension, skuCode).first<Record<string, unknown>>();
+  const changedRows = results.reduce((sum, result) => sum + Number(result?.meta?.changes ?? 0), 0);
+  await audit(db, actor, "update_market_sku_master", "market_sku", `${originalCategory}|${scope}|${rankingDimension}|${skuCode}`, before, { ...after, month, priceCents, priceType, changedRows });
+  return { ok: true, changedRows, item: after };
+}
+
+export async function getMarketSubcategoryWorkspace(db: MarketDatabase, category = "") {
+  await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
+  const normalizedCategory = optionalText(category, 120) ?? "";
+  const [categories, items] = await Promise.all([
+    db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category<>'' GROUP BY category ORDER BY count DESC, category LIMIT 200").all<{ value: string; count: number }>(),
+    normalizedCategory
+      ? db.prepare(`WITH values_in_use AS (
+          SELECT subcategory value FROM market_ranking_entries WHERE category=? AND subcategory<>''
+          UNION SELECT segment value FROM market_sku_annotations WHERE category=? AND segment<>''
+          UNION SELECT subcategory value FROM market_subcategory_taxonomy WHERE category=? AND subcategory<>''
+        )
+        SELECT v.value subcategory,
+          (SELECT COUNT(DISTINCT sku_code) FROM market_ranking_entries r WHERE r.category=? AND r.subcategory=v.value) sku_count,
+          (SELECT COUNT(*) FROM market_sku_annotations a WHERE a.category=? AND a.segment=v.value) annotation_count,
+          COALESCE((SELECT status FROM market_subcategory_taxonomy t WHERE t.category=? AND t.subcategory=v.value LIMIT 1),'active') status,
+          COALESCE((SELECT sort_order FROM market_subcategory_taxonomy t WHERE t.category=? AND t.subcategory=v.value LIMIT 1),999) sort_order
+        FROM values_in_use v ORDER BY sort_order, sku_count DESC, subcategory`)
+        .bind(normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory, normalizedCategory)
+        .all<Record<string, string | number>>()
+      : Promise.resolve({ results: [] as Record<string, string | number>[] }),
+  ]);
+  return { category: normalizedCategory, categories: categories.results ?? [], items: items.results ?? [] };
+}
+
+export async function saveMarketSubcategorySettings(db: MarketDatabase, input: {
+  category: string; renames?: Array<{ source: string; target: string }>; additions?: string[];
+}, actor: MarketPrincipal) {
+  await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
+  const category = requiredText(input.category, 120);
+  const renames = (input.renames ?? []).slice(0, 100).map((item) => ({ source: requiredText(item.source, 120), target: requiredText(item.target, 120) }));
+  const additions = [...new Set((input.additions ?? []).map((item) => requiredText(item, 120)))].slice(0, 100);
+  if (!renames.length && !additions.length) throw new Error("请至少修改或新增一个细分品类");
+  const summary: Array<{ source: string; target: string; changed: number }> = [];
+  let sortOrder = 0;
+  for (const rename of renames) {
+    if (rename.source === rename.target) continue;
+    const existingRule = await db.prepare(`SELECT id FROM market_master_mapping_rules
+      WHERE kind='subcategory' AND category=? AND source_value=? AND status='published' ORDER BY version DESC LIMIT 1`)
+      .bind(category, rename.source).first<{ id: string }>();
+    const ruleId = existingRule?.id ?? `market-subcategory-map-${crypto.randomUUID()}`;
+    const results = await db.batch([
+      db.prepare("UPDATE market_ranking_entries SET subcategory=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND subcategory=?").bind(rename.target, category, rename.source),
+      db.prepare("UPDATE market_sku_annotations SET segment=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND segment=?").bind(rename.target, category, rename.source),
+      db.prepare("UPDATE market_annotation_items SET ai_segment=CASE WHEN ai_segment=? THEN ? ELSE ai_segment END, reviewed_segment=CASE WHEN reviewed_segment=? THEN ? ELSE reviewed_segment END, updated_at=CURRENT_TIMESTAMP WHERE category=? AND (ai_segment=? OR reviewed_segment=?)")
+        .bind(rename.source, rename.target, rename.source, rename.target, category, rename.source, rename.source),
+      db.prepare("UPDATE market_subcategory_taxonomy SET status='archived', updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND subcategory=?").bind(actor.email, category, rename.source),
+      db.prepare(`INSERT INTO market_subcategory_taxonomy (id, category, subcategory, status, sort_order, created_by, updated_by)
+        VALUES (?, ?, ?, 'active', ?, ?, ?) ON CONFLICT(category, subcategory) DO UPDATE SET status='active', sort_order=excluded.sort_order, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`)
+        .bind(`market-subcategory-${crypto.randomUUID()}`, category, rename.target, sortOrder++, actor.email, actor.email),
+      db.prepare(`INSERT INTO market_master_mapping_rules (id, kind, category, source_value, target_value, status, version, effective_from, created_by)
+        VALUES (?, 'subcategory', ?, ?, ?, 'published', 1, '1970-01-01', ?)
+        ON CONFLICT(id) DO UPDATE SET target_value=excluded.target_value, status='published', version=market_master_mapping_rules.version+1, updated_at=CURRENT_TIMESTAMP`)
+        .bind(ruleId, category, rename.source, rename.target, actor.email),
+    ]) as Array<{ meta?: { changes?: number } }>;
+    summary.push({ source: rename.source, target: rename.target, changed: results.slice(0, 3).reduce((sum, result) => sum + Number(result?.meta?.changes ?? 0), 0) });
+  }
+  if (additions.length) await db.batch(additions.map((subcategory) => db.prepare(`INSERT INTO market_subcategory_taxonomy
+    (id, category, subcategory, status, sort_order, created_by, updated_by) VALUES (?, ?, ?, 'active', ?, ?, ?)
+    ON CONFLICT(category, subcategory) DO UPDATE SET status='active', sort_order=excluded.sort_order, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`)
+    .bind(`market-subcategory-${crypto.randomUUID()}`, category, subcategory, sortOrder++, actor.email, actor.email)));
+  const result = { category, renamed: summary.length, added: additions.length, changedRows: summary.reduce((sum, item) => sum + item.changed, 0), summary };
+  await audit(db, actor, "save_market_subcategory_settings", "market_subcategory_taxonomy", category, null, result);
+  return result;
 }
 
 export async function listMarketMappings(db: MarketDatabase, input: { kind?: string; category?: string; status?: string } = {}) {
@@ -677,44 +814,63 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
 }
 
 export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
-  q?: string; category?: string; page?: number; pageSize?: number;
+  mode?: "all" | "database" | "brand" | "mapping" | "subcategory" | "data";
+  q?: string; category?: string; rankingDimension?: string; operationMode?: string; subcategory?: string;
+  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai";
+  annotationStatus?: "committed" | "pending"; page?: number; pageSize?: number;
   pendingPriceCategory?: string; pendingPriceSource?: "ai" | "non_ai";
   pendingPricePage?: number; pendingPricePageSize?: number;
 } = {}) {
   await ensureMarketAdminSchema(db);
   await ensureAnnotationSchema(db);
-  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, pricePrompts, brandRecognitionJob, brandSeeds] = await Promise.all([
-    listMarketMasterData(db, input),
-    listPendingMarketPrices(db, {
+  const mode = input.mode ?? "all";
+  const wantsMaster = mode === "all" || mode === "database" || mode === "brand";
+  const wantsDatabase = mode === "all" || mode === "database";
+  const wantsBrand = mode === "all" || mode === "brand";
+  const wantsMapping = mode === "all" || mode === "mapping";
+  const wantsData = mode === "all" || mode === "data";
+  const wantsSubcategory = mode === "all" || mode === "subcategory";
+  const emptyPage = { items: [] as Array<Record<string, string | number | null>>, pagination: { total: 0, page: 1, pageSize: input.pageSize ?? 30, pageCount: 1 } };
+  const emptyRows = { results: [] as Array<Record<string, unknown>> };
+  const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, subcategories, pricePrompts, brandRecognitionJob, brandSeeds, statusCounts, subcategorySettings] = await Promise.all([
+    wantsMaster ? listMarketMasterData(db, input) : Promise.resolve(emptyPage),
+    mode === "all" ? listPendingMarketPrices(db, {
       category: input.pendingPriceCategory,
       candidatePriceSource: input.pendingPriceSource,
       page: input.pendingPricePage,
       pageSize: input.pendingPricePageSize,
-    }),
-    listMarketMappings(db),
-    listMarketPriceBandVersions(db),
-    db.prepare("SELECT * FROM market_download_tasks ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>(),
-    db.prepare("SELECT * FROM market_download_configs ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>(),
-    db.prepare(`SELECT category, scope, ranking_dimension, MIN(substr(period_end,1,7)) month_min, MAX(substr(period_end,1,7)) month_max, COUNT(DISTINCT substr(period_end,1,7)) month_count, COUNT(DISTINCT sku_code) sku_count
-      FROM market_ranking_entries GROUP BY category, scope, ranking_dimension ORDER BY category, scope, ranking_dimension LIMIT 200`).all<Record<string, unknown>>(),
-    db.prepare(`SELECT COUNT(*) total, SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END) cached, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed,
-      SUM(CASE WHEN status NOT IN ('ready','failed') THEN 1 ELSE 0 END) pending FROM market_image_cache`).first<Record<string, number | null>>(),
-    db.prepare("SELECT * FROM market_master_audit_logs ORDER BY created_at DESC LIMIT 100").all<Record<string, unknown>>(),
+    }) : Promise.resolve(emptyPage),
+    wantsMapping ? listMarketMappings(db) : Promise.resolve({ items: [] as Array<Record<string, string | number>> }),
+    wantsMapping ? listMarketPriceBandVersions(db) : Promise.resolve({ items: [] as Array<Record<string, unknown>> }),
+    wantsData ? db.prepare("SELECT * FROM market_download_tasks ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>() : Promise.resolve(emptyRows),
+    wantsData ? db.prepare("SELECT * FROM market_download_configs ORDER BY updated_at DESC LIMIT 100").all<Record<string, unknown>>() : Promise.resolve(emptyRows),
+    wantsData ? db.prepare(`SELECT category, scope, ranking_dimension, MIN(substr(period_end,1,7)) month_min, MAX(substr(period_end,1,7)) month_max, COUNT(DISTINCT substr(period_end,1,7)) month_count, COUNT(DISTINCT sku_code) sku_count
+      FROM market_ranking_entries GROUP BY category, scope, ranking_dimension ORDER BY category, scope, ranking_dimension LIMIT 200`).all<Record<string, unknown>>() : Promise.resolve(emptyRows),
+    (wantsDatabase || wantsData) ? db.prepare(`SELECT COUNT(*) total, SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END) cached, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed,
+      SUM(CASE WHEN status NOT IN ('ready','failed') THEN 1 ELSE 0 END) pending FROM market_image_cache`).first<Record<string, number | null>>() : Promise.resolve(null),
+    wantsData ? db.prepare("SELECT * FROM market_master_audit_logs ORDER BY created_at DESC LIMIT 100").all<Record<string, unknown>>() : Promise.resolve(emptyRows),
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries GROUP BY category ORDER BY count DESC, category LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare(`SELECT c.category,
+    wantsDatabase ? db.prepare("SELECT subcategory value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE subcategory<>'' AND (?='' OR category=?) GROUP BY subcategory ORDER BY count DESC, subcategory LIMIT 200").bind(input.category ?? "", input.category ?? "").all<{ value: string; count: number }>() : Promise.resolve({ results: [] as Array<{ value: string; count: number }> }),
+    wantsDatabase ? db.prepare(`SELECT c.category,
         COALESCE((SELECT p.id FROM market_annotation_prompt_versions p WHERE p.category=c.category AND p.status='active' ORDER BY p.version DESC LIMIT 1), '') prompt_id,
         (SELECT COUNT(*) FROM market_price_snapshots ps
           WHERE ps.category=c.category AND ps.confirmed_market_price_cents IS NULL
             AND (ps.image_content_sha256<>'' OR EXISTS (
               SELECT 1 FROM market_image_cache mic WHERE mic.source_url=ps.image_url AND mic.status='ready' AND mic.content_sha256<>''
             ))) pending_count
-      FROM (SELECT DISTINCT category FROM market_ranking_entries WHERE category<>'') c ORDER BY c.category`).all<Record<string, unknown>>(),
-    getMarketBrandRecognitionJob(db, { q: input.q, category: input.category }),
-    getMarketBrandSeedWorkspace(db, input),
+      FROM (SELECT DISTINCT category FROM market_ranking_entries WHERE category<>'') c ORDER BY c.category`).all<Record<string, unknown>>() : Promise.resolve(emptyRows),
+    wantsBrand ? getMarketBrandRecognitionJob(db, { q: input.q, category: input.category }) : Promise.resolve(null),
+    wantsBrand ? getMarketBrandSeedWorkspace(db, input) : Promise.resolve({ dictionary: { items: [], counts: { total: 0, enabled: 0, system: 0, manual: 0 } }, unknown: { items: [], pagination: { total: 0, page: 1, pageCount: 1 } } }),
+    wantsDatabase ? db.prepare(`SELECT
+      COUNT(*) total,
+      SUM(CASE WHEN confirmed_market_price_cents IS NULL THEN 1 ELSE 0 END) pending_prices,
+      SUM(CASE WHEN confirmed_market_price_cents IS NOT NULL THEN 1 ELSE 0 END) confirmed_prices
+      FROM market_price_snapshots WHERE (?='' OR category=?)`).bind(input.category ?? "", input.category ?? "").first<Record<string, number | null>>() : Promise.resolve(null),
+    wantsSubcategory ? getMarketSubcategoryWorkspace(db, input.category ?? "") : Promise.resolve({ category: "", categories: [], items: [] }),
   ]);
   return {
     masterData,
-    pendingPrices,
+    pendingPrices: wantsDatabase ? { items: [], pagination: { total: Number(statusCounts?.pending_prices ?? 0), page: 1, pageSize: 0, pageCount: 1 } } : pendingPrices,
     mappings,
     priceBands,
     downloadTasks: tasks.results ?? [],
@@ -727,9 +883,16 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
       pending: Number(imageCache?.pending ?? 0),
     },
     categories: categories.results ?? [],
+    subcategories: subcategories.results ?? [],
     priceRecognition: { prompts: pricePrompts.results ?? [] },
     brandRecognitionJob,
     brandSeeds,
+    statusCounts: {
+      total: Number(statusCounts?.total ?? 0),
+      pendingPrices: Number(statusCounts?.pending_prices ?? 0),
+      confirmedPrices: Number(statusCounts?.confirmed_prices ?? 0),
+    },
+    subcategorySettings,
     audits: audits.results ?? [],
   };
 }
@@ -902,6 +1065,7 @@ function masterBaseSql(includeHistory = false) {
         ELSE 'missing' END candidate_price_source,
       ps.average_transaction_price_cents, ps.price_low_cents, ps.price_high_cents, COALESCE(ps.confirmation_status,'missing') confirmation_status,
       bs.ai_brand suggested_brand, COALESCE(bs.status, '') brand_suggestion_status,
+      CASE WHEN a.id IS NULL THEN 'pending' ELSE 'committed' END annotation_status,
       ${officialPriceBandSql("ps.confirmed_market_price_cents", {
         confirmationStatusSql: "ps.confirmation_status",
         aiPriceTypeSql: "ps.ai_price_type",
@@ -912,6 +1076,7 @@ function masterBaseSql(includeHistory = false) {
     LEFT JOIN market_sku_gmv_totals gt ON gt.sku_code=m.sku_code
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     LEFT JOIN market_brand_suggestions bs ON bs.category=m.category AND bs.scope=m.scope AND bs.ranking_dimension=m.ranking_dimension AND bs.sku_code=m.sku_code
+    LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code
     LEFT JOIN market_image_cache c ON c.source_url=m.image_url`;
 }
 
@@ -972,7 +1137,7 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
 
 function masterWhere(input: {
   q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string; priceStatus?: string;
-  candidatePriceSource?: string;
+  candidatePriceSource?: string; annotationStatus?: string;
 }) {
   const clauses = ["1=1"];
   const values: unknown[] = [];
@@ -994,6 +1159,8 @@ function masterWhere(input: {
     NOT (COALESCE(ps.confirmation_status, '')='ai_pending' AND ps.ai_image_price_cents IS NOT NULL)
     AND (ps.source_price_cents IS NOT NULL OR (ps.source_price_cents IS NULL AND ps.average_transaction_price_cents IS NOT NULL))
   `);
+  if (input.annotationStatus === "committed") clauses.push("a.id IS NOT NULL");
+  if (input.annotationStatus === "pending") clauses.push("a.id IS NULL");
   return { where: clauses.join(" AND "), values };
 }
 
@@ -1037,6 +1204,7 @@ function mapMasterRow(row: Record<string, string | number | null>) {
     confirmationStatus: String(row.confirmation_status ?? "missing"),
     suggestedBrand: String(row.suggested_brand ?? ""),
     brandSuggestionStatus: String(row.brand_suggestion_status ?? ""),
+    annotationStatus: String(row.annotation_status ?? "pending"),
     priceBand: String(row.price_band ?? unknownPriceBand),
   };
 }

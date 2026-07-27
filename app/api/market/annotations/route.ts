@@ -35,6 +35,8 @@ export async function GET(request: Request) {
       q: params.get("q")?.trim() || undefined,
       page: integerParam(params, "page", 1), pageSize: integerParam(params, "pageSize", 30),
       itemPage: integerParam(params, "itemPage", 1), itemPageSize: integerParam(params, "itemPageSize", 100),
+      itemSegment: params.get("itemSegment")?.trim() || undefined,
+      storageStatus: params.get("storageStatus") === "committed" ? "committed" : params.get("storageStatus") === "pending" ? "pending" : undefined,
       includeAgents: principal.role === "admin",
     });
     return Response.json({ ...payload, principal }, { headers: { "cache-control": "no-store" } });

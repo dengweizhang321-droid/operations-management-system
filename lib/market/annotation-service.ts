@@ -52,19 +52,29 @@ function promptValue(row: PromptRow) { return { id: row.id, category: row.catego
 function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
 function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
 
-export async function getAnnotationWorkspace(db: MarketDatabase, input: { jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number; includeAgents?: boolean } = {}) {
+export async function getAnnotationWorkspace(db: MarketDatabase, input: {
+  jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number;
+  itemSegment?: string; storageStatus?: "pending" | "committed"; includeAgents?: boolean;
+} = {}) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const page = Math.max(1, Math.trunc(input.page ?? 1));
   const pageSize = Math.max(10, Math.min(100, Math.trunc(input.pageSize ?? 30)));
   const q = input.q?.trim().slice(0, 120) ?? "";
   const itemPage = strictInteger(input.itemPage, 1, 1, 50_000, "itemPage");
   const itemPageSize = strictInteger(input.itemPageSize, 100, 10, 200, "itemPageSize");
+  const itemClauses = ["job_id = ?"];
+  const itemBindings: unknown[] = [input.jobId ?? ""];
+  const itemSegment = input.itemSegment?.trim().slice(0, 120) ?? "";
+  if (itemSegment) { itemClauses.push("COALESCE(NULLIF(reviewed_segment,''), ai_segment)=?"); itemBindings.push(itemSegment); }
+  if (input.storageStatus === "committed") itemClauses.push("status='committed'");
+  if (input.storageStatus === "pending") itemClauses.push("status<>'committed'");
+  const itemWhere = itemClauses.join(" AND ");
   const [categoryRows, promptRows, jobRows, items, itemCount, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
     db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
-    input.jobId ? db.prepare(`SELECT ${itemColumns} FROM market_annotation_items WHERE job_id = ? ORDER BY created_at, id LIMIT ? OFFSET ?`).bind(input.jobId, itemPageSize, (itemPage - 1) * itemPageSize).all<ItemRow>() : Promise.resolve({ results: [] as ItemRow[] }),
-    input.jobId ? db.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE job_id=?").bind(input.jobId).first<{ count: number }>() : Promise.resolve({ count: 0 }),
+    input.jobId ? db.prepare(`SELECT ${itemColumns} FROM market_annotation_items WHERE ${itemWhere} ORDER BY created_at, id LIMIT ? OFFSET ?`).bind(...itemBindings, itemPageSize, (itemPage - 1) * itemPageSize).all<ItemRow>() : Promise.resolve({ results: [] as ItemRow[] }),
+    input.jobId ? db.prepare(`SELECT COUNT(*) count FROM market_annotation_items WHERE ${itemWhere}`).bind(...itemBindings).first<{ count: number }>() : Promise.resolve({ count: 0 }),
     listAnnotationModels(db), listPromptTextModels(db), searchAnnotationCatalog(db, { q, page, pageSize }),
     db.prepare("SELECT id, category, baseline_prompt_id baselinePromptId, candidate_prompt_id candidatePromptId, model_id modelId, status, seed, requested_sample_count requestedSampleCount, sample_count sampleCount, sample_hash sampleHash, metrics_json metricsJson, gate_json gateJson, created_by createdBy, created_at createdAt, completed_at completedAt FROM market_annotation_validation_runs ORDER BY created_at DESC LIMIT 30").all<Record<string, unknown>>(),
     input.includeAgents ? db.prepare("SELECT id, name, status, capabilities_json capabilitiesJson, created_by createdBy, created_at createdAt, last_seen_at lastSeenAt, revoked_at revokedAt FROM market_annotation_local_agents ORDER BY created_at DESC LIMIT 50").all<Record<string, unknown>>() : Promise.resolve({ results: [] as Record<string, unknown>[] }),
