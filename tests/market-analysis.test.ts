@@ -177,6 +177,9 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /reviewView === "gallery"/);
   assert.match(annotation, /批量入库/);
   assert.match(annotation, /全选筛选结果（跨页/);
+  assert.match(annotation, /AI 标注每页条数/);
+  assert.match(annotation, /AI 标注页码/);
+  assert.match(annotation, /当前类目共 \{visibleJobs\.length\} 个任务/);
   assert.match(annotation, /全部 AI 结果/);
   assert.match(annotation, /未生成 AI 结果（含失败）/);
   assert.match(annotation, /此筛选不会调用模型/);

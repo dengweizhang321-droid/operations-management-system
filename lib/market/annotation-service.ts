@@ -63,7 +63,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
   const pageSize = Math.max(10, Math.min(100, Math.trunc(input.pageSize ?? 30)));
   const q = input.q?.trim().slice(0, 120) ?? "";
   const itemPage = strictInteger(input.itemPage, 1, 1, 50_000, "itemPage");
-  const itemPageSize = strictInteger(input.itemPageSize, 100, 10, 200, "itemPageSize");
+  const itemPageSize = strictInteger(input.itemPageSize, 20, 10, 200, "itemPageSize");
   const itemClauses = ["job_id = ?"];
   const itemBindings: unknown[] = [input.jobId ?? ""];
   const itemSegment = input.itemSegment?.trim().slice(0, 120) ?? "";

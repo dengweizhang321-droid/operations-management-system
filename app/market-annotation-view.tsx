@@ -53,6 +53,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [search, setSearch] = useState("");
   const [searchPage, setSearchPage] = useState(1);
   const [itemPage, setItemPage] = useState(1);
+  const [itemPageSize, setItemPageSize] = useState(20);
   const [itemSegment, setItemSegment] = useState("");
   const [storageStatus, setStorageStatus] = useState<"" | "pending" | "committed">("");
   const [recognitionSource, setRecognitionSource] = useState<"" | "ai" | "non_ai">("");
@@ -73,7 +74,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
 
   const load = useCallback(async (nextJobId = jobId, q = search, page = searchPage, nextItemPage = itemPage, resetDrafts = false) => {
     const loadSequence = ++loadSequenceRef.current;
-    const params = new URLSearchParams({ q, page: String(page), pageSize: "30", itemPage: String(nextItemPage), itemPageSize: "100" });
+    const params = new URLSearchParams({ q, page: String(page), pageSize: "30", itemPage: String(nextItemPage), itemPageSize: String(itemPageSize) });
     if (nextJobId) params.set("jobId", nextJobId);
     if (itemSegment) params.set("itemSegment", itemSegment);
     if (storageStatus) params.set("storageStatus", storageStatus);
@@ -118,7 +119,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       const dirty = !resetDrafts && existing && (existing.segment !== serverDraft.segment || existing.price !== serverDraft.price || existing.selected !== serverDraft.selected);
       return [item.id, dirty ? existing : serverDraft];
     })));
-  }, [jobId, search, searchPage, itemPage, category, promptId, itemSegment, storageStatus, recognitionSource]);
+  }, [jobId, search, searchPage, itemPage, itemPageSize, category, promptId, itemSegment, storageStatus, recognitionSource]);
 
   const loadInitial = useCallback(async () => {
     setInitialLoading(true);
@@ -135,7 +136,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   useEffect(() => { const timer = window.setTimeout(() => void loadInitial(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!jobId) return; const timer = window.setTimeout(() => void load(jobId, search, searchPage, itemPage).catch(() => undefined), 0); return () => window.clearTimeout(timer); }, [jobId, itemPage]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const timer = window.setTimeout(() => void load(jobId, search, searchPage, itemPage).catch(() => undefined), 260); return () => window.clearTimeout(timer); }, [search, searchPage]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setItemPage(1); if (!jobId) return; const timer = window.setTimeout(() => void load(jobId, search, searchPage, 1).catch(() => undefined), 0); return () => window.clearTimeout(timer); }, [itemSegment, storageStatus, recognitionSource]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setItemPage(1); if (!jobId) return; const timer = window.setTimeout(() => void load(jobId, search, searchPage, 1).catch(() => undefined), 0); return () => window.clearTimeout(timer); }, [itemSegment, storageStatus, recognitionSource, itemPageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const post = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
@@ -275,6 +276,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const filteredSelectedCount = Math.max(0, data.selection.filteredSelectedCount - serverSelectedOnPage + draftSelectedOnPage);
   const allFilteredChecked = data.selection.filteredReviewableCount > 0 && filteredSelectedCount === data.selection.filteredReviewableCount;
   const hasDirtyDrafts = data.items.some((item) => { const draft = drafts[item.id]; return Boolean(draft) && (draft.segment !== (item.reviewedSegment || item.aiSegment) || draft.price !== yuanInput(item.reviewedImagePriceCents) || draft.selected !== item.selected); });
+  const visibleJobs = data.jobs.filter((item) => !category || item.category === category);
 
   return <div className="market-annotation-module">
     {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")}>{error || notice}</div>}
@@ -288,7 +290,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <label><span>任务上限</span><input type="number" min={1} max={5000} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /></label>
       <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
     </div><small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
-    <div className="annotation-job-list">{data.jobs.filter((item) => !category || item.category === category).map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(item.id); void load(item.id, search, searchPage, 1); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
+    <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(item.id); void load(item.id, search, searchPage, 1); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
     {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? "云端识别中…" : "继续云端识别"}</button><button className="secondary-button" onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
     </section>
 
@@ -306,7 +308,13 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         <div className="market-view-switch" role="group" aria-label="AI 标注展示方式"><button className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")}>列表</button><button className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")}>大图</button></div>
       </div>
       {recognitionSource === "non_ai" && <p className="annotation-filter-note">此筛选不会调用模型；它显示尚未生成 AI 结果的候选，包括等待识别和此前识别失败的记录。</p>}
-      <footer className="annotation-pagination"><span>筛选后 {data.itemPagination.total} 条</span><button disabled={itemPage <= 1 || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => { const page = itemPage - 1; setItemPage(page); void load(jobId, search, searchPage, page); }}>上一页</button><strong>{itemPage}/{data.itemPagination.pageCount}</strong><button disabled={itemPage >= data.itemPagination.pageCount || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => { const page = itemPage + 1; setItemPage(page); void load(jobId, search, searchPage, page); }}>下一页</button></footer>
+      <footer className="annotation-pagination annotation-review-pagination">
+        <span>当前任务筛选后 {data.itemPagination.total} 条 · 当前类目共 {visibleJobs.length} 个任务，可在上方切换批次</span>
+        <label>每页 <select aria-label="AI 标注每页条数" value={itemPageSize} disabled={hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onChange={(event) => setItemPageSize(Number(event.target.value))}><option value={20}>20 条</option><option value={50}>50 条</option><option value={100}>100 条</option></select></label>
+        <button disabled={itemPage <= 1 || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => setItemPage((page) => Math.max(1, page - 1))}>上一页</button>
+        <label>第 <select aria-label="AI 标注页码" value={itemPage} disabled={hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onChange={(event) => setItemPage(Number(event.target.value))}>{Array.from({ length: data.itemPagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.itemPagination.pageCount} 页</label>
+        <button disabled={itemPage >= data.itemPagination.pageCount || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => setItemPage((page) => Math.min(data.itemPagination.pageCount, page + 1))}>下一页</button>
+      </footer>
       {reviewView === "list" ? <div className="data-table-wrap"><table className="data-table annotation-review-table"><thead><tr><th>选择</th><th>大图 / 实际来源</th><th>SKU / 商品链接</th><th>AI 结果</th><th>人工细分品类</th><th>主图价格（元）</th><th>置信度 / 状态</th></tr></thead><tbody>{data.items.map((item) => {
         const draft = drafts[item.id];
         const reviewable = reviewableIds.has(item.id);

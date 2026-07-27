@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -441,6 +441,30 @@ test("annotation review filters AI sources and selects the filtered result acros
   assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='selection-manual'").get() as { selected: number }).selected, 1);
   await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: false, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
   assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["selection-manual"]);
+  sqlite.close();
+});
+
+test("annotation review paginates one task with a 20-row default", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE ai_models (id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL, model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL, is_default_text_model INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('page-prompt','分页类目',1,'manual','active','["甲","乙"]','这是用于验证任务内分页的测试 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('page-job','分页类目','page-prompt','local','review_ready',45,'operator@test');
+  `);
+  const insert = sqlite.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status) VALUES (?, 'page-job', '分页类目', ?, ?, 'review_pending')");
+  for (let index = 1; index <= 45; index += 1) insert.run(`page-item-${String(index).padStart(2, "0")}`, `PAGE-${String(index).padStart(2, "0")}`, `分页商品 ${index}`);
+
+  const first = await getAnnotationWorkspace(db, { jobId: "page-job" });
+  assert.deepEqual(first.itemPagination, { page: 1, pageSize: 20, total: 45, pageCount: 3 });
+  assert.equal(first.items.length, 20);
+  const last = await getAnnotationWorkspace(db, { jobId: "page-job", itemPage: 3 });
+  assert.equal(last.items.length, 5);
+  assert.equal(last.items[0]?.skuCode, "PAGE-41");
   sqlite.close();
 });
 

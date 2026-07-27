@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       jobId: params.get("jobId")?.trim() || undefined,
       q: params.get("q")?.trim() || undefined,
       page: integerParam(params, "page", 1), pageSize: integerParam(params, "pageSize", 30),
-      itemPage: integerParam(params, "itemPage", 1), itemPageSize: integerParam(params, "itemPageSize", 100),
+      itemPage: integerParam(params, "itemPage", 1), itemPageSize: integerParam(params, "itemPageSize", 20),
       itemSegment: params.get("itemSegment")?.trim() || undefined,
       storageStatus: params.get("storageStatus") === "committed" ? "committed" : params.get("storageStatus") === "pending" ? "pending" : undefined,
       recognitionSource: params.get("recognitionSource") === "ai" ? "ai" : params.get("recognitionSource") === "non_ai" ? "non_ai" : undefined,
