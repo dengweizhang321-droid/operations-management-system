@@ -3,6 +3,7 @@ import type { CustomerServiceConversationInput, CustomerServiceParseResult } fro
 import { ensureNetshopSchema, getNetshopDatabase } from "@/lib/netshop/database";
 import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
 import { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes, type CustomerServiceAnnotationInput, type CustomerServiceConversionStatus, type CustomerServiceProblemType, type CustomerServiceRobotScope } from "./contracts";
+import { buildCustomerServiceProductMappings, customerServiceOnlineSpecCodes, type CustomerServiceMasterProductRow, type CustomerServiceProductMapping, type CustomerServiceSalesProductRow } from "./product-mapping";
 
 export { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes } from "./contracts";
 export type { CustomerServiceAnnotationInput, CustomerServiceConversionStatus, CustomerServiceProblemType, CustomerServiceRobotScope } from "./contracts";
@@ -14,7 +15,7 @@ export type CustomerServiceImportBatch = {
 };
 
 export type CustomerServiceConversation = {
-  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; productSpuId: string; erpProductCode: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: string; matchConfidence: string; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: Array<{ sender: string; sentAt: string; content: string }>; robotScope: CustomerServiceRobotScope | ""; problemType: CustomerServiceProblemType | ""; conversionStatus: CustomerServiceConversionStatus | ""; serviceIssues: string; summaryText: string; analysisSource: "ai" | "manual" | ""; analyzedAt: string | null; annotatedAt: string | null;
+  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; matchedSkuId: string; productSpuId: string; erpProductCode: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: string; matchConfidence: string; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: Array<{ sender: string; sentAt: string; content: string }>; robotScope: CustomerServiceRobotScope | ""; problemType: CustomerServiceProblemType | ""; conversionStatus: CustomerServiceConversionStatus | ""; serviceIssues: string; summaryText: string; analysisSource: "ai" | "manual" | ""; analyzedAt: string | null; annotatedAt: string | null;
 };
 
 const schemaStatements = [
@@ -128,22 +129,37 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
   if (filters.conversionStatus && customerServiceConversionStatuses.includes(filters.conversionStatus as CustomerServiceConversionStatus)) { conditions.push("conversion_status = ?"); values.push(filters.conversionStatus); }
   const category = filters.category?.trim().slice(0, 120) ?? "";
   if (category) {
-    conditions.push(`product_sku IN (
-      SELECT mapping.sku_id
-      FROM (
+    const mappedProductCodes = await db.prepare(`WITH master_map AS MATERIALIZED (
         SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
         FROM netshop_rows n
         WHERE n.source = 'jd_product_master'
-          AND n.sku_id IN (
-            SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''
-          )
         GROUP BY n.sku_id, online_spec_code
-      ) mapping
-      JOIN sales_order_lines s ON s.online_spec_code = mapping.online_spec_code
-      WHERE TRIM(s.category) = ?
-      GROUP BY mapping.sku_id
-    )`);
-    values.push(category);
+      ), relevant_map AS MATERIALIZED (
+        SELECT * FROM master_map
+        WHERE sku_id IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
+           OR online_spec_code IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
+      ), reverse_map AS MATERIALIZED (
+        SELECT online_spec_code, MAX(sku_id) AS sku_id
+        FROM relevant_map
+        WHERE online_spec_code <> ''
+        GROUP BY online_spec_code
+        HAVING COUNT(DISTINCT sku_id) = 1
+      ), matched_codes AS MATERIALIZED (
+        SELECT DISTINCT online_spec_code FROM sales_order_lines WHERE TRIM(category) = ?
+      )
+      SELECT lookup_code FROM (
+        SELECT mapping.sku_id AS lookup_code FROM relevant_map mapping
+        JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
+        UNION
+        SELECT mapping.online_spec_code AS lookup_code FROM reverse_map mapping
+        JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
+      ) ORDER BY lookup_code LIMIT 5000`).bind(category).all<{ lookup_code: string }>();
+    if (mappedProductCodes.results.length) {
+      conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+      values.push(JSON.stringify(mappedProductCodes.results.map((item) => item.lookup_code)));
+    } else {
+      conditions.push("1 = 0");
+    }
   }
   if (filters.query) { conditions.push("(customer_id LIKE ? OR customer_alias LIKE ? OR agent LIKE ? OR product_sku LIKE ? OR product_name LIKE ? OR messages_json LIKE ? OR service_issues LIKE ? OR summary_text LIKE ?)"); const wildcard = `%${filters.query.replace(/[\\%_]/g, "\\$&")}%`; values.push(wildcard, wildcard, wildcard, wildcard, wildcard, wildcard, wildcard, wildcard); }
   const skuIds = splitIds(filters.skuIds);
@@ -160,58 +176,62 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
     db.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END) AS matched, SUM(CASE WHEN match_status = 'session_only' THEN 1 ELSE 0 END) AS session_only, SUM(CASE WHEN match_status = 'chat_only' THEN 1 ELSE 0 END) AS chat_only FROM customer_service_conversations ${where}`).bind(...values).first<Record<string, number | null>>(),
     db.prepare(`SELECT DISTINCT agent FROM customer_service_conversations WHERE agent <> '' ORDER BY agent COLLATE NOCASE ASC LIMIT 100`).all<{ agent: string }>(),
     db.prepare(`SELECT DISTINCT shop_name FROM customer_service_conversations WHERE shop_name <> '' ORDER BY shop_name COLLATE NOCASE ASC LIMIT 100`).all<{ shop_name: string }>(),
-    db.prepare(`WITH sku_map AS MATERIALIZED (
+    db.prepare(`WITH master_map AS MATERIALIZED (
         SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
         FROM netshop_rows n
         WHERE n.source = 'jd_product_master'
-          AND n.sku_id IN (
-            SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''
-          )
         GROUP BY n.sku_id, online_spec_code
+      ), relevant_map AS MATERIALIZED (
+        SELECT * FROM master_map
+        WHERE sku_id IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
+           OR online_spec_code IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
+      ), reverse_map AS MATERIALIZED (
+        SELECT online_spec_code, MAX(sku_id) AS sku_id
+        FROM relevant_map
+        WHERE online_spec_code <> ''
+        GROUP BY online_spec_code
+        HAVING COUNT(DISTINCT sku_id) = 1
+      ), lookup_map AS MATERIALIZED (
+        SELECT sku_id AS lookup_code, online_spec_code FROM relevant_map
+        UNION
+        SELECT online_spec_code AS lookup_code, online_spec_code FROM reverse_map
       )
       SELECT DISTINCT TRIM(s.category) AS category
-      FROM sku_map mapping
+      FROM lookup_map mapping
       JOIN sales_order_lines s ON s.online_spec_code = mapping.online_spec_code
-      WHERE NULLIF(TRIM(s.category), '') IS NOT NULL
+      WHERE mapping.lookup_code IN (
+          SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''
+        ) AND NULLIF(TRIM(s.category), '') IS NOT NULL
       ORDER BY category COLLATE NOCASE ASC LIMIT 100`).all<{ category: string }>(),
   ]);
   const map = (row: Record<string, unknown>): CustomerServiceConversation => mapCustomerServiceConversation(row);
   const customerItems = items.results.map(map);
   const productSkus = [...new Set(customerItems.map((item) => item.productSku).filter(Boolean))];
-  const catalog = new Map<string, { spuId: string; category: string; erpProductCode: string; onlineSpecCode: string }>();
+  let catalog = new Map<string, CustomerServiceProductMapping>();
   if (productSkus.length) {
     const rows = await db.prepare(`SELECT sku_id, spu_id, product_code, raw_json
       FROM netshop_rows
-      WHERE source = 'jd_product_master' AND sku_id IN (${productSkus.map(() => "?").join(",")})
-      ORDER BY snapshot_date DESC, id DESC`).bind(...productSkus).all<{ sku_id: string; spu_id: string; product_code: string; raw_json: string }>();
-    for (const row of rows.results) {
-      const raw = safeJson<Record<string, unknown>>(row.raw_json, {});
-      const spuId = String(raw.SPUID ?? raw.spuId ?? row.spu_id ?? row.product_code ?? "").trim();
-      const entry = { spuId, category: "", erpProductCode: "", onlineSpecCode: String(raw["商家SKU"] ?? "").trim() };
-      if (row.sku_id && !catalog.has(row.sku_id)) catalog.set(row.sku_id, entry);
-    }
-    const onlineSpecCodes = [...new Set([...catalog.values()].map((item) => item.onlineSpecCode).filter(Boolean))];
+      WHERE source = 'jd_product_master'
+        AND (sku_id IN (${productSkus.map(() => "?").join(",")})
+          OR CAST(json_extract(raw_json, '$."商家SKU"') AS TEXT) IN (${productSkus.map(() => "?").join(",")}))
+      ORDER BY snapshot_date DESC, id DESC`).bind(...productSkus, ...productSkus).all<CustomerServiceMasterProductRow>();
+    const onlineSpecCodes = customerServiceOnlineSpecCodes(rows.results);
+    let salesRows: CustomerServiceSalesProductRow[] = [];
     if (onlineSpecCodes.length) {
       const erpRows = await db.prepare(`SELECT online_spec_code, product_code, category, MAX(sales_time) AS latest_at
         FROM sales_order_lines
         WHERE online_spec_code IN (${onlineSpecCodes.map(() => "?").join(",")})
         GROUP BY online_spec_code, product_code, category
-        ORDER BY latest_at DESC`).bind(...onlineSpecCodes).all<{ online_spec_code: string; product_code: string; category: string }>();
-      const salesCatalog = new Map<string, { category: string; erpProductCode: string }>();
-      for (const row of erpRows.results) {
-        if (!salesCatalog.has(row.online_spec_code)) salesCatalog.set(row.online_spec_code, { category: row.category || "", erpProductCode: row.product_code || "" });
-      }
-      for (const [skuId, current] of catalog) {
-        const sale = salesCatalog.get(current.onlineSpecCode);
-        if (sale) catalog.set(skuId, { ...current, category: sale.category, erpProductCode: sale.erpProductCode });
-      }
+        ORDER BY latest_at DESC`).bind(...onlineSpecCodes).all<CustomerServiceSalesProductRow>();
+      salesRows = erpRows.results;
     }
+    catalog = buildCustomerServiceProductMappings(productSkus, rows.results, salesRows);
   }
-  return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categories.results.map((item) => item.category), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(totalResult?.total ?? 0) } };
+  return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, matchedSkuId: matched?.matchedSkuId ?? "", productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categories.results.map((item) => item.category), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(totalResult?.total ?? 0) } };
 }
 
 function mapCustomerServiceConversation(row: Record<string, unknown>): CustomerServiceConversation {
-  return { id: Number(row.id), shopName: String(row.shop_name || "志高商用设备"), consultedAt: String(row.consulted_at), customerId: String(row.customer_id), customerAlias: String(row.customer_alias), consultationType: String(row.consultation_type), agent: String(row.agent), transferredAgent: String(row.transferred_agent), skillGroup: String(row.skill_group), productSku: String(row.product_sku), productSpuId: "", erpProductCode: "", productCategory: "", productName: String(row.product_name), firstResponseAt: String(row.first_response_at), responseSeconds: row.response_seconds === null ? null : Number(row.response_seconds), durationMinutes: row.duration_minutes === null ? null : Number(row.duration_minutes), customerMessageCount: row.customer_message_count === null ? null : Number(row.customer_message_count), agentMessageCount: row.agent_message_count === null ? null : Number(row.agent_message_count), satisfaction: String(row.satisfaction), resolved: String(row.resolved), conversationId: String(row.conversation_id), matchStatus: String(row.match_status), matchConfidence: String(row.match_confidence), chatStartedAt: String(row.chat_started_at), chatEndedAt: String(row.chat_ended_at), chatCustomerAlias: String(row.chat_customer_alias), messages: safeJson(String(row.messages_json), []), robotScope: String(row.robot_scope || "") as CustomerServiceConversation["robotScope"], problemType: String(row.problem_type || "") as CustomerServiceConversation["problemType"], conversionStatus: String(row.conversion_status || "") as CustomerServiceConversation["conversionStatus"], serviceIssues: String(row.service_issues || ""), summaryText: String(row.summary_text || ""), analysisSource: String(row.analysis_source || "") as CustomerServiceConversation["analysisSource"], analyzedAt: row.analyzed_at ? String(row.analyzed_at) : null, annotatedAt: row.annotated_at ? String(row.annotated_at) : null };
+  return { id: Number(row.id), shopName: String(row.shop_name || "志高商用设备"), consultedAt: String(row.consulted_at), customerId: String(row.customer_id), customerAlias: String(row.customer_alias), consultationType: String(row.consultation_type), agent: String(row.agent), transferredAgent: String(row.transferred_agent), skillGroup: String(row.skill_group), productSku: String(row.product_sku), matchedSkuId: "", productSpuId: "", erpProductCode: "", productCategory: "", productName: String(row.product_name), firstResponseAt: String(row.first_response_at), responseSeconds: row.response_seconds === null ? null : Number(row.response_seconds), durationMinutes: row.duration_minutes === null ? null : Number(row.duration_minutes), customerMessageCount: row.customer_message_count === null ? null : Number(row.customer_message_count), agentMessageCount: row.agent_message_count === null ? null : Number(row.agent_message_count), satisfaction: String(row.satisfaction), resolved: String(row.resolved), conversationId: String(row.conversation_id), matchStatus: String(row.match_status), matchConfidence: String(row.match_confidence), chatStartedAt: String(row.chat_started_at), chatEndedAt: String(row.chat_ended_at), chatCustomerAlias: String(row.chat_customer_alias), messages: safeJson(String(row.messages_json), []), robotScope: String(row.robot_scope || "") as CustomerServiceConversation["robotScope"], problemType: String(row.problem_type || "") as CustomerServiceConversation["problemType"], conversionStatus: String(row.conversion_status || "") as CustomerServiceConversation["conversionStatus"], serviceIssues: String(row.service_issues || ""), summaryText: String(row.summary_text || ""), analysisSource: String(row.analysis_source || "") as CustomerServiceConversation["analysisSource"], analyzedAt: row.analyzed_at ? String(row.analyzed_at) : null, annotatedAt: row.annotated_at ? String(row.annotated_at) : null };
 }
 
 export async function getCustomerServiceConversationsByIds(ids: number[]) {
@@ -251,7 +271,7 @@ export async function updateCustomerServiceConversationAnnotation(id: number, in
 
 export async function getCustomerServiceConversationsForAi(args: Record<string, unknown>) {
   const payload = await listCustomerServiceConversations({ startDate: typeof args.startDate === "string" ? args.startDate : null, endDate: typeof args.endDate === "string" ? args.endDate : null, agent: typeof args.agent === "string" ? args.agent : null, problemType: typeof args.problemType === "string" ? args.problemType : null, conversionStatus: typeof args.conversionStatus === "string" ? args.conversionStatus : null, category: typeof args.category === "string" ? args.category : null, query: typeof args.query === "string" ? args.query : null, page: 1, pageSize: Math.max(1, Math.min(50, Number(args.limit) || 20)) });
-  return { filtersApplied: { startDate: args.startDate ?? null, endDate: args.endDate ?? null, agent: args.agent ?? null, problemType: args.problemType ?? null, conversionStatus: args.conversionStatus ?? null, category: args.category ?? null, query: args.query ?? null }, returned: payload.items.length, totalMatched: payload.pagination.total, truncated: payload.pagination.total > payload.items.length, items: payload.items.map((item) => ({ id: item.id, shopName: item.shopName, consultedAt: item.consultedAt, agent: item.agent, productSku: item.productSku, productSpuId: item.productSpuId, productCategory: item.productCategory, robotScope: item.robotScope, problemType: item.problemType, conversionStatus: item.conversionStatus, serviceIssues: item.serviceIssues, summary: item.summaryText, matchStatus: item.matchStatus })) };
+  return { filtersApplied: { startDate: args.startDate ?? null, endDate: args.endDate ?? null, agent: args.agent ?? null, problemType: args.problemType ?? null, conversionStatus: args.conversionStatus ?? null, category: args.category ?? null, query: args.query ?? null }, returned: payload.items.length, totalMatched: payload.pagination.total, truncated: payload.pagination.total > payload.items.length, items: payload.items.map((item) => ({ id: item.id, shopName: item.shopName, consultedAt: item.consultedAt, agent: item.agent, sourceProductCode: item.productSku, matchedSkuId: item.matchedSkuId, productSpuId: item.productSpuId, erpProductCode: item.erpProductCode, productCategory: item.productCategory, robotScope: item.robotScope, problemType: item.problemType, conversionStatus: item.conversionStatus, serviceIssues: item.serviceIssues, summary: item.summaryText, matchStatus: item.matchStatus })) };
 }
 
 export async function deleteCustomerServiceConversationsByText(text: string) {

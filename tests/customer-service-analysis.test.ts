@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { parseCustomerServiceAnalysisReply } from "../lib/customer-service/contracts";
+import { buildCustomerServiceProductMappings } from "../lib/customer-service/product-mapping";
 
 test("customer-service AI analysis accepts only bounded enum values and requested ids", () => {
   const rows = parseCustomerServiceAnalysisReply(`\n\`\`\`json\n[{"id":12,"robotScope":"contains_robot","problemType":"安装使用","conversionStatus":"not_converted","serviceIssues":"未及时说明接线步骤","summaryText":"顾客咨询接线，客服给出步骤。"},{"id":99,"robotScope":"bad","problemType":"未知","conversionStatus":"converted"}]\n\`\`\``, new Set([12]));
@@ -48,20 +49,63 @@ test("customer-service page keeps the paired-file import available beside analys
 });
 
 test("customer-service category filter and display use the netshop SKU to Jackyun sales chain", async () => {
-  const [page, route, database] = await Promise.all([
+  const [page, route, database, mapping] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/customer-service/product-mapping.ts", import.meta.url), "utf8"),
   ]);
   assert.match(page, /吉客云类目筛选/);
   assert.match(page, /params\.set\("category", category\)/);
   assert.match(route, /searchParams\.get\("category"\)/);
   assert.match(database, /SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''/);
   assert.match(database, /s\.online_spec_code = mapping\.online_spec_code/);
-  assert.match(database, /onlineSpecCode: String\(raw\["商家SKU"\]/);
+  assert.match(mapping, /onlineSpecCode: String\(raw\["商家SKU"\]/);
   assert.doesNotMatch(database, /s\.online_spec_code = customer_service_conversations\.product_sku/);
   assert.match(database, /categories: categories\.results\.map/);
   assert.doesNotMatch(database, /catalog\.get\(`\$\{item\.shopName\}/);
+});
+
+test("customer-service product mapping supports a unique reverse fallback", () => {
+  const masterRows = [
+    { sku_id: "JD-1", spu_id: "SPU-1", product_code: "SPU-1", raw_json: JSON.stringify({ 商家SKU: "SHOP-1" }) },
+    { sku_id: "JD-2", spu_id: "SPU-2", product_code: "SPU-2", raw_json: JSON.stringify({ 商家SKU: "SHOP-2" }) },
+  ];
+  const salesRows = [
+    { online_spec_code: "SHOP-1", product_code: "ERP-1", category: "饮水设备" },
+    { online_spec_code: "SHOP-2", product_code: "ERP-2", category: "制冰设备" },
+  ];
+  const mappings = buildCustomerServiceProductMappings(["JD-1", "SHOP-2"], masterRows, salesRows);
+  assert.deepEqual(mappings.get("JD-1"), {
+    matchedSkuId: "JD-1", spuId: "SPU-1", onlineSpecCode: "SHOP-1", erpProductCode: "ERP-1", category: "饮水设备", matchDirection: "forward",
+  });
+  assert.deepEqual(mappings.get("SHOP-2"), {
+    matchedSkuId: "JD-2", spuId: "SPU-2", onlineSpecCode: "SHOP-2", erpProductCode: "ERP-2", category: "制冰设备", matchDirection: "reverse",
+  });
+});
+
+test("customer-service reverse fallback rejects an ambiguous online specification code", () => {
+  const masterRows = [
+    { sku_id: "JD-A", spu_id: "", product_code: "", raw_json: JSON.stringify({ 商家SKU: "SHARED" }) },
+    { sku_id: "JD-B", spu_id: "", product_code: "", raw_json: JSON.stringify({ 商家SKU: "SHARED" }) },
+  ];
+  const mappings = buildCustomerServiceProductMappings(["SHARED"], masterRows, [
+    { online_spec_code: "SHARED", product_code: "ERP-X", category: "共享类目" },
+  ]);
+  assert.equal(mappings.has("SHARED"), false);
+});
+
+test("customer-service list exposes SKUID, Jackyun number, and category with a unique SQL fallback", async () => {
+  const [page, database, mapping] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/customer-service/product-mapping.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /SKUID \/ 吉客云编号/);
+  assert.match(page, /吉客云编号 \{item\.erpProductCode\}/);
+  assert.match(database, /HAVING COUNT\(DISTINCT sku_id\) = 1/);
+  assert.match(database, /matchedSkuId: matched\?\.matchedSkuId/);
+  assert.match(mapping, /candidates\.length !== 1/);
 });
 
 test("customer-service unknown conversion stays synchronized across AI prompt, UI, and tool schema", async () => {
