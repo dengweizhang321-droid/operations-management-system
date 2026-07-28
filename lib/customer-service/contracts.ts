@@ -1,6 +1,6 @@
 export const customerServiceRobotScopes = ["robot_only", "contains_robot", "exclude_robot"] as const;
 export const customerServiceProblemTypes = ["商品咨询", "价格优惠", "物流发货", "售后维修", "退换货", "安装使用", "发票开票", "催单改单", "其他"] as const;
-export const customerServiceConversionStatuses = ["converted", "not_converted"] as const;
+export const customerServiceConversionStatuses = ["converted", "not_converted", "unknown"] as const;
 export type CustomerServiceRobotScope = (typeof customerServiceRobotScopes)[number];
 export type CustomerServiceProblemType = (typeof customerServiceProblemTypes)[number];
 export type CustomerServiceConversionStatus = (typeof customerServiceConversionStatuses)[number];
