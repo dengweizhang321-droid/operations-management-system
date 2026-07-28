@@ -133,6 +133,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /action: "commit_selected"/);
   assert.match(ui, /action: "select_filtered"/);
   assert.match(ui, /全选筛选结果（跨页/);
+  assert.match(ui, /for \(let batch = 1; batch <= 20; batch \+= 1\)/);
+  assert.match(ui, /if \(!result\?\.hasMore\) break/);
+  assert.match(ui, /selectedPageIds/);
+  assert.match(service, /MAX_FILTERED_SELECTION = 5_000/);
+  assert.match(service, /COMMIT_SELECTION_BATCH_SIZE = 500/);
   assert.match(ui, /AI 标注识别来源/);
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
@@ -543,6 +548,45 @@ test("annotation review filters AI sources and selects the filtered result acros
   assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='selection-manual'").get() as { selected: number }).selected, 1);
   await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: false, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
   assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["selection-manual"]);
+  sqlite.close();
+});
+
+test("filtered selection accepts 911 importable rows and commit resumes in bounded 500-row batches", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('large-selection-prompt','批量类目',1,'manual','active','["可入库"]','这是用于验证九百一十一条跨页选择和分批入库的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by) VALUES
+      ('large-selection-job','批量类目','large-selection-prompt','local','review_ready',912,'operator@test'),
+      ('large-selection-running','批量类目','large-selection-prompt','local','running',1,'operator@test');
+  `);
+  const insert = sqlite.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status, reviewed_segment) VALUES (?, 'large-selection-job', '批量类目', ?, ?, 'review_pending', ?)");
+  sqlite.exec("BEGIN");
+  for (let index = 1; index <= 911; index += 1) insert.run(`large-item-${index}`, `LARGE-${index}`, `批量商品 ${index}`, "可入库");
+  insert.run("large-invalid", "LARGE-INVALID", "无效细分品类", "已失效");
+  sqlite.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status, reviewed_segment) VALUES ('large-running', 'large-selection-running', '批量类目', 'LARGE-RUNNING', '仍在识别', 'review_pending', '可入库')").run();
+  sqlite.exec("COMMIT");
+
+  const workspace = await getAnnotationReviewWorkspace(db, { aggregateJobs: true, itemCategories: ["批量类目"] });
+  assert.equal(workspace.itemPagination.total, 913);
+  assert.equal(workspace.selection.filteredReviewableCount, 911);
+
+  const selected = await setFilteredAnnotationSelection(db, { aggregateJobs: true, categories: ["批量类目"], selected: true }, { email: "operator@test", role: "operator" });
+  assert.equal(selected.changed, 911);
+  assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='large-invalid'").get() as { selected: number }).selected, 0);
+  assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='large-running'").get() as { selected: number }).selected, 0);
+
+  const first = await commitSelectedAnnotationItems(db, { aggregateJobs: true, categories: ["批量类目"], idempotencyKey: "large-selection-batch-001" }, { email: "admin@test", role: "admin" });
+  assert.equal(first.committed, 500);
+  assert.equal(first.remainingSelected, 411);
+  assert.equal(first.hasMore, true);
+  const second = await commitSelectedAnnotationItems(db, { aggregateJobs: true, categories: ["批量类目"], idempotencyKey: "large-selection-batch-002" }, { email: "admin@test", role: "admin" });
+  assert.equal(second.committed, 411);
+  assert.equal(second.remainingSelected, 0);
+  assert.equal(second.hasMore, false);
   sqlite.close();
 });
 
