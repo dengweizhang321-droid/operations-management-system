@@ -4058,6 +4058,10 @@ function workflowStatusClass(status: WorkflowStatus) {
   return status === "已完成" ? "status-success" : status === "工作中" ? "status-info" : "status-gray";
 }
 
+function workflowStatusLabel(status: WorkflowStatus) {
+  return status === "待开始" ? "未开始" : status;
+}
+
 function workflowPriorityLabel(priority: WorkflowPriority) {
   return priority === "high" ? "紧急" : priority === "low" ? "低" : "普通";
 }
@@ -4208,6 +4212,7 @@ function WorkflowView() {
   const [activeTab, setActiveTab] = useState<WorkflowTab>("plan");
   const [taskQuery, setTaskQuery] = useState("");
   const [taskStatuses, setTaskStatuses] = useState<WorkflowStatus[]>([]);
+  const [taskPriorities, setTaskPriorities] = useState<WorkflowPriority[]>([]);
   const [inspectionStatuses, setInspectionStatuses] = useState<Array<"待处理" | "正常">>([]);
   const [reviewStatuses, setReviewStatuses] = useState<Array<"待回复" | "已回复">>([]);
   const [draftTitle, setDraftTitle] = useState("");
@@ -4260,8 +4265,10 @@ function WorkflowView() {
 
   const filteredTasks = useMemo(() => tasks.filter((item) => {
     const matchesQuery = !taskQuery.trim() || [item.title, item.workContent, item.category, item.owner, item.shopName, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(taskQuery.trim().toLocaleLowerCase("zh-CN"));
-    return matchesQuery && (taskStatuses.length === 0 || taskStatuses.includes(item.status));
-  }), [taskQuery, taskStatuses, tasks]);
+    const matchesStatus = taskStatuses.length === 0 || taskStatuses.includes(item.status);
+    const matchesPriority = taskPriorities.length === 0 || taskPriorities.includes(item.priority);
+    return matchesQuery && matchesStatus && matchesPriority;
+  }), [taskPriorities, taskQuery, taskStatuses, tasks]);
 
   const filteredLaunches = useMemo(() => launches.filter((item) => {
     const matchesQuery = !launchQuery.trim() || [item.productName, item.productCode, item.stage, item.owner, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(launchQuery.trim().toLocaleLowerCase("zh-CN"));
@@ -4334,25 +4341,33 @@ function WorkflowView() {
     setWorkflowFeedback("新品「" + productName + "」已创建，当前状态为待开始。");
   };
 
-  const transitionTask = async (taskId: string, nextStatus: WorkflowStatus) => {
+  const updateTask = async (taskId: string, changes: Partial<Pick<WorkflowTask, "status" | "due">>) => {
     if (tasksLoading || taskMutationPending) return;
     const task = tasks.find((item) => item.id === taskId);
-    if (!task || task.status === nextStatus) return;
+    if (!task || (changes.status === task.status && changes.due === undefined) || (changes.due === task.due && changes.status === undefined)) return;
+    setTasks((current) => current.map((item) => item.id === taskId ? { ...item, ...changes } : item));
     setTaskMutationPending(true);
     try {
       const response = await fetch("/api/workflow/tasks?id=" + encodeURIComponent(taskId), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify(changes),
       });
       const payload = await response.json().catch(() => null) as { item?: WorkflowTask; error?: string } | null;
       if (!response.ok || !payload?.item) {
-        throw new Error(payload?.error || `工作项状态保存失败（${response.status}）`);
+        throw new Error(payload?.error || `工作项保存失败（${response.status}）`);
       }
       setTasks((current) => current.map((item) => item.id === taskId ? { ...payload.item!, attachments: item.attachments } : item));
-      setWorkflowFeedback("「" + task.title + "」已标记为" + nextStatus + "并保存。");
+      setWorkflowFeedback(changes.status
+        ? `「${task.title}」状态已调整为${workflowStatusLabel(changes.status)}并保存。`
+        : `「${task.title}」截止时间已调整为${changes.due === "待排期" ? "待排期" : changes.due}并保存。`);
     } catch (error) {
-      setWorkflowFeedback(error instanceof Error ? error.message : "工作项状态保存失败，请稍后重试。");
+      setTasks((current) => current.map((item) => item.id === taskId ? {
+        ...item,
+        ...(changes.status !== undefined ? { status: task.status } : {}),
+        ...(changes.due !== undefined ? { due: task.due } : {}),
+      } : item));
+      setWorkflowFeedback(error instanceof Error ? error.message : "工作项保存失败，请稍后重试。");
     } finally {
       setTaskMutationPending(false);
     }
@@ -4498,21 +4513,17 @@ function WorkflowView() {
         </form>
       </section>
       {feedback}
-      <section className="panel workflow-flow-guide">
-        <div><span className="eyebrow">WORKFLOW</span><h3>任务流转规则</h3><p>状态调整立即生效，并显示操作结果。</p></div>
-        <div className="workflow-stage-track">{workflowStages.map((stage, index) => <span className="workflow-stage-step" key={stage.value}><b>{index + 1}</b><strong>{stage.value}</strong>{index < workflowStages.length - 1 && <i>→</i>}</span>)}</div>
-        <small>工作中可退回待开始；已完成可返还到待开始或工作中。</small>
-      </section>
       <section className="workflow-kpi-grid">
-        <article><span>待开始</span><strong>{taskCount("待开始")}</strong><small>等待启动的工作项</small></article>
-        <article><span>工作中</span><strong className="blue-text">{taskCount("工作中")}</strong><small>可继续推进或退回</small></article>
-        <article><span>已完成</span><strong className="green-text">{taskCount("已完成")}</strong><small>可按需返还处理</small></article>
+        <article><span>未开始</span><strong>{taskCount("待开始")}</strong><small>等待启动的工作项</small></article>
+        <article><span>工作中</span><strong className="blue-text">{taskCount("工作中")}</strong><small>正在推进的工作项</small></article>
+        <article><span>已完成</span><strong className="green-text">{taskCount("已完成")}</strong><small>已办结的工作项</small></article>
         <article><span>含附件任务</span><strong>{tasks.filter((item) => item.attachments.length > 0).length}</strong><small>图片、文件与交接材料</small></article>
       </section>
       <section className="workflow-plan-controls panel">
         <div className="workflow-filter-row">
           <input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索工作事项、内容、店铺或跟进人" aria-label="搜索工作计划" />
-          <SearchableMultiSelect values={taskStatuses} onChange={(values) => setTaskStatuses(values as WorkflowStatus[])} ariaLabel="工作计划状态" allLabel="全部状态" searchPlaceholder="搜索工作计划状态" options={workflowStages.map((stage) => ({ value: stage.value, label: stage.value }))} />
+          <SearchableMultiSelect values={taskStatuses} onChange={(values) => setTaskStatuses(values as WorkflowStatus[])} ariaLabel="工作计划状态" allLabel="全部状态" searchPlaceholder="搜索工作计划状态" options={workflowStages.map((stage) => ({ value: stage.value, label: workflowStatusLabel(stage.value) }))} />
+          <SearchableMultiSelect values={taskPriorities} onChange={(values) => setTaskPriorities(values as WorkflowPriority[])} ariaLabel="工作计划紧急程度" allLabel="全部紧急程度" searchPlaceholder="搜索紧急程度" options={[{ value: "high", label: "紧急" }, { value: "normal", label: "普通" }, { value: "low", label: "低" }]} />
         </div>
         <span className="soft-tag">显示 {filteredTasks.length} 项</span>
       </section>
@@ -4526,12 +4537,12 @@ function WorkflowView() {
               <td><span className="workflow-plan-shop" title={task.shopName}>{task.shopName}</span></td>
               <td><strong className={"workflow-priority priority-" + task.priority}>{workflowPriorityLabel(task.priority)}</strong></td>
               <td>{task.owner}</td>
-              <td>{task.due}</td>
-              <td>{taskStatusBadge(task.status)}</td>
+              <td><input className="workflow-due-input" type="date" min={task.startDate === "待排期" ? undefined : task.startDate} value={task.due === "待排期" ? "" : task.due} aria-label={`调整${task.title}截止时间`} disabled={tasksLoading || taskMutationPending} onChange={(event) => void updateTask(task.id, { due: event.target.value || "待排期" })} /></td>
+              <td><div className={`workflow-status-field ${workflowStatusClass(task.status)}`}><SearchableSelect value={task.status} onChange={(value) => void updateTask(task.id, { status: value as WorkflowStatus })} ariaLabel={`${task.title}状态`} searchPlaceholder="搜索状态" disabled={tasksLoading || taskMutationPending} options={workflowStages.map((stage) => ({ value: stage.value, label: workflowStatusLabel(stage.value) }))} /></div></td>
               <td><span className="workflow-plan-source">{task.source}</span></td>
               <td><time className="workflow-plan-recorded-at" dateTime={task.createdAt}>{formatWorkflowRecordedAt(task.createdAt)}</time></td>
               <td className="workflow-plan-attachments"><WorkflowAttachmentList attachments={task.attachments} inputId={"workflow-plan-file-" + task.id} onFiles={(files) => addTaskAttachments(task.id, files)} onRemove={(attachmentId) => removeTaskAttachment(task.id, attachmentId)} onPreview={setAttachmentViewer} /></td>
-              <td><div className="workflow-plan-actions"><WorkflowTransitionActions status={task.status} onTransition={(nextStatus) => void transitionTask(task.id, nextStatus)} disabled={tasksLoading || taskMutationPending} /><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></div></td>
+              <td><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></td>
             </tr>)}{filteredTasks.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的工作计划。</div></td></tr>}</tbody>
           </table>
         </div>

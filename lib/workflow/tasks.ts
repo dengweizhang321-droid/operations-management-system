@@ -38,6 +38,11 @@ export type CreateWorkflowTaskInput = {
   priority?: unknown;
 };
 
+export type UpdateWorkflowTaskInput = {
+  status?: unknown;
+  due?: unknown;
+};
+
 type WorkflowTaskRow = {
   id: string;
   title: string;
@@ -243,20 +248,46 @@ export async function createWorkflowTask(
   return mapTask(row);
 }
 
-export async function updateWorkflowTaskStatus(
+export async function updateWorkflowTask(
   id: unknown,
-  status: unknown,
+  input: UpdateWorkflowTaskInput,
   updatedBy: string,
   db: SalesDatabase = getSalesDatabase(),
 ) {
   await ensureInitialTasks(db);
   const validId = taskId(id);
-  if (!isWorkflowTaskStatus(status)) throw new Error("工作项状态无效");
-  const result = await db.prepare(
-    `UPDATE workflow_tasks
-     SET status = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-  ).bind(status, updatedBy, validId).run();
+  const hasStatus = input.status !== undefined;
+  const hasDue = input.due !== undefined;
+  if (!hasStatus && !hasDue) throw new Error("缺少可更新的工作项字段");
+  if (hasStatus && !isWorkflowTaskStatus(input.status)) throw new Error("工作项状态无效");
+
+  const current = await db.prepare(
+    "SELECT start_date FROM workflow_tasks WHERE id = ? LIMIT 1",
+  ).bind(validId).first<{ start_date: string }>();
+  if (!current) return null;
+
+  const due = hasDue ? dateValue(input.due) : null;
+  if (due && current.start_date !== "待排期" && due !== "待排期" && due < current.start_date) {
+    throw new Error("截止时间不能早于开始时间");
+  }
+
+  const result = hasStatus && hasDue
+    ? await db.prepare(
+      `UPDATE workflow_tasks
+       SET status = ?, due_date = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+    ).bind(input.status, due, updatedBy, validId).run()
+    : hasStatus
+      ? await db.prepare(
+        `UPDATE workflow_tasks
+         SET status = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      ).bind(input.status, updatedBy, validId).run()
+      : await db.prepare(
+        `UPDATE workflow_tasks
+         SET due_date = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      ).bind(due, updatedBy, validId).run();
   if (Number(result.meta?.changes ?? 0) === 0) return null;
   const row = await db.prepare(`SELECT ${taskColumns} FROM workflow_tasks WHERE id = ? LIMIT 1`)
     .bind(validId)

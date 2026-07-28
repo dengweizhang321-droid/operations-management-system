@@ -3,8 +3,9 @@ import {
   deleteWorkflowTask,
   ensureWorkflowTaskSchema,
   listWorkflowTasks,
-  updateWorkflowTaskStatus,
+  updateWorkflowTask,
   type CreateWorkflowTaskInput,
+  type UpdateWorkflowTaskInput,
 } from "@/lib/workflow/tasks";
 import { getSalesDatabase } from "@/lib/sales/database";
 import {
@@ -51,19 +52,19 @@ export async function PATCH(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin"]);
     const id = new URL(request.url).searchParams.get("id");
-    const payload = await request.json().catch(() => null) as { status?: unknown } | null;
-    if (!payload || typeof payload !== "object") {
-      return Response.json({ error: "缺少工作项状态" }, { status: 400 });
+    const payload = await request.json().catch(() => null) as UpdateWorkflowTaskInput | null;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return Response.json({ error: "缺少可更新的工作项字段" }, { status: 400 });
     }
     const db = getSalesDatabase();
     await ensureWorkflowTaskSchema(db);
-    const item = await updateWorkflowTaskStatus(id, payload.status, principal.email, db);
+    const item = await updateWorkflowTask(id, payload, principal.email, db);
     if (!item) return Response.json({ error: "工作项不存在或已删除" }, { status: 404 });
     return Response.json({ item }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({ error: errorMessage(error, "更新工作项状态失败") }, { status: 400 });
+    return Response.json({ error: errorMessage(error, "更新工作项失败") }, { status: 400 });
   }
 }
 
