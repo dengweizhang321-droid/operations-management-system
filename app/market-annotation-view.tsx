@@ -42,6 +42,7 @@ const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | 
   if (item.errorMessage) return item.errorMessage;
   return item.status === "inferencing" ? "识别处理中" : "等待识别";
 };
+const annotationReviewScopeKey = (input: { page: number; pageSize: number; categories: string[]; segment: string; storageStatus: string; recognitionSource: string }) => JSON.stringify(input);
 export default function MarketAnnotationView({ currentUser, embedded = false }: { currentUser: CurrentUser; embedded?: boolean }) {
   const [data, setData] = useState<Workspace | null>(null);
   const [jobId, setJobId] = useState("");
@@ -60,6 +61,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [search, setSearch] = useState("");
   const [searchPage, setSearchPage] = useState(1);
   const [catalogRequested, setCatalogRequested] = useState(false);
+  const [loadedReviewScopeKey, setLoadedReviewScopeKey] = useState("");
   const [itemPage, setItemPage] = useState(1);
   const [itemPageSize, setItemPageSize] = useState(20);
   const [reviewCategories, setReviewCategories] = useState<string[]>([]);
@@ -114,6 +116,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     }
     if (loadSequence !== loadSequenceRef.current) return;
     if (!response.ok || !payload) throw new Error(payload?.error || "读取标注工作台失败");
+    setLoadedReviewScopeKey(annotationReviewScopeKey({ page: nextItemPage, pageSize: itemPageSize, categories: reviewCategories, segment: itemSegment, storageStatus, recognitionSource }));
     setData((current) => ({ ...payload, catalog: current?.catalog ?? payload.catalog }));
     const resolvedJobId = nextJobId || payload.jobs[0]?.id || "";
     setJobId(resolvedJobId);
@@ -130,8 +133,9 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
       const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
       const existing = current[item.id];
-      const dirty = !resetDrafts && existing && (existing.segment !== serverDraft.segment || existing.price !== serverDraft.price || existing.selected !== serverDraft.selected);
-      return [item.id, dirty ? existing : serverDraft];
+      const preserve = !resetDrafts && Boolean(existing) && dirtyDraftIdsRef.current.has(item.id) && existing.version === serverDraft.version;
+      if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
+      return [item.id, preserve ? existing : serverDraft];
     })));
   }, [jobId, search, searchPage, itemPage, itemPageSize, category, reviewCategories, promptId, itemSegment, storageStatus, recognitionSource]);
 
@@ -142,16 +146,30 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (itemSegment) params.set("itemSegment", itemSegment);
     if (storageStatus) params.set("storageStatus", storageStatus);
     if (recognitionSource) params.set("recognitionSource", recognitionSource);
-    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as ReviewWorkspace | null;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+    let response: Response;
+    let payload: ReviewWorkspace | null;
+    try {
+      response = await fetch("/api/market/annotations?" + params, { cache: "no-store", signal: controller.signal });
+      payload = await response.json().catch(() => null) as ReviewWorkspace | null;
+    } catch (reason) {
+      if (loadSequence !== reviewLoadSequenceRef.current) return;
+      if (controller.signal.aborted) throw new Error("读取人工复核列表超时，请重试");
+      throw reason;
+    } finally {
+      window.clearTimeout(timeout);
+    }
     if (loadSequence !== reviewLoadSequenceRef.current) return;
     if (!response.ok || !payload) throw new Error(payload?.error || "读取人工复核列表失败");
+    setLoadedReviewScopeKey(annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segment: itemSegment, storageStatus, recognitionSource }));
     setData((current) => current ? { ...current, ...payload } : current);
     setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
       const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
       const existing = current[item.id];
-      const dirty = !resetDrafts && existing && (existing.segment !== serverDraft.segment || existing.price !== serverDraft.price || existing.selected !== serverDraft.selected);
-      return [item.id, dirty ? existing : serverDraft];
+      const preserve = !resetDrafts && Boolean(existing) && dirtyDraftIdsRef.current.has(item.id) && existing.version === serverDraft.version;
+      if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
+      return [item.id, preserve ? existing : serverDraft];
     })));
   }, [itemPage, itemPageSize, reviewCategories, itemSegment, storageStatus, recognitionSource]);
 
@@ -219,6 +237,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const selectedPrompt = data?.prompts.find((item) => item.id === promptId && item.category === category) ?? activePrompt;
   const currentJob = data?.jobs.find((item) => item.id === jobId);
   const reviewableIds = new Set((data?.items ?? []).filter((item) => ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
+  const activeReviewScopeKey = annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segment: itemSegment, storageStatus, recognitionSource });
+  const reviewScopeReady = loadedReviewScopeKey === activeReviewScopeKey;
   const importableIds = new Set((data?.items ?? []).filter((item) => {
     if (!reviewableIds.has(item.id)) return false;
     const job = data?.jobs.find((candidate) => candidate.id === item.jobId);
@@ -333,16 +353,19 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     for (const [reviewJobId, updates] of groups) await post({ action: "review", jobId: reviewJobId, updates });
   };
   const saveReview = (ids?: string[]) => act("save-review", async () => {
+    if (!reviewScopeReady) throw new Error("三级品类筛选仍在刷新，请等待列表更新后再保存");
     const targetIds = ids ?? (data?.items ?? []).filter((item) => reviewableIds.has(item.id) && dirtyDraftIdsRef.current.has(item.id)).map((item) => item.id);
     if (!targetIds.length) throw new Error("当前页没有待保存的人工复核修改");
     await saveReviewGroups(targetIds); targetIds.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await loadReview(); setNotice("人工复核已按任务分组保存");
   });
   const setFilteredSelection = (selected: boolean) => act("select-filtered", async () => {
+    if (!reviewScopeReady) throw new Error("三级品类筛选仍在刷新，请等待列表更新后再全选");
     const result = await post({ action: "select_filtered", aggregateJobs: true, categories: reviewCategories, selected, itemSegment: itemSegment || undefined, storageStatus: storageStatus || undefined, recognitionSource: recognitionSource || undefined });
     dirtyDraftIdsRef.current.clear(); await loadReview(true);
     setNotice(selected ? `已跨页全选当前筛选结果 ${String(result?.changed ?? 0)} 条` : `已清空当前筛选结果 ${String(result?.changed ?? 0)} 条选择`);
   });
   const commit = () => act("commit", async () => {
+    if (!reviewScopeReady) throw new Error("三级品类筛选仍在刷新，请等待列表更新后再入库");
     const selectedPageIds = (data?.items ?? []).filter((item) => importableIds.has(item.id) && dirtyDraftIdsRef.current.has(item.id)).map((item) => item.id);
     if (!selectedCount) throw new Error("请先勾选需要入库的候选项");
     if (selectedPageIds.length) await saveReviewGroups(selectedPageIds);
@@ -462,21 +485,22 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     <section className="panel annotation-review-card">
       <div className="section-header">
         <div><h3>2. 人工复核与批量入库</h3><p>汇总当前类目全部历史 AI 标注任务；支持跨任务筛选、复核、全选和分组入库。</p></div>
-        <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>
+        <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || !reviewScopeReady || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !reviewScopeReady || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>
       </div>
       <div className="annotation-review-toolbar">
         <div className="annotation-review-category-filter"><span>三级类目（可多选）</span><details><summary aria-label="AI 标注三级类目多选">{reviewCategoryLabel}</summary><div className="annotation-review-category-menu"><button type="button" disabled={!reviewCategories.length} onClick={() => { setReviewCategories([]); setItemSegment(""); setItemPage(1); }}>全部三级类目</button>{data.reviewCategories.map((item) => <label key={item.value}><input type="checkbox" checked={reviewCategories.includes(item.value)} onChange={(event) => toggleReviewCategory(item.value, event.target.checked)} /><span>{item.value}</span><small>{item.jobCount} 个任务 / {item.recordCount} 条</small></label>)}</div></details></div>
         <label><span>细分品类</span><select value={itemSegment} onChange={(event) => { setItemSegment(event.target.value); setItemPage(1); }}><option value="">全部细分品类</option>{reviewSegments.map((value) => <option key={value}>{value}</option>)}</select></label>
         <label><span>入库状态</span><select value={storageStatus} onChange={(event) => { setStorageStatus(event.target.value as "" | "pending" | "committed"); setItemPage(1); }}><option value="">全部状态</option><option value="pending">待入库</option><option value="committed">已入库</option></select></label>
         <label><span>AI 结果</span><select aria-label="AI 标注识别来源" value={recognitionSource} onChange={(event) => { setRecognitionSource(event.target.value as "" | "ai" | "non_ai"); setItemPage(1); }}><option value="">全部 AI 结果</option><option value="ai">AI 已识别</option><option value="non_ai">未生成 AI 结果（含失败）</option></select></label>
-        <label className="annotation-select-page"><input type="checkbox" checked={allChecked} disabled={!canEdit || !importableItems.length || busy !== ""} onChange={(event) => {
+        <label className="annotation-select-page"><input type="checkbox" checked={allChecked} disabled={!canEdit || !reviewScopeReady || !importableItems.length || busy !== ""} onChange={(event) => {
           const selected = event.target.checked;
           importableIds.forEach((id) => dirtyDraftIdsRef.current.add(id));
           setDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, importableIds.has(id) ? { ...draft, selected } : draft])));
           setNotice(selected ? `当前页已选择 ${importableItems.length} 条可入库项` : "已清空当前页选择");
         }} />全选当前页可入库项（{importableItems.length} 条）</label>
-        <label className="annotation-select-page annotation-select-filtered"><input type="checkbox" checked={allFilteredChecked} disabled={!canEdit || !data.selection.filteredReviewableCount || busy !== ""} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
-        <small>仅选择识别任务已完成、且细分品类仍符合任务 Prompt 的记录；超过 500 条会在入库时自动分批续跑。</small>
+        <label className="annotation-select-page annotation-select-filtered"><input type="checkbox" checked={allFilteredChecked} disabled={!canEdit || !reviewScopeReady || !data.selection.filteredReviewableCount || busy !== ""} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
+        <small>{reviewScopeReady ? "仅选择识别任务已完成、且细分品类仍符合任务 Prompt 的记录；超过 500 条会在入库时自动分批续跑。" : "正在应用三级品类与复核筛选，请稍候……"}</small>
+        {!reviewScopeReady && <button className="secondary-button" disabled={busy !== ""} onClick={() => void loadReview(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败"))}>重新加载筛选结果</button>}
         <div className="market-view-switch" role="group" aria-label="AI 标注展示方式"><button className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")}>列表</button><button className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")}>大图</button></div>
       </div>
       {recognitionSource === "non_ai" && <p className="annotation-filter-note">此筛选不会调用模型；它显示尚未生成 AI 结果的候选，包括等待识别和此前识别失败的记录。</p>}
@@ -496,7 +520,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
         const itemSegments = reviewSegmentsFor(item);
         return <tr key={item.id}>
-          <td><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !importable} title={reviewable && !importable ? "任务尚未完成，或细分品类不符合该任务 Prompt" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
+          <td><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={reviewable && !importable ? "任务尚未完成，或细分品类不符合该任务 Prompt" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
           <td>{imageUrl ? (href ? <a className="annotation-image-link" href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span className="annotation-no-image">无图</span>}<small className={item.imageSource === "imgzone" ? "green-text" : "orange-text"}>{item.imageSource === "imgzone" ? "imgzone 大图" : item.imageSource === "n5" ? "n5 回退" : "未取到安全图片"}</small></td>
           <td>{href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName || "未命名商品"}</small><span>打开商品链接 ↗</span></a> : <><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName}</small></>}<code>{item.candidateId}</code></td>
           <td><strong>{itemJob?.createdAt?.slice(0, 10) || item.createdAt.slice(0, 10)}</strong><small>{itemJob?.executor || "—"} · {itemJob?.status || "—"}</small><code>{item.jobId.slice(0, 18)}…</code></td>
@@ -514,7 +538,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
         const itemSegments = reviewSegmentsFor(item);
         return <article key={item.id}>
-          <label className="annotation-gallery-select"><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !importable} title={reviewable && !importable ? "任务尚未完成，或细分品类不符合该任务 Prompt" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : importable ? "加入本次入库" : "暂不可入库"}</label>
+          <label className="annotation-gallery-select"><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={reviewable && !importable ? "任务尚未完成，或细分品类不符合该任务 Prompt" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : importable ? "加入本次入库" : "暂不可入库"}</label>
           <div className="annotation-gallery-image">{imageUrl ? (href ? <a href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span>无图</span>}</div>
           {href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><h4>{item.productName || item.skuCode}</h4><span>打开商品链接 ↗</span></a> : <h4>{item.productName || item.skuCode}</h4>}
           <small>{item.skuCode} · {annotationRecognitionLabel(item)} · {item.imageSource}</small>

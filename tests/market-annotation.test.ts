@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -136,6 +136,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /for \(let batch = 1; batch <= 20; batch \+= 1\)/);
   assert.match(ui, /if \(!result\?\.hasMore\) break/);
   assert.match(ui, /selectedPageIds/);
+  assert.match(ui, /dirtyDraftIdsRef\.current\.has\(item\.id\) && existing\.version === serverDraft\.version/);
+  assert.match(ui, /loadedReviewScopeKey === activeReviewScopeKey/);
   assert.match(service, /MAX_FILTERED_SELECTION = 5_000/);
   assert.match(service, /COMMIT_SELECTION_BATCH_SIZE = 500/);
   assert.match(ui, /AI 标注识别来源/);
@@ -548,6 +550,31 @@ test("annotation review filters AI sources and selects the filtered result acros
   assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='selection-manual'").get() as { selected: number }).selected, 1);
   await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: false, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
   assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["selection-manual"]);
+  sqlite.close();
+});
+
+test("review selection safely rebases a stale version when review content is unchanged", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('rebase-prompt','并发复核',1,'manual','active','["类型甲","类型乙"]','这是用于验证选择状态并发重放不会覆盖复核内容的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('rebase-job','并发复核','rebase-prompt','local','review_ready',1,'operator@test');
+    INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status, reviewed_segment, reviewed_image_price_cents, reviewed_price_low_cents, reviewed_price_high_cents)
+      VALUES ('rebase-item','rebase-job','并发复核','REBASE-1','并发商品','review_pending','类型甲',19900,18900,20900);
+  `);
+  const initial = sqlite.prepare("SELECT version FROM market_annotation_items WHERE id='rebase-item'").get() as { version: number };
+  sqlite.prepare("UPDATE market_annotation_items SET selected=0, version=version+1 WHERE id='rebase-item'").run();
+
+  const rebased = await updateAnnotationItems(db, "rebase-job", [{ id: "rebase-item", version: initial.version, segment: "类型甲", imagePriceCents: 19900, selected: true }], { email: "operator@test", role: "operator" });
+  assert.equal(rebased.changed, 1);
+  const saved = sqlite.prepare("SELECT selected, status, version, reviewed_price_low_cents lowPrice, reviewed_price_high_cents highPrice FROM market_annotation_items WHERE id='rebase-item'").get() as { selected: number; status: string; version: number; lowPrice: number; highPrice: number };
+  assert.deepEqual({ selected: saved.selected, status: saved.status, lowPrice: saved.lowPrice, highPrice: saved.highPrice }, { selected: 1, status: "approved", lowPrice: 18900, highPrice: 20900 });
+
+  sqlite.prepare("UPDATE market_annotation_items SET reviewed_segment='类型乙', version=version+1 WHERE id='rebase-item'").run();
+  await assert.rejects(() => updateAnnotationItems(db, "rebase-job", [{ id: "rebase-item", version: saved.version, segment: "类型甲", imagePriceCents: 19900, selected: false }], { email: "operator@test", role: "operator" }), /复核内容已被他人修改/);
   sqlite.close();
 });
 

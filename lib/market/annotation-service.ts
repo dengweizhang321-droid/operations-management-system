@@ -630,10 +630,14 @@ export async function updateAnnotationItems(db: MarketDatabase, jobId: string, u
       const priceType = typeof update.priceType === "string" && update.priceType.trim() ? update.priceType.trim().slice(0, 40) : "";
       const priceLow = normalizeImagePriceCents(update.priceLowCents);
       const priceHigh = normalizeImagePriceCents(update.priceHighCents);
-      const current = await db.prepare("SELECT status, version FROM market_annotation_items WHERE id=? AND job_id=?").bind(update.id, jobId).first<{ status: string; version: number }>();
-      if (!current || !["review_pending", "approved", "rejected"].includes(current.status) || current.version !== update.version) throw new Error("候选项 " + update.id + " 已被他人修改，请刷新后重试");
-      statements.push(db.prepare("UPDATE market_annotation_items SET reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=COALESCE(NULLIF(?, ''), reviewed_price_type), reviewed_price_low_cents=?, reviewed_price_high_cents=?, selected=?, status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND job_id=? AND version=? AND status IN ('review_pending','approved','rejected')")
-        .bind(segment, price, priceType, priceLow, priceHigh, update.selected ? 1 : 0, update.selected ? "approved" : "review_pending", actor.email, update.id, jobId, update.version));
+      const current = await db.prepare("SELECT status, version, COALESCE(NULLIF(reviewed_segment,''), ai_segment) effectiveSegment, reviewed_image_price_cents reviewedImagePriceCents FROM market_annotation_items WHERE id=? AND job_id=?")
+        .bind(update.id, jobId).first<{ status: string; version: number; effectiveSegment: string; reviewedImagePriceCents: number | null }>();
+      if (!current || !["review_pending", "approved", "rejected"].includes(current.status)) throw new Error("候选项 " + update.id + " 当前不可复核，请刷新后重试");
+      const reviewContentUnchanged = current.effectiveSegment === segment && current.reviewedImagePriceCents === price;
+      if (current.version !== update.version && !reviewContentUnchanged) throw new Error("候选项 " + update.id + " 的复核内容已被他人修改，系统已停止覆盖，请刷新后核对");
+      const effectiveVersion = current.version;
+      statements.push(db.prepare("UPDATE market_annotation_items SET reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=COALESCE(NULLIF(?, ''), reviewed_price_type), reviewed_price_low_cents=COALESCE(?, reviewed_price_low_cents), reviewed_price_high_cents=COALESCE(?, reviewed_price_high_cents), selected=?, status=?, reviewed_by=?, reviewed_at=CURRENT_TIMESTAMP, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND job_id=? AND version=? AND status IN ('review_pending','approved','rejected')")
+        .bind(segment, price, priceType, priceLow, priceHigh, update.selected ? 1 : 0, update.selected ? "approved" : "review_pending", actor.email, update.id, jobId, effectiveVersion));
     }
     await db.batch(statements);
     await releaseJobMutex(db, jobId, mutex, false);
