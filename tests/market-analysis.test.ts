@@ -110,6 +110,25 @@ test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI �
   assert.match(masterRoute, /getMarketSystemKpis/);
 });
 
+test("SKU 数据库与 AI 标注使用最新身份缓存和按需读取", async () => {
+  const [adminService, annotationService, annotationRoute, annotationView, migration] = await Promise.all([
+    readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/annotations/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0038_market_master_identities.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(adminService, /JOIN market_ranking_entries source ON source\.id=identity\.latest_entry_id/);
+  assert.match(annotationService, /FROM market_master_identities identity/);
+  assert.match(annotationRoute, /view === "review"/);
+  assert.match(annotationRoute, /view === "catalog"/);
+  assert.match(annotationView, /includeCatalog: "0"/);
+  assert.match(annotationView, /IntersectionObserver/);
+  assert.match(annotationView, /catalogRequested/);
+  assert.doesNotMatch(annotationView, /void load\(item\.id, search, searchPage, 1\)/);
+  assert.match(migration, /ROW_NUMBER\(\) OVER/);
+});
+
 test("市场榜单与系统设置呈现商品链接、上榜期数、主图价格复核和系统 AI 算力", async () => {
   const [view, database] = await Promise.all([
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),

@@ -12,6 +12,8 @@ type CatalogItem = { skuCode: string; productName: string; brand: string; catego
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
 type Workspace = { categories: Array<{ value: string; count: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
+type CatalogWorkspace = Pick<Workspace, "catalog"> & { error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
 const LOAD_TIMEOUT_MS = 30_000;
@@ -57,6 +59,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [changeNote, setChangeNote] = useState("");
   const [search, setSearch] = useState("");
   const [searchPage, setSearchPage] = useState(1);
+  const [catalogRequested, setCatalogRequested] = useState(false);
   const [itemPage, setItemPage] = useState(1);
   const [itemPageSize, setItemPageSize] = useState(20);
   const [reviewCategories, setReviewCategories] = useState<string[]>([]);
@@ -75,12 +78,16 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const stopRef = useRef(false);
   const dirtyDraftIdsRef = useRef(new Set<string>());
   const loadSequenceRef = useRef(0);
+  const reviewLoadSequenceRef = useRef(0);
+  const catalogLoadSequenceRef = useRef(0);
+  const initialReadyRef = useRef(false);
+  const catalogSectionRef = useRef<HTMLElement | null>(null);
   const isAdmin = currentUser?.role === "admin";
   const canEdit = currentUser?.role === "admin" || currentUser?.role === "operator";
 
   const load = useCallback(async (nextJobId = jobId, q = search, page = searchPage, nextItemPage = itemPage, resetDrafts = false) => {
     const loadSequence = ++loadSequenceRef.current;
-    const params = new URLSearchParams({ q, page: String(page), pageSize: "30", itemPage: String(nextItemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
+    const params = new URLSearchParams({ q, page: String(page), pageSize: "30", itemPage: String(nextItemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1", includeCatalog: "0" });
     if (nextJobId) params.set("jobId", nextJobId);
     reviewCategories.forEach((value) => params.append("itemCategory", value));
     if (itemSegment) params.set("itemSegment", itemSegment);
@@ -107,7 +114,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     }
     if (loadSequence !== loadSequenceRef.current) return;
     if (!response.ok || !payload) throw new Error(payload?.error || "读取标注工作台失败");
-    setData(payload);
+    setData((current) => ({ ...payload, catalog: current?.catalog ?? payload.catalog }));
     const resolvedJobId = nextJobId || payload.jobs[0]?.id || "";
     setJobId(resolvedJobId);
     if (!nextJobId && resolvedJobId) setItemPage(1);
@@ -128,11 +135,42 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     })));
   }, [jobId, search, searchPage, itemPage, itemPageSize, category, reviewCategories, promptId, itemSegment, storageStatus, recognitionSource]);
 
+  const loadReview = useCallback(async (resetDrafts = false) => {
+    const loadSequence = ++reviewLoadSequenceRef.current;
+    const params = new URLSearchParams({ view: "review", itemPage: String(itemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
+    reviewCategories.forEach((value) => params.append("itemCategory", value));
+    if (itemSegment) params.set("itemSegment", itemSegment);
+    if (storageStatus) params.set("storageStatus", storageStatus);
+    if (recognitionSource) params.set("recognitionSource", recognitionSource);
+    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
+    const payload = await response.json().catch(() => null) as ReviewWorkspace | null;
+    if (loadSequence !== reviewLoadSequenceRef.current) return;
+    if (!response.ok || !payload) throw new Error(payload?.error || "读取人工复核列表失败");
+    setData((current) => current ? { ...current, ...payload } : current);
+    setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
+      const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
+      const existing = current[item.id];
+      const dirty = !resetDrafts && existing && (existing.segment !== serverDraft.segment || existing.price !== serverDraft.price || existing.selected !== serverDraft.selected);
+      return [item.id, dirty ? existing : serverDraft];
+    })));
+  }, [itemPage, itemPageSize, reviewCategories, itemSegment, storageStatus, recognitionSource]);
+
+  const loadCatalog = useCallback(async () => {
+    const loadSequence = ++catalogLoadSequenceRef.current;
+    const params = new URLSearchParams({ view: "catalog", q: search, page: String(searchPage), pageSize: "30" });
+    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
+    const payload = await response.json().catch(() => null) as CatalogWorkspace | null;
+    if (loadSequence !== catalogLoadSequenceRef.current) return;
+    if (!response.ok || !payload) throw new Error(payload?.error || "读取完整 SKU 库失败");
+    setData((current) => current ? { ...current, catalog: payload.catalog } : current);
+  }, [search, searchPage]);
+
   const loadInitial = useCallback(async () => {
     setInitialLoading(true);
     setError("");
     try {
       await load();
+      initialReadyRef.current = true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "加载失败");
     } finally {
@@ -141,9 +179,18 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   }, [load]);
 
   useEffect(() => { const timer = window.setTimeout(() => void loadInitial(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!jobId) return; const timer = window.setTimeout(() => void load(jobId, search, searchPage, itemPage).catch(() => undefined), 0); return () => window.clearTimeout(timer); }, [jobId, itemPage]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const timer = window.setTimeout(() => void load(jobId, search, searchPage, itemPage).catch(() => undefined), 260); return () => window.clearTimeout(timer); }, [search, searchPage]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setItemPage(1); const timer = window.setTimeout(() => void load(jobId, search, searchPage, 1).catch(() => undefined), 0); return () => window.clearTimeout(timer); }, [reviewCategories, itemSegment, storageStatus, recognitionSource, itemPageSize]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!initialReadyRef.current) return; const timer = window.setTimeout(() => void loadReview().catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败")), 0); return () => window.clearTimeout(timer); }, [loadReview]);
+  useEffect(() => {
+    const section = catalogSectionRef.current;
+    if (!section || catalogRequested) return;
+    if (!("IntersectionObserver" in window)) { setCatalogRequested(true); return; }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setCatalogRequested(true);
+    }, { rootMargin: "240px" });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [catalogRequested, data]);
+  useEffect(() => { if (!initialReadyRef.current || !catalogRequested) return; const timer = window.setTimeout(() => void loadCatalog().catch((reason) => setError(reason instanceof Error ? reason.message : "读取完整 SKU 库失败")), 260); return () => window.clearTimeout(timer); }, [catalogRequested, loadCatalog]);
 
   const post = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
@@ -281,11 +328,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   };
   const saveReview = (ids = (data?.items ?? []).filter((item) => ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id)) => act("save-review", async () => {
     if (!ids.length) throw new Error("当前没有可保存的人工复核项");
-    await saveReviewGroups(ids); ids.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await load(jobId, search, searchPage, itemPage); setNotice("人工复核已按任务分组保存");
+    await saveReviewGroups(ids); ids.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await loadReview(); setNotice("人工复核已按任务分组保存");
   });
   const setFilteredSelection = (selected: boolean) => act("select-filtered", async () => {
     const result = await post({ action: "select_filtered", aggregateJobs: true, categories: reviewCategories, selected, itemSegment: itemSegment || undefined, storageStatus: storageStatus || undefined, recognitionSource: recognitionSource || undefined });
-    dirtyDraftIdsRef.current.clear(); await load(jobId, search, searchPage, itemPage, true);
+    dirtyDraftIdsRef.current.clear(); await loadReview(true);
     setNotice(selected ? `已跨页全选当前筛选结果 ${String(result?.changed ?? 0)} 条` : `已清空当前筛选结果 ${String(result?.changed ?? 0)} 条选择`);
   });
   const commit = () => act("commit", async () => {
@@ -293,7 +340,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (!selectedCount) throw new Error("请先勾选需要入库的候选项");
     if (reviewablePageIds.length) await saveReviewGroups(reviewablePageIds);
     const result = await post({ action: "commit_selected", aggregateJobs: true, categories: reviewCategories, idempotencyKey: "ui_aggregate_" + Date.now().toString(36) });
-    reviewablePageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await load(jobId, search, searchPage, itemPage, true); setNotice("已入库 " + String(result?.committed ?? 0) + " 条，重复请求 " + String(result?.duplicates ?? 0) + " 条");
+    reviewablePageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await loadReview(true); setNotice("已入库 " + String(result?.committed ?? 0) + " 条，重复请求 " + String(result?.duplicates ?? 0) + " 条");
     if (result?.partial) throw new Error(`本批次部分成功：已入库 ${String(result.committed ?? 0)} 条；页面已刷新，可重新勾选剩余项续跑`);
   });
   const savePrompt = (mode: "manual" | "generate") => act("prompt", async () => {
@@ -366,6 +413,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const reviewCategoryLabel = !reviewCategories.length ? "全部三级类目" : reviewCategories.length === 1 ? reviewCategories[0]! : `已选 ${reviewCategories.length} 个三级类目`;
   const toggleReviewCategory = (value: string, checked: boolean) => {
     setItemSegment("");
+    setItemPage(1);
     setReviewCategories((current) => checked ? [...new Set([...current, value])] : current.filter((item) => item !== value));
   };
   const reviewSegmentsFor = (item: Item) => {
@@ -387,7 +435,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <label><span>任务上限</span><input type="number" min={1} max={5000} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /></label>
       <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
     </div><small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
-    <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(item.id); void load(item.id, search, searchPage, 1); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
+    <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
     {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? "云端双通道识别中…" : "继续云端识别（安全双通道）"}</button><button className="secondary-button" disabled={busy !== "run-cloud"} onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
     </section>
 
@@ -397,10 +445,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>
       </div>
       <div className="annotation-review-toolbar">
-        <div className="annotation-review-category-filter"><span>三级类目（可多选）</span><details><summary aria-label="AI 标注三级类目多选">{reviewCategoryLabel}</summary><div className="annotation-review-category-menu"><button type="button" disabled={!reviewCategories.length} onClick={() => { setReviewCategories([]); setItemSegment(""); }}>全部三级类目</button>{data.reviewCategories.map((item) => <label key={item.value}><input type="checkbox" checked={reviewCategories.includes(item.value)} onChange={(event) => toggleReviewCategory(item.value, event.target.checked)} /><span>{item.value}</span><small>{item.jobCount} 个任务 / {item.recordCount} 条</small></label>)}</div></details></div>
-        <label><span>细分品类</span><select value={itemSegment} onChange={(event) => setItemSegment(event.target.value)}><option value="">全部细分品类</option>{reviewSegments.map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label><span>入库状态</span><select value={storageStatus} onChange={(event) => setStorageStatus(event.target.value as "" | "pending" | "committed")}><option value="">全部状态</option><option value="pending">待入库</option><option value="committed">已入库</option></select></label>
-        <label><span>AI 结果</span><select aria-label="AI 标注识别来源" value={recognitionSource} onChange={(event) => setRecognitionSource(event.target.value as "" | "ai" | "non_ai")}><option value="">全部 AI 结果</option><option value="ai">AI 已识别</option><option value="non_ai">未生成 AI 结果（含失败）</option></select></label>
+        <div className="annotation-review-category-filter"><span>三级类目（可多选）</span><details><summary aria-label="AI 标注三级类目多选">{reviewCategoryLabel}</summary><div className="annotation-review-category-menu"><button type="button" disabled={!reviewCategories.length} onClick={() => { setReviewCategories([]); setItemSegment(""); setItemPage(1); }}>全部三级类目</button>{data.reviewCategories.map((item) => <label key={item.value}><input type="checkbox" checked={reviewCategories.includes(item.value)} onChange={(event) => toggleReviewCategory(item.value, event.target.checked)} /><span>{item.value}</span><small>{item.jobCount} 个任务 / {item.recordCount} 条</small></label>)}</div></details></div>
+        <label><span>细分品类</span><select value={itemSegment} onChange={(event) => { setItemSegment(event.target.value); setItemPage(1); }}><option value="">全部细分品类</option>{reviewSegments.map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label><span>入库状态</span><select value={storageStatus} onChange={(event) => { setStorageStatus(event.target.value as "" | "pending" | "committed"); setItemPage(1); }}><option value="">全部状态</option><option value="pending">待入库</option><option value="committed">已入库</option></select></label>
+        <label><span>AI 结果</span><select aria-label="AI 标注识别来源" value={recognitionSource} onChange={(event) => { setRecognitionSource(event.target.value as "" | "ai" | "non_ai"); setItemPage(1); }}><option value="">全部 AI 结果</option><option value="ai">AI 已识别</option><option value="non_ai">未生成 AI 结果（含失败）</option></select></label>
         <label className="annotation-select-page"><input type="checkbox" checked={allChecked} disabled={!canEdit || !reviewableItems.length} onChange={(event) => setDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, reviewableIds.has(id) ? { ...draft, selected: event.target.checked } : draft])))} />全选当前页可入库项</label>
         <label className="annotation-select-page annotation-select-filtered"><input type="checkbox" checked={allFilteredChecked} disabled={!canEdit || !data.selection.filteredReviewableCount || busy !== ""} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
         <div className="market-view-switch" role="group" aria-label="AI 标注展示方式"><button className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")}>列表</button><button className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")}>大图</button></div>
@@ -408,7 +456,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       {recognitionSource === "non_ai" && <p className="annotation-filter-note">此筛选不会调用模型；它显示尚未生成 AI 结果的候选，包括等待识别和此前识别失败的记录。</p>}
       <footer className="annotation-pagination annotation-review-pagination">
         <span>{reviewCategoryLabel}：已汇总 {data.reviewSummary.jobCount} 个任务 · 筛选后 {data.itemPagination.total} 条任务记录 · {data.reviewSummary.uniqueCandidateCount} 个不重复候选</span>
-        <label>每页 <select aria-label="AI 标注每页条数" value={itemPageSize} disabled={hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onChange={(event) => setItemPageSize(Number(event.target.value))}><option value={20}>20 条</option><option value={50}>50 条</option><option value={100}>100 条</option></select></label>
+        <label>每页 <select aria-label="AI 标注每页条数" value={itemPageSize} disabled={hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onChange={(event) => { setItemPageSize(Number(event.target.value)); setItemPage(1); }}><option value={20}>20 条</option><option value={50}>50 条</option><option value={100}>100 条</option></select></label>
         <button disabled={itemPage <= 1 || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => setItemPage((page) => Math.max(1, page - 1))}>上一页</button>
         <label>第 <select aria-label="AI 标注页码" value={itemPage} disabled={hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onChange={(event) => setItemPage(Number(event.target.value))}>{Array.from({ length: data.itemPagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.itemPagination.pageCount} 页</label>
         <button disabled={itemPage >= data.itemPagination.pageCount || hasDirtyDrafts} title={hasDirtyDrafts ? "请先保存当前页编辑" : ""} onClick={() => setItemPage((page) => Math.min(data.itemPagination.pageCount, page + 1))}>下一页</button>
@@ -460,7 +508,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     <article className="panel annotation-validation-card"><div className="section-header"><div><h3>冻结抽样验证</h3><p>默认 50 条，按品类分层并以 seed+hash 冻结；逐条错例永久保留。</p></div></div>{currentRun ? <><div className="annotation-validation-summary"><strong>{currentRun.status}</strong><span>{currentRun.sampleCount} 条 · hash {currentRun.sampleHash?.slice(0, 12)}</span><em className={currentRun.gate?.passed ? "green-text" : "orange-text"}>{currentRun.gate?.passed ? "门禁通过" : (currentRun.gate?.reasons || []).join("；") || "待完成"}</em></div><div className="annotation-validation-errors">{currentResults.filter((item) => !item.isCorrect || item.errorMessage).slice(0, 80).map((item) => <div key={item.id}><strong>{item.skuCode} · {item.goldSegment} → {item.predictedSegment || "失败"}</strong><small>{item.productName}</small><span>{item.errorMessage}</span></div>)}</div></> : <p className="soft-text">尚无冻结验证运行。</p>}</article>
     </section>
 
-    <section className="panel annotation-catalog-card"><div className="section-header"><div><h3>4. 完整市场 SKU 库检索</h3><p>服务端检索完整库，不受榜单页面 200 条展示上限影响；优先展示已缓存商品图。</p></div><div className="annotation-actions">{isAdmin && <button className="secondary-button" disabled={!goldIds.length} onClick={() => void act("gold", async () => { await post({ action: "mark_gold", annotationIds: goldIds }); setGoldIds([]); await load(jobId); setNotice("已加入冻结验证金标集"); })}>设为金标（{goldIds.length}）</button>}</div></div><input className="annotation-search" value={search} onChange={(event) => { setSearch(event.target.value); setSearchPage(1); }} placeholder="搜索 SKU、商品名、品牌、三级类目、最终细分品类" /><div className="data-table-wrap"><table className="data-table"><thead><tr><th>金标</th><th>图片</th><th>SKU / 商品</th><th>品牌</th><th>三级类目</th><th>最终细分品类</th><th>价格</th><th>复核状态</th></tr></thead><tbody>{data.catalog.items.map((item) => <tr key={item.category + item.skuCode}><td><input type="checkbox" disabled={!item.annotationId || !isAdmin} checked={Boolean(item.annotationId && goldIds.includes(item.annotationId))} onChange={() => item.annotationId && setGoldIds((current) => current.includes(item.annotationId!) ? current.filter((id) => id !== item.annotationId) : [...current, item.annotationId!])} /></td><td>{item.imageUrl ? <img className="annotation-catalog-image" src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /> : <span className="annotation-no-image">无图</span>}<small>{item.imageCacheStatus === "ready" ? "已缓存" : "源图"}</small></td><td><strong>{item.skuCode}</strong><small>{item.productName}</small></td><td>{item.brand || "—"}</td><td>{item.category}</td><td><strong>{item.finalSegment || "—"}</strong></td><td><small>榜单 {money(item.rankingPriceCents)}</small><small>主图 {money(item.finalImagePriceCents)}</small></td><td>{item.reviewStatus}</td></tr>)}</tbody></table></div><footer className="annotation-pagination"><span>共 {data.catalog.total} 条</span><button disabled={searchPage <= 1} onClick={() => setSearchPage((page) => page - 1)}>上一页</button><strong>{searchPage}/{data.catalog.pageCount}</strong><button disabled={searchPage >= data.catalog.pageCount} onClick={() => setSearchPage((page) => page + 1)}>下一页</button></footer></section>
+    <section ref={catalogSectionRef} className="panel annotation-catalog-card"><div className="section-header"><div><h3>4. 完整市场 SKU 库检索</h3><p>滚动到此区域时才读取完整库，不受榜单页面 200 条展示上限影响；优先展示已缓存商品图。</p></div><div className="annotation-actions">{isAdmin && <button className="secondary-button" disabled={!goldIds.length} onClick={() => void act("gold", async () => { await post({ action: "mark_gold", annotationIds: goldIds }); setGoldIds([]); await load(jobId); setNotice("已加入冻结验证金标集"); })}>设为金标（{goldIds.length}）</button>}</div></div><input className="annotation-search" value={search} onChange={(event) => { setSearch(event.target.value); setSearchPage(1); }} placeholder="搜索 SKU、商品名、品牌、三级类目、最终细分品类" />{catalogRequested ? <><div className="data-table-wrap"><table className="data-table"><thead><tr><th>金标</th><th>图片</th><th>SKU / 商品</th><th>品牌</th><th>三级类目</th><th>最终细分品类</th><th>价格</th><th>复核状态</th></tr></thead><tbody>{data.catalog.items.map((item) => <tr key={item.category + item.skuCode}><td><input type="checkbox" disabled={!item.annotationId || !isAdmin} checked={Boolean(item.annotationId && goldIds.includes(item.annotationId))} onChange={() => item.annotationId && setGoldIds((current) => current.includes(item.annotationId!) ? current.filter((id) => id !== item.annotationId) : [...current, item.annotationId!])} /></td><td>{item.imageUrl ? <img className="annotation-catalog-image" src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /> : <span className="annotation-no-image">无图</span>}<small>{item.imageCacheStatus === "ready" ? "已缓存" : "源图"}</small></td><td><strong>{item.skuCode}</strong><small>{item.productName}</small></td><td>{item.brand || "—"}</td><td>{item.category}</td><td><strong>{item.finalSegment || "—"}</strong></td><td><small>榜单 {money(item.rankingPriceCents)}</small><small>主图 {money(item.finalImagePriceCents)}</small></td><td>{item.reviewStatus}</td></tr>)}</tbody></table></div><footer className="annotation-pagination"><span>共 {data.catalog.total} 条</span><button disabled={searchPage <= 1} onClick={() => setSearchPage((page) => page - 1)}>上一页</button><strong>{searchPage}/{data.catalog.pageCount}</strong><button disabled={searchPage >= data.catalog.pageCount} onClick={() => setSearchPage((page) => page + 1)}>下一页</button></footer></> : <div className="table-state">完整 SKU 目录将在滚动接近此区域时加载。</div>}</section>
 
     <section className="panel annotation-agent-card"><div className="section-header"><div><h3>5. 本地 Ollama agent（可选容灾）</h3><p>Cloudflare 不回连 localhost；本机 runner 使用一次性 token 主动领取带 lease 的任务。</p></div>{isAdmin && <button className="secondary-button" onClick={createAgent}>创建 agent</button>}</div>{agentToken && <div className="annotation-token"><strong>仅显示一次</strong><code>{agentToken}</code></div>}<pre>TERUISI_SITE_URL=https://你的站点{`\n`}TERUISI_ANNOTATION_AGENT_TOKEN=创建时的一次性token{`\n`}OLLAMA_BASE_URL=http://127.0.0.1:11434{`\n`}npm run market:annotation-agent</pre><div className="annotation-agent-list">{data.agents.map((agent) => <div key={agent.id}><strong>{agent.name}</strong><span>{agent.status} · 最近心跳 {agent.lastSeenAt || "从未"}</span>{isAdmin && agent.status === "enabled" && <button className="row-action danger" onClick={() => void act("revoke", async () => { await post({ action: "revoke_agent", agentId: agent.id }); await load(jobId); })}>撤销</button>}</div>)}</div></section>
   </div>;

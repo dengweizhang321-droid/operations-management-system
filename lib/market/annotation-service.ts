@@ -11,6 +11,7 @@ import {
   stableStratifiedSample, validationMetrics,
 } from "@/lib/market/annotation-types";
 import type { MarketDatabase } from "@/lib/market/database";
+import { ensureMarketMasterIdentities } from "@/lib/market/master-identity";
 
 type Actor = { email: string; role: string };
 type PromptRow = { id: string; category: string; version: number; parent_id: string | null; source: string; status: string; segments_json: string; prompt_body: string; change_note: string; metrics_json: string; created_by: string; created_at: string; activated_by: string | null; activated_at: string | null };
@@ -68,14 +69,12 @@ function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean;
   return { clause: "job_id=?", bindings: [input.jobId ?? ""] as unknown[] };
 }
 
-export async function getAnnotationWorkspace(db: MarketDatabase, input: {
+type AnnotationWorkspaceInput = {
   jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number;
-  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai"; includeAgents?: boolean;
-} = {}) {
-  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
-  const page = Math.max(1, Math.trunc(input.page ?? 1));
-  const pageSize = Math.max(10, Math.min(100, Math.trunc(input.pageSize ?? 30)));
-  const q = input.q?.trim().slice(0, 120) ?? "";
+  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai"; includeAgents?: boolean; includeCatalog?: boolean;
+};
+
+async function queryAnnotationReviewWorkspace(db: MarketDatabase, input: AnnotationWorkspaceInput = {}) {
   const itemPage = strictInteger(input.itemPage, 1, 1, 50_000, "itemPage");
   const itemPageSize = strictInteger(input.itemPageSize, 20, 10, 200, "itemPageSize");
   const reviewScope = annotationReviewScope(input);
@@ -89,12 +88,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
   if (input.recognitionSource === "non_ai") itemClauses.push(`NOT ${aiRecognitionClause}`);
   const itemWhere = itemClauses.join(" AND ");
   const hasReviewScope = Boolean(input.aggregateJobs || input.jobId);
-  const [categoryRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, items, itemCount, reviewSummary, selection, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
-    db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare("SELECT category value, COUNT(DISTINCT job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items WHERE category<>'' GROUP BY category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
-    db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
-    db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
-    db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
+  const [items, itemCount, reviewSummary, selection] = await Promise.all([
     hasReviewScope ? db.prepare(`SELECT ${itemColumns} FROM market_annotation_items WHERE ${itemWhere} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`).bind(...itemBindings, itemPageSize, (itemPage - 1) * itemPageSize).all<ItemRow>() : Promise.resolve({ results: [] as ItemRow[] }),
     hasReviewScope ? db.prepare(`SELECT COUNT(*) count FROM market_annotation_items WHERE ${itemWhere}`).bind(...itemBindings).first<{ count: number }>() : Promise.resolve({ count: 0 }),
     hasReviewScope ? db.prepare(`SELECT COUNT(DISTINCT job_id) jobCount, COUNT(*) recordCount,
@@ -105,16 +99,48 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: {
       SUM(CASE WHEN status IN ('review_pending','approved','rejected') AND selected=1 THEN 1 ELSE 0 END) filteredSelectedCount,
       (SELECT COUNT(*) FROM market_annotation_items WHERE ${reviewScope.clause} AND status='approved' AND selected=1) scopeSelectedCount
       FROM market_annotation_items WHERE ${itemWhere}`).bind(...reviewScope.bindings, ...itemBindings).first<{ filteredReviewableCount: number | null; filteredSelectedCount: number | null; scopeSelectedCount: number }>() : Promise.resolve({ filteredReviewableCount: 0, filteredSelectedCount: 0, scopeSelectedCount: 0 }),
-    listAnnotationModels(db), listPromptTextModels(db), searchAnnotationCatalog(db, { q, page, pageSize }),
+  ]);
+  return {
+    items: (items.results ?? []).map(itemValue), itemPagination: { page: itemPage, pageSize: itemPageSize, total: Number(itemCount?.count ?? 0), pageCount: Math.max(1, Math.ceil(Number(itemCount?.count ?? 0) / itemPageSize)) },
+    reviewSummary: { jobCount: Number(reviewSummary?.jobCount ?? 0), recordCount: Number(reviewSummary?.recordCount ?? 0), uniqueCandidateCount: Number(reviewSummary?.uniqueCandidateCount ?? 0) },
+    selection: { filteredReviewableCount: Number(selection?.filteredReviewableCount ?? 0), filteredSelectedCount: Number(selection?.filteredSelectedCount ?? 0), scopeSelectedCount: Number(selection?.scopeSelectedCount ?? 0) },
+  };
+}
+
+export async function getAnnotationReviewWorkspace(db: MarketDatabase, input: AnnotationWorkspaceInput = {}) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  return queryAnnotationReviewWorkspace(db, input);
+}
+
+export async function getAnnotationCatalogWorkspace(db: MarketDatabase, input: { q?: string; page?: number; pageSize?: number } = {}) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  await ensureMarketMasterIdentities(db);
+  return searchAnnotationCatalog(db, input);
+}
+
+export async function getAnnotationWorkspace(db: MarketDatabase, input: AnnotationWorkspaceInput = {}) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  await ensureMarketMasterIdentities(db);
+  const page = Math.max(1, Math.trunc(input.page ?? 1));
+  const pageSize = Math.max(10, Math.min(100, Math.trunc(input.pageSize ?? 30)));
+  const q = input.q?.trim().slice(0, 120) ?? "";
+  const [review, categoryRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
+    queryAnnotationReviewWorkspace(db, input),
+    db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
+    db.prepare("SELECT category value, COUNT(DISTINCT job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items WHERE category<>'' GROUP BY category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
+    db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
+    db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
+    db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
+    listAnnotationModels(db), listPromptTextModels(db), input.includeCatalog === false
+      ? Promise.resolve({ items: [], page, pageSize, total: 0, pageCount: 1, query: q })
+      : searchAnnotationCatalog(db, { q, page, pageSize }),
     db.prepare("SELECT id, category, baseline_prompt_id baselinePromptId, candidate_prompt_id candidatePromptId, model_id modelId, status, seed, requested_sample_count requestedSampleCount, sample_count sampleCount, sample_hash sampleHash, metrics_json metricsJson, gate_json gateJson, created_by createdBy, created_at createdAt, completed_at completedAt FROM market_annotation_validation_runs ORDER BY created_at DESC LIMIT 30").all<Record<string, unknown>>(),
     input.includeAgents ? db.prepare("SELECT id, name, status, capabilities_json capabilitiesJson, created_by createdBy, created_at createdAt, last_seen_at lastSeenAt, revoked_at revokedAt FROM market_annotation_local_agents ORDER BY created_at DESC LIMIT 50").all<Record<string, unknown>>() : Promise.resolve({ results: [] as Record<string, unknown>[] }),
     db.prepare("SELECT id, run_id runId, prompt_version_id promptVersionId, status, predicted_segment predictedSegment, predicted_image_price_cents predictedImagePriceCents, confidence_bps confidenceBps, is_correct isCorrect, error_message errorMessage, sample_snapshot_json sampleSnapshotJson FROM market_annotation_validation_results ORDER BY created_at DESC LIMIT 500").all<Record<string, unknown>>(),
   ]);
   return {
     categories: categoryRows.results ?? [], reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
-    items: (items.results ?? []).map(itemValue), itemPagination: { page: itemPage, pageSize: itemPageSize, total: Number(itemCount?.count ?? 0), pageCount: Math.max(1, Math.ceil(Number(itemCount?.count ?? 0) / itemPageSize)) },
-    reviewSummary: { jobCount: Number(reviewSummary?.jobCount ?? 0), recordCount: Number(reviewSummary?.recordCount ?? 0), uniqueCandidateCount: Number(reviewSummary?.uniqueCandidateCount ?? 0) },
-    selection: { filteredReviewableCount: Number(selection?.filteredReviewableCount ?? 0), filteredSelectedCount: Number(selection?.filteredSelectedCount ?? 0), scopeSelectedCount: Number(selection?.scopeSelectedCount ?? 0) },
+    ...review,
     models, textModels, catalog,
     validationRuns: (runRows.results ?? []).map((row) => ({ ...row, metrics: json(String(row.metricsJson ?? "{}"), {}), gate: json(String(row.gateJson ?? "{}"), {}) })),
     validationResults: (validationRows.results ?? []).map((row) => ({ ...row, ...snapshotView(String(row.sampleSnapshotJson ?? "{}")) })),
@@ -199,26 +225,39 @@ export async function searchAnnotationCatalog(db: MarketDatabase, input: { q?: s
   const pageSize = strictInteger(input.pageSize, 30, 10, 100, "pageSize");
   const q = input.q?.trim().slice(0, 120) ?? "";
   const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
-  const base = `WITH latest_market AS (
-    SELECT * FROM (SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.category, m.sku_code ORDER BY m.period_end DESC, m.updated_at DESC, m.id DESC) rn FROM market_ranking_entries m) WHERE rn = 1
+  const base = `WITH identity_market AS MATERIALIZED (
+    SELECT m.* FROM market_master_identities identity
+    JOIN market_ranking_entries m ON m.id=identity.latest_entry_id
+  ), latest_market AS MATERIALIZED (
+    SELECT * FROM (SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.category, m.sku_code ORDER BY m.period_end DESC, m.updated_at DESC, m.id DESC) rn FROM identity_market m) WHERE rn = 1
   ), latest_review AS (
     SELECT * FROM (SELECT i.*, j.category item_category, ROW_NUMBER() OVER (PARTITION BY j.category, i.sku_code ORDER BY i.updated_at DESC, i.id DESC) rn FROM market_annotation_items i JOIN market_annotation_jobs j ON j.id = i.job_id) WHERE rn = 1
   )`;
   const where = q ? "WHERE (m.sku_code LIKE ? ESCAPE '\\' OR m.product_name LIKE ? ESCAPE '\\' OR m.brand LIKE ? ESCAPE '\\' OR m.category LIKE ? ESCAPE '\\' OR a.segment LIKE ? ESCAPE '\\')" : "";
   const bindings = q ? [like, like, like, like, like] : [];
-  const [countRow, rows] = await Promise.all([
-    db.prepare(`${base} SELECT COUNT(*) total FROM latest_market m LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code ${where}`).bind(...bindings).first<{ total: number }>(),
-    db.prepare(`${base} SELECT m.sku_code skuCode, m.product_name productName, m.brand, m.category,
+  const rows = await db.prepare(`${base} SELECT m.sku_code skuCode, m.product_name productName, m.brand, m.category,
       CASE WHEN mic.status='ready' THEN '/api/market/images/' || mic.content_sha256 ELSE m.image_url END imageUrl,
       COALESCE(mic.status, CASE WHEN m.image_url='' THEN 'missing' ELSE 'pending' END) imageCacheStatus,
       m.price_cents rankingPriceCents, a.id annotationId, a.segment finalSegment, a.image_price_cents finalImagePriceCents,
-      COALESCE(r.status, CASE WHEN a.id IS NOT NULL THEN 'committed' ELSE 'unreviewed' END) reviewStatus
+      COALESCE(r.status, CASE WHEN a.id IS NOT NULL THEN 'committed' ELSE 'unreviewed' END) reviewStatus,
+      COUNT(*) OVER() fullCount
       FROM latest_market m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
       LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code
       LEFT JOIN latest_review r ON r.item_category=m.category AND r.sku_code=m.sku_code ${where}
-      ORDER BY m.category, m.sku_code LIMIT ? OFFSET ?`).bind(...bindings, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>(),
-  ]);
-  return { items: rows.results ?? [], page, pageSize, total: Number(countRow?.total ?? 0), pageCount: Math.max(1, Math.ceil(Number(countRow?.total ?? 0) / pageSize)), query: q };
+      ORDER BY m.category, m.sku_code LIMIT ? OFFSET ?`).bind(...bindings, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>();
+  const rawItems = rows.results ?? [];
+  let total = Number(rawItems[0]?.fullCount ?? 0);
+  if (!rawItems.length && page > 1) {
+    const countRow = await db.prepare(`${base} SELECT COUNT(*) total FROM latest_market m
+      LEFT JOIN market_sku_annotations a ON a.category=m.category AND a.sku_code=m.sku_code ${where}`).bind(...bindings).first<{ total: number }>();
+    total = Number(countRow?.total ?? 0);
+  }
+  const items = rawItems.map((row) => {
+    const item = { ...row };
+    delete item.fullCount;
+    return item;
+  });
+  return { items, page, pageSize, total, pageCount: Math.max(1, Math.ceil(total / pageSize)), query: q };
 }
 
 export async function createPromptVersion(db: MarketDatabase, input: { category: string; segments: unknown; promptBody: string; parentId?: string; source?: string; changeNote?: string }, actor: Actor) {

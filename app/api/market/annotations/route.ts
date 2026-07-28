@@ -4,7 +4,7 @@ import { getMarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
-  createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationWorkspace, markAnnotationsAsGold,
+  createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
   revokeLocalAgent, runNextCloudAnnotation, runNextValidation, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const db = getMarketDatabase();
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     const params = new URL(request.url).searchParams;
-    const payload = await getAnnotationWorkspace(db, {
+    const workspaceInput = {
       jobId: params.get("jobId")?.trim() || undefined,
       aggregateJobs: params.get("aggregateJobs") === "1",
       itemCategory: params.get("itemCategory")?.trim() || undefined,
@@ -42,7 +42,17 @@ export async function GET(request: Request) {
       storageStatus: params.get("storageStatus") === "committed" ? "committed" : params.get("storageStatus") === "pending" ? "pending" : undefined,
       recognitionSource: params.get("recognitionSource") === "ai" ? "ai" : params.get("recognitionSource") === "non_ai" ? "non_ai" : undefined,
       includeAgents: principal.role === "admin",
-    });
+      includeCatalog: params.get("includeCatalog") !== "0",
+    } as const;
+    const view = params.get("view") ?? "workspace";
+    if (view === "review") {
+      return Response.json(await getAnnotationReviewWorkspace(db, workspaceInput), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "catalog") {
+      const catalog = await getAnnotationCatalogWorkspace(db, { q: workspaceInput.q, page: workspaceInput.page, pageSize: workspaceInput.pageSize });
+      return Response.json({ catalog }, { headers: { "cache-control": "no-store" } });
+    }
+    const payload = await getAnnotationWorkspace(db, workspaceInput);
     return Response.json({ ...payload, principal }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;

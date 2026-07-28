@@ -95,6 +95,16 @@ export const marketBaseSchemaStatements = [
     gmv_total_cents INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS market_master_identities (
+    category TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL,
+    sku_code TEXT NOT NULL,
+    latest_entry_id INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (category, scope, ranking_dimension, sku_code),
+    UNIQUE (latest_entry_id)
+  )`,
   `CREATE TABLE IF NOT EXISTS market_price_snapshots (
     id TEXT PRIMARY KEY NOT NULL,
     category TEXT NOT NULL,
@@ -647,6 +657,13 @@ async function seedDefaultPriceBands(db: MarketSchemaDatabase) {
 export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<void> {
   const fastMarker = await hasMarketRuntimeSchemaMarker(db);
   if (fastMarker) {
+    await db.prepare(`CREATE TABLE IF NOT EXISTS market_master_identities (
+      category TEXT NOT NULL, scope TEXT NOT NULL, ranking_dimension TEXT NOT NULL,
+      sku_code TEXT NOT NULL, latest_entry_id INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (category, scope, ranking_dimension, sku_code), UNIQUE (latest_entry_id)
+    )`).run();
+    await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS market_master_identities_entry_uq ON market_master_identities (latest_entry_id)").run();
     await db.prepare(`CREATE TABLE IF NOT EXISTS market_subcategory_taxonomy (
       id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, subcategory TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active', sort_order INTEGER NOT NULL DEFAULT 0,

@@ -32,6 +32,7 @@ import {
   upsertMarketMapping,
 } from "../lib/market/admin-service";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
+import { ensureMarketMasterIdentities, refreshMarketMasterIdentities } from "../lib/market/master-identity";
 import { executeMarketDownloadTask } from "../lib/market/download-executor";
 import { matchMarketBrandTitle, type MarketBrandSeed } from "../lib/market/brand-seeds";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
@@ -117,6 +118,28 @@ test("system settings KPIs use independent whole-database product identities", a
     pendingAiCount: 2,
     completedAiCount: 1,
   });
+  sqlite.close();
+});
+
+test("market master identity cache selects the latest row and refreshes after imports", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES
+    ('identity-old',1,'2026-05-01','2026-05-31','category-cache','POP','SKU','POP','SKU-CACHE','Old','{}','batch'),
+    ('identity-new',2,'2026-06-01','2026-06-30','category-cache','POP','SKU','POP','SKU-CACHE','New','{}','batch');`);
+  await ensureMarketMasterIdentities(db);
+  assert.equal((sqlite.prepare(`SELECT m.product_name productName FROM market_master_identities identity
+    JOIN market_ranking_entries m ON m.id=identity.latest_entry_id`).get() as { productName: string }).productName, "New");
+
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES ('identity-latest',3,'2026-07-01','2026-07-31','category-cache','POP','SKU','POP','SKU-CACHE','Latest','{}','batch');`);
+  await refreshMarketMasterIdentities(db);
+  assert.equal((sqlite.prepare(`SELECT m.product_name productName FROM market_master_identities identity
+    JOIN market_ranking_entries m ON m.id=identity.latest_entry_id`).get() as { productName: string }).productName, "Latest");
   sqlite.close();
 });
 

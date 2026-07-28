@@ -4,6 +4,7 @@ import { saveMarketImportCore, type MarketEntryForImport } from "@/lib/market/im
 import { parseMarketRows } from "@/lib/market/parser";
 import { ensureMarketSchemaCached, type MarketSchemaDatabase } from "@/lib/market/schema-core";
 import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
+import { refreshMarketMasterIdentities } from "@/lib/market/master-identity";
 
 type DownloadTask = {
   id: string; category: string; scope: string; month: string; ranking_dimension: string; status: string;
@@ -123,6 +124,7 @@ export async function executeMarketDownloadTask(db: MarketSchemaDatabase, input:
       });
     }
     await refreshMarketSkuGmvTotals(db);
+    await refreshMarketMasterIdentities(db);
     if (deps.cacheImages) await deps.cacheImages({ db, task, batchId, rows });
     if (deps.createPriceTasks) await deps.createPriceTasks({ db, task, batchId, rows });
     await db.prepare(`UPDATE market_download_tasks SET status='imported', jd_task_id=COALESCE(NULLIF(?,''), jd_task_id),

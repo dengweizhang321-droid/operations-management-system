@@ -5,6 +5,7 @@ import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { marketEffectiveFactsCtes } from "@/lib/market/overview-sql";
 import { ensureMarketSkuGmvTotals } from "@/lib/market/gmv-total";
+import { ensureMarketMasterIdentities, refreshMarketMasterIdentities } from "@/lib/market/master-identity";
 import {
   applyManualBrandSeedToIdentity,
   listMarketBrandSeeds,
@@ -100,6 +101,7 @@ export async function listMarketMasterData(db: MarketDatabase, input: {
 } = {}) {
   await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
   await ensureMarketSkuGmvTotals(db);
+  await ensureMarketMasterIdentities(db);
   const pageSize = integer(input.pageSize, 30, 1, 100);
   const page = integer(input.page, 1, 1, 10_000);
   const { where, values } = masterWhere(input);
@@ -226,6 +228,7 @@ export async function updateMarketSkuMasterData(db: MarketDatabase, input: {
     ORDER BY period_end DESC, period_start DESC, id DESC LIMIT 1`)
     .bind(category, scope, rankingDimension, skuCode).first<Record<string, unknown>>();
   const changedRows = results.reduce((sum, result) => sum + Number(result?.meta?.changes ?? 0), 0);
+  if (category !== originalCategory) await refreshMarketMasterIdentities(db);
   await audit(db, actor, "update_market_sku_master", "market_sku", `${originalCategory}|${scope}|${rankingDimension}|${skuCode}`, before, { ...after, month, priceCents, priceType, changedRows });
   return { ok: true, changedRows, item: after };
 }
@@ -1091,13 +1094,12 @@ export async function getMarketPendingReviewSummaryForAi(db: MarketDatabase, arg
 }
 
 function masterBaseSql(includeHistory = false) {
-  return `WITH representative_rows AS MATERIALIZED (
-      SELECT source.*, ROW_NUMBER() OVER (
-        PARTITION BY category, scope, ranking_dimension, sku_code
-        ORDER BY period_end DESC, period_start DESC, id DESC
-      ) representative_rank
-      FROM market_ranking_entries source
-    ), representatives AS MATERIALIZED (SELECT * FROM representative_rows ${includeHistory ? "" : "WHERE representative_rank=1"})
+  return `WITH representatives AS MATERIALIZED (
+      ${includeHistory
+        ? "SELECT source.* FROM market_ranking_entries source"
+        : `SELECT source.* FROM market_master_identities identity
+          JOIN market_ranking_entries source ON source.id=identity.latest_entry_id`}
+    )
     SELECT m.id, m.period_start, m.period_end, substr(m.period_end,1,7) month, m.category, m.scope, m.ranking_dimension, m.operation_mode,
       m.subcategory, m.rank, m.sku_code, m.product_name, m.brand, m.gmv_cents, m.quantity, m.visitors, m.conversion_bps,
       COALESCE(gt.gmv_total_cents,0) gmv_total_cents,

@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -127,7 +127,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
   assert.match(ui, /filteredCategories/);
-  assert.match(ui, /useEffect\(\(\) => \{ const timer = window\.setTimeout\(\(\) => void load\(jobId, search, searchPage, itemPage\)/);
+  assert.match(ui, /new URLSearchParams\(\{ view: "review"/);
+  assert.match(ui, /new URLSearchParams\(\{ view: "catalog"/);
+  assert.doesNotMatch(ui, /void load\(item\.id, search, searchPage, 1\)/);
   assert.match(ui, /action: "commit_selected"/);
   assert.match(ui, /action: "select_filtered"/);
   assert.match(ui, /全选筛选结果（跨页/);
@@ -301,7 +303,7 @@ test("catalog pagination is strict and LIKE wildcards are bound as literals", as
     },
   } as unknown as MarketDatabase;
   await searchAnnotationCatalog(database, { q: "%_", page: 1, pageSize: 30 });
-  assert.equal(observed.length, 2);
+  assert.equal(observed.length, 1);
   assert.ok(observed.every((entry) => entry.sql.includes("ESCAPE '\\'")));
   assert.ok(observed.every((entry) => entry.values.slice(0, 5).every((value) => value === "%\\%\\_%")));
 });
@@ -601,6 +603,9 @@ test("annotation review aggregates historical jobs and filters by tertiary categ
   assert.equal(category.itemPagination.total, 2);
   assert.deepEqual(category.reviewSummary, { jobCount: 2, recordCount: 2, uniqueCandidateCount: 1 });
   assert.ok(category.items.every((item) => item.category === "三级类目甲"));
+  const reviewOnly = await getAnnotationReviewWorkspace(db, { aggregateJobs: true, itemCategories: ["三级类目甲"] });
+  assert.equal(reviewOnly.itemPagination.total, 2);
+  assert.equal("catalog" in reviewOnly, false);
 
   const selected = await setFilteredAnnotationSelection(db, { aggregateJobs: true, categories: ["三级类目甲", "三级类目乙"], selected: true }, { email: "operator@test", role: "operator" });
   assert.equal(selected.changed, 3);

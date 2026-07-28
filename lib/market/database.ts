@@ -4,6 +4,7 @@ import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, market
 import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
+import { refreshMarketMasterIdentities } from "@/lib/market/master-identity";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -126,6 +127,7 @@ export async function saveMarketImport(input: {
 }): Promise<MarketImportBatch> {
   const batch = await saveMarketImportCore(input) as MarketImportBatch;
   await refreshMarketSkuGmvTotals(input.db);
+  await refreshMarketMasterIdentities(input.db);
   return batch;
 }
 
