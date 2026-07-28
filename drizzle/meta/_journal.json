@@ -260,6 +260,13 @@
       "when": 1785150000000,
       "tag": "0036_backfill_market_subcategory_taxonomy",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1785237830655,
+      "tag": "0037_market_annotation_reuse_index",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,9 @@ type Draft = { segment: string; price: string; selected: boolean; version: numbe
 
 const LOAD_TIMEOUT_MS = 30_000;
 const ACTION_TIMEOUT_MS = 120_000;
+const CLOUD_CONCURRENCY = 2;
+const CLOUD_PROGRESS_REFRESH_EVERY = 12;
+const CLOUD_PROGRESS_REFRESH_MS = 30_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
 const yuanInput = (cents: number | null | undefined) => cents === null || cents === undefined ? "" : String(cents / 100);
 const centsInput = (yuan: string) => yuan.trim() === "" ? null : Math.round(Number(yuan) * 100);
@@ -187,13 +190,82 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const pumpCloud = () => act("run-cloud", async () => {
     stopRef.current = false;
     let waiting = false;
-    for (let index = 0; index < 5_000 && !stopRef.current; index += 1) {
-      const result = await post({ action: "run_next", jobId });
-      if (result?.done) break;
-      if (result?.waiting) { waiting = true; break; }
-      if (index % 3 === 2) await load(jobId);
-    }
-    await load(jobId); setNotice(stopRef.current ? "已暂停，可稍后续跑" : waiting ? "已有识别 claim 执行中；lease 到期后可恢复" : "云端识别队列已处理完毕");
+    let done = false;
+    let rateLimitStopped = false;
+    let workerLimit = CLOUD_CONCURRENCY;
+    let blockedUntil = 0;
+    let rateLimitHits = 0;
+    let processedCount = 0;
+    let reusedCount = 0;
+    let failedCount = 0;
+    let lastRefreshAt = Date.now();
+    let lastRefreshCount = 0;
+    let refreshing = false;
+    let fatalError: unknown = null;
+    const waitForWindow = async () => {
+      while (!stopRef.current && Date.now() < blockedUntil) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(1_000, blockedUntil - Date.now())));
+      }
+    };
+    const refreshProgress = async (force = false) => {
+      const shouldRefresh = force || processedCount - lastRefreshCount >= CLOUD_PROGRESS_REFRESH_EVERY || Date.now() - lastRefreshAt >= CLOUD_PROGRESS_REFRESH_MS;
+      if (!shouldRefresh || refreshing) return;
+      refreshing = true;
+      try {
+        await load(jobId);
+        lastRefreshAt = Date.now();
+        lastRefreshCount = processedCount;
+      } finally {
+        refreshing = false;
+      }
+    };
+    const worker = async (workerIndex: number) => {
+      for (let index = 0; index < 5_000 && !stopRef.current && !done && !rateLimitStopped; index += 1) {
+        if (workerIndex >= workerLimit) break;
+        await waitForWindow();
+        if (stopRef.current || done || rateLimitStopped || workerIndex >= workerLimit) break;
+        let result: Record<string, unknown> | undefined;
+        try {
+          result = await post({ action: "run_next", jobId });
+        } catch (reason) {
+          fatalError = reason;
+          stopRef.current = true;
+          break;
+        }
+        if (result?.done) { done = true; break; }
+        if (result?.waiting) { waiting = true; break; }
+        if (result?.raced) continue;
+        const reused = Math.max(0, Number(result?.reusedCount ?? 0));
+        if (reused) { reusedCount += reused; processedCount += reused; }
+        else if (result?.itemId) processedCount += 1;
+        const failureKind = String(result?.failureKind ?? "");
+        if (failureKind) failedCount += 1;
+        if (failureKind === "rate_limit") {
+          rateLimitHits += 1;
+          if (rateLimitHits === 1) {
+            workerLimit = 1;
+            blockedUntil = Date.now() + Math.max(60_000, Number(result?.retryAfterMs ?? 0));
+            setNotice("模型供应商出现 429 限流：已自动从双通道降为单通道，并冷却 60 秒后续跑。");
+          } else {
+            rateLimitStopped = true;
+            break;
+          }
+        } else if (failureKind === "transient") {
+          blockedUntil = Math.max(blockedUntil, Date.now() + Math.max(5_000, Number(result?.retryAfterMs ?? 0)));
+        }
+        if (workerIndex === 0) await refreshProgress();
+      }
+    };
+    await Promise.all(Array.from({ length: CLOUD_CONCURRENCY }, (_, index) => worker(index)));
+    await refreshProgress(true);
+    if (fatalError) throw fatalError;
+    const summary = `本轮处理 ${processedCount} 条（复用同图同模型结果 ${reusedCount} 条，识别失败 ${failedCount} 条）`;
+    setNotice(rateLimitStopped
+      ? `${summary}；供应商连续 429，系统已自动暂停，避免继续消耗失败次数。请稍后点击“继续云端识别”。`
+      : stopRef.current ? `${summary}；已暂停，可稍后续跑`
+        : done ? `${summary}；云端识别队列已处理完毕`
+          : waiting ? `${summary}；已有识别 claim 执行中，lease 到期后可恢复`
+            : `${summary}；本轮双通道已结束`);
   });
   const saveReviewGroups = async (ids: string[]) => {
     const groups = new Map<string, Array<{ id: string; version: number; segment: string; imagePriceCents: number | null; selected: boolean }>>();
@@ -307,7 +379,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")}>{error || notice}</div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；京东 imgzone 大图优先、n5 兼容回退。AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
-    <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>每条云端请求只处理一个 SKU，D1 保存进度，关页后可继续。</p></div></div><div className="annotation-form-row">
+    <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>同图、同 Prompt、同模型的成功结果会直接复用；新图片采用安全双通道识别，遇到 429 自动降级并冷却。D1 持久化进度，关页后可继续。</p></div></div><div className="annotation-form-row">
       <label><span>筛选三级类目</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="输入类目关键词" /></label>
       <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
       <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>
@@ -316,7 +388,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
     </div><small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
     <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(item.id); void load(item.id, search, searchPage, 1); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
-    {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? "云端识别中…" : "继续云端识别"}</button><button className="secondary-button" onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
+    {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? "云端双通道识别中…" : "继续云端识别（安全双通道）"}</button><button className="secondary-button" disabled={busy !== "run-cloud"} onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
     </section>
 
     <section className="panel annotation-review-card">

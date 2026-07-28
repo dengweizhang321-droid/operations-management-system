@@ -109,6 +109,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /m\.sku_code LIKE \?.*a\.segment LIKE \?/s);
   assert.match(service, /lease_token_hash/);
   assert.match(service, /status<>'deleted'/);
+  assert.match(service, /reuseCloudAnnotationHistory/);
+  assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
   assert.match(model, /response_format: \{ type: "json_schema"/);
   assert.match(model, /tool_choice: \{ type: "tool"/);
@@ -119,6 +121,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /datetime\('now','\+2 minutes'\)/);
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
+  assert.match(ui, /const CLOUD_CONCURRENCY = 2/);
+  assert.match(ui, /模型供应商出现 429 限流：已自动从双通道降为单通道/);
+  assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
   assert.match(ui, /filteredCategories/);
@@ -325,6 +330,7 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(indexes.has("market_annotation_commits_batch_idx"));
   assert.ok(indexes.has("market_annotation_validation_result_lease_idx"));
   assert.ok(indexes.has("market_annotation_items_job_snapshot_uq"));
+  assert.ok(indexes.has("market_annotation_items_reuse_idx"));
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
 
   // A distinct runtime connection must also be safe after the first upgrade.
@@ -419,6 +425,55 @@ test("new annotation jobs reuse the latest confirmed standard price for the same
   assert.equal(job.totalCount, 2);
   assert.equal(job.completedCount, 1);
   assert.equal(job.status, "running");
+  sqlite.close();
+});
+
+test("cloud annotation reuses exact same-image results for the same prompt and model without another model call", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec("CREATE TABLE ai_models (id TEXT PRIMARY KEY, status TEXT NOT NULL, model_type TEXT NOT NULL)");
+  sqlite.exec("INSERT INTO ai_models VALUES ('vision-1','enabled','vision')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('prompt-reuse','净水',1,'manual','active','["台式","立式"]','这是用于验证同图同模型结果复用且不会重复调用模型的正式 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, completed_count, created_by)
+      VALUES ('history-job','净水','prompt-reuse','cloud','vision-1','review_ready',1,1,'operator@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name,
+       source_image_url, resolved_image_url, image_source, status, ai_segment, ai_image_price_cents, ai_price_type,
+       ai_price_low_cents, ai_price_high_cents, ai_confidence_bps, ai_reason, ai_raw_digest,
+       reviewed_segment, reviewed_image_price_cents, reviewed_price_type)
+      VALUES ('history-ai','history-job','净水','pop','SKU-REUSE','SKU','2026-01','hash-reuse','历史商品',
+       'https://img10.360buyimg.com/imgzone/reuse.jpg','https://img10.360buyimg.com/imgzone/reuse.jpg','imgzone','review_pending',
+       '台式',288800,'标准售价',288800,288800,9300,'同图识别结果','digest-reuse','台式',288800,'标准售价');
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode,
+       sku_code, product_name, brand, gmv_cents, quantity, visitors, image_url, raw_json, last_import_batch_id)
+      VALUES ('reuse-feb',1,'2026-02-01','2026-02-28','净水','pop','SKU','POP','SKU-REUSE','新月份同图商品','品牌',
+       100000,1,1,'https://img10.360buyimg.com/imgzone/reuse.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+      VALUES ('reuse-snapshot','净水','pop','SKU-REUSE','SKU','2026-02','hash-reuse','https://img10.360buyimg.com/imgzone/reuse.jpg','missing');
+  `);
+
+  const created = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-reuse", executor: "cloud", modelId: "vision-1", limit: 10 }, { email: "operator@test", role: "operator" });
+  const createdItem = sqlite.prepare("SELECT status,ai_segment segment,ai_image_price_cents price,attempt_count attempts FROM market_annotation_items WHERE job_id=?").get(created.id) as Record<string, unknown>;
+  assert.deepEqual({ ...createdItem }, { status: "review_pending", segment: "台式", price: 288800, attempts: 0 });
+  assert.equal(created.completedCount, 1);
+
+  sqlite.exec(`
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, created_by)
+      VALUES ('queued-reuse-job','净水','prompt-reuse','cloud','vision-1','running',1,'operator@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, source_image_url, status)
+      VALUES ('queued-reuse-item','queued-reuse-job','净水','pop','SKU-REUSE','SKU','2026-02','hash-reuse','待复用商品','https://img10.360buyimg.com/imgzone/reuse.jpg','queued');
+  `);
+  const resumed = await runNextCloudAnnotation(db, "queued-reuse-job");
+  assert.equal("reusedCount" in resumed ? resumed.reusedCount : 0, 1);
+  const resumedItem = sqlite.prepare("SELECT status,ai_segment segment,ai_image_price_cents price,attempt_count attempts FROM market_annotation_items WHERE id='queued-reuse-item'").get() as Record<string, unknown>;
+  assert.deepEqual({ ...resumedItem }, { status: "review_pending", segment: "台式", price: 288800, attempts: 0 });
   sqlite.close();
 });
 
