@@ -764,6 +764,60 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
 function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketOverview; onImported: () => void }) {
   const [tab, setTab] = useState<MarketSettingsTab>("database");
   const [databaseArea, setDatabaseArea] = useState<"master" | "annotation">("master");
+  const [cacheStats, setCacheStats] = useState(data.imageCache);
+  const [cacheRunning, setCacheRunning] = useState(false);
+  const [cacheNotice, setCacheNotice] = useState("");
+  const [cacheError, setCacheError] = useState("");
+  const stopImageCacheRef = useRef(false);
+  const isAdmin = currentUser?.role === "admin";
+  useEffect(() => {
+    if (!cacheRunning) setCacheStats(data.imageCache);
+  }, [cacheRunning, data.imageCache]);
+  useEffect(() => () => { stopImageCacheRef.current = true; }, []);
+  const refreshImageCache = async () => {
+    if (!isAdmin || cacheRunning || cacheStats.pending <= 0) return;
+    stopImageCacheRef.current = false;
+    setCacheRunning(true);
+    setCacheError("");
+    let latest = cacheStats;
+    let batches = 0;
+    let cachedThisSession = 0;
+    let failedThisSession = 0;
+    try {
+      while (!stopImageCacheRef.current && latest.pending > 0) {
+        setCacheNotice(`正在缓存第 ${batches + 1} 批：已成功 ${count(cachedThisSession)} 张，剩余 ${count(latest.pending)} 张`);
+        const response = await fetch("/api/market/images/cache", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ limit: 24 }),
+        });
+        const payload = await response.json().catch(() => null) as {
+          error?: string;
+          result?: MarketOverview["imageCache"] & { processed: number; cachedThisRun: number; failedThisRun: number };
+        } | null;
+        if (!response.ok || !payload?.result) throw new Error(payload?.error || "图片缓存接口无响应");
+        latest = payload.result;
+        batches += 1;
+        cachedThisSession += payload.result.cachedThisRun;
+        failedThisSession += payload.result.failedThisRun;
+        setCacheStats(latest);
+        if (payload.result.processed === 0) break;
+      }
+      if (stopImageCacheRef.current) {
+        setCacheNotice(`已停止：本次完成 ${count(batches)} 批，成功 ${count(cachedThisSession)} 张，剩余 ${count(latest.pending)} 张`);
+      } else if (latest.pending === 0) {
+        setCacheNotice(`图片缓存完成：本次成功 ${count(cachedThisSession)} 张，失败尝试 ${count(failedThisSession)} 张`);
+      } else {
+        setCacheNotice(`当前没有可领取的缓存批次，可能已有任务正在处理；剩余 ${count(latest.pending)} 张`);
+      }
+    } catch (reason) {
+      setCacheError(reason instanceof Error ? reason.message : "图片缓存刷新失败");
+    } finally {
+      setCacheRunning(false);
+      onImported();
+    }
+  };
+  const cachePercent = cacheStats.total > 0 ? Math.min(100, Math.round(cacheStats.cached / cacheStats.total * 100)) : 0;
   const tabs: Array<{ key: MarketSettingsTab; label: string; note: string }> = [
     { key: "database", label: "SKU 数据库", note: "主数据、价格与 AI 入库" },
     { key: "subcategory", label: "细分品类设置", note: "按三级类目统一维护" },
@@ -772,7 +826,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     { key: "data", label: "数据配置", note: "导入、下载与审计" },
   ];
   return <section className="market-settings-workspace">
-    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>参考现有市场系统的分栏结构，统一维护 SKU/SPU 主数据、品牌确认、价格、映射、导入与 AI 标注；模型算力直接继承运营管理系统的 AI 助理配置。</p></div><div><span><strong>{count(data.summary.activeSkuCount)}</strong>有效 SKU</span><span><strong>{count(data.summary.pendingAiCount)}</strong>待确认 AI 数据</span><span><strong>{count(data.imageCache.pending)}</strong>待缓存图片</span></div></article>
+    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>参考现有市场系统的分栏结构，统一维护 SKU/SPU 主数据、品牌确认、价格、映射、导入与 AI 标注；模型算力直接继承运营管理系统的 AI 助理配置。</p></div><div><span><strong>{count(data.summary.activeSkuCount)}</strong>有效 SKU</span><span><strong>{count(data.summary.pendingAiCount)}</strong>待确认 AI 数据</span><div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待缓存图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning || cacheStats.pending <= 0} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在分批缓存…" : cacheStats.pending > 0 ? "一键刷新图片缓存" : "图片缓存已完成"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { stopImageCacheRef.current = true; setCacheNotice("正在停止，当前批次完成后停止…"); }}>停止</button>}</div></div></div></article>
     <nav className="panel market-settings-tabs" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
     {tab === "database" && <nav className="panel market-database-areas"><button className={databaseArea === "master" ? "active" : ""} onClick={() => setDatabaseArea("master")}><strong>主数据与价格</strong><small>统一筛选、查看和编辑 SKU/SPU</small></button><button className={databaseArea === "annotation" ? "active" : ""} onClick={() => setDatabaseArea("annotation")}><strong>AI 标注与批量入库</strong><small>筛选候选、列表/大图复核并入库</small></button></nav>}
     {tab === "database" ? (databaseArea === "annotation" ? <MarketAnnotationView currentUser={currentUser} embedded /> : <MarketMasterAdminPanel currentUser={currentUser} mode="database" />) : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}

@@ -379,10 +379,14 @@ test("市场图片缓存使用受限京东抓取、R2、鉴权路由并接入标
   assert.match(cache, /MAX_CACHE_BATCH = 24/);
   assert.match(cache, /CACHE_CONCURRENCY = 4/);
   assert.match(cacheRoute, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(cacheRoute, /limit > 24/);
   assert.match(imageRoute, /requireAppPrincipal\(\)/);
   assert.match(imageRoute, /x-content-type-options/);
   assert.match(schemaCore, /CREATE TABLE IF NOT EXISTS market_image_cache/);
   assert.match(database, /\/api\/market\/images\//);
   assert.match(view, /正在自动缓存商品图/);
+  assert.match(view, /一键刷新图片缓存/);
+  assert.match(view, /stopImageCacheRef/);
+  assert.match(view, /JSON\.stringify\(\{ limit: 24 \}\)/);
   assert.match(annotation, /market_image_cache/);
 });
