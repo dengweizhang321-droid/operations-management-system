@@ -90,7 +90,10 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
 });
 
 test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
-  const view = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  const [view, masterRoute] = await Promise.all([
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
+  ]);
   for (const label of ["商品榜单", "市场概括", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
   assert.match(view, /useState<MarketSectionKey>\("ranking"\)/);
   assert.match(view, /activeSection === "ranking"/);
@@ -101,6 +104,10 @@ test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI �
   assert.match(view, /<MarketMasterAdminPanel currentUser=\{currentUser\}/);
   assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\}/);
   assert.match(view, /市场分析 → 系统和 AI 设置/);
+  assert.match(view, /view=system_kpis/);
+  for (const label of ["市场商品身份", "待确认价格", "待 AI 标注", "已生成 AI 结果"]) assert.match(view, new RegExp(label));
+  assert.match(masterRoute, /view === "system_kpis"/);
+  assert.match(masterRoute, /getMarketSystemKpis/);
 });
 
 test("市场榜单与系统设置呈现商品链接、上榜期数、主图价格复核和系统 AI 算力", async () => {

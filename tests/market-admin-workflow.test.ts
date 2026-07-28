@@ -15,6 +15,7 @@ import {
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
   getMarketSubcategoryWorkspace,
+  getMarketSystemKpis,
   listMarketMasterData,
   listPendingMarketPrices,
   matchMarketBrandSeeds,
@@ -83,6 +84,39 @@ test("market master GMV totals prefer full-month coverage, ignore rolling window
   const result = await listMarketMasterData(db as never, { pageSize: 20 });
   const totals = Object.fromEntries(result.items.map((row) => [row.skuCode, row.gmvTotalCents]));
   assert.deepEqual(totals, { "SKU-C": 2000, "SKU-A": 1000, "SKU-B": 100 });
+  sqlite.close();
+});
+
+test("system settings KPIs use independent whole-database product identities", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db as never);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES
+    ('a-june',1,'2026-06-01','2026-06-30','category-a','POP','SKU','POP','SKU-A','A June','{}','batch'),
+    ('a-july',2,'2026-07-01','2026-07-31','category-a','POP','SKU','POP','SKU-A','A July','{}','batch'),
+    ('b-june',3,'2026-06-01','2026-06-30','category-b','POP','SKU','POP','SKU-A','B','{}','batch'),
+    ('c-june',4,'2026-06-01','2026-06-30','category-c','self','SPU','自营','SPU-C','C','{}','batch');
+    INSERT INTO market_price_snapshots
+    (id,category,scope,sku_code,ranking_dimension,month,confirmed_market_price_cents,confirmation_status)
+    VALUES
+    ('price-a-june','category-a','POP','SKU-A','SKU','2026-06',10000,'confirmed'),
+    ('price-a-july','category-a','POP','SKU-A','SKU','2026-07',NULL,'review_pending'),
+    ('price-c-june','category-c','self','SPU-C','SPU','2026-06',20000,'confirmed');
+    INSERT INTO market_annotation_items
+    (id,job_id,category,scope,sku_code,ranking_dimension,month,status,ai_segment)
+    VALUES
+    ('annotation-a','job-a','category-a','POP','SKU-A','SKU','2026-06','completed','segment-a'),
+    ('annotation-b','job-b','category-b','POP','SKU-A','SKU','2026-06','failed','');`);
+
+  assert.deepEqual(await getMarketSystemKpis(db as never), {
+    marketIdentityTotal: 3,
+    pendingPriceCount: 2,
+    pendingAiCount: 2,
+    completedAiCount: 1,
+  });
   sqlite.close();
 });
 

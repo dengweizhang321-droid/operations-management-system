@@ -12,6 +12,7 @@ import {
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
   getMarketSkuComparison,
+  getMarketSystemKpis,
   listMarketMasterData,
   listPendingMarketPrices,
   planMissingMarketDownloads,
@@ -59,6 +60,9 @@ export async function GET(request: Request) {
     const db = getMarketDatabase();
     const params = new URL(request.url).searchParams;
     const view = params.get("view") ?? "workspace";
+    if (view === "system_kpis") {
+      return Response.json(await getMarketSystemKpis(db), { headers: { "cache-control": "no-store" } });
+    }
     if (view === "master") {
       return Response.json(await listMarketMasterData(db, {
         q: params.get("q") ?? undefined,

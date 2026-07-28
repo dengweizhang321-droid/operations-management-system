@@ -814,6 +814,50 @@ export async function recordMarketDownloadAttempt(db: MarketDatabase, input: {
   return after;
 }
 
+export type MarketSystemKpis = {
+  marketIdentityTotal: number;
+  pendingPriceCount: number;
+  pendingAiCount: number;
+  completedAiCount: number;
+};
+
+export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSystemKpis> {
+  await ensureMarketAdminSchema(db);
+  await ensureAnnotationSchema(db);
+  const row = await db.prepare(`WITH market_identities AS MATERIALIZED (
+      SELECT category, scope, ranking_dimension, sku_code
+      FROM market_ranking_entries
+      GROUP BY category, scope, ranking_dimension, sku_code
+    ), price_state AS MATERIALIZED (
+      SELECT category, scope, ranking_dimension, sku_code,
+        MAX(CASE WHEN confirmed_market_price_cents IS NULL THEN 1 ELSE 0 END) AS has_pending
+      FROM market_price_snapshots
+      GROUP BY category, scope, ranking_dimension, sku_code
+    ), ai_state AS MATERIALIZED (
+      SELECT category, scope, ranking_dimension, sku_code,
+        MAX(CASE WHEN COALESCE(ai_segment, '') <> ''
+          OR ai_image_price_cents IS NOT NULL
+          OR ai_confidence_bps IS NOT NULL
+          OR COALESCE(ai_reason, '') <> '' THEN 1 ELSE 0 END) AS has_ai_result
+      FROM market_annotation_items
+      GROUP BY category, scope, ranking_dimension, sku_code
+    )
+    SELECT COUNT(*) AS market_identity_total,
+      COALESCE(SUM(CASE WHEN COALESCE(price_state.has_pending, 1) = 1 THEN 1 ELSE 0 END), 0) AS pending_price_count,
+      COALESCE(SUM(CASE WHEN COALESCE(ai_state.has_ai_result, 0) = 0 THEN 1 ELSE 0 END), 0) AS pending_ai_count,
+      COALESCE(SUM(CASE WHEN ai_state.has_ai_result = 1 THEN 1 ELSE 0 END), 0) AS completed_ai_count
+    FROM market_identities
+    LEFT JOIN price_state USING (category, scope, ranking_dimension, sku_code)
+    LEFT JOIN ai_state USING (category, scope, ranking_dimension, sku_code)`)
+    .first<Record<string, number | null>>();
+  return {
+    marketIdentityTotal: Number(row?.market_identity_total ?? 0),
+    pendingPriceCount: Number(row?.pending_price_count ?? 0),
+    pendingAiCount: Number(row?.pending_ai_count ?? 0),
+    completedAiCount: Number(row?.completed_ai_count ?? 0),
+  };
+}
+
 export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
   mode?: "all" | "database" | "brand" | "mapping" | "subcategory" | "data";
   q?: string; category?: string; rankingDimension?: string; operationMode?: string; subcategory?: string;
