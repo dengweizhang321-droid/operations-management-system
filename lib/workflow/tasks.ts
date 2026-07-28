@@ -20,6 +20,8 @@ export type WorkflowTask = {
   due: string;
   status: WorkflowTaskStatus;
   priority: WorkflowTaskPriority;
+  source: "系统预置" | "手动录入";
+  createdAt: string;
   // The current UI keeps uploaded files in the active browser session. Keeping
   // this field maintains the client contract while task records are durable.
   attachments: [];
@@ -47,12 +49,14 @@ type WorkflowTaskRow = {
   due_date: string;
   status: string;
   priority: string;
+  created_by: string;
+  created_at: string;
 };
 
 const TASK_BOOTSTRAP_KEY = "work-plan-v1";
 const taskColumns = `
   id, title, work_content, category, owner, shop_name,
-  start_date, due_date, status, priority
+  start_date, due_date, status, priority, created_by, created_at
 `;
 
 const schemaStatements = [
@@ -130,6 +134,8 @@ function mapTask(row: WorkflowTaskRow): WorkflowTask {
     due: row.due_date,
     status: isWorkflowTaskStatus(row.status) ? row.status : "待开始",
     priority: isWorkflowTaskPriority(row.priority) ? row.priority : "normal",
+    source: row.created_by === "system" ? "系统预置" : "手动录入",
+    createdAt: row.created_at,
     attachments: [],
   };
 }

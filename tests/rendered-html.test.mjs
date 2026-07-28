@@ -513,6 +513,9 @@ test("exposes the four operational collaboration workspaces", async () => {
   assert.match(page, /搜索巡店记录/);
   assert.match(page, /搜索评价内容/);
   assert.match(page, /搜索新品项目/);
+  assert.match(page, /workflow-plan-table/);
+  for (const label of ["工作事项", "工作内容", "紧急程度", "跟进人", "截止时间", "录入时间"]) assert.match(page, new RegExp(label));
+  assert.match(page, /formatWorkflowRecordedAt/);
   for (const action of ["标记工作中", "标记完成", "退回待开始", "返还待开始", "返还工作中"]) assert.match(page, new RegExp(action));
   assert.match(page, /WorkflowTransitionActions/);
   assert.match(page, /WorkflowAttachmentList/);
@@ -545,6 +548,8 @@ test("persists work-plan creation, status changes, and deletion", async () => {
   assert.match(route, /export async function DELETE/);
   assert.match(tasks, /workflow_task_bootstrap/);
   assert.match(tasks, /DELETE FROM workflow_tasks/);
+  assert.match(tasks, /created_by, created_at/);
+  assert.match(tasks, /source: row\.created_by === "system"/);
   assert.match(migration, /CREATE TABLE `workflow_tasks`/);
 });
 

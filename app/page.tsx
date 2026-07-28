@@ -1157,6 +1157,23 @@ const formatDateTime = (value?: string | null) => {
     hour12: false,
   }).format(date);
 };
+const formatWorkflowRecordedAt = (value?: string | null) => {
+  if (!value) return "—";
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+};
 const formatChange = (current = 0, previous = 0) => {
   if (previous === 0) return current === 0 ? "0.0%" : "新增";
   return `${(((current - previous) / Math.abs(previous)) * 100).toFixed(1)}%`;
@@ -4011,6 +4028,8 @@ type WorkflowTask = {
   due: string;
   status: WorkflowStatus;
   priority: WorkflowPriority;
+  source: "系统预置" | "手动录入";
+  createdAt: string;
   attachments: WorkflowAttachment[];
 };
 
@@ -4497,28 +4516,25 @@ function WorkflowView() {
         </div>
         <span className="soft-tag">显示 {filteredTasks.length} 项</span>
       </section>
-      <section className="kanban workflow-kanban">
-        {workflowStages.map((column) => {
-          const columnTasks = filteredTasks.filter((item) => item.status === column.value);
-          return <div className="kanban-column" key={column.value}>
-            <div className="kanban-title"><span><Dot tone={column.tone} />{column.value}</span><em>{columnTasks.length}</em></div>
-            <div className="kanban-cards">{columnTasks.map((task) => {
-              const stageIndex = workflowStages.findIndex((stage) => stage.value === task.status);
-              return <article className="task-card workflow-task-card" key={task.id}>
-                <div className="workflow-task-card-heading"><span className={"task-priority priority-line-" + (task.priority === "high" ? "orange" : task.priority === "low" ? "green" : column.tone)} />{taskStatusBadge(task.status)}</div>
-                <h3>{task.title}</h3>
-                <span className="soft-tag">{task.category}</span>
-                <p className="workflow-task-content">{task.workContent}</p>
-                <div className="workflow-task-meta"><span>{task.shopName}</span><span>{task.startDate} → {task.due}</span><strong className={"workflow-priority priority-" + task.priority}>{workflowPriorityLabel(task.priority)}</strong></div>
-                <div className="workflow-card-stage-line" aria-label={"当前状态：" + task.status}>{workflowStages.map((stage, index) => <span className={index <= stageIndex ? "active" : ""} key={stage.value}>{stage.value}</span>)}</div>
-                <WorkflowAttachmentList attachments={task.attachments} inputId={"workflow-plan-file-" + task.id} onFiles={(files) => addTaskAttachments(task.id, files)} onRemove={(attachmentId) => removeTaskAttachment(task.id, attachmentId)} onPreview={setAttachmentViewer} />
-                <div className="workflow-task-actions"><WorkflowTransitionActions status={task.status} onTransition={(nextStatus) => void transitionTask(task.id, nextStatus)} disabled={tasksLoading || taskMutationPending} /><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></div>
-                <footer><span className="avatar-stack"><i>{task.owner.slice(0, 1)}</i><i>{task.owner.slice(-1)}</i></span><small>{task.owner}</small></footer>
-              </article>;
-            })}</div>
-            <button className="add-card" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>＋ 添加工作项</button>
-          </div>;
-        })}
+      <section className="panel workflow-plan-table-panel">
+        <div className="data-table-wrap">
+          <table className="data-table workflow-data-table workflow-plan-table">
+            <thead><tr><th>工作事项</th><th>工作内容</th><th>店铺</th><th>紧急程度</th><th>跟进人</th><th>截止时间</th><th>状态</th><th>来源</th><th>录入时间</th><th>附件</th><th>操作</th></tr></thead>
+            <tbody>{filteredTasks.map((task) => <tr key={task.id}>
+              <td><div className="workflow-plan-title"><strong>{task.title}</strong><small>{task.category}</small></div></td>
+              <td><p className="workflow-plan-content" title={task.workContent}>{task.workContent}</p></td>
+              <td><span className="workflow-plan-shop" title={task.shopName}>{task.shopName}</span></td>
+              <td><strong className={"workflow-priority priority-" + task.priority}>{workflowPriorityLabel(task.priority)}</strong></td>
+              <td>{task.owner}</td>
+              <td>{task.due}</td>
+              <td>{taskStatusBadge(task.status)}</td>
+              <td><span className="workflow-plan-source">{task.source}</span></td>
+              <td><time className="workflow-plan-recorded-at" dateTime={task.createdAt}>{formatWorkflowRecordedAt(task.createdAt)}</time></td>
+              <td className="workflow-plan-attachments"><WorkflowAttachmentList attachments={task.attachments} inputId={"workflow-plan-file-" + task.id} onFiles={(files) => addTaskAttachments(task.id, files)} onRemove={(attachmentId) => removeTaskAttachment(task.id, attachmentId)} onPreview={setAttachmentViewer} /></td>
+              <td><div className="workflow-plan-actions"><WorkflowTransitionActions status={task.status} onTransition={(nextStatus) => void transitionTask(task.id, nextStatus)} disabled={tasksLoading || taskMutationPending} /><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></div></td>
+            </tr>)}{filteredTasks.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的工作计划。</div></td></tr>}</tbody>
+          </table>
+        </div>
       </section>
       {attachmentModal}
       {taskDeletionModal}
