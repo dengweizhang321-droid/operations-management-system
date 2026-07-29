@@ -7,9 +7,14 @@ import {
   type AiToolExecutionResult,
   type RegistryAuditInput,
 } from "@/lib/ai/tool-registry-contract";
+import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 
 export const AI_TOOL_RUNTIME_LIMITS = {
-  maxTotalCalls: { minimum: 1, maximum: 24, default: 12 },
+  maxTotalCalls: {
+    minimum: 1,
+    maximum: AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls,
+    default: AI_MODEL_TOOL_BUDGET_LIMITS.defaultTotalCalls,
+  },
   maxCumulativeDurationMs: { minimum: 100, maximum: 120_000, default: 30_000 },
 } as const;
 

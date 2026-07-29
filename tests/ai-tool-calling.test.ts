@@ -12,7 +12,8 @@ import {
   validateToolRegistry,
   type AiToolEntry,
 } from "../lib/ai/tool-registry-contract";
-import { createAiToolExecutionRuntime } from "../lib/ai/tool-execution-runtime";
+import { AI_TOOL_RUNTIME_LIMITS, createAiToolExecutionRuntime } from "../lib/ai/tool-execution-runtime";
+import { AI_MODEL_TOOL_BUDGET_LIMITS } from "../lib/ai/model-tool-budget";
 import {
   AI_TOOL_SYSTEM_PROMPT,
   ModelProtocolError,
@@ -680,6 +681,32 @@ test("tool loop enforces per-round limits and keeps no-tool legacy answers", asy
   });
   assert.equal(plain, "普通回答");
   assert.equal(requests, 1);
+});
+
+test("configured model budgets can continue beyond the former six-round ceiling", async () => {
+  assert.deepEqual(AI_MODEL_TOOL_BUDGET_LIMITS, {
+    defaultRounds: 6,
+    defaultTotalCalls: 12,
+    increaseBy: 50,
+    maximumRounds: 62,
+    maximumTotalCalls: 74,
+  });
+  assert.equal(AI_TOOL_RUNTIME_LIMITS.maxTotalCalls.maximum, 74);
+  let rounds = 0;
+  const reply = await runOpenAiCompatibleToolLoop({
+    messages: [{ role: "user", content: "需要多步检索" }],
+    tools: [{ type: "function", function: { name: "public_lookup" } }],
+    limits: { maxRounds: 56, maxCallsPerRound: 4, maxTotalCalls: 62 },
+    request: async () => {
+      rounds += 1;
+      return rounds <= 6
+        ? { choices: [{ message: { tool_calls: [{ id: `call-${rounds}`, function: { name: "public_lookup", arguments: "{}" } }] } }] }
+        : { choices: [{ message: { content: "第七轮完成" } }] };
+    },
+    executeTool: async (name) => ({ ok: true, toolName: name, data: { returned: 1 } }),
+  });
+  assert.equal(reply, "第七轮完成");
+  assert.equal(rounds, 7);
 });
 
 test("production registry keeps all existing operations tools plus knowledge and global search", async () => {

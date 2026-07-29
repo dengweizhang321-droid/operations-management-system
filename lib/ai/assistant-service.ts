@@ -25,6 +25,10 @@ import {
   completeTextWithTools,
   type AiTextModelRuntimeConfig,
 } from "@/lib/ai/model-gateway";
+import {
+  AI_MODEL_TOOL_BUDGET_LIMITS,
+  AI_MODEL_TOOL_BUDGET_MIGRATION_KEY,
+} from "@/lib/ai/model-tool-budget";
 import type { ProviderToolCallMetadata } from "@/lib/ai/tool-loop";
 
 export {
@@ -337,12 +341,37 @@ const DEFAULT_MODEL_TIMEOUT_MS = 60_000;
 const DEFAULT_MODEL_MAX_TOKENS = 4_096;
 const DEFAULT_MODEL_REASONING_MODE: AiModelReasoningMode = "auto";
 const DEFAULT_MODEL_TEMPERATURE_MILLI = 200;
-const DEFAULT_MODEL_MAX_TOOL_ROUNDS = 6;
-const DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS = 12;
+const DEFAULT_MODEL_MAX_TOOL_ROUNDS = AI_MODEL_TOOL_BUDGET_LIMITS.defaultRounds;
+const DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS = AI_MODEL_TOOL_BUDGET_LIMITS.defaultTotalCalls;
 
 const modelSelectColumns = `id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
   is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
   last_test_result, last_tested_at, created_at, updated_at`;
+
+async function applyAiModelToolBudgetIncrease(db: SalesDatabase): Promise<void> {
+  await db.batch([
+    db.prepare(`UPDATE ai_models
+      SET max_tool_rounds = MIN(max_tool_rounds + ?, ?),
+          max_total_tool_calls = MIN(max_total_tool_calls + ?, ?),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE model_type = 'text'
+        AND NOT EXISTS (
+          SELECT 1 FROM ai_system_settings WHERE key = ?
+        )`).bind(
+      AI_MODEL_TOOL_BUDGET_LIMITS.increaseBy,
+      AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds,
+      AI_MODEL_TOOL_BUDGET_LIMITS.increaseBy,
+      AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls,
+      AI_MODEL_TOOL_BUDGET_MIGRATION_KEY,
+    ),
+    db.prepare(`INSERT INTO ai_system_settings (key, value_json, updated_by, updated_at)
+      VALUES (?, ?, 'system_runtime', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO NOTHING`).bind(
+      AI_MODEL_TOOL_BUDGET_MIGRATION_KEY,
+      JSON.stringify(AI_MODEL_TOOL_BUDGET_LIMITS),
+    ),
+  ]);
+}
 
 export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDatabase()): Promise<void> {
   const key = db as unknown as object;
@@ -361,6 +390,7 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
         ["max_tool_rounds", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOOL_ROUNDS}`],
         ["max_total_tool_calls", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS}`],
       ]);
+      await applyAiModelToolBudgetIncrease(db);
       await addMissingColumns(db, "ai_conversation_messages", [["message_kind", "TEXT NOT NULL DEFAULT 'message'"]]);
       await db.prepare(`CREATE INDEX IF NOT EXISTS ai_conversation_messages_context_idx
         ON ai_conversation_messages (conversation_id, message_kind, created_at)`).run();
@@ -948,8 +978,8 @@ function normalizeAiModelInput(input: AiModelInput): Required<Omit<AiModelInput,
     maxTokens: boundedInteger(input.maxTokens, DEFAULT_MODEL_MAX_TOKENS, 128, 8_192, "最大输出 token"),
     reasoningMode,
     temperatureMilli: boundedInteger(input.temperatureMilli, DEFAULT_MODEL_TEMPERATURE_MILLI, 0, 1_000, "温度"),
-    maxToolRounds: boundedInteger(input.maxToolRounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, 12, "工具轮数"),
-    maxTotalToolCalls: boundedInteger(input.maxTotalToolCalls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, 24, "工具调用总数"),
+    maxToolRounds: boundedInteger(input.maxToolRounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds, "工具轮数"),
+    maxTotalToolCalls: boundedInteger(input.maxTotalToolCalls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls, "工具调用总数"),
   };
 }
 
@@ -1046,8 +1076,8 @@ function mapAiTextModelRuntime(row: AiModelRow): AiTextModelRuntimeConfig {
     maxTokens: boundedInteger(row.max_tokens, DEFAULT_MODEL_MAX_TOKENS, 128, 8_192, "最大输出 token"),
     reasoningMode: asModelReasoningMode(row.reasoning_mode),
     temperature: boundedInteger(row.temperature_milli, DEFAULT_MODEL_TEMPERATURE_MILLI, 0, 1_000, "温度") / 1_000,
-    maxToolRounds: boundedInteger(row.max_tool_rounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, 12, "工具轮数"),
-    maxTotalToolCalls: boundedInteger(row.max_total_tool_calls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, 24, "工具调用总数"),
+    maxToolRounds: boundedInteger(row.max_tool_rounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds, "工具轮数"),
+    maxTotalToolCalls: boundedInteger(row.max_total_tool_calls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls, "工具调用总数"),
   };
 }
 

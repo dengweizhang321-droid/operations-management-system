@@ -302,6 +302,13 @@
       "when": 1785344400000,
       "tag": "0042_ai_knowledge_and_artifacts",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1785348000000,
+      "tag": "0043_ai_model_tool_budget_increase",
+      "breakpoints": true
     }
   ]
 }

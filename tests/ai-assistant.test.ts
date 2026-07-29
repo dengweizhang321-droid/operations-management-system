@@ -93,7 +93,7 @@ test("legacy image model type is migrated to the canonical vision capability", a
 });
 
 test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations are wired", async () => {
-  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, artifactRoute, service, entryContext, workflow, knowledge, artifacts, gateway, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, knowledgeArtifactMigration, guide, rolloutGuide] = await Promise.all([
+  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, artifactRoute, service, entryContext, workflow, knowledge, artifacts, gateway, toolBudget, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, knowledgeArtifactMigration, budgetMigration, guide, rolloutGuide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8"),
@@ -107,6 +107,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
     readFile(new URL("../lib/ai/data-knowledge.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/artifacts.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/model-gateway.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/model-tool-budget.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-execution-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-audit.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/auth/authorization.ts", import.meta.url), "utf8"),
@@ -117,6 +118,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
     readFile(new URL("../drizzle/0040_ai_model_reasoning_mode.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0041_ai_tool_execution_runtime.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0042_ai_knowledge_and_artifacts.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0043_ai_model_tool_budget_increase.sql", import.meta.url), "utf8"),
     readFile(new URL("../docs/AI_ASSISTANT_SETUP.md", import.meta.url), "utf8"),
     readFile(new URL("../docs/AI能力重构6-7层推进文档.md", import.meta.url), "utf8"),
   ]);
@@ -131,6 +133,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(page, /AiMessageArtifacts/);
   assert.match(page, /下载 CSV/);
   assert.match(page, /maxToolRounds/);
+  assert.match(page, /AI_MODEL_TOOL_BUDGET_LIMITS\.maximumRounds/);
   assert.match(page, /reasoningMode/);
   assert.match(page, /关闭推理（运营问答推荐）/);
   assert.match(page, /webhookUrlMasked/);
@@ -149,6 +152,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(service, /response\.status >= 300 && response\.status < 400/);
   assert.match(service, /callback_token_encrypted/);
   assert.match(service, /addMissingColumns\(db, "ai_channels"/);
+  assert.match(service, /applyAiModelToolBudgetIncrease\(db\)/);
   assert.match(service, /probeVisionModelConnection\(model\)/);
   assert.match(service, /listConversationContextMessages/);
   assert.match(service, /ALTER TABLE \$\{table\} ADD COLUMN/);
@@ -167,6 +171,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(gateway, /max_tokens: model\.maxTokens/);
   assert.match(gateway, /thinking: \{ type: "disabled" \}/);
   assert.match(gateway, /signal/);
+  assert.match(toolBudget, /maximumRounds: 62/);
+  assert.match(toolBudget, /maximumTotalCalls: 74/);
   assert.match(service, /DEFAULT_MODEL_TIMEOUT_MS = 60_000/);
   assert.match(service, /createRegisteredToolExecutionRuntime/);
   assert.match(service, /listAiArtifactsForConversation/);
@@ -196,6 +202,10 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(knowledgeArtifactMigration, /ai_artifacts/);
   assert.match(knowledgeArtifactMigration, /ai_artifact_deliveries/);
   assert.match(knowledgeArtifactMigration, /request_id/);
+  assert.match(budgetMigration, /max_tool_rounds[\s\S]*\+ 50/);
+  assert.match(budgetMigration, /max_total_tool_calls[\s\S]*\+ 50/);
+  assert.match(toolBudget, /ai-model-tool-budget-increase-2026-07-30/);
+  assert.match(budgetMigration, /ai-model-tool-budget-increase-2026-07-30/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
   assert.match(guide, /reasoning_tokens/);
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
@@ -247,5 +257,37 @@ test("AI question-pipeline and reasoning migrations upgrade the 0013 schema with
   assert.deepEqual({ ...message }, { messageKind: "message", content: "历史消息" });
   const indexes = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='ai_conversation_messages_context_idx'").all();
   assert.equal(indexes.length, 1);
+  sqlite.close();
+});
+
+test("AI model tool budget migration adds 50 once within the coordinated hard caps", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../drizzle/0013_ai_assistant.sql", import.meta.url), "utf8"));
+  sqlite.prepare(`INSERT INTO ai_models
+    (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, status)
+    VALUES ('text-default', '默认预算', 'openai_compatible', 'text', 'model-1', 'https://api.example.com/v1', 'encrypted', '1234', 'enabled')`).run();
+  sqlite.prepare(`INSERT INTO ai_models
+    (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, status)
+    VALUES ('text-high', '旧上限', 'openai_compatible', 'text', 'model-2', 'https://api.example.com/v1', 'encrypted', '1234', 'disabled')`).run();
+  sqlite.prepare(`INSERT INTO ai_models
+    (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, status)
+    VALUES ('vision-1', '视觉模型', 'openai_compatible', 'vision', 'vision-1', 'https://api.example.com/v1', 'encrypted', '1234', 'enabled')`).run();
+  sqlite.exec(await readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"));
+  sqlite.prepare("UPDATE ai_models SET max_tool_rounds=12, max_total_tool_calls=24 WHERE id='text-high'").run();
+  const migration = await readFile(new URL("../drizzle/0043_ai_model_tool_budget_increase.sql", import.meta.url), "utf8");
+  sqlite.exec(migration);
+  sqlite.exec(migration);
+  const rows = sqlite.prepare(`SELECT id, max_tool_rounds maxToolRounds,
+    max_total_tool_calls maxTotalToolCalls FROM ai_models ORDER BY id`).all() as Array<Record<string, number | string>>;
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { id: "text-default", maxToolRounds: 56, maxTotalToolCalls: 62 },
+    { id: "text-high", maxToolRounds: 62, maxTotalToolCalls: 74 },
+    { id: "vision-1", maxToolRounds: 6, maxTotalToolCalls: 12 },
+  ]);
+  const markers = sqlite.prepare(`SELECT key, updated_by updatedBy FROM ai_system_settings
+    WHERE key='ai-model-tool-budget-increase-2026-07-30'`).all() as Array<Record<string, string>>;
+  assert.deepEqual(markers.map((row) => ({ ...row })), [
+    { key: "ai-model-tool-budget-increase-2026-07-30", updatedBy: "system_migration" },
+  ]);
   sqlite.close();
 });

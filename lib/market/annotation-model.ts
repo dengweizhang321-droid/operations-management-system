@@ -1,6 +1,7 @@
 import { decryptSecret } from "@/lib/ai/crypto";
 import { resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
 import { completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
+import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
 import type { MarketDatabase } from "@/lib/market/database";
 import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
@@ -93,8 +94,8 @@ function textRuntimeModel(model: ModelRow): AiTextModelRuntimeConfig {
     maxTokens: boundedModelSetting(model.max_tokens, 4_096, 128, 8_192),
     reasoningMode: model.protocol !== "anthropic" && model.reasoning_mode === "disabled" ? "disabled" : "auto",
     temperature: boundedModelSetting(model.temperature_milli, 200, 0, 1_000) / 1_000,
-    maxToolRounds: boundedModelSetting(model.max_tool_rounds, 6, 1, 12),
-    maxTotalToolCalls: boundedModelSetting(model.max_total_tool_calls, 12, 1, 24),
+    maxToolRounds: boundedModelSetting(model.max_tool_rounds, AI_MODEL_TOOL_BUDGET_LIMITS.defaultRounds, 1, AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds),
+    maxTotalToolCalls: boundedModelSetting(model.max_total_tool_calls, AI_MODEL_TOOL_BUDGET_LIMITS.defaultTotalCalls, 1, AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls),
   };
 }
 
