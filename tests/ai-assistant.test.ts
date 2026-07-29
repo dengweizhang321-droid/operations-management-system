@@ -14,6 +14,7 @@ import {
   verifyDingTalkSignature,
   verifyWeComSignature,
 } from "../lib/ai/channel-callbacks";
+import { buildOpenAiChatRequestBody } from "../lib/ai/model-gateway";
 
 test("AI endpoint validation rejects insecure and private targets", () => {
   assert.equal(normalizeAiEndpointUrl("https://api.example.com/v1/", "model"), "https://api.example.com/v1");
@@ -27,6 +28,17 @@ test("AI model endpoint accepts either a provider root or a complete request URL
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "openai_compatible"), "https://api.example.com/v1/chat/completions");
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1/chat/completions", "openai_compatible"), "https://api.example.com/v1/chat/completions");
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "anthropic"), "https://api.example.com/v1/messages");
+});
+
+test("OpenAI-compatible reasoning mode is explicit and fail-closed", () => {
+  const base = { modelName: "glm-5.2", maxTokens: 4_096, temperature: 0.2 };
+  const automatic = buildOpenAiChatRequestBody({ ...base, reasoningMode: "auto" }, { messages: [] });
+  assert.equal(Object.hasOwn(automatic, "thinking"), false);
+  assert.equal(automatic.max_tokens, 4_096);
+
+  const disabled = buildOpenAiChatRequestBody({ ...base, reasoningMode: "disabled" }, { messages: [] });
+  assert.deepEqual(disabled.thinking, { type: "disabled" });
+  assert.equal(disabled.max_tokens, 4_096);
 });
 
 test("masked webhook never exposes route credentials", () => {
@@ -81,7 +93,7 @@ test("legacy image model type is migrated to the canonical vision capability", a
 });
 
 test("AI assistant routes, callbacks, UI, and migrations are wired", async () => {
-  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, service, entryContext, workflow, gateway, visionModel, callbackMigration, visionMigration, pipelineMigration, guide] = await Promise.all([
+  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, service, entryContext, workflow, gateway, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, guide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8"),
@@ -96,6 +108,7 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
     readFile(new URL("../drizzle/0014_ai_channel_callbacks.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0030_ai_vision_model_capability.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0040_ai_model_reasoning_mode.sql", import.meta.url), "utf8"),
     readFile(new URL("../docs/AI_ASSISTANT_SETUP.md", import.meta.url), "utf8"),
   ]);
 
@@ -107,6 +120,8 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(page, /停止生成/);
   assert.match(page, /本对话模型/);
   assert.match(page, /maxToolRounds/);
+  assert.match(page, /reasoningMode/);
+  assert.match(page, /关闭推理（运营问答推荐）/);
   assert.match(page, /webhookUrlMasked/);
   assert.match(chatRoute, /createWebChatEntryContext/);
   assert.match(chatRoute, /answerAiQuestion/);
@@ -136,14 +151,20 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(workflow, /已有对话已固定模型/);
   assert.match(gateway, /completeTextWithTools/);
   assert.match(gateway, /max_tokens: model\.maxTokens/);
+  assert.match(gateway, /thinking: \{ type: "disabled" \}/);
   assert.match(gateway, /signal/);
+  assert.match(service, /DEFAULT_MODEL_TIMEOUT_MS = 60_000/);
+  assert.match(page, /timeoutMs: 60000/);
   assert.match(pipelineMigration, /message_kind/);
   assert.match(pipelineMigration, /max_total_tool_calls/);
+  assert.match(reasoningMigration, /reasoning_mode/);
+  assert.match(reasoningMigration, /'auto', 'disabled'/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
+  assert.match(guide, /reasoning_tokens/);
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
 });
 
-test("AI question-pipeline migration upgrades the 0013 schema without rewriting existing records", async () => {
+test("AI question-pipeline and reasoning migrations upgrade the 0013 schema without rewriting existing records", async () => {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(await readFile(new URL("../drizzle/0013_ai_assistant.sql", import.meta.url), "utf8"));
   sqlite.prepare(`INSERT INTO ai_models
@@ -155,12 +176,14 @@ test("AI question-pipeline migration upgrades the 0013 schema without rewriting 
     VALUES ('message-1', 'conversation-1', 'user', '历史消息')`).run();
 
   sqlite.exec(await readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"));
+  sqlite.exec(await readFile(new URL("../drizzle/0040_ai_model_reasoning_mode.sql", import.meta.url), "utf8"));
   const model = sqlite.prepare(`SELECT timeout_ms timeoutMs, max_tokens maxTokens,
-    temperature_milli temperatureMilli, max_tool_rounds maxToolRounds,
-    max_total_tool_calls maxTotalToolCalls FROM ai_models WHERE id='text-1'`).get() as Record<string, number>;
+    reasoning_mode reasoningMode, temperature_milli temperatureMilli, max_tool_rounds maxToolRounds,
+    max_total_tool_calls maxTotalToolCalls FROM ai_models WHERE id='text-1'`).get() as Record<string, number | string>;
   assert.deepEqual({ ...model }, {
     timeoutMs: 20_000,
     maxTokens: 1_024,
+    reasoningMode: "auto",
     temperatureMilli: 200,
     maxToolRounds: 6,
     maxTotalToolCalls: 12,

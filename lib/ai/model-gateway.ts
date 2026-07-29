@@ -22,6 +22,7 @@ export type AiTextModelRuntimeConfig = {
   apiKeyEncrypted: string;
   timeoutMs: number;
   maxTokens: number;
+  reasoningMode: "auto" | "disabled";
   temperature: number;
   maxToolRounds: number;
   maxTotalToolCalls: number;
@@ -124,12 +125,7 @@ async function requestOpenAi(
     init: {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: model.modelName,
-        ...body,
-        max_tokens: model.maxTokens,
-        temperature: model.temperature,
-      }),
+      body: JSON.stringify(buildOpenAiChatRequestBody(model, body)),
     },
     timeoutMs: model.timeoutMs,
     signal,
@@ -138,6 +134,19 @@ async function requestOpenAi(
   if (!response.ok) throw new Error(providerFailure("模型调用失败", response.status, data?.error?.message));
   if (!data) throw new ModelProtocolError("OpenAI-compatible 响应不是有效 JSON");
   return data;
+}
+
+export function buildOpenAiChatRequestBody(
+  model: Pick<AiTextModelRuntimeConfig, "modelName" | "maxTokens" | "reasoningMode" | "temperature">,
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    model: model.modelName,
+    ...body,
+    ...(model.reasoningMode === "disabled" ? { thinking: { type: "disabled" } } : {}),
+    max_tokens: model.maxTokens,
+    temperature: model.temperature,
+  };
 }
 
 async function requestAnthropic(

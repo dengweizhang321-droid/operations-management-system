@@ -46,6 +46,7 @@ function modelInputFromPayload(payload: JsonRecord): AiModelInput | null {
     isDefaultTextModel: payload.isDefaultTextModel === true,
     timeoutMs: numberValue(payload, "timeoutMs"),
     maxTokens: numberValue(payload, "maxTokens"),
+    reasoningMode: stringValue(payload, "reasoningMode") as AiModelInput["reasoningMode"],
     temperatureMilli: numberValue(payload, "temperatureMilli"),
     maxToolRounds: numberValue(payload, "maxToolRounds"),
     maxTotalToolCalls: numberValue(payload, "maxTotalToolCalls"),

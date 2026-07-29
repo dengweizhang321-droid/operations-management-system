@@ -44,6 +44,7 @@ type CustomerServiceData = {
 type AiModelProtocol = "openai_compatible" | "anthropic";
 type AiModelType = "text" | "vision";
 type AiModelStatus = "enabled" | "disabled";
+type AiModelReasoningMode = "auto" | "disabled";
 type AiChannelKind = "dingtalk_group_bot" | "dingtalk_app" | "wechat_work_group_bot" | "wechat_work_app";
 type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string };
 type AiAvailableTextModel = { id: string; name: string; protocol: AiModelProtocol; modelName: string; isDefault: boolean };
@@ -60,6 +61,7 @@ type AiModelRecord = {
   status: AiModelStatus;
   timeoutMs: number;
   maxTokens: number;
+  reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
   maxTotalToolCalls: number;
@@ -107,6 +109,7 @@ type AiModelDraft = {
   isDefaultTextModel: boolean;
   timeoutMs: number;
   maxTokens: number;
+  reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
   maxTotalToolCalls: number;
@@ -5173,8 +5176,9 @@ function newAiModelDraft(): AiModelDraft {
     apiKey: "",
     status: "enabled",
     isDefaultTextModel: false,
-    timeoutMs: 20000,
-    maxTokens: 1024,
+    timeoutMs: 60000,
+    maxTokens: 4096,
+    reasoningMode: "auto",
     temperatureMilli: 200,
     maxToolRounds: 6,
     maxTotalToolCalls: 12,
@@ -5390,6 +5394,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
     isDefaultTextModel: item.isDefaultTextModel,
     timeoutMs: item.timeoutMs,
     maxTokens: item.maxTokens,
+    reasoningMode: item.reasoningMode,
     temperatureMilli: item.temperatureMilli,
     maxToolRounds: item.maxToolRounds,
     maxTotalToolCalls: item.maxTotalToolCalls,
@@ -5416,7 +5421,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
         <div className="section-header"><div><h3>{isEditingModel ? "编辑模型配置" : "新增模型配置"}</h3><p>支持 OpenAI 兼容接口和 Anthropic Messages 接口。密钥加密保存，列表只显示末四位。</p></div>{isEditingModel && <button type="button" className="text-button" onClick={() => setModelDraft(newAiModelDraft())}>取消编辑</button>}</div>
         <form className="ai-config-form" onSubmit={(event) => void saveModel(event)}>
           <label><span>配置名称</span><input value={modelDraft.name} required maxLength={100} onChange={(event) => setModelDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：生产文本模型" /></label>
-          <label><span>协议</span><SearchableSelect value={modelDraft.protocol} onChange={(value) => setModelDraft((current) => ({ ...current, protocol: value as AiModelProtocol }))} ariaLabel="模型协议" searchPlaceholder="搜索模型协议" options={[{ value: "openai_compatible", label: "OpenAI 兼容" }, { value: "anthropic", label: "Anthropic" }]} /></label>
+          <label><span>协议</span><SearchableSelect value={modelDraft.protocol} onChange={(value) => setModelDraft((current) => ({ ...current, protocol: value as AiModelProtocol, reasoningMode: value === "openai_compatible" ? current.reasoningMode : "auto" }))} ariaLabel="模型协议" searchPlaceholder="搜索模型协议" options={[{ value: "openai_compatible", label: "OpenAI 兼容" }, { value: "anthropic", label: "Anthropic" }]} /></label>
           <label><span>能力类型</span><SearchableSelect value={modelDraft.modelType} onChange={(value) => setModelDraft((current) => ({ ...current, modelType: value as AiModelType, isDefaultTextModel: value === "text" ? current.isDefaultTextModel : false }))} ariaLabel="模型能力类型" searchPlaceholder="搜索模型能力" options={[{ value: "text", label: "文本对话（不读取图片）" }, { value: "vision", label: "视觉识别（读取图片）" }]} /><small>市场主图价格识别必须选择“视觉识别”；连接测试会实际发送一张测试图。</small></label>
           <label><span>模型标识</span><input value={modelDraft.modelName} required maxLength={100} onChange={(event) => setModelDraft((current) => ({ ...current, modelName: event.target.value }))} placeholder="例如：gpt-4.1-mini" /></label>
           <label className="ai-form-wide"><span>API 地址</span><input value={modelDraft.baseUrl} required type="url" onChange={(event) => setModelDraft((current) => ({ ...current, baseUrl: event.target.value }))} placeholder="https://api.example.com/v1" /><small>生产环境仅接受 HTTPS；本地调试需显式启用服务器环境变量。</small></label>
@@ -5424,13 +5429,14 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
           <label><span>状态</span><SearchableSelect value={modelDraft.status} onChange={(value) => setModelDraft((current) => ({ ...current, status: value as AiModelStatus }))} ariaLabel="模型状态" searchPlaceholder="搜索模型状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
           <label><span>文本请求超时（毫秒）</span><input type="number" min={3000} max={120000} step={1000} disabled={modelDraft.modelType !== "text"} value={modelDraft.timeoutMs} onChange={(event) => setModelDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /><small>3,000—120,000，覆盖响应头和完整响应体。</small></label>
           <label><span>文本最大输出 Token</span><input type="number" min={128} max={8192} step={128} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTokens} onChange={(event) => setModelDraft((current) => ({ ...current, maxTokens: Number(event.target.value) }))} /></label>
+          <label><span>文本推理模式</span><SearchableSelect value={modelDraft.reasoningMode} onChange={(value) => setModelDraft((current) => ({ ...current, reasoningMode: value as AiModelReasoningMode }))} ariaLabel="文本推理模式" searchPlaceholder="搜索推理模式" disabled={modelDraft.modelType !== "text" || modelDraft.protocol !== "openai_compatible"} options={[{ value: "auto", label: "跟随供应商默认" }, { value: "disabled", label: "关闭推理（运营问答推荐）" }]} /><small>GLM 等默认深度思考模型建议关闭，避免推理占满输出 Token；其他模型保持“跟随供应商默认”。</small></label>
           <label><span>文本温度（千分数）</span><input type="number" min={0} max={1000} step={50} disabled={modelDraft.modelType !== "text"} value={modelDraft.temperatureMilli} onChange={(event) => setModelDraft((current) => ({ ...current, temperatureMilli: Number(event.target.value) }))} /><small>200 = 0.2；服务端按 0—1,000 校验。</small></label>
           <label><span>最大工具轮数</span><input type="number" min={1} max={12} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxToolRounds} onChange={(event) => setModelDraft((current) => ({ ...current, maxToolRounds: Number(event.target.value) }))} /></label>
           <label><span>工具调用总数</span><input type="number" min={1} max={24} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTotalToolCalls} onChange={(event) => setModelDraft((current) => ({ ...current, maxTotalToolCalls: Number(event.target.value) }))} /></label>
           <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.modelType !== "text" || modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认文本模型</span></label>
           <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
         </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{item.modelType === "text" && <small>超时 {item.timeoutMs}ms · 输出 {item.maxTokens} · 温度 {(item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name)}>删除</button></div></div>)}</div>
+        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{item.modelType === "text" && <small>超时 {item.timeoutMs}ms · 输出 {item.maxTokens} · 推理 {item.reasoningMode === "disabled" ? "关闭" : "供应商默认"} · 温度 {(item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name)}>删除</button></div></div>)}</div>
       </article>
       <article className="panel ai-admin-card">
         <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>

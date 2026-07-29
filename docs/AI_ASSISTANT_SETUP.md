@@ -4,7 +4,7 @@ AI 助理在“AI 助理”菜单中提供两类能力：文本模型对话，�
 
 ## 上线前准备
 
-1. 先应用 Drizzle 数据库迁移，至少包含 `drizzle/0013_ai_assistant.sql`、`drizzle/0014_ai_channel_callbacks.sql`、`drizzle/0030_ai_vision_model_capability.sql` 与 `drizzle/0039_ai_question_pipeline.sql`。
+1. 先应用 Drizzle 数据库迁移，至少包含 `drizzle/0013_ai_assistant.sql`、`drizzle/0014_ai_channel_callbacks.sql`、`drizzle/0030_ai_vision_model_capability.sql`、`drizzle/0039_ai_question_pipeline.sql` 与 `drizzle/0040_ai_model_reasoning_mode.sql`。
 2. 在服务器环境变量中设置强随机值 `AI_SECRET_ENCRYPTION_KEY`。Sites 项目必须把它设置为生产运行时 Secret，并在变更后重新发布版本；本地开发可通过进程环境变量或 `.dev.vars` 提供。缺少该变量时，系统会拒绝保存或解密密钥。
 3. 生产环境仅允许 HTTPS 的模型地址和 Webhook 地址。`AI_ALLOW_LOCAL_MODEL_ENDPOINTS=true` 只用于本机开发调试，不能用于生产。
 4. 只有管理员能新增、编辑、删除或测试模型和渠道；普通用户不读取这些敏感配置。
@@ -36,7 +36,7 @@ TERUISI_RUNTIME_ENV=development
 
 模型连接测试、普通对话和工具调用循环共用同一响应保护：请求总超时覆盖响应头和完整响应体，JSON 响应上限为 2 MiB；超时、重定向或超限时不会继续解析或把响应交给工具循环。
 
-每个文本模型还可独立配置请求超时、最大输出 Token、温度、最大工具轮数和工具调用总数。服务端会再次校验固定范围，客户端不能放大预算。新对话可从已启用文本模型中选择一个模型；已有对话固定使用创建时的模型，模型停用时才明确回退到当前默认文本模型。
+每个文本模型还可独立配置请求超时、最大输出 Token、推理模式、温度、最大工具轮数和工具调用总数。服务端会再次校验固定范围，客户端不能放大预算。“跟随供应商默认”不会附加推理参数；OpenAI 兼容模型选择“关闭推理”时，模型网关只发送受控的 `thinking: {"type":"disabled"}`。GLM 等默认深度思考模型用于高频运营问答时建议关闭推理并保留足够的正文 Token，避免 `reasoning_tokens` 占满输出预算。新建模型的文本请求默认超时为 60 秒，以容纳多轮工具问答。新对话可从已启用文本模型中选择一个模型；已有对话固定使用创建时的模型，模型停用时才明确回退到当前默认文本模型。
 
 网页对话统一经过入口上下文、问答 Workflow、模型网关和中央工具注册表。输入“帮助”会按当前角色列出真实可见工具，输入“新话题”会写入可追溯的上下文断点；这两类请求不调用模型。页面“停止生成”使用同一个取消信号中断模型请求，并在模型轮次和工具执行前后继续检查。当前供应商响应仍采用完整、有界 JSON 读取，不把整段响应伪装为 token 流式输出。
 

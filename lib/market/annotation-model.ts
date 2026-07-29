@@ -8,7 +8,7 @@ import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/mark
 export type AnnotationModelConfig = {
   id: string; name: string; protocol: string; model_type: string; model_name: string;
   base_url: string; api_key_encrypted: string; status: string;
-  timeout_ms?: number; max_tokens?: number; temperature_milli?: number;
+  timeout_ms?: number; max_tokens?: number; reasoning_mode?: string; temperature_milli?: number;
   max_tool_rounds?: number; max_total_tool_calls?: number;
 };
 type ModelRow = AnnotationModelConfig;
@@ -90,7 +90,8 @@ function textRuntimeModel(model: ModelRow): AiTextModelRuntimeConfig {
     baseUrl: model.base_url,
     apiKeyEncrypted: model.api_key_encrypted,
     timeoutMs: boundedModelSetting(model.timeout_ms, 20_000, 3_000, 120_000),
-    maxTokens: boundedModelSetting(model.max_tokens, 1_024, 128, 8_192),
+    maxTokens: boundedModelSetting(model.max_tokens, 4_096, 128, 8_192),
+    reasoningMode: model.protocol !== "anthropic" && model.reasoning_mode === "disabled" ? "disabled" : "auto",
     temperature: boundedModelSetting(model.temperature_milli, 200, 0, 1_000) / 1_000,
     maxToolRounds: boundedModelSetting(model.max_tool_rounds, 6, 1, 12),
     maxTotalToolCalls: boundedModelSetting(model.max_total_tool_calls, 12, 1, 24),

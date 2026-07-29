@@ -35,6 +35,8 @@ export const aiModelTypes = ["text", "vision"] as const;
 export type AiModelType = (typeof aiModelTypes)[number];
 export const aiModelStatuses = ["enabled", "disabled"] as const;
 export type AiModelStatus = (typeof aiModelStatuses)[number];
+export const aiModelReasoningModes = ["auto", "disabled"] as const;
+export type AiModelReasoningMode = (typeof aiModelReasoningModes)[number];
 export const aiChannelKinds = ["dingtalk_group_bot", "dingtalk_app", "wechat_work_group_bot", "wechat_work_app"] as const;
 export type AiChannelKind = (typeof aiChannelKinds)[number];
 export type AiChannelStatus = "enabled" | "disabled";
@@ -51,6 +53,7 @@ export type AiModelRecord = {
   status: AiModelStatus;
   timeoutMs: number;
   maxTokens: number;
+  reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
   maxTotalToolCalls: number;
@@ -116,6 +119,7 @@ export type AiModelInput = {
   isDefaultTextModel?: boolean;
   timeoutMs?: number;
   maxTokens?: number;
+  reasoningMode?: AiModelReasoningMode;
   temperatureMilli?: number;
   maxToolRounds?: number;
   maxTotalToolCalls?: number;
@@ -165,6 +169,7 @@ type AiModelRow = {
   status: string;
   timeout_ms: number;
   max_tokens: number;
+  reasoning_mode: string;
   temperature_milli: number;
   max_tool_rounds: number;
   max_total_tool_calls: number;
@@ -223,8 +228,9 @@ const schemaStatements = [
     api_key_suffix TEXT NOT NULL DEFAULT '',
     is_default_text_model INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('enabled', 'disabled')),
-    timeout_ms INTEGER NOT NULL DEFAULT 20000,
-    max_tokens INTEGER NOT NULL DEFAULT 1024,
+    timeout_ms INTEGER NOT NULL DEFAULT 60000,
+    max_tokens INTEGER NOT NULL DEFAULT 4096,
+    reasoning_mode TEXT NOT NULL DEFAULT 'auto' CHECK (reasoning_mode IN ('auto', 'disabled')),
     temperature_milli INTEGER NOT NULL DEFAULT 200,
     max_tool_rounds INTEGER NOT NULL DEFAULT 6,
     max_total_tool_calls INTEGER NOT NULL DEFAULT 12,
@@ -313,14 +319,15 @@ const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 const CHANNEL_REQUEST_TIMEOUT_MS = 15_000;
 const MAX_NAME_LENGTH = 100;
 const MAX_MESSAGE_LENGTH = 40_000;
-const DEFAULT_MODEL_TIMEOUT_MS = 20_000;
-const DEFAULT_MODEL_MAX_TOKENS = 1_024;
+const DEFAULT_MODEL_TIMEOUT_MS = 60_000;
+const DEFAULT_MODEL_MAX_TOKENS = 4_096;
+const DEFAULT_MODEL_REASONING_MODE: AiModelReasoningMode = "auto";
 const DEFAULT_MODEL_TEMPERATURE_MILLI = 200;
 const DEFAULT_MODEL_MAX_TOOL_ROUNDS = 6;
 const DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS = 12;
 
 const modelSelectColumns = `id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
-  is_default_text_model, status, timeout_ms, max_tokens, temperature_milli, max_tool_rounds, max_total_tool_calls,
+  is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
   last_test_result, last_tested_at, created_at, updated_at`;
 
 export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDatabase()): Promise<void> {
@@ -335,6 +342,7 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
       await addMissingColumns(db, "ai_models", [
         ["timeout_ms", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_TIMEOUT_MS}`],
         ["max_tokens", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOKENS}`],
+        ["reasoning_mode", `TEXT NOT NULL DEFAULT '${DEFAULT_MODEL_REASONING_MODE}'`],
         ["temperature_milli", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_TEMPERATURE_MILLI}`],
         ["max_tool_rounds", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOOL_ROUNDS}`],
         ["max_total_tool_calls", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS}`],
@@ -392,7 +400,8 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     && existing?.protocol === normalized.protocol
     && asModelType(existing?.model_type) === normalized.modelType
     && existing?.model_name === normalized.modelName
-    && existing?.base_url === normalized.baseUrl;
+    && existing?.base_url === normalized.baseUrl
+    && asModelReasoningMode(existing?.reasoning_mode) === normalized.reasoningMode;
   const lastTestResult = testStillApplies ? existing?.last_test_result ?? null : null;
   const lastTestedAt = testStillApplies ? existing?.last_tested_at ?? null : null;
   if (normalized.isDefaultTextModel && normalized.modelType === "text" && normalized.status === "enabled") {
@@ -400,9 +409,9 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
   }
   await db.prepare(
     `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
-       is_default_text_model, status, timeout_ms, max_tokens, temperature_milli, max_tool_rounds, max_total_tool_calls,
+       is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
        last_test_result, last_tested_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        protocol = excluded.protocol,
@@ -415,6 +424,7 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
        status = excluded.status,
        timeout_ms = excluded.timeout_ms,
        max_tokens = excluded.max_tokens,
+       reasoning_mode = excluded.reasoning_mode,
        temperature_milli = excluded.temperature_milli,
        max_tool_rounds = excluded.max_tool_rounds,
        max_total_tool_calls = excluded.max_total_tool_calls,
@@ -434,6 +444,7 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     normalized.status,
     normalized.timeoutMs,
     normalized.maxTokens,
+    normalized.reasoningMode,
     normalized.temperatureMilli,
     normalized.maxToolRounds,
     normalized.maxTotalToolCalls,
@@ -856,6 +867,10 @@ function normalizeAiModelInput(input: AiModelInput): Required<Omit<AiModelInput,
   const protocol = asModelProtocol(input.protocol);
   const modelType = asModelType(input.modelType);
   const status = asModelStatus(input.status);
+  const reasoningMode = asModelReasoningMode(input.reasoningMode ?? DEFAULT_MODEL_REASONING_MODE);
+  if (protocol !== "openai_compatible" && reasoningMode !== "auto") {
+    throw new Error("当前仅 OpenAI 兼容协议支持配置关闭推理模式");
+  }
   const name = normalizeText(input.name, "", MAX_NAME_LENGTH);
   const modelName = normalizeText(input.modelName, "", MAX_NAME_LENGTH);
   if (!name || !modelName) throw new Error("模型名称和模型标识不能为空");
@@ -872,6 +887,7 @@ function normalizeAiModelInput(input: AiModelInput): Required<Omit<AiModelInput,
     isDefaultTextModel: Boolean(input.isDefaultTextModel),
     timeoutMs: boundedInteger(input.timeoutMs, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000, "模型超时"),
     maxTokens: boundedInteger(input.maxTokens, DEFAULT_MODEL_MAX_TOKENS, 128, 8_192, "最大输出 token"),
+    reasoningMode,
     temperatureMilli: boundedInteger(input.temperatureMilli, DEFAULT_MODEL_TEMPERATURE_MILLI, 0, 1_000, "温度"),
     maxToolRounds: boundedInteger(input.maxToolRounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, 12, "工具轮数"),
     maxTotalToolCalls: boundedInteger(input.maxTotalToolCalls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, 24, "工具调用总数"),
@@ -913,6 +929,7 @@ function mapAiModelRecord(row: AiModelRow): AiModelRecord {
     status: asModelStatus(row.status),
     timeoutMs: row.timeout_ms,
     maxTokens: row.max_tokens,
+    reasoningMode: asModelReasoningMode(row.reasoning_mode),
     temperatureMilli: row.temperature_milli,
     maxToolRounds: row.max_tool_rounds,
     maxTotalToolCalls: row.max_total_tool_calls,
@@ -967,6 +984,7 @@ function mapAiTextModelRuntime(row: AiModelRow): AiTextModelRuntimeConfig {
     apiKeyEncrypted: row.api_key_encrypted,
     timeoutMs: boundedInteger(row.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000, "模型超时"),
     maxTokens: boundedInteger(row.max_tokens, DEFAULT_MODEL_MAX_TOKENS, 128, 8_192, "最大输出 token"),
+    reasoningMode: asModelReasoningMode(row.reasoning_mode),
     temperature: boundedInteger(row.temperature_milli, DEFAULT_MODEL_TEMPERATURE_MILLI, 0, 1_000, "温度") / 1_000,
     maxToolRounds: boundedInteger(row.max_tool_rounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, 12, "工具轮数"),
     maxTotalToolCalls: boundedInteger(row.max_total_tool_calls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, 24, "工具调用总数"),
@@ -987,6 +1005,11 @@ function asModelType(value: unknown): AiModelType {
 function asModelStatus(value: unknown): AiModelStatus {
   if (aiModelStatuses.includes(value as AiModelStatus)) return value as AiModelStatus;
   throw new Error("模型状态无效");
+}
+
+function asModelReasoningMode(value: unknown): AiModelReasoningMode {
+  if (aiModelReasoningModes.includes(value as AiModelReasoningMode)) return value as AiModelReasoningMode;
+  throw new Error("模型推理模式无效");
 }
 
 function asChannelKind(value: unknown): AiChannelKind {
