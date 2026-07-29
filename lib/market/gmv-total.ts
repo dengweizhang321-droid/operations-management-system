@@ -2,7 +2,8 @@ import type { MarketSchemaDatabase } from "@/lib/market/schema-core";
 
 const readyByDatabase = new WeakMap<object, Promise<void>>();
 
-const gmvTotalsSelectSql = `WITH eligible_gmv_rows AS MATERIALIZED (
+function buildGmvTotalsSelectSql(sourceFilter = "") {
+  return `WITH eligible_gmv_rows AS MATERIALIZED (
     SELECT source.*,
       substr(source.period_end,1,7) gmv_month,
       CASE WHEN COALESCE(source.price_band_filter,'') IN ('','\u5168\u90e8') THEN 0 ELSE 1 END band_priority,
@@ -14,7 +15,7 @@ const gmvTotalsSelectSql = `WITH eligible_gmv_rows AS MATERIALIZED (
           AND source.period_end=date(source.period_start,'start of month','+1 month','-1 day') THEN 'monthly'
         ELSE 'rolling'
       END period_kind
-    FROM market_ranking_entries source
+    FROM market_ranking_entries source ${sourceFilter}
   ), monthly_ranked AS MATERIALIZED (
     SELECT source.*,
       ROW_NUMBER() OVER (PARTITION BY sku_code, gmv_month ORDER BY band_priority, period_end DESC, updated_at DESC, id DESC) pick_rank
@@ -37,13 +38,28 @@ const gmvTotalsSelectSql = `WITH eligible_gmv_rows AS MATERIALIZED (
   )
   SELECT sku_code, SUM(gmv_cents) gmv_total_cents
   FROM month_picks WHERE month_pick_rank=1 GROUP BY sku_code`;
+}
 
-export async function refreshMarketSkuGmvTotals(db: MarketSchemaDatabase) {
-  await db.batch([
+export function marketSkuGmvRefreshStatements(db: MarketSchemaDatabase, batchId?: string) {
+  if (batchId) {
+    const stagedSkuSql = `SELECT DISTINCT json_extract(row_json, '$.skuCode') sku_code
+      FROM market_import_staging_rows WHERE batch_id=?`;
+    return [
+      db.prepare(`DELETE FROM market_sku_gmv_totals WHERE sku_code IN (${stagedSkuSql})`).bind(batchId),
+      db.prepare(`INSERT INTO market_sku_gmv_totals (sku_code, gmv_total_cents, updated_at)
+        SELECT sku_code, gmv_total_cents, CURRENT_TIMESTAMP FROM (${buildGmvTotalsSelectSql(`WHERE source.sku_code IN (${stagedSkuSql})`)})`)
+        .bind(batchId),
+    ];
+  }
+  return [
     db.prepare("DELETE FROM market_sku_gmv_totals"),
     db.prepare(`INSERT INTO market_sku_gmv_totals (sku_code, gmv_total_cents, updated_at)
-      SELECT sku_code, gmv_total_cents, CURRENT_TIMESTAMP FROM (${gmvTotalsSelectSql})`),
-  ]);
+      SELECT sku_code, gmv_total_cents, CURRENT_TIMESTAMP FROM (${buildGmvTotalsSelectSql()})`),
+  ];
+}
+
+export async function refreshMarketSkuGmvTotals(db: MarketSchemaDatabase) {
+  await db.batch(marketSkuGmvRefreshStatements(db));
 }
 
 export async function ensureMarketSkuGmvTotals(db: MarketSchemaDatabase) {

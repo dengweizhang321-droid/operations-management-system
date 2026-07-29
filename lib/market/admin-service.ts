@@ -6,6 +6,7 @@ import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/sch
 import { marketEffectiveFactsCtes } from "@/lib/market/overview-sql";
 import { ensureMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 import { ensureMarketMasterIdentities, refreshMarketMasterIdentities } from "@/lib/market/master-identity";
+import { marketNaturalKeySql, normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import {
   applyManualBrandSeedToIdentity,
   listMarketBrandSeeds,
@@ -203,10 +204,12 @@ export async function updateMarketSkuMasterData(db: MarketDatabase, input: {
   const statements = [
     db.prepare(`UPDATE market_ranking_entries SET
       category=?, product_name=?, brand=?, operation_mode=?, subcategory=?,
-      natural_key=period_start || '|' || period_end || '|' || ? || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code,
       updated_at=CURRENT_TIMESTAMP
       WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
-      .bind(category, productName, brand, operationMode, subcategory, category, originalCategory, scope, rankingDimension, skuCode),
+      .bind(category, productName, brand, operationMode, subcategory, originalCategory, scope, rankingDimension, skuCode),
+    db.prepare(`UPDATE market_ranking_entries SET natural_key=${marketNaturalKeySql()}, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
+      .bind(category, scope, rankingDimension, skuCode),
     db.prepare(`UPDATE market_price_snapshots SET category=?, updated_at=CURRENT_TIMESTAMP
       WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?`)
       .bind(category, originalCategory, scope, rankingDimension, skuCode),
@@ -1132,7 +1135,7 @@ function masterBaseSql(includeHistory = false) {
 }
 
 async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: string; filters?: MarketOverviewFilters }) {
-  const skuCode = input.skuCode.trim().slice(0, 80);
+  const skuCode = normalizeMarketSkuCode(input.skuCode);
   const clauses = ["m.sku_code = ?"];
   const values: unknown[] = [skuCode];
   const list = (column: string, entries?: string[]) => {

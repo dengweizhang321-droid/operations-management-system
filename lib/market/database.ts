@@ -1,10 +1,9 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
+import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
-import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
-import { refreshMarketMasterIdentities } from "@/lib/market/master-identity";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -125,10 +124,7 @@ export async function saveMarketImport(input: {
   rows: MarketEntryInput[];
   warnings: MarketImportIssue[];
 }): Promise<MarketImportBatch> {
-  const batch = await saveMarketImportCore(input) as MarketImportBatch;
-  await refreshMarketSkuGmvTotals(input.db);
-  await refreshMarketMasterIdentities(input.db);
-  return batch;
+  return saveMarketImportCore(input) as Promise<MarketImportBatch>;
 }
 
 
@@ -422,7 +418,7 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
   category?: string;
   rankingDimension?: "SKU" | "SPU";
 }) {
-  const skuCode = input.skuCode.trim().slice(0, 80);
+  const skuCode = normalizeMarketSkuCode(input.skuCode);
   if (!skuCode) throw new Error("SKU 不能为空");
   const clauses = ["m.sku_code = ?"];
   const values: unknown[] = [skuCode];

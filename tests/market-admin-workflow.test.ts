@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
@@ -34,19 +35,33 @@ import {
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketMasterIdentities, refreshMarketMasterIdentities } from "../lib/market/master-identity";
 import { executeMarketDownloadTask } from "../lib/market/download-executor";
-import { matchMarketBrandTitle, type MarketBrandSeed } from "../lib/market/brand-seeds";
+import { matchImportedMarketBrands, matchMarketBrandTitle, refreshSystemMarketBrandSeeds, type MarketBrandSeed } from "../lib/market/brand-seeds";
+import type { MarketEntryForImport } from "../lib/market/import-core";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
-function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
+function sqliteAdapter(sqlite: DatabaseSync, hooks: {
+  beforeRun?: (sql: string) => Promise<void>;
+  afterRun?: (sql: string) => Promise<void>;
+  afterFirst?: (sql: string) => Promise<void>;
+} = {}): MarketSchemaDatabase {
   return {
     prepare(sql: string) {
       const statement = sqlite.prepare(sql);
       let values: unknown[] = [];
       return {
         bind(...nextValues: unknown[]) { values = nextValues; return this; },
-        async first<T>() { return (statement.get(...values) ?? null) as T | null; },
+        async first<T>() {
+          const result = (statement.get(...values) ?? null) as T | null;
+          await hooks.afterFirst?.(sql);
+          return result;
+        },
         async all<T>() { return { results: statement.all(...values) as T[] }; },
-        async run() { const result = statement.run(...values); return { meta: { changes: Number(result.changes) } }; },
+        async run() {
+          await hooks.beforeRun?.(sql);
+          const result = statement.run(...values);
+          await hooks.afterRun?.(sql);
+          return { meta: { changes: Number(result.changes) } };
+        },
       };
     },
     async batch(statements: Array<{ run(): Promise<unknown> }>) {
@@ -206,7 +221,7 @@ test("unified SKU database filters annotation storage status and updates all edi
   const master = sqlite.prepare("SELECT category,product_name productName,brand,operation_mode operationMode,subcategory,natural_key naturalKey FROM market_ranking_entries WHERE sku_code='SKU-EDIT'").get() as Record<string, string>;
   assert.deepEqual({ category: master.category, productName: master.productName, brand: master.brand, operationMode: master.operationMode, subcategory: master.subcategory },
     { category: "三级类目B", productName: "新标题", brand: "新品牌", operationMode: "自营", subcategory: "新细分" });
-  assert.match(master.naturalKey, /\|三级类目B\|/);
+  assert.match(master.naturalKey, /\|13:三级类目B\|/);
   const price = sqlite.prepare("SELECT category,confirmed_market_price_cents price FROM market_price_snapshots WHERE id='edit-price'").get() as { category: string; price: number };
   assert.deepEqual({ ...price }, { category: "三级类目B", price: 259900 });
   assert.deepEqual({ ...(sqlite.prepare("SELECT category,segment FROM market_sku_annotations WHERE id='edit-annotation'").get() as Record<string, unknown>) }, { category: "三级类目B", segment: "新细分" });
@@ -322,6 +337,40 @@ test("system brand seeds refresh and apply B-store prefix versus C-store anywher
   workspace = await getMarketBrandSeedWorkspace(db as never, { category: "净水" });
   assert.equal(workspace.dictionary.counts.manual, 1);
   assert.equal(workspace.unknown.pagination.total, 0);
+});
+
+test("newly discovered system brand seeds match the current import without pre-publish writes", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec("CREATE TABLE erp_product_master (brand TEXT NOT NULL); INSERT INTO erp_product_master VALUES ('品牌新')");
+  const matched = await matchImportedMarketBrands(db, [{
+    brand: "", productName: "商用品牌新净水机", scope: "C店", operationMode: "POP", raw: { 店铺类型: "C店" },
+  } as MarketEntryForImport]);
+  assert.equal(matched.rows[0]?.brand, "品牌新");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_brand_seeds").get() as { count: number }).count, 0);
+  sqlite.exec(`INSERT INTO market_brand_seeds
+    (id,canonical_brand,seed_text,normalized_seed,source,source_ref,status,created_by)
+    VALUES ('stale-seed','旧品牌','旧品牌','旧品牌','system','old-source','enabled','system')`);
+  const stale = await matchImportedMarketBrands(db, [{
+    brand: "", productName: "旧品牌商用净水机", scope: "C店", operationMode: "POP", raw: { 店铺类型: "C店" },
+  } as MarketEntryForImport]);
+  assert.equal(stale.rows[0]?.brand, "");
+  sqlite.close();
+});
+
+test("system brand seed refresh is atomic when one discovered seed is rejected", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec("CREATE TABLE erp_product_master (brand TEXT NOT NULL)");
+  const insert = sqlite.prepare("INSERT INTO erp_product_master VALUES (?)");
+  for (let index = 0; index < 81; index += 1) insert.run(`品牌${index}`);
+  sqlite.exec(`CREATE TRIGGER reject_last_system_seed BEFORE INSERT ON market_brand_seeds
+    WHEN NEW.canonical_brand='品牌80' BEGIN SELECT RAISE(ABORT, 'forced seed failure'); END;`);
+  await assert.rejects(refreshSystemMarketBrandSeeds(db, "admin@example.com"), /forced seed failure/);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_brand_seeds WHERE source='system'").get() as { count: number }).count, 0);
+  sqlite.close();
 });
 
 test("brand recognition jobs count unique pending identities and persist pause/resume progress", async () => {
@@ -442,6 +491,104 @@ test("download executor validates, stages, imports, caches, creates price tasks,
   sqlite.close();
 });
 
+test("download executor republishes a failed import batch instead of treating it as a duplicate", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await upsertMarketDownloadConfig(db as never, { category: "category-retry", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(db as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-retry,pop,SKU,1,SKU-RETRY,Retry,Brand,200,2",
+  ].join("\n");
+  const bytes = new TextEncoder().encode(csv);
+  const importIdentityHash = createHash("sha256").update(bytes)
+    .update(["", "category-retry", "pop", "SKU", "2026-06"].join("\0")).digest("hex");
+  sqlite.prepare(`INSERT INTO market_import_batches
+    (id,source_type,file_name,file_size_bytes,file_hash,sheet_name,status,row_count)
+    VALUES ('failed-import','jd_market_download','retry.csv',?,?, 'CSV','failed',1)`)
+    .run(bytes.byteLength, importIdentityHash);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,sku_code,product_name,gmv_cents,quantity,raw_json,last_import_batch_id)
+    VALUES ('legacy-partial',2,'2026-06-01','2026-06-30','category-retry','pop','全部','SKU','POP','SKU-RETRY','Old',100,1,'{}','failed-import')`);
+  sqlite.exec(`CREATE TRIGGER reject_normal_imported_task_update BEFORE UPDATE ON market_download_tasks
+    WHEN NEW.status='imported' AND NEW.error_code=''
+    BEGIN SELECT RAISE(ABORT, 'forced task metadata failure'); END;`);
+
+  const result = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "retry.csv" }),
+    cacheImages: async () => { throw new Error("forced cache failure"); },
+    createPriceTasks: async () => { throw new Error("forced price-task failure"); },
+  });
+
+  assert.equal(result.status, "imported");
+  assert.equal(result.duplicate, false);
+  assert.equal(result.batchId, "failed-import");
+  assert.equal(result.maintenanceFailed, true);
+  assert.equal(result.reconciliationPending, true);
+  const importedTask = sqlite.prepare(`SELECT status, source_file_name sourceFileName, file_hash fileHash, row_count rowCount,
+    header_valid headerValid, period_valid periodValid, category_valid categoryValid, dimension_valid dimensionValid,
+    import_batch_id importBatchId, validation_json validationJson
+    FROM market_download_tasks WHERE id=?`).get(task.id) as Record<string, unknown>;
+  assert.equal(importedTask.status, "imported");
+  assert.equal(importedTask.sourceFileName, "retry.csv");
+  assert.equal(importedTask.fileHash, createHash("sha256").update(bytes).digest("hex"));
+  assert.equal(importedTask.rowCount, 1);
+  assert.deepEqual([importedTask.headerValid, importedTask.periodValid, importedTask.categoryValid, importedTask.dimensionValid], [1, 1, 1, 1]);
+  assert.equal(importedTask.importBatchId, "failed-import");
+  assert.equal(JSON.parse(String(importedTask.validationJson)).importIdentityHash, importIdentityHash);
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,row_count rowCount FROM market_import_batches WHERE id='failed-import'").get() as Record<string, unknown>) }, { status: "completed", rowCount: 1 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT product_name productName,gmv_cents gmv,last_import_batch_id batchId FROM market_ranking_entries WHERE sku_code='SKU-RETRY'").get() as Record<string, unknown>) }, { productName: "Retry", gmv: 20000, batchId: "failed-import" });
+  assert.deepEqual(await planMissingMarketDownloads(db as never, {}, admin), { created: 0, reused: 0 });
+  sqlite.close();
+});
+
+test("download executor reconciles a completed import after consecutive task-status update failures", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await upsertMarketDownloadConfig(db as never, { category: "category-reconcile", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(db as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-reconcile,pop,SKU,1,SKU-RECONCILE,Reconcile,Brand,300,3",
+  ].join("\n");
+  const bytes = new TextEncoder().encode(csv);
+  let downloads = 0;
+  sqlite.exec(`CREATE TRIGGER reject_all_imported_task_updates BEFORE UPDATE ON market_download_tasks
+    WHEN NEW.status='imported'
+    BEGIN SELECT RAISE(ABORT, 'forced persistent task status failure'); END;`);
+
+  const first = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, {
+    download: async () => {
+      downloads += 1;
+      return { bytes, fileName: "reconcile.csv", jdTaskId: "jd-reconcile" };
+    },
+  });
+  assert.equal(first.status, "imported");
+  assert.equal(first.reconciliationPending, true);
+  const pendingTask = sqlite.prepare(`SELECT status, import_batch_id importBatchId, file_hash fileHash, row_count rowCount,
+    header_valid headerValid, period_valid periodValid, category_valid categoryValid, dimension_valid dimensionValid
+    FROM market_download_tasks WHERE id=?`).get(task.id) as Record<string, unknown>;
+  assert.equal(pendingTask.status, "downloading");
+  assert.ok(pendingTask.importBatchId);
+  assert.equal(pendingTask.fileHash, createHash("sha256").update(bytes).digest("hex"));
+  assert.equal(pendingTask.rowCount, 1);
+  assert.deepEqual([pendingTask.headerValid, pendingTask.periodValid, pendingTask.categoryValid, pendingTask.dimensionValid], [1, 1, 1, 1]);
+
+  sqlite.exec("DROP TRIGGER reject_all_imported_task_updates;");
+  const reconciled = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin);
+  assert.equal(reconciled.status, "imported");
+  assert.equal(reconciled.reconciled, true);
+  assert.equal(downloads, 1);
+  assert.equal((sqlite.prepare("SELECT status FROM market_download_tasks WHERE id=?").get(task.id) as { status: string }).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-RECONCILE'").get() as { count: number }).count, 1);
+  assert.deepEqual(await planMissingMarketDownloads(db as never, {}, admin), { created: 0, reused: 0 });
+  sqlite.close();
+});
+
 test("same downloaded bytes remain idempotent per category scope dimension and month", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
@@ -492,6 +639,325 @@ test("download execution claim prevents concurrent imports and waiting login doe
   assert.equal((await first).status, "imported");
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches").get() as { count: number }).count, 1);
   await assert.rejects(() => recordMarketDownloadAttempt(db as never, { taskId: task.id, status: "imported" as never }, admin), /客户端/);
+  sqlite.close();
+});
+
+test("download executor takes over an expired pre-publish execution lease", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await upsertMarketDownloadConfig(db as never, { category: "category-stale-lease", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(db as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  sqlite.prepare(`UPDATE market_download_tasks SET status='downloading', last_attempt_at='2026-01-01T00:00:00.000Z' WHERE id=?`).run(task.id);
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-stale-lease,pop,SKU,1,SKU-STALE,Recovered,Brand,400,4",
+  ].join("\n");
+
+  const result = await executeMarketDownloadTask(db as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes: new TextEncoder().encode(csv), fileName: "stale.csv" }),
+  });
+
+  assert.equal(result.status, "imported");
+  assert.equal((sqlite.prepare("SELECT status FROM market_download_tasks WHERE id=?").get(task.id) as { status: string }).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-STALE'").get() as { count: number }).count, 1);
+  sqlite.close();
+});
+
+test("download execution fencing rejects an expired worker that resumes after takeover", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  let pauseOldWorker = false;
+  let oldWorkerPaused = false;
+  let signalOldWorkerPaused!: () => void;
+  let resumeOldWorker!: () => void;
+  const oldWorkerPausedPromise = new Promise<void>((resolve) => { signalOldWorkerPaused = resolve; });
+  const resumeOldWorkerPromise = new Promise<void>((resolve) => { resumeOldWorker = resolve; });
+  const oldWorkerDb = sqliteAdapter(sqlite, {
+    afterRun: async (sql) => {
+      if (!pauseOldWorker || oldWorkerPaused || !sql.includes("SET jd_task_id=COALESCE") || !sql.includes("execution_token=?")) return;
+      oldWorkerPaused = true;
+      signalOldWorkerPaused();
+      await resumeOldWorkerPromise;
+    },
+  });
+  const newWorkerDb = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(oldWorkerDb);
+  await upsertMarketDownloadConfig(oldWorkerDb as never, { category: "category-fence", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(oldWorkerDb as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const oldCsv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-fence,pop,SKU,1,SKU-OLD,Old worker,Brand,100,1",
+  ].join("\n");
+  const newCsv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-fence,pop,SKU,1,SKU-NEW,New worker,Brand,500,5",
+  ].join("\n");
+  pauseOldWorker = true;
+  const oldExecution = executeMarketDownloadTask(oldWorkerDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes: new TextEncoder().encode(oldCsv), fileName: "old.csv" }),
+  });
+  await oldWorkerPausedPromise;
+  sqlite.prepare("UPDATE market_download_tasks SET last_attempt_at='2026-01-01T00:00:00.000Z' WHERE id=?").run(task.id);
+  let signalNewWorkerClaimed!: () => void;
+  let resumeNewWorker!: () => void;
+  const newWorkerClaimed = new Promise<void>((resolve) => { signalNewWorkerClaimed = resolve; });
+  const resumeNewWorkerPromise = new Promise<void>((resolve) => { resumeNewWorker = resolve; });
+  const newExecution = executeMarketDownloadTask(newWorkerDb as never, { taskId: task.id }, admin, {
+    download: async () => {
+      signalNewWorkerClaimed();
+      await resumeNewWorkerPromise;
+      return { bytes: new TextEncoder().encode(newCsv), fileName: "new.csv" };
+    },
+  });
+  await newWorkerClaimed;
+  resumeOldWorker();
+  const fenced = await oldExecution;
+  assert.notEqual(fenced.status, "imported");
+  resumeNewWorker();
+  assert.equal((await newExecution).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-OLD'").get() as { count: number }).count, 0);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-NEW'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT source_file_name fileName FROM market_download_tasks WHERE id=?").get(task.id) as { fileName: string }).fileName, "new.csv");
+  sqlite.close();
+});
+
+test("fenced worker cannot clean up a same-hash batch owned by its replacement", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  let pauseOldWorker = false;
+  let oldWorkerPaused = false;
+  let signalOldWorkerPaused!: () => void;
+  let resumeOldWorker!: () => void;
+  const oldWorkerPausedPromise = new Promise<void>((resolve) => { signalOldWorkerPaused = resolve; });
+  const resumeOldWorkerPromise = new Promise<void>((resolve) => { resumeOldWorker = resolve; });
+  const oldWorkerDb = sqliteAdapter(sqlite, {
+    afterRun: async (sql) => {
+      if (!pauseOldWorker || oldWorkerPaused || !sql.includes("SET jd_task_id=COALESCE") || !sql.includes("execution_token=?")) return;
+      oldWorkerPaused = true;
+      signalOldWorkerPaused();
+      await resumeOldWorkerPromise;
+    },
+  });
+  let pauseReplacement = false;
+  let replacementPaused = false;
+  let signalReplacementPaused!: () => void;
+  let resumeReplacement!: () => void;
+  const replacementPausedPromise = new Promise<void>((resolve) => { signalReplacementPaused = resolve; });
+  const resumeReplacementPromise = new Promise<void>((resolve) => { resumeReplacement = resolve; });
+  const replacementDb = sqliteAdapter(sqlite, {
+    afterFirst: async (sql) => {
+      if (!pauseReplacement || replacementPaused || !sql.includes("market_import_staging_rows s") || !sql.includes("JOIN market_ranking_entries m")) return;
+      replacementPaused = true;
+      signalReplacementPaused();
+      await resumeReplacementPromise;
+    },
+  });
+  await ensureMarketSchemaCore(oldWorkerDb);
+  await upsertMarketDownloadConfig(oldWorkerDb as never, { category: "category-same-hash-fence", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(oldWorkerDb as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-same-hash-fence,pop,SKU,1,SKU-SAME-HASH,Same hash,Brand,700,7",
+  ].join("\n");
+  const bytes = new TextEncoder().encode(csv);
+  pauseOldWorker = true;
+  const oldExecution = executeMarketDownloadTask(oldWorkerDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "old-copy.csv" }),
+  });
+  await oldWorkerPausedPromise;
+  sqlite.prepare("UPDATE market_download_tasks SET last_attempt_at='2026-01-01T00:00:00.000Z' WHERE id=?").run(task.id);
+  pauseReplacement = true;
+  const replacementExecution = executeMarketDownloadTask(replacementDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "replacement-copy.csv" }),
+  });
+  await replacementPausedPromise;
+  resumeOldWorker();
+  assert.notEqual((await oldExecution).status, "imported");
+  assert.equal((sqlite.prepare("SELECT status FROM market_import_batches LIMIT 1").get() as { status: string }).status, "processing");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_staging_rows").get() as { count: number }).count, 1);
+  resumeReplacement();
+  assert.equal((await replacementExecution).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-SAME-HASH'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT source_file_name fileName FROM market_download_tasks WHERE id=?").get(task.id) as { fileName: string }).fileName, "replacement-copy.csv");
+  sqlite.close();
+});
+
+test("persistent batch ownership prevents ABA cleanup after a same-id replacement", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const pausePoint = (sql: string) => sql.includes("market_import_staging_rows s") && sql.includes("JOIN market_ranking_entries m");
+  let pauseOld = false;
+  let oldPaused = false;
+  let signalOldPaused!: () => void;
+  let resumeOld!: () => void;
+  const oldPausedPromise = new Promise<void>((resolve) => { signalOldPaused = resolve; });
+  const resumeOldPromise = new Promise<void>((resolve) => { resumeOld = resolve; });
+  const oldDb = sqliteAdapter(sqlite, {
+    afterFirst: async (sql) => {
+      if (!pauseOld || oldPaused || !pausePoint(sql)) return;
+      oldPaused = true;
+      signalOldPaused();
+      await resumeOldPromise;
+    },
+  });
+  let pauseReplacement = false;
+  let replacementPaused = false;
+  let signalReplacementPaused!: () => void;
+  let resumeReplacement!: () => void;
+  const replacementPausedPromise = new Promise<void>((resolve) => { signalReplacementPaused = resolve; });
+  const resumeReplacementPromise = new Promise<void>((resolve) => { resumeReplacement = resolve; });
+  const replacementDb = sqliteAdapter(sqlite, {
+    afterFirst: async (sql) => {
+      if (!pauseReplacement || replacementPaused || !pausePoint(sql)) return;
+      replacementPaused = true;
+      signalReplacementPaused();
+      await resumeReplacementPromise;
+    },
+  });
+  await ensureMarketSchemaCore(oldDb);
+  await upsertMarketDownloadConfig(oldDb as never, { category: "category-batch-aba", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(oldDb as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-batch-aba,pop,SKU,1,SKU-ABA,ABA,Brand,800,8",
+  ].join("\n");
+  const bytes = new TextEncoder().encode(csv);
+  pauseOld = true;
+  const oldExecution = executeMarketDownloadTask(oldDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "old-aba.csv" }),
+  });
+  await oldPausedPromise;
+  const oldOwner = (sqlite.prepare("SELECT owner_token owner FROM market_import_batches LIMIT 1").get() as { owner: string }).owner;
+  assert.ok(oldOwner);
+  sqlite.prepare("UPDATE market_download_tasks SET last_attempt_at='2026-01-01T00:00:00.000Z' WHERE id=?").run(task.id);
+  sqlite.prepare("UPDATE market_import_batches SET created_at='2026-01-01T00:00:00.000Z'").run();
+  pauseReplacement = true;
+  const replacementExecution = executeMarketDownloadTask(replacementDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "replacement-aba.csv" }),
+  });
+  await replacementPausedPromise;
+  const replacementOwner = (sqlite.prepare("SELECT owner_token owner FROM market_import_batches LIMIT 1").get() as { owner: string }).owner;
+  assert.ok(replacementOwner);
+  assert.notEqual(replacementOwner, oldOwner);
+  resumeOld();
+  assert.notEqual((await oldExecution).status, "imported");
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,owner_token owner FROM market_import_batches LIMIT 1").get() as Record<string, unknown>) }, { status: "processing", owner: replacementOwner });
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_staging_rows").get() as { count: number }).count, 1);
+  resumeReplacement();
+  assert.equal((await replacementExecution).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-ABA'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT source_file_name fileName FROM market_download_tasks WHERE id=?").get(task.id) as { fileName: string }).fileName, "replacement-aba.csv");
+  sqlite.close();
+});
+
+test("expired batch owner cannot claim a replacement owner's import range", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const batchCreated = (sql: string) => sql.includes("INSERT OR IGNORE INTO market_import_batches");
+  let pauseOld = false;
+  let oldPaused = false;
+  let signalOldPaused!: () => void;
+  let resumeOld!: () => void;
+  const oldPausedPromise = new Promise<void>((resolve) => { signalOldPaused = resolve; });
+  const resumeOldPromise = new Promise<void>((resolve) => { resumeOld = resolve; });
+  const oldDb = sqliteAdapter(sqlite, {
+    afterRun: async (sql) => {
+      if (!pauseOld || oldPaused || !batchCreated(sql)) return;
+      oldPaused = true;
+      signalOldPaused();
+      await resumeOldPromise;
+    },
+  });
+  let pauseReplacement = false;
+  let replacementPaused = false;
+  let signalReplacementPaused!: () => void;
+  let resumeReplacement!: () => void;
+  const replacementPausedPromise = new Promise<void>((resolve) => { signalReplacementPaused = resolve; });
+  const resumeReplacementPromise = new Promise<void>((resolve) => { resumeReplacement = resolve; });
+  const replacementDb = sqliteAdapter(sqlite, {
+    afterRun: async (sql) => {
+      if (!pauseReplacement || replacementPaused || !batchCreated(sql)) return;
+      replacementPaused = true;
+      signalReplacementPaused();
+      await resumeReplacementPromise;
+    },
+  });
+  await ensureMarketSchemaCore(oldDb);
+  await upsertMarketDownloadConfig(oldDb as never, { category: "category-claim-owner", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(oldDb as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-claim-owner,pop,SKU,1,SKU-CLAIM-OWNER,Owner,Brand,900,9",
+  ].join("\n");
+  const bytes = new TextEncoder().encode(csv);
+  pauseOld = true;
+  const oldExecution = executeMarketDownloadTask(oldDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "old-owner.csv" }),
+  });
+  await oldPausedPromise;
+  const oldOwner = (sqlite.prepare("SELECT owner_token owner FROM market_import_batches LIMIT 1").get() as { owner: string }).owner;
+  sqlite.prepare("UPDATE market_download_tasks SET last_attempt_at='2026-01-01T00:00:00.000Z' WHERE id=?").run(task.id);
+  sqlite.prepare("UPDATE market_import_batches SET created_at='2026-01-01T00:00:00.000Z'").run();
+  pauseReplacement = true;
+  const replacementExecution = executeMarketDownloadTask(replacementDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes, fileName: "replacement-owner.csv" }),
+  });
+  await replacementPausedPromise;
+  const replacementOwner = (sqlite.prepare("SELECT owner_token owner FROM market_import_batches LIMIT 1").get() as { owner: string }).owner;
+  assert.notEqual(replacementOwner, oldOwner);
+  resumeOld();
+  assert.notEqual((await oldExecution).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_range_claims").get() as { count: number }).count, 0);
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,owner_token owner FROM market_import_batches LIMIT 1").get() as Record<string, unknown>) }, { status: "processing", owner: replacementOwner });
+  resumeReplacement();
+  assert.equal((await replacementExecution).status, "imported");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE sku_code='SKU-CLAIM-OWNER'").get() as { count: number }).count, 1);
+  sqlite.close();
+});
+
+test("active download worker still runs maintenance when a concurrent request reconciles its completed batch", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  let pauseCompletion = false;
+  let completionPaused = false;
+  let signalCompletionPaused!: () => void;
+  let resumeCompletion!: () => void;
+  const completionPausedPromise = new Promise<void>((resolve) => { signalCompletionPaused = resolve; });
+  const resumeCompletionPromise = new Promise<void>((resolve) => { resumeCompletion = resolve; });
+  const activeDb = sqliteAdapter(sqlite, {
+    beforeRun: async (sql) => {
+      if (!pauseCompletion || completionPaused || !sql.includes("SET status='imported', execution_token=''")) return;
+      completionPaused = true;
+      signalCompletionPaused();
+      await resumeCompletionPromise;
+    },
+  });
+  const reconcilerDb = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(activeDb);
+  await upsertMarketDownloadConfig(activeDb as never, { category: "category-live-reconcile", scope: "pop", rankingDimension: "SKU", monthStart: "2026-06", monthEnd: "2026-06" }, admin);
+  await planMissingMarketDownloads(activeDb as never, {}, admin);
+  const task = sqlite.prepare("SELECT id FROM market_download_tasks LIMIT 1").get() as { id: string };
+  const csv = [
+    "period_start,period_end,category,scope,dimension,rank,sku_code,product_name,brand,gmv,quantity",
+    "2026-06-01,2026-06-30,category-live-reconcile,pop,SKU,1,SKU-LIVE,Live,Brand,600,6",
+  ].join("\n");
+  let cached = 0;
+  let prices = 0;
+  pauseCompletion = true;
+  const activeExecution = executeMarketDownloadTask(activeDb as never, { taskId: task.id }, admin, {
+    download: async () => ({ bytes: new TextEncoder().encode(csv), fileName: "live.csv" }),
+    cacheImages: async () => { cached += 1; return { queued: 1 }; },
+    createPriceTasks: async () => { prices += 1; return { created: 1 }; },
+  });
+  await completionPausedPromise;
+  const reconciled = await executeMarketDownloadTask(reconcilerDb as never, { taskId: task.id }, admin);
+  assert.equal(reconciled.status, "imported");
+  assert.equal(reconciled.reconciled, true);
+  resumeCompletion();
+  assert.equal((await activeExecution).status, "imported");
+  assert.equal(cached, 1);
+  assert.equal(prices, 1);
   sqlite.close();
 });
 

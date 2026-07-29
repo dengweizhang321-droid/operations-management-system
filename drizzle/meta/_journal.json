@@ -309,6 +309,13 @@
       "when": 1785348000000,
       "tag": "0043_ai_model_tool_budget_increase",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1785351600000,
+      "tag": "0044_market_import_safety",
+      "breakpoints": true
     }
   ]
 }

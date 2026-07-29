@@ -34,8 +34,24 @@ export const marketBaseSchemaStatements = [
     period_start TEXT,
     period_end TEXT,
     warnings_json TEXT NOT NULL DEFAULT '[]',
+    owner_token TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_import_range_claims (
+    range_key TEXT PRIMARY KEY NOT NULL,
+    batch_id TEXT NOT NULL,
+    claim_token TEXT NOT NULL,
+    claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lease_expires_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_import_staging_rows (
+    batch_id TEXT NOT NULL,
+    row_number INTEGER NOT NULL,
+    range_key TEXT NOT NULL,
+    row_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (batch_id, row_number)
   )`,
   `CREATE TABLE IF NOT EXISTS market_ranking_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -272,6 +288,7 @@ export const marketBaseSchemaStatements = [
     staging_batch_id TEXT NOT NULL DEFAULT '',
     import_batch_id TEXT NOT NULL DEFAULT '',
     validation_json TEXT NOT NULL DEFAULT '{}',
+    execution_token TEXT NOT NULL DEFAULT '',
     error_code TEXT NOT NULL DEFAULT '',
     error_message TEXT NOT NULL DEFAULT '',
     next_retry_at TEXT,
@@ -367,12 +384,20 @@ const downloadTaskColumns: Array<[string, string]> = [
   ["staging_batch_id", "TEXT NOT NULL DEFAULT ''"],
   ["import_batch_id", "TEXT NOT NULL DEFAULT ''"],
   ["validation_json", "TEXT NOT NULL DEFAULT '{}'"],
+  ["execution_token", "TEXT NOT NULL DEFAULT ''"],
   ["last_attempt_at", "TEXT"],
   ["completed_at", "TEXT"],
 ];
 
+const importBatchColumns: Array<[string, string]> = [
+  ["owner_token", "TEXT NOT NULL DEFAULT ''"],
+];
+
 export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_import_batches_created_idx ON market_import_batches (created_at)`,
+  `CREATE INDEX IF NOT EXISTS market_import_range_claims_batch_idx ON market_import_range_claims (batch_id, claim_token)`,
+  `CREATE INDEX IF NOT EXISTS market_import_range_claims_expiry_idx ON market_import_range_claims (lease_expires_at)`,
+  `CREATE INDEX IF NOT EXISTS market_import_staging_rows_range_idx ON market_import_staging_rows (batch_id, range_key)`,
   `CREATE INDEX IF NOT EXISTS market_entries_period_idx ON market_ranking_entries (period_end, period_start)`,
   `CREATE INDEX IF NOT EXISTS market_entries_category_idx ON market_ranking_entries (category, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_sku_idx ON market_ranking_entries (sku_code, period_end)`,
@@ -434,7 +459,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return added;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v8";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v11";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {
@@ -455,11 +480,6 @@ async function needsLegacyMarketDataUpgrade(db: MarketSchemaDatabase) {
       SELECT 1 FROM market_ranking_entries
       GROUP BY period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code
       HAVING COUNT(*)>1 LIMIT 1
-    )
-    OR EXISTS (
-      SELECT 1 FROM market_ranking_entries
-      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
-      LIMIT 1
     )
     OR EXISTS (
       SELECT 1 FROM market_ranking_entries m
@@ -679,6 +699,7 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   const changedTables = new Set<string>();
   const addedColumns = new Map<string, Set<string>>();
   for (const [table, columns] of [
+    ["market_import_batches", importBatchColumns],
     ["market_ranking_entries", rankingEntryColumns],
     ["market_price_snapshots", priceSnapshotColumns],
     ["market_download_configs", downloadConfigColumns],
@@ -700,11 +721,6 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
       WHERE source_brand='' AND source_operation_mode='' AND source_subcategory=''`).run();
     await normalizeExistingRankingRows(db, Boolean(addedColumns.get("market_ranking_entries")?.has("ranking_dimension")));
     await removeCanonicalDuplicates(db);
-    await db.prepare(`
-      UPDATE market_ranking_entries
-      SET natural_key = period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
-      WHERE natural_key <> period_start || '|' || period_end || '|' || category || '|' || scope || '|' || price_band_filter || '|' || ranking_dimension || '|' || sku_code
-    `).run();
     const preUpgradeIndexes = Object.entries(marketPreUpgradeIndexStatements)
       .filter(([table]) => changedTables.has(table))
       .map(([, statement]) => db.prepare(statement));

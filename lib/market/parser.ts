@@ -2,8 +2,17 @@ import { createHash } from "node:crypto";
 import * as XLSX from "xlsx";
 import { parseXlsxFirstSheet, type XlsxCellValue } from "@/lib/imports/xlsx";
 import type { MarketEntryInput, MarketImportIssue } from "@/lib/market/database";
+import { assertMarketPeriod, isStrictMarketDate, marketNaturalKey, MAX_MARKET_IMPORT_ROWS, normalizeMarketSkuCode } from "@/lib/market/import-identity";
 
+type TabularSheet = { sheetName: string; date1904: boolean; rows: TabularRow[] };
 type TabularRow = { rowNumber: number; values: Array<string | number | boolean | null> };
+
+export class MarketImportRowLimitError extends Error {
+  constructor() {
+    super(`市场分析单次最多导入 ${MAX_MARKET_IMPORT_ROWS} 条数据`);
+    this.name = "MarketImportRowLimitError";
+  }
+}
 
 const aliases = {
   periodStart: ["开始日期", "周期起", "period_start", "start_date"],
@@ -103,22 +112,30 @@ function rangePercentBps(value: number | null, rawValue: unknown): number | null
   return Math.round((Math.abs(value) <= 1 ? value * 100 : value) * 100);
 }
 
-function isoDate(value: unknown, fallback: string) {
+function isoDate(value: unknown, date1904 = false): string | null {
   if (typeof value === "number" && value > 20_000 && value < 80_000) {
-    return new Date(Date.UTC(1899, 11, 30) + value * 86_400_000).toISOString().slice(0, 10);
+    const wholeDays = Math.floor(value);
+    const adjustedDays = date1904 ? wholeDays : wholeDays - (wholeDays >= 60 ? 1 : 0);
+    const epoch = date1904 ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 31);
+    const candidate = new Date(epoch + adjustedDays * 86_400_000).toISOString().slice(0, 10);
+    return isStrictMarketDate(candidate) ? candidate : null;
   }
   const source = text(value).replace(/[./年]/g, "-").replace(/月/g, "-").replace(/日/g, "");
   const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(source);
-  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
-  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(source);
-  return match ? `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}` : fallback;
+  const match = compact ?? /^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+00:00(?::00)?)?$/.exec(source);
+  if (!match) return null;
+  const candidate = `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`;
+  return isStrictMarketDate(candidate) ? candidate : null;
 }
 
-function dateRange(value: unknown): { start: string; end: string } | null {
+function dateRange(value: unknown, date1904 = false): { start: string; end: string } | null {
+  const single = isoDate(value, date1904);
+  if (single) return { start: single, end: single };
   const matches = [...text(value).matchAll(/(\d{4})[./年-](\d{1,2})[./月-](\d{1,2})日?/g)]
     .map((match) => `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}`);
-  if (!matches.length) return null;
-  return { start: matches[0], end: matches[1] ?? matches[0] };
+  if (!matches.length || matches.some((candidate) => !isStrictMarketDate(candidate))) return null;
+  const result = { start: matches[0], end: matches[1] ?? matches[0] };
+  return result.start <= result.end ? result : null;
 }
 
 function parseCsv(source: string): TabularRow[] {
@@ -130,6 +147,7 @@ function parseCsv(source: string): TabularRow[] {
   const pushRow = () => {
     pushCell();
     if (row.some((value) => value.trim())) rows.push({ rowNumber: rows.length + 1, values: row });
+    if (rows.length > MAX_MARKET_IMPORT_ROWS + 1) throw new MarketImportRowLimitError();
     row = [];
   };
   for (let index = 0; index < source.length; index += 1) {
@@ -155,7 +173,7 @@ function decodeCsv(bytes: Uint8Array) {
   catch { return utf8; }
 }
 
-function parseLegacyXls(bytes: Uint8Array): { sheetName: string; rows: TabularRow[] } {
+function parseLegacyXls(bytes: Uint8Array): TabularSheet {
   let workbook: XLSX.WorkBook;
   try {
     workbook = XLSX.read(bytes, {
@@ -175,7 +193,7 @@ function parseLegacyXls(bytes: Uint8Array): { sheetName: string; rows: TabularRo
   const range = XLSX.utils.decode_range(worksheet["!ref"]);
   const rowCount = range.e.r - range.s.r + 1;
   const columnCount = range.e.c - range.s.c + 1;
-  if (rowCount > 100_001) throw new Error("XLS 文件超过 100000 条数据行限制");
+  if (rowCount > MAX_MARKET_IMPORT_ROWS + 1) throw new MarketImportRowLimitError();
   if (columnCount > 512) throw new Error("XLS 文件列数超过 512 列限制");
   const matrix = XLSX.utils.sheet_to_json<Array<string | number | boolean | null>>(worksheet, {
     header: 1,
@@ -186,7 +204,7 @@ function parseLegacyXls(bytes: Uint8Array): { sheetName: string; rows: TabularRo
   });
   const rows = matrix.map((values, index) => ({ rowNumber: range.s.r + index + 1, values }))
     .filter((row) => row.values.some((value) => text(value)));
-  return { sheetName, rows };
+  return { sheetName, date1904: Boolean(workbook.Workbook?.WBProps?.date1904), rows };
 }
 
 function inferredDimension(fileName: string): "SPU" | "SKU" | null {
@@ -233,15 +251,22 @@ export function parseMarketRows(input: {
   defaultScope?: string;
   defaultPriceBandFilter?: string;
 }): { sheetName: string; rows: MarketEntryInput[]; warnings: MarketImportIssue[] } {
+  assertMarketPeriod(input.defaultStartDate, input.defaultEndDate);
   const isCsv = /\.csv$/i.test(input.fileName);
   const isLegacyXls = /\.xls$/i.test(input.fileName);
   const sheet = isCsv
-    ? { sheetName: "CSV", rows: parseCsv(decodeCsv(input.bytes)) }
+    ? { sheetName: "CSV", date1904: false, rows: parseCsv(decodeCsv(input.bytes)) }
     : isLegacyXls
       ? parseLegacyXls(input.bytes)
     : (() => {
-      const workbook = parseXlsxFirstSheet(input.bytes, { maxRows: 100_001, maxCompressedBytes: 25 * 1024 * 1024 });
-      return { sheetName: workbook.sheetName, rows: workbook.rows.map((row) => ({ rowNumber: row.rowNumber, values: row.cells as XlsxCellValue[] })) };
+      let workbook;
+      try {
+        workbook = parseXlsxFirstSheet(input.bytes, { maxRows: MAX_MARKET_IMPORT_ROWS + 1, maxCompressedBytes: 25 * 1024 * 1024 });
+      } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ROW_LIMIT") throw new MarketImportRowLimitError();
+        throw error;
+      }
+      return { sheetName: workbook.sheetName, date1904: workbook.date1904, rows: workbook.rows.map((row) => ({ rowNumber: row.rowNumber, values: row.cells as XlsxCellValue[] })) };
     })();
   if (sheet.rows.length < 2) throw new Error("文件没有可导入的数据行");
   const header = sheet.rows[0].values;
@@ -273,11 +298,32 @@ export function parseMarketRows(input: {
       if (source.values.some((value) => text(value))) warnings.push({ row: source.rowNumber, field: "商品编号", message: "商品编号为空，已跳过" });
       continue;
     }
-    const embeddedRange = dateRange(get(source, "periodRange"));
-    const periodEnd = isoDate(get(source, "periodEnd"), embeddedRange?.end ?? input.defaultEndDate);
+    const periodRangeValue = get(source, "periodRange");
+    const embeddedRange = dateRange(periodRangeValue, sheet.date1904);
+    if (text(periodRangeValue) && !embeddedRange) {
+      warnings.push({ row: source.rowNumber, field: "统计周期", message: "统计周期不是有效日期区间，已跳过" });
+      continue;
+    }
+    const periodEndValue = get(source, "periodEnd");
+    const explicitPeriodEnd = isoDate(periodEndValue, sheet.date1904);
+    if (text(periodEndValue) && !explicitPeriodEnd) {
+      warnings.push({ row: source.rowNumber, field: "结束日期", message: "结束日期不是有效自然日，已跳过" });
+      continue;
+    }
+    const periodStartValue = get(source, "periodStart");
+    const explicitPeriodStart = isoDate(periodStartValue, sheet.date1904);
+    if (text(periodStartValue) && !explicitPeriodStart) {
+      warnings.push({ row: source.rowNumber, field: "开始日期", message: "开始日期不是有效自然日，已跳过" });
+      continue;
+    }
+    const periodEnd = explicitPeriodEnd ?? embeddedRange?.end ?? input.defaultEndDate;
     const periodStart = hasSingleDateColumn
       ? periodEnd
-      : isoDate(get(source, "periodStart"), embeddedRange?.start ?? input.defaultStartDate);
+      : explicitPeriodStart ?? embeddedRange?.start ?? input.defaultStartDate;
+    if (!isStrictMarketDate(periodStart) || !isStrictMarketDate(periodEnd) || periodStart > periodEnd) {
+      warnings.push({ row: source.rowNumber, field: "统计周期", message: "开始日期必须是不晚于结束日期的有效自然日，已跳过" });
+      continue;
+    }
     const category = text(get(source, "category")) || input.defaultCategory?.trim() || "未分类";
     const sourceScope = text(get(source, "scope")) || input.defaultScope?.trim() || "全部";
     const priceBandFilter = text(get(source, "priceBandFilter")) || input.defaultPriceBandFilter?.trim() || "全部";
@@ -285,7 +331,8 @@ export function parseMarketRows(input: {
     const scope = !explicitSkuCode && canDeriveMarketCode && dimension ? dimensionScope(sourceScope, dimension) : sourceScope;
     const operationMode = normalizeOperationMode(sourceScope);
     const subcategory = text(get(source, "subcategory")) || "";
-    const naturalKey = `${periodStart}|${periodEnd}|${category}|${scope}|${priceBandFilter}|${rankingDimension}|${skuCode}`;
+    const normalizedSkuCode = normalizeMarketSkuCode(skuCode);
+    const naturalKey = marketNaturalKey({ periodStart, periodEnd, category, scope, priceBandFilter, rankingDimension, skuCode: normalizedSkuCode });
     if (seen.has(naturalKey)) {
       warnings.push({ row: source.rowNumber, field: "商品编号", message: `同一周期重复 SKU ${skuCode}，已保留首行` });
       continue;
@@ -315,7 +362,7 @@ export function parseMarketRows(input: {
       operationMode,
       subcategory: subcategory.slice(0, 120),
       rank: rank === null ? null : Math.max(1, Math.trunc(rank)),
-      skuCode: skuCode.slice(0, 80),
+      skuCode: normalizedSkuCode,
       productName: productName.slice(0, 500),
       brand: text(get(source, "brand")).slice(0, 120),
       priceCents: price.value === null ? null : Math.round(price.value * 100),

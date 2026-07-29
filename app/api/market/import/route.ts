@@ -1,5 +1,7 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { isStrictMarketDate } from "@/lib/market/import-identity";
 import { importMarketFile } from "@/lib/market/import-service";
+import { MarketImportRowLimitError } from "@/lib/market/parser";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
     }
     const periodStart = formText(form, "periodStart", currentDate);
     const periodEnd = formText(form, "periodEnd", currentDate);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodStart) || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) || periodStart > periodEnd) {
+    if (!isStrictMarketDate(periodStart) || !isStrictMarketDate(periodEnd) || periodStart > periodEnd) {
       return Response.json({ error: "导入周期无效" }, { status: 400 });
     }
     const payload = await importMarketFile({
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
+    if (error instanceof MarketImportRowLimitError) return Response.json({ error: error.message }, { status: 413 });
     return Response.json({ error: error instanceof Error ? error.message : "市场数据导入失败" }, { status: 500 });
   }
 }

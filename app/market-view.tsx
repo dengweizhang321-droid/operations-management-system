@@ -379,7 +379,7 @@ export function MarketDataImportPanel({ currentUser, data, onImported }: { curre
         <label><span>榜单价格段</span><input value={priceBandFilter} onChange={(event) => setPriceBandFilter(event.target.value)} placeholder="全部 / 0-500 / 500-1000" /></label>
         <label><span>周期开始</span><input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></label>
         <label><span>周期结束</span><input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></label>
-        <label className="market-file-picker"><span>数据文件</span><input type="file" accept=".xls,.xlsx,.csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><strong>{file ? file.name : "选择 XLS / XLSX / CSV"}</strong><small>最大 25MB；SKU/SPU 维度会独立保存。</small></label>
+        <label className="market-file-picker"><span>数据文件</span><input type="file" accept=".xls,.xlsx,.csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><strong>{file ? file.name : "选择 XLS / XLSX / CSV"}</strong><small>最大 25MB、5000 条数据；SKU/SPU 维度会独立保存。</small></label>
       </div><button type="button" className="primary-button" disabled={busy} onClick={() => void upload()}>{busy ? "正在导入…" : "开始导入"}</button>
     </>}
   </section>;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import * as XLSX from "xlsx";
+import { marketNaturalKey } from "../lib/market/import-identity";
 import { parseMarketRows, parseRange, parseRangeBounds } from "../lib/market/parser";
 import { aggregateMarketEstimates, annotateRankBounds } from "../lib/market/gmv-estimation";
 
@@ -13,6 +14,13 @@ function legacyXlsBytes(rows: Array<Array<string | number>>) {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "sheet");
   return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "biff8" }) as ArrayBuffer);
+}
+
+function xlsx1904Bytes(rows: Array<Array<string | number>>) {
+  const workbook = XLSX.utils.book_new();
+  workbook.Workbook = { WBProps: { date1904: true } };
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "sheet");
+  return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer);
 }
 
 test("市场榜单 CSV 映射商品、周期和经营指标", () => {
@@ -34,7 +42,10 @@ test("市场榜单 CSV 映射商品、周期和经营指标", () => {
   assert.equal(result.rows[0]?.conversionBps, 250);
   assert.equal(result.rows[0]?.rankingDimension, "SKU");
   assert.equal(result.rows[0]?.operationMode, "自营");
-  assert.equal(result.rows[0]?.naturalKey, "2026-07-01|2026-07-20|商用净水设备|自营|全部|SKU|10001");
+  assert.equal(result.rows[0]?.naturalKey, marketNaturalKey({
+    periodStart: "2026-07-01", periodEnd: "2026-07-20", category: "商用净水设备",
+    scope: "自营", priceBandFilter: "全部", rankingDimension: "SKU", skuCode: "10001",
+  }));
 });
 
 test("市场商品与自有商品关联字段具备独立索引", async () => {
@@ -86,7 +97,9 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(route, /\(xls\|xlsx\|csv\)/);
+  assert.match(route, /MarketImportRowLimitError[\s\S]*status: 413/);
   assert.match(view, /accept="\.xls,\.xlsx,\.csv"/);
+  assert.match(view, /5000 条数据/);
 });
 
 test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
@@ -304,7 +317,88 @@ test("市场区间保留原文、中值和上下界，并把榜单价格段纳�
   assert.equal(row.visitorsLow, 600);
   assert.equal(row.visitorsHigh, 800);
   assert.equal(row.priceBandFilter, "0-500");
-  assert.equal(row.naturalKey, "2026-07-01|2026-07-31|净水设备|POP|0-500|SKU|SKU-1");
+  assert.equal(row.naturalKey, marketNaturalKey({
+    periodStart: "2026-07-01", periodEnd: "2026-07-31", category: "净水设备",
+    scope: "POP", priceBandFilter: "0-500", rankingDimension: "SKU", skuCode: "SKU-1",
+  }));
+});
+
+test("市场自然键对字段内分隔符无歧义", () => {
+  const result = parseMarketRows({
+    bytes: csvBytes([
+      "周期起,周期止,类目,口径,商品编号,成交金额",
+      "2026-07-01,2026-07-31,a|b,c,SKU-X,100",
+      "2026-07-01,2026-07-31,a,b|c,SKU-X,200",
+    ].join("\n")),
+    fileName: "separator.csv",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-31",
+  });
+  assert.equal(result.rows.length, 2);
+  assert.notEqual(result.rows[0]?.naturalKey, result.rows[1]?.naturalKey);
+  assert.equal(result.warnings.length, 0);
+});
+
+test("市场 SKU 截断不会留下孤立 UTF-16 代理项", () => {
+  const inputSku = `${"A".repeat(79)}😀Z`;
+  const result = parseMarketRows({
+    bytes: csvBytes(`商品编号,成交金额\n${inputSku},100`),
+    fileName: "unicode-sku.csv",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-31",
+  });
+  const skuCode = result.rows[0]?.skuCode ?? "";
+  assert.equal(skuCode, `${"A".repeat(79)}😀`);
+  assert.equal(Array.from(skuCode).length, 80);
+  assert.equal(skuCode.includes("�"), false);
+});
+
+test("市场周期拒绝不存在的自然日和倒序日期", () => {
+  const result = parseMarketRows({
+    bytes: csvBytes([
+      "周期起,周期止,商品编号,成交金额",
+      "2026-02-28,2026-03-01,SKU-OK,100",
+      "2026-02-30,2026-03-01,SKU-BAD-DAY,100",
+      "2026-03-02,2026-03-01,SKU-REVERSED,100",
+    ].join("\n")),
+    fileName: "dates.csv",
+    defaultStartDate: "2026-02-01",
+    defaultEndDate: "2026-03-31",
+  });
+  assert.deepEqual(result.rows.map((row) => row.skuCode), ["SKU-OK"]);
+  assert.equal(result.warnings.length, 2);
+  assert.throws(() => parseMarketRows({
+    bytes: csvBytes("商品编号,成交金额\nSKU-X,100"),
+    fileName: "invalid-default.csv",
+    defaultStartDate: "2026-02-30",
+    defaultEndDate: "2026-03-01",
+  }), /周期无效/);
+});
+
+test("市场 XLSX 按工作簿的 1904 日期系统解释序列日期", () => {
+  const serial = Math.floor((Date.UTC(2026, 6, 1) - Date.UTC(1904, 0, 1)) / 86_400_000);
+  const result = parseMarketRows({
+    bytes: xlsx1904Bytes([
+      ["日期", "商品编号", "成交金额"],
+      [serial, "SKU-1904", 100],
+    ]),
+    fileName: "date-1904.xlsx",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-01",
+  });
+  assert.equal(result.rows[0]?.periodStart, "2026-07-01");
+  assert.equal(result.rows[0]?.periodEnd, "2026-07-01");
+});
+
+test("市场同步导入在解析阶段拒绝超过 5000 条数据", () => {
+  const lines = ["商品编号,成交金额"];
+  for (let index = 0; index < 5_001; index += 1) lines.push(`SKU-${index},100`);
+  assert.throws(() => parseMarketRows({
+    bytes: csvBytes(lines.join("\n")),
+    fileName: "too-many.csv",
+    defaultStartDate: "2026-07-01",
+    defaultEndDate: "2026-07-31",
+  }), /最多导入 5000 条/);
 });
 
 test("排名约束使用真实 GMV 锚点做几何插值并反推自洽指标", () => {

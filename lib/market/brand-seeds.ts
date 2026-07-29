@@ -109,7 +109,7 @@ export async function loadEnabledMarketBrandSeeds(db: MarketSchemaDatabase): Pro
 }
 
 export async function matchImportedMarketBrands(db: MarketSchemaDatabase, rows: MarketEntryForImport[]) {
-  const seeds = await loadEnabledMarketBrandSeeds(db);
+  const seeds = await loadMarketBrandSeedsForImport(db);
   let matched = 0;
   let prefixMatched = 0;
   let anywhereMatched = 0;
@@ -131,7 +131,7 @@ async function tableExists(db: MarketSchemaDatabase, table: string) {
   return Boolean(row?.name);
 }
 
-export async function refreshSystemMarketBrandSeeds(db: MarketSchemaDatabase, actorEmail: string) {
+async function discoverSystemMarketBrandSeeds(db: MarketSchemaDatabase) {
   const discovered = new Map<string, { canonicalBrand: string; refs: Set<string> }>();
   const sources: Array<{ table: string; sql: string; ref: string }> = [
     { table: "erp_product_master", sql: "SELECT DISTINCT trim(brand) brand FROM erp_product_master WHERE trim(brand)<>''", ref: "erp_product_master" },
@@ -153,6 +153,36 @@ export async function refreshSystemMarketBrandSeeds(db: MarketSchemaDatabase, ac
       discovered.set(normalized, current);
     }
   }
+  return discovered;
+}
+
+export async function loadMarketBrandSeedsForImport(db: MarketSchemaDatabase): Promise<MarketBrandSeed[]> {
+  const [enabled, discovered, manualRows] = await Promise.all([
+    loadEnabledMarketBrandSeeds(db),
+    discoverSystemMarketBrandSeeds(db),
+    db.prepare("SELECT normalized_seed FROM market_brand_seeds WHERE source='manual'").all<{ normalized_seed: string }>(),
+  ]);
+  const blockedByManual = new Set((manualRows.results ?? []).map((row) => row.normalized_seed));
+  const merged = new Map(enabled.filter((seed) => seed.source === "manual")
+    .map((seed) => [seed.normalizedSeed, seed]));
+  for (const [normalizedSeed, value] of discovered) {
+    if (merged.has(normalizedSeed) || blockedByManual.has(normalizedSeed)) continue;
+    merged.set(normalizedSeed, {
+      id: `market-brand-seed-discovered-${normalizedSeed}`,
+      canonicalBrand: value.canonicalBrand,
+      seedText: value.canonicalBrand,
+      normalizedSeed,
+      source: "system",
+      sourceRef: [...value.refs].sort().join(","),
+      status: "enabled",
+    });
+  }
+  return [...merged.values()].sort((left, right) => right.normalizedSeed.length - left.normalizedSeed.length
+    || left.normalizedSeed.localeCompare(right.normalizedSeed, "zh-CN") || left.id.localeCompare(right.id));
+}
+
+export async function refreshSystemMarketBrandSeeds(db: MarketSchemaDatabase, actorEmail: string) {
+  const discovered = await discoverSystemMarketBrandSeeds(db);
   const existingRows = await db.prepare("SELECT id, canonical_brand, normalized_seed, source FROM market_brand_seeds").all<{
     id: string; canonical_brand: string; normalized_seed: string; source: string;
   }>();
@@ -161,29 +191,43 @@ export async function refreshSystemMarketBrandSeeds(db: MarketSchemaDatabase, ac
   let refreshed = 0;
   let manualPreserved = 0;
   let disabled = 0;
-  const statements = [];
+  const incoming: Array<{ id: string; canonicalBrand: string; normalizedSeed: string; sourceRef: string }> = [];
   for (const [normalized, value] of [...discovered.entries()].sort(([left], [right]) => left.localeCompare(right, "zh-CN"))) {
     const current = existing.get(normalized);
     if (current?.source === "manual") { manualPreserved += 1; continue; }
     if (current) refreshed += 1;
     else inserted += 1;
-    statements.push(db.prepare(`INSERT INTO market_brand_seeds
-      (id, canonical_brand, seed_text, normalized_seed, source, source_ref, status, created_by, last_refreshed_at, updated_at)
-      VALUES (?, ?, ?, ?, 'system', ?, 'enabled', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      ON CONFLICT(normalized_seed) DO UPDATE SET canonical_brand=excluded.canonical_brand,
-        seed_text=excluded.seed_text, source_ref=excluded.source_ref, status='enabled',
-        last_refreshed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-      WHERE market_brand_seeds.source='system'`)
-      .bind(current?.id ?? `market-brand-seed-${crypto.randomUUID()}`, value.canonicalBrand, value.canonicalBrand, normalized, [...value.refs].sort().join(","), actorEmail));
+    incoming.push({
+      id: current?.id ?? `market-brand-seed-${crypto.randomUUID()}`,
+      canonicalBrand: value.canonicalBrand,
+      normalizedSeed: normalized,
+      sourceRef: [...value.refs].sort().join(","),
+    });
   }
   for (const current of existingRows.results ?? []) {
     if (current.source !== "system" || discovered.has(current.normalized_seed)) continue;
     disabled += 1;
-    statements.push(db.prepare(`UPDATE market_brand_seeds
-      SET status='disabled', last_refreshed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-      WHERE id=? AND source='system'`).bind(current.id));
   }
-  for (let offset = 0; offset < statements.length; offset += 80) await db.batch(statements.slice(offset, offset + 80));
+  const payload = JSON.stringify(incoming);
+  if (new TextEncoder().encode(payload).length > 1_500_000) throw new Error("系统品牌种子过多，无法在单次事务内安全刷新");
+  await db.batch([
+    db.prepare(`INSERT INTO market_brand_seeds
+      (id, canonical_brand, seed_text, normalized_seed, source, source_ref, status, created_by, last_refreshed_at, updated_at)
+      SELECT json_extract(value, '$.id'), json_extract(value, '$.canonicalBrand'),
+        json_extract(value, '$.canonicalBrand'), json_extract(value, '$.normalizedSeed'),
+        'system', json_extract(value, '$.sourceRef'), 'enabled', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      FROM json_each(?) WHERE 1=1
+      ON CONFLICT(normalized_seed) DO UPDATE SET canonical_brand=excluded.canonical_brand,
+        seed_text=excluded.seed_text, source_ref=excluded.source_ref, status='enabled',
+        last_refreshed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+      WHERE market_brand_seeds.source='system'`).bind(actorEmail, payload),
+    db.prepare(`UPDATE market_brand_seeds
+      SET status='disabled', last_refreshed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+      WHERE source='system' AND NOT EXISTS (
+        SELECT 1 FROM json_each(?) incoming
+        WHERE json_extract(incoming.value, '$.normalizedSeed')=market_brand_seeds.normalized_seed
+      )`).bind(payload),
+  ]);
   return { discovered: discovered.size, inserted, refreshed, disabled, manualPreserved };
 }
 
