@@ -25,9 +25,19 @@ export type OpenAiChatCompletionResponse = {
     message?: {
       role?: "assistant";
       content?: string | null;
+      reasoning_content?: string | null;
       tool_calls?: OpenAiToolCall[];
     };
+    finish_reason?: string | null;
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    completion_tokens_details?: {
+      reasoning_tokens?: number;
+    };
+  };
 };
 
 export type AnthropicContentBlock =
@@ -70,18 +80,27 @@ export async function runOpenAiCompatibleToolLoop(input: {
       ...(input.tools.length > 0 ? { tools: input.tools, tool_choice: "auto" } : {}),
     });
     throwIfAiRequestCancelled(input.signal);
-    const message = response.choices?.[0]?.message;
+    const choice = response.choices?.[0];
+    const message = choice?.message;
     if (!message) throw new ModelProtocolError("OpenAI-compatible 响应缺少 choices[0].message");
     const toolCalls = message.tool_calls ?? [];
-    if (toolCalls.length === 0) return message.content?.trim() ?? "";
+    if (toolCalls.length === 0) {
+      const content = message.content?.trim() ?? "";
+      if (content) return content;
+      throw new ModelProtocolError(buildEmptyOpenAiReplyMessage(response, choice?.finish_reason, message.reasoning_content));
+    }
     assertToolCallBudget(toolCalls.length, totalCalls, maxCallsPerRound, maxTotalCalls);
     if (round === maxRounds - 1) throw new ToolLoopLimitError("模型工具调用轮数达到上限");
     totalCalls += toolCalls.length;
-    messages.push({
+    const assistantMessage: Record<string, unknown> = {
       role: "assistant",
       content: message.content ?? null,
       tool_calls: toolCalls,
-    });
+    };
+    if (message.reasoning_content !== undefined && message.reasoning_content !== null) {
+      assistantMessage.reasoning_content = message.reasoning_content;
+    }
+    messages.push(assistantMessage);
     for (const call of toolCalls) {
       throwIfAiRequestCancelled(input.signal);
       if (!call.id || !call.function?.name || typeof call.function.arguments !== "string") {
@@ -192,4 +211,21 @@ function serializeToolResult(result: ToolExecutionResult): string {
     },
     originalCharacters: serialized.length,
   });
+}
+
+function buildEmptyOpenAiReplyMessage(
+  response: OpenAiChatCompletionResponse,
+  finishReason?: string | null,
+  reasoningContent?: string | null,
+): string {
+  const diagnostics: string[] = [];
+  if (finishReason) diagnostics.push(`finish_reason=${finishReason}`);
+  if (typeof response.usage?.completion_tokens === "number") {
+    diagnostics.push(`completion_tokens=${response.usage.completion_tokens}`);
+  }
+  if (typeof response.usage?.completion_tokens_details?.reasoning_tokens === "number") {
+    diagnostics.push(`reasoning_tokens=${response.usage.completion_tokens_details.reasoning_tokens}`);
+  }
+  if (reasoningContent) diagnostics.push(`仅返回推理内容 ${reasoningContent.length} 字符`);
+  return `模型未返回最终正文${diagnostics.length ? `（${diagnostics.join("，")}）` : ""}`;
 }

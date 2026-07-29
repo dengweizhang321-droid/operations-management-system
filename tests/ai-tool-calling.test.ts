@@ -14,6 +14,7 @@ import {
 } from "../lib/ai/tool-registry-contract";
 import {
   AI_TOOL_SYSTEM_PROMPT,
+  ModelProtocolError,
   ToolLoopLimitError,
   runAnthropicToolLoop,
   runOpenAiCompatibleToolLoop,
@@ -303,7 +304,7 @@ test("OpenAI-compatible loop preserves tool call id and feeds role=tool result b
     request: async (body) => {
       requests.push(structuredClone(body));
       return requests.length === 1
-        ? { choices: [{ message: { content: null, tool_calls: [{ id: "call-1", type: "function", function: { name: "public_lookup", arguments: "{}" } }] } }] }
+        ? { choices: [{ message: { content: null, reasoning_content: "先查询库存再回答", tool_calls: [{ id: "call-1", type: "function", function: { name: "public_lookup", arguments: "{}" } }] } }] }
         : { choices: [{ message: { content: "已完成" } }] };
     },
     executeTool: async (name, rawArguments) => {
@@ -316,9 +317,42 @@ test("OpenAI-compatible loop preserves tool call id and feeds role=tool result b
   assert.equal(reply, "已完成");
   assert.equal(executed, 1);
   const secondMessages = requests[1].messages as Array<Record<string, unknown>>;
+  const assistantMessage = secondMessages.find((message) => message.role === "assistant");
   const toolMessage = secondMessages.find((message) => message.role === "tool");
+  assert.equal(assistantMessage?.reasoning_content, "先查询库存再回答");
   assert.equal(toolMessage?.tool_call_id, "call-1");
   assert.match(String(toolMessage?.content), /"returned":1/);
+});
+
+test("OpenAI-compatible loop reports empty final content without exposing reasoning text", async () => {
+  const privateReasoning = "不应显示给用户的推理过程";
+  await assert.rejects(
+    runOpenAiCompatibleToolLoop({
+      messages: [{ role: "user", content: "查数据" }],
+      tools: [],
+      request: async () => ({
+        choices: [{
+          message: { content: null, reasoning_content: privateReasoning },
+          finish_reason: "length",
+        }],
+        usage: {
+          completion_tokens: 1024,
+          completion_tokens_details: { reasoning_tokens: 1024 },
+        },
+      }),
+      executeTool: async () => { throw new Error("must not execute"); },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof ModelProtocolError);
+      assert.match(error.message, /模型未返回最终正文/);
+      assert.match(error.message, /finish_reason=length/);
+      assert.match(error.message, /completion_tokens=1024/);
+      assert.match(error.message, /reasoning_tokens=1024/);
+      assert.match(error.message, /仅返回推理内容 12 字符/);
+      assert.doesNotMatch(error.message, new RegExp(privateReasoning));
+      return true;
+    },
+  );
 });
 
 test("tool loop observes cancellation after a model round and before starting a tool", async () => {
