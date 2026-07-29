@@ -46,7 +46,9 @@ type AiModelType = "text" | "vision";
 type AiModelStatus = "enabled" | "disabled";
 type AiModelReasoningMode = "auto" | "disabled";
 type AiChannelKind = "dingtalk_group_bot" | "dingtalk_app" | "wechat_work_group_bot" | "wechat_work_app";
-type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string };
+type AiArtifactCell = string | number | boolean | null;
+type AiTableArtifact = { id: string; kind: "table"; title: string; sourceTool: string; columns: string[]; rows: AiArtifactCell[][]; rowCount: number; truncated: boolean; fileName: string; mimeType: "text/csv; charset=utf-8"; contentDigest: string; downloadUrl: string; createdAt: string };
+type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string; artifacts: AiTableArtifact[] };
 type AiAvailableTextModel = { id: string; name: string; protocol: AiModelProtocol; modelName: string; isDefault: boolean };
 
 type AiModelRecord = {
@@ -5197,6 +5199,24 @@ function channelKindLabel(kind: AiChannelKind): string {
   return ({ dingtalk_group_bot: "钉钉群机器人", wechat_work_group_bot: "企业微信群机器人", dingtalk_app: "钉钉应用（暂未启用）", wechat_work_app: "企业微信应用回调" })[kind];
 }
 
+function AiMessageArtifacts({ artifacts }: { artifacts: AiTableArtifact[] }) {
+  if (artifacts.length === 0) return null;
+  return <div className="ai-artifact-list" aria-label="本条回复的数据产物">
+    {artifacts.map((artifact) => <section key={artifact.id} className="ai-artifact-card">
+      <header><div><strong>{artifact.title}</strong><small>来源工具：{artifact.sourceTool} · 展示 {artifact.rows.length}/{artifact.rowCount} 行{artifact.truncated ? " · 已截断" : ""}</small></div><a href={artifact.downloadUrl} download={artifact.fileName}>下载 CSV</a></header>
+      <div className="ai-artifact-table-wrap">
+        <table><thead><tr>{artifact.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{artifact.rows.map((row, rowIndex) => <tr key={`${artifact.id}-${rowIndex}`}>{artifact.columns.map((column, columnIndex) => <td key={`${column}-${columnIndex}`}>{formatAiArtifactCell(row[columnIndex])}</td>)}</tr>)}</tbody></table>
+      </div>
+    </section>)}
+  </div>;
+}
+
+function formatAiArtifactCell(value: AiArtifactCell | undefined) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "是" : "否";
+  return String(value);
+}
+
 function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   const isAdmin = currentUser?.role === "admin";
   const canChat = Boolean(currentUser && currentUser.role !== "viewer");
@@ -5413,7 +5433,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
       {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "操作失败" : "操作成功"}</strong><p>{error || notice}</p></div></div>}
       <div className="ai-chat-layout">
         <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>{conversationItems.length} 个</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={sending}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <button type="button" key={item.id} className={item.id === activeConversationId ? "active" : ""} onClick={() => setActiveConversationId(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>)}</div></aside>
-        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={setSelectedModelId} ariaLabel="本对话模型" searchPlaceholder="搜索文本模型" disabled={Boolean(activeConversationId) || sending} options={availableTextModels.map((model) => ({ value: model.id, label: `${model.name}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{activeConversationId ? "已有对话固定使用创建时的模型；如需切换，请新建对话。" : "仅列出已启用的文本模型。输入“帮助”或“新话题”可走免模型短路。"}</small></div><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
+        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={setSelectedModelId} ariaLabel="本对话模型" searchPlaceholder="搜索文本模型" disabled={Boolean(activeConversationId) || sending} options={availableTextModels.map((model) => ({ value: model.id, label: `${model.name}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{activeConversationId ? "已有对话固定使用创建时的模型；如需切换，请新建对话。" : "仅列出已启用的文本模型。输入“帮助”或“新话题”可走免模型短路。"}</small></div><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
       </div>
     </article>
     {isAdmin ? <>

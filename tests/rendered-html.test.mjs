@@ -646,7 +646,7 @@ test("exposes the centrally registered, fail-closed Codex MCP connection", async
   assert.doesNotMatch(mcpRoute, /BOOTSTRAP_ADMIN_EMAIL/);
   assert.match(budget, /still waits for the[\s\S]*underlying operation to settle/);
   assert.match(budget, /runSequentialBatchWithinBudget/);
-  for (const toolName of ["get_data_freshness", "get_sales_summary", "get_inventory_health", "get_product_performance", "list_replenishment_plans", "get_customer_service_conversations", "search_system_data"]) {
+  for (const toolName of ["search_system_knowledge", "get_data_freshness", "get_sales_summary", "get_inventory_health", "get_product_performance", "list_replenishment_plans", "get_customer_service_conversations", "search_system_data"]) {
     assert.match(registry, new RegExp(`name: "${toolName}"`));
   }
   assert.match(registry, /readOnlyHint: true/);

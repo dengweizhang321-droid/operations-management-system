@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const conversationId = await createConversation(`市场分析：${question.slice(0, 36)}`, principal.email, model.id, db);
     await appendConversationMessage(conversationId, "user", prompt, db);
     const requestId = request.headers.get("x-request-id")?.slice(0, 200) || crypto.randomUUID();
-    const answer = await generateAssistantReply({
+    const generation = await generateAssistantReply({
       prompt,
       principal,
       conversationId,
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       signal: request.signal,
       systemPrompt: MARKET_AI_SYSTEM_PROMPT,
     }, db);
-    return Response.json({ ok: true, answer, conversationId, dataRange: overview.dataRange });
+    return Response.json({ ok: true, answer: generation.reply, conversationId, dataRange: overview.dataRange });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

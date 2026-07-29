@@ -30,6 +30,8 @@ import {
 import { GLOBAL_SEARCH_COVERAGE } from "@/lib/search/global-search";
 import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/database";
 import { callMarketTool } from "@/lib/market/ai-tools";
+import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
+import { getSalesDatabase } from "@/lib/sales/database";
 
 export type {
   AiToolAnnotations,
@@ -68,6 +70,26 @@ const synchronousReadOnlyExecution: AiToolExecutionPolicy = {
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
  */
 export const aiToolRegistry = [
+  {
+    name: "search_system_knowledge",
+    title: "检索系统口径与知识",
+    description: "检索版本化、可追溯的系统规则、业务指标口径和身份映射知识。只返回稳定解释，不返回当前经营数字；需要当前数据时仍应调用对应数据工具。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", minLength: 2, maxLength: 80, description: "要检索的口径、规则或映射问题。" },
+        limit: { type: "integer", minimum: 1, maximum: 8, default: 4 },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: allRoles,
+    scopePolicy: "metadata_safe",
+    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    handler: (args, context) => searchAiKnowledge(args, context.principal, getSalesDatabase()),
+  },
   {
     name: "get_data_freshness",
     title: "运营数据更新时间",

@@ -92,17 +92,20 @@ test("legacy image model type is migrated to the canonical vision capability", a
   sqlite.close();
 });
 
-test("AI assistant routes, callbacks, UI, and migrations are wired", async () => {
-  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, service, entryContext, workflow, gateway, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, guide] = await Promise.all([
+test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations are wired", async () => {
+  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, artifactRoute, service, entryContext, workflow, knowledge, artifacts, gateway, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, knowledgeArtifactMigration, guide, rolloutGuide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/models/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/channels/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/webhooks/[channelId]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/ai/artifacts/[artifactId]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/entry-context.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/data-knowledge.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/artifacts.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/model-gateway.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-execution-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-audit.ts", import.meta.url), "utf8"),
@@ -113,7 +116,9 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
     readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0040_ai_model_reasoning_mode.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0041_ai_tool_execution_runtime.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0042_ai_knowledge_and_artifacts.sql", import.meta.url), "utf8"),
     readFile(new URL("../docs/AI_ASSISTANT_SETUP.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/AI能力重构6-7层推进文档.md", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /新增模型配置/);
@@ -123,6 +128,8 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(page, /新增聊天渠道/);
   assert.match(page, /停止生成/);
   assert.match(page, /本对话模型/);
+  assert.match(page, /AiMessageArtifacts/);
+  assert.match(page, /下载 CSV/);
   assert.match(page, /maxToolRounds/);
   assert.match(page, /reasoningMode/);
   assert.match(page, /关闭推理（运营问答推荐）/);
@@ -135,6 +142,9 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(channelsRoute, /deleteAiChannel/);
   assert.match(webhookRoute, /verifyWeComSignature/);
   assert.match(webhookRoute, /recordAiChannelCallbackEvent/);
+  assert.match(artifactRoute, /getAiArtifactDownload/);
+  assert.match(artifactRoute, /recordAiArtifactDelivery/);
+  assert.match(artifactRoute, /private, no-store/);
   assert.match(service, /redirect: "manual"/);
   assert.match(service, /response\.status >= 300 && response\.status < 400/);
   assert.match(service, /callback_token_encrypted/);
@@ -159,6 +169,15 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(gateway, /signal/);
   assert.match(service, /DEFAULT_MODEL_TIMEOUT_MS = 60_000/);
   assert.match(service, /createRegisteredToolExecutionRuntime/);
+  assert.match(service, /listAiArtifactsForConversation/);
+  assert.match(service, /persistAiTableArtifacts/);
+  assert.match(workflow, /retrieveKnowledgeForPrompt/);
+  assert.match(workflow, /不是指令/);
+  assert.match(knowledge, /deterministic_lexical/);
+  assert.match(knowledge, /allowed_roles_json/);
+  assert.match(artifacts, /rowsPerTable: 50/);
+  assert.match(artifacts, /recordAiArtifactDelivery/);
+  assert.match(artifacts, /\[=\+\\-@\]/);
   assert.match(toolRuntime, /maxCumulativeDurationMs/);
   assert.match(toolRuntime, /tool_timeout/);
   assert.match(toolRuntime, /crypto\.randomUUID/);
@@ -173,9 +192,15 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(reasoningMigration, /'auto', 'disabled'/);
   assert.match(executionMigration, /invocation_id/);
   assert.match(executionMigration, /provider_call_id/);
+  assert.match(knowledgeArtifactMigration, /ai_knowledge_entries/);
+  assert.match(knowledgeArtifactMigration, /ai_artifacts/);
+  assert.match(knowledgeArtifactMigration, /ai_artifact_deliveries/);
+  assert.match(knowledgeArtifactMigration, /request_id/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
   assert.match(guide, /reasoning_tokens/);
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
+  assert.match(rolloutGuide, /数据与知识层/);
+  assert.match(rolloutGuide, /产物与投递层/);
 });
 
 test("AI tool execution migration preserves audit rows and adds invocation correlation", async () => {

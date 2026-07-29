@@ -682,7 +682,7 @@ test("tool loop enforces per-round limits and keeps no-tool legacy answers", asy
   assert.equal(requests, 1);
 });
 
-test("production registry keeps all existing operations tools plus global system search", async () => {
+test("production registry keeps all existing operations tools plus knowledge and global search", async () => {
   const [registry, apiRoute, assistant, operations, searchHandler, mcp, marketAiRoute] = await Promise.all([
     readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/tools/route.ts", import.meta.url), "utf8"),
@@ -693,6 +693,7 @@ test("production registry keeps all existing operations tools plus global system
     readFile(new URL("../app/api/market/ai/route.ts", import.meta.url), "utf8"),
   ]);
   for (const name of [
+    "search_system_knowledge",
     "get_data_freshness",
     "get_sales_summary",
     "get_inventory_health",
@@ -717,6 +718,8 @@ test("production registry keeps all existing operations tools plus global system
   assert.match(assistant, /createRegisteredToolExecutionRuntime/);
   assert.match(assistant, /toolRuntime\.getOpenAiTools/);
   assert.match(assistant, /toolRuntime\.getAnthropicTools/);
+  assert.match(assistant, /extractAiTableArtifactCandidates/);
+  assert.match(assistant, /persistAiTableArtifacts/);
   assert.match(marketAiRoute, /MARKET_AI_SYSTEM_PROMPT/);
   assert.match(marketAiRoute, /systemPrompt: MARKET_AI_SYSTEM_PROMPT/);
   assert.doesNotMatch(marketAiRoute, /AI_TOOL_SYSTEM_PROMPT/);

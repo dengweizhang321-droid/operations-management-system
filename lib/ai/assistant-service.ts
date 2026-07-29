@@ -5,6 +5,14 @@ import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
 import { isAiRequestCancelled } from "@/lib/ai/cancellation";
 import { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
+import {
+  extractAiTableArtifactCandidates,
+  AI_ARTIFACT_LIMITS,
+  listAiArtifactsForConversation,
+  persistAiTableArtifacts,
+  type AiTableArtifact,
+  type AiTableArtifactCandidate,
+} from "@/lib/ai/artifacts";
 import { probeVisionModelConnection } from "@/lib/market/annotation-model";
 import {
   createRegisteredToolExecutionRuntime,
@@ -17,6 +25,7 @@ import {
   completeTextWithTools,
   type AiTextModelRuntimeConfig,
 } from "@/lib/ai/model-gateway";
+import type { ProviderToolCallMetadata } from "@/lib/ai/tool-loop";
 
 export {
   runAnthropicToolLoop,
@@ -95,6 +104,13 @@ export type AiConversationMessage = {
   content: string;
   messageKind: "message" | "context_reset" | "help";
   createdAt: string;
+  artifacts: AiTableArtifact[];
+};
+
+export type AiAssistantReply = {
+  reply: string;
+  messageId: string;
+  artifacts: AiTableArtifact[];
 };
 
 export type AiAvailableTextModel = {
@@ -592,7 +608,14 @@ export async function requireConversationAccess(conversationId: string, principa
 
 export async function listConversationMessages(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationMessage[]> {
   await requireConversationAccess(conversationId, principal, db);
-  return listConversationMessagesInternal(conversationId, db);
+  const [messages, artifactsByMessage] = await Promise.all([
+    listConversationMessagesInternal(conversationId, db),
+    listAiArtifactsForConversation(conversationId, principal, db),
+  ]);
+  return messages.map((message) => ({
+    ...message,
+    artifacts: artifactsByMessage.get(message.id) ?? [],
+  }));
 }
 
 export async function listConversationContextMessages(
@@ -732,7 +755,7 @@ export async function generateAssistantReply(input: {
   surface?: AiToolExecutionContext["surface"];
   signal?: AbortSignal;
   systemPrompt?: string;
-}, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+}, db: SalesDatabase = getSalesDatabase()): Promise<AiAssistantReply> {
   const startedAt = Date.now();
   const requestId = input.requestId ?? `ai-chat-${randomUUID()}`;
   const surface = input.surface ?? "ai_chat";
@@ -750,16 +773,51 @@ export async function generateAssistantReply(input: {
     const tools = input.model.protocol === "anthropic"
       ? toolRuntime.getAnthropicTools()
       : toolRuntime.getOpenAiTools();
+    const toolTitles = new Map(toolRuntime.getVisibleToolCatalog().map((tool) => [tool.name, tool.title]));
+    const artifactCandidates: AiTableArtifactCandidate[] = [];
+    const executeTool = async (name: string, args: unknown, metadata: ProviderToolCallMetadata) => {
+      const result = await toolRuntime.execute(name, args, metadata);
+      if (result.ok && artifactCandidates.length < AI_ARTIFACT_LIMITS.artifactsPerMessage) {
+        artifactCandidates.push(...extractAiTableArtifactCandidates({
+          toolName: name,
+          toolTitle: toolTitles.get(name) ?? name,
+          data: result.data,
+        }).slice(0, AI_ARTIFACT_LIMITS.artifactsPerMessage - artifactCandidates.length));
+      }
+      return result;
+    };
     const reply = await completeTextWithTools({
       model: input.model,
       messages,
       systemPrompt: input.systemPrompt ?? AI_TOOL_SYSTEM_PROMPT,
       tools,
-      executeTool: toolRuntime.execute,
+      executeTool,
       signal: input.signal,
     });
     if (!reply) throw new Error("模型未返回内容");
-    await appendConversationMessage(input.conversationId, "assistant", reply, "message", db);
+    const messageId = await appendConversationMessage(input.conversationId, "assistant", reply, "message", db);
+    let artifacts: AiTableArtifact[] = [];
+    try {
+      artifacts = await persistAiTableArtifacts({
+        conversationId: input.conversationId,
+        messageId,
+        ownerEmail: input.principal.email,
+        candidates: artifactCandidates,
+        database: db,
+      });
+    } catch {
+      await recordAiToolAudit({
+        requestId,
+        actorEmail: input.principal.email,
+        actorRole: input.principal.role,
+        surface,
+        toolName: "persist_ai_artifacts",
+        arguments: { conversationId: input.conversationId, messageId, candidateCount: artifactCandidates.length },
+        status: "failed",
+        durationMs: Date.now() - startedAt,
+        errorCode: "artifact_persist_failed",
+      }).catch(() => undefined);
+    }
     await recordAiToolAudit({
       requestId,
       actorEmail: input.principal.email,
@@ -769,9 +827,9 @@ export async function generateAssistantReply(input: {
       arguments: { conversationId: input.conversationId, promptCharacters: input.prompt.length },
       status: "succeeded",
       durationMs: Date.now() - startedAt,
-      result: { reply },
+      result: { reply, artifactCount: artifacts.length },
     });
-    return reply;
+    return { reply, messageId, artifacts };
   } catch (error) {
     await recordAiToolAudit({
       requestId,
@@ -972,6 +1030,7 @@ function mapConversationMessage(row: AiConversationMessageRow): AiConversationMe
     content: row.content,
     messageKind: row.message_kind === "context_reset" ? "context_reset" : row.message_kind === "help" ? "help" : "message",
     createdAt: row.created_at,
+    artifacts: [],
   };
 }
 
