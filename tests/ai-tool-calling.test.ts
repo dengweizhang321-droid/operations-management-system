@@ -275,6 +275,25 @@ test("model timeout remains active while the response body is pending", async ()
   );
 });
 
+test("external cancellation aborts the bounded model response without reporting a timeout", async () => {
+  const controller = new AbortController();
+  await assert.rejects(
+    fetchBoundedJson({
+      url: "https://model.example/v1/chat/completions",
+      init: {},
+      timeoutMs: 1_000,
+      signal: controller.signal,
+      fetcher: async (_url, init) => new Response(new ReadableStream({
+        start(stream) {
+          init?.signal?.addEventListener("abort", () => stream.error(new DOMException("aborted", "AbortError")));
+          controller.abort();
+        },
+      })),
+    }),
+    (error: unknown) => error instanceof BoundedFetchError && error.code === "cancelled",
+  );
+});
+
 test("OpenAI-compatible loop preserves tool call id and feeds role=tool result back", async () => {
   const requests: Array<Record<string, unknown>> = [];
   let executed = 0;
@@ -300,6 +319,25 @@ test("OpenAI-compatible loop preserves tool call id and feeds role=tool result b
   const toolMessage = secondMessages.find((message) => message.role === "tool");
   assert.equal(toolMessage?.tool_call_id, "call-1");
   assert.match(String(toolMessage?.content), /"returned":1/);
+});
+
+test("tool loop observes cancellation after a model round and before starting a tool", async () => {
+  const controller = new AbortController();
+  let executed = false;
+  await assert.rejects(
+    runOpenAiCompatibleToolLoop({
+      messages: [{ role: "user", content: "查数据" }],
+      tools: [{ type: "function", function: { name: "public_lookup" } }],
+      signal: controller.signal,
+      request: async () => {
+        controller.abort();
+        return { choices: [{ message: { tool_calls: [{ id: "cancelled-call", function: { name: "public_lookup", arguments: "{}" } }] } }] };
+      },
+      executeTool: async (name) => { executed = true; return { ok: true, toolName: name, data: {} }; },
+    }),
+    /取消/,
+  );
+  assert.equal(executed, false);
 });
 
 test("Anthropic loop preserves tool_use id and feeds a user tool_result block back", async () => {

@@ -45,7 +45,8 @@ type AiModelProtocol = "openai_compatible" | "anthropic";
 type AiModelType = "text" | "vision";
 type AiModelStatus = "enabled" | "disabled";
 type AiChannelKind = "dingtalk_group_bot" | "dingtalk_app" | "wechat_work_group_bot" | "wechat_work_app";
-type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; createdAt: string };
+type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string };
+type AiAvailableTextModel = { id: string; name: string; protocol: AiModelProtocol; modelName: string; isDefault: boolean };
 
 type AiModelRecord = {
   id: string;
@@ -57,6 +58,11 @@ type AiModelRecord = {
   apiKeySuffix: string;
   isDefaultTextModel: boolean;
   status: AiModelStatus;
+  timeoutMs: number;
+  maxTokens: number;
+  temperatureMilli: number;
+  maxToolRounds: number;
+  maxTotalToolCalls: number;
   lastTestResult: string | null;
   lastTestedAt: string | null;
   createdAt: string;
@@ -99,6 +105,11 @@ type AiModelDraft = {
   apiKey: string;
   status: AiModelStatus;
   isDefaultTextModel: boolean;
+  timeoutMs: number;
+  maxTokens: number;
+  temperatureMilli: number;
+  maxToolRounds: number;
+  maxTotalToolCalls: number;
 };
 
 type AiChannelDraft = {
@@ -5153,7 +5164,21 @@ function SettingsView({ currentUser }: { currentUser: CurrentUser | null }) {
 }
 
 function newAiModelDraft(): AiModelDraft {
-  return { name: "", protocol: "openai_compatible", modelType: "text", modelName: "", baseUrl: "", apiKey: "", status: "enabled", isDefaultTextModel: false };
+  return {
+    name: "",
+    protocol: "openai_compatible",
+    modelType: "text",
+    modelName: "",
+    baseUrl: "",
+    apiKey: "",
+    status: "enabled",
+    isDefaultTextModel: false,
+    timeoutMs: 20000,
+    maxTokens: 1024,
+    temperatureMilli: 200,
+    maxToolRounds: 6,
+    maxTotalToolCalls: 12,
+  };
 }
 
 function aiModelTypeLabel(type: AiModelType): string {
@@ -5172,11 +5197,13 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   const isAdmin = currentUser?.role === "admin";
   const canChat = Boolean(currentUser && currentUser.role !== "viewer");
   const [modelItems, setModelItems] = useState<AiModelRecord[]>([]);
+  const [availableTextModels, setAvailableTextModels] = useState<AiAvailableTextModel[]>([]);
   const [channelItems, setChannelItems] = useState<AiChannelRecord[]>([]);
   const [conversationItems, setConversationItems] = useState<AiConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [messages, setMessages] = useState<AiConversationMessage[]>([]);
   const [messageDraft, setMessageDraft] = useState("");
+  const [selectedModelId, setSelectedModelId] = useState("");
   const [modelDraft, setModelDraft] = useState<AiModelDraft>(() => newAiModelDraft());
   const [channelDraft, setChannelDraft] = useState<AiChannelDraft>(() => newAiChannelDraft());
   const [loading, setLoading] = useState(true);
@@ -5186,6 +5213,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   const [busyConfigId, setBusyConfigId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const sendControllerRef = useRef<AbortController | null>(null);
 
   const loadConfiguration = useCallback(async () => {
     if (!isAdmin) {
@@ -5207,11 +5235,21 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
 
   const loadConversations = useCallback(async () => {
     const response = await fetch("/api/ai/conversations", { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as { items?: AiConversationRecord[]; error?: string } | null;
+    const payload = await response.json().catch(() => null) as { items?: AiConversationRecord[]; models?: AiAvailableTextModel[]; error?: string } | null;
     if (!response.ok) throw new Error(payload?.error || "读取对话记录失败");
     const items = payload?.items ?? [];
+    const models = payload?.models ?? [];
     setConversationItems(items);
+    setAvailableTextModels(models);
+    setSelectedModelId((current) => models.some((model) => model.id === current) ? current : models.find((model) => model.isDefault)?.id || models[0]?.id || "");
     setActiveConversationId((current) => current || items[0]?.id || "");
+  }, []);
+
+  const loadMessages = useCallback(async (conversationId: string, signal?: AbortSignal) => {
+    const response = await fetch(`/api/ai/chat?conversationId=${encodeURIComponent(conversationId)}`, { cache: "no-store", signal });
+    const payload = await response.json().catch(() => null) as { items?: AiConversationMessage[]; error?: string } | null;
+    if (!response.ok) throw new Error(payload?.error || "读取对话失败");
+    setMessages(payload?.items ?? []);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -5233,29 +5271,58 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
       return () => window.clearTimeout(timer);
     }
     const controller = new AbortController();
-    void fetch(`/api/ai/chat?conversationId=${encodeURIComponent(activeConversationId)}`, { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as { items?: AiConversationMessage[]; error?: string } | null;
-        if (!response.ok) throw new Error(payload?.error || "读取对话失败");
-        setMessages(payload?.items ?? []);
-      })
+    const activeConversation = conversationItems.find((item) => item.id === activeConversationId);
+    if (activeConversation?.modelId) setSelectedModelId(activeConversation.modelId);
+    void loadMessages(activeConversationId, controller.signal)
       .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "读取对话失败"); });
     return () => controller.abort();
-  }, [activeConversationId]);
+  }, [activeConversationId, conversationItems, loadMessages]);
+
+  useEffect(() => () => sendControllerRef.current?.abort(), []);
 
   const sendMessage = async () => {
     const text = messageDraft.trim();
     if (!text || sending || !canChat) return;
-    setSending(true); setError("");
+    const controller = new AbortController();
+    sendControllerRef.current = controller;
+    setSending(true); setError(""); setNotice("");
     try {
-      const response = await fetch("/api/ai/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ conversationId: activeConversationId || undefined, message: text, title: "小特对话" }) });
-      const payload = await response.json().catch(() => null) as { conversationId?: string; reply?: string; error?: string } | null;
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversationId: activeConversationId || undefined, modelId: activeConversationId ? undefined : selectedModelId || undefined, message: text, title: "小特对话" }),
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => null) as { conversationId?: string; reply?: string; modelId?: string | null; error?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "发送失败");
       setMessageDraft("");
-      if (payload?.conversationId) setActiveConversationId(payload.conversationId);
+      const conversationId = payload?.conversationId || activeConversationId;
+      if (payload?.modelId) setSelectedModelId(payload.modelId);
+      if (conversationId) {
+        setActiveConversationId(conversationId);
+        await loadMessages(conversationId);
+      }
       await loadConversations();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "发送失败"); }
-    finally { setSending(false); }
+    } catch (reason) {
+      if (controller.signal.aborted) {
+        setNotice("已停止本次生成；已写入的用户消息仍保留在对话中。");
+        if (activeConversationId) await loadMessages(activeConversationId).catch(() => undefined);
+        await loadConversations().catch(() => undefined);
+      } else setError(reason instanceof Error ? reason.message : "发送失败");
+    } finally {
+      if (sendControllerRef.current === controller) sendControllerRef.current = null;
+      setSending(false);
+    }
+  };
+
+  const startNewConversation = () => {
+    if (sending) return;
+    setActiveConversationId("");
+    setMessages([]);
+    setMessageDraft("");
+    setError("");
+    setNotice("");
+    setSelectedModelId(availableTextModels.find((model) => model.isDefault)?.id || availableTextModels[0]?.id || "");
   };
 
   const saveModel = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -5311,7 +5378,22 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
     finally { setBusyConfigId(""); }
   };
 
-  const editModel = (item: AiModelRecord) => setModelDraft({ id: item.id, name: item.name, protocol: item.protocol, modelType: item.modelType, modelName: item.modelName, baseUrl: item.baseUrl, apiKey: "", status: item.status, isDefaultTextModel: item.isDefaultTextModel });
+  const editModel = (item: AiModelRecord) => setModelDraft({
+    id: item.id,
+    name: item.name,
+    protocol: item.protocol,
+    modelType: item.modelType,
+    modelName: item.modelName,
+    baseUrl: item.baseUrl,
+    apiKey: "",
+    status: item.status,
+    isDefaultTextModel: item.isDefaultTextModel,
+    timeoutMs: item.timeoutMs,
+    maxTokens: item.maxTokens,
+    temperatureMilli: item.temperatureMilli,
+    maxToolRounds: item.maxToolRounds,
+    maxTotalToolCalls: item.maxTotalToolCalls,
+  });
   const editChannel = (item: AiChannelRecord) => setChannelDraft({ id: item.id, name: item.name, kind: item.kind, status: item.status, sendEnabled: item.sendEnabled, callbackEnabled: item.callbackEnabled, webhookUrl: "", callbackToken: "", aesKey: "", receiverId: item.receiverId });
 
   const isEditingModel = Boolean(modelDraft.id);
@@ -5322,11 +5404,11 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
 
   return <section className="ai-assistant-grid">
     <article className="panel ai-chat-card">
-      <div className="section-header"><div><h2>AI 助理</h2><p>对话由已启用的默认文本模型处理；聊天工具的回调仅做验签和去重，不会直接执行经营操作。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={loading}>{loading ? "刷新中…" : "刷新"}</button></div>
+      <div className="section-header"><div><h2>AI 助理</h2><p>网页入口统一经过权限、问答 Workflow、模型网关和中央工具注册表；外部聊天回调仍只验签和去重。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={loading}>{loading ? "刷新中…" : "刷新"}</button></div>
       {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "操作失败" : "操作成功"}</strong><p>{error || notice}</p></div></div>}
       <div className="ai-chat-layout">
-        <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>{conversationItems.length} 个</small></div><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <button type="button" key={item.id} className={item.id === activeConversationId ? "active" : ""} onClick={() => setActiveConversationId(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>)}</div></aside>
-        <div className="ai-chat-panel"><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入数据的分析思路，模型是否可用由管理员在下方配置。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role}`}><strong>{item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题，发送给小特" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} /><button type="button" className="primary-button" disabled={!canChat || sending || !messageDraft.trim()} onClick={() => void sendMessage()}>{sending ? "发送中…" : "发送"}</button></div></div>
+        <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>{conversationItems.length} 个</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={sending}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <button type="button" key={item.id} className={item.id === activeConversationId ? "active" : ""} onClick={() => setActiveConversationId(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>)}</div></aside>
+        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={setSelectedModelId} ariaLabel="本对话模型" searchPlaceholder="搜索文本模型" disabled={Boolean(activeConversationId) || sending} options={availableTextModels.map((model) => ({ value: model.id, label: `${model.name}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{activeConversationId ? "已有对话固定使用创建时的模型；如需切换，请新建对话。" : "仅列出已启用的文本模型。输入“帮助”或“新话题”可走免模型短路。"}</small></div><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
       </div>
     </article>
     {isAdmin ? <>
@@ -5340,10 +5422,15 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
           <label className="ai-form-wide"><span>API 地址</span><input value={modelDraft.baseUrl} required type="url" onChange={(event) => setModelDraft((current) => ({ ...current, baseUrl: event.target.value }))} placeholder="https://api.example.com/v1" /><small>生产环境仅接受 HTTPS；本地调试需显式启用服务器环境变量。</small></label>
           <label><span>API Key</span><input value={modelDraft.apiKey} type="password" autoComplete="new-password" onChange={(event) => setModelDraft((current) => ({ ...current, apiKey: event.target.value }))} placeholder={isEditingModel ? "留空保留现有密钥" : "输入模型密钥"} /><small>{isEditingModel ? "当前已配置：留空不会覆盖。" : "保存后仅显示掩码。"}</small></label>
           <label><span>状态</span><SearchableSelect value={modelDraft.status} onChange={(value) => setModelDraft((current) => ({ ...current, status: value as AiModelStatus }))} ariaLabel="模型状态" searchPlaceholder="搜索模型状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
+          <label><span>文本请求超时（毫秒）</span><input type="number" min={3000} max={120000} step={1000} disabled={modelDraft.modelType !== "text"} value={modelDraft.timeoutMs} onChange={(event) => setModelDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /><small>3,000—120,000，覆盖响应头和完整响应体。</small></label>
+          <label><span>文本最大输出 Token</span><input type="number" min={128} max={8192} step={128} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTokens} onChange={(event) => setModelDraft((current) => ({ ...current, maxTokens: Number(event.target.value) }))} /></label>
+          <label><span>文本温度（千分数）</span><input type="number" min={0} max={1000} step={50} disabled={modelDraft.modelType !== "text"} value={modelDraft.temperatureMilli} onChange={(event) => setModelDraft((current) => ({ ...current, temperatureMilli: Number(event.target.value) }))} /><small>200 = 0.2；服务端按 0—1,000 校验。</small></label>
+          <label><span>最大工具轮数</span><input type="number" min={1} max={12} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxToolRounds} onChange={(event) => setModelDraft((current) => ({ ...current, maxToolRounds: Number(event.target.value) }))} /></label>
+          <label><span>工具调用总数</span><input type="number" min={1} max={24} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTotalToolCalls} onChange={(event) => setModelDraft((current) => ({ ...current, maxTotalToolCalls: Number(event.target.value) }))} /></label>
           <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.modelType !== "text" || modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认文本模型</span></label>
           <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
         </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small><small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name)}>删除</button></div></div>)}</div>
+        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{item.modelType === "text" && <small>超时 {item.timeoutMs}ms · 输出 {item.maxTokens} · 温度 {(item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name)}>删除</button></div></div>)}</div>
       </article>
       <article className="panel ai-admin-card">
         <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>

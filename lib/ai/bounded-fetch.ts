@@ -2,7 +2,7 @@ export const DEFAULT_MODEL_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
 
 export class BoundedFetchError extends Error {
   constructor(
-    readonly code: "timeout" | "redirect" | "response_too_large",
+    readonly code: "timeout" | "redirect" | "response_too_large" | "cancelled",
     message: string,
   ) {
     super(message);
@@ -17,11 +17,20 @@ export async function fetchBoundedJson(input: {
   timeoutMs: number;
   maxBytes?: number;
   fetcher?: typeof fetch;
+  signal?: AbortSignal;
 }): Promise<{ response: Response; data: unknown }> {
   const controller = new AbortController();
+  const externalSignal = input.signal ?? input.init.signal ?? undefined;
   const timeoutMs = Math.max(1, input.timeoutMs);
   const maxBytes = input.maxBytes ?? DEFAULT_MODEL_RESPONSE_LIMIT_BYTES;
-  const timer = setTimeout(() => controller.abort(new Error("response_timeout")), timeoutMs);
+  let timedOut = false;
+  const abortFromExternal = () => controller.abort(externalSignal?.reason);
+  if (externalSignal?.aborted) abortFromExternal();
+  else externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new Error("response_timeout"));
+  }, timeoutMs);
   try {
     const response = await (input.fetcher ?? fetch)(input.url, {
       ...input.init,
@@ -44,10 +53,12 @@ export async function fetchBoundedJson(input: {
     }
   } catch (error) {
     if (error instanceof BoundedFetchError) throw error;
+    if (controller.signal.aborted && !timedOut) throw new BoundedFetchError("cancelled", "模型请求已取消");
     if (controller.signal.aborted) throw new BoundedFetchError("timeout", "连接超时，请检查平台地址和网络");
     throw error;
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", abortFromExternal);
   }
 }
 

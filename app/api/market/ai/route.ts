@@ -90,6 +90,7 @@ export async function POST(request: Request) {
       model,
       requestId,
       surface: "market_ai",
+      signal: request.signal,
     }, db);
     return Response.json({ ok: true, answer, conversationId, dataRange: overview.dataRange });
   } catch (error) {

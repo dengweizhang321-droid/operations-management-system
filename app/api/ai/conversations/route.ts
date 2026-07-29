@@ -1,5 +1,5 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { ensureAiAssistantSchema, listAiConversations } from "@/lib/ai/assistant-service";
+import { ensureAiAssistantSchema, listAiConversations, listAvailableTextModels } from "@/lib/ai/assistant-service";
 import { getSalesDatabase } from "@/lib/sales/database";
 
 export async function GET() {
@@ -7,7 +7,11 @@ export async function GET() {
     const principal = await requireAppPrincipal();
     const db = getSalesDatabase();
     await ensureAiAssistantSchema(db);
-    return Response.json({ items: await listAiConversations(principal, db) }, { headers: { "cache-control": "no-store" } });
+    const [items, models] = await Promise.all([
+      listAiConversations(principal, db),
+      listAvailableTextModels(db),
+    ]);
+    return Response.json({ items, models }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;

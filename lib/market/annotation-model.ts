@@ -1,29 +1,35 @@
 import { decryptSecret } from "@/lib/ai/crypto";
 import { resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
+import { completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
 import type { MarketDatabase } from "@/lib/market/database";
 import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
 
-export type AnnotationModelConfig = { id: string; name: string; protocol: string; model_type: string; model_name: string; base_url: string; api_key_encrypted: string; status: string };
+export type AnnotationModelConfig = {
+  id: string; name: string; protocol: string; model_type: string; model_name: string;
+  base_url: string; api_key_encrypted: string; status: string;
+  timeout_ms?: number; max_tokens?: number; temperature_milli?: number;
+  max_tool_rounds?: number; max_total_tool_calls?: number;
+};
 type ModelRow = AnnotationModelConfig;
 const MODEL_TIMEOUT_MS = 90_000;
 const MODEL_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
 export async function listAnnotationModels(db: MarketDatabase) {
-  const rows = await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE status = 'enabled' AND model_type IN ('vision','image') ORDER BY updated_at DESC").all<ModelRow>();
+  const rows = await db.prepare("SELECT * FROM ai_models WHERE status = 'enabled' AND model_type IN ('vision','image') ORDER BY updated_at DESC").all<ModelRow>();
   return (rows.results ?? []).map(({ id, name, protocol, model_name }) => ({ id, name, protocol, modelName: model_name }));
 }
 
 export async function listPromptTextModels(db: MarketDatabase) {
-  const rows = await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE status = 'enabled' AND model_type = 'text' ORDER BY is_default_text_model DESC, updated_at DESC").all<ModelRow>();
+  const rows = await db.prepare("SELECT * FROM ai_models WHERE status = 'enabled' AND model_type = 'text' ORDER BY is_default_text_model DESC, updated_at DESC").all<ModelRow>();
   return (rows.results ?? []).map(({ id, name, protocol, model_name }) => ({ id, name, protocol, modelName: model_name }));
 }
 
 async function getModel(db: MarketDatabase, id: string, type: "vision" | "text") {
   const row = type === "vision"
-    ? await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type IN ('vision','image') LIMIT 1").bind(id).first<ModelRow>()
-    : await db.prepare("SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, status FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type = ? LIMIT 1").bind(id, type).first<ModelRow>();
+    ? await db.prepare("SELECT * FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type IN ('vision','image') LIMIT 1").bind(id).first<ModelRow>()
+    : await db.prepare("SELECT * FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type = ? LIMIT 1").bind(id, type).first<ModelRow>();
   if (!row) throw new Error(`所选 ${type === "vision" ? "视觉" : "文本"} 模型不存在或未启用`);
   return row;
 }
@@ -69,22 +75,30 @@ export async function runVisionAnnotation(input: {
 
 export async function runPromptTextCompletion(db: MarketDatabase, modelId: string, instruction: string) {
   const model = await getModel(db, modelId, "text");
-  const key = await decryptSecret(model.api_key_encrypted);
-  if (!key) throw new Error("文本模型 API Key 未配置");
-  if (model.protocol === "anthropic") {
-    const { response, data } = await fetchJsonLimited<{ content?: Array<{ type?: string; text?: string }> }>(resolveAiModelEndpointUrl(model.base_url, "anthropic"), {
-      method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: model.model_name, max_tokens: 1800, messages: [{ role: "user", content: instruction }] }),
-    });
-    if (!response.ok) throw modelCallError("文本", response.status, data);
-    return data?.content?.map((part) => part.text ?? "").join("").trim() || "";
-  }
-  const { response, data } = await fetchJsonLimited<{ choices?: Array<{ message?: { content?: string } }> }>(resolveAiModelEndpointUrl(model.base_url, "openai_compatible"), {
-    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: model.model_name, temperature: 0.2, messages: [{ role: "user", content: instruction }] }),
+  return completeText({
+    model: textRuntimeModel(model),
+    messages: [{ role: "user", content: instruction }],
   });
-  if (!response.ok) throw modelCallError("文本", response.status, data);
-  return data?.choices?.[0]?.message?.content?.trim() || "";
+}
+
+function textRuntimeModel(model: ModelRow): AiTextModelRuntimeConfig {
+  return {
+    id: model.id,
+    name: model.name,
+    protocol: model.protocol === "anthropic" ? "anthropic" : "openai_compatible",
+    modelName: model.model_name,
+    baseUrl: model.base_url,
+    apiKeyEncrypted: model.api_key_encrypted,
+    timeoutMs: boundedModelSetting(model.timeout_ms, 20_000, 3_000, 120_000),
+    maxTokens: boundedModelSetting(model.max_tokens, 1_024, 128, 8_192),
+    temperature: boundedModelSetting(model.temperature_milli, 200, 0, 1_000) / 1_000,
+    maxToolRounds: boundedModelSetting(model.max_tool_rounds, 6, 1, 12),
+    maxTotalToolCalls: boundedModelSetting(model.max_total_tool_calls, 12, 1, 24),
+  };
+}
+
+function boundedModelSetting(value: number | undefined, fallback: number, minimum: number, maximum: number) {
+  return Number.isInteger(value) && Number(value) >= minimum && Number(value) <= maximum ? Number(value) : fallback;
 }
 
 type LoadedImage = Extract<Awaited<ReturnType<typeof fetchAnnotationImage>>, { kind: "image" }>;

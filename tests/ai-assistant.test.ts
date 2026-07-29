@@ -81,16 +81,21 @@ test("legacy image model type is migrated to the canonical vision capability", a
 });
 
 test("AI assistant routes, callbacks, UI, and migrations are wired", async () => {
-  const [page, chatRoute, modelsRoute, channelsRoute, webhookRoute, service, visionModel, callbackMigration, visionMigration, guide] = await Promise.all([
+  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, service, entryContext, workflow, gateway, visionModel, callbackMigration, visionMigration, pipelineMigration, guide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/models/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/channels/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/webhooks/[channelId]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/entry-context.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/model-gateway.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0014_ai_channel_callbacks.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0030_ai_vision_model_capability.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"),
     readFile(new URL("../docs/AI_ASSISTANT_SETUP.md", import.meta.url), "utf8"),
   ]);
 
@@ -99,8 +104,14 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(page, /测试图片识别/);
   assert.doesNotMatch(page, /\{ value: "image"/);
   assert.match(page, /新增聊天渠道/);
+  assert.match(page, /停止生成/);
+  assert.match(page, /本对话模型/);
+  assert.match(page, /maxToolRounds/);
   assert.match(page, /webhookUrlMasked/);
-  assert.match(chatRoute, /requireConversationAccess/);
+  assert.match(chatRoute, /createWebChatEntryContext/);
+  assert.match(chatRoute, /answerAiQuestion/);
+  assert.match(chatRoute, /signal: request\.signal/);
+  assert.match(conversationsRoute, /listAvailableTextModels/);
   assert.match(modelsRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(channelsRoute, /deleteAiChannel/);
   assert.match(webhookRoute, /verifyWeComSignature/);
@@ -108,15 +119,55 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(service, /redirect: "manual"/);
   assert.match(service, /response\.status >= 300 && response\.status < 400/);
   assert.match(service, /callback_token_encrypted/);
-  assert.match(service, /PRAGMA table_info\(ai_channels\)/);
-  assert.match(service, /ALTER TABLE ai_channels ADD COLUMN receiver_id/);
+  assert.match(service, /addMissingColumns\(db, "ai_channels"/);
   assert.match(service, /probeVisionModelConnection\(model\)/);
+  assert.match(service, /listConversationContextMessages/);
+  assert.match(service, /ALTER TABLE \$\{table\} ADD COLUMN/);
   assert.match(service, /WHERE model_type = 'image'/);
   assert.match(service, /const testStillApplies = Boolean\(existing\)/);
   assert.match(visionModel, /VISION_PROBE_IMAGE_BASE64/);
   assert.match(visionModel, /未能识别测试图片/);
   assert.match(callbackMigration, /ai_channel_callback_events/);
   assert.match(visionMigration, /SET\s+`model_type` = 'vision'/);
+  assert.match(entryContext, /principal: input\.principal/);
+  assert.doesNotMatch(entryContext, /payload.*principal/i);
+  assert.match(workflow, /RESET_COMMANDS/);
+  assert.match(workflow, /getVisibleToolCatalog/);
+  assert.match(workflow, /已有对话已固定模型/);
+  assert.match(gateway, /completeTextWithTools/);
+  assert.match(gateway, /max_tokens: model\.maxTokens/);
+  assert.match(gateway, /signal/);
+  assert.match(pipelineMigration, /message_kind/);
+  assert.match(pipelineMigration, /max_total_tool_calls/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
+});
+
+test("AI question-pipeline migration upgrades the 0013 schema without rewriting existing records", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../drizzle/0013_ai_assistant.sql", import.meta.url), "utf8"));
+  sqlite.prepare(`INSERT INTO ai_models
+    (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, status)
+    VALUES ('text-1', '文本模型', 'openai_compatible', 'text', 'model-1', 'https://api.example.com/v1', 'encrypted', '1234', 'enabled')`).run();
+  sqlite.prepare(`INSERT INTO ai_conversations (id, title, model_id, created_by)
+    VALUES ('conversation-1', '旧对话', 'text-1', 'user@example.com')`).run();
+  sqlite.prepare(`INSERT INTO ai_conversation_messages (id, conversation_id, role, content)
+    VALUES ('message-1', 'conversation-1', 'user', '历史消息')`).run();
+
+  sqlite.exec(await readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"));
+  const model = sqlite.prepare(`SELECT timeout_ms timeoutMs, max_tokens maxTokens,
+    temperature_milli temperatureMilli, max_tool_rounds maxToolRounds,
+    max_total_tool_calls maxTotalToolCalls FROM ai_models WHERE id='text-1'`).get() as Record<string, number>;
+  assert.deepEqual({ ...model }, {
+    timeoutMs: 20_000,
+    maxTokens: 1_024,
+    temperatureMilli: 200,
+    maxToolRounds: 6,
+    maxTotalToolCalls: 12,
+  });
+  const message = sqlite.prepare("SELECT message_kind messageKind, content FROM ai_conversation_messages WHERE id='message-1'").get() as { messageKind: string; content: string };
+  assert.deepEqual({ ...message }, { messageKind: "message", content: "历史消息" });
+  const indexes = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='ai_conversation_messages_context_idx'").all();
+  assert.equal(indexes.length, 1);
+  sqlite.close();
 });

@@ -20,6 +20,13 @@ function stringValue(payload: JsonRecord, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function numberValue(payload: JsonRecord, key: string): number | undefined {
+  const value = payload[key];
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 function modelInputFromPayload(payload: JsonRecord): AiModelInput | null {
   const name = stringValue(payload, "name");
   const protocol = stringValue(payload, "protocol");
@@ -37,6 +44,11 @@ function modelInputFromPayload(payload: JsonRecord): AiModelInput | null {
     apiKey: stringValue(payload, "apiKey"),
     status: (stringValue(payload, "status") ?? "enabled") as AiModelInput["status"],
     isDefaultTextModel: payload.isDefaultTextModel === true,
+    timeoutMs: numberValue(payload, "timeoutMs"),
+    maxTokens: numberValue(payload, "maxTokens"),
+    temperatureMilli: numberValue(payload, "temperatureMilli"),
+    maxToolRounds: numberValue(payload, "maxToolRounds"),
+    maxTotalToolCalls: numberValue(payload, "maxTotalToolCalls"),
   };
 }
 

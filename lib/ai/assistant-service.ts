@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { ensureAuthorizationSchema, type AppPrincipal } from "@/lib/auth/authorization";
 import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
-import { maskWebhookUrl, normalizeAiEndpointUrl, resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
-import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
+import { isAiRequestCancelled } from "@/lib/ai/cancellation";
+import { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
 import { probeVisionModelConnection } from "@/lib/market/annotation-model";
 import {
   executeRegisteredToolCall,
@@ -13,14 +13,12 @@ import {
   type AiToolExecutionContext,
 } from "@/lib/ai/tool-registry";
 import { recordAiToolAudit } from "@/lib/ai/tool-audit";
+import { AI_TOOL_SYSTEM_PROMPT } from "@/lib/ai/tool-loop";
 import {
-  ModelProtocolError,
-  runAnthropicToolLoop,
-  runOpenAiCompatibleToolLoop,
-  type AnthropicMessagesResponse,
-  type ConversationTextMessage,
-  type OpenAiChatCompletionResponse,
-} from "@/lib/ai/tool-loop";
+  completeText,
+  completeTextWithTools,
+  type AiTextModelRuntimeConfig,
+} from "@/lib/ai/model-gateway";
 
 export {
   runAnthropicToolLoop,
@@ -51,6 +49,11 @@ export type AiModelRecord = {
   apiKeySuffix: string;
   isDefaultTextModel: boolean;
   status: AiModelStatus;
+  timeoutMs: number;
+  maxTokens: number;
+  temperatureMilli: number;
+  maxToolRounds: number;
+  maxTotalToolCalls: number;
   lastTestResult: string | null;
   lastTestedAt: string | null;
   createdAt: string;
@@ -89,7 +92,16 @@ export type AiConversationMessage = {
   conversationId: string;
   role: "user" | "assistant";
   content: string;
+  messageKind: "message" | "context_reset" | "help";
   createdAt: string;
+};
+
+export type AiAvailableTextModel = {
+  id: string;
+  name: string;
+  protocol: AiModelProtocol;
+  modelName: string;
+  isDefault: boolean;
 };
 
 export type AiModelInput = {
@@ -102,6 +114,11 @@ export type AiModelInput = {
   apiKey?: string;
   status: AiModelStatus;
   isDefaultTextModel?: boolean;
+  timeoutMs?: number;
+  maxTokens?: number;
+  temperatureMilli?: number;
+  maxToolRounds?: number;
+  maxTotalToolCalls?: number;
 };
 
 export type AiChannelInput = {
@@ -146,6 +163,11 @@ type AiModelRow = {
   api_key_suffix: string;
   is_default_text_model: number;
   status: string;
+  timeout_ms: number;
+  max_tokens: number;
+  temperature_milli: number;
+  max_tool_rounds: number;
+  max_total_tool_calls: number;
   last_test_result: string | null;
   last_tested_at: string | null;
   created_at: string;
@@ -185,6 +207,7 @@ type AiConversationMessageRow = {
   conversation_id: string;
   role: string;
   content: string;
+  message_kind: string;
   created_at: string;
 };
 
@@ -200,6 +223,11 @@ const schemaStatements = [
     api_key_suffix TEXT NOT NULL DEFAULT '',
     is_default_text_model INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('enabled', 'disabled')),
+    timeout_ms INTEGER NOT NULL DEFAULT 20000,
+    max_tokens INTEGER NOT NULL DEFAULT 1024,
+    temperature_milli INTEGER NOT NULL DEFAULT 200,
+    max_tool_rounds INTEGER NOT NULL DEFAULT 6,
+    max_total_tool_calls INTEGER NOT NULL DEFAULT 12,
     last_test_result TEXT,
     last_tested_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -258,6 +286,7 @@ const schemaStatements = [
     conversation_id TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
     content TEXT NOT NULL,
+    message_kind TEXT NOT NULL DEFAULT 'message',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS ai_conversation_messages_conversation_idx
@@ -281,10 +310,18 @@ const schemaStatements = [
 ] as const;
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
-const MODEL_REQUEST_TIMEOUT_MS = 20_000;
 const CHANNEL_REQUEST_TIMEOUT_MS = 15_000;
 const MAX_NAME_LENGTH = 100;
-const MAX_MESSAGE_LENGTH = 12_000;
+const MAX_MESSAGE_LENGTH = 40_000;
+const DEFAULT_MODEL_TIMEOUT_MS = 20_000;
+const DEFAULT_MODEL_MAX_TOKENS = 1_024;
+const DEFAULT_MODEL_TEMPERATURE_MILLI = 200;
+const DEFAULT_MODEL_MAX_TOOL_ROUNDS = 6;
+const DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS = 12;
+
+const modelSelectColumns = `id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
+  is_default_text_model, status, timeout_ms, max_tokens, temperature_milli, max_tool_rounds, max_total_tool_calls,
+  last_test_result, last_tested_at, created_at, updated_at`;
 
 export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDatabase()): Promise<void> {
   const key = db as unknown as object;
@@ -294,11 +331,17 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
   const setup = ensureAuthorizationSchema(db)
     .then(() => db.batch(schemaStatements.map((statement) => db.prepare(statement))))
     .then(async () => {
-      const columns = await db.prepare("PRAGMA table_info(ai_channels)").all<{ name: string }>();
-      const names = new Set((columns.results ?? []).map((column) => column.name));
-      if (!names.has("receiver_id")) {
-        await db.prepare("ALTER TABLE ai_channels ADD COLUMN receiver_id TEXT NOT NULL DEFAULT ''").run();
-      }
+      await addMissingColumns(db, "ai_channels", [["receiver_id", "TEXT NOT NULL DEFAULT ''"]]);
+      await addMissingColumns(db, "ai_models", [
+        ["timeout_ms", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_TIMEOUT_MS}`],
+        ["max_tokens", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOKENS}`],
+        ["temperature_milli", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_TEMPERATURE_MILLI}`],
+        ["max_tool_rounds", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOOL_ROUNDS}`],
+        ["max_total_tool_calls", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS}`],
+      ]);
+      await addMissingColumns(db, "ai_conversation_messages", [["message_kind", "TEXT NOT NULL DEFAULT 'message'"]]);
+      await db.prepare(`CREATE INDEX IF NOT EXISTS ai_conversation_messages_context_idx
+        ON ai_conversation_messages (conversation_id, message_kind, created_at)`).run();
     })
     .then(() => undefined)
     .catch((error: unknown) => {
@@ -313,12 +356,28 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
 export async function listAiModels(db: SalesDatabase = getSalesDatabase()): Promise<AiModelRecord[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
-    `SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model,
-            status, last_test_result, last_tested_at, created_at, updated_at
+    `SELECT ${modelSelectColumns}
      FROM ai_models
      ORDER BY is_default_text_model DESC, status DESC, updated_at DESC`,
   ).all<AiModelRow>();
   return (rows.results ?? []).map(mapAiModelRecord);
+}
+
+export async function listAvailableTextModels(db: SalesDatabase = getSalesDatabase()): Promise<AiAvailableTextModel[]> {
+  await ensureAiAssistantSchema(db);
+  const rows = await db.prepare(
+    `SELECT ${modelSelectColumns}
+     FROM ai_models
+     WHERE model_type = 'text' AND status = 'enabled'
+     ORDER BY is_default_text_model DESC, updated_at DESC`,
+  ).all<AiModelRow>();
+  return (rows.results ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    protocol: asModelProtocol(row.protocol),
+    modelName: row.model_name,
+    isDefault: Boolean(row.is_default_text_model),
+  }));
 }
 
 export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = getSalesDatabase()): Promise<AiModelRecord> {
@@ -340,8 +399,10 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     await db.prepare("UPDATE ai_models SET is_default_text_model = 0 WHERE model_type = 'text'").run();
   }
   await db.prepare(
-    `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model, status, last_test_result, last_tested_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
+       is_default_text_model, status, timeout_ms, max_tokens, temperature_milli, max_tool_rounds, max_total_tool_calls,
+       last_test_result, last_tested_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        protocol = excluded.protocol,
@@ -352,10 +413,33 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
        api_key_suffix = excluded.api_key_suffix,
        is_default_text_model = excluded.is_default_text_model,
        status = excluded.status,
+       timeout_ms = excluded.timeout_ms,
+       max_tokens = excluded.max_tokens,
+       temperature_milli = excluded.temperature_milli,
+       max_tool_rounds = excluded.max_tool_rounds,
+       max_total_tool_calls = excluded.max_total_tool_calls,
        last_test_result = excluded.last_test_result,
        last_tested_at = excluded.last_tested_at,
        updated_at = CURRENT_TIMESTAMP`,
-  ).bind(id, normalized.name, normalized.protocol, normalized.modelType, normalized.modelName, normalized.baseUrl, apiKeyEncrypted, apiKeySuffix, normalized.isDefaultTextModel ? 1 : 0, normalized.status, lastTestResult, lastTestedAt).run();
+  ).bind(
+    id,
+    normalized.name,
+    normalized.protocol,
+    normalized.modelType,
+    normalized.modelName,
+    normalized.baseUrl,
+    apiKeyEncrypted,
+    apiKeySuffix,
+    normalized.isDefaultTextModel ? 1 : 0,
+    normalized.status,
+    normalized.timeoutMs,
+    normalized.maxTokens,
+    normalized.temperatureMilli,
+    normalized.maxToolRounds,
+    normalized.maxTotalToolCalls,
+    lastTestResult,
+    lastTestedAt,
+  ).run();
   const row = await getAiModelSecretById(id, db);
   if (!row) throw new Error("模型配置保存后无法读取");
   return mapAiModelRecord(row);
@@ -456,16 +540,35 @@ export async function createConversation(title: string, createdBy: string, model
   return id;
 }
 
-export async function appendConversationMessage(conversationId: string, role: "user" | "assistant", content: string, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+export async function appendConversationMessage(
+  conversationId: string,
+  role: "user" | "assistant",
+  content: string,
+  kindOrDb: AiConversationMessage["messageKind"] | SalesDatabase = "message",
+  database: SalesDatabase = getSalesDatabase(),
+): Promise<string> {
+  const messageKind = typeof kindOrDb === "string" ? kindOrDb : "message";
+  const db = typeof kindOrDb === "string" ? database : kindOrDb;
   await ensureAiAssistantSchema(db);
-  const normalizedContent = normalizeText(content, "", MAX_MESSAGE_LENGTH);
+  const normalizedContent = normalizeMessageContent(content, MAX_MESSAGE_LENGTH);
   if (!normalizedContent) throw new Error("消息不能为空");
   const id = `ai-msg-${randomUUID()}`;
   await db.batch([
-    db.prepare("INSERT INTO ai_conversation_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)").bind(id, conversationId, role, normalizedContent),
+    db.prepare("INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind) VALUES (?, ?, ?, ?, ?)")
+      .bind(id, conversationId, role, normalizedContent, messageKind),
     db.prepare("UPDATE ai_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(conversationId),
   ]);
   return id;
+}
+
+export async function updateConversationModel(
+  conversationId: string,
+  modelId: string,
+  db: SalesDatabase = getSalesDatabase(),
+): Promise<void> {
+  await ensureAiAssistantSchema(db);
+  await db.prepare("UPDATE ai_conversations SET model_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(modelId, conversationId).run();
 }
 
 export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationRecord> {
@@ -483,6 +586,33 @@ export async function listConversationMessages(conversationId: string, principal
   return listConversationMessagesInternal(conversationId, db);
 }
 
+export async function listConversationContextMessages(
+  conversationId: string,
+  db: SalesDatabase = getSalesDatabase(),
+  limit = 24,
+): Promise<AiConversationMessage[]> {
+  await ensureAiAssistantSchema(db);
+  const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const rows = await db.prepare(
+    `SELECT id, conversation_id, role, content, message_kind, created_at
+     FROM (
+       SELECT rowid message_rowid, id, conversation_id, role, content, message_kind, created_at
+       FROM ai_conversation_messages
+       WHERE conversation_id = ?
+         AND message_kind = 'message'
+         AND rowid > COALESCE((
+           SELECT rowid FROM ai_conversation_messages
+           WHERE conversation_id = ? AND message_kind = 'context_reset'
+           ORDER BY rowid DESC LIMIT 1
+         ), 0)
+       ORDER BY rowid DESC
+       LIMIT ?
+     )
+     ORDER BY message_rowid ASC`,
+  ).bind(conversationId, conversationId, boundedLimit).all<AiConversationMessageRow>();
+  return (rows.results ?? []).map(mapConversationMessage);
+}
+
 export async function recordAiChannelCallbackEvent(input: { channelId: string; eventKey: string; payloadDigest: string }, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
   const result = await db.prepare(
@@ -493,15 +623,32 @@ export async function recordAiChannelCallbackEvent(input: { channelId: string; e
   return Number(result.meta.changes ?? 0) > 0;
 }
 
-export async function resolveChatModel(db: SalesDatabase = getSalesDatabase()): Promise<AiModelRow | null> {
+export async function resolveChatModel(
+  input?: { modelId?: string | null; allowFallback?: boolean } | SalesDatabase,
+  database: SalesDatabase = getSalesDatabase(),
+): Promise<AiTextModelRuntimeConfig | null> {
+  const db = isSalesDatabase(input) ? input : database;
+  const options = isSalesDatabase(input) ? undefined : input;
   await ensureAiAssistantSchema(db);
+  const modelId = options?.modelId?.trim();
+  if (modelId) {
+    const selected = await db.prepare(
+      `SELECT ${modelSelectColumns} FROM ai_models
+       WHERE id = ? AND model_type = 'text' AND status = 'enabled' LIMIT 1`,
+    ).bind(modelId).first<AiModelRow>();
+    if (selected) return mapAiTextModelRuntime(selected);
+    if (options?.allowFallback === false) return null;
+  }
   const defaultModel = await db.prepare(
-    "SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model, status, last_test_result, last_tested_at, created_at, updated_at FROM ai_models WHERE model_type = 'text' AND status = 'enabled' AND is_default_text_model = 1 LIMIT 1",
+    `SELECT ${modelSelectColumns} FROM ai_models
+     WHERE model_type = 'text' AND status = 'enabled' AND is_default_text_model = 1 LIMIT 1`,
   ).first<AiModelRow>();
-  if (defaultModel) return defaultModel;
-  return db.prepare(
-    "SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model, status, last_test_result, last_tested_at, created_at, updated_at FROM ai_models WHERE model_type = 'text' AND status = 'enabled' ORDER BY updated_at DESC LIMIT 1",
+  if (defaultModel) return mapAiTextModelRuntime(defaultModel);
+  const fallback = await db.prepare(
+    `SELECT ${modelSelectColumns} FROM ai_models
+     WHERE model_type = 'text' AND status = 'enabled' ORDER BY updated_at DESC LIMIT 1`,
   ).first<AiModelRow>();
+  return fallback ? mapAiTextModelRuntime(fallback) : null;
 }
 
 export async function testAiModelConnection(modelId: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
@@ -511,9 +658,7 @@ export async function testAiModelConnection(modelId: string, db: SalesDatabase =
     if (!model.base_url || !model.api_key_encrypted) throw new Error("模型地址或 API Key 未配置");
     const reply = model.model_type === "vision" || model.model_type === "image"
       ? await probeVisionModelConnection(model)
-      : model.protocol === "anthropic"
-        ? await callAnthropicModel(model, [{ role: "user", content: "仅回复 OK" }])
-        : await callOpenAiCompatibleModel(model, [{ role: "user", content: "仅回复 OK" }]);
+      : await completeText({ model: mapAiTextModelRuntime(model), messages: [{ role: "user", content: "仅回复 OK" }] });
     await setModelTestResult(modelId, `连接成功：${reply.slice(0, 80)}`, db);
     return { ok: true, message: model.model_type === "vision" || model.model_type === "image" ? "视觉模型图片识别验证成功" : "文本模型连接成功" };
   } catch (error) {
@@ -573,32 +718,43 @@ export async function generateAssistantReply(input: {
   prompt: string;
   principal: AppPrincipal;
   conversationId: string;
-  model: AiModelRow;
+  model: AiTextModelRuntimeConfig;
   requestId?: string;
   surface?: AiToolExecutionContext["surface"];
+  signal?: AbortSignal;
+  systemPrompt?: string;
 }, db: SalesDatabase = getSalesDatabase()): Promise<string> {
   const startedAt = Date.now();
   const requestId = input.requestId ?? `ai-chat-${randomUUID()}`;
   const surface = input.surface ?? "ai_chat";
   try {
-    const messages = await listConversationMessagesInternal(input.conversationId, db, 24);
+    const messages = await listConversationContextMessages(input.conversationId, db, 24);
     const toolContext: AiToolExecutionContext = {
       principal: input.principal,
       requestId,
       surface,
+      signal: input.signal,
     };
-    const reply = input.model.protocol === "anthropic"
-      ? await callAnthropicModelWithTools(input.model, messages, toolContext)
-      : await callOpenAiCompatibleModelWithTools(input.model, messages, toolContext);
+    const tools = input.model.protocol === "anthropic"
+      ? getAnthropicTools(input.principal)
+      : getOpenAiTools(input.principal);
+    const reply = await completeTextWithTools({
+      model: input.model,
+      messages,
+      systemPrompt: input.systemPrompt ?? AI_TOOL_SYSTEM_PROMPT,
+      tools,
+      executeTool: (name, rawArguments) => executeRegisteredToolCall(name, rawArguments, toolContext),
+      signal: input.signal,
+    });
     if (!reply) throw new Error("模型未返回内容");
-    await appendConversationMessage(input.conversationId, "assistant", reply, db);
+    await appendConversationMessage(input.conversationId, "assistant", reply, "message", db);
     await recordAiToolAudit({
       requestId,
       actorEmail: input.principal.email,
       actorRole: input.principal.role,
       surface,
       toolName: "chat_message",
-      arguments: { prompt: input.prompt.slice(0, 240) },
+      arguments: { conversationId: input.conversationId, promptCharacters: input.prompt.length },
       status: "succeeded",
       durationMs: Date.now() - startedAt,
       result: { reply },
@@ -611,10 +767,10 @@ export async function generateAssistantReply(input: {
       actorRole: input.principal.role,
       surface,
       toolName: "chat_message",
-      arguments: { prompt: input.prompt.slice(0, 240) },
+      arguments: { conversationId: input.conversationId, promptCharacters: input.prompt.length },
       status: "failed",
       durationMs: Date.now() - startedAt,
-      errorCode: "ai_model_error",
+      errorCode: isAiRequestCancelled(error, input.signal) ? "ai_request_cancelled" : "ai_model_error",
     });
     throw error;
   }
@@ -639,10 +795,10 @@ export async function generateConfiguredAnalysisReply(input: {
   } as const;
   await recordAiToolAudit({ ...auditBase, status: "started", durationMs: 0 });
   try {
-    const messages = [{ role: "user" as const, content: input.prompt }];
-    const reply = model.protocol === "anthropic"
-      ? await callAnthropicModel(model, messages)
-      : await callOpenAiCompatibleModel(model, messages);
+    const reply = await completeText({
+      model,
+      messages: [{ role: "user", content: input.prompt }],
+    });
     if (!reply) throw new Error("模型未返回分析结果");
     await recordAiToolAudit({ ...auditBase, status: "succeeded", durationMs: Date.now() - startedAt, result: { returned: 1, modelId: model.id, responseCharacters: reply.length } });
     return reply;
@@ -655,7 +811,7 @@ export async function generateConfiguredAnalysisReply(input: {
 async function getAiModelSecretById(id: string, db: SalesDatabase): Promise<AiModelRow | null> {
   await ensureAiAssistantSchema(db);
   return db.prepare(
-    "SELECT id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix, is_default_text_model, status, last_test_result, last_tested_at, created_at, updated_at FROM ai_models WHERE id = ? LIMIT 1",
+    `SELECT ${modelSelectColumns} FROM ai_models WHERE id = ? LIMIT 1`,
   ).bind(id).first<AiModelRow>();
 }
 
@@ -670,109 +826,13 @@ async function listConversationMessagesInternal(conversationId: string, db: Sale
   await ensureAiAssistantSchema(db);
   const rows = limit
     ? await db.prepare(
-      "SELECT id, conversation_id, role, content, created_at FROM ai_conversation_messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?",
+      "SELECT id, conversation_id, role, content, message_kind, created_at FROM ai_conversation_messages WHERE conversation_id = ? ORDER BY rowid DESC LIMIT ?",
     ).bind(conversationId, limit).all<AiConversationMessageRow>()
     : await db.prepare(
-      "SELECT id, conversation_id, role, content, created_at FROM ai_conversation_messages WHERE conversation_id = ? ORDER BY created_at ASC",
+      "SELECT id, conversation_id, role, content, message_kind, created_at FROM ai_conversation_messages WHERE conversation_id = ? ORDER BY rowid ASC",
     ).bind(conversationId).all<AiConversationMessageRow>();
   const mapped = (rows.results ?? []).map(mapConversationMessage);
   return limit ? mapped.reverse() : mapped;
-}
-
-async function callOpenAiCompatibleModel(model: AiModelRow, messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<string> {
-  const apiKey = await decryptSecret(model.api_key_encrypted);
-  if (!apiKey) throw new Error("模型 API Key 未配置");
-  const { response, data: rawData } = await fetchBoundedJson({
-    url: resolveAiModelEndpointUrl(model.base_url, "openai_compatible"),
-    init: {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: model.model_name, messages, temperature: 0.2 }),
-    },
-    timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
-  });
-  const data = rawData as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } } | null;
-  if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
-  return data?.choices?.[0]?.message?.content?.trim() || "";
-}
-
-async function callOpenAiCompatibleModelWithTools(
-  model: AiModelRow,
-  messages: ConversationTextMessage[],
-  context: AiToolExecutionContext,
-): Promise<string> {
-  const apiKey = await decryptSecret(model.api_key_encrypted);
-  if (!apiKey) throw new Error("模型 API Key 未配置");
-  return runOpenAiCompatibleToolLoop({
-    messages,
-    tools: getOpenAiTools(context.principal),
-    executeTool: (name, rawArguments) => executeRegisteredToolCall(name, rawArguments, context),
-    request: async (body) => {
-      const { response, data: rawData } = await fetchBoundedJson({
-        url: resolveAiModelEndpointUrl(model.base_url, "openai_compatible"),
-        init: {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: model.model_name, ...body, temperature: 0.2 }),
-        },
-        timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
-      });
-      const data = rawData as (OpenAiChatCompletionResponse & { error?: { message?: string } }) | null;
-      if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
-      if (!data) throw new ModelProtocolError("OpenAI-compatible 响应不是有效 JSON");
-      return data;
-    },
-  });
-}
-
-async function callAnthropicModel(model: AiModelRow, messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<string> {
-  const apiKey = await decryptSecret(model.api_key_encrypted);
-  if (!apiKey) throw new Error("模型 API Key 未配置");
-  const { response, data: rawData } = await fetchBoundedJson({
-    url: resolveAiModelEndpointUrl(model.base_url, "anthropic"),
-    init: {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: model.model_name,
-        max_tokens: 512,
-        messages: messages.map((message) => ({ role: message.role, content: [{ type: "text", text: message.content }] })),
-      }),
-    },
-    timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
-  });
-  const data = rawData as { content?: Array<{ text?: string }>; error?: { message?: string } } | null;
-  if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
-  return data?.content?.map((item) => item.text ?? "").join("").trim() || "";
-}
-
-async function callAnthropicModelWithTools(
-  model: AiModelRow,
-  messages: ConversationTextMessage[],
-  context: AiToolExecutionContext,
-): Promise<string> {
-  const apiKey = await decryptSecret(model.api_key_encrypted);
-  if (!apiKey) throw new Error("模型 API Key 未配置");
-  return runAnthropicToolLoop({
-    messages,
-    tools: getAnthropicTools(context.principal),
-    executeTool: (name, rawArguments) => executeRegisteredToolCall(name, rawArguments, context),
-    request: async (body) => {
-      const { response, data: rawData } = await fetchBoundedJson({
-        url: resolveAiModelEndpointUrl(model.base_url, "anthropic"),
-        init: {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: model.model_name, max_tokens: 1_024, ...body }),
-        },
-        timeoutMs: MODEL_REQUEST_TIMEOUT_MS,
-      });
-      const data = rawData as (AnthropicMessagesResponse & { error?: { message?: string } }) | null;
-      if (!response.ok) throw new Error(`模型调用失败: ${response.status}${data?.error?.message ? ` · ${data.error.message.slice(0, 160)}` : ""}`);
-      if (!data) throw new ModelProtocolError("Anthropic 响应不是有效 JSON");
-      return data;
-    },
-  });
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -810,6 +870,11 @@ function normalizeAiModelInput(input: AiModelInput): Required<Omit<AiModelInput,
     apiKey,
     status,
     isDefaultTextModel: Boolean(input.isDefaultTextModel),
+    timeoutMs: boundedInteger(input.timeoutMs, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000, "模型超时"),
+    maxTokens: boundedInteger(input.maxTokens, DEFAULT_MODEL_MAX_TOKENS, 128, 8_192, "最大输出 token"),
+    temperatureMilli: boundedInteger(input.temperatureMilli, DEFAULT_MODEL_TEMPERATURE_MILLI, 0, 1_000, "温度"),
+    maxToolRounds: boundedInteger(input.maxToolRounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, 12, "工具轮数"),
+    maxTotalToolCalls: boundedInteger(input.maxTotalToolCalls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, 24, "工具调用总数"),
   };
 }
 
@@ -846,6 +911,11 @@ function mapAiModelRecord(row: AiModelRow): AiModelRecord {
     apiKeySuffix: row.api_key_suffix,
     isDefaultTextModel: Boolean(row.is_default_text_model),
     status: asModelStatus(row.status),
+    timeoutMs: row.timeout_ms,
+    maxTokens: row.max_tokens,
+    temperatureMilli: row.temperature_milli,
+    maxToolRounds: row.max_tool_rounds,
+    maxTotalToolCalls: row.max_total_tool_calls,
     lastTestResult: row.last_test_result,
     lastTestedAt: row.last_tested_at,
     createdAt: row.created_at,
@@ -877,7 +947,30 @@ function mapConversationRecord(row: AiConversationRow): AiConversationRecord {
 }
 
 function mapConversationMessage(row: AiConversationMessageRow): AiConversationMessage {
-  return { id: row.id, conversationId: row.conversation_id, role: row.role === "assistant" ? "assistant" : "user", content: row.content, createdAt: row.created_at };
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    role: row.role === "assistant" ? "assistant" : "user",
+    content: row.content,
+    messageKind: row.message_kind === "context_reset" ? "context_reset" : row.message_kind === "help" ? "help" : "message",
+    createdAt: row.created_at,
+  };
+}
+
+function mapAiTextModelRuntime(row: AiModelRow): AiTextModelRuntimeConfig {
+  return {
+    id: row.id,
+    name: row.name,
+    protocol: asModelProtocol(row.protocol),
+    modelName: row.model_name,
+    baseUrl: row.base_url,
+    apiKeyEncrypted: row.api_key_encrypted,
+    timeoutMs: boundedInteger(row.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000, "模型超时"),
+    maxTokens: boundedInteger(row.max_tokens, DEFAULT_MODEL_MAX_TOKENS, 128, 8_192, "最大输出 token"),
+    temperature: boundedInteger(row.temperature_milli, DEFAULT_MODEL_TEMPERATURE_MILLI, 0, 1_000, "温度") / 1_000,
+    maxToolRounds: boundedInteger(row.max_tool_rounds, DEFAULT_MODEL_MAX_TOOL_ROUNDS, 1, 12, "工具轮数"),
+    maxTotalToolCalls: boundedInteger(row.max_total_tool_calls, DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS, 1, 24, "工具调用总数"),
+  };
 }
 
 function asModelProtocol(value: unknown): AiModelProtocol {
@@ -909,6 +1002,37 @@ function asChannelStatus(value: unknown): AiChannelStatus {
 function normalizeText(value: string, fallback: string, limit: number): string {
   const text = value.trim().replace(/\s+/g, " ").slice(0, limit);
   return text || fallback;
+}
+
+function normalizeMessageContent(value: string, limit: number): string {
+  const normalized = value.replace(/\r\n?/g, "\n").replace(/\0/g, "").trim();
+  if (normalized.length <= limit) return normalized;
+  const marker = "\n\n[内容已按会话存储上限截断]";
+  return `${normalized.slice(0, Math.max(0, limit - marker.length))}${marker}`;
+}
+
+function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number, label: string): number {
+  const normalized = value === undefined ? fallback : Number(value);
+  if (!Number.isInteger(normalized) || normalized < minimum || normalized > maximum) {
+    throw new Error(`${label}必须是 ${minimum}—${maximum} 的整数`);
+  }
+  return normalized;
+}
+
+function isSalesDatabase(value: unknown): value is SalesDatabase {
+  return Boolean(value && typeof value === "object" && "prepare" in value && typeof value.prepare === "function");
+}
+
+async function addMissingColumns(
+  db: SalesDatabase,
+  table: string,
+  columns: ReadonlyArray<readonly [name: string, definition: string]>,
+): Promise<void> {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+  const names = new Set((info.results ?? []).map((column) => column.name));
+  for (const [name, definition] of columns) {
+    if (!names.has(name)) await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run();
+  }
 }
 
 function optionalId(value: string | undefined): string | undefined {
