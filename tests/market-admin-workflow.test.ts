@@ -615,11 +615,19 @@ test("central market AI tools enforce roles, bounded schemas, and audit executio
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     risk: "read_only",
     allowedRoles: ["analyst", "operator", "admin"],
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: {
+      environment: "worker_inline",
+      mode: "direct",
+      allowedSurfaces: ["ai_chat", "test"],
+      timeoutMs: 1_000,
+      maxResultCharacters: 4_000,
+      maxCallsPerRequest: 4,
+    },
     handler: async () => ({ returned: 1, truncated: false }),
   };
-  assert.equal(getOpenAiTools(viewer, [overviewEntry]).some((item) => item.function.name === "get_market_overview"), false);
-  assert.equal(getOpenAiTools(analyst, [overviewEntry]).some((item) => item.function.name === "get_market_overview"), true);
+  assert.equal(getOpenAiTools(viewer, "ai_chat", [overviewEntry]).some((item) => item.function.name === "get_market_overview"), false);
+  assert.equal(getOpenAiTools(analyst, "ai_chat", [overviewEntry]).some((item) => item.function.name === "get_market_overview"), true);
   let called = false;
   const stubEntry: AiToolEntry = { ...overviewEntry, handler: async () => { called = true; return { returned: 1, truncated: false }; } };
   const audits: Array<Record<string, unknown>> = [];

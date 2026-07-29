@@ -640,7 +640,7 @@ test("exposes the centrally registered, fail-closed Codex MCP connection", async
   assert.match(mcpRoute, /tools\/call/);
   assert.match(mcpRoute, /Bearer/);
   assert.match(mcpRoute, /getVisibleToolCatalog/);
-  assert.match(mcpRoute, /executeRegisteredToolCall/);
+  assert.match(mcpRoute, /createRegisteredToolExecutionRuntime/);
   assert.match(mcpRoute, /MAX_BATCH_REQUESTS = 20/);
   assert.match(mcpRoute, /mcp-\$\{digest\.slice/);
   assert.doesNotMatch(mcpRoute, /BOOTSTRAP_ADMIN_EMAIL/);

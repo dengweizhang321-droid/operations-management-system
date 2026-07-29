@@ -93,7 +93,7 @@ test("legacy image model type is migrated to the canonical vision capability", a
 });
 
 test("AI assistant routes, callbacks, UI, and migrations are wired", async () => {
-  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, service, entryContext, workflow, gateway, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, guide] = await Promise.all([
+  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, service, entryContext, workflow, gateway, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, guide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8"),
@@ -104,11 +104,15 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
     readFile(new URL("../lib/ai/entry-context.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/model-gateway.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-execution-runtime.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-audit.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/auth/authorization.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0014_ai_channel_callbacks.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0030_ai_vision_model_capability.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0039_ai_question_pipeline.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0040_ai_model_reasoning_mode.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0041_ai_tool_execution_runtime.sql", import.meta.url), "utf8"),
     readFile(new URL("../docs/AI_ASSISTANT_SETUP.md", import.meta.url), "utf8"),
   ]);
 
@@ -154,14 +158,40 @@ test("AI assistant routes, callbacks, UI, and migrations are wired", async () =>
   assert.match(gateway, /thinking: \{ type: "disabled" \}/);
   assert.match(gateway, /signal/);
   assert.match(service, /DEFAULT_MODEL_TIMEOUT_MS = 60_000/);
+  assert.match(service, /createRegisteredToolExecutionRuntime/);
+  assert.match(toolRuntime, /maxCumulativeDurationMs/);
+  assert.match(toolRuntime, /tool_timeout/);
+  assert.match(toolRuntime, /crypto\.randomUUID/);
+  assert.match(authorization, /ensureAiToolAuditExecutionIndex/);
+  assert.doesNotMatch(authorization, /ALTER TABLE ai_tool_audit_logs ADD COLUMN/);
+  assert.match(toolAudit, /supportsInvocationCorrelation/);
+  assert.match(toolAudit, /request_id, actor_email, actor_role, surface, tool_name/);
   assert.match(page, /timeoutMs: 60000/);
   assert.match(pipelineMigration, /message_kind/);
   assert.match(pipelineMigration, /max_total_tool_calls/);
   assert.match(reasoningMigration, /reasoning_mode/);
   assert.match(reasoningMigration, /'auto', 'disabled'/);
+  assert.match(executionMigration, /invocation_id/);
+  assert.match(executionMigration, /provider_call_id/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
   assert.match(guide, /reasoning_tokens/);
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
+});
+
+test("AI tool execution migration preserves audit rows and adds invocation correlation", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../drizzle/0005_slow_tyrannus.sql", import.meta.url), "utf8"));
+  sqlite.prepare(`INSERT INTO ai_tool_audit_logs (
+    id, request_id, actor_email, actor_role, surface, tool_name, arguments_json, status, duration_ms
+  ) VALUES ('audit-1', 'request-1', 'analyst@example.com', 'analyst', 'ai_chat', 'get_sales_summary', '{}', 'succeeded', 10)`).run();
+  sqlite.exec(await readFile(new URL("../drizzle/0041_ai_tool_execution_runtime.sql", import.meta.url), "utf8"));
+  const row = sqlite.prepare(`SELECT request_id requestId, invocation_id invocationId,
+    provider_call_id providerCallId FROM ai_tool_audit_logs WHERE id='audit-1'`).get() as Record<string, string | null>;
+  assert.deepEqual({ ...row }, { requestId: "request-1", invocationId: "", providerCallId: null });
+  const indexes = sqlite.prepare(`SELECT name FROM sqlite_master
+    WHERE type='index' AND name='ai_tool_audit_logs_invocation_created_idx'`).all();
+  assert.equal(indexes.length, 1);
+  sqlite.close();
 });
 
 test("AI question-pipeline and reasoning migrations upgrade the 0013 schema without rewriting existing records", async () => {

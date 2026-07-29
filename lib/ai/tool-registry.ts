@@ -2,7 +2,6 @@ import {
   callOperationsTool,
 } from "@/lib/ai/operations-tools";
 import {
-  executeToolCallWithRegistry,
   getAnthropicTools as deriveAnthropicTools,
   getOpenAiTools as deriveOpenAiTools,
   getToolsForPrincipal as filterToolsForPrincipal,
@@ -11,6 +10,7 @@ import {
   type AiToolAnnotations,
   type AiToolEntry,
   type AiToolExecutionContext,
+  type AiToolExecutionPolicy,
   type AiToolExecutionResult,
   type AnthropicToolDefinition,
   type JsonSchema,
@@ -21,6 +21,10 @@ import {
   summarizeToolArguments,
 } from "@/lib/ai/tool-audit";
 import {
+  createAiToolExecutionRuntime,
+  type AiToolRuntimeLimits,
+} from "@/lib/ai/tool-execution-runtime";
+import {
   searchSystemDataForAi,
 } from "@/lib/search/ai-tool";
 import { GLOBAL_SEARCH_COVERAGE } from "@/lib/search/global-search";
@@ -30,9 +34,12 @@ import { callMarketTool } from "@/lib/market/ai-tools";
 export type {
   AiToolAnnotations,
   AiToolEntry,
+  AiToolExecutionMode,
+  AiToolExecutionPolicy,
   AiToolExecutionContext,
   AiToolExecutionResult,
   AiToolRisk,
+  AiToolScopePolicy,
   AiToolSurface,
   AnthropicToolDefinition,
   JsonSchema,
@@ -46,6 +53,14 @@ const readOnlyAnnotations: AiToolAnnotations = {
   destructiveHint: false,
   idempotentHint: true,
   openWorldHint: false,
+};
+const synchronousReadOnlyExecution: AiToolExecutionPolicy = {
+  environment: "worker_inline",
+  mode: "direct",
+  allowedSurfaces: ["ai_chat", "codex_mcp", "test"],
+  timeoutMs: 12_000,
+  maxResultCharacters: 40_000,
+  maxCallsPerRequest: 4,
 };
 
 /**
@@ -61,7 +76,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: allRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "metadata_safe",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callOperationsTool("get_data_freshness", args),
   },
   {
@@ -84,7 +100,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callOperationsTool("get_sales_summary", args),
   },
   {
@@ -108,7 +125,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callOperationsTool("get_inventory_health", args),
   },
   {
@@ -134,7 +152,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callOperationsTool("get_product_performance", args),
   },
   {
@@ -154,7 +173,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callOperationsTool("list_replenishment_plans", args),
   },
   {
@@ -178,7 +198,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => getCustomerServiceConversationsForAi(args),
   },
   {
@@ -202,7 +223,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callMarketTool("get_market_overview", args),
   },
   {
@@ -223,7 +245,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callMarketTool("get_market_sku_trend", args),
   },
   {
@@ -246,7 +269,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callMarketTool("get_market_brand_analysis", args),
   },
   {
@@ -269,7 +293,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callMarketTool("get_market_price_band_analysis", args),
   },
   {
@@ -287,7 +312,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: chatDataRoles,
-    supportsScopedPrincipal: false,
+    scopePolicy: "unscoped_only",
+    execution: synchronousReadOnlyExecution,
     handler: (args) => callMarketTool("get_market_pending_review_summary", args),
   },
   {
@@ -313,7 +339,8 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: allRoles,
-    supportsScopedPrincipal: true,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => searchSystemDataForAi(args as never, { execution: context }),
   },
 ] satisfies readonly AiToolEntry[];
@@ -322,30 +349,54 @@ validateToolRegistry(aiToolRegistry);
 
 export function getToolsForPrincipal(
   principal: AiToolExecutionContext["principal"],
+  surface: AiToolExecutionContext["surface"],
   entries: readonly AiToolEntry[] = aiToolRegistry,
 ): readonly AiToolEntry[] {
-  return filterToolsForPrincipal(principal, entries);
+  return filterToolsForPrincipal(principal, surface, entries);
 }
 
 export function getOpenAiTools(
   principal: AiToolExecutionContext["principal"],
+  surface: AiToolExecutionContext["surface"],
   entries: readonly AiToolEntry[] = aiToolRegistry,
 ): OpenAiToolDefinition[] {
-  return deriveOpenAiTools(principal, entries);
+  return deriveOpenAiTools(principal, surface, entries);
 }
 
 export function getAnthropicTools(
   principal: AiToolExecutionContext["principal"],
+  surface: AiToolExecutionContext["surface"],
   entries: readonly AiToolEntry[] = aiToolRegistry,
 ): AnthropicToolDefinition[] {
-  return deriveAnthropicTools(principal, entries);
+  return deriveAnthropicTools(principal, surface, entries);
 }
 
 export function getVisibleToolCatalog(
   principal: AiToolExecutionContext["principal"],
+  surface: AiToolExecutionContext["surface"],
   entries: readonly AiToolEntry[] = aiToolRegistry,
 ) {
-  return deriveVisibleToolCatalog(principal, entries);
+  return deriveVisibleToolCatalog(principal, surface, entries);
+}
+
+export function createRegisteredToolExecutionRuntime(
+  context: AiToolExecutionContext,
+  limits?: Partial<AiToolRuntimeLimits>,
+) {
+  const runtime = createAiToolExecutionRuntime({
+    context,
+    entries: aiToolRegistry,
+    audit: recordAiToolAudit,
+    summarizeArguments: summarizeToolArguments,
+    limits,
+  });
+  return {
+    execute: runtime.execute,
+    snapshot: runtime.snapshot,
+    getOpenAiTools: () => deriveOpenAiTools(context.principal, context.surface, aiToolRegistry),
+    getAnthropicTools: () => deriveAnthropicTools(context.principal, context.surface, aiToolRegistry),
+    getVisibleToolCatalog: () => deriveVisibleToolCatalog(context.principal, context.surface, aiToolRegistry),
+  };
 }
 
 export async function executeRegisteredToolCall(
@@ -357,9 +408,12 @@ export async function executeRegisteredToolCall(
     audit?: typeof recordAiToolAudit;
   } = {},
 ): Promise<AiToolExecutionResult> {
-  return executeToolCallWithRegistry(name, rawArguments, context, {
+  const runtime = createAiToolExecutionRuntime({
+    context,
     entries: options.entries ?? aiToolRegistry,
     audit: options.audit ?? recordAiToolAudit,
     summarizeArguments: summarizeToolArguments,
+    limits: { maxTotalCalls: 1 },
   });
+  return runtime.execute(name, rawArguments, { providerCallId: context.providerCallId });
 }

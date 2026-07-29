@@ -10,6 +10,7 @@ import {
   type ConversationTextMessage,
   type OpenAiChatCompletionResponse,
   type ProviderToolDefinition,
+  type ProviderToolCallMetadata,
   type ToolExecutionResult,
 } from "@/lib/ai/tool-loop";
 
@@ -46,7 +47,7 @@ export async function completeTextWithTools(input: {
   messages: ConversationTextMessage[];
   systemPrompt: string;
   tools: ProviderToolDefinition[];
-  executeTool: (name: string, rawArguments: unknown) => Promise<ToolExecutionResult>;
+  executeTool: (name: string, rawArguments: unknown, metadata: ProviderToolCallMetadata) => Promise<ToolExecutionResult>;
   signal?: AbortSignal;
 }): Promise<string> {
   throwIfAiRequestCancelled(input.signal);

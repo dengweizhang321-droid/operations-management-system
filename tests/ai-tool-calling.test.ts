@@ -12,6 +12,7 @@ import {
   validateToolRegistry,
   type AiToolEntry,
 } from "../lib/ai/tool-registry-contract";
+import { createAiToolExecutionRuntime } from "../lib/ai/tool-execution-runtime";
 import {
   AI_TOOL_SYSTEM_PROMPT,
   ModelProtocolError,
@@ -36,6 +37,14 @@ const annotations = {
   openWorldHint: false,
 } as const;
 const schema = { type: "object", properties: {}, additionalProperties: false } as const;
+const execution = {
+  environment: "worker_inline",
+  mode: "direct",
+  allowedSurfaces: ["ai_chat", "codex_mcp", "test"],
+  timeoutMs: 1_000,
+  maxResultCharacters: 4_000,
+  maxCallsPerRequest: 4,
+} as const;
 const fakeEntries = [
   {
     name: "public_lookup",
@@ -45,7 +54,8 @@ const fakeEntries = [
     annotations,
   risk: "read_only",
   allowedRoles: ["viewer", "admin"],
-  supportsScopedPrincipal: true,
+  scopePolicy: "metadata_safe",
+  execution,
     handler: async () => ({ returned: 1, truncated: false }),
   },
   {
@@ -56,7 +66,8 @@ const fakeEntries = [
     annotations,
   risk: "read_only",
   allowedRoles: ["admin"],
-  supportsScopedPrincipal: true,
+  scopePolicy: "metadata_safe",
+  execution,
     handler: async () => ({ returned: 1, truncated: false }),
   },
 ] satisfies readonly AiToolEntry[];
@@ -75,18 +86,88 @@ test("registry validation rejects duplicates and incomplete schema contracts", (
     () => validateToolRegistry([{ ...fakeEntries[0], handler: undefined } as unknown as AiToolEntry]),
     /handler/,
   );
+  assert.throws(
+    () => validateToolRegistry([{ ...fakeEntries[0], execution: undefined } as unknown as AiToolEntry]),
+    /执行环境/,
+  );
+  assert.throws(
+    () => validateToolRegistry([{ ...fakeEntries[0], execution: { ...execution, allowedSurfaces: [] } }]),
+    /入口范围/,
+  );
+  assert.throws(
+    () => validateToolRegistry([{
+      ...fakeEntries[0],
+      risk: "write",
+      annotations: { ...annotations, readOnlyHint: false, idempotentHint: false },
+    }]),
+    /不能以内联直接模式/,
+  );
 });
 
 test("one registry entry set derives role-filtered provider schemas and catalog", () => {
-  assert.deepEqual(getOpenAiTools(viewer, fakeEntries).map((item) => item.function.name), ["public_lookup"]);
-  assert.deepEqual(getAnthropicTools(viewer, fakeEntries).map((item) => item.name), ["public_lookup"]);
-  assert.deepEqual(getVisibleToolCatalog(viewer, fakeEntries).map((item) => item.name), ["public_lookup"]);
-  assert.deepEqual(getOpenAiTools(admin, fakeEntries).map((item) => item.function.name), ["public_lookup", "admin_lookup"]);
-  assert.equal(getOpenAiTools(viewer, fakeEntries)[0].function.parameters, fakeEntries[0].inputSchema);
-  assert.equal(getAnthropicTools(viewer, fakeEntries)[0].input_schema, fakeEntries[0].inputSchema);
+  assert.deepEqual(getOpenAiTools(viewer, "ai_chat", fakeEntries).map((item) => item.function.name), ["public_lookup"]);
+  assert.deepEqual(getAnthropicTools(viewer, "ai_chat", fakeEntries).map((item) => item.name), ["public_lookup"]);
+  assert.deepEqual(getVisibleToolCatalog(viewer, "ai_chat", fakeEntries).map((item) => item.name), ["public_lookup"]);
+  assert.deepEqual(getOpenAiTools(admin, "ai_chat", fakeEntries).map((item) => item.function.name), ["public_lookup", "admin_lookup"]);
+  assert.deepEqual(getOpenAiTools(admin, "market_ai", fakeEntries), []);
+  assert.equal(getOpenAiTools(viewer, "ai_chat", fakeEntries)[0].function.parameters, fakeEntries[0].inputSchema);
+  assert.equal(getAnthropicTools(viewer, "ai_chat", fakeEntries)[0].input_schema, fakeEntries[0].inputSchema);
   const scopedViewer = { ...viewer, scope: { warehouses: ["华东仓"], channels: [], platforms: [] } };
-  const unsafeForScope: AiToolEntry = { ...fakeEntries[0], name: "broad_lookup", supportsScopedPrincipal: false };
-  assert.deepEqual(getOpenAiTools(scopedViewer, [unsafeForScope, fakeEntries[0]]).map((item) => item.function.name), ["public_lookup"]);
+  const unsafeForScope: AiToolEntry = { ...fakeEntries[0], name: "broad_lookup", scopePolicy: "unscoped_only" };
+  assert.deepEqual(getOpenAiTools(scopedViewer, "ai_chat", [unsafeForScope, fakeEntries[0]]).map((item) => item.function.name), ["public_lookup"]);
+  const webOnly: AiToolEntry = { ...fakeEntries[0], name: "web_only", execution: { ...execution, allowedSurfaces: ["ai_chat"] } };
+  assert.deepEqual(getOpenAiTools(admin, "codex_mcp", [webOnly, fakeEntries[0]]).map((item) => item.function.name), ["public_lookup"]);
+  const pendingWrite: AiToolEntry = {
+    ...fakeEntries[1],
+    name: "pending_write",
+    risk: "write",
+    annotations: { ...annotations, readOnlyHint: false, idempotentHint: false },
+    execution: { ...execution, mode: "confirmation_required" },
+  };
+  assert.deepEqual(getOpenAiTools(admin, "ai_chat", [pendingWrite, fakeEntries[0]]).map((item) => item.function.name), ["public_lookup"]);
+});
+
+test("surface and risk gates are enforced again immediately before execution", async () => {
+  let called = false;
+  const webOnly: AiToolEntry = {
+    ...fakeEntries[0],
+    execution: { ...execution, allowedSurfaces: ["ai_chat"] },
+    handler: async () => { called = true; return {}; },
+  };
+  const deniedSurface = await executeToolCallWithRegistry(webOnly.name, {}, {
+    principal: viewer, surface: "codex_mcp", requestId: "surface-gate",
+  }, { entries: [webOnly], audit: async () => undefined });
+  assert.equal(deniedSurface.ok, false);
+  if (!deniedSurface.ok) assert.equal(deniedSurface.error.code, "forbidden");
+
+  const invalidDirectWrite: AiToolEntry = {
+    ...fakeEntries[0],
+    risk: "write",
+    annotations: { ...annotations, readOnlyHint: false, idempotentHint: false },
+    handler: async () => { called = true; return {}; },
+  };
+  const deniedRisk = await executeToolCallWithRegistry(invalidDirectWrite.name, {}, {
+    principal: viewer, surface: "test", requestId: "risk-gate",
+  }, { entries: [invalidDirectWrite], audit: async () => undefined });
+  assert.equal(deniedRisk.ok, false);
+  if (!deniedRisk.ok) assert.equal(deniedRisk.error.code, "forbidden");
+  assert.equal(called, false);
+});
+
+test("discovery and execution both reject an unsupported forged environment", async () => {
+  let called = false;
+  const forgedEnvironment = {
+    ...fakeEntries[0],
+    execution: { ...execution, environment: "external_sandbox" },
+    handler: async () => { called = true; return {}; },
+  } as unknown as AiToolEntry;
+  assert.deepEqual(getOpenAiTools(viewer, "test", [forgedEnvironment]), []);
+  const result = await executeToolCallWithRegistry(forgedEnvironment.name, {}, {
+    principal: viewer, surface: "test", requestId: "environment-gate",
+  }, { entries: [forgedEnvironment], audit: async () => undefined });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, "unsupported_execution_environment");
+  assert.equal(called, false);
 });
 
 test("execution rejects model-claimed privilege and malformed arguments", async () => {
@@ -108,6 +189,21 @@ test("execution rejects model-claimed privilege and malformed arguments", async 
   assert.equal(malformed.ok, false);
   if (!malformed.ok) assert.equal(malformed.error.code, "invalid_arguments");
   assert.throws(() => parseToolArguments("[]"), /JSON 对象/);
+});
+
+test("invalid or oversized requested tool names are bounded before runtime state and audit", async () => {
+  const oversizedName = `bad-${"x".repeat(10_000)}`;
+  const audits: Array<Record<string, unknown>> = [];
+  const runtime = createAiToolExecutionRuntime({
+    context: { principal: viewer, surface: "test", requestId: "bounded-tool-name" },
+    entries: fakeEntries,
+    audit: async (input) => { audits.push(input); },
+  });
+  const result = await runtime.execute(oversizedName, {});
+  assert.equal(result.ok, false);
+  assert.equal(result.toolName, "[invalid_tool_name]");
+  assert.deepEqual(Object.keys(runtime.snapshot().callsByTool), ["[invalid_tool_name]"]);
+  assert.deepEqual(audits.map((item) => item.toolName), ["[invalid_tool_name]"]);
 });
 
 test("every tool fails closed before its handler when audit storage is unavailable", async () => {
@@ -183,6 +279,7 @@ test("write and dangerous tools fail closed when audit preflight is unavailable"
     name: "sensitive_action",
     risk: "write",
     annotations: { ...annotations, readOnlyHint: false, idempotentHint: false },
+    execution: { ...execution, mode: "confirmation_required" },
     handler: async () => { called = true; return {}; },
   };
   const result = await executeToolCallWithRegistry(entry.name, {}, {
@@ -234,6 +331,156 @@ test("registry propagates cooperative abort state before handler execution", asy
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.error.code, "tool_cancelled");
   assert.equal(called, false);
+});
+
+test("cancellation during the started audit prevents the handler from starting", async () => {
+  const controller = new AbortController();
+  let called = false;
+  const statuses: string[] = [];
+  const runtime = createAiToolExecutionRuntime({
+    context: {
+      principal: viewer,
+      surface: "test",
+      requestId: "cancel-during-audit",
+      signal: controller.signal,
+    },
+    entries: [{
+      ...fakeEntries[0],
+      handler: async () => { called = true; return {}; },
+    }],
+    audit: async (input) => {
+      statuses.push(input.status);
+      if (input.status === "started") controller.abort();
+    },
+  });
+  const result = await runtime.execute(fakeEntries[0].name, {});
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, "tool_cancelled");
+  assert.equal(called, false);
+  assert.deepEqual(statuses, ["started", "failed"]);
+});
+
+test("request runtime enforces call budgets and correlates provider calls", async () => {
+  let called = 0;
+  const audits: Array<Record<string, unknown>> = [];
+  const entry: AiToolEntry = {
+    ...fakeEntries[0],
+    handler: async () => { called += 1; return { returned: 1 }; },
+  };
+  const runtime = createAiToolExecutionRuntime({
+    context: { principal: viewer, surface: "test", requestId: "runtime-budget" },
+    entries: [entry],
+    audit: async (input) => { audits.push(input); },
+    limits: { maxTotalCalls: 1, maxCumulativeDurationMs: 1_000 },
+  });
+  const first = await runtime.execute(entry.name, {}, { providerCallId: "provider-call-1" });
+  const second = await runtime.execute(entry.name, {}, { providerCallId: "provider-call-2" });
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, false);
+  if (!second.ok) assert.equal(second.error.code, "tool_call_budget_exceeded");
+  assert.equal(called, 1);
+  assert.equal(runtime.snapshot().totalCalls, 2);
+  const firstAudits = audits.filter((item) => item.providerCallId === "provider-call-1");
+  assert.equal(firstAudits.length, 2);
+  assert.equal(firstAudits[0].invocationId, firstAudits[1].invocationId);
+  assert.notEqual(firstAudits[0].invocationId, "provider-call-1");
+});
+
+test("request runtime timeout settles the handler and terminates later calls", async () => {
+  let settled = false;
+  let laterCalled = false;
+  const entry: AiToolEntry = {
+    ...fakeEntries[0],
+    execution: { ...execution, timeoutMs: 100 },
+    handler: async (_args, context) => {
+      assert.equal(Object.hasOwn(context, "completeExecution"), false);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      assert.equal(context.signal?.aborted, true);
+      settled = true;
+      return { returned: 1 };
+    },
+  };
+  const laterEntry: AiToolEntry = {
+    ...fakeEntries[1],
+    name: "later_lookup",
+    allowedRoles: ["viewer", "admin"],
+    handler: async () => { laterCalled = true; return { returned: 1 }; },
+  };
+  const runtime = createAiToolExecutionRuntime({
+    context: { principal: viewer, surface: "test", requestId: "runtime-timeout" },
+    entries: [entry, laterEntry],
+    audit: async () => undefined,
+    limits: { maxCumulativeDurationMs: 1_000 },
+  });
+  const startedAt = performance.now();
+  const result = await runtime.execute(entry.name, {});
+  assert.equal(settled, true);
+  assert.ok(performance.now() - startedAt >= 110);
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, "tool_timeout");
+  const laterResult = await runtime.execute(laterEntry.name, {});
+  assert.equal(laterResult.ok, false);
+  if (!laterResult.ok) assert.equal(laterResult.error.code, "tool_runtime_terminated");
+  assert.equal(laterCalled, false);
+  assert.equal(runtime.snapshot().active, false);
+  assert.equal(runtime.snapshot().terminalErrorCode, "tool_runtime_terminated");
+});
+
+test("handler deadline stops after a bounded result while completion audit remains fail-closed", async () => {
+  const statuses: string[] = [];
+  const entry: AiToolEntry = {
+    ...fakeEntries[0],
+    execution: { ...execution, timeoutMs: 100 },
+    handler: async () => ({ returned: 1 }),
+  };
+  const runtime = createAiToolExecutionRuntime({
+    context: { principal: viewer, surface: "test", requestId: "slow-completion-audit" },
+    entries: [entry],
+    audit: async (input) => {
+      statuses.push(input.status);
+      if (input.status === "succeeded") await new Promise((resolve) => setTimeout(resolve, 120));
+    },
+    limits: { maxCumulativeDurationMs: 1_000 },
+  });
+  const startedAt = performance.now();
+  const result = await runtime.execute(entry.name, {});
+  assert.equal(result.ok, true);
+  assert.ok(performance.now() - startedAt >= 110);
+  assert.deepEqual(statuses, ["started", "succeeded"]);
+});
+
+test("oversized tool results fail before success audit and never expose full data", async () => {
+  const audits: Array<Record<string, unknown>> = [];
+  const entry: AiToolEntry = {
+    ...fakeEntries[0],
+    execution: { ...execution, maxResultCharacters: 1_000 },
+    handler: async () => ({ secretLargeResult: "x".repeat(1_100) }),
+  };
+  const result = await executeToolCallWithRegistry(entry.name, {}, {
+    principal: viewer, surface: "test", requestId: "large-result",
+  }, { entries: [entry], audit: async (input) => { audits.push(input); } });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, "tool_result_too_large");
+  assert.deepEqual(audits.map((item) => item.status), ["started", "failed"]);
+  assert.equal(audits.some((item) => Object.hasOwn(item, "result")), false);
+});
+
+test("the registry bounds the final provider result envelope before success audit", async () => {
+  const audits: string[] = [];
+  const payload = "x".repeat(980);
+  assert.ok(JSON.stringify({ payload }).length < 1_000);
+  assert.ok(JSON.stringify({ ok: true, toolName: "public_lookup", data: { payload } }).length > 1_000);
+  const entry: AiToolEntry = {
+    ...fakeEntries[0],
+    execution: { ...execution, maxResultCharacters: 1_000 },
+    handler: async () => ({ payload }),
+  };
+  const result = await executeToolCallWithRegistry(entry.name, {}, {
+    principal: viewer, surface: "test", requestId: "envelope-limit",
+  }, { entries: [entry], audit: async (input) => { audits.push(input.status); } });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error.code, "tool_result_too_large");
+  assert.deepEqual(audits, ["started", "failed"]);
 });
 
 test("model JSON fetch limits declared and streamed response bytes", async () => {
@@ -307,10 +554,11 @@ test("OpenAI-compatible loop preserves tool call id and feeds role=tool result b
         ? { choices: [{ message: { content: null, reasoning_content: "先查询库存再回答", tool_calls: [{ id: "call-1", type: "function", function: { name: "public_lookup", arguments: "{}" } }] } }] }
         : { choices: [{ message: { content: "已完成" } }] };
     },
-    executeTool: async (name, rawArguments) => {
+    executeTool: async (name, rawArguments, metadata) => {
       executed += 1;
       assert.equal(name, "public_lookup");
       assert.deepEqual(parseToolArguments(rawArguments), {});
+      assert.equal(metadata.providerCallId, "call-1");
       return { ok: true, toolName: name, data: { returned: 1 } };
     },
   });
@@ -385,7 +633,10 @@ test("Anthropic loop preserves tool_use id and feeds a user tool_result block ba
         ? { content: [{ type: "tool_use", id: "use-1", name: "public_lookup", input: {} }], stop_reason: "tool_use" }
         : { content: [{ type: "text", text: "查询完成" }], stop_reason: "end_turn" };
     },
-    executeTool: async (name) => ({ ok: true, toolName: name, data: { returned: 2 } }),
+    executeTool: async (name, _args, metadata) => {
+      assert.equal(metadata.providerCallId, "use-1");
+      return { ok: true, toolName: name, data: { returned: 2 } };
+    },
   });
   assert.equal(reply, "查询完成");
   const secondMessages = requests[1].messages as Array<Record<string, unknown>>;
@@ -432,13 +683,14 @@ test("tool loop enforces per-round limits and keeps no-tool legacy answers", asy
 });
 
 test("production registry keeps all existing operations tools plus global system search", async () => {
-  const [registry, apiRoute, assistant, operations, searchHandler, mcp] = await Promise.all([
+  const [registry, apiRoute, assistant, operations, searchHandler, mcp, marketAiRoute] = await Promise.all([
     readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/tools/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/operations-tools.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/search/ai-tool.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/mcp/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/ai/route.ts", import.meta.url), "utf8"),
   ]);
   for (const name of [
     "get_data_freshness",
@@ -457,13 +709,17 @@ test("production registry keeps all existing operations tools plus global system
   assert.match(registry, /validateToolRegistry\(aiToolRegistry\)/);
   assert.match(apiRoute, /getVisibleToolCatalog/);
   assert.match(mcp, /getVisibleToolCatalog/);
-  assert.match(mcp, /executeRegisteredToolCall/);
+  assert.match(mcp, /createRegisteredToolExecutionRuntime/);
   assert.match(mcp, /MAX_BATCH_REQUESTS = 20/);
   assert.match(mcp, /MAX_BATCH_DURATION_MS/);
   assert.match(mcp, /mcp-\$\{digest\.slice/);
   assert.doesNotMatch(mcp, /BOOTSTRAP_ADMIN_EMAIL/);
-  assert.match(assistant, /getOpenAiTools/);
-  assert.match(assistant, /getAnthropicTools/);
+  assert.match(assistant, /createRegisteredToolExecutionRuntime/);
+  assert.match(assistant, /toolRuntime\.getOpenAiTools/);
+  assert.match(assistant, /toolRuntime\.getAnthropicTools/);
+  assert.match(marketAiRoute, /MARKET_AI_SYSTEM_PROMPT/);
+  assert.match(marketAiRoute, /systemPrompt: MARKET_AI_SYSTEM_PROMPT/);
+  assert.doesNotMatch(marketAiRoute, /AI_TOOL_SYSTEM_PROMPT/);
   assert.doesNotMatch(operations, /operationsToolNames/);
   assert.doesNotMatch(searchHandler, /ToolDefinition|inputSchema/);
   assert.match(AI_TOOL_SYSTEM_PROMPT, /get_data_freshness/);

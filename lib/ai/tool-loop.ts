@@ -10,6 +10,7 @@ const MAX_TOOL_RESULT_CHARS = 40_000;
 
 export type ConversationTextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderToolDefinition = Record<string, unknown>;
+export type ProviderToolCallMetadata = { providerCallId: string };
 export type ToolExecutionResult =
   | { ok: true; toolName: string; data: Record<string, unknown> }
   | { ok: false; toolName: string; error: { code: string; message: string } };
@@ -59,7 +60,7 @@ export async function runOpenAiCompatibleToolLoop(input: {
   messages: ConversationTextMessage[];
   tools: ProviderToolDefinition[];
   request: (body: Record<string, unknown>) => Promise<OpenAiChatCompletionResponse>;
-  executeTool: (name: string, rawArguments: unknown) => Promise<ToolExecutionResult>;
+  executeTool: (name: string, rawArguments: unknown, metadata: ProviderToolCallMetadata) => Promise<ToolExecutionResult>;
   systemPrompt?: string;
   limits?: ToolLoopLimits;
   signal?: AbortSignal;
@@ -106,7 +107,7 @@ export async function runOpenAiCompatibleToolLoop(input: {
       if (!call.id || !call.function?.name || typeof call.function.arguments !== "string") {
         throw new ModelProtocolError("OpenAI-compatible 工具调用缺少 id、name 或 arguments");
       }
-      const result = await input.executeTool(call.function.name, call.function.arguments);
+      const result = await input.executeTool(call.function.name, call.function.arguments, { providerCallId: call.id });
       throwIfAiRequestCancelled(input.signal);
       messages.push({
         role: "tool",
@@ -122,7 +123,7 @@ export async function runAnthropicToolLoop(input: {
   messages: ConversationTextMessage[];
   tools: ProviderToolDefinition[];
   request: (body: Record<string, unknown>) => Promise<AnthropicMessagesResponse>;
-  executeTool: (name: string, rawArguments: unknown) => Promise<ToolExecutionResult>;
+  executeTool: (name: string, rawArguments: unknown, metadata: ProviderToolCallMetadata) => Promise<ToolExecutionResult>;
   systemPrompt?: string;
   limits?: ToolLoopLimits;
   signal?: AbortSignal;
@@ -161,7 +162,7 @@ export async function runAnthropicToolLoop(input: {
     for (const use of toolUses) {
       throwIfAiRequestCancelled(input.signal);
       if (!use.id || !use.name) throw new ModelProtocolError("Anthropic 工具调用缺少 id 或 name");
-      const result = await input.executeTool(use.name, use.input);
+      const result = await input.executeTool(use.name, use.input, { providerCallId: use.id });
       throwIfAiRequestCancelled(input.signal);
       toolResults.push({
         type: "tool_result",

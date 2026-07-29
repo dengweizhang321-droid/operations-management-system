@@ -23,6 +23,12 @@ type MarketAiRequest = {
   endDate?: string;
 };
 
+const MARKET_AI_SYSTEM_PROMPT = [
+  "你是 TERUISI 运营管理系统的市场分析助手，只能依据本次请求已注入的市场数据回答。",
+  "本入口不提供工具调用，不要声称调用工具、查询其他系统数据或补全未提供的指标。",
+  "金额单位为人民币分，转化率单位为基点（100 基点=1%）；回答时必须说明数据日期范围和统计口径。",
+].join("\n");
+
 function safeList(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 20) : [];
 }
@@ -91,6 +97,7 @@ export async function POST(request: Request) {
       requestId,
       surface: "market_ai",
       signal: request.signal,
+      systemPrompt: MARKET_AI_SYSTEM_PROMPT,
     }, db);
     return Response.json({ ok: true, answer, conversationId, dataRange: overview.dataRange });
   } catch (error) {

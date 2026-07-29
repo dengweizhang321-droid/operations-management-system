@@ -145,7 +145,7 @@ function buildSystemPrompt(entry: AiQuestionEntryContext): string {
 }
 
 function buildHelpReply(entry: AiQuestionEntryContext): string {
-  const tools = getVisibleToolCatalog(entry.principal);
+  const tools = getVisibleToolCatalog(entry.principal, entry.surface);
   const lines = tools.slice(0, 20).map((tool) => `- ${tool.title}（${tool.name}）`);
   return [
     "我可以基于你当前权限查询系统中已接入的真实运营数据，并说明数据截止日期、筛选条件、金额口径和结果是否截断。",

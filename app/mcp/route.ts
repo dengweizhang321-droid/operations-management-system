@@ -3,7 +3,7 @@ import {
   type AppPrincipal,
 } from "@/lib/auth/authorization";
 import {
-  executeRegisteredToolCall,
+  createRegisteredToolExecutionRuntime,
   getVisibleToolCatalog,
 } from "@/lib/ai/tool-registry";
 import {
@@ -119,7 +119,7 @@ async function handleRequest(
   }
   if (message.method === "ping") return rpcResult(id, {});
   if (message.method === "tools/list") {
-    return rpcResult(id, { tools: getVisibleToolCatalog(principal) });
+    return rpcResult(id, { tools: getVisibleToolCatalog(principal, "codex_mcp") });
   }
   if (message.method === "tools/call") {
     return handleToolCall(id, message.params, request, principal, signal);
@@ -144,12 +144,16 @@ async function handleToolCall(
   }
 
   const requestId = request.headers.get("x-request-id")?.slice(0, 200) || crypto.randomUUID();
-  const result = await executeRegisteredToolCall(params.name, params.arguments, {
+  const runtime = createRegisteredToolExecutionRuntime({
     principal,
     requestId,
     surface: "codex_mcp",
     signal,
+  }, {
+    maxTotalCalls: 1,
+    maxCumulativeDurationMs: MAX_REQUEST_DURATION_MS,
   });
+  const result = await runtime.execute(params.name, params.arguments);
   if (result.ok) {
     return rpcResult(id, {
       content: [{ type: "text", text: JSON.stringify(result.data) }],

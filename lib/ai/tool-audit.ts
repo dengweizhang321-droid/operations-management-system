@@ -2,10 +2,12 @@ import {
   ensureAuthorizationSchema,
   type AppRole,
 } from "@/lib/auth/authorization";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
 
 export type AiToolAuditInput = {
   requestId: string;
+  invocationId?: string;
+  providerCallId?: string;
   actorEmail: string;
   actorRole: AppRole;
   surface: string;
@@ -22,25 +24,74 @@ export async function recordAiToolAudit(input: AiToolAuditInput) {
   await ensureAuthorizationSchema(db);
   const resultJson = input.result ? JSON.stringify(input.result) : "";
   const responseDigest = resultJson ? await sha256Hex(resultJson) : null;
+  const id = crypto.randomUUID();
+  const argumentsJson = safeJson(input.arguments, 4_000);
+  const rowCount = inferRowCount(input.result);
+  const durationMs = Math.max(0, Math.trunc(input.durationMs));
+  if (await supportsInvocationCorrelation(db)) {
+    await db.prepare(
+      `INSERT INTO ai_tool_audit_logs (
+        id, request_id, invocation_id, provider_call_id, actor_email, actor_role, surface, tool_name,
+        arguments_json, status, row_count, duration_ms, response_digest, error_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      id,
+      input.requestId,
+      (input.invocationId || input.requestId).slice(0, 160),
+      input.providerCallId?.slice(0, 200) ?? null,
+      input.actorEmail,
+      input.actorRole,
+      input.surface.slice(0, 80),
+      input.toolName,
+      argumentsJson,
+      input.status,
+      rowCount,
+      durationMs,
+      responseDigest,
+      input.errorCode ?? null,
+    ).run();
+    return;
+  }
   await db.prepare(
       `INSERT INTO ai_tool_audit_logs (
         id, request_id, actor_email, actor_role, surface, tool_name,
         arguments_json, status, row_count, duration_ms, response_digest, error_code
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
-      crypto.randomUUID(),
+      id,
       input.requestId,
       input.actorEmail,
       input.actorRole,
       input.surface.slice(0, 80),
       input.toolName,
-      safeJson(input.arguments, 4_000),
+      argumentsJson,
       input.status,
-      inferRowCount(input.result),
-      Math.max(0, Math.trunc(input.durationMs)),
+      rowCount,
+      durationMs,
       responseDigest,
       input.errorCode ?? null,
     ).run();
+}
+
+const invocationCorrelationByDatabase = new WeakMap<object, Promise<boolean>>();
+
+async function supportsInvocationCorrelation(db: SalesDatabase): Promise<boolean> {
+  const key = db as unknown as object;
+  const existing = invocationCorrelationByDatabase.get(key);
+  if (existing) return existing;
+  const check = db.prepare("PRAGMA table_info(ai_tool_audit_logs)").all<{ name: string }>()
+    .then((info) => {
+      const columns = new Set((info.results ?? []).map((column) => column.name));
+      const supported = columns.has("invocation_id") && columns.has("provider_call_id");
+      if (!supported) invocationCorrelationByDatabase.delete(key);
+      return supported;
+    })
+    .catch((error: unknown) => {
+      invocationCorrelationByDatabase.delete(key);
+      throw error;
+    });
+  invocationCorrelationByDatabase.set(key, check);
+  return check;
 }
 
 export function summarizeToolArguments(value: unknown): unknown {

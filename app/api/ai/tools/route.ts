@@ -7,7 +7,7 @@ import { getVisibleToolCatalog } from "@/lib/ai/tool-registry";
 export async function GET() {
   try {
     const principal = await requireAppPrincipal();
-    const items = getVisibleToolCatalog(principal);
+    const items = getVisibleToolCatalog(principal, "ai_chat");
     return Response.json(
       { items, count: items.length },
       { headers: { "cache-control": "no-store" } },

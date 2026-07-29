@@ -70,6 +70,8 @@ const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS ai_tool_audit_logs (
     id TEXT PRIMARY KEY NOT NULL,
     request_id TEXT NOT NULL,
+    invocation_id TEXT NOT NULL DEFAULT '',
+    provider_call_id TEXT,
     actor_email TEXT NOT NULL,
     actor_role TEXT NOT NULL,
     surface TEXT NOT NULL,
@@ -109,7 +111,7 @@ export async function ensureAuthorizationSchema(
           : prepared;
       }),
     )
-    .then(() => undefined)
+    .then(() => ensureAiToolAuditExecutionIndex(db))
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
       throw error;
@@ -117,6 +119,14 @@ export async function ensureAuthorizationSchema(
 
   schemaReadyByDatabase.set(key, setup);
   return setup;
+}
+
+async function ensureAiToolAuditExecutionIndex(db: SalesDatabase): Promise<void> {
+  const info = await db.prepare("PRAGMA table_info(ai_tool_audit_logs)").all<{ name: string }>();
+  const names = new Set((info.results ?? []).map((column) => column.name));
+  if (!names.has("invocation_id")) return;
+  await db.prepare(`CREATE INDEX IF NOT EXISTS ai_tool_audit_logs_invocation_created_idx
+    ON ai_tool_audit_logs (invocation_id, created_at)`).run();
 }
 
 export async function requireAppPrincipal(

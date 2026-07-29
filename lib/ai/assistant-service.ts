@@ -7,9 +7,7 @@ import { isAiRequestCancelled } from "@/lib/ai/cancellation";
 import { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
 import { probeVisionModelConnection } from "@/lib/market/annotation-model";
 import {
-  executeRegisteredToolCall,
-  getAnthropicTools,
-  getOpenAiTools,
+  createRegisteredToolExecutionRuntime,
   type AiToolExecutionContext,
 } from "@/lib/ai/tool-registry";
 import { recordAiToolAudit } from "@/lib/ai/tool-audit";
@@ -746,15 +744,18 @@ export async function generateAssistantReply(input: {
       surface,
       signal: input.signal,
     };
+    const toolRuntime = createRegisteredToolExecutionRuntime(toolContext, {
+      maxTotalCalls: input.model.maxTotalToolCalls,
+    });
     const tools = input.model.protocol === "anthropic"
-      ? getAnthropicTools(input.principal)
-      : getOpenAiTools(input.principal);
+      ? toolRuntime.getAnthropicTools()
+      : toolRuntime.getOpenAiTools();
     const reply = await completeTextWithTools({
       model: input.model,
       messages,
       systemPrompt: input.systemPrompt ?? AI_TOOL_SYSTEM_PROMPT,
       tools,
-      executeTool: (name, rawArguments) => executeRegisteredToolCall(name, rawArguments, toolContext),
+      executeTool: toolRuntime.execute,
       signal: input.signal,
     });
     if (!reply) throw new Error("模型未返回内容");
