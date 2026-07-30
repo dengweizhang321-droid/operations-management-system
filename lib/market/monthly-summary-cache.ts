@@ -90,30 +90,48 @@ export const monthlySummaryTriggerStatements = [
     ${bumpSql}; ${dirtyScopeSelectSql("FROM market_price_band_versions WHERE id=OLD.version_id")}; END`,
   `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_netshop_insert AFTER INSERT ON netshop_rows BEGIN
     ${bumpSql}; ${dirtyProductsSql("NEW.sku_id,NEW.spu_id,NEW.product_code")}; END`,
-  `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_netshop_update AFTER UPDATE ON netshop_rows BEGIN
+  `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_netshop_update
+    AFTER UPDATE OF sku_id,spu_id,product_code ON netshop_rows
+    WHEN OLD.sku_id IS NOT NEW.sku_id OR OLD.spu_id IS NOT NEW.spu_id OR OLD.product_code IS NOT NEW.product_code BEGIN
     ${bumpSql}; ${dirtyProductsSql("OLD.sku_id,OLD.spu_id,OLD.product_code,NEW.sku_id,NEW.spu_id,NEW.product_code")}; END`,
   `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_netshop_delete AFTER DELETE ON netshop_rows BEGIN
     ${bumpSql}; ${dirtyProductsSql("OLD.sku_id,OLD.spu_id,OLD.product_code")}; END`,
   `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_sales_insert AFTER INSERT ON sales_order_lines WHEN NEW.product_code<>'' BEGIN
     ${bumpSql}; ${dirtyProductsSql("NEW.product_code")}; END`,
-  `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_sales_update AFTER UPDATE ON sales_order_lines BEGIN
+  `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_sales_update
+    AFTER UPDATE OF product_code ON sales_order_lines
+    WHEN OLD.product_code IS NOT NEW.product_code BEGIN
     ${bumpSql}; ${dirtyProductsSql("OLD.product_code,NEW.product_code")}; END`,
   `CREATE TRIGGER IF NOT EXISTS market_monthly_summary_sales_delete AFTER DELETE ON sales_order_lines WHEN OLD.product_code<>'' BEGIN
     ${bumpSql}; ${dirtyProductsSql("OLD.product_code")}; END`,
 ] as const;
 
-function ensureInvalidationTriggers(db: MonthlySummaryCacheDatabase): Promise<void> {
+export const monthlySummaryTriggerReplacementStatements = [
+  "DROP TRIGGER IF EXISTS market_monthly_summary_netshop_update",
+  "DROP TRIGGER IF EXISTS market_monthly_summary_sales_update",
+] as const;
+
+export function ensureMarketMonthlySummaryInvalidationTriggers(db: MonthlySummaryCacheDatabase): Promise<void> {
   const key = db as object;
   const ready = triggersByDatabase.get(key);
   if (ready) return ready;
-  const setup = db.batch([
-    db.prepare(`INSERT OR IGNORE INTO market_monthly_summary_cache_state
-      (id,source_revision,built_revision,status) VALUES (1,1,-1,'stale')`),
-    ...monthlySummaryTriggerStatements.map((statement) => db.prepare(statement)),
-    db.prepare(`INSERT INTO market_monthly_summary_dirty_scopes (category,dirty_revision)
-      SELECT '*',source_revision FROM market_monthly_summary_cache_state WHERE id=1 AND built_revision<0
-      ON CONFLICT(category) DO UPDATE SET dirty_revision=MAX(dirty_revision,excluded.dirty_revision)`),
-  ]).then(() => undefined).catch((error: unknown) => {
+  const setup = (async () => {
+    const updateTriggers = await db.prepare(`SELECT name,sql FROM sqlite_master
+      WHERE type='trigger' AND name IN ('market_monthly_summary_netshop_update','market_monthly_summary_sales_update')`)
+      .all<{ name: string; sql: string }>();
+    const triggerSql = new Map((updateTriggers.results ?? []).map((row) => [row.name, row.sql.replace(/[`\"]/g, "")]));
+    const needsReplacement = !triggerSql.get("market_monthly_summary_netshop_update")?.includes("UPDATE OF sku_id,spu_id,product_code")
+      || !triggerSql.get("market_monthly_summary_sales_update")?.includes("UPDATE OF product_code");
+    await db.batch([
+      db.prepare(`INSERT OR IGNORE INTO market_monthly_summary_cache_state
+        (id,source_revision,built_revision,status) VALUES (1,1,-1,'stale')`),
+      ...(needsReplacement ? monthlySummaryTriggerReplacementStatements.map((statement) => db.prepare(statement)) : []),
+      ...monthlySummaryTriggerStatements.map((statement) => db.prepare(statement)),
+      db.prepare(`INSERT INTO market_monthly_summary_dirty_scopes (category,dirty_revision)
+        SELECT '*',source_revision FROM market_monthly_summary_cache_state WHERE id=1 AND built_revision<0
+        ON CONFLICT(category) DO UPDATE SET dirty_revision=MAX(dirty_revision,excluded.dirty_revision)`),
+    ]);
+  })().catch((error: unknown) => {
     triggersByDatabase.delete(key);
     throw error;
   });
@@ -122,7 +140,7 @@ function ensureInvalidationTriggers(db: MonthlySummaryCacheDatabase): Promise<vo
 }
 
 async function refresh(db: MonthlySummaryCacheDatabase): Promise<boolean> {
-  await ensureInvalidationTriggers(db);
+  await ensureMarketMonthlySummaryInvalidationTriggers(db);
   const current = await db.prepare(`SELECT source_revision,built_revision,status
     FROM market_monthly_summary_cache_state WHERE id=1`).first<MonthlySummaryCacheState>();
   if (current && current.source_revision === current.built_revision && current.status === "ready") return true;

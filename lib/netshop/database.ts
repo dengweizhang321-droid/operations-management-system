@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
-import { dailyRowKey } from "@/lib/netshop/daily-contract";
 import { netshopBatchId, sameNetshopBatchIdentity } from "@/lib/netshop/batch-identity";
+import { ensureDailyRowNaturalKeys } from "@/lib/netshop/daily-row-migration";
 
 export type NetshopDatabase = NonNullable<typeof env.DB>;
 
@@ -249,6 +249,10 @@ const batchTableSql = `CREATE TABLE IF NOT EXISTS netshop_import_batches (
 
 const schemaStatements = [
   batchTableSql,
+  `CREATE TABLE IF NOT EXISTS netshop_schema_migrations (
+    migration_key TEXT PRIMARY KEY,
+    completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE INDEX IF NOT EXISTS netshop_import_batches_source_created_idx
     ON netshop_import_batches (source, created_at)`,
   `CREATE INDEX IF NOT EXISTS netshop_import_batches_shop_dataset_idx
@@ -308,68 +312,6 @@ const schemaStatements = [
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
-type DailyMigrationRow = {
-  id: number;
-  dataset: string;
-  platform: string;
-  shop_name: string;
-  business_date: string | null;
-  sku_id: string;
-  spu_id: string;
-  completed_at: string | null;
-  created_at: string;
-};
-
-function dailyNaturalKey(row: DailyMigrationRow) {
-  const dimensionId = row.dataset === "sku_daily" ? row.sku_id : row.spu_id;
-  return dailyRowKey(row.dataset, row.platform, row.shop_name, row.business_date ?? "", dimensionId);
-}
-
-/**
- * Older daily rows used file hash + line number as their identity.  Collapse
- * those historical copies before moving to the stable daily natural key.  This
- * deliberately uses only D1's existing prepare/all/batch API rather than a
- * version-dependent SQL window function.
- */
-async function migrateDailyRowKeys(db: NetshopDatabase) {
-  const result = await db.prepare(
-    `SELECT r.id, r.dataset, r.platform, r.shop_name, r.business_date, r.sku_id, r.spu_id,
-            b.completed_at, b.created_at
-     FROM netshop_rows r
-     JOIN netshop_import_batches b ON b.id = r.last_import_batch_id
-     WHERE r.source = 'jd_sku_daily'
-       AND r.dataset IN ('sku_daily', 'spu_daily')
-       AND b.status = 'completed'
-       AND r.business_date IS NOT NULL
-       AND r.business_date <> ''
-       AND ((r.dataset = 'sku_daily' AND r.sku_id <> '') OR (r.dataset = 'spu_daily' AND r.spu_id <> ''))`,
-  ).all<DailyMigrationRow>();
-  const winners = new Map<string, DailyMigrationRow>();
-  const losers: number[] = [];
-  for (const row of result.results) {
-    const key = dailyNaturalKey(row);
-    const current = winners.get(key);
-    const rowTime = `${row.completed_at ?? ""}\u0000${row.created_at}\u0000${String(row.id).padStart(12, "0")}`;
-    const currentTime = current ? `${current.completed_at ?? ""}\u0000${current.created_at}\u0000${String(current.id).padStart(12, "0")}` : "";
-    if (!current || rowTime > currentTime) {
-      if (current) losers.push(current.id);
-      winners.set(key, row);
-    } else {
-      losers.push(row.id);
-    }
-  }
-  const statements = losers.map((id) => db.prepare("DELETE FROM netshop_rows WHERE id = ?").bind(id));
-  for (const row of winners.values()) {
-    statements.push(db.prepare("UPDATE netshop_rows SET source_row_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(dailyNaturalKey(row), row.id));
-  }
-  // D1 batches have practical statement/subrequest limits.  Keep the
-  // migration restart-safe by deleting all losers first and then rewriting
-  // winners in bounded batches; a later ensure call can safely resume.
-  for (let offset = 0; offset < statements.length; offset += 100) {
-    await db.batch(statements.slice(offset, offset + 100));
-  }
-}
-
 /** Upgrade the historical source+file-hash constraint without altering file_hash itself. */
 async function migrateBatchIdentityConstraint(db: NetshopDatabase) {
   type IndexRow = { name: string; unique: number };
@@ -405,7 +347,7 @@ export async function ensureNetshopSchema(db = getNetshopDatabase()) {
   if (existing) return existing;
   const setup = migrateBatchIdentityConstraint(db)
     .then(() => db.batch(schemaStatements.map((statement) => db.prepare(statement))))
-    .then(() => migrateDailyRowKeys(db))
+    .then(() => ensureDailyRowNaturalKeys(db))
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
       throw error;

@@ -71,7 +71,8 @@ function createSourceSchema(sqlite: DatabaseSync) {
     );
     CREATE TABLE netshop_rows (
       id INTEGER PRIMARY KEY, sku_id TEXT NOT NULL DEFAULT '', spu_id TEXT NOT NULL DEFAULT '',
-      product_code TEXT NOT NULL DEFAULT ''
+      product_code TEXT NOT NULL DEFAULT '', source_row_key TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE sales_order_lines (
       id INTEGER PRIMARY KEY, product_code TEXT NOT NULL DEFAULT ''
@@ -83,6 +84,13 @@ function createSourceSchema(sqlite: DatabaseSync) {
 }
 
 async function applyMonthlyCacheMigration(sqlite: DatabaseSync) {
+  for (const file of ["0048_market_monthly_summary_cache.sql", "0049_market_cache_invalidation_fix.sql"]) {
+    const migration = await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8");
+    for (const statement of migration.split("--> statement-breakpoint").map((item) => item.trim()).filter(Boolean)) sqlite.exec(statement);
+  }
+}
+
+async function applyOriginalMonthlyCacheMigration(sqlite: DatabaseSync) {
   const migration = await readFile(new URL("../drizzle/0048_market_monthly_summary_cache.sql", import.meta.url), "utf8");
   for (const statement of migration.split("--> statement-breakpoint").map((item) => item.trim()).filter(Boolean)) sqlite.exec(statement);
 }
@@ -125,11 +133,37 @@ test("monthly summary migration invalidates every material source", async () => 
   assert.equal((sqlite.prepare("SELECT month FROM market_monthly_summary_dirty_keys WHERE sku_code='SKU-1'").get() as { month: string }).month, "2026-06");
   sqlite.exec("INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month) VALUES ('p','家电','POP','SKU-1','SKU','2026-06')");
   sqlite.exec("INSERT INTO netshop_rows (id,sku_id) VALUES (1,'SKU-1')");
+  const afterNetshopInsert = revision();
+  sqlite.exec("UPDATE netshop_rows SET source_row_key='natural-key',updated_at='2026-07-30 12:00:00' WHERE id=1");
+  assert.equal(revision(), afterNetshopInsert);
+  sqlite.exec("UPDATE netshop_rows SET sku_id=sku_id WHERE id=1");
+  assert.equal(revision(), afterNetshopInsert);
+  sqlite.exec("UPDATE netshop_rows SET sku_id='SKU-2' WHERE id=1");
+  assert.ok(revision() > afterNetshopInsert);
   sqlite.exec("INSERT INTO sales_order_lines (id,product_code) VALUES (1,'SKU-1')");
+  const afterSalesInsert = revision();
+  sqlite.exec("UPDATE sales_order_lines SET product_code=product_code WHERE id=1");
+  assert.equal(revision(), afterSalesInsert);
+  sqlite.exec("UPDATE sales_order_lines SET product_code='SKU-2' WHERE id=1");
+  assert.ok(revision() > afterSalesInsert);
   sqlite.exec("UPDATE market_price_band_versions SET version=2 WHERE id='default-band'");
   assert.ok(revision() >= initial + 5);
   assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_products WHERE product_code='SKU-1'").get());
   assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_scopes WHERE category='*'").get());
+  sqlite.close();
+});
+
+test("runtime replaces the original broad update triggers on an existing database", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  createSourceSchema(sqlite);
+  await applyOriginalMonthlyCacheMigration(sqlite);
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketMonthlySummaryCache(db);
+  sqlite.exec("INSERT INTO netshop_rows (id,sku_id) VALUES (1,'SKU-1')");
+  const before = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
+  sqlite.exec("UPDATE netshop_rows SET source_row_key='natural-key',updated_at='2026-07-30 12:00:00' WHERE id=1");
+  const after = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
+  assert.equal(after, before);
   sqlite.close();
 });
 

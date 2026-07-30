@@ -242,6 +242,18 @@ $startButton.Add_Click({
     return
   }
 
+  $actionState = Get-SystemState
+  if ($actionState.State -eq "Running") {
+    [System.Windows.Forms.MessageBox]::Show("运营管理系统已经在运行，无需重复构建。", "系统已运行", "OK", "Information") | Out-Null
+    Update-Status
+    return
+  }
+  if ($actionState.State -eq "PortInUse") {
+    [System.Windows.Forms.MessageBox]::Show("端口 3000 正被其他程序使用。为避免覆盖运行中的构建，本次启动已取消。", "无法启动", "OK", "Warning") | Out-Null
+    Update-Status
+    return
+  }
+
   $logDirectory = Join-Path $ProjectRoot "tmp"
   New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
   $stamp = Get-Date -Format "yyyyMMdd-HHmmss"

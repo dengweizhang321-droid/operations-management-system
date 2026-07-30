@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { ensureRuntimeDevVarsLink, getLocalWorkerBuildCommand, parseLocalWorkerArguments } from "../tools/start-local-worker.mjs";
+import {
+  assertLocalWorkerPortAvailable,
+  ensureRuntimeDevVarsLink,
+  getLocalWorkerBuildCommand,
+  parseLocalWorkerArguments,
+} from "../tools/start-local-worker.mjs";
 
 test("local Worker build always enables the local-only build flag", () => {
   const command = getLocalWorkerBuildCommand("D:/example-project");
@@ -20,6 +25,14 @@ test("control-only build flag is consumed before arguments reach Wrangler", () =
   assert.equal(parsed.shouldBuild, true);
   assert.deepEqual(parsed.wranglerArgs, ["--ip", "127.0.0.1"]);
   assert.equal(parseLocalWorkerArguments(["--log-level", "debug"]).shouldBuild, false);
+});
+
+test("local Worker refuses to build or start while port 3000 is occupied", async () => {
+  await assert.rejects(
+    assertLocalWorkerPortAvailable(async () => true),
+    /端口 3000 已有服务运行/,
+  );
+  await assert.doesNotReject(assertLocalWorkerPortAvailable(async () => false));
 });
 
 test("prebuilt local Worker receives the ignored root .dev.vars through a hard link", async () => {

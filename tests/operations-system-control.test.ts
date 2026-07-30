@@ -15,3 +15,10 @@ test("control panel starts the built local Worker and preserves launch diagnosti
   assert.doesNotMatch(panel, /\$VinextCli/);
   assert.doesNotMatch(panel, /Start-Sleep -Seconds 1/);
 });
+
+test("control panel rechecks the port immediately before launching a build", () => {
+  assert.match(panel, /\$actionState = Get-SystemState/);
+  assert.match(panel, /\$actionState\.State -eq "Running"/);
+  assert.match(panel, /\$actionState\.State -eq "PortInUse"/);
+  assert.match(panel, /为避免覆盖运行中的构建，本次启动已取消/);
+});

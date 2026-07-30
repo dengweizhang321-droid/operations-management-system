@@ -4,7 +4,11 @@ import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import { buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
-import { ensureMarketMonthlySummaryCache, isMarketMonthlySummaryCacheEligible } from "@/lib/market/monthly-summary-cache";
+import {
+  ensureMarketMonthlySummaryCache,
+  ensureMarketMonthlySummaryInvalidationTriggers,
+  isMarketMonthlySummaryCacheEligible,
+} from "@/lib/market/monthly-summary-cache";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -99,7 +103,8 @@ export function getMarketDatabase(): MarketDatabase {
 }
 
 export async function ensureMarketSchema(db: MarketDatabase = getMarketDatabase()): Promise<void> {
-  return ensureMarketSchemaCached(db);
+  await ensureMarketSchemaCached(db);
+  await ensureMarketMonthlySummaryInvalidationTriggers(db);
 }
 
 export async function findMarketBatchByHash(db: MarketDatabase, fileHash: string): Promise<MarketImportBatch | null> {

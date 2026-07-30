@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { access, link, mkdir } from "node:fs/promises";
+import { createConnection } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,28 @@ export function parseLocalWorkerArguments(args = []) {
     shouldBuild: args.includes("--build"),
     wranglerArgs: args.filter((argument) => argument !== "--build"),
   };
+}
+
+export function isLocalWorkerPortInUse(port = 3000, host = "127.0.0.1") {
+  return new Promise((resolvePort) => {
+    const socket = createConnection({ port, host });
+    let settled = false;
+    const finish = (inUse) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolvePort(inUse);
+    };
+    socket.setTimeout(750, () => finish(false));
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+  });
+}
+
+export async function assertLocalWorkerPortAvailable(checkPort = isLocalWorkerPortInUse) {
+  if (await checkPort()) {
+    throw new Error("端口 3000 已有服务运行。为避免覆盖正在使用的 dist 构建，本次构建/启动已取消。");
+  }
 }
 
 async function waitForChild(child, operation) {
@@ -66,6 +89,7 @@ export async function ensureRuntimeDevVarsLink(root = projectRoot) {
 }
 
 export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
+  await assertLocalWorkerPortAvailable();
   const { runtimePath, created } = await ensureRuntimeDevVarsLink();
   const wranglerEntrypoint = resolve(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js");
   try {
@@ -86,7 +110,14 @@ export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { shouldBuild, wranglerArgs } = parseLocalWorkerArguments(process.argv.slice(2));
-  (shouldBuild ? buildLocalWorker().then(() => startLocalWorker(wranglerArgs)) : startLocalWorker(wranglerArgs)).catch((error) => {
+  const run = async () => {
+    if (shouldBuild) {
+      await assertLocalWorkerPortAvailable();
+      await buildLocalWorker();
+    }
+    await startLocalWorker(wranglerArgs);
+  };
+  run().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   });

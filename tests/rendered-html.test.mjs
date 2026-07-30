@@ -480,11 +480,12 @@ test("derives the shop visitor KPI from filtered SPU visitors", async () => {
 });
 
 test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {
-  const [page, service, database, dailyContract] = await Promise.all([
+  const [page, service, database, dailyContract, dailyMigration] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/daily-contract.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/daily-row-migration.ts", import.meta.url), "utf8"),
   ]);
 
   // A filename containing SPU must not override a SKU workbook's exact header contract.
@@ -495,8 +496,10 @@ test("guards JD daily SKU and SPU imports with stable identity and full date cov
   assert.match(service, /MISSING_EXPECTED_DATES/);
   assert.match(service, /OUT_OF_RANGE_DATES/);
   assert.match(service, /dailyRowKey\(dataset, platform, shopName, businessDate/);
-  assert.match(database, /migrateDailyRowKeys/);
-  assert.match(database, /DELETE FROM netshop_rows WHERE id =/);
+  assert.match(database, /ensureDailyRowNaturalKeys/);
+  assert.match(dailyMigration, /DAILY_ROW_NATURAL_KEY_MIGRATION/);
+  assert.match(dailyMigration, /DELETE FROM netshop_rows WHERE id =/);
+  assert.match(dailyMigration, /row\.source_row_key !== naturalKey/);
   // Both independent upload entries carry their expected dimension and range.
   assert.match(page, /jd_sku_daily/);
   assert.match(page, /expectedDataset: "sku_daily"/);
