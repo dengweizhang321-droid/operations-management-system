@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
 import { marketNaturalKey } from "../lib/market/import-identity";
+import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "../lib/market/image-cache-state";
 import { buildMarketOverviewAnalyticsSql, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
@@ -75,6 +76,53 @@ function commitThenThrowAdapter(base: MarketSchemaDatabase): MarketSchemaDatabas
     },
   };
 }
+
+test("image cache claims are fenced and first success backfills only empty snapshot hashes", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+    VALUES
+      ('cache-a',1,'2026-06-01','2026-06-30','缓存类目','POP','SKU','POP','CACHE-A','商品A','https://img.example/a.jpg','{}','batch'),
+      ('cache-b',2,'2026-06-01','2026-06-30','缓存类目','POP','SKU','POP','CACHE-B','商品B','https://img.example/b.jpg','{}','batch');
+    INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url)
+    VALUES
+      ('cache-snapshot-url','缓存类目','POP','CACHE-A','SKU','2026-06','','https://img.example/a.jpg'),
+      ('cache-snapshot-legacy','缓存类目','POP','CACHE-B','SKU','2026-06','',''),
+      ('cache-snapshot-existing','缓存类目','POP','CACHE-A','SKU','2026-05','historical-hash','https://img.example/a.jpg');`);
+
+  const claimA = await claimMarketImageCache(db, "https://img.example/a.jpg");
+  assert.equal(claimA, 1);
+  assert.equal(await claimMarketImageCache(db, "https://img.example/a.jpg"), null);
+  const completedA = await completeMarketImageCacheClaim(db, {
+    sourceUrl: "https://img.example/a.jpg", attemptCount: claimA!, objectKey: "market/a.jpg",
+    contentHash: "hash-a", mimeType: "image/jpeg", sizeBytes: 10, imageSource: "test",
+  });
+  assert.deepEqual(completedA, { completed: true, snapshotsUpdated: 1 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT image_content_sha256 hash,image_url imageUrl FROM market_price_snapshots WHERE id='cache-snapshot-url'").get() as Record<string, unknown>) },
+    { hash: "hash-a", imageUrl: "https://img.example/a.jpg" });
+  assert.equal((sqlite.prepare("SELECT image_content_sha256 hash FROM market_price_snapshots WHERE id='cache-snapshot-existing'").get() as { hash: string }).hash, "historical-hash");
+
+  const staleClaim = await claimMarketImageCache(db, "https://img.example/b.jpg");
+  assert.equal(staleClaim, 1);
+  sqlite.prepare("UPDATE market_image_cache SET status='failed' WHERE source_url='https://img.example/b.jpg'").run();
+  const replacementClaim = await claimMarketImageCache(db, "https://img.example/b.jpg");
+  assert.equal(replacementClaim, 2);
+  const completedB = await completeMarketImageCacheClaim(db, {
+    sourceUrl: "https://img.example/b.jpg", attemptCount: replacementClaim!, objectKey: "market/b.jpg",
+    contentHash: "hash-b", mimeType: "image/jpeg", sizeBytes: 20, imageSource: "test",
+  });
+  assert.deepEqual(completedB, { completed: true, snapshotsUpdated: 1 });
+  assert.equal(await failMarketImageCacheClaim(db, {
+    sourceUrl: "https://img.example/b.jpg", attemptCount: staleClaim!, errorCode: "late_failure", errorMessage: "late",
+  }), false);
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,content_sha256 hash,attempt_count attempts FROM market_image_cache WHERE source_url='https://img.example/b.jpg'").get() as Record<string, unknown>) },
+    { status: "ready", hash: "hash-b", attempts: 2 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT image_content_sha256 hash,image_url imageUrl FROM market_price_snapshots WHERE id='cache-snapshot-legacy'").get() as Record<string, unknown>) },
+    { hash: "hash-b", imageUrl: "https://img.example/b.jpg" });
+  sqlite.close();
+});
 
 async function oldMarketDatabase() {
   const sqlite = new DatabaseSync(":memory:");

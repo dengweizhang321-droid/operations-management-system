@@ -28,6 +28,19 @@ const itemColumns = "id, job_id, category, scope, sku_code, ranking_dimension, m
 const HISTORY_SAME_IMAGE_REVIEWER = "system:history_same_image";
 
 function json<T>(value: string, fallback: T): T { try { return JSON.parse(value) as T; } catch { return fallback; } }
+async function assertPromptTaxonomyCurrent(db: MarketDatabase, category: string, segments: string[], message: string) {
+  let taxonomy: string[];
+  try { taxonomy = await listMarketSubcategoryTaxonomy(db, category); }
+  catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    if (/no such table|does not exist/i.test(text)) return;
+    throw error;
+  }
+  if (!taxonomy.length) return;
+  const current = [...new Set(taxonomy)].sort();
+  const prompt = [...new Set(segments)].sort();
+  if (current.length !== prompt.length || current.some((value, index) => value !== prompt[index])) throw new Error(message);
+}
 function strictInteger(value: number | undefined, fallback: number, minimum: number, maximum: number, name: string) {
   const resolved = value === undefined ? fallback : value;
   if (!Number.isSafeInteger(resolved) || resolved < minimum || resolved > maximum) throw new Error(`${name} 必须是 ${minimum} 到 ${maximum} 的整数`);
@@ -341,6 +354,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
   const category = input.category.trim().slice(0, 120);
   const prompt = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=? LIMIT 1").bind(input.promptVersionId).first<PromptRow>();
   if (!prompt || prompt.category !== category || (!input.allowInactivePrompt && prompt.status !== "active")) throw new Error("只能使用该类目当前已激活的 Prompt 创建正式任务");
+  await assertPromptTaxonomyCurrent(db, category, json<string[]>(prompt.segments_json, []), "Prompt 的细分品类枚举已过期，请使用当前字典创建并激活新版本");
   const executor = input.executor === "local" ? "local" : "cloud";
   if (executor === "cloud") {
     if (!input.modelId) throw new Error("云端任务必须选择视觉模型");
@@ -427,10 +441,25 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     .bind(category, prompt.id, executor === "cloud" ? input.modelId : null, category, limit).all<{ category: string; scope: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; image_url: string; historical_price_cents: number | null; historical_price_low_cents: number | null; historical_price_high_cents: number | null; historical_item_category: string | null; historical_segment: string | null; historical_image_source: string | null; historical_ai_segment: string | null; historical_ai_image_price_cents: number | null; historical_ai_price_type: string | null; historical_ai_price_low_cents: number | null; historical_ai_price_high_cents: number | null; historical_ai_confidence_bps: number | null; historical_ai_reason: string | null; historical_ai_raw_digest: string | null; historical_ai_resolved_image_url: string | null; historical_ai_image_source: string | null }>();
   if (!rows.results.length) throw new Error("该三级类目没有已缓存图片且待确认的月度市场价格快照");
   const id = "market-job-" + randomUUID();
-  await db.prepare("INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, local_model_name, status, total_count, created_by) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)")
-    .bind(id, category, prompt.id, executor, executor === "cloud" ? input.modelId : null, executor === "local" ? input.localModelName!.trim().slice(0, 160) : "", rows.results.length, actor.email).run();
+  const insertedJob = await db.prepare(`INSERT INTO market_annotation_jobs
+      (id, category, prompt_version_id, executor, model_id, local_model_name, status, total_count, created_by)
+    SELECT ?, ?, current_prompt.id, ?, ?, ?, 'queued', ?, ?
+    FROM market_annotation_prompt_versions current_prompt
+    WHERE current_prompt.id=? AND current_prompt.category=? AND current_prompt.status ${input.allowInactivePrompt ? "<>'deleted'" : "='active'"}
+      AND (NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy WHERE taxonomy.category=? AND taxonomy.status='active') OR (
+        NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy WHERE taxonomy.category=? AND taxonomy.status='active'
+          AND NOT EXISTS (SELECT 1 FROM json_each(current_prompt.segments_json) segment WHERE CAST(segment.value AS TEXT)=taxonomy.subcategory))
+        AND NOT EXISTS (SELECT 1 FROM json_each(current_prompt.segments_json) segment
+          WHERE NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy
+            WHERE taxonomy.category=? AND taxonomy.status='active' AND taxonomy.subcategory=CAST(segment.value AS TEXT)))
+      ))`)
+    .bind(id, category, executor, executor === "cloud" ? input.modelId : null,
+      executor === "local" ? input.localModelName!.trim().slice(0, 160) : "", rows.results.length, actor.email,
+      prompt.id, category, category, category, category).run() as { meta?: { changes?: number } };
+  if (!Number(insertedJob.meta?.changes ?? 0)) throw new Error("Prompt 或细分品类字典已变化，请刷新后重建任务");
+  let insertedItems = 0;
   for (let offset = 0; offset < rows.results.length; offset += 80) {
-    await db.batch(rows.results.slice(offset, offset + 80).map((row) => {
+    const inserted = await db.batch(rows.results.slice(offset, offset + 80).map((row) => {
       const inheritedPrice = row.historical_price_cents;
       const inheritedSegment = row.historical_item_category === row.category && row.historical_segment && promptSegments.includes(row.historical_segment) ? row.historical_segment : "";
       const reusedAi = inheritedPrice === null && Boolean(row.historical_ai_segment) && promptSegments.includes(row.historical_ai_segment!);
@@ -440,10 +469,16 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
           ai_price_low_cents, ai_price_high_cents, ai_confidence_bps, ai_reason, ai_raw_digest,
           reviewed_segment, reviewed_image_price_cents, reviewed_price_type, reviewed_price_low_cents,
           reviewed_price_high_cents, reviewed_by, reviewed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?, ?, ?,
-          CASE WHEN ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END)`)
+          CASE WHEN ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END
+        WHERE EXISTS (SELECT 1 FROM market_price_snapshots snapshot
+          JOIN market_ranking_entries ranking ON ranking.category=snapshot.category AND ranking.scope=snapshot.scope
+            AND ranking.sku_code=snapshot.sku_code AND ranking.ranking_dimension=snapshot.ranking_dimension
+            AND substr(ranking.period_end,1,7)=snapshot.month
+          WHERE snapshot.category=? AND snapshot.scope=? AND snapshot.sku_code=? AND snapshot.ranking_dimension=?
+            AND snapshot.month=? AND snapshot.image_content_sha256=? AND ranking.category=?)`)
         .bind("market-item-" + randomUUID(), id, row.category, row.scope, row.sku_code, row.ranking_dimension, row.month, row.image_content_sha256, row.product_name, row.brand,
           row.image_url,
           inheritedPrice !== null ? row.image_url : reusedAi ? (row.historical_ai_resolved_image_url || row.image_url) : "",
@@ -458,8 +493,14 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
           inheritedPrice !== null ? "标准售价" : reusedAi ? row.historical_ai_price_type : "",
           inheritedPrice !== null ? row.historical_price_low_cents : reusedAi ? row.historical_ai_price_low_cents : null,
           inheritedPrice !== null ? row.historical_price_high_cents : reusedAi ? row.historical_ai_price_high_cents : null,
-          inheritedPrice === null ? "" : HISTORY_SAME_IMAGE_REVIEWER, inheritedPrice);
-    }));
+          inheritedPrice === null ? "" : HISTORY_SAME_IMAGE_REVIEWER, inheritedPrice,
+          row.category, row.scope, row.sku_code, row.ranking_dimension, row.month, row.image_content_sha256, row.category);
+    })) as Array<{ meta?: { changes?: number } }>;
+    insertedItems += inserted.reduce((sum, result) => sum + Number(result.meta?.changes ?? 0), 0);
+  }
+  if (!insertedItems) {
+    await db.prepare("DELETE FROM market_annotation_jobs WHERE id=? AND status='queued'").bind(id).run();
+    throw new Error("候选价格快照已变化，请刷新后重建任务");
   }
   await refreshJob(db, id);
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=?").bind(id).first<JobRow>();
@@ -660,6 +701,7 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
   if (!job) throw new Error("任务不存在");
   const prompt = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=?").bind(job.prompt_version_id).first<PromptRow>();
   const segments = prompt ? json<string[]>(prompt.segments_json, []) : [];
+  await assertPromptTaxonomyCurrent(db, job.category, segments, "任务绑定的 Prompt 枚举已不是当前细分品类字典，禁止继续入库");
   const requestDigest = digest(JSON.stringify({ jobId: job.id, ids: [...ids].sort(), idempotencyKey }));
   const batchId = "market-commit-batch-" + digest(`${job.id}:${idempotencyKey}`).slice(0, 32);
   const priorBatch = await db.prepare("SELECT request_digest requestDigest, COUNT(*) count FROM market_annotation_commit_receipts WHERE batch_id=? GROUP BY request_digest LIMIT 1").bind(batchId).first<{ requestDigest: string; count: number }>();
@@ -683,6 +725,14 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
       const item = await db.prepare("SELECT " + itemColumns + " FROM market_annotation_items WHERE id=? AND job_id=?").bind(itemId, job.id).first<ItemRow>();
       if (!item) throw new Error("候选项不存在：" + itemId);
       if (item.status !== "approved" || !item.selected || !segments.includes(item.reviewed_segment)) throw new Error("候选项 " + itemId + " 未经勾选批准或品类无效");
+      const targetSnapshot = await db.prepare(`SELECT snapshot.id FROM market_price_snapshots snapshot
+        WHERE snapshot.category=? AND snapshot.scope=? AND snapshot.sku_code=? AND snapshot.ranking_dimension=?
+          AND snapshot.month=? AND snapshot.image_content_sha256=?
+          AND EXISTS (SELECT 1 FROM market_ranking_entries ranking WHERE ranking.category=snapshot.category
+            AND ranking.scope=snapshot.scope AND ranking.sku_code=snapshot.sku_code
+            AND ranking.ranking_dimension=snapshot.ranking_dimension) LIMIT 1`)
+        .bind(item.category || job.category, item.scope, item.sku_code, item.ranking_dimension, item.month, item.image_content_sha256).first<{ id: string }>();
+      if (!targetSnapshot) throw new Error("候选项 " + itemId + " 对应的榜单身份、价格快照或图片版本已变化，请重建任务后再入库");
       const old = await db.prepare("SELECT id, category, sku_code skuCode, segment, image_price_cents imagePriceCents, image_url imageUrl, image_source imageSource, confidence_bps confidenceBps, source_job_item_id sourceJobItemId, prompt_version_id promptVersionId, reviewed_by reviewedBy, reviewed_at reviewedAt, version, created_at createdAt, updated_at updatedAt FROM market_sku_annotations WHERE category=? AND sku_code=?")
         .bind(job.category, item.sku_code).first<Record<string, unknown>>();
       const annotationId = String(old?.id ?? ("market-annotation-" + randomUUID()));
@@ -696,7 +746,19 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
         const priceType = item.reviewed_price_type || item.ai_price_type || "无法判断";
         const formalPrice = ["定金", "分期金额", "无法判断"].includes(priceType) ? null : item.reviewed_image_price_cents;
         const status = formalPrice === null ? "review_pending" : "confirmed";
+        const snapshotGuardId = "market-snapshot-guard-" + randomUUID();
         return [
+          db.prepare(`INSERT INTO market_master_audit_logs
+            (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+            SELECT CASE WHEN EXISTS (SELECT 1 FROM market_price_snapshots
+              WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=? AND image_content_sha256=?
+                AND EXISTS (SELECT 1 FROM market_ranking_entries ranking
+                  WHERE ranking.category=market_price_snapshots.category AND ranking.scope=market_price_snapshots.scope
+                    AND ranking.sku_code=market_price_snapshots.sku_code
+                    AND ranking.ranking_dimension=market_price_snapshots.ranking_dimension)
+            ) THEN ? ELSE NULL END, ?, ?, 'market_annotation_snapshot_guard', 'market_price_snapshot', ?, '{}', '{}'`)
+            .bind(item.category || job.category, item.scope, item.sku_code, item.ranking_dimension, item.month, item.image_content_sha256,
+              snapshotGuardId, actor.email, actor.role, `${item.category || job.category}|${item.scope}|${item.ranking_dimension}|${item.sku_code}|${item.month}`),
           db.prepare("INSERT INTO market_sku_annotations (id, category, sku_code, segment, image_price_cents, image_url, image_source, confidence_bps, source_job_item_id, prompt_version_id, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(category, sku_code) DO UPDATE SET segment=excluded.segment, image_price_cents=excluded.image_price_cents, image_url=excluded.image_url, image_source=excluded.image_source, confidence_bps=excluded.confidence_bps, source_job_item_id=excluded.source_job_item_id, prompt_version_id=excluded.prompt_version_id, reviewed_by=excluded.reviewed_by, reviewed_at=CURRENT_TIMESTAMP, version=market_sku_annotations.version+1, updated_at=CURRENT_TIMESTAMP")
             .bind(annotationId, job.category, item.sku_code, item.reviewed_segment, item.reviewed_image_price_cents, after.imageUrl, item.image_source, item.ai_confidence_bps, item.id, job.prompt_version_id, actor.email),
           db.prepare(`UPDATE market_price_snapshots SET
@@ -721,6 +783,7 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
           db.prepare("INSERT INTO market_annotation_commit_receipts (id, job_item_id, annotation_id, idempotency_key, before_json, after_json, committed_by, batch_id, request_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .bind("market-commit-" + randomUUID(), item.id, annotationId, receiptKey, JSON.stringify(old ?? {}), JSON.stringify(after), actor.email, batchId, requestDigest),
           db.prepare("UPDATE market_annotation_items SET status='committed', selected=0, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved' AND selected=1 AND version=?").bind(item.id, item.version),
+          db.prepare("DELETE FROM market_master_audit_logs WHERE id=? AND action='market_annotation_snapshot_guard'").bind(snapshotGuardId),
         ];
       });
       try { await db.batch(statements); committed += chunk.length; }
@@ -793,9 +856,12 @@ async function refreshJob(db: MarketDatabase, jobId: string) {
 
 export async function createValidationRun(db: MarketDatabase, input: { candidatePromptId: string; modelId: string; sampleCount?: number; seed?: string }, actor: Actor) {
   await ensureAnnotationSchema(db);
+  await ensureMarketSchemaLazy(db);
   const candidate = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=?").bind(input.candidatePromptId).first<PromptRow>();
   if (!candidate) throw new Error("候选 Prompt 不存在");
+  await assertPromptTaxonomyCurrent(db, candidate.category, json<string[]>(candidate.segments_json, []), "候选 Prompt 的细分品类枚举已过期，不能创建冻结验证");
   const baseline = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE category=? AND status='active' LIMIT 1").bind(candidate.category).first<PromptRow>();
+  if (baseline) await assertPromptTaxonomyCurrent(db, baseline.category, json<string[]>(baseline.segments_json, []), "基线 Prompt 的细分品类枚举已过期，不能创建冻结验证");
   const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type IN ('vision','image')").bind(input.modelId).first<{ id: string }>();
   if (!model) throw new Error("冻结验证必须选择已启用的视觉模型");
   const samples = await db.prepare("SELECT id, category, sku_code, product_name, brand, image_url, gold_segment, gold_image_price_cents FROM market_annotation_validation_samples WHERE category=? ORDER BY id").bind(candidate.category).all<ValidationSampleRow>();
@@ -807,8 +873,23 @@ export async function createValidationRun(db: MarketDatabase, input: { candidate
   const snapshots: ValidationSnapshot[] = selected.map((row) => ({ id: row.id, skuCode: row.sku_code, productName: row.product_name, brand: row.brand, imageUrl: row.image_url, goldSegment: row.gold_segment, goldImagePriceCents: row.gold_image_price_cents }));
   const runId = "market-validation-" + randomUUID();
   const sampleHash = digest(JSON.stringify({ seed, modelId: input.modelId, samples: [...snapshots].sort((a, b) => a.id.localeCompare(b.id)) }));
-  await db.prepare("INSERT INTO market_annotation_validation_runs (id, category, baseline_prompt_id, candidate_prompt_id, model_id, status, seed, requested_sample_count, sample_count, sample_hash, created_by) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)")
-    .bind(runId, candidate.category, baseline && baseline.id !== candidate.id ? baseline.id : null, candidate.id, input.modelId, seed, requestedCount, selected.length, sampleHash, actor.email).run();
+  const insertedRun = await db.prepare(`INSERT INTO market_annotation_validation_runs
+      (id, category, baseline_prompt_id, candidate_prompt_id, model_id, status, seed, requested_sample_count, sample_count, sample_hash, created_by)
+    SELECT ?, current_prompt.category, ?, current_prompt.id, ?, 'queued', ?, ?, ?, ?, ?
+    FROM market_annotation_prompt_versions current_prompt
+    WHERE current_prompt.id=? AND (NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy
+      WHERE taxonomy.category=current_prompt.category AND taxonomy.status='active') OR (
+        NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy
+          WHERE taxonomy.category=current_prompt.category AND taxonomy.status='active'
+            AND NOT EXISTS (SELECT 1 FROM json_each(current_prompt.segments_json) segment
+              WHERE CAST(segment.value AS TEXT)=taxonomy.subcategory))
+        AND NOT EXISTS (SELECT 1 FROM json_each(current_prompt.segments_json) segment WHERE NOT EXISTS (
+          SELECT 1 FROM market_subcategory_taxonomy taxonomy WHERE taxonomy.category=current_prompt.category
+            AND taxonomy.status='active' AND taxonomy.subcategory=CAST(segment.value AS TEXT)))
+      ))`)
+    .bind(runId, baseline && baseline.id !== candidate.id ? baseline.id : null, input.modelId, seed, requestedCount,
+      selected.length, sampleHash, actor.email, candidate.id).run() as { meta?: { changes?: number } };
+  if (!Number(insertedRun.meta?.changes ?? 0)) throw new Error("候选 Prompt 或细分品类字典已变化，请刷新后重建冻结验证");
   const promptIds = [...new Set([candidate.id, baseline && baseline.id !== candidate.id ? baseline.id : null].filter(Boolean) as string[])];
   for (let offset = 0; offset < snapshots.length; offset += 50) {
     const statements = snapshots.slice(offset, offset + 50).flatMap((sample) => promptIds.map((promptId) =>
@@ -876,18 +957,36 @@ async function finalizeValidationRun(db: MarketDatabase, runId: string) {
 }
 
 export async function activatePromptVersion(db: MarketDatabase, input: { promptId: string; explicitOverride?: boolean; reason?: string; rollback?: boolean }, actor: Actor) {
+  await ensureAnnotationSchema(db);
+  await ensureMarketSchemaLazy(db);
   const prompt = await db.prepare("SELECT " + promptColumns + " FROM market_annotation_prompt_versions WHERE id=?").bind(input.promptId).first<PromptRow>();
   if (!prompt) throw new Error("Prompt 版本不存在");
+  await assertPromptTaxonomyCurrent(db, prompt.category, json<string[]>(prompt.segments_json, []), "该 Prompt 的细分品类枚举已过期，不能激活或回滚");
   if (input.rollback && prompt.status !== "archived") throw new Error("只能回滚到曾经激活后归档的历史版本");
   if (!input.rollback && !["draft", "archived"].includes(prompt.status)) throw new Error("该 Prompt 当前不能激活");
   const run = await db.prepare("SELECT status, gate_json FROM market_annotation_validation_runs WHERE candidate_prompt_id=? ORDER BY created_at DESC LIMIT 1").bind(prompt.id).first<{ status: string; gate_json: string }>();
   const gate = run ? json<{ passed?: boolean; reasons?: string[] }>(run.gate_json, {}) : {};
   if ((!run || run.status !== "completed" || !gate.passed) && !input.explicitOverride) throw new Error("该 Prompt 尚未通过冻结样本门禁；管理员可填写原因后显式确认");
   if ((input.explicitOverride || input.rollback) && (input.reason?.trim().length ?? 0) < 6) throw new Error("显式确认或回滚必须填写至少 6 个字符的审计原因");
+  const activationGuardId = "market-prompt-activation-guard-" + randomUUID();
   await db.batch([
+    db.prepare(`INSERT INTO market_master_audit_logs
+      (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+      SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM market_annotation_prompt_versions WHERE id=? AND status=?) THEN NULL
+      WHEN NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy
+          WHERE taxonomy.category=? AND taxonomy.status='active') OR (
+        NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy WHERE taxonomy.category=? AND taxonomy.status='active'
+          AND NOT EXISTS (SELECT 1 FROM json_each(?) segment WHERE CAST(segment.value AS TEXT)=taxonomy.subcategory))
+        AND NOT EXISTS (SELECT 1 FROM json_each(?) segment WHERE NOT EXISTS (
+          SELECT 1 FROM market_subcategory_taxonomy taxonomy WHERE taxonomy.category=? AND taxonomy.status='active'
+            AND taxonomy.subcategory=CAST(segment.value AS TEXT)))
+      ) THEN ? ELSE NULL END, ?, ?, 'market_prompt_activation_guard', 'market_annotation_prompt', ?, '{}', '{}'`)
+      .bind(prompt.id, prompt.status, prompt.category, prompt.category, prompt.segments_json, prompt.segments_json, prompt.category,
+        activationGuardId, actor.email, actor.role, prompt.id),
     db.prepare("UPDATE market_annotation_prompt_versions SET status='archived' WHERE category=? AND status='active' AND id<>?").bind(prompt.category, prompt.id),
     db.prepare("UPDATE market_annotation_prompt_versions SET status='active', activated_by=?, activated_at=CURRENT_TIMESTAMP, change_note=CASE WHEN ?<>'' THEN change_note || ' | 激活说明：' || ? ELSE change_note END WHERE id=?").bind(actor.email, input.reason?.trim() ?? "", input.reason?.trim() ?? "", prompt.id),
     db.prepare("INSERT INTO market_annotation_prompt_audits (id, prompt_id, category, action, reason, actor) VALUES (?, ?, ?, ?, ?, ?)").bind("market-prompt-audit-" + randomUUID(), prompt.id, prompt.category, input.rollback ? "rollback" : input.explicitOverride ? "activate_override" : "activate", input.reason?.trim() || "validation_gate_passed", actor.email),
+    db.prepare("DELETE FROM market_master_audit_logs WHERE id=? AND action='market_prompt_activation_guard'").bind(activationGuardId),
   ]);
   const activated = await db.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id=?").bind(prompt.id).first<{ status: string }>();
   if (activated?.status !== "active") throw new Error("Prompt 激活写入未生效，请刷新后重试");

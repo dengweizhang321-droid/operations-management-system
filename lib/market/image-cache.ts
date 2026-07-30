@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
 import { ensureMarketSchema, getMarketDatabase, type MarketDatabase } from "@/lib/market/database";
+import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "@/lib/market/image-cache-state";
 
 const MAX_CACHE_BATCH = 24;
 const CACHE_CONCURRENCY = 4;
@@ -9,6 +10,7 @@ const CACHE_MAX_BYTES = 6 * 1024 * 1024;
 const CACHE_TIMEOUT_MS = 8_000;
 
 type CacheCandidate = { source_url: string };
+type CacheResult = { cached: boolean; skipped?: boolean; reason?: string; contentHash?: string };
 
 function bucket() {
   if (!env.SALES_IMPORT_FILES) throw new Error("R2 图片缓存未配置");
@@ -27,16 +29,14 @@ async function sha256(bytes: Uint8Array) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function cacheOne(db: MarketDatabase, sourceUrl: string) {
-  await db.prepare(`INSERT INTO market_image_cache (source_url, status, attempt_count, updated_at)
-    VALUES (?, 'fetching', 1, CURRENT_TIMESTAMP)
-    ON CONFLICT(source_url) DO UPDATE SET status='fetching', attempt_count=attempt_count+1,
-      error_code='', error_message='', updated_at=CURRENT_TIMESTAMP`).bind(sourceUrl).run();
+async function cacheOne(db: MarketDatabase, sourceUrl: string): Promise<CacheResult> {
+  const attemptCount = await claimMarketImageCache(db, sourceUrl);
+  if (attemptCount === null) return { cached: false, skipped: true, reason: "already_claimed" };
   try {
     const result = await fetchAnnotationImage(sourceUrl, { maxBytes: CACHE_MAX_BYTES, timeoutMs: CACHE_TIMEOUT_MS });
     if (result.kind !== "image") {
-      await db.prepare("UPDATE market_image_cache SET status='failed', error_code=?, error_message=?, updated_at=CURRENT_TIMESTAMP WHERE source_url=?")
-        .bind(result.reason, result.message.slice(0, 300), sourceUrl).run();
+      const failed = await failMarketImageCacheClaim(db, { sourceUrl, attemptCount, errorCode: result.reason, errorMessage: result.message });
+      if (!failed) return { cached: false, skipped: true, reason: "lost_claim" };
       return { cached: false, reason: result.reason };
     }
     const contentHash = await sha256(result.bytes);
@@ -48,14 +48,16 @@ async function cacheOne(db: MarketDatabase, sourceUrl: string) {
         customMetadata: { source: "jd-market-ranking", sha256: contentHash },
       });
     }
-    await db.prepare(`UPDATE market_image_cache SET status='ready', object_key=?, content_sha256=?, mime_type=?,
-      size_bytes=?, image_source=?, error_code='', error_message='', updated_at=CURRENT_TIMESTAMP WHERE source_url=?`)
-      .bind(objectKey, contentHash, result.mimeType, result.bytes.byteLength, result.source, sourceUrl).run();
+    const completed = await completeMarketImageCacheClaim(db, {
+      sourceUrl, attemptCount, objectKey, contentHash, mimeType: result.mimeType,
+      sizeBytes: result.bytes.byteLength, imageSource: result.source,
+    });
+    if (!completed.completed) return { cached: false, skipped: true, reason: "lost_claim" };
     return { cached: true, contentHash };
   } catch (error) {
     const message = error instanceof Error ? error.message : "图片缓存失败";
-    await db.prepare("UPDATE market_image_cache SET status='failed', error_code='cache_failed', error_message=?, updated_at=CURRENT_TIMESTAMP WHERE source_url=?")
-      .bind(message.slice(0, 300), sourceUrl).run().catch(() => undefined);
+    const failed = await failMarketImageCacheClaim(db, { sourceUrl, attemptCount, errorCode: "cache_failed", errorMessage: message }).catch(() => false);
+    if (!failed) return { cached: false, skipped: true, reason: "lost_claim" };
     return { cached: false, reason: "cache_failed" };
   }
 }
@@ -88,7 +90,7 @@ export async function cacheMarketImages(input: { db?: MarketDatabase; batchId?: 
     ORDER BY CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank, m.period_end DESC LIMIT ?`)
     .bind(...(input.batchId ? [input.batchId, limit] : [limit])).all<CacheCandidate>();
   const queue = [...(candidates.results ?? [])];
-  const results: Array<{ cached: boolean; reason?: string }> = [];
+  const results: CacheResult[] = [];
   const worker = async () => {
     while (queue.length) {
       const candidate = queue.shift();
@@ -97,9 +99,10 @@ export async function cacheMarketImages(input: { db?: MarketDatabase; batchId?: 
   };
   await Promise.all(Array.from({ length: Math.min(CACHE_CONCURRENCY, queue.length) }, worker));
   return {
-    processed: results.length,
+    processed: results.filter((item) => !item.skipped).length,
     cachedThisRun: results.filter((item) => item.cached).length,
-    failedThisRun: results.filter((item) => !item.cached).length,
+    failedThisRun: results.filter((item) => !item.cached && !item.skipped).length,
+    skippedThisRun: results.filter((item) => item.skipped).length,
     ...(await cacheStats(db, input.batchId)),
   };
 }

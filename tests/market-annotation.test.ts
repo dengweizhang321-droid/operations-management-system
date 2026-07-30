@@ -195,6 +195,88 @@ test("an unvalidated prompt activates only with an explicit audited admin reason
   sqlite.close();
 });
 
+test("stale prompt taxonomies cannot create jobs, reactivate, or commit old labels", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`DELETE FROM market_subcategory_taxonomy WHERE category='字典防线';
+    INSERT INTO market_subcategory_taxonomy (id,category,subcategory,status,created_by,updated_by)
+      VALUES ('taxonomy-current','字典防线','新标签','active','test','test');
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES
+        ('stale-active','字典防线',1,'manual','active','["旧标签"]','这是一个已经落后于当前字典且正文长度足够的旧 Prompt。','admin@test'),
+        ('stale-draft','字典防线',2,'manual','draft','["旧标签"]','这是另一个已经落后于当前字典且正文长度足够的旧 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,total_count,created_by)
+      VALUES ('stale-job','字典防线','stale-active','cloud','review_ready',1,'admin@test');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,reviewed_segment,selected)
+      VALUES ('stale-item','stale-job','字典防线','POP','STALE-SKU','SKU','2026-06','stale-hash','approved','旧标签',1);
+    INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256)
+      VALUES ('stale-snapshot','字典防线','POP','STALE-SKU','SKU','2026-06','stale-hash');`);
+
+  await assert.rejects(() => createAnnotationJob(db, {
+    category: "字典防线", promptVersionId: "stale-active", executor: "cloud", modelId: "missing-model", limit: 1,
+  }, { email: "operator@test", role: "operator" }), /枚举已过期/);
+  await assert.rejects(() => activatePromptVersion(db, {
+    promptId: "stale-draft", explicitOverride: true, reason: "管理员尝试回滚旧枚举",
+  }, { email: "admin@test", role: "admin" }), /枚举已过期/);
+  await assert.rejects(() => commitAnnotationItems(db, {
+    jobId: "stale-job", candidateIds: ["stale-item"], idempotencyKey: "stale-taxonomy-commit-001",
+  }, { email: "admin@test", role: "admin" }), /不是当前细分品类字典/);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE id='stale-item'").get() as { status: string }).status, "approved");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_commit_receipts WHERE job_item_id='stale-item'").get() as { count: number }).count, 0);
+  sqlite.close();
+});
+
+test("prompt activation transaction rejects a taxonomy changed after its initial check", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const base = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(base);
+  await ensureAnnotationSchema(base);
+  sqlite.exec(`DELETE FROM market_subcategory_taxonomy WHERE category='激活竞态';
+    INSERT INTO market_subcategory_taxonomy (id,category,subcategory,status,sort_order,created_by,updated_by) VALUES
+      ('activation-old-a','激活竞态','旧甲','active',0,'test','test'),
+      ('activation-old-b','激活竞态','旧乙','active',1,'test','test');
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('activation-race-prompt','激活竞态',1,'manual','draft','["旧甲","旧乙"]','这是一个用于验证 Prompt 激活与字典重命名竞态的足够长正文。','admin@test');`);
+  let changed = false;
+  const db = sqliteAdapter(sqlite, { afterFirst: async (sql) => {
+    if (!changed && sql.includes("market_annotation_validation_runs")) {
+      changed = true;
+      sqlite.exec(`UPDATE market_subcategory_taxonomy SET status='archived' WHERE id='activation-old-a';
+        INSERT INTO market_subcategory_taxonomy (id,category,subcategory,status,sort_order,created_by,updated_by)
+        VALUES ('activation-new','激活竞态','新甲','active',0,'other','other');`);
+    }
+  } });
+  await assert.rejects(() => activatePromptVersion(db, {
+    promptId: "activation-race-prompt", explicitOverride: true, reason: "管理员显式确认竞态测试",
+  }, { email: "admin@test", role: "admin" }), /NOT NULL constraint failed/);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id='activation-race-prompt'").get() as { status: string }).status, "draft");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_prompt_audits WHERE prompt_id='activation-race-prompt'").get() as { count: number }).count, 0);
+  sqlite.close();
+});
+
+test("annotation commit refuses a missing image-version snapshot before writing a receipt", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('missing-snapshot-prompt','无快照类目',1,'manual','active','["有效标签"]','这是一个用于验证缺失快照时禁止伪成功入库的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,total_count,created_by)
+      VALUES ('missing-snapshot-job','无快照类目','missing-snapshot-prompt','cloud','review_ready',1,'admin@test');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,reviewed_segment,selected)
+      VALUES ('missing-snapshot-item','missing-snapshot-job','无快照类目','POP','NO-SNAPSHOT','SKU','2026-06','missing-hash','approved','有效标签',1);`);
+  await assert.rejects(() => commitAnnotationItems(db, {
+    jobId: "missing-snapshot-job", candidateIds: ["missing-snapshot-item"], idempotencyKey: "missing-snapshot-commit-001",
+  }, { email: "admin@test", role: "admin" }), /价格快照或图片版本已变化/);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_commit_receipts").get() as { count: number }).count, 0);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE id='missing-snapshot-item'").get() as { status: string }).status, "approved");
+  sqlite.close();
+});
+
 test("expired local lease is reclaimable and its old token cannot overwrite the new claim", async () => {
   const sqlite = new DatabaseSync(":memory:");
   for (const migration of ["../drizzle/0016_market_sku_annotations.sql", "../drizzle/0017_market_annotation_reliability.sql"]) {
@@ -498,6 +580,9 @@ test("deposit and installment annotation commits do not create official market p
       VALUES ('job-1','净水','prompt-1','local','review_ready',1,'operator@test');
     INSERT INTO market_price_snapshots (id, category, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
       VALUES ('ps-1','净水','SKU-1','SKU','2026-02','hash-a','https://img10.360buyimg.com/imgzone/a.jpg','missing');
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
+      VALUES ('deposit-ranking',1,'2026-02-01','2026-02-28','净水','','SKU','POP','SKU-1','商品','{}','batch');
     INSERT INTO market_annotation_items
       (id, job_id, category, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, status, selected, reviewed_segment, reviewed_image_price_cents, reviewed_price_type, ai_image_price_cents, ai_price_type, ai_confidence_bps, ai_reason)
     VALUES
@@ -591,8 +676,17 @@ test("filtered selection accepts 911 importable rows and commit resumes in bound
       ('large-selection-running','批量类目','large-selection-prompt','local','running',1,'operator@test');
   `);
   const insert = sqlite.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status, reviewed_segment) VALUES (?, 'large-selection-job', '批量类目', ?, ?, 'review_pending', ?)");
+  const insertRanking = sqlite.prepare(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
+    VALUES (?,?,'2026-06-01','2026-06-30','批量类目','','SKU','POP',?,?,'{}','batch')`);
+  const insertSnapshot = sqlite.prepare(`INSERT INTO market_price_snapshots
+    (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256) VALUES (?,'批量类目','',?,'SKU','','')`);
   sqlite.exec("BEGIN");
-  for (let index = 1; index <= 911; index += 1) insert.run(`large-item-${index}`, `LARGE-${index}`, `批量商品 ${index}`, "可入库");
+  for (let index = 1; index <= 911; index += 1) {
+    insert.run(`large-item-${index}`, `LARGE-${index}`, `批量商品 ${index}`, "可入库");
+    insertRanking.run(`large-ranking-${index}`, index, `LARGE-${index}`, `批量商品 ${index}`);
+    insertSnapshot.run(`large-snapshot-${index}`, `LARGE-${index}`);
+  }
   insert.run("large-invalid", "LARGE-INVALID", "无效细分品类", "已失效");
   sqlite.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status, reviewed_segment) VALUES ('large-running', 'large-selection-running', '批量类目', 'LARGE-RUNNING', '仍在识别', 'review_pending', '可入库')").run();
   sqlite.exec("COMMIT");
@@ -698,6 +792,10 @@ test("aggregate batch commit groups selected review items by job", async () => {
     INSERT INTO market_price_snapshots (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status) VALUES
       ('commit-all-price-1','三级类目甲','pop','COMMIT-1','SKU','2026-01','commit-hash-1','https://img10.360buyimg.com/imgzone/1.jpg','missing'),
       ('commit-all-price-2','三级类目甲','pop','COMMIT-2','SKU','2026-01','commit-hash-2','https://img10.360buyimg.com/imgzone/2.jpg','missing');
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id) VALUES
+      ('commit-ranking-1',1,'2026-01-01','2026-01-31','三级类目甲','pop','SKU','POP','COMMIT-1','商品一','{}','batch'),
+      ('commit-ranking-2',2,'2026-01-01','2026-01-31','三级类目甲','pop','SKU','POP','COMMIT-2','商品二','{}','batch');
     INSERT INTO market_annotation_items (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, source_image_url, status, selected, reviewed_segment, reviewed_image_price_cents, reviewed_price_type) VALUES
       ('commit-all-item-1','commit-all-job-1','三级类目甲','pop','COMMIT-1','SKU','2026-01','commit-hash-1','商品一','https://img10.360buyimg.com/imgzone/1.jpg','approved',1,'甲一',10000,'标准售价'),
       ('commit-all-item-2','commit-all-job-2','三级类目甲','pop','COMMIT-2','SKU','2026-01','commit-hash-2','商品二','https://img10.360buyimg.com/imgzone/2.jpg','approved',1,'甲一',20000,'标准售价');
@@ -732,14 +830,14 @@ test("runtime schema clears a failed readiness cache entry so the same connectio
   sqlite.close();
 });
 
-function sqliteAdapter(sqlite: DatabaseSync): MarketDatabase {
+function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterFirst?: (sql: string) => Promise<void> } = {}): MarketDatabase {
   return {
     prepare(sql: string) {
       const statement = sqlite.prepare(sql);
       let values: unknown[] = [];
       return {
         bind(...nextValues: unknown[]) { values = nextValues; return this; },
-        async first<T>() { return (statement.get(...values) ?? null) as T | null; },
+        async first<T>() { const result = (statement.get(...values) ?? null) as T | null; await hooks.afterFirst?.(sql); return result; },
         async all<T>() { return { results: statement.all(...values) as T[] }; },
         async run() { const result = statement.run(...values); return { meta: { changes: Number(result.changes) } }; },
       };

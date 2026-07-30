@@ -40,6 +40,16 @@ const validMappingKinds = new Set(["subcategory", "brand_alias", "brand_override
 const validMappingStatuses = new Set(["draft", "published", "archived"]);
 const validOfficialPriceTypes = new Set(["标准售价", "到手价", "券后价", "起售价", "价格区间", "最低规格价格"]);
 
+function replaceTaxonomyLabels(body: string, renames: Array<{ source: string; target: string }>) {
+  const replacements = renames.map((rename) => ({ ...rename, placeholder: `[[MARKET_TAXONOMY_${crypto.randomUUID()}]]` }));
+  let replaced = body;
+  for (const rename of [...replacements].sort((left, right) => right.source.length - left.source.length)) {
+    replaced = replaced.split(rename.source).join(rename.placeholder);
+  }
+  for (const rename of replacements) replaced = replaced.split(rename.placeholder).join(rename.target);
+  return replaced;
+}
+
 type CountRow = { count: number };
 
 export async function ensureMarketAdminSchema(db: MarketDatabase) {
@@ -188,6 +198,19 @@ export async function updateMarketSkuMasterData(db: MarketDatabase, input: {
     .bind(originalCategory, scope, rankingDimension, skuCode).first<Record<string, unknown>>();
   if (!before) throw new Error("未找到要编辑的 SKU 主数据");
   if (category !== originalCategory) {
+    const otherIdentity = await db.prepare(`SELECT id FROM market_ranking_entries
+      WHERE category=? AND sku_code=? AND (scope<>? OR ranking_dimension<>?) LIMIT 1`)
+      .bind(originalCategory, skuCode, scope, rankingDimension).first<{ id: number }>();
+    if (otherIdentity) throw new Error("同一 SKU 在原三级类目仍有其他店铺范围或榜单维度，不能只迁移其中一个身份");
+    const unfinishedAnnotation = await db.prepare(`SELECT item.id FROM market_annotation_items item
+      JOIN market_annotation_jobs job ON job.id=item.job_id
+      WHERE job.category=? AND item.sku_code=?
+        AND ((item.category=? AND item.scope=? AND item.ranking_dimension=?)
+          OR item.category='' OR item.scope='' OR item.image_content_sha256='')
+        AND item.status IN ('queued','claimed','inferencing','failed','review_pending','approved','rejected')
+        AND job.status NOT IN ('cancelled','committed') LIMIT 1`)
+      .bind(originalCategory, skuCode, originalCategory, scope, rankingDimension).first<{ id: string }>();
+    if (unfinishedAnnotation) throw new Error("该 SKU 仍有未完成的 AI 标注候选，请先完成或作废相关任务后再迁移三级类目");
     const conflict = await db.prepare(`SELECT id FROM market_ranking_entries
       WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=? LIMIT 1`)
       .bind(category, scope, rankingDimension, skuCode).first<{ id: number }>();
@@ -225,12 +248,39 @@ export async function updateMarketSkuMasterData(db: MarketDatabase, input: {
       .bind(priceCents, priceCents === null ? "" : priceType, priceCents === null ? "missing" : "confirmed",
         actor.email, category, scope, rankingDimension, skuCode, month),
   ];
+  if (category !== originalCategory) {
+    const guardId = `market-category-migration-guard-${crypto.randomUUID()}`;
+    statements.unshift(db.prepare(`INSERT INTO market_master_audit_logs
+      (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+      SELECT CASE WHEN EXISTS (
+        SELECT 1 FROM market_annotation_items item JOIN market_annotation_jobs job ON job.id=item.job_id
+        WHERE job.category=? AND item.sku_code=?
+          AND ((item.category=? AND item.scope=? AND item.ranking_dimension=?)
+            OR item.category='' OR item.scope='' OR item.image_content_sha256='')
+          AND item.status IN ('queued','claimed','inferencing','failed','review_pending','approved','rejected')
+          AND job.status NOT IN ('cancelled','committed')
+      ) OR EXISTS (SELECT 1 FROM market_ranking_entries
+        WHERE category=? AND sku_code=? AND (scope<>? OR ranking_dimension<>?))
+      OR EXISTS (SELECT 1 FROM market_ranking_entries
+        WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?)
+      OR EXISTS (SELECT 1 FROM market_sku_annotations WHERE category=? AND sku_code=?)
+      OR EXISTS (SELECT 1 FROM market_price_snapshots
+        WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?)
+      THEN NULL ELSE ? END, ?, ?, 'market_category_migration_guard', 'market_sku', ?, '{}', '{}'
+    `).bind(originalCategory, skuCode, originalCategory, scope, rankingDimension,
+      originalCategory, skuCode, scope, rankingDimension,
+      category, scope, rankingDimension, skuCode, category, skuCode, category, scope, rankingDimension, skuCode,
+      guardId, actor.email, actor.role,
+      `${originalCategory}|${scope}|${rankingDimension}|${skuCode}`));
+    statements.push(db.prepare("DELETE FROM market_master_audit_logs WHERE id=? AND action='market_category_migration_guard'").bind(guardId));
+  }
   const results = await db.batch(statements) as Array<{ meta?: { changes?: number } }>;
   const after = await db.prepare(`SELECT id, category, scope, ranking_dimension, sku_code, product_name, brand, operation_mode, subcategory
     FROM market_ranking_entries WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?
     ORDER BY period_end DESC, period_start DESC, id DESC LIMIT 1`)
     .bind(category, scope, rankingDimension, skuCode).first<Record<string, unknown>>();
-  const changedRows = results.reduce((sum, result) => sum + Number(result?.meta?.changes ?? 0), 0);
+  const domainResults = category !== originalCategory ? results.slice(1, -1) : results;
+  const changedRows = domainResults.reduce((sum, result) => sum + Number(result?.meta?.changes ?? 0), 0);
   if (category !== originalCategory) await refreshMarketMasterIdentities(db);
   await audit(db, actor, "update_market_sku_master", "market_sku", `${originalCategory}|${scope}|${rankingDimension}|${skuCode}`, before, { ...after, month, priceCents, priceType, changedRows });
   return { ok: true, changedRows, item: after };
@@ -261,40 +311,139 @@ export async function saveMarketSubcategorySettings(db: MarketDatabase, input: {
 }, actor: MarketPrincipal) {
   await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
   const category = requiredText(input.category, 120);
-  const renames = (input.renames ?? []).slice(0, 100).map((item) => ({ source: requiredText(item.source, 120), target: requiredText(item.target, 120) }));
+  const requestedRenames = (input.renames ?? []).slice(0, 100).map((item) => ({ source: requiredText(item.source, 120), target: requiredText(item.target, 120) }));
+  const renames = requestedRenames.filter((item) => item.source !== item.target);
   const additions = [...new Set((input.additions ?? []).map((item) => requiredText(item, 120)))].slice(0, 100);
   if (!renames.length && !additions.length) throw new Error("请至少修改或新增一个细分品类");
-  const summary: Array<{ source: string; target: string; changed: number }> = [];
-  let sortOrder = 0;
-  for (const rename of renames) {
-    if (rename.source === rename.target) continue;
-    const existingRule = await db.prepare(`SELECT id FROM market_master_mapping_rules
-      WHERE kind='subcategory' AND category=? AND source_value=? AND status='published' ORDER BY version DESC LIMIT 1`)
-      .bind(category, rename.source).first<{ id: string }>();
-    const ruleId = existingRule?.id ?? `market-subcategory-map-${crypto.randomUUID()}`;
-    const results = await db.batch([
-      db.prepare("UPDATE market_ranking_entries SET subcategory=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND subcategory=?").bind(rename.target, category, rename.source),
-      db.prepare("UPDATE market_sku_annotations SET segment=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND segment=?").bind(rename.target, category, rename.source),
-      db.prepare("UPDATE market_annotation_items SET ai_segment=CASE WHEN ai_segment=? THEN ? ELSE ai_segment END, reviewed_segment=CASE WHEN reviewed_segment=? THEN ? ELSE reviewed_segment END, updated_at=CURRENT_TIMESTAMP WHERE category=? AND (ai_segment=? OR reviewed_segment=?)")
-        .bind(rename.source, rename.target, rename.source, rename.target, category, rename.source, rename.source),
-      db.prepare("UPDATE market_subcategory_taxonomy SET status='archived', updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND subcategory=?").bind(actor.email, category, rename.source),
-      db.prepare(`INSERT INTO market_subcategory_taxonomy (id, category, subcategory, status, sort_order, created_by, updated_by)
-        VALUES (?, ?, ?, 'active', ?, ?, ?) ON CONFLICT(category, subcategory) DO UPDATE SET status='active', sort_order=excluded.sort_order, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`)
-        .bind(`market-subcategory-${crypto.randomUUID()}`, category, rename.target, sortOrder++, actor.email, actor.email),
-      db.prepare(`INSERT INTO market_master_mapping_rules (id, kind, category, source_value, target_value, status, version, effective_from, created_by)
-        VALUES (?, 'subcategory', ?, ?, ?, 'published', 1, '1970-01-01', ?)
-        ON CONFLICT(id) DO UPDATE SET target_value=excluded.target_value, status='published', version=market_master_mapping_rules.version+1, updated_at=CURRENT_TIMESTAMP`)
-        .bind(ruleId, category, rename.source, rename.target, actor.email),
-    ]) as Array<{ meta?: { changes?: number } }>;
-    summary.push({ source: rename.source, target: rename.target, changed: results.slice(0, 3).reduce((sum, result) => sum + Number(result?.meta?.changes ?? 0), 0) });
+  const sources = renames.map((item) => item.source);
+  if (new Set(sources).size !== sources.length) throw new Error("同一个细分品类不能在一次保存中重复重命名");
+  if (additions.some((item) => sources.includes(item))) throw new Error("待重命名的旧细分品类不能在同一次保存中重新新增");
+  const sourceSet = new Set(sources);
+  if (renames.some((item) => sourceSet.has(item.target))) throw new Error("一次保存不支持链式或循环重命名，请直接填写最终细分品类名称");
+
+  const taxonomyRows = await db.prepare(`SELECT subcategory, sort_order sortOrder FROM market_subcategory_taxonomy
+    WHERE category=? AND status='active' ORDER BY sort_order, subcategory`).bind(category).all<{ subcategory: string; sortOrder: number }>();
+  const currentTaxonomy = (taxonomyRows.results ?? []).map((row) => row.subcategory);
+  if (sources.some((source) => !currentTaxonomy.includes(source))) throw new Error("要重命名的细分品类已不存在，请刷新后重试");
+  const renameMap = new Map(renames.map((item) => [item.source, item.target]));
+  const finalTaxonomy = [...new Set([...currentTaxonomy.map((value) => renameMap.get(value) ?? value), ...additions])];
+  if (finalTaxonomy.length < 2) throw new Error("每个三级类目至少需要保留 2 个细分品类");
+  if (finalTaxonomy.length > 80 || finalTaxonomy.some((value) => value.length > 40)) throw new Error("细分品类字典最多 80 项，且每项不能超过 40 个字符");
+
+  if (renames.length || additions.length) {
+    const activeJob = await db.prepare(`SELECT id FROM market_annotation_jobs
+      WHERE category=? AND status NOT IN ('cancelled','committed') LIMIT 1`).bind(category).first<{ id: string }>();
+    if (activeJob) throw new Error("仍有任务引用当前细分品类字典，请先完成或作废任务后再保存");
+    const activeValidation = await db.prepare(`SELECT id FROM market_annotation_validation_runs
+      WHERE category=? AND status IN ('queued','running') LIMIT 1`).bind(category).first<{ id: string }>();
+    if (activeValidation) throw new Error("仍有冻结验证引用当前细分品类字典，请先等待验证完成后再保存");
   }
-  if (additions.length) await db.batch(additions.map((subcategory) => db.prepare(`INSERT INTO market_subcategory_taxonomy
-    (id, category, subcategory, status, sort_order, created_by, updated_by) VALUES (?, ?, ?, 'active', ?, ?, ?)
-    ON CONFLICT(category, subcategory) DO UPDATE SET status='active', sort_order=excluded.sort_order, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`)
-    .bind(`market-subcategory-${crypto.randomUUID()}`, category, subcategory, sortOrder++, actor.email, actor.email)));
-  const result = { category, renamed: summary.length, added: additions.length, changedRows: summary.reduce((sum, item) => sum + item.changed, 0), summary };
-  await audit(db, actor, "save_market_subcategory_settings", "market_subcategory_taxonomy", category, null, result);
-  return result;
+
+  const activePrompt = await db.prepare(`SELECT id, prompt_body promptBody FROM market_annotation_prompt_versions
+    WHERE category=? AND status='active' ORDER BY version DESC LIMIT 1`).bind(category).first<{ id: string; promptBody: string }>();
+  const lastPrompt = await db.prepare("SELECT MAX(version) version FROM market_annotation_prompt_versions WHERE category=?")
+    .bind(category).first<{ version: number | null }>();
+  const renameJson = JSON.stringify(renames);
+  const ruleRows = renames.length ? await db.prepare(`SELECT id, source_value sourceValue FROM market_master_mapping_rules
+    WHERE kind='subcategory' AND category=? AND status='published'
+      AND source_value IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)
+    ORDER BY version DESC, updated_at DESC`).bind(category, renameJson).all<{ id: string; sourceValue: string }>() : { results: [] };
+  const existingRules = new Map<string, string>();
+  for (const row of ruleRows.results ?? []) if (!existingRules.has(row.sourceValue)) existingRules.set(row.sourceValue, row.id);
+
+  const guardId = `market-taxonomy-guard-${crypto.randomUUID()}`;
+  const statements = [db.prepare(`INSERT INTO market_master_audit_logs
+    (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+    SELECT CASE WHEN EXISTS (SELECT 1 FROM market_annotation_jobs WHERE category=? AND status NOT IN ('cancelled','committed'))
+      OR EXISTS (SELECT 1 FROM market_annotation_validation_runs WHERE category=? AND status IN ('queued','running'))
+      OR EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy WHERE taxonomy.category=? AND taxonomy.status='active'
+        AND NOT EXISTS (SELECT 1 FROM json_each(?) expected WHERE CAST(expected.value AS TEXT)=taxonomy.subcategory))
+      OR EXISTS (SELECT 1 FROM json_each(?) expected
+        WHERE NOT EXISTS (SELECT 1 FROM market_subcategory_taxonomy taxonomy
+          WHERE taxonomy.category=? AND taxonomy.status='active' AND taxonomy.subcategory=CAST(expected.value AS TEXT)))
+      OR (?='' AND EXISTS (SELECT 1 FROM market_annotation_prompt_versions WHERE category=? AND status='active'))
+      OR (?<>'' AND NOT EXISTS (SELECT 1 FROM market_annotation_prompt_versions WHERE id=? AND category=? AND status='active'))
+      THEN NULL ELSE ? END, ?, ?, 'market_subcategory_mutation_guard', 'market_subcategory_taxonomy', ?, '{}', '{}'
+  `).bind(category, category, category, JSON.stringify(currentTaxonomy), JSON.stringify(currentTaxonomy), category,
+    activePrompt?.id ?? "", category, activePrompt?.id ?? "", activePrompt?.id ?? "", category,
+    guardId, actor.email, actor.role, category)];
+  if (renames.length) {
+    statements.push(
+      db.prepare(`UPDATE market_ranking_entries SET subcategory=COALESCE((SELECT json_extract(mapping.value,'$.target')
+          FROM json_each(?) mapping WHERE json_extract(mapping.value,'$.source')=subcategory LIMIT 1), subcategory), updated_at=CURRENT_TIMESTAMP
+        WHERE category=? AND subcategory IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)`)
+        .bind(renameJson, category, renameJson),
+      db.prepare(`UPDATE market_sku_annotations SET segment=COALESCE((SELECT json_extract(mapping.value,'$.target')
+          FROM json_each(?) mapping WHERE json_extract(mapping.value,'$.source')=segment LIMIT 1), segment), updated_at=CURRENT_TIMESTAMP
+        WHERE category=? AND segment IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)`)
+        .bind(renameJson, category, renameJson),
+      db.prepare(`UPDATE market_annotation_validation_samples SET gold_segment=COALESCE((SELECT json_extract(mapping.value,'$.target')
+          FROM json_each(?) mapping WHERE json_extract(mapping.value,'$.source')=gold_segment LIMIT 1), gold_segment)
+        WHERE category=? AND gold_segment IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)`)
+        .bind(renameJson, category, renameJson),
+      db.prepare(`UPDATE market_subcategory_taxonomy SET status='archived', updated_by=?, updated_at=CURRENT_TIMESTAMP
+        WHERE category=? AND subcategory IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)`)
+        .bind(actor.email, category, renameJson),
+      db.prepare(`UPDATE market_master_mapping_rules SET target_value=COALESCE((SELECT json_extract(mapping.value,'$.target')
+          FROM json_each(?) mapping WHERE json_extract(mapping.value,'$.source')=target_value LIMIT 1), target_value),
+        version=version+1, updated_at=CURRENT_TIMESTAMP
+        WHERE kind='subcategory' AND category=? AND status='published'
+          AND target_value IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)`)
+        .bind(renameJson, category, renameJson),
+      db.prepare(`UPDATE market_master_mapping_rules SET target_value=COALESCE((SELECT json_extract(mapping.value,'$.target')
+          FROM json_each(?) mapping WHERE json_extract(mapping.value,'$.source')=source_value LIMIT 1), target_value),
+        version=version+1, updated_at=CURRENT_TIMESTAMP
+        WHERE kind='subcategory' AND category=? AND status='published'
+          AND source_value IN (SELECT json_extract(mapping.value,'$.source') FROM json_each(?) mapping)`)
+        .bind(renameJson, category, renameJson),
+    );
+  }
+  for (const [sortOrder, subcategory] of finalTaxonomy.entries()) {
+    statements.push(db.prepare(`INSERT INTO market_subcategory_taxonomy (id, category, subcategory, status, sort_order, created_by, updated_by)
+      VALUES (?, ?, ?, 'active', ?, ?, ?) ON CONFLICT(category, subcategory) DO UPDATE SET
+        status='active', sort_order=excluded.sort_order, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP`)
+      .bind(`market-subcategory-${crypto.randomUUID()}`, category, subcategory, sortOrder, actor.email, actor.email));
+  }
+  for (const rename of renames) {
+    if (existingRules.has(rename.source)) continue;
+    statements.push(db.prepare(`INSERT INTO market_master_mapping_rules (id, kind, category, source_value, target_value, status, version, effective_from, created_by)
+      VALUES (?, 'subcategory', ?, ?, ?, 'published', 1, '1970-01-01', ?)
+      ON CONFLICT(id) DO UPDATE SET target_value=excluded.target_value, status='published',
+        version=market_master_mapping_rules.version+1, updated_at=CURRENT_TIMESTAMP`)
+      .bind(`market-subcategory-map-${crypto.randomUUID()}`, category, rename.source, rename.target, actor.email));
+  }
+  let successorPromptId = "";
+  if (activePrompt && (renames.length || additions.length)) {
+    successorPromptId = `market-prompt-${crypto.randomUUID()}`;
+    const renamedBody = replaceTaxonomyLabels(activePrompt.promptBody, renames);
+    const taxonomySuffix = `\n细分品类固定枚举：${finalTaxonomy.join("、")}。`;
+    const promptBody = `${renamedBody.slice(0, Math.max(0, 12_000 - taxonomySuffix.length))}${taxonomySuffix}`;
+    const changeSummary = [
+      renames.length ? `重命名：${renames.map((item) => `${item.source}→${item.target}`).join("；")}` : "",
+      additions.length ? `新增：${additions.join("、")}` : "",
+    ].filter(Boolean).join("；");
+    statements.push(
+      db.prepare("UPDATE market_annotation_prompt_versions SET status='archived' WHERE category=? AND status='active'").bind(category),
+      db.prepare(`INSERT INTO market_annotation_prompt_versions
+        (id, category, version, parent_id, source, status, segments_json, prompt_body, change_note, created_by, activated_by, activated_at)
+        VALUES (?, ?, ?, ?, 'taxonomy_rename', 'active', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+        .bind(successorPromptId, category, Number(lastPrompt?.version ?? 0) + 1, activePrompt.id, JSON.stringify(finalTaxonomy), promptBody,
+          `细分品类字典变更：${changeSummary}`.slice(0, 500), actor.email, actor.email),
+      db.prepare(`INSERT INTO market_annotation_prompt_audits (id, prompt_id, category, action, reason, actor)
+        VALUES (?, ?, ?, 'taxonomy_rename_successor', ?, ?)`)
+        .bind(`market-prompt-audit-${crypto.randomUUID()}`, successorPromptId, category, "细分品类字典重命名后自动创建不可变后继版本", actor.email),
+    );
+  }
+  const result = { category, renamed: renames.length, added: additions.length, changedRows: 0, successorPromptId,
+    summary: renames.map((item) => ({ ...item, changed: 0 })) };
+  statements.push(db.prepare(`INSERT INTO market_master_audit_logs
+    (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+    VALUES (?, ?, ?, 'save_market_subcategory_settings', 'market_subcategory_taxonomy', ?, ?, ?)`)
+    .bind(`market-audit-${crypto.randomUUID()}`, actor.email, actor.role, category, JSON.stringify({ taxonomy: currentTaxonomy }), JSON.stringify(result)));
+  statements.push(db.prepare("DELETE FROM market_master_audit_logs WHERE id=? AND action='market_subcategory_mutation_guard'").bind(guardId));
+  const writes = await db.batch(statements) as Array<{ meta?: { changes?: number } }>;
+  const changedRows = writes.slice(1, renames.length ? 4 : 1).reduce((sum, write) => sum + Number(write.meta?.changes ?? 0), 0);
+  return { ...result, changedRows, summary: renames.map((item) => ({ ...item, changed: changedRows })) };
 }
 
 export async function listMarketMappings(db: MarketDatabase, input: { kind?: string; category?: string; status?: string } = {}) {
@@ -390,8 +539,8 @@ export async function applyPublishedMarketMappings(db: MarketDatabase, input: { 
     } else {
       const like = `%${rule.source_value.replace(/[\\%_]/g, (value) => `\\${value}`)}%`;
       result = await db.prepare(`UPDATE market_ranking_entries SET subcategory=?, updated_at=CURRENT_TIMESTAMP
-        WHERE (source_subcategory=? OR sku_code=? OR product_name LIKE ? ESCAPE '\\') AND period_end>=?${categoryClause}`)
-        .bind(rule.target_value, rule.source_value, rule.source_value, like, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
+        WHERE (source_subcategory=? OR subcategory=? OR sku_code=? OR product_name LIKE ? ESCAPE '\\') AND period_end>=?${categoryClause}`)
+        .bind(rule.target_value, rule.source_value, rule.source_value, rule.source_value, like, rule.effective_from, ...categoryValues).run() as { meta?: { changes?: number } };
     }
     const changes = Number(result.meta?.changes ?? 0);
     changed += changes;
