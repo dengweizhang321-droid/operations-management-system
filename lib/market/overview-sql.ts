@@ -388,51 +388,8 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
   )`;
 }
 
-export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
-  const priceBandWhere = options.priceBandWhere ?? "";
-  const effectiveFacts = options.useEffectiveMetricsCache
-    ? marketCachedEffectiveFactsCtes(options.factWhere)
-    : marketEffectiveFactsCtes(options.factWhere);
-  const commonCtes = `WITH ${effectiveFacts}, analytics_base AS MATERIALIZED (
-    SELECT m.id, m.updated_at, m.period_start, m.period_end, m.category, m.scope, m.price_band_filter, m.ranking_dimension, m.operation_mode,
-      m.subcategory, m.rank, m.sku_code, m.brand, m.price_cents, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
-      m.effective_conversion_bps conversion_bps
-    FROM market_effective_rows m
-  ), analytics_selection_base AS MATERIALIZED (
-    SELECT m.* FROM market_basis_rows m
-    ${options.where ?? ""}
-  ),
-  ${marketMonthlyCoverageCtes({
-    source: "analytics_base",
-    selectionSource: "analytics_selection_base",
-    gmvColumn: "gmv_cents",
-    quantityColumn: "quantity",
-    pageViewsColumn: "page_views",
-    visitorsColumn: "visitors",
-    conversionColumn: "conversion_bps",
-    includeConversion: false,
-  })}, monthly_enriched AS MATERIALIZED (
-    SELECT m.id, m.updated_at, m.coverage_period_start period_start, m.coverage_period_end period_end,
-      m.category, m.scope, m.ranking_dimension, m.operation_mode,
-      m.subcategory, m.rank, m.sku_code, m.brand, m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity,
-      m.monthly_page_views page_views, m.monthly_visitors visitors, m.monthly_conversion_bps conversion_bps,
-      ps.confirmed_market_price_cents AS official_market_price_cents,
-      ps.confirmation_status,
-      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END AS market_price_source,
-      ${overviewPriceBandSql(Boolean(options.confirmedOnlyPriceBands))} AS price_band,
-      CASE WHEN EXISTS (
-        SELECT 1 FROM netshop_rows n
-        WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
-      ) OR EXISTS (
-        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
-      ) THEN 1 ELSE 0 END AS is_own
-    FROM market_monthly_rows m
-    LEFT JOIN market_price_snapshots ps ON ps.category=m.category
-      AND ps.scope=m.scope AND ps.sku_code=m.sku_code
-      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
-  ), analytics_filtered AS MATERIALIZED (
-    SELECT * FROM monthly_enriched ${priceBandWhere}
-  ), analytics_core AS MATERIALIZED (
+function marketAnalyticsAggregateCtes() {
+  return `analytics_core AS MATERIALIZED (
   SELECT 'summary' section, '' row_key, MIN(period_start) text_1, MAX(period_end) text_2,
     COUNT(DISTINCT sku_code) number_1, COUNT(DISTINCT category) number_2,
     COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) number_3,
@@ -481,10 +438,162 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
     NULL, NULL, NULL, NULL, NULL, NULL, NULL
   FROM analytics_filtered WHERE official_market_price_cents IS NOT NULL GROUP BY official_market_price_cents
   )`;
-  return `${commonCtes}
-  SELECT * FROM analytics_core
+}
+
+const marketAnalyticsResultSql = `SELECT * FROM analytics_core
   UNION ALL
   SELECT * FROM analytics_dimensions`;
+
+export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
+  const priceBandWhere = options.priceBandWhere ?? "";
+  const effectiveFacts = options.useEffectiveMetricsCache
+    ? marketCachedEffectiveFactsCtes(options.factWhere)
+    : marketEffectiveFactsCtes(options.factWhere);
+  const commonCtes = `WITH ${effectiveFacts}, analytics_base AS MATERIALIZED (
+    SELECT m.id, m.updated_at, m.period_start, m.period_end, m.category, m.scope, m.price_band_filter, m.ranking_dimension, m.operation_mode,
+      m.subcategory, m.rank, m.sku_code, m.brand, m.price_cents, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
+      m.effective_conversion_bps conversion_bps
+    FROM market_effective_rows m
+  ), analytics_selection_base AS MATERIALIZED (
+    SELECT m.* FROM market_basis_rows m
+    ${options.where ?? ""}
+  ),
+  ${marketMonthlyCoverageCtes({
+    source: "analytics_base",
+    selectionSource: "analytics_selection_base",
+    gmvColumn: "gmv_cents",
+    quantityColumn: "quantity",
+    pageViewsColumn: "page_views",
+    visitorsColumn: "visitors",
+    conversionColumn: "conversion_bps",
+    includeConversion: false,
+  })}, monthly_enriched AS MATERIALIZED (
+    SELECT m.id, m.updated_at, m.coverage_period_start period_start, m.coverage_period_end period_end,
+      m.category, m.scope, m.ranking_dimension, m.operation_mode,
+      m.subcategory, m.rank, m.sku_code, m.brand, m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity,
+      m.monthly_page_views page_views, m.monthly_visitors visitors, m.monthly_conversion_bps conversion_bps,
+      ps.confirmed_market_price_cents AS official_market_price_cents,
+      ps.confirmation_status,
+      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END AS market_price_source,
+      ${overviewPriceBandSql(Boolean(options.confirmedOnlyPriceBands))} AS price_band,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM netshop_rows n
+        WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
+      ) OR EXISTS (
+        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
+      ) THEN 1 ELSE 0 END AS is_own
+    FROM market_monthly_rows m
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category
+      AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+  ), analytics_filtered AS MATERIALIZED (
+    SELECT * FROM monthly_enriched ${priceBandWhere}
+  ), ${marketAnalyticsAggregateCtes()}`;
+  return `${commonCtes}\n  ${marketAnalyticsResultSql}`;
+}
+
+export function buildMarketMonthlySummaryRefreshSql() {
+  const dirtyFactWhere = `WHERE EXISTS (
+    SELECT 1 FROM market_monthly_summary_dirty_keys dirty
+    WHERE dirty.dirty_revision<=?1
+      AND dirty.category=m.category AND dirty.scope=m.scope
+      AND dirty.ranking_dimension=m.ranking_dimension AND dirty.sku_code=m.sku_code
+      AND dirty.month=substr(m.period_end,1,7)
+  )`;
+  return `WITH ${marketCachedEffectiveFactsCtes(dirtyFactWhere)}, analytics_base AS MATERIALIZED (
+    SELECT m.id, m.updated_at, m.period_start, m.period_end, m.category, m.scope, m.price_band_filter, m.ranking_dimension, m.operation_mode,
+      m.subcategory, m.rank, m.sku_code, m.product_name, m.brand, m.price_cents,
+      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
+      m.effective_conversion_bps conversion_bps
+    FROM market_effective_rows m
+  ), analytics_selection_base AS MATERIALIZED (
+    SELECT * FROM market_basis_rows
+  ), ${marketMonthlyCoverageCtes({
+    source: "analytics_base",
+    selectionSource: "analytics_selection_base",
+    gmvColumn: "gmv_cents",
+    quantityColumn: "quantity",
+    pageViewsColumn: "page_views",
+    visitorsColumn: "visitors",
+    conversionColumn: "conversion_bps",
+    includeConversion: false,
+  })}, monthly_cache_rows AS MATERIALIZED (
+    SELECT m.id representative_entry_id, m.coverage_month month,
+      m.coverage_period_start, m.coverage_period_end,
+      m.category, m.scope, m.ranking_dimension, m.operation_mode, m.subcategory, m.rank,
+      m.sku_code, m.product_name, m.brand,
+      m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity,
+      m.monthly_page_views page_views, m.monthly_visitors visitors,
+      m.monthly_conversion_bps conversion_bps,
+      ps.confirmed_market_price_cents AS official_market_price_cents,
+      ps.confirmation_status,
+      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END AS market_price_source,
+      ${overviewPriceBandSql(false)} AS display_price_band,
+      ${overviewPriceBandSql(true)} AS confirmed_price_band,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM netshop_rows n
+        WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
+      ) OR EXISTS (
+        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
+      ) THEN 1 ELSE 0 END AS is_own
+    FROM market_monthly_rows m
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category
+      AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=m.coverage_month
+  )
+  INSERT INTO market_monthly_summary_cache (
+    category, scope, ranking_dimension, sku_code, month, representative_entry_id,
+    coverage_period_start, coverage_period_end, operation_mode, subcategory, rank,
+    product_name, brand, gmv_cents, quantity, page_views, visitors, conversion_bps,
+    official_market_price_cents, confirmation_status, market_price_source,
+    display_price_band, confirmed_price_band, is_own, refreshed_revision, updated_at
+  )
+  SELECT category, scope, ranking_dimension, sku_code, month, representative_entry_id,
+    coverage_period_start, coverage_period_end, operation_mode, subcategory, rank,
+    product_name, brand, gmv_cents, quantity, page_views, visitors, conversion_bps,
+    official_market_price_cents, confirmation_status, market_price_source,
+    display_price_band, confirmed_price_band, is_own, ?1, CURRENT_TIMESTAMP
+  FROM monthly_cache_rows WHERE 1
+  ON CONFLICT(category,scope,ranking_dimension,sku_code,month) DO UPDATE SET
+    representative_entry_id=excluded.representative_entry_id,
+    coverage_period_start=excluded.coverage_period_start,
+    coverage_period_end=excluded.coverage_period_end,
+    operation_mode=excluded.operation_mode,
+    subcategory=excluded.subcategory,
+    rank=excluded.rank,
+    product_name=excluded.product_name,
+    brand=excluded.brand,
+    gmv_cents=excluded.gmv_cents,
+    quantity=excluded.quantity,
+    page_views=excluded.page_views,
+    visitors=excluded.visitors,
+    conversion_bps=excluded.conversion_bps,
+    official_market_price_cents=excluded.official_market_price_cents,
+    confirmation_status=excluded.confirmation_status,
+    market_price_source=excluded.market_price_source,
+    display_price_band=excluded.display_price_band,
+    confirmed_price_band=excluded.confirmed_price_band,
+    is_own=excluded.is_own,
+    refreshed_revision=excluded.refreshed_revision,
+    updated_at=CURRENT_TIMESTAMP`;
+}
+
+export function buildMarketCachedOverviewAnalyticsSql(options: { where?: string; confirmedOnlyPriceBands?: boolean } = {}) {
+  const priceBandColumn = options.confirmedOnlyPriceBands ? "confirmed_price_band" : "display_price_band";
+  return `WITH cache_guard AS MATERIALIZED (
+    SELECT built_revision FROM market_monthly_summary_cache_state
+    WHERE id=1 AND status='ready' AND source_revision=built_revision
+  ), analytics_filtered AS MATERIALIZED (
+    SELECT m.coverage_period_start period_start, m.coverage_period_end period_end,
+      m.category, m.scope, m.ranking_dimension, m.operation_mode, m.subcategory, m.rank,
+      m.sku_code, m.product_name, m.brand, m.gmv_cents, m.quantity, m.page_views, m.visitors,
+      m.conversion_bps, m.official_market_price_cents, m.confirmation_status, m.market_price_source,
+      m.${priceBandColumn} price_band, m.is_own
+    FROM market_monthly_summary_cache m JOIN cache_guard ON 1=1
+    ${options.where ?? ""}
+    ORDER BY m.category,m.scope,m.ranking_dimension,m.sku_code,m.month
+  ), ${marketAnalyticsAggregateCtes()}
+  ${marketAnalyticsResultSql}`;
 }
 
 export function buildMarketItemTrendSql() {

@@ -1,9 +1,10 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
 import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
-import { buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
+import { ensureMarketMonthlySummaryCache, isMarketMonthlySummaryCacheEligible } from "@/lib/market/monthly-summary-cache";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -324,6 +325,33 @@ function filterSql(filters: MarketOverviewFilters) {
   };
 }
 
+function monthlySummaryFilterSql(filters: MarketOverviewFilters, confirmedOnlyPriceBands: boolean) {
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  const list = (column: string, items?: string[]) => {
+    const normalized = [...new Set((items ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 30);
+    if (!normalized.length) return;
+    clauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
+    values.push(...normalized);
+  };
+  if (filters.query?.trim()) {
+    const query = `%${filters.query.trim().slice(0, 100)}%`;
+    clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)");
+    values.push(query, query, query);
+  }
+  list("m.category", filters.categories);
+  list("m.scope", filters.scopes);
+  list("m.brand", filters.brands);
+  list("m.ranking_dimension", filters.rankingDimensions);
+  list("m.operation_mode", filters.operationModes?.filter((item) => item !== "全部"));
+  list("m.subcategory", filters.subcategories);
+  if (filters.startDate) { clauses.push("m.coverage_period_end>=?"); values.push(filters.startDate); }
+  if (filters.endDate) { clauses.push("m.coverage_period_start<=?"); values.push(filters.endDate); }
+  const priceBandColumn = confirmedOnlyPriceBands ? "m.confirmed_price_band" : "m.display_price_band";
+  list(priceBandColumn, filters.priceBands);
+  return { where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", values };
+}
+
 function combineWhereSql(...parts: string[]) {
   const clauses = parts.map((part) => part.replace(/^\s*WHERE\s+/i, "").trim()).filter(Boolean);
   return clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -336,19 +364,30 @@ export async function getMarketOverview(
 ) {
   await ensureMarketEffectiveMetricsCache(db);
   const view = internal.view ?? "full";
+  const confirmedOnlyPriceBands = internal.priceBandBasis === "confirmed_only";
   const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
   const rankingCtes = buildMarketRankingCtes({
     factWhere,
     where,
     priceBandWhere,
   });
-  const analyticsSql = buildMarketOverviewAnalyticsSql({
+  const realtimeAnalyticsSql = buildMarketOverviewAnalyticsSql({
     factWhere,
     where,
     priceBandWhere,
-    confirmedOnlyPriceBands: internal.priceBandBasis === "confirmed_only",
+    confirmedOnlyPriceBands,
     useEffectiveMetricsCache: true,
   });
+  const monthlyCacheReady = view === "full" && isMarketMonthlySummaryCacheEligible(filters)
+    ? await ensureMarketMonthlySummaryCache(db)
+    : false;
+  const monthlyCacheFilter = monthlySummaryFilterSql(filters, confirmedOnlyPriceBands);
+  const analyticsSql = monthlyCacheReady
+    ? buildMarketCachedOverviewAnalyticsSql({
+        where: monthlyCacheFilter.where,
+        confirmedOnlyPriceBands,
+      })
+    : realtimeAnalyticsSql;
   const rankingSummarySql = `WITH summary_source AS MATERIALIZED (
       SELECT m.period_start, m.period_end, m.category, m.sku_code, m.brand,
         ps.confirmed_market_price_cents AS official_market_price_cents,
@@ -379,7 +418,8 @@ export async function getMarketOverview(
     FROM filtered`;
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const rankingBindings = [...values, ...priceBandValues];
-  const analyticsBindings = [...values, ...priceBandValues];
+  const realtimeAnalyticsBindings = [...values, ...priceBandValues];
+  const analyticsBindings = monthlyCacheReady ? monthlyCacheFilter.values : realtimeAnalyticsBindings;
   const [primaryResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
     db.prepare(view === "full" ? analyticsSql : rankingSummarySql).bind(...analyticsBindings),
     db.prepare(`${rankingCtes} SELECT id, period_start, period_end, category, scope, price_band_filter, ranking_dimension, operation_mode, subcategory, rank,
@@ -423,7 +463,11 @@ export async function getMarketOverview(
       FROM market_ranking_entries m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
       WHERE m.image_url<>''`),
   ]);
-  const analyticsRows = view === "full" ? batchRows<AnalyticsAggregateRow>(primaryResult) : [];
+  let analyticsRows = view === "full" ? batchRows<AnalyticsAggregateRow>(primaryResult) : [];
+  if (view === "full" && monthlyCacheReady && !analyticsRows.some((row) => row.section === "summary")) {
+    const fallback = await db.prepare(realtimeAnalyticsSql).bind(...realtimeAnalyticsBindings).all<AnalyticsAggregateRow>();
+    analyticsRows = batchRows<AnalyticsAggregateRow>(fallback);
+  }
   const rankingSummary = view === "ranking" ? batchRows<RankingSummaryRow>(primaryResult)[0] : undefined;
   const ranking = batchRows<EntryRow>(rankingResult);
   const rankedEstimates = annotateRankBounds(ranking.map((row) => ({

@@ -38,6 +38,74 @@ const marketEffectiveMetricsCacheStatements = [
   )`,
 ] as const;
 
+const marketMonthlySummaryCacheStatements = [
+  `CREATE TABLE IF NOT EXISTS market_monthly_summary_cache (
+    category TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL,
+    sku_code TEXT NOT NULL,
+    month TEXT NOT NULL,
+    representative_entry_id INTEGER NOT NULL,
+    coverage_period_start TEXT NOT NULL,
+    coverage_period_end TEXT NOT NULL,
+    operation_mode TEXT NOT NULL,
+    subcategory TEXT NOT NULL,
+    rank INTEGER,
+    product_name TEXT NOT NULL,
+    brand TEXT NOT NULL,
+    gmv_cents INTEGER,
+    quantity INTEGER,
+    page_views INTEGER NOT NULL,
+    visitors INTEGER NOT NULL,
+    conversion_bps INTEGER,
+    official_market_price_cents INTEGER,
+    confirmation_status TEXT,
+    market_price_source TEXT NOT NULL,
+    display_price_band TEXT NOT NULL,
+    confirmed_price_band TEXT NOT NULL,
+    is_own INTEGER NOT NULL,
+    refreshed_revision INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (category, scope, ranking_dimension, sku_code, month)
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_monthly_summary_cache_state (
+    id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+    source_revision INTEGER NOT NULL DEFAULT 1,
+    built_revision INTEGER NOT NULL DEFAULT -1,
+    status TEXT NOT NULL DEFAULT 'stale',
+    lease_token TEXT NOT NULL DEFAULT '',
+    lease_expires_at TEXT,
+    row_count INTEGER NOT NULL DEFAULT 0,
+    refreshed_at TEXT,
+    error_code TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_monthly_summary_dirty_keys (
+    category TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL,
+    sku_code TEXT NOT NULL,
+    month TEXT NOT NULL,
+    dirty_revision INTEGER NOT NULL,
+    PRIMARY KEY (category, scope, ranking_dimension, sku_code, month)
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_monthly_summary_dirty_scopes (
+    category TEXT PRIMARY KEY NOT NULL,
+    dirty_revision INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_monthly_summary_dirty_products (
+    product_code TEXT PRIMARY KEY NOT NULL,
+    dirty_revision INTEGER NOT NULL
+  )`,
+] as const;
+
+const marketMonthlySummaryCacheIndexStatements = [
+  `CREATE INDEX IF NOT EXISTS market_monthly_summary_month_idx ON market_monthly_summary_cache (month, category, ranking_dimension)`,
+  `CREATE INDEX IF NOT EXISTS market_monthly_summary_brand_idx ON market_monthly_summary_cache (brand, month)`,
+  `CREATE INDEX IF NOT EXISTS market_monthly_summary_subcategory_idx ON market_monthly_summary_cache (subcategory, month)`,
+  `CREATE INDEX IF NOT EXISTS market_monthly_summary_display_band_idx ON market_monthly_summary_cache (display_price_band, month)`,
+  `CREATE INDEX IF NOT EXISTS market_monthly_summary_confirmed_band_idx ON market_monthly_summary_cache (confirmed_price_band, month)`,
+] as const;
+
 export const marketBaseSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS market_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
@@ -127,6 +195,7 @@ export const marketBaseSchemaStatements = [
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   ...marketEffectiveMetricsCacheStatements,
+  ...marketMonthlySummaryCacheStatements,
   `CREATE TABLE IF NOT EXISTS market_sku_gmv_totals (
     sku_code TEXT PRIMARY KEY NOT NULL,
     gmv_total_cents INTEGER NOT NULL DEFAULT 0,
@@ -432,6 +501,7 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_annotation_catalog_idx ON market_ranking_entries (category, sku_code, period_end DESC, updated_at DESC, id DESC)`,
   `CREATE INDEX IF NOT EXISTS market_entries_rank_order_idx ON market_ranking_entries ((rank IS NULL), rank, gmv_cents DESC, id)`,
   `CREATE INDEX IF NOT EXISTS market_entries_image_url_idx ON market_ranking_entries (image_url) WHERE image_url<>''`,
+  ...marketMonthlySummaryCacheIndexStatements,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_price_band_uq ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, scope, sku_code, ranking_dimension, month)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,
@@ -782,6 +852,8 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   const fastMarker = await hasMarketRuntimeSchemaMarker(db);
   if (fastMarker) {
     for (const statement of marketEffectiveMetricsCacheStatements) await db.prepare(statement).run();
+    for (const statement of marketMonthlySummaryCacheStatements) await db.prepare(statement).run();
+    for (const statement of marketMonthlySummaryCacheIndexStatements) await db.prepare(statement).run();
     await db.prepare(`CREATE TABLE IF NOT EXISTS market_master_identities (
       category TEXT NOT NULL, scope TEXT NOT NULL, ranking_dimension TEXT NOT NULL,
       sku_code TEXT NOT NULL, latest_entry_id INTEGER NOT NULL,

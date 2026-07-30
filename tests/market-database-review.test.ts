@@ -9,7 +9,7 @@ import { DatabaseSync } from "node:sqlite";
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
 import { marketNaturalKey } from "../lib/market/import-identity";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "../lib/market/image-cache-state";
-import { buildMarketAdminComparisonSql, buildMarketAdminItemTrendLiteSql, buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
+import { buildMarketAdminComparisonSql, buildMarketAdminItemTrendLiteSql, buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketMonthlySummaryRefreshSql, buildMarketOverviewAnalyticsSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterRun?: (sql: string) => Promise<void> } = {}): MarketSchemaDatabase {
@@ -152,6 +152,8 @@ print('depth100 ok')
 `;
     const productionQueries = [
       { name: "overview", sql: buildMarketOverviewAnalyticsSql() },
+      { name: "cached overview", sql: buildMarketCachedOverviewAnalyticsSql() },
+      { name: "monthly summary refresh", sql: buildMarketMonthlySummaryRefreshSql(), bindings: [1] },
       { name: "item trend", sql: buildMarketItemTrendSql() },
       { name: "admin comparison", sql: buildMarketAdminComparisonSql({
         factWhere: "WHERE (m.sku_code,m.category,m.scope,m.ranking_dimension) IN ((?,?,?,?),(?,?,?,?)) AND m.category IN (?) AND m.scope IN (?) AND m.ranking_dimension IN (?) AND m.operation_mode IN (?) AND m.brand IN (?) AND m.subcategory IN (?) AND (m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?) AND m.period_end>=? AND m.period_start<=?",
@@ -168,7 +170,7 @@ print('depth100 ok')
         database: databasePath.replaceAll("\\", "/"),
         queries: productionQueries.map((query) => ({
           ...query,
-          bindings: Array.from({ length: (query.sql.match(/\?(?!\d)/g) ?? []).length }, () => "value"),
+          bindings: "bindings" in query ? query.bindings : Array.from({ length: (query.sql.match(/\?(?!\d)/g) ?? []).length }, () => "value"),
         })),
       }), "utf8").toString("base64"),
       encoding: "utf8",
