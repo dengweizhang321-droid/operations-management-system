@@ -115,7 +115,7 @@ function upsertConversation(db: CustomerServiceDatabase, batchIdValue: string, s
 function splitIds(value?: string | null) {
   return [...new Set((value ?? "").split(/[\s,，;；]+/).map((item) => item.trim()).filter((item) => /^[A-Za-z0-9_-]{2,80}$/.test(item)))].slice(0, 100);
 }
-export async function listCustomerServiceConversations(filters: { shopName?: string | null; startDate?: string | null; endDate?: string | null; agent?: string | null; status?: string | null; robotScope?: string | null; problemType?: string | null; conversionStatus?: string | null; category?: string | null; query?: string | null; skuIds?: string | null; spuIds?: string | null; page?: number | null; pageSize?: number | null }) {
+export async function listCustomerServiceConversations(filters: { shopName?: string | null; startDate?: string | null; endDate?: string | null; agent?: string | null; status?: string | null; robotScope?: string | null; problemType?: string | null; conversionStatus?: string | null; category?: string | null; query?: string | null; skuIds?: string | null; spuIds?: string | null; page?: number | null; pageSize?: number | null; includeOptions?: boolean }) {
   const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
   await Promise.all([ensureNetshopSchema(getNetshopDatabase()), ensureSalesSchema(getSalesDatabase())]);
   const conditions: string[] = []; const values: unknown[] = [];
@@ -170,13 +170,17 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
     values.push(...spuIds, ...spuIds);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""; const pageSize = Math.max(10, Math.min(100, Number(filters.pageSize) || 30)); const page = Math.max(1, Number(filters.page) || 1);
-  const [items, totalResult, summaryResult, agents, shops, categories] = await Promise.all([
+  const includeOptions = filters.includeOptions !== false;
+  const [items, summaryResult, agents, shops, categories] = await Promise.all([
     db.prepare(`SELECT * FROM customer_service_conversations ${where} ORDER BY consulted_at DESC, id DESC LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>(),
-    db.prepare(`SELECT COUNT(*) AS total FROM customer_service_conversations ${where}`).bind(...values).first<{ total: number }>(),
     db.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END) AS matched, SUM(CASE WHEN match_status = 'session_only' THEN 1 ELSE 0 END) AS session_only, SUM(CASE WHEN match_status = 'chat_only' THEN 1 ELSE 0 END) AS chat_only FROM customer_service_conversations ${where}`).bind(...values).first<Record<string, number | null>>(),
-    db.prepare(`SELECT DISTINCT agent FROM customer_service_conversations WHERE agent <> '' ORDER BY agent COLLATE NOCASE ASC LIMIT 100`).all<{ agent: string }>(),
-    db.prepare(`SELECT DISTINCT shop_name FROM customer_service_conversations WHERE shop_name <> '' ORDER BY shop_name COLLATE NOCASE ASC LIMIT 100`).all<{ shop_name: string }>(),
-    db.prepare(`WITH master_map AS MATERIALIZED (
+    includeOptions
+      ? db.prepare(`SELECT DISTINCT agent FROM customer_service_conversations WHERE agent <> '' ORDER BY agent COLLATE NOCASE ASC LIMIT 100`).all<{ agent: string }>()
+      : Promise.resolve({ results: [] as Array<{ agent: string }> }),
+    includeOptions
+      ? db.prepare(`SELECT DISTINCT shop_name FROM customer_service_conversations WHERE shop_name <> '' ORDER BY shop_name COLLATE NOCASE ASC LIMIT 100`).all<{ shop_name: string }>()
+      : Promise.resolve({ results: [] as Array<{ shop_name: string }> }),
+    includeOptions ? db.prepare(`WITH master_map AS MATERIALIZED (
         SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
         FROM netshop_rows n
         WHERE n.source = 'jd_product_master'
@@ -202,7 +206,8 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
       WHERE mapping.lookup_code IN (
           SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''
         ) AND NULLIF(TRIM(s.category), '') IS NOT NULL
-      ORDER BY category COLLATE NOCASE ASC LIMIT 100`).all<{ category: string }>(),
+      ORDER BY category COLLATE NOCASE ASC LIMIT 100`).all<{ category: string }>()
+      : Promise.resolve({ results: [] as Array<{ category: string }> }),
   ]);
   const map = (row: Record<string, unknown>): CustomerServiceConversation => mapCustomerServiceConversation(row);
   const customerItems = items.results.map(map);
@@ -227,7 +232,7 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
     }
     catalog = buildCustomerServiceProductMappings(productSkus, rows.results, salesRows);
   }
-  return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, matchedSkuId: matched?.matchedSkuId ?? "", productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categories.results.map((item) => item.category), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(totalResult?.total ?? 0) } };
+  return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, matchedSkuId: matched?.matchedSkuId ?? "", productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categories.results.map((item) => item.category), summary: { total: Number(summaryResult?.total ?? 0), matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total: Number(summaryResult?.total ?? 0) } };
 }
 
 function mapCustomerServiceConversation(row: Record<string, unknown>): CustomerServiceConversation {

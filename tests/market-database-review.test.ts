@@ -879,11 +879,15 @@ test("brand share denominator uses all brands and display limiting happens after
 });
 
 test("market ranking limits candidates before previous-rank lookup and pins the selective index", async () => {
-  const source = await readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8");
-  const topRanked = source.indexOf("top_ranked AS MATERIALIZED");
-  const previousRank = source.indexOf("previous_rank", topRanked);
-  assert.ok(topRanked >= 0 && previousRank > topRanked);
-  assert.match(source, /market_ranking_entries p INDEXED BY market_entries_sku_idx/);
+  const [database, overviewSql] = await Promise.all([
+    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/overview-sql.ts", import.meta.url), "utf8"),
+  ]);
+  const topRanked = overviewSql.indexOf("top_ranked AS MATERIALIZED");
+  const boundedIds = overviewSql.lastIndexOf("LIMIT 200", topRanked);
+  assert.ok(boundedIds >= 0 && topRanked > boundedIds);
+  assert.ok(database.indexOf("buildMarketRankingCtes") < database.indexOf("previous_rank"));
+  assert.match(database, /market_ranking_entries p INDEXED BY market_entries_sku_idx/);
 });
 
 test("shared market month coverage prefers a full month, deduplicates daily rows, and excludes rolling windows", async () => {

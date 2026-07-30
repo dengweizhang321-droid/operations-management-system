@@ -372,6 +372,7 @@ type InventoryOverviewResponse = {
     replenishCount: number;
     slowMovingValueCents: number;
     noSalesCount: number;
+    recommendationCount: number;
   };
   health: {
     urgent: number;
@@ -388,6 +389,8 @@ type InventoryOverviewResponse = {
     asOfDate: string | null;
   }>;
   filters: { warehouses: string[]; statuses: InventoryHealthStatus[] };
+  pagination: { total: number; limit: number; truncated: boolean };
+  recommendations: InventoryOverviewItem[];
   items: InventoryOverviewItem[];
   plans: ReplenishmentPlanItem[];
   planSummary: {
@@ -419,8 +422,9 @@ type InventoryAgeItem = {
 type InventoryAgeAnalysisResponse = {
   hasInventory: boolean;
   sync: { inventoryAsOf: string | null; latestInventoryBatchId: string | null; hasAgeSales: boolean };
-  metrics: { skuWarehouseCount: number; aged90Count: number; aged90ValueCents: number; stagnantCount: number; stagnantValueCents: number; zeroSalesCount: number };
+  metrics: { skuWarehouseCount: number; aged90Count: number; aged90ValueCents: number; stagnantCount: number; stagnantValueCents: number; zeroSalesCount: number; cleanupCount: number };
   distribution: Array<{ key: string; label: string; count: number; valueCents: number }>;
+  pagination: { total: number; limit: number; truncated: boolean };
   items: InventoryAgeItem[];
 };
 
@@ -3357,26 +3361,33 @@ function InventoryView() {
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [planActionId, setPlanActionId] = useState("");
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
+  const debouncedInventoryQuery = useDebouncedValue(query);
 
-  const loadOverview = useCallback(async () => {
+  const loadOverview = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/inventory/overview", { cache: "no-store" });
+      const params = new URLSearchParams({ limit: "300" });
+      if (debouncedInventoryQuery.trim()) params.set("q", debouncedInventoryQuery.trim());
+      warehouseFilters.forEach((value) => params.append("warehouse", value));
+      typeFilters.forEach((value) => params.append("warehouseType", value));
+      statusFilters.forEach((value) => params.append("status", value));
+      const response = await fetch(`/api/inventory/overview?${params}`, { cache: "no-store", signal });
       const payload = await response.json().catch(() => null) as (InventoryOverviewResponse & { error?: string; message?: string }) | null;
       if (!response.ok) throw new Error(payload?.error || payload?.message || `库存数据读取失败（${response.status}）`);
       if (!payload || !Array.isArray(payload.items) || !payload.metrics || !payload.sync) throw new Error("库存总览响应格式不完整");
-      setOverview(payload);
+      if (!signal?.aborted) setOverview(payload);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "暂时无法读取库存数据");
+      if (!signal?.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取库存数据");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [debouncedInventoryQuery, statusFilters, typeFilters, warehouseFilters]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadOverview(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadOverview(controller.signal), 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [loadOverview, retryKey]);
 
   const loadAgeAnalysis = useCallback(async () => {
@@ -3420,8 +3431,8 @@ function InventoryView() {
   );
 
   const recommendations = useMemo(
-    () => (overview?.items ?? []).filter((item) => (item.suggestedQuantity ?? 0) > 0).sort((left, right) => (right.suggestedQuantity ?? 0) - (left.suggestedQuantity ?? 0)),
-    [overview?.items],
+    () => overview?.recommendations ?? [],
+    [overview?.recommendations],
   );
 
   const syncInventory = useCallback(async (file?: File) => {
@@ -3622,7 +3633,7 @@ function InventoryView() {
     return <>{subnav}{syncBar}{feedback}{refreshError}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p><button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button></section></>;
   }
 
-  const totalHealth = Math.max(1, overview.items.length);
+  const totalHealth = Math.max(1, overview.metrics.skuWarehouseCount);
   const planStatusLabel: Record<ReplenishmentPlanItem["status"], string> = {
     draft: "草稿",
     confirmed: "已确认",
@@ -3674,7 +3685,7 @@ function InventoryView() {
         </section>
 
         <section className="panel table-panel inventory-detail-panel">
-          <div className="table-toolbar"><div><h2>库存健康明细</h2><p>自有仓与京东 RDC / DC 分开核算，销量仅按相同仓库匹配</p></div><span className="soft-tag">{inventoryQueryCount > 1 ? `已查询 ${formatCount(inventoryQueryCount)} 个货品编码 · ` : ""}显示 {formatCount(Math.min(filteredItems.length, 300))} / {formatCount(filteredItems.length)}</span></div>
+          <div className="table-toolbar"><div><h2>库存健康明细</h2><p>自有仓与京东 RDC / DC 分开核算，销量仅按相同仓库匹配</p></div><span className="soft-tag">{inventoryQueryCount > 1 ? `已查询 ${formatCount(inventoryQueryCount)} 个货品编码 · ` : ""}显示 {formatCount(filteredItems.length)} / {formatCount(overview.pagination.total)}</span></div>
           <div className="filter-row inventory-filter-row">
             <div className="search-box compact inventory-multi-query">⌕ <textarea rows={1} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴多个货品编码（空格、逗号或换行分隔）" aria-label="搜索一个或多个货品编码、名称、规格、仓库或品类" /></div>
             <MultiFilterSelect label="库存类型" allLabel="全部类型" ariaLabel="库存类型" options={[{ value: "owned", label: "自有仓" }, { value: "jd_rdc", label: "京东 RDC / DC" }, { value: "other", label: "其他" }]} selected={typeFilters} onChange={setTypeFilters} />
@@ -3696,7 +3707,7 @@ function InventoryView() {
           <InventoryKpiCard label="待确认草稿" value={`${formatCount(overview.planSummary.draftCount)} 项`} note="确认后进入执行队列" tone="orange" icon="草" />
           <InventoryKpiCard label="已确认计划" value={`${formatCount(overview.planSummary.confirmedCount)} 项`} note="已计入在途库存" tone="blue" icon="确" />
           <InventoryKpiCard label="计划待回写量" value={`${formatCount(overview.planSummary.activeQuantity)} 件`} note="含完成后等待库存快照回写的数量" tone="purple" icon="途" />
-          <InventoryKpiCard label="可生成建议" value={`${formatCount(recommendations.filter((item) => !item.inDraftPlan).length)} 项`} note="按最新库存与销量实时重算" tone="green" icon="荐" />
+          <InventoryKpiCard label="可生成建议" value={`${formatCount(overview.metrics.recommendationCount)} 项`} note="按最新库存与销量实时重算" tone="green" icon="荐" />
         </section>
 
         <section className="panel table-panel replenishment-plan-panel">
@@ -3715,11 +3726,11 @@ function InventoryView() {
         {!ageLoading && !ageError && ageAnalysis?.hasInventory && activeTab === "age" && <>
           <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label="90天以上货值" value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={`${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库`} tone="orange" icon="90" /><InventoryKpiCard label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
           <section className="age-distribution-grid">{ageAnalysis.distribution.map((bucket) => <article className="panel age-distribution-card" key={bucket.key}><span>{bucket.label}</span><strong>{formatCount(bucket.count)} 项</strong><small>库存货值 {formatCurrencyFromCents(bucket.valueCents)}</small></article>)}</section>
-          <section className="panel table-panel inventory-age-table-panel"><div className="table-toolbar"><div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div><span className="soft-tag">显示 {formatCount(Math.min(ageAnalysis.items.length, 300))} / {formatCount(ageAnalysis.items.length)}</span></div><div className="data-table-wrap"><table className="data-table inventory-age-table"><thead><tr><th>货品</th><th>仓库</th><th>可用库存</th><th>库龄</th><th>前7天销量</th><th>前30天销量</th><th>库存货值</th><th>状态</th></tr></thead><tbody>{ageAnalysis.items.slice(0, 300).map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td>{item.warehouse}</td><td>{formatCount(item.availableQuantity)}</td><td><strong>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</strong></td><td>{item.sales7dQuantity === null ? "—" : formatCount(item.sales7dQuantity)}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className={`status status-${meta.tone}`} title={item.recommendation}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{ageAnalysis.items.length === 0 && <tr><td colSpan={8}><div className="table-state">当前快照没有可展示的库龄记录。</div></td></tr>}</tbody></table></div></section>
+          <section className="panel table-panel inventory-age-table-panel"><div className="table-toolbar"><div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div><span className="soft-tag">显示 {formatCount(ageAnalysis.items.length)} / {formatCount(ageAnalysis.pagination.total)}</span></div><div className="data-table-wrap"><table className="data-table inventory-age-table"><thead><tr><th>货品</th><th>仓库</th><th>可用库存</th><th>库龄</th><th>前7天销量</th><th>前30天销量</th><th>库存货值</th><th>状态</th></tr></thead><tbody>{ageAnalysis.items.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td>{item.warehouse}</td><td>{formatCount(item.availableQuantity)}</td><td><strong>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</strong></td><td>{item.sales7dQuantity === null ? "—" : formatCount(item.sales7dQuantity)}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className={`status status-${meta.tone}`} title={item.recommendation}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{ageAnalysis.items.length === 0 && <tr><td colSpan={8}><div className="table-state">当前快照没有可展示的库龄记录。</div></td></tr>}</tbody></table></div></section>
         </>}
         {!ageLoading && !ageError && ageAnalysis?.hasInventory && activeTab === "stale" && <>
           <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label="待处理货值" value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note="按固定成本价与可用库存计算" tone="purple" icon="值" /><InventoryKpiCard label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
-          <section className="panel table-panel stale-cleanup-panel"><div className="table-toolbar"><div><h2>滞销清理清单</h2><p>仅输出清理建议，不会自动修改库存或创建补货计划。</p></div><span className="soft-tag">优先处理 {formatCount(cleanupItems.length)} 项</span></div><div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理建议</th><th>风险状态</th></tr></thead><tbody>{cleanupItems.slice(0, 300).map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td><td>{item.warehouse}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{formatCount(item.availableQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className="cleanup-recommendation">{item.recommendation}</span></td><td><span className={`status status-${meta.tone}`}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{cleanupItems.length === 0 && <tr><td colSpan={8}><div className="table-state">当前没有需要优先清理的滞销或高库龄商品。</div></td></tr>}</tbody></table></div></section>
+          <section className="panel table-panel stale-cleanup-panel"><div className="table-toolbar"><div><h2>滞销清理清单</h2><p>仅输出清理建议，不会自动修改库存或创建补货计划。</p></div><span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span></div><div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理建议</th><th>风险状态</th></tr></thead><tbody>{cleanupItems.slice(0, 300).map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td><td>{item.warehouse}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{formatCount(item.availableQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className="cleanup-recommendation">{item.recommendation}</span></td><td><span className={`status status-${meta.tone}`}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{cleanupItems.length === 0 && <tr><td colSpan={8}><div className="table-state">当前没有需要优先清理的滞销或高库龄商品。</div></td></tr>}</tbody></table></div></section>
         </>}
       </>}
     </>
@@ -3806,7 +3817,7 @@ function ProductView() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
-  const loadSummary = useCallback(async () => {
+  const loadSummary = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError("");
     try {
@@ -3818,23 +3829,26 @@ function ProductView() {
       }
       platformFilters.forEach((platform) => params.append("platform", platform));
       shopFilters.forEach((shop) => params.append("shop", shop));
-      const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store" });
+      const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store", signal });
       const payload = await response.json().catch(() => null) as (ProductSummaryResponse & { error?: string }) | null;
       if (!response.ok || !payload || !payload.metrics || !Array.isArray(payload.items)) {
         throw new Error(payload?.error || `商品数据读取失败（${response.status}）`);
       }
-      setSummary(payload);
-      setSelectedCode((current) => payload.items.some((item) => item.productCode === current) ? current : payload.items[0]?.productCode || "");
+      if (!signal?.aborted) {
+        setSummary(payload);
+        setSelectedCode((current) => payload.items.some((item) => item.productCode === current) ? current : payload.items[0]?.productCode || "");
+      }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "暂时无法读取商品数据");
+      if (!signal?.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取商品数据");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [customEndDate, customStartDate, platformFilters, shopFilters, timeRange]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadSummary(), timeRange === "custom" ? 260 : 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadSummary(controller.signal), timeRange === "custom" ? 260 : 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [loadSummary, retryKey, timeRange]);
 
   const selectedProduct = useMemo(
@@ -5012,6 +5026,10 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   const [busyId, setBusyId] = useState<number | "batch" | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState("");
   const [analysisReady, setAnalysisReady] = useState<boolean | null>(null);
+  const optionsLoadedRef = useRef(false);
+  const debouncedCustomerQuery = useDebouncedValue(query);
+  const debouncedSkuIds = useDebouncedValue(skuIds);
+  const debouncedSpuIds = useDebouncedValue(spuIds);
   const canAnnotate = currentUser?.role === "operator" || currentUser?.role === "admin";
   const canImport = currentUser?.role === "admin";
 
@@ -5027,10 +5045,11 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     return () => controller.abort();
   }, [canAnnotate]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError("");
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: "30" });
+      params.set("includeOptions", optionsLoadedRef.current ? "false" : "true");
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       if (agent) params.set("agent", agent);
@@ -5040,18 +5059,26 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
       if (problemType) params.set("problemType", problemType);
       if (conversionStatus) params.set("conversionStatus", conversionStatus);
       if (category) params.set("category", category);
-      if (query.trim()) params.set("query", query.trim());
-      if (skuIds.trim()) params.set("skuIds", skuIds.trim());
-      if (spuIds.trim()) params.set("spuIds", spuIds.trim());
-      const response = await fetch(`/api/customer-service/conversations?${params.toString()}`, { cache: "no-store" });
+      if (debouncedCustomerQuery.trim()) params.set("query", debouncedCustomerQuery.trim());
+      if (debouncedSkuIds.trim()) params.set("skuIds", debouncedSkuIds.trim());
+      if (debouncedSpuIds.trim()) params.set("spuIds", debouncedSpuIds.trim());
+      const response = await fetch(`/api/customer-service/conversations?${params.toString()}`, { cache: "no-store", signal });
       const payload = await response.json().catch(() => null) as CustomerServiceData & { error?: string } | null;
       if (!response.ok || !payload) throw new Error(payload?.error || "读取客服会话失败");
-      setData(payload);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "读取客服会话失败"); }
-    finally { setLoading(false); }
-  }, [agent, category, conversionStatus, endDate, page, problemType, query, robotScope, shopName, skuIds, spuIds, startDate, status]);
+      if (!signal?.aborted) {
+        setData((current) => ({
+          ...payload,
+          agents: payload.agents.length ? payload.agents : current?.agents ?? [],
+          shops: payload.shops.length ? payload.shops : current?.shops ?? [],
+          categories: payload.categories.length ? payload.categories : current?.categories ?? [],
+        }));
+        if (payload.agents.length || payload.shops.length || payload.categories.length) optionsLoadedRef.current = true;
+      }
+    } catch (reason) { if (!signal?.aborted) setError(reason instanceof Error ? reason.message : "读取客服会话失败"); }
+    finally { if (!signal?.aborted) setLoading(false); }
+  }, [agent, category, conversionStatus, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, page, problemType, robotScope, shopName, startDate, status]);
 
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+  useEffect(() => { const controller = new AbortController(); const timer = window.setTimeout(() => void load(controller.signal), 0); return () => { window.clearTimeout(timer); controller.abort(); }; }, [load]);
   useEffect(() => { setPage(1); }, [agent, category, conversionStatus, endDate, problemType, query, robotScope, shopName, skuIds, spuIds, startDate, status]);
 
   const selectPeriod = (next: "day" | "week" | "month" | "custom") => {

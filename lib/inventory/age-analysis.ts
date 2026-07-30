@@ -85,8 +85,9 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase) {
     return {
       hasInventory: false,
       sync: { inventoryAsOf: null, latestInventoryBatchId: null, hasAgeSales: false },
-      metrics: { skuWarehouseCount: 0, aged90Count: 0, aged90ValueCents: 0, stagnantCount: 0, stagnantValueCents: 0, zeroSalesCount: 0 },
+      metrics: { skuWarehouseCount: 0, aged90Count: 0, aged90ValueCents: 0, stagnantCount: 0, stagnantValueCents: 0, zeroSalesCount: 0, cleanupCount: 0 },
       distribution: [] as Array<{ key: string; label: string; count: number; valueCents: number }>,
+      pagination: { total: 0, limit: 300, truncated: false },
       items: [] as InventoryAgeItem[],
     };
   }
@@ -187,6 +188,8 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase) {
   });
   const aged90 = items.filter((item) => (item.inventoryAgeDays ?? -1) >= 90 && item.availableQuantity > 0);
   const stagnant = items.filter((item) => item.status === "stagnant");
+  const cleanupCount = items.filter((item) => item.status === "stagnant" || item.status === "slow" || item.status === "aged").length;
+  const limit = 300;
 
   return {
     hasInventory: true,
@@ -203,8 +206,10 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase) {
       stagnantCount: stagnant.length,
       stagnantValueCents: stagnant.reduce((sum, item) => sum + (item.stockValueCents ?? 0), 0),
       zeroSalesCount: ageSalesAvailable ? items.filter((item) => (item.sales30dQuantity ?? 0) <= 0 && item.availableQuantity > 0).length : 0,
+      cleanupCount,
     },
     distribution,
-    items,
+    pagination: { total: items.length, limit, truncated: items.length > limit },
+    items: items.slice(0, limit),
   };
 }

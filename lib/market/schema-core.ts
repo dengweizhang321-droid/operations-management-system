@@ -430,6 +430,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_entries_subcategory_idx ON market_ranking_entries (subcategory, period_end)`,
   `CREATE INDEX IF NOT EXISTS market_entries_representative_idx ON market_ranking_entries (category, scope, ranking_dimension, sku_code, period_end DESC, period_start DESC, id DESC)`,
   `CREATE INDEX IF NOT EXISTS market_entries_annotation_catalog_idx ON market_ranking_entries (category, sku_code, period_end DESC, updated_at DESC, id DESC)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_rank_order_idx ON market_ranking_entries ((rank IS NULL), rank, gmv_cents DESC, id)`,
+  `CREATE INDEX IF NOT EXISTS market_entries_image_url_idx ON market_ranking_entries (image_url) WHERE image_url<>''`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_entries_canonical_price_band_uq ON market_ranking_entries (period_start, period_end, category, scope, price_band_filter, ranking_dimension, sku_code)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_snapshots_sku_month_uq ON market_price_snapshots (category, scope, sku_code, ranking_dimension, month)`,
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_status_idx ON market_price_snapshots (confirmation_status, updated_at)`,

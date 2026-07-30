@@ -311,6 +311,83 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
   ), filtered AS ${materialized}(SELECT * FROM enriched ${options.priceBandWhere ?? ""})`;
 }
 
+/**
+ * Builds the ranking query in two stages so expensive ownership, image and
+ * price enrichment only runs for the 200 rows that can reach the UI.  The
+ * former overview CTE enriched every market fact before applying LIMIT 200.
+ */
+export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "factWhere" | "where" | "priceBandWhere"> = {}) {
+  const clauses = [options.factWhere, options.where]
+    .map((part) => part?.replace(/^\s*WHERE\s+/i, "").trim())
+    .filter(Boolean);
+  const selectionWhere = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const priceBandFilter = options.priceBandWhere?.trim() ?? "";
+  const selectedIds = priceBandFilter
+    ? `ranking_candidates AS MATERIALIZED (
+      SELECT m.id, m.rank, cached.effective_gmv_cents,
+        ${overviewPriceBandSql()} AS price_band
+      FROM market_ranking_entries m
+      JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
+      LEFT JOIN market_price_snapshots ps ON ps.category=m.category
+        AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+        AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+      ${selectionWhere}
+    ), top_ranked_ids AS MATERIALIZED (
+      SELECT id FROM ranking_candidates ${priceBandFilter}
+      ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, effective_gmv_cents DESC
+      LIMIT 200
+    )`
+    : `top_ranked_ids AS MATERIALIZED (
+      SELECT m.id
+      FROM market_ranking_entries m
+      JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
+      ${selectionWhere}
+      ORDER BY CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank, cached.effective_gmv_cents DESC
+      LIMIT 200
+    )`;
+  return `WITH ${selectedIds}, top_ranked AS MATERIALIZED (
+    SELECT m.*,
+      cached.effective_gmv_cents,
+      cached.real_gmv_cents,
+      cached.gmv_out_of_band,
+      cached.effective_quantity,
+      cached.effective_average_transaction_price_cents,
+      cached.effective_conversion_bps,
+      mic.status AS image_cache_status_raw,
+      mic.content_sha256 AS image_content_sha256,
+      ps.confirmed_market_price_cents,
+      ps.source_price_cents,
+      ps.ai_image_price_cents,
+      ps.ai_price_type,
+      ps.ai_confidence_bps,
+      ps.confirmation_status,
+      ps.average_transaction_price_cents,
+      ps.confirmed_market_price_cents AS official_market_price_cents,
+      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) AS candidate_price_cents,
+      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END AS market_price_source,
+      CASE
+        WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
+        WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
+        WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
+        ELSE '暂无价格'
+      END AS candidate_price_source,
+      ${overviewPriceBandSql()} AS price_band,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM netshop_rows n
+        WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
+      ) OR EXISTS (
+        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
+      ) THEN 1 ELSE 0 END AS is_own
+    FROM top_ranked_ids selected
+    JOIN market_ranking_entries m ON m.id=selected.id
+    JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
+    LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category
+      AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+  )`;
+}
+
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
   const priceBandWhere = options.priceBandWhere ?? "";
   const analyticsWhere = priceBandWhere

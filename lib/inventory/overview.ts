@@ -41,6 +41,14 @@ export type InventoryOverviewItem = {
   inDraftPlan: boolean;
 };
 
+export type InventoryOverviewOptions = {
+  query?: string;
+  warehouses?: string[];
+  warehouseTypes?: InventoryOverviewItem["warehouseType"][];
+  statuses?: InventoryHealthStatus[];
+  limit?: number;
+};
+
 type StockRow = {
   product_code: string;
   product_name: string;
@@ -180,7 +188,7 @@ function planSummary(plans: ReplenishmentPlanItem[], currentBatchId: string | nu
   );
 }
 
-export async function getInventoryOverview(db: InventoryDatabase) {
+export async function getInventoryOverview(db: InventoryDatabase, options: InventoryOverviewOptions = {}) {
   const [latestBatch, salesBounds, plans, persistedSettings] = await Promise.all([
     findLatestInventoryImportBatch(db),
     db
@@ -224,6 +232,7 @@ export async function getInventoryOverview(db: InventoryDatabase) {
         replenishCount: 0,
         slowMovingValueCents: 0,
         noSalesCount: 0,
+        recommendationCount: 0,
       },
       health: { urgent: 0, replenish: 0, healthy: 0, slow: 0, stagnant: 0, noSales: 0 },
       sources: [
@@ -232,6 +241,8 @@ export async function getInventoryOverview(db: InventoryDatabase) {
         { key: "jd_rdc", label: "京东 RDC / DC", status: "missing", asOfDate: null },
       ],
       filters: { warehouses: [], statuses: [] },
+      pagination: { total: 0, limit: Math.max(1, Math.min(300, Math.trunc(options.limit ?? 300))), truncated: false },
+      recommendations: [] as InventoryOverviewItem[],
       items: [] as InventoryOverviewItem[],
       plans,
       planSummary: planSummary(plans, null),
@@ -393,6 +404,23 @@ export async function getInventoryOverview(db: InventoryDatabase) {
   const hasJdRdc = items.some((item) => item.warehouseType === "jd_rdc");
   const today = shanghaiToday();
   const inventoryStale = dayDifference(latestBatch.snapshotDate, today) > 3;
+  const normalized = (values: string[] | undefined, max = 50) => [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, max);
+  const queryKeywords = normalized(options.query?.split(/[\s,，;；]+/) ?? [], 100).map((value) => value.toLowerCase());
+  const warehouses = new Set(normalized(options.warehouses));
+  const warehouseTypes = new Set(normalized(options.warehouseTypes) as InventoryOverviewItem["warehouseType"][]);
+  const statuses = new Set(normalized(options.statuses) as InventoryHealthStatus[]);
+  const filteredItems = items.filter((item) => {
+    const searchable = `${item.productCode}\n${item.productName}\n${item.specification}\n${item.category}\n${item.warehouse}`.toLowerCase();
+    return (queryKeywords.length === 0 || queryKeywords.some((keyword) => searchable.includes(keyword)))
+      && (warehouses.size === 0 || warehouses.has(item.warehouse))
+      && (warehouseTypes.size === 0 || warehouseTypes.has(item.warehouseType))
+      && (statuses.size === 0 || statuses.has(item.status));
+  });
+  const limit = Math.max(1, Math.min(300, Math.trunc(options.limit ?? 300)));
+  const recommendationItems = items
+    .filter((item) => (item.suggestedQuantity ?? 0) > 0)
+    .sort((left, right) => (right.suggestedQuantity ?? 0) - (left.suggestedQuantity ?? 0));
+  const recommendations = recommendationItems.slice(0, 50);
 
   return {
     hasInventory: true,
@@ -422,6 +450,7 @@ export async function getInventoryOverview(db: InventoryDatabase) {
         0,
       ),
       noSalesCount: health.noSales,
+      recommendationCount: recommendationItems.length,
     },
     health,
     sources: [
@@ -433,7 +462,9 @@ export async function getInventoryOverview(db: InventoryDatabase) {
       warehouses: [...new Set(items.map((item) => item.warehouse))].sort((left, right) => left.localeCompare(right, "zh-CN")),
       statuses: ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"],
     },
-    items,
+    pagination: { total: filteredItems.length, limit, truncated: filteredItems.length > limit },
+    recommendations,
+    items: filteredItems.slice(0, limit),
     plans,
     planSummary: planSummary(plans, latestBatch.id),
   };

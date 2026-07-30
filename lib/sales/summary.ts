@@ -469,7 +469,7 @@ export async function getSalesSummary(
     period = periodFor(input.range, today);
   }
 
-  const currentRow = await bindPeriod(
+  const currentPromise = bindPeriod(
     db.prepare(metricsSql(productCodes, platform, shop, categories, outletFilters)),
     period.startDate,
     period.endDate,
@@ -479,8 +479,8 @@ export async function getSalesSummary(
     categories,
     outletFilters,
   ).first<MetricRow>();
-  const previousRow = period.previousStartDate && period.previousEndDate
-    ? await bindPeriod(
+  const previousPromise = period.previousStartDate && period.previousEndDate
+    ? bindPeriod(
       db.prepare(metricsSql(productCodes, platform, shop, categories, outletFilters)),
       period.previousStartDate,
       period.previousEndDate,
@@ -495,7 +495,7 @@ export async function getSalesSummary(
     startDate: addYears(period.startDate, -1),
     endDate: addYears(period.endDate, -1),
   };
-  const yearAgoRow = await bindPeriod(
+  const yearAgoPromise = bindPeriod(
     db.prepare(metricsSql(productCodes, platform, shop, categories, outletFilters)),
     yearAgoPeriod.startDate,
     yearAgoPeriod.endDate,
@@ -508,7 +508,10 @@ export async function getSalesSummary(
   const previousPeriod = period.previousStartDate && period.previousEndDate
     ? { startDate: period.previousStartDate, endDate: period.previousEndDate }
     : null;
-  const [outlets, shops, platforms, daily, previousDaily, yearAgoDaily, filterOptionsData] = await Promise.all([
+  const [currentRow, previousRow, yearAgoRow, outlets, shops, platforms, daily, previousDaily, yearAgoDaily, filterOptionsData, latestBatch] = await Promise.all([
+    currentPromise,
+    previousPromise,
+    yearAgoPromise,
     groupedMetricsWithYearOverYear(db, "shop", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
     groupedMetricsWithYearOverYear(db, "channel", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
     groupedMetricsWithYearOverYear(db, "platform", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
@@ -516,8 +519,8 @@ export async function getSalesSummary(
     previousPeriod ? dailyMetrics(db, previousPeriod, productCodes, platform, shop, categories, outletFilters) : Promise.resolve([]),
     dailyMetrics(db, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
     filterOptions(db, period, productCodes),
+    findLatestSalesImportBatch(db),
   ]);
-  const latestBatch = await findLatestSalesImportBatch(db);
 
   return {
     range: input.range,

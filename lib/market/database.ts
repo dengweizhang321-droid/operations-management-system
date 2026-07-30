@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
 import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
-import { buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 
@@ -337,11 +337,10 @@ export async function getMarketOverview(
   await ensureMarketEffectiveMetricsCache(db);
   const view = internal.view ?? "full";
   const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
-  const enriched = buildMarketOverviewEnrichedSql({
+  const rankingCtes = buildMarketRankingCtes({
     factWhere,
     where,
     priceBandWhere,
-    useEffectiveMetricsCache: true,
   });
   const analyticsSql = buildMarketOverviewAnalyticsSql({
     factWhere,
@@ -383,11 +382,7 @@ export async function getMarketOverview(
   const analyticsBindings = [...values, ...priceBandValues];
   const [primaryResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
     db.prepare(view === "full" ? analyticsSql : rankingSummarySql).bind(...analyticsBindings),
-    db.prepare(`${enriched}, top_ranked AS MATERIALIZED (
-      SELECT * FROM filtered
-      ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC
-      LIMIT 200
-    ) SELECT id, period_start, period_end, category, scope, price_band_filter, ranking_dimension, operation_mode, subcategory, rank,
+    db.prepare(`${rankingCtes} SELECT id, period_start, period_end, category, scope, price_band_filter, ranking_dimension, operation_mode, subcategory, rank,
       (SELECT p.rank FROM market_ranking_entries p INDEXED BY market_entries_sku_idx
         WHERE p.category=filtered.category AND p.sku_code=filtered.sku_code AND p.ranking_dimension=filtered.ranking_dimension
           AND p.scope=filtered.scope AND p.operation_mode=filtered.operation_mode
