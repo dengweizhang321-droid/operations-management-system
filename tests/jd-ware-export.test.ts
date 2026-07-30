@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   newestCompletedJdWareExportTask,
   newestUnseenJdWareExportTask,
+  isJdWareExportTaskCreatedNear,
   parseJdWareExportTaskRows,
   selectRecoverableJdWareExportTask,
   selectExistingJdWareExportTask,
@@ -89,6 +90,26 @@ test("recovers one post-baseline task when the process stopped before learning i
   });
   assert.equal(selection.kind, "task");
   if (selection.kind === "task") assert.equal(selection.task.taskId, "9371818");
+});
+
+test("filters post-baseline recovery candidates by the confirmation-time window", () => {
+  const tasks = [
+    { taskId: "9371819", status: "completed" as const, createdAt: "2026-07-19 20:10:11", resultText: "success", successRows: 10, rowText: "unrelated" },
+    { taskId: "9371818", status: "completed" as const, createdAt: "2026-07-19 20:03:11", resultText: "success", successRows: 1453, rowText: "target" },
+    { taskId: "9371817", status: "completed" as const, createdAt: "2026-07-19 20:00:09", resultText: "success", successRows: 1450, rowText: "baseline" },
+  ];
+  const selection = selectRecoverableJdWareExportTask(tasks, {
+    version: 1,
+    baselineTaskIds: ["9371817"],
+    createdAt: "2026-07-19T12:03:10.000Z",
+  });
+  assert.equal(selection.kind, "task");
+  if (selection.kind === "task") assert.equal(selection.task.taskId, "9371818");
+});
+
+test("converts JD Shanghai task timestamps before applying the recovery window", () => {
+  assert.equal(isJdWareExportTaskCreatedNear("2026-07-19T12:03:10.000Z", "2026-07-19 20:03:11"), true);
+  assert.equal(isJdWareExportTaskCreatedNear("2026-07-19T12:03:10.000Z", "2026-07-19 20:10:11"), false);
 });
 
 test("stops when a baseline-only recovery has multiple candidate tasks", () => {

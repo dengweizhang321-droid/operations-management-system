@@ -91,6 +91,26 @@ export type JdWareExportRecoverySelection =
   | { kind: "missing" }
   | { kind: "ambiguous"; tasks: readonly JdWareExportTask[] };
 
+/** JD displays export-record timestamps in Shanghai time while recovery manifests use ISO UTC. */
+export function isJdWareExportTaskCreatedNear(
+  manifestCreatedAt: string,
+  taskCreatedAt: string,
+  windowMs = 2 * 60_000,
+) {
+  if (!Number.isFinite(Date.parse(manifestCreatedAt))) return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(taskCreatedAt);
+  if (!match) return false;
+  const taskUtc = Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]) - 8,
+    Number(match[5]),
+    Number(match[6]),
+  );
+  return Math.abs(taskUtc - Date.parse(manifestCreatedAt)) <= windowMs;
+}
+
 /** Resolve only the task durably associated with an interrupted submission. */
 export function selectRecoverableJdWareExportTask(
   tasks: readonly JdWareExportTask[],
@@ -98,7 +118,8 @@ export function selectRecoverableJdWareExportTask(
 ): JdWareExportRecoverySelection {
   const matches = recovery.taskId
     ? tasks.filter((task) => task.taskId === recovery.taskId)
-    : tasks.filter((task) => !recovery.baselineTaskIds.includes(task.taskId));
+    : tasks.filter((task) => !recovery.baselineTaskIds.includes(task.taskId)
+      && isJdWareExportTaskCreatedNear(recovery.createdAt, task.createdAt));
   if (matches.length > 1) return { kind: "ambiguous", tasks: matches };
   return matches[0] ? { kind: "task", task: matches[0] } : { kind: "missing" };
 }
