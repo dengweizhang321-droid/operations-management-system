@@ -10,11 +10,13 @@ type MarketOverviewSqlOptions = {
 
 type MarketMonthlyCoverageSqlOptions = {
   source: string;
+  selectionSource?: string;
   gmvColumn?: string;
   quantityColumn?: string;
   pageViewsColumn?: string;
   visitorsColumn?: string;
   conversionColumn?: string;
+  includeConversion?: boolean;
 };
 
 function overviewPriceBandSql(confirmedOnly = false) {
@@ -39,76 +41,83 @@ export function marketMonthlyCoverageCtes(options: MarketMonthlyCoverageSqlOptio
   const pageViews = options.pageViewsColumn ?? "page_views";
   const visitors = options.visitorsColumn ?? "visitors";
   const conversion = options.conversionColumn ?? "effective_conversion_bps";
+  const monthlyConversionSql = options.includeConversion === false
+    ? "NULL"
+    : `CASE WHEN selected.source_priority=0 THEN MAX(fact.${conversion})
+        WHEN SUM(fact.${visitors})>0
+        THEN MIN(10000,MAX(0,CAST(ROUND(SUM(fact.${quantity})*10000.0/SUM(fact.${visitors})) AS INTEGER)))
+        ELSE NULL END`;
+  const selectionSource = options.selectionSource ?? options.source;
+  const sourceIdentity = "source.category, source.scope, source.ranking_dimension, source.sku_code, substr(source.period_end,1,7)";
   const identity = "category, scope, ranking_dimension, sku_code, coverage_month";
-  const identityJoin = ["category", "scope", "ranking_dimension", "sku_code", "coverage_month"]
-    .map((column) => `representative.${column}=summary.${column}`).join(" AND ");
+  const selectedIdentity = "selected.category, selected.scope, selected.ranking_dimension, selected.sku_code, selected.coverage_month";
+  const optionJoin = ["category", "scope", "ranking_dimension", "sku_code", "coverage_month"]
+    .map((column) => `choice.${column}=selected.${column}`).join(" AND ");
   return `market_monthly_source AS MATERIALIZED (
-    SELECT source.*, substr(source.period_end,1,7) coverage_month,
+    SELECT source.id, source.updated_at, source.period_start, source.period_end, source.category, source.scope,
+      source.price_band_filter, source.ranking_dimension, source.sku_code, substr(source.period_end,1,7) coverage_month,
       CASE WHEN COALESCE(source.price_band_filter,'') IN ('','全部') THEN 0 ELSE 1 END coverage_band_priority,
       MAX(CASE WHEN COALESCE(source.price_band_filter,'') IN ('','全部') THEN 1 ELSE 0 END) OVER (
-        PARTITION BY source.category, source.scope, source.ranking_dimension, source.sku_code, substr(source.period_end,1,7)
+        PARTITION BY ${sourceIdentity}
       ) coverage_month_has_basis,
+      source.period_end || '|' || source.updated_at || '|' || printf('%020d', source.id) coverage_source_key
+    FROM ${selectionSource} source
+  ), market_monthly_eligible AS MATERIALIZED (
+    SELECT source.*,
       CASE
         WHEN source.period_start=source.period_end THEN 'daily'
         WHEN source.period_start=date(source.period_start,'start of month')
           AND source.period_end=date(source.period_start,'start of month','+1 month','-1 day') THEN 'monthly'
         ELSE 'rolling'
       END coverage_period_kind
-    FROM ${options.source} source
-  ), market_monthly_full_ranked AS MATERIALIZED (
-    SELECT source.*, ROW_NUMBER() OVER (
-      PARTITION BY ${identity} ORDER BY period_end DESC, updated_at DESC, id DESC
-    ) coverage_rank
     FROM market_monthly_source source
-    WHERE coverage_period_kind='monthly' AND (coverage_band_priority=0 OR coverage_month_has_basis=0)
-  ), market_monthly_daily_ranked AS MATERIALIZED (
+    WHERE coverage_band_priority=0 OR coverage_month_has_basis=0
+  ), market_monthly_ranked AS MATERIALIZED (
     SELECT source.*, ROW_NUMBER() OVER (
-      PARTITION BY ${identity}, period_end ORDER BY updated_at DESC, id DESC
+      PARTITION BY ${identity}, coverage_period_kind,
+        CASE WHEN coverage_period_kind='daily' THEN period_end ELSE '' END
+      ORDER BY period_end DESC, updated_at DESC, id DESC
     ) coverage_rank
-    FROM market_monthly_source source
-    WHERE coverage_period_kind='daily' AND (coverage_band_priority=0 OR coverage_month_has_basis=0)
-  ), market_monthly_daily_summaries AS MATERIALIZED (
-    SELECT ${identity}, SUM(${gmv}) monthly_gmv_cents, SUM(${quantity}) monthly_quantity,
-      SUM(${pageViews}) monthly_page_views, SUM(${visitors}) monthly_visitors, COUNT(*) coverage_days,
-      MIN(period_start) coverage_period_start, MAX(period_end) coverage_period_end
-    FROM market_monthly_daily_ranked WHERE coverage_rank=1 GROUP BY ${identity}
-  ), market_monthly_daily_representatives AS MATERIALIZED (
-    SELECT source.*, ROW_NUMBER() OVER (
-      PARTITION BY ${identity} ORDER BY period_end DESC, updated_at DESC, id DESC
-    ) representative_rank
-    FROM market_monthly_daily_ranked source WHERE coverage_rank=1
-  ), market_monthly_candidates AS MATERIALIZED (
-    SELECT source.id source_id, source.category, source.scope, source.ranking_dimension, source.sku_code,
-      source.coverage_month, source.${gmv} monthly_gmv_cents, source.${quantity} monthly_quantity,
-      source.${pageViews} monthly_page_views, source.${visitors} monthly_visitors,
-      source.${conversion} monthly_conversion_bps,
-      CAST(julianday(source.period_end)-julianday(source.period_start)+1 AS INTEGER) coverage_days,
-      0 source_priority, source.period_start coverage_period_start, source.period_end coverage_period_end
-    FROM market_monthly_full_ranked source WHERE coverage_rank=1
+    FROM market_monthly_eligible source WHERE coverage_period_kind IN ('monthly','daily')
+  ), market_monthly_choices AS MATERIALIZED (
+    SELECT ${identity},
+      CAST(substr(MAX(CASE WHEN coverage_period_kind='monthly' AND coverage_rank=1 THEN coverage_source_key END),-20) AS INTEGER) full_source_id,
+      MAX(CASE WHEN coverage_period_kind='monthly' AND coverage_rank=1
+        THEN CAST(julianday(period_end)-julianday(period_start)+1 AS INTEGER) END) full_coverage_days,
+      CAST(substr(MAX(CASE WHEN coverage_period_kind='daily' AND coverage_rank=1 THEN coverage_source_key END),-20) AS INTEGER) daily_source_id,
+      SUM(CASE WHEN coverage_period_kind='daily' AND coverage_rank=1 THEN 1 ELSE 0 END) daily_coverage_days,
+      MIN(CASE WHEN coverage_period_kind='daily' AND coverage_rank=1 THEN period_start END) daily_period_start,
+      MAX(CASE WHEN coverage_period_kind='daily' AND coverage_rank=1 THEN period_end END) daily_period_end
+    FROM market_monthly_ranked GROUP BY ${identity}
+  ), market_monthly_selected_ids AS MATERIALIZED (
+    SELECT choice.category, choice.scope, choice.ranking_dimension, choice.sku_code, choice.coverage_month,
+      choice.full_source_id selected_id, choice.full_source_id representative_id,
+      choice.full_coverage_days coverage_days, 0 source_priority,
+      selected.period_start coverage_period_start, selected.period_end coverage_period_end
+    FROM market_monthly_choices choice
+    JOIN market_monthly_ranked selected ON selected.id=choice.full_source_id
+    WHERE choice.full_source_id IS NOT NULL AND choice.full_coverage_days>=choice.daily_coverage_days
     UNION ALL
-    SELECT representative.id, representative.category, representative.scope, representative.ranking_dimension,
-      representative.sku_code, representative.coverage_month, summary.monthly_gmv_cents,
-      summary.monthly_quantity, summary.monthly_page_views, summary.monthly_visitors,
-      CASE WHEN summary.monthly_visitors>0
-        THEN MIN(10000,MAX(0,CAST(ROUND(summary.monthly_quantity*10000.0/summary.monthly_visitors) AS INTEGER)))
-        ELSE NULL END,
-      summary.coverage_days, 1, summary.coverage_period_start, summary.coverage_period_end
-    FROM market_monthly_daily_representatives representative
-    JOIN market_monthly_daily_summaries summary ON ${identityJoin}
-    WHERE representative.representative_rank=1
-  ), market_monthly_picks AS MATERIALIZED (
-    SELECT candidate.*, ROW_NUMBER() OVER (
-      PARTITION BY category, scope, ranking_dimension, sku_code, coverage_month
-      ORDER BY coverage_days DESC, source_priority, monthly_gmv_cents DESC, source_id DESC
-    ) month_pick_rank
-    FROM market_monthly_candidates candidate
+    SELECT selected.category, selected.scope, selected.ranking_dimension, selected.sku_code, selected.coverage_month,
+      selected.id, choice.daily_source_id, choice.daily_coverage_days, 1,
+      choice.daily_period_start, choice.daily_period_end
+    FROM market_monthly_ranked selected JOIN market_monthly_choices choice ON ${optionJoin}
+    WHERE selected.coverage_period_kind='daily' AND selected.coverage_rank=1
+      AND (choice.full_source_id IS NULL OR choice.full_coverage_days<choice.daily_coverage_days)
+  ), market_monthly_metrics AS MATERIALIZED (
+    SELECT ${selectedIdentity}, selected.representative_id, selected.coverage_days, selected.source_priority,
+      selected.coverage_period_start, selected.coverage_period_end,
+      SUM(fact.${gmv}) monthly_gmv_cents, SUM(fact.${quantity}) monthly_quantity,
+      SUM(fact.${pageViews}) monthly_page_views, SUM(fact.${visitors}) monthly_visitors,
+      ${monthlyConversionSql} monthly_conversion_bps
+    FROM market_monthly_selected_ids selected JOIN ${options.source} fact ON fact.id=selected.selected_id
+    GROUP BY ${selectedIdentity}, selected.representative_id, selected.coverage_days, selected.source_priority,
+      selected.coverage_period_start, selected.coverage_period_end
   ), market_monthly_rows AS MATERIALIZED (
-    SELECT source.*, picked.monthly_gmv_cents, picked.monthly_quantity, picked.monthly_page_views,
-      picked.monthly_visitors, picked.monthly_conversion_bps, picked.coverage_days, picked.source_priority,
-      picked.coverage_period_start, picked.coverage_period_end
-    FROM market_monthly_picks picked
-    JOIN market_monthly_source source ON source.id=picked.source_id
-    WHERE picked.month_pick_rank=1
+    SELECT source.*, metrics.coverage_month, metrics.monthly_gmv_cents, metrics.monthly_quantity, metrics.monthly_page_views,
+      metrics.monthly_visitors, metrics.monthly_conversion_bps, metrics.coverage_days, metrics.source_priority,
+      metrics.coverage_period_start, metrics.coverage_period_end
+    FROM market_monthly_metrics metrics JOIN ${options.source} source ON source.id=metrics.representative_id
   )`;
 }
 
@@ -282,10 +291,33 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
 }
 
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
-  return `WITH ${marketEffectiveFactsCtes(options.factWhere)}, analytics_base AS MATERIALIZED (
+  const priceBandWhere = options.priceBandWhere ?? "";
+  const analyticsWhere = priceBandWhere
+    ? `${priceBandWhere} AND (sections.section<>'price_value' OR official_market_price_cents IS NOT NULL)`
+    : "WHERE sections.section<>'price_value' OR official_market_price_cents IS NOT NULL";
+  const commonCtes = `WITH ${marketEffectiveFactsCtes(options.factWhere)}, analytics_base AS MATERIALIZED (
     SELECT m.id, m.updated_at, m.period_start, m.period_end, m.category, m.scope, m.price_band_filter, m.ranking_dimension, m.operation_mode,
-      m.subcategory, m.rank, m.sku_code, m.brand, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
-      m.effective_conversion_bps conversion_bps,
+      m.subcategory, m.rank, m.sku_code, m.brand, m.price_cents, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
+      m.effective_conversion_bps conversion_bps
+    FROM market_effective_rows m
+  ), analytics_selection_base AS MATERIALIZED (
+    SELECT m.* FROM market_basis_rows m
+    ${options.where ?? ""}
+  ),
+  ${marketMonthlyCoverageCtes({
+    source: "analytics_base",
+    selectionSource: "analytics_selection_base",
+    gmvColumn: "gmv_cents",
+    quantityColumn: "quantity",
+    pageViewsColumn: "page_views",
+    visitorsColumn: "visitors",
+    conversionColumn: "conversion_bps",
+    includeConversion: false,
+  })}, monthly_enriched AS MATERIALIZED (
+    SELECT m.id, m.updated_at, m.coverage_period_start period_start, m.coverage_period_end period_end,
+      m.category, m.scope, m.ranking_dimension, m.operation_mode,
+      m.subcategory, m.rank, m.sku_code, m.brand, m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity,
+      m.monthly_page_views page_views, m.monthly_visitors visitors, m.monthly_conversion_bps conversion_bps,
       ps.confirmed_market_price_cents AS official_market_price_cents,
       ps.confirmation_status,
       CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END AS market_price_source,
@@ -296,113 +328,215 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
       ) OR EXISTS (
         SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
+    FROM market_monthly_rows m
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category
+      AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+  ), analytics_sections(section) AS MATERIALIZED (
+    VALUES ('summary'),('trend'),('price_band'),('price_band_trend'),('brand'),('subcategory'),('price_value')
+  )`;
+  const rowKeySql = `CASE sections.section
+    WHEN 'summary' THEN ''
+    WHEN 'trend' THEN substr(m.period_end,1,7)
+    WHEN 'price_band' THEN m.price_band
+    WHEN 'price_band_trend' THEN substr(m.period_end,1,7)
+    WHEN 'brand' THEN COALESCE(NULLIF(m.brand,''), '未识别品牌')
+    WHEN 'subcategory' THEN m.subcategory
+    WHEN 'price_value' THEN CAST(m.official_market_price_cents AS TEXT)
+  END`;
+  const secondaryKeySql = "CASE WHEN sections.section='price_band_trend' THEN m.price_band ELSE '' END";
+  return `${commonCtes}
+  SELECT sections.section, ${rowKeySql} row_key,
+    CASE sections.section
+      WHEN 'summary' THEN MIN(m.period_start)
+      WHEN 'price_band' THEN GROUP_CONCAT(DISTINCT m.brand)
+      WHEN 'price_band_trend' THEN MAX(m.price_band)
+      WHEN 'brand' THEN GROUP_CONCAT(DISTINCT m.price_band)
+      WHEN 'subcategory' THEN GROUP_CONCAT(DISTINCT m.brand)
+      ELSE NULL END text_1,
+    CASE sections.section
+      WHEN 'summary' THEN MAX(m.period_end)
+      WHEN 'brand' THEN GROUP_CONCAT(DISTINCT m.subcategory)
+      WHEN 'subcategory' THEN GROUP_CONCAT(DISTINCT m.price_band)
+      ELSE NULL END text_2,
+    CASE sections.section
+      WHEN 'summary' THEN COUNT(DISTINCT m.sku_code)
+      WHEN 'trend' THEN COALESCE(SUM(m.gmv_cents),0)
+      WHEN 'price_band' THEN COUNT(*)
+      WHEN 'price_band_trend' THEN COALESCE(SUM(m.gmv_cents),0)
+      WHEN 'brand' THEN COALESCE(SUM(m.gmv_cents),0)
+      WHEN 'subcategory' THEN COUNT(DISTINCT m.sku_code)
+      WHEN 'price_value' THEN MAX(m.official_market_price_cents) END number_1,
+    CASE sections.section
+      WHEN 'summary' THEN COUNT(DISTINCT m.category)
+      WHEN 'trend' THEN COALESCE(SUM(m.quantity),0)
+      WHEN 'price_band' THEN COALESCE(SUM(m.gmv_cents),0)
+      WHEN 'price_band_trend' THEN COALESCE(SUM(m.quantity),0)
+      WHEN 'brand' THEN COALESCE(SUM(m.quantity),0)
+      WHEN 'subcategory' THEN COALESCE(SUM(m.gmv_cents),0)
+      WHEN 'price_value' THEN COUNT(*) END number_2,
+    CASE sections.section
+      WHEN 'summary' THEN COUNT(DISTINCT COALESCE(NULLIF(m.brand,''), '未识别品牌'))
+      WHEN 'trend' THEN COALESCE(SUM(m.visitors),0)
+      WHEN 'price_band' THEN COALESCE(SUM(m.quantity),0)
+      WHEN 'brand' THEN COUNT(DISTINCT m.sku_code)
+      WHEN 'subcategory' THEN COALESCE(SUM(m.quantity),0)
+      WHEN 'price_value' THEN COALESCE(SUM(m.gmv_cents),0) END number_3,
+    CASE sections.section
+      WHEN 'summary' THEN COALESCE(SUM(m.gmv_cents),0)
+      WHEN 'trend' THEN COUNT(DISTINCT m.sku_code)
+      WHEN 'price_band' THEN COUNT(DISTINCT m.sku_code)
+      WHEN 'brand' THEN MIN(m.rank)
+      WHEN 'subcategory' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0) END number_4,
+    CASE sections.section
+      WHEN 'summary' THEN COALESCE(SUM(m.quantity),0)
+      WHEN 'trend' THEN COUNT(DISTINCT m.brand)
+      WHEN 'price_band' THEN COALESCE(SUM(CASE WHEN m.operation_mode='POP' THEN m.gmv_cents ELSE 0 END),0)
+      WHEN 'subcategory' THEN COUNT(DISTINCT CASE WHEN m.official_market_price_cents IS NULL THEN m.sku_code END) END number_5,
+    CASE sections.section
+      WHEN 'summary' THEN COALESCE(SUM(m.page_views),0)
+      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.operation_mode='POP' THEN m.gmv_cents ELSE 0 END),0)
+      WHEN 'price_band' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0) END number_6,
+    CASE sections.section
+      WHEN 'summary' THEN COALESCE(SUM(m.visitors),0)
+      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0) END number_7,
+    CASE sections.section
+      WHEN 'summary' THEN COUNT(DISTINCT CASE WHEN m.is_own=1 THEN m.sku_code END)
+      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.official_market_price_cents IS NULL THEN 0 ELSE m.official_market_price_cents*1.0*m.gmv_cents END),0) END number_8,
+    CASE sections.section
+      WHEN 'summary' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0)
+      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.official_market_price_cents IS NULL THEN 0 ELSE m.gmv_cents END),0) END number_9,
+    CASE WHEN sections.section='summary' THEN COUNT(DISTINCT CASE
+      WHEN COALESCE(m.confirmation_status,'') IN ('missing','ai_pending','review_pending')
+        OR m.market_price_source='AI待确认' THEN m.sku_code END) END number_10
+  FROM monthly_enriched m CROSS JOIN analytics_sections sections
+  ${analyticsWhere}
+  GROUP BY sections.section, ${rowKeySql}, ${secondaryKeySql}`;
+}
+
+export function buildMarketItemTrendSql() {
+  return `WITH ${marketEffectiveFactsCtes(
+    "WHERE m.sku_code=? AND m.category=? AND m.scope=? AND m.ranking_dimension=?",
+  )}, trend_source AS MATERIALIZED (
+    SELECT m.*,
+      ps.confirmed_market_price_cents market_price_cents,
+      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) candidate_price_cents,
+      ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps,
+      ps.confirmed_market_price_cents,
+      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END price_status,
+      CASE
+        WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
+        WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
+        WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
+        ELSE '暂无价格'
+      END candidate_price_status,
+      COALESCE(ps.confirmation_status, 'missing') confirmation_status
     FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category
       AND ps.scope=m.scope AND ps.sku_code=m.sku_code
       AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
-    ${options.where ?? ""}
-  ), monthly_source AS MATERIALIZED (SELECT * FROM analytics_base),
-  ${marketMonthlyCoverageCtes({
-    source: "monthly_source",
-    gmvColumn: "gmv_cents",
-    quantityColumn: "quantity",
-    pageViewsColumn: "page_views",
-    visitorsColumn: "visitors",
-    conversionColumn: "conversion_bps",
-  })}, filtered AS MATERIALIZED (
-    SELECT id, updated_at, coverage_period_start period_start, coverage_period_end period_end,
-      category, scope, ranking_dimension, operation_mode,
-      subcategory, rank, sku_code, brand, monthly_gmv_cents gmv_cents, monthly_quantity quantity,
-      monthly_page_views page_views, monthly_visitors visitors, monthly_conversion_bps conversion_bps,
-      official_market_price_cents, confirmation_status, market_price_source, price_band, is_own
-    FROM market_monthly_rows ${options.priceBandWhere ?? ""}
-  ),
-  summary AS (
-    SELECT COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT category) category_count,
-      COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) brand_count, COALESCE(SUM(gmv_cents), 0) gmv_cents,
-      COALESCE(SUM(quantity), 0) quantity, COALESCE(SUM(page_views), 0) page_views,
-      COALESCE(SUM(visitors), 0) visitors, COUNT(DISTINCT CASE WHEN is_own = 1 THEN sku_code END) own_product_count,
-      COALESCE(SUM(CASE WHEN operation_mode = '自营' THEN gmv_cents ELSE 0 END), 0) self_operated_gmv_cents,
-      COUNT(DISTINCT CASE WHEN COALESCE(confirmation_status, '') IN ('missing','ai_pending','review_pending') OR market_price_source = 'AI待确认' THEN sku_code END) pending_ai_count
-    FROM filtered
-  ), trend_rows AS (
-    SELECT substr(period_end, 1, 7) period, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
-      SUM(visitors) visitors, COUNT(DISTINCT sku_code) product_count, COUNT(DISTINCT brand) brand_count,
-      SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END) pop_gmv_cents,
-      SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
-      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
-      CASE WHEN SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)>0
-        THEN CAST(ROUND(SUM(COALESCE(official_market_price_cents,0)*1.0*gmv_cents)/SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END)) AS INTEGER)
-        ELSE NULL END weighted_market_price_cents
-    FROM filtered GROUP BY substr(period_end, 1, 7)
-  ), price_band_rows AS (
-    SELECT price_band, COUNT(*) row_count, SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
-      COUNT(DISTINCT sku_code) sku_count,
-      SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END) pop_gmv_cents,
-      SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
-      GROUP_CONCAT(DISTINCT brand) brands
-    FROM filtered GROUP BY price_band
-  ), price_band_trend_rows AS (
-    SELECT substr(period_end,1,7) period, price_band,
-      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity,
-      SUM(SUM(gmv_cents)) OVER (PARTITION BY substr(period_end,1,7)) period_gmv_cents
-    FROM filtered GROUP BY substr(period_end,1,7), price_band
-  ), brand_rows AS (
-    SELECT COALESCE(NULLIF(brand,''), '未识别品牌') brand,
-      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, COUNT(DISTINCT sku_code) sku_count,
-      MIN(rank) best_rank, GROUP_CONCAT(DISTINCT price_band) price_bands, GROUP_CONCAT(DISTINCT subcategory) subcategories
-    FROM filtered GROUP BY COALESCE(NULLIF(brand,''), '未识别品牌')
-  ), subcategory_rows AS (
-    SELECT subcategory, COUNT(DISTINCT sku_code) sku_count, SUM(gmv_cents) gmv_cents,
-      SUM(quantity) quantity, SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END) self_gmv_cents,
-      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents,
-      COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN sku_code END) pending_count,
-      GROUP_CONCAT(DISTINCT brand) brands, GROUP_CONCAT(DISTINCT price_band) price_bands
-    FROM filtered GROUP BY subcategory
-  ), price_values AS MATERIALIZED (
-    SELECT official_market_price_cents price, gmv_cents
-    FROM filtered WHERE official_market_price_cents IS NOT NULL
-  ), ranked_prices AS (
-    SELECT price, ROW_NUMBER() OVER (ORDER BY price) price_row, COUNT(*) OVER () price_count
-    FROM price_values
+  ), trend_selection_source AS MATERIALIZED (
+    SELECT * FROM market_basis_rows
+  ), ${marketMonthlyCoverageCtes({ source: "trend_source", selectionSource: "trend_selection_source" })}, recent_months AS MATERIALIZED (
+    SELECT *, COUNT(*) OVER () total_months
+    FROM market_monthly_rows ORDER BY coverage_month DESC LIMIT 120
   )
-  SELECT
-    (SELECT json_object(
-      'product_count', product_count, 'category_count', category_count, 'brand_count', brand_count,
-      'gmv_cents', gmv_cents, 'quantity', quantity, 'page_views', page_views, 'visitors', visitors,
-      'own_product_count', own_product_count, 'self_operated_gmv_cents', self_operated_gmv_cents,
-      'pending_ai_count', pending_ai_count,
-      'median_market_price_cents', (SELECT price FROM ranked_prices WHERE price_row=CAST((price_count+1)/2 AS INTEGER) LIMIT 1),
-      'weighted_market_price_cents', (SELECT CASE WHEN SUM(gmv_cents)>0 THEN CAST(ROUND(SUM(price*1.0*gmv_cents)/SUM(gmv_cents)) AS INTEGER) ELSE NULL END FROM price_values)
-    ) FROM summary) summary_json,
-    (SELECT json_group_array(json_object(
-      'period', period, 'gmv_cents', gmv_cents, 'quantity', quantity, 'visitors', visitors,
-      'product_count', product_count, 'brand_count', brand_count, 'pop_gmv_cents', pop_gmv_cents,
-      'self_gmv_cents', self_gmv_cents, 'average_transaction_price_cents', average_transaction_price_cents,
-      'weighted_market_price_cents', weighted_market_price_cents
-    )) FROM (SELECT * FROM (SELECT * FROM trend_rows ORDER BY period DESC LIMIT 60) recent_trends ORDER BY period ASC)) trend_json,
-    (SELECT json_group_array(json_object('value', price_band, 'count', row_count))
-      FROM (SELECT * FROM price_band_rows ORDER BY CASE price_band WHEN '未确认价格' THEN 9 WHEN '3000+' THEN 8 ELSE 1 END, price_band)) price_bands_json,
-    (SELECT json_group_array(json_object(
-      'price_band', price_band, 'gmv_cents', gmv_cents, 'quantity', quantity, 'sku_count', sku_count,
-      'pop_gmv_cents', pop_gmv_cents, 'self_gmv_cents', self_gmv_cents, 'brands', brands
-    )) FROM (SELECT * FROM price_band_rows ORDER BY gmv_cents DESC)) price_band_summary_json,
-    (SELECT json_group_array(json_object(
-      'period', period, 'price_band', price_band, 'gmv_cents', gmv_cents, 'quantity', quantity,
-      'period_gmv_cents', period_gmv_cents
-    )) FROM (SELECT * FROM price_band_trend_rows ORDER BY period, gmv_cents DESC)) price_band_trend_json,
-    (SELECT json_group_array(json_object(
-      'brand', brand, 'gmv_cents', gmv_cents, 'quantity', quantity, 'sku_count', sku_count,
-      'best_rank', best_rank, 'price_bands', price_bands, 'subcategories', subcategories
-    )) FROM (SELECT * FROM brand_rows ORDER BY gmv_cents DESC)) brand_rows_json,
-    (SELECT json_group_array(json_object(
-      'subcategory', subcategory, 'sku_count', sku_count, 'gmv_cents', gmv_cents, 'quantity', quantity,
-      'self_gmv_cents', self_gmv_cents, 'average_transaction_price_cents', average_transaction_price_cents,
-      'pending_count', pending_count, 'brands', brands, 'price_bands', price_bands
-    )) FROM (SELECT * FROM subcategory_rows ORDER BY gmv_cents DESC LIMIT 60)) subcategory_rows_json,
-    (SELECT MIN(period_start) FROM filtered) date_min,
-    (SELECT MAX(period_end) FROM filtered) date_max,
-    (SELECT COUNT(*) FROM trend_rows) trend_total`;
+  SELECT m.coverage_period_start period_start, m.coverage_period_end period_end, m.coverage_month month, m.category, m.scope,
+    m.ranking_dimension, m.operation_mode, m.subcategory, m.rank, m.sku_code, m.product_name, m.brand,
+    m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity, m.monthly_visitors visitors,
+    m.monthly_conversion_bps conversion_bps, m.market_price_cents, m.candidate_price_cents,
+    m.source_price_cents, m.ai_image_price_cents, m.ai_price_type, m.ai_confidence_bps,
+    m.confirmed_market_price_cents,
+    CASE WHEN m.monthly_quantity>0 THEN CAST(ROUND(m.monthly_gmv_cents*1.0/m.monthly_quantity) AS INTEGER) END average_transaction_price_cents,
+    m.price_status, m.candidate_price_status, m.confirmation_status, m.total_months
+  FROM recent_months m ORDER BY m.coverage_month ASC`;
+}
+
+type MarketAdminAnalysisSqlOptions = {
+  factWhere: string;
+  priceBandWhere?: string;
+  exactIdentity?: boolean;
+};
+
+function adminAnalysisPriceBandSql() {
+  return officialPriceBandSql("ps.confirmed_market_price_cents", {
+    confirmationStatusSql: "ps.confirmation_status",
+    aiPriceTypeSql: "ps.ai_price_type",
+    categorySql: "m.category",
+    periodEndSql: "m.period_end",
+    fallbackPriceSql: "NULLIF(m.price_cents, 0)",
+  });
+}
+
+export function buildMarketAdminComparisonSql(options: MarketAdminAnalysisSqlOptions) {
+  const identityColumns = options.exactIdentity
+    ? "m.sku_code, m.category, m.scope, m.ranking_dimension"
+    : "m.sku_code";
+  const groupColumns = options.exactIdentity
+    ? "sku_code, category, scope, ranking_dimension"
+    : "sku_code";
+  return `WITH ${marketEffectiveFactsCtes(options.factWhere)}, comparison_source AS MATERIALIZED (
+    SELECT * FROM market_effective_rows
+  ), comparison_selection_source AS MATERIALIZED (
+    SELECT * FROM market_basis_rows
+  ), ${marketMonthlyCoverageCtes({ source: "comparison_source", selectionSource: "comparison_selection_source", includeConversion: false })}, comparison_enriched AS MATERIALIZED (
+    SELECT m.*, ps.confirmed_market_price_cents, ${adminAnalysisPriceBandSql()} price_band
+    FROM market_monthly_rows m
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=m.coverage_month
+  ), comparison_rows AS MATERIALIZED (
+    SELECT m.sku_code, m.product_name, m.brand, m.category, m.scope, m.ranking_dimension,
+      m.coverage_period_end period_end, m.id, m.monthly_gmv_cents gmv_cents,
+      m.monthly_quantity quantity, m.monthly_visitors visitors, m.rank, m.confirmed_market_price_cents,
+      ROW_NUMBER() OVER (PARTITION BY ${identityColumns} ORDER BY m.coverage_month DESC, m.id DESC) representative_rank
+    FROM comparison_enriched m ${options.priceBandWhere ?? ""}
+  ) SELECT sku_code,
+      MAX(CASE WHEN representative_rank=1 THEN product_name ELSE '' END) product_name,
+      MAX(CASE WHEN representative_rank=1 THEN brand ELSE '' END) brand,
+      MAX(CASE WHEN representative_rank=1 THEN category ELSE '' END) category,
+      MAX(CASE WHEN representative_rank=1 THEN scope ELSE '' END) scope,
+      MAX(CASE WHEN representative_rank=1 THEN ranking_dimension ELSE '' END) ranking_dimension,
+      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, SUM(visitors) visitors,
+      CASE WHEN SUM(visitors)>0 THEN CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER) ELSE NULL END conversion_bps,
+      MIN(rank) best_rank, MAX(confirmed_market_price_cents) market_price_cents,
+      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents
+    FROM comparison_rows
+    GROUP BY ${groupColumns}
+    ORDER BY gmv_cents DESC`;
+}
+
+export function buildMarketAdminItemTrendLiteSql(options: MarketAdminAnalysisSqlOptions) {
+  return `WITH ${marketEffectiveFactsCtes(options.factWhere)}, trend_source AS MATERIALIZED (
+    SELECT * FROM market_effective_rows
+  ), trend_selection_source AS MATERIALIZED (
+    SELECT * FROM market_basis_rows
+  ), ${marketMonthlyCoverageCtes({ source: "trend_source", selectionSource: "trend_selection_source", includeConversion: false })}, trend_enriched AS MATERIALIZED (
+    SELECT m.*, ps.confirmed_market_price_cents market_price_cents,
+      COALESCE(ps.confirmation_status, 'missing') confirmation_status,
+      ${adminAnalysisPriceBandSql()} price_band
+    FROM market_monthly_rows m
+    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+      AND ps.ranking_dimension=m.ranking_dimension AND ps.month=m.coverage_month
+  ), comparison_months AS MATERIALIZED (
+    SELECT coverage_month month, MIN(coverage_period_start) period_start, MAX(coverage_period_end) period_end,
+      MIN(rank) rank,
+      CASE WHEN COUNT(DISTINCT operation_mode)=1 THEN MAX(operation_mode) ELSE '混合' END operation_mode,
+      SUM(monthly_gmv_cents) gmv_cents, SUM(monthly_quantity) quantity,
+      SUM(monthly_visitors) visitors,
+      CASE WHEN SUM(monthly_visitors)>0
+        THEN MIN(10000,MAX(0,CAST(ROUND(SUM(monthly_quantity)*10000.0/SUM(monthly_visitors)) AS INTEGER)))
+        ELSE NULL END conversion_bps,
+      MAX(market_price_cents) market_price_cents,
+      CASE WHEN SUM(monthly_quantity)>0 THEN CAST(ROUND(SUM(monthly_gmv_cents)*1.0/SUM(monthly_quantity)) AS INTEGER) END average_transaction_price_cents,
+      CASE WHEN SUM(CASE WHEN confirmation_status='confirmed' THEN 1 ELSE 0 END)=COUNT(*) THEN 'confirmed'
+        WHEN SUM(CASE WHEN confirmation_status='confirmed' THEN 1 ELSE 0 END)=0 THEN 'missing'
+        ELSE 'mixed' END confirmation_status
+    FROM trend_enriched m ${options.priceBandWhere ?? ""} GROUP BY coverage_month
+  ), recent_months AS MATERIALIZED (
+    SELECT *, COUNT(*) OVER () total_months
+    FROM comparison_months ORDER BY month DESC LIMIT 120
+  )
+  SELECT * FROM recent_months ORDER BY month ASC`;
 }
 
 export const marketOverviewFilterOptionsSql = `SELECT

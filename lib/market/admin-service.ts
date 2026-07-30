@@ -3,7 +3,7 @@ import { runPromptTextCompletion } from "@/lib/market/annotation-model";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
-import { marketEffectiveFactsCtes, marketMonthlyCoverageCtes } from "@/lib/market/overview-sql";
+import { buildMarketAdminComparisonSql, buildMarketAdminItemTrendLiteSql } from "@/lib/market/overview-sql";
 import { ensureMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 import { ensureMarketMasterIdentities, refreshMarketMasterIdentities } from "@/lib/market/master-identity";
 import { marketNaturalKeySql, normalizeMarketSkuCode } from "@/lib/market/import-identity";
@@ -1258,7 +1258,7 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
     endDate: date(input.endDate),
   };
   const clauses = hasExactSelections
-    ? [`(${selections.map(() => "(m.sku_code=? AND m.category=? AND m.scope=? AND m.ranking_dimension=?)").join(" OR ")})`]
+    ? [`(m.sku_code,m.category,m.scope,m.ranking_dimension) IN (${selections.map(() => "(?,?,?,?)").join(",")})`]
     : [`m.sku_code IN (${skuCodes.map(() => "?").join(",")})`];
   const values: unknown[] = hasExactSelections
     ? selections.flatMap((selection) => [selection.skuCode, selection.category, selection.scope, selection.rankingDimension])
@@ -1280,47 +1280,15 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
     clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)");
     values.push(query, query, query);
   }
-  const displayPriceBandSql = officialPriceBandSql("ps.confirmed_market_price_cents", {
-    confirmationStatusSql: "ps.confirmation_status",
-    aiPriceTypeSql: "ps.ai_price_type",
-    categorySql: "m.category",
-    periodEndSql: "m.period_end",
-    fallbackPriceSql: "NULLIF(m.price_cents, 0)",
-  });
   const priceBandValues = [...new Set((filters.priceBands ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
   const priceBandWhere = priceBandValues.length ? `WHERE m.price_band IN (${priceBandValues.map(() => "?").join(",")})` : "";
   if (filters.startDate) { clauses.push("m.period_end>=?"); values.push(filters.startDate); }
   if (filters.endDate) { clauses.push("m.period_start<=?"); values.push(filters.endDate); }
-  const comparisonIdentityColumns = hasExactSelections
-    ? "m.sku_code, m.category, m.scope, m.ranking_dimension"
-    : "m.sku_code";
-  const comparisonGroupColumns = hasExactSelections
-    ? "sku_code, category, scope, ranking_dimension"
-    : "sku_code";
-  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, comparison_source AS MATERIALIZED (
-    SELECT m.*, ps.confirmed_market_price_cents, ${displayPriceBandSql} price_band
-    FROM market_effective_rows m
-    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
-    WHERE ${clauses.join(" AND ")}
-  ), ${marketMonthlyCoverageCtes({ source: "comparison_source" })}, comparison_rows AS MATERIALIZED (
-    SELECT m.sku_code, m.product_name, m.brand, m.category, m.scope, m.ranking_dimension,
-      m.coverage_period_end period_end, m.id, m.monthly_gmv_cents gmv_cents,
-      m.monthly_quantity quantity, m.monthly_visitors visitors, m.rank, m.confirmed_market_price_cents,
-      ROW_NUMBER() OVER (PARTITION BY ${comparisonIdentityColumns} ORDER BY m.coverage_month DESC, m.id DESC) representative_rank
-    FROM market_monthly_rows m ${priceBandWhere}
-  ) SELECT sku_code,
-      MAX(CASE WHEN representative_rank=1 THEN product_name ELSE '' END) product_name,
-      MAX(CASE WHEN representative_rank=1 THEN brand ELSE '' END) brand,
-      MAX(CASE WHEN representative_rank=1 THEN category ELSE '' END) category,
-      MAX(CASE WHEN representative_rank=1 THEN scope ELSE '' END) scope,
-      MAX(CASE WHEN representative_rank=1 THEN ranking_dimension ELSE '' END) ranking_dimension,
-      SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, SUM(visitors) visitors,
-      CASE WHEN SUM(visitors)>0 THEN CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER) ELSE NULL END conversion_bps,
-      MIN(rank) best_rank, MAX(confirmed_market_price_cents) market_price_cents,
-      CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents
-    FROM comparison_rows
-    GROUP BY ${comparisonGroupColumns}
-    ORDER BY gmv_cents DESC`).bind(...values, ...priceBandValues).all<Record<string, string | number | null>>();
+  const rows = await db.prepare(buildMarketAdminComparisonSql({
+    factWhere: `WHERE ${clauses.join(" AND ")}`,
+    priceBandWhere,
+    exactIdentity: hasExactSelections,
+  })).bind(...values, ...priceBandValues).all<Record<string, string | number | null>>();
   const resultRows = rows.results ?? [];
   const trendEntries = await Promise.all(resultRows.map(async (row) => {
     const rowSelection: MarketComparisonSelection = {
@@ -1508,47 +1476,14 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
     clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)");
     values.push(query, query, query);
   }
-  const displayPriceBandSql = officialPriceBandSql("ps.confirmed_market_price_cents", {
-    confirmationStatusSql: "ps.confirmation_status",
-    aiPriceTypeSql: "ps.ai_price_type",
-    categorySql: "m.category",
-    periodEndSql: "m.period_end",
-    fallbackPriceSql: "NULLIF(m.price_cents, 0)",
-  });
   const priceBandValues = [...new Set((input.filters?.priceBands ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
-  const priceBandWhere = priceBandValues.length ? `WHERE price_band IN (${priceBandValues.map(() => "?").join(",")})` : "";
+  const priceBandWhere = priceBandValues.length ? `WHERE m.price_band IN (${priceBandValues.map(() => "?").join(",")})` : "";
   if (input.filters?.startDate) { clauses.push("m.period_end>=?"); values.push(input.filters.startDate); }
   if (input.filters?.endDate) { clauses.push("m.period_start<=?"); values.push(input.filters.endDate); }
-  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, trend_source AS MATERIALIZED (
-    SELECT m.*, ps.confirmed_market_price_cents market_price_cents,
-      COALESCE(ps.confirmation_status, 'missing') confirmation_status,
-      ${displayPriceBandSql} price_band
-    FROM market_effective_rows m
-    LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
-    WHERE ${clauses.join(" AND ")}
-  ), ${marketMonthlyCoverageCtes({ source: "trend_source" })}, filtered_months AS MATERIALIZED (
-    SELECT * FROM market_monthly_rows ${priceBandWhere}
-  ), comparison_months AS MATERIALIZED (
-    SELECT coverage_month month, MIN(coverage_period_start) period_start, MAX(coverage_period_end) period_end,
-      MIN(rank) rank,
-      CASE WHEN COUNT(DISTINCT operation_mode)=1 THEN MAX(operation_mode) ELSE '混合' END operation_mode,
-      SUM(monthly_gmv_cents) gmv_cents, SUM(monthly_quantity) quantity,
-      SUM(monthly_visitors) visitors,
-      CASE WHEN SUM(monthly_visitors)>0
-        THEN MIN(10000,MAX(0,CAST(ROUND(SUM(monthly_quantity)*10000.0/SUM(monthly_visitors)) AS INTEGER)))
-        ELSE NULL END conversion_bps,
-      MAX(market_price_cents) market_price_cents,
-      CASE WHEN SUM(monthly_quantity)>0 THEN CAST(ROUND(SUM(monthly_gmv_cents)*1.0/SUM(monthly_quantity)) AS INTEGER) END average_transaction_price_cents,
-      CASE WHEN SUM(CASE WHEN confirmation_status='confirmed' THEN 1 ELSE 0 END)=COUNT(*) THEN 'confirmed'
-        WHEN SUM(CASE WHEN confirmation_status='confirmed' THEN 1 ELSE 0 END)=0 THEN 'missing'
-        ELSE 'mixed' END confirmation_status
-    FROM filtered_months GROUP BY coverage_month
-  ), recent_months AS MATERIALIZED (
-    SELECT *, COUNT(*) OVER () total_months
-    FROM comparison_months ORDER BY month DESC LIMIT 120
-  )
-    SELECT * FROM recent_months ORDER BY month ASC
-  `).bind(...values, ...priceBandValues).all<Record<string, string | number | null>>();
+  const rows = await db.prepare(buildMarketAdminItemTrendLiteSql({
+    factWhere: `WHERE ${clauses.join(" AND ")}`,
+    priceBandWhere,
+  })).bind(...values, ...priceBandValues).all<Record<string, string | number | null>>();
   const trendRows = rows.results ?? [];
   const totalMonths = Number(trendRows[0]?.total_months ?? 0);
   return {

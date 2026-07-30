@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
 import { marketNaturalKey } from "../lib/market/import-identity";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "../lib/market/image-cache-state";
-import { buildMarketOverviewAnalyticsSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
+import { buildMarketAdminComparisonSql, buildMarketAdminItemTrendLiteSql, buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterRun?: (sql: string) => Promise<void> } = {}): MarketSchemaDatabase {
@@ -39,6 +42,144 @@ function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterRun?: (sql: string) =
     },
   };
 }
+
+type OverviewAggregateTestRow = {
+  section: string; row_key: string; text_1: string | null; text_2: string | null;
+  number_1: number | null; number_2: number | null; number_3: number | null; number_4: number | null;
+  number_5: number | null; number_6: number | null; number_7: number | null; number_8: number | null;
+  number_9: number | null; number_10: number | null;
+};
+
+function readOverviewAnalytics(
+  sqlite: DatabaseSync,
+  options: Parameters<typeof buildMarketOverviewAnalyticsSql>[0] = {},
+  baseValues: Array<string | number> = [],
+  priceBandValues: Array<string | number> = [],
+) {
+  const bindings = [...baseValues, ...priceBandValues];
+  const rows = sqlite.prepare(buildMarketOverviewAnalyticsSql(options)).all(...bindings) as OverviewAggregateTestRow[];
+  const summary = rows.find((row) => row.section === "summary");
+  const prices = rows.filter((row) => row.section === "price_value")
+    .sort((left, right) => Number(left.number_1) - Number(right.number_1));
+  const priceCount = prices.reduce((sum, row) => sum + Number(row.number_2 ?? 0), 0);
+  const medianPosition = Math.floor((priceCount + 1) / 2);
+  let seen = 0;
+  let median: number | null = null;
+  for (const row of prices) {
+    seen += Number(row.number_2 ?? 0);
+    if (medianPosition > 0 && seen >= medianPosition) { median = Number(row.number_1); break; }
+  }
+  const weightedDenominator = prices.reduce((sum, row) => sum + Number(row.number_3 ?? 0), 0);
+  const weighted = weightedDenominator > 0
+    ? Math.round(prices.reduce((sum, row) => sum + Number(row.number_1 ?? 0) * Number(row.number_3 ?? 0), 0) / weightedDenominator)
+    : null;
+  const trends = rows.filter((row) => row.section === "trend").map((row) => ({
+    period: row.row_key, gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0),
+    visitors: Number(row.number_3 ?? 0), product_count: Number(row.number_4 ?? 0), brand_count: Number(row.number_5 ?? 0),
+    pop_gmv_cents: Number(row.number_6 ?? 0), self_gmv_cents: Number(row.number_7 ?? 0),
+    average_transaction_price_cents: Number(row.number_2 ?? 0) > 0 ? Math.round(Number(row.number_1 ?? 0) / Number(row.number_2 ?? 0)) : null,
+    weighted_market_price_cents: Number(row.number_9 ?? 0) > 0 ? Math.round(Number(row.number_8 ?? 0) / Number(row.number_9 ?? 0)) : null,
+  })).sort((left, right) => left.period.localeCompare(right.period));
+  const bands = rows.filter((row) => row.section === "price_band").map((row) => ({
+    price_band: row.row_key, row_count: Number(row.number_1 ?? 0), gmv_cents: Number(row.number_2 ?? 0),
+    quantity: Number(row.number_3 ?? 0), sku_count: Number(row.number_4 ?? 0), pop_gmv_cents: Number(row.number_5 ?? 0),
+    self_gmv_cents: Number(row.number_6 ?? 0), brands: row.text_1 ?? "",
+  }));
+  const bandOrder = (value: string) => value === "未确认价格" ? 9 : value === "3000+" ? 8 : 1;
+  const brands = rows.filter((row) => row.section === "brand").map((row) => ({
+    brand: row.row_key, gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0),
+    sku_count: Number(row.number_3 ?? 0), best_rank: row.number_4, price_bands: row.text_1 ?? "", subcategories: row.text_2 ?? "",
+  })).sort((left, right) => right.gmv_cents - left.gmv_cents);
+  return {
+    summary_json: JSON.stringify({
+      product_count: Number(summary?.number_1 ?? 0), category_count: Number(summary?.number_2 ?? 0),
+      brand_count: Number(summary?.number_3 ?? 0), gmv_cents: Number(summary?.number_4 ?? 0),
+      quantity: Number(summary?.number_5 ?? 0), page_views: Number(summary?.number_6 ?? 0), visitors: Number(summary?.number_7 ?? 0),
+      own_product_count: Number(summary?.number_8 ?? 0), self_operated_gmv_cents: Number(summary?.number_9 ?? 0),
+      pending_ai_count: Number(summary?.number_10 ?? 0), median_market_price_cents: median, weighted_market_price_cents: weighted,
+    }),
+    trend_json: JSON.stringify(trends.slice(-60)),
+    trend_total: trends.length,
+    price_bands_json: JSON.stringify([...bands]
+      .sort((left, right) => bandOrder(left.price_band) - bandOrder(right.price_band) || left.price_band.localeCompare(right.price_band))
+      .map((row) => ({ value: row.price_band, count: row.row_count }))),
+    price_band_summary_json: JSON.stringify([...bands].sort((left, right) => right.gmv_cents - left.gmv_cents)),
+    brand_rows_json: JSON.stringify(brands),
+    date_min: summary?.text_1 ?? null,
+    date_max: summary?.text_2 ?? null,
+  };
+}
+
+test("production market analytics SQL compiles at the D1 expression-depth limit", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "market-d1-depth-"));
+  const databasePath = join(directory, "market.sqlite");
+  try {
+    const sqlite = new DatabaseSync(databasePath);
+    await ensureMarketSchemaCore(sqliteAdapter(sqlite));
+    sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+      CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);`);
+    sqlite.close();
+    const python = String.raw`
+import base64, json, sqlite3, sys
+payload = json.loads(base64.b64decode(sys.stdin.read()).decode('utf-8'))
+db = sqlite3.connect('file:' + payload['database'] + '?mode=ro', uri=True)
+if not hasattr(db, 'setlimit'):
+    raise RuntimeError('Python sqlite3.setlimit is required for the D1 depth gate')
+db.setlimit(sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 100)
+negative = 'SELECT ' + ('abs(' * 101) + '1' + (')' * 101)
+try:
+    db.execute(negative)
+except sqlite3.OperationalError as error:
+    if 'Expression tree is too large' not in str(error):
+        raise
+else:
+    raise RuntimeError('expression-depth negative control did not fail')
+db.setlimit(sqlite3.SQLITE_LIMIT_COMPOUND_SELECT, 5)
+compound_negative = ' UNION ALL '.join(['SELECT 1'] * 6)
+try:
+    db.execute(compound_negative)
+except sqlite3.OperationalError as error:
+    if 'too many terms in compound SELECT' not in str(error):
+        raise
+else:
+    raise RuntimeError('compound-select negative control did not fail')
+for query in payload['queries']:
+    try:
+        db.execute('EXPLAIN QUERY PLAN ' + query['sql'], query['bindings']).fetchone()
+    except sqlite3.OperationalError as error:
+        raise RuntimeError(query['name'] + ': ' + str(error)) from error
+print('depth100 ok')
+`;
+    const productionQueries = [
+      { name: "overview", sql: buildMarketOverviewAnalyticsSql() },
+      { name: "item trend", sql: buildMarketItemTrendSql() },
+      { name: "admin comparison", sql: buildMarketAdminComparisonSql({
+        factWhere: "WHERE (m.sku_code,m.category,m.scope,m.ranking_dimension) IN ((?,?,?,?),(?,?,?,?)) AND m.category IN (?) AND m.scope IN (?) AND m.ranking_dimension IN (?) AND m.operation_mode IN (?) AND m.brand IN (?) AND m.subcategory IN (?) AND (m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?) AND m.period_end>=? AND m.period_start<=?",
+        priceBandWhere: "WHERE m.price_band IN (?,?)",
+        exactIdentity: true,
+      }) },
+      { name: "admin item trend lite", sql: buildMarketAdminItemTrendLiteSql({
+        factWhere: "WHERE m.sku_code=? AND m.category IN (?) AND m.scope IN (?) AND m.ranking_dimension IN (?) AND m.operation_mode IN (?) AND m.brand IN (?) AND m.subcategory IN (?) AND (m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?) AND m.period_end>=? AND m.period_start<=?",
+        priceBandWhere: "WHERE m.price_band IN (?,?)",
+      }) },
+    ];
+    const result = spawnSync("python", ["-c", python], {
+      input: Buffer.from(JSON.stringify({
+        database: databasePath.replaceAll("\\", "/"),
+        queries: productionQueries.map((query) => ({
+          ...query,
+          bindings: Array.from({ length: (query.sql.match(/\?(?!\d)/g) ?? []).length }, () => "value"),
+        })),
+      }), "utf8").toString("base64"),
+      encoding: "utf8",
+      maxBuffer: 2_000_000,
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /depth100 ok/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 function pausingAdapter(base: MarketSchemaDatabase, pause: (sql: string) => Promise<void>): MarketSchemaDatabase {
   return {
@@ -650,9 +791,7 @@ test("official price band SQL is alias-safe and D1-compatible inside the overvie
   ), filtered AS (SELECT * FROM enriched)
   SELECT sku_code sku, price_band band FROM filtered`).get() as { sku: string; band: string };
   assert.deepEqual({ ...row }, { sku: "SKU-ALIAS", band: "1000-1999" });
-  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql({ where: "WHERE m.ranking_dimension=?" })).get("SKU") as {
-    summary_json: string; trend_json: string; price_bands_json: string; date_min: string; date_max: string;
-  };
+  const analytics = readOverviewAnalytics(sqlite, { where: "WHERE m.ranking_dimension=?" }, ["SKU"]);
   assert.deepEqual(JSON.parse(analytics.summary_json), {
     product_count: 1, category_count: 1, brand_count: 1, gmv_cents: 1000000, quantity: 5,
     page_views: 0, visitors: 10, own_product_count: 0, self_operated_gmv_cents: 0, pending_ai_count: 0,
@@ -680,10 +819,10 @@ test("overview price bands fall back to the imported price-range midpoint", asyn
     INSERT INTO market_ranking_entries
       (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,price_cents,price_low_cents,price_high_cents,price_estimated,gmv_cents,quantity,raw_json,last_import_batch_id)
     VALUES ('midpoint-fallback',1,'2026-06-01','2026-06-30','净水','POP','SKU','POP','SKU-MID','中位数兜底商品',89900,79900,99900,1,1000000,10,'{}','batch');`);
-  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { price_bands_json: string; price_band_summary_json: string };
+  const analytics = readOverviewAnalytics(sqlite);
   assert.deepEqual(JSON.parse(analytics.price_bands_json), [{ value: "500-999", count: 1 }]);
   assert.equal(JSON.parse(analytics.price_band_summary_json)[0]?.price_band, "500-999");
-  const confirmedOnly = sqlite.prepare(buildMarketOverviewAnalyticsSql({ confirmedOnlyPriceBands: true })).get() as { price_bands_json: string; price_band_summary_json: string };
+  const confirmedOnly = readOverviewAnalytics(sqlite, { confirmedOnlyPriceBands: true });
   assert.deepEqual(JSON.parse(confirmedOnly.price_bands_json), [{ value: "未确认价格", count: 1 }]);
   assert.equal(JSON.parse(confirmedOnly.price_band_summary_json)[0]?.price_band, "未确认价格");
   const adminSource = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
@@ -708,7 +847,7 @@ test("overview analytics applies rank bounds and geometric interpolation between
       ('jd_sku_daily','sku_daily','2026-06-15','A','','','{"成交金额":10000}'),
       ('jd_sku_daily','sku_daily','2026-06-15','C','','','{"成交金额":1000}');
   `);
-  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { summary_json: string; brand_rows_json: string };
+  const analytics = readOverviewAnalytics(sqlite);
   const summary = JSON.parse(analytics.summary_json) as { gmv_cents: number };
   assert.equal(summary.gmv_cents, 1_416_228);
   const brands = JSON.parse(analytics.brand_rows_json) as Array<{ brand: string; gmv_cents: number }>;
@@ -773,7 +912,7 @@ test("shared market month coverage prefers a full month, deduplicates daily rows
     { month: "2026-06", gmv: 1000, quantity: 10, page_views: 100, visitors: 20, days: 30, priority: 0 },
     { month: "2026-07", gmv: 30, quantity: 3, page_views: 11, visitors: 5, days: 2, priority: 1 },
   ]);
-  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { summary_json: string; trend_json: string };
+  const analytics = readOverviewAnalytics(sqlite);
   assert.equal(JSON.parse(analytics.summary_json).gmv_cents, 1030);
   assert.deepEqual((JSON.parse(analytics.trend_json) as Array<{ period: string; gmv_cents: number }>).map(({ period, gmv_cents }) => ({ period, gmv_cents })), [
     { period: "2026-06", gmv_cents: 1000 },
@@ -794,9 +933,7 @@ test("daily-only overview data range uses the actual covered days", async () => 
       ('range-day-1',1,'2026-07-05','2026-07-05','range-category','POP','','SKU','POP',1,'SKU-RANGE','Range',129900,100,1,1,'{}','b'),
       ('range-day-2',2,'2026-07-20','2026-07-20','range-category','POP','','SKU','POP',1,'SKU-RANGE','Range',129900,200,2,2,'{}','b');`);
 
-  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as {
-    summary_json: string; date_min: string; date_max: string;
-  };
+  const analytics = readOverviewAnalytics(sqlite);
   assert.equal(JSON.parse(analytics.summary_json).gmv_cents, 300);
   assert.deepEqual({ start: analytics.date_min, end: analytics.date_max }, {
     start: "2026-07-05",
@@ -817,14 +954,12 @@ test("daily price-band filtering follows the representative month after coverage
       ('band-day-low',1,'2026-07-05','2026-07-05','band-category','POP','','SKU','POP',1,'SKU-BAND','Band','Band Brand',89900,100,1,1,'{}','b'),
       ('band-day-high',2,'2026-07-20','2026-07-20','band-category','POP','','SKU','POP',1,'SKU-BAND','Band','Band Brand',129900,200,2,2,'{}','b');`);
 
-  const unfiltered = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as {
-    summary_json: string; price_band_summary_json: string;
-  };
-  const selected = sqlite.prepare(buildMarketOverviewAnalyticsSql({
+  const unfiltered = readOverviewAnalytics(sqlite);
+  const selected = readOverviewAnalytics(sqlite, {
     factWhere: "WHERE m.category=?",
     where: "WHERE m.brand=?",
-    priceBandWhere: "WHERE price_band IN (?)",
-  })).get("band-category", "Band Brand", "1000-1999") as { summary_json: string; price_band_summary_json: string };
+    priceBandWhere: "WHERE price_band IN (?3)",
+  }, ["band-category", "Band Brand"], ["1000-1999"]);
   assert.deepEqual(JSON.parse(unfiltered.price_band_summary_json).map((row: { price_band: string; gmv_cents: number }) => ({
     priceBand: row.price_band,
     gmvCents: row.gmv_cents,
@@ -863,9 +998,7 @@ test("monthly trend boundaries keep the newest 120 item months and newest 60 ove
   assert.equal(itemMonths[0]!.month, months[1]);
   assert.equal(itemMonths.at(-1)!.month, months.at(-1));
 
-  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as {
-    trend_json: string; trend_total: number; date_min: string; date_max: string;
-  };
+  const analytics = readOverviewAnalytics(sqlite);
   const overviewMonths = (JSON.parse(analytics.trend_json) as Array<{ period: string }>).map((row) => row.period);
   assert.equal(analytics.trend_total, 121);
   assert.equal(overviewMonths.length, 60);
@@ -877,11 +1010,12 @@ test("monthly trend boundaries keep the newest 120 item months and newest 60 ove
 });
 
 test("item trend exposes the 120-month boundary and the UI reports the total month count", async () => {
-  const [database, view] = await Promise.all([
+  const [database, overviewSql, view] = await Promise.all([
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/overview-sql.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(database, /COUNT\(\*\) OVER \(\) total_months[\s\S]*LIMIT 120/);
+  assert.match(overviewSql, /COUNT\(\*\) OVER \(\) total_months[\s\S]*LIMIT 120/);
   assert.match(database, /totalMonths,\s*truncated: totalMonths > trendRows\.length/);
   assert.match(view, /totalMonths: number; truncated: boolean/);
   assert.match(view, /展示最近 \$\{count\(data\.items\.length\)\} \/ 共 \$\{count\(data\.totalMonths\)\} 个月/);
@@ -889,16 +1023,16 @@ test("item trend exposes the 120-month boundary and the UI reports the total mon
 });
 
 test("market trend identity is exact in UI, API, service, and the central AI schema", async () => {
-  const [view, route, database, registry, aiTools] = await Promise.all([
+  const [view, route, overviewSql, registry, aiTools] = await Promise.all([
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/trend/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/overview-sql.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/ai-tools.ts", import.meta.url), "utf8"),
   ]);
   assert.match(view, /scope: item\.scope/);
   assert.match(route, /scope: params\.get\("scope"\)/);
-  assert.match(database, /m\.sku_code=\? AND m\.category=\? AND m\.scope=\? AND m\.ranking_dimension=\?/);
+  assert.match(overviewSql, /m\.sku_code=\? AND m\.category=\? AND m\.scope=\? AND m\.ranking_dimension=\?/);
   const trendTool = registry.slice(registry.indexOf('name: "get_market_sku_trend"'), registry.indexOf('name: "get_market_brand_analysis"'));
   assert.match(trendTool, /scope: \{ type: "string", minLength: 1, maxLength: 120 \}/);
   assert.match(trendTool, /required: \["skuCode", "category", "scope", "rankingDimension"\]/);

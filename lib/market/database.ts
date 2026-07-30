@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
 import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
-import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 
@@ -135,10 +135,12 @@ type SummaryRow = {
   median_market_price_cents: number | null; weighted_market_price_cents: number | null;
 };
 
-type AnalyticsRow = {
-  summary_json: string; trend_json: string; price_bands_json: string; price_band_summary_json: string;
-  price_band_trend_json: string; brand_rows_json: string; subcategory_rows_json: string;
-  date_min: string | null; date_max: string | null; trend_total: number;
+type AnalyticsAggregateRow = {
+  section: "summary" | "trend" | "price_band" | "price_band_trend" | "brand" | "subcategory" | "price_value";
+  row_key: string; text_1: string | null; text_2: string | null;
+  number_1: number | null; number_2: number | null; number_3: number | null; number_4: number | null;
+  number_5: number | null; number_6: number | null; number_7: number | null; number_8: number | null;
+  number_9: number | null; number_10: number | null;
 };
 
 type FilterOptionsRow = {
@@ -197,7 +199,9 @@ function filterSql(filters: MarketOverviewFilters) {
   if (filters.startDate) { factClauses.push("m.period_end >= ?"); factValues.push(filters.startDate); }
   if (filters.endDate) { factClauses.push("m.period_start <= ?"); factValues.push(filters.endDate); }
   const priceBands = [...new Set((filters.priceBands ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
-  const priceBandWhere = priceBands.length ? `WHERE price_band IN (${priceBands.map(() => "?").join(",")})` : "";
+  const priceBandWhere = priceBands.length
+    ? `WHERE price_band IN (${priceBands.map((_, index) => `?${factValues.length + values.length + index + 1}`).join(",")})`
+    : "";
   return {
     factWhere: factClauses.length ? `WHERE ${factClauses.join(" AND ")}` : "",
     where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
@@ -221,9 +225,10 @@ export async function getMarketOverview(
     confirmedOnlyPriceBands: internal.priceBandBasis === "confirmed_only",
   });
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
-  const bindings = [...values, ...priceBandValues];
+  const rankingBindings = [...values, ...priceBandValues];
+  const analyticsBindings = [...values, ...priceBandValues];
   const [analyticsResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
-    db.prepare(analyticsSql).bind(...bindings),
+    db.prepare(analyticsSql).bind(...analyticsBindings),
     db.prepare(`${enriched}, top_ranked AS MATERIALIZED (
       SELECT * FROM filtered
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC
@@ -260,7 +265,7 @@ export async function getMarketOverview(
       ), 0) AS own_sales_cents
       FROM top_ranked filtered
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC`)
-      .bind(...bindings, ...dateValues, ...dateValues),
+      .bind(...rankingBindings, ...dateValues, ...dateValues),
     db.prepare(marketOverviewFilterOptionsSql),
     db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT 8`),
     db.prepare(`SELECT COUNT(DISTINCT m.image_url) total,
@@ -269,7 +274,7 @@ export async function getMarketOverview(
       FROM market_ranking_entries m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
       WHERE m.image_url<>''`),
   ]);
-  const analytics = batchRows<AnalyticsRow>(analyticsResult)[0];
+  const analyticsRows = batchRows<AnalyticsAggregateRow>(analyticsResult);
   const ranking = batchRows<EntryRow>(rankingResult);
   const rankedEstimates = annotateRankBounds(ranking.map((row) => ({
     id: row.id,
@@ -300,25 +305,84 @@ export async function getMarketOverview(
   const batches = batchRows<Parameters<typeof mapMarketBatch>[0]>(batchesResult)
     .map((row) => mapMarketBatch(row) as MarketImportBatch);
   const imageCache = batchRows<{ total: number; cached: number; failed: number }>(imageCacheResult)[0];
-  const summaryValue = parseSqlJson<SummaryRow | null>(analytics?.summary_json, null) ?? {
-    product_count: 0, category_count: 0, brand_count: 0, gmv_cents: 0, quantity: 0, page_views: 0,
-    visitors: 0, own_product_count: 0, self_operated_gmv_cents: 0, pending_ai_count: 0,
-    median_market_price_cents: null, weighted_market_price_cents: null,
+  const summaryAggregate = analyticsRows.find((row) => row.section === "summary");
+  const priceValueRows = analyticsRows.filter((row) => row.section === "price_value")
+    .sort((left, right) => Number(left.number_1 ?? 0) - Number(right.number_1 ?? 0));
+  const pricedRowCount = priceValueRows.reduce((sum, row) => sum + Number(row.number_2 ?? 0), 0);
+  const medianPosition = Math.floor((pricedRowCount + 1) / 2);
+  let seenPrices = 0;
+  let medianPrice: number | null = null;
+  for (const row of priceValueRows) {
+    seenPrices += Number(row.number_2 ?? 0);
+    if (medianPosition > 0 && seenPrices >= medianPosition) {
+      medianPrice = Number(row.number_1 ?? 0);
+      break;
+    }
+  }
+  const weightedPriceDenominator = priceValueRows.reduce((sum, row) => sum + Number(row.number_3 ?? 0), 0);
+  const weightedMarketPrice = weightedPriceDenominator > 0
+    ? Math.round(priceValueRows.reduce((sum, row) => sum + Number(row.number_1 ?? 0) * Number(row.number_3 ?? 0), 0) / weightedPriceDenominator)
+    : null;
+  const summaryValue: SummaryRow = {
+    product_count: Number(summaryAggregate?.number_1 ?? 0),
+    category_count: Number(summaryAggregate?.number_2 ?? 0),
+    brand_count: Number(summaryAggregate?.number_3 ?? 0),
+    gmv_cents: Number(summaryAggregate?.number_4 ?? 0),
+    quantity: Number(summaryAggregate?.number_5 ?? 0),
+    page_views: Number(summaryAggregate?.number_6 ?? 0),
+    visitors: Number(summaryAggregate?.number_7 ?? 0),
+    own_product_count: Number(summaryAggregate?.number_8 ?? 0),
+    self_operated_gmv_cents: Number(summaryAggregate?.number_9 ?? 0),
+    pending_ai_count: Number(summaryAggregate?.number_10 ?? 0),
+    median_market_price_cents: medianPrice,
+    weighted_market_price_cents: weightedMarketPrice,
   };
-  const trendRows = parseSqlJson<Array<Record<string, string | number | null>>>(analytics?.trend_json, []);
-  const priceBandOptions = parseSqlJson<Array<{ value: string; count: number }>>(analytics?.price_bands_json, []);
-  const priceBandRows = parseSqlJson<Array<Record<string, string | number>>>(analytics?.price_band_summary_json, []);
-  const priceBandTrendRows = parseSqlJson<Array<Record<string, string | number>>>(analytics?.price_band_trend_json, []);
-  const brandRows = parseSqlJson<Array<Record<string, string | number>>>(analytics?.brand_rows_json, []);
-  const subcategoryRows = parseSqlJson<Array<Record<string, string | number | null>>>(analytics?.subcategory_rows_json, []);
+  const allTrendRows = analyticsRows.filter((row) => row.section === "trend")
+    .map((row) => ({
+      period: row.row_key,
+      gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0), visitors: Number(row.number_3 ?? 0),
+      product_count: Number(row.number_4 ?? 0), brand_count: Number(row.number_5 ?? 0),
+      pop_gmv_cents: Number(row.number_6 ?? 0), self_gmv_cents: Number(row.number_7 ?? 0),
+      average_transaction_price_cents: Number(row.number_2 ?? 0) > 0
+        ? Math.round(Number(row.number_1 ?? 0) / Number(row.number_2 ?? 0)) : null,
+      weighted_market_price_cents: Number(row.number_9 ?? 0) > 0
+        ? Math.round(Number(row.number_8 ?? 0) / Number(row.number_9 ?? 0)) : null,
+    }))
+    .sort((left, right) => left.period.localeCompare(right.period));
+  const trendRows = allTrendRows.slice(-60);
+  const priceBandRows = analyticsRows.filter((row) => row.section === "price_band")
+    .map((row) => ({
+      price_band: row.row_key, row_count: Number(row.number_1 ?? 0), gmv_cents: Number(row.number_2 ?? 0),
+      quantity: Number(row.number_3 ?? 0), sku_count: Number(row.number_4 ?? 0),
+      pop_gmv_cents: Number(row.number_5 ?? 0), self_gmv_cents: Number(row.number_6 ?? 0), brands: row.text_1 ?? "",
+    }))
+    .sort((left, right) => right.gmv_cents - left.gmv_cents);
+  const priceBandOrder = (value: string) => value === "未确认价格" ? 9 : value === "3000+" ? 8 : 1;
+  const priceBandOptions = [...priceBandRows]
+    .sort((left, right) => priceBandOrder(left.price_band) - priceBandOrder(right.price_band) || left.price_band.localeCompare(right.price_band))
+    .map((row) => ({ value: row.price_band, count: row.row_count }));
+  const priceBandTrendRows = analyticsRows.filter((row) => row.section === "price_band_trend")
+    .map((row) => ({ period: row.row_key, price_band: row.text_1 ?? unknownPriceBand, gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0) }));
+  const priceBandPeriodTotals = new Map<string, number>();
+  for (const row of priceBandTrendRows) priceBandPeriodTotals.set(row.period, (priceBandPeriodTotals.get(row.period) ?? 0) + row.gmv_cents);
+  priceBandTrendRows.sort((left, right) => left.period.localeCompare(right.period) || right.gmv_cents - left.gmv_cents);
+  const brandRows = analyticsRows.filter((row) => row.section === "brand")
+    .map((row) => ({ brand: row.row_key, gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0),
+      sku_count: Number(row.number_3 ?? 0), best_rank: row.number_4, price_bands: row.text_1 ?? "", subcategories: row.text_2 ?? "" }))
+    .sort((left, right) => right.gmv_cents - left.gmv_cents);
+  const subcategoryRows = analyticsRows.filter((row) => row.section === "subcategory")
+    .map((row) => ({ subcategory: row.row_key, sku_count: Number(row.number_1 ?? 0), gmv_cents: Number(row.number_2 ?? 0),
+      quantity: Number(row.number_3 ?? 0), self_gmv_cents: Number(row.number_4 ?? 0), pending_count: Number(row.number_5 ?? 0),
+      brands: row.text_1 ?? "", price_bands: row.text_2 ?? "",
+      average_transaction_price_cents: Number(row.number_3 ?? 0) > 0 ? Math.round(Number(row.number_2 ?? 0) / Number(row.number_3 ?? 0)) : null }))
+    .sort((left, right) => right.gmv_cents - left.gmv_cents)
+    .slice(0, 60);
   const categoryOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.categories_json, []);
   const scopeOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.scopes_json, []);
   const brandOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.brands_json, []);
   const dimensionOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.dimensions_json, []);
   const modeOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.modes_json, []);
   const subcategoryOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.subcategories_json, []);
-  const medianPrice = summaryValue.median_market_price_cents;
-  const weightedMarketPrice = summaryValue.weighted_market_price_cents;
   const averageTransactionPrice = Number(summaryValue.quantity ?? 0) > 0 ? Math.round(Number(summaryValue.gmv_cents ?? 0) / Number(summaryValue.quantity ?? 0)) : null;
   const brandTotal = Number(summaryValue.gmv_cents ?? 0);
   const brandSharesAll = brandRows.map((row) => ({
@@ -371,8 +435,8 @@ export async function getMarketOverview(
       gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
     })),
     trend: trendRows,
-    trendTotal: Number(analytics?.trend_total ?? trendRows.length),
-    trendTruncated: Number(analytics?.trend_total ?? trendRows.length) > trendRows.length,
+    trendTotal: allTrendRows.length,
+    trendTruncated: allTrendRows.length > trendRows.length,
     priceBands: priceBandOptions.map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
     priceBandSummary: priceBandRows.map((row) => ({
       priceBand: String(row.price_band ?? "未确认价格"),
@@ -390,7 +454,8 @@ export async function getMarketOverview(
       priceBand: String(row.price_band ?? unknownPriceBand),
       gmvCents: Number(row.gmv_cents ?? 0),
       quantity: Number(row.quantity ?? 0),
-      gmvShareBps: Number(row.period_gmv_cents ?? 0) ? Math.round(Number(row.gmv_cents ?? 0) / Number(row.period_gmv_cents ?? 0) * 10_000) : 0,
+      gmvShareBps: Number(priceBandPeriodTotals.get(row.period) ?? 0)
+        ? Math.round(Number(row.gmv_cents ?? 0) / Number(priceBandPeriodTotals.get(row.period) ?? 0) * 10_000) : 0,
     })),
     brandAnalysis: {
       items: brandShares,
@@ -415,7 +480,7 @@ export async function getMarketOverview(
       rankingDimensions: dimensionOptions, operationModes: modeOptions, subcategories: subcategoryOptions,
       priceBands: priceBandOptions,
     },
-    dataRange: { startDate: analytics?.date_min ?? null, endDate: analytics?.date_max ?? null },
+    dataRange: { startDate: summaryAggregate?.text_1 ?? null, endDate: summaryAggregate?.text_2 ?? null },
     batches,
     imageCache: {
       total: Number(imageCache?.total ?? 0), cached: Number(imageCache?.cached ?? 0), failed: Number(imageCache?.failed ?? 0),
@@ -436,41 +501,8 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
   const scope = input.scope.trim().slice(0, 120);
   if (!category || !scope) throw new Error("类目和榜单范围不能为空");
   if (input.rankingDimension !== "SKU" && input.rankingDimension !== "SPU") throw new Error("榜单维度无效");
-  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, trend_source AS MATERIALIZED (
-    SELECT m.*,
-      ps.confirmed_market_price_cents market_price_cents,
-      COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) candidate_price_cents,
-      ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps,
-      ps.confirmed_market_price_cents,
-      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END price_status,
-      CASE
-        WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
-        WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
-        WHEN ps.ai_image_price_cents IS NOT NULL THEN 'AI待确认'
-        ELSE '暂无价格'
-      END candidate_price_status,
-      COALESCE(ps.confirmation_status, 'missing') confirmation_status
-    FROM market_effective_rows m
-    LEFT JOIN market_price_snapshots ps ON ps.category = m.category
-      AND ps.scope = m.scope
-      AND ps.sku_code = m.sku_code
-      AND ps.ranking_dimension = m.ranking_dimension
-      AND ps.month = substr(m.period_end, 1, 7)
-    WHERE m.sku_code=? AND m.category=? AND m.scope=? AND m.ranking_dimension=?
-  ), ${marketMonthlyCoverageCtes({ source: "trend_source" })}, recent_months AS MATERIALIZED (
-    SELECT *, COUNT(*) OVER () total_months
-    FROM market_monthly_rows ORDER BY coverage_month DESC LIMIT 120
-  )
-    SELECT m.coverage_period_start period_start, m.coverage_period_end period_end, m.coverage_month month, m.category, m.scope,
-      m.ranking_dimension, m.operation_mode, m.subcategory, m.rank, m.sku_code, m.product_name, m.brand,
-      m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity, m.monthly_visitors visitors,
-      m.monthly_conversion_bps conversion_bps, m.market_price_cents, m.candidate_price_cents,
-      m.source_price_cents, m.ai_image_price_cents, m.ai_price_type, m.ai_confidence_bps,
-      m.confirmed_market_price_cents,
-      CASE WHEN m.monthly_quantity>0 THEN CAST(ROUND(m.monthly_gmv_cents*1.0/m.monthly_quantity) AS INTEGER) END average_transaction_price_cents,
-      m.price_status, m.candidate_price_status, m.confirmation_status, m.total_months
-    FROM recent_months m ORDER BY m.coverage_month ASC
-  `).bind(skuCode, category, scope, input.rankingDimension).all<Record<string, string | number | null>>();
+  const rows = await db.prepare(buildMarketItemTrendSql())
+    .bind(skuCode, category, scope, input.rankingDimension).all<Record<string, string | number | null>>();
   const trendRows = rows.results ?? [];
   const totalMonths = Number(trendRows[0]?.total_months ?? 0);
   return {
