@@ -390,9 +390,6 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
 
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
   const priceBandWhere = options.priceBandWhere ?? "";
-  const analyticsWhere = priceBandWhere
-    ? `${priceBandWhere} AND (sections.section<>'price_value' OR official_market_price_cents IS NOT NULL)`
-    : "WHERE sections.section<>'price_value' OR official_market_price_cents IS NOT NULL";
   const effectiveFacts = options.useEffectiveMetricsCache
     ? marketCachedEffectiveFactsCtes(options.factWhere)
     : marketEffectiveFactsCtes(options.factWhere);
@@ -433,86 +430,61 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category
       AND ps.scope=m.scope AND ps.sku_code=m.sku_code
       AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
-  ), analytics_sections(section) AS MATERIALIZED (
-    VALUES ('summary'),('trend'),('price_band'),('price_band_trend'),('brand'),('subcategory'),('price_value')
+  ), analytics_filtered AS MATERIALIZED (
+    SELECT * FROM monthly_enriched ${priceBandWhere}
+  ), analytics_core AS MATERIALIZED (
+  SELECT 'summary' section, '' row_key, MIN(period_start) text_1, MAX(period_end) text_2,
+    COUNT(DISTINCT sku_code) number_1, COUNT(DISTINCT category) number_2,
+    COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) number_3,
+    COALESCE(SUM(gmv_cents),0) number_4, COALESCE(SUM(quantity),0) number_5,
+    COALESCE(SUM(page_views),0) number_6, COALESCE(SUM(visitors),0) number_7,
+    COUNT(DISTINCT CASE WHEN is_own=1 THEN sku_code END) number_8,
+    COALESCE(SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END),0) number_9,
+    COUNT(DISTINCT CASE WHEN COALESCE(confirmation_status,'') IN ('missing','ai_pending','review_pending')
+      OR market_price_source='AI待确认' THEN sku_code END) number_10
+  FROM analytics_filtered
+  UNION ALL
+  SELECT 'trend', substr(period_end,1,7), NULL, NULL,
+    COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0), COALESCE(SUM(visitors),0),
+    COUNT(DISTINCT sku_code), COUNT(DISTINCT brand),
+    COALESCE(SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END),0),
+    COALESCE(SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END),0),
+    COALESCE(SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE official_market_price_cents*1.0*gmv_cents END),0),
+    COALESCE(SUM(CASE WHEN official_market_price_cents IS NULL THEN 0 ELSE gmv_cents END),0), NULL
+  FROM analytics_filtered GROUP BY substr(period_end,1,7)
+  UNION ALL
+  SELECT 'price_band', price_band, GROUP_CONCAT(DISTINCT brand), NULL,
+    COUNT(*), COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0), COUNT(DISTINCT sku_code),
+    COALESCE(SUM(CASE WHEN operation_mode='POP' THEN gmv_cents ELSE 0 END),0),
+    COALESCE(SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END),0),
+    NULL, NULL, NULL, NULL
+  FROM analytics_filtered GROUP BY price_band
+  UNION ALL
+  SELECT 'price_band_trend', substr(period_end,1,7), MAX(price_band), NULL,
+    COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+  FROM analytics_filtered GROUP BY substr(period_end,1,7), price_band
+  ), analytics_dimensions AS MATERIALIZED (
+  SELECT 'brand', COALESCE(NULLIF(brand,''), '未识别品牌'), GROUP_CONCAT(DISTINCT price_band), GROUP_CONCAT(DISTINCT subcategory),
+    COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0), COUNT(DISTINCT sku_code), MIN(rank),
+    NULL, NULL, NULL, NULL, NULL, NULL
+  FROM analytics_filtered GROUP BY COALESCE(NULLIF(brand,''), '未识别品牌')
+  UNION ALL
+  SELECT 'subcategory', subcategory, GROUP_CONCAT(DISTINCT brand), GROUP_CONCAT(DISTINCT price_band),
+    COUNT(DISTINCT sku_code), COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0),
+    COALESCE(SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END),0),
+    COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN sku_code END),
+    NULL, NULL, NULL, NULL, NULL
+  FROM analytics_filtered GROUP BY subcategory
+  UNION ALL
+  SELECT 'price_value', CAST(official_market_price_cents AS TEXT), NULL, NULL,
+    MAX(official_market_price_cents), COUNT(*), COALESCE(SUM(gmv_cents),0),
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL
+  FROM analytics_filtered WHERE official_market_price_cents IS NOT NULL GROUP BY official_market_price_cents
   )`;
-  const rowKeySql = `CASE sections.section
-    WHEN 'summary' THEN ''
-    WHEN 'trend' THEN substr(m.period_end,1,7)
-    WHEN 'price_band' THEN m.price_band
-    WHEN 'price_band_trend' THEN substr(m.period_end,1,7)
-    WHEN 'brand' THEN COALESCE(NULLIF(m.brand,''), '未识别品牌')
-    WHEN 'subcategory' THEN m.subcategory
-    WHEN 'price_value' THEN CAST(m.official_market_price_cents AS TEXT)
-  END`;
-  const secondaryKeySql = "CASE WHEN sections.section='price_band_trend' THEN m.price_band ELSE '' END";
   return `${commonCtes}
-  SELECT sections.section, ${rowKeySql} row_key,
-    CASE sections.section
-      WHEN 'summary' THEN MIN(m.period_start)
-      WHEN 'price_band' THEN GROUP_CONCAT(DISTINCT m.brand)
-      WHEN 'price_band_trend' THEN MAX(m.price_band)
-      WHEN 'brand' THEN GROUP_CONCAT(DISTINCT m.price_band)
-      WHEN 'subcategory' THEN GROUP_CONCAT(DISTINCT m.brand)
-      ELSE NULL END text_1,
-    CASE sections.section
-      WHEN 'summary' THEN MAX(m.period_end)
-      WHEN 'brand' THEN GROUP_CONCAT(DISTINCT m.subcategory)
-      WHEN 'subcategory' THEN GROUP_CONCAT(DISTINCT m.price_band)
-      ELSE NULL END text_2,
-    CASE sections.section
-      WHEN 'summary' THEN COUNT(DISTINCT m.sku_code)
-      WHEN 'trend' THEN COALESCE(SUM(m.gmv_cents),0)
-      WHEN 'price_band' THEN COUNT(*)
-      WHEN 'price_band_trend' THEN COALESCE(SUM(m.gmv_cents),0)
-      WHEN 'brand' THEN COALESCE(SUM(m.gmv_cents),0)
-      WHEN 'subcategory' THEN COUNT(DISTINCT m.sku_code)
-      WHEN 'price_value' THEN MAX(m.official_market_price_cents) END number_1,
-    CASE sections.section
-      WHEN 'summary' THEN COUNT(DISTINCT m.category)
-      WHEN 'trend' THEN COALESCE(SUM(m.quantity),0)
-      WHEN 'price_band' THEN COALESCE(SUM(m.gmv_cents),0)
-      WHEN 'price_band_trend' THEN COALESCE(SUM(m.quantity),0)
-      WHEN 'brand' THEN COALESCE(SUM(m.quantity),0)
-      WHEN 'subcategory' THEN COALESCE(SUM(m.gmv_cents),0)
-      WHEN 'price_value' THEN COUNT(*) END number_2,
-    CASE sections.section
-      WHEN 'summary' THEN COUNT(DISTINCT COALESCE(NULLIF(m.brand,''), '未识别品牌'))
-      WHEN 'trend' THEN COALESCE(SUM(m.visitors),0)
-      WHEN 'price_band' THEN COALESCE(SUM(m.quantity),0)
-      WHEN 'brand' THEN COUNT(DISTINCT m.sku_code)
-      WHEN 'subcategory' THEN COALESCE(SUM(m.quantity),0)
-      WHEN 'price_value' THEN COALESCE(SUM(m.gmv_cents),0) END number_3,
-    CASE sections.section
-      WHEN 'summary' THEN COALESCE(SUM(m.gmv_cents),0)
-      WHEN 'trend' THEN COUNT(DISTINCT m.sku_code)
-      WHEN 'price_band' THEN COUNT(DISTINCT m.sku_code)
-      WHEN 'brand' THEN MIN(m.rank)
-      WHEN 'subcategory' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0) END number_4,
-    CASE sections.section
-      WHEN 'summary' THEN COALESCE(SUM(m.quantity),0)
-      WHEN 'trend' THEN COUNT(DISTINCT m.brand)
-      WHEN 'price_band' THEN COALESCE(SUM(CASE WHEN m.operation_mode='POP' THEN m.gmv_cents ELSE 0 END),0)
-      WHEN 'subcategory' THEN COUNT(DISTINCT CASE WHEN m.official_market_price_cents IS NULL THEN m.sku_code END) END number_5,
-    CASE sections.section
-      WHEN 'summary' THEN COALESCE(SUM(m.page_views),0)
-      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.operation_mode='POP' THEN m.gmv_cents ELSE 0 END),0)
-      WHEN 'price_band' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0) END number_6,
-    CASE sections.section
-      WHEN 'summary' THEN COALESCE(SUM(m.visitors),0)
-      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0) END number_7,
-    CASE sections.section
-      WHEN 'summary' THEN COUNT(DISTINCT CASE WHEN m.is_own=1 THEN m.sku_code END)
-      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.official_market_price_cents IS NULL THEN 0 ELSE m.official_market_price_cents*1.0*m.gmv_cents END),0) END number_8,
-    CASE sections.section
-      WHEN 'summary' THEN COALESCE(SUM(CASE WHEN m.operation_mode='自营' THEN m.gmv_cents ELSE 0 END),0)
-      WHEN 'trend' THEN COALESCE(SUM(CASE WHEN m.official_market_price_cents IS NULL THEN 0 ELSE m.gmv_cents END),0) END number_9,
-    CASE WHEN sections.section='summary' THEN COUNT(DISTINCT CASE
-      WHEN COALESCE(m.confirmation_status,'') IN ('missing','ai_pending','review_pending')
-        OR m.market_price_source='AI待确认' THEN m.sku_code END) END number_10
-  FROM monthly_enriched m CROSS JOIN analytics_sections sections
-  ${analyticsWhere}
-  GROUP BY sections.section, ${rowKeySql}, ${secondaryKeySql}`;
+  SELECT * FROM analytics_core
+  UNION ALL
+  SELECT * FROM analytics_dimensions`;
 }
 
 export function buildMarketItemTrendSql() {

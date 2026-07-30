@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { buildMarketRankingCtes } from "../lib/market/overview-sql";
+import { buildMarketOverviewAnalyticsSql, buildMarketRankingCtes } from "../lib/market/overview-sql";
 
 test("market ranking limits candidate ids before expensive row enrichment", () => {
   const sql = buildMarketRankingCtes();
@@ -23,6 +23,14 @@ test("market price-band ranking still filters before the bounded enrichment stag
   assert.match(sql, /m\.category=\? AND m\.brand=\?/);
   assert.match(sql, /SELECT id FROM ranking_candidates WHERE price_band IN \(\?3\)/);
   assert.ok(sql.indexOf("SELECT id FROM ranking_candidates") < sql.indexOf("market_image_cache"));
+});
+
+test("market full analytics aggregates shared monthly rows without a section cross join", () => {
+  const sql = buildMarketOverviewAnalyticsSql({ useEffectiveMetricsCache: true });
+  assert.match(sql, /analytics_filtered AS MATERIALIZED/);
+  assert.match(sql, /analytics_core AS MATERIALIZED/);
+  assert.match(sql, /analytics_dimensions AS MATERIALIZED/);
+  assert.doesNotMatch(sql, /CROSS JOIN analytics_sections/);
 });
 
 test("market read indexes cover ranking order and distinct image aggregation", async () => {
