@@ -23,6 +23,7 @@ import {
 } from "../lib/ai/tool-loop";
 import { runSequentialBatchWithinBudget } from "../lib/ai/mcp-execution-budget";
 import { BoundedFetchError, fetchBoundedJson } from "../lib/ai/bounded-fetch";
+import { resolveModelToolLoopLimits } from "../lib/ai/model-gateway";
 
 const viewer: AppPrincipal = {
   email: "viewer@example.com",
@@ -681,6 +682,25 @@ test("tool loop enforces per-round limits and keeps no-tool legacy answers", asy
   });
   assert.equal(plain, "普通回答");
   assert.equal(requests, 1);
+});
+
+test("model-configured total budget allows more than four parallel calls in one round", async () => {
+  let requests = 0;
+  let executions = 0;
+  const reply = await runOpenAiCompatibleToolLoop({
+    messages: [{ role: "user", content: "并行查询多个模块" }],
+    tools: [{ type: "function", function: { name: "public_lookup" } }],
+    limits: resolveModelToolLoopLimits({ maxToolRounds: 6, maxTotalToolCalls: 12 }),
+    request: async () => {
+      requests += 1;
+      return requests === 1
+        ? { choices: [{ message: { tool_calls: Array.from({ length: 5 }, (_, index) => ({ id: `parallel-${index}`, function: { name: "public_lookup", arguments: "{}" } })) } }] }
+        : { choices: [{ message: { content: "五项查询完成" } }] };
+    },
+    executeTool: async (name) => { executions += 1; return { ok: true, toolName: name, data: {} }; },
+  });
+  assert.equal(reply, "五项查询完成");
+  assert.equal(executions, 5);
 });
 
 test("configured model budgets can continue beyond the former six-round ceiling", async () => {

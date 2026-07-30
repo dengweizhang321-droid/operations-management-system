@@ -52,11 +52,7 @@ export async function completeTextWithTools(input: {
 }): Promise<string> {
   throwIfAiRequestCancelled(input.signal);
   const apiKey = await requireModelApiKey(input.model);
-  const limits = {
-    maxRounds: input.model.maxToolRounds,
-    maxCallsPerRound: Math.min(4, input.model.maxTotalToolCalls),
-    maxTotalCalls: input.model.maxTotalToolCalls,
-  };
+  const limits = resolveModelToolLoopLimits(input.model);
   if (input.model.protocol === "anthropic") {
     return runAnthropicToolLoop({
       messages: input.messages,
@@ -77,6 +73,20 @@ export async function completeTextWithTools(input: {
     limits,
     request: async (body) => requestOpenAi(input.model, apiKey, body, input.signal),
   });
+}
+
+export function resolveModelToolLoopLimits(
+  model: Pick<AiTextModelRuntimeConfig, "maxToolRounds" | "maxTotalToolCalls">,
+) {
+  return {
+    maxRounds: model.maxToolRounds,
+    // A provider may efficiently request several independent reads in one
+    // response. Do not impose the former fixed limit of four; the configured
+    // total-call budget, runtime duration, per-tool caps and cancellation still
+    // provide bounded execution and loop protection.
+    maxCallsPerRound: model.maxTotalToolCalls,
+    maxTotalCalls: model.maxTotalToolCalls,
+  };
 }
 
 async function completeOpenAiText(input: {

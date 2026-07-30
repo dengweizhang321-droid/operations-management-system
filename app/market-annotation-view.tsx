@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- JD competitor images are external audited sources. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
@@ -52,7 +53,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [visionModelId, setVisionModelId] = useState("");
   const [textModelId, setTextModelId] = useState("");
   const [localModelName, setLocalModelName] = useState("gemma4");
-  const [limit, setLimit] = useState(500);
+  const [limit, setLimit] = useState(MARKET_ANNOTATION_JOB_LIMITS.default);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [promptId, setPromptId] = useState("");
   const [promptBody, setPromptBody] = useState("");
@@ -293,7 +294,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       }
     };
     const worker = async (workerIndex: number) => {
-      for (let index = 0; index < 5_000 && !stopRef.current && !done && !rateLimitStopped; index += 1) {
+      for (let index = 0; index < MARKET_ANNOTATION_JOB_LIMITS.maximum && !stopRef.current && !done && !rateLimitStopped; index += 1) {
         if (workerIndex >= workerLimit) break;
         await waitForWindow();
         if (stopRef.current || done || rateLimitStopped || workerIndex >= workerLimit) break;
@@ -475,7 +476,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
       <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>
       {executor === "cloud" ? <label><span>enabled vision 模型</span><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)}>{data.models.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.modelName}</option>)}</select></label> : <label><span>Ollama 模型名</span><input value={localModelName} onChange={(event) => setLocalModelName(event.target.value)} /></label>}
-      <label><span>任务上限</span><input type="number" min={1} max={5000} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /></label>
+      <label><span>任务上限</span><input type="number" min={1} max={MARKET_ANNOTATION_JOB_LIMITS.maximum} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /><small>单个任务最多 10,000 条，可随时暂停并继续。</small></label>
       <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
     </div><small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
     <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>

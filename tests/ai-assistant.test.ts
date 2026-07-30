@@ -14,7 +14,7 @@ import {
   verifyDingTalkSignature,
   verifyWeComSignature,
 } from "../lib/ai/channel-callbacks";
-import { buildOpenAiChatRequestBody } from "../lib/ai/model-gateway";
+import { buildOpenAiChatRequestBody, resolveModelToolLoopLimits } from "../lib/ai/model-gateway";
 
 test("AI endpoint validation rejects insecure and private targets", () => {
   assert.equal(normalizeAiEndpointUrl("https://api.example.com/v1/", "model"), "https://api.example.com/v1");
@@ -39,6 +39,14 @@ test("OpenAI-compatible reasoning mode is explicit and fail-closed", () => {
   const disabled = buildOpenAiChatRequestBody({ ...base, reasoningMode: "disabled" }, { messages: [] });
   assert.deepEqual(disabled.thinking, { type: "disabled" });
   assert.equal(disabled.max_tokens, 4_096);
+});
+
+test("configured total tool budget also permits provider parallel calls in one round", () => {
+  assert.deepEqual(resolveModelToolLoopLimits({ maxToolRounds: 12, maxTotalToolCalls: 24 }), {
+    maxRounds: 12,
+    maxCallsPerRound: 24,
+    maxTotalCalls: 24,
+  });
 });
 
 test("masked webhook never exposes route credentials", () => {

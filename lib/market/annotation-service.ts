@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { AnnotationAgentError } from "@/lib/market/annotation-agent-errors";
 import { resolveAnnotationImageCandidates } from "@/lib/market/annotation-image";
+import { normalizeMarketAnnotationJobLimit } from "@/lib/market/annotation-limits";
 import { listAnnotationModels, listPromptTextModels, runPromptTextCompletion, runVisionAnnotation } from "@/lib/market/annotation-model";
 import { systemPriceRecognitionPrompt } from "@/lib/market/default-taxonomy";
 import { listMarketSubcategoryTaxonomy } from "@/lib/market/subcategory-taxonomy";
@@ -361,7 +362,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type IN ('vision','image')").bind(input.modelId).first<{ id: string }>();
     if (!model) throw new Error("所选云端视觉模型不存在或未启用");
   } else if (!input.localModelName?.trim()) throw new Error("本地任务必须填写 Ollama 模型名");
-  const limit = strictInteger(input.limit, 500, 1, 5_000, "limit");
+  const limit = normalizeMarketAnnotationJobLimit(input.limit);
   const promptSegments = json<string[]>(prompt.segments_json, []);
   const rows = await db.prepare(`
     WITH latest_market AS (

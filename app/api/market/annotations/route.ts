@@ -2,6 +2,7 @@ import { ensureAiAssistantSchema } from "@/lib/ai/assistant-service";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { getMarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
+import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     let result: unknown;
     switch (action) {
-      case "create_job": result = await createAnnotationJob(db, { category: text(parsed, "category"), promptVersionId: text(parsed, "promptVersionId"), executor: text(parsed, "executor"), modelId: text(parsed, "modelId") || undefined, localModelName: text(parsed, "localModelName") || undefined, limit: Number(parsed.limit ?? 500) }, principal); break;
+      case "create_job": result = await createAnnotationJob(db, { category: text(parsed, "category"), promptVersionId: text(parsed, "promptVersionId"), executor: text(parsed, "executor"), modelId: text(parsed, "modelId") || undefined, localModelName: text(parsed, "localModelName") || undefined, limit: Number(parsed.limit ?? MARKET_ANNOTATION_JOB_LIMITS.default) }, principal); break;
       case "run_next": result = await runNextCloudAnnotation(db, text(parsed, "jobId")); break;
       case "review": {
         if (!Array.isArray(parsed.updates) || !parsed.updates.every(record)) throw new Error("updates 必须是对象数组");

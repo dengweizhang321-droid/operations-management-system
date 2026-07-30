@@ -13,6 +13,14 @@ import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/marke
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
 import type { MarketDatabase } from "../lib/market/database";
+import { MARKET_ANNOTATION_JOB_LIMITS, normalizeMarketAnnotationJobLimit } from "../lib/market/annotation-limits";
+
+test("market annotation jobs default to and accept at most 10,000 items", () => {
+  assert.deepEqual(MARKET_ANNOTATION_JOB_LIMITS, { default: 10_000, maximum: 10_000 });
+  assert.equal(normalizeMarketAnnotationJobLimit(), 10_000);
+  assert.equal(normalizeMarketAnnotationJobLimit(10_000), 10_000);
+  assert.throws(() => normalizeMarketAnnotationJobLimit(10_001), /1 到 10000/);
+});
 
 test("annotation state machines reject unsafe skips", () => {
   assert.equal(canTransitionJob("queued", "running"), true);
@@ -122,6 +130,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /const CLOUD_CONCURRENCY = 2/);
+  assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
+  assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.maximum/);
+  assert.match(ui, /单个任务最多 10,000 条/);
+  assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
+  assert.match(service, /normalizeMarketAnnotationJobLimit/);
   assert.match(ui, /模型供应商出现 429 限流：已自动从双通道降为单通道/);
   assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
   assert.match(ui, /全部三级类目/);
