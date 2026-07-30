@@ -30,6 +30,7 @@ import {
   upsertMarketMapping,
   updateMarketSkuMasterData,
   saveMarketSubcategorySettings,
+  type MarketComparisonSelection,
 } from "@/lib/market/admin-service";
 import { createPriceRecognitionJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
 
@@ -38,6 +39,30 @@ type JsonRecord = Record<string, unknown>;
 const record = (value: unknown): value is JsonRecord => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const text = (body: JsonRecord, key: string) => typeof body[key] === "string" ? body[key] as string : "";
 const texts = (body: JsonRecord, key: string) => Array.isArray(body[key]) ? (body[key] as unknown[]).filter((item): item is string => typeof item === "string") : [];
+const comparisonSelection = (value: unknown): MarketComparisonSelection => {
+  let parsed = value;
+  if (typeof value === "string") {
+    try { parsed = JSON.parse(value); } catch { throw new Error("商品对比身份格式无效"); }
+  }
+  if (!record(parsed)
+    || typeof parsed.skuCode !== "string"
+    || typeof parsed.category !== "string"
+    || typeof parsed.scope !== "string"
+    || typeof parsed.rankingDimension !== "string") {
+    throw new Error("商品对比身份格式无效");
+  }
+  return {
+    skuCode: parsed.skuCode,
+    category: parsed.category,
+    scope: parsed.scope,
+    rankingDimension: parsed.rankingDimension as MarketComparisonSelection["rankingDimension"],
+  };
+};
+const comparisonSelections = (value: unknown) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error("商品对比身份格式无效");
+  return value.map(comparisonSelection);
+};
 const numberParam = (params: URLSearchParams, key: string, fallback: number) => {
   const value = params.get(key);
   if (!value) return fallback;
@@ -87,8 +112,11 @@ export async function GET(request: Request) {
       }), { headers: { "cache-control": "no-store" } });
     }
     if (view === "compare") {
+      const selectionParams = params.getAll("selection");
       return Response.json(await getMarketSkuComparison(db, {
         skuCodes: params.getAll("skuCode"),
+        selections: selectionParams.length ? selectionParams.map(comparisonSelection) : undefined,
+        q: params.get("q") ?? undefined,
         categories: params.getAll("category"),
         scopes: params.getAll("scope"),
         rankingDimensions: params.getAll("rankingDimension"),
@@ -314,6 +342,8 @@ export async function POST(request: Request) {
       case "compare":
         result = await getMarketSkuComparison(db, {
           skuCodes: texts(parsed, "skuCodes"),
+          selections: comparisonSelections(parsed.selections),
+          q: text(parsed, "q") || undefined,
           categories: texts(parsed, "categories"),
           scopes: texts(parsed, "scopes"),
           rankingDimensions: texts(parsed, "rankingDimensions"),

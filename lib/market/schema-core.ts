@@ -393,6 +393,9 @@ const importBatchColumns: Array<[string, string]> = [
   ["owner_token", "TEXT NOT NULL DEFAULT ''"],
 ];
 
+const marketPublishedPriceBandUniqueIndexStatement =
+  `CREATE UNIQUE INDEX IF NOT EXISTS market_price_band_versions_published_category_uq ON market_price_band_versions (category) WHERE status = 'published'`;
+
 export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_import_batches_created_idx ON market_import_batches (created_at)`,
   `CREATE INDEX IF NOT EXISTS market_import_range_claims_batch_idx ON market_import_range_claims (batch_id, claim_token)`,
@@ -413,6 +416,7 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_image_cache_object_key_idx ON market_image_cache (object_key)`,
   `CREATE INDEX IF NOT EXISTS market_image_cache_status_idx ON market_image_cache (status, updated_at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_band_versions_category_version_uq ON market_price_band_versions (category, version)`,
+  marketPublishedPriceBandUniqueIndexStatement,
   `CREATE INDEX IF NOT EXISTS market_price_band_versions_lookup_idx ON market_price_band_versions (category, status, effective_from, version)`,
   `CREATE INDEX IF NOT EXISTS market_price_band_items_version_idx ON market_price_band_items (version_id, sort_order)`,
   `CREATE INDEX IF NOT EXISTS market_master_mapping_rules_kind_idx ON market_master_mapping_rules (kind, category, status, effective_from)`,
@@ -459,7 +463,7 @@ async function addMissingColumns(db: MarketSchemaDatabase, table: string, column
   return added;
 }
 
-const marketRuntimeSchemaMarker = "market-runtime-schema-v11";
+const marketRuntimeSchemaMarker = "market-runtime-schema-v12";
 
 async function hasMarketRuntimeSchemaMarker(db: MarketSchemaDatabase) {
   try {
@@ -659,19 +663,96 @@ async function backfillPriceSnapshots(db: MarketSchemaDatabase) {
   `).run();
 }
 
+async function priceBandVersionHasItems(db: MarketSchemaDatabase, versionId: string) {
+  const row = await db.prepare("SELECT id FROM market_price_band_items WHERE version_id=? LIMIT 1")
+    .bind(versionId).first<{ id: string }>();
+  return Boolean(row);
+}
+
+async function ensureDefaultPriceBandItems(db: MarketSchemaDatabase, versionId: string) {
+  for (const item of defaultPriceBandItems) {
+    const exact = () => db.prepare(`SELECT id FROM market_price_band_items
+      WHERE version_id=? AND label=? AND min_cents IS ? AND max_cents IS ? AND sort_order=? LIMIT 1`)
+      .bind(versionId, item.label, item.min, item.max, item.order).first<{ id: string }>();
+    if (await exact()) continue;
+    const itemId = versionId === "market-price-band-default-v1"
+      ? `${versionId}-${item.order}`
+      : `${versionId}-default-${item.order}`;
+    await db.prepare(`INSERT OR IGNORE INTO market_price_band_items
+      (id, version_id, label, min_cents, max_cents, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+      .bind(itemId, versionId, item.label, item.min, item.max, item.order).run();
+    if (!await exact()) throw new Error(`默认价格带项恢复失败：${item.label}`);
+  }
+}
+
 async function seedDefaultPriceBands(db: MarketSchemaDatabase) {
-  const existing = await db.prepare("SELECT id FROM market_price_band_versions WHERE category='*' AND status='published' LIMIT 1").first<{ id: string }>();
-  if (existing) return;
-  const versionId = "market-price-band-default-v1";
-  await db.prepare(`
-    INSERT OR IGNORE INTO market_price_band_versions
+  const fixedDefaultId = "market-price-band-default-v1";
+  const published = await db.prepare(`SELECT id FROM market_price_band_versions
+    WHERE category='*' AND status='published'
+    ORDER BY effective_from DESC, version DESC, COALESCE(published_at, '') DESC, id DESC LIMIT 1`)
+    .first<{ id: string }>();
+  if (published) {
+    if (published.id === fixedDefaultId || !await priceBandVersionHasItems(db, published.id)) {
+      await ensureDefaultPriceBandItems(db, published.id);
+    }
+    const usable = await db.prepare(`SELECT id FROM market_price_band_versions
+      WHERE id=? AND category='*' AND status='published'
+        AND EXISTS (SELECT 1 FROM market_price_band_items WHERE version_id=market_price_band_versions.id)
+      LIMIT 1`).bind(published.id).first<{ id: string }>();
+    if (!usable) throw new Error("全局价格带已发布版本不可用");
+    return;
+  }
+
+  const fixedDefault = await db.prepare("SELECT id FROM market_price_band_versions WHERE id=? AND category='*' LIMIT 1")
+    .bind(fixedDefaultId).first<{ id: string }>();
+  let targetId = fixedDefault?.id ?? "";
+  if (!targetId) {
+    const available = await db.prepare(`SELECT id FROM market_price_band_versions
+      WHERE category='*'
+      ORDER BY CASE WHEN EXISTS (SELECT 1 FROM market_price_band_items i WHERE i.version_id=market_price_band_versions.id) THEN 0 ELSE 1 END,
+        effective_from DESC, version DESC, COALESCE(published_at, '') DESC, id DESC LIMIT 1`)
+      .first<{ id: string }>();
+    targetId = available?.id ?? "";
+  }
+  if (!targetId) {
+    const next = await db.prepare("SELECT COALESCE(MAX(version),0)+1 version FROM market_price_band_versions WHERE category='*'")
+      .first<{ version: number }>();
+    const version = Number(next?.version ?? 1);
+    const fixedIdCollision = await db.prepare("SELECT id FROM market_price_band_versions WHERE id=? LIMIT 1")
+      .bind(fixedDefaultId).first<{ id: string }>();
+    targetId = fixedIdCollision ? `market-price-band-default-recovery-${crypto.randomUUID()}` : fixedDefaultId;
+    await db.prepare(`INSERT INTO market_price_band_versions
       (id, category, version, status, effective_from, created_by, published_by, published_at, note)
-    VALUES (?, '*', 1, 'published', '1970-01-01', 'system', 'system', CURRENT_TIMESTAMP, 'default seeded config')
-  `).bind(versionId).run();
-  await db.batch(defaultPriceBandItems.map((item) => db.prepare(`
-    INSERT OR IGNORE INTO market_price_band_items (id, version_id, label, min_cents, max_cents, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(`market-price-band-default-v1-${item.order}`, versionId, item.label, item.min, item.max, item.order)));
+      VALUES (?, '*', ?, 'draft', '1970-01-01', 'system', '', NULL, 'default seeded config')`)
+      .bind(targetId, version).run();
+  }
+
+  if (targetId === fixedDefaultId || !await priceBandVersionHasItems(db, targetId)) {
+    await ensureDefaultPriceBandItems(db, targetId);
+  }
+  await db.prepare(`UPDATE market_price_band_versions
+    SET status='published', published_by='system', published_at=CURRENT_TIMESTAMP
+    WHERE id=? AND category='*' AND status<>'published'`).bind(targetId).run();
+  const restored = await db.prepare(`SELECT id FROM market_price_band_versions
+    WHERE id=? AND category='*' AND status='published'
+      AND EXISTS (SELECT 1 FROM market_price_band_items WHERE version_id=market_price_band_versions.id)
+    LIMIT 1`).bind(targetId).first<{ id: string }>();
+  if (!restored) throw new Error("全局默认价格带恢复失败");
+}
+
+async function normalizePublishedPriceBandVersions(db: MarketSchemaDatabase) {
+  await db.prepare(`WITH ranked_published AS (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY category
+        ORDER BY effective_from DESC, version DESC, COALESCE(published_at, '') DESC, id DESC
+      ) AS published_rank
+      FROM market_price_band_versions
+      WHERE status='published'
+    )
+    UPDATE market_price_band_versions
+    SET status='archived'
+    WHERE id IN (SELECT id FROM ranked_published WHERE published_rank>1)`).run();
 }
 
 export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<void> {
@@ -693,6 +774,9 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
     await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS market_subcategory_taxonomy_category_name_uq ON market_subcategory_taxonomy (category, subcategory)").run();
     await db.prepare("CREATE INDEX IF NOT EXISTS market_subcategory_taxonomy_lookup_idx ON market_subcategory_taxonomy (category, status, sort_order)").run();
     await ensureMarketSubcategoryTaxonomyData(db);
+    await normalizePublishedPriceBandVersions(db);
+    await seedDefaultPriceBands(db);
+    await db.prepare(marketPublishedPriceBandUniqueIndexStatement).run();
     return;
   }
   await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
@@ -727,6 +811,7 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
     if (preUpgradeIndexes.length) await db.batch(preUpgradeIndexes);
     await backfillPriceSnapshots(db);
   }
+  await normalizePublishedPriceBandVersions(db);
   await seedDefaultPriceBands(db);
   for (const statement of marketPostUpgradeIndexStatements) await db.prepare(statement).run();
   await db.prepare(`DROP INDEX IF EXISTS market_entries_canonical_uq`).run();

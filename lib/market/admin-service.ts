@@ -3,7 +3,7 @@ import { runPromptTextCompletion } from "@/lib/market/annotation-model";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
-import { marketEffectiveFactsCtes } from "@/lib/market/overview-sql";
+import { marketEffectiveFactsCtes, marketMonthlyCoverageCtes } from "@/lib/market/overview-sql";
 import { ensureMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 import { ensureMarketMasterIdentities, refreshMarketMasterIdentities } from "@/lib/market/master-identity";
 import { marketNaturalKeySql, normalizeMarketSkuCode } from "@/lib/market/import-identity";
@@ -114,15 +114,33 @@ export async function listMarketMasterData(db: MarketDatabase, input: {
   await ensureMarketSkuGmvTotals(db);
   await ensureMarketMasterIdentities(db);
   const pageSize = integer(input.pageSize, 30, 1, 100);
-  const page = integer(input.page, 1, 1, 10_000);
+  const requestedPage = integer(input.page, 1, 1, 10_000);
   const { where, values } = masterWhere(input);
-  const rows = await db.prepare(`SELECT filtered.*, COUNT(*) OVER() full_count FROM (${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}) filtered
-    ORDER BY gmv_total_cents DESC, period_end DESC, CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank
-    LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, string | number | null>>();
-  const total = Number(rows.results?.[0]?.full_count ?? 0);
+  const baseSql = `${masterBaseSql(Boolean(input.includeHistory))} WHERE ${where}`;
+  const rows = await db.prepare(`WITH filtered AS MATERIALIZED (${baseSql}),
+    meta AS MATERIALIZED (
+      SELECT total, page_count, MIN(?, page_count) safe_page FROM (
+        SELECT COUNT(*) total, MAX(1, CAST((COUNT(*) + ? - 1) / ? AS INTEGER)) page_count FROM filtered
+      )
+    ), paged AS MATERIALIZED (
+      SELECT filtered.* FROM filtered
+      ORDER BY gmv_total_cents DESC, period_end DESC, CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank
+      LIMIT ? OFFSET (SELECT (safe_page - 1) * ? FROM meta)
+    )
+    SELECT paged.*, meta.total full_count, meta.page_count resolved_page_count, meta.safe_page resolved_page,
+      CASE WHEN paged.id IS NULL THEN 1 ELSE 0 END pagination_sentinel
+    FROM meta LEFT JOIN paged ON 1=1
+    ORDER BY gmv_total_cents DESC, period_end DESC, CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank`)
+    .bind(...values, requestedPage, pageSize, pageSize, pageSize, pageSize)
+    .all<Record<string, string | number | null>>();
+  const resultRows = rows.results ?? [];
+  const meta = resultRows[0];
+  const total = Number(meta?.full_count ?? 0);
+  const pageCount = Number(meta?.resolved_page_count ?? 1);
+  const page = Number(meta?.resolved_page ?? 1);
   return {
-    items: (rows.results ?? []).map(mapMasterRow),
-    pagination: { page, pageSize, total, pageCount: Math.max(1, Math.ceil(total / pageSize)) },
+    items: resultRows.filter((row) => Number(row.pagination_sentinel ?? 0) === 0).map(mapMasterRow),
+    pagination: { page, pageSize, total, pageCount },
   };
 }
 
@@ -862,29 +880,121 @@ export async function createMarketPriceBandVersion(db: MarketDatabase, input: {
   return { id, category, version, status: "draft", items };
 }
 
+async function readPriceBandMutationReceipt(
+  db: MarketDatabase,
+  input: { auditId: string; action: "publish_price_band_version" | "rollback_price_band_version"; entityId: string },
+) {
+  const receipt = await db.prepare(`SELECT after_json FROM market_master_audit_logs
+    WHERE id=? AND action=? AND entity_type='market_price_band_version' AND entity_id=? LIMIT 1`)
+    .bind(input.auditId, input.action, input.entityId).first<{ after_json: string }>();
+  if (!receipt) throw new Error("价格带版本事务回执缺失");
+  let snapshot: unknown;
+  try {
+    snapshot = JSON.parse(receipt.after_json);
+  } catch {
+    throw new Error("价格带版本事务回执不可解析");
+  }
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    throw new Error("价格带版本事务回执不可解析");
+  }
+  return snapshot as Record<string, unknown>;
+}
+
 export async function publishMarketPriceBandVersion(db: MarketDatabase, id: string, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
   const before = await db.prepare("SELECT * FROM market_price_band_versions WHERE id=? LIMIT 1").bind(id).first<Record<string, unknown>>();
   if (!before) throw new Error("价格带版本不存在");
-  await db.prepare("UPDATE market_price_band_versions SET status='archived' WHERE category=? AND status='published' AND id<>?")
-    .bind(String(before.category), id).run();
-  await db.prepare("UPDATE market_price_band_versions SET status='published', published_by=?, published_at=CURRENT_TIMESTAMP WHERE id=?")
-    .bind(actor.email, id).run();
-  const after = await db.prepare("SELECT * FROM market_price_band_versions WHERE id=? LIMIT 1").bind(id).first<Record<string, unknown>>();
-  await audit(db, actor, "publish_price_band_version", "market_price_band_version", id, before, after);
-  return after;
+  const category = String(before.category);
+  const expectedStatus = String(before.status);
+  if (!new Set(["draft", "archived"]).has(expectedStatus)) throw new Error("该价格带版本当前不能发布");
+  const guardId = `market-price-band-publish-guard-${crypto.randomUUID()}`;
+  const auditId = `market-audit-${crypto.randomUUID()}`;
+  await db.batch([
+    db.prepare(`INSERT INTO market_master_audit_logs
+      (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+      SELECT CASE WHEN EXISTS (SELECT 1 FROM market_price_band_versions WHERE id=? AND category=? AND status=?)
+        THEN ? ELSE NULL END, ?, ?, 'market_price_band_publish_guard', 'market_price_band_version', ?, '{}', '{}'`)
+      .bind(id, category, expectedStatus, guardId, actor.email, actor.role, id),
+    db.prepare("UPDATE market_price_band_versions SET status='archived' WHERE category=? AND status='published' AND id<>?")
+      .bind(category, id),
+    db.prepare(`UPDATE market_price_band_versions
+      SET status='published', published_by=?, published_at=CURRENT_TIMESTAMP
+      WHERE id=? AND category=? AND status=?`).bind(actor.email, id, category, expectedStatus),
+    db.prepare(`INSERT INTO market_master_audit_logs
+      (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+      SELECT ?, ?, ?, 'publish_price_band_version', 'market_price_band_version', id, ?,
+        json_object('id', id, 'category', category, 'version', version, 'status', status,
+          'effective_from', effective_from, 'created_by', created_by, 'created_at', created_at,
+          'published_by', published_by, 'published_at', published_at,
+          'rolled_back_from_id', rolled_back_from_id, 'note', note)
+      FROM market_price_band_versions WHERE id=? AND category=? AND status='published'`)
+      .bind(auditId, actor.email, actor.role, JSON.stringify(before), id, category),
+    db.prepare(`UPDATE market_price_band_versions
+      SET category=CASE WHEN status='published' AND EXISTS (
+        SELECT 1 FROM market_master_audit_logs
+        WHERE id=? AND action='publish_price_band_version' AND entity_id=?
+      ) THEN category ELSE NULL END
+      WHERE id=? AND category=?`)
+      .bind(auditId, id, id, category),
+    db.prepare("DELETE FROM market_master_audit_logs WHERE id=? AND action='market_price_band_publish_guard'").bind(guardId),
+  ]);
+  return readPriceBandMutationReceipt(db, {
+    auditId,
+    action: "publish_price_band_version",
+    entityId: id,
+  });
 }
 
 export async function rollbackMarketPriceBandVersion(db: MarketDatabase, input: { category?: string; targetVersionId: string }, actor: MarketPrincipal) {
   await ensureMarketAdminSchema(db);
   const target = await db.prepare("SELECT * FROM market_price_band_versions WHERE id=? LIMIT 1").bind(input.targetVersionId).first<Record<string, unknown>>();
   if (!target) throw new Error("回滚目标价格带版本不存在");
-  await db.prepare("UPDATE market_price_band_versions SET status='archived' WHERE category=? AND status='published'").bind(String(target.category)).run();
-  await db.prepare("UPDATE market_price_band_versions SET status='published', rolled_back_from_id=COALESCE(NULLIF(rolled_back_from_id,''), id), published_by=?, published_at=CURRENT_TIMESTAMP WHERE id=?")
-    .bind(actor.email, input.targetVersionId).run();
-  const after = await db.prepare("SELECT * FROM market_price_band_versions WHERE id=? LIMIT 1").bind(input.targetVersionId).first<Record<string, unknown>>();
-  await audit(db, actor, "rollback_price_band_version", "market_price_band_version", input.targetVersionId, target, after);
-  return after;
+  const category = String(target.category);
+  const expectedStatus = String(target.status);
+  if (expectedStatus !== "archived") throw new Error("只能回滚到已归档的价格带版本");
+  const guardId = `market-price-band-rollback-guard-${crypto.randomUUID()}`;
+  const auditId = `market-audit-${crypto.randomUUID()}`;
+  await db.batch([
+    db.prepare(`INSERT INTO market_master_audit_logs
+      (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+      SELECT CASE WHEN EXISTS (SELECT 1 FROM market_price_band_versions WHERE id=? AND category=? AND status=?)
+        THEN ? ELSE NULL END, ?, ?, 'market_price_band_rollback_guard', 'market_price_band_version', ?, '{}', '{}'`)
+      .bind(input.targetVersionId, category, expectedStatus, guardId, actor.email, actor.role, input.targetVersionId),
+    db.prepare(`UPDATE market_price_band_versions
+      SET rolled_back_from_id=COALESCE((SELECT current.id FROM market_price_band_versions current
+        WHERE current.category=? AND current.status='published' AND current.id<>?
+        ORDER BY current.effective_from DESC, current.version DESC, COALESCE(current.published_at, '') DESC, current.id DESC
+        LIMIT 1), '')
+      WHERE id=? AND category=? AND status=?`)
+      .bind(category, input.targetVersionId, input.targetVersionId, category, expectedStatus),
+    db.prepare("UPDATE market_price_band_versions SET status='archived' WHERE category=? AND status='published' AND id<>?")
+      .bind(category, input.targetVersionId),
+    db.prepare(`UPDATE market_price_band_versions
+      SET status='published', published_by=?, published_at=CURRENT_TIMESTAMP
+      WHERE id=? AND category=? AND status=?`).bind(actor.email, input.targetVersionId, category, expectedStatus),
+    db.prepare(`INSERT INTO market_master_audit_logs
+      (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
+      SELECT ?, ?, ?, 'rollback_price_band_version', 'market_price_band_version', id, ?,
+        json_object('id', id, 'category', category, 'version', version, 'status', status,
+          'effective_from', effective_from, 'created_by', created_by, 'created_at', created_at,
+          'published_by', published_by, 'published_at', published_at,
+          'rolled_back_from_id', rolled_back_from_id, 'note', note)
+      FROM market_price_band_versions WHERE id=? AND category=? AND status='published'`)
+      .bind(auditId, actor.email, actor.role, JSON.stringify(target), input.targetVersionId, category),
+    db.prepare(`UPDATE market_price_band_versions
+      SET category=CASE WHEN status='published' AND EXISTS (
+        SELECT 1 FROM market_master_audit_logs
+        WHERE id=? AND action='rollback_price_band_version' AND entity_id=?
+      ) THEN category ELSE NULL END
+      WHERE id=? AND category=?`)
+      .bind(auditId, input.targetVersionId, input.targetVersionId, category),
+    db.prepare("DELETE FROM market_master_audit_logs WHERE id=? AND action='market_price_band_rollback_guard'").bind(guardId),
+  ]);
+  return readPriceBandMutationReceipt(db, {
+    auditId,
+    action: "rollback_price_band_version",
+    entityId: input.targetVersionId,
+  });
 }
 
 export async function upsertMarketDownloadConfig(db: MarketDatabase, input: { category: string; scope?: string; rankingDimension: string; monthStart: string; monthEnd: string; status?: string }, actor: MarketPrincipal) {
@@ -1034,7 +1144,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
   const emptyRows = { results: [] as Array<Record<string, unknown>> };
   const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, subcategories, pricePrompts, brandRecognitionJob, brandSeeds, statusCounts, subcategorySettings] = await Promise.all([
     wantsMaster ? listMarketMasterData(db, input) : Promise.resolve(emptyPage),
-    mode === "all" ? listPendingMarketPrices(db, {
+    wantsDatabase ? listPendingMarketPrices(db, {
       category: input.pendingPriceCategory,
       candidatePriceSource: input.pendingPriceSource,
       page: input.pendingPricePage,
@@ -1074,7 +1184,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
   ]);
   return {
     masterData,
-    pendingPrices: wantsDatabase ? { items: [], pagination: { total: Number(statusCounts?.pending_prices ?? 0), page: 1, pageSize: 0, pageCount: 1 } } : pendingPrices,
+    pendingPrices,
     mappings,
     priceBands,
     downloadTasks: tasks.results ?? [],
@@ -1101,15 +1211,42 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
   };
 }
 
+export type MarketComparisonSelection = {
+  skuCode: string;
+  category: string;
+  scope: string;
+  rankingDimension: MarketDimension;
+};
+
+function normalizeMarketComparisonSelection(selection: MarketComparisonSelection): MarketComparisonSelection {
+  return {
+    skuCode: normalizeMarketSkuCode(selection.skuCode),
+    category: requiredText(selection.category, 120),
+    scope: requiredText(selection.scope, 120),
+    rankingDimension: dimension(selection.rankingDimension),
+  };
+}
+
+function marketComparisonSelectionKey(selection: MarketComparisonSelection) {
+  return JSON.stringify([selection.category, selection.scope, selection.rankingDimension, selection.skuCode]);
+}
+
 export async function getMarketSkuComparison(db: MarketDatabase, input: {
-  skuCodes: string[]; category?: string; rankingDimension?: string;
+  skuCodes?: string[]; selections?: MarketComparisonSelection[]; q?: string; category?: string; rankingDimension?: string;
   categories?: string[]; scopes?: string[]; rankingDimensions?: string[]; operationModes?: string[];
   brands?: string[]; subcategories?: string[]; priceBands?: string[]; startDate?: string; endDate?: string;
 }) {
   await ensureMarketAdminSchema(db);
-  const skuCodes = [...new Set(input.skuCodes.map((sku) => sku.trim()).filter(Boolean))].slice(0, 5);
-  if (skuCodes.length < 2 || skuCodes.length > 5) throw new Error("商品对比必须选择 2 到 5 个 SKU");
+  const hasExactSelections = input.selections !== undefined;
+  const selections = [...new Map((input.selections ?? [])
+    .map(normalizeMarketComparisonSelection)
+    .filter((selection) => selection.skuCode)
+    .map((selection) => [marketComparisonSelectionKey(selection), selection])).values()];
+  const skuCodes = [...new Set((input.skuCodes ?? []).map(normalizeMarketSkuCode).filter(Boolean))];
+  const selectionCount = hasExactSelections ? selections.length : skuCodes.length;
+  if (selectionCount < 2 || selectionCount > 5) throw new Error("商品对比必须选择 2 到 5 个 SKU");
   const filters: MarketOverviewFilters = {
+    query: optionalText(input.q, 100),
     categories: input.categories?.length ? input.categories : input.category ? [input.category] : undefined,
     scopes: input.scopes,
     rankingDimensions: input.rankingDimensions?.length ? input.rankingDimensions.map(dimension) : input.rankingDimension ? [dimension(input.rankingDimension)] : undefined,
@@ -1120,9 +1257,12 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
     startDate: date(input.startDate),
     endDate: date(input.endDate),
   };
-  const placeholders = skuCodes.map(() => "?").join(",");
-  const clauses = [`m.sku_code IN (${placeholders})`];
-  const values: unknown[] = [...skuCodes];
+  const clauses = hasExactSelections
+    ? [`(${selections.map(() => "(m.sku_code=? AND m.category=? AND m.scope=? AND m.ranking_dimension=?)").join(" OR ")})`]
+    : [`m.sku_code IN (${skuCodes.map(() => "?").join(",")})`];
+  const values: unknown[] = hasExactSelections
+    ? selections.flatMap((selection) => [selection.skuCode, selection.category, selection.scope, selection.rankingDimension])
+    : [...skuCodes];
   const list = (column: string, entries?: string[]) => {
     const normalized = [...new Set((entries ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
     if (!normalized.length) return;
@@ -1135,53 +1275,111 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
   list("m.operation_mode", filters.operationModes);
   list("m.brand", filters.brands);
   list("m.subcategory", filters.subcategories);
-  list(officialPriceBandSql("ps.confirmed_market_price_cents", {
+  if (filters.query) {
+    const query = `%${filters.query}%`;
+    clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)");
+    values.push(query, query, query);
+  }
+  const displayPriceBandSql = officialPriceBandSql("ps.confirmed_market_price_cents", {
     confirmationStatusSql: "ps.confirmation_status",
     aiPriceTypeSql: "ps.ai_price_type",
     categorySql: "m.category",
     periodEndSql: "m.period_end",
-  }), filters.priceBands);
+    fallbackPriceSql: "NULLIF(m.price_cents, 0)",
+  });
+  const priceBandValues = [...new Set((filters.priceBands ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
+  const priceBandWhere = priceBandValues.length ? `WHERE m.price_band IN (${priceBandValues.map(() => "?").join(",")})` : "";
   if (filters.startDate) { clauses.push("m.period_end>=?"); values.push(filters.startDate); }
   if (filters.endDate) { clauses.push("m.period_start<=?"); values.push(filters.endDate); }
-  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, comparison_rows AS MATERIALIZED (
-    SELECT m.sku_code, m.product_name, m.brand, m.category, m.ranking_dimension, m.period_end, m.id,
-      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.visitors, m.rank, ps.confirmed_market_price_cents,
-      ROW_NUMBER() OVER (PARTITION BY m.sku_code ORDER BY m.period_end DESC, m.id DESC) representative_rank
+  const comparisonIdentityColumns = hasExactSelections
+    ? "m.sku_code, m.category, m.scope, m.ranking_dimension"
+    : "m.sku_code";
+  const comparisonGroupColumns = hasExactSelections
+    ? "sku_code, category, scope, ranking_dimension"
+    : "sku_code";
+  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, comparison_source AS MATERIALIZED (
+    SELECT m.*, ps.confirmed_market_price_cents, ${displayPriceBandSql} price_band
     FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
+  ), ${marketMonthlyCoverageCtes({ source: "comparison_source" })}, comparison_rows AS MATERIALIZED (
+    SELECT m.sku_code, m.product_name, m.brand, m.category, m.scope, m.ranking_dimension,
+      m.coverage_period_end period_end, m.id, m.monthly_gmv_cents gmv_cents,
+      m.monthly_quantity quantity, m.monthly_visitors visitors, m.rank, m.confirmed_market_price_cents,
+      ROW_NUMBER() OVER (PARTITION BY ${comparisonIdentityColumns} ORDER BY m.coverage_month DESC, m.id DESC) representative_rank
+    FROM market_monthly_rows m ${priceBandWhere}
   ) SELECT sku_code,
       MAX(CASE WHEN representative_rank=1 THEN product_name ELSE '' END) product_name,
       MAX(CASE WHEN representative_rank=1 THEN brand ELSE '' END) brand,
       MAX(CASE WHEN representative_rank=1 THEN category ELSE '' END) category,
+      MAX(CASE WHEN representative_rank=1 THEN scope ELSE '' END) scope,
       MAX(CASE WHEN representative_rank=1 THEN ranking_dimension ELSE '' END) ranking_dimension,
       SUM(gmv_cents) gmv_cents, SUM(quantity) quantity, SUM(visitors) visitors,
       CASE WHEN SUM(visitors)>0 THEN CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER) ELSE NULL END conversion_bps,
       MIN(rank) best_rank, MAX(confirmed_market_price_cents) market_price_cents,
       CASE WHEN SUM(quantity)>0 THEN CAST(ROUND(SUM(gmv_cents)*1.0/SUM(quantity)) AS INTEGER) ELSE NULL END average_transaction_price_cents
     FROM comparison_rows
-    GROUP BY sku_code
-    ORDER BY gmv_cents DESC`).bind(...values).all<Record<string, string | number | null>>();
-  const trends = await Promise.all(skuCodes.map((skuCode) => getMarketItemTrendLite(db, {
-    skuCode,
-    filters,
+    GROUP BY ${comparisonGroupColumns}
+    ORDER BY gmv_cents DESC`).bind(...values, ...priceBandValues).all<Record<string, string | number | null>>();
+  const resultRows = rows.results ?? [];
+  const trendEntries = await Promise.all(resultRows.map(async (row) => {
+    const rowSelection: MarketComparisonSelection = {
+      skuCode: String(row.sku_code ?? ""),
+      category: String(row.category ?? ""),
+      scope: String(row.scope ?? ""),
+      rankingDimension: dimension(row.ranking_dimension ?? "SKU"),
+    };
+    const trend = await getMarketItemTrendLite(db, {
+      skuCode: rowSelection.skuCode,
+      filters: hasExactSelections ? {
+        ...filters,
+        categories: [rowSelection.category],
+        scopes: [rowSelection.scope],
+        rankingDimensions: [rowSelection.rankingDimension],
+      } : filters,
+    });
+    return [hasExactSelections ? marketComparisonSelectionKey(rowSelection) : rowSelection.skuCode, trend] as const;
+  }));
+  const trendByIdentity = new Map(trendEntries);
+  const returnedSkuCodes = new Set(resultRows.map((row) => String(row.sku_code ?? "")));
+  const returnedSelectionKeys = new Set(resultRows.map((row) => marketComparisonSelectionKey({
+    skuCode: String(row.sku_code ?? ""),
+    category: String(row.category ?? ""),
+    scope: String(row.scope ?? ""),
+    rankingDimension: dimension(row.ranking_dimension ?? "SKU"),
   })));
   return {
-    items: (rows.results ?? []).map((row) => ({
-      skuCode: String(row.sku_code ?? ""),
-      productName: String(row.product_name ?? ""),
-      brand: String(row.brand ?? ""),
-      category: String(row.category ?? ""),
-      rankingDimension: String(row.ranking_dimension ?? "SKU"),
-      gmvCents: Number(row.gmv_cents ?? 0),
-      quantity: Number(row.quantity ?? 0),
-      visitors: Number(row.visitors ?? 0),
-      conversionBps: row.conversion_bps === null ? null : Number(row.conversion_bps),
-      bestRank: row.best_rank === null ? null : Number(row.best_rank),
-      marketPriceCents: row.market_price_cents === null ? null : Number(row.market_price_cents),
-      averageTransactionPriceCents: row.average_transaction_price_cents === null ? null : Number(row.average_transaction_price_cents),
-      trend: trends.find((trend) => trend.skuCode === row.sku_code)?.items ?? [],
-    })),
+    items: resultRows.map((row) => {
+      const rowSelection: MarketComparisonSelection = {
+        skuCode: String(row.sku_code ?? ""),
+        category: String(row.category ?? ""),
+        scope: String(row.scope ?? ""),
+        rankingDimension: dimension(row.ranking_dimension ?? "SKU"),
+      };
+      const itemTrend = trendByIdentity.get(hasExactSelections ? marketComparisonSelectionKey(rowSelection) : rowSelection.skuCode);
+      return {
+        skuCode: rowSelection.skuCode,
+        productName: String(row.product_name ?? ""),
+        brand: String(row.brand ?? ""),
+        category: rowSelection.category,
+        scope: rowSelection.scope,
+        rankingDimension: rowSelection.rankingDimension,
+        gmvCents: Number(row.gmv_cents ?? 0),
+        quantity: Number(row.quantity ?? 0),
+        visitors: Number(row.visitors ?? 0),
+        conversionBps: row.conversion_bps === null ? null : Number(row.conversion_bps),
+        bestRank: row.best_rank === null ? null : Number(row.best_rank),
+        marketPriceCents: row.market_price_cents === null ? null : Number(row.market_price_cents),
+        averageTransactionPriceCents: row.average_transaction_price_cents === null ? null : Number(row.average_transaction_price_cents),
+        trend: itemTrend?.items ?? [],
+        trendTotalMonths: itemTrend?.totalMonths ?? 0,
+        trendTruncated: itemTrend?.truncated ?? false,
+      };
+    }),
+    missingSkuCodes: skuCodes.filter((skuCode) => !returnedSkuCodes.has(skuCode)),
+    missingSelections: hasExactSelections
+      ? selections.filter((selection) => !returnedSelectionKeys.has(marketComparisonSelectionKey(selection)))
+      : [],
   };
 }
 
@@ -1217,7 +1415,7 @@ export async function getMarketBrandAnalysisForAi(db: MarketDatabase, args: Reco
 
 export async function getMarketPriceBandAnalysisForAi(db: MarketDatabase, args: Record<string, unknown>) {
   const { getMarketOverview } = await import("@/lib/market/database");
-  const overview = await getMarketOverview(db, aiFilters(args));
+  const overview = await getMarketOverview(db, aiFilters(args), { priceBandBasis: "confirmed_only" });
   return {
     filtersApplied: aiFilters(args),
     dataRange: overview.dataRange,
@@ -1248,7 +1446,13 @@ export async function getMarketPendingReviewSummaryForAi(db: MarketDatabase, arg
 function masterBaseSql(includeHistory = false) {
   return `WITH representatives AS MATERIALIZED (
       ${includeHistory
-        ? "SELECT source.* FROM market_ranking_entries source"
+        ? `SELECT history.* FROM (
+            SELECT source.*, ROW_NUMBER() OVER (
+              PARTITION BY source.category, source.scope, source.ranking_dimension, source.sku_code, substr(source.period_end,1,7)
+              ORDER BY source.period_end DESC, source.period_start DESC, source.id DESC
+            ) month_representative_rank
+            FROM market_ranking_entries source
+          ) history WHERE history.month_representative_rank=1`
         : `SELECT source.* FROM market_master_identities identity
           JOIN market_ranking_entries source ON source.id=identity.latest_entry_id`}
     )
@@ -1299,29 +1503,59 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
   list("m.operation_mode", input.filters?.operationModes);
   list("m.brand", input.filters?.brands);
   list("m.subcategory", input.filters?.subcategories);
-  list(officialPriceBandSql("ps.confirmed_market_price_cents", {
+  if (input.filters?.query) {
+    const query = `%${input.filters.query}%`;
+    clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)");
+    values.push(query, query, query);
+  }
+  const displayPriceBandSql = officialPriceBandSql("ps.confirmed_market_price_cents", {
     confirmationStatusSql: "ps.confirmation_status",
     aiPriceTypeSql: "ps.ai_price_type",
     categorySql: "m.category",
     periodEndSql: "m.period_end",
-  }), input.filters?.priceBands);
+    fallbackPriceSql: "NULLIF(m.price_cents, 0)",
+  });
+  const priceBandValues = [...new Set((input.filters?.priceBands ?? []).map((entry) => entry.trim()).filter(Boolean))].slice(0, 30);
+  const priceBandWhere = priceBandValues.length ? `WHERE price_band IN (${priceBandValues.map(() => "?").join(",")})` : "";
   if (input.filters?.startDate) { clauses.push("m.period_end>=?"); values.push(input.filters.startDate); }
   if (input.filters?.endDate) { clauses.push("m.period_start<=?"); values.push(input.filters.endDate); }
-  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}
-    SELECT substr(m.period_end, 1, 7) month, m.period_start, m.period_end, m.rank, m.operation_mode,
-      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.visitors, m.effective_conversion_bps conversion_bps,
-      ps.confirmed_market_price_cents market_price_cents,
-      m.effective_average_transaction_price_cents average_transaction_price_cents,
-      COALESCE(ps.confirmation_status, 'missing') confirmation_status
+  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, trend_source AS MATERIALIZED (
+    SELECT m.*, ps.confirmed_market_price_cents market_price_cents,
+      COALESCE(ps.confirmation_status, 'missing') confirmation_status,
+      ${displayPriceBandSql} price_band
     FROM market_effective_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.scope=m.scope AND ps.sku_code=m.sku_code AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
     WHERE ${clauses.join(" AND ")}
-    ORDER BY m.period_end ASC, m.id ASC
-    LIMIT 120
-  `).bind(...values).all<Record<string, string | number | null>>();
+  ), ${marketMonthlyCoverageCtes({ source: "trend_source" })}, filtered_months AS MATERIALIZED (
+    SELECT * FROM market_monthly_rows ${priceBandWhere}
+  ), comparison_months AS MATERIALIZED (
+    SELECT coverage_month month, MIN(coverage_period_start) period_start, MAX(coverage_period_end) period_end,
+      MIN(rank) rank,
+      CASE WHEN COUNT(DISTINCT operation_mode)=1 THEN MAX(operation_mode) ELSE '混合' END operation_mode,
+      SUM(monthly_gmv_cents) gmv_cents, SUM(monthly_quantity) quantity,
+      SUM(monthly_visitors) visitors,
+      CASE WHEN SUM(monthly_visitors)>0
+        THEN MIN(10000,MAX(0,CAST(ROUND(SUM(monthly_quantity)*10000.0/SUM(monthly_visitors)) AS INTEGER)))
+        ELSE NULL END conversion_bps,
+      MAX(market_price_cents) market_price_cents,
+      CASE WHEN SUM(monthly_quantity)>0 THEN CAST(ROUND(SUM(monthly_gmv_cents)*1.0/SUM(monthly_quantity)) AS INTEGER) END average_transaction_price_cents,
+      CASE WHEN SUM(CASE WHEN confirmation_status='confirmed' THEN 1 ELSE 0 END)=COUNT(*) THEN 'confirmed'
+        WHEN SUM(CASE WHEN confirmation_status='confirmed' THEN 1 ELSE 0 END)=0 THEN 'missing'
+        ELSE 'mixed' END confirmation_status
+    FROM filtered_months GROUP BY coverage_month
+  ), recent_months AS MATERIALIZED (
+    SELECT *, COUNT(*) OVER () total_months
+    FROM comparison_months ORDER BY month DESC LIMIT 120
+  )
+    SELECT * FROM recent_months ORDER BY month ASC
+  `).bind(...values, ...priceBandValues).all<Record<string, string | number | null>>();
+  const trendRows = rows.results ?? [];
+  const totalMonths = Number(trendRows[0]?.total_months ?? 0);
   return {
     skuCode,
-    items: (rows.results ?? []).map((row) => ({
+    totalMonths,
+    truncated: totalMonths > trendRows.length,
+    items: trendRows.map((row) => ({
       month: String(row.month ?? ""),
       periodStart: String(row.period_start ?? ""),
       periodEnd: String(row.period_end ?? ""),

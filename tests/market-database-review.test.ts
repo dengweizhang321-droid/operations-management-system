@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
 import { marketNaturalKey } from "../lib/market/import-identity";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "../lib/market/image-cache-state";
-import { buildMarketOverviewAnalyticsSql, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
+import { buildMarketOverviewAnalyticsSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterRun?: (sql: string) => Promise<void> } = {}): MarketSchemaDatabase {
@@ -165,7 +165,7 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   const changesAfterUpgrade = (sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes;
   await ensureMarketSchemaCore(db);
   assert.equal((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes, changesAfterUpgrade);
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v11'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'").get() as { count: number }).count, 1);
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(columnNames("market_brand_suggestions").has("ai_brand"));
   assert.ok(columnNames("market_brand_recognition_jobs").has("processed_count"));
@@ -278,7 +278,7 @@ test("runtime upgrade does not rewrite valid dimensions and swaps the canonical 
 
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_price_band_uq'").get());
   assert.equal(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_uq'").get(), undefined);
-  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v11'").get());
+  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'").get());
   sqlite.close();
 });
 
@@ -683,6 +683,11 @@ test("overview price bands fall back to the imported price-range midpoint", asyn
   const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { price_bands_json: string; price_band_summary_json: string };
   assert.deepEqual(JSON.parse(analytics.price_bands_json), [{ value: "500-999", count: 1 }]);
   assert.equal(JSON.parse(analytics.price_band_summary_json)[0]?.price_band, "500-999");
+  const confirmedOnly = sqlite.prepare(buildMarketOverviewAnalyticsSql({ confirmedOnlyPriceBands: true })).get() as { price_bands_json: string; price_band_summary_json: string };
+  assert.deepEqual(JSON.parse(confirmedOnly.price_bands_json), [{ value: "未确认价格", count: 1 }]);
+  assert.equal(JSON.parse(confirmedOnly.price_band_summary_json)[0]?.price_band, "未确认价格");
+  const adminSource = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
+  assert.match(adminSource, /getMarketPriceBandAnalysisForAi[\s\S]*priceBandBasis: "confirmed_only"/);
   sqlite.close();
 });
 
@@ -740,4 +745,163 @@ test("market ranking limits candidates before previous-rank lookup and pins the 
   const previousRank = source.indexOf("previous_rank", topRanked);
   assert.ok(topRanked >= 0 && previousRank > topRanked);
   assert.match(source, /market_ranking_entries p INDEXED BY market_entries_sku_idx/);
+});
+
+test("shared market month coverage prefers a full month, deduplicates daily rows, and excludes rolling windows", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,gmv_cents,quantity,page_views,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('month',1,'2026-06-01','2026-06-30','净水','POP','全部','SKU','POP',1,'SKU-M','整月',1000,10,100,20,'{}','b'),
+      ('june-day',2,'2026-06-01','2026-06-01','净水','POP','全部','SKU','POP',1,'SKU-M','日',100,1,10,2,'{}','b'),
+      ('june-day-child',3,'2026-06-01','2026-06-01','净水','POP','0-500','SKU','POP',1,'SKU-M','日价格带重复',9999,99,99,99,'{}','b'),
+      ('july-day-1',4,'2026-07-01','2026-07-01','净水','POP','全部','SKU','POP',1,'SKU-M','日1',10,1,5,2,'{}','b'),
+      ('july-day-2',5,'2026-07-02','2026-07-02','净水','POP','全部','SKU','POP',1,'SKU-M','日2',20,2,6,3,'{}','b'),
+      ('july-child',6,'2026-07-03','2026-07-03','净水','POP','0-500','SKU','POP',1,'SKU-M','月内子价格带',9999,99,99,99,'{}','b'),
+      ('july-rolling',7,'2026-07-02','2026-07-31','净水','POP','全部','SKU','POP',1,'SKU-M','滚动',999999,999,999,999,'{}','b');`);
+  const rows = sqlite.prepare(`WITH ${marketEffectiveFactsCtes()}, trend_source AS MATERIALIZED (
+      SELECT * FROM market_effective_rows WHERE sku_code='SKU-M'
+    ), ${marketMonthlyCoverageCtes({ source: "trend_source" })}
+    SELECT coverage_month month, monthly_gmv_cents gmv, monthly_quantity quantity,
+      monthly_page_views page_views, monthly_visitors visitors, coverage_days days, source_priority priority
+    FROM market_monthly_rows ORDER BY coverage_month`).all() as Array<Record<string, number | string>>;
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { month: "2026-06", gmv: 1000, quantity: 10, page_views: 100, visitors: 20, days: 30, priority: 0 },
+    { month: "2026-07", gmv: 30, quantity: 3, page_views: 11, visitors: 5, days: 2, priority: 1 },
+  ]);
+  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as { summary_json: string; trend_json: string };
+  assert.equal(JSON.parse(analytics.summary_json).gmv_cents, 1030);
+  assert.deepEqual((JSON.parse(analytics.trend_json) as Array<{ period: string; gmv_cents: number }>).map(({ period, gmv_cents }) => ({ period, gmv_cents })), [
+    { period: "2026-06", gmv_cents: 1000 },
+    { period: "2026-07", gmv_cents: 30 },
+  ]);
+  sqlite.close();
+});
+
+test("daily-only overview data range uses the actual covered days", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,price_cents,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('range-day-1',1,'2026-07-05','2026-07-05','range-category','POP','','SKU','POP',1,'SKU-RANGE','Range',129900,100,1,1,'{}','b'),
+      ('range-day-2',2,'2026-07-20','2026-07-20','range-category','POP','','SKU','POP',1,'SKU-RANGE','Range',129900,200,2,2,'{}','b');`);
+
+  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as {
+    summary_json: string; date_min: string; date_max: string;
+  };
+  assert.equal(JSON.parse(analytics.summary_json).gmv_cents, 300);
+  assert.deepEqual({ start: analytics.date_min, end: analytics.date_max }, {
+    start: "2026-07-05",
+    end: "2026-07-20",
+  });
+  sqlite.close();
+});
+
+test("daily price-band filtering follows the representative month after coverage aggregation", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,brand,price_cents,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('band-day-low',1,'2026-07-05','2026-07-05','band-category','POP','','SKU','POP',1,'SKU-BAND','Band','Band Brand',89900,100,1,1,'{}','b'),
+      ('band-day-high',2,'2026-07-20','2026-07-20','band-category','POP','','SKU','POP',1,'SKU-BAND','Band','Band Brand',129900,200,2,2,'{}','b');`);
+
+  const unfiltered = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as {
+    summary_json: string; price_band_summary_json: string;
+  };
+  const selected = sqlite.prepare(buildMarketOverviewAnalyticsSql({
+    factWhere: "WHERE m.category=?",
+    where: "WHERE m.brand=?",
+    priceBandWhere: "WHERE price_band IN (?)",
+  })).get("band-category", "Band Brand", "1000-1999") as { summary_json: string; price_band_summary_json: string };
+  assert.deepEqual(JSON.parse(unfiltered.price_band_summary_json).map((row: { price_band: string; gmv_cents: number }) => ({
+    priceBand: row.price_band,
+    gmvCents: row.gmv_cents,
+  })), [{ priceBand: "1000-1999", gmvCents: 300 }]);
+  assert.equal(JSON.parse(unfiltered.summary_json).gmv_cents, 300);
+  assert.equal(JSON.parse(selected.summary_json).gmv_cents, 300);
+  assert.equal(JSON.parse(selected.price_band_summary_json)[0]?.price_band, "1000-1999");
+  sqlite.close();
+});
+
+test("monthly trend boundaries keep the newest 120 item months and newest 60 overview months", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);`);
+  const insert = sqlite.prepare(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,brand,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES (?, ?, ?, ?, '净水', 'POP', '全部', 'SKU', 'POP', 1, 'SKU-LONG', '长期商品', '品牌', ?, 1, 1, '{}', 'b')`);
+  const months: string[] = [];
+  for (let index = 0; index < 121; index += 1) {
+    const first = new Date(Date.UTC(2016, index, 1));
+    const last = new Date(Date.UTC(2016, index + 1, 0));
+    const periodStart = first.toISOString().slice(0, 10);
+    const periodEnd = last.toISOString().slice(0, 10);
+    months.push(periodEnd.slice(0, 7));
+    insert.run(`long-${index}`, index + 1, periodStart, periodEnd, index + 1);
+  }
+  const itemMonths = sqlite.prepare(`WITH ${marketEffectiveFactsCtes()}, trend_source AS MATERIALIZED (
+      SELECT * FROM market_effective_rows WHERE sku_code='SKU-LONG'
+    ), ${marketMonthlyCoverageCtes({ source: "trend_source" })}, recent AS MATERIALIZED (
+      SELECT coverage_month, COUNT(*) OVER () total_months FROM market_monthly_rows ORDER BY coverage_month DESC LIMIT 120
+    ) SELECT coverage_month month, total_months FROM recent ORDER BY coverage_month ASC`).all() as Array<{ month: string; total_months: number }>;
+  assert.equal(itemMonths.length, 120);
+  assert.equal(itemMonths[0]!.total_months, 121);
+  assert.equal(itemMonths[0]!.month, months[1]);
+  assert.equal(itemMonths.at(-1)!.month, months.at(-1));
+
+  const analytics = sqlite.prepare(buildMarketOverviewAnalyticsSql()).get() as {
+    trend_json: string; trend_total: number; date_min: string; date_max: string;
+  };
+  const overviewMonths = (JSON.parse(analytics.trend_json) as Array<{ period: string }>).map((row) => row.period);
+  assert.equal(analytics.trend_total, 121);
+  assert.equal(overviewMonths.length, 60);
+  assert.equal(overviewMonths[0], months[61]);
+  assert.equal(overviewMonths.at(-1), months.at(-1));
+  assert.equal(analytics.date_min, "2016-01-01");
+  assert.equal(analytics.date_max, new Date(Date.UTC(2016, 121, 0)).toISOString().slice(0, 10));
+  sqlite.close();
+});
+
+test("item trend exposes the 120-month boundary and the UI reports the total month count", async () => {
+  const [database, view] = await Promise.all([
+    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(database, /COUNT\(\*\) OVER \(\) total_months[\s\S]*LIMIT 120/);
+  assert.match(database, /totalMonths,\s*truncated: totalMonths > trendRows\.length/);
+  assert.match(view, /totalMonths: number; truncated: boolean/);
+  assert.match(view, /展示最近 \$\{count\(data\.items\.length\)\} \/ 共 \$\{count\(data\.totalMonths\)\} 个月/);
+  assert.doesNotMatch(view, /读取全量月度趋势/);
+});
+
+test("market trend identity is exact in UI, API, service, and the central AI schema", async () => {
+  const [view, route, database, registry, aiTools] = await Promise.all([
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/trend/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/ai-tools.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(view, /scope: item\.scope/);
+  assert.match(route, /scope: params\.get\("scope"\)/);
+  assert.match(database, /m\.sku_code=\? AND m\.category=\? AND m\.scope=\? AND m\.ranking_dimension=\?/);
+  const trendTool = registry.slice(registry.indexOf('name: "get_market_sku_trend"'), registry.indexOf('name: "get_market_brand_analysis"'));
+  assert.match(trendTool, /scope: \{ type: "string", minLength: 1, maxLength: 120 \}/);
+  assert.match(trendTool, /required: \["skuCode", "category", "scope", "rankingDimension"\]/);
+  assert.match(aiTools, /scope = stringArg\(args\.scope, "scope", 120\)/);
+  assert.match(aiTools, /category,\s+scope,\s+rankingDimension: dimension/);
 });

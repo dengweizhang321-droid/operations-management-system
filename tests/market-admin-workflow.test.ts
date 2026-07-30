@@ -15,6 +15,7 @@ import {
   getMarketSkuComparison,
   getMarketBrandRecognitionJob,
   getMarketBrandSeedWorkspace,
+  getMarketMasterWorkspace,
   getMarketSubcategoryWorkspace,
   getMarketSystemKpis,
   listMarketMasterData,
@@ -43,6 +44,8 @@ function sqliteAdapter(sqlite: DatabaseSync, hooks: {
   beforeRun?: (sql: string) => Promise<void>;
   afterRun?: (sql: string) => Promise<void>;
   afterFirst?: (sql: string) => Promise<void>;
+  beforeAll?: (sql: string) => Promise<void>;
+  afterAll?: (sql: string) => Promise<void>;
 } = {}): MarketSchemaDatabase {
   return {
     prepare(sql: string) {
@@ -55,7 +58,12 @@ function sqliteAdapter(sqlite: DatabaseSync, hooks: {
           await hooks.afterFirst?.(sql);
           return result;
         },
-        async all<T>() { return { results: statement.all(...values) as T[] }; },
+        async all<T>() {
+          await hooks.beforeAll?.(sql);
+          const results = statement.all(...values) as T[];
+          await hooks.afterAll?.(sql);
+          return { results };
+        },
         async run() {
           await hooks.beforeRun?.(sql);
           const result = statement.run(...values);
@@ -190,6 +198,161 @@ test("pending market prices filter displayed AI sources and paginate non-AI sour
   assert.notEqual(nonAiFirst.items[0]?.skuCode, nonAiSecond.items[0]?.skuCode);
   assert.ok(nonAiFirst.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
   assert.ok(nonAiSecond.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
+  sqlite.close();
+});
+
+test("pending market prices keep one representative per identity month while retaining older months", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, raw_json, last_import_batch_id)
+    VALUES
+    ('pending-history-june-day',1,'2026-06-15','2026-06-15','history-price','POP','SKU','POP','SKU-HISTORY','June day','',100,'{}','batch'),
+    ('pending-history-june-month',2,'2026-06-01','2026-06-30','history-price','POP','SKU','POP','SKU-HISTORY','June month','',200,'{}','batch'),
+    ('pending-history-may-month',3,'2026-05-01','2026-05-31','history-price','POP','SKU','POP','SKU-HISTORY','May month','',300,'{}','batch');
+    INSERT INTO market_price_snapshots
+    (id, category, scope, sku_code, ranking_dimension, month, source_price_cents, confirmation_status)
+    VALUES
+    ('pending-history-june','history-price','POP','SKU-HISTORY','SKU','2026-06',10000,'source_table'),
+    ('pending-history-may','history-price','POP','SKU-HISTORY','SKU','2026-05',9000,'source_table');`);
+
+  const pending = await listPendingMarketPrices(db as never, { category: "history-price", page: 1, pageSize: 20 });
+  assert.deepEqual(pending.pagination, { page: 1, pageSize: 20, total: 2, pageCount: 1 });
+  assert.deepEqual(pending.items.map((item) => item.month), ["2026-06", "2026-05"]);
+  assert.equal(pending.items.find((item) => item.month === "2026-06")?.productName, "June month");
+  sqlite.close();
+});
+
+test("pending market prices clamp an emptied or category-shrunk page and preserve the real total", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  const insertEntry = sqlite.prepare(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, raw_json, last_import_batch_id)
+    VALUES (?,?,'2026-06-01','2026-06-30',?,'POP','SKU','POP',?,?,?,?,?,'batch')`);
+  const insertSnapshot = sqlite.prepare(`INSERT INTO market_price_snapshots
+    (id, category, scope, sku_code, ranking_dimension, month, source_price_cents, confirmation_status)
+    VALUES (?,?,'POP',?,'SKU','2026-06',10000,'source_table')`);
+  for (let index = 1; index <= 21; index += 1) {
+    const skuCode = `SKU-PAGE-${String(index).padStart(2, "0")}`;
+    insertEntry.run(`pending-page-${index}`, index, "page-price", skuCode, skuCode, "", 10_000 - index, "{}");
+    insertSnapshot.run(`pending-page-snapshot-${index}`, "page-price", skuCode);
+  }
+  for (let index = 1; index <= 3; index += 1) {
+    const skuCode = `SKU-SMALL-${index}`;
+    insertEntry.run(`pending-small-${index}`, 100 + index, "small-price", skuCode, skuCode, "", 100 - index, "{}");
+    insertSnapshot.run(`pending-small-snapshot-${index}`, "small-price", skuCode);
+  }
+
+  const lastPage = await listPendingMarketPrices(db as never, { category: "page-price", page: 2, pageSize: 20 });
+  assert.deepEqual(lastPage.pagination, { page: 2, pageSize: 20, total: 21, pageCount: 2 });
+  assert.equal(lastPage.items.length, 1);
+  sqlite.prepare(`UPDATE market_price_snapshots SET confirmed_market_price_cents=10000, confirmation_status='confirmed'
+    WHERE category='page-price' AND sku_code=?`).run(lastPage.items[0]?.skuCode);
+
+  const afterConfirmation = await listPendingMarketPrices(db as never, { category: "page-price", page: 2, pageSize: 20 });
+  assert.deepEqual(afterConfirmation.pagination, { page: 1, pageSize: 20, total: 20, pageCount: 1 });
+  assert.equal(afterConfirmation.items.length, 20);
+
+  const afterCategoryShrink = await listPendingMarketPrices(db as never, { category: "small-price", page: 2, pageSize: 20 });
+  assert.deepEqual(afterCategoryShrink.pagination, { page: 1, pageSize: 20, total: 3, pageCount: 1 });
+  assert.equal(afterCategoryShrink.items.length, 3);
+
+  const masterAfterCategoryShrink = await listMarketMasterData(db as never, { category: "small-price", page: 2, pageSize: 20 });
+  assert.deepEqual(masterAfterCategoryShrink.pagination, { page: 1, pageSize: 20, total: 3, pageCount: 1 });
+  assert.equal(masterAfterCategoryShrink.items.length, 3);
+  sqlite.close();
+});
+
+test("market master pagination uses one snapshot query for valid, clamped, and empty pages", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  let paginationAllCount = 0;
+  let legacyCountFirstCount = 0;
+  const db = sqliteAdapter(sqlite, {
+    async beforeAll(sql) {
+      if (sql.includes("pagination_sentinel")) paginationAllCount += 1;
+    },
+    async afterFirst(sql) {
+      if (sql.includes("SELECT COUNT(*) total FROM") && sql.includes("filtered")) {
+        legacyCountFirstCount += 1;
+        sqlite.prepare("DELETE FROM market_ranking_entries WHERE category='single-query-price'").run();
+      }
+    },
+  });
+  await ensureMarketSchemaCore(db);
+  const insertEntry = sqlite.prepare(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, gmv_cents, raw_json, last_import_batch_id)
+    VALUES (?,?,'2026-06-01','2026-06-30','single-query-price','POP','SKU','POP',?,?,?,?,'{}','batch')`);
+  const insertSnapshot = sqlite.prepare(`INSERT INTO market_price_snapshots
+    (id, category, scope, sku_code, ranking_dimension, month, source_price_cents, confirmation_status)
+    VALUES (?,'single-query-price','POP',?,'SKU','2026-06',10000,'source_table')`);
+  for (let index = 1; index <= 25; index += 1) {
+    const skuCode = `SKU-SINGLE-${String(index).padStart(2, "0")}`;
+    insertEntry.run(`single-query-${index}`, index, skuCode, skuCode, "", 10_000 - index);
+    insertSnapshot.run(`single-query-snapshot-${index}`, skuCode);
+  }
+
+  const beforePending = paginationAllCount;
+  const pending = await listPendingMarketPrices(db as never, { category: "single-query-price", page: 2, pageSize: 20 });
+  assert.equal(paginationAllCount - beforePending, 1);
+  assert.deepEqual(pending.pagination, { page: 2, pageSize: 20, total: 25, pageCount: 2 });
+  assert.equal(pending.items.length, 5);
+
+  const beforeMaster = paginationAllCount;
+  const master = await listMarketMasterData(db as never, { category: "single-query-price", page: 2, pageSize: 20 });
+  assert.equal(paginationAllCount - beforeMaster, 1);
+  assert.deepEqual(master.pagination, { page: 2, pageSize: 20, total: 25, pageCount: 2 });
+  assert.equal(master.items.length, 5);
+
+  const beforeEmpty = paginationAllCount;
+  const empty = await listPendingMarketPrices(db as never, { category: "no-such-category", page: 99, pageSize: 20 });
+  assert.equal(paginationAllCount - beforeEmpty, 1);
+  assert.deepEqual(empty.pagination, { page: 1, pageSize: 20, total: 0, pageCount: 1 });
+  assert.deepEqual(empty.items, []);
+  assert.equal(legacyCountFirstCount, 0);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE category='single-query-price'").get() as { count: number }).count, 25);
+  sqlite.close();
+});
+
+test("database workspace returns the requested pending-price source and page", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, brand, raw_json, last_import_batch_id)
+    VALUES
+    ('workspace-price-ai',1,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AI','AI price product','','{}','batch'),
+    ('workspace-price-source',2,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-SOURCE','Source price product','','{}','batch'),
+    ('workspace-price-average',3,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AVERAGE','Average price product','','{}','batch');
+    INSERT INTO market_price_snapshots
+    (id, category, scope, sku_code, ranking_dimension, month, source_price_cents, average_transaction_price_cents, ai_image_price_cents, confirmation_status)
+    VALUES
+    ('workspace-snapshot-ai','category-price','pop','SKU-AI','SKU','2026-06',NULL,500000,1150000,'ai_pending'),
+    ('workspace-snapshot-source','category-price','pop','SKU-SOURCE','SKU','2026-06',769900,NULL,NULL,'source_table'),
+    ('workspace-snapshot-average','category-price','pop','SKU-AVERAGE','SKU','2026-06',NULL,233300,NULL,'review_pending');`);
+
+  const nonAiSecondPage = await getMarketMasterWorkspace(db as never, {
+    mode: "database",
+    pendingPriceCategory: "category-price",
+    pendingPriceSource: "non_ai",
+    pendingPricePage: 2,
+    pendingPricePageSize: 1,
+  });
+  assert.deepEqual(nonAiSecondPage.pendingPrices.pagination, { page: 2, pageSize: 1, total: 2, pageCount: 2 });
+  assert.equal(nonAiSecondPage.pendingPrices.items.length, 1);
+  assert.notEqual(nonAiSecondPage.pendingPrices.items[0]?.candidatePriceSource, "ai_suggestion");
+
+  const aiFirstPage = await getMarketMasterWorkspace(db as never, {
+    mode: "database",
+    pendingPriceCategory: "category-price",
+    pendingPriceSource: "ai",
+    pendingPricePage: 1,
+    pendingPricePageSize: 20,
+  });
+  assert.deepEqual(aiFirstPage.pendingPrices.pagination, { page: 1, pageSize: 20, total: 1, pageCount: 1 });
+  assert.equal(aiFirstPage.pendingPrices.items[0]?.skuCode, "SKU-AI");
+  assert.equal(aiFirstPage.pendingPrices.items[0]?.candidatePriceSource, "ai_suggestion");
   sqlite.close();
 });
 
@@ -1230,14 +1393,140 @@ test("market SKU comparison returns real metrics and monthly trends for 2 to 5 S
   sqlite.exec(`INSERT INTO market_ranking_entries
     (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
     VALUES ('a-self',4,'2026-06-01','2026-06-30','净水','self','SKU','自营',5,'SKU-A','商品A','品牌A',9000,9,9,'{}','batch')`);
+  sqlite.exec(`INSERT INTO market_ranking_entries
+    (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, rank, sku_code, product_name, brand, gmv_cents, quantity, visitors, raw_json, last_import_batch_id)
+    VALUES
+      ('a-day',5,'2026-06-15','2026-06-15','净水','pop','SKU','POP',1,'SKU-A','商品A日榜','品牌A',777,7,7,'{}','batch'),
+      ('a-rolling',6,'2026-06-02','2026-06-30','净水','pop','SKU','POP',1,'SKU-A','商品A滚动榜','品牌A',999999,99,99,'{}','batch')`);
   sqlite.exec(`INSERT INTO market_price_snapshots (id, category, sku_code, ranking_dimension, month, confirmed_market_price_cents, average_transaction_price_cents, confirmation_status)
     VALUES ('pa','净水','SKU-A','SKU','2026-06',120000,1000,'confirmed'), ('pb','净水','SKU-B','SKU','2026-06',90000,500,'confirmed');`);
   const compared = await getMarketSkuComparison(db as never, { skuCodes: ["SKU-A", "SKU-B"], categories: ["净水"], rankingDimensions: ["SKU"], operationModes: ["POP"] });
   assert.equal(compared.items.length, 2);
+  assert.deepEqual(compared.missingSkuCodes, []);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.gmvCents, 4000);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.productName, "商品A新标题");
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.trend.length, 2);
+  assert.equal(compared.items.find((item) => item.skuCode === "SKU-A")?.trend.at(-1)?.gmvCents, 3000);
   assert.equal(compared.items.find((item) => item.skuCode === "SKU-B")?.bestRank, 3);
+  const withMissing = await getMarketSkuComparison(db as never, {
+    skuCodes: ["SKU-A", "SKU-MISSING"],
+    categories: ["净水"],
+    rankingDimensions: ["SKU"],
+    operationModes: ["POP"],
+  });
+  assert.deepEqual(withMissing.missingSkuCodes, ["SKU-MISSING"]);
+  const canonicalSkuCode = "A".repeat(80);
+  await assert.rejects(
+    () => getMarketSkuComparison(db as never, { skuCodes: [canonicalSkuCode, `${canonicalSkuCode}X`] }),
+    /2 到 5 个 SKU/,
+  );
+  await assert.rejects(
+    () => getMarketSkuComparison(db as never, { skuCodes: ["1", "2", "3", "4", "5", "6"] }),
+    /2 到 5 个 SKU/,
+  );
+  sqlite.close();
+});
+
+test("market SKU comparison keeps exact category scope dimension identities and applies search", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,rank,sku_code,product_name,brand,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('exact-a-pop',1,'2026-07-01','2026-07-31','exact-category','POP','SKU','POP',1,'EXACT-A','Hidden A POP','HiddenBrand',100,1,10,'{}','b'),
+      ('exact-a-self',2,'2026-07-01','2026-07-31','exact-category','self','SKU','自营',2,'EXACT-A','Visible A self','VisibleBrand',900,9,10,'{}','b'),
+      ('exact-b-self',3,'2026-07-01','2026-07-31','exact-category','self','SKU','自营',3,'EXACT-B','Visible B self','VisibleBrand',200,2,10,'{}','b');`);
+  const aPop = { skuCode: "EXACT-A", category: "exact-category", scope: "POP", rankingDimension: "SKU" as const };
+  const aSelf = { skuCode: "EXACT-A", category: "exact-category", scope: "self", rankingDimension: "SKU" as const };
+  const bSelf = { skuCode: "EXACT-B", category: "exact-category", scope: "self", rankingDimension: "SKU" as const };
+
+  const brandFiltered = await getMarketSkuComparison(db as never, {
+    selections: [aPop, bSelf],
+    brands: ["VisibleBrand"],
+  });
+  assert.deepEqual(brandFiltered.items.map((item) => [item.skuCode, item.scope, item.gmvCents]), [["EXACT-B", "self", 200]]);
+  assert.deepEqual(brandFiltered.missingSelections, [aPop]);
+
+  const searchFiltered = await getMarketSkuComparison(db as never, {
+    selections: [aPop, bSelf],
+    q: "Visible B",
+  });
+  assert.deepEqual(searchFiltered.items.map((item) => item.skuCode), ["EXACT-B"]);
+  assert.deepEqual(searchFiltered.missingSelections, [aPop]);
+
+  const sameSkuDifferentScopes = await getMarketSkuComparison(db as never, { selections: [aPop, aSelf] });
+  assert.deepEqual(sameSkuDifferentScopes.items.map((item) => [item.scope, item.gmvCents]).sort(), [["POP", 100], ["self", 900]]);
+  assert.deepEqual(sameSkuDifferentScopes.missingSelections, []);
+  sqlite.close();
+});
+
+test("market SKU comparison price-band filters fall back to displayed import prices after month selection", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,brand,price_cents,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('fallback-a',1,'2026-07-01','2026-07-31','comparison-fallback','POP','','SKU','POP',1,'SKU-FALLBACK-A','Fallback A','Brand A',129900,1000,2,10,'{}','b'),
+      ('fallback-b',2,'2026-07-01','2026-07-31','comparison-fallback','POP','','SKU','POP',2,'SKU-FALLBACK-B','Fallback B','Brand B',159900,2000,4,20,'{}','b');`);
+
+  const compared = await getMarketSkuComparison(db as never, {
+    skuCodes: ["SKU-FALLBACK-A", "SKU-FALLBACK-B"],
+    categories: ["comparison-fallback"],
+    scopes: ["POP"],
+    rankingDimensions: ["SKU"],
+    priceBands: ["1000-1999"],
+  });
+  assert.deepEqual(compared.items.map((item) => item.skuCode).sort(), ["SKU-FALLBACK-A", "SKU-FALLBACK-B"]);
+  assert.ok(compared.items.every((item) => item.marketPriceCents === null));
+  assert.ok(compared.items.every((item) => item.trend.length === 1));
+  sqlite.close();
+});
+
+test("market SKU comparison keeps the full 121-month summary while bounding trend metadata and UI", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec("CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT)");
+  const insert = sqlite.prepare(`INSERT INTO market_ranking_entries
+    (natural_key,source_row_number,period_start,period_end,category,scope,price_band_filter,ranking_dimension,operation_mode,rank,sku_code,product_name,brand,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES (?,?,?,?,'comparison-long','POP','','SKU','POP',1,?,?,?, ?,1,1,'{}','b')`);
+  const months: string[] = [];
+  let expectedGmv = 0;
+  for (let index = 0; index < 121; index += 1) {
+    const first = new Date(Date.UTC(2016, index, 1));
+    const last = new Date(Date.UTC(2016, index + 1, 0));
+    const periodStart = first.toISOString().slice(0, 10);
+    const periodEnd = last.toISOString().slice(0, 10);
+    const gmv = index + 1;
+    months.push(periodEnd.slice(0, 7));
+    expectedGmv += gmv;
+    insert.run(`comparison-long-a-${index}`, index * 2 + 1, periodStart, periodEnd, "SKU-LONG-A", "Long A", "Brand A", gmv);
+    insert.run(`comparison-long-b-${index}`, index * 2 + 2, periodStart, periodEnd, "SKU-LONG-B", "Long B", "Brand B", gmv);
+  }
+
+  const compared = await getMarketSkuComparison(db as never, {
+    skuCodes: ["SKU-LONG-A", "SKU-LONG-B"],
+    categories: ["comparison-long"],
+    scopes: ["POP"],
+    rankingDimensions: ["SKU"],
+  });
+  for (const item of compared.items) {
+    assert.equal(item.gmvCents, expectedGmv);
+    assert.equal(item.trend.length, 120);
+    assert.equal(item.trendTotalMonths, 121);
+    assert.equal(item.trendTruncated, true);
+    assert.equal(item.trend[0]?.month, months[1]);
+    assert.equal(item.trend.at(-1)?.month, months.at(-1));
+  }
+
+  const view = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  assert.match(view, /主指标按当前筛选范围完整汇总；月度火花图只展示最近 12 个月/);
+  assert.match(view, /服务端趋势最近 120 \/ 共 \{count\(item\.trendTotalMonths\)\} 个月/);
+  assert.match(view, /item\.trend\.slice\(-12\)/);
   sqlite.close();
 });
 

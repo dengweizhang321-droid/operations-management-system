@@ -316,6 +316,13 @@
       "when": 1785351600000,
       "tag": "0044_market_import_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1785355200000,
+      "tag": "0045_market_price_band_publish_safety",
+      "breakpoints": true
     }
   ]
 }

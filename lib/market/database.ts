@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
 import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
-import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 
@@ -138,7 +138,7 @@ type SummaryRow = {
 type AnalyticsRow = {
   summary_json: string; trend_json: string; price_bands_json: string; price_band_summary_json: string;
   price_band_trend_json: string; brand_rows_json: string; subcategory_rows_json: string;
-  date_min: string | null; date_max: string | null;
+  date_min: string | null; date_max: string | null; trend_total: number;
 };
 
 type FilterOptionsRow = {
@@ -207,10 +207,19 @@ function filterSql(filters: MarketOverviewFilters) {
   };
 }
 
-export async function getMarketOverview(db: MarketDatabase, filters: MarketOverviewFilters = {}) {
+export async function getMarketOverview(
+  db: MarketDatabase,
+  filters: MarketOverviewFilters = {},
+  internal: { priceBandBasis?: "display_fallback" | "confirmed_only" } = {},
+) {
   const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
   const enriched = buildMarketOverviewEnrichedSql({ factWhere, where, priceBandWhere });
-  const analyticsSql = buildMarketOverviewAnalyticsSql({ factWhere, where, priceBandWhere });
+  const analyticsSql = buildMarketOverviewAnalyticsSql({
+    factWhere,
+    where,
+    priceBandWhere,
+    confirmedOnlyPriceBands: internal.priceBandBasis === "confirmed_only",
+  });
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const bindings = [...values, ...priceBandValues];
   const [analyticsResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
@@ -362,6 +371,8 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
       gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
     })),
     trend: trendRows,
+    trendTotal: Number(analytics?.trend_total ?? trendRows.length),
+    trendTruncated: Number(analytics?.trend_total ?? trendRows.length) > trendRows.length,
     priceBands: priceBandOptions.map((row) => ({ value: row.value, count: Number(row.count ?? 0) })),
     priceBandSummary: priceBandRows.map((row) => ({
       priceBand: String(row.price_band ?? "未确认价格"),
@@ -415,27 +426,23 @@ export async function getMarketOverview(db: MarketDatabase, filters: MarketOverv
 
 export async function getMarketItemTrend(db: MarketDatabase, input: {
   skuCode: string;
-  category?: string;
-  rankingDimension?: "SKU" | "SPU";
+  category: string;
+  scope: string;
+  rankingDimension: "SKU" | "SPU";
 }) {
   const skuCode = normalizeMarketSkuCode(input.skuCode);
   if (!skuCode) throw new Error("SKU 不能为空");
-  const clauses = ["m.sku_code = ?"];
-  const values: unknown[] = [skuCode];
-  if (input.category?.trim()) { clauses.push("m.category = ?"); values.push(input.category.trim().slice(0, 120)); }
-  if (input.rankingDimension === "SKU" || input.rankingDimension === "SPU") { clauses.push("m.ranking_dimension = ?"); values.push(input.rankingDimension); }
-  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}
-    SELECT m.period_start, m.period_end, substr(m.period_end, 1, 7) month, m.category, m.scope,
-      m.ranking_dimension, m.operation_mode, m.subcategory, m.rank, m.sku_code, m.product_name, m.brand,
-      m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.visitors, m.effective_conversion_bps conversion_bps,
+  const category = input.category.trim().slice(0, 120);
+  const scope = input.scope.trim().slice(0, 120);
+  if (!category || !scope) throw new Error("类目和榜单范围不能为空");
+  if (input.rankingDimension !== "SKU" && input.rankingDimension !== "SPU") throw new Error("榜单维度无效");
+  const rows = await db.prepare(`WITH ${marketEffectiveFactsCtes()}, trend_source AS MATERIALIZED (
+    SELECT m.*,
       ps.confirmed_market_price_cents market_price_cents,
       COALESCE(ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents) candidate_price_cents,
       ps.source_price_cents, ps.ai_image_price_cents, ps.ai_price_type, ps.ai_confidence_bps,
-      ps.confirmed_market_price_cents, m.effective_average_transaction_price_cents average_transaction_price_cents,
-      CASE
-        WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认'
-        ELSE '未确认价格'
-      END price_status,
+      ps.confirmed_market_price_cents,
+      CASE WHEN ps.confirmed_market_price_cents IS NOT NULL THEN '人工确认' ELSE '未确认价格' END price_status,
       CASE
         WHEN ps.source_price_cents IS NOT NULL THEN '源表价格'
         WHEN ps.average_transaction_price_cents IS NOT NULL THEN '系统计算'
@@ -449,13 +456,28 @@ export async function getMarketItemTrend(db: MarketDatabase, input: {
       AND ps.sku_code = m.sku_code
       AND ps.ranking_dimension = m.ranking_dimension
       AND ps.month = substr(m.period_end, 1, 7)
-    WHERE ${clauses.join(" AND ")}
-    ORDER BY m.period_end ASC, m.id ASC
-    LIMIT 120
-  `).bind(...values).all<Record<string, string | number | null>>();
+    WHERE m.sku_code=? AND m.category=? AND m.scope=? AND m.ranking_dimension=?
+  ), ${marketMonthlyCoverageCtes({ source: "trend_source" })}, recent_months AS MATERIALIZED (
+    SELECT *, COUNT(*) OVER () total_months
+    FROM market_monthly_rows ORDER BY coverage_month DESC LIMIT 120
+  )
+    SELECT m.coverage_period_start period_start, m.coverage_period_end period_end, m.coverage_month month, m.category, m.scope,
+      m.ranking_dimension, m.operation_mode, m.subcategory, m.rank, m.sku_code, m.product_name, m.brand,
+      m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity, m.monthly_visitors visitors,
+      m.monthly_conversion_bps conversion_bps, m.market_price_cents, m.candidate_price_cents,
+      m.source_price_cents, m.ai_image_price_cents, m.ai_price_type, m.ai_confidence_bps,
+      m.confirmed_market_price_cents,
+      CASE WHEN m.monthly_quantity>0 THEN CAST(ROUND(m.monthly_gmv_cents*1.0/m.monthly_quantity) AS INTEGER) END average_transaction_price_cents,
+      m.price_status, m.candidate_price_status, m.confirmation_status, m.total_months
+    FROM recent_months m ORDER BY m.coverage_month ASC
+  `).bind(skuCode, category, scope, input.rankingDimension).all<Record<string, string | number | null>>();
+  const trendRows = rows.results ?? [];
+  const totalMonths = Number(trendRows[0]?.total_months ?? 0);
   return {
     skuCode,
-    items: (rows.results ?? []).map((row) => ({
+    totalMonths,
+    truncated: totalMonths > trendRows.length,
+    items: trendRows.map((row) => ({
       periodStart: String(row.period_start ?? ""),
       periodEnd: String(row.period_end ?? ""),
       month: String(row.month ?? ""),

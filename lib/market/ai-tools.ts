@@ -16,17 +16,22 @@ export async function callMarketTool(name: string, args: Record<string, unknown>
   if (name === "get_market_pending_review_summary") return getMarketPendingReviewSummaryForAi(db, args);
   if (name === "get_market_sku_trend") {
     const skuCode = stringArg(args.skuCode, "skuCode", 80);
-    const dimension = optionalString(args.rankingDimension, 3);
+    const category = stringArg(args.category, "category", 120);
+    const scope = stringArg(args.scope, "scope", 120);
+    const dimension = stringArg(args.rankingDimension, "rankingDimension", 3);
+    if (dimension !== "SKU" && dimension !== "SPU") throw new Error("rankingDimension must be SKU or SPU");
     const trend = await getMarketItemTrend(db, {
       skuCode,
-      category: optionalString(args.category, 120),
-      rankingDimension: dimension === "SKU" || dimension === "SPU" ? dimension : undefined,
+      category,
+      scope,
+      rankingDimension: dimension,
     });
     const limit = integer(args.limit, 24, 1, 60);
     return {
       skuCode,
-      category: optionalString(args.category, 120) ?? null,
-      rankingDimension: dimension ?? null,
+      category,
+      scope,
+      rankingDimension: dimension,
       returned: Math.min(trend.items.length, limit),
       truncated: trend.items.length > limit,
       items: trend.items.slice(-limit),

@@ -252,16 +252,17 @@ export const aiToolRegistry = [
   {
     name: "get_market_sku_trend",
     title: "市场 SKU 月度趋势",
-    description: "只读查询单个 SKU/SPU 在全量月度数据中的销售额、成交件数、正式市场定位价、成交均价、排名和价格确认状态。结果有上限。",
+    description: "按类目、榜单范围、SKU/SPU 维度和商品编码的完整身份，只读查询月度销售额、成交件数、正式市场定位价、成交均价、排名和价格确认状态。结果有上限。",
     inputSchema: {
       type: "object",
       properties: {
         skuCode: { type: "string", minLength: 1, maxLength: 80 },
-        category: { type: "string", maxLength: 120 },
+        category: { type: "string", minLength: 1, maxLength: 120 },
+        scope: { type: "string", minLength: 1, maxLength: 120 },
         rankingDimension: { type: "string", enum: ["SKU", "SPU"] },
         limit: { type: "integer", minimum: 1, maximum: 60, default: 24 },
       },
-      required: ["skuCode"],
+      required: ["skuCode", "category", "scope", "rankingDimension"],
       additionalProperties: false,
     },
     annotations: readOnlyAnnotations,

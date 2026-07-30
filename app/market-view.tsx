@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "@/lib/market/latest-request";
 import MarketAnnotationView from "./market-annotation-view";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
@@ -15,6 +16,8 @@ type MarketItem = {
   cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;
   periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;
 };
+type MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;
+type MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;
 type MarketOverview = {
   summary: {
     productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;
@@ -23,6 +26,8 @@ type MarketOverview = {
   };
   items: MarketItem[];
   trend: Array<Record<string, string | number | null>>;
+  trendTotal: number;
+  trendTruncated: boolean;
   priceBands: FilterOption[];
   priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;
   priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;
@@ -34,14 +39,17 @@ type MarketOverview = {
   imageCache: { total: number; cached: number; failed: number; pending: number };
   error?: string;
 };
-type TrendPayload = { items: Array<Record<string, string | number | null>>; error?: string };
+type TrendPayload = { items: Array<Record<string, string | number | null>>; totalMonths: number; truncated: boolean; error?: string };
 type ComparePayload = {
   items: Array<{
-    skuCode: string; productName: string; brand: string; category: string; rankingDimension: string;
+    skuCode: string; productName: string; brand: string; category: string; scope: string; rankingDimension: string;
     gmvCents: number; quantity: number; visitors: number; conversionBps: number | null; bestRank: number | null;
     marketPriceCents: number | null; averageTransactionPriceCents: number | null;
     trend: Array<Record<string, string | number | null>>;
+    trendTotalMonths: number; trendTruncated: boolean;
   }>;
+  missingSkuCodes: string[];
+  missingSelections: MarketCompareIdentity[];
   error?: string;
 };
 type BrandRecognitionJob = {
@@ -104,6 +112,12 @@ const priceSourceLabel = (source: unknown) => ({
   missing: "暂无候选价",
 }[String(source ?? "")] ?? String(source ?? "未知来源"));
 const manualMarketPriceLabel = "人工确认市场定位价（元）";
+const marketCompareSelectionKey = (selection: MarketCompareIdentity) => JSON.stringify([
+  selection.category,
+  selection.scope,
+  selection.rankingDimension,
+  selection.skuCode,
+]);
 const brandJobEta = (job: BrandRecognitionJob | null) => {
   if (!job?.startedAt || job.processedCount <= 0 || job.remainingCount <= 0) return job?.status === "completed" ? "已完成" : "运行后计算";
   const elapsedSeconds = Math.max(1, (Date.now() - new Date(job.startedAt).getTime()) / 1000);
@@ -182,7 +196,7 @@ function TrendSection({ data }: { data: MarketOverview }) {
   const selected = metrics.find((item) => item[0] === metric) ?? metrics[0];
   const max = Math.max(1, ...data.trend.map((row) => Number(row[metric] ?? 0)));
   return <section className="panel market-section">
-    <div className="section-header"><div><h2>月度趋势</h2><p>全部趋势均由服务端按完整筛选结果汇总。</p></div><select value={metric} onChange={(event) => setMetric(event.target.value as typeof metric)}>{metrics.map((item) => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></div>
+    <div className="section-header"><div><h2>月度趋势</h2><p>由服务端按完整筛选结果汇总，最多展示最近 60 个月{data.trendTruncated ? `（共 ${count(data.trendTotal)} 个月）` : ""}。</p></div><select value={metric} onChange={(event) => setMetric(event.target.value as typeof metric)}>{metrics.map((item) => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></div>
     <div className="market-trend-chart">{data.trend.map((row) => {
       const value = Number(row[metric] ?? 0);
       return <div key={String(row.period)}><span style={{ height: `${Math.max(5, value / max * 100)}%` }} /><strong>{selected[2](row[metric] === null ? null : value)}</strong><small>{String(row.period)}</small></div>;
@@ -227,13 +241,13 @@ function SubcategorySection({ data }: { data: MarketOverview }) {
   </section>;
 }
 
-function RankingTable({ items, compareIds, onToggleCompare, onTrend, onOpenCompare }: { items: MarketItem[]; compareIds: string[]; onToggleCompare: (sku: string) => void; onTrend: (item: MarketItem) => void; onOpenCompare: () => void }) {
+function RankingTable({ items, compareKeys, onToggleCompare, onTrend, onOpenCompare }: { items: MarketItem[]; compareKeys: string[]; onToggleCompare: (item: MarketItem) => void; onTrend: (item: MarketItem) => void; onOpenCompare: () => void }) {
   return <section className="panel market-table-panel">
-    <div className="section-header"><div><h2>商品榜单</h2><p>标题下方固定展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><div className="market-ranking-actions"><span className="soft-tag">显示 {count(items.length)} 条</span><button type="button" className="secondary-button" disabled={compareIds.length < 2} onClick={onOpenCompare}>进入竞品对比{compareIds.length ? `（${compareIds.length}）` : ""}</button></div></div>
+    <div className="section-header"><div><h2>商品榜单</h2><p>标题下方固定展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><div className="market-ranking-actions"><span className="soft-tag">显示 {count(items.length)} 条</span><button type="button" className="secondary-button" disabled={compareKeys.length < 2} onClick={onOpenCompare}>进入竞品对比{compareKeys.length ? `（${compareKeys.length}）` : ""}</button></div></div>
     <div className="data-table-wrap"><table className="data-table market-ranking-table market-ranking-table-v2"><thead><tr>
       <th>对比</th><th>排名</th><th>商品主图和标题</th><th>销售额</th><th>成交件数</th><th>市场定位价（主图）</th><th>成交均价</th><th>访客</th><th>转化率</th><th>排名变化</th><th>趋势操作</th>
     </tr></thead><tbody>{items.map((item) => <tr key={item.id}>
-      <td><button type="button" className={`market-compare-check ${compareIds.includes(item.skuCode) ? "active" : ""}`} onClick={() => onToggleCompare(item.skuCode)} aria-label={`选择对比 ${item.productName || item.skuCode}`}>{compareIds.includes(item.skuCode) ? "✓" : "+"}</button></td>
+      <td><button type="button" className={`market-compare-check ${compareKeys.includes(marketCompareSelectionKey(item)) ? "active" : ""}`} onClick={() => onToggleCompare(item)} aria-label={`选择对比 ${item.productName || item.skuCode}`}>{compareKeys.includes(marketCompareSelectionKey(item)) ? "✓" : "+"}</button></td>
       <td><strong>{item.rank ? `#${item.rank}` : "-"}</strong><small>{item.rankingDimension}</small></td>
       <td><div className="market-product-cell">{item.imageUrl ? (marketProductHref(item.productUrl, item.skuCode) ? <a href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer"><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <span><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></span>) : <span>图</span>}<div>{marketProductHref(item.productUrl, item.skuCode) ? <a className="market-product-title-link" href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer">{item.productName || "未命名商品"}</a> : <strong>{item.productName || "未命名商品"}</strong>}<small>{item.periodStart} 至 {item.periodEnd} · 上榜 {count(item.periodCount)} 期 · SKU {item.skuCode}</small><small>{item.operationMode} · {item.brand || "品牌待识别"} · {item.subcategory || "未分类"} · {item.marketPriceSource}</small></div></div></td>
       <td><strong>{money(item.gmvCents)}</strong><small>当前 TOP 榜单覆盖口径</small></td>
@@ -252,7 +266,7 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    const params = new URLSearchParams({ skuCode: item.skuCode, category: item.category, dimension: item.rankingDimension });
+    const params = new URLSearchParams({ skuCode: item.skuCode, category: item.category, scope: item.scope, dimension: item.rankingDimension });
     void fetch(`/api/market/trend?${params}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => null) as TrendPayload | null;
@@ -265,28 +279,23 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
   return <div className="modal-backdrop" onClick={onClose}><section className="market-trend-drawer" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
     <header><div><span>{item.skuCode}</span><h3>{item.productName || item.skuCode}</h3><small>{item.category} · {item.rankingDimension}</small></div><button onClick={onClose} aria-label="关闭">×</button></header>
     {error && <div className="market-feedback error">{error}</div>}
-    {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取全量月度趋势…</div>}
-    {data && <div className="data-table-wrap"><table className="data-table"><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row) => <tr key={`${row.month}-${row.rank}`}>
+    {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取最近 120 个月的月度趋势…</div>}
+    {data && <><small>{data.truncated ? `展示最近 ${count(data.items.length)} / 共 ${count(data.totalMonths)} 个月` : `展示全部 ${count(data.totalMonths)} 个月`}</small><div className="data-table-wrap"><table className="data-table"><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row) => <tr key={`${row.month}-${row.rank}`}>
       <td>{String(row.month)}</td><td>{money(Number(row.gmvCents ?? 0))}</td><td>{count(Number(row.quantity ?? 0))}</td><td>{money(row.marketPriceCents === null ? null : Number(row.marketPriceCents))}</td><td>{money(row.averageTransactionPriceCents === null ? null : Number(row.averageTransactionPriceCents))}</td><td>{row.rank === null ? "-" : `#${row.rank}`}</td><td>{String(row.operationMode)}</td><td>{String(row.priceStatus)} · {String(row.confirmationStatus)}</td>
-    </tr>)}</tbody></table></div>}
+    </tr>)}</tbody></table></div></>}
   </section></div>;
 }
 
-function CompareWorkspace({ items, compareIds, onClear, onToggleCompare, onGoRanking, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
-  items: MarketItem[]; compareIds: string[]; onClear: () => void; onToggleCompare: (sku: string) => void; onGoRanking: () => void;
-  categories: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
+function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, query, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
+  selections: MarketCompareSelection[]; onClear: () => void; onRemoveCompare: (sku: string) => void; onGoRanking: () => void;
+  query: string; categories: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
   startDate: string; endDate: string;
 }) {
-  const selected = useMemo(() => compareIds.map((sku) => items.find((item) => item.skuCode === sku)).filter(Boolean) as MarketItem[], [compareIds, items]);
-  const [data, setData] = useState<ComparePayload | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (compareIds.length < 2) return;
-    const controller = new AbortController();
+  const request = useMemo(() => {
     const params = new URLSearchParams({ view: "compare" });
-    compareIds.forEach((sku) => params.append("skuCode", sku));
+    selections.forEach((selection) => params.append("selection", JSON.stringify(selection)));
+    if (query.trim()) params.set("q", query.trim());
     categories.forEach((value) => params.append("category", value));
-    [...new Set(selected.map((item) => item.scope).filter(Boolean))].forEach((value) => params.append("scope", value));
     rankingDimensions.forEach((value) => params.append("rankingDimension", value));
     operationModes.forEach((value) => params.append("operationMode", value));
     brands.forEach((value) => params.append("brand", value));
@@ -294,32 +303,50 @@ function CompareWorkspace({ items, compareIds, onClear, onToggleCompare, onGoRan
     priceBands.forEach((value) => params.append("priceBand", value));
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
-    void fetch(`/api/market/master?${params}`, { cache: "no-store", signal: controller.signal })
+    const requestKey = params.toString();
+    return { requestKey, url: selections.length < 2 ? null : `/api/market/master?${requestKey}` };
+  }, [selections, query, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate]);
+  const [result, setResult] = useState<{ requestKey: string; payload: ComparePayload | null; error: string } | null>(null);
+  const data = result?.requestKey === request.requestKey ? result.payload : null;
+  const error = result?.requestKey === request.requestKey ? result.error : "";
+  const requestGeneration = useRef(0);
+  useEffect(() => {
+    const requestId = beginLatestRequest(requestGeneration);
+    if (!request.url) return;
+    const controller = new AbortController();
+    void fetch(request.url, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => null) as ComparePayload | null;
         if (!response.ok || !payload) throw new Error(payload?.error || "商品对比读取失败");
-        setData(payload);
-        setError("");
+        if (requestId !== requestGeneration.current) return;
+        setResult({ requestKey: request.requestKey, payload, error: "" });
       })
-      .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "商品对比读取失败"); });
-    return () => controller.abort();
-  }, [compareIds, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate, selected]);
-  if (selected.length < 2) return <section className="panel market-compare-workspace market-compare-empty">
+      .catch((reason) => {
+        if (requestId !== requestGeneration.current) return;
+        if (!(reason instanceof DOMException && reason.name === "AbortError")) {
+          setResult({ requestKey: request.requestKey, payload: null, error: reason instanceof Error ? reason.message : "商品对比读取失败" });
+        }
+      });
+    return () => { invalidateLatestRequest(requestGeneration); controller.abort(); };
+  }, [request]);
+  if (selections.length < 2) return <section className="panel market-compare-workspace market-compare-empty">
     <div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>请先从商品榜单勾选 2–5 个 SKU。系统将使用当前筛选口径，对比销售额、成交件数、主图价格、成交均价、访客、转化率、排名和月度趋势。</p></div>
-    <div className="market-compare-selection"><strong>已选择 {selected.length} / 5</strong>{selected.map((item) => <button type="button" key={item.skuCode} onClick={() => onToggleCompare(item.skuCode)}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
-    <button type="button" className="primary-button" onClick={onGoRanking}>前往商品榜单选择</button>
+    <div className="market-compare-selection"><strong>已选择 {selections.length} / 5</strong>{selections.map((item) => <button type="button" key={marketCompareSelectionKey(item)} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
+    <div><button type="button" className="primary-button" onClick={onGoRanking}>前往商品榜单选择</button>{selections.length > 0 && <button type="button" className="row-action" onClick={onClear}>清空</button>}</div>
   </section>;
-  const compared = compareIds.map((skuCode) => data?.items.find((item) => item.skuCode === skuCode)).filter(Boolean) as NonNullable<ComparePayload>["items"];
-  const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.map((row) => Number(row.gmvCents ?? 0))));
+  const compared = selections.map((selection) => data?.items.find((item) => marketCompareSelectionKey(item) === marketCompareSelectionKey(selection))).filter(Boolean) as NonNullable<ComparePayload>["items"];
+  const missingSelections = data?.missingSelections ?? [];
+  const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.slice(-12).map((row) => Number(row.gmvCents ?? 0))));
   return <section className="panel market-compare-workspace">
-    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>当前筛选条件会同步应用到所选 SKU 的完整汇总和月度趋势。</p></div><div><strong>已选择 {selected.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
-    <div className="market-compare-selection">{selected.map((item) => <button type="button" key={item.skuCode} onClick={() => onToggleCompare(item.skuCode)}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
+    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>主指标按当前筛选范围完整汇总；月度火花图只展示最近 12 个月。</p></div><div><strong>已选择 {selections.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
+    <div className="market-compare-selection">{selections.map((item) => <button type="button" key={marketCompareSelectionKey(item)} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
     {error && <small className="red-text">{error}</small>}
     {!data && !error && <small>正在读取对比数据...</small>}
+    {data && missingSelections.length > 0 && <small className="red-text">当前筛选范围无数据：{missingSelections.map((item) => `${item.skuCode}（${item.scope}）`).join("、")}。可调整筛选，或从上方移除。</small>}
     {data && <div className="market-compare-grid market-compare-grid-live">
       <div className="metric-labels"><strong>指标</strong>{["销售额", "成交件数", "市场定位价", "成交均价", "访客", "转化率", "最好排名", "月度趋势"].map((label) => <span key={label}>{label}</span>)}</div>
-      {compared.map((item) => <article key={item.skuCode}>
-        <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.brand || "-"} · {item.rankingDimension}</small><button type="button" aria-label={`移除 ${item.productName || item.skuCode}`} onClick={() => onToggleCompare(item.skuCode)}>×</button>
+      {compared.map((item) => <article key={marketCompareSelectionKey(item)}>
+        <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.scope} · {item.brand || "-"} · {item.rankingDimension}{item.trendTruncated && <><br />服务端趋势最近 120 / 共 {count(item.trendTotalMonths)} 个月</>}</small><button type="button" aria-label={`移除 ${item.productName || item.skuCode}`} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>×</button>
         <span>{money(item.gmvCents)}</span><span>{count(item.quantity)}</span><span>{money(item.marketPriceCents)}</span><span>{money(item.averageTransactionPriceCents)}</span>
         <span>{count(item.visitors)}</span><span>{percent(item.conversionBps)}</span><span>{item.bestRank ? `#${item.bestRank}` : "-"}</span>
         <span><i className="market-compare-spark">{item.trend.slice(-12).map((row) => <b key={String(row.month)} style={{ height: `${Math.max(4, Number(row.gmvCents ?? 0) / maxTrend * 28)}px` }} title={`${String(row.month)} ${money(Number(row.gmvCents ?? 0))}`} />)}</i></span>
@@ -410,6 +437,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
   const [annotationStatus, setAnnotationStatus] = useState<"" | "pending" | "committed">("");
   const [visionModelId, setVisionModelId] = useState("");
   const [priceCategory, setPriceCategory] = useState("");
+  const [masterCandidatePriceSource, setMasterCandidatePriceSource] = useState<"" | "ai" | "non_ai">("");
   const [pendingPriceSource, setPendingPriceSource] = useState<"" | "ai" | "non_ai">("");
   const [pendingPricePage, setPendingPricePage] = useState(1);
   const [pendingPricePageSize, setPendingPricePageSize] = useState(20);
@@ -420,12 +448,13 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
   const [brandJob, setBrandJob] = useState<BrandRecognitionJob | null>(null);
   const brandRunnerStop = useRef(false);
   const loadRequestId = useRef(0);
+  const latestLoadRef = useRef<() => Promise<void>>(async () => undefined);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const isAdmin = currentUser?.role === "admin";
   const load = useCallback(async () => {
-    const requestId = ++loadRequestId.current;
+    const requestId = beginLatestRequest(loadRequestId);
     const params = new URLSearchParams();
     params.set("section", mode);
     if (query.trim()) params.set("q", query.trim());
@@ -434,24 +463,36 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     if (operationMode) params.set("operationMode", operationMode);
     if (subcategoryFilter) params.set("subcategory", subcategoryFilter);
     if (priceStatus) params.set("priceStatus", priceStatus);
-    if (pendingPriceSource) params.set("priceSource", pendingPriceSource);
+    if (masterCandidatePriceSource) params.set("priceSource", masterCandidatePriceSource);
     if (annotationStatus) params.set("annotationStatus", annotationStatus);
     params.set("page", String(page));
     params.set("pageSize", String(masterPageSize));
-    const [response, modelsResponse] = await Promise.all([
-      fetch(`/api/market/master?${params}`, { cache: "no-store" }),
-      isAdmin && (mode === "database" || mode === "brand") ? fetch("/api/ai/models", { cache: "no-store" }) : Promise.resolve(null),
-    ]);
-    const payload = await response.json().catch(() => null) as MarketMasterWorkspace | null;
-    const modelsPayload = modelsResponse
-      ? await modelsResponse.json().catch(() => null) as { items?: AiModelSummary[]; error?: string } | null
-      : null;
-    if (requestId !== loadRequestId.current) return;
-    if (!response.ok || !payload) throw new Error(payload?.error || "市场主数据读取失败");
-    if (modelsResponse && !modelsResponse.ok) throw new Error(modelsPayload?.error || "运营管理系统 AI 算力读取失败");
+    if (mode === "database") {
+      if (priceCategory) params.set("pendingPriceCategory", priceCategory);
+      if (pendingPriceSource) params.set("pendingPriceSource", pendingPriceSource);
+      params.set("pendingPricePage", String(pendingPricePage));
+      params.set("pendingPricePageSize", String(pendingPricePageSize));
+    }
+    const settled = await settleLatestRequest(loadRequestId, requestId, async () => {
+      const [response, modelsResponse] = await Promise.all([
+        fetch(`/api/market/master?${params}`, { cache: "no-store" }),
+        isAdmin && (mode === "database" || mode === "brand") ? fetch("/api/ai/models", { cache: "no-store" }) : Promise.resolve(null),
+      ]);
+      const payload = await response.json().catch(() => null) as MarketMasterWorkspace | null;
+      const modelsPayload = modelsResponse
+        ? await modelsResponse.json().catch(() => null) as { items?: AiModelSummary[]; error?: string } | null
+        : null;
+      if (!response.ok || !payload) throw new Error(payload?.error || "市场主数据读取失败");
+      if (modelsResponse && !modelsResponse.ok) throw new Error(modelsPayload?.error || "运营管理系统 AI 算力读取失败");
+      return { payload, modelsPayload, modelsResponse };
+    });
+    if (!settled.current) return;
+    const { payload, modelsPayload, modelsResponse } = settled.value;
+    setError("");
     setData(payload);
+    setPage(payload.masterData.pagination.page);
+    if (mode === "database") setPendingPricePage(payload.pendingPrices.pagination.page);
     setBrandJob(payload.brandRecognitionJob);
-    setPriceCategory((current) => current || payload.priceRecognition.prompts[0]?.category || "");
     setSubcategoryDrafts(Object.fromEntries(payload.subcategorySettings.items.map((item) => [String(item.subcategory), String(item.subcategory)])));
     if (modelsResponse) {
       const models = modelsPayload?.items ?? [];
@@ -459,8 +500,14 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       setBrandModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "text" && item.isDefaultTextModel)?.id || models.find((item) => item.status === "enabled" && item.modelType === "text")?.id || "");
       setVisionModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "vision")?.id || "");
     }
-  }, [query, category, page, masterPageSize, pendingPriceSource, rankingDimension, operationMode, subcategoryFilter, priceStatus, annotationStatus, isAdmin, mode]);
-  useEffect(() => { const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败")); }, 200); return () => window.clearTimeout(timer); }, [load]);
+  }, [query, category, page, masterPageSize, masterCandidatePriceSource, pendingPriceSource, pendingPricePage, pendingPricePageSize, priceCategory, rankingDimension, operationMode, subcategoryFilter, priceStatus, annotationStatus, isAdmin, mode]);
+  latestLoadRef.current = load;
+  const loadLatest = useCallback(() => invokeLatestRequest(latestLoadRef), []);
+  useEffect(() => {
+    invalidateLatestRequest(loadRequestId);
+    const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败")); }, 200);
+    return () => { window.clearTimeout(timer); invalidateLatestRequest(loadRequestId); };
+  }, [load]);
   useEffect(() => () => { brandRunnerStop.current = true; }, []);
   const post = async (body: Record<string, unknown>) => {
     setBusy(String(body.action ?? "action")); setError(""); setNotice("");
@@ -469,7 +516,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       const payload = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "市场主数据操作失败");
       setNotice("操作已保存");
-      await load();
+      await loadLatest();
       return true;
     } catch (reason) { setError(reason instanceof Error ? reason.message : "市场主数据操作失败"); return false; }
     finally { setBusy(""); }
@@ -544,7 +591,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
         setBrandJob(latest);
         if (latest?.status === "completed") setNotice(`全页品牌识别已完成：共处理 ${count(latest.processedCount)} 个商品，生成 ${count(latest.recognizedCount)} 个品牌候选。`);
       }
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "批量品牌识别失败"); }
     finally { setBusy(""); }
   };
@@ -594,7 +641,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
         if (payload?.result?.done || !payload?.result?.confirmed) break;
       }
       setNotice(`一键确认完成，共写入 ${count(confirmed)} 个品牌规则。`);
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "批量确认品牌失败"); }
     finally { setBusy(""); }
   };
@@ -606,7 +653,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       if (!response.ok) throw new Error(payload?.error || "系统品牌刷新失败");
       const result = payload?.result;
       setNotice(`系统品牌刷新完成：发现 ${count(result?.discovered ?? 0)} 个，新增 ${count(result?.inserted ?? 0)} 个，更新 ${count(result?.refreshed ?? 0)} 个，停用失效系统种子 ${count(result?.disabled ?? 0)} 个，保留人工种子 ${count(result?.manualPreserved ?? 0)} 个。`);
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "系统品牌刷新失败"); }
     finally { setBusy(""); }
   };
@@ -625,7 +672,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       const payload = await response.json().catch(() => null) as { error?: string; result?: { appliedRows?: number } } | null;
       if (!response.ok) throw new Error(payload?.error || "品牌种子保存失败");
       setNotice(`品牌种子“${seedText} → ${canonicalBrand}”已保存${row ? `，当前 SKU 的 ${count(payload?.result?.appliedRows ?? 0)} 条历史记录已补齐` : ""}。`);
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "品牌种子保存失败"); }
     finally { setBusy(""); }
   };
@@ -637,7 +684,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       if (!response.ok) throw new Error(payload?.error || "系统品牌匹配失败");
       const result = payload?.result;
       setNotice(`系统品牌匹配完成：扫描 ${count(result?.scanned ?? 0)} 个未知 SKU，匹配 ${count(result?.matchedSkuCount ?? 0)} 个（标题前缀 ${count(result?.prefixMatched ?? 0)}、任意位置 ${count(result?.anywhereMatched ?? 0)}），更新 ${count(result?.changedRows ?? 0)} 条历史记录，剩余 ${count(result?.remainingSkuCount ?? 0)} 个。`);
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "系统品牌匹配失败"); }
     finally { setBusy(""); }
   };
@@ -657,7 +704,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
         if (payload?.result?.done) break;
       }
       setNotice(`AI 价格识别完成，${count(total)} 条结果已进入待确认候选价。`);
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "AI 价格识别失败"); }
     finally { setBusy(""); }
   };
@@ -711,7 +758,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       const payload = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "榜单文件校验导入失败");
       setNotice("文件已按任务口径校验并导入");
-      await load();
+      await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "榜单文件校验导入失败"); }
     finally { setBusy(""); }
   };
@@ -730,12 +777,12 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     {(error || notice) && <div className={`market-feedback ${error ? "error" : "success"}`}>{error || notice}</div>}
     {mode === "database" && <article className="panel market-master-unified-toolbar"><div className="section-header"><div><h2>SKU 数据库与价格审核</h2><p>待确认价格已合并到 TOP SKU/SPU 主数据；同一张列表可筛选、查看候选价并直接编辑完整 SKU 数据。</p></div><div className="market-view-switch"><button className={databaseView === "cards" ? "active" : ""} onClick={() => setDatabaseView("cards")}>大图</button><button className={databaseView === "table" ? "active" : ""} onClick={() => setDatabaseView("table")}>列表</button></div></div><div className="market-master-filter-grid">
       <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" />
-      <select value={category} onChange={(event) => { const next = event.target.value; setCategory(next); setPriceCategory(next); setSubcategoryFilter(""); setPage(1); }}><option value="">全部三级类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select>
+      <select value={category} onChange={(event) => { const next = event.target.value; setCategory(next); setPriceCategory(next); setSubcategoryFilter(""); setPage(1); setPendingPricePage(1); }}><option value="">全部三级类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select>
       <select value={subcategoryFilter} onChange={(event) => { setSubcategoryFilter(event.target.value); setPage(1); }}><option value="">全部细分品类</option>{data.subcategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select>
       <select value={rankingDimension} onChange={(event) => { setRankingDimension(event.target.value); setPage(1); }}><option value="">SKU + SPU</option><option value="SKU">SKU</option><option value="SPU">SPU</option></select>
       <select value={operationMode} onChange={(event) => { setOperationMode(event.target.value); setPage(1); }}><option value="">全部经营模式</option><option value="POP">POP</option><option value="自营">自营</option><option value="未知">未知</option></select>
       <select value={priceStatus} onChange={(event) => { setPriceStatus(event.target.value as typeof priceStatus); setPage(1); }}><option value="">全部价格状态</option><option value="pending">待确认价格</option><option value="confirmed">已确认价格</option><option value="missing">缺少价格</option></select>
-      <select value={pendingPriceSource} onChange={(event) => { setPendingPriceSource(event.target.value as typeof pendingPriceSource); setPage(1); }}><option value="">全部候选价来源</option><option value="ai">AI 识别价</option><option value="non_ai">非 AI 识别价</option></select>
+      <select value={masterCandidatePriceSource} onChange={(event) => { setMasterCandidatePriceSource(event.target.value as typeof masterCandidatePriceSource); setPage(1); }}><option value="">全部候选价来源</option><option value="ai">AI 识别价</option><option value="non_ai">非 AI 识别价</option></select>
       <select value={annotationStatus} onChange={(event) => { setAnnotationStatus(event.target.value as typeof annotationStatus); setPage(1); }}><option value="">全部入库状态</option><option value="pending">待入库</option><option value="committed">已入库</option></select>
       <select aria-label="SKU 数据库每页条数" value={masterPageSize} onChange={(event) => { setMasterPageSize(Number(event.target.value)); setPage(1); }}><option value={20}>每页 20 条</option><option value={30}>每页 30 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select>
     </div><div className="market-price-recognition-inline"><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="secondary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别待确认价格（最多100条）"}</button>{priceRecognitionBlocker && <span>{priceRecognitionBlocker}</span>}</div></article>}
@@ -750,7 +797,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     <article className="panel"><div className="section-header market-brand-batch-header"><div><h3>品牌识别与人工确认</h3><p>“所有页”按当前搜索和类目筛选处理去重商品；任务可暂停、恢复，刷新或关闭页面不会丢失已完成批次。</p></div><div className="market-master-toolbar"><select value={category} disabled={busy === "recognize_brand_all"} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">全部类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select><input value={query} disabled={busy === "recognize_brand_all"} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" />{busy === "recognize_brand_all" ? <button className="secondary-button" disabled={!isAdmin} onClick={() => void pauseBrandRecognition()}>暂停识别</button> : <button className="primary-button" disabled={!isAdmin || !brandModelId || busy !== ""} onClick={() => void recognizeAllBrands()}>{brandJob && ["queued", "running", "paused", "failed"].includes(brandJob.status) ? "继续识别" : "AI 一键识别品牌（所有页）"}</button>}<button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void confirmAllBrandSuggestions()}>{busy === "confirm_brand_all" ? "批量确认中…" : "一键确认全部候选"}</button></div></div>{brandJob && <div className="market-brand-job-progress"><header><div><strong>{brandJob.status === "completed" ? "识别完成" : brandJob.status === "paused" ? "已暂停" : brandJob.status === "failed" ? "可重试" : "识别任务进行中"}</strong><small>任务 {brandJob.id.slice(-8)} · 每批 {brandJob.batchSize} 个</small></div><b>{percent(brandJob.progressBps)}</b></header><span><i style={{ width: `${Math.min(100, brandJob.progressBps / 100)}%` }} /></span><div><label><strong>{count(brandJob.processedCount)}</strong><small>已处理</small></label><label><strong>{count(brandJob.remainingCount)}</strong><small>剩余</small></label><label><strong>{count(brandJob.recognizedCount)}</strong><small>识别出品牌</small></label><label><strong>{brandJobEta(brandJob)}</strong><small>预计剩余</small></label></div>{brandJob.lastError && <p>{brandJob.lastError}</p>}</div>}<div className="data-table-wrap"><table className="data-table market-brand-review-table"><thead><tr><th>主图</th><th>商品标题 / 类目</th><th>当前品牌</th><th>AI / 人工品牌</th><th>操作</th></tr></thead><tbody>{data.masterData.items.map((row) => { const key = brandRowKey(row); const href = marketProductHref(row.productUrl, row.skuCode); const suggested = String(row.suggestedBrand || "") || String(row.brand || ""); return <tr key={`${key}-${row.id}`}><td>{row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.productName || row.skuCode)}</strong></a> : <strong>{String(row.productName || row.skuCode)}</strong>}<small>{String(row.skuCode)} · 类目：{String(row.category)} · {String(row.scope)}</small></td><td>{String(row.brand || "待识别")}</td><td><input value={brandDrafts[key] ?? suggested} onChange={(event) => setBrandDrafts((current) => ({ ...current, [key]: event.target.value }))} placeholder="识别不了可留空" />{row.brandSuggestionStatus === "ai_pending" && <small className="market-ai-suggestion">AI 候选，待确认</small>}</td><td><div className="annotation-actions"><button className="row-action" disabled={!isAdmin || !brandModelId || busy !== ""} onClick={() => void inferBrand(row)}>{busy === `infer_brand:${key}` ? "识别中…" : "重新识别"}</button><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmBrand(row)}>修改 / 确认</button></div></td></tr>; })}</tbody></table></div><div className="market-pagination"><button disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>上一页</button><span>第 {page} / {data.masterData.pagination.pageCount} 页</span><button disabled={page >= data.masterData.pagination.pageCount} onClick={() => setPage((current) => current + 1)}>下一页</button></div></article></>}
     {mode === "mapping" && <article className="panel"><div className="section-header"><div><h3>映射与价格带</h3><p>细分类目、品牌别名、单品品牌确认、POP/自营映射和价格带配置均持久化并审计。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("subcategory")}>新增细分类目映射</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("brand_alias")}>新增品牌别名</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("operation_mode")}>新增经营模式规则</button><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "apply_mappings" })}>重算并应用映射</button><button className="secondary-button" disabled={!isAdmin} onClick={createPriceBandDraft}>新建价格带版本</button></div></div>
       <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类型</th><th>来源</th><th>目标</th><th>状态</th><th>版本</th><th>操作</th></tr></thead><tbody>{data.mappings.items.map((row) => <tr key={String(row.id)}><td>{String(row.kind)}</td><td>{String(row.source_value)}</td><td>{String(row.target_value)}</td><td>{String(row.status)}</td><td>{String(row.version)}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => editMapping(row)}>编辑</button></td></tr>)}</tbody></table></div>
-      <div className="market-brand-list">{data.priceBands.items.map((row) => <article key={String(row.id)}><label><strong>{String(row.category)} v{String(row.version)}</strong><span>{String(row.status)}</span></label><small>{String(row.effective_from)} · {String(row.note ?? "")}</small><div className="annotation-actions"><button className="row-action" disabled={!isAdmin || row.status === "published"} onClick={() => void post({ action: "publish_price_band_version", id: row.id })}>发布</button><button className="row-action" disabled={!isAdmin} onClick={() => void post({ action: "rollback_price_band_version", targetVersionId: row.id })}>回滚到此版本</button></div></article>)}</div>
+      <div className="market-brand-list">{data.priceBands.items.map((row) => <article key={String(row.id)}><label><strong>{String(row.category)} v{String(row.version)}</strong><span>{String(row.status)}</span></label><small>{String(row.effective_from)} · {String(row.note ?? "")}</small><div className="annotation-actions"><button className="row-action" disabled={!isAdmin || busy !== "" || row.status === "published"} onClick={() => void post({ action: "publish_price_band_version", id: row.id })}>发布</button><button className="row-action" disabled={!isAdmin || busy !== "" || row.status !== "archived"} onClick={() => void post({ action: "rollback_price_band_version", targetVersionId: row.id })}>回滚到此版本</button></div></article>)}</div>
     </article>}
     {mode === "data" && <><article className="panel"><div className="section-header"><div><h3>自动下载与导入工作流</h3><p>计算缺失范围、创建或复用下载任务，登录态未验证时保持 waiting_login。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={createDownloadConfig}>新增下载配置</button><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "plan_downloads" })}>计算缺失任务</button></div></div>
       <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类目/口径/月/维度</th><th>状态</th><th>次数</th><th>文件</th><th>错误</th><th>执行</th></tr></thead><tbody>{data.downloadTasks.map((row) => <tr key={String(row.id)}><td>{String(row.category)} · {String(row.scope)} · {String(row.month)} · {String(row.ranking_dimension)}</td><td>{String(row.status)}</td><td>{String(row.attempt_count)}</td><td>{String(row.source_file_name ?? "")}</td><td>{String(row.error_message ?? "")}</td><td><div className="annotation-actions"><label className="row-action">上传并校验导入<input type="file" accept=".xls,.xlsx,.csv" hidden disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void importDownloadedTask(row, file); event.currentTarget.value = ""; }} /></label><button className="row-action" disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onClick={() => void post({ action: "record_download_attempt", taskId: row.id, status: "waiting_login", errorCode: "waiting_login", errorMessage: "等待京东登录验证" })}>等待登录</button></div></td></tr>)}</tbody></table></div>
@@ -872,7 +919,8 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [priceBands, setPriceBands] = useState<string[]>([]);
   const [marketStartDate, setMarketStartDate] = useState(customStartDate);
   const [marketEndDate, setMarketEndDate] = useState(customEndDate);
-  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareSelections, setCompareSelections] = useState<MarketCompareSelection[]>([]);
+  const compareKeys = useMemo(() => compareSelections.map(marketCompareSelectionKey), [compareSelections]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
   const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
   const [reloadKey, setReloadKey] = useState(0);
@@ -898,7 +946,16 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     finally { setLoading(false); }
   }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 200); return () => window.clearTimeout(timer); }, [load, reloadKey]);
-  const toggleCompare = (sku: string) => setCompareIds((current) => current.includes(sku) ? current.filter((item) => item !== sku) : current.length >= 5 ? current : [...current, sku]);
+  const toggleCompare = (item: MarketItem) => setCompareSelections((current) => current.some((selection) => marketCompareSelectionKey(selection) === marketCompareSelectionKey(item))
+    ? current.filter((selection) => marketCompareSelectionKey(selection) !== marketCompareSelectionKey(item))
+    : current.length >= 5 ? current : [...current, {
+      skuCode: item.skuCode,
+      productName: item.productName,
+      category: item.category,
+      scope: item.scope,
+      rankingDimension: item.rankingDimension,
+    }]);
+  const removeCompare = (selectionKey: string) => setCompareSelections((current) => current.filter((item) => marketCompareSelectionKey(item) !== selectionKey));
   const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...(data?.filters.operationModes ?? [])].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [data]);
   if (loading && !data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
   if (error && !data) return <section className="panel data-state"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
@@ -910,7 +967,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   };
   const activeCopy = activeSection === "settings" ? null : sectionCopy[activeSection];
   return <div className="market-module">
-    <MarketSectionNav active={activeSection} compareCount={compareIds.length} onChange={setActiveSection} />
+    <MarketSectionNav active={activeSection} compareCount={compareSelections.length} onChange={setActiveSection} />
     {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
       <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p></div>
       <div className="market-filter-controls market-filter-controls-v2">
@@ -926,7 +983,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 SKU {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
     </section>}
     {error && <div className="market-feedback error">{error}</div>}
-    {activeSection === "ranking" && <RankingTable items={data.items} compareIds={compareIds} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
+    {activeSection === "ranking" && <RankingTable items={data.items} compareKeys={compareKeys} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
     {activeSection === "overview" && <>
       <MarketKpis data={data} />
       <TrendSection data={data} />
@@ -934,7 +991,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <BrandSection data={data} />
       <SubcategorySection data={data} />
     </>}
-    {activeSection === "compare" && <CompareWorkspace items={data.items} compareIds={compareIds} onClear={() => setCompareIds([])} onToggleCompare={toggleCompare} onGoRanking={() => setActiveSection("ranking")} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
+    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => setActiveSection("ranking")} query={query} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
     {activeSection === "settings" && <MarketSettingsWorkspace currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
   </div>;

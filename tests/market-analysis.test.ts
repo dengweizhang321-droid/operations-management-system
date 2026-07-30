@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { marketNaturalKey } from "../lib/market/import-identity";
 import { parseMarketRows, parseRange, parseRangeBounds } from "../lib/market/parser";
 import { aggregateMarketEstimates, annotateRankBounds } from "../lib/market/gmv-estimation";
+import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "../lib/market/latest-request";
 
 function csvBytes(value: string) {
   return new TextEncoder().encode(value);
@@ -114,6 +115,18 @@ test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI �
   assert.match(view, /activeSection === "compare"/);
   assert.match(view, /activeSection === "settings"/);
   assert.match(view, /<CompareWorkspace/);
+  assert.match(view, /useState<MarketCompareSelection\[\]>\(\[\]\)/);
+  assert.match(view, /selections\.map\(\(item\) => <button/);
+  assert.match(view, /params\.append\("selection", JSON\.stringify\(selection\)\)/);
+  assert.match(view, /params\.set\("q", query\.trim\(\)\)/);
+  assert.match(view, /const requestId = beginLatestRequest\(requestGeneration\)/);
+  assert.match(view, /requestId !== requestGeneration\.current/);
+  assert.match(view, /invalidateLatestRequest\(requestGeneration\); controller\.abort\(\)/);
+  assert.match(view, /const data = result\?\.requestKey === request\.requestKey \? result\.payload : null/);
+  assert.match(view, /setResult\(\{ requestKey: request\.requestKey, payload, error: "" \}\)/);
+  assert.match(view, /当前筛选范围无数据：\{missingSelections\.map/);
+  assert.match(view, /marketCompareSelectionKey\(item\)/);
+  assert.doesNotMatch(view, /compareIds\.map\(\(sku\) => items\.find/);
   assert.match(view, /<MarketMasterAdminPanel currentUser=\{currentUser\}/);
   assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\}/);
   assert.match(view, /市场分析 → 系统和 AI 设置/);
@@ -172,10 +185,26 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /非 AI 识别价/);
   assert.match(source, /pendingPricePageSize/);
   assert.match(source, /待确认价格页码/);
+  assert.match(source, /params\.set\("pendingPriceCategory", priceCategory\)/);
+  assert.match(source, /params\.set\("pendingPriceSource", pendingPriceSource\)/);
+  assert.match(source, /params\.set\("pendingPricePage", String\(pendingPricePage\)\)/);
+  assert.match(source, /params\.set\("pendingPricePageSize", String\(pendingPricePageSize\)\)/);
+  assert.match(source, /params\.set\("priceSource", masterCandidatePriceSource\)/);
+  assert.doesNotMatch(source, /params\.set\("priceSource", pendingPriceSource\)/);
+  assert.match(source, /pendingPriceSource, pendingPricePage, pendingPricePageSize, priceCategory/);
+  assert.doesNotMatch(source, /setPriceCategory\(\(current\) => current \|\| payload\.priceRecognition/);
   assert.match(source, /SKU 数据库每页条数/);
   assert.match(source, /setCategory\(nextCategory\); setPriceCategory\(nextCategory\); setPage\(1\); setPendingPricePage\(1\);/);
-  assert.match(source, /const requestId = \+\+loadRequestId\.current/);
-  assert.match(source, /if \(requestId !== loadRequestId\.current\) return/);
+  assert.match(source, /const requestId = beginLatestRequest\(loadRequestId\)/);
+  assert.match(source, /invalidateLatestRequest\(loadRequestId\);\s*const timer = window\.setTimeout/);
+  assert.match(source, /settleLatestRequest\(loadRequestId, requestId/);
+  assert.match(source, /if \(!settled\.current\) return/);
+  assert.match(source, /setError\(""\);\s*setData\(payload\)/);
+  assert.match(source, /setPage\(payload\.masterData\.pagination\.page\)/);
+  assert.match(source, /setPendingPricePage\(payload\.pendingPrices\.pagination\.page\)/);
+  assert.match(source, /latestLoadRef\.current = load/);
+  assert.match(source, /const loadLatest = useCallback\(\(\) => invokeLatestRequest\(latestLoadRef\), \[\]\)/);
+  assert.match(source, /setSubcategoryFilter\(""\); setPage\(1\); setPendingPricePage\(1\);/);
   assert.match(source, /key=\{`pending-price-\$\{row\.id\}`\}/);
   assert.match(source, /人工确认市场定位价（元）/);
   assert.match(source, /Math\.round\(priceYuan \* 100\)/);
@@ -199,6 +228,48 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(gmvTotals, /coverage_days DESC/);
   assert.match(service, /market_sku_gmv_totals/);
   assert.match(service, /gmv_total_cents DESC/);
+  const panel = source.slice(source.indexOf("export function MarketMasterAdminPanel"), source.indexOf("function MarketSettingsWorkspace"));
+  assert.equal(panel.match(/await loadLatest\(\)/g)?.length, 8);
+  assert.doesNotMatch(panel, /await load\(\)/);
+});
+
+test("market workspace request generations drop stale debounce successes and stale network failures", async () => {
+  const generation = { current: 0 };
+  let resolveOldSuccess: (value: string) => void = () => undefined;
+  const oldSuccessSource = new Promise<string>((resolve) => { resolveOldSuccess = resolve; });
+  const oldSuccessId = beginLatestRequest(generation);
+  const oldSuccess = settleLatestRequest(generation, oldSuccessId, () => oldSuccessSource);
+  invalidateLatestRequest(generation);
+  resolveOldSuccess("old filters");
+  assert.deepEqual(await oldSuccess, { current: false });
+
+  let rejectOldRequest: (reason: Error) => void = () => undefined;
+  const oldFailureSource = new Promise<string>((_resolve, reject) => { rejectOldRequest = reject; });
+  const oldFailureId = beginLatestRequest(generation);
+  const oldFailure = settleLatestRequest(generation, oldFailureId, () => oldFailureSource);
+  invalidateLatestRequest(generation);
+  const currentId = beginLatestRequest(generation);
+  assert.deepEqual(await settleLatestRequest(generation, currentId, async () => "new filters"), { current: true, value: "new filters" });
+  rejectOldRequest(new Error("old network failure"));
+  assert.deepEqual(await oldFailure, { current: false });
+
+  const currentFailureId = beginLatestRequest(generation);
+  await assert.rejects(
+    settleLatestRequest(generation, currentFailureId, async () => { throw new Error("current network failure"); }),
+    /current network failure/,
+  );
+});
+
+test("an old market POST completion refreshes through the latest filter load closure", async () => {
+  const calls: string[] = [];
+  const latestLoad = { current: async () => { calls.push("filter-A"); } };
+  const completePostStartedUnderA = async () => invokeLatestRequest(latestLoad);
+
+  latestLoad.current = async () => { calls.push("filter-B"); };
+  await invokeLatestRequest(latestLoad);
+  await completePostStartedUnderA();
+
+  assert.deepEqual(calls, ["filter-B", "filter-B"]);
 });
 
 test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品类设置和概括时间筛选", async () => {
@@ -238,7 +309,9 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(view, /market-master-database-table/);
   assert.match(view, /market-master-table-image/);
   assert.match(view, /打开商品链接/);
-  assert.match(service, /COUNT\(\*\) OVER\(\) full_count/);
+  assert.match(service, /WITH filtered AS MATERIALIZED/);
+  assert.match(service, /pagination_sentinel/);
+  assert.doesNotMatch(service, /COUNT\(\*\) OVER\(\) full_count/);
   assert.match(service, /wantsDatabase/);
   assert.match(service, /updateMarketSkuMasterData/);
   assert.match(service, /saveMarketSubcategorySettings/);

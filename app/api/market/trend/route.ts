@@ -8,10 +8,12 @@ export async function GET(request: Request) {
     await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db), ensureSalesSchema(db)]);
     const params = new URL(request.url).searchParams;
     const dimension = params.get("dimension");
+    if (dimension !== "SKU" && dimension !== "SPU") throw new Error("榜单维度必须为 SKU 或 SPU");
     const payload = await getMarketItemTrend(db, {
       skuCode: params.get("skuCode") ?? "",
-      category: params.get("category") ?? undefined,
-      rankingDimension: dimension === "SPU" ? "SPU" : dimension === "SKU" ? "SKU" : undefined,
+      category: params.get("category") ?? "",
+      scope: params.get("scope") ?? "",
+      rankingDimension: dimension,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
