@@ -257,7 +257,7 @@ function RankingTable({ items, compareKeys, onToggleCompare, onTrend, onOpenComp
       <td>{count(item.visitors)}</td><td>{percent(item.conversionBps)}</td>
       <td>{item.rankChange === null ? "-" : item.rankChange > 0 ? `↑${item.rankChange}` : item.rankChange < 0 ? `↓${Math.abs(item.rankChange)}` : "持平"}</td>
       <td><button type="button" className="row-action" onClick={() => onTrend(item)}>查看趋势</button></td>
-    </tr>)}{items.length === 0 && <tr><td colSpan={11}><div className="table-state">当前筛选范围没有商品数据。</div></td></tr>}</tbody></table></div>
+    </tr>)}{items.length === 0 && <tr><td colSpan={11}><div className="table-state">当前市场周期和筛选条件下暂无商品数据，请调整条件或选择“全部时间”。</div></td></tr>}</tbody></table></div>
   </section>;
 }
 
@@ -906,7 +906,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   </section>;
 }
 
-export default function MarketView({ customStartDate, customEndDate, currentUser }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser }) {
+export default function MarketView({ currentUser }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser }) {
   const [data, setData] = useState<MarketOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -917,8 +917,8 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [brands, setBrands] = useState<string[]>([]);
   const [subcategories, setSubcategories] = useState<string[]>([]);
   const [priceBands, setPriceBands] = useState<string[]>([]);
-  const [marketStartDate, setMarketStartDate] = useState(customStartDate);
-  const [marketEndDate, setMarketEndDate] = useState(customEndDate);
+  const [marketStartDate, setMarketStartDate] = useState("");
+  const [marketEndDate, setMarketEndDate] = useState("");
   const [compareSelections, setCompareSelections] = useState<MarketCompareSelection[]>([]);
   const compareKeys = useMemo(() => compareSelections.map(marketCompareSelectionKey), [compareSelections]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
@@ -971,7 +971,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
       <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p></div>
       <div className="market-filter-controls market-filter-controls-v2">
-        {activeSection === "overview" && <div className="market-overview-period"><label><span>开始日期</span><input type="date" value={marketStartDate} max={marketEndDate || undefined} onChange={(event) => setMarketStartDate(event.target.value)} /></label><label><span>结束日期</span><input type="date" value={marketEndDate} min={marketStartDate || undefined} onChange={(event) => setMarketEndDate(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setMarketStartDate(""); setMarketEndDate(""); }}>全部时间</button></div>}
+        <div className="market-overview-period"><label><span>开始日期</span><input type="date" value={marketStartDate} max={marketEndDate || undefined} onChange={(event) => setMarketStartDate(event.target.value)} /></label><label><span>结束日期</span><input type="date" value={marketEndDate} min={marketStartDate || undefined} onChange={(event) => setMarketEndDate(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setMarketStartDate(""); setMarketEndDate(""); }}>全部时间</button></div>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品标题或 SKU" aria-label="搜索商品标题或 SKU" />
         <SearchMultiFilter label="类目" values={categories} options={data.filters.categories} onChange={setCategories} />
         <SearchMultiFilter label="榜单维度" values={dimensions} options={data.filters.rankingDimensions.length ? data.filters.rankingDimensions : [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }]} onChange={setDimensions} />

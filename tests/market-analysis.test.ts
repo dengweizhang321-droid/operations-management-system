@@ -281,6 +281,10 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   for (const label of ["SKU 数据库与价格审核", "全部细分品类", "全部价格状态", "全部入库状态", "编辑 SKU 全部数据", "编辑 SKU 数据", "细分品类设置", "保存并刷新全部关联数据", "开始日期", "结束日期", "源表价格区间中位数兜底"]) assert.match(view, new RegExp(label));
+  assert.match(view, /const \[marketStartDate, setMarketStartDate\] = useState\(""\)/);
+  assert.match(view, /const \[marketEndDate, setMarketEndDate\] = useState\(""\)/);
+  assert.doesNotMatch(view, /activeSection === "overview" && <div className="market-overview-period"/);
+  assert.match(view, /当前市场周期和筛选条件下暂无商品数据/);
   assert.match(view, /databaseArea === "annotation"/);
   assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\} embedded/);
   assert.match(annotation, /storageStatus/);
