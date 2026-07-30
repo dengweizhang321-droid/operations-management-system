@@ -15,6 +15,7 @@ import {
   getSalesSummary,
   isSalesRange,
 } from "@/lib/sales/summary";
+import { getOperationsBusinessDates } from "@/lib/ai/business-time";
 
 export async function callOperationsTool(
   name: string,
@@ -32,6 +33,7 @@ export async function callOperationsTool(
       db.prepare("SELECT MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines")
         .first<{ end_date: string | null }>(),
     ]);
+    const businessDates = getOperationsBusinessDates();
     return {
       sales: {
         through: salesBounds?.end_date ?? null,
@@ -43,7 +45,9 @@ export async function callOperationsTool(
         importedAt: inventoryBatch?.completedAt ?? null,
         fileName: inventoryBatch?.fileName ?? null,
       },
-      timezone: "Asia/Shanghai",
+      timezone: businessDates.timeZone,
+      currentBusinessDate: businessDates.today,
+      yesterdayBusinessDate: businessDates.yesterday,
     };
   }
 
