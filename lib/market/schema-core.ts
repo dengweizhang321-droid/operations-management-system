@@ -18,6 +18,26 @@ const selfOperated = "\u81ea\u8425";
 const unknownMode = "\u672a\u77e5";
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
 
+const marketEffectiveMetricsCacheStatements = [
+  `CREATE TABLE IF NOT EXISTS market_effective_metrics_cache (
+    market_entry_id INTEGER PRIMARY KEY NOT NULL,
+    effective_gmv_cents INTEGER,
+    real_gmv_cents INTEGER,
+    gmv_out_of_band INTEGER,
+    effective_quantity INTEGER,
+    effective_average_transaction_price_cents INTEGER,
+    effective_conversion_bps INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS market_effective_metrics_cache_state (
+    id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+    market_row_count INTEGER NOT NULL,
+    market_updated_at TEXT NOT NULL,
+    netshop_row_count INTEGER NOT NULL,
+    netshop_updated_at TEXT NOT NULL,
+    refreshed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+] as const;
+
 export const marketBaseSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS market_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
@@ -106,6 +126,7 @@ export const marketBaseSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  ...marketEffectiveMetricsCacheStatements,
   `CREATE TABLE IF NOT EXISTS market_sku_gmv_totals (
     sku_code TEXT PRIMARY KEY NOT NULL,
     gmv_total_cents INTEGER NOT NULL DEFAULT 0,
@@ -758,6 +779,7 @@ async function normalizePublishedPriceBandVersions(db: MarketSchemaDatabase) {
 export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<void> {
   const fastMarker = await hasMarketRuntimeSchemaMarker(db);
   if (fastMarker) {
+    for (const statement of marketEffectiveMetricsCacheStatements) await db.prepare(statement).run();
     await db.prepare(`CREATE TABLE IF NOT EXISTS market_master_identities (
       category TEXT NOT NULL, scope TEXT NOT NULL, ranking_dimension TEXT NOT NULL,
       sku_code TEXT NOT NULL, latest_entry_id INTEGER NOT NULL,

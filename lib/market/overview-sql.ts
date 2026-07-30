@@ -6,6 +6,7 @@ type MarketOverviewSqlOptions = {
   priceBandWhere?: string;
   materialized?: boolean;
   confirmedOnlyPriceBands?: boolean;
+  useEffectiveMetricsCache?: boolean;
 };
 
 type MarketMonthlyCoverageSqlOptions = {
@@ -247,9 +248,29 @@ export function marketEffectiveFactsCtes(factWhere = "") {
   )`;
 }
 
+export function marketCachedEffectiveFactsCtes(factWhere = "") {
+  return `market_effective_rows AS MATERIALIZED (
+    SELECT m.*,
+      cached.effective_gmv_cents,
+      cached.real_gmv_cents,
+      cached.gmv_out_of_band,
+      cached.effective_quantity,
+      cached.effective_average_transaction_price_cents,
+      cached.effective_conversion_bps
+    FROM market_ranking_entries m
+    JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
+    ${factWhere}
+  ), market_basis_rows AS MATERIALIZED (
+    SELECT * FROM market_effective_rows
+  )`;
+}
+
 export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions = {}) {
   const materialized = options.materialized ? "MATERIALIZED " : "";
-  return `WITH ${marketEffectiveFactsCtes(options.factWhere)}, enriched AS ${materialized}(
+  const effectiveFacts = options.useEffectiveMetricsCache
+    ? marketCachedEffectiveFactsCtes(options.factWhere)
+    : marketEffectiveFactsCtes(options.factWhere);
+  return `WITH ${effectiveFacts}, enriched AS ${materialized}(
     SELECT m.*,
       mic.status AS image_cache_status_raw,
       mic.content_sha256 AS image_content_sha256,
@@ -295,7 +316,10 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
   const analyticsWhere = priceBandWhere
     ? `${priceBandWhere} AND (sections.section<>'price_value' OR official_market_price_cents IS NOT NULL)`
     : "WHERE sections.section<>'price_value' OR official_market_price_cents IS NOT NULL";
-  const commonCtes = `WITH ${marketEffectiveFactsCtes(options.factWhere)}, analytics_base AS MATERIALIZED (
+  const effectiveFacts = options.useEffectiveMetricsCache
+    ? marketCachedEffectiveFactsCtes(options.factWhere)
+    : marketEffectiveFactsCtes(options.factWhere);
+  const commonCtes = `WITH ${effectiveFacts}, analytics_base AS MATERIALIZED (
     SELECT m.id, m.updated_at, m.period_start, m.period_end, m.category, m.scope, m.price_band_filter, m.ranking_dimension, m.operation_mode,
       m.subcategory, m.rank, m.sku_code, m.brand, m.price_cents, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
       m.effective_conversion_bps conversion_bps

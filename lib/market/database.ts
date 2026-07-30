@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
 import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
-import { buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
-import { ensureMarketSchemaCached } from "@/lib/market/schema-core";
+import { buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
+import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
@@ -163,6 +163,28 @@ type EntryRow = {
   period_count: number; is_own: number; own_sales_cents: number;
 };
 
+type EffectiveMetricsCacheRevision = {
+  row_count: number;
+  updated_at: string | null;
+};
+
+type EffectiveMetricsCacheState = {
+  market_row_count: number;
+  market_updated_at: string;
+  netshop_row_count: number;
+  netshop_updated_at: string;
+};
+
+type RankingSummaryRow = {
+  product_count: number;
+  category_count: number;
+  brand_count: number;
+  pending_ai_count: number;
+  date_min: string | null;
+  date_max: string | null;
+  price_bands_json: string;
+};
+
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
 
 function parseSqlJson<T>(value: unknown, fallback: T): T {
@@ -172,6 +194,97 @@ function parseSqlJson<T>(value: unknown, fallback: T): T {
 
 function batchRows<T>(result: { results?: unknown[] } | undefined): T[] {
   return (result?.results ?? []) as T[];
+}
+
+const effectiveMetricsRefreshByDatabase = new WeakMap<object, Promise<void>>();
+const effectiveMetricsTriggersByDatabase = new WeakMap<object, Promise<void>>();
+
+function ensureEffectiveMetricsInvalidationTriggers(db: MarketDatabase): Promise<void> {
+  const key = db as object;
+  const ready = effectiveMetricsTriggersByDatabase.get(key);
+  if (ready) return ready;
+  const setup = db.batch([
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_market_insert
+      AFTER INSERT ON market_ranking_entries BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_market_update
+      AFTER UPDATE ON market_ranking_entries BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_market_delete
+      AFTER DELETE ON market_ranking_entries BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_insert
+      AFTER INSERT ON netshop_rows BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_update
+      AFTER UPDATE ON netshop_rows BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_delete
+      AFTER DELETE ON netshop_rows BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+  ]).then(() => undefined).catch((error: unknown) => {
+    effectiveMetricsTriggersByDatabase.delete(key);
+    throw error;
+  });
+  effectiveMetricsTriggersByDatabase.set(key, setup);
+  return setup;
+}
+
+function sameEffectiveMetricsRevision(
+  state: EffectiveMetricsCacheState | null,
+  market: EffectiveMetricsCacheRevision,
+  netshop: EffectiveMetricsCacheRevision,
+) {
+  return Boolean(state)
+    && Number(state?.market_row_count ?? -1) === Number(market.row_count ?? 0)
+    && state?.market_updated_at === (market.updated_at ?? "")
+    && Number(state?.netshop_row_count ?? -1) === Number(netshop.row_count ?? 0)
+    && state?.netshop_updated_at === (netshop.updated_at ?? "");
+}
+
+async function refreshEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
+  const [market, netshop, state] = await Promise.all([
+    db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM market_ranking_entries").first<EffectiveMetricsCacheRevision>(),
+    db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM netshop_rows").first<EffectiveMetricsCacheRevision>(),
+    db.prepare("SELECT market_row_count, market_updated_at, netshop_row_count, netshop_updated_at FROM market_effective_metrics_cache_state WHERE id=1")
+      .first<EffectiveMetricsCacheState>(),
+  ]);
+  const marketRevision = market ?? { row_count: 0, updated_at: null };
+  const netshopRevision = netshop ?? { row_count: 0, updated_at: null };
+  if (sameEffectiveMetricsRevision(state, marketRevision, netshopRevision)) return;
+  await db.batch([
+    db.prepare("DELETE FROM market_effective_metrics_cache"),
+    db.prepare(`WITH ${marketEffectiveFactsCtes()}
+      INSERT INTO market_effective_metrics_cache (
+        market_entry_id, effective_gmv_cents, real_gmv_cents, gmv_out_of_band,
+        effective_quantity, effective_average_transaction_price_cents, effective_conversion_bps
+      )
+      SELECT id, effective_gmv_cents, real_gmv_cents, gmv_out_of_band,
+        effective_quantity, effective_average_transaction_price_cents, effective_conversion_bps
+      FROM market_effective_rows`),
+    db.prepare(`INSERT INTO market_effective_metrics_cache_state (
+        id, market_row_count, market_updated_at, netshop_row_count, netshop_updated_at, refreshed_at
+      ) VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET
+        market_row_count=excluded.market_row_count,
+        market_updated_at=excluded.market_updated_at,
+        netshop_row_count=excluded.netshop_row_count,
+        netshop_updated_at=excluded.netshop_updated_at,
+        refreshed_at=CURRENT_TIMESTAMP`)
+      .bind(
+        Number(marketRevision.row_count ?? 0),
+        marketRevision.updated_at ?? "",
+        Number(netshopRevision.row_count ?? 0),
+        netshopRevision.updated_at ?? "",
+      ),
+  ]);
+}
+
+export function ensureMarketEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
+  const key = db as object;
+  const running = effectiveMetricsRefreshByDatabase.get(key);
+  if (running) return running;
+  const refresh = ensureEffectiveMetricsInvalidationTriggers(db)
+    .then(() => refreshEffectiveMetricsCache(db))
+    .finally(() => {
+      effectiveMetricsRefreshByDatabase.delete(key);
+    });
+  effectiveMetricsRefreshByDatabase.set(key, refresh);
+  return refresh;
 }
 
 function filterSql(filters: MarketOverviewFilters) {
@@ -211,24 +324,65 @@ function filterSql(filters: MarketOverviewFilters) {
   };
 }
 
+function combineWhereSql(...parts: string[]) {
+  const clauses = parts.map((part) => part.replace(/^\s*WHERE\s+/i, "").trim()).filter(Boolean);
+  return clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+}
+
 export async function getMarketOverview(
   db: MarketDatabase,
   filters: MarketOverviewFilters = {},
-  internal: { priceBandBasis?: "display_fallback" | "confirmed_only" } = {},
+  internal: { priceBandBasis?: "display_fallback" | "confirmed_only"; view?: "ranking" | "full" } = {},
 ) {
+  await ensureMarketEffectiveMetricsCache(db);
+  const view = internal.view ?? "full";
   const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
-  const enriched = buildMarketOverviewEnrichedSql({ factWhere, where, priceBandWhere });
+  const enriched = buildMarketOverviewEnrichedSql({
+    factWhere,
+    where,
+    priceBandWhere,
+    useEffectiveMetricsCache: true,
+  });
   const analyticsSql = buildMarketOverviewAnalyticsSql({
     factWhere,
     where,
     priceBandWhere,
     confirmedOnlyPriceBands: internal.priceBandBasis === "confirmed_only",
+    useEffectiveMetricsCache: true,
   });
+  const rankingSummarySql = `WITH summary_source AS MATERIALIZED (
+      SELECT m.period_start, m.period_end, m.category, m.sku_code, m.brand,
+        ps.confirmed_market_price_cents AS official_market_price_cents,
+        ${officialPriceBandSql("ps.confirmed_market_price_cents", {
+          confirmationStatusSql: "ps.confirmation_status",
+          aiPriceTypeSql: "ps.ai_price_type",
+          categorySql: "m.category",
+          periodEndSql: "m.period_end",
+          fallbackPriceSql: "NULLIF(m.price_cents,0)",
+        })} AS price_band
+      FROM market_ranking_entries m
+      LEFT JOIN market_price_snapshots ps ON ps.category=m.category
+        AND ps.scope=m.scope AND ps.sku_code=m.sku_code
+        AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)
+      ${combineWhereSql(factWhere, where)}
+    ), filtered AS MATERIALIZED (
+      SELECT * FROM summary_source ${priceBandWhere}
+    ), ranking_price_bands AS MATERIALIZED (
+      SELECT price_band value, COUNT(DISTINCT sku_code) count FROM filtered GROUP BY price_band
+    )
+    SELECT COUNT(DISTINCT sku_code) product_count,
+      COUNT(DISTINCT category) category_count,
+      COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) brand_count,
+      COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN sku_code END) pending_ai_count,
+      MIN(period_start) date_min, MAX(period_end) date_max,
+      COALESCE((SELECT json_group_array(json_object('value', value, 'count', count))
+        FROM (SELECT value, count FROM ranking_price_bands ORDER BY count DESC, value)), '[]') price_bands_json
+    FROM filtered`;
   const dateValues = [filters.startDate ?? "", filters.startDate ?? "", filters.endDate ?? "", filters.endDate ?? ""];
   const rankingBindings = [...values, ...priceBandValues];
   const analyticsBindings = [...values, ...priceBandValues];
-  const [analyticsResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
-    db.prepare(analyticsSql).bind(...analyticsBindings),
+  const [primaryResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
+    db.prepare(view === "full" ? analyticsSql : rankingSummarySql).bind(...analyticsBindings),
     db.prepare(`${enriched}, top_ranked AS MATERIALIZED (
       SELECT * FROM filtered
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC
@@ -274,7 +428,8 @@ export async function getMarketOverview(
       FROM market_ranking_entries m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
       WHERE m.image_url<>''`),
   ]);
-  const analyticsRows = batchRows<AnalyticsAggregateRow>(analyticsResult);
+  const analyticsRows = view === "full" ? batchRows<AnalyticsAggregateRow>(primaryResult) : [];
+  const rankingSummary = view === "ranking" ? batchRows<RankingSummaryRow>(primaryResult)[0] : undefined;
   const ranking = batchRows<EntryRow>(rankingResult);
   const rankedEstimates = annotateRankBounds(ranking.map((row) => ({
     id: row.id,
@@ -323,20 +478,33 @@ export async function getMarketOverview(
   const weightedMarketPrice = weightedPriceDenominator > 0
     ? Math.round(priceValueRows.reduce((sum, row) => sum + Number(row.number_1 ?? 0) * Number(row.number_3 ?? 0), 0) / weightedPriceDenominator)
     : null;
-  const summaryValue: SummaryRow = {
-    product_count: Number(summaryAggregate?.number_1 ?? 0),
-    category_count: Number(summaryAggregate?.number_2 ?? 0),
-    brand_count: Number(summaryAggregate?.number_3 ?? 0),
-    gmv_cents: Number(summaryAggregate?.number_4 ?? 0),
-    quantity: Number(summaryAggregate?.number_5 ?? 0),
-    page_views: Number(summaryAggregate?.number_6 ?? 0),
-    visitors: Number(summaryAggregate?.number_7 ?? 0),
-    own_product_count: Number(summaryAggregate?.number_8 ?? 0),
-    self_operated_gmv_cents: Number(summaryAggregate?.number_9 ?? 0),
-    pending_ai_count: Number(summaryAggregate?.number_10 ?? 0),
-    median_market_price_cents: medianPrice,
-    weighted_market_price_cents: weightedMarketPrice,
-  };
+  const summaryValue: SummaryRow = view === "full" ? {
+      product_count: Number(summaryAggregate?.number_1 ?? 0),
+      category_count: Number(summaryAggregate?.number_2 ?? 0),
+      brand_count: Number(summaryAggregate?.number_3 ?? 0),
+      gmv_cents: Number(summaryAggregate?.number_4 ?? 0),
+      quantity: Number(summaryAggregate?.number_5 ?? 0),
+      page_views: Number(summaryAggregate?.number_6 ?? 0),
+      visitors: Number(summaryAggregate?.number_7 ?? 0),
+      own_product_count: Number(summaryAggregate?.number_8 ?? 0),
+      self_operated_gmv_cents: Number(summaryAggregate?.number_9 ?? 0),
+      pending_ai_count: Number(summaryAggregate?.number_10 ?? 0),
+      median_market_price_cents: medianPrice,
+      weighted_market_price_cents: weightedMarketPrice,
+    } : {
+      product_count: Number(rankingSummary?.product_count ?? 0),
+      category_count: Number(rankingSummary?.category_count ?? 0),
+      brand_count: Number(rankingSummary?.brand_count ?? 0),
+      gmv_cents: 0,
+      quantity: 0,
+      page_views: 0,
+      visitors: 0,
+      own_product_count: 0,
+      self_operated_gmv_cents: 0,
+      pending_ai_count: Number(rankingSummary?.pending_ai_count ?? 0),
+      median_market_price_cents: null,
+      weighted_market_price_cents: null,
+    };
   const allTrendRows = analyticsRows.filter((row) => row.section === "trend")
     .map((row) => ({
       period: row.row_key,
@@ -358,9 +526,10 @@ export async function getMarketOverview(
     }))
     .sort((left, right) => right.gmv_cents - left.gmv_cents);
   const priceBandOrder = (value: string) => value === "未确认价格" ? 9 : value === "3000+" ? 8 : 1;
-  const priceBandOptions = [...priceBandRows]
+  const rankingPriceBandOptions = parseSqlJson<Array<{ value: string; count: number }>>(rankingSummary?.price_bands_json, []);
+  const priceBandOptions = view === "full" ? [...priceBandRows]
     .sort((left, right) => priceBandOrder(left.price_band) - priceBandOrder(right.price_band) || left.price_band.localeCompare(right.price_band))
-    .map((row) => ({ value: row.price_band, count: row.row_count }));
+    .map((row) => ({ value: row.price_band, count: row.row_count })) : rankingPriceBandOptions;
   const priceBandTrendRows = analyticsRows.filter((row) => row.section === "price_band_trend")
     .map((row) => ({ period: row.row_key, price_band: row.text_1 ?? unknownPriceBand, gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0) }));
   const priceBandPeriodTotals = new Map<string, number>();
@@ -398,6 +567,7 @@ export async function getMarketOverview(
   const brandShares = brandSharesAll.slice(0, 30);
   const cr = (count: number) => brandTotal ? Math.round(brandSharesAll.slice(0, count).reduce((sum, row) => sum + row.gmvCents, 0) / brandTotal * 10_000) : 0;
   return {
+    view,
     summary: {
       productCount: Number(summaryValue.product_count ?? 0),
       categoryCount: Number(summaryValue.category_count ?? 0),
@@ -480,7 +650,9 @@ export async function getMarketOverview(
       rankingDimensions: dimensionOptions, operationModes: modeOptions, subcategories: subcategoryOptions,
       priceBands: priceBandOptions,
     },
-    dataRange: { startDate: summaryAggregate?.text_1 ?? null, endDate: summaryAggregate?.text_2 ?? null },
+    dataRange: view === "full"
+      ? { startDate: summaryAggregate?.text_1 ?? null, endDate: summaryAggregate?.text_2 ?? null }
+      : { startDate: rankingSummary?.date_min ?? null, endDate: rankingSummary?.date_max ?? null },
     batches,
     imageCache: {
       total: Number(imageCache?.total ?? 0), cached: Number(imageCache?.cached ?? 0), failed: Number(imageCache?.failed ?? 0),

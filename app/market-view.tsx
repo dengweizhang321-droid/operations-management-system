@@ -19,6 +19,7 @@ type MarketItem = {
 type MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;
 type MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;
 type MarketOverview = {
+  view: "ranking" | "full";
   summary: {
     productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;
     ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;
@@ -924,10 +925,14 @@ export default function MarketView({ currentUser }: { customStartDate: string; c
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
   const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
   const [reloadKey, setReloadKey] = useState(0);
-  const load = useCallback(async () => {
+  const loadRequestId = useRef(0);
+  const requestedView = activeSection === "overview" ? "full" : "ranking";
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const requestId = ++loadRequestId.current;
     setLoading(true); setError("");
     try {
       const params = new URLSearchParams();
+      params.set("view", requestedView);
       if (query.trim()) params.set("q", query.trim());
       categories.forEach((value) => params.append("category", value));
       dimensions.forEach((value) => params.append("dimension", value));
@@ -937,15 +942,24 @@ export default function MarketView({ currentUser }: { customStartDate: string; c
       priceBands.forEach((value) => params.append("priceBand", value));
       if (marketStartDate) params.set("startDate", marketStartDate);
       if (marketEndDate) params.set("endDate", marketEndDate);
-      const response = await fetch(`/api/market/overview?${params}`, { cache: "no-store" });
+      const response = await fetch(`/api/market/overview?${params}`, { cache: "no-store", signal });
       const payload = await response.json().catch(() => null) as MarketOverview | null;
       if (!response.ok) throw new Error(payload?.error || "市场分析数据读取失败");
       if (!payload) throw new Error("市场分析返回为空");
+      if (signal?.aborted || requestId !== loadRequestId.current) return;
       setData(payload);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "市场分析数据读取失败"); }
-    finally { setLoading(false); }
-  }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate]);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 200); return () => window.clearTimeout(timer); }, [load, reloadKey]);
+    } catch (reason) {
+      if (signal?.aborted || requestId !== loadRequestId.current) return;
+      setError(reason instanceof Error ? reason.message : "市场分析数据读取失败");
+    } finally {
+      if (!signal?.aborted && requestId === loadRequestId.current) setLoading(false);
+    }
+  }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate, requestedView]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void load(controller.signal), 350);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [load, reloadKey]);
   const toggleCompare = (item: MarketItem) => setCompareSelections((current) => current.some((selection) => marketCompareSelectionKey(selection) === marketCompareSelectionKey(item))
     ? current.filter((selection) => marketCompareSelectionKey(selection) !== marketCompareSelectionKey(item))
     : current.length >= 5 ? current : [...current, {
@@ -984,7 +998,7 @@ export default function MarketView({ currentUser }: { customStartDate: string; c
     </section>}
     {error && <div className="market-feedback error">{error}</div>}
     {activeSection === "ranking" && <RankingTable items={data.items} compareKeys={compareKeys} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
-    {activeSection === "overview" && <>
+    {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state"><span className="state-spinner" /><strong>正在生成市场概括</strong><p>商品榜单已可用，规模、价格带、品牌和细分类目正在按需汇总…</p></section> : activeSection === "overview" && <>
       <MarketKpis data={data} />
       <TrendSection data={data} />
       <PriceBandSection data={data} />
