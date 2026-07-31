@@ -1,35 +1,109 @@
-# Operations data connection
+# TERUISI 运营管理系统协作规范
 
-Before answering an operating-data question, read and follow [docs/OPERATIONS_DATA_QUERY.md](docs/OPERATIONS_DATA_QUERY.md). It defines the required source fallback, encoding, validation, metric, and response rules.
+本文件适用于仓库根目录及其全部子目录。目标是让后续开发、数据处理、自动化和 AI 能力变更始终遵守当前业务口径、数据安全边界与 Cloudflare 运行约束。用户在当前对话中的明确指令优先于本文件。
 
-For questions about current TERUISI operating data, use the `teruisi_operations` MCP server instead of relying on memory or sample data.
+## 1. 任务开始与事实来源
 
-- Start with `get_data_freshness`, then state the data cutoff date and filters used.
-- Monetary fields are CNY cents unless the tool result says otherwise.
-- This MCP connection is read-only: never claim to have imported data or created or changed a replenishment plan.
-- Do not infer operational figures when a relevant MCP tool can be called.
+1. 开始任何任务前，先读取共享 Obsidian 记忆入口 `D:\Codex Obsidian Memory Vault\Home.md`，再按其中协议只加载与本任务相关的偏好、项目笔记和近期复盘。
+2. 以当前代码、测试、数据库迁移和仍在生效的操作文档为事实来源；记忆和规划文档只用于补充背景。若文档与代码冲突，先验证当前行为，再更新过期文档，不能为了匹配旧文档回退正确实现。
+3. 修改前先检查 `git status` 和相关差异。工作区中已有的改动默认属于用户；不得覆盖、格式化、暂存或提交无关文件。
+4. 涉及当前运营数据的查询，必须先阅读并遵守 [docs/OPERATIONS_DATA_QUERY.md](docs/OPERATIONS_DATA_QUERY.md)。
 
-# Git workflow
+## 2. 当前系统与模块边界
 
-After completing each system optimization, create a focused Git commit and push it to the configured remote repository.
+- 技术栈：TypeScript、React 19、Next.js 16 API/组件约定、Vinext/Vite、Cloudflare Workers、D1 和 R2。
+- 页面入口集中在 `app/page.tsx`，市场分析主体位于 `app/market-view.tsx` 和 `app/market-annotation-view.tsx`；业务逻辑应放在 `lib/<domain>/`，API 路由只负责鉴权、输入解析、调用服务和稳定响应。
+- 当前导航模块为：BI 看板、网店分析、市场分析、客服分析、销售分析、库存管理、货品详情、运营事务、数据导入、系统设置和 AI 助理。
+- 主要业务域及代码目录：
+  - 销售、毛利和渠道：`lib/sales/`
+  - 库存、库龄和补货：`lib/inventory/`
+  - 京东网店 SKU/SPU 与商品主数据：`lib/netshop/`、`lib/jd/`
+  - 吉客云自动化：`lib/jackyun/`、`tools/jackyun-*`
+  - 市场 TOP 榜单、价格、标注和缓存：`lib/market/`
+  - 客服会话与分析：`lib/customer-service/`
+  - 财务和 ERP 货品参照：`lib/finance/`、`lib/erp-reference/`
+  - AI 助理、工具执行和审计：`lib/ai/`
+  - 全局搜索：`lib/search/`
+- 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
 
-For every subsequent source or project-configuration modification, create a focused Git commit and push it to the configured remote before handoff.
+## 3. 统一业务口径
 
-# Local service lifecycle
+- 业务时区固定为 `Asia/Shanghai`。自动化日期、今日/昨日、导入覆盖和相对日期均以该时区计算；仅为避免日期漂移的纯日历运算可使用 UTC，但不能把 UTC 当作业务时区。
+- 系统金额默认以人民币分存储和传输；展示为元时除以 100。净销售额包含负值退款，销量必须明确是正向销量、退货量还是净销量。
+- 日期查询使用左闭右开区间。店铺身份不能只靠模糊名称，至少保留并核验 `platform + shop_name`；销售源存在 `channel` 时还要交叉核验渠道。
+- `刷刷仓` 是当前销售、库存和成本分析的业务排除仓。除非用户明确变更业务规则，不得删除该排除或把它混入经营指标。
+- 市场分析只代表“当前 TOP 榜单覆盖口径”，不得表述为完整行业大盘。SKU 与 SPU、类目、榜单 scope、经营模式、价格段和统计周期必须保持完整身份隔离。
+- 市场“正式市场定位价/主图展示价”和“成交均价”是两个指标。需要正式价格的价格带、AI 工具或发布流程只能使用符合当前确认契约的人工确认价；候选价、分期金额、定金、起售价等不能静默升级为正式价格。
+- 页面、接口、AI 回复和导出中的同名指标必须复用同一领域口径；不得在前端重新定义服务端指标。
 
-Do not stop, restart, or otherwise interrupt a local development or Workers service unless the user explicitly approves that restart in the current conversation.
+## 4. 运营数据查询规则
 
-# Central AI tool registry
+1. 查询当前 TERUISI 运营数据时，优先使用只读 `teruisi_operations` MCP；第一步调用 `get_data_freshness`。
+2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用本机 D1 的只读副本，并在回复中说明替代来源。
+3. 输出必须写明数据来源、数据截止日期、时间范围、渠道/平台/店铺/SKU 等筛选、金额和销量口径，以及缺数或映射异常。
+4. 中文筛选必须参数化并保证 UTF-8。零结果要先核验覆盖日期、字段枚举、编码、退款和时间边界，不能直接断言无数据。
+5. 只读连接不得导入、修改或删除数据，也不得声称已创建或改变补货计划。相关工具可调用时，不得用记忆、样例或估算代替真实查询。
 
-- All system queries or capabilities intended for AI use must be declared exactly once in `lib/ai/tool-registry.ts`. Each registry entry must include a stable name, title, precise description, object JSON schema with `additionalProperties: false`, allowed roles, an explicit read-only/write/dangerous risk marker, annotations, a bounded handler, and audit coverage.
-- Adding a business module must also add a bounded read-only retrieval tool when its data should be searchable by AI, and register that tool in the central registry. The registry automatically drives model-provider schemas, the discoverable tool API, execution routing, permission checks, and audits.
-- Never expose arbitrary SQL, database tables, application routes, or API handlers automatically. Only explicitly allowlisted, parameterized handlers may enter the registry; enforce field allowlists, server-side limits, and data-scope/role checks.
-- Model-supplied identity or role claims are untrusted. Tool visibility and execution authorization must use the authenticated application principal, and every execution must audit the real actor, surface, request ID, summarized arguments, status, row count, duration, response digest, and error code without exposing secrets.
-- Tests for every registry change must prove unique and complete entries, matching OpenAI/Anthropic schemas and handlers, role filtering, bounded results/calls, and synchronized registry/catalog/execution behavior. A new handler that is absent from the registry, or a registry schema without a callable handler, is a failing change.
+## 5. 导入、自动化与多店铺隔离
 
-# Codex cross-project memory
+- 所有导入必须保留来源、文件哈希、批次、店铺、数据集、覆盖日期、行数、告警和最终状态，并在返回成功前做落库回查。下载成功不等于导入成功，创建下载任务也不等于数据已经发布。
+- 幂等身份必须包含业务范围。京东文件至少按来源、平台、店铺和文件哈希隔离；分天数据的行身份还必须包含数据集、业务日期和 SKU/SPU。不得用全局文件哈希把不同店铺或月份误判为重复。
+- 同一月份/快照的替换必须限定精确范围；失败不得留下部分事实。大文件和分块上传要保留会话所有权、完成状态和可恢复性，过期 worker 或迟到响应不能覆盖新任务结果。
+- 多店铺京东任务按店铺串行执行，并使用 `config/jd-store-accounts.json` 中独立的浏览器 profile、调试端口和下载目录。切店后必须验证当前账号/店铺身份；不得共享会话、下载清单或恢复状态。
+- 自动化只能复用经过文件名、生成时间、来源店铺、日期覆盖和工作簿内容共同验证的下载文件。不得因文件“看起来最新”就导入，也不得吞掉等待登录、权限不足、下载超时或导入拒绝状态。
+- 吉客云五类任务保持既定顺序：货品、分仓库存、库龄、销售、组合装；销售渠道白名单和自动化策略从 `config/*.json` 读取。调整白名单或排除仓时要同步领域查询与测试，不能只改某一条导入链路。
+- 京东/吉客云任务优先遵循仓库内对应的 `.agents/skills/*/SKILL.md` 和 `docs/` 操作手册。修改这些链路时，必须覆盖跨店隔离、重复任务、日期覆盖、恢复清单、批次幂等和“下载后真正导入”的回归测试。
+- 未经用户明确授权，不删除、改写或重新导入业务数据；需要清理时必须先只读定位精确批次与影响行数，并提供清理后的同范围验证。
 
-Before starting a task, read the relevant material in the shared Obsidian memory vault:
-`D:\Codex Obsidian Memory Vault\Home.md`.
+## 6. 鉴权、密钥与敏感数据
 
-At task completion, record only durable, non-sensitive information (long-term plans, stable preferences, reusable workflows, important decisions and their rationale, or project state) in the appropriate vault note. Put uncertain items in `00 Inbox/Memory Inbox.md`. Current user instructions override stored memory.
+- 应用角色固定为 `viewer`、`analyst`、`operator`、`admin`。所有权限和数据 scope 均使用服务端 `requireAppPrincipal()` 得到的真实身份；客户端、模型参数和请求正文中的身份/角色声明不可信。
+- 读取也要应用 principal scope；写入、配置、导入、发布、回滚、删除等操作按现有角色契约收紧，不能为了修复页面流程绕过鉴权。
+- `.dev.vars`、API Key、Token、Webhook、AES Key、浏览器登录状态和原始客户聊天不得提交、打印到日志、写进审计摘要或持久记忆。列表接口只返回掩码。
+- 本地免登录管理员仅在 `TERUISI_LOCAL_DIRECT_ACCESS=true`、`TERUISI_RUNTIME_ENV=development` 与真实开发/本地构建标记同时满足时可用；生产环境必须保持拒绝匿名直连。
+- 外部回调必须验签、解密、校验接收方并防重。聊天平台消息不能绕过后台权限直接修改运营数据。
+
+## 7. 中央 AI 工具注册表
+
+- 所有供模型调用的系统能力必须且只能在 `lib/ai/tool-registry.ts` 声明一次。不得从数据库表、任意 SQL、API 路由或 handler 自动暴露工具。
+- 每个条目必须包含稳定名称、标题、精确描述、`additionalProperties: false` 的对象 JSON Schema、允许角色、`scopePolicy`、`risk`、annotations、有界执行策略和可调用 handler。
+- 执行策略必须明确入口 surface、超时、响应字符上限和单请求调用上限。内联直调只允许只读工具；写入或危险工具必须走人工确认或持久化后台任务，不能伪装成只读。
+- 工具执行使用真实 principal 做角色和 scope 校验，输入和输出均有界且可取消。审计必须记录真实 actor、surface、request/invocation ID、脱敏参数摘要、状态、行数、耗时、响应摘要和错误码；审计不可用时应失败关闭。
+- 每次注册表变更都要测试：名称唯一且条目完整、OpenAI/Anthropic schema 一致、handler 存在、角色与 scope 过滤、surface 和风险限制、参数/结果/调用次数边界，以及 registry/catalog/execution 同步。新增可检索业务数据却没有注册有界只读工具，或只有 schema 没有 handler，均视为失败。
+
+## 8. D1、R2、迁移与缓存
+
+- D1 保存结构化业务事实、配置、批次与审计；R2 保存经验证的原文件或图片对象。不要在 D1 中保存大二进制，也不要把 R2 对象当作未经校验即可导入的事实。
+- 数据库结构变更使用新的前向 `drizzle/*.sql` 迁移；不得改写已应用迁移。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
+- 迁移先补列/补表、回填和去重，再创建依赖新结构的索引或唯一约束。升级必须可重复执行，并保护已有人工确认、审计和批次历史。
+- D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
+- 查询设计必须适应 D1 限制，保持参数、表达式深度、复合查询项、结果体和执行时间有界。涉及复杂市场查询时保留表达式深度 100、复合查询 5 项的回归门禁。
+- 有效指标、月度汇总和 overview 响应缓存都只是派生数据。任何影响结果的事实、价格、图片状态、映射或主数据变更必须递增版本或精确失效；版本不一致、构建未完成或租约失效时不得返回旧缓存。
+
+## 9. API、前端与性能要求
+
+- API 响应默认 `no-store`，除非实现了显式版本指纹、失效策略和并发复用的持久缓存。缓存不能绕过身份、scope 或数据新鲜度。
+- 列表和搜索在服务端筛选、分页并设置硬上限，同时返回 `total/returned/truncated` 等必要元数据；不得把数万行完整数据发到浏览器再筛选。
+- 用户连续切换筛选时取消旧请求，并用 request key/generation 等门禁阻止迟到响应覆盖新状态。不能只靠前端防抖掩盖慢查询。
+- 新查询要避免逐行 N+1、无界 `IN`、重复全表迁移和无变化 UPDATE。对高频聚合优先使用有版本失效的派生表或响应缓存，并用真实规模数据比较结果等价性和时延。
+- 全局搜索新增领域时同步更新 `lib/search/` 覆盖、权限、结果边界和文档；数据应可被 AI 查询时还要按第 7 节接入中央注册表。
+
+## 10. 验证与本地服务生命周期
+
+- 根据改动范围运行最小充分验证：优先相关测试，再运行 `npm run test:unit`、`npm run lint` 和 `git diff --check`。仅文档变更无需运行生产构建，但必须检查链接、命令和当前代码一致。
+- `npm test` 会先执行生产构建。生产构建会改写 `dist`，而本地预构建 Worker 会监听该目录；构建前必须检查 `127.0.0.1:3000` 是否被本项目服务占用。
+- 未经用户在当前对话中明确批准，不得停止、重启或中断本地开发/Workers 服务，也不得在运行中的 Worker 监听 `dist` 时原地构建。需要本地预构建 Worker 时使用 `npm run start:local-worker`；需要构建并启动时使用受保护的 `tools/start-local-worker.mjs --build` 流程。
+- 不得为了测试而覆盖本机 D1/R2、浏览器 profile、下载目录或 `.dev.vars`。测试优先使用临时目录、内存/临时 SQLite 和夹具。
+- 未经明确要求，不执行生产部署、远程 D1 迁移、生产数据导入或外部平台真实发送。涉及这类动作时，应先说明目标环境、影响范围和验证/回滚方案。
+- 修改注册表、鉴权、导入、市场迁移、缓存或自动化状态机时，必须增加针对失败、重试、重复、跨范围和并发交错的负向测试，不能只验证成功路径。
+
+## 11. Git 与交付
+
+- 每次源码或项目配置修改完成后，创建一个聚焦、可审查的 Git 提交，并推送到已配置远端；文档/规范修改也属于项目配置修改。
+- 只暂存本任务文件。推送前再次核验 `git diff --cached`，避免纳入用户已有改动、生成文件、下载文件、凭证或运行产物。
+- 不使用破坏性 Git 命令清理工作区。没有明确要求时不改写历史、不强推、不切换或删除用户分支。
+- 交付说明必须列出：变更内容、验证结果、提交与推送状态、未执行的部署/迁移/服务操作，以及仍需用户决定的风险。
+
+## 12. 任务结束与长期记忆
+
+任务完成前，把会影响后续工作的稳定、非敏感信息写入共享 Obsidian vault 的对应项目笔记；不确定内容写入 `00 Inbox\Memory Inbox.md`。只记录长期计划、稳定偏好、可复用流程、重要决策及理由和项目状态，不记录密码、令牌、个人敏感信息、原始客户数据或冗长命令输出。
