@@ -1,4 +1,4 @@
-import type { MarketSchemaDatabase } from "@/lib/market/schema-core";
+import { marketStandardSkuImagePriceInheritanceSql, type MarketSchemaDatabase } from "@/lib/market/schema-core";
 
 export async function claimMarketImageCache(db: MarketSchemaDatabase, sourceUrl: string) {
   const claim = await db.prepare(`INSERT INTO market_image_cache (source_url, status, attempt_count, updated_at)
@@ -52,9 +52,12 @@ export async function completeMarketImageCacheClaim(
         AND EXISTS (SELECT 1 FROM market_image_cache cache
           WHERE cache.source_url=? AND cache.status='ready' AND cache.content_sha256=? AND cache.attempt_count=?)`)
       .bind(input.contentHash, input.sourceUrl, input.sourceUrl, input.sourceUrl, input.sourceUrl, input.contentHash, input.attemptCount),
+    db.prepare(marketStandardSkuImagePriceInheritanceSql("target.image_content_sha256=? AND target.image_url=?"))
+      .bind(input.contentHash, input.sourceUrl),
   ]) as Array<{ meta?: { changes?: number } }>;
   return {
     completed: Number(writes[0]?.meta?.changes ?? 0) === 1,
     snapshotsUpdated: Number(writes[1]?.meta?.changes ?? 0),
+    pricesInherited: Number(writes[2]?.meta?.changes ?? 0),
   };
 }

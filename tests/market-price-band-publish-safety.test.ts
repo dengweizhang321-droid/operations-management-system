@@ -224,7 +224,7 @@ test("runtime schema preserves a usable custom published global band instead of 
   sqlite.close();
 });
 
-test("runtime schema recovers from a fixed default primary-key collision before recording the v12 marker", async () => {
+test("runtime schema recovers from a fixed default primary-key collision before recording the v13 marker", async () => {
   const sqlite = new DatabaseSync(":memory:");
   createLegacyPriceBandTable(sqlite);
   sqlite.exec(`INSERT INTO market_price_band_versions (id,category,version,status,effective_from) VALUES
@@ -237,12 +237,12 @@ test("runtime schema recovers from a fixed default primary-key collision before 
   assert.notEqual(global.id, "market-price-band-default-v1");
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_price_band_items WHERE version_id=?").get(global.id) as { count: number }).count, 5);
   assert.equal((sqlite.prepare(`SELECT COUNT(*) count FROM market_master_audit_logs
-    WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'`).get() as { count: number }).count, 1);
+    WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v13'`).get() as { count: number }).count, 1);
   assert.equal((sqlite.prepare("SELECT category FROM market_price_band_versions WHERE id='market-price-band-default-v1'").get() as { category: string }).category, "collision-category");
   sqlite.close();
 });
 
-test("runtime schema does not record the v12 marker when a default-item primary key blocks recovery", async () => {
+test("runtime schema does not record the v13 marker when a default-item primary key blocks recovery", async () => {
   const sqlite = new DatabaseSync(":memory:");
   createLegacyPriceBandTable(sqlite);
   sqlite.exec(`CREATE TABLE market_price_band_items (
@@ -260,12 +260,12 @@ test("runtime schema does not record the v12 marker when a default-item primary 
 
   await assert.rejects(() => ensureMarketSchemaCore(sqliteAdapter(sqlite)), /默认价格带项恢复失败/);
   assert.equal((sqlite.prepare(`SELECT COUNT(*) count FROM market_master_audit_logs
-    WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'`).get() as { count: number }).count, 0);
+    WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v13'`).get() as { count: number }).count, 0);
   assert.equal((sqlite.prepare("SELECT status FROM market_price_band_versions WHERE id='market-price-band-default-v1'").get() as { status: string }).status, "archived");
   sqlite.close();
 });
 
-test("published fixed default primary-key collisions fail before recording the v12 marker", async () => {
+test("published fixed default primary-key collisions fail before recording the v13 marker", async () => {
   const sqlite = new DatabaseSync(":memory:");
   createLegacyPriceBandTable(sqlite);
   createLegacyPriceBandItemTable(sqlite);
@@ -277,11 +277,11 @@ test("published fixed default primary-key collisions fail before recording the v
 
   await assert.rejects(() => ensureMarketSchemaCore(sqliteAdapter(sqlite)), /默认价格带项恢复失败/);
   assert.equal((sqlite.prepare(`SELECT COUNT(*) count FROM market_master_audit_logs
-    WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'`).get() as { count: number }).count, 0);
+    WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v13'`).get() as { count: number }).count, 0);
   sqlite.close();
 });
 
-test("v12 fast-marker path reconverges duplicate published versions and restores the partial unique index", async () => {
+test("v13 fast-marker path reconverges duplicate published versions and restores the partial unique index", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);

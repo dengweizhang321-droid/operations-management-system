@@ -499,6 +499,18 @@ test("排名约束使用真实 GMV 锚点做几何插值并反推自洽指标", 
   assert.equal(aggregateMarketEstimates(rows, 3).effectiveGmvCents, 1_416_228);
 });
 
+test("正式主图价不参与成交件数和成交均价计算", () => {
+  const input = {
+    id: "separate-prices", category: "净水设备", periodStart: "2026-07-01", periodEnd: "2026-07-31", scope: "全部",
+    rank: 1, gmvMidCents: 100_000, gmvLowCents: 100_000, gmvHighCents: 100_000,
+    priceMidCents: 10_000, quantityMid: 10, quantityLow: 1, quantityHigh: 100, visitorsMid: 100,
+    manualPriceCents: 50_000,
+  };
+  const [row] = annotateRankBounds([input]);
+  assert.equal(row?.estimatedQuantity, 10);
+  assert.equal(row?.averageTransactionPriceCents, 10_000);
+});
+
 test("真实锚点超出榜单区间时保留真实值且不按粗区间截断", () => {
   const [row] = annotateRankBounds([{
     id: 1, category: "净水设备", periodStart: "2026-07-01", periodEnd: "2026-07-31", scope: "全部", rank: 1,

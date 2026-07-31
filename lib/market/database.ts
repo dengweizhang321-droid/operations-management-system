@@ -493,7 +493,6 @@ export async function getMarketOverview(
     priceMidCents: row.price_cents,
     priceLowCents: null,
     priceHighCents: null,
-    manualPriceCents: row.official_market_price_cents,
     quantityMid: row.quantity,
     quantityLow: row.quantity_low,
     quantityHigh: row.quantity_high,

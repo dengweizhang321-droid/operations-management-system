@@ -229,11 +229,12 @@ test("image cache claims are fenced and first success backfills only empty snaps
     VALUES
       ('cache-a',1,'2026-06-01','2026-06-30','缓存类目','POP','SKU','POP','CACHE-A','商品A','https://img.example/a.jpg','{}','batch'),
       ('cache-b',2,'2026-06-01','2026-06-30','缓存类目','POP','SKU','POP','CACHE-B','商品B','https://img.example/b.jpg','{}','batch');
-    INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url)
+    INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,ai_price_type,confirmed_market_price_cents,confirmation_status)
     VALUES
-      ('cache-snapshot-url','缓存类目','POP','CACHE-A','SKU','2026-06','','https://img.example/a.jpg'),
-      ('cache-snapshot-legacy','缓存类目','POP','CACHE-B','SKU','2026-06','',''),
-      ('cache-snapshot-existing','缓存类目','POP','CACHE-A','SKU','2026-05','historical-hash','https://img.example/a.jpg');`);
+      ('cache-snapshot-url','缓存类目','POP','CACHE-A','SKU','2026-06','','https://img.example/a.jpg','',NULL,'missing'),
+      ('cache-snapshot-legacy','缓存类目','POP','CACHE-B','SKU','2026-06','','','',NULL,'missing'),
+      ('cache-snapshot-existing','缓存类目','POP','CACHE-A','SKU','2026-05','historical-hash','https://img.example/a.jpg','',NULL,'missing'),
+      ('cache-snapshot-standard','缓存类目','POP','CACHE-A','SKU','2026-04','hash-a','https://img.example/a.jpg','标准售价',188800,'confirmed');`);
 
   const claimA = await claimMarketImageCache(db, "https://img.example/a.jpg");
   assert.equal(claimA, 1);
@@ -242,9 +243,9 @@ test("image cache claims are fenced and first success backfills only empty snaps
     sourceUrl: "https://img.example/a.jpg", attemptCount: claimA!, objectKey: "market/a.jpg",
     contentHash: "hash-a", mimeType: "image/jpeg", sizeBytes: 10, imageSource: "test",
   });
-  assert.deepEqual(completedA, { completed: true, snapshotsUpdated: 1 });
-  assert.deepEqual({ ...(sqlite.prepare("SELECT image_content_sha256 hash,image_url imageUrl FROM market_price_snapshots WHERE id='cache-snapshot-url'").get() as Record<string, unknown>) },
-    { hash: "hash-a", imageUrl: "https://img.example/a.jpg" });
+  assert.deepEqual(completedA, { completed: true, snapshotsUpdated: 1, pricesInherited: 1 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT image_content_sha256 hash,image_url imageUrl,confirmed_market_price_cents price,confirmation_status status FROM market_price_snapshots WHERE id='cache-snapshot-url'").get() as Record<string, unknown>) },
+    { hash: "hash-a", imageUrl: "https://img.example/a.jpg", price: 188800, status: "confirmed" });
   assert.equal((sqlite.prepare("SELECT image_content_sha256 hash FROM market_price_snapshots WHERE id='cache-snapshot-existing'").get() as { hash: string }).hash, "historical-hash");
 
   const staleClaim = await claimMarketImageCache(db, "https://img.example/b.jpg");
@@ -256,7 +257,7 @@ test("image cache claims are fenced and first success backfills only empty snaps
     sourceUrl: "https://img.example/b.jpg", attemptCount: replacementClaim!, objectKey: "market/b.jpg",
     contentHash: "hash-b", mimeType: "image/jpeg", sizeBytes: 20, imageSource: "test",
   });
-  assert.deepEqual(completedB, { completed: true, snapshotsUpdated: 1 });
+  assert.deepEqual(completedB, { completed: true, snapshotsUpdated: 1, pricesInherited: 0 });
   assert.equal(await failMarketImageCacheClaim(db, {
     sourceUrl: "https://img.example/b.jpg", attemptCount: staleClaim!, errorCode: "late_failure", errorMessage: "late",
   }), false);
@@ -308,7 +309,7 @@ test("0020 old market database upgrades columns, indexes, snapshots, and backfil
   const changesAfterUpgrade = (sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes;
   await ensureMarketSchemaCore(db);
   assert.equal((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes, changesAfterUpgrade);
-  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v13'").get() as { count: number }).count, 1);
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(columnNames("market_brand_suggestions").has("ai_brand"));
   assert.ok(columnNames("market_brand_recognition_jobs").has("processed_count"));
@@ -421,7 +422,7 @@ test("runtime upgrade does not rewrite valid dimensions and swaps the canonical 
 
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_price_band_uq'").get());
   assert.equal(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_entries_canonical_uq'").get(), undefined);
-  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v12'").get());
+  assert.ok(sqlite.prepare("SELECT id FROM market_master_audit_logs WHERE entity_type='runtime_schema' AND entity_id='market-runtime-schema-v13'").get());
   sqlite.close();
 });
 
@@ -524,6 +525,66 @@ test("same market fact with different file hashes updates the canonical fact ins
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_import_batches").get() as { count: number }).count, 2);
   assert.equal((sqlite.prepare("SELECT image_content_sha256 hash FROM market_price_snapshots WHERE sku_code='SKU-1'").get() as { hash: string }).hash, "hash-a");
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_subcategory_taxonomy WHERE category='净水' AND subcategory='台式' AND status='active'").get() as { count: number }).count, 1);
+  sqlite.close();
+});
+
+test("market import directly inherits a confirmed standard price only for the same SKU image", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`
+    INSERT INTO market_image_cache (source_url,status,content_sha256) VALUES
+      ('https://img10.360buyimg.com/imgzone/a.jpg','ready','hash-a'),
+      ('https://img10.360buyimg.com/imgzone/b.jpg','ready','hash-b');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,ai_price_type,confirmed_market_price_cents,
+       price_low_cents,price_high_cents,image_content_sha256,confirmation_status,confirmed_by,confirmed_at)
+    VALUES ('history-standard','净水','pop','SKU-1','SKU','2026-06','标准售价',259900,
+      259900,259900,'hash-a','confirmed','admin@test','2026-07-01 00:00:00');
+  `);
+
+  await saveMarketImportCore({
+    db, batchId: "same-image-batch", sourceType: "jd", fileName: "same-image.csv", fileSizeBytes: 10,
+    fileHash: "same-image-file-hash", sheetName: "CSV",
+    rows: [entry({ periodStart: "2026-07-01", periodEnd: "2026-07-31", imageUrl: "https://img10.360buyimg.com/imgzone/a.jpg" })], warnings: [],
+  });
+  await saveMarketImportCore({
+    db, batchId: "changed-image-batch", sourceType: "jd", fileName: "changed-image.csv", fileSizeBytes: 10,
+    fileHash: "changed-image-file-hash", sheetName: "CSV",
+    rows: [entry({ periodStart: "2026-08-01", periodEnd: "2026-08-31", imageUrl: "https://img10.360buyimg.com/imgzone/b.jpg" })], warnings: [],
+  });
+
+  const rows = sqlite.prepare(`SELECT month,image_content_sha256 hash,confirmed_market_price_cents price,
+    confirmation_status status,confirmed_by confirmedBy FROM market_price_snapshots WHERE sku_code='SKU-1' ORDER BY month`).all() as Array<Record<string, unknown>>;
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { month: "2026-06", hash: "hash-a", price: 259900, status: "confirmed", confirmedBy: "admin@test" },
+    { month: "2026-07", hash: "hash-a", price: 259900, status: "confirmed", confirmedBy: "system:history_same_image" },
+    { month: "2026-08", hash: "hash-b", price: null, status: "source_table", confirmedBy: "" },
+  ]);
+  sqlite.close();
+});
+
+test("0051 backfills only pending SKU snapshots with the same confirmed standard image", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`INSERT INTO market_price_snapshots
+    (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,ai_price_type,
+     confirmed_market_price_cents,confirmation_status,confirmed_by,confirmed_at)
+    VALUES
+      ('migration-source','净水','pop','SKU-51','SKU','2026-01','hash-same','标准售价',319900,'confirmed','admin@test','2026-02-01 00:00:00'),
+      ('migration-same','净水','pop','SKU-51','SKU','2026-02','hash-same','',NULL,'missing','',NULL),
+      ('migration-changed','净水','pop','SKU-51','SKU','2026-03','hash-changed','',NULL,'missing','',NULL),
+      ('migration-spu','净水','pop','SKU-51','SPU','2026-02','hash-same','',NULL,'missing','',NULL);`);
+  const migration = await readFile(new URL("../drizzle/0051_market_standard_sku_image_price_inheritance.sql", import.meta.url), "utf8");
+  sqlite.exec(migration);
+  const rows = sqlite.prepare(`SELECT id,confirmed_market_price_cents price,confirmation_status status
+    FROM market_price_snapshots WHERE id<>'migration-source' ORDER BY id`).all() as Array<Record<string, unknown>>;
+  assert.deepEqual(rows.map((row) => ({ ...row })), [
+    { id: "migration-changed", price: null, status: "missing" },
+    { id: "migration-same", price: 319900, status: "confirmed" },
+    { id: "migration-spu", price: null, status: "missing" },
+  ]);
   sqlite.close();
 });
 

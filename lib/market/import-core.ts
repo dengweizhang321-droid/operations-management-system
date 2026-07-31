@@ -1,7 +1,7 @@
 import { assertMarketPeriod, marketImportRangeKey, marketNaturalKey, MAX_MARKET_IMPORT_ROWS, normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import { marketSkuGmvRefreshStatements } from "@/lib/market/gmv-total";
 import { marketMasterIdentityRefreshStatements } from "@/lib/market/master-identity";
-import type { MarketSchemaDatabase } from "@/lib/market/schema-core";
+import { marketStandardSkuImagePriceInheritanceSql, type MarketSchemaDatabase } from "@/lib/market/schema-core";
 
 export type MarketEntryForImport = {
   naturalKey: string;
@@ -430,13 +430,17 @@ export async function saveMarketImportCore(input: {
     ] : [];
 
     publishAttempted = true;
-    const publish = await db.batch([
+    const publishStatements = [
       ...fenceStatements,
       db.prepare(factInsertSql).bind(input.batchId, input.batchId, input.batchId, claimToken, claimKeys.length),
       db.prepare(snapshotInsertSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length, input.batchId),
+      db.prepare(marketStandardSkuImagePriceInheritanceSql("target.source_import_batch_id=?")).bind(input.batchId),
       db.prepare(taxonomyInsertSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length),
       ...marketSkuGmvRefreshStatements(db, input.batchId),
       ...marketMasterIdentityRefreshStatements(db, input.batchId),
+    ];
+    const completionStatementIndex = publishStatements.length;
+    publishStatements.push(
       db.prepare(`UPDATE market_import_batches
         SET status='completed', inserted_count=?, updated_count=?, completed_at=CURRENT_TIMESTAMP
         WHERE id=? AND owner_token=? AND status='processing'
@@ -446,8 +450,9 @@ export async function saveMarketImportCore(input: {
         SELECT 1 FROM market_import_batches WHERE id=? AND owner_token=?)`)
         .bind(input.batchId, input.batchId, claimToken),
       db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=? AND claim_token=?").bind(input.batchId, claimToken),
-    ]) as RunResult[];
-    if (changes(publish[fenceStatements.length + 7]) !== 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
+    );
+    const publish = await db.batch(publishStatements) as RunResult[];
+    if (changes(publish[completionStatementIndex]) !== 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
 
     const completedAt = new Date().toISOString();
     completedFallback = {

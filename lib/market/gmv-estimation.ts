@@ -16,7 +16,6 @@ export type MarketEstimateInput = {
   priceMidCents?: number | null;
   priceLowCents?: number | null;
   priceHighCents?: number | null;
-  manualPriceCents?: number | null;
   quantityMid?: number | null;
   quantityLow?: number | null;
   quantityHigh?: number | null;
@@ -57,12 +56,10 @@ function boundedMidpoint(low: number, high: number, fallback: number) {
 }
 
 function refine(row: MarketEstimateInput, effectiveGmvCents: number, outOfBand: boolean, isAnchor: boolean): MarketEstimate {
-  const manualPrice = nonNegative(row.manualPriceCents);
   const rangePrice = nonNegative(row.priceMidCents);
   const quantityMid = nonNegative(row.quantityMid);
   const ratioPrice = quantityMid && quantityMid > 0 ? effectiveGmvCents / quantityMid : null;
-  const price0 = (manualPrice && manualPrice > 0 ? manualPrice : null)
-    ?? (rangePrice && rangePrice > 0 ? rangePrice : null)
+  const price0 = (rangePrice && rangePrice > 0 ? rangePrice : null)
     ?? (ratioPrice && ratioPrice > 0 ? ratioPrice : null);
   let quantity = price0 && price0 > 0
     ? Math.max(1, Math.round(effectiveGmvCents / price0))
@@ -72,7 +69,7 @@ function refine(row: MarketEstimateInput, effectiveGmvCents: number, outOfBand: 
     quantity = Math.max(1, Math.round(clamp(quantity, quantityLow, quantityHigh)));
   }
   let averagePrice = quantity > 0 ? effectiveGmvCents / quantity : null;
-  if (averagePrice !== null && !manualPrice && !outOfBand) {
+  if (averagePrice !== null && !outOfBand) {
     const [priceLow, priceHigh] = normalizedBounds(row.priceLowCents, row.priceHighCents);
     averagePrice = clamp(averagePrice, priceLow, priceHigh);
   }

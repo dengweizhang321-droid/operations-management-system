@@ -13,6 +13,7 @@ import {
 } from "@/lib/market/annotation-types";
 import type { MarketDatabase } from "@/lib/market/database";
 import { ensureMarketMasterIdentities } from "@/lib/market/master-identity";
+import { inheritConfirmedStandardSkuImagePrices } from "@/lib/market/schema-core";
 
 type Actor = { email: string; role: string };
 type PromptRow = { id: string; category: string; version: number; parent_id: string | null; source: string; status: string; segments_json: string; prompt_body: string; change_note: string; metrics_json: string; created_by: string; created_at: string; activated_by: string | null; activated_at: string | null };
@@ -362,6 +363,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     const model = await db.prepare("SELECT id FROM ai_models WHERE id=? AND status='enabled' AND model_type IN ('vision','image')").bind(input.modelId).first<{ id: string }>();
     if (!model) throw new Error("所选云端视觉模型不存在或未启用");
   } else if (!input.localModelName?.trim()) throw new Error("本地任务必须填写 Ollama 模型名");
+  await inheritConfirmedStandardSkuImagePrices(db, "target.category=?", [category]);
   const limit = normalizeMarketAnnotationJobLimit(input.limit);
   const promptSegments = json<string[]>(prompt.segments_json, []);
   const rows = await db.prepare(`
@@ -746,6 +748,7 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
       const statements = chunk.flatMap(({ item, old, annotationId, after, receiptKey }) => {
         const priceType = item.reviewed_price_type || item.ai_price_type || "无法判断";
         const formalPrice = ["定金", "分期金额", "无法判断"].includes(priceType) ? null : item.reviewed_image_price_cents;
+        const reusableStandardPrice = item.ranking_dimension === "SKU" && priceType === "标准售价" ? formalPrice : null;
         const status = formalPrice === null ? "review_pending" : "confirmed";
         const snapshotGuardId = "market-snapshot-guard-" + randomUUID();
         return [
@@ -773,12 +776,13 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
               AND image_content_sha256=?`)
             .bind(item.ai_image_price_cents, priceType, item.ai_confidence_bps, item.ai_reason, item.reviewed_price_low_cents, item.reviewed_price_high_cents, formalPrice, item.image_content_sha256, after.imageUrl, after.imageUrl, status, actor.email, formalPrice, item.id, job.prompt_version_id, item.category || job.category, item.scope, item.sku_code, item.ranking_dimension, item.month, item.image_content_sha256),
           db.prepare(`UPDATE market_price_snapshots SET
-            confirmed_market_price_cents=?, confirmation_status='confirmed', confirmed_by=?, confirmed_at=CURRENT_TIMESTAMP,
+            ai_image_price_cents=?, ai_price_type='标准售价',
+            confirmed_market_price_cents=?, confirmation_status='confirmed', confirmed_by='system:history_same_image', confirmed_at=CURRENT_TIMESTAMP,
             source_job_item_id=?, prompt_version_id=?, updated_at=CURRENT_TIMESTAMP
-            WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND image_content_sha256=?
-              AND month IN (strftime('%Y-%m', date(? || '-01', '-1 month')), strftime('%Y-%m', date(? || '-01', '+1 month')))
+            WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension='SKU' AND image_content_sha256=?
               AND confirmed_market_price_cents IS NULL AND ? IS NOT NULL`)
-            .bind(formalPrice, actor.email, item.id, job.prompt_version_id, item.category || job.category, item.scope, item.sku_code, item.ranking_dimension, item.image_content_sha256, item.month, item.month, formalPrice),
+            .bind(reusableStandardPrice, reusableStandardPrice, item.id, job.prompt_version_id,
+              item.category || job.category, item.scope, item.sku_code, item.image_content_sha256, reusableStandardPrice),
           db.prepare("UPDATE market_ranking_entries SET subcategory=?, source_subcategory=?, updated_at=CURRENT_TIMESTAMP WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=?")
             .bind(item.reviewed_segment, item.reviewed_segment, item.category || job.category, item.scope, item.sku_code, item.ranking_dimension),
           db.prepare("INSERT INTO market_annotation_commit_receipts (id, job_item_id, annotation_id, idempotency_key, before_json, after_json, committed_by, batch_id, request_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")

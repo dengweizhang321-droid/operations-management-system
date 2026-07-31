@@ -442,7 +442,7 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   sqlite.close();
 });
 
-test("market annotation commit updates only the bound month and safely inherits adjacent same-image months", async () => {
+test("market annotation commit directly inherits standard prices across matching SKU-image months only", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -487,7 +487,7 @@ test("market annotation commit updates only the bound month and safely inherits 
   sqlite.close();
 });
 
-test("new annotation jobs reuse the latest confirmed standard price for the same historical image as a review default", async () => {
+test("new annotation jobs directly inherit matching SKU-image standard prices and only queue changed images", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -523,11 +523,13 @@ test("new annotation jobs reuse the latest confirmed standard price for the same
     reviewed_price_type price_type, reviewed_by reviewer, ai_image_price_cents ai_price, image_source
     FROM market_annotation_items WHERE job_id=? ORDER BY month`).all(job.id) as Array<Record<string, unknown>>;
   assert.deepEqual(items.map((row) => ({ ...row })), [
-    { month: "2026-02", status: "review_pending", segment: "台式", price: 199900, price_type: "标准售价", reviewer: "system:history_same_image", ai_price: null, image_source: "imgzone" },
     { month: "2026-03", status: "queued", segment: "", price: null, price_type: "", reviewer: "", ai_price: null, image_source: "none" },
   ]);
-  assert.equal(job.totalCount, 2);
-  assert.equal(job.completedCount, 1);
+  const inherited = sqlite.prepare(`SELECT confirmed_market_price_cents price, ai_price_type priceType,
+    confirmation_status status, confirmed_by confirmedBy FROM market_price_snapshots WHERE id='ps-feb'`).get() as Record<string, unknown>;
+  assert.deepEqual({ ...inherited }, { price: 199900, priceType: "标准售价", status: "confirmed", confirmedBy: "system:history_same_image" });
+  assert.equal(job.totalCount, 1);
+  assert.equal(job.completedCount, 0);
   assert.equal(job.status, "running");
   sqlite.close();
 });
