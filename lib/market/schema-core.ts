@@ -106,7 +106,18 @@ const marketMonthlySummaryCacheIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_monthly_summary_confirmed_band_idx ON market_monthly_summary_cache (confirmed_price_band, month)`,
 ] as const;
 
+const marketOverviewResponseCacheStatements = [
+  `CREATE TABLE IF NOT EXISTS market_overview_response_cache (
+    cache_key TEXT PRIMARY KEY NOT NULL,
+    revision_key TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+] as const;
+
 export const marketBaseSchemaStatements = [
+  ...marketOverviewResponseCacheStatements,
   `CREATE TABLE IF NOT EXISTS market_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source_type TEXT NOT NULL,
@@ -508,6 +519,8 @@ export const marketPostUpgradeIndexStatements = [
   `CREATE INDEX IF NOT EXISTS market_price_snapshots_hash_idx ON market_price_snapshots (sku_code, image_content_sha256, confirmed_at)`,
   `CREATE INDEX IF NOT EXISTS market_image_cache_object_key_idx ON market_image_cache (object_key)`,
   `CREATE INDEX IF NOT EXISTS market_image_cache_status_idx ON market_image_cache (status, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS market_image_cache_updated_idx ON market_image_cache (updated_at)`,
+  `CREATE INDEX IF NOT EXISTS market_overview_response_cache_updated_idx ON market_overview_response_cache (updated_at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_price_band_versions_category_version_uq ON market_price_band_versions (category, version)`,
   marketPublishedPriceBandUniqueIndexStatement,
   `CREATE INDEX IF NOT EXISTS market_price_band_versions_lookup_idx ON market_price_band_versions (category, status, effective_from, version)`,
@@ -854,6 +867,9 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
     for (const statement of marketEffectiveMetricsCacheStatements) await db.prepare(statement).run();
     for (const statement of marketMonthlySummaryCacheStatements) await db.prepare(statement).run();
     for (const statement of marketMonthlySummaryCacheIndexStatements) await db.prepare(statement).run();
+    for (const statement of marketOverviewResponseCacheStatements) await db.prepare(statement).run();
+    await db.prepare("CREATE INDEX IF NOT EXISTS market_overview_response_cache_updated_idx ON market_overview_response_cache (updated_at)").run();
+    await db.prepare("CREATE INDEX IF NOT EXISTS market_image_cache_updated_idx ON market_image_cache (updated_at)").run();
     await db.prepare(`CREATE TABLE IF NOT EXISTS market_master_identities (
       category TEXT NOT NULL, scope TEXT NOT NULL, ranking_dimension TEXT NOT NULL,
       sku_code TEXT NOT NULL, latest_entry_id INTEGER NOT NULL,

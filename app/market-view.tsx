@@ -926,6 +926,7 @@ export default function MarketView({ currentUser }: { customStartDate: string; c
   const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
   const [reloadKey, setReloadKey] = useState(0);
   const loadRequestId = useRef(0);
+  const initialLoad = useRef(true);
   const requestedView = activeSection === "overview" ? "full" : "ranking";
   const load = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++loadRequestId.current;
@@ -957,7 +958,9 @@ export default function MarketView({ currentUser }: { customStartDate: string; c
   }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate, requestedView]);
   useEffect(() => {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), 350);
+    const delay = initialLoad.current ? 0 : 350;
+    initialLoad.current = false;
+    const timer = window.setTimeout(() => void load(controller.signal), delay);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [load, reloadKey]);
   const toggleCompare = (item: MarketItem) => setCompareSelections((current) => current.some((selection) => marketCompareSelectionKey(selection) === marketCompareSelectionKey(item))

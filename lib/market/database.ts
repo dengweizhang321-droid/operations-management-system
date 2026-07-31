@@ -462,11 +462,13 @@ export async function getMarketOverview(
       .bind(...rankingBindings, ...dateValues, ...dateValues),
     db.prepare(marketOverviewFilterOptionsSql),
     db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT 8`),
-    db.prepare(`SELECT COUNT(DISTINCT m.image_url) total,
-      COUNT(DISTINCT CASE WHEN mic.status='ready' THEN m.image_url END) cached,
-      COUNT(DISTINCT CASE WHEN mic.status='failed' AND mic.attempt_count>=3 THEN m.image_url END) failed
-      FROM market_ranking_entries m LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
-      WHERE m.image_url<>''`),
+    db.prepare(`WITH sources AS MATERIALIZED (
+      SELECT DISTINCT image_url source_url FROM market_ranking_entries WHERE image_url<>''
+    )
+    SELECT COUNT(*) total,
+      COUNT(CASE WHEN mic.status='ready' THEN 1 END) cached,
+      COUNT(CASE WHEN mic.status='failed' AND mic.attempt_count>=3 THEN 1 END) failed
+      FROM sources LEFT JOIN market_image_cache mic ON mic.source_url=sources.source_url`),
   ]);
   let analyticsRows = view === "full" ? batchRows<AnalyticsAggregateRow>(primaryResult) : [];
   if (view === "full" && monthlyCacheReady && !analyticsRows.some((row) => row.section === "summary")) {
