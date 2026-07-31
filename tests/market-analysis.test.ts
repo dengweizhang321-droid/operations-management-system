@@ -6,6 +6,7 @@ import { marketNaturalKey } from "../lib/market/import-identity";
 import { parseMarketRows, parseRange, parseRangeBounds } from "../lib/market/parser";
 import { aggregateMarketEstimates, annotateRankBounds } from "../lib/market/gmv-estimation";
 import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "../lib/market/latest-request";
+import { marketRankingPricePresentation } from "../lib/market/ranking-price-presentation";
 
 function csvBytes(value: string) {
   return new TextEncoder().encode(value);
@@ -509,6 +510,29 @@ test("正式主图价不参与成交件数和成交均价计算", () => {
   const [row] = annotateRankBounds([input]);
   assert.equal(row?.estimatedQuantity, 10);
   assert.equal(row?.averageTransactionPriceCents, 10_000);
+});
+
+test("商品榜单识别到正式主图价后以主图价展示成交均价", () => {
+  assert.deepEqual(marketRankingPricePresentation({
+    officialMarketPriceCents: 259_900,
+    calculatedAverageTransactionPriceCents: 188_800,
+    calculatedDiscountBps: 2736,
+    calculatedDiscountReference: true,
+  }), {
+    averageTransactionPriceCents: 259_900,
+    discountBps: 0,
+    discountReference: false,
+  });
+  assert.deepEqual(marketRankingPricePresentation({
+    officialMarketPriceCents: null,
+    calculatedAverageTransactionPriceCents: 188_800,
+    calculatedDiscountBps: null,
+    calculatedDiscountReference: false,
+  }), {
+    averageTransactionPriceCents: 188_800,
+    discountBps: null,
+    discountReference: false,
+  });
 });
 
 test("真实锚点超出榜单区间时保留真实值且不按粗区间截断", () => {

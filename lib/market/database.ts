@@ -4,6 +4,7 @@ import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import { buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
 import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/schema-core";
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
+import { marketRankingPricePresentation } from "@/lib/market/ranking-price-presentation";
 import {
   ensureMarketMonthlySummaryCache,
   ensureMarketMonthlySummaryInvalidationTriggers,
@@ -630,25 +631,33 @@ export async function getMarketOverview(
       weightedMarketPriceCents: weightedMarketPrice,
       averageTransactionPriceCents: averageTransactionPrice,
     },
-    items: ranking.map((row) => ({
-      id: row.id, periodStart: row.period_start, periodEnd: row.period_end, category: row.category,
-      scope: row.scope, rankingDimension: row.ranking_dimension, operationMode: row.operation_mode, subcategory: row.subcategory,
-      rank: row.rank, previousRank: row.previous_rank, rankChange: row.previous_rank !== null && row.rank !== null ? row.previous_rank - row.rank : null,
-      skuCode: row.sku_code, productName: row.product_name,
-      brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.official_market_price_cents,
-      candidatePriceCents: row.candidate_price_cents, marketPriceSource: row.market_price_source,
-      candidatePriceSource: row.candidate_price_source,
-      averageTransactionPriceCents: estimateById.get(row.id)?.averageTransactionPriceCents ?? row.average_transaction_price_cents,
-      discountBps: row.discount_bps, discountReference: Boolean(row.discount_reference),
-      gmvCents: estimateById.get(row.id)?.effectiveGmvCents ?? row.gmv_cents,
-      quantity: estimateById.get(row.id)?.estimatedQuantity ?? row.quantity,
-      pageViews: row.page_views, visitors: row.visitors, conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
-      cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
-      sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
-      productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),
-      isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
-      gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
-    })),
+    items: ranking.map((row) => {
+      const pricePresentation = marketRankingPricePresentation({
+        officialMarketPriceCents: row.official_market_price_cents,
+        calculatedAverageTransactionPriceCents: estimateById.get(row.id)?.averageTransactionPriceCents ?? row.average_transaction_price_cents,
+        calculatedDiscountBps: row.discount_bps,
+        calculatedDiscountReference: Boolean(row.discount_reference),
+      });
+      return {
+        id: row.id, periodStart: row.period_start, periodEnd: row.period_end, category: row.category,
+        scope: row.scope, rankingDimension: row.ranking_dimension, operationMode: row.operation_mode, subcategory: row.subcategory,
+        rank: row.rank, previousRank: row.previous_rank, rankChange: row.previous_rank !== null && row.rank !== null ? row.previous_rank - row.rank : null,
+        skuCode: row.sku_code, productName: row.product_name,
+        brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.official_market_price_cents,
+        candidatePriceCents: row.candidate_price_cents, marketPriceSource: row.market_price_source,
+        candidatePriceSource: row.candidate_price_source,
+        averageTransactionPriceCents: pricePresentation.averageTransactionPriceCents,
+        discountBps: pricePresentation.discountBps, discountReference: pricePresentation.discountReference,
+        gmvCents: estimateById.get(row.id)?.effectiveGmvCents ?? row.gmv_cents,
+        quantity: estimateById.get(row.id)?.estimatedQuantity ?? row.quantity,
+        pageViews: row.page_views, visitors: row.visitors, conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
+        cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
+        sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
+        productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),
+        isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
+        gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
+      };
+    }),
     trend: trendRows,
     trendTotal: allTrendRows.length,
     trendTruncated: allTrendRows.length > trendRows.length,
