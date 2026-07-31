@@ -4,10 +4,16 @@ import { ensureAuthorizationSchema, type AppPrincipal } from "@/lib/auth/authori
 import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
 import { isAiRequestCancelled } from "@/lib/ai/cancellation";
+import {
+  assertAiConversationAccess,
+  deleteAiConversationData,
+  isAiChatCapableModelType,
+} from "@/lib/ai/conversation-management";
 import { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
 import {
   extractAiTableArtifactCandidates,
   AI_ARTIFACT_LIMITS,
+  ensureAiArtifactSchema,
   listAiArtifactsForConversation,
   persistAiTableArtifacts,
   type AiTableArtifact,
@@ -117,10 +123,11 @@ export type AiAssistantReply = {
   artifacts: AiTableArtifact[];
 };
 
-export type AiAvailableTextModel = {
+export type AiAvailableChatModel = {
   id: string;
   name: string;
   protocol: AiModelProtocol;
+  modelType: AiModelType;
   modelName: string;
   isDefault: boolean;
 };
@@ -415,18 +422,19 @@ export async function listAiModels(db: SalesDatabase = getSalesDatabase()): Prom
   return (rows.results ?? []).map(mapAiModelRecord);
 }
 
-export async function listAvailableTextModels(db: SalesDatabase = getSalesDatabase()): Promise<AiAvailableTextModel[]> {
+export async function listAvailableChatModels(db: SalesDatabase = getSalesDatabase()): Promise<AiAvailableChatModel[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT ${modelSelectColumns}
      FROM ai_models
-     WHERE model_type = 'text' AND status = 'enabled'
-     ORDER BY is_default_text_model DESC, updated_at DESC`,
+     WHERE model_type IN ('text', 'vision') AND status = 'enabled'
+     ORDER BY is_default_text_model DESC, CASE model_type WHEN 'text' THEN 0 ELSE 1 END, updated_at DESC`,
   ).all<AiModelRow>();
   return (rows.results ?? []).map((row) => ({
     id: row.id,
     name: row.name,
     protocol: asModelProtocol(row.protocol),
+    modelType: asModelType(row.model_type),
     modelName: row.model_name,
     isDefault: Boolean(row.is_default_text_model),
   }));
@@ -608,11 +616,13 @@ export async function appendConversationMessage(
   const normalizedContent = normalizeMessageContent(content, MAX_MESSAGE_LENGTH);
   if (!normalizedContent) throw new Error("消息不能为空");
   const id = `ai-msg-${randomUUID()}`;
-  await db.batch([
-    db.prepare("INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind) VALUES (?, ?, ?, ?, ?)")
-      .bind(id, conversationId, role, normalizedContent, messageKind),
+  const results = await db.batch([
+    db.prepare(`INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind)
+      SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM ai_conversations WHERE id = ?)`)
+      .bind(id, conversationId, role, normalizedContent, messageKind, conversationId),
     db.prepare("UPDATE ai_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(conversationId),
   ]);
+  if (Number(results[0]?.meta.changes ?? 0) === 0) throw new Error("对话不存在或已删除");
   return id;
 }
 
@@ -626,13 +636,36 @@ export async function updateConversationModel(
     .bind(modelId, conversationId).run();
 }
 
+export async function selectConversationModel(
+  conversationId: string,
+  modelId: string,
+  principal: AppPrincipal,
+  db: SalesDatabase = getSalesDatabase(),
+): Promise<AiConversationRecord> {
+  const conversation = await requireConversationAccess(conversationId, principal, db);
+  const model = await resolveChatModel({ modelId, allowFallback: false }, db);
+  if (!model) throw new Error("指定对话模型不存在、已停用或不支持对话");
+  if (conversation.modelId !== model.id) await updateConversationModel(conversation.id, model.id, db);
+  return requireConversationAccess(conversation.id, principal, db);
+}
+
+export async function deleteAiConversation(
+  conversationId: string,
+  principal: AppPrincipal,
+  db: SalesDatabase = getSalesDatabase(),
+): Promise<boolean> {
+  await requireConversationAccess(conversationId, principal, db);
+  await ensureAiArtifactSchema(db);
+  return deleteAiConversationData(conversationId, db);
+}
+
 export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationRecord> {
   await ensureAiAssistantSchema(db);
   const row = await db.prepare("SELECT id, title, model_id, created_by, created_at, updated_at FROM ai_conversations WHERE id = ? LIMIT 1")
     .bind(conversationId).first<AiConversationRow>();
   if (!row) throw new Error("对话不存在");
   const conversation = mapConversationRecord(row);
-  if (principal.role !== "admin" && conversation.createdBy !== principal.email) throw new Error("无权访问该对话");
+  assertAiConversationAccess(conversation, principal);
   return conversation;
 }
 
@@ -696,7 +729,7 @@ export async function resolveChatModel(
   if (modelId) {
     const selected = await db.prepare(
       `SELECT ${modelSelectColumns} FROM ai_models
-       WHERE id = ? AND model_type = 'text' AND status = 'enabled' LIMIT 1`,
+       WHERE id = ? AND model_type IN ('text', 'vision') AND status = 'enabled' LIMIT 1`,
     ).bind(modelId).first<AiModelRow>();
     if (selected) return mapAiTextModelRuntime(selected);
     if (options?.allowFallback === false) return null;
@@ -1088,7 +1121,7 @@ function asModelProtocol(value: unknown): AiModelProtocol {
 
 function asModelType(value: unknown): AiModelType {
   if (value === "image") return "vision";
-  if (aiModelTypes.includes(value as AiModelType)) return value as AiModelType;
+  if (typeof value === "string" && isAiChatCapableModelType(value)) return value;
   throw new Error("模型类型无效");
 }
 

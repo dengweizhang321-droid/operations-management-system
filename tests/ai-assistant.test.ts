@@ -138,6 +138,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(page, /新增聊天渠道/);
   assert.match(page, /停止生成/);
   assert.match(page, /本对话模型/);
+  assert.match(page, /文本和视觉模型均可用于对话/);
+  assert.match(page, /deleteConversation/);
   assert.match(page, /AiMessageArtifacts/);
   assert.match(page, /下载 CSV/);
   assert.match(page, /maxToolRounds/);
@@ -148,7 +150,11 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(chatRoute, /createWebChatEntryContext/);
   assert.match(chatRoute, /answerAiQuestion/);
   assert.match(chatRoute, /signal: request\.signal/);
-  assert.match(conversationsRoute, /listAvailableTextModels/);
+  assert.match(conversationsRoute, /listAvailableChatModels/);
+  assert.match(conversationsRoute, /export async function PATCH/);
+  assert.match(conversationsRoute, /selectConversationModel/);
+  assert.match(conversationsRoute, /export async function DELETE/);
+  assert.match(conversationsRoute, /deleteAiConversation/);
   assert.match(modelsRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(channelsRoute, /deleteAiChannel/);
   assert.match(webhookRoute, /verifyWeComSignature/);
@@ -174,7 +180,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.doesNotMatch(entryContext, /payload.*principal/i);
   assert.match(workflow, /RESET_COMMANDS/);
   assert.match(workflow, /getVisibleToolCatalog/);
-  assert.match(workflow, /已有对话已固定模型/);
+  assert.doesNotMatch(workflow, /已有对话已固定模型/);
+  assert.match(workflow, /selectConversationModel/);
   assert.match(gateway, /completeTextWithTools/);
   assert.match(gateway, /max_tokens: model\.maxTokens/);
   assert.match(gateway, /thinking: \{ type: "disabled" \}/);

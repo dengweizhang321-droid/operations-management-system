@@ -50,7 +50,7 @@ type AiChannelKind = "dingtalk_group_bot" | "dingtalk_app" | "wechat_work_group_
 type AiArtifactCell = string | number | boolean | null;
 type AiTableArtifact = { id: string; kind: "table"; title: string; sourceTool: string; columns: string[]; rows: AiArtifactCell[][]; rowCount: number; truncated: boolean; fileName: string; mimeType: "text/csv; charset=utf-8"; contentDigest: string; downloadUrl: string; createdAt: string };
 type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string; artifacts: AiTableArtifact[] };
-type AiAvailableTextModel = { id: string; name: string; protocol: AiModelProtocol; modelName: string; isDefault: boolean };
+type AiAvailableChatModel = { id: string; name: string; protocol: AiModelProtocol; modelType: AiModelType; modelName: string; isDefault: boolean };
 
 type AiModelRecord = {
   id: string;
@@ -5249,7 +5249,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   const isAdmin = currentUser?.role === "admin";
   const canChat = Boolean(currentUser && currentUser.role !== "viewer");
   const [modelItems, setModelItems] = useState<AiModelRecord[]>([]);
-  const [availableTextModels, setAvailableTextModels] = useState<AiAvailableTextModel[]>([]);
+  const [availableChatModels, setAvailableChatModels] = useState<AiAvailableChatModel[]>([]);
   const [channelItems, setChannelItems] = useState<AiChannelRecord[]>([]);
   const [conversationItems, setConversationItems] = useState<AiConversationRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
@@ -5260,6 +5260,8 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   const [channelDraft, setChannelDraft] = useState<AiChannelDraft>(() => newAiChannelDraft());
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [busyConversationId, setBusyConversationId] = useState("");
+  const [switchingModel, setSwitchingModel] = useState(false);
   const [savingModel, setSavingModel] = useState(false);
   const [savingChannel, setSavingChannel] = useState(false);
   const [busyConfigId, setBusyConfigId] = useState("");
@@ -5287,12 +5289,12 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
 
   const loadConversations = useCallback(async () => {
     const response = await fetch("/api/ai/conversations", { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as { items?: AiConversationRecord[]; models?: AiAvailableTextModel[]; error?: string } | null;
+    const payload = await response.json().catch(() => null) as { items?: AiConversationRecord[]; models?: AiAvailableChatModel[]; error?: string } | null;
     if (!response.ok) throw new Error(payload?.error || "读取对话记录失败");
     const items = payload?.items ?? [];
     const models = payload?.models ?? [];
     setConversationItems(items);
-    setAvailableTextModels(models);
+    setAvailableChatModels(models);
     setSelectedModelId((current) => models.some((model) => model.id === current) ? current : models.find((model) => model.isDefault)?.id || models[0]?.id || "");
     setActiveConversationId((current) => current || items[0]?.id || "");
   }, []);
@@ -5324,11 +5326,13 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
     }
     const controller = new AbortController();
     const activeConversation = conversationItems.find((item) => item.id === activeConversationId);
-    if (activeConversation?.modelId) setSelectedModelId(activeConversation.modelId);
+    if (activeConversation?.modelId && availableChatModels.some((model) => model.id === activeConversation.modelId)) {
+      setSelectedModelId(activeConversation.modelId);
+    }
     void loadMessages(activeConversationId, controller.signal)
       .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "读取对话失败"); });
     return () => controller.abort();
-  }, [activeConversationId, conversationItems, loadMessages]);
+  }, [activeConversationId, availableChatModels, conversationItems, loadMessages]);
 
   useEffect(() => () => sendControllerRef.current?.abort(), []);
 
@@ -5342,7 +5346,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversationId: activeConversationId || undefined, modelId: activeConversationId ? undefined : selectedModelId || undefined, message: text, title: "小特对话" }),
+        body: JSON.stringify({ conversationId: activeConversationId || undefined, modelId: selectedModelId || undefined, message: text, title: "小特对话" }),
         signal: controller.signal,
       });
       const payload = await response.json().catch(() => null) as { conversationId?: string; reply?: string; modelId?: string | null; error?: string } | null;
@@ -5374,7 +5378,53 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
     setMessageDraft("");
     setError("");
     setNotice("");
-    setSelectedModelId(availableTextModels.find((model) => model.isDefault)?.id || availableTextModels[0]?.id || "");
+    setSelectedModelId(availableChatModels.find((model) => model.isDefault)?.id || availableChatModels[0]?.id || "");
+  };
+
+  const changeConversationModel = async (modelId: string) => {
+    if (!activeConversationId) {
+      setSelectedModelId(modelId);
+      return;
+    }
+    setSwitchingModel(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/ai/conversations", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversationId: activeConversationId, modelId }),
+      });
+      const payload = await response.json().catch(() => null) as { item?: AiConversationRecord; error?: string } | null;
+      if (!response.ok || !payload?.item) throw new Error(payload?.error || "切换对话模型失败");
+      setSelectedModelId(modelId);
+      setConversationItems((items) => items.map((item) => item.id === payload.item?.id ? payload.item : item));
+      setNotice(`本对话后续消息将使用“${availableChatModels.find((model) => model.id === modelId)?.name || "所选模型"}”。`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "切换对话模型失败");
+    } finally {
+      setSwitchingModel(false);
+    }
+  };
+
+  const deleteConversation = async (item: AiConversationRecord) => {
+    if (sending || !canChat || !window.confirm(`确定删除对话“${item.title}”吗？对话消息和生成的数据产物将一并删除，此操作无法撤销。`)) return;
+    setBusyConversationId(item.id); setError(""); setNotice("");
+    try {
+      const response = await fetch(`/api/ai/conversations?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "删除对话失败");
+      const remaining = conversationItems.filter((conversation) => conversation.id !== item.id);
+      setConversationItems(remaining);
+      if (activeConversationId === item.id) {
+        setActiveConversationId(remaining[0]?.id || "");
+        setMessages([]);
+      }
+      setNotice(`对话“${item.title}”已删除。`);
+      await loadConversations();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除对话失败");
+    } finally {
+      setBusyConversationId("");
+    }
   };
 
   const saveModel = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -5460,8 +5510,8 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
       <div className="section-header"><div><h2>AI 助理</h2><p>网页入口统一经过权限、问答 Workflow、模型网关和中央工具注册表；外部聊天回调仍只验签和去重。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={loading}>{loading ? "刷新中…" : "刷新"}</button></div>
       {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "操作失败" : "操作成功"}</strong><p>{error || notice}</p></div></div>}
       <div className="ai-chat-layout">
-        <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>{conversationItems.length} 个</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={sending}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <button type="button" key={item.id} className={item.id === activeConversationId ? "active" : ""} onClick={() => setActiveConversationId(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>)}</div></aside>
-        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={setSelectedModelId} ariaLabel="本对话模型" searchPlaceholder="搜索文本模型" disabled={Boolean(activeConversationId) || sending} options={availableTextModels.map((model) => ({ value: model.id, label: `${model.name}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{activeConversationId ? "已有对话固定使用创建时的模型；如需切换，请新建对话。" : "仅列出已启用的文本模型。输入“帮助”或“新话题”可走免模型短路。"}</small></div><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
+        <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>{conversationItems.length} 个</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={sending}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <div key={item.id} className={`ai-conversation-row ${item.id === activeConversationId ? "active" : ""}`}><button type="button" className="ai-conversation-open" onClick={() => setActiveConversationId(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>{canChat && <button type="button" className="ai-conversation-delete" aria-label={`删除对话 ${item.title}`} title="删除对话" disabled={sending || busyConversationId === item.id} onClick={() => void deleteConversation(item)}>{busyConversationId === item.id ? "…" : "×"}</button>}</div>)}</div></aside>
+        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={(value) => void changeConversationModel(value)} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={sending || switchingModel || availableChatModels.length === 0} options={availableChatModels.map((model) => ({ value: model.id, label: `${model.name} · ${model.modelType === "vision" ? "视觉" : "文本"}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{switchingModel ? "正在切换模型…" : "文本和视觉模型均可用于对话；切换后从下一条消息起生效。输入“帮助”或“新话题”可走免模型短路。"}</small></div><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
       </div>
     </article>
     {isAdmin ? <>

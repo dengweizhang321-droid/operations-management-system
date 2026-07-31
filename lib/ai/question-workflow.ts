@@ -4,6 +4,7 @@ import {
   generateAssistantReply,
   requireConversationAccess,
   resolveChatModel,
+  selectConversationModel,
   updateConversationModel,
   type AiConversationRecord,
 } from "@/lib/ai/assistant-service";
@@ -51,12 +52,12 @@ export async function answerAiQuestion(
     ? await requireConversationAccess(input.conversationId, input.entry.principal, db)
     : null;
   const requestedModelId = normalizeOptionalId(input.modelId);
-  if (conversation && requestedModelId && conversation.modelId && conversation.modelId !== requestedModelId) {
-    throw new Error("已有对话已固定模型；请新建对话后再切换模型");
-  }
 
   try {
     if (shortcut) {
+      if (conversation && requestedModelId && conversation.modelId !== requestedModelId) {
+        conversation = await selectConversationModel(conversation.id, requestedModelId, input.entry.principal, db);
+      }
       conversation = conversation ?? await createShortcutConversation(input, requestedModelId, db);
       await appendConversationMessage(conversation.id, "user", prompt, shortcut === "help" ? "help" : "message", db);
       const reply = shortcut === "context_reset"
@@ -110,7 +111,7 @@ async function createShortcutConversation(
   let modelId: string | null = null;
   if (requestedModelId) {
     const model = await resolveChatModel({ modelId: requestedModelId, allowFallback: false }, db);
-    if (!model) throw new Error("指定文本模型不存在、已停用或能力类型不匹配");
+    if (!model) throw new Error("指定对话模型不存在、已停用或不支持对话");
     modelId = model.id;
   }
   const id = await createConversation(input.title || "新对话", input.entry.principal.email, modelId, db);
@@ -132,7 +133,7 @@ async function resolveWorkflowModel(
 ) {
   if (input.requestedModelId) {
     const requested = await resolveChatModel({ modelId: input.requestedModelId, allowFallback: false }, db);
-    if (!requested) throw new Error("指定文本模型不存在、已停用或能力类型不匹配");
+    if (!requested) throw new Error("指定对话模型不存在、已停用或不支持对话");
     return requested;
   }
   if (input.conversation?.modelId) {
