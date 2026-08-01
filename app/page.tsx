@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, PointerEvent as ReactPointerEvent } from "react";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
+import { parseProductQueries } from "@/lib/sales/product-query";
 import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
 
@@ -2561,7 +2562,7 @@ function aggregateProductTrend(daily: Array<{ date: string } & SalesStats>, gran
   }));
 }
 
-function ProductSalesTrend({ daily, selectedCodeCount }: { daily: Array<{ date: string } & SalesStats>; selectedCodeCount: number }) {
+function ProductSalesTrend({ daily, selectedProductCount }: { daily: Array<{ date: string } & SalesStats>; selectedProductCount: number }) {
   const [granularity, setGranularity] = useState<TrendGranularity>("day");
   const [selectedMetrics, setSelectedMetrics] = useState<TrendMetric[]>(["netSales", "netQuantity", "grossMargin"]);
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
@@ -2686,7 +2687,7 @@ function ProductSalesTrend({ daily, selectedCodeCount }: { daily: Array<{ date: 
   };
 
   return <section className="panel product-sales-trend-panel">
-    <div className="product-trend-toolbar"><div><span className="eyebrow">PRODUCT SITUATION</span><h2>货品情况</h2><p>{selectedCodeCount > 0 ? `已按 ${formatCount(selectedCodeCount)} 个货品编码汇总` : "当前统计周期内全部货品的经营趋势"} · 净销售额、净销量与大毛利率可单独或组合查看。</p></div><div className="product-trend-controls"><div className="trend-metric-toggle" role="group" aria-label="趋势指标选择">{(Object.keys(trendMetricMeta) as TrendMetric[]).map((metric) => <button type="button" key={metric} className={selectedMetrics.includes(metric) ? "active" : ""} aria-pressed={selectedMetrics.includes(metric)} onClick={() => toggleMetric(metric)}><i style={{ background: trendMetricMeta[metric].color }} />{trendMetricMeta[metric].label}</button>)}</div><div className="segmented trend-granularity" role="group" aria-label="趋势时间维度"><button type="button" className={granularity === "day" ? "active" : ""} onClick={() => setGranularity("day")}>日维度</button><button type="button" className={granularity === "week" ? "active" : ""} onClick={() => setGranularity("week")}>周维度</button><button type="button" className={granularity === "month" ? "active" : ""} onClick={() => setGranularity("month")}>月维度</button></div></div></div>
+    <div className="product-trend-toolbar"><div><span className="eyebrow">PRODUCT SITUATION</span><h2>货品情况</h2><p>{selectedProductCount > 0 ? `已按 ${formatCount(selectedProductCount)} 个货品汇总` : "当前统计周期内全部货品的经营趋势"} · 净销售额、净销量与大毛利率可单独或组合查看。</p></div><div className="product-trend-controls"><div className="trend-metric-toggle" role="group" aria-label="趋势指标选择">{(Object.keys(trendMetricMeta) as TrendMetric[]).map((metric) => <button type="button" key={metric} className={selectedMetrics.includes(metric) ? "active" : ""} aria-pressed={selectedMetrics.includes(metric)} onClick={() => toggleMetric(metric)}><i style={{ background: trendMetricMeta[metric].color }} />{trendMetricMeta[metric].label}</button>)}</div><div className="segmented trend-granularity" role="group" aria-label="趋势时间维度"><button type="button" className={granularity === "day" ? "active" : ""} onClick={() => setGranularity("day")}>日维度</button><button type="button" className={granularity === "week" ? "active" : ""} onClick={() => setGranularity("week")}>周维度</button><button type="button" className={granularity === "month" ? "active" : ""} onClick={() => setGranularity("month")}>月维度</button></div></div></div>
     <div className="product-trend-summary"><div className={selectedMetrics.includes("netSales") ? "active" : ""}><span>净销售额</span><strong>{formatCurrencyFromCents(totals.netSalesCents)}</strong></div><div className={selectedMetrics.includes("netQuantity") ? "active" : ""}><span>净销量</span><strong>{formatCount(totals.netQuantity)} 件</strong></div><div className={selectedMetrics.includes("grossMargin") ? "active" : ""}><span>大毛利率</span><strong>{formatRate(totals.grossMarginRate)}</strong></div><small>{granularity === "day" ? "按日" : granularity === "week" ? "按自然周" : "按自然月"}汇总 · {formatCount(points.length)} 个数据点</small></div>
     <div className="product-trend-canvas"><canvas ref={canvasRef} role="img" aria-label={`货品销售趋势，当前显示${selectedMetrics.map((metric) => trendMetricMeta[metric].label).join("、")}`} onPointerMove={handleTrendPointerMove} onPointerLeave={() => setHoveredPointIndex(null)} />{points.length === 0 && <div className="trend-empty">当前统计周期没有可绘制的货品销售数据。</div>}</div>
     {activePoint && <div className="product-trend-detail-area"><div className="product-trend-data-card" aria-live="polite"><small>{activePoint.label} 对应数据</small><div>{(["netSales", "netQuantity", "grossMargin"] as TrendMetric[]).map((metric) => <span key={metric}><i className="trend-data-dot" style={{ background: trendMetricMeta[metric].color }} />{trendMetricMeta[metric].label}<strong>{activePointMetricValue(metric)}</strong></span>)}</div></div></div>}
@@ -2740,8 +2741,8 @@ function ProductPlatformSalesShare({ platforms }: { platforms: SalesChannel[] })
   </section>;
 }
 
-function ProductCodeSearch({ value, onChange, codeCount }: { value: string; onChange: (value: string) => void; codeCount: number }) {
-  return <section className="panel product-code-search-panel"><div className="search-box product-code-search">⌕ <textarea rows={1} value={value} onChange={(event) => onChange(event.target.value)} placeholder="输入或粘贴多个货品编码（空格、逗号或换行分隔）" aria-label="输入或粘贴多个货品编码" /><span aria-hidden="true">⌕</span></div><small>{codeCount > 0 ? `已按 ${formatCount(codeCount)} 个货品编码筛选，趋势与店铺分布同步更新。` : "可输入一个或多个货品编码，留空则查看全部货品。"}</small></section>;
+function ProductSearch({ value, onChange, queryCount }: { value: string; onChange: (value: string) => void; queryCount: number }) {
+  return <section className="panel product-code-search-panel"><div className="search-box product-code-search">⌕ <textarea rows={1} value={value} onChange={(event) => onChange(event.target.value)} placeholder="输入货品编码或完整名称（多项用逗号或换行分隔）" aria-label="输入货品编码或完整名称" /><span aria-hidden="true">⌕</span></div><small>{queryCount > 0 ? `已按 ${formatCount(queryCount)} 个货品筛选，趋势与店铺分布同步更新。` : "可输入一个或多个货品编码或完整名称，留空则查看全部货品。"}</small></section>;
 }
 
 const formatFinanceBps = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${(value / 100).toFixed(1)}%`;
@@ -3153,7 +3154,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   const [selectedShopKeys, setSelectedShopKeys] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const debouncedProductQuery = useDebouncedValue(productQuery);
-  const productCodes = useMemo(() => [...new Set(debouncedProductQuery.split(/[\s,，;；]+/).map((value) => value.trim()).filter(Boolean))].slice(0, 100), [debouncedProductQuery]);
+  const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -3169,7 +3170,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
           query.set("startDate", customStartDate);
           query.set("endDate", customEndDate);
         }
-        if (productCodes.length > 0) query.set("productCodes", productCodes.join(","));
+        productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
         selectedShopKeys.forEach((shopKey) => query.append("outlet", shopKey));
         selectedCategories.forEach((category) => query.append("category", category));
         const response = await fetch(`/api/sales/summary?${query.toString()}`, {
@@ -3190,7 +3191,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     })();
 
     return () => controller.abort();
-  }, [apiRange, customEndDate, customStartDate, productCodes, retryKey, selectedCategories, selectedShopKeys]);
+  }, [apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedShopKeys]);
 
   const current = summary?.current;
   const previous = summary?.previous;
@@ -3242,8 +3243,8 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
       <>{salesSubnav}<section className="panel data-state sales-data-state">
           <span className="state-symbol" aria-hidden="true">∅</span>
           <strong>{range}暂无销售数据</strong>
-          <p>{productCodes.length > 0 ? "当前货品编码在该统计周期内没有销售记录，可修改或清空下方查询。" : "请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。"}</p>
-        </section>{activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductCodeSearch value={productQuery} onChange={setProductQuery} codeCount={productCodes.length} /></>
+          <p>{productQueries.length > 0 ? "当前货品编码或名称在该统计周期内没有销售记录，可修改或清空下方查询。" : "请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。"}</p>
+        </section>{activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} /></>
     );
   }
 
@@ -3291,8 +3292,8 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
             <div className="insight-card"><span>数据口径</span><p>渠道构成、毛利率与订单行数均来自当前统计周期内已成功导入的吉客云销售明细。</p></div>
           </article>
         </section>
-        <section className="product-situation-grid"><ProductSalesTrend daily={summary?.daily ?? []} selectedCodeCount={productCodes.length} /><ShopSalesDistribution shops={summary?.outlets ?? []} /></section>
-        <ProductCodeSearch value={productQuery} onChange={setProductQuery} codeCount={productCodes.length} />
+        <section className="product-situation-grid"><ProductSalesTrend daily={summary?.daily ?? []} selectedProductCount={productQueries.length} /><ShopSalesDistribution shops={summary?.outlets ?? []} /></section>
+        <ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} />
       </>}
     </>
   );
@@ -3789,7 +3790,7 @@ function ProductDetailView({
         <InventoryKpiCard label="销售净额" value={formatCurrencyFromCents(detail.current.netSalesCents)} note={`退货金额 ${formatCurrencyFromCents(detail.current.refundAmountCents)}`} tone="green" icon="净" />
         <InventoryKpiCard label="退货率" value={formatRate(detail.current.refundRate)} note={`实际大毛利率 ${formatRate(detail.current.grossMarginRate)}`} tone="orange" icon="退" />
       </section>
-      <section className="product-detail-insights-grid"><ProductSalesTrend daily={detail.daily ?? []} selectedCodeCount={1} /><ProductPlatformSalesShare platforms={detail.platforms ?? []} /></section>
+      <section className="product-detail-insights-grid"><ProductSalesTrend daily={detail.daily ?? []} selectedProductCount={1} /><ProductPlatformSalesShare platforms={detail.platforms ?? []} /></section>
       <section className="product-detail-store-section"><ShopSalesDistribution shops={detail.outlets ?? []} /></section>
     </>}
   </>;

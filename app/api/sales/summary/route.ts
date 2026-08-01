@@ -9,6 +9,7 @@ import {
   SalesSummaryRequestError,
 } from "@/lib/sales/summary";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
+import { parseProductQueries } from "@/lib/sales/product-query";
 
 export async function GET(request: Request) {
   try {
@@ -23,11 +24,10 @@ export async function GET(request: Request) {
 
     const db = getSalesDatabase();
     await ensureSalesSchema(db);
-    const productCodes = (searchParams.get("productCodes") ?? "")
-      .split(/[\s,，;；]+/)
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .slice(0, 100);
+    const productQueries = parseProductQueries([
+      ...searchParams.getAll("productQuery"),
+      searchParams.get("productCodes") ?? "",
+    ]);
     const categories = [...searchParams.getAll("categories"), ...searchParams.getAll("category")]
       .flatMap((value) => value.split(/[，,;；]+/))
       .map((value) => value.trim())
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       range: requested,
       startDate: searchParams.get("startDate") ?? undefined,
       endDate: searchParams.get("endDate") ?? undefined,
-      productCodes,
+      productQueries,
       platform: searchParams.get("platform") ?? undefined,
       shop: searchParams.get("shop") ?? undefined,
       outlets,

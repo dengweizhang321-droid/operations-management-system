@@ -2,6 +2,7 @@ import {
   findLatestSalesImportBatch,
   type SalesDatabase,
 } from "@/lib/sales/database";
+import { parseProductQueries, resolveProductFilterCodes } from "@/lib/sales/product-query";
 
 export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
@@ -440,10 +441,11 @@ async function filterOptions(
 
 export async function getSalesSummary(
   db: SalesDatabase,
-  input: { range: SalesRange; startDate?: string; endDate?: string; productCodes?: string[]; platform?: string; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
+  input: { range: SalesRange; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
 ) {
   const today = shanghaiToday();
-  const productCodes = normalizeProductCodes(input.productCodes);
+  const productQueries = parseProductQueries(input.productQueries ?? input.productCodes ?? []);
+  const productCodes = normalizeProductCodes(await resolveProductFilterCodes(db, productQueries));
   const categories = normalizeCategories(input.categories);
   const platform = input.platform?.trim() || undefined;
   const shop = input.shop?.trim() || undefined;
@@ -524,7 +526,7 @@ export async function getSalesSummary(
 
   return {
     range: input.range,
-    filters: { productCodes, platform: platform ?? null, shop: shop ?? null, outlets: outletFilters, categories },
+    filters: { productQueries, productCodes, platform: platform ?? null, shop: shop ?? null, outlets: outletFilters, categories },
     filterOptions: filterOptionsData,
     ...period,
     current: metric(currentRow),
