@@ -461,6 +461,8 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(page, /当前筛选周期暂无\{dimensionLabel\}商品日数据/);
   assert.match(page, /系统数据覆盖 \{availableCoverageLabel\}/);
   assert.match(page, /availableDateMin/);
+  assert.match(page, /setPeriodPreset\("custom"\); setCustomPeriodStart/);
+  assert.match(page, /setPeriodPreset\("custom"\); setCustomPeriodEnd/);
   assert.match(database, /getNetshopProductPerformance/);
   assert.match(database, /dataset = input\.dimension === "sku" \? "sku_daily" : "spu_daily"/);
   assert.match(database, /商品浏览量/);
