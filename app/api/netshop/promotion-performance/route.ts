@@ -1,29 +1,23 @@
+import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
   ensureNetshopSchema,
   getNetshopDatabase,
-  getNetshopProductPerformance,
-  type NetshopProductPerformanceDimension,
+  getNetshopPromotionPerformance,
 } from "@/lib/netshop/database";
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 
 function positiveInteger(value: string | null, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback;
 }
 
-function readDimension(value: string | null): NetshopProductPerformanceDimension {
-  return value === "spu" ? "spu" : "sku";
-}
-
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
+    const params = new URL(request.url).searchParams;
     const db = getNetshopDatabase();
     await ensureNetshopSchema(db);
-    const params = new URL(request.url).searchParams;
-    const payload = await getNetshopProductPerformance(db, {
-      dimension: readDimension(params.get("dimension")),
+    const payload = await getNetshopPromotionPerformance(db, {
       query: params.get("q") ?? undefined,
       page: positiveInteger(params.get("page"), 1),
       pageSize: positiveInteger(params.get("pageSize"), 50),
@@ -36,7 +30,7 @@ export async function GET(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "读取网店商品日数据失败";
+    const message = error instanceof Error ? error.message : "读取天猫推广数据失败";
     return Response.json({ error: message }, { status: 500, headers: { "cache-control": "no-store" } });
   }
 }

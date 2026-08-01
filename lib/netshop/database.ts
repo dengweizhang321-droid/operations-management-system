@@ -19,6 +19,9 @@ export type NetshopSource =
   | "jd_product_master"
   | "jd_cs"
   | "jd_yimei_sku"
+  | "tmall_product_master"
+  | "tmall_product_daily"
+  | "tmall_promotion"
   | "inv_selfop";
 
 export type NetshopRowInput = {
@@ -103,7 +106,9 @@ export type NetshopOverviewDataset = {
 };
 
 export type NetshopProductCatalogItem = {
+  platform: string;
   shopName: string;
+  spuId: string;
   skuId: string;
   productCode: string;
   productName: string;
@@ -112,11 +117,13 @@ export type NetshopProductCatalogItem = {
   category: string;
   brand: string;
   price: number | null;
+  priceCents: number | null;
   totalInventory: number | null;
   availableInventory: number | null;
   status: string;
   productUrl: string;
   createdAt: string;
+  snapshotDate: string | null;
   costPriceCents: number | null;
   netSalesCents: number | null;
   grossMarginRate: number | null;
@@ -149,6 +156,8 @@ export type NetshopProductCatalog = {
     page: number;
     pageSize: number;
     total: number;
+    returned: number;
+    truncated: boolean;
   };
 };
 
@@ -156,6 +165,7 @@ export type NetshopProductPerformanceDimension = "sku" | "spu";
 
 export type NetshopProductPerformanceItem = {
   id: string;
+  platform: string;
   skuId: string;
   spuId: string;
   productCode: string;
@@ -175,10 +185,16 @@ export type NetshopProductPerformanceItem = {
   orderCustomers: number;
   orderQuantity: number;
   orderAmount: number;
+  orderAmountCents: number;
   transactionOrders: number;
   transactionAmount: number;
+  transactionAmountCents: number;
   transactionQuantity: number;
   transactionCustomers: number;
+  favorites: number;
+  refundAmountCents: number;
+  searchVisitors: number;
+  searchTransactionCustomers: number;
   uvValue: number | null;
   conversionRate: number | null;
 };
@@ -189,6 +205,9 @@ export type NetshopProductPerformance = {
   requestedPeriod: { startDate: string | null; endDate: string | null };
   dateMin: string | null;
   dataCutoffDate: string | null;
+  monetaryUnit: "cents";
+  visitorAggregation: "product_day_sum";
+  coverage: { actualDates: string[]; missingDates: string[] };
   platforms: string[];
   shops: Array<{ shopName: string; platform: string; productCount: number }>;
   summary: {
@@ -203,15 +222,97 @@ export type NetshopProductPerformance = {
     orderCustomers: number;
     orderQuantity: number;
     orderAmount: number;
+    orderAmountCents: number;
     transactionOrders: number;
     transactionAmount: number;
+    transactionAmountCents: number;
     transactionQuantity: number;
     transactionCustomers: number;
+    favorites: number;
+    refundAmountCents: number;
+    searchVisitors: number;
+    searchTransactionCustomers: number;
     uvValue: number | null;
     conversionRate: number | null;
   };
+  daily: Array<{
+    date: string;
+    pageViews: number;
+    visitors: number;
+    transactionCustomers: number;
+    transactionQuantity: number;
+    transactionAmountCents: number;
+    refundAmountCents: number;
+    favorites: number;
+    addCartCustomers: number;
+    addCartQuantity: number;
+  }>;
   items: NetshopProductPerformanceItem[];
-  pagination: { page: number; pageSize: number; total: number };
+  pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
+};
+
+export type NetshopPromotionPerformance = {
+  monetaryUnit: "cents";
+  requestedPeriod: { startDate: string | null; endDate: string | null };
+  dateMin: string | null;
+  dataCutoffDate: string | null;
+  coverage: {
+    promotionDates: string[];
+    productDailyDates: string[];
+    intersectionDates: string[];
+    missingProductDailyDates: string[];
+    missingPromotionDates: string[];
+  };
+  summary: {
+    productCount: number;
+    spendCents: number;
+    netTransactionAmountCents: number;
+    grossTransactionAmountCents: number;
+    platformPaymentAmountCents: number;
+    impressions: number;
+    clicks: number;
+    netOrders: number;
+    favorites: number;
+    cartQuantity: number;
+    clickThroughRate: number | null;
+    averageClickCostCents: number | null;
+    roas: number | null;
+    spendRate: number | null;
+    promotionTransactionShare: number | null;
+  };
+  daily: Array<{
+    date: string;
+    spendCents: number;
+    netTransactionAmountCents: number;
+    platformPaymentAmountCents: number | null;
+    impressions: number;
+    clicks: number;
+    netOrders: number;
+    roas: number | null;
+    spendRate: number | null;
+    promotionTransactionShare: number | null;
+  }>;
+  items: Array<{
+    id: string;
+    platform: string;
+    productName: string;
+    shopName: string;
+    dateMin: string | null;
+    dateMax: string | null;
+    dataDays: number;
+    spendCents: number;
+    netTransactionAmountCents: number;
+    grossTransactionAmountCents: number;
+    impressions: number;
+    clicks: number;
+    netOrders: number;
+    favorites: number;
+    cartQuantity: number;
+    clickThroughRate: number | null;
+    averageClickCostCents: number | null;
+    roas: number | null;
+  }>;
+  pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
 };
 
 const batchColumns = `
@@ -288,6 +389,10 @@ const schemaStatements = [
     ON netshop_rows (source, snapshot_date, warehouse_type)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_source_sku_idx
     ON netshop_rows (source, sku_id, product_code)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_scope_date_product_idx
+    ON netshop_rows (dataset, platform, shop_name, business_date, spu_id)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_master_snapshot_idx
+    ON netshop_rows (source, platform, shop_name, snapshot_date)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_sku_id_idx
     ON netshop_rows (sku_id)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_spu_id_idx
@@ -430,15 +535,28 @@ export async function findNetshopImportBatchByHash(
   return batch && (!identity || sameNetshopBatchIdentity(batch, { source, ...identity })) ? batch : null;
 }
 
-export async function listNetshopImportBatches(db: NetshopDatabase, limit = 20) {
+export async function listNetshopImportBatches(
+  db: NetshopDatabase,
+  input: { limit?: number; sources?: string[]; platforms?: string[]; shops?: string[] } = {},
+) {
+  const limit = Math.max(1, Math.min(100, Math.trunc(input.limit ?? 20)));
+  const sources = [...new Set((input.sources ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  const platforms = [...new Set((input.platforms ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  const shops = [...new Set((input.shops ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
+  const where: string[] = [];
+  const bindings: string[] = [];
+  if (sources.length) { where.push(`source IN (${sources.map(() => "?").join(", ")})`); bindings.push(...sources); }
+  if (platforms.length) { where.push(`platform IN (${platforms.map(() => "?").join(", ")})`); bindings.push(...platforms); }
+  if (shops.length) { where.push(`shop_name IN (${shops.map(() => "?").join(", ")})`); bindings.push(...shops); }
   const result = await db
     .prepare(
       `SELECT ${batchColumns}
        FROM netshop_import_batches
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY created_at DESC, id DESC
        LIMIT ?`,
     )
-    .bind(Math.max(1, Math.min(100, Math.trunc(limit))))
+    .bind(...bindings, limit)
     .all<NetshopBatchRow>();
   return result.results.map(mapBatch);
 }
@@ -505,6 +623,7 @@ export async function saveNetshopImport(
     warnings: NetshopImportIssue[];
     totals: unknown;
     note: string;
+    replaceScope?: { startDate: string; endDate: string };
   },
 ): Promise<{ batch: NetshopImportBatch; created: boolean }> {
   const batchId = netshopBatchId(input);
@@ -544,6 +663,23 @@ export async function saveNetshopImport(
       ),
   ];
 
+  if (input.replaceScope) {
+    statements.push(
+      db.prepare(
+        `DELETE FROM netshop_rows
+         WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?
+           AND business_date >= ? AND business_date <= ?`,
+      ).bind(
+        input.source,
+        input.dataset,
+        input.platform,
+        input.shopName,
+        input.replaceScope.startDate,
+        input.replaceScope.endDate,
+      ),
+    );
+  }
+
   for (let offset = 0; offset < input.rows.length; offset += 300) {
     const chunk = input.rows.slice(offset, offset + 300);
     statements.push(db.prepare(upsertRowsSql).bind(batchId, batchId, JSON.stringify(chunk)));
@@ -573,6 +709,72 @@ export async function saveNetshopImport(
   return { batch, created };
 }
 
+export async function verifyNetshopImportBatch(
+  db: NetshopDatabase,
+  batch: NetshopImportBatch,
+  expected: { rowCount: number; dataset: string; platform: string; shopName: string; dateMin: string | null; dateMax: string | null },
+) {
+  const row = await db.prepare(
+    `SELECT COUNT(*) AS row_count, MIN(business_date) AS date_min, MAX(business_date) AS date_max
+     FROM netshop_rows WHERE last_import_batch_id = ?`,
+  ).bind(batch.id).first<{ row_count: number | null; date_min: string | null; date_max: string | null }>();
+  const readbackRowCount = Number(row?.row_count ?? 0);
+  const verified = batch.status === "completed"
+    && batch.dataset === expected.dataset
+    && batch.platform === expected.platform
+    && batch.shopName === expected.shopName
+    && batch.rowCount === expected.rowCount
+    && readbackRowCount === expected.rowCount
+    && (row?.date_min ?? null) === expected.dateMin
+    && (row?.date_max ?? null) === expected.dateMax;
+  return {
+    verified,
+    parsedRowCount: expected.rowCount,
+    readbackRowCount,
+    dateMin: row?.date_min ?? null,
+    dateMax: row?.date_max ?? null,
+    dataset: batch.dataset,
+    platform: batch.platform,
+    shopName: batch.shopName,
+  };
+}
+
+export async function reconcileNetshopMasterProducts(
+  db: NetshopDatabase,
+  input: { platform: string; shopName: string; productIds: string[] },
+) {
+  const productIds = [...new Set(input.productIds.map((value) => value.trim()).filter(Boolean))].slice(0, 20_000);
+  const latest = await db.prepare(
+    `SELECT id FROM netshop_import_batches
+     WHERE source = 'tmall_product_master' AND platform = ? AND shop_name = ? AND status = 'completed'
+     ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT 1`,
+  ).bind(input.platform, input.shopName).first<{ id: string }>();
+  if (!latest?.id) return { masterAvailable: false, unmatchedCount: productIds.length, unmatchedSample: productIds.slice(0, 20) };
+  const result = await db.prepare(
+    `WITH requested(id) AS (SELECT CAST(value AS TEXT) FROM json_each(?))
+     SELECT requested.id
+     FROM requested
+     LEFT JOIN netshop_rows master
+       ON master.last_import_batch_id = ? AND master.spu_id = requested.id
+     WHERE master.id IS NULL
+     LIMIT 21`,
+  ).bind(JSON.stringify(productIds), latest.id).all<{ id: string }>();
+  const countRow = await db.prepare(
+    `WITH requested(id) AS (SELECT CAST(value AS TEXT) FROM json_each(?))
+     SELECT COUNT(*) AS count
+     FROM requested
+     WHERE NOT EXISTS (
+       SELECT 1 FROM netshop_rows master
+       WHERE master.last_import_batch_id = ? AND master.spu_id = requested.id
+     )`,
+  ).bind(JSON.stringify(productIds), latest.id).first<{ count: number }>();
+  return {
+    masterAvailable: true,
+    unmatchedCount: Number(countRow?.count ?? 0),
+    unmatchedSample: result.results.slice(0, 20).map((row) => row.id),
+  };
+}
+
 export async function normalizeJdProductMasterRows(
   db: NetshopDatabase,
   batchId: string,
@@ -589,7 +791,9 @@ export async function normalizeJdProductMasterRows(
     .run();
 }
 
-export async function getNetshopOverview(db: NetshopDatabase, shop: string | null) {
+export async function getNetshopOverview(db: NetshopDatabase, shop: string | null, platformNames: string[] = []) {
+  const platforms = [...new Set(platformNames.map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  const platformClause = platforms.length ? ` AND r.platform IN (${platforms.map(() => "?").join(", ")})` : "";
   const rows = await db
     .prepare(
       `SELECT
@@ -602,7 +806,7 @@ export async function getNetshopOverview(db: NetshopDatabase, shop: string | nul
          (
            SELECT b.id
            FROM netshop_import_batches b
-           WHERE b.dataset = r.dataset
+            WHERE b.dataset = r.dataset AND b.source = r.source AND b.platform = r.platform
              AND (? = '' OR b.shop_name = ? OR b.source = 'inv_selfop')
              AND b.status = 'completed'
            ORDER BY b.completed_at DESC, b.created_at DESC
@@ -611,7 +815,7 @@ export async function getNetshopOverview(db: NetshopDatabase, shop: string | nul
          (
            SELECT b.file_name
            FROM netshop_import_batches b
-           WHERE b.dataset = r.dataset
+            WHERE b.dataset = r.dataset AND b.source = r.source AND b.platform = r.platform
              AND (? = '' OR b.shop_name = ? OR b.source = 'inv_selfop')
              AND b.status = 'completed'
            ORDER BY b.completed_at DESC, b.created_at DESC
@@ -620,18 +824,18 @@ export async function getNetshopOverview(db: NetshopDatabase, shop: string | nul
          (
            SELECT b.completed_at
            FROM netshop_import_batches b
-           WHERE b.dataset = r.dataset
+            WHERE b.dataset = r.dataset AND b.source = r.source AND b.platform = r.platform
              AND (? = '' OR b.shop_name = ? OR b.source = 'inv_selfop')
              AND b.status = 'completed'
            ORDER BY b.completed_at DESC, b.created_at DESC
            LIMIT 1
          ) AS completed_at
        FROM netshop_rows r
-       WHERE (? = '' OR r.shop_name = ? OR r.source = 'inv_selfop')
-       GROUP BY dataset, source
+        WHERE (? = '' OR r.shop_name = ? OR r.source = 'inv_selfop')${platformClause}
+        GROUP BY dataset, source, platform
        ORDER BY dataset`,
     )
-    .bind(shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "")
+    .bind(shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", shop ?? "", ...platforms)
     .all<{
       dataset: string;
       source: string;
@@ -667,10 +871,15 @@ export async function getNetshopOverview(db: NetshopDatabase, shop: string | nul
 }
 
 type NetshopProductRow = {
+  source: NetshopSource;
+  platform: string;
   shop_name: string;
+  snapshot_date: string | null;
+  spu_id: string;
   sku_id: string;
   product_code: string;
   product_name: string;
+  metrics_json: string;
   raw_json: string;
   image_raw_json: string | null;
 };
@@ -750,12 +959,22 @@ function addIsoDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-async function latestJdProductBatches(db: NetshopDatabase) {
+function dailyDateCoverageForQuery(startDate: string, endDate: string, actualValues: readonly string[]) {
+  const actualDates = [...new Set(actualValues.filter(Boolean))].sort();
+  const actual = new Set(actualDates);
+  const missingDates: string[] = [];
+  for (let date = startDate; date <= endDate; date = addIsoDays(date, 1)) {
+    if (!actual.has(date)) missingDates.push(date);
+  }
+  return { actualDates, missingDates };
+}
+
+async function latestProductBatches(db: NetshopDatabase) {
   const rows = await db
     .prepare(
       `SELECT ${batchColumns}
        FROM netshop_import_batches
-       WHERE source = 'jd_product_master' AND status = 'completed'
+       WHERE source IN ('jd_product_master', 'tmall_product_master') AND status = 'completed'
        ORDER BY completed_at DESC, created_at DESC, id DESC`,
     )
     .all<NetshopBatchRow>();
@@ -796,7 +1015,9 @@ async function readJdProductSalesMetrics(
     .bind(`${salesScope}%`)
     .first<{ data_cutoff_date: string | null }>();
 
-  if (!isIsoDate(salesStartDate) || !isIsoDate(salesEndDate) || salesStartDate > salesEndDate || skuSet.length === 0) {
+  const validStartDate = isIsoDate(salesStartDate) ? salesStartDate! : null;
+  const validEndDate = isIsoDate(salesEndDate) ? salesEndDate! : null;
+  if (!validStartDate || !validEndDate || validStartDate > validEndDate || skuSet.length === 0) {
     return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
   }
 
@@ -820,8 +1041,8 @@ async function readJdProductSalesMetrics(
        GROUP BY COALESCE(NULLIF(online_spec_code, ''), product_code)`,
     )
     .bind(
-      `${salesStartDate} 00:00:00`,
-      `${addIsoDays(salesEndDate, 1)} 00:00:00`,
+      `${validStartDate} 00:00:00`,
+      `${addIsoDays(validEndDate, 1)} 00:00:00`,
       `${salesScope}%`,
       ...skuSet,
     )
@@ -848,48 +1069,55 @@ async function readJdProductSalesMetrics(
 function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInternalItem {
   const raw = parseJson<Record<string, unknown>>(row.raw_json, {});
   const imageRaw = parseJson<Record<string, unknown>>(row.image_raw_json ?? "{}", {});
-  const category = ["一级类目", "二级类目", "三级类目", "末级类目"]
-    .map((key) => rawText(raw, key))
+  const category = [rawText(raw, "类目名称"), ...["一级类目", "二级类目", "三级类目", "末级类目"].map((key) => rawText(raw, key))]
     .filter((value) => value && value !== "--")
     .join(" / ");
+  const metrics = parseJson<Record<string, unknown>>(row.metrics_json, {});
+  const priceCents = typeof metrics.skuPriceCents === "number" ? metrics.skuPriceCents : rawNumber(raw, "SKU价格") !== null ? Math.round(Number(rawNumber(raw, "SKU价格")) * 100) : null;
+  const spuId = row.spu_id || rawText(raw, "商品ID") || rawText(raw, "商品编码");
+  const productUrl = rawText(raw, "商品链接") || (row.platform === "天猫" && spuId ? `https://detail.tmall.com/item.htm?id=${encodeURIComponent(spuId)}` : "");
   return {
+    platform: row.platform,
     shopName: row.shop_name,
+    spuId,
     skuId: row.sku_id || rawText(raw, "SKUID"),
-    productCode: rawText(raw, "商品编码") || row.product_code,
+    productCode: rawText(raw, "SKU商家编码") || rawText(raw, "商品编码") || row.product_code,
     productName: row.product_name || rawText(raw, "商品名称"),
     imageUrl: productImageUrl(raw, imageRaw),
-    salesProductCode: rawText(raw, "商家SKU"),
+    salesProductCode: rawText(raw, "商家SKU") || rawText(raw, "SKU商家编码"),
     saleAttribute: rawText(raw, "销售属性"),
     category,
     brand: rawText(raw, "品牌"),
-    price: rawNumber(raw, "京东价"),
-    totalInventory: rawNumber(raw, "商品总库存"),
-    availableInventory: rawNumber(raw, "商品可用库存"),
+    price: row.platform === "天猫" && priceCents !== null ? priceCents / 100 : rawNumber(raw, "京东价"),
+    priceCents: row.platform === "天猫" ? priceCents : rawNumber(raw, "京东价") !== null ? Math.round(Number(rawNumber(raw, "京东价")) * 100) : null,
+    totalInventory: rawNumber(raw, "商品总库存") ?? rawNumber(raw, "SKU库存"),
+    availableInventory: rawNumber(raw, "商品可用库存") ?? rawNumber(raw, "SKU库存"),
     status: rawText(raw, "商品状态"),
-    productUrl: rawText(raw, "商品链接"),
+    productUrl,
     createdAt: rawText(raw, "创建时间"),
+    snapshotDate: row.snapshot_date,
     ...emptyNetshopProductSalesMetrics(),
   };
 }
 
 export async function getNetshopProductCatalog(
   db: NetshopDatabase,
-  input: { query?: string; page?: number; pageSize?: number; shopName?: string; shopNames?: string[]; salesStartDate?: string; salesEndDate?: string } = {},
+  input: { query?: string; page?: number; pageSize?: number; shopName?: string; shopNames?: string[]; platformNames?: string[]; salesStartDate?: string; salesEndDate?: string } = {},
 ): Promise<NetshopProductCatalog> {
   const page = Math.max(1, Math.trunc(input.page ?? 1));
   const pageSize = Math.max(1, Math.min(100, Math.trunc(input.pageSize ?? 50)));
-  const latestBatches = await latestJdProductBatches(db);
+  const latestBatches = await latestProductBatches(db);
   const requestedShopNames = [...new Set([input.shopName ?? "", ...(input.shopNames ?? [])].map((value) => value.trim()).filter(Boolean))];
-  const batches = requestedShopNames.length > 0
-    ? latestBatches.filter((batch) => requestedShopNames.includes(batch.shopName))
-    : latestBatches;
+  const requestedPlatforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))];
+  const visibleBatches = latestBatches.filter((batch) => requestedPlatforms.length === 0 || requestedPlatforms.includes(batch.platform));
+  const batches = visibleBatches.filter((batch) => requestedShopNames.length === 0 || requestedShopNames.includes(batch.shopName));
   const batch = batches[0] ?? null;
-  const shops = latestBatches
+  const shops = visibleBatches
     .map((item) => ({ shopName: item.shopName, platform: item.platform, snapshotDate: item.snapshotDate, completedAt: item.completedAt }))
     .sort((left, right) => left.platform.localeCompare(right.platform, "zh-CN") || left.shopName.localeCompare(right.shopName, "zh-CN"));
   const emptySales = {
-    periodStart: isIsoDate(input.salesStartDate) ? input.salesStartDate : null,
-    periodEnd: isIsoDate(input.salesEndDate) ? input.salesEndDate : null,
+    periodStart: isIsoDate(input.salesStartDate) ? input.salesStartDate! : null,
+    periodEnd: isIsoDate(input.salesEndDate) ? input.salesEndDate! : null,
     dataCutoffDate: null,
     platform: "京东",
   };
@@ -900,7 +1128,7 @@ export async function getNetshopProductCatalog(
       shops,
       sales: emptySales,
       items: [],
-      pagination: { page, pageSize, total: 0 },
+      pagination: { page, pageSize, total: 0, returned: 0, truncated: false },
     };
   }
 
@@ -912,8 +1140,8 @@ export async function getNetshopProductCatalog(
       `SELECT
          COUNT(*) AS total_skus,
          SUM(CASE WHEN json_extract(raw_json, '$."商品状态"') = '上架' THEN 1 ELSE 0 END) AS on_sale_skus,
-         SUM(COALESCE(CAST(json_extract(raw_json, '$."商品总库存"') AS REAL), 0)) AS total_inventory,
-         SUM(COALESCE(CAST(json_extract(raw_json, '$."商品可用库存"') AS REAL), 0)) AS available_inventory
+         SUM(COALESCE(CAST(json_extract(metrics_json, '$.inventoryQuantity') AS REAL), CAST(json_extract(raw_json, '$."商品总库存"') AS REAL), 0)) AS total_inventory,
+         SUM(COALESCE(CAST(json_extract(metrics_json, '$.inventoryQuantity') AS REAL), CAST(json_extract(raw_json, '$."商品可用库存"') AS REAL), 0)) AS available_inventory
        FROM netshop_rows
        WHERE ${batchClause}`,
     )
@@ -922,11 +1150,11 @@ export async function getNetshopProductCatalog(
 
   const query = (input.query ?? "").trim().slice(0, 120);
   const searchClause = query
-    ? " AND (shop_name LIKE ? OR sku_id LIKE ? OR product_code LIKE ? OR product_name LIKE ?)"
+    ? " AND (shop_name LIKE ? OR spu_id LIKE ? OR sku_id LIKE ? OR product_code LIKE ? OR product_name LIKE ?)"
     : "";
   const searchTerm = `%${query}%`;
   const bindings = query
-    ? [...batchIds, searchTerm, searchTerm, searchTerm, searchTerm]
+    ? [...batchIds, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]
     : batchIds;
   const totalRow = await db
     .prepare(`SELECT COUNT(*) AS total FROM netshop_rows WHERE ${batchClause}${searchClause}`)
@@ -935,11 +1163,16 @@ export async function getNetshopProductCatalog(
   const offset = (page - 1) * pageSize;
   const rows = await db
     .prepare(
-      `SELECT
+       `SELECT
+         product.source,
+         product.platform,
          product.shop_name,
+         product.snapshot_date,
+         product.spu_id,
          product.sku_id,
          product.product_code,
          product.product_name,
+         product.metrics_json,
          product.raw_json,
          (
            SELECT image_row.raw_json
@@ -965,9 +1198,10 @@ export async function getNetshopProductCatalog(
     .all<NetshopProductRow>();
 
   const rawItems = rows.results.map(mapNetshopProductRow);
+  const jdItems = rawItems.filter((item) => item.platform === "京东");
   const sales = await readJdProductSalesMetrics(
     db,
-    rawItems.map((item) => item.salesProductCode),
+    jdItems.map((item) => item.salesProductCode),
     input.salesStartDate,
     input.salesEndDate,
   );
@@ -981,16 +1215,22 @@ export async function getNetshopProductCatalog(
     },
     shops,
     sales: {
-      periodStart: isIsoDate(input.salesStartDate) ? input.salesStartDate : null,
-      periodEnd: isIsoDate(input.salesEndDate) ? input.salesEndDate : null,
+      periodStart: isIsoDate(input.salesStartDate) ? input.salesStartDate! : null,
+      periodEnd: isIsoDate(input.salesEndDate) ? input.salesEndDate! : null,
       dataCutoffDate: sales.dataCutoffDate,
       platform: sales.platform,
     },
     items: rawItems.map(({ salesProductCode, ...item }) => ({
       ...item,
-      ...(sales.metrics.get(salesProductCode) ?? emptyNetshopProductSalesMetrics()),
+      ...(item.platform === "京东" ? sales.metrics.get(salesProductCode) ?? emptyNetshopProductSalesMetrics() : emptyNetshopProductSalesMetrics()),
     })),
-    pagination: { page, pageSize, total: Number(totalRow?.total ?? 0) },
+    pagination: {
+      page,
+      pageSize,
+      total: Number(totalRow?.total ?? 0),
+      returned: rawItems.length,
+      truncated: offset + rawItems.length < Number(totalRow?.total ?? 0),
+    },
   };
 }
 
@@ -1011,10 +1251,15 @@ type NetshopProductPerformanceSummaryRow = {
   transaction_amount: number | null;
   transaction_quantity: number | null;
   transaction_customers: number | null;
+  favorites: number | null;
+  refund_amount_cents: number | null;
+  search_visitors: number | null;
+  search_transaction_customers: number | null;
 };
 
 type NetshopProductPerformanceRow = {
   id: string;
+  platform: string;
   sku_id: string;
   spu_id: string;
   product_code: string;
@@ -1037,6 +1282,23 @@ type NetshopProductPerformanceRow = {
   transaction_amount: number | null;
   transaction_quantity: number | null;
   transaction_customers: number | null;
+  favorites: number | null;
+  refund_amount_cents: number | null;
+  search_visitors: number | null;
+  search_transaction_customers: number | null;
+};
+
+type NetshopProductPerformanceDailyRow = {
+  business_date: string;
+  page_views: number | null;
+  visitors: number | null;
+  transaction_customers: number | null;
+  transaction_quantity: number | null;
+  transaction_amount_cents: number | null;
+  refund_amount_cents: number | null;
+  favorites: number | null;
+  add_cart_customers: number | null;
+  add_cart_quantity: number | null;
 };
 
 type NetshopProductPerformanceShopRow = {
@@ -1046,19 +1308,23 @@ type NetshopProductPerformanceShopRow = {
 };
 
 const dailyPerformanceMetrics = {
-  pageViews: `COALESCE(CAST(json_extract(r.metrics_json, '$."商品浏览量"') AS REAL), 0)`,
-  visitors: `COALESCE(CAST(json_extract(r.metrics_json, '$."商品访客数"') AS REAL), 0)`,
+  pageViews: `COALESCE(CAST(json_extract(r.metrics_json, '$.pageViews') AS REAL), CAST(json_extract(r.metrics_json, '$."商品浏览量"') AS REAL), 0)`,
+  visitors: `COALESCE(CAST(json_extract(r.metrics_json, '$.visitors') AS REAL), CAST(json_extract(r.metrics_json, '$."商品访客数"') AS REAL), 0)`,
   searchImpressions: `COALESCE(CAST(json_extract(r.metrics_json, '$."搜索曝光次数"') AS REAL), 0)`,
   searchClicks: `COALESCE(CAST(json_extract(r.metrics_json, '$."搜索点击次数"') AS REAL), 0)`,
-  addCartCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."加购客户数"') AS REAL), 0)`,
-  addCartQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."加购商品件数"') AS REAL), 0)`,
-  orderCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单客户数"') AS REAL), 0)`,
-  orderQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单商品件数"') AS REAL), 0)`,
-  orderAmount: `COALESCE(CAST(json_extract(r.metrics_json, '$."下单金额"') AS REAL), 0)`,
+  addCartCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$.addCartCustomers') AS REAL), CAST(json_extract(r.metrics_json, '$."加购客户数"') AS REAL), 0)`,
+  addCartQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$.addCartQuantity') AS REAL), CAST(json_extract(r.metrics_json, '$."加购商品件数"') AS REAL), 0)`,
+  orderCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$.orderCustomers') AS REAL), CAST(json_extract(r.metrics_json, '$."下单客户数"') AS REAL), 0)`,
+  orderQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$.orderQuantity') AS REAL), CAST(json_extract(r.metrics_json, '$."下单商品件数"') AS REAL), 0)`,
+  orderAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.orderAmountCents') AS REAL), CAST(json_extract(r.metrics_json, '$."下单金额"') AS REAL) * 100, 0)`,
   transactionOrders: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交单量"') AS REAL), 0)`,
-  transactionAmount: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交金额"') AS REAL), 0)`,
-  transactionQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交商品件数"') AS REAL), 0)`,
-  transactionCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$."成交客户数"') AS REAL), 0)`,
+  transactionAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.transactionAmountCents') AS REAL), CAST(json_extract(r.metrics_json, '$."成交金额"') AS REAL) * 100, 0)`,
+  transactionQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$.transactionQuantity') AS REAL), CAST(json_extract(r.metrics_json, '$."成交商品件数"') AS REAL), 0)`,
+  transactionCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$.transactionCustomers') AS REAL), CAST(json_extract(r.metrics_json, '$."成交客户数"') AS REAL), 0)`,
+  favorites: `COALESCE(CAST(json_extract(r.metrics_json, '$.favorites') AS REAL), 0)`,
+  refundAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.refundAmountCents') AS REAL), 0)`,
+  searchVisitors: `COALESCE(CAST(json_extract(r.metrics_json, '$.searchVisitors') AS REAL), 0)`,
+  searchTransactionCustomers: `COALESCE(CAST(json_extract(r.metrics_json, '$.searchTransactionCustomers') AS REAL), 0)`,
 } as const;
 
 function numberFromDailyMetric(value: number | null | undefined) {
@@ -1068,6 +1334,8 @@ function numberFromDailyMetric(value: number | null | undefined) {
 
 function dailyPerformanceCategorySql() {
   return `COALESCE(
+    NULLIF(json_extract(r.raw_json, '$."商品标签"'), ''),
+    NULLIF(json_extract(r.raw_json, '$."类目名称"'), ''),
     NULLIF(json_extract(r.raw_json, '$."三级类目"'), ''),
     NULLIF(json_extract(r.raw_json, '$."二级类目"'), ''),
     NULLIF(json_extract(r.raw_json, '$."一级类目"'), ''),
@@ -1102,7 +1370,11 @@ export async function getNetshopProductPerformance(
   const selectedPlatforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
   const selectedShops = [...new Set((input.shopNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
   const query = (input.query ?? "").trim().slice(0, 120);
-  const whereParts = ["r.source = 'jd_sku_daily'", "r.dataset = ?", `${dimensionSql} <> ''`];
+  const sourceSql = input.dimension === "sku"
+    ? "r.source = 'jd_sku_daily'"
+    : "r.source IN ('jd_sku_daily', 'tmall_product_daily')";
+  const identitySql = `r.platform || char(31) || r.shop_name || char(31) || ${dimensionSql}`;
+  const whereParts = [sourceSql, "r.dataset = ?", `${dimensionSql} <> ''`];
   const bindings: string[] = [dataset];
 
   if (startDate && endDate && startDate <= endDate) {
@@ -1128,7 +1400,7 @@ export async function getNetshopProductPerformance(
   const summary = await db
     .prepare(
       `SELECT
-         COUNT(DISTINCT ${dimensionSql}) AS product_count,
+         COUNT(DISTINCT ${identitySql}) AS product_count,
          MIN(r.business_date) AS date_min,
          MAX(r.business_date) AS data_cutoff_date,
          SUM(${metric.pageViews}) AS page_views,
@@ -1139,11 +1411,15 @@ export async function getNetshopProductPerformance(
          SUM(${metric.addCartQuantity}) AS add_cart_quantity,
          SUM(${metric.orderCustomers}) AS order_customers,
          SUM(${metric.orderQuantity}) AS order_quantity,
-         SUM(${metric.orderAmount}) AS order_amount,
+          SUM(${metric.orderAmountCents}) AS order_amount,
          SUM(${metric.transactionOrders}) AS transaction_orders,
-         SUM(${metric.transactionAmount}) AS transaction_amount,
+          SUM(${metric.transactionAmountCents}) AS transaction_amount,
          SUM(${metric.transactionQuantity}) AS transaction_quantity,
-         SUM(${metric.transactionCustomers}) AS transaction_customers
+          SUM(${metric.transactionCustomers}) AS transaction_customers
+         ,SUM(${metric.favorites}) AS favorites
+         ,SUM(${metric.refundAmountCents}) AS refund_amount_cents
+         ,SUM(${metric.searchVisitors}) AS search_visitors
+         ,SUM(${metric.searchTransactionCustomers}) AS search_transaction_customers
        FROM netshop_rows r
        WHERE ${whereSql}`,
     )
@@ -1151,7 +1427,7 @@ export async function getNetshopProductPerformance(
     .first<NetshopProductPerformanceSummaryRow>();
 
   const totalRow = await db
-    .prepare(`SELECT COUNT(DISTINCT ${dimensionSql}) AS total FROM netshop_rows r WHERE ${whereSql}`)
+    .prepare(`SELECT COUNT(DISTINCT ${identitySql}) AS total FROM netshop_rows r WHERE ${whereSql}`)
     .bind(...bindings)
     .first<{ total: number | null }>();
   const offset = (page - 1) * pageSize;
@@ -1159,6 +1435,7 @@ export async function getNetshopProductPerformance(
     .prepare(
       `SELECT
          ${dimensionSql} AS id,
+         MAX(r.platform) AS platform,
          MAX(r.sku_id) AS sku_id,
          MAX(r.spu_id) AS spu_id,
          MAX(NULLIF(r.product_code, '')) AS product_code,
@@ -1176,14 +1453,18 @@ export async function getNetshopProductPerformance(
          SUM(${metric.addCartQuantity}) AS add_cart_quantity,
          SUM(${metric.orderCustomers}) AS order_customers,
          SUM(${metric.orderQuantity}) AS order_quantity,
-         SUM(${metric.orderAmount}) AS order_amount,
+          SUM(${metric.orderAmountCents}) AS order_amount,
          SUM(${metric.transactionOrders}) AS transaction_orders,
-         SUM(${metric.transactionAmount}) AS transaction_amount,
+          SUM(${metric.transactionAmountCents}) AS transaction_amount,
          SUM(${metric.transactionQuantity}) AS transaction_quantity,
-         SUM(${metric.transactionCustomers}) AS transaction_customers
+          SUM(${metric.transactionCustomers}) AS transaction_customers
+         ,SUM(${metric.favorites}) AS favorites
+         ,SUM(${metric.refundAmountCents}) AS refund_amount_cents
+         ,SUM(${metric.searchVisitors}) AS search_visitors
+         ,SUM(${metric.searchTransactionCustomers}) AS search_transaction_customers
        FROM netshop_rows r
        WHERE ${whereSql}
-       GROUP BY ${dimensionSql}
+       GROUP BY r.platform, r.shop_name, ${dimensionSql}
        ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC, id ASC
        LIMIT ? OFFSET ?`,
     )
@@ -1195,23 +1476,43 @@ export async function getNetshopProductPerformance(
       `SELECT
          r.shop_name,
          MAX(r.platform) AS platform,
-         COUNT(DISTINCT ${dimensionSql}) AS product_count
+         COUNT(DISTINCT ${identitySql}) AS product_count
        FROM netshop_rows r
-       WHERE r.source = 'jd_sku_daily'
-         AND r.dataset = ?
-         AND ${dimensionSql} <> ''
+       WHERE ${whereSql}
          AND r.shop_name <> ''
-       GROUP BY r.shop_name
+       GROUP BY r.platform, r.shop_name
        ORDER BY r.shop_name COLLATE NOCASE ASC`,
     )
-    .bind(dataset)
+    .bind(...bindings)
     .all<NetshopProductPerformanceShopRow>();
+
+  const dailyRows = await db.prepare(
+    `SELECT
+       r.business_date,
+       SUM(${metric.pageViews}) AS page_views,
+       SUM(${metric.visitors}) AS visitors,
+       SUM(${metric.transactionCustomers}) AS transaction_customers,
+       SUM(${metric.transactionQuantity}) AS transaction_quantity,
+       SUM(${metric.transactionAmountCents}) AS transaction_amount_cents,
+       SUM(${metric.refundAmountCents}) AS refund_amount_cents,
+       SUM(${metric.favorites}) AS favorites,
+       SUM(${metric.addCartCustomers}) AS add_cart_customers,
+       SUM(${metric.addCartQuantity}) AS add_cart_quantity
+     FROM netshop_rows r
+     WHERE ${whereSql}
+     GROUP BY r.business_date
+     ORDER BY r.business_date ASC`,
+  ).bind(...bindings).all<NetshopProductPerformanceDailyRow>();
 
   const visitors = numberFromDailyMetric(summary?.visitors);
   const transactionCustomers = numberFromDailyMetric(summary?.transaction_customers);
   const searchImpressions = numberFromDailyMetric(summary?.search_impressions);
   const searchClicks = numberFromDailyMetric(summary?.search_clicks);
-  const transactionAmount = numberFromDailyMetric(summary?.transaction_amount);
+  const transactionAmountCents = numberFromDailyMetric(summary?.transaction_amount);
+  const actualDates = dailyRows.results.map((row) => row.business_date).filter(Boolean);
+  const coverage = startDate && endDate && startDate <= endDate
+    ? dailyDateCoverageForQuery(startDate, endDate, actualDates)
+    : { actualDates, missingDates: [] as string[] };
   const platforms = [...new Set(shops.results.map((shop) => shop.platform.trim()).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right, "zh-CN"));
   return {
@@ -1220,6 +1521,9 @@ export async function getNetshopProductPerformance(
     requestedPeriod: { startDate, endDate },
     dateMin: summary?.date_min ?? null,
     dataCutoffDate: summary?.data_cutoff_date ?? null,
+    monetaryUnit: "cents",
+    visitorAggregation: "product_day_sum",
+    coverage,
     platforms,
     shops: shops.results.map((shop) => ({
       shopName: shop.shop_name,
@@ -1237,22 +1541,41 @@ export async function getNetshopProductPerformance(
       addCartQuantity: numberFromDailyMetric(summary?.add_cart_quantity),
       orderCustomers: numberFromDailyMetric(summary?.order_customers),
       orderQuantity: numberFromDailyMetric(summary?.order_quantity),
-      orderAmount: numberFromDailyMetric(summary?.order_amount),
+      orderAmount: numberFromDailyMetric(summary?.order_amount) / 100,
+      orderAmountCents: numberFromDailyMetric(summary?.order_amount),
       transactionOrders: numberFromDailyMetric(summary?.transaction_orders),
-      transactionAmount,
+      transactionAmount: transactionAmountCents / 100,
+      transactionAmountCents,
       transactionQuantity: numberFromDailyMetric(summary?.transaction_quantity),
       transactionCustomers,
-      uvValue: visitors > 0 ? transactionAmount / visitors : null,
+      favorites: numberFromDailyMetric(summary?.favorites),
+      refundAmountCents: numberFromDailyMetric(summary?.refund_amount_cents),
+      searchVisitors: numberFromDailyMetric(summary?.search_visitors),
+      searchTransactionCustomers: numberFromDailyMetric(summary?.search_transaction_customers),
+      uvValue: visitors > 0 ? transactionAmountCents / 100 / visitors : null,
       conversionRate: visitors > 0 ? transactionCustomers / visitors : null,
     },
+    daily: dailyRows.results.map((row) => ({
+      date: row.business_date,
+      pageViews: numberFromDailyMetric(row.page_views),
+      visitors: numberFromDailyMetric(row.visitors),
+      transactionCustomers: numberFromDailyMetric(row.transaction_customers),
+      transactionQuantity: numberFromDailyMetric(row.transaction_quantity),
+      transactionAmountCents: numberFromDailyMetric(row.transaction_amount_cents),
+      refundAmountCents: numberFromDailyMetric(row.refund_amount_cents),
+      favorites: numberFromDailyMetric(row.favorites),
+      addCartCustomers: numberFromDailyMetric(row.add_cart_customers),
+      addCartQuantity: numberFromDailyMetric(row.add_cart_quantity),
+    })),
     items: rows.results.map((row) => {
       const itemVisitors = numberFromDailyMetric(row.visitors);
       const itemTransactionCustomers = numberFromDailyMetric(row.transaction_customers);
       const itemSearchImpressions = numberFromDailyMetric(row.search_impressions);
       const itemSearchClicks = numberFromDailyMetric(row.search_clicks);
-      const itemTransactionAmount = numberFromDailyMetric(row.transaction_amount);
+      const itemTransactionAmountCents = numberFromDailyMetric(row.transaction_amount);
       return {
         id: row.id,
+        platform: row.platform,
         skuId: row.sku_id,
         spuId: row.spu_id,
         productCode: row.product_code,
@@ -1271,15 +1594,245 @@ export async function getNetshopProductPerformance(
         addCartQuantity: numberFromDailyMetric(row.add_cart_quantity),
         orderCustomers: numberFromDailyMetric(row.order_customers),
         orderQuantity: numberFromDailyMetric(row.order_quantity),
-        orderAmount: numberFromDailyMetric(row.order_amount),
+        orderAmount: numberFromDailyMetric(row.order_amount) / 100,
+        orderAmountCents: numberFromDailyMetric(row.order_amount),
         transactionOrders: numberFromDailyMetric(row.transaction_orders),
-        transactionAmount: itemTransactionAmount,
+        transactionAmount: itemTransactionAmountCents / 100,
+        transactionAmountCents: itemTransactionAmountCents,
         transactionQuantity: numberFromDailyMetric(row.transaction_quantity),
         transactionCustomers: itemTransactionCustomers,
-        uvValue: itemVisitors > 0 ? itemTransactionAmount / itemVisitors : null,
+        favorites: numberFromDailyMetric(row.favorites),
+        refundAmountCents: numberFromDailyMetric(row.refund_amount_cents),
+        searchVisitors: numberFromDailyMetric(row.search_visitors),
+        searchTransactionCustomers: numberFromDailyMetric(row.search_transaction_customers),
+        uvValue: itemVisitors > 0 ? itemTransactionAmountCents / 100 / itemVisitors : null,
         conversionRate: itemVisitors > 0 ? itemTransactionCustomers / itemVisitors : null,
       };
     }),
-    pagination: { page, pageSize, total: numberFromDailyMetric(totalRow?.total) },
+    pagination: {
+      page,
+      pageSize,
+      total: numberFromDailyMetric(totalRow?.total),
+      returned: rows.results.length,
+      truncated: offset + rows.results.length < numberFromDailyMetric(totalRow?.total),
+    },
+  };
+}
+
+const promotionMetrics = {
+  spendCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.spendCents') AS REAL), 0)`,
+  netTransactionAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.netTransactionAmountCents') AS REAL), 0)`,
+  grossTransactionAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.grossTransactionAmountCents') AS REAL), 0)`,
+  impressions: `COALESCE(CAST(json_extract(r.metrics_json, '$.impressions') AS REAL), 0)`,
+  clicks: `COALESCE(CAST(json_extract(r.metrics_json, '$.clicks') AS REAL), 0)`,
+  netOrders: `COALESCE(CAST(json_extract(r.metrics_json, '$.netOrders') AS REAL), 0)`,
+  favorites: `COALESCE(CAST(json_extract(r.metrics_json, '$.favorites') AS REAL), 0)`,
+  cartQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$.cartQuantity') AS REAL), 0)`,
+} as const;
+
+type PromotionAggregateRow = {
+  product_count: number | null;
+  date_min: string | null;
+  date_max: string | null;
+  spend_cents: number | null;
+  net_transaction_amount_cents: number | null;
+  gross_transaction_amount_cents: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  net_orders: number | null;
+  favorites: number | null;
+  cart_quantity: number | null;
+};
+
+type PromotionDailyRow = Omit<PromotionAggregateRow, "product_count" | "date_min" | "date_max"> & { business_date: string };
+
+type PromotionItemRow = PromotionAggregateRow & {
+  id: string;
+  platform: string;
+  product_name: string | null;
+  shop_name: string;
+  data_days: number | null;
+};
+
+export async function getNetshopPromotionPerformance(
+  db: NetshopDatabase,
+  input: {
+    query?: string;
+    page?: number;
+    pageSize?: number;
+    platformNames?: string[];
+    shopNames?: string[];
+    startDate?: string;
+    endDate?: string;
+  } = {},
+): Promise<NetshopPromotionPerformance> {
+  const page = Math.max(1, Math.trunc(input.page ?? 1));
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(input.pageSize ?? 50)));
+  const startDate = isIsoDate(input.startDate) ? input.startDate! : null;
+  const endDate = isIsoDate(input.endDate) ? input.endDate! : null;
+  const platforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  const shops = [...new Set((input.shopNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
+  const where = ["r.source = 'tmall_promotion'", "r.dataset = 'promotion_daily'", "r.spu_id <> ''"];
+  const bindings: string[] = [];
+  if (startDate && endDate && startDate <= endDate) { where.push("r.business_date >= ?", "r.business_date <= ?"); bindings.push(startDate, endDate); }
+  if (platforms.length) { where.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`); bindings.push(...platforms); }
+  if (shops.length) { where.push(`r.shop_name IN (${shops.map(() => "?").join(", ")})`); bindings.push(...shops); }
+  const whereSql = where.join(" AND ");
+  const promotionIdentitySql = "r.platform || char(31) || r.shop_name || char(31) || r.spu_id";
+  const metric = promotionMetrics;
+  const aggregateSelect = `
+    COUNT(DISTINCT ${promotionIdentitySql}) AS product_count,
+    MIN(r.business_date) AS date_min,
+    MAX(r.business_date) AS date_max,
+    SUM(${metric.spendCents}) AS spend_cents,
+    SUM(${metric.netTransactionAmountCents}) AS net_transaction_amount_cents,
+    SUM(${metric.grossTransactionAmountCents}) AS gross_transaction_amount_cents,
+    SUM(${metric.impressions}) AS impressions,
+    SUM(${metric.clicks}) AS clicks,
+    SUM(${metric.netOrders}) AS net_orders,
+    SUM(${metric.favorites}) AS favorites,
+    SUM(${metric.cartQuantity}) AS cart_quantity`;
+  const summary = await db.prepare(`SELECT ${aggregateSelect} FROM netshop_rows r WHERE ${whereSql}`)
+    .bind(...bindings).first<PromotionAggregateRow>();
+  const daily = await db.prepare(
+    `SELECT r.business_date,
+       SUM(${metric.spendCents}) AS spend_cents,
+       SUM(${metric.netTransactionAmountCents}) AS net_transaction_amount_cents,
+       SUM(${metric.grossTransactionAmountCents}) AS gross_transaction_amount_cents,
+       SUM(${metric.impressions}) AS impressions,
+       SUM(${metric.clicks}) AS clicks,
+       SUM(${metric.netOrders}) AS net_orders,
+       SUM(${metric.favorites}) AS favorites,
+       SUM(${metric.cartQuantity}) AS cart_quantity
+     FROM netshop_rows r WHERE ${whereSql}
+     GROUP BY r.business_date ORDER BY r.business_date ASC`,
+  ).bind(...bindings).all<PromotionDailyRow>();
+
+  const paymentWhere = ["r.source = 'tmall_product_daily'", "r.dataset = 'spu_daily'"];
+  const paymentBindings: string[] = [];
+  if (startDate && endDate && startDate <= endDate) { paymentWhere.push("r.business_date >= ?", "r.business_date <= ?"); paymentBindings.push(startDate, endDate); }
+  if (platforms.length) { paymentWhere.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`); paymentBindings.push(...platforms); }
+  if (shops.length) { paymentWhere.push(`r.shop_name IN (${shops.map(() => "?").join(", ")})`); paymentBindings.push(...shops); }
+  const paymentRows = await db.prepare(
+    `SELECT r.business_date, SUM(${dailyPerformanceMetrics.transactionAmountCents}) AS payment_cents
+     FROM netshop_rows r WHERE ${paymentWhere.join(" AND ")}
+     GROUP BY r.business_date ORDER BY r.business_date ASC`,
+  ).bind(...paymentBindings).all<{ business_date: string; payment_cents: number | null }>();
+  const paymentByDate = new Map(paymentRows.results.map((row) => [row.business_date, numberFromDailyMetric(row.payment_cents)]));
+  const dailyByDate = new Map(daily.results.map((row) => [row.business_date, row]));
+  const promotionDates = [...dailyByDate.keys()].sort();
+  const productDailyDates = [...paymentByDate.keys()].sort();
+  const intersectionDates = promotionDates.filter((date) => paymentByDate.has(date));
+  const requestedDates = startDate && endDate && startDate <= endDate
+    ? dailyDateCoverageForQuery(startDate, endDate, []).missingDates
+    : [...new Set([...promotionDates, ...productDailyDates])].sort();
+  const ratioSpendCents = intersectionDates.reduce((sum, date) => sum + numberFromDailyMetric(dailyByDate.get(date)?.spend_cents), 0);
+  const ratioTransactionCents = intersectionDates.reduce((sum, date) => sum + numberFromDailyMetric(dailyByDate.get(date)?.net_transaction_amount_cents), 0);
+  const platformPaymentAmountCents = intersectionDates.reduce((sum, date) => sum + numberFromDailyMetric(paymentByDate.get(date)), 0);
+
+  const query = (input.query ?? "").trim().slice(0, 120);
+  const itemWhere = [...where];
+  const itemBindings = [...bindings];
+  if (query) {
+    itemWhere.push("(r.spu_id LIKE ? OR r.product_name LIKE ?)");
+    const term = `%${query}%`;
+    itemBindings.push(term, term);
+  }
+  const itemWhereSql = itemWhere.join(" AND ");
+  const totalRow = await db.prepare(`SELECT COUNT(DISTINCT ${promotionIdentitySql}) AS total FROM netshop_rows r WHERE ${itemWhereSql}`)
+    .bind(...itemBindings).first<{ total: number | null }>();
+  const offset = (page - 1) * pageSize;
+  const itemRows = await db.prepare(
+    `SELECT
+       r.spu_id AS id,
+       MAX(r.platform) AS platform,
+       MAX(NULLIF(r.product_name, '')) AS product_name,
+       MAX(r.shop_name) AS shop_name,
+       COUNT(DISTINCT r.business_date) AS data_days,
+       ${aggregateSelect}
+     FROM netshop_rows r WHERE ${itemWhereSql}
+     GROUP BY r.platform, r.shop_name, r.spu_id
+     ORDER BY net_transaction_amount_cents DESC, spend_cents DESC, id ASC
+     LIMIT ? OFFSET ?`,
+  ).bind(...itemBindings, pageSize, offset).all<PromotionItemRow>();
+
+  const summarySpend = numberFromDailyMetric(summary?.spend_cents);
+  const summaryNetTransaction = numberFromDailyMetric(summary?.net_transaction_amount_cents);
+  const summaryImpressions = numberFromDailyMetric(summary?.impressions);
+  const summaryClicks = numberFromDailyMetric(summary?.clicks);
+  const total = numberFromDailyMetric(totalRow?.total);
+  return {
+    monetaryUnit: "cents",
+    requestedPeriod: { startDate, endDate },
+    dateMin: summary?.date_min ?? null,
+    dataCutoffDate: summary?.date_max ?? null,
+    coverage: {
+      promotionDates,
+      productDailyDates,
+      intersectionDates,
+      missingProductDailyDates: requestedDates.filter((date) => !paymentByDate.has(date)),
+      missingPromotionDates: requestedDates.filter((date) => !dailyByDate.has(date)),
+    },
+    summary: {
+      productCount: numberFromDailyMetric(summary?.product_count),
+      spendCents: summarySpend,
+      netTransactionAmountCents: summaryNetTransaction,
+      grossTransactionAmountCents: numberFromDailyMetric(summary?.gross_transaction_amount_cents),
+      platformPaymentAmountCents,
+      impressions: summaryImpressions,
+      clicks: summaryClicks,
+      netOrders: numberFromDailyMetric(summary?.net_orders),
+      favorites: numberFromDailyMetric(summary?.favorites),
+      cartQuantity: numberFromDailyMetric(summary?.cart_quantity),
+      clickThroughRate: summaryImpressions > 0 ? summaryClicks / summaryImpressions : null,
+      averageClickCostCents: summaryClicks > 0 ? summarySpend / summaryClicks : null,
+      roas: summarySpend > 0 ? summaryNetTransaction / summarySpend : null,
+      spendRate: platformPaymentAmountCents > 0 ? ratioSpendCents / platformPaymentAmountCents : null,
+      promotionTransactionShare: platformPaymentAmountCents > 0 ? ratioTransactionCents / platformPaymentAmountCents : null,
+    },
+    daily: daily.results.map((row) => {
+      const spendCents = numberFromDailyMetric(row.spend_cents);
+      const netTransactionAmountCents = numberFromDailyMetric(row.net_transaction_amount_cents);
+      const payment = paymentByDate.has(row.business_date) ? numberFromDailyMetric(paymentByDate.get(row.business_date)) : null;
+      return {
+        date: row.business_date,
+        spendCents,
+        netTransactionAmountCents,
+        platformPaymentAmountCents: payment,
+        impressions: numberFromDailyMetric(row.impressions),
+        clicks: numberFromDailyMetric(row.clicks),
+        netOrders: numberFromDailyMetric(row.net_orders),
+        roas: spendCents > 0 ? netTransactionAmountCents / spendCents : null,
+        spendRate: payment && payment > 0 ? spendCents / payment : null,
+        promotionTransactionShare: payment && payment > 0 ? netTransactionAmountCents / payment : null,
+      };
+    }),
+    items: itemRows.results.map((row) => {
+      const spendCents = numberFromDailyMetric(row.spend_cents);
+      const netTransactionAmountCents = numberFromDailyMetric(row.net_transaction_amount_cents);
+      const impressions = numberFromDailyMetric(row.impressions);
+      const clicks = numberFromDailyMetric(row.clicks);
+      return {
+        id: row.id,
+        platform: row.platform,
+        productName: row.product_name ?? "",
+        shopName: row.shop_name,
+        dateMin: row.date_min,
+        dateMax: row.date_max,
+        dataDays: numberFromDailyMetric(row.data_days),
+        spendCents,
+        netTransactionAmountCents,
+        grossTransactionAmountCents: numberFromDailyMetric(row.gross_transaction_amount_cents),
+        impressions,
+        clicks,
+        netOrders: numberFromDailyMetric(row.net_orders),
+        favorites: numberFromDailyMetric(row.favorites),
+        cartQuantity: numberFromDailyMetric(row.cart_quantity),
+        clickThroughRate: impressions > 0 ? clicks / impressions : null,
+        averageClickCostCents: clicks > 0 ? spendCents / clicks : null,
+        roas: spendCents > 0 ? netTransactionAmountCents / spendCents : null,
+      };
+    }),
+    pagination: { page, pageSize, total, returned: itemRows.results.length, truncated: offset + itemRows.results.length < total },
   };
 }

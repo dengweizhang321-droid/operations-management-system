@@ -468,15 +468,15 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(route, /getAll\("shop"\)/);
 });
 
-test("derives the shop visitor KPI from filtered SPU visitors", async () => {
+test("shows filtered SPU visitors only as a product-by-day accumulation", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /function StoreSpuVisitorMetric/);
   assert.match(page, /dimension: "spu"/);
-  assert.match(page, /Math\.round\(sourceVisitors \* 0\.9\)/);
-  assert.match(page, /SPU 商品访客/);
+  assert.doesNotMatch(page, /Math\.round\(sourceVisitors \* 0\.9\)/);
+  assert.match(page, /商品×日累计，非店铺去重 UV/);
   assert.match(page, /待导入匹配店铺的 SPU 日数据/);
-  assert.match(page, /jd_sku_daily" : "jd_spu_daily/);
+  assert.match(page, /dimension === "sku" \? "jd_sku_daily" : "tmall_product_daily"/);
 });
 
 test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {
@@ -506,6 +506,49 @@ test("guards JD daily SKU and SPU imports with stable identity and full date cov
   assert.match(page, /expectedDataset: "spu_daily"/);
   assert.match(page, /expectedStartDate/);
   assert.match(page, /dataset === "sku_daily"/);
+});
+
+test("connects Tmall product, BI daily, and promotion data with scoped APIs", async () => {
+  const [page, service, database, importRoute, productRoute, performanceRoute, promotionRoute, registry, migration] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/netshop/products/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/netshop/product-performance/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/netshop/promotion-performance/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0052_tmall_netshop_query_indexes.sql", import.meta.url), "utf8"),
+  ]);
+
+  for (const token of ["tmall_product_master", "tmall_product_daily", "tmall_promotion", "天猫-志高亿玖专卖店"]) {
+    assert.match(page, new RegExp(token));
+    assert.match(service, new RegExp(token));
+  }
+  assert.match(service, /TextDecoder\("gb18030", \{ fatal: true \}\)/);
+  assert.match(service, /天猫推广 ZIP 必须且只能包含一个 CSV/);
+  assert.match(service, /READBACK_VERIFICATION_FAILED/);
+  assert.match(service, /DUPLICATE_MERCHANT_CODE/);
+  assert.match(database, /replaceScope/);
+  assert.match(database, /getNetshopPromotionPerformance/);
+  assert.match(database, /spendCents/);
+  assert.match(database, /platformPaymentAmountCents/);
+  assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(importRoute, /netshopPlatformsForPrincipal/);
+  for (const route of [importRoute, productRoute, performanceRoute, promotionRoute]) {
+    assert.match(route, /cache-control/i);
+    assert.match(route, /no-store/);
+  }
+  for (const route of [productRoute, performanceRoute, promotionRoute]) {
+    assert.match(route, /netshopPlatformsForPrincipal/);
+  }
+  assert.match(registry, /get_netshop_performance/);
+  assert.match(registry, /scopePolicy: "principal_scope"/);
+  assert.match(migration, /dataset`?,`?platform`?,`?shop_name`?,`?business_date`?,`?spu_id/);
+  assert.match(page, /推广费率/);
+  assert.match(page, /推广成交占比/);
+  assert.match(page, /ROAS/);
+  assert.match(page, /detail\.tmall\.com\/item\.htm\?id=/);
 });
 
 test("exposes the four operational collaboration workspaces", async () => {

@@ -32,6 +32,7 @@ import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/dat
 import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getSalesDatabase } from "@/lib/sales/database";
+import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 
 export type {
   AiToolAnnotations,
@@ -338,6 +339,30 @@ export const aiToolRegistry = [
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
     handler: (args) => callMarketTool("get_market_pending_review_summary", args),
+  },
+  {
+    name: "get_netshop_performance",
+    title: "网店商品与推广表现",
+    description: "按认证账号的平台范围，只读查询网店商品日表现或推广表现。商品访客为商品×日累计，不能解释为店铺去重UV；所有金额字段单位均为人民币分。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dataset: { type: "string", enum: ["product_daily", "promotion"], default: "product_daily" },
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        platform: { type: "string", maxLength: 40 },
+        shop: { type: "string", maxLength: 120 },
+        query: { type: "string", maxLength: 100 },
+        limit: { type: "integer", minimum: 1, maximum: 20, default: 10 },
+      },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: allRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 24_000, maxCallsPerRequest: 2 },
+    handler: (args, context) => getNetshopPerformanceForAi(args, context.principal),
   },
   {
     name: "search_system_data",
