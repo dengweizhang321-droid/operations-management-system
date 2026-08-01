@@ -420,14 +420,15 @@ test("connects JD SPU daily workbooks to the netshop import API", async () => {
 });
 
 test("links imported JD SKU and SPU daily data to shop product analysis", async () => {
-  const [page, database, route] = await Promise.all([
+  const [page, database, route, access] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/product-performance/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/access.ts", import.meta.url), "utf8"),
   ]);
 
   for (const label of [
-    "SKU",
+    "SKU（京东）",
     "SPU",
     "平台",
     "店铺",
@@ -456,6 +457,10 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(page, /\/api\/netshop\/product-performance/);
   assert.match(page, /SearchableMultiSelect/);
   assert.match(page, /productComparisonPeriod/);
+  assert.match(page, /netshopProductUrl/);
+  assert.match(page, /当前筛选周期暂无\{dimensionLabel\}商品日数据/);
+  assert.match(page, /系统数据覆盖 \{availableCoverageLabel\}/);
+  assert.match(page, /availableDateMin/);
   assert.match(database, /getNetshopProductPerformance/);
   assert.match(database, /dataset = input\.dimension === "sku" \? "sku_daily" : "spu_daily"/);
   assert.match(database, /商品浏览量/);
@@ -463,9 +468,14 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(database, /加购客户数/);
   assert.match(database, /成交金额/);
   assert.match(database, /GROUP_CONCAT\(DISTINCT NULLIF\(r\.shop_name/);
+  assert.match(database, /availableCoverageWhereParts/);
+  assert.match(database, /availableDateMin/);
   assert.match(route, /readDimension/);
   assert.match(route, /getAll\("platform"\)/);
   assert.match(route, /getAll\("shop"\)/);
+  assert.match(route, /netshopPlatformOptionsForPrincipal/);
+  assert.match(access, /NETSHOP_SUPPORTED_PLATFORMS = \["京东", "天猫"\]/);
+  assert.match(access, /principal\.scope\.platforms/);
 });
 
 test("shows filtered SPU visitors only as a product-by-day accumulation", async () => {

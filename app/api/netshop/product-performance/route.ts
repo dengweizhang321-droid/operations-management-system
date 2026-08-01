@@ -5,7 +5,7 @@ import {
   type NetshopProductPerformanceDimension,
 } from "@/lib/netshop/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { netshopPlatformsForPrincipal } from "@/lib/netshop/access";
+import { netshopPlatformOptionsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 
 function positiveInteger(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -22,8 +22,9 @@ export async function GET(request: Request) {
     const db = getNetshopDatabase();
     await ensureNetshopSchema(db);
     const params = new URL(request.url).searchParams;
+    const dimension = readDimension(params.get("dimension"));
     const payload = await getNetshopProductPerformance(db, {
-      dimension: readDimension(params.get("dimension")),
+      dimension,
       query: params.get("q") ?? undefined,
       page: positiveInteger(params.get("page"), 1),
       pageSize: positiveInteger(params.get("pageSize"), 50),
@@ -32,7 +33,12 @@ export async function GET(request: Request) {
       startDate: params.get("startDate") ?? undefined,
       endDate: params.get("endDate") ?? undefined,
     });
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const platformOptions = netshopPlatformOptionsForPrincipal(principal)
+      .filter((platform) => dimension === "spu" || platform === "京东");
+    return Response.json(
+      { ...payload, platforms: platformOptions },
+      { headers: { "cache-control": "no-store" } },
+    );
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

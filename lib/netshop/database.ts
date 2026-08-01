@@ -207,7 +207,12 @@ export type NetshopProductPerformance = {
   dataCutoffDate: string | null;
   monetaryUnit: "cents";
   visitorAggregation: "product_day_sum";
-  coverage: { actualDates: string[]; missingDates: string[] };
+  coverage: {
+    actualDates: string[];
+    missingDates: string[];
+    availableDateMin: string | null;
+    availableDateMax: string | null;
+  };
   platforms: string[];
   shops: Array<{ shopName: string; platform: string; productCount: number }>;
   summary: {
@@ -1307,6 +1312,11 @@ type NetshopProductPerformanceShopRow = {
   product_count: number | null;
 };
 
+type NetshopProductPerformanceAvailableCoverageRow = {
+  date_min: string | null;
+  date_max: string | null;
+};
+
 const dailyPerformanceMetrics = {
   pageViews: `COALESCE(CAST(json_extract(r.metrics_json, '$.pageViews') AS REAL), CAST(json_extract(r.metrics_json, '$."商品浏览量"') AS REAL), 0)`,
   visitors: `COALESCE(CAST(json_extract(r.metrics_json, '$.visitors') AS REAL), CAST(json_extract(r.metrics_json, '$."商品访客数"') AS REAL), 0)`,
@@ -1471,6 +1481,12 @@ export async function getNetshopProductPerformance(
     .bind(...bindings, pageSize, offset)
     .all<NetshopProductPerformanceRow>();
 
+  const shopWhereParts = [sourceSql, "r.dataset = ?", `${dimensionSql} <> ''`];
+  const shopBindings: string[] = [dataset];
+  if (selectedPlatforms.length > 0) {
+    shopWhereParts.push(`r.platform IN (${selectedPlatforms.map(() => "?").join(", ")})`);
+    shopBindings.push(...selectedPlatforms);
+  }
   const shops = await db
     .prepare(
       `SELECT
@@ -1478,13 +1494,28 @@ export async function getNetshopProductPerformance(
          MAX(r.platform) AS platform,
          COUNT(DISTINCT ${identitySql}) AS product_count
        FROM netshop_rows r
-       WHERE ${whereSql}
+       WHERE ${shopWhereParts.join(" AND ")}
          AND r.shop_name <> ''
        GROUP BY r.platform, r.shop_name
        ORDER BY r.shop_name COLLATE NOCASE ASC`,
     )
-    .bind(...bindings)
+    .bind(...shopBindings)
     .all<NetshopProductPerformanceShopRow>();
+
+  const availableCoverageWhereParts = [...shopWhereParts];
+  const availableCoverageBindings = [...shopBindings];
+  if (selectedShops.length > 0) {
+    availableCoverageWhereParts.push(`r.shop_name IN (${selectedShops.map(() => "?").join(", ")})`);
+    availableCoverageBindings.push(...selectedShops);
+  }
+  const availableCoverage = await db
+    .prepare(
+      `SELECT MIN(r.business_date) AS date_min, MAX(r.business_date) AS date_max
+       FROM netshop_rows r
+       WHERE ${availableCoverageWhereParts.join(" AND ")}`,
+    )
+    .bind(...availableCoverageBindings)
+    .first<NetshopProductPerformanceAvailableCoverageRow>();
 
   const dailyRows = await db.prepare(
     `SELECT
@@ -1510,9 +1541,14 @@ export async function getNetshopProductPerformance(
   const searchClicks = numberFromDailyMetric(summary?.search_clicks);
   const transactionAmountCents = numberFromDailyMetric(summary?.transaction_amount);
   const actualDates = dailyRows.results.map((row) => row.business_date).filter(Boolean);
-  const coverage = startDate && endDate && startDate <= endDate
+  const requestedCoverage = startDate && endDate && startDate <= endDate
     ? dailyDateCoverageForQuery(startDate, endDate, actualDates)
     : { actualDates, missingDates: [] as string[] };
+  const coverage = {
+    ...requestedCoverage,
+    availableDateMin: availableCoverage?.date_min ?? null,
+    availableDateMax: availableCoverage?.date_max ?? null,
+  };
   const platforms = [...new Set(shops.results.map((shop) => shop.platform.trim()).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right, "zh-CN"));
   return {

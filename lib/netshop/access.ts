@@ -1,5 +1,13 @@
 import { AuthorizationError, type AppPrincipal } from "@/lib/auth/authorization";
 
+export const NETSHOP_SUPPORTED_PLATFORMS = ["京东", "天猫"] as const;
+
+export function netshopPlatformOptionsForPrincipal(principal: AppPrincipal) {
+  if (principal.scope === null) return [...NETSHOP_SUPPORTED_PLATFORMS];
+  const allowed = new Set(principal.scope.platforms.map((value) => value.trim()).filter(Boolean));
+  return NETSHOP_SUPPORTED_PLATFORMS.filter((platform) => allowed.has(platform));
+}
+
 export function netshopPlatformsForPrincipal(principal: AppPrincipal, requestedValues: readonly string[]) {
   const requested = [...new Set(requestedValues.map((value) => value.trim()).filter(Boolean))].slice(0, 20);
   if (principal.scope === null) return requested;
