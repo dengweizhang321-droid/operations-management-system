@@ -14,6 +14,21 @@ import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
 import type { MarketDatabase } from "../lib/market/database";
 import { MARKET_ANNOTATION_JOB_LIMITS, normalizeMarketAnnotationJobLimit } from "../lib/market/annotation-limits";
+import { annotationRequestRetryKind, annotationRetryDelayMs, isRetryableAnnotationRequestError } from "../lib/market/annotation-retry";
+
+test("annotation automatic retry uses bounded backoff and classifies only temporary failures", () => {
+  assert.equal(annotationRetryDelayMs("waiting", 0), 5_000);
+  assert.equal(annotationRetryDelayMs("transient", 1), 15_000);
+  assert.equal(annotationRetryDelayMs("transient", 3), 60_000);
+  assert.equal(annotationRetryDelayMs("rate_limit", 1), 60_000);
+  assert.equal(annotationRetryDelayMs("rate_limit", 8), 300_000);
+  assert.equal(annotationRetryDelayMs("transient", Number.NaN, 600_000), 300_000);
+  assert.equal(annotationRequestRetryKind(new Error("价格识别请求超时")), "transient");
+  assert.equal(annotationRequestRetryKind({ status: 503, message: "gateway unavailable" }), "transient");
+  assert.equal(annotationRequestRetryKind({ status: 429, message: "too many requests" }), "rate_limit");
+  assert.equal(annotationRequestRetryKind({ status: 403, message: "forbidden" }), null);
+  assert.equal(isRetryableAnnotationRequestError(new TypeError("Failed to fetch")), true);
+});
 
 test("market annotation jobs default to and accept at most 10,000 items", () => {
   assert.deepEqual(MARKET_ANNOTATION_JOB_LIMITS, { default: 10_000, maximum: 10_000 });
@@ -138,7 +153,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(marketUi, /PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000/);
   assert.match(marketUi, /PRICE_RECOGNITION_CONCURRENCY = 2/);
   assert.match(marketUi, /PRICE_RECOGNITION_BATCH_SIZE = 1/);
-  assert.match(marketUi, /再次点击将继续原任务，不会重复创建/);
+  assert.match(marketUi, /系统将在.*秒后自动刷新并续跑/);
+  assert.match(marketUi, /const refreshRecognitionProgress = loadLatest/);
+  assert.match(marketUi, /successesSinceFailure >= 3/);
+  assert.match(marketUi, /自动恢复双通道价格识别/);
+  assert.doesNotMatch(marketUi, /请刷新后继续原任务|再次点击将继续原任务/);
   assert.match(model, /response_format: \{ type: "json_schema"/);
   assert.match(model, /tool_choice: \{ type: "tool"/);
   assert.match(model, /MODEL_RESPONSE_MAX_BYTES = 2 \* 1024 \* 1024/);
@@ -157,7 +176,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /单个任务最多 10,000 条/);
   assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(service, /normalizeMarketAnnotationJobLimit/);
-  assert.match(ui, /模型供应商出现 429 限流：已自动从双通道降为单通道/);
+  assert.match(ui, /模型供应商限流，已降为单通道，系统将在.*秒后自动续跑/);
   assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
@@ -179,11 +198,15 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
-  assert.match(ui, /模型或网络超时，本轮已安全暂停/);
+  assert.match(ui, /模型或网络超时，已降为单通道，系统将在.*秒后自动刷新并续跑/);
+  assert.match(ui, /连续成功 3 张后恢复双通道/);
+  assert.match(ui, /自动恢复双通道识别/);
+  assert.doesNotMatch(ui, /请刷新后继续原任务|请稍后点击“继续云端识别”/);
   assert.match(ui, /signal: controller\.signal/);
   assert.match(ui, /loadSequence !== loadSequenceRef\.current/);
-  assert.match(ui, /服务端可能仍在处理，请先刷新工作台再决定是否重试/);
-  assert.match(ui, /if \(!response\.ok \|\| !payload\) throw new Error\(payload\?\.error \|\| "操作失败"\)/);
+  assert.match(ui, /系统将自动刷新任务状态并续跑原任务/);
+  assert.match(ui, /if \(!response\.ok \|\| !payload\)/);
+  assert.match(ui, /requestError\.status = response\.status/);
   assert.match(ui, /setInitialLoading\(false\)/);
   assert.match(ui, /SKU AI 标注工作台加载失败/);
   assert.match(ui, />重试<\/button>/);

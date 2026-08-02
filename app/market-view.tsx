@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "@/lib/market/latest-request";
+import { annotationRequestRetryKind, annotationRetryDelayMs } from "@/lib/market/annotation-retry";
 import MarketAnnotationView from "./market-annotation-view";
 
 const PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000;
@@ -17,7 +18,7 @@ async function postPriceRecognitionAction(body: Record<string, unknown>) {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller.signal,
     });
   } catch (error) {
-    if (controller.signal.aborted) throw new Error("价格识别请求超时，本轮已安全暂停；请刷新后继续原任务");
+    if (controller.signal.aborted) throw new Error("价格识别请求超时，系统将自动刷新任务状态并续跑原任务");
     throw error;
   } finally {
     window.clearTimeout(timeout);
@@ -720,28 +721,77 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       let processed = 0;
       let failed = 0;
       let done = false;
-      let stopReason = "";
-      const worker = async () => {
-        while (!done && !stopReason && processed < total) {
-          const response = await postPriceRecognitionAction({ action: "run_price_recognition_batch", jobId, limit: PRICE_RECOGNITION_BATCH_SIZE });
-          const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; failedCount?: number; failureKind?: string } } | null;
-          if (!response.ok) throw new Error(payload?.error || "AI 价格识别失败");
-          processed += Math.max(0, Number(payload?.result?.processedCount ?? 0));
+      let workerLimit = PRICE_RECOGNITION_CONCURRENCY;
+      let blockedUntil = 0;
+      let retryFailures = 0;
+      let successesSinceFailure = 0;
+      let fatalError: unknown = null;
+      const refreshRecognitionProgress = loadLatest;
+      const waitForRetryWindow = async () => {
+        while (!done && Date.now() < blockedUntil) await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(1_000, blockedUntil - Date.now())));
+      };
+      const scheduleRetry = (kind: "waiting" | "transient" | "rate_limit", retryAfterMs = 0) => {
+        workerLimit = 1;
+        successesSinceFailure = 0;
+        if (kind !== "waiting") retryFailures += 1;
+        const delayMs = annotationRetryDelayMs(kind, retryFailures, retryAfterMs);
+        blockedUntil = Math.max(blockedUntil, Date.now() + delayMs);
+        const seconds = Math.ceil(delayMs / 1_000);
+        setNotice(kind === "waiting"
+          ? `已有图片正在识别，系统将在 ${seconds} 秒后自动检查。`
+          : kind === "rate_limit"
+            ? `模型供应商限流，已降为单通道，系统将在 ${seconds} 秒后自动续跑。`
+            : `模型或网络超时，已降为单通道，系统将在 ${seconds} 秒后自动刷新并续跑。`);
+      };
+      const worker = async (workerIndex: number) => {
+        while (!done && !fatalError) {
+          if (workerIndex >= workerLimit) { await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000)); continue; }
+          await waitForRetryWindow();
+          if (done || fatalError || workerIndex >= workerLimit) continue;
+          let response: Response;
+          try {
+            response = await postPriceRecognitionAction({ action: "run_price_recognition_batch", jobId, limit: PRICE_RECOGNITION_BATCH_SIZE });
+          } catch (reason) {
+            const retryKind = annotationRequestRetryKind(reason);
+            if (retryKind) {
+              scheduleRetry(retryKind);
+              await refreshRecognitionProgress().catch(() => undefined);
+              continue;
+            }
+            fatalError = reason; break;
+          }
+          const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; reusedCount?: number; failedCount?: number; failureKind?: string; retryAfterMs?: number } } | null;
+          if (!response.ok) {
+            const retryKind = annotationRequestRetryKind({ status: response.status, message: payload?.error || "AI 价格识别失败" });
+            if (retryKind) { scheduleRetry(retryKind); await refreshRecognitionProgress().catch(() => undefined); continue; }
+            fatalError = new Error(payload?.error || "AI 价格识别失败"); break;
+          }
+          const processedThisCall = Math.max(0, Number(payload?.result?.processedCount ?? 0));
+          const reusedThisCall = Math.max(0, Number(payload?.result?.reusedCount ?? 0));
+          processed += processedThisCall;
           failed += Math.max(0, Number(payload?.result?.failedCount ?? 0));
-          done = Boolean(payload?.result?.done);
-          if (payload?.result?.waiting) stopReason = "已有识别任务执行中，请稍后继续";
-          if (payload?.result?.failureKind === "rate_limit") stopReason = "模型供应商限流或额度不足，任务已安全暂停，请稍后继续";
-          if (payload?.result?.failureKind === "transient") stopReason = "模型服务或网络暂时不可用，任务已安全暂停，请稍后继续";
-          setNotice(`AI 价格识别 ${Math.min(processed, total)} / ${total}${failed ? `，失败 ${failed}` : ""}`);
+          if (payload?.result?.done) done = true;
+          if (payload?.result?.waiting) { scheduleRetry("waiting"); await refreshRecognitionProgress().catch(() => undefined); }
+          else if (payload?.result?.failureKind === "rate_limit") { scheduleRetry("rate_limit", Number(payload.result.retryAfterMs ?? 0)); await refreshRecognitionProgress().catch(() => undefined); }
+          else if (payload?.result?.failureKind === "transient") { scheduleRetry("transient", Number(payload.result.retryAfterMs ?? 0)); await refreshRecognitionProgress().catch(() => undefined); }
+          else if (!payload?.result?.failureKind && processedThisCall > reusedThisCall) {
+            successesSinceFailure += processedThisCall - reusedThisCall;
+            if (workerLimit === 1 && successesSinceFailure >= 3) {
+              workerLimit = PRICE_RECOGNITION_CONCURRENCY;
+              retryFailures = 0;
+              setNotice("模型连接已稳定，系统已自动恢复双通道价格识别。");
+            } else setNotice(`AI 价格识别 ${Math.min(processed, total)} / ${total}${failed ? `，失败 ${failed}` : ""}`);
+          }
         }
       };
-      await Promise.all(Array.from({ length: Math.min(PRICE_RECOGNITION_CONCURRENCY, total || 1) }, worker));
-      setNotice(stopReason || `AI 价格识别完成，已处理 ${count(processed)} 条，结果已进入待确认候选价。`);
+      await Promise.all(Array.from({ length: Math.min(PRICE_RECOGNITION_CONCURRENCY, total || 1) }, (_, index) => worker(index)));
+      if (fatalError) throw fatalError;
+      setNotice(`AI 价格识别完成，已处理 ${count(processed)} 次，结果已进入待确认候选价。`);
       await loadLatest();
     } catch (reason) {
       await loadLatest().catch(() => undefined);
       setError(reason instanceof Error ? reason.message : "AI 价格识别失败");
-      setNotice("识别已安全暂停；已完成结果会保留，再次点击将继续原任务，不会重复创建。");
+      setNotice("自动识别遇到不可恢复错误，已完成结果仍会保留。请检查模型配置或权限后重试。");
     }
     finally { setBusy(""); }
   };
