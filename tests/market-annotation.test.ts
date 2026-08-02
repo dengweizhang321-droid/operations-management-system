@@ -125,7 +125,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
   assert.match(model, /loadCachedAnnotationImage/);
-  assert.match(model, /max_tokens: boundedModelSetting\(model\.max_tokens, 800, 128, 1_600\)/);
+  assert.match(model, /max_tokens: Math\.min\(boundedModelSetting\(model\.max_tokens, 800, 128, 1_600\), outputTokenCap \?\? 1_600\)/);
+  assert.match(model, /fixedSegment \? 400 : undefined/);
+  assert.match(model, /不要重新分类，只识别当前新主图价格/);
   assert.match(model, /boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\)/);
   assert.match(imageCache, /getCachedMarketImageForAnnotation/);
   assert.match(masterRoute, /case "run_price_recognition_batch".*runCloudAnnotationBatch/s);
@@ -466,10 +468,25 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(indexes.has("market_annotation_validation_result_lease_idx"));
   assert.ok(indexes.has("market_annotation_items_job_snapshot_uq"));
   assert.ok(indexes.has("market_annotation_items_reuse_idx"));
+  assert.ok(indexes.has("market_annotation_items_segment_reuse_idx"));
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
 
   // A distinct runtime connection must also be safe after the first upgrade.
   await ensureAnnotationSchema(sqliteAdapter(sqlite));
+  sqlite.close();
+});
+
+test("0053 installs the bounded SKU classification reuse index idempotently", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE market_annotation_items (
+    id TEXT PRIMARY KEY, category TEXT NOT NULL, scope TEXT NOT NULL, sku_code TEXT NOT NULL,
+    ranking_dimension TEXT NOT NULL, status TEXT NOT NULL, updated_at TEXT NOT NULL
+  )`);
+  const migration = await readFile(new URL("../drizzle/0053_market_annotation_segment_reuse.sql", import.meta.url), "utf8");
+  sqlite.exec(migration);
+  sqlite.exec(migration);
+  const columns = (sqlite.prepare("PRAGMA index_info('market_annotation_items_segment_reuse_idx')").all() as Array<{ name: string }>).map((row) => row.name);
+  assert.deepEqual(columns, ["category", "scope", "sku_code", "ranking_dimension", "status", "updated_at"]);
   sqlite.close();
 });
 
@@ -518,7 +535,7 @@ test("market annotation commit directly inherits standard prices across matching
   sqlite.close();
 });
 
-test("new annotation jobs directly inherit matching SKU-image standard prices and only queue changed images", async () => {
+test("new annotation jobs reuse same-image prices and mark changed images for price-only recognition", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -554,7 +571,7 @@ test("new annotation jobs directly inherit matching SKU-image standard prices an
     reviewed_price_type price_type, reviewed_by reviewer, ai_image_price_cents ai_price, image_source
     FROM market_annotation_items WHERE job_id=? ORDER BY month`).all(job.id) as Array<Record<string, unknown>>;
   assert.deepEqual(items.map((row) => ({ ...row })), [
-    { month: "2026-03", status: "queued", segment: "", price: null, price_type: "", reviewer: "", ai_price: null, image_source: "none" },
+    { month: "2026-03", status: "queued", segment: "台式", price: null, price_type: "", reviewer: "system:history_same_sku_segment", ai_price: null, image_source: "none" },
   ]);
   const inherited = sqlite.prepare(`SELECT confirmed_market_price_cents price, ai_price_type priceType,
     confirmation_status status, confirmed_by confirmedBy FROM market_price_snapshots WHERE id='ps-feb'`).get() as Record<string, unknown>;
@@ -562,6 +579,77 @@ test("new annotation jobs directly inherit matching SKU-image standard prices an
   assert.equal(job.totalCount, 1);
   assert.equal(job.completedCount, 0);
   assert.equal(job.status, "running");
+  sqlite.close();
+});
+
+test("price-only classification reuse never crosses scope or ranking dimension and ignores stale segments", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec("CREATE TABLE ai_models (id TEXT PRIMARY KEY, status TEXT NOT NULL, model_type TEXT NOT NULL)");
+  sqlite.exec("INSERT INTO ai_models VALUES ('vision-1','enabled','vision')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('prompt-isolation','净水',1,'manual','active','["台式","立式"]','这是用于验证历史分类复用范围隔离和失效分类拦截的正式 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('history-isolation','净水','prompt-isolation','local','committed',3,'admin@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, status, reviewed_segment, reviewed_by, reviewed_at)
+    VALUES
+      ('history-wrong-scope','history-isolation','净水','self','SKU-SCOPE','SKU','2026-01','old-scope','committed','台式','admin@test','2026-02-01'),
+      ('history-wrong-dimension','history-isolation','净水','pop','SKU-DIM','SPU','2026-01','old-dim','committed','台式','admin@test','2026-02-01'),
+      ('history-stale-segment','history-isolation','净水','pop','SKU-STALE','SKU','2026-01','old-stale','committed','已停用品类','admin@test','2026-02-01');
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, image_url, raw_json, last_import_batch_id)
+    VALUES
+      ('scope-target',1,'2026-03-01','2026-03-31','净水','pop','SKU','POP','SKU-SCOPE','范围隔离','https://img10.360buyimg.com/imgzone/scope.jpg','{}','batch'),
+      ('dimension-target',2,'2026-03-01','2026-03-31','净水','pop','SKU','POP','SKU-DIM','维度隔离','https://img10.360buyimg.com/imgzone/dim.jpg','{}','batch'),
+      ('stale-target',3,'2026-03-01','2026-03-31','净水','pop','SKU','POP','SKU-STALE','失效分类','https://img10.360buyimg.com/imgzone/stale.jpg','{}','batch'),
+      ('new-target',4,'2026-03-01','2026-03-31','净水','pop','SKU','POP','SKU-NEW','全新商品','https://img10.360buyimg.com/imgzone/new.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+    VALUES
+      ('scope-snapshot','净水','pop','SKU-SCOPE','SKU','2026-03','new-scope','https://img10.360buyimg.com/imgzone/scope.jpg','missing'),
+      ('dimension-snapshot','净水','pop','SKU-DIM','SKU','2026-03','new-dim','https://img10.360buyimg.com/imgzone/dim.jpg','missing'),
+      ('stale-snapshot','净水','pop','SKU-STALE','SKU','2026-03','new-stale','https://img10.360buyimg.com/imgzone/stale.jpg','missing'),
+      ('new-snapshot','净水','pop','SKU-NEW','SKU','2026-03','new-sku','https://img10.360buyimg.com/imgzone/new.jpg','missing');
+  `);
+
+  const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-isolation", executor: "cloud", modelId: "vision-1", limit: 10 }, { email: "operator@test", role: "operator" });
+  const items = sqlite.prepare("SELECT sku_code skuCode,reviewed_segment segment,reviewed_by reviewer,status FROM market_annotation_items WHERE job_id=? ORDER BY sku_code").all(job.id) as Array<Record<string, unknown>>;
+  assert.deepEqual(items.map((row) => ({ ...row })), [
+    { skuCode: "SKU-DIM", segment: "", reviewer: "", status: "queued" },
+    { skuCode: "SKU-NEW", segment: "", reviewer: "", status: "queued" },
+    { skuCode: "SKU-SCOPE", segment: "", reviewer: "", status: "queued" },
+    { skuCode: "SKU-STALE", segment: "", reviewer: "", status: "queued" },
+  ]);
+  sqlite.close();
+});
+
+test("local price-only tasks expose one fixed segment and reject classification drift", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('local-price-prompt','净水',1,'manual','active','["台式","立式"]','这是用于验证本地价格专用任务固定历史分类的正式 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, local_model_name, status, total_count, created_by)
+      VALUES ('local-price-job','净水','local-price-prompt','local','qwen-vision','running',1,'admin@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, source_image_url, status, reviewed_segment, reviewed_by)
+      VALUES ('local-price-item','local-price-job','净水','pop','SKU-LOCAL','SKU','2026-03','new-local','本地价格识别','https://img10.360buyimg.com/imgzone/local.jpg','queued','台式','system:history_same_sku_segment');
+  `);
+
+  const claimed = await claimLocalAnnotation(db, { id: "agent-price" });
+  assert.equal(claimed.task?.recognitionMode, "price_only");
+  assert.equal(claimed.task?.fixedSegment, "台式");
+  assert.deepEqual(claimed.task?.segments, ["台式"]);
+  assert.match(claimed.task?.promptBody ?? "", /不要重新分类，只识别当前新主图价格/);
+  await assert.rejects(() => completeLocalAnnotation(db, { id: "agent-price" }, {
+    itemId: "local-price-item", leaseToken: claimed.task!.leaseToken,
+    result: { segment: "立式", image_price_cents: 19900, price_type: "标准售价", price_low_cents: 19900, price_high_cents: 19900, confidence: 0.9, reason: "错误改分类" },
+  }), /请求参数无效/);
   sqlite.close();
 });
 

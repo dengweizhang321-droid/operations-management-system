@@ -12,6 +12,7 @@ const foundationStatements = [
   `CREATE UNIQUE INDEX IF NOT EXISTS market_annotation_items_job_snapshot_uq ON market_annotation_items(job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256)`,
   `CREATE INDEX IF NOT EXISTS market_annotation_items_job_status_idx ON market_annotation_items(job_id, status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_annotation_items_reuse_idx ON market_annotation_items(category, scope, sku_code, ranking_dimension, image_content_sha256, status, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS market_annotation_items_segment_reuse_idx ON market_annotation_items(category, scope, sku_code, ranking_dimension, status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS market_annotation_items_lease_idx ON market_annotation_items(lease_expires_at, status)`,
   `CREATE TABLE IF NOT EXISTS market_sku_annotations (id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, sku_code TEXT NOT NULL, segment TEXT NOT NULL, image_price_cents INTEGER, image_url TEXT NOT NULL DEFAULT '', image_source TEXT NOT NULL DEFAULT 'none', confidence_bps INTEGER, source_job_item_id TEXT NOT NULL, prompt_version_id TEXT NOT NULL, reviewed_by TEXT NOT NULL, reviewed_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_sku_annotations_category_sku_uq ON market_sku_annotations(category, sku_code)`,

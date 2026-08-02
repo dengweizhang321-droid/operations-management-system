@@ -56,23 +56,30 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 
 export async function runVisionAnnotation(input: {
   db: MarketDatabase; modelId: string; promptBody: string; segments: readonly string[];
-  skuCode: string; productName: string; brand: string; imageUrl: string;
+  skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string }> {
   const model = await getModel(input.db, input.modelId, "vision");
   const cachedImage = input.imageUrl ? await loadCachedAnnotationImage(input.db, input.imageUrl) : null;
   const image = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
   if (image.kind !== "image") throw new Error(`主图获取失败：${image.message}`);
-  const text = `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回细分品类、主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
+  const fixedSegment = input.fixedSegment?.trim() ?? "";
+  if (fixedSegment && !input.segments.includes(fixedSegment)) throw new Error("历史细分品类已失效，不能执行价格专用识别");
+  const outputSegments = fixedSegment ? [fixedSegment] : input.segments;
+  const text = `${fixedSegment ? priceOnlyAnnotationPrompt(fixedSegment) : `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}`}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
   const raw = model.protocol === "anthropic"
-    ? await callAnthropicVision(model, text, input.segments, image)
-    : await callOpenAiVision(model, text, input.segments, image);
-  const parsed = parseVisionAnnotation(raw, input.segments);
+    ? await callAnthropicVision(model, text, outputSegments, image, fixedSegment ? 400 : undefined)
+    : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? 400 : undefined);
+  const parsed = parseVisionAnnotation(raw, outputSegments);
   return {
     ...parsed,
     imageSource: image.source,
     resolvedImageUrl: image.url,
     rawDigest: digest(parsed.rawText),
   };
+}
+
+export function priceOnlyAnnotationPrompt(segment: string) {
+  return `该 SKU 的细分品类已经人工复核并正式入库，固定为“${segment}”。不要重新分类，只识别当前新主图价格；segment 必须原样返回“${segment}”。`;
 }
 
 async function loadCachedAnnotationImage(db: MarketDatabase, sourceUrl: string) {
@@ -140,7 +147,7 @@ function modelCallError(kind: "文本" | "视觉", status: number, data: unknown
   return new Error(`${kind}模型调用失败（状态码 ${status}：${detail || hint}）`);
 }
 
-async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null) {
+async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number) {
   const key = await decryptSecret(model.api_key_encrypted);
   if (!key) throw new Error("视觉模型 API Key 未配置");
   const content: Array<Record<string, unknown>> = [{ type: "text", text }];
@@ -149,7 +156,7 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model: model.model_name, temperature: 0,
-      max_tokens: boundedModelSetting(model.max_tokens, 800, 128, 1_600),
+      max_tokens: Math.min(boundedModelSetting(model.max_tokens, 800, 128, 1_600), outputTokenCap ?? 1_600),
       messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
     }),
@@ -159,7 +166,7 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
   return typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("") || "";
 }
 
-async function callAnthropicVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null) {
+async function callAnthropicVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number) {
   const key = await decryptSecret(model.api_key_encrypted);
   if (!key) throw new Error("视觉模型 API Key 未配置");
   const content: Array<Record<string, unknown>> = [];
@@ -168,7 +175,7 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
   const { response, data } = await fetchJsonLimited<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(resolveAiModelEndpointUrl(model.base_url, "anthropic"), {
     method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
-      model: model.model_name, max_tokens: 800, messages: [{ role: "user", content }],
+      model: model.model_name, max_tokens: Math.min(boundedModelSetting(model.max_tokens, 800, 128, 1_600), outputTokenCap ?? 1_600), messages: [{ role: "user", content }],
       tools: [{ name: "submit_market_sku_annotation", description: "提交结构化识别结果", input_schema: annotationJsonSchema(segments) }],
       tool_choice: { type: "tool", name: "submit_market_sku_annotation" },
     }),

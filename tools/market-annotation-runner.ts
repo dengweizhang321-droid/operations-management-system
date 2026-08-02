@@ -1,11 +1,11 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import { fetchAnnotationImage } from "../lib/market/annotation-image";
-import { parseVisionAnnotation } from "../lib/market/annotation-types";
+import { marketAiPriceTypes, parseVisionAnnotation } from "../lib/market/annotation-types";
 
 type AgentTask = {
   itemId: string; jobId: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string;
-  promptBody: string; segments: string[]; localModelName: string; leaseToken: string;
+  promptBody: string; segments: string[]; recognitionMode?: "full" | "price_only"; fixedSegment?: string | null; localModelName: string; leaseToken: string;
 };
 
 const siteUrl = requiredEnv("TERUISI_SITE_URL").replace(/\/$/, "");
@@ -32,7 +32,7 @@ async function claim(): Promise<AgentTask | null> {
 
 async function infer(task: AgentTask) {
   const image = task.sourceImageUrl ? await fetchAnnotationImage(task.sourceImageUrl) : null;
-  const content = task.promptBody + "\n\n允许的细分品类：" + task.segments.join("、") + "\nSKU：" + task.skuCode + "\n商品名称：" + task.productName + "\n品牌：" + (task.brand || "未知") + "\n只输出 JSON：segment、image_price_cents（人民币分或null）、confidence（0到1）、reason。";
+  const content = task.promptBody + "\n\n允许的细分品类：" + task.segments.join("、") + "\nSKU：" + task.skuCode + "\n商品名称：" + task.productName + "\n品牌：" + (task.brand || "未知") + "\n只输出 JSON：segment、image_price_cents（人民币分或null）、price_type、price_low_cents、price_high_cents、confidence（0到1）、reason。";
   const { response, payload } = await fetchOllamaJson(ollamaUrl + "/api/chat", {
     method: "POST", headers: { "content-type": "application/json" }, redirect: "manual",
     body: JSON.stringify({
@@ -40,13 +40,16 @@ async function infer(task: AgentTask) {
       messages: [{ role: "user", content, ...(image?.kind === "image" ? { images: [image.base64] } : {}) }],
       format: { type: "object", additionalProperties: false, properties: {
         segment: { type: "string", enum: task.segments }, image_price_cents: { anyOf: [{ type: "integer", minimum: 0 }, { type: "null" }] },
+        price_type: { type: "string", enum: marketAiPriceTypes },
+        price_low_cents: { anyOf: [{ type: "integer", minimum: 0 }, { type: "null" }] },
+        price_high_cents: { anyOf: [{ type: "integer", minimum: 0 }, { type: "null" }] },
         confidence: { type: "number", minimum: 0, maximum: 1 }, reason: { type: "string" },
-      }, required: ["segment", "image_price_cents", "confidence", "reason"] },
+      }, required: ["segment", "image_price_cents", "price_type", "price_low_cents", "price_high_cents", "confidence", "reason"] },
     }),
   });
   if (!response.ok) throw new Error("Ollama 调用失败（状态码 " + response.status + "）");
   const result = parseVisionAnnotation(payload?.message?.content || "", task.segments);
-  return { result: { segment: result.segment, image_price_cents: result.imagePriceCents, confidence: result.confidenceBps / 10_000, reason: result.reason }, imageSource: image?.kind === "image" ? image.source : "none", resolvedImageUrl: image?.kind === "image" ? image.url : "" };
+  return { result: { segment: result.segment, image_price_cents: result.imagePriceCents, price_type: result.priceType, price_low_cents: result.priceLowCents, price_high_cents: result.priceHighCents, confidence: result.confidenceBps / 10_000, reason: result.reason }, imageSource: image?.kind === "image" ? image.source : "none", resolvedImageUrl: image?.kind === "image" ? image.url : "" };
 }
 
 async function fetchOllamaJson(url: string, init: RequestInit) {
