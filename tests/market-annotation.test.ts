@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -109,6 +109,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   ]);
   assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
   assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
+  assert.match(route, /case "run_batch": result = await runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/);
   assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
   assert.match(worker, /authenticateLocalAgent/);
   assert.match(worker, /annotationAgentErrorResponse/);
@@ -129,21 +130,27 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(model, /fixedSegment \? 400 : undefined/);
   assert.match(model, /不要重新分类，只识别当前新主图价格/);
   assert.match(model, /boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\)/);
+  assert.match(model, /VISION_ANNOTATION_TIMEOUT_MAX_MS = 90_000/);
+  assert.match(model, /Math\.min\(boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\), VISION_ANNOTATION_TIMEOUT_MAX_MS\)/);
   assert.match(imageCache, /getCachedMarketImageForAnnotation/);
-  assert.match(masterRoute, /case "run_price_recognition_batch".*runCloudAnnotationBatch/s);
+  assert.match(masterRoute, /case "run_price_recognition_batch".*runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/s);
   assert.match(marketUi, /action: "run_price_recognition_batch"/);
-  assert.match(marketUi, /Promise\.all\(Array\.from\(\{ length: Math\.min\(2, total \|\| 1\) \}, worker\)\)/);
+  assert.match(marketUi, /PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000/);
+  assert.match(marketUi, /PRICE_RECOGNITION_CONCURRENCY = 2/);
+  assert.match(marketUi, /PRICE_RECOGNITION_BATCH_SIZE = 1/);
+  assert.match(marketUi, /再次点击将继续原任务，不会重复创建/);
   assert.match(model, /response_format: \{ type: "json_schema"/);
   assert.match(model, /tool_choice: \{ type: "tool"/);
   assert.match(model, /MODEL_RESPONSE_MAX_BYTES = 2 \* 1024 \* 1024/);
   assert.match(model, /readBodyLimited\(response, MODEL_RESPONSE_MAX_BYTES\)/);
   assert.doesNotMatch(model, /data\?\.error\?\.message/);
   assert.match(service, /sample_snapshot_json/);
-  assert.match(service, /datetime\('now','\+2 minutes'\)/);
+  assert.match(service, /datetime\('now','\+3 minutes'\)/);
+  assert.match(service, /CLOUD_INFERENCE_CONCURRENCY = 2/);
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /const CLOUD_CONCURRENCY = 2/);
-  assert.match(ui, /const CLOUD_BATCH_SIZE = 4/);
+  assert.match(ui, /const CLOUD_BATCH_SIZE = 1/);
   assert.match(ui, /action: "run_batch"/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.maximum/);
@@ -171,7 +178,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /AI 标注识别来源/);
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
-  assert.match(ui, /const ACTION_TIMEOUT_MS = 120_000/);
+  assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
+  assert.match(ui, /模型或网络超时，本轮已安全暂停/);
   assert.match(ui, /signal: controller\.signal/);
   assert.match(ui, /loadSequence !== loadSequenceRef\.current/);
   assert.match(ui, /服务端可能仍在处理，请先刷新工作台再决定是否重试/);
@@ -401,6 +409,29 @@ test("cloud annotation batches are bounded and refresh an empty job once", async
   sqlite.close();
 });
 
+test("cloud annotation refuses a third live inference claim for the same job", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('concurrency-prompt','并发类目',1,'manual','active','["型号A","其他"]','这是用于验证同任务最多两个云端推理租约的正式 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, created_by)
+      VALUES ('concurrency-job','并发类目','concurrency-prompt','cloud','vision-1','running',3,'admin@test');
+    INSERT INTO market_annotation_items
+      (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, status, lease_token_hash, lease_agent_id, lease_expires_at)
+    VALUES
+      ('active-one','concurrency-job','并发类目','pop','SKU-1','SKU','2026-01','hash-1','inferencing','lease-1','cloud',datetime('now','+2 minutes')),
+      ('active-two','concurrency-job','并发类目','pop','SKU-2','SKU','2026-01','hash-2','inferencing','lease-2','cloud',datetime('now','+2 minutes')),
+      ('queued-three','concurrency-job','并发类目','pop','SKU-3','SKU','2026-01','hash-3','queued','','',NULL);
+  `);
+  const result = await runNextCloudAnnotation(db, "concurrency-job");
+  assert.equal(result.waiting, true);
+  const queued = sqlite.prepare("SELECT status,attempt_count attempts FROM market_annotation_items WHERE id='queued-three'").get() as Record<string, unknown>;
+  assert.deepEqual({ ...queued }, { status: "queued", attempts: 0 });
+  sqlite.close();
+});
+
 test("expired validation claim at max attempts seals once and completed metrics are immutable", async () => {
   const sqlite = new DatabaseSync(":memory:");
   for (const migration of ["../drizzle/0016_market_sku_annotations.sql", "../drizzle/0017_market_annotation_reliability.sql"]) sqlite.exec(await readFile(new URL(migration, import.meta.url), "utf8"));
@@ -579,6 +610,41 @@ test("new annotation jobs reuse same-image prices and mark changed images for pr
   assert.equal(job.totalCount, 1);
   assert.equal(job.completedCount, 0);
   assert.equal(job.status, "running");
+  sqlite.close();
+});
+
+test("price recognition resumes the compatible unfinished job instead of creating duplicates", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec("CREATE TABLE ai_models (id TEXT PRIMARY KEY, status TEXT NOT NULL, model_type TEXT NOT NULL)");
+  sqlite.exec("INSERT INTO ai_models VALUES ('vision-resume','enabled','vision')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('resume-prompt','净水',1,'manual','active','["台式","立式"]','这是用于验证价格识别超时后续跑原任务且不重复创建的正式 Prompt。','admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, image_url, raw_json, last_import_batch_id)
+      VALUES ('resume-ranking',1,'2026-04-01','2026-04-30','净水','pop','SKU','POP','SKU-RESUME','续跑商品','https://img10.360buyimg.com/imgzone/resume.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+      VALUES ('resume-snapshot','净水','pop','SKU-RESUME','SKU','2026-04','resume-hash','https://img10.360buyimg.com/imgzone/resume.jpg','missing');
+  `);
+
+  const first = await createPriceRecognitionJob(db, { category: "净水", modelId: "vision-resume", limit: 100 }, { email: "operator@test", role: "operator" });
+  sqlite.prepare("UPDATE market_annotation_items SET status='failed',attempt_count=1,error_message='模型调用超时' WHERE job_id=?").run(first.id);
+  sqlite.prepare("UPDATE market_annotation_jobs SET status='failed' WHERE id=?").run(first.id);
+  const resumed = await createPriceRecognitionJob(db, { category: "净水", modelId: "vision-resume", limit: 100 }, { email: "operator@test", role: "operator" });
+  assert.equal(resumed.id, first.id);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_jobs WHERE category='净水'").get() as { count: number }).count, 1);
+
+  sqlite.prepare("UPDATE market_annotation_items SET status='review_pending',ai_segment='台式',ai_image_price_cents=19900 WHERE job_id=?").run(first.id);
+  sqlite.prepare("UPDATE market_annotation_jobs SET status='review_ready' WHERE id=?").run(first.id);
+  const reviewResume = await createPriceRecognitionJob(db, { category: "净水", modelId: "vision-resume", limit: 100 }, { email: "operator@test", role: "operator" });
+  assert.equal(reviewResume.id, first.id);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE job_id=?").get(first.id) as { count: number }).count, 1);
+  const completed = sqlite.prepare("SELECT status,ai_image_price_cents price FROM market_annotation_items WHERE job_id=?").get(first.id) as Record<string, unknown>;
+  assert.deepEqual({ ...completed }, { status: "review_pending", price: 19900 });
   sqlite.close();
 });
 

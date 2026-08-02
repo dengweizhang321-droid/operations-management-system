@@ -18,9 +18,9 @@ type CatalogWorkspace = Pick<Workspace, "catalog"> & { error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
 const LOAD_TIMEOUT_MS = 30_000;
-const ACTION_TIMEOUT_MS = 120_000;
+const ACTION_TIMEOUT_MS = 110_000;
 const CLOUD_CONCURRENCY = 2;
-const CLOUD_BATCH_SIZE = 4;
+const CLOUD_BATCH_SIZE = 1;
 const CLOUD_PROGRESS_REFRESH_EVERY = 12;
 const CLOUD_PROGRESS_REFRESH_MS = 30_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
@@ -267,6 +267,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     let waiting = false;
     let done = false;
     let rateLimitStopped = false;
+    let transientStopped = false;
     let workerLimit = CLOUD_CONCURRENCY;
     let blockedUntil = 0;
     let rateLimitHits = 0;
@@ -295,7 +296,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       }
     };
     const worker = async (workerIndex: number) => {
-      for (let index = 0; index < MARKET_ANNOTATION_JOB_LIMITS.maximum && !stopRef.current && !done && !rateLimitStopped; index += 1) {
+      for (let index = 0; index < MARKET_ANNOTATION_JOB_LIMITS.maximum && !stopRef.current && !done && !rateLimitStopped && !transientStopped; index += 1) {
         if (workerIndex >= workerLimit) break;
         await waitForWindow();
         if (stopRef.current || done || rateLimitStopped || workerIndex >= workerLimit) break;
@@ -326,7 +327,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
             break;
           }
         } else if (failureKind === "transient") {
-          blockedUntil = Math.max(blockedUntil, Date.now() + Math.max(5_000, Number(result?.retryAfterMs ?? 0)));
+          transientStopped = true;
+          break;
         }
         if (workerIndex === 0) await refreshProgress();
       }
@@ -337,6 +339,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const summary = `本轮处理 ${processedCount} 条（复用同图同模型结果 ${reusedCount} 条，识别失败 ${failedCount} 条）`;
     setNotice(rateLimitStopped
       ? `${summary}；供应商连续 429，系统已自动暂停，避免继续消耗失败次数。请稍后点击“继续云端识别”。`
+      : transientStopped ? `${summary}；模型或网络超时，本轮已安全暂停。已完成结果会保留，请刷新后继续原任务。`
       : stopRef.current ? `${summary}；已暂停，可稍后续跑`
         : done ? `${summary}；云端识别队列已处理完毕`
           : waiting ? `${summary}；已有识别 claim 执行中，lease 到期后可恢复`
@@ -472,7 +475,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")}>{error || notice}</div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；同一 SKUID 与图片已入库的标准售价会自动沿用，新图片的 AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
-    <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>同 SKUID、同图的历史标准售价直接入库；同图、同 Prompt、同模型的未入库 AI 结果会复用。新图片采用安全双通道识别，遇到 429 自动降级并冷却。</p></div></div><div className="annotation-form-row">
+    <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>同 SKUID、同图的历史标准售价直接入库；同图、同 Prompt、同模型的未入库 AI 结果会复用。新图片采用双通道逐张识别，遇到超时会安全暂停，遇到 429 自动降级并冷却。</p></div></div><div className="annotation-form-row">
       <label><span>筛选三级类目</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="输入类目关键词" /></label>
       <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
       <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>

@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     switch (action) {
       case "create_job": result = await createAnnotationJob(db, { category: text(parsed, "category"), promptVersionId: text(parsed, "promptVersionId"), executor: text(parsed, "executor"), modelId: text(parsed, "modelId") || undefined, localModelName: text(parsed, "localModelName") || undefined, limit: Number(parsed.limit ?? MARKET_ANNOTATION_JOB_LIMITS.default) }, principal); break;
       case "run_next": result = await runNextCloudAnnotation(db, text(parsed, "jobId")); break;
-      case "run_batch": result = await runCloudAnnotationBatch(db, text(parsed, "jobId"), Number(parsed.limit ?? 4)); break;
+      case "run_batch": result = await runCloudAnnotationBatch(db, text(parsed, "jobId"), 1); break;
       case "review": {
         if (!Array.isArray(parsed.updates) || !parsed.updates.every(record)) throw new Error("updates 必须是对象数组");
         result = await updateAnnotationItems(db, text(parsed, "jobId"), parsed.updates.map((item) => ({ id: text(item, "id"), version: Number(item.version), segment: text(item, "segment"), imagePriceCents: item.imagePriceCents, priceType: text(item, "priceType"), priceLowCents: item.priceLowCents, priceHighCents: item.priceHighCents, selected: item.selected === true })), principal); break;

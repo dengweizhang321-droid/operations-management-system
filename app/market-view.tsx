@@ -5,6 +5,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "@/lib/market/latest-request";
 import MarketAnnotationView from "./market-annotation-view";
 
+const PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000;
+const PRICE_RECOGNITION_CONCURRENCY = 2;
+const PRICE_RECOGNITION_BATCH_SIZE = 1;
+
+async function postPriceRecognitionAction(body: Record<string, unknown>) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), PRICE_RECOGNITION_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch("/api/market/master", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("价格识别请求超时，本轮已安全暂停；请刷新后继续原任务");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type FilterOption = { value: string; count: number };
 type MarketItem = {
@@ -693,7 +712,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     if (!priceCategory || !visionModelId) { setError("请选择类目，并先在 AI 助理配置中启用一个视觉模型"); return; }
     setBusy("recognize_prices"); setError(""); setNotice("正在创建价格识别任务…");
     try {
-      const createResponse = await fetch("/api/market/master", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create_price_recognition_job", category: priceCategory, modelId: visionModelId, limit: 100 }) });
+      const createResponse = await postPriceRecognitionAction({ action: "create_price_recognition_job", category: priceCategory, modelId: visionModelId, limit: 100 });
       const created = await createResponse.json().catch(() => null) as { error?: string; result?: { id?: string; totalCount?: number } } | null;
       if (!createResponse.ok || !created?.result?.id) throw new Error(created?.error || "价格识别任务创建失败");
       const jobId = created.result.id;
@@ -704,7 +723,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       let stopReason = "";
       const worker = async () => {
         while (!done && !stopReason && processed < total) {
-          const response = await fetch("/api/market/master", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "run_price_recognition_batch", jobId, limit: 4 }) });
+          const response = await postPriceRecognitionAction({ action: "run_price_recognition_batch", jobId, limit: PRICE_RECOGNITION_BATCH_SIZE });
           const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; failedCount?: number; failureKind?: string } } | null;
           if (!response.ok) throw new Error(payload?.error || "AI 价格识别失败");
           processed += Math.max(0, Number(payload?.result?.processedCount ?? 0));
@@ -716,10 +735,14 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
           setNotice(`AI 价格识别 ${Math.min(processed, total)} / ${total}${failed ? `，失败 ${failed}` : ""}`);
         }
       };
-      await Promise.all(Array.from({ length: Math.min(2, total || 1) }, worker));
+      await Promise.all(Array.from({ length: Math.min(PRICE_RECOGNITION_CONCURRENCY, total || 1) }, worker));
       setNotice(stopReason || `AI 价格识别完成，已处理 ${count(processed)} 条，结果已进入待确认候选价。`);
       await loadLatest();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "AI 价格识别失败"); }
+    } catch (reason) {
+      await loadLatest().catch(() => undefined);
+      setError(reason instanceof Error ? reason.message : "AI 价格识别失败");
+      setNotice("识别已安全暂停；已完成结果会保留，再次点击将继续原任务，不会重复创建。");
+    }
     finally { setBusy(""); }
   };
   const createMapping = (kind: string) => {

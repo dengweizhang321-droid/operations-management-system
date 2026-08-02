@@ -14,6 +14,7 @@ export type AnnotationModelConfig = {
 };
 type ModelRow = AnnotationModelConfig;
 const DEFAULT_MODEL_TIMEOUT_MS = 60_000;
+const VISION_ANNOTATION_TIMEOUT_MAX_MS = 90_000;
 const MODEL_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
@@ -160,7 +161,7 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
       messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
     }),
-  }, boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000));
+  }, Math.min(boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000), VISION_ANNOTATION_TIMEOUT_MAX_MS));
   if (!response.ok) throw modelCallError("视觉", response.status, data);
   const contentValue = data?.choices?.[0]?.message?.content;
   return typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("") || "";
@@ -179,7 +180,7 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
       tools: [{ name: "submit_market_sku_annotation", description: "提交结构化识别结果", input_schema: annotationJsonSchema(segments) }],
       tool_choice: { type: "tool", name: "submit_market_sku_annotation" },
     }),
-  }, boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000));
+  }, Math.min(boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000), VISION_ANNOTATION_TIMEOUT_MAX_MS));
   if (!response.ok) throw modelCallError("视觉", response.status, data);
   const tool = data?.content?.find((part) => part.type === "tool_use" && part.name === "submit_market_sku_annotation");
   if (!tool?.input) throw new Error("Anthropic 视觉模型没有返回结构化工具结果");

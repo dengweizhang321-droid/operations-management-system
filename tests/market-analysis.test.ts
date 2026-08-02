@@ -230,7 +230,7 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(service, /market_sku_gmv_totals/);
   assert.match(service, /gmv_total_cents DESC/);
   const panel = source.slice(source.indexOf("export function MarketMasterAdminPanel"), source.indexOf("function MarketSettingsWorkspace"));
-  assert.equal(panel.match(/await loadLatest\(\)/g)?.length, 8);
+  assert.equal(panel.match(/await loadLatest\(\)/g)?.length, 9);
   assert.doesNotMatch(panel, /await load\(\)/);
 });
 

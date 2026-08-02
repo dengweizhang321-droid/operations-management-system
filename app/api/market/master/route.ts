@@ -283,7 +283,7 @@ export async function POST(request: Request) {
         result = await runNextCloudAnnotation(db, text(parsed, "jobId"));
         break;
       case "run_price_recognition_batch":
-        result = await runCloudAnnotationBatch(db, text(parsed, "jobId"), Number(parsed.limit ?? 4));
+        result = await runCloudAnnotationBatch(db, text(parsed, "jobId"), 1);
         break;
       case "apply_mappings":
         result = await applyPublishedMarketMappings(db, { category: text(parsed, "category") || undefined }, principal);
