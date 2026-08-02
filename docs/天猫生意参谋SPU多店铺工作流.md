@@ -1,0 +1,99 @@
+# 天猫生意参谋 SPU 多店铺工作流
+
+本流程用于逐店补齐生意参谋“商品排行”SPU 分天 `.xls` 数据，并在运营系统中完成店铺隔离、日期校验、幂等导入和落库回查。业务日期以 `Asia/Shanghai` 为准，默认只处理到昨天。
+
+## 1. 安全边界
+
+- 店铺注册表位于 `config/tmall-store-accounts.json`。每个店铺必须使用不同的 `profileDir`、`debugPort` 和 `downloadDir`。
+- 注册表不得出现密码、Cookie、Token、Session 或验证码。首次登录和登录失效后由操作者在对应独立浏览器 profile 中完成验证。
+- 只有注册表中 `enabled=true` 的店铺可以导入。服务端不再接受任意天猫店铺名，也不会把所有文件强制归入亿玖店。
+- 下载前必须从页面可见店铺身份核验当前店铺；文件进入运营系统前还必须通过店铺/日期/文件哈希签收单。
+- 店铺之间串行运行。不得共享浏览器 profile、下载目录、签收单或恢复清单。
+
+## 2. 首次配置店铺
+
+1. 在 `config/tmall-store-accounts.json` 找到店铺，设置唯一的浏览器目录、端口和下载目录。
+2. `initialStartDate` 表示该店铺首次纳入自动补数的起始日。已有数据时应设为已确认覆盖的下一天；不能确认时保持 `null`，运行时显式传 `--start-date`。
+3. 完成独立 profile 的首次登录，确认进入 `https://sycm.taobao.com/portal/home.htm` 后页面展示的店铺名与 `shopName` 完全一致。
+4. 只有上述核验完成后才把 `enabled` 改为 `true`。
+
+## 3. 生成缺失日期计划
+
+运营系统运行时执行：
+
+```powershell
+npm run tmall:daily:import -- --dry-run
+```
+
+只规划一个店铺：
+
+```powershell
+npm run tmall:daily:import -- --dry-run --store-key tmall-yijiu
+```
+
+已人工确认非连续缺口时，使用显式日期清单；执行器仍会先查询这些日期是否已经覆盖，只规划尚未导入的日期：
+
+```powershell
+npm run tmall:daily:import -- --dry-run --store-key tmall-yijiu --dates 2026-07-28,2026-08-01
+```
+
+执行器会逐店调用 `product-performance` 只读接口，按 `platform=天猫 + shopName + dataset=spu_daily` 查询实际覆盖，生成 `outputs/tmall-multi-store-import/run-*.json`。计划中的每个 `planned` 项都是一次独立的单日下载，不能用京东 SPU 截止日或其他天猫店铺的截止日代替。
+
+## 4. Power Automate Desktop 下载流程
+
+建议建立一个主流程和一个“单店单日下载”子流程。主流程读取计划 JSON，按文件顺序串行调用子流程。
+
+子流程输入：`StoreKey`、`ExpectedShopName`、`BusinessDate`、`ProfileDir`、`DownloadDir`。
+
+子流程步骤：
+
+1. 用该店铺独立的 `--user-data-dir=ProfileDir` 启动 Chrome，然后附加到生意参谋页面。
+2. 等待页面加载；如出现登录、验证码或权限不足，立即停止该店铺并记录 `waiting_login`，不得切换到其他店铺的会话。
+3. 读取页面左上角当前店铺名称，必须与 `ExpectedShopName` 完全一致；不一致时停止并记录 `shop_identity_mismatch`。
+4. 点击顶部“商品”，进入商品排行。
+5. 点击“日”，选择 `BusinessDate`。选择后再次读取页面统计日期，必须等于目标日期。
+6. 点击“下载”，等待 `.crdownload` 消失且 `.xls` 文件大小连续两次保持一致。
+7. 将文件保存到该店铺独立 `DownloadDir`，不要移动其他店铺或旧日期文件。
+8. 调用签收命令；只有退出码为 0 才把该日期标记为已下载：
+
+   ```powershell
+   npm run tmall:receipt -- --store-key tmall-yijiu --date 2026-07-31 --file "D:\谷歌浏览器\tmall-yijiu\实际文件.xls"
+   ```
+
+签收命令会读取工作簿并核验统计日期、SPU 表头、文件大小和 SHA-256，然后在同目录生成 `<文件名>.tmall-receipt.json`。内容不同的同日文件不会被静默选择。
+
+## 5. 导入、去重与恢复
+
+下载与签收完成后执行：
+
+```powershell
+npm run tmall:daily:import
+```
+
+执行器仅接管签收单与文件哈希一致的 `.xls`，并逐店逐日完成：
+
+1. 本地工作簿日期和结构复核；
+2. `POST /api/netshop/import`，提交 `source=tmall_product_daily`、店铺和同一天目标范围；
+3. 校验 HTTP 状态：新导入必须为 `201/imported`，文件重复必须为 `200/duplicate`；
+4. 校验批次的来源、数据集、平台、店铺、日期、状态和行数；
+5. 再次查询同店铺同日期覆盖，只有命中后才算完成。
+
+同一店铺同一天的数据行使用 `dataset + platform + shopName + businessDate + SPU` 作为自然键。重新导入同一日期时只替换该店铺该日精确范围，不会与其他店铺或日期累加。
+
+运行清单状态：
+
+- `waiting_download`：缺少有效签收文件；补齐文件后重新运行。
+- `failed`：文件冲突、校验、接口或回查失败；修复原因后重新运行。
+- `imported`：新批次已导入并回查成功。
+- `duplicate`：相同文件已经导入，批次和覆盖回查成功。
+- `completed_with_warnings`：已落库，但存在主数据未匹配等告警，需要人工复核；不要重复下载覆盖。
+
+## 6. 每日调度顺序
+
+1. 确认运营系统可用。
+2. 运行 `tmall:daily:import -- --dry-run` 生成缺失计划。
+3. Power Automate Desktop 按店铺串行下载并生成签收单。
+4. 运行 `tmall:daily:import` 导入和回查。
+5. 检查最新运行清单；只有所有项均为 `imported`、`duplicate` 或已人工确认的 `completed_with_warnings`，当天任务才算结束。
+
+不得在计划任务中自动输入或保存店铺密码。登录失效、验证码、页面结构变化或店铺身份不一致必须转人工处理。

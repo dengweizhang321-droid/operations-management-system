@@ -13,6 +13,7 @@ import type {
 } from "@/lib/netshop/database";
 import { netshopMasterRowKey } from "@/lib/netshop/batch-identity";
 import { dailyDateCoverage, dailyRowKey, detectJdDailyDataset } from "@/lib/netshop/daily-contract";
+import { resolveEnabledTmallShop } from "@/lib/netshop/tmall-store-catalog";
 
 const DEFAULT_PLATFORM = "京东";
 const DEFAULT_SHOP_NAME = "志高商用设备旗舰店";
@@ -668,12 +669,13 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
   const snapshotDate = input.source === "tmall_product_master" ? isoDateFromValue(input.snapshotDate) : "";
   if (input.source === "tmall_product_master" && !snapshotDate) throw new Error("天猫货品主数据必须提供有效 snapshot_date=YYYY-MM-DD");
   const fileHash = toHex(await sha256(input.bytes));
+  const tmallStore = resolveEnabledTmallShop(input.shopName);
   const built = await buildNetshopRows(input, {
     parsed,
     header,
     dataset,
     platform: TMALL_PLATFORM,
-    shopName: TMALL_YIJIU_SHOP,
+    shopName: tmallStore.shopName,
     fileHash,
     snapshotDate,
   });
@@ -766,8 +768,17 @@ export async function importNetshopBytes(input: NetshopImportInput): Promise<Net
     const message = `上传文件数据集为 ${dataset}，与预期 ${input.expectedDataset} 不一致`;
     return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "EXPECTED_DATASET_MISMATCH", message }], errorCount: 1 };
   }
-  const platform = isTmallSource(input.source) ? TMALL_PLATFORM : normalizeText(input.platform) || DEFAULT_PLATFORM;
-  const shopName = isTmallSource(input.source) ? TMALL_YIJIU_SHOP : normalizeText(input.shopName) || DEFAULT_SHOP_NAME;
+  let platform: string;
+  let shopName: string;
+  try {
+    platform = isTmallSource(input.source) ? TMALL_PLATFORM : normalizeText(input.platform) || DEFAULT_PLATFORM;
+    shopName = isTmallSource(input.source)
+      ? resolveEnabledTmallShop(input.shopName).shopName
+      : normalizeText(input.shopName) || DEFAULT_SHOP_NAME;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "天猫店铺身份无效";
+    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "TMALL_SHOP_NOT_ALLOWED", message }], errorCount: 1 };
+  }
   const previous = await findNetshopImportBatchByHash(db, input.source, fileHash, { platform, shopName });
   const snapshotDate = input.source === "tmall_product_master"
     ? isoDateFromValue(input.snapshotDate)

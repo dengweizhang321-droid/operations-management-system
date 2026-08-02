@@ -60,7 +60,7 @@ test("天猫货品 XLSX 按列位区分重复表头并忽略错误 dimension", a
     fileName: "master.xlsx",
     fileSizeBytes: bytes.byteLength,
     platform: "不可信平台",
-    shopName: "不可信店铺",
+    shopName: TMALL_YIJIU_SHOP,
     snapshotDate: "2026-08-01",
   });
 
@@ -86,6 +86,22 @@ test("天猫货品 XLSX 按列位区分重复表头并忽略错误 dimension", a
   assert.equal(result.rows[0].raw["SKU商家编码"], "DUP-CODE");
   assert.equal(result.rows[0].raw["生产日期"], null);
   assert.notEqual(result.rows[0].sourceRowKey, result.rows[1].sourceRowKey);
+});
+
+test("天猫导入拒绝未注册或未启用店铺", async () => {
+  const bytes = dailyFixture();
+  await assert.rejects(
+    inspectTmallImportBytes({
+      source: "tmall_product_daily",
+      bytes,
+      fileName: "daily.xls",
+      fileSizeBytes: bytes.byteLength,
+      shopName: "天猫-未注册店铺",
+      expectedStartDate: "2026-07-31",
+      expectedEndDate: "2026-07-31",
+    }),
+    /未注册或未启用/,
+  );
 });
 
 test("生意参谋二进制 XLS 转换金额、比率并校验目标日期", async () => {

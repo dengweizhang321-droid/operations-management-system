@@ -21,6 +21,8 @@
     "jackyun:day-sku-export": "node --import tsx tools/jackyun-day-sku-export.ts",
     "jdsz:product-detail-export": "node --import tsx tools/jdsz-product-detail-export.ts",
     "jd:all-stores": "node --import tsx tools/jd-multi-store-runner.ts",
+    "tmall:receipt": "node --import tsx tools/tmall-download-receipt.ts",
+    "tmall:daily:import": "node --import tsx tools/tmall-multi-store-import-runner.ts",
     "market:annotation-agent": "node --import tsx tools/market-annotation-runner.ts",
     "jackyun:run": "node --import tsx tools/jackyun-automation-runner.ts",
     "jackyun:continue-helper": "node --import tsx tools/jackyun-continue-helper.ts",
