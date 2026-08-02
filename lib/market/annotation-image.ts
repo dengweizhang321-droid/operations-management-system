@@ -209,7 +209,7 @@ async function fetchCandidate(
       url: candidate.url.toString(),
       mimeType,
       bytes,
-      base64: encodeBase64(bytes),
+      base64: encodeAnnotationImageBase64(bytes),
     };
   } catch (error) {
     if (controller.signal.aborted) {
@@ -283,7 +283,7 @@ function normalizePositiveLimit(value: number | undefined, fallback: number, cei
   return ceiling === undefined ? integer : Math.min(integer, ceiling);
 }
 
-function encodeBase64(bytes: Uint8Array): string {
+export function encodeAnnotationImageBase64(bytes: Uint8Array): string {
   const chunkSize = 3 * 8_192;
   let encoded = "";
   for (let start = 0; start < bytes.byteLength; start += chunkSize) {

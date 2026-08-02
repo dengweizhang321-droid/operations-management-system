@@ -1414,13 +1414,16 @@ export async function getMarketPendingReviewSummaryForAi(db: MarketDatabase, arg
 function masterBaseSql(includeHistory = false) {
   return `WITH representatives AS MATERIALIZED (
       ${includeHistory
-        ? `SELECT history.* FROM (
-            SELECT source.*, ROW_NUMBER() OVER (
-              PARTITION BY source.category, source.scope, source.ranking_dimension, source.sku_code, substr(source.period_end,1,7)
-              ORDER BY source.period_end DESC, source.period_start DESC, source.id DESC
-            ) month_representative_rank
-            FROM market_ranking_entries source
-          ) history WHERE history.month_representative_rank=1`
+        ? `SELECT source.* FROM market_price_snapshots snapshot
+          JOIN market_ranking_entries source ON source.id=(
+            SELECT candidate.id FROM market_ranking_entries candidate
+            WHERE candidate.category=snapshot.category AND candidate.scope=snapshot.scope
+              AND candidate.ranking_dimension=snapshot.ranking_dimension AND candidate.sku_code=snapshot.sku_code
+              AND candidate.period_end>=snapshot.month||'-01'
+              AND candidate.period_end<date(snapshot.month||'-01','+1 month')
+            ORDER BY candidate.period_end DESC, candidate.period_start DESC, candidate.id DESC
+            LIMIT 1
+          )`
         : `SELECT source.* FROM market_master_identities identity
           JOIN market_ranking_entries source ON source.id=identity.latest_entry_id`}
     )

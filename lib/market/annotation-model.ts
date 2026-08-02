@@ -13,7 +13,7 @@ export type AnnotationModelConfig = {
   max_tool_rounds?: number; max_total_tool_calls?: number;
 };
 type ModelRow = AnnotationModelConfig;
-const MODEL_TIMEOUT_MS = 90_000;
+const DEFAULT_MODEL_TIMEOUT_MS = 60_000;
 const MODEL_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
@@ -59,7 +59,8 @@ export async function runVisionAnnotation(input: {
   skuCode: string; productName: string; brand: string; imageUrl: string;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string }> {
   const model = await getModel(input.db, input.modelId, "vision");
-  const image = input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" };
+  const cachedImage = input.imageUrl ? await loadCachedAnnotationImage(input.db, input.imageUrl) : null;
+  const image = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
   if (image.kind !== "image") throw new Error(`主图获取失败：${image.message}`);
   const text = `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回细分品类、主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
   const raw = model.protocol === "anthropic"
@@ -72,6 +73,15 @@ export async function runVisionAnnotation(input: {
     resolvedImageUrl: image.url,
     rawDigest: digest(parsed.rawText),
   };
+}
+
+async function loadCachedAnnotationImage(db: MarketDatabase, sourceUrl: string) {
+  try {
+    const { getCachedMarketImageForAnnotation } = await import("@/lib/market/image-cache");
+    return await getCachedMarketImageForAnnotation(sourceUrl, db);
+  } catch {
+    return null;
+  }
 }
 
 export async function runPromptTextCompletion(db: MarketDatabase, modelId: string, instruction: string) {
@@ -138,10 +148,12 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
   const { response, data } = await fetchJsonLimited<{ choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }> }>(resolveAiModelEndpointUrl(model.base_url, "openai_compatible"), {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: model.model_name, temperature: 0, messages: [{ role: "user", content }],
+      model: model.model_name, temperature: 0,
+      max_tokens: boundedModelSetting(model.max_tokens, 800, 128, 1_600),
+      messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
     }),
-  });
+  }, boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000));
   if (!response.ok) throw modelCallError("视觉", response.status, data);
   const contentValue = data?.choices?.[0]?.message?.content;
   return typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("") || "";
@@ -160,7 +172,7 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
       tools: [{ name: "submit_market_sku_annotation", description: "提交结构化识别结果", input_schema: annotationJsonSchema(segments) }],
       tool_choice: { type: "tool", name: "submit_market_sku_annotation" },
     }),
-  });
+  }, boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000));
   if (!response.ok) throw modelCallError("视觉", response.status, data);
   const tool = data?.content?.find((part) => part.type === "tool_use" && part.name === "submit_market_sku_annotation");
   if (!tool?.input) throw new Error("Anthropic 视觉模型没有返回结构化工具结果");
@@ -177,9 +189,9 @@ function annotationJsonSchema(segments: readonly string[]) {
   }, required: ["segment", "image_price_yuan", "price_type", "price_low_yuan", "price_high_yuan", "confidence", "reason"] };
 }
 
-async function fetchJsonLimited<T>(url: string, init: RequestInit): Promise<{ response: Response; data: T | null }> {
+async function fetchJsonLimited<T>(url: string, init: RequestInit, timeoutMs: number): Promise<{ response: Response; data: T | null }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...init, redirect: "manual", signal: controller.signal });
     if (response.status >= 300 && response.status < 400) throw new Error("模型接口禁止重定向");

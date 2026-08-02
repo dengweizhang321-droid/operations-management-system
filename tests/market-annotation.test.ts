@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -95,16 +95,20 @@ test("activation gate blocks overall, macro, and per-class regressions", () => {
 });
 
 test("annotation implementation wires real cloud images, idempotency, permissions, search, and local pull", async () => {
-  const [route, worker, service, model, ui, runner, migration] = await Promise.all([
+  const [route, worker, service, model, imageCache, ui, marketUi, masterRoute, runner, migration] = await Promise.all([
     readFile(new URL("../app/api/market/annotations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/annotations/worker/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/image-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../tools/market-annotation-runner.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"),
   ]);
   assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
+  assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
   assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
   assert.match(worker, /authenticateLocalAgent/);
   assert.match(worker, /annotationAgentErrorResponse/);
@@ -120,6 +124,13 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /reuseCloudAnnotationHistory/);
   assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
+  assert.match(model, /loadCachedAnnotationImage/);
+  assert.match(model, /max_tokens: boundedModelSetting\(model\.max_tokens, 800, 128, 1_600\)/);
+  assert.match(model, /boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\)/);
+  assert.match(imageCache, /getCachedMarketImageForAnnotation/);
+  assert.match(masterRoute, /case "run_price_recognition_batch".*runCloudAnnotationBatch/s);
+  assert.match(marketUi, /action: "run_price_recognition_batch"/);
+  assert.match(marketUi, /Promise\.all\(Array\.from\(\{ length: Math\.min\(2, total \|\| 1\) \}, worker\)\)/);
   assert.match(model, /response_format: \{ type: "json_schema"/);
   assert.match(model, /tool_choice: \{ type: "tool"/);
   assert.match(model, /MODEL_RESPONSE_MAX_BYTES = 2 \* 1024 \* 1024/);
@@ -130,6 +141,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /const CLOUD_CONCURRENCY = 2/);
+  assert.match(ui, /const CLOUD_BATCH_SIZE = 4/);
+  assert.match(ui, /action: "run_batch"/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.maximum/);
   assert.match(ui, /单个任务最多 10,000 条/);
@@ -365,6 +378,24 @@ test("stale cloud claims recover with CAS and stop after the third attempt", asy
   assert.deepEqual({ ...row }, { status: "failed", attemptCount: 3, leaseTokenHash: "" });
   const exhausted = await runNextCloudAnnotation(db, "cloud-job");
   assert.equal(exhausted.done, true);
+  sqlite.close();
+});
+
+test("cloud annotation batches are bounded and refresh an empty job once", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  for (const migration of ["../drizzle/0016_market_sku_annotations.sql", "../drizzle/0017_market_annotation_reliability.sql"]) sqlite.exec(await readFile(new URL(migration, import.meta.url), "utf8"));
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('batch-prompt','批处理类目',1,'manual','active','["型号A","其他"]','这是用于验证云端图片识别批处理边界和最终状态刷新的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, created_by)
+      VALUES ('batch-job','批处理类目','batch-prompt','cloud','vision-1','queued',0,'admin@test');
+  `);
+  const db = sqliteAdapter(sqlite);
+  await assert.rejects(() => runCloudAnnotationBatch(db, "batch-job", 9), /limit 必须是 1 到 8/);
+  const result = await runCloudAnnotationBatch(db, "batch-job", 4);
+  assert.equal(result.done, true);
+  assert.equal(result.processedCount, 0);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='batch-job'").get() as { status: string }).status, "review_ready");
   sqlite.close();
 });
 

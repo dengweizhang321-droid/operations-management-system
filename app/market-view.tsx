@@ -696,15 +696,28 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       const createResponse = await fetch("/api/market/master", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "create_price_recognition_job", category: priceCategory, modelId: visionModelId, limit: 100 }) });
       const created = await createResponse.json().catch(() => null) as { error?: string; result?: { id?: string; totalCount?: number } } | null;
       if (!createResponse.ok || !created?.result?.id) throw new Error(created?.error || "价格识别任务创建失败");
+      const jobId = created.result.id;
       const total = Number(created.result.totalCount ?? 0);
-      for (let index = 0; index <= total; index += 1) {
-        const response = await fetch("/api/market/master", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "run_price_recognition_next", jobId: created.result.id }) });
-        const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean } } | null;
-        if (!response.ok) throw new Error(payload?.error || "AI 价格识别失败");
-        setNotice(`AI 价格识别 ${Math.min(index + 1, total)} / ${total}`);
-        if (payload?.result?.done) break;
-      }
-      setNotice(`AI 价格识别完成，${count(total)} 条结果已进入待确认候选价。`);
+      let processed = 0;
+      let failed = 0;
+      let done = false;
+      let stopReason = "";
+      const worker = async () => {
+        while (!done && !stopReason && processed < total) {
+          const response = await fetch("/api/market/master", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "run_price_recognition_batch", jobId, limit: 4 }) });
+          const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; failedCount?: number; failureKind?: string } } | null;
+          if (!response.ok) throw new Error(payload?.error || "AI 价格识别失败");
+          processed += Math.max(0, Number(payload?.result?.processedCount ?? 0));
+          failed += Math.max(0, Number(payload?.result?.failedCount ?? 0));
+          done = Boolean(payload?.result?.done);
+          if (payload?.result?.waiting) stopReason = "已有识别任务执行中，请稍后继续";
+          if (payload?.result?.failureKind === "rate_limit") stopReason = "模型供应商限流或额度不足，任务已安全暂停，请稍后继续";
+          if (payload?.result?.failureKind === "transient") stopReason = "模型服务或网络暂时不可用，任务已安全暂停，请稍后继续";
+          setNotice(`AI 价格识别 ${Math.min(processed, total)} / ${total}${failed ? `，失败 ${failed}` : ""}`);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(2, total || 1) }, worker));
+      setNotice(stopReason || `AI 价格识别完成，已处理 ${count(processed)} 条，结果已进入待确认候选价。`);
       await loadLatest();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "AI 价格识别失败"); }
     finally { setBusy(""); }

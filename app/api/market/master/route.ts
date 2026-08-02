@@ -32,7 +32,7 @@ import {
   saveMarketSubcategorySettings,
   type MarketComparisonSelection,
 } from "@/lib/market/admin-service";
-import { createPriceRecognitionJob, runNextCloudAnnotation } from "@/lib/market/annotation-service";
+import { createPriceRecognitionJob, runCloudAnnotationBatch, runNextCloudAnnotation } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -281,6 +281,9 @@ export async function POST(request: Request) {
         break;
       case "run_price_recognition_next":
         result = await runNextCloudAnnotation(db, text(parsed, "jobId"));
+        break;
+      case "run_price_recognition_batch":
+        result = await runCloudAnnotationBatch(db, text(parsed, "jobId"), Number(parsed.limit ?? 4));
         break;
       case "apply_mappings":
         result = await applyPublishedMarketMappings(db, { category: text(parsed, "category") || undefined }, principal);

@@ -73,6 +73,7 @@ function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, job
 const aiRecognitionClause = "(COALESCE(ai_segment,'')<>'' OR ai_image_price_cents IS NOT NULL OR ai_confidence_bps IS NOT NULL OR COALESCE(ai_reason,'')<>'')";
 const MAX_FILTERED_SELECTION = 5_000;
 const COMMIT_SELECTION_BATCH_SIZE = 500;
+const CLOUD_ANNOTATION_BATCH_MAX = 8;
 
 function annotationImportableClause(alias = "market_annotation_items", jobStatuses = ["review_ready"]) {
   const statuses = jobStatuses.map((status) => `'${status}'`).join(",");
@@ -604,7 +605,7 @@ function cloudFailureKind(error: unknown) {
   return { failureKind: "permanent", retryAfterMs: 0 } as const;
 }
 
-export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) {
+async function runNextCloudAnnotationInternal(db: MarketDatabase, jobId: string, refreshState: boolean) {
   await ensureAnnotationSchema(db);
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<JobRow>();
   if (!job || job.executor !== "cloud" || !job.model_id) throw new Error("云端标注任务不存在");
@@ -615,14 +616,14 @@ export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) 
     .bind(jobId).run();
   const reusedCount = await reuseCloudAnnotationHistory(db, job);
   if (reusedCount) {
-    await refreshJob(db, jobId);
-    return { done: false, reusedCount, job: await getJob(db, jobId) };
+    if (refreshState) await refreshJob(db, jobId);
+    return { done: false, reusedCount, job: refreshState ? await getJob(db, jobId) : null };
   }
   const candidate = await db.prepare("SELECT " + itemColumns + " FROM market_annotation_items WHERE job_id=? AND status IN ('queued','failed') AND attempt_count < 3 ORDER BY CASE status WHEN 'queued' THEN 0 ELSE 1 END, updated_at LIMIT 1").bind(jobId).first<ItemRow>();
   if (!candidate) {
-    await refreshJob(db, jobId);
+    if (refreshState) await refreshJob(db, jobId);
     const active = await db.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE job_id=? AND status='inferencing'").bind(jobId).first<{ count: number }>();
-    return { done: Number(active?.count ?? 0) === 0, waiting: Number(active?.count ?? 0) > 0, job: await getJob(db, jobId) };
+    return { done: Number(active?.count ?? 0) === 0, waiting: Number(active?.count ?? 0) > 0, job: refreshState ? await getJob(db, jobId) : null };
   }
   const claimToken = randomBytes(24).toString("hex");
   const claimHash = digest(claimToken);
@@ -649,8 +650,54 @@ export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) 
     await db.prepare("UPDATE market_annotation_items SET status='failed', error_message=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
       .bind(safeOperationalError(error, "识别失败"), candidate.id, claimHash).run();
   }
-  await refreshJob(db, jobId);
-  return { done: false, itemId: candidate.id, ...(failure ?? {}), job: await getJob(db, jobId) };
+  if (refreshState) await refreshJob(db, jobId);
+  return { done: false, itemId: candidate.id, ...(failure ?? {}), job: refreshState ? await getJob(db, jobId) : null };
+}
+
+export async function runNextCloudAnnotation(db: MarketDatabase, jobId: string) {
+  return runNextCloudAnnotationInternal(db, jobId, true);
+}
+
+export async function runCloudAnnotationBatch(db: MarketDatabase, jobId: string, requestedLimit = 4) {
+  const limit = strictInteger(requestedLimit, 4, 1, CLOUD_ANNOTATION_BATCH_MAX, "limit");
+  let processedCount = 0;
+  let reusedCount = 0;
+  let failedCount = 0;
+  let done = false;
+  let waiting = false;
+  let failureKind = "";
+  let retryAfterMs = 0;
+  try {
+    for (let index = 0; index < limit; index += 1) {
+      const result = await runNextCloudAnnotationInternal(db, jobId, false) as {
+        done?: boolean; waiting?: boolean; raced?: boolean; reusedCount?: number; itemId?: string;
+        failureKind?: "rate_limit" | "transient" | "permanent"; retryAfterMs?: number;
+      };
+      if (result.done) { done = true; break; }
+      if (result.waiting) { waiting = true; break; }
+      if (result.raced) continue;
+      const reused = Math.max(0, Number(result.reusedCount ?? 0));
+      if (reused) {
+        reusedCount += reused;
+        processedCount += reused;
+      } else if (result.itemId) {
+        processedCount += 1;
+      }
+      if (result.failureKind) {
+        failedCount += 1;
+        failureKind = result.failureKind;
+        retryAfterMs = Math.max(retryAfterMs, Number(result.retryAfterMs ?? 0));
+        if (result.failureKind === "rate_limit" || result.failureKind === "transient") break;
+      }
+    }
+  } finally {
+    await refreshJob(db, jobId);
+  }
+  return {
+    done, waiting, processedCount, reusedCount, failedCount,
+    ...(failureKind ? { failureKind, retryAfterMs } : {}),
+    job: await getJob(db, jobId),
+  };
 }
 
 export async function updateAnnotationItems(db: MarketDatabase, jobId: string, updates: Array<{ id: string; version: number; segment: string; imagePriceCents: unknown; priceType?: string; priceLowCents?: unknown; priceHighCents?: unknown; selected: boolean }>, actor: Actor) {

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { fetchAnnotationImage } from "@/lib/market/annotation-image";
+import { encodeAnnotationImageBase64, fetchAnnotationImage, resolveAnnotationImageCandidates, type AnnotationImageSource } from "@/lib/market/annotation-image";
 import { ensureMarketSchema, getMarketDatabase, type MarketDatabase } from "@/lib/market/database";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "@/lib/market/image-cache-state";
 
@@ -115,4 +115,27 @@ export async function getCachedMarketImage(contentHash: string, db: MarketDataba
   if (!row?.objectKey) return null;
   const object = await bucket().get(row.objectKey);
   return object ? { object, ...row } : null;
+}
+
+export async function getCachedMarketImageForAnnotation(sourceUrl: string, db: MarketDatabase) {
+  if (!sourceUrl) return null;
+  const row = await db.prepare(`SELECT object_key objectKey, mime_type mimeType, size_bytes sizeBytes, image_source imageSource
+    FROM market_image_cache WHERE source_url=? AND status='ready' AND object_key<>'' LIMIT 1`)
+    .bind(sourceUrl).first<{ objectKey: string; mimeType: string; sizeBytes: number; imageSource: string }>();
+  if (!row?.objectKey || !["image/jpeg", "image/png", "image/webp"].includes(row.mimeType)) return null;
+  const object = await bucket().get(row.objectKey);
+  if (!object) return null;
+  const bytes = new Uint8Array(await object.arrayBuffer());
+  if (!bytes.byteLength || bytes.byteLength !== Number(row.sizeBytes) || bytes.byteLength > CACHE_MAX_BYTES) return null;
+  const source = (row.imageSource === "n5" ? "n5" : "imgzone") as AnnotationImageSource;
+  const resolvedUrl = resolveAnnotationImageCandidates(sourceUrl).find((candidate) => candidate.source === source)?.url;
+  if (!resolvedUrl) return null;
+  return {
+    kind: "image" as const,
+    source,
+    url: resolvedUrl,
+    mimeType: row.mimeType,
+    bytes,
+    base64: encodeAnnotationImageBase64(bytes),
+  };
 }

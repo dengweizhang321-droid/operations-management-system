@@ -149,3 +149,10 @@ test("market response cache schema is available in runtime setup and migration",
   }
   for (const sql of [migration, schemaCore]) assert.match(sql, /market_image_cache_updated_idx/);
 });
+
+test("pending-price history starts from snapshots and uses the representative identity-month index", async () => {
+  const service = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
+  assert.match(service, /SELECT source\.\* FROM market_price_snapshots snapshot[\s\S]*candidate\.category=snapshot\.category[\s\S]*candidate\.period_end>=snapshot\.month\|\|'-01'[\s\S]*candidate\.period_end<date\(snapshot\.month\|\|'-01','\+1 month'\)/);
+  const historyBranch = service.slice(service.indexOf("function masterBaseSql"), service.indexOf("async function getMarketItemTrendLite"));
+  assert.doesNotMatch(historyBranch, /ROW_NUMBER\(\) OVER/);
+});

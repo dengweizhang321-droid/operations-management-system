@@ -20,6 +20,7 @@ type Draft = { segment: string; price: string; selected: boolean; version: numbe
 const LOAD_TIMEOUT_MS = 30_000;
 const ACTION_TIMEOUT_MS = 120_000;
 const CLOUD_CONCURRENCY = 2;
+const CLOUD_BATCH_SIZE = 4;
 const CLOUD_PROGRESS_REFRESH_EVERY = 12;
 const CLOUD_PROGRESS_REFRESH_MS = 30_000;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
@@ -300,7 +301,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         if (stopRef.current || done || rateLimitStopped || workerIndex >= workerLimit) break;
         let result: Record<string, unknown> | undefined;
         try {
-          result = await post({ action: "run_next", jobId });
+          result = await post({ action: "run_batch", jobId, limit: CLOUD_BATCH_SIZE });
         } catch (reason) {
           fatalError = reason;
           stopRef.current = true;
@@ -310,10 +311,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         if (result?.waiting) { waiting = true; break; }
         if (result?.raced) continue;
         const reused = Math.max(0, Number(result?.reusedCount ?? 0));
-        if (reused) { reusedCount += reused; processedCount += reused; }
-        else if (result?.itemId) processedCount += 1;
+        reusedCount += reused;
+        processedCount += Math.max(0, Number(result?.processedCount ?? 0));
         const failureKind = String(result?.failureKind ?? "");
-        if (failureKind) failedCount += 1;
+        if (failureKind) failedCount += Math.max(1, Number(result?.failedCount ?? 0));
         if (failureKind === "rate_limit") {
           rateLimitHits += 1;
           if (rateLimitHits === 1) {
