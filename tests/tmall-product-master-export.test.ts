@@ -222,6 +222,14 @@ test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
     width: 380,
     height: 160,
   }) > 0);
+  assert.ok(scoreTmallBlockingNoticeCandidate(
+    { ...notice, text: "商品巡检" },
+    "商品巡检 商品当前存在以下问题，请及时关注：影响成交转化 质量分问题 忽略 去优化",
+  ) > 0);
+  assert.equal(scoreTmallBlockingNoticeCandidate(
+    { ...notice, text: "商品巡检" },
+    "商品搜索 商品巡检 商品ID查询 商品上架 商品下架",
+  ), -1);
   assert.equal(scoreTmallBlockingNoticeCandidate({
     ...notice,
     text: "",

@@ -279,14 +279,27 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   return score;
 }
 
-export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement) {
+export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, contextText = detail.text) {
   if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
   if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.35) return -1;
   if (detail.width < 2 || detail.height < 2 || detail.width > 800 || detail.height > 700) return -1;
   const text = detail.text.replace(/\s+/g, "").trim();
+  const context = contextText.replace(/\s+/g, "").trim();
   const structural = /notify[_-]?body/i.test(detail.attributes);
-  const labeled = text.includes(TMALL_IMPORTANT_NOTICE_LABEL)
-    || text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL);
+  const importantNotice = text.includes(TMALL_IMPORTANT_NOTICE_LABEL);
+  const productInspection = text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL);
+  if (
+    productInspection
+    && !structural
+    && !(
+      /商品当前存在以下问题|影响成交转化|质量分问题|及时关注/.test(context)
+      && context.includes("忽略")
+      && /去优化|立即优化/.test(context)
+    )
+  ) {
+    return -1;
+  }
+  const labeled = importantNotice || productInspection;
   if (!structural && !labeled) return -1;
   let score = 10;
   if (text === TMALL_IMPORTANT_NOTICE_LABEL || text === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL) score += 10;
@@ -670,12 +683,15 @@ async function importantNoticeCandidates(page: Page) {
         if (!await locator.isVisible().catch(() => false)) continue;
         const detail = await positionedDetail(locator);
         if (!detail) continue;
-        const score = scoreTmallBlockingNoticeCandidate(detail);
-        if (score < 0) continue;
         const container = locator.locator(
           "xpath=ancestor-or-self::*[.//*[self::button or self::a or @role='button']][1]",
         );
         const actionScope = await container.count().catch(() => 0) > 0 ? container : undefined;
+        const contextText = actionScope
+          ? await actionScope.innerText({ timeout: 2_000 }).catch(() => detail.text)
+          : detail.text;
+        const score = scoreTmallBlockingNoticeCandidate(detail, contextText.slice(0, 3_000));
+        if (score < 0) continue;
         candidates.push({
           frame,
           locator,
