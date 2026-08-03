@@ -35,13 +35,14 @@ export type TmallImportAudit = {
   items: TmallImportAuditItem[];
 };
 
-type RunnerOptions = {
+export type RunnerOptions = {
   baseUrl: string;
   storeKey?: string;
   startDate?: string;
   endDate: string;
   dates?: string[];
   dryRun: boolean;
+  forceExistingDates?: boolean;
 };
 
 type CoveragePayload = {
@@ -102,16 +103,23 @@ export function missingDatesInRange(startDate: string, endDate: string, actualDa
   return datesInRange(startDate, endDate).filter((date) => !actual.has(date));
 }
 
+export function explicitDatesToPlan(requestedDates: string[], actualDates: string[], forceExistingDates = false) {
+  const actual = new Set(actualDates.filter(validDate));
+  return requestedDates.filter((date) => forceExistingDates || !actual.has(date));
+}
+
 export function parseRunnerArgs(argv: string[], now = new Date()): RunnerOptions {
   const startDate = value(argv, "--start-date");
   const endDate = value(argv, "--end-date") ?? shanghaiYesterday(now);
   const datesValue = value(argv, "--dates");
   const dates = datesValue ? [...new Set(datesValue.split(",").map((date) => date.trim()).filter(Boolean))].sort() : undefined;
+  const forceExistingDates = argv.includes("--force-existing");
   if ((startDate && !validDate(startDate)) || !validDate(endDate)) throw new Error("起止日期必须是有效的 YYYY-MM-DD");
   if (dates && (dates.length === 0 || dates.some((date) => !validDate(date)))) throw new Error("--dates 必须是逗号分隔的 YYYY-MM-DD 日期");
   if (dates?.some((date) => date > shanghaiYesterday(now))) throw new Error("天猫商品日数据最多补到昨天");
   if (startDate && startDate > endDate) throw new Error("--start-date 不能晚于 --end-date");
   if (dates && startDate) throw new Error("--dates 不能与 --start-date 同时使用");
+  if (forceExistingDates && !dates) throw new Error("--force-existing 只能与 --dates 一起使用");
   if (endDate > shanghaiYesterday(now)) throw new Error("天猫商品日数据最多补到昨天");
   return {
     baseUrl: (value(argv, "--base-url") ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, ""),
@@ -120,6 +128,7 @@ export function parseRunnerArgs(argv: string[], now = new Date()): RunnerOptions
     endDate,
     dates,
     dryRun: argv.includes("--dry-run"),
+    forceExistingDates,
   };
 }
 
@@ -241,7 +250,7 @@ export async function runTmallMultiStoreImport(options: RunnerOptions, stores?: 
       continue;
     }
     const missingDates = requestedDates
-      ? requestedDates.filter((date) => !actualDates.includes(date))
+      ? explicitDatesToPlan(requestedDates, actualDates, options.forceExistingDates)
       : missingDatesInRange(startDate, endDate, actualDates);
     for (const businessDate of missingDates) {
       audit.items.push({ storeKey: store.storeKey, shopName: store.shopName, businessDate, status: "planned" });

@@ -88,12 +88,29 @@ npm run tmall:daily:import
 - `duplicate`：相同文件已经导入，批次和覆盖回查成功。
 - `completed_with_warnings`：已落库，但存在主数据未匹配等告警，需要人工复核；不要重复下载覆盖。
 
-## 6. 每日调度顺序
+## 6. n8n 工作流
+
+亿玖店可导入仓库内的 n8n 工作流：
+
+```powershell
+n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-daily-import.workflow.json"
+```
+
+工作流按 `Asia/Shanghai` 每天 09:15 运行缺口规划，并监听 `D:\谷歌浏览器\tmall-yijiu` 新增的 `.xls`。文件写入完成后自动执行以下有界流程：
+
+1. 只接收该店铺独立下载目录内的真实 `.xls`，拒绝相对路径、目录越界、符号链接越界和其他扩展名。
+2. 从工作簿识别唯一业务日期，再按店铺、SPU 表头、日期、文件大小和 SHA-256 生成签收单。
+3. 对这个明确日期执行强制内容核验：同店同日同内容由导入接口返回 `duplicate`；同店同日内容变化则以新批次精确替换该日范围。
+4. 核验批次身份、状态、行数和日期，并再次查询同店同日覆盖；回查不命中时让 n8n 执行失败。
+
+工作流 JSON 默认 `active=false`。导入后先确认 n8n 与运营系统运行在同一台 Windows 主机、项目绝对路径和下载目录未变化，再在 n8n 中发布。n8n 只接管计划、文件签收、导入和回查；生意参谋网页登录、验证码、页面店铺身份确认、逐日选择和点击下载必须由操作者完成，工作流不得保存登录凭据或浏览器会话。
+
+## 7. 每日调度顺序
 
 1. 确认运营系统可用。
 2. 运行 `tmall:daily:import -- --dry-run` 生成缺失计划。
-3. Power Automate Desktop 按店铺串行下载并生成签收单。
-4. 运行 `tmall:daily:import` 导入和回查。
+3. 操作者按店铺串行逐日下载；可由 Power Automate Desktop 生成签收单，或由已发布的 n8n 工作流监听新 `.xls` 后自动签收。
+4. 未使用 n8n 自动接管时，运行 `tmall:daily:import` 导入和回查。
 5. 检查最新运行清单；只有所有项均为 `imported`、`duplicate` 或已人工确认的 `completed_with_warnings`，当天任务才算结束。
 
 不得在计划任务中自动输入或保存店铺密码。登录失效、验证码、页面结构变化或店铺身份不一致必须转人工处理。

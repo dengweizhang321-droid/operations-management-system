@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   datesInRange,
+  explicitDatesToPlan,
   missingDatesInRange,
   parseRunnerArgs,
   selectReceiptForDate,
@@ -15,9 +16,13 @@ test("天猫补数日期按上海时区截止昨天且保留中间缺口", () =>
   assert.equal(shanghaiYesterday(now), "2026-08-01");
   assert.deepEqual(datesInRange("2026-07-30", "2026-08-01"), ["2026-07-30", "2026-07-31", "2026-08-01"]);
   assert.deepEqual(missingDatesInRange("2026-07-30", "2026-08-01", ["2026-07-30", "2026-08-01"]), ["2026-07-31"]);
+  assert.deepEqual(explicitDatesToPlan(["2026-07-31", "2026-08-01"], ["2026-07-31"]), ["2026-08-01"]);
+  assert.deepEqual(explicitDatesToPlan(["2026-07-31", "2026-08-01"], ["2026-07-31"], true), ["2026-07-31", "2026-08-01"]);
   assert.equal(parseRunnerArgs([], now).endDate, "2026-08-01");
   assert.deepEqual(parseRunnerArgs(["--dates", "2026-08-01,2026-07-28,2026-08-01"], now).dates, ["2026-07-28", "2026-08-01"]);
+  assert.equal(parseRunnerArgs(["--dates", "2026-08-01", "--force-existing"], now).forceExistingDates, true);
   assert.throws(() => parseRunnerArgs(["--dates", "2026-07-28", "--start-date", "2026-07-28"], now), /不能与 --start-date/);
+  assert.throws(() => parseRunnerArgs(["--force-existing"], now), /只能与 --dates/);
   assert.throws(() => parseRunnerArgs(["--end-date", "2026-08-02"], now), /最多补到昨天/);
 });
 
