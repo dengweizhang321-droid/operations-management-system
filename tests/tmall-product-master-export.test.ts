@@ -20,6 +20,7 @@ import {
   scoreImportantNoticeCloseCandidate,
   scoreProductManagerCandidate,
   scoreProductManagerFloatingCandidate,
+  scoreTmallBlockingNoticeCandidate,
 } from "../tools/tmall-product-master-export";
 
 function masterWorkbook() {
@@ -171,9 +172,23 @@ test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
   }, { ...notice, text: "商品巡检" }), -1);
   assert.equal(scoreImportantNoticeCloseCandidate({ ...close, left: 200, top: 120 }, notice), -1);
   assert.equal(scoreImportantNoticeCloseCandidate(close, { ...notice, left: 100, top: 100 }), -1);
+  assert.ok(scoreTmallBlockingNoticeCandidate({
+    ...notice,
+    text: "",
+    attributes: "notify_body__vpald",
+    top: 500,
+    width: 380,
+    height: 160,
+  }) > 0);
+  assert.equal(scoreTmallBlockingNoticeCandidate({
+    ...notice,
+    text: "",
+    attributes: "ordinary_body",
+  }), -1);
 });
 
 test("n8n 货品前置阶段命中当天批次时不启动浏览器", async () => {
+  const auditDirectory = await mkdtemp(path.join(tmpdir(), "tmall-master-audit-"));
   const request = (async () => Response.json({
     items: [{
       id: "batch-current",
@@ -187,15 +202,20 @@ test("n8n 货品前置阶段命中当天批次时不启动浏览器", async () =
       warningCount: 0,
     }],
   })) as typeof fetch;
-  const result = await runTmallProductMasterStage({
-    storeKey: "tmall-yijiu",
-    baseUrl: "http://127.0.0.1:3000",
-    snapshotDate: "2026-08-04",
-    request,
-  });
-  assert.equal(result.status, "skipped_current_snapshot");
-  assert.equal(result.batchId, "batch-current");
-  assert.equal(result.rowCount, 212);
+  try {
+    const result = await runTmallProductMasterStage({
+      storeKey: "tmall-yijiu",
+      baseUrl: "http://127.0.0.1:3000",
+      snapshotDate: "2026-08-04",
+      auditDirectory,
+      request,
+    });
+    assert.equal(result.status, "skipped_current_snapshot");
+    assert.equal(result.batchId, "batch-current");
+    assert.equal(result.rowCount, 212);
+  } finally {
+    await rm(auditDirectory, { recursive: true, force: true });
+  }
 });
 
 test("下载文件必须位于店铺独立目录并通过发布模板结构校验", async () => {

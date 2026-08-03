@@ -238,6 +238,23 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   return score;
 }
 
+export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement) {
+  if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
+  if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.35) return -1;
+  if (detail.width < 2 || detail.height < 2 || detail.width > 800 || detail.height > 700) return -1;
+  const text = detail.text.replace(/\s+/g, "").trim();
+  const structural = /notify[_-]?body/i.test(detail.attributes);
+  const labeled = text.includes(TMALL_IMPORTANT_NOTICE_LABEL)
+    || text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL);
+  if (!structural && !labeled) return -1;
+  let score = 10;
+  if (text === TMALL_IMPORTANT_NOTICE_LABEL || text === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL) score += 10;
+  if (structural) score += 8;
+  score += Math.round((detail.left / detail.viewportWidth) * 5);
+  score += Math.round((detail.top / detail.viewportHeight) * 5);
+  return score;
+}
+
 function shanghaiToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai",
@@ -271,12 +288,12 @@ function safeError(error: unknown) {
   return message.replace(/[\r\n]+/g, " ").slice(0, 500);
 }
 
-function activeAuditPath(storeKey: string) {
-  return path.join(artifactDirectory, `active-${safeSegment(storeKey)}.json`);
+function activeAuditPath(storeKey: string, auditDirectory = artifactDirectory) {
+  return path.join(auditDirectory, `active-${safeSegment(storeKey)}.json`);
 }
 
-async function readActiveAudit(storeKey: string) {
-  const filePath = activeAuditPath(storeKey);
+async function readActiveAudit(storeKey: string, auditDirectory = artifactDirectory) {
+  const filePath = activeAuditPath(storeKey, auditDirectory);
   try {
     const parsed = JSON.parse(await readFile(filePath, "utf8")) as MasterExportAudit;
     if (parsed.version !== 1 || parsed.storeKey !== storeKey || !parsed.runId || !parsed.snapshotDate || !parsed.stage) {
@@ -290,9 +307,9 @@ async function readActiveAudit(storeKey: string) {
   }
 }
 
-async function writeActiveAudit(audit: MasterExportAudit) {
+async function writeActiveAudit(audit: MasterExportAudit, auditDirectory = artifactDirectory) {
   const updated = { ...audit, updatedAt: new Date().toISOString() };
-  await writeJsonAtomic(activeAuditPath(audit.storeKey), updated);
+  await writeJsonAtomic(activeAuditPath(audit.storeKey, auditDirectory), updated);
   return updated;
 }
 
@@ -599,34 +616,41 @@ async function positionedDetail(locator: Locator) {
 }
 
 async function importantNoticeCandidates(page: Page) {
-  const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
+  const candidates: Array<TextCandidate & { detail: PositionedUiElement; actionScope?: Locator }> = [];
   for (const frame of page.frames()) {
-    const matches = frame.getByText(/重要通知|商品巡检/);
-    const count = Math.min(await matches.count().catch(() => 0), 20);
-    for (let index = 0; index < count; index += 1) {
-      const locator = matches.nth(index);
-      if (!await locator.isVisible().catch(() => false)) continue;
-      const detail = await positionedDetail(locator);
-      if (!detail || detail.width < 2 || detail.height < 2) continue;
-      if (!detail.text.includes(TMALL_IMPORTANT_NOTICE_LABEL)
-        && !detail.text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL)) continue;
-      if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.4) continue;
-      const normalized = detail.text.replace(/\s+/g, "").trim();
-      const exactNoticeTitle = normalized === TMALL_IMPORTANT_NOTICE_LABEL
-        || normalized === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL;
-      const score = (exactNoticeTitle ? 20 : normalized.length <= 40 ? 12 : 4)
-        + Math.round((detail.left / detail.viewportWidth) * 5)
-        + Math.round((detail.top / detail.viewportHeight) * 5);
-      candidates.push({
-        frame,
-        locator,
-        score,
-        signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
-        detail,
-      });
+    const sources = [
+      frame.getByText(/重要通知|商品巡检/),
+      frame.locator('[class*="notify_body" i],[class*="notify-body" i]'),
+    ];
+    for (const matches of sources) {
+      const count = Math.min(await matches.count().catch(() => 0), 30);
+      for (let index = 0; index < count; index += 1) {
+        const locator = matches.nth(index);
+        if (!await locator.isVisible().catch(() => false)) continue;
+        const detail = await positionedDetail(locator);
+        if (!detail) continue;
+        const score = scoreTmallBlockingNoticeCandidate(detail);
+        if (score < 0) continue;
+        const container = locator.locator(
+          "xpath=ancestor-or-self::*[.//*[self::button or self::a or @role='button']][1]",
+        );
+        const actionScope = await container.count().catch(() => 0) > 0 ? container : undefined;
+        candidates.push({
+          frame,
+          locator,
+          score,
+          signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
+          detail,
+          actionScope,
+        });
+      }
     }
   }
-  return candidates.sort((left, right) => right.score - left.score);
+  const unique = new Map<string, typeof candidates[number]>();
+  for (const candidate of candidates.sort((left, right) => right.score - left.score)) {
+    if (!unique.has(candidate.signature)) unique.set(candidate.signature, candidate);
+  }
+  return [...unique.values()];
 }
 
 async function dismissImportantNotice(page: Page) {
@@ -640,7 +664,9 @@ async function dismissImportantNotice(page: Page) {
   if (notices.length === 0) return "not_present" as const;
 
   const notice = notices[0]!;
-  const actions = notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
+  const actions = notice.actionScope
+    ? notice.actionScope.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]')
+    : notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
   const count = Math.min(await actions.count().catch(() => 0), 120);
   const candidates: Array<{ locator: Locator; score: number; signature: string }> = [];
   for (let index = 0; index < count; index += 1) {
@@ -1042,7 +1068,9 @@ async function browserExport(options: {
     const currentNoticeState = await dismissImportantNotice(page);
     const productManager = await openProductManagerChat(page);
     const entryMode = options.entryMode ?? productManager.entryMode;
-    const noticeState = options.noticeState ?? currentNoticeState;
+    const noticeState = currentNoticeState === "dismissed"
+      ? currentNoticeState
+      : options.noticeState ?? currentNoticeState;
     let input = productManager.input;
     let chatScope = await chatOverlayScope(input);
     const baselineDownloads = new Set<string>();
@@ -1118,16 +1146,18 @@ export async function runTmallProductMasterStage(options: {
   baseUrl?: string;
   request?: typeof fetch;
   snapshotDate?: string;
+  auditDirectory?: string;
 } = {}): Promise<TmallProductMasterStageResult> {
   const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const snapshotDate = options.snapshotDate ?? shanghaiToday();
   const request = options.request ?? fetch;
+  const runAuditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
 
   const current = await latestMasterBatch(baseUrl, store, request);
   if (currentMasterSnapshot(current, snapshotDate, store.shopName)) {
-    const completedActive = await readActiveAudit(store.storeKey);
+    const completedActive = await readActiveAudit(store.storeKey, runAuditDirectory);
     if (completedActive?.audit.snapshotDate === snapshotDate && completedActive.audit.shopName === store.shopName) {
       await rm(completedActive.filePath, { force: true });
     }
@@ -1144,8 +1174,8 @@ export async function runTmallProductMasterStage(options: {
     };
   }
 
-  await mkdir(artifactDirectory, { recursive: true });
-  const existing = await readActiveAudit(store.storeKey);
+  await mkdir(runAuditDirectory, { recursive: true });
+  const existing = await readActiveAudit(store.storeKey, runAuditDirectory);
   let audit: MasterExportAudit | undefined = existing?.audit;
   let evidence: MasterFileEvidence | undefined;
   if (existing && audit) {
@@ -1181,7 +1211,7 @@ export async function runTmallProductMasterStage(options: {
       startedAt: now,
       updatedAt: now,
       stage: "planned",
-    });
+    }, runAuditDirectory);
   }
   let activeAudit: MasterExportAudit = audit;
 
@@ -1197,7 +1227,7 @@ export async function runTmallProductMasterStage(options: {
         entryMode: activeAudit.entryMode,
         noticeState: activeAudit.noticeState,
         onStage: async (stage, patch = {}) => {
-          activeAudit = await writeActiveAudit({ ...activeAudit, ...patch, stage });
+          activeAudit = await writeActiveAudit({ ...activeAudit, ...patch, stage }, runAuditDirectory);
         },
       });
       evidence = await inspectTmallMasterFile(downloaded.targetPath, store, snapshotDate);
@@ -1207,7 +1237,7 @@ export async function runTmallProductMasterStage(options: {
         entryMode: downloaded.entryMode,
         noticeState: downloaded.noticeState,
         file: evidence,
-      });
+      }, runAuditDirectory);
     }
 
     const imported = await importTmallProductMasterFile({ baseUrl, store, snapshotDate, evidence, request });
@@ -1220,10 +1250,10 @@ export async function runTmallProductMasterStage(options: {
         rowCount: imported.rowCount,
         warningCount: imported.warningCount,
       },
-    });
-    const finalAuditPath = path.join(artifactDirectory, `run-${activeAudit.runId}.json`);
+    }, runAuditDirectory);
+    const finalAuditPath = path.join(runAuditDirectory, `run-${activeAudit.runId}.json`);
     await writeJsonAtomic(finalAuditPath, activeAudit);
-    await rm(activeAuditPath(store.storeKey), { force: true });
+    await rm(activeAuditPath(store.storeKey, runAuditDirectory), { force: true });
     return {
       ok: true,
       stage: "product_master",
@@ -1239,9 +1269,9 @@ export async function runTmallProductMasterStage(options: {
     };
   } catch (error) {
     const lastError = safeError(error);
-    await writeActiveAudit({ ...activeAudit, lastError }).catch(() => undefined);
+    await writeActiveAudit({ ...activeAudit, lastError }, runAuditDirectory).catch(() => undefined);
     if (["planned", "browser_ready"].includes(activeAudit.stage)) {
-      await rm(activeAuditPath(store.storeKey), { force: true }).catch(() => undefined);
+      await rm(activeAuditPath(store.storeKey, runAuditDirectory), { force: true }).catch(() => undefined);
     }
     throw error;
   }
