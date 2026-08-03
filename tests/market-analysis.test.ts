@@ -105,9 +105,10 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
 });
 
 test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
-  const [view, masterRoute] = await Promise.all([
+  const [view, masterRoute, styles] = await Promise.all([
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   for (const label of ["商品榜单", "市场概括", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
   assert.match(view, /useState<MarketSectionKey>\("ranking"\)/);
@@ -132,7 +133,9 @@ test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI �
   assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\}/);
   assert.match(view, /市场分析 → 系统和 AI 设置/);
   assert.match(view, /view=system_kpis/);
-  for (const label of ["市场商品身份", "待确认价格", "待 AI 标注", "已生成 AI 结果"]) assert.match(view, new RegExp(label));
+  for (const label of ["市场商品身份", "待确认价格", "待 AI 标注总量", "已生成 AI 结果", "同图直接复用", "新图仅识别价格", "完整分类和价格", "暂不可自动识别"]) assert.match(view, new RegExp(label));
+  assert.match(view, /四项合计与总量一致/);
+  assert.match(styles, /\.market-image-cache-card\{grid-column:5;grid-row:1\/span 2\}/);
   assert.match(masterRoute, /view === "system_kpis"/);
   assert.match(masterRoute, /getMarketSystemKpis/);
 });

@@ -112,7 +112,10 @@ type MarketMasterWorkspace = {
 type MarketSectionKey = "ranking" | "overview" | "compare" | "settings";
 type MarketSettingsTab = "database" | "subcategory" | "brand" | "mapping" | "data";
 type AiModelSummary = { id: string; name: string; modelType: "text" | "vision"; modelName: string; status: "enabled" | "disabled"; isDefaultTextModel: boolean };
-type MarketSystemKpis = { marketIdentityTotal: number; pendingPriceCount: number; pendingAiCount: number; completedAiCount: number };
+type MarketSystemKpis = {
+  marketIdentityTotal: number; pendingPriceCount: number; pendingAiCount: number; completedAiCount: number;
+  sameImageReuseCount: number; priceOnlyRecognitionCount: number; fullRecognitionCount: number; blockedRecognitionCount: number;
+};
 
 const money = (cents?: number | null) => cents === null || cents === undefined
   ? "-"
@@ -974,8 +977,12 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   const systemKpiCards = [
     { key: "marketIdentityTotal", label: "市场商品身份", note: "类目、范围、SKU/SPU 维度与编码全库去重" },
     { key: "pendingPriceCount", label: "待确认价格", note: "仍有未确认月度价格的商品身份" },
-    { key: "pendingAiCount", label: "待 AI 标注", note: "全库尚无 AI 识别结果" },
+    { key: "pendingAiCount", label: "待 AI 标注总量", note: "尚无 AI 结果；下列四种路径互斥合计" },
     { key: "completedAiCount", label: "已生成 AI 结果", note: "已有模型输出，含待人工复核" },
+    { key: "sameImageReuseCount", label: "同图直接复用", note: "已有同图标准价，不调用 AI" },
+    { key: "priceOnlyRecognitionCount", label: "新图仅识别价格", note: "同 SKUID 有有效历史分类" },
+    { key: "fullRecognitionCount", label: "完整分类和价格", note: "新 SKUID 或没有有效历史分类" },
+    { key: "blockedRecognitionCount", label: "暂不可自动识别", note: "无图、非 SKU、Prompt 不可用或失败封顶" },
   ] as const;
   const tabs: Array<{ key: MarketSettingsTab; label: string; note: string }> = [
     { key: "database", label: "SKU 数据库", note: "主数据、价格与 AI 入库" },
@@ -985,7 +992,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     { key: "data", label: "数据配置", note: "导入、下载与审计" },
   ];
   return <section className="market-settings-workspace">
-    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；模型算力直接继承运营管理系统的 AI 助理配置。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待缓存图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning || cacheStats.pending <= 0} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在分批缓存…" : cacheStats.pending > 0 ? "一键刷新图片缓存" : "图片缓存已完成"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { stopImageCacheRef.current = true; setCacheNotice("正在停止，当前批次完成后停止…"); }}>停止</button>}</div></div></div></article>
+    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；“待 AI 标注总量”按最高算力需求归入下方四种互斥路径，四项合计与总量一致。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待缓存图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning || cacheStats.pending <= 0} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在分批缓存…" : cacheStats.pending > 0 ? "一键刷新图片缓存" : "图片缓存已完成"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { stopImageCacheRef.current = true; setCacheNotice("正在停止，当前批次完成后停止…"); }}>停止</button>}</div></div></div></article>
     <nav className="panel market-settings-tabs" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
     {tab === "database" && <nav className="panel market-database-areas"><button className={databaseArea === "master" ? "active" : ""} onClick={() => setDatabaseArea("master")}><strong>主数据与价格</strong><small>统一筛选、查看和编辑 SKU/SPU</small></button><button className={databaseArea === "annotation" ? "active" : ""} onClick={() => setDatabaseArea("annotation")}><strong>AI 标注与批量入库</strong><small>筛选候选、列表/大图复核并入库</small></button></nav>}
     {tab === "database" ? (databaseArea === "annotation" ? <MarketAnnotationView currentUser={currentUser} embedded /> : <MarketMasterAdminPanel currentUser={currentUser} mode="database" />) : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}

@@ -1084,15 +1084,19 @@ export type MarketSystemKpis = {
   pendingPriceCount: number;
   pendingAiCount: number;
   completedAiCount: number;
+  sameImageReuseCount: number;
+  priceOnlyRecognitionCount: number;
+  fullRecognitionCount: number;
+  blockedRecognitionCount: number;
 };
 
 export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSystemKpis> {
   await ensureMarketAdminSchema(db);
   await ensureAnnotationSchema(db);
+  await ensureMarketMasterIdentities(db);
   const row = await db.prepare(`WITH market_identities AS MATERIALIZED (
       SELECT category, scope, ranking_dimension, sku_code
-      FROM market_ranking_entries
-      GROUP BY category, scope, ranking_dimension, sku_code
+      FROM market_master_identities
     ), price_state AS MATERIALIZED (
       SELECT category, scope, ranking_dimension, sku_code,
         MAX(CASE WHEN confirmed_market_price_cents IS NULL THEN 1 ELSE 0 END) AS has_pending
@@ -1106,20 +1110,123 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
           OR COALESCE(ai_reason, '') <> '' THEN 1 ELSE 0 END) AS has_ai_result
       FROM market_annotation_items
       GROUP BY category, scope, ranking_dimension, sku_code
+    ), pending_ai_identities AS MATERIALIZED (
+      SELECT identity.category, identity.scope, identity.ranking_dimension, identity.sku_code
+      FROM market_identities identity
+      LEFT JOIN ai_state USING (category, scope, ranking_dimension, sku_code)
+      WHERE COALESCE(ai_state.has_ai_result, 0)=0
+    ), active_prompts AS MATERIALIZED (
+      SELECT prompt.category, prompt.segments_json,
+        CASE WHEN NOT EXISTS (
+          SELECT 1 FROM market_subcategory_taxonomy taxonomy
+          WHERE taxonomy.category=prompt.category AND taxonomy.status='active'
+        ) OR (
+          NOT EXISTS (
+            SELECT 1 FROM market_subcategory_taxonomy taxonomy
+            WHERE taxonomy.category=prompt.category AND taxonomy.status='active'
+              AND NOT EXISTS (
+                SELECT 1 FROM json_each(prompt.segments_json) segment
+                WHERE CAST(segment.value AS TEXT)=taxonomy.subcategory
+              )
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM json_each(prompt.segments_json) segment
+            WHERE NOT EXISTS (
+              SELECT 1 FROM market_subcategory_taxonomy taxonomy
+              WHERE taxonomy.category=prompt.category AND taxonomy.status='active'
+                AND taxonomy.subcategory=CAST(segment.value AS TEXT)
+            )
+          )
+        ) THEN 1 ELSE 0 END AS ready
+      FROM market_annotation_prompt_versions prompt
+      WHERE prompt.status='active'
+    ), pending_snapshots AS MATERIALIZED (
+      SELECT snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code, snapshot.month,
+        COALESCE(NULLIF(snapshot.image_content_sha256,''), image_cache.content_sha256, '') image_content_sha256
+      FROM market_price_snapshots snapshot
+      LEFT JOIN market_image_cache image_cache
+        ON image_cache.source_url=snapshot.image_url
+        AND image_cache.status='ready' AND image_cache.content_sha256<>''
+      WHERE snapshot.confirmed_market_price_cents IS NULL
+    ), same_image_standard AS MATERIALIZED (
+      SELECT category, scope, ranking_dimension, sku_code, image_content_sha256
+      FROM market_price_snapshots
+      WHERE confirmed_market_price_cents IS NOT NULL AND ai_price_type='标准售价' AND image_content_sha256<>''
+      GROUP BY category, scope, ranking_dimension, sku_code, image_content_sha256
+    ), valid_segment_history AS MATERIALIZED (
+      SELECT history.category, history.scope, history.ranking_dimension, history.sku_code
+      FROM market_annotation_items history
+      JOIN active_prompts prompt ON prompt.category=history.category AND prompt.ready=1
+      JOIN json_each(prompt.segments_json) segment ON CAST(segment.value AS TEXT)=history.reviewed_segment
+      WHERE history.status='committed' AND history.reviewed_segment<>''
+      GROUP BY history.category, history.scope, history.ranking_dimension, history.sku_code
+    ), terminal_failures AS MATERIALIZED (
+      SELECT failed.category, failed.scope, failed.ranking_dimension, failed.sku_code, failed.month, failed.image_content_sha256
+      FROM market_annotation_items failed
+      WHERE failed.status='failed' AND failed.attempt_count>=3
+        AND NOT EXISTS (
+          SELECT 1 FROM market_annotation_items replacement
+          WHERE replacement.id<>failed.id AND replacement.category=failed.category AND replacement.scope=failed.scope
+            AND replacement.ranking_dimension=failed.ranking_dimension AND replacement.sku_code=failed.sku_code
+            AND replacement.month=failed.month AND replacement.image_content_sha256=failed.image_content_sha256
+            AND (replacement.status IN ('queued','claimed','inferencing','review_pending','approved','rejected','committed')
+              OR (replacement.status='failed' AND replacement.attempt_count<3))
+        )
+      GROUP BY failed.category, failed.scope, failed.ranking_dimension, failed.sku_code, failed.month, failed.image_content_sha256
+    ), route_flags AS MATERIALIZED (
+      SELECT identity.category, identity.scope, identity.ranking_dimension, identity.sku_code,
+        MAX(CASE WHEN identity.ranking_dimension='SKU' AND prompt.ready=1
+          AND snapshot.image_content_sha256<>'' AND failure.sku_code IS NULL
+          AND standard.sku_code IS NOT NULL THEN 1 ELSE 0 END) same_image_reuse,
+        MAX(CASE WHEN identity.ranking_dimension='SKU' AND prompt.ready=1
+          AND snapshot.image_content_sha256<>'' AND failure.sku_code IS NULL
+          AND standard.sku_code IS NULL AND segment.sku_code IS NOT NULL THEN 1 ELSE 0 END) price_only_recognition,
+        MAX(CASE WHEN identity.ranking_dimension='SKU' AND prompt.ready=1
+          AND snapshot.image_content_sha256<>'' AND failure.sku_code IS NULL
+          AND standard.sku_code IS NULL AND segment.sku_code IS NULL THEN 1 ELSE 0 END) full_recognition
+      FROM pending_ai_identities identity
+      LEFT JOIN pending_snapshots snapshot ON snapshot.category=identity.category AND snapshot.scope=identity.scope
+        AND snapshot.ranking_dimension=identity.ranking_dimension AND snapshot.sku_code=identity.sku_code
+      LEFT JOIN active_prompts prompt ON prompt.category=identity.category
+      LEFT JOIN same_image_standard standard ON standard.category=snapshot.category AND standard.scope=snapshot.scope
+        AND standard.ranking_dimension=snapshot.ranking_dimension AND standard.sku_code=snapshot.sku_code
+        AND standard.image_content_sha256=snapshot.image_content_sha256
+      LEFT JOIN valid_segment_history segment ON segment.category=identity.category AND segment.scope=identity.scope
+        AND segment.ranking_dimension=identity.ranking_dimension AND segment.sku_code=identity.sku_code
+      LEFT JOIN terminal_failures failure ON failure.category=snapshot.category AND failure.scope=snapshot.scope
+        AND failure.ranking_dimension=snapshot.ranking_dimension AND failure.sku_code=snapshot.sku_code
+        AND failure.month=snapshot.month AND failure.image_content_sha256=snapshot.image_content_sha256
+      GROUP BY identity.category, identity.scope, identity.ranking_dimension, identity.sku_code
+    ), classified_routes AS MATERIALIZED (
+      SELECT *, CASE
+        WHEN full_recognition=1 THEN 'full_recognition'
+        WHEN price_only_recognition=1 THEN 'price_only_recognition'
+        WHEN same_image_reuse=1 THEN 'same_image_reuse'
+        ELSE 'blocked'
+      END route
+      FROM route_flags
     )
-    SELECT COUNT(*) AS market_identity_total,
+    SELECT (SELECT COUNT(*) FROM market_identities) AS market_identity_total,
       COALESCE(SUM(CASE WHEN COALESCE(price_state.has_pending, 1) = 1 THEN 1 ELSE 0 END), 0) AS pending_price_count,
-      COALESCE(SUM(CASE WHEN COALESCE(ai_state.has_ai_result, 0) = 0 THEN 1 ELSE 0 END), 0) AS pending_ai_count,
-      COALESCE(SUM(CASE WHEN ai_state.has_ai_result = 1 THEN 1 ELSE 0 END), 0) AS completed_ai_count
-    FROM market_identities
-    LEFT JOIN price_state USING (category, scope, ranking_dimension, sku_code)
-    LEFT JOIN ai_state USING (category, scope, ranking_dimension, sku_code)`)
+      (SELECT COUNT(*) FROM classified_routes) AS pending_ai_count,
+      (SELECT COUNT(*) FROM market_identities)-(SELECT COUNT(*) FROM classified_routes) AS completed_ai_count,
+      (SELECT COUNT(*) FROM classified_routes WHERE route='same_image_reuse') AS same_image_reuse_count,
+      (SELECT COUNT(*) FROM classified_routes WHERE route='price_only_recognition') AS price_only_recognition_count,
+      (SELECT COUNT(*) FROM classified_routes WHERE route='full_recognition') AS full_recognition_count,
+      (SELECT COUNT(*) FROM classified_routes WHERE route='blocked') AS blocked_recognition_count
+    FROM market_identities identity
+    LEFT JOIN price_state ON price_state.category=identity.category AND price_state.scope=identity.scope
+      AND price_state.ranking_dimension=identity.ranking_dimension AND price_state.sku_code=identity.sku_code`)
     .first<Record<string, number | null>>();
   return {
     marketIdentityTotal: Number(row?.market_identity_total ?? 0),
     pendingPriceCount: Number(row?.pending_price_count ?? 0),
     pendingAiCount: Number(row?.pending_ai_count ?? 0),
     completedAiCount: Number(row?.completed_ai_count ?? 0),
+    sameImageReuseCount: Number(row?.same_image_reuse_count ?? 0),
+    priceOnlyRecognitionCount: Number(row?.price_only_recognition_count ?? 0),
+    fullRecognitionCount: Number(row?.full_recognition_count ?? 0),
+    blockedRecognitionCount: Number(row?.blocked_recognition_count ?? 0),
   };
 }
 

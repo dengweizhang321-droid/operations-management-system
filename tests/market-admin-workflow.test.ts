@@ -111,7 +111,7 @@ test("market master GMV totals prefer full-month coverage, ignore rolling window
   sqlite.close();
 });
 
-test("system settings KPIs use independent whole-database product identities", async () => {
+test("system settings KPIs split every pending AI identity into one highest-cost route", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -119,27 +119,57 @@ test("system settings KPIs use independent whole-database product identities", a
   sqlite.exec(`INSERT INTO market_ranking_entries
     (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,raw_json,last_import_batch_id)
     VALUES
-    ('a-june',1,'2026-06-01','2026-06-30','category-a','POP','SKU','POP','SKU-A','A June','{}','batch'),
-    ('a-july',2,'2026-07-01','2026-07-31','category-a','POP','SKU','POP','SKU-A','A July','{}','batch'),
-    ('b-june',3,'2026-06-01','2026-06-30','category-b','POP','SKU','POP','SKU-A','B','{}','batch'),
-    ('c-june',4,'2026-06-01','2026-06-30','category-c','self','SPU','自营','SPU-C','C','{}','batch');
+    ('reuse-june',1,'2026-06-01','2026-06-30','category-reuse','POP','SKU','POP','SKU-REUSE','Reuse June','{}','batch'),
+    ('reuse-july',2,'2026-07-01','2026-07-31','category-reuse','POP','SKU','POP','SKU-REUSE','Reuse July','{}','batch'),
+    ('price-july',3,'2026-07-01','2026-07-31','category-price','POP','SKU','POP','SKU-PRICE','Price only','{}','batch'),
+    ('full-july',4,'2026-07-01','2026-07-31','category-full','POP','SKU','POP','SKU-FULL','Full','{}','batch'),
+    ('full-august',10,'2026-08-01','2026-08-31','category-full','POP','SKU','POP','SKU-FULL','Full new image','{}','batch'),
+    ('blocked-image',5,'2026-07-01','2026-07-31','category-no-image','POP','SKU','POP','SKU-NO-IMAGE','No image','{}','batch'),
+    ('blocked-spu',6,'2026-07-01','2026-07-31','category-spu','self','SPU','自营','SPU-BLOCKED','SPU','{}','batch'),
+    ('blocked-prompt',7,'2026-07-01','2026-07-31','category-no-prompt','POP','SKU','POP','SKU-NO-PROMPT','No prompt','{}','batch'),
+    ('blocked-terminal',8,'2026-07-01','2026-07-31','category-terminal','POP','SKU','POP','SKU-TERMINAL','Terminal','{}','batch'),
+    ('completed-ai',9,'2026-07-01','2026-07-31','category-completed','POP','SKU','POP','SKU-COMPLETED','Completed','{}','batch');
+    INSERT INTO market_annotation_prompt_versions
+      (id,category,version,source,status,segments_json,prompt_body,created_by)
+    VALUES
+      ('prompt-reuse','category-reuse',1,'manual','active','["segment-reuse","other"]','A reusable prompt body long enough for testing.','admin'),
+      ('prompt-price','category-price',1,'manual','active','["segment-price","other"]','A price-only prompt body long enough for testing.','admin'),
+      ('prompt-full','category-full',1,'manual','active','["segment-full","other"]','A full prompt body long enough for testing.','admin'),
+      ('prompt-no-image','category-no-image',1,'manual','active','["segment-image","other"]','A no-image prompt body long enough for testing.','admin'),
+      ('prompt-spu','category-spu',1,'manual','active','["segment-spu","other"]','A SPU prompt body long enough for testing.','admin'),
+      ('prompt-terminal','category-terminal',1,'manual','active','["segment-terminal","other"]','A terminal prompt body long enough for testing.','admin');
     INSERT INTO market_price_snapshots
-    (id,category,scope,sku_code,ranking_dimension,month,confirmed_market_price_cents,confirmation_status)
+    (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,confirmed_market_price_cents,confirmation_status,ai_price_type)
     VALUES
-    ('price-a-june','category-a','POP','SKU-A','SKU','2026-06',10000,'confirmed'),
-    ('price-a-july','category-a','POP','SKU-A','SKU','2026-07',NULL,'review_pending'),
-    ('price-c-june','category-c','self','SPU-C','SPU','2026-06',20000,'confirmed');
+    ('reuse-confirmed','category-reuse','POP','SKU-REUSE','SKU','2026-06','hash-reuse',10000,'confirmed','标准售价'),
+    ('reuse-pending','category-reuse','POP','SKU-REUSE','SKU','2026-07','hash-reuse',NULL,'review_pending',''),
+    ('price-pending','category-price','POP','SKU-PRICE','SKU','2026-07','hash-price-new',NULL,'review_pending',''),
+    ('full-confirmed','category-full','POP','SKU-FULL','SKU','2026-06','hash-full-old',10000,'confirmed','标准售价'),
+    ('full-reuse-pending','category-full','POP','SKU-FULL','SKU','2026-07','hash-full-old',NULL,'review_pending',''),
+    ('full-pending','category-full','POP','SKU-FULL','SKU','2026-08','hash-full-new',NULL,'review_pending',''),
+    ('image-pending','category-no-image','POP','SKU-NO-IMAGE','SKU','2026-07','',NULL,'review_pending',''),
+    ('spu-pending','category-spu','self','SPU-BLOCKED','SPU','2026-07','hash-spu',NULL,'review_pending',''),
+    ('prompt-pending','category-no-prompt','POP','SKU-NO-PROMPT','SKU','2026-07','hash-no-prompt',NULL,'review_pending',''),
+    ('terminal-pending','category-terminal','POP','SKU-TERMINAL','SKU','2026-07','hash-terminal',NULL,'review_pending',''),
+    ('completed-pending','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed',NULL,'review_pending','');
     INSERT INTO market_annotation_items
-    (id,job_id,category,scope,sku_code,ranking_dimension,month,status,ai_segment)
+    (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,ai_segment,reviewed_segment,attempt_count)
     VALUES
-    ('annotation-a','job-a','category-a','POP','SKU-A','SKU','2026-06','completed','segment-a'),
-    ('annotation-b','job-b','category-b','POP','SKU-A','SKU','2026-06','failed','');`);
+    ('price-history','job-price','category-price','POP','SKU-PRICE','SKU','2026-06','hash-price-old','committed','','segment-price',1),
+    ('terminal-failure','job-terminal','category-terminal','POP','SKU-TERMINAL','SKU','2026-07','hash-terminal','failed','','',3),
+    ('completed-result','job-completed','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed','review_pending','segment-completed','segment-completed',1);`);
 
-  assert.deepEqual(await getMarketSystemKpis(db as never), {
-    marketIdentityTotal: 3,
-    pendingPriceCount: 2,
-    pendingAiCount: 2,
+  const kpis = await getMarketSystemKpis(db as never);
+  assert.equal(kpis.sameImageReuseCount + kpis.priceOnlyRecognitionCount + kpis.fullRecognitionCount + kpis.blockedRecognitionCount, kpis.pendingAiCount);
+  assert.deepEqual(kpis, {
+    marketIdentityTotal: 8,
+    pendingPriceCount: 8,
+    pendingAiCount: 7,
     completedAiCount: 1,
+    sameImageReuseCount: 1,
+    priceOnlyRecognitionCount: 1,
+    fullRecognitionCount: 1,
+    blockedRecognitionCount: 4,
   });
   sqlite.close();
 });
