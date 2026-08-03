@@ -17,6 +17,8 @@ export const TMALL_PRODUCT_MANAGER_LABEL = "商品管家";
 export const TMALL_IMPORTANT_NOTICE_LABEL = "重要通知";
 export const TMALL_PRODUCT_INSPECTION_NOTICE_LABEL = "商品巡检";
 
+const tmallExportConfirmationLabels = ["确认导出", "确认任务", "确认执行", "确认执行任务", "确定", "立即导出", "确认"] as const;
+
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
 const defaultChromeExecutable = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
@@ -192,6 +194,21 @@ export function scoreChatSendCandidate(
   if (/发送|send|submit|arrow-up/i.test(detail.label)) score += 10;
   if (centerX >= inputRect.right - 64) score += 4;
   return score;
+}
+
+export function isTmallExportConfirmationLabel(text: string) {
+  const normalized = text.replace(/\s+/g, "").trim();
+  return tmallExportConfirmationLabels.includes(normalized as typeof tmallExportConfirmationLabels[number]);
+}
+
+export function hasAcceptedTmallExportTask(text: string) {
+  const normalized = text.replace(/\s+/g, "");
+  return /导出(?:\d+个)?商品到Excel/.test(normalized)
+    && /任务\d*[:：]|待执行|任务已执行|执行结果|所有任务已完成|成功导出/.test(normalized);
+}
+
+export function isResumableTmallExportStage(stage: string | undefined) {
+  return stage === "export_submitted" || stage === "export_confirmed";
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -421,11 +438,13 @@ async function combinedPageText(page: Page) {
   return texts.map((text) => text.slice(0, 30_000)).join("\n");
 }
 
-async function textCandidates(page: Page, labels: readonly string[], scopeFrame?: Frame) {
+async function textCandidates(page: Page, labels: readonly string[], scopeFrame?: Frame, scopeLocator?: Locator) {
   const candidates: TextCandidate[] = [];
   for (const frame of scopeFrame ? [scopeFrame] : page.frames()) {
     for (const label of labels) {
-      const matches = frame.getByText(label, { exact: true });
+      const matches = scopeLocator && frame === scopeFrame
+        ? scopeLocator.getByText(label, { exact: true })
+        : frame.getByText(label, { exact: true });
       const count = Math.min(await matches.count().catch(() => 0), 20);
       for (let index = 0; index < count; index += 1) {
         const locator = matches.nth(index);
@@ -455,9 +474,9 @@ async function textCandidates(page: Page, labels: readonly string[], scopeFrame?
   return [...unique.values()].sort((left, right) => right.score - left.score);
 }
 
-async function clickText(page: Page, labels: readonly string[], optional = false, scopeFrame?: Frame) {
+async function clickText(page: Page, labels: readonly string[], optional = false, scopeFrame?: Frame, scopeLocator?: Locator) {
   for (const label of labels) {
-    const candidates = await textCandidates(page, [label], scopeFrame);
+    const candidates = await textCandidates(page, [label], scopeFrame, scopeLocator);
     if (candidates.length === 0) continue;
     const best = candidates[0]!;
     if (candidates.length > 1 && candidates[1]!.score === best.score && candidates[1]!.signature !== best.signature) {
@@ -786,6 +805,13 @@ async function openProductManagerChat(page: Page) {
   return { input: input!, entryMode };
 }
 
+async function chatOverlayScope(input: TextCandidate & { frame: Frame }) {
+  const overlay = input.locator.locator(
+    "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' next-overlay-wrapper ')][1]",
+  );
+  return await overlay.count().catch(() => 0) > 0 ? overlay : null;
+}
+
 async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {
   const inputRect = await input.locator.evaluate((element) => {
     const rect = element.getBoundingClientRect();
@@ -794,12 +820,10 @@ async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {
   const senderScope = input.locator.locator(
     "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' ant-sender ')][1]",
   );
-  const overlayScope = input.locator.locator(
-    "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' next-overlay-wrapper ')][1]",
-  );
+  const overlayScope = await chatOverlayScope(input);
   const scope = await senderScope.count().catch(() => 0) > 0
     ? senderScope
-    : await overlayScope.count().catch(() => 0) > 0
+    : overlayScope
       ? overlayScope
       : null;
   if (!scope) {
@@ -844,10 +868,11 @@ async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {
   await input.locator.press("Enter", { timeout: 10_000 });
 }
 
-async function downloadCandidates(page: Page, scopeFrame?: Frame) {
+async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?: Locator) {
   const candidates: DownloadCandidate[] = [];
   for (const frame of scopeFrame ? [scopeFrame] : page.frames()) {
-    const links = frame.locator('a,button,[role="button"]').filter({ hasText: "前往下载" });
+    const root = scopeLocator && frame === scopeFrame ? scopeLocator : frame.locator("body");
+    const links = root.locator('a,button,[role="button"]').filter({ hasText: "前往下载" });
     const count = Math.min(await links.count().catch(() => 0), 20);
     for (let index = 0; index < count; index += 1) {
       const locator = links.nth(index);
@@ -915,6 +940,9 @@ async function browserExport(options: {
   store: TmallStore;
   snapshotDate: string;
   runId: string;
+  resumeStage?: "export_submitted" | "export_confirmed";
+  entryMode?: MasterExportAudit["entryMode"];
+  noticeState?: MasterExportAudit["noticeState"];
   onStage: (stage: MasterExportAuditStage, patch?: Partial<MasterExportAudit>) => Promise<void>;
 }) {
   await launchStoreChrome(options.store);
@@ -933,30 +961,63 @@ async function browserExport(options: {
     }
     await waitUntil(60_000, async () => (await combinedPageText(page!)).includes("出售中"), "等待千牛出售中页面加载超时");
     await assertSellerIdentity(page, options.store);
-    await options.onStage("browser_ready");
+    if (!options.resumeStage) await options.onStage("browser_ready");
 
-    const noticeState = await dismissImportantNotice(page);
+    const currentNoticeState = await dismissImportantNotice(page);
     const productManager = await openProductManagerChat(page);
-    const entryMode = productManager.entryMode;
+    const entryMode = options.entryMode ?? productManager.entryMode;
+    const noticeState = options.noticeState ?? currentNoticeState;
     let input = productManager.input;
-    await clickText(page, ["新会话"], true, input.frame);
-    input = await findChatInput(page);
-    const baselineDownloads = new Set((await downloadCandidates(page, input.frame)).map((item) => item.signature));
-    await input.locator.fill(TMALL_MASTER_EXPORT_PROMPT, { timeout: 10_000 });
-    await options.onStage("export_submitting", { entryMode, noticeState });
-    await clickSendOrPressEnter(input);
-    await options.onStage("export_submitted", { entryMode, noticeState });
+    let chatScope = await chatOverlayScope(input);
+    const baselineDownloads = new Set<string>();
+    if (!options.resumeStage) {
+      await clickText(page, ["新会话"], true, input.frame, chatScope ?? undefined);
+      input = await findChatInput(page);
+      chatScope = await chatOverlayScope(input);
+      for (const item of await downloadCandidates(page, input.frame, chatScope ?? undefined)) {
+        baselineDownloads.add(item.signature);
+      }
+      await input.locator.fill(TMALL_MASTER_EXPORT_PROMPT, { timeout: 10_000 });
+      await options.onStage("export_submitting", { entryMode, noticeState });
+      await clickSendOrPressEnter(input);
+      await options.onStage("export_submitted", { entryMode, noticeState });
+    }
 
-    await waitUntil(90_000, async () => (await textCandidates(page!, ["确认", "确认导出"], input.frame)).length > 0, "千牛助手未出现导出确认按钮");
-    await clickText(page, ["确认导出", "确认"], false, input.frame);
-    await options.onStage("export_confirmed", { entryMode, noticeState });
+    const chatText = async () => chatScope
+      ? await chatScope.innerText({ timeout: 5_000 }).catch(() => "")
+      : await frameText(input.frame);
+    if (options.resumeStage !== "export_confirmed") {
+      let confirmation: TextCandidate | null = null;
+      await waitUntil(90_000, async () => {
+        const confirmations = await textCandidates(
+          page!,
+          tmallExportConfirmationLabels,
+          input.frame,
+          chatScope ?? undefined,
+        );
+        if (confirmations[0]) {
+          const best = confirmations[0];
+          if (confirmations[1] && confirmations[1].score === best.score && confirmations[1].signature !== best.signature) {
+            throw new Error("商品管家存在多个同等导出确认候选，为防止误点已停止");
+          }
+          confirmation = best;
+          return true;
+        }
+        const downloads = (await downloadCandidates(page!, input.frame, chatScope ?? undefined))
+          .filter((candidate) => !baselineDownloads.has(candidate.signature));
+        if (downloads.length > 1) throw new Error("商品管家返回多个导出下载链接，无法唯一确认当前任务");
+        return downloads.length === 1 || hasAcceptedTmallExportTask(await chatText());
+      }, "商品管家未出现导出确认、任务受理或下载结果");
+      if (confirmation) await confirmation.locator.click({ timeout: 10_000 });
+      await options.onStage("export_confirmed", { entryMode, noticeState });
+    }
 
     let newDownload: DownloadCandidate | null = null;
     await waitUntil(exportResultTimeoutMs, async () => {
-      const current = await downloadCandidates(page!, input.frame);
+      const current = await downloadCandidates(page!, input.frame, chatScope ?? undefined);
       const fresh = current.filter((candidate) => !baselineDownloads.has(candidate.signature));
       if (fresh.length === 1) {
-        const text = await frameText(fresh[0]!.frame);
+        const text = await chatText();
         if (/成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text)) newDownload = fresh[0]!;
       }
       if (fresh.length > 1) throw new Error("千牛助手返回多个新的下载链接，无法唯一确认本轮导出");
@@ -1023,8 +1084,10 @@ export async function runTmallProductMasterStage(options: {
       if (evidence.sha256 !== audit.file.sha256 || evidence.rowCount !== audit.file.rowCount) {
         throw new Error("恢复文件重新校验后与活动清单不一致");
       }
-    } else if (["export_submitting", "export_submitted", "export_confirmed"].includes(audit.stage)) {
+    } else if (audit.stage === "export_submitting") {
       throw new Error(`检测到未决千牛导出任务（${audit.stage}，清单 ${existing.filePath}），为防止重复发送已停止，请先人工核对右侧聊天任务`);
+    } else if (isResumableTmallExportStage(audit.stage)) {
+      // Resume the isolated current chat without starting a new conversation or sending the prompt again.
     } else {
       await rm(existing.filePath, { force: true });
       audit = undefined;
@@ -1054,6 +1117,11 @@ export async function runTmallProductMasterStage(options: {
         store,
         snapshotDate,
         runId: activeAudit.runId,
+        resumeStage: isResumableTmallExportStage(activeAudit.stage)
+          ? activeAudit.stage as "export_submitted" | "export_confirmed"
+          : undefined,
+        entryMode: activeAudit.entryMode,
+        noticeState: activeAudit.noticeState,
         onStage: async (stage, patch = {}) => {
           activeAudit = await writeActiveAudit({ ...activeAudit, ...patch, stage });
         },

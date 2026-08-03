@@ -8,8 +8,11 @@ import * as XLSX from "xlsx";
 
 import {
   currentMasterSnapshot,
+  hasAcceptedTmallExportTask,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
+  isResumableTmallExportStage,
+  isTmallExportConfirmationLabel,
   productManagerFloatingClusterKey,
   runTmallProductMasterStage,
   scoreChatSendCandidate,
@@ -109,6 +112,19 @@ test("商品管家发送键必须位于聊天输入框右侧附近", () => {
   assert.equal(scoreChatSendCandidate({ ...send, label: "发送", left: 800 }, input), -1);
   assert.equal(scoreChatSendCandidate({ ...send, top: 600 }, input), -1);
   assert.equal(scoreChatSendCandidate({ ...send, width: 180 }, input), -1);
+});
+
+test("商品管家确认兼容任务卡片文案并识别自动受理状态", () => {
+  assert.equal(isTmallExportConfirmationLabel("确认导出"), true);
+  assert.equal(isTmallExportConfirmationLabel("确认任务"), true);
+  assert.equal(isTmallExportConfirmationLabel("确认执行任务"), true);
+  assert.equal(isTmallExportConfirmationLabel("去优化"), false);
+  assert.equal(hasAcceptedTmallExportTask("任务2：导出商品到Excel，共有2个任务，还剩0个任务待执行"), true);
+  assert.equal(hasAcceptedTmallExportTask("成功导出 212 个商品到Excel文件，所有任务已完成"), true);
+  assert.equal(hasAcceptedTmallExportTask("导出全部商品"), false);
+  assert.equal(isResumableTmallExportStage("export_submitted"), true);
+  assert.equal(isResumableTmallExportStage("export_confirmed"), true);
+  assert.equal(isResumableTmallExportStage("export_submitting"), false);
 });
 
 test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
