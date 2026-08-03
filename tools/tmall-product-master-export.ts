@@ -1023,6 +1023,12 @@ async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: 
   }
 }
 
+export async function createTmallBrowserDownloadSession(page: Page) {
+  const browser = page.context().browser();
+  if (!browser) throw new Error("无法取得 Chrome 浏览器根会话，已停止商品管家下载");
+  return browser.newBrowserCDPSession();
+}
+
 async function downloadWithBrowserEvents(options: {
   page: Page;
   locator: Locator;
@@ -1032,7 +1038,7 @@ async function downloadWithBrowserEvents(options: {
   await mkdir(options.downloadDirectory, { recursive: true });
   const stagingDirectory = await mkdtemp(path.join(options.downloadDirectory, ".tmall-product-master-"));
   if (!inside(options.downloadDirectory, stagingDirectory)) throw new Error("浏览器下载暂存目录越过店铺独立目录");
-  const session = await options.page.context().newCDPSession(options.page);
+  const session = await createTmallBrowserDownloadSession(options.page);
   let activeGuid: string | undefined;
   let resolveStarted!: (value: { guid: string; suggestedFilename: string }) => void;
   let resolveCompleted!: (value: { guid: string; filePath?: string }) => void;

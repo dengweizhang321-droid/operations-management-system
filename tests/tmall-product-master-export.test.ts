@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 
 import {
   chooseLatestTmallDownloadSignature,
+  createTmallBrowserDownloadSession,
   currentMasterSnapshot,
   hasAcceptedTmallExportTask,
   importTmallProductMasterFile,
@@ -172,6 +173,30 @@ test("商品管家下载候选合并嵌套按钮并只选择最下方成功结�
     candidate(),
     candidate({ signature: "other-frame", frameUrl: "https://other.example/chat", top: 620, contextText: "" }),
   ]), /不同页面/);
+});
+
+test("商品管家下载事件必须监听 Chrome 浏览器根会话", async () => {
+  let browserSessionCalls = 0;
+  let pageSessionCalls = 0;
+  const expectedSession = {};
+  const page = {
+    context: () => ({
+      browser: () => ({
+        newBrowserCDPSession: async () => {
+          browserSessionCalls += 1;
+          return expectedSession;
+        },
+      }),
+      newCDPSession: async () => {
+        pageSessionCalls += 1;
+        return expectedSession;
+      },
+    }),
+  } as unknown as Parameters<typeof createTmallBrowserDownloadSession>[0];
+  const session = await createTmallBrowserDownloadSession(page);
+  assert.equal(session, expectedSession);
+  assert.equal(browserSessionCalls, 1);
+  assert.equal(pageSessionCalls, 0);
 });
 
 test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
