@@ -9,6 +9,7 @@ import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import { runTmallMultiStoreImport, shanghaiYesterday } from "./tmall-multi-store-import-runner";
+import { runTmallProductMasterStage } from "./tmall-product-master-export";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
@@ -19,9 +20,9 @@ const sycmOrigin = "https://sycm.taobao.com";
 const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
 
-type PipelineCommand = "plan" | "fetch" | "import" | "serve";
-export type HelperStage = "ready" | "planned" | "fetched" | "completed" | "failed";
-type HelperRoute = "/plan" | "/fetch" | "/import";
+type PipelineCommand = "master" | "plan" | "fetch" | "import" | "serve";
+export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "completed" | "failed";
+type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import";
 
 type PipelinePlan = {
   version: 1;
@@ -498,7 +499,15 @@ function integerPort(value: string | undefined) {
 
 export function helperRequestError(stage: HelperStage, busy: boolean, route: HelperRoute) {
   if (busy) return { error: "pipeline_busy" as const };
-  const expected: HelperStage = route === "/plan" ? "ready" : route === "/fetch" ? "planned" : "fetched";
+  if (route === "/product-master") {
+    return stage === "ready" ? null : { error: "invalid_stage" as const, expected: "ready" as const, actual: stage };
+  }
+  if (route === "/plan") {
+    return stage === "ready" || stage === "mastered"
+      ? null
+      : { error: "invalid_stage" as const, expected: "ready_or_mastered" as const, actual: stage };
+  }
+  const expected: HelperStage = route === "/fetch" ? "planned" : "fetched";
   return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
 }
 
@@ -523,7 +532,7 @@ async function serveCommand(argv: string[]) {
       reply(200, { ok: true, stage, busy });
       return;
     }
-    if (request.method !== "POST" || !["/plan", "/fetch", "/import"].includes(request.url ?? "")) {
+    if (request.method !== "POST" || !["/product-master", "/plan", "/fetch", "/import"].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
     }
@@ -535,7 +544,11 @@ async function serveCommand(argv: string[]) {
     }
     busy = true;
     try {
-      if (request.url === "/plan") {
+      if (request.url === "/product-master") {
+        const result = await runTmallProductMasterStage({ storeKey: "tmall-yijiu" });
+        stage = "mastered";
+        reply(200, result);
+      } else if (request.url === "/plan") {
         const result = await planCommand(["--store-key", "tmall-yijiu", "--max-days", String(maximumDaysPerRun)]);
         planPathBase64 = result.planPathBase64;
         stage = "planned";
@@ -569,10 +582,16 @@ async function serveCommand(argv: string[]) {
 async function main() {
   const argv = process.argv.slice(2);
   const command = argv[0] as PipelineCommand | undefined;
-  if (!command || !["plan", "fetch", "import", "serve"].includes(command)) {
-    throw new Error("用法: tmall-sycm-cookie-pipeline.ts <plan|fetch|import|serve> [参数]");
+  if (!command || !["master", "plan", "fetch", "import", "serve"].includes(command)) {
+    throw new Error("用法: tmall-sycm-cookie-pipeline.ts <master|plan|fetch|import|serve> [参数]");
   }
-  const result = command === "plan"
+  const result = command === "master"
+    ? await runTmallProductMasterStage({
+        storeKey: cliValue(argv.slice(1), "--store-key") ?? "tmall-yijiu",
+        baseUrl: cliValue(argv.slice(1), "--base-url"),
+        snapshotDate: cliValue(argv.slice(1), "--snapshot-date"),
+      })
+    : command === "plan"
     ? await planCommand(argv.slice(1))
     : command === "fetch"
       ? await fetchCommand(argv.slice(1))

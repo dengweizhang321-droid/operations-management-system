@@ -26,7 +26,7 @@ npm run start:local-worker
 ## 网店数据
 
 - 数据导入页支持京东商品主数据与 SKU/SPU 日数据，以及已注册天猫店铺的货品、生意参谋商品日数据和推广商品 ZIP。天猫三类来源固定绑定平台“天猫”，店铺必须来自启用的受控注册项；货品要求快照日，日数据要求完整的预期日期范围。
-- 天猫生意参谋 SPU 分天数据支持受控多店铺工作流：`config/tmall-store-accounts.json` 为每店配置独立 profile、端口和下载目录；`npm run tmall:daily:import -- --dry-run` 生成缺失日期计划，`npm run tmall:receipt` 校验并签收单日 `.xls`，`npm run tmall:daily:import` 串行导入并回查。亿玖店提供两种默认未激活的 n8n 副本：`automation/n8n/tmall-yijiu-sycm-daily-import.workflow.json` 监听人工下载文件，`automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json` 通过一次性本机环回辅助进程执行“缺口计划 → Cookie 单日直连下载 → 签收导入回查”。后者只从环境变量或 Git 已忽略的 `.runtime` 指针读取 Cookie 原文件路径，执行前核验 Cookie 店铺身份，工作流本身不保存账号、密码、Cookie、Token 或 Session。详细步骤见 `docs/天猫生意参谋SPU多店铺工作流.md`。
+- 天猫生意参谋 SPU 分天数据支持受控多店铺工作流：`config/tmall-store-accounts.json` 为每店配置独立 profile、端口和下载目录；`npm run tmall:daily:import -- --dry-run` 生成缺失日期计划，`npm run tmall:receipt` 校验并签收单日 `.xls`，`npm run tmall:daily:import` 串行导入并回查。亿玖店提供两种默认未激活的 n8n 副本：`automation/n8n/tmall-yijiu-sycm-daily-import.workflow.json` 监听人工下载文件，`automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json` 先使用店铺独立 Chrome 在千牛“出售中”右侧聊天执行“导出全部商品”，校验并导入当天货品快照，再通过一次性本机环回辅助进程执行“缺口计划 → Cookie 单日直连下载 → 签收导入回查”。当天已有完成的货品快照时自动跳过重复导出；工作流只从环境变量或 Git 已忽略的 `.runtime` 指针读取 Cookie 原文件路径，不保存账号、密码、Cookie、Token 或 Session。详细步骤见 `docs/天猫生意参谋SPU多店铺工作流.md`。
 - 网店分析提供跨平台货品目录、京东 SKU 日表现、京东/天猫 SPU 商品表现和天猫推广分析。金额接口统一使用人民币分；商品访客只按“商品×日”累计展示，不解释为店铺去重 UV。
 - 推广费率与推广成交占比只使用推广报表和生意参谋支付金额均有覆盖的业务日；ROAS、CTR、CPC 等比例从汇总金额或计数重新计算，不平均源文件行比率。
 - 导入按来源、平台、店铺和文件哈希幂等隔离，日数据修订只替换精确日期范围；接口在确认成功前回查批次、行数、日期和关键范围。本地验证不等同于生产导入，生产迁移与数据导入仍需单独执行。

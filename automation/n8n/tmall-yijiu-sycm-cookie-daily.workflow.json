@@ -1,6 +1,6 @@
 {
   "id": "M4xY8kQ2vR6sT9pC",
-  "name": "天猫-志高亿玖生意参谋 Cookie 直连三段式导入",
+  "name": "天猫-志高亿玖货品+生意参谋 Cookie 四段式导入",
   "nodes": [
     {
       "parameters": {},
@@ -36,6 +36,23 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://127.0.0.1:5791/product-master",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "dc616bb1-dba8-47c7-aa95-aea5bc936d10",
+      "name": "M·出售中全部商品导出、校验并导入",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://127.0.0.1:5791/plan",
         "options": {
           "timeout": 120000
@@ -46,7 +63,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -560,
+        -220,
         40
       ]
     },
@@ -63,7 +80,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -180,
+        140,
         40
       ]
     },
@@ -80,7 +97,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        200,
+        500,
         40
       ]
     },
@@ -102,9 +119,9 @@
     },
     {
       "parameters": {
-        "content": "## 三段式安全门禁\n执行前先启动只监听 `127.0.0.1:5791`、严格按 A→B→C 顺序且完成后自动退出的一次性辅助进程。A 从本机运营系统查询亿玖店 SPU 实际覆盖，只计划到昨天；B 每个业务日发一个请求并验证 XLS 魔数、表头、唯一日期和哈希；C 生成签收单，调用当前幂等导入接口，并再次回查同店同日覆盖。任一节点失败都会阻止后续节点。",
+        "content": "## 四段式安全门禁\n执行前先启动只监听 `127.0.0.1:5791` 的一次性辅助进程。M 使用亿玖店独立 Chrome profile，在千牛“出售中”右侧聊天发送“导出全部商品”，确认任务、等待并下载 XLSX；随后校验发布模板、店铺、行数和哈希，导入货品主数据并回查。当天已有完成快照时 M 自动跳过。A 从本机运营系统查询 SPU 实际覆盖；B 每个业务日单独下载并验证 XLS；C 签收、幂等导入并回查。任一节点失败都会阻止后续节点。",
         "height": 220,
-        "width": 540,
+        "width": 660,
         "color": 4
       },
       "id": "b9fe2611-f616-46c3-84f8-f13ea1d10cc8",
@@ -123,7 +140,7 @@
       "main": [
         [
           {
-            "node": "A·算缺哪些日期",
+            "node": "M·出售中全部商品导出、校验并导入",
             "type": "main",
             "index": 0
           }
@@ -131,6 +148,17 @@
       ]
     },
     "每天 08:40-18:40 每小时补跑": {
+      "main": [
+        [
+          {
+            "node": "M·出售中全部商品导出、校验并导入",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "M·出售中全部商品导出、校验并导入": {
       "main": [
         [
           {
