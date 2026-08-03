@@ -7,6 +7,7 @@ import test from "node:test";
 import * as XLSX from "xlsx";
 
 import {
+  chooseLatestTmallDownloadSignature,
   currentMasterSnapshot,
   hasAcceptedTmallExportTask,
   importTmallProductMasterFile,
@@ -130,6 +131,47 @@ test("商品管家确认兼容任务卡片文案并识别自动受理状态", ()
   assert.equal(isTmallProductWorkbookFilename("出售中全部商品.xlsx"), true);
   assert.equal(isTmallProductWorkbookFilename("出售中全部商品.xls"), false);
   assert.equal(isTmallProductWorkbookFilename("../出售中全部商品.xlsx"), false);
+});
+
+test("商品管家下载候选合并嵌套按钮并只选择最下方成功结果", () => {
+  const completed = "成功导出 212 个商品到Excel文件，所有任务已完成 前往下载";
+  const candidate = (patch: Partial<{
+    signature: string;
+    frameUrl: string;
+    href: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    contextText: string;
+  }> = {}) => ({
+    signature: "old",
+    frameUrl: "https://myseller.taobao.com/chat",
+    href: "https://download.example/old.xlsx",
+    left: 1200,
+    top: 300,
+    width: 120,
+    height: 36,
+    contextText: completed,
+    ...patch,
+  });
+
+  assert.equal(chooseLatestTmallDownloadSignature([
+    candidate({ signature: "nested-parent", href: "", left: 1196, width: 128 }),
+    candidate({ signature: "nested-link", contextText: "" }),
+  ]), "nested-link");
+  assert.equal(chooseLatestTmallDownloadSignature([
+    candidate(),
+    candidate({ signature: "latest", href: "https://download.example/latest.xlsx", top: 620 }),
+  ]), "latest");
+  assert.throws(() => chooseLatestTmallDownloadSignature([
+    candidate({ signature: "tie-a", top: 620 }),
+    candidate({ signature: "tie-b", href: "https://download.example/tie-b.xlsx", left: 1450, top: 628 }),
+  ]), /位置并列/);
+  assert.throws(() => chooseLatestTmallDownloadSignature([
+    candidate(),
+    candidate({ signature: "other-frame", frameUrl: "https://other.example/chat", top: 620, contextText: "" }),
+  ]), /不同页面/);
 });
 
 test("重要通知或商品巡检只允许右下角安全关闭动作", () => {

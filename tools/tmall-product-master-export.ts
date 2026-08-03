@@ -120,7 +120,16 @@ type DownloadCandidate = {
   frame: Frame;
   locator: Locator;
   signature: string;
+  frameUrl: string;
+  href: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  contextText: string;
 };
+
+type TmallDownloadChoice = Omit<DownloadCandidate, "frame" | "locator">;
 
 type PositionedUiElement = {
   text: string;
@@ -213,6 +222,38 @@ export function isResumableTmallExportStage(stage: string | undefined) {
 
 export function isTmallProductWorkbookFilename(fileName: string) {
   return fileName.length > 5 && fileName.length <= 240 && /\.xlsx$/i.test(fileName) && !/[\u0000-\u001f<>:"/\\|?*]/.test(fileName);
+}
+
+export function chooseLatestTmallDownloadSignature(candidates: readonly TmallDownloadChoice[]) {
+  const visualClusters = new Map<string, TmallDownloadChoice>();
+  for (const candidate of candidates) {
+    const centerX = candidate.left + candidate.width / 2;
+    const centerY = candidate.top + candidate.height / 2;
+    const key = `${candidate.frameUrl}|${Math.round(centerX / 16)}|${Math.round(centerY / 16)}`;
+    const previous = visualClusters.get(key);
+    if (!previous) {
+      visualClusters.set(key, candidate);
+      continue;
+    }
+    const representative = !previous.href && candidate.href ? candidate : previous;
+    visualClusters.set(key, {
+      ...representative,
+      contextText: representative.contextText || previous.contextText || candidate.contextText,
+    });
+  }
+  const distinct = [...visualClusters.values()];
+  if (distinct.length === 0) return null;
+  if (distinct.length === 1) return distinct[0]!.signature;
+  if (new Set(distinct.map((candidate) => candidate.frameUrl)).size !== 1) {
+    throw new Error("多个下载链接分布在不同页面，无法确认当前商品管家任务");
+  }
+  const completed = distinct.filter((candidate) => /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(candidate.contextText));
+  if (completed.length === 0) return null;
+  const ordered = completed.sort((left, right) => left.top - right.top || left.left - right.left);
+  if (ordered.length > 1 && ordered.at(-1)!.top - ordered.at(-2)!.top < 16) {
+    throw new Error("多个成功下载链接位置并列，无法唯一确认最新商品管家任务");
+  }
+  return ordered.at(-1)!.signature;
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -909,15 +950,44 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?:
       if (!await locator.isVisible().catch(() => false)) continue;
       const detail = await locator.evaluate((element) => {
         const rect = element.getBoundingClientRect();
+        let contextText = "";
+        let ancestor: Element | null = element;
+        for (let depth = 0; depth < 6 && ancestor; depth += 1, ancestor = ancestor.parentElement) {
+          const text = (ancestor.textContent ?? "").replace(/\s+/g, " ").trim();
+          const ancestorRect = ancestor.getBoundingClientRect();
+          if (
+            /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text)
+            && text.length <= 3_000
+            && ancestorRect.height <= Math.max(window.innerHeight * 0.75, 600)
+          ) {
+            contextText = text;
+            break;
+          }
+        }
         return {
           href: element instanceof HTMLAnchorElement ? element.href : "",
           text: element.textContent?.replace(/\s+/g, "").trim() ?? "",
           left: Math.round(rect.left),
           top: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          contextText,
         };
       }).catch(() => null);
       if (!detail || !detail.text.includes("前往下载")) continue;
-      candidates.push({ frame, locator, signature: `${frame.url()}|${detail.href}|${detail.left}|${detail.top}` });
+      const frameUrl = frame.url();
+      candidates.push({
+        frame,
+        locator,
+        signature: `${frameUrl}|${detail.href}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
+        frameUrl,
+        href: detail.href,
+        left: detail.left,
+        top: detail.top,
+        width: detail.width,
+        height: detail.height,
+        contextText: detail.contextText,
+      });
     }
   }
   return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
@@ -1108,8 +1178,7 @@ async function browserExport(options: {
         }
         const downloads = (await downloadCandidates(page!, input.frame, chatScope ?? undefined))
           .filter((candidate) => !baselineDownloads.has(candidate.signature));
-        if (downloads.length > 1) throw new Error("商品管家返回多个导出下载链接，无法唯一确认当前任务");
-        return downloads.length === 1 || hasAcceptedTmallExportTask(await chatText());
+        return Boolean(chooseLatestTmallDownloadSignature(downloads)) || hasAcceptedTmallExportTask(await chatText());
       }, "商品管家未出现导出确认、任务受理或下载结果");
       await options.onStage("export_confirmed", { entryMode, noticeState });
     }
@@ -1118,11 +1187,19 @@ async function browserExport(options: {
     await waitUntil(exportResultTimeoutMs, async () => {
       const current = await downloadCandidates(page!, input.frame, chatScope ?? undefined);
       const fresh = current.filter((candidate) => !baselineDownloads.has(candidate.signature));
-      if (fresh.length === 1) {
+      const selectedSignature = chooseLatestTmallDownloadSignature(fresh);
+      const selected = selectedSignature
+        ? fresh.find((candidate) => candidate.signature === selectedSignature)
+        : undefined;
+      if (selected) {
         const text = await chatText();
-        if (/成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text)) newDownload = fresh[0]!;
+        if (
+          /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(selected.contextText)
+          || (!options.resumeStage && fresh.length === 1 && /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text))
+        ) {
+          newDownload = selected;
+        }
       }
-      if (fresh.length > 1) throw new Error("千牛助手返回多个新的下载链接，无法唯一确认本轮导出");
       return newDownload !== null;
     }, "等待千牛生成全部商品 Excel 超时", 2_000);
 
