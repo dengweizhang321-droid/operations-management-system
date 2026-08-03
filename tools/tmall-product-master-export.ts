@@ -80,7 +80,7 @@ type MasterExportAudit = {
   startedAt: string;
   updatedAt: string;
   stage: MasterExportAuditStage;
-  entryMode?: "product_manager_opened" | "product_manager_already_open" | "bulk_export_entry" | "assistant_direct";
+  entryMode?: "product_manager_opened" | "product_manager_floating_icon" | "product_manager_already_open" | "bulk_export_entry" | "assistant_direct";
   noticeState?: "dismissed" | "not_present";
   file?: MasterFileEvidence;
   importResult?: {
@@ -130,19 +130,49 @@ type PositionedUiElement = {
   height: number;
   viewportWidth: number;
   viewportHeight: number;
+  position?: string;
+  cursor?: string;
 };
 
 export function scoreProductManagerCandidate(detail: PositionedUiElement) {
   const label = `${detail.text} ${detail.attributes}`.replace(/\s+/g, "").trim();
   const recognized = label.includes(TMALL_PRODUCT_MANAGER_LABEL) || /product[-_ ]?(manager|assistant)/i.test(label);
   if (!recognized || detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
-  if (detail.left < detail.viewportWidth * 0.55 || detail.top < detail.viewportHeight * 0.45) return -1;
+  const right = detail.left + detail.width;
+  if (right < detail.viewportWidth * 0.9 || detail.top < detail.viewportHeight * 0.6) return -1;
   if (detail.width < 8 || detail.height < 8 || detail.width > 240 || detail.height > 180) return -1;
   let score = 10;
   if (["button", "a"].includes(detail.tag) || ["button", "link", "menuitem"].includes(detail.role)) score += 6;
   score += Math.min(6, Math.round((detail.top / detail.viewportHeight) * 6));
   score += Math.min(4, Math.round((detail.left / detail.viewportWidth) * 4));
   return score;
+}
+
+export function scoreProductManagerFloatingCandidate(detail: PositionedUiElement) {
+  if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
+  const right = detail.left + detail.width;
+  const bottom = detail.top + detail.height;
+  if (right < detail.viewportWidth * 0.97 || bottom < detail.viewportHeight * 0.78 || detail.top > detail.viewportHeight * 0.96) return -1;
+  if (detail.width < 16 || detail.height < 16 || detail.width > 120 || detail.height > 120) return -1;
+  if (!["fixed", "sticky", "ancestor-fixed", "ancestor-sticky"].includes(detail.position ?? "")) return -1;
+  const label = `${detail.text} ${detail.attributes}`.replace(/\s+/g, "").trim();
+  if (/重要通知|商品巡检|关闭|返回顶部|回到顶部|客服|帮助|意见反馈|忽略|去优化|下载|翻译/.test(label)) return -1;
+  const actionable = ["button", "a"].includes(detail.tag)
+    || ["button", "link", "menuitem"].includes(detail.role)
+    || detail.cursor === "pointer";
+  if (!actionable) return -1;
+  let score = 10;
+  if (["button", "a"].includes(detail.tag) || ["button", "link"].includes(detail.role)) score += 6;
+  if (detail.cursor === "pointer") score += 4;
+  if (right >= detail.viewportWidth * 0.98) score += 5;
+  if (detail.top <= detail.viewportHeight * 0.85) score += 3;
+  return score;
+}
+
+export function productManagerFloatingClusterKey(detail: PositionedUiElement) {
+  const centerX = detail.left + detail.width / 2;
+  const centerY = detail.top + detail.height / 2;
+  return `${Math.round(centerX / 12)}|${Math.round(centerY / 12)}`;
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -492,6 +522,7 @@ async function positionedDetail(locator: Locator) {
   return await locator.evaluate((element): PositionedUiElement => {
     const rect = element.getBoundingClientRect();
     const view = element.ownerDocument.defaultView;
+    const style = view?.getComputedStyle(element);
     return {
       text: element.textContent ?? "",
       attributes: [
@@ -517,6 +548,8 @@ async function positionedDetail(locator: Locator) {
       height: Math.round(rect.height),
       viewportWidth: view?.innerWidth ?? 0,
       viewportHeight: view?.innerHeight ?? 0,
+      position: style?.position ?? "",
+      cursor: style?.cursor ?? "",
     };
   }).catch(() => null);
 }
@@ -590,6 +623,7 @@ async function productManagerCandidates(page: Page) {
   const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
   for (const frame of page.frames()) {
     const matches = frame.locator([
+      `:text-is("${TMALL_PRODUCT_MANAGER_LABEL}")`,
       `button:has-text("${TMALL_PRODUCT_MANAGER_LABEL}")`,
       `a:has-text("${TMALL_PRODUCT_MANAGER_LABEL}")`,
       `[role="button"]:has-text("${TMALL_PRODUCT_MANAGER_LABEL}")`,
@@ -624,12 +658,98 @@ async function productManagerCandidates(page: Page) {
   return candidates.sort((left, right) => right.score - left.score);
 }
 
+async function productManagerFloatingCandidates(page: Page) {
+  const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
+  for (const frame of page.frames()) {
+    const elements = frame.locator("body *");
+    const raw = await elements.evaluateAll((items) => {
+      const results: Array<{ index: number; detail: PositionedUiElement }> = [];
+      for (let index = 0; index < items.length; index += 1) {
+        const element = items[index]!;
+        const view = element.ownerDocument.defaultView;
+        if (!view) continue;
+        const rect = element.getBoundingClientRect();
+        if (rect.width < 8 || rect.height < 8 || rect.right < view.innerWidth * 0.9 || rect.top < view.innerHeight * 0.35) continue;
+        const style = view.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0) continue;
+        let positioned: Element | null = element;
+        let position = style.position;
+        for (let depth = 0; depth < 5 && !["fixed", "sticky"].includes(position); depth += 1) {
+          positioned = positioned.parentElement;
+          if (!positioned) break;
+          position = view.getComputedStyle(positioned).position;
+        }
+        if (!["fixed", "sticky"].includes(position)) continue;
+        const attributes = [
+          element.getAttribute("aria-label"),
+          element.getAttribute("title"),
+          element.getAttribute("class"),
+          element.getAttribute("id"),
+          element.getAttribute("name"),
+          element.getAttribute("data-title"),
+          element.getAttribute("data-tip"),
+          element.getAttribute("data-tooltip"),
+          ...Array.from(element.querySelectorAll('[aria-label],[title],img[alt],img[title]')).slice(0, 8).flatMap((child) => [
+            child.getAttribute("aria-label"),
+            child.getAttribute("title"),
+            child.getAttribute("alt"),
+          ]),
+        ].filter(Boolean).join(" ");
+        results.push({
+          index,
+          detail: {
+            text: element.textContent ?? "",
+            attributes,
+            tag: element.tagName.toLowerCase(),
+            role: element.getAttribute("role") ?? "",
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            viewportWidth: view.innerWidth,
+            viewportHeight: view.innerHeight,
+            position: positioned === element ? position : `ancestor-${position}`,
+            cursor: style.cursor,
+          },
+        });
+        if (results.length >= 50) break;
+      }
+      return results;
+    }).catch(() => []);
+    for (const item of raw) {
+      const score = scoreProductManagerFloatingCandidate(item.detail);
+      if (score < 0) continue;
+      candidates.push({
+        frame,
+        locator: elements.nth(item.index),
+        score,
+        signature: `${frame.url()}|${item.detail.left}|${item.detail.top}|${item.detail.width}|${item.detail.height}|${item.detail.attributes}`,
+        detail: item.detail,
+      });
+    }
+  }
+  const unique = new Map<string, TextCandidate & { detail: PositionedUiElement }>();
+  for (const candidate of candidates.sort((left, right) => right.score - left.score)) {
+    const key = `${candidate.frame.url()}|${productManagerFloatingClusterKey(candidate.detail)}`;
+    if (!unique.has(key)) unique.set(key, candidate);
+  }
+  return [...unique.values()];
+}
+
 async function openProductManagerChat(page: Page) {
   const existing = await maybeFindChatInput(page);
   if (existing) return { input: existing, entryMode: "product_manager_already_open" as const };
 
-  const candidates = await productManagerCandidates(page);
-  if (!candidates[0]) throw new Error("未找到右下角“商品管家”入口");
+  let entryMode: "product_manager_opened" | "product_manager_floating_icon" = "product_manager_opened";
+  let candidates = await productManagerCandidates(page);
+  if (!candidates[0]) {
+    entryMode = "product_manager_floating_icon";
+    candidates = await productManagerFloatingCandidates(page);
+  }
+  if (!candidates[0]) throw new Error("未找到右下角“商品管家”入口（包括唯一无标签悬浮图标）");
+  if (entryMode === "product_manager_floating_icon" && candidates.length > 1) {
+    throw new Error("右下角存在多个无标签悬浮图标，无法唯一确认“商品管家”，为防止误点已停止");
+  }
   if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
     throw new Error("右下角存在多个同等“商品管家”入口，为防止误点已停止");
   }
@@ -639,7 +759,7 @@ async function openProductManagerChat(page: Page) {
     input = await maybeFindChatInput(page);
     return input !== null;
   }, "点击右下角“商品管家”后未出现右侧聊天输入框", 500);
-  return { input: input!, entryMode: "product_manager_opened" as const };
+  return { input: input!, entryMode };
 }
 
 async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {

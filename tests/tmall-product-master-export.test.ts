@@ -10,9 +10,11 @@ import {
   currentMasterSnapshot,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
+  productManagerFloatingClusterKey,
   runTmallProductMasterStage,
   scoreImportantNoticeCloseCandidate,
   scoreProductManagerCandidate,
+  scoreProductManagerFloatingCandidate,
 } from "../tools/tmall-product-master-export";
 
 function masterWorkbook() {
@@ -61,6 +63,7 @@ test("商品管家入口接受右下角文字或图标属性并拒绝无关候�
     viewportHeight: 900,
   };
   assert.ok(scoreProductManagerCandidate(candidate) > 0);
+  assert.ok(scoreProductManagerCandidate({ ...candidate, tag: "span", role: "" }) > 0);
   assert.ok(scoreProductManagerCandidate({ ...candidate, text: "", attributes: "title 商品管家" }) > 0);
   assert.ok(scoreProductManagerCandidate({ ...candidate, text: "", attributes: "product-manager-entry" }) > 0);
   assert.equal(scoreProductManagerCandidate({ ...candidate, text: "商品搜索" }), -1);
@@ -68,6 +71,34 @@ test("商品管家入口接受右下角文字或图标属性并拒绝无关候�
   assert.equal(scoreProductManagerCandidate({ ...candidate, left: 200 }), -1);
   assert.equal(scoreProductManagerCandidate({ ...candidate, top: 120 }), -1);
   assert.equal(scoreProductManagerCandidate({ ...candidate, width: 500 }), -1);
+});
+
+test("无标签商品管家只接受右侧下半区唯一固定悬浮图标", () => {
+  const candidate = {
+    text: "",
+    attributes: "floating-entry",
+    tag: "div",
+    role: "button",
+    left: 1380,
+    top: 720,
+    width: 60,
+    height: 60,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+    position: "fixed",
+    cursor: "pointer",
+  };
+  assert.ok(scoreProductManagerFloatingCandidate(candidate) > 0);
+  assert.equal(
+    productManagerFloatingClusterKey(candidate),
+    productManagerFloatingClusterKey({ ...candidate, left: 1398, top: 738, width: 24, height: 24 }),
+  );
+  assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, left: 900 }), -1);
+  assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, top: 300 }), -1);
+  assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, position: "absolute" }), -1);
+  assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, width: 300 }), -1);
+  assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, text: "返回顶部" }), -1);
+  assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, text: "商品巡检" }), -1);
 });
 
 test("重要通知关闭候选必须位于右下角通知附近", () => {
