@@ -1,0 +1,177 @@
+{
+  "id": "M4xY8kQ2vR6sT9pC",
+  "name": "天猫-志高亿玖生意参谋 Cookie 直连三段式导入",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6f5562ad-0edc-4dd9-b0e0-c68b3f7594b8",
+      "name": "手动运行",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "40 8-18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578082",
+      "name": "每天 08:40-18:40 每小时补跑",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -820,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/plan",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "129e9444-0617-4c2a-9547-8f31b1a39dba",
+      "name": "A·算缺哪些日期",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/fetch",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "a8dc198d-ea87-43c2-a61f-0b8a4e0e18b8",
+      "name": "B·逐日下载并验证 XLS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -180,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/import",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "7365f63a-7dd8-4d80-bb92-bb39119ab5bd",
+      "name": "C·签收、导入并覆盖回查",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 凭证边界\nCookie 内容和登录密码都不写入工作流。脚本从临时环境变量 `TMALL_SYCM_COOKIE_FILE` 或 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt` 读取原文件路径，只在内存中加载 Cookie，并用 `sn` 身份与受控亿玖店注册项交叉核验。",
+        "height": 190,
+        "width": 430,
+        "color": 3
+      },
+      "id": "00e063a9-4894-4345-b5ca-cc9bc4822a77",
+      "name": "凭证说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 三段式安全门禁\n执行前先启动只监听 `127.0.0.1:5791`、严格按 A→B→C 顺序且完成后自动退出的一次性辅助进程。A 从本机运营系统查询亿玖店 SPU 实际覆盖，只计划到昨天；B 每个业务日发一个请求并验证 XLS 魔数、表头、唯一日期和哈希；C 生成签收单，调用当前幂等导入接口，并再次回查同店同日覆盖。任一节点失败都会阻止后续节点。",
+        "height": 220,
+        "width": 540,
+        "color": 4
+      },
+      "id": "b9fe2611-f616-46c3-84f8-f13ea1d10cc8",
+      "name": "流程说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "手动运行": {
+      "main": [
+        [
+          {
+            "node": "A·算缺哪些日期",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天 08:40-18:40 每小时补跑": {
+      "main": [
+        [
+          {
+            "node": "A·算缺哪些日期",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·算缺哪些日期": {
+      "main": [
+        [
+          {
+            "node": "B·逐日下载并验证 XLS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·逐日下载并验证 XLS": {
+      "main": [
+        [
+          {
+            "node": "C·签收、导入并覆盖回查",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai"
+  },
+  "versionId": "185c3103-ec3a-41f9-94e0-7a6975be1b97",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
