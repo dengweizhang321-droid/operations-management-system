@@ -111,7 +111,7 @@ test("商品管家发送键必须位于聊天输入框右侧附近", () => {
   assert.equal(scoreChatSendCandidate({ ...send, width: 180 }, input), -1);
 });
 
-test("重要通知关闭候选必须位于右下角通知附近", () => {
+test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
   const notice = {
     text: "重要通知",
     attributes: "",
@@ -137,6 +137,18 @@ test("重要通知关闭候选必须位于右下角通知附近", () => {
     viewportHeight: 900,
   };
   assert.ok(scoreImportantNoticeCloseCandidate(close, notice) > 0);
+  assert.ok(scoreImportantNoticeCloseCandidate({
+    ...close,
+    text: "忽略",
+    attributes: "next-btn",
+    width: 180,
+  }, { ...notice, text: "商品巡检" }) > 0);
+  assert.equal(scoreImportantNoticeCloseCandidate({
+    ...close,
+    text: "去优化",
+    attributes: "next-btn",
+    width: 60,
+  }, { ...notice, text: "商品巡检" }), -1);
   assert.equal(scoreImportantNoticeCloseCandidate({ ...close, left: 200, top: 120 }, notice), -1);
   assert.equal(scoreImportantNoticeCloseCandidate(close, { ...notice, left: 100, top: 100 }), -1);
 });

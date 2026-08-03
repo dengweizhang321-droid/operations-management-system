@@ -15,6 +15,7 @@ export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/Se
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
 export const TMALL_PRODUCT_MANAGER_LABEL = "商品管家";
 export const TMALL_IMPORTANT_NOTICE_LABEL = "重要通知";
+export const TMALL_PRODUCT_INSPECTION_NOTICE_LABEL = "商品巡检";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
@@ -199,7 +200,9 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   const centerX = detail.left + detail.width / 2;
   const centerY = detail.top + detail.height / 2;
   const closeLabel = `${detail.text} ${detail.attributes}`.replace(/\s+/g, " ").trim();
-  const explicitClose = /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(closeLabel);
+  const text = detail.text.replace(/\s+/g, "").trim();
+  if (/去优化|立即优化/.test(text)) return -1;
+  const explicitClose = text === "忽略" || /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(closeLabel);
   const compact = detail.width >= 8 && detail.width <= 72 && detail.height >= 8 && detail.height <= 72;
   const nearby = centerX >= notice.left - 40
     && centerX <= notice.viewportWidth
@@ -575,17 +578,20 @@ async function positionedDetail(locator: Locator) {
 async function importantNoticeCandidates(page: Page) {
   const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
   for (const frame of page.frames()) {
-    const matches = frame.getByText(/重要通知/);
+    const matches = frame.getByText(/重要通知|商品巡检/);
     const count = Math.min(await matches.count().catch(() => 0), 20);
     for (let index = 0; index < count; index += 1) {
       const locator = matches.nth(index);
       if (!await locator.isVisible().catch(() => false)) continue;
       const detail = await positionedDetail(locator);
       if (!detail || detail.width < 2 || detail.height < 2) continue;
-      if (!detail.text.includes(TMALL_IMPORTANT_NOTICE_LABEL)) continue;
+      if (!detail.text.includes(TMALL_IMPORTANT_NOTICE_LABEL)
+        && !detail.text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL)) continue;
       if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.4) continue;
       const normalized = detail.text.replace(/\s+/g, "").trim();
-      const score = (normalized === TMALL_IMPORTANT_NOTICE_LABEL ? 20 : normalized.length <= 40 ? 12 : 4)
+      const exactNoticeTitle = normalized === TMALL_IMPORTANT_NOTICE_LABEL
+        || normalized === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL;
+      const score = (exactNoticeTitle ? 20 : normalized.length <= 40 ? 12 : 4)
         + Math.round((detail.left / detail.viewportWidth) * 5)
         + Math.round((detail.top / detail.viewportHeight) * 5);
       candidates.push({
@@ -628,12 +634,12 @@ async function dismissImportantNotice(page: Page) {
     });
   }
   candidates.sort((left, right) => right.score - left.score);
-  if (!candidates[0]) throw new Error("检测到右下角“重要通知”，但未找到可安全确认的关闭按钮");
+  if (!candidates[0]) throw new Error("检测到右下角通知，但未找到可安全确认的“忽略/关闭”按钮");
   if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
-    throw new Error("右下角“重要通知”存在多个同等关闭候选，为防止误点已停止");
+    throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
   }
   await candidates[0].locator.click({ timeout: 10_000 });
-  await waitUntil(10_000, async () => !await notice.locator.isVisible().catch(() => false), "右下角“重要通知”点击关闭后仍然可见");
+  await waitUntil(10_000, async () => !await notice.locator.isVisible().catch(() => false), "右下角通知点击“忽略/关闭”后仍然可见");
   return "dismissed" as const;
 }
 
