@@ -47,13 +47,13 @@ test("当天完成的受控天猫货品快照才允许跳过导出", () => {
   assert.equal(currentMasterSnapshot({ ...batch, status: "failed" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
 });
 
-test("商品管家入口只接受页面左下角的精确文本候选", () => {
+test("商品管家入口接受右下角文字或图标属性并拒绝无关候选", () => {
   const candidate = {
     text: "商品管家",
     attributes: "",
     tag: "button",
     role: "button",
-    left: 24,
+    left: 1320,
     top: 720,
     width: 96,
     height: 40,
@@ -61,9 +61,13 @@ test("商品管家入口只接受页面左下角的精确文本候选", () => {
     viewportHeight: 900,
   };
   assert.ok(scoreProductManagerCandidate(candidate) > 0);
+  assert.ok(scoreProductManagerCandidate({ ...candidate, text: "", attributes: "title 商品管家" }) > 0);
+  assert.ok(scoreProductManagerCandidate({ ...candidate, text: "", attributes: "product-manager-entry" }) > 0);
   assert.equal(scoreProductManagerCandidate({ ...candidate, text: "商品搜索" }), -1);
-  assert.equal(scoreProductManagerCandidate({ ...candidate, left: 1000 }), -1);
+  assert.equal(scoreProductManagerCandidate({ ...candidate, text: "", attributes: "generic-floating-entry" }), -1);
+  assert.equal(scoreProductManagerCandidate({ ...candidate, left: 200 }), -1);
   assert.equal(scoreProductManagerCandidate({ ...candidate, top: 120 }), -1);
+  assert.equal(scoreProductManagerCandidate({ ...candidate, width: 500 }), -1);
 });
 
 test("重要通知关闭候选必须位于右下角通知附近", () => {

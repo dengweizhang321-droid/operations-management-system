@@ -133,13 +133,15 @@ type PositionedUiElement = {
 };
 
 export function scoreProductManagerCandidate(detail: PositionedUiElement) {
-  const text = detail.text.replace(/\s+/g, "").trim();
-  if (text !== TMALL_PRODUCT_MANAGER_LABEL || detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
-  if (detail.left > detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.45) return -1;
+  const label = `${detail.text} ${detail.attributes}`.replace(/\s+/g, "").trim();
+  const recognized = label.includes(TMALL_PRODUCT_MANAGER_LABEL) || /product[-_ ]?(manager|assistant)/i.test(label);
+  if (!recognized || detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
+  if (detail.left < detail.viewportWidth * 0.55 || detail.top < detail.viewportHeight * 0.45) return -1;
+  if (detail.width < 8 || detail.height < 8 || detail.width > 240 || detail.height > 180) return -1;
   let score = 10;
   if (["button", "a"].includes(detail.tag) || ["button", "link", "menuitem"].includes(detail.role)) score += 6;
   score += Math.min(6, Math.round((detail.top / detail.viewportHeight) * 6));
-  score += Math.min(4, Math.round(((detail.viewportWidth - detail.left) / detail.viewportWidth) * 4));
+  score += Math.min(4, Math.round((detail.left / detail.viewportWidth) * 4));
   return score;
 }
 
@@ -496,7 +498,16 @@ async function positionedDetail(locator: Locator) {
         element.getAttribute("aria-label"),
         element.getAttribute("title"),
         element.getAttribute("class"),
+        element.getAttribute("id"),
         element.getAttribute("name"),
+        element.getAttribute("data-title"),
+        element.getAttribute("data-tip"),
+        element.getAttribute("data-tooltip"),
+        ...Array.from(element.querySelectorAll('[aria-label],[title],img[alt],img[title]')).slice(0, 8).flatMap((child) => [
+          child.getAttribute("aria-label"),
+          child.getAttribute("title"),
+          child.getAttribute("alt"),
+        ]),
       ].filter(Boolean).join(" "),
       tag: element.tagName.toLowerCase(),
       role: element.getAttribute("role") ?? "",
@@ -578,8 +589,22 @@ async function dismissImportantNotice(page: Page) {
 async function productManagerCandidates(page: Page) {
   const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
   for (const frame of page.frames()) {
-    const matches = frame.getByText(TMALL_PRODUCT_MANAGER_LABEL, { exact: true });
-    const count = Math.min(await matches.count().catch(() => 0), 20);
+    const matches = frame.locator([
+      `button:has-text("${TMALL_PRODUCT_MANAGER_LABEL}")`,
+      `a:has-text("${TMALL_PRODUCT_MANAGER_LABEL}")`,
+      `[role="button"]:has-text("${TMALL_PRODUCT_MANAGER_LABEL}")`,
+      `[aria-label*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      `[title*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      `[data-title*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      `[data-tip*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      `[data-tooltip*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      `img[alt*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      `img[title*="${TMALL_PRODUCT_MANAGER_LABEL}"]`,
+      '[class*="product-manager" i]',
+      '[class*="productmanager" i]',
+      '[class*="product-assistant" i]',
+    ].join(","));
+    const count = Math.min(await matches.count().catch(() => 0), 50);
     for (let index = 0; index < count; index += 1) {
       const locator = matches.nth(index);
       if (!await locator.isVisible().catch(() => false)) continue;
@@ -604,16 +629,16 @@ async function openProductManagerChat(page: Page) {
   if (existing) return { input: existing, entryMode: "product_manager_already_open" as const };
 
   const candidates = await productManagerCandidates(page);
-  if (!candidates[0]) throw new Error("未找到左下角“商品管家”入口");
+  if (!candidates[0]) throw new Error("未找到右下角“商品管家”入口");
   if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
-    throw new Error("左下角存在多个同等“商品管家”入口，为防止误点已停止");
+    throw new Error("右下角存在多个同等“商品管家”入口，为防止误点已停止");
   }
   await candidates[0].locator.click({ timeout: 10_000 });
   let input: Awaited<ReturnType<typeof maybeFindChatInput>> = null;
   await waitUntil(20_000, async () => {
     input = await maybeFindChatInput(page);
     return input !== null;
-  }, "点击左下角“商品管家”后未出现右侧聊天输入框", 500);
+  }, "点击右下角“商品管家”后未出现右侧聊天输入框", 500);
   return { input: input!, entryMode: "product_manager_opened" as const };
 }
 

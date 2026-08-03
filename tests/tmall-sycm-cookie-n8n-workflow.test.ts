@@ -29,6 +29,8 @@ test("Cookie 直连 n8n 副本保持货品前置四段式、上海时区和凭�
   assert.match(raw, /导出全部商品/);
   assert.match(raw, /重要通知/);
   assert.match(raw, /商品管家/);
+  assert.match(raw, /再从右下角打开“商品管家”/);
+  assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
   assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
   assert.equal(workflow.connections["每天 08:40-18:40 每小时补跑"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
