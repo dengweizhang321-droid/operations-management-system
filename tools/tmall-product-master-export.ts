@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -209,6 +209,10 @@ export function hasAcceptedTmallExportTask(text: string) {
 
 export function isResumableTmallExportStage(stage: string | undefined) {
   return stage === "export_submitted" || stage === "export_confirmed";
+}
+
+export function isTmallProductWorkbookFilename(fileName: string) {
+  return fileName.length > 5 && fileName.length <= 240 && /\.xlsx$/i.test(fileName) && !/[\u0000-\u001f<>:"/\\|?*]/.test(fileName);
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -893,6 +897,78 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?:
   return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
 }
 
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function downloadWithBrowserEvents(options: {
+  page: Page;
+  locator: Locator;
+  downloadDirectory: string;
+  targetPath: string;
+}) {
+  await mkdir(options.downloadDirectory, { recursive: true });
+  const stagingDirectory = await mkdtemp(path.join(options.downloadDirectory, ".tmall-product-master-"));
+  if (!inside(options.downloadDirectory, stagingDirectory)) throw new Error("浏览器下载暂存目录越过店铺独立目录");
+  const session = await options.page.context().newCDPSession(options.page);
+  let activeGuid: string | undefined;
+  let resolveStarted!: (value: { guid: string; suggestedFilename: string }) => void;
+  let resolveCompleted!: (value: { guid: string; filePath?: string }) => void;
+  let rejectCompleted!: (error: Error) => void;
+  const started = new Promise<{ guid: string; suggestedFilename: string }>((resolve) => {
+    resolveStarted = resolve;
+  });
+  const completed = new Promise<{ guid: string; filePath?: string }>((resolve, reject) => {
+    resolveCompleted = resolve;
+    rejectCompleted = reject;
+  });
+  session.on("Browser.downloadWillBegin", (event) => {
+    if (activeGuid) return;
+    activeGuid = event.guid;
+    resolveStarted({ guid: event.guid, suggestedFilename: event.suggestedFilename });
+  });
+  session.on("Browser.downloadProgress", (event) => {
+    if (!activeGuid || event.guid !== activeGuid) return;
+    if (event.state === "completed") resolveCompleted({ guid: event.guid, filePath: event.filePath });
+    if (event.state === "canceled") rejectCompleted(new Error("Chrome 已取消商品管家 XLSX 下载"));
+  });
+  try {
+    await session.send("Browser.setDownloadBehavior", {
+      behavior: "allowAndName",
+      downloadPath: stagingDirectory,
+      eventsEnabled: true,
+    });
+    await options.locator.click({ timeout: 15_000 });
+    const start = await withDeadline(started, 60_000, "点击“前往下载”后 Chrome 未开始浏览器级下载");
+    if (!isTmallProductWorkbookFilename(start.suggestedFilename)) {
+      throw new Error(`千牛返回的货品文件不是安全的 .xlsx：${safeSegment(start.suggestedFilename)}`);
+    }
+    const finish = await withDeadline(completed, 120_000, "Chrome 商品管家 XLSX 下载未在两分钟内完成");
+    const stagedPath = path.resolve(finish.filePath || path.join(stagingDirectory, finish.guid));
+    if (!inside(stagingDirectory, stagedPath)) throw new Error("Chrome 下载结果越过本轮暂存目录");
+    await stat(stagedPath);
+    const targetExists = await stat(options.targetPath).then(() => true).catch(() => false);
+    if (targetExists) throw new Error("本轮商品管家规范文件已存在，为防止覆盖已停止");
+    await rename(stagedPath, options.targetPath);
+  } finally {
+    await session.send("Browser.setDownloadBehavior", { behavior: "default" }).catch(() => undefined);
+    await session.detach().catch(() => undefined);
+    if (inside(options.downloadDirectory, stagingDirectory)) {
+      await rm(stagingDirectory, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+}
+
 async function assertSellerIdentity(page: Page, store: TmallStore) {
   const url = page.url();
   const text = await combinedPageText(page);
@@ -987,7 +1063,6 @@ async function browserExport(options: {
       ? await chatScope.innerText({ timeout: 5_000 }).catch(() => "")
       : await frameText(input.frame);
     if (options.resumeStage !== "export_confirmed") {
-      let confirmation: TextCandidate | null = null;
       await waitUntil(90_000, async () => {
         const confirmations = await textCandidates(
           page!,
@@ -1000,7 +1075,7 @@ async function browserExport(options: {
           if (confirmations[1] && confirmations[1].score === best.score && confirmations[1].signature !== best.signature) {
             throw new Error("商品管家存在多个同等导出确认候选，为防止误点已停止");
           }
-          confirmation = best;
+          await best.locator.click({ timeout: 10_000 });
           return true;
         }
         const downloads = (await downloadCandidates(page!, input.frame, chatScope ?? undefined))
@@ -1008,7 +1083,6 @@ async function browserExport(options: {
         if (downloads.length > 1) throw new Error("商品管家返回多个导出下载链接，无法唯一确认当前任务");
         return downloads.length === 1 || hasAcceptedTmallExportTask(await chatText());
       }, "商品管家未出现导出确认、任务受理或下载结果");
-      if (confirmation) await confirmation.locator.click({ timeout: 10_000 });
       await options.onStage("export_confirmed", { entryMode, noticeState });
     }
 
@@ -1027,12 +1101,12 @@ async function browserExport(options: {
     const canonicalName = `${safeSegment(options.store.shopName)}-出售中全部商品-${options.snapshotDate}-${options.runId}.xlsx`;
     const targetPath = path.resolve(options.store.browser.downloadDir, canonicalName);
     if (!inside(options.store.browser.downloadDir, targetPath)) throw new Error("下载目标越过店铺独立目录");
-    const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
-    await newDownload!.locator.click({ timeout: 15_000 });
-    const download = await downloadPromise;
-    const suggestedName = download.suggestedFilename();
-    if (!/\.xlsx$/i.test(suggestedName)) throw new Error(`千牛返回的货品文件不是 .xlsx：${safeSegment(suggestedName)}`);
-    await download.saveAs(targetPath);
+    await downloadWithBrowserEvents({
+      page,
+      locator: newDownload!.locator,
+      downloadDirectory: options.store.browser.downloadDir,
+      targetPath,
+    });
     return { targetPath, entryMode, noticeState };
   } finally {
     await browser.close().catch(() => undefined);

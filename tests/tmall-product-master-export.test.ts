@@ -13,6 +13,7 @@ import {
   inspectTmallMasterFile,
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
+  isTmallProductWorkbookFilename,
   productManagerFloatingClusterKey,
   runTmallProductMasterStage,
   scoreChatSendCandidate,
@@ -125,6 +126,9 @@ test("商品管家确认兼容任务卡片文案并识别自动受理状态", ()
   assert.equal(isResumableTmallExportStage("export_submitted"), true);
   assert.equal(isResumableTmallExportStage("export_confirmed"), true);
   assert.equal(isResumableTmallExportStage("export_submitting"), false);
+  assert.equal(isTmallProductWorkbookFilename("出售中全部商品.xlsx"), true);
+  assert.equal(isTmallProductWorkbookFilename("出售中全部商品.xls"), false);
+  assert.equal(isTmallProductWorkbookFilename("../出售中全部商品.xlsx"), false);
 });
 
 test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
