@@ -27,9 +27,12 @@ test("Cookie 直连 n8n 副本保持货品前置四段式、上海时区和凭�
   ]);
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
   assert.match(raw, /导出全部商品/);
-  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "M·出售中全部商品导出、校验并导入");
-  assert.equal(workflow.connections["每天 08:40-18:40 每小时补跑"]?.main?.[0]?.[0]?.node, "M·出售中全部商品导出、校验并导入");
-  assert.equal(workflow.connections["M·出售中全部商品导出、校验并导入"]?.main?.[0]?.[0]?.node, "A·算缺哪些日期");
+  assert.match(raw, /重要通知/);
+  assert.match(raw, /商品管家/);
+  assert.doesNotMatch(raw, /批量导出表格/);
+  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
+  assert.equal(workflow.connections["每天 08:40-18:40 每小时补跑"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
+  assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"]?.main?.[0]?.[0]?.node, "A·算缺哪些日期");
   assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|Cookie:\s*[^`\n]/i);
   assert.doesNotMatch(raw, /localhost:8000|teruisi123|_tb_token_=|cookie2=/i);
 });

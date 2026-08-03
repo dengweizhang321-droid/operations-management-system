@@ -13,6 +13,8 @@ import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-regis
 
 export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20";
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
+export const TMALL_PRODUCT_MANAGER_LABEL = "商品管家";
+export const TMALL_IMPORTANT_NOTICE_LABEL = "重要通知";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
@@ -78,7 +80,8 @@ type MasterExportAudit = {
   startedAt: string;
   updatedAt: string;
   stage: MasterExportAuditStage;
-  entryMode?: "bulk_export_entry" | "assistant_direct";
+  entryMode?: "product_manager_opened" | "product_manager_already_open" | "bulk_export_entry" | "assistant_direct";
+  noticeState?: "dismissed" | "not_present";
   file?: MasterFileEvidence;
   importResult?: {
     status: "imported" | "duplicate";
@@ -115,6 +118,51 @@ type DownloadCandidate = {
   locator: Locator;
   signature: string;
 };
+
+type PositionedUiElement = {
+  text: string;
+  attributes: string;
+  tag: string;
+  role: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+};
+
+export function scoreProductManagerCandidate(detail: PositionedUiElement) {
+  const text = detail.text.replace(/\s+/g, "").trim();
+  if (text !== TMALL_PRODUCT_MANAGER_LABEL || detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
+  if (detail.left > detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.45) return -1;
+  let score = 10;
+  if (["button", "a"].includes(detail.tag) || ["button", "link", "menuitem"].includes(detail.role)) score += 6;
+  score += Math.min(6, Math.round((detail.top / detail.viewportHeight) * 6));
+  score += Math.min(4, Math.round(((detail.viewportWidth - detail.left) / detail.viewportWidth) * 4));
+  return score;
+}
+
+export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
+  if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
+  if (notice.left < notice.viewportWidth * 0.45 || notice.top < notice.viewportHeight * 0.4) return -1;
+  const centerX = detail.left + detail.width / 2;
+  const centerY = detail.top + detail.height / 2;
+  const closeLabel = `${detail.text} ${detail.attributes}`.replace(/\s+/g, " ").trim();
+  const explicitClose = /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(closeLabel);
+  const compact = detail.width >= 8 && detail.width <= 72 && detail.height >= 8 && detail.height <= 72;
+  const nearby = centerX >= notice.left - 40
+    && centerX <= notice.viewportWidth
+    && centerY >= notice.top - 180
+    && centerY <= notice.top + 260;
+  if (!nearby || (!explicitClose && !compact)) return -1;
+  let score = explicitClose ? 16 : 4;
+  if (["button", "a"].includes(detail.tag) || ["button", "link"].includes(detail.role)) score += 5;
+  if (compact) score += 4;
+  if (centerX >= notice.left) score += 3;
+  if (centerY <= notice.top + 80) score += 2;
+  return score;
+}
 
 function shanghaiToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -378,7 +426,7 @@ async function waitUntil(timeoutMs: number, probe: () => Promise<boolean>, error
   throw new Error(errorMessage);
 }
 
-async function findChatInput(page: Page) {
+async function chatInputCandidates(page: Page) {
   const candidates: Array<TextCandidate & { frame: Frame }> = [];
   for (const frame of page.frames()) {
     const inputs = frame.locator('textarea,input[type="text"],input:not([type]),[contenteditable="true"]');
@@ -420,11 +468,153 @@ async function findChatInput(page: Page) {
     }
   }
   candidates.sort((left, right) => right.score - left.score);
-  if (!candidates[0] || candidates[0].score < 5) throw new Error("未找到右侧千牛聊天输入框");
+  return candidates;
+}
+
+async function maybeFindChatInput(page: Page) {
+  const candidates = await chatInputCandidates(page);
+  if (!candidates[0] || candidates[0].score < 5) return null;
   if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
     throw new Error("检测到多个同等聊天输入框，为防止把指令填入商品搜索框已停止");
   }
   return candidates[0];
+}
+
+async function findChatInput(page: Page) {
+  const input = await maybeFindChatInput(page);
+  if (!input) throw new Error("未找到右侧千牛聊天输入框");
+  return input;
+}
+
+async function positionedDetail(locator: Locator) {
+  return await locator.evaluate((element): PositionedUiElement => {
+    const rect = element.getBoundingClientRect();
+    const view = element.ownerDocument.defaultView;
+    return {
+      text: element.textContent ?? "",
+      attributes: [
+        element.getAttribute("aria-label"),
+        element.getAttribute("title"),
+        element.getAttribute("class"),
+        element.getAttribute("name"),
+      ].filter(Boolean).join(" "),
+      tag: element.tagName.toLowerCase(),
+      role: element.getAttribute("role") ?? "",
+      left: Math.round(rect.left),
+      top: Math.round(rect.top),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      viewportWidth: view?.innerWidth ?? 0,
+      viewportHeight: view?.innerHeight ?? 0,
+    };
+  }).catch(() => null);
+}
+
+async function importantNoticeCandidates(page: Page) {
+  const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
+  for (const frame of page.frames()) {
+    const matches = frame.getByText(/重要通知/);
+    const count = Math.min(await matches.count().catch(() => 0), 20);
+    for (let index = 0; index < count; index += 1) {
+      const locator = matches.nth(index);
+      if (!await locator.isVisible().catch(() => false)) continue;
+      const detail = await positionedDetail(locator);
+      if (!detail || detail.width < 2 || detail.height < 2) continue;
+      if (!detail.text.includes(TMALL_IMPORTANT_NOTICE_LABEL)) continue;
+      if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.4) continue;
+      const normalized = detail.text.replace(/\s+/g, "").trim();
+      const score = (normalized === TMALL_IMPORTANT_NOTICE_LABEL ? 20 : normalized.length <= 40 ? 12 : 4)
+        + Math.round((detail.left / detail.viewportWidth) * 5)
+        + Math.round((detail.top / detail.viewportHeight) * 5);
+      candidates.push({
+        frame,
+        locator,
+        score,
+        signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
+        detail,
+      });
+    }
+  }
+  return candidates.sort((left, right) => right.score - left.score);
+}
+
+async function dismissImportantNotice(page: Page) {
+  let notices: Awaited<ReturnType<typeof importantNoticeCandidates>> = [];
+  const deadline = Date.now() + 4_000;
+  do {
+    notices = await importantNoticeCandidates(page);
+    if (notices.length > 0) break;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  } while (Date.now() < deadline);
+  if (notices.length === 0) return "not_present" as const;
+
+  const notice = notices[0]!;
+  const actions = notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
+  const count = Math.min(await actions.count().catch(() => 0), 120);
+  const candidates: Array<{ locator: Locator; score: number; signature: string }> = [];
+  for (let index = 0; index < count; index += 1) {
+    const locator = actions.nth(index);
+    if (!await locator.isVisible().catch(() => false)) continue;
+    const detail = await positionedDetail(locator);
+    if (!detail) continue;
+    const score = scoreImportantNoticeCloseCandidate(detail, notice.detail);
+    if (score < 0) continue;
+    candidates.push({
+      locator,
+      score,
+      signature: `${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.attributes}`,
+    });
+  }
+  candidates.sort((left, right) => right.score - left.score);
+  if (!candidates[0]) throw new Error("检测到右下角“重要通知”，但未找到可安全确认的关闭按钮");
+  if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
+    throw new Error("右下角“重要通知”存在多个同等关闭候选，为防止误点已停止");
+  }
+  await candidates[0].locator.click({ timeout: 10_000 });
+  await waitUntil(10_000, async () => !await notice.locator.isVisible().catch(() => false), "右下角“重要通知”点击关闭后仍然可见");
+  return "dismissed" as const;
+}
+
+async function productManagerCandidates(page: Page) {
+  const candidates: Array<TextCandidate & { detail: PositionedUiElement }> = [];
+  for (const frame of page.frames()) {
+    const matches = frame.getByText(TMALL_PRODUCT_MANAGER_LABEL, { exact: true });
+    const count = Math.min(await matches.count().catch(() => 0), 20);
+    for (let index = 0; index < count; index += 1) {
+      const locator = matches.nth(index);
+      if (!await locator.isVisible().catch(() => false)) continue;
+      const detail = await positionedDetail(locator);
+      if (!detail) continue;
+      const score = scoreProductManagerCandidate(detail);
+      if (score < 0) continue;
+      candidates.push({
+        frame,
+        locator,
+        score,
+        signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
+        detail,
+      });
+    }
+  }
+  return candidates.sort((left, right) => right.score - left.score);
+}
+
+async function openProductManagerChat(page: Page) {
+  const existing = await maybeFindChatInput(page);
+  if (existing) return { input: existing, entryMode: "product_manager_already_open" as const };
+
+  const candidates = await productManagerCandidates(page);
+  if (!candidates[0]) throw new Error("未找到左下角“商品管家”入口");
+  if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
+    throw new Error("左下角存在多个同等“商品管家”入口，为防止误点已停止");
+  }
+  await candidates[0].locator.click({ timeout: 10_000 });
+  let input: Awaited<ReturnType<typeof maybeFindChatInput>> = null;
+  await waitUntil(20_000, async () => {
+    input = await maybeFindChatInput(page);
+    return input !== null;
+  }, "点击左下角“商品管家”后未出现右侧聊天输入框", 500);
+  return { input: input!, entryMode: "product_manager_opened" as const };
 }
 
 async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {
@@ -485,16 +675,6 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame) {
     }
   }
   return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
-}
-
-async function configureExportEntry(page: Page) {
-  if (await clickText(page, ["批量导出表格"], true)) return "bulk_export_entry" as const;
-  if (await clickText(page, ["更多批量操作"], true)) {
-    await waitUntil(10_000, async () => (await textCandidates(page, ["批量导出表格"])).length > 0, "展开批量操作后未出现“批量导出表格”");
-    await clickText(page, ["批量导出表格"]);
-    return "bulk_export_entry" as const;
-  }
-  return "assistant_direct" as const;
 }
 
 async function assertSellerIdentity(page: Page, store: TmallStore) {
@@ -564,19 +744,21 @@ async function browserExport(options: {
     await assertSellerIdentity(page, options.store);
     await options.onStage("browser_ready");
 
-    const entryMode = await configureExportEntry(page);
-    let input = await findChatInput(page);
+    const noticeState = await dismissImportantNotice(page);
+    const productManager = await openProductManagerChat(page);
+    const entryMode = productManager.entryMode;
+    let input = productManager.input;
     await clickText(page, ["新会话"], true, input.frame);
     input = await findChatInput(page);
     const baselineDownloads = new Set((await downloadCandidates(page, input.frame)).map((item) => item.signature));
     await input.locator.fill(TMALL_MASTER_EXPORT_PROMPT, { timeout: 10_000 });
-    await options.onStage("export_submitting", { entryMode });
+    await options.onStage("export_submitting", { entryMode, noticeState });
     await clickSendOrPressEnter(input);
-    await options.onStage("export_submitted", { entryMode });
+    await options.onStage("export_submitted", { entryMode, noticeState });
 
     await waitUntil(90_000, async () => (await textCandidates(page!, ["确认", "确认导出"], input.frame)).length > 0, "千牛助手未出现导出确认按钮");
     await clickText(page, ["确认导出", "确认"], false, input.frame);
-    await options.onStage("export_confirmed", { entryMode });
+    await options.onStage("export_confirmed", { entryMode, noticeState });
 
     let newDownload: DownloadCandidate | null = null;
     await waitUntil(exportResultTimeoutMs, async () => {
@@ -599,7 +781,7 @@ async function browserExport(options: {
     const suggestedName = download.suggestedFilename();
     if (!/\.xlsx$/i.test(suggestedName)) throw new Error(`千牛返回的货品文件不是 .xlsx：${safeSegment(suggestedName)}`);
     await download.saveAs(targetPath);
-    return { targetPath, entryMode };
+    return { targetPath, entryMode, noticeState };
   } finally {
     await browser.close().catch(() => undefined);
   }
@@ -686,7 +868,13 @@ export async function runTmallProductMasterStage(options: {
         },
       });
       evidence = await inspectTmallMasterFile(downloaded.targetPath, store, snapshotDate);
-      activeAudit = await writeActiveAudit({ ...activeAudit, stage: "downloaded", entryMode: downloaded.entryMode, file: evidence });
+      activeAudit = await writeActiveAudit({
+        ...activeAudit,
+        stage: "downloaded",
+        entryMode: downloaded.entryMode,
+        noticeState: downloaded.noticeState,
+        file: evidence,
+      });
     }
 
     const imported = await importTmallProductMasterFile({ baseUrl, store, snapshotDate, evidence, request });

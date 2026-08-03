@@ -11,6 +11,8 @@ import {
   importTmallProductMasterFile,
   inspectTmallMasterFile,
   runTmallProductMasterStage,
+  scoreImportantNoticeCloseCandidate,
+  scoreProductManagerCandidate,
 } from "../tools/tmall-product-master-export";
 
 function masterWorkbook() {
@@ -43,6 +45,55 @@ test("当天完成的受控天猫货品快照才允许跳过导出", () => {
   assert.equal(currentMasterSnapshot({ ...batch, snapshotDate: "2026-08-03" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
   assert.equal(currentMasterSnapshot({ ...batch, shopName: "天猫-其他店" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
   assert.equal(currentMasterSnapshot({ ...batch, status: "failed" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
+});
+
+test("商品管家入口只接受页面左下角的精确文本候选", () => {
+  const candidate = {
+    text: "商品管家",
+    attributes: "",
+    tag: "button",
+    role: "button",
+    left: 24,
+    top: 720,
+    width: 96,
+    height: 40,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+  };
+  assert.ok(scoreProductManagerCandidate(candidate) > 0);
+  assert.equal(scoreProductManagerCandidate({ ...candidate, text: "商品搜索" }), -1);
+  assert.equal(scoreProductManagerCandidate({ ...candidate, left: 1000 }), -1);
+  assert.equal(scoreProductManagerCandidate({ ...candidate, top: 120 }), -1);
+});
+
+test("重要通知关闭候选必须位于右下角通知附近", () => {
+  const notice = {
+    text: "重要通知",
+    attributes: "",
+    tag: "div",
+    role: "",
+    left: 1120,
+    top: 650,
+    width: 160,
+    height: 32,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+  };
+  const close = {
+    text: "",
+    attributes: "ant-notice-close 关闭",
+    tag: "button",
+    role: "button",
+    left: 1350,
+    top: 620,
+    width: 28,
+    height: 28,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+  };
+  assert.ok(scoreImportantNoticeCloseCandidate(close, notice) > 0);
+  assert.equal(scoreImportantNoticeCloseCandidate({ ...close, left: 200, top: 120 }, notice), -1);
+  assert.equal(scoreImportantNoticeCloseCandidate(close, { ...notice, left: 100, top: 100 }), -1);
 });
 
 test("n8n 货品前置阶段命中当天批次时不启动浏览器", async () => {
