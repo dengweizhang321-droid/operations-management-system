@@ -511,24 +511,42 @@ async function assertSellerIdentity(page: Page, store: TmallStore) {
   if (!text.includes("出售中")) throw new Error("千牛页面未进入“商品 > 出售中”列表");
 }
 
+async function launchStoreChrome(store: TmallStore) {
+  const chromeExecutable = process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable;
+  if (!path.isAbsolute(chromeExecutable)) throw new Error("CHROME_EXECUTABLE_PATH 必须是绝对路径");
+  const profileDirectory = path.resolve(projectRoot, store.browser.profileDir);
+  await mkdir(store.browser.downloadDir, { recursive: true });
+  await launchDedicatedChrome({
+    executablePath: chromeExecutable,
+    profileDirectory,
+    port: store.browser.debugPort,
+    startUrl: TMALL_SELLER_ON_SALE_URL,
+    headless: false,
+    visible: true,
+  });
+  return { profileDirectory, debugPort: store.browser.debugPort };
+}
+
+export async function launchTmallProductMasterLogin(storeKey = "tmall-yijiu") {
+  const store = await getTmallStore(storeKey);
+  const browser = await launchStoreChrome(store);
+  return {
+    ok: true,
+    status: "browser_ready" as const,
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+    targetUrl: TMALL_SELLER_ON_SALE_URL,
+    ...browser,
+  };
+}
+
 async function browserExport(options: {
   store: TmallStore;
   snapshotDate: string;
   runId: string;
   onStage: (stage: MasterExportAuditStage, patch?: Partial<MasterExportAudit>) => Promise<void>;
 }) {
-  const chromeExecutable = process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable;
-  if (!path.isAbsolute(chromeExecutable)) throw new Error("CHROME_EXECUTABLE_PATH 必须是绝对路径");
-  const profileDirectory = path.resolve(projectRoot, options.store.browser.profileDir);
-  await mkdir(options.store.browser.downloadDir, { recursive: true });
-  await launchDedicatedChrome({
-    executablePath: chromeExecutable,
-    profileDirectory,
-    port: options.store.browser.debugPort,
-    startUrl: TMALL_SELLER_ON_SALE_URL,
-    headless: false,
-    visible: true,
-  });
+  await launchStoreChrome(options.store);
   const browser = await connectPlaywrightBrowser(options.store.browser.debugPort);
   const context = browser.contexts()[0];
   if (!context) throw new Error("亿玖店独立 Chrome 没有可用上下文");
@@ -714,11 +732,13 @@ async function main() {
     const index = args.indexOf(name);
     return index >= 0 ? args[index + 1] : undefined;
   };
-  const result = await runTmallProductMasterStage({
-    storeKey: value("--store-key"),
-    baseUrl: value("--base-url"),
-    snapshotDate: value("--snapshot-date"),
-  });
+  const result = args.includes("--launch-only")
+    ? await launchTmallProductMasterLogin(value("--store-key") ?? "tmall-yijiu")
+    : await runTmallProductMasterStage({
+        storeKey: value("--store-key"),
+        baseUrl: value("--base-url"),
+        snapshotDate: value("--snapshot-date"),
+      });
   console.log(JSON.stringify(result));
 }
 
