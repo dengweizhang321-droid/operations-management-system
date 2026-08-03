@@ -12,6 +12,7 @@ import {
   inspectTmallMasterFile,
   productManagerFloatingClusterKey,
   runTmallProductMasterStage,
+  scoreChatSendCandidate,
   scoreImportantNoticeCloseCandidate,
   scoreProductManagerCandidate,
   scoreProductManagerFloatingCandidate,
@@ -99,6 +100,15 @@ test("无标签商品管家只接受右侧下半区唯一固定悬浮图标", ()
   assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, width: 300 }), -1);
   assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, text: "返回顶部" }), -1);
   assert.equal(scoreProductManagerFloatingCandidate({ ...candidate, text: "商品巡检" }), -1);
+});
+
+test("商品管家发送键必须位于聊天输入框右侧附近", () => {
+  const input = { left: 1120, right: 1390, top: 760, bottom: 820 };
+  const send = { label: "ant-sender-actions-btn arrow-up", left: 1350, top: 770, width: 48, height: 40 };
+  assert.ok(scoreChatSendCandidate(send, input) > 0);
+  assert.equal(scoreChatSendCandidate({ ...send, label: "发送", left: 800 }, input), -1);
+  assert.equal(scoreChatSendCandidate({ ...send, top: 600 }, input), -1);
+  assert.equal(scoreChatSendCandidate({ ...send, width: 180 }, input), -1);
 });
 
 test("重要通知关闭候选必须位于右下角通知附近", () => {

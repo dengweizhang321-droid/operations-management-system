@@ -175,6 +175,24 @@ export function productManagerFloatingClusterKey(detail: PositionedUiElement) {
   return `${Math.round(centerX / 12)}|${Math.round(centerY / 12)}`;
 }
 
+export function scoreChatSendCandidate(
+  detail: { label: string; left: number; top: number; width: number; height: number },
+  inputRect: { left: number; right: number; top: number; bottom: number },
+) {
+  if (detail.width < 10 || detail.height < 10 || detail.width > 96 || detail.height > 96) return -1;
+  const centerX = detail.left + detail.width / 2;
+  const centerY = detail.top + detail.height / 2;
+  const besideInput = centerX >= inputRect.right - 96
+    && centerX <= inputRect.right + 80
+    && centerY >= inputRect.top - 15
+    && centerY <= inputRect.bottom + 15;
+  if (!besideInput) return -1;
+  let score = 10;
+  if (/发送|send|submit|arrow-up/i.test(detail.label)) score += 10;
+  if (centerX >= inputRect.right - 64) score += 4;
+  return score;
+}
+
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
   if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
   if (notice.left < notice.viewportWidth * 0.45 || notice.top < notice.viewportHeight * 0.4) return -1;
@@ -767,7 +785,22 @@ async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {
     const rect = element.getBoundingClientRect();
     return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
   });
-  const buttons = input.frame.locator('button,[role="button"]');
+  const senderScope = input.locator.locator(
+    "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' ant-sender ')][1]",
+  );
+  const overlayScope = input.locator.locator(
+    "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' next-overlay-wrapper ')][1]",
+  );
+  const scope = await senderScope.count().catch(() => 0) > 0
+    ? senderScope
+    : await overlayScope.count().catch(() => 0) > 0
+      ? overlayScope
+      : null;
+  if (!scope) {
+    await input.locator.press("Enter", { timeout: 10_000 });
+    return;
+  }
+  const buttons = scope.locator('button,[role="button"]');
   const count = Math.min(await buttons.count().catch(() => 0), 80);
   const candidates: Array<{ locator: Locator; score: number; signature: string }> = [];
   for (let index = 0; index < count; index += 1) {
@@ -780,20 +813,27 @@ async function clickSendOrPressEnter(input: TextCandidate & { frame: Frame }) {
         top: rect.top,
         width: rect.width,
         height: rect.height,
-        label: [element.textContent, element.getAttribute("aria-label"), element.getAttribute("title")].filter(Boolean).join(" "),
+        label: [
+          element.textContent,
+          element.getAttribute("aria-label"),
+          element.getAttribute("title"),
+          element.getAttribute("class"),
+        ].filter(Boolean).join(" "),
       };
     }).catch(() => null);
-    if (!detail || detail.width < 10 || detail.height < 10) continue;
-    let score = /发送|send/i.test(detail.label) ? 12 : 0;
-    const centerY = detail.top + detail.height / 2;
-    if (detail.left >= inputRect.left && detail.left <= inputRect.right + 80
-      && centerY >= inputRect.top - 15 && centerY <= inputRect.bottom + 15) score += 6;
+    if (!detail) continue;
+    const score = scoreChatSendCandidate(detail, inputRect);
     if (score > 0) candidates.push({ locator, score, signature: `${Math.round(detail.left)}|${Math.round(detail.top)}` });
   }
   candidates.sort((left, right) => right.score - left.score);
   if (candidates[0] && (!candidates[1] || candidates[0].score > candidates[1].score || candidates[0].signature === candidates[1].signature)) {
-    await candidates[0].locator.click({ timeout: 10_000 });
-    return;
+    try {
+      await candidates[0].locator.click({ timeout: 10_000 });
+      return;
+    } catch {
+      // The prompt is still in the textarea when a covered send control rejects the click.
+      // Pressing Enter is the Sender component's scoped, non-global fallback.
+    }
   }
   await input.locator.press("Enter", { timeout: 10_000 });
 }
