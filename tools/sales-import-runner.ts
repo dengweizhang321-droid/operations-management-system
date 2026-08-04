@@ -714,7 +714,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     if (parseNumber(row[columns.cost]) === null) processedMissingCostRows++;
     // row[columns.ship] was set to effectiveDate (already normalized) during output building,
     // so we can check the date string directly without calling normalizeSalesLedgerDate again.
-    const shipDate = text(row[columns.ship]);
+    const shipDate = text(row[columns.ship]).slice(0, 10);
     if (!shipDate || shipDate < period.startDate || shipDate > period.endDate) processedDateProblemRows++;
   }
   const processedChecks = {

@@ -71,7 +71,7 @@ test("sales dry-run accepts the current sales export shape", async () => {
   try {
     const salesBytes = salesSheet([
       ["网店订单号", "销售渠道", "发货仓库", "货品编号", "货品名称", "数量", "下单时间", "发货时间", "货品成本", "分摊后单价", "分摊后金额", "费用分摊", "毛利"],
-      ["ON-1", "京东-志高切肉机旗舰店（志高迈德豪）", "主仓", "SKU-1", "测试货品", 1, "2026-07-10 09:00:00", "2026-07-10 10:00:00", 0, 100, 100, 5, 0],
+      ["ON-1", "京东-志高切肉机旗舰店（志高迈德豪）", "主仓", "SKU-1", "测试货品", 1, "2026-07-15 09:00:00", "2026-07-15 10:00:00", 0, 100, 100, 5, 0],
     ]);
     const costBytes = costSheet([
       ["货品编号", "固定成本价", "货品名称"],
@@ -99,7 +99,7 @@ test("sales dry-run accepts the current sales export shape", async () => {
     const audit = JSON.parse(await readFile(output.auditPath, "utf8")) as {
       period?: unknown;
       filtering?: { retainedRows?: number; excludedTodayRows?: number };
-      validation?: { processedChecks?: { rowCount?: number } };
+      validation?: { processedChecks?: { rowCount?: number; dateProblemRows?: number } };
     };
     assert.deepEqual(audit.period, {
       startDate: "2026-07-01",
@@ -109,6 +109,7 @@ test("sales dry-run accepts the current sales export shape", async () => {
     });
     assert.equal(audit.filtering?.retainedRows, 1);
     assert.equal(audit.validation?.processedChecks?.rowCount, 1);
+    assert.equal(audit.validation?.processedChecks?.dateProblemRows, 0);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
