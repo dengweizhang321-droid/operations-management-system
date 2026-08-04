@@ -180,6 +180,50 @@ async function waitForProductModeState(
   throw new Error("货品查询页未加载出货品/规格模式控件，已停止导出。");
 }
 
+type NestedControlTarget = { controlId: string; inputId?: string };
+
+export async function waitForNestedControls(
+  client: BrowserAutomationClient,
+  urlFragment: string,
+  targets: NestedControlTarget[],
+  timeoutMs: number,
+  pollIntervalMs: number,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ready = await evaluateValue<boolean>(client, `(() => {
+      const urlFragment = ${JSON.stringify(urlFragment)};
+      const targets = ${JSON.stringify(targets)};
+      let ready = false;
+      const visit = (doc) => {
+        if (ready) return;
+        let href = '';
+        try { href = doc.location?.href || ''; } catch {}
+        if (href.includes(urlFragment)) {
+          const mini = doc.defaultView?.mini;
+          ready = targets.every(({ controlId, inputId }) => {
+            let control = null;
+            try { control = mini?.get?.(controlId) ?? null; } catch {}
+            return Boolean(control || (inputId && doc.getElementById(inputId)));
+          });
+          if (ready) return;
+        }
+        try {
+          for (const frame of doc.querySelectorAll('iframe,frame')) {
+            try { if (frame.contentDocument) visit(frame.contentDocument); } catch {}
+            if (ready) return;
+          }
+        } catch {}
+      };
+      visit(document);
+      return ready;
+    })()`);
+    if (ready) return;
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+  throw new Error(`模块页面控件尚未就绪：${urlFragment} / ${targets.map((item) => item.controlId).join(",")}`);
+}
+
 async function currentUrl(client: BrowserAutomationClient) {
   return evaluateValue<string>(client, "location.href");
 }
@@ -1170,6 +1214,13 @@ async function runController(options: CliOptions) {
       // JackYun v4: 仓库选择是顶部工具栏的 mini-buttonedit 下拉框 (#warehouseCom)，
       // 不是旧版的"仓库→全选→确定"对话框。用 mini.get API 打开 popup，点
       // .select_all_check 全选，读回"已勾选:N条"，关闭 popup。
+      await waitForNestedControls(
+        client,
+        "branch_stock_main",
+        [{ controlId: "warehouseCom" }],
+        actionTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
       const selectResult = await evaluateValue<{ count?: number; already?: boolean; error?: string }>(client, `(async () => {
     let target = null;
     const visit = (d) => { if (d.location && /branch_stock_main/.test(d.location.href)) { target = d; return; } try { for (const f of d.querySelectorAll('iframe,frame')) { try { if (f.contentDocument) visit(f.contentDocument); } catch(e){} } } catch(e){} };
@@ -1232,6 +1283,16 @@ async function runController(options: CliOptions) {
       const expected = [`${salesStartDate(options.asOfDate)} 00:00:00`, `${options.asOfDate} 23:59:59`];
       // v4 sales 页面用 laydate 日期控件 (#timeBegin$text / #timeEnd$text)，
       // 直接通过 id 定位并设值，绕过 setDateInputs 的 iframe 遍历（order_detail iframe 可能在 tab 切换时被判定不可见）
+      await waitForNestedControls(
+        client,
+        "order_detail",
+        [
+          { controlId: "timeBegin", inputId: "timeBegin$text" },
+          { controlId: "timeEnd", inputId: "timeEnd$text" },
+        ],
+        actionTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
       const dates = await evaluateValue<string[]>(client, `(() => {
     let target = null;
     const visit = (d) => { if (d.location && /order_detail/.test(d.location.href)) { target = d; return; } try { for (const f of d.querySelectorAll('iframe,frame')) { try { if (f.contentDocument) visit(f.contentDocument); } catch(e){} } } catch(e){} };

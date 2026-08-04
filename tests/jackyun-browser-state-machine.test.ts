@@ -4,9 +4,14 @@ import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { BrowserAutomationClient } from "../lib/jackyun/cdp-client";
 import { JackyunBrowserStateMachine } from "../lib/jackyun/browser-state-machine";
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
-import { findLocalDownloadedFile, productModeState } from "../tools/jackyun-browser-controller";
+import {
+  findLocalDownloadedFile,
+  productModeState,
+  waitForNestedControls,
+} from "../tools/jackyun-browser-controller";
 
 test("daily module order puts sales fourth and combos last", () => {
   assert.deepEqual(jackyunModuleOrder, ["products", "inventory", "inventory_age", "sales", "combos"]);
@@ -107,4 +112,25 @@ test("product navigation waits for the nested mode control instead of accepting 
   assert.equal(productModeState("货品查询 货品模式"), "goods");
   assert.equal(productModeState("货品查询 规格模式(SKU) 货品编号 规格编号"), "sku");
   assert.equal(productModeState("货品查询 规格模式（SKU）"), "sku");
+});
+
+test("nested module controls are polled instead of failing on the outer wrapper", async () => {
+  let attempts = 0;
+  const client = {
+    async send() {
+      attempts += 1;
+      return { result: { value: attempts >= 2 } };
+    },
+    on() { return () => undefined; },
+    close() {},
+  } as BrowserAutomationClient;
+
+  await waitForNestedControls(
+    client,
+    "branch_stock_main",
+    [{ controlId: "warehouseCom" }],
+    100,
+    0,
+  );
+  assert.equal(attempts, 2);
 });
