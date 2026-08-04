@@ -15,10 +15,13 @@ export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/Se
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
 export const TMALL_PRODUCT_MANAGER_LABEL = "商品管家";
 export const TMALL_IMPORTANT_NOTICE_LABEL = "重要通知";
+export const TMALL_IMPORTANT_MESSAGE_LABEL = "重要消息";
 export const TMALL_PRODUCT_INSPECTION_NOTICE_LABEL = "商品巡检";
 export const TMALL_SHIPPING_EXCEPTION_NOTICE_LABEL = "发货异常提醒";
+export const TMALL_CHANNEL_PROMOTION_NOTICE_LABEL = "渠道活动快速报名";
 
 const tmallExportConfirmationLabels = ["确认导出", "确认任务", "确认执行", "确认执行任务", "确定", "立即导出", "确认"] as const;
+const tmallNoticeActionSelector = 'button,a,[role="button"],[aria-label],[title],[class*="close" i],:text-is("×"),:text-is("✕")';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
@@ -388,8 +391,10 @@ export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, c
   const context = contextText.replace(/\s+/g, "").trim();
   const structural = /notify[_-]?body/i.test(detail.attributes);
   const importantNotice = text.includes(TMALL_IMPORTANT_NOTICE_LABEL);
+  const importantMessage = text.includes(TMALL_IMPORTANT_MESSAGE_LABEL);
   const productInspection = text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL);
   const shippingException = text.includes(TMALL_SHIPPING_EXCEPTION_NOTICE_LABEL);
+  const channelPromotion = text.includes(TMALL_CHANNEL_PROMOTION_NOTICE_LABEL);
   if (
     productInspection
     && !structural
@@ -401,14 +406,18 @@ export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, c
   ) {
     return -1;
   }
-  const labeled = importantNotice || productInspection || shippingException;
+  const labeled = importantNotice || importantMessage || productInspection || shippingException || channelPromotion;
   if (!structural && !labeled) return -1;
   let score = 10;
   if (
     text === TMALL_IMPORTANT_NOTICE_LABEL
+    || text === TMALL_IMPORTANT_MESSAGE_LABEL
     || text === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL
     || text.startsWith(TMALL_SHIPPING_EXCEPTION_NOTICE_LABEL)
+    || text.startsWith(TMALL_CHANNEL_PROMOTION_NOTICE_LABEL)
   ) score += 10;
+  if (channelPromotion) score += 12;
+  if (importantMessage) score += 8;
   if (shippingException) score += 6;
   if (structural) score += 8;
   score += Math.round((detail.left / detail.viewportWidth) * 5);
@@ -780,7 +789,7 @@ async function importantNoticeCandidates(page: Page) {
   const candidates: Array<TextCandidate & { detail: PositionedUiElement; actionScope?: Locator }> = [];
   for (const frame of page.frames()) {
     const sources = [
-      frame.getByText(/重要通知|商品巡检|发货异常提醒/),
+      frame.getByText(/重要通知|重要消息|商品巡检|发货异常提醒|渠道活动快速报名/),
       frame.locator('[class*="notify_body" i],[class*="notify-body" i]'),
     ];
     for (const matches of sources) {
@@ -791,7 +800,7 @@ async function importantNoticeCandidates(page: Page) {
         const detail = await positionedDetail(locator);
         if (!detail) continue;
         const container = locator.locator(
-          "xpath=ancestor-or-self::*[.//*[self::button or self::a or @role='button']][1]",
+          "xpath=ancestor-or-self::*[.//*[self::button or self::a or @role='button' or @aria-label or @title or contains(translate(@class, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'close') or normalize-space(.)='×' or normalize-space(.)='✕']][1]",
         );
         const actionScope = await container.count().catch(() => 0) > 0 ? container : undefined;
         const contextText = actionScope
@@ -843,8 +852,8 @@ async function dismissImportantNotice(page: Page) {
 
     const notice = notices[0]!;
     const actions = notice.actionScope
-      ? notice.actionScope.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]')
-      : notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
+      ? notice.actionScope.locator(tmallNoticeActionSelector)
+      : notice.frame.locator(tmallNoticeActionSelector);
     const count = Math.min(await actions.count().catch(() => 0), 120);
     const candidates: Array<{
       locator: Locator;

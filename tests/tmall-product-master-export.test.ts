@@ -271,6 +271,10 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
     width: 420,
   };
   assert.ok(scoreTmallBlockingNoticeCandidate(shippingNotice) > 0);
+  const importantMessage = { ...shippingNotice, text: "重要消息 1" };
+  const channelPromotion = { ...shippingNotice, text: "渠道活动快速报名，灵活售卖", top: 430 };
+  assert.ok(scoreTmallBlockingNoticeCandidate(importantMessage) > 0);
+  assert.ok(scoreTmallBlockingNoticeCandidate(channelPromotion) > scoreTmallBlockingNoticeCandidate(importantMessage));
   assert.ok(scoreImportantNoticeCloseCandidate(close, shippingNotice) > 0);
   assert.equal(scoreImportantNoticeCloseCandidate({
     ...close,
@@ -280,6 +284,7 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
   }, shippingNotice), -1);
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "忽略", attributes: "next-btn" }), true);
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "", attributes: "next-icon-close" }), true);
+  assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "×", attributes: "" }), true);
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "立即处理", attributes: "next-btn" }), false);
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "", attributes: "next-icon" }), false);
   const rankedActions = [
