@@ -1338,7 +1338,12 @@ async function runController(options: CliOptions) {
     if (policy.modules[moduleKey].requiresQuery && !moduleState.queryIntentAt) {
       moduleState.queryIntentAt = new Date().toISOString();
       await persistControllerState(controllerStatePath, state);
-      await clickAnyText(client, ["筛选", "查询"]);
+      await clickAnyTextEventually(
+        client,
+        ["筛选", "查询"],
+        actionTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
       moduleState.status = "queried";
       await persistControllerState(controllerStatePath, state);
     }

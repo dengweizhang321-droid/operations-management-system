@@ -133,4 +133,10 @@ test("nested module controls are polled instead of failing on the outer wrapper"
     0,
   );
   assert.equal(attempts, 2);
+
+  const controllerSource = readFileSync(path.resolve("tools/jackyun-browser-controller.ts"), "utf8");
+  assert.match(
+    controllerSource,
+    /await clickAnyTextEventually\(\s*client,\s*\["筛选", "查询"\]/,
+  );
 });
