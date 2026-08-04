@@ -44,12 +44,13 @@ test("下载响应必须是老式 XLS 魔数", () => {
   assert.equal(isLegacyXls(new TextEncoder().encode('{"code":5810}')), false);
 });
 
-test("一次性 HTTP 辅助进程支持货品前置阶段并拒绝乱序、重复和并发调用", () => {
+test("一次性 HTTP 辅助进程允许幂等货品前置并拒绝乱序和并发调用", () => {
   assert.equal(helperRequestError("ready", false, "/product-master"), null);
-  assert.deepEqual(helperRequestError("mastered", false, "/product-master"), {
+  assert.equal(helperRequestError("mastered", false, "/product-master"), null);
+  assert.deepEqual(helperRequestError("planned", false, "/product-master"), {
     error: "invalid_stage",
-    expected: "ready",
-    actual: "mastered",
+    expected: "ready_or_mastered",
+    actual: "planned",
   });
   assert.equal(helperRequestError("ready", false, "/plan"), null);
   assert.equal(helperRequestError("mastered", false, "/plan"), null);

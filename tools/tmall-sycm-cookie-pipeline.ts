@@ -500,7 +500,9 @@ function integerPort(value: string | undefined) {
 export function helperRequestError(stage: HelperStage, busy: boolean, route: HelperRoute) {
   if (busy) return { error: "pipeline_busy" as const };
   if (route === "/product-master") {
-    return stage === "ready" ? null : { error: "invalid_stage" as const, expected: "ready" as const, actual: stage };
+    return stage === "ready" || stage === "mastered"
+      ? null
+      : { error: "invalid_stage" as const, expected: "ready_or_mastered" as const, actual: stage };
   }
   if (route === "/plan") {
     return stage === "ready" || stage === "mastered"
