@@ -63,6 +63,31 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
   ]);
 }
 
+async function writeResumablePartialRun(root: string, runId: string) {
+  const runDirectory = path.join(root, "outputs", "jackyun-import-runs", runId);
+  const eventDirectory = path.join(root, "outputs", "jackyun-browser-events", runId);
+  await Promise.all([mkdir(runDirectory, { recursive: true }), mkdir(eventDirectory, { recursive: true })]);
+  await Promise.all([
+    writeFile(path.join(runDirectory, "run-manifest.json"), JSON.stringify({
+      runId,
+      strictOrder: jackyunModuleOrder,
+      modules: {
+        products: { status: "completed", batchId: "products:batch" },
+        inventory: { status: "completed", batchId: "inventory:batch" },
+      },
+    }), "utf8"),
+    writeFile(path.join(runDirectory, "browser-state.json"), JSON.stringify({
+      runId,
+      policyVersion: "test-policy",
+      status: "blocked",
+      currentModule: "inventory_age",
+      currentState: "BLOCKED",
+    }), "utf8"),
+    writeFile(path.join(eventDirectory, "01-products.json.result.json"), JSON.stringify({ status: "completed" }), "utf8"),
+    writeFile(path.join(eventDirectory, "02-inventory.json.result.json"), JSON.stringify({ status: "completed" }), "utf8"),
+  ]);
+}
+
 test("Jackyun n8n plan uses Shanghai yesterday and only a local operations URL", async () => {
   const fixture = await createFixture();
   try {
@@ -146,6 +171,49 @@ test("Jackyun n8n run keeps the five-module order and verify requires exact batc
     assert.equal(skippedRun.skipped, true);
     const skippedVerify = await verifyJackyunN8nPlan(skipped, { root: fixture.root });
     assert.equal(skippedVerify.verifiedRunId, "n8n-complete-run");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n resumes only an exact failed partial prefix", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-resume-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeResumablePartialRun(fixture.root, plan.runId);
+    plan.stage = "failed";
+    plan.failure = { code: "JACKYUN_N8N_RUN_FAILED", message: "test failure", at: now.toISOString() };
+    await writeFile(path.join(fixture.root, "outputs", "jackyun-n8n-pipeline", `plan-${plan.runId}.json`), JSON.stringify(plan), "utf8");
+
+    const resumed = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "must-not-create-a-new-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    assert.equal(resumed.runId, plan.runId);
+    assert.equal(resumed.resume, true);
+    assert.equal(publicJackyunPlan(resumed).resume, true);
+
+    let capturedResume = false;
+    await runJackyunN8nPlan(resumed, {
+      root: fixture.root,
+      runAutomation: async (options) => {
+        capturedResume = options.resume;
+        await writeCompletedRun(fixture.root, options.runId, options.asOfDate);
+        return {
+          browserResult: { status: "completed", runId: options.runId },
+          dailyResult: { status: "completed", results: jackyunModuleOrder.map((module) => ({ module })) },
+        } as never;
+      },
+    });
+    assert.equal(capturedResume, true);
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }

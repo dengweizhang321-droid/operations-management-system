@@ -32,6 +32,7 @@ export type JackyunN8nPlan = {
   policyVersion: string;
   stage: JackyunN8nStage;
   skipped: boolean;
+  resume?: boolean;
   existingRunId?: string;
   failure?: JackyunN8nFailure;
 };
@@ -284,6 +285,47 @@ async function findUnclosedPlan(paths: RuntimePaths, runDate: string) {
   return null;
 }
 
+async function isExactResumableFailedPlan(
+  paths: RuntimePaths,
+  plan: JackyunN8nPlan,
+  expected: { runDate: string; asOfDate: string; baseUrl: string; policyVersion: string },
+) {
+  if (plan.stage !== "failed" || plan.skipped || plan.failure?.code !== "JACKYUN_N8N_RUN_FAILED"
+    || plan.runDate !== expected.runDate || plan.snapshotDate !== expected.asOfDate || plan.asOfDate !== expected.asOfDate
+    || plan.baseUrl !== expected.baseUrl || plan.policyVersion !== expected.policyVersion || !validRunId(plan.runId)) return false;
+  const runDirectory = path.join(paths.outputRoot, plan.runId);
+  const manifest = await readJsonFile<RunManifest>(path.join(runDirectory, "run-manifest.json")).catch(() => null);
+  if (!manifest || manifest.runId !== plan.runId || manifest.strictOrder?.length !== jackyunModuleOrder.length
+    || manifest.strictOrder.some((moduleKey, index) => moduleKey !== jackyunModuleOrder[index])) return false;
+
+  let completedPrefix = 0;
+  let sawIncomplete = false;
+  for (let index = 0; index < jackyunModuleOrder.length; index += 1) {
+    const moduleKey = jackyunModuleOrder[index]!;
+    const manifestModule = manifest.modules?.[moduleKey];
+    if (manifestModule?.status === "completed") {
+      if (sawIncomplete || typeof manifestModule.batchId !== "string" || !manifestModule.batchId.trim()) return false;
+      const resultPath = path.join(paths.eventDirectory, plan.runId, `${String(index + 1).padStart(2, "0")}-${moduleKey}.json.result.json`);
+      const result = await readJsonFile<{ status?: string }>(resultPath).catch(() => null);
+      if (!result || !["completed", "duplicate_ignored"].includes(String(result.status))) return false;
+      completedPrefix += 1;
+    } else {
+      sawIncomplete = true;
+      if (manifestModule?.status === "failed") return false;
+    }
+  }
+  if (completedPrefix < 1 || completedPrefix >= jackyunModuleOrder.length) return false;
+  const state = await readJsonFile<{
+    runId?: string;
+    policyVersion?: string;
+    status?: string;
+    currentModule?: JackyunModule;
+  }>(path.join(runDirectory, "browser-state.json")).catch(() => null);
+  return Boolean(state && state.runId === plan.runId && state.policyVersion === expected.policyVersion
+    && ["blocked", "running"].includes(String(state.status))
+    && state.currentModule === jackyunModuleOrder[completedPrefix]);
+}
+
 export async function planJackyunN8nRun(options: PlanOptions = {}) {
   const paths = pathsFor(options.root);
   const now = options.now ?? new Date();
@@ -306,6 +348,18 @@ export async function planJackyunN8nRun(options: PlanOptions = {}) {
   if (!existing) {
     const unclosed = await findUnclosedPlan(paths, runDate);
     if (unclosed) {
+      if (await isExactResumableFailedPlan(paths, unclosed, {
+        runDate,
+        asOfDate: yesterday,
+        baseUrl,
+        policyVersion: policy.version!,
+      })) {
+        unclosed.stage = "planned";
+        unclosed.resume = true;
+        delete unclosed.failure;
+        await persistPlan(paths, unclosed);
+        return unclosed;
+      }
       throw new Error(`今日已有未闭环的吉客云 n8n 运行 ${unclosed.runId} (${unclosed.stage})；禁止自动新建运行，请先核验原 RUN_ID`);
     }
   }
@@ -337,7 +391,7 @@ export function publicJackyunPlan(plan: JackyunN8nPlan) {
     snapshotDate: plan.snapshotDate,
     asOfDate: plan.asOfDate,
     skipped: plan.skipped,
-    resume: false,
+    resume: Boolean(plan.resume),
     moduleOrder: jackyunModuleOrder,
   };
 }
@@ -368,7 +422,7 @@ export async function runJackyunN8nPlan(plan: JackyunN8nPlan, options: RunOption
       outputRoot: paths.outputRoot,
       baseUrl: plan.baseUrl,
       profileDirectory: options.profileDirectory,
-      resume: false,
+      resume: Boolean(plan.resume),
       dryRun: false,
       headless: true,
       signal: options.signal,

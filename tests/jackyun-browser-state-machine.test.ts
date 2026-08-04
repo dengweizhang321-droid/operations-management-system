@@ -11,6 +11,9 @@ import {
   extractStockAgeOwnerId,
   findLocalDownloadedFile,
   productModeState,
+  readStockAgeOwnerIdFromPage,
+  retryOnceAfterAmbiguousBrowserResult,
+  shouldIssueModuleQuery,
   waitForNestedControls,
 } from "../tools/jackyun-browser-controller";
 
@@ -143,6 +146,45 @@ test("nested module controls are polled instead of failing on the outer wrapper"
   assert.doesNotMatch(controllerSource, /for \(const grid of grids\) \{\s*const fileExport/);
   assert.match(controllerSource, /if \(missing\.length\) continue;/);
   assert.doesNotMatch(controllerSource, /ownerId:\s*"\d{6,32}"/);
+});
+
+test("an ambiguous browser result is retried once and can recover by readback", async () => {
+  let attempts = 0;
+  const result = await retryOnceAfterAmbiguousBrowserResult(async () => {
+    attempts += 1;
+    if (attempts === 1) throw new Error("execution context changed");
+    return { count: 245, already: true };
+  }, 0);
+  assert.deepEqual(result, { count: 245, already: true });
+  assert.equal(attempts, 2);
+});
+
+test("a persistent browser error still fails after one bounded retry", async () => {
+  let attempts = 0;
+  await assert.rejects(
+    retryOnceAfterAmbiguousBrowserResult(async () => {
+      attempts += 1;
+      throw new Error("still broken");
+    }, 0),
+    /still broken/,
+  );
+  assert.equal(attempts, 2);
+});
+
+test("stock-age owner scope can be read back and an unconfirmed query is reissued", async () => {
+  let expression = "";
+  const client = {
+    async send(_method: string, params?: Record<string, unknown>) {
+      expression = String(params?.expression ?? "");
+      return { result: { value: "1639245045540225536" } };
+    },
+    on() { return () => undefined; },
+    close() {},
+  } as BrowserAutomationClient;
+  assert.equal(await readStockAgeOwnerIdFromPage(client), "1639245045540225536");
+  assert.ok(expression.includes("/^\\d{6,32}$/"));
+  assert.equal(shouldIssueModuleQuery(true, { status: "navigated", queryIntentAt: "2026-08-04T18:18:11.952Z" }), true);
+  assert.equal(shouldIssueModuleQuery(true, { status: "queried", queryIntentAt: "2026-08-04T18:18:11.952Z" }), false);
 });
 
 test("stock-age export derives the owner scope from the current query request", () => {

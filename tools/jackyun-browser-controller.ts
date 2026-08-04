@@ -231,6 +231,50 @@ export async function waitForNestedControls(
   throw new Error(`模块页面控件尚未就绪：${urlFragment} / ${targets.map((item) => item.controlId).join(",")}`);
 }
 
+export async function retryOnceAfterAmbiguousBrowserResult<T>(
+  action: () => Promise<T>,
+  retryDelayMs = 300,
+) {
+  try {
+    return await action();
+  } catch {
+    if (retryDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    return await action();
+  }
+}
+
+export async function readStockAgeOwnerIdFromPage(client: BrowserAutomationClient) {
+  const value = await evaluateValue<string | null>(client, `(() => {
+    let ownerId = null;
+    const visit = (doc) => {
+      if (ownerId) return;
+      let href = '';
+      try { href = doc.location?.href || ''; } catch {}
+      if (/warehouse_age_analysis/.test(href)) {
+        const control = doc.defaultView?.mini?.get?.('ownerId');
+        const current = control?.getValue ? String(control.getValue()) : String(doc.getElementById('ownerId')?.value || '');
+        if (/^\\d{6,32}$/.test(current)) { ownerId = current; return; }
+      }
+      try {
+        for (const frame of doc.querySelectorAll('iframe,frame')) {
+          try { if (frame.contentDocument) visit(frame.contentDocument); } catch {}
+          if (ownerId) return;
+        }
+      } catch {}
+    };
+    visit(document);
+    return ownerId;
+  })()`);
+  return value && /^\d{6,32}$/.test(value) ? value : undefined;
+}
+
+export function shouldIssueModuleQuery(
+  requiresQuery: boolean,
+  state: { status?: string; queryIntentAt?: string },
+) {
+  return requiresQuery && (!state.queryIntentAt || state.status === "navigated");
+}
+
 async function currentUrl(client: BrowserAutomationClient) {
   return evaluateValue<string>(client, "location.href");
 }
@@ -1311,7 +1355,7 @@ async function runController(options: CliOptions) {
         actionTimeout(policy, moduleKey),
         fastPoll(policy),
       );
-      const selectResult = await evaluateValue<{ count?: number; already?: boolean; error?: string }>(client, `(async () => {
+      const readWarehouseSelection = () => evaluateValue<{ count?: number; error?: string }>(client, `(() => {
     let target = null;
     const visit = (d) => { if (d.location && /branch_stock_main/.test(d.location.href)) { target = d; return; } try { for (const f of d.querySelectorAll('iframe,frame')) { try { if (f.contentDocument) visit(f.contentDocument); } catch(e){} } } catch(e){} };
     visit(document);
@@ -1321,26 +1365,66 @@ async function runController(options: CliOptions) {
     const ctrl = w.mini.get('warehouseCom');
     if (!ctrl) return { error: 'no warehouseCom control' };
     const cur = ctrl.getValue ? String(ctrl.getValue()) : '';
-    const curCount = cur.split(',').filter(Boolean).length;
-    if (curCount >= 200) return { count: curCount, already: true };
-    try { if (!ctrl.isShowPopup || !ctrl.isShowPopup()) ctrl.showPopup(); } catch(e){ return { error: 'showPopup failed: '+String(e).slice(0,80) }; }
-    await new Promise(r => setTimeout(r, 400));
+    return { count: cur.split(',').filter(Boolean).length };
+  })()`);
+      const minimumWarehouses = policy.modules.inventory.minimumSelectedWarehouses ?? 1;
+      let selectResult = await retryOnceAfterAmbiguousBrowserResult(readWarehouseSelection, 500);
+      if ((selectResult.count ?? 0) < minimumWarehouses) {
+        // Keep MiniUI mutations in short page evaluations. Selecting all can
+        // rebuild the nested frame; waiting inside the same evaluation loses
+        // its response even though the click itself succeeded.
+        const openWarehousePopup = () => evaluateValue<{ opened?: boolean; error?: string }>(client, `(() => {
+    let target = null;
+    const visit = (d) => { if (d.location && /branch_stock_main/.test(d.location.href)) { target = d; return; } try { for (const f of d.querySelectorAll('iframe,frame')) { try { if (f.contentDocument) visit(f.contentDocument); } catch(e){} } } catch(e){} };
+    visit(document);
+    const ctrl = target?.defaultView?.mini?.get?.('warehouseCom');
+    if (!ctrl) return { error: 'no warehouseCom control' };
+    try { if (!ctrl.isShowPopup || !ctrl.isShowPopup()) ctrl.showPopup(); }
+    catch(e) { return { error: 'showPopup failed: '+String(e).slice(0,80) }; }
+    return { opened: true };
+  })()`);
+        const popupResult = await retryOnceAfterAmbiguousBrowserResult(openWarehousePopup, 500);
+        if (popupResult.error) throw new Error(`库存仓库弹窗无法打开：${popupResult.error}`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        let clickFailure = "";
+        try {
+          const clickResult = await evaluateValue<{ clicked?: boolean; error?: string }>(client, `(() => {
+    let target = null;
+    const visit = (d) => { if (d.location && /branch_stock_main/.test(d.location.href)) { target = d; return; } try { for (const f of d.querySelectorAll('iframe,frame')) { try { if (f.contentDocument) visit(f.contentDocument); } catch(e){} } } catch(e){} };
+    visit(document);
+    const w = target?.defaultView;
+    const ctrl = w?.mini?.get?.('warehouseCom');
+    if (!ctrl) return { error: 'no warehouseCom control' };
     const popup = ctrl.popup || (ctrl.getPopup && ctrl.getPopup());
     const el = popup && (popup.el || popup._el || popup);
-    if (!el) return { error: 'no popup element' };
-    const cb = el.querySelector('.select_all_check');
+    let cb = null;
+    try { if (el && typeof el.querySelector === 'function') cb = el.querySelector('.select_all_check'); } catch {}
+    if (!cb) { try { cb = target.querySelector('.mini-popup .select_all_check'); } catch {} }
+    if (!cb) { try { cb = target.querySelector('.select_all_check'); } catch {} }
     if (!cb) return { error: 'no .select_all_check in popup' };
-    const $ = w.jQuery;
-    if ($) $(cb).trigger('click'); else cb.click();
-    await new Promise(r => setTimeout(r, 700));
-    const text = (el.innerText||'').trim();
-    const m = text.match(/已勾选[:：]?\s*(\d+)\s*条/);
-    const count = m ? Number(m[1]) : (ctrl.getValue ? String(ctrl.getValue()).split(',').filter(Boolean).length : 0);
-    try { if (ctrl.isShowPopup && ctrl.isShowPopup()) ctrl.hidePopup(); } catch(e){}
-    return { count };
+    if (w.jQuery) w.jQuery(cb).trigger('click'); else cb.click();
+    return { clicked: true };
   })()`);
+          clickFailure = clickResult.error ?? "";
+        } catch (error) {
+          // A frame rebuild can discard this response after applying the
+          // click. The readback below decides whether the action succeeded.
+          clickFailure = error instanceof Error ? error.message.slice(-200) : String(error).slice(-200);
+        }
+
+        const readbackDeadline = Date.now() + Math.min(actionTimeout(policy, moduleKey), 5_000);
+        do {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          try { selectResult = await readWarehouseSelection(); } catch { continue; }
+          if ((selectResult.count ?? 0) >= minimumWarehouses) break;
+        } while (Date.now() < readbackDeadline);
+        if ((selectResult.count ?? 0) < minimumWarehouses && clickFailure) {
+          selectResult = { ...selectResult, error: clickFailure };
+        }
+      }
       const selected = selectResult.count;
-      if (!selected || selected < (policy.modules.inventory.minimumSelectedWarehouses ?? 1)) {
+      if (!selected || selected < minimumWarehouses) {
         throw new Error(`库存仓库全选状态无法读回或选择数量异常：${JSON.stringify(selectResult)}`);
       }
       fieldChecks.push({ field: "仓库", value: `已勾选:${selected}条`, verifiedAt: new Date().toISOString() });
@@ -1367,6 +1451,10 @@ async function runController(options: CliOptions) {
         }
       } catch {
         fieldChecks.push({ field: "日期", value: "v4无日期框(实时库存)", verifiedAt: new Date().toISOString() });
+      }
+      stockAgeOwnerId = await readStockAgeOwnerIdFromPage(client);
+      if (stockAgeOwnerId) {
+        fieldChecks.push({ field: "货主范围", value: "页面条件已读回", verifiedAt: new Date().toISOString() });
       }
     }
     if (moduleKey === "sales") {
@@ -1425,7 +1513,7 @@ async function runController(options: CliOptions) {
     }
     moduleState.fieldChecks = fieldChecks;
 
-    if (policy.modules[moduleKey].requiresQuery && !moduleState.queryIntentAt) {
+    if (shouldIssueModuleQuery(policy.modules[moduleKey].requiresQuery, moduleState)) {
       moduleState.queryIntentAt = new Date().toISOString();
       await persistControllerState(controllerStatePath, state);
       await clickAnyTextEventually(
@@ -1435,10 +1523,11 @@ async function runController(options: CliOptions) {
         fastPoll(policy),
       );
       if (moduleKey === "inventory_age") {
-        const ownerDeadline = Date.now() + actionTimeout(policy, moduleKey);
+        const ownerDeadline = Date.now() + Math.min(actionTimeout(policy, moduleKey), 2_000);
         while (!stockAgeOwnerId && Date.now() < ownerDeadline) {
           await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
         }
+        stockAgeOwnerId ??= await readStockAgeOwnerIdFromPage(client);
         if (!stockAgeOwnerId) throw new Error("库龄查询未捕获到本轮货主范围，已停止导出。");
       }
       moduleState.status = "queried";
