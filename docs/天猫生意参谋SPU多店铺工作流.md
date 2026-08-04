@@ -113,6 +113,8 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-daily-import.workfl
 n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json"
 ```
 
+该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。运营管理系统左侧“工作流”板块会展示 M→A→B→C 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。
+
 该副本不依赖 n8n 2 默认禁用的 `ExecuteCommand`，四个节点只访问 `127.0.0.1:5791`。执行前在另一个本机终端启动一次性辅助进程：
 
 ```powershell

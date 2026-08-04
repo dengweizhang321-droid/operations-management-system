@@ -6,8 +6,10 @@ import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { parseProductQueries } from "@/lib/sales/product-query";
 import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
+import N8nWorkflowView from "./n8n-workflow-view";
 
 type ModuleKey =
+  | "n8n_workflows"
   | "dashboard"
   | "shop"
   | "market"
@@ -842,6 +844,7 @@ const MAX_FINANCE_FILE_SIZE = 8 * 1024 * 1024;
 const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 
 const navItems: NavItem[] = [
+  { key: "n8n_workflows", label: "工作流", short: "流", description: "自动化流程中心" },
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
   { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
   { key: "market", label: "市场分析", short: "市", description: "榜单、行业与竞品洞察" },
@@ -5726,6 +5729,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
 }
 
 const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
+  n8n_workflows: ({ currentUser }) => <N8nWorkflowView currentUser={currentUser} />,
   dashboard: DashboardView,
   shop: ShopView,
   market: MarketView,
@@ -5864,9 +5868,9 @@ export default function Home() {
         </div>
         <nav className="main-nav" aria-label="主导航">
           <p>经营管理</p>
-          {navItems.slice(0, 8).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}
+          {navItems.slice(0, 9).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}
           <p>系统管理</p>
-          {navItems.slice(8).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
+          {navItems.slice(9).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
         </nav>
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
         <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser ? `${currentUser.displayName} · ${currentUser.roleLabel}` : "访客 · 只读查看者"}</strong><small>{currentUser ? currentUser.email : "可查看经营数据"}</small></div><button onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
@@ -5879,17 +5883,17 @@ export default function Home() {
           <div className="topbar-actions">
             <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
             <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
-            <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
+            {active !== "n8n_workflows" && <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
               <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "本月", "月度", "自定义"].map((value) => ({ value, label: value }))} />
               {range === "月度" && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
               {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={(startDate, endDate) => { setCustomStartDate(startDate); setCustomEndDate(endDate); setStatPeriodPickerOpen(false); }} />}
-            </div>
+            </div>}
           </div>
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "商品访客按商品×日累计展示；推广指标只按推广与生意参谋支付金额的日期交集计算" : active === "market" ? "市场榜单与运营系统 SKU/SPU、销售明细及 AI 模型实时关联" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions"><button className="secondary-button">↗ 导出报表</button>{active !== "dashboard" && active !== "shop" && active !== "market" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && active !== "ai" && <button className="primary-button">＋ 新建</button>}</div></div>
+          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "n8n_workflows" ? "本机 n8n 画布与运营系统受控导入链路统一管理" : active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "商品访客按商品×日累计展示；推广指标只按推广与生意参谋支付金额的日期交集计算" : active === "market" ? "市场榜单与运营系统 SKU/SPU、销售明细及 AI 模型实时关联" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions">{active !== "n8n_workflows" && <button className="secondary-button">↗ 导出报表</button>}{active !== "n8n_workflows" && active !== "dashboard" && active !== "shop" && active !== "market" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && active !== "ai" && <button className="primary-button">＋ 新建</button>}</div></div>
           <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
