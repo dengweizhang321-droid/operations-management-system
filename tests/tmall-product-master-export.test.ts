@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 
 import {
   chooseLatestTmallDownloadSignature,
+  chooseTmallExportRecordSignature,
   createTmallBrowserDownloadSession,
   currentMasterSnapshot,
   hasAcceptedTmallExportTask,
@@ -16,6 +17,7 @@ import {
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
   isTmallProductWorkbookFilename,
+  parseTmallShanghaiTaskTime,
   productManagerFloatingClusterKey,
   runTmallProductMasterStage,
   scoreChatSendCandidate,
@@ -197,6 +199,27 @@ test("商品管家下载事件必须监听 Chrome 浏览器根会话", async () 
   assert.equal(session, expectedSession);
   assert.equal(browserSessionCalls, 1);
   assert.equal(pageSessionCalls, 0);
+});
+
+test("导出记录按原任务创建时间和已完成状态选择同一行下载", () => {
+  const runStartedAt = "2026-08-03T17:54:17.650Z";
+  assert.deepEqual(parseTmallShanghaiTaskTime("2026-08-04 01:54:\n44"), {
+    text: "2026-08-04 01:54:44",
+    epochMs: Date.parse("2026-08-04T01:54:44+08:00"),
+  });
+  assert.equal(parseTmallShanghaiTaskTime("2026-02-30 01:54:44"), null);
+  assert.equal(chooseTmallExportRecordSignature([
+    { signature: "later-duplicate", taskCreatedAt: "2026-08-04 02:01:32", status: "已完成" },
+    { signature: "original", taskCreatedAt: "2026-08-04 01:54:44", status: "已完成" },
+    { signature: "older", taskCreatedAt: "2026-08-01 23:49:09", status: "已完成" },
+  ], runStartedAt), "original");
+  assert.equal(chooseTmallExportRecordSignature([
+    { signature: "original", taskCreatedAt: "2026-08-04 01:54:44", status: "处理中" },
+  ], runStartedAt), null);
+  assert.throws(() => chooseTmallExportRecordSignature([
+    { signature: "tie-a", taskCreatedAt: "2026-08-04 01:53:47", status: "已完成" },
+    { signature: "tie-b", taskCreatedAt: "2026-08-04 01:54:47", status: "已完成" },
+  ], runStartedAt), /多个创建时间同样接近/);
 });
 
 test("重要通知或商品巡检只允许右下角安全关闭动作", () => {

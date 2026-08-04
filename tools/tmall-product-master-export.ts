@@ -85,6 +85,7 @@ type MasterExportAudit = {
   stage: MasterExportAuditStage;
   entryMode?: "product_manager_opened" | "product_manager_floating_icon" | "product_manager_already_open" | "bulk_export_entry" | "assistant_direct";
   noticeState?: "dismissed" | "not_present";
+  exportTaskCreatedAt?: string;
   file?: MasterFileEvidence;
   importResult?: {
     status: "imported" | "duplicate";
@@ -130,6 +131,15 @@ type DownloadCandidate = {
 };
 
 type TmallDownloadChoice = Omit<DownloadCandidate, "frame" | "locator">;
+
+type ExportRecordDownloadCandidate = {
+  locator: Locator;
+  signature: string;
+  taskCreatedAt: string;
+  status: string;
+};
+
+type TmallExportRecordChoice = Omit<ExportRecordDownloadCandidate, "locator">;
 
 type PositionedUiElement = {
   text: string;
@@ -254,6 +264,47 @@ export function chooseLatestTmallDownloadSignature(candidates: readonly TmallDow
     throw new Error("多个成功下载链接位置并列，无法唯一确认最新商品管家任务");
   }
   return ordered.at(-1)!.signature;
+}
+
+export function parseTmallShanghaiTaskTime(value: string) {
+  const match = value.replace(/\s+/g, "").match(/(20\d{2})-(\d{2})-(\d{2})(\d{2}):(\d{2}):(\d{2})/);
+  if (!match) return null;
+  const text = `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6]}`;
+  const epochMs = Date.parse(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}+08:00`);
+  if (!Number.isFinite(epochMs)) return null;
+  const roundTrip = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(epochMs)).replace(",", "");
+  if (roundTrip !== text) return null;
+  return { text, epochMs };
+}
+
+export function chooseTmallExportRecordSignature(
+  candidates: readonly TmallExportRecordChoice[],
+  expectedRunStartedAt: string,
+) {
+  const expectedMs = Date.parse(expectedRunStartedAt);
+  if (!Number.isFinite(expectedMs)) throw new Error("天猫货品活动清单开始时间无效");
+  const eligible = candidates.flatMap((candidate) => {
+    if (candidate.status.replace(/\s+/g, "") !== "已完成") return [];
+    const parsed = parseTmallShanghaiTaskTime(candidate.taskCreatedAt);
+    if (!parsed) return [];
+    const deltaMs = parsed.epochMs - expectedMs;
+    if (deltaMs < -60_000 || deltaMs > 20 * 60_000) return [];
+    return [{ candidate, distanceMs: Math.abs(deltaMs) }];
+  }).sort((left, right) => left.distanceMs - right.distanceMs);
+  if (eligible.length === 0) return null;
+  if (eligible[1] && eligible[1].distanceMs - eligible[0]!.distanceMs < 60_000) {
+    throw new Error("导出记录中有多个创建时间同样接近的已完成任务，无法唯一确认本轮文件");
+  }
+  return eligible[0]!.candidate.signature;
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -1009,6 +1060,68 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?:
   return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
 }
 
+async function exportRecordDownloadCandidates(page: Page) {
+  const candidates: ExportRecordDownloadCandidate[] = [];
+  const pages = page.context().pages();
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+    const candidatePage = pages[pageIndex]!;
+    const frames = candidatePage.frames();
+    for (let frameIndex = 0; frameIndex < frames.length; frameIndex += 1) {
+      const frame = frames[frameIndex]!;
+      const rows = frame.locator('tr,[role="row"]');
+      const count = Math.min(await rows.count().catch(() => 0), 200);
+      for (let index = 0; index < count; index += 1) {
+        const row = rows.nth(index);
+        if (!await row.isVisible().catch(() => false)) continue;
+        const rowText = await row.innerText({ timeout: 2_000 }).catch(() => "");
+        const taskTime = parseTmallShanghaiTaskTime(rowText);
+        if (!taskTime) continue;
+        const status = rowText.replace(/\s+/g, "").includes("已完成") ? "已完成" : "未完成";
+        const actions = row.locator('a,button,[role="button"]').filter({ hasText: /下载/ });
+        const actionCount = Math.min(await actions.count().catch(() => 0), 10);
+        const clickable: Array<{ locator: Locator; score: number; signature: string }> = [];
+        for (let actionIndex = 0; actionIndex < actionCount; actionIndex += 1) {
+          const locator = actions.nth(actionIndex);
+          if (!await locator.isVisible().catch(() => false)) continue;
+          const detail = await locator.evaluate((element) => ({
+            text: (element.textContent ?? "").replace(/\s+/g, "").trim(),
+            tag: element.tagName.toLowerCase(),
+            role: element.getAttribute("role") ?? "",
+            href: element instanceof HTMLAnchorElement ? element.href : "",
+          })).catch(() => null);
+          if (!detail || detail.text !== "下载") continue;
+          const score = detail.tag === "a" && detail.href
+            ? 20
+            : detail.tag === "button"
+              ? 15
+              : detail.role === "button"
+                ? 10
+                : 0;
+          if (score <= 0) continue;
+          clickable.push({
+            locator,
+            score,
+            signature: `${detail.tag}|${detail.role}|${detail.href}`,
+          });
+        }
+        clickable.sort((left, right) => right.score - left.score);
+        if (!clickable[0]) continue;
+        if (clickable[1] && clickable[1].score === clickable[0].score && clickable[1].signature !== clickable[0].signature) {
+          throw new Error(`导出记录 ${taskTime.text} 存在多个同等下载操作，已停止`);
+        }
+        const signature = `${pageIndex}|${frameIndex}|${frame.url()}|${taskTime.text}|${index}`;
+        candidates.push({
+          locator: clickable[0].locator,
+          signature,
+          taskCreatedAt: taskTime.text,
+          status,
+        });
+      }
+    }
+  }
+  return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
+}
+
 async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: string) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -1034,6 +1147,7 @@ async function downloadWithBrowserEvents(options: {
   locator: Locator;
   downloadDirectory: string;
   targetPath: string;
+  expectedRunStartedAt: string;
 }) {
   await mkdir(options.downloadDirectory, { recursive: true });
   const stagingDirectory = await mkdtemp(path.join(options.downloadDirectory, ".tmall-product-master-"));
@@ -1067,7 +1181,30 @@ async function downloadWithBrowserEvents(options: {
       eventsEnabled: true,
     });
     await options.locator.click({ timeout: 15_000 });
-    const start = await withDeadline(started, 60_000, "点击“前往下载”后 Chrome 未开始浏览器级下载");
+    let selectedRecord: ExportRecordDownloadCandidate | undefined;
+    const recordDeadline = Date.now() + 60_000;
+    while (!selectedRecord && Date.now() < recordDeadline) {
+      if (activeGuid) throw new Error("前往下载未经过导出记录时间和完成状态核验就触发了文件下载，已停止");
+      const records = await exportRecordDownloadCandidates(options.page);
+      const selectedSignature = chooseTmallExportRecordSignature(records, options.expectedRunStartedAt);
+      const selected = selectedSignature
+        ? records.find((candidate) => candidate.signature === selectedSignature)
+        : undefined;
+      if (selected) {
+        await selected.locator.click({ timeout: 15_000 });
+        selectedRecord = selected;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    if (!selectedRecord) {
+      throw new Error("导出记录页未找到创建时间匹配且状态为“已完成”的唯一任务");
+    }
+    const start = await withDeadline(
+      started,
+      60_000,
+      `点击导出记录 ${selectedRecord.taskCreatedAt} 的“下载”后 Chrome 未开始浏览器级下载`,
+    );
     if (!isTmallProductWorkbookFilename(start.suggestedFilename)) {
       throw new Error(`千牛返回的货品文件不是安全的 .xlsx：${safeSegment(start.suggestedFilename)}`);
     }
@@ -1078,6 +1215,7 @@ async function downloadWithBrowserEvents(options: {
     const targetExists = await stat(options.targetPath).then(() => true).catch(() => false);
     if (targetExists) throw new Error("本轮商品管家规范文件已存在，为防止覆盖已停止");
     await rename(stagedPath, options.targetPath);
+    return { taskCreatedAt: selectedRecord.taskCreatedAt };
   } finally {
     await session.send("Browser.setDownloadBehavior", { behavior: "default" }).catch(() => undefined);
     await session.detach().catch(() => undefined);
@@ -1134,6 +1272,7 @@ async function browserExport(options: {
   store: TmallStore;
   snapshotDate: string;
   runId: string;
+  taskStartedAt: string;
   resumeStage?: "export_submitted" | "export_confirmed";
   entryMode?: MasterExportAudit["entryMode"];
   noticeState?: MasterExportAudit["noticeState"];
@@ -1228,13 +1367,19 @@ async function browserExport(options: {
     const canonicalName = `${safeSegment(options.store.shopName)}-出售中全部商品-${options.snapshotDate}-${options.runId}.xlsx`;
     const targetPath = path.resolve(options.store.browser.downloadDir, canonicalName);
     if (!inside(options.store.browser.downloadDir, targetPath)) throw new Error("下载目标越过店铺独立目录");
-    await downloadWithBrowserEvents({
+    const downloadedFile = await downloadWithBrowserEvents({
       page,
       locator: newDownload!.locator,
       downloadDirectory: options.store.browser.downloadDir,
       targetPath,
+      expectedRunStartedAt: options.taskStartedAt,
     });
-    return { targetPath, entryMode, noticeState };
+    return {
+      targetPath,
+      entryMode,
+      noticeState,
+      exportTaskCreatedAt: downloadedFile.taskCreatedAt,
+    };
   } finally {
     await browser.close().catch(() => undefined);
   }
@@ -1320,6 +1465,7 @@ export async function runTmallProductMasterStage(options: {
         store,
         snapshotDate,
         runId: activeAudit.runId,
+        taskStartedAt: activeAudit.startedAt,
         resumeStage: isResumableTmallExportStage(activeAudit.stage)
           ? activeAudit.stage as "export_submitted" | "export_confirmed"
           : undefined,
@@ -1335,6 +1481,7 @@ export async function runTmallProductMasterStage(options: {
         stage: "downloaded",
         entryMode: downloaded.entryMode,
         noticeState: downloaded.noticeState,
+        exportTaskCreatedAt: downloaded.exportTaskCreatedAt,
         file: evidence,
       }, runAuditDirectory);
     }
