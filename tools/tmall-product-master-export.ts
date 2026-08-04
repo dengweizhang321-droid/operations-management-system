@@ -16,6 +16,7 @@ export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
 export const TMALL_PRODUCT_MANAGER_LABEL = "商品管家";
 export const TMALL_IMPORTANT_NOTICE_LABEL = "重要通知";
 export const TMALL_PRODUCT_INSPECTION_NOTICE_LABEL = "商品巡检";
+export const TMALL_SHIPPING_EXCEPTION_NOTICE_LABEL = "发货异常提醒";
 
 const tmallExportConfirmationLabels = ["确认导出", "确认任务", "确认执行", "确认执行任务", "确定", "立即导出", "确认"] as const;
 
@@ -314,7 +315,7 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   const centerY = detail.top + detail.height / 2;
   const closeLabel = `${detail.text} ${detail.attributes}`.replace(/\s+/g, " ").trim();
   const text = detail.text.replace(/\s+/g, "").trim();
-  if (/去优化|立即优化/.test(text)) return -1;
+  if (/去优化|立即优化|去处理|立即处理|查看详情|去查看|去解决|处理异常|去发货|立即发货|去补货|立即补货/.test(text)) return -1;
   const explicitClose = text === "忽略" || /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(closeLabel);
   const compact = detail.width >= 8 && detail.width <= 72 && detail.height >= 8 && detail.height <= 72;
   const nearby = centerX >= notice.left - 40
@@ -339,6 +340,7 @@ export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, c
   const structural = /notify[_-]?body/i.test(detail.attributes);
   const importantNotice = text.includes(TMALL_IMPORTANT_NOTICE_LABEL);
   const productInspection = text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL);
+  const shippingException = text.includes(TMALL_SHIPPING_EXCEPTION_NOTICE_LABEL);
   if (
     productInspection
     && !structural
@@ -350,10 +352,15 @@ export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, c
   ) {
     return -1;
   }
-  const labeled = importantNotice || productInspection;
+  const labeled = importantNotice || productInspection || shippingException;
   if (!structural && !labeled) return -1;
   let score = 10;
-  if (text === TMALL_IMPORTANT_NOTICE_LABEL || text === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL) score += 10;
+  if (
+    text === TMALL_IMPORTANT_NOTICE_LABEL
+    || text === TMALL_PRODUCT_INSPECTION_NOTICE_LABEL
+    || text.startsWith(TMALL_SHIPPING_EXCEPTION_NOTICE_LABEL)
+  ) score += 10;
+  if (shippingException) score += 6;
   if (structural) score += 8;
   score += Math.round((detail.left / detail.viewportWidth) * 5);
   score += Math.round((detail.top / detail.viewportHeight) * 5);
@@ -724,7 +731,7 @@ async function importantNoticeCandidates(page: Page) {
   const candidates: Array<TextCandidate & { detail: PositionedUiElement; actionScope?: Locator }> = [];
   for (const frame of page.frames()) {
     const sources = [
-      frame.getByText(/重要通知|商品巡检/),
+      frame.getByText(/重要通知|商品巡检|发货异常提醒/),
       frame.locator('[class*="notify_body" i],[class*="notify-body" i]'),
     ];
     for (const matches of sources) {
@@ -747,7 +754,7 @@ async function importantNoticeCandidates(page: Page) {
           frame,
           locator,
           score,
-          signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
+          signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.text.replace(/\s+/g, "").slice(0, 120)}`,
           detail,
           actionScope,
         });
@@ -761,42 +768,66 @@ async function importantNoticeCandidates(page: Page) {
   return [...unique.values()];
 }
 
-async function dismissImportantNotice(page: Page) {
-  let notices: Awaited<ReturnType<typeof importantNoticeCandidates>> = [];
-  const deadline = Date.now() + 4_000;
-  do {
-    notices = await importantNoticeCandidates(page);
-    if (notices.length > 0) break;
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  } while (Date.now() < deadline);
-  if (notices.length === 0) return "not_present" as const;
+async function receivesPointerAtCenter(locator: Locator) {
+  return await locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const target = element.ownerDocument.elementFromPoint(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+    );
+    return Boolean(target && (target === element || element.contains(target)));
+  }).catch(() => false);
+}
 
-  const notice = notices[0]!;
-  const actions = notice.actionScope
-    ? notice.actionScope.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]')
-    : notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
-  const count = Math.min(await actions.count().catch(() => 0), 120);
-  const candidates: Array<{ locator: Locator; score: number; signature: string }> = [];
-  for (let index = 0; index < count; index += 1) {
-    const locator = actions.nth(index);
-    if (!await locator.isVisible().catch(() => false)) continue;
-    const detail = await positionedDetail(locator);
-    if (!detail) continue;
-    const score = scoreImportantNoticeCloseCandidate(detail, notice.detail);
-    if (score < 0) continue;
-    candidates.push({
-      locator,
-      score,
-      signature: `${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.attributes}`,
-    });
+async function dismissImportantNotice(page: Page) {
+  const initialDeadline = Date.now() + 4_000;
+  let dismissedCount = 0;
+  while (dismissedCount < 4) {
+    const notices = await importantNoticeCandidates(page);
+    if (notices.length === 0) {
+      if (dismissedCount > 0) return "dismissed" as const;
+      if (Date.now() >= initialDeadline) return "not_present" as const;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      continue;
+    }
+
+    const notice = notices[0]!;
+    const actions = notice.actionScope
+      ? notice.actionScope.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]')
+      : notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
+    const count = Math.min(await actions.count().catch(() => 0), 120);
+    const candidates: Array<{ locator: Locator; score: number; signature: string }> = [];
+    for (let index = 0; index < count; index += 1) {
+      const locator = actions.nth(index);
+      if (!await locator.isVisible().catch(() => false)) continue;
+      const detail = await positionedDetail(locator);
+      if (!detail) continue;
+      const score = scoreImportantNoticeCloseCandidate(detail, notice.detail);
+      if (score < 0 || !await receivesPointerAtCenter(locator)) continue;
+      candidates.push({
+        locator,
+        score,
+        signature: `${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.attributes}`,
+      });
+    }
+    candidates.sort((left, right) => right.score - left.score);
+    if (!candidates[0]) throw new Error("检测到右下角通知，但未找到当前可点击且安全的“忽略/关闭”按钮");
+    if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
+      throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
+    }
+    await candidates[0].locator.click({ timeout: 10_000 });
+    await waitUntil(
+      10_000,
+      async () => !(await importantNoticeCandidates(page)).some((candidate) => candidate.signature === notice.signature),
+      "右下角通知点击“忽略/关闭”后仍然可见",
+    );
+    dismissedCount += 1;
   }
-  candidates.sort((left, right) => right.score - left.score);
-  if (!candidates[0]) throw new Error("检测到右下角通知，但未找到可安全确认的“忽略/关闭”按钮");
-  if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
-    throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
+
+  if ((await importantNoticeCandidates(page)).length > 0) {
+    throw new Error("右下角连续通知超过 4 个安全处理上限，已停止");
   }
-  await candidates[0].locator.click({ timeout: 10_000 });
-  await waitUntil(10_000, async () => !await notice.locator.isVisible().catch(() => false), "右下角通知点击“忽略/关闭”后仍然可见");
   return "dismissed" as const;
 }
 

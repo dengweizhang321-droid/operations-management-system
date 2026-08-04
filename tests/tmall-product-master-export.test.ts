@@ -222,7 +222,7 @@ test("导出记录按原任务创建时间和已完成状态选择同一行下�
   ], runStartedAt), /多个创建时间同样接近/);
 });
 
-test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
+test("重要通知、商品巡检或发货异常提醒只允许右下角安全关闭动作", () => {
   const notice = {
     text: "重要通知",
     attributes: "",
@@ -260,6 +260,20 @@ test("重要通知或商品巡检只允许右下角安全关闭动作", () => {
     attributes: "next-btn",
     width: 60,
   }, { ...notice, text: "商品巡检" }), -1);
+  const shippingNotice = {
+    ...notice,
+    text: "发货异常提醒（延迟/缺货/虚假点击发货）",
+    top: 500,
+    width: 420,
+  };
+  assert.ok(scoreTmallBlockingNoticeCandidate(shippingNotice) > 0);
+  assert.ok(scoreImportantNoticeCloseCandidate(close, shippingNotice) > 0);
+  assert.equal(scoreImportantNoticeCloseCandidate({
+    ...close,
+    text: "立即处理",
+    attributes: "next-btn",
+    width: 80,
+  }, shippingNotice), -1);
   assert.equal(scoreImportantNoticeCloseCandidate({ ...close, left: 200, top: 120 }, notice), -1);
   assert.equal(scoreImportantNoticeCloseCandidate(close, { ...notice, left: 100, top: 100 }), -1);
   assert.ok(scoreTmallBlockingNoticeCandidate({
