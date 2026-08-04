@@ -8,6 +8,7 @@ import type { BrowserAutomationClient } from "../lib/jackyun/cdp-client";
 import { JackyunBrowserStateMachine } from "../lib/jackyun/browser-state-machine";
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
 import {
+  extractStockAgeOwnerId,
   findLocalDownloadedFile,
   productModeState,
   waitForNestedControls,
@@ -141,4 +142,15 @@ test("nested module controls are polled instead of failing on the outer wrapper"
   );
   assert.doesNotMatch(controllerSource, /for \(const grid of grids\) \{\s*const fileExport/);
   assert.match(controllerSource, /if \(missing\.length\) continue;/);
+  assert.doesNotMatch(controllerSource, /ownerId:\s*"\d{6,32}"/);
+});
+
+test("stock-age export derives the owner scope from the current query request", () => {
+  assert.equal(
+    extractStockAgeOwnerId('conditionJson=%7B%22ownerId%22%3A%22987654321012345678%22%7D'),
+    "987654321012345678",
+  );
+  assert.equal(extractStockAgeOwnerId('{"ownerId":"123456"}'), "123456");
+  assert.equal(extractStockAgeOwnerId('{"ownerId":""}'), undefined);
+  assert.equal(extractStockAgeOwnerId('{"ownerId":"not-an-id"}'), undefined);
 });

@@ -164,6 +164,13 @@ export function productModeState(body: string): "sku" | "goods" | "loading" {
   return "loading";
 }
 
+export function extractStockAgeOwnerId(postData: string) {
+  let decoded = postData;
+  try { decoded = decodeURIComponent(postData.replace(/\+/g, " ")); } catch { /* use the original request body */ }
+  const match = decoded.match(/["']?ownerId["']?\s*[:=]\s*["']?(\d{6,32})/i);
+  return match?.[1];
+}
+
 async function waitForProductModeState(
   client: BrowserAutomationClient,
   timeoutMs: number,
@@ -269,6 +276,28 @@ const minimalGridExportHeaders = {
   products: ["货品编号", "货品名称", "固定成本价", "基础单位"],
   inventory: ["货品编号", "货品名称", "规格", "单位", "仓库", "固定成本价", "库存数量"],
   inventory_age: ["仓库", "货品编号", "货品名称", "库存数量", "库龄(天)"],
+} as const;
+
+const stockAgeExportTemplate = {
+  serverName: "birc/birc/excel/v3/report",
+  excelType: "stockAgeReport",
+  headersJson: {
+    enName: [
+      "warehouseName", "goodsNo", "goodsName", "skuName", "skuBarcode", "unit", "cateName", "brandName",
+      "stockQty", "stockAge", "retailPrice", "minPrice", "wholesalePrice", "memberPrice", "costPrice",
+      "fixedCostPrice", "assistInfo", "goodsTypeName", "accountingQuantity", "costAmt",
+    ],
+    showName: [
+      "仓库", "货品编号", "货品名称", "规格", "条码", "单位", "分类", "品牌", "库存数量", "库龄(天)",
+      "零售价", "最低售价", "批发价", "会员价", "当前成本价", "固定成本价", "辅助显示", "货品类型",
+      "核算数量", "成本金额",
+    ],
+    permissionsFieldList: [],
+  },
+  datasource: "",
+  typeName: "库龄分析(正式勿删)",
+  multiSheet: false,
+  exportTotal: "",
 } as const;
 
 async function clickMenuSelector(client: BrowserAutomationClient, selector: string) {
@@ -686,6 +715,65 @@ async function triggerMinimalGridExportAllPage(
       }
     }
     return false;
+  })()`);
+}
+
+async function triggerStockAgePayloadExport(client: BrowserAutomationClient, ownerId: string) {
+  if (!/^\d{6,32}$/.test(ownerId)) throw new Error("库龄导出货主标识无效，已停止导出。");
+  await installDownloadFileHook(client, moduleUrlHints("inventory_age"));
+  const payload = {
+    ...stockAgeExportTemplate,
+    conditionJson: {
+      ownerId,
+      warehouseId: "",
+      skuId: "",
+      brandId: "",
+      cateId: "",
+      warehouseCompanyId: "",
+      stockAgeMin: "",
+      stockAgeMax: "",
+      goodsTypeCodes: "",
+      includeBlockWarehouse: "0",
+      pageIndex: 0,
+      pageSize: 1000,
+      sortField: "",
+      sortOrder: "",
+      cols: [...stockAgeExportTemplate.headersJson.enName],
+      orderIds: [],
+      version: "2.0",
+    },
+  };
+  return evaluateValue<boolean>(client, `(async () => {
+    const payload = ${JSON.stringify(payload)};
+    let api = globalThis.jkUtils;
+    if (!api) {
+      const visit = (doc) => {
+        try {
+          if (doc.defaultView?.jkUtils) return doc.defaultView.jkUtils;
+          for (const frame of doc.querySelectorAll('iframe,frame')) {
+            try {
+              const found = frame.contentDocument && visit(frame.contentDocument);
+              if (found) return found;
+            } catch {}
+          }
+        } catch {}
+        return null;
+      };
+      api = visit(document);
+    }
+    if (!api || typeof api.jkAjax !== 'function') throw new Error('stock age export API unavailable');
+    await api.jkAjax({
+      url: '/jkyun/excel-service/manager/validateExcelExport',
+      type: 'post',
+      data: { ...payload },
+    });
+    await api.jkAjax({
+      url: '/jkyun/excel-service/manager/startExcelExport',
+      type: 'post',
+      data: { ...payload, isSyn: 'false' },
+      timeout: 120000,
+    });
+    return true;
   })()`);
 }
 
@@ -1127,10 +1215,14 @@ async function runController(options: CliOptions) {
     await client.send("Page.enable");
     await client.send("Runtime.enable");
     await client.send("Network.enable");
+    let stockAgeOwnerId: string | undefined;
     client.on("Network.requestWillBeSent", (params) => {
-      const request = params.request as { url?: string } | undefined;
+      const request = params.request as { url?: string; postData?: string } | undefined;
       if (!request?.url) return;
       try { if (policy.browser.allowedDownloadHosts.includes(new URL(request.url).hostname)) capturedOssUrl = request.url; } catch { /* ignore */ }
+      if (moduleKey === "inventory_age" && request.postData && /birc|warehouse.*age|stock.*age/i.test(request.url)) {
+        stockAgeOwnerId ??= extractStockAgeOwnerId(request.postData);
+      }
     });
 
     if (moduleState.exportIntentAt && !moduleState.filePath) {
@@ -1342,6 +1434,13 @@ async function runController(options: CliOptions) {
         actionTimeout(policy, moduleKey),
         fastPoll(policy),
       );
+      if (moduleKey === "inventory_age") {
+        const ownerDeadline = Date.now() + actionTimeout(policy, moduleKey);
+        while (!stockAgeOwnerId && Date.now() < ownerDeadline) {
+          await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
+        }
+        if (!stockAgeOwnerId) throw new Error("库龄查询未捕获到本轮货主范围，已停止导出。");
+      }
       moduleState.status = "queried";
       await persistControllerState(controllerStatePath, state);
     }
@@ -1365,14 +1464,16 @@ async function runController(options: CliOptions) {
       await persistControllerState(controllerStatePath, state);
       const directExportStarted = moduleKey === "sales"
         ? await triggerSalesMinimalExportAllPage(client, moduleUrlHints(moduleKey))
-        : moduleKey === "combos"
-          ? await triggerComboDetailExportAllPage(client, moduleUrlHints(moduleKey))
-          : await triggerMinimalGridExportAllPage(
-              client,
-              moduleUrlHints(moduleKey),
-              moduleKey === "products" ? ["grid-goods_managet"] : [],
-              minimalGridExportHeaders[moduleKey],
-            );
+        : moduleKey === "inventory_age"
+          ? await triggerStockAgePayloadExport(client, stockAgeOwnerId ?? "")
+          : moduleKey === "combos"
+            ? await triggerComboDetailExportAllPage(client, moduleUrlHints(moduleKey))
+            : await triggerMinimalGridExportAllPage(
+                client,
+                moduleUrlHints(moduleKey),
+                moduleKey === "products" ? ["grid-goods_managet"] : [],
+                minimalGridExportHeaders[moduleKey],
+              );
       if (!directExportStarted) await rightClickDataRow(client, moduleUrlHints(moduleKey));
       if (moduleKey === "combos" && !directExportStarted) {
         await clickAnyTextEventually(client, ["导出组合装及子件"], actionTimeout(policy, moduleKey), fastPoll(policy));
