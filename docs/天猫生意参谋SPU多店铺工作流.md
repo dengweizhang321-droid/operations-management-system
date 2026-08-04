@@ -115,14 +115,19 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workfl
 
 该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。运营管理系统左侧“工作流”板块会展示 M→A→B→C 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。
 
-该副本不依赖 n8n 2 默认禁用的 `ExecuteCommand`，四个节点只访问 `127.0.0.1:5791`。执行前在另一个本机终端启动一次性辅助进程：
+该副本不依赖 n8n 2 默认禁用的 `ExecuteCommand`，四个节点只访问 `127.0.0.1:5791`。通过受保护命令启动本地 Worker 时，启动器会同时拉起并守护一次性辅助进程：
 
 ```powershell
-$env:TMALL_SYCM_COOKIE_FILE = "D:\path\to\cookie.txt"
-node --import tsx tools/tmall-sycm-cookie-pipeline.ts serve --port 5791
+npm run start:local-worker
 ```
 
-也可以把 Cookie 原文件的绝对路径作为单独一行写入 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt`。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。辅助进程只监听本机环回地址，n8n 按 `M→A→B→C` 顺序调用；重复、乱序或并发请求返回失败，成功或失败后自动退出。旧版工作流仍可从 A 开始，但不会自动补货品主数据。
+Cookie 原文件路径仍通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供，或作为单独一行写入 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt`。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。辅助进程只监听本机环回地址，n8n 按 `M→A→B→C` 顺序调用；重复、乱序或并发请求返回失败，成功或失败后自动退出，再由本地 Worker 启动器重新拉起待命。工作流页面每 5 秒读取一次只含阶段、忙碌状态和 Cookie 文件是否存在的 `/health`，不会读取文件路径或 Cookie 内容；状态不是“可以安全启动”时，嵌入画布由执行门禁遮挡。旧版工作流仍可从 A 开始，但不会自动补货品主数据。
+
+只有排查启动器时才单独运行下面的辅助命令；不要同时运行它和本地 Worker 启动器，否则 5791 端口门禁会安全拒绝第二个进程：
+
+```powershell
+node --import tsx tools/tmall-sycm-cookie-pipeline.ts serve --port 5791
+```
 
 执行门禁：
 
@@ -138,7 +143,7 @@ node --import tsx tools/tmall-sycm-cookie-pipeline.ts serve --port 5791
 node --import tsx tools/tmall-product-master-export.ts --store-key tmall-yijiu --launch-only
 ```
 
-当前一次性辅助进程只用于人工触发的一轮执行；若要发布小时级定时触发，必须先把辅助进程纳入受控服务生命周期和健康检查，不能让 n8n 在辅助进程未运行时空触发。M 每个上海自然日最多生成一个已确认货品快照，后续小时补跑会跳过；Cookie 失效、身份不一致或接口返回非 XLS 时只更新原 Cookie 文件并重新启动辅助进程，不得把 Cookie 或登录密码粘贴进 n8n 节点。
+当前一次性辅助进程每轮只接受一条串行链路；本地 Worker 启动器负责其服务生命周期，并在退出后采用 500ms 至 5s 有界退避重新待命。若要发布小时级定时触发，仍需先确认本地 Worker、n8n 和 `/health` 长期在线，不能让 n8n 在宿主机休眠或服务未运行时空触发。M 每个上海自然日最多生成一个已确认货品快照，后续小时补跑会跳过；Cookie 失效、身份不一致或接口返回非 XLS 时只更新原 Cookie 文件或 `.runtime` 路径指针，再等待页面状态恢复为“可以安全启动”，不得把 Cookie 或登录密码粘贴进 n8n 节点。
 
 ## 7. 每日调度顺序
 

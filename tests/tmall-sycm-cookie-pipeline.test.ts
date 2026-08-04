@@ -6,6 +6,8 @@ import {
   buildSycmExportUrl,
   decodeArtifactPath,
   encodeArtifactPath,
+  getCookieSourceStatus,
+  helperHealthCorsHeaders,
   helperRequestError,
   isLegacyXls,
   parseCookieHeader,
@@ -42,6 +44,19 @@ test("生意参谋导出固定为同一单日且路径用规范 Base64 传递", 
 test("下载响应必须是老式 XLS 魔数", () => {
   assert.equal(isLegacyXls(new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 1])), true);
   assert.equal(isLegacyXls(new TextEncoder().encode('{"code":5810}')), false);
+});
+
+test("健康检查只暴露 Cookie 文件就绪状态，并仅允许运营系统本机来源跨域读取", async () => {
+  assert.equal(await getCookieSourceStatus(""), "missing");
+  assert.equal(await getCookieSourceStatus("relative-cookie.txt"), "invalid");
+  assert.equal(await getCookieSourceStatus("C:\\definitely-missing\\cookie.txt"), "missing");
+
+  assert.deepEqual(helperHealthCorsHeaders("https://example.com"), {});
+  assert.deepEqual(helperHealthCorsHeaders(undefined), {});
+  const headers = helperHealthCorsHeaders("http://localhost:3000", true);
+  assert.equal(headers["Access-Control-Allow-Origin"], "http://localhost:3000");
+  assert.equal(headers["Access-Control-Allow-Private-Network"], "true");
+  assert.equal(JSON.stringify(headers).includes("cookie"), false);
 });
 
 test("一次性 HTTP 辅助进程允许幂等货品前置并拒绝乱序和并发调用", () => {

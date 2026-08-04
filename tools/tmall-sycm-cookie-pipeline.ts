@@ -23,6 +23,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "serve";
 export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "completed" | "failed";
 type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import";
+export type CookieSourceStatus = "ready" | "missing" | "invalid";
 
 type PipelinePlan = {
   version: 1;
@@ -365,6 +366,20 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function configuredCookieFilePath() {
+  return (process.env.TMALL_SYCM_COOKIE_FILE
+    ?? await readFile(defaultCookiePointerFile, "utf8").catch(() => "")).trim();
+}
+
+export async function getCookieSourceStatus(cookieFile?: string): Promise<CookieSourceStatus> {
+  const resolvedCookieFile = cookieFile ?? await configuredCookieFilePath();
+  if (!resolvedCookieFile) return "missing";
+  if (!path.isAbsolute(resolvedCookieFile)) return "invalid";
+  return stat(resolvedCookieFile)
+    .then((entry) => entry.isFile() ? "ready" as const : "invalid" as const)
+    .catch(() => "missing" as const);
+}
+
 async function fetchCommand(argv: string[]) {
   const encodedPlan = cliValue(argv, "--plan-base64");
   if (!encodedPlan) throw new Error("fetch 阶段缺少 --plan-base64");
@@ -372,10 +387,12 @@ async function fetchCommand(argv: string[]) {
   const plan = validatePlan(JSON.parse(await readFile(planPath, "utf8")) as PipelinePlan);
   const store = await getTmallStore(plan.storeKey);
   if (plan.shopName !== store.shopName || plan.baseUrl !== normalizeLocalBaseUrl(plan.baseUrl)) throw new Error("计划店铺或系统地址与注册表不一致");
-  const cookieFile = process.env.TMALL_SYCM_COOKIE_FILE
-    ?? await readFile(defaultCookiePointerFile, "utf8").then((value) => value.trim()).catch(() => "");
+  const cookieFile = await configuredCookieFilePath();
   if (!cookieFile || !path.isAbsolute(cookieFile)) {
     throw new Error("必须通过 TMALL_SYCM_COOKIE_FILE 或本机 .runtime 指针提供绝对 Cookie 文件路径");
+  }
+  if (await getCookieSourceStatus(cookieFile) !== "ready") {
+    throw new Error("Cookie 原文件不存在或不是普通文件，请更新本机 .runtime 指针后重试");
   }
   const cookie = parseCookieHeader(await readFile(cookieFile, "utf8"));
   assertCookieMatchesStore(cookie, store);
@@ -513,6 +530,18 @@ export function helperRequestError(stage: HelperStage, busy: boolean, route: Hel
   return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
 }
 
+export function helperHealthCorsHeaders(origin: string | undefined, allowPrivateNetwork = false) {
+  if (origin !== "http://localhost:3000" && origin !== "http://127.0.0.1:3000") return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "600",
+    Vary: "Origin",
+    ...(allowPrivateNetwork ? { "Access-Control-Allow-Private-Network": "true" } : {}),
+  };
+}
+
 async function serveCommand(argv: string[]) {
   const port = integerPort(cliValue(argv, "--port"));
   let stage: HelperStage = "ready";
@@ -520,6 +549,12 @@ async function serveCommand(argv: string[]) {
   let planPathBase64 = "";
   let manifestPathBase64 = "";
   const server = createServer(async (request, response) => {
+    const healthCorsHeaders = request.url === "/health"
+      ? helperHealthCorsHeaders(
+          request.headers.origin,
+          request.headers["access-control-request-private-network"] === "true",
+        )
+      : {};
     const reply = (status: number, payload: unknown) => {
       const body = JSON.stringify(payload);
       response.writeHead(status, {
@@ -527,11 +562,21 @@ async function serveCommand(argv: string[]) {
         "Content-Length": Buffer.byteLength(body),
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        ...healthCorsHeaders,
       });
       response.end(body);
     };
+    if (request.method === "OPTIONS" && request.url === "/health") {
+      if (!("Access-Control-Allow-Origin" in healthCorsHeaders)) {
+        reply(403, { ok: false, error: "origin_not_allowed" });
+        return;
+      }
+      response.writeHead(204, healthCorsHeaders);
+      response.end();
+      return;
+    }
     if (request.method === "GET" && request.url === "/health") {
-      reply(200, { ok: true, stage, busy });
+      reply(200, { ok: true, stage, busy, cookieSource: await getCookieSourceStatus() });
       return;
     }
     if (request.method !== "POST" || !["/product-master", "/plan", "/fetch", "/import"].includes(request.url ?? "")) {

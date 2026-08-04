@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import workflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
@@ -20,8 +20,50 @@ type N8nWorkflowDefinition = {
   }>;
 };
 
+type HelperHealthPayload = {
+  ok?: boolean;
+  stage?: "ready" | "mastered" | "planned" | "fetched" | "completed" | "failed";
+  busy?: boolean;
+  cookieSource?: "ready" | "missing" | "invalid";
+};
+
+type HelperAvailability = {
+  kind: "checking" | "ready" | "running" | "cookie-missing" | "offline";
+  label: string;
+  detail: string;
+};
+
 const workflow = workflowDefinition as N8nWorkflowDefinition;
 const workflowUrl = `http://localhost:5678/workflow/${encodeURIComponent(workflow.id)}`;
+const helperHealthUrl = "http://127.0.0.1:5791/health";
+const checkingHelper: HelperAvailability = {
+  kind: "checking",
+  label: "正在检测辅助服务",
+  detail: "正在确认 5791 环回服务是否在线、Cookie 原文件是否可读取。",
+};
+
+function helperAvailability(payload: HelperHealthPayload): HelperAvailability {
+  if (payload.ok !== true) throw new Error("invalid_health_response");
+  if (payload.cookieSource !== "ready") {
+    return {
+      kind: "cookie-missing",
+      label: "Cookie 文件待恢复",
+      detail: "辅助服务在线，但 Cookie 原文件不存在或路径无效；更新本机 .runtime 指针后重新检测。",
+    };
+  }
+  if (payload.busy || payload.stage !== "ready") {
+    return {
+      kind: "running",
+      label: "本轮执行中",
+      detail: "辅助服务正在处理当前串行链路，请等待完成后再发起下一轮。",
+    };
+  }
+  return {
+    kind: "ready",
+    label: "可以安全启动",
+    detail: "服务已在线；A 仅规划缺失日期，C 对同店同日同内容返回 duplicate，不会重复入库。",
+  };
+}
 
 const stageDetails: Record<string, { title: string; description: string }> = {
   M: {
@@ -62,11 +104,56 @@ const triggerCount = workflow.nodes.filter((node) =>
 export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
   const [frameKey, setFrameKey] = useState(0);
   const [frameReady, setFrameReady] = useState(false);
+  const [helperRefreshKey, setHelperRefreshKey] = useState(0);
+  const [helperStatus, setHelperStatus] = useState<HelperAvailability>(checkingHelper);
   const canManageWorkflow = currentUser?.role === "operator" || currentUser?.role === "admin";
+  const helperBlocksExecution = helperStatus.kind === "checking"
+    || helperStatus.kind === "cookie-missing"
+    || helperStatus.kind === "offline";
+
+  useEffect(() => {
+    let cancelled = false;
+    let activeController: AbortController | null = null;
+    const check = async () => {
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 2_000);
+      try {
+        const response = await fetch(helperHealthUrl, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json() as HelperHealthPayload;
+        if (!response.ok) throw new Error("helper_unavailable");
+        if (!cancelled) setHelperStatus(helperAvailability(payload));
+      } catch {
+        if (!cancelled) {
+          setHelperStatus({
+            kind: "offline",
+            label: "辅助服务离线",
+            detail: "请用受控启动命令重启本地 Worker；5791 服务会自动拉起并在每轮结束后重新待命。",
+          });
+        }
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    void check();
+    const interval = window.setInterval(() => void check(), 5_000);
+    return () => {
+      cancelled = true;
+      activeController?.abort();
+      window.clearInterval(interval);
+    };
+  }, [helperRefreshKey]);
 
   const refreshFrame = () => {
     setFrameReady(false);
     setFrameKey((key) => key + 1);
+  };
+
+  const refreshHelperStatus = () => {
+    setHelperStatus(checkingHelper);
+    setHelperRefreshKey((key) => key + 1);
   };
 
   return (
@@ -99,7 +186,10 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
       <section className="panel n8n-pipeline-panel" aria-labelledby="n8n-pipeline-title">
         <div className="n8n-panel-heading">
           <div><span>FLOW OVERVIEW</span><h3 id="n8n-pipeline-title">四段式安全导入链路</h3><p>两个触发入口汇入同一条串行链路；任一步失败都会停止后续导入。</p></div>
-          <span className="n8n-loopback-badge">仅访问 127.0.0.1:5791</span>
+          <div className="n8n-loopback-status">
+            <span className={`n8n-helper-pill is-${helperStatus.kind}`}><i />{helperStatus.label}</span>
+            <span className="n8n-loopback-badge">仅访问 127.0.0.1:5791</span>
+          </div>
         </div>
         <div className="n8n-pipeline-flow">
           <div className="n8n-trigger-stack" aria-label="触发入口">
@@ -129,8 +219,19 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
           </div>}
         </div>
         {canManageWorkflow ? <>
+          <div className={`n8n-helper-banner is-${helperStatus.kind}`} data-helper-status={helperStatus.kind} aria-live="polite">
+            <span><i />{helperStatus.label}</span>
+            <p>{helperStatus.detail}</p>
+            <button type="button" onClick={refreshHelperStatus}>重新检测</button>
+          </div>
           <div className="n8n-frame-shell">
             {!frameReady && <div className="n8n-frame-loading" role="status"><span /><strong>正在连接本机 n8n</strong><small>如果出现登录页，请先完成 n8n 登录。</small></div>}
+            {helperBlocksExecution && <div className="n8n-helper-gate" role="alert">
+              <span>执行门禁</span>
+              <strong>{helperStatus.label}</strong>
+              <p>{helperStatus.detail}</p>
+              <button type="button" onClick={refreshHelperStatus}>重新检测</button>
+            </div>}
             <iframe
               key={frameKey}
               className="n8n-workflow-frame"
@@ -142,7 +243,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
               allow="clipboard-read; clipboard-write"
             />
           </div>
-          <footer className="n8n-editor-note"><span>安全边界</span><p>页面只嵌入本机编辑器。Cookie、账号、密码、Token 和 Session 均不进入运营系统；执行前仍需启动一次性环回辅助进程。</p></footer>
+          <footer className="n8n-editor-note"><span>安全与去重</span><p>页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；缺口规划会跳过已覆盖日期，导入接口继续按店铺、数据集、日期和文件内容幂等去重。</p></footer>
         </> : <div className="n8n-access-card">
           <span>锁</span><div><strong>需要操作员或管理员权限</strong><p>当前账号可查看流程概览，但不能加载可执行的 n8n 编辑器。该限制防止只读账号绕过系统权限发起真实导入。</p></div>
         </div>}

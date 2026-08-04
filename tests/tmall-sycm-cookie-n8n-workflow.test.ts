@@ -57,6 +57,9 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /title="天猫店铺数据导入 n8n 工作流"/);
   assert.match(view, /sandbox="allow-downloads[^"]+allow-scripts"/);
   assert.match(view, /Cookie、账号、密码、Token 和 Session 均不进入运营系统/);
+  assert.match(view, /http:\/\/127\.0\.0\.1:5791\/health/);
+  assert.match(view, /data-helper-status=\{helperStatus\.kind\}/);
+  assert.match(view, /同店同日同内容返回 duplicate/);
 });
 
 test("n8n 工作流视图只向操作角色渲染可执行编辑器", async () => {
@@ -74,4 +77,6 @@ test("n8n 工作流视图只向操作角色渲染可执行编辑器", async () =
   assert.doesNotMatch(viewerHtml, /<iframe/);
   assert.match(operatorHtml, /<iframe/);
   assert.match(operatorHtml, /http:\/\/localhost:5678\/workflow\/M4xY8kQ2vR6sT9pC/);
+  assert.match(operatorHtml, /data-helper-status="checking"/);
+  assert.match(operatorHtml, /执行门禁/);
 });

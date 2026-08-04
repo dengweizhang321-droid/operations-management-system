@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,8 +7,12 @@ import test from "node:test";
 
 import {
   assertLocalWorkerPortAvailable,
+  assertTmallWorkflowHelperPortAvailable,
+  createTmallWorkflowHelperSupervisor,
   ensureRuntimeDevVarsLink,
   getLocalWorkerBuildCommand,
+  getTmallWorkflowHelperCommand,
+  getTmallWorkflowHelperRestartDelay,
   parseLocalWorkerArguments,
 } from "../tools/start-local-worker.mjs";
 
@@ -17,6 +22,16 @@ test("local Worker build always enables the local-only build flag", () => {
   assert.equal(command.args.at(-1), "build");
   assert.match(command.args[0] ?? "", /example-project[\\/]node_modules[\\/]vinext[\\/]dist[\\/]cli\.js$/);
   assert.equal(command.env.VITE_TERUISI_LOCAL_BUILD, "true");
+});
+
+test("local Worker starts the loopback-only Tmall workflow helper without passing credentials", () => {
+  const command = getTmallWorkflowHelperCommand("D:/example-project", 5791);
+
+  assert.equal(command.command, process.execPath);
+  assert.deepEqual(command.args.slice(0, 2), ["--import", "tsx"]);
+  assert.match(command.args[2] ?? "", /example-project[\\/]tools[\\/]tmall-sycm-cookie-pipeline\.ts$/);
+  assert.deepEqual(command.args.slice(3), ["serve", "--port", "5791"]);
+  assert.equal(command.args.some((argument) => /--(?:cookie|password|token)|(?:cookie|password|token)=/i.test(argument)), false);
 });
 
 test("control-only build flag is consumed before arguments reach Wrangler", () => {
@@ -33,6 +48,65 @@ test("local Worker refuses to build or start while port 3000 is occupied", async
     /端口 3000 已有服务运行/,
   );
   await assert.doesNotReject(assertLocalWorkerPortAvailable(async () => false));
+});
+
+test("local Worker refuses an unknown listener on the Tmall helper port", async () => {
+  await assert.rejects(
+    assertTmallWorkflowHelperPortAvailable(async (port) => {
+      assert.equal(port, 5791);
+      return true;
+    }),
+    /端口 5791 已有服务运行/,
+  );
+  await assert.doesNotReject(assertTmallWorkflowHelperPortAvailable(async () => false));
+});
+
+test("Tmall helper supervisor restarts a completed one-shot process and stops its owned child", () => {
+  class FakeChild extends EventEmitter {
+    exitCode: number | null = null;
+    signalCode: string | null = null;
+    killed = false;
+
+    kill() {
+      this.killed = true;
+      this.exitCode = 0;
+      this.emit("exit", 0, null);
+      return true;
+    }
+  }
+
+  const children: FakeChild[] = [];
+  const timers: Array<{ callback: () => void; delay: number; cancelled?: boolean }> = [];
+  const supervisor = createTmallWorkflowHelperSupervisor({
+    root: "D:/example-project",
+    spawnProcess: () => {
+      const child = new FakeChild();
+      children.push(child);
+      return child;
+    },
+    scheduleRestart: (callback, delay) => {
+      const timer = { callback, delay };
+      timers.push(timer);
+      return timer;
+    },
+    cancelRestart: (timer) => {
+      timer.cancelled = true;
+    },
+    now: () => 1_000,
+  });
+
+  supervisor.start();
+  assert.equal(children.length, 1);
+  children[0]!.emit("exit", 0, null);
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0]!.delay, 500);
+  timers[0]!.callback();
+  assert.equal(children.length, 2);
+
+  supervisor.stop();
+  assert.equal(children[1]!.killed, true);
+  assert.equal(timers.length, 1);
+  assert.deepEqual([0, 1, 2, 99].map(getTmallWorkflowHelperRestartDelay), [500, 1_000, 2_000, 5_000]);
 });
 
 test("prebuilt local Worker receives the ignored root .dev.vars through a hard link", async () => {
