@@ -158,6 +158,28 @@ async function pageText(client: BrowserAutomationClient) {
   return evaluateValue<string>(client, `(() => { ${jsDocumentsPrelude()} return documents.map((doc) => doc.body?.innerText || '').join(String.fromCharCode(10)); })()`);
 }
 
+export function productModeState(body: string): "sku" | "goods" | "loading" {
+  if (/规格模式[（(]?SKU[）)]?/i.test(body)) return "sku";
+  if (/货品模式/i.test(body)) return "goods";
+  return "loading";
+}
+
+async function waitForProductModeState(
+  client: BrowserAutomationClient,
+  timeoutMs: number,
+  pollIntervalMs: number,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const body = await pageText(client);
+    if (isLikelyJackyunLoginPage(body)) throw new Error("当前是吉客云登录页，请先完成登录后再继续自动化。");
+    const state = productModeState(body);
+    if (state !== "loading") return state;
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+  throw new Error("货品查询页未加载出货品/规格模式控件，已停止导出。");
+}
+
 async function currentUrl(client: BrowserAutomationClient) {
   return evaluateValue<string>(client, "location.href");
 }
@@ -1122,13 +1144,26 @@ async function runController(options: CliOptions) {
 
     const fieldChecks: NonNullable<BrowserHandoff["fieldChecks"]> = [];
     if (moduleKey === "products") {
-      const body = await pageText(client);
-      if (!/规格模式[（(]?SKU[）)]?/i.test(body)) {
+      const initialMode = await waitForProductModeState(
+        client,
+        actionTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
+      if (initialMode !== "sku") {
         await clickAnyText(client, ["规格模式", "货品模式"]);
-        await clickAnyText(client, ["规格模式(SKU)", "规格模式（SKU）", "SKU模式"]);
+        await clickAnyTextEventually(
+          client,
+          ["规格模式(SKU)", "规格模式（SKU）", "SKU模式"],
+          actionTimeout(policy, moduleKey),
+          fastPoll(policy),
+        );
       }
-      const verified = await pageText(client);
-      if (!/规格模式[（(]?SKU[）)]?/i.test(verified)) throw new Error("货品模式未能读回确认为 SKU。");
+      const verifiedMode = await waitForProductModeState(
+        client,
+        actionTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
+      if (verifiedMode !== "sku") throw new Error("货品模式未能读回确认为 SKU。");
       fieldChecks.push({ field: "模式", value: "规格模式(SKU)", verifiedAt: new Date().toISOString() });
     }
     if (moduleKey === "inventory") {

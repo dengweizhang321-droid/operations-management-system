@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { JackyunBrowserStateMachine } from "../lib/jackyun/browser-state-machine";
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
-import { findLocalDownloadedFile } from "../tools/jackyun-browser-controller";
+import { findLocalDownloadedFile, productModeState } from "../tools/jackyun-browser-controller";
 
 test("daily module order puts sales fourth and combos last", () => {
   assert.deepEqual(jackyunModuleOrder, ["products", "inventory", "inventory_age", "sales", "combos"]);
@@ -100,4 +100,11 @@ test("a new browser run only accepts a workbook created after its own export int
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("product navigation waits for the nested mode control instead of accepting dashboard text", () => {
+  assert.equal(productModeState("驾驶舱 货品查询 公告 系统目录"), "loading");
+  assert.equal(productModeState("货品查询 货品模式"), "goods");
+  assert.equal(productModeState("货品查询 规格模式(SKU) 货品编号 规格编号"), "sku");
+  assert.equal(productModeState("货品查询 规格模式（SKU）"), "sku");
 });
