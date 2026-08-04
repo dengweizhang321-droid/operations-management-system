@@ -666,12 +666,10 @@ async function triggerMinimalGridExportAllPage(
           return score(b) - score(a);
         });
       for (const grid of grids) {
-        const fileExport = win?.jkUtils?.fileExport;
-        if (!fileExport || typeof fileExport.startExcelExport !== 'function') continue;
         const columns = grid.getColumns();
         const selected = requiredHeaders.map((header) => columns.find((column) => column.header === header)).filter(Boolean);
         const missing = requiredHeaders.filter((header) => !selected.some((column) => column.header === header));
-        if (missing.length) throw new Error('minimal export missing columns: ' + missing.join(','));
+        if (missing.length) continue;
         const item = findItem(grid.contextMenuItems || grid.customMenuItems || [], 'exportAll');
         // v4 的 grid.exportAllPage() 会异步走完整导出流程（startExcelExport → downloadFile(OSS)）。
         // 旧版通过 hook startExcelExport 捕获 config 再重新导出，但 v4 下 hook 会中断异步流程

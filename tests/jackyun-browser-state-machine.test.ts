@@ -139,4 +139,6 @@ test("nested module controls are polled instead of failing on the outer wrapper"
     controllerSource,
     /await clickAnyTextEventually\(\s*client,\s*\["筛选", "查询"\]/,
   );
+  assert.doesNotMatch(controllerSource, /for \(const grid of grids\) \{\s*const fileExport/);
+  assert.match(controllerSource, /if \(missing\.length\) continue;/);
 });
