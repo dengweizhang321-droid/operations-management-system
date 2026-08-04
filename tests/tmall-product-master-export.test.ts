@@ -7,6 +7,7 @@ import test from "node:test";
 import * as XLSX from "xlsx";
 
 import {
+  compareTmallNoticeActionCandidates,
   chooseLatestTmallDownloadSignature,
   chooseTmallExportRecordSignature,
   createTmallBrowserDownloadSession,
@@ -27,6 +28,7 @@ import {
   scoreProductManagerCandidate,
   scoreProductManagerFloatingCandidate,
   scoreTmallBlockingNoticeCandidate,
+  shouldRejectEqualTmallNoticeActions,
 } from "../tools/tmall-product-master-export";
 
 function masterWorkbook() {
@@ -280,6 +282,16 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "", attributes: "next-icon-close" }), true);
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "立即处理", attributes: "next-btn" }), false);
   assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "", attributes: "next-icon" }), false);
+  const rankedActions = [
+    { score: 30, signature: "unlabeled", explicitDismiss: false },
+    { score: 30, signature: "close", explicitDismiss: true },
+  ].sort(compareTmallNoticeActionCandidates);
+  assert.equal(rankedActions[0]?.signature, "close");
+  assert.equal(shouldRejectEqualTmallNoticeActions(rankedActions[0]!, rankedActions[1]), false);
+  assert.equal(shouldRejectEqualTmallNoticeActions(
+    { score: 30, signature: "unlabeled-a", explicitDismiss: false },
+    { score: 30, signature: "unlabeled-b", explicitDismiss: false },
+  ), true);
   assert.equal(sameTmallNoticeActionTarget(close, {
     ...close,
     left: 1356,

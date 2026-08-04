@@ -360,6 +360,26 @@ export function sameTmallNoticeActionTarget(left: PositionedUiElement, right: Po
     && Math.hypot(leftCenterX - rightCenterX, leftCenterY - rightCenterY) <= 8;
 }
 
+export function compareTmallNoticeActionCandidates(
+  left: { score: number; explicitDismiss: boolean },
+  right: { score: number; explicitDismiss: boolean },
+) {
+  return Number(right.explicitDismiss) - Number(left.explicitDismiss) || right.score - left.score;
+}
+
+export function shouldRejectEqualTmallNoticeActions(
+  first: { score: number; signature: string; explicitDismiss: boolean },
+  second?: { score: number; signature: string; explicitDismiss: boolean },
+) {
+  return Boolean(
+    second
+    && second.score === first.score
+    && second.signature !== first.signature
+    && !first.explicitDismiss
+    && !second.explicitDismiss,
+  );
+}
+
 export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, contextText = detail.text) {
   if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
   if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.35) return -1;
@@ -848,7 +868,7 @@ async function dismissImportantNotice(page: Page) {
         explicitDismiss: isExplicitTmallNoticeDismissAction(detail),
       });
     }
-    candidates.sort((left, right) => right.score - left.score);
+    candidates.sort(compareTmallNoticeActionCandidates);
     const distinctCandidates: typeof candidates = [];
     for (const candidate of candidates) {
       if (!distinctCandidates.some((existing) => sameTmallNoticeActionTarget(existing.detail, candidate.detail))) {
@@ -856,12 +876,7 @@ async function dismissImportantNotice(page: Page) {
       }
     }
     if (!distinctCandidates[0]) throw new Error("检测到右下角通知，但未找到当前可点击且安全的“忽略/关闭”按钮");
-    if (
-      distinctCandidates[1]
-      && distinctCandidates[1].score === distinctCandidates[0].score
-      && distinctCandidates[1].signature !== distinctCandidates[0].signature
-      && (!distinctCandidates[0].explicitDismiss || !distinctCandidates[1].explicitDismiss)
-    ) {
+    if (shouldRejectEqualTmallNoticeActions(distinctCandidates[0], distinctCandidates[1])) {
       throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
     }
     const noticeSignaturesBeforeClick = new Set(notices.map((candidate) => candidate.signature));
