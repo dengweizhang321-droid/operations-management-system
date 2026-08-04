@@ -20,6 +20,7 @@ import {
   parseTmallShanghaiTaskTime,
   productManagerFloatingClusterKey,
   runTmallProductMasterStage,
+  sameTmallNoticeActionTarget,
   scoreChatSendCandidate,
   scoreImportantNoticeCloseCandidate,
   scoreProductManagerCandidate,
@@ -274,6 +275,25 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
     attributes: "next-btn",
     width: 80,
   }, shippingNotice), -1);
+  assert.equal(sameTmallNoticeActionTarget(close, {
+    ...close,
+    left: 1356,
+    top: 626,
+    width: 16,
+    height: 16,
+    tag: "span",
+    role: "",
+    attributes: "next-icon next-icon-close",
+  }), true);
+  assert.equal(sameTmallNoticeActionTarget(close, {
+    ...close,
+    left: 1180,
+    top: 700,
+    width: 80,
+    height: 32,
+    text: "忽略",
+    attributes: "next-btn",
+  }), false);
   assert.equal(scoreImportantNoticeCloseCandidate({ ...close, left: 200, top: 120 }, notice), -1);
   assert.equal(scoreImportantNoticeCloseCandidate(close, { ...notice, left: 100, top: 100 }), -1);
   assert.ok(scoreTmallBlockingNoticeCandidate({

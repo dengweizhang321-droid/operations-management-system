@@ -331,6 +331,27 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   return score;
 }
 
+export function sameTmallNoticeActionTarget(left: PositionedUiElement, right: PositionedUiElement) {
+  const intersectionWidth = Math.max(
+    0,
+    Math.min(left.left + left.width, right.left + right.width) - Math.max(left.left, right.left),
+  );
+  const intersectionHeight = Math.max(
+    0,
+    Math.min(left.top + left.height, right.top + right.height) - Math.max(left.top, right.top),
+  );
+  const smallerArea = Math.min(left.width * left.height, right.width * right.height);
+  if (smallerArea <= 0) return false;
+  const overlapOfSmaller = (intersectionWidth * intersectionHeight) / smallerArea;
+  if (overlapOfSmaller >= 0.8) return true;
+  const leftCenterX = left.left + left.width / 2;
+  const leftCenterY = left.top + left.height / 2;
+  const rightCenterX = right.left + right.width / 2;
+  const rightCenterY = right.top + right.height / 2;
+  return overlapOfSmaller >= 0.5
+    && Math.hypot(leftCenterX - rightCenterX, leftCenterY - rightCenterY) <= 8;
+}
+
 export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, contextText = detail.text) {
   if (detail.viewportWidth <= 0 || detail.viewportHeight <= 0) return -1;
   if (detail.left < detail.viewportWidth * 0.45 || detail.top < detail.viewportHeight * 0.35) return -1;
@@ -797,7 +818,12 @@ async function dismissImportantNotice(page: Page) {
       ? notice.actionScope.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]')
       : notice.frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
     const count = Math.min(await actions.count().catch(() => 0), 120);
-    const candidates: Array<{ locator: Locator; score: number; signature: string }> = [];
+    const candidates: Array<{
+      locator: Locator;
+      score: number;
+      signature: string;
+      detail: PositionedUiElement;
+    }> = [];
     for (let index = 0; index < count; index += 1) {
       const locator = actions.nth(index);
       if (!await locator.isVisible().catch(() => false)) continue;
@@ -809,14 +835,25 @@ async function dismissImportantNotice(page: Page) {
         locator,
         score,
         signature: `${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.attributes}`,
+        detail,
       });
     }
     candidates.sort((left, right) => right.score - left.score);
-    if (!candidates[0]) throw new Error("检测到右下角通知，但未找到当前可点击且安全的“忽略/关闭”按钮");
-    if (candidates[1] && candidates[1].score === candidates[0].score && candidates[1].signature !== candidates[0].signature) {
+    const distinctCandidates: typeof candidates = [];
+    for (const candidate of candidates) {
+      if (!distinctCandidates.some((existing) => sameTmallNoticeActionTarget(existing.detail, candidate.detail))) {
+        distinctCandidates.push(candidate);
+      }
+    }
+    if (!distinctCandidates[0]) throw new Error("检测到右下角通知，但未找到当前可点击且安全的“忽略/关闭”按钮");
+    if (
+      distinctCandidates[1]
+      && distinctCandidates[1].score === distinctCandidates[0].score
+      && distinctCandidates[1].signature !== distinctCandidates[0].signature
+    ) {
       throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
     }
-    await candidates[0].locator.click({ timeout: 10_000 });
+    await distinctCandidates[0].locator.click({ timeout: 10_000 });
     await waitUntil(
       10_000,
       async () => !(await importantNoticeCandidates(page)).some((candidate) => candidate.signature === notice.signature),
