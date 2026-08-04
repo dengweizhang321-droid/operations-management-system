@@ -313,10 +313,9 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   if (notice.left < notice.viewportWidth * 0.45 || notice.top < notice.viewportHeight * 0.4) return -1;
   const centerX = detail.left + detail.width / 2;
   const centerY = detail.top + detail.height / 2;
-  const closeLabel = `${detail.text} ${detail.attributes}`.replace(/\s+/g, " ").trim();
   const text = detail.text.replace(/\s+/g, "").trim();
   if (/去优化|立即优化|去处理|立即处理|查看详情|去查看|去解决|处理异常|去发货|立即发货|去补货|立即补货/.test(text)) return -1;
-  const explicitClose = text === "忽略" || /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(closeLabel);
+  const explicitClose = isExplicitTmallNoticeDismissAction(detail);
   const compact = detail.width >= 8 && detail.width <= 72 && detail.height >= 8 && detail.height <= 72;
   const nearby = centerX >= notice.left - 40
     && centerX <= notice.viewportWidth
@@ -329,6 +328,15 @@ export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, 
   if (centerX >= notice.left) score += 3;
   if (centerY <= notice.top + 80) score += 2;
   return score;
+}
+
+export function isExplicitTmallNoticeDismissAction(detail: PositionedUiElement) {
+  const text = detail.text.replace(/\s+/g, "").trim();
+  if (/去优化|立即优化|去处理|立即处理|查看详情|去查看|去解决|处理异常|去发货|立即发货|去补货|立即补货/.test(text)) {
+    return false;
+  }
+  const label = `${detail.text} ${detail.attributes}`.replace(/\s+/g, " ").trim();
+  return text === "忽略" || /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(label);
 }
 
 export function sameTmallNoticeActionTarget(left: PositionedUiElement, right: PositionedUiElement) {
@@ -823,6 +831,7 @@ async function dismissImportantNotice(page: Page) {
       score: number;
       signature: string;
       detail: PositionedUiElement;
+      explicitDismiss: boolean;
     }> = [];
     for (let index = 0; index < count; index += 1) {
       const locator = actions.nth(index);
@@ -836,6 +845,7 @@ async function dismissImportantNotice(page: Page) {
         score,
         signature: `${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.attributes}`,
         detail,
+        explicitDismiss: isExplicitTmallNoticeDismissAction(detail),
       });
     }
     candidates.sort((left, right) => right.score - left.score);
@@ -850,13 +860,18 @@ async function dismissImportantNotice(page: Page) {
       distinctCandidates[1]
       && distinctCandidates[1].score === distinctCandidates[0].score
       && distinctCandidates[1].signature !== distinctCandidates[0].signature
+      && (!distinctCandidates[0].explicitDismiss || !distinctCandidates[1].explicitDismiss)
     ) {
       throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
     }
+    const noticeSignaturesBeforeClick = new Set(notices.map((candidate) => candidate.signature));
     await distinctCandidates[0].locator.click({ timeout: 10_000 });
     await waitUntil(
       10_000,
-      async () => !(await importantNoticeCandidates(page)).some((candidate) => candidate.signature === notice.signature),
+      async () => {
+        const currentSignatures = new Set((await importantNoticeCandidates(page)).map((candidate) => candidate.signature));
+        return [...noticeSignaturesBeforeClick].some((signature) => !currentSignatures.has(signature));
+      },
       "右下角通知点击“忽略/关闭”后仍然可见",
     );
     dismissedCount += 1;

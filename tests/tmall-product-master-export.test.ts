@@ -14,6 +14,7 @@ import {
   hasAcceptedTmallExportTask,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
+  isExplicitTmallNoticeDismissAction,
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
   isTmallProductWorkbookFilename,
@@ -275,6 +276,10 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
     attributes: "next-btn",
     width: 80,
   }, shippingNotice), -1);
+  assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "忽略", attributes: "next-btn" }), true);
+  assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "", attributes: "next-icon-close" }), true);
+  assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "立即处理", attributes: "next-btn" }), false);
+  assert.equal(isExplicitTmallNoticeDismissAction({ ...close, text: "", attributes: "next-icon" }), false);
   assert.equal(sameTmallNoticeActionTarget(close, {
     ...close,
     left: 1356,
