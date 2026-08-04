@@ -26,19 +26,35 @@ interface D1Database {
 }
 
 interface R2ObjectBody {
+  body: ReadableStream;
+  httpEtag: string;
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
 interface R2Bucket {
-  put(key: string, value: ArrayBuffer | Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  put(key: string, value: ArrayBuffer | Uint8Array, options?: {
+    httpMetadata?: { contentType?: string; cacheControl?: string };
+    customMetadata?: Record<string, string>;
+  }): Promise<unknown>;
+  head(key: string): Promise<unknown | null>;
   get(key: string): Promise<R2ObjectBody | null>;
   delete(keys: string | string[]): Promise<void>;
+}
+
+interface ImagesBinding {
+  info(stream: ReadableStream): Promise<{ width?: number; height?: number }>;
+  input(stream: ReadableStream): {
+    transform(options: Record<string, unknown>): {
+      output(options: { format: string; quality: number; anim?: boolean }): Promise<{ response(): Response }>;
+    };
+  };
 }
 
 declare module "cloudflare:workers" {
   export const env: {
     DB?: D1Database;
     SALES_IMPORT_FILES?: R2Bucket;
+    IMAGES?: ImagesBinding;
     AI_SECRET_ENCRYPTION_KEY?: string;
     TERUISI_LOCAL_DIRECT_ACCESS?: string;
     TERUISI_RUNTIME_ENV?: string;

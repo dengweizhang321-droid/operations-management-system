@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 
 import { encodeAnnotationImageBase64, fetchAnnotationImage, resolveAnnotationImageCandidates, type AnnotationImageSource } from "@/lib/market/annotation-image";
+import { optimizeAnnotationImageWithRuntime } from "@/lib/market/annotation-image-runtime";
+import { annotationModelImageObjectKey, cachedAnnotationModelImage } from "@/lib/market/annotation-model-image";
 import { ensureMarketSchema, getMarketDatabase, type MarketDatabase } from "@/lib/market/database";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "@/lib/market/image-cache-state";
 
@@ -48,6 +50,7 @@ async function cacheOne(db: MarketDatabase, sourceUrl: string): Promise<CacheRes
         customMetadata: { source: "jd-market-ranking", sha256: contentHash },
       });
     }
+    await cacheAnnotationModelVariant(contentHash, result).catch(() => undefined);
     const completed = await completeMarketImageCacheClaim(db, {
       sourceUrl, attemptCount, objectKey, contentHash, mimeType: result.mimeType,
       sizeBytes: result.bytes.byteLength, imageSource: result.source,
@@ -60,6 +63,17 @@ async function cacheOne(db: MarketDatabase, sourceUrl: string): Promise<CacheRes
     if (!failed) return { cached: false, skipped: true, reason: "lost_claim" };
     return { cached: false, reason: "cache_failed" };
   }
+}
+
+async function cacheAnnotationModelVariant(contentHash: string, image: Extract<Awaited<ReturnType<typeof fetchAnnotationImage>>, { kind: "image" }>) {
+  const objectKey = annotationModelImageObjectKey(contentHash);
+  if (await bucket().head(objectKey)) return;
+  const optimized = await optimizeAnnotationImageWithRuntime(image);
+  if (!optimized.optimizedForModel) return;
+  await bucket().put(objectKey, optimized.bytes, {
+    httpMetadata: { contentType: optimized.mimeType, cacheControl: "private, max-age=31536000, immutable" },
+    customMetadata: { source: "market-annotation-model-input", sha256: contentHash },
+  });
 }
 
 async function cacheStats(db: MarketDatabase, batchId?: string) {
@@ -119,17 +133,27 @@ export async function getCachedMarketImage(contentHash: string, db: MarketDataba
 
 export async function getCachedMarketImageForAnnotation(sourceUrl: string, db: MarketDatabase) {
   if (!sourceUrl) return null;
-  const row = await db.prepare(`SELECT object_key objectKey, mime_type mimeType, size_bytes sizeBytes, image_source imageSource
+  const row = await db.prepare(`SELECT object_key objectKey, content_sha256 contentHash, mime_type mimeType, size_bytes sizeBytes, image_source imageSource
     FROM market_image_cache WHERE source_url=? AND status='ready' AND object_key<>'' LIMIT 1`)
-    .bind(sourceUrl).first<{ objectKey: string; mimeType: string; sizeBytes: number; imageSource: string }>();
+    .bind(sourceUrl).first<{ objectKey: string; contentHash: string; mimeType: string; sizeBytes: number; imageSource: string }>();
   if (!row?.objectKey || !["image/jpeg", "image/png", "image/webp"].includes(row.mimeType)) return null;
+  const source = (row.imageSource === "n5" ? "n5" : "imgzone") as AnnotationImageSource;
+  const resolvedUrl = resolveAnnotationImageCandidates(sourceUrl).find((candidate) => candidate.source === source)?.url;
+  if (!resolvedUrl) return null;
+  const modelObject = row.contentHash
+    ? await bucket().get(annotationModelImageObjectKey(row.contentHash)).catch(() => null)
+    : null;
+  if (modelObject) {
+    const modelBytes = new Uint8Array(await modelObject.arrayBuffer());
+    if (modelBytes.byteLength > 0 && modelBytes.byteLength < Number(row.sizeBytes) && modelBytes.byteLength <= CACHE_MAX_BYTES) {
+      const optimized = cachedAnnotationModelImage({ kind: "image", source, url: resolvedUrl }, modelBytes);
+      if (optimized) return optimized;
+    }
+  }
   const object = await bucket().get(row.objectKey);
   if (!object) return null;
   const bytes = new Uint8Array(await object.arrayBuffer());
   if (!bytes.byteLength || bytes.byteLength !== Number(row.sizeBytes) || bytes.byteLength > CACHE_MAX_BYTES) return null;
-  const source = (row.imageSource === "n5" ? "n5" : "imgzone") as AnnotationImageSource;
-  const resolvedUrl = resolveAnnotationImageCandidates(sourceUrl).find((candidate) => candidate.source === source)?.url;
-  if (!resolvedUrl) return null;
   return {
     kind: "image" as const,
     source,

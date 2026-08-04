@@ -46,6 +46,157 @@ export function annotationRecoveredConcurrency(
   return Math.min(configured, current + recoverySteps);
 }
 
+export type AnnotationRunRetryDecision = {
+  kind: Exclude<AnnotationRetryKind, "waiting">;
+  scope: "worker" | "global";
+  delayMs: number;
+  blockedUntil: number;
+  previousConcurrency: number;
+  concurrency: number;
+  countedIncident: boolean;
+  suppressedByGlobalRateLimit: boolean;
+};
+
+/**
+ * Coordinates one interactive cloud run. Ordinary transient failures lower the
+ * shared launch ceiling but cool down only the worker that observed the error.
+ * Provider rate limits retain a global launch pause so no worker amplifies a
+ * 429 response.
+ */
+export class AnnotationRunRetryController {
+  private configuredConcurrency: number;
+  private currentConcurrency: number;
+  private transientFailureCount = 0;
+  private rateLimitFailureCount = 0;
+  private successfulImagesSinceFailure = 0;
+  private transientIncidentUntil = 0;
+  private globalRateLimitUntil = 0;
+  private readonly workerRetryUntil = new Map<number, number>();
+
+  constructor(configuredConcurrency: number) {
+    const normalized = Math.max(1, Math.trunc(configuredConcurrency));
+    this.configuredConcurrency = normalized;
+    this.currentConcurrency = normalized;
+  }
+
+  get targetConcurrency() {
+    return this.configuredConcurrency;
+  }
+
+  get workerLimit() {
+    return this.currentConcurrency;
+  }
+
+  get recovering() {
+    return this.currentConcurrency < this.configuredConcurrency;
+  }
+
+  updateTarget(configuredConcurrency: number) {
+    const normalized = Math.max(1, Math.trunc(configuredConcurrency));
+    const wasRecovering = this.recovering;
+    this.configuredConcurrency = normalized;
+    this.currentConcurrency = wasRecovering
+      ? Math.min(this.currentConcurrency, normalized)
+      : normalized;
+    this.successfulImagesSinceFailure = 0;
+    if (!this.recovering) this.resetFailureCounts();
+  }
+
+  schedule(
+    kind: Exclude<AnnotationRetryKind, "waiting">,
+    workerIndex: number,
+    providerRetryAfterMs = 0,
+    now = Date.now(),
+  ): AnnotationRunRetryDecision {
+    const previousConcurrency = this.currentConcurrency;
+    const globalRateLimitActive = now < this.globalRateLimitUntil;
+
+    if (kind === "rate_limit") {
+      const countedIncident = !globalRateLimitActive;
+      if (countedIncident) {
+        this.rateLimitFailureCount += 1;
+        this.currentConcurrency = annotationRetryConcurrency(
+          kind,
+          this.currentConcurrency,
+          this.configuredConcurrency,
+          this.rateLimitFailureCount,
+        );
+        this.successfulImagesSinceFailure = 0;
+      }
+      const delayMs = annotationRetryDelayMs(kind, Math.max(1, this.rateLimitFailureCount), providerRetryAfterMs);
+      this.globalRateLimitUntil = Math.max(this.globalRateLimitUntil, now + delayMs);
+      return {
+        kind,
+        scope: "global",
+        delayMs,
+        blockedUntil: this.globalRateLimitUntil,
+        previousConcurrency,
+        concurrency: this.currentConcurrency,
+        countedIncident,
+        suppressedByGlobalRateLimit: false,
+      };
+    }
+
+    const countedIncident = !globalRateLimitActive && now >= this.transientIncidentUntil;
+    if (countedIncident) {
+      this.transientFailureCount += 1;
+      this.currentConcurrency = annotationRetryConcurrency(
+        kind,
+        this.currentConcurrency,
+        this.configuredConcurrency,
+        this.transientFailureCount,
+      );
+      this.successfulImagesSinceFailure = 0;
+    }
+    const delayMs = annotationRetryDelayMs(kind, Math.max(1, this.transientFailureCount), providerRetryAfterMs);
+    const localRetryUntil = Math.max(this.workerRetryUntil.get(workerIndex) ?? 0, now + delayMs);
+    this.workerRetryUntil.set(workerIndex, localRetryUntil);
+    this.transientIncidentUntil = Math.max(this.transientIncidentUntil, localRetryUntil);
+    return {
+      kind,
+      scope: "worker",
+      delayMs,
+      blockedUntil: Math.max(localRetryUntil, this.globalRateLimitUntil),
+      previousConcurrency,
+      concurrency: this.currentConcurrency,
+      countedIncident,
+      suppressedByGlobalRateLimit: globalRateLimitActive,
+    };
+  }
+
+  blockedUntil(workerIndex: number) {
+    return Math.max(this.globalRateLimitUntil, this.workerRetryUntil.get(workerIndex) ?? 0);
+  }
+
+  recordSuccess(successfulImages: number) {
+    const previousConcurrency = this.currentConcurrency;
+    this.successfulImagesSinceFailure += Math.max(0, Math.trunc(successfulImages));
+    const recoveredConcurrency = annotationRecoveredConcurrency(
+      this.currentConcurrency,
+      this.configuredConcurrency,
+      this.successfulImagesSinceFailure,
+    );
+    if (recoveredConcurrency > this.currentConcurrency) {
+      this.successfulImagesSinceFailure = Math.max(
+        0,
+        this.successfulImagesSinceFailure - ((recoveredConcurrency - this.currentConcurrency) * 3),
+      );
+      this.currentConcurrency = recoveredConcurrency;
+      this.resetFailureCounts();
+    }
+    return {
+      previousConcurrency,
+      concurrency: this.currentConcurrency,
+      recovered: this.currentConcurrency > previousConcurrency,
+    };
+  }
+
+  private resetFailureCounts() {
+    this.transientFailureCount = 0;
+    this.rateLimitFailureCount = 0;
+  }
+}
+
 export function annotationRequestRetryKind(error: unknown): Exclude<AnnotationRetryKind, "waiting"> | null {
   const status = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : 0;
   const message = error instanceof Error

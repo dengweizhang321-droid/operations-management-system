@@ -191,6 +191,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
   assert.match(model, /loadCachedAnnotationImage/);
+  assert.match(model, /prepareAnnotationModelImage/);
   assert.match(model, /max_tokens: Math\.min\(boundedModelSetting\(model\.max_tokens, 800, 128, 1_600\), outputTokenCap \?\? 1_600\)/);
   assert.match(model, /fixedSegment \? 400 : undefined/);
   assert.match(model, /不要重新分类，只识别当前新主图价格/);
@@ -198,6 +199,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(model, /VISION_ANNOTATION_TIMEOUT_MAX_MS = 90_000/);
   assert.match(model, /Math\.min\(boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\), VISION_ANNOTATION_TIMEOUT_MAX_MS\)/);
   assert.match(imageCache, /getCachedMarketImageForAnnotation/);
+  assert.match(imageCache, /annotationModelImageObjectKey/);
   assert.match(masterRoute, /case "run_price_recognition_batch".*runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/s);
   assert.match(marketUi, /action: "run_price_recognition_batch"/);
   assert.match(marketUi, /PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000/);
@@ -261,7 +263,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.ok(currentConcurrencyControl.length > 0);
   assert.doesNotMatch(currentConcurrencyControl, /!category|busy !==/);
   assert.match(ui, /activeCloudRunRef\.current/);
-  assert.match(ui, /retryWindowActive/);
+  assert.match(ui, /new AnnotationRunRetryController/);
+  assert.match(ui, /waitForWindow\(workerIndex\)/);
+  assert.match(ui, /activeRequestCount < retryController\.workerLimit/);
+  assert.doesNotMatch(ui, /workerIndex >= retryController\.workerLimit/);
+  assert.match(ui, /仅出错通道将在/);
   assert.match(ui, /云端建议 10–20；过高易触发限流并计入失败/);
   assert.match(ui, /本地 Ollama 建议 1/);
   assert.doesNotMatch(ui, /请刷新后继续原任务|请稍后点击“继续云端识别”/);

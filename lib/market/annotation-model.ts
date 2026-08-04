@@ -61,8 +61,9 @@ export async function runVisionAnnotation(input: {
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string }> {
   const model = await getModel(input.db, input.modelId, "vision");
   const cachedImage = input.imageUrl ? await loadCachedAnnotationImage(input.db, input.imageUrl) : null;
-  const image = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
-  if (image.kind !== "image") throw new Error(`主图获取失败：${image.message}`);
+  const sourceImage = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
+  if (sourceImage.kind !== "image") throw new Error(`主图获取失败：${sourceImage.message}`);
+  const image = await prepareAnnotationModelImage(sourceImage);
   const fixedSegment = input.fixedSegment?.trim() ?? "";
   if (fixedSegment && !input.segments.includes(fixedSegment)) throw new Error("历史细分品类已失效，不能执行价格专用识别");
   const outputSegments = fixedSegment ? [fixedSegment] : input.segments;
@@ -89,6 +90,16 @@ async function loadCachedAnnotationImage(db: MarketDatabase, sourceUrl: string) 
     return await getCachedMarketImageForAnnotation(sourceUrl, db);
   } catch {
     return null;
+  }
+}
+
+async function prepareAnnotationModelImage<T extends LoadedImage>(image: T): Promise<T> {
+  if ("optimizedForModel" in image && image.optimizedForModel) return image;
+  try {
+    const { optimizeAnnotationImageWithRuntime } = await import("@/lib/market/annotation-image-runtime");
+    return await optimizeAnnotationImageWithRuntime(image);
+  } catch {
+    return image;
   }
 }
 

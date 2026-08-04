@@ -10,9 +10,8 @@ import {
   type MarketAnnotationExecutor,
 } from "@/lib/market/annotation-limits";
 import {
-  annotationRecoveredConcurrency,
+  AnnotationRunRetryController,
   annotationRequestRetryKind,
-  annotationRetryConcurrency,
   annotationRetryDelayMs,
 } from "@/lib/market/annotation-retry";
 
@@ -321,13 +320,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
     stopRef.current = false;
     let done = false;
-    let targetConcurrency = savedConcurrency;
-    let workerLimit = savedConcurrency;
-    let recovering = false;
-    let blockedUntil = 0;
-    let retryFailures = 0;
-    let retryWindowKind: "transient" | "rate_limit" | "" = "";
-    let successesSinceFailure = 0;
+    const retryController = new AnnotationRunRetryController(savedConcurrency);
     let lastWaitingNoticeAt = 0;
     let processedCount = 0;
     let reusedCount = 0;
@@ -335,44 +328,44 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     let lastRefreshAt = Date.now();
     let lastRefreshCount = 0;
     let refreshing = false;
+    let activeRequestCount = 0;
     let fatalError: unknown = null;
     activeCloudRunRef.current = {
       jobId: currentJob.id,
       updateConcurrency: (nextConcurrency) => {
-        targetConcurrency = nextConcurrency;
-        if (!recovering) workerLimit = nextConcurrency;
-        else workerLimit = Math.min(workerLimit, nextConcurrency);
-        recovering = workerLimit < targetConcurrency;
-        successesSinceFailure = 0;
-        if (!recovering) retryFailures = 0;
+        retryController.updateTarget(nextConcurrency);
       },
     };
-    const scheduleRetry = (kind: "transient" | "rate_limit", retryAfterMs = 0) => {
-      const now = Date.now();
-      const previousWorkerLimit = workerLimit;
-      const retryWindowActive = now < blockedUntil;
-      const strongerIncident = kind === "rate_limit" && retryWindowKind !== "rate_limit";
-      if (!retryWindowActive || strongerIncident) {
-        retryFailures += 1;
-        workerLimit = annotationRetryConcurrency(kind, workerLimit, targetConcurrency, retryFailures);
-        recovering = workerLimit < targetConcurrency;
-        successesSinceFailure = 0;
-        retryWindowKind = kind;
-      }
-      const delayMs = annotationRetryDelayMs(kind, retryFailures, retryAfterMs);
-      blockedUntil = Math.max(blockedUntil, now + delayMs);
-      const seconds = Math.ceil(delayMs / 1_000);
-      const concurrencyChange = workerLimit < previousWorkerLimit
-        ? `运行并发已从 ${previousWorkerLimit} 调整为 ${workerLimit}`
-        : `运行并发保持 ${workerLimit}`;
+    const scheduleRetry = (kind: "transient" | "rate_limit", workerIndex: number, retryAfterMs = 0) => {
+      const decision = retryController.schedule(kind, workerIndex, retryAfterMs);
+      if (decision.suppressedByGlobalRateLimit) return;
+      const seconds = Math.ceil(decision.delayMs / 1_000);
+      const concurrencyChange = decision.concurrency < decision.previousConcurrency
+        ? `运行并发已从 ${decision.previousConcurrency} 调整为 ${decision.concurrency}`
+        : `运行并发保持 ${decision.concurrency}`;
       setNotice(kind === "rate_limit"
-        ? `模型供应商限流，${concurrencyChange}，系统将在 ${seconds} 秒后自动续跑；稳定后逐步恢复至 ${targetConcurrency}。`
-        : `模型或网络暂时异常，${concurrencyChange}，系统将在 ${seconds} 秒后自动续跑；其他已在途请求不受影响。`);
+        ? `模型供应商限流，${concurrencyChange}，所有通道将在 ${seconds} 秒后自动续跑；稳定后逐步恢复至 ${retryController.targetConcurrency}。`
+        : `模型或网络暂时异常，${concurrencyChange}，仅出错通道将在 ${seconds} 秒后重试；其他通道继续运行。`);
     };
-    const waitForWindow = async () => {
-      while (!stopRef.current && Date.now() < blockedUntil) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(1_000, blockedUntil - Date.now())));
+    const waitForWindow = async (workerIndex: number) => {
+      while (!stopRef.current && Date.now() < retryController.blockedUntil(workerIndex)) {
+        await new Promise<void>((resolve) => window.setTimeout(
+          resolve,
+          Math.min(1_000, retryController.blockedUntil(workerIndex) - Date.now()),
+        ));
       }
+    };
+    const acquireRequestSlot = async (workerIndex: number) => {
+      while (!stopRef.current && !done) {
+        await waitForWindow(workerIndex);
+        if (stopRef.current || done) return false;
+        if (activeRequestCount < retryController.workerLimit) {
+          activeRequestCount += 1;
+          return true;
+        }
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+      }
+      return false;
     };
     const refreshProgress = async (force = false) => {
       const shouldRefresh = force || processedCount - lastRefreshCount >= CLOUD_PROGRESS_REFRESH_EVERY || Date.now() - lastRefreshAt >= CLOUD_PROGRESS_REFRESH_MS;
@@ -388,20 +381,26 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     };
     const worker = async (workerIndex: number) => {
       while (!stopRef.current && !done) {
-        if (workerIndex >= workerLimit) { await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000)); continue; }
-        await waitForWindow();
-        if (stopRef.current || done || workerIndex >= workerLimit) continue;
+        if (!await acquireRequestSlot(workerIndex)) break;
         let result: Record<string, unknown> | undefined;
+        let requestFailed = false;
+        let requestFailure: unknown = null;
         try {
           result = await post({ action: "run_batch", jobId, limit: CLOUD_BATCH_SIZE });
         } catch (reason) {
-          const retryKind = annotationRequestRetryKind(reason);
+          requestFailed = true;
+          requestFailure = reason;
+        } finally {
+          activeRequestCount = Math.max(0, activeRequestCount - 1);
+        }
+        if (requestFailed) {
+          const retryKind = annotationRequestRetryKind(requestFailure);
           if (retryKind) {
-            scheduleRetry(retryKind);
+            scheduleRetry(retryKind, workerIndex);
             await refreshProgress(true).catch(() => undefined);
             continue;
           }
-          fatalError = reason; stopRef.current = true; break;
+          fatalError = requestFailure; stopRef.current = true; break;
         }
         if (result?.done) { done = true; break; }
         if (result?.waiting) {
@@ -422,22 +421,17 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const failureKind = String(result?.failureKind ?? "");
         if (failureKind) failedCount += Math.max(1, Number(result?.failedCount ?? 0));
         if (failureKind === "rate_limit") {
-          scheduleRetry("rate_limit", Number(result?.retryAfterMs ?? 0));
+          scheduleRetry("rate_limit", workerIndex, Number(result?.retryAfterMs ?? 0));
           await refreshProgress(true).catch(() => undefined);
         } else if (failureKind === "transient") {
-          scheduleRetry("transient", Number(result?.retryAfterMs ?? 0));
+          scheduleRetry("transient", workerIndex, Number(result?.retryAfterMs ?? 0));
           await refreshProgress(true).catch(() => undefined);
         } else if (!failureKind && processedThisCall > reused) {
-          successesSinceFailure += processedThisCall - reused;
-          const recoveredConcurrency = annotationRecoveredConcurrency(workerLimit, targetConcurrency, successesSinceFailure);
-          if (recoveredConcurrency > workerLimit) {
-            successesSinceFailure = Math.max(0, successesSinceFailure - ((recoveredConcurrency - workerLimit) * 3));
-            workerLimit = recoveredConcurrency;
-            retryFailures = 0;
-            recovering = workerLimit < targetConcurrency;
-            setNotice(recovering
-              ? `模型连接正在恢复，运行并发已逐步提升至 ${workerLimit}/${targetConcurrency}。`
-              : `模型连接已稳定，系统已恢复为 ${targetConcurrency} 路并发识别。`);
+          const recovery = retryController.recordSuccess(processedThisCall - reused);
+          if (recovery.recovered) {
+            setNotice(retryController.recovering
+              ? `模型连接正在恢复，运行并发已逐步提升至 ${recovery.concurrency}/${retryController.targetConcurrency}。`
+              : `模型连接已稳定，系统已恢复为 ${retryController.targetConcurrency} 路并发识别。`);
           }
         }
         if (workerIndex === 0) await refreshProgress().catch(() => undefined);
