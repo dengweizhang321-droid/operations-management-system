@@ -64,10 +64,10 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     flowLabel: "A → B → C",
     pipelineTitle: "三段式五类安全导入链路",
     pipelineDescription: "两个触发入口汇入同一条串行链路；任一步失败都会停止后续模块与节点。",
-    workflowMetric: "吉客云五类数据导入",
+    workflowMetric: "吉客云导入系统",
     scheduleMetric: "08:40–18:40",
     scheduleDescription: "上海时区 · 每小时补跑",
-    iframeTitle: "吉客云五类数据每日导入 n8n 工作流",
+    iframeTitle: "吉客云导入系统 n8n 工作流",
     safetyNote: "页面只嵌入本机编辑器，吉客云账号、密码、Cookie、Token 和 Session 均不进入运营系统。A 会跳过已有完整当日结果；B 复用正式五类 runner 的下载绑定、刷刷仓过滤、批次幂等与落库回查；C 独立重读清单、审计和精确批次。",
     stageDetails: {
       A: { title: "生成安全计划", description: "按上海时区计算昨天，核验本机系统、专用 profile、策略版本和当日完成状态。" },

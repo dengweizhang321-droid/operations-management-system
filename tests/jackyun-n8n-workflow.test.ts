@@ -20,7 +20,7 @@ test("Jackyun n8n copy uses inactive loopback HTTP stages and the fixed five-mod
   };
 
   assert.equal(workflow.id, "J8kY2mQ5vR7sT4pN");
-  assert.equal(workflow.name, "吉客云五类数据每日导入");
+  assert.equal(workflow.name, "吉客云导入系统");
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings.timezone, "Asia/Shanghai");
   assert.ok(workflow.nodes.some((node) => node.type === "n8n-nodes-base.manualTrigger"));

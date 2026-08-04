@@ -56,7 +56,7 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /http:\/\/localhost:5678\/workflow\//);
   assert.match(view, /currentUser\?\.role === "operator" \|\| currentUser\?\.role === "admin"/);
   assert.match(view, /iframeTitle: "天猫店铺数据导入 n8n 工作流"/);
-  assert.match(view, /iframeTitle: "吉客云五类数据每日导入 n8n 工作流"/);
+  assert.match(view, /iframeTitle: "吉客云导入系统 n8n 工作流"/);
   assert.match(view, /sandbox="allow-downloads[^"]+allow-scripts"/);
   assert.match(view, /账号、密码、Cookie、Token 和 Session 均不进入运营系统/);
   assert.match(view, /http:\/\/127\.0\.0\.1:5791\/health/);
@@ -74,13 +74,13 @@ test("n8n 工作流视图只向操作角色渲染可执行编辑器", async () =
   const viewerHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "viewer" } }));
   const operatorHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "operator" } }));
 
-  assert.match(viewerHtml, /吉客云五类数据每日导入/);
+  assert.match(viewerHtml, /吉客云导入系统/);
   assert.match(viewerHtml, /天猫店铺数据导入/);
   assert.match(viewerHtml, /需要操作员或管理员权限/);
   assert.doesNotMatch(viewerHtml, /<iframe/);
   assert.match(operatorHtml, /<iframe/);
   assert.match(operatorHtml, /http:\/\/localhost:5678\/workflow\/J8kY2mQ5vR7sT4pN/);
-  assert.match(operatorHtml, /吉客云五类数据每日导入 n8n 工作流/);
+  assert.match(operatorHtml, /吉客云导入系统 n8n 工作流/);
   assert.match(operatorHtml, /data-helper-status="checking"/);
   assert.match(operatorHtml, /执行门禁/);
 });
