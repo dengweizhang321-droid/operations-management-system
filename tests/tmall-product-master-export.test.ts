@@ -19,6 +19,7 @@ import {
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
   isTmallProductWorkbookFilename,
+  matchTmallExportRecordChoice,
   parseTmallShanghaiTaskTime,
   productManagerFloatingClusterKey,
   runTmallProductMasterStage,
@@ -220,9 +221,33 @@ test("导出记录按原任务创建时间和已完成状态选择同一行下�
   assert.equal(chooseTmallExportRecordSignature([
     { signature: "original", taskCreatedAt: "2026-08-04 01:54:44", status: "处理中" },
   ], runStartedAt), null);
+  const pending = {
+    signature: "current-pending",
+    taskCreatedAt: "2026-08-04 01:54:44",
+    status: "处理中",
+    downloadReady: false,
+  };
+  assert.deepEqual(matchTmallExportRecordChoice([pending], runStartedAt), pending);
+  assert.equal(chooseTmallExportRecordSignature([pending], runStartedAt), null);
+  assert.equal(chooseTmallExportRecordSignature([{
+    ...pending,
+    status: "已完成",
+    downloadReady: true,
+  }], runStartedAt), "current-pending");
+  assert.equal(chooseTmallExportRecordSignature([{
+    ...pending,
+    status: "已完成",
+    downloadReady: false,
+  }], runStartedAt), null);
+  assert.equal(chooseTmallExportRecordSignature([{
+    signature: "previous-run",
+    taskCreatedAt: "2026-08-04 01:54:10",
+    status: "已完成",
+    downloadReady: true,
+  }], runStartedAt), null);
   assert.throws(() => chooseTmallExportRecordSignature([
-    { signature: "tie-a", taskCreatedAt: "2026-08-04 01:53:47", status: "已完成" },
-    { signature: "tie-b", taskCreatedAt: "2026-08-04 01:54:47", status: "已完成" },
+    { signature: "tie-a", taskCreatedAt: "2026-08-04 01:54:47", status: "处理中" },
+    { signature: "tie-b", taskCreatedAt: "2026-08-04 01:55:07", status: "已完成" },
   ], runStartedAt), /多个创建时间同样接近/);
 });
 

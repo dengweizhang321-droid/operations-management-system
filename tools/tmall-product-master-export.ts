@@ -28,6 +28,8 @@ const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-maste
 const defaultChromeExecutable = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const maximumWorkbookBytes = 25 * 1024 * 1024;
 const exportResultTimeoutMs = 10 * 60 * 1000;
+const exportRecordTimeoutMs = 3 * 60 * 1000;
+const exportRecordRefreshIntervalMs = 8_000;
 
 type MasterImportBatch = {
   id?: string;
@@ -137,13 +139,15 @@ type DownloadCandidate = {
 type TmallDownloadChoice = Omit<DownloadCandidate, "frame" | "locator">;
 
 type ExportRecordDownloadCandidate = {
-  locator: Locator;
+  locator?: Locator;
+  recordPage: Page;
   signature: string;
   taskCreatedAt: string;
   status: string;
+  downloadReady?: boolean;
 };
 
-type TmallExportRecordChoice = Omit<ExportRecordDownloadCandidate, "locator">;
+type TmallExportRecordChoice = Omit<ExportRecordDownloadCandidate, "locator" | "recordPage">;
 
 type PositionedUiElement = {
   text: string;
@@ -294,21 +298,29 @@ export function chooseTmallExportRecordSignature(
   candidates: readonly TmallExportRecordChoice[],
   expectedRunStartedAt: string,
 ) {
+  const matched = matchTmallExportRecordChoice(candidates, expectedRunStartedAt);
+  if (!matched || matched.status.replace(/\s+/g, "") !== "已完成" || matched.downloadReady === false) return null;
+  return matched.signature;
+}
+
+export function matchTmallExportRecordChoice(
+  candidates: readonly TmallExportRecordChoice[],
+  expectedRunStartedAt: string,
+) {
   const expectedMs = Date.parse(expectedRunStartedAt);
   if (!Number.isFinite(expectedMs)) throw new Error("天猫货品活动清单开始时间无效");
   const eligible = candidates.flatMap((candidate) => {
-    if (candidate.status.replace(/\s+/g, "") !== "已完成") return [];
     const parsed = parseTmallShanghaiTaskTime(candidate.taskCreatedAt);
     if (!parsed) return [];
     const deltaMs = parsed.epochMs - expectedMs;
-    if (deltaMs < -60_000 || deltaMs > 20 * 60_000) return [];
+    if (deltaMs < -5_000 || deltaMs > 20 * 60_000) return [];
     return [{ candidate, distanceMs: Math.abs(deltaMs) }];
   }).sort((left, right) => left.distanceMs - right.distanceMs);
   if (eligible.length === 0) return null;
   if (eligible[1] && eligible[1].distanceMs - eligible[0]!.distanceMs < 60_000) {
-    throw new Error("导出记录中有多个创建时间同样接近的已完成任务，无法唯一确认本轮文件");
+    throw new Error("导出记录中有多个创建时间同样接近的任务，无法唯一确认本轮文件");
   }
-  return eligible[0]!.candidate.signature;
+  return eligible[0]!.candidate;
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -1169,12 +1181,17 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?:
 
 async function exportRecordDownloadCandidates(page: Page) {
   const candidates: ExportRecordDownloadCandidate[] = [];
+  const recordPages = new Set<Page>();
   const pages = page.context().pages();
   for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
     const candidatePage = pages[pageIndex]!;
     const frames = candidatePage.frames();
     for (let frameIndex = 0; frameIndex < frames.length; frameIndex += 1) {
       const frame = frames[frameIndex]!;
+      const hasTaskTimeHeader = await frame.getByText("任务创建时间", { exact: true }).first().isVisible().catch(() => false);
+      const hasFileNameHeader = await frame.getByText("文件名称", { exact: true }).first().isVisible().catch(() => false);
+      if (!hasTaskTimeHeader || !hasFileNameHeader) continue;
+      recordPages.add(candidatePage);
       const rows = frame.locator('tr,[role="row"]');
       const count = Math.min(await rows.count().catch(() => 0), 200);
       for (let index = 0; index < count; index += 1) {
@@ -1183,7 +1200,14 @@ async function exportRecordDownloadCandidates(page: Page) {
         const rowText = await row.innerText({ timeout: 2_000 }).catch(() => "");
         const taskTime = parseTmallShanghaiTaskTime(rowText);
         if (!taskTime) continue;
-        const status = rowText.replace(/\s+/g, "").includes("已完成") ? "已完成" : "未完成";
+        const normalizedRowText = rowText.replace(/\s+/g, "");
+        const status = normalizedRowText.includes("已完成")
+          ? "已完成"
+          : normalizedRowText.includes("处理中")
+            ? "处理中"
+            : normalizedRowText.includes("待执行")
+              ? "待执行"
+              : "未完成";
         const actions = row.locator('a,button,[role="button"]').filter({ hasText: /下载/ });
         const actionCount = Math.min(await actions.count().catch(() => 0), 10);
         const clickable: Array<{ locator: Locator; score: number; signature: string }> = [];
@@ -1211,22 +1235,46 @@ async function exportRecordDownloadCandidates(page: Page) {
             signature: `${detail.tag}|${detail.role}|${detail.href}`,
           });
         }
+        if (clickable.length === 0) {
+          const rawDownloads = row.getByText("下载", { exact: true });
+          const rawCount = Math.min(await rawDownloads.count().catch(() => 0), 10);
+          for (let actionIndex = 0; actionIndex < rawCount; actionIndex += 1) {
+            const locator = rawDownloads.nth(actionIndex);
+            if (!await locator.isVisible().catch(() => false)) continue;
+            const detail = await locator.evaluate((element) => ({
+              text: (element.textContent ?? "").replace(/\s+/g, "").trim(),
+              tag: element.tagName.toLowerCase(),
+              role: element.getAttribute("role") ?? "",
+            })).catch(() => null);
+            if (!detail || detail.text !== "下载") continue;
+            clickable.push({
+              locator,
+              score: 5,
+              signature: `text|${detail.tag}|${detail.role}|${actionIndex}`,
+            });
+          }
+        }
         clickable.sort((left, right) => right.score - left.score);
-        if (!clickable[0]) continue;
-        if (clickable[1] && clickable[1].score === clickable[0].score && clickable[1].signature !== clickable[0].signature) {
+        const firstClickable = clickable[0];
+        if (firstClickable && clickable[1] && clickable[1].score === firstClickable.score && clickable[1].signature !== firstClickable.signature) {
           throw new Error(`导出记录 ${taskTime.text} 存在多个同等下载操作，已停止`);
         }
         const signature = `${pageIndex}|${frameIndex}|${frame.url()}|${taskTime.text}|${index}`;
         candidates.push({
-          locator: clickable[0].locator,
+          locator: firstClickable?.locator,
+          recordPage: candidatePage,
           signature,
           taskCreatedAt: taskTime.text,
           status,
+          downloadReady: Boolean(firstClickable),
         });
       }
     }
   }
-  return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
+  return {
+    candidates: [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()],
+    recordPages: [...recordPages],
+  };
 }
 
 async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -1289,23 +1337,39 @@ async function downloadWithBrowserEvents(options: {
     });
     await options.locator.click({ timeout: 15_000 });
     let selectedRecord: ExportRecordDownloadCandidate | undefined;
-    const recordDeadline = Date.now() + 60_000;
+    let lastMatchedRecord: TmallExportRecordChoice | null = null;
+    let nextRecordRefreshAt = Date.now() + exportRecordRefreshIntervalMs;
+    const recordDeadline = Date.now() + exportRecordTimeoutMs;
     while (!selectedRecord && Date.now() < recordDeadline) {
       if (activeGuid) throw new Error("前往下载未经过导出记录时间和完成状态核验就触发了文件下载，已停止");
-      const records = await exportRecordDownloadCandidates(options.page);
+      const scan = await exportRecordDownloadCandidates(options.page);
+      const records = scan.candidates;
+      const matchedRecord = matchTmallExportRecordChoice(records, options.expectedRunStartedAt);
+      if (matchedRecord) lastMatchedRecord = matchedRecord;
       const selectedSignature = chooseTmallExportRecordSignature(records, options.expectedRunStartedAt);
       const selected = selectedSignature
         ? records.find((candidate) => candidate.signature === selectedSignature)
         : undefined;
-      if (selected) {
+      if (selected?.locator) {
         await selected.locator.click({ timeout: 15_000 });
         selectedRecord = selected;
         break;
       }
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (Date.now() >= nextRecordRefreshAt && scan.recordPages.length > 0) {
+        for (const recordPage of scan.recordPages) {
+          if (recordPage.isClosed()) continue;
+          await recordPage.reload({ waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => undefined);
+        }
+        nextRecordRefreshAt = Date.now() + exportRecordRefreshIntervalMs;
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
     if (!selectedRecord) {
-      throw new Error("导出记录页未找到创建时间匹配且状态为“已完成”的唯一任务");
+      const observation = lastMatchedRecord
+        ? `最近匹配任务 ${lastMatchedRecord.taskCreatedAt}，状态“${lastMatchedRecord.status}”，${lastMatchedRecord.downloadReady ? "已出现下载动作" : "尚未出现唯一下载动作"}`
+        : "未出现创建时间属于本轮的任务";
+      throw new Error(`导出记录页刷新等待三分钟后仍无法安全下载：${observation}`);
     }
     const start = await withDeadline(
       started,
