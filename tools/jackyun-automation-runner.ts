@@ -5,6 +5,22 @@ import { runJackyunDaily } from "./jackyun-daily-runner";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+export type JackyunAutomationOptions = {
+  runId: string;
+  snapshotDate: string;
+  asOfDate: string;
+  eventDirectory: string;
+  outputRoot: string;
+  baseUrl: string;
+  chromePath?: string;
+  profileDirectory?: string;
+  debuggingPort?: number;
+  resume: boolean;
+  dryRun: boolean;
+  headless: boolean;
+  signal?: AbortSignal;
+};
+
 function shanghaiYesterday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
@@ -22,7 +38,7 @@ function defaultRunId() {
   }).format(new Date()).replace(/[-: ]/g, "").replace(/^(\d{8})(\d{6})$/, "$1-$2");
 }
 
-function parseArgs() {
+function parseArgs(): JackyunAutomationOptions {
   const values = new Map<string, string>();
   let resume = false;
   let dryRun = false;
@@ -55,9 +71,11 @@ function parseArgs() {
   };
 }
 
-async function main() {
-  const options = parseArgs();
+export async function runJackyunAutomation(options: JackyunAutomationOptions) {
   const abortController = new AbortController();
+  const abortFromCaller = () => abortController.abort(options.signal?.reason ?? new Error("吉客云 n8n 任务已取消。"));
+  if (options.signal?.aborted) abortFromCaller();
+  else options.signal?.addEventListener("abort", abortFromCaller, { once: true });
   const cancelPeerOnFailure = <T>(promise: Promise<T>) => promise.catch((error: unknown) => {
     abortController.abort(error);
     throw error;
@@ -74,6 +92,13 @@ async function main() {
     headless: options.headless,
     launchOnly: false,
     signal: abortController.signal,
+  }).then((result) => {
+    if (result.status !== "completed") {
+      throw new Error(result.status === "login_required"
+        ? "吉客云专用 Chrome 登录态已失效，请先执行 npm run jackyun:login 完成人工登录。"
+        : `吉客云浏览器流程未完成：${result.status}`);
+    }
+    return result;
   }));
   const daily = cancelPeerOnFailure(runJackyunDaily({
     runId: options.runId,
@@ -86,14 +111,24 @@ async function main() {
     resume: options.resume,
     signal: abortController.signal,
   }));
-  const [browserResult, dailyResult] = await Promise.all([browser, daily]);
-  console.log(JSON.stringify({ type: "jackyun_automation_completed", browserResult, dailyResult }));
+  try {
+    const [browserResult, dailyResult] = await Promise.all([browser, daily]);
+    return { browserResult, dailyResult };
+  } finally {
+    options.signal?.removeEventListener("abort", abortFromCaller);
+  }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  // A failed CDP/Playwright connection can keep a socket alive even after the
-  // peer task has been aborted. Exit the CLI immediately so a blocked module
-  // never leaves the daily runner hanging in the background.
-  process.exit(1);
-});
+if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
+  runJackyunAutomation(parseArgs())
+    .then(({ browserResult, dailyResult }) => {
+      console.log(JSON.stringify({ type: "jackyun_automation_completed", browserResult, dailyResult }));
+    })
+    .catch((error: unknown) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      // A failed CDP/Playwright connection can keep a socket alive even after the
+      // peer task has been aborted. Exit the CLI immediately so a blocked module
+      // never leaves the daily runner hanging in the background.
+      process.exit(1);
+    });
+}

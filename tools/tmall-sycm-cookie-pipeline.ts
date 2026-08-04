@@ -10,6 +10,16 @@ import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-regis
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import { runTmallMultiStoreImport, shanghaiYesterday } from "./tmall-multi-store-import-runner";
 import { runTmallProductMasterStage } from "./tmall-product-master-export";
+import {
+  getJackyunProfileStatus,
+  jackyunHelperRequestError,
+  planJackyunN8nRun,
+  publicJackyunPlan,
+  runJackyunN8nPlan,
+  verifyJackyunN8nPlan,
+  type JackyunN8nPlan,
+  type JackyunHelperRoute,
+} from "./jackyun-n8n-pipeline";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
@@ -21,7 +31,7 @@ const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "serve";
-export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "completed" | "failed";
+export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "running" | "executed" | "completed" | "failed";
 type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 
@@ -530,7 +540,10 @@ export function helperRequestError(stage: HelperStage, busy: boolean, route: Hel
   return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
 }
 
-export function helperHealthCorsHeaders(origin: string | undefined, allowPrivateNetwork = false) {
+export function helperHealthCorsHeaders(
+  origin: string | undefined,
+  allowPrivateNetwork = false,
+): Record<string, string> {
   if (origin !== "http://localhost:3000" && origin !== "http://127.0.0.1:3000") return {};
   return {
     "Access-Control-Allow-Origin": origin,
@@ -546,8 +559,10 @@ async function serveCommand(argv: string[]) {
   const port = integerPort(cliValue(argv, "--port"));
   let stage: HelperStage = "ready";
   let busy = false;
+  let activeWorkflow: "tmall" | "jackyun" | null = null;
   let planPathBase64 = "";
   let manifestPathBase64 = "";
+  let jackyunPlan: JackyunN8nPlan | null = null;
   const server = createServer(async (request, response) => {
     const healthCorsHeaders = request.url === "/health"
       ? helperHealthCorsHeaders(
@@ -576,22 +591,52 @@ async function serveCommand(argv: string[]) {
       return;
     }
     if (request.method === "GET" && request.url === "/health") {
-      reply(200, { ok: true, stage, busy, cookieSource: await getCookieSourceStatus() });
+      const [cookieSource, jackyunProfile] = await Promise.all([
+        getCookieSourceStatus(),
+        getJackyunProfileStatus(),
+      ]);
+      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile });
       return;
     }
-    if (request.method !== "POST" || !["/product-master", "/plan", "/fetch", "/import"].includes(request.url ?? "")) {
+    const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import"];
+    const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
+    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
     }
-    const route = request.url as HelperRoute;
-    const stateError = helperRequestError(stage, busy, route);
+    const isJackyun = jackyunRoutes.includes(request.url ?? "");
+    if (activeWorkflow && activeWorkflow !== (isJackyun ? "jackyun" : "tmall")) {
+      reply(409, { ok: false, error: "workflow_conflict", activeWorkflow });
+      return;
+    }
+    const route = request.url as HelperRoute | JackyunHelperRoute;
+    const stateError = isJackyun
+      ? jackyunHelperRequestError(stage, busy, route as JackyunHelperRoute)
+      : helperRequestError(stage, busy, route as HelperRoute);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
     }
+    activeWorkflow = isJackyun ? "jackyun" : "tmall";
     busy = true;
     try {
-      if (request.url === "/product-master") {
+      if (request.url === "/jackyun/plan") {
+        jackyunPlan = await planJackyunN8nRun();
+        stage = "planned";
+        reply(200, publicJackyunPlan(jackyunPlan));
+      } else if (request.url === "/jackyun/run") {
+        if (!jackyunPlan) throw new Error("吉客云 n8n 计划已丢失，拒绝无计划执行");
+        stage = "running";
+        const result = await runJackyunN8nPlan(jackyunPlan);
+        stage = "executed";
+        reply(200, result);
+      } else if (request.url === "/jackyun/verify") {
+        if (!jackyunPlan) throw new Error("吉客云 n8n 计划已丢失，拒绝无计划核验");
+        const result = await verifyJackyunN8nPlan(jackyunPlan);
+        stage = "completed";
+        reply(200, result);
+        setTimeout(() => server.close(), 500);
+      } else if (request.url === "/product-master") {
         const result = await runTmallProductMasterStage({ storeKey: "tmall-yijiu" });
         stage = "mastered";
         reply(200, result);

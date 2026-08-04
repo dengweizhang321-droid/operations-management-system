@@ -1079,6 +1079,56 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   display: grid;
   gap: 15px;
 }
+.n8n-workflow-switcher {
+  display: flex;
+  gap: 9px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #f5f7fa;
+}
+.n8n-workflow-switcher button {
+  min-width: 220px;
+  display: flex;
+  flex: 1 0 220px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #66778d;
+  background: transparent;
+  text-align: left;
+}
+.n8n-workflow-switcher button > span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 8px;
+  color: #526981;
+  background: #e7ecf3;
+  font-size: 10px;
+  font-weight: 800;
+}
+.n8n-workflow-switcher button strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.n8n-workflow-switcher button.is-active {
+  border-color: #f0d4cd;
+  color: #34485f;
+  background: #fff;
+  box-shadow: 0 5px 12px rgba(37, 53, 76, .055);
+}
+.n8n-workflow-switcher button.is-active > span {
+  color: #fff;
+  background: linear-gradient(135deg, #ff8269, #ef5c42);
+}
 .n8n-workflow-hero {
   min-height: 188px;
   display: grid;
@@ -1593,6 +1643,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   }
 }
 @media(max-width:760px) {
+  .n8n-workflow-switcher button {
+    min-width: 200px;
+    flex-basis: 200px;
+  }
   .n8n-workflow-hero {
     grid-template-columns: 1fr;
     gap: 23px;
