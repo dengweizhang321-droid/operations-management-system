@@ -777,6 +777,123 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .annotation-form-row label {
   min-width: 130px;
 }
+.annotation-task-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, .75fr);
+  gap: 14px;
+  margin: 14px 0;
+}
+.annotation-task-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px 12px;
+}
+.annotation-task-fields label,
+.annotation-concurrency-card label,
+.annotation-current-run > label {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+}
+.annotation-task-fields label > span,
+.annotation-concurrency-card label > span,
+.annotation-current-run > label > span,
+.annotation-concurrency-card > div > span,
+.annotation-current-run-summary > span {
+  color: #76869b;
+  font-size: 8px;
+}
+.annotation-task-fields input,
+.annotation-task-fields select,
+.annotation-concurrency-control input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #d7e1ed;
+  border-radius: 7px;
+  color: #40516a;
+  background: #fff;
+}
+.annotation-task-fields small,
+.annotation-concurrency-card small,
+.annotation-current-run small,
+.annotation-task-footer small,
+.annotation-job-heading small {
+  color: #8190a3;
+  line-height: 1.55;
+}
+.annotation-concurrency-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #cad9ef;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #f3f7ff, #fbfdff);
+}
+.annotation-concurrency-card > div,
+.annotation-current-run-summary {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.annotation-concurrency-card > div > strong,
+.annotation-current-run-summary > strong {
+  overflow: hidden;
+  color: #385b92;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.annotation-concurrency-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+.annotation-concurrency-control button {
+  min-width: 82px;
+  white-space: nowrap;
+}
+.annotation-task-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 14px;
+  border-top: 1px solid #e5ebf3;
+}
+.annotation-current-run {
+  display: grid;
+  grid-template-columns: minmax(180px, .7fr) minmax(260px, .9fr) minmax(280px, auto);
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #d6e2f3;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+.annotation-current-run-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+.annotation-current-run-actions button {
+  white-space: nowrap;
+}
+.annotation-current-run-local {
+  align-self: center;
+}
+.annotation-job-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+}
 .annotation-review-toolbar label {
   min-width: 130px;
 }
@@ -790,15 +907,17 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   font-size: 9px;
 }
 .annotation-job-list {
-  flex-wrap: wrap;
-  overflow: visible;
-  gap: 6px;
+  max-height: 240px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
   margin: 9px 0;
+  padding: 2px 4px 2px 2px;
+  overflow-y: auto;
 }
 .annotation-job-list button {
-  min-width: 160px;
-  flex: 1 1 180px;
-  padding: 8px;
+  min-width: 0;
+  padding: 10px;
 }
 .annotation-review-table-wrap {
   width: 100%;
@@ -890,6 +1009,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   gap: 10px;
 }
 @media(max-width:1180px) {
+  .annotation-current-run {
+    grid-template-columns: minmax(180px, .7fr) minmax(260px, 1fr);
+  }
+  .annotation-current-run-actions,
+  .annotation-current-run-local {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
   .annotation-review-table th:nth-child(1) { width: 4%; }
   .annotation-review-table th:nth-child(2) { width: 9%; }
   .annotation-review-table th:nth-child(3) { width: 20%; }
@@ -903,6 +1030,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .annotation-review-table .annotation-image-link {
     width: 54px;
     height: 54px;
+  }
+}
+@media(max-width:900px) {
+  .annotation-task-setup,
+  .annotation-current-run {
+    grid-template-columns: 1fr;
+  }
+  .annotation-current-run-actions,
+  .annotation-current-run-local {
+    grid-column: auto;
   }
 }
 @media(max-width:760px) {
@@ -921,6 +1058,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .annotation-review-table th,
   .annotation-review-table td {
     padding: 5px 3px;
+  }
+  .annotation-task-fields {
+    grid-template-columns: 1fr;
+  }
+  .annotation-task-footer,
+  .annotation-job-heading,
+  .annotation-current-run-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .annotation-task-footer button,
+  .annotation-current-run-actions button {
+    width: 100%;
   }
 }
 

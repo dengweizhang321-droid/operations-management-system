@@ -14,15 +14,23 @@ import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
 import type { MarketDatabase } from "../lib/market/database";
 import { defaultMarketAnnotationConcurrency, MARKET_ANNOTATION_CONCURRENCY_LIMITS, MARKET_ANNOTATION_JOB_LIMITS, normalizeMarketAnnotationConcurrency, normalizeMarketAnnotationJobLimit } from "../lib/market/annotation-limits";
-import { annotationRequestRetryKind, annotationRetryDelayMs, isRetryableAnnotationRequestError } from "../lib/market/annotation-retry";
+import { annotationRecoveredConcurrency, annotationRequestRetryKind, annotationRetryConcurrency, annotationRetryDelayMs, isRetryableAnnotationRequestError } from "../lib/market/annotation-retry";
 
-test("annotation automatic retry uses bounded backoff and classifies only temporary failures", () => {
-  assert.equal(annotationRetryDelayMs("waiting", 0), 5_000);
-  assert.equal(annotationRetryDelayMs("transient", 1), 15_000);
-  assert.equal(annotationRetryDelayMs("transient", 3), 60_000);
+test("annotation automatic retry uses bounded adaptive backoff and classifies only temporary failures", () => {
+  assert.equal(annotationRetryDelayMs("waiting", 0), 2_000);
+  assert.equal(annotationRetryDelayMs("transient", 1), 5_000);
+  assert.equal(annotationRetryDelayMs("transient", 3), 20_000);
+  assert.equal(annotationRetryDelayMs("transient", 8), 30_000);
   assert.equal(annotationRetryDelayMs("rate_limit", 1), 60_000);
   assert.equal(annotationRetryDelayMs("rate_limit", 8), 300_000);
   assert.equal(annotationRetryDelayMs("transient", Number.NaN, 600_000), 300_000);
+  assert.equal(annotationRetryConcurrency("waiting", 10, 10, 1), 10);
+  assert.equal(annotationRetryConcurrency("transient", 10, 10, 1), 8);
+  assert.equal(annotationRetryConcurrency("transient", 8, 10, 2), 4);
+  assert.equal(annotationRetryConcurrency("rate_limit", 10, 10, 1), 5);
+  assert.equal(annotationRecoveredConcurrency(8, 10, 2), 8);
+  assert.equal(annotationRecoveredConcurrency(8, 10, 3), 9);
+  assert.equal(annotationRecoveredConcurrency(8, 10, 6), 10);
   assert.equal(annotationRequestRetryKind(new Error("价格识别请求超时")), "transient");
   assert.equal(annotationRequestRetryKind({ status: 503, message: "gateway unavailable" }), "transient");
   assert.equal(annotationRequestRetryKind({ status: 429, message: "too many requests" }), "rate_limit");
@@ -212,7 +220,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum/);
-  assert.match(ui, /Array\.from\(\{ length: configuredConcurrency \}/);
+  assert.match(ui, /Array\.from\(\{ length: MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum \}/);
   assert.match(ui, /const CLOUD_BATCH_SIZE = 1/);
   assert.match(ui, /action: "run_batch"/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
@@ -220,7 +228,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /单个任务最多 10,000 条/);
   assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(service, /normalizeMarketAnnotationJobLimit/);
-  assert.match(ui, /模型供应商限流，已临时降为并发 1，系统将在.*秒后自动续跑/);
+  assert.match(ui, /模型供应商限流，\$\{concurrencyChange\}/);
   assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
@@ -242,9 +250,18 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
-  assert.match(ui, /模型或网络超时，已临时降为并发 1，系统将在.*秒后自动刷新并续跑/);
-  assert.match(ui, /连续成功 3 张后恢复配置值/);
-  assert.match(ui, /自动恢复为.*路并发识别/);
+  assert.match(ui, /模型或网络暂时异常，\$\{concurrencyChange\}/);
+  assert.match(ui, /每成功 3 张逐步恢复/);
+  assert.match(ui, /系统已恢复为.*路并发识别/);
+  assert.match(ui, /当前 AI 标注任务模型并发数/);
+  assert.match(ui, /保存并应用/);
+  assert.match(ui, /annotation-task-setup/);
+  assert.match(ui, /annotation-current-run/);
+  const currentConcurrencyControl = ui.slice(ui.indexOf('aria-label="当前 AI 标注任务模型并发数"'), ui.indexOf("</label>", ui.indexOf('aria-label="当前 AI 标注任务模型并发数"')));
+  assert.ok(currentConcurrencyControl.length > 0);
+  assert.doesNotMatch(currentConcurrencyControl, /!category|busy !==/);
+  assert.match(ui, /activeCloudRunRef\.current/);
+  assert.match(ui, /retryWindowActive/);
   assert.match(ui, /云端建议 10–20；过高易触发限流并计入失败/);
   assert.match(ui, /本地 Ollama 建议 1/);
   assert.doesNotMatch(ui, /请刷新后继续原任务|请稍后点击“继续云端识别”/);

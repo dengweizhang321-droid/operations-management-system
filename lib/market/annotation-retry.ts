@@ -1,8 +1,9 @@
 export type AnnotationRetryKind = "waiting" | "transient" | "rate_limit";
 
-const TRANSIENT_RETRY_BASE_MS = 15_000;
+const TRANSIENT_RETRY_BASE_MS = 5_000;
+const TRANSIENT_RETRY_MAX_MS = 30_000;
 const RATE_LIMIT_RETRY_BASE_MS = 60_000;
-const WAITING_RETRY_MS = 5_000;
+const WAITING_RETRY_MS = 2_000;
 const AUTO_RETRY_MAX_MS = 5 * 60_000;
 
 export function annotationRetryDelayMs(kind: AnnotationRetryKind, failureCount: number, providerRetryAfterMs = 0) {
@@ -11,7 +12,38 @@ export function annotationRetryDelayMs(kind: AnnotationRetryKind, failureCount: 
   const base = kind === "rate_limit" ? RATE_LIMIT_RETRY_BASE_MS : TRANSIENT_RETRY_BASE_MS;
   const normalizedFailureCount = Number.isFinite(failureCount) ? Math.max(1, Math.trunc(failureCount)) : 1;
   const exponent = Math.min(4, normalizedFailureCount - 1);
-  return Math.min(AUTO_RETRY_MAX_MS, Math.max(providerDelay, base * (2 ** exponent)));
+  const computedDelay = base * (2 ** exponent);
+  const boundedDelay = kind === "transient" ? Math.min(computedDelay, TRANSIENT_RETRY_MAX_MS) : computedDelay;
+  return Math.min(AUTO_RETRY_MAX_MS, Math.max(providerDelay, boundedDelay));
+}
+
+export function annotationRetryConcurrency(
+  kind: AnnotationRetryKind,
+  currentConcurrency: number,
+  configuredConcurrency: number,
+  failureCount: number,
+) {
+  const configured = Math.max(1, Math.trunc(configuredConcurrency));
+  const current = Math.max(1, Math.min(configured, Math.trunc(currentConcurrency)));
+  if (kind === "waiting") return current;
+  if (kind === "rate_limit") return Math.max(1, Math.floor(current / 2));
+  const normalizedFailureCount = Number.isFinite(failureCount) ? Math.max(1, Math.trunc(failureCount)) : 1;
+  if (normalizedFailureCount === 1) {
+    const minimum = configured >= 4 ? 2 : 1;
+    return Math.max(minimum, Math.ceil(current * 0.75));
+  }
+  return Math.max(1, Math.ceil(current / 2));
+}
+
+export function annotationRecoveredConcurrency(
+  currentConcurrency: number,
+  configuredConcurrency: number,
+  successfulImages: number,
+) {
+  const configured = Math.max(1, Math.trunc(configuredConcurrency));
+  const current = Math.max(1, Math.min(configured, Math.trunc(currentConcurrency)));
+  const recoverySteps = Math.floor(Math.max(0, Math.trunc(successfulImages)) / 3);
+  return Math.min(configured, current + recoverySteps);
 }
 
 export function annotationRequestRetryKind(error: unknown): Exclude<AnnotationRetryKind, "waiting"> | null {

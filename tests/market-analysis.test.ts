@@ -328,7 +328,9 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(route, /case "update_sku_master"/);
   assert.match(styles, /\.annotation-review-table-wrap\s*\{[\s\S]*?overflow-x:\s*clip/);
   assert.match(styles, /\.annotation-review-table\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?table-layout:\s*fixed/);
-  assert.match(styles, /\.annotation-job-list\s*\{[\s\S]*?flex-wrap:\s*wrap;[\s\S]*?overflow:\s*visible/);
+  assert.match(styles, /\.annotation-job-list\s*\{[\s\S]*?max-height:\s*240px;[\s\S]*?display:\s*grid;[\s\S]*?overflow-y:\s*auto/);
+  assert.match(styles, /\.annotation-task-setup\s*\{[\s\S]*?grid-template-columns:/);
+  assert.match(styles, /\.annotation-current-run\s*\{[\s\S]*?grid-template-columns:/);
   assert.match(route, /case "save_subcategory_settings"/);
 });
 
