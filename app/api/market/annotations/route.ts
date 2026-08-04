@@ -6,7 +6,7 @@ import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
-  revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setFilteredAnnotationSelection, updateAnnotationItems,
+  revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
@@ -72,7 +72,13 @@ export async function POST(request: Request) {
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     let result: unknown;
     switch (action) {
-      case "create_job": result = await createAnnotationJob(db, { category: text(parsed, "category"), promptVersionId: text(parsed, "promptVersionId"), executor: text(parsed, "executor"), modelId: text(parsed, "modelId") || undefined, localModelName: text(parsed, "localModelName") || undefined, limit: Number(parsed.limit ?? MARKET_ANNOTATION_JOB_LIMITS.default) }, principal); break;
+      case "create_job": {
+        const executor = text(parsed, "executor") === "local" ? "local" : "cloud";
+        if (parsed.concurrency !== undefined) await setAnnotationConcurrency(db, { category: text(parsed, "category"), executor, concurrency: Number(parsed.concurrency) }, principal);
+        result = await createAnnotationJob(db, { category: text(parsed, "category"), promptVersionId: text(parsed, "promptVersionId"), executor, modelId: text(parsed, "modelId") || undefined, localModelName: text(parsed, "localModelName") || undefined, limit: Number(parsed.limit ?? MARKET_ANNOTATION_JOB_LIMITS.default) }, principal);
+        break;
+      }
+      case "set_concurrency": result = await setAnnotationConcurrency(db, { category: text(parsed, "category"), executor: text(parsed, "executor"), concurrency: Number(parsed.concurrency) }, principal); break;
       case "run_next": result = await runNextCloudAnnotation(db, text(parsed, "jobId")); break;
       case "run_batch": result = await runCloudAnnotationBatch(db, text(parsed, "jobId"), 1); break;
       case "review": {

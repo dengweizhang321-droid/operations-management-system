@@ -30,6 +30,8 @@ const foundationStatements = [
   `CREATE INDEX IF NOT EXISTS market_annotation_prompt_audits_prompt_idx ON market_annotation_prompt_audits(prompt_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS market_annotation_local_agents (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, token_hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'enabled', capabilities_json TEXT NOT NULL DEFAULT '{}', created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen_at TEXT, revoked_at TEXT)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS market_annotation_agents_token_uq ON market_annotation_local_agents(token_hash)`,
+  `CREATE TABLE IF NOT EXISTS market_annotation_concurrency_settings (category TEXT NOT NULL, executor TEXT NOT NULL CHECK (executor IN ('cloud','local')), concurrency INTEGER NOT NULL CHECK (concurrency BETWEEN 1 AND 50), updated_by TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (category,executor))`,
+  `CREATE INDEX IF NOT EXISTS market_annotation_concurrency_settings_updated_idx ON market_annotation_concurrency_settings(updated_at)`,
 ] as const;
 
 const runtimeColumnUpgrades = {

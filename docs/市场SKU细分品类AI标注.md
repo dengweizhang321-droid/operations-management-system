@@ -4,7 +4,7 @@
 
 ## 上线准备
 
-1. 依次应用 `drizzle/0016_market_sku_annotations.sql` 与 `drizzle/0017_market_annotation_reliability.sql`。
+1. 依次应用 `drizzle/0016_market_sku_annotations.sql`、`drizzle/0017_market_annotation_reliability.sql` 与 `drizzle/0054_market_annotation_concurrency_settings.sql`。
 2. 在 AI 助理中至少启用一个 `vision` 模型。云端模型必须使用 HTTPS 的 OpenAI-compatible 或 Anthropic 接口并配置加密 API Key。
 3. 为需要标注的三级类目创建 Prompt 草稿，完成冻结抽样验证后由管理员激活。首次还没有金标时，管理员可以填写审计原因显式激活；完成首批人工复核后，应把已确认记录加入金标集并重新验证。
 
@@ -12,7 +12,7 @@
 
 1. 选择三级类目。页面默认选择“云端视觉”和一个已启用的 vision 模型。
 2. 使用该类目当前激活的 Prompt 创建任务。任务从完整的 `market_ranking_entries` 中按 SKU 去重选择最新记录，不受榜单页面 200 条展示上限影响。
-3. 点击“继续云端识别”。页面使用双通道调用有界服务端批次，每批最多 4 条；每条 SKU 仍独立领取 claim、完成后写回 D1。浏览器关闭后可继续，重复执行不会重复创建候选；供应商限流时自动降级或暂停。
+3. 设置模型并发数并点击“开始/恢复云端自动识别”。并发范围为 1–50，按“三级类目 + 执行器”记忆；云端默认 10、建议 10–20，本地 Ollama 默认且建议 1。每个浏览器请求仍只处理一张图片，每条 SKU 独立领取 claim、完成后写回 D1。浏览器关闭后可继续，重复执行不会重复创建候选；供应商限流、模型超时或网络异常时自动降为并发 1 并有界退避，连续成功 3 张后恢复该类目的配置值。
 4. 人工检查大图、实际来源、AI 细分品类、主图价格、置信度和依据。可以编辑细分品类与价格（单位为分），再勾选需要入库的候选项。
 5. 管理员点击“批准并入库”。请求必须携带明确的 candidate/item IDs 和批次幂等键。最终结果写入 `market_sku_annotations`，审计前后值写入 `market_annotation_commit_receipts`。
 
@@ -63,4 +63,5 @@ runner 只允许 `OLLAMA_BASE_URL` 指向 localhost，并使用任务中的本�
 - 只有 `admin` 可批量入库、激活/回滚 Prompt、把记录设为金标以及创建/撤销本地 agent。
 - 人工复核先全量校验，再以 job mutex 与 item `version` 条件批量更新；入库使用同一互斥锁、请求摘要和 D1 原子 batch，避免复核/入库 TOCTOU。
 - 云端识别和冻结验证均使用带 token、截止时间、最大三次尝试的可恢复 claim；崩溃超时会重新排队，旧执行结果不能覆盖新 claim。
+- 云端与本地任务均由服务端按类目并发配置执行原子 claim 门禁；前端或本地 runner 的 worker 数不能绕过 1–50 边界。配置变更保留操作者与前后值审计，相同值重复保存不产生重复审计。
 - 文件导入的榜单幂等、标注任务项唯一键、入库回执唯一键和 agent lease 分别处理不同层面的重复与并发。

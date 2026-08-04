@@ -2,7 +2,13 @@
 /* eslint-disable @next/next/no-img-element -- JD competitor images are external audited sources. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
+import {
+  defaultMarketAnnotationConcurrency,
+  MARKET_ANNOTATION_CONCURRENCY_LIMITS,
+  MARKET_ANNOTATION_JOB_LIMITS,
+  normalizeMarketAnnotationConcurrency,
+  type MarketAnnotationExecutor,
+} from "@/lib/market/annotation-limits";
 import { annotationRequestRetryKind, annotationRetryDelayMs } from "@/lib/market/annotation-retry";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
@@ -13,14 +19,13 @@ type Item = { id: string; candidateId: string; jobId: string; category: string; 
 type CatalogItem = { skuCode: string; productName: string; brand: string; category: string; imageUrl: string; imageCacheStatus: string; rankingPriceCents: number | null; annotationId?: string; finalSegment?: string; finalImagePriceCents?: number | null; reviewStatus: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
-type Workspace = { categories: Array<{ value: string; count: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CatalogWorkspace = Pick<Workspace, "catalog"> & { error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
 const LOAD_TIMEOUT_MS = 30_000;
 const ACTION_TIMEOUT_MS = 110_000;
-const CLOUD_CONCURRENCY = 2;
 const CLOUD_BATCH_SIZE = 1;
 const CLOUD_PROGRESS_REFRESH_EVERY = 12;
 const CLOUD_PROGRESS_REFRESH_MS = 30_000;
@@ -46,6 +51,7 @@ const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | 
   return item.status === "inferencing" ? "识别处理中" : "等待识别";
 };
 const annotationReviewScopeKey = (input: { page: number; pageSize: number; categories: string[]; segment: string; storageStatus: string; recognitionSource: string }) => JSON.stringify(input);
+const annotationConcurrencyKey = (category: string, executor: MarketAnnotationExecutor) => `${category}\u0000${executor}`;
 export default function MarketAnnotationView({ currentUser, embedded = false }: { currentUser: CurrentUser; embedded?: boolean }) {
   const [data, setData] = useState<Workspace | null>(null);
   const [jobId, setJobId] = useState("");
@@ -56,6 +62,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [textModelId, setTextModelId] = useState("");
   const [localModelName, setLocalModelName] = useState("gemma4");
   const [limit, setLimit] = useState(MARKET_ANNOTATION_JOB_LIMITS.default);
+  const [concurrencyDrafts, setConcurrencyDrafts] = useState<Record<string, number>>({});
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [promptId, setPromptId] = useState("");
   const [promptBody, setPromptBody] = useState("");
@@ -243,6 +250,19 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const activePrompt = data?.prompts.find((item) => item.category === category && item.status === "active");
   const selectedPrompt = data?.prompts.find((item) => item.id === promptId && item.category === category) ?? activePrompt;
   const currentJob = data?.jobs.find((item) => item.id === jobId);
+  const concurrencyFor = (targetCategory: string, targetExecutor: MarketAnnotationExecutor) => {
+    const key = annotationConcurrencyKey(targetCategory, targetExecutor);
+    const stored = data?.concurrencySettings.find((item) => item.category === targetCategory && item.executor === targetExecutor)?.concurrency;
+    return concurrencyDrafts[key] ?? stored ?? defaultMarketAnnotationConcurrency(targetExecutor);
+  };
+  const persistConcurrency = async (targetCategory: string, targetExecutor: MarketAnnotationExecutor, requested: number) => {
+    const concurrency = normalizeMarketAnnotationConcurrency(requested, targetExecutor);
+    const result = await post({ action: "set_concurrency", category: targetCategory, executor: targetExecutor, concurrency });
+    const setting = { category: targetCategory, executor: targetExecutor, concurrency, updatedBy: String(result?.updatedBy ?? currentUser?.email ?? ""), updatedAt: String(result?.updatedAt ?? new Date().toISOString()) };
+    setConcurrencyDrafts((current) => ({ ...current, [annotationConcurrencyKey(targetCategory, targetExecutor)]: concurrency }));
+    setData((current) => current ? { ...current, concurrencySettings: [...current.concurrencySettings.filter((item) => item.category !== targetCategory || item.executor !== targetExecutor), setting] } : current);
+    return concurrency;
+  };
   const reviewableIds = new Set((data?.items ?? []).filter((item) => ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
   const activeReviewScopeKey = annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segment: itemSegment, storageStatus, recognitionSource });
   const reviewScopeReady = loadedReviewScopeKey === activeReviewScopeKey;
@@ -264,13 +284,16 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText((data?.taxonomy ?? []).filter((item) => item.category === nextCategory).map((item) => item.value).join("\n")); }
   };
   const createJob = () => act("create-job", async () => {
-    const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit });
+    const concurrency = normalizeMarketAnnotationConcurrency(concurrencyFor(category, executor), executor);
+    const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit, concurrency });
     const id = String(result?.id || ""); dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(id); setNotice("标注任务已创建"); await load(id, search, searchPage, 1);
   });
   const pumpCloud = () => act("run-cloud", async () => {
+    if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要继续的云端标注任务");
+    const configuredConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
     stopRef.current = false;
     let done = false;
-    let workerLimit = CLOUD_CONCURRENCY;
+    let workerLimit = configuredConcurrency;
     let blockedUntil = 0;
     let retryFailures = 0;
     let successesSinceFailure = 0;
@@ -291,8 +314,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       setNotice(kind === "waiting"
         ? `已有图片正在识别，系统将在 ${seconds} 秒后自动检查并继续。`
         : kind === "rate_limit"
-          ? `模型供应商限流，已降为单通道，系统将在 ${seconds} 秒后自动续跑。`
-          : `模型或网络超时，已降为单通道，系统将在 ${seconds} 秒后自动刷新并续跑。`);
+          ? `模型供应商限流，已临时降为并发 1，系统将在 ${seconds} 秒后自动续跑。`
+          : `模型或网络超时，已临时降为并发 1，系统将在 ${seconds} 秒后自动刷新并续跑。`);
     };
     const waitForWindow = async () => {
       while (!stopRef.current && Date.now() < blockedUntil) {
@@ -345,16 +368,16 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           await refreshProgress(true).catch(() => undefined);
         } else if (!failureKind && processedThisCall > reused) {
           successesSinceFailure += processedThisCall - reused;
-          if (workerLimit === 1 && successesSinceFailure >= 3) {
-            workerLimit = CLOUD_CONCURRENCY;
+          if (configuredConcurrency > 1 && workerLimit === 1 && successesSinceFailure >= 3) {
+            workerLimit = configuredConcurrency;
             retryFailures = 0;
-            setNotice("模型连接已稳定，系统已自动恢复双通道识别。");
+            setNotice(`模型连接已稳定，系统已自动恢复为 ${configuredConcurrency} 路并发识别。`);
           }
         }
         if (workerIndex === 0) await refreshProgress();
       }
     };
-    await Promise.all(Array.from({ length: CLOUD_CONCURRENCY }, (_, index) => worker(index)));
+    await Promise.all(Array.from({ length: configuredConcurrency }, (_, index) => worker(index)));
     await refreshProgress(true);
     if (fatalError) throw fatalError;
     const summary = `本轮处理 ${processedCount} 条（复用同图同模型结果 ${reusedCount} 条，识别失败 ${failedCount} 条）`;
@@ -475,6 +498,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const allFilteredChecked = data.selection.filteredReviewableCount > 0 && filteredSelectedCount === data.selection.filteredReviewableCount;
   const hasDirtyDrafts = data.items.some((item) => { const draft = drafts[item.id]; return Boolean(draft) && (draft.segment !== (item.reviewedSegment || item.aiSegment) || draft.price !== yuanInput(item.reviewedImagePriceCents) || draft.selected !== item.selected); });
   const visibleJobs = data.jobs.filter((item) => !category || item.category === category);
+  const formConcurrency = concurrencyFor(category, executor);
+  const currentJobConcurrency = currentJob ? concurrencyFor(currentJob.category, currentJob.executor === "local" ? "local" : "cloud") : defaultMarketAnnotationConcurrency("cloud");
   const reviewSegments = [...new Set(data.taxonomy.filter((item) => !reviewCategories.length || reviewCategories.includes(item.category)).map((item) => item.value))];
   const reviewCategoryLabel = !reviewCategories.length ? "全部三级类目" : reviewCategories.length === 1 ? reviewCategories[0]! : `已选 ${reviewCategories.length} 个三级类目`;
   const toggleReviewCategory = (value: string, checked: boolean) => {
@@ -493,16 +518,22 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")}>{error || notice}</div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；同一 SKUID 与图片已入库的标准售价会自动沿用，新图片的 AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
-    <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>同 SKUID、同图的历史标准售价直接入库；同图、同 Prompt、同模型的未入库 AI 结果会复用。新图片默认双通道逐张识别；超时、网络异常或 429 时自动降为单通道冷却续跑，连续成功 3 张后恢复双通道。</p></div></div><div className="annotation-form-row">
+    <section className="panel annotation-task-card"><div className="section-header"><div><h3>1. 创建与执行任务</h3><p>同 SKUID、同图的历史标准售价直接入库；同图、同 Prompt、同模型的未入库 AI 结果会复用。新图片按类目配置并发逐张识别；超时、网络异常或 429 时自动降为并发 1 冷却续跑，连续成功 3 张后恢复配置值。</p></div></div><div className="annotation-form-row">
       <label><span>筛选三级类目</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="输入类目关键词" /></label>
       <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
       <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>
       {executor === "cloud" ? <label><span>enabled vision 模型</span><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)}>{data.models.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.modelName}</option>)}</select></label> : <label><span>Ollama 模型名</span><input value={localModelName} onChange={(event) => setLocalModelName(event.target.value)} /></label>}
+      <label><span>模型并发数</span><input aria-label="AI 标注模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={formConcurrency} disabled={!canEdit || !category || busy !== ""} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [annotationConcurrencyKey(category, executor)]: Number(event.target.value) }))} onBlur={() => {
+        if (!category || !canEdit) return;
+        void persistConcurrency(category, executor, concurrencyFor(category, executor))
+          .then((saved) => setNotice(`${category}的${executor === "cloud" ? "云端" : "本地"}模型并发数已记忆为 ${saved}`))
+          .catch((reason) => setError(reason instanceof Error ? reason.message : "并发数保存失败"));
+      }} /><small>范围 1–50，按三级类目和执行器记忆。{executor === "cloud" ? "云端建议 10–20；过高易触发限流并计入失败。" : "本地 Ollama 建议 1，避免显存争抢。"}</small></label>
       <label><span>任务上限</span><input type="number" min={1} max={MARKET_ANNOTATION_JOB_LIMITS.maximum} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /><small>单个任务最多 10,000 条，可随时暂停并继续。</small></label>
       <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
     </div><small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
-    <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
-    {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? "云端自动识别中…" : "开始/恢复云端自动识别（默认双通道）"}</button><button className="secondary-button" disabled={busy !== "run-cloud"} onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
+    <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
+    {currentJob?.executor === "cloud" && <div className="annotation-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? `云端自动识别中（并发 ${currentJobConcurrency}）…` : `开始/恢复云端自动识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={busy !== "run-cloud"} onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div>}
     </section>
 
     <section className="panel annotation-review-card">

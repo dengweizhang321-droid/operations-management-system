@@ -5,8 +5,9 @@ import { marketAiPriceTypes, parseVisionAnnotation } from "../lib/market/annotat
 
 type AgentTask = {
   itemId: string; jobId: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string;
-  promptBody: string; segments: string[]; recognitionMode?: "full" | "price_only"; fixedSegment?: string | null; localModelName: string; leaseToken: string;
+  promptBody: string; segments: string[]; recognitionMode?: "full" | "price_only"; fixedSegment?: string | null; localModelName: string; inferenceConcurrency?: number; leaseToken: string;
 };
+type AgentClaim = { task: AgentTask | null; workerConcurrency?: number };
 
 const siteUrl = requiredEnv("TERUISI_SITE_URL").replace(/\/$/, "");
 const token = requiredEnv("TERUISI_ANNOTATION_AGENT_TOKEN");
@@ -25,9 +26,12 @@ async function workerRequest(body: Record<string, unknown>) {
   return payload ?? {};
 }
 
-async function claim(): Promise<AgentTask | null> {
+async function claim(): Promise<AgentClaim> {
   const payload = await workerRequest({ action: "claim" });
-  return (payload.task && typeof payload.task === "object" ? payload.task : null) as AgentTask | null;
+  return {
+    task: (payload.task && typeof payload.task === "object" ? payload.task : null) as AgentTask | null,
+    workerConcurrency: Number(payload.workerConcurrency),
+  };
 }
 
 async function infer(task: AgentTask) {
@@ -94,9 +98,7 @@ async function readLimitedBody(response: Response, maxBytes: number) {
   return bytes;
 }
 
-async function processOne() {
-  const task = await claim();
-  if (!task) return false;
+async function processTask(task: AgentTask) {
   try {
     const output = await infer(task);
     await workerRequest({ action: "complete", itemId: task.itemId, leaseToken: task.leaseToken, ...output });
@@ -106,19 +108,34 @@ async function processOne() {
     await workerRequest({ action: "complete", itemId: task.itemId, leaseToken: task.leaseToken, error: message.slice(0, 800) }).catch(() => undefined);
     process.stderr.write("failed " + task.itemId + ": " + message + "\n");
   }
-  return true;
 }
 
 async function main() {
-  do {
-    const worked = await processOne();
-    if (once) break;
-    if (!worked) await delay(pollMs);
-  } while (true);
+  if (once) {
+    const claimed = await claim();
+    if (claimed.task) await processTask(claimed.task);
+    return;
+  }
+  const active = new Set<Promise<void>>();
+  let workerConcurrency = 1;
+  while (true) {
+    while (active.size < workerConcurrency) {
+      const claimed = await claim();
+      workerConcurrency = boundedConcurrency(claimed.workerConcurrency, workerConcurrency);
+      if (!claimed.task) break;
+      const pending = processTask(claimed.task).finally(() => active.delete(pending));
+      active.add(pending);
+    }
+    if (active.size) await Promise.race(active);
+    else await delay(pollMs);
+  }
 }
 
 function requiredEnv(name: string) { const value = process.env[name]?.trim(); if (!value) throw new Error("Missing environment variable " + name); return value; }
 function argument(name: string) { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : undefined; }
+function boundedConcurrency(value: number | undefined, fallback: number) {
+  return Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 50 ? Number(value) : fallback;
+}
 function normalizeLocalOllamaUrl(value: string) {
   const url = new URL(value);
   if (!(["localhost", "127.0.0.1", "::1"].includes(url.hostname)) || !["http:", "https:"].includes(url.protocol)) throw new Error("OLLAMA_BASE_URL must point to localhost");

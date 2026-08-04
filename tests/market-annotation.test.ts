@@ -8,12 +8,12 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
 import type { MarketDatabase } from "../lib/market/database";
-import { MARKET_ANNOTATION_JOB_LIMITS, normalizeMarketAnnotationJobLimit } from "../lib/market/annotation-limits";
+import { defaultMarketAnnotationConcurrency, MARKET_ANNOTATION_CONCURRENCY_LIMITS, MARKET_ANNOTATION_JOB_LIMITS, normalizeMarketAnnotationConcurrency, normalizeMarketAnnotationJobLimit } from "../lib/market/annotation-limits";
 import { annotationRequestRetryKind, annotationRetryDelayMs, isRetryableAnnotationRequestError } from "../lib/market/annotation-retry";
 
 test("annotation automatic retry uses bounded backoff and classifies only temporary failures", () => {
@@ -35,6 +35,46 @@ test("market annotation jobs default to and accept at most 10,000 items", () => 
   assert.equal(normalizeMarketAnnotationJobLimit(), 10_000);
   assert.equal(normalizeMarketAnnotationJobLimit(10_000), 10_000);
   assert.throws(() => normalizeMarketAnnotationJobLimit(10_001), /1 到 10000/);
+});
+
+test("annotation model concurrency defaults are executor-aware and bounded from 1 to 50", () => {
+  assert.deepEqual(MARKET_ANNOTATION_CONCURRENCY_LIMITS, { minimum: 1, maximum: 50, cloudDefault: 10, localDefault: 1 });
+  assert.equal(defaultMarketAnnotationConcurrency("cloud"), 10);
+  assert.equal(defaultMarketAnnotationConcurrency("local"), 1);
+  assert.equal(normalizeMarketAnnotationConcurrency(20, "cloud"), 20);
+  assert.equal(normalizeMarketAnnotationConcurrency(50, "local"), 50);
+  assert.throws(() => normalizeMarketAnnotationConcurrency(0, "cloud"), /1 到 50/);
+  assert.throws(() => normalizeMarketAnnotationConcurrency(51, "local"), /1 到 50/);
+  assert.throws(() => normalizeMarketAnnotationConcurrency(1.5, "cloud"), /1 到 50/);
+});
+
+test("annotation concurrency is remembered per category and executor with idempotent audit", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,created_by) VALUES
+      ('setting-a','类目A','prompt-a','cloud','queued','operator@test'),
+      ('setting-b','类目B','prompt-b','cloud','queued','operator@test');
+  `);
+  const actor = { email: "operator@test", role: "operator" };
+  await setAnnotationConcurrency(db, { category: "类目A", executor: "cloud", concurrency: 15 }, actor);
+  await setAnnotationConcurrency(db, { category: "类目A", executor: "local", concurrency: 1 }, actor);
+  await setAnnotationConcurrency(db, { category: "类目B", executor: "cloud", concurrency: 20 }, actor);
+  await setAnnotationConcurrency(db, { category: "类目A", executor: "cloud", concurrency: 15 }, actor);
+  const settings = sqlite.prepare("SELECT category,executor,concurrency FROM market_annotation_concurrency_settings ORDER BY category,executor").all();
+  assert.deepEqual(settings.map((row) => ({ ...row })), [
+    { category: "类目A", executor: "cloud", concurrency: 15 },
+    { category: "类目A", executor: "local", concurrency: 1 },
+    { category: "类目B", executor: "cloud", concurrency: 20 },
+  ]);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='set_market_annotation_concurrency'").get() as { count: number }).count, 3);
+  await assert.rejects(() => setAnnotationConcurrency(db, { category: "类目A", executor: "cloud", concurrency: 0 }, actor), /1 到 50/);
+  await assert.rejects(() => setAnnotationConcurrency(db, { category: "类目A", executor: "cloud", concurrency: 51 }, actor), /1 到 50/);
+  await assert.rejects(() => setAnnotationConcurrency(db, { category: "类目A", executor: "remote", concurrency: 1 }, actor), /cloud 或 local/);
+  await assert.rejects(() => setAnnotationConcurrency(db, { category: "不存在", executor: "cloud", concurrency: 10 }, actor), /不存在/);
+  sqlite.close();
 });
 
 test("annotation state machines reject unsafe skips", () => {
@@ -110,7 +150,7 @@ test("activation gate blocks overall, macro, and per-class regressions", () => {
 });
 
 test("annotation implementation wires real cloud images, idempotency, permissions, search, and local pull", async () => {
-  const [route, worker, service, model, imageCache, ui, marketUi, masterRoute, runner, migration] = await Promise.all([
+  const [route, worker, service, model, imageCache, ui, marketUi, masterRoute, runner, migration, concurrencyMigration] = await Promise.all([
     readFile(new URL("../app/api/market/annotations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/annotations/worker/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
@@ -121,9 +161,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../tools/market-annotation-runner.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0054_market_annotation_concurrency_settings.sql", import.meta.url), "utf8"),
   ]);
   assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
   assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
+  assert.match(route, /case "set_concurrency".*setAnnotationConcurrency/s);
   assert.match(route, /case "run_batch": result = await runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/);
   assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
   assert.match(worker, /authenticateLocalAgent/);
@@ -165,10 +207,12 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.doesNotMatch(model, /data\?\.error\?\.message/);
   assert.match(service, /sample_snapshot_json/);
   assert.match(service, /datetime\('now','\+3 minutes'\)/);
-  assert.match(service, /CLOUD_INFERENCE_CONCURRENCY = 2/);
+  assert.match(service, /annotationConcurrency\(db, job\.category, "cloud"\)/);
+  assert.match(service, /datetime\(active\.lease_expires_at\)>datetime\('now'\)\)<\?/);
   assert.match(service, /commit_token_hash/);
   assert.match(ui, /SKU AI 标注/);
-  assert.match(ui, /const CLOUD_CONCURRENCY = 2/);
+  assert.match(ui, /MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum/);
+  assert.match(ui, /Array\.from\(\{ length: configuredConcurrency \}/);
   assert.match(ui, /const CLOUD_BATCH_SIZE = 1/);
   assert.match(ui, /action: "run_batch"/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
@@ -176,7 +220,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /单个任务最多 10,000 条/);
   assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(service, /normalizeMarketAnnotationJobLimit/);
-  assert.match(ui, /模型供应商限流，已降为单通道，系统将在.*秒后自动续跑/);
+  assert.match(ui, /模型供应商限流，已临时降为并发 1，系统将在.*秒后自动续跑/);
   assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
@@ -198,9 +242,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
-  assert.match(ui, /模型或网络超时，已降为单通道，系统将在.*秒后自动刷新并续跑/);
-  assert.match(ui, /连续成功 3 张后恢复双通道/);
-  assert.match(ui, /自动恢复双通道识别/);
+  assert.match(ui, /模型或网络超时，已临时降为并发 1，系统将在.*秒后自动刷新并续跑/);
+  assert.match(ui, /连续成功 3 张后恢复配置值/);
+  assert.match(ui, /自动恢复为.*路并发识别/);
+  assert.match(ui, /云端建议 10–20；过高易触发限流并计入失败/);
+  assert.match(ui, /本地 Ollama 建议 1/);
   assert.doesNotMatch(ui, /请刷新后继续原任务|请稍后点击“继续云端识别”/);
   assert.match(ui, /signal: controller\.signal/);
   assert.match(ui, /loadSequence !== loadSequenceRef\.current/);
@@ -215,8 +261,12 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(runner, /OLLAMA_TIMEOUT_MS = 120_000/);
   assert.match(runner, /OLLAMA_RESPONSE_MAX_BYTES = 1024 \* 1024/);
   assert.match(runner, /readLimitedBody\(response, OLLAMA_RESPONSE_MAX_BYTES\)/);
+  assert.match(runner, /workerConcurrency/);
+  assert.match(runner, /active\.size < workerConcurrency/);
   assert.doesNotMatch(runner, /payload\?\.error \|\| \("Ollama/);
   for (const table of ["market_annotation_jobs", "market_annotation_items", "market_sku_annotations", "market_annotation_commit_receipts", "market_annotation_prompt_versions", "market_annotation_validation_samples", "market_annotation_validation_runs", "market_annotation_validation_results", "market_annotation_local_agents"]) assert.match(migration, new RegExp(table));
+  assert.match(concurrencyMigration, /market_annotation_concurrency_settings/);
+  assert.match(concurrencyMigration, /BETWEEN 1 AND 50/);
 });
 
 test("prompt deletion is admin-audited, soft, and blocked after task use", async () => {
@@ -364,6 +414,35 @@ test("expired local lease is reclaimable and its old token cannot overwrite the 
   sqlite.close();
 });
 
+test("local claims honor the remembered per-category concurrency cap", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('local-cap-prompt','本地并发类目',1,'manual','active','["型号A","其他"]','这是用于验证本地模型并发租约上限的正式 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,local_model_name,status,total_count,created_by)
+      VALUES ('local-cap-job','本地并发类目','local-cap-prompt','local','qwen-vl','queued',2,'admin@test');
+    INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by)
+      VALUES ('本地并发类目','local',1,'admin@test');
+    INSERT INTO market_annotation_items (id,job_id,category,sku_code,product_name,status) VALUES
+      ('local-cap-one','local-cap-job','本地并发类目','SKU-L1','商品1','queued'),
+      ('local-cap-two','local-cap-job','本地并发类目','SKU-L2','商品2','queued');
+  `);
+  const first = await claimLocalAnnotation(db, { id: "agent-one" });
+  assert.equal(first.task?.inferenceConcurrency, 1);
+  assert.equal(first.workerConcurrency, 1);
+  const blocked = await claimLocalAnnotation(db, { id: "agent-two" });
+  assert.equal(blocked.task, null);
+  assert.equal((sqlite.prepare("SELECT attempt_count attempts FROM market_annotation_items WHERE id='local-cap-two'").get() as { attempts: number }).attempts, 0);
+  sqlite.prepare("UPDATE market_annotation_concurrency_settings SET concurrency=2 WHERE category='本地并发类目' AND executor='local'").run();
+  const second = await claimLocalAnnotation(db, { id: "agent-two" });
+  assert.equal(second.task?.itemId, "local-cap-two");
+  assert.equal(second.task?.inferenceConcurrency, 2);
+  assert.equal(second.workerConcurrency, 2);
+  sqlite.close();
+});
+
 test("validation run freezes full sample snapshots and hashes seed, model, and snapshot content", async () => {
   const sqlite = new DatabaseSync(":memory:");
   for (const migration of ["../drizzle/0016_market_sku_annotations.sql", "../drizzle/0017_market_annotation_reliability.sql"]) sqlite.exec(await readFile(new URL(migration, import.meta.url), "utf8"));
@@ -432,7 +511,7 @@ test("cloud annotation batches are bounded and refresh an empty job once", async
   sqlite.close();
 });
 
-test("cloud annotation refuses a third live inference claim for the same job", async () => {
+test("cloud annotation refuses a claim at the remembered category concurrency", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureAnnotationSchema(db);
@@ -441,6 +520,8 @@ test("cloud annotation refuses a third live inference claim for the same job", a
       VALUES ('concurrency-prompt','并发类目',1,'manual','active','["型号A","其他"]','这是用于验证同任务最多两个云端推理租约的正式 Prompt。','admin@test');
     INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, created_by)
       VALUES ('concurrency-job','并发类目','concurrency-prompt','cloud','vision-1','running',3,'admin@test');
+    INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by)
+      VALUES ('并发类目','cloud',2,'admin@test');
     INSERT INTO market_annotation_items
       (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, status, lease_token_hash, lease_agent_id, lease_expires_at)
     VALUES
@@ -523,7 +604,9 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(indexes.has("market_annotation_items_job_snapshot_uq"));
   assert.ok(indexes.has("market_annotation_items_reuse_idx"));
   assert.ok(indexes.has("market_annotation_items_segment_reuse_idx"));
+  assert.ok(indexes.has("market_annotation_concurrency_settings_updated_idx"));
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_concurrency_settings'").get());
 
   // A distinct runtime connection must also be safe after the first upgrade.
   await ensureAnnotationSchema(sqliteAdapter(sqlite));
@@ -541,6 +624,17 @@ test("0053 installs the bounded SKU classification reuse index idempotently", as
   sqlite.exec(migration);
   const columns = (sqlite.prepare("PRAGMA index_info('market_annotation_items_segment_reuse_idx')").all() as Array<{ name: string }>).map((row) => row.name);
   assert.deepEqual(columns, ["category", "scope", "sku_code", "ranking_dimension", "status", "updated_at"]);
+  sqlite.close();
+});
+
+test("0054 installs bounded per-category annotation concurrency settings idempotently", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const migration = await readFile(new URL("../drizzle/0054_market_annotation_concurrency_settings.sql", import.meta.url), "utf8");
+  sqlite.exec(migration);
+  sqlite.exec(migration);
+  sqlite.prepare("INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('类目','cloud',50,'admin')").run();
+  assert.throws(() => sqlite.prepare("INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('越界','cloud',51,'admin')").run(), /CHECK constraint/);
+  assert.throws(() => sqlite.prepare("INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('执行器','remote',1,'admin')").run(), /CHECK constraint/);
   sqlite.close();
 });
 
