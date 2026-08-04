@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { JackyunBrowserStateMachine } from "../lib/jackyun/browser-state-machine";
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
+import { findLocalDownloadedFile } from "../tools/jackyun-browser-controller";
 
 test("daily module order puts sales fourth and combos last", () => {
   assert.deepEqual(jackyunModuleOrder, ["products", "inventory", "inventory_age", "sales", "combos"]);
@@ -64,6 +66,37 @@ test("blocked or interrupted state can reconcile to the manifest's next module",
     assert.equal(machine.snapshot().currentModule, "inventory_age");
     assert.equal(machine.snapshot().currentState, "ENTER_MODULE");
     assert.equal(machine.snapshot().failureCode, undefined);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a new browser run only accepts a workbook created after its own export intent", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "jackyun-download-intent-test-"));
+  const oldFile = path.join(directory, "货品导出 (1).xlsx");
+  const currentFile = path.join(directory, "货品导出 (2).xlsx");
+  try {
+    const exportIntentMs = Date.now();
+    await Promise.all([
+      writeFile(oldFile, "old", "utf8"),
+      writeFile(currentFile, "current", "utf8"),
+    ]);
+    await utimes(oldFile, new Date(exportIntentMs - 60_000), new Date(exportIntentMs - 60_000));
+    await utimes(currentFile, new Date(exportIntentMs), new Date(exportIntentMs));
+
+    assert.equal(
+      await findLocalDownloadedFile(directory, "products", new Date(exportIntentMs).toISOString()),
+      currentFile,
+    );
+    await rm(currentFile, { force: true });
+    assert.equal(
+      await findLocalDownloadedFile(directory, "products", new Date(exportIntentMs).toISOString()),
+      undefined,
+    );
+
+    const controllerSource = readFileSync(path.resolve("tools/jackyun-browser-controller.ts"), "utf8");
+    assert.doesNotMatch(controllerSource, /findPreExistingDownload|下载目录有可用文件，跳过登录继续导入/);
+    assert.match(controllerSource, /browserClientBrowser\.close\(\)/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

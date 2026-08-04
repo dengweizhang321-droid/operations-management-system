@@ -248,38 +248,6 @@ async function waitForContentReady(client: BrowserAutomationClient, urlHints: st
   }
 }
 
-const preExistingDownloadPatterns: Record<JackyunModule, RegExp> = {
-  products: /^货品导出(?: \(\d+\))?\.xlsx$/i,
-  inventory: /^分仓库存查询(?: \(\d+\))?\.xlsx$/i,
-  inventory_age: /^库龄分析[^/\\]*\.xlsx$/i,
-  sales: /^销售单明细账(?: \(\d+\))?\.xlsx$/i,
-  combos: /^组合装[^/\\]*\.xlsx$/i,
-};
-
-async function findPreExistingDownload(downloadDirectory: string, moduleKey: JackyunModule, maxAgeMs: number = 6 * 60 * 60 * 1000): Promise<string | null> {
-  // 只复用任务执行时间段内生成的文件（默认最近 6 小时），防止导入过期旧数据
-  const pattern = preExistingDownloadPatterns[moduleKey];
-  if (!pattern) return null;
-  try {
-    const now = Date.now();
-    const files = await readdir(downloadDirectory);
-    const matched = files.filter((f) => pattern.test(f));
-    if (matched.length === 0) return null;
-    // 取最新的且在时间窗口内的匹配文件
-    let newest: string | null = null;
-    let newestMtime = 0;
-    for (const f of matched) {
-      const fp = path.join(downloadDirectory, f);
-      const s = await stat(fp);
-      if (now - s.mtimeMs > maxAgeMs) continue; // 文件超出时间窗口，跳过
-      if (s.mtimeMs > newestMtime) { newestMtime = s.mtimeMs; newest = f; }
-    }
-    return newest ? path.join(downloadDirectory, newest) : null;
-  } catch {
-    return null;
-  }
-}
-
 async function enterModule(client: BrowserAutomationClient, policy: Policy, moduleKey: JackyunModule) {
   const pageName = policy.modules[moduleKey].pageName;
   // A selected sidebar item only proves that the menu received a click.  It
@@ -932,7 +900,7 @@ function localDownloadPattern(moduleKey: JackyunModule) {
   return patterns[moduleKey];
 }
 
-async function findLocalDownloadedFile(downloadDirectory: string, moduleKey: JackyunModule, exportIntentAt: string) {
+export async function findLocalDownloadedFile(downloadDirectory: string, moduleKey: JackyunModule, exportIntentAt: string) {
   const threshold = Date.parse(exportIntentAt) - 5_000;
   const pattern = localDownloadPattern(moduleKey);
   const entries = await readdir(downloadDirectory, { withFileTypes: true }).catch(() => []);
@@ -1042,18 +1010,8 @@ async function runController(options: CliOptions) {
         const retryPage = retryPages[0];
         const retryBody = retryPage ? await retryPage.evaluate(() => document.body?.innerText || "") : "";
         if (isLikelyJackyunLoginPage(retryBody)) {
-          // 文件已存在时不需要浏览器操作，跳过登录检测继续执行
-          const anyFileReady = await Promise.all(
-            (["products","inventory","inventory_age","sales","combos"] as const).map(
-              (mk) => findPreExistingDownload(policy.browser.downloadDirectory, mk)
-            )
-          ).then((results) => results.some(Boolean));
-          if (anyFileReady) {
-            console.log("检测到吉客云登录页，但下载目录有可用文件，跳过登录继续导入。");
-          } else {
-            console.log("检测到吉客云登录页。若已设置 JACKYUN_USERNAME / JACKYUN_PASSWORD，将尝试自动登录；否则请先手工登录一次。");
-            return { status: "login_required", profileDirectory, port };
-          }
+          console.log("检测到吉客云登录页。若已设置 JACKYUN_USERNAME / JACKYUN_PASSWORD，将尝试自动登录；否则请先手工登录一次。");
+          return { status: "login_required", profileDirectory, port };
         }
       } finally {
         await retryBrowser.close();
@@ -1072,11 +1030,14 @@ async function runController(options: CliOptions) {
   // Playwright owns the browser/page lifecycle. A browser-level CDP session
   // remains only for signed-export download evidence from legacy MiniUI pages.
   const playwrightBrowser = await connectPlaywrightBrowser(port);
-  const browserClient = await connectPlaywrightBrowser(port).then(async (browser) => {
-    const context = browser.contexts()[0] ?? await browser.newContext();
-    const page = context.pages()[0] ?? await context.newPage();
-    return new PlaywrightPageClient(page, await context.newCDPSession(page));
-  });
+  const browserClientBrowser = await connectPlaywrightBrowser(port);
+  const browserClientContext = browserClientBrowser.contexts()[0] ?? await browserClientBrowser.newContext();
+  const browserClientPage = browserClientContext.pages()[0] ?? await browserClientContext.newPage();
+  const browserClient = new PlaywrightPageClient(
+    browserClientPage,
+    await browserClientContext.newCDPSession(browserClientPage),
+  );
+  try {
   await browserClient.send("Browser.setDownloadBehavior", { behavior: "deny", eventsEnabled: true });
   let capturedOssUrl: string | undefined;
   browserClient.on("Browser.downloadWillBegin", (params) => {
@@ -1151,22 +1112,6 @@ async function runController(options: CliOptions) {
       await persistControllerState(controllerStatePath, state);
     }
     const enterModuleStartedAt = Date.now();
-    // 检查下载目录是否已有该模块的文件，有则跳过所有浏览器操作直接导入
-    if (!moduleState.filePath) {
-      const preExisting = await findPreExistingDownload(policy.browser.downloadDirectory, moduleKey);
-      if (preExisting) {
-        const now = new Date().toISOString();
-        moduleState.filePath = preExisting;
-        moduleState.downloadEventAt = now;
-        moduleState.exportIntentAt = now;
-        moduleState.expectedSourceRows = 1;
-        moduleState.tableStableAt = now;
-        moduleState.queryIntentAt = now;
-        if (moduleKey === "combos") {
-          moduleState.exportConfirmation = { prompt: "导出列中存在图片列，最多只能导出2000条，确定导出", button: "确定", confirmedAt: now };
-        }
-      }
-    }
     if (!moduleState.filePath) {
     await enterModule(client, policy, moduleKey);
     moduleState.timings = {
@@ -1315,22 +1260,6 @@ async function runController(options: CliOptions) {
     }
 
     capturedOssUrl = undefined;
-    // 检查下载目录是否已有该模块的文件（如之前导出过的），有则直接复用跳过导出
-    if (!moduleState.filePath && !moduleState.exportIntentAt) {
-      const preExisting = await findPreExistingDownload(policy.browser.downloadDirectory, moduleKey);
-      if (preExisting) {
-        const now = new Date().toISOString();
-        moduleState.filePath = preExisting;
-        moduleState.downloadEventAt = now;
-        moduleState.exportIntentAt = now;
-        moduleState.expectedSourceRows = 1;
-        moduleState.tableStableAt = now;
-        moduleState.queryIntentAt = now;
-        if (moduleKey === "combos") {
-          moduleState.exportConfirmation = { prompt: "导出列中存在图片列，最多只能导出2000条，确定导出", button: "确定", confirmedAt: now };
-        }
-      }
-    }
     if (!moduleState.exportIntentAt) {
       moduleState.exportIntentAt = new Date().toISOString();
       moduleState.status = "export_armed";
@@ -1428,9 +1357,14 @@ async function runController(options: CliOptions) {
     await persistControllerState(controllerStatePath, state);
     client.close();
   }
-  browserClient.close();
-  await playwrightBrowser.close();
   return { status: "completed", runId: options.runId, controllerStatePath };
+  } finally {
+    browserClient.close();
+    await Promise.allSettled([
+      browserClientBrowser.close(),
+      playwrightBrowser.close(),
+    ]);
+  }
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
