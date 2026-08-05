@@ -90,6 +90,23 @@ export function cachedAnnotationModelImage<T extends Omit<AnnotationImageForMode
   };
 }
 
+export async function repairAnnotationModelImageVariant<T extends AnnotationImageForModel>(
+  image: T,
+  existingBytes: Uint8Array | null,
+  optimize: (source: T) => Promise<T & AnnotationImageForModel>,
+  persist: (bytes: Uint8Array) => Promise<void>,
+): Promise<T & AnnotationImageForModel> {
+  if (existingBytes && existingBytes.byteLength < image.bytes.byteLength) {
+    const cached = cachedAnnotationModelImage({ kind: image.kind, source: image.source, url: image.url }, existingBytes);
+    if (cached) return { ...image, ...cached };
+  }
+  const optimized = await optimize(image);
+  if (optimized.optimizedForModel && optimized.mimeType === "image/webp" && optimized.bytes.byteLength < image.bytes.byteLength) {
+    await persist(optimized.bytes).catch(() => undefined);
+  }
+  return optimized;
+}
+
 function streamFor(bytes: Uint8Array) {
   return new ReadableStream<Uint8Array>({
     start(controller) {

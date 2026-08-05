@@ -26,6 +26,7 @@ type ValidationResult = { id: string; runId: string; status: string; skuCode: st
 type Workspace = { categories: Array<{ value: string; count: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CatalogWorkspace = Pick<Workspace, "catalog"> & { error?: string };
+type JobProgress = { job: Job; activeClaims: number; uniqueInferenceUnits: number; remainingInferenceUnits: number; error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 type ActiveCloudRun = { jobId: string; updateConcurrency: (nextConcurrency: number) => void };
 
@@ -86,6 +87,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [itemSegment, setItemSegment] = useState("");
   const [storageStatus, setStorageStatus] = useState<"" | "pending" | "committed">("");
   const [recognitionSource, setRecognitionSource] = useState<"" | "ai" | "non_ai">("");
+  const [cloudProgress, setCloudProgress] = useState<JobProgress | null>(null);
   const [reviewView, setReviewView] = useState<"list" | "gallery">("list");
   const [goldIds, setGoldIds] = useState<string[]>([]);
   const [sampleCount, setSampleCount] = useState(50);
@@ -192,6 +194,19 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       return [item.id, preserve ? existing : serverDraft];
     })));
   }, [itemPage, itemPageSize, reviewCategories, itemSegment, storageStatus, recognitionSource]);
+
+  const loadJobProgress = useCallback(async (targetJobId: string) => {
+    const params = new URLSearchParams({ view: "progress", jobId: targetJobId });
+    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
+    const payload = await response.json().catch(() => null) as JobProgress | null;
+    if (!response.ok || !payload?.job) throw new Error(payload?.error || "读取标注任务进度失败");
+    setCloudProgress(payload);
+    setData((current) => current ? {
+      ...current,
+      jobs: current.jobs.map((item) => item.id === payload.job.id ? payload.job : item),
+    } : current);
+    return payload;
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     const loadSequence = ++catalogLoadSequenceRef.current;
@@ -313,7 +328,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const createJob = () => act("create-job", async () => {
     const concurrency = normalizeMarketAnnotationConcurrency(concurrencyFor(category, executor), executor);
     const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit, concurrency });
-    const id = String(result?.id || ""); dirtyDraftIdsRef.current.clear(); setItemPage(1); setJobId(id); setNotice("标注任务已创建"); await load(id, search, searchPage, 1);
+    const id = String(result?.id || ""); dirtyDraftIdsRef.current.clear(); setCloudProgress(null); setItemPage(1); setJobId(id); setNotice("标注任务已创建或已恢复兼容任务"); await load(id, search, searchPage, 1);
   });
   const pumpCloud = () => act("run-cloud", async () => {
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要继续的云端标注任务");
@@ -372,7 +387,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       if (!shouldRefresh || refreshing) return;
       refreshing = true;
       try {
-        await load(jobId);
+        await loadJobProgress(currentJob.id);
         lastRefreshAt = Date.now();
         lastRefreshCount = processedCount;
       } finally {
@@ -443,6 +458,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       if (activeCloudRunRef.current?.jobId === currentJob.id) activeCloudRunRef.current = null;
     }
     await refreshProgress(true);
+    await loadReview(true);
     if (fatalError) throw fatalError;
     const summary = `本轮处理 ${processedCount} 条（复用同图同模型结果 ${reusedCount} 条，识别失败 ${failedCount} 条）`;
     setNotice(stopRef.current
@@ -615,7 +631,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       </div>
 
       {currentJob && <div className="annotation-current-run">
-        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small></div>
+        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}</div>
         <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
         {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? `云端自动识别中（目标并发 ${currentJobConcurrency}）…` : `开始/恢复云端识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={busy !== "run-cloud"} onClick={() => { stopRef.current = true; }}>完成当前条后暂停</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}

@@ -288,9 +288,7 @@ export function encodeAnnotationImageBase64(bytes: Uint8Array): string {
   let encoded = "";
   for (let start = 0; start < bytes.byteLength; start += chunkSize) {
     const chunk = bytes.subarray(start, Math.min(start + chunkSize, bytes.byteLength));
-    let binary = "";
-    for (const byte of chunk) binary += String.fromCharCode(byte);
-    encoded += btoa(binary);
+    encoded += btoa(String.fromCharCode(...chunk));
   }
   return encoded;
 }

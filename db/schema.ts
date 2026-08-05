@@ -922,17 +922,21 @@ export const marketAnnotationPromptVersions = sqliteTable("market_annotation_pro
 export const marketAnnotationJobs = sqliteTable("market_annotation_jobs", {
   id: text("id").primaryKey(), category: text("category").notNull(), promptVersionId: text("prompt_version_id").notNull(),
   executor: text("executor").notNull(), modelId: text("model_id"), localModelName: text("local_model_name").notNull().default(""),
+  workKey: text("work_key").notNull().default(""), reuseStatus: text("reuse_status").notNull().default("pending"), reuseStartedAt: text("reuse_started_at"),
   status: text("status").notNull().default("queued"), totalCount: integer("total_count").notNull().default(0),
   completedCount: integer("completed_count").notNull().default(0), failedCount: integer("failed_count").notNull().default(0),
   reviewedCount: integer("reviewed_count").notNull().default(0), committedCount: integer("committed_count").notNull().default(0),
   createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   startedAt: text("started_at"), completedAt: text("completed_at"), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   commitTokenHash: text("commit_token_hash").notNull().default(""), commitStartedAt: text("commit_started_at"),
-}, (table) => [index("market_annotation_jobs_category_created_idx").on(table.category, table.createdAt)]);
+}, (table) => [
+  index("market_annotation_jobs_category_created_idx").on(table.category, table.createdAt),
+  uniqueIndex("market_annotation_jobs_active_work_uq").on(table.workKey).where(sql`${table.workKey} <> '' AND ${table.status} IN ('queued','running','failed','review_ready','committing')`),
+]);
 
 export const marketAnnotationItems = sqliteTable("market_annotation_items", {
   id: text("id").primaryKey(), jobId: text("job_id").notNull(), skuCode: text("sku_code").notNull(),
-  category: text("category").notNull().default(""), rankingDimension: text("ranking_dimension").notNull().default("SKU"),
+  category: text("category").notNull().default(""), scope: text("scope").notNull().default(""), rankingDimension: text("ranking_dimension").notNull().default("SKU"),
   month: text("month").notNull().default(""), imageContentSha256: text("image_content_sha256").notNull().default(""),
   productName: text("product_name").notNull().default(""), brand: text("brand").notNull().default(""),
   sourceImageUrl: text("source_image_url").notNull().default(""), resolvedImageUrl: text("resolved_image_url").notNull().default(""),
@@ -947,8 +951,9 @@ export const marketAnnotationItems = sqliteTable("market_annotation_items", {
   attemptCount: integer("attempt_count").notNull().default(0), errorMessage: text("error_message").notNull().default(""),
   version: integer("version").notNull().default(0), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
-  uniqueIndex("market_annotation_items_job_snapshot_uq").on(table.jobId, table.category, table.skuCode, table.rankingDimension, table.month, table.imageContentSha256),
+  uniqueIndex("market_annotation_items_job_snapshot_uq").on(table.jobId, table.category, table.scope, table.skuCode, table.rankingDimension, table.month, table.imageContentSha256),
   index("market_annotation_items_job_status_idx").on(table.jobId, table.status, table.updatedAt),
+  index("market_annotation_items_job_inference_unit_idx").on(table.jobId, table.category, table.scope, table.skuCode, table.rankingDimension, table.imageContentSha256, table.status, table.id),
   index("market_annotation_items_lease_idx").on(table.leaseExpiresAt, table.status),
 ]);
 

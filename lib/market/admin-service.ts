@@ -1102,19 +1102,6 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
         MAX(CASE WHEN confirmed_market_price_cents IS NULL THEN 1 ELSE 0 END) AS has_pending
       FROM market_price_snapshots
       GROUP BY category, scope, ranking_dimension, sku_code
-    ), ai_state AS MATERIALIZED (
-      SELECT category, scope, ranking_dimension, sku_code,
-        MAX(CASE WHEN COALESCE(ai_segment, '') <> ''
-          OR ai_image_price_cents IS NOT NULL
-          OR ai_confidence_bps IS NOT NULL
-          OR COALESCE(ai_reason, '') <> '' THEN 1 ELSE 0 END) AS has_ai_result
-      FROM market_annotation_items
-      GROUP BY category, scope, ranking_dimension, sku_code
-    ), pending_ai_identities AS MATERIALIZED (
-      SELECT identity.category, identity.scope, identity.ranking_dimension, identity.sku_code
-      FROM market_identities identity
-      LEFT JOIN ai_state USING (category, scope, ranking_dimension, sku_code)
-      WHERE COALESCE(ai_state.has_ai_result, 0)=0
     ), active_prompts AS MATERIALIZED (
       SELECT prompt.category, prompt.segments_json,
         CASE WHEN NOT EXISTS (
@@ -1148,6 +1135,19 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
         ON image_cache.source_url=snapshot.image_url
         AND image_cache.status='ready' AND image_cache.content_sha256<>''
       WHERE snapshot.confirmed_market_price_cents IS NULL
+    ), pending_ai_identities AS MATERIALIZED (
+      SELECT snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code
+      FROM pending_snapshots snapshot
+      WHERE NOT EXISTS (
+        SELECT 1 FROM market_annotation_items result
+        WHERE result.category=snapshot.category AND result.scope=snapshot.scope
+          AND result.ranking_dimension=snapshot.ranking_dimension AND result.sku_code=snapshot.sku_code
+          AND result.month=snapshot.month AND result.image_content_sha256=snapshot.image_content_sha256
+          AND result.status IN ('review_pending','approved','rejected','committed')
+          AND (COALESCE(result.ai_segment,'')<>'' OR result.ai_image_price_cents IS NOT NULL
+            OR result.ai_confidence_bps IS NOT NULL OR COALESCE(result.ai_reason,'')<>'')
+      )
+      GROUP BY snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code
     ), same_image_standard AS MATERIALIZED (
       SELECT category, scope, ranking_dimension, sku_code, image_content_sha256
       FROM market_price_snapshots

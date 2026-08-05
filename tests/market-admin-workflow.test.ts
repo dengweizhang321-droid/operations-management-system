@@ -156,6 +156,7 @@ test("system settings KPIs split every pending AI identity into one highest-cost
     (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,ai_segment,reviewed_segment,attempt_count)
     VALUES
     ('price-history','job-price','category-price','POP','SKU-PRICE','SKU','2026-06','hash-price-old','committed','','segment-price',1),
+    ('full-old-result','job-full-old','category-full','POP','SKU-FULL','SKU','2026-07','hash-full-old','review_pending','segment-full','segment-full',1),
     ('terminal-failure','job-terminal','category-terminal','POP','SKU-TERMINAL','SKU','2026-07','hash-terminal','failed','','',3),
     ('completed-result','job-completed','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed','review_pending','segment-completed','segment-completed',1);`);
 

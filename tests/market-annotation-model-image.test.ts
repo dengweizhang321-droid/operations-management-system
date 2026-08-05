@@ -7,6 +7,7 @@ import {
   annotationModelImageObjectKey,
   cachedAnnotationModelImage,
   optimizeAnnotationImageForModel,
+  repairAnnotationModelImageVariant,
   type AnnotationImagesBinding,
 } from "../lib/market/annotation-model-image";
 
@@ -95,6 +96,32 @@ test("cached model variants require WebP and retain the original business identi
   assert.equal(prepared.optimizedForModel, true);
   assert.equal(cachedAnnotationModelImage(input, new Uint8Array(12)), null);
   assert.equal(annotationModelImageObjectKey("abc"), "market-images/model-v1/abc.webp");
+});
+
+test("a ready original cache lazily repairs and persists a missing model variant once", async () => {
+  const image = sourceImage(100);
+  const optimized = { ...image, mimeType: "image/webp", bytes: webpBytes(40), base64: "optimized", optimizedForModel: true as const };
+  let optimizeCalls = 0;
+  const persisted: Uint8Array[] = [];
+  const repaired = await repairAnnotationModelImageVariant(
+    image,
+    null,
+    async () => { optimizeCalls += 1; return optimized; },
+    async (bytes) => { persisted.push(bytes); },
+  );
+  assert.equal(repaired, optimized);
+  assert.equal(optimizeCalls, 1);
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0], optimized.bytes);
+
+  const reused = await repairAnnotationModelImageVariant(
+    image,
+    optimized.bytes,
+    async () => { throw new Error("cached variants must not be re-encoded"); },
+    async () => { throw new Error("cached variants must not be rewritten"); },
+  );
+  assert.equal(reused.optimizedForModel, true);
+  assert.equal(reused.base64, Buffer.from(optimized.bytes).toString("base64"));
 });
 
 function sourceImage(size: number) {

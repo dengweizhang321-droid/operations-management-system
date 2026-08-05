@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 
 import { encodeAnnotationImageBase64, fetchAnnotationImage, resolveAnnotationImageCandidates, type AnnotationImageSource } from "@/lib/market/annotation-image";
 import { optimizeAnnotationImageWithRuntime } from "@/lib/market/annotation-image-runtime";
-import { annotationModelImageObjectKey, cachedAnnotationModelImage } from "@/lib/market/annotation-model-image";
+import { annotationModelImageObjectKey, cachedAnnotationModelImage, repairAnnotationModelImageVariant } from "@/lib/market/annotation-model-image";
 import { ensureMarketSchema, getMarketDatabase, type MarketDatabase } from "@/lib/market/database";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "@/lib/market/image-cache-state";
 
@@ -154,7 +154,7 @@ export async function getCachedMarketImageForAnnotation(sourceUrl: string, db: M
   if (!object) return null;
   const bytes = new Uint8Array(await object.arrayBuffer());
   if (!bytes.byteLength || bytes.byteLength !== Number(row.sizeBytes) || bytes.byteLength > CACHE_MAX_BYTES) return null;
-  return {
+  const sourceImage = {
     kind: "image" as const,
     source,
     url: resolvedUrl,
@@ -162,4 +162,16 @@ export async function getCachedMarketImageForAnnotation(sourceUrl: string, db: M
     bytes,
     base64: encodeAnnotationImageBase64(bytes),
   };
+  if (!row.contentHash) return sourceImage;
+  return repairAnnotationModelImageVariant(
+    sourceImage,
+    null,
+    optimizeAnnotationImageWithRuntime,
+    async (modelBytes) => {
+      await bucket().put(annotationModelImageObjectKey(row.contentHash), modelBytes, {
+        httpMetadata: { contentType: "image/webp", cacheControl: "private, max-age=31536000, immutable" },
+        customMetadata: { source: "market-annotation-model-input", sha256: row.contentHash },
+      });
+    },
+  );
 }

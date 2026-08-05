@@ -5,7 +5,7 @@ import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
-  createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
+  createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
   revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
@@ -29,8 +29,8 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
     const db = getMarketDatabase();
-    await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     const params = new URL(request.url).searchParams;
+    const view = params.get("view") ?? "workspace";
     const workspaceInput = {
       jobId: params.get("jobId")?.trim() || undefined,
       aggregateJobs: params.get("aggregateJobs") === "1",
@@ -45,7 +45,10 @@ export async function GET(request: Request) {
       includeAgents: principal.role === "admin",
       includeCatalog: params.get("includeCatalog") !== "0",
     } as const;
-    const view = params.get("view") ?? "workspace";
+    if (view === "progress") {
+      return Response.json(await getAnnotationJobProgress(db, workspaceInput.jobId ?? ""), { headers: { "cache-control": "no-store" } });
+    }
+    await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     if (view === "review") {
       return Response.json(await getAnnotationReviewWorkspace(db, workspaceInput), { headers: { "cache-control": "no-store" } });
     }

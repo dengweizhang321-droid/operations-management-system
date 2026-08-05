@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -187,7 +187,10 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /m\.sku_code LIKE \?.*a\.segment LIKE \?/s);
   assert.match(service, /lease_token_hash/);
   assert.match(service, /status<>'deleted'/);
-  assert.match(service, /reuseCloudAnnotationHistory/);
+  assert.match(service, /reuseAnnotationHistory/);
+  assert.match(service, /fanOutInferenceUnitResult/);
+  assert.match(route, /getAnnotationJobProgress/);
+  assert.match(ui, /loadJobProgress/);
   assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
   assert.match(model, /loadCachedAnnotationImage/);
@@ -616,6 +619,7 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
 
   const columnNames = (table: string) => new Set((sqlite.prepare(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).map((row) => row.name));
   assert.deepEqual([...columnNames("market_annotation_jobs")].filter((name) => name.startsWith("commit_")), ["commit_token_hash", "commit_started_at"]);
+  for (const column of ["work_key", "reuse_status", "reuse_started_at"]) assert.ok(columnNames("market_annotation_jobs").has(column));
   assert.ok(columnNames("market_annotation_commit_receipts").has("batch_id"));
   assert.ok(columnNames("market_annotation_commit_receipts").has("request_digest"));
   for (const column of ["sample_snapshot_json", "claim_token_hash", "lease_expires_at", "attempt_count", "updated_at"]) assert.ok(columnNames("market_annotation_validation_results").has(column));
@@ -627,6 +631,8 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(indexes.has("market_annotation_items_job_snapshot_uq"));
   assert.ok(indexes.has("market_annotation_items_reuse_idx"));
   assert.ok(indexes.has("market_annotation_items_segment_reuse_idx"));
+  assert.ok(indexes.has("market_annotation_items_job_inference_unit_idx"));
+  assert.ok(indexes.has("market_annotation_jobs_active_work_uq"));
   assert.ok(indexes.has("market_annotation_concurrency_settings_updated_idx"));
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_concurrency_settings'").get());
@@ -658,6 +664,24 @@ test("0054 installs bounded per-category annotation concurrency settings idempot
   sqlite.prepare("INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('类目','cloud',50,'admin')").run();
   assert.throws(() => sqlite.prepare("INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('越界','cloud',51,'admin')").run(), /CHECK constraint/);
   assert.throws(() => sqlite.prepare("INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('执行器','remote',1,'admin')").run(), /CHECK constraint/);
+  sqlite.close();
+});
+
+test("0055 adds active-job idempotency and inference-unit indexes without rewriting legacy jobs", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"));
+  sqlite.exec(`ALTER TABLE market_annotation_items ADD COLUMN category TEXT NOT NULL DEFAULT '';
+    ALTER TABLE market_annotation_items ADD COLUMN scope TEXT NOT NULL DEFAULT '';
+    ALTER TABLE market_annotation_items ADD COLUMN ranking_dimension TEXT NOT NULL DEFAULT 'SKU';
+    ALTER TABLE market_annotation_items ADD COLUMN image_content_sha256 TEXT NOT NULL DEFAULT '';`);
+  sqlite.exec("INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,created_by) VALUES ('legacy-job','类目','prompt','cloud','running','admin')");
+  const migration = await readFile(new URL("../drizzle/0055_market_annotation_throughput.sql", import.meta.url), "utf8");
+  for (const statement of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(statement);
+  const legacy = sqlite.prepare("SELECT work_key workKey,reuse_status reuseStatus FROM market_annotation_jobs WHERE id='legacy-job'").get() as Record<string, unknown>;
+  assert.deepEqual({ ...legacy }, { workKey: "", reuseStatus: "pending" });
+  const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
+  assert.ok(indexes.has("market_annotation_jobs_active_work_uq"));
+  assert.ok(indexes.has("market_annotation_items_job_inference_unit_idx"));
   sqlite.close();
 });
 
@@ -788,6 +812,32 @@ test("price recognition resumes the compatible unfinished job instead of creatin
   sqlite.close();
 });
 
+test("compatible general job creation is idempotent across concurrent callers", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec("CREATE TABLE ai_models (id TEXT PRIMARY KEY, status TEXT NOT NULL, model_type TEXT NOT NULL)");
+  sqlite.exec("INSERT INTO ai_models VALUES ('vision-idempotent','enabled','vision')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('prompt-idempotent','净水',1,'manual','active','["台式","立式"]','这是用于验证并发创建只保留一个兼容任务的正式 Prompt。','admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+      VALUES ('idempotent-ranking',1,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-IDEMPOTENT','幂等商品','https://img10.360buyimg.com/imgzone/idempotent.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES ('idempotent-snapshot','净水','pop','SKU-IDEMPOTENT','SKU','2026-05','idempotent-hash','https://img10.360buyimg.com/imgzone/idempotent.jpg','missing');
+  `);
+  const actor = { email: "operator@test", role: "operator" };
+  const input = { category: "净水", promptVersionId: "prompt-idempotent", executor: "cloud", modelId: "vision-idempotent", limit: 10 } as const;
+  const [first, second] = await Promise.all([createAnnotationJob(db, input, actor), createAnnotationJob(db, input, actor)]);
+  assert.equal(first.id, second.id);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_jobs").get() as { count: number }).count, 1);
+  assert.notEqual((sqlite.prepare("SELECT work_key workKey FROM market_annotation_jobs").get() as { workKey: string }).workKey, "");
+  sqlite.close();
+});
+
 test("price-only classification reuse never crosses scope or ranking dimension and ignores stale segments", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
@@ -859,6 +909,55 @@ test("local price-only tasks expose one fixed segment and reject classification 
   sqlite.close();
 });
 
+test("one local inference fans out to every same-image month without another claim", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('fanout-prompt','净水',1,'manual','active','["台式","立式"]','这是用于验证同图跨月份只执行一次本地推理的正式 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,local_model_name,reuse_status,status,total_count,created_by)
+      VALUES ('fanout-job','净水','fanout-prompt','local','qwen-vl','ready','queued',2,'admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+      VALUES
+      ('fanout-june',1,'2026-06-01','2026-06-30','净水','pop','SKU','POP','SKU-FANOUT','同图商品','https://img10.360buyimg.com/imgzone/fanout.jpg','{}','batch'),
+      ('fanout-july',2,'2026-07-01','2026-07-31','净水','pop','SKU','POP','SKU-FANOUT','同图商品','https://img10.360buyimg.com/imgzone/fanout.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES
+      ('fanout-ps-june','净水','pop','SKU-FANOUT','SKU','2026-06','fanout-hash','https://img10.360buyimg.com/imgzone/fanout.jpg','missing'),
+      ('fanout-ps-july','净水','pop','SKU-FANOUT','SKU','2026-07','fanout-hash','https://img10.360buyimg.com/imgzone/fanout.jpg','missing');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,product_name,source_image_url,status)
+      VALUES
+      ('fanout-a','fanout-job','净水','pop','SKU-FANOUT','SKU','2026-06','fanout-hash','同图商品','https://img10.360buyimg.com/imgzone/fanout.jpg','queued'),
+      ('fanout-b','fanout-job','净水','pop','SKU-FANOUT','SKU','2026-07','fanout-hash','同图商品','https://img10.360buyimg.com/imgzone/fanout.jpg','queued');
+  `);
+  const claim = await claimLocalAnnotation(db, { id: "agent-fanout" });
+  assert.equal(claim.task?.itemId, "fanout-a");
+  const completed = await completeLocalAnnotation(db, { id: "agent-fanout" }, {
+    itemId: "fanout-a", leaseToken: claim.task!.leaseToken,
+    result: { segment: "台式", image_price_cents: 288800, price_type: "标准售价", price_low_cents: 288800, price_high_cents: 288800, confidence: 0.93, reason: "同一主图" },
+  });
+  assert.equal(completed.reusedCount, 1);
+  const items = sqlite.prepare("SELECT month,status,ai_image_price_cents price,attempt_count attempts FROM market_annotation_items WHERE job_id='fanout-job' ORDER BY month").all() as Array<Record<string, unknown>>;
+  assert.deepEqual(items.map((row) => ({ ...row })), [
+    { month: "2026-06", status: "review_pending", price: 288800, attempts: 1 },
+    { month: "2026-07", status: "review_pending", price: 288800, attempts: 0 },
+  ]);
+  const snapshots = sqlite.prepare("SELECT month,confirmation_status status,ai_image_price_cents price FROM market_price_snapshots WHERE sku_code='SKU-FANOUT' ORDER BY month").all() as Array<Record<string, unknown>>;
+  assert.deepEqual(snapshots.map((row) => ({ ...row })), [
+    { month: "2026-06", status: "ai_pending", price: 288800 },
+    { month: "2026-07", status: "ai_pending", price: 288800 },
+  ]);
+  assert.equal((await claimLocalAnnotation(db, { id: "agent-fanout" })).task, null);
+  const progress = await getAnnotationJobProgress(db, "fanout-job");
+  assert.deepEqual({ active: progress.activeClaims, units: progress.uniqueInferenceUnits, remaining: progress.remainingInferenceUnits }, { active: 0, units: 1, remaining: 0 });
+  sqlite.close();
+});
+
 test("cloud annotation reuses exact same-image results for the same prompt and model without another model call", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
@@ -905,6 +1004,24 @@ test("cloud annotation reuses exact same-image results for the same prompt and m
   assert.equal("reusedCount" in resumed ? resumed.reusedCount : 0, 1);
   const resumedItem = sqlite.prepare("SELECT status,ai_segment segment,ai_image_price_cents price,attempt_count attempts FROM market_annotation_items WHERE id='queued-reuse-item'").get() as Record<string, unknown>;
   assert.deepEqual({ ...resumedItem }, { status: "review_pending", segment: "台式", price: 288800, attempts: 0 });
+
+  sqlite.exec(`
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,model_id,reuse_status,status,total_count,completed_count,created_by)
+      VALUES ('same-job-reuse','净水','prompt-reuse','cloud','vision-1','pending','running',2,1,'operator@test');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,source_image_url,status,
+       ai_segment,ai_image_price_cents,ai_price_type,ai_confidence_bps,ai_reason,ai_raw_digest,reviewed_segment,reviewed_image_price_cents)
+      VALUES
+      ('same-job-a','same-job-reuse','净水','pop','SKU-SAME-JOB','SKU','2026-03','same-job-hash','https://img10.360buyimg.com/imgzone/same.jpg','review_pending','立式',399900,'标准售价',9200,'同任务结果','same-digest','立式',399900),
+      ('same-job-b','same-job-reuse','净水','pop','SKU-SAME-JOB','SKU','2026-04','same-job-hash','https://img10.360buyimg.com/imgzone/same.jpg','queued','',NULL,'',NULL,'','','',NULL);
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES ('same-job-snapshot','净水','pop','SKU-SAME-JOB','SKU','2026-04','same-job-hash','https://img10.360buyimg.com/imgzone/same.jpg','missing');
+  `);
+  const sameJob = await runNextCloudAnnotation(db, "same-job-reuse");
+  assert.equal("reusedCount" in sameJob ? sameJob.reusedCount : 0, 1);
+  const sameJobItem = sqlite.prepare("SELECT status,ai_segment segment,ai_image_price_cents price,attempt_count attempts FROM market_annotation_items WHERE id='same-job-b'").get() as Record<string, unknown>;
+  assert.deepEqual({ ...sameJobItem }, { status: "review_pending", segment: "立式", price: 399900, attempts: 0 });
   sqlite.close();
 });
 
