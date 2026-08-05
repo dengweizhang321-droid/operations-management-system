@@ -93,7 +93,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
       A: { title: "缺口规划", description: "按天猫店铺与 SPU 日数据集查询真实覆盖，只生成注册起始日至昨天的缺失日期。" },
       B: { title: "逐日下载", description: "每个业务日独立下载生意参谋 XLS，并核验店铺身份、文件类型与日期覆盖。" },
       C: { title: "签收导入", description: "签收受控文件，执行幂等导入并回查批次、行数、店铺与同日覆盖。" },
-      P: { title: "全站推推广", description: "选择缺口时间与全部指标，确认后从生成成功提示进入下载管理，只接管本轮唯一 ZIP 并回查。" },
+      P: { title: "全站推推广", description: "从千牛左侧推广进入货品全站推报表，选择缺口时间与全部指标；确认后点成功提示中的立即前往，只接管新页面本轮唯一 ZIP 并回查。" },
     },
   },
 };

@@ -11,10 +11,15 @@ import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import { shanghaiYesterday } from "./tmall-multi-store-import-runner";
-import { createTmallBrowserDownloadSession } from "./tmall-product-master-export";
+import {
+  createTmallBrowserDownloadSession,
+  TMALL_SELLER_ON_SALE_URL,
+} from "./tmall-product-master-export";
 
 export const TMALL_PROMOTION_HOME_URL = "https://one.alimama.com/index.html";
+export const TMALL_PROMOTION_ENTRY_URL = TMALL_SELLER_ON_SALE_URL;
 export const TMALL_PROMOTION_DOWNLOAD_LIST_URL = "https://one.alimama.com/index.html?spm=a21dvs.28711903.0.d53b8f72b.7a7362ddGBIZmC#!/report/download-list";
+const TMALL_PROMOTION_SELLER_GOODS_URL = "https://myseller.taobao.com/home.htm/alltaopromotion/";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-promotion-export");
@@ -214,6 +219,12 @@ export function isPromotionReportSuccessNavigation(input: { label: string; conte
     && /下载任务管理/.test(context);
 }
 
+export function promotionDatePickerRole(value: string | null | undefined) {
+  if (/trigger\s*:\s*['"]start['"]/.test(value ?? "")) return "start" as const;
+  if (/trigger\s*:\s*['"]end['"]/.test(value ?? "")) return "end" as const;
+  return null;
+}
+
 function isPromotionDownloadListPageUrl(value: string) {
   try {
     const url = new URL(value);
@@ -314,18 +325,26 @@ async function combinedPageText(page: Page) {
   return texts.join("\n");
 }
 
-async function assertAlimamaIdentity(page: Page, store: TmallStore) {
+async function assertStoreIdentity(page: Page, store: TmallStore, surface: "千牛店铺后台" | "阿里妈妈") {
   const url = page.url();
   const text = await combinedPageText(page);
   if (/login\.taobao\.com|passport|oauth|member\/login/i.test(url)
     || /扫码登录|密码登录|账户登录/.test(text) && !/货品全站推|推广中心|下载任务管理/.test(text)) {
-    throw new Error("waiting_login：亿玖店独立浏览器尚未登录阿里妈妈，请先人工登录后重试");
+    throw new Error(`waiting_login：亿玖店独立浏览器尚未登录${surface}，请先人工登录后重试`);
   }
   const expected = store.shopName.replace(/^天猫-/, "");
   const shorter = expected.replace(/专卖店$/, "");
   if (!text.includes(expected) && !text.includes(shorter)) {
-    throw new Error(`shop_identity_mismatch：阿里妈妈页面未显示受控店铺“${expected}”，已停止推广导出`);
+    throw new Error(`shop_identity_mismatch：${surface}页面未显示受控店铺“${expected}”，已停止推广导出`);
   }
+}
+
+async function assertAlimamaIdentity(page: Page, store: TmallStore) {
+  await assertStoreIdentity(page, store, "阿里妈妈");
+}
+
+async function assertSellerIdentity(page: Page, store: TmallStore) {
+  await assertStoreIdentity(page, store, "千牛店铺后台");
 }
 
 async function waitForAlimamaIdentity(page: Page, store: TmallStore, timeoutMs = 60_000) {
@@ -375,12 +394,19 @@ async function positionedTextActions(page: Page, labels: readonly string[], pref
           seen.add(signature);
           const viewport = page.viewportSize() ?? { width: 1920, height: 1080 };
           const semanticScore = sourceIndex === 0 ? 8 : sourceIndex === 1 ? 6 : 2;
+          const receivesPointer = await locator.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            const x = Math.max(0, Math.min(window.innerWidth - 1, rect.left + rect.width / 2));
+            const y = Math.max(0, Math.min(window.innerHeight - 1, rect.top + rect.height / 2));
+            const hit = document.elementFromPoint(x, y);
+            return Boolean(hit && (hit === element || element.contains(hit) || hit.contains(element)));
+          }).catch(() => false);
           const positionScore = preference === "left"
             ? Math.max(0, 6 - Math.floor(box.x / Math.max(1, viewport.width / 8)))
             : preference === "right"
               ? Math.max(0, 6 - Math.floor((viewport.width - box.x - box.width) / Math.max(1, viewport.width / 8)))
               : 0;
-          candidates.push({ locator, frame, box, label, signature, score: semanticScore + positionScore });
+          candidates.push({ locator, frame, box, label, signature, score: semanticScore + positionScore + (receivesPointer ? 20 : -20) });
         }
       }
     }
@@ -388,7 +414,12 @@ async function positionedTextActions(page: Page, labels: readonly string[], pref
   return candidates.sort((left, right) => right.score - left.score || left.box.y - right.box.y || left.box.x - right.box.x);
 }
 
-async function clickPageText(page: Page, labels: readonly string[], preference: "left" | "right" | "none" = "none") {
+async function clickPageText(
+  page: Page,
+  labels: readonly string[],
+  preference: "left" | "right" | "none" = "none",
+  controlledAnchorPath?: RegExp,
+) {
   const candidates = await positionedTextActions(page, labels, preference);
   const selected = candidates[0];
   if (!selected) throw new Error(`页面缺少可见操作：${labels.join("/")}`);
@@ -396,7 +427,49 @@ async function clickPageText(page: Page, labels: readonly string[], preference: 
     && Math.abs(candidates[1].box.x - selected.box.x) < 8 && Math.abs(candidates[1].box.y - selected.box.y) < 8) {
     throw new Error(`页面存在多个同等操作候选：${labels.join("/")}`);
   }
-  await selected.locator.click({ timeout: 15_000 });
+  try {
+    await selected.locator.click({ timeout: 15_000 });
+  } catch (error) {
+    const dismissed = await dismissBlockingPopups(page).catch(() => 0);
+    if (dismissed > 0) {
+      try {
+        await selected.locator.click({ timeout: 15_000 });
+        return;
+      } catch (retryError) {
+        if (!controlledAnchorPath) throw retryError;
+      }
+    }
+    if (!controlledAnchorPath) throw error;
+    const href = await selected.locator.getAttribute("href").catch(() => null);
+    const tag = await selected.locator.evaluate((element) => element.tagName.toLowerCase()).catch(() => "");
+    const resolved = href ? new URL(href, page.url()) : null;
+    if (tag !== "a" || !resolved || resolved.origin !== new URL(page.url()).origin || !controlledAnchorPath.test(resolved.pathname)) {
+      throw error;
+    }
+    await selected.locator.evaluate((element) => (element as HTMLAnchorElement).click());
+  }
+}
+
+async function clickPageTextAndFollow(options: {
+  page: Page;
+  labels: readonly string[];
+  preference: "left" | "right" | "none";
+  timeoutMs: number;
+  message: string;
+  ready: (candidate: Page) => Promise<boolean>;
+  controlledAnchorPath?: RegExp;
+}) {
+  const context = options.page.context();
+  const pagesBeforeClick = new Set(context.pages());
+  await clickPageText(options.page, options.labels, options.preference, options.controlledAnchorPath);
+  return waitUntilValue(options.timeoutMs, async () => {
+    const newPages = context.pages().filter((candidate) => !pagesBeforeClick.has(candidate));
+    for (const candidate of newPages) {
+      if (!candidate.isClosed() && await options.ready(candidate).catch(() => false)) return candidate;
+    }
+    if (!options.page.isClosed() && await options.ready(options.page).catch(() => false)) return options.page;
+    return null;
+  }, options.message);
 }
 
 async function actionContext(locator: Locator) {
@@ -405,8 +478,14 @@ async function actionContext(locator: Locator) {
     for (let depth = 0; current && depth < 6; depth += 1, current = current.parentElement) {
       const role = current.getAttribute("role") ?? "";
       const className = typeof current.className === "string" ? current.className : "";
-      if (role === "dialog" || /modal|dialog|popup|notice|message|advert|activity/i.test(className)) {
-        return (current.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
+      const id = current.getAttribute("id") ?? "";
+      const dynamicView = current.getAttribute("data-daynamic-view") ?? current.getAttribute("mx-view") ?? "";
+      const text = (current.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
+      const isDownloadReportDialog = text.includes("下载报表") && text.includes("日期范围") && text.includes("数据指标");
+      const isKnownPromotionOverlay = /^wrapper_dlg_/i.test(id)
+        || /competitive_rec_item|recommend.*(?:dialog|popup)|(?:dialog|popup).*recommend/i.test(dynamicView);
+      if (role === "dialog" || /modal|dialog|popup|notice|message|advert|activity/i.test(className) || isKnownPromotionOverlay) {
+        return isKnownPromotionOverlay && !isDownloadReportDialog ? `平台广告弹窗 ${text}` : text;
       }
     }
     return "";
@@ -418,7 +497,7 @@ async function dismissBlockingPopups(page: Page) {
   for (let round = 0; round < 8; round += 1) {
     let selected: { locator: Locator; score: number; signature: string } | null = null;
     for (const frame of page.frames()) {
-      const actions = frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i]');
+      const actions = frame.locator('button,a,[role="button"],[aria-label],[title],[class*="close" i],[mx-view*="icon=close" i]');
       const count = Math.min(await actions.count().catch(() => 0), 400);
       for (let index = 0; index < count; index += 1) {
         const locator = actions.nth(index);
@@ -427,8 +506,14 @@ async function dismissBlockingPopups(page: Page) {
           text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
           aria: element.getAttribute("aria-label") ?? "",
           title: element.getAttribute("title") ?? "",
-        })).catch(() => ({ text: "", aria: "", title: "" }));
-        const label = [detail.text, detail.aria, detail.title].find(isSafePromotionDismissLabel);
+          className: typeof element.className === "string" ? element.className : "",
+          view: element.getAttribute("mx-view") ?? "",
+        })).catch(() => ({ text: "", aria: "", title: "", className: "", view: "" }));
+        const syntheticClose = /(?:^|[-_])close(?:[-_]|$)|iconclose/i.test(detail.className)
+          || /(?:[?&]|^)icon=close(?:&|$)/i.test(detail.view)
+          ? "关闭"
+          : "";
+        const label = [detail.text, detail.aria, detail.title, syntheticClose].find(isSafePromotionDismissLabel);
         if (!label) continue;
         const context = await actionContext(locator);
         if (!/平台消息|消息|通知|公告|广告|活动|优惠|弹窗|新功能|温馨提示/.test(context)) continue;
@@ -475,6 +560,28 @@ async function findDownloadReportDialog(page: Page) {
   return null;
 }
 
+async function clickDownloadReport(page: Page) {
+  const matches: Locator[] = [];
+  for (const frame of page.frames()) {
+    const candidates = frame.locator('[mx-click*="download()"]');
+    const count = Math.min(await candidates.count().catch(() => 0), 20);
+    for (let index = 0; index < count; index += 1) {
+      const candidate = candidates.nth(index);
+      if (!await candidate.isVisible().catch(() => false)) continue;
+      if (normalizeText(await candidate.innerText({ timeout: 1_000 }).catch(() => "")) !== "下载报表") continue;
+      matches.push(candidate);
+    }
+  }
+  if (matches.length !== 1) throw new Error(`页面中下载报表事件节点数量为 ${matches.length}`);
+  try {
+    await matches[0]!.click({ timeout: 15_000 });
+  } catch (error) {
+    const dismissed = await dismissBlockingPopups(page).catch(() => 0);
+    if (!dismissed) throw error;
+    await matches[0]!.click({ timeout: 15_000 });
+  }
+}
+
 async function setInputValue(locator: Locator, value: string) {
   try {
     await locator.fill(value, { timeout: 5_000 });
@@ -492,8 +599,82 @@ async function setInputValue(locator: Locator, value: string) {
   if (actual !== value) throw new Error(`日期输入未生效：期望 ${value}，实际 ${actual || "空"}`);
 }
 
+async function findVisibleAcrossFrames(page: Page, selector: string) {
+  const matches: Locator[] = [];
+  for (const frame of page.frames()) {
+    const locators = frame.locator(selector);
+    const count = Math.min(await locators.count().catch(() => 0), 20);
+    for (let index = 0; index < count; index += 1) {
+      const locator = locators.nth(index);
+      if (await locator.isVisible().catch(() => false)) matches.push(locator);
+    }
+  }
+  return matches;
+}
+
+async function chooseCustomDatePickerValue(page: Page, picker: Locator, value: string) {
+  const pickerId = await picker.getAttribute("id").catch(() => null);
+  const pickerRole = promotionDatePickerRole(await picker.getAttribute("mx-change").catch(() => null));
+  if (!pickerId || !/^mx_[A-Za-z0-9_-]+$/.test(pickerId)) throw new Error("日期选择器缺少安全组件标识");
+  if (!pickerRole) throw new Error("日期选择器缺少起止角色");
+  const trigger = picker.locator(":scope > .mx-trigger");
+  if (!await trigger.isVisible().catch(() => false)) throw new Error("日期选择器触发控件不可见");
+  await trigger.click({ timeout: 5_000 });
+  const calendarSelector = `#days_mx_output_${pickerId}`;
+  const calendar = await waitUntilValue(10_000, async () => {
+    const matches = await findVisibleAcrossFrames(page, calendarSelector);
+    if (matches.length > 1) throw new Error("日期选择器出现多个同标识日历，为防止误选已停止");
+    return matches[0] ?? null;
+  }, "日期日历未展开");
+
+  const targetMonth = value.slice(0, 7);
+  for (let step = 0; step < 4; step += 1) {
+    const monthLabel = normalizeText(await calendar.locator("span").filter({ hasText: /^\d{4}年\d{2}月$/ }).first()
+      .innerText({ timeout: 2_000 }).catch(() => ""));
+    const currentMonth = monthLabel.match(/^(\d{4})年(\d{2})月$/);
+    if (!currentMonth) throw new Error("日期日历缺少当前年月标题");
+    const normalizedMonth = `${currentMonth[1]}-${currentMonth[2]}`;
+    if (normalizedMonth === targetMonth) break;
+    const next = normalizedMonth < targetMonth;
+    const arrow = calendar.locator(next
+      ? '[mx-click*="magix-portsaf({next:true})"]'
+      : '[mx-click*="magix-portsaf()"]');
+    if (!await arrow.first().isVisible().catch(() => false)) throw new Error(`日期日历无法切换到 ${targetMonth}`);
+    await arrow.first().click({ timeout: 5_000 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  const selectedDay = await waitUntilValue(5_000, async () => {
+    const day = calendar.locator(`span[title="${value}"][mx-click]`);
+    const visibleDays: Locator[] = [];
+    const dayCount = Math.min(await day.count().catch(() => 0), 5);
+    for (let index = 0; index < dayCount; index += 1) {
+      const candidate = day.nth(index);
+      if (await candidate.isVisible().catch(() => false)) visibleDays.push(candidate);
+    }
+    if (visibleDays.length > 1) throw new Error(`日期日历中 ${value} 存在多个可见单元格`);
+    return visibleDays[0] ?? null;
+  }, `日期日历中 ${value} 的可选单元格未就绪`);
+  await selectedDay.click({ timeout: 5_000 });
+  await waitUntil(15_000, async () => {
+    for (const frame of page.frames()) {
+      const candidates = frame.locator('[class*="calendar-datepicker"]');
+      const count = Math.min(await candidates.count().catch(() => 0), 20);
+      for (let index = 0; index < count; index += 1) {
+        const candidate = candidates.nth(index);
+        if (!await candidate.isVisible().catch(() => false)) continue;
+        if (promotionDatePickerRole(await candidate.getAttribute("mx-change").catch(() => null)) !== pickerRole) continue;
+        const view = await candidate.getAttribute("mx-view").catch(() => "");
+        const text = normalizeText(await candidate.innerText({ timeout: 1_000 }).catch(() => ""));
+        if (view?.includes(`selected=${value}`) || text.includes(value)) return true;
+      }
+    }
+    return false;
+  }, `日期选择器未更新为 ${value}`);
+}
+
 async function findDatePopupScope(page: Page) {
-  const scopes: Array<{ locator: Locator; area: number }> = [];
+  const scopes: Array<{ locator: Locator; area: number; frame: Frame }> = [];
   for (const frame of page.frames()) {
     for (const label of ["昨日", "本月", "上月"] as const) {
       const anchors = frame.getByText(label, { exact: true });
@@ -507,25 +688,40 @@ async function findDatePopupScope(page: Page) {
           const text = await scope.innerText({ timeout: 1_000 }).catch(() => "");
           const box = await scope.boundingBox().catch(() => null);
           if (box && /昨日/.test(text) && /本月/.test(text) && /上月/.test(text) && /确定/.test(text)) {
-            scopes.push({ locator: scope, area: box.width * box.height });
+            scopes.push({ locator: scope, area: box.width * box.height, frame });
             break;
           }
         }
       }
     }
   }
-  return scopes.sort((left, right) => left.area - right.area)[0]?.locator ?? null;
+  const selected = scopes.sort((left, right) => left.area - right.area)[0];
+  if (!selected) return null;
+  const output = selected.locator.locator("xpath=ancestor-or-self::*[starts-with(@id,'mx_output_')][1]");
+  const outputId = await output.getAttribute("id").catch(() => null);
+  if (outputId && /^mx_output_[A-Za-z0-9_-]+$/.test(outputId) && await output.isVisible().catch(() => false)) {
+    return selected.frame.locator(`#${outputId}`);
+  }
+  return selected.locator;
 }
 
-async function clickUniqueWithin(scope: Locator, label: string) {
-  const roleButtons = scope.getByRole("button", { name: label, exact: true });
+async function clickUniqueWithin(scope: Locator, label: string, preferredSelector?: string) {
+  const nativeButtons = scope.locator("button");
+  const roleButtons = scope.locator('[role="button"]');
   const textButtons = scope.getByText(label, { exact: true });
-  for (const collection of [roleButtons, textButtons]) {
+  const collections = preferredSelector ? [scope.locator(preferredSelector)] : [nativeButtons, roleButtons, textButtons];
+  for (const collection of collections) {
     const visible: Locator[] = [];
     const count = Math.min(await collection.count().catch(() => 0), 20);
     for (let index = 0; index < count; index += 1) {
       const locator = collection.nth(index);
-      if (await locator.isVisible().catch(() => false)) visible.push(locator);
+      if (!await locator.isVisible().catch(() => false)) continue;
+      if (collection !== textButtons) {
+        const text = normalizeText(await locator.innerText({ timeout: 1_000 }).catch(() => ""));
+        const aria = normalizeText(await locator.getAttribute("aria-label").catch(() => "") ?? "");
+        if (text !== label && aria !== label) continue;
+      }
+      visible.push(locator);
     }
     if (visible.length === 1) {
       await visible[0]!.click({ timeout: 10_000 });
@@ -571,10 +767,28 @@ async function chooseDateRange(page: Page, dialog: Locator, startDate: string, e
     const locator = inputs.nth(index);
     if (await locator.isVisible().catch(() => false)) visibleInputs.push(locator);
   }
-  if (visibleInputs.length < 2) throw new Error("日期选择弹层没有唯一的起止日期输入框");
-  await setInputValue(visibleInputs[0]!, startDate);
-  await setInputValue(visibleInputs[1]!, endDate);
-  await clickUniqueWithin(datePopup, "确定");
+  if (visibleInputs.length >= 2) {
+    await setInputValue(visibleInputs[0]!, startDate);
+    await setInputValue(visibleInputs[1]!, endDate);
+  } else {
+    const pickerLocators = datePopup.locator('[class*="calendar-datepicker"]');
+    const pickers = new Map<"start" | "end", Locator>();
+    const pickerCount = Math.min(await pickerLocators.count().catch(() => 0), 10);
+    for (let index = 0; index < pickerCount; index += 1) {
+      const picker = pickerLocators.nth(index);
+      if (!await picker.isVisible().catch(() => false)) continue;
+      const role = promotionDatePickerRole(await picker.getAttribute("mx-change").catch(() => null));
+      if (!role) continue;
+      if (pickers.has(role)) throw new Error(`日期选择弹层存在多个 ${role} 日期选择器`);
+      pickers.set(role, picker);
+    }
+    const startPicker = pickers.get("start");
+    const endPicker = pickers.get("end");
+    if (!startPicker || !endPicker) throw new Error("日期选择弹层没有唯一的起止日期控件");
+    await chooseCustomDatePickerValue(page, startPicker, startDate);
+    await chooseCustomDatePickerValue(page, endPicker, endDate);
+  }
+  await clickUniqueWithin(datePopup, "确定", ".mx-output-footer button");
   await waitUntil(10_000, async () => !await datePopup.isVisible().catch(() => false), "日期范围确认后弹层未关闭");
 }
 
@@ -613,21 +827,45 @@ async function chooseAllMetrics(page: Page, dialog: Locator) {
 
 async function navigateToPromotionReport(page: Page, store: TmallStore) {
   let dismissedPopups = 0;
-  if (!/one\.alimama\.com/i.test(page.url())) {
-    await page.goto(TMALL_PROMOTION_HOME_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  if (!/myseller\.taobao\.com\/home\.htm\/SellManage\/on_sale/i.test(page.url())) {
+    await page.goto(TMALL_PROMOTION_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   }
+  await waitUntil(60_000, async () => (await combinedPageText(page)).includes("出售中"), "千牛店铺后台出售中页面加载超时");
   dismissedPopups += await dismissBlockingPopups(page);
+  await assertSellerIdentity(page, store);
+  dismissedPopups += await dismissBlockingPopups(page);
+  page = await clickPageTextAndFollow({
+    page,
+    labels: ["推广"],
+    preference: "left",
+    timeoutMs: 60_000,
+    message: "千牛推广中心未出现货品全站推入口",
+    controlledAnchorPath: /^\/home\.htm\/(?:_firstmenuid_\/2513|tuiguangcenter_new)\/?$/i,
+    ready: async (candidate) => /myseller\.taobao\.com\/home\.htm\/tuiguangcenter_new/i.test(candidate.url())
+      && (await combinedPageText(candidate)).includes("货品全站推"),
+  });
+  dismissedPopups += await dismissBlockingPopups(page);
+  const pagesBeforeGoodsClick = new Set(page.context().pages());
+  await clickPageText(page, ["货品全站推"], "left", /^\/home\.htm\/alltaopromotion\/?$/i);
+  const sellerGoodsReady = async () => /myseller\.taobao\.com\/home\.htm\/alltaopromotion/i.test(page.url())
+    && (await combinedPageText(page)).includes("货品全站推广");
+  try {
+    await waitUntil(8_000, sellerGoodsReady, "千牛货品全站推页面未在当前标签打开");
+  } catch {
+    await page.goto(TMALL_PROMOTION_SELLER_GOODS_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await waitUntil(60_000, sellerGoodsReady, "千牛货品全站推页面加载超时");
+  }
+  for (const candidate of page.context().pages()) {
+    if (!pagesBeforeGoodsClick.has(candidate) && candidate !== page && /one\.alimama\.com\/index\.html.*#!\/manage\/onesite/i.test(candidate.url())) {
+      await candidate.close().catch(() => undefined);
+    }
+  }
+  page.setDefaultTimeout(15_000);
   await waitForAlimamaIdentity(page, store);
   dismissedPopups += await dismissBlockingPopups(page);
-  await clickPageText(page, ["推广"], "left");
-  await waitUntil(30_000, async () => (await combinedPageText(page)).includes("货品全站推"), "推广菜单未展开");
-  dismissedPopups += await dismissBlockingPopups(page);
-  await clickPageText(page, ["货品全站推"], "left");
-  await waitUntil(60_000, async () => (await combinedPageText(page)).includes("货品全站推广"), "货品全站推页面加载超时");
-  dismissedPopups += await dismissBlockingPopups(page);
-  await clickPageText(page, ["报表"], "none");
+  await clickPageText(page, ["报表"], "left");
   await waitUntil(30_000, async () => (await positionedTextActions(page, ["下载报表"], "right")).length > 0, "货品全站推报表页缺少下载报表按钮");
-  return dismissedPopups;
+  return { dismissedPopups, page };
 }
 
 async function launchStoreChrome(store: TmallStore) {
@@ -638,7 +876,7 @@ async function launchStoreChrome(store: TmallStore) {
     executablePath,
     profileDirectory: path.resolve(projectRoot, store.browser.profileDir),
     port: store.browser.debugPort,
-    startUrl: TMALL_PROMOTION_HOME_URL,
+    startUrl: TMALL_PROMOTION_ENTRY_URL,
     headless: false,
     visible: true,
   });
@@ -652,7 +890,7 @@ export async function launchTmallPromotionLogin(storeKey = "tmall-yijiu") {
     status: "browser_ready" as const,
     storeKey: store.storeKey,
     shopName: store.shopName,
-    targetUrl: TMALL_PROMOTION_HOME_URL,
+    targetUrl: TMALL_PROMOTION_ENTRY_URL,
     profileDirectory: store.browser.profileDir,
     debugPort: store.browser.debugPort,
   };
@@ -665,23 +903,25 @@ async function configureAndSubmitReport(options: {
   endDate: string;
   beforeSubmit: () => Promise<void>;
 }) {
-  let dismissedPopups = await navigateToPromotionReport(options.page, options.store);
-  dismissedPopups += await dismissBlockingPopups(options.page);
-  await clickPageText(options.page, ["下载报表"], "right");
-  const dialog = await waitUntilValue(10_000, async () => {
-    const found = await findDownloadReportDialog(options.page);
+  const navigation = await navigateToPromotionReport(options.page, options.store);
+  const page = navigation.page;
+  let dismissedPopups = navigation.dismissedPopups;
+  dismissedPopups += await dismissBlockingPopups(page);
+  await clickDownloadReport(page);
+  const dialog = await waitUntilValue(30_000, async () => {
+    const found = await findDownloadReportDialog(page);
     if (found) return found;
-    dismissedPopups += await dismissBlockingPopups(options.page);
+    dismissedPopups += await dismissBlockingPopups(page);
     return null;
   }, "下载报表弹窗未出现");
-  await chooseDateRange(options.page, dialog.locator, options.startDate, options.endDate);
-  dismissedPopups += await dismissBlockingPopups(options.page);
-  await chooseAllMetrics(options.page, dialog.locator);
-  dismissedPopups += await dismissBlockingPopups(options.page);
+  await chooseDateRange(page, dialog.locator, options.startDate, options.endDate);
+  dismissedPopups += await dismissBlockingPopups(page);
+  await chooseAllMetrics(page, dialog.locator);
+  dismissedPopups += await dismissBlockingPopups(page);
   await options.beforeSubmit();
-  await clickUniqueWithin(dialog.locator, "确定");
+  await clickUniqueWithin(dialog.locator, "确定", ".dialog-footer button");
   await waitUntil(15_000, async () => !await dialog.locator.isVisible().catch(() => false), "确认下载后报表弹窗未关闭，可能存在字段校验错误");
-  const downloadPage = await clickReportSuccessNavigation(options.page, options.store);
+  const downloadPage = await clickReportSuccessNavigation(page, options.store);
   return { dismissedPopups, downloadPage };
 }
 
@@ -1118,7 +1358,8 @@ export async function runTmallPromotionStage(options: {
       const browser = await connectPlaywrightBrowser(store.browser.debugPort);
       const context = browser.contexts()[0];
       if (!context) throw new Error("亿玖店独立 Chrome 没有可用上下文");
-      let page = context.pages().find((candidate) => /one\.alimama\.com/i.test(candidate.url()));
+      let page = context.pages().find((candidate) => /myseller\.taobao\.com/i.test(candidate.url()))
+        ?? context.pages().find((candidate) => /one\.alimama\.com/i.test(candidate.url()));
       if (!page) page = await context.newPage();
       page.setDefaultTimeout(15_000);
       const dismissDialog = (dialog: import("playwright-core").Dialog) => { void dialog.dismiss().catch(() => undefined); };
@@ -1151,7 +1392,16 @@ export async function runTmallPromotionStage(options: {
           runStartedAt: audit.startedAt,
           runId: audit.runId,
         });
-        file = await inspectPromotionFile(filePath, store, plan);
+        try {
+          file = await inspectPromotionFile(filePath, store, plan);
+        } catch (error) {
+          audit.runId = randomUUID();
+          audit.startedAt = new Date().toISOString();
+          audit.stage = "browser_ready";
+          delete audit.file;
+          await writeAudit(audit, runAuditDirectory);
+          throw error;
+        }
         audit.file = file;
         audit.stage = "downloaded";
         await writeAudit(audit, runAuditDirectory);

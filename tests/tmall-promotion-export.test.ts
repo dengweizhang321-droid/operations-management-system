@@ -10,9 +10,12 @@ import {
   isPromotionReportSuccessNavigation,
   isSafePromotionDismissLabel,
   planTmallPromotionDateRange,
+  promotionDatePickerRole,
   runTmallPromotionStage,
   TMALL_PROMOTION_DOWNLOAD_LIST_URL,
+  TMALL_PROMOTION_ENTRY_URL,
 } from "../tools/tmall-promotion-export";
+import { TMALL_SELLER_ON_SALE_URL } from "../tools/tmall-product-master-export";
 
 test("推广缺口只选择已有商品日数据中最早的连续区间并保持 30 天上限", () => {
   const productDailyDates = [
@@ -98,6 +101,18 @@ test("确认报表后只点击生成成功提示中的前往下载动作", () =>
   assert.equal(isPromotionReportSuccessNavigation({ label: "立即前往", context: "全站流量打爆，立即前往" }), false);
   assert.equal(isPromotionReportSuccessNavigation({ label: "查看详情", context: successNotice }), false);
   assert.equal(isSafePromotionDismissLabel("立即前往"), false);
+});
+
+test("推广报表必须从千牛店铺后台入口逐级进入", () => {
+  assert.equal(TMALL_PROMOTION_ENTRY_URL, TMALL_SELLER_ON_SALE_URL);
+  assert.match(TMALL_PROMOTION_ENTRY_URL, /^https:\/\/myseller\.taobao\.com\/home\.htm\/SellManage\/on_sale/);
+  assert.match(TMALL_PROMOTION_DOWNLOAD_LIST_URL, /^https:\/\/one\.alimama\.com\//);
+});
+
+test("推广日期弹层能识别自定义组件的起止控件", () => {
+  assert.equal(promotionDatePickerRole("mx_output_x\u001emagix-portsaH({trigger:'start'})"), "start");
+  assert.equal(promotionDatePickerRole('mx_output_x\u001emagix-portsaH({trigger:"end"})'), "end");
+  assert.equal(promotionDatePickerRole("mx_output_x\u001emagix-portsaH()"), null);
 });
 
 test("推广导入结果必须同时匹配来源、店铺、日期、行数和落库回查", () => {
