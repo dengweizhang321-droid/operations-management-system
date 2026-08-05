@@ -87,13 +87,13 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     scheduleMetric: "08:40–18:40",
     scheduleDescription: "上海时区 · 每小时补跑",
     iframeTitle: "天猫店铺数据导入 n8n 工作流",
-    safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；商品日与推广缺口均以运营系统真实覆盖规划，推广只接管本轮唯一下载任务；同店同日同内容返回 duplicate，导入接口继续按店铺、数据集、日期和文件内容幂等去重。",
+    safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；商品日与推广缺口均以运营系统真实覆盖规划，推广按单个业务日串行下载并只接管本轮唯一任务；同店同日同内容返回 duplicate，导入接口继续按店铺、数据集、日期和文件内容幂等去重。",
     stageDetails: {
       M: { title: "货品主数据", description: "从店铺独立千牛会话导出全部商品，校验发布模板、库存和行数后导入并回查。" },
       A: { title: "缺口规划", description: "按天猫店铺与 SPU 日数据集查询真实覆盖，只生成注册起始日至昨天的缺失日期。" },
       B: { title: "逐日下载", description: "每个业务日独立下载生意参谋 XLS，并核验店铺身份、文件类型与日期覆盖。" },
       C: { title: "签收导入", description: "签收受控文件，执行幂等导入并回查批次、行数、店铺与同日覆盖。" },
-      P: { title: "全站推推广", description: "从千牛左侧推广进入货品全站推报表，选择缺口时间与全部指标；确认后点成功提示中的立即前往，只接管新页面本轮唯一 ZIP 并回查。" },
+      P: { title: "全站推推广", description: "从千牛左侧推广进入货品全站推报表；缺口按日串行，起止日期为同一天并选全部指标，每日下载、校验、导入和回查成功后再处理下一天。" },
     },
   },
 };

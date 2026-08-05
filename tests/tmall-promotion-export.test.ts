@@ -9,48 +9,92 @@ import {
   chooseTmallPromotionDownloadTask,
   isPromotionReportSuccessNavigation,
   isSafePromotionDismissLabel,
+  parsePromotionTaskDateRange,
+  planTmallPromotionDailyReports,
   planTmallPromotionDateRange,
   promotionDatePickerRole,
+  runPromotionDailyPlansSequentially,
   runTmallPromotionStage,
   TMALL_PROMOTION_DOWNLOAD_LIST_URL,
   TMALL_PROMOTION_ENTRY_URL,
 } from "../tools/tmall-promotion-export";
 import { TMALL_SELLER_ON_SALE_URL } from "../tools/tmall-product-master-export";
 
-test("推广缺口只选择已有商品日数据中最早的连续区间并保持 30 天上限", () => {
+test("推广缺口为每个业务日生成起止同日的独立报表计划并保持 30 日上限", () => {
   const productDailyDates = [
     "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31",
     "2026-08-02", "2026-08-03",
   ];
-  const plan = planTmallPromotionDateRange({
+  const plans = planTmallPromotionDailyReports({
     requestedStartDate: "2026-07-28",
     requestedEndDate: "2026-08-04",
     productDailyDates,
     promotionDates: ["2026-07-28"],
   });
-  assert.deepEqual(plan, {
-    startDate: "2026-07-29",
-    endDate: "2026-07-31",
-    dates: ["2026-07-29", "2026-07-30", "2026-07-31"],
-  });
+  assert.deepEqual(plans, [
+    { startDate: "2026-07-29", endDate: "2026-07-29", dates: ["2026-07-29"] },
+    { startDate: "2026-07-30", endDate: "2026-07-30", dates: ["2026-07-30"] },
+    { startDate: "2026-07-31", endDate: "2026-07-31", dates: ["2026-07-31"] },
+    { startDate: "2026-08-02", endDate: "2026-08-02", dates: ["2026-08-02"] },
+    { startDate: "2026-08-03", endDate: "2026-08-03", dates: ["2026-08-03"] },
+  ]);
+  assert.deepEqual(planTmallPromotionDateRange({
+    requestedStartDate: "2026-07-28",
+    requestedEndDate: "2026-08-04",
+    productDailyDates,
+    promotionDates: ["2026-07-28"],
+  }), plans[0]);
 
   const longDates = Array.from({ length: 40 }, (_, index) => {
     const date = new Date("2026-01-01T00:00:00Z");
     date.setUTCDate(date.getUTCDate() + index);
     return date.toISOString().slice(0, 10);
   });
-  assert.equal(planTmallPromotionDateRange({
+  assert.equal(planTmallPromotionDailyReports({
     requestedStartDate: longDates[0]!,
     requestedEndDate: longDates[longDates.length - 1]!,
     productDailyDates: longDates,
     promotionDates: [],
-  })?.dates.length, 30);
-  assert.equal(planTmallPromotionDateRange({
+  }).length, 30);
+  assert.deepEqual(planTmallPromotionDailyReports({
     requestedStartDate: "2026-07-28",
     requestedEndDate: "2026-08-04",
     productDailyDates,
     promotionDates: productDailyDates,
-  }), null);
+  }), []);
+});
+
+test("推广日报严格串行执行且任意一天失败后不再处理后续日期", async () => {
+  const plans = ["2026-08-01", "2026-08-02", "2026-08-03"].map((date) => ({
+    startDate: date,
+    endDate: date,
+    dates: [date],
+  }));
+  const visited: string[] = [];
+  await assert.rejects(runPromotionDailyPlansSequentially(plans, async (plan) => {
+    visited.push(plan.startDate);
+    if (plan.startDate === "2026-08-02") throw new Error("day_failed");
+    return plan.startDate;
+  }), /day_failed/);
+  assert.deepEqual(visited, ["2026-08-01", "2026-08-02"]);
+
+  await assert.rejects(runPromotionDailyPlansSequentially([{
+    startDate: "2026-08-01",
+    endDate: "2026-08-02",
+    dates: ["2026-08-01", "2026-08-02"],
+  }], async () => "should_not_run"), /必须按单个业务日下载/);
+});
+
+test("下载任务日期同时兼容同日起止范围和带标签的单日展示", () => {
+  assert.deepEqual(parsePromotionTaskDateRange("日期范围 2026-08-05至2026-08-05 创建日期 2026-08-06"), {
+    startDate: "2026-08-05",
+    endDate: "2026-08-05",
+  });
+  assert.deepEqual(parsePromotionTaskDateRange("数据日期：2026-08-05 创建日期 2026-08-06"), {
+    startDate: "2026-08-05",
+    endDate: "2026-08-05",
+  });
+  assert.equal(parsePromotionTaskDateRange("创建日期 2026-08-06"), null);
 });
 
 test("下载中心只选择本轮日期、创建时间、成功状态和唯一下载动作一致的任务", () => {

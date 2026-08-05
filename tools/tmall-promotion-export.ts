@@ -146,12 +146,6 @@ function validDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
-function addDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 function normalizeText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -178,13 +172,13 @@ function isoDateArray(value: unknown) {
   return [...new Set(value.filter((item): item is string => typeof item === "string" && validDate(item)))].sort();
 }
 
-export function planTmallPromotionDateRange(input: {
+export function planTmallPromotionDailyReports(input: {
   requestedStartDate: string;
   requestedEndDate: string;
   productDailyDates: readonly string[];
   promotionDates: readonly string[];
   maximumDays?: number;
-}): PromotionDatePlan | null {
+}): PromotionDatePlan[] {
   if (!validDate(input.requestedStartDate) || !validDate(input.requestedEndDate) || input.requestedStartDate > input.requestedEndDate) {
     throw new Error("推广缺口规划日期范围无效");
   }
@@ -196,13 +190,34 @@ export function planTmallPromotionDateRange(input: {
     && date <= input.requestedEndDate
     && !promoted.has(date)
   )))].sort();
-  if (missing.length === 0) return null;
-  const dates = [missing[0]!];
-  for (let index = 1; index < missing.length && dates.length < maximumDays; index += 1) {
-    if (missing[index] !== addDays(dates[dates.length - 1]!, 1)) break;
-    dates.push(missing[index]!);
+  return missing.slice(0, maximumDays).map((date) => ({
+    startDate: date,
+    endDate: date,
+    dates: [date],
+  }));
+}
+
+/**
+ * Backwards-compatible single-report planner. A promotion report is now always
+ * restricted to one business day, so callers can never receive a multi-day range.
+ */
+export function planTmallPromotionDateRange(input: Parameters<typeof planTmallPromotionDailyReports>[0]) {
+  return planTmallPromotionDailyReports(input)[0] ?? null;
+}
+
+export async function runPromotionDailyPlansSequentially<T>(
+  plans: readonly PromotionDatePlan[],
+  execute: (plan: PromotionDatePlan, index: number) => Promise<T>,
+) {
+  const results: T[] = [];
+  for (let index = 0; index < plans.length; index += 1) {
+    const plan = plans[index]!;
+    if (plan.startDate !== plan.endDate || plan.dates.length !== 1 || plan.dates[0] !== plan.startDate) {
+      throw new Error("推广报表必须按单个业务日下载，起止日期必须为同一天");
+    }
+    results.push(await execute(plan, index));
   }
-  return { startDate: dates[0]!, endDate: dates[dates.length - 1]!, dates };
+  return results;
 }
 
 export function isSafePromotionDismissLabel(value: string) {
@@ -978,9 +993,11 @@ async function clickReportSuccessNavigation(page: Page, store: TmallStore) {
   return downloadPage;
 }
 
-function taskDateRange(text: string) {
-  const match = text.match(/(\d{4}-\d{2}-\d{2})\s*(?:至|~|～|—|–)\s*(\d{4}-\d{2}-\d{2})/);
-  return match ? { startDate: match[1]!, endDate: match[2]! } : null;
+export function parsePromotionTaskDateRange(text: string) {
+  const range = text.match(/(\d{4}-\d{2}-\d{2})\s*(?:至|~|～|—|–)\s*(\d{4}-\d{2}-\d{2})/);
+  if (range) return { startDate: range[1]!, endDate: range[2]! };
+  const single = text.match(/(?:日期范围|统计日期|数据日期)\s*[:：]?\s*(\d{4}-\d{2}-\d{2})/);
+  return single ? { startDate: single[1]!, endDate: single[1]! } : null;
 }
 
 async function scanDownloadTasks(page: Page) {
@@ -993,7 +1010,7 @@ async function scanDownloadTasks(page: Page) {
       const row = rows.nth(index);
       if (!await row.isVisible().catch(() => false)) continue;
       const contextText = normalizeText(await row.innerText({ timeout: 2_000 }).catch(() => ""));
-      const range = taskDateRange(contextText);
+      const range = parsePromotionTaskDateRange(contextText);
       const fileName = contextText.match(/报表[_-]\d{8}[_-]\d{6}(?:\.zip)?/i)?.[0] ?? "";
       if (!range || !fileName) continue;
       const status = contextText.match(/生成成功|已完成|生成中|处理中|待执行|生成失败|失败/)?.[0] ?? "未知";
@@ -1034,7 +1051,7 @@ async function scanDownloadTasks(page: Page) {
       for (let depth = 0; depth < 9; depth += 1) {
         scope = scope.locator("xpath=..");
         const contextText = normalizeText(await scope.innerText({ timeout: 1_000 }).catch(() => ""));
-        const range = taskDateRange(contextText);
+        const range = parsePromotionTaskDateRange(contextText);
         const fileName = contextText.match(/报表[_-]\d{8}[_-]\d{6}(?:\.zip)?/i)?.[0] ?? "";
         if (!range || !fileName) continue;
         const status = contextText.match(/生成成功|已完成|生成中|处理中|待执行|生成失败|失败/)?.[0] ?? "未知";
@@ -1287,37 +1304,17 @@ function resumableStage(audit: PromotionExportAudit): PromotionAuditStage {
   return audit.stage === "failed" ? audit.resumeStage ?? "planned" : audit.stage;
 }
 
-export async function runTmallPromotionStage(options: {
-  storeKey?: string;
-  baseUrl?: string;
-  request?: typeof fetch;
-  auditDirectory?: string;
-} = {}) {
-  const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
-  const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
-  const request = options.request ?? fetch;
-  const runAuditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
-  if (!store.initialStartDate) throw new Error(`${store.shopName} 尚未配置推广补数起始日期`);
-  const requestedEndDate = shanghaiYesterday();
-  const coverage = await coverageForStore(baseUrl, store, store.initialStartDate, requestedEndDate, request);
-  const plan = planTmallPromotionDateRange({
-    requestedStartDate: store.initialStartDate,
-    requestedEndDate,
-    productDailyDates: coverage.productDailyDates,
-    promotionDates: coverage.promotionDates,
-  });
-  if (!plan) {
-    return {
-      ok: true,
-      stage: "promotion",
-      status: "skipped" as const,
-      reason: coverage.productDailyDates.length === 0 ? "waiting_product_daily" : "already_covered",
-      storeKey: store.storeKey,
-      shopName: store.shopName,
-      coverageConfirmed: coverage.productDailyDates.every((date) => coverage.promotionDates.includes(date)),
-    };
+async function runTmallPromotionDate(options: {
+  store: TmallStore;
+  baseUrl: string;
+  request: typeof fetch;
+  auditDirectory: string;
+  plan: PromotionDatePlan;
+}) {
+  const { store, baseUrl, request, auditDirectory: runAuditDirectory, plan } = options;
+  if (plan.startDate !== plan.endDate || plan.dates.length !== 1 || plan.dates[0] !== plan.startDate) {
+    throw new Error("推广报表必须按单个业务日下载，起止日期必须为同一天");
   }
-
   const existing = await readActiveAudit(store.storeKey, runAuditDirectory);
   if (existing && (existing.audit.startDate !== plan.startDate || existing.audit.endDate !== plan.endDate)
     && !["completed", "planned"].includes(resumableStage(existing.audit))) {
@@ -1428,10 +1425,11 @@ export async function runTmallPromotionStage(options: {
     await writeAudit(audit, runAuditDirectory);
     return {
       ok: true,
-      stage: "promotion",
+      stage: "promotion_day" as const,
       status: imported.status,
       storeKey: store.storeKey,
       shopName: store.shopName,
+      date: plan.startDate,
       startDate: plan.startDate,
       endDate: plan.endDate,
       dates: plan.dates,
@@ -1451,6 +1449,98 @@ export async function runTmallPromotionStage(options: {
     await writeAudit(audit, runAuditDirectory).catch(() => undefined);
     throw error;
   }
+}
+
+export async function runTmallPromotionStage(options: {
+  storeKey?: string;
+  baseUrl?: string;
+  request?: typeof fetch;
+  auditDirectory?: string;
+} = {}) {
+  const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
+  const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
+  const request = options.request ?? fetch;
+  const runAuditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
+  if (!store.initialStartDate) throw new Error(`${store.shopName} 尚未配置推广补数起始日期`);
+  const requestedEndDate = shanghaiYesterday();
+  const coverage = await coverageForStore(baseUrl, store, store.initialStartDate, requestedEndDate, request);
+  const plans = planTmallPromotionDailyReports({
+    requestedStartDate: store.initialStartDate,
+    requestedEndDate,
+    productDailyDates: coverage.productDailyDates,
+    promotionDates: coverage.promotionDates,
+  });
+  if (plans.length === 0) {
+    return {
+      ok: true,
+      stage: "promotion",
+      status: "skipped" as const,
+      mode: "daily" as const,
+      reason: coverage.productDailyDates.length === 0 ? "waiting_product_daily" : "already_covered",
+      storeKey: store.storeKey,
+      shopName: store.shopName,
+      plannedDates: [],
+      completedDates: [],
+      dailyResults: [],
+      coverageConfirmed: coverage.productDailyDates.every((date) => coverage.promotionDates.includes(date)),
+    };
+  }
+
+  const dailyResults = await runPromotionDailyPlansSequentially(plans, async (plan) => {
+    const latestCoverage = await coverageForStore(baseUrl, store, plan.startDate, plan.endDate, request);
+    if (latestCoverage.promotionDates.includes(plan.startDate)) {
+      return {
+        ok: true,
+        stage: "promotion_day" as const,
+        status: "skipped" as const,
+        reason: "already_covered" as const,
+        storeKey: store.storeKey,
+        shopName: store.shopName,
+        date: plan.startDate,
+        startDate: plan.startDate,
+        endDate: plan.endDate,
+        dates: plan.dates,
+        coverageConfirmed: true,
+      };
+    }
+    return runTmallPromotionDate({
+      store,
+      baseUrl,
+      request,
+      auditDirectory: runAuditDirectory,
+      plan,
+    });
+  });
+  const executedResults = dailyResults.filter((result) => result.status !== "skipped");
+  const importedCount = executedResults.filter((result) => result.status === "imported").length;
+  const duplicateCount = executedResults.filter((result) => result.status === "duplicate").length;
+  const skippedCount = dailyResults.length - executedResults.length;
+  const firstExecuted = executedResults[0];
+  return {
+    ok: true,
+    stage: "promotion",
+    status: importedCount > 0 ? "imported" as const : duplicateCount > 0 ? "duplicate" as const : "skipped" as const,
+    mode: "daily" as const,
+    reason: executedResults.length === 0 ? "already_covered" as const : undefined,
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+    startDate: plans[0]!.startDate,
+    endDate: plans[plans.length - 1]!.endDate,
+    dates: plans.map((plan) => plan.startDate),
+    plannedDates: plans.map((plan) => plan.startDate),
+    completedDates: dailyResults.map((result) => result.date),
+    reportCount: executedResults.length,
+    importedCount,
+    duplicateCount,
+    skippedCount,
+    fileName: dailyResults.length === 1 ? firstExecuted?.fileName : undefined,
+    sha256: dailyResults.length === 1 ? firstExecuted?.sha256 : undefined,
+    rowCount: executedResults.reduce((sum, result) => sum + (result.rowCount ?? 0), 0),
+    warningCount: executedResults.reduce((sum, result) => sum + (result.warningCount ?? 0), 0),
+    batchId: dailyResults.length === 1 ? firstExecuted?.batchId : undefined,
+    dailyResults,
+    coverageConfirmed: dailyResults.every((result) => result.coverageConfirmed),
+  };
 }
 
 async function main() {
