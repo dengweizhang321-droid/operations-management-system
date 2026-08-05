@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertPromotionImportPayload,
   chooseTmallPromotionDownloadTask,
+  isPromotionReportSuccessNavigation,
   isSafePromotionDismissLabel,
   planTmallPromotionDateRange,
   runTmallPromotionStage,
@@ -88,6 +89,15 @@ test("平台消息和广告弹窗只允许无业务副作用的明确关闭动�
   for (const label of ["去优化", "立即处理", "立即报名", "查看详情", "前往下载", "开通"]) {
     assert.equal(isSafePromotionDismissLabel(label), false, label);
   }
+});
+
+test("确认报表后只点击生成成功提示中的前往下载动作", () => {
+  const successNotice = "离线数据生成成功！您可以在下载任务管理中将报表内容保存到本地，文案仅为示意 立即前往";
+  assert.equal(isPromotionReportSuccessNavigation({ label: "立即前往", context: successNotice }), true);
+  assert.equal(isPromotionReportSuccessNavigation({ label: "前往下载", context: successNotice }), true);
+  assert.equal(isPromotionReportSuccessNavigation({ label: "立即前往", context: "全站流量打爆，立即前往" }), false);
+  assert.equal(isPromotionReportSuccessNavigation({ label: "查看详情", context: successNotice }), false);
+  assert.equal(isSafePromotionDismissLabel("立即前往"), false);
 });
 
 test("推广导入结果必须同时匹配来源、店铺、日期、行数和落库回查", () => {

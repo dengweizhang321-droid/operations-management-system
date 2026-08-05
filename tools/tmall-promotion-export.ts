@@ -206,6 +206,24 @@ export function isSafePromotionDismissLabel(value: string) {
   return /^(关闭|忽略|暂不|暂不开启|暂不参加|稍后|以后再说|我知道了|知道了|取消|×|✕|close)$/i.test(label);
 }
 
+export function isPromotionReportSuccessNavigation(input: { label: string; context: string }) {
+  const label = normalizeText(input.label).replace(/[\s·]/g, "");
+  const context = normalizeText(input.context);
+  return /^(立即前往|前往下载|立即前往下载)$/.test(label)
+    && /离线数据生成成功/.test(context)
+    && /下载任务管理/.test(context);
+}
+
+function isPromotionDownloadListPageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return /(^|\.)one\.alimama\.com$/i.test(url.hostname)
+      && /^#!\/report\/download-list(?:[/?]|$)/.test(url.hash);
+  } catch {
+    return false;
+  }
+}
+
 function parseShanghaiTaskDate(value: string) {
   const match = value.match(/(?:报表[_-])?(\d{4})(\d{2})(\d{2})[_-](\d{2})(\d{2})(\d{2})/);
   if (match) {
@@ -663,7 +681,61 @@ async function configureAndSubmitReport(options: {
   await options.beforeSubmit();
   await clickUniqueWithin(dialog.locator, "确定");
   await waitUntil(15_000, async () => !await dialog.locator.isVisible().catch(() => false), "确认下载后报表弹窗未关闭，可能存在字段校验错误");
-  return dismissedPopups;
+  const downloadPage = await clickReportSuccessNavigation(options.page, options.store);
+  return { dismissedPopups, downloadPage };
+}
+
+async function reportSuccessContext(locator: Locator) {
+  return locator.evaluate((element) => {
+    let current: Element | null = element;
+    for (let depth = 0; current && depth < 10; depth += 1, current = current.parentElement) {
+      const text = (current.textContent ?? "").replace(/\s+/g, " ").trim();
+      if (text.includes("离线数据生成成功") && text.includes("下载任务管理")) return text.slice(0, 800);
+    }
+    return "";
+  }).catch(() => "");
+}
+
+async function findReportSuccessNavigation(page: Page) {
+  const candidates = await positionedTextActions(page, ["立即前往", "前往下载", "立即前往下载"], "right");
+  const matching: PositionedAction[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const context = await reportSuccessContext(candidate.locator);
+    if (!isPromotionReportSuccessNavigation({ label: candidate.label, context })) continue;
+    const signature = `${candidate.frame.url()}|${Math.round(candidate.box.x)}|${Math.round(candidate.box.y)}|${Math.round(candidate.box.width)}|${Math.round(candidate.box.height)}`;
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    matching.push(candidate);
+  }
+  if (matching.length > 1) throw new Error("报表生成成功提示中存在多个前往下载操作，为防止误点已停止");
+  return matching[0]?.locator ?? null;
+}
+
+async function clickReportSuccessNavigation(page: Page, store: TmallStore) {
+  const action = await waitUntilValue(
+    30_000,
+    () => findReportSuccessNavigation(page),
+    "确认生成报表后未出现包含“离线数据生成成功”的唯一前往下载提示",
+    100,
+  );
+  const context = page.context();
+  const pagesBeforeClick = new Set(context.pages());
+  await action.click({ timeout: 10_000 });
+  const downloadPage = await waitUntilValue(60_000, async () => {
+    const matching = context.pages().filter((candidate) => isPromotionDownloadListPageUrl(candidate.url()));
+    if (matching.includes(page)) return page;
+    const newlyOpened = matching.filter((candidate) => !pagesBeforeClick.has(candidate));
+    if (newlyOpened.length === 1) return newlyOpened[0]!;
+    if (newlyOpened.length > 1 || matching.length > 1) {
+      throw new Error("点击前往下载后出现多个下载任务页面，为防止接管错误页面已停止");
+    }
+    return matching[0] ?? null;
+  }, "点击前往下载后未进入下载任务管理页面");
+  downloadPage.setDefaultTimeout(15_000);
+  await downloadPage.waitForLoadState("domcontentloaded", { timeout: 30_000 }).catch(() => undefined);
+  await waitForAlimamaIdentity(downloadPage, store);
+  return downloadPage;
 }
 
 function taskDateRange(text: string) {
@@ -834,7 +906,7 @@ async function waitForGeneratedTask(options: {
   runStartedAt: string;
   runId: string;
 }) {
-  if (options.page.url() !== TMALL_PROMOTION_DOWNLOAD_LIST_URL) {
+  if (!isPromotionDownloadListPageUrl(options.page.url())) {
     await options.page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   }
   await waitForAlimamaIdentity(options.page, options.store);
@@ -1052,10 +1124,11 @@ export async function runTmallPromotionStage(options: {
       const dismissDialog = (dialog: import("playwright-core").Dialog) => { void dialog.dismiss().catch(() => undefined); };
       page.on("dialog", dismissDialog);
       try {
+        let downloadPage = page;
         if (!["report_submitting", "report_submitted"].includes(resume)) {
           audit.stage = "browser_ready";
           await writeAudit(audit, runAuditDirectory);
-          const dismissed = await configureAndSubmitReport({
+          const submission = await configureAndSubmitReport({
             page,
             store,
             startDate: plan.startDate,
@@ -1065,12 +1138,13 @@ export async function runTmallPromotionStage(options: {
               await writeAudit(audit, runAuditDirectory);
             },
           });
-          audit.dismissedPopups += dismissed;
+          audit.dismissedPopups += submission.dismissedPopups;
+          downloadPage = submission.downloadPage;
           audit.stage = "report_submitted";
           await writeAudit(audit, runAuditDirectory);
         }
         const filePath = await waitForGeneratedTask({
-          page,
+          page: downloadPage,
           store,
           startDate: plan.startDate,
           endDate: plan.endDate,
