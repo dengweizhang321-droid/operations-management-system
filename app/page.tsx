@@ -7,6 +7,7 @@ import { parseProductQueries } from "@/lib/sales/product-query";
 import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
 import N8nWorkflowView from "./n8n-workflow-view";
+import TableColumnFilters from "./ui/table-column-filters";
 
 type ModuleKey =
   | "n8n_workflows"
@@ -844,18 +845,23 @@ const MAX_FINANCE_FILE_SIZE = 8 * 1024 * 1024;
 const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 
 const navItems: NavItem[] = [
-  { key: "n8n_workflows", label: "工作流", short: "流", description: "自动化流程中心" },
   { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
-  { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
   { key: "market", label: "市场分析", short: "市", description: "榜单、行业与竞品洞察" },
-  { key: "customer_service", label: "客服分析", short: "服", description: "会话导入与聊天分析" },
   { key: "sales", label: "销售分析", short: "销", description: "利润与渠道表现" },
-  { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
+  { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
+  { key: "customer_service", label: "客服分析", short: "服", description: "会话导入与聊天分析" },
   { key: "product", label: "货品详情", short: "品", description: "商品与毛利测算" },
+  { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
   { key: "workflow", label: "运营事务", short: "务", description: "计划、巡店与新品", badge: "7" },
+  { key: "n8n_workflows", label: "工作流", short: "流", description: "自动化流程中心" },
+  { key: "ai", label: "AI 助理", short: "AI", description: "模型、对话与渠道接入" },
   { key: "import", label: "数据导入", short: "入", description: "批次导入与校验" },
   { key: "settings", label: "系统设置", short: "设", description: "参数、映射与权限" },
-  { key: "ai", label: "AI 助理", short: "AI", description: "模型、对话与渠道接入" },
+];
+
+const navGroups: Array<{ label: string; keys: ModuleKey[] }> = [
+  { label: "经营管理", keys: ["dashboard", "market", "sales", "shop", "customer_service", "product", "inventory", "workflow", "n8n_workflows", "ai"] },
+  { label: "系统管理", keys: ["import", "settings"] },
 ];
 
 const formatCurrency = (value: number) =>
@@ -919,25 +925,7 @@ const skuSalesPeriod = (range: SalesRangeLabel, customStartDate: string, customE
   return { startDate: `${today.slice(0, 7)}-01`, endDate: today };
 };
 
-type ProductPeriodPreset = "day" | "week" | "month" | "custom";
 type ProductComparisonMode = "period" | "year";
-
-const productPeriodPresetForRange = (range: SalesRangeLabel): ProductPeriodPreset => {
-  if (range === "昨天") return "day";
-  if (range === "近7天" || range === "近15天") return "week";
-  if (range === "自定义" || range === "月度") return "custom";
-  return "month";
-};
-
-const productPeriodForPreset = (
-  preset: ProductPeriodPreset,
-  fallback: { startDate: string; endDate: string },
-) => {
-  if (preset === "day") return { startDate: fallback.endDate, endDate: fallback.endDate };
-  if (preset === "week") return { startDate: addIsoDays(fallback.endDate, -6), endDate: fallback.endDate };
-  if (preset === "month") return { startDate: `${fallback.endDate.slice(0, 7)}-01`, endDate: fallback.endDate };
-  return fallback;
-};
 
 const moveIsoYears = (value: string, offset: number) => {
   const [year, month, day] = value.split("-").map(Number);
@@ -1320,7 +1308,8 @@ function DashboardView({ range, customStartDate, customEndDate }: { range: Sales
     try {
       const query = new URLSearchParams({ range: apiRange });
       if (apiRange === "custom") { query.set("startDate", customStartDate); query.set("endDate", customEndDate); }
-      const [salesResponse, inventoryResponse] = await Promise.all([fetch(`/api/sales/summary?${query}`, { cache: "no-store" }), fetch("/api/inventory/overview", { cache: "no-store" })]);
+      const inventoryQuery = new URLSearchParams({ startDate: customStartDate, endDate: customEndDate });
+      const [salesResponse, inventoryResponse] = await Promise.all([fetch(`/api/sales/summary?${query}`, { cache: "no-store" }), fetch(`/api/inventory/overview?${inventoryQuery}`, { cache: "no-store" })]);
       const salesPayload = await salesResponse.json().catch(() => null) as SalesSummaryResponse | null;
       const inventoryPayload = await inventoryResponse.json().catch(() => null) as InventoryOverviewResponse | null;
       if (!salesResponse.ok || !salesPayload?.current || !inventoryResponse.ok || !inventoryPayload?.metrics) throw new Error("经营数据读取失败");
@@ -1979,9 +1968,6 @@ function ShopDailyProductPerformanceView({
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedShops, setSelectedShops] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const [periodPreset, setPeriodPreset] = useState<ProductPeriodPreset>(() => productPeriodPresetForRange(range));
-  const [customPeriodStart, setCustomPeriodStart] = useState(() => skuSalesPeriod(range, customStartDate, customEndDate).startDate);
-  const [customPeriodEnd, setCustomPeriodEnd] = useState(() => skuSalesPeriod(range, customStartDate, customEndDate).endDate);
   const [showComparison, setShowComparison] = useState(true);
   const [showActual, setShowActual] = useState(true);
   const [comparisonMode, setComparisonMode] = useState<ProductComparisonMode>("period");
@@ -1997,12 +1983,7 @@ function ShopDailyProductPerformanceView({
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
   );
-  const selectedPeriod = useMemo(() => {
-    const customPeriod = customPeriodStart <= customPeriodEnd
-      ? { startDate: customPeriodStart, endDate: customPeriodEnd }
-      : basePeriod;
-    return productPeriodForPreset(periodPreset, periodPreset === "custom" ? customPeriod : basePeriod);
-  }, [basePeriod, customPeriodEnd, customPeriodStart, periodPreset]);
+  const selectedPeriod = basePeriod;
   const comparisonPeriod = useMemo(
     () => showComparison ? productComparisonPeriod(selectedPeriod, comparisonMode) : null,
     [comparisonMode, selectedPeriod, showComparison],
@@ -2025,10 +2006,6 @@ function ShopDailyProductPerformanceView({
   );
 
   useEffect(() => {
-    const nextPeriod = skuSalesPeriod(range, customStartDate, customEndDate);
-    setPeriodPreset(productPeriodPresetForRange(range));
-    setCustomPeriodStart(nextPeriod.startDate);
-    setCustomPeriodEnd(nextPeriod.endDate);
     setPage(1);
   }, [customEndDate, customStartDate, range]);
 
@@ -2135,8 +2112,7 @@ function ShopDailyProductPerformanceView({
       setPage(1);
     }} ariaLabel={`选择${dimensionLabel}分析平台`} allLabel="全部平台" searchPlaceholder="搜索平台" options={platformOptions} /></label>
     <label className="product-performance-select-field"><span>店铺</span><SearchableMultiSelect values={selectedShops} onChange={(values) => { setSelectedShops(values); setPage(1); }} ariaLabel={`选择${dimensionLabel}分析店铺`} allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={availableShopOptions} /></label>
-    <div className="product-period-control"><span>日期</span><div className="segmented" role="group" aria-label="商品数据统计周期"><button type="button" className={periodPreset === "day" ? "active" : ""} onClick={() => { setPeriodPreset("day"); setPage(1); }}>日</button><button type="button" className={periodPreset === "week" ? "active" : ""} onClick={() => { setPeriodPreset("week"); setPage(1); }}>周</button><button type="button" className={periodPreset === "month" ? "active" : ""} onClick={() => { setPeriodPreset("month"); setPage(1); }}>月</button><button type="button" className={periodPreset === "custom" ? "active" : ""} onClick={() => { setPeriodPreset("custom"); setPage(1); }}>自定义</button></div></div>
-    {periodPreset === "custom" && <div className="product-period-custom"><label><span>开始</span><input type="date" value={customPeriodStart} onChange={(event) => { setPeriodPreset("custom"); setCustomPeriodStart(event.target.value); setPage(1); }} /></label><label><span>结束</span><input type="date" value={customPeriodEnd} min={customPeriodStart} onChange={(event) => { setPeriodPreset("custom"); setCustomPeriodEnd(event.target.value); setPage(1); }} /></label></div>}
+    <div className="product-period-control global-period-context"><span>全局统计周期</span><strong>{selectedPeriod.startDate} 至 {selectedPeriod.endDate}</strong></div>
     <label className="product-performance-check"><input type="checkbox" checked={showComparison} onChange={(event) => setShowComparison(event.target.checked)} /><span>显示对比数据</span></label>
     <label className="product-performance-check"><input type="checkbox" checked={showActual} disabled={!showComparison} onChange={(event) => setShowActual(event.target.checked)} /><span>显示对比值</span></label>
     <div className="product-compare-control"><span>对比时间</span><div className="segmented" role="group" aria-label="商品数据对比口径"><button type="button" className={comparisonMode === "period" ? "active" : ""} disabled={!showComparison} onClick={() => setComparisonMode("period")}>环比</button><button type="button" className={comparisonMode === "year" ? "active" : ""} disabled={!showComparison} onClick={() => setComparisonMode("year")}>同比</button></div></div>
@@ -2397,7 +2373,7 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-  const [platformFilter, setPlatformFilter] = useState("全部平台");
+  const [platformFilters, setPlatformFilters] = useState<string[]>([]);
 
   const loadOutlets = useCallback(async () => {
     setLoading(true);
@@ -2453,9 +2429,9 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
   const displayedRows = useMemo(() => {
     const source = activeTab === "outlets" ? outlets : platforms;
     return source
-      .filter((item) => activeTab !== "outlets" || platformFilter === "全部平台" || item.platform === platformFilter)
+      .filter((item) => activeTab !== "outlets" || platformFilters.length === 0 || platformFilters.includes(item.platform))
       .sort((left, right) => right.netSalesCents - left.netSalesCents);
-  }, [activeTab, outlets, platformFilter, platforms]);
+  }, [activeTab, outlets, platformFilters, platforms]);
   const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.netSalesCents !== 0));
   const rowLabel = activeTab === "outlets" ? "网店" : "平台";
   const rangeNote = summary ? `${summary.startDate} 至 ${summary.endDate}` : range;
@@ -2482,7 +2458,7 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
       <MetricCard label="退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" />
     </section>
     <section className="panel table-panel outlet-table-panel">
-      <div className="table-toolbar"><div><h2>{rowLabel}经营明细</h2><p>销售额、同比、毛利率和退货率随顶部统计周期及最新导入批次自动更新。</p></div>{activeTab === "outlets" && <div className="segmented outlet-platform-filter" role="group" aria-label="平台筛选"><button type="button" className={platformFilter === "全部平台" ? "active" : ""} onClick={() => setPlatformFilter("全部平台")}>全部平台</button>{platformOptions.map((item) => <button type="button" key={item} className={platformFilter === item ? "active" : ""} onClick={() => setPlatformFilter(item)}>{item}</button>)}</div>}</div>
+      <div className="table-toolbar"><div><h2>{rowLabel}经营明细</h2><p>销售额、同比、毛利率和退货率随顶部统计周期及最新导入批次自动更新。</p></div>{activeTab === "outlets" && <SearchableMultiSelect className="filter-select outlet-platform-filter" values={platformFilters} onChange={setPlatformFilters} ariaLabel="平台筛选" allLabel="全部平台" searchPlaceholder="搜索平台" options={platformOptions.map((value) => ({ value, label: value }))} />}</div>
       <div className="data-table-wrap"><table className="data-table outlet-data-table"><thead><tr><th>排名</th><th>{rowLabel}</th>{activeTab === "outlets" && <th>所属平台</th>}<th>销售净额</th><th>净额占比</th><th>净销售同比</th><th>订单量</th><th>大毛利率</th><th>退货率</th><th>经营状态</th></tr></thead><tbody>{displayedRows.map((item, index) => { const needsAttention = item.grossMarginRate < current.grossMarginRate - .05 || item.refundRate > current.refundRate + .03; const statusText = needsAttention ? "需要关注" : index < 3 && item.shareRate >= .1 ? "核心网店" : "经营稳健"; return <tr key={`${activeTab}-${item.platform}-${item.name}`}><td><span className={`table-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span></td><td><div className="channel-name-cell"><span>{(item.name || "未").slice(0, 1)}</span><strong title={item.name}>{item.name || "未分类"}</strong></div></td>{activeTab === "outlets" && <td><span className="soft-tag">{item.platform || "未分类"}</span></td>}<td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td className={netSalesYearOverYearTone(item.salesYearOverYearRate)}>{formatNetSalesYearOverYear(item.salesYearOverYearRate)}</td><td>{formatCount(item.orderCount)}</td><td className={item.grossMarginRate < current.grossMarginRate ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={item.refundRate > current.refundRate ? "orange-text" : ""}>{formatRate(item.refundRate)}</td><td><span className={`status ${needsAttention ? "status-warning" : "status-success"}`}><Dot tone={needsAttention ? "orange" : "green"} />{statusText}</span></td></tr>; })}{displayedRows.length === 0 && <tr><td colSpan={activeTab === "outlets" ? 10 : 9}><div className="table-state">当前筛选条件下没有可展示的{rowLabel}数据。</div></td></tr>}</tbody></table></div>
     </section>
   </>;
@@ -3023,8 +2999,22 @@ function FinanceSortButton({ label, column, activeColumn, direction, onSort }: {
   return <button type="button" className={`finance-sort-button ${active ? "active" : ""}`} onClick={() => onSort(column)} title={active ? (direction === "desc" ? "当前从高到低，点击切换为从低到高" : "当前从低到高，点击切换为从高到低") : `按${label}排序`}><span>{label}</span><i aria-hidden="true">{active ? (direction === "desc" ? "↓" : "↑") : "⇅"}</i></button>;
 }
 
-function FinanceAnalysisView() {
-  const [selectedMonths, setSelectedMonths] = useState<string[] | null | undefined>(undefined);
+function isoMonthsBetween(startDate: string, endDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || startDate > endDate) return [];
+  const [startYear, startMonth] = startDate.split("-").map(Number);
+  const [endYear, endMonth] = endDate.split("-").map(Number);
+  const values: string[] = [];
+  for (let year = startYear, month = startMonth; year < endYear || (year === endYear && month <= endMonth);) {
+    values.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) { year += 1; month = 1; }
+  }
+  return values.slice(0, 24);
+}
+
+function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDate: string; customEndDate: string }) {
+  const globalMonths = useMemo(() => isoMonthsBetween(customStartDate, customEndDate), [customEndDate, customStartDate]);
+  const [selectedMonths, setSelectedMonths] = useState<string[] | null>(globalMonths);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[] | null>(null);
   const [selectedShops, setSelectedShops] = useState<string[] | null>(null);
   const [expenseSearch, setExpenseSearch] = useState("");
@@ -3035,6 +3025,10 @@ function FinanceAnalysisView() {
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    setSelectedMonths(globalMonths);
+  }, [globalMonths]);
+
+  useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       setLoading(true);
@@ -3042,7 +3036,7 @@ function FinanceAnalysisView() {
       try {
         const query = new URLSearchParams();
         if (selectedMonths === null) query.append("month", "*");
-        else selectedMonths?.forEach((month) => query.append("month", month));
+        else selectedMonths.forEach((month) => query.append("month", month));
         selectedPlatforms?.forEach((platform) => query.append("platform", platform));
         selectedShops?.forEach((shop) => query.append("shop", shop));
         const queryText = query.toString();
@@ -3050,7 +3044,6 @@ function FinanceAnalysisView() {
         const payload = await response.json().catch(() => null) as FinanceAnalysisResponse | null;
         if (!response.ok || !payload) throw new Error(payload?.error || `财报分析读取失败（${response.status}）`);
         setData(payload);
-        if (selectedMonths === undefined && payload.selectedMonth) setSelectedMonths([payload.selectedMonth]);
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
         setError(requestError instanceof Error ? requestError.message : "暂时无法读取财报分析");
@@ -3078,7 +3071,7 @@ function FinanceAnalysisView() {
   const shopOptions = (data.filters?.shops ?? [])
     .filter((shop) => selectedPlatforms === null || selectedPlatforms.includes(shop.platform))
     .map((shop) => ({ value: shop.name, label: shop.name }));
-  const activeMonthSelection = selectedMonths === undefined ? [data.selectedMonth!] : selectedMonths;
+  const activeMonthSelection = selectedMonths;
   const updateSelectedPlatforms = (next: string[] | null) => {
     setSelectedPlatforms(next);
     setSelectedShops(null);
@@ -3109,7 +3102,7 @@ function FinanceAnalysisView() {
   return <div className="finance-analysis-page">
     <section className="finance-analysis-hero">
       <div><span className="eyebrow">FINANCIAL PERFORMANCE</span><h2>财报经营分析</h2><p>以月度财报与经营目标为口径，追踪销售、利润、毛利和动态费用异常。</p></div>
-      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>平台选择</span><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="finance-filter-field"><span>店铺选择</span><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /></div><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div></div><small>当前口径 {selectedPeriodName} · 数据截止 {data.sync?.dataCutoffMonth} · {data.sync?.sourceFileName}</small></div>
+      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>平台选择</span><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="finance-filter-field"><span>店铺选择</span><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /></div><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div></div><small>全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data.sync?.dataCutoffMonth}</small></div>
     </section>
     {error && <div className="inline-feedback warning"><strong>刷新提示</strong><span>{error}</span></div>}
     <section className="finance-kpi-grid">
@@ -3133,7 +3126,7 @@ function FinanceAnalysisView() {
     </section>
     <section className="panel finance-expense-panel">
       <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${data.expenses.length} 项` : `共 ${expenseRows.length} 项`}</span></div>
-      <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份、平台与店铺支持多选，所有指标同步更新</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /><button type="button" className="finance-filter-reset" onClick={() => { setSelectedMonths([data.months.at(-1)!.month]); setSelectedPlatforms(null); setSelectedShops(null); }}>重置筛选</button></div>
+      <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份、平台与店铺支持多选，所有指标同步更新</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /><button type="button" className="finance-filter-reset" onClick={() => { setSelectedMonths(globalMonths); setSelectedPlatforms(null); setSelectedShops(null); }}>重置筛选</button></div>
       <div className="data-table-wrap finance-expense-scroll">
         <table className="data-table finance-expense-table">
           <thead><tr>
@@ -3371,7 +3364,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   }, [channels]);
   const salesSubnav = <SalesSubnav active={activeTab} onChange={setActiveTab} />;
 
-  if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView /></>;
+  if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} /></>;
   if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView /></>;
 
   if (loading) {
@@ -3497,7 +3490,7 @@ function InventoryKpiCard({
   );
 }
 
-function InventoryView() {
+function InventoryView({ customStartDate, customEndDate }: { customStartDate: string; customEndDate: string }) {
   const syncInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<InventoryTab>("overview");
   const [overview, setOverview] = useState<InventoryOverviewResponse | null>(null);
@@ -3525,7 +3518,7 @@ function InventoryView() {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ limit: "300" });
+      const params = new URLSearchParams({ limit: "300", startDate: customStartDate, endDate: customEndDate });
       if (debouncedInventoryQuery.trim()) params.set("q", debouncedInventoryQuery.trim());
       warehouseFilters.forEach((value) => params.append("warehouse", value));
       typeFilters.forEach((value) => params.append("warehouseType", value));
@@ -3540,7 +3533,7 @@ function InventoryView() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [debouncedInventoryQuery, statusFilters, typeFilters, warehouseFilters]);
+  }, [customEndDate, customStartDate, debouncedInventoryQuery, statusFilters, typeFilters, warehouseFilters]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -3764,7 +3757,7 @@ function InventoryView() {
     <section className="inventory-sync-bar">
       <div className="inventory-sync-title">
         <span className={`sync-pulse ${overview?.sync.inventoryStale ? "stale" : overview?.hasInventory ? "ready" : ""}`} aria-hidden="true" />
-        <div><strong>{overview?.hasInventory ? overview.sync.salesThrough ? "库存与销售数据已联动" : "库存已同步，等待销售数据" : "等待首次库存同步"}</strong><small>{overview?.hasInventory ? `库存快照 ${overview.sync.inventoryAsOf} · 销售截止 ${overview.sync.salesThrough ?? "暂无"}` : "上传分仓库存查询报表后自动生成库存健康与备货建议"}</small></div>
+        <div><strong>{overview?.hasInventory ? overview.sync.salesThrough ? "库存与销售数据已按全局周期联动" : "库存已同步，所选周期暂无销售数据" : "等待首次库存同步"}</strong><small>{overview?.hasInventory ? `全局周期 ${customStartDate} 至 ${customEndDate} · 实际销售 ${overview.sync.salesWindowStart ?? "暂无"} 至 ${overview.sync.salesThrough ?? "暂无"} · 库存快照 ${overview.sync.inventoryAsOf}` : `全局周期 ${customStartDate} 至 ${customEndDate} · 上传分仓库存报表后生成健康与备货建议`}</small></div>
       </div>
       <div className="inventory-source-status" aria-label="库存数据源状态">
         {(overview?.sources ?? []).map((source) => <span className={`source-status source-status-${source.status}`} key={source.key}><Dot tone={source.status === "ready" ? "green" : source.status === "stale" ? "orange" : "gray"} />{source.label}<small>{source.status === "ready" ? "已同步" : source.status === "stale" ? "待更新" : "未接入"}</small></span>)}
@@ -3780,7 +3773,7 @@ function InventoryView() {
   const refreshError = error && overview && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>最新数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>;
 
   if (loading && !overview) {
-    return <>{subnav}{syncBar}{feedback}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与近 30 日销售明细…</p></section></>;
+    return <>{subnav}{syncBar}{feedback}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与 {customStartDate} 至 {customEndDate} 的销售明细…</p></section></>;
   }
 
   if (!overview) {
@@ -3851,7 +3844,7 @@ function InventoryView() {
             <MultiFilterSelect label="健康状态" allLabel="全部状态" ariaLabel="健康状态" options={Object.entries(inventoryStatusMeta).map(([value, meta]) => ({ value, label: meta.label }))} selected={statusFilters} onChange={setStatusFilters} />
             {(query || warehouseFilters.length > 0 || typeFilters.length > 0 || statusFilters.length > 0) && <button className="row-action" onClick={() => { setQuery(""); setWarehouseFilters([]); setTypeFilters([]); setStatusFilters([]); }}>清除筛选</button>}
           </div>
-          <div className="data-table-wrap"><table className="data-table inventory-data-table"><thead><tr><th>货品</th><th>库存类型 / 仓库</th><th>可用 / 在途</th><th>近30日销量</th><th>日均销量</th><th>预计可售</th><th>库龄</th><th>建议补货</th><th>健康状态</th><th>操作</th></tr></thead><tbody>
+          <div className="data-table-wrap"><table className="data-table inventory-data-table"><thead><tr><th>货品</th><th>库存类型 / 仓库</th><th>可用 / 在途</th><th>{overview.settings.salesWindowDays}日周期销量</th><th>日均销量</th><th>预计可售</th><th>库龄</th><th>建议补货</th><th>健康状态</th><th>操作</th></tr></thead><tbody>
             {filteredItems.slice(0, 300).map((item) => {
               const meta = inventoryStatusMeta[item.status];
               const canPlan = (item.suggestedQuantity ?? 0) > 0 && !item.inDraftPlan;
@@ -3896,7 +3889,6 @@ function InventoryView() {
 }
 
 type ProductTab = "overview" | "calculator" | "detail";
-type ProductTimeRange = "last30" | "last90" | "halfYear" | "custom";
 type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
 type ProductMarginFilter = "低于35%" | "35%-40%" | "40%-45%" | "45%以上" | "暂无有效毛利率";
 
@@ -3953,12 +3945,8 @@ function ProductDetailView({
   </>;
 }
 
-function ProductView() {
+function ProductView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
   const [activeTab, setActiveTab] = useState<ProductTab>("overview");
-  const [timeRange, setTimeRange] = useState<ProductTimeRange>("last30");
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
-  const [productPeriodPickerOpen, setProductPeriodPickerOpen] = useState(false);
   const [summary, setSummary] = useState<ProductSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -3979,12 +3967,7 @@ function ProductView() {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ range: timeRange });
-      if (timeRange === "custom") {
-        if (!customStartDate || !customEndDate) throw new Error("请选择完整的自定义开始和结束日期");
-        params.set("startDate", customStartDate);
-        params.set("endDate", customEndDate);
-      }
+      const params = new URLSearchParams({ range: "custom", startDate: customStartDate, endDate: customEndDate });
       platformFilters.forEach((platform) => params.append("platform", platform));
       shopFilters.forEach((shop) => params.append("shop", shop));
       const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store", signal });
@@ -4001,13 +3984,13 @@ function ProductView() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [customEndDate, customStartDate, platformFilters, shopFilters, timeRange]);
+  }, [customEndDate, customStartDate, platformFilters, shopFilters]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadSummary(controller.signal), timeRange === "custom" ? 260 : 0);
+    const timer = window.setTimeout(() => void loadSummary(controller.signal), 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [loadSummary, retryKey, timeRange]);
+  }, [loadSummary, retryKey]);
 
   const selectedProduct = useMemo(
     () => summary?.items.find((item) => item.productCode === selectedCode) ?? null,
@@ -4106,22 +4089,13 @@ function ProductView() {
     () => query.trim().split(/[\s,，;；]+/).filter(Boolean).length,
     [query],
   );
-  const rangeLabel = timeRange === "last30" ? "近30天" : timeRange === "last90" ? "近90天" : timeRange === "halfYear" ? "近半年" : "自定义时间";
+  const rangeLabel = range;
   const appliedScope = useMemo(() => {
     const applied = summary?.filtersApplied;
     if (!applied || (applied.platforms.length === 0 && applied.shops.length === 0)) return "全渠道、全部店铺";
     const shops = applied.shops.map((shop) => `${shop.platform} · ${shop.shop}`);
     return shops.length > 0 ? shops.join("；") : applied.platforms.join("、");
   }, [summary?.filtersApplied]);
-  const selectCustomRange = () => {
-    const maxDate = summary?.sync.dataCutoffDate || summary?.sync.salesThrough || shanghaiIsoToday();
-    const minDate = summary?.sync.dataStartDate || addIsoDays(maxDate, -365);
-    setCustomStartDate((current) => clampIsoDate(current || summary?.sync.salesWindowStart || minDate, minDate, maxDate));
-    setCustomEndDate((current) => clampIsoDate(current || summary?.sync.salesThrough || maxDate, minDate, maxDate));
-    setProductPeriodPickerOpen(true);
-  };
-  const productCustomMaxDate = summary?.sync.dataCutoffDate || summary?.sync.salesThrough || shanghaiIsoToday();
-  const productCustomMinDate = summary?.sync.dataStartDate || addIsoDays(productCustomMaxDate, -365);
   const marginBuckets = summary?.metrics.marginBuckets ?? {
     below35Count: 0,
     between35And40Count: 0,
@@ -4165,7 +4139,7 @@ function ProductView() {
   return (
     <>
       {subnav}
-      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>统计期间 {summary.sync.salesWindowStart} 至 {summary.sync.salesThrough} · 数据截止 {summary.sync.dataCutoffDate} · 库存快照 {summary.sync.inventoryAsOf ?? "未同步"}</p></div><div className="product-hero-actions"><div className="product-time-controls"><div className="product-window-toggle" role="group" aria-label="商品统计周期"><button className={timeRange === "last30" ? "active" : ""} onClick={() => { setTimeRange("last30"); setProductPeriodPickerOpen(false); }}>近30天</button><button className={timeRange === "last90" ? "active" : ""} onClick={() => { setTimeRange("last90"); setProductPeriodPickerOpen(false); }}>近90天</button><button className={timeRange === "halfYear" ? "active" : ""} onClick={() => { setTimeRange("halfYear"); setProductPeriodPickerOpen(false); }}>近半年</button><button className={timeRange === "custom" || productPeriodPickerOpen ? "active" : ""} onClick={selectCustomRange}>自定义时间</button></div>{productPeriodPickerOpen && customStartDate && customEndDate && <StatisticalPeriodPicker minDate={productCustomMinDate} maxDate={productCustomMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={(startDate, endDate) => { setCustomStartDate(startDate); setCustomEndDate(endDate); setTimeRange("custom"); setProductPeriodPickerOpen(false); }} />}</div><button className="secondary-button product-refresh" onClick={() => void loadSummary()} disabled={loading}>{loading ? "同步中…" : "↻ 同步数据"}</button></div></section>
+      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>全局统计周期 {customStartDate} 至 {customEndDate} · 实际数据 {summary.sync.salesWindowStart} 至 {summary.sync.salesThrough} · 库存快照 {summary.sync.inventoryAsOf ?? "未同步"}</p></div><div className="product-hero-actions"><span className="global-period-badge">{range} · 全局同步</span><button className="secondary-button product-refresh" onClick={() => void loadSummary()} disabled={loading}>{loading ? "同步中…" : "↻ 同步数据"}</button></div></section>
 
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}
 
@@ -5176,19 +5150,18 @@ const customerRobotOptions = [{ value: "robot_only", label: "仅机器人" }, { 
 const customerConversionOptions = [{ value: "converted", label: "已转化" }, { value: "not_converted", label: "未转化" }, { value: "unknown", label: "未知" }] as const;
 
 function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNavigate }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser | null; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) {
-  const [startDate, setStartDate] = useState(customStartDate);
-  const [endDate, setEndDate] = useState(customEndDate);
-  const [agent, setAgent] = useState("");
-  const [shopName, setShopName] = useState("");
-  const [status, setStatus] = useState("");
-  const [robotScope, setRobotScope] = useState("");
-  const [problemType, setProblemType] = useState("");
-  const [conversionStatus, setConversionStatus] = useState("");
-  const [category, setCategory] = useState("");
+  const startDate = customStartDate;
+  const endDate = customEndDate;
+  const [agents, setAgents] = useState<string[]>([]);
+  const [shopNames, setShopNames] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [robotScopes, setRobotScopes] = useState<string[]>([]);
+  const [problemTypes, setProblemTypes] = useState<string[]>([]);
+  const [conversionStatuses, setConversionStatuses] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [skuIds, setSkuIds] = useState("");
   const [spuIds, setSpuIds] = useState("");
-  const [period, setPeriod] = useState<"day" | "week" | "month" | "custom">("custom");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<CustomerServiceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -5223,13 +5196,13 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
       params.set("includeOptions", optionsLoadedRef.current ? "false" : "true");
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
-      if (agent) params.set("agent", agent);
-      if (shopName) params.set("shopName", shopName);
-      if (status) params.set("status", status);
-      if (robotScope) params.set("robotScope", robotScope);
-      if (problemType) params.set("problemType", problemType);
-      if (conversionStatus) params.set("conversionStatus", conversionStatus);
-      if (category) params.set("category", category);
+      agents.forEach((value) => params.append("agent", value));
+      shopNames.forEach((value) => params.append("shopName", value));
+      statuses.forEach((value) => params.append("status", value));
+      robotScopes.forEach((value) => params.append("robotScope", value));
+      problemTypes.forEach((value) => params.append("problemType", value));
+      conversionStatuses.forEach((value) => params.append("conversionStatus", value));
+      categories.forEach((value) => params.append("category", value));
       if (debouncedCustomerQuery.trim()) params.set("query", debouncedCustomerQuery.trim());
       if (debouncedSkuIds.trim()) params.set("skuIds", debouncedSkuIds.trim());
       if (debouncedSpuIds.trim()) params.set("spuIds", debouncedSpuIds.trim());
@@ -5247,18 +5220,10 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
       }
     } catch (reason) { if (!signal?.aborted) setError(reason instanceof Error ? reason.message : "读取客服会话失败"); }
     finally { if (!signal?.aborted) setLoading(false); }
-  }, [agent, category, conversionStatus, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, page, problemType, robotScope, shopName, startDate, status]);
+  }, [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, page, problemTypes, robotScopes, shopNames, startDate, statuses]);
 
   useEffect(() => { const controller = new AbortController(); const timer = window.setTimeout(() => void load(controller.signal), 0); return () => { window.clearTimeout(timer); controller.abort(); }; }, [load]);
-  useEffect(() => { setPage(1); }, [agent, category, conversionStatus, endDate, problemType, query, robotScope, shopName, skuIds, spuIds, startDate, status]);
-
-  const selectPeriod = (next: "day" | "week" | "month" | "custom") => {
-    setPeriod(next);
-    if (next === "custom") return;
-    const anchor = endDate || shanghaiIsoToday();
-    setEndDate(anchor);
-    setStartDate(next === "day" ? anchor : next === "week" ? addIsoDays(anchor, -6) : `${anchor.slice(0, 7)}-01`);
-  };
+  useEffect(() => { setPage(1); }, [agents, categories, conversionStatuses, endDate, problemTypes, query, robotScopes, shopNames, skuIds, spuIds, startDate, statuses]);
   const pageCount = Math.max(1, Math.ceil((data?.pagination.total ?? 0) / (data?.pagination.pageSize ?? 30)));
 
   const saveAnnotation = async (item: CustomerServiceConversation, patch: Partial<Pick<CustomerServiceConversation, "robotScope" | "problemType" | "conversionStatus" | "serviceIssues" | "summaryText">>) => {
@@ -5298,10 +5263,21 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   return <section className="customer-service-page">
     <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).map((item) => item.id), "batch")} disabled={analysisReady !== true || busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? `AI分析中${analysisProgress ? ` ${analysisProgress}` : "…"}` : analysisReady === false ? "请先配置文本模型" : "AI分析本页未标注"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
     <CustomerServiceImportCard canImport={canImport} onCompleted={load} />
-    <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><label className="customer-service-shop-select"><span>店铺</span><SearchableSelect value={shopName} onChange={setShopName} ariaLabel="客服店铺筛选" searchPlaceholder="搜索店铺" options={[{ value: "", label: "全部店铺" }, ...(data?.shops ?? []).map((name) => ({ value: name, label: name }))]} /></label></section>
+    <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><div className="customer-service-shop-select"><span>店铺</span><SearchableMultiSelect values={shopNames} onChange={setShopNames} ariaLabel="客服店铺筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺" options={(data?.shops ?? []).map((value) => ({ value, label: value }))} /></div></section>
     {error && <section className="customer-service-feedback error" role="alert">{error}</section>}
     {canAnnotate && analysisReady === false && <section className="customer-service-feedback error customer-service-analysis-setup" role="status"><span>客服会话已导入；AI 标注尚缺文本模型。配置并测试成功后即可分批分析本页全部未标注记录。</span><button type="button" className="row-action" onClick={() => onNavigate("ai")}>前往 AI 助理配置</button></section>}
-    <section className="customer-service-filters panel"><div className="customer-period-tabs" role="group" aria-label="时间维度">{(["day", "week", "month", "custom"] as const).map((value) => <button type="button" key={value} className={period === value ? "active" : ""} onClick={() => selectPeriod(value)}>{({ day: "日", week: "周", month: "月", custom: "自定义" })[value]}</button>)}</div><label>咨询日期<input type="date" value={startDate} onChange={(event) => { setPeriod("custom"); setStartDate(event.target.value); }} /></label><span>至</span><label><span className="sr-only">结束日期</span><input type="date" value={endDate} min={startDate} onChange={(event) => { setPeriod("custom"); setEndDate(event.target.value); }} /></label><label><span>客服</span><SearchableSelect value={agent} onChange={setAgent} ariaLabel="客服筛选" searchPlaceholder="搜索客服" options={[{ value: "", label: "全部客服" }, ...(data?.agents ?? []).map((name) => ({ value: name, label: name }))]} /></label><label><span>匹配状态</span><SearchableSelect value={status} onChange={setStatus} ariaLabel="匹配状态筛选" searchPlaceholder="搜索匹配状态" options={[{ value: "", label: "全部状态" }, { value: "matched", label: "已匹配" }, { value: "session_only", label: "缺聊天记录" }, { value: "chat_only", label: "缺会话记录" }]} /></label><label><span>机器人</span><SearchableSelect value={robotScope} onChange={setRobotScope} ariaLabel="机器人内容筛选" searchPlaceholder="搜索机器人标注" options={[{ value: "", label: "全部" }, ...customerRobotOptions]} /></label><label><span>问题类型</span><SearchableSelect value={problemType} onChange={setProblemType} ariaLabel="问题类型筛选" searchPlaceholder="搜索问题类型" options={[{ value: "", label: "全部" }, ...customerProblemTypes.map((value) => ({ value, label: value }))]} /></label><label><span>吉客云类目</span><SearchableSelect value={category} onChange={setCategory} ariaLabel="吉客云类目筛选" searchPlaceholder="搜索吉客云类目" options={[{ value: "", label: "全部类目" }, ...(data?.categories ?? []).map((value) => ({ value, label: value }))]} /></label><label><span>订单转化</span><SearchableSelect value={conversionStatus} onChange={setConversionStatus} ariaLabel="订单转化筛选" searchPlaceholder="搜索转化状态" options={[{ value: "", label: "全部" }, ...customerConversionOptions]} /></label><label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label><label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品、服务问题或小结" /></label></section>
+    <section className="customer-service-filters panel">
+      <div className="global-period-context customer-global-period"><span>全局统计周期</span><strong>{startDate} 至 {endDate}</strong></div>
+      <label><span>客服</span><SearchableMultiSelect values={agents} onChange={setAgents} ariaLabel="客服筛选" allLabel="全部客服" searchPlaceholder="搜索客服" options={(data?.agents ?? []).map((value) => ({ value, label: value }))} /></label>
+      <label><span>匹配状态</span><SearchableMultiSelect values={statuses} onChange={setStatuses} ariaLabel="匹配状态筛选" allLabel="全部状态" searchPlaceholder="搜索匹配状态" options={[{ value: "matched", label: "已匹配" }, { value: "session_only", label: "缺聊天记录" }, { value: "chat_only", label: "缺会话记录" }]} /></label>
+      <label><span>机器人</span><SearchableMultiSelect values={robotScopes} onChange={setRobotScopes} ariaLabel="机器人内容筛选" allLabel="全部" searchPlaceholder="搜索机器人标注" options={[...customerRobotOptions]} /></label>
+      <label><span>问题类型</span><SearchableMultiSelect values={problemTypes} onChange={setProblemTypes} ariaLabel="问题类型筛选" allLabel="全部" searchPlaceholder="搜索问题类型" options={customerProblemTypes.map((value) => ({ value, label: value }))} /></label>
+      <label><span>吉客云类目</span><SearchableMultiSelect values={categories} onChange={setCategories} ariaLabel="吉客云类目筛选" allLabel="全部类目" searchPlaceholder="搜索吉客云类目" options={(data?.categories ?? []).map((value) => ({ value, label: value }))} /></label>
+      <label><span>订单转化</span><SearchableMultiSelect values={conversionStatuses} onChange={setConversionStatuses} ariaLabel="订单转化筛选" allLabel="全部" searchPlaceholder="搜索转化状态" options={[...customerConversionOptions]} /></label>
+      <label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label>
+      <label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label>
+      <label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品、服务问题或小结" /></label>
+    </section>
     <section className="panel table-panel customer-service-table-panel"><div className="section-header"><div><h2>会话列表</h2><p>正向按 SKUID → 商家SKU → 吉客云网店规格编码匹配；未命中时从吉客云网店规格编码唯一反查 SKUID，最终展示 SKUID、吉客云货品编号与品类。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table customer-service-analysis-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKUID / 吉客云编号</th><th>吉客云类目</th><th>消息数</th><th>机器人内容</th><th>问题类型</th><th>订单转化</th><th>AI服务问题 / 小结</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
       {loading && <tr><td colSpan={11}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}
       {!loading && error && <tr><td colSpan={11}><div className="table-state table-state-error">{error}</div></td></tr>}
@@ -5762,6 +5738,10 @@ export default function Home() {
   const debouncedGlobalSearchQuery = useDebouncedValue(globalSearchQuery, 220);
   const customMaxDate = shanghaiIsoToday();
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
+  const globalPeriod = useMemo(
+    () => skuSalesPeriod(range, customStartDate, customEndDate),
+    [customEndDate, customStartDate, range],
+  );
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/auth/me", { cache: "no-store", signal: controller.signal })
@@ -5867,10 +5847,7 @@ export default function Home() {
           <button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label="收起侧边栏">‹</button>
         </div>
         <nav className="main-nav" aria-label="主导航">
-          <p>经营管理</p>
-          {navItems.slice(0, 9).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}
-          <p>系统管理</p>
-          {navItems.slice(9).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span></button>)}
+          {navGroups.map((group) => <div className="nav-group" key={group.label}><p>{group.label}</p>{group.keys.map((key) => navItems.find((item) => item.key === key)).filter((item): item is NavItem => Boolean(item)).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}</div>)}
         </nav>
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
         <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser ? `${currentUser.displayName} · ${currentUser.roleLabel}` : "访客 · 只读查看者"}</strong><small>{currentUser ? currentUser.email : "可查看经营数据"}</small></div><button onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
@@ -5879,7 +5856,7 @@ export default function Home() {
 
       <section className="workspace">
         <header className="topbar">
-          <div className="title-area"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}>☰</button><div><span>运营中心 / {current.label}</span><h1>{current.description}</h1></div></div>
+          <div className="title-area"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}>☰</button><div><h1>{current.label}</h1><span>{current.description}{active !== "n8n_workflows" ? ` · ${globalPeriod.startDate} 至 ${globalPeriod.endDate}` : ""}</span></div></div>
           <div className="topbar-actions">
             <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
             <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
@@ -5893,11 +5870,12 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="page-intro"><div><p>{active === "dashboard" ? "经营数据中心" : current.label}</p><h2>{current.description}</h2><span>{active === "n8n_workflows" ? "本机 n8n 画布与运营系统受控导入链路统一管理" : active === "sales" ? `${range} · 数据来自已导入销售明细` : active === "shop" ? "商品访客按商品×日累计展示；推广指标只按推广与生意参谋支付金额的日期交集计算" : active === "market" ? "市场榜单与运营系统 SKU/SPU、销售明细及 AI 模型实时关联" : active === "customer_service" ? "会话记录与聊天日志按时间及顾客标识安全关联" : active === "inventory" ? "最新库存快照 · 近 30 日销售需求自动联动" : active === "product" ? "商品价格、成本、费用与库存随已导入数据实时汇总" : active === "import" ? "导入批次实时记录，销售分析自动更新" : "业务数据视图 · 以系统最近同步为准"}</span></div><div className="intro-actions">{active !== "n8n_workflows" && <button className="secondary-button">↗ 导出报表</button>}{active !== "n8n_workflows" && active !== "dashboard" && active !== "shop" && active !== "market" && active !== "customer_service" && active !== "settings" && active !== "sales" && active !== "inventory" && active !== "product" && active !== "import" && active !== "ai" && <button className="primary-button">＋ 新建</button>}</div></div>
-          <View range={range} customStartDate={customStartDate} customEndDate={customEndDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
+          <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>
+
+      <TableColumnFilters />
 
       {searchOpen && <div className="modal-backdrop" onClick={closeGlobalSearch}>
         <div className="search-modal search-modal-global" role="dialog" aria-modal="true" aria-label="全系统业务搜索" onClick={(event) => event.stopPropagation()}>

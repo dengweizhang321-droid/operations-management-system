@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const payload = await getInventoryOverview(db, {
       query: params.get("q")?.trim() || undefined,
+      startDate: params.get("startDate")?.trim() || undefined,
+      endDate: params.get("endDate")?.trim() || undefined,
       warehouses: params.getAll("warehouse"),
       warehouseTypes: params.getAll("warehouseType").filter((value): value is "owned" | "jd_rdc" | "other" => ["owned", "jd_rdc", "other"].includes(value)),
       statuses: params.getAll("status").filter((value): value is "urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales" => ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"].includes(value)),

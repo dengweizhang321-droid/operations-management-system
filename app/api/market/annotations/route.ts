@@ -39,9 +39,9 @@ export async function GET(request: Request) {
       q: params.get("q")?.trim() || undefined,
       page: integerParam(params, "page", 1), pageSize: integerParam(params, "pageSize", 30),
       itemPage: integerParam(params, "itemPage", 1), itemPageSize: integerParam(params, "itemPageSize", 20),
-      itemSegment: params.get("itemSegment")?.trim() || undefined,
-      storageStatus: params.get("storageStatus") === "committed" ? "committed" : params.get("storageStatus") === "pending" ? "pending" : undefined,
-      recognitionSource: params.get("recognitionSource") === "ai" ? "ai" : params.get("recognitionSource") === "non_ai" ? "non_ai" : undefined,
+      itemSegments: params.getAll("itemSegment"),
+      storageStatuses: params.getAll("storageStatus").filter((value) => value === "pending" || value === "committed"),
+      recognitionSources: params.getAll("recognitionSource").filter((value) => value === "ai" || value === "non_ai"),
       includeAgents: principal.role === "admin",
       includeCatalog: params.get("includeCatalog") !== "0",
     } as const;
@@ -92,9 +92,9 @@ export async function POST(request: Request) {
       case "commit_selected": result = await commitSelectedAnnotationItems(db, { jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
       case "select_filtered": result = await setFilteredAnnotationSelection(db, {
         jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), selected: parsed.selected === true,
-        itemSegment: text(parsed, "itemSegment") || undefined,
-        storageStatus: text(parsed, "storageStatus") === "committed" ? "committed" : text(parsed, "storageStatus") === "pending" ? "pending" : undefined,
-        recognitionSource: text(parsed, "recognitionSource") === "ai" ? "ai" : text(parsed, "recognitionSource") === "non_ai" ? "non_ai" : undefined,
+        itemSegments: texts(parsed, "itemSegments"),
+        storageStatuses: texts(parsed, "storageStatuses").filter((value) => value === "pending" || value === "committed"),
+        recognitionSources: texts(parsed, "recognitionSources").filter((value) => value === "ai" || value === "non_ai"),
       }, principal); break;
       case "create_prompt": result = await createPromptVersion(db, { category: text(parsed, "category"), segments: parsed.segments, promptBody: text(parsed, "promptBody"), parentId: text(parsed, "parentId") || undefined, source: "manual", changeNote: text(parsed, "changeNote") }, principal); break;
       case "generate_prompt": result = await generatePromptVersion(db, { textModelId: text(parsed, "textModelId"), category: text(parsed, "category"), segments: parsed.segments, parentId: text(parsed, "parentId") || undefined, mode: "generate", changeNote: text(parsed, "changeNote") }, principal); break;

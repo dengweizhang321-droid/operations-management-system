@@ -189,16 +189,16 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /非 AI 识别价/);
   assert.match(source, /pendingPricePageSize/);
   assert.match(source, /待确认价格页码/);
-  assert.match(source, /params\.set\("pendingPriceCategory", priceCategory\)/);
-  assert.match(source, /params\.set\("pendingPriceSource", pendingPriceSource\)/);
+  assert.match(source, /masterCategories\.forEach\(\(value\) => params\.append\("pendingPriceCategory", value\)\)/);
+  assert.match(source, /pendingPriceSources\.forEach\(\(value\) => params\.append\("pendingPriceSource", value\)\)/);
   assert.match(source, /params\.set\("pendingPricePage", String\(pendingPricePage\)\)/);
   assert.match(source, /params\.set\("pendingPricePageSize", String\(pendingPricePageSize\)\)/);
-  assert.match(source, /params\.set\("priceSource", masterCandidatePriceSource\)/);
+  assert.match(source, /masterCandidatePriceSources\.forEach\(\(value\) => params\.append\("priceSource", value\)\)/);
   assert.doesNotMatch(source, /params\.set\("priceSource", pendingPriceSource\)/);
-  assert.match(source, /pendingPriceSource, pendingPricePage, pendingPricePageSize, priceCategory/);
+  assert.match(source, /pendingPriceSources, pendingPricePage, pendingPricePageSize/);
   assert.doesNotMatch(source, /setPriceCategory\(\(current\) => current \|\| payload\.priceRecognition/);
   assert.match(source, /SKU 数据库每页条数/);
-  assert.match(source, /setCategory\(nextCategory\); setPriceCategory\(nextCategory\); setPage\(1\); setPendingPricePage\(1\);/);
+  assert.match(source, /setMasterCategories\(values\); setPriceCategory\(values\.length === 1 \? values\[0\] : ""\); setSubcategoryFilters\(\[\]\); setPage\(1\); setPendingPricePage\(1\);/);
   assert.match(source, /const requestId = beginLatestRequest\(loadRequestId\)/);
   assert.match(source, /invalidateLatestRequest\(loadRequestId\);\s*const timer = window\.setTimeout/);
   assert.match(source, /settleLatestRequest\(loadRequestId, requestId/);
@@ -208,7 +208,7 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(source, /setPendingPricePage\(payload\.pendingPrices\.pagination\.page\)/);
   assert.match(source, /latestLoadRef\.current = load/);
   assert.match(source, /const loadLatest = useCallback\(\(\) => invokeLatestRequest\(latestLoadRef\), \[\]\)/);
-  assert.match(source, /setSubcategoryFilter\(""\); setPage\(1\); setPendingPricePage\(1\);/);
+  assert.match(source, /setSubcategoryFilters\(\[\]\); setPage\(1\); setPendingPricePage\(1\);/);
   assert.match(source, /key=\{`pending-price-\$\{row\.id\}`\}/);
   assert.match(source, /人工确认市场定位价（元）/);
   assert.match(source, /Math\.round\(priceYuan \* 100\)/);
@@ -284,10 +284,10 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  for (const label of ["SKU 数据库与价格审核", "全部细分品类", "全部价格状态", "全部入库状态", "编辑 SKU 全部数据", "编辑 SKU 数据", "细分品类设置", "保存并刷新全部关联数据", "开始日期", "结束日期", "源表价格区间中位数兜底"]) assert.match(view, new RegExp(label));
-  assert.match(view, /const \[marketStartDate, setMarketStartDate\] = useState\(""\)/);
-  assert.match(view, /const \[marketEndDate, setMarketEndDate\] = useState\(""\)/);
-  assert.doesNotMatch(view, /activeSection === "overview" && <div className="market-overview-period"/);
+  for (const label of ["SKU 数据库与价格审核", "细分品类", "价格状态", "入库状态", "编辑 SKU 全部数据", "编辑 SKU 数据", "细分品类设置", "保存并刷新全部关联数据", "全局统计周期", "源表价格区间中位数兜底"]) assert.match(view, new RegExp(label));
+  assert.match(view, /const marketStartDate = customStartDate/);
+  assert.match(view, /const marketEndDate = customEndDate/);
+  assert.match(view, /market-overview-period market-global-period/);
   assert.match(view, /当前市场周期和筛选条件下暂无商品数据/);
   assert.match(view, /databaseArea === "annotation"/);
   assert.match(view, /<MarketAnnotationView currentUser=\{currentUser\} embedded/);
@@ -301,7 +301,7 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /aria-label="AI 标注三级类目多选"/);
   assert.match(annotation, /reviewCategories\.forEach\(\(value\) => params\.append\("itemCategory", value\)\)/);
   assert.match(annotation, /data\.taxonomy\.filter\(\(item\) => !reviewCategories\.length \|\| reviewCategories\.includes\(item\.category\)\)/);
-  assert.match(annotation, /setItemSegment\(""\)/);
+  assert.match(annotation, /setItemSegments\(\[\]\)/);
   assert.match(annotation, /已汇总 \{data\.reviewSummary\.jobCount\} 个任务/);
   assert.match(annotation, /aggregateJobs: true/);
   assert.match(annotation, /全部 AI 结果/);

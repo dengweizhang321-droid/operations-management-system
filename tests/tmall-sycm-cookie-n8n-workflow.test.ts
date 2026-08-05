@@ -54,7 +54,7 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
 
   const workflowNavigation = page.indexOf('{ key: "n8n_workflows", label: "工作流"');
   const dashboardNavigation = page.indexOf('{ key: "dashboard", label: "BI 看板"');
-  assert.ok(workflowNavigation >= 0 && workflowNavigation < dashboardNavigation);
+  assert.ok(dashboardNavigation >= 0 && dashboardNavigation < workflowNavigation);
   assert.match(page, /n8n_workflows: \(\{ currentUser \}\) => <N8nWorkflowView currentUser=\{currentUser\}/);
   assert.match(view, /tmall-yijiu-sycm-cookie-daily\.workflow\.json/);
   assert.match(view, /jackyun-five-dataset-daily\.workflow\.json/);

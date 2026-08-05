@@ -105,11 +105,13 @@ export async function matchMarketBrandSeeds(db: MarketDatabase, input: { categor
   return result;
 }
 
-export async function listMarketMasterData(db: MarketDatabase, input: {
-  q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string;
-  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai";
-  annotationStatus?: "committed" | "pending"; page?: number; pageSize?: number; includeHistory?: boolean;
-} = {}) {
+type MarketMasterListInput = {
+  q?: string; category?: string; categories?: string[]; rankingDimension?: string; rankingDimensions?: string[]; operationMode?: string; operationModes?: string[]; brand?: string; brands?: string[]; subcategory?: string; subcategories?: string[];
+  priceStatus?: "confirmed" | "pending" | "missing"; priceStatuses?: string[]; candidatePriceSource?: "ai" | "non_ai"; candidatePriceSources?: string[];
+  annotationStatus?: "committed" | "pending"; annotationStatuses?: string[]; page?: number; pageSize?: number; includeHistory?: boolean;
+};
+
+export async function listMarketMasterData(db: MarketDatabase, input: MarketMasterListInput = {}) {
   await Promise.all([ensureMarketAdminSchema(db), ensureAnnotationSchema(db)]);
   await ensureMarketSkuGmvTotals(db);
   await ensureMarketMasterIdentities(db);
@@ -145,7 +147,7 @@ export async function listMarketMasterData(db: MarketDatabase, input: {
 }
 
 export async function listPendingMarketPrices(db: MarketDatabase, input: {
-  q?: string; category?: string; candidatePriceSource?: "ai" | "non_ai"; page?: number; pageSize?: number;
+  q?: string; category?: string; categories?: string[]; candidatePriceSource?: "ai" | "non_ai"; candidatePriceSources?: string[]; page?: number; pageSize?: number;
 } = {}) {
   return listMarketMasterData(db, { ...input, priceStatus: "pending", includeHistory: true });
 }
@@ -1232,10 +1234,10 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
 
 export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
   mode?: "all" | "database" | "brand" | "mapping" | "subcategory" | "data";
-  q?: string; category?: string; rankingDimension?: string; operationMode?: string; subcategory?: string;
-  priceStatus?: "confirmed" | "pending" | "missing"; candidatePriceSource?: "ai" | "non_ai";
-  annotationStatus?: "committed" | "pending"; page?: number; pageSize?: number;
-  pendingPriceCategory?: string; pendingPriceSource?: "ai" | "non_ai";
+  q?: string; category?: string; categories?: string[]; rankingDimension?: string; rankingDimensions?: string[]; operationMode?: string; operationModes?: string[]; subcategory?: string; subcategories?: string[];
+  priceStatus?: "confirmed" | "pending" | "missing"; priceStatuses?: string[]; candidatePriceSource?: "ai" | "non_ai"; candidatePriceSources?: string[];
+  annotationStatus?: "committed" | "pending"; annotationStatuses?: string[]; page?: number; pageSize?: number;
+  pendingPriceCategory?: string; pendingPriceCategories?: string[]; pendingPriceSource?: "ai" | "non_ai"; pendingPriceSources?: string[];
   pendingPricePage?: number; pendingPricePageSize?: number;
 } = {}) {
   await ensureMarketAdminSchema(db);
@@ -1249,11 +1251,15 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
   const wantsSubcategory = mode === "all" || mode === "subcategory";
   const emptyPage = { items: [] as Array<Record<string, string | number | null>>, pagination: { total: 0, page: 1, pageSize: input.pageSize ?? 30, pageCount: 1 } };
   const emptyRows = { results: [] as Array<Record<string, unknown>> };
+  const selectedMasterCategories = [...new Set([...(input.categories ?? []), input.category ?? ""].map((value) => value.trim().slice(0, 120)).filter(Boolean))].slice(0, 50);
+  const selectedCategorySql = selectedMasterCategories.length ? ` IN (${selectedMasterCategories.map(() => "?").join(",")})` : "";
   const [masterData, pendingPrices, mappings, priceBands, tasks, configs, coverage, imageCache, audits, categories, subcategories, pricePrompts, brandRecognitionJob, brandSeeds, statusCounts, subcategorySettings] = await Promise.all([
     wantsMaster ? listMarketMasterData(db, input) : Promise.resolve(emptyPage),
     wantsDatabase ? listPendingMarketPrices(db, {
       category: input.pendingPriceCategory,
+      categories: input.pendingPriceCategories,
       candidatePriceSource: input.pendingPriceSource,
+      candidatePriceSources: input.pendingPriceSources,
       page: input.pendingPricePage,
       pageSize: input.pendingPricePageSize,
     }) : Promise.resolve(emptyPage),
@@ -1270,8 +1276,8 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
     wantsDatabase ? db.prepare(`SELECT t.subcategory value, COUNT(DISTINCT m.sku_code) count
       FROM market_subcategory_taxonomy t
       LEFT JOIN market_ranking_entries m ON m.category=t.category AND m.subcategory=t.subcategory
-      WHERE t.status='active' AND (?='' OR t.category=?)
-      GROUP BY t.subcategory ORDER BY count DESC, t.subcategory LIMIT 200`).bind(input.category ?? "", input.category ?? "").all<{ value: string; count: number }>() : Promise.resolve({ results: [] as Array<{ value: string; count: number }> }),
+      WHERE t.status='active'${selectedCategorySql ? ` AND t.category${selectedCategorySql}` : ""}
+      GROUP BY t.subcategory ORDER BY count DESC, t.subcategory LIMIT 200`).bind(...selectedMasterCategories).all<{ value: string; count: number }>() : Promise.resolve({ results: [] as Array<{ value: string; count: number }> }),
     wantsDatabase ? db.prepare(`SELECT c.category,
         COALESCE((SELECT p.id FROM market_annotation_prompt_versions p WHERE p.category=c.category AND p.status='active' ORDER BY p.version DESC LIMIT 1), '') prompt_id,
         (SELECT COUNT(*) FROM market_price_snapshots ps
@@ -1286,7 +1292,7 @@ export async function getMarketMasterWorkspace(db: MarketDatabase, input: {
       COUNT(*) total,
       SUM(CASE WHEN confirmed_market_price_cents IS NULL THEN 1 ELSE 0 END) pending_prices,
       SUM(CASE WHEN confirmed_market_price_cents IS NOT NULL THEN 1 ELSE 0 END) confirmed_prices
-      FROM market_price_snapshots WHERE (?='' OR category=?)`).bind(input.category ?? "", input.category ?? "").first<Record<string, number | null>>() : Promise.resolve(null),
+      FROM market_price_snapshots${selectedCategorySql ? ` WHERE category${selectedCategorySql}` : ""}`).bind(...selectedMasterCategories).first<Record<string, number | null>>() : Promise.resolve(null),
     wantsSubcategory ? getMarketSubcategoryWorkspace(db, input.category ?? "") : Promise.resolve({ category: "", categories: [], items: [] }),
   ]);
   return {
@@ -1618,31 +1624,44 @@ async function getMarketItemTrendLite(db: MarketDatabase, input: { skuCode: stri
 }
 
 function masterWhere(input: {
-  q?: string; category?: string; rankingDimension?: string; operationMode?: string; brand?: string; subcategory?: string; priceStatus?: string;
-  candidatePriceSource?: string; annotationStatus?: string;
+  q?: string; category?: string; categories?: string[]; rankingDimension?: string; rankingDimensions?: string[]; operationMode?: string; operationModes?: string[]; brand?: string; brands?: string[]; subcategory?: string; subcategories?: string[]; priceStatus?: string; priceStatuses?: string[];
+  candidatePriceSource?: string; candidatePriceSources?: string[]; annotationStatus?: string; annotationStatuses?: string[];
 }) {
   const clauses = ["1=1"];
   const values: unknown[] = [];
   const q = optionalText(input.q, 100);
   if (q) { clauses.push("(m.sku_code LIKE ? OR m.product_name LIKE ? OR m.brand LIKE ?)"); values.push(`%${q}%`, `%${q}%`, `%${q}%`); }
-  if (input.category?.trim()) { clauses.push("m.category=?"); values.push(input.category.trim().slice(0, 120)); }
-  if (input.rankingDimension && validDimensions.has(input.rankingDimension)) { clauses.push("m.ranking_dimension=?"); values.push(input.rankingDimension); }
-  if (input.operationMode?.trim()) { clauses.push("m.operation_mode=?"); values.push(input.operationMode.trim().slice(0, 20)); }
-  if (input.brand?.trim()) { clauses.push("m.brand=?"); values.push(input.brand.trim().slice(0, 120)); }
-  if (input.subcategory?.trim()) { clauses.push("m.subcategory=?"); values.push(input.subcategory.trim().slice(0, 120)); }
-  if (input.priceStatus === "confirmed") clauses.push("ps.confirmed_market_price_cents IS NOT NULL");
-  if (input.priceStatus === "pending") clauses.push("ps.confirmed_market_price_cents IS NULL AND (ps.source_price_cents IS NOT NULL OR ps.ai_image_price_cents IS NOT NULL OR ps.average_transaction_price_cents IS NOT NULL OR ps.confirmation_status IN ('missing','ai_pending','review_pending','source_table'))");
-  if (input.priceStatus === "missing") clauses.push("ps.confirmed_market_price_cents IS NULL AND ps.source_price_cents IS NULL AND ps.ai_image_price_cents IS NULL AND ps.average_transaction_price_cents IS NULL");
-  if (input.candidatePriceSource === "ai") clauses.push(`(
+  const list = (multiple: string[] | undefined, legacy: string | undefined, maxLength: number) => [...new Set([...(multiple ?? []), legacy ?? ""].map((value) => value.trim().slice(0, maxLength)).filter(Boolean))].slice(0, 50);
+  const addIn = (column: string, selected: string[]) => {
+    if (!selected.length) return;
+    clauses.push(`${column} IN (${selected.map(() => "?").join(",")})`);
+    values.push(...selected);
+  };
+  addIn("m.category", list(input.categories, input.category, 120));
+  addIn("m.ranking_dimension", list(input.rankingDimensions, input.rankingDimension, 10).filter((value) => validDimensions.has(value)));
+  addIn("m.operation_mode", list(input.operationModes, input.operationMode, 20));
+  addIn("m.brand", list(input.brands, input.brand, 120));
+  addIn("m.subcategory", list(input.subcategories, input.subcategory, 120));
+  const priceStatusClauses: Record<string, string> = {
+    confirmed: "ps.confirmed_market_price_cents IS NOT NULL",
+    pending: "ps.confirmed_market_price_cents IS NULL AND (ps.source_price_cents IS NOT NULL OR ps.ai_image_price_cents IS NOT NULL OR ps.average_transaction_price_cents IS NOT NULL OR ps.confirmation_status IN ('missing','ai_pending','review_pending','source_table'))",
+    missing: "ps.confirmed_market_price_cents IS NULL AND ps.source_price_cents IS NULL AND ps.ai_image_price_cents IS NULL AND ps.average_transaction_price_cents IS NULL",
+  };
+  const priceStatuses = list(input.priceStatuses, input.priceStatus, 20).filter((value) => priceStatusClauses[value]);
+  if (priceStatuses.length > 0 && priceStatuses.length < 3) clauses.push(`(${priceStatuses.map((value) => `(${priceStatusClauses[value]})`).join(" OR ")})`);
+  const aiCandidateClause = `(
     (ps.confirmation_status='ai_pending' AND ps.ai_image_price_cents IS NOT NULL)
     OR (ps.source_price_cents IS NULL AND ps.average_transaction_price_cents IS NULL AND ps.ai_image_price_cents IS NOT NULL)
-  )`);
-  if (input.candidatePriceSource === "non_ai") clauses.push(`
+  )`;
+  const nonAiCandidateClause = `(
     NOT (COALESCE(ps.confirmation_status, '')='ai_pending' AND ps.ai_image_price_cents IS NOT NULL)
     AND (ps.source_price_cents IS NOT NULL OR (ps.source_price_cents IS NULL AND ps.average_transaction_price_cents IS NOT NULL))
-  `);
-  if (input.annotationStatus === "committed") clauses.push("a.id IS NOT NULL");
-  if (input.annotationStatus === "pending") clauses.push("a.id IS NULL");
+  )`;
+  const candidateSources = list(input.candidatePriceSources, input.candidatePriceSource, 20).filter((value) => value === "ai" || value === "non_ai");
+  if (candidateSources.length === 1) clauses.push(candidateSources[0] === "ai" ? aiCandidateClause : nonAiCandidateClause);
+  if (candidateSources.length === 2) clauses.push(`(${aiCandidateClause} OR ${nonAiCandidateClause})`);
+  const annotationStatuses = list(input.annotationStatuses, input.annotationStatus, 20).filter((value) => value === "committed" || value === "pending");
+  if (annotationStatuses.length === 1) clauses.push(annotationStatuses[0] === "committed" ? "a.id IS NOT NULL" : "a.id IS NULL");
   return { where: clauses.join(" AND "), values };
 }
 

@@ -139,6 +139,26 @@ function annotationCategoryList(values: string[] | undefined, legacy?: string) {
   return categories;
 }
 
+function annotationFilterList(values: string[] | undefined, legacy?: string, max = 50) {
+  return [...new Set([...(values ?? []), legacy ?? ""].map((value) => value.trim().slice(0, 120)).filter(Boolean))].slice(0, max);
+}
+
+function addAnnotationReviewFilters(
+  clauses: string[],
+  bindings: unknown[],
+  input: Pick<AnnotationWorkspaceInput, "itemSegment" | "itemSegments" | "storageStatus" | "storageStatuses" | "recognitionSource" | "recognitionSources">,
+) {
+  const segments = annotationFilterList(input.itemSegments, input.itemSegment);
+  if (segments.length) {
+    clauses.push(`COALESCE(NULLIF(reviewed_segment,''), ai_segment) IN (${segments.map(() => "?").join(",")})`);
+    bindings.push(...segments);
+  }
+  const storageStatuses = annotationFilterList(input.storageStatuses, input.storageStatus).filter((value) => value === "pending" || value === "committed");
+  if (storageStatuses.length === 1) clauses.push(storageStatuses[0] === "committed" ? "status='committed'" : "status<>'committed'");
+  const recognitionSources = annotationFilterList(input.recognitionSources, input.recognitionSource).filter((value) => value === "ai" || value === "non_ai");
+  if (recognitionSources.length === 1) clauses.push(recognitionSources[0] === "ai" ? aiRecognitionClause : `NOT ${aiRecognitionClause}`);
+}
+
 function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[] }) {
   const categories = annotationCategoryList(input.itemCategories, input.itemCategory);
   if (input.aggregateJobs) return categories.length ? { clause: `category IN (${categories.map(() => "?").join(",")})`, bindings: categories as unknown[] } : { clause: "1=1", bindings: [] as unknown[] };
@@ -147,7 +167,7 @@ function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean;
 
 type AnnotationWorkspaceInput = {
   jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number;
-  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai"; includeAgents?: boolean; includeCatalog?: boolean;
+  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; itemSegments?: string[]; storageStatus?: "pending" | "committed"; storageStatuses?: string[]; recognitionSource?: "ai" | "non_ai"; recognitionSources?: string[]; includeAgents?: boolean; includeCatalog?: boolean;
 };
 
 async function queryAnnotationReviewWorkspace(db: MarketDatabase, input: AnnotationWorkspaceInput = {}) {
@@ -156,12 +176,7 @@ async function queryAnnotationReviewWorkspace(db: MarketDatabase, input: Annotat
   const reviewScope = annotationReviewScope(input);
   const itemClauses = [reviewScope.clause];
   const itemBindings: unknown[] = [...reviewScope.bindings];
-  const itemSegment = input.itemSegment?.trim().slice(0, 120) ?? "";
-  if (itemSegment) { itemClauses.push("COALESCE(NULLIF(reviewed_segment,''), ai_segment)=?"); itemBindings.push(itemSegment); }
-  if (input.storageStatus === "committed") itemClauses.push("status='committed'");
-  if (input.storageStatus === "pending") itemClauses.push("status<>'committed'");
-  if (input.recognitionSource === "ai") itemClauses.push(aiRecognitionClause);
-  if (input.recognitionSource === "non_ai") itemClauses.push(`NOT ${aiRecognitionClause}`);
+  addAnnotationReviewFilters(itemClauses, itemBindings, input);
   const itemWhere = itemClauses.join(" AND ");
   const hasReviewScope = Boolean(input.aggregateJobs || input.jobId);
   const [items, itemCount, reviewSummary, selection] = await Promise.all([
@@ -257,7 +272,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
 }
 
 export async function setFilteredAnnotationSelection(db: MarketDatabase, input: {
-  jobId?: string; aggregateJobs?: boolean; category?: string; categories?: string[]; selected: boolean; itemSegment?: string; storageStatus?: "pending" | "committed"; recognitionSource?: "ai" | "non_ai";
+  jobId?: string; aggregateJobs?: boolean; category?: string; categories?: string[]; selected: boolean; itemSegment?: string; itemSegments?: string[]; storageStatus?: "pending" | "committed"; storageStatuses?: string[]; recognitionSource?: "ai" | "non_ai"; recognitionSources?: string[];
 }, actor: Actor) {
   await ensureAnnotationSchema(db);
   const jobId = input.jobId?.trim() ?? "";
@@ -276,12 +291,7 @@ export async function setFilteredAnnotationSelection(db: MarketDatabase, input: 
     bindings.push(jobId);
   }
   if (input.selected) clauses.push(annotationImportableClause());
-  const itemSegment = input.itemSegment?.trim().slice(0, 120) ?? "";
-  if (itemSegment) { clauses.push("COALESCE(NULLIF(reviewed_segment,''), ai_segment)=?"); bindings.push(itemSegment); }
-  if (input.storageStatus === "committed") clauses.push("status='committed'");
-  if (input.storageStatus === "pending") clauses.push("status<>'committed'");
-  if (input.recognitionSource === "ai") clauses.push(aiRecognitionClause);
-  if (input.recognitionSource === "non_ai") clauses.push(`NOT ${aiRecognitionClause}`);
+  addAnnotationReviewFilters(clauses, bindings, input);
   const where = clauses.join(" AND ");
   const count = await db.prepare(`SELECT COUNT(*) count FROM market_annotation_items WHERE ${where}`).bind(...bindings).first<{ count: number }>();
   const total = Number(count?.count ?? 0);

@@ -207,13 +207,15 @@ test("pending market prices filter displayed AI sources and paginate non-AI sour
     VALUES
     ('price-ai',1,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AI','AI price product','','{}','batch'),
     ('price-source',2,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-SOURCE','Source price product','','{}','batch'),
-    ('price-average',3,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AVERAGE','Average price product','','{}','batch');
+    ('price-average',3,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-AVERAGE','Average price product','','{}','batch'),
+    ('price-missing',4,'2026-06-01','2026-06-30','category-price','pop','SKU','POP','SKU-MISSING','Missing price product','','{}','batch');
     INSERT INTO market_price_snapshots
     (id, category, scope, sku_code, ranking_dimension, month, source_price_cents, average_transaction_price_cents, ai_image_price_cents, confirmation_status)
     VALUES
     ('snapshot-ai','category-price','pop','SKU-AI','SKU','2026-06',NULL,500000,1150000,'ai_pending'),
     ('snapshot-source','category-price','pop','SKU-SOURCE','SKU','2026-06',769900,NULL,NULL,'source_table'),
-    ('snapshot-average','category-price','pop','SKU-AVERAGE','SKU','2026-06',NULL,233300,NULL,'review_pending');`);
+    ('snapshot-average','category-price','pop','SKU-AVERAGE','SKU','2026-06',NULL,233300,NULL,'review_pending'),
+    ('snapshot-missing','category-price','pop','SKU-MISSING','SKU','2026-06',NULL,NULL,NULL,'missing');`);
 
   const ai = await listPendingMarketPrices(db as never, { category: "category-price", candidatePriceSource: "ai", page: 1, pageSize: 20 });
   assert.equal(ai.pagination.total, 1);
@@ -229,6 +231,9 @@ test("pending market prices filter displayed AI sources and paginate non-AI sour
   assert.notEqual(nonAiFirst.items[0]?.skuCode, nonAiSecond.items[0]?.skuCode);
   assert.ok(nonAiFirst.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
   assert.ok(nonAiSecond.items.every((item) => item.candidatePriceSource !== "ai_suggestion"));
+  const allKnownSources = await listPendingMarketPrices(db as never, { category: "category-price", candidatePriceSources: ["ai", "non_ai"], page: 1, pageSize: 20 });
+  assert.equal(allKnownSources.pagination.total, 3);
+  assert.ok(allKnownSources.items.every((item) => item.candidatePriceSource !== "missing"));
   sqlite.close();
 });
 

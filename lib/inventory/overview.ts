@@ -5,6 +5,7 @@ import {
   type ReplenishmentPlanItem,
 } from "@/lib/inventory/database";
 import { readOperatingSettings } from "@/lib/settings/service";
+import { resolveInventorySalesPeriod } from "@/lib/inventory/sales-period";
 
 export type InventoryHealthStatus =
   | "urgent"
@@ -43,6 +44,8 @@ export type InventoryOverviewItem = {
 
 export type InventoryOverviewOptions = {
   query?: string;
+  startDate?: string;
+  endDate?: string;
   warehouses?: string[];
   warehouseTypes?: InventoryOverviewItem["warehouseType"][];
   statuses?: InventoryHealthStatus[];
@@ -98,6 +101,10 @@ function addDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function dayDifference(start: string, end: string) {
+  return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000);
+}
+
 function shanghaiToday() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Shanghai",
@@ -107,10 +114,6 @@ function shanghaiToday() {
   }).formatToParts(new Date());
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}-${value("month")}-${value("day")}`;
-}
-
-function dayDifference(start: string, end: string) {
-  return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000);
 }
 
 function planKey(productCode: string, warehouse: string) {
@@ -139,17 +142,17 @@ function statusFor(input: {
     return {
       status: "no_sales" as const,
       label: "未匹配销量",
-      reason: "近 30 日未匹配到同货品、同仓库的销售明细，暂不生成补货量",
+      reason: `所选 ${settings.salesWindowDays} 日周期未匹配到同货品、同仓库的销售明细，暂不生成补货量`,
     };
   }
   if (input.dailySales <= 0) {
     if (input.available > 0 && (input.inventoryAgeDays ?? 0) >= settings.stagnantDays) {
-      return { status: "stagnant" as const, label: "呆滞风险", reason: `库龄已达到 ${input.inventoryAgeDays} 天且近 30 日无有效销量` };
+      return { status: "stagnant" as const, label: "呆滞风险", reason: `库龄已达到 ${input.inventoryAgeDays} 天且所选 ${settings.salesWindowDays} 日周期无有效销量` };
     }
     return {
       status: "no_sales" as const,
       label: "无销量数据",
-      reason: input.available > 0 ? "近 30 日无有效销量，暂不生成补货量" : "暂无库存且近 30 日无有效销量",
+      reason: input.available > 0 ? `所选 ${settings.salesWindowDays} 日周期无有效销量，暂不生成补货量` : `暂无库存且所选 ${settings.salesWindowDays} 日周期无有效销量`,
     };
   }
   if (input.available <= 0 || (input.coverageDays ?? Infinity) <= settings.criticalDays) {
@@ -192,21 +195,23 @@ export async function getInventoryOverview(db: InventoryDatabase, options: Inven
   const [latestBatch, salesBounds, plans, persistedSettings] = await Promise.all([
     findLatestInventoryImportBatch(db),
     db
-      .prepare("SELECT MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines WHERE TRIM(warehouse) <> '刷刷仓'")
-      .first<{ end_date: string | null }>(),
+      .prepare("SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines WHERE TRIM(warehouse) <> '刷刷仓'")
+      .first<{ start_date: string | null; end_date: string | null }>(),
     listReplenishmentPlans(db),
     readOperatingSettings(db),
   ]);
+  const { salesStartDate, salesEndDate, salesWindowDays } = resolveInventorySalesPeriod(options, {
+    startDate: salesBounds?.start_date ?? null,
+    endDate: salesBounds?.end_date ?? null,
+  });
   const settings = {
     targetDays: persistedSettings.targetDays,
     criticalDays: persistedSettings.criticalDays,
     replenishDays: persistedSettings.targetDays,
     slowDays: persistedSettings.slowDays,
     stagnantDays: persistedSettings.stagnantDays,
-    salesWindowDays: DEFAULT_SETTINGS.salesWindowDays,
+    salesWindowDays,
   };
-  const salesEndDate = salesBounds?.end_date ?? null;
-  const salesStartDate = salesEndDate ? addDays(salesEndDate, -(settings.salesWindowDays - 1)) : null;
 
   if (!latestBatch) {
     return {
@@ -237,7 +242,7 @@ export async function getInventoryOverview(db: InventoryDatabase, options: Inven
       health: { urgent: 0, replenish: 0, healthy: 0, slow: 0, stagnant: 0, noSales: 0 },
       sources: [
         { key: "warehouse_stock", label: "吉客云分仓库存", status: "missing", asOfDate: null },
-        { key: "sales_demand", label: "近 30 日销售需求", status: salesEndDate ? "ready" : "missing", asOfDate: salesEndDate },
+        { key: "sales_demand", label: `所选 ${settings.salesWindowDays} 日销售需求`, status: salesEndDate ? "ready" : "missing", asOfDate: salesEndDate },
         { key: "jd_rdc", label: "京东 RDC / DC", status: "missing", asOfDate: null },
       ],
       filters: { warehouses: [], statuses: [] },
@@ -455,7 +460,7 @@ export async function getInventoryOverview(db: InventoryDatabase, options: Inven
     health,
     sources: [
       { key: "warehouse_stock", label: "吉客云分仓库存", status: inventoryStale ? "stale" : "ready", asOfDate: latestBatch.snapshotDate },
-      { key: "sales_demand", label: "近 30 日销售需求", status: salesEndDate ? "ready" : "missing", asOfDate: salesEndDate },
+      { key: "sales_demand", label: `所选 ${settings.salesWindowDays} 日销售需求`, status: salesEndDate ? "ready" : "missing", asOfDate: salesEndDate },
       { key: "jd_rdc", label: "京东 RDC / DC", status: hasJdRdc ? (inventoryStale ? "stale" : "ready") : "missing", asOfDate: hasJdRdc ? latestBatch.snapshotDate : null },
     ],
     filters: {

@@ -115,20 +115,40 @@ function upsertConversation(db: CustomerServiceDatabase, batchIdValue: string, s
 function splitIds(value?: string | null) {
   return [...new Set((value ?? "").split(/[\s,，;；]+/).map((item) => item.trim()).filter((item) => /^[A-Za-z0-9_-]{2,80}$/.test(item)))].slice(0, 100);
 }
-export async function listCustomerServiceConversations(filters: { shopName?: string | null; startDate?: string | null; endDate?: string | null; agent?: string | null; status?: string | null; robotScope?: string | null; problemType?: string | null; conversionStatus?: string | null; category?: string | null; query?: string | null; skuIds?: string | null; spuIds?: string | null; page?: number | null; pageSize?: number | null; includeOptions?: boolean }) {
+function filterValues(values?: readonly string[], fallback?: string | null, max = 50) {
+  return [...new Set([...(values ?? []), fallback ?? ""].map((value) => value.trim()).filter(Boolean))].slice(0, max);
+}
+function addInFilter(conditions: string[], bindings: unknown[], column: string, selected: readonly string[]) {
+  if (!selected.length) return;
+  conditions.push(`${column} IN (${selected.map(() => "?").join(",")})`);
+  bindings.push(...selected);
+}
+type CustomerServiceConversationFilters = {
+  shopNames?: string[]; shopName?: string | null;
+  startDate?: string | null; endDate?: string | null;
+  agents?: string[]; agent?: string | null;
+  statuses?: string[]; status?: string | null;
+  robotScopes?: string[]; robotScope?: string | null;
+  problemTypes?: string[]; problemType?: string | null;
+  conversionStatuses?: string[]; conversionStatus?: string | null;
+  categories?: string[]; category?: string | null;
+  query?: string | null; skuIds?: string | null; spuIds?: string | null;
+  page?: number | null; pageSize?: number | null; includeOptions?: boolean;
+};
+export async function listCustomerServiceConversations(filters: CustomerServiceConversationFilters) {
   const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
   await Promise.all([ensureNetshopSchema(getNetshopDatabase()), ensureSalesSchema(getSalesDatabase())]);
   const conditions: string[] = []; const values: unknown[] = [];
-  if (filters.shopName) { conditions.push("shop_name = ?"); values.push(filters.shopName); }
+  addInFilter(conditions, values, "shop_name", filterValues(filters.shopNames, filters.shopName));
   if (filters.startDate) { conditions.push("consulted_at >= ?"); values.push(`${filters.startDate} 00:00:00`); }
   if (filters.endDate) { conditions.push("consulted_at <= ?"); values.push(`${filters.endDate} 23:59:59`); }
-  if (filters.agent) { conditions.push("agent = ?"); values.push(filters.agent); }
-  if (filters.status) { conditions.push("match_status = ?"); values.push(filters.status); }
-  if (filters.robotScope && customerServiceRobotScopes.includes(filters.robotScope as CustomerServiceRobotScope)) { conditions.push("robot_scope = ?"); values.push(filters.robotScope); }
-  if (filters.problemType && customerServiceProblemTypes.includes(filters.problemType as CustomerServiceProblemType)) { conditions.push("problem_type = ?"); values.push(filters.problemType); }
-  if (filters.conversionStatus && customerServiceConversionStatuses.includes(filters.conversionStatus as CustomerServiceConversionStatus)) { conditions.push("conversion_status = ?"); values.push(filters.conversionStatus); }
-  const category = filters.category?.trim().slice(0, 120) ?? "";
-  if (category) {
+  addInFilter(conditions, values, "agent", filterValues(filters.agents, filters.agent));
+  addInFilter(conditions, values, "match_status", filterValues(filters.statuses, filters.status).filter((value) => ["matched", "session_only", "chat_only"].includes(value)));
+  addInFilter(conditions, values, "robot_scope", filterValues(filters.robotScopes, filters.robotScope).filter((value) => customerServiceRobotScopes.includes(value as CustomerServiceRobotScope)));
+  addInFilter(conditions, values, "problem_type", filterValues(filters.problemTypes, filters.problemType).filter((value) => customerServiceProblemTypes.includes(value as CustomerServiceProblemType)));
+  addInFilter(conditions, values, "conversion_status", filterValues(filters.conversionStatuses, filters.conversionStatus).filter((value) => customerServiceConversionStatuses.includes(value as CustomerServiceConversionStatus)));
+  const categoryFilters = filterValues(filters.categories, filters.category).map((value) => value.slice(0, 120));
+  if (categoryFilters.length) {
     const mappedProductCodes = await db.prepare(`WITH master_map AS MATERIALIZED (
         SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
         FROM netshop_rows n
@@ -145,7 +165,7 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
         GROUP BY online_spec_code
         HAVING COUNT(DISTINCT sku_id) = 1
       ), matched_codes AS MATERIALIZED (
-        SELECT DISTINCT online_spec_code FROM sales_order_lines WHERE TRIM(category) = ?
+        SELECT DISTINCT online_spec_code FROM sales_order_lines WHERE TRIM(category) IN (${categoryFilters.map(() => "?").join(",")})
       )
       SELECT lookup_code FROM (
         SELECT mapping.sku_id AS lookup_code FROM relevant_map mapping
@@ -153,7 +173,7 @@ export async function listCustomerServiceConversations(filters: { shopName?: str
         UNION
         SELECT mapping.online_spec_code AS lookup_code FROM reverse_map mapping
         JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
-      ) ORDER BY lookup_code LIMIT 5000`).bind(category).all<{ lookup_code: string }>();
+      ) ORDER BY lookup_code LIMIT 5000`).bind(...categoryFilters).all<{ lookup_code: string }>();
     if (mappedProductCodes.results.length) {
       conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
       values.push(JSON.stringify(mappedProductCodes.results.map((item) => item.lookup_code)));

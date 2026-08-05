@@ -56,8 +56,8 @@ test("customer-service category filter and display use the netshop SKU to Jackyu
     readFile(new URL("../lib/customer-service/product-mapping.ts", import.meta.url), "utf8"),
   ]);
   assert.match(page, /吉客云类目筛选/);
-  assert.match(page, /params\.set\("category", category\)/);
-  assert.match(route, /searchParams\.get\("category"\)/);
+  assert.match(page, /categories\.forEach\(\(value\) => params\.append\("category", value\)\)/);
+  assert.match(route, /searchParams\.getAll\("category"\)/);
   assert.match(database, /SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''/);
   assert.match(database, /s\.online_spec_code = mapping\.online_spec_code/);
   assert.match(mapping, /onlineSpecCode: String\(raw\["商家SKU"\]/);

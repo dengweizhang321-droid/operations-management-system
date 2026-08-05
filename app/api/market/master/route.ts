@@ -70,10 +70,6 @@ const numberParam = (params: URLSearchParams, key: string, fallback: number) => 
   if (!Number.isSafeInteger(parsed)) throw new Error(`${key} must be an integer`);
   return parsed;
 };
-const pendingPriceSourceParam = (params: URLSearchParams, key: string) => {
-  const value = params.get(key);
-  return value === "ai" || value === "non_ai" ? value : undefined;
-};
 const workspaceModeParam = (params: URLSearchParams) => {
   const value = params.get("section");
   return value === "database" || value === "brand" || value === "mapping" || value === "subcategory" || value === "data" ? value : "all";
@@ -91,13 +87,14 @@ export async function GET(request: Request) {
     if (view === "master") {
       return Response.json(await listMarketMasterData(db, {
         q: params.get("q") ?? undefined,
-        category: params.get("category") ?? undefined,
-        rankingDimension: params.get("rankingDimension") ?? undefined,
-        operationMode: params.get("operationMode") ?? undefined,
-        brand: params.get("brand") ?? undefined,
-        subcategory: params.get("subcategory") ?? undefined,
-        priceStatus: params.get("priceStatus") as never,
-        annotationStatus: params.get("annotationStatus") as never,
+        categories: params.getAll("category"),
+        rankingDimensions: params.getAll("rankingDimension"),
+        operationModes: params.getAll("operationMode"),
+        brands: params.getAll("brand"),
+        subcategories: params.getAll("subcategory"),
+        priceStatuses: params.getAll("priceStatus"),
+        candidatePriceSources: params.getAll("priceSource"),
+        annotationStatuses: params.getAll("annotationStatus"),
         page: numberParam(params, "page", 1),
         pageSize: numberParam(params, "pageSize", 30),
       }), { headers: { "cache-control": "no-store" } });
@@ -105,8 +102,8 @@ export async function GET(request: Request) {
     if (view === "pending_prices") {
       return Response.json(await listPendingMarketPrices(db, {
         q: params.get("q") ?? undefined,
-        category: params.get("category") ?? undefined,
-        candidatePriceSource: pendingPriceSourceParam(params, "priceSource"),
+        categories: params.getAll("category"),
+        candidatePriceSources: params.getAll("priceSource"),
         page: numberParam(params, "page", 1),
         pageSize: numberParam(params, "pageSize", 30),
       }), { headers: { "cache-control": "no-store" } });
@@ -149,16 +146,18 @@ export async function GET(request: Request) {
       mode: workspaceModeParam(params),
       q: params.get("q") ?? undefined,
       category: params.get("category") ?? undefined,
-      rankingDimension: params.get("rankingDimension") ?? undefined,
-      operationMode: params.get("operationMode") ?? undefined,
-      subcategory: params.get("subcategory") ?? undefined,
-      priceStatus: params.get("priceStatus") as never,
-      candidatePriceSource: pendingPriceSourceParam(params, "priceSource"),
-      annotationStatus: params.get("annotationStatus") as never,
+      categories: params.getAll("category"),
+      rankingDimensions: params.getAll("rankingDimension"),
+      operationModes: params.getAll("operationMode"),
+      subcategories: params.getAll("subcategory"),
+      priceStatuses: params.getAll("priceStatus"),
+      candidatePriceSources: params.getAll("priceSource"),
+      annotationStatuses: params.getAll("annotationStatus"),
       page: numberParam(params, "page", 1),
       pageSize: numberParam(params, "pageSize", 30),
       pendingPriceCategory: params.get("pendingPriceCategory") ?? undefined,
-      pendingPriceSource: pendingPriceSourceParam(params, "pendingPriceSource"),
+      pendingPriceCategories: params.getAll("pendingPriceCategory"),
+      pendingPriceSources: params.getAll("pendingPriceSource"),
       pendingPricePage: numberParam(params, "pendingPricePage", 1),
       pendingPricePageSize: numberParam(params, "pendingPricePageSize", 20),
     }), { headers: { "cache-control": "no-store" } });
