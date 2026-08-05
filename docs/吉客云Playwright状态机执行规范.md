@@ -36,11 +36,19 @@
 - 日常任务默认无界面（headless），不接管用户正在使用的 Chrome、鼠标或键盘。
 - 首次登录、登录失效或需要人工排障时，以有界面模式打开专属 profile；不要连接用户日常 Chrome。
 
-首次登录专属 profile：
+首次登录专属 profile（在 Chrome 提示时选择保存密码）：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\运营管理系统\tools\jackyun-browser-controller.ps1" --run-id profile-setup --launch-only
+npm run jackyun:login
 ```
+
+只读核验：
+
+```powershell
+npm run jackyun:browser -- --check-login
+```
+
+controller 不读取密码字段值，也不接受账号密码文件、环境变量或命令行密钥。登录态失效后，仅当 Chrome 已自动填充登录表单且没有验证码/二次验证时自动点击一次；其他情况失败关闭并等待人工验证。
 
 日常执行：
 
@@ -67,6 +75,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\运营管理系统\t
 - 每次字段操作只修改一个字段，并立即读回核对。
 - 销售日期固定为当月 1 日 00:00:00 至昨日 23:59:59。
 - 表格必须停止刷新、总行数连续稳定后才能导出。
+- 分页显示“共 N+ 条 / 查看总数”时先点击一次“查看总数”并读回精确值；MiniUI `totalCount` 可能只是当前页（例如 51），不得优先于页面精确总数。页面明确返回 0 行且没有任何导出/下载/导入证据时，只允许一次持久化后的查询重试，第二次仍异常即停止。
 - 模块入口使用吉客云稳定菜单类名直接触发，再以激活标签或内容 iframe URL 验证；禁止在驾驶舱先固定等待二级菜单文本。
 - 货品、分仓库存、库龄在提交导出前拦截 MiniUI 导出配置，仅保留运营系统必需列；销售继续使用最小列导出；组合装保持母件/子件双表原格式。
 - `exportIntentAt` 已写入但没有下载结果时，恢复时只恢复监听或报告阻塞，绝不重复点击导出。
@@ -119,7 +128,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\运营管理系统\t
 
 1. 停止后续模块。
 2. 保留当前 `RUN_ID` 的状态和审计文件。
-3. 使用同一 `RUN_ID` 和 `--resume` 恢复；不得另起运行混用旧文件。
+3. 使用同一 `RUN_ID` 和 `--resume` 恢复；不得另起运行混用旧文件。自动续跑只接受连续完成前缀、当前模块有完整证据证明从未查询/导出/下载/导入的前置失败，或经精确页面总数、同路径/SHA 文件、导入前失败审计和无 import 证据共同确认的行数元数据修正；修正路径只复用原文件，不重新导出。其他 `BLOCKED` 状态继续要求人工核验。
 4. 修复页面适配或数据规则后，先跑相应单元测试，再进行一次受控实际验证。
 
 ## 维护原则

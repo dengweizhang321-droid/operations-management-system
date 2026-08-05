@@ -13,6 +13,30 @@ export type JackyunInputContract = {
   baseUrl: string;
 };
 
+export type JackyunSourceRowCountCorrection = {
+  reason: "exact_total_after_approximate_count";
+  previousExpectedSourceRows: number;
+  exactExpectedSourceRows: number;
+  observedAt: string;
+};
+
+export function isValidJackyunSourceRowCountCorrection(
+  value: unknown,
+  expectedSourceRows?: number,
+): value is JackyunSourceRowCountCorrection {
+  if (!value || typeof value !== "object") return false;
+  const correction = value as Partial<JackyunSourceRowCountCorrection>;
+  return correction.reason === "exact_total_after_approximate_count"
+    && Number.isSafeInteger(correction.previousExpectedSourceRows)
+    && Number(correction.previousExpectedSourceRows) > 0
+    && Number.isSafeInteger(correction.exactExpectedSourceRows)
+    && Number(correction.exactExpectedSourceRows) > 0
+    && correction.previousExpectedSourceRows !== correction.exactExpectedSourceRows
+    && (expectedSourceRows === undefined || correction.exactExpectedSourceRows === expectedSourceRows)
+    && typeof correction.observedAt === "string"
+    && Number.isFinite(Date.parse(correction.observedAt));
+}
+
 export function createJackyunInputContractHash(contract: JackyunInputContract) {
   const stableContract = {
     version: 1,

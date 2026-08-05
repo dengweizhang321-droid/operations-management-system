@@ -40,6 +40,54 @@ export type JackyunBrowserRunState = {
   failureMessage?: string;
 };
 
+const preExportResumeStates = new Set<JackyunBrowserState>([
+  "PRECHECKED",
+  "ENTER_MODULE",
+  "VERIFY_FIELD",
+  "QUERY_ONCE",
+  "WAIT_TABLE_STABLE",
+]);
+
+const controllerSideEffectKeys = [
+  "queryIntentAt",
+  "tableStableAt",
+  "expectedSourceRows",
+  "exportIntentAt",
+  "exportConfirmation",
+  "downloadEventAt",
+  "downloadProvenance",
+  "filePath",
+] as const;
+
+const controllerPostQuerySideEffectKeys = controllerSideEffectKeys.filter((key) => key !== "queryIntentAt");
+
+/**
+ * A blocked run may be retried automatically only when both state files prove
+ * that the current module never issued a query, armed an export, downloaded a
+ * file, or handed anything to the importer.
+ */
+export function isSafePreExportBlockedResume(
+  state: JackyunBrowserRunState,
+  module: JackyunModule,
+  controllerModuleState: Record<string, unknown> | null | undefined,
+) {
+  if (state.status !== "blocked" || state.currentState !== "BLOCKED" || state.currentModule !== module) return false;
+  const moduleEvents = state.events.filter((event) => event.module === module);
+  if (!moduleEvents.length || moduleEvents.some((event) => !preExportResumeStates.has(event.state))) return false;
+  if (!controllerModuleState) return false;
+  if (["pending", "navigated"].includes(String(controllerModuleState.status))) {
+    return controllerSideEffectKeys.every((key) => controllerModuleState[key] === undefined || controllerModuleState[key] === null);
+  }
+  const failure = controllerModuleState.tableReadbackFailure as { code?: unknown } | null | undefined;
+  const retryCount = Number(controllerModuleState.queryRetryCount ?? 0);
+  return controllerModuleState.status === "queried"
+    && typeof controllerModuleState.queryIntentAt === "string"
+    && failure?.code === "zero_rows"
+    && Number.isSafeInteger(retryCount)
+    && retryCount === 0
+    && controllerPostQuerySideEffectKeys.every((key) => controllerModuleState[key] === undefined || controllerModuleState[key] === null);
+}
+
 const allowedNext = new Map<JackyunBrowserState, readonly JackyunBrowserState[]>([
   ["PRECHECKED", ["ENTER_MODULE", "BLOCKED"]],
   ["ENTER_MODULE", ["VERIFY_FIELD", "QUERY_ONCE", "WAIT_TABLE_STABLE", "BLOCKED"]],

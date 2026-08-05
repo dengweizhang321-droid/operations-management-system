@@ -123,6 +123,25 @@ export async function connectChromeBrowser(port: number) {
   return CdpClient.connect(version.webSocketDebuggerUrl);
 }
 
+export async function closeChromeBrowser(port: number, timeoutMs = 10_000) {
+  const browser = await connectChromeBrowser(port).catch(() => null);
+  if (!browser) return false;
+  try {
+    // Chrome may close the DevTools socket before acknowledging Browser.close.
+    // The bounded port check below is the authoritative result.
+    await browser.send("Browser.close", {}, 3_000).catch(() => undefined);
+  } finally {
+    browser.close();
+  }
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const alive = await listChromeTargets(port).then(() => true).catch(() => false);
+    if (!alive) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`专用 Chrome 未在 ${timeoutMs}ms 内退出，拒绝同时打开同一 profile。`);
+}
+
 export async function waitForChrome(port: number, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

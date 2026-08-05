@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { createJackyunInputContractHash } from "../lib/jackyun/run-contract";
+import { isExactFailedSourceRowCountRepair } from "../tools/jackyun-download-runner";
 
 const execFileAsync = promisify(execFile);
 
@@ -56,6 +57,46 @@ test("duplicate contract changes when any import-defining parameter changes", ()
   assert.notEqual(createJackyunInputContractHash({ ...base, costSourcePath: "D:\\runs\\wrong.xlsx" }), original);
   assert.notEqual(createJackyunInputContractHash({ ...base, baseUrl: "http://localhost:3001" }), original);
   assert.notEqual(createJackyunInputContractHash({ ...base, module: "inventory", snapshotDate: "2026-07-15" }), original);
+});
+
+test("row-count contract repair requires an exact pre-import failed audit and one explicit correction", () => {
+  const filePath = path.resolve("库龄分析(正式勿删).xlsx");
+  const rawSha256 = "a".repeat(64);
+  const base = {
+    runId: "row-count-repair",
+    module: "inventory_age" as const,
+    filePath,
+    rawSha256,
+    expectedSourceRows: 5556,
+    correction: {
+      reason: "exact_total_after_approximate_count" as const,
+      previousExpectedSourceRows: 51,
+      exactExpectedSourceRows: 5556,
+      observedAt: "2026-08-05T18:20:00.000Z",
+    },
+    priorModule: {
+      module: "inventory_age",
+      status: "failed",
+      sourcePath: filePath,
+      sourceSha256: rawSha256,
+      inputContractHash: "old-contract",
+    },
+    failedAudit: {
+      runId: "row-count-repair",
+      module: "inventory_age",
+      status: "failed",
+      timings: { failedAt: "2026-08-05T18:19:00.000Z" },
+      source: { path: filePath, sha256: rawSha256 },
+      error: {
+        stage: "validate_and_prepare_workbook",
+        details: { expectedSourceRows: 51, actualSourceRows: 5556 },
+      },
+    },
+  };
+  assert.equal(isExactFailedSourceRowCountRepair(base), true);
+  assert.equal(isExactFailedSourceRowCountRepair({ ...base, failedAudit: { ...base.failedAudit, import: { batch: "unexpected" } } }), false);
+  assert.equal(isExactFailedSourceRowCountRepair({ ...base, correction: { ...base.correction, exactExpectedSourceRows: 5555 } }), false);
+  assert.equal(isExactFailedSourceRowCountRepair({ ...base, correction: { ...base.correction, observedAt: "2026-08-05T18:18:00.000Z" } }), false);
 });
 
 test("daily sales runner rejects an as-of date other than Shanghai yesterday", async () => {

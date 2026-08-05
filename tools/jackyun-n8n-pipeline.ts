@@ -3,9 +3,13 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isSafePreExportBlockedResume, type JackyunBrowserRunState } from "../lib/jackyun/browser-state-machine";
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
+import { isValidJackyunSourceRowCountCorrection } from "../lib/jackyun/run-contract";
 import { runJackyunAutomation, type JackyunAutomationOptions } from "./jackyun-automation-runner";
+import { isExactFailedSourceRowCountRepair } from "./jackyun-download-runner";
+import type { BrowserHandoff } from "./jackyun-daily-runner";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const maximumRunDirectoriesToInspect = 365;
@@ -57,7 +61,15 @@ type DailySummary = {
 type RunManifest = {
   runId?: string;
   strictOrder?: JackyunModule[];
-  modules?: Partial<Record<JackyunModule, { status?: string; batchId?: string | null }>>;
+  modules?: Partial<Record<JackyunModule, {
+    module?: JackyunModule;
+    status?: string;
+    batchId?: string | null;
+    sourcePath?: string;
+    sourceSha256?: string;
+    inputContractHash?: string;
+    outputPath?: string;
+  }>>;
 };
 
 type RuntimePaths = {
@@ -295,14 +307,15 @@ async function isExactResumableFailedPlan(
     || plan.baseUrl !== expected.baseUrl || plan.policyVersion !== expected.policyVersion || !validRunId(plan.runId)) return false;
   const runDirectory = path.join(paths.outputRoot, plan.runId);
   const manifest = await readJsonFile<RunManifest>(path.join(runDirectory, "run-manifest.json")).catch(() => null);
-  if (!manifest || manifest.runId !== plan.runId || manifest.strictOrder?.length !== jackyunModuleOrder.length
-    || manifest.strictOrder.some((moduleKey, index) => moduleKey !== jackyunModuleOrder[index])) return false;
+  if (manifest && (manifest.runId !== plan.runId || manifest.strictOrder?.length !== jackyunModuleOrder.length
+    || manifest.strictOrder.some((moduleKey, index) => moduleKey !== jackyunModuleOrder[index]))) return false;
 
   let completedPrefix = 0;
   let sawIncomplete = false;
+  let failedCurrent = false;
   for (let index = 0; index < jackyunModuleOrder.length; index += 1) {
     const moduleKey = jackyunModuleOrder[index]!;
-    const manifestModule = manifest.modules?.[moduleKey];
+    const manifestModule = manifest?.modules?.[moduleKey];
     if (manifestModule?.status === "completed") {
       if (sawIncomplete || typeof manifestModule.batchId !== "string" || !manifestModule.batchId.trim()) return false;
       const resultPath = path.join(paths.eventDirectory, plan.runId, `${String(index + 1).padStart(2, "0")}-${moduleKey}.json.result.json`);
@@ -311,19 +324,91 @@ async function isExactResumableFailedPlan(
       completedPrefix += 1;
     } else {
       sawIncomplete = true;
-      if (manifestModule?.status === "failed") return false;
+      if (manifestModule?.status === "failed") {
+        if (index !== completedPrefix || failedCurrent) return false;
+        failedCurrent = true;
+      } else if (manifestModule) {
+        return false;
+      }
     }
   }
-  if (completedPrefix < 1 || completedPrefix >= jackyunModuleOrder.length) return false;
-  const state = await readJsonFile<{
+  if (completedPrefix >= jackyunModuleOrder.length) return false;
+  const currentModule = jackyunModuleOrder[completedPrefix]!;
+  const state = await readJsonFile<JackyunBrowserRunState>(path.join(runDirectory, "browser-state.json")).catch(() => null);
+  const controller = await readJsonFile<{
     runId?: string;
     policyVersion?: string;
-    status?: string;
-    currentModule?: JackyunModule;
-  }>(path.join(runDirectory, "browser-state.json")).catch(() => null);
-  return Boolean(state && state.runId === plan.runId && state.policyVersion === expected.policyVersion
-    && ["blocked", "running"].includes(String(state.status))
-    && state.currentModule === jackyunModuleOrder[completedPrefix]);
+    modules?: Partial<Record<JackyunModule, Record<string, unknown>>>;
+  }>(path.join(runDirectory, "browser-controller-state.json")).catch(() => null);
+  if (!state || !Array.isArray(state.events) || state.runId !== plan.runId || state.policyVersion !== expected.policyVersion
+    || state.status !== "blocked" || state.currentState !== "BLOCKED" || state.currentModule !== currentModule
+    || !controller || controller.runId !== plan.runId || controller.policyVersion !== expected.policyVersion) return false;
+
+  const currentEventPath = path.join(
+    paths.eventDirectory,
+    plan.runId,
+    `${String(completedPrefix + 1).padStart(2, "0")}-${currentModule}.json`,
+  );
+  const currentHandoff = await readJsonFile<BrowserHandoff>(currentEventPath).catch(() => null);
+  const currentManifest = manifest?.modules?.[currentModule];
+  const failedAudit = await readJsonFile<Record<string, unknown>>(
+    path.join(runDirectory, "audit", `${currentModule}.json`),
+  ).catch(() => null);
+  const correction = currentHandoff?.sourceRowCountCorrection;
+  const controllerModule = controller.modules?.[currentModule];
+  const repairsExactRowCount = Boolean(failedCurrent
+    && currentHandoff
+    && currentHandoff.module === currentModule
+    && isValidJackyunSourceRowCountCorrection(correction, currentHandoff.expectedSourceRows)
+    && controllerModule?.status === "handed_off"
+    && path.resolve(String(controllerModule.filePath ?? "")) === path.resolve(currentHandoff.filePath)
+    && Number(controllerModule.expectedSourceRows) === currentHandoff.expectedSourceRows
+    && isExactFailedSourceRowCountRepair({
+      runId: plan.runId,
+      module: currentModule,
+      filePath: currentHandoff.filePath,
+      rawSha256: currentManifest?.sourceSha256 ?? "",
+      expectedSourceRows: currentHandoff.expectedSourceRows,
+      correction,
+      priorModule: currentManifest as unknown as Record<string, unknown>,
+      failedAudit,
+    }));
+  const resumesBeforeSideEffects = !failedCurrent
+    && isSafePreExportBlockedResume(state, currentModule, controllerModule);
+  if (!resumesBeforeSideEffects && !repairsExactRowCount) return false;
+
+  for (let index = 0; index < completedPrefix; index += 1) {
+    if (controller.modules?.[jackyunModuleOrder[index]!]?.status !== "completed") return false;
+  }
+  for (let index = completedPrefix + 1; index < jackyunModuleOrder.length; index += 1) {
+    if (controller.modules?.[jackyunModuleOrder[index]!]) return false;
+  }
+
+  const eventFiles = (await readdir(path.join(paths.eventDirectory, plan.runId), { withFileTypes: true }).catch(() => []))
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
+  for (let index = completedPrefix; index < jackyunModuleOrder.length; index += 1) {
+    const prefix = `${String(index + 1).padStart(2, "0")}-${jackyunModuleOrder[index]}`;
+    const matching = eventFiles.filter((name) => name === prefix || name.startsWith(`${prefix}.`));
+    if (repairsExactRowCount && index === completedPrefix) {
+      if (matching.length !== 1 || matching[0] !== `${prefix}.json`) return false;
+    } else if (matching.length) {
+      return false;
+    }
+  }
+  const auditFiles = (await readdir(path.join(runDirectory, "audit"), { withFileTypes: true }).catch(() => []))
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
+  for (const moduleKey of jackyunModuleOrder.slice(completedPrefix)) {
+    const matching = auditFiles.filter((name) => name === `${moduleKey}.json` || name.startsWith(`${moduleKey}.`));
+    if (repairsExactRowCount && moduleKey === currentModule) {
+      if (matching.length !== 1 || matching[0] !== `${moduleKey}.json`) return false;
+    } else if (matching.length) {
+      return false;
+    }
+  }
+  if (await stat(path.join(runDirectory, "daily-summary.json")).catch(() => null)) return false;
+  return true;
 }
 
 export async function planJackyunN8nRun(options: PlanOptions = {}) {

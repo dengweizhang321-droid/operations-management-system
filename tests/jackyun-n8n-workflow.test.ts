@@ -36,6 +36,8 @@ test("Jackyun n8n copy uses inactive loopback HTTP stages and the fixed five-mod
   assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "A·生成今日安全计划");
   assert.equal(workflow.connections["A·生成今日安全计划"]?.main?.[0]?.[0]?.node, "B·五类串行下载、导入并回查");
   assert.equal(workflow.connections["B·五类串行下载、导入并回查"]?.main?.[0]?.[0]?.node, "C·核验五类清单与精确批次");
+  assert.match(raw, /40 8-18 \* \* \*/);
+  assert.match(raw, /Chrome 已自动填充/);
   assert.match(raw, /products → inventory → inventory_age → sales → combos/);
-  assert.doesNotMatch(raw, /localhost:8000|\/Users\/hubo|executeCommand|--(?:username|password|cookie|token)\b/i);
+  assert.doesNotMatch(raw, /localhost:8000|\/Users\/hubo|executeCommand|--(?:username|password|cookie|token)\b|JACKYUN_(?:USERNAME|PASSWORD)/i);
 });

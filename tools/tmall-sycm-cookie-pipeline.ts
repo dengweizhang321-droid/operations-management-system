@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -560,6 +560,18 @@ export function helperHealthCorsHeaders(
   };
 }
 
+export function closeOneShotServer(server: Pick<Server, "close" | "closeAllConnections">) {
+  server.close();
+  // server.close() waits for keep-alive sockets. The health poller can retain
+  // one after the final response, which used to strand the one-shot child and
+  // prevent its supervisor from rearming the next run.
+  server.closeAllConnections();
+}
+
+function scheduleOneShotServerClose(server: Pick<Server, "close" | "closeAllConnections">, delayMs: number) {
+  return setTimeout(() => closeOneShotServer(server), delayMs);
+}
+
 async function serveCommand(argv: string[]) {
   const port = integerPort(cliValue(argv, "--port"));
   let stage: HelperStage = "ready";
@@ -645,7 +657,7 @@ async function serveCommand(argv: string[]) {
         const result = await verifyJackyunN8nPlan(jackyunPlan);
         stage = "completed";
         reply(200, result);
-        setTimeout(() => server.close(), 500);
+        scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master") {
         const result = await runTmallProductMasterStage({ storeKey: "tmall-yijiu" });
         stage = "mastered";
@@ -666,17 +678,17 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         // Give an already imported four-node workflow a bounded compatibility
         // window while allowing the new promotion node to claim the next stage.
-        tmallImportFallbackClose = setTimeout(() => server.close(), 30_000);
+        tmallImportFallbackClose = scheduleOneShotServerClose(server, 30_000);
       } else {
         const result = await runTmallPromotionStage({ storeKey: "tmall-yijiu" });
         stage = "completed";
         reply(200, result);
-        setTimeout(() => server.close(), 500);
+        scheduleOneShotServerClose(server, 500);
       }
     } catch (error) {
       stage = "failed";
       reply(500, { ok: false, stage, error: error instanceof Error ? error.message : String(error) });
-      setTimeout(() => server.close(), 500);
+      scheduleOneShotServerClose(server, 500);
     } finally {
       busy = false;
     }

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type BrowserAutomationClient,
-  connectChromeBrowser,
+  connectJackyunTarget,
   evaluateValue,
   launchDedicatedChrome,
   listChromeTargets,
@@ -45,6 +45,12 @@ type Policy = {
 
 type ModuleActionState = Partial<BrowserHandoff> & {
   status: "pending" | "navigated" | "queried" | "export_armed" | "downloaded" | "handed_off" | "completed";
+  queryRetryCount?: number;
+  queryRetryIntentAt?: string;
+  tableReadbackFailure?: {
+    code: "zero_rows" | "unstable";
+    observedAt: string;
+  };
   timings?: {
     enterModuleMs?: number;
     tableStableMs?: number;
@@ -72,13 +78,8 @@ type CliOptions = {
   debuggingPort?: number;
   headless: boolean;
   launchOnly: boolean;
+  checkLoginOnly: boolean;
   signal?: AbortSignal;
-};
-
-type LoginCredentials = {
-  username: string;
-  password: string;
-  extra?: string;
 };
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -100,17 +101,19 @@ function parseCli(): CliOptions {
   // setup is intentionally headed so a human can complete the one-time login.
   let headless = true;
   let launchOnly = false;
+  let checkLoginOnly = false;
   const args = process.argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === "--headless") { headless = true; continue; }
     if (args[index] === "--headed") { headless = false; continue; }
     if (args[index] === "--launch-only") { launchOnly = true; continue; }
+    if (args[index] === "--check-login") { checkLoginOnly = true; continue; }
     const next = args[index + 1];
     if (!next || next.startsWith("--")) throw new Error(`参数 ${args[index]} 缺少取值。`);
     values.set(args[index], next);
     index += 1;
   }
-  const runId = values.get("--run-id") ?? (launchOnly ? `login-${shanghaiDate(0).replace(/-/g, '')}` : undefined);
+  const runId = values.get("--run-id") ?? (launchOnly || checkLoginOnly ? `login-${shanghaiDate(0).replace(/-/g, '')}` : undefined);
   if (!runId || !/^[A-Za-z0-9._-]+$/.test(runId)) throw new Error("浏览器 controller 必须提供有效 --run-id。");
   return {
     runId,
@@ -123,6 +126,7 @@ function parseCli(): CliOptions {
     debuggingPort: values.has("--debug-port") ? Number(values.get("--debug-port")) : undefined,
     headless,
     launchOnly,
+    checkLoginOnly,
   };
 }
 
@@ -919,44 +923,68 @@ async function findHookedDownloadUrl(client: BrowserAutomationClient, urlHints: 
   return null;
 }
 
+export function readRowCountTextState(text: string) {
+  const approximate = /共\s*[\d,]+\+\s*条/.test(text) && text.includes("查看总数");
+  const exactCounts = [...text.matchAll(/共\s*([\d,]+)\s*条/g)]
+    .map((match) => Number(match[1].replace(/,/g, "")))
+    .filter(Number.isSafeInteger);
+  return { approximate, exactCounts };
+}
+
 async function stableRowCount(client: BrowserAutomationClient, policy: Policy, urlHints: string[] = []) {
   let previous: number | null = null;
   let stable = 0;
+  let observedZero = false;
   const deadline = Date.now() + (policy.browser.tableStableTimeoutMs ?? policy.browser.pageTimeoutMs);
   while (Date.now() < deadline) {
-    const gridTotal = await evaluateValue<number | null>(client, `(() => {
-      ${jsDocumentsPrelude(urlHints)}
-      for (const doc of documents) {
-        const win = doc.defaultView;
-        const grids = ['gridOrderDetail', 'grid'].map((id) => win?.mini?.get?.(id)).filter(Boolean);
-        for (const grid of grids) {
-          if (grid && grid.isLoading === false && Number.isSafeInteger(grid.totalCount) && grid.totalCount > 0) return grid.totalCount;
-        }
-      }
-      return null;
-    })()`);
-    if (gridTotal !== null) {
-      if (gridTotal === previous) stable += 1;
-      else { previous = gridTotal; stable = 1; }
-      if (stable >= policy.browser.stableSamples) return gridTotal;
-      await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
-      continue;
-    }
     const text = await evaluateValue<string>(client, `(() => { ${jsDocumentsPrelude(urlHints)} return documents.map((doc) => doc.body?.innerText || '').join(String.fromCharCode(10)); })()`);
-    if (/共\s*[\d,]+\+\s*条/.test(text) && text.includes("查看总数")) {
+    const textState = readRowCountTextState(text);
+    if (textState.approximate) {
       await clickText(client, "查看总数");
       await new Promise((resolve) => setTimeout(resolve, Math.max(500, fastPoll(policy))));
       continue;
     }
-    const counts = [...text.matchAll(/共\s*([\d,]+)\s*条/g)].map((match) => Number(match[1].replace(/,/g, ""))).filter(Number.isSafeInteger);
-    const count = counts.length ? Math.max(...counts) : 0;
+    const counts = textState.exactCounts;
+    const gridTotal = counts.length ? null : await evaluateValue<number | null>(client, `(() => {
+      ${jsDocumentsPrelude(urlHints)}
+      const totals = [];
+      for (const doc of documents) {
+        const mini = doc.defaultView?.mini;
+        for (const id of ['gridOrderDetail', 'grid', 'mainGrid']) {
+          const grid = mini?.get?.(id);
+          if (!grid) continue;
+          let loading = false;
+          try { loading = typeof grid.isLoading === 'function' ? Boolean(grid.isLoading()) : grid.isLoading === true; } catch {}
+          if (loading) continue;
+          let total = Number.NaN;
+          try { total = Number(grid.totalCount ?? (typeof grid.getTotalCount === 'function' ? grid.getTotalCount() : Number.NaN)); } catch {}
+          if (Number.isSafeInteger(total) && total >= 0) totals.push(total);
+        }
+      }
+      return totals.length ? Math.max(...totals) : null;
+    })()`);
+    const count = counts.length ? Math.max(...counts) : gridTotal ?? 0;
+    if ((counts.length || gridTotal !== null) && count === 0) observedZero = true;
     if (count > 0 && count === previous) stable += 1;
     else stable = 1;
     previous = count || null;
     if (previous && stable >= policy.browser.stableSamples) return previous;
     await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
   }
-  throw new Error("页面总行数在规定时间内未稳定。");
+  const error = new Error(observedZero ? "页面查询明确返回 0 行，已停止导出。" : "页面总行数在规定时间内未稳定。");
+  Object.assign(error, { code: observedZero ? "zero_rows" : "unstable" });
+  throw error;
+}
+
+export function shouldRetryZeroRowQuery(moduleState: ModuleActionState) {
+  return moduleState.status === "queried"
+    && moduleState.tableReadbackFailure?.code === "zero_rows"
+    && (moduleState.queryRetryCount ?? 0) === 0
+    && Boolean(moduleState.queryIntentAt)
+    && !moduleState.tableStableAt
+    && !moduleState.expectedSourceRows
+    && !moduleState.exportIntentAt
+    && !moduleState.filePath;
 }
 
 function isLikelyJackyunLoginPage(body: string) {
@@ -964,79 +992,157 @@ function isLikelyJackyunLoginPage(body: string) {
     && !/货品查询|分仓库存查询|库龄分析|销售单明细账|组合装查询|主菜单|一级菜单/.test(body);
 }
 
-function readLoginCredentials(): LoginCredentials | null {
-  const username = process.env.JACKYUN_USERNAME?.trim();
-  const password = process.env.JACKYUN_PASSWORD?.trim();
-  if (!username || !password) return null;
-  return { username, password, extra: process.env.JACKYUN_LOGIN_EXTRA?.trim() || undefined };
-}
+export type JackyunSessionStatus = "authenticated" | "login_required" | "unknown";
 
-function loginDiagnosticsScript() {
-  return `(() => {
-    const frames = Array.from(document.querySelectorAll('iframe,frame')).map((frame, index) => {
-      const rect = frame.getBoundingClientRect();
-      const style = getComputedStyle(frame);
-      let text = '';
-      try { text = frame.contentDocument?.body?.innerText || ''; } catch { text = 'cross-origin'; }
-      return {
-        index,
-        src: frame.src || '',
-        name: frame.name || '',
-        id: frame.id || '',
-        visible: rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden',
-        textPreview: String(text).slice(0, 200),
-      };
-    });
-    const inputs = Array.from(document.querySelectorAll('input')).map((input, index) => {
-      const rect = input.getBoundingClientRect();
-      const style = getComputedStyle(input);
-      return {
-        index,
-        type: input.type || '',
-        name: input.name || '',
-        id: input.id || '',
-        placeholder: input.placeholder || '',
-        valueLength: String(input.value || '').length,
-        visible: rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden',
-      };
-    });
-    const buttons = Array.from(document.querySelectorAll('button,input[type="submit"],input[type="button"],a,span,div')).map((el, index) => {
-      const rect = el.getBoundingClientRect();
-      const style = getComputedStyle(el);
-      return {
-        index,
-        text: String(el.innerText || el.value || el.textContent || '').trim().slice(0, 80),
-        id: el.id || '',
-        className: el.className || '',
-        visible: rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden',
-      };
-    }).filter((item) => item.visible && item.text);
-    return {
-      title: document.title,
-      url: location.href,
-      bodyPreview: String(document.body?.innerText || '').slice(0, 800),
-      inputs: inputs.slice(0, 30),
-      buttons: buttons.slice(0, 30),
-      frames,
-    };
-  })()`;
-}
-
-async function waitForPageText(client: BrowserAutomationClient, text: string, timeoutMs: number, pollIntervalMs = 200) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const body = await pageText(client);
-    if (isLikelyJackyunLoginPage(body)) throw new Error("当前是吉客云登录页，请先完成登录后再继续自动化。");
-    if (/验证码|重新登录|账号登录/.test(body) && !body.includes(text)) throw new Error("吉客云出现登录验证，已停止后续模块。");
-    if (body.includes(text)) return body;
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+export function classifyJackyunSession(body: string): JackyunSessionStatus {
+  if (isLikelyJackyunLoginPage(body)) return "login_required";
+  if (/货品查询/.test(body)
+    && /分仓库存查询|库龄分析|销售单明细账|组合装查询|主菜单|一级菜单/.test(body)) {
+    return "authenticated";
   }
-  throw new Error(`页面未在规定时间内进入：${text}`);
+  return "unknown";
 }
 
-async function autoLoginIfConfigured(client: BrowserAutomationClient) {
-  void client;
-  return { attempted: false, failedReason: undefined as string | undefined, submitted: false };
+export type SavedCredentialLoginResult = {
+  attempted: boolean;
+  submitted: boolean;
+  reason: "submitted" | "login_form_missing" | "challenge_present" | "saved_credentials_missing" | "login_control_missing";
+};
+
+/**
+ * Submit only credentials that Chrome itself has autofilled in the dedicated
+ * profile. The controller never reads field values and never accepts secrets
+ * from files, environment variables, arguments, or logs.
+ */
+export async function autoLoginWithSavedBrowserCredentials(
+  client: BrowserAutomationClient,
+  waitMs = 5_000,
+): Promise<SavedCredentialLoginResult> {
+  return evaluateValue<SavedCredentialLoginResult>(client, `(async () => {
+    const deadline = Date.now() + ${Math.max(0, waitMs)};
+    const visible = (el) => {
+      const rect = el.getBoundingClientRect();
+      const style = el.ownerDocument.defaultView.getComputedStyle(el);
+      return rect.width > 2 && rect.height > 2 && style.visibility !== 'hidden' && style.display !== 'none';
+    };
+    const documents = () => {
+      const found = [];
+      const visit = (doc) => {
+        found.push(doc);
+        for (const frame of doc.querySelectorAll('iframe,frame')) {
+          if (!visible(frame)) continue;
+          try { if (frame.contentDocument) visit(frame.contentDocument); } catch {}
+        }
+      };
+      visit(document);
+      return found;
+    };
+    const fieldName = (input) => [
+      input.type,
+      input.name,
+      input.id,
+      input.getAttribute('autocomplete'),
+      input.getAttribute('placeholder'),
+      input.getAttribute('aria-label'),
+    ].filter(Boolean).join(' ');
+    const hasChallenge = (doc) => {
+      const text = String(doc.body?.innerText || '');
+      if (/安全验证|人机验证|短信验证码|动态验证码|请.{0,8}(?:滑动|拖动)/.test(text)) return true;
+      if (Array.from(doc.querySelectorAll('iframe')).some((frame) => visible(frame) && /captcha|verify|challenge/i.test(frame.src || ''))) return true;
+      return Array.from(doc.querySelectorAll('input')).some((input) => visible(input)
+        && /captcha|verify|challenge|验证码|校验码|动态码/i.test(fieldName(input)));
+    };
+    let focused = false;
+    for (;;) {
+      const docs = documents();
+      const loginDoc = docs.find((doc) => Array.from(doc.querySelectorAll('input')).some((input) => visible(input)
+        && (String(input.type || '').toLowerCase() === 'password' || /pass|密码/i.test(fieldName(input)))));
+      if (!loginDoc) return { attempted: false, submitted: false, reason: 'login_form_missing' };
+      if (docs.some(hasChallenge)) return { attempted: false, submitted: false, reason: 'challenge_present' };
+      const inputs = Array.from(loginDoc.querySelectorAll('input')).filter(visible);
+      const password = inputs.find((input) => String(input.type || '').toLowerCase() === 'password' || /pass|密码/i.test(fieldName(input)));
+      const account = inputs.find((input) => input !== password && /user|account|login|phone|mobile|name|账号|手机|吉客号/i.test(fieldName(input)))
+        || inputs.find((input) => input !== password && ['text', 'tel', 'email'].includes(String(input.type || 'text').toLowerCase()));
+      if (!account || !password) return { attempted: false, submitted: false, reason: 'login_form_missing' };
+      if (!focused) {
+        focused = true;
+        account.focus();
+        password.focus();
+        account.focus();
+      }
+      const accountAutofilled = (() => { try { return account.matches(':-webkit-autofill'); } catch { return false; } })();
+      const passwordAutofilled = (() => { try { return password.matches(':-webkit-autofill'); } catch { return false; } })();
+      if (accountAutofilled && passwordAutofilled) {
+        for (const input of [account, password]) {
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const candidates = Array.from(loginDoc.querySelectorAll('button,input[type="submit"],input[type="button"],[role="button"],a,div,span'))
+          .filter(visible)
+          .map((element) => ({
+            element,
+            text: String(element.tagName === 'INPUT' ? element.getAttribute('value') || '' : element.textContent || '').replace(/\\s+/g, '').trim(),
+            area: element.getBoundingClientRect().width * element.getBoundingClientRect().height,
+          }))
+          .filter((item) => ['登录', '立即登录'].includes(item.text))
+          .sort((left, right) => left.area - right.area);
+        const control = candidates[0]?.element;
+        if (!control || control.hasAttribute('disabled') || control.getAttribute('aria-disabled') === 'true') {
+          return { attempted: true, submitted: false, reason: 'login_control_missing' };
+        }
+        control.click();
+        return { attempted: true, submitted: true, reason: 'submitted' };
+      }
+      if (Date.now() >= deadline) return { attempted: false, submitted: false, reason: 'saved_credentials_missing' };
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  })()`, waitMs + 2_000);
+}
+
+export async function getJackyunSessionStatus(port: number): Promise<JackyunSessionStatus> {
+  const target = await connectJackyunTarget(port).catch(() => null);
+  if (!target) return "unknown";
+  try {
+    const textStatus = classifyJackyunSession(await pageText(target.client));
+    if (textStatus !== "unknown") return textStatus;
+    const domStatus = await evaluateValue<{ hasLoginForm: boolean; hasMenuShell: boolean }>(target.client, `(() => {
+      const visible = (el) => {
+        const rect = el.getBoundingClientRect();
+        const style = el.ownerDocument.defaultView.getComputedStyle(el);
+        return rect.width > 2 && rect.height > 2 && style.visibility !== 'hidden' && style.display !== 'none';
+      };
+      const docs = [];
+      const visit = (doc) => {
+        docs.push(doc);
+        for (const frame of doc.querySelectorAll('iframe,frame')) {
+          try { if (frame.contentDocument) visit(frame.contentDocument); } catch {}
+        }
+      };
+      visit(document);
+      const hasLoginForm = docs.some((doc) => Array.from(doc.querySelectorAll('input')).some((input) => visible(input)
+        && String(input.type || '').toLowerCase() === 'password'));
+      const menuSelectors = ${JSON.stringify([...new Set(Object.values(moduleMenuRoutes).flatMap((route) => [route.direct, route.main, ...route.fallbacks]))])};
+      const hasMenuShell = docs.some((doc) => menuSelectors.some((selector) => doc.querySelector(selector)));
+      return { hasLoginForm, hasMenuShell };
+    })()`);
+    if (domStatus.hasLoginForm) return "login_required";
+    if (domStatus.hasMenuShell) return "authenticated";
+    return "unknown";
+  } catch {
+    return "unknown";
+  } finally {
+    target.client.close();
+  }
+}
+
+async function waitForAuthenticatedSession(port: number, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const status = await getJackyunSessionStatus(port);
+    if (status === "authenticated") return status;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  } while (Date.now() < deadline);
+  return getJackyunSessionStatus(port);
 }
 
 async function waitForPageTextParts(client: BrowserAutomationClient, parts: string[], timeoutMs: number, pollIntervalMs = 100) {
@@ -1169,50 +1275,24 @@ async function runController(options: CliOptions) {
   await launchDedicatedChrome({ executablePath: chromePath, profileDirectory, port, startUrl, headless: options.launchOnly ? false : options.headless });
   if (options.launchOnly) return { status: "chrome_ready", profileDirectory, port };
 
-  const browserTargets = await listChromeTargets(port).catch(() => []);
-  const landingTarget = browserTargets.find((target) => {
-    try { return /web\.jackyun\.com|jackyun/i.test(target.url); } catch { return false; }
-  });
-  if (landingTarget) {
-    const landingBody = await (async () => {
-      const landingBrowser = await connectPlaywrightBrowser(port);
-      try {
-        const pages = landingBrowser.contexts().flatMap((context) => context.pages());
-        const page = pages.find((item) => {
-          try { return item.url().includes(new URL(landingTarget.url).pathname.split("?")[0]); } catch { return false; }
-        }) ?? pages[0];
-        return page ? await page.evaluate(() => document.body?.innerText || "") : "";
-      } finally {
-        await landingBrowser.close();
-      }
-    })().catch(() => "");
-    if (isLikelyJackyunLoginPage(landingBody)) {
-      const autoBrowser = await connectPlaywrightBrowser(port);
-      try {
-        const { page, client } = await connectPlaywrightJackyunTarget(autoBrowser, { startUrl });
-        const diagBefore = await page.evaluate(loginDiagnosticsScript()).catch(() => null);
-        if (diagBefore) console.log(JSON.stringify({ type: "jackyun_login_diagnostics_before", ...diagBefore }));
-        const autoLoginResult = await autoLoginIfConfigured(client);
-        const diagAfter = await page.evaluate(loginDiagnosticsScript()).catch(() => null);
-        if (diagAfter) console.log(JSON.stringify({ type: "jackyun_login_diagnostics_after", ...diagAfter }));
-        client.close();
-        if (autoLoginResult.submitted) await page.waitForTimeout(1500);
-      } finally {
-        await autoBrowser.close();
-      }
-      const retryBrowser = await connectPlaywrightBrowser(port);
-      try {
-        const retryPages = retryBrowser.contexts().flatMap((context) => context.pages());
-        const retryPage = retryPages[0];
-        const retryBody = retryPage ? await retryPage.evaluate(() => document.body?.innerText || "") : "";
-        if (isLikelyJackyunLoginPage(retryBody)) {
-          console.log("检测到吉客云登录页。若已设置 JACKYUN_USERNAME / JACKYUN_PASSWORD，将尝试自动登录；否则请先手工登录一次。");
-          return { status: "login_required", profileDirectory, port };
-        }
-      } finally {
-        await retryBrowser.close();
-      }
-    }
+  let sessionStatus = await getJackyunSessionStatus(port);
+  if (options.checkLoginOnly) {
+    return { status: sessionStatus, port };
+  }
+  if (sessionStatus === "login_required") {
+    const target = await connectJackyunTarget(port).catch(() => null);
+    const loginResult = target
+      ? await autoLoginWithSavedBrowserCredentials(target.client).finally(() => target.client.close())
+      : { attempted: false, submitted: false, reason: "login_form_missing" as const };
+    console.log(JSON.stringify({ type: "jackyun_saved_login", ...loginResult }));
+    if (loginResult.submitted) sessionStatus = await waitForAuthenticatedSession(port, 30_000);
+  }
+  if (sessionStatus === "login_required") {
+    console.log("检测到吉客云登录页。专用 Chrome 未自动填充已保存凭证，或页面要求验证码；请执行 npm run jackyun:login 完成人工验证。");
+    return { status: "login_required", profileDirectory, port };
+  }
+  if (sessionStatus !== "authenticated") {
+    return { status: "login_unknown", profileDirectory, port };
   }
 
   const eventDirectory = path.join(options.eventRoot, options.runId);
@@ -1531,11 +1611,42 @@ async function runController(options: CliOptions) {
         if (!stockAgeOwnerId) throw new Error("库龄查询未捕获到本轮货主范围，已停止导出。");
       }
       moduleState.status = "queried";
+      delete moduleState.tableReadbackFailure;
       await persistControllerState(controllerStatePath, state);
     }
     if (!moduleState.expectedSourceRows) {
+      const retryZeroRowQuery = async () => {
+        moduleState.queryRetryCount = (moduleState.queryRetryCount ?? 0) + 1;
+        moduleState.queryRetryIntentAt = new Date().toISOString();
+        delete moduleState.tableReadbackFailure;
+        await persistControllerState(controllerStatePath, state);
+        await clickAnyTextEventually(
+          client,
+          ["筛选", "查询"],
+          actionTimeout(policy, moduleKey),
+          fastPoll(policy),
+        );
+      };
+      if (shouldRetryZeroRowQuery(moduleState)) await retryZeroRowQuery();
       const tableStableStartedAt = Date.now();
-      moduleState.expectedSourceRows = await stableRowCount(client, policy, moduleUrlHints(moduleKey));
+      try {
+        moduleState.expectedSourceRows = await stableRowCount(client, policy, moduleUrlHints(moduleKey));
+      } catch (error) {
+        const code = (error as { code?: unknown }).code === "zero_rows" ? "zero_rows" : "unstable";
+        moduleState.tableReadbackFailure = { code, observedAt: new Date().toISOString() };
+        await persistControllerState(controllerStatePath, state);
+        if (!shouldRetryZeroRowQuery(moduleState)) throw error;
+        await retryZeroRowQuery();
+        try {
+          moduleState.expectedSourceRows = await stableRowCount(client, policy, moduleUrlHints(moduleKey));
+        } catch (retryError) {
+          const retryCode = (retryError as { code?: unknown }).code === "zero_rows" ? "zero_rows" : "unstable";
+          moduleState.tableReadbackFailure = { code: retryCode, observedAt: new Date().toISOString() };
+          await persistControllerState(controllerStatePath, state);
+          throw retryError;
+        }
+      }
+      delete moduleState.tableReadbackFailure;
       moduleState.tableStableAt = new Date().toISOString();
       moduleState.timings = {
         ...moduleState.timings,
@@ -1574,7 +1685,7 @@ async function runController(options: CliOptions) {
       if (moduleKey === "combos") {
         const confirmationPolicy = policy.modules.combos.exportConfirmation;
         if (!confirmationPolicy) throw new Error("组合装导出确认规则缺失。");
-        const prompt = await waitForPageTextParts(client, confirmationPolicy.promptIncludes, actionTimeout(policy, moduleKey), fastPoll(policy));
+        await waitForPageTextParts(client, confirmationPolicy.promptIncludes, actionTimeout(policy, moduleKey), fastPoll(policy));
         const confirmedAt = new Date().toISOString();
         await clickText(client, confirmationPolicy.button);
         moduleState.exportConfirmation = { prompt: confirmationPolicy.promptIncludes.join("，"), button: confirmationPolicy.button, confirmedAt };
@@ -1625,6 +1736,7 @@ async function runController(options: CliOptions) {
       downloadEventAt: moduleState.downloadEventAt!,
       expectedSourceRows: moduleState.expectedSourceRows!,
       downloadProvenance: moduleState.downloadProvenance,
+      sourceRowCountCorrection: moduleState.sourceRowCountCorrection,
       fieldChecks: moduleState.fieldChecks,
       evidence: {
         controller: "dedicated_chrome_playwright",

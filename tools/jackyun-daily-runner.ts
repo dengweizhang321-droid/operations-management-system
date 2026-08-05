@@ -1,9 +1,13 @@
 import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { JackyunBrowserStateMachine } from "../lib/jackyun/browser-state-machine";
+import { JackyunBrowserStateMachine, isSafePreExportBlockedResume } from "../lib/jackyun/browser-state-machine";
+import {
+  isValidJackyunSourceRowCountCorrection,
+  type JackyunSourceRowCountCorrection,
+} from "../lib/jackyun/run-contract";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
-import { runJackyunDownload } from "./jackyun-download-runner";
+import { isExactFailedSourceRowCountRepair, runJackyunDownload } from "./jackyun-download-runner";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { assertDownloadProvenance, type JackyunDownloadProvenance } from "../lib/jackyun/download-provenance";
 
@@ -40,6 +44,7 @@ export type BrowserHandoff = {
   downloadEventAt: string;
   expectedSourceRows: number;
   downloadProvenance?: JackyunDownloadProvenance;
+  sourceRowCountCorrection?: JackyunSourceRowCountCorrection;
   fieldChecks?: Array<{ field: string; value: string; verifiedAt: string }>;
   evidence?: Record<string, unknown>;
 };
@@ -57,7 +62,11 @@ type CliOptions = {
 };
 
 type RunManifestModule = {
+  module?: JackyunModule;
   status: "prepared" | "completed" | "failed";
+  sourcePath?: string;
+  sourceSha256?: string;
+  inputContractHash?: string;
   outputPath?: string;
   salesCostSourcePath?: string;
   batchId?: string | null;
@@ -159,10 +168,6 @@ function assertTimestamp(value: string | undefined, label: string) {
   if (!value || !Number.isFinite(Date.parse(value))) throw new Error(`${label} 缺少有效时间戳。`);
 }
 
-function isRecoverableResumeState(state: string) {
-  return state === "BLOCKED" || state === "MODULE_DONE" || state === "WAIT_EVENT_AND_FILE" || state === "HANDOFF_EXACT_PATH";
-}
-
 export function validateHandoff(handoff: BrowserHandoff, module: JackyunModule, policy: DailyPolicy) {
   if (handoff.module !== module) throw new Error(`浏览器事件模块不一致：期望 ${module}，实际 ${handoff.module}。`);
   if (!Number.isSafeInteger(handoff.expectedSourceRows) || handoff.expectedSourceRows <= 0) throw new Error("expectedSourceRows 必须是正整数。");
@@ -206,6 +211,10 @@ export function validateHandoff(handoff: BrowserHandoff, module: JackyunModule, 
   }
   if (confirmation && Date.parse(handoff.downloadEventAt) < Date.parse(confirmation.confirmedAt)) {
     throw new Error("下载事件早于导出确认。" );
+  }
+  if (handoff.sourceRowCountCorrection
+    && !isValidJackyunSourceRowCountCorrection(handoff.sourceRowCountCorrection, handoff.expectedSourceRows)) {
+    throw new Error("页面总行数修正证据无效。");
   }
 }
 
@@ -290,10 +299,36 @@ export async function runJackyunDaily(options: CliOptions) {
     }
   }
   const startIndex = firstIncompleteModuleIndex(manifest);
+  let rowCountRepair: JackyunSourceRowCountCorrection | undefined;
   if (options.resume && startIndex < jackyunModuleOrder.length) {
     const incompleteModule = jackyunModuleOrder[startIndex];
-    if (manifest?.modules[incompleteModule]?.status === "failed") {
-      throw new Error(`${incompleteModule} 已产生下载后处理失败清单；该类失败不能自动重导或覆盖，请先核验失败审计。`);
+    const failedModule = manifest?.modules[incompleteModule];
+    if (failedModule?.status === "failed") {
+      const handoff = await readJsonFileOr<BrowserHandoff | null>(
+        path.join(options.eventDirectory, options.runId, eventFileName(startIndex, incompleteModule)),
+        null,
+      );
+      const failedAudit = await readJsonFileOr<Record<string, unknown> | null>(
+        path.join(runDirectory, "audit", `${incompleteModule}.json`),
+        null,
+      );
+      const correction = handoff?.sourceRowCountCorrection;
+      const repairable = handoff
+        && isValidJackyunSourceRowCountCorrection(correction, handoff.expectedSourceRows)
+        && isExactFailedSourceRowCountRepair({
+          runId: options.runId,
+          module: incompleteModule,
+          filePath: handoff.filePath,
+          rawSha256: failedModule.sourceSha256 ?? "",
+          expectedSourceRows: handoff.expectedSourceRows,
+          correction,
+          priorModule: failedModule as unknown as Record<string, unknown>,
+          failedAudit,
+        });
+      if (!repairable) {
+        throw new Error(`${incompleteModule} 已产生下载后处理失败清单；该失败没有精确的导入前总行数修正证据，不能自动重导或覆盖。`);
+      }
+      rowCountRepair = correction;
     }
   }
   const statePath = path.join(runDirectory, "browser-state.json");
@@ -306,7 +341,17 @@ export async function runJackyunDaily(options: CliOptions) {
     const startModule = jackyunModuleOrder[startIndex];
     if (options.resume && stateExists) {
       if (resumedFromState === "BLOCKED") {
-        throw new Error(`当前浏览器状态 ${resumedFromState} 不适合自动续跑，请先人工确认后再继续。`);
+        const controller = await readJsonFileOr<{
+          runId?: string;
+          policyVersion?: string;
+          modules?: Partial<Record<JackyunModule, Record<string, unknown>>>;
+        } | null>(path.join(runDirectory, "browser-controller-state.json"), null);
+        const safe = controller?.runId === options.runId
+          && controller.policyVersion === policy.version
+          && isSafePreExportBlockedResume(stateMachine.snapshot(), startModule, controller.modules?.[startModule]);
+        if (!safe && !rowCountRepair) {
+          throw new Error(`当前浏览器状态 ${resumedFromState} 缺少“未查询、未导出、未下载”的完整证据，不能自动续跑。`);
+        }
       }
       await stateMachine.reconcileForResume(startModule, { resumedAt: new Date(startedAtMs).toISOString(), manifestPath, policyVersion: policy.version });
     } else if (startModule === "products") {
@@ -360,6 +405,7 @@ export async function runJackyunDaily(options: CliOptions) {
         outputRoot: options.outputRoot,
         downloadDirectory: policy.browser.downloadDirectory,
         downloadProvenance: handoff.downloadProvenance,
+        sourceRowCountCorrection: handoff.sourceRowCountCorrection,
         allowedDownloadHosts: policy.browser.allowedDownloadHosts,
         dryRun: options.dryRun,
       });

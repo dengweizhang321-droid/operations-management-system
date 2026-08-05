@@ -5,17 +5,57 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import type { BrowserAutomationClient } from "../lib/jackyun/cdp-client";
-import { JackyunBrowserStateMachine } from "../lib/jackyun/browser-state-machine";
+import { JackyunBrowserStateMachine, isSafePreExportBlockedResume } from "../lib/jackyun/browser-state-machine";
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
 import {
+  autoLoginWithSavedBrowserCredentials,
+  classifyJackyunSession,
   extractStockAgeOwnerId,
   findLocalDownloadedFile,
   productModeState,
+  readRowCountTextState,
   readStockAgeOwnerIdFromPage,
   retryOnceAfterAmbiguousBrowserResult,
   shouldIssueModuleQuery,
+  shouldRetryZeroRowQuery,
   waitForNestedControls,
 } from "../tools/jackyun-browser-controller";
+
+test("row-count readback requests the exact total before accepting a page-sized grid count", () => {
+  assert.deepEqual(readRowCountTextState("共 50+ 条 查看总数"), { approximate: true, exactCounts: [] });
+  assert.deepEqual(readRowCountTextState("共 5,556 条"), { approximate: false, exactCounts: [5556] });
+  assert.deepEqual(readRowCountTextState("共 0 条"), { approximate: false, exactCounts: [0] });
+});
+
+test("dedicated Chrome session classification distinguishes login from authenticated menus", () => {
+  assert.equal(classifyJackyunSession("忘记密码 为企业注册吉客号 忘记吉客号 登录"), "login_required");
+  assert.equal(classifyJackyunSession("主菜单 货品查询 分仓库存查询"), "authenticated");
+  assert.equal(classifyJackyunSession("页面加载中"), "unknown");
+});
+
+test("saved-password login submits only Chrome-autofilled fields and never transports secrets", async () => {
+  let expression = "";
+  const client = {
+    async send(_method: string, params?: Record<string, unknown>) {
+      expression = String(params?.expression ?? "");
+      return { result: { value: { attempted: true, submitted: true, reason: "submitted" } } };
+    },
+    on() { return () => undefined; },
+    close() {},
+  } as BrowserAutomationClient;
+  assert.deepEqual(await autoLoginWithSavedBrowserCredentials(client, 0), {
+    attempted: true,
+    submitted: true,
+    reason: "submitted",
+  });
+  assert.match(expression, /:-webkit-autofill/);
+  assert.doesNotMatch(expression, /(?:account|password)\.value\b|JACKYUN_(?:USERNAME|PASSWORD)|credentials\.json/i);
+
+  const controllerSource = readFileSync(path.resolve("tools/jackyun-browser-controller.ts"), "utf8");
+  const loginSource = readFileSync(path.resolve("tools/jackyun-browser-login.ts"), "utf8");
+  assert.doesNotMatch(controllerSource, /JACKYUN_(?:USERNAME|PASSWORD)|valueLength|bodyPreview/);
+  assert.doesNotMatch(loginSource, /credentials\.json|\.username\b|\.password\b/);
+});
 
 test("daily module order puts sales fourth and combos last", () => {
   assert.deepEqual(jackyunModuleOrder, ["products", "inventory", "inventory_age", "sales", "combos"]);
@@ -75,6 +115,31 @@ test("blocked or interrupted state can reconcile to the manifest's next module",
     assert.equal(machine.snapshot().currentModule, "inventory_age");
     assert.equal(machine.snapshot().currentState, "ENTER_MODULE");
     assert.equal(machine.snapshot().failureCode, undefined);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("blocked resume is allowed only before query, export, download, or import intent", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "jackyun-safe-resume-test-"));
+  try {
+    const statePath = path.join(directory, "state.json");
+    const machine = await JackyunBrowserStateMachine.create({ statePath, runId: "safe-resume", policyVersion: "test" });
+    await machine.transition("products", "ENTER_MODULE", {});
+    await machine.block("DAILY_RUNNER_FAILED", "login required");
+    const state = machine.snapshot();
+    assert.equal(isSafePreExportBlockedResume(state, "products", { status: "navigated", navigationIntentAt: new Date().toISOString() }), true);
+    assert.equal(isSafePreExportBlockedResume(state, "products", { status: "queried", queryIntentAt: new Date().toISOString() }), false);
+    const zeroRowState = {
+      status: "queried" as const,
+      queryIntentAt: new Date().toISOString(),
+      tableReadbackFailure: { code: "zero_rows" as const, observedAt: new Date().toISOString() },
+    };
+    assert.equal(shouldRetryZeroRowQuery(zeroRowState), true);
+    assert.equal(isSafePreExportBlockedResume(state, "products", zeroRowState), true);
+    assert.equal(shouldRetryZeroRowQuery({ ...zeroRowState, queryRetryCount: 1 }), false);
+    assert.equal(isSafePreExportBlockedResume(state, "products", { ...zeroRowState, queryRetryCount: 1 }), false);
+    assert.equal(isSafePreExportBlockedResume(state, "products", { status: "export_armed", exportIntentAt: new Date().toISOString() }), false);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

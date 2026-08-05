@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createJackyunInputContractHash } from "../lib/jackyun/run-contract";
+import {
+  createJackyunInputContractHash,
+  isValidJackyunSourceRowCountCorrection,
+  type JackyunSourceRowCountCorrection,
+} from "../lib/jackyun/run-contract";
 import {
   assertComboRelationBaseline,
   JackyunValidationError,
@@ -34,6 +38,7 @@ type CliOptions = {
   downloadDirectory: string;
   downloadProvenance?: JackyunDownloadProvenance;
   allowedDownloadHosts?: readonly string[];
+  sourceRowCountCorrection?: JackyunSourceRowCountCorrection;
   dryRun: boolean;
 };
 
@@ -83,6 +88,44 @@ type StableFileEvidence = {
   mtimeMs: number;
   mtime: Date;
 };
+
+export function isExactFailedSourceRowCountRepair(input: {
+  runId: string;
+  module: JackyunModule;
+  filePath: string;
+  rawSha256: string;
+  expectedSourceRows: number;
+  correction?: JackyunSourceRowCountCorrection;
+  priorModule?: Record<string, unknown> | null;
+  failedAudit?: Record<string, unknown> | null;
+}) {
+  if (input.module === "sales"
+    || !isValidJackyunSourceRowCountCorrection(input.correction, input.expectedSourceRows)
+    || !/^[a-f0-9]{64}$/i.test(input.rawSha256)) return false;
+  const prior = input.priorModule;
+  const audit = input.failedAudit;
+  if (!prior || !audit || prior.status !== "failed" || audit.status !== "failed"
+    || prior.module !== input.module || audit.module !== input.module || audit.runId !== input.runId
+    || typeof prior.inputContractHash !== "string" || prior.batchId || prior.outputPath || audit.import) return false;
+  const auditSource = audit.source as Record<string, unknown> | null | undefined;
+  const auditError = audit.error as Record<string, unknown> | null | undefined;
+  const details = auditError?.details as Record<string, unknown> | null | undefined;
+  const timings = audit.timings as Record<string, unknown> | null | undefined;
+  const failedAt = typeof timings?.failedAt === "string" ? Date.parse(timings.failedAt) : Number.NaN;
+  try {
+    return path.resolve(String(prior.sourcePath ?? "")) === path.resolve(input.filePath)
+      && path.resolve(String(auditSource?.path ?? "")) === path.resolve(input.filePath)
+      && prior.sourceSha256 === input.rawSha256
+      && auditSource?.sha256 === input.rawSha256
+      && auditError?.stage === "validate_and_prepare_workbook"
+      && Number(details?.expectedSourceRows) === input.correction.previousExpectedSourceRows
+      && Number(details?.actualSourceRows) === input.correction.exactExpectedSourceRows
+      && Number.isFinite(failedAt)
+      && Date.parse(input.correction.observedAt) >= failedAt;
+  } catch {
+    return false;
+  }
+}
 
 class RunnerHttpError extends Error {
   readonly details: Record<string, unknown>;
@@ -475,7 +518,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
   await Promise.all([mkdir(rawDirectory, { recursive: true }), mkdir(processedDirectory, { recursive: true }), mkdir(auditDirectory, { recursive: true })]);
   const manifest = await readJsonFileOr<RunManifest>(manifestPath, initialManifest(options.runId));
   if (manifest.runId !== options.runId) throw new Error("运行目录中的 run id 不一致。");
-  const priorModule = manifest.modules[options.module];
+  let priorModule = manifest.modules[options.module];
 
   let rawHash = "";
   let inputContractHash = "";
@@ -526,7 +569,28 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         const result = { status: "duplicate_ignored", runId: options.runId, module: options.module, auditPath, manifestPath, existing };
         return result;
       }
-      if (!(existing.sourceSha256 === rawHash
+      const failedAudit = options.sourceRowCountCorrection
+        ? await readJsonFileOr<Record<string, unknown> | null>(auditPath, null)
+        : null;
+      const repairsExactRowCount = isExactFailedSourceRowCountRepair({
+        runId: options.runId,
+        module: options.module,
+        filePath: options.filePath,
+        rawSha256: rawHash,
+        expectedSourceRows: options.expectedSourceRows,
+        correction: options.sourceRowCountCorrection,
+        priorModule: existing as unknown as Record<string, unknown>,
+        failedAudit,
+      });
+      if (repairsExactRowCount) {
+        await writeJsonAtomic(path.join(auditDirectory, `${options.module}.row-count-repair-${Date.now()}.json`), {
+          ...failedAudit,
+          repair: options.sourceRowCountCorrection,
+          repairedAt: new Date().toISOString(),
+        });
+        delete manifest.modules[options.module];
+        priorModule = undefined;
+      } else if (!(existing.sourceSha256 === rawHash
         && existing.inputContractHash === inputContractHash
         && existing.status === "prepared"
         && !options.dryRun)) {

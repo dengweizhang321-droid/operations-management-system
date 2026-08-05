@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertCookieMatchesStore,
   buildSycmExportUrl,
+  closeOneShotServer,
   decodeArtifactPath,
   encodeArtifactPath,
   getCookieSourceStatus,
@@ -12,6 +13,17 @@ import {
   isLegacyXls,
   parseCookieHeader,
 } from "../tools/tmall-sycm-cookie-pipeline";
+
+test("one-shot helper closes both its listener and retained keep-alive connections", () => {
+  let closeCalls = 0;
+  let closeAllCalls = 0;
+  closeOneShotServer({
+    close() { closeCalls += 1; return undefined as never; },
+    closeAllConnections() { closeAllCalls += 1; },
+  });
+  assert.equal(closeCalls, 1);
+  assert.equal(closeAllCalls, 1);
+});
 
 test("Cookie 只接受单行请求头并核验亿玖店登录身份", () => {
   const cookie = parseCookieHeader([

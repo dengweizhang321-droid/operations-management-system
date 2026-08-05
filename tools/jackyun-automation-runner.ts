@@ -91,6 +91,7 @@ export async function runJackyunAutomation(options: JackyunAutomationOptions) {
     debuggingPort: options.debuggingPort,
     headless: options.headless,
     launchOnly: false,
+    checkLoginOnly: false,
     signal: abortController.signal,
   }).then((result) => {
     if (result.status !== "completed") {
