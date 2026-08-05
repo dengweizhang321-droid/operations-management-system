@@ -10,6 +10,7 @@ import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-regis
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import { runTmallMultiStoreImport, shanghaiYesterday } from "./tmall-multi-store-import-runner";
 import { runTmallProductMasterStage } from "./tmall-product-master-export";
+import { runTmallPromotionStage } from "./tmall-promotion-export";
 import {
   getJackyunProfileStatus,
   jackyunHelperRequestError,
@@ -30,9 +31,9 @@ const sycmOrigin = "https://sycm.taobao.com";
 const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
 
-type PipelineCommand = "master" | "plan" | "fetch" | "import" | "serve";
-export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "running" | "executed" | "completed" | "failed";
-type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import";
+type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
+export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "imported" | "running" | "executed" | "completed" | "failed";
+type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import" | "/promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 
 type PipelinePlan = {
@@ -536,7 +537,11 @@ export function helperRequestError(stage: HelperStage, busy: boolean, route: Hel
       ? null
       : { error: "invalid_stage" as const, expected: "ready_or_mastered" as const, actual: stage };
   }
-  const expected: HelperStage = route === "/fetch" ? "planned" : "fetched";
+  const expected: HelperStage = route === "/fetch"
+    ? "planned"
+    : route === "/import"
+      ? "fetched"
+      : "imported";
   return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
 }
 
@@ -563,6 +568,7 @@ async function serveCommand(argv: string[]) {
   let planPathBase64 = "";
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
+  let tmallImportFallbackClose: ReturnType<typeof setTimeout> | null = null;
   const server = createServer(async (request, response) => {
     const healthCorsHeaders = request.url === "/health"
       ? helperHealthCorsHeaders(
@@ -598,7 +604,7 @@ async function serveCommand(argv: string[]) {
       reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile });
       return;
     }
-    const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import"];
+    const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];
     const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
     if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
@@ -616,6 +622,10 @@ async function serveCommand(argv: string[]) {
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
+    }
+    if (request.url === "/promotion" && tmallImportFallbackClose) {
+      clearTimeout(tmallImportFallbackClose);
+      tmallImportFallbackClose = null;
     }
     activeWorkflow = isJackyun ? "jackyun" : "tmall";
     busy = true;
@@ -650,8 +660,15 @@ async function serveCommand(argv: string[]) {
         manifestPathBase64 = result.manifestPathBase64;
         stage = "fetched";
         reply(200, result);
-      } else {
+      } else if (request.url === "/import") {
         const result = await importCommand(["--manifest-base64", manifestPathBase64]);
+        stage = "imported";
+        reply(200, result);
+        // Give an already imported four-node workflow a bounded compatibility
+        // window while allowing the new promotion node to claim the next stage.
+        tmallImportFallbackClose = setTimeout(() => server.close(), 30_000);
+      } else {
+        const result = await runTmallPromotionStage({ storeKey: "tmall-yijiu" });
         stage = "completed";
         reply(200, result);
         setTimeout(() => server.close(), 500);
@@ -674,8 +691,8 @@ async function serveCommand(argv: string[]) {
 async function main() {
   const argv = process.argv.slice(2);
   const command = argv[0] as PipelineCommand | undefined;
-  if (!command || !["master", "plan", "fetch", "import", "serve"].includes(command)) {
-    throw new Error("用法: tmall-sycm-cookie-pipeline.ts <master|plan|fetch|import|serve> [参数]");
+  if (!command || !["master", "plan", "fetch", "import", "promotion", "serve"].includes(command)) {
+    throw new Error("用法: tmall-sycm-cookie-pipeline.ts <master|plan|fetch|import|promotion|serve> [参数]");
   }
   const result = command === "master"
     ? await runTmallProductMasterStage({
@@ -689,7 +706,12 @@ async function main() {
       ? await fetchCommand(argv.slice(1))
       : command === "import"
         ? await importCommand(argv.slice(1))
-        : await serveCommand(argv.slice(1));
+        : command === "promotion"
+          ? await runTmallPromotionStage({
+              storeKey: cliValue(argv.slice(1), "--store-key") ?? "tmall-yijiu",
+              baseUrl: cliValue(argv.slice(1), "--base-url"),
+            })
+          : await serveCommand(argv.slice(1));
   console.log(JSON.stringify(result));
 }
 

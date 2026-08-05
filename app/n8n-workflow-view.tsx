@@ -78,21 +78,22 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
   tmall: {
     key: "tmall",
     definition: tmallWorkflowDefinition as N8nWorkflowDefinition,
-    subtitle: "天猫货品主数据与生意参谋 SPU 分天数据的一体化导入流程。",
+    subtitle: "天猫货品主数据、生意参谋 SPU 分天数据与全站推推广报表的一体化导入流程。",
     tags: ["天猫-志高亿玖专卖店", "Asia/Shanghai", "本机安全执行"],
-    flowLabel: "M → A → B → C",
-    pipelineTitle: "四段式安全导入链路",
+    flowLabel: "M → A → B → C → P",
+    pipelineTitle: "五段式安全导入链路",
     pipelineDescription: "两个触发入口汇入同一条串行链路；任一步失败都会停止后续导入。",
     workflowMetric: "天猫店铺数据导入",
     scheduleMetric: "08:40–18:40",
     scheduleDescription: "上海时区 · 每小时补跑",
     iframeTitle: "天猫店铺数据导入 n8n 工作流",
-    safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；缺口规划会跳过已覆盖日期，导入接口继续按店铺、数据集、日期和文件内容幂等去重。",
+    safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；商品日与推广缺口均以运营系统真实覆盖规划，推广只接管本轮唯一下载任务；同店同日同内容返回 duplicate，导入接口继续按店铺、数据集、日期和文件内容幂等去重。",
     stageDetails: {
       M: { title: "货品主数据", description: "从店铺独立千牛会话导出全部商品，校验发布模板、库存和行数后导入并回查。" },
       A: { title: "缺口规划", description: "按天猫店铺与 SPU 日数据集查询真实覆盖，只生成注册起始日至昨天的缺失日期。" },
       B: { title: "逐日下载", description: "每个业务日独立下载生意参谋 XLS，并核验店铺身份、文件类型与日期覆盖。" },
       C: { title: "签收导入", description: "签收受控文件，执行幂等导入并回查批次、行数、店铺与同日覆盖。" },
+      P: { title: "全站推推广", description: "选择缺口时间与全部指标，只下载本轮唯一 ZIP，校验后导入并回查推广日期覆盖。" },
     },
   },
 };
@@ -138,7 +139,7 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
   } : {
     kind: "ready",
     label: "可以安全启动",
-    detail: "服务已在线；A 仅规划缺失日期，C 对同店同日同内容返回 duplicate，不会重复入库。",
+    detail: "服务已在线；A 仅规划商品缺失日期，C 与 P 均执行店铺、日期、文件内容和落库覆盖回查。",
   };
 }
 

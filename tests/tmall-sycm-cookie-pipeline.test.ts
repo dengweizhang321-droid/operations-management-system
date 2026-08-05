@@ -82,5 +82,12 @@ test("一次性 HTTP 辅助进程允许幂等货品前置并拒绝乱序和并�
   assert.deepEqual(helperRequestError("planned", true, "/fetch"), { error: "pipeline_busy" });
   assert.equal(helperRequestError("planned", false, "/fetch"), null);
   assert.equal(helperRequestError("fetched", false, "/import"), null);
+  assert.equal(helperRequestError("imported", false, "/promotion"), null);
+  assert.deepEqual(helperRequestError("fetched", false, "/promotion"), {
+    error: "invalid_stage",
+    expected: "imported",
+    actual: "fetched",
+  });
+  assert.deepEqual(helperRequestError("imported", true, "/promotion"), { error: "pipeline_busy" });
   assert.match(JSON.stringify(helperRequestError("completed", false, "/import")), /invalid_stage/);
 });
