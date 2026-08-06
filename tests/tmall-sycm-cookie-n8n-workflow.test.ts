@@ -11,7 +11,18 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
     name: string;
     active: boolean;
     settings: { timezone?: string };
-    nodes: Array<{ name: string; type: string; parameters?: { command?: string; rule?: unknown; options?: { timeout?: number } } }>;
+    nodes: Array<{
+      name: string;
+      type: string;
+      parameters?: {
+        command?: string;
+        url?: string;
+        rule?: { interval?: Array<{ expression?: string }> };
+        sendHeaders?: boolean;
+        headerParameters?: { parameters?: Array<{ name?: string; value?: string }> };
+        options?: { timeout?: number };
+      };
+    }>;
     connections: Record<string, { main?: Array<Array<{ node?: string }>> }>;
   };
   assert.equal(workflow.id, "M4xY8kQ2vR6sT9pC");
@@ -19,15 +30,24 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings.timezone, "Asia/Shanghai");
   assert.ok(workflow.nodes.some((node) => node.type === "n8n-nodes-base.manualTrigger"));
-  assert.ok(workflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"));
+  const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
+  assert.equal(scheduleNode?.name, "每天 09:10-19:10 每小时补跑");
+  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "10 9-19 * * *");
   const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
-  assert.deepEqual(requestNodes.map((node) => (node.parameters as { url?: string }).url), [
+  assert.deepEqual(requestNodes.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/product-master",
     "http://127.0.0.1:5791/plan",
     "http://127.0.0.1:5791/fetch",
     "http://127.0.0.1:5791/import",
     "http://127.0.0.1:5791/promotion",
   ]);
+  for (const node of requestNodes) {
+    assert.equal(node.parameters?.sendHeaders, true);
+    assert.deepEqual(node.parameters?.headerParameters?.parameters, [{
+      name: "X-TERUISI-N8N-EXECUTION-ID",
+      value: "={{ $execution.id }}",
+    }]);
+  }
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
   assert.match(raw, /导出全部商品/);
   assert.match(raw, /重要通知/);
@@ -41,9 +61,10 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
   assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
-  assert.equal(workflow.connections["每天 08:40-18:40 每小时补跑"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
+  assert.equal(workflow.connections["每天 09:10-19:10 每小时补跑"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
   assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"]?.main?.[0]?.[0]?.node, "A·算缺哪些日期");
   assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·全站推逐日报表下载、导入并回查");
+  assert.equal(requestNodes[0]?.parameters?.options?.timeout, 1_800_000);
   assert.equal(requestNodes.at(-1)?.parameters?.options?.timeout, 21_600_000);
   assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|Cookie:\s*[^`\n]/i);
   assert.doesNotMatch(raw, /localhost:8000|teruisi123|_tb_token_=|cookie2=/i);
@@ -72,6 +93,10 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /同店同日同内容返回 duplicate/);
   assert.match(view, /M → A → B → C → P/);
   assert.match(view, /全站推推广/);
+  assert.match(view, /scheduleMetric: "09:10–19:10"/);
+  assert.match(view, /\{config\.scheduleMetric\} 每小时/);
+  assert.match(view, /辅助服务已就绪/);
+  assert.match(view, /实际发布状态以 n8n 画布为准/);
 });
 
 test("n8n 工作流视图只向操作角色渲染可执行编辑器", async () => {

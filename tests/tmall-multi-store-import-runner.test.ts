@@ -68,8 +68,38 @@ test("天猫导入结果必须精确匹配店铺、日期、数据集与 HTTP �
       dateMin: "2026-07-31",
       dateMax: "2026-07-31",
     },
+    verification: {
+      verified: true,
+      parsedRowCount: 10,
+      readbackRowCount: 10,
+      dataset: "spu_daily",
+      platform: "天猫",
+      shopName: "天猫-志高亿玖专卖店",
+      dateMin: "2026-07-31",
+      dateMax: "2026-07-31",
+    },
   };
-  assert.equal(validateImportPayload(payload, 201, { shopName: "天猫-志高亿玖专卖店" }, "2026-07-31").batchId, "batch-1");
-  assert.throws(() => validateImportPayload({ ...payload, batch: { ...payload.batch, shopName: "B店" } }, 201, { shopName: "天猫-志高亿玖专卖店" }, "2026-07-31"), /回查不一致/);
-  assert.throws(() => validateImportPayload(payload, 200, { shopName: "天猫-志高亿玖专卖店" }, "2026-07-31"), /回查不一致/);
+  const store = { shopName: "天猫-志高亿玖专卖店" };
+  assert.equal(validateImportPayload(payload, 201, store, "2026-07-31", 10).batchId, "batch-1");
+  assert.equal(validateImportPayload({ ...payload, status: "duplicate" }, 200, store, "2026-07-31", 10).batchId, "batch-1");
+  assert.throws(() => validateImportPayload({ ...payload, batch: { ...payload.batch, shopName: "B店" } }, 201, store, "2026-07-31", 10), /回查不一致/);
+  assert.throws(() => validateImportPayload(payload, 200, store, "2026-07-31", 10), /回查不一致/);
+  assert.throws(() => validateImportPayload({ ...payload, status: "duplicate" }, 201, store, "2026-07-31", 10), /回查不一致/);
+
+  const failures = [
+    { label: "缺少 verification", payload: { ...payload, verification: undefined } },
+    { label: "verification 未通过", payload: { ...payload, verification: { ...payload.verification, verified: false } } },
+    { label: "批次行数少于预检", payload: { ...payload, batch: { ...payload.batch, rowCount: 9 } } },
+    { label: "解析行数不一致", payload: { ...payload, verification: { ...payload.verification, parsedRowCount: 9 } } },
+    { label: "回查行数不一致", payload: { ...payload, verification: { ...payload.verification, readbackRowCount: 9 } } },
+    { label: "回查店铺不一致", payload: { ...payload, verification: { ...payload.verification, shopName: "B店" } } },
+    { label: "回查日期不一致", payload: { ...payload, verification: { ...payload.verification, dateMax: "2026-07-30" } } },
+  ];
+  for (const failure of failures) {
+    assert.throws(
+      () => validateImportPayload(failure.payload, 201, store, "2026-07-31", 10),
+      /回查不一致/,
+      failure.label,
+    );
+  }
 });

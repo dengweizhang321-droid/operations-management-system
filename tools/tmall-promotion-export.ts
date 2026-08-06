@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat } from "node:fs/pr
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import type { Frame, Locator, Page } from "playwright-core";
+import type { Dialog, Frame, Locator, Page } from "playwright-core";
 
 import { launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
@@ -19,6 +19,7 @@ import {
 export const TMALL_PROMOTION_HOME_URL = "https://one.alimama.com/index.html";
 export const TMALL_PROMOTION_ENTRY_URL = TMALL_SELLER_ON_SALE_URL;
 export const TMALL_PROMOTION_DOWNLOAD_LIST_URL = "https://one.alimama.com/index.html?spm=a21dvs.28711903.0.d53b8f72b.7a7362ddGBIZmC#!/report/download-list";
+export const promotionSuccessNavigationMissingMessage = "确认生成报表后未出现包含“离线数据生成成功”的唯一前往下载提示";
 const TMALL_PROMOTION_SELLER_GOODS_URL = "https://myseller.taobao.com/home.htm/alltaopromotion/";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -122,6 +123,7 @@ type PromotionImportPayload = {
   };
   verification?: {
     verified?: boolean;
+    parsedRowCount?: number;
     readbackRowCount?: number;
     dataset?: string;
     platform?: string;
@@ -143,7 +145,15 @@ type PositionedAction = {
 };
 
 function validDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
 }
 
 function normalizeText(value: string) {
@@ -167,9 +177,42 @@ function normalizeLocalBaseUrl(value: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-function isoDateArray(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.filter((item): item is string => typeof item === "string" && validDate(item)))].sort();
+function assertIsoDateArray(value: unknown, field: string, startDate: string, endDate: string) {
+  if (!Array.isArray(value)) throw new Error(`推广覆盖响应 ${field} 不是日期数组`);
+  for (const item of value) {
+    if (typeof item !== "string" || !validDate(item)) {
+      throw new Error(`推广覆盖响应 ${field} 包含非法日期`);
+    }
+    if (item < startDate || item > endDate) {
+      throw new Error(`推广覆盖响应 ${field} 包含请求区间外日期`);
+    }
+  }
+  return [...new Set(value as string[])].sort();
+}
+
+export function assertPromotionCoveragePayload(
+  payload: PromotionCoveragePayload | null,
+  expected: { startDate: string; endDate: string },
+) {
+  if (!payload?.coverage
+    || payload.requestedPeriod?.startDate !== expected.startDate
+    || payload.requestedPeriod?.endDate !== expected.endDate) {
+    throw new Error("推广覆盖响应的 requestedPeriod 与请求不一致");
+  }
+  return {
+    productDailyDates: assertIsoDateArray(
+      payload.coverage.productDailyDates,
+      "productDailyDates",
+      expected.startDate,
+      expected.endDate,
+    ),
+    promotionDates: assertIsoDateArray(
+      payload.coverage.promotionDates,
+      "promotionDates",
+      expected.startDate,
+      expected.endDate,
+    ),
+  };
 }
 
 export function planTmallPromotionDailyReports(input: {
@@ -226,12 +269,91 @@ export function isSafePromotionDismissLabel(value: string) {
   return /^(关闭|忽略|暂不|暂不开启|暂不参加|稍后|以后再说|我知道了|知道了|取消|×|✕|close)$/i.test(label);
 }
 
+export function promotionNativeDialogAction(input: { type: string; message: string }) {
+  const message = normalizeText(input.message)
+    .replace(/^提示[:：]\s*/, "")
+    .replace(/[。！!]+$/, "");
+  const safeInformationalMessages = new Set([
+    "暂无数据",
+    "当前暂无数据",
+    "暂无可下载数据",
+    "没有可下载数据",
+  ]);
+  return input.type === "alert" && safeInformationalMessages.has(message)
+    ? "dismiss" as const
+    : "stop" as const;
+}
+
+export type PromotionMetricSelectionState = {
+  checked?: boolean;
+  attributeValues?: readonly string[];
+  classNames?: readonly string[];
+};
+
+export function isPromotionMetricSelectionState(state: PromotionMetricSelectionState) {
+  if (state.checked === true) return true;
+  if ((state.attributeValues ?? []).some((value) => /^(?:true|checked|selected)$/i.test(value.trim()))) return true;
+  return (state.classNames ?? []).some((className) => (
+    /(?:^|[-_\s])(?:checked|selected)(?:$|[-_\s])/.test(className.toLowerCase())
+  ));
+}
+
+function installPromotionNativeDialogGuard(page: Page) {
+  const context = page.context();
+  const attachedPages = new Set<Page>();
+  let failure: Error | null = null;
+  let pending = Promise.resolve();
+  const onDialog = (dialog: Dialog) => {
+    const action = promotionNativeDialogAction({ type: dialog.type(), message: dialog.message() });
+    if (action === "stop" && !failure) {
+      failure = new Error(`推广页面出现未允许的 ${dialog.type()} 原生对话框，已停止本轮`);
+    }
+    pending = pending.then(async () => {
+      await dialog.dismiss().catch(() => undefined);
+      const dialogPage = dialog.page();
+      if (action === "stop" && dialogPage) await dialogPage.close({ runBeforeUnload: false }).catch(() => undefined);
+    });
+  };
+  const attach = (candidate: Page) => {
+    if (attachedPages.has(candidate)) return;
+    attachedPages.add(candidate);
+    candidate.on("dialog", onDialog);
+  };
+  const onPage = (candidate: Page) => attach(candidate);
+  context.pages().forEach(attach);
+  context.on("page", onPage);
+
+  const drain = async () => {
+    while (true) {
+      const current = pending;
+      await current;
+      if (current === pending) return;
+    }
+  };
+  return {
+    assertSafe: async () => {
+      await drain();
+      if (failure) throw failure;
+    },
+    dispose: async () => {
+      context.off("page", onPage);
+      for (const candidate of attachedPages) candidate.off("dialog", onDialog);
+      await drain();
+      if (failure) throw failure;
+    },
+  };
+}
+
 export function isPromotionReportSuccessNavigation(input: { label: string; context: string }) {
   const label = normalizeText(input.label).replace(/[\s·]/g, "");
   const context = normalizeText(input.context);
   return /^(立即前往|前往下载|立即前往下载)$/.test(label)
     && /离线数据生成成功/.test(context)
     && /下载任务管理/.test(context);
+}
+
+export function shouldRecoverSubmittedPromotionTask(error: unknown) {
+  return error instanceof Error && error.message === promotionSuccessNavigationMissingMessage;
 }
 
 export function promotionDatePickerRole(value: string | null | undefined) {
@@ -279,22 +401,27 @@ export function chooseTmallPromotionDownloadTask(
       && createdAt >= startedAt - 90_000
       && createdAt <= Date.now() + 5 * 60_000;
   }).sort((left, right) => Date.parse(right.createdAt!) - Date.parse(left.createdAt!));
-  if (matching.length === 0) return null;
-  if (matching[1] && matching[1].createdAt === matching[0]!.createdAt && matching[1].signature !== matching[0]!.signature) return null;
+  if (matching.length !== 1) return null;
   return matching[0]!.signature;
 }
 
 export function assertPromotionImportPayload(
   payload: PromotionImportPayload,
+  httpStatus: number,
   expected: { shopName: string; startDate: string; endDate: string; rowCount: number },
 ) {
   const batch = payload.batch;
   const verification = payload.verification;
-  if (payload.ok !== true || (payload.status !== "imported" && payload.status !== "duplicate") || !batch?.id
+  const importStatus = payload.status === "imported" || payload.status === "duplicate" ? payload.status : null;
+  const expectedHttpStatus = importStatus === "imported" ? 201 : importStatus === "duplicate" ? 200 : null;
+  if (importStatus === null || expectedHttpStatus === null || httpStatus !== expectedHttpStatus
+    || payload.ok !== true || !batch?.id
     || batch.source !== "tmall_promotion" || batch.dataset !== "promotion_daily" || batch.platform !== "天猫"
     || batch.shopName !== expected.shopName || batch.status !== "completed" || batch.rowCount !== expected.rowCount
     || batch.dateMin !== expected.startDate || batch.dateMax !== expected.endDate
-    || verification?.verified !== true || verification.readbackRowCount !== expected.rowCount
+    || !Number.isInteger(batch.warningCount ?? 0) || Number(batch.warningCount ?? 0) < 0
+    || verification?.verified !== true || verification.parsedRowCount !== expected.rowCount
+    || verification.readbackRowCount !== expected.rowCount
     || verification.dataset !== "promotion_daily" || verification.platform !== "天猫"
     || verification.shopName !== expected.shopName || verification.dateMin !== expected.startDate
     || verification.dateMax !== expected.endDate) {
@@ -302,7 +429,7 @@ export function assertPromotionImportPayload(
   }
   return {
     batchId: batch.id,
-    status: payload.status,
+    status: importStatus,
     warningCount: Number(batch.warningCount ?? 0),
   } as const;
 }
@@ -320,13 +447,10 @@ async function coverageForStore(baseUrl: string, store: TmallStore, startDate: s
     signal: AbortSignal.timeout(30_000),
   });
   const payload = await response.json().catch(() => null) as PromotionCoveragePayload | null;
-  if (!response.ok || !payload?.coverage) {
+  if (!response.ok) {
     throw new Error(`无法读取 ${store.shopName} 的推广/商品日期覆盖（HTTP ${response.status}）`);
   }
-  return {
-    productDailyDates: isoDateArray(payload.coverage.productDailyDates),
-    promotionDates: isoDateArray(payload.coverage.promotionDates),
-  };
+  return assertPromotionCoveragePayload(payload, { startDate, endDate });
 }
 
 async function combinedPageText(page: Page) {
@@ -817,6 +941,43 @@ async function waitUntilValue<T>(timeoutMs: number, probe: () => Promise<T | nul
   throw new Error(message);
 }
 
+async function promotionMetricSelectionConfirmed(choice: Locator) {
+  const state = await choice.evaluate((element): PromotionMetricSelectionState => {
+    const scope = element.closest([
+      "label",
+      '[role="checkbox"]',
+      '[role="radio"]',
+      '[role="option"]',
+      '[class*="checkbox"]',
+      '[class*="radio"]',
+      '[class*="metric"]',
+    ].join(",")) ?? element.parentElement ?? element;
+    const candidates = [
+      scope,
+      ...Array.from(scope.querySelectorAll([
+        "input",
+        '[aria-checked]',
+        '[aria-selected]',
+        '[data-checked]',
+        '[data-selected]',
+        '[class*="checked"]',
+        '[class*="selected"]',
+      ].join(","))).slice(0, 20),
+    ];
+    const attributes = ["aria-checked", "aria-selected", "data-checked", "data-selected"];
+    return {
+      checked: candidates.some((candidate) => candidate instanceof HTMLInputElement && candidate.checked),
+      attributeValues: candidates.flatMap((candidate) => attributes
+        .map((attribute) => candidate.getAttribute(attribute))
+        .filter((value): value is string => value !== null)),
+      classNames: candidates
+        .map((candidate) => candidate.getAttribute("class") ?? "")
+        .filter(Boolean),
+    };
+  }).catch(() => null);
+  return state !== null && isPromotionMetricSelectionState(state);
+}
+
 async function chooseAllMetrics(page: Page, dialog: Locator) {
   const clickChoice = async (scope: Locator) => {
     const choices = scope.getByText("全部数据指标", { exact: true });
@@ -825,8 +986,14 @@ async function chooseAllMetrics(page: Page, dialog: Locator) {
       const choice = choices.nth(index);
       if (!await choice.isVisible().catch(() => false)) continue;
       const label = choice.locator("xpath=ancestor-or-self::label[1]");
-      if (await label.count().catch(() => 0)) await label.click({ timeout: 5_000 });
-      else await choice.click({ timeout: 5_000 });
+      const control = await label.count().catch(() => 0) ? label : choice;
+      if (!await promotionMetricSelectionConfirmed(control)) await control.click({ timeout: 5_000 });
+      await waitUntil(
+        5_000,
+        () => promotionMetricSelectionConfirmed(control),
+        "“全部数据指标”点击后未确认选中状态",
+        200,
+      );
       return true;
     }
     return false;
@@ -917,9 +1084,13 @@ async function configureAndSubmitReport(options: {
   startDate: string;
   endDate: string;
   beforeSubmit: () => Promise<void>;
+  afterSubmit: () => Promise<void>;
+  assertDialogSafe: () => Promise<void>;
 }) {
+  await options.assertDialogSafe();
   const navigation = await navigateToPromotionReport(options.page, options.store);
   const page = navigation.page;
+  await options.assertDialogSafe();
   let dismissedPopups = navigation.dismissedPopups;
   dismissedPopups += await dismissBlockingPopups(page);
   await clickDownloadReport(page);
@@ -929,14 +1100,26 @@ async function configureAndSubmitReport(options: {
     dismissedPopups += await dismissBlockingPopups(page);
     return null;
   }, "下载报表弹窗未出现");
+  await options.assertDialogSafe();
   await chooseDateRange(page, dialog.locator, options.startDate, options.endDate);
   dismissedPopups += await dismissBlockingPopups(page);
+  await options.assertDialogSafe();
   await chooseAllMetrics(page, dialog.locator);
   dismissedPopups += await dismissBlockingPopups(page);
+  await options.assertDialogSafe();
   await options.beforeSubmit();
+  await options.assertDialogSafe();
   await clickUniqueWithin(dialog.locator, "确定", ".dialog-footer button");
   await waitUntil(15_000, async () => !await dialog.locator.isVisible().catch(() => false), "确认下载后报表弹窗未关闭，可能存在字段校验错误");
-  const downloadPage = await clickReportSuccessNavigation(page, options.store);
+  await options.assertDialogSafe();
+  // 弹窗关闭后先持久化已提交状态。即使短暂成功提示已消失，后续也只会
+  // 进入受控下载中心按日期、创建时间和唯一任务恢复，不会重复创建报表。
+  await options.afterSubmit();
+  const downloadPage = await clickReportSuccessNavigation(page, options.store).catch((error) => {
+    if (shouldRecoverSubmittedPromotionTask(error)) return page;
+    throw error;
+  });
+  await options.assertDialogSafe();
   return { dismissedPopups, downloadPage };
 }
 
@@ -971,7 +1154,7 @@ async function clickReportSuccessNavigation(page: Page, store: TmallStore) {
   const action = await waitUntilValue(
     30_000,
     () => findReportSuccessNavigation(page),
-    "确认生成报表后未出现包含“离线数据生成成功”的唯一前往下载提示",
+    promotionSuccessNavigationMissingMessage,
     100,
   );
   const context = page.context();
@@ -1268,7 +1451,7 @@ async function importPromotionFile(options: {
   });
   const payload = await response.json().catch(() => null) as PromotionImportPayload | null;
   if (!payload) throw new Error(`推广导入接口未返回 JSON（HTTP ${response.status}）`);
-  return assertPromotionImportPayload(payload, {
+  return assertPromotionImportPayload(payload, response.status, {
     shopName: options.store.shopName,
     startDate: options.plan.startDate,
     endDate: options.plan.endDate,
@@ -1359,9 +1542,9 @@ async function runTmallPromotionDate(options: {
         ?? context.pages().find((candidate) => /one\.alimama\.com/i.test(candidate.url()));
       if (!page) page = await context.newPage();
       page.setDefaultTimeout(15_000);
-      const dismissDialog = (dialog: import("playwright-core").Dialog) => { void dialog.dismiss().catch(() => undefined); };
-      page.on("dialog", dismissDialog);
+      const dialogGuard = installPromotionNativeDialogGuard(page);
       try {
+        await dialogGuard.assertSafe();
         let downloadPage = page;
         if (!["report_submitting", "report_submitted"].includes(resume)) {
           audit.stage = "browser_ready";
@@ -1371,16 +1554,20 @@ async function runTmallPromotionDate(options: {
             store,
             startDate: plan.startDate,
             endDate: plan.endDate,
+            assertDialogSafe: dialogGuard.assertSafe,
             beforeSubmit: async () => {
               audit.stage = "report_submitting";
+              await writeAudit(audit, runAuditDirectory);
+            },
+            afterSubmit: async () => {
+              audit.stage = "report_submitted";
               await writeAudit(audit, runAuditDirectory);
             },
           });
           audit.dismissedPopups += submission.dismissedPopups;
           downloadPage = submission.downloadPage;
-          audit.stage = "report_submitted";
-          await writeAudit(audit, runAuditDirectory);
         }
+        await dialogGuard.assertSafe();
         const filePath = await waitForGeneratedTask({
           page: downloadPage,
           store,
@@ -1389,6 +1576,7 @@ async function runTmallPromotionDate(options: {
           runStartedAt: audit.startedAt,
           runId: audit.runId,
         });
+        await dialogGuard.assertSafe();
         try {
           file = await inspectPromotionFile(filePath, store, plan);
         } catch (error) {
@@ -1402,9 +1590,19 @@ async function runTmallPromotionDate(options: {
         audit.file = file;
         audit.stage = "downloaded";
         await writeAudit(audit, runAuditDirectory);
+      } catch (error) {
+        await dialogGuard.assertSafe();
+        throw error;
       } finally {
-        page.off("dialog", dismissDialog);
-        await browser.close().catch(() => undefined);
+        try {
+          await dialogGuard.assertSafe();
+        } finally {
+          try {
+            await dialogGuard.dispose();
+          } finally {
+            await browser.close().catch(() => undefined);
+          }
+        }
       }
     }
 
@@ -1456,6 +1654,7 @@ export async function runTmallPromotionStage(options: {
   baseUrl?: string;
   request?: typeof fetch;
   auditDirectory?: string;
+  maximumDays?: number;
 } = {}) {
   const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
@@ -1464,11 +1663,15 @@ export async function runTmallPromotionStage(options: {
   if (!store.initialStartDate) throw new Error(`${store.shopName} 尚未配置推广补数起始日期`);
   const requestedEndDate = shanghaiYesterday();
   const coverage = await coverageForStore(baseUrl, store, store.initialStartDate, requestedEndDate, request);
+  if (coverage.productDailyDates.length === 0) {
+    throw new Error("waiting_product_daily：商品日数据尚未覆盖请求区间，推广阶段需要稍后重试");
+  }
   const plans = planTmallPromotionDailyReports({
     requestedStartDate: store.initialStartDate,
     requestedEndDate,
     productDailyDates: coverage.productDailyDates,
     promotionDates: coverage.promotionDates,
+    maximumDays: options.maximumDays,
   });
   if (plans.length === 0) {
     return {
@@ -1476,13 +1679,13 @@ export async function runTmallPromotionStage(options: {
       stage: "promotion",
       status: "skipped" as const,
       mode: "daily" as const,
-      reason: coverage.productDailyDates.length === 0 ? "waiting_product_daily" : "already_covered",
+      reason: "already_covered" as const,
       storeKey: store.storeKey,
       shopName: store.shopName,
       plannedDates: [],
       completedDates: [],
       dailyResults: [],
-      coverageConfirmed: coverage.productDailyDates.every((date) => coverage.promotionDates.includes(date)),
+      coverageConfirmed: true,
     };
   }
 
@@ -1500,6 +1703,11 @@ export async function runTmallPromotionStage(options: {
         startDate: plan.startDate,
         endDate: plan.endDate,
         dates: plan.dates,
+        fileName: undefined,
+        sha256: undefined,
+        rowCount: 0,
+        warningCount: 0,
+        batchId: undefined,
         coverageConfirmed: true,
       };
     }

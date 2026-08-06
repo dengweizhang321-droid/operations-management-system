@@ -67,6 +67,16 @@ type ImportPayload = {
     dateMin?: string | null;
     dateMax?: string | null;
   };
+  verification?: {
+    verified?: boolean;
+    parsedRowCount?: number;
+    readbackRowCount?: number;
+    dateMin?: string | null;
+    dateMax?: string | null;
+    dataset?: string;
+    platform?: string;
+    shopName?: string;
+  };
 };
 
 type VerifiedReceipt = { receiptPath: string; filePath: string; receipt: TmallDownloadReceipt; bytes: Uint8Array };
@@ -178,13 +188,24 @@ export function selectReceiptForDate(receipts: VerifiedReceipt[], businessDate: 
   return matches.sort((a, b) => b.receipt.downloadedAt.localeCompare(a.receipt.downloadedAt))[0] ?? null;
 }
 
-export function validateImportPayload(payload: ImportPayload | null, httpStatus: number, store: Pick<TmallStore, "shopName">, businessDate: string) {
+export function validateImportPayload(
+  payload: ImportPayload | null,
+  httpStatus: number,
+  store: Pick<TmallStore, "shopName">,
+  businessDate: string,
+  expectedRowCount: number,
+) {
   const batch = payload?.batch;
+  const verification = payload?.verification;
   const expectedStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
   if (httpStatus !== expectedStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
     || !batch?.id || batch.source !== "tmall_product_daily" || batch.dataset !== "spu_daily" || batch.platform !== "天猫"
     || batch.shopName !== store.shopName || batch.status !== "completed" || batch.dateMin !== businessDate || batch.dateMax !== businessDate
-    || !Number.isFinite(batch.rowCount) || !Number.isFinite(batch.warningCount)) {
+    || !Number.isInteger(expectedRowCount) || expectedRowCount <= 0 || batch.rowCount !== expectedRowCount
+    || !Number.isFinite(batch.warningCount) || verification?.verified !== true
+    || verification.parsedRowCount !== expectedRowCount || verification.readbackRowCount !== expectedRowCount
+    || verification.dataset !== "spu_daily" || verification.platform !== "天猫" || verification.shopName !== store.shopName
+    || verification.dateMin !== businessDate || verification.dateMax !== businessDate) {
     throw new Error(payload?.message ?? `天猫 SPU 导入回查不一致 (HTTP ${httpStatus})`);
   }
   return {
@@ -218,7 +239,7 @@ async function importReceipt(baseUrl: string, store: TmallStore, businessDate: s
   form.set("file", new File([fileBuffer], path.basename(candidate.filePath), { type: "application/vnd.ms-excel" }));
   const response = await request(`${baseUrl}/api/netshop/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
   const payload = await response.json().catch(() => null) as ImportPayload | null;
-  const imported = validateImportPayload(payload, response.status, store, businessDate);
+  const imported = validateImportPayload(payload, response.status, store, businessDate, inspected.totals.rowCount);
   const actualDates = await getActualDates(baseUrl, store, businessDate, businessDate, request);
   if (!actualDates.includes(businessDate)) throw new Error("导入接口返回成功，但同店铺同日期覆盖回查未命中");
   return imported;

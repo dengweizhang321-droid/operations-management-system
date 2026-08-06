@@ -5,20 +5,33 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  assertPromotionCoveragePayload,
   assertPromotionImportPayload,
   chooseTmallPromotionDownloadTask,
+  isPromotionMetricSelectionState,
   isPromotionReportSuccessNavigation,
   isSafePromotionDismissLabel,
   parsePromotionTaskDateRange,
   planTmallPromotionDailyReports,
   planTmallPromotionDateRange,
+  promotionNativeDialogAction,
   promotionDatePickerRole,
+  promotionSuccessNavigationMissingMessage,
   runPromotionDailyPlansSequentially,
   runTmallPromotionStage,
+  shouldRecoverSubmittedPromotionTask,
   TMALL_PROMOTION_DOWNLOAD_LIST_URL,
   TMALL_PROMOTION_ENTRY_URL,
 } from "../tools/tmall-promotion-export";
 import { TMALL_SELLER_ON_SALE_URL } from "../tools/tmall-product-master-export";
+
+function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
+  const url = new URL(typeof input === "string" || input instanceof URL ? input.toString() : input.url);
+  return {
+    startDate: url.searchParams.get("startDate")!,
+    endDate: url.searchParams.get("endDate")!,
+  };
+}
 
 test("推广缺口为每个业务日生成起止同日的独立报表计划并保持 30 日上限", () => {
   const productDailyDates = [
@@ -126,6 +139,14 @@ test("下载中心只选择本轮日期、创建时间、成功状态和唯一�
     endDate: "2026-08-04",
     runStartedAt,
   }), null);
+  assert.equal(chooseTmallPromotionDownloadTask([
+    { ...common, signature: "newer", status: "生成成功" },
+    { ...common, signature: "older", status: "生成成功", createdAt: new Date(Date.now() - 10_000).toISOString() },
+  ], {
+    startDate: "2026-07-29",
+    endDate: "2026-08-04",
+    runStartedAt,
+  }), null);
   assert.match(TMALL_PROMOTION_DOWNLOAD_LIST_URL, /#!\/report\/download-list$/);
 });
 
@@ -138,6 +159,21 @@ test("平台消息和广告弹窗只允许无业务副作用的明确关闭动�
   }
 });
 
+test("原生对话框只自动处理明确的无数据信息，未知文案必须停止", () => {
+  assert.equal(promotionNativeDialogAction({ type: "alert", message: "提示：暂无数据。" }), "dismiss");
+  assert.equal(promotionNativeDialogAction({ type: "alert", message: "暂无可下载数据" }), "dismiss");
+  assert.equal(promotionNativeDialogAction({ type: "confirm", message: "是否创建报表？" }), "stop");
+  assert.equal(promotionNativeDialogAction({ type: "alert", message: "请完成验证码" }), "stop");
+});
+
+test("全部数据指标必须能从 checked 或 selected 状态得到确认", () => {
+  assert.equal(isPromotionMetricSelectionState({ checked: true }), true);
+  assert.equal(isPromotionMetricSelectionState({ attributeValues: ["false", "true"] }), true);
+  assert.equal(isPromotionMetricSelectionState({ classNames: ["ant-checkbox-wrapper ant-checkbox-wrapper-checked"] }), true);
+  assert.equal(isPromotionMetricSelectionState({ checked: false, attributeValues: ["false"], classNames: ["ant-checkbox-wrapper"] }), false);
+  assert.equal(isPromotionMetricSelectionState({ classNames: ["unchecked unselected"] }), false);
+});
+
 test("确认报表后只点击生成成功提示中的前往下载动作", () => {
   const successNotice = "离线数据生成成功！您可以在下载任务管理中将报表内容保存到本地，文案仅为示意 立即前往";
   assert.equal(isPromotionReportSuccessNavigation({ label: "立即前往", context: successNotice }), true);
@@ -145,6 +181,8 @@ test("确认报表后只点击生成成功提示中的前往下载动作", () =>
   assert.equal(isPromotionReportSuccessNavigation({ label: "立即前往", context: "全站流量打爆，立即前往" }), false);
   assert.equal(isPromotionReportSuccessNavigation({ label: "查看详情", context: successNotice }), false);
   assert.equal(isSafePromotionDismissLabel("立即前往"), false);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error(promotionSuccessNavigationMissingMessage)), true);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("报表生成成功提示中存在多个前往下载操作，为防止误点已停止")), false);
 });
 
 test("推广报表必须从千牛店铺后台入口逐级进入", () => {
@@ -177,6 +215,7 @@ test("推广导入结果必须同时匹配来源、店铺、日期、行数和�
     },
     verification: {
       verified: true,
+      parsedRowCount: 12,
       readbackRowCount: 12,
       dataset: "promotion_daily",
       platform: "天猫",
@@ -185,29 +224,108 @@ test("推广导入结果必须同时匹配来源、店铺、日期、行数和�
       dateMax: "2026-08-04",
     },
   };
-  assert.deepEqual(assertPromotionImportPayload(payload, {
+  const expected = {
     shopName: "天猫-志高亿玖专卖店",
     startDate: "2026-07-29",
     endDate: "2026-08-04",
     rowCount: 12,
-  }), { batchId: "batch-1", status: "imported", warningCount: 1 });
+  };
+  assert.deepEqual(assertPromotionImportPayload(payload, 201, expected), {
+    batchId: "batch-1",
+    status: "imported",
+    warningCount: 1,
+  });
+  assert.deepEqual(assertPromotionImportPayload({ ...payload, status: "duplicate" }, 200, expected), {
+    batchId: "batch-1",
+    status: "duplicate",
+    warningCount: 1,
+  });
+  assert.throws(() => assertPromotionImportPayload(payload, 200, expected), /不一致/);
+  assert.throws(() => assertPromotionImportPayload({
+    ...payload,
+    verification: { ...payload.verification, parsedRowCount: 11 },
+  }, 201, expected), /不一致/);
   assert.throws(() => assertPromotionImportPayload({
     ...payload,
     batch: { ...payload.batch, shopName: "天猫-志高丽力专卖店" },
-  }, {
-    shopName: "天猫-志高亿玖专卖店",
-    startDate: "2026-07-29",
-    endDate: "2026-08-04",
-    rowCount: 12,
-  }), /不一致/);
+  }, 201, expected), /不一致/);
+});
+
+test("推广覆盖响应必须精确匹配请求周期并拒绝非法日期", () => {
+  const expected = { startDate: "2026-07-28", endDate: "2026-08-04" };
+  assert.deepEqual(assertPromotionCoveragePayload({
+    requestedPeriod: expected,
+    coverage: {
+      productDailyDates: ["2026-07-29", "2026-07-28", "2026-07-29"],
+      promotionDates: ["2026-07-28"],
+    },
+  }, expected), {
+    productDailyDates: ["2026-07-28", "2026-07-29"],
+    promotionDates: ["2026-07-28"],
+  });
+  assert.throws(() => assertPromotionCoveragePayload({
+    requestedPeriod: { startDate: "2026-07-29", endDate: "2026-08-04" },
+    coverage: { productDailyDates: [], promotionDates: [] },
+  }, expected), /requestedPeriod/);
+  assert.throws(() => assertPromotionCoveragePayload({
+    requestedPeriod: expected,
+    coverage: { productDailyDates: ["2026-02-30"], promotionDates: [] },
+  }, expected), /非法日期/);
+  assert.throws(() => assertPromotionCoveragePayload({
+    requestedPeriod: expected,
+    coverage: { productDailyDates: ["2026-07-27"], promotionDates: [] },
+  }, expected), /请求区间外日期/);
+});
+
+test("没有商品日覆盖时推广阶段明确等待并通过失败状态让调用链重试", async () => {
+  const request = (async (input: Parameters<typeof fetch>[0]) => Response.json({
+    requestedPeriod: requestedPeriodFromFetchInput(input),
+    coverage: { productDailyDates: [], promotionDates: [] },
+  })) as typeof fetch;
+  await assert.rejects(runTmallPromotionStage({
+    storeKey: "tmall-yijiu",
+    baseUrl: "http://localhost:3000",
+    request,
+  }), /waiting_product_daily/);
+});
+
+test("推广阶段 maximumDays 能把单轮日任务限制为一个且默认规划器上限不变", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-promotion-limit-"));
+  let requestCount = 0;
+  try {
+    const request = (async (input: Parameters<typeof fetch>[0]) => {
+      requestCount += 1;
+      const requestedPeriod = requestedPeriodFromFetchInput(input);
+      const singleDay = requestedPeriod.startDate === requestedPeriod.endDate;
+      return Response.json({
+        requestedPeriod,
+        coverage: singleDay
+          ? { productDailyDates: [requestedPeriod.startDate], promotionDates: [requestedPeriod.startDate] }
+          : { productDailyDates: ["2026-07-28", "2026-07-29"], promotionDates: [] },
+      });
+    }) as typeof fetch;
+    const result = await runTmallPromotionStage({
+      storeKey: "tmall-yijiu",
+      baseUrl: "http://localhost:3000",
+      request,
+      auditDirectory: directory,
+      maximumDays: 1,
+    });
+    assert.deepEqual(result.plannedDates, ["2026-07-28"]);
+    assert.deepEqual(result.completedDates, ["2026-07-28"]);
+    assert.equal(result.coverageConfirmed, true);
+    assert.equal(requestCount, 2);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("损坏的推广恢复清单必须失败关闭且测试不读取真实活动清单", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-promotion-audit-"));
   try {
     await writeFile(path.join(directory, "active-tmall-yijiu.json"), "{broken", "utf8");
-    const request = (async () => Response.json({
-      requestedPeriod: { startDate: "2026-07-28", endDate: "2026-08-04" },
+    const request = (async (input: Parameters<typeof fetch>[0]) => Response.json({
+      requestedPeriod: requestedPeriodFromFetchInput(input),
       coverage: { productDailyDates: ["2026-07-28"], promotionDates: [] },
     })) as typeof fetch;
     await assert.rejects(runTmallPromotionStage({

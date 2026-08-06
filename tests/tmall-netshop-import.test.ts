@@ -5,10 +5,13 @@ import { strToU8, unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 
 import {
+  importNetshopBytes,
   inspectTmallImportBytes,
+  type NetshopImportDatabaseDependencies,
   TMALL_PLATFORM,
   TMALL_YIJIU_SHOP,
 } from "../lib/netshop/import-service";
+import { tmallStoreRegistryData } from "../lib/netshop/tmall-store-catalog";
 
 function workbookBytes(rows: unknown[][], options: { bookType: "xlsx" | "xls"; sheetName: string }) {
   const workbook = XLSX.utils.book_new();
@@ -104,6 +107,31 @@ test("天猫导入拒绝未注册或未启用店铺", async () => {
   );
 });
 
+test("天猫样本检查返回解析出的受控店铺而不是固定店铺", async () => {
+  const bytes = dailyFixture();
+  const secondStore = tmallStoreRegistryData.stores.find((store) => store.storeKey === "tmall-lili");
+  assert.ok(secondStore);
+  const enabledBefore = secondStore.enabled;
+  secondStore.enabled = true;
+  try {
+    const result = await inspectTmallImportBytes({
+      source: "tmall_product_daily",
+      bytes,
+      fileName: "daily.xls",
+      fileSizeBytes: bytes.byteLength,
+      shopName: secondStore.shopName,
+      expectedStartDate: "2026-07-31",
+      expectedEndDate: "2026-07-31",
+    });
+
+    assert.equal(result.shopName, secondStore.shopName);
+    assert.equal(result.rows[0]?.shopName, secondStore.shopName);
+    assert.equal(JSON.parse(result.rows[0]!.sourceRowKey)[2], secondStore.shopName);
+  } finally {
+    secondStore.enabled = enabledBefore;
+  }
+});
+
 test("生意参谋二进制 XLS 转换金额、比率并校验目标日期", async () => {
   const bytes = dailyFixture();
   const accepted = await inspectTmallImportBytes({
@@ -163,4 +191,119 @@ test("推广 ZIP 多 CSV 时拒绝解析", async () => {
     }),
     /必须且只能包含一个 CSV/,
   );
+});
+
+function duplicateDatabaseDependencies(input: {
+  verified: boolean;
+  expectedFileSize: number;
+  onVerify(): void;
+}) {
+  const batch = {
+    id: "tmall-product-daily-batch",
+    source: "tmall_product_daily" as const,
+    dataset: "spu_daily",
+    platform: TMALL_PLATFORM,
+    shopName: TMALL_YIJIU_SHOP,
+    fileName: "daily.xls",
+    fileSizeBytes: input.expectedFileSize,
+    fileHash: "existing-hash",
+    sheetName: "商品",
+    status: "completed",
+    rowCount: 1,
+    insertedCount: 1,
+    duplicateCount: 0,
+    warningCount: 0,
+    dateMin: "2026-07-31",
+    dateMax: "2026-07-31",
+    snapshotDate: null,
+    warnings: [],
+    totals: { unmatchedProductCount: 0 },
+    note: "",
+    createdAt: "2026-08-01 00:00:00",
+    completedAt: "2026-08-01 00:00:01",
+  };
+  const database = {};
+  return {
+    getNetshopDatabase: () => database,
+    ensureNetshopSchema: async () => undefined,
+    findNetshopImportBatchByHash: async () => batch,
+    normalizeJdProductMasterRows: async () => undefined,
+    verifyNetshopImportBatch: async (_database: unknown, actualBatch: unknown, expected: {
+      rowCount: number;
+      dataset: string;
+      platform: string;
+      shopName: string;
+      dateMin: string | null;
+      dateMax: string | null;
+    }) => {
+      input.onVerify();
+      assert.equal(actualBatch, batch);
+      assert.deepEqual(expected, {
+        rowCount: 1,
+        dataset: "spu_daily",
+        platform: TMALL_PLATFORM,
+        shopName: TMALL_YIJIU_SHOP,
+        dateMin: "2026-07-31",
+        dateMax: "2026-07-31",
+      });
+      return {
+        verified: input.verified,
+        parsedRowCount: expected.rowCount,
+        readbackRowCount: input.verified ? expected.rowCount : 0,
+        dateMin: input.verified ? expected.dateMin : null,
+        dateMax: input.verified ? expected.dateMax : null,
+        dataset: batch.dataset,
+        platform: batch.platform,
+        shopName: batch.shopName,
+      };
+    },
+  } as unknown as NetshopImportDatabaseDependencies;
+}
+
+test("重复天猫文件必须经过真实落库回查后才能返回 duplicate", async () => {
+  const bytes = dailyFixture();
+  let verifiedCalls = 0;
+  const accepted = await importNetshopBytes({
+    source: "tmall_product_daily",
+    bytes,
+    fileName: "daily.xls",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-07-31",
+    expectedEndDate: "2026-07-31",
+  }, duplicateDatabaseDependencies({
+    verified: true,
+    expectedFileSize: bytes.byteLength,
+    onVerify: () => { verifiedCalls += 1; },
+  }));
+
+  assert.equal(verifiedCalls, 1);
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.status, "duplicate");
+  assert.equal(accepted.verification?.verified, true);
+  assert.equal(accepted.verification?.readbackRowCount, 1);
+});
+
+test("已被替换或当前事实不匹配的历史批次不得冒充已验证重复", async () => {
+  const bytes = dailyFixture();
+  let verifiedCalls = 0;
+  const rejected = await importNetshopBytes({
+    source: "tmall_product_daily",
+    bytes,
+    fileName: "daily.xls",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-07-31",
+    expectedEndDate: "2026-07-31",
+  }, duplicateDatabaseDependencies({
+    verified: false,
+    expectedFileSize: bytes.byteLength,
+    onVerify: () => { verifiedCalls += 1; },
+  }));
+
+  assert.equal(verifiedCalls, 1);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.status, "rejected");
+  assert.equal(rejected.verification?.verified, false);
+  assert.deepEqual(rejected.errors?.map((issue) => issue.code), ["DUPLICATE_READBACK_VERIFICATION_FAILED"]);
 });

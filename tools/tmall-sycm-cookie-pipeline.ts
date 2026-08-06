@@ -26,7 +26,9 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
 const defaultCookiePointerFile = path.join(projectRoot, ".runtime", "tmall-yijiu-sycm-cookie-path.txt");
 const maximumDownloadBytes = 25 * 1024 * 1024;
-const maximumDaysPerRun = 31;
+export const maximumDaysPerRun = 1;
+export const helperInactivityTimeoutMs = 2 * 60_000;
+export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
 const sycmOrigin = "https://sycm.taobao.com";
 const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
@@ -35,6 +37,18 @@ type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "s
 export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "imported" | "running" | "executed" | "completed" | "failed";
 type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import" | "/promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
+
+type TmallPipelineErrorCode = "SOURCE_NOT_READY" | "INVALID_SOURCE_FILE" | "DOWNLOAD_FAILED";
+
+class TmallPipelineError extends Error {
+  readonly code: TmallPipelineErrorCode;
+
+  constructor(code: TmallPipelineErrorCode, message: string) {
+    super(message);
+    this.name = "TmallPipelineError";
+    this.code = code;
+  }
+}
 
 type PipelinePlan = {
   version: 1;
@@ -192,9 +206,20 @@ export function isLegacyXls(bytes: Uint8Array) {
   return bytes.length >= 4 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
 }
 
-function safeInspectionError(errors: Array<{ code?: string }>) {
+export function classifySycmInspectionErrors(errors: Array<{ code?: string }>) {
   const codes = [...new Set(errors.map((item) => item.code ?? "UNKNOWN"))].slice(0, 8);
-  return `生意参谋 XLS 内容校验失败: ${codes.join(", ")}`;
+  const sourceNotReadyCodes = new Set(["NO_DATA_ROWS", "MISSING_EXPECTED_DATES"]);
+  const sourceNotReady = codes.length === sourceNotReadyCodes.size
+    && codes.every((code) => sourceNotReadyCodes.has(code));
+  return sourceNotReady
+    ? {
+        code: "SOURCE_NOT_READY" as const,
+        message: `SOURCE_NOT_READY：生意参谋目标日尚未返回可导入数据 (${codes.join(", ")})`,
+      }
+    : {
+        code: "INVALID_SOURCE_FILE" as const,
+        message: `生意参谋 XLS 内容校验失败: ${codes.join(", ")}`,
+      };
 }
 
 function nonXlsError(bytes: Uint8Array, status: number) {
@@ -249,7 +274,10 @@ async function fetchSycmDay(
     expectedStartDate: businessDate,
     expectedEndDate: businessDate,
   });
-  if (inspection.errors.length) throw new Error(safeInspectionError(inspection.errors));
+  if (inspection.errors.length) {
+    const failure = classifySycmInspectionErrors(inspection.errors);
+    throw new TmallPipelineError(failure.code, failure.message);
+  }
   if (inspection.totals.rowCount <= 0) throw new Error("生意参谋 XLS 没有可导入的商品行");
   return { bytes, fileName, rowCount: inspection.totals.rowCount };
 }
@@ -391,6 +419,36 @@ export async function getCookieSourceStatus(cookieFile?: string): Promise<Cookie
     .catch(() => "missing" as const);
 }
 
+export function shouldLoadCookieForPlan(dates: readonly string[]) {
+  return dates.length > 0;
+}
+
+export function createInitialDownloadManifest(
+  plan: Pick<PipelinePlan, "runId" | "baseUrl" | "dates">,
+  store: Pick<TmallStore, "storeKey" | "shopName">,
+  generatedAt = new Date().toISOString(),
+): PipelineManifest {
+  return {
+    version: 1,
+    runId: plan.runId,
+    generatedAt,
+    status: "downloaded",
+    baseUrl: plan.baseUrl,
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+    dates: [...plan.dates],
+    files: [],
+    errors: [],
+  };
+}
+
+export function getTmallPromotionStageOptions() {
+  return {
+    storeKey: "tmall-yijiu",
+    maximumDays: maximumDaysPerRun,
+  };
+}
+
 async function fetchCommand(argv: string[]) {
   const encodedPlan = cliValue(argv, "--plan-base64");
   if (!encodedPlan) throw new Error("fetch 阶段缺少 --plan-base64");
@@ -398,6 +456,22 @@ async function fetchCommand(argv: string[]) {
   const plan = validatePlan(JSON.parse(await readFile(planPath, "utf8")) as PipelinePlan);
   const store = await getTmallStore(plan.storeKey);
   if (plan.shopName !== store.shopName || plan.baseUrl !== normalizeLocalBaseUrl(plan.baseUrl)) throw new Error("计划店铺或系统地址与注册表不一致");
+  const manifestPath = path.join(artifactDirectory, `manifest-${plan.runId}.json`);
+  const manifest = createInitialDownloadManifest(plan, store);
+  const files = manifest.files;
+  if (!shouldLoadCookieForPlan(plan.dates)) {
+    await writeJsonAtomic(manifestPath, manifest);
+    return {
+      ok: true,
+      stage: "fetch",
+      manifestPath,
+      manifestPathBase64: encodeArtifactPath(manifestPath),
+      downloaded: 0,
+      rows: 0,
+      reusedExistingFiles: 0,
+    };
+  }
+
   const cookieFile = await configuredCookieFilePath();
   if (!cookieFile || !path.isAbsolute(cookieFile)) {
     throw new Error("必须通过 TMALL_SYCM_COOKIE_FILE 或本机 .runtime 指针提供绝对 Cookie 文件路径");
@@ -408,20 +482,6 @@ async function fetchCommand(argv: string[]) {
   const cookie = parseCookieHeader(await readFile(cookieFile, "utf8"));
   assertCookieMatchesStore(cookie, store);
 
-  const files: DownloadedFile[] = [];
-  const manifestPath = path.join(artifactDirectory, `manifest-${plan.runId}.json`);
-  const manifest: PipelineManifest = {
-    version: 1,
-    runId: plan.runId,
-    generatedAt: new Date().toISOString(),
-    status: "downloaded",
-    baseUrl: plan.baseUrl,
-    storeKey: store.storeKey,
-    shopName: store.shopName,
-    dates: plan.dates,
-    files,
-    errors: [],
-  };
   try {
     for (let index = 0; index < plan.dates.length; index += 1) {
       const businessDate = plan.dates[index]!;
@@ -441,7 +501,8 @@ async function fetchCommand(argv: string[]) {
   } catch (error) {
     manifest.status = "failed";
     const businessDate = plan.dates[files.length] ?? "unknown";
-    manifest.errors.push({ businessDate, code: "DOWNLOAD_FAILED", message: error instanceof Error ? error.message : String(error) });
+    const code = error instanceof TmallPipelineError ? error.code : "DOWNLOAD_FAILED";
+    manifest.errors.push({ businessDate, code, message: error instanceof Error ? error.message : String(error) });
     await writeJsonAtomic(manifestPath, manifest);
     throw error;
   }
@@ -525,7 +586,28 @@ function integerPort(value: string | undefined) {
   return port;
 }
 
-export function helperRequestError(stage: HelperStage, busy: boolean, route: HelperRoute) {
+export function normalizeN8nExecutionId(value: string | string[] | undefined) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length >= 1 && normalized.length <= 128 && /^[A-Za-z0-9._:-]+$/.test(normalized)
+    ? normalized
+    : null;
+}
+
+export function helperRequestError(
+  stage: HelperStage,
+  busy: boolean,
+  route: HelperRoute,
+  requestExecutionId: string | null,
+  claimedExecutionId: string | null,
+) {
+  if (!requestExecutionId) return { error: "missing_or_invalid_execution_id" as const };
+  if (claimedExecutionId && requestExecutionId !== claimedExecutionId) {
+    return { error: "execution_mismatch" as const };
+  }
+  if (!claimedExecutionId && route !== "/product-master") {
+    return { error: "execution_not_claimed" as const, expected: "/product-master" as const };
+  }
   if (busy) return { error: "pipeline_busy" as const };
   if (route === "/product-master") {
     return stage === "ready" || stage === "mastered"
@@ -533,9 +615,9 @@ export function helperRequestError(stage: HelperStage, busy: boolean, route: Hel
       : { error: "invalid_stage" as const, expected: "ready_or_mastered" as const, actual: stage };
   }
   if (route === "/plan") {
-    return stage === "ready" || stage === "mastered"
+    return stage === "mastered"
       ? null
-      : { error: "invalid_stage" as const, expected: "ready_or_mastered" as const, actual: stage };
+      : { error: "invalid_stage" as const, expected: "mastered" as const, actual: stage };
   }
   const expected: HelperStage = route === "/fetch"
     ? "planned"
@@ -543,6 +625,39 @@ export function helperRequestError(stage: HelperStage, busy: boolean, route: Hel
       ? "fetched"
       : "imported";
   return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
+}
+
+export function createHelperInactivityReaper({
+  close,
+  timeoutMs = helperInactivityTimeoutMs,
+  schedule = (callback: () => void, delayMs: number): unknown => setTimeout(callback, delayMs),
+  cancel = (handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+}: {
+  close: () => void;
+  timeoutMs?: number;
+  schedule?: (callback: () => void, delayMs: number) => unknown;
+  cancel?: (handle: unknown) => void;
+}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("helper inactivity timeout 必须是正数");
+  let timer: unknown = null;
+  const clear = () => {
+    if (timer === null) return;
+    cancel(timer);
+    timer = null;
+  };
+  return {
+    arm() {
+      clear();
+      timer = schedule(() => {
+        timer = null;
+        close();
+      }, timeoutMs);
+    },
+    clear,
+    isArmed() {
+      return timer !== null;
+    },
+  };
 }
 
 export function helperHealthCorsHeaders(
@@ -580,7 +695,9 @@ async function serveCommand(argv: string[]) {
   let planPathBase64 = "";
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
+  let claimedTmallExecutionId: string | null = null;
   let tmallImportFallbackClose: ReturnType<typeof setTimeout> | null = null;
+  let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
     const healthCorsHeaders = request.url === "/health"
       ? helperHealthCorsHeaders(
@@ -628,13 +745,18 @@ async function serveCommand(argv: string[]) {
       return;
     }
     const route = request.url as HelperRoute | JackyunHelperRoute;
+    const requestExecutionId = isJackyun
+      ? null
+      : normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
     const stateError = isJackyun
       ? jackyunHelperRequestError(stage, busy, route as JackyunHelperRoute)
-      : helperRequestError(stage, busy, route as HelperRoute);
+      : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
     }
+    if (!isJackyun && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
+    inactivityReaper?.clear();
     if (request.url === "/promotion" && tmallImportFallbackClose) {
       clearTimeout(tmallImportFallbackClose);
       tmallImportFallbackClose = null;
@@ -662,16 +784,19 @@ async function serveCommand(argv: string[]) {
         const result = await runTmallProductMasterStage({ storeKey: "tmall-yijiu" });
         stage = "mastered";
         reply(200, result);
+        inactivityReaper?.arm();
       } else if (request.url === "/plan") {
         const result = await planCommand(["--store-key", "tmall-yijiu", "--max-days", String(maximumDaysPerRun)]);
         planPathBase64 = result.planPathBase64;
         stage = "planned";
         reply(200, result);
+        inactivityReaper?.arm();
       } else if (request.url === "/fetch") {
         const result = await fetchCommand(["--plan-base64", planPathBase64]);
         manifestPathBase64 = result.manifestPathBase64;
         stage = "fetched";
         reply(200, result);
+        inactivityReaper?.arm();
       } else if (request.url === "/import") {
         const result = await importCommand(["--manifest-base64", manifestPathBase64]);
         stage = "imported";
@@ -680,19 +805,27 @@ async function serveCommand(argv: string[]) {
         // window while allowing the new promotion node to claim the next stage.
         tmallImportFallbackClose = scheduleOneShotServerClose(server, 30_000);
       } else {
-        const result = await runTmallPromotionStage({ storeKey: "tmall-yijiu" });
+        const result = await runTmallPromotionStage(getTmallPromotionStageOptions());
         stage = "completed";
         reply(200, result);
+        inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
       }
     } catch (error) {
       stage = "failed";
-      reply(500, { ok: false, stage, error: error instanceof Error ? error.message : String(error) });
+      inactivityReaper?.clear();
+      reply(500, {
+        ok: false,
+        stage,
+        code: error instanceof TmallPipelineError ? error.code : "PIPELINE_FAILED",
+        error: error instanceof Error ? error.message : String(error),
+      });
       scheduleOneShotServerClose(server, 500);
     } finally {
       busy = false;
     }
   });
+  inactivityReaper = createHelperInactivityReaper({ close: () => closeOneShotServer(server) });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, "127.0.0.1", () => resolve());

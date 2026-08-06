@@ -84,7 +84,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     pipelineTitle: "五段式安全导入链路",
     pipelineDescription: "两个触发入口汇入同一条串行链路；任一步失败都会停止后续导入。",
     workflowMetric: "天猫店铺数据导入",
-    scheduleMetric: "08:40–18:40",
+    scheduleMetric: "09:10–19:10",
     scheduleDescription: "上海时区 · 每小时补跑",
     iframeTitle: "天猫店铺数据导入 n8n 工作流",
     safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；商品日与推广缺口均以运营系统真实覆盖规划，推广按单个业务日串行下载并只接管本轮唯一任务；同店同日同内容返回 duplicate，导入接口继续按店铺、数据集、日期和文件内容幂等去重。",
@@ -138,8 +138,8 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
     detail: "服务与专用 profile 已就绪；A 会跳过已有完整当日结果，任一失败都会阻断后续五类任务。",
   } : {
     kind: "ready",
-    label: "可以安全启动",
-    detail: "服务已在线；A 仅规划商品缺失日期，C 与 P 均执行店铺、日期、文件内容和落库覆盖回查。",
+    label: "辅助服务已就绪",
+    detail: "服务在线且 Cookie 原文件可读取；Cookie 身份及千牛、阿里妈妈登录有效性会在对应阶段再次核验，异常时流程会停止并等待恢复。",
   };
 }
 
@@ -250,9 +250,9 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
           </div>
         </div>
         <div className="n8n-workflow-hero-status">
-          <span className={workflow.active ? "is-active" : "is-draft"}>{workflow.active ? "已启用" : "待发布"}</span>
+          <span className="is-draft">仓库模板</span>
           <strong>{config.flowLabel}</strong>
-          <small>工作流 ID · {workflow.id}</small>
+          <small>工作流 ID · {workflow.id} · 实际发布状态以 n8n 画布为准</small>
         </div>
       </section>
 
@@ -274,7 +274,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
         <div className="n8n-pipeline-flow">
           <div className="n8n-trigger-stack" aria-label="触发入口">
             <div><i className="manual">↗</i><span><strong>手动运行</strong><small>人工确认后启动</small></span></div>
-            <div><i className="schedule">◷</i><span><strong>定时补跑</strong><small>08:40–18:40 每小时</small></span></div>
+            <div><i className="schedule">◷</i><span><strong>定时补跑</strong><small>{config.scheduleMetric} 每小时</small></span></div>
           </div>
           <span className="n8n-flow-arrow" aria-hidden="true">→</span>
           {requestStages.map((stage, index) => (

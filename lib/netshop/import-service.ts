@@ -700,7 +700,7 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
   return {
     dataset,
     platform: TMALL_PLATFORM,
-    shopName: TMALL_YIJIU_SHOP,
+    shopName: tmallStore.shopName,
     sheetName: parsed.sheetName,
     rows: built.rows,
     errors,
@@ -723,7 +723,22 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
   };
 }
 
-export async function importNetshopBytes(input: NetshopImportInput): Promise<NetshopImportExecution> {
+export type NetshopImportDatabaseDependencies = Pick<
+  typeof import("@/lib/netshop/database"),
+  | "ensureNetshopSchema"
+  | "findNetshopImportBatchByHash"
+  | "getNetshopDatabase"
+  | "normalizeJdProductMasterRows"
+  | "reconcileNetshopMasterProducts"
+  | "sanitizeNetshopIssues"
+  | "saveNetshopImport"
+  | "verifyNetshopImportBatch"
+>;
+
+export async function importNetshopBytes(
+  input: NetshopImportInput,
+  databaseDependencies?: NetshopImportDatabaseDependencies,
+): Promise<NetshopImportExecution> {
   const {
     ensureNetshopSchema,
     findNetshopImportBatchByHash,
@@ -733,7 +748,7 @@ export async function importNetshopBytes(input: NetshopImportInput): Promise<Net
     sanitizeNetshopIssues,
     saveNetshopImport,
     verifyNetshopImportBatch,
-  } = await import("@/lib/netshop/database");
+  } = databaseDependencies ?? await import("@/lib/netshop/database");
   const fileHash = toHex(await sha256(input.bytes));
   const db = getNetshopDatabase();
   await ensureNetshopSchema(db);
@@ -885,27 +900,41 @@ export async function importNetshopBytes(input: NetshopImportInput): Promise<Net
     return { ok: false, status: "rejected", message: "文件校验未通过，未写入数据", warnings: [], errors, errorCount: errors.length };
   }
 
+  const dateValues = rows.map((row) => row.businessDate).filter(Boolean);
+  const sortedDates = [...dateValues].sort();
+
   // A file imported before these guards existed must not bypass the new
   // schema and date-coverage validation merely because its hash is known.
   if (previous?.status === "completed") {
     if (input.source === "jd_product_master") await normalizeJdProductMasterRows(db, previous.id);
+    const verification = await verifyNetshopImportBatch(db, previous, {
+      rowCount: rows.length,
+      dataset,
+      platform,
+      shopName,
+      dateMin: sortedDates[0] ?? null,
+      dateMax: sortedDates[sortedDates.length - 1] ?? null,
+    });
+    const unmatchedProductCount = Number((previous.totals as { unmatchedProductCount?: number } | null)?.unmatchedProductCount ?? 0);
+    if (!verification.verified) {
+      return {
+        ok: false,
+        status: "rejected",
+        message: "历史批次已完成，但当前落库事实与该文件不一致，拒绝将其视为已验证重复",
+        batch: previous,
+        warnings: previous.warnings,
+        errors: [{ code: "DUPLICATE_READBACK_VERIFICATION_FAILED", message: "历史批次已被替换或当前行数、店铺、数据集、日期覆盖不一致" }],
+        errorCount: 1,
+        verification: { ...verification, unmatchedProductCount },
+      };
+    }
     return {
       ok: true,
       status: "duplicate",
       message: "该文件已经导入，无需重复处理",
       batch: previous,
       warnings: previous.warnings,
-      verification: {
-        verified: true,
-        parsedRowCount: rows.length,
-        readbackRowCount: previous.rowCount,
-        dateMin: previous.dateMin,
-        dateMax: previous.dateMax,
-        dataset: previous.dataset,
-        platform: previous.platform,
-        shopName: previous.shopName,
-        unmatchedProductCount: Number((previous.totals as { unmatchedProductCount?: number } | null)?.unmatchedProductCount ?? 0),
-      },
+      verification: { ...verification, unmatchedProductCount },
     };
   }
 
@@ -936,9 +965,7 @@ export async function importNetshopBytes(input: NetshopImportInput): Promise<Net
     ...(reconciliation.masterAvailable && reconciliation.unmatchedCount > 0 ? [{ code: "UNMATCHED_MASTER_PRODUCTS", message: `${reconciliation.unmatchedCount} 个商品ID未匹配最新货品主数据；样例：${reconciliation.unmatchedSample.join("、")}` }] : []),
   ]);
 
-  const dateValues = rows.map((row) => row.businessDate).filter(Boolean);
   const sumMetric = (key: string) => rows.reduce((sum, row) => sum + Number(row.metrics[key] ?? 0), 0);
-  const sortedDates = [...dateValues].sort();
   const result = await saveNetshopImport(db, {
     source: input.source,
     dataset,

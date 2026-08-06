@@ -4,14 +4,22 @@ import test from "node:test";
 import {
   assertCookieMatchesStore,
   buildSycmExportUrl,
+  classifySycmInspectionErrors,
   closeOneShotServer,
+  createHelperInactivityReaper,
+  createInitialDownloadManifest,
   decodeArtifactPath,
   encodeArtifactPath,
   getCookieSourceStatus,
+  getTmallPromotionStageOptions,
+  helperInactivityTimeoutMs,
   helperHealthCorsHeaders,
   helperRequestError,
   isLegacyXls,
+  maximumDaysPerRun,
+  normalizeN8nExecutionId,
   parseCookieHeader,
+  shouldLoadCookieForPlan,
 } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("one-shot helper closes both its listener and retained keep-alive connections", () => {
@@ -58,6 +66,47 @@ test("下载响应必须是老式 XLS 魔数", () => {
   assert.equal(isLegacyXls(new TextEncoder().encode('{"code":5810}')), false);
 });
 
+test("单轮只规划一个商品日，空计划不读取 Cookie 并可生成空下载清单", () => {
+  assert.equal(maximumDaysPerRun, 1);
+  assert.deepEqual(getTmallPromotionStageOptions(), { storeKey: "tmall-yijiu", maximumDays: 1 });
+  assert.equal(shouldLoadCookieForPlan([]), false);
+  assert.equal(shouldLoadCookieForPlan(["2026-08-05"]), true);
+  assert.deepEqual(createInitialDownloadManifest({
+    runId: "run-empty",
+    baseUrl: "http://localhost:3000",
+    dates: [],
+  }, {
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+  }, "2026-08-06T01:00:00.000Z"), {
+    version: 1,
+    runId: "run-empty",
+    generatedAt: "2026-08-06T01:00:00.000Z",
+    status: "downloaded",
+    baseUrl: "http://localhost:3000",
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+    dates: [],
+    files: [],
+    errors: [],
+  });
+});
+
+test("来源零行且缺少目标日明确归类为 SOURCE_NOT_READY", () => {
+  assert.deepEqual(classifySycmInspectionErrors([
+    { code: "NO_DATA_ROWS" },
+    { code: "MISSING_EXPECTED_DATES" },
+  ]), {
+    code: "SOURCE_NOT_READY",
+    message: "SOURCE_NOT_READY：生意参谋目标日尚未返回可导入数据 (NO_DATA_ROWS, MISSING_EXPECTED_DATES)",
+  });
+  assert.equal(classifySycmInspectionErrors([
+    { code: "NO_DATA_ROWS" },
+    { code: "MISSING_EXPECTED_DATES" },
+    { code: "MISSING_REQUIRED_COLUMNS" },
+  ]).code, "INVALID_SOURCE_FILE");
+});
+
 test("健康检查只暴露 Cookie 文件就绪状态，并仅允许运营系统本机来源跨域读取", async () => {
   assert.equal(await getCookieSourceStatus(""), "missing");
   assert.equal(await getCookieSourceStatus("relative-cookie.txt"), "invalid");
@@ -71,35 +120,76 @@ test("健康检查只暴露 Cookie 文件就绪状态，并仅允许运营系统
   assert.equal(JSON.stringify(headers).includes("cookie"), false);
 });
 
-test("一次性 HTTP 辅助进程允许幂等货品前置并拒绝乱序和并发调用", () => {
-  assert.equal(helperRequestError("ready", false, "/product-master"), null);
-  assert.equal(helperRequestError("mastered", false, "/product-master"), null);
-  assert.deepEqual(helperRequestError("planned", false, "/product-master"), {
+test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执行、乱序和并发调用", () => {
+  assert.equal(normalizeN8nExecutionId("execution-100"), "execution-100");
+  assert.equal(normalizeN8nExecutionId("bad execution"), null);
+  assert.equal(normalizeN8nExecutionId(undefined), null);
+
+  assert.equal(helperRequestError("ready", false, "/product-master", "execution-100", null), null);
+  assert.equal(helperRequestError("mastered", false, "/product-master", "execution-100", "execution-100"), null);
+  assert.deepEqual(helperRequestError("planned", false, "/product-master", "execution-100", "execution-100"), {
     error: "invalid_stage",
     expected: "ready_or_mastered",
     actual: "planned",
   });
-  assert.equal(helperRequestError("ready", false, "/plan"), null);
-  assert.equal(helperRequestError("mastered", false, "/plan"), null);
-  assert.deepEqual(helperRequestError("ready", false, "/fetch"), {
+  assert.deepEqual(helperRequestError("ready", false, "/plan", "execution-100", null), {
+    error: "execution_not_claimed",
+    expected: "/product-master",
+  });
+  assert.equal(helperRequestError("mastered", false, "/plan", "execution-100", "execution-100"), null);
+  assert.deepEqual(helperRequestError("planned", false, "/fetch", "execution-old", "execution-100"), {
+    error: "execution_mismatch",
+  });
+  assert.deepEqual(helperRequestError("ready", false, "/fetch", "execution-100", "execution-100"), {
     error: "invalid_stage",
     expected: "planned",
     actual: "ready",
   });
-  assert.deepEqual(helperRequestError("planned", false, "/plan"), {
+  assert.deepEqual(helperRequestError("planned", false, "/plan", "execution-100", "execution-100"), {
     error: "invalid_stage",
-    expected: "ready_or_mastered",
+    expected: "mastered",
     actual: "planned",
   });
-  assert.deepEqual(helperRequestError("planned", true, "/fetch"), { error: "pipeline_busy" });
-  assert.equal(helperRequestError("planned", false, "/fetch"), null);
-  assert.equal(helperRequestError("fetched", false, "/import"), null);
-  assert.equal(helperRequestError("imported", false, "/promotion"), null);
-  assert.deepEqual(helperRequestError("fetched", false, "/promotion"), {
+  assert.deepEqual(helperRequestError("planned", true, "/fetch", "execution-100", "execution-100"), { error: "pipeline_busy" });
+  assert.equal(helperRequestError("planned", false, "/fetch", "execution-100", "execution-100"), null);
+  assert.equal(helperRequestError("fetched", false, "/import", "execution-100", "execution-100"), null);
+  assert.equal(helperRequestError("imported", false, "/promotion", "execution-100", "execution-100"), null);
+  assert.deepEqual(helperRequestError("fetched", false, "/promotion", "execution-100", "execution-100"), {
     error: "invalid_stage",
     expected: "imported",
     actual: "fetched",
   });
-  assert.deepEqual(helperRequestError("imported", true, "/promotion"), { error: "pipeline_busy" });
-  assert.match(JSON.stringify(helperRequestError("completed", false, "/import")), /invalid_stage/);
+  assert.deepEqual(helperRequestError("imported", true, "/promotion", "execution-100", "execution-100"), { error: "pipeline_busy" });
+  assert.deepEqual(helperRequestError("ready", false, "/product-master", null, null), { error: "missing_or_invalid_execution_id" });
+  assert.match(JSON.stringify(helperRequestError("completed", false, "/import", "execution-100", "execution-100")), /invalid_stage/);
+});
+
+test("A/B 等非终态在有界空闲后关闭 helper，下一段领取会取消旧回收计时", () => {
+  let closed = 0;
+  let cancelled = 0;
+  const scheduled: Array<{ callback: () => void; delay: number; handle: object }> = [];
+  const reaper = createHelperInactivityReaper({
+    close: () => { closed += 1; },
+    schedule: (callback, delay) => {
+      const handle = {};
+      scheduled.push({ callback, delay, handle });
+      return handle;
+    },
+    cancel: (handle) => {
+      assert.equal(handle, scheduled.at(-1)?.handle);
+      cancelled += 1;
+    },
+  });
+
+  reaper.arm();
+  assert.equal(reaper.isArmed(), true);
+  assert.equal(scheduled[0]?.delay, helperInactivityTimeoutMs);
+  reaper.clear();
+  assert.equal(cancelled, 1);
+  assert.equal(reaper.isArmed(), false);
+
+  reaper.arm();
+  scheduled.at(-1)?.callback();
+  assert.equal(closed, 1);
+  assert.equal(reaper.isArmed(), false);
 });
