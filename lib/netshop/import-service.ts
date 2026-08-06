@@ -952,9 +952,26 @@ export async function importNetshopBytes(
     }
   }
   const duplicateMerchantCodeRows = [...merchantCodeCounts.values()].filter((count) => count > 1).reduce((sum, count) => sum + count, 0);
+  const reconciliationProductIds = [...new Set(rows.map((row) => row.spuId.trim()).filter(Boolean))];
   const reconciliation = input.source === "tmall_product_daily" || input.source === "tmall_promotion"
-    ? await reconcileNetshopMasterProducts(db, { platform, shopName, productIds: rows.map((row) => row.spuId) })
+    ? await reconcileNetshopMasterProducts(db, { platform, shopName, productIds: reconciliationProductIds })
     : { masterAvailable: true, unmatchedCount: 0, unmatchedSample: [] as string[] };
+  if ((input.source === "tmall_product_daily" || input.source === "tmall_promotion")
+    && reconciliation.masterAvailable
+    && reconciliationProductIds.length >= 5
+    && reconciliation.unmatchedCount === reconciliationProductIds.length) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "报表商品与该店铺最新货品主数据零交集，疑似账号或店铺上下文不一致，已阻止导入",
+      warnings: [],
+      errors: [{
+        code: "MASTER_IDENTITY_MISMATCH",
+        message: `${reconciliationProductIds.length} 个商品ID均未匹配该店铺最新货品主数据`,
+      }],
+      errorCount: 1,
+    };
+  }
   const warnings = sanitizeNetshopIssues([
     ...(missingDateRows > 0 ? [{ code: "MISSING_BUSINESS_DATE", message: `${missingDateRows} 行未识别到业务日期，overview 不会把这些行计入 date_max` }] : []),
     ...(missingSnapshotRows > 0 ? [{ code: "MISSING_SNAPSHOT_DATE", message: `${missingSnapshotRows} 行未识别到快照日期，请在上传时传 snapshot_date=YYYY-MM-DD` }] : []),

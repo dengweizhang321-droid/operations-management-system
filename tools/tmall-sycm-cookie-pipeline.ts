@@ -4,6 +4,7 @@ import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
@@ -83,6 +84,7 @@ type PipelineManifest = {
   storeKey: string;
   shopName: string;
   dates: string[];
+  authenticationSource?: "dedicated_browser" | "cookie_file";
   files: DownloadedFile[];
   errors: Array<{ businessDate: string; code: string; message: string }>;
 };
@@ -90,6 +92,15 @@ type PipelineManifest = {
 type ParsedCookie = {
   header: string;
   values: Map<string, string>;
+};
+
+export type ChromeStorageCookie = {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  secure?: boolean;
+  expires?: number;
 };
 
 type CoveragePayload = {
@@ -163,6 +174,34 @@ export function parseCookieHeader(rawValue: string): ParsedCookie {
   return { header, values };
 }
 
+function cookieDomainMatches(host: string, domain: string) {
+  const normalized = domain.trim().replace(/^\./, "").toLowerCase();
+  return normalized.length > 0 && (host === normalized || host.endsWith(`.${normalized}`));
+}
+
+export function sycmCookieHeaderFromChromeStorage(
+  cookies: readonly ChromeStorageCookie[],
+  nowMs = Date.now(),
+) {
+  const host = "sycm.taobao.com";
+  const candidates = cookies.filter((cookie) => (
+    cookie.name.length > 0
+    && cookie.value.length > 0
+    && cookieDomainMatches(host, cookie.domain)
+    && sycmExportPath.startsWith(cookie.path || "/")
+    && (!(cookie.expires && cookie.expires > 0) || cookie.expires * 1000 > nowMs)
+  )).sort((left, right) => (
+    (right.path?.length ?? 0) - (left.path?.length ?? 0)
+    || Number(right.domain.replace(/^\./, "").toLowerCase() === host)
+      - Number(left.domain.replace(/^\./, "").toLowerCase() === host)
+  ));
+  const selected = new Map<string, string>();
+  for (const cookie of candidates) {
+    if (!selected.has(cookie.name)) selected.set(cookie.name, cookie.value);
+  }
+  return [...selected].map(([name, value]) => `${name}=${value}`).join("; ");
+}
+
 function decodedCookieValue(values: Map<string, string>, name: string) {
   const value = values.get(name);
   if (!value) return "";
@@ -183,6 +222,21 @@ export function assertCookieMatchesStore(cookie: ParsedCookie, store: Pick<Tmall
     throw new Error("Cookie 登录身份与注册店铺不一致，已阻止跨店下载");
   }
   return signedInName;
+}
+
+async function cookieFromDedicatedBrowser(store: TmallStore) {
+  const browser = await connectChromeBrowser(store.browser.debugPort).catch(() => null);
+  if (!browser) return null;
+  try {
+    const result = await browser.send<{ cookies?: ChromeStorageCookie[] }>("Storage.getCookies", {}, 10_000);
+    const header = sycmCookieHeaderFromChromeStorage(result.cookies ?? []);
+    if (!header) throw new Error("店铺独立 Chrome 当前没有可用于生意参谋的登录 Cookie");
+    const cookie = parseCookieHeader(header);
+    assertCookieMatchesStore(cookie, store);
+    return cookie;
+  } finally {
+    browser.close();
+  }
 }
 
 export function buildSycmExportUrl(businessDate: string, token: string) {
@@ -410,6 +464,25 @@ async function configuredCookieFilePath() {
     ?? await readFile(defaultCookiePointerFile, "utf8").catch(() => "")).trim();
 }
 
+async function cookieFromConfiguredFile(store: TmallStore) {
+  const cookieFile = await configuredCookieFilePath();
+  if (!cookieFile || !path.isAbsolute(cookieFile)) {
+    throw new Error("店铺独立 Chrome 不可用，且未通过 TMALL_SYCM_COOKIE_FILE 或本机 .runtime 指针提供绝对 Cookie 文件路径");
+  }
+  if (await getCookieSourceStatus(cookieFile) !== "ready") {
+    throw new Error("Cookie 原文件不存在或不是普通文件，请更新本机 .runtime 指针后重试");
+  }
+  const cookie = parseCookieHeader(await readFile(cookieFile, "utf8"));
+  assertCookieMatchesStore(cookie, store);
+  return cookie;
+}
+
+export async function loadSycmCookieForStore(store: TmallStore) {
+  const browserCookie = await cookieFromDedicatedBrowser(store);
+  if (browserCookie) return { cookie: browserCookie, source: "dedicated_browser" as const };
+  return { cookie: await cookieFromConfiguredFile(store), source: "cookie_file" as const };
+}
+
 export async function getCookieSourceStatus(cookieFile?: string): Promise<CookieSourceStatus> {
   const resolvedCookieFile = cookieFile ?? await configuredCookieFilePath();
   if (!resolvedCookieFile) return "missing";
@@ -472,15 +545,9 @@ async function fetchCommand(argv: string[]) {
     };
   }
 
-  const cookieFile = await configuredCookieFilePath();
-  if (!cookieFile || !path.isAbsolute(cookieFile)) {
-    throw new Error("必须通过 TMALL_SYCM_COOKIE_FILE 或本机 .runtime 指针提供绝对 Cookie 文件路径");
-  }
-  if (await getCookieSourceStatus(cookieFile) !== "ready") {
-    throw new Error("Cookie 原文件不存在或不是普通文件，请更新本机 .runtime 指针后重试");
-  }
-  const cookie = parseCookieHeader(await readFile(cookieFile, "utf8"));
-  assertCookieMatchesStore(cookie, store);
+  const authentication = await loadSycmCookieForStore(store);
+  const cookie = authentication.cookie;
+  manifest.authenticationSource = authentication.source;
 
   try {
     for (let index = 0; index < plan.dates.length; index += 1) {

@@ -165,7 +165,7 @@
     },
     {
       "parameters": {
-        "content": "## 凭证边界\nCookie 内容和登录密码都不写入工作流。脚本从临时环境变量 `TMALL_SYCM_COOKIE_FILE` 或 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt` 读取原文件路径，只在内存中加载 Cookie，并用 `sn` 身份与受控亿玖店注册项交叉核验。",
+        "content": "## 凭证边界\nCookie 内容和登录密码都不写入工作流。B 阶段优先从受控亿玖店独立 Chrome 的当前会话读取适用于生意参谋的 Cookie，只在内存中使用；浏览器不可连接时才从临时环境变量 `TMALL_SYCM_COOKIE_FILE` 或 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt` 读取后备原文件路径。两种路径都用 `sn` 身份与受控店铺注册项交叉核验。",
         "height": 190,
         "width": 430,
         "color": 3

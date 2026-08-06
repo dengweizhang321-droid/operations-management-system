@@ -42,12 +42,16 @@ function masterFixture() {
   return zipSync(archive);
 }
 
-function dailyFixture() {
+function dailyFixtureWithProductIds(productIds: readonly string[]) {
   return workbookBytes([
     ["生意参谋商品明细"],
     ["统计日期", "商品ID", "商品名称", "货号", "商品访客数", "商品浏览量", "商品收藏人数", "商品加购件数", "支付买家数", "支付件数", "支付金额", "商品支付转化率", "成功退款金额", "搜索引导访客数"],
-    ["2026-07-31", "10001", "测试商品", "ITEM-CODE", 10, 25, 2, 3, 1, 2, "123.45", "10%", "10.00", 4],
+    ...productIds.map((productId, index) => ["2026-07-31", productId, `测试商品${index + 1}`, `ITEM-${index + 1}`, 10, 25, 2, 3, 1, 2, "123.45", "10%", "10.00", 4]),
   ], { bookType: "xls", sheetName: "商品" });
+}
+
+function dailyFixture() {
+  return dailyFixtureWithProductIds(["10001"]);
 }
 
 const gb18030PromotionCsv = Buffer.from(
@@ -191,6 +195,43 @@ test("推广 ZIP 多 CSV 时拒绝解析", async () => {
     }),
     /必须且只能包含一个 CSV/,
   );
+});
+
+test("天猫日报与最新货品主数据零交集时阻止疑似跨店导入", async () => {
+  const bytes = dailyFixtureWithProductIds(["20001", "20002", "20003", "20004", "20005"]);
+  let saveCalls = 0;
+  const dependencies = {
+    getNetshopDatabase: () => ({}),
+    ensureNetshopSchema: async () => undefined,
+    findNetshopImportBatchByHash: async () => null,
+    normalizeJdProductMasterRows: async () => undefined,
+    reconcileNetshopMasterProducts: async () => ({
+      masterAvailable: true,
+      unmatchedCount: 5,
+      unmatchedSample: ["20001"],
+    }),
+    sanitizeNetshopIssues: (issues: unknown[]) => issues,
+    saveNetshopImport: async () => {
+      saveCalls += 1;
+      throw new Error("不应写入");
+    },
+    verifyNetshopImportBatch: async () => { throw new Error("不应回查"); },
+  } as unknown as NetshopImportDatabaseDependencies;
+
+  const result = await importNetshopBytes({
+    source: "tmall_product_daily",
+    bytes,
+    fileName: "daily.xls",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-07-31",
+    expectedEndDate: "2026-07-31",
+  }, dependencies);
+
+  assert.equal(saveCalls, 0);
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "rejected");
+  assert.deepEqual(result.errors?.map((issue) => issue.code), ["MASTER_IDENTITY_MISMATCH"]);
 });
 
 function duplicateDatabaseDependencies(input: {

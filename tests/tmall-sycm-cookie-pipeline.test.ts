@@ -20,6 +20,7 @@ import {
   normalizeN8nExecutionId,
   parseCookieHeader,
   shouldLoadCookieForPlan,
+  sycmCookieHeaderFromChromeStorage,
 } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("one-shot helper closes both its listener and retained keep-alive connections", () => {
@@ -45,6 +46,22 @@ test("Cookie 只接受单行请求头并核验亿玖店登录身份", () => {
   assert.throws(() => parseCookieHeader("a=1\nb=2"), /单行/);
   assert.throws(() => parseCookieHeader("a=1; a=2"), /重复键/);
   assert.throws(() => assertCookieMatchesStore(parseCookieHeader("cookie2=x; unb=1; sn=test"), { shopName: "天猫-志高亿玖专卖店" }), /必要登录键/);
+});
+
+test("生意参谋优先从店铺独立 Chrome 读取当前域 Cookie 且排除过期与跨域值", () => {
+  const now = Date.parse("2026-08-06T00:00:00Z");
+  const header = sycmCookieHeaderFromChromeStorage([
+    { name: "cookie2", value: "root-session", domain: ".taobao.com", path: "/", expires: now / 1000 + 3600 },
+    { name: "cookie2", value: "specific-session", domain: "sycm.taobao.com", path: "/cc", expires: now / 1000 + 3600 },
+    { name: "sn", value: encodeURIComponent("志高亿玖专卖店:测试账号"), domain: ".taobao.com", path: "/" },
+    { name: "expired", value: "old", domain: ".taobao.com", path: "/", expires: now / 1000 - 1 },
+    { name: "other", value: "wrong", domain: ".example.com", path: "/" },
+  ], now);
+  const parsed = parseCookieHeader(header);
+  assert.equal(parsed.values.get("cookie2"), "specific-session");
+  assert.equal(parsed.values.has("expired"), false);
+  assert.equal(parsed.values.has("other"), false);
+  assert.equal(parsed.values.get("sn"), encodeURIComponent("志高亿玖专卖店:测试账号"));
 });
 
 test("生意参谋导出固定为同一单日且路径用规范 Base64 传递", () => {
