@@ -18,6 +18,7 @@ type ColumnFilterTarget = {
 };
 
 const interactiveSelector = "button,input,select,textarea,a,label";
+const filterValueSeparator = "\u001f";
 
 function tableRows(table: HTMLTableElement) {
   return Array.from(table.tBodies).flatMap((body) => Array.from(body.rows));
@@ -37,6 +38,13 @@ function tableCellValue(cell: HTMLTableCellElement | undefined) {
   return normalizeTableCellValue(cell.innerText);
 }
 
+function tableCellFilterValues(cell: HTMLTableCellElement | undefined) {
+  if (!cell) return [""];
+  const explicitValues = cell.dataset.columnFilterValues;
+  if (explicitValues === undefined) return [tableCellValue(cell)];
+  return [...new Set(explicitValues.split(filterValueSeparator).map(normalizeTableCellValue).filter(Boolean))];
+}
+
 function headerLabel(header: HTMLTableCellElement) {
   return normalizeTableCellValue(header.dataset.columnFilterLabel ?? header.getAttribute("aria-label") ?? header.innerText) || `第 ${header.cellIndex + 1} 列`;
 }
@@ -44,7 +52,7 @@ function headerLabel(header: HTMLTableCellElement) {
 function columnOptions(table: HTMLTableElement, columnIndex: number) {
   return [...new Set(tableRows(table)
     .filter((row) => !Array.from(row.cells).some((cell) => cell.colSpan > 1))
-    .map((row) => tableCellValue(row.cells[columnIndex])))]
+    .flatMap((row) => tableCellFilterValues(row.cells[columnIndex])))]
     .sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true }));
 }
 
@@ -83,7 +91,7 @@ export default function TableColumnFilters() {
         row.classList.remove("column-filter-row-hidden");
         continue;
       }
-      const values = Array.from(row.cells).map((cell) => tableCellValue(cell));
+      const values = Array.from(row.cells).map((cell) => tableCellFilterValues(cell));
       const visible = tableRowMatchesColumnFilters(values, filters);
       row.classList.toggle("column-filter-row-hidden", !visible);
       if (visible) visibleRows += 1;

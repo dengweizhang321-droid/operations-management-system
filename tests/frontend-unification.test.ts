@@ -15,19 +15,28 @@ test("column filters normalize cells and combine multi-select columns with AND s
   assert.equal(tableRowMatchesColumnFilters(["京东", "净水", "正常"], filters), true);
   assert.equal(tableRowMatchesColumnFilters(["抖音", "净水", "正常"], filters), false);
   assert.equal(tableRowMatchesColumnFilters(["天猫", "净水", "异常"], filters), false);
+
+  const dateFilter = new Map<number, ReadonlySet<string>>([[0, new Set(["2026-08-02"])]]);
+  assert.equal(tableRowMatchesColumnFilters([["2026-08-01", "2026-08-02"]], dateFilter), true);
+  assert.equal(tableRowMatchesColumnFilters([["2026-08-03", "2026-08-04"]], dateFilter), false);
 });
 
 test("all rendered tables receive accessible multi-select column filtering", async () => {
-  const [page, component, styles] = await Promise.all([
+  const [page, component, styles, netshopDatabase] = await Promise.all([
     source("../app/page.tsx"),
     source("../app/ui/table-column-filters.tsx"),
     source("../app/globals.css"),
+    source("../lib/netshop/database.ts"),
   ]);
   assert.match(page, /<TableColumnFilters \/>/);
   assert.match(component, /querySelectorAll<HTMLTableElement>\("table"\)/);
   assert.match(component, /querySelectorAll<HTMLTableCellElement>\("thead th"\)/);
   assert.match(component, /aria-multiselectable="true"/);
   assert.match(component, /tableRowMatchesColumnFilters/);
+  assert.match(component, /dataset\.columnFilterValues/);
+  assert.match(page, /data-column-filter-values=\{item\.dates\?\.join\("\\u001f"\)\}/);
+  assert.match(netshopDatabase, /GROUP_CONCAT\(DISTINCT r\.business_date\) AS coverage_dates/);
+  assert.match(netshopDatabase, /dates: \[\.\.\.new Set\(\(row\.coverage_dates/);
   assert.match(styles, /\.column-filter-popover/);
   assert.match(styles, /\.column-filter-row-hidden/);
 });

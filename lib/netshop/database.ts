@@ -304,6 +304,7 @@ export type NetshopPromotionPerformance = {
     shopName: string;
     dateMin: string | null;
     dateMax: string | null;
+    dates: string[];
     dataDays: number;
     spendCents: number;
     netTransactionAmountCents: number;
@@ -1688,6 +1689,7 @@ type PromotionItemRow = PromotionAggregateRow & {
   product_name: string | null;
   shop_name: string;
   data_days: number | null;
+  coverage_dates: string | null;
 };
 
 export async function getNetshopPromotionPerformance(
@@ -1785,6 +1787,7 @@ export async function getNetshopPromotionPerformance(
        MAX(NULLIF(r.product_name, '')) AS product_name,
        MAX(r.shop_name) AS shop_name,
        COUNT(DISTINCT r.business_date) AS data_days,
+       GROUP_CONCAT(DISTINCT r.business_date) AS coverage_dates,
        ${aggregateSelect}
      FROM netshop_rows r WHERE ${itemWhereSql}
      GROUP BY r.platform, r.shop_name, r.spu_id
@@ -1855,6 +1858,7 @@ export async function getNetshopPromotionPerformance(
         shopName: row.shop_name,
         dateMin: row.date_min,
         dateMax: row.date_max,
+        dates: [...new Set((row.coverage_dates ?? "").split(",").filter(isIsoDate))].sort(),
         dataDays: numberFromDailyMetric(row.data_days),
         spendCents,
         netTransactionAmountCents,

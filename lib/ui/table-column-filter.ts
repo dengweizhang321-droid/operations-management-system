@@ -3,11 +3,13 @@ export function normalizeTableCellValue(value: string) {
 }
 
 export function tableRowMatchesColumnFilters(
-  values: readonly string[],
+  values: readonly (string | readonly string[])[],
   filters: ReadonlyMap<number, ReadonlySet<string>>,
 ) {
   for (const [columnIndex, selectedValues] of filters) {
-    if (selectedValues.size > 0 && !selectedValues.has(values[columnIndex] ?? "")) return false;
+    const value = values[columnIndex] ?? "";
+    const candidates = Array.isArray(value) ? value : [value];
+    if (selectedValues.size > 0 && !candidates.some((candidate) => selectedValues.has(candidate))) return false;
   }
   return true;
 }
