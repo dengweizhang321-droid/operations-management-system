@@ -220,19 +220,39 @@ export function planTmallPromotionDailyReports(input: {
   requestedEndDate: string;
   productDailyDates: readonly string[];
   promotionDates: readonly string[];
+  requestedDates?: readonly string[];
+  forceExistingDates?: boolean;
   maximumDays?: number;
 }): PromotionDatePlan[] {
   if (!validDate(input.requestedStartDate) || !validDate(input.requestedEndDate) || input.requestedStartDate > input.requestedEndDate) {
     throw new Error("推广缺口规划日期范围无效");
   }
   const maximumDays = Math.max(1, Math.min(maximumDaysPerRun, Math.trunc(input.maximumDays ?? maximumDaysPerRun)));
+  if (input.forceExistingDates && input.requestedDates === undefined) {
+    throw new Error("推广强制重下必须显式提供 --dates 日期清单");
+  }
+  const productDaily = new Set(input.productDailyDates.filter((date) => (
+    validDate(date) && date >= input.requestedStartDate && date <= input.requestedEndDate
+  )));
+  const requestedDates = input.requestedDates === undefined
+    ? null
+    : [...new Set(input.requestedDates)].sort();
+  if (requestedDates) {
+    if (requestedDates.length === 0) throw new Error("推广显式日期清单不能为空");
+    if (requestedDates.some((date) => !validDate(date) || date < input.requestedStartDate || date > input.requestedEndDate)) {
+      throw new Error("推广显式日期必须位于请求范围内");
+    }
+    const missingProductDaily = requestedDates.filter((date) => !productDaily.has(date));
+    if (missingProductDaily.length > 0) {
+      throw new Error(`推广显式日期缺少商品日覆盖：${missingProductDaily.join(", ")}`);
+    }
+    if (requestedDates.length > maximumDays) {
+      throw new Error(`推广显式日期超过单轮 ${maximumDays} 天上限`);
+    }
+  }
   const promoted = new Set(input.promotionDates.filter(validDate));
-  const missing = [...new Set(input.productDailyDates.filter((date) => (
-    validDate(date)
-    && date >= input.requestedStartDate
-    && date <= input.requestedEndDate
-    && !promoted.has(date)
-  )))].sort();
+  const candidates = requestedDates ?? [...productDaily].sort();
+  const missing = candidates.filter((date) => input.forceExistingDates || !promoted.has(date));
   return missing.slice(0, maximumDays).map((date) => ({
     startDate: date,
     endDate: date,
@@ -353,7 +373,12 @@ export function isPromotionReportSuccessNavigation(input: { label: string; conte
 }
 
 export function shouldRecoverSubmittedPromotionTask(error: unknown) {
-  return error instanceof Error && error.message === promotionSuccessNavigationMissingMessage;
+  if (!(error instanceof Error)) return false;
+  return error.message === promotionSuccessNavigationMissingMessage
+    || error.message === "点击前往下载后出现多个下载任务页面，为防止接管错误页面已停止"
+    || error.message === "点击前往下载后未进入下载任务管理页面"
+    || (/^locator\.click: Timeout \d+ms exceeded\./.test(error.message)
+      && /立即前往|前往下载|element is not stable|detached from the DOM/.test(error.message));
 }
 
 export function promotionDatePickerRole(value: string | null | undefined) {
@@ -751,6 +776,46 @@ async function findVisibleAcrossFrames(page: Page, selector: string) {
   return matches;
 }
 
+export async function clickCalendarMonthArrowWithFallback(input: {
+  beforeMonth: string;
+  targetMonth: string;
+  click: () => Promise<void>;
+  fallbackClick: () => Promise<void>;
+  readMonth: () => Promise<string>;
+  primaryWaitMs?: number;
+  finalWaitMs?: number;
+}) {
+  await input.click().catch(() => undefined);
+  const changedAfterPrimary = await waitUntilValue(
+    input.primaryWaitMs ?? 1_500,
+    async () => {
+      const month = await input.readMonth();
+      return month && month !== input.beforeMonth ? month : null;
+    },
+    "日期日历主点击后月份未变化",
+    100,
+  ).catch(() => null);
+  if (changedAfterPrimary) return changedAfterPrimary;
+
+  await input.fallbackClick();
+  return waitUntilValue(
+    input.finalWaitMs ?? 5_000,
+    async () => {
+      const month = await input.readMonth();
+      return month && month !== input.beforeMonth ? month : null;
+    },
+    `日期日历无法从 ${input.beforeMonth} 切换到 ${input.targetMonth}`,
+    100,
+  );
+}
+
+async function displayedCalendarMonth(calendar: Locator) {
+  const monthLabel = normalizeText(await calendar.locator("span").filter({ hasText: /^\d{4}年\d{2}月$/ }).first()
+    .innerText({ timeout: 2_000 }).catch(() => ""));
+  const currentMonth = monthLabel.match(/^(\d{4})年(\d{2})月$/);
+  return currentMonth ? `${currentMonth[1]}-${currentMonth[2]}` : "";
+}
+
 async function chooseCustomDatePickerValue(page: Page, picker: Locator, value: string) {
   const pickerId = await picker.getAttribute("id").catch(() => null);
   const pickerRole = promotionDatePickerRole(await picker.getAttribute("mx-change").catch(() => null));
@@ -768,20 +833,30 @@ async function chooseCustomDatePickerValue(page: Page, picker: Locator, value: s
 
   const targetMonth = value.slice(0, 7);
   for (let step = 0; step < 4; step += 1) {
-    const monthLabel = normalizeText(await calendar.locator("span").filter({ hasText: /^\d{4}年\d{2}月$/ }).first()
-      .innerText({ timeout: 2_000 }).catch(() => ""));
-    const currentMonth = monthLabel.match(/^(\d{4})年(\d{2})月$/);
-    if (!currentMonth) throw new Error("日期日历缺少当前年月标题");
-    const normalizedMonth = `${currentMonth[1]}-${currentMonth[2]}`;
+    const normalizedMonth = await displayedCalendarMonth(calendar);
+    if (!normalizedMonth) throw new Error("日期日历缺少当前年月标题");
     if (normalizedMonth === targetMonth) break;
     const next = normalizedMonth < targetMonth;
-    const arrow = calendar.locator(next
+    const arrows = calendar.locator(next
       ? '[mx-click*="magix-portsaf({next:true})"]'
       : '[mx-click*="magix-portsaf()"]');
-    if (!await arrow.first().isVisible().catch(() => false)) throw new Error(`日期日历无法切换到 ${targetMonth}`);
-    await arrow.first().click({ timeout: 5_000 });
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    const visibleArrows: Locator[] = [];
+    const arrowCount = Math.min(await arrows.count().catch(() => 0), 5);
+    for (let index = 0; index < arrowCount; index += 1) {
+      const candidate = arrows.nth(index);
+      if (await candidate.isVisible().catch(() => false)) visibleArrows.push(candidate);
+    }
+    if (visibleArrows.length !== 1) throw new Error(`日期日历切换到 ${targetMonth} 的可见方向按钮数量为 ${visibleArrows.length}`);
+    const arrow = visibleArrows[0]!;
+    await clickCalendarMonthArrowWithFallback({
+      beforeMonth: normalizedMonth,
+      targetMonth,
+      click: () => arrow.click({ timeout: 5_000 }),
+      fallbackClick: () => arrow.evaluate((element) => (element as HTMLElement).click()),
+      readMonth: () => displayedCalendarMonth(calendar),
+    });
   }
+  if (await displayedCalendarMonth(calendar) !== targetMonth) throw new Error(`日期日历无法切换到 ${targetMonth}`);
 
   const selectedDay = await waitUntilValue(5_000, async () => {
     const day = calendar.locator(`span[title="${value}"][mx-click]`);
@@ -1654,6 +1729,8 @@ export async function runTmallPromotionStage(options: {
   baseUrl?: string;
   request?: typeof fetch;
   auditDirectory?: string;
+  dates?: readonly string[];
+  forceExistingDates?: boolean;
   maximumDays?: number;
 } = {}) {
   const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
@@ -1661,16 +1738,30 @@ export async function runTmallPromotionStage(options: {
   const request = options.request ?? fetch;
   const runAuditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
   if (!store.initialStartDate) throw new Error(`${store.shopName} 尚未配置推广补数起始日期`);
-  const requestedEndDate = shanghaiYesterday();
-  const coverage = await coverageForStore(baseUrl, store, store.initialStartDate, requestedEndDate, request);
+  const latestAllowedDate = shanghaiYesterday();
+  const requestedDates = options.dates === undefined
+    ? undefined
+    : [...new Set(options.dates)].sort();
+  if (requestedDates && requestedDates.length === 0) throw new Error("推广显式日期清单不能为空");
+  if (options.forceExistingDates && requestedDates === undefined) {
+    throw new Error("推广强制重下必须显式提供 --dates 日期清单");
+  }
+  if (requestedDates?.some((date) => !validDate(date) || date < store.initialStartDate! || date > latestAllowedDate)) {
+    throw new Error(`推广显式日期必须位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
+  }
+  const requestedStartDate = requestedDates?.[0] ?? store.initialStartDate;
+  const requestedEndDate = requestedDates?.at(-1) ?? latestAllowedDate;
+  const coverage = await coverageForStore(baseUrl, store, requestedStartDate, requestedEndDate, request);
   if (coverage.productDailyDates.length === 0) {
     throw new Error("waiting_product_daily：商品日数据尚未覆盖请求区间，推广阶段需要稍后重试");
   }
   const plans = planTmallPromotionDailyReports({
-    requestedStartDate: store.initialStartDate,
+    requestedStartDate,
     requestedEndDate,
     productDailyDates: coverage.productDailyDates,
     promotionDates: coverage.promotionDates,
+    requestedDates,
+    forceExistingDates: options.forceExistingDates,
     maximumDays: options.maximumDays,
   });
   if (plans.length === 0) {
@@ -1691,7 +1782,7 @@ export async function runTmallPromotionStage(options: {
 
   const dailyResults = await runPromotionDailyPlansSequentially(plans, async (plan) => {
     const latestCoverage = await coverageForStore(baseUrl, store, plan.startDate, plan.endDate, request);
-    if (latestCoverage.promotionDates.includes(plan.startDate)) {
+    if (!options.forceExistingDates && latestCoverage.promotionDates.includes(plan.startDate)) {
       return {
         ok: true,
         stage: "promotion_day" as const,
@@ -1747,6 +1838,7 @@ export async function runTmallPromotionStage(options: {
     warningCount: executedResults.reduce((sum, result) => sum + (result.warningCount ?? 0), 0),
     batchId: dailyResults.length === 1 ? firstExecuted?.batchId : undefined,
     dailyResults,
+    forcedExistingDates: options.forceExistingDates === true,
     coverageConfirmed: dailyResults.every((result) => result.coverageConfirmed),
   };
 }
@@ -1755,9 +1847,17 @@ async function main() {
   const argv = process.argv.slice(2);
   const storeKeyIndex = argv.indexOf("--store-key");
   const storeKey = storeKeyIndex >= 0 ? argv[storeKeyIndex + 1] : "tmall-yijiu";
+  const datesIndex = argv.indexOf("--dates");
+  const datesValue = datesIndex >= 0 ? argv[datesIndex + 1] : undefined;
+  const dates = datesValue === undefined
+    ? undefined
+    : [...new Set(datesValue.split(",").map((date) => date.trim()).filter(Boolean))].sort();
+  if (datesValue !== undefined && dates?.length === 0) throw new Error("--dates 必须是逗号分隔的 YYYY-MM-DD 日期");
+  const forceExistingDates = argv.includes("--force-existing");
+  if (forceExistingDates && dates === undefined) throw new Error("--force-existing 只能与 --dates 一起使用");
   const result = argv.includes("--launch-only")
     ? await launchTmallPromotionLogin(storeKey)
-    : await runTmallPromotionStage({ storeKey });
+    : await runTmallPromotionStage({ storeKey, dates, forceExistingDates });
   console.log(JSON.stringify(result));
 }
 

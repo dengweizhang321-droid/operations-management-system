@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertPromotionCoveragePayload,
   assertPromotionImportPayload,
+  clickCalendarMonthArrowWithFallback,
   chooseTmallPromotionDownloadTask,
   isPromotionMetricSelectionState,
   isPromotionReportSuccessNavigation,
@@ -75,6 +76,40 @@ test("推广缺口为每个业务日生成起止同日的独立报表计划并�
     productDailyDates,
     promotionDates: productDailyDates,
   }), []);
+});
+
+test("推广维护模式只强制重下显式日期且要求商品日覆盖", () => {
+  const input = {
+    requestedStartDate: "2026-08-01",
+    requestedEndDate: "2026-08-05",
+    productDailyDates: ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"],
+    promotionDates: ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"],
+  } as const;
+  assert.deepEqual(planTmallPromotionDailyReports({
+    ...input,
+    requestedDates: ["2026-08-05", "2026-08-01", "2026-08-03", "2026-08-01"],
+    forceExistingDates: true,
+  }), [
+    { startDate: "2026-08-01", endDate: "2026-08-01", dates: ["2026-08-01"] },
+    { startDate: "2026-08-03", endDate: "2026-08-03", dates: ["2026-08-03"] },
+    { startDate: "2026-08-05", endDate: "2026-08-05", dates: ["2026-08-05"] },
+  ]);
+  assert.throws(() => planTmallPromotionDailyReports({
+    ...input,
+    forceExistingDates: true,
+  }), /必须显式提供/);
+  assert.throws(() => planTmallPromotionDailyReports({
+    ...input,
+    requestedDates: ["2026-08-03", "2026-08-04"],
+    productDailyDates: ["2026-08-03"],
+    forceExistingDates: true,
+  }), /缺少商品日覆盖：2026-08-04/);
+  assert.throws(() => planTmallPromotionDailyReports({
+    ...input,
+    requestedDates: ["2026-08-01", "2026-08-02"],
+    forceExistingDates: true,
+    maximumDays: 1,
+  }), /超过单轮 1 天上限/);
 });
 
 test("推广日报严格串行执行且任意一天失败后不再处理后续日期", async () => {
@@ -182,7 +217,11 @@ test("确认报表后只点击生成成功提示中的前往下载动作", () =>
   assert.equal(isPromotionReportSuccessNavigation({ label: "查看详情", context: successNotice }), false);
   assert.equal(isSafePromotionDismissLabel("立即前往"), false);
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error(promotionSuccessNavigationMissingMessage)), true);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("点击前往下载后出现多个下载任务页面，为防止接管错误页面已停止")), true);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("点击前往下载后未进入下载任务管理页面")), true);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("locator.click: Timeout 10000ms exceeded. element was detached from the DOM while clicking 立即前往")), true);
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error("报表生成成功提示中存在多个前往下载操作，为防止误点已停止")), false);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("阿里妈妈登录身份与受控店铺不一致")), false);
 });
 
 test("推广报表必须从千牛店铺后台入口逐级进入", () => {
@@ -195,6 +234,41 @@ test("推广日期弹层能识别自定义组件的起止控件", () => {
   assert.equal(promotionDatePickerRole("mx_output_x\u001emagix-portsaH({trigger:'start'})"), "start");
   assert.equal(promotionDatePickerRole('mx_output_x\u001emagix-portsaH({trigger:"end"})'), "end");
   assert.equal(promotionDatePickerRole("mx_output_x\u001emagix-portsaH()"), null);
+});
+
+test("日期月份主点击超时但已经生效时不重复点击，未生效时才使用受控后备点击", async () => {
+  let month = "2026-07";
+  let fallbackClicks = 0;
+  const changed = await clickCalendarMonthArrowWithFallback({
+    beforeMonth: month,
+    targetMonth: "2026-08",
+    click: async () => {
+      month = "2026-08";
+      throw new Error("actionability timeout after click");
+    },
+    fallbackClick: async () => { fallbackClicks += 1; },
+    readMonth: async () => month,
+    primaryWaitMs: 5,
+    finalWaitMs: 5,
+  });
+  assert.equal(changed, "2026-08");
+  assert.equal(fallbackClicks, 0);
+
+  month = "2026-07";
+  const recovered = await clickCalendarMonthArrowWithFallback({
+    beforeMonth: month,
+    targetMonth: "2026-08",
+    click: async () => { throw new Error("element is unstable"); },
+    fallbackClick: async () => {
+      fallbackClicks += 1;
+      month = "2026-08";
+    },
+    readMonth: async () => month,
+    primaryWaitMs: 5,
+    finalWaitMs: 5,
+  });
+  assert.equal(recovered, "2026-08");
+  assert.equal(fallbackClicks, 1);
 });
 
 test("推广导入结果必须同时匹配来源、店铺、日期、行数和落库回查", () => {
