@@ -323,6 +323,76 @@
       "when": 1785355200000,
       "tag": "0045_market_price_band_publish_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1785412060000,
+      "tag": "0046_market_effective_metrics_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1785412959000,
+      "tag": "0047_market_read_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1785417471000,
+      "tag": "0048_market_monthly_summary_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1785419366000,
+      "tag": "0049_market_cache_invalidation_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1785462154000,
+      "tag": "0050_market_overview_response_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "6",
+      "when": 1785520668000,
+      "tag": "0051_market_standard_sku_image_price_inheritance",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1785606783000,
+      "tag": "0052_tmall_netshop_query_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1785647638000,
+      "tag": "0053_market_annotation_segment_reuse",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1785834414000,
+      "tag": "0054_market_annotation_concurrency_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1785928370000,
+      "tag": "0055_market_annotation_throughput",
+      "breakpoints": true
     }
   ]
 }
