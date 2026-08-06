@@ -6,7 +6,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+export function resolveJackyunRunLockProjectRoot(input: {
+  moduleUrl?: string;
+  cwd?: string;
+} = {}) {
+  const cwd = input.cwd ?? process.cwd();
+  if (typeof input.moduleUrl === "string" && input.moduleUrl.startsWith("file:")) {
+    try {
+      return path.resolve(path.dirname(fileURLToPath(input.moduleUrl)), "../..");
+    } catch {
+      // Bundled Worker runtimes may not expose a filesystem-backed module URL.
+    }
+  }
+  return path.resolve(cwd);
+}
+
+const projectRoot = resolveJackyunRunLockProjectRoot({ moduleUrl: import.meta.url });
 const staleOwnerPrefix = "stale-owner-";
 const legacyOwnerMaximumAgeMs = 24 * 60 * 60 * 1_000;
 const emptyLockRecoveryAgeMs = 5 * 60 * 1_000;

@@ -7,9 +7,24 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
 
-import { acquireJackyunRunLock } from "../lib/jackyun/run-lock";
+import {
+  acquireJackyunRunLock,
+  resolveJackyunRunLockProjectRoot,
+} from "../lib/jackyun/run-lock";
 
 const execFileAsync = promisify(execFile);
+
+test("Jackyun run lock falls back to the runtime cwd when a bundled Worker has no module URL", () => {
+  const runtimeRoot = path.resolve("runtime-worker-root");
+  assert.equal(
+    resolveJackyunRunLockProjectRoot({ moduleUrl: undefined, cwd: runtimeRoot }),
+    runtimeRoot,
+  );
+  assert.equal(
+    resolveJackyunRunLockProjectRoot({ moduleUrl: "not-a-file-url", cwd: runtimeRoot }),
+    runtimeRoot,
+  );
+});
 
 test("Jackyun run lock admits only one owner and releases by owner token", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "jackyun-run-lock-"));
