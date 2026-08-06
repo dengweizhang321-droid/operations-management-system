@@ -104,13 +104,13 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
   assert.match(view, /5000 条数据/);
 });
 
-test("市场分析按商品榜单、市场概括、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
+test("市场分析按商品榜单、行业汇报、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
   const [view, masterRoute, styles] = await Promise.all([
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  for (const label of ["商品榜单", "市场概括", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
+  for (const label of ["商品榜单", "行业汇报", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
   assert.match(view, /useState<MarketSectionKey>\("ranking"\)/);
   assert.match(view, /activeSection === "ranking"/);
   assert.match(view, /activeSection === "overview"/);

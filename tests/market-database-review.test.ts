@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
 import { marketNaturalKey } from "../lib/market/import-identity";
@@ -16,9 +16,9 @@ function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterRun?: (sql: string) =
   return {
     prepare(sql: string) {
       const statement = sqlite.prepare(sql);
-      let values: unknown[] = [];
+      let values: SQLInputValue[] = [];
       return {
-        bind(...nextValues: unknown[]) { values = nextValues; return this; },
+        bind(...nextValues: unknown[]) { values = nextValues as SQLInputValue[]; return this; },
         async first<T>() { return (statement.get(...values) ?? null) as T | null; },
         async all<T>() { return { results: statement.all(...values) as T[] }; },
         async run() {
@@ -890,6 +890,47 @@ test("overview price bands fall back to the imported price-range midpoint", asyn
   assert.equal(JSON.parse(confirmedOnly.price_band_summary_json)[0]?.price_band, "未确认价格");
   const adminSource = await readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8");
   assert.match(adminSource, /getMarketPriceBandAnalysisForAi[\s\S]*priceBandBasis: "confirmed_only"/);
+  sqlite.close();
+});
+
+test("industry report analytics keeps lifecycle, identity, channel, and opportunity cells server-side", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`
+    CREATE TABLE netshop_rows (source TEXT, dataset TEXT, business_date TEXT, sku_id TEXT, spu_id TEXT, product_code TEXT, metrics_json TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT, allocated_amount_cents INTEGER, sales_time TEXT, ship_time TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,subcategory,rank,sku_code,product_name,brand,gmv_cents,quantity,visitors,raw_json,last_import_batch_id)
+    VALUES
+      ('apr-d',1,'2026-04-01','2026-04-30','商用净饮水设备','整体SKU','SKU','POP','商用直饮机',3,'D','商用直饮机D','丁',25000,2,50,'{}','b'),
+      ('jun-a',1,'2026-06-01','2026-06-30','商用净饮水设备','整体SKU','SKU','POP','校园饮水机',1,'A','校园直饮机A','甲',100000,10,100,'{}','b'),
+      ('jun-c',2,'2026-06-01','2026-06-30','商用净饮水设备','整体SKU','SKU','自营','工厂饮水机',2,'C','工厂直饮机C','乙',50000,5,100,'{}','b'),
+      ('jul-a',3,'2026-07-01','2026-07-31','商用净饮水设备','整体SKU','SKU','POP','校园饮水机',1,'A','校园直饮机A','甲',150000,15,100,'{}','b'),
+      ('jul-b',4,'2026-07-01','2026-07-31','商用净饮水设备','整体SKU','SKU','自营','校园饮水机',2,'B','校园直饮机B','丙',75000,5,100,'{}','b');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,ai_price_type,confirmed_market_price_cents,confirmation_status)
+    VALUES
+      ('p-ja','商用净饮水设备','整体SKU','A','SKU','2026-06','标准售价',399900,'confirmed'),
+      ('p-jc','商用净饮水设备','整体SKU','C','SKU','2026-06','标准售价',699900,'confirmed'),
+      ('p-la','商用净饮水设备','整体SKU','A','SKU','2026-07','标准售价',399900,'confirmed'),
+      ('p-lb','商用净饮水设备','整体SKU','B','SKU','2026-07','标准售价',499900,'confirmed');
+  `);
+  const rows = sqlite.prepare(buildMarketOverviewAnalyticsSql()).all() as OverviewAggregateTestRow[];
+  const identity = rows.find((row) => row.section === "identity");
+  assert.deepEqual([identity?.number_1, identity?.number_2, identity?.number_3], [1, 1, 1]);
+  const lifecycle = rows.filter((row) => row.section === "lifecycle").sort((left, right) => left.row_key.localeCompare(right.row_key));
+  assert.deepEqual(lifecycle.map((row) => [row.row_key, row.number_1, row.number_2]), [
+    ["2026-04", null, null],
+    ["2026-06", null, 1],
+    ["2026-07", 1, null],
+  ]);
+  const modes = rows.filter((row) => row.section === "operation_mode");
+  assert.deepEqual(new Set(modes.map((row) => row.row_key)), new Set(["POP", "自营"]));
+  const campusOpportunity = rows.find((row) => row.section === "opportunity_cell" && row.row_key === "校园饮水机");
+  assert.equal(campusOpportunity?.number_8, 225000);
+  assert.equal(campusOpportunity?.number_9, 100000);
+  assert.ok(rows.some((row) => row.section === "traffic_quadrant"));
   sqlite.close();
 });
 

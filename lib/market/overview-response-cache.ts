@@ -30,6 +30,7 @@ export type MarketOverviewCacheResult<T> = {
 
 const CACHE_TTL_MINUTES = 5;
 const CACHE_MAX_ROWS = 40;
+const CACHE_FORMAT_VERSION = 2;
 const inFlight = new Map<string, Promise<MarketOverviewCacheResult<unknown>>>();
 
 function normalizedList(values: string[] | undefined) {
@@ -40,6 +41,7 @@ function normalizedList(values: string[] | undefined) {
 export function canonicalMarketOverviewCacheIdentity(identity: CacheIdentity) {
   const filters = identity.filters;
   return JSON.stringify({
+    formatVersion: CACHE_FORMAT_VERSION,
     view: identity.view,
     query: filters.query?.trim() || "",
     categories: normalizedList(filters.categories),

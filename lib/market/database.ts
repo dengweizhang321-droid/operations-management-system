@@ -6,6 +6,18 @@ import { ensureMarketSchemaCached, officialPriceBandSql } from "@/lib/market/sch
 import { annotateRankBounds } from "@/lib/market/gmv-estimation";
 import { marketRankingPricePresentation } from "@/lib/market/ranking-price-presentation";
 import {
+  attachTrafficQuadrantExamples,
+  buildIndustryBrandConcentrationTrend,
+  buildIndustryOpportunityMatrix,
+  buildIndustryPeriodHighlights,
+  buildIndustryProductSignals,
+  COMMERCIAL_DIRECT_DRINKING_PROFILE,
+  monthlyGrowthByValue,
+  type IndustryMonthlyDimensionPoint,
+  type IndustryOpportunityCellInput,
+  type IndustryTrafficQuadrantInput,
+} from "@/lib/market/industry-report";
+import {
   ensureMarketMonthlySummaryCache,
   ensureMarketMonthlySummaryInvalidationTriggers,
   isMarketMonthlySummaryCacheEligible,
@@ -143,7 +155,8 @@ type SummaryRow = {
 };
 
 type AnalyticsAggregateRow = {
-  section: "summary" | "trend" | "price_band" | "price_band_trend" | "brand" | "subcategory" | "price_value";
+  section: "summary" | "trend" | "price_band" | "price_band_trend" | "brand" | "subcategory" | "price_value"
+    | "lifecycle" | "identity" | "operation_mode" | "subcategory_month" | "brand_month" | "opportunity_cell" | "traffic_quadrant";
   row_key: string; text_1: string | null; text_2: string | null;
   number_1: number | null; number_2: number | null; number_3: number | null; number_4: number | null;
   number_5: number | null; number_6: number | null; number_7: number | null; number_8: number | null;
@@ -583,7 +596,8 @@ export async function getMarketOverview(
   priceBandTrendRows.sort((left, right) => left.period.localeCompare(right.period) || right.gmv_cents - left.gmv_cents);
   const brandRows = analyticsRows.filter((row) => row.section === "brand")
     .map((row) => ({ brand: row.row_key, gmv_cents: Number(row.number_1 ?? 0), quantity: Number(row.number_2 ?? 0),
-      sku_count: Number(row.number_3 ?? 0), best_rank: row.number_4, price_bands: row.text_1 ?? "", subcategories: row.text_2 ?? "" }))
+      sku_count: Number(row.number_3 ?? 0), best_rank: row.number_4, hero_gmv_cents: Number(row.number_5 ?? 0),
+      price_bands: row.text_1 ?? "", subcategories: row.text_2 ?? "" }))
     .sort((left, right) => right.gmv_cents - left.gmv_cents);
   const subcategoryRows = analyticsRows.filter((row) => row.section === "subcategory")
     .map((row) => ({ subcategory: row.row_key, sku_count: Number(row.number_1 ?? 0), gmv_cents: Number(row.number_2 ?? 0),
@@ -592,6 +606,73 @@ export async function getMarketOverview(
       average_transaction_price_cents: Number(row.number_3 ?? 0) > 0 ? Math.round(Number(row.number_2 ?? 0) / Number(row.number_3 ?? 0)) : null }))
     .sort((left, right) => right.gmv_cents - left.gmv_cents)
     .slice(0, 60);
+  const lifecycleRows = analyticsRows.filter((row) => row.section === "lifecycle")
+    .map((row) => ({
+      period: row.row_key,
+      entryCount: row.number_1 === null ? null : Number(row.number_1),
+      exitCount: row.number_2 === null ? null : Number(row.number_2),
+    })).sort((left, right) => left.period.localeCompare(right.period));
+  const identityRow = analyticsRows.find((row) => row.section === "identity");
+  const operationModeRows = analyticsRows.filter((row) => row.section === "operation_mode")
+    .map((row) => ({
+      operationMode: row.row_key || "未知",
+      gmvCents: Number(row.number_1 ?? 0),
+      quantity: Number(row.number_2 ?? 0),
+      skuCount: Number(row.number_3 ?? 0),
+      visitors: Number(row.number_4 ?? 0),
+      conversionBps: row.number_5 === null ? null : Number(row.number_5),
+      brandCount: Number(row.number_6 ?? 0),
+    })).sort((left, right) => right.gmvCents - left.gmvCents);
+  const subcategoryMonthlyRows: IndustryMonthlyDimensionPoint[] = analyticsRows
+    .filter((row) => row.section === "subcategory_month")
+    .map((row) => ({
+      period: row.row_key,
+      value: row.text_1 || "未分类",
+      gmvCents: Number(row.number_1 ?? 0),
+      quantity: Number(row.number_2 ?? 0),
+      skuCount: Number(row.number_3 ?? 0),
+    })).sort((left, right) => left.period.localeCompare(right.period));
+  const brandMonthlyRows: IndustryMonthlyDimensionPoint[] = analyticsRows
+    .filter((row) => row.section === "brand_month")
+    .map((row) => ({
+      period: row.row_key,
+      value: row.text_1 || "未识别品牌",
+      gmvCents: Number(row.number_1 ?? 0),
+      quantity: Number(row.number_2 ?? 0),
+      skuCount: Number(row.number_3 ?? 0),
+    })).sort((left, right) => left.period.localeCompare(right.period));
+  const subcategoryGrowth = monthlyGrowthByValue(subcategoryMonthlyRows);
+  const brandGrowth = monthlyGrowthByValue(brandMonthlyRows);
+  const brandConcentrationTrend = buildIndustryBrandConcentrationTrend(brandMonthlyRows);
+  const opportunityCells: IndustryOpportunityCellInput[] = analyticsRows
+    .filter((row) => row.section === "opportunity_cell")
+    .map((row) => ({
+      subcategory: row.row_key || "未分类",
+      priceBand: row.text_1 || unknownPriceBand,
+      gmvCents: Number(row.number_1 ?? 0),
+      quantity: Number(row.number_2 ?? 0),
+      skuCount: Number(row.number_3 ?? 0),
+      visitors: Number(row.number_4 ?? 0),
+      conversionBps: row.number_5 === null ? null : Number(row.number_5),
+      selfGmvCents: Number(row.number_6 ?? 0),
+      brandCount: Number(row.number_7 ?? 0),
+      latestGmvCents: Number(row.number_8 ?? 0),
+      previousGmvCents: Number(row.number_9 ?? 0),
+      pendingPriceCount: Number(row.number_10 ?? 0),
+    }));
+  const trafficQuadrantRows = analyticsRows.filter((row) => row.section === "traffic_quadrant")
+    .map((row) => ({
+      quadrant: row.row_key,
+      productCount: Number(row.number_1 ?? 0),
+      gmvCents: Number(row.number_2 ?? 0),
+      quantity: Number(row.number_3 ?? 0),
+      visitors: Number(row.number_4 ?? 0),
+      conversionBps: row.number_5 === null ? null : Number(row.number_5),
+      visitorThreshold: Number(row.number_6 ?? 0),
+      conversionThresholdBps: Number(row.number_7 ?? 0),
+    })).filter((row): row is IndustryTrafficQuadrantInput => [
+      "high_traffic_high_conversion", "high_traffic_low_conversion", "low_traffic_high_conversion", "low_traffic_low_conversion",
+    ].includes(row.quadrant));
   const categoryOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.categories_json, []);
   const scopeOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.scopes_json, []);
   const brandOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.brands_json, []);
@@ -599,6 +680,33 @@ export async function getMarketOverview(
   const modeOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.modes_json, []);
   const subcategoryOptions = parseSqlJson<Array<{ value: string; count: number }>>(filterOptions?.subcategories_json, []);
   const averageTransactionPrice = Number(summaryValue.quantity ?? 0) > 0 ? Math.round(Number(summaryValue.gmv_cents ?? 0) / Number(summaryValue.quantity ?? 0)) : null;
+  const items = ranking.map((row) => {
+    const pricePresentation = marketRankingPricePresentation({
+      officialMarketPriceCents: row.official_market_price_cents,
+      calculatedAverageTransactionPriceCents: estimateById.get(row.id)?.averageTransactionPriceCents ?? row.average_transaction_price_cents,
+      calculatedDiscountBps: row.discount_bps,
+      calculatedDiscountReference: Boolean(row.discount_reference),
+    });
+    return {
+      id: row.id, periodStart: row.period_start, periodEnd: row.period_end, category: row.category,
+      scope: row.scope, rankingDimension: row.ranking_dimension, operationMode: row.operation_mode, subcategory: row.subcategory,
+      rank: row.rank, previousRank: row.previous_rank, rankChange: row.previous_rank !== null && row.rank !== null ? row.previous_rank - row.rank : null,
+      skuCode: row.sku_code, productName: row.product_name,
+      brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.official_market_price_cents,
+      candidatePriceCents: row.candidate_price_cents, marketPriceSource: row.market_price_source,
+      candidatePriceSource: row.candidate_price_source,
+      averageTransactionPriceCents: pricePresentation.averageTransactionPriceCents,
+      discountBps: pricePresentation.discountBps, discountReference: pricePresentation.discountReference,
+      gmvCents: estimateById.get(row.id)?.effectiveGmvCents ?? row.gmv_cents,
+      quantity: estimateById.get(row.id)?.estimatedQuantity ?? row.quantity,
+      pageViews: row.page_views, visitors: row.visitors, conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
+      cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
+      sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
+      productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),
+      isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
+      gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
+    };
+  });
   const brandTotal = Number(summaryValue.gmv_cents ?? 0);
   const brandSharesAll = brandRows.map((row) => ({
     brand: String(row.brand ?? ""),
@@ -607,11 +715,57 @@ export async function getMarketOverview(
     skuCount: Number(row.sku_count ?? 0),
     bestRank: Number(row.best_rank ?? 0) || null,
     gmvShareBps: brandTotal ? Math.round(Number(row.gmv_cents ?? 0) / brandTotal * 10_000) : 0,
+    heroSkuGmvCents: Number(row.hero_gmv_cents ?? 0),
+    heroSkuShareBps: Number(row.gmv_cents ?? 0) ? Math.round(Number(row.hero_gmv_cents ?? 0) / Number(row.gmv_cents ?? 0) * 10_000) : 0,
+    latestPeriod: brandGrowth.get(String(row.brand ?? ""))?.latestPeriod ?? null,
+    monthOverMonthBps: brandGrowth.get(String(row.brand ?? ""))?.monthOverMonthBps ?? null,
+    yearOverYearBps: brandGrowth.get(String(row.brand ?? ""))?.yearOverYearBps ?? null,
     priceBands: String(row.price_bands ?? "").split(",").filter(Boolean).slice(0, 5),
     subcategories: String(row.subcategories ?? "").split(",").filter(Boolean).slice(0, 5),
   }));
   const brandShares = brandSharesAll.slice(0, 30);
   const cr = (count: number) => brandTotal ? Math.round(brandSharesAll.slice(0, count).reduce((sum, row) => sum + row.gmvCents, 0) / brandTotal * 10_000) : 0;
+  const trendForReport = allTrendRows.map((row) => ({
+    period: row.period,
+    gmvCents: row.gmv_cents,
+    quantity: row.quantity,
+    visitors: row.visitors,
+    productCount: row.product_count,
+    brandCount: row.brand_count,
+  }));
+  const periodHighlights = buildIndustryPeriodHighlights(trendForReport, lifecycleRows);
+  const productSignalInputs = items.map((item) => ({
+    category: item.category,
+    scope: item.scope,
+    rankingDimension: item.rankingDimension,
+    skuCode: item.skuCode,
+    productName: item.productName,
+    subcategory: item.subcategory,
+    periodEnd: item.periodEnd,
+    gmvCents: item.gmvCents,
+    quantity: item.quantity,
+    visitors: item.visitors,
+    conversionBps: item.conversionBps,
+  }));
+  const identity = {
+    categoryCount: Number(identityRow?.number_1 ?? summaryValue.category_count ?? 0),
+    scopeCount: Number(identityRow?.number_2 ?? 0),
+    rankingDimensionCount: Number(identityRow?.number_3 ?? 0),
+    operationModeCount: Number(identityRow?.number_4 ?? 0),
+    unknownBrandSkuCount: Number(identityRow?.number_5 ?? 0),
+    unclassifiedSkuCount: Number(identityRow?.number_6 ?? 0),
+    pendingPriceSkuCount: Number(identityRow?.number_7 ?? summaryValue.pending_ai_count ?? 0),
+  };
+  const identityReady = identity.categoryCount === 1 && identity.scopeCount === 1 && identity.rankingDimensionCount === 1;
+  const opportunities = buildIndustryOpportunityMatrix(opportunityCells, Number(summaryValue.gmv_cents ?? 0), { identityReady });
+  const operationModes = operationModeRows.map((row) => ({
+    ...row,
+    gmvShareBps: Number(summaryValue.gmv_cents ?? 0) ? Math.round(row.gmvCents / Number(summaryValue.gmv_cents) * 10_000) : 0,
+    averageTransactionPriceCents: row.quantity > 0 ? Math.round(row.gmvCents / row.quantity) : null,
+    gmvPerSkuCents: row.skuCount > 0 ? Math.round(row.gmvCents / row.skuCount) : 0,
+  }));
+  const trafficQuadrants = attachTrafficQuadrantExamples(trafficQuadrantRows, productSignalInputs);
+  const productSignals = buildIndustryProductSignals(productSignalInputs);
   return {
     view,
     summary: {
@@ -631,33 +785,7 @@ export async function getMarketOverview(
       weightedMarketPriceCents: weightedMarketPrice,
       averageTransactionPriceCents: averageTransactionPrice,
     },
-    items: ranking.map((row) => {
-      const pricePresentation = marketRankingPricePresentation({
-        officialMarketPriceCents: row.official_market_price_cents,
-        calculatedAverageTransactionPriceCents: estimateById.get(row.id)?.averageTransactionPriceCents ?? row.average_transaction_price_cents,
-        calculatedDiscountBps: row.discount_bps,
-        calculatedDiscountReference: Boolean(row.discount_reference),
-      });
-      return {
-        id: row.id, periodStart: row.period_start, periodEnd: row.period_end, category: row.category,
-        scope: row.scope, rankingDimension: row.ranking_dimension, operationMode: row.operation_mode, subcategory: row.subcategory,
-        rank: row.rank, previousRank: row.previous_rank, rankChange: row.previous_rank !== null && row.rank !== null ? row.previous_rank - row.rank : null,
-        skuCode: row.sku_code, productName: row.product_name,
-        brand: row.brand, priceCents: row.price_cents, marketPriceCents: row.official_market_price_cents,
-        candidatePriceCents: row.candidate_price_cents, marketPriceSource: row.market_price_source,
-        candidatePriceSource: row.candidate_price_source,
-        averageTransactionPriceCents: pricePresentation.averageTransactionPriceCents,
-        discountBps: pricePresentation.discountBps, discountReference: pricePresentation.discountReference,
-        gmvCents: estimateById.get(row.id)?.effectiveGmvCents ?? row.gmv_cents,
-        quantity: estimateById.get(row.id)?.estimatedQuantity ?? row.quantity,
-        pageViews: row.page_views, visitors: row.visitors, conversionBps: estimateById.get(row.id)?.conversionBps ?? row.conversion_bps,
-        cartCustomers: row.cart_customers, searchClicks: row.search_clicks, imageUrl: row.image_url,
-        sourceImageUrl: row.source_image_url, imageCacheStatus: row.image_cache_status,
-        productUrl: row.product_url, periodCount: Number(row.period_count ?? 1),
-        isOwn: Boolean(row.is_own), ownSalesCents: row.own_sales_cents,
-        gmvOutOfBand: estimateById.get(row.id)?.gmvOutOfBand ?? false,
-      };
-    }),
+    items,
     trend: trendRows,
     trendTotal: allTrendRows.length,
     trendTruncated: allTrendRows.length > trendRows.length,
@@ -696,9 +824,49 @@ export async function getMarketOverview(
       averageTransactionPriceCents: row.average_transaction_price_cents === null ? null : Number(row.average_transaction_price_cents),
       selfOperatedShareBps: Number(row.gmv_cents ?? 0) ? Math.round(Number(row.self_gmv_cents ?? 0) / Number(row.gmv_cents ?? 0) * 10_000) : null,
       pendingSkuCount: Number(row.pending_count ?? 0),
+      latestPeriod: subcategoryGrowth.get(String(row.subcategory || "未分类"))?.latestPeriod ?? null,
+      monthOverMonthBps: subcategoryGrowth.get(String(row.subcategory || "未分类"))?.monthOverMonthBps ?? null,
+      yearOverYearBps: subcategoryGrowth.get(String(row.subcategory || "未分类"))?.yearOverYearBps ?? null,
       mainBrands: String(row.brands ?? "").split(",").filter(Boolean).slice(0, 5),
       mainPriceBands: String(row.price_bands ?? "").split(",").filter(Boolean).slice(0, 5),
     })),
+    industryReport: {
+      definition: {
+        title: "京东商用直饮机行业汇报",
+        metricScope: "当前 TOP 榜单覆盖市场",
+        profile: COMMERCIAL_DIRECT_DRINKING_PROFILE,
+        selectedCategories: [...new Set((filters.categories ?? []).map((value) => value.trim()).filter(Boolean))],
+        selectedScopes: [...new Set((filters.scopes ?? []).map((value) => value.trim()).filter(Boolean))],
+        selectedRankingDimensions: [...new Set((filters.rankingDimensions ?? []).map((value) => value.trim()).filter(Boolean))],
+      },
+      period: periodHighlights,
+      lifecycle: lifecycleRows,
+      operationModes,
+      brandConcentrationTrend,
+      trafficQuadrants,
+      productSignals,
+      opportunities,
+      dataQuality: {
+        ...identity,
+        identityReady,
+        coverageReady: periodHighlights.coverageMonths >= 12,
+        comparisonReady: periodHighlights.monthOverMonthBps !== null || periodHighlights.yearOverYearBps !== null,
+        warnings: [
+          ...(!identityReady ? ["行业结论需要锁定单一类目、单一榜单范围和单一 SKU/SPU 维度。"] : []),
+          ...(periodHighlights.coverageMonths < 12 ? ["当前覆盖不足 12 个月，季节性和同比结论仅作观察。"] : []),
+          ...(periodHighlights.yearOverYearBps === null ? ["当前筛选未覆盖最新月的去年同月基期；如需同比，请将开始日期再向前扩展 12 个月。"] : []),
+          ...(identity.pendingPriceSkuCount > 0 ? [`${identity.pendingPriceSkuCount} 个商品身份缺少正式主图价格，价格带与机会评级需复核。`] : []),
+          ...(identity.unknownBrandSkuCount > 0 ? [`${identity.unknownBrandSkuCount} 个商品身份品牌未识别。`] : []),
+          ...(identity.unclassifiedSkuCount > 0 ? [`${identity.unclassifiedSkuCount} 个商品身份尚未完成细分类目。`] : []),
+        ],
+      },
+      externalDataGaps: [
+        { key: "reviews", label: "评价、问大家与搜索词", status: "待补充", note: "当前只能从商品标题提取卖点，不能替代消费者口碑。" },
+        { key: "service", label: "安装、质保与滤芯服务履约", status: "待核验", note: "标题中的服务承诺尚未与真实履约数据交叉验证。" },
+        { key: "profit", label: "成本、推广、退货与复购利润", status: "未纳入", note: "机会评分仅反映榜单市场信号，不代表最终利润可行性。" },
+        { key: "compliance", label: "产品合规与场景准入", status: "待核验", note: "学校、幼儿园、工厂等场景仍需单独核验适用标准和交付条件。" },
+      ],
+    },
     filters: {
       categories: categoryOptions, scopes: scopeOptions, brands: brandOptions,
       rankingDimensions: dimensionOptions, operationModes: modeOptions, subcategories: subcategoryOptions,

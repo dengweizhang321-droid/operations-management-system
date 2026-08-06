@@ -87,6 +87,7 @@ test("market UI requests lightweight ranking data and aborts superseded requests
 });
 
 test("market overview response cache is canonical, version-invalidated, and coalesces duplicate loads", async () => {
+  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {} }), /"formatVersion":2/);
   assert.equal(
     canonicalMarketOverviewCacheIdentity({
       view: "ranking",

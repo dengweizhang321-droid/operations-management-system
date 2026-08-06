@@ -1466,13 +1466,33 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
 
 export async function getMarketOverviewForAi(db: MarketDatabase, args: Record<string, unknown>) {
   const { getMarketOverview } = await import("@/lib/market/database");
-  const overview = await getMarketOverview(db, aiFilters(args));
+  const filtersApplied = aiFilters(args);
+  const overview = await getMarketOverview(db, filtersApplied);
+  const industryReport = overview.industryReport;
   return {
-    filtersApplied: aiFilters(args),
+    filtersApplied,
     dataRange: overview.dataRange,
     summary: overview.summary,
+    industryReport: {
+      definition: industryReport.definition,
+      period: industryReport.period,
+      lifecycle: industryReport.lifecycle.slice(-24),
+      operationModes: industryReport.operationModes.slice(0, 4),
+      brandConcentrationTrend: industryReport.brandConcentrationTrend.slice(-24),
+      trafficQuadrants: industryReport.trafficQuadrants.slice(0, 4).map((item) => ({
+        ...item,
+        examples: item.examples.slice(0, 3),
+      })),
+      productSignals: {
+        sampleSize: industryReport.productSignals.sampleSize,
+        signals: industryReport.productSignals.signals.slice(0, 20),
+      },
+      opportunities: industryReport.opportunities.slice(0, 20),
+      dataQuality: industryReport.dataQuality,
+      externalDataGaps: industryReport.externalDataGaps,
+    },
     returned: 1,
-    truncated: false,
+    truncated: industryReport.opportunities.length > 20,
     currency: "CNY",
     monetaryUnit: "cents",
     basis: "current_top_ranking_coverage",
@@ -1714,6 +1734,7 @@ function aiFilters(args: Record<string, unknown>): MarketOverviewFilters {
   return {
     query: optionalText(args.query, 100),
     categories: optionalText(args.category, 120) ? [String(args.category).trim()] : undefined,
+    scopes: optionalText(args.scope, 120) ? [String(args.scope).trim()] : undefined,
     rankingDimensions: optionalText(args.rankingDimension, 10) ? [dimension(String(args.rankingDimension))] : undefined,
     operationModes: optionalText(args.operationMode, 20) ? [normalizeOperationMode(String(args.operationMode))] : undefined,
     brands: optionalText(args.brand, 120) ? [String(args.brand).trim()] : undefined,

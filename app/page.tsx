@@ -5720,7 +5720,7 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   </section>;
 }
 
-const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
+const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; onApplyPeriod?: (startDate: string, endDate: string) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
   n8n_workflows: ({ currentUser }) => <N8nWorkflowView currentUser={currentUser} />,
   dashboard: DashboardView,
   shop: ShopView,
@@ -5886,7 +5886,7 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} currentUser={currentUser} />
+          <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} onApplyPeriod={(startDate, endDate) => { setRange("自定义"); setCustomStartDate(startDate); setCustomEndDate(endDate); setStatPeriodPickerOpen(false); }} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </section>

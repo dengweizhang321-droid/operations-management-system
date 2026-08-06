@@ -389,7 +389,72 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
 }
 
 function marketAnalyticsAggregateCtes() {
-  return `analytics_core AS MATERIALIZED (
+  return `industry_months AS MATERIALIZED (
+  SELECT DISTINCT substr(period_end,1,7) period FROM analytics_filtered
+  ), industry_month_bounds AS MATERIALIZED (
+  SELECT MIN(period) first_month, MAX(period) latest_month FROM industry_months
+  ), industry_recent_months AS MATERIALIZED (
+  SELECT period FROM (SELECT period FROM industry_months ORDER BY period DESC LIMIT 24) ORDER BY period
+  ), industry_product_presence AS MATERIALIZED (
+  SELECT DISTINCT category, scope, ranking_dimension, sku_code, substr(period_end,1,7) period
+  FROM analytics_filtered
+  ), industry_month_adjacency AS MATERIALIZED (
+  SELECT current.period,
+    previous.period previous_period, following.period following_period
+  FROM industry_months current
+  LEFT JOIN industry_months previous
+    ON previous.period=strftime('%Y-%m',date(current.period || '-01','-1 month'))
+  LEFT JOIN industry_months following
+    ON following.period=strftime('%Y-%m',date(current.period || '-01','+1 month'))
+  ), industry_lifecycle AS MATERIALIZED (
+  SELECT presence.period,
+    CASE WHEN adjacency.previous_period IS NULL THEN NULL
+      ELSE SUM(CASE WHEN previous.sku_code IS NULL THEN 1 ELSE 0 END) END entry_count,
+    CASE WHEN adjacency.following_period IS NULL THEN NULL
+      ELSE SUM(CASE WHEN following.sku_code IS NULL THEN 1 ELSE 0 END) END exit_count
+  FROM industry_product_presence presence
+  JOIN industry_month_adjacency adjacency ON adjacency.period=presence.period
+  LEFT JOIN industry_product_presence previous
+    ON previous.category=presence.category AND previous.scope=presence.scope
+      AND previous.ranking_dimension=presence.ranking_dimension AND previous.sku_code=presence.sku_code
+      AND previous.period=adjacency.previous_period
+  LEFT JOIN industry_product_presence following
+    ON following.category=presence.category AND following.scope=presence.scope
+      AND following.ranking_dimension=presence.ranking_dimension AND following.sku_code=presence.sku_code
+      AND following.period=adjacency.following_period
+  WHERE presence.period IN (SELECT period FROM industry_recent_months)
+  GROUP BY presence.period
+  ), industry_product_ranked AS MATERIALIZED (
+  SELECT source.*, ROW_NUMBER() OVER (
+    PARTITION BY category,scope,ranking_dimension,sku_code
+    ORDER BY period_end DESC, period_start DESC, rank, sku_code
+  ) industry_recency
+  FROM analytics_filtered source
+  ), industry_product_totals AS MATERIALIZED (
+  SELECT category,scope,ranking_dimension,sku_code,
+    MAX(CASE WHEN industry_recency=1 THEN product_name END) product_name,
+    MAX(CASE WHEN industry_recency=1 THEN COALESCE(NULLIF(brand,''),'未识别品牌') END) brand,
+    MAX(CASE WHEN industry_recency=1 THEN subcategory END) subcategory,
+    MAX(CASE WHEN industry_recency=1 THEN operation_mode END) operation_mode,
+    SUM(gmv_cents) gmv_cents,SUM(quantity) quantity,SUM(visitors) visitors,
+    CASE WHEN SUM(visitors)>0 THEN MIN(10000,MAX(0,CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER))) END conversion_bps,
+    COUNT(DISTINCT substr(period_end,1,7)) active_months,MIN(rank) best_rank
+  FROM industry_product_ranked GROUP BY category,scope,ranking_dimension,sku_code
+  ), industry_product_thresholds AS MATERIALIZED (
+  SELECT COALESCE(AVG(visitors),0) visitor_threshold,COALESCE(AVG(conversion_bps),0) conversion_threshold_bps
+  FROM industry_product_totals
+  ), industry_product_quadrants AS MATERIALIZED (
+  SELECT product.*,thresholds.visitor_threshold,thresholds.conversion_threshold_bps,
+    CASE
+      WHEN product.visitors>=thresholds.visitor_threshold AND COALESCE(product.conversion_bps,0)>=thresholds.conversion_threshold_bps THEN 'high_traffic_high_conversion'
+      WHEN product.visitors>=thresholds.visitor_threshold THEN 'high_traffic_low_conversion'
+      WHEN COALESCE(product.conversion_bps,0)>=thresholds.conversion_threshold_bps THEN 'low_traffic_high_conversion'
+      ELSE 'low_traffic_low_conversion'
+    END traffic_quadrant
+  FROM industry_product_totals product CROSS JOIN industry_product_thresholds thresholds
+  ), industry_brand_hero AS MATERIALIZED (
+  SELECT brand,MAX(gmv_cents) hero_gmv_cents FROM industry_product_totals GROUP BY brand
+  ), analytics_core AS MATERIALIZED (
   SELECT 'summary' section, '' row_key, MIN(period_start) text_1, MAX(period_end) text_2,
     COUNT(DISTINCT sku_code) number_1, COUNT(DISTINCT category) number_2,
     COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) number_3,
@@ -420,11 +485,17 @@ function marketAnalyticsAggregateCtes() {
   SELECT 'price_band_trend', substr(period_end,1,7), MAX(price_band), NULL,
     COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
   FROM analytics_filtered GROUP BY substr(period_end,1,7), price_band
+  UNION ALL
+  SELECT 'lifecycle', period, NULL, NULL,
+    entry_count,exit_count,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+  FROM industry_lifecycle
   ), analytics_dimensions AS MATERIALIZED (
-  SELECT 'brand', COALESCE(NULLIF(brand,''), '未识别品牌'), GROUP_CONCAT(DISTINCT price_band), GROUP_CONCAT(DISTINCT subcategory),
-    COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0), COUNT(DISTINCT sku_code), MIN(rank),
-    NULL, NULL, NULL, NULL, NULL, NULL
-  FROM analytics_filtered GROUP BY COALESCE(NULLIF(brand,''), '未识别品牌')
+  SELECT 'brand', COALESCE(NULLIF(source.brand,''), '未识别品牌'), GROUP_CONCAT(DISTINCT source.price_band), GROUP_CONCAT(DISTINCT source.subcategory),
+    COALESCE(SUM(source.gmv_cents),0), COALESCE(SUM(source.quantity),0), COUNT(DISTINCT source.sku_code), MIN(source.rank),
+    MAX(hero.hero_gmv_cents), NULL, NULL, NULL, NULL, NULL
+  FROM analytics_filtered source LEFT JOIN industry_brand_hero hero
+    ON hero.brand=COALESCE(NULLIF(source.brand,''),'未识别品牌')
+  GROUP BY COALESCE(NULLIF(source.brand,''), '未识别品牌')
   UNION ALL
   SELECT 'subcategory', subcategory, GROUP_CONCAT(DISTINCT brand), GROUP_CONCAT(DISTINCT price_band),
     COUNT(DISTINCT sku_code), COALESCE(SUM(gmv_cents),0), COALESCE(SUM(quantity),0),
@@ -437,12 +508,62 @@ function marketAnalyticsAggregateCtes() {
     MAX(official_market_price_cents), COUNT(*), COALESCE(SUM(gmv_cents),0),
     NULL, NULL, NULL, NULL, NULL, NULL, NULL
   FROM analytics_filtered WHERE official_market_price_cents IS NOT NULL GROUP BY official_market_price_cents
+  UNION ALL
+  SELECT 'identity', '', NULL, NULL,
+    COUNT(DISTINCT category),COUNT(DISTINCT scope),COUNT(DISTINCT ranking_dimension),COUNT(DISTINCT operation_mode),
+    COUNT(DISTINCT CASE WHEN COALESCE(NULLIF(brand,''),'未识别品牌')='未识别品牌' THEN json_array(category,scope,ranking_dimension,sku_code) END),
+    COUNT(DISTINCT CASE WHEN COALESCE(NULLIF(subcategory,''),'未分类')='未分类' THEN json_array(category,scope,ranking_dimension,sku_code) END),
+    COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN json_array(category,scope,ranking_dimension,sku_code) END),NULL,NULL,NULL
+  FROM analytics_filtered
+  ), analytics_industry AS MATERIALIZED (
+  SELECT 'operation_mode', operation_mode, NULL, NULL,
+    COALESCE(SUM(gmv_cents),0),COALESCE(SUM(quantity),0),COUNT(DISTINCT json_array(category,scope,ranking_dimension,sku_code)),COALESCE(SUM(visitors),0),
+    CASE WHEN SUM(visitors)>0 THEN MIN(10000,MAX(0,CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER))) END,
+    COUNT(DISTINCT COALESCE(NULLIF(brand,''),'未识别品牌')),NULL,NULL,NULL,NULL
+  FROM analytics_filtered GROUP BY operation_mode
+  UNION ALL
+  SELECT 'subcategory_month', substr(period_end,1,7), subcategory, NULL,
+    COALESCE(SUM(gmv_cents),0),COALESCE(SUM(quantity),0),COUNT(DISTINCT json_array(category,scope,ranking_dimension,sku_code)),COALESCE(SUM(visitors),0),
+    CASE WHEN SUM(visitors)>0 THEN MIN(10000,MAX(0,CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER))) END,
+    COALESCE(SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END),0),
+    COUNT(DISTINCT COALESCE(NULLIF(brand,''),'未识别品牌')),
+    COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN json_array(category,scope,ranking_dimension,sku_code) END),NULL,NULL
+  FROM analytics_filtered
+  WHERE substr(period_end,1,7) IN (SELECT period FROM industry_recent_months)
+  GROUP BY substr(period_end,1,7),subcategory
+  UNION ALL
+  SELECT 'brand_month', substr(period_end,1,7), COALESCE(NULLIF(brand,''),'未识别品牌'), NULL,
+    COALESCE(SUM(gmv_cents),0),COALESCE(SUM(quantity),0),COUNT(DISTINCT json_array(category,scope,ranking_dimension,sku_code)),MIN(rank),
+    COALESCE(SUM(visitors),0),
+    CASE WHEN SUM(visitors)>0 THEN MIN(10000,MAX(0,CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER))) END,
+    NULL,NULL,NULL,NULL
+  FROM analytics_filtered
+  WHERE substr(period_end,1,7) IN (SELECT period FROM industry_recent_months)
+  GROUP BY substr(period_end,1,7),COALESCE(NULLIF(brand,''),'未识别品牌')
+  UNION ALL
+  SELECT 'opportunity_cell', subcategory, price_band, NULL,
+    COALESCE(SUM(gmv_cents),0),COALESCE(SUM(quantity),0),COUNT(DISTINCT json_array(category,scope,ranking_dimension,sku_code)),COALESCE(SUM(visitors),0),
+    CASE WHEN SUM(visitors)>0 THEN MIN(10000,MAX(0,CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER))) END,
+    COALESCE(SUM(CASE WHEN operation_mode='自营' THEN gmv_cents ELSE 0 END),0),
+    COUNT(DISTINCT COALESCE(NULLIF(brand,''),'未识别品牌')),
+    COALESCE(SUM(CASE WHEN substr(period_end,1,7)=(SELECT latest_month FROM industry_month_bounds) THEN gmv_cents ELSE 0 END),0),
+    COALESCE(SUM(CASE WHEN substr(period_end,1,7)=strftime('%Y-%m',date((SELECT latest_month FROM industry_month_bounds) || '-01','-1 month')) THEN gmv_cents ELSE 0 END),0),
+    COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN json_array(category,scope,ranking_dimension,sku_code) END)
+  FROM analytics_filtered GROUP BY subcategory,price_band
+  UNION ALL
+  SELECT 'traffic_quadrant', traffic_quadrant, NULL, NULL,
+    COUNT(*),COALESCE(SUM(gmv_cents),0),COALESCE(SUM(quantity),0),COALESCE(SUM(visitors),0),
+    CASE WHEN SUM(visitors)>0 THEN MIN(10000,MAX(0,CAST(ROUND(SUM(quantity)*10000.0/SUM(visitors)) AS INTEGER))) END,
+    MAX(visitor_threshold),MAX(conversion_threshold_bps),NULL,NULL,NULL
+  FROM industry_product_quadrants GROUP BY traffic_quadrant
   )`;
 }
 
 const marketAnalyticsResultSql = `SELECT * FROM analytics_core
   UNION ALL
-  SELECT * FROM analytics_dimensions`;
+  SELECT * FROM analytics_dimensions
+  UNION ALL
+  SELECT * FROM analytics_industry`;
 
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
   const priceBandWhere = options.priceBandWhere ?? "";
@@ -451,7 +572,7 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
     : marketEffectiveFactsCtes(options.factWhere);
   const commonCtes = `WITH ${effectiveFacts}, analytics_base AS MATERIALIZED (
     SELECT m.id, m.updated_at, m.period_start, m.period_end, m.category, m.scope, m.price_band_filter, m.ranking_dimension, m.operation_mode,
-      m.subcategory, m.rank, m.sku_code, m.brand, m.price_cents, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
+      m.subcategory, m.rank, m.sku_code, m.product_name, m.brand, m.price_cents, m.effective_gmv_cents gmv_cents, m.effective_quantity quantity, m.page_views, m.visitors,
       m.effective_conversion_bps conversion_bps
     FROM market_effective_rows m
   ), analytics_selection_base AS MATERIALIZED (
@@ -470,7 +591,7 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
   })}, monthly_enriched AS MATERIALIZED (
     SELECT m.id, m.updated_at, m.coverage_period_start period_start, m.coverage_period_end period_end,
       m.category, m.scope, m.ranking_dimension, m.operation_mode,
-      m.subcategory, m.rank, m.sku_code, m.brand, m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity,
+      m.subcategory, m.rank, m.sku_code, m.product_name, m.brand, m.monthly_gmv_cents gmv_cents, m.monthly_quantity quantity,
       m.monthly_page_views page_views, m.monthly_visitors visitors, m.monthly_conversion_bps conversion_bps,
       ps.confirmed_market_price_cents AS official_market_price_cents,
       ps.confirmation_status,

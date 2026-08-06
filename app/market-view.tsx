@@ -38,6 +38,43 @@ type MarketItem = {
 };
 type MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;
 type MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;
+type GrowthFields = { latestPeriod: string | null; monthOverMonthBps: number | null; yearOverYearBps: number | null };
+type MarketIndustryReport = {
+  definition: {
+    title: string; metricScope: string;
+    profile: { category: string; coreSubcategories: readonly string[]; adjacentSubcategories: readonly string[]; adjacentCategories: readonly string[] };
+    selectedCategories: string[]; selectedScopes: string[]; selectedRankingDimensions: string[];
+  };
+  period: {
+    coverageMonths: number; latestPeriod: string | null; latestGmvCents: number; monthOverMonthBps: number | null; yearOverYearBps: number | null;
+    peak: { period: string; gmvCents: number } | null; trough: { period: string; gmvCents: number } | null;
+    latestEntryCount: number | null; latestExitCount: number | null; latestExitPeriod: string | null;
+  };
+  lifecycle: Array<{ period: string; entryCount: number | null; exitCount: number | null }>;
+  operationModes: Array<{
+    operationMode: string; gmvCents: number; quantity: number; skuCount: number; visitors: number; conversionBps: number | null;
+    brandCount: number; gmvShareBps: number; averageTransactionPriceCents: number | null; gmvPerSkuCents: number;
+  }>;
+  brandConcentrationTrend: Array<{ period: string; gmvCents: number; brandCount: number; cr3Bps: number; cr5Bps: number }>;
+  trafficQuadrants: Array<{
+    quadrant: "high_traffic_high_conversion" | "high_traffic_low_conversion" | "low_traffic_high_conversion" | "low_traffic_low_conversion";
+    productCount: number; gmvCents: number; quantity: number; visitors: number; conversionBps: number | null;
+    visitorThreshold: number; conversionThresholdBps: number;
+    examples: Array<{ skuCode: string; productName: string; gmvCents: number }>;
+  }>;
+  productSignals: { sampleSize: number; source: string; signals: Array<{ group: string; label: string; count: number; shareBps: number; examples: string[] }> };
+  opportunities: Array<{
+    subcategory: string; priceBand: string; scenario: string; gmvCents: number; quantity: number; skuCount: number; visitors: number;
+    conversionBps: number | null; brandCount: number; gmvShareBps: number; growthBps: number | null; selfOperatedShareBps: number;
+    pendingPriceShareBps: number; score: number; recommendation: "建议进入" | "持续观察" | "谨慎回避"; reasons: string[]; decisionReady: boolean;
+  }>;
+  dataQuality: {
+    categoryCount: number; scopeCount: number; rankingDimensionCount: number; operationModeCount: number;
+    unknownBrandSkuCount: number; unclassifiedSkuCount: number; pendingPriceSkuCount: number;
+    identityReady: boolean; coverageReady: boolean; comparisonReady: boolean; warnings: string[];
+  };
+  externalDataGaps: Array<{ key: string; label: string; status: string; note: string }>;
+};
 type MarketOverview = {
   view: "ranking" | "full";
   summary: {
@@ -52,8 +89,9 @@ type MarketOverview = {
   priceBands: FilterOption[];
   priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;
   priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;
-  brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; priceBands: string[]; subcategories: string[] }>; cr3Bps: number; cr5Bps: number; concentration: string };
-  subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] }>;
+  brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; heroSkuGmvCents: number; heroSkuShareBps: number; priceBands: string[]; subcategories: string[] } & GrowthFields>; cr3Bps: number; cr5Bps: number; concentration: string };
+  subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] } & GrowthFields>;
+  industryReport: MarketIndustryReport;
   filters: { categories: FilterOption[]; scopes: FilterOption[]; brands: FilterOption[]; rankingDimensions: FilterOption[]; operationModes: FilterOption[]; subcategories: FilterOption[]; priceBands: FilterOption[] };
   dataRange: { startDate: string | null; endDate: string | null };
   batches: Array<{ id: string; fileName: string; sourceType: string; rowCount: number; insertedCount: number; updatedCount: number; warningCount: number; completedAt: string | null }>;
@@ -122,7 +160,23 @@ const money = (cents?: number | null) => cents === null || cents === undefined
   : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY", maximumFractionDigits: 0 }).format(cents / 100);
 const count = (value = 0) => new Intl.NumberFormat("zh-CN").format(value);
 const percent = (bps?: number | null) => bps === null || bps === undefined ? "-" : `${(bps / 100).toFixed(2)}%`;
+const growthPercent = (bps?: number | null) => bps === null || bps === undefined ? "暂无可比" : `${bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
 const monthText = (start: string | null, end: string | null) => start && end ? `${start.slice(0, 7)} 至 ${end.slice(0, 7)}` : "暂无月份";
+const shanghaiToday = () => {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+};
+const twelveMonthReportPeriod = (referenceDate = shanghaiToday()) => {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(referenceDate);
+  if (!match) return { startDate: referenceDate, endDate: referenceDate };
+  const currentMonth = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
+  const start = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - 12, 1));
+  const end = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth(), 0));
+  const iso = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+  return { startDate: iso(start), endDate: iso(end) };
+};
 const marketProductHref = (productUrl: unknown, skuCode: unknown) => {
   const direct = typeof productUrl === "string" ? productUrl.trim() : "";
   if (/^https:\/\//i.test(direct)) return direct;
@@ -180,10 +234,17 @@ function KpiCard({ label, value, note, tone }: { label: string; value: string; n
   return <article className="panel"><span className={`market-kpi-dot ${tone}`} /><small>{label}</small><strong>{value}</strong><p>{note}</p></article>;
 }
 
+function marketReportDimensionLabel(data: MarketOverview) {
+  const selected = data.industryReport.definition.selectedRankingDimensions;
+  if (selected.length === 1) return selected[0];
+  if (data.industryReport.dataQuality.rankingDimensionCount > 1) return "商品";
+  return data.items[0]?.rankingDimension ?? "商品";
+}
+
 function MarketSectionNav({ active, compareCount, onChange }: { active: MarketSectionKey; compareCount: number; onChange: (section: MarketSectionKey) => void }) {
   const sections: Array<{ key: MarketSectionKey; number: string; label: string; note: string }> = [
     { key: "ranking", number: "01", label: "商品榜单", note: "TOP 商品、成交数据与单品趋势" },
-    { key: "overview", number: "02", label: "市场概括", note: "规模、价格带、品牌与细分类目" },
+    { key: "overview", number: "02", label: "行业汇报", note: "趋势、结构、竞争与机会矩阵" },
     { key: "compare", number: "03", label: "竞品对比", note: "2–5 个 SKU 的指标与趋势对照" },
     { key: "settings", number: "04", label: "系统和 AI 设置", note: "主数据、导入、映射与 AI 工作流" },
   ];
@@ -195,25 +256,46 @@ function MarketSectionNav({ active, compareCount, onChange }: { active: MarketSe
 }
 
 function MarketKpis({ data }: { data: MarketOverview }) {
+  const dimensionLabel = marketReportDimensionLabel(data);
   return <section className="market-kpi-grid market-kpi-grid-seven">
     <KpiCard label="主图价格中位数" value={money(data.summary.medianMarketPriceCents)} note="行业价格 KPI · 当前 TOP 榜单覆盖口径" tone="blue" />
     <KpiCard label="销售额加权主图价" value={money(data.summary.weightedMarketPriceCents)} note="按榜单销售额加权" tone="green" />
     <KpiCard label="榜单覆盖销售额" value={money(data.summary.gmvCents)} note="不能视为完整行业市场" tone="purple" />
     <KpiCard label="成交件数" value={count(data.summary.quantity)} note={`成交均价 ${money(data.summary.averageTransactionPriceCents)}`} tone="orange" />
     <KpiCard label="自营销售额占比" value={percent(data.summary.selfOperatedShareBps)} note={`${money(data.summary.selfOperatedGmvCents)} / 当前筛选销售额`} tone="green" />
-    <KpiCard label="SKU 数" value={count(data.summary.productCount)} note={`${count(data.summary.brandCount)} 个品牌`} tone="blue" />
+    <KpiCard label={`${dimensionLabel} 数`} value={count(data.summary.productCount)} note={`${count(data.summary.brandCount)} 个品牌`} tone="blue" />
     <KpiCard label="品牌数" value={count(data.summary.brandCount)} note={`CR3 ${percent(data.brandAnalysis.cr3Bps)} · CR5 ${percent(data.brandAnalysis.cr5Bps)}`} tone="purple" />
   </section>;
 }
 
+function IndustryExecutiveSummary({ data }: { data: MarketOverview }) {
+  const report = data.industryReport;
+  const topSubcategory = data.subcategorySummary[0];
+  const topBrand = data.brandAnalysis.items[0];
+  const topOpportunity = report.opportunities[0];
+  const profile = report.definition.profile;
+  return <section className="panel market-industry-executive">
+    <header><div><span className="eyebrow">EXECUTIVE SUMMARY</span><h2>京东商用直饮机行业汇报</h2><p>所有金额与份额均为“当前 TOP 榜单覆盖市场”，不外推为京东完整行业大盘。</p></div><div className="market-industry-scope-state"><strong className={report.dataQuality.identityReady ? "ready" : "warning"}>{report.dataQuality.identityReady ? "分析身份已锁定" : "分析身份待锁定"}</strong><small>{report.dataQuality.categoryCount} 个类目 · {report.dataQuality.scopeCount} 个榜单范围 · {report.dataQuality.rankingDimensionCount} 个榜单维度</small></div></header>
+    <div className="market-industry-insight-grid">
+      <article><small>市场趋势</small><strong>{report.period.latestPeriod ?? "暂无月份"} · {money(report.period.latestGmvCents)}</strong><span>环比 {growthPercent(report.period.monthOverMonthBps)} · 同比 {growthPercent(report.period.yearOverYearBps)}</span></article>
+      <article><small>主力细分</small><strong>{topSubcategory?.subcategory ?? "暂无数据"}</strong><span>{topSubcategory ? `销售占比 ${percent(topSubcategory.gmvShareBps)} · 环比 ${growthPercent(topSubcategory.monthOverMonthBps)}` : "等待细分类目数据"}</span></article>
+      <article><small>竞争格局</small><strong>{topBrand?.brand ?? "暂无品牌"}</strong><span>CR3 {percent(data.brandAnalysis.cr3Bps)} · CR5 {percent(data.brandAnalysis.cr5Bps)}{topBrand ? ` · 爆款依赖 ${percent(topBrand.heroSkuShareBps)}` : ""}</span></article>
+      <article><small>市场机会信号</small><strong>{topOpportunity ? `${topOpportunity.subcategory} × ${topOpportunity.priceBand}` : "暂无可评级单元"}</strong><span>{topOpportunity ? `${topOpportunity.recommendation} · ${topOpportunity.score} 分${topOpportunity.decisionReady ? "" : " · 待补齐口径/价格"}` : "等待连续月份与正式价格"}</span></article>
+    </div>
+    <div className="market-industry-boundary"><div><strong>核心范围</strong>{profile.coreSubcategories.map((item) => <span key={item}>{item}</span>)}</div><div><strong>相邻范围（单独分析）</strong>{profile.adjacentSubcategories.map((item) => <span key={item}>{item}</span>)}{profile.adjacentCategories.map((item) => <span key={item}>{item}</span>)}</div></div>
+    {report.dataQuality.warnings.length > 0 && <div className="market-industry-warnings">{report.dataQuality.warnings.map((warning) => <p key={warning}>⚠ {warning}</p>)}</div>}
+  </section>;
+}
+
 function TrendSection({ data }: { data: MarketOverview }) {
+  const dimensionLabel = marketReportDimensionLabel(data);
   const metrics = [
     ["gmv_cents", "销售额", (value: number | null) => money(value)],
     ["quantity", "成交件数", (value: number | null) => count(value ?? 0)],
     ["weighted_market_price_cents", "市场定位价", (value: number | null) => money(value)],
     ["average_transaction_price_cents", "成交均价", (value: number | null) => money(value)],
     ["self_gmv_cents", "POP/自营销售额", (value: number | null) => money(value)],
-    ["product_count", "SKU 数", (value: number | null) => count(value ?? 0)],
+    ["product_count", `${dimensionLabel} 数`, (value: number | null) => count(value ?? 0)],
     ["brand_count", "品牌数", (value: number | null) => count(value ?? 0)],
   ] as const;
   const [metric, setMetric] = useState<(typeof metrics)[number][0]>("gmv_cents");
@@ -225,17 +307,20 @@ function TrendSection({ data }: { data: MarketOverview }) {
       const value = Number(row[metric] ?? 0);
       return <div key={String(row.period)}><span style={{ height: `${Math.max(5, value / max * 100)}%` }} /><strong>{selected[2](row[metric] === null ? null : value)}</strong><small>{String(row.period)}</small></div>;
     })}{!data.trend.length && <p>暂无趋势数据</p>}</div>
+    <div className="market-lifecycle-strip">{data.industryReport.lifecycle.slice(-12).map((row) => <article key={row.period}><strong>{row.period}</strong><span>进入榜单 {row.entryCount === null ? "—" : count(row.entryCount)}</span><span>退出榜单 {row.exitCount === null ? "—" : count(row.exitCount)}</span></article>)}{!data.industryReport.lifecycle.length && <p>暂无连续月份，不能判断商品进入与退出。</p>}</div>
+    <small className="market-method-note">首月无法识别新增、末月无法识别退出；进入/退出均按类目、榜单范围、SKU/SPU 维度和商品编码判断。</small>
   </section>;
 }
 
 function PriceBandSection({ data }: { data: MarketOverview }) {
   const max = Math.max(1, ...data.priceBandSummary.map((item) => item.gmvCents));
+  const dimensionLabel = marketReportDimensionLabel(data);
   return <section className="panel market-section">
     <div className="section-header"><div><h2>价格带分析</h2><p>优先使用对应月份的人工确认市场定位价；尚未确认时，以源表价格区间中位数兜底划分。</p></div></div>
     <div className="market-price-band-grid">{data.priceBandSummary.map((item) => <article key={item.priceBand}>
       <div><strong>{item.priceBand}</strong><span>{money(item.gmvCents)}</span></div>
       <i><b style={{ width: `${item.gmvCents / max * 100}%` }} /></i>
-      <small>销售额占比 {percent(item.gmvShareBps)} · 成交 {count(item.quantity)} · SKU {count(item.skuCount)} · 自营 {percent(item.selfOperatedShareBps)}</small>
+      <small>销售额占比 {percent(item.gmvShareBps)} · 成交 {count(item.quantity)} · {dimensionLabel} {count(item.skuCount)} · 自营 {percent(item.selfOperatedShareBps)}</small>
       <em>{item.mainBrands.slice(0, 3).join(" / ") || "暂无主要品牌"}</em>
     </article>)}</div>
     <div className="data-table-wrap"><table className="data-table"><thead><tr><th>月份</th><th>价格带</th><th>销售额</th><th>当月销售占比</th><th>成交件数</th></tr></thead><tbody>{data.priceBandTrend.map((item) => <tr key={`${item.period}-${item.priceBand}`}><td>{item.period}</td><td>{item.priceBand}</td><td>{money(item.gmvCents)}</td><td>{percent(item.gmvShareBps)}</td><td>{count(item.quantity)}</td></tr>)}{!data.priceBandTrend.length && <tr><td colSpan={5}><div className="table-state">暂无价格带月度变化数据。</div></td></tr>}</tbody></table></div>
@@ -244,24 +329,83 @@ function PriceBandSection({ data }: { data: MarketOverview }) {
 
 function BrandSection({ data }: { data: MarketOverview }) {
   const max = Math.max(1, ...data.brandAnalysis.items.map((item) => item.gmvCents));
+  const concentrationTrend = data.industryReport.brandConcentrationTrend.slice(-12);
+  const dimensionLabel = marketReportDimensionLabel(data);
   return <section className="panel market-section">
     <div className="section-header"><div><h2>品牌竞争及品牌份额</h2><p>品牌份额为当前 TOP 榜单覆盖口径；集中度：{data.brandAnalysis.concentration}。</p></div></div>
     <div className="market-brand-list">{data.brandAnalysis.items.slice(0, 12).map((item) => <article key={item.brand}>
       <label><strong>{item.brand}</strong><span>{percent(item.gmvShareBps)}</span></label>
       <i><b style={{ width: `${item.gmvCents / max * 100}%` }} /></i>
-      <small>{money(item.gmvCents)} · 成交 {count(item.quantity)} · SKU {count(item.skuCount)} · 最好排名 {item.bestRank ? `#${item.bestRank}` : "-"}</small>
+      <small>{money(item.gmvCents)} · 成交 {count(item.quantity)} · {dimensionLabel} {count(item.skuCount)} · 最好排名 {item.bestRank ? `#${item.bestRank}` : "-"}</small>
+      <small>环比 {growthPercent(item.monthOverMonthBps)} · 同比 {growthPercent(item.yearOverYearBps)} · 头部单品贡献 {percent(item.heroSkuShareBps)}</small>
       <em>{[...item.priceBands.slice(0, 2), ...item.subcategories.slice(0, 2)].join(" / ")}</em>
     </article>)}</div>
+    <div className="market-concentration-trend">{concentrationTrend.map((item) => <article key={item.period}><strong>{item.period}</strong><div><span>CR3 {percent(item.cr3Bps)}</span><i><b style={{ width: `${Math.min(100, item.cr3Bps / 100)}%` }} /></i></div><div><span>CR5 {percent(item.cr5Bps)}</span><i><b style={{ width: `${Math.min(100, item.cr5Bps / 100)}%` }} /></i></div><small>{count(item.brandCount)} 个品牌</small></article>)}{!concentrationTrend.length && <p>暂无品牌集中度月度变化数据。</p>}</div>
   </section>;
 }
 
 function SubcategorySection({ data }: { data: MarketOverview }) {
+  const dimensionLabel = marketReportDimensionLabel(data);
   return <section className="panel market-section market-subcategory-panel">
-    <div className="section-header"><div><h2>细分类目拆分汇总</h2><p>服务端完整汇总 SKU 数、销售额、成交件数、价格和待确认数据。</p></div></div>
-    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>细分类目</th><th>SKU 数</th><th>销售额</th><th>销售占比</th><th>成交件数</th><th>成交均价</th><th>自营占比</th><th>主要品牌</th><th>主力价格带</th><th>待确认 SKU</th></tr></thead><tbody>
-      {data.subcategorySummary.map((item) => <tr key={item.subcategory}><td>{item.subcategory || "未分类"}</td><td>{count(item.skuCount)}</td><td>{money(item.gmvCents)}</td><td>{percent(item.gmvShareBps)}</td><td>{count(item.quantity)}</td><td>{money(item.averageTransactionPriceCents)}</td><td>{percent(item.selfOperatedShareBps)}</td><td>{item.mainBrands.join(" / ") || "-"}</td><td>{item.mainPriceBands.join(" / ") || "-"}</td><td>{count(item.pendingSkuCount)}</td></tr>)}
-      {!data.subcategorySummary.length && <tr><td colSpan={10}><div className="table-state">当前筛选范围暂无细分类目数据。</div></td></tr>}
+    <div className="section-header"><div><h2>细分类目拆分汇总</h2><p>服务端完整汇总 {dimensionLabel} 数、销售额、成交件数、价格和待确认数据。</p></div></div>
+    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>细分类目</th><th>{dimensionLabel} 数</th><th>销售额</th><th>销售占比</th><th>环比</th><th>同比</th><th>成交件数</th><th>成交均价</th><th>自营占比</th><th>主要品牌</th><th>主力价格带</th><th>待确认{dimensionLabel}</th></tr></thead><tbody>
+      {data.subcategorySummary.map((item) => <tr key={item.subcategory}><td>{item.subcategory || "未分类"}</td><td>{count(item.skuCount)}</td><td>{money(item.gmvCents)}</td><td>{percent(item.gmvShareBps)}</td><td>{growthPercent(item.monthOverMonthBps)}</td><td>{growthPercent(item.yearOverYearBps)}</td><td>{count(item.quantity)}</td><td>{money(item.averageTransactionPriceCents)}</td><td>{percent(item.selfOperatedShareBps)}</td><td>{item.mainBrands.join(" / ") || "-"}</td><td>{item.mainPriceBands.join(" / ") || "-"}</td><td>{count(item.pendingSkuCount)}</td></tr>)}
+      {!data.subcategorySummary.length && <tr><td colSpan={12}><div className="table-state">当前筛选范围暂无细分类目数据。</div></td></tr>}
     </tbody></table></div>
+  </section>;
+}
+
+function OperationModeSection({ data }: { data: MarketOverview }) {
+  const dimensionLabel = marketReportDimensionLabel(data);
+  const monthly = data.trend.slice(-12).map((row) => {
+    const popGmvCents = Number(row.pop_gmv_cents ?? 0);
+    const selfGmvCents = Number(row.self_gmv_cents ?? 0);
+    const total = popGmvCents + selfGmvCents;
+    return { period: String(row.period ?? ""), popGmvCents, selfGmvCents, selfShareBps: total > 0 ? Math.max(0, Math.min(10_000, Math.round(selfGmvCents / total * 10_000))) : 0 };
+  });
+  return <section className="panel market-section">
+    <div className="section-header"><div><h2>自营与 POP 经营结构</h2><p>对比销售规模、商品效率、价格与转化，判断平台信用和商家专业服务的相对作用。</p></div></div>
+    <div className="market-operation-grid">{data.industryReport.operationModes.map((item) => <article key={item.operationMode}><header><strong>{item.operationMode}</strong><span>{percent(item.gmvShareBps)}</span></header><b>{money(item.gmvCents)}</b><small>成交 {count(item.quantity)} · {dimensionLabel} {count(item.skuCount)} · 品牌 {count(item.brandCount)}</small><small>成交均价 {money(item.averageTransactionPriceCents)} · 单 {dimensionLabel} 销售额 {money(item.gmvPerSkuCents)}</small><small>访客 {count(item.visitors)} · 转化率 {percent(item.conversionBps)}</small></article>)}{!data.industryReport.operationModes.length && <p>暂无经营模式数据。</p>}</div>
+    <div className="market-operation-trend">{monthly.map((item) => <article key={item.period}><strong>{item.period}</strong><i><b style={{ width: `${item.selfShareBps / 100}%` }} /><span style={{ width: `${100 - item.selfShareBps / 100}%` }} /></i><small>自营 {money(item.selfGmvCents)}（{percent(item.selfShareBps)}） · POP {money(item.popGmvCents)}</small></article>)}{!monthly.length && <p>暂无自营与 POP 月度结构数据。</p>}</div>
+  </section>;
+}
+
+const quadrantMeta: Record<MarketIndustryReport["trafficQuadrants"][number]["quadrant"], { title: string; note: string }> = {
+  high_traffic_high_conversion: { title: "高流量 · 高转化", note: "重点守住排名、库存和服务体验" },
+  high_traffic_low_conversion: { title: "高流量 · 低转化", note: "优先检查价格、卖点和评价阻力" },
+  low_traffic_high_conversion: { title: "低流量 · 高转化", note: "具备放量潜力，适合验证流量增量" },
+  low_traffic_low_conversion: { title: "低流量 · 低转化", note: "谨慎投入，先验证产品定位" },
+};
+
+function TrafficQuadrantSection({ data }: { data: MarketOverview }) {
+  const threshold = data.industryReport.trafficQuadrants[0];
+  return <section className="panel market-section">
+    <div className="section-header"><div><h2>商品流量 × 转化象限</h2><p>以当前筛选商品的平均访客与平均转化率为高低分界；样例商品来自当前 TOP 榜单样本。</p></div><small>阈值：访客 {count(threshold?.visitorThreshold ?? 0)} · 转化 {percent(threshold?.conversionThresholdBps)}</small></div>
+    <div className="market-quadrant-grid">{data.industryReport.trafficQuadrants.map((item) => <article className={item.quadrant} key={item.quadrant}><header><strong>{quadrantMeta[item.quadrant].title}</strong><span>{count(item.productCount)} 个商品</span></header><b>{money(item.gmvCents)}</b><small>{quadrantMeta[item.quadrant].note}</small><small>象限转化 {percent(item.conversionBps)} · 访客 {count(item.visitors)}</small><div>{item.examples.map((example) => <span key={example.skuCode} title={example.productName}>{example.productName || example.skuCode}</span>)}</div></article>)}{!data.industryReport.trafficQuadrants.length && <p>当前数据不足以形成流量转化象限。</p>}</div>
+  </section>;
+}
+
+function ProductSignalSection({ data }: { data: MarketOverview }) {
+  const signals = data.industryReport.productSignals;
+  const groups = [...new Set(signals.signals.map((item) => item.group))];
+  return <section className="panel market-section">
+    <div className="section-header"><div><h2>爆款标题与产品特征信号</h2><p>从 {count(signals.sampleSize)} 个去重商品身份的标题和已确认细分类目提取，不代表评价口碑或真实服务履约。</p></div></div>
+    <div className="market-signal-groups">{groups.map((group) => <article key={group}><strong>{group}</strong><div>{signals.signals.filter((item) => item.group === group).map((item) => <span key={item.label} title={item.examples.join(" / ")}>{item.label}<b>{percent(item.shareBps)}</b><small>{count(item.count)}</small></span>)}</div></article>)}{!groups.length && <p>当前商品标题尚未识别到可汇总特征。</p>}</div>
+  </section>;
+}
+
+function OpportunityMatrixSection({ data }: { data: MarketOverview }) {
+  const dimensionLabel = marketReportDimensionLabel(data);
+  return <section className="panel market-section market-opportunity-panel">
+    <div className="section-header"><div><h2>细分类目 × 价格带 × 场景机会矩阵</h2><p>评分综合规模、最新月增长、单 {dimensionLabel} 效率、转化和自营门槛；未包含成本、推广、退货、复购与真实售后，不能直接替代投资决策。</p></div></div>
+    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>建议</th><th>评分</th><th>细分类目</th><th>价格带</th><th>场景</th><th>销售额/占比</th><th>最新月增长</th><th>转化率</th><th>{dimensionLabel}/品牌</th><th>自营占比</th><th>价格完整性</th><th>主要依据</th></tr></thead><tbody>{data.industryReport.opportunities.map((item) => <tr key={`${item.subcategory}-${item.priceBand}`}><td><span className={`market-opportunity-status ${item.recommendation === "建议进入" ? "enter" : item.recommendation === "谨慎回避" ? "avoid" : "watch"}`}>{item.recommendation}</span>{!item.decisionReady && <small>待补齐数据</small>}</td><td><strong>{item.score}</strong></td><td>{item.subcategory}</td><td>{item.priceBand}</td><td>{item.scenario}</td><td>{money(item.gmvCents)}<small>{percent(item.gmvShareBps)}</small></td><td>{growthPercent(item.growthBps)}</td><td>{percent(item.conversionBps)}</td><td>{count(item.skuCount)} / {count(item.brandCount)}</td><td>{percent(item.selfOperatedShareBps)}</td><td>{item.pendingPriceShareBps ? `待确认 ${percent(item.pendingPriceShareBps)}` : "已覆盖"}</td><td>{item.reasons.join("；") || "暂无显著信号"}</td></tr>)}{!data.industryReport.opportunities.length && <tr><td colSpan={12}><div className="table-state">当前筛选范围没有可评级的细分类目与价格带组合。</div></td></tr>}</tbody></table></div>
+  </section>;
+}
+
+function IndustryDataGapSection({ data }: { data: MarketOverview }) {
+  return <section className="panel market-section">
+    <div className="section-header"><div><h2>消费者、服务、利润与合规补充清单</h2><p>榜单数据无法回答的部分明确保持“待补充”，不使用标题、样例或估算冒充真实结论。</p></div></div>
+    <div className="market-data-gap-grid">{data.industryReport.externalDataGaps.map((item) => <article key={item.key}><header><strong>{item.label}</strong><span>{item.status}</span></header><p>{item.note}</p></article>)}</div>
   </section>;
 }
 
@@ -273,7 +417,7 @@ function RankingTable({ items, compareKeys, onToggleCompare, onTrend, onOpenComp
     </tr></thead><tbody>{items.map((item) => <tr key={item.id}>
       <td><button type="button" className={`market-compare-check ${compareKeys.includes(marketCompareSelectionKey(item)) ? "active" : ""}`} onClick={() => onToggleCompare(item)} aria-label={`选择对比 ${item.productName || item.skuCode}`}>{compareKeys.includes(marketCompareSelectionKey(item)) ? "✓" : "+"}</button></td>
       <td><strong>{item.rank ? `#${item.rank}` : "-"}</strong><small>{item.rankingDimension}</small></td>
-      <td><div className="market-product-cell">{item.imageUrl ? (marketProductHref(item.productUrl, item.skuCode) ? <a href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer"><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <span><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></span>) : <span>图</span>}<div>{marketProductHref(item.productUrl, item.skuCode) ? <a className="market-product-title-link" href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer">{item.productName || "未命名商品"}</a> : <strong>{item.productName || "未命名商品"}</strong>}<small>{item.periodStart} 至 {item.periodEnd} · 上榜 {count(item.periodCount)} 期 · SKU {item.skuCode}</small><small>{item.operationMode} · {item.brand || "品牌待识别"} · {item.subcategory || "未分类"} · {item.marketPriceSource}</small></div></div></td>
+      <td><div className="market-product-cell">{item.imageUrl ? (marketProductHref(item.productUrl, item.skuCode) ? <a href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer"><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <span><img src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></span>) : <span>图</span>}<div>{marketProductHref(item.productUrl, item.skuCode) ? <a className="market-product-title-link" href={marketProductHref(item.productUrl, item.skuCode)} target="_blank" rel="noreferrer">{item.productName || "未命名商品"}</a> : <strong>{item.productName || "未命名商品"}</strong>}<small>{item.periodStart} 至 {item.periodEnd} · 上榜 {count(item.periodCount)} 期 · {item.rankingDimension} {item.skuCode}</small><small>{item.operationMode} · {item.brand || "品牌待识别"} · {item.subcategory || "未分类"} · {item.marketPriceSource}</small></div></div></td>
       <td><strong>{money(item.gmvCents)}</strong><small>当前 TOP 榜单覆盖口径</small></td>
       <td>{count(item.quantity)}</td>
       <td><strong>{money(item.marketPriceCents)}</strong><small>{item.marketPriceSource}</small></td>
@@ -310,9 +454,9 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
   </section></div>;
 }
 
-function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, query, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
+function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, query, categories, scopes, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
   selections: MarketCompareSelection[]; onClear: () => void; onRemoveCompare: (sku: string) => void; onGoRanking: () => void;
-  query: string; categories: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
+  query: string; categories: string[]; scopes: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
   startDate: string; endDate: string;
 }) {
   const request = useMemo(() => {
@@ -320,6 +464,7 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
     selections.forEach((selection) => params.append("selection", JSON.stringify(selection)));
     if (query.trim()) params.set("q", query.trim());
     categories.forEach((value) => params.append("category", value));
+    scopes.forEach((value) => params.append("scope", value));
     rankingDimensions.forEach((value) => params.append("rankingDimension", value));
     operationModes.forEach((value) => params.append("operationMode", value));
     brands.forEach((value) => params.append("brand", value));
@@ -329,7 +474,7 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
     if (endDate) params.set("endDate", endDate);
     const requestKey = params.toString();
     return { requestKey, url: selections.length < 2 ? null : `/api/market/master?${requestKey}` };
-  }, [selections, query, categories, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate]);
+  }, [selections, query, categories, scopes, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate]);
   const [result, setResult] = useState<{ requestKey: string; payload: ComparePayload | null; error: string } | null>(null);
   const data = result?.requestKey === request.requestKey ? result.payload : null;
   const error = result?.requestKey === request.requestKey ? result.error : "";
@@ -1003,12 +1148,13 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   </section>;
 }
 
-export default function MarketView({ customStartDate, customEndDate, currentUser }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser }) {
+export default function MarketView({ customStartDate, customEndDate, currentUser, onApplyPeriod }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser; onApplyPeriod?: (startDate: string, endDate: string) => void }) {
   const [data, setData] = useState<MarketOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
+  const [scopes, setScopes] = useState<string[]>([]);
   const [dimensions, setDimensions] = useState<string[]>(["SKU"]);
   const [operationModes, setOperationModes] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
@@ -1032,6 +1178,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       params.set("view", requestedView);
       if (query.trim()) params.set("q", query.trim());
       categories.forEach((value) => params.append("category", value));
+      scopes.forEach((value) => params.append("scope", value));
       dimensions.forEach((value) => params.append("dimension", value));
       operationModes.forEach((value) => params.append("operationMode", value));
       brands.forEach((value) => params.append("brand", value));
@@ -1051,7 +1198,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     } finally {
       if (!signal?.aborted && requestId === loadRequestId.current) setLoading(false);
     }
-  }, [query, categories, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate, requestedView]);
+  }, [query, categories, scopes, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate, requestedView]);
   useEffect(() => {
     const controller = new AbortController();
     const delay = initialLoad.current ? 0 : 350;
@@ -1069,42 +1216,69 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       rankingDimension: item.rankingDimension,
     }]);
   const removeCompare = (selectionKey: string) => setCompareSelections((current) => current.filter((item) => marketCompareSelectionKey(item) !== selectionKey));
+  const applyCommercialDirectDrinkingProfile = () => {
+    if (!data) return;
+    const profile = data.industryReport.definition.profile;
+    const preferredScope = data.filters.scopes.find((item) => item.value === "整体SKU")
+      ?? data.filters.scopes.find((item) => item.value.includes("整体") && item.value.toUpperCase().includes("SKU"))
+      ?? data.filters.scopes.find((item) => item.value === "全部SKU")
+      ?? data.filters.scopes[0];
+    setQuery("");
+    setCategories([profile.category]);
+    setScopes([preferredScope?.value ?? "整体SKU"]);
+    setDimensions(["SKU"]);
+    setOperationModes([]);
+    setBrands([]);
+    setSubcategories([...profile.coreSubcategories]);
+    setPriceBands([]);
+    const reportPeriod = twelveMonthReportPeriod();
+    onApplyPeriod?.(reportPeriod.startDate, reportPeriod.endDate);
+    setActiveSection("overview");
+  };
   const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...(data?.filters.operationModes ?? [])].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [data]);
   if (loading && !data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
   if (error && !data) return <section className="panel data-state"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
   if (!data) return null;
+  const reportDimensionLabel = marketReportDimensionLabel(data);
   const sectionCopy: Record<Exclude<MarketSectionKey, "settings">, { eyebrow: string; title: string; note: string }> = {
     ranking: { eyebrow: "PRODUCT RANKING", title: "商品榜单工作台", note: "查看 TOP 商品表现、成交均价、主图价格、排名变化和单品趋势。" },
-    overview: { eyebrow: "MARKET OVERVIEW", title: "市场概括", note: "按当前 TOP 榜单覆盖口径汇总规模、价格带、品牌竞争和细分类目。" },
+    overview: { eyebrow: "INDUSTRY REPORT", title: "行业汇报", note: "按当前 TOP 榜单覆盖口径回答市场趋势、增长结构、竞争胜负和进入机会。" },
     compare: { eyebrow: "COMPETITOR BENCHMARK", title: "竞品对比", note: "使用统一筛选口径挑选 2–5 个 SKU，进行核心指标和月度趋势对照。" },
   };
   const activeCopy = activeSection === "settings" ? null : sectionCopy[activeSection];
   return <div className="market-module">
     <MarketSectionNav active={activeSection} compareCount={compareSelections.length} onChange={setActiveSection} />
     {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
-      <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p></div>
+      <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p>{activeSection === "overview" && <button type="button" className="secondary-button market-report-preset" onClick={applyCommercialDirectDrinkingProfile}>应用商用直饮机核心口径 · 近12月</button>}</div>
       <div className="market-filter-controls market-filter-controls-v2">
         <div className="market-overview-period market-global-period"><span>全局统计周期</span><strong>{marketStartDate} 至 {marketEndDate}</strong></div>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品标题或 SKU" aria-label="搜索商品标题或 SKU" />
         <SearchMultiFilter label="类目" values={categories} options={data.filters.categories} onChange={setCategories} />
+        <SearchMultiFilter label="榜单范围" values={scopes} options={data.filters.scopes} onChange={setScopes} />
         <SearchMultiFilter label="榜单维度" values={dimensions} options={data.filters.rankingDimensions.length ? data.filters.rankingDimensions : [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }]} onChange={setDimensions} />
         <SearchMultiFilter label="经营模式" values={operationModes} options={operationOptions} onChange={setOperationModes} />
         <SearchMultiFilter label="品牌" values={brands} options={data.filters.brands} onChange={setBrands} />
         <SearchMultiFilter label="细分类目" values={subcategories} options={data.filters.subcategories} onChange={setSubcategories} />
         <SearchMultiFilter label="价格带" values={priceBands} options={data.filters.priceBands} onChange={setPriceBands} />
       </div>
-      <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 SKU {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
+      <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 {reportDimensionLabel} {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
     </section>}
     {error && <div className="market-feedback error">{error}</div>}
     {activeSection === "ranking" && <RankingTable items={data.items} compareKeys={compareKeys} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
-    {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state"><span className="state-spinner" /><strong>正在生成市场概括</strong><p>商品榜单已可用，规模、价格带、品牌和细分类目正在按需汇总…</p></section> : activeSection === "overview" && <>
+    {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && <>
+      <IndustryExecutiveSummary data={data} />
       <MarketKpis data={data} />
       <TrendSection data={data} />
       <PriceBandSection data={data} />
       <BrandSection data={data} />
       <SubcategorySection data={data} />
+      <OperationModeSection data={data} />
+      <TrafficQuadrantSection data={data} />
+      <ProductSignalSection data={data} />
+      <OpportunityMatrixSection data={data} />
+      <IndustryDataGapSection data={data} />
     </>}
-    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => setActiveSection("ranking")} query={query} categories={categories} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
+    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => setActiveSection("ranking")} query={query} categories={categories} scopes={scopes} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
     {activeSection === "settings" && <MarketSettingsWorkspace currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
   </div>;
