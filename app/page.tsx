@@ -174,8 +174,15 @@ type SalesSummaryResponse = {
   range: SalesRange;
   startDate: string;
   endDate: string;
+  requestedStartDate?: string;
+  requestedEndDate?: string;
+  dataCutoffDate?: string | null;
+  periodAdjustedToDataCutoff?: boolean;
+  comparisonDayCount?: number;
   previousStartDate?: string;
   previousEndDate?: string;
+  yearAgoStartDate?: string;
+  yearAgoEndDate?: string;
   current: SalesStats;
   previous?: SalesStats;
   yearAgo?: SalesStats;
@@ -872,6 +879,12 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const formatCurrencyFromCents = (value = 0) => formatCurrency(value / 100);
+const formatExactCurrencyFromCents = (value = 0) => new Intl.NumberFormat("zh-CN", {
+  style: "currency",
+  currency: "CNY",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+}).format(value / 100);
 const formatMerchantCurrency = (value?: number | null) => value === null || value === undefined
   ? "—"
   : `¥${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value)}`;
@@ -1424,8 +1437,8 @@ function StoreMetricCard({ label, value, change, note, unavailable = false }: {
 }) {
   return <article className={`store-metric-card ${unavailable ? "unavailable" : ""}`}>
     <div><span>{label}</span>{unavailable && <em>待接入</em>}</div>
-    <strong>{value}</strong>
-    <small className={change === null || change === undefined ? "muted-text" : change < 0 ? "red-text" : "green-text"}>{note ?? (change === null || change === undefined ? "暂无可比数据" : `${change >= 0 ? "+" : ""}${(change * 100).toFixed(1)}%`)}</small>
+    <strong title={value}>{value}</strong>
+    <small title={note} className={change === null || change === undefined ? "muted-text" : change < 0 ? "red-text" : "green-text"}>{note ?? (change === null || change === undefined ? "暂无可比数据" : `${change >= 0 ? "+" : ""}${(change * 100).toFixed(1)}%`)}</small>
   </article>;
 }
 
@@ -1698,7 +1711,10 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
       ? `${selectedOutlets[0].platform} · ${selectedOutlets[0].name}`
       : `已选 ${formatCount(selectedOutlets.length)} 个店铺`;
   const daily = summary.daily ?? [];
-  const dataCutoff = daily.length > 0 ? daily[daily.length - 1].date : "暂无";
+  const dataCutoff = summary.dataCutoffDate ?? (daily.length > 0 ? daily[daily.length - 1].date : "暂无");
+  const comparisonPeriodNote = summary.periodAdjustedToDataCutoff
+    ? `请求周期 ${summary.requestedStartDate ?? summary.startDate} 至 ${summary.requestedEndDate ?? summary.endDate}，销售数据截止 ${dataCutoff}；已自动对齐为 ${summary.startDate} 至 ${summary.endDate}（${summary.comparisonDayCount ?? daily.length} 天），未把未同步尾日计入环比或同比。`
+    : `销售数据截止 ${dataCutoff}；当前按 ${summary.startDate} 至 ${summary.endDate}（${summary.comparisonDayCount ?? daily.length} 天）汇总，环比和同比使用等长日期。`;
   const matchedStoreColumns = useMemo(() => {
     const keyword = columnPickerSearch.trim().toLocaleLowerCase("zh-CN");
     if (!keyword) return storeTableColumns;
@@ -1762,12 +1778,12 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
     <section className="store-source-status" role="note">
       <div><span className="source-status-ready">✓ 已接入</span><strong>销售净额、订单量、客单价、毛利率、退货率、商品级访客累计、推广</strong></div>
       <div><span className="source-status-missing">○ 待接入</span><strong>店铺去重 UV、付费/免费访客、企业购/零售拆分</strong></div>
-      <p>商品访客仅按商品×日累计；推广费率和推广成交占比只使用与生意参谋支付金额相交的业务日。</p>
+      <p>{comparisonPeriodNote} 商品访客仅按商品×日累计；推广比例只使用同日数据。</p>
     </section>
 
     <section className="store-metrics-grid">
       <StoreSpuVisitorMetric startDate={summary.startDate} endDate={summary.endDate} outlets={outlets} selectedOutletKeys={selectedOutletKeys} />
-      <StoreMetricCard label="销售额（净额）" value={formatCurrencyFromCents(current.netSalesCents)} change={salesChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(current.netSalesCents, baseline?.netSalesCents)}` : "来自已导入销售明细"} />
+      <StoreMetricCard label="销售额（净额）" value={formatExactCurrencyFromCents(current.netSalesCents)} change={salesChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(current.netSalesCents, baseline?.netSalesCents)} · 对比值 ${baseline ? formatExactCurrencyFromCents(baseline.netSalesCents) : "—"}` : "来自已导入销售明细"} />
       <StoreMetricCard label="客单价" value={formatCurrencyFromCents(currentAov)} change={aovChange} note={showComparison ? `${comparisonLabel} ${formatStoreComparison(currentAov, baselineAov)}` : `${formatCount(current.orderCount)} 笔订单`} />
       <StoreMetricCard label="UV 价值" value="—" note="缺少访客数据，不做推算" unavailable />
       <StoreMetricCard label="转化率" value="—" note="需访客与成交人数" unavailable />

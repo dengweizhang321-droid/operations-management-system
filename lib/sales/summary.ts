@@ -2,17 +2,16 @@ import {
   findLatestSalesImportBatch,
   type SalesDatabase,
 } from "@/lib/sales/database";
+import {
+  alignSalesSummaryPeriodToDataCutoff,
+  type SalesSummaryPeriod,
+} from "@/lib/sales/period";
 import { parseProductQueries, resolveProductFilterCodes } from "@/lib/sales/product-query";
 
 export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
 
-type Period = {
-  startDate: string;
-  endDate: string;
-  previousStartDate?: string;
-  previousEndDate?: string;
-};
+type Period = SalesSummaryPeriod;
 
 type MetricRow = {
   gross_sales_cents: number | null;
@@ -439,18 +438,33 @@ async function filterOptions(
   };
 }
 
+async function latestSalesDataDate(db: SalesDatabase) {
+  const row = await db.prepare(
+    `SELECT substr(ship_time, 1, 10) AS end_date
+     FROM sales_order_lines
+     WHERE TRIM(warehouse) <> '刷刷仓'
+     ORDER BY ship_time DESC
+     LIMIT 1`,
+  ).first<{ end_date: string | null }>();
+  return row?.end_date ?? null;
+}
+
 export async function getSalesSummary(
   db: SalesDatabase,
   input: { range: SalesRange; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
 ) {
   const today = shanghaiToday();
   const productQueries = parseProductQueries(input.productQueries ?? input.productCodes ?? []);
-  const productCodes = normalizeProductCodes(await resolveProductFilterCodes(db, productQueries));
+  const [resolvedProductCodes, dataCutoffDate] = await Promise.all([
+    resolveProductFilterCodes(db, productQueries),
+    latestSalesDataDate(db),
+  ]);
+  const productCodes = normalizeProductCodes(resolvedProductCodes);
   const categories = normalizeCategories(input.categories);
   const platform = input.platform?.trim() || undefined;
   const shop = input.shop?.trim() || undefined;
   const outletFilters = normalizeOutlets(input.outlets);
-  let period: Period;
+  let requestedPeriod: Period;
 
   if (input.range === "all") {
     const bounds = await db
@@ -461,15 +475,17 @@ export async function getSalesSummary(
       )
       .bind(...productCodes, ...outletBindings(platform, shop, outletFilters), ...categories)
       .first<{ start_date: string | null; end_date: string | null }>();
-    period = {
+    requestedPeriod = {
       startDate: bounds?.start_date ?? today,
       endDate: bounds?.end_date ?? today,
     };
   } else if (input.range === "custom") {
-    period = customPeriod(input.startDate ?? "", input.endDate ?? "");
+    requestedPeriod = customPeriod(input.startDate ?? "", input.endDate ?? "");
   } else {
-    period = periodFor(input.range, today);
+    requestedPeriod = periodFor(input.range, today);
   }
+  const alignment = alignSalesSummaryPeriodToDataCutoff(input.range, requestedPeriod, dataCutoffDate);
+  const period = alignment.period;
 
   const currentPromise = bindPeriod(
     db.prepare(metricsSql(productCodes, platform, shop, categories, outletFilters)),
@@ -529,6 +545,11 @@ export async function getSalesSummary(
     filters: { productQueries, productCodes, platform: platform ?? null, shop: shop ?? null, outlets: outletFilters, categories },
     filterOptions: filterOptionsData,
     ...period,
+    requestedStartDate: requestedPeriod.startDate,
+    requestedEndDate: requestedPeriod.endDate,
+    dataCutoffDate,
+    periodAdjustedToDataCutoff: alignment.adjusted,
+    comparisonDayCount: dayDifference(period.startDate, period.endDate) + 1,
     current: metric(currentRow),
     ...(previousRow ? { previous: metric(previousRow) } : {}),
     yearAgo: metric(yearAgoRow),
