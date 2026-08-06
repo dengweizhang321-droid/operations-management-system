@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/authorization";
 import {
   ensureErpReferenceSchema,
+  countErpReferenceRowsOwnedByBatch,
   findErpReferenceBatch,
   getErpReferenceDatabase,
   listErpReferenceBatches,
@@ -34,7 +35,17 @@ export async function GET(request: Request) {
     await ensureErpReferenceSchema(db);
     const exactBatch = source && batchHash ? await findErpReferenceBatch(db, source, batchHash) : null;
     const items = batchId
-      ? (exactBatch?.id === batchId ? [exactBatch] : [])
+      ? (exactBatch?.id === batchId
+          ? [{
+              ...exactBatch,
+              ownedRowCount: await countErpReferenceRowsOwnedByBatch(
+                db,
+                exactBatch.sourceKey,
+                exactBatch.id,
+                exactBatch.snapshotDate,
+              ),
+            }]
+          : [])
       : await listErpReferenceBatches(
         db,
         source,

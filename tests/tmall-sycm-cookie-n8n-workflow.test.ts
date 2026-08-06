@@ -83,7 +83,8 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /tmall-yijiu-sycm-cookie-daily\.workflow\.json/);
   assert.match(view, /jackyun-five-dataset-daily\.workflow\.json/);
   assert.match(view, /http:\/\/localhost:5678\/workflow\//);
-  assert.match(view, /currentUser\?\.role === "operator" \|\| currentUser\?\.role === "admin"/);
+  assert.match(view, /canManageN8nWorkflow\(currentUser\?\.role\)/);
+  assert.match(view, /workflowEditorReady \? <div className="n8n-frame-shell">/);
   assert.match(view, /iframeTitle: "天猫店铺数据导入 n8n 工作流"/);
   assert.match(view, /iframeTitle: "吉客云导入系统 n8n 工作流"/);
   assert.match(view, /sandbox="allow-downloads[^"]+allow-scripts"/);
@@ -99,12 +100,17 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /实际发布状态以 n8n 画布为准/);
 });
 
-test("n8n 工作流视图只向操作角色渲染可执行编辑器", async () => {
-  const [{ createElement }, { renderToStaticMarkup }, { default: N8nWorkflowView }] = await Promise.all([
+test("n8n 工作流视图只在操作角色且 helper ready 时挂载可执行入口", async () => {
+  const [{ createElement }, { renderToStaticMarkup }, workflowView] = await Promise.all([
     import("react"),
     import("react-dom/server"),
     import("../app/n8n-workflow-view"),
   ]);
+  const {
+    default: N8nWorkflowView,
+    canManageN8nWorkflow,
+    shouldMountN8nWorkflowEditor,
+  } = workflowView;
 
   const viewerHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "viewer" } }));
   const operatorHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "operator" } }));
@@ -113,9 +119,21 @@ test("n8n 工作流视图只向操作角色渲染可执行编辑器", async () =
   assert.match(viewerHtml, /天猫店铺数据导入/);
   assert.match(viewerHtml, /需要操作员或管理员权限/);
   assert.doesNotMatch(viewerHtml, /<iframe/);
-  assert.match(operatorHtml, /<iframe/);
-  assert.match(operatorHtml, /http:\/\/localhost:5678\/workflow\/J8kY2mQ5vR7sT4pN/);
-  assert.match(operatorHtml, /吉客云导入系统 n8n 工作流/);
+  assert.equal(canManageN8nWorkflow("viewer"), false);
+  assert.equal(canManageN8nWorkflow("analyst"), false);
+  assert.equal(canManageN8nWorkflow("operator"), true);
+  assert.equal(canManageN8nWorkflow("admin"), true);
+  for (const helperKind of ["checking", "running", "cookie-missing", "offline"] as const) {
+    assert.equal(shouldMountN8nWorkflowEditor("operator", helperKind), false);
+    assert.equal(shouldMountN8nWorkflowEditor("admin", helperKind), false);
+  }
+  assert.equal(shouldMountN8nWorkflowEditor("viewer", "ready"), false);
+  assert.equal(shouldMountN8nWorkflowEditor("analyst", "ready"), false);
+  assert.equal(shouldMountN8nWorkflowEditor("operator", "ready"), true);
+  assert.equal(shouldMountN8nWorkflowEditor("admin", "ready"), true);
+  assert.doesNotMatch(operatorHtml, /<iframe/);
+  assert.doesNotMatch(operatorHtml, /href="http:\/\/localhost:5678\/workflow\//);
+  assert.doesNotMatch(operatorHtml, /刷新画布|在 n8n 中打开/);
   assert.match(operatorHtml, /data-helper-status="checking"/);
   assert.match(operatorHtml, /执行门禁/);
 });

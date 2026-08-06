@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,8 +8,14 @@ import test from "node:test";
 
 import { jackyunModuleOrder } from "../lib/jackyun/post-download";
 import {
+  createJackyunInputContractHash,
+  type JackyunHistoricalSnapshotEvidence,
+  type JackyunInputContract,
+} from "../lib/jackyun/run-contract";
+import {
   getJackyunProfileStatus,
   jackyunHelperRequestError,
+  jackyunN8nFailureDetails,
   normalizeJackyunLocalBaseUrl,
   planJackyunN8nRun,
   publicJackyunPlan,
@@ -17,6 +24,11 @@ import {
   verifyCompletedJackyunRunArtifacts,
   verifyJackyunN8nPlan,
 } from "../tools/jackyun-n8n-pipeline";
+import { runJackyunAutomationUnderLock } from "../tools/jackyun-automation-runner";
+
+const dailyPolicyVersion = JSON.parse(
+  readFileSync(path.resolve("config/jackyun-daily-policy.json"), "utf8"),
+) as { version: string };
 
 async function createFixture() {
   const root = await mkdtemp(path.join(tmpdir(), "jackyun-n8n-test-"));
@@ -25,7 +37,7 @@ async function createFixture() {
   await writeFile(path.join(profileDirectory, "Local State"), "{}\n", "utf8");
   await mkdir(path.join(root, "config"), { recursive: true });
   await writeFile(path.join(root, "config", "jackyun-daily-policy.json"), JSON.stringify({
-    version: "test-policy",
+    version: dailyPolicyVersion.version,
     moduleOrder: jackyunModuleOrder,
     browser: { controller: { profileDirectory } },
   }), "utf8");
@@ -34,6 +46,7 @@ async function createFixture() {
 
 async function writeCompletedRun(root: string, runId: string, asOfDate: string, missingBatchModule?: string) {
   const runDirectory = path.join(root, "outputs", "jackyun-import-runs", runId);
+  const eventDirectory = path.join(root, "outputs", "jackyun-browser-events", runId);
   const auditDirectory = path.join(runDirectory, "audit");
   const rawDirectory = path.join(runDirectory, "raw");
   const processedDirectory = path.join(runDirectory, "processed");
@@ -41,6 +54,7 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
     mkdir(auditDirectory, { recursive: true }),
     mkdir(rawDirectory, { recursive: true }),
     mkdir(processedDirectory, { recursive: true }),
+    mkdir(eventDirectory, { recursive: true }),
   ]);
   const results = [];
   const manifestModules: Record<string, unknown> = {};
@@ -52,9 +66,62 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
     const outputBytes = Buffer.from(`${moduleKey}-processed`, "utf8");
     const sourceSha256 = createHash("sha256").update(sourceBytes).digest("hex");
     const outputSha256 = createHash("sha256").update(outputBytes).digest("hex");
-    const inputContractHash = "c".repeat(64);
-    const batchId = `${moduleKey}:batch`;
+    const batchId = moduleKey === "sales"
+      ? "sales:batch"
+      : moduleKey === "inventory"
+        ? outputSha256
+        : `${moduleKey}:${outputSha256}`;
     const snapshotDate = moduleKey === "inventory" || moduleKey === "inventory_age" ? asOfDate : null;
+    const exportStart = "2026-08-05T01:00:04.000Z";
+    const snapshotEvidence: JackyunHistoricalSnapshotEvidence | null = moduleKey === "inventory" || moduleKey === "inventory_age" ? {
+      version: 1,
+      module: moduleKey,
+      runId,
+      source: "historical_date_control" as const,
+      targetDate: asOfDate,
+      observedDate: asOfDate,
+      controlReadbackAt: "2026-08-05T01:00:01.000Z",
+      queryIntentAt: "2026-08-05T01:00:02.000Z",
+      queryRefreshSource: "module_network_request" as const,
+      queryRefreshCompletedAt: "2026-08-05T01:00:02.500Z",
+      tableStableAt: "2026-08-05T01:00:03.000Z",
+    } : null;
+    const downloadProvenance = {
+      runId,
+      module: moduleKey,
+      policyVersion: dailyPolicyVersion.version,
+      downloadId: `${moduleKey}-download-0001`,
+      method: "browser_event" as const,
+      completedAt: "2026-08-05T01:00:05.000Z",
+      originalFileName: `${moduleKey}.xlsx`,
+      sha256: sourceSha256,
+      bytes: sourceBytes.byteLength,
+    };
+    const requiresQuery = moduleKey === "inventory" || moduleKey === "inventory_age" || moduleKey === "sales";
+    const handoffEvidence = {
+      navigationIntentAt: "2026-08-05T01:00:00.000Z",
+      ...(requiresQuery ? { queryIntentAt: "2026-08-05T01:00:02.000Z" } : {}),
+      tableStableAt: "2026-08-05T01:00:03.000Z",
+      exportIntentAt: exportStart,
+      downloadEventAt: downloadProvenance.completedAt,
+    };
+    const inputContract: JackyunInputContract = {
+      runId,
+      policyVersion: dailyPolicyVersion.version,
+      module: moduleKey,
+      rawSha256: sourceSha256,
+      ...(snapshotEvidence
+        ? { snapshotDate: asOfDate, snapshotEvidence }
+        : {}),
+      ...(moduleKey === "sales" ? { asOfDate } : {}),
+      expectedSourceRows: 10,
+      exportStart,
+      downloadEventAt: downloadProvenance.completedAt,
+      downloadProvenance,
+      handoffEvidence,
+      baseUrl: "http://localhost:3000",
+    };
+    const inputContractHash = createJackyunInputContractHash(inputContract);
     await Promise.all([
       writeFile(sourcePath, sourceBytes),
       writeFile(outputPath, outputBytes),
@@ -63,12 +130,46 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
         runId,
         module: moduleKey,
         status: "completed",
-        source: { path: sourcePath, copiedPath: sourcePath, sha256: sourceSha256, inputContractHash },
-        output: { path: outputPath, sha256: outputSha256 },
+        source: {
+          path: sourcePath,
+          copiedPath: sourcePath,
+          fileName: `${moduleKey}.xlsx`,
+          bytes: sourceBytes.byteLength,
+          sha256: sourceSha256,
+          exportStart,
+          downloadEventAt: downloadProvenance.completedAt,
+          expectedSourceRows: 10,
+          inputContractHash,
+          inputContract,
+          handoffEvidence,
+          downloadProvenance,
+          snapshotEvidence,
+        },
+        sourceCountContract: moduleKey === "sales" ? {
+          semantic: "xlsx_nonblank_data_rows",
+          expected: 10,
+          actual: 10,
+          verified: true,
+        } : null,
+        output: { path: outputPath, bytes: outputBytes.byteLength, sha256: outputSha256 },
         import: {
           result: moduleKey === "sales" ? { salesPolicyVersion: "test-policy", postImportVerified: true } : {},
           batch: { id: batchId, status: "completed", rowCount: 10, warningCount: 0, snapshotDate },
         },
+      }), "utf8"),
+      writeFile(path.join(
+        eventDirectory,
+        `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`,
+      ), JSON.stringify({
+        schemaVersion: 2,
+        runId,
+        policyVersion: dailyPolicyVersion.version,
+        module: moduleKey,
+        filePath: sourcePath,
+        ...handoffEvidence,
+        expectedSourceRows: 10,
+        downloadProvenance,
+        snapshotEvidence: snapshotEvidence ?? undefined,
       }), "utf8"),
     ]);
     results.push({
@@ -94,7 +195,7 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
     writeFile(path.join(runDirectory, "daily-summary.json"), JSON.stringify({
       status: "completed",
       runId,
-      policyVersion: "test-policy",
+      policyVersion: dailyPolicyVersion.version,
       salesAsOfDate: asOfDate,
       results,
     }), "utf8"),
@@ -103,28 +204,57 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
       strictOrder: jackyunModuleOrder,
       modules: manifestModules,
     }), "utf8"),
+    writeFile(path.join(runDirectory, "daily-run-contract.json"), JSON.stringify({
+      version: 1,
+      runId,
+      policyVersion: dailyPolicyVersion.version,
+      snapshotDate: asOfDate,
+      asOfDate,
+      baseUrl: "http://localhost:3000",
+      mode: "formal",
+      createdAt: "2026-08-05T00:59:59.000Z",
+    }), "utf8"),
   ]);
 }
 
-function publishedVerificationRequest(asOfDate: string): typeof fetch {
+function publishedVerificationRequest(
+  asOfDate: string,
+  ownedRowCount = 10,
+  inventoryIsCurrent = true,
+): typeof fetch {
+  const fixtureOutputSha256 = (moduleKey: string) => createHash("sha256")
+    .update(Buffer.from(`${moduleKey}-processed`, "utf8"))
+    .digest("hex");
   return (async (input: string | URL | Request) => {
     const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
     if (url.pathname === "/api/imports/sales/verify") {
       return Response.json({
         policyVersion: "test-policy",
         period: { startDate: `${asOfDate.slice(0, 8)}01`, endDate: asOfDate },
-        batch: { id: "sales:batch", status: "completed", rowCount: 10 },
+        batch: {
+          id: "sales:batch",
+          status: "completed",
+          rowCount: 10,
+          totals: {
+            rawFileHash: fixtureOutputSha256("sales"),
+            systemCost: { sourceBatchId: fixtureOutputSha256("inventory") },
+          },
+        },
         stats: { rowCount: 10, excludedWarehouseRows: 0, rowsNotOwnedByBatch: 0 },
         nonWhitelistChannels: [],
       });
     }
     const source = url.searchParams.get("source") ?? "inventory";
-    assert.equal(url.searchParams.get("batchId"), `${source}:batch`);
+    const requestedBatchId = url.searchParams.get("batchId");
+    assert.ok(requestedBatchId);
     return Response.json({
       items: [{
-        id: `${source}:batch`,
+        id: requestedBatchId,
         status: "completed",
         rowCount: 10,
+        excludedCount: 0,
+        ownedRowCount,
+        ...(source === "inventory" ? { isCurrent: inventoryIsCurrent } : {}),
         snapshotDate: source === "inventory" || source === "inventory_age" ? asOfDate : null,
       }],
     });
@@ -134,20 +264,31 @@ function publishedVerificationRequest(asOfDate: string): typeof fetch {
 async function writeResumablePartialRun(root: string, runId: string, inventoryAgeState: "navigated" | "zero_rows" | "retried_zero_rows" = "navigated") {
   const runDirectory = path.join(root, "outputs", "jackyun-import-runs", runId);
   const eventDirectory = path.join(root, "outputs", "jackyun-browser-events", runId);
-  await Promise.all([mkdir(runDirectory, { recursive: true }), mkdir(eventDirectory, { recursive: true })]);
+  await writeCompletedRun(root, runId, "2026-08-03");
+  await mkdir(eventDirectory, { recursive: true });
+  const completedManifest = JSON.parse(await readFile(path.join(runDirectory, "run-manifest.json"), "utf8"));
+  completedManifest.modules = {
+    products: completedManifest.modules.products,
+    inventory: completedManifest.modules.inventory,
+  };
   await Promise.all([
-    writeFile(path.join(runDirectory, "run-manifest.json"), JSON.stringify({
-      runId,
-      strictOrder: jackyunModuleOrder,
-      modules: {
-        products: { status: "completed", batchId: "products:batch" },
-        inventory: { status: "completed", batchId: "inventory:batch" },
-      },
-    }), "utf8"),
+    rm(path.join(runDirectory, "daily-summary.json"), { force: true }),
+    ...jackyunModuleOrder.slice(2).flatMap((moduleKey) => [
+      rm(path.join(runDirectory, "audit", `${moduleKey}.json`), { force: true }),
+      rm(path.join(runDirectory, "raw", `${moduleKey}.xlsx`), { force: true }),
+      rm(path.join(runDirectory, "processed", `${moduleKey}.xlsx`), { force: true }),
+      rm(path.join(
+        eventDirectory,
+        `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`,
+      ), { force: true }),
+    ]),
+  ]);
+  await Promise.all([
+    writeFile(path.join(runDirectory, "run-manifest.json"), JSON.stringify(completedManifest), "utf8"),
     writeFile(path.join(runDirectory, "browser-state.json"), JSON.stringify({
       version: 1,
       runId,
-      policyVersion: "test-policy",
+      policyVersion: dailyPolicyVersion.version,
       status: "blocked",
       currentModule: "inventory_age",
       currentState: "BLOCKED",
@@ -159,7 +300,7 @@ async function writeResumablePartialRun(root: string, runId: string, inventoryAg
     writeFile(path.join(runDirectory, "browser-controller-state.json"), JSON.stringify({
       version: 1,
       runId,
-      policyVersion: "test-policy",
+      policyVersion: dailyPolicyVersion.version,
       modules: {
         products: { status: "completed" },
         inventory: { status: "completed" },
@@ -184,10 +325,20 @@ async function writeBlockedBeforeFirstExport(root: string, runId: string, unsafe
   const eventDirectory = path.join(root, "outputs", "jackyun-browser-events", runId);
   await Promise.all([mkdir(runDirectory, { recursive: true }), mkdir(eventDirectory, { recursive: true })]);
   await Promise.all([
+    writeFile(path.join(runDirectory, "daily-run-contract.json"), JSON.stringify({
+      version: 1,
+      runId,
+      policyVersion: dailyPolicyVersion.version,
+      snapshotDate: "2026-08-03",
+      asOfDate: "2026-08-03",
+      baseUrl: "http://localhost:3000",
+      mode: "formal",
+      createdAt: "2026-08-04T10:59:59.000Z",
+    }), "utf8"),
     writeFile(path.join(runDirectory, "browser-state.json"), JSON.stringify({
       version: 1,
       runId,
-      policyVersion: "test-policy",
+      policyVersion: dailyPolicyVersion.version,
       status: "blocked",
       currentModule: "products",
       currentState: "BLOCKED",
@@ -202,7 +353,7 @@ async function writeBlockedBeforeFirstExport(root: string, runId: string, unsafe
     writeFile(path.join(runDirectory, "browser-controller-state.json"), JSON.stringify({
       version: 1,
       runId,
-      policyVersion: "test-policy",
+      policyVersion: dailyPolicyVersion.version,
       modules: {
         products: unsafeExportIntent
           ? { status: "export_armed", exportIntentAt: "2026-08-04T11:00:09.000Z" }
@@ -246,6 +397,9 @@ async function writeExactRowCountRepairRun(root: string, runId: string) {
     writeFile(path.join(runDirectory, "run-manifest.json"), JSON.stringify(manifest), "utf8"),
     writeFile(path.join(runDirectory, "browser-controller-state.json"), JSON.stringify(controller), "utf8"),
     writeFile(path.join(eventDirectory, "03-inventory_age.json"), JSON.stringify({
+      schemaVersion: 2,
+      runId,
+      policyVersion: dailyPolicyVersion.version,
       module: "inventory_age",
       filePath,
       navigationIntentAt: "2026-08-04T11:00:00.000Z",
@@ -298,21 +452,45 @@ test("Jackyun n8n plan uses Shanghai yesterday and only a local operations URL",
   }
 });
 
-test("Jackyun loopback stages reject concurrency and out-of-order calls", () => {
-  assert.equal(jackyunHelperRequestError("ready", false, "/jackyun/plan"), null);
-  assert.equal(jackyunHelperRequestError("planned", false, "/jackyun/plan"), null);
-  assert.equal(jackyunHelperRequestError("executed", false, "/jackyun/plan"), null);
-  assert.equal(jackyunHelperRequestError("failed", false, "/jackyun/plan"), null);
-  assert.match(JSON.stringify(jackyunHelperRequestError("running", false, "/jackyun/plan")), /invalid_stage/);
-  assert.deepEqual(jackyunHelperRequestError("ready", false, "/jackyun/run"), {
+test("Jackyun loopback stages bind one n8n execution and reject empty, stale, concurrent, and out-of-order calls", () => {
+  const owner = "execution-100";
+  const other = "execution-older";
+  assert.deepEqual(jackyunHelperRequestError("ready", false, "/jackyun/plan", null, null), {
+    error: "missing_or_invalid_execution_id",
+  });
+  assert.equal(jackyunHelperRequestError("ready", false, "/jackyun/plan", owner, null), null);
+  assert.equal(jackyunHelperRequestError("planned", false, "/jackyun/plan", owner, owner), null);
+  assert.equal(jackyunHelperRequestError("executed", false, "/jackyun/plan", owner, owner), null);
+  assert.equal(jackyunHelperRequestError("failed", false, "/jackyun/plan", owner, owner), null);
+  assert.deepEqual(jackyunHelperRequestError("planned", false, "/jackyun/plan", other, owner), {
+    error: "execution_mismatch",
+  });
+  assert.match(JSON.stringify(jackyunHelperRequestError("running", false, "/jackyun/plan", owner, owner)), /invalid_stage/);
+  assert.deepEqual(jackyunHelperRequestError("ready", false, "/jackyun/run", owner, null), {
+    error: "execution_not_claimed",
+    expected: "/jackyun/plan",
+  });
+  assert.deepEqual(jackyunHelperRequestError("ready", false, "/jackyun/run", owner, owner), {
     error: "invalid_stage",
     expected: "planned",
     actual: "ready",
   });
-  assert.deepEqual(jackyunHelperRequestError("planned", true, "/jackyun/run"), { error: "pipeline_busy" });
-  assert.equal(jackyunHelperRequestError("planned", false, "/jackyun/run"), null);
-  assert.equal(jackyunHelperRequestError("executed", false, "/jackyun/verify"), null);
-  assert.match(JSON.stringify(jackyunHelperRequestError("completed", false, "/jackyun/verify")), /invalid_stage/);
+  assert.deepEqual(jackyunHelperRequestError("planned", true, "/jackyun/run", owner, owner), { error: "pipeline_busy" });
+  assert.deepEqual(jackyunHelperRequestError("planned", true, "/jackyun/run", other, owner), {
+    error: "execution_mismatch",
+  });
+  assert.deepEqual(jackyunHelperRequestError("planned", true, "/jackyun/run", null, owner), {
+    error: "missing_or_invalid_execution_id",
+  });
+  assert.equal(jackyunHelperRequestError("planned", false, "/jackyun/run", owner, owner), null);
+  assert.deepEqual(jackyunHelperRequestError("planned", false, "/jackyun/run", other, owner), {
+    error: "execution_mismatch",
+  });
+  assert.equal(jackyunHelperRequestError("executed", false, "/jackyun/verify", owner, owner), null);
+  assert.deepEqual(jackyunHelperRequestError("executed", false, "/jackyun/verify", other, owner), {
+    error: "execution_mismatch",
+  });
+  assert.match(JSON.stringify(jackyunHelperRequestError("completed", false, "/jackyun/verify", owner, owner)), /invalid_stage/);
 });
 
 test("Jackyun n8n run keeps the five-module order and verify requires exact batches and audits", async () => {
@@ -386,9 +564,42 @@ test("Jackyun n8n verify parses audits and rejects a batch mismatch hidden behin
 
     await assert.rejects(
       verifyJackyunN8nPlan(plan, { root: fixture.root }),
-      /汇总、清单与审计中的批次或行数不一致/,
+      /精确完成批次证据无效|汇总、清单与审计中的批次或行数不一致/,
     );
     assert.equal(plan.stage, "failed");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun C-stage rejects a self-consistent foreign batch not derived from the archived output", async () => {
+  const fixture = await createFixture();
+  const runId = "n8n-foreign-batch-run";
+  try {
+    await writeCompletedRun(fixture.root, runId, "2026-08-04");
+    const runDirectory = path.join(fixture.root, "outputs", "jackyun-import-runs", runId);
+    const auditPath = path.join(runDirectory, "audit", "products.json");
+    const manifestPath = path.join(runDirectory, "run-manifest.json");
+    const summaryPath = path.join(runDirectory, "daily-summary.json");
+    const [audit, manifest, summary] = await Promise.all([
+      readFile(auditPath, "utf8").then(JSON.parse),
+      readFile(manifestPath, "utf8").then(JSON.parse),
+      readFile(summaryPath, "utf8").then(JSON.parse),
+    ]);
+    const foreignBatchId = `products:${"f".repeat(64)}`;
+    audit.import.batch.id = foreignBatchId;
+    manifest.modules.products.batchId = foreignBatchId;
+    summary.results[0].batchId = foreignBatchId;
+    await Promise.all([
+      writeFile(auditPath, JSON.stringify(audit), "utf8"),
+      writeFile(manifestPath, JSON.stringify(manifest), "utf8"),
+      writeFile(summaryPath, JSON.stringify(summary), "utf8"),
+    ]);
+
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
+      /批次号未与本轮归档输出 SHA-256 绑定/,
+    );
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
@@ -410,7 +621,7 @@ test("Jackyun completed-artifact verification hashes the archived source and out
     await writeFile(outputPath, "tampered", "utf8");
     await assert.rejects(
       verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
-      /实际哈希与审计不一致/,
+      /输出文件、字节数或哈希证据不一致|实际哈希与审计不一致/,
     );
 
     await writeCompletedRun(fixture.root, runId, "2026-08-04");
@@ -425,11 +636,132 @@ test("Jackyun completed-artifact verification hashes the archived source and out
     await rm(archivedSourcePath, { force: true });
     await assert.rejects(
       verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
-      /源文件或输入契约证据不一致/,
+      /归档源文件、字节数或哈希证据不一致|源文件或输入契约证据不一致/,
     );
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
+});
+
+test("Jackyun independent verification rejects unproven snapshot dates and unbound downloads", async () => {
+  const fixture = await createFixture();
+  const runId = "n8n-evidence-integrity-run";
+  const asOfDate = "2026-08-04";
+  try {
+    await writeCompletedRun(fixture.root, runId, asOfDate);
+    const inventoryAuditPath = path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-import-runs",
+      runId,
+      "audit",
+      "inventory.json",
+    );
+    const inventoryAudit = JSON.parse(await readFile(inventoryAuditPath, "utf8"));
+    inventoryAudit.source.snapshotEvidence.observedDate = "2026-08-03";
+    await writeFile(inventoryAuditPath, JSON.stringify(inventoryAudit), "utf8");
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate, root: fixture.root }),
+      /FIELD_MISMATCH|历史日期读回不一致|历史快照证据与输入契约不一致|原子 handoff 与归档审计证据不一致/,
+    );
+
+    await writeCompletedRun(fixture.root, runId, asOfDate);
+    const productsAuditPath = path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-import-runs",
+      runId,
+      "audit",
+      "products.json",
+    );
+    const productsAudit = JSON.parse(await readFile(productsAuditPath, "utf8"));
+    productsAudit.source.downloadProvenance.sha256 = "f".repeat(64);
+    await writeFile(productsAuditPath, JSON.stringify(productsAudit), "utf8");
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate, root: fixture.root }),
+      /下载 provenance 未与输入契约和归档源精确绑定|下载事件没有与归档源文件/,
+    );
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun C-stage recomputes the evidence digest and rejects an invalid export timestamp", async () => {
+  const fixture = await createFixture();
+  const runId = "n8n-invalid-export-time-run";
+  try {
+    await writeCompletedRun(fixture.root, runId, "2026-08-04");
+    const runDirectory = path.join(fixture.root, "outputs", "jackyun-import-runs", runId);
+    const auditPath = path.join(runDirectory, "audit", "products.json");
+    const manifestPath = path.join(runDirectory, "run-manifest.json");
+    const handoffPath = path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-browser-events",
+      runId,
+      "01-products.json",
+    );
+    const [audit, manifest, handoff] = await Promise.all([
+      readFile(auditPath, "utf8").then(JSON.parse),
+      readFile(manifestPath, "utf8").then(JSON.parse),
+      readFile(handoffPath, "utf8").then(JSON.parse),
+    ]);
+    audit.source.exportStart = "not-a-date";
+    audit.source.handoffEvidence.exportIntentAt = "not-a-date";
+    audit.source.inputContract.exportStart = "not-a-date";
+    audit.source.inputContract.handoffEvidence.exportIntentAt = "not-a-date";
+    handoff.exportIntentAt = "not-a-date";
+    const recalculated = createJackyunInputContractHash(audit.source.inputContract);
+    audit.source.inputContractHash = recalculated;
+    manifest.modules.products.inputContractHash = recalculated;
+    await Promise.all([
+      writeFile(auditPath, JSON.stringify(audit), "utf8"),
+      writeFile(manifestPath, JSON.stringify(manifest), "utf8"),
+      writeFile(handoffPath, JSON.stringify(handoff), "utf8"),
+    ]);
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
+      /handoff 时间线证据不完整|导出\/下载时间线无效/,
+    );
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun C-stage requires the immutable daily run contract", async () => {
+  const fixture = await createFixture();
+  const runId = "n8n-run-contract-tamper";
+  try {
+    await writeCompletedRun(fixture.root, runId, "2026-08-04");
+    const contractPath = path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-import-runs",
+      runId,
+      "daily-run-contract.json",
+    );
+    const contract = JSON.parse(await readFile(contractPath, "utf8"));
+    contract.snapshotDate = "2026-08-03";
+    await writeFile(contractPath, JSON.stringify(contract), "utf8");
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
+      /每日运行契约缺失|日期.*不一致/,
+    );
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n exposes stable inner failure code and stage", () => {
+  const error = Object.assign(new Error("date control mismatch"), {
+    failureCode: "FIELD_MISMATCH",
+    stage: "field_readback",
+  });
+  assert.deepEqual(jackyunN8nFailureDetails(error, "JACKYUN_N8N_RUN_FAILED", "run"), {
+    code: "FIELD_MISMATCH",
+    stage: "field_readback",
+    message: "date control mismatch",
+  });
 });
 
 test("Jackyun n8n verify refuses completed artifacts when the exact published batch is absent", async () => {
@@ -456,6 +788,54 @@ test("Jackyun n8n verify refuses completed artifacts when the exact published ba
       /inventory 精确批次未在运营系统落库历史中完成/,
     );
     assert.equal(plan.stage, "failed");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n verify requires the exact batch to own the currently published non-sales facts", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-published-ownership-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+    plan.stage = "executed";
+    await assert.rejects(
+      verifyJackyunN8nPlan(plan, {
+        root: fixture.root,
+        request: publishedVerificationRequest(plan.asOfDate, 9),
+      }),
+      /精确批次未在运营系统落库历史中完成/,
+    );
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n verify requires the inventory batch to be the snapshot currently selected by the system", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-inventory-current-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+    plan.stage = "executed";
+    await assert.rejects(
+      verifyJackyunN8nPlan(plan, {
+        root: fixture.root,
+        request: publishedVerificationRequest(plan.asOfDate, 10, false),
+      }),
+      /inventory 精确批次未在运营系统落库历史中完成/,
+    );
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
@@ -489,6 +869,44 @@ test("Jackyun n8n verify rejects a live sales policy different from the child au
     assert.equal(plan.stage, "failed");
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n verify binds the sales batch to the archived output and this run's inventory cost source", async (t) => {
+  for (const tamper of ["raw_file_hash", "cost_source_batch"] as const) {
+    await t.test(tamper, async () => {
+      const fixture = await createFixture();
+      try {
+        const now = new Date("2026-08-04T11:00:00.000Z");
+        const plan = await planJackyunN8nRun({
+          root: fixture.root,
+          now,
+          runIdFactory: () => `n8n-sales-${tamper}-run`,
+          request: async () => new Response("ok", { status: 200 }),
+        });
+        await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+        plan.stage = "executed";
+        const validRequest = publishedVerificationRequest(plan.asOfDate);
+        const request = (async (input: string | URL | Request, init?: RequestInit) => {
+          const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+          const response = await validRequest(input, init);
+          if (url.pathname !== "/api/imports/sales/verify") return response;
+          const body = await response.json() as {
+            batch: { totals: { rawFileHash: string; systemCost: { sourceBatchId: string } } };
+          } & Record<string, unknown>;
+          if (tamper === "raw_file_hash") body.batch.totals.rawFileHash = "f".repeat(64);
+          else body.batch.totals.systemCost.sourceBatchId = "f".repeat(64);
+          return Response.json(body);
+        }) as typeof fetch;
+
+        await assert.rejects(
+          verifyJackyunN8nPlan(plan, { root: fixture.root, request }),
+          /sales 精确批次或期间数据未通过独立落库回查/,
+        );
+      } finally {
+        await rm(fixture.root, { recursive: true, force: true });
+      }
+    });
   }
 });
 
@@ -564,6 +982,67 @@ test("Jackyun n8n resumes only an exact failed partial prefix", async () => {
       },
     });
     assert.equal(capturedResume, true);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n refuses to resume a completed prefix without its atomic handoff", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-missing-prefix-handoff",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeResumablePartialRun(fixture.root, plan.runId);
+    await rm(path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-browser-events",
+      plan.runId,
+      "01-products.json",
+    ), { force: true });
+    let browserStarts = 0;
+    let dailyStarts = 0;
+    await assert.rejects(runJackyunAutomationUnderLock({
+      runId: plan.runId,
+      snapshotDate: plan.snapshotDate,
+      asOfDate: plan.asOfDate,
+      eventDirectory: path.join(fixture.root, "outputs", "jackyun-browser-events"),
+      outputRoot: path.join(fixture.root, "outputs", "jackyun-import-runs"),
+      baseUrl: plan.baseUrl,
+      resume: true,
+      dryRun: false,
+      headless: true,
+    }, {
+      runBrowser: async () => {
+        browserStarts += 1;
+        return { status: "completed" } as never;
+      },
+      runDaily: async () => {
+        dailyStarts += 1;
+        return { status: "completed" } as never;
+      },
+    }), /原子 handoff|JSON 文件损坏或无法读取|ENOENT/);
+    assert.equal(browserStarts, 0);
+    assert.equal(dailyStarts, 0);
+    plan.stage = "failed";
+    plan.failure = { code: "JACKYUN_N8N_RUN_FAILED", message: "test failure", at: now.toISOString() };
+    await writeFile(
+      path.join(fixture.root, "outputs", "jackyun-n8n-pipeline", `plan-${plan.runId}.json`),
+      JSON.stringify(plan),
+      "utf8",
+    );
+
+    await assert.rejects(planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "must-not-create-a-new-run",
+      request: async () => new Response("ok", { status: 200 }),
+    }), /未闭环/);
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }

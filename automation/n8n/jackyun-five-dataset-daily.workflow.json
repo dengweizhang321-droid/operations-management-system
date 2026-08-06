@@ -31,6 +31,15 @@
       "parameters": {
         "method": "POST",
         "url": "http://127.0.0.1:5791/jackyun/plan",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 120000
         }
@@ -45,6 +54,15 @@
       "parameters": {
         "method": "POST",
         "url": "http://127.0.0.1:5791/jackyun/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 5400000
         }
@@ -59,6 +77,15 @@
       "parameters": {
         "method": "POST",
         "url": "http://127.0.0.1:5791/jackyun/verify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 120000
         }
@@ -84,7 +111,7 @@
     },
     {
       "parameters": {
-        "content": "## 三段式安全门禁\nA 以 Asia/Shanghai 计算昨天，检查本机运营系统、专用 profile 和当日已完成摘要；B 严格按 `products → inventory → inventory_age → sales → combos` 串行完成导出、下载、文件校验、预处理、导入和落库回查；C 独立重读 `daily-summary.json`、`run-manifest.json` 和每类审计文件，确认五类、顺序、截止日期和精确批次全部匹配。任一节点失败都停止后续节点；已有完整当日结果时只核验并跳过重复导入。",
+        "content": "## 三段式安全门禁\nA、B、C 使用同一个 n8n execution ID，helper 只允许 A 首次领取，空 ID、旧执行、跨执行接管、乱序和并发请求全部失败关闭；阶段长时间无进展时一次性 helper 会回收，由新 helper 重新从 A 按原 RUN_ID 的恢复规则核验。A 以 Asia/Shanghai 计算昨天，检查本机运营系统、专用 profile 和当日已完成摘要；B 严格按 `products → inventory → inventory_age → sales → combos` 串行完成导出、下载、文件校验、预处理、导入和落库回查；C 独立重读 `daily-summary.json`、`run-manifest.json` 和每类审计文件，确认五类、顺序、截止日期和精确批次全部匹配。任一节点失败都停止后续节点；已有完整当日结果时只核验并跳过重复导入。",
         "height": 230,
         "width": 760,
         "color": 4

@@ -16,6 +16,7 @@ type DownloadOptions = {
   downloadDirectory: string;
   runId: string;
   module: JackyunModule;
+  policyVersion?: string;
   exportIntentAt: string;
   allowedHosts?: readonly string[];
   timeoutMs?: number;
@@ -84,6 +85,9 @@ export async function downloadSignedOssExport(options: DownloadOptions) {
     }
     await rename(partialPath, finalPath);
     const provenance: JackyunDownloadProvenance = {
+      runId: options.runId,
+      module: options.module,
+      policyVersion: options.policyVersion ?? "standalone-export-v1",
       downloadId,
       method: "oss_fallback",
       completedAt: new Date().toISOString(),

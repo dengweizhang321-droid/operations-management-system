@@ -204,6 +204,24 @@ export async function findErpReferenceBatch(
   return row ? mapBatch(row) : null;
 }
 
+export async function countErpReferenceRowsOwnedByBatch(
+  db: ErpReferenceDatabase,
+  source: ErpReferenceSourceKey,
+  batchId: string,
+  snapshotDate?: string | null,
+) {
+  const query = source === "products"
+    ? "SELECT COUNT(*) AS count FROM erp_product_master WHERE last_import_batch_id = ?"
+    : source === "combos"
+      ? "SELECT COUNT(*) AS count FROM erp_combo_items WHERE last_import_batch_id = ?"
+      : "SELECT COUNT(*) AS count FROM erp_inventory_age_lines WHERE last_import_batch_id = ? AND snapshot_date = ?";
+  const statement = db.prepare(query);
+  const row = source === "inventory_age"
+    ? await statement.bind(batchId, snapshotDate ?? "").first<{ count: number }>()
+    : await statement.bind(batchId).first<{ count: number }>();
+  return Number(row?.count ?? 0);
+}
+
 export async function listErpReferenceBatches(
   db: ErpReferenceDatabase,
   source?: ErpReferenceSourceKey,

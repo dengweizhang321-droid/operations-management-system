@@ -210,3 +210,31 @@ test("A/B 等非终态在有界空闲后关闭 helper，下一段领取会取消
   assert.equal(closed, 1);
   assert.equal(reaper.isArmed(), false);
 });
+
+test("helper 空闲回收不会关闭仍在执行的活跃请求", () => {
+  let busy = true;
+  let closed = 0;
+  const scheduled: Array<{ callback: () => void; delay: number }> = [];
+  const reaper = createHelperInactivityReaper({
+    close: () => { closed += 1; },
+    isBusy: () => busy,
+    timeoutMs: 250,
+    schedule: (callback, delay) => {
+      scheduled.push({ callback, delay });
+      return { index: scheduled.length - 1 };
+    },
+    cancel: () => undefined,
+  });
+
+  reaper.arm();
+  scheduled[0]!.callback();
+  assert.equal(closed, 0);
+  assert.equal(reaper.isArmed(), true);
+  assert.equal(scheduled.length, 2);
+  assert.equal(scheduled[1]!.delay, 250);
+
+  busy = false;
+  scheduled[1]!.callback();
+  assert.equal(closed, 1);
+  assert.equal(reaper.isArmed(), false);
+});

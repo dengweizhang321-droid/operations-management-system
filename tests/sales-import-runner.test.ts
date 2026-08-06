@@ -9,6 +9,8 @@ import test from "node:test";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
 import { parseXlsxFirstSheet, type XlsxCellValue } from "../lib/imports/xlsx";
 import {
+  SalesImportError,
+  assertExactSalesSourceRowCount,
   assertSalesPostImportVerification,
   findMissingPreviouslyLoadedChannels,
   runSalesImport,
@@ -39,6 +41,22 @@ test("sales completeness guard detects a previously loaded whitelist channel mis
     ],
   );
   assert.deepEqual(result, [{ channel: "炊之王淘宝企业店", rowCount: 22, netSalesCents: 317_400 }]);
+});
+
+test("sales source row count contract is exact and fails closed when absent or ambiguous", () => {
+  assert.deepEqual(assertExactSalesSourceRowCount(2, 2), {
+    semantic: "xlsx_nonblank_data_rows",
+    expected: 2,
+    actual: 2,
+    verified: true,
+  });
+  assert.throws(() => assertExactSalesSourceRowCount(undefined, 2), (error) => (
+    error instanceof SalesImportError
+      && error.failureCode === "FILE_VALIDATION_FAILED"
+      && error.stage === "validate_source_row_count"
+  ));
+  assert.throws(() => assertExactSalesSourceRowCount(1, 2), /行数.*不一致/);
+  assert.throws(() => assertExactSalesSourceRowCount(3, 2), /行数.*不一致/);
 });
 
 test("sales post-import verification is fail-closed on wrong batches, rows, scope, or policy", () => {
@@ -120,6 +138,7 @@ test("sales dry-run uses the stable price-adjustment product code", async () => 
       "--import", "tsx", path.resolve("tools/sales-import-runner.ts"),
       "--download", salesPath,
       "--cost-source", costPath,
+      "--expected-source-rows", "1",
       "--as-of", "2026-07-15",
       "--audit-root", path.join(directory, "audit"),
       "--dry-run",
@@ -283,6 +302,12 @@ test("sales recovery performs a fresh exact-batch verification before reporting 
         ok: true,
         policyVersion: policy.version,
         period: { startDate: "2026-07-01", endDate: "2026-07-15" },
+        sourceCountContract: {
+          semantic: "xlsx_nonblank_data_rows",
+          expected: 1,
+          actual: 1,
+          verified: true,
+        },
         sources: { costSource: { sha256: sha256(costBytes) } },
         filtering: { sourceRows: 1, retainedRows: 1 },
         import: { batch: { id: "sales-batch-1", status: "completed", rowCount: 1 } },

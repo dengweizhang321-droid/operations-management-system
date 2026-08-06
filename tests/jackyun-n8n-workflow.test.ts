@@ -14,7 +14,13 @@ test("Jackyun n8n copy uses inactive loopback HTTP stages and the fixed five-mod
     nodes: Array<{
       name: string;
       type: string;
-      parameters?: { url?: string; options?: { timeout?: number }; rule?: unknown };
+      parameters?: {
+        url?: string;
+        options?: { timeout?: number };
+        rule?: unknown;
+        sendHeaders?: boolean;
+        headerParameters?: { parameters?: Array<{ name?: string; value?: string }> };
+      };
     }>;
     connections: Record<string, { main?: Array<Array<{ node?: string }>> }>;
   };
@@ -32,6 +38,13 @@ test("Jackyun n8n copy uses inactive loopback HTTP stages and the fixed five-mod
     "http://127.0.0.1:5791/jackyun/run",
     "http://127.0.0.1:5791/jackyun/verify",
   ]);
+  for (const node of requestNodes) {
+    assert.equal(node.parameters?.sendHeaders, true);
+    assert.deepEqual(node.parameters?.headerParameters?.parameters, [{
+      name: "X-TERUISI-N8N-EXECUTION-ID",
+      value: "={{ $execution.id }}",
+    }]);
+  }
   assert.equal(requestNodes[1]?.parameters?.options?.timeout, 5_400_000);
   assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "A·生成今日安全计划");
   assert.equal(workflow.connections["A·生成今日安全计划"]?.main?.[0]?.[0]?.node, "B·五类串行下载、导入并回查");
@@ -39,5 +52,6 @@ test("Jackyun n8n copy uses inactive loopback HTTP stages and the fixed five-mod
   assert.match(raw, /40 8-18 \* \* \*/);
   assert.match(raw, /Chrome 已自动填充/);
   assert.match(raw, /products → inventory → inventory_age → sales → combos/);
+  assert.match(raw, /旧执行、跨执行接管、乱序和并发请求全部失败关闭/);
   assert.doesNotMatch(raw, /localhost:8000|\/Users\/hubo|executeCommand|--(?:username|password|cookie|token)\b|JACKYUN_(?:USERNAME|PASSWORD)/i);
 });

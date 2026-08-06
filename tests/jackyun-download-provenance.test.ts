@@ -4,6 +4,9 @@ import { assertDownloadProvenance } from "../lib/jackyun/download-provenance";
 
 test("OSS fallback requires a whitelisted host and hashed URL without storing the signed URL", () => {
   const valid = {
+    runId: "run-20260805",
+    module: "inventory" as const,
+    policyVersion: "2026-08-06.1",
     downloadId: "2ac0c4f0-1111-4222-8333-123456789abc",
     method: "oss_fallback" as const,
     completedAt: "2026-07-17T01:00:00.000Z",
@@ -19,5 +22,6 @@ test("OSS fallback requires a whitelisted host and hashed URL without storing th
     () => assertDownloadProvenance({ ...valid, method: "untrusted" } as never),
     /method 无效/,
   );
+  assert.throws(() => assertDownloadProvenance({ ...valid, runId: "" }), /runId/);
   assert.equal("url" in valid, false);
 });

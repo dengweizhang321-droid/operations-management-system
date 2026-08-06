@@ -3,8 +3,13 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  assertJackyunHistoricalSnapshotEvidence,
+  assertJackyunHandoffEvidence,
   createJackyunInputContractHash,
   isValidJackyunSourceRowCountCorrection,
+  type JackyunInputContract,
+  type JackyunHandoffEvidence,
+  type JackyunHistoricalSnapshotEvidence,
   type JackyunSourceRowCountCorrection,
 } from "../lib/jackyun/run-contract";
 import {
@@ -15,20 +20,23 @@ import {
   type JackyunModule,
   type JackyunWorkbookModule,
 } from "../lib/jackyun/post-download";
-import { runSalesImport } from "./sales-import-runner";
-import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { runSalesImport, salesSourceRowCountSemantic } from "./sales-import-runner";
+import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import {
-  assertDownloadProvenance,
+  assertBoundDownloadProvenance,
   defaultJackyunDownloadHosts,
   type JackyunDownloadProvenance,
 } from "../lib/jackyun/download-provenance";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
+import { verifyJackyunModuleArtifact } from "../lib/jackyun/run-artifact-verification";
 
 type CliOptions = {
   module: JackyunModule;
   filePath: string;
   runId: string;
+  policyVersion: string;
   snapshotDate?: string;
+  snapshotEvidence?: JackyunHistoricalSnapshotEvidence;
   asOfDate?: string;
   costSourcePath?: string;
   exportStart: string;
@@ -38,12 +46,19 @@ type CliOptions = {
   outputRoot: string;
   downloadDirectory: string;
   downloadProvenance?: JackyunDownloadProvenance;
+  handoffEvidence?: JackyunHandoffEvidence;
   allowedDownloadHosts?: readonly string[];
   sourceRowCountCorrection?: JackyunSourceRowCountCorrection;
   dryRun: boolean;
 };
 
 export type JackyunDownloadRunOptions = CliOptions;
+
+export function assertNoJackyunPreparedPromotion(status: string, dryRun: boolean) {
+  if (status === "prepared" && !dryRun) {
+    throw new Error("dry-run prepared 模块不得在同一 run id 下升级为正式完成；请使用新的 run id。");
+  }
+}
 
 type ModuleStatus = "prepared" | "completed" | "failed";
 
@@ -88,6 +103,22 @@ type StableFileEvidence = {
   size: number;
   mtimeMs: number;
   mtime: Date;
+};
+
+type BrowserHandoffFile = {
+  schemaVersion?: number;
+  runId?: string;
+  policyVersion?: string;
+  module?: string;
+  filePath?: string;
+  navigationIntentAt?: string;
+  queryIntentAt?: string;
+  tableStableAt?: string;
+  exportIntentAt?: string;
+  downloadEventAt?: string;
+  expectedSourceRows?: number;
+  downloadProvenance?: JackyunDownloadProvenance;
+  snapshotEvidence?: JackyunHistoricalSnapshotEvidence;
 };
 
 export function isExactFailedSourceRowCountRepair(input: {
@@ -140,13 +171,7 @@ class RunnerHttpError extends Error {
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const defaultDownloadDirectory = "D:\\谷歌浏览器";
-const fileNamePatterns: Record<JackyunModule, RegExp> = {
-  products: /^货品导出(?: \(\d+\))?\.xlsx$/i,
-  inventory: /^分仓库存查询(?: \(\d+\))?\.xlsx$/i,
-  inventory_age: /^库龄分析\(正式勿删\)(?: \(\d+\))?\.xlsx$/i,
-  combos: /^组合装(?:及子件)?导出(?: \(\d+\))?\.xlsx$/i,
-  sales: /^销售单明细账(?: \(\d+\))?\.xlsx$/i,
-};
+const dailyPolicyPath = path.join(projectRoot, "config", "jackyun-daily-policy.json");
 
 function shanghaiIsoToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -176,7 +201,7 @@ function isJackyunModule(value: string): value is JackyunModule {
   return (jackyunModuleOrder as readonly string[]).includes(value);
 }
 
-function parseCli(): CliOptions {
+async function parseCli(): Promise<CliOptions> {
   const args = process.argv.slice(2);
   const values = new Map<string, string>();
   let dryRun = false;
@@ -199,6 +224,9 @@ function parseCli(): CliOptions {
   const runId = values.get("--run-id");
   if (!runId) throw new Error("缺少 --run-id；五个模块必须显式共用同一个运行编号。");
   if (!/^[A-Za-z0-9._-]+$/.test(runId)) throw new Error("--run-id 只能包含字母、数字、点、下划线和连字符。");
+  const currentPolicy = await readJsonFile<{ version?: string }>(dailyPolicyPath);
+  const policyVersion = currentPolicy.version?.trim();
+  if (!policyVersion) throw new Error("吉客云每日策略缺少有效 version。");
   const snapshotDate = values.get("--snapshot");
   const asOfDate = values.get("--as-of");
   const exportStart = values.get("--export-start");
@@ -230,8 +258,57 @@ function parseCli(): CliOptions {
   if (moduleValue === "sales" && !values.get("--cost-source")) {
     throw new Error("sales 必须显式提供本轮库存输出 --cost-source。");
   }
+  const handoffFilePath = values.get("--handoff-file");
+  const handoff = handoffFilePath
+    ? await readJsonFile<BrowserHandoffFile>(path.resolve(handoffFilePath))
+    : undefined;
+  if (!handoff && !dryRun) {
+    throw new Error("正式下载后处理必须提供本轮 controller 原子生成的 --handoff-file。");
+  }
+  if (handoff) {
+    if (handoff.schemaVersion !== 2
+      || handoff.runId !== runId
+      || handoff.policyVersion !== policyVersion
+      || handoff.module !== moduleValue
+      || !handoff.filePath || path.resolve(handoff.filePath) !== path.resolve(filePath)
+      || Date.parse(handoff.exportIntentAt ?? "") !== Date.parse(exportStart)
+      || handoff.expectedSourceRows !== expectedSourceRows) {
+      throw Object.assign(
+        new Error("FILE_BINDING_FAILED: --handoff-file 的版本、运行、策略、模块、文件、导出时间或页面行数与本轮参数不一致。"),
+        { code: "FILE_BINDING_FAILED" },
+      );
+    }
+    const navigationAt = Date.parse(handoff.navigationIntentAt ?? "");
+    const queryAt = Date.parse(handoff.queryIntentAt ?? "");
+    const tableStableAt = Date.parse(handoff.tableStableAt ?? "");
+    const exportAt = Date.parse(handoff.exportIntentAt ?? "");
+    const requiresQuery = moduleValue === "inventory" || moduleValue === "inventory_age" || moduleValue === "sales";
+    if (!Number.isFinite(navigationAt) || !Number.isFinite(tableStableAt)
+      || (requiresQuery && !Number.isFinite(queryAt))
+      || tableStableAt < (requiresQuery ? queryAt : navigationAt)
+      || tableStableAt > exportAt) {
+      throw Object.assign(
+        new Error("FIELD_MISMATCH: --handoff-file 的导航、查询、表格稳定与导出时间线无效。"),
+        { code: "FIELD_MISMATCH" },
+      );
+    }
+  }
+  const handoffEvidence = handoff ? {
+    navigationIntentAt: handoff.navigationIntentAt!,
+    queryIntentAt: handoff.queryIntentAt,
+    tableStableAt: handoff.tableStableAt!,
+    exportIntentAt: handoff.exportIntentAt!,
+    downloadEventAt: handoff.downloadEventAt!,
+  } : undefined;
+  if (handoffEvidence) assertJackyunHandoffEvidence(handoffEvidence, moduleValue);
   const downloadMethod = values.get("--download-method");
-  const downloadProvenance = downloadMethod ? {
+  if (handoff?.downloadProvenance && downloadMethod) {
+    throw new Error("--handoff-file 与分散的 --download-* 证据不能同时提供。");
+  }
+  const downloadProvenance = handoff?.downloadProvenance ?? (downloadMethod ? {
+    runId,
+    module: moduleValue,
+    policyVersion,
     downloadId: values.get("--download-id") ?? "",
     method: downloadMethod as JackyunDownloadProvenance["method"],
     completedAt: values.get("--download-completed-at") ?? "",
@@ -240,13 +317,61 @@ function parseCli(): CliOptions {
     sourceUrlHash: values.get("--source-url-hash"),
     sha256: values.get("--expected-download-sha256"),
     bytes: values.has("--download-bytes") ? Number(values.get("--download-bytes")) : undefined,
-  } : undefined;
-  if (downloadProvenance) assertDownloadProvenance(downloadProvenance);
+  } : undefined);
+  assertBoundDownloadProvenance(downloadProvenance, defaultJackyunDownloadHosts, {
+    runId,
+    module: moduleValue,
+    policyVersion,
+  });
+  if (handoff && handoff.downloadEventAt !== downloadProvenance.completedAt) {
+    throw Object.assign(
+      new Error("FILE_BINDING_FAILED: --handoff-file 的 downloadEventAt 与 provenance.completedAt 不一致。"),
+      { code: "FILE_BINDING_FAILED" },
+    );
+  }
+  const snapshotEvidenceFile = values.get("--snapshot-evidence-file");
+  let snapshotEvidence: JackyunHistoricalSnapshotEvidence | undefined;
+  if (moduleValue === "inventory" || moduleValue === "inventory_age") {
+    if (!dryRun && snapshotEvidenceFile) {
+      throw new Error("正式任务的历史快照证据必须内嵌于 controller 原子 handoff，不接受独立证据文件修补。");
+    }
+    if (!snapshotEvidenceFile && !handoff?.snapshotEvidence) {
+      throw new Error(`${moduleValue} 必须提供含历史日期读回的 --handoff-file；单独的 --snapshot 不能证明历史快照。`);
+    }
+    if (snapshotEvidenceFile && handoff?.snapshotEvidence) {
+      throw new Error("--handoff-file 已包含历史快照证据，不得再提供 --snapshot-evidence-file。");
+    }
+    const payload = snapshotEvidenceFile
+      ? await readJsonFile<unknown>(path.resolve(snapshotEvidenceFile))
+      : handoff?.snapshotEvidence;
+    const candidate = payload && typeof payload === "object" && "snapshotEvidence" in payload
+      ? (payload as { snapshotEvidence?: unknown }).snapshotEvidence
+      : payload;
+    assertJackyunHistoricalSnapshotEvidence(candidate, {
+      module: moduleValue,
+      runId,
+      snapshotDate: snapshotDate!,
+      navigationIntentAt: handoff?.navigationIntentAt,
+      exportIntentAt: exportStart,
+    });
+    if (handoff && (candidate.queryIntentAt !== handoff.queryIntentAt
+      || candidate.tableStableAt !== handoff.tableStableAt)) {
+      throw Object.assign(
+        new Error("FIELD_MISMATCH: 历史快照证据与 handoff 的查询/表格稳定时间不一致。"),
+        { code: "FIELD_MISMATCH" },
+      );
+    }
+    snapshotEvidence = candidate;
+  } else if (snapshotEvidenceFile || handoff?.snapshotEvidence) {
+    throw new Error(`${moduleValue} 不接受历史库存快照证据。`);
+  }
   return {
     module: moduleValue,
     filePath: path.resolve(filePath),
     runId,
+    policyVersion,
     snapshotDate,
+    snapshotEvidence,
     asOfDate,
     costSourcePath: values.get("--cost-source") ? path.resolve(values.get("--cost-source")!) : undefined,
     exportStart,
@@ -256,6 +381,7 @@ function parseCli(): CliOptions {
     outputRoot: path.resolve(values.get("--output-root") ?? path.join(projectRoot, "outputs", "jackyun-import-runs")),
     downloadDirectory: path.resolve(values.get("--download-dir") ?? defaultDownloadDirectory),
     downloadProvenance,
+    handoffEvidence,
     dryRun,
   };
 }
@@ -311,20 +437,31 @@ async function waitForStableFile(filePath: string) {
 }
 
 function assertCurrentDownload(options: CliOptions, file: StableFileEvidence) {
-  const relative = path.relative(options.downloadDirectory, options.filePath);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`原始文件必须位于本轮下载目录内：${options.downloadDirectory}`);
+  const exactRunModuleDirectory = path.join(
+    options.downloadDirectory,
+    "jackyun",
+    options.runId,
+    options.module,
+  );
+  const relative = path.relative(exactRunModuleDirectory, options.filePath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)
+    || path.resolve(path.dirname(options.filePath)) !== path.resolve(exactRunModuleDirectory)) {
+    throw Object.assign(
+      new Error(`FILE_BINDING_FAILED: 原始文件必须位于本轮模块专属目录内：${exactRunModuleDirectory}`),
+      { code: "FILE_BINDING_FAILED" },
+    );
   }
   if (path.extname(options.filePath).toLowerCase() !== ".xlsx") throw new Error("下载文件扩展名必须为 .xlsx。");
-  const fixedName = fileNamePatterns[options.module].test(path.basename(options.filePath));
-  if (!fixedName && !options.downloadProvenance) {
-    throw new Error(`${options.module} 原始文件名不符合固定模式：${path.basename(options.filePath)}`);
+  assertBoundDownloadProvenance(
+    options.downloadProvenance,
+    options.allowedDownloadHosts ?? defaultJackyunDownloadHosts,
+    { runId: options.runId, module: options.module, policyVersion: options.policyVersion },
+  );
+  if (Date.parse(options.downloadProvenance.completedAt) < Date.parse(options.exportStart)) {
+    throw Object.assign(new Error("下载完成时间早于本轮导出 intent。"), { code: "FILE_BINDING_FAILED" });
   }
-  if (options.downloadProvenance) {
-    assertDownloadProvenance(options.downloadProvenance, options.allowedDownloadHosts ?? defaultJackyunDownloadHosts);
-    if (Date.parse(options.downloadProvenance.completedAt) < Date.parse(options.exportStart)) {
-      throw new Error("下载完成时间早于本轮导出 intent。");
-    }
+  if (options.downloadProvenance.bytes !== file.size) {
+    throw Object.assign(new Error("下载事件字节数与稳定文件大小不一致。"), { code: "FILE_BINDING_FAILED" });
   }
   assertJackyunDownloadFreshness(file.mtimeMs, options.exportStart);
 }
@@ -530,6 +667,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
 
   let rawHash = "";
   let inputContractHash = "";
+  let inputContract: JackyunInputContract | null = null;
   let stage = "strict_sequence";
   let stageStartedAtMs = Date.now();
   const stageElapsedMs: Record<string, number> = {};
@@ -544,6 +682,18 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
   });
   try {
     assertStrictSequence(manifest, options.module, options.dryRun);
+    if (!options.dryRun) assertJackyunHandoffEvidence(options.handoffEvidence, options.module);
+    moveToStage("verify_historical_snapshot_evidence");
+    if (options.module === "inventory" || options.module === "inventory_age") {
+      assertJackyunHistoricalSnapshotEvidence(options.snapshotEvidence, {
+        module: options.module,
+        runId: options.runId,
+        snapshotDate: options.snapshotDate!,
+        exportIntentAt: options.exportStart,
+      });
+    } else if (options.snapshotEvidence) {
+      throw Object.assign(new Error(`${options.module} 不接受历史库存快照证据。`), { code: "FIELD_MISMATCH" });
+    }
     moveToStage("wait_download_file_stable");
     const stableFile = await waitForStableFile(options.filePath);
     const fileStableAt = new Date().toISOString();
@@ -552,28 +702,47 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
     moveToStage("read_and_hash_source");
     const rawBytes = new Uint8Array(await readFile(options.filePath));
     rawHash = sha256(rawBytes);
-    if (options.downloadProvenance?.sha256 && options.downloadProvenance.sha256.toLowerCase() !== rawHash) {
-      throw new Error("下载事件 SHA-256 与 runner 实际文件不一致。");
+    if (options.downloadProvenance!.sha256!.toLowerCase() !== rawHash) {
+      throw Object.assign(new Error("下载事件 SHA-256 与 runner 实际文件不一致。"), { code: "FILE_BINDING_FAILED" });
     }
-    if (options.downloadProvenance?.bytes && options.downloadProvenance.bytes !== rawBytes.byteLength) {
-      throw new Error("下载事件字节数与 runner 实际文件不一致。");
+    if (options.downloadProvenance!.bytes !== rawBytes.byteLength) {
+      throw Object.assign(new Error("下载事件字节数与 runner 实际文件不一致。"), { code: "FILE_BINDING_FAILED" });
     }
-    inputContractHash = createJackyunInputContractHash({
+    inputContract = {
+      runId: options.runId,
+      policyVersion: options.policyVersion,
       module: options.module,
       rawSha256: rawHash,
       snapshotDate: options.snapshotDate,
+      snapshotEvidence: options.snapshotEvidence,
       asOfDate: options.asOfDate,
       expectedSourceRows: options.expectedSourceRows,
       previousComboRows: options.previousComboRows,
       costOutputSha256: options.module === "sales" ? manifest.modules.inventory?.salesCostSourceSha256 : undefined,
       costSourcePath: options.module === "sales" ? options.costSourcePath : undefined,
+      exportStart: options.exportStart,
+      downloadEventAt: options.downloadProvenance!.completedAt,
+      downloadProvenance: options.downloadProvenance!,
+      handoffEvidence: options.handoffEvidence,
       baseUrl: options.baseUrl,
-    });
+    };
+    inputContractHash = createJackyunInputContractHash(inputContract);
     const existing = manifest.modules[options.module];
     if (existing) {
+      assertNoJackyunPreparedPromotion(existing.status, options.dryRun);
       if (existing.sourceSha256 === rawHash
         && existing.inputContractHash === inputContractHash
         && (existing.status === "completed" || (existing.status === "prepared" && options.dryRun))) {
+        await verifyJackyunModuleArtifact({
+          runDirectory,
+          runId: options.runId,
+          module: options.module,
+          snapshotDate: options.snapshotDate ?? options.asOfDate ?? "",
+          policyVersion: options.policyVersion,
+          allowedDownloadHosts: options.allowedDownloadHosts,
+          manifestModule: existing,
+          expectedStatus: existing.status,
+        });
         const result = { status: "duplicate_ignored", runId: options.runId, module: options.module, auditPath, manifestPath, existing };
         return result;
       }
@@ -598,10 +767,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         });
         delete manifest.modules[options.module];
         priorModule = undefined;
-      } else if (!(existing.sourceSha256 === rawHash
-        && existing.inputContractHash === inputContractHash
-        && existing.status === "prepared"
-        && !options.dryRun)) {
+      } else {
         throw new Error(`${options.module} 已在本轮登记，但文件或输入参数契约不同；不能覆盖或按重复成功跳过。请使用新的 run id。`);
       }
     }
@@ -615,6 +781,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
     let moduleResult: Record<string, unknown>;
     let batch: BatchSummary | null = null;
     let validation: unknown = null;
+    let sourceCountContract: unknown = null;
     let preprocessing: unknown = null;
     let comboRelationBaseline: unknown = null;
     let importHash = rawHash;
@@ -644,12 +811,17 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       if (childCost?.sha256 !== manifest.modules.inventory?.salesCostSourceSha256) {
         throw new Error("销售 child 实际读取的成本源 SHA 与本轮 inventory 清单不一致。");
       }
-      const salesSourceRows = Number((preprocessing as Record<string, unknown> | null)?.sourceRows ?? NaN);
-      // v4 适配期：销售明细账页面统计的是订单数，导出文件是明细行（每订单多行），
-      // 文件行数通常远大于页面订单数。只校验文件行数 >= 页面订单数。
-      if (salesSourceRows < options.expectedSourceRows) {
-        throw new Error(`销售源文件行数异常少于页面订单数：页面 ${options.expectedSourceRows}，文件 ${salesSourceRows}。`);
+      const childSourceCountContract = salesAudit?.sourceCountContract as Record<string, unknown> | undefined;
+      if (childSourceCountContract?.semantic !== salesSourceRowCountSemantic
+        || childSourceCountContract.expected !== options.expectedSourceRows
+        || childSourceCountContract.actual !== options.expectedSourceRows
+        || childSourceCountContract.verified !== true) {
+        throw new JackyunValidationError(
+          "销售 runner 未返回页面计数与 XLSX 非空明细行精确相等的完整性证据。",
+          { expectedSourceRows: options.expectedSourceRows, sourceCountContract: childSourceCountContract ?? null },
+        );
       }
+      sourceCountContract = { ...childSourceCountContract };
       moduleResult = {
         status: typeof salesResult.status === "string" ? salesResult.status : (options.dryRun ? "prepared" : "completed"),
         salesRunId: typeof salesAudit?.runId === "string" ? salesAudit.runId : null,
@@ -727,9 +899,14 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         exportStart: options.exportStart ?? null,
         expectedSourceRows: options.expectedSourceRows,
         inputContractHash,
+        inputContract,
+        handoffEvidence: options.handoffEvidence ?? null,
+        downloadEventAt: options.downloadProvenance?.completedAt ?? null,
         downloadProvenance: options.downloadProvenance ?? null,
+        snapshotEvidence: options.snapshotEvidence ?? null,
       },
       validation,
+      sourceCountContract,
       preprocessing,
       safetyChecks: {
         comboRelationBaseline,
@@ -790,7 +967,13 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         elapsedMs: Date.parse(failedAt) - Date.parse(startedAt),
         stageElapsedMs: currentStageElapsed(),
       },
-      source: { path: options.filePath, sha256: rawHash || null, exportStart: options.exportStart ?? null },
+      source: {
+        path: options.filePath,
+        sha256: rawHash || null,
+        exportStart: options.exportStart ?? null,
+        downloadProvenance: options.downloadProvenance ?? null,
+        snapshotEvidence: options.snapshotEvidence ?? null,
+      },
       error: { stage, message, details },
     };
     if (priorModule) {
@@ -816,7 +999,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
 }
 
 async function main() {
-  const options = parseCli();
+  const options = await parseCli();
   const result = await withJackyunRunLock(
     { runId: options.runId, purpose: `post_download_${options.module}` },
     () => runJackyunDownload(options),

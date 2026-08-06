@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -8,12 +7,13 @@ import {
   connectJackyunTarget,
   evaluateValue,
   launchDedicatedChrome,
-  listChromeTargets,
 } from "../lib/jackyun/cdp-client";
 import { PlaywrightPageClient, connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { downloadSignedOssExport } from "../lib/jackyun/oss-download";
+import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
+import type { JackyunHistoricalSnapshotEvidence } from "../lib/jackyun/run-contract";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-runner";
 
@@ -51,8 +51,17 @@ type ModuleActionState = Partial<BrowserHandoff> & {
   queryRetryCount?: number;
   queryRetryIntentAt?: string;
   tableReadbackFailure?: {
-    code: "zero_rows" | "unstable";
+    code: "zero_rows" | "unstable" | "table_timeout";
     observedAt: string;
+  };
+  snapshotControlReadback?: Omit<
+    JackyunHistoricalSnapshotEvidence,
+    "queryIntentAt" | "queryRefreshSource" | "queryRefreshCompletedAt" | "tableStableAt"
+  >;
+  queryRefreshEvidence?: {
+    queryIntentAt: string;
+    completedAt: string;
+    source: "miniui_grid_lifecycle" | "module_network_request";
   };
   timings?: {
     enterModuleMs?: number;
@@ -61,6 +70,37 @@ type ModuleActionState = Partial<BrowserHandoff> & {
     postDownloadMs?: number;
   };
 };
+
+export type JackyunControllerFailureCode = "FIELD_MISMATCH" | "TABLE_TIMEOUT" | "FILE_BINDING_FAILED";
+export type JackyunControllerFailureStage = "field_readback" | "query_refresh" | "download_binding";
+
+function controllerFailure(
+  code: JackyunControllerFailureCode,
+  stage: JackyunControllerFailureStage,
+  message: string,
+) {
+  return Object.assign(new Error(`${code} [${stage}]: ${message}`), { code, stage });
+}
+
+export function assertHistoricalDateReadback(
+  moduleKey: JackyunModule,
+  targetDate: string,
+  observedDates: readonly string[],
+) {
+  if (moduleKey !== "inventory" && moduleKey !== "inventory_age") {
+    throw new Error(`历史快照日期读回不适用于模块 ${moduleKey}。`);
+  }
+  const observedDate = observedDates.length === 1 ? observedDates[0] : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || observedDate !== targetDate) {
+    const actual = observedDates.length ? observedDates.join(" | ") : "未发现可验证的历史日期控件";
+    throw controllerFailure(
+      "FIELD_MISMATCH",
+      "field_readback",
+      `${moduleKey} 历史日期读回不一致：目标 ${targetDate}，实际 ${actual}。`,
+    );
+  }
+  return observedDate;
+}
 
 type ControllerState = {
   version: 1;
@@ -602,15 +642,37 @@ async function setDateInputs(client: BrowserAutomationClient, values: string[], 
   return evaluateValue<string[]>(client, `(() => {
     ${jsDocumentsPrelude(urlHints)}
     const isDateLikeValue = (value) => /^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2}:\\d{2})?$/.test(value || '');
+    const resolveControl = (input) => {
+      const mini = input.ownerDocument.defaultView?.mini;
+      if (!mini?.get) return null;
+      const ids = [input.id, String(input.id || '').replace(/\\$text$/, '')].filter(Boolean);
+      for (const id of ids) {
+        try {
+          const control = mini.get(id);
+          if (control && typeof control.setValue === 'function' && typeof control.getValue === 'function') return control;
+        } catch {}
+      }
+      return null;
+    };
     const dateInputs = documents.flatMap((doc) => Array.from(doc.querySelectorAll('input')))
-      .filter((el) => {
-        if (!visible(el)) return false;
-        const key = ((el.id || '') + ' ' + (el.name || '')).toLowerCase();
+      .map((input) => ({ input, control: resolveControl(input) }))
+      .filter(({ input, control }) => {
+        if (!visible(input) || input.disabled || (input.readOnly && !control)) return false;
+        const key = ((input.id || '') + ' ' + (input.name || '')).toLowerCase();
         if (/select.*time|timestr|time.*str/.test(key)) return false;
-        return isDateLikeValue(el.value || '') || /日期|时间/.test(el.placeholder || '') || /time|date/i.test(key);
+        const semanticText = [
+          key,
+          input.placeholder || '',
+          input.getAttribute('aria-label') || '',
+          input.getAttribute('title') || '',
+          Array.from(input.labels || []).map((label) => label.textContent || '').join(' '),
+          input.parentElement?.previousElementSibling?.textContent || '',
+          input.closest('td')?.previousElementSibling?.textContent || '',
+        ].join(' ');
+        return /日期|快照|统计日|库存日|截止日|业务日|date/i.test(semanticText);
       })
       .sort((a, b) => {
-        const rank = (el) => {
+        const rank = ({ input: el }) => {
           const key = ((el.id || '') + ' ' + (el.name || '')).toLowerCase();
           if (/begin|start|from/.test(key)) return 0;
           if (/end|to/.test(key)) return 1;
@@ -619,18 +681,34 @@ async function setDateInputs(client: BrowserAutomationClient, values: string[], 
         };
         return rank(a) - rank(b);
       });
-    if (dateInputs.length < ${values.length}) throw new Error('页面日期输入框数量不足');
-    const targets = dateInputs.slice(0, ${values.length});
+    if (dateInputs.length !== ${values.length}) {
+      throw new Error('历史日期控件候选不唯一：期望 ${values.length} 个，实际 ' + dateInputs.length + ' 个');
+    }
+    const targets = dateInputs;
     const expected = ${JSON.stringify(values)};
-    targets.forEach((input, index) => {
-      if (input.value === expected[index]) return;
-      const setter = Object.getOwnPropertyDescriptor(input.ownerDocument.defaultView.HTMLInputElement.prototype, 'value')?.set;
-      setter ? setter.call(input, expected[index]) : input.value = expected[index];
+    targets.forEach(({ input, control }, index) => {
+      if (control) {
+        control.setValue(expected[index]);
+        if (typeof control.doValueChanged === 'function') control.doValueChanged();
+        if (typeof control.onValueChanged === 'function') control.onValueChanged();
+      } else if (input.value !== expected[index]) {
+        const setter = Object.getOwnPropertyDescriptor(input.ownerDocument.defaultView.HTMLInputElement.prototype, 'value')?.set;
+        setter ? setter.call(input, expected[index]) : input.value = expected[index];
+      }
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
       input.dispatchEvent(new Event('blur', { bubbles: true }));
     });
-    return targets.map((input) => input.value);
+    const asDateText = (value, input) => {
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        const pad = (part) => String(part).padStart(2, '0');
+        return value.getFullYear() + '-' + pad(value.getMonth() + 1) + '-' + pad(value.getDate());
+      }
+      const text = String(value ?? '');
+      if (/^\\d{4}-\\d{2}-\\d{2}/.test(text)) return text.slice(0, 10);
+      return String(input.value || '').slice(0, 10);
+    };
+    return targets.map(({ input, control }) => asDateText(control ? control.getValue() : input.value, input));
   })()`);
 }
 
@@ -861,7 +939,7 @@ async function triggerSalesMinimalExportAllPage(client: BrowserAutomationClient,
   // 配置再重新导出，但 v4 下 hook 会中断异步流程导致文件不完整（只导出1列）。
   // 正确做法：只 bypass 校验（performValidation/valideIsWithSkuImg），不 hook
   // startExcelExport，让 v4 自然完成导出。installDownloadFileHook 已捕获 OSS URL，
-  // 通用流程（findHookedDownloadUrl + findLocalDownloadedFile）负责等本地下载。
+  // 通用流程只接受 hook/CDP 捕获的本轮 OSS URL，再下载到 run/module 专属目录。
   await installDownloadFileHook(client, urlHints);
   return evaluateValue<boolean>(client, `(async () => {
     ${jsDocumentsPrelude(urlHints)}
@@ -912,9 +990,17 @@ async function installDownloadFileHook(client: BrowserAutomationClient, urlHints
   })()`);
 }
 
-async function findHookedDownloadUrl(client: BrowserAutomationClient, urlHints: string[], timeoutMs: number, pollIntervalMs = 200) {
+async function findCurrentDownloadEvidence(
+  client: BrowserAutomationClient,
+  urlHints: string[],
+  captured: () => CapturedDownloadUrlEvidence | undefined,
+  timeoutMs: number,
+  pollIntervalMs = 200,
+) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    const direct = captured();
+    if (direct) return direct;
     const value = await evaluateValue<string | null>(client, `(() => {
       ${jsDocumentsPrelude(urlHints)}
       for (const doc of documents) {
@@ -923,10 +1009,16 @@ async function findHookedDownloadUrl(client: BrowserAutomationClient, urlHints: 
       }
       return null;
     })()`, Math.min(10_000, timeoutMs));
-    if (value) return value;
+    if (value) {
+      return {
+        url: value,
+        observedAt: new Date().toISOString(),
+        source: "page_download_hook" as const,
+      };
+    }
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
-  return null;
+  return undefined;
 }
 
 export function readRowCountTextState(text: string) {
@@ -937,38 +1029,335 @@ export function readRowCountTextState(text: string) {
   return { approximate, exactCounts };
 }
 
-async function stableRowCount(client: BrowserAutomationClient, policy: Policy, urlHints: string[] = []) {
+export type QueryRefreshTracking = {
+  token: string;
+  module: JackyunModule;
+  queryIntentAt: string;
+  requiredDate?: string;
+  pageProbeArmed: boolean;
+  pageStartedAt?: string;
+  pageCompletedAt?: string;
+  networkStartedAt?: string;
+  networkCompletedAt?: string;
+  networkFailedAt?: string;
+  dispose?: () => void;
+};
+
+type TableReadbackSnapshot = {
+  text: string;
+  gridTotals: number[];
+  anyGridLoading: boolean;
+  probes: Array<{
+    token: string;
+    startedAt?: number | null;
+    completedAt?: number | null;
+    failedAt?: number | null;
+  }>;
+};
+
+export function isModuleQueryRefreshRequest(
+  params: Record<string, unknown>,
+  moduleKey: JackyunModule,
+  requiredDate?: string,
+) {
+  const request = params.request as { url?: unknown; postData?: unknown } | undefined;
+  const resourceType = String(params.type ?? "").toLowerCase();
+  if (resourceType && resourceType !== "xhr" && resourceType !== "fetch") return false;
+  const rawContext = [request?.url, request?.postData]
+    .map((value) => String(value ?? "").toLowerCase())
+    .join(" ");
+  let decodedContext = rawContext;
+  try { decodedContext = decodeURIComponent(rawContext); } catch { /* malformed payload: use raw text */ }
+  const context = `${rawContext} ${decodedContext}`;
+  const modulePatterns: Record<JackyunModule, RegExp> = {
+    products: /goods_managet_list|goods.*manage/,
+    inventory: /branch_stock|branchstock|stock.*query/,
+    inventory_age: /warehouse_age_analysis|warehouse.*age|stock.*age|birc/,
+    sales: /order_detail_list|order.*detail/,
+    combos: /goods_managet_combination|goods.*combination/,
+  };
+  const matchesModule = moduleUrlHints(moduleKey).some((hint) => context.includes(hint.toLowerCase()))
+    || modulePatterns[moduleKey].test(context);
+  if (!matchesModule) return false;
+  if (!requiredDate) return true;
+  const dateTokens = [requiredDate, requiredDate.replace(/-/g, "/"), requiredDate.replace(/-/g, "")];
+  return dateTokens.some((token) => context.includes(token));
+}
+
+export async function armQueryRefreshTracking(
+  client: BrowserAutomationClient,
+  moduleKey: JackyunModule,
+  queryIntentAt: string,
+  urlHints: string[],
+  requiredDate?: string,
+) {
+  const token = `query-${moduleKey}-${randomUUID()}`;
+  const tracking: QueryRefreshTracking = {
+    token,
+    module: moduleKey,
+    queryIntentAt,
+    requiredDate,
+    pageProbeArmed: false,
+  };
+  const pendingRequestIds = new Set<string>();
+  const responseStatusByRequestId = new Map<string, number>();
+  const unsubscribeRequest = client.on("Network.requestWillBeSent", (params) => {
+    if (!isModuleQueryRefreshRequest(params, moduleKey, requiredDate)) return;
+    const requestId = String(params.requestId ?? "");
+    if (!requestId) return;
+    pendingRequestIds.add(requestId);
+    delete tracking.networkCompletedAt;
+    tracking.networkStartedAt ??= new Date().toISOString();
+  });
+  const unsubscribeResponse = client.on("Network.responseReceived", (params) => {
+    const requestId = String(params.requestId ?? "");
+    if (!pendingRequestIds.has(requestId)) return;
+    const response = params.response && typeof params.response === "object"
+      ? params.response as Record<string, unknown>
+      : null;
+    const status = Number(response?.status);
+    responseStatusByRequestId.set(requestId, status);
+    if (!Number.isFinite(status) || status < 200 || status >= 300) {
+      tracking.networkFailedAt ??= new Date().toISOString();
+      delete tracking.networkCompletedAt;
+    }
+  });
+  const unsubscribeFinished = client.on("Network.loadingFinished", (params) => {
+    const requestId = String(params.requestId ?? "");
+    if (!pendingRequestIds.delete(requestId)) return;
+    const status = responseStatusByRequestId.get(requestId);
+    responseStatusByRequestId.delete(requestId);
+    if (!Number.isFinite(status) || Number(status) < 200 || Number(status) >= 300) {
+      tracking.networkFailedAt ??= new Date().toISOString();
+      delete tracking.networkCompletedAt;
+      return;
+    }
+    if (!pendingRequestIds.size && !tracking.networkFailedAt) {
+      tracking.networkCompletedAt = new Date().toISOString();
+    }
+  });
+  const unsubscribeFailed = client.on("Network.loadingFailed", (params) => {
+    const requestId = String(params.requestId ?? "");
+    if (!pendingRequestIds.delete(requestId)) return;
+    responseStatusByRequestId.delete(requestId);
+    delete tracking.networkCompletedAt;
+    tracking.networkFailedAt ??= new Date().toISOString();
+  });
+  tracking.dispose = () => {
+    unsubscribeRequest();
+    unsubscribeResponse();
+    unsubscribeFinished();
+    unsubscribeFailed();
+  };
+
+  const hookedGrids = await evaluateValue<number>(client, `(() => {
+    ${jsDocumentsPrelude(urlHints)}
+    const token = ${JSON.stringify(token)};
+    let hooked = 0;
+    for (const doc of documents) {
+      const win = doc.defaultView;
+      const mini = win?.mini;
+      if (!win || !mini) continue;
+      const state = { token, armedAt: Date.now(), startedAt: null, completedAt: null, failedAt: null, sawLoading: false };
+      win.__codexQueryRefreshProbe = state;
+      const candidates = [];
+      for (const id of ['gridOrderDetail', 'grid-goods_managet', 'grid', 'mainGrid', 'datagrid']) {
+        try { const grid = mini.get?.(id); if (grid) candidates.push(grid); } catch {}
+      }
+      if (typeof mini.getComponents === 'function') {
+        try { candidates.push(...mini.getComponents()); } catch {}
+      }
+      for (const bucket of [mini.components, mini._components]) {
+        if (bucket && typeof bucket === 'object') {
+          try { candidates.push(...Object.values(bucket)); } catch {}
+        }
+      }
+      const seen = new Set();
+      const grids = candidates.filter((grid) => {
+        if (!grid || seen.has(grid)) return false;
+        seen.add(grid);
+        return typeof grid.on === 'function'
+          && (typeof grid.getTotalCount === 'function' || typeof grid.getData === 'function' || 'totalCount' in grid);
+      });
+      for (const grid of grids) {
+        const current = () => win.__codexQueryRefreshProbe?.token === token ? win.__codexQueryRefreshProbe : null;
+        const begin = () => {
+          const probe = current();
+          if (!probe) return;
+          probe.startedAt ??= Date.now();
+          probe.sawLoading = true;
+        };
+        const complete = () => {
+          const probe = current();
+          if (!probe?.startedAt) return;
+          probe.completedAt ??= Date.now();
+        };
+        const fail = () => {
+          const probe = current();
+          if (!probe) return;
+          probe.failedAt ??= Date.now();
+        };
+        try {
+          grid.on('beforeload', begin);
+          grid.on('preload', begin);
+          grid.on('load', complete);
+          grid.on('loaderror', fail);
+          hooked += 1;
+        } catch {}
+      }
+    }
+    return hooked;
+  })()`).catch(() => 0);
+  tracking.pageProbeArmed = hookedGrids > 0;
+  return tracking;
+}
+
+function completedQueryRefreshEvidence(tracking: QueryRefreshTracking) {
+  const intentMs = Date.parse(tracking.queryIntentAt);
+  const requiresDateBoundNetwork = tracking.module === "inventory" || tracking.module === "inventory_age";
+  const validSequence = (startedAt?: string, completedAt?: string) => {
+    const startedMs = Date.parse(startedAt ?? "");
+    const completedMs = Date.parse(completedAt ?? "");
+    return Number.isFinite(intentMs)
+      && Number.isFinite(startedMs)
+      && Number.isFinite(completedMs)
+      && startedMs >= intentMs
+      && completedMs >= startedMs;
+  };
+  if ((!requiresDateBoundNetwork || /^\d{4}-\d{2}-\d{2}$/.test(tracking.requiredDate ?? ""))
+    && validSequence(tracking.networkStartedAt, tracking.networkCompletedAt)) {
+    return { source: "module_network_request" as const, completedAt: tracking.networkCompletedAt! };
+  }
+  if (!requiresDateBoundNetwork && validSequence(tracking.pageStartedAt, tracking.pageCompletedAt)) {
+    return { source: "miniui_grid_lifecycle" as const, completedAt: tracking.pageCompletedAt! };
+  }
+  return undefined;
+}
+
+async function readTableReadbackSnapshot(
+  client: BrowserAutomationClient,
+  urlHints: string[],
+  queryToken?: string,
+) {
+  return evaluateValue<TableReadbackSnapshot>(client, `(() => {
+    ${jsDocumentsPrelude(urlHints)}
+    const queryToken = ${JSON.stringify(queryToken ?? "")};
+    const gridTotals = [];
+    const probes = [];
+    let anyGridLoading = false;
+    for (const doc of documents) {
+      const win = doc.defaultView;
+      const mini = win?.mini;
+      const candidates = [];
+      if (mini) {
+        for (const id of ['gridOrderDetail', 'grid-goods_managet', 'grid', 'mainGrid', 'datagrid']) {
+          try { const grid = mini.get?.(id); if (grid) candidates.push(grid); } catch {}
+        }
+        if (typeof mini.getComponents === 'function') {
+          try { candidates.push(...mini.getComponents()); } catch {}
+        }
+        for (const bucket of [mini.components, mini._components]) {
+          if (bucket && typeof bucket === 'object') {
+            try { candidates.push(...Object.values(bucket)); } catch {}
+          }
+        }
+      }
+      const seen = new Set();
+      const grids = candidates.filter((grid) => {
+        if (!grid || seen.has(grid)) return false;
+        seen.add(grid);
+        return typeof grid.getTotalCount === 'function' || typeof grid.getData === 'function' || 'totalCount' in grid;
+      });
+      let documentGridLoading = false;
+      for (const grid of grids) {
+        let loading = false;
+        try { loading = typeof grid.isLoading === 'function' ? Boolean(grid.isLoading()) : grid.isLoading === true; } catch {}
+        if (loading) {
+          documentGridLoading = true;
+          anyGridLoading = true;
+          continue;
+        }
+        let total = Number.NaN;
+        try { total = Number(grid.totalCount ?? (typeof grid.getTotalCount === 'function' ? grid.getTotalCount() : Number.NaN)); } catch {}
+        if (Number.isSafeInteger(total) && total >= 0) gridTotals.push(total);
+      }
+      const probe = win?.__codexQueryRefreshProbe;
+      if (probe?.token === queryToken) {
+        if (documentGridLoading) {
+          probe.startedAt ??= Date.now();
+          probe.sawLoading = true;
+        } else if (probe.sawLoading && probe.startedAt && !probe.completedAt) {
+          probe.completedAt = Date.now();
+        }
+        probes.push({
+          token: probe.token,
+          startedAt: probe.startedAt,
+          completedAt: probe.completedAt,
+          failedAt: probe.failedAt,
+        });
+      }
+    }
+    return {
+      text: documents.map((doc) => doc.body?.innerText || '').join(String.fromCharCode(10)),
+      gridTotals,
+      anyGridLoading,
+      probes,
+    };
+  })()`);
+}
+
+export async function stableRowCount(
+  client: BrowserAutomationClient,
+  policy: Policy,
+  urlHints: string[] = [],
+  queryRefresh?: QueryRefreshTracking,
+) {
   let previous: number | null = null;
   let stable = 0;
   let observedZero = false;
+  let requestedExactTotal = false;
+  let refreshAcknowledged = !queryRefresh;
   const deadline = Date.now() + (policy.browser.tableStableTimeoutMs ?? policy.browser.pageTimeoutMs);
   while (Date.now() < deadline) {
-    const text = await evaluateValue<string>(client, `(() => { ${jsDocumentsPrelude(urlHints)} return documents.map((doc) => doc.body?.innerText || '').join(String.fromCharCode(10)); })()`);
-    const textState = readRowCountTextState(text);
+    const snapshot = await readTableReadbackSnapshot(client, urlHints, queryRefresh?.token);
+    if (queryRefresh) {
+      const pageEvidence = snapshot.probes.find((probe) => probe.token === queryRefresh.token && probe.startedAt && probe.completedAt);
+      if (pageEvidence?.startedAt && pageEvidence.completedAt) {
+        queryRefresh.pageStartedAt = new Date(pageEvidence.startedAt).toISOString();
+        queryRefresh.pageCompletedAt = new Date(pageEvidence.completedAt).toISOString();
+      }
+      const completed = completedQueryRefreshEvidence(queryRefresh);
+      if (!completed) {
+        previous = null;
+        stable = 0;
+        await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
+        continue;
+      }
+      if (!refreshAcknowledged) {
+        refreshAcknowledged = true;
+        previous = null;
+        stable = 0;
+        await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
+        continue;
+      }
+    }
+    if (snapshot.anyGridLoading) {
+      previous = null;
+      stable = 0;
+      await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
+      continue;
+    }
+    const textState = readRowCountTextState(snapshot.text);
     if (textState.approximate) {
-      await clickText(client, "查看总数");
+      if (!requestedExactTotal) {
+        requestedExactTotal = true;
+        await clickText(client, "查看总数");
+      }
       await new Promise((resolve) => setTimeout(resolve, Math.max(500, fastPoll(policy))));
       continue;
     }
     const counts = textState.exactCounts;
-    const gridTotal = counts.length ? null : await evaluateValue<number | null>(client, `(() => {
-      ${jsDocumentsPrelude(urlHints)}
-      const totals = [];
-      for (const doc of documents) {
-        const mini = doc.defaultView?.mini;
-        for (const id of ['gridOrderDetail', 'grid', 'mainGrid']) {
-          const grid = mini?.get?.(id);
-          if (!grid) continue;
-          let loading = false;
-          try { loading = typeof grid.isLoading === 'function' ? Boolean(grid.isLoading()) : grid.isLoading === true; } catch {}
-          if (loading) continue;
-          let total = Number.NaN;
-          try { total = Number(grid.totalCount ?? (typeof grid.getTotalCount === 'function' ? grid.getTotalCount() : Number.NaN)); } catch {}
-          if (Number.isSafeInteger(total) && total >= 0) totals.push(total);
-        }
-      }
-      return totals.length ? Math.max(...totals) : null;
-    })()`);
+    const gridTotal = counts.length || !snapshot.gridTotals.length ? null : Math.max(...snapshot.gridTotals);
     const count = counts.length ? Math.max(...counts) : gridTotal ?? 0;
     if ((counts.length || gridTotal !== null) && count === 0) observedZero = true;
     if (count > 0 && count === previous) stable += 1;
@@ -976,6 +1365,16 @@ async function stableRowCount(client: BrowserAutomationClient, policy: Policy, u
     previous = count || null;
     if (previous && stable >= policy.browser.stableSamples) return previous;
     await new Promise((resolve) => setTimeout(resolve, fastPoll(policy)));
+  }
+  if (queryRefresh && !completedQueryRefreshEvidence(queryRefresh)) {
+    const requiredRefresh = queryRefresh.module === "inventory" || queryRefresh.module === "inventory_age"
+      ? `包含目标日期 ${queryRefresh.requiredDate ?? "缺失"} 的模块网络请求`
+      : "目标网格加载或模块网络请求";
+    throw controllerFailure(
+      "TABLE_TIMEOUT",
+      "query_refresh",
+      `${queryRefresh.module} 未观测到本轮查询触发的${requiredRefresh}完成；拒绝把旧表格当作新结果。`,
+    );
   }
   const error = new Error(observedZero ? "页面查询明确返回 0 行，已停止导出。" : "页面总行数在规定时间内未稳定。");
   Object.assign(error, { code: observedZero ? "zero_rows" : "unstable" });
@@ -1182,94 +1581,52 @@ async function waitForActiveModule(client: BrowserAutomationClient, moduleKey: J
   throw new Error(`无法确认当前激活模块：${text}`);
 }
 
-async function findOssUrl(port: number, captured: () => string | undefined, allowedHosts: readonly string[], timeoutMs: number) {
+export type CapturedDownloadUrlEvidence = {
+  url: string;
+  observedAt: string;
+  source: "browser_download_event" | "module_network_request" | "page_download_hook";
+};
+
+export function assertBoundDownloadUrl(
+  evidence: CapturedDownloadUrlEvidence | undefined,
+  exportIntentAt: string,
+  allowedHosts: readonly string[],
+) {
+  const exportIntentMs = Date.parse(exportIntentAt);
+  const observedMs = Date.parse(evidence?.observedAt ?? "");
+  let sourceHost = "";
+  try { sourceHost = evidence ? new URL(evidence.url).hostname : ""; } catch { /* handled below */ }
+  if (!evidence
+    || !Number.isFinite(exportIntentMs)
+    || !Number.isFinite(observedMs)
+    || observedMs < exportIntentMs
+    || !allowedHosts.includes(sourceHost)) {
+    throw controllerFailure(
+      "FILE_BINDING_FAILED",
+      "download_binding",
+      "未捕获到导出 intent 之后且属于白名单主机的本轮浏览器下载事件/URL；共享目录文件名和修改时间不能作为归属证据。",
+    );
+  }
+  return evidence.url;
+}
+
+async function findOssUrl(
+  captured: () => CapturedDownloadUrlEvidence | undefined,
+  allowedHosts: readonly string[],
+  exportIntentAt: string,
+  timeoutMs: number,
+) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const direct = captured();
-    if (direct) return direct;
-    const targets = await listChromeTargets(port).catch(() => []);
-    const targetUrl = targets.map((target) => target.url).find((value) => {
-      try { return allowedHosts.includes(new URL(value).hostname); } catch { return false; }
-    });
-    if (targetUrl) return targetUrl;
+    if (direct) return assertBoundDownloadUrl(direct, exportIntentAt, allowedHosts);
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error("导出后未捕获到本轮 OSS 下载事件；不会重复点击导出。");
-}
-
-function localDownloadPattern(moduleKey: JackyunModule) {
-  const patterns: Record<JackyunModule, RegExp> = {
-    products: /^货品导出(?: \(\d+\))?\.xlsx$/i,
-    inventory: /^分仓库存查询(?: \(\d+\))?\.xlsx$/i,
-    inventory_age: /^库龄分析\(正式勿删\)(?: \(\d+\))?\.xlsx$/i,
-    sales: /^销售单明细账(?: \(\d+\))?\.xlsx$/i,
-    combos: /^组合装.*(?: \(\d+\))?\.xlsx$/i,
-  };
-  return patterns[moduleKey];
-}
-
-async function sha256File(filePath: string) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
-  return hash.digest("hex");
-}
-
-export async function findLocalDownloadedFile(downloadDirectory: string, moduleKey: JackyunModule, exportIntentAt: string) {
-  const threshold = Date.parse(exportIntentAt);
-  if (!Number.isFinite(threshold)) throw new Error("本轮导出 intent 时间无效。");
-  const pattern = localDownloadPattern(moduleKey);
-  const entries = await readdir(downloadDirectory, { withFileTypes: true }).catch(() => []);
-  const candidates: Array<{ filePath: string; mtimeMs: number; size: number }> = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !pattern.test(entry.name) || entry.name.endsWith(".crdownload")) continue;
-    const filePath = path.join(downloadDirectory, entry.name);
-    const info = await stat(filePath).catch(() => null);
-    if (info && info.mtimeMs >= threshold && info.size > 0) candidates.push({ filePath, mtimeMs: info.mtimeMs, size: info.size });
-  }
-  // If the browser emitted byte-identical duplicates, keep the first file
-  // produced by this export intent. A later copy must not silently replace the
-  // original ownership evidence.
-  candidates.sort((a, b) => a.mtimeMs - b.mtimeMs);
-  if (candidates.length > 1) {
-    const hashes = await Promise.all(candidates.map(async (candidate) => ({
-      ...candidate,
-      sha256: await sha256File(candidate.filePath),
-    })));
-    if (new Set(hashes.map((candidate) => candidate.sha256)).size > 1) {
-      throw new Error(`${moduleKey} 本轮导出窗口出现多个不同内容的下载候选，已拒绝按最新文件猜测归属。`);
-    }
-  }
-  return candidates[0]?.filePath;
-}
-
-// Jackyun exports run as asynchronous backend tasks: when the download panel's
-// "自动下载" option is enabled, the finished file lands in the configured
-// download directory a few seconds after the export intent, without ever
-// triggering jkUtils.downloadFile or a browser-visible OSS request.  Probing
-// the directory only once (right after arming the export) therefore races the
-// async task and misses the file.  Poll the directory up to the export timeout
-// so the primary auto-download path is honored before falling back to signed
-// OSS URL capture.
-async function waitForLocalDownloadedFile(
-  downloadDirectory: string,
-  moduleKey: JackyunModule,
-  exportIntentAt: string,
-  timeoutMs: number,
-  pollIntervalMs: number,
-  signal?: AbortSignal,
-) {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    if (signal?.aborted) return undefined;
-    const found = await findLocalDownloadedFile(downloadDirectory, moduleKey, exportIntentAt);
-    if (found) {
-      await new Promise((resolve) => setTimeout(resolve, 1_000));
-      if (signal?.aborted) return undefined;
-      return await findLocalDownloadedFile(downloadDirectory, moduleKey, exportIntentAt);
-    }
-    if (Date.now() >= deadline) return undefined;
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-  }
+  throw controllerFailure(
+    "FILE_BINDING_FAILED",
+    "download_binding",
+    "导出后未捕获到本轮 OSS 下载事件/URL；不会扫描共享目录或重复点击导出。",
+  );
 }
 
 function salesStartDate(asOfDate: string) {
@@ -1344,10 +1701,10 @@ async function runController(options: CliOptions) {
   );
   try {
   await browserClient.send("Browser.setDownloadBehavior", { behavior: "deny", eventsEnabled: true });
-  let capturedOssUrl: string | undefined;
+  let capturedDownloadUrl: CapturedDownloadUrlEvidence | undefined;
   browserClient.on("Browser.downloadWillBegin", (params) => {
     const url = typeof params.url === "string" ? params.url : undefined;
-    if (url) capturedOssUrl = url;
+    if (url) capturedDownloadUrl = { url, observedAt: new Date().toISOString(), source: "browser_download_event" };
   });
 
   for (let index = 0; index < jackyunModuleOrder.length; index += 1) {
@@ -1369,36 +1726,61 @@ async function runController(options: CliOptions) {
     await client.send("Runtime.enable");
     await client.send("Network.enable");
     let stockAgeOwnerId: string | undefined;
+    let queryRefreshTracking: QueryRefreshTracking | undefined;
     client.on("Network.requestWillBeSent", (params) => {
       const request = params.request as { url?: string; postData?: string } | undefined;
       if (!request?.url) return;
-      try { if (policy.browser.allowedDownloadHosts.includes(new URL(request.url).hostname)) capturedOssUrl = request.url; } catch { /* ignore */ }
+      try {
+        if (policy.browser.allowedDownloadHosts.includes(new URL(request.url).hostname)) {
+          capturedDownloadUrl = {
+            url: request.url,
+            observedAt: new Date().toISOString(),
+            source: "module_network_request",
+          };
+        }
+      } catch { /* ignore */ }
       if (moduleKey === "inventory_age" && request.postData && /birc|warehouse.*age|stock.*age/i.test(request.url)) {
         stockAgeOwnerId ??= extractStockAgeOwnerId(request.postData);
       }
     });
+    const issueTrackedQuery = async (queryIntentAt: string) => {
+      queryRefreshTracking?.dispose?.();
+      queryRefreshTracking = await armQueryRefreshTracking(
+        client,
+        moduleKey,
+        queryIntentAt,
+        moduleUrlHints(moduleKey),
+        moduleKey === "inventory" || moduleKey === "inventory_age" ? options.snapshotDate : undefined,
+      );
+      await clickAnyTextEventually(
+        client,
+        ["筛选", "查询"],
+        actionTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
+    };
 
     if (moduleState.exportIntentAt && !moduleState.filePath) {
-      capturedOssUrl = undefined;
-      const localFile = await waitForLocalDownloadedFile(policy.browser.downloadDirectory, moduleKey, moduleState.exportIntentAt, exportTimeout(policy, moduleKey), fastPoll(policy), options.signal);
-      if (localFile) {
-        moduleState.filePath = localFile;
-        moduleState.downloadEventAt = new Date((await stat(localFile)).mtimeMs).toISOString();
-      } else {
-        const recoveryUrl = await findOssUrl(port, () => capturedOssUrl, policy.browser.allowedDownloadHosts, exportTimeout(policy, moduleKey));
-        const recovered = await downloadSignedOssExport({
-          url: recoveryUrl,
-          downloadDirectory: policy.browser.downloadDirectory,
-          runId: options.runId,
-          module: moduleKey,
-          exportIntentAt: moduleState.exportIntentAt,
-          allowedHosts: policy.browser.allowedDownloadHosts,
-          timeoutMs: exportTimeout(policy, moduleKey),
-        });
-        moduleState.filePath = recovered.filePath;
-        moduleState.downloadProvenance = recovered.provenance;
-        moduleState.downloadEventAt = recovered.provenance.completedAt;
-      }
+      capturedDownloadUrl = undefined;
+      const recoveryUrl = await findOssUrl(
+        () => capturedDownloadUrl,
+        policy.browser.allowedDownloadHosts,
+        moduleState.exportIntentAt,
+        exportTimeout(policy, moduleKey),
+      );
+      const recovered = await downloadSignedOssExport({
+        url: recoveryUrl,
+        downloadDirectory: policy.browser.downloadDirectory,
+        runId: options.runId,
+        module: moduleKey,
+        policyVersion: policy.version,
+        exportIntentAt: moduleState.exportIntentAt,
+        allowedHosts: policy.browser.allowedDownloadHosts,
+        timeoutMs: exportTimeout(policy, moduleKey),
+      });
+      moduleState.filePath = recovered.filePath;
+      moduleState.downloadProvenance = recovered.provenance;
+      moduleState.downloadEventAt = recovered.provenance.completedAt;
       moduleState.status = "downloaded";
       await persistControllerState(controllerStatePath, state);
     }
@@ -1537,29 +1919,56 @@ async function runController(options: CliOptions) {
         throw new Error(`库存仓库全选状态无法读回或选择数量异常：${JSON.stringify(selectResult)}`);
       }
       fieldChecks.push({ field: "仓库", value: `已勾选:${selected}条`, verifiedAt: new Date().toISOString() });
-      // v4 新版库存页为实时库存快照，无独立日期输入框；日期设置容错处理
+      // Formal inventory snapshots are historical facts. A real-time page or
+      // a date control whose value cannot be read back exactly must stop before
+      // the query/export intent is recorded.
       try {
         const dates = await setDateInputs(client, [options.snapshotDate], moduleUrlHints(moduleKey));
-        if (dates[0] === options.snapshotDate) {
-          fieldChecks.push({ field: "日期", value: dates[0], verifiedAt: new Date().toISOString() });
-        } else {
-          fieldChecks.push({ field: "日期", value: `v4实时库存(期望${options.snapshotDate})`, verifiedAt: new Date().toISOString() });
-        }
-      } catch {
-        fieldChecks.push({ field: "日期", value: "v4无日期框(实时库存)", verifiedAt: new Date().toISOString() });
+        const observedDate = assertHistoricalDateReadback(moduleKey, options.snapshotDate, dates);
+        const controlReadbackAt = new Date().toISOString();
+        moduleState.snapshotControlReadback = {
+          version: 1,
+          module: moduleKey,
+          runId: options.runId,
+          source: "historical_date_control",
+          targetDate: options.snapshotDate,
+          observedDate,
+          controlReadbackAt,
+        };
+        fieldChecks.push({ field: "日期", value: observedDate, verifiedAt: controlReadbackAt });
+      } catch (error) {
+        if ((error as { code?: unknown }).code === "FIELD_MISMATCH") throw error;
+        const detail = error instanceof Error ? error.message : String(error);
+        throw controllerFailure(
+          "FIELD_MISMATCH",
+          "field_readback",
+          `${moduleKey} 未发现可验证并可精确读回的历史日期控件（目标 ${options.snapshotDate}）：${detail}`,
+        );
       }
     }
     if (moduleKey === "inventory_age") {
-      // v4 新版库龄页可能也是实时快照无日期框，容错处理
       try {
         const dates = await setDateInputs(client, [options.snapshotDate], moduleUrlHints(moduleKey));
-        if (dates[0] === options.snapshotDate) {
-          fieldChecks.push({ field: "日期", value: dates[0], verifiedAt: new Date().toISOString() });
-        } else {
-          fieldChecks.push({ field: "日期", value: `v4实时库存(期望${options.snapshotDate})`, verifiedAt: new Date().toISOString() });
-        }
-      } catch {
-        fieldChecks.push({ field: "日期", value: "v4无日期框(实时库存)", verifiedAt: new Date().toISOString() });
+        const observedDate = assertHistoricalDateReadback(moduleKey, options.snapshotDate, dates);
+        const controlReadbackAt = new Date().toISOString();
+        moduleState.snapshotControlReadback = {
+          version: 1,
+          module: moduleKey,
+          runId: options.runId,
+          source: "historical_date_control",
+          targetDate: options.snapshotDate,
+          observedDate,
+          controlReadbackAt,
+        };
+        fieldChecks.push({ field: "日期", value: observedDate, verifiedAt: controlReadbackAt });
+      } catch (error) {
+        if ((error as { code?: unknown }).code === "FIELD_MISMATCH") throw error;
+        const detail = error instanceof Error ? error.message : String(error);
+        throw controllerFailure(
+          "FIELD_MISMATCH",
+          "field_readback",
+          `${moduleKey} 未发现可验证并可精确读回的历史日期控件（目标 ${options.snapshotDate}）：${detail}`,
+        );
       }
       stockAgeOwnerId = await readStockAgeOwnerIdFromPage(client);
       if (stockAgeOwnerId) {
@@ -1625,12 +2034,7 @@ async function runController(options: CliOptions) {
     if (shouldIssueModuleQuery(policy.modules[moduleKey].requiresQuery, moduleState)) {
       moduleState.queryIntentAt = new Date().toISOString();
       await persistControllerState(controllerStatePath, state);
-      await clickAnyTextEventually(
-        client,
-        ["筛选", "查询"],
-        actionTimeout(policy, moduleKey),
-        fastPoll(policy),
-      );
+      await issueTrackedQuery(moduleState.queryIntentAt);
       if (moduleKey === "inventory_age") {
         const ownerDeadline = Date.now() + Math.min(actionTimeout(policy, moduleKey), 2_000);
         while (!stockAgeOwnerId && Date.now() < ownerDeadline) {
@@ -1647,33 +2051,75 @@ async function runController(options: CliOptions) {
       const retryZeroRowQuery = async () => {
         moduleState.queryRetryCount = (moduleState.queryRetryCount ?? 0) + 1;
         moduleState.queryRetryIntentAt = new Date().toISOString();
+        moduleState.queryIntentAt = moduleState.queryRetryIntentAt;
         delete moduleState.tableReadbackFailure;
         await persistControllerState(controllerStatePath, state);
-        await clickAnyTextEventually(
-          client,
-          ["筛选", "查询"],
-          actionTimeout(policy, moduleKey),
-          fastPoll(policy),
-        );
+        await issueTrackedQuery(moduleState.queryIntentAt);
       };
       if (shouldRetryZeroRowQuery(moduleState)) await retryZeroRowQuery();
+      const runStableReadback = () => {
+        if (policy.modules[moduleKey].requiresQuery && !queryRefreshTracking) {
+          throw controllerFailure(
+            "TABLE_TIMEOUT",
+            "query_refresh",
+            `${moduleKey} 已存在查询 intent，但当前进程没有该次点击的刷新跟踪上下文；拒绝恢复时接受旧表格。`,
+          );
+        }
+        return stableRowCount(
+          client,
+          policy,
+          moduleUrlHints(moduleKey),
+          policy.modules[moduleKey].requiresQuery ? queryRefreshTracking : undefined,
+        );
+      };
       const tableStableStartedAt = Date.now();
       try {
-        moduleState.expectedSourceRows = await stableRowCount(client, policy, moduleUrlHints(moduleKey));
+        moduleState.expectedSourceRows = await runStableReadback();
       } catch (error) {
-        const code = (error as { code?: unknown }).code === "zero_rows" ? "zero_rows" : "unstable";
+        const errorCode = (error as { code?: unknown }).code;
+        const code = errorCode === "zero_rows"
+          ? "zero_rows"
+          : errorCode === "TABLE_TIMEOUT"
+            ? "table_timeout"
+            : "unstable";
         moduleState.tableReadbackFailure = { code, observedAt: new Date().toISOString() };
         await persistControllerState(controllerStatePath, state);
-        if (!shouldRetryZeroRowQuery(moduleState)) throw error;
+        if (!shouldRetryZeroRowQuery(moduleState)) {
+          queryRefreshTracking?.dispose?.();
+          throw error;
+        }
         await retryZeroRowQuery();
         try {
-          moduleState.expectedSourceRows = await stableRowCount(client, policy, moduleUrlHints(moduleKey));
+          moduleState.expectedSourceRows = await runStableReadback();
         } catch (retryError) {
-          const retryCode = (retryError as { code?: unknown }).code === "zero_rows" ? "zero_rows" : "unstable";
+          const retryErrorCode = (retryError as { code?: unknown }).code;
+          const retryCode = retryErrorCode === "zero_rows"
+            ? "zero_rows"
+            : retryErrorCode === "TABLE_TIMEOUT"
+              ? "table_timeout"
+              : "unstable";
           moduleState.tableReadbackFailure = { code: retryCode, observedAt: new Date().toISOString() };
           await persistControllerState(controllerStatePath, state);
+          queryRefreshTracking?.dispose?.();
           throw retryError;
         }
+      }
+      if (queryRefreshTracking) {
+        const refreshEvidence = completedQueryRefreshEvidence(queryRefreshTracking);
+        if (!refreshEvidence) {
+          queryRefreshTracking.dispose?.();
+          throw controllerFailure(
+            "TABLE_TIMEOUT",
+            "query_refresh",
+            `${moduleKey} 表格稳定前没有可绑定到本轮查询的刷新完成证据。`,
+          );
+        }
+        moduleState.queryRefreshEvidence = {
+          queryIntentAt: queryRefreshTracking.queryIntentAt,
+          completedAt: refreshEvidence.completedAt,
+          source: refreshEvidence.source,
+        };
+        queryRefreshTracking.dispose?.();
       }
       delete moduleState.tableReadbackFailure;
       moduleState.tableStableAt = new Date().toISOString();
@@ -1681,12 +2127,36 @@ async function runController(options: CliOptions) {
         ...moduleState.timings,
         tableStableMs: Date.now() - tableStableStartedAt,
       };
+      if (moduleKey === "inventory" || moduleKey === "inventory_age") {
+        const snapshotControl = moduleState.snapshotControlReadback;
+        if (!snapshotControl) {
+          throw controllerFailure(
+            "FIELD_MISMATCH",
+            "field_readback",
+            `${moduleKey} 缺少历史日期控件的精确读回证据。`,
+          );
+        }
+        if (!moduleState.queryRefreshEvidence || !moduleState.queryIntentAt) {
+          throw controllerFailure(
+            "TABLE_TIMEOUT",
+            "query_refresh",
+            `${moduleKey} 缺少可绑定到历史日期条件的查询刷新证据。`,
+          );
+        }
+        moduleState.snapshotEvidence = {
+          ...snapshotControl,
+          queryIntentAt: moduleState.queryRefreshEvidence.queryIntentAt,
+          queryRefreshSource: moduleState.queryRefreshEvidence.source,
+          queryRefreshCompletedAt: moduleState.queryRefreshEvidence.completedAt,
+          tableStableAt: moduleState.tableStableAt,
+        };
+      }
       fieldChecks.push({ field: "页面总数", value: `共 ${moduleState.expectedSourceRows} 条`, verifiedAt: moduleState.tableStableAt });
       moduleState.fieldChecks = fieldChecks;
       await persistControllerState(controllerStatePath, state);
     }
 
-    capturedOssUrl = undefined;
+    capturedDownloadUrl = undefined;
     if (!moduleState.exportIntentAt) {
       moduleState.exportIntentAt = new Date().toISOString();
       moduleState.status = "export_armed";
@@ -1724,26 +2194,31 @@ async function runController(options: CliOptions) {
     }  // end if (!moduleState.filePath) — 跳过浏览器操作
 
     if (!moduleState.filePath) {
-      const localFile = await waitForLocalDownloadedFile(policy.browser.downloadDirectory, moduleKey, moduleState.exportIntentAt!, exportTimeout(policy, moduleKey), fastPoll(policy), options.signal);
-      if (localFile) {
-        moduleState.filePath = localFile;
-        moduleState.downloadEventAt = new Date((await stat(localFile)).mtimeMs).toISOString();
-      } else {
-        const hookedUrl = await findHookedDownloadUrl(client, moduleUrlHints(moduleKey), exportTimeout(policy, moduleKey), fastPoll(policy));
-        const ossUrl = hookedUrl ?? await findOssUrl(port, () => capturedOssUrl, policy.browser.allowedDownloadHosts, exportTimeout(policy, moduleKey));
-        const downloaded = await downloadSignedOssExport({
-          url: ossUrl,
-          downloadDirectory: policy.browser.downloadDirectory,
-          runId: options.runId,
-          module: moduleKey,
-          exportIntentAt: moduleState.exportIntentAt!,
-          allowedHosts: policy.browser.allowedDownloadHosts,
-          timeoutMs: exportTimeout(policy, moduleKey),
-        });
-        moduleState.filePath = downloaded.filePath;
-        moduleState.downloadProvenance = downloaded.provenance;
-        moduleState.downloadEventAt = downloaded.provenance.completedAt;
-      }
+      const downloadEvidence = await findCurrentDownloadEvidence(
+        client,
+        moduleUrlHints(moduleKey),
+        () => capturedDownloadUrl,
+        exportTimeout(policy, moduleKey),
+        fastPoll(policy),
+      );
+      const ossUrl = assertBoundDownloadUrl(
+        downloadEvidence,
+        moduleState.exportIntentAt!,
+        policy.browser.allowedDownloadHosts,
+      );
+      const downloaded = await downloadSignedOssExport({
+        url: ossUrl,
+        downloadDirectory: policy.browser.downloadDirectory,
+        runId: options.runId,
+        module: moduleKey,
+        policyVersion: policy.version,
+        exportIntentAt: moduleState.exportIntentAt!,
+        allowedHosts: policy.browser.allowedDownloadHosts,
+        timeoutMs: exportTimeout(policy, moduleKey),
+      });
+      moduleState.filePath = downloaded.filePath;
+      moduleState.downloadProvenance = downloaded.provenance;
+      moduleState.downloadEventAt = downloaded.provenance.completedAt;
       moduleState.status = "downloaded";
       moduleState.timings = {
         ...moduleState.timings,
@@ -1753,8 +2228,27 @@ async function runController(options: CliOptions) {
     }
     }
 
+    try {
+      assertBoundDownloadProvenance(moduleState.downloadProvenance, policy.browser.allowedDownloadHosts, {
+        runId: options.runId,
+        module: moduleKey,
+        policyVersion: policy.version,
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw controllerFailure("FILE_BINDING_FAILED", "download_binding", detail);
+    }
+    if (moduleState.downloadEventAt !== moduleState.downloadProvenance.completedAt) {
+      throw controllerFailure(
+        "FILE_BINDING_FAILED",
+        "download_binding",
+        `${moduleKey} downloadEventAt 必须与本轮 provenance.completedAt 完全一致。`,
+      );
+    }
     const handoff: BrowserHandoff = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      runId: options.runId,
+      policyVersion: policy.version,
       module: moduleKey,
       filePath: moduleState.filePath,
       navigationIntentAt: moduleState.navigationIntentAt!,
@@ -1765,6 +2259,7 @@ async function runController(options: CliOptions) {
       downloadEventAt: moduleState.downloadEventAt!,
       expectedSourceRows: moduleState.expectedSourceRows!,
       downloadProvenance: moduleState.downloadProvenance,
+      snapshotEvidence: moduleState.snapshotEvidence,
       sourceRowCountCorrection: moduleState.sourceRowCountCorrection,
       fieldChecks: moduleState.fieldChecks,
       evidence: {

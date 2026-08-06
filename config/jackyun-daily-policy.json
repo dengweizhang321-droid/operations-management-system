@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-17.5",
+  "version": "2026-08-06.2",
   "timeZone": "Asia/Shanghai",
   "moduleOrder": ["products", "inventory", "inventory_age", "sales", "combos"],
   "browser": {

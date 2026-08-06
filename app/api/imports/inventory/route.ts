@@ -1,7 +1,9 @@
 import { importInventoryStockBytes } from "@/lib/inventory/import-service";
 import {
   ensureInventorySchema,
+  countInventoryRowsOwnedByBatch,
   findInventoryImportBatchByHash,
+  findLatestInventoryImportBatch,
   getInventoryDatabase,
   listInventoryImportBatches,
 } from "@/lib/inventory/database";
@@ -24,9 +26,20 @@ export async function GET(request: Request) {
     const batchId = params.get("batchId")?.trim() ?? "";
     if (batchId && !/^[a-f0-9]{64}$/i.test(batchId)) return errorResponse(400, "batchId 格式无效");
     const requestedLimit = Number(params.get("limit") ?? 20);
-    const exactBatch = batchId ? await findInventoryImportBatchByHash(db, batchId) : null;
+    const [exactBatch, currentBatch] = batchId
+      ? await Promise.all([
+          findInventoryImportBatchByHash(db, batchId),
+          findLatestInventoryImportBatch(db),
+        ])
+      : [null, null];
     const items = batchId
-      ? (exactBatch?.id === batchId ? [exactBatch] : [])
+      ? (exactBatch?.id === batchId
+          ? [{
+              ...exactBatch,
+              ownedRowCount: await countInventoryRowsOwnedByBatch(db, exactBatch.id),
+              isCurrent: currentBatch?.id === exactBatch.id,
+            }]
+          : [])
       : await listInventoryImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {

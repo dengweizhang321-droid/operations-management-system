@@ -276,6 +276,16 @@ export async function findInventoryImportBatchByHash(
   return row ? mapBatch(row) : null;
 }
 
+export async function countInventoryRowsOwnedByBatch(
+  db: InventoryDatabase,
+  batchId: string,
+) {
+  const row = await db.prepare(
+    "SELECT COUNT(*) AS count FROM inventory_stock_lines WHERE batch_id = ?",
+  ).bind(batchId).first<{ count: number }>();
+  return Number(row?.count ?? 0);
+}
+
 export async function findLatestInventoryImportBatch(
   db: InventoryDatabase,
 ): Promise<InventoryImportBatch | null> {

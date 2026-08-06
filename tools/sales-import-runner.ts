@@ -42,6 +42,73 @@ type CliOptions = {
   dryRun: boolean;
 };
 
+export const salesSourceRowCountSemantic = "xlsx_nonblank_data_rows" as const;
+
+export type SalesImportFailureCode =
+  | "FILE_VALIDATION_FAILED"
+  | "IMPORT_FAILED"
+  | "BATCH_VERIFY_FAILED";
+
+export class SalesImportError extends Error {
+  readonly failureCode: SalesImportFailureCode;
+  readonly stage: string;
+  readonly details?: Record<string, unknown>;
+  readonly cause?: unknown;
+
+  constructor(
+    failureCode: SalesImportFailureCode,
+    stage: string,
+    message: string,
+    options: { details?: Record<string, unknown>; cause?: unknown } = {},
+  ) {
+    super(message);
+    this.name = "SalesImportError";
+    this.failureCode = failureCode;
+    this.stage = stage;
+    this.details = options.details;
+    this.cause = options.cause;
+  }
+}
+
+export function assertExactSalesSourceRowCount(expected: number | undefined, actual: number) {
+  if (!Number.isSafeInteger(expected) || Number(expected) <= 0) {
+    throw new SalesImportError(
+      "FILE_VALIDATION_FAILED",
+      "validate_source_row_count",
+      "销售来源计数语义缺失：必须提供页面确认的非空导出明细行数。",
+      { details: { semantic: salesSourceRowCountSemantic, expected: expected ?? null, actual } },
+    );
+  }
+  if (!Number.isSafeInteger(actual) || actual <= 0 || actual !== expected) {
+    throw new SalesImportError(
+      "FILE_VALIDATION_FAILED",
+      "validate_source_row_count",
+      `销售源文件行数与页面确认的导出明细行数不一致：页面 ${expected}，文件 ${actual}。`,
+      { details: { semantic: salesSourceRowCountSemantic, expected, actual } },
+    );
+  }
+  return {
+    semantic: salesSourceRowCountSemantic,
+    expected,
+    actual,
+    verified: true,
+  } as const;
+}
+
+function wrapSalesImportError(
+  error: unknown,
+  failureCode: SalesImportFailureCode,
+  stage: string,
+) {
+  if (error instanceof SalesImportError) return error;
+  return new SalesImportError(
+    failureCode,
+    stage,
+    error instanceof Error ? error.message : String(error),
+    { cause: error },
+  );
+}
+
 export type SalesImportRunOptions = Omit<CliOptions, "downloadPath" | "costSourcePath"> & {
   downloadPath: string;
   costSourcePath: string;
@@ -278,9 +345,8 @@ function parseCli(): SalesImportRunOptions {
   if (!options.downloadPath || !options.costSourcePath) {
     throw new Error("正式销售任务必须同时显式提供 --download 和 --cost-source，不允许自动猜测历史文件。");
   }
-  if (options.expectedSourceRows !== undefined
-    && (!Number.isSafeInteger(options.expectedSourceRows) || options.expectedSourceRows <= 0)) {
-    throw new Error("--expected-source-rows 必须是正整数。");
+  if (!Number.isSafeInteger(options.expectedSourceRows) || Number(options.expectedSourceRows) <= 0) {
+    throw new Error("--expected-source-rows 必须明确提供页面确认的非空导出明细行数。");
   }
   return {
     ...options,
@@ -450,6 +516,14 @@ async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: stri
 }
 
 export async function runSalesImport(options: SalesImportRunOptions): Promise<SalesImportRunResult> {
+  if (!Number.isSafeInteger(options.expectedSourceRows) || Number(options.expectedSourceRows) <= 0) {
+    throw new SalesImportError(
+      "FILE_VALIDATION_FAILED",
+      "validate_source_row_count_contract",
+      "销售来源计数合同缺失：expectedSourceRows 必须是页面确认的非空导出明细行数。",
+      { details: { semantic: salesSourceRowCountSemantic, expected: options.expectedSourceRows ?? null } },
+    );
+  }
   const policy = await readJsonFileOr<Policy>(policyPath, {} as Policy);
   if (!policy.version || policy.dateRule.type !== "month_to_previous_day") throw new Error("销售导入策略文件无效。");
   if (!options.dryRun) await assertServerPolicyVersion(options.baseUrl, policy.version);
@@ -478,7 +552,18 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     const previousCost = previousSources?.costSource as Record<string, unknown> | undefined;
     const previousFiltering = previousAudit?.filtering as Record<string, unknown> | undefined;
     if (options.expectedCostSha256 && previousCost?.sha256 !== options.expectedCostSha256) continue;
-    if (options.expectedSourceRows !== undefined && previousFiltering?.sourceRows !== options.expectedSourceRows) continue;
+    if (previousFiltering?.sourceRows !== options.expectedSourceRows) continue;
+    const previousCountContract = previousAudit?.sourceCountContract as Record<string, unknown> | undefined;
+    if (previousCountContract?.semantic !== salesSourceRowCountSemantic
+      || previousCountContract.expected !== options.expectedSourceRows
+      || previousCountContract.actual !== options.expectedSourceRows
+      || previousCountContract.verified !== true) {
+      throw new SalesImportError(
+        "BATCH_VERIFY_FAILED",
+        "recover_source_row_count_contract",
+        `销售成功审计缺少可验证的精确来源计数合同：${previousAuditPath}`,
+      );
+    }
     const previousImport = previousAudit?.import as Record<string, unknown> | undefined;
     const previousBatch = previousImport?.batch as Record<string, unknown> | undefined;
     const previousVerification = previousAudit?.postImportVerification as Record<string, unknown> | undefined;
@@ -555,11 +640,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     order: requiredColumn(salesHeader, policy.dateRule.fallbackFields[0] ?? "下单时间", "销售明细文件"),
   };
   const sourceRows = salesWorkbook.rows.filter((row) => row.rowNumber > salesHeader.rowNumber && !isBlankRow(row));
-  // 销售明细账页面统计的是订单数，而导出文件是订单明细行（每订单多条货品行），
-  // 文件行数通常远大于页面订单数。仅校验文件有数据且不少于页面订单数。
-  if (options.expectedSourceRows !== undefined && sourceRows.length < options.expectedSourceRows) {
-    throw new Error(`销售源文件行数异常少于页面订单数：页面 ${options.expectedSourceRows}，文件 ${sourceRows.length}。`);
-  }
+  const sourceCountContract = assertExactSalesSourceRowCount(options.expectedSourceRows, sourceRows.length);
   const today = addUtcDays(period.endDate, 1);
   const dateProblems: Array<{ row: number; value: string | null; reason: string }> = [];
   const outOfPeriodRows: Array<{ row: number; value: string | null; reason: string }> = [];
@@ -598,6 +679,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     await writeJson(failedAuditPath, {
       ok: false,
       period,
+      sourceCountContract,
       filtering: {
         sourceRows: sourceRows.length,
         excludedOutOfPeriodRows: outOfPeriodRows.length,
@@ -755,6 +837,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
       ok: false,
       period,
       policyVersion: policy.version,
+      sourceCountContract,
       filtering: {
         sourceRows: sourceRows.length,
         periodRows: periodRows.length,
@@ -834,8 +917,12 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     dateProblemRows: processedDateProblemRows,
   };
   if (processedChecks.rowCount !== outputRows.length || processedChecks.excludedWarehouseRows || processedChecks.nonWhitelistRows || processedChecks.missingCostRows || processedChecks.dateProblemRows) {
-    // v4 适配期：处理后的 Excel 可能有日期范围/成本匹配问题，只警告不阻断
-    console.warn(`[sales] 处理后复核发现问题:`, JSON.stringify(processedChecks));
+    throw new SalesImportError(
+      "FILE_VALIDATION_FAILED",
+      "verify_processed_workbook",
+      `销售处理后复核未通过：${JSON.stringify(processedChecks)}`,
+      { details: processedChecks },
+    );
   }
 
   const audit: Record<string, unknown> = {
@@ -844,6 +931,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     auditPath: path.join(runDir, "audit.json"),
     policyVersion: policy.version,
     period,
+    sourceCountContract,
     sources: {
       rawDownload: { path: downloadPath, sha256: rawHash, bytes: rawBytes.byteLength },
       costSource: {
@@ -891,7 +979,12 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     return { status: "prepared", dryRun: true, audit };
   }
 
-  const imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash);
+  let imported: Awaited<ReturnType<typeof uploadInChunks>>;
+  try {
+    imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash);
+  } catch (error) {
+    throw wrapSalesImportError(error, "IMPORT_FAILED", "chunk_upload_and_import");
+  }
   let verification: SalesPostImportVerification | null = null;
   try {
     const verified = await readSalesPostImportVerification({
@@ -909,16 +1002,18 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
       verification,
     });
   } catch (error) {
+    const failure = wrapSalesImportError(error, "BATCH_VERIFY_FAILED", "verify_exact_import_batch");
     audit.ok = false;
     audit.import = imported;
     audit.postImportVerification = verification;
     audit.failure = {
-      code: "SALES_POST_IMPORT_VERIFICATION_FAILED",
-      message: error instanceof Error ? error.message : String(error),
+      code: failure.failureCode,
+      stage: failure.stage,
+      message: failure.message,
       failedAt: new Date().toISOString(),
     };
     await writeJson(path.join(runDir, "audit.json"), audit);
-    throw error;
+    throw failure;
   }
   audit.import = imported;
   audit.postImportVerification = { ...verification, verified: true, verifiedAt: new Date().toISOString() };

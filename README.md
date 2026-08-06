@@ -22,7 +22,8 @@ npm run start:local-worker
 
 - `npm run jackyun:login`：打开专属浏览器，手工登录吉客云
 - `npm run jackyun:daily`：运行每日五类数据导入
-- `automation/n8n/jackyun-five-dataset-daily.workflow.json`：默认未激活的 n8n 三段式副本；A 生成当天安全计划，B 复用正式五类 runner 串行完成下载、导入和落库回查，C 独立核验清单、审计与精确批次。工作流不保存吉客云账号、密码、Cookie、Token 或 Session，并在已有完整当日结果时跳过重复导入。
+- `automation/n8n/jackyun-five-dataset-daily.workflow.json`：默认未激活的 n8n 三段式副本；A 生成当天安全计划，B 复用正式五类 runner 串行完成下载、导入和落库回查，C 独立重算输入证据摘要并核验原子 handoff、清单、审计、归档文件、当前事实归属和精确批次。A/B/C 必须携带同一个 n8n execution ID，空 ID、旧执行、跨执行接管、并发和乱序请求都会失败关闭。分仓库存和库龄只有在吉客云历史日期控件精确读回目标日，且本轮请求的 URL/载荷同时命中当前模块和目标日期、收到同一请求的 2xx 响应并完成后才可发布；任意 MiniUI 网格刷新、失败响应、实时页、无日期框或仅由调用方填写快照日期都不是历史证明。下载事件按 `RUN_ID + module + policyVersion + SHA-256 + bytes` 绑定，非销售批次号还必须由归档输出 SHA-256 确定性推导；库存批次必须是系统当前实际选用的快照，销售回查的原文件哈希和成本来源批次也必须与本轮归档一致。任何已有运行编号都必须在浏览器启动前完成契约与 completed 前缀预检，未显式续跑或缺少原子 handoff 时不会启动 worker。合法 OSS 数字对象名无需伪装成固定中文文件名，但文件必须位于本轮模块专属目录。工作流不保存吉客云账号、密码、Cookie、Token 或 Session，并在已有完整当日结果时跳过重复导入。
+- 2026-08-05 历史快照的多 AI、多方法验证结论和真实来源限制见 [`docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md`](docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md)。
 
 ## 网店数据
 

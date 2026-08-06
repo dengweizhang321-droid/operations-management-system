@@ -1,14 +1,15 @@
 param(
   [string]$Download,
   [string]$CostSource,
-  [string]$AsOf
+  [string]$AsOf,
+  [int]$ExpectedSourceRows
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not $Download -or -not $CostSource -or -not $AsOf) {
-  Write-Host 'Usage: sales-import.cmd "sales.xlsx" "current-inventory-cost-source.xlsx" YYYY-MM-DD'
-  Write-Host "All three arguments are required; historical files are never guessed."
+if (-not $Download -or -not $CostSource -or -not $AsOf -or $ExpectedSourceRows -le 0) {
+  Write-Host 'Usage: sales-import.cmd "sales.xlsx" "current-inventory-cost-source.xlsx" YYYY-MM-DD EXPECTED_SOURCE_ROWS'
+  Write-Host "All four arguments are required; historical files and source-row counts are never guessed."
   exit 2
 }
 
@@ -33,7 +34,7 @@ if (-not $nodePath) {
 Push-Location $projectRoot
 try {
   & $nodePath --import tsx (Join-Path $PSScriptRoot "sales-import-runner.ts") `
-    --download $Download --cost-source $CostSource --as-of $AsOf
+    --download $Download --cost-source $CostSource --as-of $AsOf --expected-source-rows $ExpectedSourceRows
   exit $LASTEXITCODE
 } finally {
   Pop-Location

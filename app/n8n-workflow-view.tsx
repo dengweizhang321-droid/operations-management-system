@@ -31,8 +31,10 @@ type HelperHealthPayload = {
   jackyunProfile?: "ready" | "missing" | "invalid";
 };
 
+export type HelperAvailabilityKind = "checking" | "ready" | "running" | "cookie-missing" | "offline";
+
 type HelperAvailability = {
-  kind: "checking" | "ready" | "running" | "cookie-missing" | "offline";
+  kind: HelperAvailabilityKind;
   label: string;
   detail: string;
 };
@@ -98,6 +100,17 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
   },
 };
 
+export function canManageN8nWorkflow(role: AppRole | undefined) {
+  return role === "operator" || role === "admin";
+}
+
+export function shouldMountN8nWorkflowEditor(
+  role: AppRole | undefined,
+  helperKind: HelperAvailabilityKind,
+) {
+  return canManageN8nWorkflow(role) && helperKind === "ready";
+}
+
 function checkingHelper(key: WorkflowKey): HelperAvailability {
   return {
     kind: "checking",
@@ -152,8 +165,8 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
   const config = workflowConfigs[selectedWorkflowKey];
   const workflow = config.definition;
   const workflowUrl = `http://localhost:5678/workflow/${encodeURIComponent(workflow.id)}`;
-  const canManageWorkflow = currentUser?.role === "operator" || currentUser?.role === "admin";
-  const helperBlocksExecution = helperStatus.kind !== "ready";
+  const canManageWorkflow = canManageN8nWorkflow(currentUser?.role);
+  const workflowEditorReady = shouldMountN8nWorkflowEditor(currentUser?.role, helperStatus.kind);
   const requestStages = workflow.nodes
     .filter((node) => node.type === "n8n-nodes-base.httpRequest")
     .map((node) => {
@@ -182,9 +195,14 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
         const response = await fetch(helperHealthUrl, { cache: "no-store", signal: controller.signal });
         const payload = await response.json() as HelperHealthPayload;
         if (!response.ok) throw new Error("helper_unavailable");
-        if (!cancelled) setHelperStatus(helperAvailability(payload, selectedWorkflowKey));
+        if (!cancelled) {
+          const availability = helperAvailability(payload, selectedWorkflowKey);
+          if (availability.kind !== "ready") setFrameReady(false);
+          setHelperStatus(availability);
+        }
       } catch {
         if (!cancelled) {
+          setFrameReady(false);
           setHelperStatus({
             kind: "offline",
             label: "辅助服务离线",
@@ -293,7 +311,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
       <section className="panel n8n-editor-panel" aria-labelledby="n8n-editor-title">
         <div className="n8n-panel-heading n8n-editor-heading">
           <div><span>LIVE WORKFLOW</span><h3 id="n8n-editor-title">n8n 工作流画布</h3><p>直接使用本机 n8n 登录态；运营系统不会读取或保存 n8n 凭证。</p></div>
-          {canManageWorkflow && <div className="n8n-editor-actions">
+          {workflowEditorReady && <div className="n8n-editor-actions">
             <button type="button" onClick={refreshFrame}>刷新画布</button>
             <a href={workflowUrl} target="_blank" rel="noreferrer">在 n8n 中打开 ↗</a>
           </div>}
@@ -304,14 +322,8 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
             <p>{helperStatus.detail}</p>
             <button type="button" onClick={refreshHelperStatus}>重新检测</button>
           </div>
-          <div className="n8n-frame-shell">
+          {workflowEditorReady ? <div className="n8n-frame-shell">
             {!frameReady && <div className="n8n-frame-loading" role="status"><span /><strong>正在连接本机 n8n</strong><small>如果出现登录页，请先完成 n8n 登录。</small></div>}
-            {helperBlocksExecution && <div className="n8n-helper-gate" role="alert">
-              <span>执行门禁</span>
-              <strong>{helperStatus.label}</strong>
-              <p>{helperStatus.detail}</p>
-              <button type="button" onClick={refreshHelperStatus}>重新检测</button>
-            </div>}
             <iframe
               key={`${selectedWorkflowKey}-${frameKey}`}
               className="n8n-workflow-frame"
@@ -322,7 +334,14 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
               sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
               allow="clipboard-read; clipboard-write"
             />
-          </div>
+          </div> : <div className="n8n-frame-shell">
+            <div className="n8n-helper-gate" role="alert">
+              <span>执行门禁</span>
+              <strong>{helperStatus.label}</strong>
+              <p>{helperStatus.detail}</p>
+              <button type="button" onClick={refreshHelperStatus}>重新检测</button>
+            </div>
+          </div>}
           <footer className="n8n-editor-note"><span>安全与去重</span><p>{config.safetyNote}</p></footer>
         </> : <div className="n8n-access-card">
           <span>锁</span><div><strong>需要操作员或管理员权限</strong><p>当前账号可查看流程概览，但不能加载可执行的 n8n 编辑器。该限制防止只读账号绕过系统权限发起真实导入。</p></div>

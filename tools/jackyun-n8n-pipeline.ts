@@ -8,10 +8,16 @@ import { fileURLToPath } from "node:url";
 import { isSafePreExportBlockedResume, type JackyunBrowserRunState } from "../lib/jackyun/browser-state-machine";
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
-import { isValidJackyunSourceRowCountCorrection } from "../lib/jackyun/run-contract";
+import {
+  assertJackyunHistoricalSnapshotEvidence,
+  isValidJackyunSourceRowCountCorrection,
+} from "../lib/jackyun/run-contract";
+import { assertBoundDownloadProvenance, type JackyunDownloadProvenance } from "../lib/jackyun/download-provenance";
+import { verifyJackyunModuleArtifact } from "../lib/jackyun/run-artifact-verification";
 import { runJackyunAutomation, type JackyunAutomationOptions } from "./jackyun-automation-runner";
 import { isExactFailedSourceRowCountRepair } from "./jackyun-download-runner";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
+import { salesSourceRowCountSemantic } from "./sales-import-runner";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const maximumRunDirectoriesToInspect = 365;
@@ -22,6 +28,7 @@ export type JackyunHelperRoute = "/jackyun/plan" | "/jackyun/run" | "/jackyun/ve
 
 type JackyunN8nFailure = {
   code: string;
+  stage?: string;
   message: string;
   at: string;
 };
@@ -75,6 +82,17 @@ type RunManifest = {
   }>>;
 };
 
+type DailyRunContract = {
+  version?: number;
+  runId?: string;
+  policyVersion?: string;
+  snapshotDate?: string;
+  asOfDate?: string;
+  baseUrl?: string;
+  mode?: string;
+  createdAt?: string;
+};
+
 type RuntimePaths = {
   root: string;
   artifactDirectory: string;
@@ -110,6 +128,7 @@ type VerifiedModuleEvidence = {
   batchId: string;
   rowCount: number;
   warningCount: number;
+  outputSha256: string;
   salesPolicyVersion?: string;
 };
 
@@ -173,7 +192,20 @@ export function normalizeJackyunLocalBaseUrl(value: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-export function jackyunHelperRequestError(stage: string, busy: boolean, route: JackyunHelperRoute) {
+export function jackyunHelperRequestError(
+  stage: string,
+  busy: boolean,
+  route: JackyunHelperRoute,
+  requestExecutionId: string | null,
+  claimedExecutionId: string | null,
+) {
+  if (!requestExecutionId) return { error: "missing_or_invalid_execution_id" as const };
+  if (claimedExecutionId && requestExecutionId !== claimedExecutionId) {
+    return { error: "execution_mismatch" as const };
+  }
+  if (!claimedExecutionId && route !== "/jackyun/plan") {
+    return { error: "execution_not_claimed" as const, expected: "/jackyun/plan" as const };
+  }
   if (busy) return { error: "pipeline_busy" as const };
   if (route === "/jackyun/plan") {
     const allowed = ["ready", "planned", "executed", "failed"];
@@ -233,6 +265,33 @@ function safeError(error: unknown) {
     .slice(0, 1_000);
 }
 
+const exposedJackyunFailureCodes = new Set([
+  "AUTH_REQUIRED",
+  "FIELD_MISMATCH",
+  "TABLE_TIMEOUT",
+  "EXPORT_AMBIGUOUS",
+  "DOWNLOAD_TIMEOUT",
+  "FILE_BINDING_FAILED",
+  "FILE_VALIDATION_FAILED",
+  "COMBO_BASELINE_FAILED",
+  "IMPORT_FAILED",
+  "BATCH_VERIFY_FAILED",
+  "PIPELINE_FAILED",
+]);
+
+export function jackyunN8nFailureDetails(error: unknown, fallbackCode: string, fallbackStage: string) {
+  const value = error && typeof error === "object" ? error as Record<string, unknown> : null;
+  const candidateCode = typeof value?.failureCode === "string"
+    ? value.failureCode
+    : typeof value?.code === "string" ? value.code : "";
+  const candidateStage = typeof value?.stage === "string" ? value.stage : "";
+  return {
+    code: exposedJackyunFailureCodes.has(candidateCode) ? candidateCode : fallbackCode,
+    stage: /^[a-z0-9_.-]{1,80}$/i.test(candidateStage) ? candidateStage : fallbackStage,
+    message: safeError(error),
+  };
+}
+
 async function sha256File(filePath: string) {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(filePath)) hash.update(chunk);
@@ -243,13 +302,23 @@ async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: 
   if (!validRunId(runId) || !validDate(asOfDate)) throw new Error("吉客云运行结果身份无效");
   const runDirectory = path.join(paths.outputRoot, runId);
   if (!inside(paths.outputRoot, runDirectory)) throw new Error("吉客云运行目录越界");
-  const [summary, manifest] = await Promise.all([
+  const [summary, manifest, policy, runContract] = await Promise.all([
     readJsonFile<DailySummary>(path.join(runDirectory, "daily-summary.json")),
     readJsonFile<RunManifest>(path.join(runDirectory, "run-manifest.json")),
+    readJsonFile<{ version?: string; browser?: { allowedDownloadHosts?: string[] } }>(paths.policyPath),
+    readJsonFile<DailyRunContract>(path.join(runDirectory, "daily-run-contract.json")),
   ]);
   if (summary.status !== "completed" || summary.runId !== runId || summary.salesAsOfDate !== asOfDate
-    || (expectedPolicyVersion && summary.policyVersion !== expectedPolicyVersion)) {
+    || typeof policy.version !== "string" || !policy.version || summary.policyVersion !== policy.version
+    || (expectedPolicyVersion && (summary.policyVersion !== expectedPolicyVersion || policy.version !== expectedPolicyVersion))) {
     throw new Error("吉客云日汇总未完成，或运行编号、截止日期、策略版本不匹配");
+  }
+  if (runContract.version !== 1 || runContract.runId !== runId
+    || runContract.policyVersion !== policy.version || runContract.snapshotDate !== asOfDate
+    || runContract.asOfDate !== asOfDate || runContract.mode !== "formal"
+    || typeof runContract.baseUrl !== "string" || !runContract.baseUrl
+    || !Number.isFinite(Date.parse(runContract.createdAt ?? ""))) {
+    throw new Error("吉客云每日运行契约缺失，或运行、日期、策略、模式证据不一致");
   }
   if (manifest.runId !== runId || !Array.isArray(manifest.strictOrder)
     || manifest.strictOrder.length !== jackyunModuleOrder.length
@@ -269,6 +338,23 @@ async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: 
       || typeof result.batchId !== "string" || !result.batchId.trim()) {
       throw new Error(`吉客云 ${moduleKey} 缺少完成状态或精确批次号`);
     }
+    const handoffPath = path.join(
+      paths.eventDirectory,
+      runId,
+      `${String(index + 1).padStart(2, "0")}-${moduleKey}.json`,
+    );
+    await verifyJackyunModuleArtifact({
+      runDirectory,
+      runId,
+      module: moduleKey,
+      snapshotDate: asOfDate,
+      policyVersion: policy.version!,
+      allowedDownloadHosts: policy.browser?.allowedDownloadHosts,
+      manifestModule: manifestModule,
+      summaryResult: result,
+      handoffPath,
+      requireAtomicHandoff: true,
+    });
     const expectedAuditPath = path.join(runDirectory, "audit", `${moduleKey}.json`);
     if (typeof result.auditPath !== "string" || path.resolve(result.auditPath) !== path.resolve(expectedAuditPath)
       || !(await stat(expectedAuditPath).catch(() => null))?.isFile()) {
@@ -308,6 +394,43 @@ async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: 
     if (await sha256File(copiedSourcePath) !== source.sha256) {
       throw new Error(`吉客云 ${moduleKey} 归档源文件的实际哈希与审计不一致`);
     }
+    const downloadProvenance = source.downloadProvenance && typeof source.downloadProvenance === "object"
+      ? source.downloadProvenance as JackyunDownloadProvenance
+      : undefined;
+    assertBoundDownloadProvenance(downloadProvenance, policy.browser?.allowedDownloadHosts, {
+      runId,
+      module: moduleKey,
+      policyVersion: policy.version!,
+    });
+    if (downloadProvenance.sha256 !== source.sha256 || downloadProvenance.bytes !== source.bytes
+      || typeof source.exportStart !== "string"
+      || !Number.isFinite(Date.parse(source.exportStart))
+      || Date.parse(downloadProvenance.completedAt) < Date.parse(source.exportStart)) {
+      throw new Error(`吉客云 ${moduleKey} 下载事件没有与归档源文件及导出窗口精确绑定`);
+    }
+    const snapshotEvidence = source.snapshotEvidence;
+    if (moduleKey === "inventory" || moduleKey === "inventory_age") {
+      assertJackyunHistoricalSnapshotEvidence(snapshotEvidence, {
+        module: moduleKey,
+        runId,
+        snapshotDate: asOfDate,
+        exportIntentAt: source.exportStart,
+      });
+    } else if (snapshotEvidence) {
+      throw new Error(`吉客云 ${moduleKey} 不应携带历史库存快照证据`);
+    }
+    if (moduleKey === "sales") {
+      const countContract = audit.sourceCountContract && typeof audit.sourceCountContract === "object"
+        ? audit.sourceCountContract as Record<string, unknown>
+        : null;
+      if (!Number.isSafeInteger(source.expectedSourceRows) || Number(source.expectedSourceRows) <= 0
+        || countContract?.semantic !== salesSourceRowCountSemantic
+        || countContract.expected !== source.expectedSourceRows
+        || countContract.actual !== source.expectedSourceRows
+        || countContract.verified !== true) {
+        throw new Error("吉客云 sales 缺少页面与 XLSX 非空明细行精确相等的来源计数证据");
+      }
+    }
     if (!auditOutputPath || !inside(runDirectory, auditOutputPath) || auditOutputPath !== manifestOutputPath
       || !(await stat(auditOutputPath).catch(() => null))?.isFile()
       || typeof output?.sha256 !== "string" || !/^[a-f0-9]{64}$/i.test(output.sha256)
@@ -335,6 +458,7 @@ async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: 
       batchId: result.batchId,
       rowCount: batchRowCount,
       warningCount: batchWarningCount,
+      outputSha256: output.sha256,
       ...(moduleKey === "sales" && typeof importResult?.salesPolicyVersion === "string"
         ? { salesPolicyVersion: importResult.salesPolicyVersion }
         : {}),
@@ -401,7 +525,12 @@ export async function verifyPublishedJackyunBatches(options: {
   for (const moduleKey of ["products", "inventory", "inventory_age", "combos"] as const) {
     const expected = byModule.get(moduleKey)!;
     const batch = publishedLists[moduleKey]!.find((item) => item.id === expected.batchId);
-    if (!batch || batch.status !== "completed" || Number(batch.rowCount) !== expected.rowCount) {
+    const excludedCount = moduleKey === "inventory" ? 0 : Number(batch?.excludedCount);
+    const expectedOwnedRows = expected.rowCount - excludedCount;
+    if (!batch || batch.status !== "completed" || Number(batch.rowCount) !== expected.rowCount
+      || !Number.isSafeInteger(excludedCount) || excludedCount < 0 || expectedOwnedRows <= 0
+      || Number(batch.ownedRowCount) !== expectedOwnedRows
+      || (moduleKey === "inventory" && batch.isCurrent !== true)) {
       throw new Error(`吉客云 ${moduleKey} 精确批次未在运营系统落库历史中完成。`);
     }
     const snapshotDate = batch.snapshotDate;
@@ -416,7 +545,15 @@ export async function verifyPublishedJackyunBatches(options: {
   const sales = await salesResponse.json().catch(() => null) as {
     policyVersion?: string;
     period?: { startDate?: string; endDate?: string };
-    batch?: { id?: string; status?: string; rowCount?: number } | null;
+    batch?: {
+      id?: string;
+      status?: string;
+      rowCount?: number;
+      totals?: {
+        rawFileHash?: string;
+        systemCost?: { sourceBatchId?: string };
+      };
+    } | null;
     stats?: { rowCount?: number; excludedWarehouseRows?: number; rowsNotOwnedByBatch?: number | null };
     nonWhitelistChannels?: unknown;
     error?: string;
@@ -427,6 +564,9 @@ export async function verifyPublishedJackyunBatches(options: {
     || sales.period?.startDate !== `${options.asOfDate.slice(0, 8)}01` || sales.period.endDate !== options.asOfDate
     || sales.batch?.id !== expectedSales.batchId || sales.batch.status !== "completed"
     || sales.batch.rowCount !== expectedSales.rowCount || sales.stats?.rowCount !== expectedSales.rowCount
+    || sales.batch.totals?.rawFileHash !== expectedSales.outputSha256
+    || (sales.batch.totals?.systemCost?.sourceBatchId !== undefined
+      && sales.batch.totals.systemCost.sourceBatchId !== byModule.get("inventory")!.batchId)
     || sales.stats.excludedWarehouseRows !== 0 || sales.stats.rowsNotOwnedByBatch !== 0
     || !Array.isArray(sales.nonWhitelistChannels) || sales.nonWhitelistChannels.length > 0) {
     throw new Error(sales?.error ?? "吉客云 sales 精确批次或期间数据未通过独立落库回查。");
@@ -474,11 +614,19 @@ async function isExactResumableFailedPlan(
   plan: JackyunN8nPlan,
   expected: { runDate: string; asOfDate: string; baseUrl: string; policyVersion: string },
 ) {
-  if (plan.stage !== "failed" || plan.skipped || plan.failure?.code !== "JACKYUN_N8N_RUN_FAILED"
+  if (plan.stage !== "failed" || plan.skipped || !plan.failure?.code
     || plan.runDate !== expected.runDate || plan.snapshotDate !== expected.asOfDate || plan.asOfDate !== expected.asOfDate
     || plan.baseUrl !== expected.baseUrl || plan.policyVersion !== expected.policyVersion || !validRunId(plan.runId)) return false;
   const runDirectory = path.join(paths.outputRoot, plan.runId);
-  const manifest = await readJsonFile<RunManifest>(path.join(runDirectory, "run-manifest.json")).catch(() => null);
+  const [manifest, policy, runContract] = await Promise.all([
+    readJsonFile<RunManifest>(path.join(runDirectory, "run-manifest.json")).catch(() => null),
+    readJsonFile<{ version?: string; browser?: { allowedDownloadHosts?: string[] } }>(paths.policyPath).catch(() => null),
+    readJsonFile<DailyRunContract>(path.join(runDirectory, "daily-run-contract.json")).catch(() => null),
+  ]);
+  if (policy?.version !== expected.policyVersion || runContract?.version !== 1
+    || runContract.runId !== plan.runId || runContract.policyVersion !== expected.policyVersion
+    || runContract.snapshotDate !== expected.asOfDate || runContract.asOfDate !== expected.asOfDate
+    || runContract.baseUrl !== expected.baseUrl || runContract.mode !== "formal") return false;
   if (manifest && (manifest.runId !== plan.runId || manifest.strictOrder?.length !== jackyunModuleOrder.length
     || manifest.strictOrder.some((moduleKey, index) => moduleKey !== jackyunModuleOrder[index]))) return false;
 
@@ -493,6 +641,25 @@ async function isExactResumableFailedPlan(
       const resultPath = path.join(paths.eventDirectory, plan.runId, `${String(index + 1).padStart(2, "0")}-${moduleKey}.json.result.json`);
       const result = await readJsonFile<{ status?: string }>(resultPath).catch(() => null);
       if (!result || !["completed", "duplicate_ignored"].includes(String(result.status))) return false;
+      try {
+        await verifyJackyunModuleArtifact({
+          runDirectory,
+          runId: plan.runId,
+          module: moduleKey,
+          snapshotDate: expected.asOfDate,
+          policyVersion: expected.policyVersion,
+          allowedDownloadHosts: policy.browser?.allowedDownloadHosts,
+          manifestModule,
+          handoffPath: path.join(
+            paths.eventDirectory,
+            plan.runId,
+            `${String(index + 1).padStart(2, "0")}-${moduleKey}.json`,
+          ),
+          requireAtomicHandoff: true,
+        });
+      } catch {
+        return false;
+      }
       completedPrefix += 1;
     } else {
       sawIncomplete = true;
@@ -530,6 +697,9 @@ async function isExactResumableFailedPlan(
   const controllerModule = controller.modules?.[currentModule];
   const repairsExactRowCount = Boolean(failedCurrent
     && currentHandoff
+    && currentHandoff.schemaVersion === 2
+    && currentHandoff.runId === plan.runId
+    && currentHandoff.policyVersion === expected.policyVersion
     && currentHandoff.module === currentModule
     && isValidJackyunSourceRowCountCorrection(correction, currentHandoff.expectedSourceRows)
     && controllerModule?.status === "handed_off"
@@ -693,7 +863,18 @@ export async function runJackyunN8nPlan(plan: JackyunN8nPlan, options: RunOption
       headless: true,
       signal: options.signal,
     });
-    if (result.browserResult.status !== "completed" || result.dailyResult.status !== "completed") {
+    const browserResult = result.browserResult && typeof result.browserResult === "object"
+      ? result.browserResult as Record<string, unknown>
+      : null;
+    const dailyResult = result.dailyResult && typeof result.dailyResult === "object"
+      ? result.dailyResult as Record<string, unknown>
+      : null;
+    const completedResults = Array.isArray(dailyResult?.results)
+      ? dailyResult.results.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+      : [];
+    if (browserResult?.status !== "completed" || dailyResult?.status !== "completed"
+      || completedResults.length !== jackyunModuleOrder.length
+      || completedResults.some((item, index) => item.module !== jackyunModuleOrder[index])) {
       throw new Error("吉客云五类串行下载与导入未全部完成");
     }
     plan.stage = "executed";
@@ -703,11 +884,14 @@ export async function runJackyunN8nPlan(plan: JackyunN8nPlan, options: RunOption
       stage: "run",
       runId: plan.runId,
       skipped: false,
-      completedModules: result.dailyResult.results.map((item) => item.module),
+      completedModules: completedResults.map((item) => item.module as JackyunModule),
     };
   } catch (error) {
     plan.stage = "failed";
-    plan.failure = { code: "JACKYUN_N8N_RUN_FAILED", message: safeError(error), at: new Date().toISOString() };
+    plan.failure = {
+      ...jackyunN8nFailureDetails(error, "JACKYUN_N8N_RUN_FAILED", "run"),
+      at: new Date().toISOString(),
+    };
     await persistPlan(paths, plan);
     throw error;
   }
@@ -737,7 +921,10 @@ export async function verifyJackyunN8nPlan(plan: JackyunN8nPlan, options: Verify
     };
   } catch (error) {
     plan.stage = "failed";
-    plan.failure = { code: "JACKYUN_N8N_VERIFY_FAILED", message: safeError(error), at: new Date().toISOString() };
+    plan.failure = {
+      ...jackyunN8nFailureDetails(error, "JACKYUN_N8N_VERIFY_FAILED", "verify"),
+      at: new Date().toISOString(),
+    };
     await persistPlan(paths, plan);
     throw error;
   }

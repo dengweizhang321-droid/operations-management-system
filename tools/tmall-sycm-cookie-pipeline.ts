@@ -14,6 +14,7 @@ import { runTmallProductMasterStage } from "./tmall-product-master-export";
 import { runTmallPromotionStage } from "./tmall-promotion-export";
 import {
   getJackyunProfileStatus,
+  jackyunN8nFailureDetails,
   jackyunHelperRequestError,
   planJackyunN8nRun,
   publicJackyunPlan,
@@ -696,11 +697,13 @@ export function helperRequestError(
 
 export function createHelperInactivityReaper({
   close,
+  isBusy = () => false,
   timeoutMs = helperInactivityTimeoutMs,
   schedule = (callback: () => void, delayMs: number): unknown => setTimeout(callback, delayMs),
   cancel = (handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 }: {
   close: () => void;
+  isBusy?: () => boolean;
   timeoutMs?: number;
   schedule?: (callback: () => void, delayMs: number) => unknown;
   cancel?: (handle: unknown) => void;
@@ -712,13 +715,18 @@ export function createHelperInactivityReaper({
     cancel(timer);
     timer = null;
   };
+  const expire = () => {
+    timer = null;
+    if (isBusy()) {
+      timer = schedule(expire, timeoutMs);
+      return;
+    }
+    close();
+  };
   return {
     arm() {
       clear();
-      timer = schedule(() => {
-        timer = null;
-        close();
-      }, timeoutMs);
+      timer = schedule(expire, timeoutMs);
     },
     clear,
     isArmed() {
@@ -763,6 +771,7 @@ async function serveCommand(argv: string[]) {
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
+  let claimedJackyunExecutionId: string | null = null;
   let tmallImportFallbackClose: ReturnType<typeof setTimeout> | null = null;
   let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
@@ -812,16 +821,21 @@ async function serveCommand(argv: string[]) {
       return;
     }
     const route = request.url as HelperRoute | JackyunHelperRoute;
-    const requestExecutionId = isJackyun
-      ? null
-      : normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
+    const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
     const stateError = isJackyun
-      ? jackyunHelperRequestError(stage, busy, route as JackyunHelperRoute)
+      ? jackyunHelperRequestError(
+          stage,
+          busy,
+          route as JackyunHelperRoute,
+          requestExecutionId,
+          claimedJackyunExecutionId,
+        )
       : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
     }
+    if (isJackyun && !claimedJackyunExecutionId) claimedJackyunExecutionId = requestExecutionId;
     if (!isJackyun && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
     inactivityReaper?.clear();
     if (request.url === "/promotion" && tmallImportFallbackClose) {
@@ -835,12 +849,18 @@ async function serveCommand(argv: string[]) {
         jackyunPlan = await planJackyunN8nRun();
         stage = "planned";
         reply(200, publicJackyunPlan(jackyunPlan));
+        // The plan is already persisted. Expiry only releases this helper's
+        // execution owner; the replacement helper must claim from A again and
+        // can reuse only the exact persisted RUN_ID under the normal resume checks.
+        inactivityReaper?.arm();
       } else if (request.url === "/jackyun/run") {
         if (!jackyunPlan) throw new Error("吉客云 n8n 计划已丢失，拒绝无计划执行");
         stage = "running";
         const result = await runJackyunN8nPlan(jackyunPlan);
         stage = "executed";
         reply(200, result);
+        // Bound a lost C-stage response without interrupting the active B request.
+        inactivityReaper?.arm();
       } else if (request.url === "/jackyun/verify") {
         if (!jackyunPlan) throw new Error("吉客云 n8n 计划已丢失，拒绝无计划核验");
         const result = await verifyJackyunN8nPlan(jackyunPlan);
@@ -881,10 +901,14 @@ async function serveCommand(argv: string[]) {
     } catch (error) {
       stage = "failed";
       inactivityReaper?.clear();
+      const jackyunFailure = isJackyun
+        ? jackyunN8nFailureDetails(error, "PIPELINE_FAILED", "helper")
+        : null;
       reply(500, {
         ok: false,
         stage,
-        code: error instanceof TmallPipelineError ? error.code : "PIPELINE_FAILED",
+        ...(jackyunFailure ? { failureStage: jackyunFailure.stage } : {}),
+        code: jackyunFailure?.code ?? (error instanceof TmallPipelineError ? error.code : "PIPELINE_FAILED"),
         error: error instanceof Error ? error.message : String(error),
       });
       scheduleOneShotServerClose(server, 500);
@@ -892,7 +916,10 @@ async function serveCommand(argv: string[]) {
       busy = false;
     }
   });
-  inactivityReaper = createHelperInactivityReaper({ close: () => closeOneShotServer(server) });
+  inactivityReaper = createHelperInactivityReaper({
+    close: () => closeOneShotServer(server),
+    isBusy: () => busy,
+  });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, "127.0.0.1", () => resolve());
