@@ -1,14 +1,19 @@
 import { launchDedicatedChrome, waitForChrome } from "@/lib/jackyun/cdp-client";
+import { resolveJackyunChromeProfileDirectory } from "@/lib/jackyun/runtime-path";
 import { withJackyunRunLock } from "@/lib/jackyun/run-lock";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import path from "node:path";
 
 export const runtime = "nodejs";
 
-const projectRoot = process.cwd();
-const chromePath = process.env.JACKYUN_CHROME_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const profileDirectory = path.resolve(process.env.JACKYUN_PROFILE_DIR ?? path.join(projectRoot, ".runtime", "jackyun-chrome-profile"));
-const port = Number(process.env.JACKYUN_DEBUG_PORT ?? 9223);
+const runtimeProcess = typeof process === "undefined" ? undefined : process;
+const runtimeCwd = typeof runtimeProcess?.cwd === "function" ? runtimeProcess.cwd() : undefined;
+const runtimeEnv = runtimeProcess?.env ?? {};
+const chromePath = runtimeEnv.JACKYUN_CHROME_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const profileDirectory = resolveJackyunChromeProfileDirectory({
+  cwd: runtimeCwd,
+  configuredProfileDirectory: runtimeEnv.JACKYUN_PROFILE_DIR,
+});
+const port = Number(runtimeEnv.JACKYUN_DEBUG_PORT ?? 9223);
 const startUrl = "https://web.jackyun.com/login/login_web.html";
 
 export async function POST() {
