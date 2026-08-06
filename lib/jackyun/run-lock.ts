@@ -10,7 +10,6 @@ export function resolveJackyunRunLockProjectRoot(input: {
   moduleUrl?: string;
   cwd?: string;
 } = {}) {
-  const cwd = input.cwd ?? process.cwd();
   if (typeof input.moduleUrl === "string" && input.moduleUrl.startsWith("file:")) {
     try {
       return path.resolve(path.dirname(fileURLToPath(input.moduleUrl)), "../..");
@@ -18,7 +17,9 @@ export function resolveJackyunRunLockProjectRoot(input: {
       // Bundled Worker runtimes may not expose a filesystem-backed module URL.
     }
   }
-  return path.resolve(cwd);
+  // Some Workers compatibility dates expose only the minimal `process` shim,
+  // where cwd() is unavailable. Avoid touching it during module evaluation.
+  return input.cwd ? path.resolve(input.cwd) : ".";
 }
 
 const projectRoot = resolveJackyunRunLockProjectRoot({ moduleUrl: import.meta.url });

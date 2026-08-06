@@ -24,6 +24,7 @@ test("Jackyun run lock falls back to the runtime cwd when a bundled Worker has n
     resolveJackyunRunLockProjectRoot({ moduleUrl: "not-a-file-url", cwd: runtimeRoot }),
     runtimeRoot,
   );
+  assert.equal(resolveJackyunRunLockProjectRoot({ moduleUrl: undefined }), ".");
 });
 
 test("Jackyun run lock admits only one owner and releases by owner token", async () => {
