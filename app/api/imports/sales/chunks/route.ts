@@ -3,6 +3,7 @@ import {
   SALES_UPLOAD_CHUNK_BYTES,
   assembleSalesUpload,
   beginSalesUpload,
+  claimSalesUpload,
   finishSalesUpload,
   receiveSalesUploadChunk,
 } from "@/lib/sales/chunked-upload";
@@ -44,14 +45,20 @@ export async function POST(request: Request) {
     if (action === "complete") {
       const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
       if (!uploadId) return reject(400, "缺少上传会话标识");
-      const assembled = await assembleSalesUpload(uploadId);
-      const result = await importSalesLedgerBytes({
-        bytes: assembled.bytes,
-        fileName: assembled.session.fileName,
-        fileSizeBytes: assembled.session.fileSizeBytes,
-      });
-      await finishSalesUpload(uploadId, assembled.objectKeys, result.ok);
-      return Response.json(result, { status: result.ok ? (result.status === "imported" ? 201 : 200) : 422 });
+      await claimSalesUpload(uploadId);
+      try {
+        const assembled = await assembleSalesUpload(uploadId);
+        const result = await importSalesLedgerBytes({
+          bytes: assembled.bytes,
+          fileName: assembled.session.fileName,
+          fileSizeBytes: assembled.session.fileSizeBytes,
+        });
+        await finishSalesUpload(uploadId, assembled.objectKeys, result.ok);
+        return Response.json(result, { status: result.ok ? (result.status === "imported" ? 201 : 200) : 422 });
+      } catch (error) {
+        await finishSalesUpload(uploadId, [], false).catch(() => undefined);
+        throw error;
+      }
     }
 
     return reject(400, "未知的分片上传操作");

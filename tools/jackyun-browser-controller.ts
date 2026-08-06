@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +14,7 @@ import { PlaywrightPageClient, connectPlaywrightBrowser, connectPlaywrightJackyu
 import { downloadSignedOssExport } from "../lib/jackyun/oss-download";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-runner";
 
 type Policy = {
@@ -241,7 +244,10 @@ export async function retryOnceAfterAmbiguousBrowserResult<T>(
 ) {
   try {
     return await action();
-  } catch {
+  } catch (error) {
+    // A timed-out page evaluation may still be running inside Chrome. Retrying
+    // it would create a second side effect while the first one is unresolved.
+    if (error instanceof Error && error.name === "JackyunBrowserTimeoutError") throw error;
     if (retryDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     return await action();
   }
@@ -894,12 +900,12 @@ async function installDownloadFileHook(client: BrowserAutomationClient, urlHints
       if (!win.__codexDownloadFileHookInstalled) {
         const original = jkUtils.downloadFile;
         win.__codexDownloadFileHookInstalled = true;
-        win.__codexLastDownloadFileUrl = null;
         jkUtils.downloadFile = function(url) {
           win.__codexLastDownloadFileUrl = String(url || '');
           return original.apply(this, arguments);
         };
       }
+      win.__codexLastDownloadFileUrl = null;
       installed = true;
     }
     return installed;
@@ -1202,18 +1208,37 @@ function localDownloadPattern(moduleKey: JackyunModule) {
   return patterns[moduleKey];
 }
 
+async function sha256File(filePath: string) {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
 export async function findLocalDownloadedFile(downloadDirectory: string, moduleKey: JackyunModule, exportIntentAt: string) {
-  const threshold = Date.parse(exportIntentAt) - 5_000;
+  const threshold = Date.parse(exportIntentAt);
+  if (!Number.isFinite(threshold)) throw new Error("本轮导出 intent 时间无效。");
   const pattern = localDownloadPattern(moduleKey);
   const entries = await readdir(downloadDirectory, { withFileTypes: true }).catch(() => []);
-  const candidates: Array<{ filePath: string; mtimeMs: number }> = [];
+  const candidates: Array<{ filePath: string; mtimeMs: number; size: number }> = [];
   for (const entry of entries) {
     if (!entry.isFile() || !pattern.test(entry.name) || entry.name.endsWith(".crdownload")) continue;
     const filePath = path.join(downloadDirectory, entry.name);
     const info = await stat(filePath).catch(() => null);
-    if (info && info.mtimeMs >= threshold && info.size > 0) candidates.push({ filePath, mtimeMs: info.mtimeMs });
+    if (info && info.mtimeMs >= threshold && info.size > 0) candidates.push({ filePath, mtimeMs: info.mtimeMs, size: info.size });
   }
-  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  // If the browser emitted byte-identical duplicates, keep the first file
+  // produced by this export intent. A later copy must not silently replace the
+  // original ownership evidence.
+  candidates.sort((a, b) => a.mtimeMs - b.mtimeMs);
+  if (candidates.length > 1) {
+    const hashes = await Promise.all(candidates.map(async (candidate) => ({
+      ...candidate,
+      sha256: await sha256File(candidate.filePath),
+    })));
+    if (new Set(hashes.map((candidate) => candidate.sha256)).size > 1) {
+      throw new Error(`${moduleKey} 本轮导出窗口出现多个不同内容的下载候选，已拒绝按最新文件猜测归属。`);
+    }
+  }
   return candidates[0]?.filePath;
 }
 
@@ -1237,7 +1262,11 @@ async function waitForLocalDownloadedFile(
   for (;;) {
     if (signal?.aborted) return undefined;
     const found = await findLocalDownloadedFile(downloadDirectory, moduleKey, exportIntentAt);
-    if (found) return found;
+    if (found) {
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      if (signal?.aborted) return undefined;
+      return await findLocalDownloadedFile(downloadDirectory, moduleKey, exportIntentAt);
+    }
     if (Date.now() >= deadline) return undefined;
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
@@ -1586,7 +1615,7 @@ async function runController(options: CliOptions) {
     return results;
   })()`);
       if (dates.join("|") !== expected.join("|")) {
-        fieldChecks.push({ field: "日期区间", value: `期望${expected.join(" 至 ")} 实际${dates.join(" 至 ")}`, verifiedAt: new Date().toISOString() });
+        throw new Error(`销售日期区间读回不一致：期望 ${expected.join(" 至 ")}，实际 ${dates.join(" 至 ")}。`);
       } else {
         fieldChecks.push({ field: "日期区间", value: expected.join(" 至 "), verifiedAt: new Date().toISOString() });
       }
@@ -1769,7 +1798,11 @@ async function runController(options: CliOptions) {
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
-  runController(parseCli())
+  const cliOptions = parseCli();
+  withJackyunRunLock(
+    { runId: cliOptions.runId, purpose: cliOptions.checkLoginOnly ? "browser_login_check" : "browser_controller" },
+    () => runController(cliOptions),
+  )
     .then((result) => console.log(JSON.stringify(result)))
     .catch((error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error));

@@ -10,6 +10,7 @@ import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-down
 import { isExactFailedSourceRowCountRepair, runJackyunDownload } from "./jackyun-download-runner";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { assertDownloadProvenance, type JackyunDownloadProvenance } from "../lib/jackyun/download-provenance";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 
 type DailyPolicy = {
   version: string;
@@ -471,7 +472,11 @@ export async function runJackyunDaily(options: CliOptions) {
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
-  runJackyunDaily(parseCli())
+  const cliOptions = parseCli();
+  withJackyunRunLock(
+    { runId: cliOptions.runId, purpose: "daily_import_runner" },
+    () => runJackyunDaily(cliOptions),
+  )
     .then((result) => console.log(JSON.stringify({ type: "daily_completed", ...result })))
     .catch((error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error));

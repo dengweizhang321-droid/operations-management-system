@@ -15,5 +15,9 @@ test("OSS fallback requires a whitelisted host and hashed URL without storing th
   };
   assert.doesNotThrow(() => assertDownloadProvenance(valid));
   assert.throws(() => assertDownloadProvenance({ ...valid, sourceHost: "example.com" }), /允许列表/);
+  assert.throws(
+    () => assertDownloadProvenance({ ...valid, method: "untrusted" } as never),
+    /method 无效/,
+  );
   assert.equal("url" in valid, false);
 });

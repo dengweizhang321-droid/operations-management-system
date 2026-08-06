@@ -7,6 +7,7 @@ import {
   listChromeTargets,
 } from "../lib/jackyun/cdp-client";
 import { readJsonFile } from "../lib/jackyun/json-file";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const policyPath = path.join(projectRoot, "config", "jackyun-daily-policy.json");
@@ -31,7 +32,7 @@ async function assertHelperIsIdle() {
   if (health?.busy) throw new Error("吉客云/天猫辅助服务正在执行任务，不能关闭专用浏览器；请等待当前串行链路结束。");
 }
 
-async function main() {
+async function openLoginBrowser() {
   const policy = await readJsonFile<LoginPolicy>(policyPath);
   const chromePath = policy.browser.controller?.chromePath ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   const profileDirectory = path.resolve(
@@ -59,6 +60,13 @@ async function main() {
     port,
     instruction: "请在专用 Chrome 中完成人工验证，并在 Chrome 提示时保存密码；程序不会读取或保存明文凭证。",
   }));
+}
+
+async function main() {
+  return withJackyunRunLock(
+    { runId: "manual-login", purpose: "manual_login_browser" },
+    () => openLoginBrowser(),
+  );
 }
 
 main().catch((error: unknown) => {

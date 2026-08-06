@@ -19,6 +19,9 @@ export function assertDownloadProvenance(
   provenance: JackyunDownloadProvenance,
   allowedHosts: readonly string[] = defaultJackyunDownloadHosts,
 ) {
+  if (provenance.method !== "browser_event" && provenance.method !== "oss_fallback") {
+    throw new Error(`下载事件 method 无效：${String(provenance.method)}。`);
+  }
   if (!/^[A-Za-z0-9._-]{8,128}$/.test(provenance.downloadId)) throw new Error("下载事件缺少有效 downloadId。");
   if (!Number.isFinite(Date.parse(provenance.completedAt))) throw new Error("下载事件缺少有效 completedAt。");
   if (!provenance.originalFileName.trim()) throw new Error("下载事件缺少原始文件名。");

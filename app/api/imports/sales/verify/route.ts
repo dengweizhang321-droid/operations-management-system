@@ -86,7 +86,8 @@ export async function GET(request: Request) {
     const rowsNotOwnedByBatch = batchId
       ? Number((await db.prepare(
         `SELECT COUNT(*) AS row_count FROM sales_order_lines
-         WHERE ship_time >= ? AND ship_time < ? AND last_import_batch_id <> ?`,
+         WHERE ship_time >= ? AND ship_time < ?
+           AND (last_import_batch_id IS NULL OR last_import_batch_id <> ?)`,
       ).bind(startDate, endExclusive, batchId).first<{ row_count: number }>())?.row_count ?? 0)
       : null;
     const batch = batchId ? await findSalesImportBatchByHash(db, batchId) : null;

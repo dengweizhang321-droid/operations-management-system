@@ -50,7 +50,7 @@ export type SalesImportRunOptions = Omit<CliOptions, "downloadPath" | "costSourc
 };
 
 export type SalesImportRunResult = {
-  status: "duplicate" | "prepared" | "imported";
+  status: "prepared" | "verified_completed";
   recovered?: boolean;
   dryRun?: boolean;
   audit: Record<string, unknown>;
@@ -91,6 +91,65 @@ type ServerPeriodShop = {
   rowCount: number;
   netSalesCents: number;
 };
+
+export type SalesPostImportVerification = {
+  policyVersion?: string;
+  period?: { startDate?: string; endDate?: string; endExclusive?: string };
+  batch?: { id?: string; status?: string; rowCount?: number } | null;
+  stats?: {
+    rowCount?: number;
+    minShipTime?: string | null;
+    maxShipTime?: string | null;
+    excludedWarehouseRows?: number;
+    rowsNotOwnedByBatch?: number | null;
+  };
+  nonWhitelistChannels?: unknown;
+  error?: string;
+};
+
+export function assertSalesPostImportVerification(input: {
+  responseOk: boolean;
+  expectedPolicyVersion: string;
+  period: Pick<Period, "startDate" | "endDate" | "endExclusiveDateTime">;
+  expectedBatch: { id: string; status: string; rowCount: number };
+  expectedRowCount: number;
+  verification: SalesPostImportVerification | null;
+}) {
+  const verification = input.verification;
+  if (!input.responseOk || !verification) {
+    throw new Error(verification?.error ?? "销售导入后的落库回查请求失败。");
+  }
+  if (verification.policyVersion !== input.expectedPolicyVersion) {
+    throw new Error(`销售落库回查策略版本不一致：期望 ${input.expectedPolicyVersion}，实际 ${verification.policyVersion ?? "未知"}。`);
+  }
+  const expectedEndExclusive = input.period.endExclusiveDateTime.slice(0, 10);
+  if (verification.period?.startDate !== input.period.startDate
+    || verification.period.endDate !== input.period.endDate
+    || verification.period.endExclusive !== expectedEndExclusive) {
+    throw new Error("销售落库回查日期范围与本轮导入范围不一致。");
+  }
+  const batch = verification.batch;
+  if (!batch || batch.id !== input.expectedBatch.id) throw new Error("销售落库回查未找到本轮精确批次。");
+  if (input.expectedBatch.status !== "completed" || batch.status !== "completed") {
+    throw new Error(`销售批次未完成：导入响应=${input.expectedBatch.status}，回查=${batch.status ?? "未知"}。`);
+  }
+  if (input.expectedBatch.rowCount !== input.expectedRowCount || batch.rowCount !== input.expectedRowCount) {
+    throw new Error(`销售批次行数不一致：期望 ${input.expectedRowCount}，导入响应 ${input.expectedBatch.rowCount}，回查 ${batch.rowCount ?? "未知"}。`);
+  }
+  if (verification.stats?.rowCount !== input.expectedRowCount) {
+    throw new Error(`销售期间落库行数不一致：期望 ${input.expectedRowCount}，实际 ${verification.stats?.rowCount ?? "未知"}。`);
+  }
+  if (verification.stats.excludedWarehouseRows !== 0) throw new Error("销售落库回查发现排除仓残留。");
+  if (verification.stats.rowsNotOwnedByBatch !== 0) throw new Error("销售落库回查发现不属于本轮批次的期间数据。");
+  if (!Array.isArray(verification.nonWhitelistChannels) || verification.nonWhitelistChannels.length > 0) {
+    throw new Error("销售落库回查发现非白名单渠道，或渠道证据缺失。");
+  }
+  const minDate = verification.stats.minShipTime?.slice(0, 10) ?? "";
+  const maxDate = verification.stats.maxShipTime?.slice(0, 10) ?? "";
+  if (!minDate || !maxDate || minDate < input.period.startDate || maxDate > input.period.endDate) {
+    throw new Error("销售落库回查的发货日期边界超出本轮期间。");
+  }
+}
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const policyPath = path.join(projectRoot, "config", "sales-import-policy.json");
@@ -307,6 +366,24 @@ async function readServerPeriodShops(baseUrl: string, period: Period) {
   return body.shops;
 }
 
+async function readSalesPostImportVerification(input: {
+  baseUrl: string;
+  period: Period;
+  batchId: string;
+}) {
+  const response = await fetchWithTimeout(
+    `${input.baseUrl}/api/imports/sales/verify?${new URLSearchParams({
+      startDate: input.period.startDate,
+      endDate: input.period.endDate,
+      batchId: input.batchId,
+    })}`,
+    { cache: "no-store" },
+    2 * 60_000,
+  );
+  const verification = await response.json().catch(() => null) as SalesPostImportVerification | null;
+  return { responseOk: response.ok, verification };
+}
+
 export function findMissingPreviouslyLoadedChannels(
   approvedChannels: readonly string[],
   currentShopCounts: ReadonlyMap<string, number>,
@@ -377,11 +454,6 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   if (!policy.version || policy.dateRule.type !== "month_to_previous_day") throw new Error("销售导入策略文件无效。");
   if (!options.dryRun) await assertServerPolicyVersion(options.baseUrl, policy.version);
   const period = monthToPreviousDay(options.asOfDate);
-  // Fire server period shops HTTP request early — it only needs `period`, not the xlsx data.
-  // The ~200ms round-trip overlaps with xlsx parsing and row filtering below.
-  const serverPeriodShopsPromise = options.dryRun
-    ? Promise.resolve([] as ServerPeriodShop[])
-    : readServerPeriodShops(options.baseUrl, period);
   const auditRoot = path.resolve(options.auditRootPath ?? defaultAuditRoot);
   const downloadPath = path.resolve(options.downloadPath);
   const costSourcePath = path.resolve(options.costSourcePath);
@@ -394,7 +466,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   const runDir = path.join(auditRoot, runId);
   const registryPath = path.join(auditRoot, "processed-downloads.json");
   const registry = await readJsonFileOr<{ runs: ProcessedRegistryRun[] }>(registryPath, { runs: [] });
-  for (const previous of registry.runs.filter((run) => run.rawSha256 === rawHash && run.status === "imported")) {
+  for (const previous of registry.runs.filter((run) => run.rawSha256 === rawHash && run.status === "verified_completed")) {
     const previousAuditPath = previous.auditPath ?? path.join(auditRoot, previous.runId, "audit.json");
     const previousAudit = await readJsonFileOr<Record<string, unknown> | null>(previousAuditPath, null);
     if (previousAudit?.policyVersion !== policy.version) continue;
@@ -409,11 +481,48 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     if (options.expectedSourceRows !== undefined && previousFiltering?.sourceRows !== options.expectedSourceRows) continue;
     const previousImport = previousAudit?.import as Record<string, unknown> | undefined;
     const previousBatch = previousImport?.batch as Record<string, unknown> | undefined;
-    if (!previousAudit || previousAudit.ok !== true || previousBatch?.status !== "completed") {
+    const previousVerification = previousAudit?.postImportVerification as Record<string, unknown> | undefined;
+    if (!previousAudit || previousAudit.ok !== true || previousBatch?.status !== "completed" || previousVerification?.verified !== true) {
       throw new Error(`销售处理登记显示已完成，但成功审计不可恢复：${previousAuditPath}`);
     }
-    return { status: "duplicate", recovered: true, audit: previousAudit };
+    const expectedBatch = {
+      id: typeof previousBatch.id === "string" ? previousBatch.id : "",
+      status: typeof previousBatch.status === "string" ? previousBatch.status : "",
+      rowCount: Number(previousBatch.rowCount),
+    };
+    const expectedRowCount = Number(previousFiltering?.retainedRows);
+    if (!expectedBatch.id || !Number.isSafeInteger(expectedBatch.rowCount) || expectedBatch.rowCount <= 0
+      || !Number.isSafeInteger(expectedRowCount) || expectedRowCount <= 0) {
+      throw new Error(`销售处理登记缺少可实时回查的精确批次或行数：${previousAuditPath}`);
+    }
+    const recoveredVerification = await readSalesPostImportVerification({
+      baseUrl: options.baseUrl,
+      period,
+      batchId: expectedBatch.id,
+    });
+    assertSalesPostImportVerification({
+      responseOk: recoveredVerification.responseOk,
+      expectedPolicyVersion: policy.version,
+      period,
+      expectedBatch,
+      expectedRowCount,
+      verification: recoveredVerification.verification,
+    });
+    previousAudit.postImportVerification = {
+      ...recoveredVerification.verification,
+      verified: true,
+      verifiedAt: new Date().toISOString(),
+      recoveryReverified: true,
+    };
+    await writeJson(previousAuditPath, previousAudit);
+    return { status: "verified_completed", recovered: true, audit: previousAudit };
   }
+  // Fire the server period-shop request only after duplicate recovery is ruled
+  // out, so an early return cannot leave a rejected promise unobserved. It can
+  // still overlap with workbook parsing and filtering below.
+  const serverPeriodShopsPromise = options.dryRun
+    ? Promise.resolve([] as ServerPeriodShop[])
+    : readServerPeriodShops(options.baseUrl, period);
   await mkdir(runDir, { recursive: true });
   if (options.preserveRawCopy !== false) {
     await mkdir(path.join(runDir, "raw"), { recursive: true });
@@ -783,34 +892,41 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   }
 
   const imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash);
-  const verifyResponse = await fetchWithTimeout(
-    `${options.baseUrl}/api/imports/sales/verify?${new URLSearchParams({ startDate: period.startDate, endDate: period.endDate, batchId: processedHash })}`,
-    {},
-    2 * 60_000,
-  );
-  const verification = await verifyResponse.json() as {
-    policyVersion?: string;
-    batch?: { id: string; status: string; rowCount: number } | null;
-    stats?: { rowCount: number; minShipTime: string | null; maxShipTime: string | null; excludedWarehouseRows: number; rowsNotOwnedByBatch: number | null };
-    nonWhitelistChannels?: string[];
-  };
-  // v4 适配期：导出文件完整但日期范围/行数与单日期望不完全匹配。
-  // 复核失败时记录警告但不阻断流程（导入是幂等的，数据质量问题可后续修正）。
-  const verifyOk = verifyResponse.ok
-    && verification.batch?.status === "completed";
-  if (!verifyOk) {
+  let verification: SalesPostImportVerification | null = null;
+  try {
+    const verified = await readSalesPostImportVerification({
+      baseUrl: options.baseUrl,
+      period,
+      batchId: imported.batch.id,
+    });
+    verification = verified.verification;
+    assertSalesPostImportVerification({
+      responseOk: verified.responseOk,
+      expectedPolicyVersion: policy.version,
+      period,
+      expectedBatch: imported.batch,
+      expectedRowCount: outputRows.length,
+      verification,
+    });
+  } catch (error) {
+    audit.ok = false;
     audit.import = imported;
     audit.postImportVerification = verification;
+    audit.failure = {
+      code: "SALES_POST_IMPORT_VERIFICATION_FAILED",
+      message: error instanceof Error ? error.message : String(error),
+      failedAt: new Date().toISOString(),
+    };
     await writeJson(path.join(runDir, "audit.json"), audit);
-    console.warn(`[sales] 复核未完全通过（verifyOk=${verifyOk}, batch.status=${verification.batch?.status ?? "unknown"}），但 v4 适配期允许继续。`);
+    throw error;
   }
   audit.import = imported;
-  audit.postImportVerification = verification;
+  audit.postImportVerification = { ...verification, verified: true, verifiedAt: new Date().toISOString() };
   await writeJson(path.join(runDir, "audit.json"), audit);
   const auditPath = path.join(runDir, "audit.json");
   registry.runs.push({
     rawSha256: rawHash,
-    status: "imported",
+    status: "verified_completed",
     runId,
     periodStart: period.startDate,
     periodEnd: period.endDate,
@@ -819,7 +935,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   });
   await mkdir(auditRoot, { recursive: true });
   await writeJson(registryPath, registry);
-  return { status: "imported", audit };
+  return { status: "verified_completed", audit };
 }
 
 function compactResult(result: SalesImportRunResult) {

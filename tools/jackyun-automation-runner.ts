@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runController } from "./jackyun-browser-controller";
 import { runJackyunDaily } from "./jackyun-daily-runner";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -71,7 +72,7 @@ function parseArgs(): JackyunAutomationOptions {
   };
 }
 
-export async function runJackyunAutomation(options: JackyunAutomationOptions) {
+async function runJackyunAutomationUnderLock(options: JackyunAutomationOptions) {
   const abortController = new AbortController();
   const abortFromCaller = () => abortController.abort(options.signal?.reason ?? new Error("吉客云 n8n 任务已取消。"));
   if (options.signal?.aborted) abortFromCaller();
@@ -113,11 +114,20 @@ export async function runJackyunAutomation(options: JackyunAutomationOptions) {
     signal: abortController.signal,
   }));
   try {
-    const [browserResult, dailyResult] = await Promise.all([browser, daily]);
-    return { browserResult, dailyResult };
+    const [browserSettled, dailySettled] = await Promise.allSettled([browser, daily]);
+    if (browserSettled.status === "rejected") throw browserSettled.reason;
+    if (dailySettled.status === "rejected") throw dailySettled.reason;
+    return { browserResult: browserSettled.value, dailyResult: dailySettled.value };
   } finally {
     options.signal?.removeEventListener("abort", abortFromCaller);
   }
+}
+
+export async function runJackyunAutomation(options: JackyunAutomationOptions) {
+  return withJackyunRunLock(
+    { runId: options.runId, purpose: "five_dataset_automation" },
+    () => runJackyunAutomationUnderLock(options),
+  );
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {

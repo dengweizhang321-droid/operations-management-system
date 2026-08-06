@@ -4,7 +4,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { createJackyunInputContractHash } from "../lib/jackyun/run-contract";
-import { isExactFailedSourceRowCountRepair } from "../tools/jackyun-download-runner";
+import {
+  assertJackyunDownloadFreshness,
+  isExactFailedSourceRowCountRepair,
+} from "../tools/jackyun-download-runner";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,6 +60,15 @@ test("duplicate contract changes when any import-defining parameter changes", ()
   assert.notEqual(createJackyunInputContractHash({ ...base, costSourcePath: "D:\\runs\\wrong.xlsx" }), original);
   assert.notEqual(createJackyunInputContractHash({ ...base, baseUrl: "http://localhost:3001" }), original);
   assert.notEqual(createJackyunInputContractHash({ ...base, module: "inventory", snapshotDate: "2026-07-15" }), original);
+});
+
+test("unified runner rejects files older than the current export intent", () => {
+  const exportStart = "2026-08-06T01:00:00.000Z";
+  assert.doesNotThrow(() => assertJackyunDownloadFreshness(Date.parse(exportStart), exportStart));
+  assert.throws(
+    () => assertJackyunDownloadFreshness(Date.parse(exportStart) - 60_000, exportStart),
+    /拒绝复用历史文件/,
+  );
 });
 
 test("row-count contract repair requires an exact pre-import failed audit and one explicit correction", () => {

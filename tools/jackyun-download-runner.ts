@@ -22,6 +22,7 @@ import {
   defaultJackyunDownloadHosts,
   type JackyunDownloadProvenance,
 } from "../lib/jackyun/download-provenance";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 
 type CliOptions = {
   module: JackyunModule;
@@ -283,10 +284,10 @@ function assertStrictSequence(manifest: RunManifest, module: JackyunModule, dryR
 
 async function waitForStableFile(filePath: string) {
   let previous: { size: number; mtimeMs: number } | null = null;
-  const deadline = Date.now() + 4_000;
-  // Reduced from 500ms to 200ms: the stat() calls themselves provide ~10ms granularity,
-  // so 200ms is sufficient to detect file stability while saving 300ms per module.
-  const pollIntervalMs = 200;
+  let stableSince = 0;
+  const deadline = Date.now() + 6_000;
+  const pollIntervalMs = 250;
+  const requiredStableMs = 1_000;
   while (Date.now() < deadline) {
     const partialExists = await stat(`${filePath}.crdownload`).then(() => true).catch(() => false);
     if (partialExists) {
@@ -297,12 +298,16 @@ async function waitForStableFile(filePath: string) {
     const current = await stat(filePath);
     if (!current.isFile() || current.size === 0) throw new Error("下载文件为空或不是普通文件。");
     if (previous && previous.size === current.size && previous.mtimeMs === current.mtimeMs) {
-      return { size: current.size, mtimeMs: current.mtimeMs, mtime: current.mtime } satisfies StableFileEvidence;
+      if (stableSince && Date.now() - stableSince >= requiredStableMs) {
+        return { size: current.size, mtimeMs: current.mtimeMs, mtime: current.mtime } satisfies StableFileEvidence;
+      }
+    } else {
+      stableSince = Date.now();
     }
     previous = { size: current.size, mtimeMs: current.mtimeMs };
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
-  throw new Error("下载文件在 4 秒内仍持续变化或存在 .crdownload，未进入稳定状态。");
+  throw new Error("下载文件在 6 秒内仍持续变化或存在 .crdownload，未连续稳定 1 秒。");
 }
 
 function assertCurrentDownload(options: CliOptions, file: StableFileEvidence) {
@@ -321,11 +326,14 @@ function assertCurrentDownload(options: CliOptions, file: StableFileEvidence) {
       throw new Error("下载完成时间早于本轮导出 intent。");
     }
   }
-  const exportStartMs = Date.parse(options.exportStart);
-  // 复用已有文件时 exportStart 设为当前时间，但文件可能是历史下载的。
-  // 允许复用（导入是幂等的，按 batchId 去重），只记录警告不阻断。
-  if (file.mtimeMs + 5_000 < exportStartMs) {
-    // 历史文件复用，不阻断
+  assertJackyunDownloadFreshness(file.mtimeMs, options.exportStart);
+}
+
+export function assertJackyunDownloadFreshness(fileMtimeMs: number, exportStart: string) {
+  const exportStartMs = Date.parse(exportStart);
+  if (!Number.isFinite(exportStartMs) || !Number.isFinite(fileMtimeMs)) throw new Error("下载文件时间证据无效。");
+  if (fileMtimeMs < exportStartMs) {
+    throw new Error("下载文件修改时间早于本轮导出 intent，已拒绝复用历史文件。");
   }
 }
 
@@ -625,6 +633,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       outputSha256 = output.sha256;
       const imported = salesAudit?.import as Record<string, unknown> | null | undefined;
       const importedBatch = imported?.batch as Record<string, unknown> | undefined;
+      const postImportVerification = salesAudit?.postImportVerification as Record<string, unknown> | undefined;
       batch = importedBatch ? summarizeBatch(importedBatch) : null;
       validation = salesAudit?.validation ?? null;
       preprocessing = salesAudit?.filtering ?? null;
@@ -644,16 +653,20 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       moduleResult = {
         status: typeof salesResult.status === "string" ? salesResult.status : (options.dryRun ? "prepared" : "completed"),
         salesRunId: typeof salesAudit?.runId === "string" ? salesAudit.runId : null,
+        salesPolicyVersion: typeof salesAudit?.policyVersion === "string" ? salesAudit.policyVersion : null,
+        postImportVerified: postImportVerification?.verified === true,
       };
-      if (!options.dryRun && !batch) throw new Error("销售 runner 未返回已完成的导入批次。");
+      if (!options.dryRun && (salesResult.status !== "verified_completed"
+        || !batch || batch.status !== "completed" || postImportVerification?.verified !== true)) {
+        throw new Error("销售 runner 未返回经过落库回查的完成批次。");
+      }
     } else {
       moveToStage("validate_and_prepare_workbook");
       const prepared = prepareJackyunWorkbook(options.module, rawBytes, { snapshotDate: options.snapshotDate });
       const comparableSourceRows = options.module === "combos"
         ? prepared.validation.parentRowCount
         : prepared.validation.sourceRowCount;
-      // 复用已有文件时 expectedSourceRows=1（跳过浏览器操作），只校验文件有数据
-      if (options.expectedSourceRows > 1 && comparableSourceRows !== options.expectedSourceRows) {
+      if (comparableSourceRows !== options.expectedSourceRows) {
         throw new JackyunValidationError(
           `${options.module} 源文件行数与页面稳定值不一致：页面 ${options.expectedSourceRows}，文件 ${comparableSourceRows ?? "未知"}。`,
           { expectedSourceRows: options.expectedSourceRows, actualSourceRows: comparableSourceRows ?? null },
@@ -803,7 +816,11 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
 }
 
 async function main() {
-  const result = await runJackyunDownload(parseCli());
+  const options = parseCli();
+  const result = await withJackyunRunLock(
+    { runId: options.runId, purpose: `post_download_${options.module}` },
+    () => runJackyunDownload(options),
+  );
   console.log(JSON.stringify({
     status: result.status,
     runId: result.runId,

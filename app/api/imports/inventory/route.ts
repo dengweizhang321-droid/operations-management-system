@@ -1,6 +1,7 @@
 import { importInventoryStockBytes } from "@/lib/inventory/import-service";
 import {
   ensureInventorySchema,
+  findInventoryImportBatchByHash,
   getInventoryDatabase,
   listInventoryImportBatches,
 } from "@/lib/inventory/database";
@@ -19,8 +20,14 @@ export async function GET(request: Request) {
   try {
     const db = getInventoryDatabase();
     await ensureInventorySchema(db);
-    const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
-    const items = await listInventoryImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
+    const params = new URL(request.url).searchParams;
+    const batchId = params.get("batchId")?.trim() ?? "";
+    if (batchId && !/^[a-f0-9]{64}$/i.test(batchId)) return errorResponse(400, "batchId 格式无效");
+    const requestedLimit = Number(params.get("limit") ?? 20);
+    const exactBatch = batchId ? await findInventoryImportBatchByHash(db, batchId) : null;
+    const items = batchId
+      ? (exactBatch?.id === batchId ? [exactBatch] : [])
+      : await listInventoryImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {
     const message = error instanceof Error ? error.message : "读取库存同步历史失败";

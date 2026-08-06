@@ -7,8 +7,13 @@ import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
-import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
-import { findMissingPreviouslyLoadedChannels } from "../tools/sales-import-runner";
+import { parseXlsxFirstSheet, type XlsxCellValue } from "../lib/imports/xlsx";
+import {
+  assertSalesPostImportVerification,
+  findMissingPreviouslyLoadedChannels,
+  runSalesImport,
+  type SalesPostImportVerification,
+} from "../tools/sales-import-runner";
 
 const execFileAsync = promisify(execFile);
 
@@ -16,11 +21,11 @@ function sha256(bytes: Uint8Array) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function salesSheet(rows: unknown[][]) {
+function salesSheet(rows: XlsxCellValue[][]) {
   return createXlsxWorkbookBytes([{ name: "sheetTitle", rows }]);
 }
 
-function costSheet(rows: unknown[][]) {
+function costSheet(rows: XlsxCellValue[][]) {
   return createXlsxWorkbookBytes([{ name: "sheetTitle", rows }]);
 }
 
@@ -34,6 +39,69 @@ test("sales completeness guard detects a previously loaded whitelist channel mis
     ],
   );
   assert.deepEqual(result, [{ channel: "炊之王淘宝企业店", rowCount: 22, netSalesCents: 317_400 }]);
+});
+
+test("sales post-import verification is fail-closed on wrong batches, rows, scope, or policy", () => {
+  const verification: SalesPostImportVerification = {
+    policyVersion: "sales-v5",
+    period: { startDate: "2026-08-01", endDate: "2026-08-05", endExclusive: "2026-08-06" },
+    batch: { id: "actual-batch", status: "completed", rowCount: 3808 },
+    stats: {
+      rowCount: 3808,
+      minShipTime: "2026-08-01T00:01:00+08:00",
+      maxShipTime: "2026-08-05T23:59:00+08:00",
+      excludedWarehouseRows: 0,
+      rowsNotOwnedByBatch: 0,
+    },
+    nonWhitelistChannels: [],
+  };
+  const input = {
+    responseOk: true,
+    expectedPolicyVersion: "sales-v5",
+    period: {
+      startDate: "2026-08-01",
+      endDate: "2026-08-05",
+      endExclusiveDateTime: "2026-08-06T00:00:00+08:00",
+    },
+    expectedBatch: { id: "actual-batch", status: "completed", rowCount: 3808 },
+    expectedRowCount: 3808,
+    verification,
+  };
+  assert.doesNotThrow(() => assertSalesPostImportVerification(input));
+  assert.throws(() => assertSalesPostImportVerification({ ...input, responseOk: false }), /回查请求失败/);
+  assert.throws(() => assertSalesPostImportVerification({ ...input, verification: null }), /回查请求失败/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, batch: { ...verification.batch!, id: "processed-file-hash" } },
+  }), /精确批次/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, batch: null },
+  }), /精确批次/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, batch: { ...verification.batch!, status: "processing" } },
+  }), /批次未完成/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, stats: { ...verification.stats!, rowCount: 3807 } },
+  }), /期间落库行数不一致/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, stats: { ...verification.stats!, excludedWarehouseRows: 1 } },
+  }), /排除仓残留/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, stats: { ...verification.stats!, rowsNotOwnedByBatch: 1 } },
+  }), /不属于本轮批次/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, nonWhitelistChannels: ["未知渠道"] },
+  }), /非白名单渠道/);
+  assert.throws(() => assertSalesPostImportVerification({
+    ...input,
+    verification: { ...verification, policyVersion: "stale-policy" },
+  }), /策略版本不一致/);
 });
 
 test("sales dry-run uses the stable price-adjustment product code", async () => {
@@ -191,6 +259,88 @@ test("sales dry-run ignores line ship time when shipment time is missing", async
     assert.equal(audit.filtering?.retainedRows, 1);
     assert.equal(audit.filtering?.excludedTodayRows, 0);
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("sales recovery performs a fresh exact-batch verification before reporting completion", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "sales-live-recovery-test-"));
+  const originalFetch = globalThis.fetch;
+  try {
+    const policy = JSON.parse(await readFile(path.resolve("config/sales-import-policy.json"), "utf8")) as { version: string };
+    const salesBytes = new TextEncoder().encode("already-processed-sales-source");
+    const costBytes = new TextEncoder().encode("bound-cost-source");
+    const salesPath = path.join(directory, "sales.xlsx");
+    const costPath = path.join(directory, "cost.xlsx");
+    const auditRoot = path.join(directory, "audit");
+    const previousRunId = "previous-verified-run";
+    const previousAuditPath = path.join(auditRoot, previousRunId, "audit.json");
+    await mkdir(path.dirname(previousAuditPath), { recursive: true });
+    await Promise.all([
+      writeFile(salesPath, salesBytes),
+      writeFile(costPath, costBytes),
+      writeFile(previousAuditPath, JSON.stringify({
+        ok: true,
+        policyVersion: policy.version,
+        period: { startDate: "2026-07-01", endDate: "2026-07-15" },
+        sources: { costSource: { sha256: sha256(costBytes) } },
+        filtering: { sourceRows: 1, retainedRows: 1 },
+        import: { batch: { id: "sales-batch-1", status: "completed", rowCount: 1 } },
+        postImportVerification: { verified: true },
+      })),
+      writeFile(path.join(auditRoot, "processed-downloads.json"), JSON.stringify({
+        runs: [{
+          rawSha256: sha256(salesBytes),
+          status: "verified_completed",
+          runId: previousRunId,
+          periodStart: "2026-07-01",
+          periodEnd: "2026-07-15",
+          auditPath: previousAuditPath,
+        }],
+      })),
+    ]);
+
+    let exactBatchChecks = 0;
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+      if (url.searchParams.get("policyOnly") === "1") return Response.json({ policyVersion: policy.version });
+      assert.equal(url.searchParams.get("batchId"), "sales-batch-1");
+      exactBatchChecks += 1;
+      return Response.json({
+        policyVersion: policy.version,
+        period: { startDate: "2026-07-01", endDate: "2026-07-15", endExclusive: "2026-07-16" },
+        batch: { id: "sales-batch-1", status: "completed", rowCount: 1 },
+        stats: {
+          rowCount: 1,
+          minShipTime: "2026-07-10 10:00:00",
+          maxShipTime: "2026-07-10 10:00:00",
+          excludedWarehouseRows: 0,
+          rowsNotOwnedByBatch: 0,
+        },
+        nonWhitelistChannels: [],
+      });
+    }) as typeof fetch;
+
+    const result = await runSalesImport({
+      asOfDate: "2026-07-15",
+      downloadPath: salesPath,
+      costSourcePath: costPath,
+      expectedDownloadSha256: sha256(salesBytes),
+      expectedCostSha256: sha256(costBytes),
+      expectedSourceRows: 1,
+      auditRootPath: auditRoot,
+      baseUrl: "http://localhost:3000",
+      dryRun: false,
+    });
+    assert.equal(result.status, "verified_completed");
+    assert.equal(result.recovered, true);
+    assert.equal(exactBatchChecks, 1);
+    const refreshedAudit = JSON.parse(await readFile(previousAuditPath, "utf8")) as {
+      postImportVerification?: { recoveryReverified?: boolean };
+    };
+    assert.equal(refreshedAudit.postImportVerification?.recoveryReverified, true);
+  } finally {
+    globalThis.fetch = originalFetch;
     await rm(directory, { recursive: true, force: true });
   }
 });

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withJackyunRunLock } from "./run-lock";
 
 export type JackyunContinueJob = {
   id: string;
@@ -13,6 +14,7 @@ export type JackyunContinueJob = {
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const queuePath = path.join(projectRoot, "tmp", "jackyun-continue-queue.json");
+const queueClaimLockDirectory = path.join(projectRoot, "tmp", "jackyun-continue-queue.claim");
 
 async function readQueue(): Promise<JackyunContinueJob[]> {
   try {
@@ -46,7 +48,26 @@ export async function enqueueJackyunContinue(runId: string) {
 
 export async function getPendingJackyunContinueJob() {
   const jobs = await readQueue();
-  return jobs.find((job) => job.status === "queued" || job.status === "running") ?? null;
+  return jobs.find((job) => job.status === "queued") ?? null;
+}
+
+export async function claimPendingJackyunContinueJob() {
+  return withJackyunRunLock(
+    { runId: "continue-queue", purpose: "claim_continue_job", lockDirectory: queueClaimLockDirectory },
+    async () => {
+      const jobs = await readQueue();
+      const index = jobs.findIndex((job) => job.status === "queued");
+      if (index < 0) return null;
+      jobs[index] = {
+        ...jobs[index],
+        status: "running",
+        message: "开始执行导出",
+        updatedAt: new Date().toISOString(),
+      };
+      await writeQueue(jobs);
+      return jobs[index];
+    },
+  );
 }
 
 export async function updateJackyunContinueJob(jobId: string, patch: Partial<JackyunContinueJob>) {

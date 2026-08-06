@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,6 +14,7 @@ import {
   publicJackyunPlan,
   runJackyunN8nPlan,
   shanghaiDate,
+  verifyCompletedJackyunRunArtifacts,
   verifyJackyunN8nPlan,
 } from "../tools/jackyun-n8n-pipeline";
 
@@ -33,19 +35,60 @@ async function createFixture() {
 async function writeCompletedRun(root: string, runId: string, asOfDate: string, missingBatchModule?: string) {
   const runDirectory = path.join(root, "outputs", "jackyun-import-runs", runId);
   const auditDirectory = path.join(runDirectory, "audit");
-  await mkdir(auditDirectory, { recursive: true });
+  const rawDirectory = path.join(runDirectory, "raw");
+  const processedDirectory = path.join(runDirectory, "processed");
+  await Promise.all([
+    mkdir(auditDirectory, { recursive: true }),
+    mkdir(rawDirectory, { recursive: true }),
+    mkdir(processedDirectory, { recursive: true }),
+  ]);
   const results = [];
+  const manifestModules: Record<string, unknown> = {};
   for (const moduleKey of jackyunModuleOrder) {
     const auditPath = path.join(auditDirectory, `${moduleKey}.json`);
-    await writeFile(auditPath, "{}\n", "utf8");
+    const sourcePath = path.join(rawDirectory, `${moduleKey}.xlsx`);
+    const outputPath = path.join(processedDirectory, `${moduleKey}.xlsx`);
+    const sourceBytes = Buffer.from(`${moduleKey}-source`, "utf8");
+    const outputBytes = Buffer.from(`${moduleKey}-processed`, "utf8");
+    const sourceSha256 = createHash("sha256").update(sourceBytes).digest("hex");
+    const outputSha256 = createHash("sha256").update(outputBytes).digest("hex");
+    const inputContractHash = "c".repeat(64);
+    const batchId = `${moduleKey}:batch`;
+    const snapshotDate = moduleKey === "inventory" || moduleKey === "inventory_age" ? asOfDate : null;
+    await Promise.all([
+      writeFile(sourcePath, sourceBytes),
+      writeFile(outputPath, outputBytes),
+      writeFile(auditPath, JSON.stringify({
+        version: 1,
+        runId,
+        module: moduleKey,
+        status: "completed",
+        source: { path: sourcePath, copiedPath: sourcePath, sha256: sourceSha256, inputContractHash },
+        output: { path: outputPath, sha256: outputSha256 },
+        import: {
+          result: moduleKey === "sales" ? { salesPolicyVersion: "test-policy", postImportVerified: true } : {},
+          batch: { id: batchId, status: "completed", rowCount: 10, warningCount: 0, snapshotDate },
+        },
+      }), "utf8"),
+    ]);
     results.push({
       module: moduleKey,
       status: "completed",
-      batchId: moduleKey === missingBatchModule ? null : `${moduleKey}:batch`,
+      batchId: moduleKey === missingBatchModule ? null : batchId,
       rowCount: 10,
       warningCount: 0,
       auditPath,
     });
+    manifestModules[moduleKey] = {
+      module: moduleKey,
+      status: "completed",
+      batchId,
+      sourcePath,
+      sourceSha256,
+      inputContractHash,
+      outputPath,
+      outputSha256,
+    };
   }
   await Promise.all([
     writeFile(path.join(runDirectory, "daily-summary.json"), JSON.stringify({
@@ -58,9 +101,34 @@ async function writeCompletedRun(root: string, runId: string, asOfDate: string, 
     writeFile(path.join(runDirectory, "run-manifest.json"), JSON.stringify({
       runId,
       strictOrder: jackyunModuleOrder,
-      modules: Object.fromEntries(jackyunModuleOrder.map((moduleKey) => [moduleKey, { status: "completed", batchId: `${moduleKey}:batch` }])),
+      modules: manifestModules,
     }), "utf8"),
   ]);
+}
+
+function publishedVerificationRequest(asOfDate: string): typeof fetch {
+  return (async (input: string | URL | Request) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+    if (url.pathname === "/api/imports/sales/verify") {
+      return Response.json({
+        policyVersion: "test-policy",
+        period: { startDate: `${asOfDate.slice(0, 8)}01`, endDate: asOfDate },
+        batch: { id: "sales:batch", status: "completed", rowCount: 10 },
+        stats: { rowCount: 10, excludedWarehouseRows: 0, rowsNotOwnedByBatch: 0 },
+        nonWhitelistChannels: [],
+      });
+    }
+    const source = url.searchParams.get("source") ?? "inventory";
+    assert.equal(url.searchParams.get("batchId"), `${source}:batch`);
+    return Response.json({
+      items: [{
+        id: `${source}:batch`,
+        status: "completed",
+        rowCount: 10,
+        snapshotDate: source === "inventory" || source === "inventory_age" ? asOfDate : null,
+      }],
+    });
+  }) as typeof fetch;
 }
 
 async function writeResumablePartialRun(root: string, runId: string, inventoryAgeState: "navigated" | "zero_rows" | "retried_zero_rows" = "navigated") {
@@ -232,6 +300,10 @@ test("Jackyun n8n plan uses Shanghai yesterday and only a local operations URL",
 
 test("Jackyun loopback stages reject concurrency and out-of-order calls", () => {
   assert.equal(jackyunHelperRequestError("ready", false, "/jackyun/plan"), null);
+  assert.equal(jackyunHelperRequestError("planned", false, "/jackyun/plan"), null);
+  assert.equal(jackyunHelperRequestError("executed", false, "/jackyun/plan"), null);
+  assert.equal(jackyunHelperRequestError("failed", false, "/jackyun/plan"), null);
+  assert.match(JSON.stringify(jackyunHelperRequestError("running", false, "/jackyun/plan")), /invalid_stage/);
   assert.deepEqual(jackyunHelperRequestError("ready", false, "/jackyun/run"), {
     error: "invalid_stage",
     expected: "planned",
@@ -272,7 +344,8 @@ test("Jackyun n8n run keeps the five-module order and verify requires exact batc
     assert.equal(runResult.skipped, false);
     assert.equal(plan.stage, "executed");
 
-    const verified = await verifyJackyunN8nPlan(plan, { root: fixture.root });
+    const request = publishedVerificationRequest(plan.asOfDate);
+    const verified = await verifyJackyunN8nPlan(plan, { root: fixture.root, request });
     assert.equal(verified.ok, true);
     assert.equal(verified.modules.length, 5);
     assert.equal(plan.stage, "completed");
@@ -287,8 +360,167 @@ test("Jackyun n8n run keeps the five-module order and verify requires exact batc
     assert.equal(skipped.existingRunId, "n8n-complete-run");
     const skippedRun = await runJackyunN8nPlan(skipped, { root: fixture.root });
     assert.equal(skippedRun.skipped, true);
-    const skippedVerify = await verifyJackyunN8nPlan(skipped, { root: fixture.root });
+    const skippedVerify = await verifyJackyunN8nPlan(skipped, { root: fixture.root, request });
     assert.equal(skippedVerify.verifiedRunId, "n8n-complete-run");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n verify parses audits and rejects a batch mismatch hidden behind completed summaries", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-audit-mismatch-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+    const auditPath = path.join(fixture.root, "outputs", "jackyun-import-runs", plan.runId, "audit", "sales.json");
+    const audit = JSON.parse(await readFile(auditPath, "utf8"));
+    audit.import.batch.id = "different-batch";
+    await writeFile(auditPath, JSON.stringify(audit), "utf8");
+    plan.stage = "executed";
+
+    await assert.rejects(
+      verifyJackyunN8nPlan(plan, { root: fixture.root }),
+      /汇总、清单与审计中的批次或行数不一致/,
+    );
+    assert.equal(plan.stage, "failed");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun completed-artifact verification hashes the archived source and output files", async () => {
+  const fixture = await createFixture();
+  const runId = "n8n-file-integrity-run";
+  try {
+    await writeCompletedRun(fixture.root, runId, "2026-08-04");
+    const outputPath = path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-import-runs",
+      runId,
+      "processed",
+      "products.xlsx",
+    );
+    await writeFile(outputPath, "tampered", "utf8");
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
+      /实际哈希与审计不一致/,
+    );
+
+    await writeCompletedRun(fixture.root, runId, "2026-08-04");
+    const archivedSourcePath = path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-import-runs",
+      runId,
+      "raw",
+      "inventory.xlsx",
+    );
+    await rm(archivedSourcePath, { force: true });
+    await assert.rejects(
+      verifyCompletedJackyunRunArtifacts({ runId, asOfDate: "2026-08-04", root: fixture.root }),
+      /源文件或输入契约证据不一致/,
+    );
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n verify refuses completed artifacts when the exact published batch is absent", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-published-missing-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+    plan.stage = "executed";
+    const validRequest = publishedVerificationRequest(plan.asOfDate);
+    const request = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+      if (url.pathname === "/api/imports/inventory") return Response.json({ items: [] });
+      return validRequest(input, init);
+    }) as typeof fetch;
+
+    await assert.rejects(
+      verifyJackyunN8nPlan(plan, { root: fixture.root, request }),
+      /inventory 精确批次未在运营系统落库历史中完成/,
+    );
+    assert.equal(plan.stage, "failed");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n verify rejects a live sales policy different from the child audit", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-sales-policy-mismatch-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+    plan.stage = "executed";
+    const validRequest = publishedVerificationRequest(plan.asOfDate);
+    const request = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+      if (url.pathname !== "/api/imports/sales/verify") return validRequest(input, init);
+      const response = await validRequest(input, init);
+      const body = await response.json() as Record<string, unknown>;
+      return Response.json({ ...body, policyVersion: "stale-sales-policy" });
+    }) as typeof fetch;
+
+    await assert.rejects(
+      verifyJackyunN8nPlan(plan, { root: fixture.root, request }),
+      /sales 精确批次或期间数据未通过独立落库回查/,
+    );
+    assert.equal(plan.stage, "failed");
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("Jackyun n8n plan converts an executed response-loss run into a safe verification-only skip", async () => {
+  const fixture = await createFixture();
+  try {
+    const now = new Date("2026-08-04T11:00:00.000Z");
+    const plan = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-executed-recovery-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    await writeCompletedRun(fixture.root, plan.runId, plan.asOfDate);
+    plan.stage = "executed";
+    await writeFile(path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-n8n-pipeline",
+      `plan-${plan.runId}.json`,
+    ), JSON.stringify(plan), "utf8");
+
+    const recovered = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "must-not-create-a-new-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    assert.equal(recovered.runId, plan.runId);
+    assert.equal(recovered.existingRunId, plan.runId);
+    assert.equal(recovered.skipped, true);
+    assert.equal(recovered.stage, "planned");
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
@@ -452,7 +684,7 @@ test("Jackyun n8n refuses automatic resume after any first-module export intent"
   }
 });
 
-test("Jackyun n8n fails closed on an unclosed plan or a missing exact batch", async () => {
+test("Jackyun n8n reuses an untouched plan, but fails closed on a running plan or missing exact batch", async () => {
   const fixture = await createFixture();
   try {
     const now = new Date("2026-08-04T11:00:00.000Z");
@@ -462,6 +694,22 @@ test("Jackyun n8n fails closed on an unclosed plan or a missing exact batch", as
       runIdFactory: () => "n8n-broken-run",
       request: async () => new Response("ok", { status: 200 }),
     });
+    const repeated = await planJackyunN8nRun({
+      root: fixture.root,
+      now,
+      runIdFactory: () => "n8n-duplicate-run",
+      request: async () => new Response("ok", { status: 200 }),
+    });
+    assert.equal(repeated.runId, plan.runId);
+    assert.equal(repeated.stage, "planned");
+
+    plan.stage = "running";
+    await writeFile(path.join(
+      fixture.root,
+      "outputs",
+      "jackyun-n8n-pipeline",
+      `plan-${plan.runId}.json`,
+    ), JSON.stringify(plan), "utf8");
     await assert.rejects(planJackyunN8nRun({
       root: fixture.root,
       now,

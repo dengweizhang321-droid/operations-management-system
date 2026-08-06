@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +71,7 @@ type RunManifest = {
     sourceSha256?: string;
     inputContractHash?: string;
     outputPath?: string;
+    outputSha256?: string;
   }>>;
 };
 
@@ -98,6 +101,16 @@ type RunOptions = {
 
 type VerifyOptions = {
   root?: string;
+  request?: typeof fetch;
+};
+
+type VerifiedModuleEvidence = {
+  module: JackyunModule;
+  status: string;
+  batchId: string;
+  rowCount: number;
+  warningCount: number;
+  salesPolicyVersion?: string;
 };
 
 function pathsFor(root = projectRoot): RuntimePaths {
@@ -162,7 +175,13 @@ export function normalizeJackyunLocalBaseUrl(value: string) {
 
 export function jackyunHelperRequestError(stage: string, busy: boolean, route: JackyunHelperRoute) {
   if (busy) return { error: "pipeline_busy" as const };
-  const expected = route === "/jackyun/plan" ? "ready" : route === "/jackyun/run" ? "planned" : "executed";
+  if (route === "/jackyun/plan") {
+    const allowed = ["ready", "planned", "executed", "failed"];
+    return allowed.includes(stage)
+      ? null
+      : { error: "invalid_stage" as const, expected: "ready_or_recoverable", actual: stage };
+  }
+  const expected = route === "/jackyun/run" ? "planned" : "executed";
   return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
 }
 
@@ -214,6 +233,12 @@ function safeError(error: unknown) {
     .slice(0, 1_000);
 }
 
+async function sha256File(filePath: string) {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+  return hash.digest("hex");
+}
+
 async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: string, expectedPolicyVersion?: string) {
   if (!validRunId(runId) || !validDate(asOfDate)) throw new Error("吉客云运行结果身份无效");
   const runDirectory = path.join(paths.outputRoot, runId);
@@ -234,43 +259,191 @@ async function verifyRunArtifacts(paths: RuntimePaths, runId: string, asOfDate: 
   if (!Array.isArray(summary.results) || summary.results.length !== jackyunModuleOrder.length) {
     throw new Error("吉客云日汇总不是完整五类结果");
   }
-  const modules = [] as Array<{
-    module: JackyunModule;
-    status: string;
-    batchId: string;
-    rowCount: number | null;
-    warningCount: number | null;
-  }>;
+  const modules: VerifiedModuleEvidence[] = [];
   for (let index = 0; index < jackyunModuleOrder.length; index += 1) {
     const moduleKey = jackyunModuleOrder[index]!;
     const result = summary.results[index]!;
     const manifestModule = manifest.modules?.[moduleKey];
     if (result.module !== moduleKey || !["completed", "duplicate_ignored"].includes(String(result.status))
-      || manifestModule?.status !== "completed" || typeof result.batchId !== "string" || !result.batchId.trim()) {
+      || manifestModule?.module !== moduleKey || manifestModule.status !== "completed"
+      || typeof result.batchId !== "string" || !result.batchId.trim()) {
       throw new Error(`吉客云 ${moduleKey} 缺少完成状态或精确批次号`);
     }
-    if (result.auditPath) {
-      const auditPath = path.resolve(result.auditPath);
-      if (!inside(runDirectory, auditPath) || !(await stat(auditPath).catch(() => null))?.isFile()) {
-        throw new Error(`吉客云 ${moduleKey} 审计文件缺失或越界`);
-      }
+    const expectedAuditPath = path.join(runDirectory, "audit", `${moduleKey}.json`);
+    if (typeof result.auditPath !== "string" || path.resolve(result.auditPath) !== path.resolve(expectedAuditPath)
+      || !(await stat(expectedAuditPath).catch(() => null))?.isFile()) {
+      throw new Error(`吉客云 ${moduleKey} 审计文件缺失、越界或不是规范路径`);
+    }
+    const audit = await readJsonFile<Record<string, unknown>>(expectedAuditPath);
+    const source = audit.source && typeof audit.source === "object" ? audit.source as Record<string, unknown> : null;
+    const output = audit.output && typeof audit.output === "object" ? audit.output as Record<string, unknown> : null;
+    const imported = audit.import && typeof audit.import === "object" ? audit.import as Record<string, unknown> : null;
+    const importResult = imported?.result && typeof imported.result === "object"
+      ? imported.result as Record<string, unknown>
+      : null;
+    const auditBatch = imported?.batch && typeof imported.batch === "object"
+      ? imported.batch as Record<string, unknown>
+      : null;
+    const auditSourcePath = typeof source?.path === "string" ? path.resolve(source.path) : "";
+    const copiedSourcePath = typeof source?.copiedPath === "string" ? path.resolve(source.copiedPath) : "";
+    const manifestSourcePath = typeof manifestModule.sourcePath === "string" ? path.resolve(manifestModule.sourcePath) : "";
+    const auditOutputPath = typeof output?.path === "string" ? path.resolve(output.path) : "";
+    const manifestOutputPath = typeof manifestModule.outputPath === "string" ? path.resolve(manifestModule.outputPath) : "";
+    const batchRowCount = Number(auditBatch?.rowCount);
+    const batchWarningCount = typeof auditBatch?.warningCount === "number"
+      ? auditBatch.warningCount
+      : Array.isArray(auditBatch?.warnings) ? auditBatch.warnings.length : 0;
+    if (audit.version !== 1 || audit.runId !== runId || audit.module !== moduleKey || audit.status !== "completed") {
+      throw new Error(`吉客云 ${moduleKey} 审计身份或完成状态无效`);
+    }
+    if (!auditSourcePath || auditSourcePath !== manifestSourcePath
+      || !copiedSourcePath || !inside(runDirectory, copiedSourcePath)
+      || !(await stat(copiedSourcePath).catch(() => null))?.isFile()
+      || typeof source?.sha256 !== "string" || !/^[a-f0-9]{64}$/i.test(source.sha256)
+      || source.sha256 !== manifestModule.sourceSha256
+      || typeof source.inputContractHash !== "string" || !/^[a-f0-9]{64}$/i.test(source.inputContractHash)
+      || source.inputContractHash !== manifestModule.inputContractHash) {
+      throw new Error(`吉客云 ${moduleKey} 源文件或输入契约证据不一致`);
+    }
+    if (await sha256File(copiedSourcePath) !== source.sha256) {
+      throw new Error(`吉客云 ${moduleKey} 归档源文件的实际哈希与审计不一致`);
+    }
+    if (!auditOutputPath || !inside(runDirectory, auditOutputPath) || auditOutputPath !== manifestOutputPath
+      || !(await stat(auditOutputPath).catch(() => null))?.isFile()
+      || typeof output?.sha256 !== "string" || !/^[a-f0-9]{64}$/i.test(output.sha256)
+      || output.sha256 !== manifestModule.outputSha256) {
+      throw new Error(`吉客云 ${moduleKey} 输出文件或哈希证据不一致`);
+    }
+    if (await sha256File(auditOutputPath) !== output.sha256) {
+      throw new Error(`吉客云 ${moduleKey} 输出文件的实际哈希与审计不一致`);
+    }
+    if (!auditBatch || auditBatch.id !== result.batchId || manifestModule.batchId !== result.batchId
+      || auditBatch.status !== "completed" || !Number.isSafeInteger(batchRowCount) || batchRowCount <= 0
+      || result.rowCount !== batchRowCount || result.warningCount !== batchWarningCount) {
+      throw new Error(`吉客云 ${moduleKey} 汇总、清单与审计中的批次或行数不一致`);
+    }
+    const snapshotDate = auditBatch.snapshotDate;
+    if ((moduleKey === "inventory" || moduleKey === "inventory_age") && snapshotDate !== asOfDate) {
+      throw new Error(`吉客云 ${moduleKey} 快照日期不是 ${asOfDate}`);
+    }
+    if ((moduleKey === "products" || moduleKey === "combos") && snapshotDate !== null) {
+      throw new Error(`吉客云 ${moduleKey} 不应携带快照日期`);
     }
     modules.push({
       module: moduleKey,
       status: String(result.status),
       batchId: result.batchId,
-      rowCount: typeof result.rowCount === "number" ? result.rowCount : null,
-      warningCount: typeof result.warningCount === "number" ? result.warningCount : null,
+      rowCount: batchRowCount,
+      warningCount: batchWarningCount,
+      ...(moduleKey === "sales" && typeof importResult?.salesPolicyVersion === "string"
+        ? { salesPolicyVersion: importResult.salesPolicyVersion }
+        : {}),
     });
   }
   return { summary, modules };
 }
 
+export async function verifyCompletedJackyunRunArtifacts(options: {
+  runId: string;
+  asOfDate: string;
+  expectedPolicyVersion?: string;
+  root?: string;
+}) {
+  return verifyRunArtifacts(pathsFor(options.root), options.runId, options.asOfDate, options.expectedPolicyVersion);
+}
+
+async function readPublishedItems(request: typeof fetch, url: string) {
+  const response = await request(url, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  const body = await response.json().catch(() => null) as { items?: unknown[]; error?: string } | null;
+  if (!response.ok || !Array.isArray(body?.items)) {
+    throw new Error(body?.error ?? `吉客云落库批次回查失败：HTTP ${response.status}`);
+  }
+  return body.items.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+}
+
+export async function verifyPublishedJackyunBatches(options: {
+  baseUrl: string;
+  asOfDate: string;
+  modules: readonly VerifiedModuleEvidence[];
+  request?: typeof fetch;
+}) {
+  const baseUrl = normalizeJackyunLocalBaseUrl(options.baseUrl);
+  const request = options.request ?? fetch;
+  const byModule = new Map(options.modules.map((item) => [item.module, item]));
+  if (byModule.size !== jackyunModuleOrder.length || jackyunModuleOrder.some((moduleKey) => !byModule.has(moduleKey))) {
+    throw new Error("吉客云落库回查缺少完整五类批次。");
+  }
+  const [products, inventory, inventoryAge, combos, salesResponse] = await Promise.all([
+    readPublishedItems(request, `${baseUrl}/api/imports/erp?${new URLSearchParams({
+      source: "products", batchId: byModule.get("products")!.batchId,
+    })}`),
+    readPublishedItems(request, `${baseUrl}/api/imports/inventory?${new URLSearchParams({
+      batchId: byModule.get("inventory")!.batchId,
+    })}`),
+    readPublishedItems(request, `${baseUrl}/api/imports/erp?${new URLSearchParams({
+      source: "inventory_age", batchId: byModule.get("inventory_age")!.batchId,
+    })}`),
+    readPublishedItems(request, `${baseUrl}/api/imports/erp?${new URLSearchParams({
+      source: "combos", batchId: byModule.get("combos")!.batchId,
+    })}`),
+    request(`${baseUrl}/api/imports/sales/verify?${new URLSearchParams({
+      startDate: `${options.asOfDate.slice(0, 8)}01`,
+      endDate: options.asOfDate,
+      batchId: byModule.get("sales")!.batchId,
+    })}`, { cache: "no-store", signal: AbortSignal.timeout(30_000) }),
+  ]);
+  const publishedLists: Partial<Record<JackyunModule, Record<string, unknown>[]>> = {
+    products,
+    inventory,
+    inventory_age: inventoryAge,
+    combos,
+  };
+  for (const moduleKey of ["products", "inventory", "inventory_age", "combos"] as const) {
+    const expected = byModule.get(moduleKey)!;
+    const batch = publishedLists[moduleKey]!.find((item) => item.id === expected.batchId);
+    if (!batch || batch.status !== "completed" || Number(batch.rowCount) !== expected.rowCount) {
+      throw new Error(`吉客云 ${moduleKey} 精确批次未在运营系统落库历史中完成。`);
+    }
+    const snapshotDate = batch.snapshotDate;
+    if ((moduleKey === "inventory" || moduleKey === "inventory_age") && snapshotDate !== options.asOfDate) {
+      throw new Error(`吉客云 ${moduleKey} 落库批次快照日期不一致。`);
+    }
+    if ((moduleKey === "products" || moduleKey === "combos") && snapshotDate !== null) {
+      throw new Error(`吉客云 ${moduleKey} 落库批次不应携带快照日期。`);
+    }
+  }
+
+  const sales = await salesResponse.json().catch(() => null) as {
+    policyVersion?: string;
+    period?: { startDate?: string; endDate?: string };
+    batch?: { id?: string; status?: string; rowCount?: number } | null;
+    stats?: { rowCount?: number; excludedWarehouseRows?: number; rowsNotOwnedByBatch?: number | null };
+    nonWhitelistChannels?: unknown;
+    error?: string;
+  } | null;
+  const expectedSales = byModule.get("sales")!;
+  if (!salesResponse.ok || !sales || typeof sales.policyVersion !== "string" || !sales.policyVersion
+    || (expectedSales.salesPolicyVersion !== undefined && sales.policyVersion !== expectedSales.salesPolicyVersion)
+    || sales.period?.startDate !== `${options.asOfDate.slice(0, 8)}01` || sales.period.endDate !== options.asOfDate
+    || sales.batch?.id !== expectedSales.batchId || sales.batch.status !== "completed"
+    || sales.batch.rowCount !== expectedSales.rowCount || sales.stats?.rowCount !== expectedSales.rowCount
+    || sales.stats.excludedWarehouseRows !== 0 || sales.stats.rowsNotOwnedByBatch !== 0
+    || !Array.isArray(sales.nonWhitelistChannels) || sales.nonWhitelistChannels.length > 0) {
+    throw new Error(sales?.error ?? "吉客云 sales 精确批次或期间数据未通过独立落库回查。");
+  }
+  return { ok: true, modules: jackyunModuleOrder.map((moduleKey) => byModule.get(moduleKey)!) };
+}
+
 async function findCompletedRun(paths: RuntimePaths, asOfDate: string, policyVersion: string) {
-  const directories = (await readdir(paths.outputRoot, { withFileTypes: true }).catch(() => []))
-    .filter((entry) => entry.isDirectory())
-    .slice(-maximumRunDirectoriesToInspect)
-    .reverse();
+  const directoryEntries = (await readdir(paths.outputRoot, { withFileTypes: true }).catch(() => []))
+    .filter((entry) => entry.isDirectory());
+  const directories = (await Promise.all(directoryEntries.map(async (entry) => ({
+    entry,
+    mtimeMs: (await stat(path.join(paths.outputRoot, entry.name)).catch(() => null))?.mtimeMs ?? 0,
+  }))))
+    .sort((left, right) => right.mtimeMs - left.mtimeMs)
+    .slice(0, maximumRunDirectoriesToInspect)
+    .map(({ entry }) => entry);
   for (const entry of directories) {
     const summaryPath = path.join(paths.outputRoot, entry.name, "daily-summary.json");
     const summary = await readJsonFile<DailySummary>(summaryPath).catch(() => null);
@@ -287,14 +460,13 @@ async function findCompletedRun(paths: RuntimePaths, asOfDate: string, policyVer
 
 async function findUnclosedPlan(paths: RuntimePaths, runDate: string) {
   const files = (await readdir(paths.artifactDirectory, { withFileTypes: true }).catch(() => []))
-    .filter((entry) => entry.isFile() && /^plan-[A-Za-z0-9._-]+\.json$/.test(entry.name))
-    .slice(-maximumRunDirectoriesToInspect)
-    .reverse();
-  for (const entry of files) {
-    const plan = await readJsonFile<JackyunN8nPlan>(path.join(paths.artifactDirectory, entry.name)).catch(() => null);
-    if (plan?.version === 1 && plan.runDate === runDate && plan.stage !== "completed") return plan;
-  }
-  return null;
+    .filter((entry) => entry.isFile() && /^plan-[A-Za-z0-9._-]+\.json$/.test(entry.name));
+  const plans = (await Promise.all(files.map((entry) => (
+    readJsonFile<JackyunN8nPlan>(path.join(paths.artifactDirectory, entry.name)).catch(() => null)
+  ))))
+    .filter((plan): plan is JackyunN8nPlan => Boolean(plan?.version === 1 && plan.runDate === runDate && plan.stage !== "completed"))
+    .sort((left, right) => Date.parse(right.updatedAt || right.generatedAt) - Date.parse(left.updatedAt || left.generatedAt));
+  return plans[0] ?? null;
 }
 
 async function isExactResumableFailedPlan(
@@ -433,6 +605,15 @@ export async function planJackyunN8nRun(options: PlanOptions = {}) {
   if (!existing) {
     const unclosed = await findUnclosedPlan(paths, runDate);
     if (unclosed) {
+      const samePlanIdentity = unclosed.runDate === runDate
+        && unclosed.snapshotDate === yesterday
+        && unclosed.asOfDate === yesterday
+        && unclosed.baseUrl === baseUrl
+        && unclosed.policyVersion === policy.version
+        && validRunId(unclosed.runId);
+      if (unclosed.stage === "planned" && !unclosed.skipped && samePlanIdentity) {
+        return unclosed;
+      }
       if (await isExactResumableFailedPlan(paths, unclosed, {
         runDate,
         asOfDate: yesterday,
@@ -537,6 +718,12 @@ export async function verifyJackyunN8nPlan(plan: JackyunN8nPlan, options: Verify
   if (plan.stage !== "executed" || !validRunId(plan.runId)) throw new Error("吉客云 n8n 运行尚未进入可核验阶段");
   try {
     const verified = await verifyRunArtifacts(paths, plan.existingRunId ?? plan.runId, plan.asOfDate, plan.policyVersion);
+    await verifyPublishedJackyunBatches({
+      baseUrl: plan.baseUrl,
+      asOfDate: plan.asOfDate,
+      modules: verified.modules,
+      request: options.request,
+    });
     plan.stage = "completed";
     await persistPlan(paths, plan);
     return {

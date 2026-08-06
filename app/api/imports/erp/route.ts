@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/authorization";
 import {
   ensureErpReferenceSchema,
+  findErpReferenceBatch,
   getErpReferenceDatabase,
   listErpReferenceBatches,
 } from "@/lib/erp-reference/database";
@@ -24,14 +25,21 @@ export async function GET(request: Request) {
       return reject(400, "source 必须为 products、inventory_age 或 combos");
     }
     const source = requestedSource && isErpReferenceSourceKey(requestedSource) ? requestedSource : undefined;
+    const batchId = params.get("batchId")?.trim() ?? "";
+    if (batchId && !source) return reject(400, "按精确批次查询时必须提供 source");
+    const batchHash = source && batchId.startsWith(`${source}:`) ? batchId.slice(source.length + 1) : "";
+    if (batchId && (!/^[a-f0-9]{64}$/i.test(batchHash))) return reject(400, "batchId 与 source 不匹配或格式无效");
     const requestedLimit = Number(params.get("limit") ?? 50);
     const db = getErpReferenceDatabase();
     await ensureErpReferenceSchema(db);
-    const items = await listErpReferenceBatches(
-      db,
-      source,
-      Number.isFinite(requestedLimit) ? requestedLimit : 50,
-    );
+    const exactBatch = source && batchHash ? await findErpReferenceBatch(db, source, batchHash) : null;
+    const items = batchId
+      ? (exactBatch?.id === batchId ? [exactBatch] : [])
+      : await listErpReferenceBatches(
+        db,
+        source,
+        Number.isFinite(requestedLimit) ? requestedLimit : 50,
+      );
     return Response.json({ items });
   } catch (error) {
     const message = error instanceof Error ? error.message : "读取 ERP 导入历史失败";
