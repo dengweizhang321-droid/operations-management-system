@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, rm } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Locator, Page } from "playwright-core";
@@ -6,6 +6,7 @@ import {
   parseJdWareExportTaskRows,
   selectExistingJdWareExportTask,
   selectRecoverableJdWareExportTask,
+  decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
   type JdWareExportRecovery,
   type JdWareExportTask,
@@ -85,6 +86,8 @@ export type WareExportAudit = {
   baselineTaskIds?: string[];
   taskId?: string;
   taskStatus?: JdWareExportTask["status"];
+  recoveryArchivePath?: string;
+  recoveryCreatedAt?: string;
   savedPath?: string;
   result?: ScriptResult;
   error?: string;
@@ -194,6 +197,28 @@ export function hasStableUniqueVisibleJdExportEntry(samples: readonly number[]) 
   return samples.length >= 2 && samples.at(-1) === 1 && samples.at(-2) === 1;
 }
 
+export type JdWareTaskSnapshot = { tasks: JdWareExportTask[]; emptyConfirmed: boolean };
+
+export function hasStableJdWareTaskSnapshot(samples: readonly JdWareTaskSnapshot[]) {
+  if (samples.length < 2) return false;
+  const previous = samples.at(-2)!;
+  const current = samples.at(-1)!;
+  if (previous.tasks.length === 0 || current.tasks.length === 0) return previous.tasks.length === 0 && current.tasks.length === 0 && previous.emptyConfirmed && current.emptyConfirmed;
+  const signature = (items: readonly JdWareExportTask[]) => items.map((item) => `${item.taskId}:${item.createdAt}:${item.status}:${item.resultText ?? ""}:${item.successRows ?? ""}:${item.rowText}`).sort().join("|");
+  return signature(previous.tasks) === signature(current.tasks);
+}
+
+export function shouldDismissJdMenuUpdateNotice(visibleLayers: readonly { text: string; buttons: readonly string[] }[]) {
+  const candidates = visibleLayers.filter((layer) => /京麦菜单更新调整|一级菜单更新调整/.test(layer.text) && /生效/.test(layer.text));
+  if (candidates.length !== 1) return false;
+  const layer = candidates[0]!;
+  return layer.buttons.length === 1 && layer.buttons[0]?.trim() === "知道了";
+}
+
+export function isConfirmedJdWareTaskListEmptyState(input: { uniqueRefresh: boolean; boundToExportContainer: boolean; containerText: string }) {
+  return input.uniqueRefresh && input.boundToExportContainer && /暂无数据|暂无记录/.test(input.containerText);
+}
+
 /** Only retry this reversible drawer-opening action after JD replaces its button mid-click. */
 export function isTransientJdExportEntryRepaint(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -229,7 +254,23 @@ async function openTargetPage(page: Page) {
     if (/导出查询商品|批量操作|商品管理/.test(pageText)) break;
     await page.waitForTimeout(150);
   }
+  await dismissJdMenuUpdateNotice(page);
   await waitForExportEntry(page);
+}
+
+async function dismissJdMenuUpdateNotice(page: Page) {
+  const notices = page.locator('[role="dialog"], .ant-modal, .ant-drawer, .el-dialog, .el-drawer, [class*="jdm-modal"], [class*="jdm-dialog"]').filter({ visible: true });
+  const layers = await notices.evaluateAll((elements) => elements.map((element) => ({
+    text: (element as HTMLElement).innerText ?? "",
+    buttons: [...element.querySelectorAll("button")].map((button) => (button as HTMLElement).innerText.trim()),
+  })).filter((layer) => /京麦菜单更新调整|一级菜单更新调整/.test(layer.text) && /生效/.test(layer.text)));
+  if (!shouldDismissJdMenuUpdateNotice(layers)) return;
+  const notice = notices.filter({ hasText: /京麦菜单更新调整|一级菜单更新调整/ });
+  await exactlyOne(notice, "京麦菜单更新调整提示");
+  const acknowledged = notice.getByRole("button", { name: "知道了", exact: true });
+  await exactlyOne(acknowledged, "京麦菜单更新调整提示的知道了按钮");
+  await acknowledged.click();
+  await notice.waitFor({ state: "hidden", timeout: 10_000 });
 }
 
 async function readExportTasks(page: Page) {
@@ -240,14 +281,22 @@ async function readExportTasks(page: Page) {
 async function readLoadedExportTasks(page: Page, timeoutMs = 15_000) {
   const refresh = page.getByText("刷新列表", { exact: true });
   await refresh.waitFor({ state: "visible", timeout: timeoutMs });
+  const uniqueRefresh = await refresh.count() === 1;
 
   const deadline = Date.now() + timeoutMs;
-  let tasks = await readExportTasks(page);
-  while (tasks.length === 0 && Date.now() < deadline) {
+  const samples: JdWareTaskSnapshot[] = [];
+  while (Date.now() < deadline) {
+    const tasks = await readExportTasks(page);
+    const emptyConfirmed = await refresh.evaluate((element) => {
+      const container = element.closest('[role="dialog"], .ant-modal, .ant-drawer, .el-dialog, .el-drawer, [class*="jdm-modal"], [class*="jdm-dialog"]');
+      return container ? { boundToExportContainer: true, containerText: (container as HTMLElement).innerText ?? "" } : { boundToExportContainer: false, containerText: "" };
+    }).catch(() => ({ boundToExportContainer: false, containerText: "" }));
+    samples.push({ tasks, emptyConfirmed: isConfirmedJdWareTaskListEmptyState({ uniqueRefresh, ...emptyConfirmed }) });
+    if (samples.length > 2) samples.shift();
+    if (hasStableJdWareTaskSnapshot(samples)) return tasks;
     await page.waitForTimeout(500);
-    tasks = await readExportTasks(page);
   }
-  return tasks;
+  throw new Error("导出任务列表未达到两次一致的非空快照或两次明确空态，已停止且不会创建任务。");
 }
 
 async function refreshExportRecords(page: Page) {
@@ -256,6 +305,7 @@ async function refreshExportRecords(page: Page) {
 }
 
 async function openSkuExportDialog(page: Page) {
+  await dismissJdMenuUpdateNotice(page);
   const skuTab = page.getByRole("tab", { name: "SKU导出", exact: true });
   const visibleSkuTabCount = await skuTab.count();
   const dialogAlreadyOpen = visibleSkuTabCount === 1 && await skuTab.isVisible();
@@ -431,6 +481,7 @@ export async function runShopSkuExport(
   options: CliOptions,
   checkpoint: (patch: Partial<WareExportAudit>) => Promise<void> = async () => undefined,
   recovery: JdWareExportRecovery | null = null,
+  abandonRecovery: (() => Promise<void>) | null = null,
 ): Promise<ScriptResult> {
   const startedAt = Date.now();
   const notes: string[] = [];
@@ -450,7 +501,13 @@ export async function runShopSkuExport(
     throw new Error(`活动任务清单匹配到多个 SKU 导出任务（${recovered.tasks.map((item) => item.taskId).join("、")}），已停止且不会创建新任务。`);
   }
   if (recovered?.kind === "missing") {
-    throw new Error("活动任务清单对应的 SKU 导出任务尚未唯一出现；已保留清单且不会创建新任务。");
+    const decision = decideJdWareExportBaselineRecoveryAbandonment(recovery!, existingTasks, true);
+    if (decision.kind !== "abandon") {
+      throw new Error(`活动任务清单对应的 SKU 导出任务尚未唯一出现（${decision.reason}）；已保留清单且不会创建新任务。`);
+    }
+    if (!abandonRecovery) throw new Error("活动任务清单可放弃但未提供原子归档处理，已停止且不会创建新任务。");
+    await abandonRecovery();
+    recovery = null;
   }
   if (recovered?.kind === "task") {
     if (recovered.task.status === "failed") {
@@ -577,7 +634,16 @@ async function main() {
     });
     try {
       await openTargetPage(page);
-      const result = await runShopSkuExport(page, options, persistAudit, recovery);
+      const abandonRecovery = async () => {
+        if (!recovery || recovery.taskId) throw new Error("活动任务清单不满足无 taskId 的放弃条件。");
+        const archivedPath = path.join(artifactDir, `active-task-${options.storeKey}.abandoned-${Date.now()}.json`);
+        const archivedFileName = path.basename(archivedPath);
+        const recoveryCreatedAt = recovery.createdAt;
+        await rename(activeTaskPath, archivedPath);
+        recovery = null;
+        await persistAudit({ stage: "recovery_abandoned", recoveryArchivePath: archivedFileName, recoveryCreatedAt });
+      };
+      const result = await runShopSkuExport(page, options, persistAudit, recovery, abandonRecovery);
       if (result.status !== "completed") {
         const message = "京东 SKU 下载点击已发送，但未验证本地文件；活动任务清单已保留，禁止自动新建任务。";
         await persistAudit({ status: "failed", stage: "download_unverified", taskId: result.task.taskId, taskStatus: result.task.status, result, error: message });

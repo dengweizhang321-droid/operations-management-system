@@ -91,6 +91,8 @@ export type JdWareExportRecoverySelection =
   | { kind: "missing" }
   | { kind: "ambiguous"; tasks: readonly JdWareExportTask[] };
 
+export type JdWareExportRecoveryAbandonDecision = { kind: "abandon" } | { kind: "keep"; reason: string };
+
 /** JD displays export-record timestamps in Shanghai time while recovery manifests use ISO UTC. */
 export function isJdWareExportTaskCreatedNear(
   manifestCreatedAt: string,
@@ -122,6 +124,24 @@ export function selectRecoverableJdWareExportTask(
       && isJdWareExportTaskCreatedNear(recovery.createdAt, task.createdAt));
   if (matches.length > 1) return { kind: "ambiguous", tasks: matches };
   return matches[0] ? { kind: "task", task: matches[0] } : { kind: "missing" };
+}
+
+/** A baseline-only submission may be retired only after JD had ample time to publish a uniquely attributable row. */
+export function decideJdWareExportBaselineRecoveryAbandonment(
+  recovery: JdWareExportRecovery,
+  tasks: readonly JdWareExportTask[],
+  snapshotConfirmed: boolean,
+  nowMs = Date.now(),
+): JdWareExportRecoveryAbandonDecision {
+  if (recovery.taskId) return { kind: "keep", reason: "task_id_present" };
+  const createdAt = Date.parse(recovery.createdAt);
+  if (!Number.isFinite(createdAt)) return { kind: "keep", reason: "invalid_created_at" };
+  if (nowMs - createdAt < 30 * 60_000) return { kind: "keep", reason: "grace_period" };
+  if (!snapshotConfirmed) return { kind: "keep", reason: "snapshot_unconfirmed" };
+  const candidates = tasks.filter((task) => !recovery.baselineTaskIds.includes(task.taskId)
+    && isJdWareExportTaskCreatedNear(recovery.createdAt, task.createdAt));
+  if (candidates.length !== 0) return { kind: "keep", reason: candidates.length === 1 ? "nearby_candidate" : "ambiguous_candidates" };
+  return { kind: "abandon" };
 }
 
 /**

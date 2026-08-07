@@ -7,9 +7,10 @@ import {
   parseJdWareExportTaskRows,
   selectRecoverableJdWareExportTask,
   selectExistingJdWareExportTask,
+  decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createWareExportAudit, hasStableUniqueVisibleJdExportEntry, importSkuFile, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, wareActiveTaskPath } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, createWareExportAudit, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, shouldDismissJdMenuUpdateNotice, wareActiveTaskPath } from "../tools/jackyun-ware-export";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -126,6 +127,41 @@ test("stops when a baseline-only recovery has multiple candidate tasks", () => {
   assert.equal(selection.kind, "ambiguous");
 });
 
+test("abandons only a stale baseline-only recovery with a confirmed snapshot and zero nearby candidates", () => {
+  const recovery = { version: 1 as const, baselineTaskIds: ["old"], createdAt: "2026-08-07T01:33:00.000Z" };
+  assert.equal(decideJdWareExportBaselineRecoveryAbandonment(recovery, [], true, Date.parse("2026-08-07T02:03:00.000Z")).kind, "abandon");
+  assert.equal(decideJdWareExportBaselineRecoveryAbandonment({ ...recovery, taskId: "known" }, [], true, Date.parse("2026-08-07T03:00:00.000Z")).kind, "keep");
+  assert.equal(decideJdWareExportBaselineRecoveryAbandonment(recovery, [], true, Date.parse("2026-08-07T01:50:00.000Z")).kind, "keep");
+  assert.equal(decideJdWareExportBaselineRecoveryAbandonment(recovery, [], false, Date.parse("2026-08-07T03:00:00.000Z")).kind, "keep");
+  assert.equal(decideJdWareExportBaselineRecoveryAbandonment(recovery, [{ taskId: "near", status: "pending", createdAt: "2026-08-07 09:33:10", resultText: null, successRows: null, rowText: "near" }], true, Date.parse("2026-08-07T03:00:00.000Z")).kind, "keep");
+});
+
+test("task-list baseline requires two stable nonempty snapshots or two explicit empty states", () => {
+  const task = { taskId: "1", status: "completed" as const, createdAt: "2026-08-07 09:33:10", resultText: null, successRows: 1, rowText: "row" };
+  assert.equal(hasStableJdWareTaskSnapshot([{ tasks: [], emptyConfirmed: false }, { tasks: [], emptyConfirmed: false }]), false);
+  assert.equal(hasStableJdWareTaskSnapshot([{ tasks: [], emptyConfirmed: true }, { tasks: [], emptyConfirmed: true }]), true);
+  assert.equal(hasStableJdWareTaskSnapshot([{ tasks: [task], emptyConfirmed: false }, { tasks: [task], emptyConfirmed: false }]), true);
+  assert.equal(hasStableJdWareTaskSnapshot([{ tasks: [task], emptyConfirmed: false }, { tasks: [], emptyConfirmed: true }]), false);
+  assert.equal(hasStableJdWareTaskSnapshot([{ tasks: [{ ...task, rowText: "first frame" }], emptyConfirmed: false }, { tasks: [{ ...task, rowText: "changed frame" }], emptyConfirmed: false }]), false);
+});
+
+test("confirms an empty task list only from the uniquely bound export container", () => {
+  assert.equal(isConfirmedJdWareTaskListEmptyState({ uniqueRefresh: true, boundToExportContainer: true, containerText: "暂无记录" }), true);
+  assert.equal(isConfirmedJdWareTaskListEmptyState({ uniqueRefresh: false, boundToExportContainer: true, containerText: "暂无记录" }), false);
+  assert.equal(isConfirmedJdWareTaskListEmptyState({ uniqueRefresh: true, boundToExportContainer: false, containerText: "暂无记录" }), false);
+  // A separate page section may say “暂无数据”; it cannot certify this export container.
+  assert.equal(isConfirmedJdWareTaskListEmptyState({ uniqueRefresh: true, boundToExportContainer: true, containerText: "导出记录加载中" }), false);
+});
+
+test("menu-update overlay is dismissed only for one matching layer with a single exact 知道了 button", () => {
+  assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整将于明日生效", buttons: ["知道了"] }]), true);
+  assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整将于明日生效", buttons: ["立即查看"] }]), false);
+  assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整将于明日生效", buttons: ["知道了", "立即查看"] }]), false);
+  assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整将于明日生效", buttons: ["知道了"] }, { text: "导出查询商品", buttons: ["确认"] }]), true);
+  assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整", buttons: ["知道了"] }]), false);
+  assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "一级菜单更新调整已生效", buttons: ["知道了"] }, { text: "一级菜单更新调整已生效", buttons: ["知道了"] }]), false);
+});
+
 test("preserves the task id in a timeout failure audit", () => {
   const running = advanceWareExportAudit(createWareExportAudit({ baseUrl: "http://localhost:3000", reuseLatest: false }), {
     stage: "wait_new_task", baselineTaskIds: ["9371817"], taskId: "9371818", taskStatus: "pending",
@@ -134,6 +170,19 @@ test("preserves the task id in a timeout failure audit", () => {
   assert.deepEqual(
     { status: failed.status, stage: failed.stage, taskId: failed.taskId, baselineTaskIds: failed.baselineTaskIds },
     { status: "failed", stage: "wait_new_task", taskId: "9371818", baselineTaskIds: ["9371817"] },
+  );
+});
+
+test("keeps the abandoned recovery evidence in the audit after later failure", () => {
+  const abandoned = advanceWareExportAudit(createWareExportAudit({ baseUrl: "http://localhost:3000", reuseLatest: false }), {
+    stage: "recovery_abandoned",
+    recoveryArchivePath: "active-task-jd-yiyong-director.abandoned-1.json",
+    recoveryCreatedAt: "2026-08-07T01:33:00.000Z",
+  });
+  const failed = advanceWareExportAudit(abandoned, { status: "failed", error: "audit write retry failed" });
+  assert.deepEqual(
+    { stage: failed.stage, recoveryArchivePath: failed.recoveryArchivePath, recoveryCreatedAt: failed.recoveryCreatedAt },
+    { stage: "recovery_abandoned", recoveryArchivePath: "active-task-jd-yiyong-director.abandoned-1.json", recoveryCreatedAt: "2026-08-07T01:33:00.000Z" },
   );
 });
 
