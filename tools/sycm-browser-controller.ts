@@ -628,8 +628,8 @@ async function runSycmController(options: CliOptions) {
   // 启动风控守卫（通过 Playwright 监听新标签页）
   const stopGuard = startPunishGuardWithPlaywright(context);
 
-  const page = context.pages()[0] ?? await context.newPage();
-  const client = new PlaywrightPageClient(page, await context.newCDPSession(page));
+  let page = context.pages()[0] ?? await context.newPage();
+  let client = new PlaywrightPageClient(page, await context.newCDPSession(page));
 
   try {
     // 启用 CDP 域
@@ -646,7 +646,7 @@ async function runSycmController(options: CliOptions) {
 
     // 等待登录
     console.log("检查登录状态...");
-    let loginBody = await pageText(client);
+    const loginBody = await pageText(client);
     if (isLikelyLoginPage(loginBody)) {
       console.log("检测到登录页");
       if (options.username && options.password) {
@@ -684,21 +684,25 @@ async function runSycmController(options: CliOptions) {
         // 等待风控守卫关闭弹窗后重试
         await new Promise((r) => setTimeout(r, 5000));
         // 检查 page 是否还有效，如果无效则使用 context 的第一个页面
-        try {
-          const testUrl = await page.url().catch(() => null);
-          if (!testUrl) {
-            console.log("页面已失效，尝试切换到可用页面...");
-            const pages = context.pages();
-            for (const p of pages) {
-              const pUrl = await p.url().catch(() => "");
-              if (/sycm|myseller|taobao/i.test(pUrl)) {
-                console.log(`切换到页面: ${pUrl.slice(0, 80)}`);
-                // 更新 client 指向新页面
-                break;
-              }
-            }
+        if (page.isClosed()) {
+          console.log("页面已失效，尝试切换到可用页面...");
+          const replacement = context.pages().find((candidate) => (
+            !candidate.isClosed() && /sycm|myseller|taobao/i.test(candidate.url())
+          ));
+          if (replacement) {
+            const replacementClient = new PlaywrightPageClient(
+              replacement,
+              await context.newCDPSession(replacement),
+            );
+            await replacementClient.send("Page.enable");
+            await replacementClient.send("Runtime.enable");
+            await replacementClient.send("Network.enable");
+            client.close();
+            page = replacement;
+            client = replacementClient;
+            console.log(`切换到页面: ${page.url().slice(0, 80)}`);
           }
-        } catch {}
+        }
       }
     }
     if (!navOk) throw new Error("导航到生意参谋商品页面失败，已重试 3 次");
