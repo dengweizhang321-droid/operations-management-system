@@ -2524,18 +2524,18 @@ function SalesOverviewFilterBar({
   const shopByKey = new Map(shops.map((shop) => [shop.key, shop]));
   return <section className="panel sales-overview-filter-panel" aria-label="销售总览筛选">
     <div className="sales-overview-filter-heading">
-      <div><span className="eyebrow">SALES SCOPE</span><h2>店铺与品类多选</h2><p>可同时选择多个店铺和品类，筛选条件同步应用到销售指标、趋势、渠道构成和店铺销售分布。</p></div>
+      <div><span className="eyebrow">SALES SCOPE</span><h2>店铺与品类细分多选</h2><p>展开选项后可直接勾选多个店铺和品类细分，筛选条件同步应用到销售指标、趋势、渠道构成和店铺销售分布。</p></div>
       <div className="sales-overview-filter-controls">
         <label className="sales-overview-filter-field"><span><i aria-hidden="true">店</i>店铺<em>{selectedShopKeys.length ? `已选 ${selectedShopKeys.length}` : `${shops.length} 个可选`}</em></span><SearchableMultiSelect values={selectedShopKeys} onChange={onShopChange} ariaLabel="销售总览店铺多选" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={shops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
-        <label className="sales-overview-filter-field"><span><i aria-hidden="true">类</i>品类<em>{selectedCategories.length ? `已选 ${selectedCategories.length}` : `${categories.length} 个可选`}</em></span><SearchableMultiSelect values={selectedCategories} onChange={onCategoryChange} ariaLabel="销售总览品类多选" allLabel="全部品类" searchPlaceholder="搜索品类" options={categories.map((category) => ({ value: category, label: category }))} /></label>
+        <label className="sales-overview-filter-field"><span><i aria-hidden="true">细</i>品类细分<em>{selectedCategories.length ? `已选 ${selectedCategories.length}` : `${categories.length} 个可选`}</em></span><SearchableMultiSelect values={selectedCategories} onChange={onCategoryChange} ariaLabel="销售总览品类细分多选" allLabel="全部品类细分" searchPlaceholder="搜索品类细分" options={categories.map((category) => ({ value: category, label: category }))} /></label>
         {hasFilter && <button type="button" className="secondary-button sales-overview-filter-reset" onClick={() => { onShopChange([]); onCategoryChange([]); }}>清空筛选</button>}
       </div>
     </div>
     {hasFilter ? <div className="sales-overview-filter-chips" aria-live="polite">
       <span>当前范围</span>
       {selectedShopKeys.map((key) => { const shop = shopByKey.get(key); return <button type="button" key={key} onClick={() => onShopChange(selectedShopKeys.filter((value) => value !== key))} title="移除此店铺"><i>店铺</i>{shop ? `${shop.platform === "未分类" ? "" : `${shop.platform} · `}${shop.name}` : key}<b aria-hidden="true">×</b></button>; })}
-      {selectedCategories.map((category) => <button type="button" key={category} onClick={() => onCategoryChange(selectedCategories.filter((value) => value !== category))} title="移除此品类"><i>品类</i>{category}<b aria-hidden="true">×</b></button>)}
-    </div> : <small>默认汇总当前统计周期内全部店铺、全部品类的销售数据。</small>}
+      {selectedCategories.map((category) => <button type="button" key={category} onClick={() => onCategoryChange(selectedCategories.filter((value) => value !== category))} title="移除此品类细分"><i>品类细分</i>{category}<b aria-hidden="true">×</b></button>)}
+    </div> : <small>默认汇总当前统计周期内全部店铺、全部品类细分的销售数据。</small>}
   </section>;
 }
 

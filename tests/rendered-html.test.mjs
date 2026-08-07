@@ -502,9 +502,12 @@ test("sales overview exposes polished additive shop and category multi-select fi
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /店铺与品类多选/);
+  assert.match(page, /店铺与品类细分多选/);
+  assert.match(page, /展开选项后可直接勾选多个店铺和品类细分/);
   assert.match(page, /ariaLabel="销售总览店铺多选"/);
-  assert.match(page, /ariaLabel="销售总览品类多选"/);
+  assert.match(page, /ariaLabel="销售总览品类细分多选"/);
+  assert.match(page, /allLabel="全部品类细分"/);
+  assert.match(page, /searchPlaceholder="搜索品类细分"/);
   assert.match(page, /sales-overview-filter-chips/);
   assert.match(page, /onShopChange\(selectedShopKeys\.filter/);
   assert.match(page, /onCategoryChange\(selectedCategories\.filter/);
