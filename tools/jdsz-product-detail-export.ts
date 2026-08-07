@@ -308,8 +308,13 @@ async function dismissJdNoticeModal(page: Page) {
   if (await notice.count() === 0) return;
   if (await notice.count() !== 1) throw new Error("京东公告弹窗不唯一，已停止避免误点");
   const closeButton = notice.locator('button[aria-label="Close"]').filter({ visible: true });
-  if (await closeButton.count() !== 1) throw new Error("京东公告弹窗缺少唯一关闭按钮，已停止避免误点");
-  await closeButton.click();
+  if (await closeButton.count() === 1) {
+    await closeButton.click();
+  } else {
+    const closeIcon = notice.locator('.close-modal').filter({ visible: true });
+    if (await closeIcon.count() !== 1) throw new Error("京东公告弹窗缺少唯一关闭按钮，已停止避免误点");
+    await closeIcon.click();
+  }
   await notice.waitFor({ state: "hidden", timeout: 5_000 });
 }
 
