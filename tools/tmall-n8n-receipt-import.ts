@@ -8,7 +8,7 @@ import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import { runTmallMultiStoreImport, shanghaiYesterday } from "./tmall-multi-store-import-runner";
 
 type PreliminaryInspection = {
-  errors: Array<{ code: string; message: string }>;
+  errors: Array<{ code?: string; message: string }>;
   totals: { dateMin: string | null; dateMax: string | null };
 };
 
@@ -101,8 +101,8 @@ export async function receiptAndImportWatchedFile(input: {
     storeKey: store.storeKey,
     endDate: businessDate,
     dates: [businessDate],
+    receiptPaths: [receiptPath],
     dryRun: false,
-    forceExistingDates: true,
   });
   const item = result.audit.items.find((candidate) =>
     candidate.storeKey === store.storeKey && candidate.businessDate === businessDate

@@ -420,14 +420,14 @@ async function assertImportApiReady(baseUrl: string) {
   }
 }
 
-async function importSalesWorkbook(baseUrl: string, filePath: string, bytes: Uint8Array, timeoutMs: number) {
+async function importSalesWorkbook(baseUrl: string, filePath: string, bytes: Uint8Array, timeoutMs: number, period: SalesPeriod) {
   const hash = createHash("sha256").update(bytes).digest("hex");
   const chunkSize = 2 * 1024 * 1024;
   const chunkCount = Math.ceil(bytes.byteLength / chunkSize);
   const init = await fetchJson(`${baseUrl}/api/imports/sales/chunks`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action: "init", fileName: path.basename(filePath), fileSizeBytes: bytes.byteLength, chunkCount, fingerprint: hash }),
+    body: JSON.stringify({ action: "init", fileName: path.basename(filePath), fileSizeBytes: bytes.byteLength, chunkCount, fingerprint: hash, expectedStartDate: period.startDate, expectedEndDate: period.endDate }),
   }, timeoutMs) as ImportResponse & { upload?: { id: string; receivedChunkIndexes: number[] } };
   if (!init.ok || !init.upload?.id) throw new Error(init.message ?? "销售明细接口未创建上传会话。");
   const received = new Set(init.upload.receivedChunkIndexes ?? []);
@@ -449,7 +449,7 @@ async function importSalesWorkbook(baseUrl: string, filePath: string, bytes: Uin
   const completed = await fetchJson(`${baseUrl}/api/imports/sales/chunks`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action: "complete", uploadId: init.upload.id }),
+    body: JSON.stringify({ action: "complete", uploadId: init.upload.id, expectedStartDate: period.startDate, expectedEndDate: period.endDate }),
   }, timeoutMs);
   if (!completed.ok || !completed.batch) throw new Error(completed.message ?? "销售明细接口未返回导入批次。");
   return { hash, response: completed };
@@ -545,7 +545,7 @@ export async function runErpSalesAutomation(options: CliOptions) {
       if (workbook.sourceRows !== pageSourceRows) {
         throw new Error(`页面与下载文件行数不一致：页面 ${pageSourceRows}，文件 ${workbook.sourceRows}。`);
       }
-      const imported = options.dryRun ? null : await importSalesWorkbook(baseUrl, filePath, bytes, config.timeouts.importMs);
+      const imported = options.dryRun ? null : await importSalesWorkbook(baseUrl, filePath, bytes, config.timeouts.importMs, period);
       const audit = {
         status: options.dryRun ? "downloaded" : "completed",
         runId,

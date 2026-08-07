@@ -299,7 +299,22 @@ async function waitForDataRefresh(page: Page) {
   if (await loading.count() > 0) throw new Error("日期切换后的数据仍在加载，已禁止创建下载任务。");
 }
 
+export function isSafeJdNoticeCloseLabel(label: string) {
+  return /^(close|关闭|忽略|×|✕)$/i.test(label.trim());
+}
+
+async function dismissJdNoticeModal(page: Page) {
+  const notice = page.locator('.jd-modal-wrap').filter({ visible: true }).filter({ has: page.locator('img[alt="公告图片"]') });
+  if (await notice.count() === 0) return;
+  if (await notice.count() !== 1) throw new Error("京东公告弹窗不唯一，已停止避免误点");
+  const closeButton = notice.locator('button[aria-label="Close"]').filter({ visible: true });
+  if (await closeButton.count() !== 1) throw new Error("京东公告弹窗缺少唯一关闭按钮，已停止避免误点");
+  await closeButton.click();
+  await notice.waitFor({ state: "hidden", timeout: 5_000 });
+}
+
 async function selectDimensionAndWait(page: Page, dimension: CliOptions["dimension"]) {
+  await dismissJdNoticeModal(page);
   const dimensionTab = page.getByRole("tab", { name: dimension, exact: true });
   await dimensionTab.waitFor({ state: "visible", timeout: 10_000 });
   if (await dimensionTab.count() !== 1) throw new Error(`无法唯一识别 ${dimension} 维度标签。`);

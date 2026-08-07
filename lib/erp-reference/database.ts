@@ -10,6 +10,10 @@ import {
   type InventoryAgeImportRow,
   type ProductMasterRow,
 } from "@/lib/imports/erp-reference";
+import {
+  importReservationCommitFence,
+  type ImportReservationFence,
+} from "@/lib/imports/content-fingerprint";
 
 export type ErpReferenceDatabase = SalesDatabase;
 
@@ -98,6 +102,7 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS erp_product_master_name_idx ON erp_product_master (product_name)`,
   `CREATE INDEX IF NOT EXISTS erp_product_master_barcode_idx ON erp_product_master (barcode)`,
+  `CREATE INDEX IF NOT EXISTS erp_product_master_last_batch_idx ON erp_product_master (last_import_batch_id)`,
   `CREATE TABLE IF NOT EXISTS erp_inventory_age_lines (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snapshot_date TEXT NOT NULL,
@@ -121,6 +126,7 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS erp_inventory_age_snapshot_idx ON erp_inventory_age_lines (snapshot_date)`,
   `CREATE INDEX IF NOT EXISTS erp_inventory_age_product_idx ON erp_inventory_age_lines (product_code)`,
+  `CREATE INDEX IF NOT EXISTS erp_inventory_age_last_batch_idx ON erp_inventory_age_lines (last_import_batch_id)`,
   `CREATE TABLE IF NOT EXISTS erp_combo_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     parent_code TEXT NOT NULL,
@@ -136,6 +142,7 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS erp_combo_items_parent_idx ON erp_combo_items (parent_code)`,
   `CREATE INDEX IF NOT EXISTS erp_combo_items_child_idx ON erp_combo_items (child_code)`,
+  `CREATE INDEX IF NOT EXISTS erp_combo_items_last_batch_idx ON erp_combo_items (last_import_batch_id)`,
 ] as const;
 
 const schemaReady = new WeakMap<object, Promise<void>>();
@@ -201,6 +208,16 @@ export async function findErpReferenceBatch(
   const row = await db.prepare(
     `SELECT ${batchColumns} FROM erp_reference_import_batches WHERE source_key = ? AND file_hash = ? LIMIT 1`,
   ).bind(source, fileHash).first<BatchRow>();
+  return row ? mapBatch(row) : null;
+}
+
+export async function findErpReferenceBatchById(
+  db: ErpReferenceDatabase,
+  id: string,
+) {
+  const row = await db.prepare(
+    `SELECT ${batchColumns} FROM erp_reference_import_batches WHERE id = ? LIMIT 1`,
+  ).bind(id).first<BatchRow>();
   return row ? mapBatch(row) : null;
 }
 
@@ -277,6 +294,7 @@ function batchInsertStatement(
     excludedCount: number;
     warnings: ErpReferenceIssue[];
     totals: unknown;
+    reservationFence?: ImportReservationFence;
   },
 ) {
   return db.prepare(
@@ -306,7 +324,7 @@ function completeStatement(db: ErpReferenceDatabase, id: string, insertedCount: 
   return db.prepare(
     `UPDATE erp_reference_import_batches
      SET status = 'completed', inserted_count = ?, updated_count = ?, completed_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
+     WHERE id = ? AND status = 'processing'`,
   ).bind(insertedCount, updatedCount, id);
 }
 
@@ -321,6 +339,7 @@ export async function saveProductMasterImport(
     rows: ProductMasterRow[];
     warnings: ErpReferenceIssue[];
     totals: unknown;
+    reservationFence?: ImportReservationFence;
   },
 ) {
   const existingCount = await countExistingProducts(db, input.rows);
@@ -334,7 +353,8 @@ export async function saveProductMasterImport(
     json_extract(item.value, '$.barcode'), json_extract(item.value, '$.category'),
     json_extract(item.value, '$.supplier'), json_extract(item.value, '$.productStatus'),
     CAST(json_extract(item.value, '$.sourceRowNumber') AS INTEGER), ?
-  FROM json_each(?) item WHERE 1
+  FROM json_each(?) item
+  WHERE EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')
   ON CONFLICT(product_code) DO UPDATE SET
     product_name = excluded.product_name, brand = excluded.brand,
     specification = excluded.specification, barcode = excluded.barcode,
@@ -342,13 +362,20 @@ export async function saveProductMasterImport(
     product_status = excluded.product_status, source_row_number = excluded.source_row_number,
     last_import_batch_id = excluded.last_import_batch_id, updated_at = CURRENT_TIMESTAMP`;
   for (let offset = 0; offset < input.rows.length; offset += WRITE_CHUNK_SIZE) {
-    statements.push(db.prepare(sql).bind(input.id, JSON.stringify(input.rows.slice(offset, offset + WRITE_CHUNK_SIZE))));
+    statements.push(db.prepare(sql).bind(input.id, JSON.stringify(input.rows.slice(offset, offset + WRITE_CHUNK_SIZE)), input.id));
   }
-  statements.push(completeStatement(db, input.id, input.rows.length - existingCount, existingCount));
-  await db.batch(statements);
+  statements.push(
+    db.prepare(`DELETE FROM erp_product_master
+      WHERE last_import_batch_id <> ?
+        AND EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')`).bind(input.id, input.id),
+    completeStatement(db, input.id, input.rows.length - existingCount, existingCount),
+  );
+  if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
+  const results = await db.batch(statements);
+  const created = Number(results[0]?.meta?.changes ?? 0) === 1;
   const batch = await findErpReferenceBatch(db, "products", input.fileHash);
   if (!batch) throw new Error("货品导入批次写入后无法读取");
-  return batch;
+  return { batch, created };
 }
 
 export async function saveInventoryAgeImport(
@@ -364,6 +391,7 @@ export async function saveInventoryAgeImport(
     excludedCount: number;
     warnings: ErpReferenceIssue[];
     totals: unknown;
+    reservationFence?: ImportReservationFence;
   },
 ) {
   const existing = await db.prepare(
@@ -372,7 +400,9 @@ export async function saveInventoryAgeImport(
   const existingCount = Number(existing?.count ?? 0);
   const statements = [
     batchInsertStatement(db, { ...input, source: "inventory_age", rowCount: input.rows.length + input.excludedCount }),
-    db.prepare("DELETE FROM erp_inventory_age_lines WHERE snapshot_date = ?").bind(input.snapshotDate),
+    db.prepare(`DELETE FROM erp_inventory_age_lines
+      WHERE snapshot_date = ?
+        AND EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')`).bind(input.snapshotDate, input.id),
   ];
   const sql = `INSERT INTO erp_inventory_age_lines (
     snapshot_date, warehouse, warehouse_type, product_code, product_name, specification,
@@ -389,16 +419,19 @@ export async function saveInventoryAgeImport(
     CAST(json_extract(item.value, '$.unitCostCents') AS INTEGER),
     CAST(json_extract(item.value, '$.stockValueCents') AS INTEGER),
     CAST(json_extract(item.value, '$.sourceRowNumber') AS INTEGER), ?
-  FROM json_each(?) item`;
+  FROM json_each(?) item
+  WHERE EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')`;
   for (let offset = 0; offset < input.rows.length; offset += WRITE_CHUNK_SIZE) {
-    statements.push(db.prepare(sql).bind(input.snapshotDate, input.id, JSON.stringify(input.rows.slice(offset, offset + WRITE_CHUNK_SIZE))));
+    statements.push(db.prepare(sql).bind(input.snapshotDate, input.id, JSON.stringify(input.rows.slice(offset, offset + WRITE_CHUNK_SIZE)), input.id));
   }
   const updatedCount = Math.min(existingCount, input.rows.length);
   statements.push(completeStatement(db, input.id, input.rows.length - updatedCount, updatedCount));
-  await db.batch(statements);
+  if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
+  const results = await db.batch(statements);
+  const created = Number(results[0]?.meta?.changes ?? 0) === 1;
   const batch = await findErpReferenceBatch(db, "inventory_age", input.fileHash);
   if (!batch) throw new Error("库龄导入批次写入后无法读取");
-  return batch;
+  return { batch, created };
 }
 
 export async function saveComboImport(
@@ -412,6 +445,7 @@ export async function saveComboImport(
     rows: ComboItemImportRow[];
     warnings: ErpReferenceIssue[];
     totals: unknown;
+    reservationFence?: ImportReservationFence;
   },
 ) {
   const existingCount = await countExistingCombos(db, input.rows);
@@ -424,21 +458,26 @@ export async function saveComboImport(
     json_extract(item.value, '$.childCode'), json_extract(item.value, '$.childName'),
     CAST(json_extract(item.value, '$.childQuantityMilli') AS INTEGER),
     CAST(json_extract(item.value, '$.sourceRowNumber') AS INTEGER), ?
-  FROM json_each(?) item WHERE 1
+  FROM json_each(?) item
+  WHERE EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')
   ON CONFLICT(parent_code, child_code) DO UPDATE SET
     parent_name = excluded.parent_name, child_name = excluded.child_name,
     child_quantity_milli = excluded.child_quantity_milli,
     source_row_number = excluded.source_row_number,
     last_import_batch_id = excluded.last_import_batch_id, updated_at = CURRENT_TIMESTAMP`;
   for (let offset = 0; offset < input.rows.length; offset += WRITE_CHUNK_SIZE) {
-    statements.push(db.prepare(sql).bind(input.id, JSON.stringify(input.rows.slice(offset, offset + WRITE_CHUNK_SIZE))));
+    statements.push(db.prepare(sql).bind(input.id, JSON.stringify(input.rows.slice(offset, offset + WRITE_CHUNK_SIZE)), input.id));
   }
   statements.push(
-    db.prepare("DELETE FROM erp_combo_items WHERE last_import_batch_id <> ?").bind(input.id),
+    db.prepare(`DELETE FROM erp_combo_items
+      WHERE last_import_batch_id <> ?
+        AND EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')`).bind(input.id, input.id),
     completeStatement(db, input.id, input.rows.length - existingCount, existingCount),
   );
-  await db.batch(statements);
+  if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
+  const results = await db.batch(statements);
+  const created = Number(results[0]?.meta?.changes ?? 0) === 1;
   const batch = await findErpReferenceBatch(db, "combos", input.fileHash);
   if (!batch) throw new Error("组合装导入批次写入后无法读取");
-  return batch;
+  return { batch, created };
 }

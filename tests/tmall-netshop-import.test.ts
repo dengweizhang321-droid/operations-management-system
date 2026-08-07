@@ -8,10 +8,40 @@ import {
   importNetshopBytes,
   inspectTmallImportBytes,
   type NetshopImportDatabaseDependencies,
+  type NetshopImportFingerprintDependencies,
   TMALL_PLATFORM,
   TMALL_YIJIU_SHOP,
 } from "../lib/netshop/import-service";
+import {
+  buildImportContentFingerprint,
+} from "../lib/imports/content-fingerprint";
 import { tmallStoreRegistryData } from "../lib/netshop/tmall-store-catalog";
+
+const isolatedFingerprintDependencies: NetshopImportFingerprintDependencies = {
+  auditRejectedImportResult: async (_db, _input, result) => result,
+  buildImportContentFingerprint,
+  buildImportAttemptHash: async () => "a".repeat(64),
+  ensureImportFingerprintSchema: async () => undefined,
+  failImportFingerprint: async () => undefined,
+  nextImportScopeStateToken: async () => "published-test-state",
+  readImportScopeStateToken: async () => "initial",
+  recordImportFingerprint: async () => ({ attemptId: "attempt-record", recovered: false, recoveredFromAttemptId: null }),
+  renewImportFingerprintReservation: async () => undefined,
+  reserveImportFingerprint: async () => ({
+    attemptId: "attempt-test",
+    claimed: true,
+    recoveredStaleReservation: false,
+    resynchronizedState: false,
+  }),
+};
+
+const duplicateFingerprintDependencies: NetshopImportFingerprintDependencies = {
+  ...isolatedFingerprintDependencies,
+  buildImportContentFingerprint: async (input) => ({
+    ...await buildImportContentFingerprint(input),
+    contentHash: "c".repeat(64),
+  }),
+};
 
 function workbookBytes(rows: unknown[][], options: { bookType: "xlsx" | "xls"; sheetName: string }) {
   const workbook = XLSX.utils.book_new();
@@ -203,7 +233,9 @@ test("天猫日报与最新货品主数据零交集时阻止疑似跨店导入",
   const dependencies = {
     getNetshopDatabase: () => ({}),
     ensureNetshopSchema: async () => undefined,
-    findNetshopImportBatchByHash: async () => null,
+    findNetshopImportBatchById: async () => null,
+    readNetshopScopeOwnership: async () => [],
+    readNetshopScopeRows: async () => [],
     normalizeJdProductMasterRows: async () => undefined,
     reconcileNetshopMasterProducts: async () => ({
       masterAvailable: true,
@@ -226,7 +258,7 @@ test("天猫日报与最新货品主数据零交集时阻止疑似跨店导入",
     shopName: TMALL_YIJIU_SHOP,
     expectedStartDate: "2026-07-31",
     expectedEndDate: "2026-07-31",
-  }, dependencies);
+  }, dependencies, isolatedFingerprintDependencies);
 
   assert.equal(saveCalls, 0);
   assert.equal(result.ok, false);
@@ -236,9 +268,11 @@ test("天猫日报与最新货品主数据零交集时阻止疑似跨店导入",
 
 function duplicateDatabaseDependencies(input: {
   verified: boolean;
+  replaceOnMismatch?: boolean;
   expectedFileSize: number;
   onVerify(): void;
 }) {
+  let saved = false;
   const batch = {
     id: "tmall-product-daily-batch",
     source: "tmall_product_daily" as const,
@@ -258,17 +292,33 @@ function duplicateDatabaseDependencies(input: {
     dateMax: "2026-07-31",
     snapshotDate: null,
     warnings: [],
-    totals: { unmatchedProductCount: 0 },
+    totals: { unmatchedProductCount: 0, contentHash: "c".repeat(64) },
     note: "",
     createdAt: "2026-08-01 00:00:00",
     completedAt: "2026-08-01 00:00:01",
   };
+  const replacementBatch = { ...batch, id: "tmall-product-daily-replacement", fileHash: "a".repeat(64) };
   const database = {};
   return {
     getNetshopDatabase: () => database,
     ensureNetshopSchema: async () => undefined,
-    findNetshopImportBatchByHash: async () => batch,
+    findNetshopImportBatchById: async (_database: unknown, batchId: string) => {
+      if (batchId === batch.id) return batch;
+      if (batchId === replacementBatch.id) return replacementBatch;
+      return null;
+    },
+    readNetshopScopeOwnership: async () => [{
+      batchId: saved ? replacementBatch.id : batch.id,
+      rowCount: 1,
+    }],
+    readNetshopScopeRows: async () => [],
     normalizeJdProductMasterRows: async () => undefined,
+    reconcileNetshopMasterProducts: async () => ({ masterAvailable: true, unmatchedCount: 0, unmatchedSample: [] }),
+    sanitizeNetshopIssues: (issues: unknown[]) => issues,
+    saveNetshopImport: async () => {
+      saved = true;
+      return { batch: replacementBatch, created: true };
+    },
     verifyNetshopImportBatch: async (_database: unknown, actualBatch: unknown, expected: {
       rowCount: number;
       dataset: string;
@@ -278,7 +328,8 @@ function duplicateDatabaseDependencies(input: {
       dateMax: string | null;
     }) => {
       input.onVerify();
-      assert.equal(actualBatch, batch);
+      const replacing = actualBatch === replacementBatch;
+      assert.ok(actualBatch === batch || replacing);
       assert.deepEqual(expected, {
         rowCount: 1,
         dataset: "spu_daily",
@@ -287,12 +338,13 @@ function duplicateDatabaseDependencies(input: {
         dateMin: "2026-07-31",
         dateMax: "2026-07-31",
       });
+      const verified = input.verified || Boolean(input.replaceOnMismatch && replacing);
       return {
-        verified: input.verified,
+        verified,
         parsedRowCount: expected.rowCount,
-        readbackRowCount: input.verified ? expected.rowCount : 0,
-        dateMin: input.verified ? expected.dateMin : null,
-        dateMax: input.verified ? expected.dateMax : null,
+        readbackRowCount: verified ? expected.rowCount : 0,
+        dateMin: verified ? expected.dateMin : null,
+        dateMax: verified ? expected.dateMax : null,
         dataset: batch.dataset,
         platform: batch.platform,
         shopName: batch.shopName,
@@ -316,7 +368,7 @@ test("重复天猫文件必须经过真实落库回查后才能返回 duplicate"
     verified: true,
     expectedFileSize: bytes.byteLength,
     onVerify: () => { verifiedCalls += 1; },
-  }));
+  }), duplicateFingerprintDependencies);
 
   assert.equal(verifiedCalls, 1);
   assert.equal(accepted.ok, true);
@@ -325,7 +377,45 @@ test("重复天猫文件必须经过真实落库回查后才能返回 duplicate"
   assert.equal(accepted.verification?.readbackRowCount, 1);
 });
 
-test("已被替换或当前事实不匹配的历史批次不得冒充已验证重复", async () => {
+test("网店重复候选会重算当前事实内容，同批次同数量的字段损坏必须重新导入", async () => {
+  const bytes = dailyFixture();
+  let fingerprintCalls = 0;
+  let verifiedCalls = 0;
+  const mismatchedCurrentFacts: NetshopImportFingerprintDependencies = {
+    ...isolatedFingerprintDependencies,
+    buildImportContentFingerprint: async (input) => {
+      const fingerprint = await buildImportContentFingerprint(input);
+      fingerprintCalls += 1;
+      return {
+        ...fingerprint,
+        contentHash: (fingerprintCalls === 1 ? "c" : "d").repeat(64),
+      };
+    },
+  };
+
+  const result = await importNetshopBytes({
+    source: "tmall_product_daily",
+    bytes,
+    fileName: "daily.xls",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-07-31",
+    expectedEndDate: "2026-07-31",
+  }, duplicateDatabaseDependencies({
+    verified: false,
+    replaceOnMismatch: true,
+    expectedFileSize: bytes.byteLength,
+    onVerify: () => { verifiedCalls += 1; },
+  }), mismatchedCurrentFacts);
+
+  assert.equal(fingerprintCalls, 2);
+  assert.equal(verifiedCalls, 1);
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "imported");
+  assert.equal(result.verification?.verified, true);
+});
+
+test("已被替换或当前事实不匹配的历史批次不会阻止差异内容重新导入", async () => {
   const bytes = dailyFixture();
   let verifiedCalls = 0;
   const rejected = await importNetshopBytes({
@@ -338,13 +428,13 @@ test("已被替换或当前事实不匹配的历史批次不得冒充已验证�
     expectedEndDate: "2026-07-31",
   }, duplicateDatabaseDependencies({
     verified: false,
+    replaceOnMismatch: true,
     expectedFileSize: bytes.byteLength,
     onVerify: () => { verifiedCalls += 1; },
-  }));
+  }), duplicateFingerprintDependencies);
 
-  assert.equal(verifiedCalls, 1);
-  assert.equal(rejected.ok, false);
-  assert.equal(rejected.status, "rejected");
-  assert.equal(rejected.verification?.verified, false);
-  assert.deepEqual(rejected.errors?.map((issue) => issue.code), ["DUPLICATE_READBACK_VERIFICATION_FAILED"]);
+  assert.equal(verifiedCalls, 2);
+  assert.equal(rejected.ok, true);
+  assert.equal(rejected.status, "imported");
+  assert.equal(rejected.verification?.verified, true);
 });

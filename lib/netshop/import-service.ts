@@ -5,13 +5,25 @@ import {
   parseXlsxFirstSheet,
   type XlsxCellValue,
 } from "@/lib/imports/xlsx";
+import {
+  auditRejectedImportResult,
+  buildImportAttemptHash,
+  buildImportContentFingerprint,
+  ensureImportFingerprintSchema,
+  failImportFingerprint,
+  nextImportScopeStateToken,
+  readImportScopeStateToken,
+  recordImportFingerprint,
+  renewImportFingerprintReservation,
+  reserveImportFingerprint,
+} from "@/lib/imports/content-fingerprint";
 import type {
   NetshopImportBatch,
   NetshopImportIssue,
   NetshopRowInput,
   NetshopSource,
 } from "@/lib/netshop/database";
-import { netshopMasterRowKey } from "@/lib/netshop/batch-identity";
+import { netshopBatchId, netshopMasterRowKey } from "@/lib/netshop/batch-identity";
 import { dailyDateCoverage, dailyRowKey, detectJdDailyDataset } from "@/lib/netshop/daily-contract";
 import { resolveEnabledTmallShop } from "@/lib/netshop/tmall-store-catalog";
 
@@ -554,6 +566,24 @@ function validateRows(rows: readonly NetshopRowInput[]) {
   return errors;
 }
 
+function netshopBusinessContentRows(rows: readonly NetshopRowInput[]) {
+  return rows.map((row) => ({
+    source: row.source,
+    dataset: row.dataset,
+    platform: row.platform,
+    shopName: row.shopName,
+    businessDate: row.businessDate,
+    snapshotDate: row.snapshotDate,
+    productCode: row.productCode,
+    productName: row.productName,
+    skuId: row.skuId,
+    spuId: row.spuId,
+    warehouseType: row.warehouseType,
+    metrics: row.metrics,
+    raw: row.raw,
+  }));
+}
+
 type NetshopImportInput = {
   bytes: Uint8Array;
   fileName: string;
@@ -726,32 +756,75 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
 export type NetshopImportDatabaseDependencies = Pick<
   typeof import("@/lib/netshop/database"),
   | "ensureNetshopSchema"
-  | "findNetshopImportBatchByHash"
   | "getNetshopDatabase"
   | "normalizeJdProductMasterRows"
   | "reconcileNetshopMasterProducts"
   | "sanitizeNetshopIssues"
   | "saveNetshopImport"
   | "verifyNetshopImportBatch"
+  | "findNetshopImportBatchById"
+  | "readNetshopScopeOwnership"
+  | "readNetshopScopeRows"
+>;
+
+export type NetshopImportFingerprintDependencies = Pick<
+  typeof import("@/lib/imports/content-fingerprint"),
+  | "auditRejectedImportResult"
+  | "buildImportAttemptHash"
+  | "buildImportContentFingerprint"
+  | "ensureImportFingerprintSchema"
+  | "failImportFingerprint"
+  | "nextImportScopeStateToken"
+  | "readImportScopeStateToken"
+  | "recordImportFingerprint"
+  | "renewImportFingerprintReservation"
+  | "reserveImportFingerprint"
 >;
 
 export async function importNetshopBytes(
   input: NetshopImportInput,
   databaseDependencies?: NetshopImportDatabaseDependencies,
+  fingerprintDependencies: NetshopImportFingerprintDependencies = {
+    auditRejectedImportResult,
+    buildImportAttemptHash,
+    buildImportContentFingerprint,
+    ensureImportFingerprintSchema,
+    failImportFingerprint,
+    nextImportScopeStateToken,
+    readImportScopeStateToken,
+    recordImportFingerprint,
+    renewImportFingerprintReservation,
+    reserveImportFingerprint,
+  },
 ): Promise<NetshopImportExecution> {
   const {
     ensureNetshopSchema,
-    findNetshopImportBatchByHash,
+    findNetshopImportBatchById,
     getNetshopDatabase,
-    normalizeJdProductMasterRows,
     reconcileNetshopMasterProducts,
     sanitizeNetshopIssues,
     saveNetshopImport,
+    readNetshopScopeOwnership,
+    readNetshopScopeRows,
     verifyNetshopImportBatch,
   } = databaseDependencies ?? await import("@/lib/netshop/database");
-  const fileHash = toHex(await sha256(input.bytes));
+  const rawFileHash = toHex(await sha256(input.bytes));
   const db = getNetshopDatabase();
   await ensureNetshopSchema(db);
+  await fingerprintDependencies.ensureImportFingerprintSchema(db);
+  const reject = (result: NetshopImportExecution) => fingerprintDependencies.auditRejectedImportResult(db, {
+    domain: "netshop",
+    rawFileHash,
+    scopeHint: {
+      source: input.source,
+      platform: input.platform?.trim() || null,
+      shopName: input.shopName?.trim() || null,
+      snapshotDate: input.snapshotDate?.trim() || null,
+      startDate: input.expectedStartDate?.trim() || null,
+      endDate: input.expectedEndDate?.trim() || null,
+    },
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes },
+  }, result);
 
   let parsed: ParsedTable;
   try {
@@ -761,7 +834,7 @@ export async function importNetshopBytes(
     parsed = parseFile(input.bytes, input.fileName, input.source);
   } catch (error) {
     const message = error instanceof Error ? error.message : "文件解析失败";
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "PARSE_ERROR", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "PARSE_ERROR", message }], errorCount: 1 });
   }
 
   let header: ReturnType<typeof findHeader>;
@@ -769,7 +842,7 @@ export async function importNetshopBytes(
     header = findTmallHeader(input.source, parsed);
   } catch (error) {
     const message = error instanceof Error ? error.message : "表头识别失败";
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "HEADER_NOT_FOUND", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "HEADER_NOT_FOUND", message }], errorCount: 1 });
   }
 
   let dataset: string;
@@ -777,11 +850,11 @@ export async function importNetshopBytes(
     dataset = detectDataset(input.source, input.fileName, header.headers);
   } catch (error) {
     const message = error instanceof Error ? error.message : "数据集识别失败";
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "DATASET_HEADER_MISMATCH", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "DATASET_HEADER_MISMATCH", message }], errorCount: 1 });
   }
   if (input.source === "jd_sku_daily" && input.expectedDataset && input.expectedDataset !== dataset) {
     const message = `上传文件数据集为 ${dataset}，与预期 ${input.expectedDataset} 不一致`;
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "EXPECTED_DATASET_MISMATCH", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "EXPECTED_DATASET_MISMATCH", message }], errorCount: 1 });
   }
   let platform: string;
   let shopName: string;
@@ -792,16 +865,15 @@ export async function importNetshopBytes(
       : normalizeText(input.shopName) || DEFAULT_SHOP_NAME;
   } catch (error) {
     const message = error instanceof Error ? error.message : "天猫店铺身份无效";
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "TMALL_SHOP_NOT_ALLOWED", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "TMALL_SHOP_NOT_ALLOWED", message }], errorCount: 1 });
   }
-  const previous = await findNetshopImportBatchByHash(db, input.source, fileHash, { platform, shopName });
   const snapshotDate = input.source === "tmall_product_master"
     ? isoDateFromValue(input.snapshotDate)
     : isoDateFromValue(input.snapshotDate) || fileDate(input.fileName) || "";
   const snapshotSource = usesSnapshotDate(input.source);
-  if (input.source === "tmall_product_master" && !snapshotDate) {
-    const message = "天猫货品主数据必须提供有效 snapshot_date=YYYY-MM-DD";
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "MISSING_SNAPSHOT_DATE", message }], errorCount: 1 };
+  if (snapshotSource && !snapshotDate) {
+    const message = `${input.source} 快照导入必须提供有效 snapshot_date=YYYY-MM-DD`;
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "MISSING_SNAPSHOT_DATE", message }], errorCount: 1 });
   }
   const rawRows = parsed.rows.slice(header.index + 1)
     .map((row) => ({ rowNumber: row.rowNumber, raw: isTmallSource(input.source) ? tmallRowObject(input.source, header.headers, row.values) : objectFromRow(header.headers, row.values) }))
@@ -809,7 +881,7 @@ export async function importNetshopBytes(
     .filter((row) => !isDailyAggregateRow(input.source, row.raw));
   if (rawRows.length > MAX_TABULAR_ROWS) {
     const message = `单次最多导入 ${MAX_TABULAR_ROWS} 行`;
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "ROW_LIMIT_EXCEEDED", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "ROW_LIMIT_EXCEEDED", message }], errorCount: 1 });
   }
 
   const rows: NetshopRowInput[] = [];
@@ -858,7 +930,7 @@ export async function importNetshopBytes(
         })
       : dataset === "sku_daily" || dataset === "spu_daily" || dataset === "promotion_daily"
         ? dailyRowKey(dataset, platform, shopName, businessDate, dataset === "sku_daily" ? skuId : spuId)
-        : netshopMasterRowKey({ source: input.source, platform, shopName, fileHash, rowNumber: row.rowNumber, rowHash });
+      : netshopMasterRowKey({ source: input.source, platform, shopName, fileHash: rawFileHash, rowNumber: row.rowNumber, rowHash });
     rows.push({
       sourceRowNumber: row.rowNumber,
       sourceRowKey,
@@ -897,47 +969,101 @@ export async function importNetshopBytes(
     }
   }
   if (errors.length > 0) {
-    return { ok: false, status: "rejected", message: "文件校验未通过，未写入数据", warnings: [], errors, errorCount: errors.length };
+    return reject({ ok: false, status: "rejected", message: "文件校验未通过，未写入数据", warnings: [], errors, errorCount: errors.length });
   }
 
   const dateValues = rows.map((row) => row.businessDate).filter(Boolean);
   const sortedDates = [...dateValues].sort();
-
-  // A file imported before these guards existed must not bypass the new
-  // schema and date-coverage validation merely because its hash is known.
-  if (previous?.status === "completed") {
-    if (input.source === "jd_product_master") await normalizeJdProductMasterRows(db, previous.id);
-    const verification = await verifyNetshopImportBatch(db, previous, {
-      rowCount: rows.length,
+  const expectedVerification = {
+    rowCount: rows.length,
+    dataset,
+    platform,
+    shopName,
+    dateMin: sortedDates[0] ?? null,
+    dateMax: sortedDates[sortedDates.length - 1] ?? null,
+  };
+  const fingerprintScope = {
+    source: input.source,
+    dataset,
+    platform,
+    shopName,
+    snapshotDate: snapshotSource ? snapshotDate : null,
+    startDate: input.expectedStartDate ?? sortedDates[0] ?? null,
+    endDate: input.expectedEndDate ?? sortedDates[sortedDates.length - 1] ?? null,
+  };
+  const fingerprintLockScope = { source: input.source, dataset, platform, shopName };
+  const fingerprint = await fingerprintDependencies.buildImportContentFingerprint({
+    domain: "netshop",
+    scope: fingerprintScope,
+    lockScope: fingerprintLockScope,
+    rows: netshopBusinessContentRows(rows),
+  });
+  const allRowsHaveBusinessDate = !snapshotSource && rows.every((row) => Boolean(row.businessDate));
+  const replaceStartDate = allRowsHaveBusinessDate ? input.expectedStartDate ?? sortedDates[0] ?? null : null;
+  const replaceEndDate = allRowsHaveBusinessDate ? input.expectedEndDate ?? sortedDates[sortedDates.length - 1] ?? null : null;
+  const replaceFullScope = !snapshotSource && (!replaceStartDate || !replaceEndDate);
+  const scopeOwnership = await readNetshopScopeOwnership(db, {
+      source: input.source,
       dataset,
       platform,
       shopName,
-      dateMin: sortedDates[0] ?? null,
-      dateMax: sortedDates[sortedDates.length - 1] ?? null,
+      startDate: replaceStartDate,
+      endDate: replaceEndDate,
+      snapshotDate: snapshotSource ? snapshotDate : null,
+      fullScope: replaceFullScope,
     });
-    const unmatchedProductCount = Number((previous.totals as { unmatchedProductCount?: number } | null)?.unmatchedProductCount ?? 0);
-    if (!verification.verified) {
+  const currentStateToken = await fingerprintDependencies.readImportScopeStateToken(db, fingerprint);
+  const currentBatchId = scopeOwnership.length === 1 && scopeOwnership[0]?.rowCount === rows.length
+    ? scopeOwnership[0].batchId
+    : null;
+  const currentBatch = currentBatchId ? await findNetshopImportBatchById(db, currentBatchId) : null;
+  const currentTotals = currentBatch?.totals as { contentHash?: unknown; rawFileHash?: unknown } | null;
+  if (currentBatch?.status === "completed" && currentTotals?.contentHash === fingerprint.contentHash) {
+    const currentRows = await readNetshopScopeRows(db, {
+      source: input.source,
+      dataset,
+      platform,
+      shopName,
+      startDate: replaceStartDate,
+      endDate: replaceEndDate,
+      snapshotDate: snapshotSource ? snapshotDate : null,
+      fullScope: replaceFullScope,
+    });
+    const currentFingerprint = await fingerprintDependencies.buildImportContentFingerprint({
+      domain: "netshop",
+      scope: fingerprintScope,
+      lockScope: fingerprintLockScope,
+      rows: netshopBusinessContentRows(currentRows),
+    });
+    const verification = currentFingerprint.contentHash === fingerprint.contentHash
+      ? await verifyNetshopImportBatch(db, currentBatch, expectedVerification)
+      : null;
+    if (verification?.verified) {
+      await fingerprintDependencies.recordImportFingerprint(db, {
+        ...fingerprint,
+        batchId: currentBatch.id,
+        importHash: currentBatch.fileHash,
+        rawFileHash,
+        publishedStateToken: currentStateToken,
+        metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings: currentBatch.warnings },
+        outcome: "duplicate",
+      });
+      const unmatchedProductCount = Number((currentBatch.totals as { unmatchedProductCount?: number } | null)?.unmatchedProductCount ?? 0);
       return {
-        ok: false,
-        status: "rejected",
-        message: "历史批次已完成，但当前落库事实与该文件不一致，拒绝将其视为已验证重复",
-        batch: previous,
-        warnings: previous.warnings,
-        errors: [{ code: "DUPLICATE_READBACK_VERIFICATION_FAILED", message: "历史批次已被替换或当前行数、店铺、数据集、日期覆盖不一致" }],
-        errorCount: 1,
+        ok: true,
+        status: "duplicate",
+        message: "全部标准化业务资料与当前数据一致，无需重复导入",
+        batch: currentBatch,
+        warnings: currentBatch.warnings,
         verification: { ...verification, unmatchedProductCount },
       };
     }
-    return {
-      ok: true,
-      status: "duplicate",
-      message: "该文件已经导入，无需重复处理",
-      batch: previous,
-      warnings: previous.warnings,
-      verification: { ...verification, unmatchedProductCount },
-    };
   }
-
+  const fileHash = await fingerprintDependencies.buildImportAttemptHash({
+    fingerprint,
+    currentStateToken,
+  });
+  const reservedBatchId = netshopBatchId({ source: input.source, platform, shopName, fileHash });
   const missingDateRows = rows.filter((row) => !row.businessDate && !snapshotSource).length;
   const missingSnapshotRows = rows.filter((row) => snapshotSource && !row.snapshotDate).length;
   const missingSkuRows = input.source === "tmall_product_master" ? rows.filter((row) => !row.skuId).length : 0;
@@ -960,7 +1086,7 @@ export async function importNetshopBytes(
     && reconciliation.masterAvailable
     && reconciliationProductIds.length >= 5
     && reconciliation.unmatchedCount === reconciliationProductIds.length) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "报表商品与该店铺最新货品主数据零交集，疑似账号或店铺上下文不一致，已阻止导入",
@@ -970,7 +1096,7 @@ export async function importNetshopBytes(
         message: `${reconciliationProductIds.length} 个商品ID均未匹配该店铺最新货品主数据`,
       }],
       errorCount: 1,
-    };
+    });
   }
   const warnings = sanitizeNetshopIssues([
     ...(missingDateRows > 0 ? [{ code: "MISSING_BUSINESS_DATE", message: `${missingDateRows} 行未识别到业务日期，overview 不会把这些行计入 date_max` }] : []),
@@ -982,6 +1108,24 @@ export async function importNetshopBytes(
     ...(reconciliation.masterAvailable && reconciliation.unmatchedCount > 0 ? [{ code: "UNMATCHED_MASTER_PRODUCTS", message: `${reconciliation.unmatchedCount} 个商品ID未匹配最新货品主数据；样例：${reconciliation.unmatchedSample.join("、")}` }] : []),
   ]);
 
+  const reservation = await fingerprintDependencies.reserveImportFingerprint(db, {
+    ...fingerprint,
+    batchId: reservedBatchId,
+    importHash: fileHash,
+    rawFileHash,
+    currentStateToken,
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+  });
+  if (!reservation.claimed) {
+    return { ok: false, status: "rejected", message: "同一网店业务范围已被更新，请重新提交最新文件", warnings, errors: [{ code: "IMPORT_SCOPE_CHANGED", message: "导入开始前当前业务范围版本已变化" }], errorCount: 1 };
+  }
+  await fingerprintDependencies.renewImportFingerprintReservation(db, {
+    ...fingerprint,
+    batchId: reservedBatchId,
+    attemptId: reservation.attemptId,
+  });
+
+  try {
   const sumMetric = (key: string) => rows.reduce((sum, row) => sum + Number(row.metrics[key] ?? 0), 0);
   const result = await saveNetshopImport(db, {
     source: input.source,
@@ -997,6 +1141,8 @@ export async function importNetshopBytes(
     totals: {
       sourceRowCount: rawRows.length,
       rowCount: rows.length,
+      rawFileHash,
+      contentHash: fingerprint.contentHash,
       dataset,
       dateMin: sortedDates[0] ?? null,
       dateMax: sortedDates[sortedDates.length - 1] ?? null,
@@ -1013,13 +1159,34 @@ export async function importNetshopBytes(
       netOrders: sumMetric("netOrders"),
     },
     note: normalizeText(input.note),
-    replaceScope: (input.source === "tmall_product_daily" || input.source === "tmall_promotion") && input.expectedStartDate && input.expectedEndDate
-      ? { startDate: input.expectedStartDate, endDate: input.expectedEndDate }
-      : undefined,
+    reservationFence: {
+      domain: fingerprint.domain,
+      scopeKey: fingerprint.scopeKey,
+      batchId: reservedBatchId,
+      attemptId: reservation.attemptId,
+    },
+    replaceScope: replaceStartDate && replaceEndDate
+      ? { startDate: replaceStartDate, endDate: replaceEndDate }
+      : snapshotSource
+        ? { snapshotDate }
+        : { fullScope: true },
   });
 
-  if (input.source === "jd_product_master") await normalizeJdProductMasterRows(db, result.batch.id);
-
+  const postOwnership = await readNetshopScopeOwnership(db, {
+      source: input.source,
+      dataset,
+      platform,
+      shopName,
+      startDate: replaceStartDate,
+      endDate: replaceEndDate,
+      snapshotDate: snapshotSource ? snapshotDate : null,
+      fullScope: replaceFullScope,
+    });
+  if (postOwnership.length !== 1
+    || postOwnership[0]?.batchId !== result.batch.id
+    || postOwnership[0].rowCount !== rows.length) {
+    throw new Error("当前业务范围的事实归属与本批次不一致");
+  }
   const verification = await verifyNetshopImportBatch(db, result.batch, {
     rowCount: rows.length,
     dataset,
@@ -1029,26 +1196,37 @@ export async function importNetshopBytes(
     dateMax: sortedDates[sortedDates.length - 1] ?? null,
   });
   if (!verification.verified) {
-    return {
-      ok: false,
-      status: "rejected",
-      message: "数据写入后回查不一致，未确认导入成功",
-      batch: result.batch,
-      warnings,
-      errors: [{ code: "READBACK_VERIFICATION_FAILED", message: "批次、行数、店铺、数据集或日期覆盖回查不一致" }],
-      errorCount: 1,
-      verification: { ...verification, unmatchedProductCount: reconciliation.unmatchedCount },
-    };
+    throw new Error("批次、行数、店铺、数据集或日期覆盖回查不一致");
   }
+
+  await fingerprintDependencies.recordImportFingerprint(db, {
+    ...fingerprint,
+    batchId: result.batch.id,
+    importHash: fileHash,
+    rawFileHash,
+    attemptId: reservation.attemptId,
+    publishedStateToken: await fingerprintDependencies.nextImportScopeStateToken({
+      previousStateToken: currentStateToken,
+      batchId: result.batch.id,
+      contentHash: fingerprint.contentHash,
+      rowCount: fingerprint.rowCount,
+    }),
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+    outcome: result.created ? "imported" : "duplicate",
+  });
 
   return {
     ok: true,
     status: result.created ? "imported" : "duplicate",
-    message: result.created ? `${platform}网店数据导入成功` : "该文件已经导入，无需重复处理",
+    message: result.created ? `${platform}网店数据导入成功` : "全部标准化业务资料与当前数据一致，无需重复导入",
     batch: result.batch,
     warnings,
     verification: { ...verification, unmatchedProductCount: reconciliation.unmatchedCount },
   };
+  } catch (error) {
+    await fingerprintDependencies.failImportFingerprint(db, { ...fingerprint, batchId: reservedBatchId, importHash: fileHash, rawFileHash, attemptId: reservation.attemptId, metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings }, errorCode: "NETSHOP_IMPORT_FAILED" }).catch(() => undefined);
+    return { ok: false, status: "rejected", message: error instanceof Error ? error.message : "网店数据导入失败", warnings, errors: [{ code: "NETSHOP_IMPORT_FAILED", message: error instanceof Error ? error.message : "网店数据导入失败" }], errorCount: 1 };
+  }
 }
 
 export function readNetshopForm(formData: FormData) {

@@ -477,6 +477,40 @@ function entry(overrides: Partial<MarketEntryForImport> = {}): MarketEntryForImp
   return { ...result, naturalKey: marketNaturalKey(result) };
 }
 
+test("market import replaces the complete claimed range and removes rows absent from changed content", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await saveMarketImportCore({
+    db,
+    batchId: "market-content-a",
+    sourceType: "jd-top",
+    fileName: "market-a.xlsx",
+    fileSizeBytes: 1,
+    fileHash: "a".repeat(64),
+    sheetName: "Sheet1",
+    rows: [
+      entry({ sourceRowNumber: 1, skuCode: "SKU-1" }),
+      entry({ sourceRowNumber: 2, skuCode: "SKU-2", rank: 2 }),
+    ],
+    warnings: [],
+  });
+  await saveMarketImportCore({
+    db,
+    batchId: "market-content-b",
+    sourceType: "jd-top",
+    fileName: "market-b.xlsx",
+    fileSizeBytes: 1,
+    fileHash: "b".repeat(64),
+    sheetName: "Sheet1",
+    rows: [entry({ sourceRowNumber: 1, skuCode: "SKU-1", productName: "更新商品" })],
+    warnings: [],
+  });
+  const rows = sqlite.prepare("SELECT sku_code skuCode, product_name productName, last_import_batch_id batchId FROM market_ranking_entries ORDER BY sku_code").all();
+  assert.deepEqual(rows.map((row) => ({ ...row })), [{ skuCode: "SKU-1", productName: "更新商品", batchId: "market-content-b" }]);
+  sqlite.close();
+});
+
 test("monthly snapshot backfill selects one fact when a SKU has multiple date ranges in one month", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);

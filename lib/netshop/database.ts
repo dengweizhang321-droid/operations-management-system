@@ -1,6 +1,10 @@
 import { env } from "cloudflare:workers";
 import { netshopBatchId, sameNetshopBatchIdentity } from "@/lib/netshop/batch-identity";
 import { ensureDailyRowNaturalKeys } from "@/lib/netshop/daily-row-migration";
+import {
+  importReservationCommitFence,
+  type ImportReservationFence,
+} from "@/lib/imports/content-fingerprint";
 
 export type NetshopDatabase = NonNullable<typeof env.DB>;
 
@@ -405,6 +409,8 @@ const schemaStatements = [
     ON netshop_rows (spu_id)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_product_code_idx
     ON netshop_rows (product_code)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_lock_ownership_idx
+    ON netshop_rows (source, dataset, platform, shop_name, last_import_batch_id)`,
   `UPDATE netshop_rows
     SET platform = '京东', shop_name = '志高商用设备旗舰店', updated_at = CURRENT_TIMESTAMP
     WHERE source = 'jd_product_master'
@@ -541,6 +547,141 @@ export async function findNetshopImportBatchByHash(
   return batch && (!identity || sameNetshopBatchIdentity(batch, { source, ...identity })) ? batch : null;
 }
 
+export async function findNetshopImportBatchById(
+  db: NetshopDatabase,
+  id: string,
+) {
+  const row = await db
+    .prepare(`SELECT ${batchColumns} FROM netshop_import_batches WHERE id = ? LIMIT 1`)
+    .bind(id)
+    .first<NetshopBatchRow>();
+  return row ? mapBatch(row) : null;
+}
+
+export async function readNetshopScopeOwnership(
+  db: NetshopDatabase,
+  input: {
+    source: NetshopSource;
+    dataset: string;
+    platform: string;
+    shopName: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    snapshotDate?: string | null;
+    fullScope?: boolean;
+  },
+) {
+  if (input.startDate && input.endDate) {
+    const result = await db.prepare(
+      `SELECT last_import_batch_id AS batch_id, COUNT(*) AS row_count
+       FROM netshop_rows
+       WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?
+         AND business_date >= ? AND business_date <= ?
+       GROUP BY last_import_batch_id
+       ORDER BY last_import_batch_id`,
+    ).bind(
+      input.source,
+      input.dataset,
+      input.platform,
+      input.shopName,
+      input.startDate,
+      input.endDate,
+    ).all<{ batch_id: string; row_count: number }>();
+    return result.results.map((row) => ({ batchId: row.batch_id, rowCount: Number(row.row_count) }));
+  }
+  const snapshotClause = input.snapshotDate ? " AND snapshot_date = ?" : "";
+  const bindings: string[] = [input.source, input.dataset, input.platform, input.shopName];
+  if (input.snapshotDate) bindings.push(input.snapshotDate);
+  const result = await db.prepare(
+    `SELECT last_import_batch_id AS batch_id, COUNT(*) AS row_count
+     FROM netshop_rows
+     WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?${snapshotClause}
+     GROUP BY last_import_batch_id
+     ORDER BY last_import_batch_id`,
+  ).bind(...bindings).all<{ batch_id: string; row_count: number }>();
+  return result.results.map((row) => ({ batchId: row.batch_id, rowCount: Number(row.row_count) }));
+}
+
+type NetshopStoredContentRow = {
+  source_row_number: number;
+  source_row_key: string;
+  source_row_hash: string;
+  source: NetshopSource;
+  dataset: string;
+  platform: string;
+  shop_name: string;
+  business_date: string | null;
+  snapshot_date: string | null;
+  product_code: string;
+  product_name: string;
+  sku_id: string;
+  spu_id: string;
+  warehouse_type: string;
+  metrics_json: string;
+  raw_json: string;
+};
+
+/**
+ * Reads the currently published business facts for an exact import scope.
+ * This is used only for a duplicate candidate so the caller can recompute the
+ * normalized content fingerprint instead of trusting batch ownership/counts.
+ */
+export async function readNetshopScopeRows(
+  db: NetshopDatabase,
+  input: {
+    source: NetshopSource;
+    dataset: string;
+    platform: string;
+    shopName: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    snapshotDate?: string | null;
+    fullScope?: boolean;
+  },
+): Promise<NetshopRowInput[]> {
+  const where = ["source = ?", "dataset = ?", "platform = ?", "shop_name = ?"];
+  const bindings: string[] = [input.source, input.dataset, input.platform, input.shopName];
+  if (input.startDate && input.endDate) {
+    where.push("business_date >= ?", "business_date <= ?");
+    bindings.push(input.startDate, input.endDate);
+  } else if (input.snapshotDate) {
+    where.push("snapshot_date = ?");
+    bindings.push(input.snapshotDate);
+  }
+  const result = await db.prepare(
+    `SELECT source_row_number, source_row_key, source_row_hash, source, dataset,
+            platform, shop_name, business_date, snapshot_date, product_code,
+            product_name, sku_id, spu_id, warehouse_type, metrics_json, raw_json
+     FROM netshop_rows
+     WHERE ${where.join(" AND ")}
+     ORDER BY id`,
+  ).bind(...bindings).all<NetshopStoredContentRow>();
+  return result.results.map((row) => ({
+    sourceRowNumber: Number(row.source_row_number),
+    sourceRowKey: row.source_row_key,
+    sourceRowHash: row.source_row_hash,
+    source: row.source,
+    dataset: row.dataset,
+    platform: row.platform,
+    shopName: row.shop_name,
+    businessDate: row.business_date ?? "",
+    snapshotDate: row.snapshot_date ?? "",
+    productCode: row.product_code,
+    productName: row.product_name,
+    skuId: row.sku_id,
+    spuId: row.spu_id,
+    warehouseType: row.warehouse_type,
+    metrics: parseJson<Record<string, number | string | null>>(
+      row.metrics_json,
+      { __invalidStoredJson: row.metrics_json },
+    ),
+    raw: parseJson<Record<string, string | number | boolean | null>>(
+      row.raw_json,
+      { __invalidStoredJson: row.raw_json },
+    ),
+  }));
+}
+
 export async function listNetshopImportBatches(
   db: NetshopDatabase,
   input: { limit?: number; sources?: string[]; platforms?: string[]; shops?: string[] } = {},
@@ -593,7 +734,10 @@ const upsertRowsSql = `
     json(json_extract(item.value, '$.metrics')),
     json(json_extract(item.value, '$.raw'))
   FROM json_each(?) AS item
-  WHERE 1
+  WHERE EXISTS (
+    SELECT 1 FROM netshop_import_batches
+    WHERE id = ? AND status = 'processing'
+  )
   ON CONFLICT(source_row_key) DO UPDATE SET
     source_row_hash = excluded.source_row_hash,
     last_import_batch_id = excluded.last_import_batch_id,
@@ -629,7 +773,8 @@ export async function saveNetshopImport(
     warnings: NetshopImportIssue[];
     totals: unknown;
     note: string;
-    replaceScope?: { startDate: string; endDate: string };
+    replaceScope?: { startDate: string; endDate: string } | { snapshotDate: string } | { fullScope: true };
+    reservationFence?: ImportReservationFence;
   },
 ): Promise<{ batch: NetshopImportBatch; created: boolean }> {
   const batchId = netshopBatchId(input);
@@ -669,12 +814,16 @@ export async function saveNetshopImport(
       ),
   ];
 
-  if (input.replaceScope) {
+  if (input.replaceScope && "startDate" in input.replaceScope) {
     statements.push(
       db.prepare(
         `DELETE FROM netshop_rows
          WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?
-           AND business_date >= ? AND business_date <= ?`,
+           AND business_date >= ? AND business_date <= ?
+           AND EXISTS (
+             SELECT 1 FROM netshop_import_batches
+             WHERE id = ? AND status = 'processing'
+           )`,
       ).bind(
         input.source,
         input.dataset,
@@ -682,13 +831,58 @@ export async function saveNetshopImport(
         input.shopName,
         input.replaceScope.startDate,
         input.replaceScope.endDate,
+        batchId,
       ),
+    );
+  } else if (input.replaceScope && "snapshotDate" in input.replaceScope) {
+    statements.push(
+      db.prepare(
+        `DELETE FROM netshop_rows
+         WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?
+           AND snapshot_date = ?
+           AND EXISTS (
+             SELECT 1 FROM netshop_import_batches
+             WHERE id = ? AND status = 'processing'
+           )`,
+      ).bind(
+        input.source,
+        input.dataset,
+        input.platform,
+        input.shopName,
+        input.replaceScope.snapshotDate,
+        batchId,
+      ),
+    );
+  } else if (input.replaceScope?.fullScope) {
+    statements.push(
+      db.prepare(
+        `DELETE FROM netshop_rows
+         WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?
+           AND EXISTS (
+             SELECT 1 FROM netshop_import_batches
+             WHERE id = ? AND status = 'processing'
+           )`,
+      ).bind(input.source, input.dataset, input.platform, input.shopName, batchId),
     );
   }
 
   for (let offset = 0; offset < input.rows.length; offset += 300) {
     const chunk = input.rows.slice(offset, offset + 300);
-    statements.push(db.prepare(upsertRowsSql).bind(batchId, batchId, JSON.stringify(chunk)));
+    statements.push(db.prepare(upsertRowsSql).bind(batchId, batchId, JSON.stringify(chunk), batchId));
+  }
+
+  if (input.source === "jd_product_master") {
+    statements.push(db.prepare(
+      `UPDATE netshop_rows
+       SET product_code = COALESCE(NULLIF(CAST(json_extract(raw_json, '$."商品编码"') AS TEXT), ''), product_code),
+           spu_id = COALESCE(NULLIF(CAST(json_extract(raw_json, '$."商品编码"') AS TEXT), ''), spu_id),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE source = 'jd_product_master' AND last_import_batch_id = ?
+         AND EXISTS (
+           SELECT 1 FROM netshop_import_batches
+           WHERE id = ? AND status = 'processing'
+         )`,
+    ).bind(batchId, batchId));
   }
 
   statements.push(
@@ -703,10 +897,11 @@ export async function saveNetshopImport(
                SELECT COUNT(*) FROM netshop_rows WHERE first_import_batch_id = ?
              ),
              completed_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+         WHERE id = ? AND status = 'processing'`,
       )
       .bind(batchId, batchId, batchId),
   );
+  if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
 
   const result = await db.batch(statements);
   const created = Number(result[0]?.meta?.changes ?? 0) > 0;
@@ -725,18 +920,36 @@ export async function verifyNetshopImportBatch(
      FROM netshop_rows WHERE last_import_batch_id = ?`,
   ).bind(batch.id).first<{ row_count: number | null; date_min: string | null; date_max: string | null }>();
   const readbackRowCount = Number(row?.row_count ?? 0);
+  const scoped = expected.dateMin && expected.dateMax
+    ? await db.prepare(
+      `SELECT COUNT(*) AS row_count
+       FROM netshop_rows
+       WHERE source = ? AND dataset = ? AND platform = ? AND shop_name = ?
+         AND business_date >= ? AND business_date <= ?`,
+    ).bind(
+      batch.source,
+      expected.dataset,
+      expected.platform,
+      expected.shopName,
+      expected.dateMin,
+      expected.dateMax,
+    ).first<{ row_count: number | null }>()
+    : null;
+  const currentScopeRowCount = scoped ? Number(scoped.row_count ?? 0) : readbackRowCount;
   const verified = batch.status === "completed"
     && batch.dataset === expected.dataset
     && batch.platform === expected.platform
     && batch.shopName === expected.shopName
     && batch.rowCount === expected.rowCount
     && readbackRowCount === expected.rowCount
+    && currentScopeRowCount === expected.rowCount
     && (row?.date_min ?? null) === expected.dateMin
     && (row?.date_max ?? null) === expected.dateMax;
   return {
     verified,
     parsedRowCount: expected.rowCount,
     readbackRowCount,
+    currentScopeRowCount,
     dateMin: row?.date_min ?? null,
     dateMax: row?.date_max ?? null,
     dataset: batch.dataset,

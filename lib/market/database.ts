@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { ImportReservationFence } from "@/lib/imports/content-fingerprint";
 import { marketBatchColumns, mapMarketBatch, saveMarketImportCore } from "@/lib/market/import-core";
 import { normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import { buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketOverviewFilterOptionsSql } from "@/lib/market/overview-sql";
@@ -93,6 +94,8 @@ export type MarketImportBatch = {
   periodStart: string | null;
   periodEnd: string | null;
   warnings: MarketImportIssue[];
+  replaceRangeKeys?: string[];
+  reservationFence?: ImportReservationFence;
   createdAt: string;
   completedAt: string | null;
 };
@@ -126,6 +129,12 @@ export async function findMarketBatchByHash(db: MarketDatabase, fileHash: string
   return row ? mapMarketBatch(row) as MarketImportBatch : null;
 }
 
+export async function findMarketBatchById(db: MarketDatabase, id: string): Promise<MarketImportBatch | null> {
+  const row = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE id = ? LIMIT 1`)
+    .bind(id).first<Parameters<typeof mapMarketBatch>[0]>();
+  return row ? mapMarketBatch(row) as MarketImportBatch : null;
+}
+
 export async function listMarketImportBatches(db: MarketDatabase, limit = 8): Promise<MarketImportBatch[]> {
   const rows = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT ?`)
     .bind(Math.max(1, Math.min(50, Math.trunc(limit)))).all<Parameters<typeof mapMarketBatch>[0]>();
@@ -142,8 +151,11 @@ export async function saveMarketImport(input: {
   sheetName: string;
   rows: MarketEntryInput[];
   warnings: MarketImportIssue[];
-}): Promise<MarketImportBatch> {
-  return saveMarketImportCore(input) as Promise<MarketImportBatch>;
+  replaceRangeKeys?: string[];
+  reservationFence?: ImportReservationFence;
+}): Promise<{ batch: MarketImportBatch; created: boolean }> {
+  const result = await saveMarketImportCore(input);
+  return { batch: result as MarketImportBatch, created: result.created === true };
 }
 
 

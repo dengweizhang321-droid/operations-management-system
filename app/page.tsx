@@ -814,15 +814,6 @@ type FinanceAnalysisResponse = {
 
 type FinanceTargetOptions = { shops: string[]; categories: string[]; projects: string[] };
 
-type SalesImportResponse = {
-  ok: boolean;
-  status: "imported" | "duplicate" | "rejected" | string;
-  message?: string;
-  batch?: SalesImportBatch;
-  warnings?: ImportIssue[];
-  errors?: ImportIssue[];
-};
-
 type ImportFeedback = {
   tone: "success" | "warning" | "error" | "duplicate";
   title: string;
@@ -4889,7 +4880,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
     needsDailyRange?: boolean;
     isCustomerService?: boolean;
   }> = [
-    { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
+    { key: "sales", icon: "销", label: "销售明细", report: "销售单明细账", directEndpoint: "/api/imports/sales", chunkEndpoint: "/api/imports/sales/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_IMPORT_FILE_SIZE, chunkSize: SALES_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP", needsDailyRange: true },
     { key: "inventory", icon: "库", label: "分仓库存", report: "分仓库存快照", directEndpoint: "/api/imports/inventory", chunkEndpoint: "/api/imports/inventory/chunks", directFileSize: DIRECT_INVENTORY_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "products", icon: "品", label: "货品主数据", report: "货品资料", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: false, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
     { key: "inventory_age", icon: "龄", label: "库龄", report: "库龄分析表", directEndpoint: "/api/imports/erp", chunkEndpoint: "/api/imports/erp/chunks", directFileSize: DIRECT_IMPORT_FILE_SIZE, maxFileSize: MAX_INVENTORY_FILE_SIZE, chunkSize: INVENTORY_UPLOAD_CHUNK_SIZE, needsSnapshotDate: true, extensions: [".xlsx"], accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", systemLabel: "吉客云 ERP" },
@@ -4948,8 +4939,8 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
     if (payload.status === "duplicate") {
       setFeedback({
         tone: "duplicate",
-        title: "检测到重复文件",
-        message: payload.message || `该文件已导入，系统没有重复写入${activeSource.label}数据。`,
+        title: "业务内容完全一致",
+        message: payload.message || `全部标准化资料与当前${activeSource.label}数据一致，系统没有重复写入。`,
         details: warnings.slice(0, 8).map(issueText),
       });
     } else if (warnings.length || (payload.batch?.warningCount ?? 0) > 0) {
@@ -4980,7 +4971,18 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
     const initResponse = await fetch(activeSource.chunkEndpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "init", source: activeSource.formSource ?? selectedSource, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint }),
+      body: JSON.stringify({
+        action: "init",
+        source: activeSource.formSource ?? selectedSource,
+        fileName: file.name,
+        fileSizeBytes: file.size,
+        chunkCount,
+        fingerprint,
+        ...((activeSource.needsSnapshotDate || activeSource.includeSnapshotDate)
+          ? { snapshotDate: activeSource.includeSnapshotDate ? shanghaiIsoToday() : snapshotDate }
+          : {}),
+        ...(activeSource.needsDailyRange ? { expectedStartDate: dailyStartDate, expectedEndDate: dailyEndDate } : {}),
+      }),
     });
     const initPayload = await initResponse.json().catch(() => null) as UnifiedImportResponse | null;
     if (!initResponse.ok || !initPayload?.ok || !initPayload.upload) {
@@ -5015,7 +5017,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
     const completeResponse = await fetch(activeSource.chunkEndpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "complete", source: activeSource.formSource ?? selectedSource, uploadId: initPayload.upload.id, ...((activeSource.needsSnapshotDate || activeSource.includeSnapshotDate) ? { snapshotDate: activeSource.includeSnapshotDate ? shanghaiIsoToday() : snapshotDate } : {}) }),
+      body: JSON.stringify({ action: "complete", source: activeSource.formSource ?? selectedSource, uploadId: initPayload.upload.id, ...((activeSource.needsSnapshotDate || activeSource.includeSnapshotDate) ? { snapshotDate: activeSource.includeSnapshotDate ? shanghaiIsoToday() : snapshotDate } : {}), ...(activeSource.needsDailyRange ? { expectedStartDate: dailyStartDate, expectedEndDate: dailyEndDate } : {}) }),
     });
     return {
       payload: await completeResponse.json().catch(() => null) as UnifiedImportResponse | null,
@@ -5030,7 +5032,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
       return;
     }
     if (activeSource.needsDailyRange && (!/^\d{4}-\d{2}-\d{2}$/.test(dailyStartDate) || !/^\d{4}-\d{2}-\d{2}$/.test(dailyEndDate) || dailyStartDate > dailyEndDate)) {
-      setFeedback({ tone: "error", title: "请选择有效目标日期区间", message: "分天数据必须与下载报表的起止日期逐日一致。", details: [] });
+      setFeedback({ tone: "error", title: "请选择有效业务日期区间", message: "该范围用于精确替换本次报表覆盖的数据，不要求每个自然日都有资料。", details: [] });
       return;
     }
     setUploading(true);
@@ -5096,7 +5098,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
           {activeSource.isCustomerService ? <CustomerServiceImportCard canImport={currentUser?.role === "admin"} onCompleted={loadHistory} /> : <>
           <span className="eyebrow">第 2 步</span><h2>上传{activeSource.label}报表</h2><p>支持 {activeSource.extensions.join(" / ")}，单文件最大 {formatFileSize(activeSource.maxFileSize)}；月度财报按月份自动去重并合并同名科目。</p>
           {activeSource.needsSnapshotDate && <label className="import-snapshot-field"><span>数据快照日期</span><input type="date" value={snapshotDate} max={shanghaiIsoToday()} onChange={(event) => setSnapshotDate(event.target.value)} /></label>}
-          {activeSource.needsDailyRange && <div className="import-snapshot-field"><label><span>目标起始日期</span><input type="date" value={dailyStartDate} max={dailyEndDate} onChange={(event) => setDailyStartDate(event.target.value)} /></label><label><span>目标结束日期</span><input type="date" value={dailyEndDate} min={dailyStartDate} max={addIsoDays(shanghaiIsoToday(), -1)} onChange={(event) => setDailyEndDate(event.target.value)} /></label></div>}
+          {activeSource.needsDailyRange && <div className="import-snapshot-field"><label><span>业务范围起始日期</span><input type="date" value={dailyStartDate} max={dailyEndDate} onChange={(event) => setDailyStartDate(event.target.value)} /></label><label><span>业务范围结束日期</span><input type="date" value={dailyEndDate} min={dailyStartDate} max={addIsoDays(shanghaiIsoToday(), -1)} onChange={(event) => setDailyEndDate(event.target.value)} /></label></div>}
           <input
             ref={inputRef}
             className="file-input-hidden"
@@ -5143,7 +5145,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
             const rejected = row.status === "rejected";
             const duplicate = row.status === "duplicate";
             const warned = row.warningCount > 0;
-            const resultText = rejected ? "导入失败" : duplicate ? "重复文件" : warned ? `成功 · ${row.warningCount} 条警告` : "成功";
+            const resultText = rejected ? "导入失败" : duplicate ? "内容一致，已跳过" : warned ? `成功 · ${row.warningCount} 条警告` : "成功";
             const statusClass = rejected ? "status-danger" : duplicate || warned ? "status-warning" : "status-success";
             const dotTone = rejected ? "red" : duplicate || warned ? "orange" : "green";
             const countNote = row.sourceKey === "products" || row.sourceKey === "combos"

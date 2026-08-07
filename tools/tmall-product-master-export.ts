@@ -105,7 +105,7 @@ type MasterExportAudit = {
 export type TmallProductMasterStageResult = {
   ok: true;
   stage: "product_master";
-  status: "skipped_current_snapshot" | "imported" | "duplicate";
+  status: "imported" | "duplicate";
   storeKey: string;
   shopName: string;
   snapshotDate: string;
@@ -493,40 +493,6 @@ async function writeActiveAudit(audit: MasterExportAudit, auditDirectory = artif
   const updated = { ...audit, updatedAt: new Date().toISOString() };
   await writeJsonAtomic(activeAuditPath(audit.storeKey, auditDirectory), updated);
   return updated;
-}
-
-async function latestMasterBatch(baseUrl: string, store: TmallStore, request: typeof fetch = fetch) {
-  const params = new URLSearchParams({
-    limit: "20",
-    source: "tmall_product_master",
-    platform: "天猫",
-    shop: store.shopName,
-  });
-  const response = await request(`${baseUrl}/api/netshop/import?${params}`, {
-    signal: AbortSignal.timeout(30_000),
-  });
-  const payload = await response.json().catch(() => null) as { items?: unknown } | null;
-  if (!response.ok || !Array.isArray(payload?.items)) {
-    throw new Error(`无法读取 ${store.shopName} 的货品主数据批次（HTTP ${response.status}）`);
-  }
-  const batches = payload.items.filter((item): item is MasterImportBatch => Boolean(item && typeof item === "object"));
-  return batches.find((batch) => batch.source === "tmall_product_master"
-    && batch.dataset === "product_master"
-    && batch.platform === "天猫"
-    && batch.shopName === store.shopName
-    && batch.status === "completed") ?? null;
-}
-
-export function currentMasterSnapshot(batch: MasterImportBatch | null, snapshotDate: string, shopName?: string) {
-  return Boolean(batch
-    && batch.snapshotDate === snapshotDate
-    && (!shopName || batch.shopName === shopName)
-    && batch.status === "completed"
-    && batch.source === "tmall_product_master"
-    && batch.dataset === "product_master"
-    && batch.platform === "天猫"
-    && typeof batch.id === "string"
-    && typeof batch.rowCount === "number");
 }
 
 export async function inspectTmallMasterFile(
@@ -1569,25 +1535,6 @@ export async function runTmallProductMasterStage(options: {
   const request = options.request ?? fetch;
   const runAuditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
-
-  const current = await latestMasterBatch(baseUrl, store, request);
-  if (currentMasterSnapshot(current, snapshotDate, store.shopName)) {
-    const completedActive = await readActiveAudit(store.storeKey, runAuditDirectory);
-    if (completedActive?.audit.snapshotDate === snapshotDate && completedActive.audit.shopName === store.shopName) {
-      await rm(completedActive.filePath, { force: true });
-    }
-    return {
-      ok: true,
-      stage: "product_master",
-      status: "skipped_current_snapshot",
-      storeKey: store.storeKey,
-      shopName: store.shopName,
-      snapshotDate,
-      batchId: current!.id!,
-      rowCount: current!.rowCount!,
-      warningCount: Number(current!.warningCount ?? 0),
-    };
-  }
 
   await mkdir(runAuditDirectory, { recursive: true });
   const existing = await readActiveAudit(store.storeKey, runAuditDirectory);

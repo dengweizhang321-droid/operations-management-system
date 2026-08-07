@@ -1,6 +1,7 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { parseCustomerServiceImport } from "@/lib/customer-service/import-service";
-import { saveCustomerServiceImport } from "@/lib/customer-service/database";
+import { ensureCustomerServiceSchema, getCustomerServiceDatabase, saveCustomerServiceImport } from "@/lib/customer-service/database";
+import { ensureImportFingerprintSchema, recordRejectedImportAttempt } from "@/lib/imports/content-fingerprint";
 import {
   INVENTORY_UPLOAD_CHUNK_BYTES,
   assembleInventoryUpload,
@@ -30,18 +31,20 @@ export async function POST(request: Request) {
     if (!body) return reject(400, "Invalid upload request");
 
     if (body.action === "init") {
+      const kind = body.kind === "session" || body.kind === "chat" ? body.kind : null;
       const fileName = typeof body.fileName === "string" ? body.fileName : "";
       const fileSizeBytes = Number(body.fileSizeBytes);
       const chunkCount = Number(body.chunkCount);
       const fingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
-      if (!/\.(xlsx|log|txt)$/i.test(fileName) || fileSizeBytes <= 0 || fileSizeBytes > MAX_FILE_BYTES) {
+      if (!kind || (kind === "session" ? !/\.xlsx$/i.test(fileName) : !/\.(log|txt)$/i.test(fileName))
+        || fileSizeBytes <= 0 || fileSizeBytes > MAX_FILE_BYTES) {
         return reject(422, "Unsupported customer-service source file");
       }
       const upload = await beginInventoryUpload({
-        fileName: `${fileName}.xlsx`,
+        fileName: `${kind}-${fileName}.xlsx`,
         fileSizeBytes,
         chunkCount,
-        fingerprint: `customer-service:${fingerprint}`,
+        fingerprint: `customer-service:${kind}:${fingerprint}`,
       });
       return Response.json({ ok: true, upload, limits: { chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES, maxFileSizeBytes: MAX_FILE_BYTES } });
     }
@@ -53,19 +56,64 @@ export async function POST(request: Request) {
       const chatFileName = typeof body.chatFileName === "string" ? body.chatFileName : "";
       const shopName = typeof body.shopName === "string" ? body.shopName.trim() : "";
       if (!sessionUploadId || !chatUploadId || !shopName || shopName.length > 100 || !/\.xlsx$/i.test(sessionFileName) || !/\.(log|txt)$/i.test(chatFileName)) return reject(400, "Missing shop or paired upload files");
+      const pairKey = await digest(new TextEncoder().encode(`${sessionUploadId}:${chatUploadId}`));
       const sessionClaim = await claimInventoryUpload(sessionUploadId);
-      if (sessionClaim.kind === "completed") return Response.json(sessionClaim.result);
+      if (!sessionClaim.session.fingerprint.startsWith("customer-service:session:")) {
+        if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
+        return reject(409, "Session upload identity does not match the paired import request");
+      }
       let chatClaim;
       try { chatClaim = await claimInventoryUpload(chatUploadId); }
-      catch (error) { await releaseInventoryUpload(sessionUploadId); throw error; }
-      if (chatClaim.kind === "completed") { await releaseInventoryUpload(sessionUploadId); return Response.json(chatClaim.result); }
+      catch (error) {
+        if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
+        throw error;
+      }
+      if (!chatClaim.session.fingerprint.startsWith("customer-service:chat:")) {
+        if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
+        if (chatClaim.kind === "claimed") await releaseInventoryUpload(chatUploadId);
+        return reject(409, "Chat upload identity does not match the paired import request");
+      }
+      if (sessionClaim.kind === "completed" || chatClaim.kind === "completed") {
+        if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
+        if (chatClaim.kind === "claimed") await releaseInventoryUpload(chatUploadId);
+        if (sessionClaim.kind !== "completed" || chatClaim.kind !== "completed") {
+          return reject(409, "Paired upload sessions are not from the same completed import; upload both files again");
+        }
+        const sessionResult = sessionClaim.result as { ok?: boolean; status?: string; requestShopName?: string; pairKey?: string };
+        const chatResult = chatClaim.result as { ok?: boolean; status?: string; requestShopName?: string; pairKey?: string };
+        if (sessionResult.requestShopName !== shopName || sessionResult.pairKey !== pairKey
+          || chatResult.pairKey !== pairKey || JSON.stringify(sessionResult) !== JSON.stringify(chatResult)) {
+          return reject(409, "Completed paired upload result does not match this shop or file pair");
+        }
+        return Response.json(sessionResult, { status: sessionResult.ok ? (sessionResult.status === "imported" ? 201 : 200) : 422 });
+      }
       try {
         const [session, chat] = await Promise.all([assembleInventoryUpload(sessionUploadId), assembleInventoryUpload(chatUploadId)]);
-        const parsed = parseCustomerServiceImport(session.bytes, new TextDecoder("utf-8", { fatal: true }).decode(chat.bytes));
+        const sessionHash = await digest(session.bytes); const chatHash = await digest(chat.bytes);
+        const requestedFileHash = await digest(new TextEncoder().encode(`${shopName}:${sessionHash}:${chatHash}`));
+        let parsed: ReturnType<typeof parseCustomerServiceImport>;
+        try {
+          parsed = parseCustomerServiceImport(session.bytes, new TextDecoder("utf-8", { fatal: true }).decode(chat.bytes));
+          if (parsed.conversations.length === 0) throw new Error("Customer-service import contains no conversations to save");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Customer-service files could not be parsed";
+          const db = getCustomerServiceDatabase();
+          await ensureCustomerServiceSchema(db);
+          await ensureImportFingerprintSchema(db);
+          await recordRejectedImportAttempt(db, {
+            domain: "customer-service",
+            rawFileHash: requestedFileHash,
+            scopeHint: { shopName, pairKey },
+            errorCode: "CUSTOMER_SERVICE_PARSE_REJECTED",
+            issues: [{ code: "CUSTOMER_SERVICE_PARSE_REJECTED", message }],
+            metadata: { fileName: `${sessionFileName} + ${chatFileName}`, fileSizeBytes: session.bytes.byteLength + chat.bytes.byteLength },
+          });
+          throw error;
+        }
         const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
         const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(session.bytes)}:${await digest(chat.bytes)}`));
         const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName, chatFileName, fileHash, parsed });
-        const result = { ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "Source files were already imported" : `Imported ${parsed.conversations.length} customer-service conversations` };
+        const result = { ok: true, status: saved.status, requestShopName: shopName, pairKey, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "All normalized customer-service data matches the current facts; no rows were rewritten" : `Imported ${parsed.conversations.length} customer-service conversations` };
         await Promise.all([finishInventoryUpload(sessionUploadId, session.objectKeys, result), finishInventoryUpload(chatUploadId, chat.objectKeys, result)]);
         return Response.json(result, { status: saved.status === "imported" ? 201 : 200 });
       } catch (error) {

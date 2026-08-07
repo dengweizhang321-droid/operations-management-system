@@ -3,10 +3,23 @@ import {
   type SalesLedgerRow,
   type SalesLedgerTotals,
 } from "@/lib/imports/sales-ledger";
+import {
+  buildImportAttemptHash,
+  buildImportContentFingerprint,
+  auditRejectedImportResult,
+  ensureImportFingerprintSchema,
+  failImportFingerprint,
+  nextImportScopeStateToken,
+  readImportScopeStateToken,
+  recordImportFingerprint,
+  renewImportFingerprintReservation,
+  reserveImportFingerprint,
+} from "@/lib/imports/content-fingerprint";
 import { findLatestSystemCostSnapshot } from "@/lib/inventory/database";
 import {
   ensureSalesSchema,
   findSalesImportBatchByHash,
+  findSalesImportBatchById,
   getSalesDatabase,
   sanitizeSalesIssues,
   saveSalesImport,
@@ -33,10 +46,6 @@ function toHex(buffer: ArrayBuffer) {
 function sha256(bytes: Uint8Array) {
   const input = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   return crypto.subtle.digest("SHA-256", input);
-}
-
-async function cleanedImportHash(rawFileHash: string, systemCostBatchId: string) {
-  return toHex(await sha256(new TextEncoder().encode(`${rawFileHash}\nSYSTEM_COST:${systemCostBatchId}`)));
 }
 
 function safeFileName(name: string) {
@@ -219,21 +228,34 @@ export async function importSalesLedgerBytes(input: {
   bytes: Uint8Array;
   fileName: string;
   fileSizeBytes: number;
+  expectedStartDate: string;
+  expectedEndDate: string;
 }): Promise<SalesImportExecution> {
-  if (!isXlsxSignature(input.bytes)) {
-    return { ok: false, status: "rejected", message: "文件签名不是有效的 .xlsx（ZIP）格式", warnings: [], errors: [{ code: "INVALID_XLSX_SIGNATURE", message: "文件签名无效" }], errorCount: 1 };
-  }
-
   const rawFileHash = toHex(await sha256(input.bytes));
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
+  await ensureImportFingerprintSchema(db);
+  const reject = (result: SalesImportExecution) => auditRejectedImportResult(db, {
+    domain: "sales",
+    rawFileHash,
+    scopeHint: { source: "sales_ledger", startDate: input.expectedStartDate, endDate: input.expectedEndDate },
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes },
+  }, result);
+  if (!isXlsxSignature(input.bytes)) {
+    return reject({ ok: false, status: "rejected", message: "文件签名不是有效的 .xlsx（ZIP）格式", warnings: [], errors: [{ code: "INVALID_XLSX_SIGNATURE", message: "文件签名无效" }], errorCount: 1 });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expectedStartDate)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(input.expectedEndDate)
+    || input.expectedStartDate > input.expectedEndDate) {
+    return reject({ ok: false, status: "rejected", message: "销售导入必须提供有效的权威起止日期", warnings: [], errors: [{ code: "INVALID_EXPECTED_DATE_RANGE", message: "起止日期必须为 YYYY-MM-DD，且开始日期不能晚于结束日期" }], errorCount: 1 });
+  }
 
   let parsed: Awaited<ReturnType<typeof parseSalesLedgerXlsx>>;
   try {
     parsed = await parseSalesLedgerXlsx(input.bytes);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Excel 文件解析失败";
-    return { ok: false, status: "rejected", message, warnings: [], errors: [{ code: "XLSX_PARSE_ERROR", message }], errorCount: 1 };
+    return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "XLSX_PARSE_ERROR", message }], errorCount: 1 });
   }
 
   const parserErrors = sanitizeSalesIssues(parsed.errors ?? []);
@@ -247,6 +269,10 @@ export async function importSalesLedgerBytes(input: {
   let rows = rowsWithinCutoff.filter((row) => !isExcludedSalesWarehouse(row.warehouse));
   const disallowedChannelRows = rows.filter((row) => !isApprovedSalesChannel(row.channel));
   rows = rows.filter((row) => isApprovedSalesChannel(row.channel));
+  const outOfScopeRows = rows.filter((row) => {
+    const date = row.shipTime.slice(0, 10);
+    return date < input.expectedStartDate || date > input.expectedEndDate;
+  });
   const baseWarnings: Array<{ code: string; message: string; sourceRowNumber?: number }> = [
     ...(parsed.warnings ?? []),
     ...(excludedFutureDateRows > 0
@@ -268,18 +294,21 @@ export async function importSalesLedgerBytes(input: {
   }));
   const rowErrors = validateRows(rows);
   const errors = [...parserErrors, ...policyErrors, ...rowErrors].slice(0, 200);
+  if (outOfScopeRows.length > 0) {
+    errors.unshift({ code: "OUT_OF_EXPECTED_DATE_RANGE", message: `${outOfScopeRows.length} 行发货日期超出权威导入范围 ${input.expectedStartDate} 至 ${input.expectedEndDate}` });
+  }
   if (rows.length === 0) {
     errors.unshift({ code: "NO_DATA_ROWS", message: "剔除当天订单明细、刷刷仓和白名单外店铺后没有可导入的销售数据" });
   }
   if (errors.length > 0) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "文件校验未通过，未写入任何销售数据",
       warnings,
       errors,
       errorCount: (parsed.errors?.length ?? 0) + policyErrors.length + rowErrors.length,
-    };
+    });
   }
 
   let systemCost: {
@@ -294,7 +323,7 @@ export async function importSalesLedgerBytes(input: {
   if (hasCleanableZeroCostRows(rows)) {
     const snapshot = await findLatestSystemCostSnapshot(db);
     if (!snapshot) {
-      return {
+      return reject({
         ok: false,
         status: "rejected",
         message: "检测到货品成本为 0 的销售明细，但没有可用的系统成本快照",
@@ -305,7 +334,7 @@ export async function importSalesLedgerBytes(input: {
           message: "请先同步包含正固定成本价的分仓库存快照，再重新导入销售明细",
         }],
         errorCount: 1,
-      };
+      });
     }
 
     const cleaned = cleanZeroCostSalesRows(rows, snapshot.costs);
@@ -349,14 +378,63 @@ export async function importSalesLedgerBytes(input: {
     };
   }
 
-  const fileHash = systemCost
-    ? await cleanedImportHash(rawFileHash, systemCost.sourceBatchId)
-    : rawFileHash;
-  const previous = await findSalesImportBatchByHash(db, fileHash);
-  if (previous?.status === "completed") {
-    return { ok: true, status: "duplicate", message: "该文件已经导入，无需重复处理", batch: previous, warnings: previous.warnings };
+  const scopeStart = input.expectedStartDate;
+  const scopeEnd = input.expectedEndDate;
+  const fingerprint = await buildImportContentFingerprint({
+    domain: "sales",
+    scope: { source: "sales_ledger", startDate: scopeStart, endDate: scopeEnd },
+    lockScope: { source: "sales_ledger" },
+    rows,
+    ignoredTopLevelKeys: ["sourceRowNumber", "sourceLineKey", "sourceRowHash"],
+  });
+  const readScopeOwnership = async () => {
+    const current = await db.prepare(
+      `SELECT last_import_batch_id AS batch_id, COUNT(*) AS row_count
+       FROM sales_order_lines
+       WHERE ship_time >= ? AND ship_time < ?
+       GROUP BY last_import_batch_id
+       ORDER BY last_import_batch_id`,
+    ).bind(scopeStart, addUtcDays(scopeEnd, 1)).all<{ batch_id: string; row_count: number }>();
+    return current.results.map((row) => ({ batchId: row.batch_id, rowCount: Number(row.row_count) }));
+  };
+  const scopeOwnership = await readScopeOwnership();
+  const currentStateToken = await readImportScopeStateToken(db, fingerprint);
+  const currentBatchId = scopeOwnership.length === 1 && scopeOwnership[0]?.rowCount === rows.length
+    ? scopeOwnership[0].batchId
+    : null;
+  const currentBatch = currentBatchId ? await findSalesImportBatchById(db, currentBatchId) : null;
+  const currentTotals = currentBatch?.totals as { contentHash?: unknown; rawFileHash?: unknown } | null;
+  if (currentBatch?.status === "completed" && currentBatch.rowCount === rows.length
+    && currentTotals?.contentHash === fingerprint.contentHash) {
+    await recordImportFingerprint(db, {
+      ...fingerprint,
+      batchId: currentBatch.id,
+      importHash: currentBatch.fileHash,
+      rawFileHash,
+      publishedStateToken: currentStateToken,
+      metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+      outcome: "duplicate",
+    });
+    return { ok: true, status: "duplicate", message: "全部标准化销售资料与当前期间一致，无需重复导入", batch: currentBatch, warnings: currentBatch.warnings };
   }
+  const fileHash = await buildImportAttemptHash({
+    fingerprint,
+    currentStateToken,
+  });
+  const reservation = await reserveImportFingerprint(db, {
+    ...fingerprint,
+    batchId: fileHash,
+    importHash: fileHash,
+    rawFileHash,
+    currentStateToken,
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+  });
+  if (!reservation.claimed) {
+    return { ok: false, status: "rejected", message: "同一销售期间已被更新，请重新提交最新文件", warnings, errors: [{ code: "IMPORT_SCOPE_CHANGED", message: "导入开始前当前期间版本已变化" }], errorCount: 1 };
+  }
+  await renewImportFingerprintReservation(db, { ...fingerprint, batchId: fileHash, attemptId: reservation.attemptId });
 
+  try {
   const result = await saveSalesImport(db, {
     fileHash,
     fileName: safeFileName(input.fileName),
@@ -364,12 +442,43 @@ export async function importSalesLedgerBytes(input: {
     sheetName: parsed.sheetName,
     rows,
     warnings,
-    totals: calculateStoredTotals(parsed.totals, rows, {
+    replaceStartDate: scopeStart,
+    replaceEndDate: scopeEnd,
+    reservationFence: {
+      domain: fingerprint.domain,
+      scopeKey: fingerprint.scopeKey,
+      batchId: fileHash,
+      attemptId: reservation.attemptId,
+    },
+    totals: {
+      ...calculateStoredTotals(parsed.totals, rows, {
       rawFileHash,
       excludedBrushWarehouseRows,
       excludedFutureDateRows,
       systemCost,
+      }),
+      contentHash: fingerprint.contentHash,
+    },
+  });
+  const postOwnership = await readScopeOwnership();
+  if (result.batch.status !== "completed" || postOwnership.length !== 1
+    || postOwnership[0]?.batchId !== result.batch.id || postOwnership[0].rowCount !== rows.length) {
+    throw new Error("销售导入批次未完成或当前期间的落库事实与解析结果不一致");
+  }
+  await recordImportFingerprint(db, {
+    ...fingerprint,
+    batchId: result.batch.id,
+    importHash: fileHash,
+    rawFileHash,
+    attemptId: reservation.attemptId,
+    publishedStateToken: await nextImportScopeStateToken({
+      previousStateToken: currentStateToken,
+      batchId: result.batch.id,
+      contentHash: fingerprint.contentHash,
+      rowCount: fingerprint.rowCount,
     }),
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+    outcome: result.created ? "imported" : "duplicate",
   });
   return {
     ok: true,
@@ -378,8 +487,12 @@ export async function importSalesLedgerBytes(input: {
       ? systemCost
         ? `销售单明细账导入成功，已用系统成本清洗 ${systemCost.cleanedRows} 行零成本明细`
         : "销售单明细账导入成功"
-      : "该文件已经导入，无需重复处理",
+      : "全部标准化销售资料与当前期间一致，无需重复导入",
     batch: result.batch,
     warnings,
   };
+  } catch (error) {
+    await failImportFingerprint(db, { ...fingerprint, batchId: fileHash, importHash: fileHash, rawFileHash, attemptId: reservation.attemptId, metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings }, errorCode: "SALES_IMPORT_FAILED" }).catch(() => undefined);
+    throw error;
+  }
 }

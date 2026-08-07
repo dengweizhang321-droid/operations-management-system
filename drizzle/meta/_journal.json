@@ -393,6 +393,13 @@
       "when": 1785928370000,
       "tag": "0055_market_annotation_throughput",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1786003200000,
+      "tag": "0056_import_content_fingerprints",
+      "breakpoints": true
     }
   ]
 }

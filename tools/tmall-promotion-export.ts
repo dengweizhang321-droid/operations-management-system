@@ -225,12 +225,9 @@ export function planTmallPromotionDailyReports(input: {
   maximumDays?: number;
 }): PromotionDatePlan[] {
   if (!validDate(input.requestedStartDate) || !validDate(input.requestedEndDate) || input.requestedStartDate > input.requestedEndDate) {
-    throw new Error("推广缺口规划日期范围无效");
+    throw new Error("推广目标日期范围无效");
   }
   const maximumDays = Math.max(1, Math.min(maximumDaysPerRun, Math.trunc(input.maximumDays ?? maximumDaysPerRun)));
-  if (input.forceExistingDates && input.requestedDates === undefined) {
-    throw new Error("推广强制重下必须显式提供 --dates 日期清单");
-  }
   const productDaily = new Set(input.productDailyDates.filter((date) => (
     validDate(date) && date >= input.requestedStartDate && date <= input.requestedEndDate
   )));
@@ -250,10 +247,8 @@ export function planTmallPromotionDailyReports(input: {
       throw new Error(`推广显式日期超过单轮 ${maximumDays} 天上限`);
     }
   }
-  const promoted = new Set(input.promotionDates.filter(validDate));
   const candidates = requestedDates ?? [...productDaily].sort();
-  const missing = candidates.filter((date) => input.forceExistingDates || !promoted.has(date));
-  return missing.slice(0, maximumDays).map((date) => ({
+  return candidates.slice(0, maximumDays).map((date) => ({
     startDate: date,
     endDate: date,
     dates: [date],
@@ -1732,6 +1727,7 @@ export async function runTmallPromotionStage(options: {
   dates?: readonly string[];
   forceExistingDates?: boolean;
   maximumDays?: number;
+  executeDate?: typeof runTmallPromotionDate;
 } = {}) {
   const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
@@ -1740,20 +1736,18 @@ export async function runTmallPromotionStage(options: {
   if (!store.initialStartDate) throw new Error(`${store.shopName} 尚未配置推广补数起始日期`);
   const latestAllowedDate = shanghaiYesterday();
   const requestedDates = options.dates === undefined
-    ? undefined
+    ? [latestAllowedDate]
     : [...new Set(options.dates)].sort();
   if (requestedDates && requestedDates.length === 0) throw new Error("推广显式日期清单不能为空");
-  if (options.forceExistingDates && requestedDates === undefined) {
-    throw new Error("推广强制重下必须显式提供 --dates 日期清单");
-  }
   if (requestedDates?.some((date) => !validDate(date) || date < store.initialStartDate! || date > latestAllowedDate)) {
     throw new Error(`推广显式日期必须位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
   }
-  const requestedStartDate = requestedDates?.[0] ?? store.initialStartDate;
-  const requestedEndDate = requestedDates?.at(-1) ?? latestAllowedDate;
+  const requestedStartDate = requestedDates[0]!;
+  const requestedEndDate = requestedDates.at(-1)!;
   const coverage = await coverageForStore(baseUrl, store, requestedStartDate, requestedEndDate, request);
-  if (coverage.productDailyDates.length === 0) {
-    throw new Error("waiting_product_daily：商品日数据尚未覆盖请求区间，推广阶段需要稍后重试");
+  const missingProductDailyDates = requestedDates.filter((date) => !coverage.productDailyDates.includes(date));
+  if (missingProductDailyDates.length > 0) {
+    throw new Error(`waiting_product_daily：商品日数据尚未覆盖 ${missingProductDailyDates.join(", ")}，推广阶段需要稍后重试`);
   }
   const plans = planTmallPromotionDailyReports({
     requestedStartDate,
@@ -1761,56 +1755,18 @@ export async function runTmallPromotionStage(options: {
     productDailyDates: coverage.productDailyDates,
     promotionDates: coverage.promotionDates,
     requestedDates,
-    forceExistingDates: options.forceExistingDates,
     maximumDays: options.maximumDays,
   });
-  if (plans.length === 0) {
-    return {
-      ok: true,
-      stage: "promotion",
-      status: "skipped" as const,
-      mode: "daily" as const,
-      reason: "already_covered" as const,
-      storeKey: store.storeKey,
-      shopName: store.shopName,
-      plannedDates: [],
-      completedDates: [],
-      dailyResults: [],
-      coverageConfirmed: true,
-    };
-  }
 
-  const dailyResults = await runPromotionDailyPlansSequentially(plans, async (plan) => {
-    const latestCoverage = await coverageForStore(baseUrl, store, plan.startDate, plan.endDate, request);
-    if (!options.forceExistingDates && latestCoverage.promotionDates.includes(plan.startDate)) {
-      return {
-        ok: true,
-        stage: "promotion_day" as const,
-        status: "skipped" as const,
-        reason: "already_covered" as const,
-        storeKey: store.storeKey,
-        shopName: store.shopName,
-        date: plan.startDate,
-        startDate: plan.startDate,
-        endDate: plan.endDate,
-        dates: plan.dates,
-        fileName: undefined,
-        sha256: undefined,
-        rowCount: 0,
-        warningCount: 0,
-        batchId: undefined,
-        coverageConfirmed: true,
-      };
-    }
-    return runTmallPromotionDate({
+  const executeDate = options.executeDate ?? runTmallPromotionDate;
+  const dailyResults = await runPromotionDailyPlansSequentially(plans, async (plan) => executeDate({
       store,
       baseUrl,
       request,
       auditDirectory: runAuditDirectory,
       plan,
-    });
-  });
-  const executedResults = dailyResults.filter((result) => result.status !== "skipped");
+    }));
+  const executedResults = dailyResults;
   const importedCount = executedResults.filter((result) => result.status === "imported").length;
   const duplicateCount = executedResults.filter((result) => result.status === "duplicate").length;
   const skippedCount = dailyResults.length - executedResults.length;
@@ -1820,7 +1776,7 @@ export async function runTmallPromotionStage(options: {
     stage: "promotion",
     status: importedCount > 0 ? "imported" as const : duplicateCount > 0 ? "duplicate" as const : "skipped" as const,
     mode: "daily" as const,
-    reason: executedResults.length === 0 ? "already_covered" as const : undefined,
+    reason: undefined,
     storeKey: store.storeKey,
     shopName: store.shopName,
     startDate: plans[0]!.startDate,

@@ -1,6 +1,7 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { parseCustomerServiceImport } from "@/lib/customer-service/import-service";
-import { saveCustomerServiceImport } from "@/lib/customer-service/database";
+import { ensureCustomerServiceSchema, getCustomerServiceDatabase, saveCustomerServiceImport } from "@/lib/customer-service/database";
+import { ensureImportFingerprintSchema, recordRejectedImportAttempt } from "@/lib/imports/content-fingerprint";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 async function digest(bytes: Uint8Array) { const copy = new Uint8Array(bytes); const hash = await crypto.subtle.digest("SHA-256", copy.buffer as ArrayBuffer); return [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, "0")).join(""); }
@@ -15,11 +16,31 @@ export async function POST(request: Request) {
     if (sessionFile.size === 0 || chatFile.size === 0 || sessionFile.size > MAX_FILE_BYTES || chatFile.size > MAX_FILE_BYTES) return Response.json({ ok: false, message: "文件不能为空且单个文件不得超过 25MB。" }, { status: 413 });
     if (!/\.xlsx$/i.test(sessionFile.name) || !/\.(log|txt)$/i.test(chatFile.name)) return Response.json({ ok: false, message: "会话记录必须为 .xlsx，聊天记录必须为 .log 或 .txt。" }, { status: 422 });
     const sessionBytes = new Uint8Array(await sessionFile.arrayBuffer()); const chatBytes = new Uint8Array(await chatFile.arrayBuffer());
-    const parsed = parseCustomerServiceImport(sessionBytes, new TextDecoder("utf-8", { fatal: true }).decode(chatBytes));
+    const sessionHash = await digest(sessionBytes); const chatHash = await digest(chatBytes);
+    const requestedFileHash = await digest(new TextEncoder().encode(`${shopName}:${sessionHash}:${chatHash}`));
+    let parsed: ReturnType<typeof parseCustomerServiceImport>;
+    try {
+      parsed = parseCustomerServiceImport(sessionBytes, new TextDecoder("utf-8", { fatal: true }).decode(chatBytes));
+      if (parsed.conversations.length === 0) throw new Error("客服导入没有可保存的会话资料");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "客服文件解析失败";
+      const db = getCustomerServiceDatabase();
+      await ensureCustomerServiceSchema(db);
+      await ensureImportFingerprintSchema(db);
+      await recordRejectedImportAttempt(db, {
+        domain: "customer-service",
+        rawFileHash: requestedFileHash,
+        scopeHint: { shopName },
+        errorCode: "CUSTOMER_SERVICE_PARSE_REJECTED",
+        issues: [{ code: "CUSTOMER_SERVICE_PARSE_REJECTED", message }],
+        metadata: { fileName: `${sessionFile.name} + ${chatFile.name}`, fileSizeBytes: sessionFile.size + chatFile.size },
+      });
+      throw error;
+    }
     const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
     const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(sessionBytes)}:${await digest(chatBytes)}`));
     const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName: sessionFile.name, chatFileName: chatFile.name, fileHash, parsed });
-    return Response.json({ ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "两份源文件已导入过，未重复写入。" : `已导入 ${parsed.conversations.length} 条客服会话，其中 ${parsed.summary.matchedCount + parsed.summary.timeOnlyMatchedCount} 条已关联聊天记录。` }, { status: saved.status === "imported" ? 201 : 200 });
+    return Response.json({ ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "全部标准化客服资料与当前数据一致，未重复写入。" : `已导入 ${parsed.conversations.length} 条客服会话，其中 ${parsed.summary.matchedCount + parsed.summary.timeOnlyMatchedCount} 条已关联聊天记录。` }, { status: saved.status === "imported" ? 201 : 200 });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
     return Response.json({ ok: false, message: error instanceof Error ? error.message : "客服数据导入失败" }, { status: 422 });

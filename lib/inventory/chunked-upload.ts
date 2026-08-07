@@ -31,6 +31,7 @@ type ChunkRow = {
 
 export type InventoryUploadSession = {
   id: string;
+  fingerprint: string;
   fileName: string;
   fileSizeBytes: number;
   chunkSizeBytes: number;
@@ -43,7 +44,7 @@ export type InventoryUploadSession = {
 
 export type InventoryUploadClaim =
   | { kind: "claimed"; session: InventoryUploadSession }
-  | { kind: "completed"; result: unknown };
+  | { kind: "completed"; session: InventoryUploadSession; result: unknown };
 
 function toHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -107,6 +108,7 @@ async function cleanupExpiredUploads(db: InventoryDatabase) {
 function toSession(upload: UploadRow, chunks: ChunkRow[]): InventoryUploadSession {
   return {
     id: upload.id,
+    fingerprint: upload.fingerprint,
     fileName: upload.file_name,
     fileSizeBytes: Number(upload.file_size_bytes),
     chunkSizeBytes: Number(upload.chunk_size_bytes),
@@ -238,7 +240,7 @@ export async function claimInventoryUpload(uploadId: string): Promise<InventoryU
   if (upload.status === "completed") {
     const result = await storedResult(db, uploadId);
     if (!result) throw new Error("已完成的上传会话缺少处理结果，请重新选择文件");
-    return { kind: "completed", result };
+    return { kind: "completed", session: toSession(upload, await listChunks(db, upload.id)), result };
   }
   if (upload.status === "uploading") throw new Error("仍有分片尚未上传完成");
   if (upload.status === "processing") throw new Error("库存文件正在处理中，请稍后重试");
@@ -253,7 +255,7 @@ export async function claimInventoryUpload(uploadId: string): Promise<InventoryU
     upload = await getUpload(db, uploadId);
     if (upload?.status === "completed") {
       const result = await storedResult(db, uploadId);
-      if (result) return { kind: "completed", result };
+      if (result) return { kind: "completed", session: toSession(upload, await listChunks(db, upload.id)), result };
     }
     throw new Error("库存文件已被其他请求接管处理，请稍后重试");
   }

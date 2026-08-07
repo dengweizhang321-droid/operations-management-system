@@ -11,7 +11,6 @@ import {
   chooseLatestTmallDownloadSignature,
   chooseTmallExportRecordSignature,
   createTmallBrowserDownloadSession,
-  currentMasterSnapshot,
   hasAcceptedTmallExportTask,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
@@ -22,7 +21,6 @@ import {
   matchTmallExportRecordChoice,
   parseTmallShanghaiTaskTime,
   productManagerFloatingClusterKey,
-  runTmallProductMasterStage,
   sameTmallNoticeActionTarget,
   scoreChatSendCandidate,
   scoreImportantNoticeCloseCandidate,
@@ -46,23 +44,6 @@ function masterWorkbook() {
   ]), "发布模板");
   return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }));
 }
-
-test("当天完成的受控天猫货品快照才允许跳过导出", () => {
-  const batch = {
-    id: "batch-1",
-    source: "tmall_product_master",
-    dataset: "product_master",
-    platform: "天猫",
-    shopName: "天猫-志高亿玖专卖店",
-    snapshotDate: "2026-08-04",
-    status: "completed",
-    rowCount: 1,
-  };
-  assert.equal(currentMasterSnapshot(batch, "2026-08-04", "天猫-志高亿玖专卖店"), true);
-  assert.equal(currentMasterSnapshot({ ...batch, snapshotDate: "2026-08-03" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
-  assert.equal(currentMasterSnapshot({ ...batch, shopName: "天猫-其他店" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
-  assert.equal(currentMasterSnapshot({ ...batch, status: "failed" }, "2026-08-04", "天猫-志高亿玖专卖店"), false);
-});
 
 test("商品管家入口接受右下角文字或图标属性并拒绝无关候选", () => {
   const candidate = {
@@ -364,37 +345,6 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
     text: "",
     attributes: "ordinary_body",
   }), -1);
-});
-
-test("n8n 货品前置阶段命中当天批次时不启动浏览器", async () => {
-  const auditDirectory = await mkdtemp(path.join(tmpdir(), "tmall-master-audit-"));
-  const request = (async () => Response.json({
-    items: [{
-      id: "batch-current",
-      source: "tmall_product_master",
-      dataset: "product_master",
-      platform: "天猫",
-      shopName: "天猫-志高亿玖专卖店",
-      snapshotDate: "2026-08-04",
-      status: "completed",
-      rowCount: 212,
-      warningCount: 0,
-    }],
-  })) as typeof fetch;
-  try {
-    const result = await runTmallProductMasterStage({
-      storeKey: "tmall-yijiu",
-      baseUrl: "http://127.0.0.1:3000",
-      snapshotDate: "2026-08-04",
-      auditDirectory,
-      request,
-    });
-    assert.equal(result.status, "skipped_current_snapshot");
-    assert.equal(result.batchId, "batch-current");
-    assert.equal(result.rowCount, 212);
-  } finally {
-    await rm(auditDirectory, { recursive: true, force: true });
-  }
 });
 
 test("下载文件必须位于店铺独立目录并通过发布模板结构校验", async () => {

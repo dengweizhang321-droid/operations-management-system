@@ -3,13 +3,25 @@ import {
   type InventoryStockRow,
   type InventoryStockIssue,
 } from "@/lib/imports/inventory-stock";
+import {
+  buildImportAttemptHash,
+  buildImportContentFingerprint,
+  auditRejectedImportResult,
+  ensureImportFingerprintSchema,
+  failImportFingerprint,
+  nextImportScopeStateToken,
+  readImportScopeStateToken,
+  recordImportFingerprint,
+  renewImportFingerprintReservation,
+  reserveImportFingerprint,
+} from "@/lib/imports/content-fingerprint";
 import { isXlsxSignature } from "@/lib/sales/import-service";
 import {
   ensureInventorySchema,
   findInventoryImportBatchByHash,
+  findLatestInventoryImportBatchForSnapshot,
   getInventoryDatabase,
   saveInventoryImport,
-  syncInventoryStockDimensions,
   type InventoryImportIssue,
 } from "@/lib/inventory/database";
 
@@ -105,35 +117,39 @@ export async function importInventoryStockBytes(input: {
   fileSizeBytes: number;
   snapshotDateOverride?: string;
 }): Promise<InventoryImportExecution> {
+  const rawFileHash = toHex(await sha256(input.bytes));
+  const db = getInventoryDatabase();
+  await ensureInventorySchema(db);
+  await ensureImportFingerprintSchema(db);
+  const reject = (result: InventoryImportExecution) => auditRejectedImportResult(db, {
+    domain: "inventory-stock",
+    rawFileHash,
+    scopeHint: { source: "inventory_stock", snapshotDate: input.snapshotDateOverride?.trim() || null },
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes },
+  }, result);
   if (!isXlsxSignature(input.bytes)) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "文件签名不是有效的 .xlsx（ZIP）格式",
       warnings: [],
       errors: [{ code: "INVALID_XLSX_SIGNATURE", message: "文件签名无效" }],
       errorCount: 1,
-    };
+    });
   }
-
-  const fileHash = toHex(await sha256(input.bytes));
-  const db = getInventoryDatabase();
-  await ensureInventorySchema(db);
-  const previous = await findInventoryImportBatchByHash(db, fileHash);
-
   let parsed: ReturnType<typeof parseInventoryStockXlsx>;
   try {
     parsed = parseInventoryStockXlsx(input.bytes);
   } catch (error) {
     const message = error instanceof Error ? error.message : "库存 Excel 文件解析失败";
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message,
       warnings: [],
       errors: [{ code: "XLSX_PARSE_ERROR", message }],
       errorCount: 1,
-    };
+    });
   }
 
   const errors = parsed.errors.map(mapIssue).slice(0, 200);
@@ -141,14 +157,14 @@ export async function importInventoryStockBytes(input: {
     errors.push({ code: "NO_DATA_ROWS", message: "工作表中没有可导入的库存明细行" });
   }
   if (errors.length > 0) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "文件校验未通过，未写入任何库存数据",
       warnings: [],
       errors,
       errorCount: parsed.errors.length,
-    };
+    });
   }
 
   let excludedBrushWarehouseRows = 0;
@@ -160,7 +176,7 @@ export async function importInventoryStockBytes(input: {
     else importRows.push(row);
   }
   if (importRows.length === 0) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "剔除刷刷仓和成本价为 0 的明细后没有可导入的库存数据",
@@ -169,54 +185,59 @@ export async function importInventoryStockBytes(input: {
         : [],
       errors: [{ code: "NO_DATA_ROWS_AFTER_FILTER", message: "没有符合经营分析口径的库存明细行" }],
       errorCount: 1,
-    };
+    });
+  }
+  const seenBusinessKeys = new Set<string>();
+  const duplicateBusinessKeys = new Set<string>();
+  for (const row of importRows) {
+    if (seenBusinessKeys.has(row.rowKey)) duplicateBusinessKeys.add(row.rowKey);
+    else seenBusinessKeys.add(row.rowKey);
+  }
+  if (duplicateBusinessKeys.size > 0) {
+    return reject({
+      ok: false,
+      status: "rejected",
+      message: "库存报表包含重复的仓库与货品组合，未写入任何数据",
+      warnings: [],
+      errors: [{ code: "DUPLICATE_INVENTORY_IDENTITY", message: `检测到 ${duplicateBusinessKeys.size} 个重复的仓库与货品组合，请合并或修正后重试` }],
+      errorCount: duplicateBusinessKeys.size,
+    });
   }
 
   const rowDates = [...new Set(importRows.map((row) => row.snapshotDate).filter((value): value is string => Boolean(value)))];
   if (rowDates.length > 1) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "库存报表包含多个快照日期，不能合并为同一库存批次",
       warnings: [],
       errors: [{ code: "MIXED_SNAPSHOT_DATES", message: `检测到 ${rowDates.length} 个不同的库存日期，请按日期拆分后重新上传` }],
       errorCount: 1,
-    };
+    });
   }
 
   const suppliedSnapshotDate = input.snapshotDateOverride?.trim();
   if (suppliedSnapshotDate && !isIsoDate(suppliedSnapshotDate)) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "手工填写的快照日期无效",
       warnings: [],
       errors: [{ code: "INVALID_SNAPSHOT_DATE", message: "快照日期必须为 YYYY-MM-DD" }],
       errorCount: 1,
-    };
+    });
   }
   const fileNameDate = dateFromFileName(input.fileName);
-  const snapshotDate = rowDates[0] ?? fileNameDate ?? suppliedSnapshotDate ?? previous?.snapshotDate;
+  const snapshotDate = rowDates[0] ?? fileNameDate ?? suppliedSnapshotDate;
   if (!snapshotDate) {
-    return {
+    return reject({
       ok: false,
       status: "rejected",
       message: "无法确定库存快照日期",
       warnings: [],
       errors: [{ code: "MISSING_SNAPSHOT_DATE", message: "报表没有库存日期，请在同步时填写快照日期，或在文件名中加入日期，例如“分仓库存2026.07.11.xlsx”" }],
       errorCount: 1,
-    };
-  }
-
-  if (previous?.status === "completed") {
-    await syncInventoryStockDimensions(db, { batchId: previous.id, snapshotDate: previous.snapshotDate, rows: importRows });
-    return {
-      ok: true,
-      status: "duplicate",
-      message: "该库存快照已经同步，品牌等商品维度已重新核对",
-      batch: previous,
-      warnings: previous.warnings,
-    };
+    });
   }
 
   const missingNameRows = importRows.filter((row) => !row.productName).length;
@@ -249,6 +270,54 @@ export async function importInventoryStockBytes(input: {
       ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已剔除刷刷仓 ${excludedBrushWarehouseRows} 行，不写入经营分析数据` }]
       : []),
   ];
+
+  const fingerprint = await buildImportContentFingerprint({
+    domain: "inventory-stock",
+    scope: { source: "inventory_stock", snapshotDate },
+    lockScope: { source: "inventory_stock" },
+    rows: importRows,
+    ignoredTopLevelKeys: ["sourceRowNumber", "sourceRowHash", "rowKey"],
+  });
+  const currentStateToken = await readImportScopeStateToken(db, fingerprint);
+  const latestScopeBatch = await findLatestInventoryImportBatchForSnapshot(db, snapshotDate);
+  const currentTotals = latestScopeBatch?.totals as { contentHash?: unknown; rawFileHash?: unknown } | null;
+  if (latestScopeBatch?.status === "completed" && latestScopeBatch.rowCount === importRows.length
+    && currentTotals?.contentHash === fingerprint.contentHash) {
+    await recordImportFingerprint(db, {
+      ...fingerprint,
+      batchId: latestScopeBatch.id,
+      importHash: latestScopeBatch.fileHash,
+      rawFileHash,
+      publishedStateToken: currentStateToken,
+      metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings: latestScopeBatch.warnings },
+      outcome: "duplicate",
+    });
+    return {
+      ok: true,
+      status: "duplicate",
+      message: "全部标准化库存资料与当前快照一致，无需重复导入",
+      batch: latestScopeBatch,
+      warnings: latestScopeBatch.warnings,
+    };
+  }
+  const fileHash = await buildImportAttemptHash({
+    fingerprint,
+    currentStateToken,
+  });
+  const reservation = await reserveImportFingerprint(db, {
+    ...fingerprint,
+    batchId: fileHash,
+    importHash: fileHash,
+    rawFileHash,
+    currentStateToken,
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+  });
+  if (!reservation.claimed) {
+    return { ok: false, status: "rejected", message: "同一库存快照已被更新，请重新提交最新文件", warnings, errors: [{ code: "IMPORT_SCOPE_CHANGED", message: "导入开始前当前快照版本已变化" }], errorCount: 1 };
+  }
+  await renewImportFingerprintReservation(db, { ...fingerprint, batchId: fileHash, attemptId: reservation.attemptId });
+
+  try {
   const totals = summarizeInventoryRows(importRows, parsed.totals.sourceRowCount);
   const result = await saveInventoryImport(db, {
     fileHash,
@@ -258,20 +327,54 @@ export async function importInventoryStockBytes(input: {
     snapshotDate,
     rows: importRows,
     warnings,
+    reservationFence: {
+      domain: fingerprint.domain,
+      scopeKey: fingerprint.scopeKey,
+      batchId: fileHash,
+      attemptId: reservation.attemptId,
+    },
     totals: {
       ...parsed.totals,
       ...totals,
       coverage: parsed.coverage,
+      rawFileHash,
+      contentHash: fingerprint.contentHash,
       excludedBrushWarehouseRows,
       excludedZeroCostRows,
     },
   });
 
+  const latestAfterSave = await findLatestInventoryImportBatchForSnapshot(db, snapshotDate);
+  if (result.batch.status !== "completed" || result.batch.insertedCount !== importRows.length
+    || latestAfterSave?.id !== result.batch.id) {
+    throw new Error("库存导入批次未完成或落库行数与解析结果不一致");
+  }
+
+  await recordImportFingerprint(db, {
+    ...fingerprint,
+    batchId: result.batch.id,
+    importHash: fileHash,
+    rawFileHash,
+    attemptId: reservation.attemptId,
+    publishedStateToken: await nextImportScopeStateToken({
+      previousStateToken: currentStateToken,
+      batchId: result.batch.id,
+      contentHash: fingerprint.contentHash,
+      rowCount: fingerprint.rowCount,
+    }),
+    metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
+    outcome: result.created ? "imported" : "duplicate",
+  });
+
   return {
     ok: true,
     status: result.created ? "imported" : "duplicate",
-    message: result.created ? "分仓库存快照同步成功" : "该库存快照已经同步，无需重复处理",
+    message: result.created ? "分仓库存快照同步成功" : "全部标准化库存资料与当前快照一致，无需重复导入",
     batch: result.batch,
     warnings,
   };
+  } catch (error) {
+    await failImportFingerprint(db, { ...fingerprint, batchId: fileHash, importHash: fileHash, rawFileHash, attemptId: reservation.attemptId, metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings }, errorCode: "INVENTORY_IMPORT_FAILED" }).catch(() => undefined);
+    throw error;
+  }
 }

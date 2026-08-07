@@ -337,9 +337,22 @@ async function fetchSycmDay(
   return { bytes, fileName, rowCount: inspection.totals.rowCount };
 }
 
-async function saveDownload(store: TmallStore, runId: string, businessDate: string, bytes: Uint8Array, fileName: string) {
+export async function saveDownload(
+  store: Pick<TmallStore, "browser">,
+  runId: string,
+  businessDate: string,
+  bytes: Uint8Array,
+  fileName: string,
+) {
   await mkdir(store.browser.downloadDir, { recursive: true });
-  const targetPath = path.resolve(store.browser.downloadDir, fileName);
+  const runDirectory = path.resolve(
+    store.browser.downloadDir,
+    ".tmall-sycm-runs",
+    createHash("sha256").update(runId).digest("hex").slice(0, 24),
+  );
+  if (!inside(store.browser.downloadDir, runDirectory)) throw new Error("本轮下载目录越过店铺独立目录");
+  await mkdir(runDirectory, { recursive: true });
+  const targetPath = path.resolve(runDirectory, fileName);
   if (!inside(store.browser.downloadDir, targetPath)) throw new Error("下载文件名越过店铺独立目录");
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const existing = await stat(targetPath).catch(() => null);
@@ -378,7 +391,7 @@ function validatePlan(plan: PipelinePlan) {
     || !validDate(plan.endDate) || !Array.isArray(plan.dates) || plan.dates.length > maximumDaysPerRun
     || plan.dates.some((date) => !validDate(date) || date < plan.startDate || date > plan.endDate)
     || new Set(plan.dates).size !== plan.dates.length) {
-    throw new Error("缺口计划格式无效");
+    throw new Error("目标日计划格式无效");
   }
   return plan;
 }
@@ -421,9 +434,9 @@ async function planCommand(argv: string[]) {
   const storeKey = cliValue(argv, "--store-key") ?? "tmall-yijiu";
   const store = await getTmallStore(storeKey);
   const endDate = cliValue(argv, "--end-date") ?? shanghaiYesterday();
-  const startDate = cliValue(argv, "--start-date") ?? store.initialStartDate;
+  const startDate = cliValue(argv, "--start-date") ?? endDate;
   if (!startDate || !validDate(startDate) || !validDate(endDate) || startDate > endDate || endDate > shanghaiYesterday()) {
-    throw new Error("缺口计划日期必须位于店铺注册起始日至昨天之间");
+    throw new Error("目标导入日期必须位于店铺注册起始日至昨天之间");
   }
   const requestedMaximum = Number(cliValue(argv, "--max-days") ?? maximumDaysPerRun);
   if (!Number.isInteger(requestedMaximum) || requestedMaximum < 1 || requestedMaximum > maximumDaysPerRun) {
@@ -433,7 +446,7 @@ async function planCommand(argv: string[]) {
   const planned = await runTmallMultiStoreImport({ baseUrl, storeKey, startDate, endDate, dryRun: true });
   if (!planned.ok) {
     const failed = planned.audit.items.find((item) => item.status === "failed");
-    throw new Error(failed?.error ?? "运营系统日期覆盖查询失败");
+    throw new Error(failed?.error ?? "目标导入日期计划失败");
   }
   const allDates = planned.audit.items.filter((item) => item.status === "planned").map((item) => item.businessDate).sort();
   const dates = allDates.slice(0, requestedMaximum);
@@ -595,6 +608,7 @@ async function importCommand(argv: string[]) {
   const baseUrl = normalizeLocalBaseUrl(manifest.baseUrl);
   if (manifest.shopName !== store.shopName) throw new Error("下载清单店铺与注册表不一致");
 
+  const receiptPaths: string[] = [];
   for (const item of manifest.files) {
     const filePath = path.resolve(item.filePath);
     if (!inside(store.browser.downloadDir, filePath) || path.basename(filePath) !== item.fileName
@@ -606,13 +620,23 @@ async function importCommand(argv: string[]) {
     if (!info.isFile() || info.size !== item.size) throw new Error(`下载文件缺失或大小变化: ${item.businessDate}`);
     const bytes = new Uint8Array(await readFile(filePath));
     if (createHash("sha256").update(bytes).digest("hex") !== item.sha256) throw new Error(`下载文件哈希变化: ${item.businessDate}`);
-    await createTmallDownloadReceipt({ storeKey: store.storeKey, businessDate: item.businessDate, filePath });
+    const receipt = await createTmallDownloadReceipt({ storeKey: store.storeKey, businessDate: item.businessDate, filePath });
+    receiptPaths.push(receipt.receiptPath);
   }
 
   const dates = [...manifest.dates].sort();
   if (dates.length === 0) {
     const resultPath = path.join(artifactDirectory, `result-${manifest.runId}.json`);
-    const summary = { ok: true, stage: "import", resultPath, dates: [], counts: {}, coverageConfirmed: true };
+    const summary = {
+      ok: true,
+      stage: "import",
+      resultPath,
+      dates: [],
+      counts: {},
+      targetDateCount: 0,
+      processedDateCount: 0,
+      coverageConfirmed: true,
+    };
     await writeJsonAtomic(resultPath, summary);
     return summary;
   }
@@ -621,6 +645,7 @@ async function importCommand(argv: string[]) {
     storeKey: store.storeKey,
     endDate: dates.at(-1)!,
     dates,
+    receiptPaths,
     dryRun: false,
   });
   const actualDates = await getActualDates(baseUrl, store, dates[0]!, dates.at(-1)!);
@@ -639,7 +664,8 @@ async function importCommand(argv: string[]) {
     importAuditPath: imported.auditPath,
     dates,
     counts,
-    alreadyCoveredBeforeImport: dates.length - imported.audit.items.length,
+    targetDateCount: dates.length,
+    processedDateCount: imported.audit.items.length,
     coverageConfirmed: missingAfterImport.length === 0,
     missingAfterImport,
   };

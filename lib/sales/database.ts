@@ -1,4 +1,8 @@
 import { env } from "cloudflare:workers";
+import {
+  importReservationCommitFence,
+  type ImportReservationFence,
+} from "@/lib/imports/content-fingerprint";
 
 export const SALES_IMPORT_SOURCE = "吉客云 ERP · 销售单明细账";
 export const SALES_IMPORT_CHUNK_SIZE = 500;
@@ -320,6 +324,17 @@ export async function findSalesImportBatchByHash(
   return row ? mapBatch(row) : null;
 }
 
+export async function findSalesImportBatchById(
+  db: SalesDatabase,
+  id: string,
+): Promise<SalesImportBatch | null> {
+  const row = await db
+    .prepare(`SELECT ${batchSelectColumns} FROM sales_import_batches WHERE id = ? LIMIT 1`)
+    .bind(id)
+    .first<ImportBatchRow>();
+  return row ? mapBatch(row) : null;
+}
+
 export async function findLatestSalesImportBatch(
   db: SalesDatabase,
 ): Promise<SalesImportBatch | null> {
@@ -446,11 +461,9 @@ type SaveSalesImportInput = {
   rows: SalesLineInput[];
   warnings: SalesImportIssue[];
   totals: unknown;
-};
-
-type SalesImportShipTimeScope = {
-  start: string;
-  endExclusive: string;
+  replaceStartDate: string;
+  replaceEndDate: string;
+  reservationFence?: ImportReservationFence;
 };
 
 function addUtcDays(value: string, days: number) {
@@ -459,27 +472,15 @@ function addUtcDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-/**
- * 吉客云销售明细账按发货时间筛选后导出的是一个完整期间快照。
- * 每次导入应以该快照替换期间内旧行，避免旧版本中已删除或更正的
- * 明细继续参与销售分析。
- */
-function fullShipTimeScope(rows: readonly SalesLineInput[]): SalesImportShipTimeScope | null {
-  const dates = rows.map((row) => row.shipTime.slice(0, 10));
-  if (!dates.length || dates.some((date) => !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
-    return null;
-  }
-  const start = dates.reduce((earliest, date) => date < earliest ? date : earliest);
-  const end = dates.reduce((latest, date) => date > latest ? date : latest);
-  return { start, endExclusive: addUtcDays(end, 1) };
-}
-
 export async function saveSalesImport(
   db: SalesDatabase,
   input: SaveSalesImportInput,
 ): Promise<{ batch: SalesImportBatch; created: boolean }> {
   const batchId = input.fileHash;
-  const shipTimeScope = fullShipTimeScope(input.rows);
+  const shipTimeScope = {
+    start: input.replaceStartDate,
+    endExclusive: addUtcDays(input.replaceEndDate, 1),
+  };
   const warningsJson = JSON.stringify(input.warnings);
   const totalsJson = JSON.stringify(input.totals ?? {});
   const statements = [
@@ -516,8 +517,9 @@ export async function saveSalesImport(
     statements.push(
       db.prepare(
         `DELETE FROM sales_order_lines
-         WHERE ship_time >= ? AND ship_time < ? AND last_import_batch_id <> ?`,
-      ).bind(shipTimeScope.start, shipTimeScope.endExclusive, batchId),
+         WHERE ship_time >= ? AND ship_time < ? AND last_import_batch_id <> ?
+           AND EXISTS (SELECT 1 FROM sales_import_batches WHERE id = ? AND status = 'processing')`,
+      ).bind(shipTimeScope.start, shipTimeScope.endExclusive, batchId, batchId),
     );
   }
 
@@ -533,10 +535,11 @@ export async function saveSalesImport(
                SELECT COUNT(*) FROM sales_order_lines WHERE first_import_batch_id = ?
              ),
              completed_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+         WHERE id = ? AND status = 'processing'`,
       )
       .bind(batchId, batchId, batchId),
   );
+  if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
 
   // Cloudflare D1 batch() executes the statements transactionally. A parser or
   // write failure therefore leaves neither a partial batch nor partial facts.

@@ -1,5 +1,18 @@
 import { env } from "cloudflare:workers";
-import type { CustomerServiceConversationInput, CustomerServiceParseResult } from "./import-service";
+import type { CustomerServiceParseResult } from "./import-service";
+import {
+  buildImportAttemptHash,
+  buildImportContentFingerprint,
+  ensureImportFingerprintSchema,
+  failImportFingerprint,
+  findImportFingerprintByBatch,
+  importReservationCommitFence,
+  nextImportScopeStateToken,
+  readImportScopeStateToken,
+  recordImportFingerprint,
+  renewImportFingerprintReservation,
+  reserveImportFingerprint,
+} from "@/lib/imports/content-fingerprint";
 import { ensureNetshopSchema, getNetshopDatabase } from "@/lib/netshop/database";
 import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
 import { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes, type CustomerServiceAnnotationInput, type CustomerServiceConversionStatus, type CustomerServiceProblemType, type CustomerServiceRobotScope } from "./contracts";
@@ -30,6 +43,7 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS customer_service_conversations_consulted_idx ON customer_service_conversations (consulted_at DESC)`,
   `CREATE INDEX IF NOT EXISTS customer_service_conversations_filter_idx ON customer_service_conversations (agent, match_status, consulted_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS customer_service_conversations_shop_last_batch_idx ON customer_service_conversations (shop_name, last_import_batch_id)`,
 ];
 const ready = new WeakMap<object, Promise<void>>();
 
@@ -62,7 +76,6 @@ export async function ensureCustomerServiceSchema(db = getCustomerServiceDatabas
   return task;
 }
 function safeJson<T>(input: string, fallback: T) { try { return JSON.parse(input) as T; } catch { return fallback; } }
-function batchId() { return `cs_${crypto.randomUUID().replace(/-/g, "")}`; }
 function mapBatch(row: Record<string, unknown>): CustomerServiceImportBatch {
   return { id: String(row.id), shopName: String(row.shop_name || "志高商用设备"), sessionFileName: String(row.session_file_name), chatFileName: String(row.chat_file_name), fileHash: String(row.file_hash), status: String(row.status), conversationCount: Number(row.conversation_count), matchedCount: Number(row.matched_count), sessionOnlyCount: Number(row.session_only_count), chatOnlyCount: Number(row.chat_only_count), ambiguousCount: Number(row.ambiguous_count), warnings: safeJson(String(row.warnings_json), []), createdAt: String(row.created_at), completedAt: row.completed_at ? String(row.completed_at) : null };
 }
@@ -73,43 +86,224 @@ export async function listCustomerServiceBatches(limit = 20) {
   return result.results.map(mapBatch);
 }
 
-export async function saveCustomerServiceImport(input: { shopName: string; sessionFileName: string; chatFileName: string; fileHash: string; parsed: CustomerServiceParseResult }) {
-  const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
-  const existing = await db.prepare(`SELECT * FROM customer_service_import_batches WHERE file_hash = ? LIMIT 1`).bind(input.fileHash).first<Record<string, unknown>>();
-  if (existing) return { status: "duplicate" as const, batch: mapBatch(existing) };
-  const id = batchId(); const { summary } = input.parsed;
-  await db.prepare(`INSERT INTO customer_service_import_batches (id,shop_name,session_file_name,chat_file_name,file_hash,status,conversation_count,matched_count,session_only_count,chat_only_count,ambiguous_count,warnings_json,completed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(id, input.shopName.slice(0, 100), input.sessionFileName.slice(0, 240), input.chatFileName.slice(0, 240), input.fileHash, "completed", input.parsed.conversations.length, summary.matchedCount + summary.timeOnlyMatchedCount, summary.sessionOnlyCount, summary.chatOnlyCount, summary.ambiguousCount, JSON.stringify(input.parsed.warnings.slice(0, 200))).run();
-  const statements = input.parsed.conversations.flatMap((item) => {
-    const cleanup = cleanupSupersededChatOnly(db, input.shopName, item);
-    return cleanup ? [cleanup, upsertConversation(db, id, input.shopName, item)] : [upsertConversation(db, id, input.shopName, item)];
+export async function saveCustomerServiceImport(
+  input: { shopName: string; sessionFileName: string; chatFileName: string; fileHash: string; parsed: CustomerServiceParseResult },
+  database?: CustomerServiceDatabase,
+) {
+  const db = database ?? getCustomerServiceDatabase();
+  await ensureCustomerServiceSchema(db);
+  await ensureImportFingerprintSchema(db);
+  if (input.parsed.conversations.length === 0) throw new Error("客服导入没有可保存的会话资料");
+
+  const identityFingerprint = await buildImportContentFingerprint({
+    domain: "customer-service-identities",
+    scope: { shopName: input.shopName },
+    rows: input.parsed.conversations.map((item) => ({ conversationKey: item.conversationKey })),
   });
-  for (let offset = 0; offset < statements.length; offset += 80) await db.batch(statements.slice(offset, offset + 80));
-  const batch = await db.prepare(`SELECT * FROM customer_service_import_batches WHERE id = ?`).bind(id).first<Record<string, unknown>>();
-  if (!batch) throw new Error("客服会话导入批次写入失败");
-  return { status: "imported" as const, batch: mapBatch(batch) };
-}
-function cleanupSupersededChatOnly(db: CustomerServiceDatabase, shopName: string, item: CustomerServiceConversationInput) {
-  // A later session workbook can turn a previously chat-only row into a
-  // matched conversation.  Remove the earlier copy before the matched row is
-  // written so supplementary imports replace old content instead of doubling
-  // the conversation.
-  if (!item.chatStartedAt || !item.messages.length) {
-    return null;
+  const fingerprint = await buildImportContentFingerprint({
+    domain: "customer-service",
+    scope: { shopName: input.shopName, identitySetHash: identityFingerprint.contentHash },
+    lockScope: { shopName: input.shopName },
+    rows: input.parsed.conversations,
+    ignoredTopLevelKeys: ["sourceRowNumber"],
+  });
+  const storageConversationKeys = input.parsed.conversations
+    .map((item) => `${input.shopName}:${item.conversationKey}`);
+  const readScopeOwnership = async () => {
+    const current = await db.prepare(
+      `SELECT last_import_batch_id AS batch_id, COUNT(*) AS row_count
+       FROM customer_service_conversations
+       WHERE shop_name = ?
+         AND conversation_key IN (SELECT value FROM json_each(?))
+       GROUP BY last_import_batch_id
+       ORDER BY last_import_batch_id`,
+    ).bind(input.shopName, JSON.stringify(storageConversationKeys))
+      .all<{ batch_id: string; row_count: number }>();
+    return current.results.map((row) => ({ batchId: row.batch_id, rowCount: Number(row.row_count) }));
+  };
+  const scopeOwnership = await readScopeOwnership();
+  const currentStateToken = await readImportScopeStateToken(db, fingerprint);
+  const currentBatchId = scopeOwnership.length === 1
+    && scopeOwnership[0]?.rowCount === input.parsed.conversations.length
+    ? scopeOwnership[0].batchId
+    : null;
+  const currentBatch = currentBatchId
+    ? await db.prepare("SELECT * FROM customer_service_import_batches WHERE id = ? LIMIT 1")
+      .bind(currentBatchId).first<Record<string, unknown>>()
+    : null;
+  const currentFingerprint = currentBatchId
+    ? await findImportFingerprintByBatch(db, { domain: fingerprint.domain, batchId: currentBatchId })
+    : null;
+  if (currentBatch && String(currentBatch.status) === "completed"
+    && currentFingerprint?.scopeKey === fingerprint.scopeKey
+    && currentFingerprint.contentHash === fingerprint.contentHash) {
+    await recordImportFingerprint(db, {
+      ...fingerprint,
+      batchId: currentBatchId!,
+      importHash: currentFingerprint.importHash,
+      rawFileHash: input.fileHash,
+      publishedStateToken: currentStateToken,
+      metadata: { fileName: `${input.sessionFileName} + ${input.chatFileName}`, warnings: input.parsed.warnings },
+      outcome: "duplicate",
+    });
+    return { status: "duplicate" as const, batch: mapBatch(currentBatch) };
   }
-  return db.prepare(`DELETE FROM customer_service_conversations
-    WHERE shop_name = ? AND match_status = 'chat_only' AND chat_started_at = ?
-      AND chat_ended_at = ? AND chat_customer_alias = ? AND messages_json = ?
-      AND conversation_key <> ?`).bind(
-    shopName,
-    item.chatStartedAt,
-    item.chatEndedAt,
-    item.chatCustomerAlias,
-    JSON.stringify(item.messages),
-    `${shopName}:${item.conversationKey}`,
+  const importHash = await buildImportAttemptHash({
+    fingerprint,
+    currentStateToken,
+  });
+  const id = `cs_${importHash}`;
+  const reservation = await reserveImportFingerprint(db, {
+    ...fingerprint,
+    batchId: id,
+    importHash,
+    rawFileHash: input.fileHash,
+    currentStateToken,
+    metadata: { fileName: `${input.sessionFileName} + ${input.chatFileName}`, warnings: input.parsed.warnings },
+  });
+  if (!reservation.claimed) throw new Error("同一客服会话范围已被更新，请重新提交最新文件");
+  await renewImportFingerprintReservation(db, { ...fingerprint, batchId: id, attemptId: reservation.attemptId });
+  try {
+  const { summary } = input.parsed;
+  const payloads: string[] = [];
+  for (let offset = 0; offset < input.parsed.conversations.length; offset += 80) {
+    payloads.push(JSON.stringify(input.parsed.conversations.slice(offset, offset + 80).map((item) => ({
+      ...item,
+      storageConversationKey: `${input.shopName}:${item.conversationKey}`,
+    }))));
+  }
+  const statements = [
+    db.prepare(`INSERT INTO customer_service_import_batches (
+      id, shop_name, session_file_name, chat_file_name, file_hash, status,
+      conversation_count, matched_count, session_only_count, chat_only_count,
+      ambiguous_count, warnings_json
+    ) VALUES (?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(file_hash) DO NOTHING`).bind(
+      id,
+      input.shopName.slice(0, 100),
+      input.sessionFileName.slice(0, 240),
+      input.chatFileName.slice(0, 240),
+      importHash,
+      input.parsed.conversations.length,
+      summary.matchedCount + summary.timeOnlyMatchedCount,
+      summary.sessionOnlyCount,
+      summary.chatOnlyCount,
+      summary.ambiguousCount,
+      JSON.stringify(input.parsed.warnings.slice(0, 200)),
+    ),
+  ];
+  for (const payload of payloads) {
+    statements.push(
+      db.prepare(`DELETE FROM customer_service_conversations
+        WHERE shop_name = ? AND match_status = 'chat_only'
+          AND EXISTS (
+            SELECT 1 FROM json_each(?) item
+            WHERE json_extract(item.value, '$.chatStartedAt') <> ''
+              AND json_array_length(json_extract(item.value, '$.messages')) > 0
+              AND customer_service_conversations.chat_started_at = json_extract(item.value, '$.chatStartedAt')
+              AND customer_service_conversations.chat_ended_at = json_extract(item.value, '$.chatEndedAt')
+              AND customer_service_conversations.chat_customer_alias = json_extract(item.value, '$.chatCustomerAlias')
+              AND customer_service_conversations.messages_json = json(json_extract(item.value, '$.messages'))
+              AND customer_service_conversations.conversation_key <> json_extract(item.value, '$.storageConversationKey')
+          )
+          AND EXISTS (SELECT 1 FROM customer_service_import_batches WHERE id = ? AND status = 'processing')`)
+        .bind(input.shopName, payload, id),
+      db.prepare(`INSERT INTO customer_service_conversations (
+        conversation_key, first_import_batch_id, last_import_batch_id, shop_name,
+        consulted_at, customer_id, customer_alias, consultation_type, agent,
+        transferred_agent, skill_group, product_sku, product_name, first_response_at,
+        response_seconds, duration_minutes, customer_message_count, agent_message_count,
+        satisfaction, resolved, conversation_id, match_status, match_confidence,
+        chat_started_at, chat_ended_at, chat_customer_alias, messages_json, updated_at
+      )
+      SELECT
+        json_extract(item.value, '$.storageConversationKey'), ?, ?, ?,
+        json_extract(item.value, '$.consultedAt'), json_extract(item.value, '$.customerId'),
+        json_extract(item.value, '$.customerAlias'), json_extract(item.value, '$.consultationType'),
+        json_extract(item.value, '$.agent'), json_extract(item.value, '$.transferredAgent'),
+        json_extract(item.value, '$.skillGroup'), json_extract(item.value, '$.productSku'),
+        json_extract(item.value, '$.productName'), json_extract(item.value, '$.firstResponseAt'),
+        json_extract(item.value, '$.responseSeconds'), json_extract(item.value, '$.durationMinutes'),
+        json_extract(item.value, '$.customerMessageCount'), json_extract(item.value, '$.agentMessageCount'),
+        json_extract(item.value, '$.satisfaction'), json_extract(item.value, '$.resolved'),
+        json_extract(item.value, '$.conversationId'), json_extract(item.value, '$.matchStatus'),
+        json_extract(item.value, '$.matchConfidence'), json_extract(item.value, '$.chatStartedAt'),
+        json_extract(item.value, '$.chatEndedAt'), json_extract(item.value, '$.chatCustomerAlias'),
+        json(json_extract(item.value, '$.messages')), CURRENT_TIMESTAMP
+      FROM json_each(?) item
+      WHERE EXISTS (SELECT 1 FROM customer_service_import_batches WHERE id = ? AND status = 'processing')
+      ON CONFLICT(conversation_key) DO UPDATE SET
+        last_import_batch_id = excluded.last_import_batch_id,
+        shop_name = excluded.shop_name,
+        consulted_at = excluded.consulted_at,
+        customer_id = excluded.customer_id,
+        customer_alias = excluded.customer_alias,
+        consultation_type = excluded.consultation_type,
+        agent = excluded.agent,
+        transferred_agent = excluded.transferred_agent,
+        skill_group = excluded.skill_group,
+        product_sku = excluded.product_sku,
+        product_name = excluded.product_name,
+        first_response_at = excluded.first_response_at,
+        response_seconds = excluded.response_seconds,
+        duration_minutes = excluded.duration_minutes,
+        customer_message_count = excluded.customer_message_count,
+        agent_message_count = excluded.agent_message_count,
+        satisfaction = excluded.satisfaction,
+        resolved = excluded.resolved,
+        conversation_id = excluded.conversation_id,
+        match_status = excluded.match_status,
+        match_confidence = excluded.match_confidence,
+        chat_started_at = excluded.chat_started_at,
+        chat_ended_at = excluded.chat_ended_at,
+        chat_customer_alias = excluded.chat_customer_alias,
+        messages_json = excluded.messages_json,
+        updated_at = CURRENT_TIMESTAMP`).bind(id, id, input.shopName, payload, id),
+    );
+  }
+  statements.push(
+    db.prepare(`UPDATE customer_service_import_batches
+      SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND status = 'processing'
+        AND (SELECT COUNT(*) FROM customer_service_conversations WHERE last_import_batch_id = ?) = ?`)
+      .bind(id, id, input.parsed.conversations.length),
   );
-}
-function upsertConversation(db: CustomerServiceDatabase, batchIdValue: string, shopName: string, item: CustomerServiceConversationInput) {
-  return db.prepare(`INSERT INTO customer_service_conversations (conversation_key,first_import_batch_id,last_import_batch_id,shop_name,consulted_at,customer_id,customer_alias,consultation_type,agent,transferred_agent,skill_group,product_sku,product_name,first_response_at,response_seconds,duration_minutes,customer_message_count,agent_message_count,satisfaction,resolved,conversation_id,match_status,match_confidence,chat_started_at,chat_ended_at,chat_customer_alias,messages_json,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(conversation_key) DO UPDATE SET last_import_batch_id=excluded.last_import_batch_id, shop_name=excluded.shop_name, consultation_type=excluded.consultation_type, agent=excluded.agent, transferred_agent=excluded.transferred_agent, skill_group=excluded.skill_group, product_sku=excluded.product_sku, product_name=excluded.product_name, first_response_at=excluded.first_response_at, response_seconds=excluded.response_seconds, duration_minutes=excluded.duration_minutes, customer_message_count=excluded.customer_message_count, agent_message_count=excluded.agent_message_count, satisfaction=excluded.satisfaction, resolved=excluded.resolved, match_status=excluded.match_status, match_confidence=excluded.match_confidence, chat_started_at=excluded.chat_started_at, chat_ended_at=excluded.chat_ended_at, chat_customer_alias=excluded.chat_customer_alias, messages_json=excluded.messages_json, updated_at=CURRENT_TIMESTAMP`).bind(`${shopName}:${item.conversationKey}`, batchIdValue, batchIdValue, shopName, item.consultedAt, item.customerId, item.customerAlias, item.consultationType, item.agent, item.transferredAgent, item.skillGroup, item.productSku, item.productName, item.firstResponseAt, item.responseSeconds, item.durationMinutes, item.customerMessageCount, item.agentMessageCount, item.satisfaction, item.resolved, item.conversationId, item.matchStatus, item.matchConfidence, item.chatStartedAt, item.chatEndedAt, item.chatCustomerAlias, JSON.stringify(item.messages));
+  statements.push(importReservationCommitFence(db, {
+    domain: fingerprint.domain,
+    scopeKey: fingerprint.scopeKey,
+    batchId: id,
+    attemptId: reservation.attemptId,
+  }));
+  const results = await db.batch(statements);
+  const created = Number(results[0]?.meta?.changes ?? 0) === 1;
+  const batch = await db.prepare("SELECT * FROM customer_service_import_batches WHERE file_hash = ? LIMIT 1")
+    .bind(importHash).first<Record<string, unknown>>();
+  const postOwnership = await readScopeOwnership();
+  if (!batch || String(batch.status) !== "completed" || postOwnership.length !== 1
+    || postOwnership[0]?.batchId !== String(batch.id)
+    || postOwnership[0].rowCount !== input.parsed.conversations.length) {
+    throw new Error("客服会话导入发布后回查不一致");
+  }
+  await recordImportFingerprint(db, {
+    ...fingerprint,
+    batchId: String(batch.id),
+    importHash,
+    rawFileHash: input.fileHash,
+    attemptId: reservation.attemptId,
+    publishedStateToken: await nextImportScopeStateToken({
+      previousStateToken: currentStateToken,
+      batchId: String(batch.id),
+      contentHash: fingerprint.contentHash,
+      rowCount: fingerprint.rowCount,
+    }),
+    metadata: { fileName: `${input.sessionFileName} + ${input.chatFileName}`, warnings: input.parsed.warnings },
+    outcome: created ? "imported" : "duplicate",
+  });
+  return { status: created ? "imported" as const : "duplicate" as const, batch: mapBatch(batch) };
+  } catch (error) {
+    await failImportFingerprint(db, { ...fingerprint, batchId: id, importHash, rawFileHash: input.fileHash, attemptId: reservation.attemptId, metadata: { fileName: `${input.sessionFileName} + ${input.chatFileName}`, warnings: input.parsed.warnings }, errorCode: "CUSTOMER_SERVICE_IMPORT_FAILED" }).catch(() => undefined);
+    throw error;
+  }
 }
 
 function splitIds(value?: string | null) {

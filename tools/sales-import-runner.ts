@@ -468,13 +468,13 @@ export function findMissingPreviouslyLoadedChannels(
   return [...grouped.values()].sort((left, right) => left.channel.localeCompare(right.channel, "zh-CN"));
 }
 
-async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: string, fingerprint: string) {
+async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: string, fingerprint: string, period: Pick<Period, "startDate" | "endDate">) {
   const chunkSizeBytes = 2 * 1024 * 1024;
   const chunkCount = Math.ceil(bytes.byteLength / chunkSizeBytes);
   const init = await fetchWithTimeout(`${baseUrl}/api/imports/sales/chunks`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action: "init", fileName, fileSizeBytes: bytes.byteLength, chunkCount, fingerprint }),
+    body: JSON.stringify({ action: "init", fileName, fileSizeBytes: bytes.byteLength, chunkCount, fingerprint, expectedStartDate: period.startDate, expectedEndDate: period.endDate }),
   });
   const initBody = await init.json() as { ok?: boolean; upload?: { id: string; receivedChunkIndexes: number[] }; message?: string };
   if (!init.ok || !initBody.ok || !initBody.upload) throw new Error(initBody.message ?? "无法创建销售导入分片会话。");
@@ -508,7 +508,7 @@ async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: stri
   const complete = await fetchWithTimeout(`${baseUrl}/api/imports/sales/chunks`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action: "complete", uploadId: initBody.upload.id }),
+    body: JSON.stringify({ action: "complete", uploadId: initBody.upload.id, expectedStartDate: period.startDate, expectedEndDate: period.endDate }),
   }, 10 * 60_000);
   const completeBody = await complete.json() as { ok?: boolean; status?: string; message?: string; batch?: { id: string; status: string; rowCount: number; totals: unknown } };
   if (!complete.ok || !completeBody.ok || !completeBody.batch) throw new Error(completeBody.message ?? "销售导入完成确认失败。");
@@ -981,7 +981,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
 
   let imported: Awaited<ReturnType<typeof uploadInChunks>>;
   try {
-    imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash);
+    imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash, period);
   } catch (error) {
     throw wrapSalesImportError(error, "IMPORT_FAILED", "chunk_upload_and_import");
   }

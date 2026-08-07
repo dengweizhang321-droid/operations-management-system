@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -19,9 +22,28 @@ import {
   maximumDaysPerRun,
   normalizeN8nExecutionId,
   parseCookieHeader,
+  saveDownload,
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
 } from "../tools/tmall-sycm-cookie-pipeline";
+
+test("不同执行可保存同一目标日的不同源文件，交由导入接口比较业务内容", async () => {
+  const downloadDir = await mkdtemp(path.join(tmpdir(), "tmall-sycm-run-download-"));
+  const store = { browser: { profileDir: "unused", debugPort: 9222, downloadDir } };
+  const fileName = "【生意参谋平台】商品_全部_2026-08-05_2026-08-05.xls";
+  try {
+    const first = await saveDownload(store, "run-one", "2026-08-05", new Uint8Array([1, 2, 3]), fileName);
+    const repeated = await saveDownload(store, "run-one", "2026-08-05", new Uint8Array([1, 2, 3]), fileName);
+    const changed = await saveDownload(store, "run-two", "2026-08-05", new Uint8Array([1, 2, 4]), fileName);
+
+    assert.equal(repeated.filePath, first.filePath);
+    assert.equal(repeated.reusedExistingFile, true);
+    assert.notEqual(changed.filePath, first.filePath);
+    assert.equal(changed.reusedExistingFile, false);
+  } finally {
+    await rm(downloadDir, { recursive: true, force: true });
+  }
+});
 
 test("one-shot helper closes both its listener and retained keep-alive connections", () => {
   let closeCalls = 0;

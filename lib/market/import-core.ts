@@ -2,6 +2,10 @@ import { assertMarketPeriod, marketImportRangeKey, marketNaturalKey, MAX_MARKET_
 import { marketSkuGmvRefreshStatements } from "@/lib/market/gmv-total";
 import { marketMasterIdentityRefreshStatements } from "@/lib/market/master-identity";
 import { marketStandardSkuImagePriceInheritanceSql, type MarketSchemaDatabase } from "@/lib/market/schema-core";
+import {
+  importReservationCommitFence,
+  type ImportReservationFence,
+} from "@/lib/imports/content-fingerprint";
 
 export type MarketEntryForImport = {
   naturalKey: string;
@@ -73,6 +77,7 @@ export type MarketImportBatchForCore = {
   warnings: MarketImportIssueForCore[];
   createdAt: string;
   completedAt: string | null;
+  created?: boolean;
 };
 
 type BatchRow = {
@@ -264,6 +269,15 @@ ON CONFLICT(period_start, period_end, category, scope, price_band_filter, rankin
   product_url=excluded.product_url, raw_json=excluded.raw_json,
   last_import_batch_id=excluded.last_import_batch_id, updated_at=CURRENT_TIMESTAMP`;
 
+const replaceClaimedMarketFactsSql = `DELETE FROM market_ranking_entries
+WHERE 'market-key-v2|' ||
+  length(CAST(category AS BLOB)) || ':' || category || '|' ||
+  length(CAST(scope AS BLOB)) || ':' || scope || '|' ||
+  length(CAST(ranking_dimension AS BLOB)) || ':' || ranking_dimension || '|' ||
+  length(CAST(substr(period_end, 1, 7) AS BLOB)) || ':' || substr(period_end, 1, 7)
+  IN (SELECT range_key FROM market_import_range_claims WHERE batch_id = ? AND claim_token = ?)
+AND (SELECT COUNT(*) FROM market_import_range_claims WHERE batch_id = ? AND claim_token = ?) = ?`;
+
 const snapshotInsertSql = `WITH decoded AS (
   SELECT s.row_number,
     json_extract(s.row_json, '$.category') category,
@@ -344,13 +358,19 @@ export async function saveMarketImportCore(input: {
   sheetName: string;
   rows: MarketEntryForImport[];
   warnings: MarketImportIssueForCore[];
+  replaceRangeKeys?: string[];
   executionFence?: { taskId: string; token: string };
+  reservationFence?: ImportReservationFence;
 }): Promise<MarketImportBatchForCore> {
   const { db } = input;
   const rows = normalizeRows(input.rows);
   const payloads = stagingPayloads(rows);
   const dates = rows.flatMap((row) => [row.periodStart, row.periodEnd]).sort();
-  const claimKeys = [...new Set(rows.map((row) => row.importRangeKey))];
+  const rowRangeKeys = [...new Set(rows.map((row) => row.importRangeKey))];
+  const claimKeys = [...new Set(input.replaceRangeKeys ?? rowRangeKeys)].sort();
+  if (!claimKeys.length || rowRangeKeys.some((key) => !claimKeys.includes(key))) {
+    throw new Error("市场分析替换范围未完整覆盖文件中的业务范围");
+  }
   const claimPayloads = stringArrayPayloads(claimKeys);
   const claimToken = crypto.randomUUID();
   let completedFallback: MarketImportBatchForCore | null = null;
@@ -370,7 +390,7 @@ export async function saveMarketImportCore(input: {
     if (changes(insertedBatch) !== 1) {
       const existing = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE file_hash=? LIMIT 1`)
         .bind(input.fileHash).first<BatchRow>();
-      if (existing?.status === "completed") return mapMarketBatch(existing);
+      if (existing?.status === "completed") return { ...mapMarketBatch(existing), created: false };
       throw new Error("同一市场分析文件正在导入或此前导入失败，请稍后重试或先清理失败批次");
     }
     let claimedCount = 0;
@@ -432,6 +452,7 @@ export async function saveMarketImportCore(input: {
     publishAttempted = true;
     const publishStatements = [
       ...fenceStatements,
+      db.prepare(replaceClaimedMarketFactsSql).bind(input.batchId, claimToken, input.batchId, claimToken, claimKeys.length),
       db.prepare(factInsertSql).bind(input.batchId, input.batchId, input.batchId, claimToken, claimKeys.length),
       db.prepare(snapshotInsertSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length, input.batchId),
       db.prepare(marketStandardSkuImagePriceInheritanceSql("target.source_import_batch_id=?")).bind(input.batchId),
@@ -451,6 +472,7 @@ export async function saveMarketImportCore(input: {
         .bind(input.batchId, input.batchId, claimToken),
       db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=? AND claim_token=?").bind(input.batchId, claimToken),
     );
+    if (input.reservationFence) publishStatements.push(importReservationCommitFence(db, input.reservationFence));
     const publish = await db.batch(publishStatements) as RunResult[];
     if (changes(publish[completionStatementIndex]) !== 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
 
@@ -465,14 +487,14 @@ export async function saveMarketImportCore(input: {
 
     const row = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE id=? LIMIT 1`)
       .bind(input.batchId).first<BatchRow>();
-    return row ? mapMarketBatch(row) : completedFallback;
+    return row ? { ...mapMarketBatch(row), created: true } : { ...completedFallback, created: true };
   } catch (error) {
     if (completedFallback) return completedFallback;
     if (publishAttempted) {
       try {
         const committed = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE id=? LIMIT 1`)
           .bind(input.batchId).first<BatchRow>();
-        if (committed?.status === "completed") return mapMarketBatch(committed);
+        if (committed?.status === "completed") return { ...mapMarketBatch(committed), created: true };
       } catch {
         // Keep the original publish error; a same-hash retry will reconcile an unknown commit outcome.
       }

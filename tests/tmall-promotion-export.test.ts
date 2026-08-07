@@ -34,7 +34,7 @@ function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
   };
 }
 
-test("推广缺口为每个业务日生成起止同日的独立报表计划并保持 30 日上限", () => {
+test("推广目标日期不因已有覆盖而跳过，并为每个业务日生成独立报表", () => {
   const productDailyDates = [
     "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31",
     "2026-08-02", "2026-08-03",
@@ -46,6 +46,7 @@ test("推广缺口为每个业务日生成起止同日的独立报表计划并�
     promotionDates: ["2026-07-28"],
   });
   assert.deepEqual(plans, [
+    { startDate: "2026-07-28", endDate: "2026-07-28", dates: ["2026-07-28"] },
     { startDate: "2026-07-29", endDate: "2026-07-29", dates: ["2026-07-29"] },
     { startDate: "2026-07-30", endDate: "2026-07-30", dates: ["2026-07-30"] },
     { startDate: "2026-07-31", endDate: "2026-07-31", dates: ["2026-07-31"] },
@@ -75,10 +76,10 @@ test("推广缺口为每个业务日生成起止同日的独立报表计划并�
     requestedEndDate: "2026-08-04",
     productDailyDates,
     promotionDates: productDailyDates,
-  }), []);
+  }), productDailyDates.map((date) => ({ startDate: date, endDate: date, dates: [date] })));
 });
 
-test("推广维护模式只强制重下显式日期且要求商品日覆盖", () => {
+test("推广显式日期始终执行且仍要求商品日先覆盖", () => {
   const input = {
     requestedStartDate: "2026-08-01",
     requestedEndDate: "2026-08-05",
@@ -94,10 +95,10 @@ test("推广维护模式只强制重下显式日期且要求商品日覆盖", ()
     { startDate: "2026-08-03", endDate: "2026-08-03", dates: ["2026-08-03"] },
     { startDate: "2026-08-05", endDate: "2026-08-05", dates: ["2026-08-05"] },
   ]);
-  assert.throws(() => planTmallPromotionDailyReports({
+  assert.deepEqual(planTmallPromotionDailyReports({
     ...input,
     forceExistingDates: true,
-  }), /必须显式提供/);
+  }), input.productDailyDates.map((date) => ({ startDate: date, endDate: date, dates: [date] })));
   assert.throws(() => planTmallPromotionDailyReports({
     ...input,
     requestedDates: ["2026-08-03", "2026-08-04"],
@@ -366,6 +367,7 @@ test("没有商品日覆盖时推广阶段明确等待并通过失败状态让�
 test("推广阶段 maximumDays 能把单轮日任务限制为一个且默认规划器上限不变", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-promotion-limit-"));
   let requestCount = 0;
+  const executedDates: string[] = [];
   try {
     const request = (async (input: Parameters<typeof fetch>[0]) => {
       requestCount += 1;
@@ -383,12 +385,35 @@ test("推广阶段 maximumDays 能把单轮日任务限制为一个且默认规�
       baseUrl: "http://localhost:3000",
       request,
       auditDirectory: directory,
+      dates: ["2026-07-28"],
       maximumDays: 1,
+      executeDate: async ({ plan }) => {
+        executedDates.push(plan.startDate);
+        return {
+          ok: true,
+          stage: "promotion_day" as const,
+          status: "duplicate" as const,
+          storeKey: "tmall-yijiu",
+          shopName: "天猫-志高亿玖专卖店",
+          date: plan.startDate,
+          startDate: plan.startDate,
+          endDate: plan.endDate,
+          dates: plan.dates,
+          metrics: "全部数据指标" as const,
+          fileName: "promotion.zip",
+          sha256: "a".repeat(64),
+          rowCount: 1,
+          warningCount: 0,
+          batchId: "batch-1",
+          coverageConfirmed: true,
+        };
+      },
     });
     assert.deepEqual(result.plannedDates, ["2026-07-28"]);
     assert.deepEqual(result.completedDates, ["2026-07-28"]);
     assert.equal(result.coverageConfirmed, true);
-    assert.equal(requestCount, 2);
+    assert.deepEqual(executedDates, ["2026-07-28"]);
+    assert.equal(requestCount, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -407,6 +432,7 @@ test("损坏的推广恢复清单必须失败关闭且测试不读取真实活�
       baseUrl: "http://localhost:3000",
       request,
       auditDirectory: directory,
+      dates: ["2026-07-28"],
     }), /JSON|Unexpected|结构无效/);
   } finally {
     await rm(directory, { recursive: true, force: true });

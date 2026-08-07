@@ -29,6 +29,7 @@ type ChunkRow = {
 
 export type SalesUploadSession = {
   id: string;
+  fingerprint: string;
   fileName: string;
   fileSizeBytes: number;
   chunkSizeBytes: number;
@@ -91,6 +92,7 @@ async function getChunk(db: SalesDatabase, uploadId: string, chunkIndex: number)
 function toSession(upload: UploadRow, chunks: ChunkRow[]): SalesUploadSession {
   return {
     id: upload.id,
+    fingerprint: upload.fingerprint,
     fileName: upload.file_name,
     fileSizeBytes: Number(upload.file_size_bytes),
     chunkSizeBytes: Number(upload.chunk_size_bytes),

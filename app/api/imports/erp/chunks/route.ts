@@ -24,19 +24,29 @@ function headerNumber(request: Request, name: string) {
   return Number.isSafeInteger(value) ? value : NaN;
 }
 
+function erpUploadScope(body: Record<string, unknown>) {
+  if (!isErpReferenceSourceKey(body.source)) return null;
+  const snapshotDate = typeof body.snapshotDate === "string" ? body.snapshotDate.trim() : "";
+  if (body.source === "inventory_age" && !/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) return null;
+  return { source: body.source, snapshotDate: body.source === "inventory_age" ? snapshotDate : "" };
+}
+
 export async function POST(request: Request) {
   try {
     await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "请求内容无效");
     if (!isErpReferenceSourceKey(body.source)) return reject(400, "缺少有效的数据来源");
+    const scope = erpUploadScope(body);
+    if (!scope) return reject(400, "库龄分片上传必须绑定有效快照日期");
 
     if (body.action === "init") {
+      const clientFingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
       const upload = await beginInventoryUpload({
         fileName: typeof body.fileName === "string" ? body.fileName : "",
         fileSizeBytes: Number(body.fileSizeBytes),
         chunkCount: Number(body.chunkCount),
-        fingerprint: typeof body.fingerprint === "string" ? body.fingerprint : "",
+        fingerprint: `erp:${scope.source}:${scope.snapshotDate}:${clientFingerprint}`,
       });
       return Response.json({
         ok: true,
@@ -50,6 +60,10 @@ export async function POST(request: Request) {
       const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
       if (!uploadId) return reject(400, "缺少上传会话标识");
       const claim = await claimInventoryUpload(uploadId);
+      if (!claim.session.fingerprint.startsWith(`erp:${scope.source}:${scope.snapshotDate}:`)) {
+        if (claim.kind === "claimed") await releaseInventoryUpload(uploadId);
+        return reject(409, "上传会话绑定的 ERP 来源或快照日期与本次完成请求不一致");
+      }
       if (claim.kind === "completed") {
         const stored = claim.result as { ok?: boolean; status?: string };
         return Response.json(claim.result, { status: stored.ok ? (stored.status === "imported" ? 201 : 200) : 422 });
@@ -61,7 +75,7 @@ export async function POST(request: Request) {
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
-          snapshotDate: typeof body.snapshotDate === "string" ? body.snapshotDate : undefined,
+          snapshotDate: scope.snapshotDate || undefined,
         });
         await finishInventoryUpload(uploadId, assembled.objectKeys, result);
         return Response.json(result, { status: result.ok ? (result.status === "imported" ? 201 : 200) : 422 });

@@ -7,6 +7,7 @@ import {
   createSubmittingTaskManifest,
   importJdProductDetailFile,
   isRealtimeSummaryDownloadDialog,
+  isSafeJdNoticeCloseLabel,
   isStaticCurrentTimestamp,
   isVerifiedJdDateRangeEcho,
   jdDateRangeSelectionPlan,
@@ -28,6 +29,12 @@ test("a static current-time echo never verifies a custom range", () => {
 test("realtime download-settings dialogs are rejected before task submission", () => {
   assert.equal(isRealtimeSummaryDownloadDialog("下载设置\n最多 1000 行\n取消\n确定"), true);
   assert.equal(isRealtimeSummaryDownloadDialog("下载类型\n分天下载\n不包含对比时间\n确定"), false);
+});
+
+test("JD notice dismissal only accepts explicit harmless close labels", () => {
+  assert.equal(isSafeJdNoticeCloseLabel("Close"), true);
+  assert.equal(isSafeJdNoticeCloseLabel("关闭"), true);
+  assert.equal(isSafeJdNoticeCloseLabel("立即查看"), false);
 });
 
 test("download-center baseline does not accept its first empty loading snapshot", async () => {

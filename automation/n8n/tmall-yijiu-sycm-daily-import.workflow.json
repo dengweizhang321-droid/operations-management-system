@@ -16,7 +16,7 @@
         }
       },
       "id": "2ed7f758-d614-41fb-a1db-6246700b02a7",
-      "name": "每日 09:15 规划缺口",
+      "name": "每日 09:15 计划昨天",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
@@ -30,7 +30,7 @@
         "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { Set-Location -LiteralPath 'D:\\运营管理系统'; npm run tmall:daily:import -- --dry-run --store-key tmall-yijiu }\""
       },
       "id": "201a9486-7120-405a-b087-d47516823127",
-      "name": "生成逐日缺口计划",
+      "name": "生成目标日计划",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
@@ -91,7 +91,7 @@
     },
     {
       "parameters": {
-        "content": "## 每日规划（Asia/Shanghai）\n每天 09:15 查询 `天猫 + 天猫-志高亿玖专卖店 + spu_daily` 的真实覆盖，从注册起始日到昨天逐日生成缺口清单。\n\n计划文件写入 `outputs/tmall-multi-store-import/`。",
+        "content": "## 目标日计划（Asia/Shanghai）\n每天 09:15 默认直接计划昨天；显式日期或日期范围也直接进入计划，不依据运营系统已有日期覆盖预先跳过。\n\n计划文件写入 `outputs/tmall-multi-store-import/`。",
         "height": 220,
         "width": 430,
         "color": 5
@@ -123,7 +123,7 @@
     },
     {
       "parameters": {
-        "content": "## 自动签收与导入\n新 `.xls` 写入完成后，先限定独立目录并从工作簿识别唯一业务日，再校验店铺、SPU 表头、日期、大小和 SHA-256。\n\n同店同日同内容返回 `duplicate`；同日内容变化会精确替换该日范围。接口成功后必须再次回查日期覆盖。",
+        "content": "## 自动签收与导入\n新 `.xls` 写入完成后，先限定独立目录并从工作簿识别唯一业务日，再校验店铺、SPU 表头、日期、大小和 SHA-256。\n\n只有业务范围与规范化后的完整业务内容都一致时返回 `duplicate`；任一业务内容变化都会精确替换该日范围。接口成功后必须再次回查日期覆盖。",
         "height": 250,
         "width": 430,
         "color": 4
@@ -140,11 +140,11 @@
   ],
   "pinData": {},
   "connections": {
-    "每日 09:15 规划缺口": {
+    "每日 09:15 计划昨天": {
       "main": [
         [
           {
-            "node": "生成逐日缺口计划",
+            "node": "生成目标日计划",
             "type": "main",
             "index": 0
           }

@@ -47,6 +47,8 @@ export async function POST(request: Request) {
 
     const formData = await request.formData().catch(() => null);
     const entry = formData?.get("file");
+    const expectedStartDate = String(formData?.get("expectedStartDate") ?? "").trim();
+    const expectedEndDate = String(formData?.get("expectedEndDate") ?? "").trim();
     if (!(entry instanceof File)) return errorResponse(400, "缺少名为 file 的 Excel 文件");
     if (!entry.name.toLowerCase().endsWith(".xlsx")) return errorResponse(400, "仅支持 .xlsx 格式的销售单明细账");
     if (entry.size === 0) return errorResponse(400, "上传文件为空");
@@ -56,6 +58,8 @@ export async function POST(request: Request) {
       bytes: new Uint8Array(await entry.arrayBuffer()),
       fileName: entry.name,
       fileSizeBytes: entry.size,
+      expectedStartDate,
+      expectedEndDate,
     });
     return Response.json(payload, {
       status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422,

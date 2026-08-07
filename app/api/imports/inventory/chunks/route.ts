@@ -23,17 +23,25 @@ function headerNumber(request: Request, name: string) {
   return Number.isSafeInteger(value) ? value : NaN;
 }
 
+function snapshotDateFromBody(body: Record<string, unknown>) {
+  const value = typeof body.snapshotDate === "string" ? body.snapshotDate.trim() : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
 export async function POST(request: Request) {
   try {
     await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "请求内容无效");
     if (body.action === "init") {
+      const snapshotDate = snapshotDateFromBody(body);
+      if (!snapshotDate) return reject(400, "分仓库存分片上传必须绑定有效快照日期");
+      const clientFingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
       const upload = await beginInventoryUpload({
         fileName: typeof body.fileName === "string" ? body.fileName : "",
         fileSizeBytes: Number(body.fileSizeBytes),
         chunkCount: Number(body.chunkCount),
-        fingerprint: typeof body.fingerprint === "string" ? body.fingerprint : "",
+        fingerprint: `inventory:${snapshotDate}:${clientFingerprint}`,
       });
       return Response.json({
         ok: true,
@@ -45,8 +53,13 @@ export async function POST(request: Request) {
 
     if (body.action === "complete") {
       const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
-      if (!uploadId) return reject(400, "缺少上传会话标识");
+      const snapshotDate = snapshotDateFromBody(body);
+      if (!uploadId || !snapshotDate) return reject(400, "缺少上传会话标识或有效快照日期");
       const claim = await claimInventoryUpload(uploadId);
+      if (!claim.session.fingerprint.startsWith(`inventory:${snapshotDate}:`)) {
+        if (claim.kind === "claimed") await releaseInventoryUpload(uploadId);
+        return reject(409, "上传会话绑定的库存快照日期与本次完成请求不一致");
+      }
       if (claim.kind === "completed") {
         const stored = claim.result as { ok?: boolean; status?: string };
         return Response.json(claim.result, { status: stored.ok ? (stored.status === "imported" ? 201 : 200) : 422 });
@@ -57,7 +70,7 @@ export async function POST(request: Request) {
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
-          snapshotDateOverride: typeof body.snapshotDate === "string" ? body.snapshotDate : undefined,
+          snapshotDateOverride: snapshotDate,
         });
         await finishInventoryUpload(uploadId, assembled.objectKeys, result);
         return Response.json(result, { status: result.ok ? (result.status === "imported" ? 201 : 200) : 422 });

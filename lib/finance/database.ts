@@ -1,4 +1,8 @@
 import { env } from "cloudflare:workers";
+import {
+  importReservationCommitFence,
+  type ImportReservationFence,
+} from "@/lib/imports/content-fingerprint";
 import type {
   FinanceImportBatch,
   FinanceImportIssue,
@@ -85,6 +89,8 @@ const financeSchemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS finance_months_status_month_idx
     ON finance_months (status, month)`,
+  `CREATE INDEX IF NOT EXISTS finance_months_status_batch_idx
+    ON finance_months (status, batch_id)`,
   `CREATE TABLE IF NOT EXISTS finance_lines (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     month TEXT NOT NULL,
@@ -235,6 +241,13 @@ export async function findFinanceImportBatchByHash(db: FinanceDatabase, fileHash
   return row ? mapBatch(row) : null;
 }
 
+export async function findFinanceImportBatchById(db: FinanceDatabase, id: string) {
+  const row = await db.prepare(
+    `SELECT ${batchColumns} FROM finance_import_batches WHERE id = ? LIMIT 1`,
+  ).bind(id).first<FinanceImportBatchRow>();
+  return row ? mapBatch(row) : null;
+}
+
 export async function listFinanceImportBatches(db: FinanceDatabase, limit = 20) {
   const result = await db.prepare(
     `SELECT ${batchColumns} FROM finance_import_batches
@@ -292,10 +305,20 @@ export async function saveFinanceImport(db: FinanceDatabase, input: {
   fileName: string;
   fileSizeBytes: number;
   parsed: ParsedFinanceWorkbook;
+  reservationFence?: ImportReservationFence;
 }): Promise<{ batch: FinanceImportBatch; created: boolean; importedMonths: string[]; skippedMonths: string[] }> {
-  const existingBatch = await findFinanceImportBatchByHash(db, input.fileHash);
-  if (existingBatch) {
+  let existingBatch = await findFinanceImportBatchByHash(db, input.fileHash);
+  if (existingBatch?.status === "completed") {
     return { batch: existingBatch, created: false, importedMonths: [], skippedMonths: existingBatch.months };
+  }
+  if (existingBatch?.status === "processing"
+    && Date.now() - Date.parse(existingBatch.createdAt) < 30 * 60 * 1000) {
+    throw new Error("相同财务资料正在导入，请稍后重试");
+  }
+  if (existingBatch) {
+    await db.prepare("DELETE FROM finance_import_batches WHERE id = ? AND status <> 'completed'")
+      .bind(existingBatch.id).run();
+    existingBatch = null;
   }
 
   const allMonths = input.parsed.months.map((item) => item.month);
@@ -329,72 +352,87 @@ export async function saveFinanceImport(db: FinanceDatabase, input: {
     return { batch: raced, created: false, importedMonths: [], skippedMonths: raced.months };
   }
 
-  const importedMonths: string[] = [];
-  const skippedMonths: string[] = [];
-  let insertedCount = 0;
-  try {
-    for (const month of input.parsed.months) {
-      const existingMonth = await db.prepare(
-        `SELECT month, status FROM finance_months WHERE month = ? LIMIT 1`,
-      ).bind(month.month).first<{ month: string; status: string }>();
-      if (existingMonth?.status === "completed") {
-        skippedMonths.push(month.month);
-        continue;
-      }
-
-      if (existingMonth) {
-        await db.batch([
-          db.prepare(`DELETE FROM finance_lines WHERE month = ?`).bind(month.month),
-          db.prepare(
-            `UPDATE finance_months SET batch_id = ?, sheet_name = ?, business_name = ?,
-             source_file_name = ?, status = 'processing', shop_count = ?, subject_count = ?,
-             imported_at = CURRENT_TIMESTAMP WHERE month = ?`,
-          ).bind(input.fileHash, month.sheetName, month.businessName, input.fileName, month.shopCount, month.subjectCount, month.month),
-        ]);
-      } else {
-        const monthInsert = await db.prepare(
-          `INSERT INTO finance_months (
-            month, batch_id, sheet_name, business_name, source_file_name,
-            status, shop_count, subject_count
-          ) VALUES (?, ?, ?, ?, ?, 'processing', ?, ?)
-          ON CONFLICT(month) DO NOTHING`,
-        ).bind(month.month, input.fileHash, month.sheetName, month.businessName, input.fileName, month.shopCount, month.subjectCount).run();
-        if (Number(monthInsert.meta?.changes ?? 0) === 0) {
-          skippedMonths.push(month.month);
-          continue;
-        }
-      }
-
-      const statements = lineChunks(month.lines).map((chunk) =>
+  const publishStatements: D1PreparedStatement[] = [];
+  for (const month of input.parsed.months) {
+    publishStatements.push(
+      db.prepare("DELETE FROM finance_lines WHERE month = ?").bind(month.month),
+      db.prepare(
+        `INSERT INTO finance_months (
+          month, batch_id, sheet_name, business_name, source_file_name,
+          status, shop_count, subject_count, imported_at
+        ) VALUES (?, ?, ?, ?, ?, 'processing', ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(month) DO UPDATE SET
+          batch_id = excluded.batch_id,
+          sheet_name = excluded.sheet_name,
+          business_name = excluded.business_name,
+          source_file_name = excluded.source_file_name,
+          status = 'processing',
+          shop_count = excluded.shop_count,
+          subject_count = excluded.subject_count,
+          imported_at = CURRENT_TIMESTAMP`,
+      ).bind(
+        month.month,
+        input.fileHash,
+        month.sheetName,
+        month.businessName,
+        input.fileName,
+        month.shopCount,
+        month.subjectCount,
+      ),
+      ...lineChunks(month.lines).map((chunk) =>
         db.prepare(insertFinanceLinesSql).bind(JSON.stringify(chunk)),
-      );
-      statements.push(
-        db.prepare(`UPDATE finance_months SET status = 'completed', imported_at = CURRENT_TIMESTAMP WHERE month = ?`)
-          .bind(month.month),
-      );
-      await db.batch(statements);
-      importedMonths.push(month.month);
-      insertedCount += month.lines.length;
-    }
-
-    const status = importedMonths.length === 0 ? "duplicate" : skippedMonths.length > 0 ? "partial" : "completed";
-    await db.prepare(
-      `UPDATE finance_import_batches SET status = ?, inserted_count = ?, duplicate_count = ?,
-       imported_month_count = ?, skipped_month_count = ?, completed_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-    ).bind(status, insertedCount, skippedMonths.length, importedMonths.length, skippedMonths.length, input.fileHash).run();
+      ),
+      db.prepare(
+        `UPDATE finance_months
+         SET status = 'completed', imported_at = CURRENT_TIMESTAMP
+         WHERE month = ? AND batch_id = ?`,
+      ).bind(month.month, input.fileHash),
+    );
+  }
+  publishStatements.push(
+    db.prepare(
+      `UPDATE finance_import_batches
+       SET status = 'completed', inserted_count = ?, duplicate_count = 0,
+           imported_month_count = ?, skipped_month_count = 0,
+           completed_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status = 'processing'`,
+    ).bind(rowCount, allMonths.length, input.fileHash),
+  );
+  if (input.reservationFence) publishStatements.push(importReservationCommitFence(db, input.reservationFence));
+  try {
+    await db.batch(publishStatements);
   } catch (error) {
+    const ownerGuard = input.reservationFence
+      ? ` AND EXISTS (
+          SELECT 1 FROM import_scope_heads
+          WHERE domain = ? AND scope_key = ? AND status = 'processing'
+            AND owner_token = ? AND current_batch_id = ?
+        )`
+      : "";
     await db.prepare(
-      `UPDATE finance_import_batches SET status = 'failed', inserted_count = ?,
-       imported_month_count = ?, skipped_month_count = ?, completed_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-    ).bind(insertedCount, importedMonths.length, skippedMonths.length, input.fileHash).run().catch(() => undefined);
+      `UPDATE finance_import_batches
+       SET status = 'failed', inserted_count = 0, imported_month_count = 0,
+           skipped_month_count = 0, completed_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status = 'processing'${ownerGuard}`,
+    ).bind(
+      input.fileHash,
+      ...(input.reservationFence
+        ? [
+          input.reservationFence.domain,
+          input.reservationFence.scopeKey,
+          input.reservationFence.attemptId,
+          input.reservationFence.batchId,
+        ]
+        : []),
+    ).run().catch(() => undefined);
     throw error;
   }
 
   const batch = await findFinanceImportBatchByHash(db, input.fileHash);
-  if (!batch) throw new Error("财报导入完成后无法读取批次");
-  return { batch, created: true, importedMonths, skippedMonths };
+  if (!batch || batch.status !== "completed" || batch.importedMonthCount !== allMonths.length) {
+    throw new Error("财报导入完成后批次回查不一致");
+  }
+  return { batch, created: true, importedMonths: allMonths, skippedMonths: [] };
 }
 
 export async function listFinanceTargets(db: FinanceDatabase): Promise<FinanceTarget[]> {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -41,8 +41,8 @@ export type RunnerOptions = {
   startDate?: string;
   endDate: string;
   dates?: string[];
+  receiptPaths?: string[];
   dryRun: boolean;
-  forceExistingDates?: boolean;
 };
 
 type CoveragePayload = {
@@ -108,14 +108,8 @@ export function datesInRange(startDate: string, endDate: string) {
   return dates;
 }
 
-export function missingDatesInRange(startDate: string, endDate: string, actualDates: string[]) {
-  const actual = new Set(actualDates.filter(validDate));
-  return datesInRange(startDate, endDate).filter((date) => !actual.has(date));
-}
-
-export function explicitDatesToPlan(requestedDates: string[], actualDates: string[], forceExistingDates = false) {
-  const actual = new Set(actualDates.filter(validDate));
-  return requestedDates.filter((date) => forceExistingDates || !actual.has(date));
+export function requestedDatesToPlan(startDate: string, endDate: string, requestedDates?: string[]) {
+  return requestedDates ? [...requestedDates] : datesInRange(startDate, endDate);
 }
 
 export function parseRunnerArgs(argv: string[], now = new Date()): RunnerOptions {
@@ -123,13 +117,11 @@ export function parseRunnerArgs(argv: string[], now = new Date()): RunnerOptions
   const endDate = value(argv, "--end-date") ?? shanghaiYesterday(now);
   const datesValue = value(argv, "--dates");
   const dates = datesValue ? [...new Set(datesValue.split(",").map((date) => date.trim()).filter(Boolean))].sort() : undefined;
-  const forceExistingDates = argv.includes("--force-existing");
   if ((startDate && !validDate(startDate)) || !validDate(endDate)) throw new Error("起止日期必须是有效的 YYYY-MM-DD");
   if (dates && (dates.length === 0 || dates.some((date) => !validDate(date)))) throw new Error("--dates 必须是逗号分隔的 YYYY-MM-DD 日期");
   if (dates?.some((date) => date > shanghaiYesterday(now))) throw new Error("天猫商品日数据最多补到昨天");
   if (startDate && startDate > endDate) throw new Error("--start-date 不能晚于 --end-date");
   if (dates && startDate) throw new Error("--dates 不能与 --start-date 同时使用");
-  if (forceExistingDates && !dates) throw new Error("--force-existing 只能与 --dates 一起使用");
   if (endDate > shanghaiYesterday(now)) throw new Error("天猫商品日数据最多补到昨天");
   return {
     baseUrl: (value(argv, "--base-url") ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, ""),
@@ -138,7 +130,6 @@ export function parseRunnerArgs(argv: string[], now = new Date()): RunnerOptions
     endDate,
     dates,
     dryRun: argv.includes("--dry-run"),
-    forceExistingDates,
   };
 }
 
@@ -159,19 +150,27 @@ function inside(directory: string, filePath: string) {
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
-async function verifiedReceipts(store: TmallStore): Promise<VerifiedReceipt[]> {
-  const names = await readdir(store.browser.downloadDir).catch(() => [] as string[]);
+export async function verifiedReceipts(store: TmallStore, requestedReceiptPaths?: string[]): Promise<VerifiedReceipt[]> {
+  const names = requestedReceiptPaths
+    ? requestedReceiptPaths
+    : (await readdir(store.browser.downloadDir).catch(() => [] as string[]))
+      .filter((item) => item.endsWith(".tmall-receipt.json"))
+      .map((name) => path.join(store.browser.downloadDir, name));
+  const downloadRoot = await realpath(store.browser.downloadDir);
   const receipts: VerifiedReceipt[] = [];
-  for (const name of names.filter((item) => item.endsWith(".tmall-receipt.json"))) {
-    const receiptPath = path.join(store.browser.downloadDir, name);
+  for (const candidatePath of names) {
+    const receiptPath = await realpath(path.resolve(candidatePath));
+    if (!inside(downloadRoot, receiptPath) || !receiptPath.endsWith(".tmall-receipt.json")) {
+      throw new Error(`天猫下载签收单越过店铺目录: ${candidatePath}`);
+    }
     const receipt = await readJsonFile<TmallDownloadReceipt>(receiptPath);
     if (receipt.version !== 1 || receipt.storeKey !== store.storeKey || receipt.shopName !== store.shopName || !validDate(receipt.businessDate)
       || !/^[a-f0-9]{64}$/.test(receipt.sha256) || !Number.isFinite(receipt.size) || receipt.size <= 0 || !/\.xls$/i.test(receipt.fileName)
       || path.basename(receipt.fileName) !== receipt.fileName || Number.isNaN(Date.parse(receipt.downloadedAt))) {
       throw new Error(`天猫下载签收单无效: ${receiptPath}`);
     }
-    const filePath = path.resolve(store.browser.downloadDir, receipt.fileName);
-    if (!inside(store.browser.downloadDir, filePath)) throw new Error(`天猫下载签收单越过店铺目录: ${receiptPath}`);
+    const filePath = await realpath(path.resolve(path.dirname(receiptPath), receipt.fileName));
+    if (!inside(downloadRoot, filePath)) throw new Error(`天猫下载签收单越过店铺目录: ${receiptPath}`);
     const info = await stat(filePath).catch(() => null);
     if (!info?.isFile() || info.size !== receipt.size) throw new Error(`天猫下载签收文件缺失或大小变化: ${filePath}`);
     const bytes = new Uint8Array(await readFile(filePath));
@@ -250,6 +249,7 @@ export async function runTmallMultiStoreImport(options: RunnerOptions, stores?: 
   const selected = options.storeKey ? enabled.filter((store) => store.storeKey === options.storeKey) : enabled;
   if (options.storeKey && selected.length !== 1) throw new Error(`未找到启用的天猫店铺注册键: ${options.storeKey}`);
   if (selected.length === 0) throw new Error("没有已启用的天猫店铺");
+  if (options.receiptPaths && selected.length !== 1) throw new Error("显式签收单路径只能用于单个受控天猫店铺");
   await mkdir(auditDirectory, { recursive: true });
   const auditPath = path.join(auditDirectory, `run-${Date.now()}.json`);
   let audit: TmallImportAudit = { version: 1, baseUrl: options.baseUrl, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), dryRun: options.dryRun, items: [] };
@@ -258,22 +258,13 @@ export async function runTmallMultiStoreImport(options: RunnerOptions, stores?: 
 
   for (const store of selected) {
     const requestedDates = options.dates;
-    const startDate = requestedDates?.[0] ?? options.startDate ?? store.initialStartDate;
+    const startDate = requestedDates?.[0] ?? options.startDate ?? options.endDate;
     const endDate = requestedDates?.at(-1) ?? options.endDate;
-    if (!startDate) throw new Error(`${store.storeKey} 没有 initialStartDate，请先配置或传 --start-date`);
-    if (startDate > endDate) continue;
-    let actualDates: string[];
-    try {
-      actualDates = await getActualDates(options.baseUrl, store, startDate, endDate, request);
-    } catch (error) {
-      audit.items.push({ storeKey: store.storeKey, shopName: store.shopName, businessDate: startDate, status: "failed", error: `覆盖查询 ${startDate}..${endDate} 失败: ${error instanceof Error ? error.message : String(error)}` });
-      await persist();
-      continue;
+    if (store.initialStartDate && startDate < store.initialStartDate) {
+      throw new Error(`${store.storeKey} 的目标日期不能早于注册起始日 ${store.initialStartDate}`);
     }
-    const missingDates = requestedDates
-      ? explicitDatesToPlan(requestedDates, actualDates, options.forceExistingDates)
-      : missingDatesInRange(startDate, endDate, actualDates);
-    for (const businessDate of missingDates) {
+    if (startDate > endDate) continue;
+    for (const businessDate of requestedDatesToPlan(startDate, endDate, requestedDates)) {
       audit.items.push({ storeKey: store.storeKey, shopName: store.shopName, businessDate, status: "planned" });
     }
   }
@@ -284,7 +275,7 @@ export async function runTmallMultiStoreImport(options: RunnerOptions, stores?: 
     const plannedItems = audit.items.filter((candidate) => candidate.storeKey === store.storeKey && candidate.status === "planned");
     let receipts: VerifiedReceipt[];
     try {
-      receipts = await verifiedReceipts(store);
+      receipts = await verifiedReceipts(store, options.receiptPaths);
     } catch (error) {
       for (const item of plannedItems) {
         item.status = "failed";

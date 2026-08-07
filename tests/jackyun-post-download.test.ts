@@ -5,7 +5,7 @@ import {
   JackyunValidationError,
   prepareJackyunWorkbook,
 } from "../lib/jackyun/post-download";
-import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
+import { parseXlsxFirstSheet, type XlsxCellValue } from "../lib/imports/xlsx";
 import { parseInventoryStockXlsx } from "../lib/imports/inventory-stock";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
 
@@ -67,6 +67,32 @@ test("inventory processing removes the exact brush warehouse and non-positive co
   const inventoryRows = parseInventoryStockXlsx(prepared.importBytes).rows;
   assert.equal(inventoryRows.length, prepared.expectedBatchRowCount);
   assert.ok(inventoryRows.every((row) => row.unitCostCents > 0));
+});
+
+test("inventory row identity is stable when workbook rows are reordered", () => {
+  const workbook = (rows: XlsxCellValue[][]) => createXlsxWorkbookBytes([{
+    name: "库存",
+    rows: [
+      ["货品编号", "货品名称", "仓库", "固定成本价", "库存数量"],
+      ...rows,
+    ],
+  }]);
+  const first = parseInventoryStockXlsx(workbook([
+    ["P1", "货品一", "正常仓", 10, 1],
+    ["P2", "货品二", "正常仓", 10, 2],
+  ])).rows;
+  const reordered = parseInventoryStockXlsx(workbook([
+    ["P2", "货品二", "正常仓", 10, 2],
+    ["P1", "货品一", "正常仓", 10, 1],
+  ])).rows;
+  assert.deepEqual(
+    Object.fromEntries(first.map((row) => [row.productCode, row.rowKey])),
+    Object.fromEntries(reordered.map((row) => [row.productCode, row.rowKey])),
+  );
+  assert.deepEqual(first.map((row) => row.rowKey).sort(), [
+    JSON.stringify(["正常仓", "P1"]),
+    JSON.stringify(["正常仓", "P2"]),
+  ]);
 });
 
 test("inventory age uses the same exact warehouse filter and required schema", () => {

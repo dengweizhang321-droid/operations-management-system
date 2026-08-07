@@ -1,28 +1,30 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
   datesInRange,
-  explicitDatesToPlan,
-  missingDatesInRange,
   parseRunnerArgs,
+  requestedDatesToPlan,
   selectReceiptForDate,
   shanghaiYesterday,
   validateImportPayload,
+  verifiedReceipts,
 } from "../tools/tmall-multi-store-import-runner";
 
-test("天猫补数日期按上海时区截止昨天且保留中间缺口", () => {
+test("天猫导入日期按上海时区截止昨天并直接采用请求范围，不查询缺口", () => {
   const now = new Date("2026-08-02T04:00:00Z");
   assert.equal(shanghaiYesterday(now), "2026-08-01");
   assert.deepEqual(datesInRange("2026-07-30", "2026-08-01"), ["2026-07-30", "2026-07-31", "2026-08-01"]);
-  assert.deepEqual(missingDatesInRange("2026-07-30", "2026-08-01", ["2026-07-30", "2026-08-01"]), ["2026-07-31"]);
-  assert.deepEqual(explicitDatesToPlan(["2026-07-31", "2026-08-01"], ["2026-07-31"]), ["2026-08-01"]);
-  assert.deepEqual(explicitDatesToPlan(["2026-07-31", "2026-08-01"], ["2026-07-31"], true), ["2026-07-31", "2026-08-01"]);
+  assert.deepEqual(requestedDatesToPlan("2026-07-30", "2026-08-01"), ["2026-07-30", "2026-07-31", "2026-08-01"]);
+  assert.deepEqual(requestedDatesToPlan("2026-07-30", "2026-08-01", ["2026-07-31", "2026-08-01"]), ["2026-07-31", "2026-08-01"]);
   assert.equal(parseRunnerArgs([], now).endDate, "2026-08-01");
   assert.deepEqual(parseRunnerArgs(["--dates", "2026-08-01,2026-07-28,2026-08-01"], now).dates, ["2026-07-28", "2026-08-01"]);
-  assert.equal(parseRunnerArgs(["--dates", "2026-08-01", "--force-existing"], now).forceExistingDates, true);
+  assert.deepEqual(parseRunnerArgs(["--dates", "2026-08-01", "--force-existing"], now).dates, ["2026-08-01"]);
   assert.throws(() => parseRunnerArgs(["--dates", "2026-07-28", "--start-date", "2026-07-28"], now), /不能与 --start-date/);
-  assert.throws(() => parseRunnerArgs(["--force-existing"], now), /只能与 --dates/);
   assert.throws(() => parseRunnerArgs(["--end-date", "2026-08-02"], now), /最多补到昨天/);
 });
 
@@ -44,11 +46,48 @@ function receipt(hash: string, downloadedAt: string) {
   };
 }
 
-test("同日相同哈希可复用，内容不同则停止而不猜测", () => {
+test("根目录手工签收同日相同哈希可复用，多个不同文件仍拒绝猜测", () => {
   const hashA = "a".repeat(64);
   const same = selectReceiptForDate([receipt(hashA, "2026-08-01T01:00:00Z"), receipt(hashA, "2026-08-01T02:00:00Z")], "2026-07-31");
   assert.equal(same?.receipt.downloadedAt, "2026-08-01T02:00:00Z");
   assert.throws(() => selectReceiptForDate([receipt(hashA, "2026-08-01T01:00:00Z"), receipt("b".repeat(64), "2026-08-01T02:00:00Z")], "2026-07-31"), /内容不同/);
+});
+
+test("Cookie 工作流可把本轮子目录中的唯一签收单显式交给导入器", async () => {
+  const downloadDir = await mkdtemp(path.join(tmpdir(), "tmall-explicit-receipt-"));
+  const runDirectory = path.join(downloadDir, ".tmall-sycm-runs", "run-one");
+  const fileName = "【生意参谋平台】商品_全部_2026-07-31_2026-07-31.xls";
+  const filePath = path.join(runDirectory, fileName);
+  const receiptPath = `${filePath}.tmall-receipt.json`;
+  const bytes = new Uint8Array([1, 2, 3]);
+  await mkdir(runDirectory, { recursive: true });
+  await writeFile(filePath, bytes);
+  await writeFile(receiptPath, JSON.stringify({
+    version: 1,
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+    businessDate: "2026-07-31",
+    fileName,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    size: bytes.byteLength,
+    downloadedAt: "2026-08-01T02:00:00.000Z",
+  }));
+  try {
+    const receipts = await verifiedReceipts({
+      storeKey: "tmall-yijiu",
+      shopName: "天猫-志高亿玖专卖店",
+      platform: "天猫",
+      portalUrl: "https://sycm.taobao.com/portal/home.htm",
+      enabled: true,
+      initialStartDate: "2026-07-01",
+      browser: { profileDir: "unused", debugPort: 9222, downloadDir },
+    }, [receiptPath]);
+    assert.equal(receipts.length, 1);
+    assert.equal(receipts[0]?.filePath, filePath);
+    assert.equal(selectReceiptForDate(receipts, "2026-07-31")?.receiptPath, receiptPath);
+  } finally {
+    await rm(downloadDir, { recursive: true, force: true });
+  }
 });
 
 test("天猫导入结果必须精确匹配店铺、日期、数据集与 HTTP 状态", () => {

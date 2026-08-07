@@ -3,6 +3,10 @@ import {
   type SalesDatabase,
 } from "@/lib/sales/database";
 import type { InventoryStockRow } from "@/lib/imports/inventory-stock";
+import {
+  importReservationCommitFence,
+  type ImportReservationFence,
+} from "@/lib/imports/content-fingerprint";
 
 export const INVENTORY_IMPORT_SOURCE = "吉客云 ERP · 分仓库存查询";
 const INVENTORY_IMPORT_CHUNK_SIZE = 300;
@@ -294,9 +298,26 @@ export async function findLatestInventoryImportBatch(
       `SELECT ${batchColumns}
        FROM inventory_import_batches
        WHERE status = 'completed'
-       ORDER BY snapshot_date DESC, completed_at DESC, created_at DESC
+       ORDER BY snapshot_date DESC, rowid DESC
        LIMIT 1`,
     )
+    .first<InventoryBatchRow>();
+  return row ? mapBatch(row) : null;
+}
+
+export async function findLatestInventoryImportBatchForSnapshot(
+  db: InventoryDatabase,
+  snapshotDate: string,
+): Promise<InventoryImportBatch | null> {
+  const row = await db
+    .prepare(
+      `SELECT ${batchColumns}
+       FROM inventory_import_batches
+       WHERE status = 'completed' AND snapshot_date = ?
+       ORDER BY rowid DESC
+       LIMIT 1`,
+    )
+    .bind(snapshotDate)
     .first<InventoryBatchRow>();
   return row ? mapBatch(row) : null;
 }
@@ -428,6 +449,7 @@ export async function saveInventoryImport(
     rows: InventoryStockRow[];
     warnings: InventoryImportIssue[];
     totals: unknown;
+    reservationFence?: ImportReservationFence;
   },
 ): Promise<{ batch: InventoryImportBatch; created: boolean }> {
   const batchId = input.fileHash;
@@ -474,6 +496,7 @@ export async function saveInventoryImport(
       )
       .bind(batchId, batchId),
   );
+  if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
 
   const results = await db.batch(statements);
   const created = Number(results[0]?.meta?.changes ?? 0) > 0;
