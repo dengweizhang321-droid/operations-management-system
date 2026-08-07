@@ -6,10 +6,14 @@ import test from "node:test";
 import {
   createSubmittingTaskManifest,
   importJdProductDetailFile,
+  isJdCalendarEndSelected,
   isRealtimeSummaryDownloadDialog,
   isSafeJdNoticeCloseLabel,
   isStaticCurrentTimestamp,
   isVerifiedJdDateRangeEcho,
+  jdCalendarCellState,
+  jdCalendarDateDispatchDecision,
+  jdCalendarEndSelectionDecision,
   jdDateRangeSelectionPlan,
   taskManifestPath,
   waitForStableTaskBaseline,
@@ -24,6 +28,61 @@ test("a static current-time echo never verifies a custom range", () => {
   const echo = "当前：2026-07-22 09:51:31";
   assert.equal(isStaticCurrentTimestamp(echo), true);
   assert.equal(isVerifiedJdDateRangeEcho(echo, "2026-07-21", "2026-07-21"), false);
+});
+
+test("a disabled current-day calendar cell fails before any endpoint dispatch", () => {
+  const hashedDisabledToday = "jmt-date-picker-calendar-cell-disabled__9a4 cell-now__f01";
+  let dispatches = 0;
+  if (jdCalendarDateDispatchDecision(hashedDisabledToday) === "dispatch") dispatches += 1;
+
+  assert.equal(dispatches, 0);
+  assert.deepEqual(jdCalendarCellState(hashedDisabledToday), {
+    disabled: true,
+    now: true,
+    start: false,
+    end: false,
+    selected: false,
+  });
+  assert.equal(jdCalendarEndSelectionDecision({
+    className: hashedDisabledToday,
+    echoText: "",
+    startDate: "2026-08-01",
+    endDate: "2026-08-07",
+  }), "blocked_disabled");
+});
+
+test("current-day marker never counts as an endpoint", () => {
+  assert.equal(isJdCalendarEndSelected(jdCalendarCellState("cell-now__a cell-end__b cell-selected__c")), false);
+  assert.equal(jdCalendarEndSelectionDecision({
+    className: "cell-now__a cell-end__b cell-selected__c",
+    echoText: "",
+    startDate: "2026-08-01",
+    endDate: "2026-08-07",
+  }), "unconfirmed");
+});
+
+test("end plus selected is diagnostic only until the strict date echo matches", () => {
+  const hoverSecondDate = "cell-end__hash cell-selected__hash";
+  assert.equal(isJdCalendarEndSelected(jdCalendarCellState(hoverSecondDate)), true);
+  assert.equal(jdCalendarEndSelectionDecision({
+    className: hoverSecondDate,
+    echoText: "\u5f53\u524d\uff1a2026-08-01 09:30:00",
+    startDate: "2026-08-01",
+    endDate: "2026-08-07",
+  }), "end_selected_without_echo");
+});
+
+test("a strict range echo succeeds without a second end dispatch", () => {
+  const decision = jdCalendarEndSelectionDecision({
+    className: "cell-now__hash",
+    echoText: "\u5f53\u524d\uff1a2026-08-01 ~ 08-07",
+    startDate: "2026-08-01",
+    endDate: "2026-08-07",
+  });
+  let secondEndDispatches = 0;
+  if (decision !== "confirmed_echo") secondEndDispatches += 1;
+  assert.equal(decision, "confirmed_echo");
+  assert.equal(secondEndDispatches, 0);
 });
 
 test("realtime download-settings dialogs are rejected before task submission", () => {

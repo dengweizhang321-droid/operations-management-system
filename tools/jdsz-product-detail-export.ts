@@ -152,6 +152,44 @@ export function isVerifiedJdDateRangeEcho(echoText: string, startDate: string, e
   return !isStaticCurrentTimestamp(echoText) && jdDateRangeEchoMatches(echoText, startDate, endDate);
 }
 
+export type JdCalendarCellState = { disabled: boolean; now: boolean; start: boolean; end: boolean; selected: boolean };
+
+/** JD hashes calendar class names per build; match the stable cell-state segment within each class token. */
+export function jdCalendarCellState(className: string | null | undefined): JdCalendarCellState {
+  const tokens = String(className ?? "").split(/\s+/).filter(Boolean);
+  const has = (segment: string) => tokens.some((token) => token.includes(`cell-${segment}`));
+  return { disabled: has("disabled"), now: has("now"), start: has("start"), end: has("end"), selected: has("selected") };
+}
+
+export function isJdCalendarDateDispatchable(state: JdCalendarCellState) {
+  return !state.disabled;
+}
+
+export type JdCalendarDateDispatchDecision = "dispatch" | "blocked_disabled";
+
+/**
+ * Keep the decision pure so callers can prove a disabled calendar day never
+ * reaches a click/dispatch side effect.
+ */
+export function jdCalendarDateDispatchDecision(className: string | null | undefined): JdCalendarDateDispatchDecision {
+  return jdCalendarCellState(className).disabled ? "blocked_disabled" : "dispatch";
+}
+
+export function isJdCalendarEndSelected(state: JdCalendarCellState) {
+  // Today is a visual marker, never proof of a selected range endpoint.  Even
+  // end+selected is diagnostic only: JD can add it while hovering secondDate.
+  return !state.disabled && !state.now && state.end && state.selected;
+}
+
+export type JdCalendarEndDecision = "confirmed_echo" | "blocked_disabled" | "end_selected_without_echo" | "unconfirmed";
+
+export function jdCalendarEndSelectionDecision(input: { className: string | null | undefined; echoText: string; startDate: string; endDate: string }): JdCalendarEndDecision {
+  if (isVerifiedJdDateRangeEcho(input.echoText, input.startDate, input.endDate)) return "confirmed_echo";
+  const state = jdCalendarCellState(input.className);
+  if (state.disabled) return "blocked_disabled";
+  return isJdCalendarEndSelected(state) ? "end_selected_without_echo" : "unconfirmed";
+}
+
 async function waitForSelectedDateRange(page: Page, startDate: string, endDate: string, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   let echoText = "";
@@ -245,17 +283,21 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
     const cell = page.locator(cellSelector(date)).filter({ visible: true });
     await cell.waitFor({ state: "visible", timeout: 10_000 });
     if (await cell.count() !== 1) throw new Error(`日期 ${date} 的可选单元格不是唯一元素。`);
+    if (jdCalendarDateDispatchDecision(await cell.getAttribute("class")) === "blocked_disabled") {
+      throw new Error(`日期 ${date} 尚未开放，已禁止点击日历单元格。`);
+    }
     // A browser translation extension can intercept pointer events above the
     // calendar. Dispatching the native click on this unique validated cell
     // reaches JD's date-picker handler without relying on pointer hit-testing.
     await cell.dispatchEvent("click");
   };
-  const waitForCellState = async (date: string, stateClass: string, timeoutMs: number) => {
+  const waitForStartSelected = async (date: string, timeoutMs: number) => {
     const deadline = Date.now() + timeoutMs;
     const cell = page.locator(cellSelector(date)).filter({ visible: true });
     while (Date.now() < deadline) {
       try {
-        if ((await cell.getAttribute("class"))?.includes(stateClass)) return true;
+        const state = jdCalendarCellState(await cell.getAttribute("class"));
+        if (!state.disabled && state.start && state.selected) return true;
       } catch {
         // JD may replace the calendar cell during the date-picker re-render.
         // Treat that frame as an unconfirmed state and let the caller retry.
@@ -264,18 +306,45 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
     }
     return false;
   };
+  const waitForEndSelectionOrEcho = async (timeoutMs: number) => {
+    const deadline = Date.now() + timeoutMs;
+    let lastClassName: string | null = null;
+    let lastEcho = "";
+    let observed = false;
+    const cell = page.locator(cellSelector(endDate)).filter({ visible: true });
+    while (Date.now() < deadline) {
+      try {
+        lastClassName = await cell.getAttribute("class");
+        lastEcho = await currentDateEcho(page);
+        observed = true;
+        const decision = jdCalendarEndSelectionDecision({ className: lastClassName, echoText: lastEcho, startDate, endDate });
+        if (decision === "confirmed_echo" || decision === "blocked_disabled") return decision;
+      } catch {
+        // JD may replace the cell during re-render.  Missing observation never
+        // authorizes another endpoint dispatch.
+      }
+      await page.waitForTimeout(50);
+    }
+    if (!observed) return "unconfirmed";
+    return jdCalendarEndSelectionDecision({ className: lastClassName, echoText: lastEcho, startDate, endDate });
+  };
   const [startSelectionDate, endSelectionDate] = jdDateRangeSelectionPlan(startDate, endDate);
   await selectDay(startSelectionDate);
-  if (!await waitForCellState(startDate, "jmt-date-picker-calendar-cell-start", 1_000)) await selectDay(startDate);
-  if (!await waitForCellState(startDate, "jmt-date-picker-calendar-cell-start", 5_000)) {
+  if (!await waitForStartSelected(startDate, 1_000)) await selectDay(startDate);
+  if (!await waitForStartSelected(startDate, 5_000)) {
     throw new Error(`起始日期 ${startDate} 点击后未进入区间起点状态。`);
   }
   // A single-day range still needs a second click: the first establishes the
   // start, while the second closes the range as its end.
   await selectDay(endSelectionDate);
-  if (!await waitForCellState(endDate, "jmt-date-picker-calendar-cell-end", 1_000)) await selectDay(endSelectionDate);
-  if (!await waitForCellState(endDate, "jmt-date-picker-calendar-cell-end", 5_000)) {
-    throw new Error(`结束日期 ${endDate} 点击后未进入区间终点状态。`);
+  const firstEndDecision = await waitForEndSelectionOrEcho(1_000);
+  if (firstEndDecision === "blocked_disabled") throw new Error(`结束日期 ${endDate} 尚未开放，已禁止再次点击。`);
+  if (firstEndDecision !== "confirmed_echo") {
+    // `end+selected` can be a hover-only secondDate decoration.  Re-clicking
+    // can turn an ambiguous range into a different range, so strict echo is
+    // the only submit gate and failure stays side-effect free after the first
+    // validated endpoint dispatch.
+    throw new Error(`结束日期 ${endDate} 点击后未获得严格日期回显，已禁止重试点击。`);
   }
   // The picker itself applies the custom range.  Clicking the page-level
   // Query action switches this JD page back to a realtime-summary flow, so it
