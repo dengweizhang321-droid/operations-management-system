@@ -969,6 +969,44 @@ export async function runCloudAnnotationBatch(db: MarketDatabase, jobId: string,
   };
 }
 
+/**
+ * 挑一个还有待推理内容的云端任务。reuse 尚未准备好的任务也要选中，
+ * 因为复用扩散由 runNextCloudAnnotationInternal 自己在开头完成。
+ */
+async function pickRunnableCloudJob(db: MarketDatabase) {
+  return db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs job
+    WHERE job.executor='cloud' AND job.status IN ('queued','running','failed')
+      AND (job.reuse_status<>'ready' OR EXISTS (SELECT 1 FROM market_annotation_items item
+        WHERE item.job_id=job.id AND item.attempt_count<3
+          AND (item.status IN ('queued','failed')
+            OR (item.status='inferencing' AND item.lease_expires_at IS NOT NULL
+              AND datetime(item.lease_expires_at)<=datetime('now')))))
+    ORDER BY datetime(job.created_at), job.id LIMIT 1`).first<JobRow>();
+}
+
+/**
+ * 后台泵的单次推进：识别本身早已在服务端执行，浏览器只是反复调用 run_batch。
+ * 这里把「选任务 + 读当前并发 + 跑一批」合成一次调用，让常驻 runner 或将来的
+ * scheduled() 处理器共用同一个入口，续跑仍然完全依赖既有租约与 attempt_count。
+ */
+export async function runCloudAnnotationPump(db: MarketDatabase, input: { jobId?: string } = {}) {
+  await ensureAnnotationSchema(db);
+  const job = input.jobId
+    ? await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(input.jobId).first<JobRow>()
+    : await pickRunnableCloudJob(db);
+  if (!job) return { idle: true, jobId: "", category: "", concurrency: 0 };
+  if (job.executor !== "cloud") throw new Error("只有云端标注任务可以由后台泵推进");
+  // 已收尾的任务只走一次对账：runCloudAnnotationBatch 会立刻返回 done，
+  // 随后的 refreshJob 把计数校正回真实值，不会再触发任何模型调用。
+  if (["cancelled", "committed"].includes(job.status)) return { idle: true, jobId: job.id, category: job.category, concurrency: 0 };
+  const concurrency = await annotationConcurrency(db, job.category, "cloud");
+  const batch = await runCloudAnnotationBatch(db, job.id, 1);
+  // 后台泵没有浏览器那份 loadJobProgress 轮询，这里顺手刷新任务计数，
+  // 页面上的进度才会随后台推进而前进，而不是一直停在 0/N。
+  await refreshJob(db, job.id);
+  return { idle: false, jobId: job.id, category: job.category, concurrency, ...batch, job: await getJob(db, job.id) };
+}
+
 export async function updateAnnotationItems(db: MarketDatabase, jobId: string, updates: Array<{ id: string; version: number; segment: string; imagePriceCents: unknown; priceType?: string; priceLowCents?: unknown; priceHighCents?: unknown; selected: boolean }>, actor: Actor) {
   if (!updates.length || updates.length > 500) throw new Error("每次必须更新 1 到 500 个明确候选项");
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=?").bind(jobId).first<JobRow>();

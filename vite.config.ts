@@ -51,6 +51,11 @@ export default defineConfig(async () => {
     // deployment never reuses a stale client bundle.
     cacheDir: ".vite-sites-cache",
     server: {
+      // 端口被占时直接失败，不要静默顺延到 3001/3002：上一轮 dev server 若被
+      // Ctrl+Z 或 SIGTTIN 停在后台，它仍持有监听 socket，顺延只会让多个实例
+      // 同时读写同一份 .wrangler 本地 D1。
+      port: 3000,
+      strictPort: true,
       watch: isCodexSeatbeltSandbox
         ? { useFsEvents: false, usePolling: true }
         : {
