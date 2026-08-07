@@ -289,6 +289,8 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
   if (await confirm.count() !== 1) throw new Error("无法唯一识别京东商智日期确认按钮。");
   await confirm.dispatchEvent("click");
   await page.waitForTimeout(200);
+  const calendar = page.locator('.jmt-date-picker-calendar').filter({ visible: true });
+  if (await calendar.count() > 0) await calendar.first().waitFor({ state: "hidden", timeout: 5_000 });
 }
 
 async function waitForDataRefresh(page: Page) {
