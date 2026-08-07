@@ -480,15 +480,36 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(access, /principal\.scope\.platforms/);
 });
 
-test("shows filtered SPU visitors only as a product-by-day accumulation", async () => {
+test("maps scoped SPU traffic and promotion metrics into store analysis without hiding their aggregation semantics", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /function StoreSpuVisitorMetric/);
   assert.match(page, /dimension: "spu"/);
+  assert.match(page, /mergeStoreNetshopPeriods/);
+  assert.match(page, /productPerformance\.summary\.transactionAmountCents \/ productPerformance\.summary\.visitors/);
+  assert.match(page, /promotionClickThroughRate/);
+  assert.match(page, /label="推广点击率"/);
+  assert.match(page, /label="付费访客"/);
+  assert.match(page, /推广点击访问次数口径，非去重访客人数/);
   assert.doesNotMatch(page, /Math\.round\(sourceVisitors \* 0\.9\)/);
   assert.match(page, /商品×日累计，非店铺去重 UV/);
-  assert.match(page, /待导入匹配店铺的 SPU 日数据/);
+  assert.match(page, /当前店铺\/周期暂无 SPU 商品日数据/);
   assert.match(page, /dimension === "sku" \? "jd_sku_daily" : "tmall_product_daily"/);
+});
+
+test("sales overview exposes polished additive shop and category multi-select filters", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /店铺与品类多选/);
+  assert.match(page, /ariaLabel="销售总览店铺多选"/);
+  assert.match(page, /ariaLabel="销售总览品类多选"/);
+  assert.match(page, /sales-overview-filter-chips/);
+  assert.match(page, /onShopChange\(selectedShopKeys\.filter/);
+  assert.match(page, /onCategoryChange\(selectedCategories\.filter/);
+  assert.match(styles, /\.sales-overview-filter-field/);
+  assert.match(styles, /\.sales-overview-filter-chips/);
 });
 
 test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {
