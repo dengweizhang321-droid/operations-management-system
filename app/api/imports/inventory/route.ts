@@ -11,6 +11,7 @@ import {
   authorizationErrorResponse,
   requireAppPrincipal,
 } from "@/lib/auth/authorization";
+import { recordRejectedImportBytes } from "@/lib/imports/content-fingerprint";
 
 const MAX_DIRECT_INVENTORY_FILE_BYTES = 1024 * 1024;
 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传 .xlsx 文件");
@@ -65,12 +66,24 @@ export async function POST(request: Request) {
     const entry = formData?.get("file");
     const snapshotDate = typeof formData?.get("snapshotDate") === "string" ? String(formData?.get("snapshotDate")) : undefined;
     if (!(entry instanceof File)) return errorResponse(400, "缺少名为 file 的 Excel 文件");
-    if (!entry.name.toLowerCase().endsWith(".xlsx")) return errorResponse(400, "仅支持 .xlsx 格式的分仓库存查询报表");
-    if (entry.size === 0) return errorResponse(400, "上传文件为空");
     if (entry.size > MAX_DIRECT_INVENTORY_FILE_BYTES) return errorResponse(413, "超过 1MB 的库存报表请使用分片上传接口");
+    const bytes = new Uint8Array(await entry.arrayBuffer());
+    const rejectUploadedFile = async (status: number, code: string, message: string) => {
+      await recordRejectedImportBytes(getInventoryDatabase(), {
+        domain: "inventory-stock",
+        bytes,
+        scopeHint: { source: "inventory_stock", snapshotDate: snapshotDate?.trim() || null },
+        errorCode: code,
+        issues: [{ code, message }],
+        metadata: { fileName: entry.name, fileSizeBytes: entry.size, actor: principal.email },
+      });
+      return errorResponse(status, message);
+    };
+    if (!entry.name.toLowerCase().endsWith(".xlsx")) return rejectUploadedFile(400, "INVALID_FILE_EXTENSION", "仅支持 .xlsx 格式的分仓库存查询报表");
+    if (entry.size === 0) return rejectUploadedFile(400, "EMPTY_UPLOAD", "上传文件为空");
 
     const payload = await importInventoryStockBytes({
-      bytes: new Uint8Array(await entry.arrayBuffer()),
+      bytes,
       fileName: entry.name,
       fileSizeBytes: entry.size,
       snapshotDateOverride: snapshotDate,

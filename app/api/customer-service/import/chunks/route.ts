@@ -26,7 +26,7 @@ async function digest(bytes: Uint8Array) {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "Invalid upload request");
 
@@ -36,7 +36,9 @@ export async function POST(request: Request) {
       const fileSizeBytes = Number(body.fileSizeBytes);
       const chunkCount = Number(body.chunkCount);
       const fingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
+      const initShopName = typeof body.shopName === "string" ? body.shopName.trim() : "";
       if (!kind || (kind === "session" ? !/\.xlsx$/i.test(fileName) : !/\.(log|txt)$/i.test(fileName))
+        || !initShopName || initShopName.length > 100 || !/^[a-f0-9]{64}$/.test(fingerprint)
         || fileSizeBytes <= 0 || fileSizeBytes > MAX_FILE_BYTES) {
         return reject(422, "Unsupported customer-service source file");
       }
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
         fileName: `${kind}-${fileName}.xlsx`,
         fileSizeBytes,
         chunkCount,
-        fingerprint: `customer-service:${kind}:${fingerprint}`,
+        fingerprint: `customer-service:${kind}:${initShopName}:${fingerprint}`,
       });
       return Response.json({ ok: true, upload, limits: { chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES, maxFileSizeBytes: MAX_FILE_BYTES } });
     }
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
       if (!sessionUploadId || !chatUploadId || !shopName || shopName.length > 100 || !/\.xlsx$/i.test(sessionFileName) || !/\.(log|txt)$/i.test(chatFileName)) return reject(400, "Missing shop or paired upload files");
       const pairKey = await digest(new TextEncoder().encode(`${sessionUploadId}:${chatUploadId}`));
       const sessionClaim = await claimInventoryUpload(sessionUploadId);
-      if (!sessionClaim.session.fingerprint.startsWith("customer-service:session:")) {
+      if (!sessionClaim.session.fingerprint.startsWith(`customer-service:session:${shopName}:`)) {
         if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
         return reject(409, "Session upload identity does not match the paired import request");
       }
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
         if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
         throw error;
       }
-      if (!chatClaim.session.fingerprint.startsWith("customer-service:chat:")) {
+      if (!chatClaim.session.fingerprint.startsWith(`customer-service:chat:${shopName}:`)) {
         if (sessionClaim.kind === "claimed") await releaseInventoryUpload(sessionUploadId);
         if (chatClaim.kind === "claimed") await releaseInventoryUpload(chatUploadId);
         return reject(409, "Chat upload identity does not match the paired import request");
@@ -91,23 +93,32 @@ export async function POST(request: Request) {
         const [session, chat] = await Promise.all([assembleInventoryUpload(sessionUploadId), assembleInventoryUpload(chatUploadId)]);
         const sessionHash = await digest(session.bytes); const chatHash = await digest(chat.bytes);
         const requestedFileHash = await digest(new TextEncoder().encode(`${shopName}:${sessionHash}:${chatHash}`));
-        let parsed: ReturnType<typeof parseCustomerServiceImport>;
-        try {
-          parsed = parseCustomerServiceImport(session.bytes, new TextDecoder("utf-8", { fatal: true }).decode(chat.bytes));
-          if (parsed.conversations.length === 0) throw new Error("Customer-service import contains no conversations to save");
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Customer-service files could not be parsed";
+        const auditRejectedPair = async (errorCode: string, message: string) => {
           const db = getCustomerServiceDatabase();
           await ensureCustomerServiceSchema(db);
           await ensureImportFingerprintSchema(db);
           await recordRejectedImportAttempt(db, {
             domain: "customer-service",
             rawFileHash: requestedFileHash,
-            scopeHint: { shopName, pairKey },
-            errorCode: "CUSTOMER_SERVICE_PARSE_REJECTED",
-            issues: [{ code: "CUSTOMER_SERVICE_PARSE_REJECTED", message }],
-            metadata: { fileName: `${sessionFileName} + ${chatFileName}`, fileSizeBytes: session.bytes.byteLength + chat.bytes.byteLength },
+            scopeHint: { shopName, pairKey, sessionRawFileHash: sessionHash, chatRawFileHash: chatHash },
+            errorCode,
+            issues: [{ code: errorCode, message }],
+            metadata: { fileName: `${sessionFileName} + ${chatFileName}`, fileSizeBytes: session.bytes.byteLength + chat.bytes.byteLength, actor: principal.email },
           });
+        };
+        if (sessionClaim.session.fingerprint !== `customer-service:session:${shopName}:${sessionHash}`
+          || chatClaim.session.fingerprint !== `customer-service:chat:${shopName}:${chatHash}`) {
+          const message = "Uploaded customer-service file hash does not match the initialized session";
+          await auditRejectedPair("UPLOAD_FINGERPRINT_MISMATCH", message);
+          throw new Error(message);
+        }
+        let parsed: ReturnType<typeof parseCustomerServiceImport>;
+        try {
+          parsed = parseCustomerServiceImport(session.bytes, new TextDecoder("utf-8", { fatal: true }).decode(chat.bytes));
+          if (parsed.conversations.length === 0) throw new Error("Customer-service import contains no conversations to save");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Customer-service files could not be parsed";
+          await auditRejectedPair("CUSTOMER_SERVICE_PARSE_REJECTED", message);
           throw error;
         }
         const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;

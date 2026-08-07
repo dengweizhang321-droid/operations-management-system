@@ -181,16 +181,6 @@ export async function importMarketFile(input: {
     currentStateToken,
   });
   const existing = await findMarketBatchByHash(db, fileHash);
-  if (existing?.status === "processing" && Date.now() - Date.parse(existing.createdAt) < 30 * 60 * 1000) {
-    return { ok: true, status: "processing" as const, message: "相同业务资料正在导入，请稍后刷新", batch: existing };
-  }
-  if (existing) {
-    await db.batch([
-      db.prepare("DELETE FROM market_import_staging_rows WHERE batch_id=?").bind(existing.id),
-      db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=?").bind(existing.id),
-      db.prepare("DELETE FROM market_import_batches WHERE id=? AND status<>'completed'").bind(existing.id),
-    ]);
-  }
   const batchId = `market-${fileHash}`;
   const reservation = await reserveImportFingerprint(db, {
     ...fingerprint,
@@ -201,10 +191,20 @@ export async function importMarketFile(input: {
     metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, actor: input.actorEmail, warnings: parsed.warnings },
   });
   if (!reservation.claimed) {
+    if (existing?.status === "processing") {
+      return { ok: true, status: "processing" as const, message: "相同业务资料正在导入，请稍后刷新", batch: existing };
+    }
     throw new Error("同一市场业务范围已被更新，请重新提交最新文件");
   }
   await renewImportFingerprintReservation(db, { ...fingerprint, batchId, attemptId: reservation.attemptId });
   try {
+  if (existing && existing.status !== "completed") {
+    await db.batch([
+      db.prepare("DELETE FROM market_import_staging_rows WHERE batch_id=?").bind(existing.id),
+      db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=?").bind(existing.id),
+      db.prepare("DELETE FROM market_import_batches WHERE id=? AND status<>'completed'").bind(existing.id),
+    ]);
+  }
   const saved = await saveMarketImport({
     db,
     batchId,

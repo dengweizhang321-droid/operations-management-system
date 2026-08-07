@@ -45,6 +45,18 @@ test("全部七类导入入口都审计预校验拒绝且不让坏文件参与�
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.match(source, /recordRejectedImportAttempt/, file);
   }
+  for (const file of [
+    "app/api/imports/sales/route.ts",
+    "app/api/imports/inventory/route.ts",
+    "app/api/imports/erp/route.ts",
+    "app/api/imports/finance/route.ts",
+    "app/api/netshop/import/route.ts",
+    "app/api/inventory/import/route.ts",
+    "app/api/market/import/route.ts",
+  ]) {
+    const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+    assert.match(source, /recordRejectedImportBytes/, file);
+  }
 
   const implementation = await readFile(new URL("../lib/imports/content-fingerprint.ts", import.meta.url), "utf8");
   const rejectedBlock = implementation.slice(
@@ -68,6 +80,17 @@ test("七类事实发布事务都安装共享 owner 提交栅栏", async () => {
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.match(source, /importReservationCommitFence\(/, file);
   }
+});
+
+test("市场旧批次清理只能发生在共享 owner 成功领取之后", async () => {
+  const source = await readFile(new URL("../lib/market/import-service.ts", import.meta.url), "utf8");
+  const block = source.slice(
+    source.indexOf("const existing = await findMarketBatchByHash"),
+    source.indexOf("const saved = await saveMarketImport"),
+  );
+  assert.ok(block.indexOf("reserveImportFingerprint") >= 0);
+  assert.ok(block.indexOf("DELETE FROM market_import_staging_rows") > block.indexOf("reserveImportFingerprint"));
+  assert.doesNotMatch(block, /Date\.parse\(existing\.createdAt\)/);
 });
 
 test("内容指纹同时保留原文件哈希，且迁移安装范围与原文件索引", async () => {

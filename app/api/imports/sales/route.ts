@@ -11,6 +11,7 @@ import {
   authorizationErrorResponse,
   requireAppPrincipal,
 } from "@/lib/auth/authorization";
+import { recordRejectedImportBytes } from "@/lib/imports/content-fingerprint";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 /** Small reports keep the original single-request import path. Larger files use /chunks. */
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传 .xlsx 文件");
@@ -50,12 +51,24 @@ export async function POST(request: Request) {
     const expectedStartDate = String(formData?.get("expectedStartDate") ?? "").trim();
     const expectedEndDate = String(formData?.get("expectedEndDate") ?? "").trim();
     if (!(entry instanceof File)) return errorResponse(400, "缺少名为 file 的 Excel 文件");
-    if (!entry.name.toLowerCase().endsWith(".xlsx")) return errorResponse(400, "仅支持 .xlsx 格式的销售单明细账");
-    if (entry.size === 0) return errorResponse(400, "上传文件为空");
     if (entry.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "超过 2MB 的报表请使用分片上传接口");
+    const bytes = new Uint8Array(await entry.arrayBuffer());
+    const rejectUploadedFile = async (status: number, code: string, message: string) => {
+      await recordRejectedImportBytes(getSalesDatabase(), {
+        domain: "sales",
+        bytes,
+        scopeHint: { source: "sales_ledger", startDate: expectedStartDate || null, endDate: expectedEndDate || null },
+        errorCode: code,
+        issues: [{ code, message }],
+        metadata: { fileName: entry.name, fileSizeBytes: entry.size, actor: principal.email },
+      });
+      return errorResponse(status, message);
+    };
+    if (!entry.name.toLowerCase().endsWith(".xlsx")) return rejectUploadedFile(400, "INVALID_FILE_EXTENSION", "仅支持 .xlsx 格式的销售单明细账");
+    if (entry.size === 0) return rejectUploadedFile(400, "EMPTY_UPLOAD", "上传文件为空");
 
     const payload = await importSalesLedgerBytes({
-      bytes: new Uint8Array(await entry.arrayBuffer()),
+      bytes,
       fileName: entry.name,
       fileSizeBytes: entry.size,
       expectedStartDate,

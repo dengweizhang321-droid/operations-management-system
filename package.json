@@ -23,6 +23,8 @@
     "jd:all-stores": "node --import tsx tools/jd-multi-store-runner.ts",
     "tmall:receipt": "node --import tsx tools/tmall-download-receipt.ts",
     "tmall:daily:import": "node --import tsx tools/tmall-multi-store-import-runner.ts",
+    "sycm:browser": "node --import tsx tools/sycm-browser-controller.ts",
+    "sycm:daily": "node --import tsx tools/sycm-daily-runner.ts",
     "market:annotation-agent": "node --import tsx tools/market-annotation-runner.ts",
     "jackyun:run": "node --import tsx tools/jackyun-automation-runner.ts",
     "jackyun:continue-helper": "node --import tsx tools/jackyun-continue-helper.ts",

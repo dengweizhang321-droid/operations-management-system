@@ -180,9 +180,14 @@ export async function importInventoryStockBytes(input: {
       ok: false,
       status: "rejected",
       message: "剔除刷刷仓和成本价为 0 的明细后没有可导入的库存数据",
-      warnings: excludedBrushWarehouseRows > 0
-        ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已识别刷刷仓 ${excludedBrushWarehouseRows} 行` }]
-        : [],
+      warnings: [
+        ...(excludedBrushWarehouseRows > 0
+          ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已识别刷刷仓 ${excludedBrushWarehouseRows} 行` }]
+          : []),
+        ...(excludedZeroCostRows > 0
+          ? [{ code: "EXCLUDED_ZERO_UNIT_COST", message: `已识别成本价为 0 的库存 ${excludedZeroCostRows} 行` }]
+          : []),
+      ],
       errors: [{ code: "NO_DATA_ROWS_AFTER_FILTER", message: "没有符合经营分析口径的库存明细行" }],
       errorCount: 1,
     });
@@ -289,7 +294,7 @@ export async function importInventoryStockBytes(input: {
       importHash: latestScopeBatch.fileHash,
       rawFileHash,
       publishedStateToken: currentStateToken,
-      metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings: latestScopeBatch.warnings },
+      metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings },
       outcome: "duplicate",
     });
     return {
@@ -297,7 +302,7 @@ export async function importInventoryStockBytes(input: {
       status: "duplicate",
       message: "全部标准化库存资料与当前快照一致，无需重复导入",
       batch: latestScopeBatch,
-      warnings: latestScopeBatch.warnings,
+      warnings,
     };
   }
   const fileHash = await buildImportAttemptHash({

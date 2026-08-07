@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { runController } from "./jackyun-browser-controller";
 import { JackyunDailyRunError, preflightJackyunResume, runJackyunDaily } from "./jackyun-daily-runner";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
+import { createExternalOperationReporter } from "../lib/operations/reporter";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -212,10 +213,43 @@ export async function runJackyunAutomationUnderLock(
 
 export async function runJackyunAutomation(options: JackyunAutomationOptions) {
   assertJackyunDailyDatePolicy(options.snapshotDate, options.asOfDate);
-  return withJackyunRunLock(
-    { runId: options.runId, purpose: "five_dataset_automation" },
-    () => runJackyunAutomationUnderLock(options),
-  );
+  const reporter = createExternalOperationReporter({ baseUrl: options.baseUrl });
+  const operationRunId = await reporter.start({
+    externalRunId: options.runId,
+    runType: "jackyun_five_dataset_daily",
+    surface: "local_automation",
+    platform: "吉客云",
+    dataset: "products_inventory_age_sales_combos",
+    scope: {
+      externalRunId: options.runId,
+      snapshotDate: options.snapshotDate,
+      asOfDate: options.asOfDate,
+      mode: options.dryRun ? "dry_run" : "formal",
+      resume: options.resume,
+    },
+  });
+  try {
+    const result = await withJackyunRunLock(
+      { runId: options.runId, purpose: "five_dataset_automation" },
+      () => runJackyunAutomationUnderLock(options),
+    );
+    await reporter.finish(operationRunId, {
+      status: "succeeded",
+      summary: {
+        externalRunId: options.runId,
+        outcome: resultStatus(result.dailyResult) === "completed" ? "completed" : "prepared",
+      },
+    });
+    return result;
+  } catch (error) {
+    const record = error && typeof error === "object" ? error as Record<string, unknown> : null;
+    await reporter.finish(operationRunId, {
+      status: options.signal?.aborted ? "cancelled" : "failed",
+      errorCode: typeof record?.failureCode === "string" ? record.failureCode : "PIPELINE_FAILED",
+      summary: { externalRunId: options.runId, stage: record?.stage ?? "automation" },
+    });
+    throw error;
+  }
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {

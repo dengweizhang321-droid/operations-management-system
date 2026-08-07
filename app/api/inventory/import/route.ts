@@ -6,6 +6,8 @@ import {
   authorizationErrorResponse,
   requireAppPrincipal,
 } from "@/lib/auth/authorization";
+import { getNetshopDatabase } from "@/lib/netshop/database";
+import { recordRejectedImportBytes } from "@/lib/imports/content-fingerprint";
 
 const MAX_DIRECT_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -15,7 +17,7 @@ function errorResponse(status: number, message: string, details: Record<string, 
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传库存快照文件");
@@ -26,16 +28,28 @@ export async function POST(request: Request) {
     const parsed = readNetshopForm(formData);
     const file = parsed.file;
     if (!(file instanceof File)) return errorResponse(400, "缺少名为 file 的文件");
-    if (file.size === 0) return errorResponse(400, "上传文件为空");
     if (file.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "文件超过 25MB，请拆分后上传");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const rejectUploadedFile = async (status: number, code: string, message: string) => {
+      await recordRejectedImportBytes(getNetshopDatabase(), {
+        domain: "netshop",
+        bytes,
+        scopeHint: { source: parsed.source ?? "inv_selfop", snapshotDate: parsed.snapshotDate?.trim() || null },
+        errorCode: code,
+        issues: [{ code, message }],
+        metadata: { fileName: file.name, fileSizeBytes: file.size, actor: principal.email },
+      });
+      return errorResponse(status, message);
+    };
 
     const source = parsed.source ?? "inv_selfop";
     if (source !== "inv_selfop") {
-      return errorResponse(400, "/api/inventory/import/ 仅用于 source=inv_selfop 的京东自营库存快照");
+      return rejectUploadedFile(400, "INVALID_SOURCE", "/api/inventory/import/ 仅用于 source=inv_selfop 的京东自营库存快照");
     }
+    if (file.size === 0) return rejectUploadedFile(400, "EMPTY_UPLOAD", "上传文件为空");
 
     const payload = await importNetshopBytes({
-      bytes: new Uint8Array(await file.arrayBuffer()),
+      bytes,
       fileName: file.name,
       fileSizeBytes: file.size,
       source,

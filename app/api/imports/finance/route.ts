@@ -8,6 +8,7 @@ import {
   authorizationErrorResponse,
   requireAppPrincipal,
 } from "@/lib/auth/authorization";
+import { recordRejectedImportBytes } from "@/lib/imports/content-fingerprint";
 
 const MAX_FINANCE_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     const isMultipart = contentType.toLowerCase().startsWith("multipart/form-data");
     const isBinary = contentType.toLowerCase().startsWith("application/octet-stream");
@@ -53,9 +54,20 @@ export async function POST(request: Request) {
       fileName = entry.name;
       bytes = new Uint8Array(await entry.arrayBuffer());
     }
-    if (!/\.xlsx?$/i.test(fileName)) return errorResponse(400, "仅支持 .xls 或 .xlsx 月度财报");
-    if (bytes.byteLength === 0) return errorResponse(400, "上传文件为空");
     if (bytes.byteLength > MAX_FINANCE_FILE_BYTES) return errorResponse(413, "月度财报文件不能超过 8MB");
+    const rejectUploadedFile = async (status: number, code: string, message: string) => {
+      await recordRejectedImportBytes(getFinanceDatabase(), {
+        domain: "finance",
+        bytes,
+        scopeHint: { source: "monthly-finance-report" },
+        errorCode: code,
+        issues: [{ code, message }],
+        metadata: { fileName, fileSizeBytes: bytes.byteLength, actor: principal.email },
+      });
+      return errorResponse(status, message);
+    };
+    if (!/\.xlsx?$/i.test(fileName)) return rejectUploadedFile(400, "INVALID_FILE_EXTENSION", "仅支持 .xls 或 .xlsx 月度财报");
+    if (bytes.byteLength === 0) return rejectUploadedFile(400, "EMPTY_UPLOAD", "上传文件为空");
 
     const payload = await importFinanceReportBytes({
       bytes,

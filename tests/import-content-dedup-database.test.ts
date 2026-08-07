@@ -29,6 +29,7 @@ const {
   failImportFingerprint,
   nextImportScopeStateToken,
   recordImportFingerprint,
+  recordRejectedImportBytes,
   recordRejectedImportAttempt,
   renewImportFingerprintReservation,
   reserveImportFingerprint,
@@ -545,6 +546,15 @@ test("预校验拒绝只写尝试审计，不创建业务指纹或抢占 scope h
     rawFileHash: "a".repeat(64),
     fileName: "bad.xlsx",
   });
+  await recordRejectedImportBytes(db, {
+    domain: "inventory-stock",
+    bytes: new Uint8Array([1, 2, 3]),
+    scopeHint: { snapshotDate: null },
+    errorCode: "INVALID_FILE_EXTENSION",
+    issues: [{ code: "INVALID_FILE_EXTENSION", message: "格式无效" }],
+    metadata: { fileName: "bad.txt", fileSizeBytes: 3 },
+  });
+  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM import_content_attempts").get()?.count, 2);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM import_content_fingerprints").get()?.count, 0);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM import_scope_heads").get()?.count, 0);
   sqlite.close();

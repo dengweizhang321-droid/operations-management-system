@@ -16,6 +16,13 @@ import type { AiQuestionEntryContext } from "@/lib/ai/entry-context";
 import { getVisibleToolCatalog } from "@/lib/ai/tool-registry";
 import { AI_TOOL_SYSTEM_PROMPT } from "@/lib/ai/tool-loop";
 import { recordAiToolAudit } from "@/lib/ai/tool-audit";
+import {
+  finishOperationRun,
+  finishOperationStep,
+  startOperationRun,
+  startOperationStep,
+  type OperationRunRecord,
+} from "@/lib/operations/runtime";
 import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
 
 const MAX_QUESTION_LENGTH = 12_000;
@@ -47,13 +54,22 @@ export async function answerAiQuestion(
   const shortcut = classifyShortcut(prompt);
   throwIfAiRequestCancelled(input.entry.signal);
   let generationStarted = false;
-
-  let conversation = input.conversationId
-    ? await requireConversationAccess(input.conversationId, input.entry.principal, db)
-    : null;
+  const operationRun = await startOperationRun(db, {
+    traceId: input.entry.requestId,
+    runType: "ai_question",
+    surface: input.entry.surface,
+    actorEmail: input.entry.principal.email,
+    actorRole: input.entry.principal.role,
+    dataset: "ai_conversation",
+    scope: { source: input.entry.source, hasPrincipalScope: input.entry.principal.scope !== null },
+  });
+  let conversation: AiConversationRecord | null = null;
   const requestedModelId = normalizeOptionalId(input.modelId);
 
   try {
+    conversation = input.conversationId
+      ? await requireConversationAccess(input.conversationId, input.entry.principal, db)
+      : null;
     if (shortcut) {
       if (conversation && requestedModelId && conversation.modelId !== requestedModelId) {
         conversation = await selectConversationModel(conversation.id, requestedModelId, input.entry.principal, db);
@@ -65,6 +81,11 @@ export async function answerAiQuestion(
         : buildHelpReply(input.entry);
       await appendConversationMessage(conversation.id, "assistant", reply, shortcut, db);
       await auditQuestion(input.entry, prompt, shortcut, startedAt, { conversationId: conversation.id });
+      await finishOperationRun(db, {
+        runId: operationRun.id,
+        status: "succeeded",
+        summary: { outcome: shortcut, conversationId: conversation.id },
+      });
       return { conversationId: conversation.id, reply, modelId: conversation.modelId, outcome: shortcut, artifacts: [] };
     }
 
@@ -76,7 +97,7 @@ export async function answerAiQuestion(
     }
     await appendConversationMessage(conversation.id, "user", prompt, "message", db);
     throwIfAiRequestCancelled(input.entry.signal);
-    const knowledge = await retrieveWorkflowKnowledge(prompt, input.entry, db);
+    const knowledge = await retrieveWorkflowKnowledge(prompt, input.entry, operationRun, db);
     generationStarted = true;
     const generation = await generateAssistantReply({
       prompt,
@@ -87,7 +108,19 @@ export async function answerAiQuestion(
       surface: input.entry.surface,
       signal: input.entry.signal,
       systemPrompt: buildSystemPrompt(input.entry, knowledge.context),
+      operationRunId: operationRun.id,
+      traceId: operationRun.traceId,
     }, db);
+    await finishOperationRun(db, {
+      runId: operationRun.id,
+      status: "succeeded",
+      summary: {
+        outcome: "answered",
+        conversationId: conversation.id,
+        modelId: model.id,
+        artifactCount: generation.artifacts.length,
+      },
+    });
     return {
       conversationId: conversation.id,
       reply: generation.reply,
@@ -99,6 +132,13 @@ export async function answerAiQuestion(
     if (isAiRequestCancelled(error, input.entry.signal) && !generationStarted) {
       await auditQuestion(input.entry, prompt, "cancelled", startedAt, { conversationId: conversation?.id ?? null });
     }
+    const cancelled = isAiRequestCancelled(error, input.entry.signal);
+    await finishOperationRun(db, {
+      runId: operationRun.id,
+      status: cancelled ? "cancelled" : "failed",
+      errorCode: cancelled ? "ai_request_cancelled" : "ai_question_failed",
+      summary: { conversationId: conversation?.id ?? null, generationStarted },
+    }).catch(() => undefined);
     throw error;
   }
 }
@@ -167,9 +207,17 @@ function buildSystemPrompt(entry: AiQuestionEntryContext, knowledgeContext = "")
 async function retrieveWorkflowKnowledge(
   prompt: string,
   entry: AiQuestionEntryContext,
+  operationRun: OperationRunRecord,
   db: SalesDatabase,
 ): Promise<{ context: string; sourceIds: string[] }> {
   const startedAt = Date.now();
+  const step = await startOperationStep(db, {
+    runId: operationRun.id,
+    traceId: operationRun.traceId,
+    stepType: "knowledge_retrieval",
+    stepKey: "knowledge_retrieval",
+    attributes: { queryCharacters: prompt.length },
+  });
   try {
     const knowledge = await retrieveKnowledgeForPrompt(prompt, entry.principal, db);
     await recordAiToolAudit({
@@ -183,6 +231,11 @@ async function retrieveWorkflowKnowledge(
       durationMs: Date.now() - startedAt,
       result: { sourceIds: knowledge.sourceIds, returned: knowledge.sourceIds.length },
     });
+    await finishOperationStep(db, {
+      stepId: step.id,
+      status: "succeeded",
+      result: { returned: knowledge.sourceIds.length, sourceIds: knowledge.sourceIds },
+    });
     return knowledge;
   } catch {
     await recordAiToolAudit({
@@ -194,6 +247,11 @@ async function retrieveWorkflowKnowledge(
       arguments: { queryCharacters: prompt.length },
       status: "failed",
       durationMs: Date.now() - startedAt,
+      errorCode: "knowledge_retrieval_failed",
+    }).catch(() => undefined);
+    await finishOperationStep(db, {
+      stepId: step.id,
+      status: "failed",
       errorCode: "knowledge_retrieval_failed",
     }).catch(() => undefined);
     return { context: "", sourceIds: [] };

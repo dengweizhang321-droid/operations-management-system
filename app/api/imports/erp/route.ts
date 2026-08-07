@@ -11,6 +11,7 @@ import {
 } from "@/lib/erp-reference/database";
 import { importErpReferenceBytes } from "@/lib/erp-reference/import-service";
 import { isErpReferenceSourceKey } from "@/lib/imports/erp-reference";
+import { recordRejectedImportBytes } from "@/lib/imports/content-fingerprint";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return reject(415, "请使用 multipart/form-data 上传 .xlsx 文件");
@@ -76,15 +77,28 @@ export async function POST(request: Request) {
     const snapshotDate = typeof formData?.get("snapshotDate") === "string"
       ? String(formData?.get("snapshotDate"))
       : undefined;
-    if (!isErpReferenceSourceKey(source)) return reject(400, "缺少有效的数据来源");
     if (!(entry instanceof File)) return reject(400, "缺少名为 file 的 Excel 文件");
-    if (!entry.name.toLowerCase().endsWith(".xlsx")) return reject(400, "仅支持 .xlsx 格式的吉客云报表");
-    if (entry.size === 0) return reject(400, "上传文件为空");
     if (entry.size > MAX_DIRECT_FILE_BYTES) return reject(413, "超过 2MB 的报表请使用分片上传接口");
+    const bytes = new Uint8Array(await entry.arrayBuffer());
+    const sourceHint = typeof source === "string" ? source : null;
+    const rejectUploadedFile = async (status: number, code: string, message: string) => {
+      await recordRejectedImportBytes(getErpReferenceDatabase(), {
+        domain: "erp-reference",
+        bytes,
+        scopeHint: { source: sourceHint, snapshotDate: snapshotDate?.trim() || null },
+        errorCode: code,
+        issues: [{ code, message }],
+        metadata: { fileName: entry.name, fileSizeBytes: entry.size, actor: principal.email },
+      });
+      return reject(status, message);
+    };
+    if (!isErpReferenceSourceKey(source)) return rejectUploadedFile(400, "INVALID_SOURCE", "缺少有效的数据来源");
+    if (!entry.name.toLowerCase().endsWith(".xlsx")) return rejectUploadedFile(400, "INVALID_FILE_EXTENSION", "仅支持 .xlsx 格式的吉客云报表");
+    if (entry.size === 0) return rejectUploadedFile(400, "EMPTY_UPLOAD", "上传文件为空");
 
     const payload = await importErpReferenceBytes({
       source,
-      bytes: new Uint8Array(await entry.arrayBuffer()),
+      bytes,
       fileName: entry.name,
       fileSizeBytes: entry.size,
       snapshotDate,

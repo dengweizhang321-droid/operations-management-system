@@ -172,6 +172,12 @@ async function sha256Text(value: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+export async function hashImportBytes(bytes: Uint8Array) {
+  const copy = new Uint8Array(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", copy.buffer as ArrayBuffer);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * Builds an order-insensitive fingerprint from normalized business rows.
  * Only explicitly named top-level technical fields are ignored; nested raw
@@ -258,6 +264,24 @@ export async function recordRejectedImportAttempt(
     errorCode,
   ).run();
   return { attemptId, importHash, scopeKey };
+}
+
+export async function recordRejectedImportBytes(
+  db: ImportFingerprintDatabase,
+  input: {
+    domain: string;
+    bytes: Uint8Array;
+    scopeHint?: unknown;
+    errorCode?: string;
+    issues?: readonly unknown[];
+    metadata?: ImportAttemptMetadata;
+  },
+) {
+  const { bytes, ...attempt } = input;
+  return recordRejectedImportAttempt(db, {
+    ...attempt,
+    rawFileHash: await hashImportBytes(bytes),
+  });
 }
 
 export async function auditRejectedImportResult<

@@ -13,6 +13,7 @@ import {
   requireAppPrincipal,
 } from "@/lib/auth/authorization";
 import { netshopPlatformsForPrincipal } from "@/lib/netshop/access";
+import { recordRejectedImportBytes } from "@/lib/imports/content-fingerprint";
 
 const MAX_DIRECT_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -58,17 +59,37 @@ export async function POST(request: Request) {
     const formData = await request.formData().catch(() => null);
     if (!formData) return errorResponse(400, "无法读取上传表单");
     const parsed = readNetshopForm(formData);
-    if (!parsed.source) return errorResponse(400, "缺少或不支持 source 参数");
+    const file = parsed.file;
+    if (!(file instanceof File)) return errorResponse(400, "缺少名为 file 的文件");
+    if (file.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "文件超过 25MB，请拆分后上传");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const rejectUploadedFile = async (status: number, code: string, message: string) => {
+      await recordRejectedImportBytes(getNetshopDatabase(), {
+        domain: "netshop",
+        bytes,
+        scopeHint: {
+          source: parsed.source,
+          platform: parsed.platform?.trim() || null,
+          shopName: parsed.shopName?.trim() || null,
+          snapshotDate: parsed.snapshotDate?.trim() || null,
+          startDate: parsed.expectedStartDate?.trim() || null,
+          endDate: parsed.expectedEndDate?.trim() || null,
+        },
+        errorCode: code,
+        issues: [{ code, message }],
+        metadata: { fileName: file.name, fileSizeBytes: file.size, actor: principal.email },
+      });
+      return errorResponse(status, message);
+    };
+    if (!parsed.source) return rejectUploadedFile(400, "INVALID_SOURCE", "缺少或不支持 source 参数");
+    if (file.size === 0) return rejectUploadedFile(400, "EMPTY_UPLOAD", "上传文件为空");
     const effectivePlatform = parsed.source.startsWith("tmall_") ? TMALL_PLATFORM : parsed.platform?.trim() || "京东";
     netshopPlatformsForPrincipal(principal, [effectivePlatform]);
-    if (!(parsed.file instanceof File)) return errorResponse(400, "缺少名为 file 的文件");
-    if (parsed.file.size === 0) return errorResponse(400, "上传文件为空");
-    if (parsed.file.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "文件超过 25MB，请拆分后上传");
 
     const payload = await importNetshopBytes({
-      bytes: new Uint8Array(await parsed.file.arrayBuffer()),
-      fileName: parsed.file.name,
-      fileSizeBytes: parsed.file.size,
+      bytes,
+      fileName: file.name,
+      fileSizeBytes: file.size,
       source: parsed.source,
       platform: parsed.platform,
       shopName: parsed.shopName,

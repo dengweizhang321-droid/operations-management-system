@@ -4744,7 +4744,9 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
   const uploadFile = async (file: File, kind: "session" | "chat") => {
     const chunkSize = 1024 * 1024;
     const chunkCount = Math.ceil(file.size / chunkSize);
-    const init = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "init", kind, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint: `${kind}:${file.name}:${file.size}:${file.lastModified}` }) });
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    const fingerprint = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+    const init = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "init", kind, shopName, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint }) });
     const initPayload = await init.json().catch(() => null) as { ok?: boolean; message?: string; upload?: { id: string; receivedChunkIndexes?: number[] } } | null;
     if (!init.ok || !initPayload?.ok || !initPayload.upload) throw new Error(initPayload?.message || "无法创建分片上传任务");
     const uploaded = new Set(initPayload.upload.receivedChunkIndexes ?? []);

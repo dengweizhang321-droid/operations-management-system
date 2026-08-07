@@ -31,11 +31,17 @@ import {
   completeTextWithTools,
   type AiTextModelRuntimeConfig,
 } from "@/lib/ai/model-gateway";
+import { createD1ModelAttemptObserver } from "@/lib/ai/model-resilience";
 import {
   AI_MODEL_TOOL_BUDGET_LIMITS,
   AI_MODEL_TOOL_BUDGET_MIGRATION_KEY,
 } from "@/lib/ai/model-tool-budget";
 import type { ProviderToolCallMetadata } from "@/lib/ai/tool-loop";
+import {
+  finishOperationStep,
+  startOperationStep,
+  type OperationStepRecord,
+} from "@/lib/operations/runtime";
 
 export {
   runAnthropicToolLoop,
@@ -746,6 +752,20 @@ export async function resolveChatModel(
   return fallback ? mapAiTextModelRuntime(fallback) : null;
 }
 
+export async function resolveCompatibleFallbackChatModels(
+  primary: Pick<AiTextModelRuntimeConfig, "id" | "protocol">,
+  db: SalesDatabase = getSalesDatabase(),
+  limit = 2,
+): Promise<AiTextModelRuntimeConfig[]> {
+  await ensureAiAssistantSchema(db);
+  const rows = await db.prepare(
+    `SELECT ${modelSelectColumns} FROM ai_models
+     WHERE id <> ? AND protocol = ? AND model_type IN ('text', 'vision') AND status = 'enabled'
+     ORDER BY is_default_text_model DESC, updated_at DESC, id ASC LIMIT ?`,
+  ).bind(primary.id, primary.protocol, Math.min(2, Math.max(0, Math.trunc(limit)))).all<AiModelRow>();
+  return (rows.results ?? []).map(mapAiTextModelRuntime);
+}
+
 export async function testAiModelConnection(modelId: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
   const model = await getAiModelSecretById(modelId, db);
   if (!model) throw new Error("模型不存在");
@@ -818,6 +838,8 @@ export async function generateAssistantReply(input: {
   surface?: AiToolExecutionContext["surface"];
   signal?: AbortSignal;
   systemPrompt?: string;
+  operationRunId?: string;
+  traceId?: string;
 }, db: SalesDatabase = getSalesDatabase()): Promise<AiAssistantReply> {
   const startedAt = Date.now();
   const requestId = input.requestId ?? `ai-chat-${randomUUID()}`;
@@ -838,8 +860,27 @@ export async function generateAssistantReply(input: {
       : toolRuntime.getOpenAiTools();
     const toolTitles = new Map(toolRuntime.getVisibleToolCatalog().map((tool) => [tool.name, tool.title]));
     const artifactCandidates: AiTableArtifactCandidate[] = [];
+    const fallbackModels = await resolveCompatibleFallbackChatModels(input.model, db);
+    const modelObserver = input.operationRunId && input.traceId
+      ? createD1ModelAttemptObserver({ db, runId: input.operationRunId, traceId: input.traceId })
+      : undefined;
+    let toolSequence = 0;
     const executeTool = async (name: string, args: unknown, metadata: ProviderToolCallMetadata) => {
+      toolSequence += 1;
+      const step = await startObservedStep(db, input, {
+        stepType: "ai_tool_call",
+        stepKey: `tool_${toolSequence}_${safeOperationKey(name)}`,
+        attributes: { toolName: name, providerCallId: metadata.providerCallId },
+      });
       const result = await toolRuntime.execute(name, args, metadata);
+      if (step) {
+        await finishOperationStep(db, {
+          stepId: step.id,
+          status: result.ok ? "succeeded" : "failed",
+          errorCode: result.ok ? "" : result.error.code,
+          result: result.ok ? { toolName: name, returned: result.data.returned, truncated: result.data.truncated } : { toolName: name },
+        }).catch(() => undefined);
+      }
       if (result.ok && artifactCandidates.length < AI_ARTIFACT_LIMITS.artifactsPerMessage) {
         artifactCandidates.push(...extractAiTableArtifactCandidates({
           toolName: name,
@@ -851,15 +892,22 @@ export async function generateAssistantReply(input: {
     };
     const reply = await completeTextWithTools({
       model: input.model,
+      fallbackModels,
       messages,
       systemPrompt: input.systemPrompt ?? AI_TOOL_SYSTEM_PROMPT,
       tools,
       executeTool,
       signal: input.signal,
+      observer: modelObserver,
     });
     if (!reply) throw new Error("模型未返回内容");
     const messageId = await appendConversationMessage(input.conversationId, "assistant", reply, "message", db);
     let artifacts: AiTableArtifact[] = [];
+    const artifactStep = await startObservedStep(db, input, {
+      stepType: "artifact_persistence",
+      stepKey: "artifact_persistence",
+      attributes: { candidateCount: artifactCandidates.length },
+    });
     try {
       artifacts = await persistAiTableArtifacts({
         conversationId: input.conversationId,
@@ -868,6 +916,13 @@ export async function generateAssistantReply(input: {
         candidates: artifactCandidates,
         database: db,
       });
+      if (artifactStep) {
+        await finishOperationStep(db, {
+          stepId: artifactStep.id,
+          status: "succeeded",
+          result: { artifactCount: artifacts.length },
+        }).catch(() => undefined);
+      }
     } catch {
       await recordAiToolAudit({
         requestId,
@@ -880,6 +935,13 @@ export async function generateAssistantReply(input: {
         durationMs: Date.now() - startedAt,
         errorCode: "artifact_persist_failed",
       }).catch(() => undefined);
+      if (artifactStep) {
+        await finishOperationStep(db, {
+          stepId: artifactStep.id,
+          status: "failed",
+          errorCode: "artifact_persist_failed",
+        }).catch(() => undefined);
+      }
     }
     await recordAiToolAudit({
       requestId,
@@ -907,6 +969,25 @@ export async function generateAssistantReply(input: {
     });
     throw error;
   }
+}
+
+async function startObservedStep(
+  db: SalesDatabase,
+  input: { operationRunId?: string; traceId?: string },
+  step: { stepType: string; stepKey: string; attributes?: unknown },
+): Promise<OperationStepRecord | null> {
+  if (!input.operationRunId || !input.traceId) return null;
+  return startOperationStep(db, {
+    runId: input.operationRunId,
+    traceId: input.traceId,
+    stepType: step.stepType,
+    stepKey: step.stepKey,
+    attributes: step.attributes,
+  }).catch(() => null);
+}
+
+function safeOperationKey(value: string) {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "tool";
 }
 
 export async function generateConfiguredAnalysisReply(input: {

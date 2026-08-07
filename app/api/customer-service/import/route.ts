@@ -8,33 +8,46 @@ async function digest(bytes: Uint8Array) { const copy = new Uint8Array(bytes); c
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
     const form = await request.formData();
     const sessionFile = form.get("sessionFile"); const chatFile = form.get("chatFile"); const shopName = String(form.get("shopName") ?? "").trim();
-    if (!shopName || shopName.length > 100) return Response.json({ ok: false, message: "请填写客服数据所属店铺。" }, { status: 400 });
     if (!(sessionFile instanceof File) || !(chatFile instanceof File)) return Response.json({ ok: false, message: "请同时选择会话记录 Excel 和聊天记录 LOG 文件。" }, { status: 400 });
-    if (sessionFile.size === 0 || chatFile.size === 0 || sessionFile.size > MAX_FILE_BYTES || chatFile.size > MAX_FILE_BYTES) return Response.json({ ok: false, message: "文件不能为空且单个文件不得超过 25MB。" }, { status: 413 });
-    if (!/\.xlsx$/i.test(sessionFile.name) || !/\.(log|txt)$/i.test(chatFile.name)) return Response.json({ ok: false, message: "会话记录必须为 .xlsx，聊天记录必须为 .log 或 .txt。" }, { status: 422 });
+    if (sessionFile.size > MAX_FILE_BYTES || chatFile.size > MAX_FILE_BYTES) return Response.json({ ok: false, message: "文件不能为空且单个文件不得超过 25MB。" }, { status: 413 });
     const sessionBytes = new Uint8Array(await sessionFile.arrayBuffer()); const chatBytes = new Uint8Array(await chatFile.arrayBuffer());
     const sessionHash = await digest(sessionBytes); const chatHash = await digest(chatBytes);
     const requestedFileHash = await digest(new TextEncoder().encode(`${shopName}:${sessionHash}:${chatHash}`));
-    let parsed: ReturnType<typeof parseCustomerServiceImport>;
-    try {
-      parsed = parseCustomerServiceImport(sessionBytes, new TextDecoder("utf-8", { fatal: true }).decode(chatBytes));
-      if (parsed.conversations.length === 0) throw new Error("客服导入没有可保存的会话资料");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "客服文件解析失败";
+    const auditRejectedUpload = async (errorCode: string, message: string) => {
       const db = getCustomerServiceDatabase();
       await ensureCustomerServiceSchema(db);
       await ensureImportFingerprintSchema(db);
       await recordRejectedImportAttempt(db, {
         domain: "customer-service",
         rawFileHash: requestedFileHash,
-        scopeHint: { shopName },
-        errorCode: "CUSTOMER_SERVICE_PARSE_REJECTED",
-        issues: [{ code: "CUSTOMER_SERVICE_PARSE_REJECTED", message }],
-        metadata: { fileName: `${sessionFile.name} + ${chatFile.name}`, fileSizeBytes: sessionFile.size + chatFile.size },
+        scopeHint: { shopName: shopName || null },
+        errorCode,
+        issues: [{ code: errorCode, message }],
+        metadata: { fileName: `${sessionFile.name} + ${chatFile.name}`, fileSizeBytes: sessionFile.size + chatFile.size, actor: principal.email },
       });
+    };
+    if (!shopName || shopName.length > 100) {
+      await auditRejectedUpload("INVALID_SHOP", "请填写客服数据所属店铺。");
+      return Response.json({ ok: false, message: "请填写客服数据所属店铺。" }, { status: 400 });
+    }
+    if (sessionFile.size === 0 || chatFile.size === 0) {
+      await auditRejectedUpload("EMPTY_UPLOAD", "文件不能为空且单个文件不得超过 25MB。");
+      return Response.json({ ok: false, message: "文件不能为空且单个文件不得超过 25MB。" }, { status: 413 });
+    }
+    if (!/\.xlsx$/i.test(sessionFile.name) || !/\.(log|txt)$/i.test(chatFile.name)) {
+      await auditRejectedUpload("INVALID_FILE_EXTENSION", "会话记录必须为 .xlsx，聊天记录必须为 .log 或 .txt。");
+      return Response.json({ ok: false, message: "会话记录必须为 .xlsx，聊天记录必须为 .log 或 .txt。" }, { status: 422 });
+    }
+    let parsed: ReturnType<typeof parseCustomerServiceImport>;
+    try {
+      parsed = parseCustomerServiceImport(sessionBytes, new TextDecoder("utf-8", { fatal: true }).decode(chatBytes));
+      if (parsed.conversations.length === 0) throw new Error("客服导入没有可保存的会话资料");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "客服文件解析失败";
+      await auditRejectedUpload("CUSTOMER_SERVICE_PARSE_REJECTED", message);
       throw error;
     }
     const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
