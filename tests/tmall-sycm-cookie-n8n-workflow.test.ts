@@ -82,11 +82,13 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(page, /n8n_workflows: \(\{ currentUser \}\) => <N8nWorkflowView currentUser=\{currentUser\}/);
   assert.match(view, /tmall-yijiu-sycm-cookie-daily\.workflow\.json/);
   assert.match(view, /jackyun-five-dataset-daily\.workflow\.json/);
+  assert.match(view, /jd-multi-store-daily\.workflow\.json/);
   assert.match(view, /http:\/\/localhost:5678\/workflow\//);
   assert.match(view, /canManageN8nWorkflow\(currentUser\?\.role\)/);
   assert.match(view, /workflowEditorReady \? <div className="n8n-frame-shell">/);
   assert.match(view, /iframeTitle: "天猫店铺数据导入 n8n 工作流"/);
   assert.match(view, /iframeTitle: "吉客云导入系统 n8n 工作流"/);
+  assert.match(view, /iframeTitle: "京东多店铺商品数据统一下载与导入 n8n 工作流"/);
   assert.match(view, /sandbox="allow-downloads[^"]+allow-scripts"/);
   assert.match(view, /账号、密码、Cookie、Token 和 Session 均不进入运营系统/);
   assert.match(view, /http:\/\/127\.0\.0\.1:5791\/health/);
@@ -95,7 +97,8 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /M → A → B → C → P/);
   assert.match(view, /全站推推广/);
   assert.match(view, /scheduleMetric: "09:10–19:10"/);
-  assert.match(view, /\{config\.scheduleMetric\} 每小时/);
+  assert.match(view, /scheduleMetric: "09:30"/);
+  assert.match(view, /\{config\.scheduleMetric\} \{config\.scheduleTriggerLabel\}/);
   assert.match(view, /辅助服务已就绪/);
   assert.match(view, /实际发布状态以 n8n 画布为准/);
 });
@@ -117,6 +120,7 @@ test("n8n 工作流视图只在操作角色且 helper ready 时挂载可执行�
 
   assert.match(viewerHtml, /吉客云导入系统/);
   assert.match(viewerHtml, /天猫店铺数据导入/);
+  assert.match(viewerHtml, /京东多店铺商品数据统一下载与导入/);
   assert.match(viewerHtml, /需要操作员或管理员权限/);
   assert.doesNotMatch(viewerHtml, /<iframe/);
   assert.equal(canManageN8nWorkflow("viewer"), false);

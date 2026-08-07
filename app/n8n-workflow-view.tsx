@@ -3,9 +3,10 @@
 import { Fragment, useEffect, useState } from "react";
 import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-daily.workflow.json";
 import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json";
+import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
-type WorkflowKey = "jackyun" | "tmall";
+type WorkflowKey = "jackyun" | "tmall" | "jd";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
@@ -26,9 +27,10 @@ type HelperHealthPayload = {
   ok?: boolean;
   stage?: string;
   busy?: boolean;
-  activeWorkflow?: "tmall" | "jackyun" | null;
+  activeWorkflow?: "tmall" | "jackyun" | "jd" | null;
   cookieSource?: "ready" | "missing" | "invalid";
   jackyunProfile?: "ready" | "missing" | "invalid";
+  jdProfiles?: "ready" | "missing" | "invalid";
 };
 
 export type HelperAvailabilityKind = "checking" | "ready" | "running" | "cookie-missing" | "offline";
@@ -50,6 +52,7 @@ type WorkflowConfig = {
   workflowMetric: string;
   scheduleMetric: string;
   scheduleDescription: string;
+  scheduleTriggerLabel: string;
   iframeTitle: string;
   safetyNote: string;
   stageDetails: Record<string, { title: string; description: string }>;
@@ -69,6 +72,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     workflowMetric: "吉客云导入系统",
     scheduleMetric: "08:40–18:40",
     scheduleDescription: "上海时区 · 每小时补跑",
+    scheduleTriggerLabel: "每小时",
     iframeTitle: "吉客云导入系统 n8n 工作流",
     safetyNote: "页面只嵌入本机编辑器，吉客云账号、密码、Cookie、Token 和 Session 均不进入运营系统。A 会跳过已有完整当日结果；B 复用正式五类 runner 的下载绑定、刷刷仓过滤、批次幂等与落库回查；C 独立重读清单、审计和精确批次。",
     stageDetails: {
@@ -88,6 +92,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     workflowMetric: "天猫店铺数据导入",
     scheduleMetric: "09:10–19:10",
     scheduleDescription: "上海时区 · 每小时校验昨天",
+    scheduleTriggerLabel: "每小时",
     iframeTitle: "天猫店铺数据导入 n8n 工作流",
     safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；默认直接处理昨天，显式日期也不因已有覆盖而跳过，推广按单个业务日串行下载并只接管本轮唯一任务；所有导入接口只在业务范围与规范化后的完整业务内容都一致时返回 duplicate，原文件哈希仅用于审计。",
     stageDetails: {
@@ -96,6 +101,26 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
       B: { title: "逐日下载", description: "每个业务日独立下载生意参谋 XLS，并核验店铺身份、文件类型与日期覆盖。" },
       C: { title: "签收导入", description: "签收受控文件，按业务范围与规范化完整内容判重，并回查批次、行数、店铺与同日覆盖。" },
       P: { title: "全站推推广", description: "从千牛左侧推广进入货品全站推报表；目标日按升序串行，起止日期为同一天并选全部指标，每日下载、校验、导入和回查成功后再处理下一天。" },
+    },
+  },
+  jd: {
+    key: "jd",
+    definition: jdWorkflowDefinition as N8nWorkflowDefinition,
+    subtitle: "京东四店商品 SKU 主数据、商智 SKU 分天和 SPU 分天的一体化下载与导入流程。",
+    tags: ["京东四店", "Asia/Shanghai", "严格串行与独立复核"],
+    flowLabel: "A → B → C",
+    pipelineTitle: "三段式京东多店铺安全导入链路",
+    pipelineDescription: "手动或每日定时触发；任一店铺或数据集失败都会停止后续任务。",
+    workflowMetric: "京东多店铺商品数据导入",
+    scheduleMetric: "09:30",
+    scheduleDescription: "上海时区 · 固化昨天所在月的完整范围",
+    scheduleTriggerLabel: "每日",
+    iframeTitle: "京东多店铺商品数据统一下载与导入 n8n 工作流",
+    safetyNote: "页面只嵌入本机编辑器，京东账号、密码、Cookie、Token 和 Session 均不进入运营系统。A 固化昨天所在月 1 日至昨天的完整日期范围并预检独立会话；B 逐店串行运行商品主数据、SKU 分天和 SPU 分天；C 独立重读审计，复核批次、零告警、店铺身份和日期范围。",
+    stageDetails: {
+      A: { title: "生成多店计划", description: "按上海时区固定昨天所在月 1 日至昨天，预检本机系统与四店独立 Chrome profile。" },
+      B: { title: "四店串行执行", description: "每店依次完成商品 SKU 主数据、商智 SKU 分天、商智 SPU 分天的下载、导入和落库回查。" },
+      C: { title: "独立结果核验", description: "重读 runner 审计，逐店逐数据集核对完成批次、零告警、店铺和完整日期范围。" },
     },
   },
 };
@@ -117,7 +142,9 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
     label: "正在检测辅助服务",
     detail: key === "jackyun"
       ? "正在确认 5791 环回服务、本机运营系统和吉客云专用 Chrome profile。"
-      : "正在确认 5791 环回服务是否在线、Cookie 原文件是否可读取。",
+      : key === "jd"
+        ? "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
+        : "正在确认 5791 环回服务是否在线、Cookie 原文件是否可读取。",
   };
 }
 
@@ -137,8 +164,15 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
       detail: "辅助服务在线，但 Cookie 原文件不存在或路径无效；更新本机 .runtime 指针后重新检测。",
     };
   }
+  if (key === "jd" && payload.jdProfiles !== "ready") {
+    return {
+      kind: "cookie-missing",
+      label: "京东店铺会话待恢复",
+      detail: "辅助服务在线，但至少一个京东独立 Chrome profile 缺失或结构无效；恢复对应店铺会话后重新检测。",
+    };
+  }
   if (payload.busy || payload.stage !== "ready") {
-    const activeLabel = payload.activeWorkflow === "jackyun" ? "吉客云" : payload.activeWorkflow === "tmall" ? "天猫" : "当前";
+    const activeLabel = payload.activeWorkflow === "jackyun" ? "吉客云" : payload.activeWorkflow === "tmall" ? "天猫" : payload.activeWorkflow === "jd" ? "京东" : "当前";
     return {
       kind: "running",
       label: `${activeLabel}流程执行中`,
@@ -149,6 +183,10 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
     kind: "ready",
     label: "可以安全启动",
     detail: "服务与专用 profile 已就绪；A 会跳过已有完整当日结果，任一失败都会阻断后续五类任务。",
+  } : key === "jd" ? {
+    kind: "ready",
+    label: "可以安全启动",
+    detail: "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
   } : {
     kind: "ready",
     label: "辅助服务已就绪",
@@ -252,7 +290,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
             aria-pressed={selectedWorkflowKey === key}
             onClick={() => selectWorkflow(key)}
           >
-            <span>{key === "jackyun" ? "吉" : "天"}</span>
+            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : "京"}</span>
             <strong>{workflowConfigs[key].definition.name}</strong>
           </button>
         ))}
@@ -292,7 +330,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
         <div className="n8n-pipeline-flow">
           <div className="n8n-trigger-stack" aria-label="触发入口">
             <div><i className="manual">↗</i><span><strong>手动运行</strong><small>人工确认后启动</small></span></div>
-            <div><i className="schedule">◷</i><span><strong>定时补跑</strong><small>{config.scheduleMetric} 每小时</small></span></div>
+            <div><i className="schedule">◷</i><span><strong>定时补跑</strong><small>{config.scheduleMetric} {config.scheduleTriggerLabel}</small></span></div>
           </div>
           <span className="n8n-flow-arrow" aria-hidden="true">→</span>
           {requestStages.map((stage, index) => (

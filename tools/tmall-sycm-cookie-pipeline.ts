@@ -23,6 +23,18 @@ import {
   type JackyunN8nPlan,
   type JackyunHelperRoute,
 } from "./jackyun-n8n-pipeline";
+import {
+  getJdProfilesStatus,
+  jdHelperRequestError,
+  planJdN8nRun,
+  publicJdPlan,
+  runJdN8nPlan,
+  verifyJdN8nPlan,
+  type JdHelperRoute,
+  type JdN8nPlan,
+  type JdN8nStage,
+} from "./jd-n8n-pipeline";
+import { loadJdStores } from "../lib/jd/store-registry";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
@@ -792,12 +804,14 @@ async function serveCommand(argv: string[]) {
   const port = integerPort(cliValue(argv, "--port"));
   let stage: HelperStage = "ready";
   let busy = false;
-  let activeWorkflow: "tmall" | "jackyun" | null = null;
+  let activeWorkflow: "tmall" | "jackyun" | "jd" | null = null;
   let planPathBase64 = "";
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
+  let jdPlan: JdN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
   let claimedJackyunExecutionId: string | null = null;
+  let claimedJdExecutionId: string | null = null;
   let tmallImportFallbackClose: ReturnType<typeof setTimeout> | null = null;
   let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
@@ -828,25 +842,29 @@ async function serveCommand(argv: string[]) {
       return;
     }
     if (request.method === "GET" && request.url === "/health") {
-      const [cookieSource, jackyunProfile] = await Promise.all([
+      const [cookieSource, jackyunProfile, jdProfiles] = await Promise.all([
         getCookieSourceStatus(),
         getJackyunProfileStatus(),
+        loadJdStores().then((stores) => getJdProfilesStatus(stores.filter((store) => store.enabled))).catch(() => "invalid" as const),
       ]);
-      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile });
+      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile, jdProfiles });
       return;
     }
     const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];
     const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
-    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes].includes(request.url ?? "")) {
+    const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify"];
+    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
     }
     const isJackyun = jackyunRoutes.includes(request.url ?? "");
-    if (activeWorkflow && activeWorkflow !== (isJackyun ? "jackyun" : "tmall")) {
+    const isJd = jdRoutes.includes(request.url ?? "");
+    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : "tmall";
+    if (activeWorkflow && activeWorkflow !== workflow) {
       reply(409, { ok: false, error: "workflow_conflict", activeWorkflow });
       return;
     }
-    const route = request.url as HelperRoute | JackyunHelperRoute;
+    const route = request.url as HelperRoute | JackyunHelperRoute | JdHelperRoute;
     const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
     const stateError = isJackyun
       ? jackyunHelperRequestError(
@@ -856,22 +874,43 @@ async function serveCommand(argv: string[]) {
           requestExecutionId,
           claimedJackyunExecutionId,
         )
-      : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
+      : isJd
+        ? jdHelperRequestError(stage as "ready" | JdN8nStage, busy, route as JdHelperRoute, requestExecutionId, claimedJdExecutionId)
+        : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
     }
     if (isJackyun && !claimedJackyunExecutionId) claimedJackyunExecutionId = requestExecutionId;
-    if (!isJackyun && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
+    if (isJd && !claimedJdExecutionId) claimedJdExecutionId = requestExecutionId;
+    if (!isJackyun && !isJd && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
     inactivityReaper?.clear();
     if (request.url === "/promotion" && tmallImportFallbackClose) {
       clearTimeout(tmallImportFallbackClose);
       tmallImportFallbackClose = null;
     }
-    activeWorkflow = isJackyun ? "jackyun" : "tmall";
+    activeWorkflow = workflow;
     busy = true;
     try {
-      if (request.url === "/jackyun/plan") {
+      if (request.url === "/jd/plan") {
+        jdPlan = await planJdN8nRun({ executionId: requestExecutionId! });
+        stage = "planned";
+        reply(200, publicJdPlan(jdPlan));
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd/run") {
+        if (!jdPlan) throw new Error("京东 n8n 计划已丢失，拒绝无计划执行");
+        stage = "running";
+        const result = await runJdN8nPlan(jdPlan);
+        stage = "executed";
+        reply(200, result);
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd/verify") {
+        if (!jdPlan) throw new Error("京东 n8n 计划已丢失，拒绝无计划核验");
+        const result = await verifyJdN8nPlan(jdPlan);
+        stage = "completed";
+        reply(200, result);
+        scheduleOneShotServerClose(server, 500);
+      } else if (request.url === "/jackyun/plan") {
         jackyunPlan = await planJackyunN8nRun();
         stage = "planned";
         reply(200, publicJackyunPlan(jackyunPlan));

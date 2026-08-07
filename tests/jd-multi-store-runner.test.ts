@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { JD_PIPELINE_RESULT_SENTINEL, parsePipelineResult, parseRunnerArgs, parseTrailingJson, shanghaiDefaultRange, validateStepResult } from "../tools/jd-multi-store-runner";
+import { assertResumeAuditContract, JD_PIPELINE_RESULT_SENTINEL, parsePipelineResult, parseRunnerArgs, parseTrailingJson, shanghaiDefaultRange, validateStepResult, type RunnerAudit } from "../tools/jd-multi-store-runner";
 
 test("runner mode all has no misleading dimension switch and extracts final JSON", () => {
   assert.equal(parseRunnerArgs([]).mode, "all");
@@ -27,4 +27,23 @@ test("runner only accepts a single sentinel result and ignores tail telemetry JS
 test("runner default range follows yesterday's Shanghai month on month boundary", () => {
   assert.deepEqual(shanghaiDefaultRange(new Date("2026-07-01T01:00:00+08:00")), { startDate: "2026-06-01", endDate: "2026-06-30" });
   assert.deepEqual(shanghaiDefaultRange(new Date("2026-07-21T01:00:00+08:00")), { startDate: "2026-07-01", endDate: "2026-07-20" });
+});
+
+test("runner resume only accepts a completed prefix followed by one failed step and planned suffix", () => {
+  const steps = ["jd_product_master", "jd_sku_daily", "spu_daily"] as const;
+  const master = { status: "imported", batchId: "master", rowCount: 1, source: "jd_product_master", dataset: "product_master", platform: "京东", shopName: "A店", batchStatus: "completed", warningCount: 0 };
+  const audit: RunnerAudit = {
+    version: 1, baseUrl: "http://localhost:3000", startedAt: "x", updatedAt: "x", mode: "all", dryRun: false, startDate: "2026-07-01", endDate: "2026-07-02", storeKeys: ["a"],
+    items: [
+      { storeKey: "a", shopName: "A店", step: steps[0], status: "completed", batchId: "master", rowCount: 1, importResult: master },
+      { storeKey: "a", shopName: "A店", step: steps[1], status: "failed" },
+      { storeKey: "a", shopName: "A店", step: steps[2], status: "planned" },
+    ],
+  };
+  const options = { mode: "all", startDate: "2026-07-01", endDate: "2026-07-02", storeKey: undefined, dryRun: false };
+  assert.doesNotThrow(() => assertResumeAuditContract(audit, options, [{ storeKey: "a", shopName: "A店" } as never], "http://localhost:3000"));
+  const forged: RunnerAudit = { ...audit, items: [...audit.items] };
+  forged.items[1] = { ...forged.items[1]!, status: "planned" };
+  forged.items[2] = { ...forged.items[2]!, status: "completed", batchId: "spu", rowCount: 0, importResult: { ...dailyResult(), batchId: "spu", dataset: "spu_daily" } };
+  assert.throws(() => assertResumeAuditContract(forged, options, [{ storeKey: "a", shopName: "A店" } as never], "http://localhost:3000"), /连续 completed 前缀/);
 });

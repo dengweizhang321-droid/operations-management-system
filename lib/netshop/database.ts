@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { buildNetshopImportBatchListQuery, type NetshopImportBatchListFilters } from "./import-batch-list-query";
 import { netshopBatchId, sameNetshopBatchIdentity } from "@/lib/netshop/batch-identity";
 import { ensureDailyRowNaturalKeys } from "@/lib/netshop/daily-row-migration";
 import {
@@ -684,22 +685,14 @@ export async function readNetshopScopeRows(
 
 export async function listNetshopImportBatches(
   db: NetshopDatabase,
-  input: { limit?: number; sources?: string[]; platforms?: string[]; shops?: string[] } = {},
+  input: NetshopImportBatchListFilters = {},
 ) {
-  const limit = Math.max(1, Math.min(100, Math.trunc(input.limit ?? 20)));
-  const sources = [...new Set((input.sources ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
-  const platforms = [...new Set((input.platforms ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
-  const shops = [...new Set((input.shops ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
-  const where: string[] = [];
-  const bindings: string[] = [];
-  if (sources.length) { where.push(`source IN (${sources.map(() => "?").join(", ")})`); bindings.push(...sources); }
-  if (platforms.length) { where.push(`platform IN (${platforms.map(() => "?").join(", ")})`); bindings.push(...platforms); }
-  if (shops.length) { where.push(`shop_name IN (${shops.map(() => "?").join(", ")})`); bindings.push(...shops); }
+  const { limit, whereSql, bindings } = buildNetshopImportBatchListQuery(input);
   const result = await db
     .prepare(
       `SELECT ${batchColumns}
        FROM netshop_import_batches
-       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+       ${whereSql ? `WHERE ${whereSql}` : ""}
        ORDER BY created_at DESC, id DESC
        LIMIT ?`,
     )

@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     const requestedLimit = Number(params.get("limit") ?? 20);
     const items = await listNetshopImportBatches(db, {
       limit: Number.isFinite(requestedLimit) ? requestedLimit : 20,
+      ids: params.getAll("batchId"),
       sources: params.getAll("source"),
       platforms: netshopPlatformsForPrincipal(principal, params.getAll("platform")),
       shops: params.getAll("shop"),
