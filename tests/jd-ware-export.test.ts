@@ -10,10 +10,11 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createWareExportAudit, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, shouldDismissJdMenuUpdateNotice, wareActiveTaskPath } from "../tools/jackyun-ware-export";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { advanceWareExportAudit, createJdWareBrowserDownloadSession, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareDownloadPathInsideStaging, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import * as XLSX from "xlsx";
 
 test("parses the JD export record table without confusing product rows for tasks", () => {
   const tasks = parseJdWareExportTaskRows([
@@ -160,6 +161,83 @@ test("menu-update overlay is dismissed only for one matching layer with a single
   assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整将于明日生效", buttons: ["知道了"] }, { text: "导出查询商品", buttons: ["确认"] }]), true);
   assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "京麦菜单更新调整", buttons: ["知道了"] }]), false);
   assert.equal(shouldDismissJdMenuUpdateNotice([{ text: "一级菜单更新调整已生效", buttons: ["知道了"] }, { text: "一级菜单更新调整已生效", buttons: ["知道了"] }]), false);
+});
+
+const jdWareTaskId = "9940846";
+const jdWareDownloadUrl = `https://storage.360buyimg.com/ware-common/cpop-export-sku/%E5%AF%BC%E5%87%BA%E5%95%86%E5%93%81%E6%99%AE%E9%80%9APOP-SKU%E4%BF%A1%E6%81%AF_${jdWareTaskId}_fixture.xlsx?Expires=1&AccessKey=fixture&Signature=fixture`;
+
+function jdWareWorkbook(rows: unknown[][]) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "SKU");
+  return new Uint8Array(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+}
+
+test("captures only one signed task-specific JD browser download target", () => {
+  assert.equal(selectJdWareTaskDownloadTarget({ taskId: jdWareTaskId, sourceUrl: "https://wares-jdm.jd.com/ware/wareList", openedUrls: [jdWareDownloadUrl] }).kind, "target");
+  assert.equal(selectJdWareTaskDownloadTarget({ taskId: jdWareTaskId, sourceUrl: "https://wares-jdm.jd.com/ware/wareList", openedUrls: [] }).kind, "reject");
+  assert.equal(selectJdWareTaskDownloadTarget({ taskId: jdWareTaskId, sourceUrl: "https://wares-jdm.jd.com/ware/wareList", openedUrls: ["https://storage.360buyimg.com/ware-common/cpop-export-sku/not-a-workbook.csv?Expires=1&AccessKey=x&Signature=x"] }).kind, "reject");
+  assert.equal(selectJdWareTaskDownloadTarget({ taskId: jdWareTaskId, sourceUrl: jdWareDownloadUrl, openedUrls: [jdWareDownloadUrl] }).kind, "reject");
+  assert.equal(selectJdWareTaskDownloadTarget({ taskId: jdWareTaskId, sourceUrl: "https://wares-jdm.jd.com/ware/wareList", openedUrls: [jdWareDownloadUrl, jdWareDownloadUrl] }).kind, "reject");
+  assert.equal(validateJdWareBrowserDownloadBegin({ url: jdWareDownloadUrl, suggestedFilename: `商品_${jdWareTaskId}.xlsx` }, jdWareTaskId).kind, "target");
+  assert.equal(validateJdWareBrowserDownloadBegin({ url: jdWareDownloadUrl, suggestedFilename: `商品_${jdWareTaskId}.csv` }, jdWareTaskId).kind, "reject");
+});
+
+test("fails closed for canceled, wrong-guid, stale-cross-store paths, and malformed JD workbooks", () => {
+  assert.deepEqual(validateJdWareDownloadProgress("expected", { guid: "expected", state: "canceled" }), { kind: "reject", reason: "download_canceled" });
+  assert.deepEqual(validateJdWareDownloadProgress("expected", { guid: "other", state: "completed" }), { kind: "reject", reason: "unexpected_download_guid" });
+  assert.equal(isJdWareDownloadPathInsideStaging("D:\\downloads\\shop-a\\.jd-ware-export-1", "D:\\downloads\\shop-a\\.jd-ware-export-1\\guid"), true);
+  assert.equal(isJdWareDownloadPathInsideStaging("D:\\downloads\\shop-a\\.jd-ware-export-1", "D:\\downloads\\shop-b\\old.xlsx"), false);
+  assert.throws(() => validateJdWareMasterWorkbook(new Uint8Array([0x50, 0x4b, 0x03, 0x04])), /workbook|工作簿|ZIP|解压/i);
+  assert.throws(() => validateJdWareMasterWorkbook(jdWareWorkbook([["商品编码", "SKU ID"], ["A", "1"]]), 2), /行数/);
+});
+
+test("requires the JD master SKUID and 商品编码 headers plus the exact task row count", () => {
+  const workbook = jdWareWorkbook([["商品编码", "SKU ID", "商品名称"], ["A", "1", "商品A"], ["B", "2", "商品B"]]);
+  assert.deepEqual(validateJdWareMasterWorkbook(workbook, 2), { headerRowNumber: 1, rowCount: 2, columnCount: 3 });
+  assert.throws(() => validateJdWareMasterWorkbook(jdWareWorkbook([["商品编码", "商品名称"], ["A", "商品A"]]), 1), /SKUID/);
+});
+
+test("uses the Chrome root CDP session for JD downloads", async () => {
+  let browserSessionCalls = 0;
+  let pageSessionCalls = 0;
+  const expectedSession = {};
+  const page = {
+    context: () => ({
+      browser: () => ({ newBrowserCDPSession: async () => { browserSessionCalls += 1; return expectedSession; } }),
+      newCDPSession: async () => { pageSessionCalls += 1; return expectedSession; },
+    }),
+  } as unknown as Parameters<typeof createJdWareBrowserDownloadSession>[0];
+  assert.equal(await createJdWareBrowserDownloadSession(page), expectedSession);
+  assert.equal(browserSessionCalls, 1);
+  assert.equal(pageSessionCalls, 0);
+});
+
+test("handles an invalid download-start rejection before the click await can observe it", async () => {
+  const observed: unknown[] = [];
+  const listener = (reason: unknown) => observed.push(reason);
+  process.on("unhandledRejection", listener);
+  try {
+    const rejected = handleJdWareDownloadPromise(Promise.reject(new Error("invalid_download_begin")));
+    await assert.rejects(rejected, /invalid_download_begin/);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(observed, []);
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+});
+
+test("cleans the scoped staging directory when root CDP session setup fails", async () => {
+  const downloadDirectory = await mkdtemp(path.join(tmpdir(), "jd-ware-staging-root-"));
+  let stagingDirectory = "";
+  try {
+    await assert.rejects(withJdWareDownloadStaging(downloadDirectory, async (created) => {
+      stagingDirectory = created;
+      throw new Error("root_cdp_unavailable");
+    }), /root_cdp_unavailable/);
+    await assert.rejects(stat(stagingDirectory));
+  } finally {
+    await rm(downloadDirectory, { recursive: true, force: true });
+  }
 });
 
 test("preserves the task id in a timeout failure audit", () => {

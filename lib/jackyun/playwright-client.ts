@@ -102,9 +102,12 @@ export async function connectPlaywrightJackyunTarget(browser: Browser, options: 
    * selected without opening an unnecessary second page.
    */
   targetUrlPattern?: RegExp;
+  /** JD WareList has no MiniUI controls; disable this only for an explicit JD worker. */
+  requireMini?: boolean;
 } = {}) {
   const workerName = options.workerName ?? "codex-jackyun-worker";
   const targetUrlPattern = options.targetUrlPattern ?? /jackyun\.com/i;
+  const requireMini = options.requireMini ?? true;
   const matchesTarget = (url: string) => {
     targetUrlPattern.lastIndex = 0;
     return targetUrlPattern.test(url);
@@ -120,14 +123,14 @@ export async function connectPlaywrightJackyunTarget(browser: Browser, options: 
           const browserWindow = window as typeof window & { mini?: unknown };
           return Boolean(browserWindow.mini || document.querySelector('[class*="mini-"]'));
         });
-        if (hasMini) { page = candidate; break; }
+        if (!requireMini || hasMini) { page = candidate; break; }
       } catch { /* worker page 不可用，继续找其他 page */ }
     }
   }
   if (!page) {
     const jackyunPages = pages.filter((item) => matchesTarget(item.url()));
     // 优先选择有 mini 控件的 page（grid 已初始化的预热页面）
-    for (const candidate of jackyunPages) {
+    for (const candidate of requireMini ? jackyunPages : []) {
       try {
         const hasMini = await candidate.evaluate(() => {
           const browserWindow = window as typeof window & { mini?: unknown };
@@ -137,7 +140,7 @@ export async function connectPlaywrightJackyunTarget(browser: Browser, options: 
       } catch { /* ignore */ }
     }
     // 回退到第一个 jackyun page
-    if (!page && jackyunPages.length > 0) page = jackyunPages[0];
+    if (!page && requireMini && jackyunPages.length > 0) page = jackyunPages[0];
     // 最后回退到创建新 page
     if (!page) {
       const context = browser.contexts()[0];

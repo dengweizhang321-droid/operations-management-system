@@ -1,4 +1,5 @@
-import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, open, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Locator, Page } from "playwright-core";
@@ -15,6 +16,7 @@ import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client"
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const targetUrl = "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare&businessModel=0";
@@ -23,6 +25,7 @@ const legacyActiveTaskPath = path.join(artifactDir, "active-task.json");
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const pollIntervalMs = 700;
 const refreshIntervalMs = 3_000;
+const maximumJdWareWorkbookBytes = 25 * 1024 * 1024;
 
 async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
   await ensureDir(artifactDir);
@@ -219,6 +222,43 @@ export function isConfirmedJdWareTaskListEmptyState(input: { uniqueRefresh: bool
   return input.uniqueRefresh && input.boundToExportContainer && /暂无数据|暂无记录/.test(input.containerText);
 }
 
+export type JdWareDownloadTarget = { kind: "target"; url: string } | { kind: "reject"; reason: string };
+
+/** Accept only the signed WareList export URL captured from this exact task-row click. */
+export function selectJdWareTaskDownloadTarget(input: { taskId: string; sourceUrl: string; openedUrls: readonly string[] }): JdWareDownloadTarget {
+  if (input.openedUrls.length !== 1) return { kind: "reject", reason: input.openedUrls.length === 0 ? "no_window_open_target" : "multiple_window_open_targets" };
+  const targetUrl = input.openedUrls[0]!;
+  try {
+    const target = new URL(targetUrl);
+    const source = new URL(input.sourceUrl);
+    const decodedPath = decodeURIComponent(target.pathname);
+    if (target.protocol !== "https:" || target.hostname !== "storage.360buyimg.com" || target.href === source.href
+      || !decodedPath.startsWith("/ware-common/cpop-export-sku/") || !decodedPath.endsWith(".xlsx") || !decodedPath.includes(`_${input.taskId}_`)
+      || !target.searchParams.get("Expires") || !target.searchParams.get("AccessKey") || !target.searchParams.get("Signature")) {
+      return { kind: "reject", reason: "unexpected_window_open_target" };
+    }
+    return { kind: "target", url: target.href };
+  } catch {
+    return { kind: "reject", reason: "invalid_window_open_target" };
+  }
+}
+
+/** The local file is accepted only after it is a nonempty XLSX with the product-master identity column. */
+export function validateJdWareMasterWorkbook(bytes: Uint8Array, expectedRowCount?: number) {
+  if (bytes.byteLength === 0) throw new Error("京东 SKU 下载文件为空。");
+  if (bytes.byteLength > maximumJdWareWorkbookBytes) throw new Error("京东 SKU 下载文件超过 25MiB 上限。");
+  const sheet = parseXlsxFirstSheet(bytes);
+  const headerIndex = sheet.rows.findIndex((row) => {
+    const headers = row.cells.map((cell) => String(cell ?? "").trim()).filter(Boolean);
+    return headers.includes("商品编码") && headers.some((header) => header.replace(/\s+/g, "").toUpperCase() === "SKUID");
+  });
+  if (headerIndex < 0) throw new Error("京东 SKU 下载文件缺少商品编码或 SKUID 表头，拒绝导入。");
+  const dataRows = sheet.rows.slice(headerIndex + 1).filter((row) => row.cells.some((cell) => String(cell ?? "").trim()));
+  if (dataRows.length === 0) throw new Error("京东 SKU 下载文件没有商品数据行，拒绝导入。");
+  if (expectedRowCount !== undefined && dataRows.length !== expectedRowCount) throw new Error(`京东 SKU 下载业务行数 ${dataRows.length} 与任务成功行数 ${expectedRowCount} 不一致。`);
+  return { headerRowNumber: sheet.rows[headerIndex]!.rowNumber, rowCount: dataRows.length, columnCount: sheet.maxColumns };
+}
+
 /** Only retry this reversible drawer-opening action after JD replaces its button mid-click. */
 export function isTransientJdExportEntryRepaint(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -385,28 +425,143 @@ async function waitForKnownTask(
   throw new Error(`等待京东导出任务 ${taskId} 完成超时（${Math.round(timeoutMs / 1_000)} 秒）。`);
 }
 
-async function saveTaskDownload(page: Page, task: JdWareExportTask) {
+function safeDownloadedFilename(value: string, taskId: string) {
+  const filename = value.replace(/[<>:"/\\|?*]/g, "_").trim();
+  return /\.xlsx$/i.test(filename) ? filename : `jd-ware-${taskId}.xlsx`;
+}
+
+function insideDirectory(directory: string, candidatePath: string) {
+  const relative = path.relative(path.resolve(directory), path.resolve(candidatePath));
+  return relative !== "" && !relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative);
+}
+
+export function validateJdWareDownloadProgress(activeGuid: string, event: { guid?: unknown; state?: unknown }) {
+  if (event.guid !== activeGuid) return { kind: "reject" as const, reason: "unexpected_download_guid" };
+  if (event.state === "completed") return { kind: "completed" as const };
+  if (event.state === "canceled") return { kind: "reject" as const, reason: "download_canceled" };
+  return { kind: "waiting" as const };
+}
+
+export function isJdWareDownloadPathInsideStaging(stagingDirectory: string, filePath: string) {
+  return insideDirectory(stagingDirectory, filePath);
+}
+
+export function validateJdWareBrowserDownloadBegin(event: { url?: unknown; suggestedFilename?: unknown }, taskId: string) {
+  const target = selectJdWareTaskDownloadTarget({
+    taskId,
+    sourceUrl: targetUrl,
+    openedUrls: typeof event.url === "string" ? [event.url] : [],
+  });
+  if (target.kind === "reject") return target;
+  const filename = typeof event.suggestedFilename === "string" ? event.suggestedFilename : "";
+  return /\.xlsx$/i.test(filename) ? target : { kind: "reject" as const, reason: "non_xlsx_suggested_filename" };
+}
+
+export async function createJdWareBrowserDownloadSession(page: Page) {
+  const browser = page.context().browser();
+  if (!browser) throw new Error("无法取得 Chrome 浏览器根会话，已停止京东 SKU 下载。");
+  return browser.newBrowserCDPSession();
+}
+
+/** Attach a rejection observer immediately; callers still await the original promise for the failure result. */
+export function handleJdWareDownloadPromise<T>(promise: Promise<T>) {
+  void promise.catch(() => undefined);
+  return promise;
+}
+
+export async function withJdWareDownloadStaging<T>(downloadDirectory: string, operation: (stagingDirectory: string) => Promise<T>) {
+  await ensureDir(downloadDirectory);
+  const stagingDirectory = await mkdtemp(path.join(downloadDirectory, ".jd-ware-export-"));
+  try {
+    if (!insideDirectory(downloadDirectory, stagingDirectory)) throw new Error("京东 SKU 下载暂存目录越过当前店铺下载目录。");
+    return await operation(stagingDirectory);
+  } finally {
+    await rm(stagingDirectory, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(message)), timeoutMs); }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function saveTaskDownload(page: Page, task: JdWareExportTask, downloadDirectory: string) {
   const taskRow = page.locator("tr").filter({ hasText: task.taskId });
   await exactlyOne(taskRow, `导出任务 ${task.taskId} 的记录行`);
   const downloadButton = taskRow.getByRole("button", { name: "下载", exact: true });
   await exactlyOne(downloadButton, `导出任务 ${task.taskId} 的下载按钮`);
-
-  const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
-  await downloadButton.click();
-
-  try {
-    const download = await downloadPromise;
-    const filename = download.suggestedFilename().replace(/[<>:"/\\|?*]/g, "_");
-    const downloadDir = path.join(artifactDir, "downloads");
-    await ensureDir(downloadDir);
-    const savedPath = path.join(downloadDir, `${task.taskId}-${filename}`);
-    await download.saveAs(savedPath);
-    return { savedPath, verified: true };
-  } catch (error) {
-    // The click has already been sent; never retry it automatically because
-    // that can create duplicate local files and obscure which task was used.
-    return { savedPath: undefined, verified: false, error: String(error) };
+  if (!Number.isInteger(task.successRows) || task.successRows === null || task.successRows <= 0) {
+    return { savedPath: undefined, verified: false, error: "京东已完成任务缺少正数成功行数，拒绝下载。" };
   }
+  return withJdWareDownloadStaging(downloadDirectory, async (stagingDirectory) => {
+    let session: Awaited<ReturnType<typeof createJdWareBrowserDownloadSession>> | null = null;
+    let activeGuid: string | undefined;
+    let suggestedFilename = "";
+    let resolveStarted!: () => void;
+    let rejectStarted!: (error: Error) => void;
+    let resolveCompleted!: (event: { filePath?: string }) => void;
+    let rejectCompleted!: (error: Error) => void;
+    const started = handleJdWareDownloadPromise(new Promise<void>((resolve, reject) => { resolveStarted = resolve; rejectStarted = reject; }));
+    const completed = handleJdWareDownloadPromise(new Promise<{ filePath?: string }>((resolve, reject) => { resolveCompleted = resolve; rejectCompleted = reject; }));
+    try {
+      session = await createJdWareBrowserDownloadSession(page);
+      session.on("Browser.downloadWillBegin", (event) => {
+    if (activeGuid) {
+      const error = new Error("京东 SKU 单次下载出现多个开始事件。");
+      rejectCompleted(error);
+      return;
+    }
+    const valid = validateJdWareBrowserDownloadBegin(event, task.taskId);
+    if (valid.kind === "reject" || typeof event.guid !== "string" || !event.guid) {
+      const error = new Error(`京东 SKU 下载开始事件不受信任：${valid.kind === "reject" ? valid.reason : "missing_guid"}`);
+      rejectStarted(error);
+      rejectCompleted(error);
+      return;
+    }
+    activeGuid = event.guid;
+    suggestedFilename = String(event.suggestedFilename);
+    resolveStarted();
+      });
+      session.on("Browser.downloadProgress", (event) => {
+    if (!activeGuid) return;
+    const progress = validateJdWareDownloadProgress(activeGuid, event);
+    if (progress.kind === "completed") resolveCompleted({ filePath: typeof event.filePath === "string" ? event.filePath : undefined });
+    if (progress.kind === "reject") rejectCompleted(new Error(`Chrome 京东 SKU 下载失败：${progress.reason}`));
+      });
+      await session.send("Browser.setDownloadBehavior", { behavior: "allowAndName", downloadPath: stagingDirectory, eventsEnabled: true });
+    // This is the only task-row click. WareList opens jobExecFileRst in a new target;
+    // root Browser events retain the exact GUID without replaying that signed URL.
+    await downloadButton.click({ timeout: 15_000 });
+    await withDeadline(started, 60_000, "点击京东导出任务下载后 Chrome 未开始浏览器级下载。");
+    const finish = await withDeadline(completed, 120_000, "Chrome 京东 SKU XLSX 下载未在两分钟内完成。");
+    const stagedPath = path.resolve(finish.filePath || path.join(stagingDirectory, activeGuid!));
+    if (!insideDirectory(stagingDirectory, stagedPath)) throw new Error("Chrome 京东 SKU 下载结果越过本轮暂存目录。");
+    const fileInfo = await stat(stagedPath);
+    if (!fileInfo.isFile() || fileInfo.size < 4) throw new Error("Chrome 京东 SKU 下载文件为空或不完整。");
+    const bytes = await readFile(stagedPath);
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) throw new Error("Chrome 京东 SKU 下载文件不是 XLSX ZIP 工作簿。");
+    validateJdWareMasterWorkbook(bytes, task.successRows);
+    const savedPath = path.join(downloadDirectory, `jd-ware-${task.taskId}-${randomUUID()}-${safeDownloadedFilename(suggestedFilename, task.taskId)}`);
+    await rename(stagedPath, savedPath);
+    await stat(savedPath);
+      return { savedPath, verified: true };
+    } catch (error) {
+    // The task-row action was sent exactly once; never retry it automatically.
+      return { savedPath: undefined, verified: false, error: String(error) };
+    } finally {
+      if (session) {
+        await session.send("Browser.setDownloadBehavior", { behavior: "default" }).catch(() => undefined);
+        await session.detach().catch(() => undefined);
+      }
+    }
+  });
 }
 
 function shanghaiToday() {
@@ -457,16 +612,16 @@ export async function importSkuFile(baseUrl: string, filePath: string, shopNameO
     throw new Error(payload?.message ?? `运营管理系统 SKU 导入失败（HTTP ${response.status}）`);
   }
   return {
-    status: payload.status,
+    status: payload.status as "imported" | "duplicate",
     message: payload.message ?? "京东 SKU 已自动导入运营管理系统",
     batchId: batch.id,
     rowCount: batch.rowCount!,
-    source: "jd_product_master",
-    dataset: "product_master",
-    platform: "京东",
+    source: "jd_product_master" as const,
+    dataset: "product_master" as const,
+    platform: "京东" as const,
     shopName,
-    batchStatus: "completed",
-    warningCount: 0,
+    batchStatus: "completed" as const,
+    warningCount: 0 as const,
   };
 }
 
@@ -559,13 +714,14 @@ export async function runShopSkuExport(
   }
 
   await maybeCaptureDebug(page, "task-completed", options.debug);
-  const download = await saveTaskDownload(page, task);
+  const download = await saveTaskDownload(page, task, options.downloadDirectory);
   if (download.savedPath) await checkpoint({ stage: "downloaded", taskId: task.taskId, taskStatus: task.status, savedPath: download.savedPath });
   let importResult: ScriptResult["importResult"];
   if (download.verified && download.savedPath && options.autoImport) {
     await checkpoint({ stage: "auto_import", taskId: task.taskId, taskStatus: task.status, savedPath: download.savedPath });
-    importResult = await importSkuFile(options.baseUrl, download.savedPath, options.shopName);
-    notes.push(`auto-imported SKU file: ${importResult.message}`);
+    const completedImport = await importSkuFile(options.baseUrl, download.savedPath, options.shopName);
+    importResult = completedImport;
+    notes.push(`auto-imported SKU file: ${completedImport.message}`);
   } else if (download.verified && !options.autoImport) {
     notes.push("auto-import skipped by --no-auto-import");
   }
@@ -631,6 +787,7 @@ async function main() {
       startUrl: targetUrl,
       workerName: "codex-jd-ware-export",
       targetUrlPattern: /wares-jdm\.jd\.com/i,
+      requireMini: false,
     });
     try {
       await openTargetPage(page);
