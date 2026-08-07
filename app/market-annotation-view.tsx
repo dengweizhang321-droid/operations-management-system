@@ -14,6 +14,7 @@ import {
   annotationRequestRetryKind,
   annotationRetryDelayMs,
 } from "@/lib/market/annotation-retry";
+import { defaultAnnotationPromptBody } from "@/lib/market/annotation-prompt-template";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
@@ -159,7 +160,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       const initialPrompt = payload.prompts.find((item) => item.category === resolvedCategory && item.status === "active") ?? payload.prompts.find((item) => item.category === resolvedCategory);
       const taxonomyText = payload.taxonomy.filter((item) => item.category === resolvedCategory).map((item) => item.value).join("\n");
       if (initialPrompt) { setPromptId(initialPrompt.id); setPromptBody(initialPrompt.promptBody); setSegmentsText(taxonomyText || initialPrompt.segments.join("\n")); }
-      else if (resolvedCategory) setSegmentsText(taxonomyText);
+      else if (resolvedCategory) { setSegmentsText(taxonomyText); setPromptBody((current) => current || defaultAnnotationPromptBody(resolvedCategory, taxonomyText.split("\n").filter(Boolean))); }
     }
     setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
       const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
@@ -332,9 +333,30 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const nextJob = data?.jobs.find((item) => !nextCategory || item.category === nextCategory);
     if (nextJob) setJobId(nextJob.id);
     const nextPrompt = data?.prompts.find((item) => item.category === nextCategory && item.status === "active") ?? data?.prompts.find((item) => item.category === nextCategory);
-    if (nextPrompt) choosePrompt(nextPrompt); else { setPromptId(""); setPromptBody(""); setSegmentsText((data?.taxonomy ?? []).filter((item) => item.category === nextCategory).map((item) => item.value).join("\n")); }
+    if (nextPrompt) choosePrompt(nextPrompt);
+    else {
+      const nextSegments = (data?.taxonomy ?? []).filter((item) => item.category === nextCategory).map((item) => item.value);
+      setPromptId("");
+      setSegmentsText(nextSegments.join("\n"));
+      setPromptBody(nextCategory ? defaultAnnotationPromptBody(nextCategory, nextSegments) : "");
+    }
+  };
+  // 创建任务有多个前置条件，早期版本只是把按钮置灰，用户点下去没有任何反馈。
+  // 这里统一算出唯一的阻塞原因：页面上直接显示，点击时也用同一句话报错。
+  const createJobBlockReason = () => {
+    if (!canEdit) return "当前账号只读，创建标注任务需要 operator 或 admin 角色";
+    if (!category) return "“全部三级类目”仅用于浏览和筛选，创建任务前请先选择一个具体三级类目";
+    if (!activePrompt) return `“${category}”还没有已激活的 Prompt 版本：请在下方“3. Prompt 版本与自动进化”确认正文后点击“保存人工子版本”，再点击“激活此版”`;
+    if (executor === "cloud" && !visionModelId) return "没有可用的云端视觉模型：请先在 AI 助理的模型配置中启用一个 vision 模型";
+    if (executor === "local" && !localModelName.trim()) return "本地执行器必须填写 Ollama 模型名";
+    if (!isValidAnnotationConcurrency(concurrencyFor(category, executor))) {
+      return `并发数必须是 ${MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} 到 ${MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} 的整数`;
+    }
+    return "";
   };
   const createJob = () => act("create-job", async () => {
+    const blocked = createJobBlockReason();
+    if (blocked) throw new Error(blocked);
     const concurrency = normalizeMarketAnnotationConcurrency(concurrencyFor(category, executor), executor);
     const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit, concurrency });
     const id = String(result?.id || ""); dirtyDraftIdsRef.current.clear(); setCloudProgress(null); setItemPage(1); setJobId(id); setNotice("标注任务已创建或已恢复兼容任务"); await load(id, search, searchPage, 1);
@@ -587,6 +609,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const allFilteredChecked = data.selection.filteredReviewableCount > 0 && filteredSelectedCount === data.selection.filteredReviewableCount;
   const hasDirtyDrafts = data.items.some((item) => { const draft = drafts[item.id]; return Boolean(draft) && (draft.segment !== (item.reviewedSegment || item.aiSegment) || draft.price !== yuanInput(item.reviewedImagePriceCents) || draft.selected !== item.selected); });
   const visibleJobs = data.jobs.filter((item) => !category || item.category === category);
+  const createBlockReason = createJobBlockReason();
   const formConcurrency = concurrencyFor(category, executor);
   const formConcurrencyKey = annotationConcurrencyKey(category, executor);
   const currentJobExecutor: MarketAnnotationExecutor = currentJob?.executor === "local" ? "local" : "cloud";
@@ -635,8 +658,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       </div>
 
       <div className="annotation-task-footer">
-        <small>{category ? <>当前激活 Prompt：{activePrompt ? "v" + activePrompt.version + " · " + activePrompt.id : "该类目尚无激活版本"}</> : "当前为全部三级类目，仅浏览和筛选；创建任务前请选择具体类目。"}</small>
-        <button className="primary-button" disabled={!canEdit || !activePrompt || busy !== "" || (executor === "cloud" && !visionModelId)} onClick={createJob}>创建任务</button>
+        {createBlockReason
+          ? <small className="orange-text">无法创建任务：{createBlockReason}</small>
+          : <small>当前激活 Prompt：v{activePrompt!.version} · {activePrompt!.id}</small>}
+        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? "创建任务中…" : "创建任务"}</button>
       </div>
 
       {currentJob && <div className="annotation-current-run">
@@ -729,6 +754,6 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
 
     <section ref={catalogSectionRef} className="panel annotation-catalog-card"><div className="section-header"><div><h3>4. 完整市场 SKU 库检索</h3><p>滚动到此区域时才读取完整库，不受榜单页面 200 条展示上限影响；优先展示已缓存商品图。</p></div><div className="annotation-actions">{isAdmin && <button className="secondary-button" disabled={!goldIds.length} onClick={() => void act("gold", async () => { await post({ action: "mark_gold", annotationIds: goldIds }); setGoldIds([]); await load(jobId); setNotice("已加入冻结验证金标集"); })}>设为金标（{goldIds.length}）</button>}</div></div><input className="annotation-search" value={search} onChange={(event) => { setSearch(event.target.value); setSearchPage(1); }} placeholder="搜索 SKU、商品名、品牌、三级类目、最终细分品类" />{catalogRequested ? <><div className="data-table-wrap"><table className="data-table"><thead><tr><th>金标</th><th>图片</th><th>SKU / 商品</th><th>品牌</th><th>三级类目</th><th>最终细分品类</th><th>价格</th><th>复核状态</th></tr></thead><tbody>{data.catalog.items.map((item) => <tr key={item.category + item.skuCode}><td><input type="checkbox" disabled={!item.annotationId || !isAdmin} checked={Boolean(item.annotationId && goldIds.includes(item.annotationId))} onChange={() => item.annotationId && setGoldIds((current) => current.includes(item.annotationId!) ? current.filter((id) => id !== item.annotationId) : [...current, item.annotationId!])} /></td><td>{item.imageUrl ? <img className="annotation-catalog-image" src={item.imageUrl} alt={item.productName || item.skuCode} loading="lazy" /> : <span className="annotation-no-image">无图</span>}<small>{item.imageCacheStatus === "ready" ? "已缓存" : "源图"}</small></td><td><strong>{item.skuCode}</strong><small>{item.productName}</small></td><td>{item.brand || "—"}</td><td>{item.category}</td><td><strong>{item.finalSegment || "—"}</strong></td><td><small>榜单 {money(item.rankingPriceCents)}</small><small>主图 {money(item.finalImagePriceCents)}</small></td><td>{item.reviewStatus}</td></tr>)}</tbody></table></div><footer className="annotation-pagination"><span>共 {data.catalog.total} 条</span><button disabled={searchPage <= 1} onClick={() => setSearchPage((page) => page - 1)}>上一页</button><strong>{searchPage}/{data.catalog.pageCount}</strong><button disabled={searchPage >= data.catalog.pageCount} onClick={() => setSearchPage((page) => page + 1)}>下一页</button></footer></> : <div className="table-state">完整 SKU 目录将在滚动接近此区域时加载。</div>}</section>
 
-    <section className="panel annotation-agent-card"><div className="section-header"><div><h3>5. 本地 Ollama agent（可选容灾）</h3><p>Cloudflare 不回连 localhost；本机 runner 使用一次性 token 主动领取带 lease 的任务。</p></div>{isAdmin && <button className="secondary-button" onClick={createAgent}>创建 agent</button>}</div>{agentToken && <div className="annotation-token"><strong>仅显示一次</strong><code>{agentToken}</code></div>}<pre>TERUISI_SITE_URL=https://你的站点{`\n`}TERUISI_ANNOTATION_AGENT_TOKEN=创建时的一次性token{`\n`}OLLAMA_BASE_URL=http://127.0.0.1:11434{`\n`}npm run market:annotation-agent</pre><div className="annotation-agent-list">{data.agents.map((agent) => <div key={agent.id}><strong>{agent.name}</strong><span>{agent.status} · 最近心跳 {agent.lastSeenAt || "从未"}</span>{isAdmin && agent.status === "enabled" && <button className="row-action danger" onClick={() => void act("revoke", async () => { await post({ action: "revoke_agent", agentId: agent.id }); await load(jobId); })}>撤销</button>}</div>)}</div></section>
+    <section className="panel annotation-agent-card"><div className="section-header"><div><h3>5. 常驻 runner（本地 Ollama 容灾 / 云端后台泵）</h3><p>Cloudflare 不回连 localhost；本机 runner 使用一次性 token 主动领取带 lease 的任务。同一个 token 也可以启动云端后台泵：识别本来就在服务端执行，浏览器只是反复调用的“泵”，把泵搬到常驻进程后关掉页面也会继续跑，中断后按原有租约续跑。</p></div>{isAdmin && <button className="secondary-button" onClick={createAgent}>创建 agent</button>}</div>{agentToken && <div className="annotation-token"><strong>仅显示一次</strong><code>{agentToken}</code></div>}<pre>TERUISI_SITE_URL=https://你的站点{`\n`}TERUISI_ANNOTATION_AGENT_TOKEN=创建时的一次性token{`\n`}OLLAMA_BASE_URL=http://127.0.0.1:11434{`\n`}npm run market:annotation-agent{`\n\n`}# 云端后台泵（不需要 Ollama，按类目并发数自动推进云端任务）{`\n`}npm run market:annotation-cloud-pump</pre><div className="annotation-agent-list">{data.agents.map((agent) => <div key={agent.id}><strong>{agent.name}</strong><span>{agent.status} · 最近心跳 {agent.lastSeenAt || "从未"}</span>{isAdmin && agent.status === "enabled" && <button className="row-action danger" onClick={() => void act("revoke", async () => { await post({ action: "revoke_agent", agentId: agent.id }); await load(jobId); })}>撤销</button>}</div>)}</div></section>
   </div>;
 }

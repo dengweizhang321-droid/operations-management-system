@@ -8,13 +8,14 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
 import type { MarketDatabase } from "../lib/market/database";
 import { defaultMarketAnnotationConcurrency, MARKET_ANNOTATION_CONCURRENCY_LIMITS, MARKET_ANNOTATION_JOB_LIMITS, normalizeMarketAnnotationConcurrency, normalizeMarketAnnotationJobLimit } from "../lib/market/annotation-limits";
 import { annotationRecoveredConcurrency, annotationRequestRetryKind, annotationRetryConcurrency, annotationRetryDelayMs, isRetryableAnnotationRequestError } from "../lib/market/annotation-retry";
+import { defaultAnnotationPromptBody } from "../lib/market/annotation-prompt-template";
 
 test("annotation automatic retry uses bounded adaptive backoff and classifies only temporary failures", () => {
   assert.equal(annotationRetryDelayMs("waiting", 0), 2_000);
@@ -293,6 +294,84 @@ test("annotation implementation wires real cloud images, idempotency, permission
   for (const table of ["market_annotation_jobs", "market_annotation_items", "market_sku_annotations", "market_annotation_commit_receipts", "market_annotation_prompt_versions", "market_annotation_validation_samples", "market_annotation_validation_runs", "market_annotation_validation_results", "market_annotation_local_agents"]) assert.match(migration, new RegExp(table));
   assert.match(concurrencyMigration, /market_annotation_concurrency_settings/);
   assert.match(concurrencyMigration, /BETWEEN 1 AND 50/);
+});
+
+test("the background cloud pump picks the oldest runnable job and reports its remembered concurrency", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE ai_models (id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL, model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL, status TEXT NOT NULL);
+    INSERT INTO ai_models VALUES ('vision-1','测试视觉','openai_compatible','vision','vision-test','https://api.invalid/v1','','enabled');
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('pump-prompt','泵类目',1,'manual','active','["型号A","其他"]','这是用于验证后台泵按任务顺序推进云端识别的正式 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by) VALUES ('泵类目','cloud',6,'admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, reuse_status, created_by, created_at)
+      VALUES ('pump-done','泵类目','pump-prompt','cloud','vision-1','review_ready',1,'ready','admin@test','2026-01-01 00:00:00'),
+             ('pump-old','泵类目','pump-prompt','cloud','vision-1','running',1,'ready','admin@test','2026-01-02 00:00:00'),
+             ('pump-new','泵类目','pump-prompt','cloud','vision-1','running',1,'ready','admin@test','2026-01-03 00:00:00');
+    INSERT INTO market_annotation_items (id, job_id, category, sku_code, product_name, status)
+      VALUES ('pump-old-item','pump-old','泵类目','SKU-OLD','旧任务候选','queued'),
+             ('pump-new-item','pump-new','泵类目','SKU-NEW','新任务候选','queued');
+  `);
+
+  const first = await runCloudAnnotationPump(db);
+  assert.equal(first.idle, false);
+  assert.equal(first.jobId, "pump-old");
+  assert.equal(first.concurrency, 6);
+  // 模型端点不可达，条目按瞬时失败记账并保留续跑能力，泵不会因此崩掉。
+  const attempted = sqlite.prepare("SELECT status, attempt_count attemptCount FROM market_annotation_items WHERE id='pump-old-item'").get() as { status: string; attemptCount: number };
+  assert.deepEqual({ ...attempted }, { status: "failed", attemptCount: 1 });
+
+  // 已收尾的任务不会被自动选中；显式指定时只做一次对账并立刻返回 done，不调模型。
+  const settled = await runCloudAnnotationPump(db, { jobId: "pump-done" });
+  assert.equal(settled.done, true);
+  assert.equal(sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='pump-done'").get<{ status: string }>()!.status, "review_ready");
+
+  sqlite.prepare("UPDATE market_annotation_items SET status='committed', attempt_count=3 WHERE id='pump-old-item'").run();
+  assert.equal((await runCloudAnnotationPump(db)).jobId, "pump-new");
+
+  sqlite.prepare("UPDATE market_annotation_items SET status='committed', attempt_count=3 WHERE id='pump-new-item'").run();
+  assert.deepEqual({ ...(await runCloudAnnotationPump(db)) }, { idle: true, jobId: "", category: "", concurrency: 0 });
+  sqlite.close();
+});
+
+test("the cloud pump runner reuses the browser retry controller and the worker route exposes it", async () => {
+  const [runner, workerRoute, pkg] = await Promise.all([
+    readFile(new URL("../tools/market-annotation-cloud-pump.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/market/annotations/worker/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  assert.match(workerRoute, /action === "pump_cloud"/);
+  assert.match(workerRoute, /authenticateLocalAgent/);
+  assert.match(workerRoute, /runCloudAnnotationPump\(db, \{ jobId: jobId \|\| undefined \}\)/);
+  assert.match(runner, /AnnotationRunRetryController/);
+  assert.match(runner, /activeRequestCount >= retry\.workerLimit/);
+  assert.match(runner, /Array\.from\(\{ length: MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum \}/);
+  assert.match(runner, /retry\.updateTarget\(Number\(next\)\)/);
+  assert.match(runner, /Number\(next\) === retry\.targetConcurrency\) return/);
+  assert.match(runner, /TERUISI_ANNOTATION_AGENT_TOKEN/);
+  assert.match(runner, /REQUEST_TIMEOUT_MS = 110_000/);
+  for (const signal of ["SIGINT", "SIGTERM"]) assert.match(runner, new RegExp(signal));
+  assert.match(pkg, /"market:annotation-cloud-pump": "node --import tsx tools\/market-annotation-cloud-pump\.ts"/);
+});
+
+test("create job always answers a click with one actionable blocking reason", async () => {
+  const ui = await readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8");
+  assert.match(ui, /const createJobBlockReason = \(\) => \{/);
+  assert.match(ui, /还没有已激活的 Prompt 版本/);
+  assert.match(ui, /没有可用的云端视觉模型/);
+  assert.match(ui, /const blocked = createJobBlockReason\(\);\n\s*if \(blocked\) throw new Error\(blocked\);/);
+  assert.match(ui, /无法创建任务：\{createBlockReason\}/);
+  assert.match(ui, /disabled=\{busy !== ""\} onClick=\{createJob\}/);
+  assert.match(ui, /busy === "create-job" \? "创建任务中…"/);
+  assert.doesNotMatch(ui, /disabled=\{!canEdit \|\| !activePrompt \|\| busy !== ""/);
+  assert.match(ui, /defaultAnnotationPromptBody\(nextCategory, nextSegments\)/);
+  const template = defaultAnnotationPromptBody("商用净饮水设备", ["商用直饮机", "净饮一体机"]);
+  assert.match(template, /「商用净饮水设备」/);
+  assert.match(template, /当前允许的细分品类：商用直饮机、净饮一体机。/);
+  assert.match(defaultAnnotationPromptBody("", []), /该三级类目/);
+  assert.match(defaultAnnotationPromptBody("", []), /尚未维护细分品类字典/);
 });
 
 test("prompt deletion is admin-audited, soft, and blocked after task use", async () => {
