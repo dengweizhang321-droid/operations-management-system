@@ -508,6 +508,14 @@ test("sales overview exposes polished additive shop and category multi-select fi
   assert.match(page, /ariaLabel="销售总览品类细分多选"/);
   assert.match(page, /allLabel="全部品类细分"/);
   assert.match(page, /searchPlaceholder="搜索品类细分"/);
+  assert.match(page, /const debouncedShopKeys = useDebouncedValue\(selectedShopKeys, 320\)/);
+  assert.match(page, /const debouncedCategories = useDebouncedValue\(selectedCategories, 320\)/);
+  assert.match(page, /debouncedShopKeys\.forEach\(\(shopKey\) => query\.append\("outlet", shopKey\)\)/);
+  assert.match(page, /debouncedCategories\.forEach\(\(category\) => query\.append\("category", category\)\)/);
+  assert.match(page, /if \(loading && !summary\)/);
+  assert.match(page, /if \(error && !summary\)/);
+  assert.match(page, /loading \? "正在更新筛选结果" : "已加载真实明细"/);
+  assert.match(page, /筛选结果更新失败：\{error\}/);
   assert.match(page, /sales-overview-filter-chips/);
   assert.match(page, /onShopChange\(selectedShopKeys\.filter/);
   assert.match(page, /onCategoryChange\(selectedCategories\.filter/);

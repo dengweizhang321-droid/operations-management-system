@@ -282,6 +282,7 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .sales-period-note > span { display: flex; align-items: center; gap: 6px; color: #258461; font-weight: 700; }
 .sales-period-note > strong { color: #405047; font-size: 9px; }
 .sales-period-note > small { margin-left: auto; overflow: hidden; color: #829087; white-space: nowrap; text-overflow: ellipsis; }
+.sales-period-note > small.sales-refresh-error { color: #c35c62; }
 .sales-overview-filter-panel { position: relative; margin-bottom: 15px; overflow: visible; padding: 18px; border-color: #d9e5f8; background: radial-gradient(circle at 92% 8%,rgba(98,184,159,.1),transparent 28%),linear-gradient(125deg,#f5f8ff 0%,#fff 58%,#f8fcfb 100%); box-shadow: 0 8px 24px rgba(44,74,125,.06); }
 .sales-overview-filter-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; }
 .sales-overview-filter-heading h2 { margin: 4px 0; color: #2f425e; font-size: 16px; }

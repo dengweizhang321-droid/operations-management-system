@@ -3336,6 +3336,8 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   const [selectedShopKeys, setSelectedShopKeys] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const debouncedProductQuery = useDebouncedValue(productQuery);
+  const debouncedShopKeys = useDebouncedValue(selectedShopKeys, 320);
+  const debouncedCategories = useDebouncedValue(selectedCategories, 320);
   const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
 
   useEffect(() => {
@@ -3353,8 +3355,8 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
           query.set("endDate", customEndDate);
         }
         productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
-        selectedShopKeys.forEach((shopKey) => query.append("outlet", shopKey));
-        selectedCategories.forEach((category) => query.append("category", category));
+        debouncedShopKeys.forEach((shopKey) => query.append("outlet", shopKey));
+        debouncedCategories.forEach((category) => query.append("category", category));
         const response = await fetch(`/api/sales/summary?${query.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -3365,7 +3367,6 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
         setSummary(payload);
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-        setSummary(null);
         setError(requestError instanceof Error ? requestError.message : "暂时无法读取销售汇总");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -3373,7 +3374,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     })();
 
     return () => controller.abort();
-  }, [apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedShopKeys]);
+  }, [apiRange, customEndDate, customStartDate, debouncedCategories, debouncedShopKeys, productQueries, retryKey]);
 
   const current = summary?.current;
   const previous = summary?.previous;
@@ -3399,7 +3400,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} /></>;
   if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView /></>;
 
-  if (loading) {
+  if (loading && !summary) {
     return (
       <>{salesSubnav}<section className="panel data-state sales-data-state" role="status" aria-live="polite">
           <span className="state-spinner" aria-hidden="true" />
@@ -3409,7 +3410,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     );
   }
 
-  if (error) {
+  if (error && !summary) {
     return (
       <>{salesSubnav}<section className="panel data-state sales-data-state data-state-error" role="alert">
           <span className="state-symbol" aria-hidden="true">!</span>
@@ -3438,9 +3439,11 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     <>
       {salesSubnav}
       <div className="sales-period-note">
-        <span><Dot tone="green" />已加载真实明细</span>
+        <span><Dot tone="green" />{loading ? "正在更新筛选结果" : "已加载真实明细"}</span>
         <strong>{rangeNote}</strong>
-        {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
+        {error
+          ? <small className="sales-refresh-error">筛选结果更新失败：{error}</small>
+          : summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
       {activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}
       {activeTab === "channel" ? (
