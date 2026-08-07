@@ -826,11 +826,18 @@ async function fanOutInferenceUnitTerminalFailure(db: MarketDatabase, jobId: str
   return Number(result.meta.changes ?? 0);
 }
 
-function cloudFailureKind(error: unknown) {
+export type CloudAnnotationFailureCode = "provider_rate_limit" | "model_timeout" | "model_network" | "image_fetch" | "model_configuration" | "model_response" | "annotation_failed";
+
+export function classifyCloudAnnotationFailure(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-  if (/状态码\s*429|rate limit|限流|额度不足/i.test(message)) return { failureKind: "rate_limit", retryAfterMs: 60_000 } as const;
-  if (/网络错误|调用超时|timeout|fetch failed/i.test(message)) return { failureKind: "transient", retryAfterMs: 5_000 } as const;
-  return { failureKind: "permanent", retryAfterMs: 0 } as const;
+  const failureMessage = safeOperationalError(error, "识别失败");
+  if (/状态码\s*429|rate limit|限流|额度不足/i.test(message)) return { failureKind: "rate_limit", failureCode: "provider_rate_limit", failureMessage, retryAfterMs: 60_000 } as const;
+  if (/主图获取失败|图片/i.test(message)) return { failureKind: "permanent", failureCode: "image_fetch", failureMessage, retryAfterMs: 0 } as const;
+  if (/模型调用超时|调用超时|timeout/i.test(message)) return { failureKind: "transient", failureCode: "model_timeout", failureMessage, retryAfterMs: 5_000 } as const;
+  if (/模型接口网络错误|网络错误|fetch failed/i.test(message)) return { failureKind: "transient", failureCode: "model_network", failureMessage, retryAfterMs: 5_000 } as const;
+  if (/API Key|不存在或未启用|模型配置/i.test(message)) return { failureKind: "permanent", failureCode: "model_configuration", failureMessage, retryAfterMs: 0 } as const;
+  if (/模型响应|没有返回|枚举|confidence|价格/i.test(message)) return { failureKind: "permanent", failureCode: "model_response", failureMessage, retryAfterMs: 0 } as const;
+  return { failureKind: "permanent", failureCode: "annotation_failed", failureMessage, retryAfterMs: 0 } as const;
 }
 
 async function runNextCloudAnnotationInternal(db: MarketDatabase, jobId: string, refreshState: boolean) {
@@ -892,7 +899,7 @@ async function runNextCloudAnnotationInternal(db: MarketDatabase, jobId: string,
   try {
     result = await runVisionAnnotation({ db, modelId: job.model_id, promptBody: prompt.prompt_body, segments: promptSegments, skuCode: candidate.sku_code, productName: candidate.product_name, brand: candidate.brand, imageUrl: candidate.source_image_url, fixedSegment });
   } catch (error) {
-    const failure = cloudFailureKind(error);
+    const failure = classifyCloudAnnotationFailure(error);
     const message = safeOperationalError(error, "识别失败");
     const failed = await db.prepare("UPDATE market_annotation_items SET status='failed', error_message=?, lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='inferencing' AND lease_token_hash=? AND datetime(lease_expires_at)>datetime('now')")
       .bind(message, candidate.id, claimHash).run();
@@ -942,11 +949,13 @@ export async function runCloudAnnotationBatch(db: MarketDatabase, jobId: string,
   let done = false;
   let waiting = false;
   let failureKind = "";
+  let failureCode: CloudAnnotationFailureCode | "" = "";
+  let failureMessage = "";
   let retryAfterMs = 0;
   for (let index = 0; index < limit; index += 1) {
       const result = await runNextCloudAnnotationInternal(db, jobId, false) as {
         done?: boolean; waiting?: boolean; raced?: boolean; reusedCount?: number; itemId?: string;
-        failureKind?: "rate_limit" | "transient" | "permanent"; retryAfterMs?: number;
+        failureKind?: "rate_limit" | "transient" | "permanent"; failureCode?: CloudAnnotationFailureCode; failureMessage?: string; retryAfterMs?: number;
       };
       if (result.done) { done = true; break; }
       if (result.waiting) { waiting = true; break; }
@@ -957,6 +966,8 @@ export async function runCloudAnnotationBatch(db: MarketDatabase, jobId: string,
       if (result.failureKind) {
         failedCount += 1;
         failureKind = result.failureKind;
+        failureCode = result.failureCode ?? "annotation_failed";
+        failureMessage = String(result.failureMessage ?? "识别失败").slice(0, 300);
         retryAfterMs = Math.max(retryAfterMs, Number(result.retryAfterMs ?? 0));
         if (result.failureKind === "rate_limit" || result.failureKind === "transient") break;
       }
@@ -964,7 +975,7 @@ export async function runCloudAnnotationBatch(db: MarketDatabase, jobId: string,
   if (done) await refreshJob(db, jobId);
   return {
     done, waiting, processedCount, reusedCount, failedCount,
-    ...(failureKind ? { failureKind, retryAfterMs } : {}),
+    ...(failureKind ? { failureKind, failureCode, failureMessage, retryAfterMs } : {}),
     job: done ? await getJob(db, jobId) : null,
   };
 }

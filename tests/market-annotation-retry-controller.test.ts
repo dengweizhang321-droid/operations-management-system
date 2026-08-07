@@ -16,6 +16,8 @@ test("ordinary transient cooldown is isolated to the failing worker", () => {
     concurrency: 3,
     countedIncident: true,
     suppressedByGlobalRateLimit: false,
+    floorFailureCount: 0,
+    shouldPause: false,
   });
   assert.equal(retry.blockedUntil(0), 6_000);
   assert.equal(retry.blockedUntil(1), 0);
@@ -74,4 +76,32 @@ test("successful images recover concurrency and a live target update stays bound
   assert.equal(retry.targetConcurrency, 4);
   assert.equal(retry.workerLimit, 4);
   assert.equal(retry.recovering, false);
+});
+
+test("three independent failures after reaching concurrency one pause the run, while duplicates and success do not count", () => {
+  const retry = new AnnotationRunRetryController(10);
+  const incidents = [
+    retry.schedule("transient", 0, 0, 0),
+    retry.schedule("transient", 0, 0, 6_000),
+    retry.schedule("transient", 0, 0, 17_000),
+    retry.schedule("transient", 0, 0, 38_000),
+  ];
+  assert.deepEqual(incidents.map((item) => item.concurrency), [8, 4, 2, 1]);
+  assert.equal(incidents[3]?.floorFailureCount, 0);
+
+  const firstAtFloor = retry.schedule("transient", 0, 0, 69_000);
+  assert.equal(firstAtFloor.floorFailureCount, 1);
+  assert.equal(firstAtFloor.shouldPause, false);
+  const duplicate = retry.schedule("transient", 1, 0, 69_100);
+  assert.equal(duplicate.countedIncident, false);
+  assert.equal(duplicate.floorFailureCount, 1);
+
+  assert.equal(retry.recordSuccess(1).recovered, false);
+  const afterSuccess = retry.schedule("transient", 0, 0, 100_000);
+  assert.equal(afterSuccess.floorFailureCount, 1);
+  const secondAtFloor = retry.schedule("transient", 0, 0, 131_000);
+  assert.equal(secondAtFloor.floorFailureCount, 2);
+  const thirdAtFloor = retry.schedule("transient", 0, 0, 162_000);
+  assert.equal(thirdAtFloor.floorFailureCount, 3);
+  assert.equal(thirdAtFloor.shouldPause, true);
 });

@@ -30,12 +30,21 @@ type CatalogWorkspace = Pick<Workspace, "catalog"> & { error?: string };
 type JobProgress = { job: Job; activeClaims: number; uniqueInferenceUnits: number; remainingInferenceUnits: number; error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 type ActiveCloudRun = { jobId: string; updateConcurrency: (nextConcurrency: number) => void };
+type CloudFailureCode = "provider_rate_limit" | "model_timeout" | "model_network" | "image_fetch" | "model_configuration" | "model_response" | "annotation_failed" | "request_transport";
 
 const LOAD_TIMEOUT_MS = 30_000;
 const ACTION_TIMEOUT_MS = 110_000;
 const CLOUD_BATCH_SIZE = 1;
 const CLOUD_PROGRESS_REFRESH_EVERY = 12;
 const CLOUD_PROGRESS_REFRESH_MS = 30_000;
+const cloudFailureAdvice = (code: CloudFailureCode | string) => {
+  if (code === "model_timeout") return "请先降低该类目并发；若低并发仍超时，再把视觉模型超时提高到 90 秒。";
+  if (code === "model_network" || code === "request_transport") return "请检查本地 Worker、站点出网和模型接口连通性。";
+  if (code === "image_fetch") return "请在失败记录中检查主图地址和实际图片来源。";
+  if (code === "provider_rate_limit") return "请检查模型供应商并发配额或额度，稍后再恢复。";
+  if (code === "model_configuration" || code === "model_response") return "请重新测试视觉模型配置及结构化输出兼容性。";
+  return "请查看人工复核区失败记录中的具体原因后再恢复。";
+};
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
 const yuanInput = (cents: number | null | undefined) => cents === null || cents === undefined ? "" : String(cents / 100);
 const centsInput = (yuan: string) => yuan.trim() === "" ? null : Math.round(Number(yuan) * 100);
@@ -376,22 +385,31 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     let refreshing = false;
     let activeRequestCount = 0;
     let fatalError: unknown = null;
+    let autoPauseMessage = "";
     activeCloudRunRef.current = {
       jobId: currentJob.id,
       updateConcurrency: (nextConcurrency) => {
         retryController.updateTarget(nextConcurrency);
       },
     };
-    const scheduleRetry = (kind: "transient" | "rate_limit", workerIndex: number, retryAfterMs = 0) => {
+    const scheduleRetry = (kind: "transient" | "rate_limit", workerIndex: number, retryAfterMs = 0, failureCode = "", failureMessage = "") => {
       const decision = retryController.schedule(kind, workerIndex, retryAfterMs);
-      if (decision.suppressedByGlobalRateLimit) return;
+      if (decision.suppressedByGlobalRateLimit || !decision.countedIncident) return;
+      const boundedMessage = failureMessage.trim().slice(0, 300);
+      const cause = boundedMessage ? `（${boundedMessage}）` : "";
+      if (decision.shouldPause) {
+        autoPauseMessage = `识别已自动暂停：运行并发降至 1 后又连续出现 ${decision.floorFailureCount} 个独立失败窗口，最近原因${cause || "（未返回具体原因）"}。${cloudFailureAdvice(failureCode)}`;
+        stopRef.current = true;
+        setNotice(autoPauseMessage);
+        return;
+      }
       const seconds = Math.ceil(decision.delayMs / 1_000);
       const concurrencyChange = decision.concurrency < decision.previousConcurrency
         ? `运行并发已从 ${decision.previousConcurrency} 调整为 ${decision.concurrency}`
         : `运行并发保持 ${decision.concurrency}`;
       setNotice(kind === "rate_limit"
-        ? `模型供应商限流，${concurrencyChange}，所有通道将在 ${seconds} 秒后自动续跑；稳定后逐步恢复至 ${retryController.targetConcurrency}。`
-        : `模型或网络暂时异常，${concurrencyChange}，仅出错通道将在 ${seconds} 秒后重试；其他通道继续运行。`);
+        ? `模型供应商限流${cause}，${concurrencyChange}，所有通道将在 ${seconds} 秒后自动续跑；稳定后逐步恢复至 ${retryController.targetConcurrency}。`
+        : `模型或网络暂时异常${cause}，${concurrencyChange}，仅出错通道将在 ${seconds} 秒后重试；其他通道继续运行。`);
     };
     const waitForWindow = async (workerIndex: number) => {
       while (!stopRef.current && Date.now() < retryController.blockedUntil(workerIndex)) {
@@ -442,7 +460,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         if (requestFailed) {
           const retryKind = annotationRequestRetryKind(requestFailure);
           if (retryKind) {
-            scheduleRetry(retryKind, workerIndex);
+            const requestMessage = requestFailure instanceof Error && /超时|timeout/i.test(requestFailure.message)
+              ? "浏览器到服务端的识别请求超时"
+              : "浏览器到服务端的识别请求网络异常";
+            scheduleRetry(retryKind, workerIndex, 0, "request_transport", requestMessage);
             await refreshProgress(true).catch(() => undefined);
             continue;
           }
@@ -465,13 +486,17 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         reusedCount += reused;
         processedCount += processedThisCall;
         const failureKind = String(result?.failureKind ?? "");
+        const failureCode = String(result?.failureCode ?? "");
+        const failureMessage = String(result?.failureMessage ?? "");
         if (failureKind) failedCount += Math.max(1, Number(result?.failedCount ?? 0));
         if (failureKind === "rate_limit") {
-          scheduleRetry("rate_limit", workerIndex, Number(result?.retryAfterMs ?? 0));
+          scheduleRetry("rate_limit", workerIndex, Number(result?.retryAfterMs ?? 0), failureCode, failureMessage);
           await refreshProgress(true).catch(() => undefined);
         } else if (failureKind === "transient") {
-          scheduleRetry("transient", workerIndex, Number(result?.retryAfterMs ?? 0));
+          scheduleRetry("transient", workerIndex, Number(result?.retryAfterMs ?? 0), failureCode, failureMessage);
           await refreshProgress(true).catch(() => undefined);
+        } else if (failureKind === "permanent" && failureMessage) {
+          setNotice(`当前图片识别失败（${failureMessage}），系统已记录失败并继续处理其他图片。`);
         } else if (!failureKind && processedThisCall > reused) {
           const recovery = retryController.recordSuccess(processedThisCall - reused);
           if (recovery.recovered) {
@@ -492,8 +517,9 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     await loadReview(true);
     if (fatalError) throw fatalError;
     const summary = `本轮处理 ${processedCount} 条（复用同图同模型结果 ${reusedCount} 条，识别失败 ${failedCount} 条）`;
-    setNotice(stopRef.current
-      ? `${summary}；已按要求暂停，可稍后续跑`
+    setNotice(autoPauseMessage
+      ? `${summary}；${autoPauseMessage}`
+      : stopRef.current ? `${summary}；已按要求暂停，可稍后续跑`
         : done ? `${summary}；云端识别队列已处理完毕`
           : `${summary}；本轮自动识别已结束`);
   });

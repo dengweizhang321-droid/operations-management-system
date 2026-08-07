@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -37,6 +37,18 @@ test("annotation automatic retry uses bounded adaptive backoff and classifies on
   assert.equal(annotationRequestRetryKind({ status: 429, message: "too many requests" }), "rate_limit");
   assert.equal(annotationRequestRetryKind({ status: 403, message: "forbidden" }), null);
   assert.equal(isRetryableAnnotationRequestError(new TypeError("Failed to fetch")), true);
+});
+
+test("cloud annotation failures return bounded operational codes and messages", () => {
+  assert.deepEqual(classifyCloudAnnotationFailure(new Error("模型调用超时")), {
+    failureKind: "transient", failureCode: "model_timeout", failureMessage: "模型调用超时", retryAfterMs: 5_000,
+  });
+  assert.equal(classifyCloudAnnotationFailure(new Error("模型接口网络错误")).failureCode, "model_network");
+  assert.equal(classifyCloudAnnotationFailure(new Error("主图获取失败：imgzone image request timed out")).failureCode, "image_fetch");
+  assert.equal(classifyCloudAnnotationFailure(new Error("视觉模型调用失败（状态码 429：busy）")).failureCode, "provider_rate_limit");
+  assert.deepEqual(classifyCloudAnnotationFailure(new Error("database exploded with internal detail")), {
+    failureKind: "permanent", failureCode: "annotation_failed", failureMessage: "识别失败", retryAfterMs: 0,
+  });
 });
 
 test("market annotation jobs default to and accept at most 10,000 items", () => {
@@ -234,7 +246,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /单个任务最多 10,000 条/);
   assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(service, /normalizeMarketAnnotationJobLimit/);
-  assert.match(ui, /模型供应商限流，\$\{concurrencyChange\}/);
+  assert.match(ui, /模型供应商限流\$\{cause\}，\$\{concurrencyChange\}/);
   assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
@@ -256,7 +268,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
-  assert.match(ui, /模型或网络暂时异常，\$\{concurrencyChange\}/);
+  assert.match(ui, /模型或网络暂时异常\$\{cause\}，\$\{concurrencyChange\}/);
+  assert.match(ui, /decision\.suppressedByGlobalRateLimit \|\| !decision\.countedIncident/);
+  assert.match(ui, /decision\.shouldPause/);
+  assert.match(ui, /failureCode.*failureMessage/);
+  assert.match(ui, /识别已自动暂停/);
   assert.match(ui, /每成功 3 张逐步恢复/);
   assert.match(ui, /系统已恢复为.*路并发识别/);
   assert.match(ui, /当前 AI 标注任务模型并发数/);
@@ -350,6 +366,9 @@ test("the cloud pump runner reuses the browser retry controller and the worker r
   assert.match(runner, /Array\.from\(\{ length: MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum \}/);
   assert.match(runner, /retry\.updateTarget\(Number\(next\)\)/);
   assert.match(runner, /Number\(next\) === retry\.targetConcurrency\) return/);
+  assert.match(runner, /decision\.suppressedByGlobalRateLimit \|\| !decision\.countedIncident/);
+  assert.match(runner, /decision\.shouldPause/);
+  assert.match(runner, /后台泵停止续跑/);
   assert.match(runner, /TERUISI_ANNOTATION_AGENT_TOKEN/);
   assert.match(runner, /REQUEST_TIMEOUT_MS = 110_000/);
   for (const signal of ["SIGINT", "SIGTERM"]) assert.match(runner, new RegExp(signal));

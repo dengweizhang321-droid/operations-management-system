@@ -881,18 +881,19 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
       const waitForRetryWindow = async () => {
         while (!done && Date.now() < blockedUntil) await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(1_000, blockedUntil - Date.now())));
       };
-      const scheduleRetry = (kind: "waiting" | "transient" | "rate_limit", retryAfterMs = 0) => {
+      const scheduleRetry = (kind: "waiting" | "transient" | "rate_limit", retryAfterMs = 0, failureMessage = "") => {
         workerLimit = 1;
         successesSinceFailure = 0;
         if (kind !== "waiting") retryFailures += 1;
         const delayMs = annotationRetryDelayMs(kind, retryFailures, retryAfterMs);
         blockedUntil = Math.max(blockedUntil, Date.now() + delayMs);
         const seconds = Math.ceil(delayMs / 1_000);
+        const cause = failureMessage.trim() ? `（${failureMessage.trim().slice(0, 300)}）` : "";
         setNotice(kind === "waiting"
           ? `已有图片正在识别，系统将在 ${seconds} 秒后自动检查。`
           : kind === "rate_limit"
-            ? `模型供应商限流，已降为单通道，系统将在 ${seconds} 秒后自动续跑。`
-            : `模型或网络超时，已降为单通道，系统将在 ${seconds} 秒后自动刷新并续跑。`);
+            ? `模型供应商限流${cause}，已降为单通道，系统将在 ${seconds} 秒后自动续跑。`
+            : `模型或网络超时${cause}，已降为单通道，系统将在 ${seconds} 秒后自动刷新并续跑。`);
       };
       const worker = async (workerIndex: number) => {
         while (!done && !fatalError) {
@@ -911,7 +912,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
             }
             fatalError = reason; break;
           }
-          const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; reusedCount?: number; failedCount?: number; failureKind?: string; retryAfterMs?: number } } | null;
+          const payload = await response.json().catch(() => null) as { error?: string; result?: { done?: boolean; waiting?: boolean; processedCount?: number; reusedCount?: number; failedCount?: number; failureKind?: string; failureCode?: string; failureMessage?: string; retryAfterMs?: number } } | null;
           if (!response.ok) {
             const retryKind = annotationRequestRetryKind({ status: response.status, message: payload?.error || "AI 价格识别失败" });
             if (retryKind) { scheduleRetry(retryKind); await refreshRecognitionProgress().catch(() => undefined); continue; }
@@ -923,8 +924,9 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
           failed += Math.max(0, Number(payload?.result?.failedCount ?? 0));
           if (payload?.result?.done) done = true;
           if (payload?.result?.waiting) { scheduleRetry("waiting"); await refreshRecognitionProgress().catch(() => undefined); }
-          else if (payload?.result?.failureKind === "rate_limit") { scheduleRetry("rate_limit", Number(payload.result.retryAfterMs ?? 0)); await refreshRecognitionProgress().catch(() => undefined); }
-          else if (payload?.result?.failureKind === "transient") { scheduleRetry("transient", Number(payload.result.retryAfterMs ?? 0)); await refreshRecognitionProgress().catch(() => undefined); }
+          else if (payload?.result?.failureKind === "rate_limit") { scheduleRetry("rate_limit", Number(payload.result.retryAfterMs ?? 0), payload.result.failureMessage); await refreshRecognitionProgress().catch(() => undefined); }
+          else if (payload?.result?.failureKind === "transient") { scheduleRetry("transient", Number(payload.result.retryAfterMs ?? 0), payload.result.failureMessage); await refreshRecognitionProgress().catch(() => undefined); }
+          else if (payload?.result?.failureKind === "permanent" && payload.result.failureMessage) setNotice(`当前图片识别失败（${payload.result.failureMessage}），系统已记录失败并继续处理其他图片。`);
           else if (!payload?.result?.failureKind && processedThisCall > reusedThisCall) {
             successesSinceFailure += processedThisCall - reusedThisCall;
             if (workerLimit === 1 && successesSinceFailure >= 3) {

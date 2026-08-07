@@ -55,7 +55,11 @@ export type AnnotationRunRetryDecision = {
   concurrency: number;
   countedIncident: boolean;
   suppressedByGlobalRateLimit: boolean;
+  floorFailureCount: number;
+  shouldPause: boolean;
 };
+
+export const ANNOTATION_RETRY_FLOOR_FAILURE_LIMIT = 3;
 
 /**
  * Coordinates one interactive cloud run. Ordinary transient failures lower the
@@ -71,6 +75,7 @@ export class AnnotationRunRetryController {
   private successfulImagesSinceFailure = 0;
   private transientIncidentUntil = 0;
   private globalRateLimitUntil = 0;
+  private floorFailureCount = 0;
   private readonly workerRetryUntil = new Map<number, number>();
 
   constructor(configuredConcurrency: number) {
@@ -100,6 +105,7 @@ export class AnnotationRunRetryController {
       : normalized;
     this.successfulImagesSinceFailure = 0;
     if (!this.recovering) this.resetFailureCounts();
+    if (this.currentConcurrency > 1) this.floorFailureCount = 0;
   }
 
   schedule(
@@ -122,6 +128,7 @@ export class AnnotationRunRetryController {
           this.rateLimitFailureCount,
         );
         this.successfulImagesSinceFailure = 0;
+        this.recordFloorFailure(previousConcurrency);
       }
       const delayMs = annotationRetryDelayMs(kind, Math.max(1, this.rateLimitFailureCount), providerRetryAfterMs);
       this.globalRateLimitUntil = Math.max(this.globalRateLimitUntil, now + delayMs);
@@ -134,6 +141,8 @@ export class AnnotationRunRetryController {
         concurrency: this.currentConcurrency,
         countedIncident,
         suppressedByGlobalRateLimit: false,
+        floorFailureCount: this.floorFailureCount,
+        shouldPause: this.floorFailureCount >= ANNOTATION_RETRY_FLOOR_FAILURE_LIMIT,
       };
     }
 
@@ -147,6 +156,7 @@ export class AnnotationRunRetryController {
         this.transientFailureCount,
       );
       this.successfulImagesSinceFailure = 0;
+      this.recordFloorFailure(previousConcurrency);
     }
     const delayMs = annotationRetryDelayMs(kind, Math.max(1, this.transientFailureCount), providerRetryAfterMs);
     const localRetryUntil = Math.max(this.workerRetryUntil.get(workerIndex) ?? 0, now + delayMs);
@@ -161,6 +171,8 @@ export class AnnotationRunRetryController {
       concurrency: this.currentConcurrency,
       countedIncident,
       suppressedByGlobalRateLimit: globalRateLimitActive,
+      floorFailureCount: this.floorFailureCount,
+      shouldPause: this.floorFailureCount >= ANNOTATION_RETRY_FLOOR_FAILURE_LIMIT,
     };
   }
 
@@ -170,7 +182,9 @@ export class AnnotationRunRetryController {
 
   recordSuccess(successfulImages: number) {
     const previousConcurrency = this.currentConcurrency;
-    this.successfulImagesSinceFailure += Math.max(0, Math.trunc(successfulImages));
+    const normalizedSuccesses = Math.max(0, Math.trunc(successfulImages));
+    this.successfulImagesSinceFailure += normalizedSuccesses;
+    if (normalizedSuccesses > 0) this.floorFailureCount = 0;
     const recoveredConcurrency = annotationRecoveredConcurrency(
       this.currentConcurrency,
       this.configuredConcurrency,
@@ -194,6 +208,14 @@ export class AnnotationRunRetryController {
   private resetFailureCounts() {
     this.transientFailureCount = 0;
     this.rateLimitFailureCount = 0;
+  }
+
+  private recordFloorFailure(previousConcurrency: number) {
+    if (previousConcurrency === 1 && this.currentConcurrency === 1) {
+      this.floorFailureCount += 1;
+    } else if (this.currentConcurrency > 1) {
+      this.floorFailureCount = 0;
+    }
   }
 }
 

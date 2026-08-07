@@ -20,7 +20,7 @@ import { AnnotationRunRetryController, annotationRequestRetryKind, annotationRet
 type PumpResult = {
   idle?: boolean; jobId?: string; category?: string; concurrency?: number;
   done?: boolean; waiting?: boolean; processedCount?: number; reusedCount?: number; failedCount?: number;
-  failureKind?: "rate_limit" | "transient" | "permanent"; retryAfterMs?: number;
+  failureKind?: "rate_limit" | "transient" | "permanent"; failureCode?: string; failureMessage?: string; retryAfterMs?: number;
   job?: { status?: string; completedCount?: number; failedCount?: number; totalCount?: number } | null;
 };
 
@@ -70,6 +70,8 @@ async function runJob(jobId: string, initialConcurrency: number) {
   const retry = new AnnotationRunRetryController(initialConcurrency);
   const totals = { processed: 0, reused: 0, failed: 0 };
   let done = false;
+  let autoPaused = false;
+  let pauseReason = "";
   let activeRequestCount = 0;
 
   const syncTarget = (next: number | undefined) => {
@@ -77,9 +79,17 @@ async function runJob(jobId: string, initialConcurrency: number) {
     retry.updateTarget(Number(next));
     log(`并发目标已按服务端配置调整为 ${retry.targetConcurrency}`);
   };
-  const scheduleRetry = (kind: "transient" | "rate_limit", workerIndex: number, retryAfterMs = 0) => {
+  const scheduleRetry = (kind: "transient" | "rate_limit", workerIndex: number, retryAfterMs = 0, failureCode = "", failureMessage = "") => {
     const decision = retry.schedule(kind, workerIndex, retryAfterMs);
-    if (decision.suppressedByGlobalRateLimit) return;
+    if (decision.suppressedByGlobalRateLimit || !decision.countedIncident) return;
+    const cause = failureMessage.trim().slice(0, 300) || failureCode || "未返回具体原因";
+    if (decision.shouldPause) {
+      autoPaused = true;
+      done = true;
+      pauseReason = `运行并发降至 1 后又连续出现 ${decision.floorFailureCount} 个独立失败窗口，最近原因：${cause}`;
+      log(`任务已自动暂停：${pauseReason}`);
+      return;
+    }
     const change = decision.concurrency < decision.previousConcurrency
       ? `运行并发 ${decision.previousConcurrency} → ${decision.concurrency}`
       : `运行并发保持 ${decision.concurrency}`;
@@ -106,7 +116,10 @@ async function runJob(jobId: string, initialConcurrency: number) {
       if (failure) {
         const kind = annotationRequestRetryKind(failure);
         if (!kind) { fatalError = failure; stopping = true; break; }
-        scheduleRetry(kind, workerIndex);
+        const message = failure instanceof Error && /超时|timeout/i.test(failure.message)
+          ? "后台泵到服务端的请求超时"
+          : "后台泵到服务端的网络请求异常";
+        scheduleRetry(kind, workerIndex, 0, "request_transport", message);
         continue;
       }
       syncTarget(result?.concurrency);
@@ -122,7 +135,9 @@ async function runJob(jobId: string, initialConcurrency: number) {
       const failureKind = String(result?.failureKind ?? "");
       if (failureKind) totals.failed += Math.max(1, Number(result?.failedCount ?? 0));
       if (failureKind === "rate_limit" || failureKind === "transient") {
-        scheduleRetry(failureKind, workerIndex, Number(result?.retryAfterMs ?? 0));
+        scheduleRetry(failureKind, workerIndex, Number(result?.retryAfterMs ?? 0), String(result?.failureCode ?? ""), String(result?.failureMessage ?? ""));
+      } else if (failureKind === "permanent") {
+        log(`当前图片识别失败：${String(result?.failureMessage ?? result?.failureCode ?? "识别失败").slice(0, 300)}`);
       } else if (!failureKind && processed > reused) {
         const recovery = retry.recordSuccess(processed - reused);
         if (recovery.recovered) log(`连接恢复，运行并发提升至 ${recovery.concurrency}/${retry.targetConcurrency}`);
@@ -137,7 +152,7 @@ async function runJob(jobId: string, initialConcurrency: number) {
   };
 
   await Promise.all(Array.from({ length: MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum }, (_, index) => worker(index)));
-  return totals;
+  return { ...totals, autoPaused, pauseReason };
 }
 
 async function main() {
@@ -154,6 +169,10 @@ async function main() {
     const totals = await runJob(probe.jobId, Math.max(1, Number(probe.concurrency) || 1));
     log(`任务 ${probe.jobId} 本轮结束：处理 ${totals.processed}（复用 ${totals.reused}，失败 ${totals.failed}）`);
     if (fatalError) throw fatalError;
+    if (totals.autoPaused) {
+      log(`后台泵停止续跑，需人工检查后重新启动：${totals.pauseReason}`);
+      return;
+    }
     if (pinnedJobId) return;
   }
 }
