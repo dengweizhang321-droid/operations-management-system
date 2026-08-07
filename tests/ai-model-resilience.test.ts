@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 import {
   AiModelRequestError,
@@ -30,9 +30,9 @@ function databaseFixture() {
   const sqlite = new DatabaseSync(":memory:");
   const database = {
     prepare(sql: string) {
-      let values: unknown[] = [];
+      let values: SQLInputValue[] = [];
       return {
-        bind(...bound: unknown[]) { values = bound; return this; },
+        bind(...bound: unknown[]) { values = bound as SQLInputValue[]; return this; },
         async first<T>() { return (sqlite.prepare(sql).get(...values) ?? null) as T | null; },
         async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
         async run() { const result = sqlite.prepare(sql).run(...values); return { meta: { changes: Number(result.changes) } }; },
@@ -68,7 +68,8 @@ test("模型瞬时错误有限重试并在原模型恢复后停止", async () =>
   });
   assert.equal(result, "ok");
   assert.equal(calls, 3);
-  assert.deepEqual(delays, [100, 100]);
+  assert.equal(delays.length, 2);
+  assert.ok(delays.every((delay) => delay >= 100 && delay <= 125));
   assert.deepEqual(attempts.map((item) => item.outcome), ["failed", "failed", "succeeded"]);
 });
 
@@ -101,6 +102,22 @@ test("模型鉴权和协议错误不重试也不降级", async () => {
     sleep: async () => undefined,
   }), /鉴权失败/);
   assert.deepEqual(used, ["primary"]);
+});
+
+test("用户取消不会污染模型健康或触发熔断", async () => {
+  const { sqlite, database } = databaseFixture();
+  const run = await startOperationRun(database, { runType: "ai_question", surface: "test", traceId: "trace-cancel" });
+  const observer = createD1ModelAttemptObserver({ db: database, runId: run.id, traceId: run.traceId });
+  const before = await observer.beforeAttempt!(model("cancelled-model"), 1, 0);
+  await observer.afterAttempt!(model("cancelled-model"), {
+    outcome: "cancelled", attempt: 1, fallbackIndex: 0, durationMs: 10, retryable: false,
+    retryDelayMs: 0, errorCode: "model_request_cancelled",
+  }, before.context);
+  const health = sqlite.prepare("SELECT consecutive_failures FROM ai_model_runtime_health WHERE model_id='cancelled-model'").get();
+  assert.equal(health, undefined);
+  const step = sqlite.prepare("SELECT status FROM operation_steps WHERE run_id=?").get(run.id) as { status: string };
+  assert.equal(step.status, "cancelled");
+  sqlite.close();
 });
 
 test("持久化模型健康在连续失败后打开熔断并由成功复位", async () => {

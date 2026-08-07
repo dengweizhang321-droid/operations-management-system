@@ -38,7 +38,9 @@ import {
 } from "@/lib/ai/model-tool-budget";
 import type { ProviderToolCallMetadata } from "@/lib/ai/tool-loop";
 import {
+  finishOperationRun,
   finishOperationStep,
+  startOperationRun,
   startOperationStep,
   type OperationStepRecord,
 } from "@/lib/operations/runtime";
@@ -999,6 +1001,17 @@ export async function generateConfiguredAnalysisReply(input: {
   const startedAt = Date.now();
   const model = await resolveChatModel(db);
   if (!model) throw new Error("尚未配置可用的文本模型。请由管理员先在“AI 助理”中新增、启用并测试文本模型；客服数据导入不受影响。");
+  const operationRun = await startOperationRun(db, {
+    traceId: input.requestId,
+    runType: "customer_service_ai_analysis",
+    surface: "customer_service_ai",
+    actorEmail: input.principal.email,
+    actorRole: input.principal.role,
+    dataset: "customer_service_conversations",
+    scope: { hasPrincipalScope: input.principal.scope !== null },
+  });
+  const fallbackModels = await resolveCompatibleFallbackChatModels(model, db);
+  const observer = createD1ModelAttemptObserver({ db, runId: operationRun.id, traceId: operationRun.traceId });
   const auditBase = {
     requestId: input.requestId,
     actorEmail: input.principal.email,
@@ -1011,13 +1024,25 @@ export async function generateConfiguredAnalysisReply(input: {
   try {
     const reply = await completeText({
       model,
+      fallbackModels,
       messages: [{ role: "user", content: input.prompt }],
+      observer,
     });
     if (!reply) throw new Error("模型未返回分析结果");
     await recordAiToolAudit({ ...auditBase, status: "succeeded", durationMs: Date.now() - startedAt, result: { returned: 1, modelId: model.id, responseCharacters: reply.length } });
+    await finishOperationRun(db, {
+      runId: operationRun.id,
+      status: "succeeded",
+      summary: { modelId: model.id, responseCharacters: reply.length },
+    });
     return reply;
   } catch (error) {
     await recordAiToolAudit({ ...auditBase, status: "failed", durationMs: Date.now() - startedAt, errorCode: "customer_service_analysis_failed" });
+    await finishOperationRun(db, {
+      runId: operationRun.id,
+      status: isAiRequestCancelled(error) ? "cancelled" : "failed",
+      errorCode: isAiRequestCancelled(error) ? "ai_request_cancelled" : "customer_service_analysis_failed",
+    }).catch(() => undefined);
     throw error;
   }
 }

@@ -16,6 +16,7 @@ export const AI_MODEL_RESILIENCE_LIMITS = {
 type HealthRow = {
   consecutive_failures: number;
   circuit_open_until: string | null;
+  circuit_open: number;
 };
 
 export function createD1ModelAttemptObserver(input: {
@@ -27,9 +28,10 @@ export function createD1ModelAttemptObserver(input: {
   return {
     async beforeAttempt(model, attempt, fallbackIndex) {
       await ensureOperationRuntimeSchema(input.db);
-      const health = await input.db.prepare(`SELECT consecutive_failures, circuit_open_until
+      const health = await input.db.prepare(`SELECT consecutive_failures, circuit_open_until,
+        CASE WHEN circuit_open_until>CURRENT_TIMESTAMP THEN 1 ELSE 0 END circuit_open
         FROM ai_model_runtime_health WHERE model_id=? LIMIT 1`).bind(model.id).first<HealthRow>();
-      if (health?.circuit_open_until && Date.parse(health.circuit_open_until) > Date.now()) {
+      if (health?.circuit_open) {
         await recordOperationEvent(input.db, {
           runId: input.runId,
           traceId: input.traceId,
@@ -65,7 +67,7 @@ export function createD1ModelAttemptObserver(input: {
     async afterAttempt(model, result, context) {
       const step = context as OperationStepRecord | undefined;
       if (result.outcome === "succeeded") await recordModelSuccess(input.db, model.id);
-      else await recordModelFailure(input.db, model.id, result.errorCode ?? "model_request_failed");
+      else if (result.outcome === "failed") await recordModelFailure(input.db, model.id, result.errorCode ?? "model_request_failed");
       if (step) {
         await finishOperationStep(input.db, {
           stepId: step.id,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 import {
   finishOperationRun,
@@ -20,9 +20,9 @@ function databaseFixture() {
   const sqlite = new DatabaseSync(":memory:");
   const database = {
     prepare(sql: string) {
-      let values: unknown[] = [];
+      let values: SQLInputValue[] = [];
       return {
-        bind(...bound: unknown[]) { values = bound; return this; },
+        bind(...bound: unknown[]) { values = bound as SQLInputValue[]; return this; },
         async first<T>() { return (sqlite.prepare(sql).get(...values) ?? null) as T | null; },
         async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
         async run() {
