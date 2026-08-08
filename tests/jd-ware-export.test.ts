@@ -10,7 +10,7 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createJdWareBrowserDownloadSession, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareDownloadPathInsideStaging, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, createJdWareBrowserDownloadSession, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareDownloadPathInsideStaging, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, jdWareExportEntryBootstrapDecision, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -283,6 +283,15 @@ test("requires two consecutive unique visible export-entry samples", () => {
   assert.equal(hasStableUniqueVisibleJdExportEntry([1]), false);
   assert.equal(hasStableUniqueVisibleJdExportEntry([1, 0, 1]), false);
   assert.equal(hasStableUniqueVisibleJdExportEntry([0, 1, 1]), true);
+});
+
+test("reveals hidden query export only through one exact batch-operations trigger", () => {
+  assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 1, batchOperationsCount: 1 }), "ready");
+  assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 1 }), "open_batch_operations");
+  assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 0 }), "wait");
+  assert.throws(() => jdWareExportEntryBootstrapDecision({ exportEntryCount: 2, batchOperationsCount: 1 }), /不唯一/);
+  assert.throws(() => jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 2 }), /不唯一/);
+  assert.throws(() => jdWareExportEntryBootstrapDecision({ exportEntryCount: -1, batchOperationsCount: 1 }), /计数无效/);
 });
 
 test("records an auto-import failure audit after a rejected connection without browser startup", async () => {

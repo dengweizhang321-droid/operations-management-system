@@ -200,6 +200,39 @@ export function hasStableUniqueVisibleJdExportEntry(samples: readonly number[]) 
   return samples.length >= 2 && samples.at(-1) === 1 && samples.at(-2) === 1;
 }
 
+export type JdWareExportEntryBootstrapDecision = "ready" | "open_batch_operations" | "wait";
+
+export function jdWareExportEntryBootstrapDecision(input: { exportEntryCount: number; batchOperationsCount: number }): JdWareExportEntryBootstrapDecision {
+  if (!Number.isInteger(input.exportEntryCount) || input.exportEntryCount < 0 || !Number.isInteger(input.batchOperationsCount) || input.batchOperationsCount < 0) {
+    throw new Error("京东商品导出入口计数无效。");
+  }
+  if (input.exportEntryCount > 1) throw new Error("导出查询商品入口不唯一。");
+  if (input.exportEntryCount === 1) return "ready";
+  if (input.batchOperationsCount > 1) throw new Error("批量操作入口不唯一。");
+  return input.batchOperationsCount === 1 ? "open_batch_operations" : "wait";
+}
+
+async function revealJdWareExportEntry(page: Page) {
+  const exportEntry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
+  const batchOperations = page.locator("button").filter({ hasText: /^批量操作$/, visible: true });
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const decision = jdWareExportEntryBootstrapDecision({
+      exportEntryCount: await exportEntry.count(),
+      batchOperationsCount: await batchOperations.count(),
+    });
+    if (decision === "ready") return;
+    if (decision === "open_batch_operations") {
+      await exactlyOne(batchOperations, "批量操作按钮");
+      await batchOperations.click({ timeout: 10_000 });
+      await waitForExportEntry(page);
+      return;
+    }
+    await page.waitForTimeout(250);
+  }
+  throw new Error("无法找到唯一的导出查询商品入口或批量操作入口。");
+}
+
 export type JdWareTaskSnapshot = { tasks: JdWareExportTask[]; emptyConfirmed: boolean };
 
 export function hasStableJdWareTaskSnapshot(samples: readonly JdWareTaskSnapshot[]) {
@@ -267,6 +300,7 @@ export function isTransientJdExportEntryRepaint(error: unknown) {
 
 async function openExportEntryWithRepaintRetry(page: Page) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    await revealJdWareExportEntry(page);
     const exportEntry = await waitForExportEntry(page);
     try {
       await exportEntry.click({ timeout: 10_000 });
@@ -295,7 +329,7 @@ async function openTargetPage(page: Page) {
     await page.waitForTimeout(150);
   }
   await dismissJdMenuUpdateNotice(page);
-  await waitForExportEntry(page);
+  await revealJdWareExportEntry(page);
 }
 
 async function dismissJdMenuUpdateNotice(page: Page) {
