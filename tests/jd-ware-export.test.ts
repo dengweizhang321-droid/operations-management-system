@@ -10,7 +10,7 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createJdWareBrowserDownloadSession, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareDownloadPathInsideStaging, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, jdWareExportEntryBootstrapDecision, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareDownloadPathInsideStaging, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, jdWareExportEntryBootstrapDecision, jdWareProductQueryBootstrapDecision, openExportEntryWithRepaintRetry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -285,13 +285,92 @@ test("requires two consecutive unique visible export-entry samples", () => {
   assert.equal(hasStableUniqueVisibleJdExportEntry([0, 1, 1]), true);
 });
 
-test("reveals hidden query export only through one exact batch-operations trigger", () => {
+test("classifies the WareList query control only when it is uniquely bound to its product filter", () => {
   assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 1, batchOperationsCount: 1 }), "ready");
   assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 1 }), "open_batch_operations");
   assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 0 }), "wait");
   assert.throws(() => jdWareExportEntryBootstrapDecision({ exportEntryCount: 2, batchOperationsCount: 1 }), /不唯一/);
   assert.throws(() => jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 2 }), /不唯一/);
   assert.throws(() => jdWareExportEntryBootstrapDecision({ exportEntryCount: -1, batchOperationsCount: 1 }), /计数无效/);
+  assert.equal(jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 }), "query");
+  assert.equal(jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 0, pageQueryButtonCount: 0 }), "wait");
+  assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 2, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 }), /筛选容器不唯一/);
+  assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 1 }), /不属于商品列表筛选容器/);
+  assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 2 }), /不唯一对应/);
+  assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 2, pageQueryButtonCount: 2 }), /查询按钮不唯一/);
+});
+
+function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; revealAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number }) {
+  let exportEntryCount = 0;
+  let waitCount = 0;
+  const clicks = { scopedQuery: 0, exportEntry: 0 };
+  const selectors: string[] = [];
+  const chain = <T extends object>(locator: T) => Object.assign(locator, { filter: () => locator });
+  const scopedQuery = chain({
+    count: async () => input.scopedQueryButtonCount,
+    click: async () => {
+      clicks.scopedQuery += 1;
+      if (clicks.scopedQuery <= (input.queryClickFailures ?? 0)) throw new Error("element is detached from the DOM");
+    },
+  });
+  const productSearchContainer = chain({
+    count: async () => input.productSearchContainerCount,
+    getByRole: () => scopedQuery,
+  });
+  const pageQuery = chain({ count: async () => input.pageQueryButtonCount });
+  const exportEntry = chain({
+    count: async () => exportEntryCount,
+    click: async () => {
+      clicks.exportEntry += 1;
+      if (clicks.exportEntry <= (input.exportClickFailures ?? 0)) throw new Error("element is detached from the DOM");
+    },
+  });
+  const batchOperations = chain({ count: async () => 0 });
+  const page = {
+    locator: (selector: string) => {
+      if (selector === "button") return batchOperations;
+      selectors.push(selector);
+      return productSearchContainer;
+    },
+    getByRole: (_role: string, options: { name: string }) => options.name === "导出查询商品" ? exportEntry : pageQuery,
+    waitForTimeout: async () => {
+      waitCount += 1;
+      if (clicks.scopedQuery === 1 && waitCount >= (input.revealAfterWaits ?? 1)) exportEntryCount = 1;
+    },
+  };
+  return { page, clicks, selectors, resetExportEntry: () => { exportEntryCount = 0; } };
+}
+
+test("revealJdWareExportEntry scopes query clicks to the unique WareList product filter and never repeats after repaint", async () => {
+  const target = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, revealAfterWaits: 2 });
+  await revealJdWareExportEntry(target.page as never);
+  assert.equal(target.clicks.scopedQuery, 1);
+  assert.match(target.selectors[0]!, /商品名称/);
+  assert.match(target.selectors[0]!, /商品编码/);
+
+  const externalOnly = createWareListEntryPageFixture({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 1 });
+  await assert.rejects(revealJdWareExportEntry(externalOnly.page as never), /不属于商品列表筛选容器/);
+  assert.equal(externalOnly.clicks.scopedQuery, 0);
+
+  const targetAndExternal = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 2 });
+  await assert.rejects(revealJdWareExportEntry(targetAndExternal.page as never), /不唯一对应/);
+  assert.equal(targetAndExternal.clicks.scopedQuery, 0);
+});
+
+test("the open-target to export-dialog path reuses one query bootstrap across a repaint and click retry", async () => {
+  const retry = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, exportClickFailures: 1 });
+  const queryBootstrapState = createJdWareQueryBootstrapState();
+  await revealJdWareExportEntry(retry.page as never, queryBootstrapState);
+  retry.resetExportEntry();
+  await openExportEntryWithRepaintRetry(retry.page as never, queryBootstrapState);
+  assert.equal(retry.clicks.scopedQuery, 1);
+  assert.equal(retry.clicks.exportEntry, 2);
+
+  const detachedQuery = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, queryClickFailures: 1 });
+  const detachedQueryState = createJdWareQueryBootstrapState();
+  await assert.rejects(revealJdWareExportEntry(detachedQuery.page as never, detachedQueryState), /detached/);
+  await revealJdWareExportEntry(detachedQuery.page as never, detachedQueryState);
+  assert.equal(detachedQuery.clicks.scopedQuery, 1);
 });
 
 test("records an auto-import failure audit after a rejected connection without browser startup", async () => {

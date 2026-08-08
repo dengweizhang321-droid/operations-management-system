@@ -212,9 +212,35 @@ export function jdWareExportEntryBootstrapDecision(input: { exportEntryCount: nu
   return input.batchOperationsCount === 1 ? "open_batch_operations" : "wait";
 }
 
-async function revealJdWareExportEntry(page: Page) {
+export type JdWareProductQueryBootstrapDecision = "query" | "wait";
+export type JdWareQueryBootstrapState = { queryTriggered: boolean };
+
+export function createJdWareQueryBootstrapState(): JdWareQueryBootstrapState {
+  return { queryTriggered: false };
+}
+
+export function jdWareProductQueryBootstrapDecision(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number }): JdWareProductQueryBootstrapDecision {
+  if (!Number.isInteger(input.productSearchContainerCount) || input.productSearchContainerCount < 0 || !Number.isInteger(input.scopedQueryButtonCount) || input.scopedQueryButtonCount < 0 || !Number.isInteger(input.pageQueryButtonCount) || input.pageQueryButtonCount < 0) {
+    throw new Error("京东商品查询入口计数无效。");
+  }
+  if (input.productSearchContainerCount > 1) throw new Error("商品列表筛选容器不唯一。");
+  if (input.productSearchContainerCount === 0) {
+    if (input.pageQueryButtonCount > 0) throw new Error("查询按钮不属于商品列表筛选容器。");
+    return "wait";
+  }
+  if (input.pageQueryButtonCount !== input.scopedQueryButtonCount) throw new Error("查询按钮与商品列表筛选容器不唯一对应。");
+  if (input.scopedQueryButtonCount > 1) throw new Error("商品列表筛选容器中的查询按钮不唯一。");
+  return input.scopedQueryButtonCount === 1 ? "query" : "wait";
+}
+
+export async function revealJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
   const exportEntry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
   const batchOperations = page.locator("button").filter({ hasText: /^批量操作$/, visible: true });
+  // A page-level 查询 button can belong to a popover or an unrelated panel. Bind it
+  // to the one visible WareList filter container identified by both product fields.
+  const productSearchContainer = page.locator("form:has-text('商品名称'):has-text('商品编码'), [role='search']:has-text('商品名称'):has-text('商品编码'), .ant-form:has-text('商品名称'):has-text('商品编码')").filter({ visible: true });
+  const queryButton = productSearchContainer.getByRole("button", { name: "查询", exact: true }).filter({ visible: true });
+  const pageQueryButton = page.getByRole("button", { name: "查询", exact: true }).filter({ visible: true });
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     const decision = jdWareExportEntryBootstrapDecision({
@@ -227,6 +253,18 @@ async function revealJdWareExportEntry(page: Page) {
       await batchOperations.click({ timeout: 10_000 });
       await waitForExportEntry(page);
       return;
+    }
+    const queryDecision = jdWareProductQueryBootstrapDecision({
+      productSearchContainerCount: await productSearchContainer.count(),
+      scopedQueryButtonCount: await queryButton.count(),
+      pageQueryButtonCount: await pageQueryButton.count(),
+    });
+    if (queryDecision === "query" && !queryBootstrapState.queryTriggered) {
+      await exactlyOne(queryButton, "查询按钮");
+      // A thrown click can still mean that JD received the browser event before
+      // repainting. Fence the attempt first so later workflow stages never replay it.
+      queryBootstrapState.queryTriggered = true;
+      await queryButton.click({ timeout: 10_000 });
     }
     await page.waitForTimeout(250);
   }
@@ -298,9 +336,11 @@ export function isTransientJdExportEntryRepaint(error: unknown) {
   return /element is not stable|detached from the DOM/i.test(message);
 }
 
-async function openExportEntryWithRepaintRetry(page: Page) {
+export async function openExportEntryWithRepaintRetry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
+  // Querying is a one-time, reversible bootstrap action. Keep it outside the
+  // click retry loop: a detached export button must never replay that query.
+  await revealJdWareExportEntry(page, queryBootstrapState);
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    await revealJdWareExportEntry(page);
     const exportEntry = await waitForExportEntry(page);
     try {
       await exportEntry.click({ timeout: 10_000 });
@@ -316,7 +356,7 @@ async function openExportEntryWithRepaintRetry(page: Page) {
   throw new Error("京东导出入口在重绘后仍无法稳定打开。");
 }
 
-async function openTargetPage(page: Page) {
+async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
   if (page.url() !== targetUrl) await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   // Login redirects render faster than the merchant export button. Check them
   // first so each unauthenticated store does not burn the 30-second UI wait.
@@ -329,7 +369,7 @@ async function openTargetPage(page: Page) {
     await page.waitForTimeout(150);
   }
   await dismissJdMenuUpdateNotice(page);
-  await revealJdWareExportEntry(page);
+  await revealJdWareExportEntry(page, queryBootstrapState);
 }
 
 async function dismissJdMenuUpdateNotice(page: Page) {
@@ -378,14 +418,14 @@ async function refreshExportRecords(page: Page) {
   if (await refresh.count() === 1) await refresh.click();
 }
 
-async function openSkuExportDialog(page: Page) {
+async function openSkuExportDialog(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
   await dismissJdMenuUpdateNotice(page);
   const skuTab = page.getByRole("tab", { name: "SKU导出", exact: true });
   const visibleSkuTabCount = await skuTab.count();
   const dialogAlreadyOpen = visibleSkuTabCount === 1 && await skuTab.isVisible();
   if (!dialogAlreadyOpen) {
     if (visibleSkuTabCount > 1) throw new Error(`SKU导出页签应匹配 1 个元素，实际匹配 ${visibleSkuTabCount} 个。`);
-    await openExportEntryWithRepaintRetry(page);
+    await openExportEntryWithRepaintRetry(page, queryBootstrapState);
     await skuTab.waitFor({ state: "visible", timeout: 15_000 });
   }
   await exactlyOne(skuTab, "SKU导出页签");
@@ -671,12 +711,13 @@ export async function runShopSkuExport(
   checkpoint: (patch: Partial<WareExportAudit>) => Promise<void> = async () => undefined,
   recovery: JdWareExportRecovery | null = null,
   abandonRecovery: (() => Promise<void>) | null = null,
+  queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState(),
 ): Promise<ScriptResult> {
   const startedAt = Date.now();
   const notes: string[] = [];
   await maybeCaptureDebug(page, "before-export", options.debug);
 
-  const confirm = await openSkuExportDialog(page);
+  const confirm = await openSkuExportDialog(page, queryBootstrapState);
   const existingTasks = await readLoadedExportTasks(page);
   await checkpoint({
     stage: "select_task",
@@ -824,7 +865,8 @@ async function main() {
       requireMini: false,
     });
     try {
-      await openTargetPage(page);
+      const queryBootstrapState = createJdWareQueryBootstrapState();
+      await openTargetPage(page, queryBootstrapState);
       const abandonRecovery = async () => {
         if (!recovery || recovery.taskId) throw new Error("活动任务清单不满足无 taskId 的放弃条件。");
         const archivedPath = path.join(artifactDir, `active-task-${options.storeKey}.abandoned-${Date.now()}.json`);
@@ -834,7 +876,7 @@ async function main() {
         recovery = null;
         await persistAudit({ stage: "recovery_abandoned", recoveryArchivePath: archivedFileName, recoveryCreatedAt });
       };
-      const result = await runShopSkuExport(page, options, persistAudit, recovery, abandonRecovery);
+      const result = await runShopSkuExport(page, options, persistAudit, recovery, abandonRecovery, queryBootstrapState);
       if (result.status !== "completed") {
         const message = "京东 SKU 下载点击已发送，但未验证本地文件；活动任务清单已保留，禁止自动新建任务。";
         await persistAudit({ status: "failed", stage: "download_unverified", taskId: result.task.taskId, taskStatus: result.task.status, result, error: message });
