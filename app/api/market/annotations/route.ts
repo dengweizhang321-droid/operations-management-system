@@ -6,7 +6,7 @@ import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
-  revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
+  revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
@@ -85,11 +85,7 @@ export async function POST(request: Request) {
       case "set_cloud_run_state": {
         const state = text(parsed, "state");
         if (state !== "running" && state !== "paused") throw new Error("云端后台状态必须是 running 或 paused");
-        const control = await setCloudAnnotationRunState(db, { jobId: text(parsed, "jobId"), state }, principal);
-        const kickoff = state === "running"
-          ? await runScheduledCloudAnnotations(db, { jobId: text(parsed, "jobId"), maxWaves: 1, maxRuntimeMs: 100_000 })
-          : null;
-        result = { control, kickoff };
+        result = await setCloudAnnotationRunState(db, { jobId: text(parsed, "jobId"), state }, principal);
         break;
       }
       case "run_next": result = await runNextCloudAnnotation(db, text(parsed, "jobId")); break;

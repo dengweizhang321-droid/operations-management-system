@@ -8,12 +8,15 @@ import test from "node:test";
 import {
   assertLocalWorkerPortAvailable,
   assertTmallWorkflowHelperPortAvailable,
+  createLocalScheduledTriggerSupervisor,
   createTmallWorkflowHelperSupervisor,
   ensureRuntimeDevVarsLink,
   getLocalWorkerBuildCommand,
+  getLocalWorkerRuntimeCommand,
   getTmallWorkflowHelperCommand,
   getTmallWorkflowHelperRestartDelay,
   parseLocalWorkerArguments,
+  triggerLocalScheduledEvent,
 } from "../tools/start-local-worker.mjs";
 
 test("local Worker build always enables the local-only build flag", () => {
@@ -22,6 +25,14 @@ test("local Worker build always enables the local-only build flag", () => {
   assert.equal(command.args.at(-1), "build");
   assert.match(command.args[0] ?? "", /example-project[\\/]node_modules[\\/]vinext[\\/]dist[\\/]cli\.js$/);
   assert.equal(command.env.VITE_TERUISI_LOCAL_BUILD, "true");
+});
+
+test("local Worker keeps runtime arguments bounded without test-only middleware", () => {
+  const command = getLocalWorkerRuntimeCommand("D:/example-project", ["--log-level", "warn"]);
+
+  assert.match(command.args[0] ?? "", /example-project[\\/]node_modules[\\/]wrangler[\\/]bin[\\/]wrangler\.js$/);
+  assert.equal(command.args.includes("--test-scheduled"), false);
+  assert.deepEqual(command.args.slice(-2), ["--log-level", "warn"]);
 });
 
 test("local Worker starts the loopback-only Tmall workflow helper without passing credentials", () => {
@@ -107,6 +118,59 @@ test("Tmall helper supervisor restarts a completed one-shot process and stops it
   assert.equal(children[1]!.killed, true);
   assert.equal(timers.length, 1);
   assert.deepEqual([0, 1, 2, 99].map(getTmallWorkflowHelperRestartDelay), [500, 1_000, 2_000, 5_000]);
+});
+
+test("local Worker triggers the loopback Cloudflare scheduled handler without credentials", async () => {
+  let request: { url: string; init: RequestInit } | null = null;
+  const status = await triggerLocalScheduledEvent({
+    fetchImpl: async (url, init) => {
+      request = { url: String(url), init: init ?? {} };
+      return new Response("ok", { status: 200 });
+    },
+  });
+
+  assert.equal(status, 200);
+  assert.equal(request?.url, "http://127.0.0.1:3000/_teruisi/local/market-annotation-scheduled");
+  assert.equal(request?.init.method, "POST");
+  assert.deepEqual(request?.init.headers, { "x-teruisi-local-scheduled": "1" });
+});
+
+test("local scheduled trigger retries startup failures and never overlaps its own timer", async () => {
+  const timers: Array<{ callback: () => void; delay: number; cancelled?: boolean }> = [];
+  let attempts = 0;
+  const supervisor = createLocalScheduledTriggerSupervisor({
+    trigger: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("worker not ready");
+    },
+    scheduleTrigger: (callback, delay) => {
+      const timer = { callback, delay };
+      timers.push(timer);
+      return timer;
+    },
+    cancelTrigger: (timer) => { timer.cancelled = true; },
+    initialDelayMs: 10,
+    intervalMs: 60,
+    retryDelayMs: 5,
+  });
+
+  supervisor.start();
+  supervisor.start();
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0]?.delay, 10);
+
+  timers[0]!.callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attempts, 1);
+  assert.equal(timers[1]?.delay, 5);
+
+  timers[1]!.callback();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attempts, 2);
+  assert.equal(timers[2]?.delay, 60);
+
+  supervisor.stop();
+  assert.equal(timers[2]?.cancelled, true);
 });
 
 test("prebuilt local Worker receives the ignored root .dev.vars through a hard link", async () => {

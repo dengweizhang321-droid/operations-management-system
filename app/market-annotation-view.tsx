@@ -380,12 +380,15 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   });
   const pumpCloud = () => act("run-cloud", async () => {
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要继续的云端标注任务");
+    const alreadyRunning = currentCloudRun?.state === "running";
     const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
     await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
     const progress = await loadJobProgress(currentJob.id);
     setNotice(progress.cloudRun?.state === "completed" || progress.job.status === "review_ready"
       ? "云端识别队列已经处理完毕，可进入人工复核与批量入库"
-      : `云端后台已接管任务（目标并发 ${savedConcurrency}）；关闭浏览器或电脑后仍会由 Cloudflare 继续执行。`);
+      : alreadyRunning
+        ? `已安全唤醒云端后台（目标并发 ${savedConcurrency}）；如已有执行器正在工作，本次不会重置并发退避或重复领取。`
+        : `云端后台已接管任务（目标并发 ${savedConcurrency}），将在一分钟内开始领取；关闭浏览器或电脑后仍会由 Cloudflare 继续执行。`);
   });
   const pauseCloud = () => act("pause-cloud", async () => {
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要暂停的云端标注任务");
@@ -563,7 +566,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       {currentJob && <div className="annotation-current-run">
         <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRun?.state === "running" ? `运行中（当前 ${currentCloudRun.runConcurrency}/${currentCloudRun.targetConcurrency} 路）` : currentCloudRun?.state === "completed" ? "已完成" : "已暂停"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
         <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
-        {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state === "running"} onClick={pumpCloud}>{busy === "run-cloud" ? `正在交给云端后台（目标并发 ${currentJobConcurrency}）…` : currentCloudRun?.state === "completed" ? "云端识别已完成" : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state !== "running"} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
+        {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state === "completed"} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRun?.state === "running" ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : currentCloudRun?.state === "completed" ? "云端识别已完成" : currentCloudRun?.state === "running" ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state !== "running"} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
 
       <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务，点击卡片切换当前任务</small></div>

@@ -184,11 +184,21 @@ export async function setCloudAnnotationRunState(
     db.prepare(`INSERT INTO market_annotation_cloud_runs
         (job_id,state,retry_state_json,next_run_at,lease_token_hash,lease_expires_at,last_failure_code,last_failure_message,completed_at,updated_at)
       VALUES (?,?,?,CASE WHEN ?='running' THEN CURRENT_TIMESTAMP ELSE NULL END,'',NULL,'','',NULL,CURRENT_TIMESTAMP)
-      ON CONFLICT(job_id) DO UPDATE SET state=excluded.state,retry_state_json=excluded.retry_state_json,
-        next_run_at=excluded.next_run_at,lease_token_hash='',lease_expires_at=NULL,
-        last_failure_code=CASE WHEN excluded.state='running' THEN '' ELSE market_annotation_cloud_runs.last_failure_code END,
-        last_failure_message=CASE WHEN excluded.state='running' THEN '' ELSE market_annotation_cloud_runs.last_failure_message END,
-        completed_at=NULL,updated_at=CURRENT_TIMESTAMP`)
+      ON CONFLICT(job_id) DO UPDATE SET state=excluded.state,
+        retry_state_json=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.retry_state_json ELSE excluded.retry_state_json END,
+        next_run_at=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.next_run_at ELSE excluded.next_run_at END,
+        lease_token_hash=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.lease_token_hash ELSE '' END,
+        lease_expires_at=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.lease_expires_at ELSE NULL END,
+        last_failure_code=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.last_failure_code WHEN excluded.state='running' THEN '' ELSE market_annotation_cloud_runs.last_failure_code END,
+        last_failure_message=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.last_failure_message WHEN excluded.state='running' THEN '' ELSE market_annotation_cloud_runs.last_failure_message END,
+        completed_at=CASE WHEN excluded.state='running' AND market_annotation_cloud_runs.state='running'
+          THEN market_annotation_cloud_runs.completed_at ELSE NULL END,updated_at=CURRENT_TIMESTAMP`)
       .bind(jobId, input.state, retryJson, input.state),
     db.prepare(`INSERT INTO market_master_audit_logs
         (id,actor_email,actor_role,action,entity_type,entity_id,before_json,after_json)

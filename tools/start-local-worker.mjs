@@ -8,12 +8,33 @@ const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const localWorkerPort = 3000;
 const tmallWorkflowHelperPort = 5791;
 const helperStableLifetimeMs = 30_000;
+const localScheduledTriggerUrl = `http://127.0.0.1:${localWorkerPort}/_teruisi/local/market-annotation-scheduled`;
+const localScheduledInitialDelayMs = 5_000;
+const localScheduledIntervalMs = 60_000;
+const localScheduledRetryDelayMs = 5_000;
 
 export function getLocalWorkerBuildCommand(root = projectRoot) {
   return {
     command: process.execPath,
     args: [resolve(root, "node_modules", "vinext", "dist", "cli.js"), "build"],
     env: { ...process.env, VITE_TERUISI_LOCAL_BUILD: "true" },
+  };
+}
+
+export function getLocalWorkerRuntimeCommand(root = projectRoot, wranglerArgs = []) {
+  return {
+    command: process.execPath,
+    args: [
+      resolve(root, "node_modules", "wrangler", "bin", "wrangler.js"),
+      "dev",
+      "--config",
+      "dist/server/wrangler.json",
+      "--port",
+      String(localWorkerPort),
+      "--persist-to",
+      ".wrangler/state",
+      ...wranglerArgs,
+    ],
   };
 }
 
@@ -140,6 +161,81 @@ export function createTmallWorkflowHelperSupervisor({
   };
 }
 
+export async function triggerLocalScheduledEvent({
+  fetchImpl = fetch,
+  url = localScheduledTriggerUrl,
+  signal,
+} = {}) {
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: { "x-teruisi-local-scheduled": "1" },
+    signal,
+  });
+  await response.arrayBuffer();
+  if (!response.ok) throw new Error(`本地定时事件触发失败：HTTP ${response.status}`);
+  return response.status;
+}
+
+export function createLocalScheduledTriggerSupervisor({
+  trigger = triggerLocalScheduledEvent,
+  scheduleTrigger = setTimeout,
+  cancelTrigger = clearTimeout,
+  createAbortController = () => new AbortController(),
+  initialDelayMs = localScheduledInitialDelayMs,
+  intervalMs = localScheduledIntervalMs,
+  retryDelayMs = localScheduledRetryDelayMs,
+} = {}) {
+  let timer = null;
+  let activeController = null;
+  let started = false;
+  let stopping = false;
+
+  const schedule = (delay) => {
+    if (stopping || timer || activeController) return;
+    timer = scheduleTrigger(() => {
+      timer = null;
+      void execute();
+    }, delay);
+  };
+
+  const execute = async () => {
+    if (stopping || activeController) return;
+    const controller = createAbortController();
+    activeController = controller;
+    let nextDelay = intervalMs;
+    try {
+      await trigger({ signal: controller.signal });
+    } catch (error) {
+      nextDelay = retryDelayMs;
+      if (!stopping && !(error instanceof Error && error.name === "AbortError")) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`本地 Cloudflare 定时事件暂未触发（${message.slice(0, 200)}），将在 ${retryDelayMs}ms 后重试`);
+      }
+    } finally {
+      if (activeController === controller) activeController = null;
+      if (!stopping) schedule(nextDelay);
+    }
+  };
+
+  return {
+    start() {
+      if (started || stopping) return;
+      started = true;
+      schedule(initialDelayMs);
+      console.log(`本地 Cloudflare 定时任务触发器已启动：每 ${Math.round(intervalMs / 1_000)} 秒检查一次云端 AI 标注队列`);
+    },
+    stop() {
+      stopping = true;
+      if (timer) {
+        cancelTrigger(timer);
+        timer = null;
+      }
+      activeController?.abort();
+      activeController = null;
+    },
+  };
+}
+
 async function waitForChild(child, operation) {
   const result = await new Promise((resolveExit, reject) => {
     child.once("error", reject);
@@ -189,7 +285,8 @@ export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
   await assertLocalWorkerPortAvailable();
   await assertTmallWorkflowHelperPortAvailable();
   const { runtimePath, created } = await ensureRuntimeDevVarsLink();
-  const wranglerEntrypoint = resolve(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js");
+  const runtimeCommand = getLocalWorkerRuntimeCommand(projectRoot, wranglerArgs);
+  const wranglerEntrypoint = runtimeCommand.args[0];
   try {
     await access(wranglerEntrypoint);
   } catch {
@@ -198,15 +295,18 @@ export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
 
   console.log(`${created ? "已创建" : "复用"}运行时密钥链接：${runtimePath}`);
   const helperSupervisor = createTmallWorkflowHelperSupervisor();
+  const scheduledTriggerSupervisor = createLocalScheduledTriggerSupervisor();
   helperSupervisor.start();
   try {
     const child = spawn(
-      process.execPath,
-      [wranglerEntrypoint, "dev", "--config", "dist/server/wrangler.json", "--port", "3000", "--persist-to", ".wrangler/state", ...wranglerArgs],
+      runtimeCommand.command,
+      runtimeCommand.args,
       { cwd: projectRoot, stdio: "inherit", windowsHide: true },
     );
+    scheduledTriggerSupervisor.start();
     await waitForChild(child, "本地 Worker");
   } finally {
+    scheduledTriggerSupervisor.stop();
     helperSupervisor.stop();
   }
 }

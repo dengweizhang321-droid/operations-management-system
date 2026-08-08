@@ -190,7 +190,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
   assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
   assert.match(route, /case "set_cloud_run_state"/);
-  assert.match(route, /runScheduledCloudAnnotations\(db, \{ jobId: text\(parsed, "jobId"\), maxWaves: 1, maxRuntimeMs: 100_000 \}\)/);
+  assert.match(route, /result = await setCloudAnnotationRunState\(db, \{ jobId: text\(parsed, "jobId"\), state \}, principal\)/);
+  assert.doesNotMatch(route, /runScheduledCloudAnnotations/);
   assert.match(route, /case "set_concurrency".*setAnnotationConcurrency/s);
   assert.match(route, /case "run_batch": result = await runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/);
   assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
@@ -249,8 +250,12 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /market_annotation_cloud_runs/);
   assert.match(service, /retry_state_json/);
   assert.match(service, /model_input_bytes=\?, image_load_ms=\?, image_prepare_ms=\?, model_call_ms=\?, total_inference_ms=\?/);
-  assert.match(workerEntry, /scheduled\(_controller: ScheduledController, env: Env, ctx: ExecutionContext\)/);
-  assert.match(workerEntry, /runScheduledCloudAnnotations\(env\.DB\)/);
+  assert.match(workerEntry, /async scheduled\(_controller: ScheduledController, env: Env, _ctx: ExecutionContext\)/);
+  assert.match(workerEntry, /await runScheduledCloudAnnotations\(env\.DB\)/);
+  assert.match(workerEntry, /\/_teruisi\/local\/market-annotation-scheduled/);
+  assert.match(workerEntry, /TERUISI_RUNTIME_ENV === "development"/);
+  assert.match(workerEntry, /TERUISI_LOCAL_DIRECT_ACCESS === "true"/);
+  assert.match(workerEntry, /x-teruisi-local-scheduled/);
   assert.match(viteConfig, /crons: \["\* \* \* \* \*"\]/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum/);
@@ -258,6 +263,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /state: "running"/);
   assert.match(ui, /state: "paused"/);
   assert.doesNotMatch(ui, /action: "run_batch"/);
+  assert.match(ui, /重新唤醒云端后台/);
+  assert.match(ui, /本次不会重置并发退避或重复领取/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.maximum/);
   assert.match(ui, /单个任务最多 10,000 条/);
@@ -424,6 +431,48 @@ test("paused and already-leased cloud runs cannot be claimed by another schedule
     { id: "leased-item", attempt_count: 0 },
     { id: "paused-item", attempt_count: 0 },
   ]);
+  sqlite.close();
+});
+
+test("restarting an already-running cloud job preserves its coordinator lease and adaptive retry state", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  const retryState = JSON.stringify({
+    configuredConcurrency: 6,
+    currentConcurrency: 2,
+    transientFailureCount: 3,
+    rateLimitFailureCount: 0,
+    successfulImagesSinceFailure: 0,
+    transientIncidentUntil: 1_800_000_000_000,
+    globalRateLimitUntil: 0,
+    floorFailureCount: 1,
+    workerRetryUntil: [[0, 1_800_000_000_000]],
+  });
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('restart-prompt','重启类目',1,'manual','active','["型号A","其他"]','这是用于验证重复启动保持协调租约的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by)
+      VALUES ('重启类目','cloud',6,'admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, reuse_status, created_by)
+      VALUES ('restart-job','重启类目','restart-prompt','cloud','unused','running',1,'ready','admin@test');
+  `);
+  sqlite.prepare(`INSERT INTO market_annotation_cloud_runs
+      (job_id,state,retry_state_json,next_run_at,lease_token_hash,lease_expires_at,last_failure_code,last_failure_message)
+    VALUES ('restart-job','running',?,datetime('now','+2 minutes'),'active-coordinator',datetime('now','+10 minutes'),'timeout','模型调用超时')`).run(retryState);
+
+  await setCloudAnnotationRunState(db, { jobId: "restart-job", state: "running" }, { email: "operator@test", role: "operator" });
+  const row = sqlite.prepare(`SELECT state,retry_state_json,next_run_at,lease_token_hash,lease_expires_at,last_failure_code,last_failure_message
+    FROM market_annotation_cloud_runs WHERE job_id='restart-job'`).get() as Record<string, unknown>;
+
+  assert.equal(row.state, "running");
+  assert.equal(row.retry_state_json, retryState);
+  assert.equal(row.lease_token_hash, "active-coordinator");
+  assert.ok(row.lease_expires_at);
+  assert.ok(row.next_run_at);
+  assert.equal(row.last_failure_code, "timeout");
+  assert.equal(row.last_failure_message, "模型调用超时");
   sqlite.close();
 });
 
