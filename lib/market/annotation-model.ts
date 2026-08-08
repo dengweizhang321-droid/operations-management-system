@@ -16,6 +16,8 @@ type ModelRow = AnnotationModelConfig;
 const DEFAULT_MODEL_TIMEOUT_MS = 60_000;
 const VISION_ANNOTATION_TIMEOUT_MAX_MS = 90_000;
 const MODEL_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
+const VISION_ANNOTATION_OUTPUT_TOKEN_MAX = 600;
+const VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
 export async function listAnnotationModels(db: MarketDatabase) {
@@ -58,26 +60,67 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 export async function runVisionAnnotation(input: {
   db: MarketDatabase; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
-}): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string }> {
-  const model = await getModel(input.db, input.modelId, "vision");
-  const cachedImage = input.imageUrl ? await loadCachedAnnotationImage(input.db, input.imageUrl) : null;
-  const sourceImage = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
-  if (sourceImage.kind !== "image") throw new Error(`主图获取失败：${sourceImage.message}`);
-  const image = await prepareAnnotationModelImage(sourceImage);
-  const fixedSegment = input.fixedSegment?.trim() ?? "";
-  if (fixedSegment && !input.segments.includes(fixedSegment)) throw new Error("历史细分品类已失效，不能执行价格专用识别");
-  const outputSegments = fixedSegment ? [fixedSegment] : input.segments;
-  const text = `${fixedSegment ? priceOnlyAnnotationPrompt(fixedSegment) : `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}`}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
-  const raw = model.protocol === "anthropic"
-    ? await callAnthropicVision(model, text, outputSegments, image, fixedSegment ? 400 : undefined)
-    : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? 400 : undefined);
-  const parsed = parseVisionAnnotation(raw, outputSegments);
-  return {
-    ...parsed,
-    imageSource: image.source,
-    resolvedImageUrl: image.url,
-    rawDigest: digest(parsed.rawText),
-  };
+}): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
+  const startedAt = Date.now();
+  const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
+  try {
+    const model = await getModel(input.db, input.modelId, "vision");
+    const imageLoadStartedAt = Date.now();
+    const cachedImage = input.imageUrl ? await loadCachedAnnotationImage(input.db, input.imageUrl) : null;
+    const sourceImage = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
+    timing.imageLoadMs = Date.now() - imageLoadStartedAt;
+    if (sourceImage.kind !== "image") throw new Error(`主图获取失败：${sourceImage.message}`);
+    const imagePrepareStartedAt = Date.now();
+    const image = await prepareAnnotationModelImage(sourceImage);
+    timing.imagePrepareMs = Date.now() - imagePrepareStartedAt;
+    timing.inputBytes = image.bytes.byteLength;
+    const fixedSegment = input.fixedSegment?.trim() ?? "";
+    if (fixedSegment && !input.segments.includes(fixedSegment)) throw new Error("历史细分品类已失效，不能执行价格专用识别");
+    const outputSegments = fixedSegment ? [fixedSegment] : input.segments;
+    const text = `${fixedSegment ? priceOnlyAnnotationPrompt(fixedSegment) : `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}`}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
+    const modelCallStartedAt = Date.now();
+    let raw: unknown;
+    try {
+      raw = model.protocol === "anthropic"
+        ? await callAnthropicVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX)
+        : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX);
+    } finally {
+      timing.modelCallMs = Date.now() - modelCallStartedAt;
+    }
+    const parsed = parseVisionAnnotation(raw, outputSegments);
+    timing.totalMs = Date.now() - startedAt;
+    return {
+      ...parsed,
+      imageSource: image.source,
+      resolvedImageUrl: image.url,
+      rawDigest: digest(parsed.rawText),
+      timing,
+    };
+  } catch (error) {
+    timing.totalMs = Date.now() - startedAt;
+    throw new VisionAnnotationExecutionError(error instanceof Error ? error.message : "视觉识别失败", timing);
+  }
+}
+
+export type VisionAnnotationTiming = {
+  imageLoadMs: number;
+  imagePrepareMs: number;
+  modelCallMs: number;
+  totalMs: number;
+  inputBytes: number;
+};
+
+export class VisionAnnotationExecutionError extends Error {
+  constructor(message: string, readonly timing: VisionAnnotationTiming) {
+    super(message);
+    this.name = "VisionAnnotationExecutionError";
+  }
+}
+
+export function visionAnnotationTiming(error: unknown): VisionAnnotationTiming {
+  return error instanceof VisionAnnotationExecutionError
+    ? error.timing
+    : { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
 }
 
 export function priceOnlyAnnotationPrompt(segment: string) {
@@ -168,7 +211,8 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model: model.model_name, temperature: 0,
-      max_tokens: Math.min(boundedModelSetting(model.max_tokens, 800, 128, 1_600), outputTokenCap ?? 1_600),
+      max_tokens: Math.min(boundedModelSetting(model.max_tokens, VISION_ANNOTATION_OUTPUT_TOKEN_MAX, 128, 1_600), outputTokenCap ?? VISION_ANNOTATION_OUTPUT_TOKEN_MAX),
+      ...(disableVisionThinking(model) ? { thinking: { type: "disabled" } } : {}),
       messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
     }),
@@ -187,7 +231,7 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
   const { response, data } = await fetchJsonLimited<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(resolveAiModelEndpointUrl(model.base_url, "anthropic"), {
     method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
-      model: model.model_name, max_tokens: Math.min(boundedModelSetting(model.max_tokens, 800, 128, 1_600), outputTokenCap ?? 1_600), messages: [{ role: "user", content }],
+      model: model.model_name, max_tokens: Math.min(boundedModelSetting(model.max_tokens, VISION_ANNOTATION_OUTPUT_TOKEN_MAX, 128, 1_600), outputTokenCap ?? VISION_ANNOTATION_OUTPUT_TOKEN_MAX), messages: [{ role: "user", content }],
       tools: [{ name: "submit_market_sku_annotation", description: "提交结构化识别结果", input_schema: annotationJsonSchema(segments) }],
       tool_choice: { type: "tool", name: "submit_market_sku_annotation" },
     }),
@@ -196,6 +240,12 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
   const tool = data?.content?.find((part) => part.type === "tool_use" && part.name === "submit_market_sku_annotation");
   if (!tool?.input) throw new Error("Anthropic 视觉模型没有返回结构化工具结果");
   return tool.input;
+}
+
+function disableVisionThinking(model: ModelRow) {
+  // 标注是严格 JSON 的分类/抽取任务。豆包 Seed 的默认思考会明显增加首 token
+  // 与完整响应时间，但不会改变可用枚举；显式关闭后仍由 schema 和人工复核兜底。
+  return model.reasoning_mode === "disabled" || /^doubao-seed-/i.test(model.model_name.trim());
 }
 
 function annotationJsonSchema(segments: readonly string[]) {

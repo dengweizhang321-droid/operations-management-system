@@ -400,6 +400,13 @@
       "when": 1786003200000,
       "tag": "0056_import_content_fingerprints",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1786176000000,
+      "tag": "0057_market_annotation_cloud_runner",
+      "breakpoints": true
     }
   ]
 }

@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, searchAnnotationCatalog, setAnnotationConcurrency, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -171,9 +171,11 @@ test("activation gate blocks overall, macro, and per-class regressions", () => {
 });
 
 test("annotation implementation wires real cloud images, idempotency, permissions, search, and local pull", async () => {
-  const [route, worker, service, model, imageCache, ui, marketUi, masterRoute, runner, migration, concurrencyMigration] = await Promise.all([
+  const [route, worker, workerEntry, viteConfig, service, model, imageCache, ui, marketUi, masterRoute, runner, migration, concurrencyMigration, cloudRunnerMigration] = await Promise.all([
     readFile(new URL("../app/api/market/annotations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/annotations/worker/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../vite.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/image-cache.ts", import.meta.url), "utf8"),
@@ -183,9 +185,12 @@ test("annotation implementation wires real cloud images, idempotency, permission
     readFile(new URL("../tools/market-annotation-runner.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0054_market_annotation_concurrency_settings.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0057_market_annotation_cloud_runner.sql", import.meta.url), "utf8"),
   ]);
   assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
   assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
+  assert.match(route, /case "set_cloud_run_state"/);
+  assert.match(route, /runScheduledCloudAnnotations\(db, \{ jobId: text\(parsed, "jobId"\), maxWaves: 1, maxRuntimeMs: 100_000 \}\)/);
   assert.match(route, /case "set_concurrency".*setAnnotationConcurrency/s);
   assert.match(route, /case "run_batch": result = await runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/);
   assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
@@ -208,8 +213,12 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(model, /type: "image_url"/);
   assert.match(model, /loadCachedAnnotationImage/);
   assert.match(model, /prepareAnnotationModelImage/);
-  assert.match(model, /max_tokens: Math\.min\(boundedModelSetting\(model\.max_tokens, 800, 128, 1_600\), outputTokenCap \?\? 1_600\)/);
-  assert.match(model, /fixedSegment \? 400 : undefined/);
+  assert.match(model, /VISION_ANNOTATION_OUTPUT_TOKEN_MAX = 600/);
+  assert.match(model, /VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320/);
+  assert.match(model, /fixedSegment \? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX/);
+  assert.match(model, /disableVisionThinking\(model\)/);
+  assert.match(model, /thinking: \{ type: "disabled" \}/);
+  assert.match(model, /visionAnnotationTiming/);
   assert.match(model, /不要重新分类，只识别当前新主图价格/);
   assert.match(model, /boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\)/);
   assert.match(model, /VISION_ANNOTATION_TIMEOUT_MAX_MS = 90_000/);
@@ -236,18 +245,25 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /annotationConcurrency\(db, job\.category, "cloud"\)/);
   assert.match(service, /datetime\(active\.lease_expires_at\)>datetime\('now'\)\)<\?/);
   assert.match(service, /commit_token_hash/);
+  assert.match(service, /runScheduledCloudAnnotations/);
+  assert.match(service, /market_annotation_cloud_runs/);
+  assert.match(service, /retry_state_json/);
+  assert.match(service, /model_input_bytes=\?, image_load_ms=\?, image_prepare_ms=\?, model_call_ms=\?, total_inference_ms=\?/);
+  assert.match(workerEntry, /scheduled\(_controller: ScheduledController, env: Env, ctx: ExecutionContext\)/);
+  assert.match(workerEntry, /runScheduledCloudAnnotations\(env\.DB\)/);
+  assert.match(viteConfig, /crons: \["\* \* \* \* \*"\]/);
   assert.match(ui, /SKU AI 标注/);
   assert.match(ui, /MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum/);
-  assert.match(ui, /Array\.from\(\{ length: MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum \}/);
-  assert.match(ui, /const CLOUD_BATCH_SIZE = 1/);
-  assert.match(ui, /action: "run_batch"/);
+  assert.match(ui, /action: "set_cloud_run_state"/);
+  assert.match(ui, /state: "running"/);
+  assert.match(ui, /state: "paused"/);
+  assert.doesNotMatch(ui, /action: "run_batch"/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.maximum/);
   assert.match(ui, /单个任务最多 10,000 条/);
   assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(service, /normalizeMarketAnnotationJobLimit/);
-  assert.match(ui, /模型供应商限流\$\{cause\}，\$\{concurrencyChange\}/);
-  assert.match(ui, /CLOUD_PROGRESS_REFRESH_EVERY/);
+  assert.match(ui, /window\.setInterval\(\(\) => void tick\(\), 5_000\)/);
   assert.match(ui, /全部三级类目/);
   assert.match(ui, /输入类目关键词/);
   assert.match(ui, /filteredCategories/);
@@ -268,13 +284,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /完整市场 SKU 库检索/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
-  assert.match(ui, /模型或网络暂时异常\$\{cause\}，\$\{concurrencyChange\}/);
-  assert.match(ui, /decision\.suppressedByGlobalRateLimit \|\| !decision\.countedIncident/);
-  assert.match(ui, /decision\.shouldPause/);
-  assert.match(ui, /failureCode.*failureMessage/);
-  assert.match(ui, /识别已自动暂停/);
-  assert.match(ui, /每成功 3 张逐步恢复/);
-  assert.match(ui, /系统已恢复为.*路并发识别/);
+  assert.match(ui, /lastFailureCode.*lastFailureMessage/);
+  assert.match(ui, /关闭浏览器或电脑后仍会由 Cloudflare 继续执行/);
+  assert.match(ui, /总耗时.*模型.*取图.*图片处理/s);
   assert.match(ui, /当前 AI 标注任务模型并发数/);
   assert.match(ui, /保存并应用/);
   assert.match(ui, /annotation-task-setup/);
@@ -282,16 +294,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   const currentConcurrencyControl = ui.slice(ui.indexOf('aria-label="当前 AI 标注任务模型并发数"'), ui.indexOf("</label>", ui.indexOf('aria-label="当前 AI 标注任务模型并发数"')));
   assert.ok(currentConcurrencyControl.length > 0);
   assert.doesNotMatch(currentConcurrencyControl, /!category|busy !==/);
-  assert.match(ui, /activeCloudRunRef\.current/);
-  assert.match(ui, /new AnnotationRunRetryController/);
-  assert.match(ui, /waitForWindow\(workerIndex\)/);
-  assert.match(ui, /activeRequestCount < retryController\.workerLimit/);
-  assert.doesNotMatch(ui, /workerIndex >= retryController\.workerLimit/);
-  assert.match(ui, /仅出错通道将在/);
   assert.match(ui, /云端建议 10–20；过高易触发限流并计入失败/);
   assert.match(ui, /本地 Ollama 建议 1/);
   assert.doesNotMatch(ui, /请刷新后继续原任务|请稍后点击“继续云端识别”/);
-  assert.match(ui, /signal: controller\.signal/);
   assert.match(ui, /loadSequence !== loadSequenceRef\.current/);
   assert.match(ui, /系统将自动刷新任务状态并续跑原任务/);
   assert.match(ui, /if \(!response\.ok \|\| !payload\)/);
@@ -310,6 +315,10 @@ test("annotation implementation wires real cloud images, idempotency, permission
   for (const table of ["market_annotation_jobs", "market_annotation_items", "market_sku_annotations", "market_annotation_commit_receipts", "market_annotation_prompt_versions", "market_annotation_validation_samples", "market_annotation_validation_runs", "market_annotation_validation_results", "market_annotation_local_agents"]) assert.match(migration, new RegExp(table));
   assert.match(concurrencyMigration, /market_annotation_concurrency_settings/);
   assert.match(concurrencyMigration, /BETWEEN 1 AND 50/);
+  assert.match(cloudRunnerMigration, /market_annotation_cloud_runs/);
+  for (const column of ["model_input_bytes", "image_load_ms", "image_prepare_ms", "model_call_ms", "total_inference_ms"]) {
+    assert.match(cloudRunnerMigration, new RegExp(column));
+  }
 });
 
 test("the background cloud pump picks the oldest runnable job and reports its remembered concurrency", async () => {
@@ -349,6 +358,72 @@ test("the background cloud pump picks the oldest runnable job and reports its re
 
   sqlite.prepare("UPDATE market_annotation_items SET status='committed', attempt_count=3 WHERE id='pump-new-item'").run();
   assert.deepEqual({ ...(await runCloudAnnotationPump(db)) }, { idle: true, jobId: "", category: "", concurrency: 0 });
+  sqlite.close();
+});
+
+test("the native scheduled runner finishes a cloud job without any browser pump", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE ai_models (id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL, model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL, status TEXT NOT NULL);
+    INSERT INTO ai_models VALUES ('scheduled-vision','测试视觉','openai_compatible','vision','doubao-seed-test','https://api.invalid/v1','','enabled');
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('scheduled-prompt','后台类目',1,'manual','active','["型号A","其他"]','这是用于验证 Cloudflare 原生后台续跑的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_concurrency_settings (category,executor,concurrency,updated_by)
+      VALUES ('后台类目','cloud',4,'admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, reuse_status, created_by)
+      VALUES ('scheduled-job','后台类目','scheduled-prompt','cloud','scheduled-vision','running',1,'ready','admin@test');
+    INSERT INTO market_annotation_items (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, source_image_url, status)
+      VALUES ('scheduled-item','scheduled-job','后台类目','pop','SKU-1','SKU','2026-08','hash-1','无图商品','','queued');
+  `);
+  const control = await setCloudAnnotationRunState(db, { jobId: "scheduled-job", state: "running" }, { email: "operator@test", role: "operator" });
+  assert.equal(control?.state, "running");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='set_market_annotation_cloud_run_state'").get() as { count: number }).count, 1);
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const result = await runScheduledCloudAnnotations(db, { jobId: "scheduled-job", maxWaves: 1, maxRuntimeMs: 5_000 });
+    assert.equal(result.idle, false);
+    assert.equal((sqlite.prepare("SELECT attempt_count FROM market_annotation_items WHERE id='scheduled-item'").get() as { attempt_count: number }).attempt_count, attempt);
+  }
+
+  const item = sqlite.prepare("SELECT status,attempt_count,error_message,model_input_bytes,image_load_ms,image_prepare_ms,model_call_ms,total_inference_ms FROM market_annotation_items WHERE id='scheduled-item'").get() as Record<string, unknown>;
+  assert.equal(item.status, "failed");
+  assert.equal(item.attempt_count, 3);
+  assert.match(String(item.error_message), /主图获取失败/);
+  for (const column of ["model_input_bytes", "image_load_ms", "image_prepare_ms", "model_call_ms", "total_inference_ms"]) {
+    assert.ok(Number(item[column]) >= 0);
+  }
+  assert.equal((sqlite.prepare("SELECT state FROM market_annotation_cloud_runs WHERE job_id='scheduled-job'").get() as { state: string }).state, "completed");
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='scheduled-job'").get() as { status: string }).status, "review_ready");
+  sqlite.close();
+});
+
+test("paused and already-leased cloud runs cannot be claimed by another scheduler", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('control-prompt','协调类目',1,'manual','active','["型号A","其他"]','这是用于验证暂停与协调租约的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, reuse_status, created_by) VALUES
+      ('paused-job','协调类目','control-prompt','cloud','unused','running',1,'ready','admin@test'),
+      ('leased-job','协调类目','control-prompt','cloud','unused','running',1,'ready','admin@test');
+    INSERT INTO market_annotation_items (id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, status) VALUES
+      ('paused-item','paused-job','协调类目','pop','PAUSED','SKU','2026-08','paused-hash','queued'),
+      ('leased-item','leased-job','协调类目','pop','LEASED','SKU','2026-08','leased-hash','queued');
+    INSERT INTO market_annotation_cloud_runs (job_id,state,retry_state_json,lease_token_hash,lease_expires_at) VALUES
+      ('paused-job','paused','{}','',NULL),
+      ('leased-job','running','{}','active-coordinator',datetime('now','+10 minutes'));
+  `);
+
+  assert.deepEqual(await runScheduledCloudAnnotations(db, { jobId: "paused-job", maxWaves: 1, maxRuntimeMs: 5_000 }), { idle: true, jobId: "paused-job" });
+  assert.deepEqual(await runScheduledCloudAnnotations(db, { jobId: "leased-job", maxWaves: 1, maxRuntimeMs: 5_000 }), { idle: true, jobId: "leased-job" });
+  assert.deepEqual((sqlite.prepare("SELECT id,attempt_count FROM market_annotation_items ORDER BY id").all() as Array<{ id: string; attempt_count: number }>).map((row) => ({ ...row })), [
+    { id: "leased-item", attempt_count: 0 },
+    { id: "paused-item", attempt_count: 0 },
+  ]);
   sqlite.close();
 });
 
@@ -721,7 +796,7 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(columnNames("market_annotation_commit_receipts").has("batch_id"));
   assert.ok(columnNames("market_annotation_commit_receipts").has("request_digest"));
   for (const column of ["sample_snapshot_json", "claim_token_hash", "lease_expires_at", "attempt_count", "updated_at"]) assert.ok(columnNames("market_annotation_validation_results").has(column));
-  for (const column of ["category", "ranking_dimension", "month", "image_content_sha256", "ai_price_type", "ai_price_low_cents", "ai_price_high_cents", "reviewed_price_type", "reviewed_price_low_cents", "reviewed_price_high_cents"]) assert.ok(columnNames("market_annotation_items").has(column));
+  for (const column of ["category", "ranking_dimension", "month", "image_content_sha256", "ai_price_type", "ai_price_low_cents", "ai_price_high_cents", "reviewed_price_type", "reviewed_price_low_cents", "reviewed_price_high_cents", "model_input_bytes", "image_load_ms", "image_prepare_ms", "model_call_ms", "total_inference_ms"]) assert.ok(columnNames("market_annotation_items").has(column));
 
   const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(indexes.has("market_annotation_commits_batch_idx"));
@@ -732,8 +807,10 @@ test("runtime schema upgrades an existing 0016 database before creating new-colu
   assert.ok(indexes.has("market_annotation_items_job_inference_unit_idx"));
   assert.ok(indexes.has("market_annotation_jobs_active_work_uq"));
   assert.ok(indexes.has("market_annotation_concurrency_settings_updated_idx"));
+  assert.ok(indexes.has("market_annotation_cloud_runs_ready_idx"));
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_prompt_audits'").get());
   assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_concurrency_settings'").get());
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_cloud_runs'").get());
 
   // A distinct runtime connection must also be safe after the first upgrade.
   await ensureAnnotationSchema(sqliteAdapter(sqlite));
@@ -780,6 +857,18 @@ test("0055 adds active-job idempotency and inference-unit indexes without rewrit
   const indexes = new Set((sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>).map((row) => row.name));
   assert.ok(indexes.has("market_annotation_jobs_active_work_uq"));
   assert.ok(indexes.has("market_annotation_items_job_inference_unit_idx"));
+  sqlite.close();
+});
+
+test("0057 installs persistent cloud-run coordination and per-image timing fields", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"));
+  const migration = await readFile(new URL("../drizzle/0057_market_annotation_cloud_runner.sql", import.meta.url), "utf8");
+  for (const statement of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(statement);
+  const columns = new Set((sqlite.prepare("PRAGMA table_info('market_annotation_items')").all() as Array<{ name: string }>).map((row) => row.name));
+  for (const column of ["model_input_bytes", "image_load_ms", "image_prepare_ms", "model_call_ms", "total_inference_ms"]) assert.ok(columns.has(column));
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='market_annotation_cloud_runs'").get());
+  assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='market_annotation_cloud_runs_ready_idx'").get());
   sqlite.close();
 });
 

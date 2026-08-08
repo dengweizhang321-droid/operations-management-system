@@ -105,3 +105,21 @@ test("three independent failures after reaching concurrency one pause the run, w
   assert.equal(thirdAtFloor.floorFailureCount, 3);
   assert.equal(thirdAtFloor.shouldPause, true);
 });
+
+test("a scheduled run restores adaptive concurrency and cooldown state from its persisted snapshot", () => {
+  const original = new AnnotationRunRetryController(10);
+  original.schedule("transient", 0, 0, 1_000);
+  original.schedule("transient", 1, 0, 7_000);
+  assert.equal(original.workerLimit, 4);
+
+  const restored = new AnnotationRunRetryController(10, JSON.parse(JSON.stringify(original.snapshot())));
+  assert.equal(restored.targetConcurrency, 10);
+  assert.equal(restored.workerLimit, 4);
+  assert.equal(restored.blockedUntil(0), 6_000);
+  assert.equal(restored.blockedUntil(1), 17_000);
+
+  const thirdFailureWindow = restored.schedule("transient", 2, 0, 18_000);
+  assert.equal(thirdFailureWindow.previousConcurrency, 4);
+  assert.equal(thirdFailureWindow.concurrency, 2);
+  assert.equal(thirdFailureWindow.countedIncident, true);
+});
