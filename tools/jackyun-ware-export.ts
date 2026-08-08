@@ -233,6 +233,47 @@ export function jdWareProductQueryBootstrapDecision(input: { productSearchContai
   return input.scopedQueryButtonCount === 1 ? "query" : "wait";
 }
 
+export type JdWareSkuExportDrawerDecision = "already_open" | "bootstrap";
+const jdWareDrawerCandidateSelector = ":is(.jd-overlay, [role='dialog'], .ant-drawer, .ant-modal, .el-dialog, .el-drawer, [class*='jdm-drawer'], [class*='jdm-dialog'])";
+// JD nests Ant/JDM drawer wrappers. Count only the innermost matching root so
+// one logical drawer cannot be mistaken for multiple overlays.
+export const jdWareNormalizedExportDrawerSelector = `${jdWareDrawerCandidateSelector}:has-text('导出条件'):not(:has(${jdWareDrawerCandidateSelector}:has-text('导出条件')))`;
+
+export function jdWareSkuExportDrawerDecision(input: { exportDrawerCount: number; scopedSkuTabCount: number; pageSkuTabCount: number }): JdWareSkuExportDrawerDecision {
+  if (!Number.isInteger(input.exportDrawerCount) || input.exportDrawerCount < 0 || !Number.isInteger(input.scopedSkuTabCount) || input.scopedSkuTabCount < 0 || !Number.isInteger(input.pageSkuTabCount) || input.pageSkuTabCount < 0) {
+    throw new Error("京东 SKU 导出抽屉计数无效。");
+  }
+  if (input.exportDrawerCount > 1) throw new Error("导出条件抽屉不唯一。");
+  if (input.exportDrawerCount === 0) {
+    if (input.pageSkuTabCount > 0) throw new Error("SKU导出页签不在唯一导出条件抽屉中。");
+    return "bootstrap";
+  }
+  if (input.scopedSkuTabCount !== 1 || input.pageSkuTabCount !== 1 || input.pageSkuTabCount !== input.scopedSkuTabCount) {
+    throw new Error("导出条件抽屉中的 SKU导出页签不唯一或身份不匹配。");
+  }
+  return "already_open";
+}
+
+type VerifiedJdWareSkuExportDrawer = { exportDrawer: Locator; skuTab: Locator };
+
+async function getVerifiedJdWareSkuExportDrawer(page: Page): Promise<VerifiedJdWareSkuExportDrawer | null> {
+  const exportDrawer = page.locator(jdWareNormalizedExportDrawerSelector).filter({ visible: true });
+  const scopedSkuTab = exportDrawer.getByRole("tab", { name: "SKU导出", exact: true }).filter({ visible: true });
+  const pageSkuTab = page.getByRole("tab", { name: "SKU导出", exact: true }).filter({ visible: true });
+  const decision = jdWareSkuExportDrawerDecision({
+    exportDrawerCount: await exportDrawer.count(),
+    scopedSkuTabCount: await scopedSkuTab.count(),
+    pageSkuTabCount: await pageSkuTab.count(),
+  });
+  return decision === "already_open" ? { exportDrawer, skuTab: scopedSkuTab } : null;
+}
+
+export async function prepareJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
+  if (await getVerifiedJdWareSkuExportDrawer(page)) return "already_open" as const;
+  await revealJdWareExportEntry(page, queryBootstrapState);
+  return "bootstrapped" as const;
+}
+
 export async function revealJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
   const exportEntry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
   const batchOperations = page.locator("button").filter({ hasText: /^批量操作$/, visible: true });
@@ -369,7 +410,7 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
     await page.waitForTimeout(150);
   }
   await dismissJdMenuUpdateNotice(page);
-  await revealJdWareExportEntry(page, queryBootstrapState);
+  await prepareJdWareExportEntry(page, queryBootstrapState);
 }
 
 async function dismissJdMenuUpdateNotice(page: Page) {
@@ -420,21 +461,30 @@ async function refreshExportRecords(page: Page) {
 
 async function openSkuExportDialog(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
   await dismissJdMenuUpdateNotice(page);
-  const skuTab = page.getByRole("tab", { name: "SKU导出", exact: true });
-  const visibleSkuTabCount = await skuTab.count();
-  const dialogAlreadyOpen = visibleSkuTabCount === 1 && await skuTab.isVisible();
-  if (!dialogAlreadyOpen) {
-    if (visibleSkuTabCount > 1) throw new Error(`SKU导出页签应匹配 1 个元素，实际匹配 ${visibleSkuTabCount} 个。`);
+  let verifiedDrawer = await getVerifiedJdWareSkuExportDrawer(page);
+  if (!verifiedDrawer) {
     await openExportEntryWithRepaintRetry(page, queryBootstrapState);
-    await skuTab.waitFor({ state: "visible", timeout: 15_000 });
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      verifiedDrawer = await getVerifiedJdWareSkuExportDrawer(page);
+      if (verifiedDrawer) break;
+      await page.waitForTimeout(250);
+    }
+    if (!verifiedDrawer) throw new Error("京东 SKU 导出抽屉未达到唯一可验证状态。");
   }
-  await exactlyOne(skuTab, "SKU导出页签");
+  const skuTab = verifiedDrawer.skuTab;
+  await exactlyOne(skuTab, "导出条件抽屉中的 SKU导出页签");
+  const skuTabHandle = await skuTab.elementHandle();
+  if (!skuTabHandle) throw new Error("导出条件抽屉中的 SKU导出页签已在操作前消失。");
 
   // JD normally opens this tab by default.  Clicking only when needed saves a
   // UI round trip while still making the intended export dimension explicit.
-  if (await skuTab.getAttribute("aria-selected") !== "true") {
-    await skuTab.click();
-    if (await skuTab.getAttribute("aria-selected") !== "true") {
+  if (await skuTabHandle.getAttribute("aria-selected") !== "true") {
+    if (!await getVerifiedJdWareSkuExportDrawer(page) || !await skuTabHandle.evaluate((element) => element.isConnected && (element as HTMLElement).offsetParent !== null)) {
+      throw new Error("导出条件抽屉中的 SKU导出页签在点击前已变化，已停止。");
+    }
+    await skuTabHandle.click();
+    if (await skuTabHandle.getAttribute("aria-selected") !== "true") {
       throw new Error("SKU导出页签未实际选中，已停止且不会点击确定导出。");
     }
   }
