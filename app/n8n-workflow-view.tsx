@@ -112,7 +112,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     pipelineTitle: "三段式京东多店铺安全导入链路",
     pipelineDescription: "手动或每日定时触发；任一店铺或数据集失败都会停止后续任务。",
     workflowMetric: "京东多店铺商品数据导入",
-    scheduleMetric: "09:30",
+    scheduleMetric: "10:00",
     scheduleDescription: "上海时区 · 固化昨天所在月的完整范围",
     scheduleTriggerLabel: "每日",
     iframeTitle: "京东多店铺商品数据统一下载与导入 n8n 工作流",

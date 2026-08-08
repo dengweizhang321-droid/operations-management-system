@@ -97,7 +97,7 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /M → A → B → C → P/);
   assert.match(view, /全站推推广/);
   assert.match(view, /scheduleMetric: "09:10–19:10"/);
-  assert.match(view, /scheduleMetric: "09:30"/);
+  assert.match(view, /scheduleMetric: "10:00"/);
   assert.match(view, /\{config\.scheduleMetric\} \{config\.scheduleTriggerLabel\}/);
   assert.match(view, /辅助服务已就绪/);
   assert.match(view, /实际发布状态以 n8n 画布为准/);

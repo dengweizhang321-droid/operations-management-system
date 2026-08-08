@@ -11,9 +11,9 @@
       "position": [-700, -80]
     },
     {
-      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "30 9 * * *" }] } },
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 10 * * *" }] } },
       "id": "d01a0d62-bd97-49e9-a2f6-000000000002",
-      "name": "每天 09:30 执行",
+      "name": "每天 10:00 执行",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [-700, 100]
@@ -90,7 +90,7 @@
   "pinData": {},
   "connections": {
     "手动运行": { "main": [[{ "node": "A·生成京东多店铺计划", "type": "main", "index": 0 }]] },
-    "每天 09:30 执行": { "main": [[{ "node": "A·生成京东多店铺计划", "type": "main", "index": 0 }]] },
+    "每天 10:00 执行": { "main": [[{ "node": "A·生成京东多店铺计划", "type": "main", "index": 0 }]] },
     "A·生成京东多店铺计划": { "main": [[{ "node": "B·四店串行下载、导入并回查", "type": "main", "index": 0 }]] },
     "B·四店串行下载、导入并回查": { "main": [[{ "node": "C·核验四店三类数据与批次", "type": "main", "index": 0 }]] }
   },
