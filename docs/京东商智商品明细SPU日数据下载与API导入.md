@@ -58,7 +58,7 @@ ORDER BY business_date;
 npm run jdsz:product-detail-export -- --dimension SPU --start-date YYYY-MM-DD --end-date YYYY-MM-DD
 ```
 
-程序使用专用持久化 Chrome 配置和 `D:\谷歌浏览器` 下载目录。不要改用独立登录状态的浏览器，除非用户明确要求。
+程序使用专用持久化 Chrome 配置和 `D:\谷歌浏览器` 下载目录。日常默认以 `headless=new` 后台运行；只有登录失效、验证码、安全验证或店铺登录身份异常才打开当前店铺的独立可见 Chrome，并保持任务失败关闭、不自动重放确认或下载。首次登录使用 `--interactive-login`。不要改用独立登录状态的浏览器，除非用户明确要求。
 
 ### 4.1 创建任务前门禁
 

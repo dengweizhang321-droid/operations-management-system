@@ -32,6 +32,12 @@
 npm run jackyun:ware-export
 ```
 
+默认使用 `headless=new` 后台运行，不显示 Chrome 窗口。登录失效、验证码、安全验证或店铺登录身份异常时，后台任务失败关闭并保留恢复审计，随后只打开当前店铺的独立可见 Chrome 供人工处理；程序不会在弹窗后自动重放“查询”“确定导出”或“下载”。首次登录或主动排障可执行：
+
+```powershell
+npm run jackyun:ware-export -- --store-key <店铺键> --interactive-login
+```
+
 脚本默认等待京东任务最多 300 秒。下载成功后会自动调用：
 
 ```text

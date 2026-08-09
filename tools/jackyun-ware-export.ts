@@ -16,6 +16,7 @@ import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client"
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -581,6 +582,9 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
   // first so each unauthenticated store does not burn the 30-second UI wait.
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const pageText = await page.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
+    if (hasJdInteractivePageGate(pageText)) {
+      throw new Error("京东商家后台需要人工完成验证码或安全验证。");
+    }
     if (isLikelyJdLoginPage(page.url(), pageText, await page.locator('input[type="password"]').count().then((count) => count > 0))) {
       throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
     }
@@ -1083,6 +1087,7 @@ async function main() {
   };
   await writeJsonAtomic(auditPath, audit);
   let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | undefined;
+  let revealInteractiveBrowser = false;
   try {
     const legacyRecovery = await readJsonFileOr<JdWareExportRecovery | null>(legacyActiveTaskPath, null);
     if (legacyRecovery) {
@@ -1093,7 +1098,13 @@ async function main() {
       throw new Error(`SKU 活动任务清单格式无效，已停止以免重复提交：${activeTaskPath}`);
     }
     await persistAudit({ stage: "launch_browser" });
-    await launchDedicatedChrome({ executablePath: chromePath, profileDirectory: options.profileDirectory, port: options.port, startUrl: targetUrl, headless: false, visible: options.interactiveLogin });
+    await launchDedicatedChrome({
+      executablePath: chromePath,
+      profileDirectory: options.profileDirectory,
+      port: options.port,
+      startUrl: targetUrl,
+      ...jdBrowserLaunchMode(options.interactiveLogin),
+    });
     await waitForChrome(options.port);
     browser = await connectPlaywrightBrowser(options.port);
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
@@ -1134,6 +1145,7 @@ async function main() {
     }
   } catch (error) {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
+    revealInteractiveBrowser = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
     if (error instanceof JdWareCreateExportRejectedError && error.definitiveNoTask && recovery && !recovery.taskId) {
       // JD explicitly confirmed that createExportJob failed, so this manifest
       // cannot own a remote task. Preserve it as evidence and allow an
@@ -1151,12 +1163,31 @@ async function main() {
         error: message,
       });
     } else {
-      await persistAudit({ status: "failed", error: message });
+      await persistAudit({
+        status: "failed",
+        ...(revealInteractiveBrowser ? { stage: "interactive_attention_required" } : {}),
+        error: message,
+      });
     }
     console.error(message);
     process.exitCode = 1;
   } finally {
-    await browser?.close();
+    await browser?.close().catch(() => undefined);
+  }
+  if (revealInteractiveBrowser) {
+    try {
+      await revealJdBrowserForInteractiveFailure({
+        executablePath: chromePath,
+        profileDirectory: options.profileDirectory,
+        port: options.port,
+        startUrl: targetUrl,
+      });
+      console.error(`京东交互异常：已打开 ${options.shopName} 的独立 Chrome，请完成人工验证后从原审计续跑。`);
+    } catch (revealError) {
+      const bounded = revealError instanceof Error ? revealError.message.slice(0, 500) : String(revealError).slice(0, 500);
+      await persistAudit({ stage: "interactive_attention_open_failed" });
+      console.error(`京东交互异常，但可见 Chrome 打开失败：${bounded}`);
+    }
   }
 }
 

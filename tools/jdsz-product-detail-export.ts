@@ -19,6 +19,7 @@ import {
 } from "../lib/jd/product-detail-task-manifest";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = path.join(projectRoot, "outputs", "jdsz-product-detail-export");
@@ -46,6 +47,7 @@ type CliOptions = {
   endDate: string;
   dimension: "SKU" | "SPU";
   debug: boolean;
+  interactiveLogin: boolean;
   autoImport: boolean;
   baseUrl: string;
 };
@@ -110,6 +112,7 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
     endDate,
     dimension,
     debug: flags.has("--debug"),
+    interactiveLogin: flags.has("--interactive-login"),
     autoImport: !flags.has("--no-auto-import"),
     baseUrl: (values.get("--base-url") ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   };
@@ -486,8 +489,11 @@ async function prepareExport(page: Page, options: CliOptions, beforeConfirm?: ()
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
   const bodyText = await page.locator("body").innerText().catch(() => "");
+  if (hasJdInteractivePageGate(bodyText)) {
+    throw new Error("京东商智需要人工完成验证码或安全验证。");
+  }
   if (/登录|账号|密码|验证码/.test(bodyText) && !/商品明细/.test(bodyText)) {
-    throw new Error("京东商智登录状态无效；请先在弹出的专用 Chrome 中登录，再重新运行。");
+    throw new Error("京东商智登录状态无效；请先在已打开的专用 Chrome 中登录，再重新运行。");
   }
 
   try {
@@ -734,10 +740,11 @@ async function run() {
     profileDirectory: options.profileDirectory,
     port: options.port,
     startUrl: targetUrl,
-    headless: false,
+    ...jdBrowserLaunchMode(options.interactiveLogin),
   });
   await waitForChrome(options.port);
   const browser = await connectPlaywrightBrowser(options.port);
+  let revealInteractiveBrowser = false;
   try {
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
       startUrl: targetUrl,
@@ -818,8 +825,25 @@ async function run() {
       downloadClicks: result.downloadClicks,
     });
     client.close();
+  } catch (error) {
+    revealInteractiveBrowser = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
+    throw error;
   } finally {
-    await browser.close();
+    await browser.close().catch(() => undefined);
+    if (revealInteractiveBrowser) {
+      try {
+        await revealJdBrowserForInteractiveFailure({
+          executablePath: options.chromePath,
+          profileDirectory: options.profileDirectory,
+          port: options.port,
+          startUrl: targetUrl,
+        });
+        console.error(`京东交互异常：已打开 ${options.shopName} 的独立 Chrome，请完成人工验证后从原任务清单续跑。`);
+      } catch (revealError) {
+        const bounded = revealError instanceof Error ? revealError.message.slice(0, 500) : String(revealError).slice(0, 500);
+        console.error(`京东交互异常，但可见 Chrome 打开失败：${bounded}`);
+      }
+    }
   }
 }
 
