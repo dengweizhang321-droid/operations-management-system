@@ -10,7 +10,7 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareDownloadPathInsideStaging, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, jdWareExportEntryBootstrapDecision, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, openExportEntryWithRepaintRetry, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -274,6 +274,97 @@ test("a resolved export-button click is not reported as a submitted JD task", ()
   );
 });
 
+test("matches only the exact JD create-export POST request", () => {
+  const target = "https://sff.jd.com/api?v=1.0&appId=fixture&api=dsm.product.manage.view.batchJobService.createExportJob";
+  assert.equal(isJdWareCreateExportRequest(target, "POST"), true);
+  assert.equal(isJdWareCreateExportRequest(target, "GET"), false);
+  assert.equal(isJdWareCreateExportRequest(target.replace("createExportJob", "queryByPage"), "POST"), false);
+  assert.equal(isJdWareCreateExportRequest(target.replace("sff.jd.com", "example.com"), "POST"), false);
+  assert.equal(isJdWareCreateExportRequest("not-a-url", "POST"), false);
+});
+
+test("requires both HTTP and JD business success before polling export records", () => {
+  assert.deepEqual(validateJdWareCreateExportResponse({ status: 200, payload: { code: 200, msg: "成功" } }), { code: 200, message: "成功" });
+  assert.throws(
+    () => validateJdWareCreateExportResponse({ status: 200, payload: { code: 5001, msg: "操作频繁" } }),
+    /业务码 5001.*操作频繁/,
+  );
+  assert.throws(() => validateJdWareCreateExportResponse({ status: 503, payload: { code: 200, msg: "成功" } }), /HTTP 503/);
+  assert.throws(() => validateJdWareCreateExportResponse({ status: 200, payload: "not-json" }), /业务码 missing/);
+  assert.throws(
+    () => validateJdWareCreateExportResponse({ status: 200, payload: { code: 201, msg: "[总行数必须大于0],创建导出任务失败" } }),
+    (error: unknown) => error instanceof JdWareCreateExportRejectedError && error.definitiveNoTask,
+  );
+  assert.throws(
+    () => validateJdWareCreateExportResponse({ status: 200, payload: { code: 201, msg: "系统繁忙" } }),
+    (error: unknown) => error instanceof JdWareCreateExportRejectedError && !error.definitiveNoTask,
+  );
+});
+
+test("requires a fresh positive JD product query before opening the export drawer", () => {
+  const target = "https://sff.jd.com/api?v=1.0&appId=fixture&api=dsm.product.manage.ProductInfoReadViewService.queryValidProductList";
+  assert.equal(isJdWareProductQueryRequest(target, "POST"), true);
+  assert.equal(isJdWareProductQueryRequest(target, "GET"), false);
+  assert.equal(isJdWareProductQueryRequest(target.replace("queryValidProductList", "createExportJob"), "POST"), false);
+  assert.deepEqual(
+    validateJdWareProductQueryResponse({ status: 200, payload: { code: 200, msg: "成功", data: { total: 83 } } }),
+    { code: 200, total: 83, message: "成功" },
+  );
+  assert.deepEqual(
+    validateJdWareProductQueryResponse({ status: 200, payload: { code: 200, msg: "成功", data: { totalCount: 83, data: [{ productId: 1 }] } } }),
+    { code: 200, total: 83, message: "成功" },
+  );
+  assert.throws(
+    () => validateJdWareProductQueryResponse({ status: 200, payload: { code: 200, msg: "成功", data: { total: 82, totalCount: 83 } } }),
+    /字段冲突/,
+  );
+  assert.throws(
+    () => validateJdWareProductQueryResponse({ status: 200, payload: { code: 200, msg: "成功", data: { total: 0 } } }),
+    /总行数 0/,
+  );
+  assert.throws(
+    () => validateJdWareProductQueryResponse({ status: 200, payload: { code: 201, msg: "查询失败", data: { total: 83 } } }),
+    /业务码 201/,
+  );
+  assert.equal(parseJdWareProductTotalText("共83条"), 83);
+  assert.equal(parseJdWareProductTotalText(" 共 83 条 "), 83);
+  assert.equal(parseJdWareProductTotalText("共 2 页"), null);
+});
+
+test("dispatches the uniquely verified JD product query exactly once without pointer coordinates", async () => {
+  const events: string[] = [];
+  await clickJdWareProductQueryControl({
+    dispatchEvent: async (event: string) => { events.push(event); },
+  } as never);
+  assert.deepEqual(events, ["click"]);
+});
+
+test("waits for the JD product query controls to become uniquely ready without clicking", async () => {
+  const samples = [
+    { productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 0 },
+    { productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 },
+  ];
+  let pauses = 0;
+  await waitForJdWareProductQueryBootstrap(async () => samples.shift()!, async () => { pauses += 1; }, 2);
+  assert.equal(pauses, 1);
+  await assert.rejects(
+    waitForJdWareProductQueryBootstrap(
+      async () => ({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 0 }),
+      async () => undefined,
+      2,
+    ),
+    /有界等待/,
+  );
+  await assert.rejects(
+    waitForJdWareProductQueryBootstrap(
+      async () => ({ productSearchContainerCount: 2, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 }),
+      async () => undefined,
+      2,
+    ),
+    /筛选容器不唯一/,
+  );
+});
+
 test("retries the reversible export drawer action only for a JD repaint", () => {
   assert.equal(isTransientJdExportEntryRepaint(new Error("element is not stable; detached from the DOM")), true);
   assert.equal(isTransientJdExportEntryRepaint(new Error("intercepted by overlay")), false);
@@ -286,6 +377,8 @@ test("requires two consecutive unique visible export-entry samples", () => {
 });
 
 test("classifies the WareList query control only when it is uniquely bound to its product filter", () => {
+  assert.equal(jdWareBatchOperationsLabelPattern.test("批量操作 "), true);
+  assert.equal(jdWareBatchOperationsLabelPattern.test(" 更多批量工具 "), false);
   assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 1, batchOperationsCount: 1 }), "ready");
   assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 1 }), "open_batch_operations");
   assert.equal(jdWareExportEntryBootstrapDecision({ exportEntryCount: 0, batchOperationsCount: 0 }), "wait");
@@ -295,7 +388,8 @@ test("classifies the WareList query control only when it is uniquely bound to it
   assert.equal(jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 }), "query");
   assert.equal(jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 0, pageQueryButtonCount: 0 }), "wait");
   assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 2, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 }), /筛选容器不唯一/);
-  assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 1 }), /不属于商品列表筛选容器/);
+  assert.equal(jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 1 }), "wait");
+  assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 2 }), /按钮不唯一/);
   assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 2 }), /不唯一对应/);
   assert.throws(() => jdWareProductQueryBootstrapDecision({ productSearchContainerCount: 1, scopedQueryButtonCount: 2, pageQueryButtonCount: 2 }), /查询按钮不唯一/);
   assert.equal(jdWareSkuExportDrawerDecision({ exportDrawerCount: 1, scopedSkuTabCount: 1, pageSkuTabCount: 1 }), "already_open");
@@ -375,10 +469,6 @@ test("revealJdWareExportEntry scopes query clicks to the unique WareList product
   assert.equal(target.clicks.scopedQuery, 1);
   assert.match(target.selectors[0]!, /商品名称/);
   assert.match(target.selectors[0]!, /商品编码/);
-
-  const externalOnly = createWareListEntryPageFixture({ productSearchContainerCount: 0, scopedQueryButtonCount: 0, pageQueryButtonCount: 1 });
-  await assert.rejects(revealJdWareExportEntry(externalOnly.page as never), /不属于商品列表筛选容器/);
-  assert.equal(externalOnly.clicks.scopedQuery, 0);
 
   const targetAndExternal = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 2 });
   await assert.rejects(revealJdWareExportEntry(targetAndExternal.page as never), /不唯一对应/);

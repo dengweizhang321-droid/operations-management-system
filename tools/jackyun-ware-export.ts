@@ -26,6 +26,8 @@ const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const pollIntervalMs = 700;
 const refreshIntervalMs = 3_000;
 const maximumJdWareWorkbookBytes = 25 * 1024 * 1024;
+const jdWareCreateExportApi = "dsm.product.manage.view.batchJobService.createExportJob";
+const jdWareProductQueryApi = "dsm.product.manage.ProductInfoReadViewService.queryValidProductList";
 
 async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
   await ensureDir(artifactDir);
@@ -112,6 +114,132 @@ export function createWareExportAudit(options: Pick<CliOptions, "baseUrl" | "reu
 
 export function advanceWareExportAudit(audit: WareExportAudit, patch: Partial<WareExportAudit>): WareExportAudit {
   return { ...audit, ...patch, updatedAt: new Date().toISOString() };
+}
+
+export function isJdWareCreateExportRequest(url: string, method: string) {
+  try {
+    const parsed = new URL(url);
+    return method.toUpperCase() === "POST"
+      && parsed.protocol === "https:"
+      && parsed.hostname === "sff.jd.com"
+      && parsed.pathname === "/api"
+      && parsed.searchParams.get("api") === jdWareCreateExportApi;
+  } catch {
+    return false;
+  }
+}
+
+export function isJdWareProductQueryRequest(url: string, method: string) {
+  try {
+    const parsed = new URL(url);
+    return method.toUpperCase() === "POST"
+      && parsed.protocol === "https:"
+      && parsed.hostname === "sff.jd.com"
+      && parsed.pathname === "/api"
+      && parsed.searchParams.get("api") === jdWareProductQueryApi;
+  } catch {
+    return false;
+  }
+}
+
+export function validateJdWareProductQueryResponse(input: { status: number; payload: unknown }) {
+  const payload = input.payload && typeof input.payload === "object"
+    ? input.payload as { code?: unknown; msg?: unknown; data?: unknown }
+    : null;
+  const data = payload?.data && typeof payload.data === "object"
+    ? payload.data as { total?: unknown; totalCount?: unknown }
+    : null;
+  const code = typeof payload?.code === "number" ? payload.code : null;
+  const legacyTotal = typeof data?.total === "number" ? data.total : null;
+  const currentTotal = typeof data?.totalCount === "number" ? data.totalCount : null;
+  if (legacyTotal !== null && currentTotal !== null && legacyTotal !== currentTotal) {
+    throw new Error(`京东商品查询总行数字段冲突（total=${legacyTotal}，totalCount=${currentTotal}）。`);
+  }
+  const total = currentTotal ?? legacyTotal;
+  const message = typeof payload?.msg === "string" ? payload.msg.trim().slice(0, 300) : "";
+  if (input.status !== 200 || code !== 200 || !Number.isInteger(total) || total === null || total <= 0) {
+    throw new Error(`京东商品查询未返回正数总行数（HTTP ${input.status}，业务码 ${code ?? "missing"}，总行数 ${total ?? "missing"}）${message ? `：${message}` : ""}`);
+  }
+  return { code: 200 as const, total, message };
+}
+
+export function parseJdWareProductTotalText(value: string) {
+  const match = /^\s*共\s*(\d+)\s*条\s*$/.exec(value);
+  return match ? Number(match[1]) : null;
+}
+
+export async function clickJdWareProductQueryControl(queryButton: Locator) {
+  // The sticky JD merchant header can cover the button's pointer coordinates
+  // after closing the export drawer. This is a reversible query action and is
+  // still fenced by the unique locator plus the exact response/total checks.
+  await queryButton.dispatchEvent("click");
+}
+
+export async function waitForJdWareProductQueryBootstrap(
+  probe: () => Promise<Parameters<typeof jdWareProductQueryBootstrapDecision>[0]>,
+  pause: () => Promise<void>,
+  maxAttempts = 50,
+) {
+  if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) throw new Error("京东商品查询等待次数无效。");
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const decision = jdWareProductQueryBootstrapDecision(await probe());
+    if (decision === "query") return;
+    if (attempt + 1 < maxAttempts) await pause();
+  }
+  throw new Error("京东商品列表查询入口在有界等待后仍未达到唯一可用状态。");
+}
+
+export class JdWareCreateExportRejectedError extends Error {
+  readonly definitiveNoTask: boolean;
+
+  constructor(message: string, definitiveNoTask: boolean) {
+    super(message);
+    this.name = "JdWareCreateExportRejectedError";
+    this.definitiveNoTask = definitiveNoTask;
+  }
+}
+
+export function validateJdWareCreateExportResponse(input: { status: number; payload: unknown }) {
+  const payload = input.payload && typeof input.payload === "object"
+    ? input.payload as { code?: unknown; msg?: unknown }
+    : null;
+  const code = typeof payload?.code === "number" ? payload.code : null;
+  const message = typeof payload?.msg === "string" ? payload.msg.trim().slice(0, 300) : "";
+  if (input.status !== 200 || code !== 200) {
+    const definitiveNoTask = input.status === 200
+      && code === 201
+      && message.includes("创建导出任务失败");
+    throw new JdWareCreateExportRejectedError(
+      `京东 SKU 导出任务创建被拒绝（HTTP ${input.status}，业务码 ${code ?? "missing"}）${message ? `：${message}` : ""}`,
+      definitiveNoTask,
+    );
+  }
+  return { code: 200 as const, message };
+}
+
+async function clickAndConfirmJdWareExportSubmission(
+  page: Page,
+  confirm: Locator,
+  onClickInvoked: () => Promise<void>,
+) {
+  // JD's export component catches every application error and renders no
+  // durable failure state. Observe the exact request before the only click,
+  // and do not refresh the record table while that request is still in flight.
+  const responsePromise = handleJdWareDownloadPromise(page.waitForResponse(
+    (response) => isJdWareCreateExportRequest(response.url(), response.request().method()),
+    { timeout: 15_000 },
+  ));
+  await confirm.click();
+  await onClickInvoked();
+  const response = await responsePromise;
+  const responseText = (await response.text()).slice(0, 8_192);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(responseText);
+  } catch {
+    payload = null;
+  }
+  return validateJdWareCreateExportResponse({ status: response.status(), payload });
 }
 
 async function parseCliOptions(): Promise<CliOptions> {
@@ -201,6 +329,7 @@ export function hasStableUniqueVisibleJdExportEntry(samples: readonly number[]) 
 }
 
 export type JdWareExportEntryBootstrapDecision = "ready" | "open_batch_operations" | "wait";
+export const jdWareBatchOperationsLabelPattern = /^\s*批量操作\s*$/;
 
 export function jdWareExportEntryBootstrapDecision(input: { exportEntryCount: number; batchOperationsCount: number }): JdWareExportEntryBootstrapDecision {
   if (!Number.isInteger(input.exportEntryCount) || input.exportEntryCount < 0 || !Number.isInteger(input.batchOperationsCount) || input.batchOperationsCount < 0) {
@@ -225,7 +354,10 @@ export function jdWareProductQueryBootstrapDecision(input: { productSearchContai
   }
   if (input.productSearchContainerCount > 1) throw new Error("商品列表筛选容器不唯一。");
   if (input.productSearchContainerCount === 0) {
-    if (input.pageQueryButtonCount > 0) throw new Error("查询按钮不属于商品列表筛选容器。");
+    // On slower stores JD can paint the unique button before its enclosing
+    // filter form receives the identifying field text/classes. Never click the
+    // unbound button; allow the outer bounded wait to observe the complete DOM.
+    if (input.pageQueryButtonCount > 1) throw new Error("商品列表筛选容器尚未出现时查询按钮不唯一。");
     return "wait";
   }
   if (input.pageQueryButtonCount !== input.scopedQueryButtonCount) throw new Error("查询按钮与商品列表筛选容器不唯一对应。");
@@ -268,6 +400,49 @@ async function getVerifiedJdWareSkuExportDrawer(page: Page): Promise<VerifiedJdW
   return decision === "already_open" ? { exportDrawer, skuTab: scopedSkuTab } : null;
 }
 
+async function closeExistingJdWareSkuExportDrawer(page: Page) {
+  const verified = await getVerifiedJdWareSkuExportDrawer(page);
+  if (!verified) return false;
+  const close = verified.exportDrawer.getByRole("button", { name: "关闭此对话框", exact: true }).filter({ visible: true });
+  await exactlyOne(close, "京东 SKU 导出抽屉关闭按钮");
+  await close.click({ timeout: 10_000 });
+  await verified.exportDrawer.waitFor({ state: "hidden", timeout: 10_000 });
+  return true;
+}
+
+async function refreshAndVerifyJdWareProductQuery(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
+  const productSearchContainer = page.locator("form:has-text('商品名称'):has-text('商品编码'), [role='search']:has-text('商品名称'):has-text('商品编码'), .ant-form:has-text('商品名称'):has-text('商品编码')").filter({ visible: true });
+  const queryButton = productSearchContainer.getByRole("button", { name: "查询", exact: true }).filter({ visible: true });
+  const pageQueryButton = page.getByRole("button", { name: "查询", exact: true }).filter({ visible: true });
+  await waitForJdWareProductQueryBootstrap(
+    async () => ({
+      productSearchContainerCount: await productSearchContainer.count(),
+      scopedQueryButtonCount: await queryButton.count(),
+      pageQueryButtonCount: await pageQueryButton.count(),
+    }),
+    () => page.waitForTimeout(200),
+  );
+  if (queryBootstrapState.queryTriggered) throw new Error("本轮京东商品查询已触发，拒绝重复查询。");
+  await exactlyOne(queryButton, "查询按钮");
+  const responsePromise = handleJdWareDownloadPromise(page.waitForResponse(
+    (response) => isJdWareProductQueryRequest(response.url(), response.request().method()),
+    { timeout: 20_000 },
+  ));
+  queryBootstrapState.queryTriggered = true;
+  await clickJdWareProductQueryControl(queryButton);
+  const response = await responsePromise;
+  const payload = await response.json().catch(() => null) as unknown;
+  const verified = validateJdWareProductQueryResponse({ status: response.status(), payload });
+  const total = page.locator(".select-count").filter({ visible: true });
+  await exactlyOne(total, "京东商品查询总行数");
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (parseJdWareProductTotalText(await total.innerText()) === verified.total) return verified;
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`京东商品查询接口返回 ${verified.total} 行，但页面总行数未精确回显。`);
+}
+
 export async function prepareJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
   if (await getVerifiedJdWareSkuExportDrawer(page)) return "already_open" as const;
   await revealJdWareExportEntry(page, queryBootstrapState);
@@ -276,7 +451,10 @@ export async function prepareJdWareExportEntry(page: Page, queryBootstrapState: 
 
 export async function revealJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
   const exportEntry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
-  const batchOperations = page.locator("button").filter({ hasText: /^批量操作$/, visible: true });
+  // JD renders a role=button wrapper around the actual button and includes a
+  // trailing space before the chevron. Bind only the inner <button>, allowing
+  // whitespace but excluding “更多批量工具”.
+  const batchOperations = page.locator("button").filter({ hasText: jdWareBatchOperationsLabelPattern, visible: true });
   // A page-level 查询 button can belong to a popover or an unrelated panel. Bind it
   // to the one visible WareList filter container identified by both product fields.
   const productSearchContainer = page.locator("form:has-text('商品名称'):has-text('商品编码'), [role='search']:has-text('商品名称'):has-text('商品编码'), .ant-form:has-text('商品名称'):has-text('商品编码')").filter({ visible: true });
@@ -410,6 +588,11 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
     await page.waitForTimeout(150);
   }
   await dismissJdMenuUpdateNotice(page);
+  // A drawer opened before the product query settled captures total=0 even
+  // after the table later shows rows. Reopen it only after a fresh, positive
+  // query response and the same total are visible in the product toolbar.
+  await closeExistingJdWareSkuExportDrawer(page);
+  await refreshAndVerifyJdWareProductQuery(page, queryBootstrapState);
   await prepareJdWareExportEntry(page, queryBootstrapState);
 }
 
@@ -826,14 +1009,19 @@ export async function runShopSkuExport(
       // process stops before learning the task id, the next run can still
       // associate exactly one post-baseline row.
       await checkpoint({ stage: "task_submitting", baselineTaskIds: [...previousTaskIds] });
-      await confirm.click();
+      const submission = await clickAndConfirmJdWareExportSubmission(
+        page,
+        confirm,
+        () => checkpoint({ stage: "task_click_invoked", baselineTaskIds: [...previousTaskIds] }),
+      );
       // A resolved Playwright click only proves the UI event was invoked.  JD
       // can ignore it or delay creation, so do not report a submitted task
       // until the export-record table exposes exactly one post-baseline row.
-      await checkpoint({ stage: "task_click_invoked", baselineTaskIds: [...previousTaskIds] });
+      await checkpoint({ stage: "task_submission_accepted", baselineTaskIds: [...previousTaskIds] });
       task = await waitForTask(page, previousTaskIds, options.taskTimeoutMs, async (observed) => {
         await checkpoint({ stage: "task_observed", taskId: observed.taskId, taskStatus: observed.status });
       });
+      if (submission.message) notes.push(`京东创建接口：${submission.message}`);
       notes.push(`已确认新的 SKU 导出任务 ${task.taskId}。`);
     }
   }
@@ -946,7 +1134,25 @@ async function main() {
     }
   } catch (error) {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
-    await persistAudit({ status: "failed", error: message });
+    if (error instanceof JdWareCreateExportRejectedError && error.definitiveNoTask && recovery && !recovery.taskId) {
+      // JD explicitly confirmed that createExportJob failed, so this manifest
+      // cannot own a remote task. Preserve it as evidence and allow an
+      // immediate corrected retry instead of imposing the ambiguous 30-minute
+      // recovery quarantine.
+      const archivedPath = path.join(artifactDir, `active-task-${options.storeKey}.rejected-${Date.now()}.json`);
+      const recoveryCreatedAt = recovery.createdAt;
+      await rename(activeTaskPath, archivedPath);
+      recovery = null;
+      await persistAudit({
+        status: "failed",
+        stage: "task_submission_rejected",
+        recoveryArchivePath: path.basename(archivedPath),
+        recoveryCreatedAt,
+        error: message,
+      });
+    } else {
+      await persistAudit({ status: "failed", error: message });
+    }
     console.error(message);
     process.exitCode = 1;
   } finally {
