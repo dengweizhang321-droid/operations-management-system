@@ -5,7 +5,7 @@ import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
-  createValidationRun, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
+  createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
   revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     const parsed: unknown = await request.json().catch(() => null);
     if (!record(parsed)) return Response.json({ error: "请求数据必须是 JSON 对象" }, { status: 400 });
     const action = text(parsed, "action");
-    const adminActions = new Set(["commit", "commit_selected", "activate_prompt", "rollback_prompt", "delete_prompt", "create_agent", "revoke_agent", "mark_gold"]);
+    const adminActions = new Set(["commit", "commit_selected", "activate_prompt", "rollback_prompt", "delete_prompt", "delete_job", "create_agent", "revoke_agent", "mark_gold"]);
     const principal = await requireAppPrincipal(adminActions.has(action) ? ["admin"] : ["operator", "admin"]);
     const db = getMarketDatabase();
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
@@ -115,6 +115,7 @@ export async function POST(request: Request) {
       case "activate_prompt": result = await activatePromptVersion(db, { promptId: text(parsed, "promptId"), explicitOverride: parsed.explicitOverride === true, reason: text(parsed, "reason") }, principal); break;
       case "rollback_prompt": result = await activatePromptVersion(db, { promptId: text(parsed, "promptId"), explicitOverride: true, reason: text(parsed, "reason"), rollback: true }, principal); break;
       case "delete_prompt": result = await deletePromptVersion(db, text(parsed, "promptId"), principal); break;
+      case "delete_job": result = await deleteCommittedAnnotationJob(db, text(parsed, "jobId"), principal); break;
       case "mark_gold": result = await markAnnotationsAsGold(db, texts(parsed, "annotationIds"), principal); break;
       case "create_agent": result = await createLocalAgent(db, text(parsed, "name"), principal); break;
       case "revoke_agent": result = await revokeLocalAgent(db, text(parsed, "agentId")); break;

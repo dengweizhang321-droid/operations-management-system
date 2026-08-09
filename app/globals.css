@@ -934,9 +934,45 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   padding: 2px 4px 2px 2px;
   overflow-y: auto;
 }
-.annotation-job-list button {
+.annotation-job-entry {
   min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.annotation-job-entry.active {
+  border-color: #5b82dc;
+  background: #f2f6ff;
+}
+.annotation-job-list .annotation-job-select {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
   padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.annotation-job-list .annotation-job-delete {
+  min-width: 74px;
+  display: block;
+  padding: 8px;
+  border: 0;
+  border-left: 1px solid #f1d4d4;
+  border-radius: 0;
+  color: #b94b4b;
+  background: #fff8f8;
+  font-size: 9px;
+  text-align: center;
+  white-space: nowrap;
+}
+.annotation-job-list .annotation-job-delete:hover:not(:disabled) {
+  background: #ffeded;
 }
 .annotation-review-table-wrap {
   width: 100%;

@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -187,7 +187,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
     readFile(new URL("../drizzle/0054_market_annotation_concurrency_settings.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0057_market_annotation_cloud_runner.sql", import.meta.url), "utf8"),
   ]);
-  assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*create_agent/s);
+  assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*delete_job.*create_agent/s);
   assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
   assert.match(route, /case "set_cloud_run_state"/);
   assert.match(route, /result = await setCloudAnnotationRunState\(db, \{ jobId: text\(parsed, "jobId"\), state \}, principal\)/);
@@ -280,12 +280,13 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /action: "commit_selected"/);
   assert.match(ui, /action: "select_filtered"/);
   assert.match(ui, /全选筛选结果（跨页/);
-  assert.match(ui, /for \(let batch = 1; batch <= 20; batch \+= 1\)/);
+  assert.match(ui, /MAX_COMMIT_BATCHES = 100/);
+  assert.match(ui, /for \(let batch = 1; batch <= MAX_COMMIT_BATCHES; batch \+= 1\)/);
   assert.match(ui, /if \(!result\?\.hasMore\) break/);
   assert.match(ui, /selectedPageIds/);
   assert.match(ui, /dirtyDraftIdsRef\.current\.has\(item\.id\) && existing\.version === serverDraft\.version/);
   assert.match(ui, /loadedReviewScopeKey === activeReviewScopeKey/);
-  assert.match(service, /MAX_FILTERED_SELECTION = 5_000/);
+  assert.match(service, /MAX_FILTERED_SELECTION = 50_000/);
   assert.match(service, /COMMIT_SELECTION_BATCH_SIZE = 500/);
   assert.match(ui, /AI 标注识别来源/);
   assert.match(ui, /完整市场 SKU 库检索/);
@@ -298,6 +299,10 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /保存并应用/);
   assert.match(ui, /annotation-task-setup/);
   assert.match(ui, /annotation-current-run/);
+  assert.match(ui, /action: "delete_job"/);
+  assert.match(ui, /正式入库结果保持不变/);
+  assert.match(service, /deleteCommittedAnnotationJob/);
+  assert.match(service, /delete_committed_market_annotation_job/);
   const currentConcurrencyControl = ui.slice(ui.indexOf('aria-label="当前 AI 标注任务模型并发数"'), ui.indexOf("</label>", ui.indexOf('aria-label="当前 AI 标注任务模型并发数"')));
   assert.ok(currentConcurrencyControl.length > 0);
   assert.doesNotMatch(currentConcurrencyControl, /!category|busy !==/);
@@ -1328,6 +1333,63 @@ test("annotation review filters AI sources and selects the filtered result acros
   assert.equal((sqlite.prepare("SELECT selected FROM market_annotation_items WHERE id='selection-manual'").get() as { selected: number }).selected, 1);
   await setFilteredAnnotationSelection(db, { jobId: "selection-job", selected: false, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
   assert.deepEqual((sqlite.prepare("SELECT id FROM market_annotation_items WHERE selected=1 ORDER BY id").all() as Array<{ id: string }>).map((row) => row.id), ["selection-manual"]);
+  sqlite.close();
+});
+
+test("filtered selection accepts more than the former 5,000-row ceiling", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('selection-over-five-thousand-prompt','跨页大类目',1,'manual','active','["可入库"]','这是用于验证跨页全选突破旧五千条限制的测试 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, created_by)
+      VALUES ('selection-over-five-thousand-job','跨页大类目','selection-over-five-thousand-prompt','local','review_ready',5001,'operator@test');
+  `);
+  const insert = sqlite.prepare("INSERT INTO market_annotation_items (id, job_id, category, sku_code, status, reviewed_segment, ai_segment) VALUES (?, 'selection-over-five-thousand-job', '跨页大类目', ?, 'review_pending', '可入库', '可入库')");
+  sqlite.exec("BEGIN");
+  for (let index = 1; index <= 5_001; index += 1) insert.run(`selection-over-five-thousand-item-${index}`, `SKU-${index}`);
+  sqlite.exec("COMMIT");
+
+  const selected = await setFilteredAnnotationSelection(db, { aggregateJobs: true, categories: ["跨页大类目"], selected: true, recognitionSource: "ai" }, { email: "operator@test", role: "operator" });
+  assert.equal(selected.changed, 5_001);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE selected=1 AND status='approved'").get() as { count: number }).count, 5_001);
+  sqlite.close();
+});
+
+test("deleting a committed task hides only the task record and preserves formal facts and audit evidence", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE ai_models (id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL, model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL, is_default_text_model INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+    INSERT INTO market_annotation_prompt_versions (id, category, version, source, status, segments_json, prompt_body, created_by)
+      VALUES ('delete-committed-prompt','删除测试类目',1,'manual','active','["已确认"]','这是用于验证删除已入库任务只隐藏记录的测试 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, completed_count, reviewed_count, committed_count, created_by) VALUES
+      ('delete-committed-job','删除测试类目','delete-committed-prompt','local','committed',1,1,1,1,'operator@test'),
+      ('delete-pending-job','删除测试类目','delete-committed-prompt','local','review_ready',1,1,0,0,'operator@test');
+    INSERT INTO market_annotation_items (id, job_id, category, sku_code, status, reviewed_segment) VALUES
+      ('delete-committed-item','delete-committed-job','删除测试类目','DELETE-1','committed','已确认'),
+      ('delete-pending-item','delete-pending-job','删除测试类目','DELETE-2','review_pending','已确认');
+    INSERT INTO market_sku_annotations (id,category,sku_code,segment,source_job_item_id,prompt_version_id,reviewed_by,reviewed_at)
+      VALUES ('delete-formal-annotation','删除测试类目','DELETE-1','已确认','delete-committed-item','delete-committed-prompt','admin@test',CURRENT_TIMESTAMP);
+    INSERT INTO market_annotation_commit_receipts (id,job_item_id,annotation_id,idempotency_key,after_json,committed_by)
+      VALUES ('delete-receipt','delete-committed-item','delete-formal-annotation','delete-committed-receipt-key','{}','admin@test');
+  `);
+
+  await assert.rejects(() => deleteCommittedAnnotationJob(db, "delete-pending-job", { email: "admin@test", role: "admin" }), /只能删除已经全部入库/);
+  const deleted = await deleteCommittedAnnotationJob(db, "delete-committed-job", { email: "admin@test", role: "admin" });
+  assert.deepEqual({ status: deleted.status, preservedItems: deleted.preservedItems, preservedReceipts: deleted.preservedReceipts, formalAnnotationsPreserved: deleted.formalAnnotationsPreserved }, { status: "deleted", preservedItems: 1, preservedReceipts: 1, formalAnnotationsPreserved: true });
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='delete-committed-job'").get() as { status: string }).status, "deleted");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE id='delete-committed-item'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_sku_annotations WHERE id='delete-formal-annotation'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_commit_receipts WHERE id='delete-receipt'").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='delete_committed_market_annotation_job' AND entity_id='delete-committed-job'").get() as { count: number }).count, 1);
+  const workspace = await getAnnotationWorkspace(db, { aggregateJobs: true });
+  assert.equal(workspace.jobs.some((job) => job.id === "delete-committed-job"), false);
+  assert.equal(workspace.items.some((item) => item.jobId === "delete-committed-job"), false);
+  assert.equal(workspace.items.some((item) => item.jobId === "delete-pending-job"), true);
   sqlite.close();
 });
 

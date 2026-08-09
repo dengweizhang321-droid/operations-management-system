@@ -80,7 +80,7 @@ function promptValue(row: PromptRow) { return { id: row.id, category: row.catego
 function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
 function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, modelInputBytes: row.model_input_bytes, imageLoadMs: row.image_load_ms, imagePrepareMs: row.image_prepare_ms, modelCallMs: row.model_call_ms, totalInferenceMs: row.total_inference_ms, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, reviewPriceSource: row.reviewed_by === HISTORY_SAME_IMAGE_REVIEWER ? "history_same_image" : (row.ai_segment || row.ai_image_price_cents !== null || row.ai_confidence_bps !== null || row.ai_reason) ? "ai" : "manual", selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
 const aiRecognitionClause = "(COALESCE(ai_segment,'')<>'' OR ai_image_price_cents IS NOT NULL OR ai_confidence_bps IS NOT NULL OR COALESCE(ai_reason,'')<>'')";
-const MAX_FILTERED_SELECTION = 5_000;
+const MAX_FILTERED_SELECTION = 50_000;
 const COMMIT_SELECTION_BATCH_SIZE = 500;
 const CLOUD_ANNOTATION_BATCH_MAX = 8;
 const D1_BOUND_LIST_CHUNK = 80;
@@ -174,7 +174,7 @@ export async function setCloudAnnotationRunState(
   const jobId = input.jobId.trim();
   const job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
   if (!job || job.executor !== "cloud") throw new Error("云端标注任务不存在");
-  if (["cancelled", "committed"].includes(job.status)) throw new Error("该任务已经结束，不能调整后台运行状态");
+  if (["cancelled", "committed", "deleted"].includes(job.status)) throw new Error("该任务已经结束，不能调整后台运行状态");
   const configured = await annotationConcurrency(db, job.category, "cloud");
   const before = await getCloudRunControl(db, jobId, configured);
   const retryJson = input.state === "running"
@@ -247,8 +247,11 @@ function addAnnotationReviewFilters(
 
 function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[] }) {
   const categories = annotationCategoryList(input.itemCategories, input.itemCategory);
-  if (input.aggregateJobs) return categories.length ? { clause: `category IN (${categories.map(() => "?").join(",")})`, bindings: categories as unknown[] } : { clause: "1=1", bindings: [] as unknown[] };
-  return { clause: "job_id=?", bindings: [input.jobId ?? ""] as unknown[] };
+  const visibleJobClause = "EXISTS (SELECT 1 FROM market_annotation_jobs visible_job WHERE visible_job.id=market_annotation_items.job_id AND visible_job.status<>'deleted')";
+  if (input.aggregateJobs) return categories.length
+    ? { clause: `${visibleJobClause} AND category IN (${categories.map(() => "?").join(",")})`, bindings: categories as unknown[] }
+    : { clause: visibleJobClause, bindings: [] as unknown[] };
+  return { clause: `job_id=? AND ${visibleJobClause}`, bindings: [input.jobId ?? ""] as unknown[] };
 }
 
 type AnnotationWorkspaceInput = {
@@ -334,16 +337,17 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
   const [review, categoryRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, concurrencyRows, cloudRunRows, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     queryAnnotationReviewWorkspace(db, input),
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare("SELECT category value, COUNT(DISTINCT job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items WHERE category<>'' GROUP BY category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
+    db.prepare("SELECT item.category value, COUNT(DISTINCT item.job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items item JOIN market_annotation_jobs job ON job.id=item.job_id WHERE item.category<>'' AND job.status<>'deleted' GROUP BY item.category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
     db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
-    db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
+    db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE status<>'deleted' ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
     db.prepare("SELECT category, executor, concurrency, updated_by, updated_at FROM market_annotation_concurrency_settings ORDER BY category, executor LIMIT 400").all<ConcurrencySettingRow>(),
     db.prepare(`SELECT run.job_id,run.state,run.retry_state_json,run.next_run_at,run.lease_token_hash,run.lease_expires_at,
         run.last_failure_code,run.last_failure_message,run.last_started_at,run.last_heartbeat_at,run.completed_at,run.updated_at,
         COALESCE(setting.concurrency,?) configured_concurrency
       FROM market_annotation_cloud_runs run JOIN market_annotation_jobs job ON job.id=run.job_id
       LEFT JOIN market_annotation_concurrency_settings setting ON setting.category=job.category AND setting.executor='cloud'
+      WHERE job.status<>'deleted'
       ORDER BY datetime(run.updated_at) DESC LIMIT 100`)
       .bind(defaultMarketAnnotationConcurrency("cloud")).all<CloudRunRow & { configured_concurrency: number }>(),
     listAnnotationModels(db), listPromptTextModels(db), input.includeCatalog === false
@@ -946,7 +950,7 @@ async function runNextCloudAnnotationInternal(db: MarketDatabase, jobId: string,
   await ensureAnnotationSchema(db);
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<JobRow>();
   if (!job || job.executor !== "cloud" || !job.model_id) throw new Error("云端标注任务不存在");
-  if (["cancelled", "committed"].includes(job.status)) throw new Error("该任务当前不能继续执行");
+  if (["cancelled", "committed", "deleted"].includes(job.status)) throw new Error("该任务当前不能继续执行");
   const reusePreparation = await prepareAnnotationReuse(db, job);
   if (reusePreparation.reusedCount) {
     if (refreshState) await refreshJob(db, jobId);
@@ -1116,7 +1120,7 @@ export async function runCloudAnnotationPump(db: MarketDatabase, input: { jobId?
   if (job.executor !== "cloud") throw new Error("只有云端标注任务可以由后台泵推进");
   // 已收尾的任务只走一次对账：runCloudAnnotationBatch 会立刻返回 done，
   // 随后的 refreshJob 把计数校正回真实值，不会再触发任何模型调用。
-  if (["cancelled", "committed"].includes(job.status)) return { idle: true, jobId: job.id, category: job.category, concurrency: 0 };
+  if (["cancelled", "committed", "deleted"].includes(job.status)) return { idle: true, jobId: job.id, category: job.category, concurrency: 0 };
   const concurrency = await annotationConcurrency(db, job.category, "cloud");
   const batch = await runCloudAnnotationBatch(db, job.id, 1);
   // 后台泵没有浏览器那份 loadJobProgress 轮询，这里顺手刷新任务计数，
@@ -1592,7 +1596,7 @@ async function refreshJob(db: MarketDatabase, jobId: string) {
   if (!counts) return;
   const current = await db.prepare("SELECT status FROM market_annotation_jobs WHERE id=?").bind(jobId).first<{ status: string }>();
   let status = current?.status ?? "running";
-  if (!["cancelled", "committed"].includes(status)) {
+  if (!["cancelled", "committed", "deleted"].includes(status)) {
     if (Number(counts.committed) === Number(counts.total) && Number(counts.total) > 0) status = "committed";
     else if (Number(counts.remaining) === 0) status = "review_ready";
     else status = "running";
@@ -1763,6 +1767,44 @@ export async function deletePromptVersion(db: MarketDatabase, promptIdValue: str
   const deleted = await db.prepare("SELECT status FROM market_annotation_prompt_versions WHERE id=?").bind(promptId).first<{ status: string }>();
   if (deleted?.status !== "deleted") throw new Error("Prompt 草稿删除未生效，请刷新后重试");
   return { ok: true, promptId, category: prompt.category, version: prompt.version };
+}
+
+export async function deleteCommittedAnnotationJob(db: MarketDatabase, jobIdValue: string, actor: Actor) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  const jobId = jobIdValue.trim();
+  if (!/^[A-Za-z0-9:_-]{12,160}$/.test(jobId)) throw new Error("标注任务 ID 无效");
+  const job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
+  if (!job) throw new Error("标注任务不存在");
+  if (job.status !== "committed") throw new Error("只能删除已经全部入库的任务记录");
+  const facts = await db.prepare(`SELECT COUNT(*) itemCount,
+      SUM(CASE WHEN status='committed' THEN 1 ELSE 0 END) committedCount,
+      (SELECT COUNT(*) FROM market_annotation_commit_receipts WHERE job_item_id IN
+        (SELECT id FROM market_annotation_items WHERE job_id=?)) receiptCount
+    FROM market_annotation_items WHERE job_id=?`).bind(jobId, jobId)
+    .first<{ itemCount: number; committedCount: number | null; receiptCount: number }>();
+  const itemCount = Number(facts?.itemCount ?? 0);
+  const committedCount = Number(facts?.committedCount ?? 0);
+  if (!itemCount || committedCount !== itemCount) throw new Error("任务明细并非全部已入库，禁止删除任务记录");
+  const before = jobValue(job);
+  const after = { status: "deleted", preservedItems: itemCount, preservedReceipts: Number(facts?.receiptCount ?? 0), formalAnnotationsPreserved: true };
+  await db.batch([
+    db.prepare(`UPDATE market_annotation_jobs SET status='deleted', commit_token_hash='', commit_started_at=NULL,
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND status='committed' AND EXISTS (SELECT 1 FROM market_annotation_items WHERE job_id=?)
+        AND NOT EXISTS (SELECT 1 FROM market_annotation_items WHERE job_id=? AND status<>'committed')`)
+      .bind(jobId, jobId, jobId),
+    db.prepare(`UPDATE market_annotation_cloud_runs SET state='completed', lease_token_hash='', lease_expires_at=NULL,
+        next_run_at=NULL, completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP
+      WHERE job_id=?`).bind(jobId),
+    db.prepare(`INSERT INTO market_master_audit_logs
+        (id,actor_email,actor_role,action,entity_type,entity_id,before_json,after_json)
+      SELECT ?,?,?, 'delete_committed_market_annotation_job', 'market_annotation_job', ?, ?, ?
+      WHERE EXISTS (SELECT 1 FROM market_annotation_jobs WHERE id=? AND status='deleted')`)
+      .bind(`market-audit-${randomUUID()}`, actor.email, actor.role, jobId, JSON.stringify(before), JSON.stringify(after), jobId),
+  ]);
+  const deleted = await db.prepare("SELECT status FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<{ status: string }>();
+  if (deleted?.status !== "deleted") throw new Error("任务状态已变化，删除未生效，请刷新后重试");
+  return { ok: true, jobId, ...after };
 }
 
 export async function createLocalAgent(db: MarketDatabase, nameValue: string, actor: Actor) {

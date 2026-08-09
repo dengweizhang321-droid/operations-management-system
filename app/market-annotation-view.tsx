@@ -28,6 +28,7 @@ type Draft = { segment: string; price: string; selected: boolean; version: numbe
 
 const LOAD_TIMEOUT_MS = 30_000;
 const ACTION_TIMEOUT_MS = 110_000;
+const MAX_COMMIT_BATCHES = 100;
 const money = (cents: number | null | undefined) => cents === null || cents === undefined ? "—" : new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(cents / 100);
 const duration = (ms: number | null | undefined) => !ms ? "—" : ms >= 1_000 ? `${(ms / 1_000).toFixed(1)} 秒` : `${ms} 毫秒`;
 const bytes = (value: number | null | undefined) => !value ? "—" : value >= 1024 * 1024 ? `${(value / 1024 / 1024).toFixed(1)} MB` : `${Math.round(value / 1024)} KB`;
@@ -428,7 +429,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const operationId = "ui_aggregate_" + Date.now().toString(36);
     let committed = 0;
     let duplicates = 0;
-    for (let batch = 1; batch <= 20; batch += 1) {
+    for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
       setNotice(`正在分批入库：已完成 ${committed} 条，本批最多处理 500 条`);
       const result = await post({ action: "commit_selected", aggregateJobs: true, categories: reviewCategories, idempotencyKey: `${operationId}_${batch}` });
       committed += Number(result?.committed ?? 0);
@@ -438,7 +439,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条；页面已刷新，可重新点击续跑`));
       }
       if (!result?.hasMore) break;
-      if (batch === 20) throw new Error(`已连续处理 ${committed} 条，但仍有剩余选择；请再次点击批量入库继续`);
+      if (batch === MAX_COMMIT_BATCHES) throw new Error(`已连续处理 ${committed} 条，但仍有剩余选择；请再次点击批量入库继续`);
     }
     selectedPageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await loadReview(true); setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条`);
   });
@@ -490,6 +491,15 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       else { setPromptId(""); setPromptBody(""); setSegmentsText((data?.taxonomy ?? []).filter((entry) => entry.category === item.category).map((entry) => entry.value).join("\n")); }
     }
     await load(jobId); setNotice(`Prompt v${item.version} 草稿已删除`);
+  });
+  const deleteJob = (item: Job) => act("delete-job", async () => {
+    if (item.status !== "committed") throw new Error("只能删除已经全部入库的任务记录");
+    if (!window.confirm(`确认删除“${item.category}”的这条已入库任务记录？\n\n任务卡片和复核候选会隐藏，但正式入库的 SKU 标注、价格、入库回执与审计记录都会保留。`)) return;
+    const result = await post({ action: "delete_job", jobId: item.id });
+    dirtyDraftIdsRef.current.clear();
+    if (jobId === item.id) { setJobId(""); setCloudProgress(null); }
+    await load("", search, searchPage, 1, true);
+    setNotice(`已删除任务记录；正式入库结果保持不变，保留 ${String(result?.preservedItems ?? item.committedCount)} 条任务明细用于审计`);
   });
   const createAgent = () => act("agent", async () => { const name = window.prompt("本地 agent 名称", "办公室 Ollama") || ""; const result = await post({ action: "create_agent", name }); setAgentToken(String(result?.token || "")); await load(jobId); });
 
@@ -569,8 +579,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state === "completed"} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRun?.state === "running" ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : currentCloudRun?.state === "completed" ? "云端识别已完成" : currentCloudRun?.state === "running" ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state !== "running"} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
 
-      <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务，点击卡片切换当前任务</small></div>
-      <div className="annotation-job-list">{visibleJobs.map((item) => <button className={jobId === item.id ? "active" : ""} key={item.id} onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>)}</div>
+      <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务；已全部入库的记录可由管理员删除，正式入库结果不会受影响</small></div>
+      <div className="annotation-job-list">{visibleJobs.map((item) => <div className={`annotation-job-entry ${jobId === item.id ? "active" : ""}`} key={item.id}><button className="annotation-job-select" onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>{item.status === "committed" && <button className="annotation-job-delete" disabled={!isAdmin || busy !== ""} title={isAdmin ? "删除任务记录，保留正式入库结果和审计" : "仅管理员可删除已入库任务记录"} onClick={() => void deleteJob(item)}>{busy === "delete-job" && jobId === item.id ? "删除中…" : "删除记录"}</button>}</div>)}</div>
     </section>
 
     <section className="panel annotation-review-card">
@@ -590,7 +600,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           setNotice(selected ? `当前页已选择 ${importableItems.length} 条可入库项` : "已清空当前页选择");
         }} />全选当前页可入库项（{importableItems.length} 条）</label>
         <label className="annotation-select-page annotation-select-filtered"><input type="checkbox" checked={allFilteredChecked} disabled={!canEdit || !reviewScopeReady || !data.selection.filteredReviewableCount || busy !== ""} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
-        <small>{reviewScopeReady ? "仅选择识别任务已完成、且细分品类仍符合任务 Prompt 的记录；超过 500 条会在入库时自动分批续跑。" : "正在应用三级品类与复核筛选，请稍候……"}</small>
+        <small>{reviewScopeReady ? "仅选择识别任务已完成、且细分品类仍符合任务 Prompt 的记录；跨页全选支持最多 50,000 条，超过 500 条会在入库时自动分批续跑。" : "正在应用三级品类与复核筛选，请稍候……"}</small>
         {!reviewScopeReady && <button className="secondary-button" disabled={busy !== ""} onClick={() => void loadReview(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败"))}>重新加载筛选结果</button>}
         <div className="market-view-switch" role="group" aria-label="AI 标注展示方式"><button className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")}>列表</button><button className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")}>大图</button></div>
       </div>
