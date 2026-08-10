@@ -12,11 +12,11 @@ import {
   type JdWareExportRecovery,
   type JdWareExportTask,
 } from "../lib/jd/ware-export";
-import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
+import { waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
-import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, launchJdWareBrowser, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1098,13 +1098,12 @@ async function main() {
       throw new Error(`SKU 活动任务清单格式无效，已停止以免重复提交：${activeTaskPath}`);
     }
     await persistAudit({ stage: "launch_browser" });
-    await launchDedicatedChrome({
+    await launchJdWareBrowser({
       executablePath: chromePath,
       profileDirectory: options.profileDirectory,
       port: options.port,
       startUrl: targetUrl,
-      ...jdBrowserLaunchMode(options.interactiveLogin),
-    });
+    }, options.interactiveLogin);
     await waitForChrome(options.port);
     browser = await connectPlaywrightBrowser(options.port);
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
@@ -1115,6 +1114,7 @@ async function main() {
     });
     try {
       const queryBootstrapState = createJdWareQueryBootstrapState();
+      await persistAudit({ stage: "verify_product_query" });
       await openTargetPage(page, queryBootstrapState);
       const abandonRecovery = async () => {
         if (!recovery || recovery.taskId) throw new Error("活动任务清单不满足无 taskId 的放弃条件。");

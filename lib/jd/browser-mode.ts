@@ -8,9 +8,17 @@ export function jdBrowserLaunchMode(interactiveLogin: boolean): JdBrowserLaunchM
     : { headless: true, visible: false };
 }
 
+export type JdWareBrowserLaunchMode = JdBrowserLaunchMode & { startMinimized?: boolean };
+
+export function jdWareBrowserLaunchMode(interactiveLogin: boolean): JdWareBrowserLaunchMode {
+  return interactiveLogin
+    ? { headless: false, visible: true }
+    : { headless: false, visible: false, startMinimized: true };
+}
+
 export function isJdInteractiveBrowserFailure(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return /尚未登录|登录状态无效|请.{0,20}登录|验证码|人机验证|安全验证|安全校验|滑块验证|访问验证|访问受限|账号异常|店铺身份.{0,12}不一致|登录身份.{0,12}不一致/.test(message);
+  return /尚未登录|登录状态无效|请.{0,20}登录|验证码|人机验证|安全验证|安全校验|滑块验证|访问验证|访问受限|账号异常|业务码\s*601|未经京东授权的软件操作|店铺身份.{0,12}不一致|登录身份.{0,12}不一致/.test(message);
 }
 
 export function hasJdInteractivePageGate(pageText: string) {
@@ -35,6 +43,49 @@ const defaultLifecycleDependencies: JdBrowserLifecycleDependencies = {
   launchDedicatedChrome,
   waitForChrome,
 };
+
+type JdWareBrowserDependencies = Pick<JdBrowserLifecycleDependencies, "closeChromeBrowser" | "launchDedicatedChrome"> & {
+  readUserAgent: (port: number) => Promise<string>;
+};
+
+async function readChromeUserAgent(port: number) {
+  const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(5_000) });
+  if (!response.ok) throw new Error(`读取 Chrome 版本端点失败：HTTP ${response.status}。`);
+  const version = await response.json() as { "User-Agent"?: unknown };
+  if (typeof version["User-Agent"] !== "string" || !version["User-Agent"].trim()) {
+    throw new Error("Chrome 版本端点缺少 User-Agent。");
+  }
+  return version["User-Agent"];
+}
+
+const defaultWareBrowserDependencies: JdWareBrowserDependencies = {
+  closeChromeBrowser,
+  launchDedicatedChrome,
+  readUserAgent: readChromeUserAgent,
+};
+
+export async function launchJdWareBrowser(
+  options: JdInteractiveBrowserOptions,
+  interactiveLogin: boolean,
+  dependencies: JdWareBrowserDependencies = defaultWareBrowserDependencies,
+) {
+  const userAgent = await dependencies.readUserAgent(options.port).catch(() => null);
+  const replacingHeadless = typeof userAgent === "string" && /HeadlessChrome/i.test(userAgent);
+  if (replacingHeadless) await dependencies.closeChromeBrowser(options.port);
+  const launched = await dependencies.launchDedicatedChrome({
+    ...options,
+    ...jdWareBrowserLaunchMode(interactiveLogin),
+  });
+  if (replacingHeadless && !launched) {
+    throw new Error("京东商品主数据浏览器模式切换时端口被并发进程占用，拒绝复用未知实例。");
+  }
+  const activeUserAgent = await dependencies.readUserAgent(options.port);
+  if (/HeadlessChrome/i.test(activeUserAgent)) {
+    if (launched) await dependencies.closeChromeBrowser(options.port);
+    throw new Error("京东商品主数据浏览器仍带 HeadlessChrome 特征，已拒绝继续访问商品页。");
+  }
+  return { launched, replacedHeadless: replacingHeadless };
+}
 
 export async function revealJdBrowserForInteractiveFailure(
   options: JdInteractiveBrowserOptions,

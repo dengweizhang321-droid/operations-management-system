@@ -5,12 +5,16 @@ import {
   hasJdInteractivePageGate,
   isJdInteractiveBrowserFailure,
   jdBrowserLaunchMode,
+  jdWareBrowserLaunchMode,
+  launchJdWareBrowser,
   revealJdBrowserForInteractiveFailure,
 } from "../lib/jd/browser-mode";
 
-test("JD n8n launches headless by default and explicit login is visible", () => {
+test("JD product detail stays headless while JD master uses minimized headed Chrome", () => {
   assert.deepEqual(jdBrowserLaunchMode(false), { headless: true, visible: false });
   assert.deepEqual(jdBrowserLaunchMode(true), { headless: false, visible: true });
+  assert.deepEqual(jdWareBrowserLaunchMode(false), { headless: false, visible: false, startMinimized: true });
+  assert.deepEqual(jdWareBrowserLaunchMode(true), { headless: false, visible: true });
 });
 
 test("only interactive JD failures request a visible browser", () => {
@@ -19,6 +23,7 @@ test("only interactive JD failures request a visible browser", () => {
     "京东商智登录状态无效",
     "请完成滑块验证",
     "当前登录身份与受控店铺不一致",
+    "京东商品查询未返回正数总行数（HTTP 200，业务码 601，总行数 missing）：未经京东授权的软件操作",
   ]) assert.equal(isJdInteractiveBrowserFailure(new Error(message)), true, message);
 
   for (const message of [
@@ -30,6 +35,79 @@ test("only interactive JD failures request a visible browser", () => {
 
   assert.equal(hasJdInteractivePageGate("请完成滑块验证后继续"), true);
   assert.equal(hasJdInteractivePageGate("商品明细 查询 下载数据"), false);
+});
+
+test("JD ware browser replaces a stale HeadlessChrome before launching minimized headed Chrome", async () => {
+  const calls: string[] = [];
+  const userAgents = ["Mozilla/5.0 HeadlessChrome/151.0.0.0", "Mozilla/5.0 Chrome/151.0.0.0"];
+  const result = await launchJdWareBrowser({
+    executablePath: "chrome.exe",
+    profileDirectory: "D:\\profiles\\jd-store",
+    port: 9224,
+    startUrl: "https://example.test/jd",
+  }, false, {
+    readUserAgent: async () => userAgents.shift() ?? "Mozilla/5.0 Chrome/151.0.0.0",
+    closeChromeBrowser: async (port) => { calls.push(`close:${port}`); return true; },
+    launchDedicatedChrome: async (options) => {
+      calls.push(`launch:${options.headless}:${options.visible}:${options.startMinimized}:${options.port}`);
+      return {};
+    },
+  });
+  assert.deepEqual(calls, ["close:9224", "launch:false:false:true:9224"]);
+  assert.equal(result.replacedHeadless, true);
+});
+
+test("JD ware browser safely reuses an existing non-headless Chrome without closing it", async () => {
+  const calls: string[] = [];
+  const result = await launchJdWareBrowser({
+    executablePath: "chrome.exe",
+    profileDirectory: "D:\\profiles\\jd-store",
+    port: 9224,
+    startUrl: "https://example.test/jd",
+  }, false, {
+    readUserAgent: async () => "Mozilla/5.0 Chrome/151.0.0.0",
+    closeChromeBrowser: async () => { calls.push("close"); return true; },
+    launchDedicatedChrome: async (options) => {
+      calls.push(`launch:${options.headless}:${options.visible}:${options.startMinimized}`);
+      return null;
+    },
+  });
+  assert.deepEqual(calls, ["launch:false:false:true"]);
+  assert.equal(result.replacedHeadless, false);
+});
+
+test("JD ware browser verifies the active runtime is not HeadlessChrome", async () => {
+  const calls: string[] = [];
+  await assert.rejects(
+    launchJdWareBrowser({
+      executablePath: "chrome.exe",
+      profileDirectory: "D:\\profiles\\jd-store",
+      port: 9224,
+      startUrl: "https://example.test/jd",
+    }, false, {
+      readUserAgent: async () => "HeadlessChrome/151",
+      closeChromeBrowser: async () => { calls.push("close"); return true; },
+      launchDedicatedChrome: async () => ({ pid: 1 }),
+    }),
+    /仍带 HeadlessChrome 特征/,
+  );
+  assert.deepEqual(calls, ["close", "close"]);
+});
+
+test("JD ware browser fails closed if a concurrent process takes the port during mode replacement", async () => {
+  await assert.rejects(
+    launchJdWareBrowser({
+      executablePath: "chrome.exe",
+      profileDirectory: "D:\\profiles\\jd-store",
+      port: 9224,
+      startUrl: "https://example.test/jd",
+    }, false, {
+      readUserAgent: async () => "HeadlessChrome/151",
+      closeChromeBrowser: async () => true,
+      launchDedicatedChrome: async () => null,
+    }),
+    /端口被并发进程占用/,
+  );
 });
 
 test("interactive recovery closes headless Chrome before opening one visible process", async () => {
@@ -64,11 +142,16 @@ test("interactive recovery closes headless Chrome before opening one visible pro
   );
 });
 
-test("both JD export programs use the shared background browser mode", async () => {
+test("JD master uses minimized headed Chrome while product detail keeps shared headless mode", async () => {
   const master = await readFile("tools/jackyun-ware-export.ts", "utf8");
   const daily = await readFile("tools/jdsz-product-detail-export.ts", "utf8");
-  assert.match(master, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
+  const cdp = await readFile("lib/jackyun/cdp-client.ts", "utf8");
+  assert.match(master, /launchJdWareBrowser\([\s\S]*options\.interactiveLogin\)/);
   assert.match(daily, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
-  assert.doesNotMatch(master, /startUrl:\s*targetUrl,\s*headless:\s*false/);
+  assert.doesNotMatch(master, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
   assert.doesNotMatch(daily, /startUrl:\s*targetUrl,\s*headless:\s*false/);
+  assert.match(cdp, /options\.startMinimized[\s\S]*--start-minimized/);
+  assert.match(cdp, /--disable-background-timer-throttling/);
+  assert.match(cdp, /--disable-backgrounding-occluded-windows/);
+  assert.match(cdp, /--disable-renderer-backgrounding/);
 });

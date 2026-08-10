@@ -162,6 +162,7 @@ export async function launchDedicatedChrome(options: {
   startUrl: string;
   headless?: boolean;
   visible?: boolean;
+  startMinimized?: boolean;
 }) {
   try {
     await listChromeTargets(options.port);
@@ -179,6 +180,14 @@ export async function launchDedicatedChrome(options: {
     options.startUrl,
   ];
   if (options.headless) args.unshift("--headless=new");
+  if (options.startMinimized) {
+    args.unshift(
+      "--start-minimized",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
+    );
+  }
   const child: ChildProcess = spawn(options.executablePath, args, { detached: true, stdio: "ignore", windowsHide: !options.visible });
   child.unref();
   await waitForChrome(options.port);

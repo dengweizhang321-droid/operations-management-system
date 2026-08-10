@@ -326,6 +326,10 @@ test("requires a fresh positive JD product query before opening the export drawe
     () => validateJdWareProductQueryResponse({ status: 200, payload: { code: 201, msg: "查询失败", data: { total: 83 } } }),
     /业务码 201/,
   );
+  assert.throws(
+    () => validateJdWareProductQueryResponse({ status: 200, payload: { code: 601, msg: "未经京东授权的软件操作", data: {} } }),
+    /业务码 601.*未经京东授权的软件操作/,
+  );
   assert.equal(parseJdWareProductTotalText("共83条"), 83);
   assert.equal(parseJdWareProductTotalText(" 共 83 条 "), 83);
   assert.equal(parseJdWareProductTotalText("共 2 页"), null);
