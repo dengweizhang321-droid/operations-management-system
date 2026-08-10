@@ -10,8 +10,8 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import * as XLSX from "xlsx";
@@ -251,6 +251,17 @@ test("preserves the task id in a timeout failure audit", () => {
   );
 });
 
+test("binds a JD ware audit to the controlled store identity when supplied", () => {
+  const audit = createWareExportAudit({
+    baseUrl: "http://localhost:3000",
+    reuseLatest: false,
+    storeKey: "jd-yiyong-director",
+    shopName: "志高商用设备旗舰店",
+  });
+  assert.equal(audit.storeKey, "jd-yiyong-director");
+  assert.equal(audit.shopName, "志高商用设备旗舰店");
+});
+
 test("keeps the abandoned recovery evidence in the audit after later failure", () => {
   const abandoned = advanceWareExportAudit(createWareExportAudit({ baseUrl: "http://localhost:3000", reuseLatest: false }), {
     stage: "recovery_abandoned",
@@ -335,12 +346,35 @@ test("requires a fresh positive JD product query before opening the export drawe
   assert.equal(parseJdWareProductTotalText("共 2 页"), null);
 });
 
-test("dispatches the uniquely verified JD product query exactly once without pointer coordinates", async () => {
-  const events: string[] = [];
+test("clicks the uniquely verified JD product query once with trusted browser input", async () => {
+  const calls: Array<Record<string, unknown>> = [];
   await clickJdWareProductQueryControl({
-    dispatchEvent: async (event: string) => { events.push(event); },
+    click: async (options: Record<string, unknown>) => { calls.push(options); },
   } as never);
-  assert.deepEqual(events, ["click"]);
+  assert.deepEqual(calls, [{ force: true, timeout: 10_000 }]);
+  const source = await readFile("tools/jackyun-ware-export.ts", "utf8");
+  assert.doesNotMatch(source, /queryButton\.dispatchEvent\(/);
+});
+
+test("captures the initial JD navigation query before loading the target and fences any replay", async () => {
+  const state = createJdWareQueryBootstrapState();
+  const calls: string[] = [];
+  const response = await captureJdWareInitialProductQuery(state, {
+    gotoBlank: async () => { calls.push("blank"); },
+    waitForQuery: async () => { calls.push("listen"); return { code: 200 }; },
+    gotoTarget: async () => { calls.push("target"); },
+  });
+  assert.deepEqual(calls, ["blank", "listen", "target"]);
+  assert.deepEqual(response, { code: 200 });
+  assert.equal(state.queryTriggered, true);
+  await assert.rejects(
+    captureJdWareInitialProductQuery(state, {
+      gotoBlank: async () => { throw new Error("must not navigate again"); },
+      waitForQuery: async () => ({ code: 200 }),
+      gotoTarget: async () => undefined,
+    }),
+    /拒绝重复导航或查询/,
+  );
 });
 
 test("waits for the JD product query controls to become uniquely ready without clicking", async () => {

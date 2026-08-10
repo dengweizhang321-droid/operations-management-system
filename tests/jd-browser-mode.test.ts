@@ -147,6 +147,8 @@ test("JD master uses minimized headed Chrome while product detail keeps shared h
   const daily = await readFile("tools/jdsz-product-detail-export.ts", "utf8");
   const cdp = await readFile("lib/jackyun/cdp-client.ts", "utf8");
   assert.match(master, /launchJdWareBrowser\([\s\S]*options\.interactiveLogin\)/);
+  assert.match(master, /startUrl:\s*options\.interactiveLogin\s*\?\s*targetUrl\s*:\s*"about:blank"/);
+  assert.doesNotMatch(master, /connectPlaywrightJackyunTarget\(browser,\s*\{\s*startUrl:\s*targetUrl/);
   assert.match(daily, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
   assert.doesNotMatch(master, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
   assert.doesNotMatch(daily, /startUrl:\s*targetUrl,\s*headless:\s*false/);

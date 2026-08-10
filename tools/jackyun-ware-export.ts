@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, open, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { Locator, Page } from "playwright-core";
+import type { Locator, Page, Response } from "playwright-core";
 import {
   parseJdWareExportTaskRows,
   selectExistingJdWareExportTask,
@@ -89,6 +89,13 @@ export type WareExportAudit = {
   targetUrl: string;
   baseUrl: string;
   intent: "create" | "reuse_latest";
+  storeKey?: string;
+  shopName?: string;
+  querySource?: "initial_navigation" | "trusted_click";
+  queryHttpStatus?: number;
+  queryBusinessCode?: number;
+  queryTotal?: number;
+  queryObservedAt?: string;
   baselineTaskIds?: string[];
   taskId?: string;
   taskStatus?: JdWareExportTask["status"];
@@ -100,7 +107,9 @@ export type WareExportAudit = {
 };
 type StoreWareExportRecovery = JdWareExportRecovery & { storeKey: string };
 
-export function createWareExportAudit(options: Pick<CliOptions, "baseUrl" | "reuseLatest">): WareExportAudit {
+export function createWareExportAudit(
+  options: Pick<CliOptions, "baseUrl" | "reuseLatest"> & Partial<Pick<CliOptions, "storeKey" | "shopName">>,
+): WareExportAudit {
   const now = new Date().toISOString();
   return {
     status: "running",
@@ -110,6 +119,8 @@ export function createWareExportAudit(options: Pick<CliOptions, "baseUrl" | "reu
     targetUrl,
     baseUrl: options.baseUrl,
     intent: options.reuseLatest ? "reuse_latest" : "create",
+    ...(options.storeKey ? { storeKey: options.storeKey } : {}),
+    ...(options.shopName ? { shopName: options.shopName } : {}),
   };
 }
 
@@ -173,7 +184,27 @@ export async function clickJdWareProductQueryControl(queryButton: Locator) {
   // The sticky JD merchant header can cover the button's pointer coordinates
   // after closing the export drawer. This is a reversible query action and is
   // still fenced by the unique locator plus the exact response/total checks.
-  await queryButton.dispatchEvent("click");
+  // Use Chromium input instead of an untrusted synthetic DOM event. JD may
+  // still reject the request independently through its business risk controls.
+  await queryButton.click({ force: true, timeout: 10_000 });
+}
+
+export async function captureJdWareInitialProductQuery<T>(
+  queryBootstrapState: JdWareQueryBootstrapState,
+  dependencies: {
+    gotoBlank: () => Promise<void>;
+    waitForQuery: () => Promise<T>;
+    gotoTarget: () => Promise<void>;
+  },
+) {
+  if (queryBootstrapState.queryTriggered) throw new Error("本轮京东商品查询已触发，拒绝重复导航或查询。");
+  await dependencies.gotoBlank();
+  const responsePromise = handleJdWareDownloadPromise(dependencies.waitForQuery());
+  // Fence before navigation: the target page performs its own initial query,
+  // and a failed/ambiguous navigation must never be followed by another click.
+  queryBootstrapState.queryTriggered = true;
+  await dependencies.gotoTarget();
+  return responsePromise;
 }
 
 export async function waitForJdWareProductQueryBootstrap(
@@ -411,27 +442,7 @@ async function closeExistingJdWareSkuExportDrawer(page: Page) {
   return true;
 }
 
-async function refreshAndVerifyJdWareProductQuery(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
-  const productSearchContainer = page.locator("form:has-text('商品名称'):has-text('商品编码'), [role='search']:has-text('商品名称'):has-text('商品编码'), .ant-form:has-text('商品名称'):has-text('商品编码')").filter({ visible: true });
-  const queryButton = productSearchContainer.getByRole("button", { name: "查询", exact: true }).filter({ visible: true });
-  const pageQueryButton = page.getByRole("button", { name: "查询", exact: true }).filter({ visible: true });
-  await waitForJdWareProductQueryBootstrap(
-    async () => ({
-      productSearchContainerCount: await productSearchContainer.count(),
-      scopedQueryButtonCount: await queryButton.count(),
-      pageQueryButtonCount: await pageQueryButton.count(),
-    }),
-    () => page.waitForTimeout(200),
-  );
-  if (queryBootstrapState.queryTriggered) throw new Error("本轮京东商品查询已触发，拒绝重复查询。");
-  await exactlyOne(queryButton, "查询按钮");
-  const responsePromise = handleJdWareDownloadPromise(page.waitForResponse(
-    (response) => isJdWareProductQueryRequest(response.url(), response.request().method()),
-    { timeout: 20_000 },
-  ));
-  queryBootstrapState.queryTriggered = true;
-  await clickJdWareProductQueryControl(queryButton);
-  const response = await responsePromise;
+async function verifyJdWareProductQueryResponse(page: Page, response: Response) {
   const payload = await response.json().catch(() => null) as unknown;
   const verified = validateJdWareProductQueryResponse({ status: response.status(), payload });
   const total = page.locator(".select-count").filter({ visible: true });
@@ -577,7 +588,14 @@ export async function openExportEntryWithRepaintRetry(page: Page, queryBootstrap
 }
 
 async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
-  if (page.url() !== targetUrl) await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  const response = await captureJdWareInitialProductQuery(queryBootstrapState, {
+    gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
+    waitForQuery: () => page.waitForResponse(
+      (candidate) => isJdWareProductQueryRequest(candidate.url(), candidate.request().method()),
+      { timeout: 20_000 },
+    ),
+    gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 }); },
+  });
   // Login redirects render faster than the merchant export button. Check them
   // first so each unauthenticated store does not burn the 30-second UI wait.
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -594,10 +612,11 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
   await dismissJdMenuUpdateNotice(page);
   // A drawer opened before the product query settled captures total=0 even
   // after the table later shows rows. Reopen it only after a fresh, positive
-  // query response and the same total are visible in the product toolbar.
+  // initial query response and the same total are visible in the toolbar.
   await closeExistingJdWareSkuExportDrawer(page);
-  await refreshAndVerifyJdWareProductQuery(page, queryBootstrapState);
+  const verified = await verifyJdWareProductQueryResponse(page, response);
   await prepareJdWareExportEntry(page, queryBootstrapState);
+  return verified;
 }
 
 async function dismissJdMenuUpdateNotice(page: Page) {
@@ -1102,20 +1121,30 @@ async function main() {
       executablePath: chromePath,
       profileDirectory: options.profileDirectory,
       port: options.port,
-      startUrl: targetUrl,
+      // The uniquely named Playwright page performs the only JD navigation.
+      // Starting Chrome at the target URL created an unobserved first page and
+      // a second same-store query before the controlled page was attached.
+      startUrl: options.interactiveLogin ? targetUrl : "about:blank",
     }, options.interactiveLogin);
     await waitForChrome(options.port);
     browser = await connectPlaywrightBrowser(options.port);
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
-      startUrl: targetUrl,
       workerName: "codex-jd-ware-export",
       targetUrlPattern: /wares-jdm\.jd\.com/i,
       requireMini: false,
     });
     try {
       const queryBootstrapState = createJdWareQueryBootstrapState();
-      await persistAudit({ stage: "verify_product_query" });
-      await openTargetPage(page, queryBootstrapState);
+      await persistAudit({ stage: "verify_product_query", querySource: "initial_navigation" });
+      const verifiedQuery = await openTargetPage(page, queryBootstrapState);
+      await persistAudit({
+        stage: "product_query_verified",
+        querySource: "initial_navigation",
+        queryHttpStatus: 200,
+        queryBusinessCode: verifiedQuery.code,
+        queryTotal: verifiedQuery.total,
+        queryObservedAt: new Date().toISOString(),
+      });
       const abandonRecovery = async () => {
         if (!recovery || recovery.taskId) throw new Error("活动任务清单不满足无 taskId 的放弃条件。");
         const archivedPath = path.join(artifactDir, `active-task-${options.storeKey}.abandoned-${Date.now()}.json`);
