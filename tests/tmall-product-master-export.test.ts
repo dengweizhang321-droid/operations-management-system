@@ -11,6 +11,7 @@ import {
   chooseLatestTmallDownloadSignature,
   chooseTmallExportRecordSignature,
   createTmallBrowserDownloadSession,
+  decideTmallMasterAuditRecovery,
   hasAcceptedTmallExportTask,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
@@ -120,6 +121,29 @@ test("商品管家确认兼容任务卡片文案并识别自动受理状态", ()
   assert.equal(isTmallProductWorkbookFilename("出售中全部商品.xlsx"), true);
   assert.equal(isTmallProductWorkbookFilename("出售中全部商品.xls"), false);
   assert.equal(isTmallProductWorkbookFilename("../出售中全部商品.xlsx"), false);
+});
+
+test("商品管家跨日恢复旧任务且不重复发送导出指令", () => {
+  assert.deepEqual(decideTmallMasterAuditRecovery("2026-08-12", {
+    snapshotDate: "2026-08-10",
+    stage: "export_confirmed",
+  }), { action: "resume_previous", snapshotDate: "2026-08-10" });
+  assert.deepEqual(decideTmallMasterAuditRecovery("2026-08-12", {
+    snapshotDate: "2026-08-10",
+    stage: "downloaded",
+  }), { action: "resume_previous", snapshotDate: "2026-08-10" });
+  assert.deepEqual(decideTmallMasterAuditRecovery("2026-08-12", {
+    snapshotDate: "2026-08-10",
+    stage: "export_submitting",
+  }), { action: "block", snapshotDate: "2026-08-10" });
+  assert.deepEqual(decideTmallMasterAuditRecovery("2026-08-12", {
+    snapshotDate: "2026-08-10",
+    stage: "browser_ready",
+  }), { action: "discard", snapshotDate: "2026-08-12" });
+  assert.deepEqual(decideTmallMasterAuditRecovery("2026-08-12", {
+    snapshotDate: "2026-08-12",
+    stage: "export_submitting",
+  }), { action: "continue", snapshotDate: "2026-08-12" });
 });
 
 test("商品管家下载候选合并嵌套按钮并只选择最下方成功结果", () => {

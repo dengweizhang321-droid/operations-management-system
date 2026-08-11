@@ -238,6 +238,22 @@ export function isResumableTmallExportStage(stage: string | undefined) {
   return stage === "export_submitted" || stage === "export_confirmed";
 }
 
+export function decideTmallMasterAuditRecovery(
+  requestedSnapshotDate: string,
+  audit: Pick<MasterExportAudit, "snapshotDate" | "stage">,
+) {
+  if (audit.snapshotDate === requestedSnapshotDate) {
+    return { action: "continue", snapshotDate: requestedSnapshotDate } as const;
+  }
+  if (audit.stage === "downloaded" || isResumableTmallExportStage(audit.stage)) {
+    return { action: "resume_previous", snapshotDate: audit.snapshotDate } as const;
+  }
+  if (audit.stage === "export_submitting") {
+    return { action: "block", snapshotDate: audit.snapshotDate } as const;
+  }
+  return { action: "discard", snapshotDate: requestedSnapshotDate } as const;
+}
+
 export function isTmallProductWorkbookFilename(fileName: string) {
   return fileName.length > 5 && fileName.length <= 240 && /\.xlsx$/i.test(fileName) && !/[\u0000-\u001f<>:"/\\|?*]/.test(fileName);
 }
@@ -1531,30 +1547,44 @@ export async function runTmallProductMasterStage(options: {
 } = {}): Promise<TmallProductMasterStageResult> {
   const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
-  const snapshotDate = options.snapshotDate ?? shanghaiToday();
+  const requestedSnapshotDate = options.snapshotDate ?? shanghaiToday();
+  let snapshotDate = requestedSnapshotDate;
   const request = options.request ?? fetch;
   const runAuditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedSnapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
 
   await mkdir(runAuditDirectory, { recursive: true });
   const existing = await readActiveAudit(store.storeKey, runAuditDirectory);
   let audit: MasterExportAudit | undefined = existing?.audit;
   let evidence: MasterFileEvidence | undefined;
   if (existing && audit) {
-    if (audit.snapshotDate !== snapshotDate || audit.shopName !== store.shopName) {
-      throw new Error(`存在未完成的天猫货品导出清单 ${existing.filePath}，其店铺或快照日期与本轮不一致，已停止以避免重复任务`);
+    if (audit.shopName !== store.shopName) {
+      throw new Error(`存在未完成的天猫货品导出清单 ${existing.filePath}，其店铺与本轮不一致，已停止以避免跨店任务`);
     }
-    if (audit.stage === "downloaded" && audit.file) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(audit.snapshotDate)) {
+      throw new Error(`未完成的天猫货品导出清单 ${existing.filePath} 快照日期无效`);
+    }
+    const recovery = decideTmallMasterAuditRecovery(requestedSnapshotDate, audit);
+    if (recovery.action === "block") {
+      throw new Error(`检测到跨日未决千牛导出任务（${audit.stage}，快照日 ${audit.snapshotDate}，清单 ${existing.filePath}），为防止重复发送已停止，请先人工核对右侧聊天任务`);
+    }
+    if (recovery.action === "discard") {
+      await rm(existing.filePath, { force: true });
+      audit = undefined;
+    } else {
+      snapshotDate = recovery.snapshotDate;
+    }
+    if (audit?.stage === "downloaded" && audit.file) {
       await assertEvidenceUnchanged(audit.file, store);
       evidence = await inspectTmallMasterFile(audit.file.filePath, store, snapshotDate);
       if (evidence.sha256 !== audit.file.sha256 || evidence.rowCount !== audit.file.rowCount) {
         throw new Error("恢复文件重新校验后与活动清单不一致");
       }
-    } else if (audit.stage === "export_submitting") {
+    } else if (audit?.stage === "export_submitting") {
       throw new Error(`检测到未决千牛导出任务（${audit.stage}，清单 ${existing.filePath}），为防止重复发送已停止，请先人工核对右侧聊天任务`);
-    } else if (isResumableTmallExportStage(audit.stage)) {
+    } else if (audit && isResumableTmallExportStage(audit.stage)) {
       // Resume the isolated current chat without starting a new conversation or sending the prompt again.
-    } else {
+    } else if (audit) {
       await rm(existing.filePath, { force: true });
       audit = undefined;
     }
