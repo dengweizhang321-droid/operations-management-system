@@ -2490,6 +2490,7 @@ function SalesOverviewFilterBar({
   categories,
   selectedShopKeys,
   selectedCategories,
+  updating = false,
   onShopChange,
   onCategoryChange,
 }: {
@@ -2497,11 +2498,12 @@ function SalesOverviewFilterBar({
   categories: string[];
   selectedShopKeys: string[];
   selectedCategories: string[];
+  updating?: boolean;
   onShopChange: (values: string[]) => void;
   onCategoryChange: (values: string[]) => void;
 }) {
   const hasFilter = selectedShopKeys.length > 0 || selectedCategories.length > 0;
-  return <section className="panel sales-overview-filter-panel" aria-label="销售总览筛选">
+  return <section className="panel sales-overview-filter-panel" aria-label="销售总览筛选" aria-busy={updating}>
     <div className="sales-overview-filter-heading">
       <div><span className="eyebrow">SALES SCOPE</span><h2>店铺与品类筛选</h2><p>筛选条件会同步应用到销售指标、趋势、渠道构成和店铺销售分布。</p></div>
       <div className="sales-overview-filter-controls">
@@ -2510,7 +2512,7 @@ function SalesOverviewFilterBar({
         {hasFilter && <button type="button" className="secondary-button sales-overview-filter-reset" onClick={() => { onShopChange([]); onCategoryChange([]); }}>清空筛选</button>}
       </div>
     </div>
-    <small>{hasFilter ? `当前已按 ${selectedShopKeys.length || "全部"} 个店铺、${selectedCategories.length || "全部"} 个品类统计；取消筛选即可恢复整体销售口径。` : "默认汇总当前统计周期内全部店铺、全部品类的销售数据。"}</small>
+    <small role={updating ? "status" : undefined} aria-live="polite">{updating ? "正在更新筛选结果，可继续选择店铺或品类…" : hasFilter ? `当前已按 ${selectedShopKeys.length || "全部"} 个店铺、${selectedCategories.length || "全部"} 个品类统计；取消筛选即可恢复整体销售口径。` : "默认汇总当前统计周期内全部店铺、全部品类的销售数据。"}</small>
   </section>;
 }
 
@@ -3374,7 +3376,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} /></>;
   if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView /></>;
 
-  if (loading) {
+  if (loading && !summary) {
     return (
       <>{salesSubnav}<section className="panel data-state sales-data-state" role="status" aria-live="polite">
           <span className="state-spinner" aria-hidden="true" />
@@ -3401,7 +3403,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
           <span className="state-symbol" aria-hidden="true">∅</span>
           <strong>{range}暂无销售数据</strong>
           <p>{productQueries.length > 0 ? "当前货品编码或名称在该统计周期内没有销售记录，可修改或清空下方查询。" : "请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。"}</p>
-        </section>{activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} /></>
+        </section>{activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} /></>
     );
   }
 
@@ -3417,7 +3419,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
         <strong>{rangeNote}</strong>
         {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
-      {activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}
+      {activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}
       {activeTab === "channel" ? (
         <ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} />
       ) : <>

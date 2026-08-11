@@ -172,6 +172,19 @@ test("wires the sales import and analytics capabilities", async () => {
   await assert.rejects(access(new URL("app/_sites-preview", templateRoot)));
 });
 
+test("keeps sales overview multi-selects mounted while filtered results refresh", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const multiSelect = page.slice(page.indexOf("function SearchableMultiSelect"), page.indexOf("const startOfIsoMonth"));
+  const toggle = multiSelect.slice(multiSelect.indexOf("const toggle"), multiSelect.indexOf("const selectAll"));
+
+  assert.match(multiSelect, /const toggle = \(nextValue: string\)/);
+  assert.doesNotMatch(toggle, /setOpen\(false\)/);
+  assert.match(page, /if \(loading && !summary\)/);
+  assert.match(page, /updating=\{loading\}/);
+  assert.match(page, /aria-busy=\{updating\}/);
+  assert.match(page, /正在更新筛选结果，可继续选择店铺或品类/);
+});
+
 test("keeps shop analysis isolated by platform and matches year-over-year by the same shop key", async () => {
   const [page, summaryService] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
