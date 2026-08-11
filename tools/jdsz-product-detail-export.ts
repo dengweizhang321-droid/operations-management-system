@@ -20,6 +20,7 @@ import {
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
+import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = path.join(projectRoot, "outputs", "jdsz-product-detail-export");
@@ -41,6 +42,7 @@ type CliOptions = {
   profileDirectory: string;
   port: number;
   downloadDirectory: string;
+  storeKey: string;
   shopId: string;
   shopName: string;
   startDate: string;
@@ -101,11 +103,21 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
   const store = await getJdStore(values.get("--store-key") ?? "jd-yiyong-director");
   const shopId = values.get("--shop-id") ?? store.shopId;
   if (!/^\d+$/.test(shopId)) throw new Error("--shop-id 必须是纯数字。");
+  if (shopId !== store.shopId) throw new Error("--shop-id 与受控店铺注册表不一致。");
+  const profileDirectory = path.resolve(values.get("--profile-dir") ?? store.browser.profileDir);
+  const port = Number(values.get("--port") ?? store.browser.debugPort);
+  const downloadDirectory = path.resolve(values.get("--download-dir") ?? store.browser.downloadDir);
+  if (profileDirectory !== path.resolve(store.browser.profileDir)
+    || port !== store.browser.debugPort
+    || downloadDirectory !== path.resolve(store.browser.downloadDir)) {
+    throw new Error("京东商智 profile、调试端口或下载目录与受控店铺注册表不一致。");
+  }
   return {
     chromePath: values.get("--chrome-path") ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    profileDirectory: path.resolve(values.get("--profile-dir") ?? store.browser.profileDir),
-    port: Number(values.get("--port") ?? store.browser.debugPort),
-    downloadDirectory: path.resolve(values.get("--download-dir") ?? store.browser.downloadDir),
+    profileDirectory,
+    port,
+    downloadDirectory,
+    storeKey: store.storeKey,
     shopId,
     shopName: store.shopName,
     startDate,
@@ -127,6 +139,20 @@ export function taskManifestPath(options: Pick<CliOptions, "dimension" | "shopId
   const file = path.resolve(artifactDir, `${options.dimension.toLowerCase()}-task-${options.shopId}-${options.startDate}-${options.endDate}.json`);
   if (path.relative(artifactDir, file).startsWith("..") || path.dirname(file) !== artifactDir) throw new Error("JD task manifest path escapes artifact directory.");
   return file;
+}
+
+export async function readAndAssertJdProductDetailStoreIdentity(
+  page: Page,
+  expected: Pick<CliOptions, "shopId" | "shopName">,
+) {
+  const links = page.locator('a[href*="mall.jd.com/index-"]').filter({ visible: true });
+  await links.first().waitFor({ state: "visible", timeout: 15_000 });
+  const candidates: Array<{ href: string | null; text: string }> = [];
+  for (let index = 0; index < await links.count(); index += 1) {
+    const link = links.nth(index);
+    candidates.push({ href: await link.getAttribute("href"), text: await link.innerText() });
+  }
+  return assertJdProductDetailStoreIdentity(parseJdProductDetailStoreIdentity(candidates), expected);
 }
 
 async function saveFailureScreenshot(page: Page, name: string) {
@@ -495,6 +521,7 @@ async function prepareExport(page: Page, options: CliOptions, beforeConfirm?: ()
   if (/登录|账号|密码|验证码/.test(bodyText) && !/商品明细/.test(bodyText)) {
     throw new Error("京东商智登录状态无效；请先在已打开的专用 Chrome 中登录，再重新运行。");
   }
+  await readAndAssertJdProductDetailStoreIdentity(page, options);
 
   try {
     await selectDimensionAndWait(page, options.dimension);
@@ -582,8 +609,9 @@ export async function waitForStableTaskBaseline<T extends { fingerprint: string 
   throw new Error("JD download-center task table did not reach a stable baseline; refusing to submit a new task.");
 }
 
-async function readReadyTaskBaseline(page: Page, expectedPrefix: string) {
+async function readReadyTaskBaseline(page: Page, expectedPrefix: string, options: Pick<CliOptions, "shopId" | "shopName">) {
   await page.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await readAndAssertJdProductDetailStoreIdentity(page, options);
   await waitForDataRefresh(page);
   const refresh = page.getByText("刷新", { exact: true }).filter({ visible: true }).first();
   if (await refresh.count().catch(() => 0) === 1) {
@@ -638,11 +666,11 @@ function emitPipelineResult(result: Record<string, unknown>) {
 }
 
 export function createSubmittingTaskManifest(
-  options: Pick<CliOptions, "dimension" | "shopId" | "startDate" | "endDate">,
+  options: Pick<CliOptions, "dimension" | "storeKey" | "shopId" | "shopName" | "startDate" | "endDate">,
   baseline: Array<{ fingerprint: string }>,
   now = new Date(),
 ): JdProductDetailTaskManifest {
-  return { version: 1, status: "submitting", dimension: options.dimension, shopId: options.shopId, startDate: options.startDate, endDate: options.endDate, baseline: baseline.map((row) => row.fingerprint), createdAt: now.toISOString() };
+  return { version: 2, status: "submitting", dimension: options.dimension, storeKey: options.storeKey, shopId: options.shopId, shopName: options.shopName, startDate: options.startDate, endDate: options.endDate, baseline: baseline.map((row) => row.fingerprint), createdAt: now.toISOString() };
 }
 
 async function waitForManifestTaskRow(
@@ -766,8 +794,9 @@ async function run() {
     let taskReused = false;
     const manifest = await readJsonFileOr<JdProductDetailTaskManifest | null>(manifestPath, null);
     if (manifest) {
-      assertJdProductDetailTaskManifest(manifest, { dimension: options.dimension, shopId: options.shopId, startDate: options.startDate, endDate: options.endDate });
+      assertJdProductDetailTaskManifest(manifest, options);
       await page.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await readAndAssertJdProductDetailStoreIdentity(page, options);
       const matched = await waitForManifestTaskRow(page, expectedPrefix, manifest);
       if (matched) {
         const rowText = await (await taskRowByFingerprint(page, expectedPrefix, matched.fingerprint)).innerText();
@@ -784,21 +813,24 @@ async function run() {
     }
     let downloadPage = page;
     if (!taskReused) {
-      const baseline = await readReadyTaskBaseline(page, expectedPrefix);
+      const baseline = await readReadyTaskBaseline(page, expectedPrefix, options);
       let submitting: JdProductDetailTaskManifest | undefined;
       // Persist only after every selection/dialog gate has passed and directly
       // before the irreversible remote confirmation click.
       await prepareExport(page, options, async () => {
+        await readAndAssertJdProductDetailStoreIdentity(page, options);
         submitting = createSubmittingTaskManifest(options, baseline);
         await writeJsonAtomic(manifestPath, submitting);
       });
       if (!submitting) throw new Error("JD submitting manifest was not persisted before confirmation click.");
       downloadPage = await openDownloadCenter(page);
+      await readAndAssertJdProductDetailStoreIdentity(downloadPage, options);
       const created = await waitForManifestTaskRow(downloadPage, expectedPrefix, submitting);
       if (!created) throw new Error("Submitted JD product-detail task is not uniquely visible in download center; manifest retained and no replacement task will be created.");
       taskFingerprint = created.fingerprint;
       await writeJsonAtomic(manifestPath, { ...submitting, status: "pending", rowFingerprint: created.fingerprint, taskId: created.taskId });
     }
+    await readAndAssertJdProductDetailStoreIdentity(downloadPage, options);
     await waitForTaskDownload(downloadPage, expectedPrefix, taskFingerprint);
     const result = await acquireJdProductDetailDownload({
       downloadDirectory: options.downloadDirectory,
@@ -810,7 +842,10 @@ async function run() {
       dimension: options.dimension,
       startDate: options.startDate,
       endDate: options.endDate,
-      triggerDownload: () => clickTaskDownload(downloadPage, expectedPrefix, taskFingerprint),
+      triggerDownload: async () => {
+        await readAndAssertJdProductDetailStoreIdentity(downloadPage, options);
+        await clickTaskDownload(downloadPage, expectedPrefix, taskFingerprint);
+      },
     });
     const importResult = options.autoImport ? await importJdProductDetailFile(options, result.filePath) : undefined;
     await rm(manifestPath, { force: true });

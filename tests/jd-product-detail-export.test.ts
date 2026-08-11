@@ -18,6 +18,7 @@ import {
   taskManifestPath,
   waitForStableTaskBaseline,
 } from "../tools/jdsz-product-detail-export";
+import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 
 test("single-day ranges retain the second endpoint click", () => {
   assert.deepEqual(jdDateRangeSelectionPlan("2026-07-21", "2026-07-21"), ["2026-07-21", "2026-07-21"]);
@@ -171,8 +172,30 @@ test("daily import requires imported=201 and duplicate=200 exactly", async () =>
 test("submitting manifest records the confirmation time, not the older baseline time", () => {
   const preparedAt = new Date("2026-07-20T00:00:00.000Z");
   const confirmedAt = new Date("2026-07-20T00:03:00.000Z");
-  const manifest = createSubmittingTaskManifest({ dimension: "SKU", shopId: "701455", startDate: "2026-07-01", endDate: "2026-07-02" }, [{ fingerprint: "old" }], confirmedAt);
+  const manifest = createSubmittingTaskManifest({ dimension: "SKU", storeKey: "jd-yiyong-director", shopId: "701455", shopName: "志高商用设备旗舰店", startDate: "2026-07-01", endDate: "2026-07-02" }, [{ fingerprint: "old" }], confirmedAt);
   assert.notEqual(manifest.createdAt, preparedAt.toISOString());
   assert.equal(manifest.createdAt, confirmedAt.toISOString());
+  assert.equal(manifest.version, 2);
+  assert.equal(manifest.storeKey, "jd-yiyong-director");
+  assert.equal(manifest.shopName, "志高商用设备旗舰店");
   assert.deepEqual(manifest.baseline, ["old"]);
+});
+
+test("JD Business Intelligence store identity is derived from the unique visible mall link", () => {
+  const identity = parseJdProductDetailStoreIdentity([
+    { href: "//mall.jd.com/index-711743.html", text: "志高商用洗碗机旗舰店\nPOP" },
+  ]);
+  assert.deepEqual(identity, { shopId: "711743", shopName: "志高商用洗碗机旗舰店" });
+  assert.throws(
+    () => assertJdProductDetailStoreIdentity(identity, { shopId: "701455", shopName: "志高商用设备旗舰店" }),
+    /店铺身份不一致.*701455.*711743/,
+  );
+});
+
+test("JD Business Intelligence store identity fails closed when the header is absent or ambiguous", () => {
+  assert.throws(() => parseJdProductDetailStoreIdentity([]), /实际识别 0 个/);
+  assert.throws(() => parseJdProductDetailStoreIdentity([
+    { href: "//mall.jd.com/index-701455.html", text: "志高商用设备旗舰店 POP" },
+    { href: "//mall.jd.com/index-711743.html", text: "志高商用洗碗机旗舰店 POP" },
+  ]), /实际识别 2 个/);
 });
