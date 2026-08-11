@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   createSubmittingTaskManifest,
+  dismissJdNoticeWithBoundedRetry,
   importJdProductDetailFile,
   isJdCalendarEndSelected,
   isRealtimeSummaryDownloadDialog,
@@ -95,6 +96,64 @@ test("JD notice dismissal only accepts explicit harmless close labels", () => {
   assert.equal(isSafeJdNoticeCloseLabel("Close"), true);
   assert.equal(isSafeJdNoticeCloseLabel("关闭"), true);
   assert.equal(isSafeJdNoticeCloseLabel("立即查看"), false);
+});
+
+test("JD notice waits for a stable hydrated close control before clicking", async () => {
+  const snapshots = [
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 0 },
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 0, closeControlCount: 0 },
+  ];
+  let reads = 0;
+  let clicks = 0;
+  const result = await dismissJdNoticeWithBoundedRetry(
+    async () => snapshots[Math.min(reads++, snapshots.length - 1)]!,
+    async () => { clicks += 1; },
+    async () => undefined,
+  );
+  assert.equal(result, 1);
+  assert.equal(clicks, 1);
+});
+
+test("JD notice permits one revalidated retry for the same harmless announcement", async () => {
+  const snapshots = [
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    ...Array.from({ length: 20 }, () => ({ noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 })),
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 0, closeControlCount: 0 },
+  ];
+  let reads = 0;
+  let clicks = 0;
+  const result = await dismissJdNoticeWithBoundedRetry(
+    async () => snapshots[Math.min(reads++, snapshots.length - 1)]!,
+    async () => { clicks += 1; },
+    async () => undefined,
+  );
+  assert.equal(result, 2);
+  assert.equal(clicks, 2);
+});
+
+test("JD notice never auto-closes a different follow-up announcement", async () => {
+  const snapshots = [
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 1, noticeKey: "notice-a", closeControlCount: 1 },
+    { noticeCount: 1, noticeKey: "notice-b", closeControlCount: 1 },
+  ];
+  let reads = 0;
+  let clicks = 0;
+  await assert.rejects(
+    dismissJdNoticeWithBoundedRetry(
+      async () => snapshots[Math.min(reads++, snapshots.length - 1)]!,
+      async () => { clicks += 1; },
+      async () => undefined,
+    ),
+    /发生变化/,
+  );
+  assert.equal(clicks, 1);
 });
 
 test("download-center baseline does not accept its first empty loading snapshot", async () => {

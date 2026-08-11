@@ -403,19 +403,78 @@ export function isSafeJdNoticeCloseLabel(label: string) {
   return /^(close|关闭|忽略|×|✕)$/i.test(label.trim());
 }
 
-async function dismissJdNoticeModal(page: Page) {
-  const notice = page.locator('.jd-modal-wrap').filter({ visible: true }).filter({ has: page.locator('img[alt="公告图片"]') });
-  if (await notice.count() === 0) return;
-  if (await notice.count() !== 1) throw new Error("京东公告弹窗不唯一，已停止避免误点");
-  const closeButton = notice.locator('button[aria-label="Close"]').filter({ visible: true });
-  if (await closeButton.count() === 1) {
-    await closeButton.click();
-  } else {
-    const closeIcon = notice.locator('.close-modal').filter({ visible: true });
-    if (await closeIcon.count() !== 1) throw new Error("京东公告弹窗缺少唯一关闭按钮，已停止避免误点");
-    await closeIcon.click();
+export type JdNoticeDismissSnapshot = {
+  noticeCount: number;
+  noticeKey?: string;
+  closeControlCount: number;
+};
+
+export async function dismissJdNoticeWithBoundedRetry(
+  readSnapshot: () => Promise<JdNoticeDismissSnapshot>,
+  clickClose: () => Promise<void>,
+  sleep: (ms: number) => Promise<void>,
+  options: { readinessAttempts?: number; hiddenAttempts?: number; intervalMs?: number; maxClicks?: number } = {},
+) {
+  const readinessAttempts = options.readinessAttempts ?? 30;
+  const hiddenAttempts = options.hiddenAttempts ?? 20;
+  const intervalMs = options.intervalMs ?? 100;
+  const maxClicks = options.maxClicks ?? 2;
+  let originalNoticeKey: string | undefined;
+  let clicks = 0;
+
+  while (clicks < maxClicks) {
+    let stableReadySamples = 0;
+    for (let attempt = 0; attempt < readinessAttempts; attempt += 1) {
+      const snapshot = await readSnapshot();
+      if (snapshot.noticeCount === 0) return clicks;
+      if (snapshot.noticeCount !== 1) throw new Error("京东公告弹窗不唯一，已停止避免误点");
+      if (!snapshot.noticeKey) throw new Error("京东公告弹窗缺少稳定身份，已停止避免误点");
+      if (originalNoticeKey && snapshot.noticeKey !== originalNoticeKey) {
+        throw new Error("京东公告在关闭过程中发生变化，已停止避免连续误点");
+      }
+      originalNoticeKey ??= snapshot.noticeKey;
+      if (snapshot.closeControlCount > 1) throw new Error("京东公告弹窗关闭按钮不唯一，已停止避免误点");
+      stableReadySamples = snapshot.closeControlCount === 1 ? stableReadySamples + 1 : 0;
+      if (stableReadySamples >= 2) break;
+      await sleep(intervalMs);
+    }
+    if (stableReadySamples < 2) throw new Error("京东公告弹窗关闭按钮未达到稳定可用状态");
+
+    await clickClose();
+    clicks += 1;
+    for (let attempt = 0; attempt < hiddenAttempts; attempt += 1) {
+      const snapshot = await readSnapshot();
+      if (snapshot.noticeCount === 0) return clicks;
+      if (snapshot.noticeCount !== 1 || snapshot.noticeKey !== originalNoticeKey) {
+        throw new Error("京东公告在关闭过程中发生变化，已停止避免连续误点");
+      }
+      await sleep(intervalMs);
+    }
   }
-  await notice.waitFor({ state: "hidden", timeout: 5_000 });
+  throw new Error("京东公告弹窗在两次受控关闭后仍然可见");
+}
+
+async function dismissJdNoticeModal(page: Page) {
+  const notice = () => page.locator('.jd-modal-wrap').filter({ visible: true }).filter({ has: page.locator('img[alt="公告图片"]') });
+  const closeControls = () => notice().locator('button[aria-label="Close"], .close-modal').filter({ visible: true });
+  // The announcement is lazy-mounted a few seconds after the product page
+  // becomes interactive. Observe that bounded window before concluding that
+  // no notice exists, otherwise it can appear over the next business click.
+  await notice().first().waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);
+  await dismissJdNoticeWithBoundedRetry(async () => {
+    const current = notice();
+    const noticeCount = await current.count();
+    const noticeKey = noticeCount === 1
+      ? await current.locator('img[alt="公告图片"]').getAttribute("src") ?? undefined
+      : undefined;
+    return { noticeCount, noticeKey, closeControlCount: noticeCount === 1 ? await closeControls().count() : 0 };
+  }, async () => {
+    const current = notice();
+    if (await current.count() !== 1) throw new Error("京东公告弹窗不唯一，已停止避免误点");
+    const close = closeControls();
+    if (await close.count() !== 1) throw new Error("京东公告弹窗缺少唯一关闭按钮，已停止避免误点");
+    await close.click();
+  }, (ms) => page.waitForTimeout(ms));
 }
 
 async function selectDimensionAndWait(page: Page, dimension: CliOptions["dimension"]) {
