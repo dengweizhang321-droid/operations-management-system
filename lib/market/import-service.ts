@@ -28,17 +28,6 @@ import { marketImportRangeKey } from "@/lib/market/import-identity";
 
 export { parseMarketRows } from "@/lib/market/parser";
 
-function monthsInRange(startDate: string, endDate: string) {
-  const months: string[] = [];
-  const cursor = new Date(`${startDate.slice(0, 7)}-01T00:00:00Z`);
-  const endMonth = endDate.slice(0, 7);
-  while (cursor.toISOString().slice(0, 7) <= endMonth) {
-    months.push(cursor.toISOString().slice(0, 7));
-    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-  }
-  return months;
-}
-
 async function cacheImagesAfterImport(db: ReturnType<typeof getMarketDatabase>, batchId: string) {
   try {
     return await cacheMarketImages({ db, batchId, limit: 4 });
@@ -97,36 +86,36 @@ export async function importMarketFile(input: {
     await rejectBeforeFingerprint("MARKET_PARSE_ERROR", message);
     throw error;
   }
-  let expectedMonths: string[];
-  try {
-    expectedMonths = monthsInRange(input.defaultStartDate, input.defaultEndDate);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "市场导入周期无效";
-    await rejectBeforeFingerprint("INVALID_MARKET_PERIOD", message);
-    throw error;
-  }
   const brandMatch = await matchImportedMarketBrands(db, parsed.rows);
-  const identityRanges = [...new Set(brandMatch.rows.map((row) => JSON.stringify({
+  const ranges = [...new Set(brandMatch.rows.map((row) => JSON.stringify({
     category: row.category,
     scope: row.scope,
     rankingDimension: row.rankingDimension,
+    priceBandFilter: row.priceBandFilter,
+    periodStart: row.periodStart,
+    periodEnd: row.periodEnd,
   })))].sort().map((value) => JSON.parse(value) as {
     category: string;
     scope: string;
     rankingDimension: string;
+    priceBandFilter: string;
+    periodStart: string;
+    periodEnd: string;
   });
-  if (brandMatch.rows.some((row) => !expectedMonths.includes(row.periodEnd.slice(0, 7)))) {
-    const message = "市场文件包含表单权威周期之外的月份，请修正导入周期后重试";
+  if (brandMatch.rows.some((row) => row.periodStart < input.defaultStartDate || row.periodEnd > input.defaultEndDate)) {
+    const message = "市场文件包含表单权威周期之外的日期，请修正导入周期后重试";
     await rejectBeforeFingerprint("MARKET_PERIOD_OUT_OF_RANGE", message);
     throw new Error(message);
   }
-  const ranges = identityRanges.flatMap((identity) => expectedMonths.map((month) => ({ ...identity, month })));
-  const replaceRangeKeys = ranges.map((range) => marketImportRangeKey({
+  // The persisted claim remains a stable month-level base lock so a daily
+  // backfill cannot race a monthly replacement.  The exact periods in
+  // `ranges` are used for content identity and fact replacement below.
+  const replaceRangeKeys = [...new Set(ranges.map((range) => marketImportRangeKey({
     category: range.category!,
     scope: range.scope!,
     rankingDimension: range.rankingDimension!,
-    month: range.month!,
-  }));
+    month: range.periodEnd.slice(0, 7),
+  })))];
   const fingerprint = await buildImportContentFingerprint({
     domain: "market",
     scope: { sourceType: input.sourceType, ranges },
@@ -144,7 +133,9 @@ export async function importMarketFile(input: {
          WHERE entry.category = json_extract(target.value, '$.category')
            AND entry.scope = json_extract(target.value, '$.scope')
            AND entry.ranking_dimension = json_extract(target.value, '$.rankingDimension')
-           AND substr(entry.period_end, 1, 7) = json_extract(target.value, '$.month')
+           AND entry.price_band_filter = json_extract(target.value, '$.priceBandFilter')
+           AND entry.period_start = json_extract(target.value, '$.periodStart')
+           AND entry.period_end = json_extract(target.value, '$.periodEnd')
        )
        GROUP BY last_import_batch_id
        ORDER BY last_import_batch_id`,

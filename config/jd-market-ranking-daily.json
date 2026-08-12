@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "enabled": true,
+  "storeKey": "jd-cuizhiwang-dengweizhang",
+  "dimension": "SKU",
+  "categoryPath": ["商用净饮水设备", "商用净水设备"],
+  "systemCategory": "商用净水设备",
+  "scope": "pop",
+  "priceBandFilter": "全部",
+  "earliestDate": "2026-01-01",
+  "requestDelayMs": 500,
+  "maxDaysPerFile": 20
+}

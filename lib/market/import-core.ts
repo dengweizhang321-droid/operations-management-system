@@ -269,13 +269,17 @@ ON CONFLICT(period_start, period_end, category, scope, price_band_filter, rankin
   product_url=excluded.product_url, raw_json=excluded.raw_json,
   last_import_batch_id=excluded.last_import_batch_id, updated_at=CURRENT_TIMESTAMP`;
 
-const replaceClaimedMarketFactsSql = `DELETE FROM market_ranking_entries
-WHERE 'market-key-v2|' ||
-  length(CAST(category AS BLOB)) || ':' || category || '|' ||
-  length(CAST(scope AS BLOB)) || ':' || scope || '|' ||
-  length(CAST(ranking_dimension AS BLOB)) || ':' || ranking_dimension || '|' ||
-  length(CAST(substr(period_end, 1, 7) AS BLOB)) || ':' || substr(period_end, 1, 7)
-  IN (SELECT range_key FROM market_import_range_claims WHERE batch_id = ? AND claim_token = ?)
+const replaceClaimedMarketFactsSql = `DELETE FROM market_ranking_entries AS fact
+WHERE EXISTS (
+  SELECT 1 FROM market_import_staging_rows staged
+  WHERE staged.batch_id=?
+    AND fact.period_start=json_extract(staged.row_json, '$.periodStart')
+    AND fact.period_end=json_extract(staged.row_json, '$.periodEnd')
+    AND fact.category=json_extract(staged.row_json, '$.category')
+    AND fact.scope=json_extract(staged.row_json, '$.scope')
+    AND fact.price_band_filter=json_extract(staged.row_json, '$.priceBandFilter')
+    AND fact.ranking_dimension=json_extract(staged.row_json, '$.rankingDimension')
+)
 AND (SELECT COUNT(*) FROM market_import_range_claims WHERE batch_id = ? AND claim_token = ?) = ?`;
 
 const snapshotInsertSql = `WITH decoded AS (
@@ -452,7 +456,7 @@ export async function saveMarketImportCore(input: {
     publishAttempted = true;
     const publishStatements = [
       ...fenceStatements,
-      db.prepare(replaceClaimedMarketFactsSql).bind(input.batchId, claimToken, input.batchId, claimToken, claimKeys.length),
+      db.prepare(replaceClaimedMarketFactsSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length),
       db.prepare(factInsertSql).bind(input.batchId, input.batchId, input.batchId, claimToken, claimKeys.length),
       db.prepare(snapshotInsertSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length, input.batchId),
       db.prepare(marketStandardSkuImagePriceInheritanceSql("target.source_import_batch_id=?")).bind(input.batchId),

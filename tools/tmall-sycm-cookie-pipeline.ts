@@ -34,7 +34,16 @@ import {
   type JdN8nPlan,
   type JdN8nStage,
 } from "./jd-n8n-pipeline";
-import { loadJdStores } from "../lib/jd/store-registry";
+import { getJdStore, loadJdStores } from "../lib/jd/store-registry";
+import {
+  jdMarketHelperRequestError,
+  loadJdMarketDailyConfig,
+  planJdMarketDailyRun,
+  publicJdMarketPlan,
+  runJdMarketDailyPlan,
+  verifyJdMarketDailyPlan,
+  type JdMarketDailyPlan,
+} from "./jd-market-ranking-daily";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
@@ -804,14 +813,16 @@ async function serveCommand(argv: string[]) {
   const port = integerPort(cliValue(argv, "--port"));
   let stage: HelperStage = "ready";
   let busy = false;
-  let activeWorkflow: "tmall" | "jackyun" | "jd" | null = null;
+  let activeWorkflow: "tmall" | "jackyun" | "jd" | "jd-market" | null = null;
   let planPathBase64 = "";
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
   let jdPlan: JdN8nPlan | null = null;
+  let jdMarketPlan: JdMarketDailyPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
   let claimedJackyunExecutionId: string | null = null;
   let claimedJdExecutionId: string | null = null;
+  let claimedJdMarketExecutionId: string | null = null;
   let tmallImportFallbackClose: ReturnType<typeof setTimeout> | null = null;
   let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
@@ -842,29 +853,35 @@ async function serveCommand(argv: string[]) {
       return;
     }
     if (request.method === "GET" && request.url === "/health") {
-      const [cookieSource, jackyunProfile, jdProfiles] = await Promise.all([
+      const [cookieSource, jackyunProfile, jdProfiles, jdMarketProfile] = await Promise.all([
         getCookieSourceStatus(),
         getJackyunProfileStatus(),
         loadJdStores().then((stores) => getJdProfilesStatus(stores.filter((store) => store.enabled))).catch(() => "invalid" as const),
+        loadJdMarketDailyConfig()
+          .then((config) => getJdStore(config.storeKey))
+          .then((store) => getJdProfilesStatus([store]))
+          .catch(() => "invalid" as const),
       ]);
-      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile, jdProfiles });
+      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile, jdProfiles, jdMarketProfile });
       return;
     }
     const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];
     const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
     const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify"];
-    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes].includes(request.url ?? "")) {
+    const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
+    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
     }
     const isJackyun = jackyunRoutes.includes(request.url ?? "");
     const isJd = jdRoutes.includes(request.url ?? "");
-    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : "tmall";
+    const isJdMarket = jdMarketRoutes.includes(request.url ?? "");
+    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : isJdMarket ? "jd-market" : "tmall";
     if (activeWorkflow && activeWorkflow !== workflow) {
       reply(409, { ok: false, error: "workflow_conflict", activeWorkflow });
       return;
     }
-    const route = request.url as HelperRoute | JackyunHelperRoute | JdHelperRoute;
+    const route = request.url as HelperRoute | JackyunHelperRoute | JdHelperRoute | "/jd-market/plan" | "/jd-market/run" | "/jd-market/verify";
     const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
     const stateError = isJackyun
       ? jackyunHelperRequestError(
@@ -876,6 +893,8 @@ async function serveCommand(argv: string[]) {
         )
       : isJd
         ? jdHelperRequestError(stage as "ready" | JdN8nStage, busy, route as JdHelperRoute, requestExecutionId, claimedJdExecutionId)
+        : isJdMarket
+          ? jdMarketHelperRequestError(stage, busy, route, requestExecutionId, claimedJdMarketExecutionId)
         : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
@@ -883,7 +902,8 @@ async function serveCommand(argv: string[]) {
     }
     if (isJackyun && !claimedJackyunExecutionId) claimedJackyunExecutionId = requestExecutionId;
     if (isJd && !claimedJdExecutionId) claimedJdExecutionId = requestExecutionId;
-    if (!isJackyun && !isJd && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
+    if (isJdMarket && !claimedJdMarketExecutionId) claimedJdMarketExecutionId = requestExecutionId;
+    if (!isJackyun && !isJd && !isJdMarket && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
     inactivityReaper?.clear();
     if (request.url === "/promotion" && tmallImportFallbackClose) {
       clearTimeout(tmallImportFallbackClose);
@@ -892,7 +912,25 @@ async function serveCommand(argv: string[]) {
     activeWorkflow = workflow;
     busy = true;
     try {
-      if (request.url === "/jd/plan") {
+      if (request.url === "/jd-market/plan") {
+        jdMarketPlan = await planJdMarketDailyRun({ executionId: requestExecutionId! });
+        stage = "planned";
+        reply(200, publicJdMarketPlan(jdMarketPlan));
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd-market/run") {
+        if (!jdMarketPlan) throw new Error("京东市场榜单计划已丢失，拒绝无计划执行");
+        stage = "running";
+        const result = await runJdMarketDailyPlan(jdMarketPlan);
+        stage = "executed";
+        reply(200, result);
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd-market/verify") {
+        if (!jdMarketPlan) throw new Error("京东市场榜单计划已丢失，拒绝无计划核验");
+        const result = await verifyJdMarketDailyPlan(jdMarketPlan);
+        stage = "completed";
+        reply(200, result);
+        scheduleOneShotServerClose(server, 500);
+      } else if (request.url === "/jd/plan") {
         jdPlan = await planJdN8nRun({ executionId: requestExecutionId! });
         stage = "planned";
         reply(200, publicJdPlan(jdPlan));

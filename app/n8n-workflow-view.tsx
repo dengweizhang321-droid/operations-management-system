@@ -4,9 +4,10 @@ import { Fragment, useEffect, useState } from "react";
 import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-daily.workflow.json";
 import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json";
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
+import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.workflow.json";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
-type WorkflowKey = "jackyun" | "tmall" | "jd";
+type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
@@ -27,10 +28,11 @@ type HelperHealthPayload = {
   ok?: boolean;
   stage?: string;
   busy?: boolean;
-  activeWorkflow?: "tmall" | "jackyun" | "jd" | null;
+  activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | null;
   cookieSource?: "ready" | "missing" | "invalid";
   jackyunProfile?: "ready" | "missing" | "invalid";
   jdProfiles?: "ready" | "missing" | "invalid";
+  jdMarketProfile?: "ready" | "missing" | "invalid";
 };
 
 export type HelperAvailabilityKind = "checking" | "ready" | "running" | "cookie-missing" | "offline";
@@ -123,6 +125,26 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
       C: { title: "独立结果核验", description: "重读 runner 审计，逐店逐数据集核对完成批次、零告警、店铺和完整日期范围。" },
     },
   },
+  jd_market: {
+    key: "jd_market",
+    definition: jdMarketWorkflowDefinition as N8nWorkflowDefinition,
+    subtitle: "京东市场商品交易榜单 SKU 按日缺口的自动下载、签收、导入与覆盖回查。",
+    tags: ["京东商智", "商用净水设备", "按日缺口补齐"],
+    flowLabel: "A → B → C",
+    pipelineTitle: "三段式市场商品榜单日补齐链路",
+    pipelineDescription: "按上海时区补到昨天；每轮只处理系统真实缺失日。",
+    workflowMetric: "京东市场商品榜单日补齐",
+    scheduleMetric: "10:30",
+    scheduleDescription: "上海时区 · 缺失日串行补跑",
+    scheduleTriggerLabel: "每日",
+    iframeTitle: "京东市场商品榜单缺失日下载与导入 n8n 工作流",
+    safetyNote: "A 按完整榜单身份只读计算缺失日期；B 使用受控店铺独立 Chrome 会话刷新请求头，逐日拉取并核验非空 SKU 榜单，文件签收后调用正式市场导入接口；C 再次读取同身份日覆盖。下载文件、批次 completed 和全部目标日回查缺一不可。",
+    stageDetails: {
+      A: { title: "计算缺失日期", description: "读取运营系统商用净水设备、pop、SKU、全部价格带的日覆盖，计划到上海时区昨天。" },
+      B: { title: "按日导出并导入", description: "固定 SKU 与商用净饮水设备 > 商用净水设备，刷新榜单请求头，逐日拉取、签收 CSV 并导入。" },
+      C: { title: "覆盖结果回查", description: "复核每个目标日均已落库，任一日期仍缺失则整轮失败关闭。" },
+    },
+  },
 };
 
 export function canManageN8nWorkflow(role: AppRole | undefined) {
@@ -142,8 +164,10 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
     label: "正在检测辅助服务",
     detail: key === "jackyun"
       ? "正在确认 5791 环回服务、本机运营系统和吉客云专用 Chrome profile。"
-      : key === "jd"
-        ? "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
+      : key === "jd" || key === "jd_market"
+        ? key === "jd_market"
+          ? "正在确认 5791 环回服务、本机运营系统和榜单受控店铺的独立 Chrome profile。"
+          : "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
         : "正在确认 5791 环回服务是否在线、Cookie 原文件是否可读取。",
   };
 }
@@ -164,15 +188,17 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
       detail: "辅助服务在线，但 Cookie 原文件不存在或路径无效；更新本机 .runtime 指针后重新检测。",
     };
   }
-  if (key === "jd" && payload.jdProfiles !== "ready") {
+  if ((key === "jd" && payload.jdProfiles !== "ready") || (key === "jd_market" && payload.jdMarketProfile !== "ready")) {
     return {
       kind: "cookie-missing",
       label: "京东店铺会话待恢复",
-      detail: "辅助服务在线，但至少一个京东独立 Chrome profile 缺失或结构无效；恢复对应店铺会话后重新检测。",
+      detail: key === "jd_market"
+        ? "辅助服务在线，但榜单受控店铺的独立 Chrome profile 缺失或结构无效；恢复该店铺会话后重新检测。"
+        : "辅助服务在线，但至少一个京东独立 Chrome profile 缺失或结构无效；恢复对应店铺会话后重新检测。",
     };
   }
   if (payload.busy || payload.stage !== "ready") {
-    const activeLabel = payload.activeWorkflow === "jackyun" ? "吉客云" : payload.activeWorkflow === "tmall" ? "天猫" : payload.activeWorkflow === "jd" ? "京东" : "当前";
+    const activeLabel = payload.activeWorkflow === "jackyun" ? "吉客云" : payload.activeWorkflow === "tmall" ? "天猫" : payload.activeWorkflow === "jd-market" ? "京东市场榜单" : payload.activeWorkflow === "jd" ? "京东" : "当前";
     return {
       kind: "running",
       label: `${activeLabel}流程执行中`,
@@ -183,10 +209,12 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
     kind: "ready",
     label: "可以安全启动",
     detail: "服务与专用 profile 已就绪；A 会跳过已有完整当日结果，任一失败都会阻断后续五类任务。",
-  } : key === "jd" ? {
+  } : key === "jd" || key === "jd_market" ? {
     kind: "ready",
     label: "可以安全启动",
-    detail: "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
+    detail: key === "jd_market"
+      ? "服务与京东独立 profile 已就绪；A/B/C 会按真实缺失日串行下载、签收、导入并回查。"
+      : "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
   } : {
     kind: "ready",
     label: "辅助服务已就绪",
@@ -290,7 +318,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
             aria-pressed={selectedWorkflowKey === key}
             onClick={() => selectWorkflow(key)}
           >
-            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : "京"}</span>
+            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : key === "jd_market" ? "榜" : "京"}</span>
             <strong>{workflowConfigs[key].definition.name}</strong>
           </button>
         ))}

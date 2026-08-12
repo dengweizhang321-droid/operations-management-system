@@ -511,6 +511,31 @@ test("market import replaces the complete claimed range and removes rows absent 
   sqlite.close();
 });
 
+test("daily market backfill replaces only its exact day and preserves other days in the same month", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await saveMarketImportCore({
+    db, batchId: "daily-a", sourceType: "jd", fileName: "daily-a.csv", fileSizeBytes: 10,
+    fileHash: "daily-a-hash", sheetName: "CSV", warnings: [],
+    rows: [
+      entry({ sourceRowNumber: 1, periodStart: "2026-07-01", periodEnd: "2026-07-01", skuCode: "SKU-A" }),
+      entry({ sourceRowNumber: 2, periodStart: "2026-07-02", periodEnd: "2026-07-02", skuCode: "SKU-B" }),
+    ],
+  });
+  await saveMarketImportCore({
+    db, batchId: "daily-b", sourceType: "jd", fileName: "daily-b.csv", fileSizeBytes: 10,
+    fileHash: "daily-b-hash", sheetName: "CSV", warnings: [],
+    rows: [entry({ sourceRowNumber: 1, periodStart: "2026-07-02", periodEnd: "2026-07-02", skuCode: "SKU-C" })],
+  });
+  assert.deepEqual(sqlite.prepare(`SELECT period_end day, sku_code sku, last_import_batch_id batchId
+    FROM market_ranking_entries ORDER BY period_end, sku_code`).all().map((row) => ({ ...row })), [
+    { day: "2026-07-01", sku: "SKU-A", batchId: "daily-a" },
+    { day: "2026-07-02", sku: "SKU-C", batchId: "daily-b" },
+  ]);
+  sqlite.close();
+});
+
 test("monthly snapshot backfill selects one fact when a SKU has multiple date ranges in one month", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
