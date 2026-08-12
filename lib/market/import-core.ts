@@ -270,15 +270,19 @@ ON CONFLICT(period_start, period_end, category, scope, price_band_filter, rankin
   last_import_batch_id=excluded.last_import_batch_id, updated_at=CURRENT_TIMESTAMP`;
 
 const replaceClaimedMarketFactsSql = `DELETE FROM market_ranking_entries AS fact
-WHERE EXISTS (
-  SELECT 1 FROM market_import_staging_rows staged
+WHERE (
+  fact.period_start, fact.period_end, fact.category, fact.scope,
+  fact.price_band_filter, fact.ranking_dimension
+) IN (
+  SELECT DISTINCT
+    json_extract(staged.row_json, '$.periodStart'),
+    json_extract(staged.row_json, '$.periodEnd'),
+    json_extract(staged.row_json, '$.category'),
+    json_extract(staged.row_json, '$.scope'),
+    json_extract(staged.row_json, '$.priceBandFilter'),
+    json_extract(staged.row_json, '$.rankingDimension')
+  FROM market_import_staging_rows staged
   WHERE staged.batch_id=?
-    AND fact.period_start=json_extract(staged.row_json, '$.periodStart')
-    AND fact.period_end=json_extract(staged.row_json, '$.periodEnd')
-    AND fact.category=json_extract(staged.row_json, '$.category')
-    AND fact.scope=json_extract(staged.row_json, '$.scope')
-    AND fact.price_band_filter=json_extract(staged.row_json, '$.priceBandFilter')
-    AND fact.ranking_dimension=json_extract(staged.row_json, '$.rankingDimension')
 )
 AND (SELECT COUNT(*) FROM market_import_range_claims WHERE batch_id = ? AND claim_token = ?) = ?`;
 

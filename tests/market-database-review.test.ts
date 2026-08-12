@@ -536,6 +536,14 @@ test("daily market backfill replaces only its exact day and preserves other days
   sqlite.close();
 });
 
+test("daily market replacement materializes distinct scopes before deleting facts", async () => {
+  const source = await readFile(new URL("../lib/market/import-core.ts", import.meta.url), "utf8");
+  const replacement = source.slice(source.indexOf("const replaceClaimedMarketFactsSql"), source.indexOf("const snapshotInsertSql"));
+  assert.match(replacement, /SELECT DISTINCT/);
+  assert.match(replacement, /\) IN \(/);
+  assert.doesNotMatch(replacement, /WHERE EXISTS \(/);
+});
+
 test("monthly snapshot backfill selects one fact when a SKU has multiple date ranges in one month", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);

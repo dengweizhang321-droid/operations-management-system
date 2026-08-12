@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Frame, Page } from "playwright-core";
+import type { Frame, Locator, Page } from "playwright-core";
 
 import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
@@ -15,6 +15,7 @@ const targetUrl = "https://jdsz.jd.com/szweb/view/industry/industry-product-rank
 const outputRoot = path.join(projectRoot, "outputs", "jd-market-ranking-daily");
 const configPath = path.join(projectRoot, "config", "jd-market-ranking-daily.json");
 const lockPath = path.join(outputRoot, "run.lock");
+const capturedRankRequests = new WeakMap<Page, { headers: Record<string, string>; url: string; capturedAt: number }>();
 
 export type JdMarketDailyConfig = {
   version: 1;
@@ -107,12 +108,14 @@ async function readCoverage(baseUrl: string, config: JdMarketDailyConfig, startD
   return body as Coverage;
 }
 
-function chunksOfMissingDates(dates: string[], maxDays: number) {
+function chunksOfMissingDates(dates: string[], maxDays: number, cutoffDate: string) {
   const chunks: JdMarketDailyPlan["chunks"] = [];
-  for (let index = 0; index < dates.length; index += maxDays) {
-    const chunk = dates.slice(index, index + maxDays);
+  const readyDates = dates.at(-1) === cutoffDate ? dates.slice(0, -1) : dates;
+  for (let index = 0; index < readyDates.length; index += maxDays) {
+    const chunk = readyDates.slice(index, index + maxDays);
     chunks.push({ startDate: chunk[0]!, endDate: chunk.at(-1)!, dates: chunk });
   }
+  if (dates.at(-1) === cutoffDate) chunks.push({ startDate: cutoffDate, endDate: cutoffDate, dates: [cutoffDate] });
   return chunks;
 }
 
@@ -153,7 +156,7 @@ export async function planJdMarketDailyRun(options: { executionId: string; baseU
     startDate: config.earliestDate, endDate,
     identity: { category: config.systemCategory, scope: config.scope, rankingDimension: "SKU", priceBandFilter: config.priceBandFilter },
     missingDates: coverage.missingDates,
-    chunks: chunksOfMissingDates(coverage.missingDates, config.maxDaysPerFile),
+    chunks: chunksOfMissingDates(coverage.missingDates, config.maxDaysPerFile, endDate),
   };
   await persistPlan(plan);
   return plan;
@@ -175,6 +178,10 @@ async function assertStoreIdentity(page: Page, expected: { shopId: string; shopN
 }
 
 async function installRequestCapture(page: Page) {
+  page.on("request", (request) => {
+    if (!/\/sz\/api\/industryMarket\/getProductBillBoardDealData\.ajax/.test(request.url())) return;
+    capturedRankRequests.set(page, { url: request.url(), headers: request.headers(), capturedAt: Date.now() });
+  });
   await page.addInitScript(() => {
     const target = window as typeof window & { __teruisiJdRank?: { headers: Record<string, string>; url: string; capturedAt: number } };
     const rawOpen = XMLHttpRequest.prototype.open;
@@ -201,73 +208,70 @@ async function installRequestCapture(page: Page) {
   });
 }
 
-async function findUniqueDropdownOption(frame: Frame, label: string) {
-  await frame.waitForTimeout(250);
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const labels = rankingSurface(frame).locator(".jmtd-label").filter({ visible: true });
-    const candidates = [];
-    for (let index = 0; index < await labels.count(); index += 1) {
-      const candidate = labels.nth(index);
-      if ((await candidate.innerText()).trim() !== label) continue;
-      if (await candidate.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' jmtd-base-input-top ')]").count()) continue;
-      candidates.push(candidate);
+async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label: string, action: "click" | "hover", control?: Locator) {
+  const exactLabel = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const candidates = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exactLabel });
+    if (await candidates.count() === 1) {
+      const applied = action === "hover"
+        ? await candidates.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false)
+        : await candidates.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+      if (applied) return;
     }
-    if (candidates.length === 1) {
-      return candidates[0]!;
-    }
+    if (await candidates.count() === 0 && control) await control.click().catch(() => undefined);
     await frame.waitForTimeout(100);
   }
   throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}`);
 }
 
-async function clickUniqueDropdownOption(frame: Frame, label: string) {
-  await (await findUniqueDropdownOption(frame, label)).click();
+async function clickUniqueDropdownOption(surface: Locator, frame: Frame, label: string, control?: Locator) {
+  await triggerUniqueDropdownOption(surface, frame, label, "click", control);
 }
 
-async function hoverUniqueDropdownOption(frame: Frame, label: string) {
-  await (await findUniqueDropdownOption(frame, label)).hover();
+async function hoverUniqueDropdownOption(surface: Locator, frame: Frame, label: string, control?: Locator) {
+  await triggerUniqueDropdownOption(surface, frame, label, "hover", control);
 }
 
-async function waitForSelectorText(frame: Frame, index: number, expected: string, exact: boolean) {
-  await frame.waitForFunction(({ targetIndex, targetText, exactMatch }) => {
-    const controls = [...document.querySelectorAll(".jmtd-base-input-top")].filter((element) => {
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-    });
-    const actual = controls[targetIndex]?.textContent?.trim() ?? "";
-    return exactMatch ? actual === targetText : actual.includes(targetText);
-  }, { targetIndex: index, targetText: expected, exactMatch: exact }, { timeout: 10_000 });
+async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const controls = surface.locator(".jmtd-base-input-top").filter({ visible: true });
+    const actual = (await controls.nth(index).innerText().catch(() => "")).trim();
+    if (exact ? actual === expected : actual.includes(expected)) return;
+    await frame.waitForTimeout(100);
+  }
+  throw new Error(`京东商品榜单筛选未生效：${expected}`);
 }
 
 function activeExportPanel(frame: Frame) {
   return frame.locator("xpath=//*[@id='jdsz-export-panel' and not(ancestor::*[@id='sz-old-version'])]");
 }
 
-function rankingSurface(frame: Frame) {
-  return frame.locator("#sz-old-version").filter({ visible: true });
+async function waitForRankingSurface(frame: Frame) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const surfaces = frame.locator("#sz-old-version").filter({ visible: true });
+    if (await surfaces.count() === 1 && await surfaces.first().locator(".jmtd-base-input-top").filter({ visible: true }).count() >= 3) return surfaces.first();
+    await frame.waitForTimeout(100);
+  }
+  throw new Error("京东商品榜单受控业务容器未就绪或不唯一");
 }
 
 async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
-  const surface = rankingSurface(frame);
-  if (await surface.count() !== 1) throw new Error("京东商品榜单受控业务容器不唯一");
+  const surface = await waitForRankingSurface(frame);
   const selectors = surface.locator(".jmtd-base-input-top").filter({ visible: true });
   await selectors.first().waitFor({ state: "visible", timeout: 30_000 });
   if (await selectors.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
   const currentDimension = (await selectors.nth(0).innerText()).trim();
   if (currentDimension !== "SKU") {
-    await selectors.nth(0).click();
-    await clickUniqueDropdownOption(frame, "SKU");
-    await waitForSelectorText(frame, 0, "SKU", true);
+    await clickUniqueDropdownOption(surface, frame, "SKU", selectors.nth(0));
+    await waitForSelectorText(surface, frame, 0, "SKU", true);
   }
   const categoryLabel = config.categoryPath.join(" > ");
   if (!(await selectors.nth(1).innerText()).includes(categoryLabel)) {
-    await selectors.nth(1).click();
-    await hoverUniqueDropdownOption(frame, config.categoryPath[0]);
-    await clickUniqueDropdownOption(frame, config.categoryPath[1]);
-    await waitForSelectorText(frame, 1, categoryLabel, false);
+    await hoverUniqueDropdownOption(surface, frame, config.categoryPath[0], selectors.nth(1));
+    await clickUniqueDropdownOption(surface, frame, config.categoryPath[1]);
+    await waitForSelectorText(surface, frame, 1, categoryLabel, false);
   }
   await frame.waitForTimeout(1_000);
   const labels = await selectors.allTextContents();
@@ -278,13 +282,18 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   const dayGranularity = exportPanel.locator('input[name="jdsz-gran"][value="day"]');
   await dayGranularity.check();
   if (!(await dayGranularity.isChecked())) throw new Error("京东商品榜单导出增强未切换到按日");
-  const captured = await frame.waitForFunction(() => {
-    const state = (window as typeof window & { __teruisiJdRank?: { url: string } }).__teruisiJdRank;
-    return state?.url.includes("unitType=1") ? state : false;
-  }, undefined, { timeout: 30_000 });
-  const value = await captured.jsonValue() as { url: string; headers: Record<string, string>; capturedAt: number };
+  let value: { url: string; headers: Record<string, string>; capturedAt: number } | undefined;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const candidate = capturedRankRequests.get(page);
+    if (candidate?.url.includes("unitType=1")) { value = candidate; break; }
+    await frame.waitForTimeout(100);
+  }
+  if (!value) throw new Error("未捕获到京东商品榜单 SKU 原生请求");
   const params = new URL(value.url, targetUrl).searchParams;
   if (params.get("unitType") !== "1") throw new Error("捕获到的榜单请求不是 SKU 维度");
+  await frame.evaluate((captured) => {
+    (window as typeof window & { __teruisiJdRank?: typeof captured }).__teruisiJdRank = captured;
+  }, value);
   return frame;
 }
 
@@ -294,7 +303,7 @@ async function fetchRankDay(frame: Page | import("playwright-core").Frame, date:
   return await frame.evaluate(async (targetDate) => {
     const target = window as typeof window & { __teruisiJdRank?: { headers: Record<string, string>; url: string; capturedAt: number } };
     const state = target.__teruisiJdRank;
-    if (!state || Date.now() - state.capturedAt > 8 * 60_000) throw new Error("榜单请求头缺失或已过期");
+    if (!state || Date.now() - state.capturedAt > 60 * 60_000) throw new Error("榜单请求头缺失或已过期");
     const url = new URL(state.url, location.origin);
     url.searchParams.set("date", targetDate.replaceAll("-", ""));
     url.searchParams.set("startDate", targetDate);
@@ -315,8 +324,8 @@ async function fetchImages(frame: Page | import("playwright-core").Frame, skuIds
       const target = window as typeof window & { __teruisiJdRank?: { headers: Record<string, string> } };
       const response = await fetch(`/sz/api/industry/getImageURL.ajax?ids=${ids.join(",")}`, { credentials: "include", headers: target.__teruisiJdRank?.headers ?? {} });
       const body = await response.json();
-      if (!response.ok || !Array.isArray(body?.content?.data)) throw new Error("京东商品图片接口未返回有效数据");
-      return body.content.data as Array<{ skuId: string | number; imgSrc?: string; proUrl?: string }>;
+      if (!response.ok) throw new Error("京东商品图片接口请求失败");
+      return Array.isArray(body?.content?.data) ? body.content.data as Array<{ skuId: string | number; imgSrc?: string; proUrl?: string }> : [];
     }, chunk);
     for (const row of rows) {
       const imageUrl = String(row.imgSrc ?? "").replace(/^\/\//, "https://").replace(/\/n\d+\//, "/imgzone/");
@@ -367,7 +376,7 @@ async function importCsv(plan: JdMarketDailyPlan, config: JdMarketDailyConfig, c
   form.set("category", config.systemCategory);
   form.set("scope", config.scope);
   form.set("priceBandFilter", config.priceBandFilter);
-  const response = await fetch(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
+  const response = await fetch(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(300_000) });
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (!response.ok || !body || !["imported", "duplicate"].includes(String(body.status))) throw new Error(`市场榜单导入失败：${String(body?.error ?? `HTTP ${response.status}`)}`);
   const batch = body.batch as Record<string, unknown> | undefined;
@@ -430,7 +439,11 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
           await frame.waitForTimeout(config.requestDelayMs);
         }
         const first = results[0]?.block;
-        if (!first || !results.every((result) => result.block.data.length > 0 && result.block.data.length <= 200)) throw new Error("京东商品榜单返回空日或超过 SKU 榜单行数上限");
+        const emptyDate = results.find((result) => result.block.data.length === 0)?.date;
+        if (emptyDate === plan.endDate) {
+          throw new Error(`京东商智昨日数据尚未开放：${emptyDate}；已按安全规则停止，未缩短日期范围或导入空集合`);
+        }
+        if (!first || emptyDate || !results.every((result) => result.block.data.length <= 200)) throw new Error("京东商品榜单返回空日或超过 SKU 榜单行数上限");
         const skuIds = [...new Set(results.flatMap(({ block }) => block.data.map((row) => String(row[block.metaIndex.skuId!]))))];
         const images = await fetchImages(frame, skuIds);
         const bytes = buildCsv(config, results, images);
