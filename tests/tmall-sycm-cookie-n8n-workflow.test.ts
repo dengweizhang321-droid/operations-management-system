@@ -31,8 +31,8 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
   assert.equal(workflow.settings.timezone, "Asia/Shanghai");
   assert.ok(workflow.nodes.some((node) => node.type === "n8n-nodes-base.manualTrigger"));
   const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
-  assert.equal(scheduleNode?.name, "每天 09:10-19:10 每小时校验昨天");
-  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "10 9-19 * * *");
+  assert.equal(scheduleNode?.name, "每天 11:00 运行");
+  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "0 11 * * *");
   const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
   assert.deepEqual(requestNodes.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/product-master",
@@ -61,7 +61,7 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
   assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
-  assert.equal(workflow.connections["每天 09:10-19:10 每小时校验昨天"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
+  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
   assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
   assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·全站推逐日报表下载、导入并回查");
   assert.equal(requestNodes[0]?.parameters?.options?.timeout, 1_800_000);
@@ -96,7 +96,8 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /业务范围与规范化后的完整业务内容都一致时返回 duplicate/);
   assert.match(view, /M → A → B → C → P/);
   assert.match(view, /全站推推广/);
-  assert.match(view, /scheduleMetric: "09:10–19:10"/);
+  assert.match(view, /scheduleMetric: "11:00"/);
+  assert.match(view, /scheduleTriggerLabel: "每天"/);
   assert.match(view, /scheduleMetric: "10:00"/);
   assert.match(view, /\{config\.scheduleMetric\} \{config\.scheduleTriggerLabel\}/);
   assert.match(view, /辅助服务已就绪/);
