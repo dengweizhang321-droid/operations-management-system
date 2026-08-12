@@ -234,6 +234,18 @@ export function hasAcceptedTmallExportTask(text: string) {
     && /任务\d*[:：]|待执行|任务已执行|执行结果|所有任务已完成|成功导出/.test(normalized);
 }
 
+export function hasCompletedTmallExportResult(text: string) {
+  return /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text.replace(/\s+/g, " "));
+}
+
+export function chooseTmallResumeSellerPageIndex(pages: readonly { hasCompletedResult: boolean }[]) {
+  const completedIndexes = pages.flatMap((page, index) => page.hasCompletedResult ? [index] : []);
+  if (completedIndexes.length > 1) {
+    throw new Error("多个千牛页面都显示已完成商品导出，无法唯一接管原任务");
+  }
+  return completedIndexes[0] ?? 0;
+}
+
 export function isResumableTmallExportStage(stage: string | undefined) {
   return stage === "export_submitted" || stage === "export_confirmed";
 }
@@ -281,7 +293,7 @@ export function chooseLatestTmallDownloadSignature(candidates: readonly TmallDow
   if (new Set(distinct.map((candidate) => candidate.frameUrl)).size !== 1) {
     throw new Error("多个下载链接分布在不同页面，无法确认当前商品管家任务");
   }
-  const completed = distinct.filter((candidate) => /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(candidate.contextText));
+  const completed = distinct.filter((candidate) => hasCompletedTmallExportResult(candidate.contextText));
   if (completed.length === 0) return null;
   const ordered = completed.sort((left, right) => left.top - right.top || left.left - right.left);
   if (ordered.length > 1 && ordered.at(-1)!.top - ordered.at(-2)!.top < 16) {
@@ -1120,13 +1132,13 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?:
         const rect = element.getBoundingClientRect();
         let contextText = "";
         let ancestor: Element | null = element;
-        for (let depth = 0; depth < 6 && ancestor; depth += 1, ancestor = ancestor.parentElement) {
+        // 商品管家会把任务结果渲染在独立右侧栏；其成功卡片的可滚动父容器
+        // 可能高于视口。继续向上查找，但仍限制文本长度，避免把整页历史误作结果卡片。
+        for (let depth = 0; depth < 12 && ancestor; depth += 1, ancestor = ancestor.parentElement) {
           const text = (ancestor.textContent ?? "").replace(/\s+/g, " ").trim();
-          const ancestorRect = ancestor.getBoundingClientRect();
           if (
             /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text)
             && text.length <= 3_000
-            && ancestorRect.height <= Math.max(window.innerHeight * 0.75, 600)
           ) {
             contextText = text;
             break;
@@ -1435,7 +1447,14 @@ async function browserExport(options: {
   const browser = await connectPlaywrightBrowser(options.store.browser.debugPort);
   const context = browser.contexts()[0];
   if (!context) throw new Error("亿玖店独立 Chrome 没有可用上下文");
-  let page = context.pages().find((candidate) => /myseller\.taobao\.com/i.test(candidate.url()));
+  const sellerPages = context.pages().filter((candidate) => /myseller\.taobao\.com/i.test(candidate.url()));
+  let page = sellerPages[0];
+  if (options.resumeStage && sellerPages.length > 1) {
+    const observations = await Promise.all(sellerPages.map(async (candidate) => ({
+      hasCompletedResult: hasCompletedTmallExportResult(await combinedPageText(candidate)),
+    })));
+    page = sellerPages[chooseTmallResumeSellerPageIndex(observations)];
+  }
   if (!page) page = await context.newPage();
   page.setDefaultTimeout(15_000);
   try {
@@ -1502,14 +1521,26 @@ async function browserExport(options: {
       const current = await downloadCandidates(page!, input.frame, chatScope ?? undefined);
       const fresh = current.filter((candidate) => !baselineDownloads.has(candidate.signature));
       const selectedSignature = chooseLatestTmallDownloadSignature(fresh);
-      const selected = selectedSignature
+      let selected = selectedSignature
         ? fresh.find((candidate) => candidate.signature === selectedSignature)
         : undefined;
+      // A resumed task must not send another chat prompt. The product-manager side panel
+      // can preserve its completed card outside the current input overlay, so scan the
+      // same page as a fallback and still require the eventual export-record time match.
+      if (options.resumeStage && (!selected || !hasCompletedTmallExportResult(selected.contextText))) {
+        const pageWide = (await downloadCandidates(page!))
+          .filter((candidate) => !baselineDownloads.has(candidate.signature))
+          .filter((candidate) => hasCompletedTmallExportResult(candidate.contextText));
+        const pageWideSignature = chooseLatestTmallDownloadSignature(pageWide);
+        selected = pageWideSignature
+          ? pageWide.find((candidate) => candidate.signature === pageWideSignature)
+          : selected;
+      }
       if (selected) {
         const text = await chatText();
         if (
-          /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(selected.contextText)
-          || (!options.resumeStage && fresh.length === 1 && /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text))
+          hasCompletedTmallExportResult(selected.contextText)
+          || (!options.resumeStage && fresh.length === 1 && hasCompletedTmallExportResult(text))
         ) {
           newDownload = selected;
         }
@@ -1635,8 +1666,9 @@ export async function runTmallProductMasterStage(options: {
     }
 
     const imported = await importTmallProductMasterFile({ baseUrl, store, snapshotDate, evidence, request });
+    const { lastError: _lastError, ...completedAudit } = activeAudit;
     activeAudit = await writeActiveAudit({
-      ...activeAudit,
+      ...completedAudit,
       stage: "completed",
       importResult: {
         status: imported.status,

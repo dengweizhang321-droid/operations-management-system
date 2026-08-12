@@ -10,9 +10,11 @@ import {
   compareTmallNoticeActionCandidates,
   chooseLatestTmallDownloadSignature,
   chooseTmallExportRecordSignature,
+  chooseTmallResumeSellerPageIndex,
   createTmallBrowserDownloadSession,
   decideTmallMasterAuditRecovery,
   hasAcceptedTmallExportTask,
+  hasCompletedTmallExportResult,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
   isExplicitTmallNoticeDismissAction,
@@ -115,6 +117,8 @@ test("商品管家确认兼容任务卡片文案并识别自动受理状态", ()
   assert.equal(hasAcceptedTmallExportTask("任务2：导出商品到Excel，共有2个任务，还剩0个任务待执行"), true);
   assert.equal(hasAcceptedTmallExportTask("成功导出 212 个商品到Excel文件，所有任务已完成"), true);
   assert.equal(hasAcceptedTmallExportTask("导出全部商品"), false);
+  assert.equal(hasCompletedTmallExportResult("成功导出 162 个商品到Excel文件，前往下载"), true);
+  assert.equal(hasCompletedTmallExportResult("任务2：导出商品到Excel，共有2个任务"), false);
   assert.equal(isResumableTmallExportStage("export_submitted"), true);
   assert.equal(isResumableTmallExportStage("export_confirmed"), true);
   assert.equal(isResumableTmallExportStage("export_submitting"), false);
@@ -144,6 +148,21 @@ test("商品管家跨日恢复旧任务且不重复发送导出指令", () => {
     snapshotDate: "2026-08-12",
     stage: "export_submitting",
   }), { action: "continue", snapshotDate: "2026-08-12" });
+});
+
+test("恢复商品管家任务只接管唯一含完成结果的千牛页面", () => {
+  assert.equal(chooseTmallResumeSellerPageIndex([
+    { hasCompletedResult: false },
+    { hasCompletedResult: true },
+  ]), 1);
+  assert.equal(chooseTmallResumeSellerPageIndex([
+    { hasCompletedResult: false },
+    { hasCompletedResult: false },
+  ]), 0);
+  assert.throws(() => chooseTmallResumeSellerPageIndex([
+    { hasCompletedResult: true },
+    { hasCompletedResult: true },
+  ]), /多个千牛页面/);
 });
 
 test("商品管家下载候选合并嵌套按钮并只选择最下方成功结果", () => {
