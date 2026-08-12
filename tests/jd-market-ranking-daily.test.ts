@@ -45,6 +45,9 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(runner, /hoverUniqueDropdownOption\(frame, config\.categoryPath\[0\]\)/);
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
+  assert.match(runner, /rankingSurface\(frame\)\.locator\("\.jmtd-label"\)/);
+  assert.match(runner, /return frame\.locator\("#sz-old-version"\)\.filter\(\{ visible: true \}\)/);
+  assert.match(runner, /surface\.count\(\) !== 1/);
   assert.match(runner, /not\(ancestor::\*\[@id='sz-old-version'\]\)/);
   assert.match(runner, /exportPanel\.count\(\) !== 1/);
   assert.match(runner, /fromInput\.inputValue\(\) !== startDate/);

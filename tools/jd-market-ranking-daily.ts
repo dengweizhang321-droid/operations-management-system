@@ -204,7 +204,7 @@ async function installRequestCapture(page: Page) {
 async function findUniqueDropdownOption(frame: Frame, label: string) {
   await frame.waitForTimeout(250);
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const labels = frame.locator(".jmtd-label").filter({ visible: true });
+    const labels = rankingSurface(frame).locator(".jmtd-label").filter({ visible: true });
     const candidates = [];
     for (let index = 0; index < await labels.count(); index += 1) {
       const candidate = labels.nth(index);
@@ -244,10 +244,16 @@ function activeExportPanel(frame: Frame) {
   return frame.locator("xpath=//*[@id='jdsz-export-panel' and not(ancestor::*[@id='sz-old-version'])]");
 }
 
+function rankingSurface(frame: Frame) {
+  return frame.locator("#sz-old-version").filter({ visible: true });
+}
+
 async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
-  const selectors = frame.locator(".jmtd-base-input-top").filter({ visible: true });
+  const surface = rankingSurface(frame);
+  if (await surface.count() !== 1) throw new Error("京东商品榜单受控业务容器不唯一");
+  const selectors = surface.locator(".jmtd-base-input-top").filter({ visible: true });
   await selectors.first().waitFor({ state: "visible", timeout: 30_000 });
   if (await selectors.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
   const currentDimension = (await selectors.nth(0).innerText()).trim();
