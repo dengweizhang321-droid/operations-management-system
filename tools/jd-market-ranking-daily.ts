@@ -201,30 +201,31 @@ async function installRequestCapture(page: Page) {
   });
 }
 
-async function clickUniqueDropdownOption(frame: Frame, label: string) {
+async function findUniqueDropdownOption(frame: Frame, label: string) {
   await frame.waitForTimeout(250);
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const result = await frame.evaluate((targetLabel) => {
-      const visible = (element: Element) => {
-        const style = getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return element.isConnected && style.display !== "none" && style.visibility !== "hidden"
-          && Number(style.opacity || "1") > 0 && rect.width > 0 && rect.height > 0;
-      };
-      const controls = [...document.querySelectorAll(".jmtd-base-input-top")];
-      const candidates = [...document.querySelectorAll(".jmtd-label")].filter((element) =>
-        element.textContent?.trim() === targetLabel
-        && visible(element)
-        && !controls.some((control) => control.contains(element)),
-      );
-      if (candidates.length !== 1) return { clicked: false, count: candidates.length };
-      (candidates[0] as HTMLElement).click();
-      return { clicked: true, count: 1 };
-    }, label);
-    if (result.clicked) return;
+    const labels = frame.locator(".jmtd-label").filter({ visible: true });
+    const candidates = [];
+    for (let index = 0; index < await labels.count(); index += 1) {
+      const candidate = labels.nth(index);
+      if ((await candidate.innerText()).trim() !== label) continue;
+      if (await candidate.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' jmtd-base-input-top ')]").count()) continue;
+      candidates.push(candidate);
+    }
+    if (candidates.length === 1) {
+      return candidates[0]!;
+    }
     await frame.waitForTimeout(100);
   }
   throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}`);
+}
+
+async function clickUniqueDropdownOption(frame: Frame, label: string) {
+  await (await findUniqueDropdownOption(frame, label)).click();
+}
+
+async function hoverUniqueDropdownOption(frame: Frame, label: string) {
+  await (await findUniqueDropdownOption(frame, label)).hover();
 }
 
 async function waitForSelectorText(frame: Frame, index: number, expected: string, exact: boolean) {
@@ -237,6 +238,10 @@ async function waitForSelectorText(frame: Frame, index: number, expected: string
     const actual = controls[targetIndex]?.textContent?.trim() ?? "";
     return exactMatch ? actual === targetText : actual.includes(targetText);
   }, { targetIndex: index, targetText: expected, exactMatch: exact }, { timeout: 10_000 });
+}
+
+function activeExportPanel(frame: Frame) {
+  return frame.locator("xpath=//*[@id='jdsz-export-panel' and not(ancestor::*[@id='sz-old-version'])]");
 }
 
 async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
@@ -254,17 +259,19 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   const categoryLabel = config.categoryPath.join(" > ");
   if (!(await selectors.nth(1).innerText()).includes(categoryLabel)) {
     await selectors.nth(1).click();
-    await clickUniqueDropdownOption(frame, config.categoryPath[0]);
+    await hoverUniqueDropdownOption(frame, config.categoryPath[0]);
     await clickUniqueDropdownOption(frame, config.categoryPath[1]);
     await waitForSelectorText(frame, 1, categoryLabel, false);
   }
   await frame.waitForTimeout(1_000);
   const labels = await selectors.allTextContents();
   if (labels[0]?.trim() !== "SKU" || !labels[1]?.includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
-  const exportPanel = frame.locator("#jdsz-export-panel");
-  if (await exportPanel.count()) {
-    await exportPanel.locator('input[name="jdsz-gran"][value="day"]').check();
-  }
+  const exportPanel = activeExportPanel(frame);
+  if (await exportPanel.count() !== 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
+  await exportPanel.waitFor({ state: "visible", timeout: 10_000 });
+  const dayGranularity = exportPanel.locator('input[name="jdsz-gran"][value="day"]');
+  await dayGranularity.check();
+  if (!(await dayGranularity.isChecked())) throw new Error("京东商品榜单导出增强未切换到按日");
   const captured = await frame.waitForFunction(() => {
     const state = (window as typeof window & { __teruisiJdRank?: { url: string } }).__teruisiJdRank;
     return state?.url.includes("unitType=1") ? state : false;
@@ -396,8 +403,17 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       const runDirectory = path.join(outputRoot, plan.runId);
       await mkdir(runDirectory, { recursive: true });
       if (plan.chunks.length) {
-        await frame.locator("#jdsz-from").fill(plan.chunks[0]!.startDate).catch(() => undefined);
-        await frame.locator("#jdsz-to").fill(plan.chunks.at(-1)!.endDate).catch(() => undefined);
+        const exportPanel = activeExportPanel(frame);
+        if (await exportPanel.count() !== 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
+        const fromInput = exportPanel.locator("#jdsz-from");
+        const toInput = exportPanel.locator("#jdsz-to");
+        const startDate = plan.chunks[0]!.startDate;
+        const endDate = plan.chunks.at(-1)!.endDate;
+        await fromInput.fill(startDate);
+        await toInput.fill(endDate);
+        if (await fromInput.inputValue() !== startDate || await toInput.inputValue() !== endDate) {
+          throw new Error("京东商品榜单导出增强日期未精确生效");
+        }
         await saveEvidenceScreenshot(page, plan, "exportPanel");
       }
       for (const chunk of plan.chunks) {

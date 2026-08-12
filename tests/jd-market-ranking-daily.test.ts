@@ -38,7 +38,15 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(runner, /assertJdProductDetailStoreIdentity/);
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, "exportPanel"\)/);
-  assert.match(runner, /!controls\.some\(\(control\) => control\.contains\(element\)\)/);
-  assert.match(runner, /candidates\.length !== 1/);
+  const selectorHelper = runner.slice(runner.indexOf("async function findUniqueDropdownOption"), runner.indexOf("async function waitForSelectorText"));
+  assert.doesNotMatch(selectorHelper, /frame\.evaluate/);
+  assert.match(selectorHelper, /jmtd-base-input-top/);
+  assert.match(selectorHelper, /candidates\.length === 1/);
+  assert.match(runner, /hoverUniqueDropdownOption\(frame, config\.categoryPath\[0\]\)/);
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
+  assert.match(runner, /dayGranularity\.isChecked\(\)/);
+  assert.match(runner, /not\(ancestor::\*\[@id='sz-old-version'\]\)/);
+  assert.match(runner, /exportPanel\.count\(\) !== 1/);
+  assert.match(runner, /fromInput\.inputValue\(\) !== startDate/);
+  assert.doesNotMatch(runner, /#jdsz-from"\)\.fill\([^\n]+\.catch\(/);
 });
