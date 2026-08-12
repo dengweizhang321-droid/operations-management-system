@@ -38,4 +38,7 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(runner, /assertJdProductDetailStoreIdentity/);
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, "exportPanel"\)/);
+  assert.match(runner, /!controls\.some\(\(control\) => control\.contains\(element\)\)/);
+  assert.match(runner, /candidates\.length !== 1/);
+  assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
 });

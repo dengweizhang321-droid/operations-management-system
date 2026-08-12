@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Page } from "playwright-core";
+import type { Frame, Page } from "playwright-core";
 
 import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
@@ -201,6 +201,44 @@ async function installRequestCapture(page: Page) {
   });
 }
 
+async function clickUniqueDropdownOption(frame: Frame, label: string) {
+  await frame.waitForTimeout(250);
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const result = await frame.evaluate((targetLabel) => {
+      const visible = (element: Element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return element.isConnected && style.display !== "none" && style.visibility !== "hidden"
+          && Number(style.opacity || "1") > 0 && rect.width > 0 && rect.height > 0;
+      };
+      const controls = [...document.querySelectorAll(".jmtd-base-input-top")];
+      const candidates = [...document.querySelectorAll(".jmtd-label")].filter((element) =>
+        element.textContent?.trim() === targetLabel
+        && visible(element)
+        && !controls.some((control) => control.contains(element)),
+      );
+      if (candidates.length !== 1) return { clicked: false, count: candidates.length };
+      (candidates[0] as HTMLElement).click();
+      return { clicked: true, count: 1 };
+    }, label);
+    if (result.clicked) return;
+    await frame.waitForTimeout(100);
+  }
+  throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}`);
+}
+
+async function waitForSelectorText(frame: Frame, index: number, expected: string, exact: boolean) {
+  await frame.waitForFunction(({ targetIndex, targetText, exactMatch }) => {
+    const controls = [...document.querySelectorAll(".jmtd-base-input-top")].filter((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    });
+    const actual = controls[targetIndex]?.textContent?.trim() ?? "";
+    return exactMatch ? actual === targetText : actual.includes(targetText);
+  }, { targetIndex: index, targetText: expected, exactMatch: exact }, { timeout: 10_000 });
+}
+
 async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
@@ -210,13 +248,15 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   const currentDimension = (await selectors.nth(0).innerText()).trim();
   if (currentDimension !== "SKU") {
     await selectors.nth(0).click();
-    await frame.getByText("SKU", { exact: true }).filter({ visible: true }).last().click();
+    await clickUniqueDropdownOption(frame, "SKU");
+    await waitForSelectorText(frame, 0, "SKU", true);
   }
   const categoryLabel = config.categoryPath.join(" > ");
   if (!(await selectors.nth(1).innerText()).includes(categoryLabel)) {
     await selectors.nth(1).click();
-    await frame.getByText(config.categoryPath[0], { exact: true }).filter({ visible: true }).last().click();
-    await frame.getByText(config.categoryPath[1], { exact: true }).filter({ visible: true }).last().click();
+    await clickUniqueDropdownOption(frame, config.categoryPath[0]);
+    await clickUniqueDropdownOption(frame, config.categoryPath[1]);
+    await waitForSelectorText(frame, 1, categoryLabel, false);
   }
   await frame.waitForTimeout(1_000);
   const labels = await selectors.allTextContents();
