@@ -1083,6 +1083,8 @@ test("market ranking reuses only a ready image from the same exact product ident
   `);
   const sql = `${buildMarketRankingCtes({ factWhere: "WHERE m.natural_key='current'" })}
     SELECT resolved_image_url imageUrl,image_cache_status_raw cacheStatus,image_content_sha256 hash FROM top_ranked`;
+  // D1 rejects outer-query references inside a scalar subquery's ORDER BY even though local SQLite accepts them.
+  assert.doesNotMatch(sql, /ORDER BY CASE WHEN historical\.id=m\.id/);
   assert.deepEqual({ ...(sqlite.prepare(sql).get() as Record<string, unknown>) }, {
     imageUrl: "https://img10.360buyimg.com/n5/same.jpg",
     cacheStatus: "ready",
