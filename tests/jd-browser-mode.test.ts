@@ -159,6 +159,8 @@ test("JD master uses minimized headed Chromium while product detail keeps shared
   assert.match(daily, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
   assert.doesNotMatch(master, /jdBrowserLaunchMode\(options\.interactiveLogin\)/);
   assert.doesNotMatch(daily, /startUrl:\s*targetUrl,\s*headless:\s*false/);
+  assert.match(master, /options\.visibleRecovery\s*&&\s*interactiveAttentionRequired/);
+  assert.match(daily, /options\.visibleRecovery\s*&&\s*!options\.interactiveLogin/);
   assert.match(cdp, /options\.startMinimized[\s\S]*--start-minimized/);
   assert.match(cdp, /--profile-directory=\$\{options\.profileName\}/);
   assert.match(cdp, /--disable-background-timer-throttling/);

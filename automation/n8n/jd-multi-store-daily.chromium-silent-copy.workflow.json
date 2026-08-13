@@ -23,7 +23,7 @@
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd/plan",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
         "options": { "timeout": 120000 }
       },
       "id": "7aa3e3b1-4adb-4c8e-b431-100000000003",
@@ -37,7 +37,7 @@
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd/run",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
         "options": { "timeout": 21600000 }
       },
       "id": "7aa3e3b1-4adb-4c8e-b431-100000000004",
@@ -51,7 +51,7 @@
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd/verify",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
         "options": { "timeout": 120000 }
       },
       "id": "7aa3e3b1-4adb-4c8e-b431-100000000005",
@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "content": "## Chromium 静默下载副本\n执行器使用 Chromium 内核的普通有头浏览器，窗口在后台隐藏并最小化；下载由受控执行器直接写入每店独立目录，不弹系统保存窗口。登录失效、验证码、安全验证、业务码 601 或店铺身份异常时仍失败关闭，并只打开当前店铺的可见浏览器供人工处理。",
+        "content": "## Chromium 静默下载副本\n执行器使用 Chromium 的普通有头浏览器，窗口在后台隐藏并最小化；下载由受控执行器直接写入每店独立目录，不弹系统保存窗口。登录失效、验证码、安全验证、业务码 601 或店铺身份异常时只失败关闭并保留审计，不打开可见窗口、不自动重放业务点击。",
         "height": 205,
         "width": 630,
         "color": 5

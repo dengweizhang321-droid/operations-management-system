@@ -32,6 +32,7 @@ export type JdN8nPlan = {
   ownerExecutionId: string;
   storeKeys: string[];
   stores: Array<{ storeKey: string; shopId: string; shopName: string }>;
+  silentNoWindow?: boolean;
   stage: JdN8nStage;
   runnerAuditPath?: string;
   failure?: { code: string; stage: "plan" | "run" | "verify"; message: string; at: string };
@@ -47,6 +48,7 @@ type PlanOptions = {
   runIdFactory?: () => string;
   profileStatus?: (stores: readonly JdStore[]) => Promise<JdProfileStatus>;
   executionId: string;
+  silentNoWindow?: boolean;
 };
 type RunOptions = {
   root?: string;
@@ -156,12 +158,13 @@ async function persistPlan(paths: RuntimePaths, plan: JdN8nPlan) {
   await writeJsonAtomic(planPath(paths, plan.runId), plan);
 }
 
-async function findPlanForRange(paths: RuntimePaths, identity: Pick<JdN8nPlan, "baseUrl" | "startDate" | "endDate" | "stores">) {
+async function findPlanForRange(paths: RuntimePaths, identity: Pick<JdN8nPlan, "baseUrl" | "startDate" | "endDate" | "stores"> & { silentNoWindow: boolean }) {
   const entries = await readdir(paths.planDirectory, { withFileTypes: true }).catch(() => []);
   const plans = await Promise.all(entries.filter((entry) => entry.isFile() && /^plan-[A-Za-z0-9._-]+\.json$/.test(entry.name))
     .map((entry) => readJsonFile<JdN8nPlan>(path.join(paths.planDirectory, entry.name)).catch(() => null)));
   return plans.filter((plan): plan is JdN8nPlan => Boolean(plan))
     .filter((plan) => plan.version === 1 && plan.baseUrl === identity.baseUrl && plan.startDate === identity.startDate && plan.endDate === identity.endDate
+      && Boolean(plan.silentNoWindow) === identity.silentNoWindow
       && Array.isArray(plan.stores) && sameStoreIdentity(plan.stores, identity.stores))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
 }
@@ -181,7 +184,8 @@ export async function planJdN8nRun(options: PlanOptions) {
   if (!response.ok) throw new Error(`本机运营系统不可用 (HTTP ${response.status})`);
   await mkdir(paths.planDirectory, { recursive: true });
   const storesIdentity = storeIdentity(stores);
-  const prior = await findPlanForRange(paths, { baseUrl, ...range, stores: storesIdentity });
+  const silentNoWindow = options.silentNoWindow === true;
+  const prior = await findPlanForRange(paths, { baseUrl, ...range, stores: storesIdentity, silentNoWindow });
   if (prior) {
     if (!validExecutionId(prior.ownerExecutionId)) throw new Error("京东 n8n 既有计划缺少有效执行所有者");
     if (prior.ownerExecutionId !== executionId && prior.stage === "completed") {
@@ -213,6 +217,7 @@ export async function planJdN8nRun(options: PlanOptions) {
     ownerExecutionId: executionId,
     storeKeys: stores.map((store) => store.storeKey),
     stores: storesIdentity,
+    silentNoWindow,
     stage: "planned",
   };
   if (!validRunId(plan.runId)) throw new Error("京东 n8n 运行编号无效");
@@ -229,6 +234,7 @@ export function publicJdPlan(plan: JdN8nPlan) {
     endDate: plan.endDate,
     storeCount: plan.storeKeys.length,
     verificationOnly: plan.stage === "executed" || plan.stage === "completed",
+    silentNoWindow: Boolean(plan.silentNoWindow),
   };
 }
 
@@ -237,6 +243,7 @@ export async function runJdN8nPlan(plan: JdN8nPlan, options: RunOptions = {}) {
   if (plan.version !== 1 || !validRunId(plan.runId) || !validDate(plan.startDate) || !validDate(plan.endDate)
     || plan.startDate > plan.endDate || plan.baseUrl !== normalizeJdLocalBaseUrl(plan.baseUrl)
     || !validExecutionId(plan.ownerExecutionId) || !Array.isArray(plan.stores)
+    || (plan.silentNoWindow !== undefined && typeof plan.silentNoWindow !== "boolean")
     || plan.stores.some((store) => !store.storeKey || !store.shopId || !store.shopName)
     || plan.storeKeys.length !== plan.stores.length || plan.storeKeys.some((storeKey, index) => storeKey !== plan.stores[index]?.storeKey)) {
     throw new Error("京东 n8n 计划格式无效");
@@ -256,6 +263,7 @@ export async function runJdN8nPlan(plan: JdN8nPlan, options: RunOptions = {}) {
   try {
     const result = await (options.run ?? runMultiStore)({
       mode: "all", startDate: plan.startDate, endDate: plan.endDate, storeKey: undefined, dryRun: false,
+      silentNoWindow: Boolean(plan.silentNoWindow),
       baseUrl: plan.baseUrl,
       ...(plan.runnerAuditPath ? { resumeAuditPath: runnerAuditPath(paths, plan.runnerAuditPath) } : {}),
     }, stores);
@@ -285,6 +293,7 @@ export async function verifyJdN8nPlan(plan: JdN8nPlan, options: VerifyOptions = 
     const stores = (options.stores ?? await loadJdStores()).filter((store) => plan.storeKeys.includes(store.storeKey));
     if (!sameStoreIdentity(plan.stores, storeIdentity(stores)) || stores.length !== plan.storeKeys.length
       || audit.baseUrl !== plan.baseUrl || audit.mode !== "all" || audit.dryRun || audit.startDate !== plan.startDate || audit.endDate !== plan.endDate
+      || Boolean(audit.silentNoWindow) !== Boolean(plan.silentNoWindow)
       || audit.storeKeys.length !== plan.storeKeys.length || audit.storeKeys.some((storeKey, index) => storeKey !== plan.storeKeys[index])) {
       throw new Error("京东 runner 审计的店铺、地址、模式或日期范围不匹配");
     }

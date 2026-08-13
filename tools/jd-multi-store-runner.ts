@@ -11,7 +11,7 @@ const defaultBaseUrl = (process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3
 export type Step = "jd_product_master" | "jd_sku_daily" | "spu_daily";
 type AuditStatus = "planned" | "running" | "completed" | "failed";
 export type AuditItem = { storeKey: string; shopName: string; step: Step; status: AuditStatus; savedPath?: string; batchId?: string; rowCount?: number; /** The already validated, non-sensitive import proof for a later independent n8n C-stage recheck. */ importResult?: Record<string, unknown>; durationMs?: number; error?: string; stderr?: string };
-export type RunnerAudit = { version: 1; baseUrl: string; startedAt: string; updatedAt: string; mode: string; dryRun: boolean; startDate?: string; endDate?: string; storeKeys: string[]; items: AuditItem[] };
+export type RunnerAudit = { version: 1; baseUrl: string; startedAt: string; updatedAt: string; mode: string; dryRun: boolean; silentNoWindow?: boolean; startDate?: string; endDate?: string; storeKeys: string[]; items: AuditItem[] };
 export type MultiStoreOptions = ReturnType<typeof parseRunnerArgs> & { baseUrl?: string; resumeAuditPath?: string };
 export const JD_PIPELINE_RESULT_SENTINEL = "@@JD_PIPELINE_RESULT@@";
 
@@ -21,7 +21,14 @@ export function parseRunnerArgs(argv: string[]) {
   const mode = (value("--mode") ?? "all").toLowerCase();
   if (!["all", "master", "sku-daily", "spu-daily"].includes(mode)) throw new Error("--mode 必须是 all/master/sku-daily/spu-daily");
   if (has("--dimension")) throw new Error("多店执行器不再使用 --dimension；请改用 --mode sku-daily 或 --mode spu-daily（all 会依次运行主数据、SKU、SPU）。");
-  return { mode, startDate: value("--start-date"), endDate: value("--end-date"), storeKey: value("--store-key"), dryRun: has("--dry-run") };
+  return {
+    mode,
+    startDate: value("--start-date"),
+    endDate: value("--end-date"),
+    storeKey: value("--store-key"),
+    dryRun: has("--dry-run"),
+    silentNoWindow: has("--no-visible-recovery"),
+  };
 }
 
 function run(command: string, args: string[]) {
@@ -98,6 +105,7 @@ function inside(directory: string, filePath: string) {
 export function assertResumeAuditContract(audit: RunnerAudit, options: MultiStoreOptions, stores: JdStore[], baseUrl: string) {
   const expectedSteps = stepsForMode(options.mode);
   if (audit.version !== 1 || audit.baseUrl !== baseUrl || audit.mode !== options.mode || audit.dryRun !== false
+    || Boolean(audit.silentNoWindow) !== options.silentNoWindow
     || audit.startDate !== options.startDate || audit.endDate !== options.endDate
     || audit.storeKeys.length !== stores.length || audit.storeKeys.some((storeKey, index) => storeKey !== stores[index]?.storeKey)
     || audit.items.length !== stores.length * expectedSteps.length) {
@@ -141,13 +149,18 @@ function stepsForMode(mode: string): Step[] {
   return ["jd_product_master", "jd_sku_daily", "spu_daily"];
 }
 
-function childArgs(store: JdStore, step: Step, options: MultiStoreOptions, baseUrl: string) {
+export function jdChildArgs(store: JdStore, step: Step, options: MultiStoreOptions, baseUrl: string) {
   const args = ["--import", "tsx"];
-  if (step === "jd_product_master") return [...args, "tools/jackyun-ware-export.ts", "--store-key", store.storeKey, "--base-url", baseUrl];
+  if (step === "jd_product_master") {
+    const command = [...args, "tools/jackyun-ware-export.ts", "--store-key", store.storeKey, "--base-url", baseUrl];
+    if (options.silentNoWindow) command.push("--no-visible-recovery");
+    return command;
+  }
   const dimension = step === "jd_sku_daily" ? "SKU" : "SPU";
   const command = [...args, "tools/jdsz-product-detail-export.ts", "--store-key", store.storeKey, "--dimension", dimension, "--download-dir", store.browser.downloadDir, "--base-url", baseUrl];
   if (options.startDate) command.push("--start-date", options.startDate);
   if (options.endDate) command.push("--end-date", options.endDate);
+  if (options.silentNoWindow) command.push("--no-visible-recovery");
   return command;
 }
 
@@ -175,7 +188,7 @@ export async function runMultiStore(options: MultiStoreOptions, stores?: JdStore
       delete firstIncomplete.durationMs;
     }
   } else {
-    audit = { version: 1, baseUrl, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), mode: options.mode, dryRun: options.dryRun, startDate: options.startDate, endDate: options.endDate, storeKeys: selected.map((store) => store.storeKey), items: selected.flatMap((store) => stepsForMode(options.mode).map((step) => ({ storeKey: store.storeKey, shopName: store.shopName, step, status: "planned" as const }))) };
+    audit = { version: 1, baseUrl, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), mode: options.mode, dryRun: options.dryRun, silentNoWindow: options.silentNoWindow, startDate: options.startDate, endDate: options.endDate, storeKeys: selected.map((store) => store.storeKey), items: selected.flatMap((store) => stepsForMode(options.mode).map((step) => ({ storeKey: store.storeKey, shopName: store.shopName, step, status: "planned" as const }))) };
   }
   const persist = async () => { audit = { ...audit, updatedAt: new Date().toISOString() }; await writeJsonAtomic(auditPath, audit); };
   await persist();
@@ -190,7 +203,7 @@ export async function runMultiStore(options: MultiStoreOptions, stores?: JdStore
       const started = Date.now();
       let outcome: Awaited<ReturnType<typeof run>>;
       try {
-        outcome = await run(process.execPath, childArgs(store, step, options, baseUrl));
+        outcome = await run(process.execPath, jdChildArgs(store, step, options, baseUrl));
       } catch (error) {
         item.status = "failed";
         item.durationMs = Date.now() - started;

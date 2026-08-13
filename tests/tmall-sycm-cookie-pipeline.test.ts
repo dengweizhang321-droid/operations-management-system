@@ -18,6 +18,7 @@ import {
   helperInactivityTimeoutMs,
   helperHealthCorsHeaders,
   helperRequestError,
+  jdSilentNoWindowHeader,
   isLegacyXls,
   maximumDaysPerRun,
   normalizeN8nExecutionId,
@@ -26,6 +27,10 @@ import {
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
 } from "../tools/tmall-sycm-cookie-pipeline";
+
+test("JD silent copy uses one bounded non-secret no-window header", () => {
+  assert.equal(jdSilentNoWindowHeader, "x-teruisi-jd-silent-no-window");
+});
 
 test("不同执行可保存同一目标日的不同源文件，交由导入接口比较业务内容", async () => {
   const downloadDir = await mkdtemp(path.join(tmpdir(), "tmall-sycm-run-download-"));

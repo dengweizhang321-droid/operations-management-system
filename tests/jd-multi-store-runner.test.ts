@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertResumeAuditContract, JD_PIPELINE_RESULT_SENTINEL, parsePipelineResult, parseRunnerArgs, parseTrailingJson, shanghaiDefaultRange, validateStepResult, type RunnerAudit } from "../tools/jd-multi-store-runner";
+import { assertResumeAuditContract, jdChildArgs, JD_PIPELINE_RESULT_SENTINEL, parsePipelineResult, parseRunnerArgs, parseTrailingJson, shanghaiDefaultRange, validateStepResult, type RunnerAudit } from "../tools/jd-multi-store-runner";
 
 test("runner mode all has no misleading dimension switch and extracts final JSON", () => {
   assert.equal(parseRunnerArgs([]).mode, "all");
+  assert.equal(parseRunnerArgs([]).silentNoWindow, false);
+  assert.equal(parseRunnerArgs(["--no-visible-recovery"]).silentNoWindow, true);
   assert.throws(() => parseRunnerArgs(["--dimension", "SKU"]), /不再使用/);
   assert.deepEqual(parseTrailingJson("progress\n{\"old\":true}\n{\"savedPath\":\"D:/a.xlsx\",\"batchId\":\"b\",\"rowCount\":2}"), { savedPath: "D:/a.xlsx", batchId: "b", rowCount: 2 });
+});
+
+test("silent runner propagates no-visible-recovery to every JD child", () => {
+  const controlledStore = {
+    storeKey: "jd-test",
+    browser: { downloadDir: "D:/downloads/jd-test" },
+  } as never;
+  const options = { mode: "all", startDate: "2026-07-01", endDate: "2026-07-02", storeKey: undefined, dryRun: false, silentNoWindow: true };
+  for (const step of ["jd_product_master", "jd_sku_daily", "spu_daily"] as const) {
+    const args = jdChildArgs(controlledStore, step, options, "http://localhost:3000");
+    assert.equal(args.filter((value) => value === "--no-visible-recovery").length, 1, step);
+  }
 });
 
 const store = { shopName: "A店" };
@@ -40,7 +54,7 @@ test("runner resume only accepts a completed prefix followed by one failed step 
       { storeKey: "a", shopName: "A店", step: steps[2], status: "planned" },
     ],
   };
-  const options = { mode: "all", startDate: "2026-07-01", endDate: "2026-07-02", storeKey: undefined, dryRun: false };
+  const options = { mode: "all", startDate: "2026-07-01", endDate: "2026-07-02", storeKey: undefined, dryRun: false, silentNoWindow: false };
   assert.doesNotThrow(() => assertResumeAuditContract(audit, options, [{ storeKey: "a", shopName: "A店" } as never], "http://localhost:3000"));
   const forged: RunnerAudit = { ...audit, items: [...audit.items] };
   forged.items[1] = { ...forged.items[1]!, status: "planned" };

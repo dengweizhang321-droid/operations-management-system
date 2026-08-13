@@ -39,7 +39,7 @@ test("JD Chromium silent-download copies stay inactive and preserve loopback orc
       name: string;
       active: boolean;
       settings: { timezone?: string };
-      nodes: Array<{ type: string; parameters?: { url?: string } }>;
+      nodes: Array<{ type: string; parameters?: { url?: string; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
     };
     assert.match(workflow.name, /Chromium静默下载副本/);
     assert.equal(workflow.active, false);
@@ -48,8 +48,15 @@ test("JD Chromium silent-download copies stay inactive and preserve loopback orc
     const urls = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest").map((node) => node.parameters?.url);
     assert.equal(urls.length, 3);
     assert.equal(urls.every((url) => /^http:\/\/127\.0\.0\.1:5791\/jd(?:-market)?\/(?:plan|run|verify)$/.test(url ?? "")), true);
+    for (const request of workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest")) {
+      assert.deepEqual(request.parameters?.headerParameters?.parameters, [
+        { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+        { name: "X-TERUISI-JD-SILENT-NO-WINDOW", value: "1" },
+      ]);
+    }
     assert.match(raw, /窗口在后台隐藏并最小化/);
     assert.match(raw, /不弹系统保存窗口/);
+    assert.match(raw, /不打开可见窗口/);
     assert.doesNotMatch(raw, /(?:password|cookie|token|session|profileDir)\s*[:=]/i);
   }
 });

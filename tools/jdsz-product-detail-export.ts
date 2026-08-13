@@ -51,6 +51,7 @@ type CliOptions = {
   dimension: "SKU" | "SPU";
   debug: boolean;
   interactiveLogin: boolean;
+  visibleRecovery: boolean;
   autoImport: boolean;
   baseUrl: string;
 };
@@ -85,6 +86,9 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
     } else {
       flags.add(key);
     }
+  }
+  if (flags.has("--interactive-login") && flags.has("--no-visible-recovery")) {
+    throw new Error("--interactive-login 不能与 --no-visible-recovery 同时使用。");
   }
 
   const yesterday = addDays(shanghaiToday(), -1);
@@ -129,6 +133,7 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
     dimension,
     debug: flags.has("--debug"),
     interactiveLogin: flags.has("--interactive-login"),
+    visibleRecovery: !flags.has("--no-visible-recovery"),
     autoImport: !flags.has("--no-auto-import"),
     baseUrl: (values.get("--base-url") ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   };
@@ -925,7 +930,7 @@ async function run() {
     });
     client.close();
   } catch (error) {
-    revealInteractiveBrowser = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
+    revealInteractiveBrowser = options.visibleRecovery && !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
     throw error;
   } finally {
     await browser.close().catch(() => undefined);

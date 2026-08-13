@@ -67,6 +67,7 @@ export type CliOptions = {
   taskTimeoutMs: number;
   debug: boolean;
   interactiveLogin: boolean;
+  visibleRecovery: boolean;
   autoImport: boolean;
   baseUrl: string;
 };
@@ -280,6 +281,7 @@ async function parseCliOptions(): Promise<CliOptions> {
   let reuseLatest = false;
   let debug = false;
   let interactiveLogin = false;
+  let visibleRecovery = true;
   let autoImport = true;
   let baseUrl = (process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, "");
   // 京东导出任务通常需要数分钟，默认给足等待时间，避免任务已完成但脚本提前超时。
@@ -298,6 +300,10 @@ async function parseCliOptions(): Promise<CliOptions> {
     }
     if (argument === "--interactive-login") {
       interactiveLogin = true;
+      continue;
+    }
+    if (argument === "--no-visible-recovery") {
+      visibleRecovery = false;
       continue;
     }
     if (argument === "--store-key") {
@@ -328,6 +334,7 @@ async function parseCliOptions(): Promise<CliOptions> {
     throw new Error(`不支持的参数：${argument}`);
   }
 
+  if (interactiveLogin && !visibleRecovery) throw new Error("--interactive-login 不能与 --no-visible-recovery 同时使用。");
   const store = await getJdStore(storeKey);
   return {
     storeKey: store.storeKey,
@@ -341,6 +348,7 @@ async function parseCliOptions(): Promise<CliOptions> {
     taskTimeoutMs,
     debug,
     interactiveLogin,
+    visibleRecovery,
     autoImport,
     baseUrl,
   };
@@ -1190,7 +1198,8 @@ async function main() {
     }
   } catch (error) {
     const message = error instanceof Error ? error.stack ?? error.message : String(error);
-    revealInteractiveBrowser = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
+    const interactiveAttentionRequired = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
+    revealInteractiveBrowser = options.visibleRecovery && interactiveAttentionRequired;
     if (error instanceof JdWareCreateExportRejectedError && error.definitiveNoTask && recovery && !recovery.taskId) {
       // JD explicitly confirmed that createExportJob failed, so this manifest
       // cannot own a remote task. Preserve it as evidence and allow an
@@ -1210,7 +1219,7 @@ async function main() {
     } else {
       await persistAudit({
         status: "failed",
-        ...(revealInteractiveBrowser ? { stage: "interactive_attention_required" } : {}),
+        ...(interactiveAttentionRequired ? { stage: "interactive_attention_required" } : {}),
         error: message,
       });
     }

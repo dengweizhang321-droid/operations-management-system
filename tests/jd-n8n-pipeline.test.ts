@@ -62,9 +62,10 @@ test("JD plan persists the full Shanghai-month range, binds store identity, and 
   const request: typeof fetch = async () => new Response("ok", { status: 200 });
   const options = {
     root, now: new Date("2026-07-21T01:00:00+08:00"), baseUrl: "http://localhost:3000", request,
-    profileStatus: async () => "ready" as const, runIdFactory: () => "jd-n8n-test-run", executionId: "execution-1", stores: [store()],
+    profileStatus: async () => "ready" as const, runIdFactory: () => "jd-n8n-test-run", executionId: "execution-1", stores: [store()], silentNoWindow: true,
   };
   const plan = await planJdN8nRun(options);
+  assert.equal(plan.silentNoWindow, true);
   assert.deepEqual([plan.startDate, plan.endDate], ["2026-07-01", "2026-07-20"]);
   assert.deepEqual(plan.stores, [{ storeKey: "jd-test", shopId: "10001", shopName: "测试京东店" }]);
   const failedRun = await runJdN8nPlan(plan, {
@@ -79,6 +80,7 @@ test("JD plan persists the full Shanghai-month range, binds store identity, and 
   await runJdN8nPlan(resumed, {
     root, stores: [store()],
     run: async (runOptions) => {
+      assert.equal(runOptions.silentNoWindow, true);
       resumedAuditPath = runOptions.resumeAuditPath ?? "";
       return { ok: false, auditPath: runOptions.resumeAuditPath!, audit: { items: [] } as unknown as RunnerAudit };
     },

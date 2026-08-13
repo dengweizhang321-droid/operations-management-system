@@ -52,6 +52,7 @@ const maximumDownloadBytes = 25 * 1024 * 1024;
 export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
+export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
 const sycmOrigin = "https://sycm.taobao.com";
 const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
@@ -931,7 +932,11 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jd/plan") {
-        jdPlan = await planJdN8nRun({ executionId: requestExecutionId! });
+        const silentHeader = request.headers[jdSilentNoWindowHeader];
+        if (silentHeader !== undefined && silentHeader !== "0" && silentHeader !== "1") {
+          throw new Error("京东静默窗口模式请求头无效");
+        }
+        jdPlan = await planJdN8nRun({ executionId: requestExecutionId!, silentNoWindow: silentHeader === "1" });
         stage = "planned";
         reply(200, publicJdPlan(jdPlan));
         inactivityReaper?.arm();
