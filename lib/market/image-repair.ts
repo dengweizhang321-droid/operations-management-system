@@ -81,6 +81,11 @@ export async function listMarketImageRepairCandidates(
         AND MAX(CASE WHEN snapshot.image_url<>'' AND (
           snapshot.image_cache_status IS NULL OR snapshot.image_cache_status IN ('pending','fetching')
           OR (snapshot.image_cache_status='failed' AND snapshot.image_cache_attempt_count<3)
+        ) AND EXISTS (
+          SELECT 1 FROM market_ranking_entries cache_source
+          WHERE cache_source.category=snapshot.category AND cache_source.scope=snapshot.scope
+            AND cache_source.ranking_dimension=snapshot.ranking_dimension AND cache_source.sku_code=snapshot.sku_code
+            AND cache_source.image_url=snapshot.image_url
         ) THEN 1 ELSE 0 END)=0
     )
     SELECT identity.category,identity.scope,identity.ranking_dimension,identity.sku_code,
@@ -147,7 +152,12 @@ export async function applyMarketImageRepairs(
 
   const statements = repairs.flatMap((repair) => [
     db.prepare(`UPDATE market_ranking_entries SET image_url=?,updated_at=CURRENT_TIMESTAMP
-      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=? AND image_url=''`)
+      WHERE category=? AND scope=? AND ranking_dimension=? AND sku_code=?
+        AND (image_url='' OR NOT EXISTS (
+          SELECT 1 FROM market_image_cache usable_cache
+          WHERE usable_cache.source_url=market_ranking_entries.image_url
+            AND usable_cache.status='ready' AND usable_cache.content_sha256<>''
+        ))`)
       .bind(repair.imageUrl, repair.category, repair.scope, repair.rankingDimension, repair.skuCode),
     db.prepare(`INSERT INTO market_image_cache
         (source_url,status,attempt_count,error_code,error_message,updated_at)

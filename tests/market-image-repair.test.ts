@@ -80,20 +80,24 @@ test("market image repair lists exact pending identities and materializes a read
   sqlite.close();
 });
 
-test("market image repair resets a terminal cache only for a freshly verified JD image URL", async () => {
+test("market image repair reconnects an orphan pending cache URL and can reset it after a terminal failure", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
   sqlite.exec(`
     INSERT INTO market_ranking_entries
       (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,image_url,raw_json,last_import_batch_id)
-    VALUES ('failed',1,'2026-08-12','2026-08-12','净水','POP','SKU','POP','SKU-2','','{}','current');
+    VALUES ('failed',1,'2026-08-12','2026-08-12','净水','POP','SKU','POP','SKU-2','https://img11.360buyimg.com/n5/stale.jpg','{}','current');
     INSERT INTO market_price_snapshots
       (id,category,scope,sku_code,ranking_dimension,month,image_url,image_content_sha256,confirmation_status)
     VALUES ('failed-snapshot','净水','POP','SKU-2','SKU','2026-08','https://img11.360buyimg.com/n5/failed.jpg','','source_table');
     INSERT INTO market_image_cache (source_url,status,attempt_count,error_code,error_message)
-    VALUES ('https://img11.360buyimg.com/n5/failed.jpg','failed',3,'http_error','old');
+    VALUES
+      ('https://img11.360buyimg.com/n5/stale.jpg','failed',3,'http_error','old'),
+      ('https://img11.360buyimg.com/n5/failed.jpg','pending',0,'','');
   `);
+  const candidates = await listMarketImageRepairCandidates(db as never, { pageSize: 20 });
+  assert.equal(candidates.pagination.total, 1);
   await applyMarketImageRepairs(db as never, { repairs: [{
     category: "净水", scope: "POP", rankingDimension: "SKU", skuCode: "SKU-2",
     imageUrl: "https://img11.360buyimg.com/n5/failed.jpg",
@@ -101,6 +105,13 @@ test("market image repair resets a terminal cache only for a freshly verified JD
   assert.deepEqual({ ...(sqlite.prepare("SELECT status,attempt_count attempts,error_code error FROM market_image_cache WHERE source_url='https://img11.360buyimg.com/n5/failed.jpg'").get() as Record<string, unknown>) }, {
     status: "pending", attempts: 0, error: "",
   });
+  assert.equal(sqlite.prepare("SELECT image_url FROM market_ranking_entries WHERE natural_key='failed'").get()?.image_url, "https://img11.360buyimg.com/n5/failed.jpg");
+  sqlite.prepare("UPDATE market_image_cache SET status='failed',attempt_count=3,error_code='http_error' WHERE source_url='https://img11.360buyimg.com/n5/failed.jpg'").run();
+  await applyMarketImageRepairs(db as never, { repairs: [{
+    category: "净水", scope: "POP", rankingDimension: "SKU", skuCode: "SKU-2",
+    imageUrl: "https://img11.360buyimg.com/n5/failed.jpg",
+  }] }, { email: "admin@example.com", role: "admin" });
+  assert.equal(sqlite.prepare("SELECT status FROM market_image_cache WHERE source_url='https://img11.360buyimg.com/n5/failed.jpg'").get()?.status, "pending");
   assert.equal(normalizeJdMarketRepairImageUrl("https://evil.example/n5/a.jpg"), "");
   sqlite.close();
 });
