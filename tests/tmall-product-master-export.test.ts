@@ -269,9 +269,25 @@ test("导出记录按原任务创建时间和已完成状态选择同一行下�
     status: "已完成",
     downloadReady: true,
   }], runStartedAt), null);
+  assert.equal(chooseTmallExportRecordSignature([
+    {
+      signature: "same-row-main-frame",
+      recordIdentity: "same-business-row",
+      taskCreatedAt: "2026-08-04 01:54:44",
+      status: "已完成",
+      downloadReady: true,
+    },
+    {
+      signature: "same-row-fixed-table",
+      recordIdentity: "same-business-row",
+      taskCreatedAt: "2026-08-04 01:54:44",
+      status: "初始状态",
+      downloadReady: false,
+    },
+  ], runStartedAt), "same-row-main-frame");
   assert.throws(() => chooseTmallExportRecordSignature([
-    { signature: "tie-a", taskCreatedAt: "2026-08-04 01:54:47", status: "处理中" },
-    { signature: "tie-b", taskCreatedAt: "2026-08-04 01:55:07", status: "已完成" },
+    { signature: "tie-a", recordIdentity: "task-a", taskCreatedAt: "2026-08-04 01:54:47", status: "处理中" },
+    { signature: "tie-b", recordIdentity: "task-b", taskCreatedAt: "2026-08-04 01:55:07", status: "已完成" },
   ], runStartedAt), /多个创建时间同样接近/);
 });
 

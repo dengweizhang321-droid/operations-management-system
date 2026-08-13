@@ -142,6 +142,7 @@ type ExportRecordDownloadCandidate = {
   locator?: Locator;
   recordPage: Page;
   signature: string;
+  recordIdentity?: string;
   taskCreatedAt: string;
   status: string;
   downloadReady?: boolean;
@@ -331,13 +332,28 @@ export function chooseTmallExportRecordSignature(
   return matched.signature;
 }
 
+export function dedupeTmallExportRecordChoices(candidates: readonly TmallExportRecordChoice[]) {
+  const unique = new Map<string, TmallExportRecordChoice>();
+  const score = (candidate: TmallExportRecordChoice) => (
+    (candidate.status.replace(/\s+/g, "") === "已完成" ? 10 : 0)
+    + (candidate.downloadReady ? 5 : 0)
+  );
+  for (const candidate of candidates) {
+    const key = candidate.recordIdentity ? `record:${candidate.recordIdentity}` : `candidate:${candidate.signature}`;
+    const previous = unique.get(key);
+    if (!previous || score(candidate) > score(previous)) unique.set(key, candidate);
+  }
+  return [...unique.values()];
+}
+
 export function matchTmallExportRecordChoice(
   candidates: readonly TmallExportRecordChoice[],
   expectedRunStartedAt: string,
 ) {
   const expectedMs = Date.parse(expectedRunStartedAt);
   if (!Number.isFinite(expectedMs)) throw new Error("天猫货品活动清单开始时间无效");
-  const eligible = candidates.flatMap((candidate) => {
+  const uniqueCandidates = dedupeTmallExportRecordChoices(candidates);
+  const eligible = uniqueCandidates.flatMap((candidate) => {
     const parsed = parseTmallShanghaiTaskTime(candidate.taskCreatedAt);
     if (!parsed) return [];
     const deltaMs = parsed.epochMs - expectedMs;
@@ -1195,6 +1211,12 @@ async function exportRecordDownloadCandidates(page: Page) {
         const taskTime = parseTmallShanghaiTaskTime(rowText);
         if (!taskTime) continue;
         const normalizedRowText = rowText.replace(/\s+/g, "");
+        const stableRecordText = await row.evaluate((element) => {
+          const fields = Array.from(element.children)
+            .filter((child) => child.matches("td,[role='cell']"))
+            .map((child) => (child.textContent ?? "").replace(/\s+/g, "").trim());
+          return fields.length >= 8 ? fields.slice(0, -2).join("|") : "";
+        }).catch(() => "");
         const status = normalizedRowText.includes("已完成")
           ? "已完成"
           : normalizedRowText.includes("处理中")
@@ -1258,6 +1280,7 @@ async function exportRecordDownloadCandidates(page: Page) {
           locator: firstClickable?.locator,
           recordPage: candidatePage,
           signature,
+          recordIdentity: createHash("sha256").update(stableRecordText || normalizedRowText).digest("hex"),
           taskCreatedAt: taskTime.text,
           status,
           downloadReady: Boolean(firstClickable),
