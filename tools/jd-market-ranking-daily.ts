@@ -47,6 +47,7 @@ export type JdMarketDailyTargetPlan = {
   missingDates: string[];
   chunks: JdMarketDailyChunk[];
   screenshots?: { filters?: string; exportPanel?: string; imported?: string };
+  evidenceWarnings?: string[];
 };
 
 export type JdMarketDailyPlan = {
@@ -166,10 +167,16 @@ async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, targe
   await mkdir(evidenceDirectory, { recursive: true });
   const filePath = path.join(evidenceDirectory, `${target.key}-${name}.png`);
   if (!inside(evidenceDirectory, filePath)) throw new Error("市场榜单截图证据路径无效");
-  await page.screenshot({ path: filePath, fullPage: false });
-  (target.screenshots ??= {})[name] = filePath;
+  try {
+    await page.screenshot({ path: filePath, fullPage: false, timeout: 5_000 });
+    (target.screenshots ??= {})[name] = filePath;
+  } catch (error) {
+    await rm(filePath, { force: true });
+    const message = error instanceof Error ? error.message.split("\n", 1)[0] : String(error);
+    (target.evidenceWarnings ??= []).push(`${name}:${message.slice(0, 300)}`);
+  }
   await persistPlan(plan);
-  return filePath;
+  return target.screenshots?.[name] ?? null;
 }
 
 export async function planJdMarketDailyRun(options: { executionId: string; baseUrl?: string; now?: Date; request?: typeof fetch; runId?: string; silentNoWindow?: boolean }) {

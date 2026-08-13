@@ -139,6 +139,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
   assert.match(runner, /if \(exportPanelCount === 1\)/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, targetPlan, "exportPanel"\)/);
+  assert.match(runner, /page\.screenshot\(\{ path: filePath, fullPage: false, timeout: 5_000 \}\)/);
+  assert.match(runner, /target\.evidenceWarnings/);
+  assert.match(runner, /await rm\(filePath, \{ force: true \}\)/);
   assert.match(runner, /AbortSignal\.timeout\(300_000\)/);
   assert.match(runner, /keepWindowHidden: plan\.silentNoWindow/);
   assert.match(runner, /静默模式拒绝复用未受本次窗口守护控制/);
