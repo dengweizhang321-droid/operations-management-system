@@ -376,7 +376,7 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
           AND existing_item.sku_code=candidate.sku_code AND existing_item.ranking_dimension=candidate.ranking_dimension
           AND existing_item.month=candidate.month AND existing_item.image_content_sha256=candidate.image_content_sha256
           AND (existing_item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected','committed')
-            OR (existing_item.status='failed' AND existing_item.attempt_count<3))
+            OR existing_item.status='failed')
       )
     GROUP BY candidate.category
     ORDER BY candidateCount DESC, value
@@ -717,7 +717,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
           AND existing_item.month=ps.month
           AND existing_item.image_content_sha256=COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '')
           AND (existing_item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected','committed')
-            OR (existing_item.status='failed' AND existing_item.attempt_count<3))
+            OR existing_item.status='failed')
       )
     ORDER BY ps.month, ps.ranking_dimension, ps.sku_code
     LIMIT ?`)

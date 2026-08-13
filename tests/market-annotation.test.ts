@@ -544,7 +544,8 @@ test("workspace candidate counts match create-job eligibility and exclude SPU, s
       ('candidate-reuse-apr',3,'2026-04-01','2026-04-30','净水','pop','SKU','POP','SKU-C','同图历史','https://img.test/c.jpg','{}','batch'),
       ('candidate-reuse-may',4,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-C','同图复用','https://img.test/c.jpg','{}','batch'),
       ('candidate-occupied',5,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-D','已有任务','https://img.test/d.jpg','{}','batch'),
-      ('candidate-no-image',6,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-E','无图','', '{}','batch');
+      ('candidate-no-image',6,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-E','无图','', '{}','batch'),
+      ('candidate-terminal',7,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-F','失败封顶','https://img.test/f.jpg','{}','batch');
     INSERT INTO market_price_snapshots
       (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,ai_price_type,confirmed_market_price_cents,confirmation_status)
     VALUES
@@ -553,15 +554,18 @@ test("workspace candidate counts match create-job eligibility and exclude SPU, s
       ('snapshot-c-apr','净水','pop','SKU-C','SKU','2026-04','hash-c','https://img.test/c.jpg','标准售价',199900,'confirmed'),
       ('snapshot-c-may','净水','pop','SKU-C','SKU','2026-05','hash-c','https://img.test/c.jpg','',NULL,'missing'),
       ('snapshot-d','净水','pop','SKU-D','SKU','2026-05','hash-d','https://img.test/d.jpg','',NULL,'missing'),
-      ('snapshot-e','净水','pop','SKU-E','SKU','2026-05','','','',NULL,'missing');
+      ('snapshot-e','净水','pop','SKU-E','SKU','2026-05','','','',NULL,'missing'),
+      ('snapshot-f','净水','pop','SKU-F','SKU','2026-05','hash-f','https://img.test/f.jpg','',NULL,'missing');
     INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,total_count,created_by)
-      VALUES ('occupied-job','净水','older-prompt','local','running',1,'operator@test');
-    INSERT INTO market_annotation_items (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status)
-      VALUES ('occupied-item','occupied-job','净水','pop','SKU-D','SKU','2026-05','hash-d','queued');
+      VALUES ('occupied-job','净水','older-prompt','local','running',2,'operator@test');
+    INSERT INTO market_annotation_items (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,attempt_count)
+      VALUES
+        ('occupied-item','occupied-job','净水','pop','SKU-D','SKU','2026-05','hash-d','queued',0),
+        ('terminal-item','occupied-job','净水','pop','SKU-F','SKU','2026-05','hash-f','failed',3);
   `);
 
   const workspace = await getAnnotationWorkspace(db, { includeCatalog: false });
-  assert.deepEqual(workspace.categories.map((item) => ({ ...item })), [{ value: "净水", count: 5, candidateCount: 1 }]);
+  assert.deepEqual(workspace.categories.map((item) => ({ ...item })), [{ value: "净水", count: 6, candidateCount: 1 }]);
 
   const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-candidate", executor: "cloud", modelId: "vision-candidate", limit: 10 }, { email: "operator@test", role: "operator" });
   assert.deepEqual((sqlite.prepare("SELECT sku_code skuCode FROM market_annotation_items WHERE job_id=?").all(job.id) as Array<{ skuCode: string }>).map((row) => row.skuCode), ["SKU-A"]);
