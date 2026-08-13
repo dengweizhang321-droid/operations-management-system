@@ -332,11 +332,14 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, ta
   const labels = await selectors.allTextContents();
   if (labels[0]?.trim() !== "SKU" || !labels[1]?.includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
   const exportPanel = activeExportPanel(frame);
-  if (await exportPanel.count() !== 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
-  await exportPanel.waitFor({ state: "visible", timeout: 10_000 });
-  const dayGranularity = exportPanel.locator('input[name="jdsz-gran"][value="day"]');
-  await dayGranularity.check();
-  if (!(await dayGranularity.isChecked())) throw new Error("京东商品榜单导出增强未切换到按日");
+  const exportPanelCount = await exportPanel.count();
+  if (exportPanelCount > 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
+  if (exportPanelCount === 1) {
+    await exportPanel.waitFor({ state: "visible", timeout: 10_000 });
+    const dayGranularity = exportPanel.locator('input[name="jdsz-gran"][value="day"]');
+    await dayGranularity.check();
+    if (!(await dayGranularity.isChecked())) throw new Error("京东商品榜单导出增强未切换到按日");
+  }
   let value: { url: string; headers: Record<string, string>; capturedAt: number } | undefined;
   for (let attempt = 0; attempt < 300; attempt += 1) {
     const candidate = capturedRankRequests.get(page);
@@ -566,17 +569,20 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
         const frame = await selectRankingIdentity(page, config, target);
         await saveEvidenceScreenshot(page, plan, targetPlan, "filters");
         const exportPanel = activeExportPanel(frame);
-        if (await exportPanel.count() !== 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
-        const fromInput = exportPanel.locator("#jdsz-from");
-        const toInput = exportPanel.locator("#jdsz-to");
-        const startDate = targetPlan.chunks[0]!.startDate;
-        const endDate = targetPlan.chunks.at(-1)!.endDate;
-        await fromInput.fill(startDate);
-        await toInput.fill(endDate);
-        if (await fromInput.inputValue() !== startDate || await toInput.inputValue() !== endDate) {
-          throw new Error("京东商品榜单导出增强日期未精确生效");
+        const exportPanelCount = await exportPanel.count();
+        if (exportPanelCount > 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
+        if (exportPanelCount === 1) {
+          const fromInput = exportPanel.locator("#jdsz-from");
+          const toInput = exportPanel.locator("#jdsz-to");
+          const startDate = targetPlan.chunks[0]!.startDate;
+          const endDate = targetPlan.chunks.at(-1)!.endDate;
+          await fromInput.fill(startDate);
+          await toInput.fill(endDate);
+          if (await fromInput.inputValue() !== startDate || await toInput.inputValue() !== endDate) {
+            throw new Error("京东商品榜单导出增强日期未精确生效");
+          }
+          await saveEvidenceScreenshot(page, plan, targetPlan, "exportPanel");
         }
-        await saveEvidenceScreenshot(page, plan, targetPlan, "exportPanel");
         for (const chunk of targetPlan.chunks) {
           if (chunk.batchId) continue;
           const results: Array<{ date: string; block: RankBlock }> = [];

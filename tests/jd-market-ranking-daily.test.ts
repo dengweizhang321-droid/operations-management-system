@@ -137,6 +137,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /page\.on\("request"/);
   assert.match(runner, /capturedRankRequests\.set\(page/);
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
+  assert.match(runner, /if \(exportPanelCount === 1\)/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, targetPlan, "exportPanel"\)/);
   assert.match(runner, /AbortSignal\.timeout\(300_000\)/);
   assert.match(runner, /keepWindowHidden: plan\.silentNoWindow/);
@@ -163,7 +164,8 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", selectors\.nth\(0\)\)/);
   assert.match(runner, /attempt < 300/);
   assert.match(runner, /not\(ancestor::\*\[@id='sz-old-version'\]\)/);
-  assert.match(runner, /exportPanel\.count\(\) !== 1/);
+  assert.match(runner, /exportPanelCount > 1/);
+  assert.doesNotMatch(runner, /exportPanel\.count\(\) !== 1/);
   assert.match(runner, /fromInput\.inputValue\(\) !== startDate/);
   assert.doesNotMatch(runner, /#jdsz-from"\)\.fill\([^\n]+\.catch\(/);
 });
