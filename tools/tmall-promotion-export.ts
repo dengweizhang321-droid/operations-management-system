@@ -72,6 +72,8 @@ type PromotionFileEvidence = {
 type PromotionAuditStage =
   | "planned"
   | "browser_ready"
+  | "dialog_opening"
+  | "dialog_ready"
   | "report_configured"
   | "report_submitting"
   | "report_submitted"
@@ -98,11 +100,26 @@ type PromotionExportAudit = {
   metrics: "全部数据指标";
   downloadListUrl: string;
   dismissedPopups: number;
+  dialogAttempts?: number;
+  dialogDiagnostic?: PromotionDialogDiagnostic;
   file?: PromotionFileEvidence;
   batchId?: string;
   importStatus?: "imported" | "duplicate";
   warningCount?: number;
   error?: string;
+};
+
+type PromotionDialogDiagnostic = {
+  capturedAt: string;
+  attempts: number;
+  pageLocation: string;
+  frameCount: number;
+  downloadButtonCandidates: number;
+  roleDialogCandidates: number;
+  modalRootCandidates: number;
+  titleCandidates: number;
+  screenshotFile?: string;
+  screenshotStatus: "saved" | "failed";
 };
 
 type PromotionImportPayload = {
@@ -694,32 +711,90 @@ async function dismissBlockingPopups(page: Page) {
   return dismissed;
 }
 
-async function findDownloadReportDialog(page: Page) {
-  for (const frame of page.frames()) {
-    const dialogs = frame.getByRole("dialog");
-    const count = Math.min(await dialogs.count().catch(() => 0), 20);
-    for (let index = 0; index < count; index += 1) {
-      const locator = dialogs.nth(index);
-      if (!await locator.isVisible().catch(() => false)) continue;
-      if ((await locator.innerText({ timeout: 3_000 }).catch(() => "")).includes("下载报表")) return { frame, locator };
-    }
-    const heading = frame.getByText("下载报表", { exact: true });
-    const headingCount = Math.min(await heading.count().catch(() => 0), 10);
-    for (let index = 0; index < headingCount; index += 1) {
-      const item = heading.nth(index);
-      if (!await item.isVisible().catch(() => false)) continue;
-      let scope = item;
-      for (let depth = 0; depth < 6; depth += 1) {
-        scope = scope.locator("xpath=..");
-        const text = await scope.innerText({ timeout: 1_000 }).catch(() => "");
-        if (/日期范围/.test(text) && /数据指标/.test(text) && /确定/.test(text)) return { frame, locator: scope };
-      }
-    }
-  }
-  return null;
+export function isPromotionDownloadDialogText(value: string) {
+  const text = normalizeText(value);
+  const hasTitle = /下载报表|报表下载|生成报表/.test(text);
+  const hasDate = /日期范围|统计日期|报表日期|开始日期|结束日期/.test(text);
+  const hasMetrics = /数据指标|报表指标|指标选择|全部数据指标/.test(text);
+  const hasConfirm = /确定|确认生成|立即生成|开始生成/.test(text)
+    || (text.match(/生成报表/g)?.length ?? 0) >= 2;
+  return hasTitle && hasDate && hasMetrics && hasConfirm;
 }
 
-async function clickDownloadReport(page: Page) {
+async function uniqueSemanticDialogCandidate(
+  frame: Frame,
+  collection: Locator,
+  label: string,
+  ambiguous: "throw" | "skip" = "throw",
+) {
+  const matches: Locator[] = [];
+  const count = Math.min(await collection.count().catch(() => 0), 100);
+  for (let index = 0; index < count; index += 1) {
+    const locator = collection.nth(index);
+    if (!await locator.isVisible().catch(() => false)) continue;
+    const text = await locator.innerText({ timeout: 1_000 }).catch(() => "");
+    if (!isPromotionDownloadDialogText(text)) continue;
+    const box = await locator.boundingBox().catch(() => null);
+    if (!box) continue;
+    matches.push(locator);
+  }
+  if (matches.length > 1) {
+    if (ambiguous === "skip") return null;
+    throw new Error(`${label}存在多个下载报表弹窗候选，为防止误操作已停止`);
+  }
+  return matches[0] ? { frame, locator: matches[0] } : null;
+}
+
+async function findDownloadReportDialog(page: Page) {
+  const pageMatches: Array<{ frame: Frame; locator: Locator }> = [];
+  for (const frame of page.frames()) {
+    const roleDialog = await uniqueSemanticDialogCandidate(frame, frame.getByRole("dialog"), "页面中");
+    if (roleDialog) {
+      pageMatches.push(roleDialog);
+      continue;
+    }
+
+    const semanticRoot = await uniqueSemanticDialogCandidate(
+      frame,
+      frame.locator([
+        '[aria-modal="true"]',
+        '[class*="dialog" i]',
+        '[class*="modal" i]',
+        '[class*="drawer" i]',
+        '[class*="popup" i]',
+      ].join(",")),
+      "页面中",
+      "skip",
+    );
+    if (semanticRoot) {
+      pageMatches.push(semanticRoot);
+      continue;
+    }
+
+    const headings = frame.getByText(/^(下载报表|报表下载|生成报表)$/);
+    const headingCount = Math.min(await headings.count().catch(() => 0), 20);
+    const matches: Locator[] = [];
+    for (let index = 0; index < headingCount; index += 1) {
+      const item = headings.nth(index);
+      if (!await item.isVisible().catch(() => false)) continue;
+      let scope = item;
+      for (let depth = 0; depth < 10; depth += 1) {
+        scope = scope.locator("xpath=..");
+        const text = await scope.innerText({ timeout: 1_000 }).catch(() => "");
+        if (!isPromotionDownloadDialogText(text)) continue;
+        const box = await scope.boundingBox().catch(() => null);
+        if (box) matches.push(scope);
+        break;
+      }
+    }
+    if (matches.length > 1) throw new Error("页面中存在多个下载报表标题候选，为防止误操作已停止");
+    if (matches[0]) pageMatches.push({ frame, locator: matches[0] });
+  }
+  if (pageMatches.length > 1) throw new Error("多个页面框架同时存在下载报表弹窗，为防止跨页面误操作已停止");
+  return pageMatches[0] ?? null;
+}
+
+async function downloadReportButtons(page: Page) {
   const matches: Locator[] = [];
   for (const frame of page.frames()) {
     const candidates = frame.locator('[mx-click*="download()"]');
@@ -731,6 +806,15 @@ async function clickDownloadReport(page: Page) {
       matches.push(candidate);
     }
   }
+  if (matches.length === 0) {
+    const semanticActions = await positionedTextActions(page, ["下载报表"], "right");
+    return semanticActions.map((candidate) => candidate.locator);
+  }
+  return matches;
+}
+
+async function clickDownloadReport(page: Page) {
+  const matches = await downloadReportButtons(page);
   if (matches.length !== 1) throw new Error(`页面中下载报表事件节点数量为 ${matches.length}`);
   try {
     await matches[0]!.click({ timeout: 15_000 });
@@ -739,6 +823,89 @@ async function clickDownloadReport(page: Page) {
     if (!dismissed) throw error;
     await matches[0]!.click({ timeout: 15_000 });
   }
+}
+
+export async function openPromotionDialogWithRetry<T>(options: {
+  findDialog: () => Promise<T | null>;
+  click: () => Promise<void>;
+  waitForDialog: (attempt: 1 | 2) => Promise<T | null>;
+  beforeRetry: () => Promise<void>;
+  onAttempt?: (attempt: 1 | 2) => Promise<void>;
+}) {
+  const existing = await options.findDialog();
+  if (existing) return { dialog: existing, attempts: 0 as const };
+  for (const attempt of [1, 2] as const) {
+    await options.onAttempt?.(attempt);
+    await options.click();
+    const dialog = await options.waitForDialog(attempt);
+    if (dialog) return { dialog, attempts: attempt };
+    if (attempt === 1) await options.beforeRetry();
+  }
+  throw new Error("下载报表弹窗连续两次未出现，已停止且未提交报表任务");
+}
+
+export function sanitizePromotionDiagnosticUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const hashRoute = url.hash.split("?")[0] ?? "";
+    return `${url.origin}${url.pathname}${hashRoute}`.slice(0, 300);
+  } catch {
+    return "invalid-url";
+  }
+}
+
+async function visibleLocatorCount(locator: Locator, maximum = 100) {
+  let visible = 0;
+  const count = Math.min(await locator.count().catch(() => 0), maximum);
+  for (let index = 0; index < count; index += 1) {
+    if (await locator.nth(index).isVisible().catch(() => false)) visible += 1;
+  }
+  return visible;
+}
+
+async function collectPromotionDialogDiagnostic(options: {
+  page: Page;
+  storeKey: string;
+  runId: string;
+  attempts: number;
+  directory: string;
+}): Promise<PromotionDialogDiagnostic> {
+  let roleDialogCandidates = 0;
+  let modalRootCandidates = 0;
+  let titleCandidates = 0;
+  for (const frame of options.page.frames()) {
+    roleDialogCandidates += await visibleLocatorCount(frame.getByRole("dialog"), 20);
+    modalRootCandidates += await visibleLocatorCount(frame.locator([
+      '[aria-modal="true"]',
+      '[class*="dialog" i]',
+      '[class*="modal" i]',
+      '[class*="drawer" i]',
+      '[class*="popup" i]',
+    ].join(",")));
+    titleCandidates += await visibleLocatorCount(frame.getByText(/^(下载报表|报表下载|生成报表)$/), 20);
+  }
+  const diagnosticDirectory = path.join(options.directory, "diagnostics");
+  const screenshotFile = `${safeSegment(options.storeKey)}-${safeSegment(options.runId)}-${Date.now()}-dialog.png`;
+  let screenshotStatus: PromotionDialogDiagnostic["screenshotStatus"] = "failed";
+  await mkdir(diagnosticDirectory, { recursive: true });
+  try {
+    await options.page.screenshot({ path: path.join(diagnosticDirectory, screenshotFile), fullPage: false });
+    screenshotStatus = "saved";
+  } catch {
+    // 页面可能已在失败瞬间关闭；审计仍保留其余脱敏结构摘要。
+  }
+  return {
+    capturedAt: new Date().toISOString(),
+    attempts: options.attempts,
+    pageLocation: sanitizePromotionDiagnosticUrl(options.page.url()),
+    frameCount: options.page.frames().length,
+    downloadButtonCandidates: (await downloadReportButtons(options.page).catch(() => [])).length,
+    roleDialogCandidates,
+    modalRootCandidates,
+    titleCandidates,
+    ...(screenshotStatus === "saved" ? { screenshotFile } : {}),
+    screenshotStatus,
+  };
 }
 
 async function setInputValue(locator: Locator, value: string) {
@@ -939,6 +1106,32 @@ async function clickUniqueWithin(scope: Locator, label: string, preferredSelecto
     if (visible.length > 1) throw new Error(`弹窗内存在多个“${label}”操作，为防止误点已停止`);
   }
   throw new Error(`弹窗内缺少“${label}”操作`);
+}
+
+async function clickUniqueWithinLabels(scope: Locator, labels: readonly string[], preferredSelector?: string) {
+  const labelSet = new Set(labels);
+  const collections = [
+    ...(preferredSelector ? [scope.locator(preferredSelector)] : []),
+    scope.locator("button,[role=\"button\"]"),
+  ];
+  for (const collection of collections) {
+    const visible: Locator[] = [];
+    const count = Math.min(await collection.count().catch(() => 0), 30);
+    for (let index = 0; index < count; index += 1) {
+      const locator = collection.nth(index);
+      if (!await locator.isVisible().catch(() => false)) continue;
+      const text = normalizeText(await locator.innerText({ timeout: 1_000 }).catch(() => ""));
+      const aria = normalizeText(await locator.getAttribute("aria-label").catch(() => "") ?? "");
+      if (!labelSet.has(text) && !labelSet.has(aria)) continue;
+      visible.push(locator);
+    }
+    if (visible.length === 1) {
+      await visible[0]!.click({ timeout: 10_000 });
+      return;
+    }
+    if (visible.length > 1) throw new Error(`弹窗内存在多个“${labels.join("/")}”操作，为防止误点已停止`);
+  }
+  throw new Error(`弹窗内缺少“${labels.join("/")}”操作`);
 }
 
 async function chooseDateRange(page: Page, dialog: Locator, startDate: string, endDate: string) {
@@ -1153,6 +1346,10 @@ async function configureAndSubmitReport(options: {
   store: TmallStore;
   startDate: string;
   endDate: string;
+  onDialogOpening: (attempt: 1 | 2) => Promise<void>;
+  onDialogReady: (attempts: number) => Promise<void>;
+  onDialogFailure: (attempts: number) => Promise<void>;
+  afterConfigured: () => Promise<void>;
   beforeSubmit: () => Promise<void>;
   afterSubmit: () => Promise<void>;
   assertDialogSafe: () => Promise<void>;
@@ -1163,13 +1360,40 @@ async function configureAndSubmitReport(options: {
   await options.assertDialogSafe();
   let dismissedPopups = navigation.dismissedPopups;
   dismissedPopups += await dismissBlockingPopups(page);
-  await clickDownloadReport(page);
-  const dialog = await waitUntilValue(30_000, async () => {
-    const found = await findDownloadReportDialog(page);
-    if (found) return found;
-    dismissedPopups += await dismissBlockingPopups(page);
-    return null;
-  }, "下载报表弹窗未出现");
+  let dialogAttempts = 0;
+  let opened: Awaited<ReturnType<typeof openPromotionDialogWithRetry<{ frame: Frame; locator: Locator }>>>;
+  try {
+    opened = await openPromotionDialogWithRetry({
+      findDialog: () => findDownloadReportDialog(page),
+      click: () => clickDownloadReport(page),
+      waitForDialog: async (attempt) => {
+        const deadline = Date.now() + (attempt === 1 ? 15_000 : 30_000);
+        while (Date.now() < deadline) {
+          const found = await findDownloadReportDialog(page);
+          if (found) return found;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+        return null;
+      },
+      beforeRetry: async () => {
+        await options.assertDialogSafe();
+        await waitForAlimamaIdentity(page, options.store);
+        dismissedPopups += await dismissBlockingPopups(page);
+        if ((await downloadReportButtons(page)).length !== 1) {
+          throw new Error("首次点击无效后下载报表按钮身份发生变化，已停止且未提交报表任务");
+        }
+      },
+      onAttempt: async (attempt) => {
+        dialogAttempts = attempt;
+        await options.onDialogOpening(attempt);
+      },
+    });
+  } catch (error) {
+    await options.onDialogFailure(dialogAttempts).catch(() => undefined);
+    throw error;
+  }
+  const dialog = opened.dialog;
+  await options.onDialogReady(opened.attempts);
   await options.assertDialogSafe();
   await chooseDateRange(page, dialog.locator, options.startDate, options.endDate);
   dismissedPopups += await dismissBlockingPopups(page);
@@ -1177,9 +1401,10 @@ async function configureAndSubmitReport(options: {
   await chooseAllMetrics(page, dialog.locator);
   dismissedPopups += await dismissBlockingPopups(page);
   await options.assertDialogSafe();
+  await options.afterConfigured();
   await options.beforeSubmit();
   await options.assertDialogSafe();
-  await clickUniqueWithin(dialog.locator, "确定", ".dialog-footer button");
+  await clickUniqueWithinLabels(dialog.locator, ["确定", "确认生成", "生成报表"], ".dialog-footer button");
   await waitUntil(15_000, async () => !await dialog.locator.isVisible().catch(() => false), "确认下载后报表弹窗未关闭，可能存在字段校验错误");
   await options.assertDialogSafe();
   // 弹窗关闭后先持久化已提交状态。即使短暂成功提示已消失，后续也只会
@@ -1625,6 +1850,33 @@ async function runTmallPromotionDate(options: {
             startDate: plan.startDate,
             endDate: plan.endDate,
             assertDialogSafe: dialogGuard.assertSafe,
+            onDialogOpening: async (attempt) => {
+              audit.stage = "dialog_opening";
+              audit.dialogAttempts = attempt;
+              delete audit.dialogDiagnostic;
+              await writeAudit(audit, runAuditDirectory);
+            },
+            onDialogReady: async (attempts) => {
+              audit.stage = "dialog_ready";
+              audit.dialogAttempts = attempts;
+              delete audit.dialogDiagnostic;
+              await writeAudit(audit, runAuditDirectory);
+            },
+            onDialogFailure: async (attempts) => {
+              audit.dialogAttempts = attempts;
+              audit.dialogDiagnostic = await collectPromotionDialogDiagnostic({
+                page,
+                storeKey: store.storeKey,
+                runId: audit.runId,
+                attempts,
+                directory: runAuditDirectory,
+              });
+              await writeAudit(audit, runAuditDirectory);
+            },
+            afterConfigured: async () => {
+              audit.stage = "report_configured";
+              await writeAudit(audit, runAuditDirectory);
+            },
             beforeSubmit: async () => {
               audit.stage = "report_submitting";
               await writeAudit(audit, runAuditDirectory);
@@ -1690,6 +1942,7 @@ async function runTmallPromotionDate(options: {
     audit.warningCount = imported.warningCount;
     delete audit.error;
     delete audit.resumeStage;
+    delete audit.dialogDiagnostic;
     await writeAudit(audit, runAuditDirectory);
     return {
       ok: true,

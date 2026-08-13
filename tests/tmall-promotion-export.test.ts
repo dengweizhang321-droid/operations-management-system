@@ -10,9 +10,11 @@ import {
   clickCalendarMonthArrowWithFallback,
   chooseTmallPromotionDownloadTask,
   isPromotionMetricSelectionState,
+  isPromotionDownloadDialogText,
   isPromotionReportSuccessNavigation,
   isSafePromotionDismissLabel,
   parsePromotionTaskDateRange,
+  openPromotionDialogWithRetry,
   planTmallPromotionDailyReports,
   planTmallPromotionDateRange,
   promotionNativeDialogAction,
@@ -20,6 +22,7 @@ import {
   promotionSuccessNavigationMissingMessage,
   runPromotionDailyPlansSequentially,
   runTmallPromotionStage,
+  sanitizePromotionDiagnosticUrl,
   shouldRecoverSubmittedPromotionTask,
   TMALL_PROMOTION_DOWNLOAD_LIST_URL,
   TMALL_PROMOTION_ENTRY_URL,
@@ -193,6 +196,64 @@ test("平台消息和广告弹窗只允许无业务副作用的明确关闭动�
   for (const label of ["去优化", "立即处理", "立即报名", "查看详情", "前往下载", "开通"]) {
     assert.equal(isSafePromotionDismissLabel(label), false, label);
   }
+});
+
+test("下载报表弹窗同时兼容旧版和新版语义结构但拒绝不完整页面", () => {
+  assert.equal(isPromotionDownloadDialogText("下载报表 日期范围 数据指标 确定"), true);
+  assert.equal(isPromotionDownloadDialogText("报表下载 统计日期 报表指标 确认生成"), true);
+  assert.equal(isPromotionDownloadDialogText("生成报表 开始日期 结束日期 全部数据指标 生成报表"), true);
+  assert.equal(isPromotionDownloadDialogText("下载报表 历史任务 下载"), false);
+  assert.equal(isPromotionDownloadDialogText("日期范围 数据指标 确定"), false);
+  assert.equal(isPromotionDownloadDialogText("生成报表 日期范围 数据指标"), false);
+});
+
+test("下载报表弹窗握手只允许一次安全重试且不会重复已有弹窗", async () => {
+  const events: string[] = [];
+  let waitCount = 0;
+  const recovered = await openPromotionDialogWithRetry({
+    findDialog: async () => null,
+    click: async () => { events.push("click"); },
+    waitForDialog: async (attempt) => {
+      events.push(`wait-${attempt}`);
+      waitCount += 1;
+      return waitCount === 2 ? { id: "dialog" } : null;
+    },
+    beforeRetry: async () => { events.push("identity-check"); },
+    onAttempt: async (attempt) => { events.push(`attempt-${attempt}`); },
+  });
+  assert.deepEqual(recovered, { dialog: { id: "dialog" }, attempts: 2 });
+  assert.deepEqual(events, [
+    "attempt-1", "click", "wait-1", "identity-check",
+    "attempt-2", "click", "wait-2",
+  ]);
+
+  let clicks = 0;
+  const existing = await openPromotionDialogWithRetry({
+    findDialog: async () => ({ id: "existing" }),
+    click: async () => { clicks += 1; },
+    waitForDialog: async () => null,
+    beforeRetry: async () => undefined,
+  });
+  assert.deepEqual(existing, { dialog: { id: "existing" }, attempts: 0 });
+  assert.equal(clicks, 0);
+});
+
+test("下载报表弹窗连续两次无响应后失败关闭且诊断地址移除查询参数", async () => {
+  let clicks = 0;
+  let retries = 0;
+  await assert.rejects(openPromotionDialogWithRetry({
+    findDialog: async () => null,
+    click: async () => { clicks += 1; },
+    waitForDialog: async () => null,
+    beforeRetry: async () => { retries += 1; },
+  }), /连续两次未出现.*未提交报表任务/);
+  assert.equal(clicks, 2);
+  assert.equal(retries, 1);
+  assert.equal(
+    sanitizePromotionDiagnosticUrl("https://one.alimama.com/index.html?spm=secret#!/report/download-list?token=secret"),
+    "https://one.alimama.com/index.html#!/report/download-list",
+  );
+  assert.equal(sanitizePromotionDiagnosticUrl("not a url"), "invalid-url");
 });
 
 test("原生对话框只自动处理明确的无数据信息，未知文案必须停止", () => {
