@@ -20,7 +20,7 @@ type CatalogItem = { skuCode: string; productName: string; brand: string; catego
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
 type CloudRun = { jobId: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
-type Workspace = { categories: Array<{ value: string; count: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; catalog: { items: CatalogItem[]; page: number; pageSize: number; pageCount: number; total: number; query: string }; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CatalogWorkspace = Pick<Workspace, "catalog"> & { error?: string };
 type JobProgress = { job: Job; activeClaims: number; uniqueInferenceUnits: number; remainingInferenceUnits: number; cloudRun: CloudRun | null; performance: { measuredCount: number; averageImageLoadMs: number; averageImagePrepareMs: number; averageModelCallMs: number; averageTotalInferenceMs: number; averageModelInputBytes: number }; error?: string };
@@ -283,6 +283,14 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const act = async (name: string, fn: () => Promise<void>) => { setBusy(name); setError(""); setNotice(""); try { await fn(); } catch (reason) { setError(reason instanceof Error ? reason.message : "操作失败"); } finally { setBusy(""); } };
   const activePrompt = data?.prompts.find((item) => item.category === category && item.status === "active");
   const selectedPrompt = data?.prompts.find((item) => item.id === promptId && item.category === category) ?? activePrompt;
+  const selectedCategorySummary = data?.categories.find((item) => item.value === category);
+  const compatibleExistingJob = data?.jobs.find((item) =>
+    item.category === category
+    && item.promptVersionId === activePrompt?.id
+    && item.executor === executor
+    && (executor === "cloud" ? item.modelId === visionModelId : item.localModelName === localModelName.trim())
+    && ["queued", "running", "failed", "review_ready", "committing"].includes(item.status));
+  const categoryReviewReadyJob = data?.jobs.find((item) => item.category === category && item.status === "review_ready");
   const currentJob = data?.jobs.find((item) => item.id === jobId);
   const currentCloudRun = data?.cloudRuns.find((item) => item.jobId === currentJob?.id) ?? null;
   const backgroundJobId = currentJob?.id ?? "";
@@ -369,6 +377,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (executor === "local" && !localModelName.trim()) return "本地执行器必须填写 Ollama 模型名";
     if (!isValidAnnotationConcurrency(concurrencyFor(category, executor))) {
       return `并发数必须是 ${MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} 到 ${MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} 的整数`;
+    }
+    if ((selectedCategorySummary?.candidateCount ?? 0) === 0 && !compatibleExistingJob) {
+      if (categoryReviewReadyJob) return `“${category}”当前可新建候选为 0；已有复核任务 ${categoryReviewReadyJob.completedCount}/${categoryReviewReadyJob.totalCount}，请先在下方完成人工复核与批量入库`;
+      return `“${category}”当前可新建候选为 0；顶部待 AI 总量包含无图、非 SKU、Prompt 不可用、失败封顶或已由现有任务覆盖的快照，请先处理阻塞原因`;
     }
     return "";
   };
@@ -553,7 +565,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <div className="annotation-task-setup">
         <div className="annotation-task-fields">
           <label><span>筛选三级类目</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="输入类目关键词" /></label>
-          <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
+          <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（总 {item.count} · 可新建 {item.candidateCount}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
           <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>
           {executor === "cloud" ? <label><span>enabled vision 模型</span><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)}>{data.models.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.modelName}</option>)}</select></label> : <label><span>Ollama 模型名</span><input value={localModelName} onChange={(event) => setLocalModelName(event.target.value)} /></label>}
           <label><span>任务上限</span><input type="number" min={1} max={MARKET_ANNOTATION_JOB_LIMITS.maximum} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /><small>单个任务最多 10,000 条，可随时暂停并继续。</small></label>
@@ -569,8 +581,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <div className="annotation-task-footer">
         {createBlockReason
           ? <small className="orange-text">无法创建任务：{createBlockReason}</small>
-          : <small>当前激活 Prompt：v{activePrompt!.version} · {activePrompt!.id}</small>}
-        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? "创建任务中…" : "创建任务"}</button>
+          : <small>{compatibleExistingJob ? `将恢复兼容任务 ${compatibleExistingJob.completedCount}/${compatibleExistingJob.totalCount}` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
+        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? "创建任务中…" : compatibleExistingJob ? "恢复兼容任务" : "创建任务"}</button>
       </div>
 
       {currentJob && <div className="annotation-current-run">

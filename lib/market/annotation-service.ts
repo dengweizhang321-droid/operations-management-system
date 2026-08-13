@@ -334,9 +334,53 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
   const page = Math.max(1, Math.trunc(input.page ?? 1));
   const pageSize = Math.max(10, Math.min(100, Math.trunc(input.pageSize ?? 30)));
   const q = input.q?.trim().slice(0, 120) ?? "";
-  const [review, categoryRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, concurrencyRows, cloudRunRows, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
+  const [review, categoryRows, candidateRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, concurrencyRows, cloudRunRows, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     queryAnnotationReviewWorkspace(db, input),
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
+    db.prepare(`WITH latest_market AS MATERIALIZED (
+      SELECT category, scope, sku_code, ranking_dimension, month, image_url
+      FROM (
+        SELECT m.category, m.scope, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7) month, m.image_url,
+          ROW_NUMBER() OVER (
+            PARTITION BY m.category, m.scope, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7)
+            ORDER BY m.period_end DESC, m.updated_at DESC, m.id DESC
+          ) rn
+        FROM market_ranking_entries m
+        WHERE m.category<>'' AND m.ranking_dimension='SKU'
+      ) WHERE rn=1
+    ), candidate_snapshots AS MATERIALIZED (
+      SELECT snapshot.category, snapshot.scope, snapshot.sku_code, snapshot.ranking_dimension, snapshot.month,
+        COALESCE(NULLIF(snapshot.image_content_sha256,''), image_cache.content_sha256, '') image_content_sha256
+      FROM market_price_snapshots snapshot
+      JOIN latest_market market ON market.category=snapshot.category AND market.scope=snapshot.scope
+        AND market.sku_code=snapshot.sku_code AND market.ranking_dimension=snapshot.ranking_dimension
+        AND market.month=snapshot.month
+      LEFT JOIN market_image_cache image_cache
+        ON image_cache.source_url=COALESCE(NULLIF(snapshot.image_url,''), market.image_url)
+        AND image_cache.status='ready' AND image_cache.content_sha256<>''
+      WHERE snapshot.confirmed_market_price_cents IS NULL AND snapshot.ranking_dimension='SKU'
+    )
+    SELECT candidate.category value, COUNT(*) candidateCount
+    FROM candidate_snapshots candidate
+    WHERE candidate.image_content_sha256<>''
+      AND NOT EXISTS (
+        SELECT 1 FROM market_price_snapshots standard
+        WHERE standard.category=candidate.category AND standard.scope=candidate.scope
+          AND standard.sku_code=candidate.sku_code AND standard.ranking_dimension=candidate.ranking_dimension
+          AND standard.image_content_sha256=candidate.image_content_sha256
+          AND standard.confirmed_market_price_cents IS NOT NULL AND standard.ai_price_type='标准售价'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM market_annotation_items existing_item
+        WHERE existing_item.category=candidate.category AND existing_item.scope=candidate.scope
+          AND existing_item.sku_code=candidate.sku_code AND existing_item.ranking_dimension=candidate.ranking_dimension
+          AND existing_item.month=candidate.month AND existing_item.image_content_sha256=candidate.image_content_sha256
+          AND (existing_item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected','committed')
+            OR (existing_item.status='failed' AND existing_item.attempt_count<3))
+      )
+    GROUP BY candidate.category
+    ORDER BY candidateCount DESC, value
+    LIMIT 200`).all<{ value: string; candidateCount: number }>(),
     db.prepare("SELECT item.category value, COUNT(DISTINCT item.job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items item JOIN market_annotation_jobs job ON job.id=item.job_id WHERE item.category<>'' AND job.status<>'deleted' GROUP BY item.category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
     db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
@@ -357,8 +401,9 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
     input.includeAgents ? db.prepare("SELECT id, name, status, capabilities_json capabilitiesJson, created_by createdBy, created_at createdAt, last_seen_at lastSeenAt, revoked_at revokedAt FROM market_annotation_local_agents ORDER BY created_at DESC LIMIT 50").all<Record<string, unknown>>() : Promise.resolve({ results: [] as Record<string, unknown>[] }),
     db.prepare("SELECT id, run_id runId, prompt_version_id promptVersionId, status, predicted_segment predictedSegment, predicted_image_price_cents predictedImagePriceCents, confidence_bps confidenceBps, is_correct isCorrect, error_message errorMessage, sample_snapshot_json sampleSnapshotJson FROM market_annotation_validation_results ORDER BY created_at DESC LIMIT 500").all<Record<string, unknown>>(),
   ]);
+  const candidateCountByCategory = new Map((candidateRows.results ?? []).map((row) => [row.value, Number(row.candidateCount ?? 0)]));
   return {
-    categories: categoryRows.results ?? [], reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
+    categories: (categoryRows.results ?? []).map((row) => ({ ...row, candidateCount: candidateCountByCategory.get(row.value) ?? 0 })), reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
     concurrencySettings: (concurrencyRows.results ?? []).map((row) => ({ category: row.category, executor: row.executor, concurrency: row.concurrency, updatedBy: row.updated_by, updatedAt: row.updated_at })),
     cloudRuns: (cloudRunRows.results ?? []).map((row) => cloudRunValue(row, normalizeMarketAnnotationConcurrency(row.configured_concurrency, "cloud"))),
     ...review,
@@ -662,6 +707,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     LEFT JOIN latest_segment_history segment_history ON segment_history.category=ps.category AND segment_history.scope=ps.scope
       AND segment_history.sku_code=ps.sku_code AND segment_history.ranking_dimension=ps.ranking_dimension
     WHERE ps.category=?
+      AND ps.ranking_dimension='SKU'
       AND ps.confirmed_market_price_cents IS NULL
       AND COALESCE(NULLIF(ps.image_content_sha256, ''), mic.content_sha256, '') <> ''
       AND NOT EXISTS (
@@ -676,7 +722,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     ORDER BY ps.month, ps.ranking_dimension, ps.sku_code
     LIMIT ?`)
     .bind(category, category, category, category, prompt.id, executor === "cloud" ? input.modelId : null, category, limit).all<{ category: string; scope: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; image_url: string; historical_price_cents: number | null; historical_price_low_cents: number | null; historical_price_high_cents: number | null; historical_item_category: string | null; historical_segment: string | null; historical_image_source: string | null; historical_ai_segment: string | null; historical_ai_image_price_cents: number | null; historical_ai_price_type: string | null; historical_ai_price_low_cents: number | null; historical_ai_price_high_cents: number | null; historical_ai_confidence_bps: number | null; historical_ai_reason: string | null; historical_ai_raw_digest: string | null; historical_ai_resolved_image_url: string | null; historical_ai_image_source: string | null; historical_sku_segment: string | null }>();
-  if (!rows.results.length) throw new Error("该三级类目没有已缓存图片且待确认的月度市场价格快照");
+  if (!rows.results.length) throw new Error("该三级类目当前可新建候选为 0：待 AI 总量可能包含无图、非 SKU、失败封顶或已由现有任务覆盖的快照");
   const id = "market-job-" + randomUUID();
   let insertedJob: { meta?: { changes?: number } };
   try {

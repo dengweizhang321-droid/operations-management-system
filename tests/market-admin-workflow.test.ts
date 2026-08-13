@@ -128,7 +128,9 @@ test("system settings KPIs split every pending AI identity into one highest-cost
     ('blocked-spu',6,'2026-07-01','2026-07-31','category-spu','self','SPU','自营','SPU-BLOCKED','SPU','{}','batch'),
     ('blocked-prompt',7,'2026-07-01','2026-07-31','category-no-prompt','POP','SKU','POP','SKU-NO-PROMPT','No prompt','{}','batch'),
     ('blocked-terminal',8,'2026-07-01','2026-07-31','category-terminal','POP','SKU','POP','SKU-TERMINAL','Terminal','{}','batch'),
-    ('completed-ai',9,'2026-07-01','2026-07-31','category-completed','POP','SKU','POP','SKU-COMPLETED','Completed','{}','batch');
+    ('completed-ai',9,'2026-07-01','2026-07-31','category-completed','POP','SKU','POP','SKU-COMPLETED','Completed','{}','batch'),
+    ('cross-month-result',11,'2026-07-01','2026-07-31','category-cross-month','POP','SKU','POP','SKU-CROSS','Cross month result','{}','batch'),
+    ('cross-month-blocked',12,'2026-08-01','2026-08-31','category-cross-month','POP','SKU','POP','SKU-CROSS','Cross month missing image','{}','batch');
     INSERT INTO market_annotation_prompt_versions
       (id,category,version,source,status,segments_json,prompt_body,created_by)
     VALUES
@@ -137,7 +139,8 @@ test("system settings KPIs split every pending AI identity into one highest-cost
       ('prompt-full','category-full',1,'manual','active','["segment-full","other"]','A full prompt body long enough for testing.','admin'),
       ('prompt-no-image','category-no-image',1,'manual','active','["segment-image","other"]','A no-image prompt body long enough for testing.','admin'),
       ('prompt-spu','category-spu',1,'manual','active','["segment-spu","other"]','A SPU prompt body long enough for testing.','admin'),
-      ('prompt-terminal','category-terminal',1,'manual','active','["segment-terminal","other"]','A terminal prompt body long enough for testing.','admin');
+      ('prompt-terminal','category-terminal',1,'manual','active','["segment-terminal","other"]','A terminal prompt body long enough for testing.','admin'),
+      ('prompt-cross-month','category-cross-month',1,'manual','active','["segment-cross","other"]','A cross-month prompt body long enough for testing.','admin');
     INSERT INTO market_price_snapshots
     (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,confirmed_market_price_cents,confirmation_status,ai_price_type)
     VALUES
@@ -151,26 +154,29 @@ test("system settings KPIs split every pending AI identity into one highest-cost
     ('spu-pending','category-spu','self','SPU-BLOCKED','SPU','2026-07','hash-spu',NULL,'review_pending',''),
     ('prompt-pending','category-no-prompt','POP','SKU-NO-PROMPT','SKU','2026-07','hash-no-prompt',NULL,'review_pending',''),
     ('terminal-pending','category-terminal','POP','SKU-TERMINAL','SKU','2026-07','hash-terminal',NULL,'review_pending',''),
-    ('completed-pending','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed',NULL,'review_pending','');
+    ('completed-pending','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed',NULL,'review_pending',''),
+    ('cross-result','category-cross-month','POP','SKU-CROSS','SKU','2026-07','hash-cross',NULL,'review_pending',''),
+    ('cross-blocked','category-cross-month','POP','SKU-CROSS','SKU','2026-08','',NULL,'review_pending','');
     INSERT INTO market_annotation_items
     (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,ai_segment,reviewed_segment,attempt_count)
     VALUES
     ('price-history','job-price','category-price','POP','SKU-PRICE','SKU','2026-06','hash-price-old','committed','','segment-price',1),
     ('full-old-result','job-full-old','category-full','POP','SKU-FULL','SKU','2026-07','hash-full-old','review_pending','segment-full','segment-full',1),
     ('terminal-failure','job-terminal','category-terminal','POP','SKU-TERMINAL','SKU','2026-07','hash-terminal','failed','','',3),
-    ('completed-result','job-completed','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed','review_pending','segment-completed','segment-completed',1);`);
+    ('completed-result','job-completed','category-completed','POP','SKU-COMPLETED','SKU','2026-07','hash-completed','review_pending','segment-completed','segment-completed',1),
+    ('cross-result-item','job-cross','category-cross-month','POP','SKU-CROSS','SKU','2026-07','hash-cross','committed','segment-cross','segment-cross',1);`);
 
   const kpis = await getMarketSystemKpis(db as never);
   assert.equal(kpis.sameImageReuseCount + kpis.priceOnlyRecognitionCount + kpis.fullRecognitionCount + kpis.blockedRecognitionCount, kpis.pendingAiCount);
   assert.deepEqual(kpis, {
-    marketIdentityTotal: 8,
-    pendingPriceCount: 8,
-    pendingAiCount: 7,
+    marketIdentityTotal: 9,
+    pendingPriceCount: 9,
+    pendingAiCount: 8,
     completedAiCount: 1,
     sameImageReuseCount: 1,
     priceOnlyRecognitionCount: 1,
     fullRecognitionCount: 1,
-    blockedRecognitionCount: 4,
+    blockedRecognitionCount: 5,
   });
   sqlite.close();
 });

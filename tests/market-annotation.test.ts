@@ -509,6 +509,9 @@ test("create job always answers a click with one actionable blocking reason", as
   assert.match(ui, /const createJobBlockReason = \(\) => \{/);
   assert.match(ui, /还没有已激活的 Prompt 版本/);
   assert.match(ui, /没有可用的云端视觉模型/);
+  assert.match(ui, /当前可新建候选为 0/);
+  assert.match(ui, /candidateCount/);
+  assert.match(ui, /总 \{item\.count\} · 可新建 \{item\.candidateCount\}/);
   assert.match(ui, /const blocked = createJobBlockReason\(\);\n\s*if \(blocked\) throw new Error\(blocked\);/);
   assert.match(ui, /无法创建任务：\{createBlockReason\}/);
   assert.match(ui, /disabled=\{busy !== ""\} onClick=\{createJob\}/);
@@ -520,6 +523,49 @@ test("create job always answers a click with one actionable blocking reason", as
   assert.match(template, /当前允许的细分品类：商用直饮机、净饮一体机。/);
   assert.match(defaultAnnotationPromptBody("", []), /该三级类目/);
   assert.match(defaultAnnotationPromptBody("", []), /尚未维护细分品类字典/);
+});
+
+test("workspace candidate counts match create-job eligibility and exclude SPU, same-image reuse, and occupied snapshots", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    CREATE TABLE ai_models (id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL, model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL, is_default_text_model INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+    INSERT INTO ai_models (id,name,protocol,model_type,model_name,base_url,api_key_encrypted,status)
+      VALUES ('vision-candidate','视觉模型','openai','vision','vision-model','https://example.test','encrypted','enabled');
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('prompt-candidate','净水',1,'manual','active','["台式","立式"]','这是用于验证可新建候选数量与任务创建条件完全一致的正式 Prompt 正文。','admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+    VALUES
+      ('candidate-a',1,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-A','可新建','https://img.test/a.jpg','{}','batch'),
+      ('candidate-spu',2,'2026-05-01','2026-05-31','净水','pop','SPU','POP','SPU-B','非 SKU','https://img.test/b.jpg','{}','batch'),
+      ('candidate-reuse-apr',3,'2026-04-01','2026-04-30','净水','pop','SKU','POP','SKU-C','同图历史','https://img.test/c.jpg','{}','batch'),
+      ('candidate-reuse-may',4,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-C','同图复用','https://img.test/c.jpg','{}','batch'),
+      ('candidate-occupied',5,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-D','已有任务','https://img.test/d.jpg','{}','batch'),
+      ('candidate-no-image',6,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-E','无图','', '{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,ai_price_type,confirmed_market_price_cents,confirmation_status)
+    VALUES
+      ('snapshot-a','净水','pop','SKU-A','SKU','2026-05','hash-a','https://img.test/a.jpg','',NULL,'missing'),
+      ('snapshot-spu','净水','pop','SPU-B','SPU','2026-05','hash-b','https://img.test/b.jpg','',NULL,'missing'),
+      ('snapshot-c-apr','净水','pop','SKU-C','SKU','2026-04','hash-c','https://img.test/c.jpg','标准售价',199900,'confirmed'),
+      ('snapshot-c-may','净水','pop','SKU-C','SKU','2026-05','hash-c','https://img.test/c.jpg','',NULL,'missing'),
+      ('snapshot-d','净水','pop','SKU-D','SKU','2026-05','hash-d','https://img.test/d.jpg','',NULL,'missing'),
+      ('snapshot-e','净水','pop','SKU-E','SKU','2026-05','','','',NULL,'missing');
+    INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,total_count,created_by)
+      VALUES ('occupied-job','净水','older-prompt','local','running',1,'operator@test');
+    INSERT INTO market_annotation_items (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status)
+      VALUES ('occupied-item','occupied-job','净水','pop','SKU-D','SKU','2026-05','hash-d','queued');
+  `);
+
+  const workspace = await getAnnotationWorkspace(db, { includeCatalog: false });
+  assert.deepEqual(workspace.categories.map((item) => ({ ...item })), [{ value: "净水", count: 5, candidateCount: 1 }]);
+
+  const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-candidate", executor: "cloud", modelId: "vision-candidate", limit: 10 }, { email: "operator@test", role: "operator" });
+  assert.deepEqual((sqlite.prepare("SELECT sku_code skuCode FROM market_annotation_items WHERE job_id=?").all(job.id) as Array<{ skuCode: string }>).map((row) => row.skuCode), ["SKU-A"]);
+  sqlite.close();
 });
 
 test("prompt deletion is admin-audited, soft, and blocked after task use", async () => {

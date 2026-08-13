@@ -1137,8 +1137,8 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
         ON image_cache.source_url=snapshot.image_url
         AND image_cache.status='ready' AND image_cache.content_sha256<>''
       WHERE snapshot.confirmed_market_price_cents IS NULL
-    ), pending_ai_identities AS MATERIALIZED (
-      SELECT snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code
+    ), pending_ai_snapshots AS MATERIALIZED (
+      SELECT snapshot.*
       FROM pending_snapshots snapshot
       WHERE NOT EXISTS (
         SELECT 1 FROM market_annotation_items result
@@ -1149,6 +1149,9 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
           AND (COALESCE(result.ai_segment,'')<>'' OR result.ai_image_price_cents IS NOT NULL
             OR result.ai_confidence_bps IS NOT NULL OR COALESCE(result.ai_reason,'')<>'')
       )
+    ), pending_ai_identities AS MATERIALIZED (
+      SELECT snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code
+      FROM pending_ai_snapshots snapshot
       GROUP BY snapshot.category, snapshot.scope, snapshot.ranking_dimension, snapshot.sku_code
     ), same_image_standard AS MATERIALIZED (
       SELECT category, scope, ranking_dimension, sku_code, image_content_sha256
@@ -1187,7 +1190,7 @@ export async function getMarketSystemKpis(db: MarketDatabase): Promise<MarketSys
           AND snapshot.image_content_sha256<>'' AND failure.sku_code IS NULL
           AND standard.sku_code IS NULL AND segment.sku_code IS NULL THEN 1 ELSE 0 END) full_recognition
       FROM pending_ai_identities identity
-      LEFT JOIN pending_snapshots snapshot ON snapshot.category=identity.category AND snapshot.scope=identity.scope
+      LEFT JOIN pending_ai_snapshots snapshot ON snapshot.category=identity.category AND snapshot.scope=identity.scope
         AND snapshot.ranking_dimension=identity.ranking_dimension AND snapshot.sku_code=identity.sku_code
       LEFT JOIN active_prompts prompt ON prompt.category=identity.category
       LEFT JOIN same_image_standard standard ON standard.category=snapshot.category AND standard.scope=snapshot.scope

@@ -1127,7 +1127,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   const systemKpiCards = [
     { key: "marketIdentityTotal", label: "市场商品身份", note: "类目、范围、SKU/SPU 维度与编码全库去重" },
     { key: "pendingPriceCount", label: "待确认价格", note: "仍有未确认月度价格的商品身份" },
-    { key: "pendingAiCount", label: "待 AI 标注总量", note: "尚无 AI 结果；下列四种路径互斥合计" },
+    { key: "pendingAiCount", label: "待 AI 标注总量", note: "尚无完整 AI 结果的商品身份；不等于当前可新建任务数" },
     { key: "completedAiCount", label: "已生成 AI 结果", note: "已有模型输出，含待人工复核" },
     { key: "sameImageReuseCount", label: "同图直接复用", note: "已有同图标准价，不调用 AI" },
     { key: "priceOnlyRecognitionCount", label: "新图仅识别价格", note: "同 SKUID 有有效历史分类" },
