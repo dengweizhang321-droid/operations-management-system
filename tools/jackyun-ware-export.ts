@@ -23,7 +23,6 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const targetUrl = "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare&businessModel=0";
 const artifactDir = path.join(projectRoot, "outputs", "jd-ware-export");
 const legacyActiveTaskPath = path.join(artifactDir, "active-task.json");
-const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const pollIntervalMs = 700;
 const refreshIntervalMs = 3_000;
 const maximumJdWareWorkbookBytes = 25 * 1024 * 1024;
@@ -34,7 +33,7 @@ async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
   await ensureDir(artifactDir);
   const lockPath = path.join(artifactDir, "jd-ware-export.lock");
   const handle = await open(lockPath, "wx").catch(() => null);
-  if (!handle) throw new Error("另一个京东店铺 SKU 导出正在运行；共享 Chrome 与活动任务清单已锁定。");
+  if (!handle) throw new Error("另一个京东店铺 SKU 导出正在运行；共享 Chromium 与活动任务清单已锁定。");
   await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
   await handle.close();
   try {
@@ -59,7 +58,9 @@ export function isLikelyJdLoginPage(url: string, pageText: string, hasPasswordIn
 export type CliOptions = {
   storeKey: string;
   shopName: string;
-  profileDirectory: string;
+  executablePath: string;
+  userDataDirectory: string;
+  profileName: string;
   port: number;
   downloadDirectory: string;
   reuseLatest: boolean;
@@ -328,7 +329,21 @@ async function parseCliOptions(): Promise<CliOptions> {
   }
 
   const store = await getJdStore(storeKey);
-  return { storeKey: store.storeKey, shopName: store.shopName, profileDirectory: store.browser.profileDir, port: store.browser.debugPort, downloadDirectory: store.browser.downloadDir, reuseLatest, taskTimeoutMs, debug, interactiveLogin, autoImport, baseUrl };
+  return {
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+    executablePath: store.browser.executablePath,
+    userDataDirectory: store.browser.userDataDir,
+    profileName: store.browser.profileName,
+    port: store.browser.debugPort,
+    downloadDirectory: store.browser.downloadDir,
+    reuseLatest,
+    taskTimeoutMs,
+    debug,
+    interactiveLogin,
+    autoImport,
+    baseUrl,
+  };
 }
 
 async function ensureDir(directory: string) {
@@ -1118,8 +1133,9 @@ async function main() {
     }
     await persistAudit({ stage: "launch_browser" });
     await launchJdWareBrowser({
-      executablePath: chromePath,
-      profileDirectory: options.profileDirectory,
+      executablePath: options.executablePath,
+      profileDirectory: options.userDataDirectory,
+      profileName: options.profileName,
       port: options.port,
       // The uniquely named Playwright page performs the only JD navigation.
       // Starting Chrome at the target URL created an unobserved first page and
@@ -1206,16 +1222,17 @@ async function main() {
   if (revealInteractiveBrowser) {
     try {
       await revealJdBrowserForInteractiveFailure({
-        executablePath: chromePath,
-        profileDirectory: options.profileDirectory,
+        executablePath: options.executablePath,
+        profileDirectory: options.userDataDirectory,
+        profileName: options.profileName,
         port: options.port,
         startUrl: targetUrl,
       });
-      console.error(`京东交互异常：已打开 ${options.shopName} 的独立 Chrome，请完成人工验证后从原审计续跑。`);
+      console.error(`京东交互异常：已打开 ${options.shopName} 对应的 Chromium profile，请完成人工验证后从原审计续跑。`);
     } catch (revealError) {
       const bounded = revealError instanceof Error ? revealError.message.slice(0, 500) : String(revealError).slice(0, 500);
       await persistAudit({ stage: "interactive_attention_open_failed" });
-      console.error(`京东交互异常，但可见 Chrome 打开失败：${bounded}`);
+      console.error(`京东交互异常，但可见 Chromium 打开失败：${bounded}`);
     }
   }
 }

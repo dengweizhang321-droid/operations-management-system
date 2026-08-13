@@ -403,8 +403,10 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
     let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | null = null;
     try {
       await launchDedicatedChrome({
-        executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-        profileDirectory: store.browser.profileDir, port: store.browser.debugPort, startUrl: "about:blank",
+        executablePath: store.browser.executablePath,
+        profileDirectory: store.browser.userDataDir,
+        profileName: store.browser.profileName,
+        port: store.browser.debugPort, startUrl: "about:blank",
         headless: false, visible: false, startMinimized: true,
       });
       await waitForChrome(store.browser.debugPort);

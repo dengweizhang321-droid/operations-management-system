@@ -158,6 +158,7 @@ export async function waitForChrome(port: number, timeoutMs = 30_000) {
 export async function launchDedicatedChrome(options: {
   executablePath: string;
   profileDirectory: string;
+  profileName?: string;
   port: number;
   startUrl: string;
   headless?: boolean;
@@ -171,9 +172,13 @@ export async function launchDedicatedChrome(options: {
     // Launch below.
   }
   await mkdir(options.profileDirectory, { recursive: true });
+  if (options.profileName && !/^(?:Default|Profile [1-9]\d*)$/.test(options.profileName)) {
+    throw new Error("Chromium profile 名称无效。");
+  }
   const args = [
     `--remote-debugging-port=${options.port}`,
     `--user-data-dir=${options.profileDirectory}`,
+    ...(options.profileName ? [`--profile-directory=${options.profileName}`] : []),
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-session-crashed-bubble",

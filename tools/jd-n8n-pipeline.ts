@@ -122,14 +122,16 @@ export function jdHelperRequestError(
 export async function getJdProfilesStatus(stores: readonly JdStore[]): Promise<JdProfileStatus> {
   if (!stores.length) return "missing";
   const statuses = await Promise.all(stores.map(async (store) => {
-    const profile = await stat(store.browser.profileDir).catch(() => null);
-    if (!profile) return "missing" as const;
-    if (!profile.isDirectory()) return "invalid" as const;
-    const [localState, defaultProfile] = await Promise.all([
-      stat(path.join(store.browser.profileDir, "Local State")).catch(() => null),
-      stat(path.join(store.browser.profileDir, "Default")).catch(() => null),
+    const [executable, userData, profile, localState] = await Promise.all([
+      stat(store.browser.executablePath).catch(() => null),
+      stat(store.browser.userDataDir).catch(() => null),
+      stat(store.browser.profileDir).catch(() => null),
+      stat(path.join(store.browser.userDataDir, "Local State")).catch(() => null),
     ]);
-    return localState?.isFile() && defaultProfile?.isDirectory() ? "ready" as const : "invalid" as const;
+    if (!executable || !userData || !profile || !localState) return "missing" as const;
+    return executable.isFile() && userData.isDirectory() && profile.isDirectory() && localState.isFile()
+      ? "ready" as const
+      : "invalid" as const;
   }));
   return statuses.includes("invalid") ? "invalid" : statuses.includes("missing") ? "missing" : "ready";
 }
@@ -174,7 +176,7 @@ export async function planJdN8nRun(options: PlanOptions) {
   const stores = (options.stores ?? await loadJdStores()).filter((store) => store.enabled);
   if (!stores.length) throw new Error("没有启用的京东店铺注册项，拒绝启动工作流");
   const profiles = await (options.profileStatus ?? getJdProfilesStatus)(stores);
-  if (profiles !== "ready") throw new Error("京东店铺独立 Chrome profile 缺失或结构无效；请先恢复对应店铺会话");
+  if (profiles !== "ready") throw new Error("京东店铺受控 Chromium 或对应 profile 缺失、结构无效；请先恢复对应店铺会话");
   const response = await (options.request ?? fetch)(`${baseUrl}/`, { signal: AbortSignal.timeout(5_000) });
   if (!response.ok) throw new Error(`本机运营系统不可用 (HTTP ${response.status})`);
   await mkdir(paths.planDirectory, { recursive: true });

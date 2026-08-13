@@ -16,7 +16,14 @@ import {
 function store(shopName = "测试京东店") : JdStore {
   return {
     storeKey: "jd-test", accountLabel: "测试", platform: "京东", shopName, shopId: "10001", enabled: true,
-    browser: { profileDir: "unused", debugPort: 9224, downloadDir: "unused" },
+    browser: {
+      executablePath: "unused/chromium.exe",
+      userDataDir: "unused/user-data",
+      profileName: "Default",
+      profileDir: "unused/user-data/Default",
+      debugPort: 9224,
+      downloadDir: "unused/downloads",
+    },
   };
 }
 

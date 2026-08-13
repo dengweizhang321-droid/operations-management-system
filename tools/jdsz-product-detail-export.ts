@@ -38,8 +38,9 @@ async function withJdProductDetailRunLock<T>(task: () => Promise<T>) {
 }
 
 type CliOptions = {
-  chromePath: string;
-  profileDirectory: string;
+  executablePath: string;
+  userDataDirectory: string;
+  profileName: string;
   port: number;
   downloadDirectory: string;
   storeKey: string;
@@ -104,17 +105,20 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
   const shopId = values.get("--shop-id") ?? store.shopId;
   if (!/^\d+$/.test(shopId)) throw new Error("--shop-id 必须是纯数字。");
   if (shopId !== store.shopId) throw new Error("--shop-id 与受控店铺注册表不一致。");
-  const profileDirectory = path.resolve(values.get("--profile-dir") ?? store.browser.profileDir);
+  const executablePath = path.resolve(values.get("--chrome-path") ?? store.browser.executablePath);
+  const requestedProfileDirectory = path.resolve(values.get("--profile-dir") ?? store.browser.profileDir);
   const port = Number(values.get("--port") ?? store.browser.debugPort);
   const downloadDirectory = path.resolve(values.get("--download-dir") ?? store.browser.downloadDir);
-  if (profileDirectory !== path.resolve(store.browser.profileDir)
+  if (executablePath !== path.resolve(store.browser.executablePath)
+    || requestedProfileDirectory !== path.resolve(store.browser.profileDir)
     || port !== store.browser.debugPort
     || downloadDirectory !== path.resolve(store.browser.downloadDir)) {
-    throw new Error("京东商智 profile、调试端口或下载目录与受控店铺注册表不一致。");
+    throw new Error("京东商智 Chromium、profile、调试端口或下载目录与受控店铺注册表不一致。");
   }
   return {
-    chromePath: values.get("--chrome-path") ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    profileDirectory,
+    executablePath,
+    userDataDirectory: store.browser.userDataDir,
+    profileName: store.browser.profileName,
     port,
     downloadDirectory,
     storeKey: store.storeKey,
@@ -823,8 +827,9 @@ async function run() {
 
   if (options.debug) await mkdir(artifactDir, { recursive: true });
   await launchDedicatedChrome({
-    executablePath: options.chromePath,
-    profileDirectory: options.profileDirectory,
+    executablePath: options.executablePath,
+    profileDirectory: options.userDataDirectory,
+    profileName: options.profileName,
     port: options.port,
     startUrl: targetUrl,
     ...jdBrowserLaunchMode(options.interactiveLogin),
@@ -927,15 +932,16 @@ async function run() {
     if (revealInteractiveBrowser) {
       try {
         await revealJdBrowserForInteractiveFailure({
-          executablePath: options.chromePath,
-          profileDirectory: options.profileDirectory,
+          executablePath: options.executablePath,
+          profileDirectory: options.userDataDirectory,
+          profileName: options.profileName,
           port: options.port,
           startUrl: targetUrl,
         });
-        console.error(`京东交互异常：已打开 ${options.shopName} 的独立 Chrome，请完成人工验证后从原任务清单续跑。`);
+        console.error(`京东交互异常：已打开 ${options.shopName} 对应的 Chromium profile，请完成人工验证后从原任务清单续跑。`);
       } catch (revealError) {
         const bounded = revealError instanceof Error ? revealError.message.slice(0, 500) : String(revealError).slice(0, 500);
-        console.error(`京东交互异常，但可见 Chrome 打开失败：${bounded}`);
+        console.error(`京东交互异常，但可见 Chromium 打开失败：${bounded}`);
       }
     }
   }

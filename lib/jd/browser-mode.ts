@@ -28,6 +28,7 @@ export function hasJdInteractivePageGate(pageText: string) {
 export type JdInteractiveBrowserOptions = {
   executablePath: string;
   profileDirectory: string;
+  profileName: string;
   port: number;
   startUrl: string;
 };
@@ -50,10 +51,10 @@ type JdWareBrowserDependencies = Pick<JdBrowserLifecycleDependencies, "closeChro
 
 async function readChromeUserAgent(port: number) {
   const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(5_000) });
-  if (!response.ok) throw new Error(`读取 Chrome 版本端点失败：HTTP ${response.status}。`);
+  if (!response.ok) throw new Error(`读取 Chromium 版本端点失败：HTTP ${response.status}。`);
   const version = await response.json() as { "User-Agent"?: unknown };
   if (typeof version["User-Agent"] !== "string" || !version["User-Agent"].trim()) {
-    throw new Error("Chrome 版本端点缺少 User-Agent。");
+    throw new Error("Chromium 版本端点缺少 User-Agent。");
   }
   return version["User-Agent"];
 }
@@ -91,7 +92,7 @@ export async function revealJdBrowserForInteractiveFailure(
   options: JdInteractiveBrowserOptions,
   dependencies: JdBrowserLifecycleDependencies = defaultLifecycleDependencies,
 ) {
-  // Close the headless process first: Chrome cannot safely open the same
+  // Close the headless process first: Chromium cannot safely open the same
   // persistent profile in a second process. A fresh visible process is the
   // only successful outcome; attaching to a concurrent process fails closed.
   await dependencies.closeChromeBrowser(options.port);
