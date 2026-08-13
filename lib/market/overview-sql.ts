@@ -359,8 +359,7 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
           AND historical.ranking_dimension=m.ranking_dimension
           AND historical.sku_code=m.sku_code
           AND historical.image_url<>''
-        ORDER BY CASE WHEN historical.id=m.id THEN 0 ELSE 1 END,
-          historical.period_end DESC, historical.period_start DESC, historical.id DESC
+        ORDER BY historical.period_end DESC, historical.period_start DESC, historical.id DESC
         LIMIT 1
       ), NULLIF(m.image_url,''), '') AS resolved_image_url,
       cached.effective_gmv_cents,
