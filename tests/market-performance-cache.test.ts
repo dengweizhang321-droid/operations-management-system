@@ -49,6 +49,27 @@ test("market schema and migration persist cache rows and their source revision",
   }
 });
 
+test("effective-metrics refresh updates the cache without deleting every persisted row first", async () => {
+  const database = await readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8");
+  const refresh = database.slice(
+    database.indexOf("async function refreshEffectiveMetricsCache"),
+    database.indexOf("export function ensureMarketEffectiveMetricsCache"),
+  );
+  assert.match(refresh, /ON CONFLICT\(market_entry_id\) DO UPDATE SET/);
+  assert.match(refresh, /IS NOT excluded\.effective_gmv_cents/);
+  assert.match(refresh, /DELETE FROM market_effective_metrics_cache[\s\S]*price_band_preference=1/);
+  assert.doesNotMatch(refresh, /prepare\("DELETE FROM market_effective_metrics_cache"\)/);
+  assert.match(refresh, /SELECT DISTINCT category FROM market_ranking_entries ORDER BY category/);
+  assert.match(refresh, /marketEffectiveFactsCtes\("WHERE m\.category=\?"\)/);
+  assert.match(refresh, /MARKET_EFFECTIVE_METRICS_SOURCE_CHANGED/);
+  const upsertPosition = refresh.indexOf("ON CONFLICT(market_entry_id)");
+  assert.ok(
+    upsertPosition >= 0
+      && upsertPosition < refresh.indexOf("market_effective_metrics_cache_state", upsertPosition),
+    "the source revision must only be published after the cache rows are refreshed",
+  );
+});
+
 test("market and netshop mutations invalidate the persisted effective-metrics revision", async () => {
   const migration = await readFile(new URL("../drizzle/0046_market_effective_metrics_cache.sql", import.meta.url), "utf8");
   const sqlite = new DatabaseSync(":memory:");

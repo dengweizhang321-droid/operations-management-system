@@ -207,6 +207,10 @@ type EffectiveMetricsCacheState = {
   netshop_updated_at: string;
 };
 
+type EffectiveMetricsCacheCategory = {
+  category: string;
+};
+
 type RankingSummaryRow = {
   product_count: number;
   category_count: number;
@@ -278,17 +282,69 @@ async function refreshEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
   const marketRevision = market ?? { row_count: 0, updated_at: null };
   const netshopRevision = netshop ?? { row_count: 0, updated_at: null };
   if (sameEffectiveMetricsRevision(state, marketRevision, netshopRevision)) return;
-  await db.batch([
-    db.prepare("DELETE FROM market_effective_metrics_cache"),
-    db.prepare(`WITH ${marketEffectiveFactsCtes()}
+  const categoriesResult = await db.prepare(
+    "SELECT DISTINCT category FROM market_ranking_entries ORDER BY category",
+  ).all<EffectiveMetricsCacheCategory>();
+  const categories = batchRows<EffectiveMetricsCacheCategory>(categoriesResult)
+    .map((row) => row.category);
+  for (const category of categories) {
+    await db.batch([
+      db.prepare(`WITH ${marketEffectiveFactsCtes("WHERE m.category=?")}
       INSERT INTO market_effective_metrics_cache (
         market_entry_id, effective_gmv_cents, real_gmv_cents, gmv_out_of_band,
         effective_quantity, effective_average_transaction_price_cents, effective_conversion_bps
       )
       SELECT id, effective_gmv_cents, real_gmv_cents, gmv_out_of_band,
         effective_quantity, effective_average_transaction_price_cents, effective_conversion_bps
-      FROM market_effective_rows`),
-    db.prepare(`INSERT INTO market_effective_metrics_cache_state (
+      FROM market_effective_rows WHERE true
+      ON CONFLICT(market_entry_id) DO UPDATE SET
+        effective_gmv_cents=excluded.effective_gmv_cents,
+        real_gmv_cents=excluded.real_gmv_cents,
+        gmv_out_of_band=excluded.gmv_out_of_band,
+        effective_quantity=excluded.effective_quantity,
+        effective_average_transaction_price_cents=excluded.effective_average_transaction_price_cents,
+        effective_conversion_bps=excluded.effective_conversion_bps
+      WHERE market_effective_metrics_cache.effective_gmv_cents IS NOT excluded.effective_gmv_cents
+        OR market_effective_metrics_cache.real_gmv_cents IS NOT excluded.real_gmv_cents
+        OR market_effective_metrics_cache.gmv_out_of_band IS NOT excluded.gmv_out_of_band
+        OR market_effective_metrics_cache.effective_quantity IS NOT excluded.effective_quantity
+        OR market_effective_metrics_cache.effective_average_transaction_price_cents IS NOT excluded.effective_average_transaction_price_cents
+        OR market_effective_metrics_cache.effective_conversion_bps IS NOT excluded.effective_conversion_bps`)
+        .bind(category),
+      db.prepare(`WITH preferred AS MATERIALIZED (
+        SELECT id, ROW_NUMBER() OVER (
+          PARTITION BY period_start, period_end, category, scope, ranking_dimension, sku_code
+          ORDER BY CASE COALESCE(price_band_filter,'') WHEN '全部' THEN 0 WHEN '' THEN 1 ELSE 2 END,
+            COALESCE(price_band_filter,''), id DESC
+        ) price_band_preference
+        FROM market_ranking_entries
+        WHERE category=?
+      )
+      DELETE FROM market_effective_metrics_cache
+      WHERE market_entry_id IN (SELECT id FROM market_ranking_entries WHERE category=?)
+        AND market_entry_id NOT IN (
+        SELECT id FROM preferred WHERE price_band_preference=1
+      )`).bind(category, category),
+    ]);
+  }
+  await db.prepare(`DELETE FROM market_effective_metrics_cache
+    WHERE NOT EXISTS (
+      SELECT 1 FROM market_ranking_entries source
+      WHERE source.id=market_effective_metrics_cache.market_entry_id
+    )`).run();
+  const [currentMarket, currentNetshop] = await Promise.all([
+    db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM market_ranking_entries").first<EffectiveMetricsCacheRevision>(),
+    db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM netshop_rows").first<EffectiveMetricsCacheRevision>(),
+  ]);
+  if (!sameEffectiveMetricsRevision({
+    market_row_count: Number(currentMarket?.row_count ?? 0),
+    market_updated_at: currentMarket?.updated_at ?? "",
+    netshop_row_count: Number(currentNetshop?.row_count ?? 0),
+    netshop_updated_at: currentNetshop?.updated_at ?? "",
+  }, marketRevision, netshopRevision)) {
+    throw new Error("MARKET_EFFECTIVE_METRICS_SOURCE_CHANGED");
+  }
+  await db.prepare(`INSERT INTO market_effective_metrics_cache_state (
         id, market_row_count, market_updated_at, netshop_row_count, netshop_updated_at, refreshed_at
       ) VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(id) DO UPDATE SET
@@ -302,8 +358,7 @@ async function refreshEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
         marketRevision.updated_at ?? "",
         Number(netshopRevision.row_count ?? 0),
         netshopRevision.updated_at ?? "",
-      ),
-  ]);
+      ).run();
 }
 
 export function ensureMarketEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
@@ -393,7 +448,12 @@ export async function getMarketOverview(
   filters: MarketOverviewFilters = {},
   internal: { priceBandBasis?: "display_fallback" | "confirmed_only"; view?: "ranking" | "full" } = {},
 ) {
-  await ensureMarketEffectiveMetricsCache(db);
+  try {
+    await ensureMarketEffectiveMetricsCache(db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`MARKET_EFFECTIVE_METRICS_REFRESH_FAILED: ${message}`);
+  }
   const view = internal.view ?? "full";
   const confirmedOnlyPriceBands = internal.priceBandBasis === "confirmed_only";
   const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
