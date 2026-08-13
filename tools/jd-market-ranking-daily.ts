@@ -18,13 +18,18 @@ const configPath = path.join(projectRoot, "config", "jd-market-ranking-daily.jso
 const lockPath = path.join(outputRoot, "run.lock");
 const capturedRankRequests = new WeakMap<Page, { headers: Record<string, string>; url: string; capturedAt: number }>();
 
+export type JdMarketDailyCategoryConfig = {
+  key: string;
+  categoryPath: [string, string];
+  systemCategory: string;
+};
+
 export type JdMarketDailyConfig = {
-  version: 1;
+  version: 2;
   enabled: boolean;
   storeKey: string;
   dimension: "SKU";
-  categoryPath: [string, string];
-  systemCategory: string;
+  categories: JdMarketDailyCategoryConfig[];
   scope: string;
   priceBandFilter: string;
   earliestDate: string;
@@ -32,8 +37,19 @@ export type JdMarketDailyConfig = {
   maxDaysPerFile: number;
 };
 
+type JdMarketDailyChunk = { startDate: string; endDate: string; dates: string[]; filePath?: string; fileHash?: string; fileSizeBytes?: number; batchId?: string; rowCount?: number };
+
+export type JdMarketDailyTargetPlan = {
+  key: string;
+  categoryPath: [string, string];
+  identity: { category: string; scope: string; rankingDimension: "SKU"; priceBandFilter: string };
+  missingDates: string[];
+  chunks: JdMarketDailyChunk[];
+  screenshots?: { filters?: string; exportPanel?: string; imported?: string };
+};
+
 export type JdMarketDailyPlan = {
-  version: 1;
+  version: 2;
   runId: string;
   ownerExecutionId: string;
   createdAt: string;
@@ -46,10 +62,7 @@ export type JdMarketDailyPlan = {
   shopName: string;
   startDate: string;
   endDate: string;
-  identity: { category: string; scope: string; rankingDimension: "SKU"; priceBandFilter: string };
-  missingDates: string[];
-  chunks: Array<{ startDate: string; endDate: string; dates: string[]; filePath?: string; fileHash?: string; fileSizeBytes?: number; batchId?: string; rowCount?: number }>;
-  screenshots?: { filters?: string; exportPanel?: string; imported?: string };
+  targets: JdMarketDailyTargetPlan[];
   failure?: { stage: string; message: string; at: string };
 };
 
@@ -79,22 +92,34 @@ function normalizeBaseUrl(value: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-export async function loadJdMarketDailyConfig() {
-  const value = await readJsonFile<JdMarketDailyConfig>(configPath);
-  if (value.version !== 1 || !value.enabled || value.dimension !== "SKU" || value.categoryPath.length !== 2
-    || !value.categoryPath.every(Boolean) || !value.systemCategory || !value.scope || !validDate(value.earliestDate)
-    || !Number.isInteger(value.requestDelayMs) || value.requestDelayMs < 300 || value.requestDelayMs > 10_000
-    || !Number.isInteger(value.maxDaysPerFile) || value.maxDaysPerFile < 1 || value.maxDaysPerFile > 20) {
+export function validateJdMarketDailyConfig(value: unknown): JdMarketDailyConfig {
+  const config = value as Partial<JdMarketDailyConfig>;
+  const categories = Array.isArray(config.categories) ? config.categories : [];
+  const categoryKeys = categories.map((target) => target?.key);
+  const systemCategories = categories.map((target) => target?.systemCategory);
+  const categoryPaths = categories.map((target) => JSON.stringify(target?.categoryPath));
+  if (config.version !== 2 || !config.enabled || config.dimension !== "SKU" || categories.length !== 5
+    || categories.some((target) => !target || !/^[a-z0-9-]{1,80}$/.test(target.key)
+      || !Array.isArray(target.categoryPath) || target.categoryPath.length !== 2 || !target.categoryPath.every(Boolean) || !target.systemCategory)
+    || new Set(categoryKeys).size !== categories.length || new Set(systemCategories).size !== categories.length || new Set(categoryPaths).size !== categories.length
+    || !config.storeKey || config.scope !== "pop" || config.priceBandFilter !== "全部" || !validDate(String(config.earliestDate ?? ""))
+    || !Number.isInteger(config.requestDelayMs) || Number(config.requestDelayMs) < 300 || Number(config.requestDelayMs) > 10_000
+    || !Number.isInteger(config.maxDaysPerFile) || Number(config.maxDaysPerFile) < 1 || Number(config.maxDaysPerFile) > 20) {
     throw new Error("京东市场商品榜单日补齐配置无效");
   }
+  return config as JdMarketDailyConfig;
+}
+
+export async function loadJdMarketDailyConfig() {
+  const value = validateJdMarketDailyConfig(await readJsonFile<unknown>(configPath));
   const store = await getJdStore(value.storeKey);
   if (!store.enabled) throw new Error("京东市场商品榜单受控店铺未启用");
   return value;
 }
 
-function coverageUrl(baseUrl: string, config: JdMarketDailyConfig, startDate: string, endDate: string) {
+function coverageUrl(baseUrl: string, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, startDate: string, endDate: string) {
   const url = new URL("/api/market/daily-coverage", baseUrl);
-  url.searchParams.set("category", config.systemCategory);
+  url.searchParams.set("category", target.systemCategory);
   url.searchParams.set("scope", config.scope);
   url.searchParams.set("rankingDimension", config.dimension);
   url.searchParams.set("priceBandFilter", config.priceBandFilter);
@@ -103,15 +128,15 @@ function coverageUrl(baseUrl: string, config: JdMarketDailyConfig, startDate: st
   return url;
 }
 
-async function readCoverage(baseUrl: string, config: JdMarketDailyConfig, startDate: string, endDate: string, request: typeof fetch = fetch) {
-  const response = await request(coverageUrl(baseUrl, config, startDate, endDate), { headers: { accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
+async function readCoverage(baseUrl: string, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, startDate: string, endDate: string, request: typeof fetch = fetch) {
+  const response = await request(coverageUrl(baseUrl, config, target, startDate, endDate), { headers: { accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
   const body = await response.json().catch(() => null) as Coverage | { error?: string } | null;
   if (!response.ok || !body || !("missingDates" in body)) throw new Error(`读取市场日覆盖失败：${body && "error" in body ? body.error : `HTTP ${response.status}`}`);
   return body as Coverage;
 }
 
 function chunksOfMissingDates(dates: string[], maxDays: number, cutoffDate: string) {
-  const chunks: JdMarketDailyPlan["chunks"] = [];
+  const chunks: JdMarketDailyChunk[] = [];
   const readyDates = dates.at(-1) === cutoffDate ? dates.slice(0, -1) : dates;
   for (let index = 0; index < readyDates.length; index += maxDays) {
     const chunk = readyDates.slice(index, index + maxDays);
@@ -133,13 +158,13 @@ async function persistPlan(plan: JdMarketDailyPlan) {
   await writeJsonAtomic(planFile(plan), plan);
 }
 
-async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, name: "filters" | "exportPanel" | "imported") {
+async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, target: JdMarketDailyTargetPlan, name: "filters" | "exportPanel" | "imported") {
   const evidenceDirectory = path.join(outputRoot, plan.runId, "evidence");
   await mkdir(evidenceDirectory, { recursive: true });
-  const filePath = path.join(evidenceDirectory, `${name}.png`);
+  const filePath = path.join(evidenceDirectory, `${target.key}-${name}.png`);
   if (!inside(evidenceDirectory, filePath)) throw new Error("市场榜单截图证据路径无效");
   await page.screenshot({ path: filePath, fullPage: false });
-  (plan.screenshots ??= {})[name] = filePath;
+  (target.screenshots ??= {})[name] = filePath;
   await persistPlan(plan);
   return filePath;
 }
@@ -150,22 +175,37 @@ export async function planJdMarketDailyRun(options: { executionId: string; baseU
   const store = await getJdStore(config.storeKey);
   const baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const endDate = shanghaiYesterday(options.now);
-  const coverage = await readCoverage(baseUrl, config, config.earliestDate, endDate, options.request);
   const runId = options.runId ?? `jd-market-${randomUUID()}`;
+  const targets: JdMarketDailyTargetPlan[] = [];
+  for (const target of config.categories) {
+    const coverage = await readCoverage(baseUrl, config, target, config.earliestDate, endDate, options.request);
+    targets.push({
+      key: target.key,
+      categoryPath: target.categoryPath,
+      identity: { category: target.systemCategory, scope: config.scope, rankingDimension: "SKU", priceBandFilter: config.priceBandFilter },
+      missingDates: coverage.missingDates,
+      chunks: chunksOfMissingDates(coverage.missingDates, config.maxDaysPerFile, endDate),
+    });
+  }
   const plan: JdMarketDailyPlan = {
-    version: 1, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    version: 2, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     baseUrl, silentNoWindow: options.silentNoWindow === true, stage: "planned", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
     startDate: config.earliestDate, endDate,
-    identity: { category: config.systemCategory, scope: config.scope, rankingDimension: "SKU", priceBandFilter: config.priceBandFilter },
-    missingDates: coverage.missingDates,
-    chunks: chunksOfMissingDates(coverage.missingDates, config.maxDaysPerFile, endDate),
+    targets,
   };
   await persistPlan(plan);
   return plan;
 }
 
 export function publicJdMarketPlan(plan: JdMarketDailyPlan) {
-  return { ok: true, stage: "plan", runId: plan.runId, silentNoWindow: plan.silentNoWindow, startDate: plan.startDate, endDate: plan.endDate, missingDateCount: plan.missingDates.length, chunkCount: plan.chunks.length };
+  return {
+    ok: true, stage: "plan", runId: plan.runId, silentNoWindow: plan.silentNoWindow, startDate: plan.startDate, endDate: plan.endDate,
+    targetCount: plan.targets.length,
+    pendingTargetCount: plan.targets.filter((target) => target.chunks.length > 0).length,
+    missingDateCount: plan.targets.reduce((sum, target) => sum + target.missingDates.length, 0),
+    chunkCount: plan.targets.reduce((sum, target) => sum + target.chunks.length, 0),
+    categories: plan.targets.map((target) => ({ key: target.key, category: target.identity.category, missingDateCount: target.missingDates.length, chunkCount: target.chunks.length })),
+  };
 }
 
 async function assertStoreIdentity(page: Page, expected: { shopId: string; shopName: string }) {
@@ -257,7 +297,7 @@ async function waitForRankingSurface(frame: Frame) {
   throw new Error("京东商品榜单受控业务容器未就绪或不唯一");
 }
 
-async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
+async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig) {
   const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
   const surface = await waitForRankingSurface(frame);
@@ -269,12 +309,20 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
     await clickUniqueDropdownOption(surface, frame, "SKU", selectors.nth(0));
     await waitForSelectorText(surface, frame, 0, "SKU", true);
   }
-  const categoryLabel = config.categoryPath.join(" > ");
-  if (!(await selectors.nth(1).innerText()).includes(categoryLabel)) {
-    await hoverUniqueDropdownOption(surface, frame, config.categoryPath[0], selectors.nth(1));
-    await clickUniqueDropdownOption(surface, frame, config.categoryPath[1]);
-    await waitForSelectorText(surface, frame, 1, categoryLabel, false);
+  const categoryLabel = target.categoryPath.join(" > ");
+  const currentCategory = (await selectors.nth(1).innerText()).trim();
+  if (currentCategory.includes(categoryLabel)) {
+    const alternate = config.categories.find((candidate) => candidate.key !== target.key);
+    if (!alternate) throw new Error("京东商品榜单缺少用于刷新同类目请求的受控备用类目");
+    await hoverUniqueDropdownOption(surface, frame, alternate.categoryPath[0], selectors.nth(1));
+    await clickUniqueDropdownOption(surface, frame, alternate.categoryPath[1]);
+    await waitForSelectorText(surface, frame, 1, alternate.categoryPath.join(" > "), false);
   }
+  await hoverUniqueDropdownOption(surface, frame, target.categoryPath[0], selectors.nth(1));
+  const categorySelectionStartedAt = Date.now();
+  capturedRankRequests.delete(page);
+  await clickUniqueDropdownOption(surface, frame, target.categoryPath[1]);
+  await waitForSelectorText(surface, frame, 1, categoryLabel, false);
   await frame.waitForTimeout(1_000);
   const labels = await selectors.allTextContents();
   if (labels[0]?.trim() !== "SKU" || !labels[1]?.includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
@@ -287,7 +335,7 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
   let value: { url: string; headers: Record<string, string>; capturedAt: number } | undefined;
   for (let attempt = 0; attempt < 300; attempt += 1) {
     const candidate = capturedRankRequests.get(page);
-    if (candidate?.url.includes("unitType=1")) { value = candidate; break; }
+    if (candidate?.url.includes("unitType=1") && candidate.capturedAt >= categorySelectionStartedAt) { value = candidate; break; }
     await frame.waitForTimeout(100);
   }
   if (!value) throw new Error("未捕获到京东商品榜单 SKU 原生请求");
@@ -417,7 +465,7 @@ function csvCell(value: unknown) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function buildCsv(config: JdMarketDailyConfig, results: Array<{ date: string; block: RankBlock }>, images: Record<string, { imageUrl: string; productUrl: string }>) {
+function buildCsv(config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, results: Array<{ date: string; block: RankBlock }>, images: Record<string, { imageUrl: string; productUrl: string }>) {
   const header = ["period_start", "period_end", "category", "scope", "dimension", "rank", "sku_code", "product_name", "gmv", "quantity", "visitors", "search_clicks", "image_url", "product_url"];
   const rows: unknown[][] = [header];
   for (const { date, block } of results) {
@@ -426,7 +474,7 @@ function buildCsv(config: JdMarketDailyConfig, results: Array<{ date: string; bl
       const get = (key: string) => meta[key] === undefined ? "" : row[meta[key]!];
       const sku = String(get("skuId"));
       rows.push([
-        date, date, config.systemCategory, config.scope, "SKU", displayMetric(get("OrdAmtIndexRank")), sku,
+        date, date, target.systemCategory, config.scope, "SKU", displayMetric(get("OrdAmtIndexRank")), sku,
         displayMetric(get("ProName")), displayMetric(get("OrdAmtIndex")), displayMetric(get("OrdNumIndex")),
         displayMetric(get("UVIndex")), displayMetric(get("SearchClickIndex")), images[sku]?.imageUrl ?? "",
         images[sku]?.productUrl || `https://item.jd.com/${sku}.html`,
@@ -436,14 +484,14 @@ function buildCsv(config: JdMarketDailyConfig, results: Array<{ date: string; bl
   return new TextEncoder().encode(`\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`);
 }
 
-async function importCsv(plan: JdMarketDailyPlan, config: JdMarketDailyConfig, chunk: JdMarketDailyPlan["chunks"][number], filePath: string) {
+async function importCsv(plan: JdMarketDailyPlan, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, chunk: JdMarketDailyChunk, filePath: string) {
   const bytes = await readFile(filePath);
   const form = new FormData();
   form.set("file", new Blob([bytes], { type: "text/csv;charset=utf-8" }), path.basename(filePath));
   form.set("sourceType", "market_ranking");
   form.set("periodStart", chunk.startDate);
   form.set("periodEnd", chunk.endDate);
-  form.set("category", config.systemCategory);
+  form.set("category", target.systemCategory);
   form.set("scope", config.scope);
   form.set("priceBandFilter", config.priceBandFilter);
   const response = await fetch(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(300_000) });
@@ -468,7 +516,17 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
     const store = await getJdStore(plan.storeKey);
     if (plan.stage === "executed" || plan.stage === "completed") return { ok: true, stage: "run", verificationOnly: true, runId: plan.runId };
     if (plan.stage !== "planned" || store.shopId !== plan.shopId || store.shopName !== plan.shopName) throw new Error("市场榜单计划状态或店铺身份无效");
-    if (!plan.chunks.length) { plan.stage = "executed"; await persistPlan(plan); return { ok: true, stage: "run", runId: plan.runId, importedFiles: 0 }; }
+    const configuredTargets = config.categories.map((target) => ({
+      key: target.key, categoryPath: target.categoryPath, systemCategory: target.systemCategory,
+      scope: config.scope, rankingDimension: config.dimension, priceBandFilter: config.priceBandFilter,
+    }));
+    const plannedTargets = plan.targets.map((target) => ({
+      key: target.key, categoryPath: target.categoryPath, systemCategory: target.identity.category,
+      scope: target.identity.scope, rankingDimension: target.identity.rankingDimension, priceBandFilter: target.identity.priceBandFilter,
+    }));
+    if (plan.version !== 2 || JSON.stringify(configuredTargets) !== JSON.stringify(plannedTargets)) throw new Error("市场榜单计划类目清单与当前受控配置不一致");
+    const totalChunks = plan.targets.reduce((sum, target) => sum + target.chunks.length, 0);
+    if (!totalChunks) { plan.stage = "executed"; await persistPlan(plan); return { ok: true, stage: "run", runId: plan.runId, importedFiles: 0 }; }
     plan.stage = "running"; await persistPlan(plan);
     let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | null = null;
     let ownsBrowser = false;
@@ -489,56 +547,63 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       await installRequestCapture(page);
       await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
       await assertStoreIdentity(page, plan);
-      const frame = await selectRankingIdentity(page, config);
-      await saveEvidenceScreenshot(page, plan, "filters");
       const runDirectory = path.join(outputRoot, plan.runId);
       await mkdir(runDirectory, { recursive: true });
-      if (plan.chunks.length) {
+      for (const targetPlan of plan.targets) {
+        if (!targetPlan.chunks.length) continue;
+        const target = config.categories.find((candidate) => candidate.key === targetPlan.key);
+        if (!target) throw new Error(`市场榜单受控类目不存在：${targetPlan.key}`);
+        const frame = await selectRankingIdentity(page, config, target);
+        await saveEvidenceScreenshot(page, plan, targetPlan, "filters");
         const exportPanel = activeExportPanel(frame);
         if (await exportPanel.count() !== 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
         const fromInput = exportPanel.locator("#jdsz-from");
         const toInput = exportPanel.locator("#jdsz-to");
-        const startDate = plan.chunks[0]!.startDate;
-        const endDate = plan.chunks.at(-1)!.endDate;
+        const startDate = targetPlan.chunks[0]!.startDate;
+        const endDate = targetPlan.chunks.at(-1)!.endDate;
         await fromInput.fill(startDate);
         await toInput.fill(endDate);
         if (await fromInput.inputValue() !== startDate || await toInput.inputValue() !== endDate) {
           throw new Error("京东商品榜单导出增强日期未精确生效");
         }
-        await saveEvidenceScreenshot(page, plan, "exportPanel");
-      }
-      for (const chunk of plan.chunks) {
-        if (chunk.batchId) continue;
-        const results: Array<{ date: string; block: RankBlock }> = [];
-        for (const date of chunk.dates) {
-          results.push({ date, block: await fetchRankDay(frame, date) });
-          await frame.waitForTimeout(config.requestDelayMs);
+        await saveEvidenceScreenshot(page, plan, targetPlan, "exportPanel");
+        for (const chunk of targetPlan.chunks) {
+          if (chunk.batchId) continue;
+          const results: Array<{ date: string; block: RankBlock }> = [];
+          for (const date of chunk.dates) {
+            results.push({ date, block: await fetchRankDay(frame, date) });
+            await frame.waitForTimeout(config.requestDelayMs);
+          }
+          const first = results[0]?.block;
+          const emptyDate = results.find((result) => result.block.data.length === 0)?.date;
+          if (emptyDate === plan.endDate) {
+            throw new Error(`京东商智昨日数据尚未开放：${target.systemCategory} ${emptyDate}；已按安全规则停止，未缩短日期范围或导入空集合`);
+          }
+          if (!first || emptyDate || !results.every((result) => result.block.data.length <= 200)) throw new Error(`京东商品榜单返回空日或超过 SKU 榜单行数上限：${target.systemCategory}`);
+          const skuIds = [...new Set(results.flatMap(({ block }) => block.data.map((row) => String(row[block.metaIndex.skuId!]))))];
+          const images = await fetchImages(frame, skuIds);
+          const bytes = buildCsv(config, target, results, images);
+          const fileName = `京东商智_交易榜单_SKU_${target.systemCategory}_${chunk.startDate}至${chunk.endDate}.csv`;
+          const filePath = path.join(runDirectory, fileName);
+          if (!inside(runDirectory, filePath)) throw new Error("市场榜单下载文件路径越界");
+          await writeFile(filePath, bytes);
+          chunk.filePath = filePath;
+          chunk.fileHash = createHash("sha256").update(bytes).digest("hex");
+          chunk.fileSizeBytes = bytes.byteLength;
+          await persistPlan(plan);
+          const imported = await importCsv(plan, config, target, chunk, filePath);
+          chunk.batchId = imported.batchId;
+          chunk.rowCount = imported.rowCount;
+          await persistPlan(plan);
         }
-        const first = results[0]?.block;
-        const emptyDate = results.find((result) => result.block.data.length === 0)?.date;
-        if (emptyDate === plan.endDate) {
-          throw new Error(`京东商智昨日数据尚未开放：${emptyDate}；已按安全规则停止，未缩短日期范围或导入空集合`);
-        }
-        if (!first || emptyDate || !results.every((result) => result.block.data.length <= 200)) throw new Error("京东商品榜单返回空日或超过 SKU 榜单行数上限");
-        const skuIds = [...new Set(results.flatMap(({ block }) => block.data.map((row) => String(row[block.metaIndex.skuId!]))))];
-        const images = await fetchImages(frame, skuIds);
-        const bytes = buildCsv(config, results, images);
-        const fileName = `京东商智_交易榜单_SKU_${config.systemCategory}_${chunk.startDate}至${chunk.endDate}.csv`;
-        const filePath = path.join(runDirectory, fileName);
-        if (!inside(runDirectory, filePath)) throw new Error("市场榜单下载文件路径越界");
-        await writeFile(filePath, bytes);
-        chunk.filePath = filePath;
-        chunk.fileHash = createHash("sha256").update(bytes).digest("hex");
-        chunk.fileSizeBytes = bytes.byteLength;
-        await persistPlan(plan);
-        const imported = await importCsv(plan, config, chunk, filePath);
-        chunk.batchId = imported.batchId;
-        chunk.rowCount = imported.rowCount;
-        await persistPlan(plan);
+        await saveEvidenceScreenshot(page, plan, targetPlan, "imported");
       }
-      await saveEvidenceScreenshot(page, plan, "imported");
       plan.stage = "executed"; delete plan.failure; await persistPlan(plan);
-      return { ok: true, stage: "run", runId: plan.runId, importedFiles: plan.chunks.length, rowCount: plan.chunks.reduce((sum, chunk) => sum + Number(chunk.rowCount ?? 0), 0) };
+      return {
+        ok: true, stage: "run", runId: plan.runId,
+        importedFiles: plan.targets.reduce((sum, target) => sum + target.chunks.length, 0),
+        rowCount: plan.targets.reduce((sum, target) => sum + target.chunks.reduce((targetSum, chunk) => targetSum + Number(chunk.rowCount ?? 0), 0), 0),
+      };
     } catch (error) {
       plan.stage = "failed";
       plan.failure = { stage: "run", message: (error instanceof Error ? error.message : String(error)).slice(0, 1000), at: new Date().toISOString() };
@@ -555,19 +620,30 @@ export async function verifyJdMarketDailyPlan(plan: JdMarketDailyPlan, request: 
   const config = await loadJdMarketDailyConfig();
   if (plan.stage === "completed") return { ok: true, stage: "verify", runId: plan.runId, missingAfterImport: [] };
   if (plan.stage !== "executed") throw new Error("市场榜单计划尚未进入可核验阶段");
-  for (const chunk of plan.chunks) {
-    if (!chunk.batchId || !chunk.fileHash || !chunk.filePath || !chunk.fileSizeBytes || !chunk.rowCount) throw new Error("市场榜单计划缺少完整文件或导入批次证据");
-    const bytes = await readFile(chunk.filePath);
-    const fileInfo = await stat(chunk.filePath);
-    if (!fileInfo.isFile() || fileInfo.size !== chunk.fileSizeBytes || createHash("sha256").update(bytes).digest("hex") !== chunk.fileHash) {
-      throw new Error("市场榜单签收文件缺失、大小变化或 SHA-256 不匹配");
+  const configuredTargets = new Map(config.categories.map((target) => [target.key, target]));
+  const missingAfterImport: Array<{ key: string; category: string; date: string }> = [];
+  for (const targetPlan of plan.targets) {
+    const target = configuredTargets.get(targetPlan.key);
+    if (!target || target.systemCategory !== targetPlan.identity.category || JSON.stringify(target.categoryPath) !== JSON.stringify(targetPlan.categoryPath)
+      || targetPlan.identity.scope !== config.scope || targetPlan.identity.rankingDimension !== config.dimension || targetPlan.identity.priceBandFilter !== config.priceBandFilter) {
+      throw new Error(`市场榜单核验类目与当前受控配置不一致：${targetPlan.key}`);
+    }
+    for (const chunk of targetPlan.chunks) {
+      if (!chunk.batchId || !chunk.fileHash || !chunk.filePath || !chunk.fileSizeBytes || !chunk.rowCount) throw new Error("市场榜单计划缺少完整文件或导入批次证据");
+      const bytes = await readFile(chunk.filePath);
+      const fileInfo = await stat(chunk.filePath);
+      if (!fileInfo.isFile() || fileInfo.size !== chunk.fileSizeBytes || createHash("sha256").update(bytes).digest("hex") !== chunk.fileHash) {
+        throw new Error("市场榜单签收文件缺失、大小变化或 SHA-256 不匹配");
+      }
+    }
+    const coverage = await readCoverage(plan.baseUrl, config, target, plan.startDate, plan.endDate, request);
+    for (const date of targetPlan.missingDates.filter((candidate) => coverage.missingDates.includes(candidate))) {
+      missingAfterImport.push({ key: target.key, category: target.systemCategory, date });
     }
   }
-  const coverage = await readCoverage(plan.baseUrl, config, plan.startDate, plan.endDate, request);
-  const missingAfterImport = plan.missingDates.filter((date) => coverage.missingDates.includes(date));
   if (missingAfterImport.length) throw new Error(`市场榜单导入后仍缺少 ${missingAfterImport.length} 个目标日`);
   plan.stage = "completed"; delete plan.failure; await persistPlan(plan);
-  return { ok: true, stage: "verify", runId: plan.runId, importedDateCount: plan.missingDates.length, missingAfterImport };
+  return { ok: true, stage: "verify", runId: plan.runId, importedDateCount: plan.targets.reduce((sum, target) => sum + target.missingDates.length, 0), missingAfterImport };
 }
 
 export function jdMarketHelperRequestError(stage: string, busy: boolean, route: string, requestExecutionId: string | null, claimedExecutionId: string | null) {

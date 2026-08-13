@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { assertJdMarketImageCoverage, jdMarketHelperRequestError, parseJdMarketImageRows } from "../tools/jd-market-ranking-daily";
+import { assertJdMarketImageCoverage, jdMarketHelperRequestError, parseJdMarketImageRows, validateJdMarketDailyConfig } from "../tools/jd-market-ranking-daily";
 import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent-window header is strict and shared by multi-store and market plans", () => {
@@ -58,13 +58,41 @@ test("JD market n8n workflow stays inactive and uses the three loopback stages",
   ]);
 });
 
-test("JD market runner fixes the requested identity and requires completed import plus coverage verification", async () => {
+test("JD market config fixes five unique category identities and rejects ambiguous targets", async () => {
+  const config = JSON.parse(await readFile(new URL("../config/jd-market-ranking-daily.json", import.meta.url), "utf8"));
+  const validated = validateJdMarketDailyConfig(config);
+  assert.deepEqual(validated.categories.map((target) => [target.categoryPath.join(" > "), target.systemCategory]), [
+    ["商用净饮水设备 > 商用净水设备", "商用净水设备"],
+    ["商用净饮水设备 > 商用开水器/蒸汽奶泡机", "商用开水器蒸气奶泡机"],
+    ["商用食品机械设备 > 商用炒菜机", "商用炒菜机"],
+    ["商用食品机械设备 > 商用绞肉机/切肉机/切片机", "商用绞肉机切肉机切片机"],
+    ["商用食品机械设备 > 商用切菜机", "商用切菜机"],
+  ]);
+  assert.equal(validated.maxDaysPerFile, 5);
+  assert.throws(() => validateJdMarketDailyConfig({
+    ...config,
+    categories: [...config.categories, { ...config.categories[0], categoryPath: ["重复一级类目", "重复二级类目"] }],
+  }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({
+    ...config,
+    categories: [{ ...config.categories[0], categoryPath: ["只有一级"] }],
+  }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({ ...config, categories: config.categories.slice(0, 4) }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({ ...config, scope: "self" }), /配置无效/);
+});
+
+test("JD market runner fixes the requested identities and requires completed import plus per-category coverage verification", async () => {
   const [runner, config] = await Promise.all([
     readFile(new URL("../tools/jd-market-ranking-daily.ts", import.meta.url), "utf8"),
     readFile(new URL("../config/jd-market-ranking-daily.json", import.meta.url), "utf8"),
   ]);
   assert.match(config, /"dimension": "SKU"/);
-  assert.match(config, /"categoryPath": \["商用净饮水设备", "商用净水设备"\]/);
+  assert.match(config, /"categories": \[/);
+  assert.match(runner, /for \(const target of config\.categories\)/);
+  assert.match(runner, /for \(const targetPlan of plan\.targets\)/);
+  assert.match(runner, /candidate\.capturedAt >= categorySelectionStartedAt/);
+  assert.match(runner, /缺少用于刷新同类目请求的受控备用类目/);
+  assert.match(runner, /市场榜单计划类目清单与当前受控配置不一致/);
   assert.match(runner, /batch\?\.status !== "completed"/);
   assert.match(runner, /missingAfterImport\.length/);
   assert.match(runner, /results\.find\(\(result\) => result\.block\.data\.length === 0\)/);
@@ -75,7 +103,7 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(runner, /page\.on\("request"/);
   assert.match(runner, /capturedRankRequests\.set\(page/);
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
-  assert.match(runner, /saveEvidenceScreenshot\(page, plan, "exportPanel"\)/);
+  assert.match(runner, /saveEvidenceScreenshot\(page, plan, targetPlan, "exportPanel"\)/);
   assert.match(runner, /AbortSignal\.timeout\(300_000\)/);
   assert.match(runner, /keepWindowHidden: plan\.silentNoWindow/);
   assert.match(runner, /静默模式拒绝复用未受本次窗口守护控制/);
@@ -93,7 +121,7 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(selectorHelper, /hover\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(selectorHelper, /click\(\{ timeout: 3_000, force: true \}\)/);
   assert.doesNotMatch(selectorHelper, /dispatchEvent/);
-  assert.match(runner, /hoverUniqueDropdownOption\(surface, frame, config\.categoryPath\[0\], selectors\.nth\(1\)\)/);
+  assert.match(runner, /hoverUniqueDropdownOption\(surface, frame, target\.categoryPath\[0\], selectors\.nth\(1\)\)/);
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
   assert.match(runner, /waitForRankingSurface\(frame\)/);
