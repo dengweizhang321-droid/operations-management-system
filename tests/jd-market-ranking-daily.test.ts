@@ -49,10 +49,12 @@ test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-market-ranking-daily.workflow.json", import.meta.url), "utf8")) as {
     name: string;
     active: boolean;
-    nodes: Array<{ type: string; parameters?: { url?: string; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
+    nodes: Array<{ type: string; parameters?: { url?: string; rule?: { interval?: Array<{ expression?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
   };
   assert.equal(workflow.active, false);
   assert.match(workflow.name, /Profile 3隐藏Chromium/);
+  const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
+  assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "0 10 * * *");
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
   assert.deepEqual(requests.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/jd-market/plan",

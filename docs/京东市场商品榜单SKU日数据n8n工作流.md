@@ -45,7 +45,7 @@
 
 ## n8n 流程
 
-仓库模板为 `automation/n8n/jd-market-ranking-daily.workflow.json`，工作流 ID 为 `JdMarketDaily2026`，上海时区每天 10:30 触发，同时保留手动触发入口。A/B/C 三个节点均固定发送 `X-TERUISI-JD-SILENT-NO-WINDOW: 1`，后端配置也固定 `silentNoWindow=true`，因此即使旧 n8n 画布尚未刷新请求头，下一轮计划仍只能进入隐藏 Chromium 模式。模板和已导入的本机工作流均保持 `active=false`，需要人工检查后再发布或激活。
+仓库模板为 `automation/n8n/jd-market-ranking-daily.workflow.json`，工作流 ID 为 `JdMarketDaily2026`，上海时区每天 10:00 触发，同时保留手动触发入口。A/B/C 三个节点均固定发送 `X-TERUISI-JD-SILENT-NO-WINDOW: 1`，后端配置也固定 `silentNoWindow=true`，因此即使旧 n8n 画布尚未刷新请求头，下一轮计划仍只能进入隐藏 Chromium 模式。模板默认保持 `active=false`；由 Codex 定时任务执行时不依赖 n8n 登录态，若改由 n8n 托管则需人工检查后再发布或激活。
 
 ![n8n 三段式工作流画布](images/jd-market-ranking-daily/03-n8n-workflow-canvas.png)
 
@@ -69,4 +69,4 @@
 
 ## 启用注意事项
 
-主模板和兼容静默副本不能同时启用。加载新版 5791 helper 后，先保持工作流未激活并手动运行一次，确认 A 返回 `silentNoWindow=true`、B 使用 Profile 3 且 C 完成全部类目覆盖回查，再决定是否启用每天 10:30 的定时触发器。
+主模板和兼容静默副本不能同时启用。加载新版 5791 helper 后，先保持工作流未激活并手动运行一次，确认 A 返回 `silentNoWindow=true`、B 使用 Profile 3 且 C 完成全部类目覆盖回查，再决定是否启用每天 10:00 的定时触发器。若 10:00 时京东昨日数据尚未开放，必须保持原日期范围失败关闭并由调度层重试，不能缩短日期范围或导入空数据。

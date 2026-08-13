@@ -11,9 +11,9 @@
       "position": [-700, -80]
     },
     {
-      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "30 10 * * *" }] } },
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 10 * * *" }] } },
       "id": "a96a27f9-b3a7-414a-a667-200000000002",
-      "name": "每天 10:30 补缺",
+      "name": "每天 10:00 补缺",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [-700, 100]
@@ -90,7 +90,7 @@
   "pinData": {},
   "connections": {
     "手动运行": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
-    "每天 10:30 补缺": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
+    "每天 10:00 补缺": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
     "A·计算运营系统缺失日期": { "main": [[{ "node": "B·按日静默导出签收并导入", "type": "main", "index": 0 }]] },
     "B·按日静默导出签收并导入": { "main": [[{ "node": "C·回查全部目标日覆盖", "type": "main", "index": 0 }]] }
   },
