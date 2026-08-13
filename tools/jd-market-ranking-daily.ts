@@ -25,9 +25,10 @@ export type JdMarketDailyCategoryConfig = {
 };
 
 export type JdMarketDailyConfig = {
-  version: 2;
+  version: 3;
   enabled: boolean;
   storeKey: string;
+  silentNoWindow: true;
   dimension: "SKU";
   categories: JdMarketDailyCategoryConfig[];
   scope: string;
@@ -49,7 +50,7 @@ export type JdMarketDailyTargetPlan = {
 };
 
 export type JdMarketDailyPlan = {
-  version: 2;
+  version: 3;
   runId: string;
   ownerExecutionId: string;
   createdAt: string;
@@ -60,6 +61,8 @@ export type JdMarketDailyPlan = {
   storeKey: string;
   shopId: string;
   shopName: string;
+  browserProfileName: string;
+  browserDebugPort: number;
   startDate: string;
   endDate: string;
   targets: JdMarketDailyTargetPlan[];
@@ -98,7 +101,7 @@ export function validateJdMarketDailyConfig(value: unknown): JdMarketDailyConfig
   const categoryKeys = categories.map((target) => target?.key);
   const systemCategories = categories.map((target) => target?.systemCategory);
   const categoryPaths = categories.map((target) => JSON.stringify(target?.categoryPath));
-  if (config.version !== 2 || !config.enabled || config.dimension !== "SKU" || categories.length !== 5
+  if (config.version !== 3 || !config.enabled || config.silentNoWindow !== true || config.dimension !== "SKU" || categories.length !== 5
     || categories.some((target) => !target || !/^[a-z0-9-]{1,80}$/.test(target.key)
       || !Array.isArray(target.categoryPath) || target.categoryPath.length !== 2 || !target.categoryPath.every(Boolean) || !target.systemCategory)
     || new Set(categoryKeys).size !== categories.length || new Set(systemCategories).size !== categories.length || new Set(categoryPaths).size !== categories.length
@@ -188,8 +191,10 @@ export async function planJdMarketDailyRun(options: { executionId: string; baseU
     });
   }
   const plan: JdMarketDailyPlan = {
-    version: 2, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    baseUrl, silentNoWindow: options.silentNoWindow === true, stage: "planned", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+    version: 3, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    baseUrl, silentNoWindow: config.silentNoWindow || options.silentNoWindow === true, stage: "planned",
+    storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+    browserProfileName: store.browser.profileName, browserDebugPort: store.browser.debugPort,
     startDate: config.earliestDate, endDate,
     targets,
   };
@@ -515,7 +520,10 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
     const config = await loadJdMarketDailyConfig();
     const store = await getJdStore(plan.storeKey);
     if (plan.stage === "executed" || plan.stage === "completed") return { ok: true, stage: "run", verificationOnly: true, runId: plan.runId };
-    if (plan.stage !== "planned" || store.shopId !== plan.shopId || store.shopName !== plan.shopName) throw new Error("市场榜单计划状态或店铺身份无效");
+    if (plan.stage !== "planned" || store.shopId !== plan.shopId || store.shopName !== plan.shopName
+      || store.browser.profileName !== plan.browserProfileName || store.browser.debugPort !== plan.browserDebugPort) {
+      throw new Error("市场榜单计划状态、店铺身份或 Chromium profile 无效");
+    }
     const configuredTargets = config.categories.map((target) => ({
       key: target.key, categoryPath: target.categoryPath, systemCategory: target.systemCategory,
       scope: config.scope, rankingDimension: config.dimension, priceBandFilter: config.priceBandFilter,
@@ -524,7 +532,9 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       key: target.key, categoryPath: target.categoryPath, systemCategory: target.identity.category,
       scope: target.identity.scope, rankingDimension: target.identity.rankingDimension, priceBandFilter: target.identity.priceBandFilter,
     }));
-    if (plan.version !== 2 || JSON.stringify(configuredTargets) !== JSON.stringify(plannedTargets)) throw new Error("市场榜单计划类目清单与当前受控配置不一致");
+    if (plan.version !== 3 || !plan.silentNoWindow || JSON.stringify(configuredTargets) !== JSON.stringify(plannedTargets)) {
+      throw new Error("市场榜单计划类目清单或隐藏 Chromium 约束与当前受控配置不一致");
+    }
     const totalChunks = plan.targets.reduce((sum, target) => sum + target.chunks.length, 0);
     if (!totalChunks) { plan.stage = "executed"; await persistPlan(plan); return { ok: true, stage: "run", runId: plan.runId, importedFiles: 0 }; }
     plan.stage = "running"; await persistPlan(plan);

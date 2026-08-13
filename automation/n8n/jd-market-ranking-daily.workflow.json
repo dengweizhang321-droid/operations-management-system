@@ -1,6 +1,6 @@
 {
   "id": "JdMarketDaily2026",
-  "name": "京东市场商品榜单缺失日下载与导入",
+  "name": "京东市场商品榜单5类目下载与导入（Profile 3隐藏Chromium）",
   "nodes": [
     {
       "parameters": {},
@@ -23,7 +23,7 @@
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd-market/plan",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
         "options": { "timeout": 120000 }
       },
       "id": "c1302bb4-5dad-4a74-8bbf-000000000003",
@@ -37,11 +37,11 @@
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd-market/run",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
         "options": { "timeout": 21600000 }
       },
       "id": "c1302bb4-5dad-4a74-8bbf-000000000004",
-      "name": "B·按日导出签收并导入",
+      "name": "B·Profile 3隐藏导出签收并导入",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [70, 0]
@@ -51,7 +51,7 @@
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd-market/verify",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
         "options": { "timeout": 120000 }
       },
       "id": "c1302bb4-5dad-4a74-8bbf-000000000005",
@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "content": "## 5 个固定榜单身份\n市场 → 商品榜单 → 交易榜单；SKU；依次处理：商用净水设备、商用开水器/蒸汽奶泡机、商用炒菜机、商用绞肉机/切肉机/切片机、商用切菜机。系统身份按受控映射保持 category + scope=pop + rankingDimension=SKU 隔离，日覆盖截止上海时区昨天。",
+        "content": "## Profile 3 与 5 个固定榜单身份\n受控 storeKey=jd-cuizhiwang-dengweizhang，注册表唯一映射到志高商用洗碗机旗舰店、Profile 3、端口 9227。市场 → 商品榜单 → 交易榜单；SKU；依次处理：商用净水设备、商用开水器/蒸汽奶泡机、商用炒菜机、商用绞肉机/切肉机/切片机、商用切菜机。",
         "height": 185,
         "width": 570,
         "color": 4
@@ -75,7 +75,7 @@
     },
     {
       "parameters": {
-        "content": "## 失败关闭与真实导入\nA 分别只读计算 5 个类目的缺失日；B 在同一受控店铺 Chrome 会话中按配置顺序逐类目切换，每次只使用切换后捕获的新请求头，按最多 5 日一文件串行拉取，校验每个目标日非空、SKU 行数不超过 200，保存 SHA-256 后调用正式市场导入接口；C 逐类目回查原目标日。下载成功不等于完成，只有全部批次 completed 且全部类目目标日回查命中才成功。工作流默认 active=false。",
+        "content": "## 全程隐藏 Chromium 与真实导入\nA/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例，登录或身份异常只失败关闭、不弹可见窗口。5 个类目按顺序逐个切换、最多 5 日一文件；只有全部签收文件、completed 批次和逐类目覆盖回查通过才成功。工作流默认 active=false。",
         "height": 225,
         "width": 860,
         "color": 3
@@ -91,8 +91,8 @@
   "connections": {
     "手动运行": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
     "每天 10:30 补缺": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
-    "A·计算运营系统缺失日期": { "main": [[{ "node": "B·按日导出签收并导入", "type": "main", "index": 0 }]] },
-    "B·按日导出签收并导入": { "main": [[{ "node": "C·回查全部目标日覆盖", "type": "main", "index": 0 }]] }
+    "A·计算运营系统缺失日期": { "main": [[{ "node": "B·Profile 3隐藏导出签收并导入", "type": "main", "index": 0 }]] },
+    "B·Profile 3隐藏导出签收并导入": { "main": [[{ "node": "C·回查全部目标日覆盖", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1", "timezone": "Asia/Shanghai" },

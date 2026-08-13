@@ -45,22 +45,33 @@ test("JD market image responses accept array and SKU-keyed shapes but fail close
   }), /缺少 1 个 SKU 主图.*停止生成和导入空图片榜单/);
 });
 
-test("JD market n8n workflow stays inactive and uses the three loopback stages", async () => {
+test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and preserves the three loopback stages", async () => {
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-market-ranking-daily.workflow.json", import.meta.url), "utf8")) as {
+    name: string;
     active: boolean;
-    nodes: Array<{ type: string; parameters?: { url?: string } }>;
+    nodes: Array<{ type: string; parameters?: { url?: string; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
   };
   assert.equal(workflow.active, false);
-  assert.deepEqual(workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest").map((node) => node.parameters?.url), [
+  assert.match(workflow.name, /Profile 3隐藏Chromium/);
+  const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
+  assert.deepEqual(requests.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/jd-market/plan",
     "http://127.0.0.1:5791/jd-market/run",
     "http://127.0.0.1:5791/jd-market/verify",
   ]);
+  for (const request of requests) {
+    assert.deepEqual(request.parameters?.headerParameters?.parameters, [
+      { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+      { name: "X-TERUISI-JD-SILENT-NO-WINDOW", value: "1" },
+    ]);
+  }
 });
 
 test("JD market config fixes five unique category identities and rejects ambiguous targets", async () => {
   const config = JSON.parse(await readFile(new URL("../config/jd-market-ranking-daily.json", import.meta.url), "utf8"));
   const validated = validateJdMarketDailyConfig(config);
+  assert.equal(validated.version, 3);
+  assert.equal(validated.silentNoWindow, true);
   assert.deepEqual(validated.categories.map((target) => [target.categoryPath.join(" > "), target.systemCategory]), [
     ["商用净饮水设备 > 商用净水设备", "商用净水设备"],
     ["商用净饮水设备 > 商用开水器/蒸汽奶泡机", "商用开水器蒸气奶泡机"],
@@ -79,6 +90,27 @@ test("JD market config fixes five unique category identities and rejects ambiguo
   }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, categories: config.categories.slice(0, 4) }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, scope: "self" }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({ ...config, silentNoWindow: false }), /配置无效/);
+});
+
+test("JD market store key resolves only to the controlled Profile 3 identity", async () => {
+  const [config, registry] = await Promise.all([
+    readFile(new URL("../config/jd-market-ranking-daily.json", import.meta.url), "utf8").then((raw) => JSON.parse(raw)),
+    readFile(new URL("../config/jd-store-accounts.json", import.meta.url), "utf8").then((raw) => JSON.parse(raw)),
+  ]);
+  const selected = registry.stores.filter((store: { storeKey?: string }) => store.storeKey === config.storeKey);
+  assert.equal(selected.length, 1);
+  assert.deepEqual({
+    shopName: selected[0].shopName,
+    shopId: selected[0].shopId,
+    profileName: selected[0].browser.profileName,
+    debugPort: selected[0].browser.debugPort,
+  }, {
+    shopName: "志高商用洗碗机旗舰店",
+    shopId: "711743",
+    profileName: "Profile 3",
+    debugPort: 9227,
+  });
 });
 
 test("JD market runner fixes the requested identities and requires completed import plus per-category coverage verification", async () => {
@@ -92,7 +124,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /for \(const targetPlan of plan\.targets\)/);
   assert.match(runner, /candidate\.capturedAt >= categorySelectionStartedAt/);
   assert.match(runner, /缺少用于刷新同类目请求的受控备用类目/);
-  assert.match(runner, /市场榜单计划类目清单与当前受控配置不一致/);
+  assert.match(runner, /市场榜单计划类目清单或隐藏 Chromium 约束与当前受控配置不一致/);
+  assert.match(runner, /store\.browser\.profileName !== plan\.browserProfileName/);
+  assert.match(runner, /!plan\.silentNoWindow/);
   assert.match(runner, /batch\?\.status !== "completed"/);
   assert.match(runner, /missingAfterImport\.length/);
   assert.match(runner, /results\.find\(\(result\) => result\.block\.data\.length === 0\)/);

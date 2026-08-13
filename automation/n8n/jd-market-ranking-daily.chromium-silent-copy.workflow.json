@@ -1,6 +1,6 @@
 {
   "id": "JdMarketSilentCopy2026",
-  "name": "京东市场商品榜单缺失日下载与导入（Chromium静默下载副本）",
+  "name": "京东市场商品榜单缺失日下载与导入（Profile 3 Chromium静默下载副本）",
   "nodes": [
     {
       "parameters": {},
@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "content": "## Chromium 静默下载副本\n受控店铺使用 Chromium 的普通有头浏览器，窗口在后台隐藏并最小化；执行器直接保存并签收 CSV，不弹系统保存窗口。出现登录、验证码、安全验证或店铺身份异常时只失败关闭并保留审计，不打开可见窗口、不自动重放业务点击。",
+        "content": "## Profile 3 Chromium 静默下载副本\nstoreKey=jd-cuizhiwang-dengweizhang 从注册表唯一解析为志高商用洗碗机旗舰店、Profile 3、端口 9227。普通有头 Chromium 离屏启动，窗口在后台隐藏并最小化，同时持续隐藏顶层窗口；执行器直接保存并签收 CSV，不弹系统保存窗口。登录、验证码、安全验证或店铺身份异常时只失败关闭并保留审计，不打开可见窗口、不自动重放业务点击。",
         "height": 200,
         "width": 610,
         "color": 5

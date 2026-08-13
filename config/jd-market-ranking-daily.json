@@ -1,7 +1,8 @@
 {
-  "version": 2,
+  "version": 3,
   "enabled": true,
   "storeKey": "jd-cuizhiwang-dengweizhang",
+  "silentNoWindow": true,
   "dimension": "SKU",
   "categories": [
     {
