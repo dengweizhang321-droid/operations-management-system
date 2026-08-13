@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 import { applyMarketImageRepairs, listMarketImageRepairCandidates, normalizeJdMarketRepairImageUrl } from "../lib/market/image-repair";
 import { ensureMarketSchemaCore, type MarketSchemaDatabase } from "../lib/market/schema-core";
-import { parseJdMarketRepairImageResponse } from "../tools/jd-market-image-repair";
+import { parseJdMarketRepairImageResponse, summarizeJdMarketRepairImageResponse } from "../tools/jd-market-image-repair";
 
 function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
   return {
@@ -109,4 +110,13 @@ test("JD image repair accepts keyed image responses and normalizes them to the c
     "1001": { imgSrc: "//img10.360buyimg.com/n7/jfs/a.jpg?x=1" },
     "1002": { imgSrc: "https://untrusted.example/n5/b.jpg" },
   } } })], [["1001", "https://img10.360buyimg.com/n5/jfs/a.jpg"]]);
+  assert.deepEqual(summarizeJdMarketRepairImageResponse({ code: 601, content: { errorCode: "limited", secret: "hidden" } }), {
+    rootKeys: ["code", "content"], contentKeys: ["errorCode", "secret"], code: "601", status: "", message: "", success: null,
+  });
+});
+
+test("JD image repair verifies the signed-in header shop instead of ranking-row mall links", async () => {
+  const runner = await readFile(new URL("../tools/jd-market-image-repair.ts", import.meta.url), "utf8");
+  assert.match(runner, /\.user-info \.shop-name a\[href\*=\"mall\.jd\.com\/index-\"\]/);
+  assert.match(runner, /return await fetchJdImages\(frame,/);
 });

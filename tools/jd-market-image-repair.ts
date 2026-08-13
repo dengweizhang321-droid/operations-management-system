@@ -55,7 +55,9 @@ async function applyRepairs(baseUrl: string, repairs: MarketImageRepairMapping[]
 }
 
 async function assertStoreIdentity(page: Page, expected: { shopId: string; shopName: string }) {
-  const links = page.locator('a[href*="mall.jd.com/index-"]').filter({ visible: true });
+  // Product ranking rows also contain mall links after their data finishes
+  // loading. Only the signed-in shop link in the page header is authoritative.
+  const links = page.locator('.user-info .shop-name a[href*="mall.jd.com/index-"]').filter({ visible: true });
   await links.first().waitFor({ state: "visible", timeout: 30_000 });
   const candidates: Array<{ href: string | null; text: string }> = [];
   for (let index = 0; index < await links.count(); index += 1) {
@@ -83,23 +85,66 @@ async function ensureSkuDimension(frame: Frame) {
 }
 
 async function captureSkuHeaders(page: Page) {
-  let headers: Record<string, string> | null = null;
+  let networkState: { headers: Record<string, string>; url: string } | null = null;
+  let imageHeaders: Record<string, string> | null = null;
+  const replayableHeaderNames = new Set(["accept", "p-pin", "user-mnp", "user-mup", "uuid", "x-requested-with"]);
   page.on("request", (request) => {
-    if (!/\/sz\/api\/industryMarket\/getProductBillBoardDealData\.ajax/.test(request.url())) return;
-    const params = new URL(request.url()).searchParams;
-    if (params.get("unitType") === "1") headers = request.headers();
+    const replayableHeaders = Object.fromEntries(Object.entries(request.headers()).filter(([name]) => replayableHeaderNames.has(name.toLowerCase())));
+    if (/\/sz\/api\/industry\/getImageURL\.ajax/.test(request.url())) {
+      imageHeaders = replayableHeaders;
+      return;
+    }
+    if (/\/sz\/api\/industryMarket\/getProductBillBoardDealData\.ajax/.test(request.url())
+      && new URL(request.url()).searchParams.get("unitType") === "1") {
+      networkState = { url: request.url(), headers: replayableHeaders };
+    }
+  });
+  await page.addInitScript(() => {
+    const target = window as typeof window & { __teruisiImageRepairRank?: { headers: Record<string, string>; url: string } };
+    const rawOpen = XMLHttpRequest.prototype.open;
+    const rawHeader = XMLHttpRequest.prototype.setRequestHeader;
+    const rawSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (...args: Parameters<XMLHttpRequest["open"]>) {
+      (this as XMLHttpRequest & { __teruisiUrl?: string }).__teruisiUrl = String(args[1]);
+      return rawOpen.apply(this, args as never);
+    };
+    XMLHttpRequest.prototype.setRequestHeader = function (...args: Parameters<XMLHttpRequest["setRequestHeader"]>) {
+      const request = this as XMLHttpRequest & { __teruisiHeaders?: Record<string, string> };
+      (request.__teruisiHeaders ??= {})[args[0]] = args[1];
+      return rawHeader.apply(this, args as never);
+    };
+    XMLHttpRequest.prototype.send = function (...args: Parameters<XMLHttpRequest["send"]>) {
+      const request = this as XMLHttpRequest & { __teruisiUrl?: string; __teruisiHeaders?: Record<string, string> };
+      if (/\/sz\/api\/industryMarket\/getProductBillBoardDealData\.ajax/.test(request.__teruisiUrl ?? "") && request.__teruisiHeaders) {
+        target.__teruisiImageRepairRank = { headers: { ...request.__teruisiHeaders }, url: request.__teruisiUrl! };
+      }
+      return rawSend.apply(this, args as never);
+    };
   });
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
+  let frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
   await ensureSkuDimension(frame);
-  for (let attempt = 0; attempt < 300 && !headers; attempt += 1) await frame.waitForTimeout(100);
-  if (!headers) {
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-    for (let attempt = 0; attempt < 300 && !headers; attempt += 1) await page.waitForTimeout(100);
+  let state: { headers: Record<string, string>; url: string } | null = null;
+  for (let attempt = 0; attempt < 300 && (!state || !imageHeaders); attempt += 1) {
+    state = await frame.evaluate(() => (window as typeof window & { __teruisiImageRepairRank?: { headers: Record<string, string>; url: string } }).__teruisiImageRepairRank ?? null).catch(() => null) ?? networkState;
+    if (!state || !imageHeaders) await frame.waitForTimeout(100);
   }
-  if (!headers) throw new Error("未捕获到京东商品榜单 SKU 原生请求头");
-  return headers;
+  if (!state || !imageHeaders || new URL(state.url, targetUrl).searchParams.get("unitType") !== "1") {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
+    if (!frame) throw new Error("重新加载后未找到京东商品榜单业务框架");
+    await ensureSkuDimension(frame);
+    state = null;
+    networkState = null;
+    imageHeaders = null;
+    for (let attempt = 0; attempt < 300 && (!state || !imageHeaders); attempt += 1) {
+      state = await frame.evaluate(() => (window as typeof window & { __teruisiImageRepairRank?: { headers: Record<string, string>; url: string } }).__teruisiImageRepairRank ?? null).catch(() => null) ?? networkState;
+      if (!state || !imageHeaders) await frame.waitForTimeout(100);
+    }
+  }
+  if (!state || !imageHeaders || new URL(state.url, targetUrl).searchParams.get("unitType") !== "1") throw new Error("未捕获到京东商品榜单 SKU 与图片原生请求头");
+  return { headers: imageHeaders, frame };
 }
 
 function recordValue(value: unknown): Record<string, unknown> | null {
@@ -134,11 +179,26 @@ export function parseJdMarketRepairImageResponse(body: unknown) {
   return images;
 }
 
-async function fetchJdImages(page: Page, skuIds: string[], headers: Record<string, string>) {
+export function summarizeJdMarketRepairImageResponse(body: unknown) {
+  const root = recordValue(body);
+  const content = recordValue(root?.content);
+  return {
+    rootKeys: Object.keys(root ?? {}).slice(0, 12),
+    contentKeys: Object.keys(content ?? {}).slice(0, 12),
+    code: String(root?.code ?? root?.errorCode ?? content?.code ?? content?.errorCode ?? "").slice(0, 80),
+    status: String(root?.status ?? content?.status ?? "").slice(0, 80),
+    message: String(root?.message ?? content?.message ?? "").replace(/[\r\n]+/g, " ").slice(0, 160),
+    success: root?.success ?? content?.success ?? null,
+  };
+}
+
+async function fetchJdImages(frame: Frame, skuIds: string[], headers: Record<string, string>) {
   const images = new Map<string, string>();
-  for (let index = 0; index < skuIds.length; index += 50) {
-    const chunk = skuIds.slice(index, index + 50);
-    const body = await page.evaluate(async ({ ids, requestHeaders }) => {
+  const requestedBatchSize = Number(process.env.JD_MARKET_IMAGE_REPAIR_BATCH_SIZE ?? 50);
+  const batchSize = Number.isInteger(requestedBatchSize) && requestedBatchSize >= 1 && requestedBatchSize <= 50 ? requestedBatchSize : 50;
+  for (let index = 0; index < skuIds.length; index += batchSize) {
+    const chunk = skuIds.slice(index, index + batchSize);
+    const body = await frame.evaluate(async ({ ids, requestHeaders }) => {
       const response = await fetch(`/sz/api/industry/getImageURL.ajax?ids=${ids.join(",")}`, {
         credentials: "include",
         headers: requestHeaders,
@@ -147,8 +207,12 @@ async function fetchJdImages(page: Page, skuIds: string[], headers: Record<strin
       if (!response.ok) throw new Error(`京东商品图片接口请求失败：HTTP ${response.status}`);
       return value as unknown;
     }, { ids: chunk, requestHeaders: headers });
-    for (const [skuId, imageUrl] of parseJdMarketRepairImageResponse(body)) images.set(skuId, imageUrl);
-    await page.waitForTimeout(100);
+    const parsed = parseJdMarketRepairImageResponse(body);
+    if (parsed.size === 0) {
+      throw new Error(`京东商品图片接口未返回可验证主图：${JSON.stringify(summarizeJdMarketRepairImageResponse(body))}`);
+    }
+    for (const [skuId, imageUrl] of parsed) images.set(skuId, imageUrl);
+    await frame.waitForTimeout(100);
   }
   return images;
 }
@@ -208,9 +272,9 @@ export async function runJdMarketImageRepair(options: { baseUrl?: string } = {})
           targetUrlPattern: /jdsz\.jd\.com/i,
           requireMini: false,
         });
-        const headers = await captureSkuHeaders(page);
+        const { headers, frame } = await captureSkuHeaders(page);
         await assertStoreIdentity(page, store);
-        return await fetchJdImages(page, [...new Set(external.map((candidate) => candidate.skuCode))], headers);
+        return await fetchJdImages(frame, [...new Set(external.map((candidate) => candidate.skuCode))], headers);
       } finally {
         await browser?.close().catch(() => undefined);
         await closeChromeBrowser(store.browser.debugPort);
