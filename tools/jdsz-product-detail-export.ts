@@ -2,7 +2,7 @@ import { mkdir, open, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Page } from "playwright-core";
-import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
+import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import {
   acquireJdProductDetailDownload,
@@ -19,6 +19,7 @@ import {
 } from "../lib/jd/product-detail-task-manifest";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 
@@ -831,18 +832,24 @@ async function run() {
   }
 
   if (options.debug) await mkdir(artifactDir, { recursive: true });
-  await launchDedicatedChrome({
-    executablePath: options.executablePath,
-    profileDirectory: options.userDataDirectory,
-    profileName: options.profileName,
-    port: options.port,
-    startUrl: targetUrl,
-    ...jdBrowserLaunchMode(options.interactiveLogin),
-  });
-  await waitForChrome(options.port);
-  const browser = await connectPlaywrightBrowser(options.port);
+  let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | null = null;
+  let ownsBrowser = false;
   let revealInteractiveBrowser = false;
   try {
+    const launched = await launchDedicatedChrome({
+      executablePath: options.executablePath,
+      profileDirectory: options.userDataDirectory,
+      profileName: options.profileName,
+      port: options.port,
+      startUrl: targetUrl,
+      ...jdBrowserLaunchMode(options.interactiveLogin),
+    });
+    ownsBrowser = Boolean(launched);
+    if (!options.interactiveLogin && !options.visibleRecovery && !ownsBrowser) {
+      throw new Error("京东商智静默模式拒绝复用未受本次执行所有权控制的 Chromium 实例。");
+    }
+    await waitForChrome(options.port);
+    browser = await connectPlaywrightBrowser(options.port);
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
       startUrl: targetUrl,
       workerName: "codex-jdsz-product-detail-worker",
@@ -933,7 +940,8 @@ async function run() {
     revealInteractiveBrowser = options.visibleRecovery && !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
     throw error;
   } finally {
-    await browser.close().catch(() => undefined);
+    await browser?.close().catch(() => undefined);
+    if (ownsBrowser && !options.interactiveLogin) await closeChromeBrowser(options.port);
     if (revealInteractiveBrowser) {
       try {
         await revealJdBrowserForInteractiveFailure({
@@ -952,7 +960,7 @@ async function run() {
   }
 }
 
-async function main() { return withJdProductDetailRunLock(run); }
+async function main() { return withJdChromiumRunLock("product-detail", () => withJdProductDetailRunLock(run)); }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void main().catch((error: unknown) => {

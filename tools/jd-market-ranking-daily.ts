@@ -4,10 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Frame, Locator, Page } from "playwright-core";
 
-import { launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
+import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,6 +39,7 @@ export type JdMarketDailyPlan = {
   createdAt: string;
   updatedAt: string;
   baseUrl: string;
+  silentNoWindow: boolean;
   stage: "planned" | "running" | "executed" | "completed" | "failed";
   storeKey: string;
   shopId: string;
@@ -142,7 +144,7 @@ async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, name:
   return filePath;
 }
 
-export async function planJdMarketDailyRun(options: { executionId: string; baseUrl?: string; now?: Date; request?: typeof fetch; runId?: string }) {
+export async function planJdMarketDailyRun(options: { executionId: string; baseUrl?: string; now?: Date; request?: typeof fetch; runId?: string; silentNoWindow?: boolean }) {
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(options.executionId)) throw new Error("n8n execution ID 无效");
   const config = await loadJdMarketDailyConfig();
   const store = await getJdStore(config.storeKey);
@@ -152,7 +154,7 @@ export async function planJdMarketDailyRun(options: { executionId: string; baseU
   const runId = options.runId ?? `jd-market-${randomUUID()}`;
   const plan: JdMarketDailyPlan = {
     version: 1, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    baseUrl, stage: "planned", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+    baseUrl, silentNoWindow: options.silentNoWindow === true, stage: "planned", storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
     startDate: config.earliestDate, endDate,
     identity: { category: config.systemCategory, scope: config.scope, rankingDimension: "SKU", priceBandFilter: config.priceBandFilter },
     missingDates: coverage.missingDates,
@@ -163,7 +165,7 @@ export async function planJdMarketDailyRun(options: { executionId: string; baseU
 }
 
 export function publicJdMarketPlan(plan: JdMarketDailyPlan) {
-  return { ok: true, stage: "plan", runId: plan.runId, startDate: plan.startDate, endDate: plan.endDate, missingDateCount: plan.missingDates.length, chunkCount: plan.chunks.length };
+  return { ok: true, stage: "plan", runId: plan.runId, silentNoWindow: plan.silentNoWindow, startDate: plan.startDate, endDate: plan.endDate, missingDateCount: plan.missingDates.length, chunkCount: plan.chunks.length };
 }
 
 async function assertStoreIdentity(page: Page, expected: { shopId: string; shopName: string }) {
@@ -393,7 +395,7 @@ async function withRunLock<T>(task: () => Promise<T>) {
 }
 
 export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
-  return withRunLock(async () => {
+  return withJdChromiumRunLock("market-ranking", () => withRunLock(async () => {
     const config = await loadJdMarketDailyConfig();
     const store = await getJdStore(plan.storeKey);
     if (plan.stage === "executed" || plan.stage === "completed") return { ok: true, stage: "run", verificationOnly: true, runId: plan.runId };
@@ -401,14 +403,18 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
     if (!plan.chunks.length) { plan.stage = "executed"; await persistPlan(plan); return { ok: true, stage: "run", runId: plan.runId, importedFiles: 0 }; }
     plan.stage = "running"; await persistPlan(plan);
     let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | null = null;
+    let ownsBrowser = false;
     try {
-      await launchDedicatedChrome({
+      const launched = await launchDedicatedChrome({
         executablePath: store.browser.executablePath,
         profileDirectory: store.browser.userDataDir,
         profileName: store.browser.profileName,
         port: store.browser.debugPort, startUrl: "about:blank",
         headless: false, visible: false, startMinimized: true,
+        keepWindowHidden: plan.silentNoWindow,
       });
+      ownsBrowser = Boolean(launched);
+      if (plan.silentNoWindow && !ownsBrowser) throw new Error("京东市场榜单静默模式拒绝复用未受本次窗口守护控制的 Chromium 实例。");
       await waitForChrome(store.browser.debugPort);
       browser = await connectPlaywrightBrowser(store.browser.debugPort);
       const { page } = await connectPlaywrightJackyunTarget(browser, { workerName: "teruisi-jd-market-ranking", targetUrlPattern: /jdsz\.jd\.com/i, requireMini: false });
@@ -472,8 +478,9 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       throw error;
     } finally {
       await browser?.close().catch(() => undefined);
+      if (ownsBrowser) await closeChromeBrowser(store.browser.debugPort);
     }
-  });
+  }));
 }
 
 export async function verifyJdMarketDailyPlan(plan: JdMarketDailyPlan, request: typeof fetch = fetch) {

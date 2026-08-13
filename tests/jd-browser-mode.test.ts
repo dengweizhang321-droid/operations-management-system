@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { chromiumWindowGuardScript } from "../lib/jackyun/cdp-client";
 import {
   hasJdInteractivePageGate,
   isJdInteractiveBrowserFailure,
@@ -15,6 +16,15 @@ test("JD product detail stays headless while JD master uses minimized headed Chr
   assert.deepEqual(jdBrowserLaunchMode(true), { headless: false, visible: true });
   assert.deepEqual(jdWareBrowserLaunchMode(false), { headless: false, visible: false, startMinimized: true });
   assert.deepEqual(jdWareBrowserLaunchMode(true), { headless: false, visible: true });
+});
+
+test("strict silent headed Chromium uses an off-screen Win32 window guard", () => {
+  const script = chromiumWindowGuardScript(1234);
+  assert.match(script, /EnumWindows/);
+  assert.match(script, /GetWindowThreadProcessId/);
+  assert.match(script, /ShowWindowAsync\(hWnd, 0\)/);
+  assert.match(script, /Start-Sleep -Milliseconds 75/);
+  assert.throws(() => chromiumWindowGuardScript(0), /PID/);
 });
 
 test("only interactive JD failures request a visible browser", () => {
@@ -46,16 +56,17 @@ test("JD ware browser replaces a stale HeadlessChrome before launching minimized
     profileName: "Profile 1",
     port: 9224,
     startUrl: "https://example.test/jd",
+    keepWindowHidden: true,
   }, false, {
     readUserAgent: async () => userAgents.shift() ?? "Mozilla/5.0 Chrome/151.0.0.0",
     closeChromeBrowser: async (port) => { calls.push(`close:${port}`); return true; },
     launchDedicatedChrome: async (options) => {
       assert.equal(options.profileName, "Profile 1");
-      calls.push(`launch:${options.headless}:${options.visible}:${options.startMinimized}:${options.port}`);
+      calls.push(`launch:${options.headless}:${options.visible}:${options.startMinimized}:${options.keepWindowHidden}:${options.port}`);
       return {};
     },
   });
-  assert.deepEqual(calls, ["close:9224", "launch:false:false:true:9224"]);
+  assert.deepEqual(calls, ["close:9224", "launch:false:false:true:true:9224"]);
   assert.equal(result.replacedHeadless, true);
 });
 
@@ -77,6 +88,24 @@ test("JD ware browser safely reuses an existing non-headless Chromium without cl
   });
   assert.deepEqual(calls, ["launch:false:false:true"]);
   assert.equal(result.replacedHeadless, false);
+});
+
+test("strict silent JD ware mode fails closed instead of reusing an unguarded browser", async () => {
+  await assert.rejects(
+    launchJdWareBrowser({
+      executablePath: "chrome.exe",
+      profileDirectory: "D:\\profiles\\jd-store",
+      profileName: "Profile 1",
+      port: 9224,
+      startUrl: "https://example.test/jd",
+      keepWindowHidden: true,
+    }, false, {
+      readUserAgent: async () => "Mozilla/5.0 Chrome/151.0.0.0",
+      closeChromeBrowser: async () => true,
+      launchDedicatedChrome: async () => null,
+    }),
+    /静默模式拒绝复用/,
+  );
 });
 
 test("JD ware browser verifies the active runtime is not HeadlessChrome", async () => {
@@ -162,6 +191,8 @@ test("JD master uses minimized headed Chromium while product detail keeps shared
   assert.match(master, /options\.visibleRecovery\s*&&\s*interactiveAttentionRequired/);
   assert.match(daily, /options\.visibleRecovery\s*&&\s*!options\.interactiveLogin/);
   assert.match(cdp, /options\.startMinimized[\s\S]*--start-minimized/);
+  assert.match(cdp, /options\.keepWindowHidden[\s\S]*--window-position=-32000,-32000/);
+  assert.match(cdp, /startChromiumWindowGuard/);
   assert.match(cdp, /--profile-directory=\$\{options\.profileName\}/);
   assert.match(cdp, /--disable-background-timer-throttling/);
   assert.match(cdp, /--disable-backgrounding-occluded-windows/);

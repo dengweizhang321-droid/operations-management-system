@@ -31,6 +31,7 @@ export type JdInteractiveBrowserOptions = {
   profileName: string;
   port: number;
   startUrl: string;
+  keepWindowHidden?: boolean;
 };
 
 type JdBrowserLifecycleDependencies = {
@@ -79,6 +80,9 @@ export async function launchJdWareBrowser(
   });
   if (replacingHeadless && !launched) {
     throw new Error("京东商品主数据浏览器模式切换时端口被并发进程占用，拒绝复用未知实例。");
+  }
+  if (options.keepWindowHidden && !launched) {
+    throw new Error("京东商品主数据静默模式拒绝复用未受本次窗口守护控制的 Chromium 实例。");
   }
   const activeUserAgent = await dependencies.readUserAgent(options.port);
   if (/HeadlessChrome/i.test(activeUserAgent)) {

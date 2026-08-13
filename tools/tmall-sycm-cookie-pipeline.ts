@@ -53,6 +53,12 @@ export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
+
+export function parseJdSilentNoWindowHeader(value: string | string[] | undefined) {
+  if (value === undefined || value === "0") return false;
+  if (value === "1") return true;
+  throw new Error("京东静默窗口模式请求头无效。");
+}
 const sycmOrigin = "https://sycm.taobao.com";
 const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
@@ -914,7 +920,10 @@ async function serveCommand(argv: string[]) {
     busy = true;
     try {
       if (request.url === "/jd-market/plan") {
-        jdMarketPlan = await planJdMarketDailyRun({ executionId: requestExecutionId! });
+        jdMarketPlan = await planJdMarketDailyRun({
+          executionId: requestExecutionId!,
+          silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
+        });
         stage = "planned";
         reply(200, publicJdMarketPlan(jdMarketPlan));
         inactivityReaper?.arm();
@@ -932,11 +941,10 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jd/plan") {
-        const silentHeader = request.headers[jdSilentNoWindowHeader];
-        if (silentHeader !== undefined && silentHeader !== "0" && silentHeader !== "1") {
-          throw new Error("京东静默窗口模式请求头无效");
-        }
-        jdPlan = await planJdN8nRun({ executionId: requestExecutionId!, silentNoWindow: silentHeader === "1" });
+        jdPlan = await planJdN8nRun({
+          executionId: requestExecutionId!,
+          silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
+        });
         stage = "planned";
         reply(200, publicJdPlan(jdPlan));
         inactivityReaper?.arm();

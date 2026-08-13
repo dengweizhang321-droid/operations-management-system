@@ -142,6 +142,18 @@ export async function closeChromeBrowser(port: number, timeoutMs = 10_000) {
   throw new Error(`专用 Chrome 未在 ${timeoutMs}ms 内退出，拒绝同时打开同一 profile。`);
 }
 
+export async function readChromeBrowserProcessId(port: number) {
+  const browser = await connectChromeBrowser(port);
+  try {
+    const result = await browser.send<{ processInfo?: Array<{ id?: number; type?: string }> }>("SystemInfo.getProcessInfo", {}, 5_000);
+    const candidates = (result.processInfo ?? []).filter((processInfo) => processInfo.type === "browser" && Number.isSafeInteger(processInfo.id) && Number(processInfo.id) > 0);
+    if (candidates.length !== 1) throw new Error(`Chromium CDP 返回的 browser 进程数量不是 1：${candidates.length}。`);
+    return Number(candidates[0]!.id);
+  } finally {
+    browser.close();
+  }
+}
+
 export async function waitForChrome(port: number, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -155,6 +167,96 @@ export async function waitForChrome(port: number, timeoutMs = 30_000) {
   throw new Error(`专用 Chrome 未在 ${timeoutMs}ms 内开放调试端口 ${port}。`);
 }
 
+export function chromiumWindowGuardScript(browserPid: number, debugPort?: number) {
+  if (!Number.isSafeInteger(browserPid) || browserPid <= 0) throw new Error("Chromium 窗口守护进程 PID 无效。");
+  if (debugPort !== undefined && (!Number.isSafeInteger(debugPort) || debugPort <= 0 || debugPort > 65_535)) {
+    throw new Error("Chromium 窗口守护调试端口无效。");
+  }
+  return `$ErrorActionPreference = 'Stop'
+$targetPid = ${browserPid}
+$debugPort = ${debugPort ?? 0}
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class TeruisiChromiumWindowGuard {
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr extraData);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int command);
+  public static void Hide(uint targetPid) {
+    EnumWindows(delegate(IntPtr hWnd, IntPtr lParam) {
+      uint processId;
+      GetWindowThreadProcessId(hWnd, out processId);
+      if (processId == targetPid && IsWindowVisible(hWnd)) ShowWindowAsync(hWnd, 0);
+      return true;
+    }, IntPtr.Zero);
+  }
+}
+"@
+[TeruisiChromiumWindowGuard]::Hide([uint32]$targetPid)
+[Console]::Out.WriteLine('READY')
+${debugPort ? `$missingChecks = 0
+while ($missingChecks -lt 40) {
+  if ($null -eq (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) {
+    $replacementPid = Get-NetTCPConnection -LocalPort $debugPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
+    if ($null -eq $replacementPid) { $missingChecks += 1; Start-Sleep -Milliseconds 125; continue }
+    $targetPid = [int]$replacementPid
+  }
+  $missingChecks = 0
+  [TeruisiChromiumWindowGuard]::Hide([uint32]$targetPid)
+  Start-Sleep -Milliseconds 75
+}` : `while ($null -ne (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) {
+  [TeruisiChromiumWindowGuard]::Hide([uint32]$targetPid)
+  Start-Sleep -Milliseconds 75
+}`}`;
+}
+
+export async function startChromiumWindowGuard(browserPid: number, debugPort: number, timeoutMs = 5_000) {
+  if (process.platform !== "win32") throw new Error("Chromium 严格静默窗口模式当前只支持 Windows。");
+  const encoded = Buffer.from(chromiumWindowGuardScript(browserPid, debugPort), "utf16le").toString("base64");
+  const guard = spawn("powershell.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-WindowStyle",
+    "Hidden",
+    "-EncodedCommand",
+    encoded,
+  ], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  await new Promise<void>((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => finish(new Error("Chromium 窗口守护进程未在时限内就绪。")), timeoutMs);
+    const finish = (error?: Error) => {
+      clearTimeout(timer);
+      guard.off("error", onError);
+      guard.off("exit", onExit);
+      guard.stdout?.off("data", onStdout);
+      guard.stderr?.off("data", onStderr);
+      if (error) reject(error); else resolve();
+    };
+    const onError = (error: Error) => finish(error);
+    const onExit = (code: number | null) => finish(new Error(`Chromium 窗口守护进程提前退出：${code ?? "unknown"}${stderr ? ` (${stderr.slice(-300)})` : ""}${stdout ? ` [stdout=${JSON.stringify(stdout.slice(-300))}]` : ""}`));
+    const onStdout = (chunk: Buffer) => {
+      stdout = `${stdout}${String(chunk)}`.slice(-1_000);
+      if (/(?:^|\r?\n)READY(?:\r?\n|$)/.test(stdout)) finish();
+    };
+    const onStderr = (chunk: Buffer) => { stderr = `${stderr}${String(chunk)}`.slice(-1_000); };
+    guard.once("error", onError);
+    guard.once("exit", onExit);
+    guard.stdout?.on("data", onStdout);
+    guard.stderr?.on("data", onStderr);
+  }).catch((error) => {
+    guard.kill();
+    throw error;
+  });
+  guard.stdout?.destroy();
+  guard.stderr?.destroy();
+  guard.unref();
+  return guard;
+}
+
 export async function launchDedicatedChrome(options: {
   executablePath: string;
   profileDirectory: string;
@@ -164,6 +266,7 @@ export async function launchDedicatedChrome(options: {
   headless?: boolean;
   visible?: boolean;
   startMinimized?: boolean;
+  keepWindowHidden?: boolean;
 }) {
   try {
     await listChromeTargets(options.port);
@@ -185,7 +288,10 @@ export async function launchDedicatedChrome(options: {
     options.startUrl,
   ];
   if (options.headless) args.unshift("--headless=new");
-  if (options.startMinimized) {
+  if (options.keepWindowHidden) {
+    args.unshift("--window-position=-32000,-32000");
+  }
+  if (options.startMinimized || options.keepWindowHidden) {
     args.unshift(
       "--start-minimized",
       "--disable-background-timer-throttling",
@@ -194,8 +300,18 @@ export async function launchDedicatedChrome(options: {
     );
   }
   const child: ChildProcess = spawn(options.executablePath, args, { detached: true, stdio: "ignore", windowsHide: !options.visible });
-  child.unref();
-  await waitForChrome(options.port);
+  try {
+    if (!Number.isSafeInteger(child.pid) || Number(child.pid) <= 0) throw new Error("Chromium 启动进程 PID 无效。");
+    child.unref();
+    await waitForChrome(options.port);
+    if (options.keepWindowHidden && !options.headless) {
+      await startChromiumWindowGuard(await readChromeBrowserProcessId(options.port), options.port);
+    }
+  } catch (error) {
+    child.kill();
+    await closeChromeBrowser(options.port).catch(() => false);
+    throw error;
+  }
   return child;
 }
 

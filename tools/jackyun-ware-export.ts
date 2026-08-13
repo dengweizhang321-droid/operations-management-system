@@ -12,10 +12,11 @@ import {
   type JdWareExportRecovery,
   type JdWareExportTask,
 } from "../lib/jd/ware-export";
-import { waitForChrome } from "../lib/jackyun/cdp-client";
+import { closeChromeBrowser, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, launchJdWareBrowser, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
 
@@ -1129,6 +1130,7 @@ async function main() {
   };
   await writeJsonAtomic(auditPath, audit);
   let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | undefined;
+  let ownsBrowser = false;
   let revealInteractiveBrowser = false;
   try {
     const legacyRecovery = await readJsonFileOr<JdWareExportRecovery | null>(legacyActiveTaskPath, null);
@@ -1140,7 +1142,7 @@ async function main() {
       throw new Error(`SKU 活动任务清单格式无效，已停止以免重复提交：${activeTaskPath}`);
     }
     await persistAudit({ stage: "launch_browser" });
-    await launchJdWareBrowser({
+    const launchResult = await launchJdWareBrowser({
       executablePath: options.executablePath,
       profileDirectory: options.userDataDirectory,
       profileName: options.profileName,
@@ -1149,7 +1151,9 @@ async function main() {
       // Starting Chrome at the target URL created an unobserved first page and
       // a second same-store query before the controlled page was attached.
       startUrl: options.interactiveLogin ? targetUrl : "about:blank",
+      keepWindowHidden: !options.interactiveLogin && !options.visibleRecovery,
     }, options.interactiveLogin);
+    ownsBrowser = Boolean(launchResult.launched);
     await waitForChrome(options.port);
     browser = await connectPlaywrightBrowser(options.port);
     const { page, client } = await connectPlaywrightJackyunTarget(browser, {
@@ -1227,6 +1231,7 @@ async function main() {
     process.exitCode = 1;
   } finally {
     await browser?.close().catch(() => undefined);
+    if (ownsBrowser && !options.interactiveLogin) await closeChromeBrowser(options.port);
   }
   if (revealInteractiveBrowser) {
     try {
@@ -1247,7 +1252,7 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  void withJdWareExportRunLock(main).catch((error: unknown) => {
+  void withJdChromiumRunLock("product-master", () => withJdWareExportRunLock(main)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.stack ?? error.message : String(error));
     process.exitCode = 1;
   });

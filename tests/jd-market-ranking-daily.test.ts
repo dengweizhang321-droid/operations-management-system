@@ -3,6 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { jdMarketHelperRequestError } from "../tools/jd-market-ranking-daily";
+import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
+
+test("JD silent-window header is strict and shared by multi-store and market plans", () => {
+  assert.equal(parseJdSilentNoWindowHeader(undefined), false);
+  assert.equal(parseJdSilentNoWindowHeader("0"), false);
+  assert.equal(parseJdSilentNoWindowHeader("1"), true);
+  assert.throws(() => parseJdSilentNoWindowHeader("true"), /请求头无效/);
+  assert.throws(() => parseJdSilentNoWindowHeader(["1"]), /请求头无效/);
+});
 
 test("JD market helper binds one execution and rejects foreign or out-of-order requests", () => {
   assert.equal(jdMarketHelperRequestError("ready", false, "/jd-market/plan", "execution-1", null), null);
@@ -43,6 +52,9 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, "exportPanel"\)/);
   assert.match(runner, /AbortSignal\.timeout\(300_000\)/);
+  assert.match(runner, /keepWindowHidden: plan\.silentNoWindow/);
+  assert.match(runner, /静默模式拒绝复用未受本次窗口守护控制/);
+  assert.match(runner, /closeChromeBrowser\(store\.browser\.debugPort\)/);
   assert.match(runner, /60 \* 60_000/);
   assert.match(runner, /昨日数据尚未开放/);
   assert.match(runner, /未缩短日期范围或导入空集合/);
