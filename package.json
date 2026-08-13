@@ -30,6 +30,7 @@
     "erp:sales:run": "node --import tsx tools/erp-sales-automation.ts",
     "erp:sales:login": "node --import tsx tools/erp-sales-automation.ts --login",
     "sales:import": "node --import tsx tools/sales-import-runner.ts",
+    "dingtalk:robot:send": "node --import tsx tools/dingtalk-custom-robot-send.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
