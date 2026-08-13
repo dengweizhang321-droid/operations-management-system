@@ -300,6 +300,77 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig) {
 }
 
 type RankBlock = { metaIndex: Record<string, number>; data: unknown[][] };
+type JdMarketImage = { imageUrl: string; productUrl: string };
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function normalizeJdMarketImageUrl(value: unknown) {
+  const raw = String(value ?? "").trim().replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://");
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || !/^img\d+\.360buyimg\.com$/i.test(url.hostname)) return "";
+    url.search = "";
+    url.hash = "";
+    url.pathname = url.pathname.replace(/\/n\d+\//, "/n5/");
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeJdMarketProductUrl(value: unknown) {
+  const raw = String(value ?? "").trim().replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://");
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || !/(^|\.)jd\.com$/i.test(url.hostname)) return "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+/** Normalizes the array and SKU-keyed response shapes returned by JD's image endpoint. */
+export function parseJdMarketImageRows(body: unknown): Record<string, JdMarketImage> {
+  const root = recordValue(body);
+  const content = recordValue(root?.content);
+  const candidate = content?.data ?? root?.data ?? root?.content;
+  const rows: Array<Record<string, unknown>> = [];
+  if (Array.isArray(candidate)) {
+    for (const value of candidate) {
+      const row = recordValue(value);
+      if (row) rows.push(row);
+    }
+  } else {
+    const keyed = recordValue(candidate);
+    if (keyed) {
+      for (const [skuId, value] of Object.entries(keyed)) {
+        const row = recordValue(value);
+        rows.push(row ? { skuId, ...row } : { skuId, imgSrc: value });
+      }
+    }
+  }
+  const result: Record<string, JdMarketImage> = {};
+  for (const row of rows) {
+    const skuId = String(row.skuId ?? row.skuID ?? row.sku ?? row.id ?? "").trim();
+    if (!skuId) continue;
+    result[skuId] = {
+      imageUrl: normalizeJdMarketImageUrl(row.imgSrc ?? row.imageUrl ?? row.imgUrl),
+      productUrl: normalizeJdMarketProductUrl(row.proUrl ?? row.productUrl),
+    };
+  }
+  return result;
+}
+
+export function assertJdMarketImageCoverage(skuIds: string[], images: Record<string, JdMarketImage>) {
+  const missing = [...new Set(skuIds)].filter((skuId) => !images[skuId]?.imageUrl);
+  if (missing.length) {
+    throw new Error(`京东商品榜单图片接口缺少 ${missing.length} 个 SKU 主图：${missing.slice(0, 5).join(",")}；已停止生成和导入空图片榜单`);
+  }
+}
 
 async function fetchRankDay(frame: Page | import("playwright-core").Frame, date: string): Promise<RankBlock> {
   return await frame.evaluate(async (targetDate) => {
@@ -319,22 +390,19 @@ async function fetchRankDay(frame: Page | import("playwright-core").Frame, date:
 }
 
 async function fetchImages(frame: Page | import("playwright-core").Frame, skuIds: string[]) {
-  const result: Record<string, { imageUrl: string; productUrl: string }> = {};
+  const result: Record<string, JdMarketImage> = {};
   for (let index = 0; index < skuIds.length; index += 50) {
     const chunk = skuIds.slice(index, index + 50);
-    const rows = await frame.evaluate(async (ids) => {
+    const body = await frame.evaluate(async (ids) => {
       const target = window as typeof window & { __teruisiJdRank?: { headers: Record<string, string> } };
       const response = await fetch(`/sz/api/industry/getImageURL.ajax?ids=${ids.join(",")}`, { credentials: "include", headers: target.__teruisiJdRank?.headers ?? {} });
       const body = await response.json();
       if (!response.ok) throw new Error("京东商品图片接口请求失败");
-      return Array.isArray(body?.content?.data) ? body.content.data as Array<{ skuId: string | number; imgSrc?: string; proUrl?: string }> : [];
+      return body as unknown;
     }, chunk);
-    for (const row of rows) {
-      const imageUrl = String(row.imgSrc ?? "").replace(/^\/\//, "https://").replace(/\/n\d+\//, "/imgzone/");
-      const productUrl = String(row.proUrl ?? "").split("?")[0]!.replace(/^\/\//, "https://");
-      result[String(row.skuId)] = { imageUrl, productUrl };
-    }
+    Object.assign(result, parseJdMarketImageRows(body));
   }
+  assertJdMarketImageCoverage(skuIds, result);
   return result;
 }
 

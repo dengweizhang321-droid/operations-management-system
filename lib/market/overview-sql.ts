@@ -345,14 +345,35 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
       ORDER BY CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank, cached.effective_gmv_cents DESC
       LIMIT 200
     )`;
-  return `WITH ${selectedIds}, top_ranked AS MATERIALIZED (
+  return `WITH ${selectedIds}, top_ranked_sources AS MATERIALIZED (
     SELECT m.*,
+      COALESCE((
+        SELECT historical.image_url
+        FROM market_ranking_entries historical INDEXED BY market_entries_representative_idx
+        JOIN market_image_cache historical_cache
+          ON historical_cache.source_url=historical.image_url
+          AND historical_cache.status='ready'
+          AND historical_cache.content_sha256<>''
+        WHERE historical.category=m.category
+          AND historical.scope=m.scope
+          AND historical.ranking_dimension=m.ranking_dimension
+          AND historical.sku_code=m.sku_code
+          AND historical.image_url<>''
+        ORDER BY CASE WHEN historical.id=m.id THEN 0 ELSE 1 END,
+          historical.period_end DESC, historical.period_start DESC, historical.id DESC
+        LIMIT 1
+      ), NULLIF(m.image_url,''), '') AS resolved_image_url,
       cached.effective_gmv_cents,
       cached.real_gmv_cents,
       cached.gmv_out_of_band,
       cached.effective_quantity,
       cached.effective_average_transaction_price_cents,
-      cached.effective_conversion_bps,
+      cached.effective_conversion_bps
+    FROM top_ranked_ids selected
+    JOIN market_ranking_entries m ON m.id=selected.id
+    JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
+  ), top_ranked AS MATERIALIZED (
+    SELECT m.*,
       mic.status AS image_cache_status_raw,
       mic.content_sha256 AS image_content_sha256,
       ps.confirmed_market_price_cents,
@@ -378,10 +399,8 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
       ) OR EXISTS (
         SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
-    FROM top_ranked_ids selected
-    JOIN market_ranking_entries m ON m.id=selected.id
-    JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
-    LEFT JOIN market_image_cache mic ON mic.source_url=m.image_url
+    FROM top_ranked_sources m
+    LEFT JOIN market_image_cache mic ON mic.source_url=m.resolved_image_url
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category
       AND ps.scope=m.scope AND ps.sku_code=m.sku_code
       AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end,1,7)

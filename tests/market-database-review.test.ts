@@ -9,7 +9,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { saveMarketImportCore, type MarketEntryForImport } from "../lib/market/import-core";
 import { marketNaturalKey } from "../lib/market/import-identity";
 import { claimMarketImageCache, completeMarketImageCacheClaim, failMarketImageCacheClaim } from "../lib/market/image-cache-state";
-import { buildMarketAdminComparisonSql, buildMarketAdminItemTrendLiteSql, buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketMonthlySummaryRefreshSql, buildMarketOverviewAnalyticsSql, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
+import { buildMarketAdminComparisonSql, buildMarketAdminItemTrendLiteSql, buildMarketCachedOverviewAnalyticsSql, buildMarketItemTrendSql, buildMarketMonthlySummaryRefreshSql, buildMarketOverviewAnalyticsSql, buildMarketRankingCtes, marketEffectiveFactsCtes, marketMonthlyCoverageCtes, marketOverviewFilterOptionsSql } from "../lib/market/overview-sql";
 import { ensureMarketSchemaCore, officialPriceBandSql, type MarketSchemaDatabase } from "../lib/market/schema-core";
 
 function sqliteAdapter(sqlite: DatabaseSync, hooks: { afterRun?: (sql: string) => Promise<void> } = {}): MarketSchemaDatabase {
@@ -1059,6 +1059,36 @@ test("market ranking limits candidates before previous-rank lookup and pins the 
   assert.ok(boundedIds >= 0 && topRanked > boundedIds);
   assert.ok(database.indexOf("buildMarketRankingCtes") < database.indexOf("previous_rank"));
   assert.match(database, /market_ranking_entries p INDEXED BY market_entries_sku_idx/);
+});
+
+test("market ranking reuses only a ready image from the same exact product identity", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  await ensureMarketSchemaCore(sqliteAdapter(sqlite));
+  sqlite.exec(`
+    CREATE TABLE netshop_rows (sku_id TEXT, spu_id TEXT, product_code TEXT);
+    CREATE TABLE sales_order_lines (product_code TEXT);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,rank,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+    VALUES
+      ('historical',1,'2026-07-01','2026-07-31','净水','POP','SKU','POP',1,'SKU-IMAGE','旧榜单','https://img10.360buyimg.com/n5/same.jpg','{}','old'),
+      ('foreign-scope',2,'2026-08-01','2026-08-11','净水','自营','SKU','自营',1,'SKU-IMAGE','其他范围','https://img10.360buyimg.com/n5/foreign.jpg','{}','foreign'),
+      ('current',3,'2026-08-12','2026-08-12','净水','POP','SKU','POP',1,'SKU-IMAGE','今日榜单','','{}','current');
+    INSERT INTO market_image_cache (source_url,status,content_sha256,object_key)
+    VALUES
+      ('https://img10.360buyimg.com/n5/same.jpg','ready','same-hash','market-images/same.jpg'),
+      ('https://img10.360buyimg.com/n5/foreign.jpg','ready','foreign-hash','market-images/foreign.jpg');
+    INSERT INTO market_effective_metrics_cache
+      (market_entry_id,effective_gmv_cents,real_gmv_cents,gmv_out_of_band,effective_quantity,effective_average_transaction_price_cents,effective_conversion_bps)
+    SELECT id,1000,NULL,0,1,1000,100 FROM market_ranking_entries WHERE natural_key='current';
+  `);
+  const sql = `${buildMarketRankingCtes({ factWhere: "WHERE m.natural_key='current'" })}
+    SELECT resolved_image_url imageUrl,image_cache_status_raw cacheStatus,image_content_sha256 hash FROM top_ranked`;
+  assert.deepEqual({ ...(sqlite.prepare(sql).get() as Record<string, unknown>) }, {
+    imageUrl: "https://img10.360buyimg.com/n5/same.jpg",
+    cacheStatus: "ready",
+    hash: "same-hash",
+  });
+  sqlite.close();
 });
 
 test("shared market month coverage prefers a full month, deduplicates daily rows, and excludes rolling windows", async () => {

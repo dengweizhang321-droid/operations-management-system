@@ -528,8 +528,8 @@ export async function getMarketOverview(
       conversion_low_bps, conversion_high_bps,
       real_gmv_cents,
       effective_conversion_bps conversion_bps, cart_customers, search_clicks,
-      CASE WHEN image_url <> '' AND image_cache_status_raw = 'ready' THEN '/api/market/images/' || image_content_sha256 ELSE image_url END image_url,
-      image_url source_image_url, COALESCE(image_cache_status_raw, CASE WHEN image_url = '' THEN 'missing' ELSE 'pending' END) image_cache_status,
+      CASE WHEN resolved_image_url <> '' AND image_cache_status_raw = 'ready' THEN '/api/market/images/' || image_content_sha256 ELSE resolved_image_url END image_url,
+      resolved_image_url source_image_url, COALESCE(image_cache_status_raw, CASE WHEN resolved_image_url = '' THEN 'missing' ELSE 'pending' END) image_cache_status,
       product_url,
       COALESCE((SELECT COUNT(DISTINCT p.period_start || '|' || p.period_end)
         FROM market_ranking_entries p INDEXED BY market_entries_sku_idx

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { jdMarketHelperRequestError } from "../tools/jd-market-ranking-daily";
+import { assertJdMarketImageCoverage, jdMarketHelperRequestError, parseJdMarketImageRows } from "../tools/jd-market-ranking-daily";
 import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent-window header is strict and shared by multi-store and market plans", () => {
@@ -19,6 +19,30 @@ test("JD market helper binds one execution and rejects foreign or out-of-order r
   assert.deepEqual(jdMarketHelperRequestError("planned", false, "/jd-market/run", "other", "execution-1"), { error: "execution_mismatch" });
   assert.deepEqual(jdMarketHelperRequestError("planned", true, "/jd-market/run", "execution-1", "execution-1"), { error: "pipeline_busy" });
   assert.deepEqual(jdMarketHelperRequestError("planned", false, "/jd-market/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed", actual: "planned" });
+});
+
+test("JD market image responses accept array and SKU-keyed shapes but fail closed on missing images", () => {
+  assert.deepEqual(parseJdMarketImageRows({ content: { data: [{
+    skuId: 1001,
+    imgSrc: "//img10.360buyimg.com/n7/jfs/a.jpg?x=1",
+    proUrl: "//item.jd.com/1001.html?utm_source=test",
+  }] } }), {
+    "1001": {
+      imageUrl: "https://img10.360buyimg.com/n5/jfs/a.jpg",
+      productUrl: "https://item.jd.com/1001.html",
+    },
+  });
+  assert.deepEqual(parseJdMarketImageRows({ content: { data: {
+    "1002": { imgSrc: "https://img11.360buyimg.com/imgzone/jfs/b.jpg", proUrl: "https://item.jd.com/1002.html" },
+  } } }), {
+    "1002": {
+      imageUrl: "https://img11.360buyimg.com/imgzone/jfs/b.jpg",
+      productUrl: "https://item.jd.com/1002.html",
+    },
+  });
+  assert.throws(() => assertJdMarketImageCoverage(["1001", "1002"], {
+    "1001": { imageUrl: "https://img10.360buyimg.com/n5/jfs/a.jpg", productUrl: "" },
+  }), /缺少 1 个 SKU 主图.*停止生成和导入空图片榜单/);
 });
 
 test("JD market n8n workflow stays inactive and uses the three loopback stages", async () => {
@@ -44,7 +68,8 @@ test("JD market runner fixes the requested identity and requires completed impor
   assert.match(runner, /batch\?\.status !== "completed"/);
   assert.match(runner, /missingAfterImport\.length/);
   assert.match(runner, /results\.find\(\(result\) => result\.block\.data\.length === 0\)/);
-  assert.match(runner, /Array\.isArray\(body\?\.content\?\.data\).*: \[\]/);
+  assert.match(runner, /assertJdMarketImageCoverage\(skuIds, result\)/);
+  assert.match(runner, /已停止生成和导入空图片榜单/);
   assert.match(runner, /images\[sku\]\?\.productUrl \|\| `https:\/\/item\.jd\.com/);
   assert.match(runner, /assertJdProductDetailStoreIdentity/);
   assert.match(runner, /page\.on\("request"/);
