@@ -213,7 +213,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /for \(let attempt = 0; attempt < 300; attempt \+= 1\)[\s\S]*SKU\/SPU 或商用类目筛选控件未在有界时间内唯一稳定/);
   assert.match(runner, /candidate\.capturedAt >= categorySelectionStartedAt/);
   assert.match(runner, /const captureTargetRequest = async \(\) => \{[\s\S]*await assertStoreIdentity\(page, plan\);[\s\S]*return selectRankingIdentity\(page, config, target\);[\s\S]*\};/);
-  assert.match(runner, /for \(const chunk of targetPlan\.chunks\)[\s\S]*if \(chunk\.batchId\) continue;[\s\S]*requestState = await captureTargetRequest\(\)/);
+  assert.match(runner, /for \(const chunk of targetPlan\.chunks\)[\s\S]*if \(chunk\.importProof\) continue;[\s\S]*requestState = await captureTargetRequest\(\)/);
   assert.match(runner, /withSingleJdMarketRequestRefresh\([\s\S]*\(current\) => fetchRankDay\(current, date\)[\s\S]*captureTargetRequest/);
   assert.doesNotMatch(runner, /withSingleJdMarketRequestRefresh\(\s*requestState,\s*\(current\) => importCsv/);
   assert.match(runner, /isJdMarketRankRequestForTarget\(candidate\.url, target\)/);
@@ -227,7 +227,8 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /市场榜单计划类目清单或隐藏 Chromium 约束与当前受控配置不一致/);
   assert.match(runner, /store\.browser\.profileName !== plan\.browserProfileName/);
   assert.match(runner, /!plan\.silentNoWindow/);
-  assert.match(runner, /batch\?\.status !== "completed"/);
+  assert.match(runner, /validateJdMarketImportResponse\(response\.status, body, evidence\)/);
+  assert.match(runner, /assertJdMarketImportProof\(chunk\.importProof, evidence\)/);
   assert.match(runner, /missingAfterImport\.length/);
   assert.match(runner, /results\.find\(\(result\) => result\.block\.data\.length === 0\)/);
   assert.match(runner, /assertJdMarketImageCoverage\(skuIds, result\)/);
@@ -239,7 +240,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /assertJdProductDetailStoreIdentity/);
   assert.match(runner, /page\.on\("request"/);
   assert.match(runner, /capturedRankRequests\.set\(page/);
-  assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
+  assert.match(runner, /expectedFileSizeBytes: chunk\.fileSizeBytes/);
   assert.match(runner, /if \(exportPanelCount === 1\)/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, targetPlan, "exportPanel"\)/);
   assert.match(runner, /page\.screenshot\(\{ path: filePath, fullPage: false, timeout: 30_000, animations: "disabled" \}\)/);

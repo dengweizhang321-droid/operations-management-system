@@ -128,6 +128,16 @@ export async function importMarketFile(input: {
     ignoredTopLevelKeys: ["sourceRowNumber", "naturalKey", "importRangeKey"],
   });
   const rangesJson = JSON.stringify(ranges);
+  const importReceipt = (batchId: string) => ({
+    batchId,
+    rawFileSha256: rawFileHash,
+    fileName: input.fileName,
+    fileSizeBytes: input.fileSizeBytes,
+    sourceType: input.sourceType,
+    rowCount: brandMatch.rows.length,
+    warningCount: parsed.warnings.length,
+    ranges,
+  });
   const readScopeOwnership = async () => {
     const current = await db.prepare(
       `SELECT last_import_batch_id AS batch_id, COUNT(*) AS row_count
@@ -169,7 +179,14 @@ export async function importMarketFile(input: {
     });
     await repairLegacyDerivedCaches(db);
     const imageCache = await cacheImagesAfterImport(db, currentBatch.id);
-    return { ok: true, status: "duplicate" as const, message: "全部标准化市场资料与当前范围一致，无需重复导入；已继续检查商品图片缓存", batch: currentBatch, imageCache };
+    return {
+      ok: true,
+      status: "duplicate" as const,
+      message: "全部标准化市场资料与当前范围一致，无需重复导入；已继续检查商品图片缓存",
+      batch: currentBatch,
+      importReceipt: importReceipt(currentBatch.id),
+      imageCache,
+    };
   }
   const fileHash = await buildImportAttemptHash({
     fingerprint,
@@ -251,6 +268,7 @@ export async function importMarketFile(input: {
       ? `成功导入 ${batch.rowCount} 条市场商品数据，系统品牌种子自动匹配 ${brandMatch.summary.matched} 条`
       : "全部标准化市场资料与当前范围一致，无需重复导入；已继续检查商品图片缓存",
     batch,
+    importReceipt: importReceipt(batch.id),
     imageCache,
     brandSeedRefresh,
     brandMatch: brandMatch.summary,

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Frame, Locator, Page } from "playwright-core";
@@ -11,6 +11,15 @@ import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
+import {
+  assertJdMarketImportProof,
+  claimExactJdMarketPlan,
+  claimRecoverableJdMarketPlan,
+  inspectJdMarketSignedCsv,
+  validateJdMarketImportResponse,
+  type JdMarketImportProof,
+  type JdMarketSignedFileEvidence,
+} from "../lib/jd/market-ranking-import-contract";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const targetUrl = "https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html?sz=%2Fszweb%2Fsz%2Fview%2FindustryMarket%2FproductRanks.html";
@@ -46,7 +55,17 @@ export type JdMarketDailyConfig = {
   maxDaysPerFile: number;
 };
 
-type JdMarketDailyChunk = { startDate: string; endDate: string; dates: string[]; filePath?: string; fileHash?: string; fileSizeBytes?: number; batchId?: string; rowCount?: number };
+type JdMarketDailyChunk = {
+  startDate: string;
+  endDate: string;
+  dates: string[];
+  filePath?: string;
+  fileHash?: string;
+  fileSizeBytes?: number;
+  batchId?: string;
+  rowCount?: number;
+  importProof?: JdMarketImportProof;
+};
 
 export type JdMarketDailyTargetPlan = {
   key: string;
@@ -190,35 +209,99 @@ async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, targe
   return target.screenshots?.[name] ?? null;
 }
 
-export async function planJdMarketDailyRun(options: { executionId: string; baseUrl?: string; now?: Date; request?: typeof fetch; runId?: string; silentNoWindow?: boolean }) {
+async function loadPersistedJdMarketPlans() {
+  const entries = await readdir(outputRoot, { withFileTypes: true }).catch(() => []);
+  const files = entries.filter((entry) => entry.isFile() && /^plan-[A-Za-z0-9._-]+\.json$/.test(entry.name));
+  const plans: JdMarketDailyPlan[] = [];
+  for (const entry of files) {
+    const plan = await readJsonFile<unknown>(path.join(outputRoot, entry.name));
+    if (!plan || typeof plan !== "object" || !Array.isArray((plan as Partial<JdMarketDailyPlan>).targets)) continue;
+    plans.push(plan as JdMarketDailyPlan);
+  }
+  return plans;
+}
+
+function expectedJdMarketPlanIdentity(
+  config: JdMarketDailyConfig,
+  store: Awaited<ReturnType<typeof getJdStore>>,
+  baseUrl: string,
+  endDate: string,
+) {
+  return {
+    version: 3,
+    baseUrl,
+    silentNoWindow: true,
+    storeKey: store.storeKey,
+    shopId: store.shopId,
+    shopName: store.shopName,
+    browserProfileName: store.browser.profileName,
+    browserDebugPort: store.browser.debugPort,
+    startDate: config.earliestDate,
+    endDate,
+    targets: config.categories.map((target) => ({
+      key: target.key,
+      categoryPath: target.categoryPath,
+      identity: {
+        category: target.systemCategory,
+        scope: config.scope,
+        rankingDimension: config.dimension,
+        priceBandFilter: config.priceBandFilter,
+        secondIndId: target.secondIndId,
+        thirdIndId: target.thirdIndId,
+      },
+    })),
+  } as const;
+}
+
+export async function planJdMarketDailyRun(options: {
+  executionId: string;
+  baseUrl?: string;
+  now?: Date;
+  request?: typeof fetch;
+  runId?: string;
+  resumeRunId?: string;
+  silentNoWindow?: boolean;
+}) {
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(options.executionId)) throw new Error("n8n execution ID 无效");
   const config = await loadJdMarketDailyConfig();
   const store = await getJdStore(config.storeKey);
   const baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const endDate = shanghaiYesterday(options.now);
-  const runId = options.runId ?? `jd-market-${randomUUID()}`;
-  const targets: JdMarketDailyTargetPlan[] = [];
-  for (const target of config.categories) {
-    const coverage = await readCoverage(baseUrl, config, target, config.earliestDate, endDate, options.request);
-    targets.push({
-      key: target.key,
-      categoryPath: target.categoryPath,
-      identity: { category: target.systemCategory, scope: config.scope, rankingDimension: "SKU", priceBandFilter: config.priceBandFilter,
-        secondIndId: target.secondIndId, thirdIndId: target.thirdIndId },
-      missingDates: coverage.missingDates,
-      chunks: chunksOfMissingDates(coverage.missingDates, config.maxDaysPerFile, endDate),
-    });
-  }
-  const plan: JdMarketDailyPlan = {
-    version: 3, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    baseUrl, silentNoWindow: config.silentNoWindow || options.silentNoWindow === true, stage: "planned",
-    storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
-    browserProfileName: store.browser.profileName, browserDebugPort: store.browser.debugPort,
-    startDate: config.earliestDate, endDate,
-    targets,
-  };
-  await persistPlan(plan);
-  return plan;
+  if (options.silentNoWindow === false) throw new Error("京东市场榜单计划必须使用隐藏 Chromium");
+  return withRunLock(`jd-market-plan-${randomUUID()}`, async () => {
+    const identity = expectedJdMarketPlanIdentity(config, store, baseUrl, endDate);
+    const persistedPlans = await loadPersistedJdMarketPlans();
+    const recovered = options.resumeRunId
+      ? claimExactJdMarketPlan(persistedPlans, identity, options.executionId, options.resumeRunId)
+      : claimRecoverableJdMarketPlan(persistedPlans, identity, options.executionId);
+    if (recovered) {
+      await persistPlan(recovered);
+      return recovered;
+    }
+    const runId = options.runId ?? `jd-market-${randomUUID()}`;
+    const targets: JdMarketDailyTargetPlan[] = [];
+    for (const target of config.categories) {
+      const coverage = await readCoverage(baseUrl, config, target, config.earliestDate, endDate, options.request);
+      targets.push({
+        key: target.key,
+        categoryPath: target.categoryPath,
+        identity: { category: target.systemCategory, scope: config.scope, rankingDimension: "SKU", priceBandFilter: config.priceBandFilter,
+          secondIndId: target.secondIndId, thirdIndId: target.thirdIndId },
+        missingDates: coverage.missingDates,
+        chunks: chunksOfMissingDates(coverage.missingDates, config.maxDaysPerFile, endDate),
+      });
+    }
+    const plan: JdMarketDailyPlan = {
+      version: 3, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      baseUrl, silentNoWindow: true, stage: "planned",
+      storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
+      browserProfileName: store.browser.profileName, browserDebugPort: store.browser.debugPort,
+      startDate: config.earliestDate, endDate,
+      targets,
+    };
+    await persistPlan(plan);
+    return plan;
+  });
 }
 
 export function publicJdMarketPlan(plan: JdMarketDailyPlan) {
@@ -697,22 +780,65 @@ function buildCsv(config: JdMarketDailyConfig, target: JdMarketDailyCategoryConf
   return new TextEncoder().encode(`\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`);
 }
 
-async function importCsv(plan: JdMarketDailyPlan, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, chunk: JdMarketDailyChunk, filePath: string) {
-  const bytes = await readFile(filePath);
+function canonicalChunkFileName(target: JdMarketDailyCategoryConfig, chunk: JdMarketDailyChunk) {
+  return `京东商智_交易榜单_SKU_${target.systemCategory}_${chunk.startDate}至${chunk.endDate}.csv`;
+}
+
+async function inspectSignedChunk(
+  plan: JdMarketDailyPlan,
+  config: JdMarketDailyConfig,
+  target: JdMarketDailyCategoryConfig,
+  chunk: JdMarketDailyChunk,
+) {
+  const runDirectory = path.join(outputRoot, plan.runId);
+  const expectedPath = path.join(runDirectory, canonicalChunkFileName(target, chunk));
+  const evidenceFields = [chunk.filePath, chunk.fileHash, chunk.fileSizeBytes];
+  if (evidenceFields.some((value) => value !== undefined) && evidenceFields.some((value) => value === undefined)) {
+    throw new Error("市场榜单计划包含不完整的签收文件证据");
+  }
+  if (!chunk.filePath || !chunk.fileHash || !chunk.fileSizeBytes || path.resolve(chunk.filePath) !== path.resolve(expectedPath)
+    || !inside(runDirectory, chunk.filePath)) {
+    throw new Error("市场榜单签收文件路径或规范文件名与计划不一致");
+  }
+  const info = await stat(chunk.filePath);
+  if (!info.isFile()) throw new Error("市场榜单签收文件不是普通文件");
+  const bytes = new Uint8Array(await readFile(chunk.filePath));
+  const evidence = inspectJdMarketSignedCsv({
+    bytes,
+    fileName: path.basename(chunk.filePath),
+    expectedFileSizeBytes: chunk.fileSizeBytes,
+    expectedRawFileSha256: chunk.fileHash,
+    dates: chunk.dates,
+    identity: {
+      category: target.systemCategory,
+      scope: config.scope,
+      rankingDimension: config.dimension,
+      priceBandFilter: config.priceBandFilter,
+    },
+  });
+  return { bytes, evidence };
+}
+
+async function importCsv(
+  plan: JdMarketDailyPlan,
+  config: JdMarketDailyConfig,
+  target: JdMarketDailyCategoryConfig,
+  chunk: JdMarketDailyChunk,
+  bytes: Uint8Array,
+  evidence: JdMarketSignedFileEvidence,
+  request: typeof fetch = fetch,
+) {
   const form = new FormData();
-  form.set("file", new Blob([bytes], { type: "text/csv;charset=utf-8" }), path.basename(filePath));
+  form.set("file", new Blob([bytes], { type: "text/csv;charset=utf-8" }), evidence.fileName);
   form.set("sourceType", "market_ranking");
   form.set("periodStart", chunk.startDate);
   form.set("periodEnd", chunk.endDate);
   form.set("category", target.systemCategory);
   form.set("scope", config.scope);
   form.set("priceBandFilter", config.priceBandFilter);
-  const response = await fetch(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(importRequestTimeoutMs) });
-  const body = await response.json().catch(() => null) as Record<string, unknown> | null;
-  if (!response.ok || !body || !["imported", "duplicate"].includes(String(body.status))) throw new Error(`市场榜单导入失败：${String(body?.error ?? `HTTP ${response.status}`)}`);
-  const batch = body.batch as Record<string, unknown> | undefined;
-  if (batch?.status !== "completed" || Number(batch.rowCount ?? 0) <= 0) throw new Error("市场榜单导入未返回已完成的非空批次");
-  return { batchId: String(batch.id), rowCount: Number(batch.rowCount) };
+  const response = await request(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(importRequestTimeoutMs) });
+  const body = await response.json().catch(() => null);
+  return validateJdMarketImportResponse(response.status, body, evidence);
 }
 
 async function withRunLock<T>(runId: string, task: () => Promise<T>) {
@@ -724,7 +850,7 @@ async function withRunLock<T>(runId: string, task: () => Promise<T>) {
   }, task);
 }
 
-export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
+export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { request?: typeof fetch } = {}) {
   return withJdChromiumRunLock("market-ranking", () => withRunLock(plan.runId, async () => {
     const config = await loadJdMarketDailyConfig();
     const store = await getJdStore(plan.storeKey);
@@ -754,6 +880,39 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
     let activeTargetPlan: JdMarketDailyTargetPlan | null = null;
     let activePage: Page | null = null;
     try {
+      const runDirectory = path.join(outputRoot, plan.runId);
+      await mkdir(runDirectory, { recursive: true });
+      for (const targetPlan of plan.targets) {
+        const target = config.categories.find((candidate) => candidate.key === targetPlan.key);
+        if (!target) throw new Error(`市场榜单受控类目不存在：${targetPlan.key}`);
+        for (const chunk of targetPlan.chunks) {
+          const hasSignedEvidence = chunk.filePath !== undefined || chunk.fileHash !== undefined || chunk.fileSizeBytes !== undefined;
+          if (!chunk.importProof && !chunk.batchId && !hasSignedEvidence) continue;
+          const { bytes, evidence } = await inspectSignedChunk(plan, config, target, chunk);
+          if (chunk.importProof) {
+            assertJdMarketImportProof(chunk.importProof, evidence);
+            if (chunk.batchId !== chunk.importProof.batchId || chunk.rowCount !== chunk.importProof.rowCount) {
+              throw new Error("市场榜单计划批次摘要与严格导入证明不一致");
+            }
+            continue;
+          }
+          const proof = await importCsv(plan, config, target, chunk, bytes, evidence, options.request);
+          chunk.importProof = proof;
+          chunk.batchId = proof.batchId;
+          chunk.rowCount = proof.rowCount;
+          await persistPlan(plan);
+        }
+      }
+      if (plan.targets.every((target) => target.chunks.every((chunk) => Boolean(chunk.importProof)))) {
+        plan.stage = "executed";
+        delete plan.failure;
+        await persistPlan(plan);
+        return {
+          ok: true, stage: "run", runId: plan.runId, recoveredWithoutBrowser: true,
+          importedFiles: totalChunks,
+          rowCount: plan.targets.reduce((sum, target) => sum + target.chunks.reduce((targetSum, chunk) => targetSum + Number(chunk.rowCount ?? 0), 0), 0),
+        };
+      }
       const launched = await launchDedicatedChrome({
         executablePath: store.browser.executablePath,
         profileDirectory: store.browser.userDataDir,
@@ -779,8 +938,6 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
         throw new Error("京东商品榜单唯一受控页面未精确导航到榜单地址。");
       }
       await assertStoreIdentity(page, plan);
-      const runDirectory = path.join(outputRoot, plan.runId);
-      await mkdir(runDirectory, { recursive: true });
       for (const targetPlan of plan.targets) {
         if (!targetPlan.chunks.length) continue;
         activeTargetPlan = targetPlan;
@@ -792,7 +949,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
         };
         let evidencePrepared = false;
         for (const chunk of targetPlan.chunks) {
-          if (chunk.batchId) continue;
+          if (chunk.importProof) continue;
           let requestState = await captureTargetRequest();
           if (!evidencePrepared) {
             await saveEvidenceScreenshot(page, plan, targetPlan, "filters");
@@ -833,7 +990,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
           const skuIds = [...new Set(results.flatMap(({ block }) => block.data.map((row) => String(row[block.metaIndex.skuId!]))))];
           const images = await fetchImages(requestState.frame, skuIds, requestState.imageHeaders);
           const bytes = buildCsv(config, target, results, images);
-          const fileName = `京东商智_交易榜单_SKU_${target.systemCategory}_${chunk.startDate}至${chunk.endDate}.csv`;
+          const fileName = canonicalChunkFileName(target, chunk);
           const filePath = path.join(runDirectory, fileName);
           if (!inside(runDirectory, filePath)) throw new Error("市场榜单下载文件路径越界");
           await writeFile(filePath, bytes);
@@ -841,9 +998,11 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
           chunk.fileHash = createHash("sha256").update(bytes).digest("hex");
           chunk.fileSizeBytes = bytes.byteLength;
           await persistPlan(plan);
-          const imported = await importCsv(plan, config, target, chunk, filePath);
-          chunk.batchId = imported.batchId;
-          chunk.rowCount = imported.rowCount;
+          const signed = await inspectSignedChunk(plan, config, target, chunk);
+          const proof = await importCsv(plan, config, target, chunk, signed.bytes, signed.evidence, options.request);
+          chunk.importProof = proof;
+          chunk.batchId = proof.batchId;
+          chunk.rowCount = proof.rowCount;
           await persistPlan(plan);
         }
         await saveEvidenceScreenshot(page, plan, targetPlan, "imported");
@@ -881,11 +1040,11 @@ export async function verifyJdMarketDailyPlan(plan: JdMarketDailyPlan, request: 
       throw new Error(`市场榜单核验类目与当前受控配置不一致：${targetPlan.key}`);
     }
     for (const chunk of targetPlan.chunks) {
-      if (!chunk.batchId || !chunk.fileHash || !chunk.filePath || !chunk.fileSizeBytes || !chunk.rowCount) throw new Error("市场榜单计划缺少完整文件或导入批次证据");
-      const bytes = await readFile(chunk.filePath);
-      const fileInfo = await stat(chunk.filePath);
-      if (!fileInfo.isFile() || fileInfo.size !== chunk.fileSizeBytes || createHash("sha256").update(bytes).digest("hex") !== chunk.fileHash) {
-        throw new Error("市场榜单签收文件缺失、大小变化或 SHA-256 不匹配");
+      if (!chunk.batchId || !chunk.rowCount || !chunk.importProof) throw new Error("市场榜单计划缺少严格导入批次证明");
+      const { evidence } = await inspectSignedChunk(plan, config, target, chunk);
+      assertJdMarketImportProof(chunk.importProof, evidence);
+      if (chunk.batchId !== chunk.importProof.batchId || chunk.rowCount !== chunk.importProof.rowCount) {
+        throw new Error("市场榜单计划批次摘要与严格导入证明不一致");
       }
     }
     const coverage = await readCoverage(plan.baseUrl, config, target, plan.startDate, plan.endDate, request);

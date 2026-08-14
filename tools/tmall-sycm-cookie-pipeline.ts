@@ -53,11 +53,20 @@ export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
+export const jdMarketResumeRunIdHeader = "x-teruisi-jd-market-resume-run-id";
 
 export function parseJdSilentNoWindowHeader(value: string | string[] | undefined) {
   if (value === undefined || value === "0") return false;
   if (value === "1") return true;
   throw new Error("京东静默窗口模式请求头无效。");
+}
+
+export function parseJdMarketResumeRunIdHeader(value: string | string[] | undefined) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !/^[A-Za-z0-9._-]{1,96}$/.test(value)) {
+    throw new Error("京东市场榜单显式恢复运行编号请求头无效。");
+  }
+  return value;
 }
 const sycmOrigin = "https://sycm.taobao.com";
 const sycmExportPath = "/cc/item/view/excel/top.json";
@@ -939,6 +948,7 @@ async function serveCommand(argv: string[]) {
       if (request.url === "/jd-market/plan") {
         jdMarketPlan = await planJdMarketDailyRun({
           executionId: requestExecutionId!,
+          resumeRunId: parseJdMarketResumeRunIdHeader(request.headers[jdMarketResumeRunIdHeader]),
           silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
         });
         stage = "planned";
