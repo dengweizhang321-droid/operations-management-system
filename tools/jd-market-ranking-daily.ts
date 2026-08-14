@@ -334,23 +334,23 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
           }
           const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
           const visibleOptionCount = await visibleOptions.count();
-          const submenuPoint = visibleOptionCount > 1
+          const scrolled = visibleOptionCount > 1
             ? await visibleOptions.last().evaluate((element) => {
-                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-                let node = walker.nextNode();
-                while (node && !node.textContent?.trim()) node = walker.nextNode();
-                if (!node) return null;
-                const range = document.createRange();
-                range.selectNodeContents(node);
-                const box = range.getBoundingClientRect();
-                return box.width > 0 && box.height > 0
-                  ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-                  : null;
-              }).catch(() => null)
-            : null;
-          if (!submenuPoint) break;
-          await frame.page().mouse.move(submenuPoint.x, submenuPoint.y, { steps: 10 });
-          await frame.page().mouse.wheel(0, scrollAttempt === 0 ? -10_000 : 550);
+                let current = element.parentElement;
+                while (current && current !== document.body) {
+                  const style = getComputedStyle(current);
+                  if (/(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight + 1) {
+                    current.scrollTop = scrollAttempt === 0
+                      ? 0
+                      : Math.min(current.scrollHeight - current.clientHeight, current.scrollTop + Math.max(1, Math.floor(current.clientHeight * 0.8)));
+                    return true;
+                  }
+                  current = current.parentElement;
+                }
+                return false;
+              }).catch(() => false)
+            : false;
+          if (!scrolled) break;
           submenuScrolls += 1;
         }
       }
