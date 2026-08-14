@@ -278,18 +278,25 @@ async function installRequestCapture(page: Page) {
 
 async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label: string, action: "click" | "hover", control?: Locator) {
   const exactLabel = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  let lastCandidateCount = 0;
+  let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const candidates = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exactLabel });
-    if (await candidates.count() === 1) {
+    lastCandidateCount = await candidates.count();
+    if (lastCandidateCount === 1) {
       const applied = action === "hover"
         ? await candidates.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false)
         : await candidates.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
       if (applied) return;
     }
-    if (await candidates.count() === 0 && control) await control.click().catch(() => undefined);
+    if (lastCandidateCount === 0 && control) await control.click().catch(() => undefined);
+    if (attempt === 99) {
+      lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
+        .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
+    }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}`);
+  throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}；候选=${lastCandidateCount}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function clickUniqueDropdownOption(surface: Locator, frame: Frame, label: string, control?: Locator) {

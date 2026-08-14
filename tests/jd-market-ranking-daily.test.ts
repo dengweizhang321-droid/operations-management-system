@@ -182,7 +182,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   const selectorHelper = runner.slice(runner.indexOf("async function triggerUniqueDropdownOption"), runner.indexOf("function activeExportPanel"));
   assert.match(selectorHelper, /jmtd-dropdown-option/);
   assert.match(selectorHelper, /hasText: exactLabel/);
-  assert.match(selectorHelper, /candidates\.count\(\) === 1/);
+  assert.match(selectorHelper, /lastCandidateCount === 1/);
+  assert.match(selectorHelper, /lastVisibleLabels/);
+  assert.match(selectorHelper, /可见选项=/);
   assert.doesNotMatch(selectorHelper, /candidate\.innerText/);
   assert.match(selectorHelper, /hover\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(selectorHelper, /click\(\{ timeout: 3_000, force: true \}\)/);
@@ -191,7 +193,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
   assert.match(runner, /waitForRankingSurface\(frame\)/);
-  assert.match(runner, /if \(await candidates\.count\(\) === 0 && control\) await control\.click/);
+  assert.match(runner, /if \(lastCandidateCount === 0 && control\) await control\.click/);
   assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", selectors\.nth\(0\)\)/);
   assert.match(runner, /attempt < 300/);
   assert.match(runner, /not\(ancestor::\*\[@id='sz-old-version'\]\)/);
