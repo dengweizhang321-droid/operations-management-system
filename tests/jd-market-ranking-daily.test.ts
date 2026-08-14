@@ -191,6 +191,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.doesNotMatch(selectorHelper, /dispatchEvent/);
   assert.match(runner, /selectUniqueCategoryPath\(surface, frame, categoryControl, target\.categoryPath\)/);
   assert.match(runner, /data-component-name="Select"\]\[data-event-name="open"/);
+  assert.match(runner, /hasText: \/\^\(\?:SKU\|SPU\)\$\//);
+  assert.match(runner, /hasText: \/商用\//);
+  assert.doesNotMatch(runner, /selectOpeners\.nth\(/);
   assert.match(runner, /parents\.first\(\)\.click\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(runner, /parentCount === 1/);
   assert.match(runner, /revealedChildCount === 1/);

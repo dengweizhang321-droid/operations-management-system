@@ -462,8 +462,11 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, ta
   const selectOpeners = surface.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"]').filter({ visible: true });
   await selectOpeners.first().waitFor({ state: "visible", timeout: 30_000 });
   if (await selectOpeners.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
-  const dimensionControl = selectOpeners.nth(0);
-  const categoryControl = selectOpeners.nth(1);
+  const dimensionControl = selectOpeners.filter({ hasText: /^(?:SKU|SPU)$/ });
+  const categoryControl = selectOpeners.filter({ hasText: /商用/ });
+  if (await dimensionControl.count() !== 1 || await categoryControl.count() !== 1) {
+    throw new Error("京东商品榜单 SKU/SPU 或商用类目筛选控件不唯一");
+  }
   const currentDimension = (await dimensionControl.innerText()).trim();
   if (currentDimension !== "SKU") {
     await clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl);
