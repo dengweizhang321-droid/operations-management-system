@@ -12,7 +12,7 @@
 
 ## 2. 首次配置店铺
 
-1. 在 `config/tmall-store-accounts.json` 找到店铺，设置唯一的浏览器 Profile、端口和下载目录。亿玖店当前映射为 Chromium `Profile 4`（显示名“天猫-志高亿玖专卖店”），调试端口为 `9334`。
+1. 在 `config/tmall-store-accounts.json` 找到店铺，设置唯一的浏览器用户数据目录、Profile、端口和下载目录。亿玖店当前映射为专属 Chromium 用户数据目录 `%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data` 下的 `Default` Profile，调试端口为 `9334`；该目录与日常 Chromium 和其他店铺 Profile 完全分离。
 2. `initialStartDate` 表示该店铺首次纳入自动补数的起始日。已有数据时应设为已确认覆盖的下一天；不能确认时保持 `null`，运行时显式传 `--start-date`。
 3. 完成独立 profile 的首次登录，确认进入 `https://sycm.taobao.com/portal/home.htm` 后页面展示的店铺名与 `shopName` 完全一致。
 4. 只有上述核验完成后才把 `enabled` 改为 `true`。

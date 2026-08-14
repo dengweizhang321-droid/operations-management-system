@@ -79,6 +79,11 @@ test("天猫店铺注册表拒绝 userDataDir 与 profileDir 错位", () => {
 test("服务端只接受注册表中启用的天猫店铺", () => {
   assert.equal(enabledTmallStoreCatalog().length, 1);
   assert.equal(resolveEnabledTmallShop().shopName, "天猫-志高亿玖专卖店");
-  assert.equal(resolveEnabledTmallShop("天猫-志高亿玖专卖店").storeKey, "tmall-yijiu");
+  const yijiu = resolveEnabledTmallShop("天猫-志高亿玖专卖店");
+  assert.equal(yijiu.storeKey, "tmall-yijiu");
+  assert.equal(yijiu.browser.userDataDir, "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data");
+  assert.equal(yijiu.browser.profileName, "Default");
+  assert.equal(yijiu.browser.profileDir, "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data/Default");
+  assert.equal(yijiu.browser.debugPort, 9334);
   assert.throws(() => resolveEnabledTmallShop("天猫-志高丽力专卖店"), /未注册或未启用/);
 });

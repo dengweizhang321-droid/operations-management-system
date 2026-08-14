@@ -10,9 +10,9 @@
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
-        "userDataDir": "%LOCALAPPDATA%/Chromium/User Data",
-        "profileName": "Profile 4",
-        "profileDir": "%LOCALAPPDATA%/Chromium/User Data/Profile 4",
+        "userDataDir": "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data",
+        "profileName": "Default",
+        "profileDir": "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data/Default",
         "debugPort": 9334,
         "downloadDir": "D:\\谷歌浏览器\\tmall-yijiu"
       }
