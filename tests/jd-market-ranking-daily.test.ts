@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { assertJdMarketImageCoverage, jdMarketHelperRequestError, parseJdMarketImageRows, validateJdMarketDailyConfig } from "../tools/jd-market-ranking-daily";
+import { assertJdMarketImageCoverage, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig } from "../tools/jd-market-ranking-daily";
 import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent-window header is strict and shared by multi-store and market plans", () => {
@@ -43,6 +43,20 @@ test("JD market image responses accept array and SKU-keyed shapes but fail close
   assert.throws(() => assertJdMarketImageCoverage(["1001", "1002"], {
     "1001": { imageUrl: "https://img10.360buyimg.com/n5/jfs/a.jpg", productUrl: "" },
   }), /缺少 1 个 SKU 主图.*停止生成和导入空图片榜单/);
+});
+
+test("JD market image requests replay only the native bounded header allowlist", () => {
+  assert.deepEqual(jdMarketReplayableHeaders({
+    Accept: "application/json",
+    "P-Pin": "signed-in-user",
+    Cookie: "must-not-replay",
+    Host: "must-not-replay",
+    "X-Requested-With": "XMLHttpRequest",
+  }), {
+    Accept: "application/json",
+    "P-Pin": "signed-in-user",
+    "X-Requested-With": "XMLHttpRequest",
+  });
 });
 
 test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and preserves the three loopback stages", async () => {
@@ -133,6 +147,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /missingAfterImport\.length/);
   assert.match(runner, /results\.find\(\(result\) => result\.block\.data\.length === 0\)/);
   assert.match(runner, /assertJdMarketImageCoverage\(skuIds, result\)/);
+  assert.match(runner, /capturedImageRequests\.get\(page\)/);
+  assert.match(runner, /fetchImages\(frame, skuIds, imageHeaders\)/);
+  assert.match(runner, /\.user-info \.shop-name a\[href\*="mall\.jd\.com\/index-"\]/);
   assert.match(runner, /已停止生成和导入空图片榜单/);
   assert.match(runner, /images\[sku\]\?\.productUrl \|\| `https:\/\/item\.jd\.com/);
   assert.match(runner, /assertJdProductDetailStoreIdentity/);
