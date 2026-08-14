@@ -138,7 +138,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(config, /"dimension": "SKU"/);
   assert.match(config, /"categories": \[/);
   assert.match(runner, /for \(const target of config\.categories\)/);
-  assert.match(runner, /const page = await context\.newPage\(\)/);
+  assert.match(runner, /context\.pages\(\)\.filter\(\(candidate\) => candidate\.url\(\) === "about:blank"\)/);
+  assert.match(runner, /blankPages\.length !== 1/);
+  assert.doesNotMatch(runner, /context\.newPage\(\)/);
   assert.match(runner, /window\.name = "teruisi-jd-market-ranking"/);
   assert.match(runner, /navigation\?\.ok\(\)/);
   assert.doesNotMatch(runner, /connectPlaywrightJackyunTarget\(browser/);

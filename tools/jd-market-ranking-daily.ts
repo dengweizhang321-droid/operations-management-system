@@ -738,7 +738,9 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       browser = await connectPlaywrightBrowser(store.browser.debugPort);
       const context = browser.contexts()[0];
       if (!context) throw new Error("京东商品榜单专用 Chromium 没有可用的浏览器上下文。");
-      const page = await context.newPage();
+      const blankPages = context.pages().filter((candidate) => candidate.url() === "about:blank");
+      if (blankPages.length !== 1) throw new Error("京东商品榜单专用 Chromium 本轮空白启动页不唯一。");
+      const page = blankPages[0]!;
       await page.evaluate(() => { window.name = "teruisi-jd-market-ranking"; });
       activePage = page;
       await installRequestCapture(page);
