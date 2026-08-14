@@ -321,9 +321,10 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
       const hovered = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
       if (hovered) {
         await frame.waitForTimeout(150);
-        const children = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[1]) });
+        const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
         childCount = await children.count();
         if (childCount === 1) {
+          await children.first().scrollIntoViewIfNeeded({ timeout: 3_000 }).catch(() => undefined);
           const clicked = await children.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
           if (clicked) return;
         }
