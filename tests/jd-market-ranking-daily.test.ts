@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { assertJdMarketImageCoverage, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig } from "../tools/jd-market-ranking-daily";
+import { assertJdMarketImageCoverage, isJdMarketRankRequestForTarget, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig, withSingleJdMarketRequestRefresh } from "../tools/jd-market-ranking-daily";
 import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent-window header is strict and shared by multi-store and market plans", () => {
@@ -46,17 +46,66 @@ test("JD market image responses accept array and SKU-keyed shapes but fail close
 });
 
 test("JD market image requests replay only the native bounded header allowlist", () => {
-  assert.deepEqual(jdMarketReplayableHeaders({
+  const headers = jdMarketReplayableHeaders({
     Accept: "application/json",
     "P-Pin": "signed-in-user",
     Cookie: "must-not-replay",
     Host: "must-not-replay",
     "X-Requested-With": "XMLHttpRequest",
-  }), {
+  });
+  assert.deepEqual(headers, {
     Accept: "application/json",
     "P-Pin": "signed-in-user",
     "X-Requested-With": "XMLHttpRequest",
   });
+  assert.equal(Object.isFrozen(headers), true);
+  assert.equal(Reflect.set(headers, "Cookie", "must-not-appear"), false);
+  assert.equal("Cookie" in headers, false);
+});
+
+test("JD market rank request identity requires one exact SKU and industry ID tuple", () => {
+  const target = { secondIndId: "44744", thirdIndId: "44811" };
+  const base = "https://jdsz.jd.com/sz/api/industryMarket/getProductBillBoardDealData.ajax";
+  assert.equal(isJdMarketRankRequestForTarget(`${base}?unitType=1&secondIndId=44744&thirdIndId=44811`, target), true);
+  assert.equal(isJdMarketRankRequestForTarget(`${base}?unitType=1&secondIndId=44744&thirdIndId=44757`, target), false);
+  assert.equal(isJdMarketRankRequestForTarget(`${base}?unitType=0&secondIndId=44744&thirdIndId=44811`, target), false);
+  assert.equal(isJdMarketRankRequestForTarget(`${base}?unitType=1&unitType=1&secondIndId=44744&thirdIndId=44811`, target), false);
+  assert.equal(isJdMarketRankRequestForTarget("https://example.com/sz/api/industryMarket/getProductBillBoardDealData.ajax?unitType=1&secondIndId=44744&thirdIndId=44811", target), false);
+  assert.equal(isJdMarketRankRequestForTarget("https://jdsz.jd.com/sz/api/industry/getImageURL.ajax?unitType=1&secondIndId=44744&thirdIndId=44811", target), false);
+});
+
+test("JD market rank requests refresh once before failing closed", async () => {
+  const requested: string[] = [];
+  let refreshCount = 0;
+  const recovered = await withSingleJdMarketRequestRefresh(
+    "captured-old",
+    async (state) => {
+      requested.push(state);
+      if (state === "captured-old") throw new Error("榜单请求头缺失或已过期");
+      return "rank-block";
+    },
+    async () => {
+      refreshCount += 1;
+      return "captured-current-category";
+    },
+  );
+  assert.deepEqual(recovered, { state: "captured-current-category", result: "rank-block", refreshed: true });
+  assert.deepEqual(requested, ["captured-old", "captured-current-category"]);
+  assert.equal(refreshCount, 1);
+
+  refreshCount = 0;
+  await assert.rejects(
+    withSingleJdMarketRequestRefresh(
+      "captured-old",
+      async () => { throw new Error("still rejected"); },
+      async () => {
+        refreshCount += 1;
+        return "captured-current-category";
+      },
+    ),
+    /使用新鲜原生请求后仍失败：still rejected/,
+  );
+  assert.equal(refreshCount, 1);
 });
 
 test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and preserves the three loopback stages", async () => {
@@ -89,14 +138,14 @@ test("JD market config fixes seven unique category identities and rejects ambigu
   const validated = validateJdMarketDailyConfig(config);
   assert.equal(validated.version, 3);
   assert.equal(validated.silentNoWindow, true);
-  assert.deepEqual(validated.categories.map((target) => [target.categoryPath.join(" > "), target.systemCategory]), [
-    ["商用净饮水设备 > 商用净水设备", "商用净水设备"],
-    ["商用净饮水设备 > 商用开水器/蒸气奶泡机", "商用开水器蒸气奶泡机"],
-    ["商用加热类设备 > 商用炒菜机", "商用炒菜机"],
-    ["商用食品机械设备 > 商用绞肉机/切肉机/切片机", "商用绞肉机切肉机切片机"],
-    ["商用食品机械设备 > 商用切菜机", "商用切菜机"],
-    ["商用消毒/清洗/清洁类设备 > 商用洗碗机", "商用洗碗机"],
-    ["商用食品机械设备 > 商用磨粉机/粉碎机", "商用磨粉机粉碎机"],
+  assert.deepEqual(validated.categories.map((target) => [target.categoryPath.join(" > "), target.systemCategory, target.secondIndId, target.thirdIndId]), [
+    ["商用净饮水设备 > 商用净水设备", "商用净水设备", "44742", "44756"],
+    ["商用净饮水设备 > 商用开水器/蒸气奶泡机", "商用开水器蒸气奶泡机", "44742", "44790"],
+    ["商用加热类设备 > 商用炒菜机", "商用炒菜机", "44739", "44771"],
+    ["商用食品机械设备 > 商用绞肉机/切肉机/切片机", "商用绞肉机切肉机切片机", "44744", "44799"],
+    ["商用食品机械设备 > 商用切菜机", "商用切菜机", "44744", "44757"],
+    ["商用消毒/清洗/清洁类设备 > 商用洗碗机", "商用洗碗机", "44740", "44759"],
+    ["商用食品机械设备 > 商用磨粉机/粉碎机", "商用磨粉机粉碎机", "44744", "44811"],
   ]);
   assert.equal(validated.maxDaysPerFile, 5);
   assert.throws(() => validateJdMarketDailyConfig({
@@ -111,6 +160,16 @@ test("JD market config fixes seven unique category identities and rejects ambigu
     categories: [{ ...config.categories[0], categoryPath: ["只有一级"] }],
   }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, categories: config.categories.slice(0, 6) }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({
+    ...config,
+    categories: config.categories.map((target: Record<string, unknown>, index: number) => index === 0 ? { ...target, secondIndId: "not-digits" } : target),
+  }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({
+    ...config,
+    categories: config.categories.map((target: Record<string, unknown>, index: number) => index === 1
+      ? { ...target, secondIndId: config.categories[0].secondIndId, thirdIndId: config.categories[0].thirdIndId }
+      : target),
+  }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, scope: "self" }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, silentNoWindow: false }), /配置无效/);
 });
@@ -153,6 +212,17 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /waitForRankingIdentityControls\(surface, frame\)/);
   assert.match(runner, /for \(let attempt = 0; attempt < 300; attempt \+= 1\)[\s\S]*SKU\/SPU 或商用类目筛选控件未在有界时间内唯一稳定/);
   assert.match(runner, /candidate\.capturedAt >= categorySelectionStartedAt/);
+  assert.match(runner, /const captureTargetRequest = async \(\) => \{[\s\S]*await assertStoreIdentity\(page, plan\);[\s\S]*return selectRankingIdentity\(page, config, target\);[\s\S]*\};/);
+  assert.match(runner, /for \(const chunk of targetPlan\.chunks\)[\s\S]*if \(chunk\.batchId\) continue;[\s\S]*requestState = await captureTargetRequest\(\)/);
+  assert.match(runner, /withSingleJdMarketRequestRefresh\([\s\S]*\(current\) => fetchRankDay\(current, date\)[\s\S]*captureTargetRequest/);
+  assert.doesNotMatch(runner, /withSingleJdMarketRequestRefresh\(\s*requestState,\s*\(current\) => importCsv/);
+  assert.match(runner, /isJdMarketRankRequestForTarget\(candidate\.url, target\)/);
+  assert.match(runner, /capturedRankRequests\.set\(page, Object\.freeze\(\{ url: request\.url\(\), headers, capturedAt: Date\.now\(\) \}\)\)/);
+  assert.match(runner, /return Object\.freeze\(\{ frame, imageHeaders, rankRequest: value \}\)/);
+  assert.doesNotMatch(runner, /__teruisiJdRank|addInitScript|XMLHttpRequest\.prototype/);
+  assert.match(runner, /state\.frame\.evaluate\(async \(\{ targetDate, rankRequest \}\)[\s\S]*\{ targetDate: date, rankRequest: state\.rankRequest \}/);
+  assert.match(runner, /fetchImages\(requestState\.frame, skuIds, requestState\.imageHeaders\)/);
+  assert.doesNotMatch(runner, /const \{ frame, imageHeaders \} = await selectRankingIdentity\(page, config, target\);/);
   assert.match(runner, /缺少用于刷新同类目请求的受控备用类目/);
   assert.match(runner, /市场榜单计划类目清单或隐藏 Chromium 约束与当前受控配置不一致/);
   assert.match(runner, /store\.browser\.profileName !== plan\.browserProfileName/);
@@ -162,7 +232,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /results\.find\(\(result\) => result\.block\.data\.length === 0\)/);
   assert.match(runner, /assertJdMarketImageCoverage\(skuIds, result\)/);
   assert.match(runner, /capturedImageRequests\.get\(page\)/);
-  assert.match(runner, /fetchImages\(frame, skuIds, imageHeaders\)/);
+  assert.match(runner, /fetchImages\(requestState\.frame, skuIds, requestState\.imageHeaders\)/);
   assert.match(runner, /\.user-info \.shop-name a\[href\*="mall\.jd\.com\/index-"\]/);
   assert.match(runner, /已停止生成和导入空图片榜单/);
   assert.match(runner, /images\[sku\]\?\.productUrl \|\| `https:\/\/item\.jd\.com/);
