@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { enabledTmallStoreCatalog, resolveEnabledTmallShop } from "../lib/netshop/tmall-store-catalog";
-import { validateTmallStoreRegistry } from "../lib/netshop/tmall-store-registry";
+import {
+  resolveTmallBrowserLaunchTarget,
+  type TmallStore,
+  validateTmallStoreRegistry,
+} from "../lib/netshop/tmall-store-registry";
 
-function store(storeKey: string, shopName: string, port: number) {
+function store(storeKey: string, shopName: string, port: number): TmallStore {
   return {
     storeKey,
     platform: "天猫" as const,
@@ -29,6 +33,47 @@ test("天猫店铺注册表拒绝敏感字段和跨店重复资源", () => {
   const duplicate = store("b", "B店", 9301);
   duplicate.browser.profileDir = store("a", "A店", 9301).browser.profileDir;
   assert.throws(() => validateTmallStoreRegistry({ version: 1, stores: [store("a", "A店", 9301), duplicate] }), /存在重复/);
+});
+
+test("天猫店铺注册表支持共享 Chromium 根目录下的独立 Profile", () => {
+  const shared = store("tmall-yijiu", "天猫-志高亿玖专卖店", 9334);
+  shared.browser = {
+    ...shared.browser,
+    executablePath: "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
+    userDataDir: "%LOCALAPPDATA%/Chromium/User Data",
+    profileName: "Profile 4",
+    profileDir: "%LOCALAPPDATA%/Chromium/User Data/Profile 4",
+  };
+  const [result] = validateTmallStoreRegistry(
+    { version: 1, stores: [shared] },
+    "D:\\workspace",
+    "C:\\Users\\test\\AppData\\Local",
+  );
+  assert.equal(result!.browser.profileName, "Profile 4");
+  assert.match(result!.browser.userDataDir!, /Chromium[\\/]User Data$/);
+  assert.match(result!.browser.profileDir, /Chromium[\\/]User Data[\\/]Profile 4$/);
+  assert.match(result!.browser.executablePath!, /Chromium[\\/]Application[\\/]chrome\.exe$/);
+  assert.deepEqual(resolveTmallBrowserLaunchTarget(result!, "D:\\fallback\\chrome.exe"), {
+    executablePath: result!.browser.executablePath,
+    profileDirectory: result!.browser.userDataDir,
+    profileName: "Profile 4",
+  });
+});
+
+test("天猫店铺注册表拒绝 userDataDir 与 profileDir 错位", () => {
+  const mismatched = store("tmall-yijiu", "天猫-志高亿玖专卖店", 9334);
+  mismatched.browser = {
+    ...mismatched.browser,
+    executablePath: "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
+    userDataDir: "%LOCALAPPDATA%/Chromium/User Data",
+    profileName: "Profile 4",
+    profileDir: "%LOCALAPPDATA%/Chromium/User Data/Profile 3",
+  };
+  assert.throws(() => validateTmallStoreRegistry(
+    { version: 1, stores: [mismatched] },
+    "D:\\workspace",
+    "C:\\Users\\test\\AppData\\Local",
+  ), /profileDir 必须精确等于 userDataDir\/profileName/);
 });
 
 test("服务端只接受注册表中启用的天猫店铺", () => {

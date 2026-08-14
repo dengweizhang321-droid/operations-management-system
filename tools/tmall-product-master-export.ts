@@ -9,7 +9,11 @@ import { launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
-import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
+import {
+  getTmallStore,
+  resolveTmallBrowserLaunchTarget,
+  type TmallStore,
+} from "../lib/netshop/tmall-store-registry";
 
 export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20";
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
@@ -1428,19 +1432,26 @@ async function assertSellerIdentity(page: Page, store: TmallStore) {
 }
 
 async function launchStoreChrome(store: TmallStore) {
-  const chromeExecutable = process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable;
-  if (!path.isAbsolute(chromeExecutable)) throw new Error("CHROME_EXECUTABLE_PATH 必须是绝对路径");
-  const profileDirectory = path.resolve(projectRoot, store.browser.profileDir);
+  const launchTarget = resolveTmallBrowserLaunchTarget(
+    store,
+    process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable,
+  );
+  if (!path.isAbsolute(launchTarget.executablePath)) throw new Error("天猫 Chromium 可执行文件必须是绝对路径");
   await mkdir(store.browser.downloadDir, { recursive: true });
   await launchDedicatedChrome({
-    executablePath: chromeExecutable,
-    profileDirectory,
+    executablePath: launchTarget.executablePath,
+    profileDirectory: launchTarget.profileDirectory,
+    profileName: launchTarget.profileName,
     port: store.browser.debugPort,
     startUrl: TMALL_SELLER_ON_SALE_URL,
     headless: false,
     visible: true,
   });
-  return { profileDirectory, debugPort: store.browser.debugPort };
+  return {
+    profileDirectory: launchTarget.profileDirectory,
+    profileName: launchTarget.profileName,
+    debugPort: store.browser.debugPort,
+  };
 }
 
 export async function launchTmallProductMasterLogin(storeKey = "tmall-yijiu") {

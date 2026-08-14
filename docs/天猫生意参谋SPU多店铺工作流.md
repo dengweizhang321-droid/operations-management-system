@@ -4,7 +4,7 @@
 
 ## 1. 安全边界
 
-- 店铺注册表位于 `config/tmall-store-accounts.json`。每个店铺必须使用不同的 `profileDir`、`debugPort` 和 `downloadDir`。
+- 店铺注册表位于 `config/tmall-store-accounts.json`。每个店铺必须使用不同的 `profileDir`、`debugPort` 和 `downloadDir`。若 Profile 位于共享 Chromium 用户数据根目录，还必须配置 `executablePath`、`userDataDir` 与 `profileName`；程序会校验 `profileDir = userDataDir/profileName`，并同时传入 `--user-data-dir` 与 `--profile-directory`。
 - 注册表不得出现密码、Cookie、Token、Session 或验证码。首次登录和登录失效后由操作者在对应独立浏览器 profile 中完成验证。
 - 只有注册表中 `enabled=true` 的店铺可以导入。服务端不再接受任意天猫店铺名，也不会把所有文件强制归入亿玖店。
 - 下载前必须从页面可见店铺身份核验当前店铺；文件进入运营系统前还必须通过店铺/日期/文件哈希签收单。
@@ -12,7 +12,7 @@
 
 ## 2. 首次配置店铺
 
-1. 在 `config/tmall-store-accounts.json` 找到店铺，设置唯一的浏览器目录、端口和下载目录。
+1. 在 `config/tmall-store-accounts.json` 找到店铺，设置唯一的浏览器 Profile、端口和下载目录。亿玖店当前映射为 Chromium `Profile 4`（显示名“天猫-志高亿玖专卖店”），调试端口为 `9334`。
 2. `initialStartDate` 表示该店铺首次纳入自动补数的起始日。已有数据时应设为已确认覆盖的下一天；不能确认时保持 `null`，运行时显式传 `--start-date`。
 3. 完成独立 profile 的首次登录，确认进入 `https://sycm.taobao.com/portal/home.htm` 后页面展示的店铺名与 `shopName` 完全一致。
 4. 只有上述核验完成后才把 `enabled` 改为 `true`。

@@ -9,7 +9,11 @@ import { launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
-import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
+import {
+  getTmallStore,
+  resolveTmallBrowserLaunchTarget,
+  type TmallStore,
+} from "../lib/netshop/tmall-store-registry";
 import { shanghaiYesterday } from "./tmall-multi-store-import-runner";
 import {
   createTmallBrowserDownloadSession,
@@ -1314,29 +1318,35 @@ async function navigateToPromotionReport(page: Page, store: TmallStore) {
 }
 
 async function launchStoreChrome(store: TmallStore) {
-  const executablePath = process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable;
-  if (!path.isAbsolute(executablePath)) throw new Error("CHROME_EXECUTABLE_PATH 必须是绝对路径");
+  const launchTarget = resolveTmallBrowserLaunchTarget(
+    store,
+    process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable,
+  );
+  if (!path.isAbsolute(launchTarget.executablePath)) throw new Error("天猫 Chromium 可执行文件必须是绝对路径");
   await mkdir(store.browser.downloadDir, { recursive: true });
   await launchDedicatedChrome({
-    executablePath,
-    profileDirectory: path.resolve(projectRoot, store.browser.profileDir),
+    executablePath: launchTarget.executablePath,
+    profileDirectory: launchTarget.profileDirectory,
+    profileName: launchTarget.profileName,
     port: store.browser.debugPort,
     startUrl: TMALL_PROMOTION_ENTRY_URL,
     headless: false,
     visible: true,
   });
+  return launchTarget;
 }
 
 export async function launchTmallPromotionLogin(storeKey = "tmall-yijiu") {
   const store = await getTmallStore(storeKey);
-  await launchStoreChrome(store);
+  const launchTarget = await launchStoreChrome(store);
   return {
     ok: true,
     status: "browser_ready" as const,
     storeKey: store.storeKey,
     shopName: store.shopName,
     targetUrl: TMALL_PROMOTION_ENTRY_URL,
-    profileDirectory: store.browser.profileDir,
+    profileDirectory: launchTarget.profileDirectory,
+    profileName: launchTarget.profileName,
     debugPort: store.browser.debugPort,
   };
 }

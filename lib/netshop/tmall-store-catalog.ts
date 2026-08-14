@@ -8,6 +8,9 @@ export type BundledTmallStore = {
   initialStartDate: string | null;
   portalUrl: string;
   browser: {
+    executablePath?: string;
+    userDataDir?: string;
+    profileName?: string;
     profileDir: string;
     debugPort: number;
     downloadDir: string;

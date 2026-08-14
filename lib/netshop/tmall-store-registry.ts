@@ -11,6 +11,9 @@ export type TmallStore = {
   initialStartDate: string | null;
   portalUrl: string;
   browser: {
+    executablePath?: string;
+    userDataDir?: string;
+    profileName?: string;
     profileDir: string;
     debugPort: number;
     downloadDir: string;
@@ -20,6 +23,17 @@ export type TmallStore = {
 type Registry = { version: 1; stores: TmallStore[] };
 const projectRoot = path.resolve(process.cwd());
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function resolveRegistryPath(value: string, rootDirectory: string, localAppData: string | undefined): string {
+  const localAppDataPrefix = /^%LOCALAPPDATA%(?:[\\/]|$)/i;
+  let expanded = value;
+  if (localAppDataPrefix.test(value)) {
+    if (!localAppData?.trim()) throw new Error("天猫店铺注册表使用了 %LOCALAPPDATA%，但当前环境未提供 LOCALAPPDATA。");
+    expanded = path.join(localAppData, value.replace(localAppDataPrefix, ""));
+  }
+  if (/%[^%]+%/.test(expanded)) throw new Error(`天猫店铺注册表包含不受支持的环境变量路径：${value}`);
+  return path.resolve(rootDirectory, expanded);
+}
 
 function assertNoSecrets(value: unknown, location: string): void {
   if (!value || typeof value !== "object") return;
@@ -36,7 +50,11 @@ function validIsoDate(value: string | null) {
   return value === null || (isoDatePattern.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)));
 }
 
-export function validateTmallStoreRegistry(parsed: unknown, rootDirectory = projectRoot): TmallStore[] {
+export function validateTmallStoreRegistry(
+  parsed: unknown,
+  rootDirectory = projectRoot,
+  localAppData = process.env.LOCALAPPDATA,
+): TmallStore[] {
   if (!parsed || typeof parsed !== "object") throw new Error("天猫店铺注册表格式无效");
   const registry = parsed as { version?: unknown; stores?: unknown };
   if (registry.version !== 1 || !Array.isArray(registry.stores)) throw new Error("天猫店铺注册表格式无效");
@@ -49,15 +67,36 @@ export function validateTmallStoreRegistry(parsed: unknown, rootDirectory = proj
     if (!rawStore || typeof rawStore !== "object") throw new Error(`天猫店铺注册表第 ${index + 1} 项无效`);
     const store = rawStore as TmallStore;
     assertNoSecrets(store, `stores.${store.storeKey ?? index}`);
+    const usesSharedUserData = store.browser && (
+      store.browser.executablePath !== undefined
+      || store.browser.userDataDir !== undefined
+      || store.browser.profileName !== undefined
+    );
     if (!store.storeKey?.trim() || !/^[a-z0-9][a-z0-9-]*$/.test(store.storeKey)
       || store.platform !== "天猫" || !store.shopName?.trim() || typeof store.enabled !== "boolean"
       || !validIsoDate(store.initialStartDate) || store.portalUrl !== "https://sycm.taobao.com/portal/home.htm"
       || !store.browser || !store.browser.profileDir?.trim() || !store.browser.downloadDir?.trim()
+      || usesSharedUserData && (
+        typeof store.browser.executablePath !== "string" || !store.browser.executablePath.trim()
+        || typeof store.browser.userDataDir !== "string" || !store.browser.userDataDir.trim()
+        || typeof store.browser.profileName !== "string"
+        || !/^(?:Default|Profile [1-9]\d*)$/.test(store.browser.profileName)
+      )
       || !Number.isInteger(store.browser.debugPort) || store.browser.debugPort < 1 || store.browser.debugPort > 65_535) {
       throw new Error(`天猫店铺注册表字段无效: stores[${index}]`);
     }
-    const profileDir = path.resolve(rootDirectory, store.browser.profileDir);
-    const downloadDir = path.resolve(rootDirectory, store.browser.downloadDir);
+    const executablePath = store.browser.executablePath
+      ? resolveRegistryPath(store.browser.executablePath, rootDirectory, localAppData)
+      : undefined;
+    const userDataDir = store.browser.userDataDir
+      ? resolveRegistryPath(store.browser.userDataDir, rootDirectory, localAppData)
+      : undefined;
+    const profileDir = resolveRegistryPath(store.browser.profileDir, rootDirectory, localAppData);
+    const downloadDir = resolveRegistryPath(store.browser.downloadDir, rootDirectory, localAppData);
+    if (userDataDir && store.browser.profileName
+      && profileDir.toLowerCase() !== path.join(userDataDir, store.browser.profileName).toLowerCase()) {
+      throw new Error(`天猫店铺注册表 profileDir 必须精确等于 userDataDir/profileName：${store.storeKey}`);
+    }
     const storeKey = store.storeKey.toLowerCase();
     const shopKey = store.shopName.toLocaleLowerCase("zh-CN");
     if (storeKeys.has(storeKey) || shopNames.has(shopKey) || ports.has(store.browser.debugPort)
@@ -69,8 +108,16 @@ export function validateTmallStoreRegistry(parsed: unknown, rootDirectory = proj
     ports.add(store.browser.debugPort);
     profiles.add(profileDir.toLowerCase());
     downloads.add(downloadDir.toLowerCase());
-    return { ...store, browser: { ...store.browser, profileDir, downloadDir } };
+    return { ...store, browser: { ...store.browser, executablePath, userDataDir, profileDir, downloadDir } };
   });
+}
+
+export function resolveTmallBrowserLaunchTarget(store: TmallStore, fallbackExecutablePath: string) {
+  return {
+    executablePath: store.browser.executablePath ?? fallbackExecutablePath,
+    profileDirectory: store.browser.userDataDir ?? store.browser.profileDir,
+    profileName: store.browser.profileName,
+  };
 }
 
 export async function loadTmallStores(): Promise<TmallStore[]> {
