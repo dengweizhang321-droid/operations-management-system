@@ -310,11 +310,22 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let revealedChildCount = 0;
   let submenuScrolls = 0;
   let lastVisibleLabels: string[] = [];
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await triggerUniqueDropdownOption(surface, frame, categoryPath[0], "hover", control);
-    parentCount = 1;
-    {
-      for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
+    parentCount = await parents.count();
+    if (parentCount === 0) {
+      await control.click({ timeout: 3_000, force: true }).catch(() => undefined);
+      for (let waitAttempt = 0; waitAttempt < 10; waitAttempt += 1) {
+        await frame.waitForTimeout(100);
+        parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
+        parentCount = await parents.count();
+        if (parentCount > 0) break;
+      }
+    }
+    if (parentCount === 1) {
+      const hovered = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+      if (hovered) {
+        for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
           await frame.waitForTimeout(150);
           const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
           childCount = await children.count();
@@ -350,9 +361,10 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             : false;
           if (!scrolled) break;
           submenuScrolls += 1;
+        }
       }
     }
-    if (attempt === 2) {
+    if (attempt === 29) {
       lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
         .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
     }
