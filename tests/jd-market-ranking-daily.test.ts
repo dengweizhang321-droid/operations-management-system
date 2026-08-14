@@ -197,7 +197,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /child\.isVisible\(\)/);
   assert.match(runner, /scrollAttempt < 20/);
   assert.match(runner, /attempt < 30/);
-  assert.match(runner, /current\.scrollTop = scrollAttempt === 0/);
+  assert.match(runner, /evaluate\(\(element, step\) =>/);
+  assert.match(runner, /current\.scrollTop = step === 0/);
+  assert.match(runner, /}, scrollAttempt\)\.catch/);
   assert.match(runner, /current\.clientHeight \* 0\.8/);
   assert.doesNotMatch(runner, /getComputedStyle\(current\)/);
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);

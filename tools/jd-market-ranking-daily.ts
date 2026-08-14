@@ -373,11 +373,11 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             if (menu.length) lastMenuEvidence = JSON.stringify(menu).slice(0, 650);
           }
           const scrolled = visibleOptionCount > 1
-            ? await visibleOptions.last().evaluate((element) => {
+            ? await visibleOptions.last().evaluate((element, step) => {
                 let current = element.parentElement;
                 while (current && current !== document.body) {
                   if (current.scrollHeight > current.clientHeight + 1) {
-                    current.scrollTop = scrollAttempt === 0
+                    current.scrollTop = step === 0
                       ? 0
                       : Math.min(current.scrollHeight - current.clientHeight, current.scrollTop + Math.max(1, Math.floor(current.clientHeight * 0.8)));
                     return true;
@@ -385,7 +385,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
                   current = current.parentElement;
                 }
                 return false;
-              }).catch(() => false)
+              }, scrollAttempt).catch(() => false)
             : false;
           if (!scrolled) break;
           submenuScrolls += 1;
