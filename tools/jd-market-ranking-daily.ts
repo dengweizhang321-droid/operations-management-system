@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Frame, Locator, Page } from "playwright-core";
 
 import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
-import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
+import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { getJdStore } from "../lib/jd/store-registry";
@@ -736,15 +736,16 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       if (plan.silentNoWindow && !ownsBrowser) throw new Error("京东市场榜单静默模式拒绝复用未受本次窗口守护控制的 Chromium 实例。");
       await waitForChrome(store.browser.debugPort);
       browser = await connectPlaywrightBrowser(store.browser.debugPort);
-      const { page } = await connectPlaywrightJackyunTarget(browser, {
-        startUrl: targetUrl,
-        workerName: "teruisi-jd-market-ranking",
-        targetUrlPattern: /jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html/i,
-        requireMini: false,
-      });
+      const context = browser.contexts()[0];
+      if (!context) throw new Error("京东商品榜单专用 Chromium 没有可用的浏览器上下文。");
+      const page = await context.newPage();
+      await page.evaluate(() => { window.name = "teruisi-jd-market-ranking"; });
       activePage = page;
       await installRequestCapture(page);
-      await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      const navigation = await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      if (!navigation?.ok() || !/^https:\/\/jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html(?:\?|$)/i.test(page.url())) {
+        throw new Error("京东商品榜单唯一受控页面未精确导航到榜单地址。");
+      }
       await assertStoreIdentity(page, plan);
       const runDirectory = path.join(outputRoot, plan.runId);
       await mkdir(runDirectory, { recursive: true });

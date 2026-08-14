@@ -138,6 +138,10 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(config, /"dimension": "SKU"/);
   assert.match(config, /"categories": \[/);
   assert.match(runner, /for \(const target of config\.categories\)/);
+  assert.match(runner, /const page = await context\.newPage\(\)/);
+  assert.match(runner, /window\.name = "teruisi-jd-market-ranking"/);
+  assert.match(runner, /navigation\?\.ok\(\)/);
+  assert.doesNotMatch(runner, /connectPlaywrightJackyunTarget\(browser/);
   assert.match(runner, /for \(const targetPlan of plan\.targets\)/);
   assert.match(runner, /candidate\.capturedAt >= categorySelectionStartedAt/);
   assert.match(runner, /缺少用于刷新同类目请求的受控备用类目/);
