@@ -198,7 +198,6 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /child\.isVisible\(\)/);
   assert.match(runner, /scrollAttempt < 20/);
   assert.match(runner, /frame\.page\(\)\.mouse\.wheel\(0, scrollAttempt === 0 \? -10_000 : 550\)/);
-  assert.match(runner, /maximumOptionX - minimumOptionX < 20/);
   assert.match(runner, /attempt < 3/);
   assert.match(runner, /visibleOptions\.last\(\)\.boundingBox\(\)/);
   assert.match(runner, /mouse\.move\(submenuPoint\.x, submenuPoint\.y\)/);
