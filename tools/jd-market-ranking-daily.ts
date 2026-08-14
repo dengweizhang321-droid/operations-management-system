@@ -334,9 +334,19 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
           }
           const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
           const visibleOptionCount = await visibleOptions.count();
-          const anchorBox = visibleOptionCount > 1 ? await visibleOptions.last().boundingBox() : null;
-          const submenuPoint = anchorBox
-            ? { x: anchorBox.x + anchorBox.width / 2, y: anchorBox.y + anchorBox.height / 2 }
+          const submenuPoint = visibleOptionCount > 1
+            ? await visibleOptions.last().evaluate((element) => {
+                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+                let node = walker.nextNode();
+                while (node && !node.textContent?.trim()) node = walker.nextNode();
+                if (!node) return null;
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const box = range.getBoundingClientRect();
+                return box.width > 0 && box.height > 0
+                  ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+                  : null;
+              }).catch(() => null)
             : null;
           if (!submenuPoint) break;
           await frame.page().mouse.move(submenuPoint.x, submenuPoint.y);
