@@ -277,14 +277,13 @@ async function installRequestCapture(page: Page) {
 }
 
 async function clickDropdownControl(control: Locator) {
-  const opener = control.locator("xpath=..");
-  const count = await opener.count();
-  const className = count === 1 ? String(await opener.getAttribute("class") ?? "") : "";
-  const eventName = count === 1 ? String(await opener.getAttribute("data-event-name") ?? "") : "";
+  const count = await control.count();
+  const className = count === 1 ? String(await control.getAttribute("class") ?? "") : "";
+  const eventName = count === 1 ? String(await control.getAttribute("data-event-name") ?? "") : "";
   if (count !== 1 || !className.split(/\s+/).includes("jmtd-base-input") || eventName !== "open") {
     throw new Error("京东商品榜单下拉控件真实触发层不唯一或契约已变化");
   }
-  await opener.click({ timeout: 3_000, force: true });
+  await control.click({ timeout: 3_000, force: true });
 }
 
 async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label: string, action: "click" | "hover", control?: Locator) {
@@ -463,8 +462,8 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, ta
   const selectOpeners = surface.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"]').filter({ visible: true });
   await selectOpeners.first().waitFor({ state: "visible", timeout: 30_000 });
   if (await selectOpeners.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
-  const dimensionControl = selectOpeners.nth(0).locator(":scope > .jmtd-base-input-top");
-  const categoryControl = selectOpeners.nth(1).locator(":scope > .jmtd-base-input-top");
+  const dimensionControl = selectOpeners.nth(0);
+  const categoryControl = selectOpeners.nth(1);
   const currentDimension = (await dimensionControl.innerText()).trim();
   if (currentDimension !== "SKU") {
     await clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl);

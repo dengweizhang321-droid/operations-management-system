@@ -209,7 +209,8 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /waitForRankingSurface\(frame\)/);
   assert.match(runner, /if \(lastCandidateCount === 0 && control\) await clickDropdownControl\(control\)/);
   assert.match(runner, /eventName !== "open"/);
-  assert.match(runner, /await opener\.click\(\{ timeout: 3_000, force: true \}\)/);
+  assert.match(runner, /await control\.click\(\{ timeout: 3_000, force: true \}\)/);
+  assert.doesNotMatch(runner, /:scope > \.jmtd-base-input-top/);
   assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", dimensionControl\)/);
   assert.match(runner, /attempt < 300/);
   assert.match(runner, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
