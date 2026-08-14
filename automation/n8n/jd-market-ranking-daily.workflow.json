@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "content": "## Profile 3 与 5 个固定榜单身份\n受控 storeKey=jd-cuizhiwang-dengweizhang，注册表唯一映射到志高商用洗碗机旗舰店、Profile 3、端口 9227。市场 → 商品榜单 → 交易榜单；SKU；依次处理：商用净水设备、商用开水器/蒸气奶泡机、商用炒菜机、商用绞肉机/切肉机/切片机、商用切菜机。",
+        "content": "## Profile 3 与 7 个固定榜单身份\n受控 storeKey=jd-cuizhiwang-dengweizhang，注册表唯一映射到志高商用洗碗机旗舰店、Profile 3、端口 9227。市场 → 商品榜单 → 交易榜单；SKU；依次处理：商用净水设备、商用开水器/蒸气奶泡机、商用炒菜机、商用绞肉机/切肉机/切片机、商用切菜机、商用洗碗机、商用磨粉机/粉碎机。",
         "height": 185,
         "width": 570,
         "color": 4
@@ -75,7 +75,7 @@
     },
     {
       "parameters": {
-        "content": "## 全程隐藏 Chromium 与真实导入\nA/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例，登录或身份异常只失败关闭、不弹可见窗口。5 个类目按顺序逐个切换、最多 20 日一文件；只有全部签收文件、completed 批次和逐类目覆盖回查通过才成功。工作流默认 active=false。",
+        "content": "## 全程隐藏 Chromium 与真实导入\nA/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例，登录或身份异常只失败关闭、不弹可见窗口。7 个类目按顺序逐个切换、最多 5 日一文件；只有全部签收文件、completed 批次和逐类目覆盖回查通过才成功。工作流默认 active=false。",
         "height": 225,
         "width": 860,
         "color": 3

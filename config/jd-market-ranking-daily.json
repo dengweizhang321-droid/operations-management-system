@@ -29,6 +29,16 @@
       "key": "commercial-vegetable-cutter",
       "categoryPath": ["商用食品机械设备", "商用切菜机"],
       "systemCategory": "商用切菜机"
+    },
+    {
+      "key": "commercial-dishwasher",
+      "categoryPath": ["商用消毒/清洗/清洁类设备", "商用洗碗机"],
+      "systemCategory": "商用洗碗机"
+    },
+    {
+      "key": "commercial-grinder-pulverizer",
+      "categoryPath": ["商用食品机械设备", "商用磨粉机/粉碎机"],
+      "systemCategory": "商用磨粉机粉碎机"
     }
   ],
   "scope": "pop",

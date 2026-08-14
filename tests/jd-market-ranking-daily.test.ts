@@ -84,7 +84,7 @@ test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and
   }
 });
 
-test("JD market config fixes five unique category identities and rejects ambiguous targets", async () => {
+test("JD market config fixes seven unique category identities and rejects ambiguous targets", async () => {
   const config = JSON.parse(await readFile(new URL("../config/jd-market-ranking-daily.json", import.meta.url), "utf8"));
   const validated = validateJdMarketDailyConfig(config);
   assert.equal(validated.version, 3);
@@ -95,17 +95,22 @@ test("JD market config fixes five unique category identities and rejects ambiguo
     ["商用加热类设备 > 商用炒菜机", "商用炒菜机"],
     ["商用食品机械设备 > 商用绞肉机/切肉机/切片机", "商用绞肉机切肉机切片机"],
     ["商用食品机械设备 > 商用切菜机", "商用切菜机"],
+    ["商用消毒/清洗/清洁类设备 > 商用洗碗机", "商用洗碗机"],
+    ["商用食品机械设备 > 商用磨粉机/粉碎机", "商用磨粉机粉碎机"],
   ]);
   assert.equal(validated.maxDaysPerFile, 5);
   assert.throws(() => validateJdMarketDailyConfig({
     ...config,
-    categories: [...config.categories, { ...config.categories[0], categoryPath: ["重复一级类目", "重复二级类目"] }],
+    categories: [
+      ...config.categories.slice(0, -1),
+      { ...config.categories[0], key: "duplicate-category-identity" },
+    ],
   }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({
     ...config,
     categories: [{ ...config.categories[0], categoryPath: ["只有一级"] }],
   }), /配置无效/);
-  assert.throws(() => validateJdMarketDailyConfig({ ...config, categories: config.categories.slice(0, 4) }), /配置无效/);
+  assert.throws(() => validateJdMarketDailyConfig({ ...config, categories: config.categories.slice(0, 6) }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, scope: "self" }), /配置无效/);
   assert.throws(() => validateJdMarketDailyConfig({ ...config, silentNoWindow: false }), /配置无效/);
 });

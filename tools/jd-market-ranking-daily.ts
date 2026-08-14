@@ -107,7 +107,7 @@ export function validateJdMarketDailyConfig(value: unknown): JdMarketDailyConfig
   const categoryKeys = categories.map((target) => target?.key);
   const systemCategories = categories.map((target) => target?.systemCategory);
   const categoryPaths = categories.map((target) => JSON.stringify(target?.categoryPath));
-  if (config.version !== 3 || !config.enabled || config.silentNoWindow !== true || config.dimension !== "SKU" || categories.length !== 5
+  if (config.version !== 3 || !config.enabled || config.silentNoWindow !== true || config.dimension !== "SKU" || categories.length !== 7
     || categories.some((target) => !target || !/^[a-z0-9-]{1,80}$/.test(target.key)
       || !Array.isArray(target.categoryPath) || target.categoryPath.length !== 2 || !target.categoryPath.every(Boolean) || !target.systemCategory)
     || new Set(categoryKeys).size !== categories.length || new Set(systemCategories).size !== categories.length || new Set(categoryPaths).size !== categories.length
