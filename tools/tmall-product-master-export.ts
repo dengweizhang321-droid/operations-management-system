@@ -95,6 +95,7 @@ type MasterExportAudit = {
   stage: MasterExportAuditStage;
   entryMode?: "product_manager_opened" | "product_manager_floating_icon" | "product_manager_already_open" | "bulk_export_entry" | "assistant_direct";
   noticeState?: "dismissed" | "not_present";
+  exportSubmittedAt?: string;
   exportTaskCreatedAt?: string;
   file?: MasterFileEvidence;
   importResult?: {
@@ -125,6 +126,7 @@ type TextCandidate = {
   locator: Locator;
   score: number;
   signature: string;
+  top?: number;
 };
 
 type DownloadCandidate = {
@@ -239,6 +241,10 @@ export function hasAcceptedTmallExportTask(text: string) {
     && /任务\d*[:：]|待执行|任务已执行|执行结果|所有任务已完成|成功导出/.test(normalized);
 }
 
+export function countAcceptedTmallExportTasks(text: string) {
+  return text.replace(/\s+/g, "").match(/导出(?:\d+个)?商品到Excel/g)?.length ?? 0;
+}
+
 export function hasCompletedTmallExportResult(text: string) {
   return /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text.replace(/\s+/g, " "));
 }
@@ -276,6 +282,22 @@ export function isTmallProductWorkbookFilename(fileName: string) {
 }
 
 export function chooseLatestTmallDownloadSignature(candidates: readonly TmallDownloadChoice[]) {
+  const distinct = clusterTmallDownloadChoices(candidates);
+  if (distinct.length === 0) return null;
+  if (distinct.length === 1) return distinct[0]!.signature;
+  if (new Set(distinct.map((candidate) => candidate.frameUrl)).size !== 1) {
+    throw new Error("多个下载链接分布在不同页面，无法确认当前商品管家任务");
+  }
+  const completed = distinct.filter((candidate) => hasCompletedTmallExportResult(candidate.contextText));
+  if (completed.length === 0) return null;
+  const ordered = completed.sort((left, right) => left.top - right.top || left.left - right.left);
+  if (ordered.length > 1 && ordered.at(-1)!.top - ordered.at(-2)!.top < 16) {
+    throw new Error("多个成功下载链接位置并列，无法唯一确认最新商品管家任务");
+  }
+  return ordered.at(-1)!.signature;
+}
+
+function clusterTmallDownloadChoices(candidates: readonly TmallDownloadChoice[]) {
   const visualClusters = new Map<string, TmallDownloadChoice>();
   for (const candidate of candidates) {
     const centerX = candidate.left + candidate.width / 2;
@@ -292,19 +314,23 @@ export function chooseLatestTmallDownloadSignature(candidates: readonly TmallDow
       contextText: representative.contextText || previous.contextText || candidate.contextText,
     });
   }
-  const distinct = [...visualClusters.values()];
-  if (distinct.length === 0) return null;
-  if (distinct.length === 1) return distinct[0]!.signature;
-  if (new Set(distinct.map((candidate) => candidate.frameUrl)).size !== 1) {
-    throw new Error("多个下载链接分布在不同页面，无法确认当前商品管家任务");
+  return [...visualClusters.values()];
+}
+
+export function countTmallCompletedDownloadCards(candidates: readonly TmallDownloadChoice[]) {
+  return clusterTmallDownloadChoices(candidates)
+    .filter((candidate) => hasCompletedTmallExportResult(candidate.contextText)).length;
+}
+
+export function chooseFreshTmallDownloadSignature(
+  candidates: readonly TmallDownloadChoice[],
+  baselineCompletedCount: number,
+) {
+  if (!Number.isInteger(baselineCompletedCount) || baselineCompletedCount < 0) {
+    throw new Error("商品管家下载基线数量无效");
   }
-  const completed = distinct.filter((candidate) => hasCompletedTmallExportResult(candidate.contextText));
-  if (completed.length === 0) return null;
-  const ordered = completed.sort((left, right) => left.top - right.top || left.left - right.left);
-  if (ordered.length > 1 && ordered.at(-1)!.top - ordered.at(-2)!.top < 16) {
-    throw new Error("多个成功下载链接位置并列，无法唯一确认最新商品管家任务");
-  }
-  return ordered.at(-1)!.signature;
+  if (countTmallCompletedDownloadCards(candidates) <= baselineCompletedCount) return null;
+  return chooseLatestTmallDownloadSignature(candidates);
 }
 
 export function parseTmallShanghaiTaskTime(value: string) {
@@ -679,6 +705,7 @@ async function textCandidates(page: Page, labels: readonly string[], scopeFrame?
           locator,
           score,
           signature: `${frame.url()}|${label}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`,
+          top: detail.top,
         });
       }
     }
@@ -1472,6 +1499,7 @@ async function browserExport(options: {
   snapshotDate: string;
   runId: string;
   taskStartedAt: string;
+  exportSubmittedAt?: string;
   resumeStage?: "export_submitted" | "export_confirmed";
   entryMode?: MasterExportAudit["entryMode"];
   noticeState?: MasterExportAudit["noticeState"];
@@ -1510,23 +1538,38 @@ async function browserExport(options: {
       : options.noticeState ?? currentNoticeState;
     let input = productManager.input;
     let chatScope = await chatOverlayScope(input);
-    const baselineDownloads = new Set<string>();
+    const chatText = async () => chatScope
+      ? await chatScope.innerText({ timeout: 5_000 }).catch(() => "")
+      : await frameText(input.frame);
+    let baselineAcceptedTaskCount = 0;
+    let baselineCompletedDownloadCount = 0;
+    let baselineConfirmationCount = 0;
     if (!options.resumeStage) {
       await clickText(page, ["新会话"], true, input.frame, chatScope ?? undefined);
       input = await findChatInput(page);
       chatScope = await chatOverlayScope(input);
-      for (const item of await downloadCandidates(page, input.frame, chatScope ?? undefined)) {
-        baselineDownloads.add(item.signature);
-      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      baselineAcceptedTaskCount = countAcceptedTmallExportTasks(await chatText());
+      baselineCompletedDownloadCount = countTmallCompletedDownloadCards(
+        await downloadCandidates(page, input.frame, chatScope ?? undefined),
+      );
+      baselineConfirmationCount = (await textCandidates(
+        page,
+        tmallExportConfirmationLabels,
+        input.frame,
+        chatScope ?? undefined,
+      )).length;
       await input.locator.fill(TMALL_MASTER_EXPORT_PROMPT, { timeout: 10_000 });
       await options.onStage("export_submitting", { entryMode, noticeState });
       await clickSendOrPressEnter(input);
-      await options.onStage("export_submitted", { entryMode, noticeState });
+      options.exportSubmittedAt = new Date().toISOString();
+      await options.onStage("export_submitted", {
+        entryMode,
+        noticeState,
+        exportSubmittedAt: options.exportSubmittedAt,
+      });
     }
 
-    const chatText = async () => chatScope
-      ? await chatScope.innerText({ timeout: 5_000 }).catch(() => "")
-      : await frameText(input.frame);
     if (options.resumeStage !== "export_confirmed") {
       await waitUntil(90_000, async () => {
         const confirmations = await textCandidates(
@@ -1535,17 +1578,18 @@ async function browserExport(options: {
           input.frame,
           chatScope ?? undefined,
         );
-        if (confirmations[0]) {
-          const best = confirmations[0];
-          if (confirmations[1] && confirmations[1].score === best.score && confirmations[1].signature !== best.signature) {
+        if (confirmations.length > baselineConfirmationCount) {
+          const ordered = [...confirmations].sort((left, right) => (right.top ?? -1) - (left.top ?? -1) || right.score - left.score);
+          const best = ordered[0]!;
+          if (ordered[1] && ordered[1].top === best.top && ordered[1].score === best.score && ordered[1].signature !== best.signature) {
             throw new Error("商品管家存在多个同等导出确认候选，为防止误点已停止");
           }
           await best.locator.click({ timeout: 10_000 });
           return true;
         }
-        const downloads = (await downloadCandidates(page!, input.frame, chatScope ?? undefined))
-          .filter((candidate) => !baselineDownloads.has(candidate.signature));
-        return Boolean(chooseLatestTmallDownloadSignature(downloads)) || hasAcceptedTmallExportTask(await chatText());
+        const downloads = await downloadCandidates(page!, input.frame, chatScope ?? undefined);
+        return Boolean(chooseFreshTmallDownloadSignature(downloads, baselineCompletedDownloadCount))
+          || countAcceptedTmallExportTasks(await chatText()) > baselineAcceptedTaskCount;
       }, "商品管家未出现导出确认、任务受理或下载结果");
       await options.onStage("export_confirmed", { entryMode, noticeState });
     }
@@ -1553,10 +1597,11 @@ async function browserExport(options: {
     let newDownload: DownloadCandidate | null = null;
     await waitUntil(exportResultTimeoutMs, async () => {
       const current = await downloadCandidates(page!, input.frame, chatScope ?? undefined);
-      const fresh = current.filter((candidate) => !baselineDownloads.has(candidate.signature));
-      const selectedSignature = chooseLatestTmallDownloadSignature(fresh);
+      const selectedSignature = options.resumeStage
+        ? chooseLatestTmallDownloadSignature(current)
+        : chooseFreshTmallDownloadSignature(current, baselineCompletedDownloadCount);
       let selected = selectedSignature
-        ? fresh.find((candidate) => candidate.signature === selectedSignature)
+        ? current.find((candidate) => candidate.signature === selectedSignature)
         : undefined;
       // A resumed task must not send another chat prompt. The product-manager side panel
       // can preserve its completed card outside the current input overlay, so scan the
@@ -1574,7 +1619,9 @@ async function browserExport(options: {
         const text = await chatText();
         if (
           hasCompletedTmallExportResult(selected.contextText)
-          || (!options.resumeStage && fresh.length === 1 && hasCompletedTmallExportResult(text))
+          || (!options.resumeStage
+            && countTmallCompletedDownloadCards(current) > baselineCompletedDownloadCount
+            && hasCompletedTmallExportResult(text))
         ) {
           newDownload = selected;
         }
@@ -1590,7 +1637,7 @@ async function browserExport(options: {
       locator: newDownload!.locator,
       downloadDirectory: options.store.browser.downloadDir,
       targetPath,
-      expectedRunStartedAt: options.taskStartedAt,
+      expectedRunStartedAt: options.exportSubmittedAt ?? options.taskStartedAt,
     });
     return {
       targetPath,
@@ -1679,6 +1726,7 @@ export async function runTmallProductMasterStage(options: {
         snapshotDate,
         runId: activeAudit.runId,
         taskStartedAt: activeAudit.startedAt,
+        exportSubmittedAt: activeAudit.exportSubmittedAt,
         resumeStage: isResumableTmallExportStage(activeAudit.stage)
           ? activeAudit.stage as "export_submitted" | "export_confirmed"
           : undefined,

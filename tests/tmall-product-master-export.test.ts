@@ -8,10 +8,13 @@ import * as XLSX from "xlsx";
 
 import {
   compareTmallNoticeActionCandidates,
+  chooseFreshTmallDownloadSignature,
   chooseLatestTmallDownloadSignature,
   chooseTmallExportRecordSignature,
   chooseTmallResumeSellerPageIndex,
   createTmallBrowserDownloadSession,
+  countAcceptedTmallExportTasks,
+  countTmallCompletedDownloadCards,
   decideTmallMasterAuditRecovery,
   hasAcceptedTmallExportTask,
   hasCompletedTmallExportResult,
@@ -117,6 +120,8 @@ test("商品管家确认兼容任务卡片文案并识别自动受理状态", ()
   assert.equal(hasAcceptedTmallExportTask("任务2：导出商品到Excel，共有2个任务，还剩0个任务待执行"), true);
   assert.equal(hasAcceptedTmallExportTask("成功导出 212 个商品到Excel文件，所有任务已完成"), true);
   assert.equal(hasAcceptedTmallExportTask("导出全部商品"), false);
+  assert.equal(countAcceptedTmallExportTasks("历史任务1：导出商品到Excel"), 1);
+  assert.equal(countAcceptedTmallExportTasks("历史任务1：导出商品到Excel\n新任务2：导出168个商品到Excel"), 2);
   assert.equal(hasCompletedTmallExportResult("成功导出 162 个商品到Excel文件，前往下载"), true);
   assert.equal(hasCompletedTmallExportResult("任务2：导出商品到Excel，共有2个任务"), false);
   assert.equal(isResumableTmallExportStage("export_submitted"), true);
@@ -192,6 +197,17 @@ test("商品管家下载候选合并嵌套按钮并只选择最下方成功结�
     candidate({ signature: "nested-parent", href: "", left: 1196, width: 128 }),
     candidate({ signature: "nested-link", contextText: "" }),
   ]), "nested-link");
+  assert.equal(countTmallCompletedDownloadCards([
+    candidate({ signature: "nested-parent", href: "", left: 1196, width: 128 }),
+    candidate({ signature: "nested-link", contextText: "" }),
+  ]), 1);
+  assert.equal(chooseFreshTmallDownloadSignature([
+    candidate({ signature: "old-reflowed", top: 540 }),
+  ], 1), null);
+  assert.equal(chooseFreshTmallDownloadSignature([
+    candidate({ signature: "old-reflowed", top: 420 }),
+    candidate({ signature: "new-result", href: "https://download.example/new.xlsx", top: 620 }),
+  ], 1), "new-result");
   assert.equal(chooseLatestTmallDownloadSignature([
     candidate(),
     candidate({ signature: "latest", href: "https://download.example/latest.xlsx", top: 620 }),
