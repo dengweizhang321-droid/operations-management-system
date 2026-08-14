@@ -309,12 +309,20 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let childCount = 0;
   let revealedChildCount = 0;
   let submenuScrolls = 0;
+  let controlClicks = 0;
+  let lastControlError = "";
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 30; attempt += 1) {
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
     parentCount = await parents.count();
     if (parentCount === 0) {
-      await control.click({ timeout: 3_000, force: true }).catch(() => undefined);
+      const clicked = await control.click({ timeout: 3_000, force: true })
+        .then(() => true)
+        .catch((error) => {
+          lastControlError = (error instanceof Error ? error.message : String(error)).split("\n", 1)[0]!.slice(0, 240);
+          return false;
+        });
+      if (clicked) controlClicks += 1;
       for (let waitAttempt = 0; waitAttempt < 10; waitAttempt += 1) {
         await frame.waitForTimeout(100);
         parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
@@ -370,7 +378,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
+  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
@@ -643,6 +651,8 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
     plan.stage = "running"; await persistPlan(plan);
     let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | null = null;
     let ownsBrowser = false;
+    let activeTargetPlan: JdMarketDailyTargetPlan | null = null;
+    let activePage: Page | null = null;
     try {
       const launched = await launchDedicatedChrome({
         executablePath: store.browser.executablePath,
@@ -657,6 +667,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       await waitForChrome(store.browser.debugPort);
       browser = await connectPlaywrightBrowser(store.browser.debugPort);
       const { page } = await connectPlaywrightJackyunTarget(browser, { workerName: "teruisi-jd-market-ranking", targetUrlPattern: /jdsz\.jd\.com/i, requireMini: false });
+      activePage = page;
       await installRequestCapture(page);
       await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
       await assertStoreIdentity(page, plan);
@@ -664,6 +675,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       await mkdir(runDirectory, { recursive: true });
       for (const targetPlan of plan.targets) {
         if (!targetPlan.chunks.length) continue;
+        activeTargetPlan = targetPlan;
         const target = config.categories.find((candidate) => candidate.key === targetPlan.key);
         if (!target) throw new Error(`市场榜单受控类目不存在：${targetPlan.key}`);
         const { frame, imageHeaders } = await selectRankingIdentity(page, config, target);
@@ -721,6 +733,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
         rowCount: plan.targets.reduce((sum, target) => sum + target.chunks.reduce((targetSum, chunk) => targetSum + Number(chunk.rowCount ?? 0), 0), 0),
       };
     } catch (error) {
+      if (activePage && activeTargetPlan) await saveEvidenceScreenshot(activePage, plan, activeTargetPlan, "filters");
       plan.stage = "failed";
       plan.failure = { stage: "run", message: (error instanceof Error ? error.message : String(error)).slice(0, 1000), at: new Date().toISOString() };
       await persistPlan(plan);
