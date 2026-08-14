@@ -342,7 +342,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             if (clicked) return;
           }
           const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
-          let submenuAnchor: Locator | null = null;
+          let submenuPoint: { x: number; y: number } | null = null;
           let minimumOptionX = Number.POSITIVE_INFINITY;
           let maximumOptionX = Number.NEGATIVE_INFINITY;
           for (let optionIndex = 0; optionIndex < await visibleOptions.count(); optionIndex += 1) {
@@ -350,10 +350,14 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             const optionBox = await option.boundingBox();
             if (!optionBox) continue;
             minimumOptionX = Math.min(minimumOptionX, optionBox.x);
-            if (optionBox.x > maximumOptionX) { maximumOptionX = optionBox.x; submenuAnchor = option; }
+            if (optionBox.x > maximumOptionX) {
+              maximumOptionX = optionBox.x;
+              submenuPoint = { x: optionBox.x + optionBox.width / 2, y: optionBox.y + optionBox.height / 2 };
+            }
           }
-          if (maximumOptionX - minimumOptionX < 20) submenuAnchor = null;
-          if (!submenuAnchor || !await submenuAnchor.hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false)) break;
+          if (maximumOptionX - minimumOptionX < 20) submenuPoint = null;
+          if (!submenuPoint) break;
+          await frame.page().mouse.move(submenuPoint.x, submenuPoint.y);
           await frame.page().mouse.wheel(0, scrollAttempt === 0 ? -10_000 : 550);
           submenuScrolls += 1;
         }
