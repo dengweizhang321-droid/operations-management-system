@@ -199,6 +199,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /attempt < 30/);
   assert.match(runner, /visibleOptions\.last\(\)\.boundingBox\(\)/);
   assert.match(runner, /mouse\.move\(/);
+  assert.match(runner, /mouse\.wheel\(0, 60\)/);
   assert.match(runner, /mouse\.wheel\(0, -10_000\)/);
   assert.doesNotMatch(runner, /getComputedStyle\(current\)/);
   assert.doesNotMatch(runner, /current\.scrollTop/);

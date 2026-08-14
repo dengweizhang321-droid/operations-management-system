@@ -379,6 +379,8 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             submenuBox.y + submenuBox.height / 2,
             { steps: 10 },
           );
+          await frame.page().mouse.wheel(0, 60);
+          await frame.waitForTimeout(50);
           await frame.page().mouse.wheel(0, -10_000);
           submenuScrolls += 1;
         }
