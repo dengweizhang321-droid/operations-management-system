@@ -736,7 +736,12 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
       if (plan.silentNoWindow && !ownsBrowser) throw new Error("京东市场榜单静默模式拒绝复用未受本次窗口守护控制的 Chromium 实例。");
       await waitForChrome(store.browser.debugPort);
       browser = await connectPlaywrightBrowser(store.browser.debugPort);
-      const { page } = await connectPlaywrightJackyunTarget(browser, { workerName: "teruisi-jd-market-ranking", targetUrlPattern: /jdsz\.jd\.com/i, requireMini: false });
+      const { page } = await connectPlaywrightJackyunTarget(browser, {
+        startUrl: targetUrl,
+        workerName: "teruisi-jd-market-ranking",
+        targetUrlPattern: /jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html/i,
+        requireMini: false,
+      });
       activePage = page;
       await installRequestCapture(page);
       await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });

@@ -64,3 +64,39 @@ test("JD reuses its named page even though WareList has no MiniUI", async () => 
   assert.equal(result.page, namedPage);
   assert.equal(newPageCalls, 0);
 });
+
+test("JD refuses a named page that has navigated outside the requested target", async () => {
+  let staleGotoCalls = 0;
+  let createdGotoCalls = 0;
+  let newPageCalls = 0;
+  const context = {
+    pages: () => [staleNamedPage],
+    newPage: async () => { newPageCalls += 1; return createdPage; },
+    newCDPSession: async () => ({}),
+  };
+  const staleNamedPage = {
+    url: () => "https://jdsz.jd.com/stockweb/sz/view/ihs/InventoryHealth.html",
+    evaluate: async () => "teruisi-jd-market-ranking",
+    goto: async () => { staleGotoCalls += 1; },
+    context: () => context,
+  };
+  const createdPage = {
+    url: () => "about:blank",
+    evaluate: async () => undefined,
+    goto: async () => { createdGotoCalls += 1; },
+    context: () => context,
+  };
+  const browser = { contexts: () => [context] };
+
+  const result = await connectPlaywrightJackyunTarget(browser as never, {
+    startUrl: "https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html",
+    workerName: "teruisi-jd-market-ranking",
+    targetUrlPattern: /industry-product-rank-temp\.html/i,
+    requireMini: false,
+  });
+
+  assert.equal(result.page, createdPage);
+  assert.equal(newPageCalls, 1);
+  assert.equal(staleGotoCalls, 0);
+  assert.equal(createdGotoCalls, 1);
+});

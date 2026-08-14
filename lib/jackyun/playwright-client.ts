@@ -117,6 +117,9 @@ export async function connectPlaywrightJackyunTarget(browser: Browser, options: 
   for (const candidate of pages) {
     const name = await candidate.evaluate(() => window.name).catch(() => "");
     if (name === workerName) {
+      const candidateUrl = candidate.url();
+      const isOwnedBlankPage = Boolean(options.startUrl) && candidateUrl === "about:blank";
+      if (!matchesTarget(candidateUrl) && !isOwnedBlankPage) continue;
       // worker page 也需要检查 mini 控件是否存在（grid 已初始化）
       try {
         const hasMini = await candidate.evaluate(() => {
