@@ -30,6 +30,7 @@ type HelperHealthPayload = {
   busy?: boolean;
   activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | null;
   cookieSource?: "ready" | "missing" | "invalid";
+  tmallProfile?: "ready" | "missing" | "invalid";
   jackyunProfile?: "ready" | "missing" | "invalid";
   jdProfiles?: "ready" | "missing" | "invalid";
   jdMarketProfile?: "ready" | "missing" | "invalid";
@@ -168,7 +169,7 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
         ? key === "jd_market"
           ? "正在确认 5791 环回服务、本机运营系统和榜单受控店铺的独立 Chrome profile。"
           : "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
-        : "正在确认 5791 环回服务是否在线、Cookie 原文件是否可读取。",
+        : "正在确认 5791 环回服务和亿玖店专属 Chromium profile 是否可用。",
   };
 }
 
@@ -181,11 +182,11 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
       detail: "辅助服务在线，但专用 Chrome profile 缺失或结构无效；先执行 npm run jackyun:login 完成人工登录。",
     };
   }
-  if (key === "tmall" && payload.cookieSource !== "ready") {
+  if (key === "tmall" && payload.tmallProfile !== "ready") {
     return {
       kind: "cookie-missing",
-      label: "Cookie 文件待恢复",
-      detail: "辅助服务在线，但 Cookie 原文件不存在或路径无效；更新本机 .runtime 指针后重新检测。",
+      label: "天猫专用会话待恢复",
+      detail: "辅助服务在线，但亿玖店专属 Chromium profile 缺失或结构无效；请先使用专属快捷方式完成首次登录。",
     };
   }
   if ((key === "jd" && payload.jdProfiles !== "ready") || (key === "jd_market" && payload.jdMarketProfile !== "ready")) {
@@ -218,7 +219,9 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
   } : {
     kind: "ready",
     label: "辅助服务已就绪",
-    detail: "服务在线且 Cookie 原文件可读取；Cookie 身份及千牛、阿里妈妈登录有效性会在对应阶段再次核验，异常时流程会停止并等待恢复。",
+    detail: payload.cookieSource === "ready"
+      ? "服务、亿玖店专属 profile 和备用 Cookie 文件均已就绪；Cookie 身份及千牛、阿里妈妈登录有效性会在对应阶段再次核验。"
+      : "服务与亿玖店专属 profile 已就绪；流程优先读取该浏览器会话，备用 Cookie 文件未配置时不会阻止执行，登录异常仍会安全停止。",
   };
 }
 

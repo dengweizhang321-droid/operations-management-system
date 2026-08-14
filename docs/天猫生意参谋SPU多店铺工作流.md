@@ -121,7 +121,7 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workfl
 npm run start:local-worker
 ```
 
-Cookie 原文件路径仍通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供，或作为单独一行写入 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt`。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。B 阶段优先通过注册表调试端口从同一店铺独立 Chrome 的当前会话读取适用于 `sycm.taobao.com` 的 Cookie，只在内存中使用且不落盘；仅当该 Chrome 不可连接时才使用受控 Cookie 原文件后备。辅助进程只监听本机环回地址，n8n 的 M、A、B、C、P 节点会把同一个 `$execution.id` 放入 `X-TERUISI-N8N-EXECUTION-ID` 请求头；helper 只允许 M 首次领取，后续节点必须同时匹配执行 ID 与当前阶段，旧执行、缺失 ID、乱序或并发请求均失败关闭。M、A 或 B 成功后若两分钟内没有下一节点领取，helper 会自动退出并由本地 Worker 启动器重新待命；C 完成后仍只保留 30 秒兼容窗口等待 P。工作流页面每 5 秒读取一次只含阶段、忙碌状态和 Cookie 后备文件是否存在的 `/health`，不会读取文件路径或 Cookie 内容；“辅助服务已就绪”只表示环回服务与后备文件可用，Cookie 身份、千牛和阿里妈妈登录态仍在对应阶段重新核验。当前五段式副本必须从 M 开始，旧 A 起点不再进入同一状态机。
+Cookie 原文件路径仍可通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供，或作为单独一行写入 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt`。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。B 阶段优先通过注册表调试端口从同一店铺独立 Chrome 的当前会话读取适用于 `sycm.taobao.com` 的 Cookie，只在内存中使用且不落盘；仅当该 Chrome 不可连接时才使用受控 Cookie 原文件后备。辅助进程只监听本机环回地址，n8n 的 M、A、B、C、P 节点会把同一个 `$execution.id` 放入 `X-TERUISI-N8N-EXECUTION-ID` 请求头；helper 只允许 M 首次领取，后续节点必须同时匹配执行 ID 与当前阶段，旧执行、缺失 ID、乱序或并发请求均失败关闭。M、A 或 B 成功后若两分钟内没有下一节点领取，helper 会自动退出并由本地 Worker 启动器重新待命；C 完成后仍只保留 30 秒兼容窗口等待 P。工作流页面每 5 秒读取一次只含阶段、忙碌状态、专属 Profile 与 Cookie 后备文件是否存在的 `/health`，不会读取路径或 Cookie 内容；专属 Profile 就绪即可进入工作流，备用 Cookie 缺失不再阻止执行，Cookie 身份、千牛和阿里妈妈登录态仍在对应阶段重新核验。当前五段式副本必须从 M 开始，旧 A 起点不再进入同一状态机。
 
 只有排查启动器时才单独运行下面的辅助命令；不要同时运行它和本地 Worker 启动器，否则 5791 端口门禁会安全拒绝第二个进程：
 

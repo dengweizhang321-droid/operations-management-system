@@ -67,6 +67,7 @@ type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "s
 export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "imported" | "running" | "executed" | "completed" | "failed";
 type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import" | "/promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
+export type TmallProfileStatus = "ready" | "missing" | "invalid";
 
 type TmallPipelineErrorCode = "SOURCE_NOT_READY" | "INVALID_SOURCE_FILE" | "DOWNLOAD_FAILED";
 
@@ -534,6 +535,21 @@ export async function getCookieSourceStatus(cookieFile?: string): Promise<Cookie
     .catch(() => "missing" as const);
 }
 
+export async function getTmallProfileStatus(store: Pick<TmallStore, "browser">): Promise<TmallProfileStatus> {
+  const { executablePath, userDataDir, profileName, profileDir } = store.browser;
+  if (!executablePath || !userDataDir || !profileName) return "invalid";
+  const [executable, userData, profile, localState] = await Promise.all([
+    stat(executablePath).catch(() => null),
+    stat(userDataDir).catch(() => null),
+    stat(profileDir).catch(() => null),
+    stat(path.join(userDataDir, "Local State")).catch(() => null),
+  ]);
+  if (!executable || !userData || !profile || !localState) return "missing";
+  return executable.isFile() && userData.isDirectory() && profile.isDirectory() && localState.isFile()
+    ? "ready"
+    : "invalid";
+}
+
 export function shouldLoadCookieForPlan(dates: readonly string[]) {
   return dates.length > 0;
 }
@@ -860,8 +876,9 @@ async function serveCommand(argv: string[]) {
       return;
     }
     if (request.method === "GET" && request.url === "/health") {
-      const [cookieSource, jackyunProfile, jdProfiles, jdMarketProfile] = await Promise.all([
+      const [cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile] = await Promise.all([
         getCookieSourceStatus(),
+        getTmallStore("tmall-yijiu").then(getTmallProfileStatus).catch(() => "invalid" as const),
         getJackyunProfileStatus(),
         loadJdStores().then((stores) => getJdProfilesStatus(stores.filter((store) => store.enabled))).catch(() => "invalid" as const),
         loadJdMarketDailyConfig()
@@ -869,7 +886,7 @@ async function serveCommand(argv: string[]) {
           .then((store) => getJdProfilesStatus([store]))
           .catch(() => "invalid" as const),
       ]);
-      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, jackyunProfile, jdProfiles, jdMarketProfile });
+      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile });
       return;
     }
     const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];

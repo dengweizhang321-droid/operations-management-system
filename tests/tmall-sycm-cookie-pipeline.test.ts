@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -14,6 +14,7 @@ import {
   decodeArtifactPath,
   encodeArtifactPath,
   getCookieSourceStatus,
+  getTmallProfileStatus,
   getTmallPromotionStageOptions,
   helperInactivityTimeoutMs,
   helperHealthCorsHeaders,
@@ -162,6 +163,33 @@ test("健康检查只暴露 Cookie 文件就绪状态，并仅允许运营系统
   assert.equal(headers["Access-Control-Allow-Origin"], "http://localhost:3000");
   assert.equal(headers["Access-Control-Allow-Private-Network"], "true");
   assert.equal(JSON.stringify(headers).includes("cookie"), false);
+});
+
+test("天猫健康检查接受完整专属 user-data-dir，备用 Cookie 缺失不影响 profile 就绪", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-profile-health-"));
+  const executablePath = path.join(root, "chrome.exe");
+  const userDataDir = path.join(root, "User Data");
+  const profileDir = path.join(userDataDir, "Default");
+  try {
+    await mkdir(profileDir, { recursive: true });
+    await writeFile(executablePath, "test", "utf8");
+    await writeFile(path.join(userDataDir, "Local State"), "{}", "utf8");
+    assert.equal(await getTmallProfileStatus({ browser: {
+      executablePath,
+      userDataDir,
+      profileName: "Default",
+      profileDir,
+      debugPort: 9334,
+      downloadDir: path.join(root, "downloads"),
+    } }), "ready");
+    assert.equal(await getTmallProfileStatus({ browser: {
+      profileDir,
+      debugPort: 9334,
+      downloadDir: path.join(root, "downloads"),
+    } }), "invalid");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执行、乱序和并发调用", () => {

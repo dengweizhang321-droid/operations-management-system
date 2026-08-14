@@ -101,6 +101,8 @@ test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async 
   assert.match(view, /scheduleMetric: "10:00"/);
   assert.match(view, /\{config\.scheduleMetric\} \{config\.scheduleTriggerLabel\}/);
   assert.match(view, /辅助服务已就绪/);
+  assert.match(view, /payload\.tmallProfile !== "ready"/);
+  assert.doesNotMatch(view, /key === "tmall" && payload\.cookieSource !== "ready"/);
   assert.match(view, /实际发布状态以 n8n 画布为准/);
 });
 
