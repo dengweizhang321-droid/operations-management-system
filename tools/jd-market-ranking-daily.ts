@@ -312,11 +312,9 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await triggerUniqueDropdownOption(surface, frame, categoryPath[0], "hover", control);
-    const parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
-    parentCount = await parents.count();
-    if (parentCount === 1) {
-      {
-        for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
+    parentCount = 1;
+    {
+      for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
           await frame.waitForTimeout(150);
           const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
           childCount = await children.count();
@@ -352,7 +350,6 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             : false;
           if (!scrolled) break;
           submenuScrolls += 1;
-        }
       }
     }
     if (attempt === 2) {
