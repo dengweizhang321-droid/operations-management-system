@@ -343,7 +343,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
       }
     }
     if (parentCount === 1) {
-      const expanded = await parents.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+      const expanded = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
       if (expanded) {
         for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
           await frame.waitForTimeout(150);
