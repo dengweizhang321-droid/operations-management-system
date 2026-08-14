@@ -159,7 +159,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /fileInfo\.size !== chunk\.fileSizeBytes/);
   assert.match(runner, /if \(exportPanelCount === 1\)/);
   assert.match(runner, /saveEvidenceScreenshot\(page, plan, targetPlan, "exportPanel"\)/);
-  assert.match(runner, /page\.screenshot\(\{ path: filePath, fullPage: false, timeout: 5_000 \}\)/);
+  assert.match(runner, /page\.screenshot\(\{ path: filePath, fullPage: false, timeout: 30_000, animations: "disabled" \}\)/);
   assert.match(runner, /target\.evidenceWarnings/);
   assert.match(runner, /await rm\(filePath, \{ force: true \}\)/);
   assert.match(runner, /withJackyunRunLock\(\{/);

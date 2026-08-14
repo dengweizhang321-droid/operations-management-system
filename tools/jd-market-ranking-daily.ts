@@ -173,7 +173,7 @@ async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, targe
   const filePath = path.join(evidenceDirectory, `${target.key}-${name}.png`);
   if (!inside(evidenceDirectory, filePath)) throw new Error("市场榜单截图证据路径无效");
   try {
-    await page.screenshot({ path: filePath, fullPage: false, timeout: 5_000 });
+    await page.screenshot({ path: filePath, fullPage: false, timeout: 30_000, animations: "disabled" });
     (target.screenshots ??= {})[name] = filePath;
   } catch (error) {
     await rm(filePath, { force: true });
@@ -311,6 +311,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let submenuScrolls = 0;
   let controlClicks = 0;
   let lastControlError = "";
+  let controlEvidence = "";
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 30; attempt += 1) {
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
@@ -375,10 +376,21 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     if (attempt === 29) {
       lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
         .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
+      const evidence = await control.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return {
+          control: element.outerHTML.slice(0, 500),
+          hit: hit?.outerHTML.slice(0, 500) ?? "",
+          box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
+        };
+      }).catch(() => null);
+      const totalOptions = await surface.locator(".jmtd-dropdown-option").count().catch(() => -1);
+      controlEvidence = JSON.stringify({ totalOptions, evidence }).slice(0, 900);
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
+  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；控件证据=${controlEvidence}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
