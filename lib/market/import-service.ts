@@ -36,9 +36,13 @@ async function cacheImagesAfterImport(db: ReturnType<typeof getMarketDatabase>, 
   }
 }
 
-async function refreshBrandSeedsAfterImport(db: ReturnType<typeof getMarketDatabase>, actorEmail: string) {
+async function refreshBrandSeedsAfterImport(
+  db: ReturnType<typeof getMarketDatabase>,
+  actorEmail: string,
+  systemSeedSnapshot: Awaited<ReturnType<typeof matchImportedMarketBrands>>["systemSeedSnapshot"],
+) {
   try {
-    return await refreshSystemMarketBrandSeeds(db, actorEmail);
+    return await refreshSystemMarketBrandSeeds(db, actorEmail, { systemSeedSnapshot });
   } catch {
     return { discovered: 0, inserted: 0, refreshed: 0, disabled: 0, manualPreserved: 0, maintenanceFailed: true };
   }
@@ -238,7 +242,7 @@ export async function importMarketFile(input: {
   });
   const [imageCache, brandSeedRefresh] = await Promise.all([
     cacheImagesAfterImport(db, batch.id),
-    refreshBrandSeedsAfterImport(db, input.actorEmail?.trim() || "market-import"),
+    refreshBrandSeedsAfterImport(db, input.actorEmail?.trim() || "market-import", brandMatch.systemSeedSnapshot),
   ]);
   return {
     ok: true,

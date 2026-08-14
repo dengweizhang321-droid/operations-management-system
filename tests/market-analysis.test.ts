@@ -350,6 +350,7 @@ test("market imports automatically match enabled brand seeds", async () => {
   ]);
   assert.match(service, /matchImportedMarketBrands/);
   assert.match(service, /refreshSystemMarketBrandSeeds/);
+  assert.match(service, /brandMatch\.systemSeedSnapshot/);
   assert.match(service, /brandMatch\.rows/);
   assert.match(matcher, /title_prefix/);
   assert.match(matcher, /title_anywhere/);

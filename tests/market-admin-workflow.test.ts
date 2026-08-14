@@ -764,6 +764,27 @@ test("newly discovered system brand seeds match the current import without pre-p
   sqlite.close();
 });
 
+test("market import can atomically persist its discovered system seed snapshot without rescanning source tables", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  const snapshot: MarketBrandSeed[] = [{
+    id: "snapshot-seed",
+    canonicalBrand: "品牌快照",
+    seedText: "品牌快照",
+    normalizedSeed: "品牌快照",
+    source: "system",
+    sourceRef: "market_confirmed_brand,erp_product_master",
+    status: "enabled",
+  }];
+  const refreshed = await refreshSystemMarketBrandSeeds(db, "market-import", { systemSeedSnapshot: snapshot });
+  assert.equal(refreshed.discovered, 1);
+  assert.equal(refreshed.inserted, 1);
+  assert.deepEqual({ ...sqlite.prepare("SELECT canonical_brand brand, source_ref sourceRef FROM market_brand_seeds WHERE normalized_seed=?")
+    .get("品牌快照") }, { brand: "品牌快照", sourceRef: "erp_product_master,market_confirmed_brand" });
+  sqlite.close();
+});
+
 test("system brand seed refresh is atomic when one discovered seed is rejected", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);

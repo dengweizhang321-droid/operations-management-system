@@ -123,7 +123,11 @@ export async function matchImportedMarketBrands(db: MarketSchemaDatabase, rows: 
     else anywhereMatched += 1;
     return { ...row, brand: result.brand };
   });
-  return { rows: nextRows, summary: { seedCount: seeds.length, matched, prefixMatched, anywhereMatched, unmatched: nextRows.filter((row) => !row.brand.trim()).length } };
+  return {
+    rows: nextRows,
+    systemSeedSnapshot: seeds.filter((seed) => seed.source === "system" && seed.status === "enabled"),
+    summary: { seedCount: seeds.length, matched, prefixMatched, anywhereMatched, unmatched: nextRows.filter((row) => !row.brand.trim()).length },
+  };
 }
 
 async function tableExists(db: MarketSchemaDatabase, table: string) {
@@ -181,8 +185,26 @@ export async function loadMarketBrandSeedsForImport(db: MarketSchemaDatabase): P
     || left.normalizedSeed.localeCompare(right.normalizedSeed, "zh-CN") || left.id.localeCompare(right.id));
 }
 
-export async function refreshSystemMarketBrandSeeds(db: MarketSchemaDatabase, actorEmail: string) {
-  const discovered = await discoverSystemMarketBrandSeeds(db);
+function discoveredFromSystemSeedSnapshot(seeds: readonly MarketBrandSeed[]) {
+  const discovered = new Map<string, { canonicalBrand: string; refs: Set<string> }>();
+  for (const seed of seeds) {
+    if (seed.source !== "system" || seed.status !== "enabled" || !seed.normalizedSeed) continue;
+    discovered.set(seed.normalizedSeed, {
+      canonicalBrand: seed.canonicalBrand,
+      refs: new Set(seed.sourceRef.split(",").map((value) => value.trim()).filter(Boolean)),
+    });
+  }
+  return discovered;
+}
+
+export async function refreshSystemMarketBrandSeeds(
+  db: MarketSchemaDatabase,
+  actorEmail: string,
+  options: { systemSeedSnapshot?: readonly MarketBrandSeed[] } = {},
+) {
+  const discovered = options.systemSeedSnapshot
+    ? discoveredFromSystemSeedSnapshot(options.systemSeedSnapshot)
+    : await discoverSystemMarketBrandSeeds(db);
   const existingRows = await db.prepare("SELECT id, canonical_brand, normalized_seed, source FROM market_brand_seeds").all<{
     id: string; canonical_brand: string; normalized_seed: string; source: string;
   }>();
