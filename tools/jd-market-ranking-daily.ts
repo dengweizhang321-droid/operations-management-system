@@ -379,13 +379,30 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
         const box = element.getBoundingClientRect();
         const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
         return {
-          control: element.outerHTML.slice(0, 500),
-          hit: hit?.outerHTML.slice(0, 500) ?? "",
+          control: `${element.tagName}.${element.className}`.slice(0, 180),
+          hit: hit ? `${hit.tagName}.${hit.className}`.slice(0, 180) : "",
           box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
         };
       }).catch(() => null);
       const totalOptions = await surface.locator(".jmtd-dropdown-option").count().catch(() => -1);
-      controlEvidence = JSON.stringify({ totalOptions, evidence }).slice(0, 900);
+      const lastVisibleOption = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).last();
+      const menu = await lastVisibleOption.evaluate((element) => {
+        const ancestors: Array<Record<string, unknown>> = [];
+        let current: HTMLElement | null = element as HTMLElement;
+        for (let depth = 0; current && current !== document.body && depth < 6; depth += 1) {
+          const box = current.getBoundingClientRect();
+          ancestors.push({
+            tag: current.tagName,
+            className: String(current.className).slice(0, 100),
+            client: [current.clientWidth, current.clientHeight],
+            scroll: [current.scrollWidth, current.scrollHeight],
+            box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
+          });
+          current = current.parentElement;
+        }
+        return ancestors;
+      }).catch(() => []);
+      controlEvidence = JSON.stringify({ totalOptions, evidence, menu }).slice(0, 850);
     }
     await frame.waitForTimeout(100);
   }
