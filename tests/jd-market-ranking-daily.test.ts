@@ -200,7 +200,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /attempt < 3/);
   assert.match(runner, /document\.createRange\(\)/);
   assert.match(runner, /range\.getBoundingClientRect\(\)/);
-  assert.match(runner, /mouse\.move\(submenuPoint\.x, submenuPoint\.y\)/);
+  assert.match(runner, /mouse\.move\(submenuPoint\.x, submenuPoint\.y, \{ steps: 10 \}\)/);
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
   assert.match(runner, /waitForRankingSurface\(frame\)/);
