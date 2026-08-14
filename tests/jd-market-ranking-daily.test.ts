@@ -190,7 +190,8 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(selectorHelper, /click\(\{ timeout: 3_000, force: true \}\)/);
   assert.doesNotMatch(selectorHelper, /dispatchEvent/);
   assert.match(runner, /selectUniqueCategoryPath\(surface, frame, selectors\.nth\(1\), target\.categoryPath\)/);
-  assert.match(runner, /await control\.click\(\{ timeout: 3_000 \}\)/);
+  assert.match(runner, /await control\.click\(\{ timeout: 3_000, force: true \}\)/);
+  assert.match(runner, /waitAttempt < 10/);
   assert.match(runner, /parentCount === 1/);
   assert.match(runner, /childCount === 1/);
   assert.match(runner, /scrollIntoViewIfNeeded\(\{ timeout: 3_000 \}\)/);

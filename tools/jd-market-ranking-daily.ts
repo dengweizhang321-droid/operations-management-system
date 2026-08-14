@@ -312,10 +312,13 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
     parentCount = await parents.count();
     if (parentCount === 0) {
-      await control.click({ timeout: 3_000 }).catch(() => undefined);
-      await frame.waitForTimeout(100);
-      parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
-      parentCount = await parents.count();
+      await control.click({ timeout: 3_000, force: true }).catch(() => undefined);
+      for (let waitAttempt = 0; waitAttempt < 10; waitAttempt += 1) {
+        await frame.waitForTimeout(100);
+        parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
+        parentCount = await parents.count();
+        if (parentCount > 0) break;
+      }
     }
     if (parentCount === 1) {
       const hovered = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
