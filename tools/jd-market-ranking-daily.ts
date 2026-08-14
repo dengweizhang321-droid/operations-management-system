@@ -307,6 +307,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   const exact = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
   let parentCount = 0;
   let childCount = 0;
+  let revealedChildCount = 0;
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 30; attempt += 1) {
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
@@ -326,9 +327,16 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
         await frame.waitForTimeout(150);
         const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
         childCount = await children.count();
-        if (childCount === 1) {
-          await children.first().scrollIntoViewIfNeeded({ timeout: 3_000 }).catch(() => undefined);
-          const clicked = await children.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+        const revealedChildren: Locator[] = [];
+        for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
+          const child = children.nth(childIndex);
+          const revealed = await child.scrollIntoViewIfNeeded({ timeout: 1_000 })
+            .then(() => child.isVisible()).catch(() => false);
+          if (revealed) revealedChildren.push(child);
+        }
+        revealedChildCount = revealedChildren.length;
+        if (revealedChildCount === 1) {
+          const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
           if (clicked) return;
         }
       }
@@ -339,7 +347,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
+  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
