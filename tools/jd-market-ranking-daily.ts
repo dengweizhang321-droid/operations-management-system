@@ -312,6 +312,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let controlClicks = 0;
   let lastControlError = "";
   let controlEvidence = "";
+  let lastMenuEvidence = "";
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 30; attempt += 1) {
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
@@ -352,6 +353,25 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
           }
           const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
           const visibleOptionCount = await visibleOptions.count();
+          if (visibleOptionCount > 1) {
+            const menu = await visibleOptions.last().evaluate((element) => {
+              const ancestors: Array<Record<string, unknown>> = [];
+              let current: HTMLElement | null = element as HTMLElement;
+              for (let depth = 0; current && current !== document.body && depth < 6; depth += 1) {
+                const box = current.getBoundingClientRect();
+                ancestors.push({
+                  tag: current.tagName,
+                  className: String(current.className).slice(0, 100),
+                  client: [current.clientWidth, current.clientHeight],
+                  scroll: [current.scrollWidth, current.scrollHeight],
+                  box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
+                });
+                current = current.parentElement;
+              }
+              return ancestors;
+            }).catch(() => []);
+            if (menu.length) lastMenuEvidence = JSON.stringify(menu).slice(0, 650);
+          }
           const scrolled = visibleOptionCount > 1
             ? await visibleOptions.last().evaluate((element) => {
                 let current = element.parentElement;
@@ -406,7 +426,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；控件证据=${controlEvidence}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
+  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；菜单证据=${lastMenuEvidence || "无"}；控件证据=${controlEvidence}；可见选项=${lastVisibleLabels.join("|").slice(0, 400)}`);
 }
 
 async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
