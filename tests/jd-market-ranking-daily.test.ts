@@ -150,6 +150,8 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /navigation\?\.ok\(\)/);
   assert.doesNotMatch(runner, /connectPlaywrightJackyunTarget\(browser/);
   assert.match(runner, /for \(const targetPlan of plan\.targets\)/);
+  assert.match(runner, /waitForRankingIdentityControls\(surface, frame\)/);
+  assert.match(runner, /for \(let attempt = 0; attempt < 300; attempt \+= 1\)[\s\S]*SKU\/SPU 或商用类目筛选控件未在有界时间内唯一稳定/);
   assert.match(runner, /candidate\.capturedAt >= categorySelectionStartedAt/);
   assert.match(runner, /缺少用于刷新同类目请求的受控备用类目/);
   assert.match(runner, /市场榜单计划类目清单或隐藏 Chromium 约束与当前受控配置不一致/);

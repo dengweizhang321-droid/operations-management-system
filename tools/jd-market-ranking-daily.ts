@@ -455,18 +455,25 @@ async function waitForRankingSurface(frame: Frame) {
   throw new Error("京东商品榜单受控业务容器未就绪或不唯一");
 }
 
+async function waitForRankingIdentityControls(surface: Locator, frame: Frame) {
+  const selectOpeners = surface.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"]').filter({ visible: true });
+  await selectOpeners.first().waitFor({ state: "visible", timeout: 30_000 });
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const dimensionControl = selectOpeners.filter({ hasText: /^(?:SKU|SPU)$/ });
+    const categoryControl = selectOpeners.filter({ hasText: /商用/ });
+    if (await selectOpeners.count() >= 3 && await dimensionControl.count() === 1 && await categoryControl.count() === 1) {
+      return { dimensionControl, categoryControl };
+    }
+    await frame.waitForTimeout(100);
+  }
+  throw new Error("京东商品榜单 SKU/SPU 或商用类目筛选控件未在有界时间内唯一稳定");
+}
+
 async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig) {
   const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
   const surface = await waitForRankingSurface(frame);
-  const selectOpeners = surface.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"]').filter({ visible: true });
-  await selectOpeners.first().waitFor({ state: "visible", timeout: 30_000 });
-  if (await selectOpeners.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
-  const dimensionControl = selectOpeners.filter({ hasText: /^(?:SKU|SPU)$/ });
-  const categoryControl = selectOpeners.filter({ hasText: /商用/ });
-  if (await dimensionControl.count() !== 1 || await categoryControl.count() !== 1) {
-    throw new Error("京东商品榜单 SKU/SPU 或商用类目筛选控件不唯一");
-  }
+  const { dimensionControl, categoryControl } = await waitForRankingIdentityControls(surface, frame);
   const currentDimension = (await dimensionControl.innerText()).trim();
   if (currentDimension !== "SKU") {
     await clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl);
