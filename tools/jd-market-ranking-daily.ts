@@ -347,7 +347,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
           for (let optionIndex = 0; parentBox && optionIndex < await visibleOptions.count(); optionIndex += 1) {
             const option = visibleOptions.nth(optionIndex);
             const optionBox = await option.boundingBox();
-            if (optionBox && optionBox.x >= parentBox.x + parentBox.width - 4) { submenuAnchor = option; break; }
+            if (optionBox && optionBox.x >= parentBox.x + 20) { submenuAnchor = option; break; }
           }
           if (!submenuAnchor || !await submenuAnchor.hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false)) break;
           await frame.page().mouse.wheel(0, scrollAttempt === 0 ? -10_000 : 550);
