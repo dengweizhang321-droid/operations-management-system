@@ -35,5 +35,5 @@
   "priceBandFilter": "全部",
   "earliestDate": "2026-01-01",
   "requestDelayMs": 500,
-  "maxDaysPerFile": 20
+  "maxDaysPerFile": 5
 }

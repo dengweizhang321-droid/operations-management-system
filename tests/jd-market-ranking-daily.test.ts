@@ -96,7 +96,7 @@ test("JD market config fixes five unique category identities and rejects ambiguo
     ["商用食品机械设备 > 商用绞肉机/切肉机/切片机", "商用绞肉机切肉机切片机"],
     ["商用食品机械设备 > 商用切菜机", "商用切菜机"],
   ]);
-  assert.equal(validated.maxDaysPerFile, 20);
+  assert.equal(validated.maxDaysPerFile, 5);
   assert.throws(() => validateJdMarketDailyConfig({
     ...config,
     categories: [...config.categories, { ...config.categories[0], categoryPath: ["重复一级类目", "重复二级类目"] }],
