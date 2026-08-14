@@ -303,8 +303,39 @@ async function clickUniqueDropdownOption(surface: Locator, frame: Frame, label: 
   await triggerUniqueDropdownOption(surface, frame, label, "click", control);
 }
 
-async function hoverUniqueDropdownOption(surface: Locator, frame: Frame, label: string, control?: Locator) {
-  await triggerUniqueDropdownOption(surface, frame, label, "hover", control);
+async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control: Locator, categoryPath: [string, string]) {
+  const exact = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  let parentCount = 0;
+  let childCount = 0;
+  let lastVisibleLabels: string[] = [];
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
+    parentCount = await parents.count();
+    if (parentCount === 0) {
+      await control.click({ timeout: 3_000 }).catch(() => undefined);
+      await frame.waitForTimeout(100);
+      parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
+      parentCount = await parents.count();
+    }
+    if (parentCount === 1) {
+      const hovered = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+      if (hovered) {
+        await frame.waitForTimeout(150);
+        const children = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[1]) });
+        childCount = await children.count();
+        if (childCount === 1) {
+          const clicked = await children.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+          if (clicked) return;
+        }
+      }
+    }
+    if (attempt === 29) {
+      lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
+        .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
+    }
+    await frame.waitForTimeout(100);
+  }
+  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
@@ -347,15 +378,13 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, ta
   if (currentCategory.includes(categoryLabel)) {
     const alternate = config.categories.find((candidate) => candidate.key !== target.key);
     if (!alternate) throw new Error("京东商品榜单缺少用于刷新同类目请求的受控备用类目");
-    await hoverUniqueDropdownOption(surface, frame, alternate.categoryPath[0], selectors.nth(1));
-    await clickUniqueDropdownOption(surface, frame, alternate.categoryPath[1]);
+    await selectUniqueCategoryPath(surface, frame, selectors.nth(1), alternate.categoryPath);
     await waitForSelectorText(surface, frame, 1, alternate.categoryPath.join(" > "), false);
   }
-  await hoverUniqueDropdownOption(surface, frame, target.categoryPath[0], selectors.nth(1));
   const categorySelectionStartedAt = Date.now();
   capturedRankRequests.delete(page);
   capturedImageRequests.delete(page);
-  await clickUniqueDropdownOption(surface, frame, target.categoryPath[1]);
+  await selectUniqueCategoryPath(surface, frame, selectors.nth(1), target.categoryPath);
   await waitForSelectorText(surface, frame, 1, categoryLabel, false);
   await frame.waitForTimeout(1_000);
   const labels = await selectors.allTextContents();
