@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Frame, Locator, Page } from "playwright-core";
@@ -7,6 +7,7 @@ import type { Frame, Locator, Page } from "playwright-core";
 import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib/jackyun/playwright-client";
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
@@ -535,16 +536,17 @@ async function importCsv(plan: JdMarketDailyPlan, config: JdMarketDailyConfig, t
   return { batchId: String(batch.id), rowCount: Number(batch.rowCount) };
 }
 
-async function withRunLock<T>(task: () => Promise<T>) {
+async function withRunLock<T>(runId: string, task: () => Promise<T>) {
   await mkdir(outputRoot, { recursive: true });
-  const handle = await open(lockPath, "wx").catch(() => null);
-  if (!handle) throw new Error("已有京东市场商品榜单补齐任务运行中");
-  await handle.close();
-  try { return await task(); } finally { await rm(lockPath, { force: true }); }
+  return withJackyunRunLock({
+    runId,
+    purpose: "jd-market-ranking-daily",
+    lockDirectory: lockPath,
+  }, task);
 }
 
 export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan) {
-  return withJdChromiumRunLock("market-ranking", () => withRunLock(async () => {
+  return withJdChromiumRunLock("market-ranking", () => withRunLock(plan.runId, async () => {
     const config = await loadJdMarketDailyConfig();
     const store = await getJdStore(plan.storeKey);
     if (plan.stage === "executed" || plan.stage === "completed") return { ok: true, stage: "run", verificationOnly: true, runId: plan.runId };
