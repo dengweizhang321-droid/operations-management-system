@@ -356,8 +356,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             ? await visibleOptions.last().evaluate((element) => {
                 let current = element.parentElement;
                 while (current && current !== document.body) {
-                  const style = getComputedStyle(current);
-                  if (/(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight + 1) {
+                  if (current.scrollHeight > current.clientHeight + 1) {
                     current.scrollTop = scrollAttempt === 0
                       ? 0
                       : Math.min(current.scrollHeight - current.clientHeight, current.scrollTop + Math.max(1, Math.floor(current.clientHeight * 0.8)));
