@@ -189,7 +189,8 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(selectorHelper, /hover\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(selectorHelper, /click\(\{ timeout: 3_000, force: true \}\)/);
   assert.doesNotMatch(selectorHelper, /dispatchEvent/);
-  assert.match(runner, /selectUniqueCategoryPath\(surface, frame, selectors\.nth\(1\), target\.categoryPath\)/);
+  assert.match(runner, /selectUniqueCategoryPath\(surface, frame, categoryControl, target\.categoryPath\)/);
+  assert.match(runner, /data-component-name="Select"\]\[data-event-name="open"/);
   assert.match(runner, /parents\.first\(\)\.click\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(runner, /parentCount === 1/);
   assert.match(runner, /revealedChildCount === 1/);
@@ -209,7 +210,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /if \(lastCandidateCount === 0 && control\) await clickDropdownControl\(control\)/);
   assert.match(runner, /eventName !== "open"/);
   assert.match(runner, /await opener\.click\(\{ timeout: 3_000, force: true \}\)/);
-  assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", selectors\.nth\(0\)\)/);
+  assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", dimensionControl\)/);
   assert.match(runner, /attempt < 300/);
   assert.match(runner, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
   assert.match(runner, /setTimeout\(\(\) => controller\.abort\(\), 30_000\)/);

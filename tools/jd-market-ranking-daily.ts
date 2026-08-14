@@ -434,10 +434,9 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；菜单证据=${lastMenuEvidence || "无"}；控件证据=${controlEvidence}；可见选项=${lastVisibleLabels.join("|").slice(0, 400)}`);
 }
 
-async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
+async function waitForSelectorText(control: Locator, frame: Frame, expected: string, exact: boolean) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    const controls = surface.locator(".jmtd-base-input-top").filter({ visible: true });
-    const actual = (await controls.nth(index).innerText().catch(() => "")).trim();
+    const actual = (await control.innerText().catch(() => "")).trim();
     if (exact ? actual === expected : actual.includes(expected)) return;
     await frame.waitForTimeout(100);
   }
@@ -461,30 +460,31 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, ta
   const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
   if (!frame) throw new Error("未找到京东商品榜单业务框架");
   const surface = await waitForRankingSurface(frame);
-  const selectors = surface.locator(".jmtd-base-input-top").filter({ visible: true });
-  await selectors.first().waitFor({ state: "visible", timeout: 30_000 });
-  if (await selectors.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
-  const currentDimension = (await selectors.nth(0).innerText()).trim();
+  const selectOpeners = surface.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"]').filter({ visible: true });
+  await selectOpeners.first().waitFor({ state: "visible", timeout: 30_000 });
+  if (await selectOpeners.count() < 3) throw new Error("京东商品榜单筛选控件不完整");
+  const dimensionControl = selectOpeners.nth(0).locator(":scope > .jmtd-base-input-top");
+  const categoryControl = selectOpeners.nth(1).locator(":scope > .jmtd-base-input-top");
+  const currentDimension = (await dimensionControl.innerText()).trim();
   if (currentDimension !== "SKU") {
-    await clickUniqueDropdownOption(surface, frame, "SKU", selectors.nth(0));
-    await waitForSelectorText(surface, frame, 0, "SKU", true);
+    await clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl);
+    await waitForSelectorText(dimensionControl, frame, "SKU", true);
   }
   const categoryLabel = target.categoryPath.join(" > ");
-  const currentCategory = (await selectors.nth(1).innerText()).trim();
+  const currentCategory = (await categoryControl.innerText()).trim();
   if (currentCategory.includes(categoryLabel)) {
     const alternate = config.categories.find((candidate) => candidate.key !== target.key);
     if (!alternate) throw new Error("京东商品榜单缺少用于刷新同类目请求的受控备用类目");
-    await selectUniqueCategoryPath(surface, frame, selectors.nth(1), alternate.categoryPath);
-    await waitForSelectorText(surface, frame, 1, alternate.categoryPath.join(" > "), false);
+    await selectUniqueCategoryPath(surface, frame, categoryControl, alternate.categoryPath);
+    await waitForSelectorText(categoryControl, frame, alternate.categoryPath.join(" > "), false);
   }
   const categorySelectionStartedAt = Date.now();
   capturedRankRequests.delete(page);
   capturedImageRequests.delete(page);
-  await selectUniqueCategoryPath(surface, frame, selectors.nth(1), target.categoryPath);
-  await waitForSelectorText(surface, frame, 1, categoryLabel, false);
+  await selectUniqueCategoryPath(surface, frame, categoryControl, target.categoryPath);
+  await waitForSelectorText(categoryControl, frame, categoryLabel, false);
   await frame.waitForTimeout(1_000);
-  const labels = await selectors.allTextContents();
-  if (labels[0]?.trim() !== "SKU" || !labels[1]?.includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
+  if ((await dimensionControl.innerText()).trim() !== "SKU" || !(await categoryControl.innerText()).includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
   const exportPanel = activeExportPanel(frame);
   const exportPanelCount = await exportPanel.count();
   if (exportPanelCount > 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
