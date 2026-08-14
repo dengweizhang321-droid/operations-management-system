@@ -92,7 +92,7 @@ test("JD market config fixes five unique category identities and rejects ambiguo
   assert.deepEqual(validated.categories.map((target) => [target.categoryPath.join(" > "), target.systemCategory]), [
     ["商用净饮水设备 > 商用净水设备", "商用净水设备"],
     ["商用净饮水设备 > 商用开水器/蒸气奶泡机", "商用开水器蒸气奶泡机"],
-    ["商用食品机械设备 > 商用炒菜机", "商用炒菜机"],
+    ["商用加热类设备 > 商用炒菜机", "商用炒菜机"],
     ["商用食品机械设备 > 商用绞肉机/切肉机/切片机", "商用绞肉机切肉机切片机"],
     ["商用食品机械设备 > 商用切菜机", "商用切菜机"],
   ]);
