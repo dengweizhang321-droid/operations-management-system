@@ -310,7 +310,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let revealedChildCount = 0;
   let submenuScrolls = 0;
   let lastVisibleLabels: string[] = [];
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
     parentCount = await parents.count();
     if (parentCount === 0) {
@@ -342,20 +342,11 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
             if (clicked) return;
           }
           const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
-          let submenuPoint: { x: number; y: number } | null = null;
-          let minimumOptionX = Number.POSITIVE_INFINITY;
-          let maximumOptionX = Number.NEGATIVE_INFINITY;
-          for (let optionIndex = 0; optionIndex < await visibleOptions.count(); optionIndex += 1) {
-            const option = visibleOptions.nth(optionIndex);
-            const optionBox = await option.boundingBox();
-            if (!optionBox) continue;
-            minimumOptionX = Math.min(minimumOptionX, optionBox.x);
-            if (optionBox.x > maximumOptionX) {
-              maximumOptionX = optionBox.x;
-              submenuPoint = { x: optionBox.x + optionBox.width / 2, y: optionBox.y + optionBox.height / 2 };
-            }
-          }
-          if (maximumOptionX - minimumOptionX < 20) submenuPoint = null;
+          const visibleOptionCount = await visibleOptions.count();
+          const anchorBox = visibleOptionCount > 1 ? await visibleOptions.last().boundingBox() : null;
+          const submenuPoint = anchorBox
+            ? { x: anchorBox.x + anchorBox.width / 2, y: anchorBox.y + anchorBox.height / 2 }
+            : null;
           if (!submenuPoint) break;
           await frame.page().mouse.move(submenuPoint.x, submenuPoint.y);
           await frame.page().mouse.wheel(0, scrollAttempt === 0 ? -10_000 : 550);
@@ -363,7 +354,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
         }
       }
     }
-    if (attempt === 29) {
+    if (attempt === 2) {
       lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
         .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
     }
