@@ -196,6 +196,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /revealedChildCount === 1/);
   assert.match(runner, /scrollIntoViewIfNeeded\(\{ timeout: 1_000 \}\)/);
   assert.match(runner, /child\.isVisible\(\)/);
+  assert.match(runner, /scrollAttempt < 20/);
+  assert.match(runner, /frame\.page\(\)\.mouse\.wheel\(0, scrollAttempt === 0 \? -10_000 : 550\)/);
+  assert.match(runner, /optionBox\.x >= parentBox\.x \+ parentBox\.width - 4/);
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
   assert.match(runner, /waitForRankingSurface\(frame\)/);

@@ -308,6 +308,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   let parentCount = 0;
   let childCount = 0;
   let revealedChildCount = 0;
+  let submenuScrolls = 0;
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 30; attempt += 1) {
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
@@ -324,20 +325,33 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     if (parentCount === 1) {
       const hovered = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
       if (hovered) {
-        await frame.waitForTimeout(150);
-        const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
-        childCount = await children.count();
-        const revealedChildren: Locator[] = [];
-        for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
-          const child = children.nth(childIndex);
-          const revealed = await child.scrollIntoViewIfNeeded({ timeout: 1_000 })
-            .then(() => child.isVisible()).catch(() => false);
-          if (revealed) revealedChildren.push(child);
-        }
-        revealedChildCount = revealedChildren.length;
-        if (revealedChildCount === 1) {
-          const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
-          if (clicked) return;
+        for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
+          await frame.waitForTimeout(150);
+          const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
+          childCount = await children.count();
+          const revealedChildren: Locator[] = [];
+          for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
+            const child = children.nth(childIndex);
+            const revealed = await child.scrollIntoViewIfNeeded({ timeout: 1_000 })
+              .then(() => child.isVisible()).catch(() => false);
+            if (revealed) revealedChildren.push(child);
+          }
+          revealedChildCount = revealedChildren.length;
+          if (revealedChildCount === 1) {
+            const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+            if (clicked) return;
+          }
+          const parentBox = await parents.first().boundingBox();
+          const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
+          let submenuAnchor: Locator | null = null;
+          for (let optionIndex = 0; parentBox && optionIndex < await visibleOptions.count(); optionIndex += 1) {
+            const option = visibleOptions.nth(optionIndex);
+            const optionBox = await option.boundingBox();
+            if (optionBox && optionBox.x >= parentBox.x + parentBox.width - 4) { submenuAnchor = option; break; }
+          }
+          if (!submenuAnchor || !await submenuAnchor.hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false)) break;
+          await frame.page().mouse.wheel(0, scrollAttempt === 0 ? -10_000 : 550);
+          submenuScrolls += 1;
         }
       }
     }
@@ -347,7 +361,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
+  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function waitForSelectorText(surface: Locator, frame: Frame, index: number, expected: string, exact: boolean) {
