@@ -24,7 +24,7 @@
         "url": "http://127.0.0.1:5791/jd-market/plan",
         "sendHeaders": true,
         "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
-        "options": { "timeout": 120000 }
+        "options": { "timeout": 900000 }
       },
       "id": "a96a27f9-b3a7-414a-a667-200000000003",
       "name": "A·计算运营系统缺失日期",
@@ -52,7 +52,7 @@
         "url": "http://127.0.0.1:5791/jd-market/verify",
         "sendHeaders": true,
         "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
-        "options": { "timeout": 120000 }
+        "options": { "timeout": 900000 }
       },
       "id": "a96a27f9-b3a7-414a-a667-200000000005",
       "name": "C·回查全部目标日覆盖",

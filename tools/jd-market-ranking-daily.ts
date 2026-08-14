@@ -17,6 +17,8 @@ const targetUrl = "https://jdsz.jd.com/szweb/view/industry/industry-product-rank
 const outputRoot = path.join(projectRoot, "outputs", "jd-market-ranking-daily");
 const configPath = path.join(projectRoot, "config", "jd-market-ranking-daily.json");
 const lockPath = path.join(outputRoot, "run.lock");
+const coverageRequestTimeoutMs = 120_000;
+const importRequestTimeoutMs = 900_000;
 const capturedRankRequests = new WeakMap<Page, { headers: Record<string, string>; url: string; capturedAt: number }>();
 const capturedImageRequests = new WeakMap<Page, { headers: Record<string, string>; capturedAt: number }>();
 const replayableHeaderNames = new Set(["accept", "p-pin", "user-mnp", "user-mup", "uuid", "x-requested-with"]);
@@ -136,7 +138,7 @@ function coverageUrl(baseUrl: string, config: JdMarketDailyConfig, target: JdMar
 }
 
 async function readCoverage(baseUrl: string, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, startDate: string, endDate: string, request: typeof fetch = fetch) {
-  const response = await request(coverageUrl(baseUrl, config, target, startDate, endDate), { headers: { accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
+  const response = await request(coverageUrl(baseUrl, config, target, startDate, endDate), { headers: { accept: "application/json" }, signal: AbortSignal.timeout(coverageRequestTimeoutMs) });
   const body = await response.json().catch(() => null) as Coverage | { error?: string } | null;
   if (!response.ok || !body || !("missingDates" in body)) throw new Error(`读取市场日覆盖失败：${body && "error" in body ? body.error : `HTTP ${response.status}`}`);
   return body as Coverage;
@@ -528,7 +530,7 @@ async function importCsv(plan: JdMarketDailyPlan, config: JdMarketDailyConfig, t
   form.set("category", target.systemCategory);
   form.set("scope", config.scope);
   form.set("priceBandFilter", config.priceBandFilter);
-  const response = await fetch(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(300_000) });
+  const response = await fetch(`${plan.baseUrl}/api/market/import`, { method: "POST", body: form, signal: AbortSignal.timeout(importRequestTimeoutMs) });
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (!response.ok || !body || !["imported", "duplicate"].includes(String(body.status))) throw new Error(`市场榜单导入失败：${String(body?.error ?? `HTTP ${response.status}`)}`);
   const batch = body.batch as Record<string, unknown> | undefined;

@@ -63,7 +63,7 @@ test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-market-ranking-daily.workflow.json", import.meta.url), "utf8")) as {
     name: string;
     active: boolean;
-    nodes: Array<{ type: string; parameters?: { url?: string; rule?: { interval?: Array<{ expression?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
+    nodes: Array<{ type: string; parameters?: { url?: string; rule?: { interval?: Array<{ expression?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> }; options?: { timeout?: number } } }>;
   };
   assert.equal(workflow.active, false);
   assert.match(workflow.name, /Profile 3隐藏Chromium/);
@@ -75,6 +75,7 @@ test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and
     "http://127.0.0.1:5791/jd-market/run",
     "http://127.0.0.1:5791/jd-market/verify",
   ]);
+  assert.deepEqual(requests.map((node) => node.parameters?.options?.timeout), [900_000, 21_600_000, 900_000]);
   for (const request of requests) {
     assert.deepEqual(request.parameters?.headerParameters?.parameters, [
       { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
@@ -166,7 +167,10 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /purpose: "jd-market-ranking-daily"/);
   assert.match(runner, /lockDirectory: lockPath/);
   assert.doesNotMatch(runner, /open\(lockPath, "wx"\)/);
-  assert.match(runner, /AbortSignal\.timeout\(300_000\)/);
+  assert.match(runner, /const coverageRequestTimeoutMs = 120_000/);
+  assert.match(runner, /const importRequestTimeoutMs = 900_000/);
+  assert.match(runner, /AbortSignal\.timeout\(coverageRequestTimeoutMs\)/);
+  assert.match(runner, /AbortSignal\.timeout\(importRequestTimeoutMs\)/);
   assert.match(runner, /keepWindowHidden: plan\.silentNoWindow/);
   assert.match(runner, /静默模式拒绝复用未受本次窗口守护控制/);
   assert.match(runner, /closeChromeBrowser\(store\.browser\.debugPort\)/);
