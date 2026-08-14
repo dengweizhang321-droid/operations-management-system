@@ -276,6 +276,17 @@ async function installRequestCapture(page: Page) {
   });
 }
 
+async function clickDropdownControl(control: Locator) {
+  const opener = control.locator("xpath=..");
+  const count = await opener.count();
+  const className = count === 1 ? String(await opener.getAttribute("class") ?? "") : "";
+  const eventName = count === 1 ? String(await opener.getAttribute("data-event-name") ?? "") : "";
+  if (count !== 1 || !className.split(/\s+/).includes("jmtd-base-input") || eventName !== "open") {
+    throw new Error("京东商品榜单下拉控件真实触发层不唯一或契约已变化");
+  }
+  await opener.click({ timeout: 3_000, force: true });
+}
+
 async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label: string, action: "click" | "hover", control?: Locator) {
   const exactLabel = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
   let lastCandidateCount = 0;
@@ -289,7 +300,7 @@ async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label
         : await candidates.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
       if (applied) return;
     }
-    if (lastCandidateCount === 0 && control) await control.click().catch(() => undefined);
+    if (lastCandidateCount === 0 && control) await clickDropdownControl(control).catch(() => undefined);
     if (attempt === 99) {
       lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
         .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
@@ -318,7 +329,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
     let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
     parentCount = await parents.count();
     if (parentCount === 0) {
-      const clicked = await control.click({ timeout: 3_000, force: true })
+      const clicked = await clickDropdownControl(control)
         .then(() => true)
         .catch((error) => {
           lastControlError = (error instanceof Error ? error.message : String(error)).split("\n", 1)[0]!.slice(0, 240);

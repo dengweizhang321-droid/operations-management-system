@@ -206,7 +206,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
   assert.match(runner, /waitForRankingSurface\(frame\)/);
-  assert.match(runner, /if \(lastCandidateCount === 0 && control\) await control\.click/);
+  assert.match(runner, /if \(lastCandidateCount === 0 && control\) await clickDropdownControl\(control\)/);
+  assert.match(runner, /eventName !== "open"/);
+  assert.match(runner, /await opener\.click\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", selectors\.nth\(0\)\)/);
   assert.match(runner, /attempt < 300/);
   assert.match(runner, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
