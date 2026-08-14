@@ -208,6 +208,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /if \(lastCandidateCount === 0 && control\) await control\.click/);
   assert.match(runner, /clickUniqueDropdownOption\(surface, frame, "SKU", selectors\.nth\(0\)\)/);
   assert.match(runner, /attempt < 300/);
+  assert.match(runner, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
+  assert.match(runner, /setTimeout\(\(\) => controller\.abort\(\), 30_000\)/);
+  assert.match(runner, /连续 3 次失败/);
   assert.match(runner, /not\(ancestor::\*\[@id='sz-old-version'\]\)/);
   assert.match(runner, /exportPanelCount > 1/);
   assert.doesNotMatch(runner, /exportPanel\.count\(\) !== 1/);

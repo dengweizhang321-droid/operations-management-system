@@ -577,20 +577,35 @@ export function assertJdMarketImageCoverage(skuIds: string[], images: Record<str
 }
 
 async function fetchRankDay(frame: Page | import("playwright-core").Frame, date: string): Promise<RankBlock> {
-  return await frame.evaluate(async (targetDate) => {
-    const target = window as typeof window & { __teruisiJdRank?: { headers: Record<string, string>; url: string; capturedAt: number } };
-    const state = target.__teruisiJdRank;
-    if (!state || Date.now() - state.capturedAt > 60 * 60_000) throw new Error("榜单请求头缺失或已过期");
-    const url = new URL(state.url, location.origin);
-    url.searchParams.set("date", targetDate.replaceAll("-", ""));
-    url.searchParams.set("startDate", targetDate);
-    url.searchParams.set("endDate", targetDate);
-    const response = await fetch(url, { credentials: "include", headers: state.headers });
-    const body = await response.json();
-    const block = body?.content?.trade;
-    if (!response.ok || !block?.metaIndex || !Array.isArray(block.data)) throw new Error("京东榜单接口未返回可验证的交易榜单数据");
-    return block as RankBlock;
-  }, date);
+  let lastError = "未知错误";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await frame.evaluate(async (targetDate) => {
+        const target = window as typeof window & { __teruisiJdRank?: { headers: Record<string, string>; url: string; capturedAt: number } };
+        const state = target.__teruisiJdRank;
+        if (!state || Date.now() - state.capturedAt > 60 * 60_000) throw new Error("榜单请求头缺失或已过期");
+        const url = new URL(state.url, location.origin);
+        url.searchParams.set("date", targetDate.replaceAll("-", ""));
+        url.searchParams.set("startDate", targetDate);
+        url.searchParams.set("endDate", targetDate);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
+        try {
+          const response = await fetch(url, { credentials: "include", headers: state.headers, signal: controller.signal });
+          const body = await response.json();
+          const block = body?.content?.trade;
+          if (!response.ok || !block?.metaIndex || !Array.isArray(block.data)) throw new Error("京东榜单接口未返回可验证的交易榜单数据");
+          return block as RankBlock;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }, date);
+    } catch (error) {
+      lastError = (error instanceof Error ? error.message : String(error)).split("\n", 1)[0]!.slice(0, 300);
+      if (attempt < 2) await frame.waitForTimeout(1_000);
+    }
+  }
+  throw new Error(`京东商品榜单单日请求连续 3 次失败：${date}；${lastError}`);
 }
 
 async function fetchImages(frame: Page | import("playwright-core").Frame, skuIds: string[], imageHeaders: Record<string, string>) {
