@@ -10,7 +10,7 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareInitialProductQueryTimeoutMs, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, jdWareTargetNavigationTimeoutMs, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -375,6 +375,27 @@ test("captures the initial JD navigation query before loading the target and fen
     }),
     /拒绝重复导航或查询/,
   );
+});
+
+test("keeps the initial JD query listener alive beyond the complete navigation budget", () => {
+  assert.ok(jdWareInitialProductQueryTimeoutMs > jdWareTargetNavigationTimeoutMs);
+  assert.equal(jdWareInitialProductQueryTimeoutMs, 60_000);
+});
+
+test("reports a login redirect immediately when navigation completes without a product query", async () => {
+  const state = createJdWareQueryBootstrapState();
+  const calls: string[] = [];
+  await assert.rejects(
+    captureJdWareInitialProductQuery(state, {
+      gotoBlank: async () => { calls.push("blank"); },
+      waitForQuery: async () => new Promise<never>(() => undefined),
+      gotoTarget: async () => { calls.push("target"); },
+      verifyAfterNavigation: async () => { calls.push("verify"); throw new Error("京东商家后台尚未登录。"); },
+    }),
+    /尚未登录/,
+  );
+  assert.deepEqual(calls, ["blank", "target", "verify"]);
+  assert.equal(state.queryTriggered, true);
 });
 
 test("waits for the JD product query controls to become uniquely ready without clicking", async () => {

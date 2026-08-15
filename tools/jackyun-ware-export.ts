@@ -29,6 +29,8 @@ const refreshIntervalMs = 3_000;
 const maximumJdWareWorkbookBytes = 25 * 1024 * 1024;
 const jdWareCreateExportApi = "dsm.product.manage.view.batchJobService.createExportJob";
 const jdWareProductQueryApi = "dsm.product.manage.ProductInfoReadViewService.queryValidProductList";
+export const jdWareTargetNavigationTimeoutMs = 30_000;
+export const jdWareInitialProductQueryTimeoutMs = 60_000;
 
 async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
   await ensureDir(artifactDir);
@@ -198,6 +200,7 @@ export async function captureJdWareInitialProductQuery<T>(
     gotoBlank: () => Promise<void>;
     waitForQuery: () => Promise<T>;
     gotoTarget: () => Promise<void>;
+    verifyAfterNavigation?: () => Promise<void>;
   },
 ) {
   if (queryBootstrapState.queryTriggered) throw new Error("本轮京东商品查询已触发，拒绝重复导航或查询。");
@@ -207,6 +210,10 @@ export async function captureJdWareInitialProductQuery<T>(
   // and a failed/ambiguous navigation must never be followed by another click.
   queryBootstrapState.queryTriggered = true;
   await dependencies.gotoTarget();
+  // A login/security redirect can complete without ever dispatching the
+  // product query. Classify that state immediately instead of hiding the real
+  // interactive gate behind the query-listener timeout.
+  await dependencies.verifyAfterNavigation?.();
   return responsePromise;
 }
 
@@ -616,9 +623,22 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
     gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
     waitForQuery: () => page.waitForResponse(
       (candidate) => isJdWareProductQueryRequest(candidate.url(), candidate.request().method()),
-      { timeout: 20_000 },
+      // The listener is installed before navigation and must outlive the full
+      // navigation budget. On a cold JD profile the page can finish its DOM
+      // navigation before the application dispatches the initial query.
+      { timeout: jdWareInitialProductQueryTimeoutMs },
     ),
-    gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 }); },
+    gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
+    verifyAfterNavigation: async () => {
+      const pageText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+      if (hasJdInteractivePageGate(pageText)) {
+        throw new Error("京东商家后台需要人工完成验证码或安全验证。");
+      }
+      const hasPasswordInput = await page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
+      if (isLikelyJdLoginPage(page.url(), pageText, hasPasswordInput)) {
+        throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+      }
+    },
   });
   // Login redirects render faster than the merchant export button. Check them
   // first so each unauthenticated store does not burn the 30-second UI wait.
