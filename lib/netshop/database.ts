@@ -3,6 +3,12 @@ import { buildNetshopImportBatchListQuery, type NetshopImportBatchListFilters } 
 import { netshopBatchId, sameNetshopBatchIdentity } from "@/lib/netshop/batch-identity";
 import { ensureDailyRowNaturalKeys } from "@/lib/netshop/daily-row-migration";
 import {
+  netshopPromotionMetrics,
+  netshopPromotionPaymentSourceSql,
+  netshopPromotionProductIdSql,
+  netshopPromotionSourceSql,
+} from "@/lib/netshop/promotion-query";
+import {
   importReservationCommitFence,
   type ImportReservationFence,
 } from "@/lib/imports/content-fingerprint";
@@ -1862,17 +1868,6 @@ export async function getNetshopProductPerformance(
   };
 }
 
-const promotionMetrics = {
-  spendCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.spendCents') AS REAL), 0)`,
-  netTransactionAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.netTransactionAmountCents') AS REAL), 0)`,
-  grossTransactionAmountCents: `COALESCE(CAST(json_extract(r.metrics_json, '$.grossTransactionAmountCents') AS REAL), 0)`,
-  impressions: `COALESCE(CAST(json_extract(r.metrics_json, '$.impressions') AS REAL), 0)`,
-  clicks: `COALESCE(CAST(json_extract(r.metrics_json, '$.clicks') AS REAL), 0)`,
-  netOrders: `COALESCE(CAST(json_extract(r.metrics_json, '$.netOrders') AS REAL), 0)`,
-  favorites: `COALESCE(CAST(json_extract(r.metrics_json, '$.favorites') AS REAL), 0)`,
-  cartQuantity: `COALESCE(CAST(json_extract(r.metrics_json, '$.cartQuantity') AS REAL), 0)`,
-} as const;
-
 type PromotionAggregateRow = {
   product_count: number | null;
   date_min: string | null;
@@ -1916,14 +1911,15 @@ export async function getNetshopPromotionPerformance(
   const endDate = isIsoDate(input.endDate) ? input.endDate! : null;
   const platforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
   const shops = [...new Set((input.shopNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
-  const where = ["r.source = 'tmall_promotion'", "r.dataset = 'promotion_daily'", "r.spu_id <> ''"];
+  const promotionProductIdSql = netshopPromotionProductIdSql;
+  const where = [netshopPromotionSourceSql];
   const bindings: string[] = [];
   if (startDate && endDate && startDate <= endDate) { where.push("r.business_date >= ?", "r.business_date <= ?"); bindings.push(startDate, endDate); }
   if (platforms.length) { where.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`); bindings.push(...platforms); }
   if (shops.length) { where.push(`r.shop_name IN (${shops.map(() => "?").join(", ")})`); bindings.push(...shops); }
   const whereSql = where.join(" AND ");
-  const promotionIdentitySql = "r.platform || char(31) || r.shop_name || char(31) || r.spu_id";
-  const metric = promotionMetrics;
+  const promotionIdentitySql = `r.platform || char(31) || r.shop_name || char(31) || ${promotionProductIdSql}`;
+  const metric = netshopPromotionMetrics;
   const aggregateSelect = `
     COUNT(DISTINCT ${promotionIdentitySql}) AS product_count,
     MIN(r.business_date) AS date_min,
@@ -1952,7 +1948,7 @@ export async function getNetshopPromotionPerformance(
      GROUP BY r.business_date ORDER BY r.business_date ASC`,
   ).bind(...bindings).all<PromotionDailyRow>();
 
-  const paymentWhere = ["r.source = 'tmall_product_daily'", "r.dataset = 'spu_daily'"];
+  const paymentWhere = [netshopPromotionPaymentSourceSql];
   const paymentBindings: string[] = [];
   if (startDate && endDate && startDate <= endDate) { paymentWhere.push("r.business_date >= ?", "r.business_date <= ?"); paymentBindings.push(startDate, endDate); }
   if (platforms.length) { paymentWhere.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`); paymentBindings.push(...platforms); }
@@ -1978,9 +1974,9 @@ export async function getNetshopPromotionPerformance(
   const itemWhere = [...where];
   const itemBindings = [...bindings];
   if (query) {
-    itemWhere.push("(r.spu_id LIKE ? OR r.product_name LIKE ?)");
+    itemWhere.push(`(${promotionProductIdSql} LIKE ? OR r.product_name LIKE ? OR json_extract(r.raw_json, '$."产品线"') LIKE ?)`);
     const term = `%${query}%`;
-    itemBindings.push(term, term);
+    itemBindings.push(term, term, term);
   }
   const itemWhereSql = itemWhere.join(" AND ");
   const totalRow = await db.prepare(`SELECT COUNT(DISTINCT ${promotionIdentitySql}) AS total FROM netshop_rows r WHERE ${itemWhereSql}`)
@@ -1988,15 +1984,15 @@ export async function getNetshopPromotionPerformance(
   const offset = (page - 1) * pageSize;
   const itemRows = await db.prepare(
     `SELECT
-       r.spu_id AS id,
+       ${promotionProductIdSql} AS id,
        MAX(r.platform) AS platform,
-       MAX(NULLIF(r.product_name, '')) AS product_name,
+       MAX(COALESCE(NULLIF(r.product_name, ''), NULLIF(CAST(json_extract(r.raw_json, '$."产品线"') AS TEXT), ''))) AS product_name,
        MAX(r.shop_name) AS shop_name,
        COUNT(DISTINCT r.business_date) AS data_days,
        GROUP_CONCAT(DISTINCT r.business_date) AS coverage_dates,
        ${aggregateSelect}
      FROM netshop_rows r WHERE ${itemWhereSql}
-     GROUP BY r.platform, r.shop_name, r.spu_id
+     GROUP BY r.platform, r.shop_name, ${promotionProductIdSql}
      ORDER BY net_transaction_amount_cents DESC, spend_cents DESC, id ASC
      LIMIT ? OFFSET ?`,
   ).bind(...itemBindings, pageSize, offset).all<PromotionItemRow>();

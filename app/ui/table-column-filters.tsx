@@ -169,11 +169,16 @@ export default function TableColumnFilters() {
       setTarget(null);
     };
     const close = () => setTarget(null);
+    const closeOnExternalScroll = (event: Event) => {
+      const source = event.target;
+      if (source instanceof Node && popoverRef.current?.contains(source)) return;
+      setTarget(null);
+    };
     document.addEventListener("click", onClick);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("resize", close);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", closeOnExternalScroll, true);
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
@@ -181,7 +186,7 @@ export default function TableColumnFilters() {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("resize", close);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", closeOnExternalScroll, true);
     };
   }, [openForHeader, prepareTables, target]);
 

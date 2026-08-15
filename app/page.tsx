@@ -1779,7 +1779,7 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
       <StoreMetricCard label="UV 价值" value="—" note="缺少访客数据，不做推算" unavailable />
       <StoreMetricCard label="转化率" value="—" note="需访客与成交人数" unavailable />
       <StoreMetricCard label="推广花费" value={promotionLoading ? "同步中…" : promotion?.dataCutoffDate ? formatCurrencyFromCents(promotion.summary.spendCents) : "—"} note={promotion?.dataCutoffDate ? `推广成交 ${formatCurrencyFromCents(promotion.summary.netTransactionAmountCents)}` : promotionError || "当前店铺/周期暂无推广报表"} unavailable={!promotionLoading && !promotion?.dataCutoffDate} />
-      <StoreMetricCard label="推广费率" value={promotion?.summary.spendRate === null || promotion?.summary.spendRate === undefined ? "—" : formatRate(promotion.summary.spendRate)} note={promotion?.summary.promotionTransactionShare === null || promotion?.summary.promotionTransactionShare === undefined ? "缺少同日生意参谋支付金额" : `推广成交占比 ${formatRate(promotion.summary.promotionTransactionShare)}`} unavailable={!promotionLoading && promotion?.summary.spendRate === null} />
+      <StoreMetricCard label="推广费率" value={promotion?.summary.spendRate === null || promotion?.summary.spendRate === undefined ? "—" : formatRate(promotion.summary.spendRate)} note={promotion?.summary.promotionTransactionShare === null || promotion?.summary.promotionTransactionShare === undefined ? "缺少同日平台商品成交金额" : `推广成交占比 ${formatRate(promotion.summary.promotionTransactionShare)}`} unavailable={!promotionLoading && promotion?.summary.spendRate === null} />
       <StoreMetricCard label="零售占比" value="—" note="待接入订单类型标记" unavailable />
       <StoreMetricCard label="B 端占比" value="—" note="待接入企业购明细" unavailable />
       <StoreMetricCard label="推广点击数" value={promotionLoading ? "同步中…" : promotion?.dataCutoffDate ? formatCount(promotion.summary.clicks) : "—"} note={promotion?.dataCutoffDate ? `展现 ${formatCount(promotion.summary.impressions)} · CTR ${formatOptionalRate(promotion.summary.clickThroughRate)}` : "当前店铺/周期暂无推广点击"} unavailable={!promotionLoading && !promotion?.dataCutoffDate} />
@@ -2151,7 +2151,7 @@ function ShopDailyProductPerformanceView({
       <StoreMetricCard label="客单价" value={formatMerchantCurrency(currentAverageTransactionValue)} change={showComparison ? productComparisonRate(currentAverageTransactionValue, comparisonAverageTransactionValue) : null} note={currentAverageTransactionValue === null ? "当前周期没有成交人数" : productKpiNote("成交金额 / 成交人数", currentAverageTransactionValue, comparisonAverageTransactionValue)} unavailable={currentAverageTransactionValue === null} />
       <StoreMetricCard label="UV 价值" value={formatMerchantCurrency(current.summary.uvValue)} change={showComparison ? productComparisonRate(current.summary.uvValue, comparisonSummary?.uvValue) : null} note={current.summary.uvValue === null ? "当前导入日数据未提供" : productKpiNote("商智 UV 价值", current.summary.uvValue, comparisonSummary?.uvValue)} unavailable={current.summary.uvValue === null} />
       <StoreMetricCard label="转化率" value={formatOptionalRate(current.summary.conversionRate)} change={showComparison ? productComparisonRate(current.summary.conversionRate, comparisonSummary?.conversionRate) : null} note={current.summary.conversionRate === null ? "当前导入日数据未提供" : productKpiNote("商智总转化率", current.summary.conversionRate, comparisonSummary?.conversionRate)} unavailable={current.summary.conversionRate === null} />
-      <StoreMetricCard label="推广花费" value="查看推广分析" note="按天猫推广报表独立汇总" />
+      <StoreMetricCard label="推广花费" value="查看推广分析" note="按京东/天猫推广报表独立汇总" />
       <StoreMetricCard label="推广占比" value="查看推广分析" note="只按推广与支付金额日期交集计算" />
       <StoreMetricCard label="零售占比" value="—" note="待接入订单类型标记" unavailable />
       <StoreMetricCard label="B 端占比" value="—" note="待接入企业购明细" unavailable />
@@ -2284,18 +2284,56 @@ function ShopSkuView({
   </>;
 }
 
+type PromotionPageKey = "jd" | "tmall";
+
+const promotionPageConfig: Record<PromotionPageKey, {
+  platform: "京东" | "天猫";
+  shopName: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  paymentSource: string;
+  transactionLabel: string;
+  transactionShortLabel: string;
+  ordersLabel: string;
+}> = {
+  jd: {
+    platform: "京东",
+    shopName: "志高商用设备旗舰店",
+    eyebrow: "JD PROMOTION",
+    title: "京东推广",
+    description: "按京准通 AI 推广报表中的跟单 SKU 汇总；总订单金额、总订单行、花费、展现和点击均从来源字段重新聚合。",
+    paymentSource: "京东商智成交金额",
+    transactionLabel: "总订单金额",
+    transactionShortLabel: "订单金额",
+    ordersLabel: "总订单行",
+  },
+  tmall: {
+    platform: "天猫",
+    shopName: "天猫-志高亿玖专卖店",
+    eyebrow: "TMALL PROMOTION",
+    title: "天猫亿玖推广",
+    description: "按天猫推广商品报表汇总；比例只使用推广报表与生意参谋商品日数据的日期交集，各行投产比不会被直接平均。",
+    paymentSource: "生意参谋支付金额",
+    transactionLabel: "推广净成交",
+    transactionShortLabel: "推广净成交",
+    ordersLabel: "净成交笔数",
+  },
+};
+
 function ShopPromotionView({
   range,
   customStartDate,
   customEndDate,
-  onOpenImport,
+  onOpenTmallImport,
 }: {
   range: SalesRangeLabel;
   customStartDate: string;
   customEndDate: string;
-  onOpenImport: () => void;
+  onOpenTmallImport: () => void;
 }) {
   const period = useMemo(() => skuSalesPeriod(range, customStartDate, customEndDate), [customEndDate, customStartDate, range]);
+  const [promotionPage, setPromotionPage] = useState<PromotionPageKey>("jd");
   const [performance, setPerformance] = useState<NetshopPromotionPerformanceResponse | null>(null);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 280);
@@ -2303,6 +2341,16 @@ function ShopPromotionView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  const pageConfig = promotionPageConfig[promotionPage];
+
+  const selectPromotionPage = (nextPage: PromotionPageKey) => {
+    if (nextPage === promotionPage) return;
+    setPromotionPage(nextPage);
+    setPerformance(null);
+    setQuery("");
+    setPage(1);
+    setError("");
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -2313,8 +2361,8 @@ function ShopPromotionView({
         const params = new URLSearchParams({
           startDate: period.startDate,
           endDate: period.endDate,
-          platform: "天猫",
-          shop: "天猫-志高亿玖专卖店",
+          platform: pageConfig.platform,
+          shop: pageConfig.shopName,
           page: String(page),
           pageSize: "50",
         });
@@ -2330,40 +2378,46 @@ function ShopPromotionView({
       }
     })();
     return () => controller.abort();
-  }, [debouncedQuery, page, period.endDate, period.startDate, retryKey]);
+  }, [debouncedQuery, page, pageConfig.platform, pageConfig.shopName, period.endDate, period.startDate, retryKey]);
 
-  if (loading && !performance) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在汇总天猫推广数据</strong><p>正在计算花费、成交、点击和平台支付口径占比…</p></section>;
-  if (error && !performance) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>推广分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
-  if (!performance?.dataCutoffDate) return <section className="panel data-state"><span className="state-symbol">推</span><strong>当前周期尚未导入推广数据</strong><p>请上传天猫亿玖推广商品报表 ZIP；推广费率和推广成交占比还需要同日期生意参谋商品日数据。</p><button className="primary-button" onClick={onOpenImport}>前往导入推广数据</button></section>;
+  const platformSubnav = <div className="subnav promotion-platform-subnav" role="tablist" aria-label="推广分析平台">
+    <button type="button" role="tab" aria-selected={promotionPage === "jd"} className={promotionPage === "jd" ? "active" : ""} onClick={() => selectPromotionPage("jd")}>京东推广</button>
+    <button type="button" role="tab" aria-selected={promotionPage === "tmall"} className={promotionPage === "tmall" ? "active" : ""} onClick={() => selectPromotionPage("tmall")}>天猫推广</button>
+  </div>;
+
+  if (loading && !performance) return <>{platformSubnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在汇总{pageConfig.title}数据</strong><p>正在计算花费、成交、点击和平台商品成交口径占比…</p></section></>;
+  if (error && !performance) return <>{platformSubnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>{pageConfig.title}加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;
+  if (!performance?.dataCutoffDate) return <>{platformSubnav}<section className="panel data-state"><span className="state-symbol">推</span><strong>当前周期尚未导入{pageConfig.title}数据</strong><p>{promotionPage === "jd" ? "请先运行京准通 AI 推广数据工作流并完成导入回查；推广费率和推广成交占比还需要同日期京东商智 SKU 日数据。" : "请上传天猫亿玖推广商品报表 ZIP；推广费率和推广成交占比还需要同日期生意参谋商品日数据。"}</p>{promotionPage === "tmall" ? <button className="primary-button" onClick={onOpenTmallImport}>前往导入推广数据</button> : <button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新检查</button>}</section></>;
 
   const { summary, coverage, pagination } = performance;
   const maxTrend = Math.max(1, ...performance.daily.map((item) => Math.max(item.spendCents, item.netTransactionAmountCents)));
   const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
   return <>
+    {platformSubnav}
     <section className="panel jd-sku-hero">
-      <div><span className="eyebrow">TMALL PROMOTION</span><h2>天猫亿玖推广分析</h2><p>比例只使用推广报表与生意参谋商品日数据的日期交集；各行投产比不会被直接平均。</p></div>
-      <div className="jd-sku-hero-actions"><span><Dot tone="green" />数据截止 {performance.dataCutoffDate}</span><button type="button" className="secondary-button" onClick={() => setRetryKey((value) => value + 1)} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新"}</button><button type="button" className="primary-button" onClick={onOpenImport}>＋ 导入推广报表</button></div>
+      <div><span className="eyebrow">{pageConfig.eyebrow}</span><h2>{pageConfig.title}</h2><p>{pageConfig.description}</p></div>
+      <div className="jd-sku-hero-actions"><span><Dot tone="green" />{pageConfig.shopName} · 数据截止 {performance.dataCutoffDate}</span><button type="button" className="secondary-button" onClick={() => setRetryKey((value) => value + 1)} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新"}</button>{promotionPage === "tmall" && <button type="button" className="primary-button" onClick={onOpenTmallImport}>＋ 导入推广报表</button>}</div>
     </section>
     <section className="metrics-grid">
-      <MetricCard label="推广花费" value={formatCurrencyFromCents(summary.spendCents)} change={formatOptionalRate(summary.spendRate)} hint="花费 / 生意参谋支付金额" tone="blue" />
-      <MetricCard label="推广净成交" value={formatCurrencyFromCents(summary.netTransactionAmountCents)} change={formatOptionalRate(summary.promotionTransactionShare)} hint="推广净成交 / 生意参谋支付金额" tone="purple" />
-      <MetricCard label="推广 ROAS" value={summary.roas === null ? "—" : summary.roas.toFixed(2)} change="净成交 / 花费" hint={`${formatCount(summary.netOrders)} 笔净成交`} tone="green" />
+      <MetricCard label="推广花费" value={formatCurrencyFromCents(summary.spendCents)} change={formatOptionalRate(summary.spendRate)} hint={`花费 / ${pageConfig.paymentSource}`} tone="blue" />
+      <MetricCard label={pageConfig.transactionLabel} value={formatCurrencyFromCents(summary.netTransactionAmountCents)} change={formatOptionalRate(summary.promotionTransactionShare)} hint={`${pageConfig.transactionShortLabel} / ${pageConfig.paymentSource}`} tone="purple" />
+      <MetricCard label="推广 ROAS" value={summary.roas === null ? "—" : summary.roas.toFixed(2)} change={`${pageConfig.transactionShortLabel} / 花费`} hint={`${formatCount(summary.netOrders)} ${pageConfig.ordersLabel}`} tone="green" />
       <MetricCard label="展现 / 点击" value={`${formatCount(summary.impressions)} / ${formatCount(summary.clicks)}`} change={formatOptionalRate(summary.clickThroughRate)} hint={`平均点击花费 ${formatOptionalCurrencyFromCents(summary.averageClickCostCents)}`} tone="orange" />
     </section>
     <section className="store-source-status" role="note">
-      <div><span className="source-status-ready">✓ 比例交集</span><strong>{coverage.intersectionDates.length ? `${coverage.intersectionDates[0]} 至 ${coverage.intersectionDates[coverage.intersectionDates.length - 1]}` : "暂无同日平台支付数据"}</strong></div>
-      <div><span className={coverage.missingProductDailyDates.length ? "source-status-missing" : "source-status-ready"}>{coverage.missingProductDailyDates.length ? "○ 覆盖缺口" : "✓ 覆盖完整"}</span><strong>{coverage.missingProductDailyDates.length ? `缺生意参谋：${coverage.missingProductDailyDates.join("、")}` : `${coverage.intersectionDates.length} 个共同业务日`}</strong></div>
-      <p>推广费率与推广成交占比均采用平台报表口径，不与 ERP 销售净额混算。</p>
+      <div><span className="source-status-ready">✓ 比例交集</span><strong>{coverage.intersectionDates.length ? `${coverage.intersectionDates[0]} 至 ${coverage.intersectionDates[coverage.intersectionDates.length - 1]}` : `暂无同日${pageConfig.paymentSource}`}</strong></div>
+      <div><span className={coverage.missingProductDailyDates.length ? "source-status-missing" : "source-status-ready"}>{coverage.missingProductDailyDates.length ? "○ 覆盖缺口" : "✓ 覆盖完整"}</span><strong>{coverage.missingProductDailyDates.length ? `缺${pageConfig.paymentSource}：${coverage.missingProductDailyDates.join("、")}` : `${coverage.intersectionDates.length} 个共同业务日`}</strong></div>
+      <p>{promotionPage === "jd" ? "京准通总订单金额不是退款后的销售净额；比例不与 ERP 销售净额混算。" : "推广费率与推广成交占比均采用平台报表口径，不与 ERP 销售净额混算。"}</p>
     </section>
     <section className="panel trend-panel">
-      <SectionHeader title="推广日趋势" note="蓝色为花费，紫色为推广净成交金额；金额单位为人民币元。" />
-      <div className="chart-legend"><span><Dot tone="blue" />推广花费</span><span><Dot tone="purple" />推广净成交</span></div>
+      <SectionHeader title="推广日趋势" note={`蓝色为花费，紫色为${pageConfig.transactionShortLabel}；金额单位为人民币元。`} />
+      <div className="chart-legend"><span><Dot tone="blue" />推广花费</span><span><Dot tone="purple" />{pageConfig.transactionShortLabel}</span></div>
       <div className="bar-chart">{performance.daily.map((item) => <div className="bar-group" key={item.date}><div className="bar-stack"><span className="bar sales-bar" style={{ height: `${Math.max(2, item.spendCents / maxTrend * 100)}%` }} /><span className="bar profit-bar" style={{ height: `${Math.max(2, item.netTransactionAmountCents / maxTrend * 100)}%` }} /></div><small>{item.date.slice(5)}</small></div>)}</div>
     </section>
     {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div></section>}
     <section className="panel table-panel">
-      <div className="table-toolbar"><div><h2>推广商品排行</h2><p>共 {formatCount(pagination.total)} 个商品；搜索只筛选排行，顶部平台汇总保持稳定。</p></div><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索商品 ID 或名称" aria-label="搜索推广商品" /></label></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>商品</th><th>推广花费</th><th>净成交金额</th><th>ROAS</th><th>展现</th><th>点击 / CTR</th><th>平均点击花费</th><th>净订单</th><th>收藏 / 加购</th><th>覆盖日期</th></tr></thead><tbody>{performance.items.map((item) => <tr key={item.id}><td><div className="jd-sku-product-name"><a className="jd-sku-link" href={`https://detail.tmall.com/item.htm?id=${encodeURIComponent(item.id)}`} target="_blank" rel="noreferrer">{item.id}</a><strong title={item.productName}>{item.productName || "未命名商品"}</strong></div></td><td>{formatCurrencyFromCents(item.spendCents)}</td><td><strong>{formatCurrencyFromCents(item.netTransactionAmountCents)}</strong></td><td>{item.roas === null ? "—" : item.roas.toFixed(2)}</td><td>{formatCount(item.impressions)}</td><td>{formatCount(item.clicks)} / {formatOptionalRate(item.clickThroughRate)}</td><td>{formatOptionalCurrencyFromCents(item.averageClickCostCents)}</td><td>{formatCount(item.netOrders)}</td><td>{formatCount(item.favorites)} / {formatCount(item.cartQuantity)}</td><td data-column-filter-values={item.dates?.join("\u001f")}>{item.dateMin ?? "—"}{item.dateMax && item.dateMax !== item.dateMin ? ` 至 ${item.dateMax}` : ""}</td></tr>)}{!loading && performance.items.length === 0 && <tr><td colSpan={10}><div className="table-state">没有符合当前搜索条件的推广商品。</div></td></tr>}</tbody></table></div>
+      <div className="table-toolbar"><div><h2>推广商品排行</h2><p>共 {formatCount(pagination.total)} 个{promotionPage === "jd" ? "跟单 SKU" : "商品"}；搜索只筛选排行，顶部平台汇总保持稳定。</p></div><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder={promotionPage === "jd" ? "搜索跟单 SKU 或产品线" : "搜索商品 ID 或名称"} aria-label="搜索推广商品" /></label></div>
+      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>{promotionPage === "jd" ? "跟单 SKU / 产品线" : "商品"}</th><th>推广花费</th><th>{pageConfig.transactionLabel}</th><th>ROAS</th><th>展现</th><th>点击 / CTR</th><th>平均点击花费</th><th>{pageConfig.ordersLabel}</th>{promotionPage === "tmall" && <th>收藏 / 加购</th>}<th>覆盖日期</th></tr></thead><tbody>{performance.items.map((item) => { const productLink = netshopProductUrl(item.platform, item.id); return <tr key={`${item.platform}-${item.shopName}-${item.id}`}><td><div className="jd-sku-product-name">{productLink ? <a className="jd-sku-link" href={productLink} target="_blank" rel="noreferrer">{item.id}</a> : <strong>{item.id}</strong>}<strong title={item.productName}>{item.productName || (promotionPage === "jd" ? "未提供产品线" : "未命名商品")}</strong></div></td><td>{formatCurrencyFromCents(item.spendCents)}</td><td><strong>{formatCurrencyFromCents(item.netTransactionAmountCents)}</strong></td><td>{item.roas === null ? "—" : item.roas.toFixed(2)}</td><td>{formatCount(item.impressions)}</td><td>{formatCount(item.clicks)} / {formatOptionalRate(item.clickThroughRate)}</td><td>{formatOptionalCurrencyFromCents(item.averageClickCostCents)}</td><td>{formatCount(item.netOrders)}</td>{promotionPage === "tmall" && <td>{formatCount(item.favorites)} / {formatCount(item.cartQuantity)}</td>}<td data-column-filter-values={item.dates?.join("\u001f")}>{item.dateMin ?? "—"}{item.dateMax && item.dateMax !== item.dateMin ? ` 至 ${item.dateMax}` : ""}</td></tr>; })}{!loading && performance.items.length === 0 && <tr><td colSpan={promotionPage === "jd" ? 9 : 10}><div className="table-state">没有符合当前搜索条件的推广商品。</div></td></tr>}</tbody></table></div>
       <footer className="jd-sku-pagination"><span>第 {pagination.page} / {totalPages} 页</span><div><button type="button" className="row-action" disabled={loading || pagination.page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || pagination.page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</button></div></footer>
     </section>
   </>;
@@ -2446,7 +2500,7 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
   const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => setActiveTab("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button><button type="button" role="tab" aria-selected={activeTab === "products"} className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>商品数据</button><button type="button" role="tab" aria-selected={activeTab === "promotion"} className={activeTab === "promotion" ? "active" : ""} onClick={() => setActiveTab("promotion")}>推广分析</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
 
   if (activeTab === "products") return <>{subnav}<ShopProductDataView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenCatalogImport={() => onNavigate("import", "tmall_product_master")} onOpenImport={(dimension) => onNavigate("import", dimension === "sku" ? "jd_sku_daily" : "tmall_product_daily")} /></>;
-  if (activeTab === "promotion") return <>{subnav}<ShopPromotionView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenImport={() => onNavigate("import", "tmall_promotion")} /></>;
+  if (activeTab === "promotion") return <>{subnav}<ShopPromotionView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenTmallImport={() => onNavigate("import", "tmall_promotion")} /></>;
 
   if (loading && !summary) return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步网店经营数据</strong><p>正在汇总已导入销售明细中的网店、平台、毛利与退货信息…</p></section></>;
   if (!summary || !analysisSummary) return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>网店数据加载失败</strong><p>{error || "暂时无法读取网店数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;

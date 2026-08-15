@@ -34,10 +34,13 @@ test("all rendered tables receive accessible multi-select column filtering", asy
   assert.match(component, /aria-multiselectable="true"/);
   assert.match(component, /tableRowMatchesColumnFilters/);
   assert.match(component, /dataset\.columnFilterValues/);
+  assert.match(component, /closeOnExternalScroll/);
+  assert.match(component, /popoverRef\.current\?\.contains\(source\)/);
   assert.match(page, /data-column-filter-values=\{item\.dates\?\.join\("\\u001f"\)\}/);
   assert.match(netshopDatabase, /GROUP_CONCAT\(DISTINCT r\.business_date\) AS coverage_dates/);
   assert.match(netshopDatabase, /dates: \[\.\.\.new Set\(\(row\.coverage_dates/);
   assert.match(styles, /\.column-filter-popover/);
+  assert.match(styles, /overscroll-behavior: contain/);
   assert.match(styles, /\.column-filter-row-hidden/);
 });
 
@@ -82,4 +85,24 @@ test("module filters transmit repeated values through their API boundaries", asy
   assert.match(annotationRoute, /itemSegments: params\.getAll\("itemSegment"\)/);
   assert.match(inventoryRoute, /startDate: params\.get\("startDate"\)/);
   assert.match(inventoryRoute, /endDate: params\.get\("endDate"\)/);
+});
+
+test("promotion analysis separates JD and Tmall pages with platform-specific labels and links", async () => {
+  const [page, database, query, route] = await Promise.all([
+    source("../app/page.tsx"),
+    source("../lib/netshop/database.ts"),
+    source("../lib/netshop/promotion-query.ts"),
+    source("../app/api/netshop/promotion-performance/route.ts"),
+  ]);
+  assert.match(page, /title: "京东推广"/);
+  assert.match(page, />京东推广<\/button>/);
+  assert.match(page, />天猫推广<\/button>/);
+  assert.match(page, /platform: pageConfig\.platform/);
+  assert.match(page, /netshopProductUrl\(item\.platform, item\.id\)/);
+  assert.match(page, /京准通总订单金额不是退款后的销售净额/);
+  assert.match(database, /netshopPromotionSourceSql/);
+  assert.match(database, /netshopPromotionPaymentSourceSql/);
+  assert.match(query, /r\.source = 'jd_promotion'/);
+  assert.match(query, /r\.source = 'jd_sku_daily'/);
+  assert.match(route, /读取网店推广数据失败/);
 });
