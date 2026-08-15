@@ -15,6 +15,7 @@ import type { JdStore } from "../lib/jd/store-registry";
 import { parseJdPromotionArgs, type JdPromotionExportResult } from "../tools/jd-promotion-export";
 import {
   jdPromotionHelperRequestError,
+  parseJdPromotionStoreKeyHeader,
   planJdPromotionN8nRun,
   runJdPromotionN8nPlan,
   verifyJdPromotionN8nPlan,
@@ -30,21 +31,22 @@ function bytes(text = csvText) {
   return new TextEncoder().encode(text);
 }
 
-function store(): JdStore {
+function store(storeKey: "jd-yiyong-director" | "jd-maidehao-operator1" = "jd-yiyong-director"): JdStore {
+  const cutMeat = storeKey === "jd-maidehao-operator1";
   return {
-    storeKey: "jd-yiyong-director",
-    accountLabel: "志高亿用-总监",
+    storeKey,
+    accountLabel: cutMeat ? "志高迈德豪-运营1" : "志高亿用-总监",
     platform: "京东",
-    shopName: "志高商用设备旗舰店",
-    shopId: "701455",
+    shopName: cutMeat ? "志高切肉机旗舰店" : "志高商用设备旗舰店",
+    shopId: cutMeat ? "745866" : "701455",
     enabled: true,
     browser: {
       executablePath: "unused/chromium.exe",
       userDataDir: "unused/user-data",
-      profileName: "Default",
-      profileDir: "unused/user-data/Default",
-      debugPort: 9224,
-      downloadDir: "unused/downloads",
+      profileName: cutMeat ? "Profile 2" : "Default",
+      profileDir: cutMeat ? "unused/user-data/Profile 2" : "unused/user-data/Default",
+      debugPort: cutMeat ? 9226 : 9224,
+      downloadDir: cutMeat ? "unused/cut-meat-downloads" : "unused/downloads",
     },
   };
 }
@@ -162,6 +164,49 @@ test("京准通 helper 绑定同一 execution 并拒绝空、跨执行、并发�
   assert.deepEqual(jdPromotionHelperRequestError("ready", false, "/jd-promotion/plan", null, null), { error: "missing_or_invalid_execution_id" });
 });
 
+test("京准通 n8n 店铺请求头只接受两条显式推广白名单", () => {
+  assert.throws(() => parseJdPromotionStoreKeyHeader(undefined), /店铺请求头无效/);
+  assert.equal(parseJdPromotionStoreKeyHeader("jd-yiyong-director"), "jd-yiyong-director");
+  assert.equal(parseJdPromotionStoreKeyHeader("jd-maidehao-operator1"), "jd-maidehao-operator1");
+  assert.throws(() => parseJdPromotionStoreKeyHeader("jd-chudian-weizhang"), /不在推广工作流白名单/);
+  assert.throws(() => parseJdPromotionStoreKeyHeader(["jd-maidehao-operator1"]), /店铺请求头无效/);
+});
+
+test("京准通 n8n 计划拒绝店铺对象与请求头跨店错配", async () => {
+  await assert.rejects(() => planJdPromotionN8nRun({
+    executionId: "mismatched-store",
+    storeKey: "jd-yiyong-director",
+    store: store("jd-maidehao-operator1"),
+  }), /店铺对象与受控请求头不一致/);
+});
+
+test("京准通 n8n 计划把切肉机店铺、Profile 2 和 8月13日至14日固化在同一计划", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-cut-meat-plan-"));
+  const targetStore = store("jd-maidehao-operator1");
+  const plan = await planJdPromotionN8nRun({
+    root,
+    baseUrl: "http://localhost:3000",
+    executionId: "cut-meat-execution",
+    storeKey: targetStore.storeKey,
+    startDate: "2026-08-13",
+    endDate: "2026-08-14",
+    store: targetStore,
+    request: async () => new Response("ok"),
+    profileStatus: async (stores) => {
+      assert.deepEqual(stores.map((item) => [item.storeKey, item.browser.profileName]), [["jd-maidehao-operator1", "Profile 2"]]);
+      return "ready";
+    },
+    runIdFactory: () => "jd-promotion-cut-meat-13-14",
+  });
+  assert.deepEqual(plan.store, {
+    storeKey: "jd-maidehao-operator1",
+    shopId: "745866",
+    shopName: "志高切肉机旗舰店",
+    accountLabel: "志高迈德豪-运营1",
+  });
+  assert.deepEqual([plan.startDate, plan.endDate, plan.stage], ["2026-08-13", "2026-08-14", "planned"]);
+});
+
 test("京准通 n8n A/B/C 固化 8月13日至14日并独立复验文件和已发布批次", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-n8n-"));
   const targetStore = store();
@@ -250,4 +295,32 @@ test("京准通 n8n 模板保持未激活并以同一 execution ID 串联三段�
   for (const request of requests) {
     assert.deepEqual(request.parameters?.headerParameters?.parameters?.[0], { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" });
   }
+  assert.deepEqual(requests[0]?.parameters?.headerParameters?.parameters?.[1], { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-yiyong-director" });
+});
+
+test("切肉机京准通 n8n 模板固定 Profile 2 店铺和 2026年8月13日至14日且保持未激活", async () => {
+  const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json", import.meta.url), "utf8")) as {
+    id: string;
+    active: boolean;
+    settings?: { timezone?: string };
+    nodes: Array<{ type: string; parameters?: { url?: string; assignments?: { assignments?: Array<{ name?: string; value?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
+  };
+  assert.equal(workflow.id, "JdPromotionCutMeat2026");
+  assert.equal(workflow.active, false);
+  assert.equal(workflow.settings?.timezone, "Asia/Shanghai");
+  assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"), false);
+  const dates = workflow.nodes.find((node) => node.type === "n8n-nodes-base.set")?.parameters?.assignments?.assignments;
+  assert.deepEqual(dates?.map((item) => [item.name, item.value]), [["startDate", "2026-08-13"], ["endDate", "2026-08-14"]]);
+  const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
+  assert.deepEqual(requests.map((node) => node.parameters?.url), [
+    "http://127.0.0.1:5791/jd-promotion-cut-meat/plan",
+    "http://127.0.0.1:5791/jd-promotion/run",
+    "http://127.0.0.1:5791/jd-promotion/verify",
+  ]);
+  assert.deepEqual(requests[0]?.parameters?.headerParameters?.parameters, [
+    { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+    { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-maidehao-operator1" },
+    { name: "X-TERUISI-JD-PROMOTION-START-DATE", value: "={{ $json.startDate }}" },
+    { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $json.endDate }}" },
+  ]);
 });

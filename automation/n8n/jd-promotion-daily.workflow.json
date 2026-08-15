@@ -42,6 +42,7 @@
         "headerParameters": {
           "parameters": [
             { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
+            { "name": "X-TERUISI-JD-PROMOTION-STORE-KEY", "value": "jd-yiyong-director" },
             { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $json.startDate || $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
             { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $json.endDate || $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" }
           ]

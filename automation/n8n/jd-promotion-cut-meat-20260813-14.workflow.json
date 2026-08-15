@@ -1,0 +1,117 @@
+{
+  "id": "JdPromotionCutMeat2026",
+  "name": "京东志高切肉机AI推广数据下载与导入",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "8b9c0d11-1213-4415-8617-181920212201",
+      "name": "手动补跑8月13日至14日",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-700, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "cut-meat-start", "name": "startDate", "value": "2026-08-13", "type": "string" },
+            { "id": "cut-meat-end", "name": "endDate", "value": "2026-08-14", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8b9c0d11-1213-4415-8617-181920212202",
+      "name": "固定补跑日期",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-500, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-promotion-cut-meat/plan",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
+            { "name": "X-TERUISI-JD-PROMOTION-STORE-KEY", "value": "jd-maidehao-operator1" },
+            { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $json.startDate }}" },
+            { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $json.endDate }}" }
+          ]
+        },
+        "options": { "timeout": 120000 }
+      },
+      "id": "8b9c0d11-1213-4415-8617-181920212203",
+      "name": "A·固化切肉机店铺与目标日期",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-270, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-promotion/run",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "options": { "timeout": 1800000 }
+      },
+      "id": "8b9c0d11-1213-4415-8617-181920212204",
+      "name": "B·生成下载校验导入并回查",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [130, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-promotion/verify",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
+        "options": { "timeout": 120000 }
+      },
+      "id": "8b9c0d11-1213-4415-8617-181920212205",
+      "name": "C·独立复验文件与精确批次",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [530, 0]
+    },
+    {
+      "parameters": {
+        "content": "## 店铺与日期边界\n固定使用 jd-maidehao-operator1（志高切肉机旗舰店 / Profile 2 / shopId 745866），目标日期固定为 2026-08-13 至 2026-08-14。该工作流只有手动入口且默认未激活，不保存京东账号、密码、Cookie、Token 或 Session。",
+        "height": 170,
+        "width": 650,
+        "color": 3
+      },
+      "id": "8b9c0d11-1213-4415-8617-181920212206",
+      "name": "切肉机店铺安全边界",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-700, -300]
+    },
+    {
+      "parameters": {
+        "content": "## A → B → C 闭环\nA 显式传递店铺键、起止日期和 n8n execution ID；B 使用 Profile 2 完成自定义报表、AI推广数据自动下载、唯一任务接管、UTF-8 CSV 校验、精确范围导入与首次回查；C 重读文件并核对 SHA-256、行数、账户集合和精确 completed 批次。与其他京东自动化共用全局 Chromium 锁，任一身份漂移、候选歧义、跨执行或日期缺口都会失败关闭。",
+        "height": 205,
+        "width": 900,
+        "color": 4
+      },
+      "id": "8b9c0d11-1213-4415-8617-181920212207",
+      "name": "流程与恢复说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-20, -300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "手动补跑8月13日至14日": { "main": [[{ "node": "固定补跑日期", "type": "main", "index": 0 }]] },
+    "固定补跑日期": { "main": [[{ "node": "A·固化切肉机店铺与目标日期", "type": "main", "index": 0 }]] },
+    "A·固化切肉机店铺与目标日期": { "main": [[{ "node": "B·生成下载校验导入并回查", "type": "main", "index": 0 }]] },
+    "B·生成下载校验导入并回查": { "main": [[{ "node": "C·独立复验文件与精确批次", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Shanghai" },
+  "versionId": "6e324d85-c10b-47cc-91fb-b4580ef2a202",
+  "meta": { "templateCredsSetupCompleted": true },
+  "tags": []
+}

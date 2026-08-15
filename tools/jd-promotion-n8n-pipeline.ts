@@ -20,6 +20,9 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const planDirectoryName = "jd-promotion-n8n-pipeline";
 export const jdPromotionStartDateHeader = "x-teruisi-jd-promotion-start-date";
 export const jdPromotionEndDateHeader = "x-teruisi-jd-promotion-end-date";
+export const jdPromotionStoreKeyHeader = "x-teruisi-jd-promotion-store-key";
+export const jdPromotionStoreKeys = ["jd-yiyong-director", "jd-maidehao-operator1"] as const;
+export type JdPromotionStoreKey = typeof jdPromotionStoreKeys[number];
 
 export type JdPromotionN8nStage = "planned" | "running" | "executed" | "completed" | "failed";
 export type JdPromotionHelperRoute = "/jd-promotion/plan" | "/jd-promotion/run" | "/jd-promotion/verify";
@@ -46,6 +49,7 @@ type PlanOptions = {
   executionId: string;
   startDate?: string;
   endDate?: string;
+  storeKey?: string;
   store?: JdStore;
   request?: typeof fetch;
   profileStatus?: (stores: readonly JdStore[]) => Promise<"ready" | "missing" | "invalid">;
@@ -117,6 +121,13 @@ export function parseJdPromotionDateHeader(value: string | string[] | undefined)
   return value;
 }
 
+export function parseJdPromotionStoreKeyHeader(value: string | string[] | undefined): JdPromotionStoreKey {
+  if (typeof value !== "string" || !jdPromotionStoreKeys.includes(value as JdPromotionStoreKey)) {
+    throw new Error("京准通 n8n 店铺请求头无效或不在推广工作流白名单");
+  }
+  return value as JdPromotionStoreKey;
+}
+
 export function jdPromotionHelperRequestError(
   stage: "ready" | JdPromotionN8nStage,
   busy: boolean,
@@ -136,8 +147,12 @@ export function jdPromotionHelperRequestError(
 export async function planJdPromotionN8nRun(options: PlanOptions) {
   if (!validExecutionId(options.executionId)) throw new Error("京准通 n8n execution ID 无效");
   const paths = pathsFor(options.root);
-  const store = options.store ?? await getJdStore("jd-yiyong-director");
-  if (!store.enabled || store.storeKey !== "jd-yiyong-director") throw new Error("京准通工作流只允许受控店铺 jd-yiyong-director");
+  if (options.store && options.storeKey && options.store.storeKey !== options.storeKey) {
+    throw new Error("京准通工作流店铺对象与受控请求头不一致");
+  }
+  const requestedStoreKey = parseJdPromotionStoreKeyHeader(options.storeKey ?? options.store?.storeKey);
+  const store = options.store ?? await getJdStore(requestedStoreKey);
+  if (!store.enabled || store.storeKey !== requestedStoreKey) throw new Error("京准通工作流店铺未启用或与受控请求头不一致");
   const yesterday = shanghaiYesterday(options.now ?? new Date());
   const startDate = options.startDate ?? yesterday;
   const endDate = options.endDate ?? startDate;
@@ -146,7 +161,7 @@ export async function planJdPromotionN8nRun(options: PlanOptions) {
   }
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const profiles = await (options.profileStatus ?? getJdProfilesStatus)([store]);
-  if (profiles !== "ready") throw new Error("京准通受控 Chromium 或 Default profile 缺失、结构无效");
+  if (profiles !== "ready") throw new Error(`京准通受控 Chromium 或 ${store.browser.profileName} 缺失、结构无效`);
   const response = await (options.request ?? fetch)(`${baseUrl}/`, { signal: AbortSignal.timeout(5_000) });
   if (!response.ok) throw new Error(`本机运营系统不可用 (HTTP ${response.status})`);
   await mkdir(paths.planDirectory, { recursive: true });

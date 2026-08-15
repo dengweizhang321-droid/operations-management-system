@@ -6,9 +6,10 @@ import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-da
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
 import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";
+import jdPromotionCutMeatWorkflowDefinition from "@/automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
-type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion";
+type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
@@ -36,6 +37,7 @@ type HelperHealthPayload = {
   jdProfiles?: "ready" | "missing" | "invalid";
   jdMarketProfile?: "ready" | "missing" | "invalid";
   jdPromotionProfile?: "ready" | "missing" | "invalid";
+  jdPromotionCutMeatProfile?: "ready" | "missing" | "invalid";
 };
 
 export type HelperAvailabilityKind = "checking" | "ready" | "running" | "cookie-missing" | "offline";
@@ -168,6 +170,26 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
       C: { title: "独立文件与批次复验", description: "重新读取文件，核对 SHA-256、行数、账户集合、日期范围及精确 completed 批次。" },
     },
   },
+  jd_promotion_cut_meat: {
+    key: "jd_promotion_cut_meat",
+    definition: jdPromotionCutMeatWorkflowDefinition as N8nWorkflowDefinition,
+    subtitle: "京东志高切肉机旗舰店京准通 AI 推广明细的 2026年8月13日至14日补跑流程。",
+    tags: ["京准通", "志高切肉机旗舰店", "Profile 2"],
+    flowLabel: "A → B → C",
+    pipelineTitle: "切肉机旗舰店三段式推广补跑链路",
+    pipelineDescription: "仅手动启动；店铺、日期、任务、文件和批次任一不唯一都会停止。",
+    workflowMetric: "切肉机店 AI 推广补跑",
+    scheduleMetric: "8月13–14日",
+    scheduleDescription: "固定历史范围 · 仅手动运行",
+    scheduleTriggerLabel: "手动",
+    iframeTitle: "京东志高切肉机 AI 推广数据下载与导入 n8n 工作流",
+    safetyNote: "工作流固定绑定 jd-maidehao-operator1、志高切肉机旗舰店、shopId 745866 和 Profile 2，不保存京东凭证。A 固化店铺、日期与执行所有者；B 只接管唯一下载任务并完成严格导入回查；C 独立重验文件与 completed 批次。",
+    stageDetails: {
+      A: { title: "固化切肉机店铺与日期", description: "绑定 n8n execution ID、Profile 2 和 2026-08-13 至 2026-08-14。" },
+      B: { title: "生成下载并导入", description: "设置自定义日期，只下载唯一候选 CSV，校验后按切肉机店精确范围导入。" },
+      C: { title: "独立文件与批次复验", description: "重读文件并核对 SHA-256、行数、账户集合、日期范围及精确 completed 批次。" },
+    },
+  },
 };
 
 export function canManageN8nWorkflow(role: AppRole | undefined) {
@@ -187,11 +209,13 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
     label: "正在检测辅助服务",
     detail: key === "jackyun"
       ? "正在确认 5791 环回服务、本机运营系统和吉客云专用 Chrome profile。"
-      : key === "jd" || key === "jd_market" || key === "jd_promotion"
+      : key === "jd" || key === "jd_market" || key === "jd_promotion" || key === "jd_promotion_cut_meat"
         ? key === "jd_market"
           ? "正在确认 5791 环回服务、本机运营系统和榜单受控店铺的独立 Chrome profile。"
           : key === "jd_promotion"
             ? "正在确认 5791 环回服务、本机运营系统和志高商用设备旗舰店 Default profile。"
+            : key === "jd_promotion_cut_meat"
+              ? "正在确认 5791 环回服务、本机运营系统和志高切肉机旗舰店 Profile 2。"
             : "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
         : "正在确认 5791 环回服务和亿玖店专属 Chromium profile 是否可用。",
   };
@@ -214,7 +238,8 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
     };
   }
   if ((key === "jd" && payload.jdProfiles !== "ready") || (key === "jd_market" && payload.jdMarketProfile !== "ready")
-    || (key === "jd_promotion" && payload.jdPromotionProfile !== "ready")) {
+    || (key === "jd_promotion" && payload.jdPromotionProfile !== "ready")
+    || (key === "jd_promotion_cut_meat" && payload.jdPromotionCutMeatProfile !== "ready")) {
     return {
       kind: "cookie-missing",
       label: "京东店铺会话待恢复",
@@ -222,6 +247,8 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
         ? "辅助服务在线，但榜单受控店铺的独立 Chrome profile 缺失或结构无效；恢复该店铺会话后重新检测。"
         : key === "jd_promotion"
           ? "辅助服务在线，但志高商用设备旗舰店的 Default profile 缺失或结构无效；恢复该店铺会话后重新检测。"
+          : key === "jd_promotion_cut_meat"
+            ? "辅助服务在线，但志高切肉机旗舰店的 Profile 2 缺失或结构无效；恢复该店铺会话后重新检测。"
           : "辅助服务在线，但至少一个京东独立 Chrome profile 缺失或结构无效；恢复对应店铺会话后重新检测。",
     };
   }
@@ -237,13 +264,15 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
     kind: "ready",
     label: "可以安全启动",
     detail: "服务与专用 profile 已就绪；A 会跳过已有完整当日结果，任一失败都会阻断后续五类任务。",
-  } : key === "jd" || key === "jd_market" || key === "jd_promotion" ? {
+  } : key === "jd" || key === "jd_market" || key === "jd_promotion" || key === "jd_promotion_cut_meat" ? {
     kind: "ready",
     label: "可以安全启动",
     detail: key === "jd_market"
       ? "服务与京东独立 profile 已就绪；A/B/C 会按真实缺失日串行下载、签收、导入并回查。"
       : key === "jd_promotion"
         ? "服务与志高商用设备旗舰店 Default profile 已就绪；A/B/C 会按目标日期生成、下载、导入并独立回查。"
+        : key === "jd_promotion_cut_meat"
+          ? "服务与志高切肉机旗舰店 Profile 2 已就绪；A/B/C 会按 8月13日至14日生成、下载、导入并独立回查。"
         : "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
   } : {
     kind: "ready",
@@ -350,7 +379,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
             aria-pressed={selectedWorkflowKey === key}
             onClick={() => selectWorkflow(key)}
           >
-            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : key === "jd_market" ? "榜" : key === "jd_promotion" ? "推" : "京"}</span>
+            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : key === "jd_market" ? "榜" : key === "jd_promotion" ? "推" : key === "jd_promotion_cut_meat" ? "切" : "京"}</span>
             <strong>{workflowConfigs[key].definition.name}</strong>
           </button>
         ))}

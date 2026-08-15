@@ -48,7 +48,9 @@ import {
   jdPromotionEndDateHeader,
   jdPromotionHelperRequestError,
   jdPromotionStartDateHeader,
+  jdPromotionStoreKeyHeader,
   parseJdPromotionDateHeader,
+  parseJdPromotionStoreKeyHeader,
   planJdPromotionN8nRun,
   publicJdPromotionPlan,
   runJdPromotionN8nPlan,
@@ -900,7 +902,7 @@ async function serveCommand(argv: string[]) {
       return;
     }
     if (request.method === "GET" && request.url === "/health") {
-      const [cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile] = await Promise.all([
+      const [cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile] = await Promise.all([
         getCookieSourceStatus(),
         getTmallStore("tmall-yijiu").then(getTmallProfileStatus).catch(() => "invalid" as const),
         getJackyunProfileStatus(),
@@ -912,15 +914,18 @@ async function serveCommand(argv: string[]) {
         getJdStore("jd-yiyong-director")
           .then((store) => getJdProfilesStatus([store]))
           .catch(() => "invalid" as const),
+        getJdStore("jd-maidehao-operator1")
+          .then((store) => getJdProfilesStatus([store]))
+          .catch(() => "invalid" as const),
       ]);
-      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile });
+      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile });
       return;
     }
     const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];
     const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
     const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify"];
     const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
-    const jdPromotionRoutes = ["/jd-promotion/plan", "/jd-promotion/run", "/jd-promotion/verify"];
+    const jdPromotionRoutes = ["/jd-promotion/plan", "/jd-promotion-cut-meat/plan", "/jd-promotion/run", "/jd-promotion/verify"];
     if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes, ...jdPromotionRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
@@ -934,7 +939,7 @@ async function serveCommand(argv: string[]) {
       reply(409, { ok: false, error: "workflow_conflict", activeWorkflow });
       return;
     }
-    const route = request.url as HelperRoute | JackyunHelperRoute | JdHelperRoute | JdPromotionHelperRoute | "/jd-market/plan" | "/jd-market/run" | "/jd-market/verify";
+    const route = (request.url === "/jd-promotion-cut-meat/plan" ? "/jd-promotion/plan" : request.url) as HelperRoute | JackyunHelperRoute | JdHelperRoute | JdPromotionHelperRoute | "/jd-market/plan" | "/jd-market/run" | "/jd-market/verify";
     const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
     const stateError = isJackyun
       ? jackyunHelperRequestError(
@@ -968,9 +973,10 @@ async function serveCommand(argv: string[]) {
     activeWorkflow = workflow;
     busy = true;
     try {
-      if (request.url === "/jd-promotion/plan") {
+      if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
         jdPromotionPlan = await planJdPromotionN8nRun({
           executionId: requestExecutionId!,
+          storeKey: parseJdPromotionStoreKeyHeader(request.headers[jdPromotionStoreKeyHeader]),
           startDate: parseJdPromotionDateHeader(request.headers[jdPromotionStartDateHeader]),
           endDate: parseJdPromotionDateHeader(request.headers[jdPromotionEndDateHeader]),
         });
