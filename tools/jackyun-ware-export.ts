@@ -621,12 +621,18 @@ export async function openExportEntryWithRepaintRetry(page: Page, queryBootstrap
 async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
   const response = await captureJdWareInitialProductQuery(queryBootstrapState, {
     gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
-    waitForQuery: () => page.waitForResponse(
-      (candidate) => isJdWareProductQueryRequest(candidate.url(), candidate.request().method()),
-      // The listener is installed before navigation and must outlive the full
-      // navigation budget. On a cold JD profile the page can finish its DOM
-      // navigation before the application dispatches the initial query.
-      { timeout: jdWareInitialProductQueryTimeoutMs },
+    waitForQuery: () => waitForJdWareQueryOrInteractiveRedirect(
+      page.waitForResponse(
+        (candidate) => isJdWareProductQueryRequest(candidate.url(), candidate.request().method()),
+        // The listener is installed before navigation and must outlive the full
+        // navigation budget. On a cold JD profile the page can finish its DOM
+        // navigation before the application dispatches the initial query.
+        { timeout: jdWareInitialProductQueryTimeoutMs },
+      ),
+      page.waitForURL(
+        (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
+        { timeout: jdWareInitialProductQueryTimeoutMs },
+      ).then(() => { throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。"); }),
     ),
     gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
     verifyAfterNavigation: async () => {
@@ -841,6 +847,16 @@ export async function createJdWareBrowserDownloadSession(page: Page) {
 export function handleJdWareDownloadPromise<T>(promise: Promise<T>) {
   void promise.catch(() => undefined);
   return promise;
+}
+
+export function waitForJdWareQueryOrInteractiveRedirect<T>(queryPromise: Promise<T>, interactiveRedirectPromise: Promise<never>) {
+  // Both observers are installed before navigation. The loser is rejection-
+  // observed because Playwright will settle it later when its timeout expires
+  // or the owned page closes.
+  return handleJdWareDownloadPromise(Promise.race([
+    handleJdWareDownloadPromise(queryPromise),
+    handleJdWareDownloadPromise(interactiveRedirectPromise),
+  ]));
 }
 
 export async function withJdWareDownloadStaging<T>(downloadDirectory: string, operation: (stagingDirectory: string) => Promise<T>) {

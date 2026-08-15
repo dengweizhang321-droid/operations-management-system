@@ -10,7 +10,7 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareInitialProductQueryTimeoutMs, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, jdWareTargetNavigationTimeoutMs, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareExportEntryBootstrapDecision, jdWareInitialProductQueryTimeoutMs, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, jdWareTargetNavigationTimeoutMs, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareProductQueryBootstrap, waitForJdWareQueryOrInteractiveRedirect, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -396,6 +396,21 @@ test("reports a login redirect immediately when navigation completes without a p
   );
   assert.deepEqual(calls, ["blank", "target", "verify"]);
   assert.equal(state.queryTriggered, true);
+});
+
+test("races a delayed JD login redirect against the still-pending product query", async () => {
+  const pendingQuery = new Promise<never>(() => undefined);
+  await assert.rejects(
+    waitForJdWareQueryOrInteractiveRedirect(
+      pendingQuery,
+      Promise.reject(new Error("京东商家后台尚未登录。")),
+    ),
+    /尚未登录/,
+  );
+  assert.equal(
+    await waitForJdWareQueryOrInteractiveRedirect(Promise.resolve("query"), new Promise<never>(() => undefined)),
+    "query",
+  );
 });
 
 test("waits for the JD product query controls to become uniquely ready without clicking", async () => {
