@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-daily.workflow.json";
 import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json";
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
-import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.workflow.json";
+import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
 type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market";
@@ -130,20 +130,20 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     key: "jd_market",
     definition: jdMarketWorkflowDefinition as N8nWorkflowDefinition,
     subtitle: "京东市场商品交易榜单 SKU 按日缺口的自动下载、签收、导入与覆盖回查。",
-    tags: ["京东商智", "商用净水设备", "按日缺口补齐"],
+    tags: ["京东商智", "7 类目", "Profile 3 静默 Chromium"],
     flowLabel: "A → B → C",
     pipelineTitle: "三段式市场商品榜单日补齐链路",
     pipelineDescription: "按上海时区补到昨天；每轮只处理系统真实缺失日。",
     workflowMetric: "京东市场商品榜单日补齐",
-    scheduleMetric: "10:30",
+    scheduleMetric: "10:00",
     scheduleDescription: "上海时区 · 缺失日串行补跑",
     scheduleTriggerLabel: "每日",
-    iframeTitle: "京东市场商品榜单缺失日下载与导入 n8n 工作流",
-    safetyNote: "A 按完整榜单身份只读计算缺失日期；B 使用受控店铺独立 Chrome 会话刷新请求头，逐日拉取并核验非空 SKU 榜单，文件签收后调用正式市场导入接口；C 再次读取同身份日覆盖。下载文件、批次 completed 和全部目标日回查缺一不可。",
+    iframeTitle: "京东市场商品榜单缺失日下载与导入（Chromium 静默下载副本）n8n 工作流",
+    safetyNote: "A 按 7 个完整榜单身份只读计算缺失日期；B 使用 Profile 3 隐藏 Chromium，每个未完成分块前捕获当前类目的新鲜精确请求，文件签收并通过大小、SHA-256、身份、日期和行数重验后才调用正式市场导入接口；响应丢失只能由新的 n8n execution 从 A 安全接管唯一未闭环计划。C 回查原计划全部目标日。下载、严格 completed proof 和覆盖回查缺一不可。",
     stageDetails: {
-      A: { title: "计算缺失日期", description: "读取运营系统商用净水设备、pop、SKU、全部价格带的日覆盖，计划到上海时区昨天。" },
-      B: { title: "按日导出并导入", description: "固定 SKU 与商用净饮水设备 > 商用净水设备，刷新榜单请求头，逐日拉取、签收 CSV 并导入。" },
-      C: { title: "覆盖结果回查", description: "复核每个目标日均已落库，任一日期仍缺失则整轮失败关闭。" },
+      A: { title: "计算 7 类目缺失日期", description: "逐类目读取 pop、SKU、全部价格带的日覆盖，计划到上海时区昨天，并优先接管唯一可恢复计划。" },
+      B: { title: "静默分块导出并导入", description: "Profile 3 隐藏 Chromium 串行处理 7 类目；每个未完成分块捕获新鲜精确请求，签收 CSV 并取得严格导入证明。" },
+      C: { title: "原目标覆盖回查", description: "按原计划逐类目复核每个目标日均已落库，任一日期仍缺失则整轮失败关闭。" },
     },
   },
 };

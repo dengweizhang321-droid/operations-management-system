@@ -3,9 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const workflowPath = new URL("../automation/n8n/jd-multi-store-daily.workflow.json", import.meta.url);
+const jdMarketMainWorkflowPath = new URL("../automation/n8n/jd-market-ranking-daily.workflow.json", import.meta.url);
+const jdMarketSilentWorkflowPath = new URL("../automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json", import.meta.url);
 const silentWorkflowPaths = [
   new URL("../automation/n8n/jd-multi-store-daily.chromium-silent-copy.workflow.json", import.meta.url),
-  new URL("../automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json", import.meta.url),
+  jdMarketSilentWorkflowPath,
 ];
 
 test("JD n8n copy is inactive, uses 10:00 Shanghai loopback A/B/C stages, and contains no credentials", async () => {
@@ -59,4 +61,54 @@ test("JD Chromium silent-download copies stay inactive and preserve loopback orc
     assert.match(raw, /不打开可见窗口/);
     assert.doesNotMatch(raw, /(?:password|cookie|token|session|profileDir)\s*[:=]/i);
   }
+});
+
+test("JD market main and silent workflows preserve the latest seven-category A/B/C contract", async () => {
+  const [mainRaw, silentRaw, view] = await Promise.all([
+    readFile(jdMarketMainWorkflowPath, "utf8"),
+    readFile(jdMarketSilentWorkflowPath, "utf8"),
+    readFile(new URL("../app/n8n-workflow-view.tsx", import.meta.url), "utf8"),
+  ]);
+  for (const raw of [mainRaw, silentRaw]) {
+    const workflow = JSON.parse(raw) as {
+      name: string;
+      active: boolean;
+      settings: { timezone?: string };
+      nodes: Array<{
+        type: string;
+        parameters?: {
+          url?: string;
+          options?: { timeout?: number };
+          rule?: { interval?: Array<{ expression?: string }> };
+          headerParameters?: { parameters?: Array<{ name?: string; value?: string }> };
+        };
+      }>;
+    };
+    assert.equal(workflow.active, false);
+    assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+    assert.doesNotMatch(workflow.name, /5类目/);
+    const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
+    assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "0 10 * * *");
+    const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
+    assert.deepEqual(requests.map((node) => node.parameters?.url), [
+      "http://127.0.0.1:5791/jd-market/plan",
+      "http://127.0.0.1:5791/jd-market/run",
+      "http://127.0.0.1:5791/jd-market/verify",
+    ]);
+    assert.deepEqual(requests.map((node) => node.parameters?.options?.timeout), [900_000, 21_600_000, 900_000]);
+    for (const request of requests) {
+      assert.deepEqual(request.parameters?.headerParameters?.parameters, [
+        { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+        { name: "X-TERUISI-JD-SILENT-NO-WINDOW", value: "1" },
+      ]);
+    }
+    assert.match(raw, /7 (?:个)?类目|7 类目/);
+    assert.match(raw, /每个未完成分块/);
+    assert.match(raw, /completed proof/);
+    assert.match(raw, /不得同时启用/);
+  }
+  assert.match(view, /jd-market-ranking-daily\.chromium-silent-copy\.workflow\.json/);
+  assert.match(view, /scheduleMetric: "10:00"/);
+  assert.doesNotMatch(view, /scheduleMetric: "10:30"/);
+  assert.match(view, /Profile 3 隐藏 Chromium/);
 });

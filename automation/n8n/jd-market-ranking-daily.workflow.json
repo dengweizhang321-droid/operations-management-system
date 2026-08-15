@@ -1,6 +1,6 @@
 {
   "id": "JdMarketDaily2026",
-  "name": "京东市场商品榜单5类目下载与导入（Profile 3隐藏Chromium）",
+  "name": "京东市场商品榜单7类目下载与导入（Profile 3隐藏Chromium）",
   "nodes": [
     {
       "parameters": {},
@@ -75,7 +75,7 @@
     },
     {
       "parameters": {
-        "content": "## 全程隐藏 Chromium 与真实导入\nA/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例，登录或身份异常只失败关闭、不弹可见窗口。7 个类目按顺序逐个切换、最多 5 日一文件；只有全部签收文件、completed 批次和逐类目覆盖回查通过才成功。工作流默认 active=false。",
+        "content": "## 全程隐藏 Chromium、严格导入与恢复\nA/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例。7 个类目按顺序处理、最多 5 日一文件，每个未完成分块前捕获当前类目的新鲜精确请求；签收文件必须通过大小、SHA-256、身份、日期和行数重验，导入必须取得严格 completed proof。响应丢失时，新 n8n execution 只能从 A 接管唯一未闭环计划并精确重投，running、歧义计划或身份漂移一律失败关闭；C 回查原计划全部目标日。主模板与静默副本不得同时启用。",
         "height": 225,
         "width": 860,
         "color": 3
@@ -96,7 +96,7 @@
   },
   "active": false,
   "settings": { "executionOrder": "v1", "timezone": "Asia/Shanghai" },
-  "versionId": "c1302bb4-5dad-4a74-8bbf-000000000008",
+  "versionId": "807c9494-6386-4fbe-8ff6-7a24c91317c0",
   "meta": { "templateCredsSetupCompleted": true },
   "tags": []
 }
