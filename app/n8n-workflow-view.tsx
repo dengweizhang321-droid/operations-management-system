@@ -5,9 +5,10 @@ import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-dai
 import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json";
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
+import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
-type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market";
+type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
@@ -28,12 +29,13 @@ type HelperHealthPayload = {
   ok?: boolean;
   stage?: string;
   busy?: boolean;
-  activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | null;
+  activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | null;
   cookieSource?: "ready" | "missing" | "invalid";
   tmallProfile?: "ready" | "missing" | "invalid";
   jackyunProfile?: "ready" | "missing" | "invalid";
   jdProfiles?: "ready" | "missing" | "invalid";
   jdMarketProfile?: "ready" | "missing" | "invalid";
+  jdPromotionProfile?: "ready" | "missing" | "invalid";
 };
 
 export type HelperAvailabilityKind = "checking" | "ready" | "running" | "cookie-missing" | "offline";
@@ -146,6 +148,26 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
       C: { title: "原目标覆盖回查", description: "按原计划逐类目复核每个目标日均已落库，任一日期仍缺失则整轮失败关闭。" },
     },
   },
+  jd_promotion: {
+    key: "jd_promotion",
+    definition: jdPromotionWorkflowDefinition as N8nWorkflowDefinition,
+    subtitle: "京东志高商用设备旗舰店京准通 AI 推广明细的逐日生成、下载、校验、导入与回查。",
+    tags: ["京准通", "志高商用设备旗舰店", "Default profile"],
+    flowLabel: "A → B → C",
+    pipelineTitle: "三段式京准通推广安全导入链路",
+    pipelineDescription: "默认处理上海时区昨天；任务、文件、范围和批次任一不唯一都会停止。",
+    workflowMetric: "京东 AI 推广数据导入",
+    scheduleMetric: "10:30",
+    scheduleDescription: "上海时区 · 每天处理昨天",
+    scheduleTriggerLabel: "每日",
+    iframeTitle: "京东志高商用设备 AI 推广数据下载与导入 n8n 工作流",
+    safetyNote: "工作流固定绑定 jd-yiyong-director，不保存京东凭证。A 固化日期与执行所有者；B 只接管唯一下载任务，验证 UTF-8 CSV、连续日期覆盖、账户集合和 SHA-256 后按精确范围导入；C 独立重验文件与 completed 批次。",
+    stageDetails: {
+      A: { title: "固化日期与店铺", description: "按上海时区确定昨天，绑定 n8n execution ID、志高商用设备旗舰店和 Default profile。" },
+      B: { title: "生成下载并导入", description: "设置自定义日期，防重生成任务，只下载唯一候选 CSV，校验后调用 jd_promotion 精确范围导入。" },
+      C: { title: "独立文件与批次复验", description: "重新读取文件，核对 SHA-256、行数、账户集合、日期范围及精确 completed 批次。" },
+    },
+  },
 };
 
 export function canManageN8nWorkflow(role: AppRole | undefined) {
@@ -165,10 +187,12 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
     label: "正在检测辅助服务",
     detail: key === "jackyun"
       ? "正在确认 5791 环回服务、本机运营系统和吉客云专用 Chrome profile。"
-      : key === "jd" || key === "jd_market"
+      : key === "jd" || key === "jd_market" || key === "jd_promotion"
         ? key === "jd_market"
           ? "正在确认 5791 环回服务、本机运营系统和榜单受控店铺的独立 Chrome profile。"
-          : "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
+          : key === "jd_promotion"
+            ? "正在确认 5791 环回服务、本机运营系统和志高商用设备旗舰店 Default profile。"
+            : "正在确认 5791 环回服务、本机运营系统和四店独立 Chrome profile。"
         : "正在确认 5791 环回服务和亿玖店专属 Chromium profile 是否可用。",
   };
 }
@@ -189,17 +213,20 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
       detail: "辅助服务在线，但亿玖店专属 Chromium profile 缺失或结构无效；请先使用专属快捷方式完成首次登录。",
     };
   }
-  if ((key === "jd" && payload.jdProfiles !== "ready") || (key === "jd_market" && payload.jdMarketProfile !== "ready")) {
+  if ((key === "jd" && payload.jdProfiles !== "ready") || (key === "jd_market" && payload.jdMarketProfile !== "ready")
+    || (key === "jd_promotion" && payload.jdPromotionProfile !== "ready")) {
     return {
       kind: "cookie-missing",
       label: "京东店铺会话待恢复",
       detail: key === "jd_market"
         ? "辅助服务在线，但榜单受控店铺的独立 Chrome profile 缺失或结构无效；恢复该店铺会话后重新检测。"
-        : "辅助服务在线，但至少一个京东独立 Chrome profile 缺失或结构无效；恢复对应店铺会话后重新检测。",
+        : key === "jd_promotion"
+          ? "辅助服务在线，但志高商用设备旗舰店的 Default profile 缺失或结构无效；恢复该店铺会话后重新检测。"
+          : "辅助服务在线，但至少一个京东独立 Chrome profile 缺失或结构无效；恢复对应店铺会话后重新检测。",
     };
   }
   if (payload.busy || payload.stage !== "ready") {
-    const activeLabel = payload.activeWorkflow === "jackyun" ? "吉客云" : payload.activeWorkflow === "tmall" ? "天猫" : payload.activeWorkflow === "jd-market" ? "京东市场榜单" : payload.activeWorkflow === "jd" ? "京东" : "当前";
+    const activeLabel = payload.activeWorkflow === "jackyun" ? "吉客云" : payload.activeWorkflow === "tmall" ? "天猫" : payload.activeWorkflow === "jd-market" ? "京东市场榜单" : payload.activeWorkflow === "jd-promotion" ? "京东推广" : payload.activeWorkflow === "jd" ? "京东" : "当前";
     return {
       kind: "running",
       label: `${activeLabel}流程执行中`,
@@ -210,12 +237,14 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
     kind: "ready",
     label: "可以安全启动",
     detail: "服务与专用 profile 已就绪；A 会跳过已有完整当日结果，任一失败都会阻断后续五类任务。",
-  } : key === "jd" || key === "jd_market" ? {
+  } : key === "jd" || key === "jd_market" || key === "jd_promotion" ? {
     kind: "ready",
     label: "可以安全启动",
     detail: key === "jd_market"
       ? "服务与京东独立 profile 已就绪；A/B/C 会按真实缺失日串行下载、签收、导入并回查。"
-      : "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
+      : key === "jd_promotion"
+        ? "服务与志高商用设备旗舰店 Default profile 已就绪；A/B/C 会按目标日期生成、下载、导入并独立回查。"
+        : "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
   } : {
     kind: "ready",
     label: "辅助服务已就绪",
@@ -321,7 +350,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
             aria-pressed={selectedWorkflowKey === key}
             onClick={() => selectWorkflow(key)}
           >
-            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : key === "jd_market" ? "榜" : "京"}</span>
+            <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : key === "jd_market" ? "榜" : key === "jd_promotion" ? "推" : "京"}</span>
             <strong>{workflowConfigs[key].definition.name}</strong>
           </button>
         ))}
