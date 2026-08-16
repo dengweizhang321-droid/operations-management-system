@@ -9,6 +9,7 @@ import {
   buildSycmExportUrl,
   classifySycmInspectionErrors,
   closeOneShotServer,
+  closeTmallWorkflowBrowser,
   createHelperInactivityReaper,
   createInitialDownloadManifest,
   decodeArtifactPath,
@@ -60,6 +61,20 @@ test("one-shot helper closes both its listener and retained keep-alive connectio
   });
   assert.equal(closeCalls, 1);
   assert.equal(closeAllCalls, 1);
+});
+
+test("天猫工作流终态只关闭注册端口对应的独立 Chromium", async () => {
+  const ports: number[] = [];
+  assert.deepEqual(await closeTmallWorkflowBrowser(9334, async (port) => {
+    ports.push(port);
+    return true;
+  }), { ok: true, status: "closed" });
+  assert.deepEqual(await closeTmallWorkflowBrowser(9334, async (port) => {
+    ports.push(port);
+    return false;
+  }), { ok: true, status: "already_closed" });
+  assert.deepEqual(ports, [9334, 9334]);
+  await assert.rejects(() => closeTmallWorkflowBrowser(0, async () => true), /调试端口无效/);
 });
 
 test("Cookie 只接受单行请求头并核验亿玖店登录身份", () => {

@@ -4,7 +4,7 @@ import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { connectChromeBrowser } from "../lib/jackyun/cdp-client";
+import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
@@ -852,6 +852,17 @@ export function closeOneShotServer(server: Pick<Server, "close" | "closeAllConne
   server.closeAllConnections();
 }
 
+export async function closeTmallWorkflowBrowser(
+  debugPort: number,
+  closeBrowser: (port: number) => Promise<boolean> = closeChromeBrowser,
+) {
+  if (!Number.isInteger(debugPort) || debugPort < 1 || debugPort > 65_535) {
+    throw new Error("天猫工作流 Chromium 调试端口无效");
+  }
+  const closed = await closeBrowser(debugPort);
+  return { ok: true as const, status: closed ? "closed" as const : "already_closed" as const };
+}
+
 function scheduleOneShotServerClose(server: Pick<Server, "close" | "closeAllConnections">, delayMs: number) {
   return setTimeout(() => closeOneShotServer(server), delayMs);
 }
@@ -972,6 +983,7 @@ async function serveCommand(argv: string[]) {
     }
     activeWorkflow = workflow;
     busy = true;
+    let tmallBrowserClosure: Awaited<ReturnType<typeof closeTmallWorkflowBrowser>> | null = null;
     try {
       if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
         jdPromotionPlan = await planJdPromotionN8nRun({
@@ -1087,14 +1099,25 @@ async function serveCommand(argv: string[]) {
         tmallImportFallbackClose = scheduleOneShotServerClose(server, 30_000);
       } else {
         const result = await runTmallPromotionStage(getTmallPromotionStageOptions());
+        const store = await getTmallStore("tmall-yijiu");
+        tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
         stage = "completed";
-        reply(200, result);
+        reply(200, { ...result, browserClosure: tmallBrowserClosure });
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
       }
     } catch (error) {
       stage = "failed";
       inactivityReaper?.clear();
+      let tmallBrowserCloseError: string | null = null;
+      if (workflow === "tmall" && !tmallBrowserClosure) {
+        try {
+          const store = await getTmallStore("tmall-yijiu");
+          tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
+        } catch (closeError) {
+          tmallBrowserCloseError = closeError instanceof Error ? closeError.message : String(closeError);
+        }
+      }
       const jackyunFailure = isJackyun
         ? jackyunN8nFailureDetails(error, "PIPELINE_FAILED", "helper")
         : null;
@@ -1104,6 +1127,9 @@ async function serveCommand(argv: string[]) {
         ...(jackyunFailure ? { failureStage: jackyunFailure.stage } : {}),
         code: jackyunFailure?.code ?? (error instanceof TmallPipelineError ? error.code : "PIPELINE_FAILED"),
         error: error instanceof Error ? error.message : String(error),
+        ...(workflow === "tmall" ? {
+          browserClosure: tmallBrowserClosure ?? { ok: false, status: "failed", error: tmallBrowserCloseError },
+        } : {}),
       });
       scheduleOneShotServerClose(server, 500);
     } finally {
