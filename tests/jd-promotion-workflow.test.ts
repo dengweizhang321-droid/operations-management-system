@@ -12,7 +12,13 @@ import {
   type JdPromotionDownloadTask,
 } from "../lib/jd/promotion-report";
 import type { JdStore } from "../lib/jd/store-registry";
-import { parseJdPromotionArgs, type JdPromotionExportResult } from "../tools/jd-promotion-export";
+import {
+  assertJdPromotionAccount,
+  jdPromotionReportListUrl,
+  jdPromotionReportName,
+  parseJdPromotionArgs,
+  type JdPromotionExportResult,
+} from "../tools/jd-promotion-export";
 import {
   jdPromotionHelperRequestError,
   parseJdPromotionStoreKeyHeader,
@@ -153,6 +159,27 @@ test("京准通命令行默认使用上海昨天，并接受同月显式范围",
   const range = parseJdPromotionArgs(["--start-date", "2026-08-13", "--end-date", "2026-08-14", "--run-id", "range-13-14"], now);
   assert.deepEqual([range.startDate, range.endDate, range.runId], ["2026-08-13", "2026-08-14", "range-13-14"]);
   assert.throws(() => parseJdPromotionArgs(["--start-date", "2026-07-31", "--end-date", "2026-08-01"], now), /同一自然月/);
+});
+
+test("京准通推广从当前店铺报表列表按名称进入，不能复用另一店的报表 id", () => {
+  assert.equal(jdPromotionReportListUrl, "https://jzt.jd.com/custom-report/#/list");
+  assert.equal(jdPromotionReportName, "AI推广数据自动下载");
+});
+
+test("京准通推广等待列表页异步渲染受控账号，并继续拒绝缺失身份", async () => {
+  let visible = false;
+  const page = {
+    waitForFunction: async () => { visible = true; },
+    locator: () => ({ innerText: async () => visible ? "自定义报表\n志高迈德豪-运营1" : "自定义报表" }),
+  };
+  await assertJdPromotionAccount(page as never, store("jd-maidehao-operator1"));
+  assert.equal(visible, true);
+
+  const missingPage = {
+    waitForFunction: async () => { throw new Error("timeout"); },
+    locator: () => ({ innerText: async () => "自定义报表" }),
+  };
+  await assert.rejects(() => assertJdPromotionAccount(missingPage as never, store("jd-maidehao-operator1")), /登录身份不一致/);
 });
 
 test("京准通 helper 绑定同一 execution 并拒绝空、跨执行、并发和乱序请求", () => {

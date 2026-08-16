@@ -20,7 +20,8 @@ import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "jd-promotion-export");
-const reportUrl = "https://jzt.jd.com/custom-report/#/createNew?id=22201944&businessFrom=list";
+export const jdPromotionReportListUrl = "https://jzt.jd.com/custom-report/#/list";
+export const jdPromotionReportName = "AI推广数据自动下载";
 const downloadCenterUrl = "https://jzt.jd.com/custom-report/#/download";
 const defaultBaseUrl = (process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const maximumCsvBytes = 25 * 1024 * 1024;
@@ -201,12 +202,24 @@ export async function readJdPromotionDownloadTasks(page: Page): Promise<JdPromot
   return tasks;
 }
 
-async function assertJdPromotionAccount(page: Page, store: JdStore, requireReportHeading = false) {
-  if (requireReportHeading) await page.getByRole("heading", { name: "AI推广数据自动下载", exact: true }).waitFor({ state: "visible", timeout: 30_000 });
-  const account = page.getByText(store.accountLabel, { exact: true }).filter({ visible: true });
-  if (await account.count() < 1) throw new Error(`京准通登录身份不一致：页面未显示受控账号 ${store.accountLabel}`);
+export async function assertJdPromotionAccount(page: Page, store: JdStore, requireReportHeading = false) {
+  if (requireReportHeading) await page.getByRole("heading", { name: jdPromotionReportName, exact: true }).waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForFunction((accountLabel) => {
+    const text = document.body?.innerText ?? "";
+    return text.includes(accountLabel) || /验证码|人机验证|安全验证|滑块验证|访问验证/.test(text);
+  }, store.accountLabel, { timeout: 30_000 }).catch(() => undefined);
   const bodyText = await page.locator("body").innerText();
   if (/验证码|人机验证|安全验证|滑块验证|访问验证/.test(bodyText)) throw new Error("京准通页面出现安全验证，已停止自动操作");
+  if (!bodyText.includes(store.accountLabel)) throw new Error(`京准通登录身份不一致：页面未显示受控账号 ${store.accountLabel}`);
+}
+
+async function openJdPromotionReport(page: Page, store: JdStore) {
+  await assertJdPromotionAccount(page, store);
+  const reportName = page.getByText(jdPromotionReportName, { exact: true }).filter({ visible: true });
+  await reportName.first().waitFor({ state: "visible", timeout: 30_000 });
+  if (await reportName.count() !== 1) throw new Error(`京准通自定义报表列表无法唯一定位“${jdPromotionReportName}”`);
+  await reportName.click();
+  await assertJdPromotionAccount(page, store, true);
 }
 
 async function setJdPromotionDateRange(page: Page, startDate: string, endDate: string) {
@@ -216,7 +229,9 @@ async function setJdPromotionDateRange(page: Page, startDate: string, endDate: s
   if (await input.inputValue() === expected) return;
   await input.click();
   const monthTitle = `${Number(startDate.slice(0, 4))}年 ${Number(startDate.slice(5, 7))}月`;
-  if (await page.getByText(monthTitle, { exact: true }).filter({ visible: true }).count() < 1) {
+  const visibleMonthTitle = page.getByText(monthTitle, { exact: true }).filter({ visible: true });
+  await visibleMonthTitle.first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
+  if (await visibleMonthTitle.count() < 1) {
     throw new Error(`京准通日期面板未显示目标月份 ${monthTitle}，拒绝猜测翻页`);
   }
   const calendar = page.locator(".jad-date-picker-dateRange").first();
@@ -386,10 +401,10 @@ async function runUnlocked(options: JdPromotionExportOptions): Promise<JdPromoti
     if (!options.interactiveLogin && !ownsBrowser) throw new Error("京准通自动流程拒绝复用不受本轮执行所有权控制的 Chromium 实例");
     await waitForChrome(store.browser.debugPort);
     browser = await connectPlaywrightBrowser(store.browser.debugPort);
-    const { page: reportPage, client } = await connectPlaywrightJackyunTarget(browser, { startUrl: reportUrl, workerName: "codex-jd-promotion-worker", targetUrlPattern: /jzt\.jd\.com/i, requireMini: false });
+    const { page: reportPage, client } = await connectPlaywrightJackyunTarget(browser, { startUrl: jdPromotionReportListUrl, workerName: "codex-jd-promotion-worker", targetUrlPattern: /jzt\.jd\.com/i, requireMini: false });
     const context = reportPage.context();
     const downloadPage = await context.newPage();
-    await assertJdPromotionAccount(reportPage, store, true);
+    await openJdPromotionReport(reportPage, store);
     await setJdPromotionDateRange(reportPage, options.startDate, options.endDate);
     const resumed = await createOrResumeDownloadTask(reportPage, downloadPage, manifest, options, store);
     manifest = resumed.manifest;
@@ -417,7 +432,7 @@ async function runUnlocked(options: JdPromotionExportOptions): Promise<JdPromoti
     await browser?.close().catch(() => undefined);
     if (ownsBrowser && !options.interactiveLogin) await closeChromeBrowser(store.browser.debugPort);
     if (revealInteractive) {
-      await revealJdBrowserForInteractiveFailure({ executablePath: store.browser.executablePath, profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName, port: store.browser.debugPort, startUrl: reportUrl }).catch(() => undefined);
+      await revealJdBrowserForInteractiveFailure({ executablePath: store.browser.executablePath, profileDirectory: store.browser.userDataDir, profileName: store.browser.profileName, port: store.browser.debugPort, startUrl: jdPromotionReportListUrl }).catch(() => undefined);
     }
   }
 }

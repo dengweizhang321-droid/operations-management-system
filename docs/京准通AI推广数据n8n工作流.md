@@ -7,7 +7,7 @@
 - 业务店铺：志高商用设备旗舰店
 - 京准通页面账号标签：志高亿用-总监
 - Chromium profile：Default
-- 报表入口：`https://jzt.jd.com/custom-report/#/createNew?id=22201944&businessFrom=list`
+- 报表入口：`https://jzt.jd.com/custom-report/#/list`，在当前账号列表内按名称唯一选择“AI推广数据自动下载”；禁止跨店复用报表 ID
 - n8n 模板：`automation/n8n/jd-promotion-daily.workflow.json`
 
 工作流默认保持 `active=false`。当前手动入口固定补跑 `2026-08-13` 至 `2026-08-14`；定时入口在上海时区每天 10:30 运行，目标日为昨天。需要变更历史补跑范围时，只修改 n8n 的“手动补跑日期”节点，不修改定时入口。
