@@ -35,6 +35,7 @@ import {
   scoreProductManagerFloatingCandidate,
   scoreTmallBlockingNoticeCandidate,
   shouldRejectEqualTmallNoticeActions,
+  tmallBrowserDownloadOutcome,
 } from "../tools/tmall-product-master-export";
 
 test("识别千牛卖家专用登录跳转并拒绝普通业务页", () => {
@@ -251,6 +252,21 @@ test("商品管家下载事件必须监听 Chrome 浏览器根会话", async () 
   assert.equal(session, expectedSession);
   assert.equal(browserSessionCalls, 1);
   assert.equal(pageSessionCalls, 0);
+});
+
+test("浏览器下载取消先解析为受控结果，不产生提前拒绝", () => {
+  assert.equal(tmallBrowserDownloadOutcome({ guid: "other", state: "canceled" }, "target"), null);
+  assert.equal(tmallBrowserDownloadOutcome({ guid: "target", state: "inProgress" }, "target"), null);
+  assert.deepEqual(tmallBrowserDownloadOutcome({ guid: "target", state: "canceled" }, "target"), {
+    ok: false,
+    guid: "target",
+    error: "Chrome 已取消商品管家 XLSX 下载",
+  });
+  assert.deepEqual(tmallBrowserDownloadOutcome({ guid: "target", state: "completed", filePath: "safe.xlsx" }, "target"), {
+    ok: true,
+    guid: "target",
+    filePath: "safe.xlsx",
+  });
 });
 
 test("导出记录按原任务创建时间和已完成状态选择同一行下载", () => {

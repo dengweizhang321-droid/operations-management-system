@@ -1345,6 +1345,20 @@ export async function createTmallBrowserDownloadSession(page: Page) {
   return browser.newBrowserCDPSession();
 }
 
+export function tmallBrowserDownloadOutcome(
+  event: { guid: string; state?: string; filePath?: string },
+  activeGuid: string | undefined,
+) {
+  if (!activeGuid || event.guid !== activeGuid) return null;
+  if (event.state === "completed") {
+    return { ok: true as const, guid: event.guid, filePath: event.filePath };
+  }
+  if (event.state === "canceled") {
+    return { ok: false as const, guid: event.guid, error: "Chrome 已取消商品管家 XLSX 下载" };
+  }
+  return null;
+}
+
 async function downloadWithBrowserEvents(options: {
   page: Page;
   locator: Locator;
@@ -1358,14 +1372,18 @@ async function downloadWithBrowserEvents(options: {
   const session = await createTmallBrowserDownloadSession(options.page);
   let activeGuid: string | undefined;
   let resolveStarted!: (value: { guid: string; suggestedFilename: string }) => void;
-  let resolveCompleted!: (value: { guid: string; filePath?: string }) => void;
-  let rejectCompleted!: (error: Error) => void;
+  let resolveCompleted!: (value:
+    | { ok: true; guid: string; filePath?: string }
+    | { ok: false; guid: string; error: string }
+  ) => void;
   const started = new Promise<{ guid: string; suggestedFilename: string }>((resolve) => {
     resolveStarted = resolve;
   });
-  const completed = new Promise<{ guid: string; filePath?: string }>((resolve, reject) => {
+  const completed = new Promise<
+    | { ok: true; guid: string; filePath?: string }
+    | { ok: false; guid: string; error: string }
+  >((resolve) => {
     resolveCompleted = resolve;
-    rejectCompleted = reject;
   });
   session.on("Browser.downloadWillBegin", (event) => {
     if (activeGuid) return;
@@ -1373,9 +1391,8 @@ async function downloadWithBrowserEvents(options: {
     resolveStarted({ guid: event.guid, suggestedFilename: event.suggestedFilename });
   });
   session.on("Browser.downloadProgress", (event) => {
-    if (!activeGuid || event.guid !== activeGuid) return;
-    if (event.state === "completed") resolveCompleted({ guid: event.guid, filePath: event.filePath });
-    if (event.state === "canceled") rejectCompleted(new Error("Chrome 已取消商品管家 XLSX 下载"));
+    const outcome = tmallBrowserDownloadOutcome(event, activeGuid);
+    if (outcome) resolveCompleted(outcome);
   });
   try {
     await session.send("Browser.setDownloadBehavior", {
@@ -1428,6 +1445,7 @@ async function downloadWithBrowserEvents(options: {
       throw new Error(`千牛返回的货品文件不是安全的 .xlsx：${safeSegment(start.suggestedFilename)}`);
     }
     const finish = await withDeadline(completed, 120_000, "Chrome 商品管家 XLSX 下载未在两分钟内完成");
+    if (!finish.ok) throw new Error(finish.error);
     const stagedPath = path.resolve(finish.filePath || path.join(stagingDirectory, finish.guid));
     if (!inside(stagingDirectory, stagedPath)) throw new Error("Chrome 下载结果越过本轮暂存目录");
     await stat(stagedPath);
