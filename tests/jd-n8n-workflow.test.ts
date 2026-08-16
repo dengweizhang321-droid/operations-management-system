@@ -47,10 +47,11 @@ test("JD Chromium silent-download copies stay inactive and preserve loopback orc
     assert.equal(workflow.active, false);
     assert.equal(workflow.settings.timezone, "Asia/Shanghai");
     assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
-    const urls = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest").map((node) => node.parameters?.url);
+    const businessRequests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && /^http:\/\/127\.0\.0\.1:5791\/jd(?:-market)?\//.test(node.parameters?.url ?? ""));
+    const urls = businessRequests.map((node) => node.parameters?.url);
     assert.equal(urls.length, 3);
     assert.equal(urls.every((url) => /^http:\/\/127\.0\.0\.1:5791\/jd(?:-market)?\/(?:plan|run|verify)$/.test(url ?? "")), true);
-    for (const request of workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest")) {
+    for (const request of businessRequests) {
       assert.deepEqual(request.parameters?.headerParameters?.parameters, [
         { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
         { name: "X-TERUISI-JD-SILENT-NO-WINDOW", value: "1" },
@@ -89,7 +90,7 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
     assert.doesNotMatch(workflow.name, /5类目/);
     const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
     assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "0 10 * * *");
-    const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
+    const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && /^http:\/\/127\.0\.0\.1:5791\/jd-market\//.test(node.parameters?.url ?? ""));
     assert.deepEqual(requests.map((node) => node.parameters?.url), [
       "http://127.0.0.1:5791/jd-market/plan",
       "http://127.0.0.1:5791/jd-market/run",
@@ -111,4 +112,31 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
   assert.match(view, /jd_market:[\s\S]*?scheduleMetric: "10:00"/);
   assert.match(view, /jd_promotion:[\s\S]*?scheduleMetric: "10:30"/);
   assert.match(view, /Profile 3 隐藏 Chromium/);
+});
+
+test("JD market silent schedule waits for the shared helper without delaying manual recovery", async () => {
+  const raw = await readFile(jdMarketSilentWorkflowPath, "utf8");
+  const workflow = JSON.parse(raw) as {
+    nodes: Array<{ name: string; type: string; retryOnFail?: boolean; maxTries?: number; waitBetweenTries?: number; parameters?: { url?: string; resume?: string; amount?: number; unit?: string; conditions?: { conditions?: Array<{ leftValue?: string; rightValue?: string }> } } }>;
+    connections: Record<string, { main: Array<Array<{ node: string }>> }>;
+  };
+  const initialWait = workflow.nodes.find((node) => node.name === "定时分支先让四店领取 helper");
+  const health = workflow.nodes.find((node) => node.name === "检查 helper 是否空闲");
+  const gate = workflow.nodes.find((node) => node.name === "helper 已空闲？");
+  const retryWait = workflow.nodes.find((node) => node.name === "等待四店流程释放 helper");
+  assert.deepEqual(initialWait?.parameters, { resume: "timeInterval", amount: 1, unit: "minutes" });
+  assert.equal(health?.parameters?.url, "http://127.0.0.1:5791/health");
+  assert.equal(health?.retryOnFail, true);
+  assert.equal(health?.maxTries, 5);
+  assert.equal(health?.waitBetweenTries, 5000);
+  assert.match(gate?.parameters?.conditions?.conditions?.[0]?.leftValue ?? "", /busy === false/);
+  assert.match(gate?.parameters?.conditions?.conditions?.[0]?.leftValue ?? "", /activeWorkflow === null/);
+  assert.match(gate?.parameters?.conditions?.conditions?.[0]?.leftValue ?? "", /stage === 'ready'/);
+  assert.equal(gate?.parameters?.conditions?.conditions?.[0]?.rightValue, "ready");
+  assert.deepEqual(retryWait?.parameters, { resume: "timeInterval", amount: 5, unit: "minutes" });
+  assert.equal(workflow.connections["手动运行"]?.main[0]?.[0]?.node, "A·计算运营系统缺失日期");
+  assert.equal(workflow.connections["每天 10:00 补缺"]?.main[0]?.[0]?.node, "定时分支先让四店领取 helper");
+  assert.equal(workflow.connections["helper 已空闲？"]?.main[0]?.[0]?.node, "A·计算运营系统缺失日期");
+  assert.equal(workflow.connections["helper 已空闲？"]?.main[1]?.[0]?.node, "等待四店流程释放 helper");
+  assert.equal(workflow.connections["等待四店流程释放 helper"]?.main[0]?.[0]?.node, "检查 helper 是否空闲");
 });
