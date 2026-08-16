@@ -1444,10 +1444,14 @@ async function downloadWithBrowserEvents(options: {
   }
 }
 
+export function isTmallSellerLoginUrl(url: string) {
+  return /(?:loginmyseller|login)\.taobao\.com|passport|member\/login/i.test(url);
+}
+
 async function assertSellerIdentity(page: Page, store: TmallStore) {
   const url = page.url();
   const text = await combinedPageText(page);
-  if (/login\.taobao\.com|passport|member\/login/i.test(url) || /扫码登录|密码登录|账户登录/.test(text)) {
+  if (isTmallSellerLoginUrl(url) || /扫码登录|密码登录|账户登录/.test(text)) {
     throw new Error("waiting_login：亿玖店独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
   }
   const expected = store.shopName.replace(/^天猫-/, "");
@@ -1523,7 +1527,7 @@ async function browserExport(options: {
     if (!page.url().startsWith("https://myseller.taobao.com/home.htm/SellManage/on_sale")) {
       await page.goto(TMALL_SELLER_ON_SALE_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
     }
-    if (/login\.taobao\.com|passport|member\/login/i.test(page.url())) {
+    if (isTmallSellerLoginUrl(page.url())) {
       throw new Error("waiting_login：亿玖店独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
     }
     await waitUntil(60_000, async () => (await combinedPageText(page!)).includes("出售中"), "等待千牛出售中页面加载超时");

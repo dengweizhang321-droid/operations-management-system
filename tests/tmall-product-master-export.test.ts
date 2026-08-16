@@ -24,6 +24,7 @@ import {
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
   isTmallProductWorkbookFilename,
+  isTmallSellerLoginUrl,
   matchTmallExportRecordChoice,
   parseTmallShanghaiTaskTime,
   productManagerFloatingClusterKey,
@@ -35,6 +36,12 @@ import {
   scoreTmallBlockingNoticeCandidate,
   shouldRejectEqualTmallNoticeActions,
 } from "../tools/tmall-product-master-export";
+
+test("识别千牛卖家专用登录跳转并拒绝普通业务页", () => {
+  assert.equal(isTmallSellerLoginUrl("https://loginmyseller.taobao.com/?redirect_url=https%3A%2F%2Fmyseller.taobao.com"), true);
+  assert.equal(isTmallSellerLoginUrl("https://login.taobao.com/member/login.jhtml"), true);
+  assert.equal(isTmallSellerLoginUrl("https://myseller.taobao.com/home.htm/SellManage/on_sale"), false);
+});
 
 function masterWorkbook() {
   const workbook = XLSX.utils.book_new();
