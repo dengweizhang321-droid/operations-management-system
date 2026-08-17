@@ -629,10 +629,13 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
         // navigation before the application dispatches the initial query.
         { timeout: jdWareInitialProductQueryTimeoutMs },
       ),
-      page.waitForURL(
-        (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
-        { timeout: jdWareInitialProductQueryTimeoutMs },
-      ).then(() => { throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。"); }),
+      waitForJdWareLoginRedirect(
+        page.waitForURL(
+          (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
+          { timeout: jdWareInitialProductQueryTimeoutMs },
+        ),
+        () => page.url(),
+      ),
     ),
     gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
     verifyAfterNavigation: async () => {
@@ -857,6 +860,25 @@ export function waitForJdWareQueryOrInteractiveRedirect<T>(queryPromise: Promise
     handleJdWareDownloadPromise(queryPromise),
     handleJdWareDownloadPromise(interactiveRedirectPromise),
   ]));
+}
+
+export async function waitForJdWareLoginRedirect(
+  redirectPromise: Promise<unknown>,
+  currentUrl: () => string,
+): Promise<never> {
+  try {
+    await redirectPromise;
+  } catch {
+    // JD can repeatedly replace the merchant frame while staying on the exact
+    // WareList URL. Playwright then rejects waitForURL with ERR_ABORTED/frame
+    // detached even though the pre-navigation product-query listener is still
+    // valid. Do not let that auxiliary login observer preempt the authoritative
+    // query response. The query promise keeps its own bounded timeout.
+    if (!isLikelyJdLoginPage(currentUrl(), "")) {
+      return await new Promise<never>(() => undefined);
+    }
+  }
+  throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
 }
 
 export async function withJdWareDownloadStaging<T>(downloadDirectory: string, operation: (stagingDirectory: string) => Promise<T>) {
