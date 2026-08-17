@@ -630,7 +630,7 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
         { timeout: jdWareInitialProductQueryTimeoutMs },
       ),
       waitForJdWareLoginRedirect(
-        page.waitForURL(
+        () => page.waitForURL(
           (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
           { timeout: jdWareInitialProductQueryTimeoutMs },
         ),
@@ -863,22 +863,31 @@ export function waitForJdWareQueryOrInteractiveRedirect<T>(queryPromise: Promise
 }
 
 export async function waitForJdWareLoginRedirect(
-  redirectPromise: Promise<unknown>,
+  waitForRedirect: () => Promise<unknown>,
   currentUrl: () => string,
+  maxAttempts = 3,
 ): Promise<never> {
-  try {
-    await redirectPromise;
-  } catch {
-    // JD can repeatedly replace the merchant frame while staying on the exact
-    // WareList URL. Playwright then rejects waitForURL with ERR_ABORTED/frame
-    // detached even though the pre-navigation product-query listener is still
-    // valid. Do not let that auxiliary login observer preempt the authoritative
-    // query response. The query promise keeps its own bounded timeout.
-    if (!isLikelyJdLoginPage(currentUrl(), "")) {
-      return await new Promise<never>(() => undefined);
+  if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) throw new Error("京东登录跳转监听次数无效。");
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      await waitForRedirect();
+      throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+    } catch (error) {
+      if (error instanceof Error && /京东商家后台尚未登录/.test(error.message)) throw error;
+      if (isLikelyJdLoginPage(currentUrl(), "")) {
+        throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+      }
+      // JD can replace the merchant frame while staying on WareList. Re-arm
+      // the auxiliary login observer so a later real passport redirect is
+      // still classified, while the authoritative query listener remains the
+      // race winner when the product response arrives first.
+      if (attempt + 1 < maxAttempts) continue;
     }
   }
-  throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+  // The product-query promise owns the overall 60-second bound. Keeping this
+  // exhausted auxiliary observer pending prevents a transient frame error
+  // from preempting its final response or timeout.
+  return await new Promise<never>(() => undefined);
 }
 
 export async function withJdWareDownloadStaging<T>(downloadDirectory: string, operation: (stagingDirectory: string) => Promise<T>) {

@@ -416,7 +416,7 @@ test("races a delayed JD login redirect against the still-pending product query"
 test("does not let a detached non-login URL observer preempt the initial product query", async () => {
   const query = new Promise<string>((resolve) => setTimeout(() => resolve("query"), 5));
   const redirect = waitForJdWareLoginRedirect(
-    Promise.reject(new Error("page.waitForURL: net::ERR_ABORTED; maybe frame was detached?")),
+    () => Promise.reject(new Error("page.waitForURL: net::ERR_ABORTED; maybe frame was detached?")),
     () => "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare",
   );
   assert.equal(await waitForJdWareQueryOrInteractiveRedirect(query, redirect), "query");
@@ -424,16 +424,30 @@ test("does not let a detached non-login URL observer preempt the initial product
 
 test("still reports login when the URL observer resolves or the current URL is a login page", async () => {
   await assert.rejects(
-    waitForJdWareLoginRedirect(Promise.resolve(), () => "https://passport.jd.com/new/login.aspx"),
+    waitForJdWareLoginRedirect(() => Promise.resolve(), () => "https://passport.jd.com/new/login.aspx"),
     /尚未登录/,
   );
   await assert.rejects(
     waitForJdWareLoginRedirect(
-      Promise.reject(new Error("page.waitForURL: net::ERR_ABORTED; maybe frame was detached?")),
+      () => Promise.reject(new Error("page.waitForURL: net::ERR_ABORTED; maybe frame was detached?")),
       () => "https://passport.jd.com/new/login.aspx",
     ),
     /尚未登录/,
   );
+});
+
+test("re-arms the login observer after a detached merchant frame", async () => {
+  let attempts = 0;
+  await assert.rejects(
+    waitForJdWareLoginRedirect(
+      () => attempts++ === 0
+        ? Promise.reject(new Error("page.waitForURL: net::ERR_ABORTED; maybe frame was detached?"))
+        : Promise.resolve(),
+      () => "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare",
+    ),
+    /尚未登录/,
+  );
+  assert.equal(attempts, 2);
 });
 
 test("waits for the JD product query controls to become uniquely ready without clicking", async () => {
