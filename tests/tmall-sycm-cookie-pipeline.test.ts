@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -10,6 +10,7 @@ import {
   classifySycmInspectionErrors,
   closeOneShotServer,
   closeTmallWorkflowBrowser,
+  consumeTmallSkipMasterPermit,
   createHelperInactivityReaper,
   createInitialDownloadManifest,
   decodeArtifactPath,
@@ -24,14 +25,71 @@ import {
   isLegacyXls,
   maximumDaysPerRun,
   normalizeN8nExecutionId,
+  normalizeTmallSkipMasterPermitToken,
   parseCookieHeader,
   saveDownload,
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
+  tmallSkipMasterPermitHeader,
 } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent copy uses one bounded non-secret no-window header", () => {
   assert.equal(jdSilentNoWindowHeader, "x-teruisi-jd-silent-no-window");
+});
+
+test("天猫跳过 M 只接受一次性有界许可请求头", async () => {
+  assert.equal(tmallSkipMasterPermitHeader, "x-teruisi-tmall-skip-master-permit");
+  const token = "permit-12345678901234567890123456789012";
+  assert.equal(normalizeTmallSkipMasterPermitToken(token), token);
+  assert.equal(normalizeTmallSkipMasterPermitToken("short"), null);
+
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-skip-master-"));
+  const permitFile = path.join(root, "permit.json");
+  const activeAuditFile = path.join(root, "active.json");
+  try {
+    await writeFile(permitFile, JSON.stringify({
+      version: 1,
+      storeKey: "tmall-yijiu",
+      token,
+      expiresAt: "2026-08-17T10:30:00.000Z",
+    }));
+    const consumed = await consumeTmallSkipMasterPermit({
+      token,
+      executionId: "execution-200",
+      now: new Date("2026-08-17T10:00:00.000Z"),
+      permitFile,
+      activeAuditFile,
+    });
+    assert.equal(consumed.status, "master_skipped_by_operator");
+    assert.equal(await stat(permitFile).then(() => true).catch(() => false), false);
+    assert.equal(await stat(consumed.consumedFile).then(() => true).catch(() => false), true);
+
+    await writeFile(permitFile, JSON.stringify({
+      version: 1,
+      storeKey: "tmall-yijiu",
+      token,
+      expiresAt: "2026-08-17T09:59:59.000Z",
+    }));
+    await assert.rejects(() => consumeTmallSkipMasterPermit({
+      token,
+      executionId: "execution-201",
+      now: new Date("2026-08-17T10:00:00.000Z"),
+      permitFile,
+      activeAuditFile,
+    }), /已过期/);
+    assert.equal(await stat(permitFile).then(() => true).catch(() => false), true);
+
+    await writeFile(activeAuditFile, "{}");
+    await assert.rejects(() => consumeTmallSkipMasterPermit({
+      token,
+      executionId: "execution-202",
+      now: new Date("2026-08-17T09:00:00.000Z"),
+      permitFile,
+      activeAuditFile,
+    }), /活动清单仍存在/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("不同执行可保存同一目标日的不同源文件，交由导入接口比较业务内容", async () => {
@@ -220,6 +278,12 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
     actual: "planned",
   });
   assert.deepEqual(helperRequestError("ready", false, "/plan", "execution-100", null), {
+    error: "execution_not_claimed",
+    expected: "/product-master",
+  });
+  assert.equal(helperRequestError("ready", false, "/plan", "execution-100", null, true), null);
+  assert.deepEqual(helperRequestError("ready", true, "/plan", "execution-100", null, true), { error: "pipeline_busy" });
+  assert.deepEqual(helperRequestError("ready", false, "/fetch", "execution-100", null, true), {
     error: "execution_not_claimed",
     expected: "/product-master",
   });

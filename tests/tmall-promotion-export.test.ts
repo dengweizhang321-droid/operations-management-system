@@ -18,6 +18,7 @@ import {
   planTmallPromotionDailyReports,
   planTmallPromotionDateRange,
   promotionNativeDialogAction,
+  sanitizePromotionNativeDialogMessage,
   promotionDatePickerRole,
   promotionSuccessNavigationMissingMessage,
   runPromotionDailyPlansSequentially,
@@ -261,6 +262,10 @@ test("原生对话框只自动处理明确的无数据信息，未知文案必�
   assert.equal(promotionNativeDialogAction({ type: "alert", message: "暂无可下载数据" }), "dismiss");
   assert.equal(promotionNativeDialogAction({ type: "confirm", message: "是否创建报表？" }), "stop");
   assert.equal(promotionNativeDialogAction({ type: "alert", message: "请完成验证码" }), "stop");
+  assert.equal(
+    sanitizePromotionNativeDialogMessage("是否离开 https://example.com/path?token=secret abcdefghijklmnopqrstuvwxyz123456 13800138000 test@example.com"),
+    "是否离开 [链接] [标识已脱敏] [手机号已脱敏] [邮箱已脱敏]",
+  );
 });
 
 test("全部数据指标必须能从 checked 或 selected 状态得到确认", () => {

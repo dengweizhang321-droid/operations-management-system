@@ -320,6 +320,15 @@ export function promotionNativeDialogAction(input: { type: string; message: stri
     : "stop" as const;
 }
 
+export function sanitizePromotionNativeDialogMessage(value: string) {
+  const normalized = normalizeText(value)
+    .replace(/https?:\/\/\S+/gi, "[链接]")
+    .replace(/[A-Za-z0-9_-]{24,}/g, "[标识已脱敏]")
+    .replace(/\b1\d{10}\b/g, "[手机号已脱敏]")
+    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[邮箱已脱敏]");
+  return (normalized || "空文案").slice(0, 160);
+}
+
 export type PromotionMetricSelectionState = {
   checked?: boolean;
   attributeValues?: readonly string[];
@@ -342,7 +351,8 @@ function installPromotionNativeDialogGuard(page: Page) {
   const onDialog = (dialog: Dialog) => {
     const action = promotionNativeDialogAction({ type: dialog.type(), message: dialog.message() });
     if (action === "stop" && !failure) {
-      failure = new Error(`推广页面出现未允许的 ${dialog.type()} 原生对话框，已停止本轮`);
+      const diagnostic = sanitizePromotionNativeDialogMessage(dialog.message());
+      failure = new Error(`推广页面出现未允许的 ${dialog.type()} 原生对话框（${diagnostic}），已停止本轮`);
     }
     pending = pending.then(async () => {
       await dialog.dismiss().catch(() => undefined);
