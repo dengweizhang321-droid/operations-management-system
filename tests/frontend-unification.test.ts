@@ -45,19 +45,28 @@ test("all rendered tables receive accessible multi-select column filtering", asy
 });
 
 test("left navigation follows the requested management groups and exact order", async () => {
-  const page = await source("../app/page.tsx");
-  assert.match(page, /\{ label: "经营管理", keys: \["dashboard", "market", "sales", "shop", "customer_service", "product", "inventory", "workflow", "n8n_workflows", "ai"\] \}/);
-  assert.match(page, /\{ label: "系统管理", keys: \["import", "settings"\] \}/);
-  assert.match(page, /navGroups\.map\(\(group\) => <div className="nav-group"/);
+  const [page, catalog, navigation] = await Promise.all([
+    source("../app/page.tsx"),
+    source("../app/shell/navigation-catalog.ts"),
+    source("../app/shell/sidebar-navigation.tsx"),
+  ]);
+  assert.match(catalog, /keys: \["dashboard", "market", "sales", "shop", "customer_service", "product", "inventory", "workflow", "n8n_workflows", "ai"\]/);
+  assert.match(catalog, /keys: \["import", "settings"\]/);
+  assert.match(navigation, /navGroups\.map\(\(group, groupIndex\)/);
+  assert.match(navigation, /<a[\s\S]*?href=\{hrefForModule\(moduleKey\)\}/);
+  assert.match(navigation, /aria-current=\{selected \? "page" : undefined\}/);
+  assert.match(page, /<SidebarNavigation active=\{active\}/);
 });
 
 test("one global page head owns the shared period and passes it to every module", async () => {
-  const [page, market] = await Promise.all([
+  const [page, header, market] = await Promise.all([
     source("../app/page.tsx"),
+    source("../app/shell/global-header.tsx"),
     source("../app/market-view.tsx"),
   ]);
   assert.doesNotMatch(page, /className="page-intro"/);
-  assert.match(page, /<h1>\{current\.label\}<\/h1>/);
+  assert.match(page, /title=\{current\.label\}/);
+  assert.match(header, /<h1 ref=\{titleRef\} tabIndex=\{-1\}>\{title\}<\/h1>/);
   assert.match(page, /customStartDate=\{globalPeriod\.startDate\} customEndDate=\{globalPeriod\.endDate\}/);
   assert.match(page, /new URLSearchParams\(\{ startDate: customStartDate, endDate: customEndDate \}\)/);
   assert.match(market, /const marketStartDate = customStartDate/);

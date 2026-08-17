@@ -71,13 +71,14 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
 });
 
 test("运营系统在左侧工作流板块受控嵌入天猫 n8n 画布", async () => {
-  const [page, view] = await Promise.all([
+  const [page, navigationCatalog, view] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/shell/navigation-catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/n8n-workflow-view.tsx", import.meta.url), "utf8"),
   ]);
 
-  const workflowNavigation = page.indexOf('{ key: "n8n_workflows", label: "工作流"');
-  const dashboardNavigation = page.indexOf('{ key: "dashboard", label: "BI 看板"');
+  const workflowNavigation = navigationCatalog.indexOf('{ key: "n8n_workflows", label: "工作流"');
+  const dashboardNavigation = navigationCatalog.indexOf('{ key: "dashboard", label: "BI 看板"');
   assert.ok(dashboardNavigation >= 0 && dashboardNavigation < workflowNavigation);
   assert.match(page, /n8n_workflows: \(\{ currentUser \}\) => <N8nWorkflowView currentUser=\{currentUser\}/);
   assert.match(view, /tmall-yijiu-sycm-cookie-daily\.workflow\.json/);

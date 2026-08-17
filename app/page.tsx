@@ -3,33 +3,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, PointerEvent as ReactPointerEvent } from "react";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
+import { requestJson } from "@/lib/http/api-client";
 import { parseProductQueries } from "@/lib/sales/product-query";
+import AppShell from "./shell/app-shell";
+import GlobalHeader from "./shell/global-header";
+import {
+  navItems,
+  type ImportSourceKey,
+  type ModuleKey,
+} from "./shell/navigation-catalog";
+import {
+  normalizeShellLocation,
+  parseShellLocation,
+  serializeShellLocation,
+  type ShellPeriodState,
+} from "./shell/navigation-contract";
+import SidebarNavigation from "./shell/sidebar-navigation";
 import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
 import N8nWorkflowView from "./n8n-workflow-view";
 import TableColumnFilters from "./ui/table-column-filters";
-
-type ModuleKey =
-  | "n8n_workflows"
-  | "dashboard"
-  | "shop"
-  | "market"
-  | "customer_service"
-  | "sales"
-  | "inventory"
-  | "product"
-  | "workflow"
-  | "import"
-  | "settings"
-  | "ai";
-
-type NavItem = {
-  key: ModuleKey;
-  label: string;
-  short: string;
-  description: string;
-  badge?: string;
-};
 
 type CurrentUser = {
   email: string;
@@ -494,8 +487,6 @@ type ImportHistoryResponse = {
 
 type InventoryImportHistoryItem = Pick<SalesImportBatch, "id" | "fileName" | "status" | "rowCount" | "insertedCount" | "warningCount" | "createdAt" | "completedAt"> & { snapshotDate: string };
 
-type ImportSourceKey = "sales" | "inventory" | "products" | "inventory_age" | "combos" | "finance" | "jd_sku" | "jd_sku_images" | "jd_sku_daily" | "jd_spu_daily" | "tmall_product_master" | "tmall_product_daily" | "tmall_promotion" | "customer_service";
-
 type ErpReferenceImportBatch = {
   id: string;
   sourceKey: "products" | "inventory_age" | "combos";
@@ -842,26 +833,6 @@ const INVENTORY_UPLOAD_CHUNK_SIZE = 1024 * 1024;
 const MAX_FINANCE_FILE_SIZE = 8 * 1024 * 1024;
 const MAX_JD_SKU_FILE_SIZE = 25 * 1024 * 1024;
 
-const navItems: NavItem[] = [
-  { key: "dashboard", label: "BI 看板", short: "BI", description: "经营驾驶舱" },
-  { key: "market", label: "市场分析", short: "市", description: "榜单、行业与竞品洞察" },
-  { key: "sales", label: "销售分析", short: "销", description: "利润与渠道表现" },
-  { key: "shop", label: "网店分析", short: "店", description: "多网店经营分析" },
-  { key: "customer_service", label: "客服分析", short: "服", description: "会话导入与聊天分析" },
-  { key: "product", label: "货品详情", short: "品", description: "商品与毛利测算" },
-  { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
-  { key: "workflow", label: "运营事务", short: "务", description: "计划、巡店与新品", badge: "7" },
-  { key: "n8n_workflows", label: "工作流", short: "流", description: "自动化流程中心" },
-  { key: "ai", label: "AI 助理", short: "AI", description: "模型、对话与渠道接入" },
-  { key: "import", label: "数据导入", short: "入", description: "批次导入与校验" },
-  { key: "settings", label: "系统设置", short: "设", description: "参数、映射与权限" },
-];
-
-const navGroups: Array<{ label: string; keys: ModuleKey[] }> = [
-  { label: "经营管理", keys: ["dashboard", "market", "sales", "shop", "customer_service", "product", "inventory", "workflow", "n8n_workflows", "ai"] },
-  { label: "系统管理", keys: ["import", "settings"] },
-];
-
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("zh-CN", {
     style: "currency",
@@ -927,6 +898,31 @@ const skuSalesPeriod = (range: SalesRangeLabel, customStartDate: string, customE
   if (range === "近15天") return { startDate: addIsoDays(today, -14), endDate: today };
   if (range === "月度" || range === "自定义") return { startDate: customStartDate, endDate: customEndDate };
   return { startDate: `${today.slice(0, 7)}-01`, endDate: today };
+};
+
+const shellPeriodForRange = (
+  range: SalesRangeLabel,
+  selectedMonth: string,
+  customStartDate: string,
+  customEndDate: string,
+): ShellPeriodState => {
+  if (range === "今日") return { kind: "today" };
+  if (range === "昨天") return { kind: "yesterday" };
+  if (range === "近7天") return { kind: "last7" };
+  if (range === "近15天") return { kind: "last15" };
+  if (range === "月度") return { kind: "calendar_month", month: selectedMonth };
+  if (range === "自定义") return { kind: "custom", from: customStartDate, to: customEndDate };
+  return { kind: "current_month" };
+};
+
+const rangeForShellPeriod = (period: ShellPeriodState): SalesRangeLabel => {
+  if (period.kind === "today") return "今日";
+  if (period.kind === "yesterday") return "昨天";
+  if (period.kind === "last7") return "近7天";
+  if (period.kind === "last15") return "近15天";
+  if (period.kind === "calendar_month") return "月度";
+  if (period.kind === "custom") return "自定义";
+  return "本月";
 };
 
 type ProductComparisonMode = "period" | "year";
@@ -1307,28 +1303,44 @@ function DashboardView({ range, customStartDate, customEndDate }: { range: Sales
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  const requestGenerationRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    const generation = requestGenerationRef.current + 1;
+    requestGenerationRef.current = generation;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
     setLoading(true); setError("");
     try {
       const query = new URLSearchParams({ range: apiRange });
       if (apiRange === "custom") { query.set("startDate", customStartDate); query.set("endDate", customEndDate); }
       const inventoryQuery = new URLSearchParams({ startDate: customStartDate, endDate: customEndDate });
-      const [salesResponse, inventoryResponse] = await Promise.all([fetch(`/api/sales/summary?${query}`, { cache: "no-store" }), fetch(`/api/inventory/overview?${inventoryQuery}`, { cache: "no-store" })]);
-      const salesPayload = await salesResponse.json().catch(() => null) as SalesSummaryResponse | null;
-      const inventoryPayload = await inventoryResponse.json().catch(() => null) as InventoryOverviewResponse | null;
-      if (!salesResponse.ok || !salesPayload?.current || !inventoryResponse.ok || !inventoryPayload?.metrics) throw new Error("经营数据读取失败");
+      const [salesPayload, inventoryPayload] = await Promise.all([
+        requestJson<SalesSummaryResponse>(`/api/sales/summary?${query}`, { signal: controller.signal }),
+        requestJson<InventoryOverviewResponse>(`/api/inventory/overview?${inventoryQuery}`, { signal: controller.signal }),
+      ]);
+      if (!salesPayload?.current || !inventoryPayload?.metrics) throw new Error("经营数据读取失败");
+      if (generation !== requestGenerationRef.current) return;
       setSales(salesPayload); setInventory(inventoryPayload);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "暂时无法读取经营看板"); }
-    finally { setLoading(false); }
+    } catch (reason) {
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
+      setError(reason instanceof Error ? reason.message : "暂时无法读取经营看板");
+    } finally {
+      if (generation === requestGenerationRef.current) setLoading(false);
+    }
   }, [apiRange, customEndDate, customStartDate]);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load, retryKey]);
+  useEffect(() => {
+    void load();
+    return () => requestControllerRef.current?.abort();
+  }, [load, retryKey]);
   if (loading && !sales) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步 BI 经营看板</strong><p>正在汇总销售、网店与库存数据…</p></section>;
   if (!sales || !inventory) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>BI 看板加载失败</strong><p>{error || "暂时无法读取经营数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
   const current = sales.current; const previous = sales.previous; const yearAgo = sales.yearAgo;
   const daily = sales.daily ?? []; const maxSales = Math.max(1, ...daily.map((item) => Math.max(0, item.netSalesCents))); const maxProfit = Math.max(1, ...daily.map((item) => Math.max(0, item.grossProfitCents)));
   const outlets = [...(sales.outlets ?? [])].sort((left, right) => right.netSalesCents - left.netSalesCents).slice(0, 5);
   const healthScore = Math.max(0, Math.min(100, 100 - inventory.metrics.urgentCount * 8 - inventory.health.stagnant * 2));
-  return <><section className="dashboard-sync-bar"><span><Dot tone="green" />已同步经营数据</span><strong>{sales.startDate} 至 {sales.endDate}</strong><small>销售批次 {sales.latestBatch?.fileName ?? "暂无"} · 库存快照 {inventory.sync.inventoryAsOf ?? "暂无"}</small><button className="row-action" onClick={() => void load()} disabled={loading}>{loading ? "同步中…" : "↻ 刷新"}</button></section><section className="metrics-grid"><MetricCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="blue" /><MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="green" /><MetricCard label="综合大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="purple" /><MetricCard label="销售退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" /></section><section className="dashboard-main-grid"><article className="panel trend-panel"><SectionHeader title="销售与毛利趋势" note="按当前统计周期内的已导入日度明细汇总" /><div className="chart-legend"><span><Dot tone="blue" />净销售额</span><span><Dot tone="green" />订单毛利</span></div><div className="bar-chart">{daily.map((item, index) => <div className="bar-group" key={item.date}><div className="bar-stack"><span className="bar sales-bar" style={{ height: `${Math.max(2, Math.max(0, item.netSalesCents) / maxSales * 100)}%` }} /><span className="bar profit-bar" style={{ height: `${Math.max(2, Math.max(0, item.grossProfitCents) / maxProfit * 100)}%` }} /></div><small>{daily.length <= 7 || index % Math.ceil(daily.length / 7) === 0 ? item.date.slice(5) : ""}</small></div>)}</div><div className="chart-summary"><div><span>日均净销售额</span><strong>{formatCurrencyFromCents(daily.length ? current.netSalesCents / daily.length : 0)}</strong></div><div><span>活跃网店</span><strong>{formatCount((sales.outlets ?? []).length)} 个</strong></div><div><span>库存健康度</span><strong className={healthScore < 70 ? "orange-text" : "green-text"}>{healthScore} 分</strong></div></div></article><article className="panel alert-panel"><SectionHeader title="库存预警中心" note="来自最新库存快照与销售需求联动" /><div className="alert-score"><div className="score-ring"><strong>{healthScore}</strong><small>健康分</small></div><div><strong>{healthScore >= 80 ? "整体经营稳定" : "建议关注库存风险"}</strong><p>库存快照 {inventory.sync.inventoryAsOf ?? "未同步"}</p></div></div><div className="alert-list"><button><span className="alert-icon danger">!</span><span><b>紧急补货</b><small>可售天数低于预警线的货品</small></span><em>{formatCount(inventory.metrics.urgentCount)}</em></button><button><span className="alert-icon warning">↓</span><span><b>建议补货</b><small>销量需求与可用库存计算得出</small></span><em>{formatCount(inventory.metrics.replenishCount)}</em></button><button><span className="alert-icon purple">◷</span><span><b>低动销库存</b><small>当前未匹配销售需求的库存商品</small></span><em>{formatCount(inventory.metrics.noSalesCount)}</em></button></div></article></section><section className="dashboard-bottom-grid"><article className="panel"><SectionHeader title="网店经营排行" note="按销售净额排序" /><div className="rank-list">{outlets.map((outlet, index) => <div className="rank-row" key={outlet.name}><span className={`rank-number rank-${index + 1}`}>{index + 1}</span><div className="shop-avatar">{outlet.platform.slice(0, 1)}</div><div className="rank-name"><strong>{outlet.name}</strong><small>{outlet.platform} · {formatCount(outlet.orderCount)} 单</small></div><div className="mini-progress"><i style={{ width: `${Math.max(4, outlet.shareRate * 100)}%` }} /></div><div className="rank-value"><strong>{formatCurrencyFromCents(outlet.netSalesCents)}</strong><small className={outlet.salesYearOverYearRate !== null && outlet.salesYearOverYearRate < 0 ? "red-text" : "green-text"}>{formatYearOverYear(outlet.salesYearOverYearRate)}</small></div></div>)}{outlets.length === 0 && <div className="table-state">当前周期没有可展示的网店数据。</div>}</div></article><article className="panel todo-panel"><SectionHeader title="数据同步状态" note="所有分析以最近成功导入为准" /><div className="dashboard-data-status"><div><span>销售明细</span><strong>{sales.latestBatch?.fileName ?? "未导入"}</strong><small>{sales.latestBatch?.completedAt ? formatDateTime(sales.latestBatch.completedAt) : "请前往数据导入"}</small></div><div><span>库存快照</span><strong>{inventory.sync.latestInventoryFile ?? "未导入"}</strong><small>{inventory.sync.inventoryAsOf ?? "请前往库存管理同步"}</small></div><div><span>销售需求匹配</span><strong>{formatRate(inventory.metrics.salesDemandMatchRate)}</strong><small>库存商品已匹配销售需求的比例</small></div></div></article></section></>;
+  return <><section className="dashboard-sync-bar"><span><Dot tone="green" />已同步经营数据</span><strong>{sales.startDate} 至 {sales.endDate}</strong><small>销售批次 {sales.latestBatch?.fileName ?? "暂无"} · 库存快照 {inventory.sync.inventoryAsOf ?? "暂无"}</small><button className="row-action" onClick={() => void load()} disabled={loading}>{loading ? "同步中…" : "↻ 刷新"}</button></section><section className="metrics-grid"><MetricCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} change={formatChange(current.netSalesCents, previous?.netSalesCents)} hint={comparisonHint(current.netSalesCents, previous?.netSalesCents, yearAgo?.netSalesCents)} tone="blue" /><MetricCard label="订单毛利" value={formatCurrencyFromCents(current.grossProfitCents)} change={formatChange(current.grossProfitCents, previous?.grossProfitCents)} hint={comparisonHint(current.grossProfitCents, previous?.grossProfitCents, yearAgo?.grossProfitCents)} tone="green" /><MetricCard label="综合大毛利率" value={formatRate(current.grossMarginRate)} change={formatChange(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate))} hint={comparisonHint(rateAsPercent(current.grossMarginRate), rateAsPercent(previous?.grossMarginRate), rateAsPercent(yearAgo?.grossMarginRate))} tone="purple" /><MetricCard label="销售退货率" value={formatRate(current.refundRate)} change={formatChange(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate))} hint={comparisonHint(rateAsPercent(current.refundRate), rateAsPercent(previous?.refundRate), rateAsPercent(yearAgo?.refundRate))} tone="orange" /></section><section className="dashboard-main-grid"><article className="panel trend-panel"><SectionHeader title="销售与毛利趋势" note="按当前统计周期内的已导入日度明细汇总" /><div className="chart-legend"><span><Dot tone="blue" />净销售额</span><span><Dot tone="green" />订单毛利</span></div><div className="bar-chart">{daily.map((item, index) => <div className="bar-group" key={item.date}><div className="bar-stack"><span className="bar sales-bar" style={{ height: `${Math.max(2, Math.max(0, item.netSalesCents) / maxSales * 100)}%` }} /><span className="bar profit-bar" style={{ height: `${Math.max(2, Math.max(0, item.grossProfitCents) / maxProfit * 100)}%` }} /></div><small>{daily.length <= 7 || index % Math.ceil(daily.length / 7) === 0 ? item.date.slice(5) : ""}</small></div>)}</div><div className="chart-summary"><div><span>日均净销售额</span><strong>{formatCurrencyFromCents(daily.length ? current.netSalesCents / daily.length : 0)}</strong></div><div><span>活跃网店</span><strong>{formatCount((sales.outlets ?? []).length)} 个</strong></div><div><span>库存健康度</span><strong className={healthScore < 70 ? "orange-text" : "green-text"}>{healthScore} 分</strong></div></div></article><article className="panel alert-panel"><SectionHeader title="库存预警中心" note="来自最新库存快照与销售需求联动" /><div className="alert-score"><div className="score-ring"><strong>{healthScore}</strong><small>健康分</small></div><div><strong>{healthScore >= 80 ? "整体经营稳定" : "建议关注库存风险"}</strong><p>库存快照 {inventory.sync.inventoryAsOf ?? "未同步"}</p></div></div><div className="alert-list"><button><span className="alert-icon danger">!</span><span><b>紧急补货</b><small>可售天数低于预警线的货品</small></span><em>{formatCount(inventory.metrics.urgentCount)}</em></button><button><span className="alert-icon warning">↓</span><span><b>建议补货</b><small>销量需求与可用库存计算得出</small></span><em>{formatCount(inventory.metrics.replenishCount)}</em></button><button><span className="alert-icon purple">◷</span><span><b>低动销库存</b><small>当前未匹配销售需求的库存商品</small></span><em>{formatCount(inventory.metrics.noSalesCount)}</em></button></div></article></section><section className="dashboard-bottom-grid"><article className="panel"><SectionHeader title="网店经营排行" note="按销售净额排序" /><div className="rank-list">{outlets.map((outlet, index) => <div className="rank-row" key={outlet.name}><span className={`rank-number rank-${index + 1}`}>{index + 1}</span><div className="shop-avatar">{outlet.platform.slice(0, 1)}</div><div className="rank-name"><strong>{outlet.name}</strong><small>{outlet.platform} · {formatCount(outlet.orderCount)} 单</small></div><div className="mini-progress"><i style={{ width: `${Math.max(4, outlet.shareRate * 100)}%` }} /></div><div className="rank-value"><strong>{formatCurrencyFromCents(outlet.netSalesCents)}</strong><small className={outlet.salesYearOverYearRate !== null && outlet.salesYearOverYearRate < 0 ? "green-text" : "red-text"}>{formatYearOverYear(outlet.salesYearOverYearRate)}</small></div></div>)}{outlets.length === 0 && <div className="table-state">当前周期没有可展示的网店数据。</div>}</div></article><article className="panel todo-panel"><SectionHeader title="数据同步状态" note="所有分析以最近成功导入为准" /><div className="dashboard-data-status"><div><span>销售明细</span><strong>{sales.latestBatch?.fileName ?? "未导入"}</strong><small>{sales.latestBatch?.completedAt ? formatDateTime(sales.latestBatch.completedAt) : "请前往数据导入"}</small></div><div><span>库存快照</span><strong>{inventory.sync.latestInventoryFile ?? "未导入"}</strong><small>{inventory.sync.inventoryAsOf ?? "请前往库存管理同步"}</small></div><div><span>销售需求匹配</span><strong>{formatRate(inventory.metrics.salesDemandMatchRate)}</strong><small>库存商品已匹配销售需求的比例</small></div></div></article></section></>;
 }
 
 type StoreGranularity = "day" | "week" | "month";
@@ -5809,6 +5821,8 @@ export default function Home() {
   const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResponse | null>(null);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchError, setGlobalSearchError] = useState("");
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const pageTitleRef = useRef<HTMLHeadingElement>(null);
   const debouncedGlobalSearchQuery = useDebouncedValue(globalSearchQuery, 220);
   const customMaxDate = shanghaiIsoToday();
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
@@ -5816,17 +5830,85 @@ export default function Home() {
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
   );
+  const shellPeriod = useMemo(
+    () => shellPeriodForRange(range, selectedMonth, customStartDate, customEndDate),
+    [customEndDate, customStartDate, range, selectedMonth],
+  );
+  const closeMobileMenu = useCallback(() => setMobileMenu(false), []);
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((value) => {
+      const next = !value;
+      try {
+        window.localStorage.setItem("teruisi.shell.v1", JSON.stringify({ sidebarCollapsed: next }));
+      } catch {
+        // A storage failure must not prevent the navigation from working.
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem("teruisi.shell.v1") ?? "null") as { sidebarCollapsed?: unknown } | null;
+      if (typeof stored?.sidebarCollapsed === "boolean") setCollapsed(stored.sidebarCollapsed);
+    } catch {
+      // Ignore malformed or unavailable optional preferences.
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/auth/me", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = await response.json().catch(() => ({})) as { user?: CurrentUser };
+    void requestJson<{ user?: CurrentUser }>("/api/auth/me", { signal: controller.signal })
+      .then((payload) => {
         if (payload.user) setCurrentUser(payload.user);
       })
       .catch(() => undefined);
     return () => controller.abort();
   }, []);
+
+  const applyLocationState = useCallback(() => {
+    const state = parseShellLocation(window.location.href);
+    const today = shanghaiIsoToday();
+    const minDate = `${Number(today.slice(0, 4)) - 1}-01-01`;
+    setActive(state.module);
+    setImportSource(state.source ?? null);
+    setRange(rangeForShellPeriod(state.period));
+    setStatPeriodPickerOpen(false);
+    let appliedPeriod = state.period;
+    if (state.period.kind === "calendar_month") {
+      const month = state.period.month > today.slice(0, 7) ? today.slice(0, 7) : state.period.month;
+      const period = selectedMonthPeriod(month);
+      setSelectedMonth(month);
+      setCustomStartDate(period.startDate);
+      setCustomEndDate(period.endDate > today ? today : period.endDate);
+      appliedPeriod = { kind: "calendar_month", month };
+    } else if (state.period.kind === "custom") {
+      const endDate = state.period.to > today ? today : state.period.to < minDate ? minDate : state.period.to;
+      const startDate = state.period.from < minDate ? minDate : state.period.from > endDate ? endDate : state.period.from;
+      setCustomStartDate(startDate);
+      setCustomEndDate(endDate);
+      appliedPeriod = { kind: "custom", from: startDate, to: endDate };
+    }
+    const normalizedContractUrl = normalizeShellLocation(window.location.href);
+    const normalized = serializeShellLocation({
+      module: state.module,
+      ...(state.source ? { source: state.source } : {}),
+      period: appliedPeriod,
+    }, normalizedContractUrl);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (normalized !== currentUrl) window.history.replaceState(null, "", normalized);
+  }, []);
+
+  useEffect(() => {
+    applyLocationState();
+    const onPopState = () => {
+      closeMobileMenu();
+      applyLocationState();
+      window.requestAnimationFrame(() => pageTitleRef.current?.focus());
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [applyLocationState, closeMobileMenu]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -5848,9 +5930,7 @@ export default function Home() {
       setGlobalSearchLoading(true);
       setGlobalSearchError("");
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { cache: "no-store", signal: controller.signal });
-        const payload = await response.json().catch(() => null) as GlobalSearchResponse | null;
-        if (!response.ok) throw new Error(payload?.error || "搜索失败");
+        const payload = await requestJson<GlobalSearchResponse>(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
         if (!payload || !Array.isArray(payload.groups)) throw new Error("搜索结果格式不完整");
         setGlobalSearchResult(payload);
       } catch (error) {
@@ -5867,12 +5947,43 @@ export default function Home() {
   const current = navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
 
-  const selectModule = (key: ModuleKey, nextImportSource?: ImportSourceKey) => {
-    if (key === "import") setImportSource(nextImportSource ?? null);
+  const replacePeriodUrl = useCallback((period: ShellPeriodState) => {
+    const nextUrl = serializeShellLocation({
+      module: active,
+      ...(active === "import" && importSource ? { source: importSource } : {}),
+      period,
+    }, window.location.href);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl);
+  }, [active, importSource]);
+
+  const hrefForModule = useCallback((key: ModuleKey) => {
+    const currentUrl = typeof window === "undefined" ? "/" : window.location.href;
+    return serializeShellLocation({ module: key, period: shellPeriod }, currentUrl);
+  }, [shellPeriod]);
+
+  const selectModule = useCallback((key: ModuleKey, nextImportSource?: ImportSourceKey) => {
+    const nextSource = key === "import" ? nextImportSource : undefined;
+    const nextUrl = serializeShellLocation({
+      module: key,
+      ...(nextSource ? { source: nextSource } : {}),
+      period: shellPeriod,
+    }, window.location.href);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+    setImportSource(nextSource ?? null);
     setActive(key);
-    setMobileMenu(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+    closeMobileMenu();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+    window.requestAnimationFrame(() => pageTitleRef.current?.focus());
+  }, [closeMobileMenu, shellPeriod]);
+
+  const handleSidebarNavigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>, key: ModuleKey) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    selectModule(key);
+  }, [selectModule]);
   const closeGlobalSearch = () => {
     setSearchOpen(false);
     setGlobalSearchQuery("");
@@ -5893,11 +6004,14 @@ export default function Home() {
       const period = selectedMonthPeriod(selectedMonth);
       setCustomStartDate(period.startDate);
       setCustomEndDate(period.endDate > customMaxDate ? customMaxDate : period.endDate);
+      replacePeriodUrl({ kind: "calendar_month", month: selectedMonth });
     } else if (nextRange === "自定义") {
       const endDate = customEndDate > customMaxDate ? customMaxDate : customEndDate < customMinDate ? customMinDate : customEndDate;
       const startDate = customStartDate < customMinDate ? customMinDate : customStartDate > endDate ? endDate : customStartDate;
       setCustomStartDate(startDate);
       setCustomEndDate(endDate);
+    } else {
+      replacePeriodUrl(shellPeriodForRange(nextRange, selectedMonth, customStartDate, customEndDate));
     }
   };
   const updateSelectedMonth = (month: string) => {
@@ -5906,6 +6020,15 @@ export default function Home() {
     const period = selectedMonthPeriod(month);
     setCustomStartDate(period.startDate);
     setCustomEndDate(period.endDate > customMaxDate ? customMaxDate : period.endDate);
+    replacePeriodUrl({ kind: "calendar_month", month });
+  };
+
+  const applyCustomPeriod = (startDate: string, endDate: string) => {
+    setRange("自定义");
+    setCustomStartDate(startDate);
+    setCustomEndDate(endDate);
+    setStatPeriodPickerOpen(false);
+    replacePeriodUrl({ kind: "custom", from: startDate, to: endDate });
   };
 
   const avatarText = currentUser
@@ -5913,41 +6036,43 @@ export default function Home() {
     : "访";
 
   return (
-    <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
-      <aside className={`sidebar ${mobileMenu ? "mobile-open" : ""}`}>
+    <>
+      <AppShell
+        collapsed={collapsed}
+        mobileOpen={mobileMenu}
+        onCloseMobile={closeMobileMenu}
+        sidebar={<>
         <div className="brand">
           <div className="brand-mark"><span>T</span></div>
           <div className="brand-copy"><strong>TERUISI</strong><small>电商运营中台</small></div>
-          <button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label="收起侧边栏">‹</button>
         </div>
-        <nav className="main-nav" aria-label="主导航">
-          {navGroups.map((group) => <div className="nav-group" key={group.label}><p>{group.label}</p>{group.keys.map((key) => navItems.find((item) => item.key === key)).filter((item): item is NavItem => Boolean(item)).map((item) => <button key={item.key} title={item.label} className={active === item.key ? "active" : ""} onClick={() => selectModule(item.key)}><span className="nav-icon">{item.short}</span><span className="nav-copy"><b>{item.label}</b><small>{item.description}</small></span>{item.badge && <em>{item.badge}</em>}</button>)}</div>)}
-        </nav>
+        <SidebarNavigation active={active} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>
         <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser ? `${currentUser.displayName} · ${currentUser.roleLabel}` : "访客 · 只读查看者"}</strong><small>{currentUser ? currentUser.email : "可查看经营数据"}</small></div><button onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
-      </aside>
-      {mobileMenu && <button className="mobile-overlay" onClick={() => setMobileMenu(false)} aria-label="关闭导航" />}
-
-      <section className="workspace">
-        <header className="topbar">
-          <div className="title-area"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}>☰</button><div><h1>{current.label}</h1><span>{current.description}{active !== "n8n_workflows" ? ` · ${globalPeriod.startDate} 至 ${globalPeriod.endDate}` : ""}</span></div></div>
-          <div className="topbar-actions">
+        </>}
+        header={<GlobalHeader
+          title={current.label}
+          description={`${current.description}${active !== "n8n_workflows" ? ` · ${globalPeriod.startDate} 至 ${globalPeriod.endDate}` : ""}`}
+          menuButtonRef={mobileMenuButtonRef}
+          titleRef={pageTitleRef}
+          mobileOpen={mobileMenu}
+          onOpenMobile={() => setMobileMenu(true)}
+          actions={<>
             <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
-            <button className="icon-button" aria-label="消息通知">♢<i>3</i></button>
             {active !== "n8n_workflows" && <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
               <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "本月", "月度", "自定义"].map((value) => ({ value, label: value }))} />
               {range === "月度" && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
-              {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={(startDate, endDate) => { setCustomStartDate(startDate); setCustomEndDate(endDate); setStatPeriodPickerOpen(false); }} />}
+              {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={applyCustomPeriod} />}
             </div>}
-          </div>
-        </header>
-
+          </>}
+        />}
+      >
         <div className="content">
-          <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} onApplyPeriod={(startDate, endDate) => { setRange("自定义"); setCustomStartDate(startDate); setCustomEndDate(endDate); setStatPeriodPickerOpen(false); }} currentUser={currentUser} />
+          <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
-      </section>
+      </AppShell>
 
       <TableColumnFilters />
 
@@ -5973,6 +6098,6 @@ export default function Home() {
           </div> : <><p>全系统搜索</p><div className="search-guide"><strong>覆盖货品、订单、京东商品、库存、市场 SKU、客服、财务、目标、事务与导入批次</strong><small>按业务域分组返回；聊天正文可匹配，结果只展示必要摘要。</small></div><p>快速访问</p><div className="quick-links">{navItems.slice(0, 5).map((item) => <button key={item.key} onClick={() => { selectModule(item.key); closeGlobalSearch(); }}><span>{item.short}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><em>↗</em></button>)}</div></>}
         </div>
       </div>}
-    </main>
+    </>
   );
 }
