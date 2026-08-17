@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import { useState, type FocusEvent, type MouseEvent } from "react";
 
 import { navGroups, navItems, type ModuleKey, type NavItem } from "./navigation-catalog";
 import { ShellModuleIcon, SidebarCollapseIcon } from "./shell-icons";
@@ -24,8 +24,31 @@ export default function SidebarNavigation({
   onNavigate,
   onToggleCollapsed,
 }: SidebarNavigationProps) {
+  const [tooltip, setTooltip] = useState<{
+    id: string;
+    label: string;
+    description: string;
+    top: number;
+  } | null>(null);
+  const showTooltip = (element: HTMLElement, item: NavItem, id: string) => {
+    if (!collapsed) return;
+    const navRect = element.closest("nav")?.getBoundingClientRect();
+    const linkRect = element.getBoundingClientRect();
+    setTooltip({
+      id,
+      label: item.label,
+      description: item.description,
+      top: linkRect.top - (navRect?.top ?? 0) + linkRect.height / 2,
+    });
+  };
+  const hideTooltip = (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setTooltip(null);
+  };
+
   return (
     <nav className="main-nav sidebar-navigation" aria-label="主导航">
+      <div className="sidebar-navigation-scroll">
       <ul className="sidebar-navigation-groups">
         {navGroups.map((group, groupIndex) => {
           const groupLabelId = `sidebar-navigation-group-${groupIndex}`;
@@ -49,6 +72,10 @@ export default function SidebarNavigation({
                         aria-describedby={collapsed ? tooltipId : undefined}
                         title={collapsed ? `${item.label} · ${item.description}` : undefined}
                         onClick={(event) => onNavigate(event, moduleKey)}
+                        onMouseEnter={(event) => showTooltip(event.currentTarget, item, tooltipId)}
+                        onMouseLeave={hideTooltip}
+                        onFocus={(event) => showTooltip(event.currentTarget, item, tooltipId)}
+                        onBlur={hideTooltip}
                       >
                         <span className="nav-icon" aria-hidden="true">
                           <ShellModuleIcon moduleKey={moduleKey} />
@@ -58,12 +85,6 @@ export default function SidebarNavigation({
                           <small>{item.description}</small>
                         </span>
                         {item.badge ? <em aria-label={`${item.badge} 项待处理`}>{item.badge}</em> : null}
-                        {collapsed ? (
-                          <span className="sidebar-navigation-tooltip" id={tooltipId} role="tooltip">
-                            <strong aria-hidden="true">{item.label}</strong>
-                            <span>{item.description}</span>
-                          </span>
-                        ) : null}
                       </a>
                     </li>
                   );
@@ -73,6 +94,18 @@ export default function SidebarNavigation({
           );
         })}
       </ul>
+      </div>
+      {collapsed && tooltip ? (
+        <span
+          className="sidebar-navigation-tooltip"
+          id={tooltip.id}
+          role="tooltip"
+          style={{ top: tooltip.top }}
+        >
+          <strong aria-hidden="true">{tooltip.label}</strong>
+          <span>{tooltip.description}</span>
+        </span>
+      ) : null}
       <button
         type="button"
         className="collapse-button sidebar-collapse-button"

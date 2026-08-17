@@ -1002,7 +1002,8 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: { cur
     } catch (reason) { setError(reason instanceof Error ? reason.message : "榜单文件校验导入失败"); }
     finally { setBusy(""); }
   };
-  if (!data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在读取 TOP SKU 主数据中心</strong></section>;
+  if (!data && error) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol" aria-hidden="true">!</span><strong>TOP SKU 主数据中心加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => void loadLatest().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败"))}>重新加载</button></section>;
+  if (!data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取 TOP SKU 主数据中心</strong></section>;
   const enabledModels = aiModels.filter((item) => item.status === "enabled");
   const textModels = enabledModels.filter((item) => item.modelType === "text");
   const visionModels = enabledModels.filter((item) => item.modelType === "vision");

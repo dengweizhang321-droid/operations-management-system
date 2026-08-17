@@ -7,6 +7,7 @@ import { requestJson } from "@/lib/http/api-client";
 import { parseProductQueries } from "@/lib/sales/product-query";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
+import ModuleErrorBoundary from "./shell/module-error-boundary";
 import {
   navItems,
   type ImportSourceKey,
@@ -23,6 +24,7 @@ import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkfl
 import MarketAnnotationView from "./market-annotation-view";
 import N8nWorkflowView from "./n8n-workflow-view";
 import TableColumnFilters from "./ui/table-column-filters";
+import Dialog from "./ui/dialog";
 
 type CurrentUser = {
   email: string;
@@ -5823,6 +5825,7 @@ export default function Home() {
   const [globalSearchError, setGlobalSearchError] = useState("");
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitleRef = useRef<HTMLHeadingElement>(null);
+  const globalSearchInputRef = useRef<HTMLInputElement>(null);
   const debouncedGlobalSearchQuery = useDebouncedValue(globalSearchQuery, 220);
   const customMaxDate = shanghaiIsoToday();
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
@@ -5976,7 +5979,7 @@ export default function Home() {
     closeMobileMenu();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
-    window.requestAnimationFrame(() => pageTitleRef.current?.focus());
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => pageTitleRef.current?.focus()));
   }, [closeMobileMenu, shellPeriod]);
 
   const handleSidebarNavigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>, key: ModuleKey) => {
@@ -5984,12 +5987,12 @@ export default function Home() {
     event.preventDefault();
     selectModule(key);
   }, [selectModule]);
-  const closeGlobalSearch = () => {
+  const closeGlobalSearch = useCallback(() => {
     setSearchOpen(false);
     setGlobalSearchQuery("");
     setGlobalSearchResult(null);
     setGlobalSearchError("");
-  };
+  }, []);
   const updateGlobalSearchQuery = (value: string) => {
     setGlobalSearchQuery(value);
     if (Array.from(value.trim()).length >= 2) return;
@@ -6058,7 +6061,7 @@ export default function Home() {
           mobileOpen={mobileMenu}
           onOpenMobile={() => setMobileMenu(true)}
           actions={<>
-            <button className="global-search" onClick={() => setSearchOpen(true)}><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
+            <button className="global-search" onClick={() => setSearchOpen(true)} aria-label="搜索系统全部数据" aria-haspopup="dialog" aria-expanded={searchOpen} aria-controls="global-search-dialog"><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
             {active !== "n8n_workflows" && <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
               <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "本月", "月度", "自定义"].map((value) => ({ value, label: value }))} />
@@ -6069,16 +6072,17 @@ export default function Home() {
         />}
       >
         <div className="content">
-          <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
+          <ModuleErrorBoundary resetKey={`${active}:${importSource ?? ""}`} onOpenDashboard={() => selectModule("dashboard")}>
+            <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
+          </ModuleErrorBoundary>
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </AppShell>
 
       <TableColumnFilters />
 
-      {searchOpen && <div className="modal-backdrop" onClick={closeGlobalSearch}>
-        <div className="search-modal search-modal-global" role="dialog" aria-modal="true" aria-label="全系统业务搜索" onClick={(event) => event.stopPropagation()}>
-          <div className="modal-search">⌕<input autoFocus value={globalSearchQuery} onChange={(event) => updateGlobalSearchQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") closeGlobalSearch(); }} placeholder="搜索商品、订单、库存、市场、客服、财务或批次…" aria-label="搜索系统全部已接入数据" /><button onClick={closeGlobalSearch}>ESC</button></div>
+      <Dialog open={searchOpen} onClose={closeGlobalSearch} dialogId="global-search-dialog" ariaLabel="全系统业务搜索" className="search-modal search-modal-global" initialFocusRef={globalSearchInputRef}>
+          <div className="modal-search">⌕<input ref={globalSearchInputRef} value={globalSearchQuery} onChange={(event) => updateGlobalSearchQuery(event.target.value)} placeholder="搜索商品、订单、库存、市场、客服、财务或批次…" aria-label="搜索系统全部已接入数据" /><button onClick={closeGlobalSearch} aria-label="关闭全系统搜索">ESC</button></div>
           {globalSearchQuery.trim() ? <div className="search-results" aria-live="polite">
             {Array.from(globalSearchQuery.trim()).length < 2 && <div className="search-state">请输入至少 2 个字符。</div>}
             {globalSearchLoading && <div className="search-state">正在按业务域搜索已接入数据…</div>}
@@ -6096,8 +6100,7 @@ export default function Home() {
               <div className="search-coverage-note">按字段白名单搜索，单域和总结果均有限额{globalSearchResult.unavailableDomains.length > 0 ? `；${globalSearchResult.unavailableDomains.length} 个未建表业务域已安全跳过` : ""}。</div>
             </>}
           </div> : <><p>全系统搜索</p><div className="search-guide"><strong>覆盖货品、订单、京东商品、库存、市场 SKU、客服、财务、目标、事务与导入批次</strong><small>按业务域分组返回；聊天正文可匹配，结果只展示必要摘要。</small></div><p>快速访问</p><div className="quick-links">{navItems.slice(0, 5).map((item) => <button key={item.key} onClick={() => { selectModule(item.key); closeGlobalSearch(); }}><span>{item.short}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><em>↗</em></button>)}</div></>}
-        </div>
-      </div>}
+      </Dialog>
     </>
   );
 }

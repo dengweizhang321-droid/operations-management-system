@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 type AppShellProps = {
@@ -34,9 +35,23 @@ export default function AppShell({
 }: AppShellProps) {
   const sidebarRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const [mobileViewport, setMobileViewport] = useState(false);
+  const mobileDrawerActive = mobileOpen && mobileViewport;
 
   useEffect(() => {
-    if (!mobileOpen) return;
+    const media = window.matchMedia("(max-width: 860px)");
+    const syncViewport = (matches: boolean) => {
+      setMobileViewport(matches);
+      if (!matches && mobileOpen) onCloseMobile();
+    };
+    syncViewport(media.matches);
+    const onChange = (event: MediaQueryListEvent) => syncViewport(event.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [mobileOpen, onCloseMobile]);
+
+  useEffect(() => {
+    if (!mobileDrawerActive) return;
 
     previousFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
@@ -79,14 +94,14 @@ export default function AppShell({
       document.body.style.overflow = previousOverflow;
       window.requestAnimationFrame(() => previousFocusRef.current?.focus());
     };
-  }, [mobileOpen, onCloseMobile]);
+  }, [mobileDrawerActive, onCloseMobile]);
 
   return (
     <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       <aside
         ref={sidebarRef}
         id="primary-navigation"
-        className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}
+        className={`sidebar ${mobileDrawerActive ? "mobile-open" : ""}`}
         aria-label="应用导航"
       >
         {sidebar}
@@ -99,7 +114,7 @@ export default function AppShell({
           <span aria-hidden="true">×</span>
         </button>
       </aside>
-      {mobileOpen && (
+      {mobileDrawerActive && (
         <button
           type="button"
           className="mobile-overlay"
@@ -108,7 +123,7 @@ export default function AppShell({
           tabIndex={-1}
         />
       )}
-      <section className="workspace" inert={mobileOpen || undefined}>
+      <section className="workspace" inert={mobileDrawerActive || undefined}>
         {header}
         {children}
       </section>
