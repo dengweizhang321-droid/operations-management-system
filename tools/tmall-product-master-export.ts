@@ -34,6 +34,7 @@ const maximumWorkbookBytes = 25 * 1024 * 1024;
 const exportResultTimeoutMs = 10 * 60 * 1000;
 const exportRecordTimeoutMs = 3 * 60 * 1000;
 const exportRecordRefreshIntervalMs = 8_000;
+export const productManagerChatOpenTimeoutMs = 60_000;
 
 type MasterImportBatch = {
   id?: string;
@@ -1096,7 +1097,7 @@ async function openProductManagerChat(page: Page) {
   }
   await candidates[0].locator.click({ timeout: 10_000 });
   let input: Awaited<ReturnType<typeof maybeFindChatInput>> = null;
-  await waitUntil(20_000, async () => {
+  await waitUntil(productManagerChatOpenTimeoutMs, async () => {
     input = await maybeFindChatInput(page);
     return input !== null;
   }, "点击右下角“商品管家”后未出现右侧聊天输入框", 500);

@@ -27,6 +27,7 @@ import {
   isTmallSellerLoginUrl,
   matchTmallExportRecordChoice,
   parseTmallShanghaiTaskTime,
+  productManagerChatOpenTimeoutMs,
   productManagerFloatingClusterKey,
   sameTmallNoticeActionTarget,
   scoreChatSendCandidate,
@@ -42,6 +43,10 @@ test("识别千牛卖家专用登录跳转并拒绝普通业务页", () => {
   assert.equal(isTmallSellerLoginUrl("https://loginmyseller.taobao.com/?redirect_url=https%3A%2F%2Fmyseller.taobao.com"), true);
   assert.equal(isTmallSellerLoginUrl("https://login.taobao.com/member/login.jhtml"), true);
   assert.equal(isTmallSellerLoginUrl("https://myseller.taobao.com/home.htm/SellManage/on_sale"), false);
+});
+
+test("商品管家侧栏允许平台异步加载但保持一分钟有界失败", () => {
+  assert.equal(productManagerChatOpenTimeoutMs, 60_000);
 });
 
 function masterWorkbook() {
