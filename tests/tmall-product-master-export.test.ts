@@ -24,6 +24,7 @@ import {
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
   isTmallProductWorkbookFilename,
+  isTmallSellerBusinessUrl,
   isTmallSellerLoginUrl,
   matchTmallExportRecordChoice,
   parseTmallShanghaiTaskTime,
@@ -36,13 +37,52 @@ import {
   scoreProductManagerFloatingCandidate,
   scoreTmallBlockingNoticeCandidate,
   shouldRejectEqualTmallNoticeActions,
+  tmallSellerLoginRedirectGraceMs,
   tmallBrowserDownloadOutcome,
+  waitForTmallSellerSessionUrl,
 } from "../tools/tmall-product-master-export";
 
 test("识别千牛卖家专用登录跳转并拒绝普通业务页", () => {
   assert.equal(isTmallSellerLoginUrl("https://loginmyseller.taobao.com/?redirect_url=https%3A%2F%2Fmyseller.taobao.com"), true);
   assert.equal(isTmallSellerLoginUrl("https://login.taobao.com/member/login.jhtml"), true);
   assert.equal(isTmallSellerLoginUrl("https://myseller.taobao.com/home.htm/SellManage/on_sale"), false);
+});
+
+test("千牛业务页选择严格排除包含相似域名的登录页", () => {
+  assert.equal(isTmallSellerBusinessUrl("https://myseller.taobao.com/home.htm/SellManage/on_sale"), true);
+  assert.equal(isTmallSellerBusinessUrl("https://loginmyseller.taobao.com/?redirect_url=https%3A%2F%2Fmyseller.taobao.com"), false);
+  assert.equal(isTmallSellerBusinessUrl("not-a-url"), false);
+});
+
+test("千牛启动时允许登录跳转短暂出现后回到受控出售中页面", async () => {
+  const observations = [
+    "https://loginmyseller.taobao.com/?redirect_url=on_sale",
+    "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20",
+  ];
+  let waits = 0;
+  const result = await waitForTmallSellerSessionUrl(
+    () => observations[Math.min(waits, observations.length - 1)]!,
+    async () => { waits += 1; },
+    1_000,
+    250,
+  );
+  assert.equal(result, observations[1]);
+  assert.equal(waits, 1);
+  assert.equal(tmallSellerLoginRedirectGraceMs, 15_000);
+});
+
+test("千牛登录页在宽限期内持续存在时仍失败关闭", async () => {
+  let waits = 0;
+  await assert.rejects(
+    () => waitForTmallSellerSessionUrl(
+      () => "https://loginmyseller.taobao.com/?redirect_url=on_sale",
+      async () => { waits += 1; },
+      1_000,
+      250,
+    ),
+    /waiting_login/,
+  );
+  assert.equal(waits, 4);
 });
 
 test("商品管家侧栏允许平台异步加载但保持一分钟有界失败", () => {

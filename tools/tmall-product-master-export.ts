@@ -35,6 +35,7 @@ const exportResultTimeoutMs = 10 * 60 * 1000;
 const exportRecordTimeoutMs = 3 * 60 * 1000;
 const exportRecordRefreshIntervalMs = 8_000;
 export const productManagerChatOpenTimeoutMs = 60_000;
+export const tmallSellerLoginRedirectGraceMs = 15_000;
 
 type MasterImportBatch = {
   id?: string;
@@ -1467,6 +1468,37 @@ export function isTmallSellerLoginUrl(url: string) {
   return /(?:loginmyseller|login)\.taobao\.com|passport|member\/login/i.test(url);
 }
 
+export function isTmallSellerBusinessUrl(url: string) {
+  try {
+    return new URL(url).hostname.toLowerCase() === "myseller.taobao.com";
+  } catch {
+    return false;
+  }
+}
+
+export async function waitForTmallSellerSessionUrl(
+  readUrl: () => string,
+  wait: (milliseconds: number) => Promise<void> = async (milliseconds) => {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+  },
+  timeoutMs = tmallSellerLoginRedirectGraceMs,
+  pollIntervalMs = 500,
+) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || !Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) {
+    throw new Error("千牛登录跳转等待参数无效");
+  }
+  const maximumPolls = Math.max(1, Math.ceil(timeoutMs / pollIntervalMs));
+  let url = readUrl();
+  for (let poll = 0; isTmallSellerLoginUrl(url) && poll < maximumPolls; poll += 1) {
+    await wait(pollIntervalMs);
+    url = readUrl();
+  }
+  if (isTmallSellerLoginUrl(url)) {
+    throw new Error("waiting_login：亿玖店独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
+  }
+  return url;
+}
+
 async function assertSellerIdentity(page: Page, store: TmallStore) {
   const url = page.url();
   const text = await combinedPageText(page);
@@ -1532,7 +1564,7 @@ async function browserExport(options: {
   const browser = await connectPlaywrightBrowser(options.store.browser.debugPort);
   const context = browser.contexts()[0];
   if (!context) throw new Error("亿玖店独立 Chrome 没有可用上下文");
-  const sellerPages = context.pages().filter((candidate) => /myseller\.taobao\.com/i.test(candidate.url()));
+  const sellerPages = context.pages().filter((candidate) => isTmallSellerBusinessUrl(candidate.url()));
   let page = sellerPages[0];
   if (options.resumeStage && sellerPages.length > 1) {
     const observations = await Promise.all(sellerPages.map(async (candidate) => ({
@@ -1546,9 +1578,7 @@ async function browserExport(options: {
     if (!page.url().startsWith("https://myseller.taobao.com/home.htm/SellManage/on_sale")) {
       await page.goto(TMALL_SELLER_ON_SALE_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
     }
-    if (isTmallSellerLoginUrl(page.url())) {
-      throw new Error("waiting_login：亿玖店独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
-    }
+    await waitForTmallSellerSessionUrl(() => page!.url());
     await waitUntil(60_000, async () => (await combinedPageText(page!)).includes("出售中"), "等待千牛出售中页面加载超时");
     await assertSellerIdentity(page, options.store);
     if (!options.resumeStage) await options.onStage("browser_ready");

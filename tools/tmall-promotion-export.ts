@@ -17,6 +17,7 @@ import {
 import { shanghaiYesterday } from "./tmall-multi-store-import-runner";
 import {
   createTmallBrowserDownloadSession,
+  isTmallSellerBusinessUrl,
   TMALL_SELLER_ON_SALE_URL,
 } from "./tmall-product-master-export";
 
@@ -33,6 +34,12 @@ const maximumDownloadBytes = 25 * 1024 * 1024;
 const maximumDaysPerRun = 30;
 const reportGenerationTimeoutMs = 10 * 60 * 1000;
 const reportRefreshIntervalMs = 8_000;
+
+export function chooseTmallPromotionEntryPageIndex(urls: readonly string[]) {
+  const sellerIndex = urls.findIndex((url) => isTmallSellerBusinessUrl(url));
+  if (sellerIndex >= 0) return sellerIndex;
+  return urls.findIndex((url) => /one\.alimama\.com/i.test(url));
+}
 
 type PromotionCoveragePayload = {
   requestedPeriod?: { startDate?: string | null; endDate?: string | null };
@@ -1853,8 +1860,9 @@ async function runTmallPromotionDate(options: {
       const browser = await connectPlaywrightBrowser(store.browser.debugPort);
       const context = browser.contexts()[0];
       if (!context) throw new Error("亿玖店独立 Chrome 没有可用上下文");
-      let page = context.pages().find((candidate) => /myseller\.taobao\.com/i.test(candidate.url()))
-        ?? context.pages().find((candidate) => /one\.alimama\.com/i.test(candidate.url()));
+      const pages = context.pages();
+      const entryPageIndex = chooseTmallPromotionEntryPageIndex(pages.map((candidate) => candidate.url()));
+      let page = entryPageIndex >= 0 ? pages[entryPageIndex] : undefined;
       if (!page) page = await context.newPage();
       page.setDefaultTimeout(15_000);
       const dialogGuard = installPromotionNativeDialogGuard(page);

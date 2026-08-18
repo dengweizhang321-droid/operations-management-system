@@ -9,6 +9,7 @@ import {
   assertPromotionImportPayload,
   clickCalendarMonthArrowWithFallback,
   chooseTmallPromotionDownloadTask,
+  chooseTmallPromotionEntryPageIndex,
   isPromotionMetricSelectionState,
   isPromotionDownloadDialogText,
   isPromotionReportSuccessNavigation,
@@ -37,6 +38,21 @@ function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
     endDate: url.searchParams.get("endDate")!,
   };
 }
+
+test("推广入口严格选择千牛业务页并排除相似登录域名", () => {
+  assert.equal(chooseTmallPromotionEntryPageIndex([
+    "https://loginmyseller.taobao.com/?redirect_url=on_sale",
+    "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20",
+    "https://one.alimama.com/index.html",
+  ]), 1);
+  assert.equal(chooseTmallPromotionEntryPageIndex([
+    "https://loginmyseller.taobao.com/?redirect_url=on_sale",
+    "https://one.alimama.com/index.html",
+  ]), 1);
+  assert.equal(chooseTmallPromotionEntryPageIndex([
+    "https://loginmyseller.taobao.com/?redirect_url=on_sale",
+  ]), -1);
+});
 
 test("推广目标日期不因已有覆盖而跳过，并为每个业务日生成独立报表", () => {
   const productDailyDates = [
