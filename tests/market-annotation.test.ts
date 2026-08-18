@@ -210,6 +210,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /fanOutInferenceUnitResult/);
   assert.match(route, /getAnnotationJobProgress/);
   assert.match(ui, /loadJobProgress/);
+  assert.match(ui, /currentCloudRunHasUnfinishedItems/);
+  assert.match(ui, /恢复剩余识别/);
   assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
   assert.match(model, /loadCachedAnnotationImage/);
@@ -1358,6 +1360,49 @@ test("cloud annotation reuses exact same-image results for the same prompt and m
   assert.equal("reusedCount" in sameJob ? sameJob.reusedCount : 0, 1);
   const sameJobItem = sqlite.prepare("SELECT status,ai_segment segment,ai_image_price_cents price,attempt_count attempts FROM market_annotation_items WHERE id='same-job-b'").get() as Record<string, unknown>;
   assert.deepEqual({ ...sameJobItem }, { status: "review_pending", segment: "立式", price: 399900, attempts: 0 });
+  sqlite.close();
+});
+
+test("scheduled cloud runner recovers expired same-image followers before declaring the job complete", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('expired-follower-prompt','净水',1,'manual','active','["台式","立式"]','这是用于验证过期同图跟随项能够自动收尾的正式 Prompt。','admin@test');
+    INSERT INTO market_annotation_jobs
+      (id,category,prompt_version_id,executor,model_id,reuse_status,status,total_count,completed_count,created_by)
+      VALUES ('expired-follower-job','净水','expired-follower-prompt','cloud','vision-unused','ready','running',2,1,'operator@test');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,source_image_url,status,
+       ai_segment,ai_image_price_cents,ai_price_type,ai_price_low_cents,ai_price_high_cents,ai_confidence_bps,
+       ai_reason,ai_raw_digest,reviewed_segment,reviewed_image_price_cents,reviewed_price_type)
+      VALUES
+      ('expired-follower-a','expired-follower-job','净水','pop','SKU-EXPIRED','SKU','2026-04','expired-follower-hash','https://img.test/expired.jpg','review_pending',
+       '台式',288800,'标准售价',288800,288800,9300,'同图已有结果','expired-digest','台式',288800,'标准售价');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,source_image_url,status,
+       lease_token_hash,lease_agent_id,lease_expires_at,attempt_count)
+      VALUES ('expired-follower-z','expired-follower-job','净水','pop','SKU-EXPIRED','SKU','2026-02','expired-follower-hash','https://img.test/expired.jpg','inferencing',
+       'stale-token','cloud','2020-01-01 00:00:00',1);
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES ('expired-follower-snapshot','净水','pop','SKU-EXPIRED','SKU','2026-02','expired-follower-hash','https://img.test/expired.jpg','missing');
+    INSERT INTO market_annotation_cloud_runs
+      (job_id,state,retry_state_json,completed_at,updated_at)
+      VALUES ('expired-follower-job','completed','{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
+  `);
+
+  await setCloudAnnotationRunState(db, { jobId: "expired-follower-job", state: "running" }, { email: "operator@test", role: "operator" });
+  const result = await runScheduledCloudAnnotations(db, { jobId: "expired-follower-job", maxWaves: 1, maxRuntimeMs: 5_000 });
+  assert.equal(result.done, true);
+  const recovered = sqlite.prepare("SELECT status,attempt_count,lease_token_hash,lease_expires_at,ai_segment,ai_image_price_cents FROM market_annotation_items WHERE id='expired-follower-z'").get() as Record<string, unknown>;
+  assert.deepEqual({ ...recovered }, {
+    status: "review_pending", attempt_count: 1, lease_token_hash: "", lease_expires_at: null, ai_segment: "台式", ai_image_price_cents: 288800,
+  });
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='expired-follower-job'").get() as { status: string }).status, "review_ready");
+  assert.equal((sqlite.prepare("SELECT state FROM market_annotation_cloud_runs WHERE job_id='expired-follower-job'").get() as { state: string }).state, "completed");
   sqlite.close();
 });
 

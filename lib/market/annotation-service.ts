@@ -921,6 +921,53 @@ async function reuseAnnotationHistory(db: MarketDatabase, job: JobRow, limit = 4
   return rows.results.reduce((sum, _row, index) => sum + Number(results[index * 2]?.meta?.changes ?? 0), 0);
 }
 
+async function recoverExpiredInferenceFollowers(db: MarketDatabase, job: JobRow, limit = CLOUD_REUSE_BATCH_SIZE) {
+  const rows = await db.prepare(`
+    SELECT * FROM (
+      SELECT current.id, current.category, current.scope, current.sku_code, current.ranking_dimension,
+        current.month, current.image_content_sha256,
+        history.ai_segment, history.ai_image_price_cents, history.ai_price_type,
+        history.ai_price_low_cents, history.ai_price_high_cents, history.ai_confidence_bps,
+        history.ai_reason, history.ai_raw_digest, history.resolved_image_url, history.image_source,
+        ROW_NUMBER() OVER (PARTITION BY current.id ORDER BY datetime(history.updated_at) DESC, history.id DESC) rn
+      FROM market_annotation_items current
+      JOIN market_annotation_items history ON history.job_id=current.job_id AND history.id<>current.id
+        AND ${inferenceUnitMatch("history", "current")}
+      WHERE current.job_id=? AND current.status='inferencing' AND current.attempt_count<3
+        AND current.lease_expires_at IS NOT NULL AND datetime(current.lease_expires_at)<=datetime('now')
+        AND history.status IN ('review_pending','approved','committed') AND history.ai_segment<>''
+    ) WHERE rn=1 LIMIT ?`)
+    .bind(job.id, limit).all<ReusableAnnotationRow & { rn: number }>();
+  if (!rows.results.length) return 0;
+  const statements = rows.results.flatMap((row) => [
+    db.prepare(`UPDATE market_annotation_items SET
+        status='review_pending', ai_segment=?, ai_image_price_cents=?, ai_price_type=?,
+        ai_price_low_cents=?, ai_price_high_cents=?, ai_confidence_bps=?, ai_reason=?, ai_raw_digest=?,
+        reviewed_segment=?, reviewed_image_price_cents=?, reviewed_price_type=?,
+        reviewed_price_low_cents=?, reviewed_price_high_cents=?, resolved_image_url=?, image_source=?,
+        error_message='', lease_token_hash='', lease_agent_id='', lease_expires_at=NULL,
+        version=version+1, updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND job_id=? AND status='inferencing' AND attempt_count<3
+        AND lease_expires_at IS NOT NULL AND datetime(lease_expires_at)<=datetime('now')`)
+      .bind(row.ai_segment, row.ai_image_price_cents, row.ai_price_type,
+        row.ai_price_low_cents, row.ai_price_high_cents, row.ai_confidence_bps, row.ai_reason, row.ai_raw_digest,
+        row.ai_segment, row.ai_image_price_cents, row.ai_price_type,
+        row.ai_price_low_cents, row.ai_price_high_cents, row.resolved_image_url, row.image_source,
+        row.id, job.id),
+    db.prepare(`UPDATE market_price_snapshots SET
+        ai_image_price_cents=?, ai_price_type=?, ai_confidence_bps=?, ai_reason=?,
+        price_low_cents=COALESCE(?, price_low_cents), price_high_cents=COALESCE(?, price_high_cents),
+        confirmation_status='ai_pending', source_job_item_id=?, prompt_version_id=?, updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=?
+        AND image_content_sha256=? AND confirmed_market_price_cents IS NULL`)
+      .bind(row.ai_image_price_cents, row.ai_price_type, row.ai_confidence_bps, row.ai_reason,
+        row.ai_price_low_cents, row.ai_price_high_cents, row.id, job.prompt_version_id,
+        row.category, row.scope, row.sku_code, row.ranking_dimension, row.month, row.image_content_sha256),
+  ]);
+  const results = await db.batch(statements) as Array<{ meta?: { changes?: number } }>;
+  return rows.results.reduce((sum, _row, index) => sum + Number(results[index * 2]?.meta?.changes ?? 0), 0);
+}
+
 async function prepareAnnotationReuse(db: MarketDatabase, job: JobRow) {
   if (job.reuse_status === "ready") return { ready: true, reusedCount: 0 };
   await db.prepare(`UPDATE market_annotation_jobs SET reuse_status='pending', reuse_started_at=NULL, updated_at=CURRENT_TIMESTAMP
@@ -972,7 +1019,8 @@ async function fanOutInferenceUnitResult(db: MarketDatabase, job: JobRow, item: 
       error_message='', lease_token_hash='', lease_agent_id='', lease_expires_at=NULL,
       version=version+1, updated_at=CURRENT_TIMESTAMP
     WHERE job_id=? AND id<>? AND category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND image_content_sha256=?
-      AND status IN ('queued','failed') AND attempt_count<3`)
+      AND attempt_count<3 AND (status IN ('queued','failed') OR (status='inferencing'
+        AND lease_expires_at IS NOT NULL AND datetime(lease_expires_at)<=datetime('now')))`)
     .bind(result.segment, result.imagePriceCents, result.priceType,
       result.priceLowCents, result.priceHighCents, result.confidenceBps, result.reason, result.rawDigest,
       result.segment, result.imagePriceCents, result.priceType, result.priceLowCents, result.priceHighCents,
@@ -987,7 +1035,8 @@ async function fanOutInferenceUnitTerminalFailure(db: MarketDatabase, jobId: str
   const result = await db.prepare(`UPDATE market_annotation_items SET status='failed', attempt_count=3, error_message=?,
       lease_token_hash='', lease_agent_id='', lease_expires_at=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP
     WHERE job_id=? AND id<>? AND category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND image_content_sha256=?
-      AND status IN ('queued','failed') AND attempt_count<3`)
+      AND attempt_count<3 AND (status IN ('queued','failed') OR (status='inferencing'
+        AND lease_expires_at IS NOT NULL AND datetime(lease_expires_at)<=datetime('now')))`)
     .bind(message, jobId, item.id, item.category, item.scope, item.sku_code, item.ranking_dimension, item.image_content_sha256).run();
   return Number(result.meta.changes ?? 0);
 }
@@ -1011,6 +1060,11 @@ async function runNextCloudAnnotationInternal(db: MarketDatabase, jobId: string,
   const job = await db.prepare("SELECT " + jobColumns + " FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<JobRow>();
   if (!job || job.executor !== "cloud" || !job.model_id) throw new Error("云端标注任务不存在");
   if (["cancelled", "committed", "deleted"].includes(job.status)) throw new Error("该任务当前不能继续执行");
+  const recoveredCount = await recoverExpiredInferenceFollowers(db, job);
+  if (recoveredCount) {
+    if (refreshState) await refreshJob(db, jobId);
+    return { done: false, reusedCount: recoveredCount, job: refreshState ? await getJob(db, jobId) : null };
+  }
   const reusePreparation = await prepareAnnotationReuse(db, job);
   if (reusePreparation.reusedCount) {
     if (refreshState) await refreshJob(db, jobId);
@@ -1299,6 +1353,20 @@ export async function runScheduledCloudAnnotations(
       .bind(claim.jobId, claim.tokenHash).first<{ retry_state_json: string }>();
     const retry = new AnnotationRunRetryController(configured, retrySnapshot(controlRow?.retry_state_json ?? "{}"));
     retry.updateTarget(configured);
+
+    while (Date.now() < deadline && waves < maxWaves) {
+      const recovered = await recoverExpiredInferenceFollowers(db, job);
+      if (!recovered) break;
+      waves += 1;
+      processedCount += recovered;
+      reusedCount += recovered;
+      await refreshJob(db, claim.jobId);
+      const recoveredJob = await getJob(db, claim.jobId);
+      if (recoveredJob && ["review_ready", "committed", "cancelled"].includes(recoveredJob.status)) {
+        await finishCloudRun(db, claim);
+        return { idle: false, done: true, jobId: claim.jobId, waves, processedCount, reusedCount, failedCount };
+      }
+    }
 
     while (Date.now() < deadline && waves < maxWaves) {
       const latestConfigured = await annotationConcurrency(db, job.category, "cloud");
