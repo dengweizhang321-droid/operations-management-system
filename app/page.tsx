@@ -23,6 +23,7 @@ import SidebarNavigation from "./shell/sidebar-navigation";
 import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
 import N8nWorkflowView from "./n8n-workflow-view";
+import SalesCategoryView from "./sales-category-view";
 import TableColumnFilters from "./ui/table-column-filters";
 import Dialog from "./ui/dialog";
 
@@ -2539,14 +2540,28 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
   </>;
 }
 
-type SalesTab = "overview" | "channel" | "finance" | "targets";
+type SalesTab = "overview" | "channel" | "category" | "finance" | "targets";
 type ChannelDimension = "channel" | "platform";
+
+function salesTabFromLocation(): SalesTab {
+  if (typeof window === "undefined") return "overview";
+  const value = new URL(window.location.href).searchParams.get("salesTab");
+  return value === "channel" || value === "category" || value === "finance" || value === "targets" ? value : "overview";
+}
+
+function writeSalesTabLocation(tab: SalesTab) {
+  const url = new URL(window.location.href);
+  if (tab === "overview") url.searchParams.delete("salesTab");
+  else url.searchParams.set("salesTab", tab);
+  window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
 
 function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: SalesTab) => void }) {
   return (
     <div className="subnav inventory-subnav sales-subnav" role="tablist" aria-label="销售分析子版块">
       <button type="button" role="tab" aria-selected={active === "overview"} className={active === "overview" ? "active" : ""} onClick={() => onChange("overview")}>销售总览</button>
       <button type="button" role="tab" aria-selected={active === "channel"} className={active === "channel" ? "active" : ""} onClick={() => onChange("channel")}>渠道分析</button>
+      <button type="button" role="tab" aria-selected={active === "category"} className={active === "category" ? "active" : ""} onClick={() => onChange("category")}>品类分析</button>
       <button type="button" role="tab" aria-selected={active === "finance"} className={active === "finance" ? "active" : ""} onClick={() => onChange("finance")}>财报分析</button>
       <button type="button" role="tab" aria-selected={active === "targets"} className={active === "targets" ? "active" : ""} onClick={() => onChange("targets")}>目标设置</button>
     </div>
@@ -3372,7 +3387,7 @@ function FinanceTargetSettingsView() {
 
 function SalesView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
   const apiRange = salesRangeMap[range];
-  const [activeTab, setActiveTab] = useState<SalesTab>("overview");
+  const [activeTab, setActiveTab] = useState<SalesTab>(salesTabFromLocation);
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -3384,6 +3399,21 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
 
   useEffect(() => {
+    const onPopState = () => setActiveTab(salesTabFromLocation());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const changeSalesTab = useCallback((tab: SalesTab) => {
+    writeSalesTabLocation(tab);
+    setActiveTab(tab);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "overview" && activeTab !== "channel") {
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     void (async () => {
       await Promise.resolve();
@@ -3418,7 +3448,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     })();
 
     return () => controller.abort();
-  }, [apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedShopKeys]);
+  }, [activeTab, apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedShopKeys]);
 
   const current = summary?.current;
   const previous = summary?.previous;
@@ -3439,8 +3469,9 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
     if (cursor < 100) stops.push(`#eef1f5 ${cursor}% 100%`);
     return `conic-gradient(${stops.join(",")})`;
   }, [channels]);
-  const salesSubnav = <SalesSubnav active={activeTab} onChange={setActiveTab} />;
+  const salesSubnav = <SalesSubnav active={activeTab} onChange={changeSalesTab} />;
 
+  if (activeTab === "category") return <>{salesSubnav}<SalesCategoryView startDate={customStartDate} endDate={customEndDate} /></>;
   if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} /></>;
   if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView /></>;
 

@@ -33,6 +33,7 @@ import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getSalesDatabase } from "@/lib/sales/database";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
+import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 
 export type {
   AiToolAnnotations,
@@ -126,6 +127,33 @@ export const aiToolRegistry = [
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
     handler: (args) => callOperationsTool("get_sales_summary", args),
+  },
+  {
+    name: "get_sales_category_analysis",
+    title: "销售品类分析",
+    description: "按自定义日期和真实用户数据范围只读查询品类净销售额、贡献率、正向销量、退货量、退款、毛利、排名和月度趋势。品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "开始日期，YYYY-MM-DD。" },
+        endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "结束日期，YYYY-MM-DD。" },
+        categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        channels: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        platforms: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        productQueries: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        sortBy: { type: "string", enum: ["netSalesCents", "shareRate", "positiveQuantity", "returnQuantity", "refundAmountCents", "grossProfitCents", "grossMarginRate", "productCount"], default: "netSalesCents" },
+        direction: { type: "string", enum: ["asc", "desc"], default: "desc" },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+      },
+      required: ["startDate", "endDate"],
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    handler: (args, context) => getSalesCategoryAnalysisForAi(args, context.principal),
   },
   {
     name: "get_inventory_health",

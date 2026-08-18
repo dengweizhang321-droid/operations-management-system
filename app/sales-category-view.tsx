@@ -1,0 +1,305 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { requestJson } from "@/lib/http/api-client";
+
+type CategoryMetric = {
+  category: string;
+  grossSalesCents: number;
+  refundAmountCents: number;
+  netSalesCents: number;
+  shareRate: number;
+  positiveQuantity: number;
+  returnQuantity: number;
+  netQuantity: number;
+  grossProfitCents: number;
+  grossMarginRate: number;
+  productCount: number;
+  lineCount: number;
+};
+
+type CategoryAnalysisResponse = {
+  range: { startDate: string; endDate: string; endExclusive: string; timezone: string };
+  dataCutoffDate: string | null;
+  categoryHierarchy: {
+    currentLevel: 1;
+    levels: Array<{ level: 1; key: string; label: string }>;
+    supportsDrilldown: boolean;
+    source: { primary: string; fallback: string; joinKey: string; unmatchedLabel: string };
+  };
+  filtersApplied: { dataScope: { mode: "unrestricted" | "restricted" } };
+  summary: Omit<CategoryMetric, "category" | "shareRate"> & { categoryCount: number };
+  uncategorized: { category: string; productCount: number; netSalesCents: number; shareRate: number; visible: boolean };
+  structure: { items: Array<CategoryMetric & { rank: number }>; otherNetSalesCents: number; otherShareRate: number; contributionRateTotal: number };
+  ranking: Array<CategoryMetric & { rank: number }>;
+  trend: {
+    granularity: CategoryGranularity;
+    categoryLimit: number;
+    returned: number;
+    truncated: boolean;
+    items: Array<{ period: string; category: string; netSalesCents: number; grossProfitCents: number; positiveQuantity: number; returnQuantity: number; refundAmountCents: number }>;
+  };
+  details: {
+    items: CategoryMetric[];
+    pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
+    sort: { by: CategorySortKey; direction: SortDirection };
+  };
+  filterOptions: {
+    categories: string[];
+    channels: string[];
+    platforms: string[];
+    outlets: Array<{ key: string; platform: string; name: string }>;
+    totals: { categories: number; channels: number; platforms: number; outlets: number };
+    truncated: boolean;
+    limit: number;
+  };
+};
+
+type CategoryGranularity = "day" | "week" | "month";
+type SortDirection = "asc" | "desc";
+type CategorySortKey = "netSalesCents" | "shareRate" | "positiveQuantity" | "returnQuantity" | "refundAmountCents" | "grossProfitCents" | "grossMarginRate" | "productCount";
+
+type CategoryUrlState = {
+  categories: string[];
+  channels: string[];
+  platforms: string[];
+  outlets: string[];
+  productQuery: string;
+  granularity: CategoryGranularity;
+  sortBy: CategorySortKey;
+  direction: SortDirection;
+  page: number;
+  pageSize: number;
+};
+
+const categoryOwnedUrlKeys = [
+  "salesCategory", "salesChannel", "salesPlatform", "salesOutlet", "salesProductQuery",
+  "salesCategoryLevel", "salesGranularity", "salesSort", "salesDirection", "salesPage", "salesPageSize",
+] as const;
+const validGranularities = new Set<CategoryGranularity>(["day", "week", "month"]);
+const validSortKeys = new Set<CategorySortKey>(["netSalesCents", "shareRate", "positiveQuantity", "returnQuantity", "refundAmountCents", "grossProfitCents", "grossMarginRate", "productCount"]);
+const chartColors = ["#3f7be0", "#29a77a", "#8a65d6", "#e7943f"];
+
+function boundedSelections(params: URLSearchParams, key: string) {
+  return [...new Set(params.getAll(key).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
+}
+
+function positiveInteger(value: string | null, fallback: number, maximum: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(maximum, Math.trunc(parsed)) : fallback;
+}
+
+function readCategoryUrl(): CategoryUrlState {
+  const params = typeof window === "undefined" ? new URLSearchParams() : new URL(window.location.href).searchParams;
+  const granularity = params.get("salesGranularity") as CategoryGranularity | null;
+  const sortBy = params.get("salesSort") as CategorySortKey | null;
+  return {
+    categories: boundedSelections(params, "salesCategory"),
+    channels: boundedSelections(params, "salesChannel"),
+    platforms: boundedSelections(params, "salesPlatform"),
+    outlets: boundedSelections(params, "salesOutlet"),
+    productQuery: (params.get("salesProductQuery") ?? "").slice(0, 500),
+    granularity: granularity && validGranularities.has(granularity) ? granularity : "day",
+    sortBy: sortBy && validSortKeys.has(sortBy) ? sortBy : "netSalesCents",
+    direction: params.get("salesDirection") === "asc" ? "asc" : "desc",
+    page: positiveInteger(params.get("salesPage"), 1, 100_000),
+    pageSize: positiveInteger(params.get("salesPageSize"), 20, 100),
+  };
+}
+
+function writeCategoryUrl(state: CategoryUrlState, mode: "push" | "replace") {
+  const url = new URL(window.location.href);
+  for (const key of categoryOwnedUrlKeys) url.searchParams.delete(key);
+  state.categories.forEach((value) => url.searchParams.append("salesCategory", value));
+  state.channels.forEach((value) => url.searchParams.append("salesChannel", value));
+  state.platforms.forEach((value) => url.searchParams.append("salesPlatform", value));
+  state.outlets.forEach((value) => url.searchParams.append("salesOutlet", value));
+  if (state.productQuery.trim()) url.searchParams.set("salesProductQuery", state.productQuery.trim());
+  url.searchParams.set("salesCategoryLevel", "1");
+  if (state.granularity !== "day") url.searchParams.set("salesGranularity", state.granularity);
+  if (state.sortBy !== "netSalesCents") url.searchParams.set("salesSort", state.sortBy);
+  if (state.direction !== "desc") url.searchParams.set("salesDirection", state.direction);
+  if (state.page !== 1) url.searchParams.set("salesPage", String(state.page));
+  if (state.pageSize !== 20) url.searchParams.set("salesPageSize", String(state.pageSize));
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history[mode === "push" ? "pushState" : "replaceState"](null, "", next);
+}
+
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatRate(value: number) {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function MultiFilter({ label, values, selected, onChange, display }: {
+  label: string;
+  values: string[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  display?: (value: string) => string;
+}) {
+  const [query, setQuery] = useState("");
+  const matches = values.filter((value) => !query.trim() || (display?.(value) ?? value).toLocaleLowerCase("zh-CN").includes(query.trim().toLocaleLowerCase("zh-CN")));
+  return <details className="category-filter-menu">
+    <summary><span>{label}</span><strong>{selected.length ? `已选 ${selected.length}` : "全部"}</strong></summary>
+    <div className="category-filter-popover">
+      <label className="category-filter-search">⌕<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索${label}`} aria-label={`搜索${label}`} /></label>
+      <div className="category-filter-options">
+        {matches.slice(0, 200).map((value) => <label key={value} className={selected.includes(value) ? "selected" : ""}>
+          <input type="checkbox" checked={selected.includes(value)} onChange={() => onChange(selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value])} />
+          <span title={display?.(value) ?? value}>{display?.(value) ?? value}</span>
+        </label>)}
+        {matches.length === 0 && <p>没有匹配选项</p>}
+      </div>
+      {selected.length > 0 && <button type="button" onClick={() => onChange([])}>清空{label}</button>}
+    </div>
+  </details>;
+}
+
+function CategoryTrend({ data }: { data: CategoryAnalysisResponse }) {
+  const categories = data.ranking.slice(0, 4).map((item) => item.category);
+  const periods = [...new Set(data.trend.items.map((item) => item.period))];
+  const visibleValues = data.trend.items.filter((item) => categories.includes(item.category)).map((item) => item.netSalesCents);
+  const minimum = Math.min(0, ...visibleValues);
+  const maximum = Math.max(0, ...visibleValues);
+  const span = Math.max(1, maximum - minimum);
+  const x = (index: number) => periods.length <= 1 ? 30 : 30 + index / (periods.length - 1) * 640;
+  const y = (value: number) => 30 + (maximum - value) / span * 140;
+  const zeroY = y(0);
+  return <section className="panel category-trend-panel">
+    <div className="category-section-heading"><div><span className="eyebrow">CATEGORY TREND</span><h2>品类统计周期趋势</h2><p>服务端按{data.trend.granularity === "day" ? "日" : data.trend.granularity === "week" ? "自然周" : "自然月"}汇总净销售额，最多展示前 {data.trend.categoryLimit} 个品类。</p></div><div className="category-trend-legend">{categories.map((category, index) => <span key={category}><i style={{ background: chartColors[index] }} />{category}</span>)}</div></div>
+    {periods.length > 0 ? <div className="category-trend-chart"><svg viewBox="0 0 700 210" role="img" aria-label="品类净销售额统计周期趋势">
+      <line x1="30" y1={zeroY} x2="670" y2={zeroY} className="category-chart-axis" />
+      {categories.map((category, categoryIndex) => {
+        const values = new Map(data.trend.items.filter((item) => item.category === category).map((item) => [item.period, item.netSalesCents]));
+        const points = periods.map((period, index) => `${x(index)},${y(values.get(period) ?? 0)}`).join(" ");
+        return <polyline key={category} points={points} fill="none" stroke={chartColors[categoryIndex]} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />;
+      })}
+      {periods.map((period, index) => (periods.length <= 8 || index % Math.ceil(periods.length / 8) === 0) && <text key={period} x={x(index)} y="195" textAnchor="middle">{period.slice(5)}</text>)}
+    </svg></div> : <div className="table-state">当前筛选下没有可绘制的品类趋势。</div>}
+  </section>;
+}
+
+const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
+  { key: "netSalesCents", label: "净销售额" },
+  { key: "shareRate", label: "贡献率" },
+  { key: "positiveQuantity", label: "正向销量" },
+  { key: "returnQuantity", label: "退货量" },
+  { key: "refundAmountCents", label: "退款金额" },
+  { key: "grossProfitCents", label: "毛利额" },
+  { key: "grossMarginRate", label: "毛利率" },
+  { key: "productCount", label: "商品数" },
+];
+
+export default function SalesCategoryView({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const [urlState, setUrlState] = useState<CategoryUrlState>(readCategoryUrl);
+  const [data, setData] = useState<CategoryAnalysisResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const requestGenerationRef = useRef(0);
+
+  const updateUrlState = useCallback((patch: Partial<CategoryUrlState>, mode: "push" | "replace" = "push") => {
+    const next = { ...urlState, ...patch, page: patch.page ?? 1 };
+    writeCategoryUrl(next, mode);
+    setUrlState(next);
+  }, [urlState]);
+
+  useEffect(() => {
+    const onPopState = () => setUrlState(readCategoryUrl());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const generation = ++requestGenerationRef.current;
+    void (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const query = new URLSearchParams({
+          startDate,
+          endDate,
+          level: "1",
+          granularity: urlState.granularity,
+          sortBy: urlState.sortBy,
+          direction: urlState.direction,
+          page: String(urlState.page),
+          pageSize: String(urlState.pageSize),
+        });
+        urlState.categories.forEach((value) => query.append("category", value));
+        urlState.channels.forEach((value) => query.append("channel", value));
+        urlState.platforms.forEach((value) => query.append("platform", value));
+        urlState.outlets.forEach((value) => query.append("outlet", value));
+        if (urlState.productQuery.trim()) query.append("productQuery", urlState.productQuery.trim());
+        const payload = await requestJson<CategoryAnalysisResponse>(`/api/sales/category-analysis?${query}`, { signal: controller.signal });
+        if (generation !== requestGenerationRef.current) return;
+        setData(payload);
+      } catch (reason) {
+        if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
+        setError(reason instanceof Error ? reason.message : "暂时无法读取品类分析");
+      } finally {
+        if (!controller.signal.aborted && generation === requestGenerationRef.current) setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [endDate, retryKey, startDate, urlState]);
+
+  const outletLabels = useMemo(() => new Map((data?.filterOptions.outlets ?? []).map((item) => [item.key, `${item.platform} · ${item.name}`])), [data?.filterOptions.outlets]);
+  const filterOptions = data?.filterOptions ?? { categories: [], channels: [], platforms: [], outlets: [], totals: { categories: 0, channels: 0, platforms: 0, outlets: 0 }, truncated: false, limit: 200 };
+  const hasFilters = urlState.categories.length + urlState.channels.length + urlState.platforms.length + urlState.outlets.length > 0 || Boolean(urlState.productQuery.trim());
+
+  if (loading && !data) return <section className="panel data-state sales-data-state" role="status"><span className="state-spinner" /><strong>正在汇总品类经营数据</strong><p>正在按商品主数据映射销售、退款和毛利明细…</p></section>;
+  if (error && !data) return <section className="panel data-state sales-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>品类分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
+  if (!data) return null;
+
+  const summary = data.summary;
+  const maxRankingSales = Math.max(1, ...data.ranking.map((item) => Math.max(0, item.netSalesCents)));
+  return <div className="sales-category-view" aria-busy={loading}>
+    <section className="panel category-filter-panel" aria-label="品类分析筛选条件">
+      <div className="category-filter-heading"><div><span className="eyebrow">CATEGORY SCOPE</span><h2>品类分析范围</h2><p>{data.range.startDate} 至 {data.range.endDate} · Asia/Shanghai · 日期左闭右开至 {data.range.endExclusive}</p></div><span className="soft-tag">{data.filtersApplied.dataScope.mode === "restricted" ? "已应用账号数据范围" : "全部授权范围"}</span></div>
+      <div className="category-filter-grid">
+        <label className="category-level-field"><span>品类层级</span><strong>第 1 层 · 品类</strong><small>当前主数据仅提供一层，暂无下级可钻取</small></label>
+        <MultiFilter label="品类" values={filterOptions.categories} selected={urlState.categories} onChange={(categories) => updateUrlState({ categories })} />
+        <MultiFilter label="渠道" values={filterOptions.channels} selected={urlState.channels} onChange={(channels) => updateUrlState({ channels })} />
+        <MultiFilter label="平台" values={filterOptions.platforms} selected={urlState.platforms} onChange={(platforms) => updateUrlState({ platforms })} />
+        <MultiFilter label="店铺" values={filterOptions.outlets.map((item) => item.key)} selected={urlState.outlets} display={(value) => outletLabels.get(value) ?? value.replace("\u001f", " · ")} onChange={(outlets) => updateUrlState({ outlets })} />
+        <label className="category-product-query"><span>货品编码或名称</span><input value={urlState.productQuery} onChange={(event) => updateUrlState({ productQuery: event.target.value }, "replace")} placeholder="支持多值，逗号或换行分隔" /></label>
+        <div className="segmented category-granularity" role="group" aria-label="品类趋势统计粒度">{(["day", "week", "month"] as const).map((value) => <button key={value} type="button" className={urlState.granularity === value ? "active" : ""} onClick={() => updateUrlState({ granularity: value })}>{value === "day" ? "按日" : value === "week" ? "按周" : "按月"}</button>)}</div>
+        {hasFilters && <button type="button" className="secondary-button category-filter-reset" onClick={() => updateUrlState({ categories: [], channels: [], platforms: [], outlets: [], productQuery: "" })}>清空筛选</button>}
+      </div>
+      {(filterOptions.truncated || loading || error) && <div className={`category-filter-note ${error ? "error" : ""}`} role={error ? "alert" : "status"}>{error || (loading ? "正在更新筛选结果，旧结果会保留到新请求完成。" : `筛选选项每类最多返回 ${filterOptions.limit} 个，当前已截断。`)}</div>}
+    </section>
+
+    <section className="category-kpi-grid">
+      <article><span>品类净销售额</span><strong>{formatCurrency(summary.netSalesCents)}</strong><small>销售额扣除退款，退款以负值参与</small></article>
+      <article><span>正向销量</span><strong>{formatCount(summary.positiveQuantity)}</strong><small>仅数量大于 0 的销售行</small></article>
+      <article><span>退货量 / 退款</span><strong>{formatCount(summary.returnQuantity)} <em>件</em></strong><small>{formatCurrency(summary.refundAmountCents)}</small></article>
+      <article><span>品类毛利额</span><strong>{formatCurrency(summary.grossProfitCents)}</strong><small>毛利率 {formatRate(summary.grossMarginRate)}</small></article>
+      <article className={data.uncategorized.visible ? "warning" : ""}><span>未分类商品</span><strong>{formatCount(data.uncategorized.productCount)}</strong><small>{formatCurrency(data.uncategorized.netSalesCents)} · 占 {formatRate(data.uncategorized.shareRate)}</small></article>
+    </section>
+
+    {data.uncategorized.visible && <section className="category-unclassified-notice" role="note"><span>!</span><div><strong>存在未匹配品类的商品</strong><p>{formatCount(data.uncategorized.productCount)} 个商品未在 ERP 商品主数据或销售明细中找到品类，已统一归入“未分类”并参与总计、贡献率、趋势和明细核对。</p></div></section>}
+
+    {summary.categoryCount === 0 ? <section className="panel data-state"><span className="state-symbol">∅</span><strong>当前筛选没有品类销售数据</strong><p>可清空筛选或切换顶部统计周期；系统不会用模拟数据填充空结果。</p></section> : <>
+      <section className="category-main-grid">
+        <article className="panel category-structure-panel"><div className="category-section-heading"><div><span className="eyebrow">SALES MIX</span><h2>品类结构占比</h2><p>贡献率由服务端按完整筛选范围计算，合计 {formatRate(data.structure.contributionRateTotal)}。</p></div></div><div className="category-structure-list">{data.structure.items.map((item, index) => <div key={item.category}><span className={`table-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{item.rank}</span><div><strong>{item.category}</strong><small>{formatCurrency(item.netSalesCents)} · {formatRate(item.shareRate)}</small><i><b style={{ width: `${Math.max(0, Math.min(100, item.shareRate * 100))}%` }} /></i></div></div>)}{data.structure.otherNetSalesCents !== 0 && <div><span className="table-rank">+</span><div><strong>其他品类</strong><small>{formatCurrency(data.structure.otherNetSalesCents)} · {formatRate(data.structure.otherShareRate)}</small><i><b style={{ width: `${Math.max(0, Math.min(100, data.structure.otherShareRate * 100))}%` }} /></i></div></div>}</div></article>
+        <article className="panel category-ranking-panel"><div className="category-section-heading"><div><span className="eyebrow">CATEGORY RANKING</span><h2>品类销售排名</h2><p>按净销售额排序，退款负值已计入。</p></div></div><div className="category-ranking-list">{data.ranking.slice(0, 8).map((item) => <div key={item.category}><span>{item.rank}</span><div><strong>{item.category}</strong><i><b style={{ width: `${Math.max(2, Math.max(0, item.netSalesCents) / maxRankingSales * 100)}%` }} /></i></div><div><strong>{formatCurrency(item.netSalesCents)}</strong><small>毛利率 {formatRate(item.grossMarginRate)}</small></div></div>)}</div></article>
+      </section>
+      <CategoryTrend data={data} />
+      <section className="panel table-panel category-detail-panel">
+        <div className="table-toolbar"><div><h2>品类经营明细</h2><p>服务端筛选、排序和分页；金额接口单位为人民币分，页面统一展示为元。</p></div><span className="soft-tag">显示 {formatCount(data.details.pagination.returned)} / {formatCount(data.details.pagination.total)}{data.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
+        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}</tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.positiveQuantity)}</td><td>{formatCount(item.returnQuantity)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td>{formatCount(item.productCount)}</td></tr>)}</tbody></table></div>
+        <footer className="category-pagination"><span>第 {data.details.pagination.page} 页 · 每页 {data.details.pagination.pageSize} 条</span><div><button type="button" disabled={urlState.page <= 1 || loading} onClick={() => updateUrlState({ page: Math.max(1, urlState.page - 1) })}>上一页</button><button type="button" disabled={!data.details.pagination.truncated || loading} onClick={() => updateUrlState({ page: urlState.page + 1 })}>下一页</button></div></footer>
+      </section>
+    </>}
+    <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销售额包含退款负值，毛利率 = 毛利额 / 净销售额。</span><span>数据截止：{data.dataCutoffDate ?? "暂无"}；筛选项与结果均受当前登录账号数据范围约束。</span></section>
+  </div>;
+}
