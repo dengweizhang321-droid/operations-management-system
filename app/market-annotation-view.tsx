@@ -104,6 +104,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [savingConcurrencyKey, setSavingConcurrencyKey] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [staleCandidateId, setStaleCandidateId] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [agentToken, setAgentToken] = useState("");
   const dirtyDraftIdsRef = useRef(new Set<string>());
@@ -280,7 +281,15 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     }
     return payload?.result as Record<string, unknown> | undefined;
   };
-  const act = async (name: string, fn: () => Promise<void>) => { setBusy(name); setError(""); setNotice(""); try { await fn(); } catch (reason) { setError(reason instanceof Error ? reason.message : "操作失败"); } finally { setBusy(""); } };
+  const act = async (name: string, fn: () => Promise<void>) => {
+    setBusy(name); setError(""); setNotice(""); setStaleCandidateId("");
+    try { await fn(); }
+    catch (reason) {
+      const message = reason instanceof Error ? reason.message : "操作失败";
+      setError(message);
+      setStaleCandidateId(message.match(/候选项 (market-item-[0-9a-f-]{36}) 对应的榜单身份、价格快照或图片版本已变化/i)?.[1] ?? "");
+    } finally { setBusy(""); }
+  };
   const activePrompt = data?.prompts.find((item) => item.category === category && item.status === "active");
   const selectedPrompt = data?.prompts.find((item) => item.id === promptId && item.category === category) ?? activePrompt;
   const selectedCategorySummary = data?.categories.find((item) => item.value === category);
@@ -455,6 +464,17 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     }
     selectedPageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await loadReview(true); setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条`);
   });
+  const rebuildStaleCandidate = () => act("rebuild-stale", async () => {
+    if (!staleCandidateId) throw new Error("没有可重建的失效候选");
+    const result = await post({ action: "rebuild_stale_item", candidateId: staleCandidateId });
+    dirtyDraftIdsRef.current.delete(staleCandidateId);
+    const replacementId = String(result?.replacementCandidateId ?? "");
+    const recognitionMode = result?.recognitionMode === "price_only" ? "已沿用人工细分类目，只需重新识别新图价格" : "需要按新图重新完成分类与价格识别";
+    setItemPage(1);
+    await loadReview(true);
+    setStaleCandidateId("");
+    setNotice(`失效候选已安全重建为 ${replacementId}；${recognitionMode}。请启动/恢复原任务识别。`);
+  });
   const savePrompt = (mode: "manual" | "generate") => act("prompt", async () => {
     if (!category) throw new Error("“全部三级类目”仅用于浏览和筛选；保存 Prompt 前请选择一个具体类目");
     const body = { category, segments: segmentsText.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean), parentId: selectedPrompt?.id, changeNote };
@@ -551,7 +571,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   };
 
   return <div className="market-annotation-module">
-    {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")}>{error || notice}</div>}
+    {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")}><span>{error || notice}</span>{error && staleCandidateId && <button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={rebuildStaleCandidate}>{busy === "rebuild-stale" ? "重建中…" : "重建这条失效候选"}</button>}</div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；同一 SKUID 与图片已入库的标准售价会自动沿用，新图片的 AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
     <section className="panel annotation-task-card">

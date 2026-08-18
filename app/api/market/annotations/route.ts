@@ -6,7 +6,7 @@ import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
-  revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
+  rebuildStaleAnnotationItem, revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       }
       case "commit": result = await commitAnnotationItems(db, { jobId: text(parsed, "jobId"), candidateIds: texts(parsed, "candidateIds"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
       case "commit_selected": result = await commitSelectedAnnotationItems(db, { jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
+      case "rebuild_stale_item": result = await rebuildStaleAnnotationItem(db, { candidateId: text(parsed, "candidateId") }, principal); break;
       case "select_filtered": result = await setFilteredAnnotationSelection(db, {
         jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), selected: parsed.selected === true,
         itemSegments: texts(parsed, "itemSegments"),

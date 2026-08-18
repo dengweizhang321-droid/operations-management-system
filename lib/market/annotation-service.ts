@@ -79,6 +79,20 @@ async function ensureMarketSchemaLazy(db: MarketDatabase) {
 function promptValue(row: PromptRow) { return { id: row.id, category: row.category, version: row.version, parentId: row.parent_id, source: row.source, status: row.status, segments: json<string[]>(row.segments_json, []), promptBody: row.prompt_body, changeNote: row.change_note, metrics: json(row.metrics_json, {}), createdBy: row.created_by, createdAt: row.created_at, activatedBy: row.activated_by, activatedAt: row.activated_at }; }
 function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
 function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, modelInputBytes: row.model_input_bytes, imageLoadMs: row.image_load_ms, imagePrepareMs: row.image_prepare_ms, modelCallMs: row.model_call_ms, totalInferenceMs: row.total_inference_ms, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, reviewPriceSource: row.reviewed_by === HISTORY_SAME_IMAGE_REVIEWER ? "history_same_image" : (row.ai_segment || row.ai_image_price_cents !== null || row.ai_confidence_bps !== null || row.ai_reason) ? "ai" : "manual", selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
+
+const currentAnnotationSnapshotExistsSql = (itemAlias: string) => `EXISTS (
+  SELECT 1 FROM market_price_snapshots snapshot
+  LEFT JOIN market_image_cache current_image ON current_image.source_url=snapshot.image_url
+    AND current_image.status='ready' AND current_image.content_sha256<>''
+  WHERE snapshot.category=${itemAlias}.category AND snapshot.scope=${itemAlias}.scope
+    AND snapshot.sku_code=${itemAlias}.sku_code AND snapshot.ranking_dimension=${itemAlias}.ranking_dimension
+    AND snapshot.month=${itemAlias}.month
+    AND COALESCE(NULLIF(current_image.content_sha256,''),snapshot.image_content_sha256)=${itemAlias}.image_content_sha256
+    AND EXISTS (SELECT 1 FROM market_ranking_entries ranking
+      WHERE ranking.category=snapshot.category AND ranking.scope=snapshot.scope
+        AND ranking.sku_code=snapshot.sku_code AND ranking.ranking_dimension=snapshot.ranking_dimension
+        AND (${itemAlias}.month='' OR substr(ranking.period_end,1,7)=snapshot.month))
+)`;
 const aiRecognitionClause = "(COALESCE(ai_segment,'')<>'' OR ai_image_price_cents IS NOT NULL OR ai_confidence_bps IS NOT NULL OR COALESCE(ai_reason,'')<>'')";
 const MAX_FILTERED_SELECTION = 50_000;
 const COMMIT_SELECTION_BATCH_SIZE = 500;
@@ -247,7 +261,7 @@ function addAnnotationReviewFilters(
 
 function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[] }) {
   const categories = annotationCategoryList(input.itemCategories, input.itemCategory);
-  const visibleJobClause = "EXISTS (SELECT 1 FROM market_annotation_jobs visible_job WHERE visible_job.id=market_annotation_items.job_id AND visible_job.status<>'deleted')";
+  const visibleJobClause = "market_annotation_items.status<>'superseded' AND EXISTS (SELECT 1 FROM market_annotation_jobs visible_job WHERE visible_job.id=market_annotation_items.job_id AND visible_job.status<>'deleted')";
   if (input.aggregateJobs) return categories.length
     ? { clause: `${visibleJobClause} AND category IN (${categories.map(() => "?").join(",")})`, bindings: categories as unknown[] }
     : { clause: visibleJobClause, bindings: [] as unknown[] };
@@ -1421,6 +1435,119 @@ export async function updateAnnotationItems(db: MarketDatabase, jobId: string, u
   }
 }
 
+export async function rebuildStaleAnnotationItem(
+  db: MarketDatabase,
+  input: { candidateId: string },
+  actor: Actor,
+) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  const candidateId = input.candidateId.trim();
+  if (!/^market-item-[0-9a-f-]{36}$/i.test(candidateId)) throw new Error("失效候选项 ID 无效");
+  const item = await db.prepare(`SELECT item.*, job.prompt_version_id promptVersionId, job.executor,
+      CASE WHEN ${currentAnnotationSnapshotExistsSql("item")} THEN 1 ELSE 0 END snapshotValid
+    FROM market_annotation_items item JOIN market_annotation_jobs job ON job.id=item.job_id
+    WHERE item.id=? LIMIT 1`).bind(candidateId).first<ItemRow & {
+      promptVersionId: string; executor: string; snapshotValid: number;
+    }>();
+  if (!item) throw new Error("失效候选项不存在");
+  if (item.status === "committed" || await db.prepare("SELECT 1 ok FROM market_annotation_commit_receipts WHERE job_item_id=? LIMIT 1").bind(candidateId).first()) {
+    throw new Error("候选项已经正式入库，不能重建");
+  }
+  if (item.snapshotValid) throw new Error("候选项当前快照仍然有效，请刷新页面后直接入库");
+  const prompt = await db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE id=? LIMIT 1`)
+    .bind(item.promptVersionId).first<PromptRow>();
+  if (!prompt) throw new Error("候选项绑定的 Prompt 已不存在，无法安全重建");
+  const promptSegments = json<string[]>(prompt.segments_json, []);
+  await assertPromptTaxonomyCurrent(db, item.category, promptSegments, "候选项绑定的 Prompt 枚举已不是当前细分品类字典，无法安全重建");
+  const replacement = await db.prepare(`SELECT snapshot.category,snapshot.scope,snapshot.sku_code,snapshot.ranking_dimension,snapshot.month,
+      COALESCE(NULLIF(current_image.content_sha256,''),snapshot.image_content_sha256,'') imageContentSha256,
+      COALESCE(NULLIF(snapshot.image_url,''),ranking.image_url,'') imageUrl,
+      ranking.product_name productName,ranking.brand
+    FROM market_price_snapshots snapshot
+    JOIN market_ranking_entries ranking ON ranking.category=snapshot.category AND ranking.scope=snapshot.scope
+      AND ranking.sku_code=snapshot.sku_code AND ranking.ranking_dimension=snapshot.ranking_dimension
+      AND substr(ranking.period_end,1,7)=snapshot.month
+    LEFT JOIN market_image_cache current_image ON current_image.source_url=COALESCE(NULLIF(snapshot.image_url,''),ranking.image_url)
+      AND current_image.status='ready' AND current_image.content_sha256<>''
+    WHERE snapshot.category=? AND snapshot.scope=? AND snapshot.sku_code=? AND snapshot.ranking_dimension=? AND snapshot.month=?
+    ORDER BY ranking.period_end DESC,ranking.updated_at DESC,ranking.id DESC LIMIT 1`)
+    .bind(item.category, item.scope, item.sku_code, item.ranking_dimension, item.month).first<{
+      category: string; scope: string; sku_code: string; ranking_dimension: string; month: string;
+      imageContentSha256: string; imageUrl: string; productName: string; brand: string;
+    }>();
+  if (!replacement) throw new Error("该候选对应月份的当前榜单身份或价格快照已不存在；请先恢复该月份榜单数据，再重建候选");
+  if (!replacement.imageContentSha256 || !replacement.imageUrl) throw new Error("当前主图尚未完成安全缓存，暂不能重建候选；请等待图片缓存完成后重试");
+  if (replacement.imageContentSha256 === item.image_content_sha256) {
+    throw new Error("当前图片哈希与原候选相同，但榜单身份不完整；请刷新或重新导入该月份榜单后重试");
+  }
+  const reusableSegment = promptSegments.includes(item.reviewed_segment) ? item.reviewed_segment : "";
+  const replacementId = "market-item-" + randomUUID();
+  const auditId = "market-audit-" + randomUUID();
+  const statements = [
+    db.prepare(`UPDATE market_price_snapshots SET image_content_sha256=?,updated_at=CURRENT_TIMESTAMP
+      WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=?
+        AND confirmed_market_price_cents IS NULL`)
+      .bind(replacement.imageContentSha256, item.category, item.scope, item.sku_code, item.ranking_dimension, item.month),
+    db.prepare(`INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,product_name,brand,
+        source_image_url,status,reviewed_segment,reviewed_by,reviewed_at)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,CASE WHEN ?='' THEN NULL ELSE CURRENT_TIMESTAMP END
+      WHERE EXISTS (SELECT 1 FROM market_price_snapshots snapshot
+        JOIN market_ranking_entries ranking ON ranking.category=snapshot.category AND ranking.scope=snapshot.scope
+          AND ranking.sku_code=snapshot.sku_code AND ranking.ranking_dimension=snapshot.ranking_dimension
+          AND substr(ranking.period_end,1,7)=snapshot.month
+        WHERE snapshot.category=? AND snapshot.scope=? AND snapshot.sku_code=? AND snapshot.ranking_dimension=?
+          AND snapshot.month=? AND snapshot.image_content_sha256=?)`)
+      .bind(replacementId, item.job_id, item.category, item.scope, item.sku_code, item.ranking_dimension, item.month,
+        replacement.imageContentSha256, replacement.productName, replacement.brand, replacement.imageUrl,
+        reusableSegment, reusableSegment ? HISTORY_SAME_SKU_SEGMENT_REVIEWER : "", reusableSegment,
+        item.category, item.scope, item.sku_code, item.ranking_dimension, item.month, replacement.imageContentSha256),
+    db.prepare(`UPDATE market_annotation_items SET status='superseded',selected=0,
+        error_message='候选图片版本已变化，已重建为 ' || ?,lease_token_hash='',lease_agent_id='',lease_expires_at=NULL,
+        version=version+1,updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND status<>'committed' AND EXISTS (SELECT 1 FROM market_annotation_items replacement WHERE replacement.id=?)`)
+      .bind(replacementId, candidateId, replacementId),
+    db.prepare(`INSERT INTO market_master_audit_logs
+      (id,actor_email,actor_role,action,entity_type,entity_id,before_json,after_json)
+      SELECT ?,?,?,'rebuild_stale_market_annotation_item','market_annotation_item',?,?,?
+      FROM market_annotation_items replacement WHERE replacement.id=?`)
+      .bind(auditId, actor.email, actor.role, candidateId,
+        JSON.stringify({ candidateId, imageContentSha256: item.image_content_sha256, status: item.status }),
+        JSON.stringify({ replacementCandidateId: replacementId, imageContentSha256: replacement.imageContentSha256,
+          recognitionMode: reusableSegment ? "price_only" : "full" }), replacementId),
+  ];
+  if (item.executor === "cloud") {
+    statements.push(db.prepare(`UPDATE market_annotation_cloud_runs SET state='paused',next_run_at=NULL,
+      lease_token_hash='',lease_expires_at=NULL,completed_at=NULL,updated_at=CURRENT_TIMESTAMP
+      WHERE job_id=? AND EXISTS (SELECT 1 FROM market_annotation_items replacement WHERE replacement.id=?)`)
+      .bind(item.job_id, replacementId));
+  }
+  const mutex = await acquireJobMutex(db, item.job_id, true);
+  try {
+    const latest = await db.prepare(`SELECT current_item.status,
+        CASE WHEN ${currentAnnotationSnapshotExistsSql("current_item")} THEN 1 ELSE 0 END snapshotValid,
+        EXISTS (SELECT 1 FROM market_annotation_commit_receipts receipt WHERE receipt.job_item_id=current_item.id) committed
+      FROM market_annotation_items current_item WHERE current_item.id=? LIMIT 1`)
+      .bind(candidateId).first<{ status: string; snapshotValid: number; committed: number }>();
+    if (!latest || latest.status === "committed" || latest.committed) throw new Error("候选项已经正式入库，不能重建");
+    if (latest.snapshotValid) throw new Error("候选项当前快照仍然有效，请刷新页面后直接入库");
+    const results = await db.batch(statements) as Array<{ meta?: { changes?: number } }>;
+    if (!Number(results[1]?.meta?.changes ?? 0)) throw new Error("重建期间当前快照再次变化，请刷新后重试");
+    await releaseJobMutex(db, item.job_id, mutex, true);
+    await refreshJob(db, item.job_id);
+    return {
+      ok: true,
+      jobId: item.job_id,
+      supersededCandidateId: candidateId,
+      replacementCandidateId: replacementId,
+      recognitionMode: reusableSegment ? "price_only" : "full",
+    };
+  } catch (error) {
+    await releaseJobMutex(db, item.job_id, mutex, true).catch(() => undefined);
+    throw error;
+  }
+}
+
 export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: string; candidateIds: string[]; idempotencyKey: string }, actor: Actor) {
   await ensureMarketSchemaLazy(db);
   await ensureAnnotationSchema(db);
@@ -1455,13 +1582,7 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
     const itemById = new Map<string, ItemRow & { snapshot_valid: number }>();
     for (const group of chunks(ids)) {
       const items = await db.prepare(`SELECT item.*,
-          CASE WHEN EXISTS (SELECT 1 FROM market_price_snapshots snapshot
-            WHERE snapshot.category=item.category AND snapshot.scope=item.scope AND snapshot.sku_code=item.sku_code
-              AND snapshot.ranking_dimension=item.ranking_dimension AND snapshot.month=item.month
-              AND snapshot.image_content_sha256=item.image_content_sha256
-              AND EXISTS (SELECT 1 FROM market_ranking_entries ranking WHERE ranking.category=snapshot.category
-                AND ranking.scope=snapshot.scope AND ranking.sku_code=snapshot.sku_code
-                AND ranking.ranking_dimension=snapshot.ranking_dimension)) THEN 1 ELSE 0 END snapshot_valid
+          CASE WHEN ${currentAnnotationSnapshotExistsSql("item")} THEN 1 ELSE 0 END snapshot_valid
         FROM market_annotation_items item WHERE item.job_id=? AND item.id IN (${group.map(() => "?").join(",")})`)
         .bind(job.id, ...group).all<ItemRow & { snapshot_valid: number }>();
       for (const item of items.results ?? []) itemById.set(item.id, item);
@@ -1505,15 +1626,11 @@ export async function commitAnnotationItems(db: MarketDatabase, input: { jobId: 
         return [
           db.prepare(`INSERT INTO market_master_audit_logs
             (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
-            SELECT CASE WHEN EXISTS (SELECT 1 FROM market_price_snapshots
-              WHERE category=? AND scope=? AND sku_code=? AND ranking_dimension=? AND month=? AND image_content_sha256=?
-                AND EXISTS (SELECT 1 FROM market_ranking_entries ranking
-                  WHERE ranking.category=market_price_snapshots.category AND ranking.scope=market_price_snapshots.scope
-                    AND ranking.sku_code=market_price_snapshots.sku_code
-                    AND ranking.ranking_dimension=market_price_snapshots.ranking_dimension)
-            ) THEN ? ELSE NULL END, ?, ?, 'market_annotation_snapshot_guard', 'market_price_snapshot', ?, '{}', '{}'`)
-            .bind(item.category || job.category, item.scope, item.sku_code, item.ranking_dimension, item.month, item.image_content_sha256,
-              snapshotGuardId, actor.email, actor.role, `${item.category || job.category}|${item.scope}|${item.ranking_dimension}|${item.sku_code}|${item.month}`),
+            SELECT CASE WHEN ${currentAnnotationSnapshotExistsSql("guard_item")} THEN ? ELSE NULL END,
+              ?, ?, 'market_annotation_snapshot_guard', 'market_price_snapshot', ?, '{}', '{}'
+            FROM market_annotation_items guard_item WHERE guard_item.id=?`)
+            .bind(snapshotGuardId, actor.email, actor.role,
+              `${item.category || job.category}|${item.scope}|${item.ranking_dimension}|${item.sku_code}|${item.month}`, item.id),
           db.prepare("INSERT INTO market_sku_annotations (id, category, sku_code, segment, image_price_cents, image_url, image_source, confidence_bps, source_job_item_id, prompt_version_id, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(category, sku_code) DO UPDATE SET segment=excluded.segment, image_price_cents=excluded.image_price_cents, image_url=excluded.image_url, image_source=excluded.image_source, confidence_bps=excluded.confidence_bps, source_job_item_id=excluded.source_job_item_id, prompt_version_id=excluded.prompt_version_id, reviewed_by=excluded.reviewed_by, reviewed_at=CURRENT_TIMESTAMP, version=market_sku_annotations.version+1, updated_at=CURRENT_TIMESTAMP")
             .bind(annotationId, job.category, item.sku_code, item.reviewed_segment, item.reviewed_image_price_cents, after.imageUrl, item.image_source, item.ai_confidence_bps, item.id, job.prompt_version_id, actor.email),
           db.prepare(`UPDATE market_price_snapshots SET
@@ -1637,13 +1754,14 @@ export async function getAnnotationJobProgress(db: MarketDatabase, jobId: string
 }
 
 async function refreshJob(db: MarketDatabase, jobId: string) {
-  const counts = await db.prepare("SELECT COUNT(*) total, SUM(CASE WHEN status IN ('review_pending','approved','rejected','committed') THEN 1 ELSE 0 END) completed, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed, SUM(CASE WHEN status IN ('approved','rejected','committed') THEN 1 ELSE 0 END) reviewed, SUM(CASE WHEN status='committed' THEN 1 ELSE 0 END) committed, SUM(CASE WHEN status IN ('queued','claimed','inferencing') OR (status='failed' AND attempt_count<3) THEN 1 ELSE 0 END) remaining FROM market_annotation_items WHERE job_id=?")
+  const counts = await db.prepare("SELECT SUM(CASE WHEN status<>'superseded' THEN 1 ELSE 0 END) total, SUM(CASE WHEN status IN ('review_pending','approved','rejected','committed') THEN 1 ELSE 0 END) completed, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed, SUM(CASE WHEN status IN ('approved','rejected','committed') THEN 1 ELSE 0 END) reviewed, SUM(CASE WHEN status='committed' THEN 1 ELSE 0 END) committed, SUM(CASE WHEN status IN ('queued','claimed','inferencing') OR (status='failed' AND attempt_count<3) THEN 1 ELSE 0 END) remaining, SUM(CASE WHEN status='superseded' THEN 1 ELSE 0 END) superseded FROM market_annotation_items WHERE job_id=?")
     .bind(jobId).first<Record<string, number>>();
   if (!counts) return;
   const current = await db.prepare("SELECT status FROM market_annotation_jobs WHERE id=?").bind(jobId).first<{ status: string }>();
   let status = current?.status ?? "running";
   if (!["cancelled", "committed", "deleted"].includes(status)) {
-    if (Number(counts.committed) === Number(counts.total) && Number(counts.total) > 0) status = "committed";
+    if (Number(counts.total) === 0) status = Number(counts.superseded) > 0 ? "cancelled" : "review_ready";
+    else if (Number(counts.committed) === Number(counts.total)) status = "committed";
     else if (Number(counts.remaining) === 0) status = "review_ready";
     else status = "running";
   }

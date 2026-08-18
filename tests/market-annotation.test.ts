@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -686,6 +686,51 @@ test("annotation commit refuses a missing image-version snapshot before writing 
   }, { email: "admin@test", role: "admin" }), /价格快照或图片版本已变化/);
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_commit_receipts").get() as { count: number }).count, 0);
   assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE id='missing-snapshot-item'").get() as { status: string }).status, "approved");
+  sqlite.close();
+});
+
+test("a stale reviewed candidate can be superseded by the current image snapshot without losing its reviewed segment", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('rebuild-prompt','重建类目',1,'manual','active','["已确认分类"]','这是用于验证失效候选安全重建的正式 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs
+      (id,category,prompt_version_id,executor,model_id,status,total_count,completed_count,reviewed_count,created_by)
+      VALUES ('rebuild-job','重建类目','rebuild-prompt','cloud','vision-1','review_ready',1,1,1,'operator@test');
+    INSERT INTO market_annotation_cloud_runs (job_id,state,retry_state_json,completed_at)
+      VALUES ('rebuild-job','completed','{}',CURRENT_TIMESTAMP);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,brand,image_url,raw_json,last_import_batch_id)
+      VALUES ('rebuild-ranking',1,'2026-08-01','2026-08-31','重建类目','整体SKU','SKU','POP','REBUILD-SKU','新图商品','品牌','https://img10.360buyimg.com/imgzone/new.jpg','{}','batch-new');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES ('rebuild-snapshot','重建类目','整体SKU','REBUILD-SKU','SKU','2026-08','new-image-hash','https://img10.360buyimg.com/imgzone/new.jpg','missing');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,product_name,brand,source_image_url,status,selected,reviewed_segment,reviewed_image_price_cents,reviewed_price_type,reviewed_by)
+      VALUES ('market-item-11111111-1111-4111-8111-111111111111','rebuild-job','重建类目','整体SKU','REBUILD-SKU','SKU','2026-08','old-image-hash','旧图商品','品牌','https://img10.360buyimg.com/imgzone/old.jpg','approved',1,'已确认分类',199900,'标准售价','admin@test');
+  `);
+
+  await assert.rejects(() => commitAnnotationItems(db, {
+    jobId: "rebuild-job", candidateIds: ["market-item-11111111-1111-4111-8111-111111111111"], idempotencyKey: "stale-rebuild-commit-001",
+  }, { email: "admin@test", role: "admin" }), /图片版本已变化/);
+  const rebuilt = await rebuildStaleAnnotationItem(db, {
+    candidateId: "market-item-11111111-1111-4111-8111-111111111111",
+  }, { email: "operator@test", role: "operator" });
+
+  assert.equal(rebuilt.recognitionMode, "price_only");
+  assert.match(rebuilt.replacementCandidateId, /^market-item-/);
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,selected FROM market_annotation_items WHERE id='market-item-11111111-1111-4111-8111-111111111111'").get() as Record<string, unknown>) }, { status: "superseded", selected: 0 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT image_content_sha256 hash,status,reviewed_segment segment,reviewed_image_price_cents price,reviewed_by reviewer FROM market_annotation_items WHERE id=?").get(rebuilt.replacementCandidateId) as Record<string, unknown>) }, {
+    hash: "new-image-hash", status: "queued", segment: "已确认分类", price: null, reviewer: "system:history_same_sku_segment",
+  });
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='rebuild-job'").get() as { status: string }).status, "running");
+  assert.deepEqual({ ...(sqlite.prepare("SELECT state,completed_at completedAt FROM market_annotation_cloud_runs WHERE job_id='rebuild-job'").get() as Record<string, unknown>) }, { state: "paused", completedAt: null });
+  const review = await getAnnotationReviewWorkspace(db, { aggregateJobs: true, itemCategories: ["重建类目"] });
+  assert.deepEqual(review.items.map((entry) => entry.id), [rebuilt.replacementCandidateId]);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='rebuild_stale_market_annotation_item'").get() as { count: number }).count, 1);
   sqlite.close();
 });
 
