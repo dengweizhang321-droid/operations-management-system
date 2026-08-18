@@ -7,6 +7,8 @@ type MarketOverviewSqlOptions = {
   materialized?: boolean;
   confirmedOnlyPriceBands?: boolean;
   useEffectiveMetricsCache?: boolean;
+  rankingLimit?: number;
+  rankingOffset?: number;
 };
 
 type MarketMonthlyCoverageSqlOptions = {
@@ -313,15 +315,19 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
 
 /**
  * Builds the ranking query in two stages so expensive ownership, image and
- * price enrichment only runs for the 200 rows that can reach the UI.  The
- * former overview CTE enriched every market fact before applying LIMIT 200.
+ * Price enrichment only runs for the bounded row window that can reach the
+ * UI. The full report keeps the historical 200-row sample while the ranking
+ * workspace can request smaller server-side pages.
  */
-export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "factWhere" | "where" | "priceBandWhere"> = {}) {
+export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "factWhere" | "where" | "priceBandWhere" | "rankingLimit" | "rankingOffset"> = {}) {
   const clauses = [options.factWhere, options.where]
     .map((part) => part?.replace(/^\s*WHERE\s+/i, "").trim())
     .filter(Boolean);
   const selectionWhere = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const priceBandFilter = options.priceBandWhere?.trim() ?? "";
+  const rankingLimit = Math.max(1, Math.min(200, Math.trunc(options.rankingLimit ?? 200)));
+  const rankingOffset = Math.max(0, Math.trunc(options.rankingOffset ?? 0));
+  const rankingWindow = `LIMIT ${rankingLimit}${rankingOffset ? ` OFFSET ${rankingOffset}` : ""}`;
   const selectedIds = priceBandFilter
     ? `ranking_candidates AS MATERIALIZED (
       SELECT m.id, m.rank, cached.effective_gmv_cents,
@@ -335,7 +341,7 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
     ), top_ranked_ids AS MATERIALIZED (
       SELECT id FROM ranking_candidates ${priceBandFilter}
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, effective_gmv_cents DESC
-      LIMIT 200
+      ${rankingWindow}
     )`
     : `top_ranked_ids AS MATERIALIZED (
       SELECT m.id
@@ -343,7 +349,7 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
       JOIN market_effective_metrics_cache cached ON cached.market_entry_id=m.id
       ${selectionWhere}
       ORDER BY CASE WHEN m.rank IS NULL THEN 1 ELSE 0 END, m.rank, cached.effective_gmv_cents DESC
-      LIMIT 200
+      ${rankingWindow}
     )`;
   return `WITH ${selectedIds}, top_ranked_sources AS MATERIALIZED (
     SELECT m.*,

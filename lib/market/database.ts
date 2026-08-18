@@ -212,6 +212,7 @@ type EffectiveMetricsCacheCategory = {
 };
 
 type RankingSummaryRow = {
+  item_count: number;
   product_count: number;
   category_count: number;
   brand_count: number;
@@ -446,7 +447,12 @@ function combineWhereSql(...parts: string[]) {
 export async function getMarketOverview(
   db: MarketDatabase,
   filters: MarketOverviewFilters = {},
-  internal: { priceBandBasis?: "display_fallback" | "confirmed_only"; view?: "ranking" | "full" } = {},
+  internal: {
+    priceBandBasis?: "display_fallback" | "confirmed_only";
+    view?: "ranking" | "full";
+    rankingPage?: number;
+    rankingPageSize?: number;
+  } = {},
 ) {
   try {
     await ensureMarketEffectiveMetricsCache(db);
@@ -455,12 +461,18 @@ export async function getMarketOverview(
     throw new Error(`MARKET_EFFECTIVE_METRICS_REFRESH_FAILED: ${message}`);
   }
   const view = internal.view ?? "full";
+  const rankingPageSize = view === "ranking"
+    ? Math.max(10, Math.min(50, Math.trunc(internal.rankingPageSize ?? 20)))
+    : 200;
+  const rankingPage = view === "ranking" ? Math.max(1, Math.trunc(internal.rankingPage ?? 1)) : 1;
   const confirmedOnlyPriceBands = internal.priceBandBasis === "confirmed_only";
   const { factWhere, where, values, priceBandWhere, priceBandValues } = filterSql(filters);
   const rankingCtes = buildMarketRankingCtes({
     factWhere,
     where,
     priceBandWhere,
+    rankingLimit: rankingPageSize,
+    rankingOffset: (rankingPage - 1) * rankingPageSize,
   });
   const realtimeAnalyticsSql = buildMarketOverviewAnalyticsSql({
     factWhere,
@@ -499,7 +511,8 @@ export async function getMarketOverview(
     ), ranking_price_bands AS MATERIALIZED (
       SELECT price_band value, COUNT(DISTINCT sku_code) count FROM filtered GROUP BY price_band
     )
-    SELECT COUNT(DISTINCT sku_code) product_count,
+    SELECT COUNT(*) item_count,
+      COUNT(DISTINCT sku_code) product_count,
       COUNT(DISTINCT category) category_count,
       COUNT(DISTINCT COALESCE(NULLIF(brand,''), '未识别品牌')) brand_count,
       COUNT(DISTINCT CASE WHEN official_market_price_cents IS NULL THEN sku_code END) pending_ai_count,
@@ -858,6 +871,14 @@ export async function getMarketOverview(
       averageTransactionPriceCents: averageTransactionPrice,
     },
     items,
+    pagination: {
+      page: rankingPage,
+      pageSize: rankingPageSize,
+      total: view === "ranking" ? Number(rankingSummary?.item_count ?? 0) : items.length,
+      pageCount: view === "ranking"
+        ? Math.max(1, Math.ceil(Number(rankingSummary?.item_count ?? 0) / rankingPageSize))
+        : 1,
+    },
     trend: trendRows,
     trendTotal: allTrendRows.length,
     trendTruncated: allTrendRows.length > trendRows.length,

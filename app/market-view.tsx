@@ -9,6 +9,7 @@ import MarketAnnotationView from "./market-annotation-view";
 const PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000;
 const PRICE_RECOGNITION_CONCURRENCY = 2;
 const PRICE_RECOGNITION_BATCH_SIZE = 1;
+const MARKET_RANKING_PAGE_SIZE = 20;
 
 async function postPriceRecognitionAction(body: Record<string, unknown>) {
   const controller = new AbortController();
@@ -83,6 +84,7 @@ type MarketOverview = {
     medianMarketPriceCents: number | null; weightedMarketPriceCents: number | null; averageTransactionPriceCents: number | null;
   };
   items: MarketItem[];
+  pagination: { page: number; pageSize: number; total: number; pageCount: number };
   trend: Array<Record<string, string | number | null>>;
   trendTotal: number;
   trendTruncated: boolean;
@@ -409,9 +411,19 @@ function IndustryDataGapSection({ data }: { data: MarketOverview }) {
   </section>;
 }
 
-function RankingTable({ items, compareKeys, onToggleCompare, onTrend, onOpenCompare }: { items: MarketItem[]; compareKeys: string[]; onToggleCompare: (item: MarketItem) => void; onTrend: (item: MarketItem) => void; onOpenCompare: () => void }) {
+function RankingTable({ data, compareKeys, loadingMore, onLoadMore, onToggleCompare, onTrend, onOpenCompare }: {
+  data: MarketOverview;
+  compareKeys: string[];
+  loadingMore: boolean;
+  onLoadMore: () => void;
+  onToggleCompare: (item: MarketItem) => void;
+  onTrend: (item: MarketItem) => void;
+  onOpenCompare: () => void;
+}) {
+  const { items, pagination } = data;
+  const hasMore = pagination.page < pagination.pageCount;
   return <section className="panel market-table-panel">
-    <div className="section-header"><div><h2>商品榜单</h2><p>标题下方固定展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><div className="market-ranking-actions"><span className="soft-tag">显示 {count(items.length)} 条</span><button type="button" className="secondary-button" disabled={compareKeys.length < 2} onClick={onOpenCompare}>进入竞品对比{compareKeys.length ? `（${compareKeys.length}）` : ""}</button></div></div>
+    <div className="section-header"><div><h2>商品榜单</h2><p>首屏只读取 20 条，继续查看时再由服务端加载下一批；标题下方固定展示周期、SKU ID、POP/自营、品牌、细分类目和确认状态。</p></div><div className="market-ranking-actions"><span className="soft-tag">已加载 {count(items.length)} / {count(pagination.total)} 条</span><button type="button" className="secondary-button" disabled={compareKeys.length < 2} onClick={onOpenCompare}>进入竞品对比{compareKeys.length ? `（${compareKeys.length}）` : ""}</button></div></div>
     <div className="data-table-wrap"><table className="data-table market-ranking-table market-ranking-table-v2"><thead><tr>
       <th>对比</th><th>排名</th><th>商品主图和标题</th><th>销售额</th><th>成交件数</th><th>市场定位价（主图）</th><th>成交均价</th><th>访客</th><th>转化率</th><th>排名变化</th><th>趋势操作</th>
     </tr></thead><tbody>{items.map((item) => <tr key={item.id}>
@@ -426,6 +438,7 @@ function RankingTable({ items, compareKeys, onToggleCompare, onTrend, onOpenComp
       <td>{item.rankChange === null ? "-" : item.rankChange > 0 ? `↑${item.rankChange}` : item.rankChange < 0 ? `↓${Math.abs(item.rankChange)}` : "持平"}</td>
       <td><button type="button" className="row-action" onClick={() => onTrend(item)}>查看趋势</button></td>
     </tr>)}{items.length === 0 && <tr><td colSpan={11}><div className="table-state">当前市场周期和筛选条件下暂无商品数据，请调整条件或选择“全部时间”。</div></td></tr>}</tbody></table></div>
+    {items.length > 0 && <footer className="market-ranking-load-more"><span>第 {pagination.page} / {pagination.pageCount} 批</span><button type="button" className="secondary-button" disabled={!hasMore || loadingMore} onClick={onLoadMore}>{loadingMore ? "正在加载下一批…" : hasMore ? `加载更多（每批 ${pagination.pageSize} 条）` : "已加载全部数据"}</button></footer>}
   </section>;
 }
 
@@ -1171,24 +1184,36 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
   const [reloadKey, setReloadKey] = useState(0);
   const loadRequestId = useRef(0);
+  const loadMoreController = useRef<AbortController | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const initialLoad = useRef(true);
   const requestedView = activeSection === "overview" ? "full" : "ranking";
+  const buildOverviewParams = useCallback((view: "ranking" | "full", page = 1) => {
+    const params = new URLSearchParams();
+    params.set("view", view);
+    if (view === "ranking") {
+      params.set("page", String(page));
+      params.set("pageSize", String(MARKET_RANKING_PAGE_SIZE));
+    }
+    if (query.trim()) params.set("q", query.trim());
+    categories.forEach((value) => params.append("category", value));
+    scopes.forEach((value) => params.append("scope", value));
+    dimensions.forEach((value) => params.append("dimension", value));
+    operationModes.forEach((value) => params.append("operationMode", value));
+    brands.forEach((value) => params.append("brand", value));
+    subcategories.forEach((value) => params.append("subcategory", value));
+    priceBands.forEach((value) => params.append("priceBand", value));
+    if (marketStartDate) params.set("startDate", marketStartDate);
+    if (marketEndDate) params.set("endDate", marketEndDate);
+    return params;
+  }, [query, categories, scopes, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate]);
   const load = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++loadRequestId.current;
+    loadMoreController.current?.abort();
+    setLoadingMore(false);
     setLoading(true); setError("");
     try {
-      const params = new URLSearchParams();
-      params.set("view", requestedView);
-      if (query.trim()) params.set("q", query.trim());
-      categories.forEach((value) => params.append("category", value));
-      scopes.forEach((value) => params.append("scope", value));
-      dimensions.forEach((value) => params.append("dimension", value));
-      operationModes.forEach((value) => params.append("operationMode", value));
-      brands.forEach((value) => params.append("brand", value));
-      subcategories.forEach((value) => params.append("subcategory", value));
-      priceBands.forEach((value) => params.append("priceBand", value));
-      if (marketStartDate) params.set("startDate", marketStartDate);
-      if (marketEndDate) params.set("endDate", marketEndDate);
+      const params = buildOverviewParams(requestedView, 1);
       const response = await fetch(`/api/market/overview?${params}`, { cache: "no-store", signal });
       const payload = await response.json().catch(() => null) as MarketOverview | null;
       if (!response.ok) throw new Error(payload?.error || "市场分析数据读取失败");
@@ -1201,14 +1226,42 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     } finally {
       if (!signal?.aborted && requestId === loadRequestId.current) setLoading(false);
     }
-  }, [query, categories, scopes, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate, requestedView]);
+  }, [buildOverviewParams, requestedView]);
   useEffect(() => {
     const controller = new AbortController();
+    loadMoreController.current?.abort();
+    loadRequestId.current += 1;
+    setLoadingMore(false);
     const delay = initialLoad.current ? 0 : 350;
     initialLoad.current = false;
     const timer = window.setTimeout(() => void load(controller.signal), delay);
-    return () => { window.clearTimeout(timer); controller.abort(); };
+    return () => { window.clearTimeout(timer); controller.abort(); loadMoreController.current?.abort(); };
   }, [load, reloadKey]);
+  const loadMore = useCallback(async () => {
+    if (!data || data.view !== "ranking" || loadingMore || data.pagination.page >= data.pagination.pageCount) return;
+    loadMoreController.current?.abort();
+    const controller = new AbortController();
+    loadMoreController.current = controller;
+    const requestId = loadRequestId.current;
+    const nextPage = data.pagination.page + 1;
+    setLoadingMore(true); setError("");
+    try {
+      const response = await fetch(`/api/market/overview?${buildOverviewParams("ranking", nextPage)}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as MarketOverview | null;
+      if (!response.ok) throw new Error(payload?.error || "更多榜单数据读取失败");
+      if (!payload) throw new Error("更多榜单数据返回为空");
+      if (controller.signal.aborted || requestId !== loadRequestId.current) return;
+      setData((current) => {
+        if (!current || current.view !== "ranking") return current;
+        const seen = new Set(current.items.map((item) => item.id));
+        return { ...payload, items: [...current.items, ...payload.items.filter((item) => !seen.has(item.id))] };
+      });
+    } catch (reason) {
+      if (!controller.signal.aborted && requestId === loadRequestId.current) setError(reason instanceof Error ? reason.message : "更多榜单数据读取失败");
+    } finally {
+      if (!controller.signal.aborted && requestId === loadRequestId.current) setLoadingMore(false);
+    }
+  }, [data, loadingMore, buildOverviewParams]);
   const toggleCompare = (item: MarketItem) => setCompareSelections((current) => current.some((selection) => marketCompareSelectionKey(selection) === marketCompareSelectionKey(item))
     ? current.filter((selection) => marketCompareSelectionKey(selection) !== marketCompareSelectionKey(item))
     : current.length >= 5 ? current : [...current, {
@@ -1267,7 +1320,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 {reportDimensionLabel} {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
     </section>}
     {error && <div className="market-feedback error">{error}</div>}
-    {activeSection === "ranking" && <RankingTable items={data.items} compareKeys={compareKeys} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
+    {activeSection === "ranking" && <RankingTable data={data} compareKeys={compareKeys} loadingMore={loadingMore} onLoadMore={() => void loadMore()} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
     {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && <>
       <IndustryExecutiveSummary data={data} />
       <MarketKpis data={data} />

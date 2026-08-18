@@ -13,6 +13,7 @@ export type MarketOverviewResponseCacheDatabase = {
 type CacheIdentity = {
   view: "ranking" | "full";
   filters: MarketOverviewFilters;
+  pagination?: { page: number; pageSize: number };
 };
 
 type CacheRevisionRow = {
@@ -30,7 +31,7 @@ export type MarketOverviewCacheResult<T> = {
 
 const CACHE_TTL_MINUTES = 5;
 const CACHE_MAX_ROWS = 40;
-const CACHE_FORMAT_VERSION = 2;
+const CACHE_FORMAT_VERSION = 3;
 const inFlight = new Map<string, Promise<MarketOverviewCacheResult<unknown>>>();
 
 function normalizedList(values: string[] | undefined) {
@@ -53,6 +54,8 @@ export function canonicalMarketOverviewCacheIdentity(identity: CacheIdentity) {
     priceBands: normalizedList(filters.priceBands),
     startDate: filters.startDate ?? "",
     endDate: filters.endDate ?? "",
+    page: identity.view === "ranking" ? identity.pagination?.page ?? 1 : 1,
+    pageSize: identity.view === "ranking" ? identity.pagination?.pageSize ?? 20 : 200,
   });
 }
 

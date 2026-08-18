@@ -13,6 +13,13 @@ test("market ranking limits candidate ids before expensive row enrichment", () =
   assert.doesNotMatch(sql, /market_effective_rows AS MATERIALIZED/);
 });
 
+test("market ranking can page a small candidate window before expensive enrichment", () => {
+  const sql = buildMarketRankingCtes({ rankingLimit: 20, rankingOffset: 40 });
+  assert.match(sql, /LIMIT 20 OFFSET 40/);
+  assert.ok(sql.indexOf("LIMIT 20 OFFSET 40") < sql.indexOf("market_image_cache"));
+  assert.ok(sql.indexOf("LIMIT 20 OFFSET 40") < sql.indexOf("SELECT 1 FROM netshop_rows"));
+});
+
 test("market price-band ranking still filters before the bounded enrichment stage", () => {
   const sql = buildMarketRankingCtes({
     factWhere: "WHERE m.category=?",

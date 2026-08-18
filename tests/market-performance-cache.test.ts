@@ -102,13 +102,26 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(route, /params\.get\("view"\) === "ranking"/);
   assert.match(route, /getCachedMarketOverview/);
   assert.match(view, /initialLoad\.current \? 0 : 350/);
+  assert.match(view, /MARKET_RANKING_PAGE_SIZE = 20/);
+  assert.match(view, /params\.set\("page", String\(page\)\)/);
+  assert.match(view, /params\.set\("pageSize", String\(MARKET_RANKING_PAGE_SIZE\)\)/);
+  assert.match(view, /加载更多（每批/);
+  assert.match(view, /loadMoreController\.current\?\.abort\(\)/);
+  assert.match(route, /rankingPage: pagination\.page/);
+  assert.match(database, /rankingOffset: \(rankingPage - 1\) \* rankingPageSize/);
+  assert.match(database, /COUNT\(\*\) item_count/);
+  assert.match(database, /pagination: \{/);
   assert.match(database, /await ensureMarketEffectiveMetricsCache\(db\)/);
   assert.match(database, /WITH sources AS MATERIALIZED[\s\S]*SELECT DISTINCT image_url source_url/);
   assert.doesNotMatch(database, /COUNT\(DISTINCT CASE WHEN mic\.status='ready'/);
 });
 
 test("market overview response cache is canonical, version-invalidated, and coalesces duplicate loads", async () => {
-  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {} }), /"formatVersion":2/);
+  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {} }), /"formatVersion":3/);
+  assert.notEqual(
+    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 1, pageSize: 20 } }),
+    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 2, pageSize: 20 } }),
+  );
   assert.equal(
     canonicalMarketOverviewCacheIdentity({
       view: "ranking",
