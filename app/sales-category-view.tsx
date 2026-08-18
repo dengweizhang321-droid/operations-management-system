@@ -12,14 +12,31 @@ type CategoryMetric = {
   positiveQuantity: number;
   returnQuantity: number;
   netQuantity: number;
+  refundRate: number;
   grossProfitCents: number;
   grossMarginRate: number;
   productCount: number;
   lineCount: number;
+  previousNetSalesCents: number;
+  yearAgoNetSalesCents: number;
+  monthOverMonthRate: number | null;
+  yearOverYearRate: number | null;
+};
+
+type CategoryDetailMetric = CategoryMetric & {
+  trend: {
+    points: Array<{ period: string; netSalesCents: number }>;
+    changeRate: number | null;
+    direction: "up" | "down" | "flat" | "insufficient";
+  };
 };
 
 type CategoryAnalysisResponse = {
   range: { startDate: string; endDate: string; endExclusive: string; timezone: string };
+  comparisonPeriods: {
+    previous: { startDate: string; endDate: string };
+    yearAgo: { startDate: string; endDate: string };
+  };
   dataCutoffDate: string | null;
   categoryHierarchy: {
     currentLevel: 1;
@@ -28,7 +45,12 @@ type CategoryAnalysisResponse = {
     source: { primary: string; fallback: string; joinKey: string; unmatchedLabel: string };
   };
   filtersApplied: { dataScope: { mode: "unrestricted" | "restricted" } };
-  summary: Omit<CategoryMetric, "category" | "shareRate"> & { categoryCount: number };
+  summary: {
+    grossSalesCents: number; refundAmountCents: number; netSalesCents: number;
+    positiveQuantity: number; returnQuantity: number; netQuantity: number;
+    grossProfitCents: number; grossMarginRate: number; productCount: number;
+    lineCount: number; categoryCount: number;
+  };
   uncategorized: { category: string; productCount: number; netSalesCents: number; shareRate: number; visible: boolean };
   structure: { items: Array<CategoryMetric & { rank: number }>; otherNetSalesCents: number; otherShareRate: number; contributionRateTotal: number };
   ranking: Array<CategoryMetric & { rank: number }>;
@@ -40,9 +62,10 @@ type CategoryAnalysisResponse = {
     items: Array<{ period: string; category: string; netSalesCents: number; grossProfitCents: number; positiveQuantity: number; returnQuantity: number; refundAmountCents: number }>;
   };
   details: {
-    items: CategoryMetric[];
+    items: CategoryDetailMetric[];
     pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
     sort: { by: CategorySortKey; direction: SortDirection };
+    trend: { granularity: CategoryGranularity; periodLimit: number };
   };
   filterOptions: {
     categories: string[];
@@ -57,7 +80,7 @@ type CategoryAnalysisResponse = {
 
 type CategoryGranularity = "day" | "week" | "month";
 type SortDirection = "asc" | "desc";
-type CategorySortKey = "netSalesCents" | "shareRate" | "positiveQuantity" | "returnQuantity" | "refundAmountCents" | "grossProfitCents" | "grossMarginRate" | "productCount";
+type CategorySortKey = "netSalesCents" | "shareRate" | "netQuantity" | "refundRate" | "refundAmountCents" | "grossProfitCents" | "grossMarginRate" | "monthOverMonthRate" | "yearOverYearRate";
 
 type CategoryUrlState = {
   categories: string[];
@@ -77,7 +100,7 @@ const categoryOwnedUrlKeys = [
   "salesCategoryLevel", "salesGranularity", "salesSort", "salesDirection", "salesPage", "salesPageSize",
 ] as const;
 const validGranularities = new Set<CategoryGranularity>(["day", "week", "month"]);
-const validSortKeys = new Set<CategorySortKey>(["netSalesCents", "shareRate", "positiveQuantity", "returnQuantity", "refundAmountCents", "grossProfitCents", "grossMarginRate", "productCount"]);
+const validSortKeys = new Set<CategorySortKey>(["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "monthOverMonthRate", "yearOverYearRate"]);
 const chartColors = ["#3f7be0", "#29a77a", "#8a65d6", "#e7943f"];
 
 function boundedSelections(params: URLSearchParams, key: string) {
@@ -137,6 +160,35 @@ function formatRate(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+function formatComparison(value: number | null) {
+  if (value === null) return "—";
+  return `${value > 0 ? "+" : ""}${formatRate(value)}`;
+}
+
+function comparisonTone(value: number | null) {
+  return value === null || value === 0 ? "muted-text" : value > 0 ? "green-text" : "red-text";
+}
+
+function CategoryDetailTrend({ item }: { item: CategoryDetailMetric }) {
+  const values = item.trend.points.map((point) => point.netSalesCents);
+  if (values.length === 0) return <span className="category-detail-trend-empty">—</span>;
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const span = Math.max(1, maximum - minimum);
+  const x = (index: number) => values.length === 1 ? 52 : 3 + index / (values.length - 1) * 98;
+  const y = (value: number) => 25 - (value - minimum) / span * 22;
+  const points = values.map((value, index) => `${x(index)},${y(value)}`).join(" ");
+  const tone = item.trend.direction === "up" ? "up" : item.trend.direction === "down" ? "down" : "flat";
+  return <div className={`category-detail-trend ${tone}`} title={`${item.trend.points[0]?.period} 至 ${item.trend.points.at(-1)?.period}：${formatComparison(item.trend.changeRate)}`}>
+    <svg viewBox="0 0 104 28" role="img" aria-label={`${item.category}品类趋势 ${formatComparison(item.trend.changeRate)}`}>
+      {values.length === 1
+        ? <circle cx="52" cy="14" r="2.5" />
+        : <polyline points={points} fill="none" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />}
+    </svg>
+    <small>{formatComparison(item.trend.changeRate)}</small>
+  </div>;
+}
+
 function MultiFilter({ label, values, selected, onChange, display }: {
   label: string;
   values: string[];
@@ -189,12 +241,13 @@ function CategoryTrend({ data }: { data: CategoryAnalysisResponse }) {
 const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
   { key: "netSalesCents", label: "净销售额" },
   { key: "shareRate", label: "贡献率" },
-  { key: "positiveQuantity", label: "正向销量" },
-  { key: "returnQuantity", label: "退货量" },
+  { key: "netQuantity", label: "净销量" },
+  { key: "refundRate", label: "退货率" },
   { key: "refundAmountCents", label: "退款金额" },
   { key: "grossProfitCents", label: "毛利额" },
   { key: "grossMarginRate", label: "毛利率" },
-  { key: "productCount", label: "商品数" },
+  { key: "yearOverYearRate", label: "同比" },
+  { key: "monthOverMonthRate", label: "环比" },
 ];
 
 export default function SalesCategoryView({ startDate, endDate }: { startDate: string; endDate: string }) {
@@ -295,11 +348,11 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
       </section>
       <CategoryTrend data={data} />
       <section className="panel table-panel category-detail-panel">
-        <div className="table-toolbar"><div><h2>品类经营明细</h2><p>服务端筛选、排序和分页；金额接口单位为人民币分，页面统一展示为元。</p></div><span className="soft-tag">显示 {formatCount(data.details.pagination.returned)} / {formatCount(data.details.pagination.total)}{data.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
-        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}</tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.positiveQuantity)}</td><td>{formatCount(item.returnQuantity)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td>{formatCount(item.productCount)}</td></tr>)}</tbody></table></div>
+        <div className="table-toolbar"><div><h2>品类经营明细</h2><p>同比为去年同期净销售额变化，环比为紧邻当前区间的同天数上一周期；退货率按退款金额 ÷ 正向销售额计算。</p></div><span className="soft-tag">显示 {formatCount(data.details.pagination.returned)} / {formatCount(data.details.pagination.total)}{data.details.pagination.truncated ? " · 后续页未加载" : ""}</span></div>
+        <div className="data-table-wrap"><table className="data-table category-detail-table"><thead><tr><th>排名</th><th>品类</th>{sortableColumns.map((column) => <th key={column.key}><button type="button" onClick={() => updateUrlState({ sortBy: column.key, direction: urlState.sortBy === column.key && urlState.direction === "desc" ? "asc" : "desc" })}>{column.label}{urlState.sortBy === column.key ? (urlState.direction === "desc" ? " ↓" : " ↑") : ""}</button></th>)}<th>品类趋势</th></tr></thead><tbody>{data.details.items.map((item, index) => <tr key={item.category}><td>{(data.details.pagination.page - 1) * data.details.pagination.pageSize + index + 1}</td><td><strong>{item.category}</strong>{item.category === "未分类" && <small className="category-unclassified-tag">需补充映射</small>}</td><td><strong>{formatCurrency(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td>{formatCount(item.netQuantity)}</td><td>{formatRate(item.refundRate)}</td><td>{formatCurrency(item.refundAmountCents)}</td><td>{formatCurrency(item.grossProfitCents)}</td><td className={item.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={comparisonTone(item.yearOverYearRate)} title={`去年同期 ${formatCurrency(item.yearAgoNetSalesCents)}`}>{formatComparison(item.yearOverYearRate)}</td><td className={comparisonTone(item.monthOverMonthRate)} title={`上一周期 ${formatCurrency(item.previousNetSalesCents)}`}>{formatComparison(item.monthOverMonthRate)}</td><td><CategoryDetailTrend item={item} /></td></tr>)}</tbody></table></div>
         <footer className="category-pagination"><span>第 {data.details.pagination.page} 页 · 每页 {data.details.pagination.pageSize} 条</span><div><button type="button" disabled={urlState.page <= 1 || loading} onClick={() => updateUrlState({ page: Math.max(1, urlState.page - 1) })}>上一页</button><button type="button" disabled={!data.details.pagination.truncated || loading} onClick={() => updateUrlState({ page: urlState.page + 1 })}>下一页</button></div></footer>
       </section>
     </>}
-    <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销售额包含退款负值，毛利率 = 毛利额 / 净销售额。</span><span>数据截止：{data.dataCutoffDate ?? "暂无"}；筛选项与结果均受当前登录账号数据范围约束。</span></section>
+    <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销量沿用销售总览口径，排除配件、赠品配件、补差价专用和销售行未分类，退货率 = 退款金额 / 正向销售额。</span><span>同比：{data.comparisonPeriods.yearAgo.startDate} 至 {data.comparisonPeriods.yearAgo.endDate}；环比：{data.comparisonPeriods.previous.startDate} 至 {data.comparisonPeriods.previous.endDate}；均比较净销售额。</span><span>品类趋势：按当前{data.details.trend.granularity === "day" ? "日" : data.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {data.details.trend.periodLimit} 个有数据周期；数据截止 {data.dataCutoffDate ?? "暂无"}。</span></section>
   </div>;
 }

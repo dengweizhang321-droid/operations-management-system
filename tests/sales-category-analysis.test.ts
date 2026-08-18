@@ -52,7 +52,9 @@ function fixture() {
       ('L3','O2','','渠道A','京东','京东一店','主仓','P2','制冰机','制冰设备',1,5000,1000,'2026-08-02 10:00:00'),
       ('L4','O3','','渠道A','京东','京东二店','主仓','P3','未知商品','',1,1000,200,'2026-08-02 11:00:00'),
       ('L5','O4','','渠道A','京东','京东一店','刷刷仓','P4','排除商品','排除品类',9,99999,50000,'2026-08-02 12:00:00'),
-      ('L6','O5','','渠道B','天猫','天猫一店','主仓','P5','切肉机','食品机械',1,7000,1000,'2026-08-02 13:00:00');
+      ('L6','O5','','渠道B','天猫','天猫一店','主仓','P5','切肉机','食品机械',1,7000,1000,'2026-08-02 13:00:00'),
+      ('L8','O7','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,4000,1000,'2026-07-28 10:00:00'),
+      ('L9','O8','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,5000,1200,'2025-07-31 10:00:00');
   `);
   return { sqlite, db: sqliteAdapter(sqlite) };
 }
@@ -73,12 +75,31 @@ test("category aggregation uses product master first, keeps refunds, excludes �
   assert.equal(result.summary.netSalesCents, 21_000);
   assert.equal(result.summary.positiveQuantity, 5);
   assert.equal(result.summary.returnQuantity, 1);
+  assert.equal(result.summary.netQuantity, 3);
   assert.equal(result.summary.grossProfitCents, 4_700);
   assert.equal(result.uncategorized.productCount, 1);
   assert.equal(result.uncategorized.netSalesCents, 1_000);
   assert.equal(result.uncategorized.visible, true);
+  assert.equal(result.details.items.find((item) => item.category === "未分类")?.netQuantity, 0);
   assert.equal(result.details.pagination.total, 4);
-  assert.equal(result.details.items.find((item) => item.category === "饮水设备")?.netSalesCents, 8_000);
+  const water = result.details.items.find((item) => item.category === "饮水设备");
+  assert.equal(water?.netSalesCents, 8_000);
+  assert.equal(water?.netQuantity, 1);
+  assert.equal(water?.refundRate, 0.2);
+  assert.equal(water?.previousNetSalesCents, 4_000);
+  assert.equal(water?.monthOverMonthRate, 1);
+  assert.equal(water?.yearAgoNetSalesCents, 5_000);
+  assert.equal(water?.yearOverYearRate, 0.6);
+  assert.deepEqual(water?.trend.points, [
+    { period: "2026-07", netSalesCents: 10_000 },
+    { period: "2026-08", netSalesCents: -2_000 },
+  ]);
+  assert.equal(water?.trend.changeRate, -1.2);
+  assert.equal(water?.trend.direction, "down");
+  assert.deepEqual(result.comparisonPeriods, {
+    previous: { startDate: "2026-07-28", endDate: "2026-07-30" },
+    yearAgo: { startDate: "2025-07-31", endDate: "2025-08-02" },
+  });
   assert.equal(result.details.items.some((item) => item.category === "旧类目"), false);
   assert.equal(result.details.items.some((item) => item.category === "排除品类"), false);
   assert.ok(Math.abs(result.details.items.reduce((sum, item) => sum + item.shareRate, 0) - 1) < 1e-12);
@@ -100,6 +121,8 @@ test("date bounds are inclusive in the request and left-closed/right-open in SQL
   assert.equal(result.summary.returnQuantity, 1);
   assert.equal(result.details.items[0]?.shareRate, 1);
   assert.equal(result.details.items[0]?.grossMarginRate, 0.25);
+  assert.equal(result.details.items[0]?.refundRate, 0);
+  assert.equal(result.details.items[0]?.monthOverMonthRate, -1.2);
   sqlite.close();
 });
 
@@ -166,6 +189,16 @@ test("category detail sorting and pagination remain server-bounded with explicit
   }, unrestricted);
   assert.deepEqual(second.details.items.map((item) => item.category), ["食品机械", "饮水设备"]);
   assert.equal(second.details.pagination.truncated, false);
+
+  const comparisonSorted = await getSalesCategoryAnalysis(db, {
+    startDate: "2026-07-31",
+    endDate: "2026-08-02",
+    sortBy: "yearOverYearRate",
+    direction: "desc",
+    pageSize: 2,
+  }, unrestricted);
+  assert.equal(comparisonSorted.details.items[0]?.category, "饮水设备");
+  assert.equal(comparisonSorted.details.items[0]?.yearOverYearRate, 0.6);
   sqlite.close();
 });
 
@@ -202,6 +235,25 @@ test("zero-net-sales categories stay visible with zero contribution and zero mar
   sqlite.close();
 });
 
+test("net quantity and refund rate reuse the sales summary exclusions and amount-based return rate", async () => {
+  const { sqlite, db } = fixture();
+  sqlite.exec(`
+    INSERT INTO erp_product_master VALUES ('P7','饮水设备');
+    INSERT INTO erp_product_master VALUES ('P8','饮水设备');
+    INSERT INTO sales_order_lines VALUES
+      ('L10','O9','','渠道A','京东','京东一店','主仓','P7','随单配件','配件',5,0,0,'2026-08-02 15:00:00'),
+      ('L11','O10','','渠道A','京东','京东一店','主仓','P8','补差价专用','饮水设备',8,0,0,'2026-08-02 16:00:00');
+  `);
+  const result = await getSalesCategoryAnalysis(db, {
+    startDate: "2026-07-31",
+    endDate: "2026-08-02",
+    categories: ["饮水设备"],
+  }, unrestricted);
+  assert.equal(result.details.items[0]?.netQuantity, 1);
+  assert.equal(result.details.items[0]?.refundRate, 0.2);
+  sqlite.close();
+});
+
 test("category API, UI, URL state, concurrency guard, and AI registry are wired to bounded authenticated contracts", async () => {
   const [route, page, view, service, registry] = await Promise.all([
     readFile(new URL("../app/api/sales/category-analysis/route.ts", import.meta.url), "utf8"),
@@ -219,7 +271,16 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(view, /controller\.abort\(\)/);
   assert.match(view, /window\.history\[mode === "push" \? "pushState" : "replaceState"\]/);
   assert.match(view, /pagination\.truncated/);
+  const detailColumns = view.slice(view.indexOf("const sortableColumns"), view.indexOf("export default function SalesCategoryView"));
+  assert.match(detailColumns, /label: "净销量"/);
+  assert.match(detailColumns, /label: "退货率"/);
+  assert.match(detailColumns, /label: "同比"/);
+  assert.match(detailColumns, /label: "环比"/);
+  assert.doesNotMatch(detailColumns, /正向销量|退货量|商品数/);
+  assert.match(view, /<th>品类趋势<\/th>/);
   assert.match(service, /LIMIT 3000/);
+  assert.match(service, /DETAIL_TREND_PERIOD_LIMIT = 24/);
+  assert.match(service, /comparisonPeriods/);
   assert.match(service, /TRIM\(s\.warehouse\) <> '刷刷仓'/);
   assert.match(registry, /name: "get_sales_category_analysis"/);
   assert.match(registry, /scopePolicy: "principal_scope"/);

@@ -50,6 +50,7 @@ export async function getSalesCategoryAnalysisForAi(rawArgs: unknown, principal:
   }, principal);
   return {
     range: result.range,
+    comparisonPeriods: result.comparisonPeriods,
     dataCutoffDate: result.dataCutoffDate,
     categoryHierarchy: result.categoryHierarchy,
     filtersApplied: result.filtersApplied,
