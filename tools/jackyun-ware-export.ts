@@ -58,6 +58,10 @@ export function isLikelyJdLoginPage(url: string, pageText: string, hasPasswordIn
   return hasLoginSignal && !hasMerchantUi;
 }
 
+export function shouldCloseJdWareBrowserConnection(interactiveLogin: boolean) {
+  return !interactiveLogin;
+}
+
 export type CliOptions = {
   storeKey: string;
   shopName: string;
@@ -1297,7 +1301,12 @@ async function main() {
     console.error(message);
     process.exitCode = 1;
   } finally {
-    await browser?.close().catch(() => undefined);
+    // Closing a Playwright CDP Browser terminates the actual Chromium process.
+    // Interactive login must leave the visible profile open after this command
+    // exits so the operator can complete authentication manually.
+    if (shouldCloseJdWareBrowserConnection(options.interactiveLogin)) {
+      await browser?.close().catch(() => undefined);
+    }
     if (ownsBrowser && !options.interactiveLogin) await closeChromeBrowser(options.port);
   }
   if (revealInteractiveBrowser) {
