@@ -397,6 +397,7 @@ export function hasStableUniqueVisibleJdExportEntry(samples: readonly number[]) 
 
 export type JdWareExportEntryBootstrapDecision = "ready" | "open_batch_operations" | "wait";
 export const jdWareBatchOperationsLabelPattern = /^\s*批量操作\s*$/;
+export const jdWareBatchOperationsTriggerSelector = "span.batch-dropdown-link";
 
 export function jdWareExportEntryBootstrapDecision(input: { exportEntryCount: number; batchOperationsCount: number }): JdWareExportEntryBootstrapDecision {
   if (!Number.isInteger(input.exportEntryCount) || input.exportEntryCount < 0 || !Number.isInteger(input.batchOperationsCount) || input.batchOperationsCount < 0) {
@@ -498,10 +499,12 @@ export async function prepareJdWareExportEntry(page: Page, queryBootstrapState: 
 
 export async function revealJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
   const exportEntry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
-  // JD renders a role=button wrapper around the actual button and includes a
-  // trailing space before the chevron. Bind only the inner <button>, allowing
-  // whitespace but excluding “更多批量工具”.
-  const batchOperations = page.locator("button").filter({ hasText: jdWareBatchOperationsLabelPattern, visible: true });
+  // The inner button is the stable identity, while JD now binds the dropdown
+  // expansion to its wrapping span. Require one wrapper containing that exact
+  // button so “更多批量工具” and duplicate role nodes cannot be clicked.
+  const batchOperationsButton = page.locator("button").filter({ hasText: jdWareBatchOperationsLabelPattern });
+  const batchOperations = page.locator(jdWareBatchOperationsTriggerSelector)
+    .filter({ hasText: jdWareBatchOperationsLabelPattern, has: batchOperationsButton, visible: true });
   // A page-level 查询 button can belong to a popover or an unrelated panel. Bind it
   // to the one visible WareList filter container identified by both product fields.
   const productSearchContainer = page.locator("form:has-text('商品名称'):has-text('商品编码'), [role='search']:has-text('商品名称'):has-text('商品编码'), .ant-form:has-text('商品名称'):has-text('商品编码')").filter({ visible: true });
