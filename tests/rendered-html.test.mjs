@@ -194,7 +194,7 @@ test("keeps shop analysis isolated by platform and matches year-over-year by the
   // A shop name can legitimately occur on several marketplaces.  Its platform
   // is therefore part of both the aggregation key and the year-over-year key.
   assert.match(summaryService, /const groupKey = dimension === "shop"/);
-  assert.match(summaryService, /COALESCE\(NULLIF\(platform, ''\), '未分类'\) \|\| char\(31\)/);
+  assert.match(summaryService, /COALESCE\(NULLIF\(s\.platform, ''\), '未分类'\) \|\| char\(31\)/);
   assert.match(summaryService, /GROUP BY \$\{groupKey\}/);
   assert.match(summaryService, /yearAgoByGroupKey/);
   assert.doesNotMatch(summaryService, /yearAgoByName/);

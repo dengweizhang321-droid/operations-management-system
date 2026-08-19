@@ -8,6 +8,7 @@ import {
   salesRanges,
   SalesSummaryRequestError,
 } from "@/lib/sales/summary";
+import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
 import { parseProductQueries } from "@/lib/sales/product-query";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     }
 
     const db = getSalesDatabase();
-    await ensureSalesSchema(db);
+    await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
     const productQueries = parseProductQueries([
       ...searchParams.getAll("productQuery"),
       searchParams.get("productCodes") ?? "",

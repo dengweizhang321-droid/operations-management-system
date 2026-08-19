@@ -16,6 +16,7 @@ import {
   isSalesRange,
 } from "@/lib/sales/summary";
 import { getOperationsBusinessDates } from "@/lib/ai/business-time";
+import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
 
 export async function callOperationsTool(
   name: string,
@@ -56,7 +57,7 @@ export async function callOperationsTool(
     const requestedRange = optionalString(args.range) ?? "month";
     if (!isSalesRange(requestedRange)) throw new ToolInputError("range 参数无效");
     const db = getSalesDatabase();
-    await ensureSalesSchema(db);
+    await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
     const summary = await getSalesSummary(db, {
       range: requestedRange,
       startDate: optionalString(args.startDate),

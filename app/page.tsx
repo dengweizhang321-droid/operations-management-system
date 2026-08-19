@@ -2588,7 +2588,7 @@ function SalesOverviewFilterBar({
   const hasFilter = selectedShopKeys.length > 0 || selectedCategories.length > 0;
   return <section className="panel sales-overview-filter-panel" aria-label="销售总览筛选" aria-busy={updating}>
     <div className="sales-overview-filter-heading">
-      <div><span className="eyebrow">SALES SCOPE</span><h2>店铺与品类筛选</h2><p>筛选条件会同步应用到销售指标、趋势、渠道构成和店铺销售分布。</p></div>
+      <div><span className="eyebrow">SALES SCOPE</span><h2>店铺与品类筛选</h2><p>品类以 ERP 商品主数据为准、销售明细兜底；筛选条件会同步应用到销售指标、趋势、渠道构成和店铺销售分布。</p></div>
       <div className="sales-overview-filter-controls">
         <label><span>店铺</span><SearchableMultiSelect values={selectedShopKeys} onChange={onShopChange} ariaLabel="销售总览店铺" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={shops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
         <label><span>品类</span><SearchableMultiSelect values={selectedCategories} onChange={onCategoryChange} ariaLabel="销售总览品类" allLabel="全部品类" searchPlaceholder="搜索品类" options={categories.map((category) => ({ value: category, label: category }))} /></label>

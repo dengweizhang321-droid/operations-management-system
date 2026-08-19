@@ -7,6 +7,10 @@ import {
   type SalesSummaryPeriod,
 } from "@/lib/sales/period";
 import { parseProductQueries, resolveProductFilterCodes } from "@/lib/sales/product-query";
+import {
+  SALES_CATEGORY_EXPRESSION,
+  SALES_CATEGORY_JOIN,
+} from "@/lib/sales/category-resolution";
 
 export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
@@ -187,12 +191,12 @@ function bindPeriod(
 }
 
 function productCodeClause(productCodes: string[]) {
-  return productCodes.length > 0 ? ` AND product_code IN (${productCodes.map(() => "?").join(", ")})` : "";
+  return productCodes.length > 0 ? ` AND s.product_code IN (${productCodes.map(() => "?").join(", ")})` : "";
 }
 
 function outletClause(platform?: string, shop?: string, outlets: SalesOutletFilter[] = []) {
-  const platformName = "COALESCE(NULLIF(platform, ''), '未分类')";
-  const shopName = "COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类')";
+  const platformName = "COALESCE(NULLIF(s.platform, ''), '未分类')";
+  const shopName = "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')";
   if (outlets.length > 0) {
     return ` AND (${outlets.map(() => `(${platformName} = ? AND ${shopName} = ?)`).join(" OR ")})`;
   }
@@ -206,7 +210,7 @@ function outletBindings(platform?: string, shop?: string, outlets: SalesOutletFi
 }
 
 function categoryClause(categories: string[]) {
-  return categories.length > 0 ? ` AND TRIM(category) IN (${categories.map(() => "?").join(", ")})` : "";
+  return categories.length > 0 ? ` AND ${SALES_CATEGORY_EXPRESSION} IN (${categories.map(() => "?").join(", ")})` : "";
 }
 
 function normalizeProductCodes(values: string[] | undefined) {
@@ -227,20 +231,21 @@ function normalizeOutlets(values: SalesOutletFilter[] | undefined) {
 function metricsSql(productCodes: string[], platform?: string, shop?: string, categories: string[] = [], outlets: SalesOutletFilter[] = []) {
   return `
   SELECT
-    COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
-    COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-    COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
-    COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-    COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') AND product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN quantity ELSE 0 END), 0) AS net_quantity,
+    COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
+    COALESCE(SUM(CASE WHEN s.allocated_amount_cents < 0 THEN -s.allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+    COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') THEN s.allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+    COALESCE(SUM(s.gross_profit_cents), 0) AS gross_profit_cents,
+    COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') AND s.product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(s.product_name) <> '补差价专用' THEN s.quantity ELSE 0 END), 0) AS net_quantity,
     COUNT(DISTINCT CASE
-      WHEN order_no <> '' THEN order_no
-      WHEN online_order_no <> '' THEN online_order_no
-      ELSE source_line_key
+      WHEN s.order_no <> '' THEN s.order_no
+      WHEN s.online_order_no <> '' THEN s.online_order_no
+      ELSE s.source_line_key
     END) AS order_count,
     COUNT(*) AS line_count
-  FROM sales_order_lines
-  WHERE ship_time >= ? AND ship_time < ?
-    AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
+  FROM sales_order_lines s
+  ${SALES_CATEGORY_JOIN}
+  WHERE s.ship_time >= ? AND s.ship_time < ?
+    AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
 `;
 }
 
@@ -278,30 +283,31 @@ async function groupedMetrics(
   outlets: SalesOutletFilter[] = [],
 ) {
   const displayName = dimension === "shop"
-    ? "COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类')"
+    ? "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')"
     : dimension === "channel"
-      ? "COALESCE(NULLIF(channel, ''), NULLIF(platform, ''), '未分类')"
-      : "COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类')";
+      ? "COALESCE(NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')"
+      : "COALESCE(NULLIF(s.platform, ''), NULLIF(s.channel, ''), '未分类')";
   // 店铺简称会在不同平台重复。网点页需要按“平台 + 店铺”分组，避免将
   // 京东、拼多多等同名店铺合并后错误归属到某一个平台。
   const groupKey = dimension === "shop"
-    ? `COALESCE(NULLIF(platform, ''), '未分类') || char(31) || ${displayName}`
+    ? `COALESCE(NULLIF(s.platform, ''), '未分类') || char(31) || ${displayName}`
     : displayName;
   const statement = db.prepare(`
     SELECT
       ${groupKey} AS group_key,
       ${displayName} AS name,
-      MAX(NULLIF(platform, '')) AS platform,
-      COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
-      COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-      COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
-      COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-      COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') AND product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN quantity ELSE 0 END), 0) AS net_quantity,
-      COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
+      MAX(NULLIF(s.platform, '')) AS platform,
+      COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
+      COALESCE(SUM(CASE WHEN s.allocated_amount_cents < 0 THEN -s.allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+      COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') THEN s.allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+      COALESCE(SUM(s.gross_profit_cents), 0) AS gross_profit_cents,
+      COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') AND s.product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(s.product_name) <> '补差价专用' THEN s.quantity ELSE 0 END), 0) AS net_quantity,
+      COUNT(DISTINCT CASE WHEN s.order_no <> '' THEN s.order_no WHEN s.online_order_no <> '' THEN s.online_order_no ELSE s.source_line_key END) AS order_count,
       COUNT(*) AS line_count
-    FROM sales_order_lines
-    WHERE ship_time >= ? AND ship_time < ?
-      AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
+    FROM sales_order_lines s
+    ${SALES_CATEGORY_JOIN}
+    WHERE s.ship_time >= ? AND s.ship_time < ?
+      AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
     GROUP BY ${groupKey}
     ORDER BY (gross_sales_cents - refund_amount_cents) DESC, name ASC
   `);
@@ -365,17 +371,18 @@ async function dailyMetrics(
   const dailyResult = await bindPeriod(
     db.prepare(`
       SELECT
-        substr(ship_time, 1, 10) AS date,
-        COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
-        COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-        COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') THEN allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
-        COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-        COALESCE(SUM(CASE WHEN NULLIF(TRIM(category), '') IS NOT NULL AND TRIM(category) NOT IN ('配件', '赠品配件') AND product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN quantity ELSE 0 END), 0) AS net_quantity,
-        COUNT(DISTINCT CASE WHEN order_no <> '' THEN order_no WHEN online_order_no <> '' THEN online_order_no ELSE source_line_key END) AS order_count,
+        substr(s.ship_time, 1, 10) AS date,
+        COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
+        COALESCE(SUM(CASE WHEN s.allocated_amount_cents < 0 THEN -s.allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+        COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') THEN s.allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+        COALESCE(SUM(s.gross_profit_cents), 0) AS gross_profit_cents,
+        COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') AND s.product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(s.product_name) <> '补差价专用' THEN s.quantity ELSE 0 END), 0) AS net_quantity,
+        COUNT(DISTINCT CASE WHEN s.order_no <> '' THEN s.order_no WHEN s.online_order_no <> '' THEN s.online_order_no ELSE s.source_line_key END) AS order_count,
         COUNT(*) AS line_count
-      FROM sales_order_lines
-      WHERE ship_time >= ? AND ship_time < ?
-        AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
+      FROM sales_order_lines s
+      ${SALES_CATEGORY_JOIN}
+      WHERE s.ship_time >= ? AND s.ship_time < ?
+        AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
       GROUP BY date
       ORDER BY date ASC
     `),
@@ -395,19 +402,19 @@ async function filterOptions(
   period: Pick<Period, "startDate" | "endDate">,
   productCodes: string[],
 ) {
-  const shopName = "COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类')";
+  const shopName = "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')";
   const [shops, categories] = await Promise.all([
     bindPeriod(
       db.prepare(`
         SELECT
-          COALESCE(NULLIF(platform, ''), '未分类') || char(31) || ${shopName} AS option_key,
+          COALESCE(NULLIF(s.platform, ''), '未分类') || char(31) || ${shopName} AS option_key,
           ${shopName} AS name,
-          MAX(NULLIF(platform, '')) AS platform
-        FROM sales_order_lines
-        WHERE ship_time >= ? AND ship_time < ?
-          AND TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
-        GROUP BY COALESCE(NULLIF(platform, ''), '未分类'), ${shopName}
-        ORDER BY COALESCE(NULLIF(platform, ''), '未分类') ASC, name ASC
+          MAX(NULLIF(s.platform, '')) AS platform
+        FROM sales_order_lines s
+        WHERE s.ship_time >= ? AND s.ship_time < ?
+          AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
+        GROUP BY COALESCE(NULLIF(s.platform, ''), '未分类'), ${shopName}
+        ORDER BY COALESCE(NULLIF(s.platform, ''), '未分类') ASC, name ASC
       `),
       period.startDate,
       period.endDate,
@@ -415,13 +422,13 @@ async function filterOptions(
     ).all<FilterShopRow>(),
     bindPeriod(
       db.prepare(`
-        SELECT TRIM(category) AS category
-        FROM sales_order_lines
-        WHERE ship_time >= ? AND ship_time < ?
-          AND TRIM(warehouse) <> '刷刷仓'
-          AND NULLIF(TRIM(category), '') IS NOT NULL${productCodeClause(productCodes)}
-        GROUP BY TRIM(category)
-        ORDER BY TRIM(category) ASC
+        SELECT ${SALES_CATEGORY_EXPRESSION} AS category
+        FROM sales_order_lines s
+        ${SALES_CATEGORY_JOIN}
+        WHERE s.ship_time >= ? AND s.ship_time < ?
+          AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
+        GROUP BY ${SALES_CATEGORY_EXPRESSION}
+        ORDER BY ${SALES_CATEGORY_EXPRESSION} ASC
       `),
       period.startDate,
       period.endDate,
@@ -469,9 +476,10 @@ export async function getSalesSummary(
   if (input.range === "all") {
     const bounds = await db
       .prepare(
-        `SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date
-         FROM sales_order_lines
-         WHERE TRIM(warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outletFilters)}${categoryClause(categories)}`,
+        `SELECT MIN(substr(s.ship_time, 1, 10)) AS start_date, MAX(substr(s.ship_time, 1, 10)) AS end_date
+         FROM sales_order_lines s
+         ${SALES_CATEGORY_JOIN}
+         WHERE TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outletFilters)}${categoryClause(categories)}`,
       )
       .bind(...productCodes, ...outletBindings(platform, shop, outletFilters), ...categories)
       .first<{ start_date: string | null; end_date: string | null }>();

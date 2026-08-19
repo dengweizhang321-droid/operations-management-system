@@ -1,6 +1,7 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import type { SalesDatabase } from "@/lib/sales/database";
 import { parseProductQueries, resolveProductFilterCodes } from "@/lib/sales/product-query";
+import { SALES_CATEGORY_EXPRESSION, SALES_CATEGORY_JOIN } from "@/lib/sales/category-resolution";
 import type { SalesOutletFilter } from "@/lib/sales/summary";
 import { shopFilterKey } from "@/lib/sales/shop-identity";
 
@@ -123,7 +124,7 @@ type OptionRow = {
   option_total: number;
 };
 
-const CATEGORY_EXPRESSION = "COALESCE(NULLIF(TRIM(pm.category), ''), NULLIF(TRIM(s.category), ''), '未分类')";
+const CATEGORY_EXPRESSION = SALES_CATEGORY_EXPRESSION;
 const SHOP_EXPRESSION = "COALESCE(NULLIF(TRIM(s.shop_name), ''), NULLIF(TRIM(s.channel), ''), NULLIF(TRIM(s.platform), ''), '未分类')";
 const PLATFORM_EXPRESSION = "COALESCE(NULLIF(TRIM(s.platform), ''), '未分类')";
 const OPTION_LIMIT = 200;
@@ -309,7 +310,7 @@ function filteredSalesSql(input: NormalizedInput, principal: AppPrincipal) {
         s.gross_profit_cents,
         substr(s.ship_time, 1, 10) AS business_date
       FROM sales_order_lines s
-      LEFT JOIN erp_product_master pm ON pm.product_code = s.product_code
+      ${SALES_CATEGORY_JOIN}
       WHERE ${clauses.join(" AND ")}
     `,
     bindings,
