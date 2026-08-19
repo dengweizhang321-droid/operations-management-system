@@ -1,9 +1,16 @@
 import { ensureMarketSchema, getMarketDatabase, getMarketItemTrend } from "@/lib/market/database";
 import { ensureNetshopSchema } from "@/lib/netshop/database";
 import { ensureSalesSchema } from "@/lib/sales/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "市场单品趋势");
     const db = getMarketDatabase();
     await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db), ensureSalesSchema(db)]);
     const params = new URL(request.url).searchParams;
@@ -17,6 +24,8 @@ export async function GET(request: Request) {
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     return Response.json({ error: error instanceof Error ? error.message : "读取市场单品趋势失败" }, { status: 500 });
   }
 }

@@ -4,9 +4,16 @@ import {
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
 import { ensureSalesSchema } from "@/lib/sales/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "库存健康数据");
     const db = getInventoryDatabase();
     await Promise.all([ensureInventorySchema(db), ensureSalesSchema(db)]);
     const params = new URL(request.url).searchParams;
@@ -21,6 +28,8 @@ export async function GET(request: Request) {
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取库存健康数据失败";
     return Response.json({ error: message }, { status: 500, headers: { "cache-control": "no-store" } });
   }

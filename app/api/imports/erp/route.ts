@@ -1,6 +1,7 @@
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 import {
   ensureErpReferenceSchema,
@@ -20,6 +21,8 @@ function reject(status: number, message: string, extra: Record<string, unknown> 
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "ERP 导入历史");
     const params = new URL(request.url).searchParams;
     const requestedSource = params.get("source");
     if (requestedSource && !isErpReferenceSourceKey(requestedSource)) {
@@ -53,6 +56,8 @@ export async function GET(request: Request) {
       );
     return Response.json({ items });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取 ERP 导入历史失败";
     return Response.json({ error: message }, { status: 500 });
   }

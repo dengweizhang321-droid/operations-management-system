@@ -3,9 +3,16 @@ import {
   getFinanceDatabase,
 } from "@/lib/finance/database";
 import { getFinanceAnalysis } from "@/lib/finance/analysis";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "财报分析");
     const searchParams = new URL(request.url).searchParams;
     const monthValues = searchParams.getAll("month").flatMap((value) => value.split(",")).filter(Boolean);
     const allMonths = monthValues.includes("*");
@@ -22,6 +29,8 @@ export async function GET(request: Request) {
       shopNames: searchParams.getAll("shop").filter(Boolean),
     }));
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     return Response.json({ error: error instanceof Error ? error.message : "财报分析读取失败" }, { status: 500 });
   }
 }

@@ -10,6 +10,7 @@ import {
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
@@ -20,12 +21,16 @@ function errorResponse(status: number, message: string, details: Record<string, 
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "销售导入历史");
     const db = getSalesDatabase();
     await ensureSalesSchema(db);
     const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
     const items = await listSalesImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取销售导入历史失败";
     return Response.json({ error: message }, { status: 500 });
   }

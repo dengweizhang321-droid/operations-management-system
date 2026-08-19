@@ -10,6 +10,7 @@ import type { FinanceTargetInput, FinanceTargetPeriodType } from "@/lib/finance/
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 
 function finiteInteger(value: unknown, field: string) {
@@ -45,11 +46,15 @@ function parseTarget(body: Record<string, unknown>): FinanceTargetInput {
 
 export async function GET() {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "经营目标");
     const db = getFinanceDatabase();
     await ensureFinanceSchema(db);
     const [items, options] = await Promise.all([listFinanceTargets(db), getFinanceTargetOptions(db)]);
     return Response.json({ items, options });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     return Response.json({ error: error instanceof Error ? error.message : "目标设置读取失败" }, { status: 500 });
   }
 }

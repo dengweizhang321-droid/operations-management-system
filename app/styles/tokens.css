@@ -70,7 +70,7 @@
   --shadow-md: 0 8px 24px rgba(31, 45, 68, 0.08);
   --shadow-overlay: 0 20px 50px rgba(31, 45, 68, 0.2);
   --app-sidebar-width: 244px;
-  --app-sidebar-collapsed-width: 72px;
+  --app-sidebar-collapsed-width: 80px;
   --app-header-height: 82px;
   --app-header-height-mobile: 67px;
   --app-sticky-offset: var(--app-header-height);

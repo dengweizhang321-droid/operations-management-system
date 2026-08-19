@@ -7,6 +7,7 @@ import { importFinanceReportBytes } from "@/lib/finance/import-service";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 
 const MAX_FINANCE_FILE_BYTES = 8 * 1024 * 1024;
@@ -17,12 +18,16 @@ function errorResponse(status: number, message: string) {
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "财报导入历史");
     const db = getFinanceDatabase();
     await ensureFinanceSchema(db);
     const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
     const items = await listFinanceImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
     return Response.json({ items });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     return Response.json({ error: error instanceof Error ? error.message : "读取财报导入历史失败" }, { status: 500 });
   }
 }

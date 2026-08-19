@@ -120,7 +120,7 @@ button, select { cursor: pointer; }
 .sidebar-user { min-height: 52px; display: flex; align-items: center; gap: 9px; padding: 10px 5px 0; border-top: 1px solid rgba(255,255,255,.08); overflow: hidden; white-space: nowrap; }
 .sidebar-user > span { width: 31px; height: 31px; flex: 0 0 31px; display: grid; place-items: center; border-radius: 50%; background: #d9e5ff; color: #385aaa; font-size: 12px; font-weight: 700; }
 .sidebar-user > button { margin-left: auto; border: 0; background: transparent; color: #65738a; }
-.sidebar-collapsed .sidebar { width: 72px; }
+.sidebar-collapsed .sidebar { width: var(--app-sidebar-collapsed-width); }
 .sidebar-collapsed .brand { justify-content: center; padding: 0; }
 .sidebar-collapsed .brand-copy, .sidebar-collapsed .nav-copy, .sidebar-collapsed .main-nav a > em, .sidebar-collapsed .nav-group > p, .sidebar-collapsed .sidebar-help div, .sidebar-collapsed .sidebar-user div, .sidebar-collapsed .sidebar-user button { display: none; }
 .sidebar-collapsed .sidebar-navigation-link { justify-content: center; padding-left: 7px; padding-right: 7px; }
@@ -2097,3 +2097,51 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 @media (max-width: 560px) {
   .workflow-summary-grid,.workflow-insight-grid { grid-template-columns: 1fr; }.workflow-chart-card:last-child { grid-column: auto; }.workflow-donut-layout { gap: 18px; }.workflow-task-create-fields { grid-template-columns: 1fr; }.workflow-quick-create .workflow-create-content,.workflow-task-create-fields .primary-button { grid-column: auto; }.workflow-date-filter { align-items: stretch; flex-direction: column; height: auto; padding: 9px; }.workflow-date-filter input { width: 100%; }.workflow-date-filter i { display: none; }.workflow-task-buckets { grid-template-columns: 1fr 1fr; gap: 7px; }.workflow-task-buckets button { padding: 11px; }.workflow-timeline { padding-right: 12px; padding-left: 8px; }.workflow-timeline article { grid-template-columns: 64px 14px minmax(0,1fr); gap: 8px; }.workflow-timeline article > time { font-size: 10px; }
 }
+
+/* Readability baseline: operational text must remain legible at normal browser zoom. */
+.nav-group > p { font-size: 12px; letter-spacing: 1.2px; }
+.sidebar-navigation-link { min-height: 52px; }
+.nav-copy b { font-size: 15px; }
+.nav-copy small { font-size: 12px; }
+.sidebar-help strong,
+.sidebar-user strong { font-size: 13px; }
+.sidebar-help small,
+.sidebar-user small { font-size: 12px; }
+.title-area span,
+.global-search em,
+.date-selector span,
+.date-selector select { font-size: 12px; }
+.primary-button,
+.secondary-button,
+.filter-button { min-height: 38px; font-size: 13px; }
+.subnav button { min-width: 96px; height: 38px; font-size: 13px; }
+.section-header p,
+.table-toolbar p,
+.metric-card > small,
+.dashboard-sync-bar,
+.global-period-context,
+.global-period-context strong,
+.table-state,
+.data-state p { font-size: 12px; }
+.segmented button { min-height: 32px; font-size: 12px; }
+.data-table { font-size: 13px; }
+.data-table th { padding-top: 12px; padding-bottom: 12px; font-size: 12px; }
+.data-table td { min-height: 60px; font-size: 13px; }
+.status,
+.soft-tag { font-size: 12px; }
+.form-grid label > span,
+.form-grid input,
+.form-grid small,
+.toggle-row strong,
+.toggle-row small { font-size: 12px; }
+.import-panel > p,
+.source-grid strong,
+.source-grid small,
+.dropzone strong,
+.dropzone small,
+.import-actions > span,
+.import-overview-card > span,
+.import-overview-card > small,
+.history-file small,
+.history-count small,
+.history-source-date { font-size: 12px; }

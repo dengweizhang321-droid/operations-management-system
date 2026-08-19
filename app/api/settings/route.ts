@@ -1,6 +1,7 @@
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 import {
   readOperatingSettings,
@@ -10,8 +11,12 @@ import {
 
 export async function GET() {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "系统设置");
     return Response.json(await readOperatingSettings(), { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     return Response.json({ error: error instanceof Error ? error.message : "读取系统设置失败" }, { status: 500 });
   }
 }

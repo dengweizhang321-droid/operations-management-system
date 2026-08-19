@@ -5061,6 +5061,7 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
 
 function ImportView({ importSource, currentUser }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [activeSection, setActiveSection] = useState<"files" | "history" | "continuity">("files");
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>(() => importSource ?? "sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
   const [dailyStartDate, setDailyStartDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
@@ -5373,7 +5374,12 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
 
   return (
     <>
-      <div className="subnav"><button className="active">文件导入</button><button>导入历史</button><button>数据连续性</button></div>
+      <div className="subnav" role="tablist" aria-label="数据导入工作区">
+        <button type="button" role="tab" aria-selected={activeSection === "files"} className={activeSection === "files" ? "active" : ""} onClick={() => setActiveSection("files")}>文件导入</button>
+        <button type="button" role="tab" aria-selected={activeSection === "history"} className={activeSection === "history" ? "active" : ""} onClick={() => setActiveSection("history")}>导入历史</button>
+        <button type="button" role="tab" aria-selected={activeSection === "continuity"} className={activeSection === "continuity" ? "active" : ""} onClick={() => setActiveSection("continuity")}>数据连续性</button>
+      </div>
+      {activeSection === "files" && <>
       <section className="import-grid">
         <article className="panel import-panel">
           <span className="eyebrow">第 1 步</span><h2>选择数据类型</h2><p>销售、库存、主数据、京东与天猫网店数据使用同一套批次校验和导入历史。</p>
@@ -5415,11 +5421,10 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
           </>}
         </article>
       </section>
-
-      <section className="import-overview-grid">{sourceOptions.map((source) => { const item = latestBySource.get(source.key); return <article className="panel import-overview-card" key={source.key}><span>{source.label}</span><strong>{item?.fileName ?? "尚未导入"}</strong><small>{item ? `${item.snapshotDate ? `快照 ${item.snapshotDate} · ` : ""}${formatCount(item.insertedCount)} 行 · ${formatDateTime(item.completedAt || item.createdAt)}` : `等待导入${source.report}`}</small></article>; })}</section>
-
       {feedback && <section className={`import-feedback import-feedback-${feedback.tone}`} role={feedback.tone === "error" ? "alert" : "status"} aria-live="polite"><span className="feedback-symbol">{feedback.tone === "success" ? "✓" : feedback.tone === "duplicate" ? "≡" : feedback.tone === "warning" ? "!" : "×"}</span><div><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.details.length > 0 && <ul>{feedback.details.map((detail, index) => <li key={`${detail}-${index}`}>{detail}</li>)}</ul>}</div></section>}
-
+      </>}
+      {activeSection === "continuity" && <section className="import-overview-grid">{sourceOptions.map((source) => { const item = latestBySource.get(source.key); return <article className="panel import-overview-card" key={source.key}><span>{source.label}</span><strong>{item?.fileName ?? "尚未导入"}</strong><small>{item ? `${item.snapshotDate ? `快照 ${item.snapshotDate} · ` : ""}${formatCount(item.insertedCount)} 行 · ${formatDateTime(item.completedAt || item.createdAt)}` : `等待导入${source.report}`}</small></article>; })}</section>}
+      {activeSection === "history" &&
       <section className="panel table-panel import-history-panel">
         <div className="section-header"><div><h2>最近导入记录</h2><p>来自导入接口的真实批次记录</p></div><button className="text-button" disabled={historyLoading} onClick={() => void loadHistory()}>{historyLoading ? "刷新中…" : "刷新记录"} <span>↻</span></button></div>
         <div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
@@ -5440,6 +5445,7 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
           })}
         </tbody></table></div>
       </section>
+      }
     </>
   );
 }

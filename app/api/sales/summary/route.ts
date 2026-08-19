@@ -11,9 +11,16 @@ import {
 import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
 import { parseProductQueries } from "@/lib/sales/product-query";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "销售汇总");
     const searchParams = new URL(request.url).searchParams;
     const requested = searchParams.get("range") ?? "month";
     if (!isSalesRange(requested)) {
@@ -54,6 +61,8 @@ export async function GET(request: Request) {
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     const message = error instanceof Error ? error.message : "读取销售汇总失败";
     return Response.json(
       { error: message },

@@ -16,19 +16,32 @@ import {
   type ShellLocationState,
 } from "../app/shell/navigation-contract";
 
-test("navigation catalog preserves the twelve modules and requested group order", () => {
+test("navigation catalog preserves the twelve modules and task-oriented group order", () => {
   assert.equal(moduleKeys.length, 12);
   assert.equal(navItems.length, 12);
   assert.deepEqual(
     navGroups.map((group) => ({ label: group.label, keys: [...group.keys] })),
     [
       {
-        label: "经营管理",
-        keys: ["dashboard", "market", "sales", "shop", "customer_service", "product", "inventory", "workflow", "n8n_workflows", "ai"],
+        label: "协同执行",
+        keys: ["workflow", "n8n_workflows"],
       },
-      { label: "系统管理", keys: ["import", "settings"] },
+      {
+        label: "经营分析",
+        keys: ["dashboard", "shop", "market", "customer_service", "sales"],
+      },
+      {
+        label: "商品与供应链",
+        keys: ["inventory", "product", "import"],
+      },
+      {
+        label: "系统与智能",
+        keys: ["settings", "ai"],
+      },
     ],
   );
+  assert.equal(navItems.find((item) => item.key === "product")?.label, "商品经营");
+  assert.equal(navItems.find((item) => item.key === "n8n_workflows")?.label, "自动化中心");
   assert.deepEqual(new Set(navItems.map((item) => item.key)), new Set(moduleKeys));
   assert.equal(isModuleKey("inventory"), true);
   assert.equal(isModuleKey("unknown"), false);

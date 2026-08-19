@@ -218,6 +218,22 @@ export async function requireAppPrincipal(
   };
 }
 
+/**
+ * Legacy aggregate endpoints must not silently ignore a restricted principal.
+ * Keep them fail-closed until their domain query accepts and applies AppDataScope.
+ */
+export function requireUnrestrictedDataScope(
+  principal: AppPrincipal,
+  resourceLabel: string,
+): void {
+  if (principal.scope === null) return;
+  throw new AuthorizationError(
+    403,
+    "access_denied",
+    `当前账号的数据范围暂不支持读取${resourceLabel}`,
+  );
+}
+
 export function authorizationErrorResponse(error: unknown): Response | null {
   if (!(error instanceof AuthorizationError)) return null;
   return Response.json(

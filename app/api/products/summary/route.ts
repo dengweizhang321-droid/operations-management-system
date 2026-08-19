@@ -6,6 +6,11 @@ import {
 } from "@/lib/products/summary";
 import { ensureSalesSchema } from "@/lib/sales/database";
 import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
 
 function readSelections(searchParams: URLSearchParams, key: string) {
   return [...new Set(searchParams.getAll(key).map((value) => value.trim()).filter(Boolean))].slice(0, 100);
@@ -13,6 +18,8 @@ function readSelections(searchParams: URLSearchParams, key: string) {
 
 export async function GET(request: Request) {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "商品经营汇总");
     const db = getInventoryDatabase();
     await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
     const searchParams = new URL(request.url).searchParams;
@@ -32,6 +39,8 @@ export async function GET(request: Request) {
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     if (error instanceof ProductSummaryRequestError) {
       return Response.json({ error: error.message }, { status: 400, headers: { "cache-control": "no-store" } });
     }

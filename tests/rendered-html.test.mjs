@@ -648,10 +648,11 @@ test("persists work-plan creation, full-field edits, status archiving, and delet
   assert.match(migration, /CREATE TABLE `workflow_tasks`/);
 });
 
-test("opens read-only data while keeping operational writes administrator-only", async () => {
+test("requires an authenticated principal for reads and keeps operational writes administrator-only", async () => {
   const readRouteUrls = [
     "../app/api/sales/summary/route.ts",
     "../app/api/inventory/overview/route.ts",
+    "../app/api/inventory/age-analysis/route.ts",
     "../app/api/inventory/replenishment/route.ts",
     "../app/api/products/summary/route.ts",
     "../app/api/imports/sales/route.ts",
@@ -660,6 +661,10 @@ test("opens read-only data while keeping operational writes administrator-only",
     "../app/api/imports/finance/route.ts",
     "../app/api/finance/analysis/route.ts",
     "../app/api/finance/targets/route.ts",
+    "../app/api/market/overview/route.ts",
+    "../app/api/market/trend/route.ts",
+    "../app/api/workflow/tasks/route.ts",
+    "../app/api/settings/route.ts",
   ];
   const writeRouteUrls = [
     "../app/api/imports/sales/route.ts",
@@ -699,7 +704,9 @@ test("opens read-only data while keeping operational writes administrator-only",
   const readRoutes = routes.slice(0, readRouteUrls.length);
   const writeRoutes = routes.slice(readRouteUrls.length);
   for (const route of readRoutes) {
-    assert.doesNotMatch(route, /requireAppPrincipal\(\)/);
+    assert.match(route, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
+    assert.match(route, /requireUnrestrictedDataScope\(principal,/);
+    assert.match(route, /authorizationErrorResponse/);
   }
   for (const route of writeRoutes) {
     assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);

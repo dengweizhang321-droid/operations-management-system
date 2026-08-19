@@ -11,6 +11,7 @@ import { getSalesDatabase } from "@/lib/sales/database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 
 function errorMessage(error: unknown, fallback: string) {
@@ -19,6 +20,8 @@ function errorMessage(error: unknown, fallback: string) {
 
 export async function GET() {
   try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "工作计划");
     const db = getSalesDatabase();
     await ensureWorkflowTaskSchema(db);
     return Response.json(
@@ -26,6 +29,8 @@ export async function GET() {
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
     return Response.json({ error: errorMessage(error, "读取工作计划失败") }, { status: 500 });
   }
 }

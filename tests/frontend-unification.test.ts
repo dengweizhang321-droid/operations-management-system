@@ -44,18 +44,42 @@ test("all rendered tables receive accessible multi-select column filtering", asy
   assert.match(styles, /\.column-filter-row-hidden/);
 });
 
-test("left navigation follows the requested management groups and exact order", async () => {
+test("left navigation follows the task-oriented groups and exact order", async () => {
   const [page, catalog, navigation] = await Promise.all([
     source("../app/page.tsx"),
     source("../app/shell/navigation-catalog.ts"),
     source("../app/shell/sidebar-navigation.tsx"),
   ]);
-  assert.match(catalog, /keys: \["dashboard", "market", "sales", "shop", "customer_service", "product", "inventory", "workflow", "n8n_workflows", "ai"\]/);
-  assert.match(catalog, /keys: \["import", "settings"\]/);
+  assert.match(catalog, /label: "协同执行",[\s\S]*?keys: \["workflow", "n8n_workflows"\]/);
+  assert.match(catalog, /label: "经营分析",[\s\S]*?keys: \["dashboard", "shop", "market", "customer_service", "sales"\]/);
+  assert.match(catalog, /label: "商品与供应链",[\s\S]*?keys: \["inventory", "product", "import"\]/);
+  assert.match(catalog, /label: "系统与智能",[\s\S]*?keys: \["settings", "ai"\]/);
   assert.match(navigation, /navGroups\.map\(\(group, groupIndex\)/);
   assert.match(navigation, /<a[\s\S]*?href=\{hrefForModule\(moduleKey\)\}/);
   assert.match(navigation, /aria-current=\{selected \? "page" : undefined\}/);
   assert.match(page, /<SidebarNavigation active=\{active\}/);
+});
+
+test("data import navigation switches real workspaces instead of rendering inert tabs", async () => {
+  const page = await source("../app/page.tsx");
+  assert.match(page, /useState<"files" \| "history" \| "continuity">\("files"\)/);
+  assert.match(page, /role="tablist" aria-label="数据导入工作区"/);
+  assert.match(page, /onClick=\{\(\) => setActiveSection\("history"\)\}/);
+  assert.match(page, /activeSection === "continuity" && <section className="import-overview-grid"/);
+  assert.match(page, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel">/);
+});
+
+test("operational navigation and tables use the enlarged readability baseline", async () => {
+  const [styles, tokens] = await Promise.all([
+    source("../app/globals.css"),
+    source("../app/styles/tokens.css"),
+  ]);
+  assert.match(tokens, /--app-sidebar-collapsed-width: 80px/);
+  assert.match(styles, /\.nav-copy b \{ font-size: 15px; \}/);
+  assert.match(styles, /\.nav-copy small \{ font-size: 12px; \}/);
+  assert.match(styles, /\.subnav button \{ min-width: 96px; height: 38px; font-size: 13px; \}/);
+  assert.match(styles, /\.data-table \{ font-size: 13px; \}/);
+  assert.match(styles, /\.data-table th \{ padding-top: 12px; padding-bottom: 12px; font-size: 12px; \}/);
 });
 
 test("one global page head owns the shared period and passes it to every module", async () => {
