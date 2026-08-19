@@ -576,15 +576,19 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
   assert.match(page, /detail\.tmall\.com\/item\.htm\?id=/);
 });
 
-test("exposes the four operational collaboration workspaces", async () => {
+test("exposes the five operational collaboration workspaces", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  for (const label of ["工作计划", "巡店查询", "评价维护", "新品上架"]) assert.match(page, new RegExp(label));
+  for (const label of ["工作计划", "巡店检查", "评价维护", "新品上架", "变量配置"]) assert.match(page, new RegExp(label));
   assert.match(page, /运营事务子版块/);
   assert.match(page, /搜索工作计划/);
   assert.match(page, /搜索巡店记录/);
   assert.match(page, /搜索评价内容/);
   assert.match(page, /搜索新品项目/);
   assert.match(page, /workflow-plan-table/);
+  for (const label of ["进行中", "已逾期", "今日到期", "状态分布", "未完成 · 按紧急程度", "按跟进人工作量", "时间轴", "下载清单"]) assert.match(page, new RegExp(label));
+  assert.match(page, /Asia\/Shanghai/);
+  assert.match(page, /workflow-summary-grid/);
+  assert.match(page, /workflow-insight-grid/);
   for (const label of ["工作事项", "工作内容", "紧急程度", "跟进人", "截止时间", "录入时间"]) assert.match(page, new RegExp(label));
   assert.match(page, /formatWorkflowRecordedAt/);
   assert.match(page, /taskPriorities/);

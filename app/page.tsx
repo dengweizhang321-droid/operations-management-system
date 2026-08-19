@@ -4275,7 +4275,7 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
   );
 }
 
-type WorkflowTab = "plan" | "inspection" | "reviews" | "launch";
+type WorkflowTab = "plan" | "inspection" | "reviews" | "launch" | "variables";
 type WorkflowStatus = "待开始" | "工作中" | "已完成";
 type WorkflowPriority = "high" | "normal" | "low";
 
@@ -4484,8 +4484,13 @@ function WorkflowView() {
   const [taskQuery, setTaskQuery] = useState("");
   const [taskStatuses, setTaskStatuses] = useState<WorkflowStatus[]>([]);
   const [taskPriorities, setTaskPriorities] = useState<WorkflowPriority[]>([]);
+  const [taskOwners, setTaskOwners] = useState<string[]>([]);
+  const [taskDueFrom, setTaskDueFrom] = useState("");
+  const [taskDueTo, setTaskDueTo] = useState("");
+  const [taskViewMode, setTaskViewMode] = useState<"table" | "timeline">("table");
   const [inspectionStatuses, setInspectionStatuses] = useState<Array<"待处理" | "正常">>([]);
   const [reviewStatuses, setReviewStatuses] = useState<Array<"待回复" | "已回复">>([]);
+  const [draftCategory, setDraftCategory] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
   const [draftOwner, setDraftOwner] = useState("");
@@ -4538,8 +4543,11 @@ function WorkflowView() {
     const matchesQuery = !taskQuery.trim() || [item.title, item.workContent, item.category, item.owner, item.shopName, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(taskQuery.trim().toLocaleLowerCase("zh-CN"));
     const matchesStatus = taskStatuses.length === 0 || taskStatuses.includes(item.status);
     const matchesPriority = taskPriorities.length === 0 || taskPriorities.includes(item.priority);
-    return matchesQuery && matchesStatus && matchesPriority;
-  }), [taskPriorities, taskQuery, taskStatuses, tasks]);
+    const matchesOwner = taskOwners.length === 0 || taskOwners.includes(item.owner);
+    const matchesDueFrom = !taskDueFrom || (item.due !== "待排期" && item.due >= taskDueFrom);
+    const matchesDueTo = !taskDueTo || (item.due !== "待排期" && item.due <= taskDueTo);
+    return matchesQuery && matchesStatus && matchesPriority && matchesOwner && matchesDueFrom && matchesDueTo;
+  }), [taskDueFrom, taskDueTo, taskOwners, taskPriorities, taskQuery, taskStatuses, tasks]);
 
   const filteredLaunches = useMemo(() => launches.filter((item) => {
     const matchesQuery = !launchQuery.trim() || [item.productName, item.productCode, item.stage, item.owner, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(launchQuery.trim().toLocaleLowerCase("zh-CN"));
@@ -4562,6 +4570,7 @@ function WorkflowView() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          category: draftCategory.trim() || "工作计划",
           title,
           workContent,
           owner,
@@ -4576,6 +4585,7 @@ function WorkflowView() {
         throw new Error(payload?.error || `工作项保存失败（${response.status}）`);
       }
       setTasks((current) => [payload.item!, ...current]);
+      setDraftCategory("");
       setDraftTitle("");
       setDraftContent("");
       setDraftOwner("");
@@ -4610,6 +4620,21 @@ function WorkflowView() {
     setLaunchDraftDue("");
     setLaunchCreateOpen(false);
     setWorkflowFeedback("新品「" + productName + "」已创建，当前状态为待开始。");
+  };
+
+  const downloadTasks = () => {
+    const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = [
+      ["工作事项", "工作内容", "店铺", "紧急程度", "跟进人", "开始时间", "截止时间", "状态", "来源", "录入时间"],
+      ...filteredTasks.map((task) => [task.title, task.workContent, task.shopName, workflowPriorityLabel(task.priority), task.owner, task.startDate, task.due, workflowStatusLabel(task.status), task.source, formatWorkflowRecordedAt(task.createdAt)]),
+    ];
+    const blob = new Blob(["\ufeff" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `运营事务-工作计划-${todayDate}.csv`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const updateTask = async (taskId: string, changes: Partial<Pick<WorkflowTask, "status" | "due">>) => {
@@ -4709,6 +4734,31 @@ function WorkflowView() {
 
   const taskCount = (status: WorkflowStatus) => tasks.filter((item) => item.status === status).length;
   const launchCount = (status: WorkflowStatus) => launches.filter((item) => item.status === status).length;
+  const todayParts = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const todayDate = `${todayParts.find((part) => part.type === "year")?.value}-${todayParts.find((part) => part.type === "month")?.value}-${todayParts.find((part) => part.type === "day")?.value}`;
+  const openTasks = tasks.filter((item) => item.status !== "已完成");
+  const overdueTaskCount = openTasks.filter((item) => item.due !== "待排期" && item.due < todayDate).length;
+  const todayDueTaskCount = openTasks.filter((item) => item.due === todayDate).length;
+  const ownerWorkloadMap = tasks.reduce((summary, item) => {
+    if (!item.owner) return summary;
+    const current = summary.get(item.owner) ?? { owner: item.owner, pending: 0, active: 0, completed: 0 };
+    if (item.status === "待开始") current.pending += 1;
+    else if (item.status === "工作中") current.active += 1;
+    else current.completed += 1;
+    summary.set(item.owner, current);
+    return summary;
+  }, new Map<string, { owner: string; pending: number; active: number; completed: number }>());
+  const ownerOptions = Array.from(ownerWorkloadMap.keys()).sort((left, right) => left.localeCompare(right, "zh-CN"));
+  const prioritySummary = (["high", "normal", "low"] as WorkflowPriority[]).map((priority) => ({
+    priority,
+    label: workflowPriorityLabel(priority),
+    count: openTasks.filter((item) => item.priority === priority).length,
+  }));
+  const priorityMax = Math.max(1, ...prioritySummary.map((item) => item.count));
+  const ownerWorkload = Array.from(ownerWorkloadMap.values()).map((item) => ({ ...item, total: item.pending + item.active + item.completed })).sort((left, right) => right.total - left.total).slice(0, 6);
+  const ownerWorkloadMax = Math.max(1, ...ownerWorkload.map((item) => item.total));
+  const completedShare = tasks.length === 0 ? 0 : taskCount("已完成") / tasks.length * 100;
+  const activeShare = tasks.length === 0 ? 0 : taskCount("工作中") / tasks.length * 100;
   const taskStatusBadge = (status: WorkflowStatus) => <span className={"status " + workflowStatusClass(status)}><Dot tone={workflowStatusTone(status)} />{status}</span>;
   const feedback = workflowFeedback ? <section className="workflow-feedback" role="status"><span>✓</span><p>{workflowFeedback}</p><button type="button" onClick={() => setWorkflowFeedback("")} aria-label="关闭提示">×</button></section> : null;
   const attachmentModal = attachmentViewer ? <WorkflowAttachmentPreview attachment={attachmentViewer} onClose={() => setAttachmentViewer(null)} /> : null;
@@ -4716,10 +4766,26 @@ function WorkflowView() {
 
   const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">
     <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => setActiveTab("plan")}>工作计划</button>
-    <button type="button" role="tab" aria-selected={activeTab === "inspection"} className={activeTab === "inspection" ? "active" : ""} onClick={() => setActiveTab("inspection")}>巡店查询</button>
+    <button type="button" role="tab" aria-selected={activeTab === "inspection"} className={activeTab === "inspection" ? "active" : ""} onClick={() => setActiveTab("inspection")}>巡店检查</button>
     <button type="button" role="tab" aria-selected={activeTab === "reviews"} className={activeTab === "reviews" ? "active" : ""} onClick={() => setActiveTab("reviews")}>评价维护</button>
     <button type="button" role="tab" aria-selected={activeTab === "launch"} className={activeTab === "launch" ? "active" : ""} onClick={() => setActiveTab("launch")}>新品上架</button>
+    <button type="button" role="tab" aria-selected={activeTab === "variables"} className={activeTab === "variables" ? "active" : ""} onClick={() => setActiveTab("variables")}>变量配置</button>
   </div>;
+
+  if (activeTab === "variables") {
+    const variableGroups = [
+      { icon: "事", title: "工作事项", note: "用于快速录入与统一分类", values: Array.from(new Set(["产品分析及调整", "备货计划", "详情优化", "入仓产品推荐", ...tasks.map((item) => item.category)])).filter(Boolean).slice(0, 8) },
+      { icon: "店", title: "店铺", note: "工作计划与巡店共用", values: Array.from(new Set(tasks.map((item) => item.shopName).filter((value) => value && value !== "未关联店铺"))).slice(0, 8) },
+      { icon: "人", title: "跟进人", note: "按负责人统计工作负荷", values: ownerOptions.slice(0, 8) },
+      { icon: "急", title: "紧急程度", note: "控制排序与逾期关注级别", values: ["紧急", "普通", "低"] },
+    ];
+    return <>
+      {subnav}
+      <section className="workflow-toolbar workflow-section-hero"><div><span className="eyebrow">WORKSPACE SETTINGS</span><h2>变量配置</h2><p>集中维护运营事务常用选项，让工作计划、巡店检查和新品上架使用一致的业务名称。</p></div><span className="workflow-hero-badge">统一口径</span></section>
+      <section className="workflow-variable-grid">{variableGroups.map((group) => <article className="panel workflow-variable-card" key={group.title}><header><i>{group.icon}</i><div><h3>{group.title}</h3><p>{group.note}</p></div><span className="workflow-variable-sync">自动汇总</span></header><div>{group.values.length > 0 ? group.values.map((value) => <span key={value}>{value}</span>) : <small>暂无已维护选项</small>}</div><footer><span>{group.values.length} 个选项</span><span>随任务同步</span></footer></article>)}</section>
+      <section className="panel workflow-variable-note"><span>i</span><div><strong>配置说明</strong><p>工作状态由系统自动记录，逾期依据上海时区和截止日期自动判定；变量配置只管理可复用选项，不改变已保存工作项的历史内容。</p></div></section>
+    </>;
+  }
 
   if (activeTab === "inspection") {
     const inspections = [
@@ -4734,7 +4800,7 @@ function WorkflowView() {
     });
     return <>
       {subnav}
-      <section className="workflow-toolbar"><div><span className="eyebrow">STORE INSPECTION</span><h2>巡店查询</h2><p>按店铺追溯每日巡检记录，快速定位价格、库存、页面与服务异常。</p></div><button className="secondary-button">↻ 刷新记录</button></section>
+      <section className="workflow-toolbar workflow-section-hero"><div><span className="eyebrow">STORE INSPECTION</span><h2>巡店检查</h2><p>按店铺追溯每日巡检记录，快速定位价格、库存、页面与服务异常。</p></div><button className="secondary-button">↻ 刷新记录</button></section>
       <section className="workflow-kpi-grid"><article><span>今日已巡店</span><strong>18 / 22</strong><small>完成率 81.8%</small></article><article><span>待处理问题</span><strong className="orange-text">6 项</strong><small>价格、库存与评价事项</small></article><article><span>高优先级</span><strong className="red-text">2 项</strong><small>需在今日闭环</small></article><article><span>最近巡检</span><strong>10:20</strong><small>天猫 · 亿用专卖店</small></article></section>
       <section className="panel workflow-table-panel"><div className="table-toolbar"><div><h2>巡店记录</h2><p>保留最近一次巡检结果与需要跟进的异常项。</p></div><div className="workflow-filter-row"><input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索店铺、巡检项或结论" aria-label="搜索巡店记录" /><SearchableMultiSelect values={inspectionStatuses} onChange={(values) => setInspectionStatuses(values as Array<"待处理" | "正常">)} ariaLabel="巡店状态" allLabel="全部状态" searchPlaceholder="搜索巡店状态" options={[{ value: "待处理", label: "待处理" }, { value: "正常", label: "正常" }]} /></div></div><div className="data-table-wrap"><table className="data-table workflow-data-table"><thead><tr><th>店铺</th><th>平台</th><th>巡检时间</th><th>巡检事项</th><th>巡检结论</th><th>状态</th><th>操作</th></tr></thead><tbody>{filteredInspections.map((item) => <tr key={item[0]}><td><strong>{item[0]}</strong></td><td><span className="soft-tag">{item[1]}</span></td><td>{item[2]}</td><td>{item[3]}</td><td>{item[4]}</td><td><span className={"status " + (item[5] === "正常" ? "status-success" : "status-warning")}><Dot tone={item[5] === "正常" ? "green" : "orange"} />{item[5]}</span></td><td><button className="row-action">查看详情</button></td></tr>)}{filteredInspections.length === 0 && <tr><td colSpan={7}><div className="table-state">没有符合当前筛选条件的巡店记录。</div></td></tr>}</tbody></table></div></section>
       {attachmentModal}
@@ -4763,42 +4829,54 @@ function WorkflowView() {
   return (
     <>
       {subnav}
-      <section className="workflow-toolbar workflow-plan-toolbar">
+      <section className="workflow-toolbar workflow-section-hero workflow-plan-hero">
         <div>
           <span className="eyebrow">OPERATION COLLABORATION</span>
           <h2>工作计划</h2>
-          <p>新工作项可按需补充工作事项、内容、跟进人、店铺、时间与紧急程度；未填写项会保留默认提示。</p>
+          <p>集中管理运营事项、责任人和截止节点，逾期自动判定，状态变更实时保存。</p>
         </div>
-        <form className="workflow-task-create-fields" onSubmit={(event) => {
-          event.preventDefault();
-          void createTask();
-        }}>
-          <label><span>工作事项</span><input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="如：大促价格检查（可选）" aria-label="工作事项" /></label>
-          <label><span>工作内容</span><input value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="填写需完成的内容（可选）" aria-label="工作内容" /></label>
-          <label><span>跟进人</span><input value={draftOwner} onChange={(event) => setDraftOwner(event.target.value)} placeholder="负责人姓名或小组（可选）" aria-label="跟进人" /></label>
-          <label><span>店铺名称</span><input value={draftShopName} onChange={(event) => setDraftShopName(event.target.value)} placeholder="关联店铺名称（可选）" aria-label="店铺名称" /></label>
-          <label><span>开始时间</span><input type="date" value={draftStartDate} onChange={(event) => setDraftStartDate(event.target.value)} aria-label="开始时间" /></label>
-          <label><span>截止时间</span><input type="date" min={draftStartDate || undefined} value={draftDueDate} onChange={(event) => setDraftDueDate(event.target.value)} aria-label="截止时间" /></label>
-          <label><span>紧急程度</span><SearchableSelect value={draftPriority} onChange={(value) => setDraftPriority(value as WorkflowPriority | "")} ariaLabel="紧急程度" searchPlaceholder="搜索紧急程度" options={[{ value: "", label: "未设置" }, { value: "high", label: "紧急" }, { value: "normal", label: "普通" }, { value: "low", label: "低" }]} /></label>
-          <button type="submit" className="primary-button" disabled={tasksLoading || taskMutationPending}>{tasksLoading ? "读取中…" : taskMutationPending ? "保存中…" : "＋ 新建工作项"}</button>
-        </form>
+        <div className="workflow-hero-actions"><span>数据实时保存</span><button type="button" className="secondary-button" onClick={downloadTasks} disabled={filteredTasks.length === 0}>⇩ 下载清单</button></div>
       </section>
       {feedback}
-      <section className="workflow-kpi-grid">
-        <article><span>未开始</span><strong>{taskCount("待开始")}</strong><small>等待启动的工作项</small></article>
-        <article><span>工作中</span><strong className="blue-text">{taskCount("工作中")}</strong><small>正在推进的工作项</small></article>
-        <article><span>已完成</span><strong className="green-text">{taskCount("已完成")}</strong><small>已办结的工作项</small></article>
-        <article><span>含附件任务</span><strong>{tasks.filter((item) => item.attachments.length > 0).length}</strong><small>图片、文件与交接材料</small></article>
-      </section>
-      <section className="workflow-plan-controls panel">
-        <div className="workflow-filter-row">
+      <section className="panel workflow-plan-controls workflow-reference-controls">
+        <div className="workflow-filter-row workflow-filter-row-rich">
           <input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="搜索工作事项、内容、店铺或跟进人" aria-label="搜索工作计划" />
           <SearchableMultiSelect values={taskStatuses} onChange={(values) => setTaskStatuses(values as WorkflowStatus[])} ariaLabel="工作计划状态" allLabel="全部状态" searchPlaceholder="搜索工作计划状态" options={workflowStages.map((stage) => ({ value: stage.value, label: workflowStatusLabel(stage.value) }))} />
           <SearchableMultiSelect values={taskPriorities} onChange={(values) => setTaskPriorities(values as WorkflowPriority[])} ariaLabel="工作计划紧急程度" allLabel="全部紧急程度" searchPlaceholder="搜索紧急程度" options={[{ value: "high", label: "紧急" }, { value: "normal", label: "普通" }, { value: "low", label: "低" }]} />
+          <SearchableMultiSelect values={taskOwners} onChange={setTaskOwners} ariaLabel="工作计划跟进人" allLabel="全部跟进人" searchPlaceholder="搜索跟进人" options={ownerOptions.map((owner) => ({ value: owner, label: owner }))} />
+          <label className="workflow-date-filter"><span>截止日期</span><input type="date" value={taskDueFrom} max={taskDueTo || undefined} onChange={(event) => setTaskDueFrom(event.target.value)} aria-label="截止从" /><i>至</i><input type="date" value={taskDueTo} min={taskDueFrom || undefined} onChange={(event) => setTaskDueTo(event.target.value)} aria-label="截止到" /></label>
         </div>
-        <span className="soft-tag">显示 {filteredTasks.length} 项</span>
+        <div className="workflow-view-switch" role="radiogroup" aria-label="工作计划视图"><button type="button" role="radio" aria-checked={taskViewMode === "table"} className={taskViewMode === "table" ? "active" : ""} onClick={() => setTaskViewMode("table")}>☷ 表格</button><button type="button" role="radio" aria-checked={taskViewMode === "timeline"} className={taskViewMode === "timeline" ? "active" : ""} onClick={() => setTaskViewMode("timeline")}>⌁ 时间轴</button></div>
       </section>
-      <section className="panel workflow-plan-table-panel">
+      <section className="workflow-summary-grid">
+        <article className="tone-blue"><span>进行中</span><strong>{taskCount("工作中")}</strong><small>正在推进</small></article>
+        <article className="tone-red"><span>已逾期</span><strong>{overdueTaskCount}</strong><small>需优先闭环</small></article>
+        <article className="tone-orange"><span>今日到期</span><strong>{todayDueTaskCount}</strong><small>{todayDate}</small></article>
+        <article className="tone-green"><span>已完成</span><strong>{taskCount("已完成")}</strong><small>完成率 {Math.round(completedShare)}%</small></article>
+        <article className="tone-slate"><span>合计</span><strong>{tasks.length}</strong><small>显示 {filteredTasks.length} 项</small></article>
+      </section>
+      <section className="workflow-insight-grid">
+        <article className="panel workflow-chart-card"><header><div><h3>状态分布</h3><p>全部工作项</p></div><span>{tasks.length} 项</span></header><div className="workflow-donut-layout"><div className="workflow-donut" style={{ background: `conic-gradient(#2f72ef 0 ${activeShare}%, #35b779 ${activeShare}% ${activeShare + completedShare}%, #d9dee7 ${activeShare + completedShare}% 100%)` }}><i><strong>{Math.round(completedShare)}%</strong><small>完成率</small></i></div><div className="workflow-chart-legend"><span><i className="legend-gray" />未开始 <strong>{taskCount("待开始")}</strong></span><span><i className="legend-blue" />工作中 <strong>{taskCount("工作中")}</strong></span><span><i className="legend-green" />已完成 <strong>{taskCount("已完成")}</strong></span></div></div></article>
+        <article className="panel workflow-chart-card"><header><div><h3>未完成 · 按紧急程度</h3><p>帮助判断今日优先级</p></div><span>{openTasks.length} 项</span></header><div className="workflow-priority-chart">{prioritySummary.map((item) => <div key={item.priority}><label><span>{item.label}</span><strong>{item.count}</strong></label><i><b className={`priority-${item.priority}`} style={{ width: `${item.count / priorityMax * 100}%` }} /></i></div>)}</div></article>
+        <article className="panel workflow-chart-card"><header><div><h3>按跟进人工作量</h3><p>最多展示 6 位跟进人</p></div><span>{ownerOptions.length} 人</span></header><div className="workflow-owner-chart">{ownerWorkload.length > 0 ? ownerWorkload.map((item) => <div key={item.owner}><label><span title={item.owner}>{item.owner}</span><strong>{item.total}</strong></label><i><b className="owner-pending" style={{ width: `${item.pending / ownerWorkloadMax * 100}%` }} /><b className="owner-active" style={{ width: `${item.active / ownerWorkloadMax * 100}%` }} /><b className="owner-completed" style={{ width: `${item.completed / ownerWorkloadMax * 100}%` }} /></i></div>) : <p className="workflow-chart-empty">暂无跟进人数据</p>}</div><footer><span><i className="legend-gray" />未开始</span><span><i className="legend-blue" />工作中</span><span><i className="legend-green" />已完成</span></footer></article>
+      </section>
+      <section className="panel workflow-quick-create">
+        <header><div><span className="eyebrow">QUICK ENTRY</span><h3>快速录入工作项</h3></div><p>直接填写后添加；未填写项会保留清晰的默认提示。</p></header>
+        <form className="workflow-task-create-fields" onSubmit={(event) => { event.preventDefault(); void createTask(); }}>
+          <label><span>事项分类</span><input value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} placeholder="如：产品分析及调整" aria-label="事项分类" /></label>
+          <label><span>工作事项</span><input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="如：大促价格检查" aria-label="工作事项" /></label>
+          <label className="workflow-create-content"><span>工作内容</span><input value={draftContent} onChange={(event) => setDraftContent(event.target.value)} placeholder="填写需完成的具体内容" aria-label="工作内容" /></label>
+          <label><span>店铺名称</span><input value={draftShopName} onChange={(event) => setDraftShopName(event.target.value)} placeholder="关联店铺" aria-label="店铺名称" /></label>
+          <label><span>紧急程度</span><SearchableSelect value={draftPriority} onChange={(value) => setDraftPriority(value as WorkflowPriority | "")} ariaLabel="紧急程度" searchPlaceholder="搜索紧急程度" options={[{ value: "", label: "未设置" }, { value: "high", label: "紧急" }, { value: "normal", label: "普通" }, { value: "low", label: "低" }]} /></label>
+          <label><span>开始时间</span><input type="date" value={draftStartDate} onChange={(event) => setDraftStartDate(event.target.value)} aria-label="开始时间" /></label>
+          <label><span>截止时间</span><input type="date" min={draftStartDate || undefined} value={draftDueDate} onChange={(event) => setDraftDueDate(event.target.value)} aria-label="截止时间" /></label>
+          <label><span>跟进人</span><input value={draftOwner} onChange={(event) => setDraftOwner(event.target.value)} placeholder="姓名或小组" aria-label="跟进人" /></label>
+          <button type="submit" className="primary-button" disabled={tasksLoading || taskMutationPending}>{tasksLoading ? "读取中…" : taskMutationPending ? "保存中…" : "＋ 添加"}</button>
+        </form>
+        <small>状态自动记录，逾期按上海时区自动判定；下拉项可在“变量配置”中统一查看。</small>
+      </section>
+      {taskViewMode === "table" ? <section className="panel workflow-plan-table-panel">
+        <div className="workflow-list-heading"><div><h3>工作事项清单</h3><p>可直接调整截止时间与状态，修改后自动保存。</p></div><span>{filteredTasks.length} 项</span></div>
         <div className="data-table-wrap">
           <table className="data-table workflow-data-table workflow-plan-table">
             <thead><tr><th>工作事项</th><th>工作内容</th><th>店铺</th><th>紧急程度</th><th>跟进人</th><th>截止时间</th><th>状态</th><th>来源</th><th>录入时间</th><th>附件</th><th>操作</th></tr></thead>
@@ -4817,7 +4895,7 @@ function WorkflowView() {
             </tr>)}{filteredTasks.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的工作计划。</div></td></tr>}</tbody>
           </table>
         </div>
-      </section>
+      </section> : <section className="panel workflow-timeline-panel"><div className="workflow-list-heading"><div><h3>工作计划时间轴</h3><p>按截止日期查看未排期、进行中与已完成事项。</p></div><span>{filteredTasks.length} 项</span></div><div className="workflow-timeline">{filteredTasks.map((task) => <article key={task.id} className={task.status === "已完成" ? "is-completed" : task.due !== "待排期" && task.due < todayDate ? "is-overdue" : ""}><time>{task.due === "待排期" ? "待排期" : task.due}</time><i /><div><header><strong>{task.title}</strong>{taskStatusBadge(task.status)}</header><p>{task.workContent}</p><footer><span>{task.shopName}</span><span>{task.owner}</span><b className={`workflow-priority priority-${task.priority}`}>{workflowPriorityLabel(task.priority)}</b></footer></div></article>)}{filteredTasks.length === 0 && <div className="table-state">没有符合当前筛选条件的工作计划。</div>}</div></section>}
       {attachmentModal}
       {taskDeletionModal}
     </>
