@@ -32,7 +32,9 @@ export type MarketOverviewCacheResult<T> = {
 const CACHE_TTL_MINUTES = 5;
 const CACHE_MAX_ROWS = 40;
 const CACHE_FORMAT_VERSION = 3;
+const FILTER_OPTIONS_FORMAT_VERSION = 1;
 const inFlight = new Map<string, Promise<MarketOverviewCacheResult<unknown>>>();
+const filterOptionsInFlight = new Map<string, Promise<unknown>>();
 
 function normalizedList(values: string[] | undefined) {
   return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))]
@@ -79,6 +81,16 @@ export async function getMarketOverviewCacheRevision(db: MarketOverviewResponseC
           || COALESCE(completed_at,'') AS batch_signature
         FROM market_import_batches ORDER BY created_at DESC LIMIT 8
       )),'')
+      || ':' || CAST((SELECT COUNT(*) FROM market_subcategory_taxonomy) AS TEXT)
+      || ':' || CAST(COALESCE((SELECT SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) FROM market_subcategory_taxonomy),0) AS TEXT)
+      || ':' || COALESCE((SELECT MAX(updated_at) FROM market_subcategory_taxonomy),'') AS revision_key`)
+    .first<CacheRevisionRow>();
+  return row?.revision_key ?? "0";
+}
+
+async function getMarketFilterOptionsRevision(db: MarketOverviewResponseCacheDatabase) {
+  const row = await db.prepare(`SELECT
+    CAST(COALESCE((SELECT source_revision FROM market_monthly_summary_cache_state WHERE id=1),0) AS TEXT)
       || ':' || CAST((SELECT COUNT(*) FROM market_subcategory_taxonomy) AS TEXT)
       || ':' || CAST(COALESCE((SELECT SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) FROM market_subcategory_taxonomy),0) AS TEXT)
       || ':' || COALESCE((SELECT MAX(updated_at) FROM market_subcategory_taxonomy),'') AS revision_key`)
@@ -153,5 +165,32 @@ export async function getCachedMarketOverview<T>(
     return await task;
   } finally {
     inFlight.delete(flightKey);
+  }
+}
+
+export async function getCachedMarketFilterOptions<T>(
+  db: MarketOverviewResponseCacheDatabase,
+  load: () => Promise<T>,
+): Promise<T> {
+  const [cacheKey, revisionKey] = await Promise.all([
+    sha256(JSON.stringify({ type: "market-filter-options", formatVersion: FILTER_OPTIONS_FORMAT_VERSION })),
+    getMarketFilterOptionsRevision(db),
+  ]);
+  const flightKey = `${cacheKey}:${revisionKey}`;
+  const running = filterOptionsInFlight.get(flightKey);
+  if (running) return await running as T;
+
+  const task = (async () => {
+    const cached = await readCachedPayload<T>(db, cacheKey, revisionKey);
+    if (cached !== null) return cached;
+    const payload = await load();
+    await writeCachedPayload(db, cacheKey, revisionKey, payload);
+    return payload;
+  })();
+  filterOptionsInFlight.set(flightKey, task);
+  try {
+    return await task;
+  } finally {
+    filterOptionsInFlight.delete(flightKey);
   }
 }

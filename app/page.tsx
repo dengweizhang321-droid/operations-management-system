@@ -20,7 +20,7 @@ import {
   type ShellPeriodState,
 } from "./shell/navigation-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
-import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel } from "./market-view";
+import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel, prefetchMarketRankingOverview } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
 import N8nWorkflowView from "./n8n-workflow-view";
 import SalesCategoryView from "./sales-category-view";
@@ -6089,6 +6089,19 @@ export default function Home() {
       .catch(() => undefined);
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || active === "market") return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void prefetchMarketRankingOverview(globalPeriod.startDate, globalPeriod.endDate, controller.signal)
+        .catch(() => undefined);
+    }, 900);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [active, currentUser, globalPeriod.endDate, globalPeriod.startDate]);
 
   const applyLocationState = useCallback(() => {
     const state = parseShellLocation(window.location.href);

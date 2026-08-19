@@ -675,6 +675,7 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .searchable-multi-select-options > button { justify-content: flex-start; }.searchable-select-options > button > .searchable-multi-check { width: 15px; min-width: 15px; height: 15px; display: grid; place-items: center; overflow: visible; border: 1px solid #c9d4e2; border-radius: 4px; color: transparent; background: #fff; font-size: 8px; text-overflow: clip; }.searchable-multi-select-options > button.selected > .searchable-multi-check { border-color: #4d82df; color: #fff; background: #4d82df; }.searchable-multi-select-options > button > span:last-child { flex: 1; }
 
 .date-selector > .searchable-select { min-width: 62px; flex: 1; }.date-selector > .searchable-select .searchable-select-trigger { height: 30px; padding: 0 2px; border: 0; color: #344154; background: transparent; font-size: 11px; font-weight: 600; }.date-selector > .searchable-select .searchable-select-trigger:hover,.date-selector > .searchable-select.open .searchable-select-trigger { box-shadow: none; }
+.date-selector > .searchable-select .searchable-select-menu { width: 220px; max-width: min(220px,calc(100vw - 24px)); right: 0; left: auto; }
 .sales-overview-filter-controls .searchable-select { min-width: 164px; }.sales-overview-filter-controls .searchable-select-trigger { height: 32px; border-color: #dce5f1; color: #465873; font-size: 9px; }
 .store-select-field > .searchable-select { min-width: 0; flex: 1; }.store-select-field > .searchable-select .searchable-select-trigger { height: 36px; border-color: #dce2ea; color: #405067; }
 .jd-sku-store-select { height: auto; min-height: 34px; }.jd-sku-store-select > .searchable-select { width: min(220px,100%); min-width: 126px; }.jd-sku-store-select > .searchable-select .searchable-select-trigger { height: 32px; padding: 0 2px; border: 0; color: #40516a; background: transparent; }.jd-sku-store-select > .searchable-select .searchable-select-trigger:hover,.jd-sku-store-select > .searchable-select.open .searchable-select-trigger { box-shadow: none; }
@@ -2098,23 +2099,23 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   .workflow-summary-grid,.workflow-insight-grid { grid-template-columns: 1fr; }.workflow-chart-card:last-child { grid-column: auto; }.workflow-donut-layout { gap: 18px; }.workflow-task-create-fields { grid-template-columns: 1fr; }.workflow-quick-create .workflow-create-content,.workflow-task-create-fields .primary-button { grid-column: auto; }.workflow-date-filter { align-items: stretch; flex-direction: column; height: auto; padding: 9px; }.workflow-date-filter input { width: 100%; }.workflow-date-filter i { display: none; }.workflow-task-buckets { grid-template-columns: 1fr 1fr; gap: 7px; }.workflow-task-buckets button { padding: 11px; }.workflow-timeline { padding-right: 12px; padding-left: 8px; }.workflow-timeline article { grid-template-columns: 64px 14px minmax(0,1fr); gap: 8px; }.workflow-timeline article > time { font-size: 10px; }
 }
 
-/* Readability baseline: operational text must remain legible at normal browser zoom. */
-.nav-group > p { font-size: 12px; letter-spacing: 1.2px; }
-.sidebar-navigation-link { min-height: 52px; }
-.nav-copy b { font-size: 15px; }
-.nav-copy small { font-size: 12px; }
+/* Balanced density: readable at normal zoom without crowding operational screens. */
+.nav-group > p { font-size: 11px; letter-spacing: 1.1px; }
+.sidebar-navigation-link { min-height: 48px; }
+.nav-copy b { font-size: 14px; }
+.nav-copy small { font-size: 11px; }
 .sidebar-help strong,
-.sidebar-user strong { font-size: 13px; }
+.sidebar-user strong { font-size: 12px; }
 .sidebar-help small,
-.sidebar-user small { font-size: 12px; }
+.sidebar-user small { font-size: 11px; }
 .title-area span,
 .global-search em,
 .date-selector span,
-.date-selector select { font-size: 12px; }
+.date-selector select { font-size: 11px; }
 .primary-button,
 .secondary-button,
-.filter-button { min-height: 38px; font-size: 13px; }
-.subnav button { min-width: 96px; height: 38px; font-size: 13px; }
+.filter-button { min-height: 36px; font-size: 12px; }
+.subnav button { min-width: 92px; height: 36px; font-size: 12px; }
 .section-header p,
 .table-toolbar p,
 .metric-card > small,
@@ -2122,18 +2123,18 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .global-period-context,
 .global-period-context strong,
 .table-state,
-.data-state p { font-size: 12px; }
-.segmented button { min-height: 32px; font-size: 12px; }
-.data-table { font-size: 13px; }
-.data-table th { padding-top: 12px; padding-bottom: 12px; font-size: 12px; }
-.data-table td { min-height: 60px; font-size: 13px; }
+.data-state p { font-size: 11px; }
+.segmented button { min-height: 31px; font-size: 11px; }
+.data-table { font-size: 12px; }
+.data-table th { padding-top: 11px; padding-bottom: 11px; font-size: 11px; }
+.data-table td { min-height: 56px; font-size: 12px; }
 .status,
-.soft-tag { font-size: 12px; }
+.soft-tag { font-size: 11px; }
 .form-grid label > span,
 .form-grid input,
 .form-grid small,
 .toggle-row strong,
-.toggle-row small { font-size: 12px; }
+.toggle-row small { font-size: 11px; }
 .import-panel > p,
 .source-grid strong,
 .source-grid small,
@@ -2144,4 +2145,4 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .import-overview-card > small,
 .history-file small,
 .history-count small,
-.history-source-date { font-size: 12px; }
+.history-source-date { font-size: 11px; }

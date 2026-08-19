@@ -4,7 +4,7 @@ import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql } from "../lib/market/overview-sql";
 import { marketBaseSchemaStatements } from "../lib/market/schema-core";
-import { canonicalMarketOverviewCacheIdentity, getCachedMarketOverview } from "../lib/market/overview-response-cache";
+import { canonicalMarketOverviewCacheIdentity, getCachedMarketFilterOptions, getCachedMarketOverview } from "../lib/market/overview-response-cache";
 
 class AsyncSqliteStatement {
   constructor(
@@ -101,6 +101,8 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(view, /signal: controller\.signal|load\(controller\.signal\)/);
   assert.match(route, /params\.get\("view"\) === "ranking"/);
   assert.match(route, /getCachedMarketOverview/);
+  assert.match(view, /prefetchMarketRankingOverview/);
+  assert.match(view, /rememberMarketOverview\(params\.toString\(\), payload\)/);
   assert.match(view, /initialLoad\.current \? 0 : 350/);
   assert.match(view, /MARKET_RANKING_PAGE_SIZE = 20/);
   assert.match(view, /params\.set\("page", String\(page\)\)/);
@@ -112,6 +114,7 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(database, /COUNT\(\*\) item_count/);
   assert.match(database, /pagination: \{/);
   assert.match(database, /await ensureMarketEffectiveMetricsCache\(db\)/);
+  assert.match(database, /getCachedMarketFilterOptions/);
   assert.match(database, /WITH sources AS MATERIALIZED[\s\S]*SELECT DISTINCT image_url source_url/);
   assert.doesNotMatch(database, /COUNT\(DISTINCT CASE WHEN mic\.status='ready'/);
 });
@@ -170,6 +173,32 @@ test("market overview response cache is canonical, version-invalidated, and coal
   const invalidated = await getCachedMarketOverview(db, identity, load);
   assert.equal(invalidated.status, "miss");
   assert.deepEqual(invalidated.payload, { revision: 2 });
+  sqlite.close();
+});
+
+test("market filter options use a separate revision-aware cache", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE market_monthly_summary_cache_state (id INTEGER PRIMARY KEY, source_revision INTEGER NOT NULL);
+    INSERT INTO market_monthly_summary_cache_state VALUES (1, 3);
+    CREATE TABLE market_subcategory_taxonomy (status TEXT NOT NULL, updated_at TEXT NOT NULL);
+  `);
+  for (const statement of marketBaseSchemaStatements.filter((sql) => sql.includes("market_overview_response_cache"))) {
+    sqlite.exec(statement);
+  }
+  const db = asyncDatabase(sqlite);
+  let loads = 0;
+  const load = async () => ({ categories_json: JSON.stringify([{ value: "净水", count: ++loads }]) });
+
+  const first = await getCachedMarketFilterOptions(db, load);
+  const cached = await getCachedMarketFilterOptions(db, load);
+  assert.deepEqual(cached, first);
+  assert.equal(loads, 1);
+
+  sqlite.exec("UPDATE market_monthly_summary_cache_state SET source_revision=4 WHERE id=1");
+  const refreshed = await getCachedMarketFilterOptions(db, load);
+  assert.equal(loads, 2);
+  assert.notDeepEqual(refreshed, first);
   sqlite.close();
 });
 

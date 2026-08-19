@@ -23,6 +23,7 @@ import {
   ensureMarketMonthlySummaryInvalidationTriggers,
   isMarketMonthlySummaryCacheEligible,
 } from "@/lib/market/monthly-summary-cache";
+import { getCachedMarketFilterOptions } from "@/lib/market/overview-response-cache";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -524,9 +525,12 @@ export async function getMarketOverview(
   const rankingBindings = [...values, ...priceBandValues];
   const realtimeAnalyticsBindings = [...values, ...priceBandValues];
   const analyticsBindings = monthlyCacheReady ? monthlyCacheFilter.values : realtimeAnalyticsBindings;
-  const [primaryResult, rankingResult, filterOptionsResult, batchesResult, imageCacheResult] = await db.batch([
-    db.prepare(view === "full" ? analyticsSql : rankingSummarySql).bind(...analyticsBindings),
-    db.prepare(`${rankingCtes} SELECT id, period_start, period_end, category, scope, price_band_filter, ranking_dimension, operation_mode, subcategory, rank,
+  const filterOptionsPromise = getCachedMarketFilterOptions(db, async () =>
+    await db.prepare(marketOverviewFilterOptionsSql).first<FilterOptionsRow>());
+  const [overviewResults, filterOptions] = await Promise.all([
+    db.batch([
+      db.prepare(view === "full" ? analyticsSql : rankingSummarySql).bind(...analyticsBindings),
+      db.prepare(`${rankingCtes} SELECT id, period_start, period_end, category, scope, price_band_filter, ranking_dimension, operation_mode, subcategory, rank,
       (SELECT p.rank FROM market_ranking_entries p INDEXED BY market_entries_sku_idx
         WHERE p.category=filtered.category AND p.sku_code=filtered.sku_code AND p.ranking_dimension=filtered.ranking_dimension
           AND p.scope=filtered.scope AND p.operation_mode=filtered.operation_mode
@@ -558,17 +562,19 @@ export async function getMarketOverview(
       ), 0) AS own_sales_cents
       FROM top_ranked filtered
       ORDER BY CASE WHEN rank IS NULL THEN 1 ELSE 0 END, rank, gmv_cents DESC`)
-      .bind(...rankingBindings, ...dateValues, ...dateValues),
-    db.prepare(marketOverviewFilterOptionsSql),
-    db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT 8`),
-    db.prepare(`WITH sources AS MATERIALIZED (
-      SELECT DISTINCT image_url source_url FROM market_ranking_entries WHERE image_url<>''
-    )
-    SELECT COUNT(*) total,
-      COUNT(CASE WHEN mic.status='ready' THEN 1 END) cached,
-      COUNT(CASE WHEN mic.status='failed' AND mic.attempt_count>=3 THEN 1 END) failed
-      FROM sources LEFT JOIN market_image_cache mic ON mic.source_url=sources.source_url`),
+        .bind(...rankingBindings, ...dateValues, ...dateValues),
+      db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches ORDER BY created_at DESC LIMIT 8`),
+      db.prepare(`WITH sources AS MATERIALIZED (
+        SELECT DISTINCT image_url source_url FROM market_ranking_entries WHERE image_url<>''
+      )
+      SELECT COUNT(*) total,
+        COUNT(CASE WHEN mic.status='ready' THEN 1 END) cached,
+        COUNT(CASE WHEN mic.status='failed' AND mic.attempt_count>=3 THEN 1 END) failed
+        FROM sources LEFT JOIN market_image_cache mic ON mic.source_url=sources.source_url`),
+    ]),
+    filterOptionsPromise,
   ]);
+  const [primaryResult, rankingResult, batchesResult, imageCacheResult] = overviewResults;
   let analyticsRows = view === "full" ? batchRows<AnalyticsAggregateRow>(primaryResult) : [];
   if (view === "full" && monthlyCacheReady && !analyticsRows.some((row) => row.section === "summary")) {
     const fallback = await db.prepare(realtimeAnalyticsSql).bind(...realtimeAnalyticsBindings).all<AnalyticsAggregateRow>();
@@ -600,7 +606,6 @@ export async function getMarketOverview(
     conversionHighBps: row.conversion_high_bps,
   })));
   const estimateById = new Map(rankedEstimates.map((row) => [Number(row.id), row]));
-  const filterOptions = batchRows<FilterOptionsRow>(filterOptionsResult)[0];
   const batches = batchRows<Parameters<typeof mapMarketBatch>[0]>(batchesResult)
     .map((row) => mapMarketBatch(row) as MarketImportBatch);
   const imageCache = batchRows<{ total: number; cached: number; failed: number }>(imageCacheResult)[0];

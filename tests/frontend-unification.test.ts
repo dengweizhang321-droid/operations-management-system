@@ -69,17 +69,18 @@ test("data import navigation switches real workspaces instead of rendering inert
   assert.match(page, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel">/);
 });
 
-test("operational navigation and tables use the enlarged readability baseline", async () => {
+test("operational navigation and tables use the balanced density baseline", async () => {
   const [styles, tokens] = await Promise.all([
     source("../app/globals.css"),
     source("../app/styles/tokens.css"),
   ]);
   assert.match(tokens, /--app-sidebar-collapsed-width: 80px/);
-  assert.match(styles, /\.nav-copy b \{ font-size: 15px; \}/);
-  assert.match(styles, /\.nav-copy small \{ font-size: 12px; \}/);
-  assert.match(styles, /\.subnav button \{ min-width: 96px; height: 38px; font-size: 13px; \}/);
-  assert.match(styles, /\.data-table \{ font-size: 13px; \}/);
-  assert.match(styles, /\.data-table th \{ padding-top: 12px; padding-bottom: 12px; font-size: 12px; \}/);
+  assert.match(styles, /\.nav-copy b \{ font-size: 14px; \}/);
+  assert.match(styles, /\.nav-copy small \{ font-size: 11px; \}/);
+  assert.match(styles, /\.subnav button \{ min-width: 92px; height: 36px; font-size: 12px; \}/);
+  assert.match(styles, /\.data-table \{ font-size: 12px; \}/);
+  assert.match(styles, /\.data-table th \{ padding-top: 11px; padding-bottom: 11px; font-size: 11px; \}/);
+  assert.match(styles, /\.date-selector > \.searchable-select \.searchable-select-menu \{[^}]*right: 0; left: auto;/);
 });
 
 test("one global page head owns the shared period and passes it to every module", async () => {
