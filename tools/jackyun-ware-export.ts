@@ -376,11 +376,11 @@ async function exactlyOne(locator: Locator, description: string) {
   return locator;
 }
 
-async function waitForExportEntry(page: Page) {
+async function waitForExportEntry(page: Page, timeoutMs = 90_000) {
   // JD keeps another same-named button inside a hidden batch-tools menu.
   // Bind only the visible entry so locator waiting cannot attach to that copy.
   const entry = page.getByRole("button", { name: "导出查询商品", exact: true }).filter({ visible: true });
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + timeoutMs;
   const recentVisibleCounts: number[] = [];
   while (Date.now() < deadline) {
     recentVisibleCounts.push(await entry.count());
@@ -520,7 +520,18 @@ export async function revealJdWareExportEntry(page: Page, queryBootstrapState: J
     if (decision === "open_batch_operations") {
       await exactlyOne(batchOperations, "批量操作按钮");
       await batchOperations.click({ timeout: 10_000 });
-      await waitForExportEntry(page);
+      try {
+        await waitForExportEntry(page, 3_000);
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "导出查询商品按钮未达到连续可见稳定状态。") throw error;
+        await exactlyOne(batchOperations, "批量操作按钮");
+        if (await batchOperations.getAttribute("aria-expanded") === "true") throw error;
+        // Some JD account variants ignore pointer clicks on this dropdown but
+        // implement its keyboard contract. This remains the same reversible
+        // menu action and is allowed only after the click produced no entry.
+        await batchOperations.press("Enter", { timeout: 10_000 });
+        await waitForExportEntry(page);
+      }
       return;
     }
     const queryDecision = jdWareProductQueryBootstrapDecision({

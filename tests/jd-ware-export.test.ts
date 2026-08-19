@@ -510,10 +510,10 @@ test("classifies the WareList query control only when it is uniquely bound to it
   assert.throws(() => jdWareSkuExportDrawerDecision({ exportDrawerCount: 0, scopedSkuTabCount: 0, pageSkuTabCount: 1 }), /不在唯一导出条件抽屉/);
 });
 
-function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; revealAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number }) {
+function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; revealAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none" }) {
   let exportEntryCount = 0;
   let waitCount = 0;
-  const clicks = { scopedQuery: 0, batchOperations: 0, exportEntry: 0 };
+  const clicks = { scopedQuery: 0, batchOperations: 0, batchOperationsEnter: 0, exportEntry: 0 };
   const selectors: string[] = [];
   const chain = <T extends object>(locator: T) => Object.assign(locator, { filter: () => locator });
   const scopedQuery = chain({
@@ -561,6 +561,8 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
   const batchOperations = chain({
     count: async () => input.batchOperationsCount ?? 0,
     click: async () => { clicks.batchOperations += 1; },
+    press: async (key: string) => { if (key === "Enter") clicks.batchOperationsEnter += 1; },
+    getAttribute: async () => "false",
   });
   const page = {
     locator: (selector: string) => {
@@ -573,7 +575,12 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
     getByRole: (_role: string, options: { name: string }) => options.name === "导出查询商品" ? exportEntry : options.name === "SKU导出" ? pageSkuTab : pageQuery,
     waitForTimeout: async () => {
       waitCount += 1;
-      if ((clicks.scopedQuery === 1 || clicks.batchOperations === 1) && waitCount >= (input.revealAfterWaits ?? 1)) exportEntryCount = 1;
+      const batchRevealed = (input.batchRevealMethod ?? "click") === "click"
+        ? clicks.batchOperations === 1
+        : input.batchRevealMethod === "enter"
+          ? clicks.batchOperationsEnter === 1
+          : false;
+      if ((clicks.scopedQuery === 1 || batchRevealed) && waitCount >= (input.revealAfterWaits ?? 1)) exportEntryCount = 1;
     },
   };
   return { page, clicks, selectors, jdOverlayNodes, rawDrawerCandidate, resetExportEntry: () => { exportEntryCount = 0; } };
@@ -601,6 +608,21 @@ test("revealJdWareExportEntry opens the exact batch dropdown wrapper instead of 
   const ambiguous = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, batchOperationsCount: 2 });
   await assert.rejects(revealJdWareExportEntry(ambiguous.page as never), /批量操作入口不唯一/);
   assert.equal(ambiguous.clicks.batchOperations, 0);
+});
+
+test("revealJdWareExportEntry falls back once to Enter when the same unique dropdown ignores a pointer click", async () => {
+  const target = createWareListEntryPageFixture({
+    productSearchContainerCount: 1,
+    scopedQueryButtonCount: 1,
+    pageQueryButtonCount: 1,
+    batchOperationsCount: 1,
+    batchRevealMethod: "enter",
+    revealAfterWaits: 14,
+  });
+  await revealJdWareExportEntry(target.page as never);
+  assert.equal(target.clicks.batchOperations, 1);
+  assert.equal(target.clicks.batchOperationsEnter, 1);
+  assert.equal(target.clicks.scopedQuery, 0);
 });
 
 test("prepareJdWareExportEntry skips bootstrap only for one identity-verified SKU export drawer", async () => {
