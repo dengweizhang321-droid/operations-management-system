@@ -585,7 +585,7 @@ test("exposes the five operational collaboration workspaces", async () => {
   assert.match(page, /搜索评价内容/);
   assert.match(page, /搜索新品项目/);
   assert.match(page, /workflow-plan-table/);
-  for (const label of ["进行中", "已逾期", "今日到期", "状态分布", "未完成 · 按紧急程度", "按跟进人工作量", "时间轴", "下载清单"]) assert.match(page, new RegExp(label));
+  for (const label of ["进行中", "已逾期", "今日到期", "状态分布", "未完成 · 按紧急程度", "按跟进人工作量", "时间轴", "下载当前清单"]) assert.match(page, new RegExp(label));
   assert.match(page, /Asia\/Shanghai/);
   assert.match(page, /workflow-summary-grid/);
   assert.match(page, /workflow-insight-grid/);
@@ -603,6 +603,11 @@ test("exposes the five operational collaboration workspaces", async () => {
   assert.match(page, /支持图片 \/ 文件/);
   for (const field of ["工作事项", "工作内容", "跟进人", "店铺名称", "开始时间", "截止时间", "紧急程度"]) assert.match(page, new RegExp(field));
   assert.match(page, /WorkflowDeleteConfirm/);
+  assert.match(page, /WorkflowTaskEditor/);
+  assert.match(page, /workflow-task-buckets/);
+  assert.match(page, /未开始 \+ 进行中/);
+  assert.match(page, /标记完成后自动移入“已完成”/);
+  assert.match(page, /保存修改/);
   assert.match(page, /确认删除工作项/);
   assert.match(page, /确认删除/);
   assert.match(page, /未命名工作项/);
@@ -612,7 +617,7 @@ test("exposes the five operational collaboration workspaces", async () => {
   assert.doesNotMatch(page, /openJackyunLogin/);
 });
 
-test("persists work-plan creation, editable deadline, status changes, and deletion", async () => {
+test("persists work-plan creation, full-field edits, status archiving, and deletion", async () => {
   const [page, route, tasks, migration] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/workflow/tasks/route.ts", import.meta.url), "utf8"),
@@ -634,9 +639,12 @@ test("persists work-plan creation, editable deadline, status changes, and deleti
   assert.match(tasks, /source: row\.created_by === "system"/);
   assert.match(tasks, /updateWorkflowTask/);
   assert.match(tasks, /截止时间不能早于开始时间/);
-  assert.match(tasks, /SET status = \?, due_date = \?/);
-  assert.match(tasks, /SET due_date = \?/);
-  assert.doesNotMatch(page, /workflow-plan-actions/);
+  assert.match(tasks, /SET title = \?, work_content = \?, category = \?, owner = \?, shop_name = \?/);
+  assert.match(tasks, /start_date = \?, due_date = \?, status = \?, priority = \?/);
+  assert.match(tasks, /工作项紧急程度无效/);
+  assert.match(page, /workflow-plan-actions/);
+  assert.match(page, /taskListScope === "completed"/);
+  assert.match(page, /item\.status !== "已完成"/);
   assert.match(migration, /CREATE TABLE `workflow_tasks`/);
 });
 

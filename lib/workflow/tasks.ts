@@ -1,7 +1,4 @@
-import {
-  getSalesDatabase,
-  type SalesDatabase,
-} from "@/lib/sales/database";
+import type { SalesDatabase } from "@/lib/sales/database";
 
 export const workflowTaskStatuses = ["待开始", "工作中", "已完成"] as const;
 export type WorkflowTaskStatus = (typeof workflowTaskStatuses)[number];
@@ -39,8 +36,15 @@ export type CreateWorkflowTaskInput = {
 };
 
 export type UpdateWorkflowTaskInput = {
+  title?: unknown;
+  workContent?: unknown;
+  category?: unknown;
+  owner?: unknown;
+  shopName?: unknown;
+  startDate?: unknown;
   status?: unknown;
   due?: unknown;
+  priority?: unknown;
 };
 
 type WorkflowTaskRow = {
@@ -89,7 +93,7 @@ const schemaStatements = [
   )`,
 ] as const;
 
-const initialTasks: Array<Omit<WorkflowTask, "attachments">> = [
+const initialTasks: Array<Omit<WorkflowTask, "attachments" | "source" | "createdAt">> = [
   { id: "task-1", title: "完成 7 月大促价格检查", workContent: "核对重点商品活动价、优惠券和到手价，并整理差异项。", category: "活动运营", owner: "京东自营", shopName: "京东-志高商用设备旗舰店", startDate: "2026-07-18", due: "2026-07-18", status: "待开始", priority: "high" },
   { id: "task-2", title: "新品成分资料归档", workContent: "归档新品成分表、质检资料和平台备案所需文件。", category: "新品上架", owner: "商品组", shopName: "天猫-志高亿用专卖店", startDate: "2026-07-17", due: "2026-07-18", status: "待开始", priority: "normal" },
   { id: "task-3", title: "净透精华主图升级", workContent: "完成主图文案、卖点排版和详情页素材替换。", category: "新品上架", owner: "天猫组", shopName: "天猫-志高亿用专卖店", startDate: "2026-07-16", due: "2026-07-18", status: "工作中", priority: "high" },
@@ -100,6 +104,12 @@ const initialTasks: Array<Omit<WorkflowTask, "attachments">> = [
 ];
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
+
+async function workflowDatabase(db?: SalesDatabase) {
+  if (db) return db;
+  const { getSalesDatabase } = await import("@/lib/sales/database");
+  return getSalesDatabase();
+}
 
 function isWorkflowTaskStatus(value: unknown): value is WorkflowTaskStatus {
   return typeof value === "string" && workflowTaskStatuses.includes(value as WorkflowTaskStatus);
@@ -163,11 +173,12 @@ function normalizedCreateInput(input: CreateWorkflowTaskInput) {
   };
 }
 
-export async function ensureWorkflowTaskSchema(db: SalesDatabase = getSalesDatabase()) {
-  const key = db as unknown as object;
+export async function ensureWorkflowTaskSchema(db?: SalesDatabase) {
+  const database = await workflowDatabase(db);
+  const key = database as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
   if (existing) return existing;
-  const setup = db.batch(schemaStatements.map((statement) => db.prepare(statement)))
+  const setup = database.batch(schemaStatements.map((statement) => database.prepare(statement)))
     .then(() => undefined)
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
@@ -205,9 +216,10 @@ async function ensureInitialTasks(db: SalesDatabase) {
   await db.batch(statements);
 }
 
-export async function listWorkflowTasks(db: SalesDatabase = getSalesDatabase()) {
-  await ensureInitialTasks(db);
-  const result = await db.prepare(
+export async function listWorkflowTasks(db?: SalesDatabase) {
+  const database = await workflowDatabase(db);
+  await ensureInitialTasks(database);
+  const result = await database.prepare(
     `SELECT ${taskColumns}
      FROM workflow_tasks
      ORDER BY created_at DESC, id DESC`,
@@ -218,12 +230,13 @@ export async function listWorkflowTasks(db: SalesDatabase = getSalesDatabase()) 
 export async function createWorkflowTask(
   input: CreateWorkflowTaskInput,
   updatedBy: string,
-  db: SalesDatabase = getSalesDatabase(),
+  db?: SalesDatabase,
 ) {
-  await ensureInitialTasks(db);
+  const database = await workflowDatabase(db);
+  await ensureInitialTasks(database);
   const task = normalizedCreateInput(input);
   const id = crypto.randomUUID();
-  await db.prepare(
+  await database.prepare(
     `INSERT INTO workflow_tasks (
       id, title, work_content, category, owner, shop_name,
       start_date, due_date, status, priority, created_by, updated_by
@@ -241,7 +254,7 @@ export async function createWorkflowTask(
     updatedBy,
     updatedBy,
   ).run();
-  const row = await db.prepare(`SELECT ${taskColumns} FROM workflow_tasks WHERE id = ? LIMIT 1`)
+  const row = await database.prepare(`SELECT ${taskColumns} FROM workflow_tasks WHERE id = ? LIMIT 1`)
     .bind(id)
     .first<WorkflowTaskRow>();
   if (!row) throw new Error("工作项保存后无法读取");
@@ -252,44 +265,66 @@ export async function updateWorkflowTask(
   id: unknown,
   input: UpdateWorkflowTaskInput,
   updatedBy: string,
-  db: SalesDatabase = getSalesDatabase(),
+  db?: SalesDatabase,
 ) {
-  await ensureInitialTasks(db);
+  const database = await workflowDatabase(db);
+  await ensureInitialTasks(database);
   const validId = taskId(id);
-  const hasStatus = input.status !== undefined;
-  const hasDue = input.due !== undefined;
-  if (!hasStatus && !hasDue) throw new Error("缺少可更新的工作项字段");
-  if (hasStatus && !isWorkflowTaskStatus(input.status)) throw new Error("工作项状态无效");
+  const editableFields: Array<keyof UpdateWorkflowTaskInput> = [
+    "title", "workContent", "category", "owner", "shopName",
+    "startDate", "due", "status", "priority",
+  ];
+  if (!editableFields.some((field) => input[field] !== undefined)) {
+    throw new Error("缺少可更新的工作项字段");
+  }
+  if (input.status !== undefined && !isWorkflowTaskStatus(input.status)) {
+    throw new Error("工作项状态无效");
+  }
+  if (input.priority !== undefined && !isWorkflowTaskPriority(input.priority)) {
+    throw new Error("工作项紧急程度无效");
+  }
 
-  const current = await db.prepare(
-    "SELECT start_date FROM workflow_tasks WHERE id = ? LIMIT 1",
-  ).bind(validId).first<{ start_date: string }>();
+  const current = await database.prepare(
+    `SELECT ${taskColumns} FROM workflow_tasks WHERE id = ? LIMIT 1`,
+  ).bind(validId).first<WorkflowTaskRow>();
   if (!current) return null;
 
-  const due = hasDue ? dateValue(input.due) : null;
-  if (due && current.start_date !== "待排期" && due !== "待排期" && due < current.start_date) {
+  const next = {
+    title: input.title === undefined ? current.title : textValue(input.title, "未命名工作项", 160),
+    workContent: input.workContent === undefined ? current.work_content : textValue(input.workContent, "未填写工作内容", 2_000),
+    category: input.category === undefined ? current.category : textValue(input.category, "工作计划", 80),
+    owner: input.owner === undefined ? current.owner : textValue(input.owner, "未指定跟进人", 120),
+    shopName: input.shopName === undefined ? current.shop_name : textValue(input.shopName, "未关联店铺", 160),
+    startDate: input.startDate === undefined ? current.start_date : dateValue(input.startDate),
+    due: input.due === undefined ? current.due_date : dateValue(input.due),
+    status: input.status === undefined ? current.status as WorkflowTaskStatus : input.status,
+    priority: input.priority === undefined ? current.priority as WorkflowTaskPriority : input.priority,
+  };
+  if (next.startDate !== "待排期" && next.due !== "待排期" && next.due < next.startDate) {
     throw new Error("截止时间不能早于开始时间");
   }
 
-  const result = hasStatus && hasDue
-    ? await db.prepare(
-      `UPDATE workflow_tasks
-       SET status = ?, due_date = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-    ).bind(input.status, due, updatedBy, validId).run()
-    : hasStatus
-      ? await db.prepare(
-        `UPDATE workflow_tasks
-         SET status = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-      ).bind(input.status, updatedBy, validId).run()
-      : await db.prepare(
-        `UPDATE workflow_tasks
-         SET due_date = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-      ).bind(due, updatedBy, validId).run();
+  const result = await database.prepare(
+    `UPDATE workflow_tasks
+     SET title = ?, work_content = ?, category = ?, owner = ?, shop_name = ?,
+         start_date = ?, due_date = ?, status = ?, priority = ?,
+         updated_by = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+  ).bind(
+    next.title,
+    next.workContent,
+    next.category,
+    next.owner,
+    next.shopName,
+    next.startDate,
+    next.due,
+    next.status,
+    next.priority,
+    updatedBy,
+    validId,
+  ).run();
   if (Number(result.meta?.changes ?? 0) === 0) return null;
-  const row = await db.prepare(`SELECT ${taskColumns} FROM workflow_tasks WHERE id = ? LIMIT 1`)
+  const row = await database.prepare(`SELECT ${taskColumns} FROM workflow_tasks WHERE id = ? LIMIT 1`)
     .bind(validId)
     .first<WorkflowTaskRow>();
   return row ? mapTask(row) : null;
@@ -297,9 +332,10 @@ export async function updateWorkflowTask(
 
 export async function deleteWorkflowTask(
   id: unknown,
-  db: SalesDatabase = getSalesDatabase(),
+  db?: SalesDatabase,
 ) {
-  await ensureInitialTasks(db);
-  const result = await db.prepare("DELETE FROM workflow_tasks WHERE id = ?").bind(taskId(id)).run();
+  const database = await workflowDatabase(db);
+  await ensureInitialTasks(database);
+  const result = await database.prepare("DELETE FROM workflow_tasks WHERE id = ?").bind(taskId(id)).run();
   return Number(result.meta?.changes ?? 0) > 0;
 }

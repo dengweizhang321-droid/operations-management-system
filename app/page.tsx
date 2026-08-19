@@ -4278,6 +4278,7 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
 type WorkflowTab = "plan" | "inspection" | "reviews" | "launch" | "variables";
 type WorkflowStatus = "待开始" | "工作中" | "已完成";
 type WorkflowPriority = "high" | "normal" | "low";
+type WorkflowTaskListScope = "open" | "pending" | "active" | "completed";
 
 type WorkflowAttachment = {
   id: string;
@@ -4303,6 +4304,11 @@ type WorkflowTask = {
   createdAt: string;
   attachments: WorkflowAttachment[];
 };
+
+type WorkflowTaskEditableFields = Pick<WorkflowTask,
+  "title" | "workContent" | "category" | "owner" | "shopName" |
+  "startDate" | "due" | "status" | "priority"
+>;
 
 type WorkflowLaunch = {
   id: string;
@@ -4330,7 +4336,7 @@ function workflowStatusClass(status: WorkflowStatus) {
 }
 
 function workflowStatusLabel(status: WorkflowStatus) {
-  return status === "待开始" ? "未开始" : status;
+  return status === "待开始" ? "未开始" : status === "工作中" ? "进行中" : status;
 }
 
 function workflowPriorityLabel(priority: WorkflowPriority) {
@@ -4479,6 +4485,80 @@ function WorkflowDeleteConfirm({
   </div>;
 }
 
+function WorkflowTaskEditor({
+  task,
+  onCancel,
+  onSave,
+  disabled = false,
+}: {
+  task: WorkflowTask;
+  onCancel: () => void;
+  onSave: (changes: WorkflowTaskEditableFields) => Promise<boolean>;
+  disabled?: boolean;
+}) {
+  const [draft, setDraft] = useState<WorkflowTaskEditableFields>(() => ({
+    title: task.title,
+    workContent: task.workContent,
+    category: task.category,
+    owner: task.owner,
+    shopName: task.shopName,
+    startDate: task.startDate,
+    due: task.due,
+    status: task.status,
+    priority: task.priority,
+  }));
+  const [validationMessage, setValidationMessage] = useState("");
+  const setField = <Key extends keyof WorkflowTaskEditableFields>(field: Key, value: WorkflowTaskEditableFields[Key]) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const next = {
+      ...draft,
+      title: draft.title.trim() || "未命名工作项",
+      workContent: draft.workContent.trim() || "未填写工作内容",
+      category: draft.category.trim() || "工作计划",
+      owner: draft.owner.trim() || "未指定跟进人",
+      shopName: draft.shopName.trim() || "未关联店铺",
+      startDate: draft.startDate || "待排期",
+      due: draft.due || "待排期",
+    };
+    if (next.startDate !== "待排期" && next.due !== "待排期" && next.due < next.startDate) {
+      setValidationMessage("截止时间不能早于开始时间。");
+      return;
+    }
+    setValidationMessage("");
+    if (await onSave(next)) onCancel();
+  };
+
+  return <div className="workflow-attachment-modal-backdrop" role="presentation" onMouseDown={(event) => {
+    if (event.currentTarget === event.target && !disabled) onCancel();
+  }}>
+    <section className="workflow-edit-modal" role="dialog" aria-modal="true" aria-labelledby="workflow-task-edit-title">
+      <button type="button" className="workflow-modal-close" onClick={onCancel} aria-label="关闭事项编辑" disabled={disabled}>×</button>
+      <span className="eyebrow">EDIT WORK ITEM</span>
+      <h2 id="workflow-task-edit-title">编辑工作事项</h2>
+      <p>修改事项信息、排期或状态；保存后将同步到工作计划清单。</p>
+      <form className="workflow-edit-form" onSubmit={(event) => void submit(event)}>
+        <label><span>事项分类</span><input value={draft.category} onChange={(event) => setField("category", event.target.value)} maxLength={80} /></label>
+        <label className="workflow-edit-title-field"><span>工作事项</span><input value={draft.title} onChange={(event) => setField("title", event.target.value)} maxLength={160} autoFocus /></label>
+        <label className="workflow-edit-content-field"><span>工作内容</span><textarea value={draft.workContent} onChange={(event) => setField("workContent", event.target.value)} maxLength={2000} rows={4} /></label>
+        <label><span>店铺名称</span><input value={draft.shopName} onChange={(event) => setField("shopName", event.target.value)} maxLength={160} /></label>
+        <label><span>跟进人</span><input value={draft.owner} onChange={(event) => setField("owner", event.target.value)} maxLength={120} /></label>
+        <label><span>紧急程度</span><SearchableSelect value={draft.priority} onChange={(value) => setField("priority", value as WorkflowPriority)} ariaLabel="编辑工作事项紧急程度" searchPlaceholder="搜索紧急程度" options={[{ value: "high", label: "紧急" }, { value: "normal", label: "普通" }, { value: "low", label: "低" }]} /></label>
+        <label><span>开始时间</span><input type="date" value={draft.startDate === "待排期" ? "" : draft.startDate} max={draft.due === "待排期" ? undefined : draft.due} onChange={(event) => setField("startDate", event.target.value || "待排期")} /></label>
+        <label><span>截止时间</span><input type="date" value={draft.due === "待排期" ? "" : draft.due} min={draft.startDate === "待排期" ? undefined : draft.startDate} onChange={(event) => setField("due", event.target.value || "待排期")} /></label>
+        <label><span>事项状态</span><SearchableSelect value={draft.status} onChange={(value) => setField("status", value as WorkflowStatus)} ariaLabel="编辑工作事项状态" searchPlaceholder="搜索状态" options={workflowStages.map((stage) => ({ value: stage.value, label: workflowStatusLabel(stage.value) }))} /></label>
+        {validationMessage && <p className="workflow-edit-validation" role="alert">{validationMessage}</p>}
+        <div className="workflow-modal-actions workflow-edit-actions">
+          <button type="button" className="secondary-button" onClick={onCancel} disabled={disabled}>取消</button>
+          <button type="submit" className="primary-button" disabled={disabled}>{disabled ? "保存中…" : "保存修改"}</button>
+        </div>
+      </form>
+    </section>
+  </div>;
+}
+
 function WorkflowView() {
   const [activeTab, setActiveTab] = useState<WorkflowTab>("plan");
   const [taskQuery, setTaskQuery] = useState("");
@@ -4488,6 +4568,7 @@ function WorkflowView() {
   const [taskDueFrom, setTaskDueFrom] = useState("");
   const [taskDueTo, setTaskDueTo] = useState("");
   const [taskViewMode, setTaskViewMode] = useState<"table" | "timeline">("table");
+  const [taskListScope, setTaskListScope] = useState<WorkflowTaskListScope>("open");
   const [inspectionStatuses, setInspectionStatuses] = useState<Array<"待处理" | "正常">>([]);
   const [reviewStatuses, setReviewStatuses] = useState<Array<"待回复" | "已回复">>([]);
   const [draftCategory, setDraftCategory] = useState("");
@@ -4500,6 +4581,7 @@ function WorkflowView() {
   const [draftPriority, setDraftPriority] = useState<WorkflowPriority | "">("");
   const [workflowFeedback, setWorkflowFeedback] = useState("");
   const [attachmentViewer, setAttachmentViewer] = useState<WorkflowAttachment | null>(null);
+  const [taskBeingEdited, setTaskBeingEdited] = useState<WorkflowTask | null>(null);
   const [taskPendingDeletion, setTaskPendingDeletion] = useState<WorkflowTask | null>(null);
   const [tasks, setTasks] = useState<WorkflowTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
@@ -4548,6 +4630,13 @@ function WorkflowView() {
     const matchesDueTo = !taskDueTo || (item.due !== "待排期" && item.due <= taskDueTo);
     return matchesQuery && matchesStatus && matchesPriority && matchesOwner && matchesDueFrom && matchesDueTo;
   }), [taskDueFrom, taskDueTo, taskOwners, taskPriorities, taskQuery, taskStatuses, tasks]);
+
+  const displayedTasks = useMemo(() => filteredTasks.filter((item) => {
+    if (taskListScope === "pending") return item.status === "待开始";
+    if (taskListScope === "active") return item.status === "工作中";
+    if (taskListScope === "completed") return item.status === "已完成";
+    return item.status !== "已完成";
+  }), [filteredTasks, taskListScope]);
 
   const filteredLaunches = useMemo(() => launches.filter((item) => {
     const matchesQuery = !launchQuery.trim() || [item.productName, item.productCode, item.stage, item.owner, item.status].join(" ").toLocaleLowerCase("zh-CN").includes(launchQuery.trim().toLocaleLowerCase("zh-CN"));
@@ -4626,7 +4715,7 @@ function WorkflowView() {
     const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
     const rows = [
       ["工作事项", "工作内容", "店铺", "紧急程度", "跟进人", "开始时间", "截止时间", "状态", "来源", "录入时间"],
-      ...filteredTasks.map((task) => [task.title, task.workContent, task.shopName, workflowPriorityLabel(task.priority), task.owner, task.startDate, task.due, workflowStatusLabel(task.status), task.source, formatWorkflowRecordedAt(task.createdAt)]),
+      ...displayedTasks.map((task) => [task.title, task.workContent, task.shopName, workflowPriorityLabel(task.priority), task.owner, task.startDate, task.due, workflowStatusLabel(task.status), task.source, formatWorkflowRecordedAt(task.createdAt)]),
     ];
     const blob = new Blob(["\ufeff" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -4637,10 +4726,12 @@ function WorkflowView() {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
-  const updateTask = async (taskId: string, changes: Partial<Pick<WorkflowTask, "status" | "due">>) => {
-    if (tasksLoading || taskMutationPending) return;
+  const updateTask = async (taskId: string, changes: Partial<WorkflowTaskEditableFields>) => {
+    if (tasksLoading || taskMutationPending) return false;
     const task = tasks.find((item) => item.id === taskId);
-    if (!task || (changes.status === task.status && changes.due === undefined) || (changes.due === task.due && changes.status === undefined)) return;
+    if (!task) return false;
+    const changedEntries = Object.entries(changes).filter(([field, value]) => task[field as keyof WorkflowTaskEditableFields] !== value);
+    if (changedEntries.length === 0) return true;
     setTasks((current) => current.map((item) => item.id === taskId ? { ...item, ...changes } : item));
     setTaskMutationPending(true);
     try {
@@ -4654,16 +4745,16 @@ function WorkflowView() {
         throw new Error(payload?.error || `工作项保存失败（${response.status}）`);
       }
       setTasks((current) => current.map((item) => item.id === taskId ? { ...payload.item!, attachments: item.attachments } : item));
-      setWorkflowFeedback(changes.status
+      setWorkflowFeedback(changedEntries.length > 1
+        ? `「${changes.title || task.title}」已编辑并保存。`
+        : changes.status
         ? `「${task.title}」状态已调整为${workflowStatusLabel(changes.status)}并保存。`
         : `「${task.title}」截止时间已调整为${changes.due === "待排期" ? "待排期" : changes.due}并保存。`);
+      return true;
     } catch (error) {
-      setTasks((current) => current.map((item) => item.id === taskId ? {
-        ...item,
-        ...(changes.status !== undefined ? { status: task.status } : {}),
-        ...(changes.due !== undefined ? { due: task.due } : {}),
-      } : item));
+      setTasks((current) => current.map((item) => item.id === taskId ? { ...task, attachments: item.attachments } : item));
       setWorkflowFeedback(error instanceof Error ? error.message : "工作项保存失败，请稍后重试。");
+      return false;
     } finally {
       setTaskMutationPending(false);
     }
@@ -4759,10 +4850,18 @@ function WorkflowView() {
   const ownerWorkloadMax = Math.max(1, ...ownerWorkload.map((item) => item.total));
   const completedShare = tasks.length === 0 ? 0 : taskCount("已完成") / tasks.length * 100;
   const activeShare = tasks.length === 0 ? 0 : taskCount("工作中") / tasks.length * 100;
-  const taskStatusBadge = (status: WorkflowStatus) => <span className={"status " + workflowStatusClass(status)}><Dot tone={workflowStatusTone(status)} />{status}</span>;
+  const taskListScopeDetails: Record<WorkflowTaskListScope, { title: string; note: string; empty: string }> = {
+    open: { title: "工作事项清单", note: "仅展示未开始和进行中的事项；标记完成后自动移入“已完成”。", empty: "没有符合当前筛选条件的未完成事项。" },
+    pending: { title: "未开始事项", note: "等待排期、领取或正式启动的工作事项。", empty: "没有符合当前筛选条件的未开始事项。" },
+    active: { title: "进行中事项", note: "已启动并正在推进的工作事项。", empty: "没有符合当前筛选条件的进行中事项。" },
+    completed: { title: "已完成事项", note: "已闭环事项统一归档在这里，也可重新编辑或调整状态。", empty: "没有符合当前筛选条件的已完成事项。" },
+  };
+  const currentTaskList = taskListScopeDetails[taskListScope];
+  const taskStatusBadge = (status: WorkflowStatus) => <span className={"status " + workflowStatusClass(status)}><Dot tone={workflowStatusTone(status)} />{workflowStatusLabel(status)}</span>;
   const feedback = workflowFeedback ? <section className="workflow-feedback" role="status"><span>✓</span><p>{workflowFeedback}</p><button type="button" onClick={() => setWorkflowFeedback("")} aria-label="关闭提示">×</button></section> : null;
   const attachmentModal = attachmentViewer ? <WorkflowAttachmentPreview attachment={attachmentViewer} onClose={() => setAttachmentViewer(null)} /> : null;
   const taskDeletionModal = taskPendingDeletion ? <WorkflowDeleteConfirm task={taskPendingDeletion} onCancel={() => setTaskPendingDeletion(null)} onConfirm={() => void confirmTaskDeletion()} disabled={taskMutationPending} /> : null;
+  const taskEditModal = taskBeingEdited ? <WorkflowTaskEditor key={taskBeingEdited.id} task={taskBeingEdited} onCancel={() => setTaskBeingEdited(null)} onSave={(changes) => updateTask(taskBeingEdited.id, changes)} disabled={taskMutationPending} /> : null;
 
   const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">
     <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => setActiveTab("plan")}>工作计划</button>
@@ -4835,7 +4934,7 @@ function WorkflowView() {
           <h2>工作计划</h2>
           <p>集中管理运营事项、责任人和截止节点，逾期自动判定，状态变更实时保存。</p>
         </div>
-        <div className="workflow-hero-actions"><span>数据实时保存</span><button type="button" className="secondary-button" onClick={downloadTasks} disabled={filteredTasks.length === 0}>⇩ 下载清单</button></div>
+        <div className="workflow-hero-actions"><span>数据实时保存</span><button type="button" className="secondary-button" onClick={downloadTasks} disabled={displayedTasks.length === 0}>⇩ 下载当前清单</button></div>
       </section>
       {feedback}
       <section className="panel workflow-plan-controls workflow-reference-controls">
@@ -4853,12 +4952,12 @@ function WorkflowView() {
         <article className="tone-red"><span>已逾期</span><strong>{overdueTaskCount}</strong><small>需优先闭环</small></article>
         <article className="tone-orange"><span>今日到期</span><strong>{todayDueTaskCount}</strong><small>{todayDate}</small></article>
         <article className="tone-green"><span>已完成</span><strong>{taskCount("已完成")}</strong><small>完成率 {Math.round(completedShare)}%</small></article>
-        <article className="tone-slate"><span>合计</span><strong>{tasks.length}</strong><small>显示 {filteredTasks.length} 项</small></article>
+        <article className="tone-slate"><span>合计</span><strong>{tasks.length}</strong><small>当前清单 {displayedTasks.length} 项</small></article>
       </section>
       <section className="workflow-insight-grid">
-        <article className="panel workflow-chart-card"><header><div><h3>状态分布</h3><p>全部工作项</p></div><span>{tasks.length} 项</span></header><div className="workflow-donut-layout"><div className="workflow-donut" style={{ background: `conic-gradient(#2f72ef 0 ${activeShare}%, #35b779 ${activeShare}% ${activeShare + completedShare}%, #d9dee7 ${activeShare + completedShare}% 100%)` }}><i><strong>{Math.round(completedShare)}%</strong><small>完成率</small></i></div><div className="workflow-chart-legend"><span><i className="legend-gray" />未开始 <strong>{taskCount("待开始")}</strong></span><span><i className="legend-blue" />工作中 <strong>{taskCount("工作中")}</strong></span><span><i className="legend-green" />已完成 <strong>{taskCount("已完成")}</strong></span></div></div></article>
+        <article className="panel workflow-chart-card"><header><div><h3>状态分布</h3><p>全部工作项</p></div><span>{tasks.length} 项</span></header><div className="workflow-donut-layout"><div className="workflow-donut" style={{ background: `conic-gradient(#2f72ef 0 ${activeShare}%, #35b779 ${activeShare}% ${activeShare + completedShare}%, #d9dee7 ${activeShare + completedShare}% 100%)` }}><i><strong>{Math.round(completedShare)}%</strong><small>完成率</small></i></div><div className="workflow-chart-legend"><span><i className="legend-gray" />未开始 <strong>{taskCount("待开始")}</strong></span><span><i className="legend-blue" />进行中 <strong>{taskCount("工作中")}</strong></span><span><i className="legend-green" />已完成 <strong>{taskCount("已完成")}</strong></span></div></div></article>
         <article className="panel workflow-chart-card"><header><div><h3>未完成 · 按紧急程度</h3><p>帮助判断今日优先级</p></div><span>{openTasks.length} 项</span></header><div className="workflow-priority-chart">{prioritySummary.map((item) => <div key={item.priority}><label><span>{item.label}</span><strong>{item.count}</strong></label><i><b className={`priority-${item.priority}`} style={{ width: `${item.count / priorityMax * 100}%` }} /></i></div>)}</div></article>
-        <article className="panel workflow-chart-card"><header><div><h3>按跟进人工作量</h3><p>最多展示 6 位跟进人</p></div><span>{ownerOptions.length} 人</span></header><div className="workflow-owner-chart">{ownerWorkload.length > 0 ? ownerWorkload.map((item) => <div key={item.owner}><label><span title={item.owner}>{item.owner}</span><strong>{item.total}</strong></label><i><b className="owner-pending" style={{ width: `${item.pending / ownerWorkloadMax * 100}%` }} /><b className="owner-active" style={{ width: `${item.active / ownerWorkloadMax * 100}%` }} /><b className="owner-completed" style={{ width: `${item.completed / ownerWorkloadMax * 100}%` }} /></i></div>) : <p className="workflow-chart-empty">暂无跟进人数据</p>}</div><footer><span><i className="legend-gray" />未开始</span><span><i className="legend-blue" />工作中</span><span><i className="legend-green" />已完成</span></footer></article>
+        <article className="panel workflow-chart-card"><header><div><h3>按跟进人工作量</h3><p>最多展示 6 位跟进人</p></div><span>{ownerOptions.length} 人</span></header><div className="workflow-owner-chart">{ownerWorkload.length > 0 ? ownerWorkload.map((item) => <div key={item.owner}><label><span title={item.owner}>{item.owner}</span><strong>{item.total}</strong></label><i><b className="owner-pending" style={{ width: `${item.pending / ownerWorkloadMax * 100}%` }} /><b className="owner-active" style={{ width: `${item.active / ownerWorkloadMax * 100}%` }} /><b className="owner-completed" style={{ width: `${item.completed / ownerWorkloadMax * 100}%` }} /></i></div>) : <p className="workflow-chart-empty">暂无跟进人数据</p>}</div><footer><span><i className="legend-gray" />未开始</span><span><i className="legend-blue" />进行中</span><span><i className="legend-green" />已完成</span></footer></article>
       </section>
       <section className="panel workflow-quick-create">
         <header><div><span className="eyebrow">QUICK ENTRY</span><h3>快速录入工作项</h3></div><p>直接填写后添加；未填写项会保留清晰的默认提示。</p></header>
@@ -4875,12 +4974,18 @@ function WorkflowView() {
         </form>
         <small>状态自动记录，逾期按上海时区自动判定；下拉项可在“变量配置”中统一查看。</small>
       </section>
+      <section className="workflow-task-buckets" aria-label="工作事项分类">
+        <button type="button" className={taskListScope === "open" ? "active" : ""} onClick={() => { setTaskListScope("open"); setTaskStatuses([]); }}><span>工作事项</span><strong>{openTasks.length}</strong><small>未开始 + 进行中</small></button>
+        <button type="button" className={taskListScope === "pending" ? "active" : ""} onClick={() => { setTaskListScope("pending"); setTaskStatuses([]); }}><span>未开始</span><strong>{taskCount("待开始")}</strong><small>等待启动</small></button>
+        <button type="button" className={taskListScope === "active" ? "active" : ""} onClick={() => { setTaskListScope("active"); setTaskStatuses([]); }}><span>进行中</span><strong>{taskCount("工作中")}</strong><small>正在推进</small></button>
+        <button type="button" className={taskListScope === "completed" ? "active completed" : "completed"} onClick={() => { setTaskListScope("completed"); setTaskStatuses([]); }}><span>已完成</span><strong>{taskCount("已完成")}</strong><small>完成归档</small></button>
+      </section>
       {taskViewMode === "table" ? <section className="panel workflow-plan-table-panel">
-        <div className="workflow-list-heading"><div><h3>工作事项清单</h3><p>可直接调整截止时间与状态，修改后自动保存。</p></div><span>{filteredTasks.length} 项</span></div>
+        <div className="workflow-list-heading"><div><h3>{currentTaskList.title}</h3><p>{currentTaskList.note}</p></div><span>{displayedTasks.length} 项</span></div>
         <div className="data-table-wrap">
           <table className="data-table workflow-data-table workflow-plan-table">
             <thead><tr><th>工作事项</th><th>工作内容</th><th>店铺</th><th>紧急程度</th><th>跟进人</th><th>截止时间</th><th>状态</th><th>来源</th><th>录入时间</th><th>附件</th><th>操作</th></tr></thead>
-            <tbody>{filteredTasks.map((task) => <tr key={task.id}>
+            <tbody>{displayedTasks.map((task) => <tr key={task.id}>
               <td><div className="workflow-plan-title"><strong>{task.title}</strong><small>{task.category}</small></div></td>
               <td><p className="workflow-plan-content" title={task.workContent}>{task.workContent}</p></td>
               <td><span className="workflow-plan-shop" title={task.shopName}>{task.shopName}</span></td>
@@ -4891,13 +4996,14 @@ function WorkflowView() {
               <td><span className="workflow-plan-source">{task.source}</span></td>
               <td><time className="workflow-plan-recorded-at" dateTime={task.createdAt}>{formatWorkflowRecordedAt(task.createdAt)}</time></td>
               <td className="workflow-plan-attachments"><WorkflowAttachmentList attachments={task.attachments} inputId={"workflow-plan-file-" + task.id} onFiles={(files) => addTaskAttachments(task.id, files)} onRemove={(attachmentId) => removeTaskAttachment(task.id, attachmentId)} onPreview={setAttachmentViewer} /></td>
-              <td><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></td>
-            </tr>)}{filteredTasks.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的工作计划。</div></td></tr>}</tbody>
+              <td><div className="workflow-plan-actions"><button type="button" className="row-action workflow-edit-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskBeingEdited(task)}>编辑</button><button type="button" className="row-action workflow-delete-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskPendingDeletion(task)}>删除</button></div></td>
+            </tr>)}{displayedTasks.length === 0 && <tr><td colSpan={11}><div className="table-state">{currentTaskList.empty}</div></td></tr>}</tbody>
           </table>
         </div>
-      </section> : <section className="panel workflow-timeline-panel"><div className="workflow-list-heading"><div><h3>工作计划时间轴</h3><p>按截止日期查看未排期、进行中与已完成事项。</p></div><span>{filteredTasks.length} 项</span></div><div className="workflow-timeline">{filteredTasks.map((task) => <article key={task.id} className={task.status === "已完成" ? "is-completed" : task.due !== "待排期" && task.due < todayDate ? "is-overdue" : ""}><time>{task.due === "待排期" ? "待排期" : task.due}</time><i /><div><header><strong>{task.title}</strong>{taskStatusBadge(task.status)}</header><p>{task.workContent}</p><footer><span>{task.shopName}</span><span>{task.owner}</span><b className={`workflow-priority priority-${task.priority}`}>{workflowPriorityLabel(task.priority)}</b></footer></div></article>)}{filteredTasks.length === 0 && <div className="table-state">没有符合当前筛选条件的工作计划。</div>}</div></section>}
+      </section> : <section className="panel workflow-timeline-panel"><div className="workflow-list-heading"><div><h3>{currentTaskList.title} · 时间轴</h3><p>{currentTaskList.note}</p></div><span>{displayedTasks.length} 项</span></div><div className="workflow-timeline">{displayedTasks.map((task) => <article key={task.id} className={task.status === "已完成" ? "is-completed" : task.due !== "待排期" && task.due < todayDate ? "is-overdue" : ""}><time>{task.due === "待排期" ? "待排期" : task.due}</time><i /><div><header><strong>{task.title}</strong>{taskStatusBadge(task.status)}</header><p>{task.workContent}</p><footer><span>{task.shopName}</span><span>{task.owner}</span><b className={`workflow-priority priority-${task.priority}`}>{workflowPriorityLabel(task.priority)}</b><button type="button" className="row-action workflow-edit-button" disabled={tasksLoading || taskMutationPending} onClick={() => setTaskBeingEdited(task)}>编辑</button></footer></div></article>)}{displayedTasks.length === 0 && <div className="table-state">{currentTaskList.empty}</div>}</div></section>}
       {attachmentModal}
       {taskDeletionModal}
+      {taskEditModal}
     </>
   );
 }
