@@ -46,7 +46,11 @@ function tableCellFilterValues(cell: HTMLTableCellElement | undefined) {
 }
 
 function headerLabel(header: HTMLTableCellElement) {
-  return normalizeTableCellValue(header.dataset.columnFilterLabel ?? header.getAttribute("aria-label") ?? header.innerText) || `第 ${header.cellIndex + 1} 列`;
+  return normalizeTableCellValue(
+    header.dataset.columnFilterLabel
+    ?? header.dataset.columnFilterSourceAriaLabel
+    ?? header.innerText,
+  ) || `第 ${header.cellIndex + 1} 列`;
 }
 
 function columnOptions(table: HTMLTableElement, columnIndex: number) {
@@ -66,6 +70,12 @@ function targetPosition(header: HTMLTableCellElement) {
     top: Math.min(preferredTop, Math.max(12, window.innerHeight - 410)),
     width,
   };
+}
+
+function tablesInSubtree(node: Node) {
+  if (node instanceof HTMLTableElement) return [node];
+  if (!(node instanceof Element)) return [];
+  return Array.from(node.querySelectorAll<HTMLTableElement>("table"));
 }
 
 export default function TableColumnFilters() {
@@ -104,19 +114,22 @@ export default function TableColumnFilters() {
     return { visibleRows, totalRows: Number(table.dataset.columnFilterTotalRows) };
   }, [filtersFor]);
 
-  const prepareTables = useCallback(() => {
-    for (const table of Array.from(document.querySelectorAll<HTMLTableElement>("table"))) {
-      table.dataset.columnFilterTable = "true";
-      for (const header of Array.from(table.querySelectorAll<HTMLTableCellElement>("thead th"))) {
-        header.dataset.columnFilterHeader = "true";
-        header.dataset.columnFilterLabel = headerLabel(header);
-        if (!header.hasAttribute("tabindex")) header.tabIndex = 0;
-        header.setAttribute("aria-haspopup", "dialog");
-        header.setAttribute("aria-label", `${header.dataset.columnFilterLabel}，打开列筛选`);
-        header.dataset.columnFilterActive = filtersFor(table).get(header.cellIndex)?.size ? "true" : "false";
+  const prepareTable = useCallback((table: HTMLTableElement) => {
+    table.dataset.columnFilterTable = "true";
+    for (const header of Array.from(table.querySelectorAll<HTMLTableCellElement>("thead th"))) {
+      if (header.dataset.columnFilterHeader !== "true") {
+        const sourceAriaLabel = header.getAttribute("aria-label");
+        if (sourceAriaLabel) header.dataset.columnFilterSourceAriaLabel = sourceAriaLabel;
       }
-      applyFilters(table);
+      const label = headerLabel(header);
+      header.dataset.columnFilterHeader = "true";
+      header.dataset.columnFilterResolvedLabel = label;
+      if (!header.hasAttribute("tabindex")) header.tabIndex = 0;
+      header.setAttribute("aria-haspopup", "dialog");
+      header.setAttribute("aria-label", `${label}，打开列筛选`);
+      header.dataset.columnFilterActive = filtersFor(table).get(header.cellIndex)?.size ? "true" : "false";
     }
+    return applyFilters(table);
   }, [applyFilters, filtersFor]);
 
   const openForHeader = useCallback((header: HTMLTableCellElement) => {
@@ -125,48 +138,146 @@ export default function TableColumnFilters() {
     const columnIndex = header.cellIndex;
     const options = columnOptions(table, columnIndex);
     const selected = [...(filtersFor(table).get(columnIndex) ?? new Set<string>())];
-    const counts = applyFilters(table);
+    const counts = prepareTable(table);
     setQuery("");
     setTarget({
       table,
       header,
       columnIndex,
-      label: header.dataset.columnFilterLabel || headerLabel(header),
+      label: header.dataset.columnFilterResolvedLabel || headerLabel(header),
       options,
       selected,
       ...targetPosition(header),
       ...counts,
     });
-  }, [applyFilters, filtersFor]);
+  }, [filtersFor, prepareTable]);
 
   useEffect(() => {
-    let frame = 0;
-    const schedule = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(prepareTables);
+    let frame: number | null = null;
+    const pendingTables = new Set<HTMLTableElement>();
+    const tableObservers = new Map<HTMLTableElement, MutationObserver>();
+
+    const flushTables = () => {
+      frame = null;
+      const refreshed = new Map<HTMLTableElement, { visibleRows: number; totalRows: number }>();
+      for (const table of pendingTables) {
+        if (table.isConnected) refreshed.set(table, prepareTable(table));
+      }
+      pendingTables.clear();
+      if (refreshed.size > 0) {
+        setTarget((current) => {
+          if (!current) return current;
+          const counts = refreshed.get(current.table);
+          if (!counts) return current;
+          if (!current.header.isConnected) return null;
+          return {
+            ...current,
+            label: current.header.dataset.columnFilterResolvedLabel || headerLabel(current.header),
+            options: columnOptions(current.table, current.columnIndex),
+            selected: [...(filtersFor(current.table).get(current.columnIndex) ?? new Set<string>())],
+            ...counts,
+          };
+        });
+      }
     };
-    schedule();
-    const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    const scheduleTable = (table: HTMLTableElement) => {
+      if (!table.isConnected) return;
+      pendingTables.add(table);
+      if (frame === null) frame = window.requestAnimationFrame(flushTables);
+    };
+
+    const observeTable = (table: HTMLTableElement) => {
+      if (!table.isConnected || tableObservers.has(table)) return;
+      const observer = new MutationObserver(() => scheduleTable(table));
+      observer.observe(table, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ["data-column-filter-values"],
+      });
+      tableObservers.set(table, observer);
+      scheduleTable(table);
+    };
+
+    const forgetTable = (table: HTMLTableElement) => {
+      if (table.isConnected) return;
+      pendingTables.delete(table);
+      tableObservers.get(table)?.disconnect();
+      tableObservers.delete(table);
+    };
+
+    for (const table of document.querySelectorAll<HTMLTableElement>("table")) observeTable(table);
+
+    const documentObserver = new MutationObserver((records) => {
+      const addedTables = new Set<HTMLTableElement>();
+      const removedTables = new Set<HTMLTableElement>();
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          for (const table of tablesInSubtree(node)) addedTables.add(table);
+        }
+        for (const node of record.removedNodes) {
+          for (const table of tablesInSubtree(node)) removedTables.add(table);
+        }
+      }
+      for (const table of removedTables) forgetTable(table);
+      for (const table of addedTables) observeTable(table);
+      if (removedTables.size > 0) {
+        setTarget((current) => current && !current.table.isConnected ? null : current);
+      }
+    });
+    documentObserver.observe(document.body, { childList: true, subtree: true });
+
+    const scheduleEventTable = (event: Event) => {
+      const table = event.target instanceof Element
+        ? event.target.closest<HTMLTableElement>("table")
+        : null;
+      if (!table) return;
+      observeTable(table);
+      scheduleTable(table);
+    };
     const onClick = (event: MouseEvent) => {
       const element = event.target instanceof Element ? event.target : null;
-      const header = element?.closest<HTMLTableCellElement>("th[data-column-filter-header='true']");
+      const header = element?.closest<HTMLTableCellElement>("table thead th");
       if (!header || element?.closest(interactiveSelector)) return;
       event.preventDefault();
+      const table = header.closest<HTMLTableElement>("table");
+      if (table) observeTable(table);
       openForHeader(header);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && target) { setTarget(null); return; }
-      const header = event.target instanceof HTMLTableCellElement && event.target.matches("th[data-column-filter-header='true']") ? event.target : null;
-      if (!header || (event.key !== "Enter" && event.key !== " ")) return;
+      if (event.key === "Escape") {
+        setTarget((current) => {
+          if (!current) return current;
+          window.requestAnimationFrame(() => current.header.isConnected && current.header.focus());
+          return null;
+        });
+        return;
+      }
+      const header = event.target instanceof Element
+        ? event.target.closest<HTMLTableCellElement>("table thead th")
+        : null;
+      const interactive = event.target instanceof Element
+        ? event.target.closest(interactiveSelector)
+        : null;
+      if (
+        !header
+        || interactive
+        || (event.key !== "Enter" && event.key !== " ")
+      ) return;
       event.preventDefault();
+      const table = header.closest<HTMLTableElement>("table");
+      if (table) observeTable(table);
       openForHeader(header);
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (!target) return;
-      const node = event.target as Node;
-      if (popoverRef.current?.contains(node) || target.header.contains(node)) return;
-      setTarget(null);
+      if (!(event.target instanceof Node)) return;
+      const node = event.target;
+      setTarget((current) => {
+        if (!current || popoverRef.current?.contains(node) || current.header.contains(node)) return current;
+        return null;
+      });
     };
     const close = () => setTarget(null);
     const closeOnExternalScroll = (event: Event) => {
@@ -177,18 +288,23 @@ export default function TableColumnFilters() {
     document.addEventListener("click", onClick);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("input", scheduleEventTable);
+    document.addEventListener("change", scheduleEventTable);
     window.addEventListener("resize", close);
     window.addEventListener("scroll", closeOnExternalScroll, true);
     return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      documentObserver.disconnect();
+      for (const observer of tableObservers.values()) observer.disconnect();
       document.removeEventListener("click", onClick);
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("input", scheduleEventTable);
+      document.removeEventListener("change", scheduleEventTable);
       window.removeEventListener("resize", close);
       window.removeEventListener("scroll", closeOnExternalScroll, true);
     };
-  }, [openForHeader, prepareTables, target]);
+  }, [filtersFor, openForHeader, prepareTable]);
 
   const updateSelection = (nextValues: string[]) => {
     if (!target) return;

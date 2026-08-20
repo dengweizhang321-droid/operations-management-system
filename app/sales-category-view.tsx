@@ -99,6 +99,7 @@ const categoryOwnedUrlKeys = [
   "salesCategory", "salesChannel", "salesPlatform", "salesOutlet", "salesProductQuery",
   "salesCategoryLevel", "salesGranularity", "salesSort", "salesDirection", "salesPage", "salesPageSize",
 ] as const;
+// The shell owns `module` and `view=category`; this component only serializes its bounded analysis state.
 const validGranularities = new Set<CategoryGranularity>(["day", "week", "month"]);
 const validSortKeys = new Set<CategorySortKey>(["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "monthOverMonthRate", "yearOverYearRate"]);
 const chartColors = ["#3f7be0", "#29a77a", "#8a65d6", "#e7943f"];
@@ -234,7 +235,7 @@ function CategoryTrend({ data }: { data: CategoryAnalysisResponse }) {
         return <polyline key={category} points={points} fill="none" stroke={chartColors[categoryIndex]} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />;
       })}
       {periods.map((period, index) => (periods.length <= 8 || index % Math.ceil(periods.length / 8) === 0) && <text key={period} x={x(index)} y="195" textAnchor="middle">{period.slice(5)}</text>)}
-    </svg></div> : <div className="table-state">当前筛选下没有可绘制的品类趋势。</div>}
+    </svg></div> : <div className="table-state" role="status">当前筛选下没有可绘制的品类趋势。</div>}
   </section>;
 }
 
@@ -341,7 +342,7 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
 
     {data.uncategorized.visible && <section className="category-unclassified-notice" role="note"><span>!</span><div><strong>存在未匹配品类的商品</strong><p>{formatCount(data.uncategorized.productCount)} 个商品未在 ERP 商品主数据或销售明细中找到品类，已统一归入“未分类”并参与总计、贡献率、趋势和明细核对。</p></div></section>}
 
-    {summary.categoryCount === 0 ? <section className="panel data-state"><span className="state-symbol">∅</span><strong>当前筛选没有品类销售数据</strong><p>可清空筛选或切换顶部统计周期；系统不会用模拟数据填充空结果。</p></section> : <>
+    {summary.categoryCount === 0 ? <section className="panel data-state" role="status"><span className="state-symbol">∅</span><strong>当前筛选没有品类销售数据</strong><p>可清空筛选或切换顶部统计周期；系统不会用模拟数据填充空结果。</p></section> : <>
       <section className="category-main-grid">
         <article className="panel category-structure-panel"><div className="category-section-heading"><div><span className="eyebrow">SALES MIX</span><h2>品类结构占比</h2><p>贡献率由服务端按完整筛选范围计算，合计 {formatRate(data.structure.contributionRateTotal)}。</p></div></div><div className="category-structure-list">{data.structure.items.map((item, index) => <div key={item.category}><span className={`table-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{item.rank}</span><div><strong>{item.category}</strong><small>{formatCurrency(item.netSalesCents)} · {formatRate(item.shareRate)}</small><i><b style={{ width: `${Math.max(0, Math.min(100, item.shareRate * 100))}%` }} /></i></div></div>)}{data.structure.otherNetSalesCents !== 0 && <div><span className="table-rank">+</span><div><strong>其他品类</strong><small>{formatCurrency(data.structure.otherNetSalesCents)} · {formatRate(data.structure.otherShareRate)}</small><i><b style={{ width: `${Math.max(0, Math.min(100, data.structure.otherShareRate * 100))}%` }} /></i></div></div>}</div></article>
         <article className="panel category-ranking-panel"><div className="category-section-heading"><div><span className="eyebrow">CATEGORY RANKING</span><h2>品类销售排名</h2><p>按净销售额排序，退款负值已计入。</p></div></div><div className="category-ranking-list">{data.ranking.slice(0, 8).map((item) => <div key={item.category}><span>{item.rank}</span><div><strong>{item.category}</strong><i><b style={{ width: `${Math.max(2, Math.max(0, item.netSalesCents) / maxRankingSales * 100)}%` }} /></i></div><div><strong>{formatCurrency(item.netSalesCents)}</strong><small>毛利率 {formatRate(item.grossMarginRate)}</small></div></div>)}</div></article>

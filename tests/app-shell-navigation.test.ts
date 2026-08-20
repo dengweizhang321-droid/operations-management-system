@@ -71,6 +71,7 @@ test("import source catalog exposes every current legal value", () => {
 test("dashboard is canonical at root and invalid or duplicate modules fail closed", () => {
   assert.deepEqual(parseShellLocation("/"), {
     module: "dashboard",
+    view: "overview",
     period: { kind: "current_month" },
   });
   assert.equal(normalizeShellLocation("/?module=dashboard"), "/");
@@ -81,6 +82,7 @@ test("dashboard is canonical at root and invalid or duplicate modules fail close
 test("module and import source parse, serialize, and normalize safely", () => {
   assert.deepEqual(parseShellLocation("/?module=import&source=jd_sku_daily"), {
     module: "import",
+    view: "files",
     source: "jd_sku_daily",
     period: { kind: "current_month" },
   });

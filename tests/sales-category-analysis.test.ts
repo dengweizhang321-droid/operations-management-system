@@ -266,7 +266,8 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(route, /authorizationErrorResponse/);
   assert.match(route, /cache-control": "no-store/);
   assert.match(page, />品类分析</);
-  assert.match(page, /salesTabFromLocation/);
+  assert.match(page, /useModuleViewState/);
+  assert.match(page, /sales: \(\{ range, customStartDate, customEndDate, moduleView, onModuleViewChange \}\)/);
   assert.match(view, /requestGenerationRef/);
   assert.match(view, /controller\.abort\(\)/);
   assert.match(view, /window\.history\[mode === "push" \? "pushState" : "replaceState"\]/);

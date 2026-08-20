@@ -9,9 +9,11 @@ import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
 import {
+  getDefaultModuleView,
   navItems,
   type ImportSourceKey,
   type ModuleKey,
+  type ModuleViewKey,
 } from "./shell/navigation-catalog";
 import {
   normalizeShellLocation,
@@ -19,7 +21,9 @@ import {
   serializeShellLocation,
   type ShellPeriodState,
 } from "./shell/navigation-contract";
+import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
+import { useModuleViewState } from "./shell/use-module-view-state";
 import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel, prefetchMarketRankingOverview } from "./market-view";
 import MarketAnnotationView from "./market-annotation-view";
 import N8nWorkflowView from "./n8n-workflow-view";
@@ -2422,11 +2426,11 @@ function ShopPromotionView({
   </>;
 }
 
-type OutletTab = "analysis" | "outlets" | "platforms" | "products" | "promotion";
+type OutletTab = ModuleViewKey<"shop">;
 
-function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) {
+function ShopView({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void }) {
   const apiRange = salesRangeMap[range];
-  const [activeTab, setActiveTab] = useState<OutletTab>("analysis");
+  const activeTab = moduleView;
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [analysisSummary, setAnalysisSummary] = useState<SalesSummaryResponse | null>(null);
   const [selectedOutletKeys, setSelectedOutletKeys] = useState<string[]>([]);
@@ -2496,7 +2500,7 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
   const rowLabel = activeTab === "outlets" ? "网店" : "平台";
   const rangeNote = summary ? `${summary.startDate} 至 ${summary.endDate}` : range;
 
-  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => setActiveTab("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => setActiveTab("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => setActiveTab("platforms")}>平台对比</button><button type="button" role="tab" aria-selected={activeTab === "products"} className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>商品数据</button><button type="button" role="tab" aria-selected={activeTab === "promotion"} className={activeTab === "promotion" ? "active" : ""} onClick={() => setActiveTab("promotion")}>推广分析</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
+  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => onModuleViewChange("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => onModuleViewChange("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => onModuleViewChange("platforms")}>平台对比</button><button type="button" role="tab" aria-selected={activeTab === "products"} className={activeTab === "products" ? "active" : ""} onClick={() => onModuleViewChange("products")}>商品数据</button><button type="button" role="tab" aria-selected={activeTab === "promotion"} className={activeTab === "promotion" ? "active" : ""} onClick={() => onModuleViewChange("promotion")}>推广分析</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
 
   if (activeTab === "products") return <>{subnav}<ShopProductDataView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenCatalogImport={() => onNavigate("import", "tmall_product_master")} onOpenImport={(dimension) => onNavigate("import", dimension === "sku" ? "jd_sku_daily" : "tmall_product_daily")} /></>;
   if (activeTab === "promotion") return <>{subnav}<ShopPromotionView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenTmallImport={() => onNavigate("import", "tmall_promotion")} /></>;
@@ -2524,21 +2528,8 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate }: { range
   </>;
 }
 
-type SalesTab = "overview" | "channel" | "category" | "finance" | "targets";
+type SalesTab = ModuleViewKey<"sales">;
 type ChannelDimension = "channel" | "platform";
-
-function salesTabFromLocation(): SalesTab {
-  if (typeof window === "undefined") return "overview";
-  const value = new URL(window.location.href).searchParams.get("salesTab");
-  return value === "channel" || value === "category" || value === "finance" || value === "targets" ? value : "overview";
-}
-
-function writeSalesTabLocation(tab: SalesTab) {
-  const url = new URL(window.location.href);
-  if (tab === "overview") url.searchParams.delete("salesTab");
-  else url.searchParams.set("salesTab", tab);
-  window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
-}
 
 function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: SalesTab) => void }) {
   return (
@@ -3369,9 +3360,9 @@ function FinanceTargetSettingsView() {
   </div>;
 }
 
-function SalesView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
+function SalesView({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; moduleView: SalesTab; onModuleViewChange: (view: SalesTab) => void }) {
   const apiRange = salesRangeMap[range];
-  const [activeTab, setActiveTab] = useState<SalesTab>(salesTabFromLocation);
+  const activeTab = moduleView;
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -3382,16 +3373,9 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   const debouncedProductQuery = useDebouncedValue(productQuery);
   const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
 
-  useEffect(() => {
-    const onPopState = () => setActiveTab(salesTabFromLocation());
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
   const changeSalesTab = useCallback((tab: SalesTab) => {
-    writeSalesTabLocation(tab);
-    setActiveTab(tab);
-  }, []);
+    onModuleViewChange(tab);
+  }, [onModuleViewChange]);
 
   useEffect(() => {
     if (activeTab !== "overview" && activeTab !== "channel") {
@@ -3541,7 +3525,7 @@ function SalesView({ range, customStartDate, customEndDate }: { range: SalesRang
   );
 }
 
-type InventoryTab = "overview" | "age" | "plan" | "stale";
+type InventoryTab = ModuleViewKey<"inventory">;
 
 const inventoryStatusMeta: Record<InventoryHealthStatus, { label: string; tone: string }> = {
   urgent: { label: "紧急补货", tone: "danger" },
@@ -3582,9 +3566,9 @@ function InventoryKpiCard({
   );
 }
 
-function InventoryView({ customStartDate, customEndDate }: { customStartDate: string; customEndDate: string }) {
+function InventoryView({ customStartDate, customEndDate, moduleView, onModuleViewChange }: { customStartDate: string; customEndDate: string; moduleView: InventoryTab; onModuleViewChange: (view: InventoryTab) => void }) {
   const syncInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<InventoryTab>("overview");
+  const activeTab = moduleView;
   const [overview, setOverview] = useState<InventoryOverviewResponse | null>(null);
   const [ageAnalysis, setAgeAnalysis] = useState<InventoryAgeAnalysisResponse | null>(null);
   const [ageLoading, setAgeLoading] = useState(false);
@@ -3838,10 +3822,10 @@ function InventoryView({ customStartDate, customEndDate }: { customStartDate: st
 
   const subnav = (
     <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
-      <button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>库存总览</button>
-      <button type="button" role="tab" aria-selected={activeTab === "age"} className={activeTab === "age" ? "active" : ""} onClick={() => setActiveTab("age")}>库龄分析</button>
-      <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => setActiveTab("plan")}>备货计划</button>
-      <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => setActiveTab("stale")}>滞销清理</button>
+      <button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => onModuleViewChange("overview")}>库存总览</button>
+      <button type="button" role="tab" aria-selected={activeTab === "age"} className={activeTab === "age" ? "active" : ""} onClick={() => onModuleViewChange("age")}>库龄分析</button>
+      <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
+      <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
     </div>
   );
 
@@ -3923,7 +3907,7 @@ function InventoryView({ customStartDate, customEndDate }: { customStartDate: st
               {recommendations.slice(0, 5).map((item, index) => <div key={item.key}><span className={`opportunity-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span><div><strong title={item.productName}>{item.productName}</strong><small>{item.warehouse} · 可售 {item.coverageDays?.toFixed(1) ?? "—"} 天</small></div><em>+{formatCount(item.suggestedQuantity ?? 0)}</em></div>)}
               {recommendations.length === 0 && <div className="inventory-mini-empty">当前没有需要补货的货品</div>}
             </div>
-            <button className="inventory-plan-link" onClick={() => setActiveTab("plan")}>查看备货计划 <span>→</span></button>
+            <button className="inventory-plan-link" onClick={() => onModuleViewChange("plan")}>查看备货计划 <span>→</span></button>
           </article>
         </section>
 
@@ -3954,7 +3938,7 @@ function InventoryView({ customStartDate, customEndDate }: { customStartDate: st
         </section>
 
         <section className="panel table-panel replenishment-plan-panel">
-          <div className="table-toolbar"><div><h2>备货计划</h2><p>调整草稿数量并确认；草稿、已确认数量会自动计入在途，防止重复建议</p></div><button className="secondary-button" onClick={() => setActiveTab("overview")}>返回库存明细</button></div>
+          <div className="table-toolbar"><div><h2>备货计划</h2><p>调整草稿数量并确认；草稿、已确认数量会自动计入在途，防止重复建议</p></div><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div>
           <div className="data-table-wrap"><table className="data-table replenishment-plan-table"><thead><tr><th>货品</th><th>仓库</th><th>建议依据</th><th>当前可售</th><th>系统建议</th><th>计划数量</th><th>状态</th><th>操作</th></tr></thead><tbody>
             {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode}</small></span></div></td><td>{plan.warehouse}</td><td><span className="plan-reason" title={plan.reason}>{plan.reason}</span></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td><strong>{formatCount(plan.suggestedQuantity)}</strong></td><td>{plan.status === "draft" ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}</td><td><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span></td><td><div className="plan-row-actions">{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <span className="plan-done">✓ 已完成</span>}</div></td></tr>)}
             {overview.plans.length === 0 && <tr><td colSpan={8}><div className="table-state">暂无备货计划。请在“库存总览”中将补货建议加入计划。</div></td></tr>}
@@ -3980,7 +3964,7 @@ function InventoryView({ customStartDate, customEndDate }: { customStartDate: st
   );
 }
 
-type ProductTab = "overview" | "calculator" | "detail";
+type ProductTab = ModuleViewKey<"product">;
 type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
 type ProductMarginFilter = "低于35%" | "35%-40%" | "40%-45%" | "45%以上" | "暂无有效毛利率";
 
@@ -4037,8 +4021,8 @@ function ProductDetailView({
   </>;
 }
 
-function ProductView({ range, customStartDate, customEndDate }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string }) {
-  const [activeTab, setActiveTab] = useState<ProductTab>("overview");
+function ProductView({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; moduleView: ProductTab; onModuleViewChange: (view: ProductTab) => void }) {
+  const activeTab = moduleView;
   const [summary, setSummary] = useState<ProductSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -4050,6 +4034,7 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
   const [marginFilters, setMarginFilters] = useState<ProductMarginFilter[]>([]);
   const [sortBy, setSortBy] = useState("sales");
   const [selectedCode, setSelectedCode] = useState("");
+  const [detailOpen, setDetailOpen] = useState(false);
   const [calculatorOverrides, setCalculatorOverrides] = useState<Record<string, ProductCalculatorInput>>({});
   const [productDetail, setProductDetail] = useState<SalesSummaryResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -4115,11 +4100,13 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
     }
   }, [detailEndDate, detailStartDate, selectedCode]);
   useEffect(() => {
-    if (activeTab !== "detail" || !selectedCode || !detailStartDate || !detailEndDate) return;
+    if (!detailOpen || !selectedCode || !detailStartDate || !detailEndDate) return;
     const controller = new AbortController();
     void loadProductDetail(controller.signal);
     return () => controller.abort();
-  }, [activeTab, detailEndDate, detailStartDate, loadProductDetail, selectedCode]);
+  }, [detailEndDate, detailOpen, detailStartDate, loadProductDetail, selectedCode]);
+
+  useEffect(() => { setDetailOpen(false); }, [activeTab]);
 
   const calculator = useMemo<ProductCalculatorInput>(() => {
     if (!selectedProduct) return { salePrice: 0, unitCost: 0, feeRate: 0, promotionCost: 0 };
@@ -4213,10 +4200,14 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
   };
   const openProductDetail = (productCode: string) => {
     setSelectedCode(productCode);
-    setActiveTab("detail");
+    setDetailOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator"} className={activeTab === "calculator" ? "active" : ""} onClick={() => setActiveTab("calculator")}>毛利测算</button>{activeTab === "detail" && <button type="button" role="tab" aria-selected className="active">规格详情</button>}</div>;
+  const changeProductTab = (view: ProductTab) => {
+    setDetailOpen(false);
+    onModuleViewChange(view);
+  };
+  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview" && !detailOpen} className={activeTab === "overview" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator" && !detailOpen} className={activeTab === "calculator" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("calculator")}>毛利测算</button>{detailOpen && <button type="button" role="tab" aria-selected className="active">规格详情</button>}</div>;
 
   if (loading && !summary) {
     return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步商品与毛利数据</strong><p>正在汇总已导入销售明细与最新库存快照…</p></section></>;
@@ -4235,7 +4226,7 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
 
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}
 
-      {activeTab === "overview" ? <>
+      {activeTab === "overview" && !detailOpen ? <>
         <section className="inventory-kpi-grid product-kpi-grid">
           {marginBucketCards.map((bucket) => <article className={`inventory-kpi-card product-margin-kpi ${marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{formatCount(bucket.value)} 个</strong><p>{bucket.note}</p><button type="button" onClick={() => setMarginFilters((current) => current.includes(bucket.filter) ? current.filter((value) => value !== bucket.filter) : [...current, bucket.filter])}>{marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</button></article>)}
         </section>
@@ -4248,7 +4239,7 @@ function ProductView({ range, customStartDate, customEndDate }: { range: SalesRa
             {filtered.length === 0 && <tr><td colSpan={12}><div className="table-state">没有符合当前筛选条件的商品。</div></td></tr>}
           </tbody></table></div>
         </section>
-      </> : activeTab === "detail" && selectedProduct ? <ProductDetailView item={selectedProduct} detail={productDetail} loading={detailLoading} error={detailError} rangeLabel={rangeLabel} onBack={() => setActiveTab("overview")} onRetry={() => void loadProductDetail()} /> : <>
+      </> : detailOpen && selectedProduct ? <ProductDetailView item={selectedProduct} detail={productDetail} loading={detailLoading} error={detailError} rangeLabel={rangeLabel} onBack={() => setDetailOpen(false)} onRetry={() => void loadProductDetail()} /> : <>
         <section className="product-calculator-grid">
           <article className="panel calculator-input-panel"><SectionHeader title="毛利测算" note="默认带入所选商品近期开单均价、成本与费用率，可按活动方案调整" /><div className="calculator-fields"><label><span>选择商品</span><SearchableSelect value={selectedCode} onChange={setSelectedCode} ariaLabel="选择用于测算的商品" searchPlaceholder="搜索商品名称或规格代码" options={summary.items.map((item) => ({ value: item.productCode, label: `${item.productName} · ${item.productCode}`, searchText: `${item.productName} ${item.productCode} ${item.specification}` }))} /></label><label><span>预计成交价（元）</span><input type="number" min={0} step="0.01" value={calculator.salePrice} onChange={(event) => updateCalculator("salePrice", Number(event.target.value))} /></label><label><span>单位成本（元）</span><input type="number" min={0} step="0.01" value={calculator.unitCost} onChange={(event) => updateCalculator("unitCost", Number(event.target.value))} /></label><label><span>平台综合费率（%）</span><input type="number" min={0} step="0.01" value={calculator.feeRate} onChange={(event) => updateCalculator("feeRate", Number(event.target.value))} /></label><label><span>单件促销/履约成本（元）</span><input type="number" min={0} step="0.01" value={calculator.promotionCost} onChange={(event) => updateCalculator("promotionCost", Number(event.target.value))} /></label></div><div className="calculator-source"><Dot tone="blue" /><span>{selectedProduct ? `${selectedProduct.productName} · 最近实际毛利率 ${selectedProduct.grossMarginRate === null ? "—" : formatRate(selectedProduct.grossMarginRate)}` : "请选择商品"}</span></div></article>
           <article className="panel calculator-result-panel"><SectionHeader title="预计单件收益" note="成交价 − 单位成本 − 平台费 − 促销/履约成本" /><div className="calculator-result"><div><span>预计单件毛利</span><strong className={estimatedProfit < 0 ? "red-text" : "green-text"}>{formatCurrency(estimatedProfit)}</strong></div><div><span>预计毛利率</span><strong className={estimatedMargin === null ? "" : estimatedMargin < 0 ? "red-text" : "green-text"}>{estimatedMargin === null ? "—" : formatRate(estimatedMargin)}</strong></div><div><span>预计平台费用</span><strong>{formatCurrency(estimatedFee)}</strong></div></div><div className={`calculator-decision ${estimatedMargin !== null && estimatedMargin < 0 ? "danger" : estimatedMargin !== null && estimatedMargin < 0.2 ? "warning" : "success"}`}><strong>{estimatedMargin === null ? "请输入成交价" : estimatedMargin < 0 ? "该方案预计亏损" : estimatedMargin < 0.2 ? "该方案毛利偏低" : "该方案毛利健康"}</strong><p>{estimatedMargin === null ? "成交价大于 0 后即可得到测算结果。" : `每售出 1 件，预计保留 ${formatCurrency(estimatedProfit)} 毛利。`}</p></div></article>
@@ -4311,9 +4302,11 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
   return <section className="customer-service-import-in-data" onDragOver={(event) => { if (canImport) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); acceptDroppedFiles(event.dataTransfer.files); }}><div className="customer-service-import-copy"><span className="eyebrow">双文件关联导入</span><h3>客服会话与聊天记录</h3><p>可同时拖入一份 Excel 和一份 LOG；系统按咨询时间、顾客脱敏标识和会话顺序关联，补充日志会替换同一聊天的旧记录。</p></div><label className="customer-service-import-shop"><span>所属店铺</span><SearchableSelect value={shopName} onChange={setShopName} ariaLabel="客服导入店铺" searchPlaceholder="搜索客服店铺" options={[{ value: "志高商用设备", label: "志高商用设备" }, { value: "志高厨电", label: "志高厨电" }]} /></label><input className="file-input-hidden" ref={sessionFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.xlsx$/i.test(file.name)) setSessionFile(file); else if (file) setFeedback("会话记录请上传 .xlsx 文件。"); event.currentTarget.value = ""; }} /><input className="file-input-hidden" ref={chatFileRef} type="file" accept=".log,.txt,text/plain" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.(log|txt)$/i.test(file.name)) setChatFile(file); else if (file) setFeedback("聊天记录请上传 .log 或 .txt 文件。"); event.currentTarget.value = ""; }} /><div className="customer-service-import-files"><button type="button" className={`customer-file-field ${sessionFile ? "selected" : ""}`} onClick={() => sessionFileRef.current?.click()} disabled={!canImport}><span>①</span><strong>{sessionFile?.name || "选择会话记录 Excel"}</strong><small>{sessionFile ? formatFileSize(sessionFile.size) : "咨询时间、顾客、客服、商品等字段"}</small></button><button type="button" className={`customer-file-field ${chatFile ? "selected" : ""}`} onClick={() => chatFileRef.current?.click()} disabled={!canImport}><span>②</span><strong>{chatFile?.name || "选择聊天记录 LOG"}</strong><small>{chatFile ? formatFileSize(chatFile.size) : "以“以下为一通会话”为分隔符"}</small></button></div><div className="customer-service-import-actions"><small>支持整组拖入；单个文件最大 25MB，仅管理员可导入。</small><button type="button" className="primary-button" disabled={!sessionFile || !chatFile || uploading || !canImport} onClick={() => void submit()}>{uploading ? "导入匹配中…" : canImport ? "开始导入并匹配" : "仅管理员可导入"}</button></div>{feedback && <p className={`customer-service-feedback ${feedback.includes("失败") || feedback.includes("请同时") || feedback.includes("请上传") ? "error" : ""}`}>{feedback}</p>}</section>;
 }
 
-function ImportView({ importSource, currentUser }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null }) {
+type ImportTab = ModuleViewKey<"import">;
+
+function ImportView({ importSource, currentUser, moduleView, onModuleViewChange }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null; moduleView: ImportTab; onModuleViewChange: (view: ImportTab) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [activeSection, setActiveSection] = useState<"files" | "history" | "continuity">("files");
+  const activeSection = moduleView;
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>(() => importSource ?? "sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
   const [dailyStartDate, setDailyStartDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
@@ -4627,9 +4620,9 @@ function ImportView({ importSource, currentUser }: { importSource?: ImportSource
   return (
     <>
       <div className="subnav" role="tablist" aria-label="数据导入工作区">
-        <button type="button" role="tab" aria-selected={activeSection === "files"} className={activeSection === "files" ? "active" : ""} onClick={() => setActiveSection("files")}>文件导入</button>
-        <button type="button" role="tab" aria-selected={activeSection === "history"} className={activeSection === "history" ? "active" : ""} onClick={() => setActiveSection("history")}>导入历史</button>
-        <button type="button" role="tab" aria-selected={activeSection === "continuity"} className={activeSection === "continuity" ? "active" : ""} onClick={() => setActiveSection("continuity")}>数据连续性</button>
+        <button type="button" role="tab" aria-selected={activeSection === "files"} className={activeSection === "files" ? "active" : ""} onClick={() => onModuleViewChange("files")}>文件导入</button>
+        <button type="button" role="tab" aria-selected={activeSection === "history"} className={activeSection === "history" ? "active" : ""} onClick={() => onModuleViewChange("history")}>导入历史</button>
+        <button type="button" role="tab" aria-selected={activeSection === "continuity"} className={activeSection === "continuity" ? "active" : ""} onClick={() => onModuleViewChange("continuity")}>数据连续性</button>
       </div>
       {activeSection === "files" && <>
       <section className="import-grid">
@@ -4861,12 +4854,13 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   </section>;
 }
 
-function SettingsView({ currentUser }: { currentUser: CurrentUser | null }) {
+type SettingsTab = ModuleViewKey<"settings">;
+
+function SettingsView({ currentUser, moduleView, onModuleViewChange }: { currentUser: CurrentUser | null; moduleView: SettingsTab; onModuleViewChange: (view: SettingsTab) => void }) {
   const [settings, setSettings] = useState<OperatingSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<"parameters" | "master" | "permissions">("parameters");
+  const activeTab = moduleView;
   const [marketData, setMarketData] = useState<ComponentProps<typeof MarketDataImportPanel>["data"]>(null);
   const [loading, setLoading] = useState(true);
-  const [marketLoading, setMarketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -4881,15 +4875,13 @@ function SettingsView({ currentUser }: { currentUser: CurrentUser | null }) {
   useEffect(() => {
     if (activeTab !== "master") return;
     const controller = new AbortController();
-    setMarketLoading(true);
     void fetch("/api/market/overview", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => null) as ComponentProps<typeof MarketDataImportPanel>["data"] | null;
         if (!response.ok || !payload) throw new Error("市场主数据读取失败");
         setMarketData(payload);
       })
-      .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "市场主数据读取失败"); })
-      .finally(() => { if (!controller.signal.aborted) setMarketLoading(false); });
+      .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "市场主数据读取失败"); });
     return () => controller.abort();
   }, [activeTab, marketReloadKey]);
   const updateNumber = (key: "targetDays" | "criticalDays" | "slowDays" | "stagnantDays", value: number) => setSettings((current) => current ? { ...current, [key]: Number.isFinite(value) ? value : 0 } : current);
@@ -4897,8 +4889,8 @@ function SettingsView({ currentUser }: { currentUser: CurrentUser | null }) {
   const save = async () => { if (!settings) return; setSaving(true); setNotice(""); try { const response = await fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(settings) }); const payload = await response.json().catch(() => null) as OperatingSettings & { error?: string }; if (!response.ok || !payload) throw new Error(payload?.error || "保存系统设置失败"); setSettings(payload); setNotice("系统设置已保存，后续库存分析会使用新的规则。"); } catch (reason) { setError(reason instanceof Error ? reason.message : "保存系统设置失败"); } finally { setSaving(false); } };
   if (loading && !settings) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取系统设置</strong><p>正在加载库存分析与预警规则…</p></section>;
   if (!settings) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>系统设置加载失败</strong><p>{error || "暂时无法读取系统设置"}</p><button className="secondary-button" onClick={() => void load()}>重新加载</button></section>;
-  return <><div className="subnav"><button className={activeTab === "parameters" ? "active" : ""} onClick={() => setActiveTab("parameters")}>系统参数</button><button className={activeTab === "master" ? "active" : ""} onClick={() => setActiveTab("master")}>主数据与映射</button><button className={activeTab === "permissions" ? "active" : ""} onClick={() => setActiveTab("permissions")}>权限管理</button></div>{(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "处理失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}
-    {activeTab === "parameters" && <section className="settings-grid"><article className="panel settings-menu"><h2>设置中心</h2><p>管理员可保存库存健康、库龄和预警规则。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["主数据与映射", "TOP SKU、价格带、细分类目和 AI 工作流", "主"], ["权限管理", "仅管理员可保存设置", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]} onClick={() => index === 1 ? setActiveTab("master") : index === 2 ? setActiveTab("permissions") : undefined}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article><article className="panel settings-form"><SectionHeader title="库存分析参数" note="保存后适用于后续库存健康、库龄分析与备货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input type="number" min={1} max={365} value={settings.targetDays} onChange={(event) => updateNumber("targetDays", Number(event.target.value))} /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input type="number" min={1} max={120} value={settings.criticalDays} onChange={(event) => updateNumber("criticalDays", Number(event.target.value))} /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input type="number" min={1} max={730} value={settings.slowDays} onChange={(event) => updateNumber("slowDays", Number(event.target.value))} /><em>天</em></div><small>用于识别低动销库存</small></label><label><span>呆滞库存判定</span><div><input type="number" min={1} max={1460} value={settings.stagnantDays} onChange={(event) => updateNumber("stagnantDays", Number(event.target.value))} /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "自动计算建议补货量，仍需人工确认草稿", "autoReplenishment"], ["库存异常提醒", "在 BI 看板集中显示库存健康风险", "inventoryAlert"], ["允许负库存", "仅影响导入校验，不会修改已有库存", "allowNegativeInventory"]].map(([label, note, key]) => <div className="toggle-row" key={key}><div><strong>{label}</strong><small>{note}</small></div><button type="button" onClick={() => toggle(key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory")} className={`toggle ${settings[key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory"] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：{settings.updatedAt ? `${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` · ${settings.updatedBy}` : ""}` : "尚未保存"}</span><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存设置"}</button></footer></article></section>}
+  return <><div className="subnav"><button className={activeTab === "parameters" ? "active" : ""} onClick={() => onModuleViewChange("parameters")}>系统参数</button><button className={activeTab === "master" ? "active" : ""} onClick={() => onModuleViewChange("master")}>主数据与映射</button><button className={activeTab === "permissions" ? "active" : ""} onClick={() => onModuleViewChange("permissions")}>权限管理</button></div>{(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "处理失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}
+    {activeTab === "parameters" && <section className="settings-grid"><article className="panel settings-menu"><h2>设置中心</h2><p>管理员可保存库存健康、库龄和预警规则。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["主数据与映射", "TOP SKU、价格带、细分类目和 AI 工作流", "主"], ["权限管理", "仅管理员可保存设置", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]} onClick={() => index === 1 ? onModuleViewChange("master") : index === 2 ? onModuleViewChange("permissions") : undefined}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article><article className="panel settings-form"><SectionHeader title="库存分析参数" note="保存后适用于后续库存健康、库龄分析与备货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input type="number" min={1} max={365} value={settings.targetDays} onChange={(event) => updateNumber("targetDays", Number(event.target.value))} /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input type="number" min={1} max={120} value={settings.criticalDays} onChange={(event) => updateNumber("criticalDays", Number(event.target.value))} /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input type="number" min={1} max={730} value={settings.slowDays} onChange={(event) => updateNumber("slowDays", Number(event.target.value))} /><em>天</em></div><small>用于识别低动销库存</small></label><label><span>呆滞库存判定</span><div><input type="number" min={1} max={1460} value={settings.stagnantDays} onChange={(event) => updateNumber("stagnantDays", Number(event.target.value))} /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "自动计算建议补货量，仍需人工确认草稿", "autoReplenishment"], ["库存异常提醒", "在 BI 看板集中显示库存健康风险", "inventoryAlert"], ["允许负库存", "仅影响导入校验，不会修改已有库存", "allowNegativeInventory"]].map(([label, note, key]) => <div className="toggle-row" key={key}><div><strong>{label}</strong><small>{note}</small></div><button type="button" onClick={() => toggle(key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory")} className={`toggle ${settings[key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory"] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：{settings.updatedAt ? `${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` · ${settings.updatedBy}` : ""}` : "尚未保存"}</span><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存设置"}</button></footer></article></section>}
     {activeTab === "master" && <section className="settings-market-master"><MarketMasterAdminPanel currentUser={currentUser} /><MarketDataImportPanel currentUser={currentUser} data={marketData} onImported={() => setMarketReloadKey((key) => key + 1)} /><MarketWorkflowPanel data={marketData} /><MarketAnnotationView currentUser={currentUser} /></section>}
     {activeTab === "permissions" && <section className="panel settings-form"><SectionHeader title="权限管理" note="当前版本沿用应用用户表和角色授权；市场导入、提交标注和模型配置仍仅管理员可执行。" /><p className="soft-text">如需新增行级数据范围，请在系统用户权限中配置，AI 工具不会信任模型提供的身份或角色声明。</p></section>}
   </>;
@@ -5265,24 +5257,37 @@ function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
   </section>;
 }
 
-const viewMap: Record<ModuleKey, (props: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; importSource?: ImportSourceKey; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; onApplyPeriod?: (startDate: string, endDate: string) => void; currentUser: CurrentUser | null }) => React.ReactNode> = {
-  n8n_workflows: ({ currentUser }) => <N8nWorkflowView currentUser={currentUser} />,
+type ShellViewProps = {
+  range: SalesRangeLabel;
+  customStartDate: string;
+  customEndDate: string;
+  importSource?: ImportSourceKey;
+  moduleView: ModuleViewKey;
+  onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void;
+  onModuleViewChange: (view: ModuleViewKey) => void;
+  onApplyPeriod?: (startDate: string, endDate: string) => void;
+  currentUser: CurrentUser | null;
+};
+
+const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
+  n8n_workflows: ({ currentUser, moduleView, onModuleViewChange }) => <N8nWorkflowView currentUser={currentUser} moduleView={normalizeModuleView("n8n_workflows", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   dashboard: DashboardView,
-  shop: ShopView,
-  market: MarketView,
+  shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange }) => <ShopView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  market: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }) => <MarketView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("market", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} onApplyPeriod={onApplyPeriod} />,
   customer_service: CustomerServiceView,
-  sales: SalesView,
-  inventory: InventoryView,
-  product: ProductView,
-  workflow: ({ currentUser }) => <OperationsView currentUser={currentUser} />,
-  import: ImportView,
-  settings: SettingsView,
+  sales: ({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }) => <SalesView range={range} customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("sales", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  inventory: ({ customStartDate, customEndDate, moduleView, onModuleViewChange }) => <InventoryView customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("inventory", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  product: ({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }) => <ProductView range={range} customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("product", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  workflow: ({ currentUser, moduleView, onModuleViewChange }) => <OperationsView currentUser={currentUser} moduleView={normalizeModuleView("workflow", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  import: ({ importSource, currentUser, moduleView, onModuleViewChange }) => <ImportView importSource={importSource} currentUser={currentUser} moduleView={normalizeModuleView("import", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  settings: ({ currentUser, moduleView, onModuleViewChange }) => <SettingsView currentUser={currentUser} moduleView={normalizeModuleView("settings", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   ai: AiAssistantView,
 };
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [active, setActive] = useState<ModuleKey>("dashboard");
+  const { selection: moduleViewSelection, syncFromLocation: syncModuleViewFromLocation, setSelection: setModuleViewSelection, pushView: pushModuleView } = useModuleViewState();
   const [importSource, setImportSource] = useState<ImportSourceKey | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -5310,6 +5315,9 @@ export default function Home() {
     () => shellPeriodForRange(range, selectedMonth, customStartDate, customEndDate),
     [customEndDate, customStartDate, range, selectedMonth],
   );
+  const activeModuleView = moduleViewSelection.module === active
+    ? moduleViewSelection.view
+    : getDefaultModuleView(active);
   const closeMobileMenu = useCallback(() => setMobileMenu(false), []);
   const toggleCollapsed = useCallback(() => {
     setCollapsed((value) => {
@@ -5360,6 +5368,7 @@ export default function Home() {
     const today = shanghaiIsoToday();
     const minDate = `${Number(today.slice(0, 4)) - 1}-01-01`;
     setActive(state.module);
+    syncModuleViewFromLocation(window.location.href);
     setImportSource(state.source ?? null);
     setRange(rangeForShellPeriod(state.period));
     setStatPeriodPickerOpen(false);
@@ -5381,12 +5390,13 @@ export default function Home() {
     const normalizedContractUrl = normalizeShellLocation(window.location.href);
     const normalized = serializeShellLocation({
       module: state.module,
+      view: state.view,
       ...(state.source ? { source: state.source } : {}),
       period: appliedPeriod,
     }, normalizedContractUrl);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (normalized !== currentUrl) window.history.replaceState(null, "", normalized);
-  }, []);
+  }, [syncModuleViewFromLocation]);
 
   useEffect(() => {
     applyLocationState();
@@ -5439,34 +5449,42 @@ export default function Home() {
   const replacePeriodUrl = useCallback((period: ShellPeriodState) => {
     const nextUrl = serializeShellLocation({
       module: active,
+      view: normalizeModuleView(active, activeModuleView),
       ...(active === "import" && importSource ? { source: importSource } : {}),
       period,
     }, window.location.href);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl);
-  }, [active, importSource]);
+  }, [active, activeModuleView, importSource]);
 
   const hrefForModule = useCallback((key: ModuleKey) => {
     const currentUrl = typeof window === "undefined" ? "/" : window.location.href;
-    return serializeShellLocation({ module: key, period: shellPeriod }, currentUrl);
+    return serializeShellLocation({ module: key, view: getDefaultModuleView(key), period: shellPeriod }, currentUrl);
   }, [shellPeriod]);
 
   const selectModule = useCallback((key: ModuleKey, nextImportSource?: ImportSourceKey) => {
     const nextSource = key === "import" ? nextImportSource : undefined;
+    const nextView = getDefaultModuleView(key);
     const nextUrl = serializeShellLocation({
       module: key,
+      view: nextView,
       ...(nextSource ? { source: nextSource } : {}),
       period: shellPeriod,
     }, window.location.href);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+    setModuleViewSelection(key, nextView);
     setImportSource(nextSource ?? null);
     setActive(key);
     closeMobileMenu();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => pageTitleRef.current?.focus()));
-  }, [closeMobileMenu, shellPeriod]);
+  }, [closeMobileMenu, setModuleViewSelection, shellPeriod]);
+
+  const selectModuleView = useCallback((view: ModuleViewKey) => {
+    pushModuleView(active, normalizeModuleView(active, view));
+  }, [active, pushModuleView]);
 
   const handleSidebarNavigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>, key: ModuleKey) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -5558,8 +5576,8 @@ export default function Home() {
         />}
       >
         <div className="content">
-          <ModuleErrorBoundary resetKey={`${active}:${importSource ?? ""}`} onOpenDashboard={() => selectModule("dashboard")}>
-            <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} onNavigate={selectModule} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
+          <ModuleErrorBoundary resetKey={`${active}:${activeModuleView}:${importSource ?? ""}`} onOpenDashboard={() => selectModule("dashboard")}>
+            <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
           </ModuleErrorBoundary>
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>

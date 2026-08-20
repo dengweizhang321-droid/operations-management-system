@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
+import type { ModuleViewKey } from "./shell/navigation-catalog";
 import Dialog from "./ui/dialog";
 
 type Role = "viewer" | "analyst" | "operator" | "admin";
@@ -567,10 +568,14 @@ function TemplateWorkspace({ templates, loading, error, canWrite, onReload, onUs
   </>;
 }
 
-export default function OperationsView({ currentUser }: { currentUser: { role: Role } | null }) {
+export default function OperationsView({ currentUser, moduleView, onModuleViewChange }: {
+  currentUser: { role: Role } | null;
+  moduleView: ModuleViewKey<"workflow">;
+  onModuleViewChange: (view: ModuleViewKey<"workflow">) => void;
+}) {
   const canWrite = currentUser?.role === "operator" || currentUser?.role === "admin";
   const taskGeneration = useRef(0);
-  const [activeTab, setActiveTab] = useState<OperationsTab>("plan");
+  const activeTab: OperationsTab = moduleView;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -594,6 +599,12 @@ export default function OperationsView({ currentUser }: { currentUser: { role: R
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draft, setDraft] = useState<DraftTask>(EMPTY_TASK);
+
+  const selectOperationsTab = useCallback((tab: OperationsTab) => {
+    onModuleViewChange(tab);
+    setSelectedTask(null);
+  }, [onModuleViewChange]);
+  useEffect(() => setSelectedTask(null), [activeTab]);
 
   const loadTasks = useCallback(async (signal?: AbortSignal, targetPage = 1, append = false) => {
     const generation = ++taskGeneration.current;
@@ -776,7 +787,7 @@ export default function OperationsView({ currentUser }: { currentUser: { role: R
   };
   const useTemplate = (template: TaskTemplate) => {
     setDraft({ title: template.title ?? template.name, workContent: template.workContent ?? "", category: template.category ?? "工作计划", owner: template.owner ?? "", shopName: template.shopName ?? "", startDate: shanghaiDateWithOffset(template.startOffsetDays ?? 0), due: shanghaiDateWithOffset(template.dueOffsetDays ?? 0), priority: template.priority ?? "normal" });
-    setActiveTab("plan"); window.scrollTo({ top: 0, behavior: "smooth" });
+    selectOperationsTab("plan"); window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const edit = (task: Task) => {
     setEditingTask(task);
@@ -797,7 +808,7 @@ export default function OperationsView({ currentUser }: { currentUser: { role: R
     tabIndex={activeTab === value ? 0 : -1}
     className={activeTab === value ? "active" : ""}
     key={value}
-    onClick={() => { setActiveTab(value); setSelectedTask(null); }}
+    onClick={() => selectOperationsTab(value)}
     onKeyDown={(event) => {
       const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
       const index = tabs.indexOf(event.currentTarget);

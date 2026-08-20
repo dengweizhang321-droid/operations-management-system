@@ -7,12 +7,15 @@ import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
 import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";
 import jdPromotionCutMeatWorkflowDefinition from "@/automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json";
+import type { ModuleViewKey } from "./shell/navigation-catalog";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
 type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
+  moduleView: ModuleViewKey<"n8n_workflows">;
+  onModuleViewChange: (view: ModuleViewKey<"n8n_workflows">) => void;
 };
 
 type N8nWorkflowDefinition = {
@@ -283,8 +286,8 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
   };
 }
 
-export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
-  const [selectedWorkflowKey, setSelectedWorkflowKey] = useState<WorkflowKey>("jackyun");
+export default function N8nWorkflowView({ currentUser, moduleView, onModuleViewChange }: N8nWorkflowViewProps) {
+  const selectedWorkflowKey: WorkflowKey = moduleView;
   const [frameKey, setFrameKey] = useState(0);
   const [frameReady, setFrameReady] = useState(false);
   const [helperRefreshKey, setHelperRefreshKey] = useState(0);
@@ -350,6 +353,12 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
     };
   }, [helperRefreshKey, selectedWorkflowKey]);
 
+  useEffect(() => {
+    setHelperStatus(checkingHelper(selectedWorkflowKey));
+    setFrameReady(false);
+    setFrameKey((value) => value + 1);
+  }, [selectedWorkflowKey]);
+
   const refreshFrame = () => {
     setFrameReady(false);
     setFrameKey((key) => key + 1);
@@ -362,28 +371,37 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
 
   const selectWorkflow = (key: WorkflowKey) => {
     if (key === selectedWorkflowKey) return;
-    setSelectedWorkflowKey(key);
-    setHelperStatus(checkingHelper(key));
-    setFrameReady(false);
-    setFrameKey((value) => value + 1);
+    onModuleViewChange(key);
   };
 
   return (
     <section className="n8n-workflow-module" data-testid="n8n-workflow-module">
-      <nav className="n8n-workflow-switcher" aria-label="工作流选择">
+      <nav className="n8n-workflow-switcher" role="tablist" aria-label="工作流选择">
         {(Object.keys(workflowConfigs) as WorkflowKey[]).map((key) => (
           <button
             type="button"
+            role="tab"
+            id={`n8n-workflow-tab-${key}`}
+            aria-controls={`n8n-workflow-panel-${key}`}
             key={key}
             className={selectedWorkflowKey === key ? "is-active" : ""}
-            aria-pressed={selectedWorkflowKey === key}
+            aria-selected={selectedWorkflowKey === key}
+            tabIndex={selectedWorkflowKey === key ? 0 : -1}
             onClick={() => selectWorkflow(key)}
+            onKeyDown={(event) => {
+              const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
+              const index = tabs.indexOf(event.currentTarget);
+              const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : -1;
+              if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
+            }}
           >
             <span>{key === "jackyun" ? "吉" : key === "tmall" ? "天" : key === "jd_market" ? "榜" : key === "jd_promotion" ? "推" : key === "jd_promotion_cut_meat" ? "切" : "京"}</span>
             <strong>{workflowConfigs[key].definition.name}</strong>
           </button>
         ))}
       </nav>
+
+      <div role="tabpanel" id={`n8n-workflow-panel-${selectedWorkflowKey}`} aria-labelledby={`n8n-workflow-tab-${selectedWorkflowKey}`}>
 
       <section className="n8n-workflow-hero">
         <div className="n8n-workflow-hero-copy">
@@ -462,7 +480,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
               allow="clipboard-read; clipboard-write"
             />
           </div> : <div className="n8n-frame-shell">
-            <div className="n8n-helper-gate" role="alert">
+            <div className="n8n-helper-gate" role={helperStatus.kind === "checking" ? "status" : "alert"}>
               <span>执行门禁</span>
               <strong>{helperStatus.label}</strong>
               <p>{helperStatus.detail}</p>
@@ -474,6 +492,7 @@ export default function N8nWorkflowView({ currentUser }: N8nWorkflowViewProps) {
           <span>锁</span><div><strong>需要操作员或管理员权限</strong><p>当前账号可查看流程概览，但不能加载可执行的 n8n 编辑器。该限制防止只读账号绕过系统权限发起真实导入。</p></div>
         </div>}
       </section>
+      </div>
     </section>
   );
 }

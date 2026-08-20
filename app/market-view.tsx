@@ -1,9 +1,10 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "@/lib/market/latest-request";
 import { annotationRequestRetryKind, annotationRetryDelayMs } from "@/lib/market/annotation-retry";
+import type { ModuleViewKey } from "./shell/navigation-catalog";
 import MarketAnnotationView from "./market-annotation-view";
 
 const PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000;
@@ -297,8 +298,24 @@ function MarketSectionNav({ active, compareCount, onChange }: { active: MarketSe
     { key: "compare", number: "03", label: "竞品对比", note: "2–5 个 SKU 的指标与趋势对照" },
     { key: "settings", number: "04", label: "系统和 AI 设置", note: "主数据、导入、映射与 AI 工作流" },
   ];
-  return <nav className="panel market-section-nav" aria-label="市场分析子板块">
-    {sections.map((section) => <button type="button" key={section.key} className={active === section.key ? "active" : ""} aria-current={active === section.key ? "page" : undefined} onClick={() => onChange(section.key)}>
+  return <nav className="panel market-section-nav" role="tablist" aria-label="市场分析子板块">
+    {sections.map((section) => <button
+      type="button"
+      role="tab"
+      id={`market-tab-${section.key}`}
+      aria-controls={`market-panel-${section.key}`}
+      aria-selected={active === section.key}
+      tabIndex={active === section.key ? 0 : -1}
+      key={section.key}
+      className={active === section.key ? "active" : ""}
+      onClick={() => onChange(section.key)}
+      onKeyDown={(event) => {
+        const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
+        const index = tabs.indexOf(event.currentTarget);
+        const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : -1;
+        if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
+      }}
+    >
       <span>{section.number}</span><div><strong>{section.label}</strong><small>{section.note}</small></div>{section.key === "compare" && compareCount > 0 ? <em>{compareCount}</em> : <i>›</i>}
     </button>)}
   </nav>;
@@ -1202,16 +1219,33 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     { key: "mapping", label: "映射配置", note: "别名、品类与价格带" },
     { key: "data", label: "数据配置", note: "导入、下载与审计" },
   ];
+  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(':scope > [role="tab"]') ?? []);
+    const index = tabs.indexOf(event.currentTarget);
+    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : -1;
+    if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
+  };
   return <section className="market-settings-workspace">
     <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；“待 AI 标注总量”按最高算力需求归入下方四种互斥路径，四项合计与总量一致。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待缓存图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning || cacheStats.pending <= 0} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在分批缓存…" : cacheStats.pending > 0 ? "一键刷新图片缓存" : "图片缓存已完成"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { stopImageCacheRef.current = true; setCacheNotice("正在停止，当前批次完成后停止…"); }}>停止</button>}</div></div></div></article>
-    <nav className="panel market-settings-tabs" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
-    {tab === "database" && <nav className="panel market-database-areas"><button className={databaseArea === "master" ? "active" : ""} onClick={() => setDatabaseArea("master")}><strong>主数据与价格</strong><small>统一筛选、查看和编辑 SKU/SPU</small></button><button className={databaseArea === "annotation" ? "active" : ""} onClick={() => setDatabaseArea("annotation")}><strong>AI 标注与批量入库</strong><small>筛选候选、列表/大图复核并入库</small></button></nav>}
-    {tab === "database" ? (databaseArea === "annotation" ? <MarketAnnotationView currentUser={currentUser} embedded /> : <MarketMasterAdminPanel currentUser={currentUser} mode="database" />) : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}
-    {tab === "data" && <><MarketDataImportPanel currentUser={currentUser} data={data} onImported={onImported} /><MarketWorkflowPanel data={data} /></>}
+    <nav className="panel market-settings-tabs" role="tablist" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" role="tab" id={`market-settings-tab-${item.key}`} aria-controls={`market-settings-panel-${item.key}`} aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)} onKeyDown={onTabKeyDown}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
+    <div role="tabpanel" id={`market-settings-panel-${tab}`} aria-labelledby={`market-settings-tab-${tab}`}>
+      {tab === "database" ? <>
+        <nav className="panel market-database-areas" role="tablist" aria-label="SKU 数据库工作区"><button type="button" role="tab" id="market-database-tab-master" aria-controls="market-database-panel-master" aria-selected={databaseArea === "master"} tabIndex={databaseArea === "master" ? 0 : -1} className={databaseArea === "master" ? "active" : ""} onClick={() => setDatabaseArea("master")} onKeyDown={onTabKeyDown}><strong>主数据与价格</strong><small>统一筛选、查看和编辑 SKU/SPU</small></button><button type="button" role="tab" id="market-database-tab-annotation" aria-controls="market-database-panel-annotation" aria-selected={databaseArea === "annotation"} tabIndex={databaseArea === "annotation" ? 0 : -1} className={databaseArea === "annotation" ? "active" : ""} onClick={() => setDatabaseArea("annotation")} onKeyDown={onTabKeyDown}><strong>AI 标注与批量入库</strong><small>筛选候选、列表/大图复核并入库</small></button></nav>
+        <div role="tabpanel" id={`market-database-panel-${databaseArea}`} aria-labelledby={`market-database-tab-${databaseArea}`}>{databaseArea === "annotation" ? <MarketAnnotationView currentUser={currentUser} embedded /> : <MarketMasterAdminPanel currentUser={currentUser} mode="database" />}</div>
+      </> : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}
+      {tab === "data" && <><MarketDataImportPanel currentUser={currentUser} data={data} onImported={onImported} /><MarketWorkflowPanel data={data} /></>}
+    </div>
   </section>;
 }
 
-export default function MarketView({ customStartDate, customEndDate, currentUser, onApplyPeriod }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser; onApplyPeriod?: (startDate: string, endDate: string) => void }) {
+export default function MarketView({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }: {
+  customStartDate: string;
+  customEndDate: string;
+  currentUser: CurrentUser;
+  moduleView: ModuleViewKey<"market">;
+  onModuleViewChange: (view: ModuleViewKey<"market">) => void;
+  onApplyPeriod?: (startDate: string, endDate: string) => void;
+}) {
   const initialRequestKey = defaultMarketRankingParams(customStartDate, customEndDate).toString();
   const initialOverview = cachedMarketOverview(initialRequestKey);
   const [data, setData] = useState<MarketOverview | null>(initialOverview);
@@ -1230,12 +1264,13 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [compareSelections, setCompareSelections] = useState<MarketCompareSelection[]>([]);
   const compareKeys = useMemo(() => compareSelections.map(marketCompareSelectionKey), [compareSelections]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
-  const [activeSection, setActiveSection] = useState<MarketSectionKey>("ranking");
+  const activeSection: MarketSectionKey = moduleView;
   const [reloadKey, setReloadKey] = useState(0);
   const loadRequestId = useRef(0);
   const loadMoreController = useRef<AbortController | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const initialLoad = useRef(true);
+  const selectMarketSection = useCallback((section: MarketSectionKey) => onModuleViewChange(section), [onModuleViewChange]);
   const requestedView = activeSection === "overview" ? "full" : "ranking";
   const buildOverviewParams = useCallback((view: "ranking" | "full", page = 1) => {
     const params = new URLSearchParams();
@@ -1339,11 +1374,11 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     setPriceBands([]);
     const reportPeriod = twelveMonthReportPeriod();
     onApplyPeriod?.(reportPeriod.startDate, reportPeriod.endDate);
-    setActiveSection("overview");
+    selectMarketSection("overview");
   };
   const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...(data?.filters.operationModes ?? [])].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [data]);
-  if (loading && !data) return <section className="panel data-state"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
-  if (error && !data) return <section className="panel data-state"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
+  if (loading && !data) return <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
+  if (error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
   if (!data) return null;
   const reportDimensionLabel = marketReportDimensionLabel(data);
   const sectionCopy: Record<Exclude<MarketSectionKey, "settings">, { eyebrow: string; title: string; note: string }> = {
@@ -1353,7 +1388,8 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   };
   const activeCopy = activeSection === "settings" ? null : sectionCopy[activeSection];
   return <div className="market-module">
-    <MarketSectionNav active={activeSection} compareCount={compareSelections.length} onChange={setActiveSection} />
+    <MarketSectionNav active={activeSection} compareCount={compareSelections.length} onChange={selectMarketSection} />
+    <div role="tabpanel" id={`market-panel-${activeSection}`} aria-labelledby={`market-tab-${activeSection}`}>
     {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
       <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p>{activeSection === "overview" && <button type="button" className="secondary-button market-report-preset" onClick={applyCommercialDirectDrinkingProfile}>应用商用直饮机核心口径 · 近12月</button>}</div>
       <div className="market-filter-controls market-filter-controls-v2">
@@ -1369,9 +1405,9 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       </div>
       <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 {reportDimensionLabel} {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
     </section>}
-    {error && <div className="market-feedback error">{error}</div>}
-    {activeSection === "ranking" && <RankingTable data={data} compareKeys={compareKeys} loadingMore={loadingMore} onLoadMore={() => void loadMore()} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => setActiveSection("compare")} />}
-    {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && <>
+    {error && <div className="market-feedback error" role="alert">{error}</div>}
+    {activeSection === "ranking" && <RankingTable data={data} compareKeys={compareKeys} loadingMore={loadingMore} onLoadMore={() => void loadMore()} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => selectMarketSection("compare")} />}
+    {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && <>
       <IndustryExecutiveSummary data={data} />
       <MarketKpis data={data} />
       <TrendSection data={data} />
@@ -1384,8 +1420,9 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <OpportunityMatrixSection data={data} />
       <IndustryDataGapSection data={data} />
     </>}
-    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => setActiveSection("ranking")} query={query} categories={categories} scopes={scopes} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
+    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => selectMarketSection("ranking")} query={query} categories={categories} scopes={scopes} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
     {activeSection === "settings" && <MarketSettingsWorkspace currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
+    </div>
   </div>;
 }

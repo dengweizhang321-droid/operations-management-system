@@ -15,6 +15,44 @@ export const moduleKeys = [
 
 export type ModuleKey = (typeof moduleKeys)[number];
 
+/**
+ * Canonical, refresh-safe primary workspaces for every shell module. Nested
+ * controls that require extra identity (for example a selected product detail)
+ * deliberately stay outside this one-level URL contract.
+ */
+export const moduleViewCatalog = {
+  n8n_workflows: {
+    defaultView: "jackyun",
+    views: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"],
+  },
+  dashboard: { defaultView: "overview", views: ["overview"] },
+  shop: { defaultView: "analysis", views: ["analysis", "outlets", "platforms", "products", "promotion"] },
+  market: { defaultView: "ranking", views: ["ranking", "overview", "compare", "settings"] },
+  customer_service: { defaultView: "conversations", views: ["conversations"] },
+  sales: { defaultView: "overview", views: ["overview", "channel", "category", "finance", "targets"] },
+  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale"] },
+  product: { defaultView: "overview", views: ["overview", "calculator"] },
+  workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "variables"] },
+  import: { defaultView: "files", views: ["files", "history", "continuity"] },
+  settings: { defaultView: "parameters", views: ["parameters", "master", "permissions"] },
+  ai: { defaultView: "assistant", views: ["assistant"] },
+} as const satisfies Record<ModuleKey, { defaultView: string; views: readonly string[] }>;
+
+export type ModuleViewKey<M extends ModuleKey = ModuleKey> =
+  (typeof moduleViewCatalog)[M]["views"][number];
+
+export function getDefaultModuleView<M extends ModuleKey>(module: M): ModuleViewKey<M> {
+  return moduleViewCatalog[module].defaultView as ModuleViewKey<M>;
+}
+
+export function getModuleViews<M extends ModuleKey>(module: M): readonly ModuleViewKey<M>[] {
+  return moduleViewCatalog[module].views as readonly ModuleViewKey<M>[];
+}
+
+export function isModuleViewKey<M extends ModuleKey>(module: M, value: string): value is ModuleViewKey<M> {
+  return (moduleViewCatalog[module].views as readonly string[]).includes(value);
+}
+
 export type NavItem = {
   key: ModuleKey;
   label: string;

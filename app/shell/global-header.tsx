@@ -25,7 +25,11 @@ export default function GlobalHeader({
   actions,
 }: GlobalHeaderProps) {
   return (
-    <header className="topbar">
+    <header
+      className="topbar"
+      aria-labelledby="global-page-title"
+      aria-describedby="global-page-description"
+    >
       <div className="title-area">
         <button
           ref={menuButtonRef}
@@ -35,15 +39,16 @@ export default function GlobalHeader({
           aria-label="打开主导航"
           aria-controls="primary-navigation"
           aria-expanded={mobileOpen}
+          aria-haspopup="dialog"
         >
           <span aria-hidden="true">☰</span>
         </button>
         <div>
-          <h1 ref={titleRef} tabIndex={-1}>{title}</h1>
-          <span>{description}</span>
+          <h1 id="global-page-title" ref={titleRef} tabIndex={-1}>{title}</h1>
+          <span id="global-page-description">{description}</span>
         </div>
       </div>
-      <div className="topbar-actions">{actions}</div>
+      <div className="topbar-actions" role="group" aria-label="页面工具">{actions}</div>
     </header>
   );
 }

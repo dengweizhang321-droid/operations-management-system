@@ -34,6 +34,12 @@ test("all rendered tables receive accessible multi-select column filtering", asy
   assert.match(component, /aria-multiselectable="true"/);
   assert.match(component, /tableRowMatchesColumnFilters/);
   assert.match(component, /dataset\.columnFilterValues/);
+  assert.match(component, /const pendingTables = new Set<HTMLTableElement>\(\)/);
+  assert.match(component, /observer\.observe\(table, \{[\s\S]*?characterData: true/);
+  assert.match(component, /documentObserver\.observe\(document\.body, \{ childList: true, subtree: true \}\)/);
+  assert.doesNotMatch(component, /documentObserver\.observe\(document\.body, \{[^}]*characterData/);
+  assert.match(component, /document\.addEventListener\("input", scheduleEventTable\)/);
+  assert.match(component, /document\.addEventListener\("change", scheduleEventTable\)/);
   assert.match(component, /closeOnExternalScroll/);
   assert.match(component, /popoverRef\.current\?\.contains\(source\)/);
   assert.match(page, /data-column-filter-values=\{item\.dates\?\.join\("\\u001f"\)\}/);
@@ -62,9 +68,10 @@ test("left navigation follows the task-oriented groups and exact order", async (
 
 test("data import navigation switches real workspaces instead of rendering inert tabs", async () => {
   const page = await source("../app/page.tsx");
-  assert.match(page, /useState<"files" \| "history" \| "continuity">\("files"\)/);
+  assert.match(page, /type ImportTab = ModuleViewKey<"import">/);
+  assert.match(page, /const activeSection = moduleView/);
   assert.match(page, /role="tablist" aria-label="数据导入工作区"/);
-  assert.match(page, /onClick=\{\(\) => setActiveSection\("history"\)\}/);
+  assert.match(page, /onClick=\{\(\) => onModuleViewChange\("history"\)\}/);
   assert.match(page, /activeSection === "continuity" && <section className="import-overview-grid"/);
   assert.match(page, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel">/);
 });
@@ -91,7 +98,7 @@ test("one global page head owns the shared period and passes it to every module"
   ]);
   assert.doesNotMatch(page, /className="page-intro"/);
   assert.match(page, /title=\{current\.label\}/);
-  assert.match(header, /<h1 ref=\{titleRef\} tabIndex=\{-1\}>\{title\}<\/h1>/);
+  assert.match(header, /<h1 id="global-page-title" ref=\{titleRef\} tabIndex=\{-1\}>\{title\}<\/h1>/);
   assert.match(page, /customStartDate=\{globalPeriod\.startDate\} customEndDate=\{globalPeriod\.endDate\}/);
   assert.match(page, /new URLSearchParams\(\{ startDate: customStartDate, endDate: customEndDate \}\)/);
   assert.match(market, /const marketStartDate = customStartDate/);

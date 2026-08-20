@@ -22,8 +22,34 @@ const focusableSelector = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "[contenteditable='true']",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
+
+export function focusTrapTargetIndex(
+  activeIndex: number,
+  itemCount: number,
+  movingBackward: boolean,
+): number | null {
+  if (itemCount <= 0) return null;
+  if (activeIndex < 0) return movingBackward ? itemCount - 1 : 0;
+  if (movingBackward && activeIndex === 0) return itemCount - 1;
+  if (!movingBackward && activeIndex === itemCount - 1) return 0;
+  return null;
+}
+
+function scheduleFocus(element: HTMLElement | null) {
+  if (!element) return () => undefined;
+  const focus = () => {
+    if (element.isConnected && !element.closest("[inert],[aria-hidden='true']")) element.focus();
+  };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    focus();
+    return () => undefined;
+  }
+  const frame = window.requestAnimationFrame(focus);
+  return () => window.cancelAnimationFrame(frame);
+}
 
 export default function AppShell({
   collapsed,
@@ -34,9 +60,9 @@ export default function AppShell({
   children,
 }: AppShellProps) {
   const sidebarRef = useRef<HTMLElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [mobileViewport, setMobileViewport] = useState(false);
   const mobileDrawerActive = mobileOpen && mobileViewport;
+  const mobileDrawerHidden = mobileViewport && !mobileDrawerActive;
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 860px)");
@@ -53,7 +79,7 @@ export default function AppShell({
   useEffect(() => {
     if (!mobileDrawerActive) return;
 
-    previousFocusRef.current = document.activeElement instanceof HTMLElement
+    const previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
     const previousOverflow = document.body.style.overflow;
@@ -62,47 +88,61 @@ export default function AppShell({
     const sidebarElement = sidebarRef.current;
     const currentItem = sidebarElement?.querySelector<HTMLElement>("[aria-current='page']");
     const firstFocusable = sidebarElement?.querySelector<HTMLElement>(focusableSelector);
-    window.requestAnimationFrame(() => (currentItem ?? firstFocusable)?.focus());
+    const cancelInitialFocus = scheduleFocus(currentItem ?? firstFocusable ?? null);
 
     const onKeyDown = (event: KeyboardEvent) => {
+      const foregroundDialog = Array.from(
+        document.querySelectorAll<HTMLElement>("[role='dialog'][aria-modal='true']"),
+      ).some((dialog) => dialog !== sidebarElement && !sidebarElement?.contains(dialog));
+      if (foregroundDialog) return;
+
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopImmediatePropagation();
         onCloseMobile();
         return;
       }
       if (event.key !== "Tab" || !sidebarElement) return;
       const focusable = Array.from(sidebarElement.querySelectorAll<HTMLElement>(focusableSelector))
-        .filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+        .filter((element) => (
+          element.tabIndex >= 0
+          && !element.hidden
+          && !element.closest("[hidden],[inert],[aria-hidden='true']")
+        ));
       if (focusable.length === 0) {
         event.preventDefault();
+        sidebarElement.focus();
         return;
       }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const targetIndex = focusTrapTargetIndex(activeIndex, focusable.length, event.shiftKey);
+      if (targetIndex !== null) {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
+        focusable[targetIndex]?.focus();
       }
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => {
+      cancelInitialFocus();
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      window.requestAnimationFrame(() => previousFocusRef.current?.focus());
+      scheduleFocus(previousFocus);
     };
   }, [mobileDrawerActive, onCloseMobile]);
 
   return (
-    <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+    <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       <aside
         ref={sidebarRef}
         id="primary-navigation"
         className={`sidebar ${mobileDrawerActive ? "mobile-open" : ""}`}
         aria-label="应用导航"
+        aria-hidden={mobileDrawerHidden || undefined}
+        aria-modal={mobileDrawerActive || undefined}
+        inert={mobileDrawerHidden || undefined}
+        role={mobileDrawerActive ? "dialog" : undefined}
+        tabIndex={mobileDrawerActive ? -1 : undefined}
       >
         {sidebar}
         <button
@@ -123,10 +163,10 @@ export default function AppShell({
           tabIndex={-1}
         />
       )}
-      <section className="workspace" inert={mobileDrawerActive || undefined}>
+      <main id="main-content" className="workspace" inert={mobileDrawerActive || undefined}>
         {header}
         {children}
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }

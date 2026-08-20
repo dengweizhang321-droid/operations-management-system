@@ -1,9 +1,12 @@
 import {
+  getDefaultModuleView,
   isImportSourceKey,
   isModuleKey,
   type ImportSourceKey,
   type ModuleKey,
+  type ModuleViewKey,
 } from "./navigation-catalog";
+import { normalizeModuleView, parseModuleView } from "./module-view-contract";
 
 export const shellPeriodKeys = [
   "today",
@@ -22,13 +25,17 @@ export type ShellPeriodState =
   | { kind: "calendar_month"; month: string }
   | { kind: "custom"; from: string; to: string };
 
-export type ShellLocationState = {
-  module: ModuleKey;
+export type ShellLocationState<M extends ModuleKey = ModuleKey> = {
+  module: M;
+  view: ModuleViewKey<M>;
   source?: ImportSourceKey;
   period: ShellPeriodState;
 };
 
-export const shellOwnedQueryKeys = ["module", "source", "period", "month", "from", "to"] as const;
+export type ShellLocationInput<M extends ModuleKey = ModuleKey> =
+  Omit<ShellLocationState<M>, "view"> & { view?: ModuleViewKey<M> };
+
+export const shellOwnedQueryKeys = ["module", "view", "salesTab", "source", "period", "month", "from", "to"] as const;
 
 const relativeOrCurrentPeriodKeys: ReadonlySet<string> = new Set([
   "today",
@@ -88,6 +95,12 @@ function parsePeriod(params: URLSearchParams): ShellPeriodState {
   return { kind: "current_month" };
 }
 
+function parseShellView<M extends ModuleKey>(module: M, params: URLSearchParams): ModuleViewKey<M> {
+  if (params.has("view") || module !== "sales") return parseModuleView(module, params);
+  const legacySalesView = singleQueryValue(params, "salesTab");
+  return normalizeModuleView(module, legacySalesView);
+}
+
 export function parseShellLocation(input: string | URL): ShellLocationState {
   const url = toUrl(input);
   const moduleValue = singleQueryValue(url.searchParams, "module");
@@ -98,15 +111,26 @@ export function parseShellLocation(input: string | URL): ShellLocationState {
     : undefined;
   return {
     module: activeModule,
+    view: parseShellView(activeModule, url.searchParams),
     ...(source ? { source } : {}),
     period: parsePeriod(url.searchParams),
   };
 }
 
-function writeShellState(url: URL, state: ShellLocationState): void {
+function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInput<M>): void {
+  const currentModuleValue = singleQueryValue(url.searchParams, "module");
+  const currentModule = currentModuleValue !== null && isModuleKey(currentModuleValue)
+    ? currentModuleValue
+    : "dashboard";
+  const requestedView = state.view ?? (currentModule === state.module
+    ? parseShellView(state.module, url.searchParams)
+    : undefined);
+
   for (const key of shellOwnedQueryKeys) url.searchParams.delete(key);
 
   if (state.module !== "dashboard") url.searchParams.append("module", state.module);
+  const view = normalizeModuleView(state.module, requestedView);
+  if (view !== getDefaultModuleView(state.module)) url.searchParams.append("view", view);
   if (state.module === "import" && state.source && isImportSourceKey(state.source)) {
     url.searchParams.append("source", state.source);
   }
@@ -120,8 +144,8 @@ function writeShellState(url: URL, state: ShellLocationState): void {
   }
 }
 
-export function serializeShellLocation(
-  state: ShellLocationState,
+export function serializeShellLocation<M extends ModuleKey>(
+  state: ShellLocationInput<M>,
   current: string | URL = "/",
 ): string {
   const url = toUrl(current);
@@ -133,4 +157,25 @@ export function normalizeShellLocation(input: string | URL): string {
   const url = toUrl(input);
   writeShellState(url, parseShellLocation(url));
   return toRelativeUrl(url);
+}
+
+/**
+ * Pure shell URL transition used by tabs and history navigation. The current
+ * period and a valid import source survive a view change; unrelated query
+ * fields and the hash are preserved by the serializer.
+ */
+export function updateModuleViewLocation<M extends ModuleKey>(
+  input: string | URL,
+  module: M,
+  view: ModuleViewKey<M>,
+): string {
+  const current = parseShellLocation(input);
+  return serializeShellLocation({
+    module,
+    view: normalizeModuleView(module, view),
+    ...(module === "import" && current.module === "import" && current.source
+      ? { source: current.source }
+      : {}),
+    period: current.period,
+  }, input);
 }

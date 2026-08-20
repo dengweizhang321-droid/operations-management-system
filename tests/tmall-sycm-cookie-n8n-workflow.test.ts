@@ -80,7 +80,7 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   const workflowNavigation = navigationCatalog.indexOf('{ key: "n8n_workflows", label: "自动化中心"');
   const dashboardNavigation = navigationCatalog.indexOf('{ key: "dashboard", label: "BI 看板"');
   assert.ok(dashboardNavigation >= 0 && workflowNavigation >= 0);
-  assert.match(page, /n8n_workflows: \(\{ currentUser \}\) => <N8nWorkflowView currentUser=\{currentUser\}/);
+  assert.match(page, /n8n_workflows: \(\{ currentUser, moduleView, onModuleViewChange \}\) => <N8nWorkflowView currentUser=\{currentUser\} moduleView=/);
   assert.match(view, /tmall-yijiu-sycm-cookie-daily\.workflow\.json/);
   assert.match(view, /jackyun-five-dataset-daily\.workflow\.json/);
   assert.match(view, /jd-multi-store-daily\.workflow\.json/);
@@ -119,8 +119,8 @@ test("n8n 工作流视图只在操作角色且 helper ready 时挂载可执行�
     shouldMountN8nWorkflowEditor,
   } = workflowView;
 
-  const viewerHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "viewer" } }));
-  const operatorHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "operator" } }));
+  const viewerHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "viewer" }, moduleView: "jackyun", onModuleViewChange: () => undefined }));
+  const operatorHtml = renderToStaticMarkup(createElement(N8nWorkflowView, { currentUser: { role: "operator" }, moduleView: "jackyun", onModuleViewChange: () => undefined }));
 
   assert.match(viewerHtml, /吉客云导入系统/);
   assert.match(viewerHtml, /天猫店铺数据导入/);

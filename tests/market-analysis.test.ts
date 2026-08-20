@@ -111,7 +111,9 @@ test("市场分析按商品榜单、行业汇报、竞品对比、系统和 AI �
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   for (const label of ["商品榜单", "行业汇报", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
-  assert.match(view, /useState<MarketSectionKey>\("ranking"\)/);
+  assert.match(view, /moduleView: ModuleViewKey<"market">/);
+  assert.match(view, /const activeSection: MarketSectionKey = moduleView/);
+  assert.match(view, /onModuleViewChange\(section\)/);
   assert.match(view, /activeSection === "ranking"/);
   assert.match(view, /activeSection === "overview"/);
   assert.match(view, /activeSection === "compare"/);
