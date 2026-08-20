@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
+import type { SalesSharedFilters } from "./sales-filter-bar";
 
 type CategoryMetric = {
   category: string;
@@ -115,11 +116,6 @@ type SortDirection = "asc" | "desc";
 type CategorySortKey = "netSalesCents" | "shareRate" | "netQuantity" | "refundRate" | "refundAmountCents" | "grossProfitCents" | "grossMarginRate" | "weekOverWeekRate" | "yearOverYearRate";
 
 type CategoryUrlState = {
-  categories: string[];
-  channels: string[];
-  platforms: string[];
-  outlets: string[];
-  productQuery: string;
   granularity: CategoryGranularity;
   sortBy: CategorySortKey;
   direction: SortDirection;
@@ -128,17 +124,12 @@ type CategoryUrlState = {
 };
 
 const categoryOwnedUrlKeys = [
-  "salesCategory", "salesChannel", "salesPlatform", "salesOutlet", "salesProductQuery",
   "salesCategoryLevel", "salesGranularity", "salesSort", "salesDirection", "salesPage", "salesPageSize",
 ] as const;
 // The shell owns `module` and `view=category`; this component only serializes its bounded analysis state.
 const validGranularities = new Set<CategoryGranularity>(["day", "week", "month"]);
 const validSortKeys = new Set<CategorySortKey>(["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "weekOverWeekRate", "yearOverYearRate"]);
 const chartColors = ["#3f7be0", "#29a77a", "#8a65d6", "#e7943f"];
-
-function boundedSelections(params: URLSearchParams, key: string) {
-  return [...new Set(params.getAll(key).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
-}
 
 function positiveInteger(value: string | null, fallback: number, maximum: number) {
   const parsed = Number(value);
@@ -151,11 +142,6 @@ function readCategoryUrl(): CategoryUrlState {
   const sortParam = params.get("salesSort");
   const sortBy = (sortParam === "monthOverMonthRate" ? "weekOverWeekRate" : sortParam) as CategorySortKey | null;
   return {
-    categories: boundedSelections(params, "salesCategory"),
-    channels: boundedSelections(params, "salesChannel"),
-    platforms: boundedSelections(params, "salesPlatform"),
-    outlets: boundedSelections(params, "salesOutlet"),
-    productQuery: (params.get("salesProductQuery") ?? "").slice(0, 500),
     granularity: granularity && validGranularities.has(granularity) ? granularity : "day",
     sortBy: sortBy && validSortKeys.has(sortBy) ? sortBy : "netSalesCents",
     direction: params.get("salesDirection") === "asc" ? "asc" : "desc",
@@ -167,11 +153,6 @@ function readCategoryUrl(): CategoryUrlState {
 function writeCategoryUrl(state: CategoryUrlState, mode: "push" | "replace") {
   const url = new URL(window.location.href);
   for (const key of categoryOwnedUrlKeys) url.searchParams.delete(key);
-  state.categories.forEach((value) => url.searchParams.append("salesCategory", value));
-  state.channels.forEach((value) => url.searchParams.append("salesChannel", value));
-  state.platforms.forEach((value) => url.searchParams.append("salesPlatform", value));
-  state.outlets.forEach((value) => url.searchParams.append("salesOutlet", value));
-  if (state.productQuery.trim()) url.searchParams.set("salesProductQuery", state.productQuery.trim());
   url.searchParams.set("salesCategoryLevel", "1");
   if (state.granularity !== "day") url.searchParams.set("salesGranularity", state.granularity);
   if (state.sortBy !== "netSalesCents") url.searchParams.set("salesSort", state.sortBy);
@@ -326,7 +307,7 @@ const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
   { key: "weekOverWeekRate", label: "环比上周" },
 ];
 
-export default function SalesCategoryView({ startDate, endDate }: { startDate: string; endDate: string }) {
+export default function SalesCategoryView({ startDate, endDate, filters, onFiltersChange }: { startDate: string; endDate: string; filters: SalesSharedFilters; onFiltersChange: (filters: SalesSharedFilters) => void }) {
   const [urlState, setUrlState] = useState<CategoryUrlState>(readCategoryUrl);
   const [data, setData] = useState<CategoryAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -374,11 +355,11 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
           page: String(urlState.page),
           pageSize: String(urlState.pageSize),
         });
-        urlState.categories.forEach((value) => query.append("category", value));
-        urlState.channels.forEach((value) => query.append("channel", value));
-        urlState.platforms.forEach((value) => query.append("platform", value));
-        urlState.outlets.forEach((value) => query.append("outlet", value));
-        if (urlState.productQuery.trim()) query.append("productQuery", urlState.productQuery.trim());
+        filters.categories.forEach((value) => query.append("category", value));
+        filters.channels.forEach((value) => query.append("channel", value));
+        filters.platforms.forEach((value) => query.append("platform", value));
+        filters.outletKeys.forEach((value) => query.append("outlet", value));
+        if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
         const payload = await requestJson<CategoryAnalysisResponse>(`/api/sales/category-analysis?${query}`, { signal: controller.signal });
         if (generation !== requestGenerationRef.current) return;
         setData(payload);
@@ -390,7 +371,7 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
       }
     })();
     return () => controller.abort();
-  }, [endDate, retryKey, startDate, urlState]);
+  }, [endDate, filters.categories, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, retryKey, startDate, urlState]);
 
   useEffect(() => {
     if (!detailCategory) return;
@@ -402,10 +383,10 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
       setDetailData(null);
       try {
         const query = new URLSearchParams({ startDate, endDate, category: detailCategory });
-        urlState.channels.forEach((value) => query.append("channel", value));
-        urlState.platforms.forEach((value) => query.append("platform", value));
-        urlState.outlets.forEach((value) => query.append("outlet", value));
-        if (urlState.productQuery.trim()) query.append("productQuery", urlState.productQuery.trim());
+        filters.channels.forEach((value) => query.append("channel", value));
+        filters.platforms.forEach((value) => query.append("platform", value));
+        filters.outletKeys.forEach((value) => query.append("outlet", value));
+        if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
         const payload = await requestJson<CategoryOutletBreakdownResponse>(`/api/sales/category-analysis/detail?${query}`, { signal: controller.signal });
         if (generation === detailRequestGenerationRef.current) setDetailData(payload);
       } catch (reason) {
@@ -417,11 +398,10 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
       }
     })();
     return () => controller.abort();
-  }, [detailCategory, endDate, startDate, urlState.channels, urlState.outlets, urlState.platforms, urlState.productQuery]);
+  }, [detailCategory, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate]);
 
-  const outletLabels = useMemo(() => new Map((data?.filterOptions.outlets ?? []).map((item) => [item.key, `${item.platform} · ${item.name}`])), [data?.filterOptions.outlets]);
   const filterOptions = data?.filterOptions ?? { categories: [], channels: [], platforms: [], outlets: [], totals: { categories: 0, channels: 0, platforms: 0, outlets: 0 }, truncated: false, limit: 200 };
-  const hasFilters = urlState.categories.length + urlState.channels.length + urlState.platforms.length + urlState.outlets.length > 0 || Boolean(urlState.productQuery.trim());
+  const hasChannelFilter = filters.channels.length > 0;
 
   if (loading && !data) return <section className="panel data-state sales-data-state" role="status"><span className="state-spinner" /><strong>正在汇总品类经营数据</strong><p>正在按商品主数据映射销售、退款和毛利明细…</p></section>;
   if (error && !data) return <section className="panel data-state sales-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>品类分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
@@ -430,22 +410,18 @@ export default function SalesCategoryView({ startDate, endDate }: { startDate: s
   const summary = data.summary;
   const maxRankingSales = Math.max(1, ...data.ranking.map((item) => Math.max(0, item.netSalesCents)));
   return <div className="sales-category-view" aria-busy={loading}>
-    <section className="panel category-filter-panel" aria-label="品类分析筛选条件">
-      <div className="category-filter-heading"><div><span className="eyebrow">CATEGORY SCOPE</span><h2>品类分析范围</h2><p>{data.range.startDate} 至 {data.range.endDate} · Asia/Shanghai · 日期左闭右开至 {data.range.endExclusive}</p></div><span className="soft-tag">{data.filtersApplied.dataScope.mode === "restricted" ? "已应用账号数据范围" : "全部授权范围"}</span></div>
+    <section className="panel category-filter-panel category-analysis-settings" aria-label="品类分析设置">
+      <div className="category-filter-heading"><div><span className="eyebrow">CATEGORY SETTINGS</span><h2>品类分析设置</h2><p>{data.range.startDate} 至 {data.range.endDate} · 公共筛选已同步应用，渠道与趋势粒度为品类页专属设置。</p></div><span className="soft-tag">{data.filtersApplied.dataScope.mode === "restricted" ? "已应用账号数据范围" : "全部授权范围"}</span></div>
       <div className="category-filter-layout">
         <div className="category-level-field"><span>当前分析层级</span><strong>一级品类</strong><small>品类以 ERP 商品主数据为准，暂无下级类目</small></div>
         <div className="category-filter-controls">
           <div className="category-filter-fields">
-            <MultiFilter label="品类" values={filterOptions.categories} selected={urlState.categories} onChange={(categories) => updateUrlState({ categories })} />
-            <MultiFilter label="渠道" values={filterOptions.channels} selected={urlState.channels} onChange={(channels) => updateUrlState({ channels })} />
-            <MultiFilter label="平台" values={filterOptions.platforms} selected={urlState.platforms} onChange={(platforms) => updateUrlState({ platforms })} />
-            <MultiFilter label="店铺" values={filterOptions.outlets.map((item) => item.key)} selected={urlState.outlets} display={(value) => outletLabels.get(value) ?? value.replace("\u001f", " · ")} onChange={(outlets) => updateUrlState({ outlets })} />
-            <label className="category-product-query"><span>货品编码或名称</span><input value={urlState.productQuery} onChange={(event) => updateUrlState({ productQuery: event.target.value }, "replace")} placeholder="支持多值，逗号或换行分隔" /></label>
+            <MultiFilter label="渠道" values={filterOptions.channels} selected={filters.channels} onChange={(channels) => onFiltersChange({ ...filters, channels })} />
           </div>
           <div className="category-filter-actions">
             <span>趋势粒度</span>
             <div className="segmented category-granularity" role="group" aria-label="品类趋势统计粒度">{(["day", "week", "month"] as const).map((value) => <button key={value} type="button" className={urlState.granularity === value ? "active" : ""} onClick={() => updateUrlState({ granularity: value })}>{value === "day" ? "按日" : value === "week" ? "按周" : "按月"}</button>)}</div>
-            {hasFilters && <button type="button" className="secondary-button category-filter-reset" onClick={() => updateUrlState({ categories: [], channels: [], platforms: [], outlets: [], productQuery: "" })}>清空筛选</button>}
+            {hasChannelFilter && <button type="button" className="secondary-button category-filter-reset" onClick={() => onFiltersChange({ ...filters, channels: [] })}>清空渠道</button>}
           </div>
         </div>
       </div>

@@ -38,6 +38,11 @@ import type {
 import Dialog from "./ui/dialog";
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
 import TableColumnFilters from "./ui/table-column-filters";
+import SalesFilterBar, {
+  readSalesSharedFilters,
+  writeSalesSharedFilters,
+  type SalesSharedFilters,
+} from "./sales-filter-bar";
 
 const { Component: MarketView } = createReloadableLazy("market", () => import("./market-view"));
 const { Component: N8nWorkflowView } = createReloadableLazy("n8n_workflows", () => import("./n8n-workflow-view"));
@@ -2405,53 +2410,6 @@ function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: S
   );
 }
 
-function SalesOverviewFilterBar({
-  platforms,
-  shops,
-  categories,
-  selectedPlatforms,
-  selectedShopKeys,
-  selectedCategories,
-  updating = false,
-  onPlatformChange,
-  onShopChange,
-  onCategoryChange,
-}: {
-  platforms: string[];
-  shops: Array<{ key: string; name: string; platform: string }>;
-  categories: string[];
-  selectedPlatforms: string[];
-  selectedShopKeys: string[];
-  selectedCategories: string[];
-  updating?: boolean;
-  onPlatformChange: (values: string[]) => void;
-  onShopChange: (values: string[]) => void;
-  onCategoryChange: (values: string[]) => void;
-}) {
-  const hasFilter = selectedPlatforms.length > 0 || selectedShopKeys.length > 0 || selectedCategories.length > 0;
-  const visibleShops = selectedPlatforms.length > 0
-    ? shops.filter((shop) => selectedPlatforms.includes(shop.platform))
-    : shops;
-  const updatePlatforms = (values: string[]) => {
-    onPlatformChange(values);
-    if (values.length === 0) return;
-    const allowedShopKeys = new Set(shops.filter((shop) => values.includes(shop.platform)).map((shop) => shop.key));
-    onShopChange(selectedShopKeys.filter((shopKey) => allowedShopKeys.has(shopKey)));
-  };
-  return <section className="panel sales-overview-filter-panel" aria-label="销售总览筛选" aria-busy={updating}>
-    <div className="sales-overview-filter-heading">
-      <div><span className="eyebrow">SALES SCOPE</span><h2>平台、店铺与品类筛选</h2><p>筛选仅作用于销售总览；品类以 ERP 商品主数据为准、销售明细兜底，店铺始终按“平台 + 店铺”隔离。</p></div>
-      <div className="sales-overview-filter-controls">
-        <label><span>平台</span><SearchableMultiSelect values={selectedPlatforms} onChange={updatePlatforms} ariaLabel="销售总览平台" allLabel="全部平台" searchPlaceholder="搜索平台" options={platforms.map((platform) => ({ value: platform, label: platform }))} /></label>
-        <label><span>店铺</span><SearchableMultiSelect values={selectedShopKeys} onChange={onShopChange} ariaLabel="销售总览店铺" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={visibleShops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
-        <label><span>品类</span><SearchableMultiSelect values={selectedCategories} onChange={onCategoryChange} ariaLabel="销售总览品类" allLabel="全部品类" searchPlaceholder="搜索品类" options={categories.map((category) => ({ value: category, label: category }))} /></label>
-        {hasFilter && <button type="button" className="secondary-button sales-overview-filter-reset" onClick={() => { onPlatformChange([]); onShopChange([]); onCategoryChange([]); }}>清空筛选</button>}
-      </div>
-    </div>
-    <small role={updating ? "status" : undefined} aria-live="polite">{updating ? "正在更新销售总览，可继续选择平台、店铺或品类…" : hasFilter ? `当前已按 ${selectedPlatforms.length ? `${selectedPlatforms.length} 个平台` : "全部平台"}、${selectedShopKeys.length ? `${selectedShopKeys.length} 个店铺` : "全部店铺"}、${selectedCategories.length ? `${selectedCategories.length} 个品类` : "全部品类"}统计；其他分析页签不继承这些选择。` : "默认汇总当前统计周期内全部平台、全部店铺、全部品类的销售数据。"}</small>
-  </section>;
-}
-
 function ChannelAnalysisView({
   channels,
   platforms,
@@ -2819,10 +2777,6 @@ function ProductPlatformSalesShare({ platforms }: { platforms: SalesChannel[] })
   </section>;
 }
 
-function ProductSearch({ value, onChange, queryCount }: { value: string; onChange: (value: string) => void; queryCount: number }) {
-  return <section className="panel product-code-search-panel"><div className="search-box product-code-search">⌕ <textarea rows={1} value={value} onChange={(event) => onChange(event.target.value)} placeholder="输入货品编码或完整名称（多项用逗号或换行分隔）" aria-label="输入货品编码或完整名称" /><span aria-hidden="true">⌕</span></div><small>{queryCount > 0 ? `已按 ${formatCount(queryCount)} 个货品筛选，趋势与店铺分布同步更新。` : "可输入一个或多个货品编码或完整名称，留空则查看全部货品。"}</small></section>;
-}
-
 const formatFinanceBps = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${(value / 100).toFixed(1)}%`;
 const formatFinanceChange = (current: number, comparison: number | null | undefined, points = false) => {
   if (comparison === null || comparison === undefined) return "暂无可比数据";
@@ -2957,11 +2911,24 @@ function isoMonthsBetween(startDate: string, endDate: string) {
   return values.slice(0, 24);
 }
 
-function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDate: string; customEndDate: string }) {
+function salesOutletKeyToFinanceKey(value: string) {
+  const [platform, name, ...rest] = value.split("\u001f");
+  return platform && name && rest.length === 0 ? JSON.stringify([platform, name]) : null;
+}
+
+function FinanceAnalysisView({
+  customStartDate,
+  customEndDate,
+  selectedPlatforms,
+  selectedShopKeys,
+}: {
+  customStartDate: string;
+  customEndDate: string;
+  selectedPlatforms: string[];
+  selectedShopKeys: string[];
+}) {
   const globalMonths = useMemo(() => isoMonthsBetween(customStartDate, customEndDate), [customEndDate, customStartDate]);
   const [selectedMonths, setSelectedMonths] = useState<string[] | null>(globalMonths);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[] | null>(null);
-  const [selectedShops, setSelectedShops] = useState<string[] | null>(null);
   const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseSort, setExpenseSort] = useState<{ column: FinanceExpenseSortKey; direction: "asc" | "desc" }>({ column: "current", direction: "desc" });
   const [data, setData] = useState<FinanceAnalysisResponse | null>(null);
@@ -2982,8 +2949,8 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
         const query = new URLSearchParams();
         if (selectedMonths === null) query.append("month", "*");
         else selectedMonths.forEach((month) => query.append("month", month));
-        selectedPlatforms?.forEach((platform) => query.append("platform", platform));
-        selectedShops?.forEach((shop) => query.append("shop", shop));
+        selectedPlatforms.forEach((platform) => query.append("platform", platform));
+        selectedShopKeys.map(salesOutletKeyToFinanceKey).filter((value): value is string => value !== null).forEach((shop) => query.append("shop", shop));
         const queryText = query.toString();
         const response = await fetch(`/api/finance/analysis${queryText ? `?${queryText}` : ""}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as FinanceAnalysisResponse | null;
@@ -2997,7 +2964,7 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
       }
     })();
     return () => controller.abort();
-  }, [retryKey, selectedMonths, selectedPlatforms, selectedShops]);
+  }, [retryKey, selectedMonths, selectedPlatforms, selectedShopKeys]);
 
   if (loading && !data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在生成财报分析</strong><p>正在汇总利润、目标进度和费用异常…</p></section>;
   if (error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>财报分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section>;
@@ -3012,15 +2979,7 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
     ? `${financeMonthLabel(data.selectedMonths[0])}—${financeMonthLabel(data.selectedMonths.at(-1)!)}（${data.selectedMonths.length}个月）`
     : financeMonthLabel(data.selectedMonth!);
   const monthOptions = data.months.map((item) => ({ value: item.month, label: financeMonthLabel(item.month) }));
-  const platformOptions = data.filters?.platforms ?? [];
-  const shopOptions = (data.filters?.shops ?? [])
-    .filter((shop) => selectedPlatforms === null || selectedPlatforms.includes(shop.platform))
-    .map((shop) => ({ value: shop.key, label: `${shop.platform} · ${shop.name}` }));
   const activeMonthSelection = selectedMonths;
-  const updateSelectedPlatforms = (next: string[] | null) => {
-    setSelectedPlatforms(next);
-    setSelectedShops(null);
-  };
   const normalizedExpenseSearch = expenseSearch.trim().toLocaleLowerCase("zh-CN");
   const expenseRows = data.expenses.filter((item) => {
     if (!normalizedExpenseSearch) return true;
@@ -3047,7 +3006,7 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
   return <div className="finance-analysis-page">
     <section className="finance-analysis-hero">
       <div><span className="eyebrow">FINANCIAL PERFORMANCE</span><h2>财报经营分析</h2><p>以月度财报与经营目标为口径，追踪销售、利润、毛利和动态费用异常。</p></div>
-      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>平台选择</span><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="finance-filter-field"><span>店铺选择</span><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /></div><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div></div><small>全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data.sync?.dataCutoffMonth}</small></div>
+      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div></div><small>平台与店铺继承销售分析公共筛选 · 全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data.sync?.dataCutoffMonth}</small></div>
     </section>
     {error && <div className="inline-feedback warning"><strong>刷新提示</strong><span>{error}</span></div>}
     {data.selection?.truncated && <div className="inline-feedback warning" role="status"><strong>分析范围已设上限</strong><span>当前共有 {data.selection.availableMonthCount} 个可用月份，“全部月份”仅分析最近 {data.selection.months.length} 个月；如需更早月份，请在月份筛选中明确选择。</span></div>}
@@ -3073,7 +3032,7 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
     </section>
     <section className="panel finance-expense-panel">
       <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${data.expenses.length} 项` : `共 ${expenseRows.length} 项`}</span></div>
-      <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份、平台与店铺支持多选，所有指标同步更新</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /><button type="button" className="finance-filter-reset" onClick={() => { setSelectedMonths(globalMonths); setSelectedPlatforms(null); setSelectedShops(null); }}>重置筛选</button></div>
+      <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份与上方公共平台、店铺筛选同步更新所有指标</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><button type="button" className="finance-filter-reset" onClick={() => setSelectedMonths(globalMonths)}>重置月份</button></div>
       <div className="data-table-wrap finance-expense-scroll">
         <table className="data-table finance-expense-table">
           <thead><tr>
@@ -3101,7 +3060,7 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
         </table>
       </div>
     </section>
-    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
+    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
   </div>;
 }
 
@@ -3319,28 +3278,31 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
   const apiRange = salesRangeMap[range];
   const activeTab = moduleView;
   const canManageTargets = canManageFinanceTargets(currentUser);
-  const [summaryState, setSummaryState] = useState<{ tab: "overview" | "channel"; data: SalesSummaryResponse } | null>(null);
+  const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-  const [productQuery, setProductQuery] = useState("");
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [selectedShopKeys, setSelectedShopKeys] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const debouncedProductQuery = useDebouncedValue(productQuery);
+  const [filters, setFilters] = useState<SalesSharedFilters>(readSalesSharedFilters);
+  const debouncedProductQuery = useDebouncedValue(filters.productQuery);
   const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
+
+  const updateFilters = useCallback((next: SalesSharedFilters) => {
+    setFilters(next);
+    writeSalesSharedFilters(next);
+  }, []);
 
   const changeSalesTab = useCallback((tab: SalesTab) => {
     onModuleViewChange(tab);
   }, [onModuleViewChange]);
 
   useEffect(() => {
-    if (activeTab !== "overview" && activeTab !== "channel") {
-      setLoading(false);
-      return;
-    }
+    const onPopState = () => setFilters(readSalesSharedFilters());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
-    const requestTab = activeTab;
     void (async () => {
       await Promise.resolve();
       if (controller.signal.aborted) return;
@@ -3353,12 +3315,10 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
           query.set("startDate", customStartDate);
           query.set("endDate", customEndDate);
         }
-        if (requestTab === "overview") {
-          productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
-          selectedPlatforms.forEach((platform) => query.append("platform", platform));
-          selectedShopKeys.forEach((shopKey) => query.append("outlet", shopKey));
-          selectedCategories.forEach((category) => query.append("category", category));
-        }
+        productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
+        filters.platforms.forEach((platform) => query.append("platform", platform));
+        filters.outletKeys.forEach((shopKey) => query.append("outlet", shopKey));
+        filters.categories.forEach((category) => query.append("category", category));
         const response = await fetch(`/api/sales/summary?${query.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -3366,10 +3326,9 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
         const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string; error?: string }) | null;
         if (!response.ok) throw new Error(payload?.message || payload?.error || `销售汇总读取失败（${response.status}）`);
         if (!payload?.current || !Array.isArray(payload.channels)) throw new Error("销售汇总响应格式不完整");
-        setSummaryState({ tab: requestTab, data: payload });
+        setSummary(payload);
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-        setSummaryState((current) => current?.tab === requestTab ? null : current);
         setError(requestError instanceof Error ? requestError.message : "暂时无法读取销售汇总");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -3377,9 +3336,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
     })();
 
     return () => controller.abort();
-  }, [activeTab, apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedPlatforms, selectedShopKeys]);
-
-  const summary = summaryState?.tab === activeTab ? summaryState.data : null;
+  }, [apiRange, customEndDate, customStartDate, filters.categories, filters.outletKeys, filters.platforms, productQueries, retryKey]);
 
   const current = summary?.current;
   const previous = summary?.previous;
@@ -3401,9 +3358,10 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
     return `conic-gradient(${stops.join(",")})`;
   }, [channels]);
   const salesSubnav = <SalesSubnav active={activeTab} onChange={changeSalesTab} />;
+  const sharedFilterBar = (capabilities?: { categories?: boolean; product?: boolean }) => <SalesFilterBar filters={filters} options={salesFilterOptions} capabilities={capabilities} updating={loading} scopeLabel={activeTab === "finance" ? "财报分析" : activeTab === "category" ? "品类分析" : activeTab === "channel" ? "渠道分析" : "销售总览"} onChange={updateFilters} />;
 
-  if (activeTab === "category") return <>{salesSubnav}<SalesCategoryView startDate={customStartDate} endDate={customEndDate} /></>;
-  if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} /></>;
+  if (activeTab === "category") return <>{salesSubnav}{sharedFilterBar()}<SalesCategoryView startDate={customStartDate} endDate={customEndDate} filters={filters} onFiltersChange={updateFilters} /></>;
+  if (activeTab === "finance") return <>{salesSubnav}{sharedFilterBar({ categories: false, product: false })}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} selectedPlatforms={filters.platforms} selectedShopKeys={filters.outletKeys} /></>;
   if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView canManageTargets={canManageTargets} /></>;
 
   if (loading && !summary) {
@@ -3433,7 +3391,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
           <span className="state-symbol" aria-hidden="true">∅</span>
           <strong>{range}暂无销售数据</strong>
           <p>{productQueries.length > 0 ? "当前货品编码或名称在该统计周期内没有销售记录，可修改或清空下方查询。" : "请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。"}</p>
-        </section>{activeTab === "overview" && <SalesOverviewFilterBar platforms={salesFilterOptions.platforms} shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedPlatforms={selectedPlatforms} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onPlatformChange={setSelectedPlatforms} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} /></>
+        </section>{sharedFilterBar()}</>
     );
   }
 
@@ -3449,7 +3407,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
         <strong>{rangeNote}</strong>
         {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
-      {activeTab === "overview" && <SalesOverviewFilterBar platforms={salesFilterOptions.platforms} shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedPlatforms={selectedPlatforms} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onPlatformChange={setSelectedPlatforms} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}
+      {sharedFilterBar()}
       {activeTab === "channel" ? (
         <ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} />
       ) : <>
@@ -3482,7 +3440,6 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
           </article>
         </section>
         <section className="product-situation-grid"><ProductSalesTrend daily={summary?.daily ?? []} selectedProductCount={productQueries.length} /><ShopSalesDistribution shops={summary?.outlets ?? []} /></section>
-        <ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} />
       </>}
     </>
   );
