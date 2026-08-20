@@ -38,8 +38,10 @@ type GroupRow = MetricRow & {
 };
 type DailyRow = MetricRow & { date: string };
 type FilterShopRow = { option_key: string; name: string; platform: string | null };
+type FilterPlatformRow = { platform: string };
 type FilterCategoryRow = { category: string };
 export type SalesOutletFilter = { platform: string; shop: string };
+type SalesPlatformFilter = string | string[];
 
 export class SalesSummaryRequestError extends Error {}
 
@@ -184,7 +186,7 @@ function bindPeriod(
   startDate: string,
   endDate: string,
   productCodes: string[] = [],
-  platform?: string,
+  platform?: SalesPlatformFilter,
   shop?: string,
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
@@ -206,23 +208,30 @@ function productCodeClause(productCodes: string[]) {
     : "";
 }
 
-function outletClause(platform?: string, shop?: string, outlets: SalesOutletFilter[] = []) {
+function outletClause(platform?: SalesPlatformFilter, shop?: string, outlets: SalesOutletFilter[] = []) {
   const platformName = "COALESCE(NULLIF(s.platform, ''), '未分类')";
   const shopName = "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')";
+  const platformClause = Array.isArray(platform)
+    ? ` AND ${platformName} IN (SELECT CAST(value AS TEXT) FROM json_each(?))`
+    : platform ? ` AND ${platformName} = ?` : "";
   if (outlets.length > 0) {
-    return ` AND EXISTS (
+    return `${platformClause} AND EXISTS (
       SELECT 1 FROM json_each(?) outlet
       WHERE ${platformName} = CAST(json_extract(outlet.value, '$.platform') AS TEXT)
         AND ${shopName} = CAST(json_extract(outlet.value, '$.shop') AS TEXT)
     )`;
   }
-  return `${platform ? ` AND ${platformName} = ?` : ""}${shop ? ` AND ${shopName} = ?` : ""}`;
+  return `${platformClause}${shop ? ` AND ${shopName} = ?` : ""}`;
 }
 
-function outletBindings(platform?: string, shop?: string, outlets: SalesOutletFilter[] = []) {
-  return outlets.length > 0
-    ? [JSON.stringify(outlets)]
-    : [...(platform ? [platform] : []), ...(shop ? [shop] : [])];
+function outletBindings(platform?: SalesPlatformFilter, shop?: string, outlets: SalesOutletFilter[] = []) {
+  const platformBindings = Array.isArray(platform)
+    ? [JSON.stringify(platform)]
+    : platform ? [platform] : [];
+  return [
+    ...platformBindings,
+    ...(outlets.length > 0 ? [JSON.stringify(outlets)] : shop ? [shop] : []),
+  ];
 }
 
 function categoryClause(categories: string[]) {
@@ -247,6 +256,14 @@ function normalizeCategories(values: string[] | undefined) {
   return normalized;
 }
 
+function normalizePlatforms(values: string[] | undefined) {
+  const normalized = [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+  if (normalized.length > 50 || normalized.some((value) => value.length > 100)) {
+    throw new SalesSummaryRequestError("平台筛选最多 50 项，且每项不能超过 100 字。");
+  }
+  return normalized;
+}
+
 function normalizeOutlets(values: SalesOutletFilter[] | undefined) {
   const outlets = (values ?? [])
     .map((value) => ({ platform: value.platform.trim(), shop: value.shop.trim() }))
@@ -258,7 +275,7 @@ function normalizeOutlets(values: SalesOutletFilter[] | undefined) {
   return unique;
 }
 
-function metricsSql(productCodes: string[], platform?: string, shop?: string, categories: string[] = [], outlets: SalesOutletFilter[] = []) {
+function metricsSql(productCodes: string[], platform?: SalesPlatformFilter, shop?: string, categories: string[] = [], outlets: SalesOutletFilter[] = []) {
   return `
   SELECT
     COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
@@ -307,7 +324,7 @@ async function groupedMetrics(
   dimension: "shop" | "channel" | "platform",
   period: Period,
   productCodes: string[],
-  platform?: string,
+  platform?: SalesPlatformFilter,
   shop?: string,
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
@@ -391,7 +408,7 @@ async function groupedMetricsWithYearOverYear(
   period: Period,
   yearAgoPeriod: Pick<Period, "startDate" | "endDate">,
   productCodes: string[],
-  platform?: string,
+  platform?: SalesPlatformFilter,
   shop?: string,
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
@@ -429,7 +446,7 @@ async function dailyMetrics(
   db: SalesDatabase,
   period: Pick<Period, "startDate" | "endDate">,
   productCodes: string[],
-  platform?: string,
+  platform?: SalesPlatformFilter,
   shop?: string,
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
@@ -502,7 +519,7 @@ async function filterOptions(
         period.endDate,
         productCodes,
       ).all<FilterCategoryRow>();
-  const [shops, categories] = await Promise.all([
+  const [shops, categories, platforms] = await Promise.all([
     bindPeriod(
       db.prepare(`
         SELECT
@@ -521,6 +538,20 @@ async function filterOptions(
       productCodes,
     ).all<FilterShopRow>(),
     categoryOptions,
+    bindPeriod(
+      db.prepare(`
+        SELECT COALESCE(NULLIF(s.platform, ''), '未分类') AS platform
+        FROM sales_order_lines s
+        WHERE s.ship_time >= ? AND s.ship_time < ?
+          AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
+        GROUP BY COALESCE(NULLIF(s.platform, ''), '未分类')
+        ORDER BY platform ASC
+        LIMIT 200
+      `),
+      period.startDate,
+      period.endDate,
+      productCodes,
+    ).all<FilterPlatformRow>(),
   ]);
   return {
     shops: shops.results.map((item) => ({
@@ -528,6 +559,7 @@ async function filterOptions(
       name: item.name,
       platform: item.platform || "未分类",
     })),
+    platforms: platforms.results.map((item) => item.platform),
     categories: categories.results.map((item) => item.category),
   };
 }
@@ -545,7 +577,7 @@ async function latestSalesDataDate(db: SalesDatabase) {
 
 export async function getSalesSummary(
   db: SalesDatabase,
-  input: { range: SalesRange; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
+  input: { range: SalesRange; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; platforms?: string[]; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
 ) {
   const today = shanghaiToday();
   let productQueries: string[];
@@ -560,7 +592,11 @@ export async function getSalesSummary(
   ]);
   const productCodes = normalizeProductCodes(resolvedProductCodes);
   const categories = normalizeCategories(input.categories);
-  const platform = input.platform?.trim() || undefined;
+  const platforms = normalizePlatforms([
+    ...(input.platforms ?? []),
+    ...(input.platform ? [input.platform] : []),
+  ]);
+  const platform: SalesPlatformFilter | undefined = platforms.length > 0 ? platforms : undefined;
   const shop = input.shop?.trim() || undefined;
   const outletFilters = normalizeOutlets(input.outlets);
   let requestedPeriod: Period;
@@ -657,7 +693,15 @@ export async function getSalesSummary(
 
   return {
     range: input.range,
-    filters: { productQueries, productCodes, platform: platform ?? null, shop: shop ?? null, outlets: outletFilters, categories },
+    filters: {
+      productQueries,
+      productCodes,
+      platform: platforms.length === 1 ? platforms[0] : null,
+      platforms,
+      shop: shop ?? null,
+      outlets: outletFilters,
+      categories,
+    },
     filterOptions: filterOptionsData,
     ...period,
     requestedStartDate: requestedPeriod.startDate,

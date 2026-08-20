@@ -49,6 +49,13 @@ export async function GET(request: Request) {
     if (categories.length > 50 || categories.some((value) => value.length > 100)) {
       throw new SalesSummaryRequestError("品类筛选最多 50 项，且每项不能超过 100 字。");
     }
+    const platforms = [...new Set([...searchParams.getAll("platforms"), ...searchParams.getAll("platform")]
+      .flatMap((value) => value.split(/[，,;；]+/))
+      .map((value) => value.trim())
+      .filter(Boolean))];
+    if (platforms.length > 50 || platforms.some((value) => value.length > 100)) {
+      throw new SalesSummaryRequestError("平台筛选最多 50 项，且每项不能超过 100 字。");
+    }
     const rawOutletKeys = [...new Set([...searchParams.getAll("outlet"), ...searchParams.getAll("outlets")]
       .flatMap((value) => value.split(/[，,;；]+/))
       .map((value) => parseShopFilterKey(value.trim()))
@@ -67,7 +74,7 @@ export async function GET(request: Request) {
       startDate: searchParams.get("startDate") ?? undefined,
       endDate: searchParams.get("endDate") ?? undefined,
       productQueries,
-      platform: searchParams.get("platform") ?? undefined,
+      platforms,
       shop: searchParams.get("shop") ?? undefined,
       outlets: normalizedOutlets,
       categories,

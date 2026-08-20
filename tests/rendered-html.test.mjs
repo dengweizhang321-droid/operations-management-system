@@ -136,8 +136,10 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /库存快照/);
   assert.match(page, /summary\?\.shops/);
   assert.match(page, /SalesOverviewFilterBar/);
+  assert.match(page, /销售总览平台/);
   assert.match(page, /销售总览店铺/);
   assert.match(page, /销售总览品类/);
+  assert.match(page, /selectedPlatforms/);
   assert.match(page, /selectedShopKeys/);
   assert.match(page, /selectedCategories/);
   assert.match(page, /selectedOutletKeys/);
@@ -154,6 +156,7 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(chunkService, /SALES_UPLOAD_CHUNK_BYTES/);
   assert.match(summaryRoute, /getSalesSummary/);
   assert.match(summaryRoute, /categories/);
+  assert.match(summaryRoute, /getAll\("platform"\)/);
   assert.match(summaryRoute, /getAll\("outlet"\)/);
   assert.match(summaryRoute, /parseShopFilterKey/);
   assert.match(summaryService, /gross_sales_cents/);
@@ -163,6 +166,7 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(summaryService, /filterOptions/);
   assert.match(summaryService, /categoryClause/);
   assert.match(summaryService, /filterOptionsData/);
+  assert.match(summaryService, /normalizePlatforms/);
   assert.match(summaryService, /outletBindings/);
   assert.match(summaryService, /normalizeOutlets/);
   assert.match(summaryService, /last15/);
@@ -191,7 +195,9 @@ test("keeps sales overview multi-selects mounted while filtered results refresh"
   assert.match(page, /if \(loading && !summary\)/);
   assert.match(page, /updating=\{loading\}/);
   assert.match(page, /aria-busy=\{updating\}/);
-  assert.match(page, /正在更新筛选结果，可继续选择店铺或品类/);
+  assert.match(page, /正在更新销售总览，可继续选择平台、店铺或品类/);
+  assert.match(page, /requestTab === "overview"/);
+  assert.match(page, /summaryState\?\.tab === activeTab/);
 });
 
 test("keeps shop analysis isolated by platform and matches year-over-year by the same shop key", async () => {

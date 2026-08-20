@@ -69,7 +69,29 @@ test("sales overview resolves categories from ERP product master and falls back 
   });
 
   assert.deepEqual(result.filterOptions.categories, ["台下洗碗机", "揭盖洗碗机", "超声波洗碗机", "长龙洗碗机"]);
+  assert.deepEqual(result.filterOptions.platforms, ["京东", "天猫"]);
   assert.equal(result.current.netSalesCents, 260000);
+  sqlite.close();
+});
+
+test("sales overview supports bounded multi-platform filters and intersects them with outlet identity", async () => {
+  const { sqlite, db } = fixture();
+  const jd = await getSalesSummary(db, {
+    range: "all",
+    platforms: ["京东"],
+  });
+
+  assert.equal(jd.current.netSalesCents, 200000);
+  assert.deepEqual(jd.filters.platforms, ["京东"]);
+  assert.deepEqual(jd.platforms.map((item) => item.name), ["京东"]);
+
+  const emptyIntersection = await getSalesSummary(db, {
+    range: "all",
+    platforms: ["京东"],
+    outlets: [{ platform: "天猫", shop: "设备店" }],
+  });
+  assert.equal(emptyIntersection.current.lineCount, 0);
+  assert.equal(emptyIntersection.current.netSalesCents, 0);
   sqlite.close();
 });
 
@@ -107,6 +129,7 @@ test("销售汇总最大合法商品、品类与 outlet 筛选使用 JSON bind �
     startDate: "2026-08-01",
     endDate: "2026-08-31",
     productQueries: Array.from({ length: 100 }, (_, index) => `SKU-${index}`),
+    platforms: Array.from({ length: 50 }, (_, index) => `平台-${index}`),
     categories: Array.from({ length: 50 }, (_, index) => `品类-${index}`),
     outlets: Array.from({ length: 50 }, (_, index) => ({ platform: `平台-${index}`, shop: `店铺-${index}` })),
   });

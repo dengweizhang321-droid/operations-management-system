@@ -177,8 +177,9 @@ type SalesSummaryResponse = {
   daily?: Array<{ date: string } & SalesStats>;
   previousDaily?: Array<{ date: string } & SalesStats>;
   yearAgoDaily?: Array<{ date: string } & SalesStats>;
-  filters?: { productCodes: string[]; platform?: string | null; shop?: string | null; outlets?: Array<{ platform: string; shop: string }>; categories?: string[] };
+  filters?: { productCodes: string[]; platform?: string | null; platforms?: string[]; shop?: string | null; outlets?: Array<{ platform: string; shop: string }>; categories?: string[] };
   filterOptions?: {
+    platforms: string[];
     shops: Array<{ key: string; name: string; platform: string }>;
     categories: string[];
   };
@@ -2405,33 +2406,49 @@ function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: S
 }
 
 function SalesOverviewFilterBar({
+  platforms,
   shops,
   categories,
+  selectedPlatforms,
   selectedShopKeys,
   selectedCategories,
   updating = false,
+  onPlatformChange,
   onShopChange,
   onCategoryChange,
 }: {
+  platforms: string[];
   shops: Array<{ key: string; name: string; platform: string }>;
   categories: string[];
+  selectedPlatforms: string[];
   selectedShopKeys: string[];
   selectedCategories: string[];
   updating?: boolean;
+  onPlatformChange: (values: string[]) => void;
   onShopChange: (values: string[]) => void;
   onCategoryChange: (values: string[]) => void;
 }) {
-  const hasFilter = selectedShopKeys.length > 0 || selectedCategories.length > 0;
+  const hasFilter = selectedPlatforms.length > 0 || selectedShopKeys.length > 0 || selectedCategories.length > 0;
+  const visibleShops = selectedPlatforms.length > 0
+    ? shops.filter((shop) => selectedPlatforms.includes(shop.platform))
+    : shops;
+  const updatePlatforms = (values: string[]) => {
+    onPlatformChange(values);
+    if (values.length === 0) return;
+    const allowedShopKeys = new Set(shops.filter((shop) => values.includes(shop.platform)).map((shop) => shop.key));
+    onShopChange(selectedShopKeys.filter((shopKey) => allowedShopKeys.has(shopKey)));
+  };
   return <section className="panel sales-overview-filter-panel" aria-label="销售总览筛选" aria-busy={updating}>
     <div className="sales-overview-filter-heading">
-      <div><span className="eyebrow">SALES SCOPE</span><h2>店铺与品类筛选</h2><p>品类以 ERP 商品主数据为准、销售明细兜底；筛选条件会同步应用到销售指标、趋势、渠道构成和店铺销售分布。</p></div>
+      <div><span className="eyebrow">SALES SCOPE</span><h2>平台、店铺与品类筛选</h2><p>筛选仅作用于销售总览；品类以 ERP 商品主数据为准、销售明细兜底，店铺始终按“平台 + 店铺”隔离。</p></div>
       <div className="sales-overview-filter-controls">
-        <label><span>店铺</span><SearchableMultiSelect values={selectedShopKeys} onChange={onShopChange} ariaLabel="销售总览店铺" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={shops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
+        <label><span>平台</span><SearchableMultiSelect values={selectedPlatforms} onChange={updatePlatforms} ariaLabel="销售总览平台" allLabel="全部平台" searchPlaceholder="搜索平台" options={platforms.map((platform) => ({ value: platform, label: platform }))} /></label>
+        <label><span>店铺</span><SearchableMultiSelect values={selectedShopKeys} onChange={onShopChange} ariaLabel="销售总览店铺" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={visibleShops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
         <label><span>品类</span><SearchableMultiSelect values={selectedCategories} onChange={onCategoryChange} ariaLabel="销售总览品类" allLabel="全部品类" searchPlaceholder="搜索品类" options={categories.map((category) => ({ value: category, label: category }))} /></label>
-        {hasFilter && <button type="button" className="secondary-button sales-overview-filter-reset" onClick={() => { onShopChange([]); onCategoryChange([]); }}>清空筛选</button>}
+        {hasFilter && <button type="button" className="secondary-button sales-overview-filter-reset" onClick={() => { onPlatformChange([]); onShopChange([]); onCategoryChange([]); }}>清空筛选</button>}
       </div>
     </div>
-    <small role={updating ? "status" : undefined} aria-live="polite">{updating ? "正在更新筛选结果，可继续选择店铺或品类…" : hasFilter ? `当前已按 ${selectedShopKeys.length || "全部"} 个店铺、${selectedCategories.length || "全部"} 个品类统计；取消筛选即可恢复整体销售口径。` : "默认汇总当前统计周期内全部店铺、全部品类的销售数据。"}</small>
+    <small role={updating ? "status" : undefined} aria-live="polite">{updating ? "正在更新销售总览，可继续选择平台、店铺或品类…" : hasFilter ? `当前已按 ${selectedPlatforms.length ? `${selectedPlatforms.length} 个平台` : "全部平台"}、${selectedShopKeys.length ? `${selectedShopKeys.length} 个店铺` : "全部店铺"}、${selectedCategories.length ? `${selectedCategories.length} 个品类` : "全部品类"}统计；其他分析页签不继承这些选择。` : "默认汇总当前统计周期内全部平台、全部店铺、全部品类的销售数据。"}</small>
   </section>;
 }
 
@@ -3302,11 +3319,12 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
   const apiRange = salesRangeMap[range];
   const activeTab = moduleView;
   const canManageTargets = canManageFinanceTargets(currentUser);
-  const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
+  const [summaryState, setSummaryState] = useState<{ tab: "overview" | "channel"; data: SalesSummaryResponse } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const [productQuery, setProductQuery] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedShopKeys, setSelectedShopKeys] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const debouncedProductQuery = useDebouncedValue(productQuery);
@@ -3322,6 +3340,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
       return;
     }
     const controller = new AbortController();
+    const requestTab = activeTab;
     void (async () => {
       await Promise.resolve();
       if (controller.signal.aborted) return;
@@ -3334,9 +3353,12 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
           query.set("startDate", customStartDate);
           query.set("endDate", customEndDate);
         }
-        productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
-        selectedShopKeys.forEach((shopKey) => query.append("outlet", shopKey));
-        selectedCategories.forEach((category) => query.append("category", category));
+        if (requestTab === "overview") {
+          productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
+          selectedPlatforms.forEach((platform) => query.append("platform", platform));
+          selectedShopKeys.forEach((shopKey) => query.append("outlet", shopKey));
+          selectedCategories.forEach((category) => query.append("category", category));
+        }
         const response = await fetch(`/api/sales/summary?${query.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -3344,10 +3366,10 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
         const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string; error?: string }) | null;
         if (!response.ok) throw new Error(payload?.message || payload?.error || `销售汇总读取失败（${response.status}）`);
         if (!payload?.current || !Array.isArray(payload.channels)) throw new Error("销售汇总响应格式不完整");
-        setSummary(payload);
+        setSummaryState({ tab: requestTab, data: payload });
       } catch (requestError) {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-        setSummary(null);
+        setSummaryState((current) => current?.tab === requestTab ? null : current);
         setError(requestError instanceof Error ? requestError.message : "暂时无法读取销售汇总");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -3355,7 +3377,9 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
     })();
 
     return () => controller.abort();
-  }, [activeTab, apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedShopKeys]);
+  }, [activeTab, apiRange, customEndDate, customStartDate, productQueries, retryKey, selectedCategories, selectedPlatforms, selectedShopKeys]);
+
+  const summary = summaryState?.tab === activeTab ? summaryState.data : null;
 
   const current = summary?.current;
   const previous = summary?.previous;
@@ -3363,7 +3387,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
   const channels = useMemo(() => summary?.channels ?? [], [summary?.channels]);
   const salesChannels = summary?.shops?.length ? summary.shops : channels;
   const platforms = summary?.platforms?.length ? summary.platforms : channels;
-  const salesFilterOptions = summary?.filterOptions ?? { shops: [], categories: [] };
+  const salesFilterOptions = summary?.filterOptions ?? { platforms: [], shops: [], categories: [] };
   const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.grossSalesCents !== 0 || current.netSalesCents !== 0));
   const donutBackground = useMemo(() => {
     if (!channels.length) return "#eef1f5";
@@ -3409,7 +3433,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
           <span className="state-symbol" aria-hidden="true">∅</span>
           <strong>{range}暂无销售数据</strong>
           <p>{productQueries.length > 0 ? "当前货品编码或名称在该统计周期内没有销售记录，可修改或清空下方查询。" : "请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。"}</p>
-        </section>{activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} /></>
+        </section>{activeTab === "overview" && <SalesOverviewFilterBar platforms={salesFilterOptions.platforms} shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedPlatforms={selectedPlatforms} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onPlatformChange={setSelectedPlatforms} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}<ProductSearch value={productQuery} onChange={setProductQuery} queryCount={productQueries.length} /></>
     );
   }
 
@@ -3425,7 +3449,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
         <strong>{rangeNote}</strong>
         {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
       </div>
-      {activeTab === "overview" && <SalesOverviewFilterBar shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}
+      {activeTab === "overview" && <SalesOverviewFilterBar platforms={salesFilterOptions.platforms} shops={salesFilterOptions.shops} categories={salesFilterOptions.categories} selectedPlatforms={selectedPlatforms} selectedShopKeys={selectedShopKeys} selectedCategories={selectedCategories} updating={loading} onPlatformChange={setSelectedPlatforms} onShopChange={setSelectedShopKeys} onCategoryChange={setSelectedCategories} />}
       {activeTab === "channel" ? (
         <ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} />
       ) : <>
