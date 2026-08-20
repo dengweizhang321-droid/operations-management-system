@@ -267,6 +267,10 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(selectorHelper, /jmtd-dropdown-option/);
   assert.match(selectorHelper, /hasText: exactLabel/);
   assert.match(selectorHelper, /lastCandidateCount === 1/);
+  assert.match(selectorHelper, /attempt % 10 === 0/);
+  assert.match(selectorHelper, /visibleOptionCount === 0 \|\| attempt >= 20/);
+  assert.match(selectorHelper, /controlClicks \+= 1/);
+  assert.doesNotMatch(selectorHelper, /lastCandidateCount === 0 && control\) await clickDropdownControl/);
   assert.match(selectorHelper, /lastVisibleLabels/);
   assert.match(selectorHelper, /可见选项=/);
   assert.doesNotMatch(selectorHelper, /candidate\.innerText/);
@@ -295,7 +299,7 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.doesNotMatch(runner, /getByText\([^\n]+\.last\(\)\.click\(\)/);
   assert.match(runner, /dayGranularity\.isChecked\(\)/);
   assert.match(runner, /waitForRankingSurface\(frame\)/);
-  assert.match(runner, /if \(lastCandidateCount === 0 && control\) await clickDropdownControl\(control\)/);
+  assert.match(runner, /lastCandidateCount === 0 && control && attempt % 10 === 0/);
   assert.match(runner, /eventName !== "open"/);
   assert.match(runner, /await control\.click\(\{ timeout: 3_000, force: true \}\)/);
   assert.doesNotMatch(runner, /:scope > \.jmtd-base-input-top/);

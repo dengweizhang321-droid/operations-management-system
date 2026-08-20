@@ -370,6 +370,7 @@ async function clickDropdownControl(control: Locator) {
 async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label: string, action: "click" | "hover", control?: Locator) {
   const exactLabel = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
   let lastCandidateCount = 0;
+  let controlClicks = 0;
   let lastVisibleLabels: string[] = [];
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const candidates = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exactLabel });
@@ -380,14 +381,23 @@ async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label
         : await candidates.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
       if (applied) return;
     }
-    if (lastCandidateCount === 0 && control) await clickDropdownControl(control).catch(() => undefined);
+    if (lastCandidateCount === 0 && control && attempt % 10 === 0) {
+      const visibleOptionCount = await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).count();
+      if (visibleOptionCount === 0 || attempt >= 20) {
+        const clicked = await clickDropdownControl(control).then(() => true).catch(() => false);
+        if (clicked) {
+          controlClicks += 1;
+          await frame.waitForTimeout(300);
+        }
+      }
+    }
     if (attempt === 99) {
       lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
         .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}；候选=${lastCandidateCount}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
+  throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}；候选=${lastCandidateCount}；控件点击=${controlClicks}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
 }
 
 async function clickUniqueDropdownOption(surface: Locator, frame: Frame, label: string, control?: Locator) {
