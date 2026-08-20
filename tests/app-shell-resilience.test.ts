@@ -25,11 +25,14 @@ test("global search dialog traps focus and restores the background", async () =>
   assert.match(page, /aria-haspopup="dialog"/);
   assert.match(page, /aria-controls="global-search-dialog"/);
   assert.match(page, /<Dialog open=\{searchOpen\}/);
+  assert.match(dialog, /createPortal/);
+  assert.match(dialog, /setPortalTarget\(document\.body\)/);
   assert.match(dialog, /document\.body\.style\.overflow = "hidden"/);
-  assert.match(dialog, /appShell\?\.setAttribute\("inert", ""\)/);
+  assert.match(dialog, /backgroundShell\?\.setAttribute\("inert", ""\)/);
+  assert.match(dialog, /if \(transition\.becameEmpty\)/);
   assert.match(dialog, /event\.key === "Escape"/);
   assert.match(dialog, /event\.key !== "Tab"/);
-  assert.match(dialog, /previousFocus\?\.focus\(\)/);
+  assert.match(dialog, /focusTarget\?\.isConnected/);
 });
 
 test("mobile navigation releases its interaction lock at the desktop breakpoint", async () => {

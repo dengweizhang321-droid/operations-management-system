@@ -104,6 +104,15 @@ export const workflowTasks = sqliteTable(
   ],
 );
 
+/** Optimistic-concurrency and soft-delete state kept separate for legacy workflow task upgrades. */
+export const workflowTaskStates = sqliteTable("workflow_task_states", {
+  taskId: text("task_id").primaryKey().references(() => workflowTasks.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  mutationToken: text("mutation_token").notNull().default(""),
+  deletedAt: text("deleted_at"),
+  deletedBy: text("deleted_by"),
+}, (table) => [index("workflow_task_states_deleted_idx").on(table.deletedAt, table.taskId)]);
+
 /** Prevents deleted default tasks from being seeded again after a refresh. */
 export const workflowTaskBootstrap = sqliteTable(
   "workflow_task_bootstrap",
@@ -111,6 +120,126 @@ export const workflowTaskBootstrap = sqliteTable(
     key: text("key").primaryKey(),
     seededAt: text("seeded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
+);
+
+export const workflowTaskComments = sqliteTable("workflow_task_comments", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").notNull().references(() => workflowTasks.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("workflow_task_comments_task_created_idx").on(table.taskId, table.createdAt, table.id)]);
+
+export const workflowTaskActivityLogs = sqliteTable("workflow_task_activity_logs", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").notNull().references(() => workflowTasks.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  summary: text("summary").notNull(),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  actorEmail: text("actor_email").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("workflow_task_activity_task_created_idx").on(table.taskId, table.createdAt, table.id)]);
+
+export const workflowTaskReminders = sqliteTable("workflow_task_reminders", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").notNull().references(() => workflowTasks.id, { onDelete: "cascade" }),
+  remindAt: text("remind_at").notNull(),
+  note: text("note").notNull().default(""),
+  status: text("status").notNull().default("pending"),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("workflow_task_reminders_task_status_time_idx").on(table.taskId, table.status, table.remindAt)]);
+
+export const workflowTaskTemplates = sqliteTable("workflow_task_templates", {
+  id: text("id").primaryKey(), name: text("name").notNull(), description: text("description").notNull().default(""),
+  title: text("title").notNull().default(""), workContent: text("work_content").notNull().default(""),
+  category: text("category").notNull().default("工作计划"), owner: text("owner").notNull().default(""), shopName: text("shop_name").notNull().default(""),
+  startOffsetDays: integer("start_offset_days").notNull().default(0), dueOffsetDays: integer("due_offset_days").notNull().default(0),
+  priority: text("priority").notNull().default("normal"), active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdBy: text("created_by").notNull(), updatedBy: text("updated_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("workflow_task_templates_active_updated_idx").on(table.active, table.updatedAt, table.id)]);
+
+/** Optimistic-concurrency state for reusable task templates. */
+export const workflowTaskTemplateStates = sqliteTable("workflow_task_template_states", {
+  templateId: text("template_id").primaryKey().references(() => workflowTaskTemplates.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  mutationToken: text("mutation_token").notNull().default(""),
+});
+
+export const workflowTaskEntityLinks = sqliteTable("workflow_task_entity_links", {
+  id: text("id").primaryKey(), taskId: text("task_id").notNull().references(() => workflowTasks.id, { onDelete: "cascade" }),
+  entityType: text("entity_type").notNull(), entityId: text("entity_id").notNull(), label: text("label").notNull(), url: text("url").notNull().default(""),
+  createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("workflow_task_entity_links_task_entity_uq").on(table.taskId, table.entityType, table.entityId),
+  index("workflow_task_entity_links_task_created_idx").on(table.taskId, table.createdAt, table.id),
+]);
+
+export const workflowTaskAttachments = sqliteTable("workflow_task_attachments", {
+  id: text("id").primaryKey(), taskId: text("task_id").notNull().references(() => workflowTasks.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(), mimeType: text("mime_type").notNull(), sizeBytes: integer("size_bytes").notNull(), sha256: text("sha256").notNull(),
+  objectKey: text("object_key").notNull().unique(), createdBy: text("created_by").notNull(), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("workflow_task_attachments_task_created_idx").on(table.taskId, table.createdAt, table.id)]);
+
+/** Durable outbox for best-effort deletion across D1 and private R2 storage. */
+export const workflowAttachmentCleanupQueue = sqliteTable("workflow_attachment_cleanup_queue", {
+  objectKey: text("object_key").primaryKey(), attempts: integer("attempts").notNull().default(0), lastError: text("last_error").notNull().default(""),
+  enqueuedAt: text("enqueued_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("workflow_attachment_cleanup_queue_updated_idx").on(table.updatedAt, table.objectKey)]);
+
+/** Durable records shared by store inspection, review care and product launch workspaces. */
+export const workflowOperationRecords = sqliteTable(
+  "workflow_operation_records",
+  {
+    id: text("id").primaryKey(),
+    recordType: text("record_type").notNull(),
+    title: text("title").notNull(),
+    status: text("status").notNull(),
+    priority: text("priority").notNull().default("normal"),
+    platform: text("platform").notNull().default(""),
+    channel: text("channel").notNull().default(""),
+    shopName: text("shop_name").notNull(),
+    owner: text("owner").notNull().default(""),
+    occurredAt: text("occurred_at").notNull(),
+    dueAt: text("due_at"),
+    content: text("content").notNull().default(""),
+    source: text("source").notNull().default("manual"),
+    sourceRef: text("source_ref").notNull().default(""),
+    referenceCode: text("reference_code").notNull().default(""),
+    version: integer("version").notNull().default(1),
+    mutationToken: text("mutation_token").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    deletedAt: text("deleted_at"),
+    deletedBy: text("deleted_by"),
+  },
+  (table) => [
+    index("workflow_operation_records_type_status_time_idx").on(table.recordType, table.status, table.occurredAt, table.id),
+    index("workflow_operation_records_shop_type_time_idx").on(table.shopName, table.recordType, table.occurredAt, table.id),
+  ],
+);
+
+/** Metadata-only activity trail; free-form record content is deliberately not duplicated. */
+export const workflowOperationActivities = sqliteTable(
+  "workflow_operation_activities",
+  {
+    id: text("id").primaryKey(),
+    recordId: text("record_id").notNull(),
+    action: text("action").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    actorRole: text("actor_role").notNull(),
+    fromVersion: integer("from_version"),
+    toVersion: integer("to_version").notNull(),
+    detailJson: text("detail_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("workflow_operation_activities_record_created_idx").on(table.recordId, table.toVersion, table.id),
+  ],
 );
 
 /** Durable, metadata-only audit trail for future AI tool executions. */

@@ -577,59 +577,42 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
 });
 
 test("exposes the five operational collaboration workspaces", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  for (const label of ["工作计划", "巡店检查", "评价维护", "新品上架", "变量配置"]) assert.match(page, new RegExp(label));
-  assert.match(page, /运营事务子版块/);
-  assert.match(page, /搜索工作计划/);
-  assert.match(page, /搜索巡店记录/);
-  assert.match(page, /搜索评价内容/);
-  assert.match(page, /搜索新品项目/);
-  assert.match(page, /workflow-plan-table/);
-  for (const label of ["进行中", "已逾期", "今日到期", "状态分布", "未完成 · 按紧急程度", "按跟进人工作量", "时间轴", "下载当前清单"]) assert.match(page, new RegExp(label));
-  assert.match(page, /Asia\/Shanghai/);
-  assert.match(page, /workflow-summary-grid/);
-  assert.match(page, /workflow-insight-grid/);
-  for (const label of ["工作事项", "工作内容", "紧急程度", "跟进人", "截止时间", "录入时间"]) assert.match(page, new RegExp(label));
-  assert.match(page, /formatWorkflowRecordedAt/);
-  assert.match(page, /taskPriorities/);
-  assert.match(page, /workflow-due-input/);
-  assert.match(page, /workflow-status-field/);
-  assert.match(page, /workflowStatusLabel/);
-  assert.match(page, /全部紧急程度/);
-  for (const action of ["标记工作中", "标记完成", "退回待开始", "返还待开始", "返还工作中"]) assert.match(page, new RegExp(action));
-  assert.match(page, /WorkflowTransitionActions/);
-  assert.match(page, /WorkflowAttachmentList/);
-  assert.match(page, /添加附件/);
-  assert.match(page, /支持图片 \/ 文件/);
-  for (const field of ["工作事项", "工作内容", "跟进人", "店铺名称", "开始时间", "截止时间", "紧急程度"]) assert.match(page, new RegExp(field));
-  assert.match(page, /WorkflowDeleteConfirm/);
-  assert.match(page, /WorkflowTaskEditor/);
-  assert.match(page, /workflow-task-buckets/);
-  assert.match(page, /未开始 \+ 进行中/);
-  assert.match(page, /标记完成后自动移入“已完成”/);
-  assert.match(page, /保存修改/);
-  assert.match(page, /确认删除工作项/);
-  assert.match(page, /确认删除/);
-  assert.match(page, /未命名工作项/);
-  assert.match(page, /未命名新品项目/);
-  assert.doesNotMatch(page, /请先补充：/);
-  assert.doesNotMatch(page, /先登录，再继续自动导出/);
-  assert.doesNotMatch(page, /openJackyunLogin/);
+  const [page, operations] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/operations-view.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /import OperationsView/);
+  assert.match(page, /<OperationsView currentUser=/);
+  for (const label of ["工作计划", "巡店检查", "评价维护", "新品上架", "变量配置"]) assert.match(operations, new RegExp(label));
+  for (const label of ["评论", "活动", "提醒", "关联对象", "附件"]) assert.match(operations, new RegExp(label));
+  for (const state of ["loading", "empty", "error", "permission"]) assert.match(operations, new RegExp(`kind: \\"${state}\\"|kind=\\"${state}\\"`));
+  assert.match(operations, /\/api\/workflow\/operations-records/);
+  assert.match(operations, /\/api\/workflow\/templates/);
+  assert.match(operations, /\/collaboration/);
+  assert.match(operations, /URLSearchParams/);
+  assert.match(operations, /pageSize: "50"/);
+  assert.match(operations, /toShanghaiApiDateTime/);
+  assert.match(operations, /:00\+08:00/);
+  assert.match(operations, /单个不超过 10MB/);
+  assert.match(operations, /\.pdf,.png,.jpg,.jpeg,.webp,.xls,.xlsx,.docx,.txt,.csv/);
+  assert.match(operations, /currentUser\?\.role === "operator"/);
+  assert.doesNotMatch(operations, /createObjectURL/);
+  assert.doesNotMatch(operations, /志高 ZK-30|近 30 天评价|今日已巡店/);
 });
 
 test("persists work-plan creation, full-field edits, status archiving, and deletion", async () => {
   const [page, route, tasks, migration] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/operations-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/workflow/tasks/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/workflow/tasks.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0012_workflow_tasks.sql", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /fetch\("\/api\/workflow\/tasks"/);
+  assert.match(page, /requestJson<\{ items: Task\[\] \}>\("\/api\/workflow\/tasks"\)/);
   assert.match(page, /method: "DELETE"/);
   assert.match(page, /method: "PATCH"/);
-  assert.match(page, /taskMutationPending/);
-  assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
+  assert.match(page, /const \[saving, setSaving\]/);
+  assert.match(route, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(route, /export async function DELETE/);
   assert.match(route, /type UpdateWorkflowTaskInput/);
   assert.match(route, /updateWorkflowTask\(id, payload/);
@@ -643,7 +626,7 @@ test("persists work-plan creation, full-field edits, status archiving, and delet
   assert.match(tasks, /start_date = \?, due_date = \?, status = \?, priority = \?/);
   assert.match(tasks, /工作项紧急程度无效/);
   assert.match(page, /workflow-plan-actions/);
-  assert.match(page, /taskListScope === "completed"/);
+  assert.match(page, /statusFilter === "open"/);
   assert.match(page, /item\.status !== "已完成"/);
   assert.match(migration, /CREATE TABLE `workflow_tasks`/);
 });

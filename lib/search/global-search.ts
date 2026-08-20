@@ -23,6 +23,9 @@ export type GlobalSearchGroupKey =
   | "orders"
   | "jd_products"
   | "inventory"
+  | "inventory_age"
+  | "combos"
+  | "replenishment"
   | "market_skus"
   | "market_annotations"
   | "customer_service"
@@ -431,28 +434,14 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
         /*SCOPE*/
       ORDER BY updated_at DESC, period_key DESC LIMIT ? OFFSET ?`,
   },
-  {
-    key: "workflow",
-    label: "运营事务",
-    icon: "务",
-    module: "workflow",
-    requiredTables: ["workflow_tasks"],
-    likeParameterCount: 7,
-    allowedRoles: allRoles,
-    scopeKind: "shop",
-    sql: `
-      SELECT id AS result_id, title, category || CASE WHEN status <> '' THEN ' · ' || status ELSE '' END AS subtitle,
-        COALESCE(NULLIF(work_content, ''), shop_name) || CASE WHEN owner <> '' THEN ' · ' || owner ELSE '' END AS detail,
-        updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
-      FROM workflow_tasks
-      WHERE (title LIKE ? ESCAPE '\\' COLLATE NOCASE OR work_content LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR category LIKE ? ESCAPE '\\' COLLATE NOCASE OR owner LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR status LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR priority LIKE ? ESCAPE '\\' COLLATE NOCASE)
-        /*SCOPE*/
-      ORDER BY updated_at DESC, id ASC LIMIT ? OFFSET ?`,
-  },
 ] as const;
+
+const workflowDefinition = {
+  key: "workflow" as const,
+  label: "运营事务",
+  icon: "务",
+  module: "workflow" as const,
+};
 
 const importSources = [
   { table: "sales_import_batches", source: "'销售明细'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
@@ -492,7 +481,7 @@ export const GLOBAL_SEARCH_COVERAGE = [
  */
 export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   searchable: [
-    "workflow_tasks",
+    "workflow_tasks", "workflow_operation_records",
     "sales_import_batches", "sales_order_lines",
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_metrics",
     "erp_reference_import_batches", "erp_product_master", "erp_inventory_age_lines", "erp_combo_items",
@@ -508,6 +497,9 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   excludedSensitiveOrInternal: [
     "app_users", "ai_models", "ai_channels", "ai_channel_callback_events",
     "ai_conversations", "ai_conversation_messages", "system_settings", "workflow_task_bootstrap",
+    "workflow_operation_activities", "workflow_task_states", "workflow_task_template_states",
+    "workflow_attachment_cleanup_queue", "workflow_task_activity_logs", "workflow_task_attachments", "workflow_task_comments",
+    "workflow_task_entity_links", "workflow_task_reminders", "workflow_task_templates",
     "ai_tool_audit_logs",
     "sales_import_uploads", "sales_import_upload_chunks",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
@@ -521,6 +513,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
 
 const groupKeys = new Set<GlobalSearchGroupKey>([
   ...staticDefinitions.map((definition) => definition.key),
+  "workflow",
   "inventory_age",
   "imports",
 ]);
@@ -684,6 +677,67 @@ async function queryInventoryAgeGroup(
   }
 }
 
+async function queryWorkflowGroup(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  request: GlobalSearchRequest,
+  like: string,
+  principal: AppPrincipal,
+) {
+  const fragments: string[] = [];
+  const binds: unknown[] = [];
+  // Legacy task databases did not have the state companion table. They remain
+  // searchable until the idempotent schema upgrader backfills that table.
+  if (tables.has("workflow_tasks") && principal.scope === null) {
+    const stateJoin = tables.has("workflow_task_states")
+      ? "JOIN workflow_task_states s ON s.task_id = t.id"
+      : "";
+    const activeClause = tables.has("workflow_task_states") ? "AND s.deleted_at IS NULL" : "";
+    fragments.push(`SELECT 'task:' || t.id AS result_id, t.title AS title,
+      t.category || CASE WHEN t.status <> '' THEN ' · ' || t.status ELSE '' END AS subtitle,
+      COALESCE(NULLIF(t.work_content, ''), t.shop_name) || CASE WHEN t.owner <> '' THEN ' · ' || t.owner ELSE '' END AS detail,
+      t.updated_at AS updated_at, NULL AS amount_cents
+      FROM workflow_tasks t ${stateJoin}
+      WHERE (t.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.work_content LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR t.category LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR t.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.status LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR t.priority LIKE ? ESCAPE '\\' COLLATE NOCASE) ${activeClause}`);
+    binds.push(like, like, like, like, like, like, like);
+  }
+  if (tables.has("workflow_operation_records")) {
+    const scope = scopeSql(principal, "channel_platform", { channel: "o.channel", platform: "o.platform" });
+    fragments.push(`SELECT 'operation:' || o.id AS result_id, o.title AS title,
+      CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END
+        || CASE WHEN o.status <> '' THEN ' · ' || o.status ELSE '' END AS subtitle,
+      COALESCE(NULLIF(o.content, ''), o.shop_name) || CASE WHEN o.owner <> '' THEN ' · ' || o.owner ELSE '' END AS detail,
+      o.updated_at AS updated_at, NULL AS amount_cents
+      FROM workflow_operation_records o
+      WHERE o.deleted_at IS NULL AND (o.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.content LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR (CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END) LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR o.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.status LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR o.priority LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
+    binds.push(like, like, like, like, like, like, like, ...scope.values);
+  }
+  if (fragments.length === 0) return emptyGroup(workflowDefinition);
+  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents,
+    COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
+    ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
+  try {
+    const result = await db.prepare(sql)
+      .bind(...binds, request.groupLimit, (request.page - 1) * request.groupLimit)
+      .all<SearchRow>();
+    const rows = result.results ?? [];
+    let totalOverride: number | undefined;
+    if (rows.length === 0 && request.page > 1) {
+      const firstPage = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
+      totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
+    }
+    return mapSearchRows(workflowDefinition, rows, request, principal, totalOverride);
+  } catch {
+    return emptyGroup(workflowDefinition);
+  }
+}
+
 async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
   const definition = { key: "imports" as const, label: "导入批次", icon: "入", module: "import" as const };
   const availableSources = importSources.filter((source) => tables.has(source.table));
@@ -742,10 +796,13 @@ export async function searchAllBusinessData(
     (!request.group || definition.key === request.group) && isGroupAuthorized(definition, principal));
   const groupTasks: Array<Promise<GlobalSearchGroup>> = selectedStaticDefinitions.map((definition) =>
     queryStaticGroup(db, definition, tables, request, like, principal));
+  if ((!request.group || request.group === "workflow") && allRoles.includes(principal.role)) {
+    groupTasks.push(queryWorkflowGroup(db, tables, request, like, principal));
+  }
   if ((!request.group || request.group === "inventory_age") && allRoles.includes(principal.role)) {
     groupTasks.push(queryInventoryAgeGroup(db, tables, request, like, principal));
   }
-  if ((!request.group || request.group === "imports") && operatorRoles.includes(principal.role) && principal.scope === null) {
+  if ((!request.group || request.group === "imports") && operatorRoles.some((role) => role === principal.role) && principal.scope === null) {
     groupTasks.push(queryImportGroup(db, tables, request, like, principal));
   }
   const groups = trimToTotalLimit(await Promise.all(groupTasks), request.totalLimit);

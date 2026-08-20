@@ -407,6 +407,20 @@
       "when": 1786176000000,
       "tag": "0057_market_annotation_cloud_runner",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1787184000000,
+      "tag": "0058_workflow_collaboration",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1787187600000,
+      "tag": "0059_workflow_operations_records",
+      "breakpoints": true
     }
   ]
 }

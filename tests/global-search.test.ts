@@ -33,9 +33,9 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
   const calls: Array<{ sql: string; values: unknown[] }> = [];
   const database = {
     prepare(sql: string) {
-      let values: unknown[] = [];
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
       return {
-        bind(...nextValues: unknown[]) { values = nextValues; return this; },
+        bind(...nextValues: unknown[]) { values = nextValues as typeof values; return this; },
         async all<T>() {
           calls.push({ sql, values });
           if (sql.includes("sqlite_master")) return { results: [{ name: "erp_product_master" }] as T[] };
@@ -103,9 +103,9 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
   const database = {
     prepare(sql: string) {
       const statement = sqlite.prepare(sql);
-      let values: unknown[] = [];
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
       return {
-        bind(...nextValues: unknown[]) { values = nextValues; return this; },
+        bind(...nextValues: unknown[]) { values = nextValues as typeof values; return this; },
         async all<T>() { return { results: statement.all(...values) as T[] }; },
       };
     },
@@ -117,6 +117,32 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
   );
   assert.equal(result.groups.length, 14);
   assert.equal(result.groups.every((group) => group.available), true);
+  sqlite.close();
+});
+
+test("运营事务搜索兼容尚未创建运营记录和状态表的旧库", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE workflow_tasks (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, work_content TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '',
+    owner TEXT NOT NULL DEFAULT '', shop_name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, priority TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  INSERT INTO workflow_tasks (id, title, work_content, category, owner, shop_name, status, priority)
+    VALUES ('legacy-1', '旧库巡店任务', '检查价格', '巡店检查', '运营组', '测试店', '待开始', 'normal');`);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const result = await searchAllBusinessData(database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=旧库巡店&group=workflow")), admin);
+  assert.equal(result.groups[0]?.available, true);
+  assert.equal(result.groups[0]?.total, 1);
+  assert.equal(result.groups[0]?.items[0]?.id, "task:legacy-1");
   sqlite.close();
 });
 
@@ -185,7 +211,7 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
   const sales = calls.find((call) => call.sql.includes("sales_order_lines"));
   assert.ok(sales);
   assert.match(sales.sql, /online_spec_code LIKE \?/);
-  assert.match(sales.sql, /channel IN \(\?\).*platform IN \(\?\)/s);
+  assert.match(sales.sql, /channel IN \(\?\)[\s\S]*platform IN \(\?\)/);
   assert.deepEqual(sales.values.slice(7, 9), ["线上", "京东"]);
   assert.deepEqual(result.filtersApplied.dataScope, {
     mode: "restricted", warehouses: [], channels: ["线上"], platforms: ["京东"],
