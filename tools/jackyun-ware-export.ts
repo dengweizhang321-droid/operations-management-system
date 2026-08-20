@@ -516,12 +516,12 @@ export async function revealJdWareExportEntry(page: Page, queryBootstrapState: J
       exportEntryCount: await exportEntry.count(),
       batchOperationsCount: await batchOperations.count(),
     });
-    if (decision === "ready") return;
+    if (decision === "ready") return waitForExportEntry(page);
     if (decision === "open_batch_operations") {
       await exactlyOne(batchOperations, "批量操作按钮");
       await batchOperations.click({ timeout: 10_000 });
       try {
-        await waitForExportEntry(page, 3_000);
+        return await waitForExportEntry(page, 3_000);
       } catch (error) {
         if (!(error instanceof Error) || error.message !== "导出查询商品按钮未达到连续可见稳定状态。") throw error;
         await exactlyOne(batchOperations, "批量操作按钮");
@@ -530,9 +530,8 @@ export async function revealJdWareExportEntry(page: Page, queryBootstrapState: J
         // implement its keyboard contract. This remains the same reversible
         // menu action and is allowed only after the click produced no entry.
         await batchOperations.press("Enter", { timeout: 10_000 });
-        await waitForExportEntry(page);
+        return waitForExportEntry(page);
       }
-      return;
     }
     const queryDecision = jdWareProductQueryBootstrapDecision({
       productSearchContainerCount: await productSearchContainer.count(),
@@ -619,9 +618,9 @@ export function isTransientJdExportEntryRepaint(error: unknown) {
 export async function openExportEntryWithRepaintRetry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
   // Querying is a one-time, reversible bootstrap action. Keep it outside the
   // click retry loop: a detached export button must never replay that query.
-  await revealJdWareExportEntry(page, queryBootstrapState);
+  let exportEntry = await revealJdWareExportEntry(page, queryBootstrapState);
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const exportEntry = await waitForExportEntry(page);
+    if (attempt > 0) exportEntry = await waitForExportEntry(page);
     try {
       await exportEntry.click({ timeout: 10_000 });
       return;

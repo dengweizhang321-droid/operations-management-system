@@ -510,7 +510,7 @@ test("classifies the WareList query control only when it is uniquely bound to it
   assert.throws(() => jdWareSkuExportDrawerDecision({ exportDrawerCount: 0, scopedSkuTabCount: 0, pageSkuTabCount: 1 }), /不在唯一导出条件抽屉/);
 });
 
-function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; revealAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none" }) {
+function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; revealAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none" }) {
   let exportEntryCount = 0;
   let waitCount = 0;
   const clicks = { scopedQuery: 0, batchOperations: 0, batchOperationsEnter: 0, exportEntry: 0 };
@@ -581,6 +581,7 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
           ? clicks.batchOperationsEnter === 1
           : false;
       if ((clicks.scopedQuery === 1 || batchRevealed) && waitCount >= (input.revealAfterWaits ?? 1)) exportEntryCount = 1;
+      if (input.hideExportAfterWaits !== undefined && waitCount >= input.hideExportAfterWaits) exportEntryCount = 0;
     },
   };
   return { page, clicks, selectors, jdOverlayNodes, rawDrawerCandidate, resetExportEntry: () => { exportEntryCount = 0; } };
@@ -679,6 +680,22 @@ test("the open-target to export-dialog path reuses one query bootstrap across a 
   await assert.rejects(revealJdWareExportEntry(detachedQuery.page as never, detachedQueryState), /detached/);
   await revealJdWareExportEntry(detachedQuery.page as never, detachedQueryState);
   assert.equal(detachedQuery.clicks.scopedQuery, 1);
+});
+
+test("clicks a briefly stable JD export entry without waiting for the same menu twice", async () => {
+  const briefMenu = createWareListEntryPageFixture({
+    productSearchContainerCount: 1,
+    scopedQueryButtonCount: 1,
+    pageQueryButtonCount: 1,
+    batchOperationsCount: 1,
+    revealAfterWaits: 1,
+    hideExportAfterWaits: 3,
+  });
+
+  await openExportEntryWithRepaintRetry(briefMenu.page as never);
+
+  assert.equal(briefMenu.clicks.batchOperations, 1);
+  assert.equal(briefMenu.clicks.exportEntry, 1);
 });
 
 test("records an auto-import failure audit after a rejected connection without browser startup", async () => {
