@@ -104,10 +104,10 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     scheduleDescription: "上海时区 · 每天运行一次",
     scheduleTriggerLabel: "每天",
     iframeTitle: "天猫店铺数据导入 n8n 工作流",
-    safetyNote: "页面只嵌入本机编辑器，Cookie、账号、密码、Token 和 Session 均不进入运营系统。本地 Worker 自动守护一次性环回服务；A 先启动受控独立 Chromium，登录失效时只提交浏览器自身已保存并自动填充的凭证，验证码或安全验证仍要求人工处理。A→B→C→P→M 绑定同一 n8n execution，推广完成后才执行货品主数据并在终态关闭本轮受控 Chromium。M 失败不回滚已完成回查的商品日或推广导入，但整个 execution 仍失败并保留货品活动清单；所有导入接口只在业务范围与规范化后的完整业务内容都一致时返回 duplicate。",
+    safetyNote: "页面只嵌入本机编辑器，Cookie、明文账号、密码、Token 和 Session 均不进入运营系统或 n8n。本地 Worker 自动守护一次性环回服务；A 先启动受控独立 Chromium，登录失效时仅由当前 Windows 用户解密对应店铺的 DPAPI 凭据并向唯一表单提交一次，验证码或安全验证仍要求人工处理。A→B→C→P→M 绑定同一 n8n execution，推广完成后才执行货品主数据并在终态关闭本轮受控 Chromium。M 失败不回滚已完成回查的商品日或推广导入，但整个 execution 仍失败并保留货品活动清单；所有导入接口只在业务范围与规范化后的完整业务内容都一致时返回 duplicate。",
     stageDetails: {
       M: { title: "货品主数据", description: "从店铺独立千牛会话导出全部商品，校验发布模板、库存和行数后导入并回查。" },
-      A: { title: "登录预检与目标日计划", description: "启动店铺独立 Chromium，只提交浏览器已自动填充的保存密码并核验店铺身份；通过后默认生成昨天。" },
+      A: { title: "登录预检与目标日计划", description: "启动店铺独立 Chromium，仅从 Windows DPAPI 凭据库向唯一登录表单提交一次并核验店铺身份；通过后默认生成昨天。" },
       B: { title: "逐日下载", description: "每个业务日独立下载生意参谋 XLS，并核验店铺身份、文件类型与日期覆盖。" },
       C: { title: "签收导入", description: "签收受控文件，按业务范围与规范化完整内容判重，并回查批次、行数、店铺与同日覆盖。" },
       P: { title: "全站推推广", description: "从千牛左侧推广进入货品全站推报表；目标日按升序串行，起止日期为同一天并选全部指标，每日下载、校验、导入和回查成功后再处理下一天。" },

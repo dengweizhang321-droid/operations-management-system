@@ -14,7 +14,11 @@ import {
   resolveTmallBrowserLaunchTarget,
   type TmallStore,
 } from "../lib/netshop/tmall-store-registry";
-import { autoLoginTmallWithSavedBrowserCredentials } from "./tmall-saved-login";
+import {
+  autoLoginTmallWithSavedBrowserCredentials,
+  autoLoginTmallWithWindowsDpapiCredential,
+  inspectTmallLoginPageState,
+} from "./tmall-saved-login";
 
 export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20";
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
@@ -1541,7 +1545,7 @@ async function launchStoreChrome(store: TmallStore, interactiveLogin = false) {
 }
 
 export async function ensureTmallSellerSession(page: Page, store: TmallStore) {
-  let authentication: "existing_session" | "saved_browser_credentials" = "existing_session";
+  let authentication: "existing_session" | "saved_browser_credentials" | "windows_dpapi_credentials" = "existing_session";
   await waitUntil(tmallSellerLoginRedirectGraceMs, async () => {
     const text = await combinedPageText(page);
     return text.includes("出售中") || isTmallSellerLoginUrl(page.url())
@@ -1552,11 +1556,13 @@ export async function ensureTmallSellerSession(page: Page, store: TmallStore) {
     || /扫码登录|密码登录|账户登录|安全验证|人机验证|短信验证码|滑块验证/.test(initialText)
       && !initialText.includes("出售中");
   if (loginRequired) {
-    if (store.loginMode !== "saved_browser_credentials") {
+    if (store.loginMode !== "saved_browser_credentials" && store.loginMode !== "windows_dpapi_credentials") {
       if (isTmallSellerLoginUrl(page.url())) await waitForTmallSellerSessionUrl(() => page.url());
       else throw new Error(`waiting_login：${store.shopName} 独立浏览器尚未登录千牛，请先人工登录后重试`);
     } else {
-      const login = await autoLoginTmallWithSavedBrowserCredentials(page);
+      const login = store.loginMode === "windows_dpapi_credentials"
+        ? await autoLoginTmallWithWindowsDpapiCredential(page, store.storeKey)
+        : await autoLoginTmallWithSavedBrowserCredentials(page);
       const currentText = await combinedPageText(page);
       const stillRequiresLogin = isTmallSellerLoginUrl(page.url())
         || /扫码登录|密码登录|账户登录/.test(currentText) && !currentText.includes("出售中");
@@ -1574,22 +1580,31 @@ export async function ensureTmallSellerSession(page: Page, store: TmallStore) {
               : "登录表单尚未就绪";
         throw new Error(`waiting_login：${store.shopName} ${reason}，请人工登录并选择保存密码`);
       } else {
-        authentication = "saved_browser_credentials";
+        authentication = store.loginMode;
       }
     }
   }
   try {
     await waitUntil(60_000, async () => {
       const text = await combinedPageText(page);
-      if (authentication === "saved_browser_credentials"
-        && /安全验证|人机验证|短信验证码|动态验证码|滑块验证/.test(text)) {
-        throw new Error(`waiting_login：${store.shopName} 自动登录后出现安全验证，需要人工处理`);
+      if (authentication !== "existing_session") {
+        const loginState = await inspectTmallLoginPageState(page);
+        if (loginState.temporarilyLocked) {
+          throw new Error(`waiting_login：${store.shopName} 登录操作受限或过于频繁，需要稍后人工检查`);
+        }
+        if (loginState.credentialRejected) {
+          throw new Error(`waiting_login：${store.shopName} 本机加密凭据未被平台接受，请重新配置凭据并人工核验`);
+        }
+        if (loginState.challengePresent
+          || /安全验证|人机验证|短信验证码|动态验证码|滑块验证/.test(text)) {
+          throw new Error(`waiting_login：${store.shopName} 自动登录后出现验证码或安全验证，需要人工处理`);
+        }
       }
       return text.includes("出售中");
     }, "等待千牛出售中页面加载超时");
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("waiting_login")) throw error;
-    if (authentication === "saved_browser_credentials") {
+    if (authentication !== "existing_session") {
       throw new Error(`waiting_login：${store.shopName} 自动提交已保存密码后仍未进入千牛，可能需要验证码或安全验证`);
     }
     throw error;

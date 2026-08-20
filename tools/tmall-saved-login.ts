@@ -1,4 +1,6 @@
-import type { Frame, Page } from "playwright-core";
+import type { Frame, Locator, Page } from "playwright-core";
+
+import { readTmallRuntimeCredential, type TmallRuntimeCredential } from "./tmall-secure-credential";
 
 export type TmallSavedCredentialLoginResult = {
   attempted: boolean;
@@ -10,6 +12,12 @@ export type TmallSavedCredentialLoginResult = {
     | "saved_credentials_missing"
     | "login_control_missing"
     | "login_control_ambiguous";
+};
+
+export type TmallLoginPageState = {
+  challengePresent: boolean;
+  credentialRejected: boolean;
+  temporarilyLocked: boolean;
 };
 
 type LoginFrameProbe = {
@@ -153,6 +161,29 @@ async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switc
   }, action);
 }
 
+export async function inspectTmallLoginPageState(page: Pick<Page, "frames">): Promise<TmallLoginPageState> {
+  const states = await Promise.all(page.frames().map(async (frame) => {
+    const probe = await probeLoginFrame(frame).catch(() => null);
+    const textState = await frame.evaluate(() => {
+      const text = String(document.body?.innerText ?? "");
+      return {
+        credentialRejected: /账号.{0,8}(?:密码|登录).{0,8}(?:错误|不正确)|密码.{0,8}(?:错误|不正确)|用户名.{0,8}(?:错误|不存在)|登录失败/.test(text),
+        temporarilyLocked: /操作频繁|次数过多|账号.{0,8}(?:锁定|冻结)/.test(text),
+      };
+    }).catch(() => ({ credentialRejected: false, temporarilyLocked: false }));
+    return {
+      challengePresent: Boolean(probe?.challengePresent),
+      credentialRejected: textState.credentialRejected,
+      temporarilyLocked: textState.temporarilyLocked,
+    };
+  }));
+  return states.reduce<TmallLoginPageState>((combined, state) => ({
+    challengePresent: combined.challengePresent || state.challengePresent,
+    credentialRejected: combined.credentialRejected || state.credentialRejected,
+    temporarilyLocked: combined.temporarilyLocked || state.temporarilyLocked,
+  }), { challengePresent: false, credentialRejected: false, temporarilyLocked: false });
+}
+
 /**
  * Submit only a username and password that Chromium has already autofilled in
  * the store's dedicated profile. Field values are never read or transported.
@@ -225,4 +256,91 @@ export async function autoLoginTmallWithSavedBrowserCredentials(
       ? "login_control_missing"
       : formFound ? "saved_credentials_missing" : "login_form_missing",
   };
+}
+
+async function visibleCandidates(locator: Locator, limit = 20) {
+  const candidates: Locator[] = [];
+  const count = Math.min(await locator.count().catch(() => 0), limit);
+  for (let index = 0; index < count; index += 1) {
+    const candidate = locator.nth(index);
+    if (await candidate.isVisible().catch(() => false)) candidates.push(candidate);
+  }
+  return candidates;
+}
+
+async function secureLoginForm(frame: Frame) {
+  const passwords = await visibleCandidates(frame.locator('input[type="password"],input[name*="password" i],input[id*="password" i]'));
+  const accounts = (await visibleCandidates(frame.locator([
+    "#fm-login-id",
+    'input[name="fm-login-id"]',
+    'input[autocomplete="username"]',
+    'input[type="email"]',
+    'input[type="tel"]',
+    'input[type="text"]',
+  ].join(",")))).filter((candidate) => candidate !== passwords[0]);
+  if (passwords.length !== 1 || accounts.length !== 1) return null;
+  return { frame, account: accounts[0]!, password: passwords[0]! };
+}
+
+/**
+ * Fill one unique Taobao password form from the current Windows user's DPAPI
+ * vault. Secrets are never accepted through n8n, arguments, environment
+ * variables or logs, and field values are never read back from the page.
+ */
+export async function autoLoginTmallWithWindowsDpapiCredential(
+  page: Page,
+  storeKey: string,
+  loadCredential: (key: string) => Promise<TmallRuntimeCredential> = readTmallRuntimeCredential,
+  prepareLogin: (target: Page) => Promise<TmallSavedCredentialLoginResult> = (target) => (
+    autoLoginTmallWithSavedBrowserCredentials(target, 3_000)
+  ),
+): Promise<TmallSavedCredentialLoginResult> {
+  const browserSaved = await prepareLogin(page);
+  if (browserSaved.submitted || browserSaved.reason === "challenge_present"
+    || browserSaved.reason === "login_control_ambiguous") return browserSaved;
+
+  const forms = (await Promise.all(page.frames().map((frame) => secureLoginForm(frame).catch(() => null))))
+    .filter((form): form is NonNullable<typeof form> => Boolean(form));
+  if (forms.length !== 1) {
+    return {
+      attempted: false,
+      submitted: false,
+      reason: forms.length > 1 ? "login_control_ambiguous" : "login_form_missing",
+    };
+  }
+  const form = forms[0]!;
+  const credential = await loadCredential(storeKey);
+  let username = credential.username;
+  let password = credential.password;
+  try {
+    await form.account.fill(username);
+    await form.password.fill(password);
+  } finally {
+    username = "";
+    password = "";
+    credential.username = "";
+    credential.password = "";
+  }
+
+  const probes = await Promise.all(page.frames().map((frame) => probeLoginFrame(frame).catch(() => null)));
+  if (probes.some((probe) => probe?.challengePresent)) {
+    return { attempted: false, submitted: false, reason: "challenge_present" };
+  }
+  const controls = await visibleCandidates(form.frame.locator('button,input[type="submit"],[role="button"],a'));
+  const exactLoginControls: Locator[] = [];
+  for (const control of controls) {
+    const label = String(await control.textContent().catch(() => "")
+      || await control.getAttribute("value").catch(() => ""))
+      .replace(/\s+/g, "").trim();
+    if (["登录", "立即登录"].includes(label)) exactLoginControls.push(control);
+  }
+  if (exactLoginControls.length !== 1) {
+    return {
+      attempted: true,
+      submitted: false,
+      reason: exactLoginControls.length > 1 ? "login_control_ambiguous" : "login_control_missing",
+    };
+  }
+  await exactLoginControls[0]!.click();
+  return { attempted: true, submitted: true, reason: "submitted" };
 }

@@ -25,6 +25,7 @@
     "tmall:receipt": "node --import tsx tools/tmall-download-receipt.ts",
     "tmall:daily:import": "node --import tsx tools/tmall-multi-store-import-runner.ts",
     "tmall:login": "node --import tsx tools/tmall-product-master-export.ts --launch-only",
+    "tmall:credential:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/tmall-credential-vault.ps1 -Action setup",
     "market:annotation-agent": "node --import tsx tools/market-annotation-runner.ts",
     "market:annotation-cloud-pump": "node --import tsx tools/market-annotation-cloud-pump.ts",
     "market:image-repair": "node --import tsx tools/jd-market-image-repair.ts",

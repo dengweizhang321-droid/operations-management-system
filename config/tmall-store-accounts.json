@@ -6,7 +6,7 @@
       "platform": "天猫",
       "shopName": "天猫-志高亿玖专卖店",
       "enabled": true,
-      "loginMode": "saved_browser_credentials",
+      "loginMode": "windows_dpapi_credentials",
       "initialStartDate": "2026-07-28",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {

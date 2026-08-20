@@ -5,7 +5,7 @@ export type BundledTmallStore = {
   platform: "天猫";
   shopName: string;
   enabled: boolean;
-  loginMode?: "manual" | "saved_browser_credentials";
+  loginMode?: "manual" | "saved_browser_credentials" | "windows_dpapi_credentials";
   initialStartDate: string | null;
   portalUrl: string;
   browser: {
@@ -41,7 +41,7 @@ function validateBundledRegistry() {
   const shops = new Set<string>();
   for (const [index, store] of tmallStoreRegistryData.stores.entries()) {
     if (!store.storeKey || !store.shopName || store.platform !== "天猫" || typeof store.enabled !== "boolean"
-      || store.loginMode !== undefined && !["manual", "saved_browser_credentials"].includes(store.loginMode)) {
+      || store.loginMode !== undefined && !["manual", "saved_browser_credentials", "windows_dpapi_credentials"].includes(store.loginMode)) {
       throw new Error(`天猫店铺注册表字段无效: stores[${index}]`);
     }
     if (keys.has(store.storeKey) || shops.has(store.shopName)) {
