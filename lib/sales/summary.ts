@@ -469,6 +469,39 @@ async function filterOptions(
   productCodes: string[],
 ) {
   const shopName = "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')";
+  const categoryOptions = productCodes.length === 0
+    ? bindPeriod(db.prepare(`
+        WITH available_categories AS (
+          SELECT TRIM(category) AS category
+          FROM erp_product_master
+          WHERE NULLIF(TRIM(category), '') IS NOT NULL
+          UNION
+          SELECT ${SALES_CATEGORY_EXPRESSION} AS category
+          FROM sales_order_lines s
+          ${SALES_CATEGORY_JOIN}
+          WHERE s.ship_time >= ? AND s.ship_time < ?
+            AND TRIM(s.warehouse) <> '刷刷仓'
+        )
+        SELECT category
+        FROM available_categories
+        ORDER BY category ASC
+        LIMIT 200
+      `), period.startDate, period.endDate).all<FilterCategoryRow>()
+    : bindPeriod(
+        db.prepare(`
+          SELECT ${SALES_CATEGORY_EXPRESSION} AS category
+          FROM sales_order_lines s
+          ${SALES_CATEGORY_JOIN}
+          WHERE s.ship_time >= ? AND s.ship_time < ?
+            AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
+          GROUP BY ${SALES_CATEGORY_EXPRESSION}
+          ORDER BY ${SALES_CATEGORY_EXPRESSION} ASC
+          LIMIT 200
+        `),
+        period.startDate,
+        period.endDate,
+        productCodes,
+      ).all<FilterCategoryRow>();
   const [shops, categories] = await Promise.all([
     bindPeriod(
       db.prepare(`
@@ -487,21 +520,7 @@ async function filterOptions(
       period.endDate,
       productCodes,
     ).all<FilterShopRow>(),
-    bindPeriod(
-      db.prepare(`
-        SELECT ${SALES_CATEGORY_EXPRESSION} AS category
-        FROM sales_order_lines s
-        ${SALES_CATEGORY_JOIN}
-        WHERE s.ship_time >= ? AND s.ship_time < ?
-          AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
-        GROUP BY ${SALES_CATEGORY_EXPRESSION}
-        ORDER BY ${SALES_CATEGORY_EXPRESSION} ASC
-        LIMIT 200
-      `),
-      period.startDate,
-      period.endDate,
-      productCodes,
-    ).all<FilterCategoryRow>(),
+    categoryOptions,
   ]);
   return {
     shops: shops.results.map((item) => ({

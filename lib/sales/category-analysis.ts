@@ -13,7 +13,7 @@ export const salesCategorySortKeys = [
   "shareRate",
   "netQuantity",
   "refundRate",
-  "monthOverMonthRate",
+  "weekOverWeekRate",
   "yearOverYearRate",
   "positiveQuantity",
   "returnQuantity",
@@ -53,6 +53,13 @@ export type SalesCategoryAnalysisInput = {
   direction?: SalesCategorySortDirection;
   page?: number;
   pageSize?: number;
+};
+
+export type SalesCategoryOutletBreakdownInput = Omit<
+  SalesCategoryAnalysisInput,
+  "level" | "categories" | "granularity" | "sortBy" | "direction" | "page" | "pageSize"
+> & {
+  category: string;
 };
 
 type NormalizedInput = {
@@ -99,9 +106,10 @@ type CategoryRow = {
   uncategorized_net_sales_cents: number;
   uncategorized_product_count: number;
   data_cutoff_date: string | null;
-  previous_net_sales_cents: number;
+  current_week_net_sales_cents: number;
+  previous_week_net_sales_cents: number;
   year_ago_net_sales_cents: number;
-  month_over_month_rate: number | null;
+  week_over_week_rate: number | null;
   year_over_year_rate: number | null;
 };
 
@@ -122,6 +130,22 @@ type OptionRow = {
   option_platform: string;
   option_index: number;
   option_total: number;
+};
+
+type OutletBreakdownRow = {
+  platform: string;
+  shop_name: string;
+  gross_sales_cents: number;
+  refund_amount_cents: number;
+  net_sales_cents: number;
+  gross_profit_cents: number;
+  positive_quantity: number;
+  return_quantity: number;
+  net_quantity: number;
+  product_count: number;
+  line_count: number;
+  total_net_sales_cents: number;
+  total_count: number;
 };
 
 const CATEGORY_EXPRESSION = SALES_CATEGORY_EXPRESSION;
@@ -160,12 +184,16 @@ function dayDifference(start: string, end: string): number {
 }
 
 function comparisonPeriods(input: Pick<NormalizedInput, "startDate" | "endDate">) {
-  const days = dayDifference(input.startDate, input.endDate) + 1;
-  const previousEndDate = addDays(input.startDate, -1);
   return {
-    previous: {
-      startDate: addDays(previousEndDate, -(days - 1)),
-      endDate: previousEndDate,
+    weekOverWeek: {
+      current: {
+        startDate: addDays(input.endDate, -6),
+        endDate: input.endDate,
+      },
+      previous: {
+        startDate: addDays(input.endDate, -13),
+        endDate: addDays(input.endDate, -7),
+      },
     },
     yearAgo: {
       startDate: addYears(input.startDate, -1),
@@ -356,7 +384,7 @@ const sortSql: Record<SalesCategorySortKey, string> = {
   shareRate: "net_sales_cents",
   netQuantity: "net_quantity",
   refundRate: "refund_rate",
-  monthOverMonthRate: "month_over_month_rate",
+  weekOverWeekRate: "week_over_week_rate",
   yearOverYearRate: "year_over_year_rate",
   positiveQuantity: "positive_quantity",
   returnQuantity: "return_quantity",
@@ -385,11 +413,12 @@ function metric(row: CategoryRow) {
     grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
     productCount: Number(row.product_count ?? 0),
     lineCount: Number(row.line_count ?? 0),
-    previousNetSalesCents: Number(row.previous_net_sales_cents ?? 0),
+    currentWeekNetSalesCents: Number(row.current_week_net_sales_cents ?? 0),
+    previousWeekNetSalesCents: Number(row.previous_week_net_sales_cents ?? 0),
     yearAgoNetSalesCents: Number(row.year_ago_net_sales_cents ?? 0),
-    monthOverMonthRate: row.month_over_month_rate === null || row.month_over_month_rate === undefined
+    weekOverWeekRate: row.week_over_week_rate === null || row.week_over_week_rate === undefined
       ? null
-      : Number(row.month_over_month_rate),
+      : Number(row.week_over_week_rate),
     yearOverYearRate: row.year_over_year_rate === null || row.year_over_year_rate === undefined
       ? null
       : Number(row.year_over_year_rate),
@@ -442,7 +471,8 @@ function trendPeriodExpression(granularity: SalesCategoryGranularity): string {
 async function readCategoryRows(db: SalesDatabase, input: NormalizedInput, principal: AppPrincipal) {
   const scoped = filteredSalesSql(input, principal);
   const comparisons = comparisonPeriods(input);
-  const previousScoped = filteredSalesSql(withPeriod(input, comparisons.previous.startDate, comparisons.previous.endDate), principal);
+  const currentWeekScoped = filteredSalesSql(withPeriod(input, comparisons.weekOverWeek.current.startDate, comparisons.weekOverWeek.current.endDate), principal);
+  const previousWeekScoped = filteredSalesSql(withPeriod(input, comparisons.weekOverWeek.previous.startDate, comparisons.weekOverWeek.previous.endDate), principal);
   const yearAgoScoped = filteredSalesSql(withPeriod(input, comparisons.yearAgo.startDate, comparisons.yearAgo.endDate), principal);
   const sort = sortSql[input.sortBy];
   const direction = input.direction.toUpperCase();
@@ -450,21 +480,25 @@ async function readCategoryRows(db: SalesDatabase, input: NormalizedInput, princ
   const result = await db.prepare(`
     WITH scoped AS (${scoped.sql}),
     grouped AS (${groupedCategorySql}),
-    previous_scoped AS (${previousScoped.sql}),
-    previous_grouped AS (${groupedCategorySql.replace(/\bscoped\b/g, "previous_scoped")}),
+    current_week_scoped AS (${currentWeekScoped.sql}),
+    current_week_grouped AS (${groupedCategorySql.replace(/\bscoped\b/g, "current_week_scoped")}),
+    previous_week_scoped AS (${previousWeekScoped.sql}),
+    previous_week_grouped AS (${groupedCategorySql.replace(/\bscoped\b/g, "previous_week_scoped")}),
     year_ago_scoped AS (${yearAgoScoped.sql}),
     year_ago_grouped AS (${groupedCategorySql.replace(/\bscoped\b/g, "year_ago_scoped")}),
     enriched AS (
       SELECT grouped.*,
         CASE WHEN grouped.gross_sales_cents = 0 THEN 0.0 ELSE CAST(grouped.refund_amount_cents AS REAL) / grouped.gross_sales_cents END AS refund_rate,
-        COALESCE(previous_grouped.net_sales_cents, 0) AS previous_net_sales_cents,
+        COALESCE(current_week_grouped.net_sales_cents, 0) AS current_week_net_sales_cents,
+        COALESCE(previous_week_grouped.net_sales_cents, 0) AS previous_week_net_sales_cents,
         COALESCE(year_ago_grouped.net_sales_cents, 0) AS year_ago_net_sales_cents,
-        CASE WHEN COALESCE(previous_grouped.net_sales_cents, 0) = 0 THEN NULL
-          ELSE CAST(grouped.net_sales_cents - previous_grouped.net_sales_cents AS REAL) / ABS(previous_grouped.net_sales_cents) END AS month_over_month_rate,
+        CASE WHEN COALESCE(previous_week_grouped.net_sales_cents, 0) = 0 THEN NULL
+          ELSE CAST(COALESCE(current_week_grouped.net_sales_cents, 0) - previous_week_grouped.net_sales_cents AS REAL) / ABS(previous_week_grouped.net_sales_cents) END AS week_over_week_rate,
         CASE WHEN COALESCE(year_ago_grouped.net_sales_cents, 0) = 0 THEN NULL
           ELSE CAST(grouped.net_sales_cents - year_ago_grouped.net_sales_cents AS REAL) / ABS(year_ago_grouped.net_sales_cents) END AS year_over_year_rate
       FROM grouped
-      LEFT JOIN previous_grouped ON previous_grouped.category_key = grouped.category_key
+      LEFT JOIN current_week_grouped ON current_week_grouped.category_key = grouped.category_key
+      LEFT JOIN previous_week_grouped ON previous_week_grouped.category_key = grouped.category_key
       LEFT JOIN year_ago_grouped ON year_ago_grouped.category_key = grouped.category_key
     ),
     ranked AS (
@@ -491,7 +525,8 @@ async function readCategoryRows(db: SalesDatabase, input: NormalizedInput, princ
     ORDER BY detail_position ASC
   `).bind(
     ...scoped.bindings,
-    ...previousScoped.bindings,
+    ...currentWeekScoped.bindings,
+    ...previousWeekScoped.bindings,
     ...yearAgoScoped.bindings,
     10,
     offset,
@@ -628,6 +663,136 @@ async function readOptions(db: SalesDatabase, input: NormalizedInput, principal:
     },
     truncated: rows.some((row) => Number(row.option_total) > OPTION_LIMIT),
     limit: OPTION_LIMIT,
+  };
+}
+
+function outletBreakdownMetric(row: OutletBreakdownRow, totalNetSalesCents: number) {
+  const grossSalesCents = Number(row.gross_sales_cents ?? 0);
+  const refundAmountCents = Number(row.refund_amount_cents ?? 0);
+  const netSalesCents = Number(row.net_sales_cents ?? 0);
+  const grossProfitCents = Number(row.gross_profit_cents ?? 0);
+  return {
+    grossSalesCents,
+    refundAmountCents,
+    netSalesCents,
+    shareRate: totalNetSalesCents === 0 ? 0 : netSalesCents / totalNetSalesCents,
+    positiveQuantity: Number(row.positive_quantity ?? 0),
+    returnQuantity: Number(row.return_quantity ?? 0),
+    netQuantity: Number(row.net_quantity ?? 0),
+    refundRate: grossSalesCents === 0 ? 0 : refundAmountCents / grossSalesCents,
+    grossProfitCents,
+    grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
+    lineCount: Number(row.line_count ?? 0),
+  };
+}
+
+export async function getSalesCategoryOutletBreakdown(
+  db: SalesDatabase,
+  rawInput: SalesCategoryOutletBreakdownInput,
+  principal: AppPrincipal,
+) {
+  const category = boundedList([rawInput.category], 1, "品类")[0];
+  if (!category) throw new SalesCategoryRequestError("category 不能为空");
+  const productQueries = parseProductQueries(rawInput.productQueries ?? []);
+  const productCodes = await resolveProductFilterCodes(db, productQueries);
+  const input = normalizeInput({
+    ...rawInput,
+    categories: [category],
+    productQueries,
+    granularity: "day",
+    sortBy: "netSalesCents",
+    direction: "desc",
+    page: 1,
+    pageSize: 1,
+  }, productCodes);
+  const scoped = filteredSalesSql(input, principal);
+  const result = await db.prepare(`
+    WITH scoped AS (${scoped.sql}),
+    grouped AS (
+      SELECT
+        platform,
+        shop_name,
+        COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
+        COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
+        COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
+        COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
+        COALESCE(SUM(CASE WHEN quantity > 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN quantity ELSE 0 END), 0) AS positive_quantity,
+        COALESCE(SUM(CASE WHEN quantity < 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN -quantity ELSE 0 END), 0) AS return_quantity,
+        COALESCE(SUM(CASE WHEN NULLIF(TRIM(source_category), '') IS NOT NULL AND TRIM(source_category) NOT IN ('配件', '赠品配件') AND product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN quantity ELSE 0 END), 0) AS net_quantity,
+        COUNT(DISTINCT NULLIF(product_code, '')) AS product_count,
+        COUNT(*) AS line_count
+      FROM scoped
+      GROUP BY platform, shop_name
+    ),
+    bounded AS (
+      SELECT grouped.*,
+        SUM(net_sales_cents) OVER () AS total_net_sales_cents,
+        COUNT(*) OVER () AS total_count
+      FROM grouped
+    )
+    SELECT * FROM bounded
+    ORDER BY net_sales_cents DESC, platform ASC, shop_name ASC
+    LIMIT 500
+  `).bind(...scoped.bindings).all<OutletBreakdownRow>();
+  const rows = result.results ?? [];
+  const totalNetSalesCents = Number(rows[0]?.total_net_sales_cents ?? 0);
+  const totalCount = Number(rows[0]?.total_count ?? 0);
+  const platformMap = new Map<string, {
+    platform: string;
+    grossSalesCents: number;
+    refundAmountCents: number;
+    netSalesCents: number;
+    positiveQuantity: number;
+    returnQuantity: number;
+    netQuantity: number;
+    grossProfitCents: number;
+    lineCount: number;
+    shops: Array<ReturnType<typeof outletBreakdownMetric> & { shop: string }>;
+  }>();
+  for (const row of rows) {
+    const shop = outletBreakdownMetric(row, totalNetSalesCents);
+    const platform = platformMap.get(row.platform) ?? {
+      platform: row.platform,
+      grossSalesCents: 0,
+      refundAmountCents: 0,
+      netSalesCents: 0,
+      positiveQuantity: 0,
+      returnQuantity: 0,
+      netQuantity: 0,
+      grossProfitCents: 0,
+      lineCount: 0,
+      shops: [],
+    };
+    platform.grossSalesCents += shop.grossSalesCents;
+    platform.refundAmountCents += shop.refundAmountCents;
+    platform.netSalesCents += shop.netSalesCents;
+    platform.positiveQuantity += shop.positiveQuantity;
+    platform.returnQuantity += shop.returnQuantity;
+    platform.netQuantity += shop.netQuantity;
+    platform.grossProfitCents += shop.grossProfitCents;
+    platform.lineCount += shop.lineCount;
+    platform.shops.push({ shop: row.shop_name, ...shop });
+    platformMap.set(row.platform, platform);
+  }
+  const platforms = [...platformMap.values()]
+    .map((platform) => ({
+      ...platform,
+      shareRate: totalNetSalesCents === 0 ? 0 : platform.netSalesCents / totalNetSalesCents,
+      refundRate: platform.grossSalesCents === 0 ? 0 : platform.refundAmountCents / platform.grossSalesCents,
+      grossMarginRate: platform.netSalesCents === 0 ? 0 : platform.grossProfitCents / platform.netSalesCents,
+      shopCount: platform.shops.length,
+    }))
+    .sort((left, right) => right.netSalesCents - left.netSalesCents || left.platform.localeCompare(right.platform, "zh-CN"));
+  return {
+    range: { startDate: input.startDate, endDate: input.endDate, endExclusive: input.endExclusive, timezone: "Asia/Shanghai" },
+    category,
+    totals: {
+      netSalesCents: totalNetSalesCents,
+      platformCount: platforms.length,
+      shopCount: rows.length,
+    },
+    platforms,
+    pagination: { total: totalCount, returned: rows.length, truncated: rows.length < totalCount, limit: 500 },
   };
 }
 

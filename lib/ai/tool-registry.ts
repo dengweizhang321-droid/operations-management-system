@@ -131,7 +131,7 @@ export const aiToolRegistry = [
   {
     name: "get_sales_category_analysis",
     title: "销售品类分析",
-    description: "按自定义日期和真实用户数据范围只读查询品类净销售额、贡献率、净销量、退货率、退款、毛利、同比、环比、排名和月度趋势。品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
+    description: "按自定义日期和真实用户数据范围只读查询品类净销售额、贡献率、净销量、退货率、退款、毛利、同比、环比上周、排名和月度趋势。环比上周固定使用截止日近 7 天对比此前 7 天；品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
     inputSchema: {
       type: "object",
       properties: {
@@ -141,7 +141,7 @@ export const aiToolRegistry = [
         channels: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         platforms: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         productQueries: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
-        sortBy: { type: "string", enum: ["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "monthOverMonthRate", "yearOverYearRate"], default: "netSalesCents" },
+        sortBy: { type: "string", enum: ["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "weekOverWeekRate", "yearOverYearRate"], default: "netSalesCents" },
         direction: { type: "string", enum: ["asc", "desc"], default: "desc" },
         limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
       },

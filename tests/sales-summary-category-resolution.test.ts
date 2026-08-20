@@ -50,7 +50,8 @@ function fixture() {
     );
     INSERT INTO erp_product_master VALUES
       ('DW-LONG', '长龙洗碗机'),
-      ('DW-HOOD', '揭盖洗碗机');
+      ('DW-HOOD', '揭盖洗碗机'),
+      ('DW-IDLE', '台下洗碗机');
     INSERT INTO sales_order_lines VALUES
       ('L1', 'O1', '', '京东-洗碗机店', '京东', '洗碗机店', '主仓', 'DW-LONG', '长龙式洗碗机', '商用洗碗机', 1, 120000, 30000, '2026-08-18 10:00:00'),
       ('L2', 'O2', '', '京东-洗碗机店', '京东', '洗碗机店', '主仓', 'DW-HOOD', '揭盖式洗碗机', '', 1, 80000, 20000, '2026-08-18 11:00:00'),
@@ -67,7 +68,7 @@ test("sales overview resolves categories from ERP product master and falls back 
     endDate: "2026-08-18",
   });
 
-  assert.deepEqual(result.filterOptions.categories, ["揭盖洗碗机", "超声波洗碗机", "长龙洗碗机"]);
+  assert.deepEqual(result.filterOptions.categories, ["台下洗碗机", "揭盖洗碗机", "超声波洗碗机", "长龙洗碗机"]);
   assert.equal(result.current.netSalesCents, 260000);
   sqlite.close();
 });

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import type { AppPrincipal } from "../lib/auth/authorization";
-import { getSalesCategoryAnalysis, SalesCategoryRequestError } from "../lib/sales/category-analysis";
+import { getSalesCategoryAnalysis, getSalesCategoryOutletBreakdown, SalesCategoryRequestError } from "../lib/sales/category-analysis";
 import type { SalesDatabase } from "../lib/sales/database";
 
 type SqlValue = string | number | bigint | Uint8Array | null;
@@ -54,6 +54,7 @@ function fixture() {
       ('L5','O4','','渠道A','京东','京东一店','刷刷仓','P4','排除商品','排除品类',9,99999,50000,'2026-08-02 12:00:00'),
       ('L6','O5','','渠道B','天猫','天猫一店','主仓','P5','切肉机','食品机械',1,7000,1000,'2026-08-02 13:00:00'),
       ('L8','O7','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,4000,1000,'2026-07-28 10:00:00'),
+      ('L12','O12','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,6000,1500,'2026-07-24 10:00:00'),
       ('L9','O8','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,5000,1200,'2025-07-31 10:00:00');
   `);
   return { sqlite, db: sqliteAdapter(sqlite) };
@@ -86,8 +87,9 @@ test("category aggregation uses product master first, keeps refunds, excludes �
   assert.equal(water?.netSalesCents, 8_000);
   assert.equal(water?.netQuantity, 1);
   assert.equal(water?.refundRate, 0.2);
-  assert.equal(water?.previousNetSalesCents, 4_000);
-  assert.equal(water?.monthOverMonthRate, 1);
+  assert.equal(water?.currentWeekNetSalesCents, 12_000);
+  assert.equal(water?.previousWeekNetSalesCents, 6_000);
+  assert.equal(water?.weekOverWeekRate, 1);
   assert.equal(water?.yearAgoNetSalesCents, 5_000);
   assert.equal(water?.yearOverYearRate, 0.6);
   assert.deepEqual(water?.trend.points, [
@@ -97,7 +99,10 @@ test("category aggregation uses product master first, keeps refunds, excludes �
   assert.equal(water?.trend.changeRate, -1.2);
   assert.equal(water?.trend.direction, "down");
   assert.deepEqual(result.comparisonPeriods, {
-    previous: { startDate: "2026-07-28", endDate: "2026-07-30" },
+    weekOverWeek: {
+      current: { startDate: "2026-07-27", endDate: "2026-08-02" },
+      previous: { startDate: "2026-07-20", endDate: "2026-07-26" },
+    },
     yearAgo: { startDate: "2025-07-31", endDate: "2025-08-02" },
   });
   assert.equal(result.details.items.some((item) => item.category === "旧类目"), false);
@@ -122,7 +127,28 @@ test("date bounds are inclusive in the request and left-closed/right-open in SQL
   assert.equal(result.details.items[0]?.shareRate, 1);
   assert.equal(result.details.items[0]?.grossMarginRate, 0.25);
   assert.equal(result.details.items[0]?.refundRate, 0);
-  assert.equal(result.details.items[0]?.monthOverMonthRate, -1.2);
+  assert.equal(result.details.items[0]?.weekOverWeekRate, 1);
+  sqlite.close();
+});
+
+test("category detail drills into bounded platform and shop metrics with the same category resolution", async () => {
+  const { sqlite, db } = fixture();
+  sqlite.prepare("INSERT INTO sales_order_lines VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+    "L13", "O13", "", "渠道C", "天猫", "天猫二店", "主仓", "P1", "饮水机", "旧类目", 1, 3000, 900, "2026-08-02 18:00:00",
+  );
+  const result = await getSalesCategoryOutletBreakdown(db, {
+    startDate: "2026-07-31",
+    endDate: "2026-08-02",
+    category: "饮水设备",
+  }, unrestricted);
+  assert.equal(result.category, "饮水设备");
+  assert.deepEqual(result.totals, { netSalesCents: 11_000, platformCount: 2, shopCount: 2 });
+  assert.deepEqual(result.platforms.map((item) => [item.platform, item.netSalesCents, item.shopCount]), [
+    ["京东", 8_000, 1],
+    ["天猫", 3_000, 1],
+  ]);
+  assert.equal(result.platforms[0]?.shops[0]?.shop, "京东一店");
+  assert.equal(result.pagination.truncated, false);
   sqlite.close();
 });
 
@@ -255,8 +281,9 @@ test("net quantity and refund rate reuse the sales summary exclusions and amount
 });
 
 test("category API, UI, URL state, concurrency guard, and AI registry are wired to bounded authenticated contracts", async () => {
-  const [route, page, view, service, registry] = await Promise.all([
+  const [route, detailRoute, page, view, service, registry] = await Promise.all([
     readFile(new URL("../app/api/sales/category-analysis/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sales/category-analysis/detail/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/sales-category-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/sales/category-analysis.ts", import.meta.url), "utf8"),
@@ -265,6 +292,8 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(route, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
   assert.match(route, /authorizationErrorResponse/);
   assert.match(route, /cache-control": "no-store/);
+  assert.match(detailRoute, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
+  assert.match(detailRoute, /getSalesCategoryOutletBreakdown/);
   assert.match(page, />品类分析</);
   assert.match(page, /useModuleViewState/);
   assert.match(page, /sales: \(\{ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange \}\)/);
@@ -276,9 +305,10 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(detailColumns, /label: "净销量"/);
   assert.match(detailColumns, /label: "退货率"/);
   assert.match(detailColumns, /label: "同比"/);
-  assert.match(detailColumns, /label: "环比"/);
+  assert.match(detailColumns, /label: "环比上周"/);
   assert.doesNotMatch(detailColumns, /正向销量|退货量|商品数/);
-  assert.match(view, /<th>品类趋势<\/th>/);
+  assert.match(view, /<th>品类趋势<\/th><th>详情<\/th>/);
+  assert.match(view, /api\/sales\/category-analysis\/detail/);
   assert.match(service, /LIMIT 3000/);
   assert.match(service, /DETAIL_TREND_PERIOD_LIMIT = 24/);
   assert.match(service, /comparisonPeriods/);
