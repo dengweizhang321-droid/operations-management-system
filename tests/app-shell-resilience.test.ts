@@ -18,13 +18,15 @@ test("module failures stay inside the application shell", async () => {
 });
 
 test("global search dialog traps focus and restores the background", async () => {
-  const [page, dialog] = await Promise.all([
+  const [page, search, dialog] = await Promise.all([
     source("../app/page.tsx"),
+    source("../app/global-search-dialog.tsx"),
     source("../app/ui/dialog.tsx"),
   ]);
   assert.match(page, /aria-haspopup="dialog"/);
   assert.match(page, /aria-controls="global-search-dialog"/);
-  assert.match(page, /<Dialog open=\{searchOpen\}/);
+  assert.match(page, /\{searchOpen && <Suspense[\s\S]+<GlobalSearchDialog/);
+  assert.match(search, /<Dialog[\s\S]+open=\{open\}/);
   assert.match(dialog, /createPortal/);
   assert.match(dialog, /setPortalTarget\(document\.body\)/);
   assert.match(dialog, /document\.body\.style\.overflow = "hidden"/);

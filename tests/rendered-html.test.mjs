@@ -36,17 +36,22 @@ test("build emits the operations console", async () => {
 });
 
 test("searches all allowlisted system data through the grouped authenticated search", async () => {
-  const [page, route, search] = await Promise.all([
+  const [page, dialog, route, search] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/global-search-dialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/search/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/search/global-search.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /\/api\/search\?q=/);
   assert.match(page, /搜索系统全部数据/);
-  assert.match(page, /搜索商品、订单、库存、市场、客服、财务或批次/);
-  assert.match(page, /globalSearchResult\.groups/);
-  assert.match(page, /按字段白名单搜索/);
+  assert.match(page, /AbortController/);
+  assert.match(page, /globalSearchGroupRequestKeyRef/);
+  assert.match(page, /seenIds/);
+  assert.match(page, /parseGlobalSearchTarget/);
+  assert.match(dialog, /搜索商品、订单、库存、市场、客服、财务或批次/);
+  assert.match(dialog, /result\.groups/);
+  assert.match(dialog, /按字段白名单搜索/);
   assert.match(route, /requireAppPrincipal/);
   assert.match(route, /searchAllBusinessData/);
   assert.match(route, /principal/);
@@ -94,7 +99,8 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.doesNotMatch(page, /本季度/);
   assert.doesNotMatch(page, /DateRangeSlider/);
   assert.match(page, /选择统计月份/);
-  assert.match(page, /productPeriodPickerOpen/);
+  assert.match(page, /function ProductView\([^)]*customStartDate[^)]*customEndDate/);
+  assert.match(page, /全局统计周期 \{customStartDate\} 至 \{customEndDate\}/);
   assert.match(page, /货品情况/);
   assert.match(page, /销售分布/);
   assert.match(page, /平台维度/);
@@ -136,7 +142,6 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /selectedOutletKeys/);
   assert.match(page, /selectedShops/);
   assert.match(page, /marginFilters/);
-  assert.match(page, /taskStatuses/);
   assert.match(page, /type="file"/);
   assert.match(layout, /generateMetadata/);
   assert.match(layout, /\/og\.png/);
@@ -186,8 +191,9 @@ test("keeps sales overview multi-selects mounted while filtered results refresh"
 });
 
 test("keeps shop analysis isolated by platform and matches year-over-year by the same shop key", async () => {
-  const [page, summaryService] = await Promise.all([
+  const [page, navigation, summaryService] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/shell/navigation-catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
   ]);
 
@@ -202,7 +208,7 @@ test("keeps shop analysis isolated by platform and matches year-over-year by the
   // Stable, platform-qualified keys prevent React from reusing a 拼多多 row
   // while the user has filtered the table to 京东.
   assert.match(page, /key=\{`\$\{activeTab\}-\$\{item\.platform\}-\$\{item\.name\}`\}/);
-  assert.match(page, /label: "网店分析"/);
+  assert.match(navigation, /label: "网店分析"/);
   assert.match(page, /aria-label="网店分析子版块"/);
 });
 
@@ -228,7 +234,7 @@ test("wires inventory health, synchronization, and replenishment", async () => {
   assert.match(page, /\/api\/imports\/inventory/);
   assert.match(page, /\/api\/imports\/inventory\/chunks/);
   assert.match(page, /\/api\/inventory\/replenishment/);
-  assert.match(page, /库存与销售数据已联动/);
+  assert.match(page, /库存与销售数据已按全局周期联动/);
   assert.match(page, /备货计划/);
   assert.match(page, /payload\?\.errors/);
   assert.doesNotMatch(page, /2,684,700/);
@@ -268,10 +274,8 @@ test("wires product profitability to synchronized sales and inventory facts", as
 
   assert.match(page, /\/api\/products\/summary/);
   assert.match(page, /毛利测算/);
-  assert.match(page, /近30天/);
-  assert.match(page, /近90天/);
-  assert.match(page, /近半年/);
-  assert.match(page, /自定义时间/);
+  assert.match(page, /全局统计周期 \{customStartDate\} 至 \{customEndDate\}/);
+  assert.match(page, /range: "custom", startDate: customStartDate, endDate: customEndDate/);
   assert.match(page, /ariaLabel="销售平台"/);
   assert.match(page, /ariaLabel="销售店铺"/);
   assert.match(page, /<th>品牌<\/th><th>供应商<\/th>/);
@@ -385,7 +389,8 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(parser, /aggregateLines/);
   assert.match(parser, /sourceRowCount/);
   assert.match(parser, /销售费用/);
-  assert.match(database, /existingMonth\?\.status === "completed"/);
+  assert.match(database, /existingBatch\?\.status === "completed"/);
+  assert.match(database, /await db\.batch\(publishStatements\)/);
   assert.match(database, /ON CONFLICT\(month, section, scope_key, subject_name\)/);
   assert.match(analysis, /promotionFeeRatioBps/);
   assert.match(analysis, /returnRateBps/);
@@ -474,8 +479,8 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(page, /当前筛选周期暂无\{dimensionLabel\}商品日数据/);
   assert.match(page, /系统数据覆盖 \{availableCoverageLabel\}/);
   assert.match(page, /availableDateMin/);
-  assert.match(page, /setPeriodPreset\("custom"\); setCustomPeriodStart/);
-  assert.match(page, /setPeriodPreset\("custom"\); setCustomPeriodEnd/);
+  assert.match(page, /全局统计周期/);
+  assert.match(page, /requestPerformance\(selectedPeriod\)/);
   assert.match(database, /getNetshopProductPerformance/);
   assert.match(database, /dataset = input\.dimension === "sku" \? "sku_daily" : "spu_daily"/);
   assert.match(database, /商品浏览量/);
@@ -552,7 +557,8 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
   }
   assert.match(service, /TextDecoder\("gb18030", \{ fatal: true \}\)/);
   assert.match(service, /天猫推广 ZIP 必须且只能包含一个 CSV/);
-  assert.match(service, /READBACK_VERIFICATION_FAILED/);
+  assert.match(service, /if \(!verification\.verified\)/);
+  assert.match(service, /批次、行数、店铺、数据集或日期覆盖回查不一致/);
   assert.match(service, /DUPLICATE_MERCHANT_CODE/);
   assert.match(database, /replaceScope/);
   assert.match(database, /getNetshopPromotionPerformance/);
@@ -581,7 +587,7 @@ test("exposes the five operational collaboration workspaces", async () => {
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/operations-view.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /import OperationsView/);
+  assert.match(page, /const OperationsView = lazy\(\(\) => import\("\.\/operations-view"\)\)/);
   assert.match(page, /<OperationsView currentUser=/);
   for (const label of ["工作计划", "巡店检查", "评价维护", "新品上架", "变量配置"]) assert.match(operations, new RegExp(label));
   for (const label of ["评论", "活动", "提醒", "关联对象", "附件"]) assert.match(operations, new RegExp(label));
@@ -590,7 +596,8 @@ test("exposes the five operational collaboration workspaces", async () => {
   assert.match(operations, /\/api\/workflow\/templates/);
   assert.match(operations, /\/collaboration/);
   assert.match(operations, /URLSearchParams/);
-  assert.match(operations, /pageSize: "50"/);
+  assert.match(operations, /const TASK_PAGE_SIZE = 50/);
+  assert.match(operations, /set\("pageSize", String\(TASK_PAGE_SIZE\)\)/);
   assert.match(operations, /toShanghaiApiDateTime/);
   assert.match(operations, /:00\+08:00/);
   assert.match(operations, /单个不超过 10MB/);
@@ -608,7 +615,7 @@ test("persists work-plan creation, full-field edits, status archiving, and delet
     readFile(new URL("../drizzle/0012_workflow_tasks.sql", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /requestJson<\{ items: Task\[\] \}>\("\/api\/workflow\/tasks"\)/);
+  assert.match(page, /requestJson<TaskListPayload>\(`\/api\/workflow\/tasks\?\$\{listParams\}`/);
   assert.match(page, /method: "DELETE"/);
   assert.match(page, /method: "PATCH"/);
   assert.match(page, /const \[saving, setSaving\]/);
@@ -617,13 +624,15 @@ test("persists work-plan creation, full-field edits, status archiving, and delet
   assert.match(route, /type UpdateWorkflowTaskInput/);
   assert.match(route, /updateWorkflowTask\(id, payload/);
   assert.match(tasks, /workflow_task_bootstrap/);
-  assert.match(tasks, /DELETE FROM workflow_tasks/);
-  assert.match(tasks, /created_by, created_at/);
+  assert.match(tasks, /deleted_at IS NULL/);
+  assert.match(tasks, /deleteWorkflowTaskWithCollaboration/);
+  assert.match(tasks, /created_by, t\.created_at/);
   assert.match(tasks, /source: row\.created_by === "system"/);
   assert.match(tasks, /updateWorkflowTask/);
   assert.match(tasks, /截止时间不能早于开始时间/);
   assert.match(tasks, /SET title = \?, work_content = \?, category = \?, owner = \?, shop_name = \?/);
-  assert.match(tasks, /start_date = \?, due_date = \?, status = \?, priority = \?/);
+  assert.match(tasks, /start_date = \?, due_date = \?, status = \?, priority = \?, updated_by = \?, updated_at = CURRENT_TIMESTAMP/);
+  assert.match(tasks, /expectedVersion/);
   assert.match(tasks, /工作项紧急程度无效/);
   assert.match(page, /workflow-plan-actions/);
   assert.match(page, /statusFilter === "open"/);

@@ -1050,12 +1050,10 @@ test("brand share denominator uses all brands and display limiting happens after
 });
 
 test("market ranking limits candidates before previous-rank lookup and pins the selective index", async () => {
-  const [database, overviewSql] = await Promise.all([
-    readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/market/overview-sql.ts", import.meta.url), "utf8"),
-  ]);
-  const topRanked = overviewSql.indexOf("top_ranked AS MATERIALIZED");
-  const boundedIds = overviewSql.lastIndexOf("LIMIT 200", topRanked);
+  const database = await readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8");
+  const rankingSql = buildMarketRankingCtes();
+  const topRanked = rankingSql.indexOf("top_ranked AS MATERIALIZED");
+  const boundedIds = rankingSql.lastIndexOf("LIMIT 200", topRanked);
   assert.ok(boundedIds >= 0 && topRanked > boundedIds);
   assert.ok(database.indexOf("buildMarketRankingCtes") < database.indexOf("previous_rank"));
   assert.match(database, /market_ranking_entries p INDEXED BY market_entries_sku_idx/);

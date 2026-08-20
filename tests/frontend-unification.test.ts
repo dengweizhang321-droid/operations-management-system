@@ -72,7 +72,7 @@ test("data import navigation switches real workspaces instead of rendering inert
   assert.match(page, /const activeSection = moduleView/);
   assert.match(page, /role="tablist" aria-label="数据导入工作区"/);
   assert.match(page, /onClick=\{\(\) => onModuleViewChange\("history"\)\}/);
-  assert.match(page, /activeSection === "continuity" && <section className="import-overview-grid"/);
+  assert.match(page, /activeSection === "continuity" && <>[\s\S]*?<section className="import-overview-grid"/);
   assert.match(page, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel">/);
 });
 

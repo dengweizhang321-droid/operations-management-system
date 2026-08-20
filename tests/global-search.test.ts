@@ -147,15 +147,17 @@ test("运营事务搜索兼容尚未创建运营记录和状态表的旧库", as
 });
 
 test("API、分组 UI 和 AI 注册入口复用同一搜索核心", async () => {
-  const [route, page, tool, guide] = await Promise.all([
+  const [route, page, dialog, tool, guide] = await Promise.all([
     readFile(new URL("../app/api/search/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/global-search-dialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/search/ai-tool.ts", import.meta.url), "utf8"),
     readFile(new URL("../docs/GLOBAL_SEARCH.md", import.meta.url), "utf8"),
   ]);
   assert.match(route, /searchAllBusinessData/);
   assert.match(route, /requireAppPrincipal/);
-  assert.match(page, /globalSearchResult\.groups/);
+  assert.match(page, /const GlobalSearchDialog = lazy/);
+  assert.match(dialog, /result\.groups/);
   assert.match(page, /搜索系统全部数据/);
   assert.doesNotMatch(tool, /ToolDefinition/);
   assert.match(tool, /searchSystemDataForAi/);

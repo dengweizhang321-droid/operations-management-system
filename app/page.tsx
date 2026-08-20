@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ComponentProps, PointerEvent as ReactPointerEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { requestJson } from "@/lib/http/api-client";
 import { parseProductQueries } from "@/lib/sales/product-query";
@@ -10,6 +10,7 @@ import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
 import {
   getDefaultModuleView,
+  isModuleKey,
   navItems,
   type ImportSourceKey,
   type ModuleKey,
@@ -24,13 +25,39 @@ import {
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
 import { useModuleViewState } from "./shell/use-module-view-state";
-import MarketView, { MarketDataImportPanel, MarketMasterAdminPanel, MarketWorkflowPanel, prefetchMarketRankingOverview } from "./market-view";
-import MarketAnnotationView from "./market-annotation-view";
-import N8nWorkflowView from "./n8n-workflow-view";
-import OperationsView from "./operations-view";
-import SalesCategoryView from "./sales-category-view";
+import type {
+  GlobalSearchEntityKind,
+  GlobalSearchGroupKey,
+  GlobalSearchItem,
+  GlobalSearchResult,
+  GlobalSearchTarget,
+} from "./global-search-dialog";
 import TableColumnFilters from "./ui/table-column-filters";
-import Dialog from "./ui/dialog";
+
+const MarketView = lazy(() => import("./market-view"));
+const N8nWorkflowView = lazy(() => import("./n8n-workflow-view"));
+const OperationsView = lazy(() => import("./operations-view"));
+const SalesCategoryView = lazy(() => import("./sales-category-view"));
+const SettingsView = lazy(() => import("./settings-view"));
+const GlobalSearchDialog = lazy(() => import("./global-search-dialog"));
+
+const globalSearchEntityModuleAllowlist: Record<GlobalSearchEntityKind, readonly ModuleKey[]> = {
+  product: ["product", "shop"],
+  order: ["sales"],
+  inventory: ["inventory"],
+  market_sku: ["market"],
+  customer_conversation: ["customer_service"],
+  finance_record: ["sales"],
+  target: ["sales"],
+  workflow_task: ["workflow"],
+  import_batch: ["import"],
+};
+
+function isGlobalSearchTargetForItem(item: GlobalSearchItem, target: GlobalSearchTarget): boolean {
+  if (target.module !== item.module) return false;
+  if (!target.entity) return true;
+  return globalSearchEntityModuleAllowlist[target.entity.kind].includes(target.module);
+}
 
 type CurrentUser = {
   email: string;
@@ -204,48 +231,6 @@ type SalesSummaryResponse = {
     shops: Array<{ key: string; name: string; platform: string }>;
     categories: string[];
   };
-};
-
-type GlobalSearchItem = {
-  id: string;
-  title: string;
-  subtitle: string;
-  detail: string;
-  updatedAt: string;
-  amountCents: number | null;
-  module: ModuleKey;
-};
-
-type GlobalSearchGroup = {
-  key: string;
-  label: string;
-  icon: string;
-  module: ModuleKey;
-  available: boolean;
-  total: number;
-  hasMore: boolean;
-  items: GlobalSearchItem[];
-};
-
-type GlobalSearchResponse = {
-  query: string;
-  returned: number;
-  truncated: boolean;
-  groups: GlobalSearchGroup[];
-  unavailableDomains: string[];
-  error?: string;
-};
-
-type OperatingSettings = {
-  targetDays: number;
-  criticalDays: number;
-  slowDays: number;
-  stagnantDays: number;
-  autoReplenishment: boolean;
-  inventoryAlert: boolean;
-  allowNegativeInventory: boolean;
-  updatedAt: string | null;
-  updatedBy: string | null;
 };
 
 type ProductSummaryItem = {
@@ -1444,7 +1429,7 @@ function StoreSpuVisitorMetric({
 }: {
   startDate: string;
   endDate: string;
-  outlets: SalesChannel[];
+  outlets: Array<Pick<SalesChannel, "groupKey" | "name" | "platform">>;
   selectedOutletKeys: string[];
 }) {
   const [performance, setPerformance] = useState<NetshopProductPerformanceResponse | null>(null);
@@ -1660,7 +1645,7 @@ function StoreTrendChart({ rows, comparisonRows, showComparison, comparisonLabel
 
 function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutlets, loading }: {
   summary: SalesSummaryResponse;
-  outlets: SalesChannel[];
+  outlets: Array<Pick<SalesChannel, "groupKey" | "name" | "platform">>;
   selectedOutletKeys: string[];
   onSelectOutlets: (keys: string[]) => void;
   loading: boolean;
@@ -2438,8 +2423,20 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate, moduleVie
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const [platformFilters, setPlatformFilters] = useState<string[]>([]);
+  const requestGenerationRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   const loadOutlets = useCallback(async () => {
+    const generation = requestGenerationRef.current + 1;
+    requestGenerationRef.current = generation;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+    if (activeTab === "products" || activeTab === "promotion") {
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
     setLoading(true);
     setError("");
     try {
@@ -2448,43 +2445,44 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate, moduleVie
         query.set("startDate", customStartDate);
         query.set("endDate", customEndDate);
       }
-      const response = await fetch(`/api/sales/summary?${query.toString()}`, { cache: "no-store" });
-      const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { error?: string; message?: string }) | null;
-      if (!response.ok || !payload?.current || !Array.isArray(payload.outlets)) {
-        throw new Error(payload?.message || payload?.error || `网店数据读取失败（${response.status}）`);
-      }
-      const outlets = payload.outlets;
+      if (activeTab === "analysis") selectedOutletKeys.forEach((key) => query.append("outlet", key));
+      const payload = await requestJson<SalesSummaryResponse>(`/api/sales/summary?${query.toString()}`, { signal: controller.signal });
+      if (!payload?.current || !Array.isArray(payload.outlets)) throw new Error("网店数据响应格式不完整");
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
+      const availableOutletKeys = new Set((payload.filterOptions?.shops ?? payload.outlets).map((item) => "key" in item ? item.key : item.groupKey));
+      const validOutletKeys = selectedOutletKeys.filter((key) => availableOutletKeys.has(key));
       setSummary(payload);
-      const validOutletKeys = selectedOutletKeys.filter((key) => outlets.some((item) => item.groupKey === key));
+      setAnalysisSummary(payload);
       if (validOutletKeys.length !== selectedOutletKeys.length) setSelectedOutletKeys(validOutletKeys);
-      if (validOutletKeys.length === 0) {
-        setAnalysisSummary(payload);
-      } else {
-        const filteredQuery = new URLSearchParams(query);
-        validOutletKeys.forEach((key) => filteredQuery.append("outlet", key));
-        const filteredResponse = await fetch(`/api/sales/summary?${filteredQuery.toString()}`, { cache: "no-store" });
-        const filteredPayload = await filteredResponse.json().catch(() => null) as (SalesSummaryResponse & { error?: string; message?: string }) | null;
-        if (!filteredResponse.ok || !filteredPayload?.current) throw new Error(filteredPayload?.message || filteredPayload?.error || `店铺分析读取失败（${filteredResponse.status}）`);
-        setAnalysisSummary(filteredPayload);
-      }
     } catch (requestError) {
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
       setSummary(null);
       setAnalysisSummary(null);
       setError(requestError instanceof Error ? requestError.message : "暂时无法读取网店数据");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && generation === requestGenerationRef.current) {
+        setLoading(false);
+        if (requestControllerRef.current === controller) requestControllerRef.current = null;
+      }
     }
-  }, [apiRange, customEndDate, customStartDate, selectedOutletKeys]);
+  }, [activeTab, apiRange, customEndDate, customStartDate, selectedOutletKeys]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadOutlets(), 0);
-    return () => window.clearTimeout(timer);
+    void loadOutlets();
+    return () => requestControllerRef.current?.abort();
   }, [loadOutlets, retryKey]);
 
   const current = summary?.current;
   const previous = summary?.previous;
   const yearAgo = summary?.yearAgo;
   const outlets = useMemo(() => summary?.outlets ?? [], [summary?.outlets]);
+  const filterOutletOptions = summary?.filterOptions?.shops;
+  const outletOptions = useMemo<Array<Pick<SalesChannel, "groupKey" | "name" | "platform">>>(
+    () => filterOutletOptions?.length
+      ? filterOutletOptions.map((item) => ({ groupKey: item.key, name: item.name, platform: item.platform }))
+      : outlets.map((item) => ({ groupKey: item.groupKey, name: item.name, platform: item.platform })),
+    [filterOutletOptions, outlets],
+  );
   const platforms = useMemo(() => summary?.platforms ?? [], [summary?.platforms]);
   const platformOptions = useMemo(
     () => [...new Set(outlets.map((item) => item.platform).filter((item) => item && item !== "未分类"))].sort((left, right) => left.localeCompare(right, "zh-CN")),
@@ -2507,9 +2505,9 @@ function ShopView({ range, customStartDate, customEndDate, onNavigate, moduleVie
 
   if (loading && !summary) return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步网店经营数据</strong><p>正在汇总已导入销售明细中的网店、平台、毛利与退货信息…</p></section></>;
   if (!summary || !analysisSummary) return <>{subnav}<section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>网店数据加载失败</strong><p>{error || "暂时无法读取网店数据"}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section></>;
-  if (!current || !hasData) return <>{subnav}<section className="panel data-state"><span className="state-symbol">店</span><strong>{range}暂无网店销售数据</strong><p>请先在“数据导入”同步销售单明细账；系统会优先按店铺名称汇总，缺失时回退为渠道或平台。</p></section></>;
+  if (!current || (!hasData && !(activeTab === "analysis" && selectedOutletKeys.length > 0))) return <>{subnav}<section className="panel data-state"><span className="state-symbol">店</span><strong>{range}暂无网店销售数据</strong><p>请先在“数据导入”同步销售单明细账；系统会优先按店铺名称汇总，缺失时回退为渠道或平台。</p></section></>;
 
-  if (activeTab === "analysis") return <>{subnav}<StoreAnalysisView summary={analysisSummary} outlets={outlets} selectedOutletKeys={selectedOutletKeys} onSelectOutlets={(keys) => { const unchanged = keys.length === selectedOutletKeys.length && keys.every((key, index) => key === selectedOutletKeys[index]); setSelectedOutletKeys(keys); if (unchanged) setRetryKey((value) => value + 1); }} loading={loading} /></>;
+  if (activeTab === "analysis") return <>{subnav}<StoreAnalysisView summary={analysisSummary} outlets={outletOptions} selectedOutletKeys={selectedOutletKeys} onSelectOutlets={(keys) => { const unchanged = keys.length === selectedOutletKeys.length && keys.every((key, index) => key === selectedOutletKeys[index]); setSelectedOutletKeys(keys); if (unchanged) setRetryKey((value) => value + 1); }} loading={loading} /></>;
 
   return <>
     {subnav}
@@ -4304,6 +4302,20 @@ function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: bool
 
 type ImportTab = ModuleViewKey<"import">;
 
+function resolveImportHistoryDomain<T>(
+  label: string,
+  result: PromiseSettledResult<{ items?: T[] } | null>,
+): { items: T[]; error: string | null } {
+  if (result.status === "rejected") {
+    return {
+      items: [],
+      error: `${label}：${result.reason instanceof Error ? result.reason.message : "请求失败"}`,
+    };
+  }
+  if (!Array.isArray(result.value?.items)) return { items: [], error: `${label}：响应格式不完整` };
+  return { items: result.value.items, error: null };
+}
+
 function ImportView({ importSource, currentUser, moduleView, onModuleViewChange }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null; moduleView: ImportTab; onModuleViewChange: (view: ImportTab) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const activeSection = moduleView;
@@ -4318,8 +4330,11 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
   const [uploadStage, setUploadStage] = useState("");
   const [feedback, setFeedback] = useState<ImportFeedback | null>(null);
   const [history, setHistory] = useState<UnifiedHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [historyError, setHistoryError] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDomainErrors, setHistoryDomainErrors] = useState<string[]>([]);
+  const historyVisible = activeSection === "history" || activeSection === "continuity";
+  const historyRequestGenerationRef = useRef(0);
+  const historyRequestControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!importSource) return;
@@ -4330,36 +4345,38 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
   }, [importSource]);
 
   const loadHistory = useCallback(async () => {
+    if (!historyVisible) return;
+    const generation = historyRequestGenerationRef.current + 1;
+    historyRequestGenerationRef.current = generation;
+    historyRequestControllerRef.current?.abort();
+    const controller = new AbortController();
+    historyRequestControllerRef.current = controller;
     setHistoryLoading(true);
-    setHistoryError("");
+    setHistoryDomainErrors([]);
     try {
-      const [response, inventoryResponse, erpResponse, financeResponse, netshopResponse, customerServiceResponse] = await Promise.all([
-        fetch("/api/imports/sales", { cache: "no-store" }),
-        fetch("/api/imports/inventory", { cache: "no-store" }),
-        fetch("/api/imports/erp", { cache: "no-store" }),
-        fetch("/api/imports/finance", { cache: "no-store" }),
-        fetch("/api/netshop/import?limit=50", { cache: "no-store" }),
-        fetch("/api/customer-service/import-history?limit=50", { cache: "no-store" }),
-      ]);
-      const payload = await response.json().catch(() => null) as (ImportHistoryResponse & { message?: string }) | null;
-      const inventoryPayload = await inventoryResponse.json().catch(() => null) as { items?: InventoryImportHistoryItem[]; error?: string } | null;
-      const erpPayload = await erpResponse.json().catch(() => null) as { items?: ErpReferenceImportBatch[]; error?: string } | null;
-      const financePayload = await financeResponse.json().catch(() => null) as { items?: SalesImportBatch[]; error?: string } | null;
-      const netshopPayload = await netshopResponse.json().catch(() => null) as { items?: NetshopImportHistoryItem[]; error?: string } | null;
-      const customerServicePayload = await customerServiceResponse.json().catch(() => null) as { items?: CustomerServiceImportHistoryItem[]; error?: string } | null;
-      if (!response.ok) throw new Error(payload?.message || `销售导入历史读取失败（${response.status}）`);
-      if (!inventoryResponse.ok) throw new Error(inventoryPayload?.error || `库存导入历史读取失败（${inventoryResponse.status}）`);
-      if (!erpResponse.ok) throw new Error(erpPayload?.error || `ERP 主数据导入历史读取失败（${erpResponse.status}）`);
-      if (!financeResponse.ok) throw new Error(financePayload?.error || `财报导入历史读取失败（${financeResponse.status}）`);
-      if (!netshopResponse.ok) throw new Error(netshopPayload?.error || `网店导入历史读取失败（${netshopResponse.status}）`);
-      if (!customerServiceResponse.ok) throw new Error(customerServicePayload?.error || `客服会话导入历史读取失败（${customerServiceResponse.status}）`);
-      if (!Array.isArray(payload?.items) || !Array.isArray(inventoryPayload?.items) || !Array.isArray(erpPayload?.items) || !Array.isArray(financePayload?.items) || !Array.isArray(netshopPayload?.items) || !Array.isArray(customerServicePayload?.items)) throw new Error("导入历史响应格式不完整");
+      const results = await Promise.allSettled([
+        requestJson<ImportHistoryResponse>("/api/imports/sales", { signal: controller.signal }),
+        requestJson<{ items?: InventoryImportHistoryItem[] }>("/api/imports/inventory", { signal: controller.signal }),
+        requestJson<{ items?: ErpReferenceImportBatch[] }>("/api/imports/erp", { signal: controller.signal }),
+        requestJson<{ items?: SalesImportBatch[] }>("/api/imports/finance", { signal: controller.signal }),
+        requestJson<{ items?: NetshopImportHistoryItem[] }>("/api/netshop/import?limit=50", { signal: controller.signal }),
+        requestJson<{ items?: CustomerServiceImportHistoryItem[] }>("/api/customer-service/import-history?limit=50", { signal: controller.signal }),
+      ] as const);
+      if (controller.signal.aborted || generation !== historyRequestGenerationRef.current) return;
+      const salesDomain = resolveImportHistoryDomain<SalesImportBatch>("销售导入历史", results[0]);
+      const inventoryDomain = resolveImportHistoryDomain<InventoryImportHistoryItem>("库存导入历史", results[1]);
+      const erpDomain = resolveImportHistoryDomain<ErpReferenceImportBatch>("ERP 主数据导入历史", results[2]);
+      const financeDomain = resolveImportHistoryDomain<SalesImportBatch>("财报导入历史", results[3]);
+      const netshopDomain = resolveImportHistoryDomain<NetshopImportHistoryItem>("网店导入历史", results[4]);
+      const customerServiceDomain = resolveImportHistoryDomain<CustomerServiceImportHistoryItem>("客服会话导入历史", results[5]);
+      const domainErrors = [salesDomain.error, inventoryDomain.error, erpDomain.error, financeDomain.error, netshopDomain.error, customerServiceDomain.error]
+        .filter((message): message is string => Boolean(message));
       const combined: UnifiedHistoryItem[] = [
-        ...payload.items.map((item) => ({ ...item, sourceKey: "sales" as const, sourceLabel: "吉客云 ERP · 销售明细" })),
-        ...inventoryPayload.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
-        ...erpPayload.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
-        ...financePayload.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
-        ...netshopPayload.items
+        ...salesDomain.items.map((item) => ({ ...item, sourceKey: "sales" as const, sourceLabel: "吉客云 ERP · 销售明细" })),
+        ...inventoryDomain.items.map((item) => ({ ...item, sourceKey: "inventory" as const, sourceLabel: "吉客云 ERP · 分仓库存" })),
+        ...erpDomain.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
+        ...financeDomain.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
+        ...netshopDomain.items
           .filter((item) => item.source === "jd_product_master" || item.source === "jd_yimei_sku" || item.source.startsWith("tmall_") || item.dataset === "spu_daily" || item.dataset === "sku_daily")
           .map((item) => item.source === "tmall_product_master"
             ? { ...item, sourceKey: "tmall_product_master" as const, sourceLabel: "天猫亿玖 · 店铺货品" }
@@ -4374,20 +4391,29 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
             : item.source === "jd_yimei_sku"
               ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
               : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
-        ...customerServicePayload.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: `客服会话 · ${item.shopName || "志高商用设备"}`, fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, createdAt: item.createdAt, completedAt: item.completedAt })),
+        ...customerServiceDomain.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: `客服会话 · ${item.shopName || "志高商用设备"}`, fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, createdAt: item.createdAt, completedAt: item.completedAt })),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
-      setHistory(combined);
-    } catch (requestError) {
-      setHistoryError(requestError instanceof Error ? requestError.message : "暂时无法读取导入历史");
+      setHistory((current) => combined.length > 0 || domainErrors.length === 0 ? combined : current);
+      setHistoryDomainErrors(domainErrors);
     } finally {
-      setHistoryLoading(false);
+      if (!controller.signal.aborted && generation === historyRequestGenerationRef.current) {
+        setHistoryLoading(false);
+        if (historyRequestControllerRef.current === controller) historyRequestControllerRef.current = null;
+      }
     }
-  }, []);
+  }, [historyVisible]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadHistory(), 0);
-    return () => window.clearTimeout(timer);
-  }, [loadHistory]);
+    if (!historyVisible) {
+      historyRequestGenerationRef.current += 1;
+      historyRequestControllerRef.current?.abort();
+      historyRequestControllerRef.current = null;
+      setHistoryLoading(false);
+      return;
+    }
+    void loadHistory();
+    return () => historyRequestControllerRef.current?.abort();
+  }, [historyVisible, loadHistory]);
 
   const sourceOptions: Array<{
     key: ImportSourceKey;
@@ -4668,14 +4694,18 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
       </section>
       {feedback && <section className={`import-feedback import-feedback-${feedback.tone}`} role={feedback.tone === "error" ? "alert" : "status"} aria-live="polite"><span className="feedback-symbol">{feedback.tone === "success" ? "✓" : feedback.tone === "duplicate" ? "≡" : feedback.tone === "warning" ? "!" : "×"}</span><div><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.details.length > 0 && <ul>{feedback.details.map((detail, index) => <li key={`${detail}-${index}`}>{detail}</li>)}</ul>}</div></section>}
       </>}
-      {activeSection === "continuity" && <section className="import-overview-grid">{sourceOptions.map((source) => { const item = latestBySource.get(source.key); return <article className="panel import-overview-card" key={source.key}><span>{source.label}</span><strong>{item?.fileName ?? "尚未导入"}</strong><small>{item ? `${item.snapshotDate ? `快照 ${item.snapshotDate} · ` : ""}${formatCount(item.insertedCount)} 行 · ${formatDateTime(item.completedAt || item.createdAt)}` : `等待导入${source.report}`}</small></article>; })}</section>}
+      {activeSection === "continuity" && <>
+        {historyLoading && history.length === 0 && <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在核对数据连续性</strong><p>正在分别读取销售、库存、ERP 主数据、财报、网店和客服导入记录…</p></section>}
+        {!historyLoading && historyDomainErrors.length > 0 && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>{historyDomainErrors.length === 6 ? "导入记录暂时不可用" : "部分导入来源读取失败"}</strong><p>{historyDomainErrors.join("；")}</p></div><button type="button" className="row-action" onClick={() => void loadHistory()}>重新读取</button></section>}
+        {(history.length > 0 || (!historyLoading && historyDomainErrors.length < 6)) && <section className="import-overview-grid">{sourceOptions.map((source) => { const item = latestBySource.get(source.key); return <article className="panel import-overview-card" key={source.key}><span>{source.label}</span><strong>{item?.fileName ?? "尚未导入"}</strong><small>{item ? `${item.snapshotDate ? `快照 ${item.snapshotDate} · ` : ""}${formatCount(item.insertedCount)} 行 · ${formatDateTime(item.completedAt || item.createdAt)}` : `等待导入${source.report}`}</small></article>; })}</section>}
+      </>}
       {activeSection === "history" &&
       <section className="panel table-panel import-history-panel">
         <div className="section-header"><div><h2>最近导入记录</h2><p>来自导入接口的真实批次记录</p></div><button className="text-button" disabled={historyLoading} onClick={() => void loadHistory()}>{historyLoading ? "刷新中…" : "刷新记录"} <span>↻</span></button></div>
         <div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
           {historyLoading && history.length === 0 && <tr><td colSpan={6}><div className="table-state"><span className="state-spinner" />正在读取导入记录…</div></td></tr>}
-          {!historyLoading && historyError && <tr><td colSpan={6}><div className="table-state table-state-error"><span>{historyError}</span><button className="row-action" onClick={() => void loadHistory()}>重试</button></div></td></tr>}
-          {!historyLoading && !historyError && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请先上传业务报表。</div></td></tr>}
+          {!historyLoading && historyDomainErrors.length > 0 && <tr><td colSpan={6}><div className="table-state table-state-error" role="alert"><span>{historyDomainErrors.length === 6 ? "导入记录读取失败" : "部分来源读取失败"}：{historyDomainErrors.join("；")}</span><button className="row-action" onClick={() => void loadHistory()}>重试</button></div></td></tr>}
+          {!historyLoading && historyDomainErrors.length === 0 && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请先上传业务报表。</div></td></tr>}
           {history.map((row) => {
             const rejected = row.status === "rejected";
             const duplicate = row.status === "duplicate";
@@ -4852,48 +4882,6 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     </tbody></table></div>{pageCount > 1 && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {pageCount} 页</span><button type="button" className="row-action" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}</section>
     {selected && <div className="modal-backdrop" onClick={() => setSelected(null)}><section className="customer-transcript" role="dialog" aria-modal="true" aria-label="客服会话详情" onClick={(event) => event.stopPropagation()}><header><div><span>{selected.consultedAt}</span><h3>{selected.customerId || selected.chatCustomerAlias || "未知顾客"} · {selected.agent || "未识别客服"}</h3><small>{selected.matchedSkuId ? `SKUID ${selected.matchedSkuId}` : selected.productSku ? `商品规格 ${selected.productSku}` : "未关联商品"} · {customerServiceStatusLabel(selected.matchStatus)}</small></div><button type="button" onClick={() => setSelected(null)} aria-label="关闭">×</button></header><div className="customer-transcript-metrics"><span>咨询类型：{selected.consultationType || "—"}</span><span>吉客云编号：{selected.erpProductCode || "未匹配"}</span><span>吉客云类目：{selected.productCategory || "未匹配"}</span><span>响应：{selected.responseSeconds === null ? "—" : `${selected.responseSeconds}s`}</span><span>时长：{selected.durationMinutes === null ? "—" : `${selected.durationMinutes} 分钟`}</span></div><div className="customer-analysis-editor"><label><span>服务问题</span><textarea value={selected.serviceIssues} disabled={!canAnnotate} onChange={(event) => setSelected({ ...selected, serviceIssues: event.target.value })} onBlur={() => void saveAnnotation(selected, { serviceIssues: selected.serviceIssues })} placeholder="AI 分析或人工补充客服服务问题" /></label><label><span>会话小结</span><textarea value={selected.summaryText} disabled={!canAnnotate} onChange={(event) => setSelected({ ...selected, summaryText: event.target.value })} onBlur={() => void saveAnnotation(selected, { summaryText: selected.summaryText })} placeholder="概括顾客诉求、客服处理与结果" /></label></div><div className="customer-transcript-messages">{selected.messages.length ? selected.messages.map((message, index) => <article key={`${message.sentAt}-${index}`} className={message.sender === selected.agent ? "agent" : "customer"}><strong>{message.sender || "未知"}</strong><small>{message.sentAt}</small><p>{message.content || "（无文字内容）"}</p></article>) : <p className="soft-text">此会话未匹配到聊天记录；会话表中的结构化字段仍已完整导入。</p>}</div></section></div>}
   </section>;
-}
-
-type SettingsTab = ModuleViewKey<"settings">;
-
-function SettingsView({ currentUser, moduleView, onModuleViewChange }: { currentUser: CurrentUser | null; moduleView: SettingsTab; onModuleViewChange: (view: SettingsTab) => void }) {
-  const [settings, setSettings] = useState<OperatingSettings | null>(null);
-  const activeTab = moduleView;
-  const [marketData, setMarketData] = useState<ComponentProps<typeof MarketDataImportPanel>["data"]>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [marketReloadKey, setMarketReloadKey] = useState(0);
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try { const response = await fetch("/api/settings", { cache: "no-store" }); const payload = await response.json().catch(() => null) as OperatingSettings | null; if (!response.ok || !payload) throw new Error("系统设置读取失败"); setSettings(payload); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "暂时无法读取系统设置"); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  useEffect(() => {
-    if (activeTab !== "master") return;
-    const controller = new AbortController();
-    void fetch("/api/market/overview", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as ComponentProps<typeof MarketDataImportPanel>["data"] | null;
-        if (!response.ok || !payload) throw new Error("市场主数据读取失败");
-        setMarketData(payload);
-      })
-      .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "市场主数据读取失败"); });
-    return () => controller.abort();
-  }, [activeTab, marketReloadKey]);
-  const updateNumber = (key: "targetDays" | "criticalDays" | "slowDays" | "stagnantDays", value: number) => setSettings((current) => current ? { ...current, [key]: Number.isFinite(value) ? value : 0 } : current);
-  const toggle = (key: "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory") => setSettings((current) => current ? { ...current, [key]: !current[key] } : current);
-  const save = async () => { if (!settings) return; setSaving(true); setNotice(""); try { const response = await fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(settings) }); const payload = await response.json().catch(() => null) as OperatingSettings & { error?: string }; if (!response.ok || !payload) throw new Error(payload?.error || "保存系统设置失败"); setSettings(payload); setNotice("系统设置已保存，后续库存分析会使用新的规则。"); } catch (reason) { setError(reason instanceof Error ? reason.message : "保存系统设置失败"); } finally { setSaving(false); } };
-  if (loading && !settings) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取系统设置</strong><p>正在加载库存分析与预警规则…</p></section>;
-  if (!settings) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>系统设置加载失败</strong><p>{error || "暂时无法读取系统设置"}</p><button className="secondary-button" onClick={() => void load()}>重新加载</button></section>;
-  return <><div className="subnav"><button className={activeTab === "parameters" ? "active" : ""} onClick={() => onModuleViewChange("parameters")}>系统参数</button><button className={activeTab === "master" ? "active" : ""} onClick={() => onModuleViewChange("master")}>主数据与映射</button><button className={activeTab === "permissions" ? "active" : ""} onClick={() => onModuleViewChange("permissions")}>权限管理</button></div>{(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "处理失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}
-    {activeTab === "parameters" && <section className="settings-grid"><article className="panel settings-menu"><h2>设置中心</h2><p>管理员可保存库存健康、库龄和预警规则。</p>{[["库存参数", "周转、库龄与补货规则", "库"], ["主数据与映射", "TOP SKU、价格带、细分类目和 AI 工作流", "主"], ["权限管理", "仅管理员可保存设置", "权"]].map((item, index) => <button className={index === 0 ? "active" : ""} key={item[0]} onClick={() => index === 1 ? onModuleViewChange("master") : index === 2 ? onModuleViewChange("permissions") : undefined}><span>{item[2]}</span><div><strong>{item[0]}</strong><small>{item[1]}</small></div><em>›</em></button>)}</article><article className="panel settings-form"><SectionHeader title="库存分析参数" note="保存后适用于后续库存健康、库龄分析与备货建议" /><div className="form-section"><h3>周转与预警</h3><div className="form-grid"><label><span>目标库存天数</span><div><input type="number" min={1} max={365} value={settings.targetDays} onChange={(event) => updateNumber("targetDays", Number(event.target.value))} /><em>天</em></div><small>用于计算建议补货数量</small></label><label><span>低库存预警线</span><div><input type="number" min={1} max={120} value={settings.criticalDays} onChange={(event) => updateNumber("criticalDays", Number(event.target.value))} /><em>天</em></div><small>低于该天数触发库存预警</small></label><label><span>低周转判定</span><div><input type="number" min={1} max={730} value={settings.slowDays} onChange={(event) => updateNumber("slowDays", Number(event.target.value))} /><em>天</em></div><small>用于识别低动销库存</small></label><label><span>呆滞库存判定</span><div><input type="number" min={1} max={1460} value={settings.stagnantDays} onChange={(event) => updateNumber("stagnantDays", Number(event.target.value))} /><em>天</em></div><small>用于生成滞销清理清单</small></label></div></div><div className="form-section"><h3>自动化规则</h3>{[["自动生成补货建议", "自动计算建议补货量，仍需人工确认草稿", "autoReplenishment"], ["库存异常提醒", "在 BI 看板集中显示库存健康风险", "inventoryAlert"], ["允许负库存", "仅影响导入校验，不会修改已有库存", "allowNegativeInventory"]].map(([label, note, key]) => <div className="toggle-row" key={key}><div><strong>{label}</strong><small>{note}</small></div><button type="button" onClick={() => toggle(key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory")} className={`toggle ${settings[key as "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory"] ? "on" : ""}`}><i /></button></div>)}</div><footer className="form-actions"><span>上次保存：{settings.updatedAt ? `${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` · ${settings.updatedBy}` : ""}` : "尚未保存"}</span><button className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存设置"}</button></footer></article></section>}
-    {activeTab === "master" && <section className="settings-market-master"><MarketMasterAdminPanel currentUser={currentUser} /><MarketDataImportPanel currentUser={currentUser} data={marketData} onImported={() => setMarketReloadKey((key) => key + 1)} /><MarketWorkflowPanel data={marketData} /><MarketAnnotationView currentUser={currentUser} /></section>}
-    {activeTab === "permissions" && <section className="panel settings-form"><SectionHeader title="权限管理" note="当前版本沿用应用用户表和角色授权；市场导入、提交标注和模型配置仍仅管理员可执行。" /><p className="soft-text">如需新增行级数据范围，请在系统用户权限中配置，AI 工具不会信任模型提供的身份或角色声明。</p></section>}
-  </>;
 }
 
 function newAiModelDraft(): AiModelDraft {
@@ -5298,12 +5286,18 @@ export default function Home() {
   const [statPeriodPickerOpen, setStatPeriodPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
-  const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResponse | null>(null);
+  const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResult | null>(null);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchError, setGlobalSearchError] = useState("");
+  const [globalSearchLoadingGroup, setGlobalSearchLoadingGroup] = useState<GlobalSearchGroupKey | null>(null);
+  const [globalSearchGroupError, setGlobalSearchGroupError] = useState("");
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitleRef = useRef<HTMLHeadingElement>(null);
-  const globalSearchInputRef = useRef<HTMLInputElement>(null);
+  const globalSearchGenerationRef = useRef(0);
+  const globalSearchControllerRef = useRef<AbortController | null>(null);
+  const globalSearchGroupGenerationRef = useRef(0);
+  const globalSearchGroupControllerRef = useRef<AbortController | null>(null);
+  const globalSearchGroupRequestKeyRef = useRef("");
   const debouncedGlobalSearchQuery = useDebouncedValue(globalSearchQuery, 220);
   const customMaxDate = shanghaiIsoToday();
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
@@ -5351,12 +5345,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!currentUser || active === "market") return;
+    if (!currentUser || active !== "market") return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void prefetchMarketRankingOverview(globalPeriod.startDate, globalPeriod.endDate, controller.signal)
+      void import("./market-view")
+        .then(({ prefetchMarketRankingOverview }) => prefetchMarketRankingOverview(globalPeriod.startDate, globalPeriod.endDate, controller.signal))
         .catch(() => undefined);
-    }, 900);
+    }, 0);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
@@ -5420,24 +5415,48 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
 
+  const cancelGlobalSearchRequests = useCallback(() => {
+    globalSearchGenerationRef.current += 1;
+    globalSearchControllerRef.current?.abort();
+    globalSearchControllerRef.current = null;
+    globalSearchGroupGenerationRef.current += 1;
+    globalSearchGroupControllerRef.current?.abort();
+    globalSearchGroupControllerRef.current = null;
+    globalSearchGroupRequestKeyRef.current = "";
+  }, []);
+
   useEffect(() => {
     if (!searchOpen) return;
     const query = debouncedGlobalSearchQuery.trim();
     if (Array.from(query).length < 2) return;
+    const generation = globalSearchGenerationRef.current + 1;
+    globalSearchGenerationRef.current = generation;
+    globalSearchControllerRef.current?.abort();
+    globalSearchGroupGenerationRef.current += 1;
+    globalSearchGroupControllerRef.current?.abort();
+    globalSearchGroupControllerRef.current = null;
+    globalSearchGroupRequestKeyRef.current = "";
     const controller = new AbortController();
+    globalSearchControllerRef.current = controller;
     void (async () => {
       setGlobalSearchLoading(true);
+      setGlobalSearchLoadingGroup(null);
+      setGlobalSearchGroupError("");
       setGlobalSearchError("");
       try {
-        const payload = await requestJson<GlobalSearchResponse>(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
-        if (!payload || !Array.isArray(payload.groups)) throw new Error("搜索结果格式不完整");
+        const payload = await requestJson<GlobalSearchResult>(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        if (!payload || payload.query !== query || !Array.isArray(payload.groups) || !payload.groups.every((group) => Array.isArray(group.items)) || !Array.isArray(payload.unavailableDomains)) throw new Error("搜索结果格式不完整");
+        if (controller.signal.aborted || generation !== globalSearchGenerationRef.current) return;
         setGlobalSearchResult(payload);
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (controller.signal.aborted || generation !== globalSearchGenerationRef.current) return;
         setGlobalSearchError(error instanceof Error ? error.message : "搜索失败");
         setGlobalSearchResult(null);
       } finally {
-        if (!controller.signal.aborted) setGlobalSearchLoading(false);
+        if (!controller.signal.aborted && generation === globalSearchGenerationRef.current) {
+          setGlobalSearchLoading(false);
+          if (globalSearchControllerRef.current === controller) globalSearchControllerRef.current = null;
+        }
       }
     })();
     return () => controller.abort();
@@ -5462,9 +5481,9 @@ export default function Home() {
     return serializeShellLocation({ module: key, view: getDefaultModuleView(key), period: shellPeriod }, currentUrl);
   }, [shellPeriod]);
 
-  const selectModule = useCallback((key: ModuleKey, nextImportSource?: ImportSourceKey) => {
+  const selectModule = useCallback((key: ModuleKey, nextImportSource?: ImportSourceKey, requestedView?: ModuleViewKey) => {
     const nextSource = key === "import" ? nextImportSource : undefined;
-    const nextView = getDefaultModuleView(key);
+    const nextView = requestedView ? normalizeModuleView(key, requestedView) : getDefaultModuleView(key);
     const nextUrl = serializeShellLocation({
       module: key,
       view: nextView,
@@ -5491,19 +5510,96 @@ export default function Home() {
     event.preventDefault();
     selectModule(key);
   }, [selectModule]);
+
+  const loadMoreGlobalSearchGroup = useCallback(async (groupKey: GlobalSearchGroupKey, page: number) => {
+    const query = globalSearchQuery.trim();
+    if (!searchOpen || Array.from(query).length < 2) return;
+    const generation = globalSearchGroupGenerationRef.current + 1;
+    globalSearchGroupGenerationRef.current = generation;
+    globalSearchGroupControllerRef.current?.abort();
+    const controller = new AbortController();
+    globalSearchGroupControllerRef.current = controller;
+    const nextPage = Number.isInteger(page) ? Math.min(10_000, Math.max(2, page)) : 2;
+    const requestKey = `${query}\u001f${groupKey}\u001f${nextPage}`;
+    globalSearchGroupRequestKeyRef.current = requestKey;
+    setGlobalSearchLoadingGroup(groupKey);
+    setGlobalSearchGroupError("");
+    try {
+      const params = new URLSearchParams({ q: query, group: groupKey, page: String(nextPage) });
+      const payload = await requestJson<GlobalSearchResult>(`/api/search?${params.toString()}`, { signal: controller.signal });
+      const incomingGroup = payload?.groups?.find((group) => group.key === groupKey);
+      if (payload?.query !== query || !incomingGroup || !Array.isArray(incomingGroup.items) || !Array.isArray(payload.unavailableDomains)) throw new Error("搜索分组响应格式不完整");
+      if (controller.signal.aborted || generation !== globalSearchGroupGenerationRef.current || requestKey !== globalSearchGroupRequestKeyRef.current) return;
+      setGlobalSearchResult((currentResult) => {
+        if (!currentResult || currentResult.query !== query) return currentResult;
+        const currentGroup = currentResult.groups.find((group) => group.key === groupKey);
+        if (!currentGroup) return currentResult;
+        const seenIds = new Set(currentGroup.items.map((item) => item.id));
+        const mergedItems = [...currentGroup.items];
+        for (const item of incomingGroup.items) {
+          if (seenIds.has(item.id)) continue;
+          seenIds.add(item.id);
+          mergedItems.push(item);
+        }
+        const mergedGroup = { ...currentGroup, ...incomingGroup, page: nextPage, hasMore: nextPage < 10_000 && incomingGroup.hasMore, items: mergedItems };
+        const groups = currentResult.groups.map((group) => group.key === groupKey ? mergedGroup : group);
+        return {
+          ...currentResult,
+          groups,
+          returned: groups.reduce((total, group) => total + group.items.length, 0),
+          truncated: groups.some((group) => group.hasMore),
+          unavailableDomains: [...new Set([...currentResult.unavailableDomains, ...payload.unavailableDomains])],
+        };
+      });
+    } catch (error) {
+      if (controller.signal.aborted || generation !== globalSearchGroupGenerationRef.current || requestKey !== globalSearchGroupRequestKeyRef.current) return;
+      setGlobalSearchGroupError(error instanceof Error ? error.message : "加载更多搜索结果失败");
+    } finally {
+      if (!controller.signal.aborted && generation === globalSearchGroupGenerationRef.current && requestKey === globalSearchGroupRequestKeyRef.current) {
+        setGlobalSearchLoadingGroup(null);
+        if (globalSearchGroupControllerRef.current === controller) globalSearchGroupControllerRef.current = null;
+      }
+    }
+  }, [globalSearchQuery, searchOpen]);
+
   const closeGlobalSearch = useCallback(() => {
+    cancelGlobalSearchRequests();
     setSearchOpen(false);
     setGlobalSearchQuery("");
     setGlobalSearchResult(null);
     setGlobalSearchError("");
-  }, []);
-  const updateGlobalSearchQuery = (value: string) => {
+    setGlobalSearchGroupError("");
+    setGlobalSearchLoading(false);
+    setGlobalSearchLoadingGroup(null);
+  }, [cancelGlobalSearchRequests]);
+  const updateGlobalSearchQuery = useCallback((value: string) => {
+    cancelGlobalSearchRequests();
     setGlobalSearchQuery(value);
-    if (Array.from(value.trim()).length >= 2) return;
     setGlobalSearchResult(null);
     setGlobalSearchError("");
-    setGlobalSearchLoading(false);
-  };
+    setGlobalSearchGroupError("");
+    setGlobalSearchLoading(Array.from(value.trim()).length >= 2);
+    setGlobalSearchLoadingGroup(null);
+  }, [cancelGlobalSearchRequests]);
+  const selectGlobalSearchItem = useCallback(async (item: GlobalSearchItem) => {
+    let targetModule: ModuleKey | null = isModuleKey(item.module) ? item.module : null;
+    let targetView: ModuleViewKey | undefined;
+    if (item.target !== undefined) {
+      try {
+        const { parseGlobalSearchTarget } = await import("./global-search-dialog");
+        const target = parseGlobalSearchTarget(item.target);
+        if (target && isGlobalSearchTargetForItem(item, target)) {
+          targetModule = target.module;
+          targetView = target.view;
+        }
+      } catch {
+        // The validated module fallback remains available if the optional target chunk cannot load.
+      }
+    }
+    if (!targetModule) return;
+    selectModule(targetModule, undefined, targetView);
+    closeGlobalSearch();
+  }, [closeGlobalSearch, selectModule]);
   const selectRange = (nextRange: SalesRangeLabel) => {
     setRange(nextRange);
     setStatPeriodPickerOpen(nextRange === "自定义");
@@ -5577,7 +5673,9 @@ export default function Home() {
       >
         <div className="content">
           <ModuleErrorBoundary resetKey={`${active}:${activeModuleView}:${importSource ?? ""}`} onOpenDashboard={() => selectModule("dashboard")}>
-            <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
+            <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
+              <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
+            </Suspense>
           </ModuleErrorBoundary>
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
@@ -5585,26 +5683,26 @@ export default function Home() {
 
       <TableColumnFilters />
 
-      <Dialog open={searchOpen} onClose={closeGlobalSearch} dialogId="global-search-dialog" ariaLabel="全系统业务搜索" className="search-modal search-modal-global" initialFocusRef={globalSearchInputRef}>
-          <div className="modal-search">⌕<input ref={globalSearchInputRef} value={globalSearchQuery} onChange={(event) => updateGlobalSearchQuery(event.target.value)} placeholder="搜索商品、订单、库存、市场、客服、财务或批次…" aria-label="搜索系统全部已接入数据" /><button onClick={closeGlobalSearch} aria-label="关闭全系统搜索">ESC</button></div>
-          {globalSearchQuery.trim() ? <div className="search-results" aria-live="polite">
-            {Array.from(globalSearchQuery.trim()).length < 2 && <div className="search-state">请输入至少 2 个字符。</div>}
-            {globalSearchLoading && <div className="search-state">正在按业务域搜索已接入数据…</div>}
-            {globalSearchError && <div className="search-state search-state-error">{globalSearchError}</div>}
-            {!globalSearchLoading && !globalSearchError && globalSearchResult && <>
-              {globalSearchResult.groups.filter((group) => group.items.length > 0).map((group) => <section className="search-result-section" key={group.key}>
-                <div><p>{group.label}</p><small>显示 {formatCount(group.items.length)} / {formatCount(group.total)} 条{group.hasMore ? " · 可继续分页" : ""}</small></div>
-                {group.items.map((item) => <button className="search-result-item" key={`${group.key}-${item.id}`} onClick={() => { selectModule(item.module); closeGlobalSearch(); }}>
-                  <span className={`search-result-icon search-result-icon-${group.key}`}>{group.icon}</span>
-                  <div><strong title={item.title}>{item.title || "未命名记录"}</strong><small>{item.subtitle || item.detail || "暂无摘要"}</small>{item.subtitle && item.detail && <small className="search-result-detail">{item.detail}</small>}</div>
-                  <em>{item.amountCents !== null && <b>{formatCurrencyFromCents(item.amountCents)}</b>}{item.updatedAt && <small>{item.updatedAt.slice(0, 10)}</small>}</em>
-                </button>)}
-              </section>)}
-              {globalSearchResult.returned === 0 && <div className="search-state">未在当前已接入业务域中找到匹配数据。</div>}
-              <div className="search-coverage-note">按字段白名单搜索，单域和总结果均有限额{globalSearchResult.unavailableDomains.length > 0 ? `；${globalSearchResult.unavailableDomains.length} 个未建表业务域已安全跳过` : ""}。</div>
-            </>}
-          </div> : <><p>全系统搜索</p><div className="search-guide"><strong>覆盖货品、订单、京东商品、库存、市场 SKU、客服、财务、目标、事务与导入批次</strong><small>按业务域分组返回；聊天正文可匹配，结果只展示必要摘要。</small></div><p>快速访问</p><div className="quick-links">{navItems.slice(0, 5).map((item) => <button key={item.key} onClick={() => { selectModule(item.key); closeGlobalSearch(); }}><span>{item.short}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><em>↗</em></button>)}</div></>}
-      </Dialog>
+      {searchOpen && <Suspense fallback={<div className="modal-backdrop"><section className="panel data-state search-modal" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载全系统搜索</strong><p>正在载入搜索工作区…</p></section></div>}>
+        <GlobalSearchDialog
+          open={searchOpen}
+          query={globalSearchQuery}
+          result={globalSearchResult}
+          loading={globalSearchLoading}
+          error={globalSearchError}
+          loadingGroup={globalSearchLoadingGroup}
+          loadMoreError={globalSearchGroupError}
+          onQueryChange={updateGlobalSearchQuery}
+          onClose={closeGlobalSearch}
+          onSelectItem={(item) => void selectGlobalSearchItem(item)}
+          onSelectQuickModule={(module) => {
+            if (!isModuleKey(module)) return;
+            selectModule(module);
+            closeGlobalSearch();
+          }}
+          onLoadMoreGroup={(groupKey, nextPage) => void loadMoreGlobalSearchGroup(groupKey, nextPage)}
+        />
+      </Suspense>}
     </>
   );
 }

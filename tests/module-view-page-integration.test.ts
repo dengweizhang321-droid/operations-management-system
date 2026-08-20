@@ -42,9 +42,11 @@ test("page modules consume one controlled view and route tab clicks through the 
   assert.match(source, /resetKey=\{`\$\{active\}:\$\{activeModuleView\}:/);
   assert.doesNotMatch(source, /["']salesTab["']/);
 
-  for (const moduleName of ["ShopView", "SalesView", "InventoryView", "ProductView", "ImportView", "SettingsView"]) {
+  for (const moduleName of ["ShopView", "SalesView", "InventoryView", "ProductView", "ImportView"]) {
     const declaration = new RegExp(`function ${moduleName}\\([^)]*moduleView[^)]*onModuleViewChange`);
     assert.match(source, declaration, `${moduleName} must be controlled by the shell view`);
   }
-  assert.ok((source.match(/onModuleViewChange\("/g) ?? []).length >= 15);
+  assert.match(source, /const SettingsView = lazy\(\(\) => import\("\.\/settings-view"\)\)/);
+  assert.match(source, /settings: \([^\n]+moduleView[^\n]+<SettingsView[^\n]+onModuleViewChange/);
+  assert.ok((source.match(/onModuleViewChange\("/g) ?? []).length >= 14);
 });
