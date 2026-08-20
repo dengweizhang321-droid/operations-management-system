@@ -626,42 +626,43 @@ test("revealJdWareExportEntry falls back once to Enter when the same unique drop
   assert.equal(target.clicks.scopedQuery, 0);
 });
 
-test("prepareJdWareExportEntry skips bootstrap only for one identity-verified SKU export drawer", async () => {
+test("prepareJdWareExportEntry validates drawer identity without opening the short-lived export menu", async () => {
   const alreadyOpen = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, exportDrawerCount: 1, scopedSkuTabCount: 1, pageSkuTabCount: 1 });
-  assert.equal(await prepareJdWareExportEntry(alreadyOpen.page as never, createJdWareQueryBootstrapState()), "already_open");
+  assert.equal(await prepareJdWareExportEntry(alreadyOpen.page as never), "already_open");
   assert.equal(alreadyOpen.clicks.scopedQuery, 0);
   assert.equal(alreadyOpen.clicks.exportEntry, 0);
 
   const closed = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1 });
-  assert.equal(await prepareJdWareExportEntry(closed.page as never, createJdWareQueryBootstrapState()), "bootstrapped");
-  assert.equal(closed.clicks.scopedQuery, 1);
+  assert.equal(await prepareJdWareExportEntry(closed.page as never), "ready_to_open");
+  assert.equal(closed.clicks.scopedQuery, 0);
+  assert.equal(closed.clicks.batchOperations, 0);
 
   const wrongOverlay = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, jdOverlayDom: "single", scopedSkuTabCount: 0, pageSkuTabCount: 0 });
-  await assert.rejects(prepareJdWareExportEntry(wrongOverlay.page as never, createJdWareQueryBootstrapState()), /页签不唯一或身份不匹配/);
+  await assert.rejects(prepareJdWareExportEntry(wrongOverlay.page as never), /页签不唯一或身份不匹配/);
   assert.equal(wrongOverlay.clicks.scopedQuery, 0);
 
   const ambiguousTabs = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, exportDrawerCount: 1, scopedSkuTabCount: 2, pageSkuTabCount: 2 });
-  await assert.rejects(prepareJdWareExportEntry(ambiguousTabs.page as never, createJdWareQueryBootstrapState()), /页签不唯一/);
+  await assert.rejects(prepareJdWareExportEntry(ambiguousTabs.page as never), /页签不唯一/);
   assert.equal(ambiguousTabs.clicks.scopedQuery, 0);
 
   const nestedDrawer = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, nestedDrawerDom: true, scopedSkuTabCount: 1, pageSkuTabCount: 1 });
-  assert.equal(await prepareJdWareExportEntry(nestedDrawer.page as never, createJdWareQueryBootstrapState()), "already_open");
+  assert.equal(await prepareJdWareExportEntry(nestedDrawer.page as never), "already_open");
   assert.equal(await nestedDrawer.rawDrawerCandidate.count(), 2);
   assert.match(jdWareNormalizedExportDrawerSelector, /:not\(:has\(/);
   assert.equal(nestedDrawer.clicks.scopedQuery, 0);
 
   const jdOverlay = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, jdOverlayDom: "single", scopedSkuTabCount: 1, pageSkuTabCount: 1 });
-  assert.equal(await prepareJdWareExportEntry(jdOverlay.page as never, createJdWareQueryBootstrapState()), "already_open");
+  assert.equal(await prepareJdWareExportEntry(jdOverlay.page as never), "already_open");
   assert.match(jdWareNormalizedExportDrawerSelector, /\.jd-overlay/);
   assert.deepEqual(jdOverlay.jdOverlayNodes[0]?.body, { className: "jd-drawer__body", title: "导出条件", skuTab: "SKU导出" });
   assert.equal(jdOverlay.clicks.scopedQuery, 0);
 
   const independentOverlays = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 2, jdOverlayDom: "multiple", scopedSkuTabCount: 2, pageSkuTabCount: 2 });
-  await assert.rejects(prepareJdWareExportEntry(independentOverlays.page as never, createJdWareQueryBootstrapState()), /抽屉不唯一/);
+  await assert.rejects(prepareJdWareExportEntry(independentOverlays.page as never), /抽屉不唯一/);
   assert.equal(independentOverlays.clicks.scopedQuery, 0);
 
   const hiddenClone = createWareListEntryPageFixture({ productSearchContainerCount: 1, scopedQueryButtonCount: 1, pageQueryButtonCount: 1, jdOverlayDom: "hidden_clone", scopedSkuTabCount: 1, pageSkuTabCount: 1 });
-  assert.equal(await prepareJdWareExportEntry(hiddenClone.page as never, createJdWareQueryBootstrapState()), "already_open");
+  assert.equal(await prepareJdWareExportEntry(hiddenClone.page as never), "already_open");
   assert.equal(await hiddenClone.rawDrawerCandidate.count(), 2);
   assert.equal(hiddenClone.clicks.scopedQuery, 0);
 });

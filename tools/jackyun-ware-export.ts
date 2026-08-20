@@ -491,10 +491,12 @@ async function verifyJdWareProductQueryResponse(page: Page, response: Response) 
   throw new Error(`京东商品查询接口返回 ${verified.total} 行，但页面总行数未精确回显。`);
 }
 
-export async function prepareJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
+export async function prepareJdWareExportEntry(page: Page) {
   if (await getVerifiedJdWareSkuExportDrawer(page)) return "already_open" as const;
-  await revealJdWareExportEntry(page, queryBootstrapState);
-  return "bootstrapped" as const;
+  // Do not reveal the dropdown during query verification. Some JD account
+  // variants auto-close this short-lived menu before the later dialog stage.
+  // Keep reveal + click as one atomic action in openSkuExportDialog instead.
+  return "ready_to_open" as const;
 }
 
 export async function revealJdWareExportEntry(page: Page, queryBootstrapState: JdWareQueryBootstrapState = createJdWareQueryBootstrapState()) {
@@ -685,7 +687,7 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
   // initial query response and the same total are visible in the toolbar.
   await closeExistingJdWareSkuExportDrawer(page);
   const verified = await verifyJdWareProductQueryResponse(page, response);
-  await prepareJdWareExportEntry(page, queryBootstrapState);
+  await prepareJdWareExportEntry(page);
   return verified;
 }
 
