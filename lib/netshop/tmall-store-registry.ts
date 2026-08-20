@@ -8,6 +8,7 @@ export type TmallStore = {
   platform: "天猫";
   shopName: string;
   enabled: boolean;
+  loginMode?: "manual" | "saved_browser_credentials";
   initialStartDate: string | null;
   portalUrl: string;
   browser: {
@@ -74,6 +75,7 @@ export function validateTmallStoreRegistry(
     );
     if (!store.storeKey?.trim() || !/^[a-z0-9][a-z0-9-]*$/.test(store.storeKey)
       || store.platform !== "天猫" || !store.shopName?.trim() || typeof store.enabled !== "boolean"
+      || store.loginMode !== undefined && !["manual", "saved_browser_credentials"].includes(store.loginMode)
       || !validIsoDate(store.initialStartDate) || store.portalUrl !== "https://sycm.taobao.com/portal/home.htm"
       || !store.browser || !store.browser.profileDir?.trim() || !store.browser.downloadDir?.trim()
       || usesSharedUserData && (

@@ -10,7 +10,10 @@ import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import { runTmallMultiStoreImport, shanghaiYesterday } from "./tmall-multi-store-import-runner";
-import { runTmallProductMasterStage } from "./tmall-product-master-export";
+import {
+  ensureTmallStoreAuthenticatedSession,
+  runTmallProductMasterStage,
+} from "./tmall-product-master-export";
 import { runTmallPromotionStage } from "./tmall-promotion-export";
 import {
   getJackyunProfileStatus,
@@ -1087,10 +1090,11 @@ async function serveCommand(argv: string[]) {
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/plan") {
+        const authentication = await ensureTmallStoreAuthenticatedSession("tmall-yijiu");
         const result = await planCommand(["--store-key", "tmall-yijiu", "--max-days", String(maximumDaysPerRun)]);
         planPathBase64 = result.planPathBase64;
         stage = tmallStageAfterRoute("/plan");
-        reply(200, result);
+        reply(200, { ...result, authentication });
         inactivityReaper?.arm();
       } else if (request.url === "/fetch") {
         const result = await fetchCommand(["--plan-base64", planPathBase64]);

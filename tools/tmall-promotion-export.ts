@@ -17,6 +17,7 @@ import {
 import { shanghaiYesterday } from "./tmall-multi-store-import-runner";
 import {
   createTmallBrowserDownloadSession,
+  ensureTmallSellerSession,
   isTmallSellerBusinessUrl,
   TMALL_SELLER_ON_SALE_URL,
 } from "./tmall-product-master-export";
@@ -527,7 +528,7 @@ async function assertStoreIdentity(page: Page, store: TmallStore, surface: "千�
   const text = await combinedPageText(page);
   if (/login\.taobao\.com|passport|oauth|member\/login/i.test(url)
     || /扫码登录|密码登录|账户登录/.test(text) && !/货品全站推|推广中心|下载任务管理/.test(text)) {
-    throw new Error(`waiting_login：亿玖店独立浏览器尚未登录${surface}，请先人工登录后重试`);
+    throw new Error(`waiting_login：${store.shopName} 独立浏览器尚未登录${surface}，请先人工登录后重试`);
   }
   const expected = store.shopName.replace(/^天猫-/, "");
   const shorter = expected.replace(/专卖店$/, "");
@@ -1296,7 +1297,7 @@ async function navigateToPromotionReport(page: Page, store: TmallStore) {
   if (!/myseller\.taobao\.com\/home\.htm\/SellManage\/on_sale/i.test(page.url())) {
     await page.goto(TMALL_PROMOTION_ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   }
-  await waitUntil(60_000, async () => (await combinedPageText(page)).includes("出售中"), "千牛店铺后台出售中页面加载超时");
+  await ensureTmallSellerSession(page, store);
   dismissedPopups += await dismissBlockingPopups(page);
   await assertSellerIdentity(page, store);
   dismissedPopups += await dismissBlockingPopups(page);
@@ -1334,7 +1335,7 @@ async function navigateToPromotionReport(page: Page, store: TmallStore) {
   return { dismissedPopups, page };
 }
 
-async function launchStoreChrome(store: TmallStore) {
+async function launchStoreChrome(store: TmallStore, interactiveLogin = false) {
   const launchTarget = resolveTmallBrowserLaunchTarget(
     store,
     process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable,
@@ -1348,23 +1349,24 @@ async function launchStoreChrome(store: TmallStore) {
     port: store.browser.debugPort,
     startUrl: TMALL_PROMOTION_ENTRY_URL,
     headless: false,
-    visible: true,
+    visible: interactiveLogin,
+    startMinimized: !interactiveLogin,
+    keepWindowHidden: !interactiveLogin,
   });
   return launchTarget;
 }
 
 export async function launchTmallPromotionLogin(storeKey = "tmall-yijiu") {
   const store = await getTmallStore(storeKey);
-  const launchTarget = await launchStoreChrome(store);
+  await launchStoreChrome(store, true);
   return {
     ok: true,
     status: "browser_ready" as const,
     storeKey: store.storeKey,
     shopName: store.shopName,
     targetUrl: TMALL_PROMOTION_ENTRY_URL,
-    profileDirectory: launchTarget.profileDirectory,
-    profileName: launchTarget.profileName,
     debugPort: store.browser.debugPort,
+    instruction: "请完成登录，并在 Chromium 提示时为当前独立店铺 Profile 保存密码；程序不会读取或保存明文凭证。",
   };
 }
 

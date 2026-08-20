@@ -68,6 +68,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
   assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"], undefined);
   assert.match(raw, /A→B→C→P→M/);
+  assert.match(raw, /Chromium 自身保存并自动填充/);
+  assert.match(raw, /验证码、安全验证/);
   assert.equal(requestNodes[0]?.parameters?.options?.timeout, 1_800_000);
   assert.equal(requestNodes.at(-1)?.parameters?.options?.timeout, 21_600_000);
   assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|Cookie:\s*[^`\n]/i);

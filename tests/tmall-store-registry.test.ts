@@ -33,6 +33,10 @@ test("天猫店铺注册表拒绝敏感字段和跨店重复资源", () => {
   const duplicate = store("b", "B店", 9301);
   duplicate.browser.profileDir = store("a", "A店", 9301).browser.profileDir;
   assert.throws(() => validateTmallStoreRegistry({ version: 1, stores: [store("a", "A店", 9301), duplicate] }), /存在重复/);
+  assert.throws(() => validateTmallStoreRegistry({
+    version: 1,
+    stores: [{ ...store("c", "C店", 9303), loginMode: "plain_password" }],
+  }), /字段无效/);
 });
 
 test("天猫店铺注册表支持共享 Chromium 根目录下的独立 Profile", () => {
@@ -85,5 +89,6 @@ test("服务端只接受注册表中启用的天猫店铺", () => {
   assert.equal(yijiu.browser.profileName, "Default");
   assert.equal(yijiu.browser.profileDir, "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data/Default");
   assert.equal(yijiu.browser.debugPort, 9334);
+  assert.equal(yijiu.loginMode, "saved_browser_credentials");
   assert.throws(() => resolveEnabledTmallShop("天猫-志高丽力专卖店"), /未注册或未启用/);
 });

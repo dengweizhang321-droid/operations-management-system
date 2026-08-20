@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import type { Frame, Locator, Page } from "playwright-core";
+import type { Browser, Frame, Locator, Page } from "playwright-core";
 
 import { launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
@@ -14,6 +14,7 @@ import {
   resolveTmallBrowserLaunchTarget,
   type TmallStore,
 } from "../lib/netshop/tmall-store-registry";
+import { autoLoginTmallWithSavedBrowserCredentials } from "./tmall-saved-login";
 
 export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20";
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
@@ -36,6 +37,7 @@ const exportRecordTimeoutMs = 3 * 60 * 1000;
 const exportRecordRefreshIntervalMs = 8_000;
 export const productManagerChatOpenTimeoutMs = 60_000;
 export const tmallSellerLoginRedirectGraceMs = 15_000;
+let retainedTmallSessionBrowser: Browser | null = null;
 
 type MasterImportBatch = {
   id?: string;
@@ -1494,7 +1496,7 @@ export async function waitForTmallSellerSessionUrl(
     url = readUrl();
   }
   if (isTmallSellerLoginUrl(url)) {
-    throw new Error("waiting_login：亿玖店独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
+    throw new Error("waiting_login：天猫店铺独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
   }
   return url;
 }
@@ -1503,7 +1505,7 @@ async function assertSellerIdentity(page: Page, store: TmallStore) {
   const url = page.url();
   const text = await combinedPageText(page);
   if (isTmallSellerLoginUrl(url) || /扫码登录|密码登录|账户登录/.test(text)) {
-    throw new Error("waiting_login：亿玖店独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试");
+    throw new Error(`waiting_login：${store.shopName} 独立浏览器尚未登录千牛，请先在该浏览器完成登录后重试`);
   }
   const expected = store.shopName.replace(/^天猫-/, "");
   const shorter = expected.replace(/专卖店$/, "");
@@ -1513,7 +1515,7 @@ async function assertSellerIdentity(page: Page, store: TmallStore) {
   if (!text.includes("出售中")) throw new Error("千牛页面未进入“商品 > 出售中”列表");
 }
 
-async function launchStoreChrome(store: TmallStore) {
+async function launchStoreChrome(store: TmallStore, interactiveLogin = false) {
   const launchTarget = resolveTmallBrowserLaunchTarget(
     store,
     process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable,
@@ -1527,7 +1529,9 @@ async function launchStoreChrome(store: TmallStore) {
     port: store.browser.debugPort,
     startUrl: TMALL_SELLER_ON_SALE_URL,
     headless: false,
-    visible: true,
+    visible: interactiveLogin,
+    startMinimized: !interactiveLogin,
+    keepWindowHidden: !interactiveLogin,
   });
   return {
     profileDirectory: launchTarget.profileDirectory,
@@ -1536,16 +1540,102 @@ async function launchStoreChrome(store: TmallStore) {
   };
 }
 
+export async function ensureTmallSellerSession(page: Page, store: TmallStore) {
+  let authentication: "existing_session" | "saved_browser_credentials" = "existing_session";
+  await waitUntil(tmallSellerLoginRedirectGraceMs, async () => {
+    const text = await combinedPageText(page);
+    return text.includes("出售中") || isTmallSellerLoginUrl(page.url())
+      || /扫码登录|密码登录|账户登录|安全验证|人机验证|短信验证码|滑块验证/.test(text);
+  }, "等待千牛登录状态加载超时");
+  const initialText = await combinedPageText(page);
+  const loginRequired = isTmallSellerLoginUrl(page.url())
+    || /扫码登录|密码登录|账户登录|安全验证|人机验证|短信验证码|滑块验证/.test(initialText)
+      && !initialText.includes("出售中");
+  if (loginRequired) {
+    if (store.loginMode !== "saved_browser_credentials") {
+      if (isTmallSellerLoginUrl(page.url())) await waitForTmallSellerSessionUrl(() => page.url());
+      else throw new Error(`waiting_login：${store.shopName} 独立浏览器尚未登录千牛，请先人工登录后重试`);
+    } else {
+      const login = await autoLoginTmallWithSavedBrowserCredentials(page);
+      const currentText = await combinedPageText(page);
+      const stillRequiresLogin = isTmallSellerLoginUrl(page.url())
+        || /扫码登录|密码登录|账户登录/.test(currentText) && !currentText.includes("出售中");
+      if (!stillRequiresLogin && !login.submitted) {
+        authentication = "existing_session";
+      } else if (login.reason === "challenge_present") {
+        throw new Error(`waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`);
+      } else if (!login.submitted) {
+        const reason = login.reason === "saved_credentials_missing"
+          ? "未检测到 Chromium 已保存并自动填充的账号密码"
+          : login.reason === "login_control_ambiguous"
+            ? "登录页出现多个提交按钮"
+            : login.reason === "login_control_missing"
+              ? "登录按钮缺失或不可用"
+              : "登录表单尚未就绪";
+        throw new Error(`waiting_login：${store.shopName} ${reason}，请人工登录并选择保存密码`);
+      } else {
+        authentication = "saved_browser_credentials";
+      }
+    }
+  }
+  try {
+    await waitUntil(60_000, async () => {
+      const text = await combinedPageText(page);
+      if (authentication === "saved_browser_credentials"
+        && /安全验证|人机验证|短信验证码|动态验证码|滑块验证/.test(text)) {
+        throw new Error(`waiting_login：${store.shopName} 自动登录后出现安全验证，需要人工处理`);
+      }
+      return text.includes("出售中");
+    }, "等待千牛出售中页面加载超时");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("waiting_login")) throw error;
+    if (authentication === "saved_browser_credentials") {
+      throw new Error(`waiting_login：${store.shopName} 自动提交已保存密码后仍未进入千牛，可能需要验证码或安全验证`);
+    }
+    throw error;
+  }
+  await assertSellerIdentity(page, store);
+  return { status: "authenticated" as const, authentication };
+}
+
+export async function ensureTmallStoreAuthenticatedSession(storeKey = "tmall-yijiu") {
+  const store = await getTmallStore(storeKey);
+  await launchStoreChrome(store);
+  const browser = retainedTmallSessionBrowser?.isConnected()
+    ? retainedTmallSessionBrowser
+    : await connectPlaywrightBrowser(store.browser.debugPort);
+  retainedTmallSessionBrowser = browser;
+  const context = browser.contexts()[0];
+  if (!context) throw new Error(`${store.shopName} 独立 Chromium 没有可用上下文`);
+  const pages = context.pages();
+  const page = pages.find((candidate) => isTmallSellerBusinessUrl(candidate.url()))
+    ?? pages.find((candidate) => isTmallSellerLoginUrl(candidate.url()))
+    ?? await context.newPage();
+  page.setDefaultTimeout(15_000);
+  if (!isTmallSellerBusinessUrl(page.url()) && !isTmallSellerLoginUrl(page.url())) {
+    await page.goto(TMALL_SELLER_ON_SALE_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  }
+  const session = await ensureTmallSellerSession(page, store);
+  return {
+    ok: true,
+    status: session.status,
+    authentication: session.authentication,
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+  };
+}
+
 export async function launchTmallProductMasterLogin(storeKey = "tmall-yijiu") {
   const store = await getTmallStore(storeKey);
-  const browser = await launchStoreChrome(store);
+  const browser = await launchStoreChrome(store, true);
   return {
     ok: true,
     status: "browser_ready" as const,
     storeKey: store.storeKey,
     shopName: store.shopName,
     targetUrl: TMALL_SELLER_ON_SALE_URL,
-    ...browser,
+    debugPort: browser.debugPort,
+    instruction: "请完成登录，并在 Chromium 提示时为当前独立店铺 Profile 保存密码；程序不会读取或保存明文凭证。",
   };
 }
 
@@ -1563,7 +1653,7 @@ async function browserExport(options: {
   await launchStoreChrome(options.store);
   const browser = await connectPlaywrightBrowser(options.store.browser.debugPort);
   const context = browser.contexts()[0];
-  if (!context) throw new Error("亿玖店独立 Chrome 没有可用上下文");
+  if (!context) throw new Error(`${options.store.shopName} 独立 Chromium 没有可用上下文`);
   const sellerPages = context.pages().filter((candidate) => isTmallSellerBusinessUrl(candidate.url()));
   let page = sellerPages[0];
   if (options.resumeStage && sellerPages.length > 1) {
@@ -1578,9 +1668,7 @@ async function browserExport(options: {
     if (!page.url().startsWith("https://myseller.taobao.com/home.htm/SellManage/on_sale")) {
       await page.goto(TMALL_SELLER_ON_SALE_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
     }
-    await waitForTmallSellerSessionUrl(() => page!.url());
-    await waitUntil(60_000, async () => (await combinedPageText(page!)).includes("出售中"), "等待千牛出售中页面加载超时");
-    await assertSellerIdentity(page, options.store);
+    await ensureTmallSellerSession(page, options.store);
     if (!options.resumeStage) await options.onStage("browser_ready");
 
     const currentNoticeState = await dismissImportantNotice(page);
