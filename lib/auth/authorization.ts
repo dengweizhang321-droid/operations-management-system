@@ -225,12 +225,13 @@ export async function requireAppPrincipal(
 export function requireUnrestrictedDataScope(
   principal: AppPrincipal,
   resourceLabel: string,
+  operationLabel = "读取",
 ): void {
   if (principal.scope === null) return;
   throw new AuthorizationError(
     403,
     "access_denied",
-    `当前账号的数据范围暂不支持读取${resourceLabel}`,
+    `当前账号的数据范围暂不支持${operationLabel}${resourceLabel}`,
   );
 }
 

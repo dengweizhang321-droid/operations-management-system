@@ -10,21 +10,25 @@ import {
   type SalesCategorySortKey,
 } from "@/lib/sales/category-analysis";
 import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
-import { parseProductQueries } from "@/lib/sales/product-query";
+import { parseProductQueriesStrict } from "@/lib/sales/product-query";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
+import { parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 function selections(params: URLSearchParams, ...keys: string[]) {
-  return [...new Set(keys.flatMap((key) => params.getAll(key))
+  const values = [...new Set(keys.flatMap((key) => params.getAll(key))
     .flatMap((value) => value.split(/[，,;；]+/))
     .map((value) => value.trim())
-    .filter(Boolean))].slice(0, 50);
+    .filter(Boolean))];
+  if (values.length > 50 || values.some((value) => value.length > 100)) {
+    throw new SalesCategoryRequestError(`${keys[0]} 筛选最多 50 项，且每项不能超过 100 字。`);
+  }
+  return values;
 }
 
-function positiveInteger(value: string | null, fallback: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback;
+function keysForProductQueries(params: URLSearchParams) {
+  return [...params.getAll("productQuery"), ...params.getAll("productQueries")];
 }
 
 export async function GET(request: Request) {
@@ -48,9 +52,12 @@ export async function GET(request: Request) {
     if (directionValue !== "asc" && directionValue !== "desc") {
       throw new SalesCategoryRequestError("direction 必须是 asc 或 desc");
     }
-    const level = positiveInteger(params.get("level"), 1);
-    const outlets = selections(params, "outlet", "outlets")
-      .map(parseShopFilterKey)
+    const level = parsePositiveIntegerQuery(params.get("level"), 1, "level", 3);
+    const parsedOutlets = selections(params, "outlet", "outlets").map(parseShopFilterKey);
+    if (parsedOutlets.some((value) => value === null)) {
+      throw new SalesCategoryRequestError("outlet 必须使用有效的平台与店铺复合键。");
+    }
+    const outlets = parsedOutlets
       .filter((value): value is NonNullable<typeof value> => value !== null)
       .map((value) => ({ platform: value.platform, shop: value.shopName }));
     const db = getSalesDatabase();
@@ -63,24 +70,29 @@ export async function GET(request: Request) {
       channels: selections(params, "channel", "channels"),
       platforms: selections(params, "platform", "platforms"),
       outlets,
-      productQueries: parseProductQueries(selections(params, "productQuery", "productQueries")),
+      productQueries: (() => {
+        try {
+          return parseProductQueriesStrict(keysForProductQueries(params));
+        } catch (error) {
+          throw new SalesCategoryRequestError(error instanceof Error ? error.message : "商品筛选无效");
+        }
+      })(),
       granularity: granularityValue as SalesCategoryGranularity,
       sortBy: sortValue as SalesCategorySortKey,
       direction: directionValue,
-      page: positiveInteger(params.get("page"), 1),
-      pageSize: positiveInteger(params.get("pageSize"), 20),
+      page: parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000),
+      pageSize: parsePositiveIntegerQuery(params.get("pageSize"), 20, "pageSize", 100),
     }, principal);
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
-    const message = error instanceof Error ? error.message : "读取品类分析失败";
     if (error instanceof SalesCategoryAccessError) {
-      return Response.json({ error: message, code: "access_denied" }, { status: 403, headers: { "cache-control": "no-store" } });
+      return Response.json({ error: error.message, code: "access_denied" }, { status: 403, headers: { "cache-control": "no-store" } });
     }
-    return Response.json(
-      { error: message },
-      { status: error instanceof SalesCategoryRequestError ? 400 : 500, headers: { "cache-control": "no-store" } },
-    );
+    if (error instanceof SalesCategoryRequestError) {
+      return Response.json({ error: error.message, code: "invalid_request" }, { status: 400, headers: { "cache-control": "no-store" } });
+    }
+    return safeApiErrorResponse(error, "读取品类分析失败。", { headers: { "cache-control": "no-store" } });
   }
 }

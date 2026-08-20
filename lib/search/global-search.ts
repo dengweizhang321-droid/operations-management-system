@@ -418,23 +418,46 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "经营目标",
     icon: "目",
     module: "sales",
-    requiredTables: ["finance_targets"],
-    likeParameterCount: 6,
+    requiredTables: ["finance_targets_scoped"],
+    likeParameterCount: 7,
     allowedRoles: financeRoles,
-    scopeKind: "shop",
+    scopeKind: "platform",
     sql: `
       SELECT id AS result_id, period_key AS title,
-        COALESCE(NULLIF(shop_name, ''), '全局') || CASE WHEN category <> '' THEN ' · ' || category ELSE '' END AS subtitle,
+        CASE WHEN platform <> '' THEN platform || ' · ' ELSE '' END || COALESCE(NULLIF(shop_name, ''), '全局')
+          || CASE WHEN category <> '' THEN ' · ' || category ELSE '' END AS subtitle,
         period_type || CASE WHEN manager <> '' THEN ' · ' || manager ELSE '' END AS detail,
         updated_at, sales_target_cents AS amount_cents, COUNT(*) OVER() AS total_count
-      FROM finance_targets
+      FROM finance_targets_scoped
       WHERE (period_key LIKE ? ESCAPE '\\' COLLATE NOCASE OR period_type LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR manager LIKE ? ESCAPE '\\' COLLATE NOCASE OR id LIKE ? ESCAPE '\\' COLLATE NOCASE)
         /*SCOPE*/
       ORDER BY updated_at DESC, period_key DESC LIMIT ? OFFSET ?`,
   },
 ] as const;
+
+const legacyTargetsDefinition: SearchGroupDefinition = {
+  key: "targets",
+  label: "经营目标",
+  icon: "目",
+  module: "sales",
+  requiredTables: ["finance_targets"],
+  likeParameterCount: 6,
+  allowedRoles: financeRoles,
+  scopeKind: "unscoped_only",
+  sql: `
+    SELECT id AS result_id, period_key AS title,
+      COALESCE(NULLIF(shop_name, ''), '全局') || CASE WHEN category <> '' THEN ' · ' || category ELSE '' END AS subtitle,
+      period_type || CASE WHEN manager <> '' THEN ' · ' || manager ELSE '' END AS detail,
+      updated_at, sales_target_cents AS amount_cents, COUNT(*) OVER() AS total_count
+    FROM finance_targets
+    WHERE (period_key LIKE ? ESCAPE '\\' COLLATE NOCASE OR period_type LIKE ? ESCAPE '\\' COLLATE NOCASE
+      OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
+      OR manager LIKE ? ESCAPE '\\' COLLATE NOCASE OR id LIKE ? ESCAPE '\\' COLLATE NOCASE)
+      /*SCOPE*/
+    ORDER BY updated_at DESC, period_key DESC LIMIT ? OFFSET ?`,
+};
 
 const workflowDefinition = {
   key: "workflow" as const,
@@ -486,12 +509,12 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_metrics",
     "erp_reference_import_batches", "erp_product_master", "erp_inventory_age_lines", "erp_combo_items",
     "replenishment_plan_items",
-    "finance_import_batches", "finance_lines", "finance_targets",
+    "finance_import_batches", "finance_lines", "finance_targets_scoped",
     "market_import_batches", "market_ranking_entries", "market_sku_annotations",
     "customer_service_conversations", "customer_service_import_batches",
   ],
   coveredByProjection: [
-    "finance_months",
+    "finance_months", "finance_targets",
     "market_price_snapshots",
   ],
   excludedSensitiveOrInternal: [
@@ -500,6 +523,8 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "workflow_operation_activities", "workflow_task_states", "workflow_task_template_states",
     "workflow_attachment_cleanup_queue", "workflow_task_activity_logs", "workflow_task_attachments", "workflow_task_comments",
     "workflow_task_entity_links", "workflow_task_reminders", "workflow_task_templates",
+    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_target_versions", "finance_target_deletion_audits",
+    "finance_target_scoped_versions", "finance_target_scoped_deletion_audits", "finance_target_legacy_migrations",
     "ai_tool_audit_logs",
     "sales_import_uploads", "sales_import_upload_chunks",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
@@ -602,11 +627,21 @@ function scopeSql(
 }
 
 async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGroupDefinition, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
-  if (!definition.requiredTables.every((table) => tables.has(table))) return emptyGroup(definition);
+  const activeDefinition = definition.key === "targets"
+    && !definition.requiredTables.every((table) => tables.has(table))
+    && legacyTargetsDefinition.requiredTables.every((table) => tables.has(table))
+    ? legacyTargetsDefinition
+    : definition;
+  if (!activeDefinition.requiredTables.every((table) => tables.has(table))) return emptyGroup(definition);
+  // Legacy finance targets do not carry a platform identity. A restricted
+  // principal cannot safely infer platform access from the free-form shop name.
+  if (!isGroupAuthorized(activeDefinition, principal)) {
+    return mapSearchRows(activeDefinition, [], request, principal);
+  }
   try {
-    const scope = scopeSql(principal, definition.scopeKind);
-    const sql = definition.sql.replace("/*SCOPE*/", scope.clause);
-    const values: unknown[] = [...Array.from({ length: definition.likeParameterCount }, () => like), ...scope.values];
+    const scope = scopeSql(principal, activeDefinition.scopeKind);
+    const sql = activeDefinition.sql.replace("/*SCOPE*/", scope.clause);
+    const values: unknown[] = [...Array.from({ length: activeDefinition.likeParameterCount }, () => like), ...scope.values];
     const result = await db.prepare(sql)
       .bind(...values, request.groupLimit, (request.page - 1) * request.groupLimit)
       .all<SearchRow>();
@@ -616,7 +651,7 @@ async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGrou
       const firstPage = await db.prepare(sql).bind(...values, 1, 0).all<SearchRow>();
       totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
     }
-    return mapSearchRows(definition, rows, request, principal, totalOverride);
+    return mapSearchRows(activeDefinition, rows, request, principal, totalOverride);
   } catch {
     // A partially migrated table must not take down search for every other domain.
     return emptyGroup(definition);

@@ -1,6 +1,6 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { parseCustomerServiceImport } from "@/lib/customer-service/import-service";
-import { ensureCustomerServiceSchema, getCustomerServiceDatabase, saveCustomerServiceImport } from "@/lib/customer-service/database";
+import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
+import { CustomerServiceImportError, parseCustomerServiceImport } from "@/lib/customer-service/import-service";
+import { ensureCustomerServiceSchema, getCustomerServiceDatabase, planCustomerServiceImportPayloads, saveCustomerServiceImport } from "@/lib/customer-service/database";
 import { ensureImportFingerprintSchema, recordRejectedImportAttempt } from "@/lib/imports/content-fingerprint";
 import {
   INVENTORY_UPLOAD_CHUNK_BYTES,
@@ -11,11 +11,12 @@ import {
   receiveInventoryUploadChunk,
   releaseInventoryUpload,
 } from "@/lib/inventory/chunked-upload";
+import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 function reject(status: number, message: string) {
-  return Response.json({ ok: false, message }, { status });
+  return Response.json({ ok: false, message }, { status, headers: { "cache-control": "no-store" } });
 }
 
 async function digest(bytes: Uint8Array) {
@@ -26,7 +27,8 @@ async function digest(bytes: Uint8Array) {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "客服数据", "导入");
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "Invalid upload request");
 
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
         chunkCount,
         fingerprint: `customer-service:${kind}:${fingerprint}`,
       });
-      return Response.json({ ok: true, upload, limits: { chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES, maxFileSizeBytes: MAX_FILE_BYTES } });
+      return Response.json({ ok: true, upload, limits: { chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES, maxFileSizeBytes: MAX_FILE_BYTES } }, { headers: { "cache-control": "no-store" } });
     }
 
     if (body.action === "complete") {
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
           || chatResult.pairKey !== pairKey || JSON.stringify(sessionResult) !== JSON.stringify(chatResult)) {
           return reject(409, "Completed paired upload result does not match this shop or file pair");
         }
-        return Response.json(sessionResult, { status: sessionResult.ok ? (sessionResult.status === "imported" ? 201 : 200) : 422 });
+        return Response.json(sessionResult, { status: sessionResult.ok ? (sessionResult.status === "imported" ? 201 : 200) : 422, headers: { "cache-control": "no-store" } });
       }
       try {
         const [session, chat] = await Promise.all([assembleInventoryUpload(sessionUploadId), assembleInventoryUpload(chatUploadId)]);
@@ -94,9 +96,9 @@ export async function POST(request: Request) {
         let parsed: ReturnType<typeof parseCustomerServiceImport>;
         try {
           parsed = parseCustomerServiceImport(session.bytes, new TextDecoder("utf-8", { fatal: true }).decode(chat.bytes));
-          if (parsed.conversations.length === 0) throw new Error("Customer-service import contains no conversations to save");
+          if (parsed.conversations.length === 0) throw new CustomerServiceImportError("Customer-service import contains no conversations to save");
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Customer-service files could not be parsed";
+          const message = error instanceof CustomerServiceImportError ? error.message : "Customer-service files could not be parsed";
           const db = getCustomerServiceDatabase();
           await ensureCustomerServiceSchema(db);
           await ensureImportFingerprintSchema(db);
@@ -108,14 +110,32 @@ export async function POST(request: Request) {
             issues: [{ code: "CUSTOMER_SERVICE_PARSE_REJECTED", message }],
             metadata: { fileName: `${sessionFileName} + ${chatFileName}`, fileSizeBytes: session.bytes.byteLength + chat.bytes.byteLength },
           });
+          if (error instanceof CustomerServiceImportError) throw new PublicApiError(422, "invalid_request", message);
           throw error;
         }
         const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
         const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(session.bytes)}:${await digest(chat.bytes)}`));
+        try {
+          planCustomerServiceImportPayloads(resolvedShopName, parsed.conversations);
+        } catch (error) {
+          if (!(error instanceof PublicApiError) || error.status !== 422) throw error;
+          const db = getCustomerServiceDatabase();
+          await ensureCustomerServiceSchema(db);
+          await ensureImportFingerprintSchema(db);
+          await recordRejectedImportAttempt(db, {
+            domain: "customer-service",
+            rawFileHash: fileHash,
+            scopeHint: { shopName: resolvedShopName, pairKey },
+            errorCode: "CUSTOMER_SERVICE_PUBLISH_BUDGET_REJECTED",
+            issues: [{ code: "CUSTOMER_SERVICE_PUBLISH_BUDGET_REJECTED", message: error.message }],
+            metadata: { fileName: `${sessionFileName} + ${chatFileName}`.slice(0, 500), fileSizeBytes: session.bytes.byteLength + chat.bytes.byteLength },
+          });
+          throw error;
+        }
         const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName, chatFileName, fileHash, parsed });
-        const result = { ok: true, status: saved.status, requestShopName: shopName, pairKey, batch: saved.batch, summary: parsed.summary, warnings: parsed.warnings, message: saved.status === "duplicate" ? "All normalized customer-service data matches the current facts; no rows were rewritten" : `Imported ${parsed.conversations.length} customer-service conversations` };
+        const result = { ok: true, status: saved.status, requestShopName: shopName, pairKey, batch: saved.batch, summary: parsed.summary, ...saved.warningSummary, message: saved.status === "duplicate" ? "All normalized customer-service data matches the current facts; no rows were rewritten" : `Imported ${parsed.conversations.length} customer-service conversations` };
         await Promise.all([finishInventoryUpload(sessionUploadId, session.objectKeys, result), finishInventoryUpload(chatUploadId, chat.objectKeys, result)]);
-        return Response.json(result, { status: saved.status === "imported" ? 201 : 200 });
+        return Response.json(result, { status: saved.status === "imported" ? 201 : 200, headers: { "cache-control": "no-store" } });
       } catch (error) {
         await Promise.all([releaseInventoryUpload(sessionUploadId), releaseInventoryUpload(chatUploadId)]);
         throw error;
@@ -124,21 +144,22 @@ export async function POST(request: Request) {
     return reject(400, "Unknown upload action");
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
-    return reject(422, error instanceof Error ? error.message : "Customer-service upload failed");
+    return safeApiErrorResponse(error, "Customer-service upload failed.", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "客服数据", "导入");
     const uploadId = request.headers.get("x-upload-id") ?? "";
     const chunkIndex = Number(request.headers.get("x-chunk-index"));
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (!uploadId || !Number.isSafeInteger(chunkIndex) || bytes.byteLength === 0 || bytes.byteLength > INVENTORY_UPLOAD_CHUNK_BYTES) return reject(400, "Invalid upload chunk");
     const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
-    return Response.json({ ok: true, upload });
+    return Response.json({ ok: true, upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
-    return reject(422, error instanceof Error ? error.message : "Customer-service chunk upload failed");
+    return safeApiErrorResponse(error, "Customer-service chunk upload failed.", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }

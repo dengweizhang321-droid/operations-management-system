@@ -6,11 +6,13 @@ import {
 } from "@/lib/netshop/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopPlatformOptionsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
-
-function positiveInteger(value: string | null, fallback: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallback;
-}
+import {
+  NETSHOP_QUERY_MAX_PAGE,
+  NETSHOP_QUERY_MAX_PAGE_SIZE,
+  netshopQueryErrorPayload,
+  readNetshopQueryInteger,
+  resolveNetshopQueryPeriod,
+} from "@/lib/netshop/query-contract";
 
 function readDimension(value: string | null): NetshopProductPerformanceDimension {
   return value === "spu" ? "spu" : "sku";
@@ -19,19 +21,22 @@ function readDimension(value: string | null): NetshopProductPerformanceDimension
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
-    const db = getNetshopDatabase();
-    await ensureNetshopSchema(db);
     const params = new URL(request.url).searchParams;
     const dimension = readDimension(params.get("dimension"));
+    const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
+    const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
+    const period = resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
+    const db = getNetshopDatabase();
+    await ensureNetshopSchema(db);
     const payload = await getNetshopProductPerformance(db, {
       dimension,
       query: params.get("q") ?? undefined,
-      page: positiveInteger(params.get("page"), 1),
-      pageSize: positiveInteger(params.get("pageSize"), 50),
+      page,
+      pageSize,
       platformNames: netshopPlatformsForPrincipal(principal, params.getAll("platform")),
       shopNames: [...new Set(params.getAll("shop").map((value) => value.trim()).filter(Boolean))].slice(0, 50),
-      startDate: params.get("startDate") ?? undefined,
-      endDate: params.get("endDate") ?? undefined,
+      startDate: period?.startDate,
+      endDate: period?.endDate,
     });
     const platformOptions = netshopPlatformOptionsForPrincipal(principal)
       .filter((platform) => dimension === "spu" || platform === "京东");
@@ -42,7 +47,7 @@ export async function GET(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "读取网店商品日数据失败";
-    return Response.json({ error: message }, { status: 500, headers: { "cache-control": "no-store" } });
+    const failure = netshopQueryErrorPayload(error, "读取网店商品日数据失败");
+    return Response.json(failure.body, { status: failure.status, headers: { "cache-control": "no-store" } });
   }
 }

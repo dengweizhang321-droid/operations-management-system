@@ -1,11 +1,17 @@
 import { env } from "cloudflare:workers";
 import { ensureSalesSchema, getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { PublicApiError } from "@/lib/http/api-error";
 
 // Keep requests beneath conservative development-proxy body limits as well as
 // production edge limits. The client uploads these sequentially and resumes by index.
 export const SALES_UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 export const MAX_CHUNKED_SALES_FILE_BYTES = 128 * 1024 * 1024;
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
+
+function uploadRequestError(status: 400 | 404 | 409 | 413 | 422, message: string) {
+  const code = status === 404 ? "not_found" : status === 409 ? "conflict" : status === 413 ? "payload_too_large" : "invalid_request";
+  return new PublicApiError(status, code, message);
+}
 
 type UploadRow = {
   id: string;
@@ -110,12 +116,12 @@ export async function beginSalesUpload(input: {
   chunkCount: number;
   fingerprint: string;
 }): Promise<SalesUploadSession> {
-  if (!input.fileName.toLowerCase().endsWith(".xlsx")) throw new Error("仅支持 .xlsx 格式的销售单明细账");
-  if (!Number.isSafeInteger(input.fileSizeBytes) || input.fileSizeBytes <= 0) throw new Error("文件大小无效");
-  if (input.fileSizeBytes > MAX_CHUNKED_SALES_FILE_BYTES) throw new Error("单个报表最大支持 128MB");
+  if (!input.fileName.toLowerCase().endsWith(".xlsx")) throw uploadRequestError(422, "仅支持 .xlsx 格式的销售单明细账");
+  if (!Number.isSafeInteger(input.fileSizeBytes) || input.fileSizeBytes <= 0) throw uploadRequestError(400, "文件大小无效");
+  if (input.fileSizeBytes > MAX_CHUNKED_SALES_FILE_BYTES) throw uploadRequestError(413, "单个报表最大支持 128MB");
   const expectedCount = Math.ceil(input.fileSizeBytes / SALES_UPLOAD_CHUNK_BYTES);
-  if (!Number.isSafeInteger(input.chunkCount) || input.chunkCount !== expectedCount) throw new Error("分片数量与文件大小不一致");
-  if (!input.fingerprint || input.fingerprint.length > 255) throw new Error("上传指纹无效");
+  if (!Number.isSafeInteger(input.chunkCount) || input.chunkCount !== expectedCount) throw uploadRequestError(400, "分片数量与文件大小不一致");
+  if (!input.fingerprint || input.fingerprint.length > 255) throw uploadRequestError(400, "上传指纹无效");
 
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
@@ -158,16 +164,16 @@ export async function receiveSalesUploadChunk(input: {
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
   const upload = await getUpload(db, input.uploadId);
-  if (!upload || upload.expires_at <= nowIso()) throw new Error("上传会话已过期，请重新选择文件");
-  if (upload.status === "completed") throw new Error("该上传会话已完成");
-  if (upload.status === "processing") throw new Error("销售文件正在合并处理，不能继续覆盖分片");
-  if (upload.status !== "uploading" && upload.status !== "ready") throw new Error("上传会话状态无效，请重新选择文件");
-  if (!Number.isSafeInteger(input.chunkIndex) || input.chunkIndex < 0 || input.chunkIndex >= upload.chunk_count) throw new Error("分片序号无效");
+  if (!upload || upload.expires_at <= nowIso()) throw uploadRequestError(404, "上传会话已过期，请重新选择文件");
+  if (upload.status === "completed") throw uploadRequestError(409, "该上传会话已完成");
+  if (upload.status === "processing") throw uploadRequestError(409, "销售文件正在合并处理，不能继续覆盖分片");
+  if (upload.status !== "uploading" && upload.status !== "ready") throw uploadRequestError(409, "上传会话状态无效，请重新选择文件");
+  if (!Number.isSafeInteger(input.chunkIndex) || input.chunkIndex < 0 || input.chunkIndex >= upload.chunk_count) throw uploadRequestError(400, "分片序号无效");
   const isLast = input.chunkIndex === upload.chunk_count - 1;
   const expectedBytes = isLast
     ? upload.file_size_bytes - upload.chunk_size_bytes * (upload.chunk_count - 1)
     : upload.chunk_size_bytes;
-  if (input.bytes.byteLength !== expectedBytes) throw new Error("分片大小与预期不一致");
+  if (input.bytes.byteLength !== expectedBytes) throw uploadRequestError(422, "分片大小与预期不一致");
 
   const checksum = toHex(await sha256(input.bytes));
   const previous = await getChunk(db, upload.id, input.chunkIndex);
@@ -194,7 +200,7 @@ export async function receiveSalesUploadChunk(input: {
   ]);
   if (Number(results[0]?.meta?.changes ?? 0) === 0) {
     await bucket().delete(objectKey).catch(() => undefined);
-    throw new Error("销售文件已开始合并，当前分片未被接收");
+    throw uploadRequestError(409, "销售文件已开始合并，当前分片未被接收");
   }
   if (previous && previous.object_key !== objectKey) {
     const current = await getChunk(db, upload.id, input.chunkIndex);
@@ -211,11 +217,11 @@ export async function claimSalesUpload(uploadId: string): Promise<SalesUploadCla
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
   let upload = await getUpload(db, uploadId);
-  if (!upload || upload.expires_at <= nowIso()) throw new Error("上传会话已过期，请重新选择文件");
-  if (upload.status === "uploading") throw new Error("仍有分片尚未上传完成");
-  if (upload.status === "processing") throw new Error("销售文件正在被另一个请求处理，请稍后重试");
-  if (upload.status === "completed") throw new Error("该上传会话已完成，请重新初始化以核验重复导入");
-  if (upload.status !== "ready") throw new Error("上传会话状态无效，请重新选择文件");
+  if (!upload || upload.expires_at <= nowIso()) throw uploadRequestError(404, "上传会话已过期，请重新选择文件");
+  if (upload.status === "uploading") throw uploadRequestError(409, "仍有分片尚未上传完成");
+  if (upload.status === "processing") throw uploadRequestError(409, "销售文件正在被另一个请求处理，请稍后重试");
+  if (upload.status === "completed") throw uploadRequestError(409, "该上传会话已完成，请重新初始化以核验重复导入");
+  if (upload.status !== "ready") throw uploadRequestError(409, "上传会话状态无效，请重新选择文件");
 
   const claimed = await db.prepare(`UPDATE sales_import_uploads
     SET status = 'processing', updated_at = CURRENT_TIMESTAMP
@@ -224,7 +230,7 @@ export async function claimSalesUpload(uploadId: string): Promise<SalesUploadCla
     .run();
   if (Number(claimed.meta?.changes ?? 0) === 0) {
     upload = await getUpload(db, uploadId);
-    throw new Error(upload?.status === "processing"
+    throw uploadRequestError(409, upload?.status === "processing"
       ? "销售文件已被另一个请求接管处理，请稍后重试"
       : "销售上传会话接管失败，请重新检查会话状态");
   }
@@ -237,24 +243,24 @@ export async function assembleSalesUpload(uploadId: string): Promise<{ session: 
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
   const upload = await getUpload(db, uploadId);
-  if (!upload || upload.expires_at <= nowIso()) throw new Error("上传会话已过期，请重新选择文件");
-  if (upload.status !== "processing") throw new Error("销售上传会话尚未进入处理状态");
+  if (!upload || upload.expires_at <= nowIso()) throw uploadRequestError(404, "上传会话已过期，请重新选择文件");
+  if (upload.status !== "processing") throw uploadRequestError(409, "销售上传会话尚未进入处理状态");
   const chunks = await listChunks(db, uploadId);
   if (chunks.length !== upload.chunk_count || chunks.some((chunk, index) => chunk.chunk_index !== index)) {
-    throw new Error("仍有分片尚未上传完成");
+    throw uploadRequestError(409, "仍有分片尚未上传完成");
   }
   const bytes = new Uint8Array(upload.file_size_bytes);
   let offset = 0;
   for (const chunk of chunks) {
     const object = await bucket().get(chunk.object_key);
-    if (!object) throw new Error("部分上传分片已丢失，请重新上传该文件");
+    if (!object) throw uploadRequestError(422, "部分上传分片已丢失，请重新上传该文件");
     const part = new Uint8Array(await object.arrayBuffer());
-    if (part.byteLength !== chunk.size_bytes) throw new Error("分片完整性校验失败，请重新上传该文件");
-    if (toHex(await sha256(part)) !== chunk.sha256) throw new Error("分片校验码不一致，请重新上传该文件");
+    if (part.byteLength !== chunk.size_bytes) throw uploadRequestError(422, "分片完整性校验失败，请重新上传该文件");
+    if (toHex(await sha256(part)) !== chunk.sha256) throw uploadRequestError(422, "分片校验码不一致，请重新上传该文件");
     bytes.set(part, offset);
     offset += part.byteLength;
   }
-  if (offset !== bytes.byteLength) throw new Error("合并后的文件大小不正确");
+  if (offset !== bytes.byteLength) throw uploadRequestError(422, "合并后的文件大小不正确");
   const session = toSession(upload, chunks);
   return { session, bytes, objectKeys: chunks.map((chunk) => chunk.object_key) };
 }

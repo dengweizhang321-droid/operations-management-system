@@ -68,8 +68,10 @@ export type FinanceTargetPeriodType = "month" | "year" | "project";
 
 export type FinanceTargetInput = {
   id?: string;
+  expectedVersion?: number;
   periodType: FinanceTargetPeriodType;
   periodKey: string;
+  platform?: string;
   shopName?: string;
   category?: string;
   manager?: string;
@@ -81,8 +83,9 @@ export type FinanceTargetInput = {
   stagnantInventoryTargetCents?: number;
 };
 
-export type FinanceTarget = Required<Omit<FinanceTargetInput, "id">> & {
+export type FinanceTarget = Required<Omit<FinanceTargetInput, "id" | "expectedVersion">> & {
   id: string;
+  version: number;
   createdAt: string;
   updatedAt: string;
 };

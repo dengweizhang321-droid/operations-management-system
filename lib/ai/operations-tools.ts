@@ -2,7 +2,7 @@ import {
   ensureInventorySchema,
   findLatestInventoryImportBatch,
   getInventoryDatabase,
-  listReplenishmentPlans,
+  queryReplenishmentPlans,
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
 import { getProductSummary } from "@/lib/products/summary";
@@ -71,27 +71,28 @@ export async function callOperationsTool(
     const status = optionalEnum(args.status, ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"] as const);
     const warehouse = optionalString(args.warehouse);
     const category = optionalString(args.category);
-    const query = optionalString(args.query)?.toLocaleLowerCase("zh-CN");
+    const query = optionalString(args.query);
     const limit = integer(args.limit, 20, 1, 100);
     const db = getInventoryDatabase();
     await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db)]);
-    const overview = await getInventoryOverview(db);
-    const filtered = overview.items.filter((item) =>
-      (!status || item.status === status)
-      && (!warehouse || item.warehouse === warehouse)
-      && (!category || item.category === category)
-      && (!query || `${item.productCode} ${item.productName}`.toLocaleLowerCase("zh-CN").includes(query))
-    );
+    const overview = await getInventoryOverview(db, {
+      page: 1,
+      pageSize: limit,
+      query,
+      warehouses: warehouse ? [warehouse] : [],
+      categories: category ? [category] : [],
+      statuses: status ? [status] : [],
+    });
     return {
       sync: overview.sync,
       settings: overview.settings,
       metrics: overview.metrics,
       health: overview.health,
       filtersApplied: { status, warehouse, category, query: query ?? null },
-      totalMatched: filtered.length,
-      returned: Math.min(filtered.length, limit),
-      truncated: filtered.length > limit,
-      items: filtered.slice(0, limit),
+      totalMatched: overview.pagination.total,
+      returned: overview.pagination.returned,
+      truncated: overview.pagination.truncated,
+      items: overview.items,
       currency: "CNY",
       monetaryUnit: "cents",
     };
@@ -101,31 +102,30 @@ export async function callOperationsTool(
     assertOnlyKeys(args, ["days", "category", "query", "sortBy", "direction", "limit"]);
     const days = integer(args.days, 30, 7, 365);
     const category = optionalString(args.category);
-    const query = optionalString(args.query)?.toLocaleLowerCase("zh-CN");
+    const query = optionalString(args.query);
     const sortBy = optionalEnum(args.sortBy, ["netSalesCents", "grossProfitCents", "grossMarginRate", "stockValueCents", "netQuantity"] as const) ?? "netSalesCents";
     const direction = optionalEnum(args.direction, ["asc", "desc"] as const) ?? "desc";
     const limit = integer(args.limit, 20, 1, 100);
     const db = getInventoryDatabase();
     await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db)]);
-    const summary = await getProductSummary(db, days);
-    const filtered = summary.items.filter((item) =>
-      (!category || item.category === category)
-      && (!query || `${item.productCode} ${item.productName}`.toLocaleLowerCase("zh-CN").includes(query))
-    );
-    filtered.sort((left, right) => {
-      const leftValue = left[sortBy] ?? Number.NEGATIVE_INFINITY;
-      const rightValue = right[sortBy] ?? Number.NEGATIVE_INFINITY;
-      return direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
+    const summary = await getProductSummary(db, {
+      days,
+      page: 1,
+      pageSize: limit,
+      query,
+      categories: category ? [category] : [],
+      sortBy,
+      direction,
     });
     return {
       sync: summary.sync,
       metrics: summary.metrics,
       days,
       filtersApplied: { category, query: query ?? null, sortBy, direction },
-      totalMatched: filtered.length,
-      returned: Math.min(filtered.length, limit),
-      truncated: filtered.length > limit,
-      items: filtered.slice(0, limit),
+      totalMatched: summary.pagination.total,
+      returned: summary.pagination.returned,
+      truncated: summary.pagination.truncated,
+      items: summary.items,
       currency: "CNY",
       monetaryUnit: "cents",
     };
@@ -135,22 +135,24 @@ export async function callOperationsTool(
   assertOnlyKeys(args, ["status", "warehouse", "query", "limit"]);
   const status = optionalEnum(args.status, ["draft", "confirmed", "completed", "cancelled"] as const);
   const warehouse = optionalString(args.warehouse);
-  const query = optionalString(args.query)?.toLocaleLowerCase("zh-CN");
+  const query = optionalString(args.query);
   const limit = integer(args.limit, 20, 1, 100);
   const db = getInventoryDatabase();
   await ensureInventorySchema(db);
-  const plans = await listReplenishmentPlans(db, 500);
-  const filtered = plans.filter((plan) =>
-    (!status || plan.status === status)
-    && (!warehouse || plan.warehouse === warehouse)
-    && (!query || `${plan.productCode} ${plan.productName}`.toLocaleLowerCase("zh-CN").includes(query))
-  );
+  const plans = await queryReplenishmentPlans(db, {
+    page: 1,
+    pageSize: limit,
+    status,
+    includeCancelled: status === "cancelled",
+    warehouse,
+    query,
+  });
   return {
     filtersApplied: { status, warehouse, query: query ?? null },
-    totalMatched: filtered.length,
-    returned: Math.min(filtered.length, limit),
-    truncated: filtered.length > limit,
-    items: filtered.slice(0, limit),
+    totalMatched: plans.pagination.total,
+    returned: plans.pagination.returned,
+    truncated: plans.pagination.truncated,
+    items: plans.items,
   };
 }
 

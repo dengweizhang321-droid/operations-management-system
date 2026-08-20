@@ -267,7 +267,7 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(route, /cache-control": "no-store/);
   assert.match(page, />品类分析</);
   assert.match(page, /useModuleViewState/);
-  assert.match(page, /sales: \(\{ range, customStartDate, customEndDate, moduleView, onModuleViewChange \}\)/);
+  assert.match(page, /sales: \(\{ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange \}\)/);
   assert.match(view, /requestGenerationRef/);
   assert.match(view, /controller\.abort\(\)/);
   assert.match(view, /window\.history\[mode === "push" \? "pushState" : "replaceState"\]/);
@@ -285,4 +285,41 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(service, /TRIM\(s\.warehouse\) <> '刷刷仓'/);
   assert.match(registry, /name: "get_sales_category_analysis"/);
   assert.match(registry, /scopePolicy: "principal_scope"/);
+});
+
+test("最大合法品类筛选与 principal scope 的每条 D1 查询均不超过 100 个 bind", async () => {
+  const bindingCounts: number[] = [];
+  const db = {
+    prepare() {
+      return {
+        bind(...values: unknown[]) { bindingCounts.push(values.length); return this; },
+        async first() { return null; },
+        async all() { return { results: [] }; },
+        async run() { return { meta: { changes: 0 } }; },
+      };
+    },
+  } as unknown as SalesDatabase;
+  const values = (prefix: string, count: number) => Array.from({ length: count }, (_, index) => `${prefix}-${index}`);
+  const outlets = Array.from({ length: 50 }, (_, index) => ({ platform: `平台-${index}`, shop: `店铺-${index}` }));
+  await getSalesCategoryAnalysis(db, {
+    startDate: "2026-08-01",
+    endDate: "2026-08-31",
+    categories: values("品类", 50),
+    channels: values("渠道", 50),
+    platforms: values("平台", 50),
+    outlets,
+    productQueries: values("SKU", 100),
+    pageSize: 100,
+  }, {
+    email: "scoped@test",
+    displayName: "Scoped",
+    role: "analyst",
+    scope: {
+      warehouses: values("仓库", 50),
+      channels: values("范围渠道", 50),
+      platforms: values("范围平台", 50),
+    },
+  });
+  assert.ok(bindingCounts.length > 0);
+  assert.ok(bindingCounts.every((count) => count <= 100), `最大 bind 数应≤100，实际 ${Math.max(...bindingCounts)}`);
 });

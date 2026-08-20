@@ -13,6 +13,13 @@ import {
   requireAppPrincipal,
 } from "@/lib/auth/authorization";
 import { netshopPlatformsForPrincipal } from "@/lib/netshop/access";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
+import {
+  NETSHOP_QUERY_MAX_PAGE,
+  NETSHOP_QUERY_MAX_PAGE_SIZE,
+  netshopQueryErrorPayload,
+  readNetshopQueryInteger,
+} from "@/lib/netshop/query-contract";
 
 const MAX_DIRECT_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -26,20 +33,28 @@ export async function GET(request: Request) {
     const db = getNetshopDatabase();
     await ensureNetshopSchema(db);
     const params = new URL(request.url).searchParams;
-    const requestedLimit = Number(params.get("limit") ?? 20);
-    const items = await listNetshopImportBatches(db, {
-      limit: Number.isFinite(requestedLimit) ? requestedLimit : 20,
+    const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
+    const pageSize = readNetshopQueryInteger(
+      params.get("pageSize") ?? params.get("limit"),
+      "pageSize",
+      20,
+      1,
+      NETSHOP_QUERY_MAX_PAGE_SIZE,
+    );
+    const payload = await listNetshopImportBatches(db, {
+      page,
+      pageSize,
       ids: params.getAll("batchId"),
       sources: params.getAll("source"),
       platforms: netshopPlatformsForPrincipal(principal, params.getAll("platform")),
       shops: params.getAll("shop"),
     });
-    return Response.json({ items, returned: items.length, truncated: items.length >= Math.max(1, Math.min(100, Math.trunc(requestedLimit || 20))) }, { headers: { "cache-control": "no-store" } });
+    return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "读取网店导入历史失败";
-    return Response.json({ error: message }, { status: 500, headers: { "cache-control": "no-store" } });
+    const failure = netshopQueryErrorPayload(error, "读取网店导入历史失败");
+    return Response.json(failure.body, { status: failure.status, headers: { "cache-control": "no-store" } });
   }
 }
 
@@ -83,7 +98,9 @@ export async function POST(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "网店数据导入失败";
-    return Response.json({ ok: false, status: "rejected", message }, { status: 500, headers: { "cache-control": "no-store" } });
+    return safeApiErrorResponse(error, "网店数据导入失败", {
+      shape: "import",
+      headers: { "cache-control": "no-store" },
+    });
   }
 }

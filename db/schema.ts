@@ -734,7 +734,7 @@ export const financeLines = sqliteTable(
   ],
 );
 
-/** Monthly, annual, and project targets used by financial progress analysis. */
+/** Legacy pre-platform targets retained only as an additive migration source. */
 export const financeTargets = sqliteTable(
   "finance_targets",
   {
@@ -758,6 +758,72 @@ export const financeTargets = sqliteTable(
     index("finance_targets_period_idx").on(table.periodType, table.periodKey),
   ],
 );
+
+export const financeTargetVersions = sqliteTable("finance_target_versions", {
+  targetId: text("target_id").primaryKey().references(() => financeTargets.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const financeTargetDeletionAudits = sqliteTable("finance_target_deletion_audits", {
+  auditId: text("audit_id").primaryKey(), targetId: text("target_id").notNull(),
+  periodType: text("period_type").notNull(), periodKey: text("period_key").notNull(),
+  shopName: text("shop_name").notNull(), category: text("category").notNull(), actor: text("actor").notNull(),
+  oldVersion: integer("old_version").notNull(), expectedVersion: integer("expected_version").notNull(),
+  reason: text("reason").notNull(), deletedAt: text("deleted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/** Canonical platform-aware targets used by financial progress analysis. */
+export const financeTargetsScoped = sqliteTable(
+  "finance_targets_scoped",
+  {
+    id: text("id").primaryKey(),
+    periodType: text("period_type").notNull(),
+    periodKey: text("period_key").notNull(),
+    platform: text("platform").notNull().default(""),
+    shopName: text("shop_name").notNull().default(""),
+    category: text("category").notNull().default(""),
+    manager: text("manager").notNull().default(""),
+    salesTargetCents: integer("sales_target_cents").notNull().default(0),
+    profitTargetCents: integer("profit_target_cents").notNull().default(0),
+    smallMarginBps: integer("small_margin_bps").notNull().default(0),
+    inventoryCleanupTargetCents: integer("inventory_cleanup_target_cents").notNull().default(0),
+    promotionFeeRatioBps: integer("promotion_fee_ratio_bps").notNull().default(0),
+    stagnantInventoryTargetCents: integer("stagnant_inventory_target_cents").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("finance_targets_scoped_period_scope_uq").on(
+      table.periodType,
+      table.periodKey,
+      table.platform,
+      table.shopName,
+      table.category,
+    ),
+    index("finance_targets_scoped_period_idx").on(table.periodType, table.periodKey),
+    index("finance_targets_scoped_shop_idx").on(table.platform, table.shopName, table.periodType, table.periodKey),
+  ],
+);
+
+export const financeTargetScopedVersions = sqliteTable("finance_target_scoped_versions", {
+  targetId: text("target_id").primaryKey().references(() => financeTargetsScoped.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const financeTargetScopedDeletionAudits = sqliteTable("finance_target_scoped_deletion_audits", {
+  auditId: text("audit_id").primaryKey(), targetId: text("target_id").notNull(),
+  periodType: text("period_type").notNull(), periodKey: text("period_key").notNull(), platform: text("platform").notNull(),
+  shopName: text("shop_name").notNull(), category: text("category").notNull(), actor: text("actor").notNull(),
+  oldVersion: integer("old_version").notNull(), expectedVersion: integer("expected_version").notNull(),
+  reason: text("reason").notNull(), deletedAt: text("deleted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const financeTargetLegacyMigrations = sqliteTable("finance_target_legacy_migrations", {
+  targetId: text("target_id").primaryKey(),
+  migratedAt: text("migrated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 /** Auditable uploads for competitor rankings and market SKU catalog files. */
 export const marketImportBatches = sqliteTable(
@@ -1166,3 +1232,20 @@ export const customerServiceConversations = sqliteTable("customer_service_conver
   index("customer_service_conversations_consulted_idx").on(table.consultedAt),
   index("customer_service_conversations_filter_idx").on(table.agent, table.matchStatus, table.consultedAt),
 ]);
+
+export const customerServiceConversationVersions = sqliteTable("customer_service_conversation_versions", {
+  conversationId: integer("conversation_id").primaryKey().references(() => customerServiceConversations.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const customerServiceDeletionAudits = sqliteTable("customer_service_deletion_audits", {
+  auditId: text("audit_id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  conversationKey: text("conversation_key").notNull(),
+  actor: text("actor").notNull(),
+  oldVersion: integer("old_version").notNull(),
+  expectedVersion: integer("expected_version").notNull(),
+  reason: text("reason").notNull(),
+  deletedAt: text("deleted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});

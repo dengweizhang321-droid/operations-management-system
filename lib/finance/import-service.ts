@@ -108,8 +108,8 @@ export async function importFinanceReportBytes(input: {
   let parsed: ReturnType<typeof parseFinanceWorkbook>;
   try {
     parsed = parseFinanceWorkbook(input.bytes);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "月度财报解析失败";
+  } catch {
+    const message = "月度财报解析失败，请确认文件格式和模板";
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "FINANCE_PARSE_ERROR", message }], errorCount: 1 });
   }
 

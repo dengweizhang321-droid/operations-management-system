@@ -43,8 +43,9 @@ test("all rendered tables receive accessible multi-select column filtering", asy
   assert.match(component, /closeOnExternalScroll/);
   assert.match(component, /popoverRef\.current\?\.contains\(source\)/);
   assert.match(page, /data-column-filter-values=\{item\.dates\?\.join\("\\u001f"\)\}/);
-  assert.match(netshopDatabase, /GROUP_CONCAT\(DISTINCT r\.business_date\) AS coverage_dates/);
+  assert.match(netshopDatabase, /period \? "GROUP_CONCAT\(DISTINCT r\.business_date\)" : "NULL"/);
   assert.match(netshopDatabase, /dates: \[\.\.\.new Set\(\(row\.coverage_dates/);
+  assert.match(netshopDatabase, /datesTruncated:/);
   assert.match(styles, /\.column-filter-popover/);
   assert.match(styles, /overscroll-behavior: contain/);
   assert.match(styles, /\.column-filter-row-hidden/);

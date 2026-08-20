@@ -2,13 +2,8 @@ import type { SalesDatabase } from "@/lib/sales/database";
 
 const PRODUCT_QUERY_LIMIT = 100;
 
-/**
- * Parses pasted product filters without breaking Chinese product names that
- * legitimately contain spaces. ASCII-only chunks retain the existing
- * whitespace-separated multi-code behaviour.
- */
-export function parseProductQueries(values: string | string[]): string[] {
-  const queries = (Array.isArray(values) ? values : [values])
+function normalizedProductQueries(values: string | string[]) {
+  return (Array.isArray(values) ? values : [values])
     .flatMap((value) => value.split(/[\r\n,，;；]+/))
     .flatMap((value) => {
       const trimmed = value.trim();
@@ -17,8 +12,24 @@ export function parseProductQueries(values: string | string[]): string[] {
     })
     .map((value) => value.trim())
     .filter(Boolean);
+}
 
+/**
+ * Parses pasted product filters without breaking Chinese product names that
+ * legitimately contain spaces. ASCII-only chunks retain the existing
+ * whitespace-separated multi-code behaviour.
+ */
+export function parseProductQueries(values: string | string[]): string[] {
+  const queries = normalizedProductQueries(values);
   return [...new Set(queries)].slice(0, PRODUCT_QUERY_LIMIT);
+}
+
+export function parseProductQueriesStrict(values: string | string[]): string[] {
+  const queries = [...new Set(normalizedProductQueries(values))];
+  if (queries.length > PRODUCT_QUERY_LIMIT || queries.some((value) => value.length > 200)) {
+    throw new RangeError(`商品筛选最多 ${PRODUCT_QUERY_LIMIT} 项，且每项不能超过 200 字。`);
+  }
+  return queries;
 }
 
 export async function resolveProductFilterCodes(db: SalesDatabase, productQueries: string[]) {

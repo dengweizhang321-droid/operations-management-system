@@ -140,8 +140,8 @@ export async function importInventoryStockBytes(input: {
   let parsed: ReturnType<typeof parseInventoryStockXlsx>;
   try {
     parsed = parseInventoryStockXlsx(input.bytes);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "库存 Excel 文件解析失败";
+  } catch {
+    const message = "库存 Excel 文件解析失败，请确认文件格式和模板";
     return reject({
       ok: false,
       status: "rejected",

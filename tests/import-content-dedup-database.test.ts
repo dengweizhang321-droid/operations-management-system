@@ -22,6 +22,7 @@ const { ensureErpReferenceSchema, saveProductMasterImport } = await import("../l
 const { ensureSalesSchema, saveSalesImport } = await import("../lib/sales/database");
 const { ensureInventorySchema, saveInventoryImport, syncInventoryStockDimensions } = await import("../lib/inventory/database");
 const { ensureNetshopSchema, readNetshopScopeRows, saveNetshopImport } = await import("../lib/netshop/database");
+const { PublicApiError } = await import("../lib/http/api-error");
 const {
   buildImportAttemptHash,
   buildImportContentFingerprint,
@@ -222,7 +223,7 @@ test("过期 processing 租约仅在事实状态未变化时接管，旧 owner �
     ...firstFingerprint,
     batchId: firstHash,
     attemptId: first.attemptId,
-  }), /IMPORT_SCOPE_OWNERSHIP_LOST/);
+  }), (error: unknown) => error instanceof PublicApiError && error.status === 409 && error.code === "conflict");
   await assert.rejects(recordImportFingerprint(db, {
     ...firstFingerprint,
     batchId: firstHash,
@@ -230,7 +231,7 @@ test("过期 processing 租约仅在事实状态未变化时接管，旧 owner �
     rawFileHash: "1".repeat(64),
     attemptId: first.attemptId,
     publishedStateToken: "late-old-state",
-  }), /IMPORT_SCOPE_OWNERSHIP_LOST/);
+  }), (error: unknown) => error instanceof PublicApiError && error.status === 409 && error.code === "conflict");
   assert.deepEqual({ ...sqlite.prepare(
     "SELECT outcome, error_code errorCode FROM import_content_attempts WHERE attempt_id = ?",
   ).get(first.attemptId)! }, { outcome: "failed", errorCode: "IMPORT_RESERVATION_EXPIRED" });
@@ -696,7 +697,7 @@ test("领域事实发布事务的提交栅栏拒绝 takeover 后恢复的旧 own
     fileHash: oldHash, fileName: "old.xlsx", fileSizeBytes: 1, sheetName: "销售",
     rows: oldRows, warnings: [], totals: {}, replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
     reservationFence: { domain: oldFingerprint.domain, scopeKey: oldFingerprint.scopeKey, batchId: oldHash, attemptId: oldOwner.attemptId },
-  }), /NOT NULL|constraint/i);
+  }), (error: unknown) => error instanceof PublicApiError && error.status === 409 && error.code === "conflict");
   assert.equal(sqlite.prepare(
     "SELECT allocated_amount_cents amount FROM sales_order_lines WHERE order_no='ORDER-FENCE'",
   ).get()?.amount, 200);

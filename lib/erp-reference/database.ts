@@ -12,8 +12,10 @@ import {
 } from "@/lib/imports/erp-reference";
 import {
   importReservationCommitFence,
+  rethrowImportPublishError,
   type ImportReservationFence,
 } from "@/lib/imports/content-fingerprint";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export type ErpReferenceDatabase = SalesDatabase;
 
@@ -242,17 +244,43 @@ export async function countErpReferenceRowsOwnedByBatch(
 export async function listErpReferenceBatches(
   db: ErpReferenceDatabase,
   source?: ErpReferenceSourceKey,
-  limit = 50,
+  input: { page?: number; pageSize?: number } = {},
 ) {
-  const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
-  const result = source
-    ? await db.prepare(
-      `SELECT ${batchColumns} FROM erp_reference_import_batches WHERE source_key = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
-    ).bind(source, bounded).all<BatchRow>()
-    : await db.prepare(
-      `SELECT ${batchColumns} FROM erp_reference_import_batches ORDER BY created_at DESC, id DESC LIMIT ?`,
-    ).bind(bounded).all<BatchRow>();
-  return result.results.map(mapBatch);
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 50;
+  if (!Number.isSafeInteger(page) || page < 1 || page > 10_000) throw new PublicApiError(400, "invalid_request", "page 必须为 1 到 10000 的整数");
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new PublicApiError(400, "invalid_request", "pageSize 必须为 1 到 100 的整数");
+  const offset = (page - 1) * pageSize;
+  const [result, count] = await Promise.all([
+    source
+      ? db.prepare(
+        `SELECT ${batchColumns} FROM erp_reference_import_batches WHERE source_key = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+      ).bind(source, pageSize, offset).all<BatchRow>()
+      : db.prepare(
+        `SELECT ${batchColumns} FROM erp_reference_import_batches ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+      ).bind(pageSize, offset).all<BatchRow>(),
+    source
+      ? db.prepare("SELECT COUNT(*) AS total FROM erp_reference_import_batches WHERE source_key = ?")
+        .bind(source).first<{ total: number }>()
+      : db.prepare("SELECT COUNT(*) AS total FROM erp_reference_import_batches").first<{ total: number }>(),
+  ]);
+  const items = result.results.map(mapBatch);
+  const total = Number(count?.total ?? 0);
+  return { items, pagination: { page, pageSize, total, returned: items.length, truncated: offset + items.length < total } };
+}
+
+export async function findLatestCompletedErpReferenceBatch(
+  db: ErpReferenceDatabase,
+  source: ErpReferenceSourceKey,
+) {
+  const row = await db.prepare(
+    `SELECT ${batchColumns}
+     FROM erp_reference_import_batches
+     WHERE source_key = ? AND status = 'completed'
+     ORDER BY snapshot_date DESC, completed_at DESC, created_at DESC, id DESC
+     LIMIT 1`,
+  ).bind(source).first<BatchRow>();
+  return row ? mapBatch(row) : null;
 }
 
 async function countExistingProducts(db: ErpReferenceDatabase, rows: ProductMasterRow[]) {
@@ -371,7 +399,13 @@ export async function saveProductMasterImport(
     completeStatement(db, input.id, input.rows.length - existingCount, existingCount),
   );
   if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
-  const results = await db.batch(statements);
+  let results;
+  try {
+    results = await db.batch(statements);
+  } catch (error) {
+    if (input.reservationFence) return rethrowImportPublishError(db, input.reservationFence, error);
+    throw error;
+  }
   const created = Number(results[0]?.meta?.changes ?? 0) === 1;
   const batch = await findErpReferenceBatch(db, "products", input.fileHash);
   if (!batch) throw new Error("货品导入批次写入后无法读取");
@@ -427,7 +461,13 @@ export async function saveInventoryAgeImport(
   const updatedCount = Math.min(existingCount, input.rows.length);
   statements.push(completeStatement(db, input.id, input.rows.length - updatedCount, updatedCount));
   if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
-  const results = await db.batch(statements);
+  let results;
+  try {
+    results = await db.batch(statements);
+  } catch (error) {
+    if (input.reservationFence) return rethrowImportPublishError(db, input.reservationFence, error);
+    throw error;
+  }
   const created = Number(results[0]?.meta?.changes ?? 0) === 1;
   const batch = await findErpReferenceBatch(db, "inventory_age", input.fileHash);
   if (!batch) throw new Error("库龄导入批次写入后无法读取");
@@ -475,7 +515,13 @@ export async function saveComboImport(
     completeStatement(db, input.id, input.rows.length - existingCount, existingCount),
   );
   if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
-  const results = await db.batch(statements);
+  let results;
+  try {
+    results = await db.batch(statements);
+  } catch (error) {
+    if (input.reservationFence) return rethrowImportPublishError(db, input.reservationFence, error);
+    throw error;
+  }
   const created = Number(results[0]?.meta?.changes ?? 0) === 1;
   const batch = await findErpReferenceBatch(db, "combos", input.fileHash);
   if (!batch) throw new Error("组合装导入批次写入后无法读取");

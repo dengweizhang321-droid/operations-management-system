@@ -6,7 +6,7 @@ import {
   alignSalesSummaryPeriodToDataCutoff,
   type SalesSummaryPeriod,
 } from "@/lib/sales/period";
-import { parseProductQueries, resolveProductFilterCodes } from "@/lib/sales/product-query";
+import { parseProductQueriesStrict, resolveProductFilterCodes } from "@/lib/sales/product-query";
 import {
   SALES_CATEGORY_EXPRESSION,
   SALES_CATEGORY_JOIN,
@@ -14,6 +14,8 @@ import {
 
 export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
+export const MAX_SALES_TREND_DAYS = 366;
+export const MAX_SALES_GROUP_ROWS = 500;
 
 type Period = SalesSummaryPeriod;
 
@@ -27,7 +29,13 @@ type MetricRow = {
   line_count: number;
 };
 
-type GroupRow = MetricRow & { group_key: string; name: string; platform: string | null };
+type GroupRow = MetricRow & {
+  group_key: string;
+  name: string;
+  platform: string | null;
+  total_count: number;
+  total_net_sales_cents: number;
+};
 type DailyRow = MetricRow & { date: string };
 type FilterShopRow = { option_key: string; name: string; platform: string | null };
 type FilterCategoryRow = { category: string };
@@ -89,7 +97,7 @@ function shanghaiToday() {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-function periodFor(range: Exclude<SalesRange, "all" | "custom">, today: string): Period {
+export function periodFor(range: Exclude<SalesRange, "all" | "custom">, today: string): Period {
   if (range === "today") {
     const yesterday = addDays(today, -1);
     return {
@@ -136,7 +144,7 @@ function periodFor(range: Exclude<SalesRange, "all" | "custom">, today: string):
       startDate,
       endDate: today,
       previousStartDate,
-      previousEndDate: addDays(previousStartDate, dayDifference(startDate, today)),
+      previousEndDate: [addDays(previousStartDate, dayDifference(startDate, today)), addDays(startDate, -1)].sort()[0],
     };
   }
 
@@ -147,7 +155,7 @@ function periodFor(range: Exclude<SalesRange, "all" | "custom">, today: string):
     startDate,
     endDate: today,
     previousStartDate,
-    previousEndDate: addDays(previousStartDate, dayDifference(startDate, today)),
+    previousEndDate: [addDays(previousStartDate, dayDifference(startDate, today)), addDays(startDate, -1)].sort()[0],
   };
 }
 
@@ -180,52 +188,74 @@ function bindPeriod(
   shop?: string,
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
+  extraBindings: unknown[] = [],
 ) {
   return statement.bind(
     startDate,
     addDays(endDate, 1),
-    ...productCodes,
+    ...(productCodes.length > 0 ? [JSON.stringify(productCodes)] : []),
     ...outletBindings(platform, shop, outlets),
-    ...categories,
+    ...(categories.length > 0 ? [JSON.stringify(categories)] : []),
+    ...extraBindings,
   );
 }
 
 function productCodeClause(productCodes: string[]) {
-  return productCodes.length > 0 ? ` AND s.product_code IN (${productCodes.map(() => "?").join(", ")})` : "";
+  return productCodes.length > 0
+    ? " AND s.product_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))"
+    : "";
 }
 
 function outletClause(platform?: string, shop?: string, outlets: SalesOutletFilter[] = []) {
   const platformName = "COALESCE(NULLIF(s.platform, ''), '未分类')";
   const shopName = "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')";
   if (outlets.length > 0) {
-    return ` AND (${outlets.map(() => `(${platformName} = ? AND ${shopName} = ?)`).join(" OR ")})`;
+    return ` AND EXISTS (
+      SELECT 1 FROM json_each(?) outlet
+      WHERE ${platformName} = CAST(json_extract(outlet.value, '$.platform') AS TEXT)
+        AND ${shopName} = CAST(json_extract(outlet.value, '$.shop') AS TEXT)
+    )`;
   }
   return `${platform ? ` AND ${platformName} = ?` : ""}${shop ? ` AND ${shopName} = ?` : ""}`;
 }
 
 function outletBindings(platform?: string, shop?: string, outlets: SalesOutletFilter[] = []) {
   return outlets.length > 0
-    ? outlets.flatMap((outlet) => [outlet.platform, outlet.shop])
+    ? [JSON.stringify(outlets)]
     : [...(platform ? [platform] : []), ...(shop ? [shop] : [])];
 }
 
 function categoryClause(categories: string[]) {
-  return categories.length > 0 ? ` AND ${SALES_CATEGORY_EXPRESSION} IN (${categories.map(() => "?").join(", ")})` : "";
+  return categories.length > 0
+    ? ` AND ${SALES_CATEGORY_EXPRESSION} IN (SELECT CAST(value AS TEXT) FROM json_each(?))`
+    : "";
 }
 
 function normalizeProductCodes(values: string[] | undefined) {
-  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 100);
+  const normalized = [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+  if (normalized.length > 100 || normalized.some((value) => value.length > 200)) {
+    throw new SalesSummaryRequestError("商品筛选最多 100 项，且每项不能超过 200 字。");
+  }
+  return normalized;
 }
 
 function normalizeCategories(values: string[] | undefined) {
-  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 50);
+  const normalized = [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+  if (normalized.length > 50 || normalized.some((value) => value.length > 100)) {
+    throw new SalesSummaryRequestError("品类筛选最多 50 项，且每项不能超过 100 字。");
+  }
+  return normalized;
 }
 
 function normalizeOutlets(values: SalesOutletFilter[] | undefined) {
   const outlets = (values ?? [])
     .map((value) => ({ platform: value.platform.trim(), shop: value.shop.trim() }))
     .filter((value) => value.platform && value.shop);
-  return [...new Map(outlets.map((value) => [`${value.platform}\u001f${value.shop}`, value])).values()].slice(0, 50);
+  const unique = [...new Map(outlets.map((value) => [`${value.platform}\u001f${value.shop}`, value])).values()];
+  if (unique.length > 50 || unique.some((value) => value.platform.length > 100 || value.shop.length > 100)) {
+    throw new SalesSummaryRequestError("outlet 筛选最多 50 项，且每项不能超过 100 字。");
+  }
+  return unique;
 }
 
 function metricsSql(productCodes: string[], platform?: string, shop?: string, categories: string[] = [], outlets: SalesOutletFilter[] = []) {
@@ -281,6 +311,7 @@ async function groupedMetrics(
   shop?: string,
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
+  groupKeys: string[] = [],
 ) {
   const displayName = dimension === "shop"
     ? "COALESCE(NULLIF(s.shop_name, ''), NULLIF(s.channel, ''), NULLIF(s.platform, ''), '未分类')"
@@ -293,6 +324,7 @@ async function groupedMetrics(
     ? `COALESCE(NULLIF(s.platform, ''), '未分类') || char(31) || ${displayName}`
     : displayName;
   const statement = db.prepare(`
+    WITH grouped AS (
     SELECT
       ${groupKey} AS group_key,
       ${displayName} AS name,
@@ -309,16 +341,30 @@ async function groupedMetrics(
     WHERE s.ship_time >= ? AND s.ship_time < ?
       AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outlets)}${categoryClause(categories)}
     GROUP BY ${groupKey}
+    )
+    SELECT grouped.*,
+      COUNT(*) OVER () AS total_count,
+      SUM(gross_sales_cents - refund_amount_cents) OVER () AS total_net_sales_cents
+    FROM grouped
+    ${groupKeys.length ? "WHERE group_key IN (SELECT CAST(value AS TEXT) FROM json_each(?))" : ""}
     ORDER BY (gross_sales_cents - refund_amount_cents) DESC, name ASC
+    LIMIT ${MAX_SALES_GROUP_ROWS + 1}
   `);
-  const result = await bindPeriod(statement, period.startDate, period.endDate, productCodes, platform, shop, categories, outlets).all<GroupRow>();
-  const groupedRows = result.results;
-  const totalNet = groupedRows.reduce(
-    (sum, row) => sum + Number(row.gross_sales_cents ?? 0) - Number(row.refund_amount_cents ?? 0),
-    0,
-  );
+  const result = await bindPeriod(
+    statement,
+    period.startDate,
+    period.endDate,
+    productCodes,
+    platform,
+    shop,
+    categories,
+    outlets,
+    groupKeys.length ? [JSON.stringify(groupKeys)] : [],
+  ).all<GroupRow>();
+  const groupedRows = result.results.slice(0, MAX_SALES_GROUP_ROWS);
+  const totalNet = Number(result.results[0]?.total_net_sales_cents ?? 0);
 
-  return groupedRows.map((row) => {
+  const items = groupedRows.map((row) => {
     const values = metric(row);
     return {
       groupKey: row.group_key,
@@ -328,6 +374,15 @@ async function groupedMetrics(
       shareRate: totalNet === 0 ? 0 : values.netSalesCents / totalNet,
     };
   });
+  const total = Number(result.results[0]?.total_count ?? 0);
+  return {
+    items,
+    pagination: {
+      total,
+      returned: items.length,
+      truncated: result.results.length > MAX_SALES_GROUP_ROWS,
+    },
+  };
 }
 
 async function groupedMetricsWithYearOverYear(
@@ -341,13 +396,22 @@ async function groupedMetricsWithYearOverYear(
   categories: string[] = [],
   outlets: SalesOutletFilter[] = [],
 ) {
-  const [current, yearAgo] = await Promise.all([
-    groupedMetrics(db, dimension, period, productCodes, platform, shop, categories, outlets),
-    groupedMetrics(db, dimension, yearAgoPeriod, productCodes, platform, shop, categories, outlets),
-  ]);
-  const yearAgoByGroupKey = new Map(yearAgo.map((item) => [item.groupKey, item]));
+  const current = await groupedMetrics(db, dimension, period, productCodes, platform, shop, categories, outlets);
+  const yearAgo = await groupedMetrics(
+    db,
+    dimension,
+    yearAgoPeriod,
+    productCodes,
+    platform,
+    shop,
+    categories,
+    outlets,
+    current.items.map((item) => item.groupKey),
+  );
+  const yearAgoByGroupKey = new Map(yearAgo.items.map((item) => [item.groupKey, item]));
 
-  return current.map((item) => {
+  return {
+    items: current.items.map((item) => {
     const yearAgoNetSalesCents = yearAgoByGroupKey.get(item.groupKey)?.netSalesCents ?? 0;
     return {
       ...item,
@@ -356,7 +420,9 @@ async function groupedMetricsWithYearOverYear(
         ? null
         : (item.netSalesCents - yearAgoNetSalesCents) / Math.abs(yearAgoNetSalesCents),
     };
-  });
+    }),
+    pagination: current.pagination,
+  };
 }
 
 async function dailyMetrics(
@@ -415,6 +481,7 @@ async function filterOptions(
           AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
         GROUP BY COALESCE(NULLIF(s.platform, ''), '未分类'), ${shopName}
         ORDER BY COALESCE(NULLIF(s.platform, ''), '未分类') ASC, name ASC
+        LIMIT 500
       `),
       period.startDate,
       period.endDate,
@@ -429,6 +496,7 @@ async function filterOptions(
           AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
         GROUP BY ${SALES_CATEGORY_EXPRESSION}
         ORDER BY ${SALES_CATEGORY_EXPRESSION} ASC
+        LIMIT 200
       `),
       period.startDate,
       period.endDate,
@@ -461,7 +529,12 @@ export async function getSalesSummary(
   input: { range: SalesRange; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
 ) {
   const today = shanghaiToday();
-  const productQueries = parseProductQueries(input.productQueries ?? input.productCodes ?? []);
+  let productQueries: string[];
+  try {
+    productQueries = parseProductQueriesStrict(input.productQueries ?? input.productCodes ?? []);
+  } catch (error) {
+    throw new SalesSummaryRequestError(error instanceof Error ? error.message : "商品筛选无效");
+  }
   const [resolvedProductCodes, dataCutoffDate] = await Promise.all([
     resolveProductFilterCodes(db, productQueries),
     latestSalesDataDate(db),
@@ -481,7 +554,11 @@ export async function getSalesSummary(
          ${SALES_CATEGORY_JOIN}
          WHERE TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}${outletClause(platform, shop, outletFilters)}${categoryClause(categories)}`,
       )
-      .bind(...productCodes, ...outletBindings(platform, shop, outletFilters), ...categories)
+      .bind(
+        ...(productCodes.length > 0 ? [JSON.stringify(productCodes)] : []),
+        ...outletBindings(platform, shop, outletFilters),
+        ...(categories.length > 0 ? [JSON.stringify(categories)] : []),
+      )
       .first<{ start_date: string | null; end_date: string | null }>();
     requestedPeriod = {
       startDate: bounds?.start_date ?? today,
@@ -534,16 +611,27 @@ export async function getSalesSummary(
   const previousPeriod = period.previousStartDate && period.previousEndDate
     ? { startDate: period.previousStartDate, endDate: period.previousEndDate }
     : null;
-  const [currentRow, previousRow, yearAgoRow, outlets, shops, platforms, daily, previousDaily, yearAgoDaily, filterOptionsData, latestBatch] = await Promise.all([
+  const trendTruncated = dayDifference(period.startDate, period.endDate) + 1 > MAX_SALES_TREND_DAYS;
+  const trendPeriod = trendTruncated
+    ? { startDate: addDays(period.endDate, -(MAX_SALES_TREND_DAYS - 1)), endDate: period.endDate }
+    : { startDate: period.startDate, endDate: period.endDate };
+  const previousTrendPeriod = previousPeriod
+    ? { startDate: previousPeriod.startDate, endDate: previousPeriod.endDate }
+    : null;
+  const yearAgoTrendPeriod = {
+    startDate: addYears(trendPeriod.startDate, -1),
+    endDate: addYears(trendPeriod.endDate, -1),
+  };
+  const [currentRow, previousRow, yearAgoRow, outletResult, shopResult, platformResult, daily, previousDaily, yearAgoDaily, filterOptionsData, latestBatch] = await Promise.all([
     currentPromise,
     previousPromise,
     yearAgoPromise,
     groupedMetricsWithYearOverYear(db, "shop", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
     groupedMetricsWithYearOverYear(db, "channel", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
     groupedMetricsWithYearOverYear(db, "platform", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
-    dailyMetrics(db, period, productCodes, platform, shop, categories, outletFilters),
-    previousPeriod ? dailyMetrics(db, previousPeriod, productCodes, platform, shop, categories, outletFilters) : Promise.resolve([]),
-    dailyMetrics(db, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
+    dailyMetrics(db, trendPeriod, productCodes, platform, shop, categories, outletFilters),
+    previousTrendPeriod ? dailyMetrics(db, previousTrendPeriod, productCodes, platform, shop, categories, outletFilters) : Promise.resolve([]),
+    dailyMetrics(db, yearAgoTrendPeriod, productCodes, platform, shop, categories, outletFilters),
     filterOptions(db, period, productCodes),
     findLatestSalesImportBatch(db),
   ]);
@@ -563,13 +651,22 @@ export async function getSalesSummary(
     yearAgo: metric(yearAgoRow),
     yearAgoStartDate: yearAgoPeriod.startDate,
     yearAgoEndDate: yearAgoPeriod.endDate,
-    channels: platforms,
-    outlets,
-    shops,
-    platforms,
+    channels: platformResult.items,
+    outlets: outletResult.items,
+    shops: shopResult.items,
+    platforms: platformResult.items,
+    groupPagination: {
+      outlets: outletResult.pagination,
+      shops: shopResult.pagination,
+      platforms: platformResult.pagination,
+    },
     daily,
     previousDaily,
     yearAgoDaily,
+    trendStartDate: trendPeriod.startDate,
+    trendEndDate: trendPeriod.endDate,
+    trendReturned: daily.length,
+    trendTruncated,
     latestBatch,
   };
 }

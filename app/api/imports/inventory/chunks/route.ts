@@ -12,10 +12,12 @@ import { importInventoryStockBytes } from "@/lib/inventory/import-service";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { importExecutionHttpStatus, safeApiErrorResponse, type ImportExecutionLike } from "@/lib/http/api-error";
 
 function reject(status: number, message: string, extra: Record<string, unknown> = {}) {
-  return Response.json({ ok: false, status: "rejected", message, ...extra }, { status });
+  return Response.json({ ok: false, status: "rejected", message, ...extra }, { status, headers: { "cache-control": "no-store" } });
 }
 
 function headerNumber(request: Request, name: string) {
@@ -30,7 +32,8 @@ function snapshotDateFromBody(body: Record<string, unknown>) {
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "库存数据", "导入");
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return reject(400, "请求内容无效");
     if (body.action === "init") {
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
         status: "ready",
         upload,
         limits: { chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES, maxFileSizeBytes: MAX_CHUNKED_INVENTORY_FILE_BYTES },
-      });
+      }, { headers: { "cache-control": "no-store" } });
     }
 
     if (body.action === "complete") {
@@ -61,8 +64,7 @@ export async function POST(request: Request) {
         return reject(409, "上传会话绑定的库存快照日期与本次完成请求不一致");
       }
       if (claim.kind === "completed") {
-        const stored = claim.result as { ok?: boolean; status?: string };
-        return Response.json(claim.result, { status: stored.ok ? (stored.status === "imported" ? 201 : 200) : 422 });
+        return Response.json(claim.result, { status: importExecutionHttpStatus(claim.result as ImportExecutionLike), headers: { "cache-control": "no-store" } });
       }
       try {
         const assembled = await assembleInventoryUpload(uploadId);
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
           snapshotDateOverride: snapshotDate,
         });
         await finishInventoryUpload(uploadId, assembled.objectKeys, result);
-        return Response.json(result, { status: result.ok ? (result.status === "imported" ? 201 : 200) : 422 });
+        return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
       } catch (error) {
         await releaseInventoryUpload(uploadId);
         throw error;
@@ -83,14 +85,14 @@ export async function POST(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "库存分片上传初始化或合并失败";
-    return reject(500, message);
+    return safeApiErrorResponse(error, "库存分片上传初始化或合并失败。", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "库存数据", "导入");
     const uploadId = request.headers.get("x-upload-id") ?? "";
     const chunkIndex = headerNumber(request, "x-chunk-index");
     if (!uploadId || !Number.isSafeInteger(chunkIndex)) return reject(400, "缺少有效的分片上传标识");
@@ -99,11 +101,10 @@ export async function PUT(request: Request) {
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
     const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
-    return Response.json({ ok: true, status: "uploading", upload });
+    return Response.json({ ok: true, status: "uploading", upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "库存分片上传失败";
-    return reject(422, message);
+    return safeApiErrorResponse(error, "库存分片上传失败。", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }

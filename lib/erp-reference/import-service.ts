@@ -115,8 +115,8 @@ export async function importErpReferenceBytes(input: {
   let parsed: ReturnType<typeof parseErpReferenceXlsx>;
   try {
     parsed = parseErpReferenceXlsx(input.source, input.bytes);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : `${ERP_REFERENCE_SOURCE_LABELS[input.source]}解析失败`;
+  } catch {
+    const message = `${ERP_REFERENCE_SOURCE_LABELS[input.source]}解析失败，请确认文件格式和模板`;
     return reject({
       ok: false,
       status: "rejected",

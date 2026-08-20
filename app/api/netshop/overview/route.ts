@@ -5,6 +5,7 @@ import {
 } from "@/lib/netshop/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopPlatformsForPrincipal } from "@/lib/netshop/access";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 
 export async function GET(request: Request) {
   try {
@@ -18,7 +19,8 @@ export async function GET(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "读取网店概览失败";
-    return Response.json({ error: message }, { status: 500, headers: { "cache-control": "no-store" } });
+    return safeApiErrorResponse(error, "读取网店概览失败", {
+      headers: { "cache-control": "no-store" },
+    });
   }
 }

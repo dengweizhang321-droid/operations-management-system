@@ -5,6 +5,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { buildMarketOverviewAnalyticsSql, buildMarketOverviewEnrichedSql } from "../lib/market/overview-sql";
 import { marketBaseSchemaStatements } from "../lib/market/schema-core";
 import { canonicalMarketOverviewCacheIdentity, getCachedMarketFilterOptions, getCachedMarketOverview } from "../lib/market/overview-response-cache";
+import { prefetchMarketRankingOverview, requestMarketOverview } from "../app/market-view";
 
 class AsyncSqliteStatement {
   constructor(
@@ -27,6 +28,40 @@ class AsyncSqliteStatement {
 
 function asyncDatabase(sqlite: DatabaseSync) {
   return { prepare: (sql: string) => new AsyncSqliteStatement(sqlite.prepare(sql)) };
+}
+
+function installDeferredMarketOverviewFetch() {
+  const originalFetch = globalThis.fetch;
+  let completeResponse: ((payload: unknown) => void) | undefined;
+  let resolveStarted: ((signal: AbortSignal) => void) | undefined;
+  let fetchCount = 0;
+  const started = new Promise<AbortSignal>((resolve) => { resolveStarted = resolve; });
+  globalThis.fetch = (async (_input, init) => {
+    fetchCount += 1;
+    const signal = init?.signal;
+    assert.ok(signal, "shared market request must own an abort signal");
+    resolveStarted?.(signal);
+    return await new Promise<Response>((resolve, reject) => {
+      completeResponse = (payload) => resolve(new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+      signal.addEventListener("abort", () => {
+        const error = new Error("internal request aborted");
+        error.name = "AbortError";
+        reject(error);
+      }, { once: true });
+    });
+  }) as typeof fetch;
+  return {
+    started,
+    complete(payload: unknown) {
+      assert.ok(completeResponse, "fetch must start before it can complete");
+      completeResponse(payload);
+    },
+    fetchCount: () => fetchCount,
+    restore: () => { globalThis.fetch = originalFetch; },
+  };
 }
 
 test("market overview can read precomputed effective metrics without rebuilding anchor windows", () => {
@@ -99,11 +134,17 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(view, /requestedView = activeSection === "overview" \? "full" : "ranking"/);
   assert.match(view, /controller\.abort\(\)/);
   assert.match(view, /signal: controller\.signal|load\(controller\.signal\)/);
-  assert.match(route, /params\.get\("view"\) === "ranking"/);
+  assert.match(route, /parseMarketOverviewQuery\(params\)/);
   assert.match(route, /getCachedMarketOverview/);
   assert.match(view, /prefetchMarketRankingOverview/);
-  assert.match(view, /rememberMarketOverview\(params\.toString\(\), payload\)/);
-  assert.match(view, /initialLoad\.current \? 0 : 350/);
+  assert.match(view, /requestMarketOverview\(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS\)/);
+  assert.match(view, /requestMarketOverview\(params\.toString\(\), signal, maximumCacheAgeMs\)/);
+  assert.match(view, /marketOverviewRequests\.get\(requestKey\)/);
+  assert.match(view, /signal: controller\.signal/);
+  assert.match(view, /request\.subscribers === 0 && !request\.settled/);
+  assert.match(view, /rememberMarketOverview\(requestKey, payload\)/);
+  assert.match(view, /const delay = isInitialLoad \? 0 : 350/);
+  assert.match(view, /isInitialLoad \? MARKET_OVERVIEW_RECENT_PREFETCH_MS : 0/);
   assert.match(view, /MARKET_RANKING_PAGE_SIZE = 20/);
   assert.match(view, /params\.set\("page", String\(page\)\)/);
   assert.match(view, /params\.set\("pageSize", String\(MARKET_RANKING_PAGE_SIZE\)\)/);
@@ -117,6 +158,66 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(database, /getCachedMarketFilterOptions/);
   assert.match(database, /WITH sources AS MATERIALIZED[\s\S]*SELECT DISTINCT image_url source_url/);
   assert.doesNotMatch(database, /COUNT\(DISTINCT CASE WHEN mic\.status='ready'/);
+});
+
+test("aborting the prefetch subscriber does not cancel a joined page load", async (context) => {
+  const deferred = installDeferredMarketOverviewFetch();
+  context.after(deferred.restore);
+  const startDate = "2026-08-03";
+  const endDate = "2026-08-04";
+  const requestKey = `view=ranking&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
+  const prefetchController = new AbortController();
+  const pageController = new AbortController();
+  const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal);
+  const internalSignal = await deferred.started;
+  const page = requestMarketOverview(requestKey, pageController.signal);
+  const cancelledPrefetch = assert.rejects(prefetch, { name: "AbortError" });
+  prefetchController.abort();
+  await cancelledPrefetch;
+  assert.equal(internalSignal.aborted, false);
+  deferred.complete({ marker: "page-success" });
+  assert.equal(((await page) as unknown as { marker: string }).marker, "page-success");
+  assert.equal(deferred.fetchCount(), 1);
+});
+
+test("aborting the page subscriber does not cancel a joined prefetch", async (context) => {
+  const deferred = installDeferredMarketOverviewFetch();
+  context.after(deferred.restore);
+  const startDate = "2026-08-05";
+  const endDate = "2026-08-06";
+  const requestKey = `view=ranking&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
+  const pageController = new AbortController();
+  const prefetchController = new AbortController();
+  const page = requestMarketOverview(requestKey, pageController.signal);
+  const internalSignal = await deferred.started;
+  const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal);
+  const cancelledPage = assert.rejects(page, { name: "AbortError" });
+  pageController.abort();
+  await cancelledPage;
+  assert.equal(internalSignal.aborted, false);
+  deferred.complete({ marker: "prefetch-success" });
+  await prefetch;
+  assert.equal(deferred.fetchCount(), 1);
+});
+
+test("the shared market request aborts only after its last subscriber leaves", async (context) => {
+  const deferred = installDeferredMarketOverviewFetch();
+  context.after(deferred.restore);
+  const requestKey = "view=ranking&page=1&pageSize=20&dimension=SKU&startDate=2026-08-07&endDate=2026-08-08";
+  const firstController = new AbortController();
+  const secondController = new AbortController();
+  const first = requestMarketOverview(requestKey, firstController.signal);
+  const internalSignal = await deferred.started;
+  const second = requestMarketOverview(requestKey, secondController.signal);
+  const firstCancelled = assert.rejects(first, { name: "AbortError" });
+  firstController.abort();
+  await firstCancelled;
+  assert.equal(internalSignal.aborted, false);
+  const secondCancelled = assert.rejects(second, { name: "AbortError" });
+  secondController.abort();
+  await secondCancelled;
+  assert.equal(internalSignal.aborted, true);
+  assert.equal(deferred.fetchCount(), 1);
 });
 
 test("market overview response cache is canonical, version-invalidated, and coalesces duplicate loads", async () => {

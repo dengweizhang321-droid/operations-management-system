@@ -4,10 +4,13 @@ import {
   getSalesDatabase,
 } from "@/lib/sales/database";
 import { salesImportPolicy } from "@/lib/sales/import-policy";
+import { validateSalesImportDateRange } from "@/lib/sales/import-service";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 
 type PeriodStats = {
   row_count: number;
@@ -24,48 +27,37 @@ type ShopRow = {
   net_sales_cents: number;
 };
 
-function isIsoDate(value: string | null): value is string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
-function addUtcDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 export async function GET(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "销售导入校验");
     const query = new URL(request.url).searchParams;
     if (query.get("policyOnly") === "1") {
-      return Response.json({ policyVersion: salesImportPolicy.version });
+      return Response.json({ policyVersion: salesImportPolicy.version }, { headers: { "cache-control": "no-store" } });
     }
-    const startDate = query.get("startDate");
-    const endDate = query.get("endDate");
+    const requestedStartDate = query.get("startDate");
+    const requestedEndDate = query.get("endDate");
     const batchId = query.get("batchId")?.trim() || null;
-    if (!isIsoDate(startDate) || !isIsoDate(endDate) || startDate > endDate) {
-      return Response.json({ error: "startDate 和 endDate 必须是有效的 YYYY-MM-DD，且开始日期不能晚于结束日期。" }, { status: 400 });
+    const dateRange = validateSalesImportDateRange(requestedStartDate ?? "", requestedEndDate ?? "");
+    if (!dateRange.ok) {
+      return Response.json({ error: "startDate 和 endDate 必须是有效的 YYYY-MM-DD，且开始日期不能晚于结束日期。" }, { status: 400, headers: { "cache-control": "no-store" } });
     }
 
     const db = getSalesDatabase();
     await ensureSalesSchema(db);
-    const endExclusive = addUtcDays(endDate, 1);
-    const excludedWarehousePlaceholders = salesImportPolicy.excludedWarehouses.map(() => "?").join(", ");
+    const { startDate, endDate, endExclusive } = dateRange;
+    const excludedWarehouseFilter = JSON.stringify(salesImportPolicy.excludedWarehouses);
     const stats = await db.prepare(
       `SELECT
         COUNT(*) AS row_count,
         MIN(ship_time) AS min_ship_time,
         MAX(ship_time) AS max_ship_time,
-        COALESCE(SUM(CASE WHEN TRIM(warehouse) IN (${excludedWarehousePlaceholders}) THEN 1 ELSE 0 END), 0) AS brush_warehouse_rows
+        COALESCE(SUM(CASE WHEN TRIM(warehouse) IN (SELECT CAST(value AS TEXT) FROM json_each(?)) THEN 1 ELSE 0 END), 0) AS brush_warehouse_rows
        FROM sales_order_lines
        WHERE ship_time >= ? AND ship_time < ?`,
-    ).bind(...salesImportPolicy.excludedWarehouses, startDate, endExclusive).first<PeriodStats>();
+    ).bind(excludedWarehouseFilter, startDate, endExclusive).first<PeriodStats>();
 
-    const shopResult = await db.prepare(
+    const [shopResult, shopCount, approvedChannelResult, nonWhitelistChannelResult] = await Promise.all([db.prepare(
       `SELECT
          channel,
          platform,
@@ -75,13 +67,27 @@ export async function GET(request: Request) {
        FROM sales_order_lines
        WHERE ship_time >= ? AND ship_time < ?
        GROUP BY channel, platform, shop_name
-       ORDER BY channel ASC, platform ASC, shop_name ASC`,
-    ).bind(startDate, endExclusive).all<ShopRow>();
-    const shops = shopResult.results ?? [];
-    const actualChannels = new Set(shops.map((row) => row.channel.trim()));
-    const nonWhitelistChannels = [...actualChannels].filter(
-      (channel) => !salesImportPolicy.approvedSalesChannels.includes(channel),
-    );
+       ORDER BY channel ASC, platform ASC, shop_name ASC
+       LIMIT 501`,
+    ).bind(startDate, endExclusive).all<ShopRow>(), db.prepare(`SELECT COUNT(*) AS total FROM (
+      SELECT 1 FROM sales_order_lines
+      WHERE ship_time >= ? AND ship_time < ?
+      GROUP BY channel, platform, shop_name
+    )`).bind(startDate, endExclusive).first<{ total: number }>(), db.prepare(`SELECT DISTINCT TRIM(channel) AS channel
+      FROM sales_order_lines
+      WHERE ship_time >= ? AND ship_time < ?
+        AND TRIM(channel) IN (SELECT CAST(value AS TEXT) FROM json_each(?))`)
+      .bind(startDate, endExclusive, JSON.stringify(salesImportPolicy.approvedSalesChannels))
+      .all<{ channel: string }>(), db.prepare(`SELECT DISTINCT TRIM(channel) AS channel
+      FROM sales_order_lines
+      WHERE ship_time >= ? AND ship_time < ?
+        AND TRIM(channel) NOT IN (SELECT CAST(value AS TEXT) FROM json_each(?))
+      ORDER BY channel COLLATE NOCASE LIMIT 501`)
+      .bind(startDate, endExclusive, JSON.stringify(salesImportPolicy.approvedSalesChannels))
+      .all<{ channel: string }>()]);
+    const shops = (shopResult.results ?? []).slice(0, 500);
+    const approvedChannelsWithData = new Set(approvedChannelResult.results.map((row) => row.channel));
+    const nonWhitelistChannels = nonWhitelistChannelResult.results.slice(0, 500).map((row) => row.channel);
 
     const rowsNotOwnedByBatch = batchId
       ? Number((await db.prepare(
@@ -110,13 +116,21 @@ export async function GET(request: Request) {
         rowCount: Number(row.row_count),
         netSalesCents: Number(row.net_sales_cents),
       })),
+      shopPagination: {
+        total: Number(shopCount?.total ?? 0),
+        returned: shops.length,
+        truncated: (shopResult.results?.length ?? 0) > 500,
+      },
       nonWhitelistChannels,
-      whitelistWithNoData: salesImportPolicy.approvedSalesChannels.filter((channel) => !actualChannels.has(channel)),
-    });
+      nonWhitelistChannelPagination: {
+        returned: nonWhitelistChannels.length,
+        truncated: nonWhitelistChannelResult.results.length > 500,
+      },
+      whitelistWithNoData: salesImportPolicy.approvedSalesChannels.filter((channel) => !approvedChannelsWithData.has(channel)),
+    }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "销售导入校验读取失败";
-    return Response.json({ error: message }, { status: 500 });
+    return safeApiErrorResponse(error, "销售导入校验读取失败。", { headers: { "cache-control": "no-store" } });
   }
 }

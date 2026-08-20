@@ -178,8 +178,20 @@ function withPeriod(input: NormalizedInput, startDate: string, endDate: string):
   return { ...input, startDate, endDate, endExclusive: addDays(endDate, 1) };
 }
 
-function boundedList(values: readonly string[] | undefined): string[] {
-  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, MAX_FILTER_VALUES);
+function boundedList(values: readonly string[] | undefined, maximum = MAX_FILTER_VALUES, label = "筛选"): string[] {
+  const normalized = [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+  if (normalized.length > maximum || normalized.some((value) => value.length > 100)) {
+    throw new SalesCategoryRequestError(`${label}最多 ${maximum} 项，且每项不能超过 100 字。`);
+  }
+  return normalized;
+}
+
+function scopeList(values: readonly string[] | undefined): string[] {
+  const normalized = [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+  if (normalized.length > 500 || normalized.some((value) => value.length > 100)) {
+    throw new SalesCategoryAccessError("当前账号的销售数据范围超出安全上限");
+  }
+  return normalized;
 }
 
 function boundedPositiveInteger(value: number | undefined, fallback: number, maximum: number): number {
@@ -191,7 +203,11 @@ function normalizeOutlets(values: readonly SalesOutletFilter[] | undefined): Sal
   const normalized = (values ?? [])
     .map((value) => ({ platform: value.platform.trim(), shop: value.shop.trim() }))
     .filter((value) => value.platform && value.shop);
-  return [...new Map(normalized.map((value) => [`${value.platform}\u001f${value.shop}`, value])).values()].slice(0, MAX_FILTER_VALUES);
+  const unique = [...new Map(normalized.map((value) => [`${value.platform}\u001f${value.shop}`, value])).values()];
+  if (unique.length > MAX_FILTER_VALUES || unique.some((value) => value.platform.length > 100 || value.shop.length > 100)) {
+    throw new SalesCategoryRequestError(`outlet 筛选最多 ${MAX_FILTER_VALUES} 项，且每项不能超过 100 字。`);
+  }
+  return unique;
 }
 
 function normalizeInput(input: SalesCategoryAnalysisInput, productCodes: string[]): NormalizedInput {
@@ -217,12 +233,12 @@ function normalizeInput(input: SalesCategoryAnalysisInput, productCodes: string[
     endDate: input.endDate,
     endExclusive: addDays(input.endDate, 1),
     level: 1,
-    categories: boundedList(input.categories),
-    channels: boundedList(input.channels),
-    platforms: boundedList(input.platforms),
+    categories: boundedList(input.categories, MAX_FILTER_VALUES, "品类筛选"),
+    channels: boundedList(input.channels, MAX_FILTER_VALUES, "渠道筛选"),
+    platforms: boundedList(input.platforms, MAX_FILTER_VALUES, "平台筛选"),
     outlets: normalizeOutlets(input.outlets),
     productQueries: parseProductQueries(input.productQueries ?? []),
-    productCodes: boundedList(productCodes),
+    productCodes: boundedList(productCodes, 100, "商品筛选"),
     granularity,
     sortBy,
     direction,
@@ -231,32 +247,28 @@ function normalizeInput(input: SalesCategoryAnalysisInput, productCodes: string[
   };
 }
 
-function placeholders(values: readonly unknown[]): string {
-  return values.map(() => "?").join(", ");
-}
-
 function scopeSql(principal: AppPrincipal): { clauses: string[]; bindings: string[]; mode: "unrestricted" | "restricted" } {
   if (principal.scope === null) return { clauses: [], bindings: [], mode: "unrestricted" };
-  const warehouses = boundedList(principal.scope.warehouses);
-  const channels = boundedList(principal.scope.channels);
-  const platforms = boundedList(principal.scope.platforms);
+  const warehouses = scopeList(principal.scope.warehouses);
+  const channels = scopeList(principal.scope.channels);
+  const platforms = scopeList(principal.scope.platforms);
   if (warehouses.length === 0 && channels.length === 0 && platforms.length === 0) {
     throw new SalesCategoryAccessError("当前账号没有可读取的销售数据范围");
   }
   const clauses: string[] = [];
   const bindings: string[] = [];
   if (warehouses.length > 0) {
-    clauses.push(`s.warehouse IN (${placeholders(warehouses)})`);
-    bindings.push(...warehouses);
+    clauses.push("s.warehouse IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+    bindings.push(JSON.stringify(warehouses));
   }
   const outletScope: string[] = [];
   if (channels.length > 0) {
-    outletScope.push(`s.channel IN (${placeholders(channels)})`);
-    bindings.push(...channels);
+    outletScope.push("s.channel IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+    bindings.push(JSON.stringify(channels));
   }
   if (platforms.length > 0) {
-    outletScope.push(`s.platform IN (${placeholders(platforms)})`);
-    bindings.push(...platforms);
+    outletScope.push("s.platform IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+    bindings.push(JSON.stringify(platforms));
   }
   if (outletScope.length > 0) clauses.push(`(${outletScope.join(" OR ")})`);
   return { clauses, bindings, mode: "restricted" };
@@ -273,24 +285,28 @@ function filteredSalesSql(input: NormalizedInput, principal: AppPrincipal) {
   clauses.push(...scope.clauses);
   bindings.push(...scope.bindings);
   if (input.productCodes.length > 0) {
-    clauses.push(`s.product_code IN (${placeholders(input.productCodes)})`);
-    bindings.push(...input.productCodes);
+    clauses.push("s.product_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+    bindings.push(JSON.stringify(input.productCodes));
   }
   if (input.categories.length > 0) {
-    clauses.push(`${CATEGORY_EXPRESSION} IN (${placeholders(input.categories)})`);
-    bindings.push(...input.categories);
+    clauses.push(`${CATEGORY_EXPRESSION} IN (SELECT CAST(value AS TEXT) FROM json_each(?))`);
+    bindings.push(JSON.stringify(input.categories));
   }
   if (input.channels.length > 0) {
-    clauses.push(`s.channel IN (${placeholders(input.channels)})`);
-    bindings.push(...input.channels);
+    clauses.push("s.channel IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+    bindings.push(JSON.stringify(input.channels));
   }
   if (input.platforms.length > 0) {
-    clauses.push(`s.platform IN (${placeholders(input.platforms)})`);
-    bindings.push(...input.platforms);
+    clauses.push("s.platform IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+    bindings.push(JSON.stringify(input.platforms));
   }
   if (input.outlets.length > 0) {
-    clauses.push(`(${input.outlets.map(() => `(s.platform = ? AND ${SHOP_EXPRESSION} = ?)`).join(" OR ")})`);
-    for (const outlet of input.outlets) bindings.push(outlet.platform, outlet.shop);
+    clauses.push(`EXISTS (
+      SELECT 1 FROM json_each(?) outlet
+      WHERE s.platform = CAST(json_extract(outlet.value, '$.platform') AS TEXT)
+        AND ${SHOP_EXPRESSION} = CAST(json_extract(outlet.value, '$.shop') AS TEXT)
+    )`);
+    bindings.push(JSON.stringify(input.outlets));
   }
   return {
     sql: `
@@ -534,7 +550,7 @@ async function readDetailTrend(
         COALESCE(SUM(CASE WHEN quantity < 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN -quantity ELSE 0 END), 0) AS return_quantity,
         COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents
       FROM scoped
-      WHERE category_key IN (${placeholders(categories)})
+      WHERE category_key IN (SELECT CAST(value AS TEXT) FROM json_each(?))
       GROUP BY period_key, category_key
     ),
     recent_periods AS (
@@ -549,7 +565,7 @@ async function readDetailTrend(
     INNER JOIN recent_periods ON recent_periods.period_key = aggregated.period_key
     ORDER BY aggregated.category_key ASC, aggregated.period_key ASC
     LIMIT ${DETAIL_TREND_ROW_LIMIT}
-  `).bind(...scoped.bindings, ...categories).all<TrendRow>();
+  `).bind(...scoped.bindings, JSON.stringify(categories)).all<TrendRow>();
   return result.results ?? [];
 }
 
@@ -680,9 +696,9 @@ export async function getSalesCategoryAnalysis(
         ? { mode: "unrestricted" as const, warehouses: null, channels: null, platforms: null }
         : {
             mode: categoryResult.scopeMode,
-            warehouses: boundedList(principal.scope.warehouses),
-            channels: boundedList(principal.scope.channels),
-            platforms: boundedList(principal.scope.platforms),
+            warehouses: scopeList(principal.scope.warehouses),
+            channels: scopeList(principal.scope.channels),
+            platforms: scopeList(principal.scope.platforms),
           },
     },
     summary: totals,

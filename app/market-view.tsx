@@ -107,9 +107,15 @@ type MarketOverview = {
   error?: string;
 };
 type MarketOverviewClientCacheEntry = { payload: MarketOverview; storedAt: number };
-const MARKET_OVERVIEW_CLIENT_CACHE_TTL_MS = 5 * 60 * 1000;
+type MarketOverviewSharedRequest = {
+  controller: AbortController;
+  promise: Promise<MarketOverview>;
+  subscribers: number;
+  settled: boolean;
+};
+const MARKET_OVERVIEW_RECENT_PREFETCH_MS = 5_000;
 const marketOverviewClientCache = new Map<string, MarketOverviewClientCacheEntry>();
-const marketOverviewPrefetches = new Map<string, Promise<void>>();
+const marketOverviewRequests = new Map<string, MarketOverviewSharedRequest>();
 
 function defaultMarketRankingParams(startDate: string, endDate: string) {
   const params = new URLSearchParams();
@@ -122,11 +128,12 @@ function defaultMarketRankingParams(startDate: string, endDate: string) {
   return params;
 }
 
-function cachedMarketOverview(requestKey: string) {
+function cachedMarketOverview(requestKey: string, maximumAgeMs = MARKET_OVERVIEW_RECENT_PREFETCH_MS) {
   const cached = marketOverviewClientCache.get(requestKey);
   if (!cached) return null;
-  if (Date.now() - cached.storedAt <= MARKET_OVERVIEW_CLIENT_CACHE_TTL_MS) return cached.payload;
-  marketOverviewClientCache.delete(requestKey);
+  const ageMs = Date.now() - cached.storedAt;
+  if (ageMs <= maximumAgeMs) return cached.payload;
+  if (ageMs > MARKET_OVERVIEW_RECENT_PREFETCH_MS) marketOverviewClientCache.delete(requestKey);
   return null;
 }
 
@@ -139,19 +146,81 @@ function rememberMarketOverview(requestKey: string, payload: MarketOverview) {
   }
 }
 
+function marketOverviewAbortError() {
+  const error = new Error("市场分析请求已取消");
+  error.name = "AbortError";
+  return error;
+}
+
+function subscribeMarketOverview(request: MarketOverviewSharedRequest, signal?: AbortSignal) {
+  request.subscribers += 1;
+  return new Promise<MarketOverview>((resolve, reject) => {
+    let active = true;
+    const release = () => {
+      if (!active) return false;
+      active = false;
+      signal?.removeEventListener("abort", onAbort);
+      request.subscribers = Math.max(0, request.subscribers - 1);
+      if (request.subscribers === 0 && !request.settled) request.controller.abort();
+      return true;
+    };
+    const onAbort = () => {
+      if (!release()) return;
+      reject(marketOverviewAbortError());
+    };
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    request.promise.then(
+      (payload) => { if (release()) resolve(payload); },
+      (error: unknown) => { if (release()) reject(error); },
+    );
+  });
+}
+
+export async function requestMarketOverview(requestKey: string, signal?: AbortSignal, maximumCacheAgeMs = 0) {
+  if (signal?.aborted) throw marketOverviewAbortError();
+  if (maximumCacheAgeMs > 0) {
+    const cached = cachedMarketOverview(requestKey, maximumCacheAgeMs);
+    if (cached) return cached;
+  }
+  let request = marketOverviewRequests.get(requestKey);
+  if (request?.controller.signal.aborted) {
+    if (marketOverviewRequests.get(requestKey) === request) marketOverviewRequests.delete(requestKey);
+    request = undefined;
+  }
+  if (!request) {
+    const controller = new AbortController();
+    const task = (async () => {
+      const response = await fetch(`/api/market/overview?${requestKey}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as MarketOverview | null;
+      if (!response.ok) throw new Error(payload?.error || "市场分析数据读取失败");
+      if (!payload) throw new Error("市场分析返回为空");
+      rememberMarketOverview(requestKey, payload);
+      return payload;
+    })();
+    request = { controller, promise: task, subscribers: 0, settled: false };
+    const ownedRequest = request;
+    marketOverviewRequests.set(requestKey, ownedRequest);
+    task.then(
+      () => {
+        ownedRequest.settled = true;
+        if (marketOverviewRequests.get(requestKey) === ownedRequest) marketOverviewRequests.delete(requestKey);
+      },
+      () => {
+        ownedRequest.settled = true;
+        if (marketOverviewRequests.get(requestKey) === ownedRequest) marketOverviewRequests.delete(requestKey);
+      },
+    );
+  }
+  return await subscribeMarketOverview(request, signal);
+}
+
 export async function prefetchMarketRankingOverview(startDate: string, endDate: string, signal?: AbortSignal) {
-  const params = defaultMarketRankingParams(startDate, endDate);
-  const requestKey = params.toString();
-  if (cachedMarketOverview(requestKey)) return;
-  const running = marketOverviewPrefetches.get(requestKey);
-  if (running) return await running;
-  const task = (async () => {
-    const response = await fetch(`/api/market/overview?${requestKey}`, { cache: "no-store", signal });
-    const payload = await response.json().catch(() => null) as MarketOverview | null;
-    if (response.ok && payload) rememberMarketOverview(requestKey, payload);
-  })().finally(() => marketOverviewPrefetches.delete(requestKey));
-  marketOverviewPrefetches.set(requestKey, task);
-  await task;
+  const requestKey = defaultMarketRankingParams(startDate, endDate).toString();
+  await requestMarketOverview(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS);
 }
 type TrendPayload = { items: Array<Record<string, string | number | null>>; totalMonths: number; truncated: boolean; error?: string };
 type ComparePayload = {
@@ -1328,19 +1397,15 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     if (marketEndDate) params.set("endDate", marketEndDate);
     return params;
   }, [query, categories, scopes, dimensions, operationModes, brands, subcategories, priceBands, marketStartDate, marketEndDate]);
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async (signal?: AbortSignal, maximumCacheAgeMs = 0) => {
     const requestId = ++loadRequestId.current;
     loadMoreController.current?.abort();
     setLoadingMore(false);
     setLoading(true); setError("");
     try {
       const params = buildOverviewParams(requestedView, 1);
-      const response = await fetch(`/api/market/overview?${params}`, { cache: "no-store", signal });
-      const payload = await response.json().catch(() => null) as MarketOverview | null;
-      if (!response.ok) throw new Error(payload?.error || "市场分析数据读取失败");
-      if (!payload) throw new Error("市场分析返回为空");
+      const payload = await requestMarketOverview(params.toString(), signal, maximumCacheAgeMs);
       if (signal?.aborted || requestId !== loadRequestId.current) return;
-      rememberMarketOverview(params.toString(), payload);
       setData(payload);
     } catch (reason) {
       if (signal?.aborted || requestId !== loadRequestId.current) return;
@@ -1354,9 +1419,13 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     loadMoreController.current?.abort();
     loadRequestId.current += 1;
     setLoadingMore(false);
-    const delay = initialLoad.current ? 0 : 350;
+    const isInitialLoad = initialLoad.current;
+    const delay = isInitialLoad ? 0 : 350;
     initialLoad.current = false;
-    const timer = window.setTimeout(() => void load(controller.signal), delay);
+    const timer = window.setTimeout(() => void load(
+      controller.signal,
+      isInitialLoad ? MARKET_OVERVIEW_RECENT_PREFETCH_MS : 0,
+    ), delay);
     return () => { window.clearTimeout(timer); controller.abort(); loadMoreController.current?.abort(); };
   }, [load, reloadKey]);
   const loadMore = useCallback(async () => {

@@ -384,8 +384,8 @@ function filterSql(filters: MarketOverviewFilters) {
   const list = (targetClauses: string[], targetValues: unknown[], column: string, items?: string[]) => {
     const normalized = [...new Set((items ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 30);
     if (!normalized.length) return;
-    targetClauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
-    targetValues.push(...normalized);
+    targetClauses.push(`${column} IN (SELECT CAST(value AS TEXT) FROM json_each(?))`);
+    targetValues.push(JSON.stringify(normalized));
   };
   if (filters.query?.trim()) {
     const query = `%${filters.query.trim().slice(0, 100)}%`;
@@ -402,14 +402,14 @@ function filterSql(filters: MarketOverviewFilters) {
   if (filters.endDate) { factClauses.push("m.period_start <= ?"); factValues.push(filters.endDate); }
   const priceBands = [...new Set((filters.priceBands ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
   const priceBandWhere = priceBands.length
-    ? `WHERE price_band IN (${priceBands.map((_, index) => `?${factValues.length + values.length + index + 1}`).join(",")})`
+    ? "WHERE price_band IN (SELECT CAST(value AS TEXT) FROM json_each(?))"
     : "";
   return {
     factWhere: factClauses.length ? `WHERE ${factClauses.join(" AND ")}` : "",
     where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
     values: [...factValues, ...values],
     priceBandWhere,
-    priceBandValues: priceBands,
+    priceBandValues: priceBands.length ? [JSON.stringify(priceBands)] : [],
   };
 }
 
@@ -419,8 +419,8 @@ function monthlySummaryFilterSql(filters: MarketOverviewFilters, confirmedOnlyPr
   const list = (column: string, items?: string[]) => {
     const normalized = [...new Set((items ?? []).map((item) => item.trim()).filter(Boolean))].slice(0, 30);
     if (!normalized.length) return;
-    clauses.push(`${column} IN (${normalized.map(() => "?").join(",")})`);
-    values.push(...normalized);
+    clauses.push(`${column} IN (SELECT CAST(value AS TEXT) FROM json_each(?))`);
+    values.push(JSON.stringify(normalized));
   };
   if (filters.query?.trim()) {
     const query = `%${filters.query.trim().slice(0, 100)}%`;

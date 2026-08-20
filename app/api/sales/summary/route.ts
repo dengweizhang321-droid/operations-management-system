@@ -10,12 +10,13 @@ import {
 } from "@/lib/sales/summary";
 import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
-import { parseProductQueries } from "@/lib/sales/product-query";
+import { parseProductQueriesStrict } from "@/lib/sales/product-query";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 
 export async function GET(request: Request) {
   try {
@@ -32,22 +33,34 @@ export async function GET(request: Request) {
 
     const db = getSalesDatabase();
     await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
-    const productQueries = parseProductQueries([
-      ...searchParams.getAll("productQuery"),
-      searchParams.get("productCodes") ?? "",
-    ]);
-    const categories = [...searchParams.getAll("categories"), ...searchParams.getAll("category")]
+    let productQueries: string[];
+    try {
+      productQueries = parseProductQueriesStrict([
+        ...searchParams.getAll("productQuery"),
+        searchParams.get("productCodes") ?? "",
+      ]);
+    } catch (error) {
+      throw new SalesSummaryRequestError(error instanceof Error ? error.message : "商品筛选无效");
+    }
+    const categories = [...new Set([...searchParams.getAll("categories"), ...searchParams.getAll("category")]
       .flatMap((value) => value.split(/[，,;；]+/))
       .map((value) => value.trim())
-      .filter(Boolean)
-      .filter((value, index, values) => values.indexOf(value) === index)
-      .slice(0, 50);
-    const outlets = [...searchParams.getAll("outlet"), ...searchParams.getAll("outlets")]
+      .filter(Boolean))];
+    if (categories.length > 50 || categories.some((value) => value.length > 100)) {
+      throw new SalesSummaryRequestError("品类筛选最多 50 项，且每项不能超过 100 字。");
+    }
+    const rawOutletKeys = [...new Set([...searchParams.getAll("outlet"), ...searchParams.getAll("outlets")]
       .flatMap((value) => value.split(/[，,;；]+/))
       .map((value) => parseShopFilterKey(value.trim()))
+    )];
+    if (rawOutletKeys.some((value) => value === null)) {
+      throw new SalesSummaryRequestError("outlet 必须使用有效的平台与店铺复合键。");
+    }
+    const outlets = [...new Map(rawOutletKeys
       .filter((value): value is NonNullable<typeof value> => value !== null)
-      .filter((value, index, values) => values.findIndex((item) => item.platform === value.platform && item.shopName === value.shopName) === index)
-      .slice(0, 50)
+      .map((value) => [`${value.platform}\u001f${value.shopName}`, value])).values()];
+    if (outlets.length > 50) throw new SalesSummaryRequestError("outlet 筛选最多 50 项。");
+    const normalizedOutlets = outlets
       .map((value) => ({ platform: value.platform, shop: value.shopName }));
     const payload = await getSalesSummary(db, {
       range: requested,
@@ -56,17 +69,16 @@ export async function GET(request: Request) {
       productQueries,
       platform: searchParams.get("platform") ?? undefined,
       shop: searchParams.get("shop") ?? undefined,
-      outlets,
+      outlets: normalizedOutlets,
       categories,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "读取销售汇总失败";
-    return Response.json(
-      { error: message },
-      { status: error instanceof SalesSummaryRequestError ? 400 : 500 },
-    );
+    if (error instanceof SalesSummaryRequestError) {
+      return Response.json({ error: error.message, code: "invalid_request" }, { status: 400, headers: { "cache-control": "no-store" } });
+    }
+    return safeApiErrorResponse(error, "读取销售汇总失败。", { headers: { "cache-control": "no-store" } });
   }
 }

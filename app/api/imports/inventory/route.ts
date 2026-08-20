@@ -12,11 +12,12 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { importExecutionHttpStatus, parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_DIRECT_INVENTORY_FILE_BYTES = 1024 * 1024;
 
 function errorResponse(status: number, message: string, details: Record<string, unknown> = {}) {
-  return Response.json({ ok: false, status: "rejected", message, ...details }, { status });
+  return Response.json({ ok: false, status: "rejected", message, ...details }, { status, headers: { "cache-control": "no-store" } });
 }
 
 export async function GET(request: Request) {
@@ -28,34 +29,36 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const batchId = params.get("batchId")?.trim() ?? "";
     if (batchId && !/^[a-f0-9]{64}$/i.test(batchId)) return errorResponse(400, "batchId 格式无效");
-    const requestedLimit = Number(params.get("limit") ?? 20);
+    const paged = params.has("page") || params.has("pageSize");
+    const page = parsePositiveIntegerQuery(paged ? params.get("page") : null, 1, "page", 10_000);
+    const pageSize = parsePositiveIntegerQuery(paged ? params.get("pageSize") : params.get("limit"), 20, paged ? "pageSize" : "limit", 100);
     const [exactBatch, currentBatch] = batchId
       ? await Promise.all([
           findInventoryImportBatchByHash(db, batchId),
           findLatestInventoryImportBatch(db),
         ])
       : [null, null];
-    const items = batchId
+    const payload = batchId
       ? (exactBatch?.id === batchId
-          ? [{
+          ? { items: [{
               ...exactBatch,
               ownedRowCount: await countInventoryRowsOwnedByBatch(db, exactBatch.id),
               isCurrent: currentBatch?.id === exactBatch.id,
-            }]
-          : [])
-      : await listInventoryImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
-    return Response.json({ items });
+            }], pagination: { page: 1, pageSize: 1, total: 1, returned: 1, truncated: false } }
+          : { items: [], pagination: { page: 1, pageSize: 1, total: 0, returned: 0, truncated: false } })
+      : await listInventoryImportBatches(db, { page, pageSize });
+    return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "读取库存同步历史失败";
-    return Response.json({ error: message }, { status: 500 });
+    return safeApiErrorResponse(error, "读取库存同步历史失败。", { headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "库存数据", "导入");
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传 .xlsx 文件");
@@ -81,12 +84,12 @@ export async function POST(request: Request) {
       snapshotDateOverride: snapshotDate,
     });
     return Response.json(payload, {
-      status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422,
+      status: importExecutionHttpStatus(payload),
+      headers: { "cache-control": "no-store" },
     });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "库存数据同步失败";
-    return Response.json({ ok: false, status: "rejected", message }, { status: 500 });
+    return safeApiErrorResponse(error, "库存数据同步失败。", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }

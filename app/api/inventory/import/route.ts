@@ -5,17 +5,20 @@ import {
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
+  requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_DIRECT_FILE_BYTES = 25 * 1024 * 1024;
 
 function errorResponse(status: number, message: string, details: Record<string, unknown> = {}) {
-  return Response.json({ ok: false, status: "rejected", message, ...details }, { status });
+  return Response.json({ ok: false, status: "rejected", message, ...details }, { status, headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "京东自营库存", "导入");
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().startsWith("multipart/form-data")) {
       return errorResponse(415, "请使用 multipart/form-data 上传库存快照文件");
@@ -42,11 +45,10 @@ export async function POST(request: Request) {
       note: parsed.note,
       snapshotDate: parsed.snapshotDate,
     });
-    return Response.json(payload, { status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422 });
+    return Response.json(payload, { status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422, headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    const message = error instanceof Error ? error.message : "京东自营库存快照导入失败";
-    return Response.json({ ok: false, status: "rejected", message }, { status: 500 });
+    return safeApiErrorResponse(error, "京东自营库存快照导入失败。", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }

@@ -56,6 +56,6 @@ test("sales page and API send product names through the shared resolver", () => 
   const summary = readFileSync(new URL("../lib/sales/summary.ts", import.meta.url), "utf8");
 
   assert.match(page, /query\.append\("productQuery", productQuery\)/);
-  assert.match(route, /parseProductQueries\([\s\S]*getAll\("productQuery"\)/);
+  assert.match(route, /parseProductQueriesStrict\([\s\S]*getAll\("productQuery"\)/);
   assert.match(summary, /resolveProductFilterCodes\(db, productQueries\)/);
 });

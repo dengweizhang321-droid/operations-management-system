@@ -64,14 +64,15 @@ test("inventory APIs bound response rows while preserving totals and recommendat
     readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(overview, /items: filteredItems\.slice\(0, limit\)/);
-  assert.match(overview, /pagination: \{ total: filteredItems\.length, limit, truncated:/);
+  assert.match(overview, /LIMIT \? OFFSET \?/);
+  assert.match(overview, /returned: pageResult\.results\.length/);
   assert.match(overview, /recommendations/);
-  assert.match(age, /items: items\.slice\(0, limit\)/);
-  assert.match(age, /pagination: \{ total: items\.length, limit, truncated:/);
-  assert.match(route, /params\.getAll\("warehouse"\)/);
+  assert.match(age, /LIMIT \? OFFSET \?/);
+  assert.match(age, /returned: pageResult\.results\.length/);
+  assert.match(route, /normalizeInventorySelections\(params\.getAll\(key\), options\)/);
+  assert.match(route, /readInventorySelections\(params, "warehouse"/);
   assert.match(page, /debouncedInventoryQuery/);
-  assert.match(page, /loadOverview\(controller\.signal\)/);
+  assert.match(page, /overviewGenerationRef/);
 });
 
 test("customer, sales, and product views avoid superseded or duplicate work", async () => {
@@ -83,7 +84,9 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
   ]);
   assert.match(page, /debouncedCustomerQuery/);
   assert.match(page, /includeOptions/);
-  assert.match(page, /load\(controller\.signal\)/);
+  assert.match(page, /listControllerRef\.current\?\.abort\(\)/);
+  assert.match(page, /listGenerationRef\.current === generation/);
+  assert.match(page, /listRequestKeyRef\.current === requestKey/);
   assert.match(page, /products\/summary\?\$\{params\}.*signal/s);
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
   assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}.*SELECT COUNT\(\*\) AS total, SUM/s);

@@ -1,8 +1,10 @@
 import { env } from "cloudflare:workers";
 import {
   importReservationCommitFence,
+  rethrowImportPublishError,
   type ImportReservationFence,
 } from "@/lib/imports/content-fingerprint";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export const SALES_IMPORT_SOURCE = "吉客云 ERP · 销售单明细账";
 export const SALES_IMPORT_CHUNK_SIZE = 500;
@@ -353,19 +355,25 @@ export async function findLatestSalesImportBatch(
 
 export async function listSalesImportBatches(
   db: SalesDatabase,
-  limit = 20,
-): Promise<SalesImportBatch[]> {
-  const result = await db
-    .prepare(
+  input: { page?: number; pageSize?: number } = {},
+) {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 20;
+  if (!Number.isSafeInteger(page) || page < 1 || page > 10_000) throw new PublicApiError(400, "invalid_request", "page 必须为 1 到 10000 的整数");
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new PublicApiError(400, "invalid_request", "pageSize 必须为 1 到 100 的整数");
+  const offset = (page - 1) * pageSize;
+  const [result, count] = await Promise.all([
+    db.prepare(
       `SELECT ${batchSelectColumns}
        FROM sales_import_batches
        ORDER BY created_at DESC, id DESC
-       LIMIT ?`,
-    )
-    .bind(Math.max(1, Math.min(100, Math.trunc(limit))))
-    .all<ImportBatchRow>();
-
-  return result.results.map(mapBatch);
+       LIMIT ? OFFSET ?`,
+    ).bind(pageSize, offset).all<ImportBatchRow>(),
+    db.prepare("SELECT COUNT(*) AS total FROM sales_import_batches").first<{ total: number }>(),
+  ]);
+  const items = result.results.map(mapBatch);
+  const total = Number(count?.total ?? 0);
+  return { items, pagination: { page, pageSize, total, returned: items.length, truncated: offset + items.length < total } };
 }
 
 const upsertSalesLinesSql = `
@@ -543,7 +551,13 @@ export async function saveSalesImport(
 
   // Cloudflare D1 batch() executes the statements transactionally. A parser or
   // write failure therefore leaves neither a partial batch nor partial facts.
-  const results = await db.batch(statements);
+  let results;
+  try {
+    results = await db.batch(statements);
+  } catch (error) {
+    if (input.reservationFence) return rethrowImportPublishError(db, input.reservationFence, error);
+    throw error;
+  }
   const created = Number(results[0]?.meta?.changes ?? 0) > 0;
   const batch = await findSalesImportBatchByHash(db, input.fileHash);
 

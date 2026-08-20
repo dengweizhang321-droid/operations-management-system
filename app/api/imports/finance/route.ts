@@ -9,11 +9,12 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { importExecutionHttpStatus, parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FINANCE_FILE_BYTES = 8 * 1024 * 1024;
 
 function errorResponse(status: number, message: string) {
-  return Response.json({ ok: false, status: "rejected", message }, { status });
+  return Response.json({ ok: false, status: "rejected", message }, { status, headers: { "cache-control": "no-store" } });
 }
 
 export async function GET(request: Request) {
@@ -22,19 +23,23 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "财报导入历史");
     const db = getFinanceDatabase();
     await ensureFinanceSchema(db);
-    const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? 20);
-    const items = await listFinanceImportBatches(db, Number.isFinite(requestedLimit) ? requestedLimit : 20);
-    return Response.json({ items });
+    const params = new URL(request.url).searchParams;
+    const paged = params.has("page") || params.has("pageSize");
+    const page = parsePositiveIntegerQuery(paged ? params.get("page") : null, 1, "page", 10_000);
+    const pageSize = parsePositiveIntegerQuery(paged ? params.get("pageSize") : params.get("limit"), 20, paged ? "pageSize" : "limit", 100);
+    const payload = await listFinanceImportBatches(db, { page, pageSize });
+    return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({ error: error instanceof Error ? error.message : "读取财报导入历史失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "读取财报导入历史失败。", { headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "财务数据", "导入");
     const contentType = request.headers.get("content-type") ?? "";
     const isMultipart = contentType.toLowerCase().startsWith("multipart/form-data");
     const isBinary = contentType.toLowerCase().startsWith("application/octet-stream");
@@ -68,15 +73,12 @@ export async function POST(request: Request) {
       fileSizeBytes: bytes.byteLength,
     });
     return Response.json(payload, {
-      status: payload.ok ? (payload.status === "imported" ? 201 : 200) : 422,
+      status: importExecutionHttpStatus(payload),
+      headers: { "cache-control": "no-store" },
     });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({
-      ok: false,
-      status: "rejected",
-      message: error instanceof Error ? error.message : "月度财报导入失败",
-    }, { status: 500 });
+    return safeApiErrorResponse(error, "月度财报导入失败。", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }

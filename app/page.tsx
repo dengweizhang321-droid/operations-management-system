@@ -32,6 +32,7 @@ import type {
   GlobalSearchResult,
   GlobalSearchTarget,
 } from "./global-search-dialog";
+import Dialog from "./ui/dialog";
 import TableColumnFilters from "./ui/table-column-filters";
 
 const MarketView = lazy(() => import("./market-view"));
@@ -66,12 +67,28 @@ type CurrentUser = {
   roleLabel: string;
 };
 
+export function canManageFinanceTargets(
+  currentUser: Pick<CurrentUser, "role"> | null | undefined,
+): boolean {
+  return currentUser?.role === "admin";
+}
+
+export function validateFinanceTargetDeletionReason(value: string | null):
+  | { status: "accepted"; reason: string }
+  | { status: "cancelled" }
+  | { status: "invalid" } {
+  if (value === null) return { status: "cancelled" };
+  const reason = value.trim();
+  if (!reason || reason.length > 200) return { status: "invalid" };
+  return { status: "accepted", reason };
+}
+
 type CustomerServiceMessage = { sender: string; sentAt: string; content: string };
 type CustomerServiceConversation = {
-  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; matchedSkuId: string; productSpuId: string; erpProductCode: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: "matched" | "session_only" | "chat_only" | "ambiguous"; matchConfidence: "exact" | "time_only" | "review" | "none"; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: CustomerServiceMessage[]; robotScope: "robot_only" | "contains_robot" | "exclude_robot" | ""; problemType: "商品咨询" | "价格优惠" | "物流发货" | "售后维修" | "退换货" | "安装使用" | "发票开票" | "催单改单" | "其他" | ""; conversionStatus: "converted" | "not_converted" | "unknown" | ""; serviceIssues: string; summaryText: string; analysisSource: "ai" | "manual" | ""; analyzedAt: string | null; annotatedAt: string | null;
+  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; matchedSkuId: string; productSpuId: string; erpProductCode: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: "matched" | "session_only" | "chat_only" | "ambiguous"; matchConfidence: "exact" | "time_only" | "review" | "none"; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: CustomerServiceMessage[]; messageTotalCount: number; messageReturnedCount: number; messagesTruncated: boolean; robotScope: "robot_only" | "contains_robot" | "exclude_robot" | ""; problemType: "商品咨询" | "价格优惠" | "物流发货" | "售后维修" | "退换货" | "安装使用" | "发票开票" | "催单改单" | "其他" | ""; conversionStatus: "converted" | "not_converted" | "unknown" | ""; serviceIssues: string; summaryText: string; analysisSource: "ai" | "manual" | ""; analyzedAt: string | null; annotatedAt: string | null; version: number; updatedAt: string;
 };
 type CustomerServiceData = {
-  items: CustomerServiceConversation[]; agents: string[]; shops: string[]; categories: string[]; summary: { total: number; matched: number; sessionOnly: number; chatOnly: number }; pagination: { page: number; pageSize: number; total: number };
+  items: CustomerServiceConversation[]; agents: string[]; shops: string[]; categories: string[]; summary: { total: number; matched: number; sessionOnly: number; chatOnly: number }; pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
 };
 
 type AiModelProtocol = "openai_compatible" | "anthropic";
@@ -255,6 +272,8 @@ type ProductSummaryItem = {
   observedFeeRate: number | null;
   availableQuantity: number | null;
   stockValueCents: number | null;
+  knownStockValueCents: number | null;
+  costCoverageRate: number | null;
 };
 
 type ProductShopFilterOption = {
@@ -274,8 +293,9 @@ type ProductSummaryResponse = {
     inventoryAsOf: string | null;
     latestSalesFile: string | null;
   };
-  filters: { platforms: string[]; shops: ProductShopFilterOption[] };
-  filtersApplied: { platforms: string[]; shops: ProductShopFilterOption[] };
+  filters: { platforms: string[]; shops: ProductShopFilterOption[]; categories: string[] };
+  filtersApplied: { platforms: string[]; shops: ProductShopFilterOption[]; query: string; categories: string[]; marginBands: string[] };
+  pagination: { page: number; pageSize: number; total: number; returned: number; totalPages: number; truncated: boolean };
   metrics: {
     skuCount: number;
     grossSalesCents: number;
@@ -314,6 +334,8 @@ type InventoryOverviewItem = {
   unitCostCents: number;
   inventoryAgeDays: number | null;
   stockValueCents: number | null;
+  knownStockValueCents: number;
+  costCoverageRate: number;
   sales30d: number | null;
   averageDailySales: number | null;
   coverageDays: number | null;
@@ -362,6 +384,8 @@ type InventoryOverviewResponse = {
     skuWarehouseCount: number;
     totalAvailableQuantity: number;
     totalStockValueCents: number;
+    knownStockValueCents: number;
+    stockValueComplete: boolean;
     costCoverageRate: number;
     salesDemandMatchRate: number;
     averageCoverageDays: number | null;
@@ -386,14 +410,16 @@ type InventoryOverviewResponse = {
     asOfDate: string | null;
   }>;
   filters: { warehouses: string[]; statuses: InventoryHealthStatus[] };
-  pagination: { total: number; limit: number; truncated: boolean };
+  pagination: { page: number; pageSize: number; limit: number; total: number; returned: number; totalPages: number; truncated: boolean };
   recommendations: InventoryOverviewItem[];
   items: InventoryOverviewItem[];
   plans: ReplenishmentPlanItem[];
+  plansPagination: { page: number; pageSize: number; total: number; returned: number; totalPages: number; truncated: boolean };
   planSummary: {
     draftCount: number;
     confirmedCount: number;
     completedCount: number;
+    cancelledCount: number;
     activeQuantity: number;
   };
 };
@@ -418,10 +444,11 @@ type InventoryAgeItem = {
 
 type InventoryAgeAnalysisResponse = {
   hasInventory: boolean;
-  sync: { inventoryAsOf: string | null; latestInventoryBatchId: string | null; hasAgeSales: boolean };
-  metrics: { skuWarehouseCount: number; aged90Count: number; aged90ValueCents: number; stagnantCount: number; stagnantValueCents: number; zeroSalesCount: number; cleanupCount: number };
+  sync: { inventoryAsOf: string | null; latestInventoryBatchId: string | null; sourceKey?: "inventory_age" | "inventory"; hasAgeSales: boolean };
+  metrics: { skuWarehouseCount: number; stockValueComplete: boolean; aged90Count: number; aged90ValueCents: number; stagnantCount: number; stagnantValueCents: number; zeroSalesCount: number; cleanupCount: number };
   distribution: Array<{ key: string; label: string; count: number; valueCents: number }>;
-  pagination: { total: number; limit: number; truncated: boolean };
+  filters: { warehouses: string[]; statuses: InventoryAgeStatus[] };
+  pagination: { page: number; pageSize: number; limit: number; total: number; returned: number; totalPages: number; truncated: boolean };
   items: InventoryAgeItem[];
 };
 
@@ -757,6 +784,7 @@ type FinanceTarget = {
   id: string;
   periodType: "month" | "year" | "project";
   periodKey: string;
+  platform: string;
   shopName: string;
   category: string;
   manager: string;
@@ -766,6 +794,7 @@ type FinanceTarget = {
   inventoryCleanupTargetCents: number;
   promotionFeeRatioBps: number;
   stagnantInventoryTargetCents: number;
+  version: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -785,18 +814,18 @@ type FinanceAnalysisResponse = {
   yearAgo?: FinanceActualMetrics | null;
   yearToDate?: FinanceActualMetrics;
   timeline: Array<{ month: string } & FinanceActualMetrics>;
-  targets?: { month: FinanceTargetTotals; year: FinanceTargetTotals; projects: FinanceTarget[] };
+  targets?: { month: FinanceTargetTotals; year: FinanceTargetTotals; projects: FinanceTarget[]; legacyCompatibility?: { excluded: number; reason: string } };
   progress?: { month: FinanceProgress; year: FinanceProgress };
   expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; feeRateBps: number; yearAgoFeeRateBps: number | null; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
-  shops: Array<{ name: string; groupName: string; manager: string; actual: FinanceActualMetrics; target: FinanceTargetTotals; progress: FinanceProgress }>;
+  shops: Array<{ key: string; name: string; groupName: string; manager: string; actual: FinanceActualMetrics; target: FinanceTargetTotals; progress: FinanceProgress }>;
   anomalies: Array<{ level: "critical" | "warning" | "info"; title: string; detail: string }>;
-  filters?: { platforms: string[]; shops: Array<{ name: string; platform: string }> };
-  selection?: { allMonths: boolean; months: string[]; platforms: string[]; shops: string[] };
+  filters?: { platforms: string[]; shops: Array<{ key: string; name: string; platform: string }> };
+  selection?: { allMonths: boolean; months: string[]; platforms: string[]; shops: string[]; truncated: boolean; availableMonthCount: number };
   sync?: { dataCutoffMonth: string; sourceFileName: string; importedAt: string };
   error?: string;
 };
 
-type FinanceTargetOptions = { shops: string[]; categories: string[]; projects: string[] };
+type FinanceTargetOptions = { shops: Array<{ key: string; platform: string; name: string }>; categories: string[]; projects: string[]; pagination?: { shops: { total: number; returned: number; truncated: boolean } } };
 
 type ImportFeedback = {
   tone: "success" | "warning" | "error" | "duplicate";
@@ -1973,6 +2002,8 @@ function ShopDailyProductPerformanceView({
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const columnPickerRef = useRef<HTMLDivElement>(null);
+  const productPerformanceGenerationRef = useRef(0);
+  const productPerformanceControllerRef = useRef<AbortController | null>(null);
   const debouncedQuery = useDebouncedValue(query, 280);
   const basePeriod = useMemo(
     () => skuSalesPeriod(range, customStartDate, customEndDate),
@@ -2026,6 +2057,11 @@ function ShopDailyProductPerformanceView({
   });
 
   const load = useCallback(async () => {
+    const generation = productPerformanceGenerationRef.current + 1;
+    productPerformanceGenerationRef.current = generation;
+    productPerformanceControllerRef.current?.abort();
+    const controller = new AbortController();
+    productPerformanceControllerRef.current = controller;
     const requestPerformance = async (requestedPeriod: { startDate: string; endDate: string }) => {
       const params = new URLSearchParams({
         dimension,
@@ -2037,7 +2073,7 @@ function ShopDailyProductPerformanceView({
       if (debouncedQuery) params.set("q", debouncedQuery);
       selectedPlatforms.forEach((platform) => params.append("platform", platform));
       selectedShops.forEach((shop) => params.append("shop", shop));
-      const response = await fetch(`/api/netshop/product-performance?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/netshop/product-performance?${params.toString()}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (NetshopProductPerformanceResponse & { error?: string }) | null;
       if (!response.ok || !payload?.summary || !Array.isArray(payload.items)) {
         throw new Error(payload?.error || `${dimensionLabel} 商品表现读取失败（${response.status}）`);
@@ -2052,17 +2088,24 @@ function ShopDailyProductPerformanceView({
         requestPerformance(selectedPeriod),
         comparisonPeriod ? requestPerformance(comparisonPeriod) : Promise.resolve(null),
       ]);
-      setPerformance({ current, comparison });
+      if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) setPerformance({ current, comparison });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : `暂时无法读取 ${dimensionLabel} 商品表现`);
+      if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) setError(requestError instanceof Error ? requestError.message : `暂时无法读取 ${dimensionLabel} 商品表现`);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) {
+        setLoading(false);
+        if (productPerformanceControllerRef.current === controller) productPerformanceControllerRef.current = null;
+      }
     }
   }, [comparisonPeriod, debouncedQuery, dimension, dimensionLabel, page, selectedPeriod, selectedPlatforms, selectedShops]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      productPerformanceGenerationRef.current += 1;
+      productPerformanceControllerRef.current?.abort();
+    };
   }, [load, retryKey]);
 
   if (loading && !performance) {
@@ -2204,12 +2247,19 @@ function ShopSkuView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  const skuCatalogGenerationRef = useRef(0);
+  const skuCatalogControllerRef = useRef<AbortController | null>(null);
   const salesPeriod = useMemo(
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
   );
 
   const load = useCallback(async () => {
+    const generation = skuCatalogGenerationRef.current + 1;
+    skuCatalogGenerationRef.current = generation;
+    skuCatalogControllerRef.current?.abort();
+    const controller = new AbortController();
+    skuCatalogControllerRef.current = controller;
     setLoading(true);
     setError("");
     try {
@@ -2219,22 +2269,29 @@ function ShopSkuView({
       if (debouncedQuery) params.set("q", debouncedQuery);
       selectedPlatforms.forEach((platform) => params.append("platform", platform));
       selectedShops.forEach((shop) => params.append("shop", shop));
-      const response = await fetch("/api/netshop/products?" + params.toString(), { cache: "no-store" });
+      const response = await fetch("/api/netshop/products?" + params.toString(), { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (JdSkuCatalogResponse & { error?: string }) | null;
       if (!response.ok || !payload?.summary || !Array.isArray(payload.items)) {
         throw new Error(payload?.error || "网店货品数据读取失败（" + response.status + "）");
       }
-      setCatalog(payload);
+      if (!controller.signal.aborted && generation === skuCatalogGenerationRef.current) setCatalog(payload);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "暂时无法读取网店货品数据");
+      if (!controller.signal.aborted && generation === skuCatalogGenerationRef.current) setError(requestError instanceof Error ? requestError.message : "暂时无法读取网店货品数据");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && generation === skuCatalogGenerationRef.current) {
+        setLoading(false);
+        if (skuCatalogControllerRef.current === controller) skuCatalogControllerRef.current = null;
+      }
     }
   }, [debouncedQuery, page, salesPeriod.endDate, salesPeriod.startDate, selectedPlatforms, selectedShops]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      skuCatalogGenerationRef.current += 1;
+      skuCatalogControllerRef.current?.abort();
+    };
   }, [load, retryKey]);
 
   if (loading && !catalog) {
@@ -2329,6 +2386,8 @@ function ShopPromotionView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  const promotionGenerationRef = useRef(0);
+  const promotionControllerRef = useRef<AbortController | null>(null);
   const pageConfig = promotionPageConfig[promotionPage];
 
   const selectPromotionPage = (nextPage: PromotionPageKey) => {
@@ -2341,7 +2400,11 @@ function ShopPromotionView({
   };
 
   useEffect(() => {
+    const generation = promotionGenerationRef.current + 1;
+    promotionGenerationRef.current = generation;
+    promotionControllerRef.current?.abort();
     const controller = new AbortController();
+    promotionControllerRef.current = controller;
     void (async () => {
       setLoading(true);
       setError("");
@@ -2358,14 +2421,20 @@ function ShopPromotionView({
         const response = await fetch(`/api/netshop/promotion-performance?${params.toString()}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as (NetshopPromotionPerformanceResponse & { error?: string }) | null;
         if (!response.ok || !payload?.summary || !Array.isArray(payload.items)) throw new Error(payload?.error || `推广数据读取失败（${response.status}）`);
-        if (!controller.signal.aborted) setPerformance(payload);
+        if (!controller.signal.aborted && generation === promotionGenerationRef.current) setPerformance(payload);
       } catch (requestError) {
-        if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取推广数据");
+        if (!controller.signal.aborted && generation === promotionGenerationRef.current) setError(requestError instanceof Error ? requestError.message : "暂时无法读取推广数据");
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted && generation === promotionGenerationRef.current) {
+          setLoading(false);
+          if (promotionControllerRef.current === controller) promotionControllerRef.current = null;
+        }
       }
     })();
-    return () => controller.abort();
+    return () => {
+      promotionGenerationRef.current += 1;
+      controller.abort();
+    };
   }, [debouncedQuery, page, pageConfig.platform, pageConfig.shopName, period.endDate, period.startDate, retryKey]);
 
   const platformSubnav = <div className="subnav promotion-platform-subnav" role="tablist" aria-label="推广分析平台">
@@ -3135,7 +3204,7 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
   const platformOptions = data.filters?.platforms ?? [];
   const shopOptions = (data.filters?.shops ?? [])
     .filter((shop) => selectedPlatforms === null || selectedPlatforms.includes(shop.platform))
-    .map((shop) => ({ value: shop.name, label: shop.name }));
+    .map((shop) => ({ value: shop.key, label: `${shop.platform} · ${shop.name}` }));
   const activeMonthSelection = selectedMonths;
   const updateSelectedPlatforms = (next: string[] | null) => {
     setSelectedPlatforms(next);
@@ -3170,6 +3239,8 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
       <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>平台选择</span><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="finance-filter-field"><span>店铺选择</span><FinanceMultiFilterSelect label="店铺" allLabel="全部店铺" options={shopOptions} selected={selectedShops} onChange={setSelectedShops} /></div><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /></div></div><small>全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data.sync?.dataCutoffMonth}</small></div>
     </section>
     {error && <div className="inline-feedback warning"><strong>刷新提示</strong><span>{error}</span></div>}
+    {data.selection?.truncated && <div className="inline-feedback warning" role="status"><strong>分析范围已设上限</strong><span>当前共有 {data.selection.availableMonthCount} 个可用月份，“全部月份”仅分析最近 {data.selection.months.length} 个月；如需更早月份，请在月份筛选中明确选择。</span></div>}
+    {Boolean(data.targets.legacyCompatibility?.excluded) && <div className="inline-feedback warning" role="status"><strong>旧目标缺少平台身份</strong><span>{data.targets.legacyCompatibility?.reason} 当前有 {data.targets.legacyCompatibility?.excluded} 项未参与本次 KPI。</span></div>}
     <section className="finance-kpi-grid">
       <FinanceKpiCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} targetLabel={targets.salesTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.salesTargetCents)}` : "尚未设置销售目标"} progress={progress.sales} mom={{ text: formatFinanceChange(current.netSalesCents, previous?.netSalesCents), tone: financeChangeTone(current.netSalesCents, previous?.netSalesCents) }} yoy={{ text: formatFinanceChange(current.netSalesCents, yearAgo?.netSalesCents), tone: financeChangeTone(current.netSalesCents, yearAgo?.netSalesCents) }} tone="blue" />
       <FinanceKpiCard label="利润" value={formatCurrencyFromCents(current.profitCents)} targetLabel={targets.profitTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.profitTargetCents)}` : "尚未设置利润目标"} progress={progress.profit} mom={{ text: formatFinanceChange(current.profitCents, previous?.profitCents), tone: financeChangeTone(current.profitCents, previous?.profitCents) }} yoy={{ text: formatFinanceChange(current.profitCents, yearAgo?.profitCents), tone: financeChangeTone(current.profitCents, yearAgo?.profitCents) }} tone="green" />
@@ -3219,14 +3290,17 @@ function FinanceAnalysisView({ customStartDate, customEndDate }: { customStartDa
         </table>
       </div>
     </section>
-    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.name}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
+    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={setSelectedMonths} /><FinanceMultiFilterSelect label="平台" allLabel="全部平台" options={platformOptions} selected={selectedPlatforms} onChange={updateSelectedPlatforms} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
   </div>;
 }
 
 type FinanceTargetFormState = {
   id: string;
+  expectedVersion: number | null;
   periodType: "month" | "year" | "project";
   periodKey: string;
+  shopKey: string;
+  platform: string;
   shopName: string;
   category: string;
   manager: string;
@@ -3241,8 +3315,11 @@ type FinanceTargetFormState = {
 const currentShanghaiMonth = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
 const emptyFinanceTargetForm = (): FinanceTargetFormState => ({
   id: "",
+  expectedVersion: null,
   periodType: "month",
   periodKey: currentShanghaiMonth(),
+  shopKey: "",
+  platform: "",
   shopName: "",
   category: "",
   manager: "",
@@ -3254,35 +3331,50 @@ const emptyFinanceTargetForm = (): FinanceTargetFormState => ({
   stagnantInventoryTarget: "",
 });
 
-function FinanceTargetSettingsView() {
+function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boolean }) {
   const [items, setItems] = useState<FinanceTarget[]>([]);
   const [options, setOptions] = useState<FinanceTargetOptions>({ shops: [], categories: [], projects: ["8系列"] });
   const [form, setForm] = useState<FinanceTargetFormState>(emptyFinanceTargetForm);
+  const [targetPage, setTargetPage] = useState(1);
+  const [targetPagination, setTargetPagination] = useState({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingTargetId, setDeletingTargetId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const targetRequestGenerationRef = useRef(0);
+  const targetRequestControllerRef = useRef<AbortController | null>(null);
 
   const loadTargets = useCallback(async () => {
+    targetRequestControllerRef.current?.abort();
+    const controller = new AbortController();
+    targetRequestControllerRef.current = controller;
+    const generation = ++targetRequestGenerationRef.current;
     setLoading(true);
     try {
-      const response = await fetch("/api/finance/targets", { cache: "no-store" });
-      const payload = await response.json().catch(() => null) as { items?: FinanceTarget[]; options?: FinanceTargetOptions; error?: string } | null;
-      if (!response.ok || !Array.isArray(payload?.items) || !payload?.options) throw new Error(payload?.error || "目标设置读取失败");
+      const response = await fetch(`/api/finance/targets?page=${targetPage}&pageSize=100`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as { items?: FinanceTarget[]; options?: FinanceTargetOptions; pagination?: { page: number; pageSize: number; total: number; returned: number; truncated: boolean }; error?: string } | null;
+      if (!response.ok || !Array.isArray(payload?.items) || !payload?.options || !payload.pagination) throw new Error(payload?.error || "目标设置读取失败");
+      if (controller.signal.aborted || generation !== targetRequestGenerationRef.current) return;
       setItems(payload.items);
       setOptions(payload.options);
+      setTargetPagination(payload.pagination);
     } catch (error) {
+      if (controller.signal.aborted || generation !== targetRequestGenerationRef.current) return;
       setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标设置读取失败" });
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && generation === targetRequestGenerationRef.current) {
+        setLoading(false);
+        if (targetRequestControllerRef.current === controller) targetRequestControllerRef.current = null;
+      }
     }
-  }, []);
+  }, [targetPage]);
 
-  useEffect(() => { void loadTargets(); }, [loadTargets]);
+  useEffect(() => { void loadTargets(); return () => targetRequestControllerRef.current?.abort(); }, [loadTargets]);
   const patchForm = (patch: Partial<FinanceTargetFormState>) => setForm((current) => ({ ...current, ...patch }));
   const toCents = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value) * 100)) : 0;
   const toBps = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value) * 100)) : 0;
   const saveTarget = async () => {
-    if (saving) return;
+    if (!canManageTargets || saving || deletingTargetId !== null) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -3291,8 +3383,10 @@ function FinanceTargetSettingsView() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: form.id || undefined,
+          expectedVersion: form.id ? form.expectedVersion : undefined,
           periodType: form.periodType,
           periodKey: form.periodKey,
+          platform: form.platform,
           shopName: form.shopName,
           category: form.category,
           manager: form.manager,
@@ -3305,7 +3399,13 @@ function FinanceTargetSettingsView() {
         }),
       });
       const payload = await response.json().catch(() => null) as { item?: FinanceTarget; error?: string } | null;
-      if (!response.ok || !payload?.item) throw new Error(payload?.error || "目标保存失败");
+      if (!response.ok || !payload?.item) {
+        if (response.status === 409) {
+          await loadTargets();
+          throw new Error("目标已被其他人更新，列表已刷新；请重新进入编辑后再保存。");
+        }
+        throw new Error(payload?.error || "目标保存失败");
+      }
       setMessage({ tone: "success", text: "目标已保存，财报分析进度已同步更新。" });
       setForm(emptyFinanceTargetForm());
       await loadTargets();
@@ -3315,52 +3415,99 @@ function FinanceTargetSettingsView() {
       setSaving(false);
     }
   };
-  const editTarget = (item: FinanceTarget) => setForm({
-    id: item.id,
-    periodType: item.periodType,
-    periodKey: item.periodKey,
-    shopName: item.shopName,
-    category: item.category,
-    manager: item.manager,
-    salesTarget: item.salesTargetCents ? String(item.salesTargetCents / 100) : "",
-    profitTarget: item.profitTargetCents ? String(item.profitTargetCents / 100) : "",
-    smallMargin: item.smallMarginBps ? String(item.smallMarginBps / 100) : "",
-    inventoryCleanupTarget: item.inventoryCleanupTargetCents ? String(item.inventoryCleanupTargetCents / 100) : "",
-    promotionFeeRatio: item.promotionFeeRatioBps ? String(item.promotionFeeRatioBps / 100) : "",
-    stagnantInventoryTarget: item.stagnantInventoryTargetCents ? String(item.stagnantInventoryTargetCents / 100) : "",
-  });
-  const removeTarget = async (id: string) => {
-    const response = await fetch(`/api/finance/targets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    const payload = await response.json().catch(() => null) as { error?: string } | null;
-    if (!response.ok) {
-      setMessage({ tone: "error", text: payload?.error || "目标删除失败" });
+  const editTarget = (item: FinanceTarget) => {
+    if (!canManageTargets || saving || deletingTargetId !== null) return;
+    setForm({
+      id: item.id,
+      expectedVersion: item.version,
+      periodType: item.periodType,
+      periodKey: item.periodKey,
+      shopKey: item.platform && item.shopName ? JSON.stringify([item.platform, item.shopName]) : "",
+      platform: item.platform,
+      shopName: item.shopName,
+      category: item.category,
+      manager: item.manager,
+      salesTarget: item.salesTargetCents ? String(item.salesTargetCents / 100) : "",
+      profitTarget: item.profitTargetCents ? String(item.profitTargetCents / 100) : "",
+      smallMargin: item.smallMarginBps ? String(item.smallMarginBps / 100) : "",
+      inventoryCleanupTarget: item.inventoryCleanupTargetCents ? String(item.inventoryCleanupTargetCents / 100) : "",
+      promotionFeeRatio: item.promotionFeeRatioBps ? String(item.promotionFeeRatioBps / 100) : "",
+      stagnantInventoryTarget: item.stagnantInventoryTargetCents ? String(item.stagnantInventoryTargetCents / 100) : "",
+    });
+  };
+  const removeTarget = async (item: FinanceTarget) => {
+    if (!canManageTargets || saving || deletingTargetId !== null) return;
+    const confirmed = window.confirm(`确认删除“${item.periodKey}”经营目标？此操作不可撤销。`);
+    if (!confirmed) return;
+    const providedReason = window.prompt("请输入删除原因（1—200 个字符）：", "");
+    const reasonResult = validateFinanceTargetDeletionReason(providedReason);
+    if (reasonResult.status === "cancelled") return;
+    if (reasonResult.status === "invalid") {
+      setMessage({ tone: "error", text: "删除原因必填，且长度必须为 1—200 个字符。" });
       return;
     }
-    setMessage({ tone: "success", text: "目标已删除。" });
-    await loadTargets();
+
+    const query = new URLSearchParams({
+      id: item.id,
+      expectedVersion: String(item.version),
+      reason: reasonResult.reason,
+    });
+    setDeletingTargetId(item.id);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/finance/targets?${query.toString()}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) {
+        if (response.status === 409) {
+          await loadTargets();
+          setMessage({ tone: "error", text: "目标已被其他人更新，列表已刷新；请核对最新内容后重试。" });
+          return;
+        }
+        setMessage({ tone: "error", text: payload?.error || "目标删除失败" });
+        return;
+      }
+      setMessage({ tone: "success", text: "目标已删除。" });
+      if (items.length === 1 && targetPage > 1) setTargetPage((value) => value - 1);
+      else await loadTargets();
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标删除失败" });
+    } finally {
+      setDeletingTargetId(null);
+    }
   };
 
   return <div className="finance-target-page">
-    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">TARGET MANAGEMENT</span><h2>经营目标设置</h2><p>按月度或年度设置店铺/店铺+品类目标，并单独管理 8 系列呆滞库存项目。</p></div><span className="soft-tag">已设置 {items.length} 项</span></section>
+    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">TARGET MANAGEMENT</span><h2>经营目标设置</h2><p>按月度或年度设置店铺/店铺+品类目标，并单独管理 8 系列呆滞库存项目。</p></div><span className="soft-tag">共 {targetPagination.total} 项</span></section>
     {message && <div className={`inline-feedback ${message.tone}`}><strong>{message.tone === "success" ? "操作成功" : "操作失败"}</strong><span>{message.text}</span></div>}
-    <section className="panel finance-target-form-panel">
-      <div className="finance-panel-heading"><div><span className="eyebrow">{form.id ? "EDIT TARGET" : "NEW TARGET"}</span><h2>{form.id ? "编辑目标" : "新增目标"}</h2><p>金额单位为元，比率单位为百分比；同周期、同店铺和同品类再次保存会自动更新。</p></div>{form.id && <button className="secondary-button" onClick={() => setForm(emptyFinanceTargetForm())}>取消编辑</button>}</div>
-      <div className="finance-target-period-tabs" role="group" aria-label="目标类型">{(["month", "year", "project"] as const).map((type) => <button type="button" key={type} className={form.periodType === type ? "active" : ""} onClick={() => patchForm({ periodType: type, periodKey: type === "month" ? currentShanghaiMonth() : type === "year" ? currentShanghaiMonth().slice(0, 4) : "8系列", shopName: type === "project" ? "" : form.shopName, category: type === "project" ? "" : form.category })}>{type === "month" ? "月度目标" : type === "year" ? "年度目标" : "项目目标"}</button>)}</div>
+    {options.pagination?.shops.truncated && <div className="inline-feedback warning" role="status"><strong>店铺选项已设上限</strong><span>当前展示 {options.pagination.shops.returned} / {options.pagination.shops.total} 个平台店铺，请先在财报数据中核对目标店铺或缩小历史数据范围。</span></div>}
+    {canManageTargets ? <section className="panel finance-target-form-panel">
+      <div className="finance-panel-heading"><div><span className="eyebrow">{form.id ? "EDIT TARGET" : "NEW TARGET"}</span><h2>{form.id ? "编辑目标" : "新增目标"}</h2><p>金额单位为元，比率单位为百分比；同周期、同平台、同店铺和同品类只能保留一项，冲突时请刷新后编辑。</p></div>{form.id && <button className="secondary-button" onClick={() => setForm(emptyFinanceTargetForm())}>取消编辑</button>}</div>
+      <div className="finance-target-period-tabs" role="group" aria-label="目标类型">{(["month", "year", "project"] as const).map((type) => <button type="button" key={type} className={form.periodType === type ? "active" : ""} onClick={() => patchForm({ periodType: type, periodKey: type === "month" ? currentShanghaiMonth() : type === "year" ? currentShanghaiMonth().slice(0, 4) : "8系列", shopKey: type === "project" ? "" : form.shopKey, platform: type === "project" ? "" : form.platform, shopName: type === "project" ? "" : form.shopName, category: type === "project" ? "" : form.category })}>{type === "month" ? "月度目标" : type === "year" ? "年度目标" : "项目目标"}</button>)}</div>
       <div className="finance-target-form-grid">
         <label><span>{form.periodType === "project" ? "项目名称" : "目标周期"}</span>{form.periodType === "month" ? <input type="month" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} /> : form.periodType === "year" ? <input type="number" min="2020" max="2100" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} /> : <input list="finance-project-options" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} />}</label>
-        {form.periodType !== "project" && <><label><span>店铺</span><input list="finance-shop-options" value={form.shopName} onChange={(event) => patchForm({ shopName: event.target.value })} placeholder="选择或输入店铺" /></label><label><span>品类（可选）</span><input list="finance-category-options" value={form.category} onChange={(event) => patchForm({ category: event.target.value })} placeholder="留空表示整店" /></label><label><span>店长 / 负责人</span><input value={form.manager} onChange={(event) => patchForm({ manager: event.target.value })} placeholder="输入姓名" /></label></>}
+        {form.periodType !== "project" && <><label><span>平台 · 店铺</span><SearchableSelect value={form.shopKey} onChange={(value) => { const selected = options.shops.find((item) => item.key === value); patchForm({ shopKey: value, platform: selected?.platform ?? "", shopName: selected?.name ?? "" }); }} ariaLabel="经营目标平台与店铺" searchPlaceholder="搜索平台或店铺" options={options.shops.map((item) => ({ value: item.key, label: `${item.platform} · ${item.name}` }))} /></label><label><span>品类（可选）</span><input list="finance-category-options" value={form.category} onChange={(event) => patchForm({ category: event.target.value })} placeholder="留空表示整店" /></label><label><span>店长 / 负责人</span><input value={form.manager} onChange={(event) => patchForm({ manager: event.target.value })} placeholder="输入姓名" /></label></>}
         {form.periodType === "project" ? <label><span>呆滞库存目标（元）</span><input type="number" min="0" step="0.01" value={form.stagnantInventoryTarget} onChange={(event) => patchForm({ stagnantInventoryTarget: event.target.value })} /></label> : <><label><span>销售额目标（元）</span><input type="number" min="0" step="0.01" value={form.salesTarget} onChange={(event) => patchForm({ salesTarget: event.target.value })} /></label><label><span>利润目标（元）</span><input type="number" min="0" step="0.01" value={form.profitTarget} onChange={(event) => patchForm({ profitTarget: event.target.value })} /></label><label><span>小毛利率目标（%）</span><input type="number" min="0" step="0.01" value={form.smallMargin} onChange={(event) => patchForm({ smallMargin: event.target.value })} /></label><label><span>库存清理目标（元）</span><input type="number" min="0" step="0.01" value={form.inventoryCleanupTarget} onChange={(event) => patchForm({ inventoryCleanupTarget: event.target.value })} /></label><label><span>推广费占比目标（%）</span><input type="number" min="0" step="0.01" value={form.promotionFeeRatio} onChange={(event) => patchForm({ promotionFeeRatio: event.target.value })} /></label></>}
       </div>
-      <datalist id="finance-shop-options">{options.shops.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-category-options">{options.categories.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-project-options">{options.projects.map((item) => <option key={item} value={item} />)}</datalist>
-      <div className="finance-target-actions"><span>{form.periodType === "project" ? "项目目标独立统计呆滞库存清理进度" : "品类留空时按整店目标统计"}</span><button type="button" className="primary-button" disabled={saving} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
+      <datalist id="finance-category-options">{options.categories.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-project-options">{options.projects.map((item) => <option key={item} value={item} />)}</datalist>
+      <div className="finance-target-actions"><span>{form.periodType === "project" ? "项目目标独立统计呆滞库存清理进度" : "品类留空时按整店目标统计；平台与店铺必须成对选择"}</span><button type="button" className="primary-button" disabled={saving || (form.periodType !== "project" && !form.shopKey)} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
+    </section> : <div className="inline-feedback warning" role="status"><strong>当前为只读模式</strong><span>仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。</span></div>}
+    <section className="panel finance-target-list-panel">
+      <div className="finance-panel-heading"><div><span className="eyebrow">TARGET LIST</span><h2>已设置目标</h2><p>目标保存后立即参与财报分析中的月度、年度和店铺进度计算。</p></div><span className="soft-tag">本页 {targetPagination.returned} / 共 {targetPagination.total} 项</span></div>
+      {loading ? <div className="table-state">正在读取目标…</div> : <>
+        <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>类型 / 周期</th><th>店铺 / 品类</th><th>负责人</th><th>销售目标</th><th>利润目标</th><th>小毛利率</th><th>库存清理 / 呆滞目标</th><th>推广费占比</th><th>{canManageTargets ? "操作" : "权限"}</th></tr></thead><tbody>
+          {items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.periodType === "project" ? "呆滞库存" : `${item.platform || "旧目标 · 平台待确认"}${item.category ? ` · ${item.category}` : " · 整店"}`}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.smallMarginBps)}</td><td>{formatCurrencyFromCents(item.periodType === "project" ? item.stagnantInventoryTargetCents : item.inventoryCleanupTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.promotionFeeRatioBps)}</td><td>{canManageTargets ? <div className="finance-target-row-actions"><button type="button" disabled={saving || deletingTargetId !== null} onClick={() => editTarget(item)}>编辑</button><button type="button" className="danger" disabled={saving || deletingTargetId !== null} onClick={() => void removeTarget(item)}>{deletingTargetId === item.id ? "删除中…" : "删除"}</button></div> : <span className="soft-text">只读</span>}</td></tr>)}
+          {items.length === 0 && <tr><td colSpan={9}><div className="table-state">{canManageTargets ? "还没有目标，先在上方新增一项。" : "当前没有可查看的经营目标。"}</div></td></tr>}
+        </tbody></table></div>
+        {(targetPage > 1 || targetPagination.truncated) && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={targetPage <= 1} onClick={() => setTargetPage((value) => value - 1)}>上一页</button><span>第 {targetPage} 页 · 每页最多 100 项</span><button type="button" className="row-action" disabled={!targetPagination.truncated} onClick={() => setTargetPage((value) => value + 1)}>下一页</button></div>}
+      </>}
     </section>
-    <section className="panel finance-target-list-panel"><div className="finance-panel-heading"><div><span className="eyebrow">TARGET LIST</span><h2>已设置目标</h2><p>目标保存后立即参与财报分析中的月度、年度和店铺进度计算。</p></div></div>{loading ? <div className="table-state">正在读取目标…</div> : <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>类型 / 周期</th><th>店铺 / 品类</th><th>负责人</th><th>销售目标</th><th>利润目标</th><th>小毛利率</th><th>库存清理 / 呆滞目标</th><th>推广费占比</th><th>操作</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.category || (item.periodType === "project" ? "呆滞库存" : "整店")}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.smallMarginBps)}</td><td>{formatCurrencyFromCents(item.periodType === "project" ? item.stagnantInventoryTargetCents : item.inventoryCleanupTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.promotionFeeRatioBps)}</td><td><div className="finance-target-row-actions"><button onClick={() => editTarget(item)}>编辑</button><button className="danger" onClick={() => void removeTarget(item.id)}>删除</button></div></td></tr>)}{items.length === 0 && <tr><td colSpan={9}><div className="table-state">还没有目标，先在上方新增一项。</div></td></tr>}</tbody></table></div>}</section>
   </div>;
 }
 
-function SalesView({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; moduleView: SalesTab; onModuleViewChange: (view: SalesTab) => void }) {
+function SalesView({ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; currentUser: CurrentUser | null; moduleView: SalesTab; onModuleViewChange: (view: SalesTab) => void }) {
   const apiRange = salesRangeMap[range];
   const activeTab = moduleView;
+  const canManageTargets = canManageFinanceTargets(currentUser);
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -3439,7 +3586,7 @@ function SalesView({ range, customStartDate, customEndDate, moduleView, onModule
 
   if (activeTab === "category") return <>{salesSubnav}<SalesCategoryView startDate={customStartDate} endDate={customEndDate} /></>;
   if (activeTab === "finance") return <>{salesSubnav}<FinanceAnalysisView customStartDate={customStartDate} customEndDate={customEndDate} /></>;
-  if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView /></>;
+  if (activeTab === "targets") return <>{salesSubnav}<FinanceTargetSettingsView canManageTargets={canManageTargets} /></>;
 
   if (loading && !summary) {
     return (
@@ -3564,7 +3711,7 @@ function InventoryKpiCard({
   );
 }
 
-function InventoryView({ customStartDate, customEndDate, moduleView, onModuleViewChange }: { customStartDate: string; customEndDate: string; moduleView: InventoryTab; onModuleViewChange: (view: InventoryTab) => void }) {
+function InventoryView({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser | null; moduleView: InventoryTab; onModuleViewChange: (view: InventoryTab) => void }) {
   const syncInputRef = useRef<HTMLInputElement>(null);
   const activeTab = moduleView;
   const [overview, setOverview] = useState<InventoryOverviewResponse | null>(null);
@@ -3578,7 +3725,7 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStage, setSyncStage] = useState("");
-  const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
   const [syncFeedback, setSyncFeedback] = useState<{ tone: "success" | "warning" | "error"; title: string; message: string } | null>(null);
   const [query, setQuery] = useState("");
   const [warehouseFilters, setWarehouseFilters] = useState<string[]>([]);
@@ -3586,69 +3733,100 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [planActionId, setPlanActionId] = useState("");
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
+  const [overviewPage, setOverviewPage] = useState(1);
+  const [agePage, setAgePage] = useState(1);
+  const [planPage, setPlanPage] = useState(1);
+  const [planStatus, setPlanStatus] = useState<"" | ReplenishmentPlanItem["status"]>("");
+  const overviewGenerationRef = useRef(0);
+  const overviewControllerRef = useRef<AbortController | null>(null);
+  const ageGenerationRef = useRef(0);
+  const ageControllerRef = useRef<AbortController | null>(null);
   const debouncedInventoryQuery = useDebouncedValue(query);
+  const canManageInventory = currentUser?.role === "admin";
 
-  const loadOverview = useCallback(async (signal?: AbortSignal) => {
+  const loadOverview = useCallback(async () => {
+    const generation = overviewGenerationRef.current + 1;
+    overviewGenerationRef.current = generation;
+    overviewControllerRef.current?.abort();
+    const controller = new AbortController();
+    overviewControllerRef.current = controller;
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ limit: "300", startDate: customStartDate, endDate: customEndDate });
+      const params = new URLSearchParams({ page: String(overviewPage), pageSize: "50", startDate: customStartDate, endDate: customEndDate });
+      params.set("planPage", String(planPage));
+      params.set("planPageSize", "50");
+      if (planStatus) params.set("planStatus", planStatus);
       if (debouncedInventoryQuery.trim()) params.set("q", debouncedInventoryQuery.trim());
       warehouseFilters.forEach((value) => params.append("warehouse", value));
       typeFilters.forEach((value) => params.append("warehouseType", value));
       statusFilters.forEach((value) => params.append("status", value));
-      const response = await fetch(`/api/inventory/overview?${params}`, { cache: "no-store", signal });
+      const response = await fetch(`/api/inventory/overview?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (InventoryOverviewResponse & { error?: string; message?: string }) | null;
       if (!response.ok) throw new Error(payload?.error || payload?.message || `库存数据读取失败（${response.status}）`);
       if (!payload || !Array.isArray(payload.items) || !payload.metrics || !payload.sync) throw new Error("库存总览响应格式不完整");
-      if (!signal?.aborted) setOverview(payload);
+      if (!controller.signal.aborted && generation === overviewGenerationRef.current) setOverview(payload);
     } catch (requestError) {
-      if (!signal?.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取库存数据");
+      if (!controller.signal.aborted && generation === overviewGenerationRef.current) setError(requestError instanceof Error ? requestError.message : "暂时无法读取库存数据");
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!controller.signal.aborted && generation === overviewGenerationRef.current) {
+        setLoading(false);
+        if (overviewControllerRef.current === controller) overviewControllerRef.current = null;
+      }
     }
-  }, [customEndDate, customStartDate, debouncedInventoryQuery, statusFilters, typeFilters, warehouseFilters]);
+  }, [customEndDate, customStartDate, debouncedInventoryQuery, overviewPage, planPage, planStatus, statusFilters, typeFilters, warehouseFilters]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadOverview(controller.signal), 0);
-    return () => { window.clearTimeout(timer); controller.abort(); };
+    const timer = window.setTimeout(() => void loadOverview(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      overviewGenerationRef.current += 1;
+      overviewControllerRef.current?.abort();
+    };
   }, [loadOverview, retryKey]);
 
   const loadAgeAnalysis = useCallback(async () => {
+    const generation = ageGenerationRef.current + 1;
+    ageGenerationRef.current = generation;
+    ageControllerRef.current?.abort();
+    const controller = new AbortController();
+    ageControllerRef.current = controller;
     setAgeLoading(true);
     setAgeError("");
     try {
-      const response = await fetch("/api/inventory/age-analysis", { cache: "no-store" });
+      const params = new URLSearchParams({ page: String(agePage), pageSize: "50" });
+      if (activeTab === "stale") ["stagnant", "slow", "aged"].forEach((status) => params.append("status", status));
+      const response = await fetch(`/api/inventory/age-analysis?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (InventoryAgeAnalysisResponse & { error?: string }) | null;
       if (!response.ok || !payload || !Array.isArray(payload.items) || !payload.metrics) {
         throw new Error(payload?.error || `库龄数据读取失败（${response.status}）`);
       }
-      setAgeAnalysis(payload);
+      if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeAnalysis(payload);
     } catch (requestError) {
-      setAgeError(requestError instanceof Error ? requestError.message : "暂时无法读取库龄分析数据");
+      if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeError(requestError instanceof Error ? requestError.message : "暂时无法读取库龄分析数据");
     } finally {
-      setAgeLoading(false);
+      if (!controller.signal.aborted && generation === ageGenerationRef.current) {
+        setAgeLoading(false);
+        if (ageControllerRef.current === controller) ageControllerRef.current = null;
+      }
     }
-  }, []);
+  }, [activeTab, agePage]);
 
   useEffect(() => {
     if (activeTab !== "age" && activeTab !== "stale") return;
     const timer = window.setTimeout(() => void loadAgeAnalysis(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      ageGenerationRef.current += 1;
+      ageControllerRef.current?.abort();
+    };
   }, [activeTab, ageRetryKey, loadAgeAnalysis]);
 
-  const filteredItems = useMemo(() => {
-    const queryKeywords = query.trim().toLowerCase().split(/[\s,，;；]+/).filter(Boolean);
-    return (overview?.items ?? []).filter((item) => {
-      const searchable = `${item.productCode}\n${item.productName}\n${item.specification}\n${item.category}\n${item.warehouse}`.toLowerCase();
-      const matchesQuery = queryKeywords.length === 0 || queryKeywords.some((keyword) => searchable.includes(keyword));
-      const matchesWarehouse = warehouseFilters.length === 0 || warehouseFilters.includes(item.warehouse);
-      const matchesType = typeFilters.length === 0 || typeFilters.includes(item.warehouseType);
-      const matchesStatus = statusFilters.length === 0 || statusFilters.includes(item.status);
-      return matchesQuery && matchesWarehouse && matchesType && matchesStatus;
-    });
-  }, [overview?.items, query, statusFilters, typeFilters, warehouseFilters]);
+  const inventoryItems = overview?.items ?? [];
+
+  useEffect(() => setOverviewPage(1), [customEndDate, customStartDate, debouncedInventoryQuery, statusFilters, typeFilters, warehouseFilters]);
+  useEffect(() => setAgePage(1), [activeTab]);
+  useEffect(() => setPlanPage(1), [planStatus]);
 
   const inventoryQueryCount = useMemo(
     () => query.trim().split(/[\s,，;；]+/).filter(Boolean).length,
@@ -3661,7 +3839,7 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
   );
 
   const syncInventory = useCallback(async (file?: File) => {
-    if (!file) return;
+    if (!file || !canManageInventory) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       setSyncFeedback({ tone: "error", title: "文件格式不支持", message: "请选择吉客云导出的 .xlsx 分仓库存查询报表。" });
       if (syncInputRef.current) syncInputRef.current.value = "";
@@ -3753,9 +3931,10 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
       setSyncStage("");
       if (syncInputRef.current) syncInputRef.current.value = "";
     }
-  }, [loadAgeAnalysis, loadOverview, snapshotDate]);
+  }, [canManageInventory, loadAgeAnalysis, loadOverview, snapshotDate]);
 
   const createPlan = useCallback(async (item: InventoryOverviewItem) => {
+    if (!canManageInventory) return;
     if (overview?.sync.inventoryStale) {
       const confirmed = window.confirm(`库存快照日期为 ${overview.sync.inventoryAsOf ?? "未知"}，已超过 3 天。建议先同步最新库存；是否仍按当前快照创建备货草稿？`);
       if (!confirmed) return;
@@ -3770,6 +3949,8 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
           key: item.key,
           plannedQuantity: item.suggestedQuantity,
           acknowledgeStale: Boolean(overview?.sync.inventoryStale),
+          startDate: customStartDate,
+          endDate: customEndDate,
         }),
       });
       const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
@@ -3781,9 +3962,10 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
     } finally {
       setPlanActionId("");
     }
-  }, [loadOverview, overview]);
+  }, [canManageInventory, customEndDate, customStartDate, loadOverview, overview]);
 
   const updatePlanStatus = useCallback(async (plan: ReplenishmentPlanItem, status: ReplenishmentPlanItem["status"]) => {
+    if (!canManageInventory) return;
     const confirmationText = status === "confirmed"
       ? `确认 ${plan.productName} 的备货计划并计入执行在途？`
       : status === "completed"
@@ -3816,7 +3998,7 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
     } finally {
       setPlanActionId("");
     }
-  }, [loadOverview, planQuantities]);
+  }, [canManageInventory, loadOverview, planQuantities]);
 
   const subnav = (
     <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
@@ -3836,9 +4018,11 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
       <div className="inventory-source-status" aria-label="库存数据源状态">
         {(overview?.sources ?? []).map((source) => <span className={`source-status source-status-${source.status}`} key={source.key}><Dot tone={source.status === "ready" ? "green" : source.status === "stale" ? "orange" : "gray"} />{source.label}<small>{source.status === "ready" ? "已同步" : source.status === "stale" ? "待更新" : "未接入"}</small></span>)}
       </div>
-      <label className="inventory-snapshot-input"><span>快照日期</span><input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} disabled={syncing} /></label>
-      <input ref={syncInputRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void syncInventory(event.currentTarget.files?.[0])} />
-      <button type="button" className="primary-button inventory-sync-button" disabled={syncing} onClick={() => syncInputRef.current?.click()}>{syncing ? `${syncProgress}%` : "↻ 同步库存"}</button>
+      {canManageInventory ? <>
+        <label className="inventory-snapshot-input"><span>快照日期</span><input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} disabled={syncing} /></label>
+        <input ref={syncInputRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void syncInventory(event.currentTarget.files?.[0])} />
+        <button type="button" className="primary-button inventory-sync-button" disabled={syncing} onClick={() => syncInputRef.current?.click()}>{syncing ? `${syncProgress}%` : "↻ 同步库存"}</button>
+      </> : <span className="soft-tag">仅管理员可同步库存与维护备货计划</span>}
       {syncing && <div className="inventory-sync-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={syncProgress} aria-label={syncStage}><span style={{ width: `${syncProgress}%` }} /><small>{syncStage}</small></div>}
     </section>
   );
@@ -3855,7 +4039,7 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
   }
 
   if (!overview.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{refreshError}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p><button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button></section></>;
+    return <>{subnav}{syncBar}{feedback}{refreshError}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canManageInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
   }
 
   const totalHealth = Math.max(1, overview.metrics.skuWarehouseCount);
@@ -3876,7 +4060,7 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
       {activeTab === "overview" ? <>
         <section className="inventory-kpi-grid">
           <InventoryKpiCard label="可用库存" value={`${formatCount(overview.metrics.totalAvailableQuantity)} 件`} note={`${formatCount(overview.metrics.skuWarehouseCount)} 个 SKU × 仓库`} tone="blue" icon="存" />
-          <InventoryKpiCard label="库存货值" value={formatCurrencyFromCents(overview.metrics.totalStockValueCents)} note={`成本覆盖 ${formatRate(overview.metrics.costCoverageRate)}`} tone="purple" icon="值" />
+          <InventoryKpiCard label={overview.metrics.stockValueComplete ? "库存货值" : "已覆盖库存货值"} value={formatCurrencyFromCents(overview.metrics.knownStockValueCents)} note={overview.metrics.stockValueComplete ? "全部可用库存已有成本" : `成本覆盖 ${formatRate(overview.metrics.costCoverageRate)}，缺失部分未计入`} tone="purple" icon="值" />
           <InventoryKpiCard label="平均可售天数" value={overview.metrics.averageCoverageDays === null ? "暂无销量" : `${overview.metrics.averageCoverageDays.toFixed(1)} 天`} note={`销量匹配 ${formatRate(overview.metrics.salesDemandMatchRate)} · 目标 ${overview.settings.targetDays} 天`} tone="green" icon="天" />
           <InventoryKpiCard label="待补货货品" value={`${formatCount(overview.metrics.urgentCount + overview.metrics.replenishCount)} 个`} note={`${formatCount(overview.metrics.urgentCount)} 个需要紧急处理`} tone="orange" icon="补" />
         </section>
@@ -3910,7 +4094,7 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
         </section>
 
         <section className="panel table-panel inventory-detail-panel">
-          <div className="table-toolbar"><div><h2>库存健康明细</h2><p>自有仓与京东 RDC / DC 分开核算，销量仅按相同仓库匹配</p></div><span className="soft-tag">{inventoryQueryCount > 1 ? `已查询 ${formatCount(inventoryQueryCount)} 个货品编码 · ` : ""}显示 {formatCount(filteredItems.length)} / {formatCount(overview.pagination.total)}</span></div>
+          <div className="table-toolbar"><div><h2>库存健康明细</h2><p>自有仓与京东 RDC / DC 分开核算，销量仅按相同仓库匹配</p></div><span className="soft-tag">{inventoryQueryCount > 1 ? `已查询 ${formatCount(inventoryQueryCount)} 个货品编码 · ` : ""}显示 {formatCount(inventoryItems.length)} / {formatCount(overview.pagination.total)}</span></div>
           <div className="filter-row inventory-filter-row">
             <div className="search-box compact inventory-multi-query">⌕ <textarea rows={1} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴多个货品编码（空格、逗号或换行分隔）" aria-label="搜索一个或多个货品编码、名称、规格、仓库或品类" /></div>
             <MultiFilterSelect label="库存类型" allLabel="全部类型" ariaLabel="库存类型" options={[{ value: "owned", label: "自有仓" }, { value: "jd_rdc", label: "京东 RDC / DC" }, { value: "other", label: "其他" }]} selected={typeFilters} onChange={setTypeFilters} />
@@ -3919,13 +4103,14 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
             {(query || warehouseFilters.length > 0 || typeFilters.length > 0 || statusFilters.length > 0) && <button className="row-action" onClick={() => { setQuery(""); setWarehouseFilters([]); setTypeFilters([]); setStatusFilters([]); }}>清除筛选</button>}
           </div>
           <div className="data-table-wrap"><table className="data-table inventory-data-table"><thead><tr><th>货品</th><th>库存类型 / 仓库</th><th>可用 / 在途</th><th>{overview.settings.salesWindowDays}日周期销量</th><th>日均销量</th><th>预计可售</th><th>库龄</th><th>建议补货</th><th>健康状态</th><th>操作</th></tr></thead><tbody>
-            {filteredItems.slice(0, 300).map((item) => {
+            {inventoryItems.map((item) => {
               const meta = inventoryStatusMeta[item.status];
-              const canPlan = (item.suggestedQuantity ?? 0) > 0 && !item.inDraftPlan;
-              return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他"}</span><small>{item.warehouse}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(item.availableQuantity)}</strong><small>在途 {formatCount(item.totalInTransitQuantity)}</small></div></td><td>{item.sales30d === null ? "—" : formatCount(item.sales30d)}</td><td>{item.averageDailySales === null ? "—" : item.averageDailySales.toFixed(1)}</td><td><strong>{item.coverageDays === null ? "—" : `${item.coverageDays.toFixed(1)} 天`}</strong></td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td className={(item.suggestedQuantity ?? 0) > 0 ? "orange-text" : ""}><strong>{item.suggestedQuantity === null ? "—" : formatCount(item.suggestedQuantity)}</strong></td><td><span className={`status status-${meta.tone}`} title={item.reason}><Dot tone={meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone} />{item.statusLabel}</span></td><td><button className="row-action" disabled={!canPlan || planActionId === item.key} onClick={() => void createPlan(item)}>{item.inDraftPlan ? "已在草稿" : canPlan ? planActionId === item.key ? "处理中…" : "加入计划" : "无需补货"}</button></td></tr>;
+              const canPlan = canManageInventory && (item.suggestedQuantity ?? 0) > 0 && !item.inDraftPlan;
+              return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他"}</span><small>{item.warehouse}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(item.availableQuantity)}</strong><small>在途 {formatCount(item.totalInTransitQuantity)}</small>{item.costCoverageRate < 1 && <small className="orange-text">成本缺口 {formatRate(1 - item.costCoverageRate)}</small>}</div></td><td>{item.sales30d === null ? "—" : formatCount(item.sales30d)}</td><td>{item.averageDailySales === null ? "—" : item.averageDailySales.toFixed(1)}</td><td><strong>{item.coverageDays === null ? "—" : `${item.coverageDays.toFixed(1)} 天`}</strong></td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td className={(item.suggestedQuantity ?? 0) > 0 ? "orange-text" : ""}><strong>{item.suggestedQuantity === null ? "—" : formatCount(item.suggestedQuantity)}</strong></td><td><span className={`status status-${meta.tone}`} title={item.reason}><Dot tone={meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone} />{item.statusLabel}</span></td><td>{canManageInventory ? <button className="row-action" disabled={!canPlan || planActionId === item.key} onClick={() => void createPlan(item)}>{item.inDraftPlan ? "已在草稿" : canPlan ? planActionId === item.key ? "处理中…" : "加入计划" : "无需补货"}</button> : <span className="soft-text">只读</span>}</td></tr>;
             })}
-            {filteredItems.length === 0 && <tr><td colSpan={10}><div className="table-state">没有符合当前筛选条件的库存记录。</div></td></tr>}
+            {inventoryItems.length === 0 && <tr><td colSpan={10}><div className="table-state">没有符合当前筛选条件的库存记录。</div></td></tr>}
           </tbody></table></div>
+          <footer className="jd-sku-pagination"><span>第 {overview.pagination.page} / {Math.max(1, overview.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.pagination.page <= 1} onClick={() => setOverviewPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.pagination.page >= Math.max(1, overview.pagination.totalPages)} onClick={() => setOverviewPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
       </> : activeTab === "plan" ? <>
         <section className="inventory-kpi-grid inventory-plan-kpis">
@@ -3936,26 +4121,29 @@ function InventoryView({ customStartDate, customEndDate, moduleView, onModuleVie
         </section>
 
         <section className="panel table-panel replenishment-plan-panel">
-          <div className="table-toolbar"><div><h2>备货计划</h2><p>调整草稿数量并确认；草稿、已确认数量会自动计入在途，防止重复建议</p></div><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div>
+          <div className="table-toolbar"><div><h2>备货计划</h2><p>调整草稿数量并确认；草稿、已确认数量会自动计入在途，防止重复建议</p></div><span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span><SearchableSelect value={planStatus} onChange={(value) => setPlanStatus(value as "" | ReplenishmentPlanItem["status"])} ariaLabel="备货计划状态" searchPlaceholder="搜索计划状态" options={[{ value: "", label: "当前有效计划" }, { value: "draft", label: "待确认" }, { value: "confirmed", label: "已确认" }, { value: "completed", label: "已完成" }, { value: "cancelled", label: "已取消" }]} /><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div>
           <div className="data-table-wrap"><table className="data-table replenishment-plan-table"><thead><tr><th>货品</th><th>仓库</th><th>建议依据</th><th>当前可售</th><th>系统建议</th><th>计划数量</th><th>状态</th><th>操作</th></tr></thead><tbody>
-            {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode}</small></span></div></td><td>{plan.warehouse}</td><td><span className="plan-reason" title={plan.reason}>{plan.reason}</span></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td><strong>{formatCount(plan.suggestedQuantity)}</strong></td><td>{plan.status === "draft" ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}</td><td><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span></td><td><div className="plan-row-actions">{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <span className="plan-done">✓ 已完成</span>}</div></td></tr>)}
+            {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode}</small></span></div></td><td>{plan.warehouse}</td><td><span className="plan-reason" title={plan.reason}>{plan.reason}</span></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td><strong>{formatCount(plan.suggestedQuantity)}</strong></td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}</td><td><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <span className="plan-done">✓ 已完成</span>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>)}
             {overview.plans.length === 0 && <tr><td colSpan={8}><div className="table-state">暂无备货计划。请在“库存总览”中将补货建议加入计划。</div></td></tr>}
           </tbody></table></div>
+          <footer className="jd-sku-pagination"><span>第 {overview.plansPagination.page} / {Math.max(1, overview.plansPagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.plansPagination.page <= 1} onClick={() => setPlanPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.plansPagination.page >= Math.max(1, overview.plansPagination.totalPages)} onClick={() => setPlanPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
 
-        {recommendations.some((item) => !item.inDraftPlan) && <section className="panel plan-suggestion-panel"><SectionHeader title="待纳入计划的建议" note="按缺口量从高到低" /><div>{recommendations.filter((item) => !item.inDraftPlan).slice(0, 6).map((item) => <article key={item.key}><span>{item.productName.slice(0, 1) || "货"}</span><div><strong>{item.productName}</strong><small>{item.warehouse} · {item.reason}</small></div><em>+{formatCount(item.suggestedQuantity ?? 0)}</em><button className="row-action" disabled={planActionId === item.key} onClick={() => void createPlan(item)}>加入草稿</button></article>)}</div></section>}
+        {canManageInventory && recommendations.some((item) => !item.inDraftPlan) && <section className="panel plan-suggestion-panel"><SectionHeader title="待纳入计划的建议" note="按缺口量从高到低" /><div>{recommendations.filter((item) => !item.inDraftPlan).slice(0, 6).map((item) => <article key={item.key}><span>{item.productName.slice(0, 1) || "货"}</span><div><strong>{item.productName}</strong><small>{item.warehouse} · {item.reason}</small></div><em>+{formatCount(item.suggestedQuantity ?? 0)}</em><button className="row-action" disabled={planActionId === item.key} onClick={() => void createPlan(item)}>加入草稿</button></article>)}</div></section>}
       </> : <>
         {ageLoading && !ageAnalysis && <section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section>}
         {!ageLoading && ageError && <section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库龄数据加载失败</strong><p>{ageError}</p><button className="secondary-button" onClick={() => setAgeRetryKey((key) => key + 1)}>重新加载</button></section>}
         {!ageLoading && !ageError && ageAnalysis && !ageAnalysis.hasInventory && <section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p></section>}
         {!ageLoading && !ageError && ageAnalysis?.hasInventory && activeTab === "age" && <>
-          <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label="90天以上货值" value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={`${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库`} tone="orange" icon="90" /><InventoryKpiCard label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
-          <section className="age-distribution-grid">{ageAnalysis.distribution.map((bucket) => <article className="panel age-distribution-card" key={bucket.key}><span>{bucket.label}</span><strong>{formatCount(bucket.count)} 项</strong><small>库存货值 {formatCurrencyFromCents(bucket.valueCents)}</small></article>)}</section>
+          <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
+          <section className="age-distribution-grid">{ageAnalysis.distribution.map((bucket) => <article className="panel age-distribution-card" key={bucket.key}><span>{bucket.label}</span><strong>{formatCount(bucket.count)} 项</strong><small>{ageAnalysis.metrics.stockValueComplete ? "库存货值" : "已覆盖货值"} {formatCurrencyFromCents(bucket.valueCents)}</small></article>)}</section>
           <section className="panel table-panel inventory-age-table-panel"><div className="table-toolbar"><div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div><span className="soft-tag">显示 {formatCount(ageAnalysis.items.length)} / {formatCount(ageAnalysis.pagination.total)}</span></div><div className="data-table-wrap"><table className="data-table inventory-age-table"><thead><tr><th>货品</th><th>仓库</th><th>可用库存</th><th>库龄</th><th>前7天销量</th><th>前30天销量</th><th>库存货值</th><th>状态</th></tr></thead><tbody>{ageAnalysis.items.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td>{item.warehouse}</td><td>{formatCount(item.availableQuantity)}</td><td><strong>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</strong></td><td>{item.sales7dQuantity === null ? "—" : formatCount(item.sales7dQuantity)}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className={`status status-${meta.tone}`} title={item.recommendation}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{ageAnalysis.items.length === 0 && <tr><td colSpan={8}><div className="table-state">当前快照没有可展示的库龄记录。</div></td></tr>}</tbody></table></div></section>
+          <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
         {!ageLoading && !ageError && ageAnalysis?.hasInventory && activeTab === "stale" && <>
-          <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label="待处理货值" value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note="按固定成本价与可用库存计算" tone="purple" icon="值" /><InventoryKpiCard label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
-          <section className="panel table-panel stale-cleanup-panel"><div className="table-toolbar"><div><h2>滞销清理清单</h2><p>仅输出清理建议，不会自动修改库存或创建补货计划。</p></div><span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span></div><div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理建议</th><th>风险状态</th></tr></thead><tbody>{cleanupItems.slice(0, 300).map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td><td>{item.warehouse}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{formatCount(item.availableQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className="cleanup-recommendation">{item.recommendation}</span></td><td><span className={`status status-${meta.tone}`}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{cleanupItems.length === 0 && <tr><td colSpan={8}><div className="table-state">当前没有需要优先清理的滞销或高库龄商品。</div></td></tr>}</tbody></table></div></section>
+          <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
+          <section className="panel table-panel stale-cleanup-panel"><div className="table-toolbar"><div><h2>滞销清理清单</h2><p>仅输出清理建议，不会自动修改库存或创建补货计划。</p></div><span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span></div><div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理建议</th><th>风险状态</th></tr></thead><tbody>{cleanupItems.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td><td>{item.warehouse}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{formatCount(item.availableQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className="cleanup-recommendation">{item.recommendation}</span></td><td><span className={`status status-${meta.tone}`}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{cleanupItems.length === 0 && <tr><td colSpan={8}><div className="table-state">当前没有需要优先清理的滞销或高库龄商品。</div></td></tr>}</tbody></table></div></section>
+          <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
       </>}
     </>
@@ -4037,35 +4225,66 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
   const [productDetail, setProductDetail] = useState<SalesSummaryResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [productPage, setProductPage] = useState(1);
+  const productSummaryGenerationRef = useRef(0);
+  const productSummaryControllerRef = useRef<AbortController | null>(null);
+  const productDetailGenerationRef = useRef(0);
+  const productDetailControllerRef = useRef<AbortController | null>(null);
+  const debouncedProductQuery = useDebouncedValue(query);
+  const marginFilterKeys = useMemo(() => marginFilters.map((value) => ({
+    "低于35%": "below35",
+    "35%-40%": "35to40",
+    "40%-45%": "40to45",
+    "45%以上": "atLeast45",
+    "暂无有效毛利率": "unavailable",
+  }[value])), [marginFilters]);
 
-  const loadSummary = useCallback(async (signal?: AbortSignal) => {
+  const loadSummary = useCallback(async () => {
+    const generation = productSummaryGenerationRef.current + 1;
+    productSummaryGenerationRef.current = generation;
+    productSummaryControllerRef.current?.abort();
+    const controller = new AbortController();
+    productSummaryControllerRef.current = controller;
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ range: "custom", startDate: customStartDate, endDate: customEndDate });
+      const params = new URLSearchParams({ range: "custom", startDate: customStartDate, endDate: customEndDate, page: String(productPage), pageSize: "50" });
+      if (debouncedProductQuery.trim()) params.set("q", debouncedProductQuery.trim());
+      categoryFilters.forEach((category) => params.append("category", category));
+      marginFilterKeys.forEach((margin) => params.append("marginBand", margin));
+      params.set("sortBy", sortBy === "margin" ? "grossMarginRate" : sortBy === "profit" ? "grossProfitCents" : sortBy === "refund" ? "refundRate" : "netSalesCents");
+      params.set("direction", "desc");
       platformFilters.forEach((platform) => params.append("platform", platform));
       shopFilters.forEach((shop) => params.append("shop", shop));
-      const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store", signal });
+      const response = await fetch(`/api/products/summary?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (ProductSummaryResponse & { error?: string }) | null;
       if (!response.ok || !payload || !payload.metrics || !Array.isArray(payload.items)) {
         throw new Error(payload?.error || `商品数据读取失败（${response.status}）`);
       }
-      if (!signal?.aborted) {
+      if (!controller.signal.aborted && generation === productSummaryGenerationRef.current) {
         setSummary(payload);
         setSelectedCode((current) => payload.items.some((item) => item.productCode === current) ? current : payload.items[0]?.productCode || "");
       }
     } catch (requestError) {
-      if (!signal?.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取商品数据");
+      if (!controller.signal.aborted && generation === productSummaryGenerationRef.current) setError(requestError instanceof Error ? requestError.message : "暂时无法读取商品数据");
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!controller.signal.aborted && generation === productSummaryGenerationRef.current) {
+        setLoading(false);
+        if (productSummaryControllerRef.current === controller) productSummaryControllerRef.current = null;
+      }
     }
-  }, [customEndDate, customStartDate, platformFilters, shopFilters]);
+  }, [categoryFilters, customEndDate, customStartDate, debouncedProductQuery, marginFilterKeys, platformFilters, productPage, shopFilters, sortBy]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadSummary(controller.signal), 0);
-    return () => { window.clearTimeout(timer); controller.abort(); };
+    const timer = window.setTimeout(() => void loadSummary(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      productSummaryGenerationRef.current += 1;
+      productSummaryControllerRef.current?.abort();
+    };
   }, [loadSummary, retryKey]);
+
+  useEffect(() => setProductPage(1), [categoryFilters, customEndDate, customStartDate, debouncedProductQuery, marginFilterKeys, platformFilters, shopFilters, sortBy]);
 
   const selectedProduct = useMemo(
     () => summary?.items.find((item) => item.productCode === selectedCode) ?? null,
@@ -4073,8 +4292,13 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
   );
   const detailStartDate = summary?.sync.salesWindowStart ?? "";
   const detailEndDate = summary?.sync.salesThrough ?? "";
-  const loadProductDetail = useCallback(async (signal?: AbortSignal) => {
+  const loadProductDetail = useCallback(async () => {
     if (!selectedCode || !detailStartDate || !detailEndDate) return;
+    const generation = productDetailGenerationRef.current + 1;
+    productDetailGenerationRef.current = generation;
+    productDetailControllerRef.current?.abort();
+    const controller = new AbortController();
+    productDetailControllerRef.current = controller;
     setDetailLoading(true);
     setDetailError("");
     setProductDetail(null);
@@ -4085,23 +4309,28 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
         endDate: detailEndDate,
         productCodes: selectedCode,
       });
-      const response = await fetch(`/api/sales/summary?${params}`, { cache: "no-store", signal });
+      const response = await fetch(`/api/sales/summary?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { error?: string }) | null;
       if (!response.ok || !payload || !payload.current || !Array.isArray(payload.daily)) {
         throw new Error(payload?.error || `规格详情读取失败（${response.status}）`);
       }
-      if (!signal?.aborted) setProductDetail(payload);
+      if (!controller.signal.aborted && generation === productDetailGenerationRef.current) setProductDetail(payload);
     } catch (requestError) {
-      if (!signal?.aborted) setDetailError(requestError instanceof Error ? requestError.message : "暂时无法读取规格详情");
+      if (!controller.signal.aborted && generation === productDetailGenerationRef.current) setDetailError(requestError instanceof Error ? requestError.message : "暂时无法读取规格详情");
     } finally {
-      if (!signal?.aborted) setDetailLoading(false);
+      if (!controller.signal.aborted && generation === productDetailGenerationRef.current) {
+        setDetailLoading(false);
+        if (productDetailControllerRef.current === controller) productDetailControllerRef.current = null;
+      }
     }
   }, [detailEndDate, detailStartDate, selectedCode]);
   useEffect(() => {
     if (!detailOpen || !selectedCode || !detailStartDate || !detailEndDate) return;
-    const controller = new AbortController();
-    void loadProductDetail(controller.signal);
-    return () => controller.abort();
+    void loadProductDetail();
+    return () => {
+      productDetailGenerationRef.current += 1;
+      productDetailControllerRef.current?.abort();
+    };
   }, [detailEndDate, detailOpen, detailStartDate, loadProductDetail, selectedCode]);
 
   useEffect(() => { setDetailOpen(false); }, [activeTab]);
@@ -4117,8 +4346,8 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
   }, [calculatorOverrides, selectedProduct]);
 
   const categories = useMemo(
-    () => [...new Set((summary?.items ?? []).map((item) => item.category))].sort((left, right) => left.localeCompare(right, "zh-CN")),
-    [summary?.items],
+    () => summary?.filters.categories ?? [],
+    [summary?.filters.categories],
   );
   const platformOptions = useMemo(
     () => summary?.filters.platforms ?? [],
@@ -4136,32 +4365,7 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
       return next.length === current.length ? current : next;
     });
   }, [shopOptions]);
-  const filtered = useMemo(() => {
-    const keywords = query.trim().toLowerCase().split(/[\s,，;；]+/).filter(Boolean);
-    const items = (summary?.items ?? []).filter((item) => {
-      const searchable = `${item.productCode}\n${item.productName}\n${item.brand}\n${item.supplierName}\n${item.specification}\n${item.category}`.toLowerCase();
-      const matchesKeyword = keywords.length === 0 || keywords.some((keyword) => searchable.includes(keyword));
-      const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(item.category);
-      const matchesOutlet = (platformFilters.length === 0 && shopFilters.length === 0) || item.outlets.some((outlet) => (
-        (platformFilters.length === 0 || platformFilters.includes(outlet.platform))
-        && (shopFilters.length === 0 || shopFilters.includes(`${outlet.platform}\u001f${outlet.shop}`))
-      ));
-      const matchesMargin = marginFilters.length === 0 || marginFilters.some((marginFilter) => (
-        (marginFilter === "低于35%" && item.grossMarginRate !== null && item.grossMarginRate < 0.35)
-        || (marginFilter === "35%-40%" && item.grossMarginRate !== null && item.grossMarginRate >= 0.35 && item.grossMarginRate < 0.4)
-        || (marginFilter === "40%-45%" && item.grossMarginRate !== null && item.grossMarginRate >= 0.4 && item.grossMarginRate < 0.45)
-        || (marginFilter === "45%以上" && item.grossMarginRate !== null && item.grossMarginRate >= 0.45)
-        || (marginFilter === "暂无有效毛利率" && item.grossMarginRate === null)
-      ));
-      return matchesKeyword && matchesCategory && matchesOutlet && matchesMargin;
-    });
-    return items.sort((left, right) => {
-      if (sortBy === "margin") return (right.grossMarginRate ?? -Infinity) - (left.grossMarginRate ?? -Infinity);
-      if (sortBy === "profit") return right.grossProfitCents - left.grossProfitCents;
-      if (sortBy === "refund") return right.refundRate - left.refundRate;
-      return right.netSalesCents - left.netSalesCents;
-    });
-  }, [categoryFilters, marginFilters, platformFilters, query, shopFilters, sortBy, summary?.items]);
+  const productItems = summary?.items ?? [];
   const multiCodeQueryCount = useMemo(
     () => query.trim().split(/[\s,，;；]+/).filter(Boolean).length,
     [query],
@@ -4230,12 +4434,13 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
         </section>
 
         <section className="panel product-filter-panel">
-          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>已按 {appliedScope} 汇总；净销量已扣除退货。销售单价、成本、费用和实际毛利均来自已导入订单明细。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个规格代码 · ` : ""}显示 {formatCount(Math.min(filtered.length, 300))} / {formatCount(filtered.length)}</span></div>
+          <div className="table-toolbar"><div><h2>商品经营明细</h2><p>已按 {appliedScope} 汇总；净销量已扣除退货。销售单价、成本、费用和实际毛利均来自已导入订单明细。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个规格代码 · ` : ""}显示 {formatCount(productItems.length)} / {formatCount(summary.pagination.total)}</span></div>
           <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /><SearchableMultiSelect className="filter-select" values={marginFilters} onChange={(values) => setMarginFilters(values as ProductMarginFilter[])} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于35%", "35%-40%", "40%-45%", "45%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
           <div className="data-table-wrap"><table className="data-table product-live-table"><thead><tr><th>货品 / 规格代码</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>费用</th><th>订单毛利</th><th>实际毛利率</th><th>退货率</th><th>操作</th></tr></thead><tbody>
-            {filtered.slice(0, 300).map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>规格代码：{item.productCode}{item.specification ? ` · ${item.specification}` : " · 默认规格"}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td>{formatCurrencyFromCents(item.feeCents)}</td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.35 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td className={item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatRate(item.refundRate)}</strong></td><td><button className="row-action" onClick={() => openProductDetail(item.productCode)}>详情</button></td></tr>; })}
-            {filtered.length === 0 && <tr><td colSpan={12}><div className="table-state">没有符合当前筛选条件的商品。</div></td></tr>}
+            {productItems.map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>规格代码：{item.productCode}{item.specification ? ` · ${item.specification}` : " · 默认规格"}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td>{formatCurrencyFromCents(item.feeCents)}</td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.35 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td className={item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatRate(item.refundRate)}</strong></td><td><button className="row-action" onClick={() => openProductDetail(item.productCode)}>详情</button></td></tr>; })}
+            {productItems.length === 0 && <tr><td colSpan={12}><div className="table-state">没有符合当前筛选条件的商品。</div></td></tr>}
           </tbody></table></div>
+          <footer className="jd-sku-pagination"><span>第 {summary.pagination.page} / {Math.max(1, summary.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || summary.pagination.page <= 1} onClick={() => setProductPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || summary.pagination.page >= Math.max(1, summary.pagination.totalPages)} onClick={() => setProductPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
       </> : detailOpen && selectedProduct ? <ProductDetailView item={selectedProduct} detail={productDetail} loading={detailLoading} error={detailError} rangeLabel={rangeLabel} onBack={() => setDetailOpen(false)} onRetry={() => void loadProductDetail()} /> : <>
         <section className="product-calculator-grid">
@@ -4751,10 +4956,20 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<CustomerServiceConversation | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | "batch" | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState("");
+  const [analysisNotice, setAnalysisNotice] = useState("");
   const [analysisReady, setAnalysisReady] = useState<boolean | null>(null);
+  const [detailDraft, setDetailDraft] = useState({ serviceIssues: "", summaryText: "" });
+  const [detailSaveNotice, setDetailSaveNotice] = useState("");
   const optionsLoadedRef = useRef(false);
+  const listControllerRef = useRef<AbortController | null>(null);
+  const listGenerationRef = useRef(0);
+  const listRequestKeyRef = useRef("");
+  const detailControllerRef = useRef<AbortController | null>(null);
+  const detailGenerationRef = useRef(0);
+  const customerDialogCloseRef = useRef<HTMLButtonElement>(null);
   const debouncedCustomerQuery = useDebouncedValue(query);
   const debouncedSkuIds = useDebouncedValue(skuIds);
   const debouncedSpuIds = useDebouncedValue(spuIds);
@@ -4773,7 +4988,11 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     return () => controller.abort();
   }, [canAnnotate]);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async () => {
+    listControllerRef.current?.abort();
+    const controller = new AbortController();
+    listControllerRef.current = controller;
+    const generation = ++listGenerationRef.current;
     setLoading(true); setError("");
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: "30" });
@@ -4790,10 +5009,15 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
       if (debouncedCustomerQuery.trim()) params.set("query", debouncedCustomerQuery.trim());
       if (debouncedSkuIds.trim()) params.set("skuIds", debouncedSkuIds.trim());
       if (debouncedSpuIds.trim()) params.set("spuIds", debouncedSpuIds.trim());
-      const response = await fetch(`/api/customer-service/conversations?${params.toString()}`, { cache: "no-store", signal });
+      const requestKey = params.toString();
+      listRequestKeyRef.current = requestKey;
+      const isLatestRequest = () => !controller.signal.aborted
+        && listGenerationRef.current === generation
+        && listRequestKeyRef.current === requestKey;
+      const response = await fetch(`/api/customer-service/conversations?${requestKey}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as CustomerServiceData & { error?: string } | null;
       if (!response.ok || !payload) throw new Error(payload?.error || "读取客服会话失败");
-      if (!signal?.aborted) {
+      if (isLatestRequest()) {
         setData((current) => ({
           ...payload,
           agents: payload.agents.length ? payload.agents : current?.agents ?? [],
@@ -4802,13 +5026,68 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
         }));
         if (payload.agents.length || payload.shops.length || payload.categories.length) optionsLoadedRef.current = true;
       }
-    } catch (reason) { if (!signal?.aborted) setError(reason instanceof Error ? reason.message : "读取客服会话失败"); }
-    finally { if (!signal?.aborted) setLoading(false); }
+    } catch (reason) {
+      if (!controller.signal.aborted && listGenerationRef.current === generation) {
+        setError(reason instanceof Error ? reason.message : "读取客服会话失败");
+      }
+    } finally {
+      if (!controller.signal.aborted && listGenerationRef.current === generation) setLoading(false);
+    }
   }, [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, page, problemTypes, robotScopes, shopNames, startDate, statuses]);
 
-  useEffect(() => { const controller = new AbortController(); const timer = window.setTimeout(() => void load(controller.signal), 0); return () => { window.clearTimeout(timer); controller.abort(); }; }, [load]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+  useEffect(() => () => {
+    listGenerationRef.current += 1;
+    listControllerRef.current?.abort();
+    detailGenerationRef.current += 1;
+    detailControllerRef.current?.abort();
+  }, []);
   useEffect(() => { setPage(1); }, [agents, categories, conversionStatuses, endDate, problemTypes, query, robotScopes, shopNames, skuIds, spuIds, startDate, statuses]);
   const pageCount = Math.max(1, Math.ceil((data?.pagination.total ?? 0) / (data?.pagination.pageSize ?? 30)));
+
+  const openConversation = useCallback(async (id: number, summary?: CustomerServiceConversation, preservedDraft?: { serviceIssues: string; summaryText: string }) => {
+    detailControllerRef.current?.abort();
+    const controller = new AbortController();
+    detailControllerRef.current = controller;
+    const generation = ++detailGenerationRef.current;
+    setDetailLoadingId(id);
+    setError("");
+    try {
+      const response = await fetch(`/api/customer-service/conversations?id=${id}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as { item?: CustomerServiceConversation; error?: string } | null;
+      if (!response.ok || !payload?.item) throw new Error(payload?.error || "读取客服会话详情失败");
+      if (!controller.signal.aborted && detailGenerationRef.current === generation) {
+        const detail = {
+          ...summary,
+          ...payload.item,
+          matchedSkuId: payload.item.matchedSkuId || summary?.matchedSkuId || "",
+          productSpuId: payload.item.productSpuId || summary?.productSpuId || "",
+          erpProductCode: payload.item.erpProductCode || summary?.erpProductCode || "",
+          productCategory: payload.item.productCategory || summary?.productCategory || "",
+        };
+        setSelected(detail);
+        setDetailDraft(preservedDraft ?? { serviceIssues: detail.serviceIssues, summaryText: detail.summaryText });
+        if (!preservedDraft) setDetailSaveNotice("");
+      }
+    } catch (reason) {
+      if (!controller.signal.aborted && detailGenerationRef.current === generation) {
+        setError(reason instanceof Error ? reason.message : "读取客服会话详情失败");
+      }
+    } finally {
+      if (!controller.signal.aborted && detailGenerationRef.current === generation) setDetailLoadingId(null);
+    }
+  }, []);
+
+  const closeConversation = () => {
+    if (selected && busyId === selected.id) return;
+    detailGenerationRef.current += 1;
+    detailControllerRef.current?.abort();
+    detailControllerRef.current = null;
+    setDetailLoadingId(null);
+    setSelected(null);
+    setDetailDraft({ serviceIssues: "", summaryText: "" });
+    setDetailSaveNotice("");
+  };
 
   const saveAnnotation = async (item: CustomerServiceConversation, patch: Partial<Pick<CustomerServiceConversation, "robotScope" | "problemType" | "conversionStatus" | "serviceIssues" | "summaryText">>) => {
     if (!canAnnotate) return;
@@ -4817,25 +5096,103 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? next : row) } : current);
     setSelected((current) => current?.id === item.id ? next : current);
     try {
-      const response = await fetch("/api/customer-service/conversations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id, ...patch }) });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "保存客服标注失败");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存客服标注失败"); await load(); }
+      const response = await fetch("/api/customer-service/conversations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id, expectedVersion: item.version, ...patch }) });
+      const payload = await response.json().catch(() => null) as { version?: number; error?: string } | null;
+      const nextVersion = payload?.version;
+      if (!response.ok || typeof nextVersion !== "number" || !Number.isSafeInteger(nextVersion)) {
+        if (response.status === 409) {
+          const hadDetailOpen = selected?.id === item.id;
+          const preservedDraft = hadDetailOpen ? { ...detailDraft } : undefined;
+          await load();
+          if (hadDetailOpen) await openConversation(item.id, item, preservedDraft);
+          throw new Error("该会话已被其他操作更新，数据已刷新；请核对后重新修改。");
+        }
+        throw new Error(payload?.error || "保存客服标注失败");
+      }
+      const confirmed = { ...next, version: nextVersion };
+      setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? confirmed : row) } : current);
+      setSelected((current) => current?.id === item.id ? { ...current, ...confirmed } : current);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "保存客服标注失败");
+      if (!(reason instanceof Error) || !reason.message.includes("已被其他操作更新")) {
+        setSelected((current) => current?.id === item.id ? item : current);
+        await load();
+      }
+    }
     finally { setBusyId(null); }
+  };
+
+  const saveDetailAnnotation = async () => {
+    if (!selected || !canAnnotate || busyId !== null) return;
+    const item = selected;
+    const draft = { ...detailDraft };
+    setBusyId(item.id);
+    setDetailSaveNotice("");
+    try {
+      const response = await fetch("/api/customer-service/conversations", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          expectedVersion: item.version,
+          serviceIssues: draft.serviceIssues,
+          summaryText: draft.summaryText,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { version?: number; error?: string } | null;
+      if (response.status === 409) {
+        await load();
+        await openConversation(item.id, item, draft);
+        setDetailSaveNotice("该会话已被其他操作更新：服务端版本已刷新，你的两项草稿均已保留。请核对后再次保存。");
+        return;
+      }
+      if (!response.ok || typeof payload?.version !== "number" || !Number.isSafeInteger(payload.version)) {
+        throw new Error(payload?.error || "保存客服详情标注失败");
+      }
+      const confirmed = {
+        ...item,
+        ...draft,
+        analysisSource: "manual" as const,
+        version: payload.version,
+      };
+      setData((current) => current ? {
+        ...current,
+        items: current.items.map((row) => row.id === item.id ? { ...row, ...confirmed, messages: row.messages } : row),
+      } : current);
+      setSelected((current) => current?.id === item.id ? { ...current, ...confirmed } : current);
+      setDetailSaveNotice("详情标注已保存。");
+    } catch (reason) {
+      setDetailSaveNotice(`${reason instanceof Error ? reason.message : "保存客服详情标注失败"}；草稿仍保留在当前窗口。`);
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const analyze = async (ids: number[], marker: number | "batch") => {
     if (!ids.length || !canAnnotate) return;
-    setBusyId(marker); setError("");
+    setBusyId(marker); setError(""); setAnalysisNotice("");
+    let analyzedCount = 0;
+    let requestedCount = 0;
+    let conflictCount = 0;
+    let failedCount = 0;
+    let incomplete = false;
     try {
       for (let offset = 0; offset < ids.length; offset += 8) {
         const batch = ids.slice(offset, offset + 8);
         setAnalysisProgress(`${Math.min(offset + batch.length, ids.length)}/${ids.length}`);
         const response = await fetch("/api/customer-service/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: batch }) });
-        const payload = await response.json().catch(() => null) as { error?: string } | null;
-        if (!response.ok) throw new Error(payload?.error || "AI 客服分析失败");
+        const payload = await response.json().catch(() => null) as { analyzed?: number; requested?: number; conflicts?: number; failed?: number; incomplete?: boolean; results?: Array<{ id: number; status: "updated" | "conflict" | "not_found" | "failed" | "not_returned" }>; error?: string } | null;
+        if (!response.ok || !payload || !Array.isArray(payload.results)) throw new Error(payload?.error || "AI 客服分析失败");
+        analyzedCount += Number(payload.analyzed ?? 0);
+        requestedCount += Number(payload.requested ?? batch.length);
+        conflictCount += Number(payload.conflicts ?? payload.results.filter((item) => item.status === "conflict").length);
+        failedCount += Number(payload.failed ?? payload.results.filter((item) => ["not_found", "failed", "not_returned"].includes(item.status)).length);
+        incomplete ||= payload.incomplete === true;
       }
       await load();
+      setAnalysisNotice(incomplete || conflictCount > 0 || failedCount > 0
+        ? `AI 分析完成 ${analyzedCount}/${requestedCount}，冲突 ${conflictCount}、失败 ${failedCount}；列表已刷新，请重试未完成项。`
+        : `AI 分析已完成 ${analyzedCount}/${requestedCount}，列表已刷新。`);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "AI 客服分析失败";
       if (message.includes("尚未配置可用的文本模型")) setAnalysisReady(false);
@@ -4848,6 +5205,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).map((item) => item.id), "batch")} disabled={analysisReady !== true || busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? `AI分析中${analysisProgress ? ` ${analysisProgress}` : "…"}` : analysisReady === false ? "请先配置文本模型" : "AI分析本页未标注"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
     <CustomerServiceImportCard canImport={canImport} onCompleted={load} />
     <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><div className="customer-service-shop-select"><span>店铺</span><SearchableMultiSelect values={shopNames} onChange={setShopNames} ariaLabel="客服店铺筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺" options={(data?.shops ?? []).map((value) => ({ value, label: value }))} /></div></section>
+    {analysisNotice && <section className="customer-service-feedback" role="status">{analysisNotice}</section>}
     {error && <section className="customer-service-feedback error" role="alert">{error}</section>}
     {canAnnotate && analysisReady === false && <section className="customer-service-feedback error customer-service-analysis-setup" role="status"><span>客服会话已导入；AI 标注尚缺文本模型。配置并测试成功后即可分批分析本页全部未标注记录。</span><button type="button" className="row-action" onClick={() => onNavigate("ai")}>前往 AI 助理配置</button></section>}
     <section className="customer-service-filters panel">
@@ -4871,16 +5229,38 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
         <td><strong>{item.agent || "—"}</strong><small>{item.skillGroup || item.transferredAgent || ""}</small></td>
         <td><strong>{item.matchedSkuId ? `SKUID ${item.matchedSkuId}` : item.productSku || "—"}</strong><small>{item.productSpuId ? `SPU ${item.productSpuId}` : item.productName || "未关联商品"}</small>{item.erpProductCode && <small>吉客云编号 {item.erpProductCode}</small>}{item.matchedSkuId && item.productSku !== item.matchedSkuId && <small>会话规格 {item.productSku}</small>}</td>
         <td><span className="customer-category" title={item.productCategory}>{item.productCategory || "未匹配类目"}</span></td>
-        <td><strong>{item.messages.length || item.customerMessageCount || 0} / {item.agentMessageCount ?? "—"}</strong><small>客户 / 客服</small></td>
+        <td><strong>{item.messageTotalCount}</strong><small>会话消息总数</small></td>
         <td><SearchableSelect className="customer-annotation-select" value={item.robotScope} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}机器人内容`} searchPlaceholder="搜索机器人标注" options={[{ value: "", label: "待标注", disabled: true }, ...customerRobotOptions]} onChange={(value) => void saveAnnotation(item, { robotScope: value as CustomerServiceConversation["robotScope"] })} /></td>
         <td><SearchableSelect className="customer-annotation-select" value={item.problemType} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}问题类型`} searchPlaceholder="搜索问题类型" options={[{ value: "", label: "待标注", disabled: true }, ...customerProblemTypes.map((value) => ({ value, label: value }))]} onChange={(value) => void saveAnnotation(item, { problemType: value as CustomerServiceConversation["problemType"] })} /></td>
         <td><SearchableSelect className="customer-annotation-select" value={item.conversionStatus} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}订单转化`} searchPlaceholder="搜索转化状态" options={[{ value: "", label: "待标注", disabled: true }, ...customerConversionOptions]} onChange={(value) => void saveAnnotation(item, { conversionStatus: value as CustomerServiceConversation["conversionStatus"] })} /></td>
         <td><div className="customer-ai-summary"><strong title={item.serviceIssues}>{item.serviceIssues || "待 AI 分析服务问题"}</strong><small title={item.summaryText}>{item.summaryText || "暂无小结"}</small>{item.analyzedAt && <em>AI · {formatDateTime(item.analyzedAt)}</em>}</div></td>
         <td><span className={`customer-match customer-match-${item.matchStatus}`}>{customerServiceStatusLabel(item.matchStatus)}<small>{item.matchConfidence === "exact" ? "时间 + 顾客" : item.matchConfidence === "time_only" ? "仅时间" : "待补充"}</small></span></td>
-        <td><div className="customer-row-actions">{canAnnotate && <button type="button" className="row-action" disabled={busyId !== null} onClick={() => void analyze([item.id], item.id)}>{busyId === item.id ? "分析中…" : "AI分析"}</button>}<button type="button" className="row-action" onClick={() => setSelected(item)}>{item.messages.length ? "查看会话" : "查看详情"}</button></div></td>
+        <td><div className="customer-row-actions">{canAnnotate && <button type="button" className="row-action" disabled={busyId !== null} onClick={() => void analyze([item.id], item.id)}>{busyId === item.id ? "分析中…" : "AI分析"}</button>}<button type="button" className="row-action" disabled={detailLoadingId !== null || busyId !== null} onClick={() => void openConversation(item.id, item)}>{detailLoadingId === item.id ? "读取中…" : item.messageTotalCount > 0 ? "查看会话" : "查看详情"}</button></div></td>
       </tr>)}
     </tbody></table></div>{pageCount > 1 && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {pageCount} 页</span><button type="button" className="row-action" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}</section>
-    {selected && <div className="modal-backdrop" onClick={() => setSelected(null)}><section className="customer-transcript" role="dialog" aria-modal="true" aria-label="客服会话详情" onClick={(event) => event.stopPropagation()}><header><div><span>{selected.consultedAt}</span><h3>{selected.customerId || selected.chatCustomerAlias || "未知顾客"} · {selected.agent || "未识别客服"}</h3><small>{selected.matchedSkuId ? `SKUID ${selected.matchedSkuId}` : selected.productSku ? `商品规格 ${selected.productSku}` : "未关联商品"} · {customerServiceStatusLabel(selected.matchStatus)}</small></div><button type="button" onClick={() => setSelected(null)} aria-label="关闭">×</button></header><div className="customer-transcript-metrics"><span>咨询类型：{selected.consultationType || "—"}</span><span>吉客云编号：{selected.erpProductCode || "未匹配"}</span><span>吉客云类目：{selected.productCategory || "未匹配"}</span><span>响应：{selected.responseSeconds === null ? "—" : `${selected.responseSeconds}s`}</span><span>时长：{selected.durationMinutes === null ? "—" : `${selected.durationMinutes} 分钟`}</span></div><div className="customer-analysis-editor"><label><span>服务问题</span><textarea value={selected.serviceIssues} disabled={!canAnnotate} onChange={(event) => setSelected({ ...selected, serviceIssues: event.target.value })} onBlur={() => void saveAnnotation(selected, { serviceIssues: selected.serviceIssues })} placeholder="AI 分析或人工补充客服服务问题" /></label><label><span>会话小结</span><textarea value={selected.summaryText} disabled={!canAnnotate} onChange={(event) => setSelected({ ...selected, summaryText: event.target.value })} onBlur={() => void saveAnnotation(selected, { summaryText: selected.summaryText })} placeholder="概括顾客诉求、客服处理与结果" /></label></div><div className="customer-transcript-messages">{selected.messages.length ? selected.messages.map((message, index) => <article key={`${message.sentAt}-${index}`} className={message.sender === selected.agent ? "agent" : "customer"}><strong>{message.sender || "未知"}</strong><small>{message.sentAt}</small><p>{message.content || "（无文字内容）"}</p></article>) : <p className="soft-text">此会话未匹配到聊天记录；会话表中的结构化字段仍已完整导入。</p>}</div></section></div>}
+    <Dialog
+      open={Boolean(selected)}
+      onClose={closeConversation}
+      dialogId="customer-service-conversation-detail"
+      ariaLabel="客服会话详情"
+      className="customer-transcript"
+      initialFocusRef={customerDialogCloseRef}
+    >
+      {selected && <>
+        <header><div><span>{selected.consultedAt}</span><h3>{selected.customerId || selected.chatCustomerAlias || "未知顾客"} · {selected.agent || "未识别客服"}</h3><small>{selected.matchedSkuId ? `SKUID ${selected.matchedSkuId}` : selected.productSku ? `商品规格 ${selected.productSku}` : "未关联商品"} · {customerServiceStatusLabel(selected.matchStatus)}</small></div><button ref={customerDialogCloseRef} type="button" onClick={closeConversation} disabled={busyId === selected.id} aria-label="关闭">×</button></header>
+        <div>
+          <div className="customer-transcript-metrics"><span>咨询类型：{selected.consultationType || "—"}</span><span>吉客云编号：{selected.erpProductCode || "未匹配"}</span><span>吉客云类目：{selected.productCategory || "未匹配"}</span><span>响应：{selected.responseSeconds === null ? "—" : `${selected.responseSeconds}s`}</span><span>时长：{selected.durationMinutes === null ? "—" : `${selected.durationMinutes} 分钟`}</span></div>
+          {selected.messagesTruncated && <div className="customer-service-feedback error" role="status">会话共 {selected.messageTotalCount} 条消息，详情受 200 条 / 64KB 上限保护，本次展示 {selected.messageReturnedCount} 条。</div>}
+          {detailSaveNotice && <div className={`customer-service-feedback ${detailSaveNotice === "详情标注已保存。" ? "" : "error"}`} role="status">{detailSaveNotice}</div>}
+        </div>
+        <div className="customer-analysis-editor">
+          <label><span>服务问题</span><textarea value={detailDraft.serviceIssues} disabled={!canAnnotate || busyId === selected.id} onChange={(event) => setDetailDraft((current) => ({ ...current, serviceIssues: event.target.value }))} placeholder="AI 分析或人工补充客服服务问题" /></label>
+          <label><span>会话小结</span><textarea value={detailDraft.summaryText} disabled={!canAnnotate || busyId === selected.id} onChange={(event) => setDetailDraft((current) => ({ ...current, summaryText: event.target.value }))} placeholder="概括顾客诉求、客服处理与结果" /></label>
+          {canAnnotate && <button type="button" className="primary-button" onClick={() => void saveDetailAnnotation()} disabled={busyId !== null || (detailDraft.serviceIssues === selected.serviceIssues && detailDraft.summaryText === selected.summaryText)}>{busyId === selected.id ? "保存中…" : "保存详情标注"}</button>}
+        </div>
+        <div className="customer-transcript-messages">{selected.messages.length ? selected.messages.map((message, index) => <article key={`${message.sentAt}-${index}`} className={message.sender === selected.agent ? "agent" : "customer"}><strong>{message.sender || "未知"}</strong><small>{message.sentAt}</small><p>{message.content || "（无文字内容）"}</p></article>) : <p className="soft-text">此会话未匹配到聊天记录；会话表中的结构化字段仍已完整导入。</p>}</div>
+      </>}
+    </Dialog>
   </section>;
 }
 
@@ -5263,8 +5643,8 @@ const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
   shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange }) => <ShopView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   market: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }) => <MarketView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("market", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} onApplyPeriod={onApplyPeriod} />,
   customer_service: CustomerServiceView,
-  sales: ({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }) => <SalesView range={range} customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("sales", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
-  inventory: ({ customStartDate, customEndDate, moduleView, onModuleViewChange }) => <InventoryView customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("inventory", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  sales: ({ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }) => <SalesView range={range} customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("sales", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  inventory: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }) => <InventoryView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("inventory", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   product: ({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }) => <ProductView range={range} customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("product", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   workflow: ({ currentUser, moduleView, onModuleViewChange }) => <OperationsView currentUser={currentUser} moduleView={normalizeModuleView("workflow", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   import: ({ importSource, currentUser, moduleView, onModuleViewChange }) => <ImportView importSource={importSource} currentUser={currentUser} moduleView={normalizeModuleView("import", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,

@@ -146,6 +146,116 @@ test("运营事务搜索兼容尚未创建运营记录和状态表的旧库", as
   sqlite.close();
 });
 
+test("经营目标搜索在 scoped 表尚未迁移的旧库回退 legacy 表且不影响其他分组", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE finance_targets (
+    id TEXT PRIMARY KEY, period_type TEXT NOT NULL, period_key TEXT NOT NULL,
+    shop_name TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '', manager TEXT NOT NULL DEFAULT '',
+    sales_target_cents INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  INSERT INTO finance_targets (id, period_type, period_key, shop_name, manager, sales_target_cents)
+    VALUES ('legacy-target', 'month', '2026-08', '旧库店铺', '旧目标负责人', 10000);`);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const result = await searchAllBusinessData(database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=旧目标&group=targets")), admin);
+  assert.equal(result.groups[0]?.available, true);
+  assert.equal(result.groups[0]?.total, 1);
+  assert.equal(result.groups[0]?.items[0]?.id, "legacy-target");
+  sqlite.close();
+});
+
+test("经营目标搜索按平台列限制 scoped 目标而不把同名店铺误作平台", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE finance_targets_scoped (
+    id TEXT PRIMARY KEY, period_type TEXT NOT NULL, period_key TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT '', shop_name TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '', manager TEXT NOT NULL DEFAULT '',
+    sales_target_cents INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  INSERT INTO finance_targets_scoped
+    (id, period_type, period_key, platform, shop_name, manager, sales_target_cents)
+  VALUES
+    ('tmall-shop-named-jd', 'month', '2026-08', '天猫', '京东', '隔离目标', 10000),
+    ('jd-shop-named-tmall', 'month', '2026-08', '京东', '天猫', '隔离目标', 20000);`);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const restrictedAdmin: AppPrincipal = {
+    ...admin,
+    scope: { warehouses: [], channels: [], platforms: ["京东"] },
+  };
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=隔离目标&group=targets")),
+    restrictedAdmin,
+  );
+  assert.equal(result.groups[0]?.available, true);
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["jd-shop-named-tmall"]);
+  assert.equal(result.groups[0]?.items.some((item) => item.id === "tmall-shop-named-jd"), false);
+  sqlite.close();
+});
+
+test("restricted principal 在旧库不搜索无平台目标且其他分组继续返回", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE finance_targets (
+    id TEXT PRIMARY KEY, period_type TEXT NOT NULL, period_key TEXT NOT NULL,
+    shop_name TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '', manager TEXT NOT NULL DEFAULT '',
+    sales_target_cents INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE erp_product_master (
+    product_code TEXT PRIMARY KEY, product_name TEXT NOT NULL, specification TEXT NOT NULL DEFAULT '',
+    barcode TEXT NOT NULL DEFAULT '', brand TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '',
+    supplier TEXT NOT NULL DEFAULT '', product_status TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  INSERT INTO finance_targets (id, period_type, period_key, shop_name, manager, sales_target_cents)
+    VALUES ('legacy-restricted-target', 'month', '2026-08', '京东', '旧库隔离词', 10000);
+  INSERT INTO erp_product_master (product_code, product_name)
+    VALUES ('P-LEGACY', '旧库隔离词商品');`);
+  const calls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      calls.push(sql);
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const restrictedAdmin: AppPrincipal = {
+    ...admin,
+    scope: { warehouses: [], channels: [], platforms: ["京东"] },
+  };
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=旧库隔离词")),
+    restrictedAdmin,
+  );
+  const targets = result.groups.find((group) => group.key === "targets");
+  const products = result.groups.find((group) => group.key === "products");
+  assert.equal(targets?.available, true);
+  assert.equal(targets?.total, 0);
+  assert.deepEqual(targets?.items, []);
+  assert.equal(products?.total, 1);
+  assert.equal(products?.items[0]?.id, "P-LEGACY");
+  assert.equal(calls.some((sql) => /FROM finance_targets\b/.test(sql)), false);
+  sqlite.close();
+});
+
 test("API、分组 UI 和 AI 注册入口复用同一搜索核心", async () => {
   const [route, page, dialog, tool, guide] = await Promise.all([
     readFile(new URL("../app/api/search/route.ts", import.meta.url), "utf8"),

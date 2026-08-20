@@ -88,3 +88,27 @@ test("an ERP-resolved category filters every sales overview aggregation consiste
   assert.deepEqual(result.filters.categories, ["揭盖洗碗机"]);
   sqlite.close();
 });
+
+test("销售汇总最大合法商品、品类与 outlet 筛选使用 JSON bind 且单条不超过 100", async () => {
+  const bindingCounts: number[] = [];
+  const db = {
+    prepare() {
+      return {
+        bind(...values: unknown[]) { bindingCounts.push(values.length); return this; },
+        async first() { return null; },
+        async all() { return { results: [] }; },
+        async run() { return { meta: { changes: 0 } }; },
+      };
+    },
+  } as unknown as SalesDatabase;
+  await getSalesSummary(db, {
+    range: "custom",
+    startDate: "2026-08-01",
+    endDate: "2026-08-31",
+    productQueries: Array.from({ length: 100 }, (_, index) => `SKU-${index}`),
+    categories: Array.from({ length: 50 }, (_, index) => `品类-${index}`),
+    outlets: Array.from({ length: 50 }, (_, index) => ({ platform: `平台-${index}`, shop: `店铺-${index}` })),
+  });
+  assert.ok(bindingCounts.length > 0);
+  assert.ok(bindingCounts.every((count) => count <= 100), `最大 bind 数应≤100，实际 ${Math.max(...bindingCounts)}`);
+});

@@ -249,8 +249,8 @@ test("wires inventory health, synchronization, and replenishment", async () => {
   assert.match(chunkRoute, /claimInventoryUpload/);
   assert.match(chunkService, /inventory_import_upload_results/);
   assert.match(chunkService, /chunk\.sha256/);
-  assert.match(overview, /normalizedWarehouseKey/);
-  assert.match(overview, /pendingCurrentSnapshot/);
+  assert.match(overview, /normalizedWarehouseSql/);
+  assert.match(overview, /inventoryStale/);
   assert.match(overviewRoute, /getInventoryOverview/);
   assert.match(replenishmentRoute, /upsertReplenishmentPlan/);
   assert.match(replenishmentRoute, /acknowledgeStale/);
@@ -529,7 +529,9 @@ test("guards JD daily SKU and SPU imports with stable identity and full date cov
   assert.match(database, /ensureDailyRowNaturalKeys/);
   assert.match(dailyMigration, /DAILY_ROW_NATURAL_KEY_MIGRATION/);
   assert.match(dailyMigration, /DELETE FROM netshop_rows WHERE id =/);
-  assert.match(dailyMigration, /row\.source_row_key !== naturalKey/);
+  assert.match(dailyMigration, /r\.source_row_key IS NOT json_array/);
+  assert.match(dailyMigration, /DAILY_ROW_NATURAL_KEY_MIGRATION_MAX_BATCHES/);
+  assert.match(dailyMigration, /NetshopSchemaUpgradePendingError/);
   // Both independent upload entries carry their expected dimension and range.
   assert.match(page, /jd_sku_daily/);
   assert.match(page, /expectedDataset: "sku_daily"/);

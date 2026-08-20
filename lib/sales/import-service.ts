@@ -111,6 +111,40 @@ function addUtcDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+export const MAX_SALES_IMPORT_RANGE_DAYS = 366;
+
+function realIsoDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1900 || year > 2199) return null;
+  const epochMs = Date.UTC(year, month - 1, day);
+  const parsed = new Date(epochMs);
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+  return { value, epochMs };
+}
+
+export function validateSalesImportDateRange(startDate: string, endDate: string) {
+  const start = realIsoDate(startDate);
+  const end = realIsoDate(endDate);
+  if (!start || !end || start.epochMs > end.epochMs) {
+    return { ok: false as const, code: "INVALID_EXPECTED_DATE_RANGE", message: "起止日期必须为真实的 YYYY-MM-DD 自然日，且开始日期不能晚于结束日期" };
+  }
+  const dayCount = Math.floor((end.epochMs - start.epochMs) / 86_400_000) + 1;
+  if (dayCount > MAX_SALES_IMPORT_RANGE_DAYS) {
+    return { ok: false as const, code: "EXPECTED_DATE_RANGE_TOO_LARGE", message: `单次销售导入日期范围最多 ${MAX_SALES_IMPORT_RANGE_DAYS} 天` };
+  }
+  return {
+    ok: true as const,
+    startDate: start.value,
+    endDate: end.value,
+    endExclusive: new Date(end.epochMs + 86_400_000).toISOString().slice(0, 10),
+    dayCount,
+  };
+}
+
 function hasCleanableZeroCostRows(rows: readonly SalesLineInput[]) {
   return rows.some((row) => row.costAmountCents === 0
     && row.productCode !== "ERP_PRICE_ADJUSTMENT"
@@ -231,6 +265,7 @@ export async function importSalesLedgerBytes(input: {
   expectedStartDate: string;
   expectedEndDate: string;
 }): Promise<SalesImportExecution> {
+  const dateRange = validateSalesImportDateRange(input.expectedStartDate, input.expectedEndDate);
   const rawFileHash = toHex(await sha256(input.bytes));
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
@@ -244,17 +279,15 @@ export async function importSalesLedgerBytes(input: {
   if (!isXlsxSignature(input.bytes)) {
     return reject({ ok: false, status: "rejected", message: "文件签名不是有效的 .xlsx（ZIP）格式", warnings: [], errors: [{ code: "INVALID_XLSX_SIGNATURE", message: "文件签名无效" }], errorCount: 1 });
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expectedStartDate)
-    || !/^\d{4}-\d{2}-\d{2}$/.test(input.expectedEndDate)
-    || input.expectedStartDate > input.expectedEndDate) {
-    return reject({ ok: false, status: "rejected", message: "销售导入必须提供有效的权威起止日期", warnings: [], errors: [{ code: "INVALID_EXPECTED_DATE_RANGE", message: "起止日期必须为 YYYY-MM-DD，且开始日期不能晚于结束日期" }], errorCount: 1 });
+  if (!dateRange.ok) {
+    return reject({ ok: false, status: "rejected", message: "销售导入必须提供有效的权威起止日期", warnings: [], errors: [{ code: dateRange.code, message: dateRange.message }], errorCount: 1 });
   }
 
   let parsed: Awaited<ReturnType<typeof parseSalesLedgerXlsx>>;
   try {
     parsed = await parseSalesLedgerXlsx(input.bytes);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Excel 文件解析失败";
+  } catch {
+    const message = "销售 Excel 文件解析失败，请确认文件格式和模板";
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "XLSX_PARSE_ERROR", message }], errorCount: 1 });
   }
 
@@ -394,7 +427,7 @@ export async function importSalesLedgerBytes(input: {
        WHERE ship_time >= ? AND ship_time < ?
        GROUP BY last_import_batch_id
        ORDER BY last_import_batch_id`,
-    ).bind(scopeStart, addUtcDays(scopeEnd, 1)).all<{ batch_id: string; row_count: number }>();
+    ).bind(scopeStart, dateRange.endExclusive).all<{ batch_id: string; row_count: number }>();
     return current.results.map((row) => ({ batchId: row.batch_id, rowCount: Number(row.row_count) }));
   };
   const scopeOwnership = await readScopeOwnership();
