@@ -179,7 +179,13 @@ export function validateJdMarketImportResponse(httpStatus: number, payload: unkn
     ? body.importReceipt as JdMarketImportReceipt
     : null;
   if (!statusMatches || body?.ok !== true || !batch || !receipt || !Array.isArray(batch.warnings) || batch.warnings.length !== 0) {
-    throw new Error("市场榜单导入响应不符合严格 imported/duplicate 契约");
+    const observedStatus = typeof resultStatus === "string" && resultStatus.trim()
+      ? `，status=${resultStatus.trim().replace(/\s+/g, " ").slice(0, 40)}`
+      : "";
+    const backendError = typeof body?.error === "string" && body.error.trim()
+      ? `：${body.error.trim().replace(/\s+/g, " ").slice(0, 240)}`
+      : "";
+    throw new Error(`市场榜单导入响应不符合严格 imported/duplicate 契约（HTTP ${httpStatus}${observedStatus}${backendError}）`);
   }
   return assertJdMarketImportProof({
     httpStatus: httpStatus as 200 | 201,

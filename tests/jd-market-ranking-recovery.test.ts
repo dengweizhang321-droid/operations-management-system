@@ -126,6 +126,15 @@ test("JD market import response accepts only strict 201 imported or 200 duplicat
     assert.throws(() => validateJdMarketImportResponse(status, payload, evidence), /严格|不一致/);
   }
 
+  assert.throws(
+    () => validateJdMarketImportResponse(500, { error: "  预校验失败\n请检查文件  " }, evidence),
+    /HTTP 500：预校验失败 请检查文件/,
+  );
+  assert.throws(
+    () => validateJdMarketImportResponse(200, { ok: true, status: "processing" }, evidence),
+    /HTTP 200，status=processing/,
+  );
+
   const batch = responsePayload(evidence).batch;
   const receipt = responsePayload(evidence).importReceipt;
   const invalidPayloads = [
