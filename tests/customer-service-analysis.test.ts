@@ -23,7 +23,7 @@ test("customer-service AI analysis accepts unknown conversion status", () => {
 
 test("customer-service page checks model readiness and analyzes every visible unlabelled row in bounded batches", async () => {
   const [page, route] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/analyze/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(route, /export async function GET\(\)/);
@@ -43,14 +43,14 @@ test("customer-service imports scope file identity by shop", async () => {
 });
 
 test("customer-service page keeps the paired-file import available beside analysis", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8");
   assert.match(page, /<CustomerServiceImportCard canImport=\{canImport\} onCompleted=\{load\} \/>/);
   assert.match(page, /可在本页直接导入/);
 });
 
 test("customer-service category filter and display use the netshop SKU to Jackyun sales chain", async () => {
   const [page, route, database, mapping] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/product-mapping.ts", import.meta.url), "utf8"),
@@ -97,7 +97,7 @@ test("customer-service reverse fallback rejects an ambiguous online specificatio
 
 test("customer-service list exposes SKUID, Jackyun number, and category with a unique SQL fallback", async () => {
   const [page, database, mapping] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/product-mapping.ts", import.meta.url), "utf8"),
   ]);
@@ -111,7 +111,7 @@ test("customer-service list exposes SKUID, Jackyun number, and category with a u
 test("customer-service unknown conversion stays synchronized across AI prompt, UI, and tool schema", async () => {
   const [analysis, page, registry] = await Promise.all([
     readFile(new URL("../lib/customer-service/analysis.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
   ]);
   assert.match(analysis, /unknown（聊天记录不足，无法判断是否转化）/);

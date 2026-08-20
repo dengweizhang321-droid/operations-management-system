@@ -1,4 +1,9 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { getMarketDatabase } from "@/lib/market/database";
 import { executeMarketDownloadTask } from "@/lib/market/download-executor";
 import { cacheMarketImages } from "@/lib/market/image-cache";
@@ -6,6 +11,7 @@ import { cacheMarketImages } from "@/lib/market/image-cache";
 export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "市场榜单下载执行", "导入");
     const form = await request.formData();
     const taskId = String(form.get("taskId") ?? "").trim();
     const jdTaskId = String(form.get("jdTaskId") ?? "").trim().slice(0, 160);
@@ -25,6 +31,6 @@ export async function POST(request: Request) {
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "榜单文件校验导入失败" }, { status: 400 });
+    return safeApiErrorResponse(error, "榜单文件校验导入失败", { headers: { "cache-control": "no-store" } });
   }
 }

@@ -1,4 +1,10 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
+import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
+import { readBoundedJsonObject } from "@/lib/http/bounded-json";
 import { getMarketDatabase } from "@/lib/market/database";
 import {
   confirmMarketPrice,
@@ -35,6 +41,7 @@ import {
 import { createPriceRecognitionJob, runCloudAnnotationBatch, runNextCloudAnnotation } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
+const MARKET_WRITE_BODY_BYTES_MAX = 256 * 1024;
 
 const record = (value: unknown): value is JsonRecord => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const text = (body: JsonRecord, key: string) => typeof body[key] === "string" ? body[key] as string : "";
@@ -42,14 +49,14 @@ const texts = (body: JsonRecord, key: string) => Array.isArray(body[key]) ? (bod
 const comparisonSelection = (value: unknown): MarketComparisonSelection => {
   let parsed = value;
   if (typeof value === "string") {
-    try { parsed = JSON.parse(value); } catch { throw new Error("商品对比身份格式无效"); }
+    try { parsed = JSON.parse(value); } catch { throw new PublicApiError(400, "invalid_request", "商品对比身份格式无效"); }
   }
   if (!record(parsed)
     || typeof parsed.skuCode !== "string"
     || typeof parsed.category !== "string"
     || typeof parsed.scope !== "string"
     || typeof parsed.rankingDimension !== "string") {
-    throw new Error("商品对比身份格式无效");
+    throw new PublicApiError(400, "invalid_request", "商品对比身份格式无效");
   }
   return {
     skuCode: parsed.skuCode,
@@ -60,14 +67,14 @@ const comparisonSelection = (value: unknown): MarketComparisonSelection => {
 };
 const comparisonSelections = (value: unknown) => {
   if (value === undefined) return undefined;
-  if (!Array.isArray(value)) throw new Error("商品对比身份格式无效");
+  if (!Array.isArray(value)) throw new PublicApiError(400, "invalid_request", "商品对比身份格式无效");
   return value.map(comparisonSelection);
 };
 const numberParam = (params: URLSearchParams, key: string, fallback: number) => {
   const value = params.get(key);
   if (!value) return fallback;
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`${key} must be an integer`);
+  if (!Number.isSafeInteger(parsed)) throw new PublicApiError(400, "invalid_request", `${key} 必须是整数`);
   return parsed;
 };
 const workspaceModeParam = (params: URLSearchParams) => {
@@ -77,7 +84,8 @@ const workspaceModeParam = (params: URLSearchParams) => {
 
 export async function GET(request: Request) {
   try {
-    await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "市场主数据");
     const db = getMarketDatabase();
     const params = new URL(request.url).searchParams;
     const view = params.get("view") ?? "workspace";
@@ -164,16 +172,16 @@ export async function GET(request: Request) {
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "读取市场主数据失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "读取市场主数据失败", { headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const parsed: unknown = await request.json().catch(() => null);
-    if (!record(parsed)) return Response.json({ error: "请求体必须是 JSON 对象" }, { status: 400 });
-    const action = text(parsed, "action");
     const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "市场主数据", "修改");
+    const parsed = await readBoundedJsonObject(request, MARKET_WRITE_BODY_BYTES_MAX);
+    const action = text(parsed, "action");
     const db = getMarketDatabase();
     let result: unknown;
     switch (action) {
@@ -364,6 +372,6 @@ export async function POST(request: Request) {
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "市场主数据操作失败" }, { status: 400 });
+    return safeApiErrorResponse(error, "市场主数据操作失败", { headers: { "cache-control": "no-store" } });
   }
 }

@@ -1,11 +1,16 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
 import { getCachedMarketImage } from "@/lib/market/image-cache";
 
 type RouteContext = { params: Promise<{ hash: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    await requireAppPrincipal();
+    const principal = await requireAppPrincipal();
+    requireUnrestrictedDataScope(principal, "市场商品图片");
     const { hash } = await context.params;
     const cached = await getCachedMarketImage(hash.toLowerCase());
     if (!cached) return new Response("Not found", { status: 404 });

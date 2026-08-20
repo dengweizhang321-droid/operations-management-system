@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  lazy,
   Suspense,
   useCallback,
   useEffect,
@@ -12,17 +11,19 @@ import {
 } from "react";
 
 import type { ModuleViewKey } from "./shell/navigation-catalog";
+import { createReloadableLazy } from "./shell/reloadable-lazy";
 
-const LazyMarketMasterAdminPanel = lazy(() => import("./market-view").then((module) => ({
-  default: module.MarketMasterAdminPanel,
-})));
-const LazyMarketDataImportPanel = lazy(() => import("./market-view").then((module) => ({
+type MarketDataImportPanelProps = ComponentProps<typeof import("./market-view").MarketDataImportPanel>;
+type MarketWorkflowPanelProps = ComponentProps<typeof import("./market-view").MarketWorkflowPanel>;
+
+const { Component: LazyMarketMasterAdminPanel } = createReloadableLazy("settings", () => import("./market-master-admin-panel"));
+const { Component: LazyMarketDataImportPanel } = createReloadableLazy<MarketDataImportPanelProps>("settings", () => import("./market-view").then((module) => ({
   default: module.MarketDataImportPanel,
 })));
-const LazyMarketWorkflowPanel = lazy(() => import("./market-view").then((module) => ({
+const { Component: LazyMarketWorkflowPanel } = createReloadableLazy<MarketWorkflowPanelProps>("settings", () => import("./market-view").then((module) => ({
   default: module.MarketWorkflowPanel,
 })));
-const LazyMarketAnnotationView = lazy(() => import("./market-annotation-view"));
+const { Component: LazyMarketAnnotationView } = createReloadableLazy("settings", () => import("./market-annotation-view"));
 
 export type SettingsTab = ModuleViewKey<"settings">;
 
@@ -52,7 +53,7 @@ type OperatingSettings = {
 };
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-type MarketOverviewData = ComponentProps<typeof LazyMarketDataImportPanel>["data"];
+type MarketOverviewData = MarketDataImportPanelProps["data"];
 type NumericSettingKey = "targetDays" | "criticalDays" | "slowDays" | "stagnantDays";
 type BooleanSettingKey = "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory";
 

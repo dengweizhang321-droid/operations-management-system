@@ -37,8 +37,9 @@ test("market settings code is lazy and mounted only by the master tab", async ()
   const settings = await source("../app/settings-view.tsx");
   assert.doesNotMatch(settings, /^import .* from "\.\/market-view"/m);
   assert.doesNotMatch(settings, /^import .* from "\.\/market-annotation-view"/m);
-  assert.match(settings, /lazy\(\(\) => import\("\.\/market-view"\)/);
-  assert.match(settings, /lazy\(\(\) => import\("\.\/market-annotation-view"\)\)/);
+  assert.match(settings, /createReloadableLazy\("settings", \(\) => import\("\.\/market-master-admin-panel"\)\)/);
+  assert.match(settings, /createReloadableLazy<Market(?:DataImport|Workflow)PanelProps>\("settings", \(\) => import\("\.\/market-view"\)/);
+  assert.match(settings, /createReloadableLazy\("settings", \(\) => import\("\.\/market-annotation-view"\)\)/);
   assert.match(settings, /activeTab === "master" && <section[\s\S]*?<Suspense/);
   assert.match(settings, /<LazyMarketMasterAdminPanel/);
   assert.match(settings, /<LazyMarketDataImportPanel/);
@@ -80,7 +81,7 @@ test("settings tab and panel semantics are linked and keyboard operable", async 
 test("page lazy-loads the extracted settings implementation", async () => {
   const page = await source("../app/page.tsx");
   assert.doesNotMatch(page, /function SettingsView\(/);
-  assert.match(page, /const SettingsView = lazy\(\(\) => import\("\.\/settings-view"\)\)/);
+  assert.match(page, /Component: SettingsView \} = createReloadableLazy\("settings", \(\) => import\("\.\/settings-view"\)\)/);
   assert.match(page, /settings: \([^\n]+<SettingsView/);
   assert.doesNotMatch(page, /type OperatingSettings =/);
   assert.doesNotMatch(page, /MarketMasterAdminPanel|MarketDataImportPanel|MarketWorkflowPanel|MarketAnnotationView/);

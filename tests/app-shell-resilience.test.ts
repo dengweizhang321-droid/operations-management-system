@@ -25,7 +25,9 @@ test("global search dialog traps focus and restores the background", async () =>
   ]);
   assert.match(page, /aria-haspopup="dialog"/);
   assert.match(page, /aria-controls="global-search-dialog"/);
-  assert.match(page, /\{searchOpen && <Suspense[\s\S]+<GlobalSearchDialog/);
+  assert.match(page, /\{searchOpen && <GlobalSearchLoadBoundary[\s\S]+<Suspense[\s\S]+<GlobalSearchDialogView/);
+  assert.match(page, /GlobalSearchLoadingDialog[\s\S]+<Dialog/);
+  assert.match(page, /GlobalSearchLoadBoundary[\s\S]+getDerivedStateFromError/);
   assert.match(search, /<Dialog[\s\S]+open=\{open\}/);
   assert.match(dialog, /createPortal/);
   assert.match(dialog, /setPortalTarget\(document\.body\)/);
@@ -54,9 +56,9 @@ test("mobile navigation releases its interaction lock at the desktop breakpoint"
 });
 
 test("market master initial failures are visible and retryable", async () => {
-  const market = await source("../app/market-view.tsx");
-  assert.match(market, /if \(!data && error\) return <section[^>]*role="alert"/);
-  assert.match(market, /TOP SKU 主数据中心加载失败/);
-  assert.match(market, /重新加载/);
-  assert.match(market, /if \(!data\) return <section[^>]*role="status"/);
+  const marketAdmin = await source("../app/market-master-admin-panel.tsx");
+  assert.match(marketAdmin, /if \(!data && error\) return <section[^>]*role="alert"/);
+  assert.match(marketAdmin, /TOP SKU 主数据中心加载失败/);
+  assert.match(marketAdmin, /重新加载/);
+  assert.match(marketAdmin, /if \(!data\) return <section[^>]*role="status"/);
 });

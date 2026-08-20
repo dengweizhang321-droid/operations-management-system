@@ -46,7 +46,7 @@ test("page modules consume one controlled view and route tab clicks through the 
     const declaration = new RegExp(`function ${moduleName}\\([^)]*moduleView[^)]*onModuleViewChange`);
     assert.match(source, declaration, `${moduleName} must be controlled by the shell view`);
   }
-  assert.match(source, /const SettingsView = lazy\(\(\) => import\("\.\/settings-view"\)\)/);
+  assert.match(source, /Component: SettingsView \} = createReloadableLazy\("settings", \(\) => import\("\.\/settings-view"\)\)/);
   assert.match(source, /settings: \([^\n]+moduleView[^\n]+<SettingsView[^\n]+onModuleViewChange/);
   assert.ok((source.match(/onModuleViewChange\("/g) ?? []).length >= 14);
 });

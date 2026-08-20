@@ -139,9 +139,19 @@ export function jdPromotionHelperRequestError(
   if (claimedExecutionId && requestExecutionId !== claimedExecutionId) return { error: "execution_mismatch" as const };
   if (!claimedExecutionId && route !== "/jd-promotion/plan") return { error: "execution_not_claimed" as const, expected: "/jd-promotion/plan" as const };
   if (busy) return { error: "pipeline_busy" as const };
-  if (route === "/jd-promotion/plan") return stage === "ready" ? null : { error: "invalid_stage" as const, expected: "ready", actual: stage };
-  const expected = route === "/jd-promotion/run" ? "planned" : "executed";
-  return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
+  if (route === "/jd-promotion/plan") {
+    return ["ready", "planned", "executed", "completed"].includes(stage)
+      ? null
+      : { error: "invalid_stage" as const, expected: "ready|planned|executed|completed", actual: stage };
+  }
+  if (route === "/jd-promotion/run") {
+    return stage === "planned" || stage === "executed"
+      ? null
+      : { error: "invalid_stage" as const, expected: "planned|executed", actual: stage };
+  }
+  return stage === "executed" || stage === "completed"
+    ? null
+    : { error: "invalid_stage" as const, expected: "executed|completed", actual: stage };
 }
 
 export async function planJdPromotionN8nRun(options: PlanOptions) {

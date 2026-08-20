@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { tmpdir } from "node:os";
@@ -42,8 +42,24 @@ test("JD helper binds one execution and rejects empty, foreign, out-of-order, an
   assert.deepEqual(jdHelperRequestError("ready", false, "/jd/run", "execution-1", null), { error: "execution_not_claimed", expected: "/jd/plan" });
   assert.deepEqual(jdHelperRequestError("planned", false, "/jd/run", "other", "execution-1"), { error: "execution_mismatch" });
   assert.deepEqual(jdHelperRequestError("planned", true, "/jd/run", "execution-1", "execution-1"), { error: "pipeline_busy" });
-  assert.deepEqual(jdHelperRequestError("planned", false, "/jd/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed", actual: "planned" });
+  assert.deepEqual(jdHelperRequestError("planned", false, "/jd/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed|completed", actual: "planned" });
   assert.deepEqual(jdHelperRequestError("ready", false, "/jd/plan", null, null), { error: "missing_or_invalid_execution_id" });
+});
+
+test("JD helper permits same-execution retries after A, B, or C response loss", () => {
+  assert.equal(jdHelperRequestError("planned", false, "/jd/plan", "execution-1", "execution-1"), null);
+  assert.equal(jdHelperRequestError("executed", false, "/jd/plan", "execution-1", "execution-1"), null);
+  assert.equal(jdHelperRequestError("completed", false, "/jd/plan", "execution-1", "execution-1"), null);
+  assert.equal(jdHelperRequestError("executed", false, "/jd/run", "execution-1", "execution-1"), null);
+  assert.equal(jdHelperRequestError("completed", false, "/jd/verify", "execution-1", "execution-1"), null);
+  assert.deepEqual(jdHelperRequestError("completed", false, "/jd/run", "execution-1", "execution-1"), { error: "invalid_stage", expected: "planned|executed", actual: "completed" });
+});
+
+test("loopback helper preserves the persisted JD stage on an idempotent A retry", async () => {
+  const helper = await readFile("tools/tmall-sycm-cookie-pipeline.ts", "utf8");
+  const jdPlanBranch = helper.slice(helper.indexOf('request.url === "/jd/plan"'), helper.indexOf('request.url === "/jd/run"'));
+  assert.match(jdPlanBranch, /stage = jdPlan\.stage/);
+  assert.doesNotMatch(jdPlanBranch, /stage = "planned"/);
 });
 
 test("JD plan fails closed when the n8n execution owner is missing or empty", async () => {

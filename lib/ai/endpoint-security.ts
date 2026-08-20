@@ -1,3 +1,47 @@
+import { PublicApiError } from "@/lib/http/api-error";
+
+const SENSITIVE_MODEL_QUERY_MARKERS = [
+  "apikey",
+  "accesskey",
+  "accesstoken",
+  "authtoken",
+  "bearertoken",
+  "token",
+  "secret",
+  "signature",
+  "credential",
+  "authorization",
+  "password",
+  "passwd",
+  "privatekey",
+  "securitytoken",
+] as const;
+
+const SENSITIVE_MODEL_QUERY_TOKENS = new Set([
+  "auth",
+  "authorization",
+  "bearer",
+  "credential",
+  "key",
+  "password",
+  "passwd",
+  "pwd",
+  "sas",
+  "secret",
+  "sig",
+  "signature",
+  "token",
+]);
+
+const SENSITIVE_MODEL_QUERY_COMPACT_KEYS = new Set([
+  "code",
+  "subscriptionkey",
+  "ocpapimsubscriptionkey",
+  "xfunctionskey",
+  "functionkey",
+  "azurefunctionkey",
+]);
+
 export function normalizeAiEndpointUrl(value: string, target: "model" | "channel"): string {
   const input = value.trim();
   if (!input) throw new Error(target === "model" ? "模型地址不能为空" : "Webhook 地址不能为空");
@@ -19,6 +63,61 @@ export function normalizeAiEndpointUrl(value: string, target: "model" | "channel
   if (isLocal && !isLocalHttp) throw new Error("地址不能指向 localhost、内网或保留网段");
   if (url.hash) url.hash = "";
   return url.toString().replace(/\/$/, "");
+}
+
+export function isSensitiveAiModelQueryKey(value: string): boolean {
+  const normalizedWithCamelBoundaries = value
+    .normalize("NFKC")
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  const normalized = normalizedWithCamelBoundaries.toLowerCase();
+  if (/密钥|秘钥|令牌|口令|密码|签名|凭证|授权/.test(normalized)) return true;
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+  if (tokens.some((token) => SENSITIVE_MODEL_QUERY_TOKENS.has(token))) return true;
+  const compact = normalized.replace(/[^a-z0-9]/g, "");
+  if (!compact) return false;
+  if (SENSITIVE_MODEL_QUERY_COMPACT_KEYS.has(compact)) return true;
+  if (["auth", "bearer", "jwt", "key", "pwd", "sas", "sig"].includes(compact)) return true;
+  return SENSITIVE_MODEL_QUERY_MARKERS.some((marker) => compact.includes(marker));
+}
+
+export function normalizeAiModelEndpointForStorage(value: string): string {
+  let normalized: string;
+  try {
+    normalized = normalizeAiEndpointUrl(value, "model");
+  } catch (error) {
+    throw new PublicApiError(
+      400,
+      "invalid_request",
+      error instanceof Error ? error.message : "模型地址格式无效",
+    );
+  }
+  const url = new URL(normalized);
+  if ([...url.searchParams.keys()].some(isSensitiveAiModelQueryKey)) {
+    throw new PublicApiError(
+      400,
+      "invalid_request",
+      "模型地址不能包含 API Key、Token、签名或凭证等敏感查询参数，请使用独立密钥配置。",
+    );
+  }
+  return normalized;
+}
+
+/** Removes legacy query-string credentials from browser-facing model DTOs. */
+export function redactAiModelEndpointUrl(value: string): string {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    url.username = "";
+    url.password = "";
+    url.hash = "";
+    const sensitiveKeys = [...new Set([...url.searchParams.keys()].filter(isSensitiveAiModelQueryKey))];
+    for (const key of sensitiveKeys) url.searchParams.delete(key);
+    const serialized = url.toString();
+    return !url.search && serialized.endsWith("/") ? serialized.slice(0, -1) : serialized;
+  } catch {
+    return "";
+  }
 }
 
 export function resolveAiModelEndpointUrl(value: string, protocol: "openai_compatible" | "anthropic"): string {

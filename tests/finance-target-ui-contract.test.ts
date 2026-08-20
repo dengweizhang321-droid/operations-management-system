@@ -50,7 +50,7 @@ test("finance target deletion requires confirmation and a bounded reason", async
 });
 
 test("the page has no customer-service delete control that could omit an audit reason", async () => {
-  const page = await readFile(pagePath, "utf8");
+  const page = await readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(page, /fetch\([^\n]*\/api\/customer-service\/conversations[^\n]*\{\s*method:\s*"DELETE"/);
 });
 

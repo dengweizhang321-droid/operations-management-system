@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadJdStores, type JdStore } from "../lib/jd/store-registry";
+import { assertJdNaturalDateRange } from "../lib/jd/date-range";
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,10 +22,21 @@ export function parseRunnerArgs(argv: string[]) {
   const mode = (value("--mode") ?? "all").toLowerCase();
   if (!["all", "master", "sku-daily", "spu-daily"].includes(mode)) throw new Error("--mode 必须是 all/master/sku-daily/spu-daily");
   if (has("--dimension")) throw new Error("多店执行器不再使用 --dimension；请改用 --mode sku-daily 或 --mode spu-daily（all 会依次运行主数据、SKU、SPU）。");
+  const explicitStartDate = value("--start-date");
+  const explicitEndDate = value("--end-date");
+  const hasStartDate = has("--start-date");
+  const hasEndDate = has("--end-date");
+  if (hasStartDate !== hasEndDate || (hasStartDate && (!explicitStartDate || !explicitEndDate
+    || explicitStartDate.startsWith("--") || explicitEndDate.startsWith("--")))) {
+    throw new Error("--start-date 与 --end-date 必须成对提供");
+  }
+  const range = explicitStartDate && explicitEndDate
+    ? assertJdNaturalDateRange(explicitStartDate, explicitEndDate)
+    : shanghaiDefaultRange();
   return {
     mode,
-    startDate: value("--start-date"),
-    endDate: value("--end-date"),
+    startDate: range.startDate,
+    endDate: range.endDate,
     storeKey: value("--store-key"),
     dryRun: has("--dry-run"),
     silentNoWindow: has("--no-visible-recovery"),
@@ -79,7 +91,7 @@ export function validateStepResult(step: Step, payload: Record<string, unknown>,
   if (!imported || typeof imported !== "object" || Array.isArray(imported)) return "missing verified auto-import result";
   const result = imported as Record<string, unknown>;
   if ((result.status !== "imported" && result.status !== "duplicate") || typeof result.batchId !== "string" || !result.batchId
-    || typeof result.rowCount !== "number" || !Number.isFinite(result.rowCount) || result.rowCount < 0
+    || typeof result.rowCount !== "number" || !Number.isSafeInteger(result.rowCount) || result.rowCount <= 0
     || result.batchStatus !== "completed" || result.warningCount !== 0 || result.platform !== "京东" || result.shopName !== store.shopName) return "invalid import batch identity or status";
   const daily = step !== "jd_product_master";
   const expectedDataset = step === "jd_sku_daily" ? "sku_daily" : step === "spu_daily" ? "spu_daily" : "product_master";
@@ -169,17 +181,22 @@ function stderrSummary(stderr: string) {
 }
 
 export async function runMultiStore(options: MultiStoreOptions, stores?: JdStore[]) {
+  const defaults = shanghaiDefaultRange();
+  if (Boolean(options.startDate) !== Boolean(options.endDate)) throw new Error("京东多店铺日期必须成对提供");
+  const range = assertJdNaturalDateRange(options.startDate ?? defaults.startDate, options.endDate ?? defaults.endDate);
+  const resolvedOptions = { ...options, ...range };
   const enabled = (stores ?? await loadJdStores()).filter((store) => store.enabled);
-  const selected = options.storeKey ? enabled.filter((store) => store.storeKey === options.storeKey) : enabled;
-  if (options.storeKey && selected.length !== 1) throw new Error(`未找到启用的京东店铺注册键: ${options.storeKey}`);
+  const selected = resolvedOptions.storeKey ? enabled.filter((store) => store.storeKey === resolvedOptions.storeKey) : enabled;
+  if (resolvedOptions.storeKey && selected.length !== 1) throw new Error(`未找到启用的京东店铺注册键: ${resolvedOptions.storeKey}`);
+  if (!selected.length) throw new Error("没有启用的京东店铺，拒绝空运行");
   await mkdir(auditDir, { recursive: true });
-  const baseUrl = (options.baseUrl ?? defaultBaseUrl).replace(/\/$/, "");
-  const auditPath = options.resumeAuditPath ? path.resolve(options.resumeAuditPath) : path.join(auditDir, `run-${Date.now()}.json`);
+  const baseUrl = (resolvedOptions.baseUrl ?? defaultBaseUrl).replace(/\/$/, "");
+  const auditPath = resolvedOptions.resumeAuditPath ? path.resolve(resolvedOptions.resumeAuditPath) : path.join(auditDir, `run-${Date.now()}.json`);
   if (!inside(auditDir, auditPath) || !/^run-\d+\.json$/.test(path.basename(auditPath))) throw new Error("恢复审计路径不属于受控 runner 输出目录");
   let audit: RunnerAudit;
-  if (options.resumeAuditPath) {
+  if (resolvedOptions.resumeAuditPath) {
     audit = await readJsonFile<RunnerAudit>(auditPath);
-    assertResumeAuditContract(audit, options, selected, baseUrl);
+    assertResumeAuditContract(audit, resolvedOptions, selected, baseUrl);
     const firstIncomplete = audit.items.find((item) => item.status !== "completed");
     if (firstIncomplete?.status === "failed") {
       firstIncomplete.status = "planned";
@@ -188,22 +205,22 @@ export async function runMultiStore(options: MultiStoreOptions, stores?: JdStore
       delete firstIncomplete.durationMs;
     }
   } else {
-    audit = { version: 1, baseUrl, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), mode: options.mode, dryRun: options.dryRun, silentNoWindow: options.silentNoWindow, startDate: options.startDate, endDate: options.endDate, storeKeys: selected.map((store) => store.storeKey), items: selected.flatMap((store) => stepsForMode(options.mode).map((step) => ({ storeKey: store.storeKey, shopName: store.shopName, step, status: "planned" as const }))) };
+    audit = { version: 1, baseUrl, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), mode: resolvedOptions.mode, dryRun: resolvedOptions.dryRun, silentNoWindow: resolvedOptions.silentNoWindow, startDate: resolvedOptions.startDate, endDate: resolvedOptions.endDate, storeKeys: selected.map((store) => store.storeKey), items: selected.flatMap((store) => stepsForMode(resolvedOptions.mode).map((step) => ({ storeKey: store.storeKey, shopName: store.shopName, step, status: "planned" as const }))) };
   }
   const persist = async () => { audit = { ...audit, updatedAt: new Date().toISOString() }; await writeJsonAtomic(auditPath, audit); };
   await persist();
 
   for (const store of selected) {
-    for (const step of stepsForMode(options.mode)) {
+    for (const step of stepsForMode(resolvedOptions.mode)) {
       const item = audit.items.find((candidate) => candidate.storeKey === store.storeKey && candidate.step === step)!;
       if (item.status === "completed") continue;
-      if (options.dryRun) continue; // Planned is intentional: nothing was executed.
+      if (resolvedOptions.dryRun) continue; // Planned is intentional: nothing was executed.
       item.status = "running";
       await persist();
       const started = Date.now();
       let outcome: Awaited<ReturnType<typeof run>>;
       try {
-        outcome = await run(process.execPath, jdChildArgs(store, step, options, baseUrl));
+        outcome = await run(process.execPath, jdChildArgs(store, step, resolvedOptions, baseUrl));
       } catch (error) {
         item.status = "failed";
         item.durationMs = Date.now() - started;
@@ -221,7 +238,7 @@ export async function runMultiStore(options: MultiStoreOptions, stores?: JdStore
         return { ok: false, auditPath, audit };
       }
       const importResult = payload.importResult as Record<string, unknown> | undefined;
-      const invalid = validateStepResult(step, payload, store, options);
+      const invalid = validateStepResult(step, payload, store, resolvedOptions);
       if (invalid) {
         item.status = "failed";
         item.durationMs = Date.now() - started;

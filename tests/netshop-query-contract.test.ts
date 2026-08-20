@@ -5,10 +5,14 @@ import test from "node:test";
 import {
   boundedNetshopInteger,
   isNetshopIsoDate,
+  netshopOutletKey,
+  NETSHOP_OUTLET_MAX_ITEMS,
   NETSHOP_QUERY_MAX_PAGE,
   NETSHOP_QUERY_MAX_PAGE_SIZE,
   NetshopQueryError,
   netshopQueryErrorPayload,
+  normalizeNetshopOutletFilters,
+  readNetshopOutletFilters,
   readNetshopQueryInteger,
   resolveNetshopQueryPeriod,
 } from "../lib/netshop/query-contract";
@@ -42,6 +46,36 @@ test("netshop pagination is strictly bounded at both URL and domain boundaries",
   assert.throws(() => boundedNetshopInteger(Number.NaN, "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE), NetshopQueryError);
 });
 
+test("netshop outlet filters preserve platform plus shop identity and reject malformed or oversized input", () => {
+  const values = [
+    netshopOutletKey("京东", "同名店"),
+    netshopOutletKey("天猫", "同名店"),
+    netshopOutletKey("京东", "同名店"),
+  ];
+  assert.deepEqual(readNetshopOutletFilters(values), [
+    { platform: "京东", shopName: "同名店" },
+    { platform: "天猫", shopName: "同名店" },
+  ]);
+  for (const invalid of ["同名店", "京东\u001f", "\u001f同名店", "京东\u001f同名店\u001f额外", "京\u0000东\u001f同名店"]) {
+    assert.throws(() => readNetshopOutletFilters([invalid]), NetshopQueryError);
+  }
+  const oversized = Array.from({ length: NETSHOP_OUTLET_MAX_ITEMS + 1 }, () => netshopOutletKey("京东", "同名店"));
+  assert.throws(() => readNetshopOutletFilters(oversized), /最多 50 项/);
+  try {
+    readNetshopOutletFilters(oversized);
+    assert.fail("oversized outlet filter should fail");
+  } catch (error) {
+    assert.deepEqual(netshopQueryErrorPayload(error, "读取失败"), {
+      body: { error: "outlet 筛选最多 50 项", code: "too_many_outlet_filters" },
+      status: 400,
+    });
+  }
+  assert.throws(
+    () => normalizeNetshopOutletFilters(Array.from({ length: NETSHOP_OUTLET_MAX_ITEMS + 1 }, (_, index) => ({ platform: "京东", shopName: `店-${index}` }))),
+    /最多 50 项/,
+  );
+});
+
 test("netshop query errors are public while unexpected database details are redacted", () => {
   const expected = netshopQueryErrorPayload(new NetshopQueryError("invalid_date", "日期无效"), "读取失败");
   assert.deepEqual(expected, { body: { error: "日期无效", code: "invalid_date" }, status: 400 });
@@ -64,12 +98,18 @@ test("every netshop route maps schema-upgrade pending to a safe public response"
     "overview",
     "import",
   ].map((name) => readFile(new URL(`../app/api/netshop/${name}/route.ts`, import.meta.url), "utf8")));
-  for (const source of queryRoutes) assert.match(source, /netshopQueryErrorPayload\(error,/);
+  for (const source of queryRoutes) {
+    assert.match(source, /netshopQueryErrorPayload\(error,/);
+    assert.match(source, /readNetshopOutletFilters\(params\.getAll\("outlet"\)\)/);
+    assert.match(source, /params\.has\("shop"\)/);
+    assert.doesNotMatch(source, /getAll\("shop"\)[\s\S]{0,120}slice\(0, 50\)/);
+  }
   for (const source of safeRoutes) assert.match(source, /safeApiErrorResponse\(error,/);
   for (const source of [...queryRoutes, ...safeRoutes]) {
     assert.doesNotMatch(source, /error instanceof Error \? error\.message/);
     assert.match(source, /cache-control["']?:?\s*["']no-store/);
   }
+  assert.match(queryRoutes[0]!, /salesChannels: principal\.scope === null \? null : principal\.scope\.channels/);
 });
 
 test("netshop query indexes are identical in the forward migration and runtime upgrade", async () => {

@@ -193,18 +193,21 @@ test("netshop requests reject late filter responses", async () => {
 });
 
 test("page consumes customer and finance bounded detail, pagination and CAS contracts", async () => {
-  const page = await source("../app/page.tsx");
-  assert.match(page, /listControllerRef\.current\?\.abort\(\)/);
-  assert.match(page, /listGenerationRef\.current === generation/);
-  assert.match(page, /listRequestKeyRef\.current === requestKey/);
-  assert.match(page, /signal: controller\.signal/);
-  assert.match(page, /customer-service\/conversations\?id=\$\{id\}/);
-  assert.match(page, /detailGenerationRef/);
-  assert.match(page, /messageTotalCount/);
-  assert.match(page, /messagesTruncated/);
-  assert.match(page, /expectedVersion: item\.version/);
-  assert.match(page, /payload\.incomplete === true/);
-  assert.match(page, /冲突 \$\{conflictCount\}、失败 \$\{failedCount\}/);
+  const [page, customer] = await Promise.all([
+    source("../app/page.tsx"),
+    source("../app/customer-service-view.tsx"),
+  ]);
+  assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
+  assert.match(customer, /listGenerationRef\.current === generation/);
+  assert.match(customer, /listRequestKeyRef\.current === requestKey/);
+  assert.match(customer, /signal: controller\.signal/);
+  assert.match(customer, /customer-service\/conversations\?id=\$\{id\}/);
+  assert.match(customer, /detailGenerationRef/);
+  assert.match(customer, /messageTotalCount/);
+  assert.match(customer, /messagesTruncated/);
+  assert.match(customer, /expectedVersion: item\.version/);
+  assert.match(customer, /payload\.incomplete === true/);
+  assert.match(customer, /冲突 \$\{conflictCount\}、失败 \$\{failedCount\}/);
   assert.match(page, /finance\/targets\?page=\$\{targetPage\}&pageSize=100/);
   assert.match(page, /targetRequestGenerationRef/);
   assert.match(page, /expectedVersion: form\.id \? form\.expectedVersion/);
@@ -215,7 +218,7 @@ test("page consumes customer and finance bounded detail, pagination and CAS cont
 });
 
 test("customer detail uses the shared dialog and saves both draft fields through one CAS", async () => {
-  const page = await source("../app/page.tsx");
+  const page = await source("../app/customer-service-view.tsx");
   assert.match(page, /import Dialog from "\.\/ui\/dialog"/);
   assert.match(page, /dialogId="customer-service-conversation-detail"/);
   assert.match(page, /initialFocusRef=\{customerDialogCloseRef\}/);

@@ -11,33 +11,26 @@ import {
   type AiChannelSecret,
 } from "@/lib/ai/assistant-service";
 import { getSalesDatabase } from "@/lib/sales/database";
+import { readAiBoundedText } from "@/app/api/ai/route-helpers";
 
 type RouteContext = { params: Promise<{ channelId: string }> };
 const MAX_CALLBACK_BYTES = 256 * 1024;
 
 function callbackUnavailable(): Response {
   // Avoid revealing whether a channel exists or which validation step failed.
-  return new Response("not found", { status: 404 });
+  return new Response("not found", { status: 404, headers: { "cache-control": "no-store" } });
 }
 
 function invalidCallback(): Response {
-  return new Response("invalid callback", { status: 403 });
+  return new Response("invalid callback", { status: 403, headers: { "cache-control": "no-store" } });
 }
 
 async function resolveCallbackChannel(context: RouteContext): Promise<AiChannelSecret | null> {
   const { channelId } = await context.params;
   if (!/^[a-zA-Z0-9_-]{1,160}$/.test(channelId)) return null;
   const channel = await getAiChannelSecretById(channelId, getSalesDatabase());
-  if (!channel || channel.status !== "enabled" || !channel.callbackEnabled) return null;
+  if (!channel || channel.status !== "enabled" || !channel.callbackEnabled || !channel.receiverId) return null;
   return channel;
-}
-
-async function readBoundedText(request: Request): Promise<string> {
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_CALLBACK_BYTES) throw new Error("payload_too_large");
-  const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > MAX_CALLBACK_BYTES) throw new Error("payload_too_large");
-  return text;
 }
 
 async function handleWeComVerification(request: Request, channel: AiChannelSecret): Promise<Response> {
@@ -55,7 +48,7 @@ async function handleWeComVerification(request: Request, channel: AiChannelSecre
   });
   if (!valid) return invalidCallback();
   try {
-    const echo = await decryptWeComEnvelope({ encodingAesKey: aesKey, encrypted, expectedReceiverId: channel.receiverId || undefined });
+    const echo = await decryptWeComEnvelope({ encodingAesKey: aesKey, encrypted, expectedReceiverId: channel.receiverId });
     return new Response(echo, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
   } catch {
     return invalidCallback();
@@ -66,9 +59,9 @@ async function handleWeComEvent(request: Request, channel: AiChannelSecret): Pro
   if (!channel.callbackTokenEncrypted || !channel.aesKeyEncrypted) return callbackUnavailable();
   let body: string;
   try {
-    body = await readBoundedText(request);
+    body = await readAiBoundedText(request, MAX_CALLBACK_BYTES);
   } catch {
-    return new Response("payload too large", { status: 413 });
+    return new Response("payload too large", { status: 413, headers: { "cache-control": "no-store" } });
   }
   const encrypted = extractXmlElement(body, "Encrypt");
   const params = new URL(request.url).searchParams;
@@ -83,7 +76,7 @@ async function handleWeComEvent(request: Request, channel: AiChannelSecret): Pro
   });
   if (!valid) return invalidCallback();
   try {
-    const eventXml = await decryptWeComEnvelope({ encodingAesKey: aesKey, encrypted, expectedReceiverId: channel.receiverId || undefined });
+    const eventXml = await decryptWeComEnvelope({ encodingAesKey: aesKey, encrypted, expectedReceiverId: channel.receiverId });
     const digest = await sha256Hex(eventXml);
     const eventKey = extractXmlElement(eventXml, "MsgId")
       || [extractXmlElement(eventXml, "FromUserName"), extractXmlElement(eventXml, "CreateTime"), extractXmlElement(eventXml, "Event")].filter(Boolean).join(":")

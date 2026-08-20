@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Page } from "playwright-core";
@@ -19,6 +19,7 @@ import {
 } from "../lib/jd/product-detail-task-manifest";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { getJdStore } from "../lib/jd/store-registry";
+import { assertJdNaturalDateRange } from "../lib/jd/date-range";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
@@ -29,13 +30,11 @@ const targetUrl = "https://jdsz.jd.com/szweb/view/product/productDetail.html";
 const downloadCenterUrl = "https://jdsz.jd.com/szweb/view/reports-center/download-center.html";
 
 async function withJdProductDetailRunLock<T>(task: () => Promise<T>) {
-  await mkdir(artifactDir, { recursive: true });
-  const lockPath = path.join(artifactDir, "jdsz-product-detail-export.lock");
-  const handle = await open(lockPath, "wx").catch(() => null);
-  if (!handle) throw new Error("Another JD product-detail export is already running; shared Chrome/profile access is locked.");
-  await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
-  await handle.close();
-  try { return await task(); } finally { await rm(lockPath, { force: true }); }
+  return withJdChromiumRunLock(
+    "product-detail-script",
+    task,
+    path.join(artifactDir, "jdsz-product-detail-export.run-lock"),
+  );
 }
 
 type CliOptions = {
@@ -92,15 +91,16 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
     throw new Error("--interactive-login 不能与 --no-visible-recovery 同时使用。");
   }
 
-  const yesterday = addDays(shanghaiToday(), -1);
-  const startDate = values.get("--start-date") ?? `${yesterday.slice(0, 8)}01`;
-  const endDate = values.get("--end-date") ?? yesterday;
-  for (const [name, value] of [["--start-date", startDate], ["--end-date", endDate]] as const) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
-      throw new Error(`${name} 必须是 YYYY-MM-DD 日期。`);
-    }
+  const hasStartDate = values.has("--start-date");
+  const hasEndDate = values.has("--end-date");
+  if (flags.has("--start-date") || flags.has("--end-date") || hasStartDate !== hasEndDate) {
+    throw new Error("--start-date 与 --end-date 必须成对提供有效值。");
   }
-  if (startDate > endDate) throw new Error("--start-date 不能晚于 --end-date。");
+  const yesterday = addDays(shanghaiToday(), -1);
+  const range = hasStartDate
+    ? assertJdNaturalDateRange(values.get("--start-date")!, values.get("--end-date")!)
+    : { startDate: `${yesterday.slice(0, 8)}01`, endDate: yesterday };
+  const { startDate, endDate } = range;
   const dimension = (values.get("--dimension") ?? "SKU").toUpperCase();
   if (dimension !== "SKU" && dimension !== "SPU") {
     throw new Error("--dimension 必须是 SKU 或 SPU。");
@@ -760,7 +760,8 @@ export async function importJdProductDetailFile(options: Pick<CliOptions, "baseU
   if (response.status !== expectedHttpStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
     || batch?.dataset !== expectedDataset || batch.status !== "completed" || batch.warningCount !== 0
     || batch.source !== "jd_sku_daily" || batch.platform !== "京东" || batch.shopName !== options.shopName
-    || batch.dateMin !== options.startDate || batch.dateMax !== options.endDate || !batch.id || !Number.isFinite(batch.rowCount)) {
+    || batch.dateMin !== options.startDate || batch.dateMax !== options.endDate || !batch.id
+    || !Number.isSafeInteger(batch.rowCount) || batch.rowCount! <= 0) {
     throw new Error(payload?.message ?? `JD ${options.dimension} daily import failed validation (HTTP ${response.status}).`);
   }
   return { status: payload.status, batchId: batch.id, rowCount: batch.rowCount!, warningCount: batch.warningCount, dateMin: batch.dateMin, dateMax: batch.dateMax, source: "jd_sku_daily", dataset: expectedDataset, platform: "京东", shopName: options.shopName, batchStatus: "completed" };

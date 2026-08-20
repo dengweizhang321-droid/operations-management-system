@@ -1,4 +1,4 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
 import {
   deleteAiChannel,
   ensureAiAssistantSchema,
@@ -9,12 +9,17 @@ import {
   type AiChannelInput,
 } from "@/lib/ai/assistant-service";
 import { getSalesDatabase } from "@/lib/sales/database";
+import { PublicApiError } from "@/lib/http/api-error";
+import {
+  aiJsonResponse,
+  aiRouteErrorResponse,
+  optionalAiId,
+  readAiJsonObject,
+  requireAiId,
+  requireAiString,
+} from "@/app/api/ai/route-helpers";
 
 type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function stringValue(payload: JsonRecord, key: string): string | undefined {
   const value = payload[key];
@@ -26,7 +31,7 @@ function channelInputFromPayload(payload: JsonRecord): AiChannelInput | null {
   const kind = stringValue(payload, "kind");
   if (!name || !kind) return null;
   return {
-    id: stringValue(payload, "id"),
+    id: optionalAiId(payload.id, "id"),
     name,
     kind: kind as AiChannelInput["kind"],
     status: (stringValue(payload, "status") ?? "enabled") as AiChannelInput["status"],
@@ -41,55 +46,53 @@ function channelInputFromPayload(payload: JsonRecord): AiChannelInput | null {
 
 export async function GET() {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "AI 渠道配置");
     const db = getSalesDatabase();
     await ensureAiAssistantSchema(db);
-    return Response.json({ items: await listAiChannels(db) }, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse({ items: await listAiChannels(db) });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "读取渠道配置失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "读取渠道配置失败");
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
-    const id = new URL(request.url).searchParams.get("id")?.trim();
-    if (!id) return Response.json({ error: "id 不能为空" }, { status: 400 });
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "AI 渠道配置", "删除");
+    const ids = new URL(request.url).searchParams.getAll("id");
+    const id = requireAiId(ids.length === 1 ? ids[0] : undefined, "id");
     const deleted = await deleteAiChannel(id, getSalesDatabase());
-    return Response.json({ ok: true, deleted });
+    return aiJsonResponse({ ok: true, deleted });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "删除渠道失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "删除渠道失败");
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
-    const parsed: unknown = await request.json().catch(() => null);
-    if (!isRecord(parsed)) return Response.json({ error: "请求数据格式无效" }, { status: 400 });
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "AI 渠道配置", "修改");
+    const parsed = await readAiJsonObject(request);
     const action = stringValue(parsed, "action");
-    const id = stringValue(parsed, "id");
+    if (action !== undefined && action !== "test" && action !== "send") {
+      throw new PublicApiError(400, "invalid_request", "action 无效。");
+    }
     const db = getSalesDatabase();
     if (action === "test") {
-      if (!id) return Response.json({ error: "缺少渠道 id" }, { status: 400 });
-      return Response.json(await testAiChannelConnection(id, db), { headers: { "cache-control": "no-store" } });
+      const id = requireAiId(parsed.id, "id");
+      return aiJsonResponse(await testAiChannelConnection(id, db));
     }
     if (action === "send") {
-      const text = stringValue(parsed, "text");
-      if (!id || !text) return Response.json({ error: "缺少渠道 id 或消息内容" }, { status: 400 });
-      return Response.json(await sendAiChannelText(id, text, db), { headers: { "cache-control": "no-store" } });
+      const id = requireAiId(parsed.id, "id");
+      const text = requireAiString(parsed.text, "消息内容", { maximumCharacters: 4_000, maximumBytes: 16_000 });
+      return aiJsonResponse(await sendAiChannelText(id, text, db));
     }
     const input = channelInputFromPayload(parsed);
-    if (!input) return Response.json({ error: "渠道信息不完整" }, { status: 400 });
+    if (!input) throw new PublicApiError(400, "invalid_request", "渠道信息不完整。");
     const item = await upsertAiChannel(input, db);
-    return Response.json({ item }, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse({ item });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "保存渠道配置失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "保存渠道配置失败");
   }
 }

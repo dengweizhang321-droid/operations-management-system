@@ -1,6 +1,7 @@
-import { authorizationErrorResponse, requireAppPrincipal, type AppPrincipal } from "@/lib/auth/authorization";
+import { requireAppPrincipal, type AppPrincipal } from "@/lib/auth/authorization";
 import { getAiArtifactDownload, isAiArtifactId, recordAiArtifactDelivery } from "@/lib/ai/artifacts";
 import { getSalesDatabase } from "@/lib/sales/database";
+import { aiRouteErrorResponse } from "@/app/api/ai/route-helpers";
 
 export async function GET(
   _request: Request,
@@ -50,8 +51,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
     if (principal && artifactId !== "[invalid_artifact_id]") {
       await recordAiArtifactDelivery({
         artifactId,
@@ -62,9 +61,6 @@ export async function GET(
         database: getSalesDatabase(),
       }).catch(() => undefined);
     }
-    return Response.json(
-      { error: "产物下载失败" },
-      { status: 500, headers: { "cache-control": "private, no-store" } },
-    );
+    return aiRouteErrorResponse(error, "产物下载失败", { "cache-control": "private, no-store" });
   }
 }

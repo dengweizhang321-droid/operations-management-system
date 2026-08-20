@@ -1,5 +1,7 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { requireAppPrincipal } from "@/lib/auth/authorization";
 import {
+  AI_CONVERSATION_PAGE_MAX,
+  AI_CONVERSATION_PAGE_SIZE_MAX,
   deleteAiConversation,
   ensureAiAssistantSchema,
   listAiConversations,
@@ -7,51 +9,54 @@ import {
   selectConversationModel,
 } from "@/lib/ai/assistant-service";
 import { getSalesDatabase } from "@/lib/sales/database";
+import {
+  aiJsonResponse,
+  aiRouteErrorResponse,
+  parseAiPositiveInteger,
+  readAiJsonObject,
+  requireAiId,
+} from "@/app/api/ai/route-helpers";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
     const db = getSalesDatabase();
     await ensureAiAssistantSchema(db);
-    const [items, models] = await Promise.all([
-      listAiConversations(principal, db),
+    const params = new URL(request.url).searchParams;
+    const page = parseAiPositiveInteger(params, "page", 1, AI_CONVERSATION_PAGE_MAX);
+    const pageSize = parseAiPositiveInteger(params, "pageSize", 30, AI_CONVERSATION_PAGE_SIZE_MAX);
+    const [conversationPage, models] = await Promise.all([
+      listAiConversations(principal, { page, pageSize }, db),
       listAvailableChatModels(db),
     ]);
-    return Response.json({ items, models }, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse({ ...conversationPage, models });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "读取对话列表失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "读取对话列表失败");
   }
 }
 
 export async function PATCH(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
-    const payload = await request.json().catch(() => null) as { conversationId?: string; modelId?: string } | null;
-    const conversationId = payload?.conversationId?.trim();
-    const modelId = payload?.modelId?.trim();
-    if (!conversationId || !modelId) return Response.json({ error: "conversationId 和 modelId 不能为空" }, { status: 400 });
+    const payload = await readAiJsonObject(request);
+    const conversationId = requireAiId(payload.conversationId, "conversationId");
+    const modelId = requireAiId(payload.modelId, "modelId");
     const item = await selectConversationModel(conversationId, modelId, principal, getSalesDatabase());
-    return Response.json({ item }, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse({ item });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "切换对话模型失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "切换对话模型失败");
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
-    const conversationId = new URL(request.url).searchParams.get("id")?.trim();
-    if (!conversationId) return Response.json({ error: "缺少对话 id" }, { status: 400 });
-    const deleted = await deleteAiConversation(conversationId, principal, getSalesDatabase());
-    if (!deleted) return Response.json({ error: "对话不存在或已删除" }, { status: 404 });
-    return Response.json({ ok: true, deleted: true }, { headers: { "cache-control": "no-store" } });
+    const ids = new URL(request.url).searchParams.getAll("id");
+    const conversationId = requireAiId(ids.length === 1 ? ids[0] : undefined, "id");
+    const deleted = await deleteAiConversation(conversationId, principal, "用户通过 AI 助理页面删除", getSalesDatabase());
+    if (!deleted) return aiJsonResponse({ error: "对话不存在或已删除", code: "not_found" }, { status: 404 });
+    return aiJsonResponse({ ok: true, deleted: true });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "删除对话失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "删除对话失败");
   }
 }

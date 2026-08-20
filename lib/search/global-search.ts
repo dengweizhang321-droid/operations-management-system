@@ -1,3 +1,15 @@
+import {
+  getGlobalSearchNavigationTarget,
+  globalSearchDefaultTargets,
+  isGlobalSearchGroupKey,
+  type GlobalSearchGroupKey,
+  type GlobalSearchNavigationModule,
+  type GlobalSearchNavigationTarget,
+} from "./target-contract";
+
+export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
+export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
+
 export const GLOBAL_SEARCH_MIN_QUERY_LENGTH = 2;
 export const GLOBAL_SEARCH_MAX_QUERY_LENGTH = 80;
 export const GLOBAL_SEARCH_DEFAULT_GROUP_LIMIT = 4;
@@ -5,34 +17,15 @@ export const GLOBAL_SEARCH_MAX_GROUP_LIMIT = 8;
 export const GLOBAL_SEARCH_DEFAULT_TOTAL_LIMIT = 48;
 export const GLOBAL_SEARCH_MAX_TOTAL_LIMIT = 50;
 
-export type GlobalSearchModule =
-  | "product"
-  | "sales"
-  | "shop"
-  | "inventory"
-  | "inventory_age"
-  | "combos"
-  | "replenishment"
-  | "market"
-  | "customer_service"
-  | "workflow"
-  | "import";
+const GLOBAL_SEARCH_TEXT_LIMITS = {
+  id: { characters: 160, bytes: 320 },
+  title: { characters: 200, bytes: 768 },
+  subtitle: { characters: 240, bytes: 768 },
+  detail: { characters: 400, bytes: 1_536 },
+  updatedAt: { characters: 48, bytes: 96 },
+} as const;
 
-export type GlobalSearchGroupKey =
-  | "products"
-  | "orders"
-  | "jd_products"
-  | "inventory"
-  | "inventory_age"
-  | "combos"
-  | "replenishment"
-  | "market_skus"
-  | "market_annotations"
-  | "customer_service"
-  | "finance"
-  | "targets"
-  | "workflow"
-  | "imports";
+export type GlobalSearchModule = GlobalSearchNavigationModule;
 
 export type GlobalSearchItem = {
   id: string;
@@ -42,6 +35,8 @@ export type GlobalSearchItem = {
   updatedAt: string;
   amountCents: number | null;
   module: GlobalSearchModule;
+  kind: GlobalSearchGroupKey;
+  target: GlobalSearchNavigationTarget;
 };
 
 export type GlobalSearchGroup = {
@@ -106,19 +101,25 @@ type SearchRow = {
   updated_at: string | null;
   amount_cents: number | null;
   total_count: number;
+  target_hint?: string | null;
 };
 
-type SearchGroupDefinition = {
-  key: GlobalSearchGroupKey;
+type SearchGroupDefinitionBase = {
   label: string;
   icon: string;
-  module: GlobalSearchModule;
   requiredTables: readonly string[];
   sql: string;
   likeParameterCount: number;
   allowedRoles: readonly AppRole[];
   scopeKind?: "warehouse" | "channel_platform" | "platform" | "finance" | "shop" | "unscoped_only";
 };
+
+type SearchGroupDefinition = {
+  [K in GlobalSearchGroupKey]: SearchGroupDefinitionBase & {
+    key: K;
+    module: (typeof globalSearchDefaultTargets)[K]["module"];
+  };
+}[GlobalSearchGroupKey];
 
 const allRoles = ["viewer", "analyst", "operator", "admin"] as const;
 const businessRoles = ["analyst", "operator", "admin"] as const;
@@ -134,16 +135,28 @@ export class GlobalSearchRequestError extends Error {
   }
 }
 
-function boundedInteger(value: string | null, fallback: number, min: number, max: number) {
-  if (value === null || value === "") return fallback;
+const globalSearchQueryKeys = new Set(["q", "group", "page", "pageSize", "limit", "totalLimit"]);
+
+function singleParameter(searchParams: URLSearchParams, key: string): string | null {
+  const values = searchParams.getAll(key);
+  if (values.length > 1) throw new GlobalSearchRequestError(`${key} 参数不能重复。`);
+  return values[0] ?? null;
+}
+
+function boundedInteger(value: string | null, fallback: number, min: number, max: number, field: string) {
+  if (value === null) return fallback;
+  if (!/^[1-9]\d*$/.test(value)) throw new GlobalSearchRequestError(`${field} 必须为十进制正整数。`);
   const parsed = Number(value);
-  if (!Number.isInteger(parsed)) throw new GlobalSearchRequestError("分页参数必须是整数。");
+  if (!Number.isSafeInteger(parsed)) throw new GlobalSearchRequestError(`${field} 超出允许范围。`);
   if (parsed < min || parsed > max) throw new GlobalSearchRequestError(`分页参数必须在 ${min} 到 ${max} 之间。`);
   return parsed;
 }
 
 export function normalizeGlobalSearchRequest(searchParams: URLSearchParams): GlobalSearchRequest {
-  const query = (searchParams.get("q") ?? "").trim();
+  for (const key of searchParams.keys()) {
+    if (!globalSearchQueryKeys.has(key)) throw new GlobalSearchRequestError("存在不支持的查询参数。");
+  }
+  const query = (singleParameter(searchParams, "q") ?? "").trim();
   const queryLength = Array.from(query).length;
   if (queryLength < GLOBAL_SEARCH_MIN_QUERY_LENGTH) {
     throw new GlobalSearchRequestError(`请输入至少 ${GLOBAL_SEARCH_MIN_QUERY_LENGTH} 个字符。`);
@@ -151,23 +164,32 @@ export function normalizeGlobalSearchRequest(searchParams: URLSearchParams): Glo
   if (queryLength > GLOBAL_SEARCH_MAX_QUERY_LENGTH) {
     throw new GlobalSearchRequestError(`搜索词不能超过 ${GLOBAL_SEARCH_MAX_QUERY_LENGTH} 个字符。`);
   }
-  const rawGroup = searchParams.get("group");
-  const group = rawGroup && isGlobalSearchGroupKey(rawGroup) ? rawGroup : null;
-  if (rawGroup && !group) throw new GlobalSearchRequestError("搜索分组不在允许清单中。");
+  const rawGroup = singleParameter(searchParams, "group");
+  const group = rawGroup === null
+    ? null
+    : isGlobalSearchGroupKey(rawGroup) ? rawGroup : null;
+  if (rawGroup !== null && !group) throw new GlobalSearchRequestError("搜索分组不在允许清单中。");
+  const pageSize = singleParameter(searchParams, "pageSize");
+  const legacyLimit = singleParameter(searchParams, "limit");
+  if (pageSize !== null && legacyLimit !== null) {
+    throw new GlobalSearchRequestError("pageSize 与 limit 不能同时提供。");
+  }
   return {
     query,
-    page: boundedInteger(searchParams.get("page"), 1, 1, 10_000),
+    page: boundedInteger(singleParameter(searchParams, "page"), 1, 1, 10_000, "page"),
     groupLimit: boundedInteger(
-      searchParams.get("limit"),
+      pageSize ?? legacyLimit,
       GLOBAL_SEARCH_DEFAULT_GROUP_LIMIT,
       1,
       GLOBAL_SEARCH_MAX_GROUP_LIMIT,
+      pageSize !== null ? "pageSize" : "limit",
     ),
     totalLimit: boundedInteger(
-      searchParams.get("totalLimit"),
+      singleParameter(searchParams, "totalLimit"),
       GLOBAL_SEARCH_DEFAULT_TOTAL_LIMIT,
       1,
       GLOBAL_SEARCH_MAX_TOTAL_LIMIT,
+      "totalLimit",
     ),
     group,
   };
@@ -211,7 +233,9 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     sql: `
       WITH matched AS (
         SELECT order_no, online_order_no, MAX(platform) AS platform, MAX(shop_name) AS shop_name,
-          MAX(ship_time) AS latest_ship_time, GROUP_CONCAT(DISTINCT product_name) AS product_names,
+          MAX(ship_time) AS latest_ship_time,
+          MIN(substr(COALESCE(product_name, ''), 1, 120)) AS sample_product_name,
+          COUNT(DISTINCT CASE WHEN product_name <> '' THEN product_name END) AS product_name_count,
           SUM(allocated_amount_cents) AS net_sales_cents
         FROM sales_order_lines
         WHERE (order_no LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_order_no LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -224,7 +248,9 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
       SELECT COALESCE(NULLIF(order_no, ''), online_order_no) AS result_id,
         COALESCE(NULLIF(order_no, ''), online_order_no, '未编号订单') AS title,
         COALESCE(platform, '') || CASE WHEN shop_name <> '' THEN ' · ' || shop_name ELSE '' END AS subtitle,
-        COALESCE(product_names, '') AS detail, latest_ship_time AS updated_at,
+        COALESCE(sample_product_name, '')
+          || CASE WHEN product_name_count > 1 THEN ' 等 ' || product_name_count || ' 个商品' ELSE '' END AS detail,
+        latest_ship_time AS updated_at,
         net_sales_cents AS amount_cents, COUNT(*) OVER() AS total_count
       FROM matched ORDER BY latest_ship_time DESC, result_id ASC LIMIT ? OFFSET ?`,
   },
@@ -519,7 +545,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   ],
   excludedSensitiveOrInternal: [
     "app_users", "ai_models", "ai_channels", "ai_channel_callback_events",
-    "ai_conversations", "ai_conversation_messages", "system_settings", "workflow_task_bootstrap",
+    "ai_conversations", "ai_conversation_scopes", "ai_conversation_messages", "ai_conversation_deletion_audits", "system_settings", "workflow_task_bootstrap",
     "workflow_operation_activities", "workflow_task_states", "workflow_task_template_states",
     "workflow_attachment_cleanup_queue", "workflow_task_activity_logs", "workflow_task_attachments", "workflow_task_comments",
     "workflow_task_entity_links", "workflow_task_reminders", "workflow_task_templates",
@@ -536,17 +562,6 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   ],
 } as const;
 
-const groupKeys = new Set<GlobalSearchGroupKey>([
-  ...staticDefinitions.map((definition) => definition.key),
-  "workflow",
-  "inventory_age",
-  "imports",
-]);
-
-export function isGlobalSearchGroupKey(value: string): value is GlobalSearchGroupKey {
-  return groupKeys.has(value as GlobalSearchGroupKey);
-}
-
 function emptyGroup(definition: Pick<SearchGroupDefinition, "key" | "label" | "icon" | "module">): GlobalSearchGroup {
   return { ...definition, available: false, total: 0, hasMore: false, items: [] };
 }
@@ -559,17 +574,22 @@ function mapSearchRows(
   totalOverride?: number,
 ): GlobalSearchGroup {
   const total = totalOverride ?? Number(rows[0]?.total_count ?? 0);
-  const items = rows.map((row) => ({
-    id: String(row.result_id ?? ""),
-    title: String(row.title ?? ""),
-    subtitle: String(row.subtitle ?? ""),
-    detail: String(row.detail ?? ""),
-    updatedAt: String(row.updated_at ?? ""),
-    amountCents: principal.role === "viewer" || row.amount_cents === null || row.amount_cents === undefined
-      ? null
-      : Number(row.amount_cents),
-    module: definition.module,
-  }));
+  const items = rows.map((row) => {
+    const target = getGlobalSearchNavigationTarget(definition.key, row.target_hint);
+    return {
+      kind: definition.key,
+      id: boundGlobalSearchText(row.result_id, GLOBAL_SEARCH_TEXT_LIMITS.id),
+      title: boundGlobalSearchText(row.title, GLOBAL_SEARCH_TEXT_LIMITS.title),
+      subtitle: boundGlobalSearchText(row.subtitle, GLOBAL_SEARCH_TEXT_LIMITS.subtitle),
+      detail: boundGlobalSearchText(row.detail, GLOBAL_SEARCH_TEXT_LIMITS.detail),
+      updatedAt: boundGlobalSearchText(row.updated_at, GLOBAL_SEARCH_TEXT_LIMITS.updatedAt),
+      amountCents: principal.role === "viewer" || row.amount_cents === null || row.amount_cents === undefined
+        ? null
+        : Number(row.amount_cents),
+      module: target.module,
+      target,
+    };
+  });
   return {
     ...definition,
     available: true,
@@ -577,6 +597,24 @@ function mapSearchRows(
     hasMore: request.page * request.groupLimit < total,
     items,
   };
+}
+
+function boundGlobalSearchText(
+  value: unknown,
+  limits: { characters: number; bytes: number },
+): string {
+  const characterBounded = Array.from(String(value ?? "")).slice(0, limits.characters).join("");
+  const encoded = new TextEncoder().encode(characterBounded);
+  if (encoded.byteLength <= limits.bytes) return characterBounded;
+  let end = limits.bytes;
+  while (end > 0) {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(encoded.slice(0, end));
+    } catch {
+      end -= 1;
+    }
+  }
+  return "";
 }
 
 function isGroupAuthorized(definition: Pick<SearchGroupDefinition, "allowedRoles" | "scopeKind">, principal: AppPrincipal) {
@@ -731,7 +769,7 @@ async function queryWorkflowGroup(
     fragments.push(`SELECT 'task:' || t.id AS result_id, t.title AS title,
       t.category || CASE WHEN t.status <> '' THEN ' · ' || t.status ELSE '' END AS subtitle,
       COALESCE(NULLIF(t.work_content, ''), t.shop_name) || CASE WHEN t.owner <> '' THEN ' · ' || t.owner ELSE '' END AS detail,
-      t.updated_at AS updated_at, NULL AS amount_cents
+      t.updated_at AS updated_at, NULL AS amount_cents, 'task' AS target_hint
       FROM workflow_tasks t ${stateJoin}
       WHERE (t.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.work_content LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR t.category LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -745,7 +783,7 @@ async function queryWorkflowGroup(
       CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END
         || CASE WHEN o.status <> '' THEN ' · ' || o.status ELSE '' END AS subtitle,
       COALESCE(NULLIF(o.content, ''), o.shop_name) || CASE WHEN o.owner <> '' THEN ' · ' || o.owner ELSE '' END AS detail,
-      o.updated_at AS updated_at, NULL AS amount_cents
+      o.updated_at AS updated_at, NULL AS amount_cents, o.record_type AS target_hint
       FROM workflow_operation_records o
       WHERE o.deleted_at IS NULL AND (o.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.content LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR (CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END) LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -754,7 +792,7 @@ async function queryWorkflowGroup(
     binds.push(like, like, like, like, like, like, like, ...scope.values);
   }
   if (fragments.length === 0) return emptyGroup(workflowDefinition);
-  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents,
+  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents, target_hint,
     COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
   try {

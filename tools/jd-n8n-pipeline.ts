@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { isJdNaturalDate } from "../lib/jd/date-range";
 import { loadJdStores, type JdStore } from "../lib/jd/store-registry";
 import {
   auditCounts,
@@ -63,7 +64,7 @@ function pathsFor(root = projectRoot): RuntimePaths {
 }
 
 function validDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  return isJdNaturalDate(value);
 }
 
 function validRunId(value: string) {
@@ -93,7 +94,7 @@ function safeError(error: unknown) {
 export function normalizeJdLocalBaseUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname)
-    || (url.pathname !== "/" && url.pathname !== "") || url.username || url.password) {
+    || (url.pathname !== "/" && url.pathname !== "") || url.username || url.password || url.search || url.hash) {
     throw new Error("京东 n8n 工作流只允许连接本机运营系统根地址");
   }
   return url.toString().replace(/\/$/, "");
@@ -115,10 +116,20 @@ export function jdHelperRequestError(
   if (!claimedExecutionId && route !== "/jd/plan") return { error: "execution_not_claimed" as const, expected: "/jd/plan" as const };
   if (busy) return { error: "pipeline_busy" as const };
   if (route === "/jd/plan") {
-    return stage === "ready" ? null : { error: "invalid_stage" as const, expected: "ready", actual: stage };
+    // The same n8n execution may retry A after the response was lost. The
+    // persisted plan remains the source of truth and planJdN8nRun is idempotent.
+    return ["ready", "planned", "executed", "completed"].includes(stage)
+      ? null
+      : { error: "invalid_stage" as const, expected: "ready|planned|executed|completed", actual: stage };
   }
-  const expected = route === "/jd/run" ? "planned" : "executed";
-  return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
+  if (route === "/jd/run") {
+    return stage === "planned" || stage === "executed"
+      ? null
+      : { error: "invalid_stage" as const, expected: "planned|executed", actual: stage };
+  }
+  return stage === "executed" || stage === "completed"
+    ? null
+    : { error: "invalid_stage" as const, expected: "executed|completed", actual: stage };
 }
 
 export async function getJdProfilesStatus(stores: readonly JdStore[]): Promise<JdProfileStatus> {

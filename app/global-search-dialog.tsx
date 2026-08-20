@@ -3,6 +3,13 @@
 import { useRef } from "react";
 
 import {
+  isGlobalSearchGroupKey,
+  isGlobalSearchModuleForGroup,
+  isGlobalSearchNavigationTargetForGroup,
+  type GlobalSearchGroupKey as SearchGroupKey,
+} from "@/lib/search/target-contract";
+
+import {
   isModuleKey,
   isModuleViewKey,
   navItems,
@@ -11,24 +18,8 @@ import {
 } from "./shell/navigation-catalog";
 import Dialog from "./ui/dialog";
 
-export const globalSearchGroupKeys = [
-  "products",
-  "orders",
-  "jd_products",
-  "inventory",
-  "inventory_age",
-  "combos",
-  "replenishment",
-  "market_skus",
-  "market_annotations",
-  "customer_service",
-  "finance",
-  "targets",
-  "workflow",
-  "imports",
-] as const;
-
-export type GlobalSearchGroupKey = (typeof globalSearchGroupKeys)[number];
+export { globalSearchGroupKeys } from "@/lib/search/target-contract";
+export type GlobalSearchGroupKey = SearchGroupKey;
 
 export const globalSearchEntityKinds = [
   "product",
@@ -47,7 +38,7 @@ export type GlobalSearchEntityKind = (typeof globalSearchEntityKinds)[number];
 export type GlobalSearchTarget<M extends ModuleKey = ModuleKey> = M extends ModuleKey
   ? {
       module: M;
-      view?: ModuleViewKey<M>;
+      view: ModuleViewKey<M>;
       entity?: {
         kind: GlobalSearchEntityKind;
         id: string;
@@ -56,6 +47,7 @@ export type GlobalSearchTarget<M extends ModuleKey = ModuleKey> = M extends Modu
   : never;
 
 type GlobalSearchItemForModule<M extends ModuleKey> = {
+  kind: GlobalSearchGroupKey;
   id: string;
   title: string;
   subtitle: string;
@@ -63,7 +55,7 @@ type GlobalSearchItemForModule<M extends ModuleKey> = {
   updatedAt: string;
   amountCents: number | null;
   module: M;
-  target?: GlobalSearchTarget<M>;
+  target: GlobalSearchTarget<M>;
 };
 
 export type GlobalSearchItem = {
@@ -116,6 +108,33 @@ export type GlobalSearchPresentation = {
 };
 
 const entityKindSet: ReadonlySet<string> = new Set(globalSearchEntityKinds);
+const globalSearchEntityModuleAllowlist: Record<GlobalSearchEntityKind, readonly ModuleKey[]> = {
+  product: ["product", "shop"],
+  order: ["sales"],
+  inventory: ["inventory"],
+  market_sku: ["market"],
+  customer_conversation: ["customer_service"],
+  finance_record: ["sales"],
+  target: ["sales"],
+  workflow_task: ["workflow"],
+  import_batch: ["import"],
+};
+const globalSearchEntityGroupAllowlist: Partial<Record<GlobalSearchGroupKey, readonly GlobalSearchEntityKind[]>> = {
+  products: ["product"],
+  orders: ["order"],
+  jd_products: ["product"],
+  inventory: ["inventory"],
+  inventory_age: ["inventory"],
+  combos: ["product"],
+  replenishment: ["inventory"],
+  market_skus: ["market_sku"],
+  market_annotations: ["market_sku"],
+  customer_service: ["customer_conversation"],
+  finance: ["finance_record"],
+  targets: ["target"],
+  workflow: ["workflow_task"],
+  imports: ["import_batch"],
+};
 const targetKeys = new Set(["module", "view", "entity"]);
 const entityKeys = new Set(["kind", "id"]);
 
@@ -133,7 +152,7 @@ export function parseGlobalSearchTarget(value: unknown): GlobalSearchTarget | nu
   const moduleKey = value.module;
   if (typeof moduleKey !== "string" || !isModuleKey(moduleKey)) return null;
   const view = value.view;
-  if (view !== undefined && (typeof view !== "string" || !isModuleViewKey(moduleKey, view))) return null;
+  if (typeof view !== "string" || !isModuleViewKey(moduleKey, view)) return null;
 
   const entity = value.entity;
   if (entity !== undefined) {
@@ -146,11 +165,25 @@ export function parseGlobalSearchTarget(value: unknown): GlobalSearchTarget | nu
 
   return {
     module: moduleKey,
-    ...(typeof view === "string" ? { view } : {}),
+    view,
     ...(isPlainRecord(entity)
       ? { entity: { kind: entity.kind as GlobalSearchEntityKind, id: String(entity.id).trim() } }
       : {}),
   } as GlobalSearchTarget;
+}
+
+export function isGlobalSearchItemModuleValid(item: Pick<GlobalSearchItem, "kind" | "module">): boolean {
+  return isGlobalSearchGroupKey(item.kind)
+    && isModuleKey(item.module)
+    && isGlobalSearchModuleForGroup(item.kind, item.module);
+}
+
+export function isGlobalSearchTargetForItem(item: GlobalSearchItem, target: GlobalSearchTarget): boolean {
+  if (!isGlobalSearchItemModuleValid(item) || target.module !== item.module) return false;
+  if (!isGlobalSearchNavigationTargetForGroup(item.kind, target)) return false;
+  if (!target.entity) return true;
+  return globalSearchEntityModuleAllowlist[target.entity.kind].includes(target.module)
+    && (globalSearchEntityGroupAllowlist[item.kind] ?? []).includes(target.entity.kind);
 }
 
 export function deriveGlobalSearchPresentation(

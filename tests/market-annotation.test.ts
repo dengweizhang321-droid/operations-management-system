@@ -180,7 +180,10 @@ test("annotation implementation wires real cloud images, idempotency, permission
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/image-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    Promise.all([
+      readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/market-master-admin-panel.tsx", import.meta.url), "utf8"),
+    ]).then((sources) => sources.join("\n")),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../tools/market-annotation-runner.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0016_market_sku_annotations.sql", import.meta.url), "utf8"),

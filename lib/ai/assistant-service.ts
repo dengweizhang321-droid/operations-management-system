@@ -1,15 +1,27 @@
 import { randomUUID } from "node:crypto";
 
-import { ensureAuthorizationSchema, type AppPrincipal } from "@/lib/auth/authorization";
+import {
+  ensureAuthorizationSchema,
+  type AppPrincipal,
+} from "@/lib/auth/authorization";
 import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import { createDingTalkSignature } from "@/lib/ai/channel-callbacks";
 import { isAiRequestCancelled } from "@/lib/ai/cancellation";
+import { BoundedFetchError, fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import {
-  assertAiConversationAccess,
-  deleteAiConversationData,
+  aiConversationScopeAccessSql,
+  ensureAiConversationScopeSchema,
+  serializeAiConversationScope,
+} from "@/lib/ai/conversation-scope";
+import {
   isAiChatCapableModelType,
 } from "@/lib/ai/conversation-management";
-import { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
+import {
+  maskWebhookUrl,
+  normalizeAiEndpointUrl,
+  normalizeAiModelEndpointForStorage,
+  redactAiModelEndpointUrl,
+} from "@/lib/ai/endpoint-security";
 import {
   extractAiTableArtifactCandidates,
   AI_ARTIFACT_LIMITS,
@@ -36,6 +48,7 @@ import {
   AI_MODEL_TOOL_BUDGET_MIGRATION_KEY,
 } from "@/lib/ai/model-tool-budget";
 import type { ProviderToolCallMetadata } from "@/lib/ai/tool-loop";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export {
   runAnthropicToolLoop,
@@ -115,6 +128,37 @@ export type AiConversationMessage = {
   messageKind: "message" | "context_reset" | "help";
   createdAt: string;
   artifacts: AiTableArtifact[];
+  contentBytes: number;
+  contentTruncated: boolean;
+};
+
+export type AiConversationPage = {
+  items: AiConversationRecord[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    returned: number;
+    truncated: boolean;
+    hasMore: boolean;
+  };
+};
+
+export type AiConversationMessagePage = {
+  items: AiConversationMessage[];
+  pagination: {
+    pageSize: number;
+    total: number;
+    returned: number;
+    truncated: boolean;
+    hasMore: boolean;
+    nextBefore: number | null;
+  };
+  limits: {
+    maximumPageSize: number;
+    maximumMessageBytes: number;
+    maximumPageContentBytes: number;
+  };
 };
 
 export type AiAssistantReply = {
@@ -138,7 +182,8 @@ export type AiModelInput = {
   protocol: AiModelProtocol;
   modelType: AiModelType;
   modelName: string;
-  baseUrl: string;
+  /** Required when creating; omit during an edit to preserve the stored runtime URL. */
+  baseUrl?: string;
   apiKey?: string;
   status: AiModelStatus;
   isDefaultTextModel?: boolean;
@@ -239,7 +284,11 @@ type AiConversationMessageRow = {
   content: string;
   message_kind: string;
   created_at: string;
+  message_rowid?: number;
+  original_content_bytes?: number;
 };
+
+type CountRow = { total: number };
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS ai_models (
@@ -312,6 +361,8 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS ai_conversations_creator_updated_idx
     ON ai_conversations (created_by, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS ai_conversations_updated_idx
+    ON ai_conversations (updated_at, id)`,
   `CREATE TABLE IF NOT EXISTS ai_conversation_messages (
     id TEXT PRIMARY KEY NOT NULL,
     conversation_id TEXT NOT NULL,
@@ -322,6 +373,19 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS ai_conversation_messages_conversation_idx
     ON ai_conversation_messages (conversation_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS ai_conversation_deletion_audits (
+    audit_id TEXT PRIMARY KEY NOT NULL,
+    conversation_id TEXT NOT NULL UNIQUE,
+    conversation_owner TEXT NOT NULL,
+    actor_email TEXT NOT NULL,
+    actor_role TEXT NOT NULL CHECK (actor_role IN ('viewer', 'analyst', 'operator', 'admin')),
+    reason TEXT NOT NULL,
+    deleted_message_count INTEGER NOT NULL DEFAULT 0,
+    deleted_artifact_count INTEGER NOT NULL DEFAULT 0,
+    deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS ai_conversation_deletion_audits_actor_deleted_idx
+    ON ai_conversation_deletion_audits (actor_email, deleted_at)`,
   `CREATE TABLE IF NOT EXISTS ai_system_settings (
     key TEXT PRIMARY KEY NOT NULL,
     value_json TEXT NOT NULL,
@@ -342,8 +406,17 @@ const schemaStatements = [
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 const CHANNEL_REQUEST_TIMEOUT_MS = 15_000;
+const CHANNEL_RESPONSE_LIMIT_BYTES = 64 * 1024;
 const MAX_NAME_LENGTH = 100;
 const MAX_MESSAGE_LENGTH = 40_000;
+export const AI_CONVERSATION_PAGE_SIZE_MAX = 100;
+export const AI_CONVERSATION_PAGE_MAX = 10_000;
+export const AI_MESSAGE_PAGE_SIZE_DEFAULT = 30;
+export const AI_MESSAGE_PAGE_SIZE_MAX = 100;
+export const AI_MESSAGE_RESPONSE_BYTES_MAX = 24 * 1024;
+export const AI_MESSAGE_PAGE_CONTENT_BYTES_MAX = 256 * 1024;
+const AI_MESSAGE_QUERY_CHARACTER_MAX = Math.floor(AI_MESSAGE_RESPONSE_BYTES_MAX / 4);
+const AI_CONVERSATION_DELETE_REASON_MAX = 200;
 const DEFAULT_MODEL_TIMEOUT_MS = 60_000;
 const DEFAULT_MODEL_MAX_TOKENS = 4_096;
 const DEFAULT_MODEL_REASONING_MODE: AiModelReasoningMode = "auto";
@@ -387,6 +460,7 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
 
   const setup = ensureAuthorizationSchema(db)
     .then(() => db.batch(schemaStatements.map((statement) => db.prepare(statement))))
+    .then(() => ensureAiConversationScopeSchema(db))
     .then(async () => {
       await addMissingColumns(db, "ai_channels", [["receiver_id", "TEXT NOT NULL DEFAULT ''"]]);
       await addMissingColumns(db, "ai_models", [
@@ -445,6 +519,10 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
   const normalized = normalizeAiModelInput(input);
   const id = normalized.id ?? `ai-model-${randomUUID()}`;
   const existing = normalized.id ? await getAiModelSecretById(id, db) : null;
+  const baseUrl = normalized.baseUrl ?? existing?.base_url;
+  if (!baseUrl) {
+    throw new PublicApiError(400, "invalid_request", "模型地址不能为空");
+  }
   const apiKeyEncrypted = normalized.apiKey ? await encryptSecret(normalized.apiKey) : existing?.api_key_encrypted ?? "";
   const apiKeySuffix = normalized.apiKey ? maskSuffix(normalized.apiKey) : existing?.api_key_suffix ?? "";
   const testStillApplies = Boolean(existing)
@@ -452,14 +530,11 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     && existing?.protocol === normalized.protocol
     && asModelType(existing?.model_type) === normalized.modelType
     && existing?.model_name === normalized.modelName
-    && existing?.base_url === normalized.baseUrl
+    && existing?.base_url === baseUrl
     && asModelReasoningMode(existing?.reasoning_mode) === normalized.reasoningMode;
   const lastTestResult = testStillApplies ? existing?.last_test_result ?? null : null;
   const lastTestedAt = testStillApplies ? existing?.last_tested_at ?? null : null;
-  if (normalized.isDefaultTextModel && normalized.modelType === "text" && normalized.status === "enabled") {
-    await db.prepare("UPDATE ai_models SET is_default_text_model = 0 WHERE model_type = 'text'").run();
-  }
-  await db.prepare(
+  const upsertStatement = db.prepare(
     `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
        is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
        last_test_result, last_tested_at, updated_at)
@@ -489,7 +564,7 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     normalized.protocol,
     normalized.modelType,
     normalized.modelName,
-    normalized.baseUrl,
+    baseUrl,
     apiKeyEncrypted,
     apiKeySuffix,
     normalized.isDefaultTextModel ? 1 : 0,
@@ -502,7 +577,15 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     normalized.maxTotalToolCalls,
     lastTestResult,
     lastTestedAt,
-  ).run();
+  );
+  if (normalized.isDefaultTextModel && normalized.modelType === "text" && normalized.status === "enabled") {
+    await db.batch([
+      db.prepare("UPDATE ai_models SET is_default_text_model = 0 WHERE model_type = 'text'"),
+      upsertStatement,
+    ]);
+  } else {
+    await upsertStatement.run();
+  }
   const row = await getAiModelSecretById(id, db);
   if (!row) throw new Error("模型配置保存后无法读取");
   return mapAiModelRecord(row);
@@ -531,6 +614,9 @@ export async function upsertAiChannel(input: AiChannelInput, db: SalesDatabase =
   const id = normalized.id ?? `ai-channel-${randomUUID()}`;
   const existing = normalized.id ? await getAiChannelSecretById(id, db) : null;
   if (normalized.id && !existing) throw new Error("渠道配置不存在");
+  if (normalized.callbackEnabled && !normalized.receiverId && !existing?.receiverId) {
+    throw new PublicApiError(400, "invalid_request", "启用企业微信回调时必须填写接收方 ID。");
+  }
   const webhookUrl = normalized.webhookUrl ? normalizeAiEndpointUrl(normalized.webhookUrl, "channel") : existing?.webhookUrl ?? "";
   const requiresWebhook = normalized.kind === "dingtalk_group_bot" || normalized.kind === "wechat_work_group_bot" || normalized.sendEnabled;
   if (!webhookUrl && requiresWebhook) throw new Error("启用发送或配置群机器人时必须填写 Webhook 地址");
@@ -539,6 +625,9 @@ export async function upsertAiChannel(input: AiChannelInput, db: SalesDatabase =
   const callbackTokenSuffix = normalized.callbackToken ? maskSuffix(normalized.callbackToken) : existing?.callbackTokenSuffix ?? "";
   const aesKeySuffix = normalized.aesKey ? maskSuffix(normalized.aesKey) : existing?.aesKeySuffix ?? "";
   const receiverId = normalized.receiverId || existing?.receiverId || "";
+  if (normalized.callbackEnabled && (!callbackTokenEncrypted || !aesKeyEncrypted || !receiverId)) {
+    throw new PublicApiError(400, "invalid_request", "启用企业微信回调时必须配置 Token、EncodingAESKey 和接收方 ID。");
+  }
   await db.prepare(
     `INSERT INTO ai_channels (id, name, kind, status, send_enabled, callback_enabled, webhook_url, callback_token_encrypted, callback_token_suffix, aes_key_encrypted, aes_key_suffix, receiver_id, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -585,21 +674,67 @@ export async function getAiChannelSecretById(id: string, db: SalesDatabase = get
   };
 }
 
-export async function listAiConversations(principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationRecord[]> {
+export async function listAiConversations(
+  principal: AppPrincipal,
+  inputOrDb: { page?: number; pageSize?: number } | SalesDatabase = {},
+  database: SalesDatabase = getSalesDatabase(),
+): Promise<AiConversationPage> {
+  const input = isSalesDatabase(inputOrDb) ? {} : inputOrDb;
+  const db = isSalesDatabase(inputOrDb) ? inputOrDb : database;
   await ensureAiAssistantSchema(db);
-  const rows = await db.prepare(
-    "SELECT id, title, model_id, created_by, created_at, updated_at FROM ai_conversations ORDER BY updated_at DESC",
-  ).all<AiConversationRow>();
-  return (rows.results ?? [])
-    .map(mapConversationRecord)
-    .filter((row) => principal.role === "admin" || row.createdBy === principal.email);
+  const page = requireBoundedPositiveInteger(input.page, 1, AI_CONVERSATION_PAGE_MAX, "page");
+  const pageSize = requireBoundedPositiveInteger(input.pageSize, 30, AI_CONVERSATION_PAGE_SIZE_MAX, "pageSize");
+  const offset = (page - 1) * pageSize;
+  const ownerFilter = principal.role === "admin" ? "" : " AND c.created_by = ?";
+  const ownerBindings = principal.role === "admin" ? [] : [principal.email];
+  const scopeAccess = aiConversationScopeAccessSql(principal.scope);
+  const [countResult, rows] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) total
+      FROM ai_conversations c
+      ${scopeAccess.join}
+      WHERE 1 = 1${ownerFilter}${scopeAccess.clause}`)
+      .bind(...ownerBindings, ...scopeAccess.values).first<CountRow>(),
+    db.prepare(`SELECT c.id, c.title, c.model_id, c.created_by, c.created_at, c.updated_at
+      FROM ai_conversations c
+      ${scopeAccess.join}
+      WHERE 1 = 1${ownerFilter}${scopeAccess.clause}
+      ORDER BY c.updated_at DESC, c.id DESC
+      LIMIT ? OFFSET ?`)
+      .bind(...ownerBindings, ...scopeAccess.values, pageSize, offset).all<AiConversationRow>(),
+  ]);
+  const items = (rows.results ?? []).map(mapConversationRecord);
+  const total = Number(countResult?.total ?? 0);
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      returned: items.length,
+      truncated: total > items.length,
+      hasMore: offset + items.length < total,
+    },
+  };
 }
 
-export async function createConversation(title: string, createdBy: string, modelId: string | null, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+export async function createConversation(
+  title: string,
+  principal: Pick<AppPrincipal, "email" | "scope">,
+  modelId: string | null,
+  db: SalesDatabase = getSalesDatabase(),
+): Promise<string> {
   await ensureAiAssistantSchema(db);
   const id = `ai-conv-${randomUUID()}`;
-  await db.prepare("INSERT INTO ai_conversations (id, title, model_id, created_by) VALUES (?, ?, ?, ?)")
-    .bind(id, normalizeText(title, "新对话", 120), modelId, createdBy).run();
+  const results = await db.batch([
+    db.prepare("INSERT INTO ai_conversations (id, title, model_id, created_by) VALUES (?, ?, ?, ?)")
+      .bind(id, normalizeText(title, "新对话", 120), modelId, principal.email),
+    db.prepare(`INSERT INTO ai_conversation_scopes (conversation_id, scope_json)
+      VALUES ((SELECT id FROM ai_conversations WHERE id = ? AND created_by = ?), ?)`)
+      .bind(id, principal.email, serializeAiConversationScope(principal.scope)),
+  ]);
+  if (Number(results[0]?.meta.changes ?? 0) !== 1 || Number(results[1]?.meta.changes ?? 0) !== 1) {
+    throw new Error("AI conversation scope snapshot could not be persisted");
+  }
   return id;
 }
 
@@ -652,33 +787,148 @@ export async function selectConversationModel(
 export async function deleteAiConversation(
   conversationId: string,
   principal: AppPrincipal,
+  reasonOrDb: string | SalesDatabase = "用户删除对话",
   db: SalesDatabase = getSalesDatabase(),
 ): Promise<boolean> {
-  await requireConversationAccess(conversationId, principal, db);
-  await ensureAiArtifactSchema(db);
-  return deleteAiConversationData(conversationId, db);
+  const reason = typeof reasonOrDb === "string" ? reasonOrDb : "用户删除对话";
+  const database = typeof reasonOrDb === "string" ? db : reasonOrDb;
+  await ensureAiAssistantSchema(database);
+  await ensureAiArtifactSchema(database);
+  const normalizedId = requireAiEntityId(conversationId, "conversationId");
+  const normalizedReason = normalizeDeletionReason(reason);
+  const auditId = `ai-conversation-delete-${randomUUID()}`;
+  const scopeAccess = aiConversationScopeAccessSql(principal.scope);
+  const [auditResult] = await database.batch([
+    database.prepare(`INSERT INTO ai_conversation_deletion_audits (
+        audit_id, conversation_id, conversation_owner, actor_email, actor_role, reason,
+        deleted_message_count, deleted_artifact_count, deleted_at
+      )
+      SELECT ?, c.id, c.created_by, ?, ?, ?,
+        (SELECT COUNT(*) FROM ai_conversation_messages m WHERE m.conversation_id = c.id),
+        (SELECT COUNT(*) FROM ai_artifacts a WHERE a.conversation_id = c.id),
+        CURRENT_TIMESTAMP
+      FROM ai_conversations c
+      ${scopeAccess.join}
+      WHERE c.id = ? AND (? = 'admin' OR c.created_by = ?)
+        ${scopeAccess.clause}`)
+      .bind(
+        auditId,
+        principal.email,
+        principal.role,
+        normalizedReason,
+        normalizedId,
+        principal.role,
+        principal.email,
+        ...scopeAccess.values,
+      ),
+    database.prepare(`DELETE FROM ai_artifacts
+      WHERE conversation_id = ?
+        AND EXISTS (SELECT 1 FROM ai_conversation_deletion_audits WHERE audit_id = ? AND conversation_id = ?)`)
+      .bind(normalizedId, auditId, normalizedId),
+    database.prepare(`DELETE FROM ai_conversation_messages
+      WHERE conversation_id = ?
+        AND EXISTS (SELECT 1 FROM ai_conversation_deletion_audits WHERE audit_id = ? AND conversation_id = ?)`)
+      .bind(normalizedId, auditId, normalizedId),
+    database.prepare(`DELETE FROM ai_conversation_scopes
+      WHERE conversation_id = ?
+        AND EXISTS (SELECT 1 FROM ai_conversation_deletion_audits WHERE audit_id = ? AND conversation_id = ?)`)
+      .bind(normalizedId, auditId, normalizedId),
+    database.prepare(`DELETE FROM ai_conversations
+      WHERE id = ?
+        AND (? = 'admin' OR created_by = ?)
+        AND EXISTS (SELECT 1 FROM ai_conversation_deletion_audits WHERE audit_id = ? AND conversation_id = ?)`)
+      .bind(normalizedId, principal.role, principal.email, auditId, normalizedId),
+  ]);
+  return Number(auditResult?.meta.changes ?? 0) === 1;
 }
 
 export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationRecord> {
   await ensureAiAssistantSchema(db);
-  const row = await db.prepare("SELECT id, title, model_id, created_by, created_at, updated_at FROM ai_conversations WHERE id = ? LIMIT 1")
-    .bind(conversationId).first<AiConversationRow>();
-  if (!row) throw new Error("对话不存在");
-  const conversation = mapConversationRecord(row);
-  assertAiConversationAccess(conversation, principal);
-  return conversation;
+  const normalizedId = requireAiEntityId(conversationId, "conversationId");
+  const scopeAccess = aiConversationScopeAccessSql(principal.scope);
+  const row = await db.prepare(`SELECT c.id, c.title, c.model_id, c.created_by, c.created_at, c.updated_at
+    FROM ai_conversations c
+    ${scopeAccess.join}
+    WHERE c.id = ? AND (? = 'admin' OR c.created_by = ?)
+      ${scopeAccess.clause}
+    LIMIT 1`)
+    .bind(normalizedId, principal.role, principal.email, ...scopeAccess.values).first<AiConversationRow>();
+  if (!row) throw new PublicApiError(404, "not_found", "对话不存在或无权访问。");
+  return mapConversationRecord(row);
 }
 
-export async function listConversationMessages(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationMessage[]> {
-  await requireConversationAccess(conversationId, principal, db);
-  const [messages, artifactsByMessage] = await Promise.all([
-    listConversationMessagesInternal(conversationId, db),
-    listAiArtifactsForConversation(conversationId, principal, db),
+export async function listConversationMessages(
+  conversationId: string,
+  principal: AppPrincipal,
+  inputOrDb: { pageSize?: number; before?: number | null } | SalesDatabase = {},
+  database: SalesDatabase = getSalesDatabase(),
+): Promise<AiConversationMessagePage> {
+  const input = isSalesDatabase(inputOrDb) ? {} : inputOrDb;
+  const db = isSalesDatabase(inputOrDb) ? inputOrDb : database;
+  const conversation = await requireConversationAccess(conversationId, principal, db);
+  const pageSize = requireBoundedPositiveInteger(input.pageSize, AI_MESSAGE_PAGE_SIZE_DEFAULT, AI_MESSAGE_PAGE_SIZE_MAX, "pageSize");
+  const before = input.before === null || input.before === undefined
+    ? null
+    : requireBoundedPositiveInteger(input.before, 1, Number.MAX_SAFE_INTEGER, "before");
+  const beforeClause = before === null ? "" : " AND m.rowid < ?";
+  const beforeBindings = before === null ? [] : [before];
+  const ownerClause = principal.role === "admin" ? "" : " AND c.created_by = ?";
+  const ownerBindings = principal.role === "admin" ? [] : [principal.email];
+  const scopeAccess = aiConversationScopeAccessSql(principal.scope);
+  const [countRow, rows] = await Promise.all([
+    db.prepare(`SELECT COUNT(*) total
+      FROM ai_conversation_messages m
+      INNER JOIN ai_conversations c ON c.id = m.conversation_id
+      ${scopeAccess.join}
+      WHERE m.conversation_id = ?${ownerClause}${scopeAccess.clause}`)
+      .bind(conversation.id, ...ownerBindings, ...scopeAccess.values).first<CountRow>(),
+    db.prepare(`SELECT m.rowid message_rowid, m.id, m.conversation_id, m.role,
+        substr(m.content, 1, ?) content,
+        length(CAST(m.content AS BLOB)) original_content_bytes,
+        m.message_kind, m.created_at
+      FROM ai_conversation_messages m
+      INNER JOIN ai_conversations c ON c.id = m.conversation_id
+      ${scopeAccess.join}
+      WHERE m.conversation_id = ?${ownerClause}${scopeAccess.clause}${beforeClause}
+      ORDER BY m.rowid DESC
+      LIMIT ?`)
+      .bind(AI_MESSAGE_QUERY_CHARACTER_MAX, conversation.id, ...ownerBindings, ...scopeAccess.values, ...beforeBindings, pageSize + 1)
+      .all<AiConversationMessageRow>(),
   ]);
-  return messages.map((message) => ({
+  const fetched = rows.results ?? [];
+  const hasMore = fetched.length > pageSize;
+  const selectedRows = fetched.slice(0, pageSize).reverse();
+  const messages = mapConversationMessagePage(selectedRows);
+  const artifactsByMessage = await listAiArtifactsForConversation(
+    conversation.id,
+    principal,
+    db,
+    selectedRows.map((row) => row.id),
+  );
+  const items = messages.map((message) => ({
     ...message,
     artifacts: artifactsByMessage.get(message.id) ?? [],
   }));
+  const total = Number(countRow?.total ?? 0);
+  const oldestRowId = selectedRows.length > 0
+    ? Math.min(...selectedRows.map((row) => Number(row.message_rowid)))
+    : null;
+  return {
+    items,
+    pagination: {
+      pageSize,
+      total,
+      returned: items.length,
+      truncated: total > items.length,
+      hasMore,
+      nextBefore: hasMore && oldestRowId !== null && Number.isSafeInteger(oldestRowId) ? oldestRowId : null,
+    },
+    limits: {
+      maximumPageSize: AI_MESSAGE_PAGE_SIZE_MAX,
+      maximumMessageBytes: AI_MESSAGE_RESPONSE_BYTES_MAX,
+      maximumPageContentBytes: AI_MESSAGE_PAGE_CONTENT_BYTES_MAX,
+    },
+  };
 }
 
 export async function listConversationContextMessages(
@@ -751,10 +1001,12 @@ export async function testAiModelConnection(modelId: string, db: SalesDatabase =
   if (!model) throw new Error("模型不存在");
   try {
     if (!model.base_url || !model.api_key_encrypted) throw new Error("模型地址或 API Key 未配置");
-    const reply = model.model_type === "vision" || model.model_type === "image"
-      ? await probeVisionModelConnection(model)
-      : await completeText({ model: mapAiTextModelRuntime(model), messages: [{ role: "user", content: "仅回复 OK" }] });
-    await setModelTestResult(modelId, `连接成功：${reply.slice(0, 80)}`, db);
+    if (model.model_type === "vision" || model.model_type === "image") {
+      await probeVisionModelConnection(model);
+    } else {
+      await completeText({ model: mapAiTextModelRuntime(model), messages: [{ role: "user", content: "仅回复 OK" }] });
+    }
+    await setModelTestResult(modelId, "连接成功", db);
     return { ok: true, message: model.model_type === "vision" || model.model_type === "image" ? "视觉模型图片识别验证成功" : "文本模型连接成功" };
   } catch (error) {
     await setModelTestResult(modelId, `连接失败：${safeErrorMessage(error)}`, db);
@@ -785,13 +1037,27 @@ export async function sendAiChannelText(channelId: string, content: string, db: 
     }
   }
 
-  const response = await fetchWithTimeout(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ msgtype: "text", text: { content: text } }),
-  }, CHANNEL_REQUEST_TIMEOUT_MS);
-  const responseText = await response.text();
-  const providerResult = parseProviderResult(responseText);
+  let response: Response;
+  let providerResult: Record<string, unknown> | null;
+  try {
+    const bounded = await fetchBoundedJson({
+      url: endpoint,
+      init: {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ msgtype: "text", text: { content: text } }),
+      },
+      timeoutMs: CHANNEL_REQUEST_TIMEOUT_MS,
+      maxBytes: CHANNEL_RESPONSE_LIMIT_BYTES,
+    });
+    response = bounded.response;
+    providerResult = isRecord(bounded.data) ? bounded.data : null;
+  } catch (error) {
+    if (error instanceof BoundedFetchError && error.code === "response_too_large") {
+      throw new Error("渠道响应超过 64 KiB 安全上限");
+    }
+    throw new Error("渠道调用失败：网络、超时或响应格式异常");
+  }
   if (!response.ok || !isSuccessfulChannelResponse(providerResult)) {
     throw new Error(`渠道调用失败${providerErrorSuffix(response.status, providerResult)}`);
   }
@@ -864,7 +1130,7 @@ export async function generateAssistantReply(input: {
       artifacts = await persistAiTableArtifacts({
         conversationId: input.conversationId,
         messageId,
-        ownerEmail: input.principal.email,
+        principal: input.principal,
         candidates: artifactCandidates,
         database: db,
       });
@@ -955,37 +1221,7 @@ async function getAiChannelRowById(id: string, db: SalesDatabase): Promise<AiCha
   ).bind(id).first<AiChannelRow>();
 }
 
-async function listConversationMessagesInternal(conversationId: string, db: SalesDatabase, limit?: number): Promise<AiConversationMessage[]> {
-  await ensureAiAssistantSchema(db);
-  const rows = limit
-    ? await db.prepare(
-      "SELECT id, conversation_id, role, content, message_kind, created_at FROM ai_conversation_messages WHERE conversation_id = ? ORDER BY rowid DESC LIMIT ?",
-    ).bind(conversationId, limit).all<AiConversationMessageRow>()
-    : await db.prepare(
-      "SELECT id, conversation_id, role, content, message_kind, created_at FROM ai_conversation_messages WHERE conversation_id = ? ORDER BY rowid ASC",
-    ).bind(conversationId).all<AiConversationMessageRow>();
-  const mapped = (rows.results ?? []).map(mapConversationMessage);
-  return limit ? mapped.reverse() : mapped;
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...init, redirect: "manual", signal: controller.signal });
-    if (response.status >= 300 && response.status < 400) {
-      throw new Error("接口地址返回了重定向，请填写最终的 HTTPS 接口地址");
-    }
-    return response;
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error("连接超时，请检查平台地址和网络");
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function normalizeAiModelInput(input: AiModelInput): Required<Omit<AiModelInput, "id" | "apiKey">> & Pick<AiModelInput, "id" | "apiKey"> {
+function normalizeAiModelInput(input: AiModelInput) {
   const protocol = asModelProtocol(input.protocol);
   const modelType = asModelType(input.modelType);
   const status = asModelStatus(input.status);
@@ -1003,7 +1239,7 @@ function normalizeAiModelInput(input: AiModelInput): Required<Omit<AiModelInput,
     protocol,
     modelType,
     modelName,
-    baseUrl: normalizeAiEndpointUrl(input.baseUrl, "model"),
+    baseUrl: input.baseUrl === undefined ? undefined : normalizeAiModelEndpointForStorage(input.baseUrl),
     apiKey,
     status,
     isDefaultTextModel: Boolean(input.isDefaultTextModel),
@@ -1045,7 +1281,7 @@ function mapAiModelRecord(row: AiModelRow): AiModelRecord {
     protocol: asModelProtocol(row.protocol),
     modelType: asModelType(row.model_type),
     modelName: row.model_name,
-    baseUrl: row.base_url,
+    baseUrl: redactAiModelEndpointUrl(row.base_url),
     apiKeySuffix: row.api_key_suffix,
     isDefaultTextModel: Boolean(row.is_default_text_model),
     status: asModelStatus(row.status),
@@ -1086,6 +1322,7 @@ function mapConversationRecord(row: AiConversationRow): AiConversationRecord {
 }
 
 function mapConversationMessage(row: AiConversationMessageRow): AiConversationMessage {
+  const contentBytes = new TextEncoder().encode(row.content).byteLength;
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -1094,6 +1331,50 @@ function mapConversationMessage(row: AiConversationMessageRow): AiConversationMe
     messageKind: row.message_kind === "context_reset" ? "context_reset" : row.message_kind === "help" ? "help" : "message",
     createdAt: row.created_at,
     artifacts: [],
+    contentBytes,
+    contentTruncated: Number(row.original_content_bytes ?? contentBytes) > contentBytes,
+  };
+}
+
+function mapConversationMessagePage(rows: AiConversationMessageRow[]): AiConversationMessage[] {
+  let remainingBytes = AI_MESSAGE_PAGE_CONTENT_BYTES_MAX;
+  return rows.map((row, index) => {
+    const remainingMessages = rows.length - index;
+    const fairShare = Math.floor(remainingBytes / Math.max(1, remainingMessages));
+    const byteLimit = Math.min(AI_MESSAGE_RESPONSE_BYTES_MAX, fairShare);
+    const limited = truncateUtf8(row.content, byteLimit);
+    remainingBytes -= limited.bytes;
+    return mapConversationMessage({
+      ...row,
+      content: limited.text,
+      original_content_bytes: Math.max(Number(row.original_content_bytes ?? 0), limited.originalBytes),
+    });
+  });
+}
+
+function truncateUtf8(value: string, maximumBytes: number): {
+  text: string;
+  bytes: number;
+  originalBytes: number;
+} {
+  const encoded = new TextEncoder().encode(value);
+  if (encoded.byteLength <= maximumBytes) {
+    return { text: value, bytes: encoded.byteLength, originalBytes: encoded.byteLength };
+  }
+  let end = Math.max(0, maximumBytes);
+  let text = "";
+  while (end > 0) {
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(encoded.slice(0, end));
+      break;
+    } catch {
+      end -= 1;
+    }
+  }
+  return {
+    text,
+    bytes: new TextEncoder().encode(text).byteLength,
+    originalBytes: encoded.byteLength,
   };
 }
 
@@ -1157,6 +1438,35 @@ function normalizeMessageContent(value: string, limit: number): string {
   return `${normalized.slice(0, Math.max(0, limit - marker.length))}${marker}`;
 }
 
+function requireBoundedPositiveInteger(
+  value: number | undefined,
+  fallback: number,
+  maximum: number,
+  field: string,
+): number {
+  const normalized = value === undefined ? fallback : value;
+  if (!Number.isSafeInteger(normalized) || normalized <= 0 || normalized > maximum) {
+    throw new PublicApiError(400, "invalid_request", `${field}超出允许范围。`);
+  }
+  return normalized;
+}
+
+function requireAiEntityId(value: string, field: string): string {
+  const normalized = value.trim();
+  if (!/^[a-zA-Z0-9_-]{1,160}$/.test(normalized)) {
+    throw new PublicApiError(400, "invalid_request", `${field}格式无效。`);
+  }
+  return normalized;
+}
+
+function normalizeDeletionReason(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized || new TextEncoder().encode(normalized).byteLength > AI_CONVERSATION_DELETE_REASON_MAX * 4) {
+    throw new PublicApiError(400, "invalid_request", "删除原因必须为 1—200 个字符。");
+  }
+  return normalized.slice(0, AI_CONVERSATION_DELETE_REASON_MAX);
+}
+
 function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number, label: string): number {
   const normalized = value === undefined ? fallback : Number(value);
   if (!Number.isInteger(normalized) || normalized < minimum || normalized > maximum) {
@@ -1202,15 +1512,6 @@ async function setChannelTestResult(id: string, result: string, db: SalesDatabas
     .bind(result.slice(0, 300), id).run();
 }
 
-function parseProviderResult(value: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
 function isSuccessfulChannelResponse(result: Record<string, unknown> | null): boolean {
   if (!result) return true;
   if (typeof result.errcode === "number") return result.errcode === 0;
@@ -1220,10 +1521,27 @@ function isSuccessfulChannelResponse(result: Record<string, unknown> | null): bo
 }
 
 function providerErrorSuffix(status: number, result: Record<string, unknown> | null): string {
-  const message = result && typeof result.errmsg === "string" ? result.errmsg : result && typeof result.message === "string" ? result.message : "";
-  return `（HTTP ${status}${message ? ` · ${message.slice(0, 160)}` : ""}）`;
+  const providerCode = result && typeof result.errcode === "number" && Number.isSafeInteger(result.errcode)
+    ? String(result.errcode).slice(0, 32)
+    : result && typeof result.code === "number" && Number.isSafeInteger(result.code)
+      ? String(result.code).slice(0, 32)
+      : "";
+  return `（HTTP ${status}${providerCode ? ` · code ${providerCode}` : ""}）`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function safeErrorMessage(error: unknown): string {
-  return (error instanceof Error ? error.message : "未知错误").replace(/\s+/g, " ").slice(0, 220);
+  return redactSensitiveErrorText(error instanceof Error ? error.message : "未知错误")
+    .replace(/\s+/g, " ")
+    .slice(0, 220);
+}
+
+function redactSensitiveErrorText(value: string): string {
+  return value
+    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, "Bearer [redacted]")
+    .replace(/\b(api[_-]?key|access[_-]?token|authorization|password|secret|token)\s*[:=]\s*[^\s,;&]+/gi, "$1=[redacted]")
+    .replace(/(https?:\/\/[^\s?#]+)\?[^\s#]*/gi, "$1?[redacted]");
 }

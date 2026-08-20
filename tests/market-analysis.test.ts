@@ -8,6 +8,14 @@ import { aggregateMarketEstimates, annotateRankBounds } from "../lib/market/gmv-
 import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "../lib/market/latest-request";
 import { marketRankingPricePresentation } from "../lib/market/ranking-price-presentation";
 
+async function marketUiSource() {
+  const [marketView, masterAdmin] = await Promise.all([
+    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/market-master-admin-panel.tsx", import.meta.url), "utf8"),
+  ]);
+  return `${marketView}\n${masterAdmin}`;
+}
+
 function csvBytes(value: string) {
   return new TextEncoder().encode(value);
 }
@@ -96,7 +104,7 @@ test("旧版 XLS 商品榜单可直接解析并生成稳定的 SPU 市场标识"
 test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
   const [route, view] = await Promise.all([
     readFile(new URL("../app/api/market/import/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    marketUiSource(),
   ]);
   assert.match(route, /\(xls\|xlsx\|csv\)/);
   assert.match(route, /MarketImportRowLimitError[\s\S]*status: 413/);
@@ -106,7 +114,7 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
 
 test("市场分析按商品榜单、行业汇报、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
   const [view, masterRoute, styles] = await Promise.all([
-    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    marketUiSource(),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
@@ -163,7 +171,7 @@ test("SKU 数据库与 AI 标注使用最新身份缓存和按需读取", async 
 
 test("市场榜单与系统设置呈现商品链接、上榜期数、主图价格复核和系统 AI 算力", async () => {
   const [view, database] = await Promise.all([
-    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    marketUiSource(),
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
   ]);
   assert.match(view, /market-product-title-link/);
@@ -179,7 +187,7 @@ test("市场榜单与系统设置呈现商品链接、上榜期数、主图价�
 });
 
 test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认入口", async () => {
-  const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  const source = await marketUiSource();
   const annotation = await readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8");
   const [service, gmvTotals] = await Promise.all([
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
@@ -234,7 +242,8 @@ test("SKU 数据库和品牌确认提供卡片、全页 AI 识别与批量确认
   assert.match(gmvTotals, /coverage_days DESC/);
   assert.match(service, /market_sku_gmv_totals/);
   assert.match(service, /gmv_total_cents DESC/);
-  const panel = source.slice(source.indexOf("export function MarketMasterAdminPanel"), source.indexOf("function MarketSettingsWorkspace"));
+  const adminSource = await readFile(new URL("../app/market-master-admin-panel.tsx", import.meta.url), "utf8");
+  const panel = adminSource.slice(adminSource.indexOf("export function MarketMasterAdminPanel"));
   assert.equal(panel.match(/await loadLatest\(\)/g)?.length, 9);
   assert.doesNotMatch(panel, /await load\(\)/);
 });
@@ -280,7 +289,7 @@ test("an old market POST completion refreshes through the latest filter load clo
 
 test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品类设置和概括时间筛选", async () => {
   const [view, annotation, service, route, styles] = await Promise.all([
-    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    marketUiSource(),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
@@ -612,7 +621,7 @@ test("市场图片缓存使用受限京东抓取、R2、鉴权路由并接入标
     readFile(new URL("../app/api/market/images/[hash]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/schema-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    marketUiSource(),
     readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
   ]);
   assert.match(cache, /fetchAnnotationImage/);

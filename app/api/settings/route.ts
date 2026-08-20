@@ -3,6 +3,7 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 import {
   readOperatingSettings,
   saveOperatingSettings,
@@ -17,13 +18,14 @@ export async function GET() {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({ error: error instanceof Error ? error.message : "读取系统设置失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "读取系统设置失败", { headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function PUT(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "系统设置", "修改");
     const payload = await request.json().catch(() => null) as Partial<OperatingSettings> | null;
     if (!payload || typeof payload !== "object") {
       return Response.json({ error: "设置内容不能为空" }, { status: 400 });
@@ -32,6 +34,6 @@ export async function PUT(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({ error: error instanceof Error ? error.message : "保存系统设置失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "保存系统设置失败", { headers: { "cache-control": "no-store" } });
   }
 }

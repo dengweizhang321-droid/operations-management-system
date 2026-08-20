@@ -64,10 +64,30 @@ export const aiConversations = sqliteTable("ai_conversations", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("ai_conversations_creator_updated_idx").on(table.createdBy, table.updatedAt)]);
 
+/** Immutable authorization scope captured when an AI conversation is created. */
+export const aiConversationScopes = sqliteTable("ai_conversation_scopes", {
+  conversationId: text("conversation_id").primaryKey().references(() => aiConversations.id, { onDelete: "cascade" }),
+  scopeJson: text("scope_json").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_conversation_scopes_scope_created_idx").on(table.scopeJson, table.createdAt)]);
+
 export const aiConversationMessages = sqliteTable("ai_conversation_messages", {
   id: text("id").primaryKey(), conversationId: text("conversation_id").notNull(), role: text("role").notNull(), content: text("content").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("ai_conversation_messages_conversation_idx").on(table.conversationId, table.createdAt)]);
+
+/** Append-only proof that an authorized actor deleted an AI conversation; raw messages are never retained. */
+export const aiConversationDeletionAudits = sqliteTable("ai_conversation_deletion_audits", {
+  auditId: text("audit_id").primaryKey(),
+  conversationId: text("conversation_id").notNull().unique(),
+  conversationOwner: text("conversation_owner").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  reason: text("reason").notNull(),
+  deletedMessageCount: integer("deleted_message_count").notNull().default(0),
+  deletedArtifactCount: integer("deleted_artifact_count").notNull().default(0),
+  deletedAt: text("deleted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_conversation_deletion_audits_actor_deleted_idx").on(table.actorEmail, table.deletedAt)]);
 
 /** Administrator-managed operating thresholds used by inventory analysis. */
 export const systemSettings = sqliteTable(

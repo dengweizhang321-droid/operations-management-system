@@ -18,7 +18,16 @@ test("JD market helper binds one execution and rejects foreign or out-of-order r
   assert.deepEqual(jdMarketHelperRequestError("ready", false, "/jd-market/run", "execution-1", null), { error: "execution_not_claimed", expected: "/jd-market/plan" });
   assert.deepEqual(jdMarketHelperRequestError("planned", false, "/jd-market/run", "other", "execution-1"), { error: "execution_mismatch" });
   assert.deepEqual(jdMarketHelperRequestError("planned", true, "/jd-market/run", "execution-1", "execution-1"), { error: "pipeline_busy" });
-  assert.deepEqual(jdMarketHelperRequestError("planned", false, "/jd-market/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed", actual: "planned" });
+  assert.deepEqual(jdMarketHelperRequestError("planned", false, "/jd-market/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed|completed", actual: "planned" });
+  assert.equal(jdMarketHelperRequestError("executed", false, "/jd-market/plan", "execution-1", "execution-1"), null);
+  assert.equal(jdMarketHelperRequestError("executed", false, "/jd-market/run", "execution-1", "execution-1"), null);
+  assert.equal(jdMarketHelperRequestError("completed", false, "/jd-market/verify", "execution-1", "execution-1"), null);
+});
+
+test("JD promotion and market helper plan retries preserve persisted stages", async () => {
+  const helper = await readFile(new URL("../tools/tmall-sycm-cookie-pipeline.ts", import.meta.url), "utf8");
+  assert.match(helper, /jdPromotionPlan = await planJdPromotionN8nRun[\s\S]*?stage = jdPromotionPlan\.stage/);
+  assert.match(helper, /jdMarketPlan = await planJdMarketDailyRun[\s\S]*?stage = jdMarketPlan\.stage/);
 });
 
 test("JD market image responses accept array and SKU-keyed shapes but fail closed on missing images", () => {

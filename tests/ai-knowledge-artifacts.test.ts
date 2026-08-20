@@ -122,6 +122,18 @@ test("CSV output quotes fields and neutralizes spreadsheet formulas", () => {
 test("artifact persistence and download recheck owner and record bounded receipts", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
+  sqlite.exec(`CREATE TABLE ai_conversations (
+    id TEXT PRIMARY KEY NOT NULL,
+    created_by TEXT NOT NULL
+  );
+  CREATE TABLE ai_conversation_messages (
+    id TEXT PRIMARY KEY NOT NULL,
+    conversation_id TEXT NOT NULL
+  );`);
+  sqlite.prepare("INSERT INTO ai_conversations (id, created_by) VALUES ('conversation-1', ?)")
+    .run(analyst.email);
+  sqlite.prepare("INSERT INTO ai_conversation_messages (id, conversation_id) VALUES ('message-1', 'conversation-1')")
+    .run();
   const [candidate] = extractAiTableArtifactCandidates({
     toolName: "get_sales_summary",
     toolTitle: "销售汇总",
@@ -130,7 +142,7 @@ test("artifact persistence and download recheck owner and record bounded receipt
   const [artifact] = await persistAiTableArtifacts({
     conversationId: "conversation-1",
     messageId: "message-1",
-    ownerEmail: analyst.email,
+    principal: analyst,
     candidates: [candidate],
     database: db,
   });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -30,5 +30,16 @@ test("all JD Chromium stages share one exclusive owner lock", async () => {
   } finally {
     releaseFirst?.();
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("JD child scripts use owner-validated recoverable locks instead of orphanable wx files", async () => {
+  const [master, detail] = await Promise.all([
+    readFile("tools/jackyun-ware-export.ts", "utf8"),
+    readFile("tools/jdsz-product-detail-export.ts", "utf8"),
+  ]);
+  for (const source of [master, detail]) {
+    assert.match(source, /withJdChromiumRunLock\([\s\S]*?\.run-lock/);
+    assert.doesNotMatch(source, /open\(lockPath,\s*["']wx["']/);
   }
 });

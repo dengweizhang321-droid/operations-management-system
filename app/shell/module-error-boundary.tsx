@@ -5,6 +5,7 @@ import { Component, createRef, type ReactNode } from "react";
 type ModuleErrorBoundaryProps = {
   children: ReactNode;
   resetKey: string;
+  onRetry: () => void;
   onOpenDashboard: () => void;
 };
 
@@ -52,6 +53,7 @@ export default class ModuleErrorBoundary extends Component<ModuleErrorBoundaryPr
   };
 
   private retryCurrentModule = () => {
+    this.props.onRetry();
     this.setState({ failed: false }, () => {
       if (!this.state.failed) {
         this.scheduleFocus(() => document.getElementById("global-page-title"));

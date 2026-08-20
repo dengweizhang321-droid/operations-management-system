@@ -76,17 +76,18 @@ test("inventory APIs bound response rows while preserving totals and recommendat
 });
 
 test("customer, sales, and product views avoid superseded or duplicate work", async () => {
-  const [page, customerRoute, customerDatabase, sales] = await Promise.all([
+  const [page, customer, customerRoute, customerDatabase, sales] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /debouncedCustomerQuery/);
-  assert.match(page, /includeOptions/);
-  assert.match(page, /listControllerRef\.current\?\.abort\(\)/);
-  assert.match(page, /listGenerationRef\.current === generation/);
-  assert.match(page, /listRequestKeyRef\.current === requestKey/);
+  assert.match(customer, /debouncedCustomerQuery/);
+  assert.match(customer, /includeOptions/);
+  assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
+  assert.match(customer, /listGenerationRef\.current === generation/);
+  assert.match(customer, /listRequestKeyRef\.current === requestKey/);
   assert.match(page, /products\/summary\?\$\{params\}.*signal/s);
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
   assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}.*SELECT COUNT\(\*\) AS total, SUM/s);

@@ -14,6 +14,7 @@ import {
 import type { JdStore } from "../lib/jd/store-registry";
 import {
   assertJdPromotionAccount,
+  importJdPromotionFile,
   jdPromotionReportListUrl,
   jdPromotionReportName,
   parseJdPromotionArgs,
@@ -131,6 +132,14 @@ test("京准通下载中心只接管唯一、精确范围且不在 baseline 中�
   assert.throws(() => selectJdPromotionDownloadTask([task, { ...task, fingerprint: "task-2" }], prefix, task.startDate, task.endDate), /多个本轮候选任务/);
 });
 
+test("京准通没有恢复清单时只把历史任务纳入 baseline，不直接接管", async () => {
+  const source = await readFile(new URL("../tools/jd-promotion-export.ts", import.meta.url), "utf8");
+  const taskSelection = source.slice(source.indexOf("async function createOrResumeDownloadTask"), source.indexOf("async function waitAndDownload"));
+  assert.doesNotMatch(taskSelection, /if \(!manifest && existing\)/);
+  assert.match(taskSelection, /const baseline = tasks\.map/);
+  assert.match(taskSelection, /new Set\(baseline\)/);
+});
+
 test("京准通导入证明必须绑定精确店铺、日期、行数、原文件哈希和零告警", () => {
   const inspection = inspectJdPromotionCsv(bytes(), "2026-08-13", "2026-08-14");
   const proof = validateJdPromotionImportProof({
@@ -150,6 +159,31 @@ test("京准通导入证明必须绑定精确店铺、日期、行数、原文�
     rowCount: inspection.rowCount,
     rawFileHash: inspection.sha256,
   }), /缺少精确批次/);
+});
+
+test("京准通导入严格区分 imported 201 与 duplicate 200", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-import-status-"));
+  const filePath = path.join(root, "promotion.csv");
+  await writeFile(filePath, bytes());
+  const inspection = inspectJdPromotionCsv(bytes(), "2026-08-13", "2026-08-14");
+  const options = parseJdPromotionArgs([
+    "--start-date", "2026-08-13",
+    "--end-date", "2026-08-14",
+    "--base-url", "http://127.0.0.1:3000",
+    "--run-id", "status-contract",
+  ]);
+  const payload = importPayload(inspection.sha256);
+  const wrongStatus: typeof fetch = async () => Response.json(payload, { status: 200 });
+  await assert.rejects(() => importJdPromotionFile(options, store(), filePath, wrongStatus), /HTTP 200/);
+  const imported: typeof fetch = async () => Response.json(payload, { status: 201 });
+  const result = await importJdPromotionFile(options, store(), filePath, imported);
+  assert.equal(result.proof.status, "imported");
+
+  const duplicatePayload = { ...payload, status: "duplicate" };
+  const wrongDuplicateStatus: typeof fetch = async () => Response.json(duplicatePayload, { status: 201 });
+  await assert.rejects(() => importJdPromotionFile(options, store(), filePath, wrongDuplicateStatus), /HTTP 201/);
+  const duplicate: typeof fetch = async () => Response.json(duplicatePayload, { status: 200 });
+  assert.equal((await importJdPromotionFile(options, store(), filePath, duplicate)).proof.status, "duplicate");
 });
 
 test("京准通命令行默认使用上海昨天，并接受同月显式范围", () => {
@@ -187,8 +221,11 @@ test("京准通 helper 绑定同一 execution 并拒绝空、跨执行、并发�
   assert.deepEqual(jdPromotionHelperRequestError("ready", false, "/jd-promotion/run", "execution-1", null), { error: "execution_not_claimed", expected: "/jd-promotion/plan" });
   assert.deepEqual(jdPromotionHelperRequestError("planned", false, "/jd-promotion/run", "other", "execution-1"), { error: "execution_mismatch" });
   assert.deepEqual(jdPromotionHelperRequestError("planned", true, "/jd-promotion/run", "execution-1", "execution-1"), { error: "pipeline_busy" });
-  assert.deepEqual(jdPromotionHelperRequestError("planned", false, "/jd-promotion/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed", actual: "planned" });
+  assert.deepEqual(jdPromotionHelperRequestError("planned", false, "/jd-promotion/verify", "execution-1", "execution-1"), { error: "invalid_stage", expected: "executed|completed", actual: "planned" });
   assert.deepEqual(jdPromotionHelperRequestError("ready", false, "/jd-promotion/plan", null, null), { error: "missing_or_invalid_execution_id" });
+  assert.equal(jdPromotionHelperRequestError("executed", false, "/jd-promotion/plan", "execution-1", "execution-1"), null);
+  assert.equal(jdPromotionHelperRequestError("executed", false, "/jd-promotion/run", "execution-1", "execution-1"), null);
+  assert.equal(jdPromotionHelperRequestError("completed", false, "/jd-promotion/verify", "execution-1", "execution-1"), null);
 });
 
 test("京准通 n8n 店铺请求头只接受两条显式推广白名单", () => {

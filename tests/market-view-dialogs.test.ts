@@ -31,7 +31,7 @@ test("trend drawer uses the shared portal dialog with explicit initial focus", a
 });
 
 test("SKU editor delegates escape and backdrop closure to Dialog and guards saving", async () => {
-  const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
+  const source = await readFile(new URL("../app/market-master-admin-panel.tsx", import.meta.url), "utf8");
   const editor = sourceSection(source, "{editingSku && <Dialog", "</Dialog>}");
 
   assert.match(editor, /onClose=\{closeSkuEditor\}/);
@@ -50,7 +50,7 @@ test("AI annotation workspace is loaded only when its nested tab is mounted", as
   const source = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
 
   assert.doesNotMatch(source, /^import MarketAnnotationView from "\.\/market-annotation-view";/m);
-  assert.match(source, /const MarketAnnotationView = lazy\(\(\) => import\("\.\/market-annotation-view"\)\);/);
+  assert.match(source, /Component: MarketAnnotationView \} = createReloadableLazy\("market", \(\) => import\("\.\/market-annotation-view"\)\);/);
   assert.match(source, /databaseArea === "annotation" \? <Suspense fallback=/);
   assert.match(source, /role="status"[^>]*>.*正在加载 AI 标注工作区…/);
   assert.match(source, /<MarketAnnotationView currentUser=\{currentUser\} embedded \/><\/Suspense>/);

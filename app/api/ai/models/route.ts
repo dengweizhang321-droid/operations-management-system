@@ -1,4 +1,4 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
 import {
   deleteAiModel,
   ensureAiAssistantSchema,
@@ -8,12 +8,16 @@ import {
   type AiModelInput,
 } from "@/lib/ai/assistant-service";
 import { getSalesDatabase } from "@/lib/sales/database";
+import { PublicApiError } from "@/lib/http/api-error";
+import {
+  aiJsonResponse,
+  aiRouteErrorResponse,
+  optionalAiId,
+  readAiJsonObject,
+  requireAiId,
+} from "@/app/api/ai/route-helpers";
 
 type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function stringValue(payload: JsonRecord, key: string): string | undefined {
   const value = payload[key];
@@ -23,19 +27,25 @@ function stringValue(payload: JsonRecord, key: string): string | undefined {
 function numberValue(payload: JsonRecord, key: string): number | undefined {
   const value = payload[key];
   if (value === undefined || value === null || value === "") return undefined;
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : Number.NaN;
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw new PublicApiError(400, "invalid_request", `${key}必须为 JSON 安全整数。`);
+  }
+  return value;
 }
 
 function modelInputFromPayload(payload: JsonRecord): AiModelInput | null {
+  const id = optionalAiId(payload.id, "id");
   const name = stringValue(payload, "name");
   const protocol = stringValue(payload, "protocol");
   const modelType = stringValue(payload, "modelType");
   const modelName = stringValue(payload, "modelName");
+  if (Object.hasOwn(payload, "baseUrl") && typeof payload.baseUrl !== "string") {
+    throw new PublicApiError(400, "invalid_request", "baseUrl必须为字符串。");
+  }
   const baseUrl = stringValue(payload, "baseUrl");
-  if (!name || !protocol || !modelType || !modelName || !baseUrl) return null;
+  if (!name || !protocol || !modelType || !modelName || (!id && !baseUrl)) return null;
   return {
-    id: stringValue(payload, "id"),
+    id,
     name,
     protocol: protocol as AiModelInput["protocol"],
     modelType: modelType as AiModelInput["modelType"],
@@ -56,48 +66,46 @@ function modelInputFromPayload(payload: JsonRecord): AiModelInput | null {
 export async function GET() {
   try {
     const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "AI 模型配置");
     const db = getSalesDatabase();
     await ensureAiAssistantSchema(db);
-    return Response.json({ items: await listAiModels(db), principal }, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse({ items: await listAiModels(db), principal });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "读取模型配置失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "读取模型配置失败");
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
-    const id = new URL(request.url).searchParams.get("id")?.trim();
-    if (!id) return Response.json({ error: "id 不能为空" }, { status: 400 });
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "AI 模型配置", "删除");
+    const ids = new URL(request.url).searchParams.getAll("id");
+    const id = requireAiId(ids.length === 1 ? ids[0] : undefined, "id");
     const deleted = await deleteAiModel(id, getSalesDatabase());
-    return Response.json({ ok: true, deleted });
+    return aiJsonResponse({ ok: true, deleted });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "删除模型失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "删除模型失败");
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
-    const parsed: unknown = await request.json().catch(() => null);
-    if (!isRecord(parsed)) return Response.json({ error: "请求数据格式无效" }, { status: 400 });
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "AI 模型配置", "修改");
+    const parsed = await readAiJsonObject(request);
     const action = stringValue(parsed, "action");
-    const id = stringValue(parsed, "id");
+    if (action !== undefined && action !== "test") {
+      throw new PublicApiError(400, "invalid_request", "action 无效。");
+    }
     if (action === "test") {
-      if (!id) return Response.json({ error: "缺少模型 id" }, { status: 400 });
-      return Response.json(await testAiModelConnection(id, getSalesDatabase()), { headers: { "cache-control": "no-store" } });
+      const id = requireAiId(parsed.id, "id");
+      return aiJsonResponse(await testAiModelConnection(id, getSalesDatabase()));
     }
     const input = modelInputFromPayload(parsed);
-    if (!input) return Response.json({ error: "模型信息不完整" }, { status: 400 });
+    if (!input) throw new PublicApiError(400, "invalid_request", "模型信息不完整。");
     const item = await upsertAiModel(input, getSalesDatabase());
-    return Response.json({ item }, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse({ item });
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "保存模型配置失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "保存模型配置失败");
   }
 }

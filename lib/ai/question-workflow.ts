@@ -114,7 +114,7 @@ async function createShortcutConversation(
     if (!model) throw new Error("指定对话模型不存在、已停用或不支持对话");
     modelId = model.id;
   }
-  const id = await createConversation(input.title || "新对话", input.entry.principal.email, modelId, db);
+  const id = await createConversation(input.title || "新对话", input.entry.principal, modelId, db);
   return requireConversationAccess(id, input.entry.principal, db);
 }
 
@@ -123,7 +123,7 @@ async function createQuestionConversation(
   modelId: string,
   db: SalesDatabase,
 ): Promise<AiConversationRecord> {
-  const id = await createConversation(input.title || "新对话", input.entry.principal.email, modelId, db);
+  const id = await createConversation(input.title || "新对话", input.entry.principal, modelId, db);
   return requireConversationAccess(id, input.entry.principal, db);
 }
 

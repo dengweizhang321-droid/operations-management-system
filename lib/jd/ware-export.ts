@@ -75,15 +75,18 @@ export function newestCompletedJdWareExportTask(tasks: readonly JdWareExportTask
 
 export type ExistingJdWareExportTaskSelection =
   | { kind: "none" }
-  | { kind: "pending"; task: JdWareExportTask }
+  | { kind: "unowned_pending"; tasks: readonly JdWareExportTask[] }
   | { kind: "completed"; task: JdWareExportTask }
   | { kind: "ambiguous_pending"; tasks: readonly JdWareExportTask[] };
 
 export type JdWareExportRecovery = {
-  version: 1;
+  version: 1 | 2;
   baselineTaskIds: string[];
   taskId?: string;
   createdAt: string;
+  storeKey?: string;
+  shopId?: string;
+  shopName?: string;
 };
 
 export type JdWareExportRecoverySelection =
@@ -92,6 +95,20 @@ export type JdWareExportRecoverySelection =
   | { kind: "ambiguous"; tasks: readonly JdWareExportTask[] };
 
 export type JdWareExportRecoveryAbandonDecision = { kind: "abandon" } | { kind: "keep"; reason: string };
+
+export function assertJdWareExportRecoveryIdentity(
+  recovery: JdWareExportRecovery,
+  expected: { storeKey: string; shopId: string; shopName: string },
+) {
+  if (recovery.version !== 2 || recovery.storeKey !== expected.storeKey
+    || recovery.shopId !== expected.shopId || recovery.shopName !== expected.shopName
+    || !Array.isArray(recovery.baselineTaskIds) || recovery.baselineTaskIds.some((taskId) => !/^\d+$/.test(taskId))
+    || (recovery.taskId !== undefined && !/^\d+$/.test(recovery.taskId))
+    || !Number.isFinite(Date.parse(recovery.createdAt))) {
+    throw new Error("京东 SKU 活动任务清单缺少当前受控店铺的完整身份，拒绝跨店接管。");
+  }
+  return recovery;
+}
 
 /** JD displays export-record timestamps in Shanghai time while recovery manifests use ISO UTC. */
 export function isJdWareExportTaskCreatedNear(
@@ -155,7 +172,9 @@ export function selectExistingJdWareExportTask(
 ): ExistingJdWareExportTaskSelection {
   const pending = tasks.filter((task) => task.status === "pending");
   if (pending.length > 1) return { kind: "ambiguous_pending", tasks: pending };
-  if (pending.length === 1) return { kind: "pending", task: pending[0] };
+  // Without a persisted post-baseline manifest even one pending task may have
+  // been created manually or by another interrupted process. Never adopt it.
+  if (pending.length === 1) return { kind: "unowned_pending", tasks: pending };
 
   if (!reuseLatest) return { kind: "none" };
   const completed = newestCompletedJdWareExportTask(tasks);

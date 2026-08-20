@@ -93,11 +93,47 @@ type TaskSummary = {
 };
 type TaskListPayload = { items: Task[]; pagination?: Partial<Pagination>; summary?: TaskSummary };
 type OperationActivity = { id: string; action: string; actorEmail: string; actorRole: Role; fromVersion: number | null; toVersion: number; changedFields?: string[]; fromStatus?: string | null; toStatus?: string | null; createdAt: string };
+type TemplateRequestLifecycle = {
+  generation: number;
+  requestKey: string;
+  controller: AbortController | null;
+};
+type TemplateRequest = {
+  generation: number;
+  requestKey: string;
+  controller: AbortController;
+};
 
 const EMPTY_COLLABORATION: Collaboration = { comments: [], activity: [], reminders: [], links: [], attachments: [] };
 const EMPTY_TASK: DraftTask = { title: "", workContent: "", category: "工作计划", owner: "", shopName: "", startDate: "", due: "", priority: "normal" };
 const STATUS_OPTIONS: Status[] = ["待开始", "工作中", "已完成"];
 const TASK_PAGE_SIZE = 50;
+
+export function createTemplateRequestLifecycle(): TemplateRequestLifecycle {
+  return { generation: 0, requestKey: "", controller: null };
+}
+
+export function beginTemplateRequest(lifecycle: TemplateRequestLifecycle, requestKey: string): TemplateRequest {
+  lifecycle.controller?.abort();
+  const controller = new AbortController();
+  lifecycle.generation += 1;
+  lifecycle.requestKey = requestKey;
+  lifecycle.controller = controller;
+  return { generation: lifecycle.generation, requestKey, controller };
+}
+
+export function isCurrentTemplateRequest(lifecycle: TemplateRequestLifecycle, request: TemplateRequest): boolean {
+  return lifecycle.generation === request.generation
+    && lifecycle.requestKey === request.requestKey
+    && lifecycle.controller === request.controller;
+}
+
+export function cancelTemplateRequest(lifecycle: TemplateRequestLifecycle): void {
+  lifecycle.controller?.abort();
+  lifecycle.generation += 1;
+  lifecycle.requestKey = "";
+  lifecycle.controller = null;
+}
 
 const RECORD_META: Record<RecordType, {
   eyebrow: string;
@@ -575,6 +611,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
 }) {
   const canWrite = currentUser?.role === "operator" || currentUser?.role === "admin";
   const taskGeneration = useRef(0);
+  const templateRequestLifecycle = useRef<TemplateRequestLifecycle>(createTemplateRequestLifecycle());
   const activeTab: OperationsTab = moduleView;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -706,17 +743,34 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   }, [query, statusFilter, taskDueFrom, taskDueTo, taskOwners, taskPriorities, taskStatuses]);
 
   const loadTemplates = useCallback(async () => {
-    setTemplatesLoading(true); setTemplatesError("");
-    try { const payload = await requestJson<{ items: TaskTemplate[] }>(`/api/workflow/templates${canWrite ? "?includeInactive=true" : ""}`); setTemplates(Array.isArray(payload.items) ? payload.items : []); }
-    catch (reason) { setTemplatesError(messageOf(reason, "任务模板读取失败")); }
-    finally { setTemplatesLoading(false); }
+    const requestKey = `/api/workflow/templates${canWrite ? "?includeInactive=true" : ""}`;
+    const request = beginTemplateRequest(templateRequestLifecycle.current, requestKey);
+    setTemplatesLoading(true);
+    setTemplatesError("");
+    try {
+      const payload = await requestJson<{ items: TaskTemplate[] }>(requestKey, { signal: request.controller.signal });
+      if (!isCurrentTemplateRequest(templateRequestLifecycle.current, request)) return;
+      setTemplates(Array.isArray(payload.items) ? payload.items : []);
+    }
+    catch (reason) {
+      if (!isCurrentTemplateRequest(templateRequestLifecycle.current, request)) return;
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      setTemplatesError(messageOf(reason, "任务模板读取失败"));
+    }
+    finally {
+      if (isCurrentTemplateRequest(templateRequestLifecycle.current, request)) setTemplatesLoading(false);
+    }
   }, [canWrite]);
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => void loadTasks(controller.signal), query.trim() ? 250 : 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [loadTasks, query]);
-  useEffect(() => { void loadTemplates(); }, [loadTemplates]);
+  useEffect(() => {
+    const lifecycle = templateRequestLifecycle.current;
+    void loadTemplates();
+    return () => cancelTemplateRequest(lifecycle);
+  }, [loadTemplates]);
 
   const counts = {
     pending: taskSummary.pending ?? taskSummary.notStarted ?? 0,

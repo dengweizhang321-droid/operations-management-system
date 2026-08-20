@@ -1072,6 +1072,17 @@ export function jdMarketHelperRequestError(stage: string, busy: boolean, route: 
   if (claimedExecutionId && requestExecutionId !== claimedExecutionId) return { error: "execution_mismatch" as const };
   if (!claimedExecutionId && route !== "/jd-market/plan") return { error: "execution_not_claimed" as const, expected: "/jd-market/plan" as const };
   if (busy) return { error: "pipeline_busy" as const };
-  const expected = route === "/jd-market/plan" ? "ready" : route === "/jd-market/run" ? "planned" : "executed";
-  return stage === expected ? null : { error: "invalid_stage" as const, expected, actual: stage };
+  if (route === "/jd-market/plan") {
+    return ["ready", "planned", "executed", "completed"].includes(stage)
+      ? null
+      : { error: "invalid_stage" as const, expected: "ready|planned|executed|completed", actual: stage };
+  }
+  if (route === "/jd-market/run") {
+    return stage === "planned" || stage === "executed"
+      ? null
+      : { error: "invalid_stage" as const, expected: "planned|executed", actual: stage };
+  }
+  return stage === "executed" || stage === "completed"
+    ? null
+    : { error: "invalid_stage" as const, expected: "executed|completed", actual: stage };
 }

@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
+import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
   escapeGlobalSearchLike,
@@ -12,6 +13,12 @@ import {
   searchAllBusinessData,
   type GlobalSearchDatabase,
 } from "../lib/search/global-search";
+import {
+  getGlobalSearchNavigationTarget,
+  globalSearchDefaultTargets,
+  globalSearchGroupKeys,
+  isGlobalSearchNavigationTargetForGroup,
+} from "../lib/search/target-contract";
 
 const admin: AppPrincipal = { email: "admin@example.com", displayName: "Admin", role: "admin", scope: null };
 const viewer: AppPrincipal = { email: "viewer@example.com", displayName: "Viewer", role: "viewer", scope: null };
@@ -19,10 +26,69 @@ const viewer: AppPrincipal = { email: "viewer@example.com", displayName: "Viewer
 test("全局搜索校验关键词、分组和严格分页上限", () => {
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=一")), GlobalSearchRequestError);
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=sqlite_master")), /允许清单/);
+  assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=")), /允许清单/);
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&limit=9")), /1 到 8/);
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&totalLimit=51")), /1 到 50/);
   const parsed = normalizeGlobalSearchRequest(new URLSearchParams("q= 净水机 &group=products&page=2&limit=3&totalLimit=9"));
   assert.deepEqual(parsed, { query: "净水机", group: "products", page: 2, groupLimit: 3, totalLimit: 9 });
+  assert.equal(normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&pageSize=3")).groupLimit, 3);
+
+  for (const query of [
+    "q=净水机&page=1e2",
+    "q=净水机&page=1.5",
+    "q=净水机&page=%2B1",
+    "q=净水机&page=%201",
+    "q=净水机&page=01",
+    "q=净水机&pageSize=1e2",
+    "q=净水机&pageSize=1.5",
+    "q=净水机&limit=1e2",
+    "q=净水机&limit=1.5",
+  ]) {
+    assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams(query)), /十进制正整数/);
+  }
+  for (const query of [
+    "q=净水机&q=净水器",
+    "q=净水机&page=1&page=2",
+    "q=净水机&pageSize=2&pageSize=3",
+    "q=净水机&limit=2&limit=3",
+    "q=净水机&group=products&group=orders",
+  ]) {
+    assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams(query)), /不能重复/);
+  }
+  assert.throws(
+    () => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&pageSize=2&limit=2")),
+    /不能同时提供/,
+  );
+  assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&unknown=1")), /不支持的查询参数/);
+});
+
+test("每个搜索分组都有精确 module+view target 且不伪造实体", () => {
+  assert.deepEqual(globalSearchDefaultTargets, {
+    products: { module: "product", view: "overview" },
+    orders: { module: "sales", view: "overview" },
+    jd_products: { module: "shop", view: "products" },
+    inventory: { module: "inventory", view: "overview" },
+    inventory_age: { module: "inventory", view: "age" },
+    combos: { module: "product", view: "overview" },
+    replenishment: { module: "inventory", view: "plan" },
+    market_skus: { module: "market", view: "ranking" },
+    market_annotations: { module: "market", view: "settings" },
+    customer_service: { module: "customer_service", view: "conversations" },
+    finance: { module: "sales", view: "finance" },
+    targets: { module: "sales", view: "targets" },
+    workflow: { module: "workflow", view: "plan" },
+    imports: { module: "import", view: "history" },
+  });
+  assert.deepEqual(Object.keys(globalSearchDefaultTargets), [...globalSearchGroupKeys]);
+  for (const group of globalSearchGroupKeys) {
+    const target = getGlobalSearchNavigationTarget(group);
+    assert.equal(isGlobalSearchNavigationTargetForGroup(group, target), true);
+    assert.equal(Object.hasOwn(target, "entity"), false);
+  }
+  assert.deepEqual(getGlobalSearchNavigationTarget("workflow", "inspection"), { module: "workflow", view: "inspection" });
+  assert.deepEqual(getGlobalSearchNavigationTarget("workflow", "review"), { module: "workflow", view: "reviews" });
+  assert.deepEqual(getGlobalSearchNavigationTarget("workflow", "launch"), { module: "workflow", view: "launch" });
+  assert.deepEqual(getGlobalSearchNavigationTarget("workflow", "unknown"), { module: "workflow", view: "plan" });
 });
 
 test("LIKE 模式字符只作为字面量绑定", () => {
@@ -58,6 +124,51 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
   assert.equal(result.groups[0]?.hasMore, true);
   assert.equal(result.filtersApplied.group, "products");
   assert.equal(result.truncated, true);
+});
+
+test("销售订单搜索在 SQL 聚合和统一投影两层限制响应体积", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE sales_order_lines (
+    order_no TEXT NOT NULL,
+    online_order_no TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    shop_name TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    ship_time TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    product_code TEXT NOT NULL,
+    online_spec_code TEXT NOT NULL,
+    allocated_amount_cents INTEGER NOT NULL
+  )`);
+  const insert = sqlite.prepare(`INSERT INTO sales_order_lines (
+    order_no, online_order_no, platform, shop_name, channel, ship_time,
+    product_name, product_code, online_spec_code, allocated_amount_cents
+  ) VALUES ('ORDER-LARGE', '', '京东', '测试店', '京东', '2026-08-20', ?, ?, '', 1)`);
+  sqlite.exec("BEGIN");
+  for (let index = 0; index < 10_000; index += 1) {
+    insert.run(`净水机-${index}-${"长".repeat(1_000)}`, `SKU-${index}`);
+  }
+  sqlite.exec("COMMIT");
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=orders&pageSize=1&totalLimit=1")),
+    admin,
+  );
+  const detail = result.groups[0]?.items[0]?.detail ?? "";
+  assert.ok(Array.from(detail).length <= 400);
+  assert.ok(new TextEncoder().encode(detail).byteLength <= 1_536);
+  assert.ok(new TextEncoder().encode(JSON.stringify(result)).byteLength <= 8 * 1024);
+  assert.doesNotMatch(detail, /净水机-9999/);
+  sqlite.close();
 });
 
 test("业务表尚未创建时分组安全降级且不执行对应查询", async () => {
@@ -143,6 +254,42 @@ test("运营事务搜索兼容尚未创建运营记录和状态表的旧库", as
   assert.equal(result.groups[0]?.available, true);
   assert.equal(result.groups[0]?.total, 1);
   assert.equal(result.groups[0]?.items[0]?.id, "task:legacy-1");
+  assert.deepEqual(result.groups[0]?.items[0]?.target, { module: "workflow", view: "plan" });
+  sqlite.close();
+});
+
+test("运营事务真实 SQLite 结果按记录类型返回对应 target view", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE workflow_operation_records (
+    id TEXT PRIMARY KEY, record_type TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT '',
+    priority TEXT NOT NULL DEFAULT '', platform TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT '',
+    shop_name TEXT NOT NULL DEFAULT '', owner TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, deleted_at TEXT
+  );
+  INSERT INTO workflow_operation_records
+    (id, record_type, title, platform, channel, shop_name, content)
+  VALUES
+    ('inspection-1', 'inspection', '导航巡店', '京东', '线上', '一店', '导航'),
+    ('review-1', 'review', '导航评价', '京东', '线上', '一店', '导航'),
+    ('launch-1', 'launch', '导航新品', '京东', '线上', '一店', '导航');`);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=导航&group=workflow&limit=8")),
+    admin,
+  );
+  const targets = new Map(result.groups[0]?.items.map((item) => [item.id, item.target]));
+  assert.deepEqual(targets.get("operation:inspection-1"), { module: "workflow", view: "inspection" });
+  assert.deepEqual(targets.get("operation:review-1"), { module: "workflow", view: "reviews" });
+  assert.deepEqual(targets.get("operation:launch-1"), { module: "workflow", view: "launch" });
   sqlite.close();
 });
 
@@ -169,7 +316,25 @@ test("经营目标搜索在 scoped 表尚未迁移的旧库回退 legacy 表且�
   assert.equal(result.groups[0]?.available, true);
   assert.equal(result.groups[0]?.total, 1);
   assert.equal(result.groups[0]?.items[0]?.id, "legacy-target");
+  assert.deepEqual(result.groups[0]?.items[0]?.target, { module: "sales", view: "targets" });
   sqlite.close();
+});
+
+test("搜索 API 对受控输入返回400，对未知异常固定脱敏且全部no-store", async () => {
+  const invalid = globalSearchErrorResponse(new GlobalSearchRequestError("page 必须为十进制正整数。"));
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await invalid.json(), {
+    error: "page 必须为十进制正整数。",
+    code: "invalid_request",
+  });
+
+  const unknown = globalSearchErrorResponse(new Error("SQLITE_SECRET_INTERNAL_DETAIL"));
+  assert.equal(unknown.status, 500);
+  assert.equal(unknown.headers.get("cache-control"), "no-store");
+  const body = await unknown.json() as { error: string; code: string };
+  assert.deepEqual(body, { error: "搜索系统数据失败", code: "internal_error" });
+  assert.doesNotMatch(JSON.stringify(body), /SQLITE_SECRET_INTERNAL_DETAIL/);
 });
 
 test("经营目标搜索按平台列限制 scoped 目标而不把同名店铺误作平台", async () => {
@@ -266,6 +431,8 @@ test("API、分组 UI 和 AI 注册入口复用同一搜索核心", async () => 
   ]);
   assert.match(route, /searchAllBusinessData/);
   assert.match(route, /requireAppPrincipal/);
+  assert.match(route, /globalSearchErrorResponse/);
+  assert.doesNotMatch(route, /error instanceof Error \? error\.message/);
   assert.match(page, /const GlobalSearchDialog = lazy/);
   assert.match(dialog, /result\.groups/);
   assert.match(page, /搜索系统全部数据/);

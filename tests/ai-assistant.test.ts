@@ -4,8 +4,11 @@ import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 
 import {
+  isSensitiveAiModelQueryKey,
   maskWebhookUrl,
   normalizeAiEndpointUrl,
+  normalizeAiModelEndpointForStorage,
+  redactAiModelEndpointUrl,
   resolveAiModelEndpointUrl,
 } from "../lib/ai/endpoint-security";
 import {
@@ -28,6 +31,46 @@ test("AI model endpoint accepts either a provider root or a complete request URL
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "openai_compatible"), "https://api.example.com/v1/chat/completions");
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1/chat/completions", "openai_compatible"), "https://api.example.com/v1/chat/completions");
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "anthropic"), "https://api.example.com/v1/messages");
+});
+
+test("AI model endpoints reject sensitive query keys and redact legacy values without changing runtime resolution", () => {
+  for (const key of [
+    "api_key",
+    "API-Key",
+    "api.Key",
+    "access_token",
+    "x-amz-signature",
+    "credential",
+    "Authorization",
+    "subscription-key",
+    "subscriptionKey",
+    "Ocp-Apim-Subscription-Key",
+    "x-functions-key",
+    "code",
+    "密钥",
+  ]) {
+    assert.equal(isSensitiveAiModelQueryKey(key), true, key);
+    assert.throws(
+      () => normalizeAiModelEndpointForStorage(`https://api.example.com/v1?${encodeURIComponent(key)}=DO_NOT_EXPOSE`),
+      /敏感查询参数/,
+      key,
+    );
+  }
+  for (const key of ["api-version", "monkey", "hockey", "postal-code", "tenant", "deployment"]) {
+    assert.equal(isSensitiveAiModelQueryKey(key), false, key);
+  }
+  const legacy = "https://api.example.com/v1?api-version=2026-08-01&API_KEY=TOP_SECRET&tenant=tenant-a&x-amz-signature=AWS_SECRET";
+  const redacted = redactAiModelEndpointUrl(legacy);
+  assert.equal(redacted, "https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a");
+  assert.doesNotMatch(redacted, /TOP_SECRET|AWS_SECRET|API_KEY|signature/i);
+  assert.equal(
+    resolveAiModelEndpointUrl(legacy, "openai_compatible"),
+    "https://api.example.com/v1/chat/completions?api-version=2026-08-01&API_KEY=TOP_SECRET&tenant=tenant-a&x-amz-signature=AWS_SECRET",
+  );
+  assert.equal(
+    normalizeAiModelEndpointForStorage("https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a"),
+    "https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a",
+  );
 });
 
 test("OpenAI-compatible reasoning mode is explicit and fail-closed", () => {
@@ -101,8 +144,8 @@ test("legacy image model type is migrated to the canonical vision capability", a
 });
 
 test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations are wired", async () => {
-  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, artifactRoute, service, entryContext, workflow, knowledge, artifacts, gateway, toolBudget, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, knowledgeArtifactMigration, budgetMigration, guide, rolloutGuide] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  const [page, chatRoute, conversationsRoute, modelsRoute, channelsRoute, webhookRoute, artifactRoute, service, boundedFetch, entryContext, workflow, knowledge, artifacts, gateway, toolBudget, toolRuntime, toolAudit, authorization, visionModel, callbackMigration, visionMigration, pipelineMigration, reasoningMigration, executionMigration, knowledgeArtifactMigration, budgetMigration, guide, rolloutGuide] = await Promise.all([
+    readFile(new URL("../app/ai-assistant-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/models/route.ts", import.meta.url), "utf8"),
@@ -110,6 +153,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
     readFile(new URL("../app/api/ai/webhooks/[channelId]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/artifacts/[artifactId]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/bounded-fetch.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/entry-context.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/data-knowledge.ts", import.meta.url), "utf8"),
@@ -146,6 +190,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(page, /AI_MODEL_TOOL_BUDGET_LIMITS\.maximumRounds/);
   assert.match(page, /reasoningMode/);
   assert.match(page, /关闭推理（运营问答推荐）/);
+  assert.match(page, /modelBaseUrlDirty/);
+  assert.match(page, /modelDraft\.id && !modelBaseUrlDirty/);
   assert.match(page, /webhookUrlMasked/);
   assert.match(chatRoute, /createWebChatEntryContext/);
   assert.match(chatRoute, /answerAiQuestion/);
@@ -162,8 +208,9 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(artifactRoute, /getAiArtifactDownload/);
   assert.match(artifactRoute, /recordAiArtifactDelivery/);
   assert.match(artifactRoute, /private, no-store/);
-  assert.match(service, /redirect: "manual"/);
-  assert.match(service, /response\.status >= 300 && response\.status < 400/);
+  assert.match(boundedFetch, /redirect: "manual"/);
+  assert.match(boundedFetch, /response\.status >= 300 && response\.status < 400/);
+  assert.match(boundedFetch, /readBoundedBody\(response, maxBytes\)/);
   assert.match(service, /callback_token_encrypted/);
   assert.match(service, /addMissingColumns\(db, "ai_channels"/);
   assert.match(service, /applyAiModelToolBudgetIncrease\(db\)/);

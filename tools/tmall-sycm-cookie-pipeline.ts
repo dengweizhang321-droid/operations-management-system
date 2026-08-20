@@ -1068,7 +1068,7 @@ async function serveCommand(argv: string[]) {
           startDate: parseJdPromotionDateHeader(request.headers[jdPromotionStartDateHeader]),
           endDate: parseJdPromotionDateHeader(request.headers[jdPromotionEndDateHeader]),
         });
-        stage = "planned";
+        stage = jdPromotionPlan.stage;
         reply(200, publicJdPromotionPlan(jdPromotionPlan));
         inactivityReaper?.arm();
       } else if (request.url === "/jd-promotion/run") {
@@ -1090,7 +1090,7 @@ async function serveCommand(argv: string[]) {
           resumeRunId: parseJdMarketResumeRunIdHeader(request.headers[jdMarketResumeRunIdHeader]),
           silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
         });
-        stage = "planned";
+        stage = jdMarketPlan.stage;
         reply(200, publicJdMarketPlan(jdMarketPlan));
         inactivityReaper?.arm();
       } else if (request.url === "/jd-market/run") {
@@ -1111,7 +1111,9 @@ async function serveCommand(argv: string[]) {
           executionId: requestExecutionId!,
           silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
         });
-        stage = "planned";
+        // Preserve the persisted JD stage when the same execution retries A
+        // after losing a response; never move executed/completed back to planned.
+        stage = jdPlan.stage;
         reply(200, publicJdPlan(jdPlan));
         inactivityReaper?.arm();
       } else if (request.url === "/jd/run") {

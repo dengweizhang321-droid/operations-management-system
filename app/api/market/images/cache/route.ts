@@ -1,9 +1,15 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { cacheMarketImages } from "@/lib/market/image-cache";
 
 export async function POST(request: Request) {
   try {
-    await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["admin"]);
+    requireUnrestrictedDataScope(principal, "市场商品图片缓存", "修改");
     const body = await request.json().catch(() => null) as { batchId?: unknown; limit?: unknown } | null;
     const batchId = typeof body?.batchId === "string" ? body.batchId.trim().slice(0, 120) : undefined;
     const limit = Number(body?.limit ?? 12);
@@ -12,6 +18,6 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "市场商品图片缓存失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "市场商品图片缓存失败", { headers: { "cache-control": "no-store" } });
   }
 }

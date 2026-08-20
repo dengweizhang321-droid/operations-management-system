@@ -6,6 +6,7 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +16,9 @@ export async function GET(request: Request) {
     await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db), ensureSalesSchema(db)]);
     const params = new URL(request.url).searchParams;
     const dimension = params.get("dimension");
-    if (dimension !== "SKU" && dimension !== "SPU") throw new Error("榜单维度必须为 SKU 或 SPU");
+    if (dimension !== "SKU" && dimension !== "SPU") {
+      throw new PublicApiError(400, "invalid_request", "榜单维度必须为 SKU 或 SPU");
+    }
     const payload = await getMarketItemTrend(db, {
       skuCode: params.get("skuCode") ?? "",
       category: params.get("category") ?? "",
@@ -26,6 +29,6 @@ export async function GET(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({ error: error instanceof Error ? error.message : "读取市场单品趋势失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "读取市场单品趋势失败", { headers: { "cache-control": "no-store" } });
   }
 }

@@ -1,4 +1,8 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  aiConversationScopeAccessSql,
+  ensureAiConversationScopeSchema,
+} from "@/lib/ai/conversation-scope";
 import type { SalesDatabase } from "@/lib/sales/database";
 
 export const AI_ARTIFACT_LIMITS = {
@@ -101,7 +105,8 @@ export async function ensureAiArtifactSchema(
   const key = db as unknown as object;
   const existing = artifactReadyByDatabase.get(key);
   if (existing) return existing;
-  const setup = db.batch(artifactSchemaStatements.map((statement) => db.prepare(statement)))
+  const setup = ensureAiConversationScopeSchema(db)
+    .then(() => db.batch(artifactSchemaStatements.map((statement) => db.prepare(statement))))
     .then(() => undefined)
     .catch((error: unknown) => {
       artifactReadyByDatabase.delete(key);
@@ -140,7 +145,7 @@ export function extractAiTableArtifactCandidates(input: {
 export async function persistAiTableArtifacts(input: {
   conversationId: string;
   messageId: string;
-  ownerEmail: string;
+  principal: Pick<AppPrincipal, "email" | "role" | "scope">;
   candidates: readonly AiTableArtifactCandidate[];
   database: SalesDatabase;
 }): Promise<AiTableArtifact[]> {
@@ -167,16 +172,20 @@ export async function persistAiTableArtifacts(input: {
     };
   }));
   if (rows.length > 0) {
-    await db.batch(rows.map((row) => db.prepare(
+    const scopeAccess = aiConversationScopeAccessSql(input.principal.scope);
+    const results = await db.batch(rows.map((row) => db.prepare(
       `INSERT INTO ai_artifacts (
         id, conversation_id, message_id, owner_email, kind, title, file_name, mime_type,
         source_tool, columns_json, rows_json, row_count, truncated, content_digest
-      ) VALUES (?, ?, ?, ?, 'table', ?, ?, 'text/csv; charset=utf-8', ?, ?, ?, ?, ?, ?)`,
+      )
+      SELECT ?, c.id, m.id, c.created_by, 'table', ?, ?, 'text/csv; charset=utf-8', ?, ?, ?, ?, ?, ?
+       FROM ai_conversations c
+       INNER JOIN ai_conversation_messages m
+         ON m.conversation_id = c.id AND m.id = ?
+       ${scopeAccess.join}
+       WHERE c.id = ? AND (? = 'admin' OR c.created_by = ?)${scopeAccess.clause}`,
     ).bind(
       row.id,
-      input.conversationId,
-      input.messageId,
-      input.ownerEmail,
       row.candidate.title,
       row.fileName,
       row.candidate.sourceTool,
@@ -185,7 +194,15 @@ export async function persistAiTableArtifacts(input: {
       row.candidate.rowCount,
       row.candidate.truncated ? 1 : 0,
       row.contentDigest,
+      input.messageId,
+      input.conversationId,
+      input.principal.role,
+      input.principal.email,
+      ...scopeAccess.values,
     )));
+    if (results.some((result) => Number(result?.meta.changes ?? 0) !== 1)) {
+      throw new Error("AI artifact persistence target is unavailable");
+    }
   }
   return rows.map((row) => ({
     id: row.id,
@@ -225,18 +242,35 @@ export async function listAiArtifactsForConversation(
   conversationId: string,
   principal: AppPrincipal,
   db: SalesDatabase,
+  messageIds?: readonly string[],
 ): Promise<Map<string, AiTableArtifact[]>> {
   await ensureAiArtifactSchema(db);
+  const boundedMessageIds = messageIds === undefined
+    ? null
+    : Array.from(new Set(messageIds.filter((id) => /^[a-zA-Z0-9_-]{1,160}$/.test(id)))).slice(0, 100);
+  if (boundedMessageIds?.length === 0) return new Map();
+  const messageFilter = boundedMessageIds
+    ? " AND a.message_id IN (SELECT CAST(value AS TEXT) FROM json_each(?))"
+    : "";
+  const bindings = boundedMessageIds ? [JSON.stringify(boundedMessageIds)] : [];
+  const limit = boundedMessageIds
+    ? Math.min(300, boundedMessageIds.length * AI_ARTIFACT_LIMITS.artifactsPerMessage)
+    : 300;
+  const scopeAccess = aiConversationScopeAccessSql(principal.scope);
   const rows = await db.prepare(
-    `SELECT id, conversation_id, message_id, owner_email, kind, title, file_name,
-      mime_type, source_tool, columns_json, rows_json, row_count, truncated,
-      content_digest, created_at
-     FROM ai_artifacts
-     WHERE conversation_id = ?
-       AND (? = 'admin' OR owner_email = ?)
-     ORDER BY created_at ASC, id ASC
-     LIMIT 300`,
-  ).bind(conversationId, principal.role, principal.email).all<AiArtifactRow>();
+    `SELECT a.id, a.conversation_id, a.message_id, a.owner_email, a.kind, a.title, a.file_name,
+      a.mime_type, a.source_tool, a.columns_json, a.rows_json, a.row_count, a.truncated,
+      a.content_digest, a.created_at
+      FROM ai_artifacts a
+      INNER JOIN ai_conversations c ON c.id = a.conversation_id
+      INNER JOIN ai_conversation_messages m
+        ON m.id = a.message_id AND m.conversation_id = c.id
+      ${scopeAccess.join}
+      WHERE a.conversation_id = ?
+        AND (? = 'admin' OR c.created_by = ?)${scopeAccess.clause}${messageFilter}
+      ORDER BY a.created_at ASC, a.id ASC
+      LIMIT ?`,
+  ).bind(conversationId, principal.role, principal.email, ...scopeAccess.values, ...bindings, limit).all<AiArtifactRow>();
   const byMessage = new Map<string, AiTableArtifact[]>();
   for (const row of rows.results ?? []) {
     const artifact = mapArtifactRow(row);
@@ -255,14 +289,19 @@ export async function getAiArtifactDownload(
 ): Promise<{ artifact: AiTableArtifact; bytes: Uint8Array; contentDigest: string } | null> {
   if (!isAiArtifactId(artifactId)) return null;
   await ensureAiArtifactSchema(db);
+  const scopeAccess = aiConversationScopeAccessSql(principal.scope);
   const row = await db.prepare(
-    `SELECT id, conversation_id, message_id, owner_email, kind, title, file_name,
-      mime_type, source_tool, columns_json, rows_json, row_count, truncated,
-      content_digest, created_at
-     FROM ai_artifacts
-     WHERE id = ? AND (? = 'admin' OR owner_email = ?)
+    `SELECT a.id, a.conversation_id, a.message_id, a.owner_email, a.kind, a.title, a.file_name,
+      a.mime_type, a.source_tool, a.columns_json, a.rows_json, a.row_count, a.truncated,
+      a.content_digest, a.created_at
+     FROM ai_artifacts a
+     INNER JOIN ai_conversations c ON c.id = a.conversation_id
+     INNER JOIN ai_conversation_messages m
+       ON m.id = a.message_id AND m.conversation_id = c.id
+     ${scopeAccess.join}
+     WHERE a.id = ? AND (? = 'admin' OR c.created_by = ?)${scopeAccess.clause}
      LIMIT 1`,
-  ).bind(artifactId, principal.role, principal.email).first<AiArtifactRow>();
+  ).bind(artifactId, principal.role, principal.email, ...scopeAccess.values).first<AiArtifactRow>();
   if (!row) return null;
   const artifact = mapArtifactRow(row);
   if (!artifact) return null;

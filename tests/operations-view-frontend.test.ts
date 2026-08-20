@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { calendarDateWithOffset, shanghaiDateWithOffset } from "@/app/operations-view";
+import {
+  beginTemplateRequest,
+  calendarDateWithOffset,
+  createTemplateRequestLifecycle,
+  isCurrentTemplateRequest,
+  shanghaiDateWithOffset,
+} from "@/app/operations-view";
 
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -29,8 +35,69 @@ test("operations work plan keeps the paged collaboration and concurrency contrac
   assert.match(operations, /payload\.summary \?\? fallbackSummary/);
   assert.match(operations, /requestGeneration/);
   assert.match(operations, /taskGeneration/);
+  assert.match(operations, /beginTemplateRequest\(templateRequestLifecycle\.current, requestKey\)/);
+  assert.match(operations, /request\.controller\.signal/);
+  assert.match(operations, /isCurrentTemplateRequest\(templateRequestLifecycle\.current, request\)/);
+  assert.match(operations, /cancelTemplateRequest\(lifecycle\)/);
   assert.match(operations, /downloadCsvFile/);
   assert.doesNotMatch(operations, /URL\.createObjectURL/);
+});
+
+test("template loading ignores stale active-only success, error, and loading completion after the role gains write access", async () => {
+  const lifecycle = createTemplateRequestLifecycle();
+  let items = ["initial"];
+  let loading = true;
+  let error = "";
+
+  const apply = async (request: ReturnType<typeof beginTemplateRequest>, outcome: Promise<string[]>) => {
+    try {
+      const nextItems = await outcome;
+      if (!isCurrentTemplateRequest(lifecycle, request)) return;
+      items = nextItems;
+    } catch (reason) {
+      if (!isCurrentTemplateRequest(lifecycle, request)) return;
+      error = reason instanceof Error ? reason.message : "failed";
+    } finally {
+      if (isCurrentTemplateRequest(lifecycle, request)) loading = false;
+    }
+  };
+
+  let rejectActiveOnly!: (reason: Error) => void;
+  const activeOnlyFailure = new Promise<string[]>((_, reject) => { rejectActiveOnly = reject; });
+  const activeOnlyRequest = beginTemplateRequest(lifecycle, "/api/workflow/templates");
+  const activeOnlyCommit = apply(activeOnlyRequest, activeOnlyFailure);
+
+  let resolveIncludeInactive!: (value: string[]) => void;
+  const includeInactiveResponse = new Promise<string[]>((resolve) => { resolveIncludeInactive = resolve; });
+  const includeInactiveRequest = beginTemplateRequest(lifecycle, "/api/workflow/templates?includeInactive=true");
+  const includeInactiveCommit = apply(includeInactiveRequest, includeInactiveResponse);
+
+  assert.equal(activeOnlyRequest.controller.signal.aborted, true);
+  rejectActiveOnly(new Error("stale active-only failure"));
+  await activeOnlyCommit;
+  assert.equal(error, "");
+  assert.equal(loading, true);
+
+  resolveIncludeInactive(["active", "inactive"]);
+  await includeInactiveCommit;
+  assert.deepEqual(items, ["active", "inactive"]);
+  assert.equal(loading, false);
+
+  loading = true;
+  let resolveLateActiveOnly!: (value: string[]) => void;
+  const lateActiveOnlyResponse = new Promise<string[]>((resolve) => { resolveLateActiveOnly = resolve; });
+  const lateActiveOnlyRequest = beginTemplateRequest(lifecycle, "/api/workflow/templates");
+  const lateActiveOnlyCommit = apply(lateActiveOnlyRequest, lateActiveOnlyResponse);
+
+  const latestIncludeInactiveRequest = beginTemplateRequest(lifecycle, "/api/workflow/templates?includeInactive=true");
+  await apply(latestIncludeInactiveRequest, Promise.resolve(["new active", "new inactive"]));
+  resolveLateActiveOnly(["stale active only"]);
+  await lateActiveOnlyCommit;
+
+  assert.equal(lateActiveOnlyRequest.controller.signal.aborted, true);
+  assert.deepEqual(items, ["new active", "new inactive"]);
+  assert.equal(loading, false);
+  assert.equal(error, "");
 });
 
 test("work plan restores filters, analytics, timeline, source metadata, and nine-column mobile labels", async () => {

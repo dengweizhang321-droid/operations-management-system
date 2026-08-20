@@ -1,5 +1,7 @@
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { requireAppPrincipal } from "@/lib/auth/authorization";
 import {
+  AI_MESSAGE_PAGE_SIZE_DEFAULT,
+  AI_MESSAGE_PAGE_SIZE_MAX,
   ensureAiAssistantSchema,
   listConversationMessages,
 } from "@/lib/ai/assistant-service";
@@ -7,6 +9,16 @@ import { isAiRequestCancelled } from "@/lib/ai/cancellation";
 import { createWebChatEntryContext } from "@/lib/ai/entry-context";
 import { answerAiQuestion } from "@/lib/ai/question-workflow";
 import { getSalesDatabase } from "@/lib/sales/database";
+import {
+  aiJsonResponse,
+  aiRouteErrorResponse,
+  optionalAiId,
+  optionalAiPositiveInteger,
+  parseAiPositiveInteger,
+  readAiJsonObject,
+  requireAiId,
+  requireAiString,
+} from "@/app/api/ai/route-helpers";
 
 export async function GET(request: Request) {
   try {
@@ -14,13 +26,13 @@ export async function GET(request: Request) {
     const db = getSalesDatabase();
     await ensureAiAssistantSchema(db);
     const searchParams = new URL(request.url).searchParams;
-    const conversationId = searchParams.get("conversationId");
-    if (!conversationId) return Response.json({ error: "conversationId 不能为空" }, { status: 400 });
-    return Response.json({ items: await listConversationMessages(conversationId, principal, db) }, { headers: { "cache-control": "no-store" } });
+    const conversationIds = searchParams.getAll("conversationId");
+    const conversationId = requireAiId(conversationIds.length === 1 ? conversationIds[0] : undefined, "conversationId");
+    const pageSize = parseAiPositiveInteger(searchParams, "pageSize", AI_MESSAGE_PAGE_SIZE_DEFAULT, AI_MESSAGE_PAGE_SIZE_MAX);
+    const before = optionalAiPositiveInteger(searchParams, "before");
+    return aiJsonResponse(await listConversationMessages(conversationId, principal, { pageSize, before }, db));
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
-    return Response.json({ error: error instanceof Error ? error.message : "读取对话失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "读取对话失败");
   }
 }
 
@@ -29,26 +41,29 @@ export async function POST(request: Request) {
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
     const db = getSalesDatabase();
     await ensureAiAssistantSchema(db);
-    const payload = await request.json().catch(() => null) as { conversationId?: string; title?: string; message?: string; modelId?: string } | null;
-    if (!payload?.message?.trim()) return Response.json({ error: "消息不能为空" }, { status: 400 });
+    const payload = await readAiJsonObject(request);
+    const conversationId = optionalAiId(payload.conversationId, "conversationId");
+    const modelId = optionalAiId(payload.modelId, "modelId");
+    const message = requireAiString(payload.message, "消息", { maximumCharacters: 12_000, maximumBytes: 48_000 });
+    const title = payload.title === undefined
+      ? undefined
+      : requireAiString(payload.title, "标题", { maximumCharacters: 120, maximumBytes: 480 });
     const result = await answerAiQuestion({
       entry: createWebChatEntryContext({
         principal,
         requestIdHeader: request.headers.get("x-request-id"),
         signal: request.signal,
       }),
-      conversationId: payload.conversationId,
-      title: payload.title,
-      message: payload.message,
-      modelId: payload.modelId,
+      conversationId,
+      title,
+      message,
+      modelId,
     }, db);
-    return Response.json(result, { headers: { "cache-control": "no-store" } });
+    return aiJsonResponse(result);
   } catch (error) {
-    const auth = authorizationErrorResponse(error);
-    if (auth) return auth;
     if (isAiRequestCancelled(error, request.signal)) {
-      return Response.json({ error: "生成已停止", code: "ai_request_cancelled" }, { status: 499 });
+      return aiJsonResponse({ error: "生成已停止", code: "ai_request_cancelled" }, { status: 499 });
     }
-    return Response.json({ error: error instanceof Error ? error.message : "发送消息失败" }, { status: 500 });
+    return aiRouteErrorResponse(error, "发送消息失败");
   }
 }

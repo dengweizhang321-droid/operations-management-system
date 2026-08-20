@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   newestCompletedJdWareExportTask,
   newestUnseenJdWareExportTask,
+  assertJdWareExportRecoveryIdentity,
   isJdWareExportTaskCreatedNear,
   parseJdWareExportTaskRows,
   selectRecoverableJdWareExportTask,
@@ -44,14 +45,14 @@ test("chooses the newly created task rather than an older completed download", (
   assert.deepEqual(unseenJdWareExportTasks(tasks, new Set()).map((task) => task.taskId), ["9371818", "9371817"]);
 });
 
-test("takes over exactly one pending task before considering an older completed task", () => {
+test("refuses to adopt even one pending task without a persisted manifest", () => {
   const tasks = [
     { taskId: "9371818", status: "pending" as const, createdAt: "2026-07-19 20:03:11", resultText: null, successRows: null, rowText: "pending" },
     { taskId: "9371817", status: "completed" as const, createdAt: "2026-07-19 20:00:09", resultText: null, successRows: 1453, rowText: "completed" },
   ];
   const selection = selectExistingJdWareExportTask(tasks, true);
-  assert.equal(selection.kind, "pending");
-  if (selection.kind === "pending") assert.equal(selection.task.taskId, "9371818");
+  assert.equal(selection.kind, "unowned_pending");
+  if (selection.kind === "unowned_pending") assert.deepEqual(selection.tasks.map((task) => task.taskId), ["9371818"]);
 });
 
 test("does not create or reuse when multiple pending export tasks exist", () => {
@@ -78,6 +79,20 @@ test("recovers the exact timed-out task after it becomes completed", () => {
   });
   assert.equal(selection.kind, "task");
   if (selection.kind === "task") assert.equal(selection.task.taskId, "9371818");
+});
+
+test("production recovery manifests bind storeKey, shopId, and shopName", () => {
+  const expected = { storeKey: "jd-yiyong-director", shopId: "701455", shopName: "志高商用设备旗舰店" };
+  const recovery = {
+    version: 2 as const,
+    ...expected,
+    baselineTaskIds: ["9371817"],
+    taskId: "9371818",
+    createdAt: "2026-07-19T12:03:10.000Z",
+  };
+  assert.equal(assertJdWareExportRecoveryIdentity(recovery, expected), recovery);
+  assert.throws(() => assertJdWareExportRecoveryIdentity({ ...recovery, shopId: "711743" }, expected), /跨店接管/);
+  assert.throws(() => assertJdWareExportRecoveryIdentity({ ...recovery, version: 1 }, expected), /完整身份/);
 });
 
 test("recovers one post-baseline task when the process stopped before learning its id", () => {
@@ -748,7 +763,7 @@ test("records an auto-import failure audit after a rejected connection without b
     savedPath: workbook,
   });
   await assert.rejects(
-    importSkuFile("http://127.0.0.1:3000", workbook, async () => { throw new Error("connect ECONNREFUSED"); }),
+    importSkuFile("http://127.0.0.1:3000", workbook, "A店", async () => { throw new Error("connect ECONNREFUSED"); }),
     /ECONNREFUSED/,
   );
   const failed = advanceWareExportAudit(ready, { status: "failed", error: "connect ECONNREFUSED" });
@@ -763,7 +778,7 @@ test("records an auto-import HTTP 500 failure audit without browser startup", as
   const workbook = path.join(directory, "task.xlsx");
   await writeFile(workbook, "not-a-real-workbook");
   await assert.rejects(
-    importSkuFile("http://127.0.0.1:3000", workbook, async () => new Response(JSON.stringify({ message: "server failed" }), { status: 500 })),
+    importSkuFile("http://127.0.0.1:3000", workbook, "A店", async () => new Response(JSON.stringify({ message: "server failed" }), { status: 500 })),
     /server failed/,
   );
   const failed = advanceWareExportAudit(createWareExportAudit({ baseUrl: "http://127.0.0.1:3000", reuseLatest: false }), {
@@ -789,6 +804,7 @@ test("master import requires imported=201 and duplicate=200 exactly", async () =
   await writeFile(workbook, "not-a-real-workbook");
   const payload = { ok: true, status: "duplicate", batch: { id: "b", source: "jd_product_master", dataset: "product_master", platform: "京东", shopName: "A店", status: "completed", warningCount: 0, rowCount: 1 } };
   await assert.rejects(importSkuFile("http://127.0.0.1:3000", workbook, "A店", async () => Response.json(payload, { status: 201 })), /SKU 导入失败/);
+  await assert.rejects(importSkuFile("http://127.0.0.1:3000", workbook, "A店", async () => Response.json({ ...payload, batch: { ...payload.batch, rowCount: 0 } }, { status: 200 })), /SKU 导入失败/);
 });
 
 test("per-store recovery manifests cannot collide and login redirects fail before export UI wait", () => {

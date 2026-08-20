@@ -236,6 +236,7 @@ test("daily import requires imported=201 and duplicate=200 exactly", async () =>
     const options = { baseUrl: "http://localhost:3000", shopName: "示例店", dimension: "SKU" as const, startDate: "2026-07-01", endDate: "2026-07-01" };
     const payload = { ok: true, status: "imported", batch: { id: "b", source: "jd_sku_daily", dataset: "sku_daily", platform: "京东", shopName: "示例店", status: "completed", warningCount: 0, rowCount: 1, dateMin: "2026-07-01", dateMax: "2026-07-01" } };
     await assert.rejects(importJdProductDetailFile(options, file, async () => Response.json(payload, { status: 200 })), /failed validation/);
+    await assert.rejects(importJdProductDetailFile(options, file, async () => Response.json({ ...payload, batch: { ...payload.batch, rowCount: 0 } }, { status: 201 })), /failed validation/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

@@ -6,6 +6,7 @@ import {
   getNetshopProductPerformance,
   getNetshopPromotionPerformance,
 } from "@/lib/netshop/database";
+import { NetshopQueryError, type NetshopOutletFilter } from "@/lib/netshop/query-contract";
 
 type NetshopAiArgs = {
   dataset?: "product_daily" | "promotion";
@@ -20,7 +21,13 @@ type NetshopAiArgs = {
 export async function getNetshopPerformanceForAi(rawArgs: unknown, principal: AppPrincipal) {
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as NetshopAiArgs;
   const platformNames = netshopPlatformsForPrincipal(principal, args.platform ? [args.platform] : []);
-  const shopNames = typeof args.shop === "string" && args.shop.trim() ? [args.shop.trim().slice(0, 120)] : [];
+  const shopName = typeof args.shop === "string" ? args.shop.trim() : "";
+  if (shopName && (typeof args.platform !== "string" || !args.platform.trim())) {
+    throw new NetshopQueryError("invalid_outlet_filter", "按店铺查询时必须同时提供平台");
+  }
+  const outlets: NetshopOutletFilter[] = shopName
+    ? [{ platform: args.platform!.trim(), shopName }]
+    : [];
   const limit = Math.max(1, Math.min(20, Math.trunc(Number(args.limit ?? 10)) || 10));
   const db = getNetshopDatabase();
   await ensureNetshopSchema(db);
@@ -29,7 +36,7 @@ export async function getNetshopPerformanceForAi(rawArgs: unknown, principal: Ap
       startDate: args.startDate,
       endDate: args.endDate,
       platformNames,
-      shopNames,
+      outlets,
       query: args.query,
       page: 1,
       pageSize: limit,
@@ -51,7 +58,7 @@ export async function getNetshopPerformanceForAi(rawArgs: unknown, principal: Ap
     startDate: args.startDate,
     endDate: args.endDate,
     platformNames,
-    shopNames,
+    outlets,
     query: args.query,
     page: 1,
     pageSize: limit,

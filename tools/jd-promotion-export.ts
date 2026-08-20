@@ -252,14 +252,6 @@ async function createOrResumeDownloadTask(reportPage: Page, downloadPage: Page, 
   await downloadPage.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await assertJdPromotionAccount(downloadPage, store);
   let tasks = await readJdPromotionDownloadTasks(downloadPage);
-  const existing = selectJdPromotionDownloadTask(tasks, jdPromotionReportPrefix(store.accountLabel, options.startDate, options.endDate), options.startDate, options.endDate);
-  if (!manifest && existing) {
-    manifest = newManifest(options, store, tasks.map((task) => task.fingerprint));
-    manifest.status = "submitted";
-    manifest.task = existing;
-    await persistManifest(manifest);
-    return { manifest, task: existing };
-  }
   if (manifest?.task) return { manifest, task: manifest.task };
   if (manifest?.status === "submitting") {
     const recovered = selectJdPromotionDownloadTask(tasks, manifest.reportPrefix, options.startDate, options.endDate, new Set(manifest.baselineFingerprints));
@@ -337,7 +329,12 @@ async function waitAndDownload(page: Page, manifest: PromotionManifest, store: J
   throw new Error("京准通下载任务在 5 分钟内未生成完成");
 }
 
-export async function importJdPromotionFile(options: JdPromotionExportOptions, store: JdStore, filePath: string) {
+export async function importJdPromotionFile(
+  options: JdPromotionExportOptions,
+  store: JdStore,
+  filePath: string,
+  request: typeof fetch = fetch,
+) {
   const bytes = new Uint8Array(await readFile(filePath));
   const inspection = inspectJdPromotionCsv(bytes, options.startDate, options.endDate);
   const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -350,9 +347,10 @@ export async function importJdPromotionFile(options: JdPromotionExportOptions, s
   form.set("expected_start_date", options.startDate);
   form.set("expected_end_date", options.endDate);
   form.set("note", `n8n 京准通 AI 推广报表：${store.shopName}，${options.startDate} 至 ${options.endDate}`);
-  const response = await fetch(`${options.baseUrl}/api/netshop/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
+  const response = await request(`${options.baseUrl}/api/netshop/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
   const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
-  if (!response.ok || !payload) throw new Error(`京准通推广导入失败 (HTTP ${response.status})`);
+  const expectedHttpStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
+  if (response.status !== expectedHttpStatus || !payload) throw new Error(`京准通推广导入失败 (HTTP ${response.status})`);
   const proof = validateJdPromotionImportProof({ payload, shopName: store.shopName, startDate: options.startDate, endDate: options.endDate, rowCount: inspection.rowCount, rawFileHash: inspection.sha256 });
   return { inspection, proof };
 }

@@ -5,6 +5,7 @@ import {
   resolveChatModel,
 } from "@/lib/ai/assistant-service";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
 import { ensureNetshopSchema } from "@/lib/netshop/database";
 import { ensureSalesSchema } from "@/lib/sales/database";
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
       `汇总：${JSON.stringify(overview.summary)}`,
       `头部商品：${JSON.stringify(topItems)}`,
     ].join("\n");
-    const conversationId = await createConversation(`市场分析：${question.slice(0, 36)}`, principal.email, model.id, db);
+    const conversationId = await createConversation(`市场分析：${question.slice(0, 36)}`, principal, model.id, db);
     await appendConversationMessage(conversationId, "user", prompt, db);
     const requestId = request.headers.get("x-request-id")?.slice(0, 200) || crypto.randomUUID();
     const generation = await generateAssistantReply({
@@ -103,6 +104,6 @@ export async function POST(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return Response.json({ error: error instanceof Error ? error.message : "AI 市场分析失败" }, { status: 500 });
+    return safeApiErrorResponse(error, "AI 市场分析失败", { headers: { "cache-control": "no-store" } });
   }
 }

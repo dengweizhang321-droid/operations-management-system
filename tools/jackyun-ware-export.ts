@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, open, readFile, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Locator, Page, Response } from "playwright-core";
 import {
   parseJdWareExportTaskRows,
+  assertJdWareExportRecoveryIdentity,
   selectExistingJdWareExportTask,
   selectRecoverableJdWareExportTask,
   decideJdWareExportBaselineRecoveryAbandonment,
@@ -33,17 +34,11 @@ export const jdWareTargetNavigationTimeoutMs = 30_000;
 export const jdWareInitialProductQueryTimeoutMs = 60_000;
 
 async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
-  await ensureDir(artifactDir);
-  const lockPath = path.join(artifactDir, "jd-ware-export.lock");
-  const handle = await open(lockPath, "wx").catch(() => null);
-  if (!handle) throw new Error("另一个京东店铺 SKU 导出正在运行；共享 Chromium 与活动任务清单已锁定。");
-  await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
-  await handle.close();
-  try {
-    return await task();
-  } finally {
-    await rm(lockPath, { force: true });
-  }
+  return withJdChromiumRunLock(
+    "product-master-script",
+    task,
+    path.join(artifactDir, "jd-ware-export.run-lock"),
+  );
 }
 
 export function wareActiveTaskPath(storeKey: string) {
@@ -65,6 +60,7 @@ export function shouldCloseJdWareBrowserConnection(interactiveLogin: boolean) {
 export type CliOptions = {
   storeKey: string;
   shopName: string;
+  shopId: string;
   executablePath: string;
   userDataDirectory: string;
   profileName: string;
@@ -100,6 +96,7 @@ export type WareExportAudit = {
   intent: "create" | "reuse_latest";
   storeKey?: string;
   shopName?: string;
+  shopId?: string;
   querySource?: "initial_navigation" | "trusted_click";
   queryHttpStatus?: number;
   queryBusinessCode?: number;
@@ -114,10 +111,10 @@ export type WareExportAudit = {
   result?: ScriptResult;
   error?: string;
 };
-type StoreWareExportRecovery = JdWareExportRecovery & { storeKey: string };
+type StoreWareExportRecovery = JdWareExportRecovery;
 
 export function createWareExportAudit(
-  options: Pick<CliOptions, "baseUrl" | "reuseLatest"> & Partial<Pick<CliOptions, "storeKey" | "shopName">>,
+  options: Pick<CliOptions, "baseUrl" | "reuseLatest"> & Partial<Pick<CliOptions, "storeKey" | "shopName" | "shopId">>,
 ): WareExportAudit {
   const now = new Date().toISOString();
   return {
@@ -130,6 +127,7 @@ export function createWareExportAudit(
     intent: options.reuseLatest ? "reuse_latest" : "create",
     ...(options.storeKey ? { storeKey: options.storeKey } : {}),
     ...(options.shopName ? { shopName: options.shopName } : {}),
+    ...(options.shopId ? { shopId: options.shopId } : {}),
   };
 }
 
@@ -351,6 +349,7 @@ async function parseCliOptions(): Promise<CliOptions> {
   return {
     storeKey: store.storeKey,
     shopName: store.shopName,
+    shopId: store.shopId,
     executablePath: store.browser.executablePath,
     userDataDirectory: store.browser.userDataDir,
     profileName: store.browser.profileName,
@@ -1001,7 +1000,7 @@ async function saveTaskDownload(page: Page, task: JdWareExportTask, downloadDire
     if (!fileInfo.isFile() || fileInfo.size < 4) throw new Error("Chrome 京东 SKU 下载文件为空或不完整。");
     const bytes = await readFile(stagedPath);
     if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) throw new Error("Chrome 京东 SKU 下载文件不是 XLSX ZIP 工作簿。");
-    validateJdWareMasterWorkbook(bytes, task.successRows);
+    validateJdWareMasterWorkbook(bytes, task.successRows ?? undefined);
     const savedPath = path.join(downloadDirectory, `jd-ware-${task.taskId}-${randomUUID()}-${safeDownloadedFilename(suggestedFilename, task.taskId)}`);
     await rename(stagedPath, savedPath);
     await stat(savedPath);
@@ -1029,9 +1028,8 @@ function shanghaiToday() {
   return `${read("year")}-${read("month")}-${read("day")}`;
 }
 
-export async function importSkuFile(baseUrl: string, filePath: string, shopNameOrRequest: string | typeof fetch = "志高商用设备旗舰店", request: typeof fetch = fetch) {
-  const shopName = typeof shopNameOrRequest === "string" ? shopNameOrRequest : "志高商用设备旗舰店";
-  if (typeof shopNameOrRequest === "function") request = shopNameOrRequest;
+export async function importSkuFile(baseUrl: string, filePath: string, shopName: string, request: typeof fetch = fetch) {
+  if (!shopName.trim()) throw new Error("京东 SKU 导入必须显式绑定受控店铺名称。");
   const bytes = await readFile(filePath);
   const form = new FormData();
   form.append("source", "jd_product_master");
@@ -1060,7 +1058,7 @@ export async function importSkuFile(baseUrl: string, filePath: string, shopNameO
   const batch = payload?.batch;
   const expectedHttpStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
   if (response.status !== expectedHttpStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
-    || !batch?.id || !Number.isFinite(batch.rowCount) || batch.rowCount! < 0
+    || !batch?.id || !Number.isSafeInteger(batch.rowCount) || batch.rowCount! <= 0
     || batch.source !== "jd_product_master" || batch.dataset !== "product_master" || batch.platform !== "京东"
     || batch.shopName !== shopName || batch.status !== "completed" || batch.warningCount !== 0) {
     throw new Error(payload?.message ?? `运营管理系统 SKU 导入失败（HTTP ${response.status}）`);
@@ -1134,17 +1132,13 @@ export async function runShopSkuExport(
     notes.push(`按活动任务清单接管导出任务 ${task.taskId}，跳过创建新任务。`);
   } else {
     const selection = selectExistingJdWareExportTask(existingTasks, options.reuseLatest);
+    if (selection.kind === "unowned_pending") {
+      throw new Error(`检测到没有活动任务清单归属的待处理 SKU 导出任务（${selection.tasks.map((item) => item.taskId).join("、")}），已停止且不会猜测接管。`);
+    }
     if (selection.kind === "ambiguous_pending") {
       throw new Error(`检测到多个待处理 SKU 导出任务（${selection.tasks.map((item) => item.taskId).join("、")}），无法安全接管，已停止且不会创建新任务。`);
     }
-    if (selection.kind === "pending") {
-      await checkpoint({ stage: "take_over_pending_task", taskId: selection.task.taskId, taskStatus: selection.task.status });
-      task = await waitForKnownTask(page, selection.task.taskId, options.taskTimeoutMs, async (observed) => {
-        await checkpoint({ stage: "wait_existing_task", taskId: observed.taskId, taskStatus: observed.status });
-      });
-      reusedLatest = true;
-      notes.push(`接管待处理导出任务 ${task.taskId}，跳过创建新任务。`);
-    } else if (selection.kind === "completed") {
+    if (selection.kind === "completed") {
       task = selection.task;
       reusedLatest = true;
       await checkpoint({ stage: "reuse_completed_task", taskId: task.taskId, taskStatus: task.status });
@@ -1211,11 +1205,11 @@ async function main() {
     audit = advanceWareExportAudit(audit, patch);
     await writeJsonAtomic(auditPath, audit);
     if (patch.stage === "task_submitting" && patch.baselineTaskIds) {
-      recovery = { version: 1, storeKey: options.storeKey, baselineTaskIds: patch.baselineTaskIds, createdAt: new Date().toISOString() };
+      recovery = { version: 2, storeKey: options.storeKey, shopId: options.shopId, shopName: options.shopName, baselineTaskIds: patch.baselineTaskIds, createdAt: new Date().toISOString() };
       await writeJsonAtomic(activeTaskPath, recovery);
     } else if (patch.taskId) {
       recovery = {
-        version: 1, storeKey: options.storeKey,
+        version: 2, storeKey: options.storeKey, shopId: options.shopId, shopName: options.shopName,
         baselineTaskIds: recovery?.baselineTaskIds ?? audit.baselineTaskIds ?? [],
         taskId: patch.taskId,
         createdAt: recovery?.createdAt ?? new Date().toISOString(),
@@ -1238,9 +1232,7 @@ async function main() {
       throw new Error(`发现旧版跨店活动任务清单，无法安全判断所属店铺；请人工迁移或确认后删除：${legacyActiveTaskPath}`);
     }
     recovery = await readJsonFileOr<StoreWareExportRecovery | null>(activeTaskPath, null);
-    if (recovery && (recovery.version !== 1 || recovery.storeKey !== options.storeKey || !Array.isArray(recovery.baselineTaskIds))) {
-      throw new Error(`SKU 活动任务清单格式无效，已停止以免重复提交：${activeTaskPath}`);
-    }
+    if (recovery) assertJdWareExportRecoveryIdentity(recovery, options);
     await persistAudit({ stage: "launch_browser" });
     const launchResult = await launchJdWareBrowser({
       executablePath: options.executablePath,

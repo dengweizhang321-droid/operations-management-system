@@ -1,13 +1,16 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
-import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import { parseProductQueries } from "@/lib/sales/product-query";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
+import {
+  createReloadableLazy,
+  resetReloadableLazyScope,
+} from "./shell/reloadable-lazy";
 import {
   getDefaultModuleView,
   isModuleKey,
@@ -25,47 +28,74 @@ import {
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
 import { useModuleViewState } from "./shell/use-module-view-state";
+import type { AppCurrentUser } from "./shell/view-contract";
+import CustomerServiceImportCard from "./customer-service-import-card";
 import type {
-  GlobalSearchEntityKind,
   GlobalSearchGroupKey,
   GlobalSearchItem,
   GlobalSearchResult,
-  GlobalSearchTarget,
 } from "./global-search-dialog";
 import Dialog from "./ui/dialog";
+import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
 import TableColumnFilters from "./ui/table-column-filters";
 
-const MarketView = lazy(() => import("./market-view"));
-const N8nWorkflowView = lazy(() => import("./n8n-workflow-view"));
-const OperationsView = lazy(() => import("./operations-view"));
-const SalesCategoryView = lazy(() => import("./sales-category-view"));
-const SettingsView = lazy(() => import("./settings-view"));
+const { Component: MarketView } = createReloadableLazy("market", () => import("./market-view"));
+const { Component: N8nWorkflowView } = createReloadableLazy("n8n_workflows", () => import("./n8n-workflow-view"));
+const { Component: OperationsView } = createReloadableLazy("workflow", () => import("./operations-view"));
+const { Component: SalesCategoryView } = createReloadableLazy("sales", () => import("./sales-category-view"));
+const { Component: SettingsView } = createReloadableLazy("settings", () => import("./settings-view"));
 const GlobalSearchDialog = lazy(() => import("./global-search-dialog"));
+const { Component: CustomerServiceView } = createReloadableLazy("customer_service", () => import("./customer-service-view"));
+const { Component: AiAssistantView } = createReloadableLazy("ai", () => import("./ai-assistant-view"));
 
-const globalSearchEntityModuleAllowlist: Record<GlobalSearchEntityKind, readonly ModuleKey[]> = {
-  product: ["product", "shop"],
-  order: ["sales"],
-  inventory: ["inventory"],
-  market_sku: ["market"],
-  customer_conversation: ["customer_service"],
-  finance_record: ["sales"],
-  target: ["sales"],
-  workflow_task: ["workflow"],
-  import_batch: ["import"],
+type GlobalSearchLoadBoundaryProps = {
+  children: ReactNode;
+  resetKey: number;
+  onRetry: () => void;
+  onClose: () => void;
 };
 
-function isGlobalSearchTargetForItem(item: GlobalSearchItem, target: GlobalSearchTarget): boolean {
-  if (target.module !== item.module) return false;
-  if (!target.entity) return true;
-  return globalSearchEntityModuleAllowlist[target.entity.kind].includes(target.module);
+class GlobalSearchLoadBoundary extends Component<GlobalSearchLoadBoundaryProps, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidUpdate(previousProps: GlobalSearchLoadBoundaryProps) {
+    if (this.state.failed && previousProps.resetKey !== this.props.resetKey) {
+      this.setState({ failed: false });
+    }
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <Dialog open onClose={this.props.onClose} dialogId="global-search-load-error" ariaLabel="全系统搜索加载失败" className="panel search-modal">
+      <div className="data-state data-state-error" role="alert" aria-live="assertive">
+        <span className="state-symbol" aria-hidden="true">!</span>
+        <strong>全系统搜索加载失败</strong>
+        <p>搜索工作区未载入，当前页面与筛选未受影响。</p>
+        <div className="data-state-actions">
+          <button type="button" className="primary-button" onClick={this.props.onRetry}>重新加载搜索</button>
+          <button type="button" className="secondary-button" onClick={this.props.onClose}>关闭</button>
+        </div>
+      </div>
+    </Dialog>;
+  }
 }
 
-type CurrentUser = {
-  email: string;
-  displayName: string;
-  role: "viewer" | "analyst" | "operator" | "admin";
-  roleLabel: string;
-};
+function GlobalSearchLoadingDialog({ onClose }: { onClose: () => void }) {
+  return <Dialog open onClose={onClose} dialogId="global-search-loading" ariaLabel="正在加载全系统搜索" className="panel search-modal">
+    <div className="data-state" role="status" aria-live="polite">
+      <span className="state-spinner" aria-hidden="true" />
+      <strong>正在加载全系统搜索</strong>
+      <p>正在载入搜索工作区…</p>
+      <button type="button" className="secondary-button" onClick={onClose}>取消</button>
+    </div>
+  </Dialog>;
+}
+
+type CurrentUser = AppCurrentUser;
 
 export function canManageFinanceTargets(
   currentUser: Pick<CurrentUser, "role"> | null | undefined,
@@ -82,103 +112,6 @@ export function validateFinanceTargetDeletionReason(value: string | null):
   if (!reason || reason.length > 200) return { status: "invalid" };
   return { status: "accepted", reason };
 }
-
-type CustomerServiceMessage = { sender: string; sentAt: string; content: string };
-type CustomerServiceConversation = {
-  id: number; shopName: string; consultedAt: string; customerId: string; customerAlias: string; consultationType: string; agent: string; transferredAgent: string; skillGroup: string; productSku: string; matchedSkuId: string; productSpuId: string; erpProductCode: string; productCategory: string; productName: string; firstResponseAt: string; responseSeconds: number | null; durationMinutes: number | null; customerMessageCount: number | null; agentMessageCount: number | null; satisfaction: string; resolved: string; conversationId: string; matchStatus: "matched" | "session_only" | "chat_only" | "ambiguous"; matchConfidence: "exact" | "time_only" | "review" | "none"; chatStartedAt: string; chatEndedAt: string; chatCustomerAlias: string; messages: CustomerServiceMessage[]; messageTotalCount: number; messageReturnedCount: number; messagesTruncated: boolean; robotScope: "robot_only" | "contains_robot" | "exclude_robot" | ""; problemType: "商品咨询" | "价格优惠" | "物流发货" | "售后维修" | "退换货" | "安装使用" | "发票开票" | "催单改单" | "其他" | ""; conversionStatus: "converted" | "not_converted" | "unknown" | ""; serviceIssues: string; summaryText: string; analysisSource: "ai" | "manual" | ""; analyzedAt: string | null; annotatedAt: string | null; version: number; updatedAt: string;
-};
-type CustomerServiceData = {
-  items: CustomerServiceConversation[]; agents: string[]; shops: string[]; categories: string[]; summary: { total: number; matched: number; sessionOnly: number; chatOnly: number }; pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
-};
-
-type AiModelProtocol = "openai_compatible" | "anthropic";
-type AiModelType = "text" | "vision";
-type AiModelStatus = "enabled" | "disabled";
-type AiModelReasoningMode = "auto" | "disabled";
-type AiChannelKind = "dingtalk_group_bot" | "dingtalk_app" | "wechat_work_group_bot" | "wechat_work_app";
-type AiArtifactCell = string | number | boolean | null;
-type AiTableArtifact = { id: string; kind: "table"; title: string; sourceTool: string; columns: string[]; rows: AiArtifactCell[][]; rowCount: number; truncated: boolean; fileName: string; mimeType: "text/csv; charset=utf-8"; contentDigest: string; downloadUrl: string; createdAt: string };
-type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string; artifacts: AiTableArtifact[] };
-type AiAvailableChatModel = { id: string; name: string; protocol: AiModelProtocol; modelType: AiModelType; modelName: string; isDefault: boolean };
-
-type AiModelRecord = {
-  id: string;
-  name: string;
-  protocol: AiModelProtocol;
-  modelType: AiModelType;
-  modelName: string;
-  baseUrl: string;
-  apiKeySuffix: string;
-  isDefaultTextModel: boolean;
-  status: AiModelStatus;
-  timeoutMs: number;
-  maxTokens: number;
-  reasoningMode: AiModelReasoningMode;
-  temperatureMilli: number;
-  maxToolRounds: number;
-  maxTotalToolCalls: number;
-  lastTestResult: string | null;
-  lastTestedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type AiChannelRecord = {
-  id: string;
-  name: string;
-  kind: AiChannelKind;
-  status: "enabled" | "disabled";
-  sendEnabled: boolean;
-  callbackEnabled: boolean;
-  webhookUrlMasked: string;
-  callbackTokenMasked: string;
-  aesKeyMasked: string;
-  receiverId: string;
-  lastTestResult: string | null;
-  lastTestedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type AiConversationRecord = {
-  id: string;
-  title: string;
-  modelId: string | null;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type AiModelDraft = {
-  id?: string;
-  name: string;
-  protocol: AiModelProtocol;
-  modelType: AiModelType;
-  modelName: string;
-  baseUrl: string;
-  apiKey: string;
-  status: AiModelStatus;
-  isDefaultTextModel: boolean;
-  timeoutMs: number;
-  maxTokens: number;
-  reasoningMode: AiModelReasoningMode;
-  temperatureMilli: number;
-  maxToolRounds: number;
-  maxTotalToolCalls: number;
-};
-
-type AiChannelDraft = {
-  id?: string;
-  name: string;
-  kind: AiChannelKind;
-  status: "enabled" | "disabled";
-  sendEnabled: boolean;
-  callbackEnabled: boolean;
-  webhookUrl: string;
-  callbackToken: string;
-  aesKey: string;
-  receiverId: string;
-};
 
 type SalesRangeLabel = "今日" | "昨天" | "近7天" | "近15天" | "本月" | "月度" | "自定义";
 type SalesRange = "today" | "yesterday" | "last7" | "last15" | "month" | "quarter" | "custom";
@@ -745,6 +678,8 @@ type NetshopPromotionPerformanceResponse = {
   pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
 };
 
+const netshopOutletFilterKey = (platform: string, shopName: string) => `${platform}\u001f${shopName}`;
+
 type FinanceActualMetrics = {
   grossSalesCents: number;
   returnAmountCents: number;
@@ -985,155 +920,6 @@ function useDebouncedValue<T>(value: T, delay = 260) {
     return () => window.clearTimeout(timer);
   }, [delay, value]);
   return debounced;
-}
-
-type SearchableSelectOption = {
-  value: string;
-  label: string;
-  searchText?: string;
-  disabled?: boolean;
-};
-
-function SearchableSelect({
-  value,
-  onChange,
-  options,
-  ariaLabel,
-  className = "",
-  searchPlaceholder = "输入关键词搜索",
-  emptyLabel = "没有匹配项",
-  disabled = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: SearchableSelectOption[];
-  ariaLabel: string;
-  className?: string;
-  searchPlaceholder?: string;
-  emptyLabel?: string;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
-  const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
-  const selectedOption = options.find((option) => option.value === value);
-  const visibleOptions = options.filter((option) => {
-    if (!normalizedQuery) return true;
-    return `${option.label} ${option.searchText ?? ""}`.toLocaleLowerCase("zh-CN").includes(normalizedQuery);
-  });
-
-  useEffect(() => {
-    if (!open) return;
-    const closeWhenOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeWhenOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeWhenOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  const choose = (nextValue: string) => {
-    onChange(nextValue);
-    setQuery("");
-    setOpen(false);
-  };
-
-  return <div className={`searchable-select ${className} ${open ? "open" : ""}`} ref={rootRef}>
-    <button type="button" className="searchable-select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => { if (!disabled) { setOpen((current) => !current); setQuery(""); } }}>
-      <span title={selectedOption?.label ?? "请选择"}>{selectedOption?.label ?? "请选择"}</span><i aria-hidden="true">⌄</i>
-    </button>
-    {open && <div className="searchable-select-menu" role="listbox" aria-label={`${ariaLabel}选项`}>
-      <label className="searchable-select-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && visibleOptions.length === 1 && !visibleOptions[0].disabled) { event.preventDefault(); choose(visibleOptions[0].value); } }} placeholder={searchPlaceholder} aria-label={`搜索${ariaLabel}`} /></label>
-      <div className="searchable-select-options">
-        {visibleOptions.map((option) => <button type="button" key={`${option.value}-${option.label}`} className={option.value === value ? "selected" : ""} role="option" aria-selected={option.value === value} disabled={option.disabled} onClick={() => choose(option.value)}><span title={option.label}>{option.label}</span>{option.value === value && <i aria-hidden="true">✓</i>}</button>)}
-        {visibleOptions.length === 0 && <p>{emptyLabel}</p>}
-      </div>
-    </div>}
-  </div>;
-}
-
-function SearchableMultiSelect({
-  values,
-  onChange,
-  options,
-  ariaLabel,
-  allLabel,
-  className = "",
-  searchPlaceholder = "输入关键词搜索",
-  emptyLabel = "没有匹配项",
-  disabled = false,
-}: {
-  values: string[];
-  onChange: (values: string[]) => void;
-  options: SearchableSelectOption[];
-  ariaLabel: string;
-  allLabel: string;
-  className?: string;
-  searchPlaceholder?: string;
-  emptyLabel?: string;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
-  const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
-  const selectedValues = new Set(values);
-  const availableOptions = options.filter((option) => !option.disabled);
-  const selectedOptions = options.filter((option) => selectedValues.has(option.value));
-  const visibleOptions = options.filter((option) => {
-    if (!normalizedQuery) return true;
-    return `${option.label} ${option.searchText ?? ""}`.toLocaleLowerCase("zh-CN").includes(normalizedQuery);
-  });
-  const summary = selectedOptions.length === 0
-    ? allLabel
-    : selectedOptions.length === 1
-      ? selectedOptions[0].label
-      : `已选 ${formatCount(selectedOptions.length)} 项`;
-
-  useEffect(() => {
-    if (!open) return;
-    const closeWhenOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeWhenOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeWhenOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  const toggle = (nextValue: string) => {
-    onChange(selectedValues.has(nextValue)
-      ? values.filter((value) => value !== nextValue)
-      : [...values, nextValue]);
-  };
-  const selectAll = () => onChange(availableOptions.map((option) => option.value));
-
-  return <div className={`searchable-select searchable-multi-select ${className} ${open ? "open" : ""}`} ref={rootRef}>
-    <button type="button" className="searchable-select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => { if (!disabled) { setOpen((current) => !current); setQuery(""); } }}>
-      <span title={summary}>{summary}</span><i aria-hidden="true">⌄</i>
-    </button>
-    {open && <div className="searchable-select-menu" role="listbox" aria-label={`${ariaLabel}选项`} aria-multiselectable="true">
-      <div className="searchable-select-menu-head"><strong>{ariaLabel}</strong><span><button type="button" onClick={selectAll} disabled={availableOptions.length === 0 || selectedOptions.length === availableOptions.length}>全选</button><button type="button" onClick={() => onChange([])} disabled={selectedOptions.length === 0}>清空</button></span></div>
-      <label className="searchable-select-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchPlaceholder} aria-label={`搜索${ariaLabel}`} /></label>
-      <div className="searchable-select-options searchable-multi-select-options">
-        <button type="button" className={selectedOptions.length === 0 ? "selected" : ""} role="option" aria-selected={selectedOptions.length === 0} onClick={() => onChange([])}><span className="searchable-multi-check" aria-hidden="true">{selectedOptions.length === 0 ? "✓" : ""}</span><span title={allLabel}>{allLabel}</span></button>
-        {visibleOptions.map((option) => { const selected = selectedValues.has(option.value); return <button type="button" key={`${option.value}-${option.label}`} className={selected ? "selected" : ""} role="option" aria-selected={selected} disabled={option.disabled} onClick={() => toggle(option.value)}><span className="searchable-multi-check" aria-hidden="true">{selected ? "✓" : ""}</span><span title={option.label}>{option.label}</span></button>; })}
-        {visibleOptions.length === 0 && <p>{emptyLabel}</p>}
-      </div>
-    </div>}
-  </div>;
 }
 
 const startOfIsoMonth = (value: string) => `${value.slice(0, 7)}-01`;
@@ -1468,8 +1254,10 @@ function StoreSpuVisitorMetric({
     () => selectedOutletKeys.length === 0 ? [] : outlets.filter((item) => selectedOutletKeys.includes(item.groupKey)),
     [outlets, selectedOutletKeys],
   );
-  const scopePlatforms = useMemo(() => [...new Set(selectedOutlets.map((item) => item.platform).filter((item) => item && item !== "未分类"))], [selectedOutlets]);
-  const scopeShops = useMemo(() => [...new Set(selectedOutlets.map((item) => item.name).filter(Boolean))], [selectedOutlets]);
+  const scopeOutlets = useMemo(
+    () => selectedOutlets.map((item) => netshopOutletFilterKey(item.platform, item.name)),
+    [selectedOutlets],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1479,8 +1267,7 @@ function StoreSpuVisitorMetric({
       setPerformance(null);
       try {
         const params = new URLSearchParams({ dimension: "spu", page: "1", pageSize: "1", startDate, endDate });
-        scopePlatforms.forEach((platform) => params.append("platform", platform));
-        scopeShops.forEach((shop) => params.append("shop", shop));
+        scopeOutlets.forEach((outlet) => params.append("outlet", outlet));
         const response = await fetch(`/api/netshop/product-performance?${params.toString()}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as (NetshopProductPerformanceResponse & { error?: string }) | null;
         if (!response.ok || !payload?.summary) throw new Error(payload?.error || `SPU 商品访客读取失败（${response.status}）`);
@@ -1492,7 +1279,7 @@ function StoreSpuVisitorMetric({
       }
     })();
     return () => controller.abort();
-  }, [endDate, scopePlatforms, scopeShops, startDate]);
+  }, [endDate, scopeOutlets, startDate]);
 
   if (loading) return <StoreMetricCard label="商品访客累计" value="同步中…" note="正在汇总已导入 SPU 商品×日访客" />;
   if (error || !performance?.dataCutoffDate) return <StoreMetricCard label="商品访客累计" value="—" note={error ? "未获取到匹配店铺的 SPU 日数据" : "待导入匹配店铺的 SPU 日数据"} unavailable />;
@@ -1710,9 +1497,10 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
   const salesChange = storeComparisonRate(current.netSalesCents, baseline?.netSalesCents);
   const aovChange = storeComparisonRate(currentAov, baselineAov);
   const selectedOutlets = useMemo(() => outlets.filter((item) => selectedOutletKeys.includes(item.groupKey)), [outlets, selectedOutletKeys]);
-  const promotionScopeOutlets = useMemo(() => selectedOutlets.length > 0 ? selectedOutlets : outlets, [outlets, selectedOutlets]);
-  const promotionPlatforms = useMemo(() => [...new Set(promotionScopeOutlets.map((item) => item.platform).filter((item) => item && item !== "未分类"))], [promotionScopeOutlets]);
-  const promotionShops = useMemo(() => [...new Set(promotionScopeOutlets.map((item) => item.name).filter(Boolean))], [promotionScopeOutlets]);
+  const promotionOutlets = useMemo(
+    () => selectedOutlets.map((item) => netshopOutletFilterKey(item.platform, item.name)),
+    [selectedOutlets],
+  );
   const selectedOutletLabel = selectedOutlets.length === 0
     ? "全部平台与店铺"
     : selectedOutlets.length === 1
@@ -1736,8 +1524,7 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
       setPromotionError("");
       try {
         const params = new URLSearchParams({ startDate: summary.startDate, endDate: summary.endDate, page: "1", pageSize: "1" });
-        promotionPlatforms.forEach((platform) => params.append("platform", platform));
-        promotionShops.forEach((shop) => params.append("shop", shop));
+        promotionOutlets.forEach((outlet) => params.append("outlet", outlet));
         const response = await fetch(`/api/netshop/promotion-performance?${params.toString()}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as (NetshopPromotionPerformanceResponse & { error?: string }) | null;
         if (!response.ok || !payload?.summary) throw new Error(payload?.error || `推广数据读取失败（${response.status}）`);
@@ -1749,7 +1536,7 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
       }
     })();
     return () => controller.abort();
-  }, [promotionPlatforms, promotionShops, summary.endDate, summary.startDate]);
+  }, [promotionOutlets, summary.endDate, summary.startDate]);
 
   useEffect(() => {
     if (!columnPickerOpen) return;
@@ -1990,7 +1777,7 @@ function ShopDailyProductPerformanceView({
   } | null>(null);
   const [query, setQuery] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [selectedShops, setSelectedShops] = useState<string[]>([]);
+  const [selectedOutletKeys, setSelectedOutletKeys] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [showComparison, setShowComparison] = useState(true);
   const [showActual, setShowActual] = useState(true);
@@ -2072,7 +1859,7 @@ function ShopDailyProductPerformanceView({
       });
       if (debouncedQuery) params.set("q", debouncedQuery);
       selectedPlatforms.forEach((platform) => params.append("platform", platform));
-      selectedShops.forEach((shop) => params.append("shop", shop));
+      selectedOutletKeys.forEach((outlet) => params.append("outlet", outlet));
       const response = await fetch(`/api/netshop/product-performance?${params.toString()}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (NetshopProductPerformanceResponse & { error?: string }) | null;
       if (!response.ok || !payload?.summary || !Array.isArray(payload.items)) {
@@ -2097,7 +1884,7 @@ function ShopDailyProductPerformanceView({
         if (productPerformanceControllerRef.current === controller) productPerformanceControllerRef.current = null;
       }
     }
-  }, [comparisonPeriod, debouncedQuery, dimension, dimensionLabel, page, selectedPeriod, selectedPlatforms, selectedShops]);
+  }, [comparisonPeriod, debouncedQuery, dimension, dimensionLabel, page, selectedOutletKeys, selectedPeriod, selectedPlatforms]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -2135,7 +1922,11 @@ function ShopDailyProductPerformanceView({
   const platformOptions = current.platforms.map((platform) => ({ value: platform, label: platform }));
   const availableShopOptions = current.shops
     .filter((shop) => selectedPlatforms.length === 0 || selectedPlatforms.includes(shop.platform))
-    .map((shop) => ({ value: shop.shopName, label: shop.shopName, searchText: `${shop.shopName} ${shop.platform}` }));
+    .map((shop) => ({
+      value: netshopOutletFilterKey(shop.platform, shop.shopName),
+      label: `${shop.shopName} · ${shop.platform}`,
+      searchText: `${shop.shopName} ${shop.platform}`,
+    }));
   const tableColSpan = visibleProductColumns.length + 6;
   const availableCoverageLabel = current.coverage.availableDateMin && current.coverage.availableDateMax
     ? current.coverage.availableDateMin === current.coverage.availableDateMax
@@ -2144,12 +1935,14 @@ function ShopDailyProductPerformanceView({
     : "尚无已导入覆盖日期";
   const filterPanel = <section className="panel product-performance-filter-panel" aria-label="商品数据筛选条件">
     <label className="product-performance-select-field"><span>平台</span><SearchableMultiSelect values={selectedPlatforms} onChange={(values) => {
-      const allowedShops = new Set(current.shops.filter((shop) => values.length === 0 || values.includes(shop.platform)).map((shop) => shop.shopName));
+      const allowedOutlets = new Set(current.shops
+        .filter((shop) => values.length === 0 || values.includes(shop.platform))
+        .map((shop) => netshopOutletFilterKey(shop.platform, shop.shopName)));
       setSelectedPlatforms(values);
-      setSelectedShops((shops) => shops.filter((shop) => allowedShops.has(shop)));
+      setSelectedOutletKeys((outlets) => outlets.filter((outlet) => allowedOutlets.has(outlet)));
       setPage(1);
     }} ariaLabel={`选择${dimensionLabel}分析平台`} allLabel="全部平台" searchPlaceholder="搜索平台" options={platformOptions} /></label>
-    <label className="product-performance-select-field"><span>店铺</span><SearchableMultiSelect values={selectedShops} onChange={(values) => { setSelectedShops(values); setPage(1); }} ariaLabel={`选择${dimensionLabel}分析店铺`} allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={availableShopOptions} /></label>
+    <label className="product-performance-select-field"><span>店铺</span><SearchableMultiSelect values={selectedOutletKeys} onChange={(values) => { setSelectedOutletKeys(values); setPage(1); }} ariaLabel={`选择${dimensionLabel}分析店铺`} allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={availableShopOptions} /></label>
     <div className="product-period-control global-period-context"><span>全局统计周期</span><strong>{selectedPeriod.startDate} 至 {selectedPeriod.endDate}</strong></div>
     <label className="product-performance-check"><input type="checkbox" checked={showComparison} onChange={(event) => setShowComparison(event.target.checked)} /><span>显示对比数据</span></label>
     <label className="product-performance-check"><input type="checkbox" checked={showActual} disabled={!showComparison} onChange={(event) => setShowActual(event.target.checked)} /><span>显示对比值</span></label>
@@ -2241,7 +2034,7 @@ function ShopSkuView({
   const [catalog, setCatalog] = useState<JdSkuCatalogResponse | null>(null);
   const [query, setQuery] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [selectedShops, setSelectedShops] = useState<string[]>([]);
+  const [selectedOutletKeys, setSelectedOutletKeys] = useState<string[]>([]);
   const debouncedQuery = useDebouncedValue(query, 280);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -2268,7 +2061,7 @@ function ShopSkuView({
       params.set("endDate", salesPeriod.endDate);
       if (debouncedQuery) params.set("q", debouncedQuery);
       selectedPlatforms.forEach((platform) => params.append("platform", platform));
-      selectedShops.forEach((shop) => params.append("shop", shop));
+      selectedOutletKeys.forEach((outlet) => params.append("outlet", outlet));
       const response = await fetch("/api/netshop/products?" + params.toString(), { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (JdSkuCatalogResponse & { error?: string }) | null;
       if (!response.ok || !payload?.summary || !Array.isArray(payload.items)) {
@@ -2283,7 +2076,7 @@ function ShopSkuView({
         if (skuCatalogControllerRef.current === controller) skuCatalogControllerRef.current = null;
       }
     }
-  }, [debouncedQuery, page, salesPeriod.endDate, salesPeriod.startDate, selectedPlatforms, selectedShops]);
+  }, [debouncedQuery, page, salesPeriod.endDate, salesPeriod.startDate, selectedOutletKeys, selectedPlatforms]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -2322,7 +2115,7 @@ function ShopSkuView({
     {sales?.periodStart && sales?.periodEnd && <section className="jd-sku-sales-context"><strong>经营指标口径</strong><span>{sales.platform}平台已导入销售明细 · 统计周期 {sales.periodStart} 至 {sales.periodEnd} · 数据截止 {sales.dataCutoffDate ?? "暂无"}</span><small>成本价为当前周期销量加权成本；净销售额、毛利率与退货率均不按店铺名称推算。</small></section>}
     {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((value) => value + 1)}>重试</button></section>}
     <section className="panel table-panel jd-sku-table-panel">
-      <div className="table-toolbar jd-sku-toolbar"><div><h2>SKU 商品目录</h2><p>共 {formatCount(pagination.total)} 条；可按店铺、商品 ID、SKU、商家编码或名称搜索。</p></div><div className="jd-sku-toolbar-actions"><label className="jd-sku-store-select"><span>平台</span><SearchableMultiSelect values={selectedPlatforms} onChange={(values) => { const allowedShops = new Set(shops.filter((shop) => values.length === 0 || values.includes(shop.platform)).map((shop) => shop.shopName)); setSelectedPlatforms(values); setSelectedShops((current) => current.filter((shop) => allowedShops.has(shop))); setPage(1); }} ariaLabel="按平台筛选货品" allLabel="全部平台" searchPlaceholder="搜索平台" options={[...new Set(shops.map((shop) => shop.platform))].map((platform) => ({ value: platform, label: platform }))} /></label><label className="jd-sku-store-select"><span>店铺</span><SearchableMultiSelect values={selectedShops} onChange={(values) => { setSelectedShops(values); setPage(1); }} ariaLabel="按店铺名称筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={shops.filter((shop) => selectedPlatforms.length === 0 || selectedPlatforms.includes(shop.platform)).map((shop) => ({ value: shop.shopName, label: shop.shopName || "未命名店铺", searchText: `${shop.shopName} ${shop.platform}` }))} /></label><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索商品 ID、SKU、商家编码或名称" aria-label="搜索网店商品 SKU" /></label></div></div>
+      <div className="table-toolbar jd-sku-toolbar"><div><h2>SKU 商品目录</h2><p>共 {formatCount(pagination.total)} 条；可按店铺、商品 ID、SKU、商家编码或名称搜索。</p></div><div className="jd-sku-toolbar-actions"><label className="jd-sku-store-select"><span>平台</span><SearchableMultiSelect values={selectedPlatforms} onChange={(values) => { const allowedOutlets = new Set(shops.filter((shop) => values.length === 0 || values.includes(shop.platform)).map((shop) => netshopOutletFilterKey(shop.platform, shop.shopName))); setSelectedPlatforms(values); setSelectedOutletKeys((current) => current.filter((outlet) => allowedOutlets.has(outlet))); setPage(1); }} ariaLabel="按平台筛选货品" allLabel="全部平台" searchPlaceholder="搜索平台" options={[...new Set(shops.map((shop) => shop.platform))].map((platform) => ({ value: platform, label: platform }))} /></label><label className="jd-sku-store-select"><span>店铺</span><SearchableMultiSelect values={selectedOutletKeys} onChange={(values) => { setSelectedOutletKeys(values); setPage(1); }} ariaLabel="按店铺名称筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" options={shops.filter((shop) => selectedPlatforms.length === 0 || selectedPlatforms.includes(shop.platform)).map((shop) => ({ value: netshopOutletFilterKey(shop.platform, shop.shopName), label: `${shop.shopName || "未命名店铺"} · ${shop.platform}`, searchText: `${shop.shopName} ${shop.platform}` }))} /></label><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索商品 ID、SKU、商家编码或名称" aria-label="搜索网店商品 SKU" /></label></div></div>
       <div className="data-table-wrap"><table className="data-table jd-sku-data-table"><thead><tr><th>SKU图</th><th>平台 / 店铺</th><th>商品 ID</th><th>SKU ID</th><th>商家编码</th><th>商品名称 / 销售属性</th><th>平台售价</th><th>库存</th><th>净销售额</th><th>大毛利率</th><th>类目</th><th>快照 / 状态</th></tr></thead><tbody>{catalog.items.map((item) => { const link = netshopProductUrl(item.platform, item.spuId, item.productUrl); const isOnSale = item.status === "上架"; const thumb = item.imageUrl ? <img className="jd-sku-thumb" src={item.imageUrl} alt={item.productName ? `${item.productName} SKU 主图` : "SKU 主图"} loading="lazy" referrerPolicy="no-referrer" /> : <span className="jd-sku-thumb jd-sku-thumb-missing">暂无主图</span>; return <tr key={`${item.platform}-${item.shopName}-${item.spuId}-${item.skuId}-${item.saleAttribute}`}><td>{link ? <a className="jd-sku-thumb-link" href={link} target="_blank" rel="noreferrer">{thumb}</a> : thumb}</td><td><span className="soft-tag">{item.platform}</span><small className="jd-sku-shop-name" title={item.shopName}>{item.shopName || "未命名店铺"}</small></td><td>{link ? <a className="jd-sku-link" href={link} target="_blank" rel="noreferrer">{item.spuId || "—"}</a> : item.spuId || "—"}</td><td>{link && item.skuId ? <a className="jd-sku-link" href={link} target="_blank" rel="noreferrer">{item.skuId}</a> : item.skuId || "—"}</td><td>{item.productCode || "—"}</td><td><div className="jd-sku-product-name"><strong title={item.productName}>{link ? <a className="jd-sku-link" href={link} target="_blank" rel="noreferrer">{item.productName || "未命名商品"}</a> : item.productName || "未命名商品"}</strong><small>{item.saleAttribute || item.brand || "—"}</small></div></td><td><strong>{formatOptionalCurrencyFromCents(item.priceCents)}</strong></td><td><strong>{item.availableInventory === null ? "—" : formatCount(item.availableInventory)}</strong></td><td className="jd-sku-money-cell"><strong>{formatOptionalCurrencyFromCents(item.netSalesCents)}</strong></td><td className={item.grossMarginRate !== null && item.grossMarginRate < .35 ? "orange-text" : "green-text"}><strong>{formatOptionalRate(item.grossMarginRate)}</strong></td><td><span className="jd-sku-category" title={item.category}>{item.category || "—"}</span></td><td><small>{item.snapshotDate || "—"}</small><span className={"status " + (isOnSale ? "status-success" : "status-warning")}><Dot tone={isOnSale ? "green" : "orange"} />{item.status || "未标记"}</span></td></tr>; })}{!loading && catalog.items.length === 0 && <tr><td colSpan={12}><div className="table-state">没有符合当前筛选条件的 SKU 数据。</div></td></tr>}{loading && <tr><td colSpan={12}><div className="table-state"><span className="state-spinner" />正在刷新 SKU 目录…</div></td></tr>}</tbody></table></div>
       <footer className="jd-sku-pagination"><span>第 {pagination.page} / {totalPages} 页</span><div><button type="button" className="row-action" disabled={loading || pagination.page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || pagination.page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</button></div></footer>
     </section>
@@ -2413,7 +2206,7 @@ function ShopPromotionView({
           startDate: period.startDate,
           endDate: period.endDate,
           platform: pageConfig.platform,
-          shop: pageConfig.shopName,
+          outlet: netshopOutletFilterKey(pageConfig.platform, pageConfig.shopName),
           page: String(page),
           pageSize: "50",
         });
@@ -4455,56 +4248,6 @@ function ProductView({ range, customStartDate, customEndDate, moduleView, onModu
 
 
 
-function CustomerServiceImportCard({ canImport, onCompleted }: { canImport: boolean; onCompleted: () => Promise<void> }) {
-  const sessionFileRef = useRef<HTMLInputElement>(null);
-  const chatFileRef = useRef<HTMLInputElement>(null);
-  const [sessionFile, setSessionFile] = useState<File | null>(null);
-  const [chatFile, setChatFile] = useState<File | null>(null);
-  const [shopName, setShopName] = useState("志高商用设备");
-  const [uploading, setUploading] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const acceptDroppedFiles = (files: FileList) => {
-    if (!canImport) return;
-    const candidates = Array.from(files);
-    const nextSession = candidates.find((file) => /\.xlsx$/i.test(file.name));
-    const nextChat = candidates.find((file) => /\.(log|txt)$/i.test(file.name));
-    if (nextSession) setSessionFile(nextSession);
-    if (nextChat) setChatFile(nextChat);
-    setFeedback(nextSession && nextChat ? "已识别 Excel 会话记录和 LOG 聊天记录，请确认店铺后开始导入。" : "请同时拖入一份 .xlsx 会话记录和一份 .log/.txt 聊天记录。");
-  };
-  const uploadFile = async (file: File, kind: "session" | "chat") => {
-    const chunkSize = 1024 * 1024;
-    const chunkCount = Math.ceil(file.size / chunkSize);
-    const init = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "init", kind, fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint: `${kind}:${file.name}:${file.size}:${file.lastModified}` }) });
-    const initPayload = await init.json().catch(() => null) as { ok?: boolean; message?: string; upload?: { id: string; receivedChunkIndexes?: number[] } } | null;
-    if (!init.ok || !initPayload?.ok || !initPayload.upload) throw new Error(initPayload?.message || "无法创建分片上传任务");
-    const uploaded = new Set(initPayload.upload.receivedChunkIndexes ?? []);
-    for (let index = 0; index < chunkCount; index += 1) {
-      if (uploaded.has(index)) continue;
-      const part = file.slice(index * chunkSize, Math.min((index + 1) * chunkSize, file.size));
-      const response = await fetch("/api/customer-service/import/chunks", { method: "PUT", headers: { "x-upload-id": initPayload.upload.id, "x-chunk-index": String(index), "content-type": "application/octet-stream" }, body: part });
-      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
-      if (!response.ok || !payload?.ok) throw new Error(payload?.message || `第 ${index + 1} 个分片上传失败`);
-    }
-    return initPayload.upload.id;
-  };
-  const submit = async () => {
-    if (!sessionFile || !chatFile || uploading || !canImport) return;
-    setUploading(true); setFeedback("");
-    try {
-      const [sessionUploadId, chatUploadId] = await Promise.all([uploadFile(sessionFile, "session"), uploadFile(chatFile, "chat")]);
-      const response = await fetch("/api/customer-service/import/chunks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "complete", shopName, sessionUploadId, chatUploadId, sessionFileName: sessionFile.name, chatFileName: chatFile.name }) });
-      const payload = await response.json().catch(() => null) as { ok?: boolean; status?: string; message?: string; summary?: { matchedCount: number; timeOnlyMatchedCount: number; sessionOnlyCount: number; chatOnlyCount: number } } | null;
-      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "客服会话导入失败");
-      const summary = payload.summary;
-      setFeedback(`${payload.message || "导入完成"}${summary ? ` 已关联 ${formatCount(summary.matchedCount + summary.timeOnlyMatchedCount)} 条，待核对 ${formatCount(summary.sessionOnlyCount + summary.chatOnlyCount)} 条。` : ""}`);
-      setSessionFile(null); setChatFile(null); await onCompleted();
-    } catch (error) { setFeedback(error instanceof Error ? error.message : "客服会话导入失败"); }
-    finally { setUploading(false); }
-  };
-  return <section className="customer-service-import-in-data" onDragOver={(event) => { if (canImport) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); acceptDroppedFiles(event.dataTransfer.files); }}><div className="customer-service-import-copy"><span className="eyebrow">双文件关联导入</span><h3>客服会话与聊天记录</h3><p>可同时拖入一份 Excel 和一份 LOG；系统按咨询时间、顾客脱敏标识和会话顺序关联，补充日志会替换同一聊天的旧记录。</p></div><label className="customer-service-import-shop"><span>所属店铺</span><SearchableSelect value={shopName} onChange={setShopName} ariaLabel="客服导入店铺" searchPlaceholder="搜索客服店铺" options={[{ value: "志高商用设备", label: "志高商用设备" }, { value: "志高厨电", label: "志高厨电" }]} /></label><input className="file-input-hidden" ref={sessionFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.xlsx$/i.test(file.name)) setSessionFile(file); else if (file) setFeedback("会话记录请上传 .xlsx 文件。"); event.currentTarget.value = ""; }} /><input className="file-input-hidden" ref={chatFileRef} type="file" accept=".log,.txt,text/plain" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file && /\.(log|txt)$/i.test(file.name)) setChatFile(file); else if (file) setFeedback("聊天记录请上传 .log 或 .txt 文件。"); event.currentTarget.value = ""; }} /><div className="customer-service-import-files"><button type="button" className={`customer-file-field ${sessionFile ? "selected" : ""}`} onClick={() => sessionFileRef.current?.click()} disabled={!canImport}><span>①</span><strong>{sessionFile?.name || "选择会话记录 Excel"}</strong><small>{sessionFile ? formatFileSize(sessionFile.size) : "咨询时间、顾客、客服、商品等字段"}</small></button><button type="button" className={`customer-file-field ${chatFile ? "selected" : ""}`} onClick={() => chatFileRef.current?.click()} disabled={!canImport}><span>②</span><strong>{chatFile?.name || "选择聊天记录 LOG"}</strong><small>{chatFile ? formatFileSize(chatFile.size) : "以“以下为一通会话”为分隔符"}</small></button></div><div className="customer-service-import-actions"><small>支持整组拖入；单个文件最大 25MB，仅管理员可导入。</small><button type="button" className="primary-button" disabled={!sessionFile || !chatFile || uploading || !canImport} onClick={() => void submit()}>{uploading ? "导入匹配中…" : canImport ? "开始导入并匹配" : "仅管理员可导入"}</button></div>{feedback && <p className={`customer-service-feedback ${feedback.includes("失败") || feedback.includes("请同时") || feedback.includes("请上传") ? "error" : ""}`}>{feedback}</p>}</section>;
-}
-
 type ImportTab = ModuleViewKey<"import">;
 
 function resolveImportHistoryDomain<T>(
@@ -4524,6 +4267,7 @@ function resolveImportHistoryDomain<T>(
 function ImportView({ importSource, currentUser, moduleView, onModuleViewChange }: { importSource?: ImportSourceKey; currentUser: CurrentUser | null; moduleView: ImportTab; onModuleViewChange: (view: ImportTab) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const activeSection = moduleView;
+  const canImport = currentUser?.role === "admin";
   const [selectedSource, setSelectedSource] = useState<ImportSourceKey>(() => importSource ?? "sales");
   const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
   const [dailyStartDate, setDailyStartDate] = useState(() => addIsoDays(shanghaiIsoToday(), -1));
@@ -4548,6 +4292,12 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
     setFeedback(null);
     if (importSource === "tmall_product_master") setSnapshotDate(addIsoDays(shanghaiIsoToday(), -1));
   }, [importSource]);
+
+  useEffect(() => {
+    if (canImport) return;
+    setSelectedFile(null);
+    setDragging(false);
+  }, [canImport]);
 
   const loadHistory = useCallback(async () => {
     if (!historyVisible) return;
@@ -4661,7 +4411,7 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
 
   const acceptFile = useCallback((candidate?: File) => {
     setDragging(false);
-    if (!candidate) return;
+    if (!candidate || !canImport) return;
     if (!activeSource.extensions.some((extension) => candidate.name.toLowerCase().endsWith(extension))) {
       setSelectedFile(null);
       setFeedback({
@@ -4684,7 +4434,7 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
     }
     setSelectedFile(candidate);
     setFeedback(null);
-  }, [activeSource.extensions, activeSource.label, activeSource.maxFileSize, activeSource.report, activeSource.systemLabel]);
+  }, [activeSource.extensions, activeSource.label, activeSource.maxFileSize, activeSource.report, activeSource.systemLabel, canImport]);
 
   const showImportResult = (payload: UnifiedImportResponse | null, responseStatus: number) => {
     const warnings = payload?.warnings ?? payload?.batch?.warnings ?? [];
@@ -4788,6 +4538,10 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
   };
 
   const importFile = async () => {
+    if (!canImport) {
+      setFeedback({ tone: "error", title: "当前账号为只读模式", message: "仅管理员可以上传和导入业务数据。", details: [] });
+      return;
+    }
     if (!selectedFile || uploading) return;
     if (activeSource.needsSnapshotDate && !/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) {
       setFeedback({ tone: "error", title: "请选择快照日期", message: `${activeSource.label}必须指定有效的数据快照日期。`, details: [] });
@@ -4862,15 +4616,17 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
           <div className="source-grid">{sourceOptions.map((item) => <button type="button" className={item.key === selectedSource ? "selected" : ""} aria-pressed={item.key === selectedSource} key={item.key} onClick={() => { setSelectedSource(item.key); if (item.key === "tmall_product_master") setSnapshotDate(addIsoDays(shanghaiIsoToday(), -1)); setSelectedFile(null); setFeedback(null); setUploadProgress(0); }}><span>{item.icon}</span><strong>{item.label}</strong><small>{item.report}</small></button>)}</div>
         </article>
         <article className="panel import-panel">
-          {activeSource.isCustomerService ? <CustomerServiceImportCard canImport={currentUser?.role === "admin"} onCompleted={loadHistory} /> : <>
+          {activeSource.isCustomerService ? <CustomerServiceImportCard canImport={canImport} onCompleted={loadHistory} /> : <>
           <span className="eyebrow">第 2 步</span><h2>上传{activeSource.label}报表</h2><p>支持 {activeSource.extensions.join(" / ")}，单文件最大 {formatFileSize(activeSource.maxFileSize)}；月度财报按月份自动去重并合并同名科目。</p>
-          {activeSource.needsSnapshotDate && <label className="import-snapshot-field"><span>数据快照日期</span><input type="date" value={snapshotDate} max={shanghaiIsoToday()} onChange={(event) => setSnapshotDate(event.target.value)} /></label>}
-          {activeSource.needsDailyRange && <div className="import-snapshot-field"><label><span>业务范围起始日期</span><input type="date" value={dailyStartDate} max={dailyEndDate} onChange={(event) => setDailyStartDate(event.target.value)} /></label><label><span>业务范围结束日期</span><input type="date" value={dailyEndDate} min={dailyStartDate} max={addIsoDays(shanghaiIsoToday(), -1)} onChange={(event) => setDailyEndDate(event.target.value)} /></label></div>}
+          {!canImport && <div className="inventory-feedback" role="note"><span aria-hidden="true">只读</span><div><strong>当前账号仅可查看导入历史</strong><p>文件选择、拖放和正式导入仅向管理员开放。</p></div></div>}
+          {activeSource.needsSnapshotDate && <label className="import-snapshot-field"><span>数据快照日期</span><input type="date" value={snapshotDate} max={shanghaiIsoToday()} disabled={!canImport} onChange={(event) => setSnapshotDate(event.target.value)} /></label>}
+          {activeSource.needsDailyRange && <div className="import-snapshot-field"><label><span>业务范围起始日期</span><input type="date" value={dailyStartDate} max={dailyEndDate} disabled={!canImport} onChange={(event) => setDailyStartDate(event.target.value)} /></label><label><span>业务范围结束日期</span><input type="date" value={dailyEndDate} min={dailyStartDate} max={addIsoDays(shanghaiIsoToday(), -1)} disabled={!canImport} onChange={(event) => setDailyEndDate(event.target.value)} /></label></div>}
           <input
             ref={inputRef}
             className="file-input-hidden"
             type="file"
             accept={activeSource.accept}
+            disabled={!canImport}
             onChange={(event) => {
               acceptFile(event.currentTarget.files?.[0]);
               event.currentTarget.value = "";
@@ -4879,11 +4635,12 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
           <button
             type="button"
             className={`dropzone ${selectedFile ? "uploaded" : ""} ${dragging ? "dragging" : ""}`}
-            onClick={() => inputRef.current?.click()}
-            onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-            onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
+            disabled={!canImport}
+            onClick={() => { if (canImport) inputRef.current?.click(); }}
+            onDragEnter={(event) => { event.preventDefault(); if (canImport) setDragging(true); }}
+            onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = canImport ? "copy" : "none"; if (canImport) setDragging(true); }}
             onDragLeave={(event) => { event.preventDefault(); if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
-            onDrop={(event) => { event.preventDefault(); acceptFile(event.dataTransfer.files?.[0]); }}
+            onDrop={(event) => { event.preventDefault(); if (canImport) acceptFile(event.dataTransfer.files?.[0]); }}
           >
             <span>{selectedFile ? "✓" : "↑"}</span>
             <strong>{selectedFile ? selectedFile.name : `将 ${activeSource.extensions.join(" / ")} 文件拖到此处，或点击选择`}</strong>
@@ -4891,7 +4648,7 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
           </button>
           <div className="import-actions">
             <span>{uploading ? uploadStage : selectedFile ? `准备导入${activeSource.systemLabel} ${activeSource.label}` : "请选择待导入文件"}</span>
-            <button type="button" className="primary-button" disabled={!selectedFile || uploading} onClick={() => void importFile()}>{uploading ? `${uploadProgress}%` : "开始导入"}</button>
+            <button type="button" className="primary-button" disabled={!canImport || !selectedFile || uploading} onClick={() => void importFile()}>{uploading ? `${uploadProgress}%` : canImport ? "开始导入" : "仅管理员可导入"}</button>
           </div>
           {uploading && selectedFile && <div className="import-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress} aria-label={`${activeSource.label}上传进度`}><span style={{ width: `${uploadProgress}%` }} /></div>}
           </>}
@@ -4930,701 +4687,6 @@ function ImportView({ importSource, currentUser, moduleView, onModuleViewChange 
   );
 }
 
-function customerServiceStatusLabel(status: CustomerServiceConversation["matchStatus"]) {
-  return ({ matched: "已匹配", session_only: "缺聊天记录", chat_only: "缺会话记录", ambiguous: "待核对" })[status];
-}
-
-const customerProblemTypes = ["商品咨询", "价格优惠", "物流发货", "售后维修", "退换货", "安装使用", "发票开票", "催单改单", "其他"] as const;
-const customerRobotOptions = [{ value: "robot_only", label: "仅机器人" }, { value: "contains_robot", label: "包含机器人" }, { value: "exclude_robot", label: "排除机器人" }] as const;
-const customerConversionOptions = [{ value: "converted", label: "已转化" }, { value: "not_converted", label: "未转化" }, { value: "unknown", label: "未知" }] as const;
-
-function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNavigate }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser | null; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void }) {
-  const startDate = customStartDate;
-  const endDate = customEndDate;
-  const [agents, setAgents] = useState<string[]>([]);
-  const [shopNames, setShopNames] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
-  const [robotScopes, setRobotScopes] = useState<string[]>([]);
-  const [problemTypes, setProblemTypes] = useState<string[]>([]);
-  const [conversionStatuses, setConversionStatuses] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
-  const [skuIds, setSkuIds] = useState("");
-  const [spuIds, setSpuIds] = useState("");
-  const [page, setPage] = useState(1);
-  const [data, setData] = useState<CustomerServiceData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState<CustomerServiceConversation | null>(null);
-  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
-  const [busyId, setBusyId] = useState<number | "batch" | null>(null);
-  const [analysisProgress, setAnalysisProgress] = useState("");
-  const [analysisNotice, setAnalysisNotice] = useState("");
-  const [analysisReady, setAnalysisReady] = useState<boolean | null>(null);
-  const [detailDraft, setDetailDraft] = useState({ serviceIssues: "", summaryText: "" });
-  const [detailSaveNotice, setDetailSaveNotice] = useState("");
-  const optionsLoadedRef = useRef(false);
-  const listControllerRef = useRef<AbortController | null>(null);
-  const listGenerationRef = useRef(0);
-  const listRequestKeyRef = useRef("");
-  const detailControllerRef = useRef<AbortController | null>(null);
-  const detailGenerationRef = useRef(0);
-  const customerDialogCloseRef = useRef<HTMLButtonElement>(null);
-  const debouncedCustomerQuery = useDebouncedValue(query);
-  const debouncedSkuIds = useDebouncedValue(skuIds);
-  const debouncedSpuIds = useDebouncedValue(spuIds);
-  const canAnnotate = currentUser?.role === "operator" || currentUser?.role === "admin";
-  const canImport = currentUser?.role === "admin";
-
-  useEffect(() => {
-    if (!canAnnotate) return;
-    const controller = new AbortController();
-    void fetch("/api/customer-service/analyze", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as { configured?: boolean } | null;
-        if (!controller.signal.aborted) setAnalysisReady(response.ok && payload?.configured === true);
-      })
-      .catch(() => { if (!controller.signal.aborted) setAnalysisReady(false); });
-    return () => controller.abort();
-  }, [canAnnotate]);
-
-  const load = useCallback(async () => {
-    listControllerRef.current?.abort();
-    const controller = new AbortController();
-    listControllerRef.current = controller;
-    const generation = ++listGenerationRef.current;
-    setLoading(true); setError("");
-    try {
-      const params = new URLSearchParams({ page: String(page), pageSize: "30" });
-      params.set("includeOptions", optionsLoadedRef.current ? "false" : "true");
-      if (startDate) params.set("startDate", startDate);
-      if (endDate) params.set("endDate", endDate);
-      agents.forEach((value) => params.append("agent", value));
-      shopNames.forEach((value) => params.append("shopName", value));
-      statuses.forEach((value) => params.append("status", value));
-      robotScopes.forEach((value) => params.append("robotScope", value));
-      problemTypes.forEach((value) => params.append("problemType", value));
-      conversionStatuses.forEach((value) => params.append("conversionStatus", value));
-      categories.forEach((value) => params.append("category", value));
-      if (debouncedCustomerQuery.trim()) params.set("query", debouncedCustomerQuery.trim());
-      if (debouncedSkuIds.trim()) params.set("skuIds", debouncedSkuIds.trim());
-      if (debouncedSpuIds.trim()) params.set("spuIds", debouncedSpuIds.trim());
-      const requestKey = params.toString();
-      listRequestKeyRef.current = requestKey;
-      const isLatestRequest = () => !controller.signal.aborted
-        && listGenerationRef.current === generation
-        && listRequestKeyRef.current === requestKey;
-      const response = await fetch(`/api/customer-service/conversations?${requestKey}`, { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as CustomerServiceData & { error?: string } | null;
-      if (!response.ok || !payload) throw new Error(payload?.error || "读取客服会话失败");
-      if (isLatestRequest()) {
-        setData((current) => ({
-          ...payload,
-          agents: payload.agents.length ? payload.agents : current?.agents ?? [],
-          shops: payload.shops.length ? payload.shops : current?.shops ?? [],
-          categories: payload.categories.length ? payload.categories : current?.categories ?? [],
-        }));
-        if (payload.agents.length || payload.shops.length || payload.categories.length) optionsLoadedRef.current = true;
-      }
-    } catch (reason) {
-      if (!controller.signal.aborted && listGenerationRef.current === generation) {
-        setError(reason instanceof Error ? reason.message : "读取客服会话失败");
-      }
-    } finally {
-      if (!controller.signal.aborted && listGenerationRef.current === generation) setLoading(false);
-    }
-  }, [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, page, problemTypes, robotScopes, shopNames, startDate, statuses]);
-
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  useEffect(() => () => {
-    listGenerationRef.current += 1;
-    listControllerRef.current?.abort();
-    detailGenerationRef.current += 1;
-    detailControllerRef.current?.abort();
-  }, []);
-  useEffect(() => { setPage(1); }, [agents, categories, conversionStatuses, endDate, problemTypes, query, robotScopes, shopNames, skuIds, spuIds, startDate, statuses]);
-  const pageCount = Math.max(1, Math.ceil((data?.pagination.total ?? 0) / (data?.pagination.pageSize ?? 30)));
-
-  const openConversation = useCallback(async (id: number, summary?: CustomerServiceConversation, preservedDraft?: { serviceIssues: string; summaryText: string }) => {
-    detailControllerRef.current?.abort();
-    const controller = new AbortController();
-    detailControllerRef.current = controller;
-    const generation = ++detailGenerationRef.current;
-    setDetailLoadingId(id);
-    setError("");
-    try {
-      const response = await fetch(`/api/customer-service/conversations?id=${id}`, { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as { item?: CustomerServiceConversation; error?: string } | null;
-      if (!response.ok || !payload?.item) throw new Error(payload?.error || "读取客服会话详情失败");
-      if (!controller.signal.aborted && detailGenerationRef.current === generation) {
-        const detail = {
-          ...summary,
-          ...payload.item,
-          matchedSkuId: payload.item.matchedSkuId || summary?.matchedSkuId || "",
-          productSpuId: payload.item.productSpuId || summary?.productSpuId || "",
-          erpProductCode: payload.item.erpProductCode || summary?.erpProductCode || "",
-          productCategory: payload.item.productCategory || summary?.productCategory || "",
-        };
-        setSelected(detail);
-        setDetailDraft(preservedDraft ?? { serviceIssues: detail.serviceIssues, summaryText: detail.summaryText });
-        if (!preservedDraft) setDetailSaveNotice("");
-      }
-    } catch (reason) {
-      if (!controller.signal.aborted && detailGenerationRef.current === generation) {
-        setError(reason instanceof Error ? reason.message : "读取客服会话详情失败");
-      }
-    } finally {
-      if (!controller.signal.aborted && detailGenerationRef.current === generation) setDetailLoadingId(null);
-    }
-  }, []);
-
-  const closeConversation = () => {
-    if (selected && busyId === selected.id) return;
-    detailGenerationRef.current += 1;
-    detailControllerRef.current?.abort();
-    detailControllerRef.current = null;
-    setDetailLoadingId(null);
-    setSelected(null);
-    setDetailDraft({ serviceIssues: "", summaryText: "" });
-    setDetailSaveNotice("");
-  };
-
-  const saveAnnotation = async (item: CustomerServiceConversation, patch: Partial<Pick<CustomerServiceConversation, "robotScope" | "problemType" | "conversionStatus" | "serviceIssues" | "summaryText">>) => {
-    if (!canAnnotate) return;
-    setBusyId(item.id); setError("");
-    const next = { ...item, ...patch, analysisSource: "manual" as const };
-    setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? next : row) } : current);
-    setSelected((current) => current?.id === item.id ? next : current);
-    try {
-      const response = await fetch("/api/customer-service/conversations", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id, expectedVersion: item.version, ...patch }) });
-      const payload = await response.json().catch(() => null) as { version?: number; error?: string } | null;
-      const nextVersion = payload?.version;
-      if (!response.ok || typeof nextVersion !== "number" || !Number.isSafeInteger(nextVersion)) {
-        if (response.status === 409) {
-          const hadDetailOpen = selected?.id === item.id;
-          const preservedDraft = hadDetailOpen ? { ...detailDraft } : undefined;
-          await load();
-          if (hadDetailOpen) await openConversation(item.id, item, preservedDraft);
-          throw new Error("该会话已被其他操作更新，数据已刷新；请核对后重新修改。");
-        }
-        throw new Error(payload?.error || "保存客服标注失败");
-      }
-      const confirmed = { ...next, version: nextVersion };
-      setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? confirmed : row) } : current);
-      setSelected((current) => current?.id === item.id ? { ...current, ...confirmed } : current);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "保存客服标注失败");
-      if (!(reason instanceof Error) || !reason.message.includes("已被其他操作更新")) {
-        setSelected((current) => current?.id === item.id ? item : current);
-        await load();
-      }
-    }
-    finally { setBusyId(null); }
-  };
-
-  const saveDetailAnnotation = async () => {
-    if (!selected || !canAnnotate || busyId !== null) return;
-    const item = selected;
-    const draft = { ...detailDraft };
-    setBusyId(item.id);
-    setDetailSaveNotice("");
-    try {
-      const response = await fetch("/api/customer-service/conversations", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: item.id,
-          expectedVersion: item.version,
-          serviceIssues: draft.serviceIssues,
-          summaryText: draft.summaryText,
-        }),
-      });
-      const payload = await response.json().catch(() => null) as { version?: number; error?: string } | null;
-      if (response.status === 409) {
-        await load();
-        await openConversation(item.id, item, draft);
-        setDetailSaveNotice("该会话已被其他操作更新：服务端版本已刷新，你的两项草稿均已保留。请核对后再次保存。");
-        return;
-      }
-      if (!response.ok || typeof payload?.version !== "number" || !Number.isSafeInteger(payload.version)) {
-        throw new Error(payload?.error || "保存客服详情标注失败");
-      }
-      const confirmed = {
-        ...item,
-        ...draft,
-        analysisSource: "manual" as const,
-        version: payload.version,
-      };
-      setData((current) => current ? {
-        ...current,
-        items: current.items.map((row) => row.id === item.id ? { ...row, ...confirmed, messages: row.messages } : row),
-      } : current);
-      setSelected((current) => current?.id === item.id ? { ...current, ...confirmed } : current);
-      setDetailSaveNotice("详情标注已保存。");
-    } catch (reason) {
-      setDetailSaveNotice(`${reason instanceof Error ? reason.message : "保存客服详情标注失败"}；草稿仍保留在当前窗口。`);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const analyze = async (ids: number[], marker: number | "batch") => {
-    if (!ids.length || !canAnnotate) return;
-    setBusyId(marker); setError(""); setAnalysisNotice("");
-    let analyzedCount = 0;
-    let requestedCount = 0;
-    let conflictCount = 0;
-    let failedCount = 0;
-    let incomplete = false;
-    try {
-      for (let offset = 0; offset < ids.length; offset += 8) {
-        const batch = ids.slice(offset, offset + 8);
-        setAnalysisProgress(`${Math.min(offset + batch.length, ids.length)}/${ids.length}`);
-        const response = await fetch("/api/customer-service/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: batch }) });
-        const payload = await response.json().catch(() => null) as { analyzed?: number; requested?: number; conflicts?: number; failed?: number; incomplete?: boolean; results?: Array<{ id: number; status: "updated" | "conflict" | "not_found" | "failed" | "not_returned" }>; error?: string } | null;
-        if (!response.ok || !payload || !Array.isArray(payload.results)) throw new Error(payload?.error || "AI 客服分析失败");
-        analyzedCount += Number(payload.analyzed ?? 0);
-        requestedCount += Number(payload.requested ?? batch.length);
-        conflictCount += Number(payload.conflicts ?? payload.results.filter((item) => item.status === "conflict").length);
-        failedCount += Number(payload.failed ?? payload.results.filter((item) => ["not_found", "failed", "not_returned"].includes(item.status)).length);
-        incomplete ||= payload.incomplete === true;
-      }
-      await load();
-      setAnalysisNotice(incomplete || conflictCount > 0 || failedCount > 0
-        ? `AI 分析完成 ${analyzedCount}/${requestedCount}，冲突 ${conflictCount}、失败 ${failedCount}；列表已刷新，请重试未完成项。`
-        : `AI 分析已完成 ${analyzedCount}/${requestedCount}，列表已刷新。`);
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "AI 客服分析失败";
-      if (message.includes("尚未配置可用的文本模型")) setAnalysisReady(false);
-      setError(message);
-    }
-    finally { setBusyId(null); setAnalysisProgress(""); }
-  };
-
-  return <section className="customer-service-page">
-    <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).map((item) => item.id), "batch")} disabled={analysisReady !== true || busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? `AI分析中${analysisProgress ? ` ${analysisProgress}` : "…"}` : analysisReady === false ? "请先配置文本模型" : "AI分析本页未标注"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
-    <CustomerServiceImportCard canImport={canImport} onCompleted={load} />
-    <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><div className="customer-service-shop-select"><span>店铺</span><SearchableMultiSelect values={shopNames} onChange={setShopNames} ariaLabel="客服店铺筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺" options={(data?.shops ?? []).map((value) => ({ value, label: value }))} /></div></section>
-    {analysisNotice && <section className="customer-service-feedback" role="status">{analysisNotice}</section>}
-    {error && <section className="customer-service-feedback error" role="alert">{error}</section>}
-    {canAnnotate && analysisReady === false && <section className="customer-service-feedback error customer-service-analysis-setup" role="status"><span>客服会话已导入；AI 标注尚缺文本模型。配置并测试成功后即可分批分析本页全部未标注记录。</span><button type="button" className="row-action" onClick={() => onNavigate("ai")}>前往 AI 助理配置</button></section>}
-    <section className="customer-service-filters panel">
-      <div className="global-period-context customer-global-period"><span>全局统计周期</span><strong>{startDate} 至 {endDate}</strong></div>
-      <label><span>客服</span><SearchableMultiSelect values={agents} onChange={setAgents} ariaLabel="客服筛选" allLabel="全部客服" searchPlaceholder="搜索客服" options={(data?.agents ?? []).map((value) => ({ value, label: value }))} /></label>
-      <label><span>匹配状态</span><SearchableMultiSelect values={statuses} onChange={setStatuses} ariaLabel="匹配状态筛选" allLabel="全部状态" searchPlaceholder="搜索匹配状态" options={[{ value: "matched", label: "已匹配" }, { value: "session_only", label: "缺聊天记录" }, { value: "chat_only", label: "缺会话记录" }]} /></label>
-      <label><span>机器人</span><SearchableMultiSelect values={robotScopes} onChange={setRobotScopes} ariaLabel="机器人内容筛选" allLabel="全部" searchPlaceholder="搜索机器人标注" options={[...customerRobotOptions]} /></label>
-      <label><span>问题类型</span><SearchableMultiSelect values={problemTypes} onChange={setProblemTypes} ariaLabel="问题类型筛选" allLabel="全部" searchPlaceholder="搜索问题类型" options={customerProblemTypes.map((value) => ({ value, label: value }))} /></label>
-      <label><span>吉客云类目</span><SearchableMultiSelect values={categories} onChange={setCategories} ariaLabel="吉客云类目筛选" allLabel="全部类目" searchPlaceholder="搜索吉客云类目" options={(data?.categories ?? []).map((value) => ({ value, label: value }))} /></label>
-      <label><span>订单转化</span><SearchableMultiSelect values={conversionStatuses} onChange={setConversionStatuses} ariaLabel="订单转化筛选" allLabel="全部" searchPlaceholder="搜索转化状态" options={[...customerConversionOptions]} /></label>
-      <label className="customer-service-id-search"><span>SKU ID（可多项）</span><input value={skuIds} onChange={(event) => setSkuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label>
-      <label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label>
-      <label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品、服务问题或小结" /></label>
-    </section>
-    <section className="panel table-panel customer-service-table-panel"><div className="section-header"><div><h2>会话列表</h2><p>正向按 SKUID → 商家SKU → 吉客云网店规格编码匹配；未命中时从吉客云网店规格编码唯一反查 SKUID，最终展示 SKUID、吉客云货品编号与品类。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table customer-service-analysis-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKUID / 吉客云编号</th><th>吉客云类目</th><th>消息数</th><th>机器人内容</th><th>问题类型</th><th>订单转化</th><th>AI服务问题 / 小结</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
-      {loading && <tr><td colSpan={11}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}
-      {!loading && error && <tr><td colSpan={11}><div className="table-state table-state-error">{error}</div></td></tr>}
-      {!loading && !error && data?.items.length === 0 && <tr><td colSpan={11}><div className="table-state">暂无会话记录。请在数据导入模块完成客服会话导入。</div></td></tr>}
-      {data?.items.map((item) => <tr key={item.id}>
-        <td><div className="customer-time"><small>{item.consultedAt}</small><strong>{item.customerId || item.chatCustomerAlias || "未知顾客"}</strong><small>{item.shopName}</small></div></td>
-        <td><strong>{item.agent || "—"}</strong><small>{item.skillGroup || item.transferredAgent || ""}</small></td>
-        <td><strong>{item.matchedSkuId ? `SKUID ${item.matchedSkuId}` : item.productSku || "—"}</strong><small>{item.productSpuId ? `SPU ${item.productSpuId}` : item.productName || "未关联商品"}</small>{item.erpProductCode && <small>吉客云编号 {item.erpProductCode}</small>}{item.matchedSkuId && item.productSku !== item.matchedSkuId && <small>会话规格 {item.productSku}</small>}</td>
-        <td><span className="customer-category" title={item.productCategory}>{item.productCategory || "未匹配类目"}</span></td>
-        <td><strong>{item.messageTotalCount}</strong><small>会话消息总数</small></td>
-        <td><SearchableSelect className="customer-annotation-select" value={item.robotScope} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}机器人内容`} searchPlaceholder="搜索机器人标注" options={[{ value: "", label: "待标注", disabled: true }, ...customerRobotOptions]} onChange={(value) => void saveAnnotation(item, { robotScope: value as CustomerServiceConversation["robotScope"] })} /></td>
-        <td><SearchableSelect className="customer-annotation-select" value={item.problemType} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}问题类型`} searchPlaceholder="搜索问题类型" options={[{ value: "", label: "待标注", disabled: true }, ...customerProblemTypes.map((value) => ({ value, label: value }))]} onChange={(value) => void saveAnnotation(item, { problemType: value as CustomerServiceConversation["problemType"] })} /></td>
-        <td><SearchableSelect className="customer-annotation-select" value={item.conversionStatus} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}订单转化`} searchPlaceholder="搜索转化状态" options={[{ value: "", label: "待标注", disabled: true }, ...customerConversionOptions]} onChange={(value) => void saveAnnotation(item, { conversionStatus: value as CustomerServiceConversation["conversionStatus"] })} /></td>
-        <td><div className="customer-ai-summary"><strong title={item.serviceIssues}>{item.serviceIssues || "待 AI 分析服务问题"}</strong><small title={item.summaryText}>{item.summaryText || "暂无小结"}</small>{item.analyzedAt && <em>AI · {formatDateTime(item.analyzedAt)}</em>}</div></td>
-        <td><span className={`customer-match customer-match-${item.matchStatus}`}>{customerServiceStatusLabel(item.matchStatus)}<small>{item.matchConfidence === "exact" ? "时间 + 顾客" : item.matchConfidence === "time_only" ? "仅时间" : "待补充"}</small></span></td>
-        <td><div className="customer-row-actions">{canAnnotate && <button type="button" className="row-action" disabled={busyId !== null} onClick={() => void analyze([item.id], item.id)}>{busyId === item.id ? "分析中…" : "AI分析"}</button>}<button type="button" className="row-action" disabled={detailLoadingId !== null || busyId !== null} onClick={() => void openConversation(item.id, item)}>{detailLoadingId === item.id ? "读取中…" : item.messageTotalCount > 0 ? "查看会话" : "查看详情"}</button></div></td>
-      </tr>)}
-    </tbody></table></div>{pageCount > 1 && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>上一页</button><span>第 {page} / {pageCount} 页</span><button type="button" className="row-action" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>下一页</button></div>}</section>
-    <Dialog
-      open={Boolean(selected)}
-      onClose={closeConversation}
-      dialogId="customer-service-conversation-detail"
-      ariaLabel="客服会话详情"
-      className="customer-transcript"
-      initialFocusRef={customerDialogCloseRef}
-    >
-      {selected && <>
-        <header><div><span>{selected.consultedAt}</span><h3>{selected.customerId || selected.chatCustomerAlias || "未知顾客"} · {selected.agent || "未识别客服"}</h3><small>{selected.matchedSkuId ? `SKUID ${selected.matchedSkuId}` : selected.productSku ? `商品规格 ${selected.productSku}` : "未关联商品"} · {customerServiceStatusLabel(selected.matchStatus)}</small></div><button ref={customerDialogCloseRef} type="button" onClick={closeConversation} disabled={busyId === selected.id} aria-label="关闭">×</button></header>
-        <div>
-          <div className="customer-transcript-metrics"><span>咨询类型：{selected.consultationType || "—"}</span><span>吉客云编号：{selected.erpProductCode || "未匹配"}</span><span>吉客云类目：{selected.productCategory || "未匹配"}</span><span>响应：{selected.responseSeconds === null ? "—" : `${selected.responseSeconds}s`}</span><span>时长：{selected.durationMinutes === null ? "—" : `${selected.durationMinutes} 分钟`}</span></div>
-          {selected.messagesTruncated && <div className="customer-service-feedback error" role="status">会话共 {selected.messageTotalCount} 条消息，详情受 200 条 / 64KB 上限保护，本次展示 {selected.messageReturnedCount} 条。</div>}
-          {detailSaveNotice && <div className={`customer-service-feedback ${detailSaveNotice === "详情标注已保存。" ? "" : "error"}`} role="status">{detailSaveNotice}</div>}
-        </div>
-        <div className="customer-analysis-editor">
-          <label><span>服务问题</span><textarea value={detailDraft.serviceIssues} disabled={!canAnnotate || busyId === selected.id} onChange={(event) => setDetailDraft((current) => ({ ...current, serviceIssues: event.target.value }))} placeholder="AI 分析或人工补充客服服务问题" /></label>
-          <label><span>会话小结</span><textarea value={detailDraft.summaryText} disabled={!canAnnotate || busyId === selected.id} onChange={(event) => setDetailDraft((current) => ({ ...current, summaryText: event.target.value }))} placeholder="概括顾客诉求、客服处理与结果" /></label>
-          {canAnnotate && <button type="button" className="primary-button" onClick={() => void saveDetailAnnotation()} disabled={busyId !== null || (detailDraft.serviceIssues === selected.serviceIssues && detailDraft.summaryText === selected.summaryText)}>{busyId === selected.id ? "保存中…" : "保存详情标注"}</button>}
-        </div>
-        <div className="customer-transcript-messages">{selected.messages.length ? selected.messages.map((message, index) => <article key={`${message.sentAt}-${index}`} className={message.sender === selected.agent ? "agent" : "customer"}><strong>{message.sender || "未知"}</strong><small>{message.sentAt}</small><p>{message.content || "（无文字内容）"}</p></article>) : <p className="soft-text">此会话未匹配到聊天记录；会话表中的结构化字段仍已完整导入。</p>}</div>
-      </>}
-    </Dialog>
-  </section>;
-}
-
-function newAiModelDraft(): AiModelDraft {
-  return {
-    name: "",
-    protocol: "openai_compatible",
-    modelType: "text",
-    modelName: "",
-    baseUrl: "",
-    apiKey: "",
-    status: "enabled",
-    isDefaultTextModel: false,
-    timeoutMs: 60000,
-    maxTokens: 4096,
-    reasoningMode: "auto",
-    temperatureMilli: 200,
-    maxToolRounds: 6,
-    maxTotalToolCalls: 12,
-  };
-}
-
-function aiModelTypeLabel(type: AiModelType): string {
-  return type === "vision" ? "视觉识别（读取图片）" : "文本对话";
-}
-
-function newAiChannelDraft(): AiChannelDraft {
-  return { name: "", kind: "dingtalk_group_bot", status: "enabled", sendEnabled: true, callbackEnabled: false, webhookUrl: "", callbackToken: "", aesKey: "", receiverId: "" };
-}
-
-function channelKindLabel(kind: AiChannelKind): string {
-  return ({ dingtalk_group_bot: "钉钉群机器人", wechat_work_group_bot: "企业微信群机器人", dingtalk_app: "钉钉应用（暂未启用）", wechat_work_app: "企业微信应用回调" })[kind];
-}
-
-function AiMessageArtifacts({ artifacts }: { artifacts: AiTableArtifact[] }) {
-  if (artifacts.length === 0) return null;
-  return <div className="ai-artifact-list" aria-label="本条回复的数据产物">
-    {artifacts.map((artifact) => <section key={artifact.id} className="ai-artifact-card">
-      <header><div><strong>{artifact.title}</strong><small>来源工具：{artifact.sourceTool} · 展示 {artifact.rows.length}/{artifact.rowCount} 行{artifact.truncated ? " · 已截断" : ""}</small></div><a href={artifact.downloadUrl} download={artifact.fileName}>下载 CSV</a></header>
-      <div className="ai-artifact-table-wrap">
-        <table><thead><tr>{artifact.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{artifact.rows.map((row, rowIndex) => <tr key={`${artifact.id}-${rowIndex}`}>{artifact.columns.map((column, columnIndex) => <td key={`${column}-${columnIndex}`}>{formatAiArtifactCell(row[columnIndex])}</td>)}</tr>)}</tbody></table>
-      </div>
-    </section>)}
-  </div>;
-}
-
-function formatAiArtifactCell(value: AiArtifactCell | undefined) {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "boolean") return value ? "是" : "否";
-  return String(value);
-}
-
-function AiAssistantView({ currentUser }: { currentUser: CurrentUser | null }) {
-  const isAdmin = currentUser?.role === "admin";
-  const canChat = Boolean(currentUser && currentUser.role !== "viewer");
-  const [modelItems, setModelItems] = useState<AiModelRecord[]>([]);
-  const [availableChatModels, setAvailableChatModels] = useState<AiAvailableChatModel[]>([]);
-  const [channelItems, setChannelItems] = useState<AiChannelRecord[]>([]);
-  const [conversationItems, setConversationItems] = useState<AiConversationRecord[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState("");
-  const [messages, setMessages] = useState<AiConversationMessage[]>([]);
-  const [messageDraft, setMessageDraft] = useState("");
-  const [selectedModelId, setSelectedModelId] = useState("");
-  const [modelDraft, setModelDraft] = useState<AiModelDraft>(() => newAiModelDraft());
-  const [channelDraft, setChannelDraft] = useState<AiChannelDraft>(() => newAiChannelDraft());
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [busyConversationId, setBusyConversationId] = useState("");
-  const [switchingModel, setSwitchingModel] = useState(false);
-  const [savingModel, setSavingModel] = useState(false);
-  const [savingChannel, setSavingChannel] = useState(false);
-  const [busyConfigId, setBusyConfigId] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const sendControllerRef = useRef<AbortController | null>(null);
-
-  const loadConfiguration = useCallback(async () => {
-    if (!isAdmin) {
-      setModelItems([]);
-      setChannelItems([]);
-      return;
-    }
-    const [modelsResponse, channelsResponse] = await Promise.all([
-      fetch("/api/ai/models", { cache: "no-store" }),
-      fetch("/api/ai/channels", { cache: "no-store" }),
-    ]);
-    const modelsPayload = await modelsResponse.json().catch(() => null) as { items?: AiModelRecord[]; error?: string } | null;
-    const channelsPayload = await channelsResponse.json().catch(() => null) as { items?: AiChannelRecord[]; error?: string } | null;
-    if (!modelsResponse.ok) throw new Error(modelsPayload?.error || "读取模型配置失败");
-    setModelItems(modelsPayload?.items ?? []);
-    if (!channelsResponse.ok) throw new Error(channelsPayload?.error || "读取渠道配置失败");
-    setChannelItems(channelsPayload?.items ?? []);
-  }, [isAdmin]);
-
-  const loadConversations = useCallback(async () => {
-    const response = await fetch("/api/ai/conversations", { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as { items?: AiConversationRecord[]; models?: AiAvailableChatModel[]; error?: string } | null;
-    if (!response.ok) throw new Error(payload?.error || "读取对话记录失败");
-    const items = payload?.items ?? [];
-    const models = payload?.models ?? [];
-    setConversationItems(items);
-    setAvailableChatModels(models);
-    setSelectedModelId((current) => models.some((model) => model.id === current) ? current : models.find((model) => model.isDefault)?.id || models[0]?.id || "");
-    setActiveConversationId((current) => current || items[0]?.id || "");
-  }, []);
-
-  const loadMessages = useCallback(async (conversationId: string, signal?: AbortSignal) => {
-    const response = await fetch(`/api/ai/chat?conversationId=${encodeURIComponent(conversationId)}`, { cache: "no-store", signal });
-    const payload = await response.json().catch(() => null) as { items?: AiConversationMessage[]; error?: string } | null;
-    if (!response.ok) throw new Error(payload?.error || "读取对话失败");
-    setMessages(payload?.items ?? []);
-  }, []);
-
-  const refresh = useCallback(async () => {
-    setLoading(true); setError("");
-    try {
-      await Promise.all([loadConfiguration(), loadConversations()]);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "AI 助理加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadConfiguration, loadConversations]);
-
-  useEffect(() => { const timer = window.setTimeout(() => void refresh(), 0); return () => window.clearTimeout(timer); }, [refresh]);
-
-  useEffect(() => {
-    if (!activeConversationId) {
-      const timer = window.setTimeout(() => setMessages([]), 0);
-      return () => window.clearTimeout(timer);
-    }
-    const controller = new AbortController();
-    const activeConversation = conversationItems.find((item) => item.id === activeConversationId);
-    if (activeConversation?.modelId && availableChatModels.some((model) => model.id === activeConversation.modelId)) {
-      setSelectedModelId(activeConversation.modelId);
-    }
-    void loadMessages(activeConversationId, controller.signal)
-      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "读取对话失败"); });
-    return () => controller.abort();
-  }, [activeConversationId, availableChatModels, conversationItems, loadMessages]);
-
-  useEffect(() => () => sendControllerRef.current?.abort(), []);
-
-  const sendMessage = async () => {
-    const text = messageDraft.trim();
-    if (!text || sending || !canChat) return;
-    const controller = new AbortController();
-    sendControllerRef.current = controller;
-    setSending(true); setError(""); setNotice("");
-    try {
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversationId: activeConversationId || undefined, modelId: selectedModelId || undefined, message: text, title: "小特对话" }),
-        signal: controller.signal,
-      });
-      const payload = await response.json().catch(() => null) as { conversationId?: string; reply?: string; modelId?: string | null; error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "发送失败");
-      setMessageDraft("");
-      const conversationId = payload?.conversationId || activeConversationId;
-      if (payload?.modelId) setSelectedModelId(payload.modelId);
-      if (conversationId) {
-        setActiveConversationId(conversationId);
-        await loadMessages(conversationId);
-      }
-      await loadConversations();
-    } catch (reason) {
-      if (controller.signal.aborted) {
-        setNotice("已停止本次生成；已写入的用户消息仍保留在对话中。");
-        if (activeConversationId) await loadMessages(activeConversationId).catch(() => undefined);
-        await loadConversations().catch(() => undefined);
-      } else setError(reason instanceof Error ? reason.message : "发送失败");
-    } finally {
-      if (sendControllerRef.current === controller) sendControllerRef.current = null;
-      setSending(false);
-    }
-  };
-
-  const startNewConversation = () => {
-    if (sending) return;
-    setActiveConversationId("");
-    setMessages([]);
-    setMessageDraft("");
-    setError("");
-    setNotice("");
-    setSelectedModelId(availableChatModels.find((model) => model.isDefault)?.id || availableChatModels[0]?.id || "");
-  };
-
-  const changeConversationModel = async (modelId: string) => {
-    if (!activeConversationId) {
-      setSelectedModelId(modelId);
-      return;
-    }
-    setSwitchingModel(true); setError(""); setNotice("");
-    try {
-      const response = await fetch("/api/ai/conversations", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversationId: activeConversationId, modelId }),
-      });
-      const payload = await response.json().catch(() => null) as { item?: AiConversationRecord; error?: string } | null;
-      if (!response.ok || !payload?.item) throw new Error(payload?.error || "切换对话模型失败");
-      setSelectedModelId(modelId);
-      setConversationItems((items) => items.map((item) => item.id === payload.item?.id ? payload.item : item));
-      setNotice(`本对话后续消息将使用“${availableChatModels.find((model) => model.id === modelId)?.name || "所选模型"}”。`);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "切换对话模型失败");
-    } finally {
-      setSwitchingModel(false);
-    }
-  };
-
-  const deleteConversation = async (item: AiConversationRecord) => {
-    if (sending || !canChat || !window.confirm(`确定删除对话“${item.title}”吗？对话消息和生成的数据产物将一并删除，此操作无法撤销。`)) return;
-    setBusyConversationId(item.id); setError(""); setNotice("");
-    try {
-      const response = await fetch(`/api/ai/conversations?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "删除对话失败");
-      const remaining = conversationItems.filter((conversation) => conversation.id !== item.id);
-      setConversationItems(remaining);
-      if (activeConversationId === item.id) {
-        setActiveConversationId(remaining[0]?.id || "");
-        setMessages([]);
-      }
-      setNotice(`对话“${item.title}”已删除。`);
-      await loadConversations();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "删除对话失败");
-    } finally {
-      setBusyConversationId("");
-    }
-  };
-
-  const saveModel = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSavingModel(true); setError(""); setNotice("");
-    try {
-      const response = await fetch("/api/ai/models", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(modelDraft) });
-      const payload = await response.json().catch(() => null) as { item?: AiModelRecord; error?: string } | null;
-      if (!response.ok || !payload?.item) throw new Error(payload?.error || "保存模型失败");
-      setNotice(`模型“${payload.item.name}”已保存。`);
-      setModelDraft(newAiModelDraft());
-      await loadConfiguration();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存模型失败"); }
-    finally { setSavingModel(false); }
-  };
-
-  const saveChannel = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSavingChannel(true); setError(""); setNotice("");
-    try {
-      const response = await fetch("/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(channelDraft) });
-      const payload = await response.json().catch(() => null) as { item?: AiChannelRecord; error?: string } | null;
-      if (!response.ok || !payload?.item) throw new Error(payload?.error || "保存渠道失败");
-      setNotice(`渠道“${payload.item.name}”已保存。`);
-      setChannelDraft(newAiChannelDraft());
-      await loadConfiguration();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存渠道失败"); }
-    finally { setSavingChannel(false); }
-  };
-
-  const testConfiguration = async (type: "model" | "channel", id: string) => {
-    setBusyConfigId(`${type}:${id}`); setError(""); setNotice("");
-    try {
-      const response = await fetch(type === "model" ? "/api/ai/models" : "/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "test", id }) });
-      const payload = await response.json().catch(() => null) as { message?: string; error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "连通性测试失败");
-      setNotice(payload?.message || "连通性测试成功。");
-      await loadConfiguration();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "连通性测试失败"); }
-    finally { setBusyConfigId(""); }
-  };
-
-  const deleteConfiguration = async (type: "model" | "channel", id: string, name: string) => {
-    if (!window.confirm(`确定删除“${name}”吗？已保存的密钥和回调配置将一并删除。`)) return;
-    setBusyConfigId(`${type}:${id}`); setError(""); setNotice("");
-    try {
-      const response = await fetch(`${type === "model" ? "/api/ai/models" : "/api/ai/channels"}?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "删除失败");
-      setNotice(`“${name}”已删除。`);
-      await loadConfiguration();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "删除失败"); }
-    finally { setBusyConfigId(""); }
-  };
-
-  const editModel = (item: AiModelRecord) => setModelDraft({
-    id: item.id,
-    name: item.name,
-    protocol: item.protocol,
-    modelType: item.modelType,
-    modelName: item.modelName,
-    baseUrl: item.baseUrl,
-    apiKey: "",
-    status: item.status,
-    isDefaultTextModel: item.isDefaultTextModel,
-    timeoutMs: item.timeoutMs,
-    maxTokens: item.maxTokens,
-    reasoningMode: item.reasoningMode,
-    temperatureMilli: item.temperatureMilli,
-    maxToolRounds: item.maxToolRounds,
-    maxTotalToolCalls: item.maxTotalToolCalls,
-  });
-  const editChannel = (item: AiChannelRecord) => setChannelDraft({ id: item.id, name: item.name, kind: item.kind, status: item.status, sendEnabled: item.sendEnabled, callbackEnabled: item.callbackEnabled, webhookUrl: "", callbackToken: "", aesKey: "", receiverId: item.receiverId });
-
-  const isEditingModel = Boolean(modelDraft.id);
-  const isEditingChannel = Boolean(channelDraft.id);
-  const channelSupportsOutbound = channelDraft.kind === "dingtalk_group_bot" || channelDraft.kind === "wechat_work_group_bot";
-  const channelNeedsWebhook = channelDraft.kind === "dingtalk_group_bot" || channelDraft.kind === "wechat_work_group_bot" || channelDraft.sendEnabled;
-  if (loading && !isAdmin && conversationItems.length === 0) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取 AI 助理</strong><p>正在加载可用对话…</p></section>;
-
-  return <section className="ai-assistant-grid">
-    <article className="panel ai-chat-card">
-      <div className="section-header"><div><h2>AI 助理</h2><p>网页入口统一经过权限、问答 Workflow、模型网关和中央工具注册表；外部聊天回调仍只验签和去重。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={loading}>{loading ? "刷新中…" : "刷新"}</button></div>
-      {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "操作失败" : "操作成功"}</strong><p>{error || notice}</p></div></div>}
-      <div className="ai-chat-layout">
-        <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>{conversationItems.length} 个</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={sending}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <div key={item.id} className={`ai-conversation-row ${item.id === activeConversationId ? "active" : ""}`}><button type="button" className="ai-conversation-open" onClick={() => setActiveConversationId(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>{canChat && <button type="button" className="ai-conversation-delete" aria-label={`删除对话 ${item.title}`} title="删除对话" disabled={sending || busyConversationId === item.id} onClick={() => void deleteConversation(item)}>{busyConversationId === item.id ? "…" : "×"}</button>}</div>)}</div></aside>
-        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={(value) => void changeConversationModel(value)} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={sending || switchingModel || availableChatModels.length === 0} options={availableChatModels.map((model) => ({ value: model.id, label: `${model.name} · ${model.modelType === "vision" ? "视觉" : "文本"}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{switchingModel ? "正在切换模型…" : "文本和视觉模型均可用于对话；切换后从下一条消息起生效。输入“帮助”或“新话题”可走免模型短路。"}</small></div><div className="ai-message-list">{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p><AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
-      </div>
-    </article>
-    {isAdmin ? <>
-      <article className="panel ai-admin-card">
-        <div className="section-header"><div><h3>{isEditingModel ? "编辑模型配置" : "新增模型配置"}</h3><p>支持 OpenAI 兼容接口和 Anthropic Messages 接口。密钥加密保存，列表只显示末四位。</p></div>{isEditingModel && <button type="button" className="text-button" onClick={() => setModelDraft(newAiModelDraft())}>取消编辑</button>}</div>
-        <form className="ai-config-form" onSubmit={(event) => void saveModel(event)}>
-          <label><span>配置名称</span><input value={modelDraft.name} required maxLength={100} onChange={(event) => setModelDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：生产文本模型" /></label>
-          <label><span>协议</span><SearchableSelect value={modelDraft.protocol} onChange={(value) => setModelDraft((current) => ({ ...current, protocol: value as AiModelProtocol, reasoningMode: value === "openai_compatible" ? current.reasoningMode : "auto" }))} ariaLabel="模型协议" searchPlaceholder="搜索模型协议" options={[{ value: "openai_compatible", label: "OpenAI 兼容" }, { value: "anthropic", label: "Anthropic" }]} /></label>
-          <label><span>能力类型</span><SearchableSelect value={modelDraft.modelType} onChange={(value) => setModelDraft((current) => ({ ...current, modelType: value as AiModelType, isDefaultTextModel: value === "text" ? current.isDefaultTextModel : false }))} ariaLabel="模型能力类型" searchPlaceholder="搜索模型能力" options={[{ value: "text", label: "文本对话（不读取图片）" }, { value: "vision", label: "视觉识别（读取图片）" }]} /><small>市场主图价格识别必须选择“视觉识别”；连接测试会实际发送一张测试图。</small></label>
-          <label><span>模型标识</span><input value={modelDraft.modelName} required maxLength={100} onChange={(event) => setModelDraft((current) => ({ ...current, modelName: event.target.value }))} placeholder="例如：gpt-4.1-mini" /></label>
-          <label className="ai-form-wide"><span>API 地址</span><input value={modelDraft.baseUrl} required type="url" onChange={(event) => setModelDraft((current) => ({ ...current, baseUrl: event.target.value }))} placeholder="https://api.example.com/v1" /><small>生产环境仅接受 HTTPS；本地调试需显式启用服务器环境变量。</small></label>
-          <label><span>API Key</span><input value={modelDraft.apiKey} type="password" autoComplete="new-password" onChange={(event) => setModelDraft((current) => ({ ...current, apiKey: event.target.value }))} placeholder={isEditingModel ? "留空保留现有密钥" : "输入模型密钥"} /><small>{isEditingModel ? "当前已配置：留空不会覆盖。" : "保存后仅显示掩码。"}</small></label>
-          <label><span>状态</span><SearchableSelect value={modelDraft.status} onChange={(value) => setModelDraft((current) => ({ ...current, status: value as AiModelStatus }))} ariaLabel="模型状态" searchPlaceholder="搜索模型状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
-          <label><span>文本请求超时（毫秒）</span><input type="number" min={3000} max={120000} step={1000} disabled={modelDraft.modelType !== "text"} value={modelDraft.timeoutMs} onChange={(event) => setModelDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /><small>3,000—120,000，覆盖响应头和完整响应体。</small></label>
-          <label><span>文本最大输出 Token</span><input type="number" min={128} max={8192} step={128} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTokens} onChange={(event) => setModelDraft((current) => ({ ...current, maxTokens: Number(event.target.value) }))} /></label>
-          <label><span>文本推理模式</span><SearchableSelect value={modelDraft.reasoningMode} onChange={(value) => setModelDraft((current) => ({ ...current, reasoningMode: value as AiModelReasoningMode }))} ariaLabel="文本推理模式" searchPlaceholder="搜索推理模式" disabled={modelDraft.modelType !== "text" || modelDraft.protocol !== "openai_compatible"} options={[{ value: "auto", label: "跟随供应商默认" }, { value: "disabled", label: "关闭推理（运营问答推荐）" }]} /><small>GLM 等默认深度思考模型建议关闭，避免推理占满输出 Token；其他模型保持“跟随供应商默认”。</small></label>
-          <label><span>文本温度（千分数）</span><input type="number" min={0} max={1000} step={50} disabled={modelDraft.modelType !== "text"} value={modelDraft.temperatureMilli} onChange={(event) => setModelDraft((current) => ({ ...current, temperatureMilli: Number(event.target.value) }))} /><small>200 = 0.2；服务端按 0—1,000 校验。</small></label>
-          <label><span>最大工具轮数</span><input type="number" min={1} max={AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxToolRounds} onChange={(event) => setModelDraft((current) => ({ ...current, maxToolRounds: Number(event.target.value) }))} /></label>
-          <label><span>工具调用总数</span><input type="number" min={1} max={AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTotalToolCalls} onChange={(event) => setModelDraft((current) => ({ ...current, maxTotalToolCalls: Number(event.target.value) }))} /><small>单轮不再另限 4 次；仍以此总数、执行时长和取消机制防止死循环，不能设置为真正无限。</small></label>
-          <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.modelType !== "text" || modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认文本模型</span></label>
-          <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
-        </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{item.modelType === "text" && <small>超时 {item.timeoutMs}ms · 输出 {item.maxTokens} · 推理 {item.reasoningMode === "disabled" ? "关闭" : "供应商默认"} · 温度 {(item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name)}>删除</button></div></div>)}</div>
-      </article>
-      <article className="panel ai-admin-card">
-        <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>
-        <form className="ai-config-form" onSubmit={(event) => void saveChannel(event)}>
-          <label><span>渠道名称</span><input value={channelDraft.name} required maxLength={100} onChange={(event) => setChannelDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：运营群通知" /></label>
-          <label><span>渠道类型</span><SearchableSelect value={channelDraft.kind} onChange={(value) => { const kind = value as AiChannelKind; setChannelDraft((current) => ({ ...current, kind, sendEnabled: kind === "dingtalk_group_bot" || kind === "wechat_work_group_bot" ? current.sendEnabled : false, callbackEnabled: kind === "wechat_work_app" ? current.callbackEnabled : false })); }} ariaLabel="渠道类型" searchPlaceholder="搜索渠道类型" options={[{ value: "dingtalk_group_bot", label: "钉钉群机器人" }, { value: "wechat_work_group_bot", label: "企业微信群机器人" }, { value: "wechat_work_app", label: "企业微信应用回调" }]} /></label>
-          <label><span>状态</span><SearchableSelect value={channelDraft.status} onChange={(value) => setChannelDraft((current) => ({ ...current, status: value as "enabled" | "disabled" }))} ariaLabel="渠道状态" searchPlaceholder="搜索渠道状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
-          <label className="ai-check-field"><input type="checkbox" checked={channelDraft.sendEnabled} disabled={!channelSupportsOutbound} onChange={(event) => setChannelDraft((current) => ({ ...current, sendEnabled: event.target.checked }))} /><span>{channelSupportsOutbound ? "允许主动发送" : "应用回调不支持主动发送"}</span></label>
-          <label className="ai-check-field"><input type="checkbox" checked={channelDraft.callbackEnabled} disabled={channelDraft.kind !== "wechat_work_app"} onChange={(event) => setChannelDraft((current) => ({ ...current, callbackEnabled: event.target.checked }))} /><span>{channelDraft.kind === "wechat_work_app" ? "启用企业微信签名回调" : "企业微信应用可启用回调"}</span></label>
-          <label className="ai-form-wide"><span>Webhook 地址{channelNeedsWebhook ? "（必填）" : "（可选）"}</span><input value={channelDraft.webhookUrl} required={channelNeedsWebhook && !isEditingChannel} type="url" onChange={(event) => setChannelDraft((current) => ({ ...current, webhookUrl: event.target.value }))} placeholder={isEditingChannel ? "留空保留现有 Webhook" : "https://..."} /><small>{isEditingChannel ? "当前地址已掩码保存；留空不会覆盖。" : "仅接受 HTTPS，群机器人或启用主动发送时必须配置。"}</small></label>
-          <label><span>签名密钥 / 回调 Token</span><input value={channelDraft.callbackToken} type="password" autoComplete="new-password" onChange={(event) => setChannelDraft((current) => ({ ...current, callbackToken: event.target.value }))} placeholder={isEditingChannel ? "留空保留现有密钥" : "按平台填写"} /></label>
-          <label><span>企业微信 EncodingAESKey</span><input value={channelDraft.aesKey} type="password" autoComplete="new-password" onChange={(event) => setChannelDraft((current) => ({ ...current, aesKey: event.target.value }))} placeholder={isEditingChannel ? "留空保留现有密钥" : "企业微信回调时填写"} /></label>
-          <label><span>接收方 ID</span><input value={channelDraft.receiverId} maxLength={160} onChange={(event) => setChannelDraft((current) => ({ ...current, receiverId: event.target.value }))} placeholder="企业微信 CorpID / SuiteID" /></label>
-          {channelDraft.callbackEnabled && channelDraft.id && <div className="ai-callback-path"><strong>回调地址</strong><code>/api/ai/webhooks/{channelDraft.id}</code><small>将完整站点域名与该路径填入聊天平台；回调需使用同一渠道的 Token/AESKey。</small></div>}
-          <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingChannel}>{savingChannel ? "保存中…" : isEditingChannel ? "保存修改" : "新增渠道"}</button></div>
-        </form>
-        <div className="ai-config-list">{channelItems.length === 0 && <p className="soft-text">暂无聊天渠道配置。</p>}{channelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{channelKindLabel(item.kind)} · {item.webhookUrlMasked} · {item.sendEnabled ? "允许发送" : "仅回调"}</small><small>{item.callbackEnabled ? `回调：/api/ai/webhooks/${item.id}` : "未启用回调"}{item.lastTestedAt ? ` · 最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : ""}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editChannel(item)}>编辑</button><button type="button" className="row-action" disabled={!item.sendEnabled || busyConfigId === `channel:${item.id}`} onClick={() => void testConfiguration("channel", item.id)}>{busyConfigId === `channel:${item.id}` ? "测试中…" : "测试发送"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `channel:${item.id}`} onClick={() => void deleteConfiguration("channel", item.id, item.name)}>删除</button></div></div>)}</div>
-      </article>
-    </> : <article className="panel ai-permission-card"><h3>模型与渠道配置</h3><p>仅管理员可查看和维护模型密钥、Webhook 及聊天平台回调。你的对话不会显示这些敏感配置。</p></article>}
-  </section>;
-}
-
 type ShellViewProps = {
   range: SalesRangeLabel;
   customStartDate: string;
@@ -5642,14 +4704,14 @@ const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
   dashboard: DashboardView,
   shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange }) => <ShopView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   market: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }) => <MarketView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("market", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} onApplyPeriod={onApplyPeriod} />,
-  customer_service: CustomerServiceView,
+  customer_service: ({ customStartDate, customEndDate, currentUser, onNavigate }) => <CustomerServiceView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} onNavigate={onNavigate} />,
   sales: ({ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }) => <SalesView range={range} customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("sales", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   inventory: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }) => <InventoryView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("inventory", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   product: ({ range, customStartDate, customEndDate, moduleView, onModuleViewChange }) => <ProductView range={range} customStartDate={customStartDate} customEndDate={customEndDate} moduleView={normalizeModuleView("product", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   workflow: ({ currentUser, moduleView, onModuleViewChange }) => <OperationsView currentUser={currentUser} moduleView={normalizeModuleView("workflow", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   import: ({ importSource, currentUser, moduleView, onModuleViewChange }) => <ImportView importSource={importSource} currentUser={currentUser} moduleView={normalizeModuleView("import", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   settings: ({ currentUser, moduleView, onModuleViewChange }) => <SettingsView currentUser={currentUser} moduleView={normalizeModuleView("settings", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
-  ai: AiAssistantView,
+  ai: ({ currentUser }) => <AiAssistantView currentUser={currentUser} />,
 };
 
 export default function Home() {
@@ -5665,6 +4727,8 @@ export default function Home() {
   const [selectedMonth, setSelectedMonth] = useState(() => shanghaiIsoToday().slice(0, 7));
   const [statPeriodPickerOpen, setStatPeriodPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [globalSearchLoadVersion, setGlobalSearchLoadVersion] = useState(0);
+  const [GlobalSearchDialogView, setGlobalSearchDialogView] = useState(() => GlobalSearchDialog);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResult | null>(null);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
@@ -5952,6 +5016,10 @@ export default function Home() {
     setGlobalSearchLoading(false);
     setGlobalSearchLoadingGroup(null);
   }, [cancelGlobalSearchRequests]);
+  const retryGlobalSearchDialog = useCallback(() => {
+    setGlobalSearchDialogView(() => lazy(() => import("./global-search-dialog")));
+    setGlobalSearchLoadVersion((version) => version + 1);
+  }, []);
   const updateGlobalSearchQuery = useCallback((value: string) => {
     cancelGlobalSearchRequests();
     setGlobalSearchQuery(value);
@@ -5962,19 +5030,24 @@ export default function Home() {
     setGlobalSearchLoadingGroup(null);
   }, [cancelGlobalSearchRequests]);
   const selectGlobalSearchItem = useCallback(async (item: GlobalSearchItem) => {
-    let targetModule: ModuleKey | null = isModuleKey(item.module) ? item.module : null;
+    let targetModule: ModuleKey | null = null;
     let targetView: ModuleViewKey | undefined;
-    if (item.target !== undefined) {
-      try {
-        const { parseGlobalSearchTarget } = await import("./global-search-dialog");
-        const target = parseGlobalSearchTarget(item.target);
-        if (target && isGlobalSearchTargetForItem(item, target)) {
-          targetModule = target.module;
-          targetView = target.view;
-        }
-      } catch {
-        // The validated module fallback remains available if the optional target chunk cannot load.
+    try {
+      const {
+        isGlobalSearchItemModuleValid,
+        isGlobalSearchTargetForItem,
+        parseGlobalSearchTarget,
+      } = await import("./global-search-dialog");
+      const target = parseGlobalSearchTarget(item.target);
+      if (target && isGlobalSearchTargetForItem(item, target)) {
+        targetModule = target.module;
+        targetView = target.view;
+      } else if (isGlobalSearchItemModuleValid(item)) {
+        // A malformed optional deep link may only fall back to its validated module default.
+        targetModule = item.module;
       }
+    } catch {
+      // Navigation fails closed if the validation chunk cannot be loaded.
     }
     if (!targetModule) return;
     selectModule(targetModule, undefined, targetView);
@@ -6052,7 +5125,11 @@ export default function Home() {
         />}
       >
         <div className="content">
-          <ModuleErrorBoundary resetKey={`${active}:${activeModuleView}:${importSource ?? ""}`} onOpenDashboard={() => selectModule("dashboard")}>
+          <ModuleErrorBoundary
+            resetKey={`${active}:${activeModuleView}:${importSource ?? ""}`}
+            onRetry={() => { resetReloadableLazyScope(active); }}
+            onOpenDashboard={() => selectModule("dashboard")}
+          >
             <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
               <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
             </Suspense>
@@ -6063,8 +5140,9 @@ export default function Home() {
 
       <TableColumnFilters />
 
-      {searchOpen && <Suspense fallback={<div className="modal-backdrop"><section className="panel data-state search-modal" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载全系统搜索</strong><p>正在载入搜索工作区…</p></section></div>}>
-        <GlobalSearchDialog
+      {searchOpen && <GlobalSearchLoadBoundary resetKey={globalSearchLoadVersion} onRetry={retryGlobalSearchDialog} onClose={closeGlobalSearch}>
+        <Suspense fallback={<GlobalSearchLoadingDialog onClose={closeGlobalSearch} />}>
+        <GlobalSearchDialogView
           open={searchOpen}
           query={globalSearchQuery}
           result={globalSearchResult}
@@ -6082,7 +5160,8 @@ export default function Home() {
           }}
           onLoadMoreGroup={(groupKey, nextPage) => void loadMoreGlobalSearchGroup(groupKey, nextPage)}
         />
-      </Suspense>}
+        </Suspense>
+      </GlobalSearchLoadBoundary>}
     </>
   );
 }

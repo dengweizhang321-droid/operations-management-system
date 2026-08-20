@@ -1,6 +1,13 @@
 export const NETSHOP_QUERY_MAX_DAYS = 730;
 export const NETSHOP_QUERY_MAX_PAGE = 10_000;
 export const NETSHOP_QUERY_MAX_PAGE_SIZE = 100;
+export const NETSHOP_OUTLET_MAX_ITEMS = 50;
+export const NETSHOP_OUTLET_SEPARATOR = "\u001f";
+
+export type NetshopOutletFilter = {
+  platform: string;
+  shopName: string;
+};
 
 export class NetshopQueryError extends Error {
   readonly status = 400;
@@ -19,6 +26,73 @@ export type NetshopQueryPeriod = {
   endExclusive: string;
   days: number;
 };
+
+function invalidOutletFilter(): never {
+  throw new NetshopQueryError(
+    "invalid_outlet_filter",
+    "outlet 必须使用有效的平台与店铺复合键",
+  );
+}
+
+function normalizeOutletParts(platformValue: unknown, shopNameValue: unknown): NetshopOutletFilter {
+  if (typeof platformValue !== "string" || typeof shopNameValue !== "string") {
+    return invalidOutletFilter();
+  }
+  const platform = platformValue.trim();
+  const shopName = shopNameValue.trim();
+  if (
+    !platform
+    || !shopName
+    || platform.length > 100
+    || shopName.length > 100
+    || /[\u0000-\u001f\u007f]/.test(platform)
+    || /[\u0000-\u001f\u007f]/.test(shopName)
+  ) {
+    return invalidOutletFilter();
+  }
+  return { platform, shopName };
+}
+
+export function netshopOutletKey(platform: string, shopName: string) {
+  return `${platform}${NETSHOP_OUTLET_SEPARATOR}${shopName}`;
+}
+
+export function readNetshopOutletFilters(values: readonly string[]): NetshopOutletFilter[] {
+  if (values.length > NETSHOP_OUTLET_MAX_ITEMS) {
+    throw new NetshopQueryError(
+      "too_many_outlet_filters",
+      `outlet 筛选最多 ${NETSHOP_OUTLET_MAX_ITEMS} 项`,
+    );
+  }
+  const parsed = values.map((value) => {
+    const separatorIndex = value.indexOf(NETSHOP_OUTLET_SEPARATOR);
+    if (
+      separatorIndex <= 0
+      || separatorIndex !== value.lastIndexOf(NETSHOP_OUTLET_SEPARATOR)
+    ) {
+      return invalidOutletFilter();
+    }
+    return normalizeOutletParts(
+      value.slice(0, separatorIndex),
+      value.slice(separatorIndex + NETSHOP_OUTLET_SEPARATOR.length),
+    );
+  });
+  return [...new Map(parsed.map((value) => [netshopOutletKey(value.platform, value.shopName), value])).values()];
+}
+
+export function normalizeNetshopOutletFilters(
+  values: readonly NetshopOutletFilter[] | undefined,
+): NetshopOutletFilter[] {
+  if (!values) return [];
+  if (values.length > NETSHOP_OUTLET_MAX_ITEMS) {
+    throw new NetshopQueryError(
+      "too_many_outlet_filters",
+      `outlet 筛选最多 ${NETSHOP_OUTLET_MAX_ITEMS} 项`,
+    );
+  }
+  const normalized = values.map((value) => normalizeOutletParts(value?.platform, value?.shopName));
+  return [...new Map(normalized.map((value) => [netshopOutletKey(value.platform, value.shopName), value])).values()];
+}
 
 export function isNetshopIsoDate(value: string | undefined | null): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

@@ -67,9 +67,10 @@ test("searches all allowlisted system data through the grouped authenticated sea
 });
 
 test("wires the sales import and analytics capabilities", async () => {
-  const [page, layout, schema, importRoute, chunkRoute, chunkService, summaryRoute, summaryService, packageJson, hosting, og] =
+  const [page, searchableSelect, layout, schema, importRoute, chunkRoute, chunkService, summaryRoute, summaryService, packageJson, hosting, og] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/ui/searchable-select.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/imports/sales/route.ts", import.meta.url), "utf8"),
@@ -90,9 +91,9 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /outlets/);
   assert.match(page, /近15天/);
   assert.match(page, /昨天/);
-  assert.match(page, /function SearchableSelect/);
-  assert.match(page, /function SearchableMultiSelect/);
-  assert.match(page, /searchable-select-search/);
+  assert.match(searchableSelect, /function SearchableSelect/);
+  assert.match(searchableSelect, /function SearchableMultiSelect/);
+  assert.match(searchableSelect, /searchable-select-search/);
   assert.match(page, /搜索店铺或平台/);
   assert.match(page, /columnPickerSearch/);
   assert.doesNotMatch(page, /<select\b/);
@@ -178,8 +179,11 @@ test("wires the sales import and analytics capabilities", async () => {
 });
 
 test("keeps sales overview multi-selects mounted while filtered results refresh", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const multiSelect = page.slice(page.indexOf("function SearchableMultiSelect"), page.indexOf("const startOfIsoMonth"));
+  const [page, searchableSelect] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/ui/searchable-select.tsx", import.meta.url), "utf8"),
+  ]);
+  const multiSelect = searchableSelect.slice(searchableSelect.indexOf("function SearchableMultiSelect"));
   const toggle = multiSelect.slice(multiSelect.indexOf("const toggle"), multiSelect.indexOf("const selectAll"));
 
   assert.match(multiSelect, /const toggle = \(nextValue: string\)/);
@@ -492,7 +496,8 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(database, /availableDateMin/);
   assert.match(route, /readDimension/);
   assert.match(route, /getAll\("platform"\)/);
-  assert.match(route, /getAll\("shop"\)/);
+  assert.match(route, /readNetshopOutletFilters\(params\.getAll\("outlet"\)\)/);
+  assert.match(route, /params\.has\("shop"\)/);
   assert.match(route, /netshopPlatformOptionsForPrincipal/);
   assert.match(access, /NETSHOP_SUPPORTED_PLATFORMS = \["京东", "天猫"\]/);
   assert.match(access, /principal\.scope\.platforms/);
@@ -589,7 +594,7 @@ test("exposes the five operational collaboration workspaces", async () => {
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/operations-view.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /const OperationsView = lazy\(\(\) => import\("\.\/operations-view"\)\)/);
+  assert.match(page, /Component: OperationsView \} = createReloadableLazy\("workflow", \(\) => import\("\.\/operations-view"\)\)/);
   assert.match(page, /<OperationsView currentUser=/);
   for (const label of ["工作计划", "巡店检查", "评价维护", "新品上架", "变量配置"]) assert.match(operations, new RegExp(label));
   for (const label of ["评论", "活动", "提醒", "关联对象", "附件"]) assert.match(operations, new RegExp(label));

@@ -1,5 +1,11 @@
 import { ensureAiAssistantSchema } from "@/lib/ai/assistant-service";
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import {
+  authorizationErrorResponse,
+  requireAppPrincipal,
+  requireUnrestrictedDataScope,
+} from "@/lib/auth/authorization";
+import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
+import { readBoundedJsonObject } from "@/lib/http/bounded-json";
 import { getMarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
@@ -10,24 +16,21 @@ import {
 } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
+const MARKET_ANNOTATION_BODY_BYTES_MAX = 256 * 1024;
 const record = (value: unknown): value is JsonRecord => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const text = (body: JsonRecord, key: string) => typeof body[key] === "string" ? body[key] as string : "";
 const texts = (body: JsonRecord, key: string) => Array.isArray(body[key]) ? (body[key] as unknown[]).filter((item): item is string => typeof item === "string") : [];
 const integerParam = (params: URLSearchParams, key: string, fallback: number) => {
   const value = params.get(key);
   if (value === null || value === "") return fallback;
-  if (!/^\d+$/.test(value)) throw new Error(`${key} 必须是整数`);
+  if (!/^\d+$/.test(value)) throw new PublicApiError(400, "invalid_request", `${key} 必须是整数`);
   return Number(value);
-};
-const publicError = (error: unknown, fallback: string) => {
-  if (!(error instanceof Error)) return fallback;
-  if (/\b(SQL|D1_|constraint|UNIQUE|no such|database|column|table)\b/i.test(error.message)) return fallback;
-  return error.message.slice(0, 400);
 };
 
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
+    requireUnrestrictedDataScope(principal, "市场 SKU AI 标注");
     const db = getMarketDatabase();
     const params = new URL(request.url).searchParams;
     const view = params.get("view") ?? "workspace";
@@ -60,17 +63,19 @@ export async function GET(request: Request) {
     return Response.json({ ...payload, principal }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
-    return Response.json({ error: publicError(error, "读取 SKU AI 标注工作台失败") }, { status: 500 });
+    return safeApiErrorResponse(error, "读取 SKU AI 标注工作台失败", { headers: { "cache-control": "no-store" } });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const parsed: unknown = await request.json().catch(() => null);
-    if (!record(parsed)) return Response.json({ error: "请求数据必须是 JSON 对象" }, { status: 400 });
+    const preliminaryPrincipal = await requireAppPrincipal(["operator", "admin"]);
+    requireUnrestrictedDataScope(preliminaryPrincipal, "市场 SKU AI 标注", "修改");
+    const parsed = await readBoundedJsonObject(request, MARKET_ANNOTATION_BODY_BYTES_MAX);
     const action = text(parsed, "action");
     const adminActions = new Set(["commit", "commit_selected", "activate_prompt", "rollback_prompt", "delete_prompt", "delete_job", "create_agent", "revoke_agent", "mark_gold"]);
     const principal = await requireAppPrincipal(adminActions.has(action) ? ["admin"] : ["operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "市场 SKU AI 标注", "修改");
     const db = getMarketDatabase();
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     let result: unknown;
@@ -125,6 +130,6 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
-    return Response.json({ error: publicError(error, "SKU AI 标注操作失败") }, { status: 400, headers: { "cache-control": "no-store" } });
+    return safeApiErrorResponse(error, "SKU AI 标注操作失败", { headers: { "cache-control": "no-store" } });
   }
 }

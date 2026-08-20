@@ -108,20 +108,20 @@ test("one global page head owns the shared period and passes it to every module"
 });
 
 test("module filters transmit repeated values through their API boundaries", async () => {
-  const [page, customerRoute, market, masterRoute, annotation, annotationRoute, inventoryRoute] = await Promise.all([
-    source("../app/page.tsx"),
+  const [customer, customerRoute, marketAdmin, masterRoute, annotation, annotationRoute, inventoryRoute] = await Promise.all([
+    source("../app/customer-service-view.tsx"),
     source("../app/api/customer-service/conversations/route.ts"),
-    source("../app/market-view.tsx"),
+    source("../app/market-master-admin-panel.tsx"),
     source("../app/api/market/master/route.ts"),
     source("../app/market-annotation-view.tsx"),
     source("../app/api/market/annotations/route.ts"),
     source("../app/api/inventory/overview/route.ts"),
   ]);
-  assert.match(page, /categories\.forEach\(\(value\) => params\.append\("category", value\)\)/);
-  assert.match(page, /shopNames\.forEach\(\(value\) => params\.append\("shopName", value\)\)/);
+  assert.match(customer, /categories\.forEach\(\(value\) => params\.append\("category", value\)\)/);
+  assert.match(customer, /shopNames\.forEach\(\(value\) => params\.append\("shopName", value\)\)/);
   assert.match(customerRoute, /searchParams\.getAll\("shopName"\)/);
   assert.match(customerRoute, /searchParams\.getAll\("category"\)/);
-  assert.match(market, /pendingPriceSources\.forEach\(\(value\) => params\.append\("pendingPriceSource", value\)\)/);
+  assert.match(marketAdmin, /pendingPriceSources\.forEach\(\(value\) => params\.append\("pendingPriceSource", value\)\)/);
   assert.match(masterRoute, /pendingPriceSources: params\.getAll\("pendingPriceSource"\)/);
   assert.match(annotation, /itemSegments\.forEach\(\(value\) => params\.append\("itemSegment", value\)\)/);
   assert.match(annotationRoute, /itemSegments: params\.getAll\("itemSegment"\)/);
