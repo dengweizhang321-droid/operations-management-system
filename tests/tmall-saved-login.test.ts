@@ -12,6 +12,8 @@ type Probe = {
   savedCredentialsReady: boolean;
   submitted: boolean;
   controlCount: number;
+  passwordModeControlCount?: number;
+  passwordModeSwitched?: boolean;
 };
 
 function fakePage(...probes: Probe[]): Pick<Page, "frames"> {
@@ -39,6 +41,52 @@ test("天猫自动登录只提交 Chromium 已自动填充的保存密码", asyn
   assert.match(source, /:-webkit-autofill/);
   assert.doesNotMatch(source, /(?:account|password)\.value\b|TMALL_(?:USERNAME|PASSWORD)|credentials\.json/i);
   assert.doesNotMatch(source, /console\.(?:log|error).*password/i);
+});
+
+test("天猫自动登录可唯一切换密码登录模式后再提交保存密码", async () => {
+  let passwordMode = false;
+  let submitted = false;
+  const page = {
+    frames: () => [{
+      evaluate: async (_callback: unknown, action: string) => {
+        if (action === "switch_password_mode") {
+          passwordMode = true;
+          return {
+            formFound: false,
+            challengePresent: false,
+            savedCredentialsReady: false,
+            submitted: false,
+            controlCount: 0,
+            passwordModeControlCount: 1,
+            passwordModeSwitched: true,
+          };
+        }
+        if (action === "submit") submitted = true;
+        return passwordMode ? {
+          formFound: true,
+          challengePresent: false,
+          savedCredentialsReady: true,
+          submitted,
+          controlCount: 1,
+          passwordModeControlCount: 1,
+          passwordModeSwitched: false,
+        } : {
+          formFound: false,
+          challengePresent: false,
+          savedCredentialsReady: false,
+          submitted: false,
+          controlCount: 0,
+          passwordModeControlCount: 1,
+          passwordModeSwitched: false,
+        };
+      },
+    } as unknown as Frame],
+  } as Pick<Page, "frames">;
+  assert.deepEqual(await autoLoginTmallWithSavedBrowserCredentials(page, 1_000, async () => {}), {
+    attempted: true,
+    submitted: true,
+    reason: "submitted",
+  });
 });
 
 test("天猫自动登录遇到验证码、按钮歧义或缺少保存密码时失败关闭", async () => {

@@ -18,10 +18,12 @@ type LoginFrameProbe = {
   savedCredentialsReady: boolean;
   submitted: boolean;
   controlCount: number;
+  passwordModeControlCount: number;
+  passwordModeSwitched: boolean;
 };
 
-async function probeLoginFrame(frame: Frame, submit = false): Promise<LoginFrameProbe> {
-  return frame.evaluate((shouldSubmit) => {
+async function probeLoginFrame(frame: Frame, action: "probe" | "submit" | "switch_password_mode" = "probe"): Promise<LoginFrameProbe> {
+  return frame.evaluate((requestedAction) => {
     const visible = (element: Element) => {
       const rect = element.getBoundingClientRect();
       const view = element.ownerDocument.defaultView;
@@ -49,8 +51,31 @@ async function probeLoginFrame(frame: Frame, submit = false): Promise<LoginFrame
       && /user|account|login|phone|mobile|name|账号|账户|会员名|手机号/i.test(fieldName(input)))
       ?? inputs.find((input) => input !== password
         && ["text", "tel", "email"].includes(String(input.type || "text").toLowerCase()));
+    const passwordModeControls = Array.from(document.querySelectorAll('button,a,[role="button"],[role="tab"]'))
+      .filter(visible)
+      .filter((element) => ["密码登录", "账号密码登录"].includes(String(element.textContent ?? "").replace(/\s+/g, "").trim()));
+    if (requestedAction === "switch_password_mode") {
+      if (passwordModeControls.length === 1) (passwordModeControls[0] as HTMLElement).click();
+      return {
+        formFound: Boolean(account && password),
+        challengePresent,
+        savedCredentialsReady: false,
+        submitted: false,
+        controlCount: 0,
+        passwordModeControlCount: passwordModeControls.length,
+        passwordModeSwitched: passwordModeControls.length === 1,
+      };
+    }
     if (!account || !password) {
-      return { formFound: false, challengePresent, savedCredentialsReady: false, submitted: false, controlCount: 0 };
+      return {
+        formFound: false,
+        challengePresent,
+        savedCredentialsReady: false,
+        submitted: false,
+        controlCount: 0,
+        passwordModeControlCount: passwordModeControls.length,
+        passwordModeSwitched: false,
+      };
     }
     account.focus();
     password.focus();
@@ -64,6 +89,8 @@ async function probeLoginFrame(frame: Frame, submit = false): Promise<LoginFrame
         savedCredentialsReady: accountAutofilled && passwordAutofilled,
         submitted: false,
         controlCount: 0,
+        passwordModeControlCount: passwordModeControls.length,
+        passwordModeSwitched: false,
       };
     }
     const controls = Array.from(document.querySelectorAll('button,input[type="submit"],[role="button"],a'))
@@ -82,6 +109,8 @@ async function probeLoginFrame(frame: Frame, submit = false): Promise<LoginFrame
         savedCredentialsReady: true,
         submitted: false,
         controlCount: controls.length,
+        passwordModeControlCount: passwordModeControls.length,
+        passwordModeSwitched: false,
       };
     }
     const control = controls[0]!;
@@ -92,15 +121,19 @@ async function probeLoginFrame(frame: Frame, submit = false): Promise<LoginFrame
         savedCredentialsReady: true,
         submitted: false,
         controlCount: 0,
+        passwordModeControlCount: passwordModeControls.length,
+        passwordModeSwitched: false,
       };
     }
-    if (!shouldSubmit) {
+    if (requestedAction !== "submit") {
       return {
         formFound: true,
         challengePresent: false,
         savedCredentialsReady: true,
         submitted: false,
         controlCount: 1,
+        passwordModeControlCount: passwordModeControls.length,
+        passwordModeSwitched: false,
       };
     }
     for (const input of [account, password]) {
@@ -114,8 +147,10 @@ async function probeLoginFrame(frame: Frame, submit = false): Promise<LoginFrame
       savedCredentialsReady: true,
       submitted: true,
       controlCount: 1,
+      passwordModeControlCount: passwordModeControls.length,
+      passwordModeSwitched: false,
     };
-  }, submit);
+  }, action);
 }
 
 /**
@@ -132,6 +167,7 @@ export async function autoLoginTmallWithSavedBrowserCredentials(
   const deadline = Date.now() + Math.max(0, waitMs);
   let formFound = false;
   let savedCredentialsReady = false;
+  let passwordModeSelected = false;
   do {
     const frameProbes = await Promise.all(page.frames().map(async (frame) => ({
       frame,
@@ -141,11 +177,29 @@ export async function autoLoginTmallWithSavedBrowserCredentials(
         savedCredentialsReady: false,
         submitted: false,
         controlCount: 0,
+        passwordModeControlCount: 0,
+        passwordModeSwitched: false,
       })),
     })));
     const probes = frameProbes.map(({ probe }) => probe);
     if (probes.some((probe) => probe.challengePresent)) {
       return { attempted: false, submitted: false, reason: "challenge_present" };
+    }
+    if (!probes.some((probe) => probe.formFound) && !passwordModeSelected) {
+      const passwordModeFrames = frameProbes.filter(({ probe }) => probe.passwordModeControlCount === 1);
+      const passwordModeControlCount = probes.reduce((total, probe) => total + probe.passwordModeControlCount, 0);
+      if (passwordModeControlCount > 1) {
+        return { attempted: false, submitted: false, reason: "login_control_ambiguous" };
+      }
+      if (passwordModeFrames.length === 1) {
+        const switched = await probeLoginFrame(passwordModeFrames[0]!.frame, "switch_password_mode").catch(() => null);
+        passwordModeSelected = Boolean(switched?.passwordModeSwitched);
+        if (passwordModeSelected) {
+          if (Date.now() >= deadline) break;
+          await wait(Math.min(250, Math.max(0, deadline - Date.now())));
+          continue;
+        }
+      }
     }
     const ready = probes.filter((probe) => probe.savedCredentialsReady);
     const eligibleFrames = frameProbes.filter(({ probe }) => probe.savedCredentialsReady && probe.controlCount === 1);
@@ -153,7 +207,7 @@ export async function autoLoginTmallWithSavedBrowserCredentials(
       return { attempted: true, submitted: false, reason: "login_control_ambiguous" };
     }
     if (eligibleFrames.length === 1) {
-      const submitted = await probeLoginFrame(eligibleFrames[0]!.frame, true).catch(() => null);
+      const submitted = await probeLoginFrame(eligibleFrames[0]!.frame, "submit").catch(() => null);
       if (submitted?.challengePresent) {
         return { attempted: false, submitted: false, reason: "challenge_present" };
       }
