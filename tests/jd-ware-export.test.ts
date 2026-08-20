@@ -510,9 +510,10 @@ test("classifies the WareList query control only when it is uniquely bound to it
   assert.throws(() => jdWareSkuExportDrawerDecision({ exportDrawerCount: 0, scopedSkuTabCount: 0, pageSkuTabCount: 1 }), /不在唯一导出条件抽屉/);
 });
 
-function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; initialExportEntryCount?: number; revealAfterWaits?: number; hideInitialExportAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none" }) {
+function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; initialExportEntryCount?: number; revealAfterWaits?: number; hideInitialExportAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none"; batchAriaExpanded?: "true" | "false"; deferBatchRevealUntilAriaRead?: boolean }) {
   let exportEntryCount = input.initialExportEntryCount ?? 0;
   let waitCount = 0;
+  let batchAriaRead = false;
   const clicks = { scopedQuery: 0, batchOperations: 0, batchOperationsEnter: 0, exportEntry: 0 };
   const selectors: string[] = [];
   const chain = <T extends object>(locator: T) => Object.assign(locator, { filter: () => locator });
@@ -562,7 +563,10 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
     count: async () => input.batchOperationsCount ?? 0,
     click: async () => { clicks.batchOperations += 1; },
     press: async (key: string) => { if (key === "Enter") clicks.batchOperationsEnter += 1; },
-    getAttribute: async () => "false",
+    getAttribute: async () => {
+      batchAriaRead = true;
+      return input.batchAriaExpanded ?? "false";
+    },
   });
   const page = {
     locator: (selector: string) => {
@@ -576,7 +580,7 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
     waitForTimeout: async () => {
       waitCount += 1;
       const batchRevealed = (input.batchRevealMethod ?? "click") === "click"
-        ? clicks.batchOperations === 1
+        ? clicks.batchOperations === 1 && (!input.deferBatchRevealUntilAriaRead || batchAriaRead)
         : input.batchRevealMethod === "enter"
           ? clicks.batchOperationsEnter === 1
           : false;
@@ -625,6 +629,22 @@ test("revealJdWareExportEntry falls back once to Enter when the same unique drop
   assert.equal(target.clicks.batchOperations, 1);
   assert.equal(target.clicks.batchOperationsEnter, 1);
   assert.equal(target.clicks.scopedQuery, 0);
+});
+
+test("revealJdWareExportEntry waits for an aria-expanded pointer menu without replaying input", async () => {
+  const target = createWareListEntryPageFixture({
+    productSearchContainerCount: 1,
+    scopedQueryButtonCount: 1,
+    pageQueryButtonCount: 1,
+    batchOperationsCount: 1,
+    batchAriaExpanded: "true",
+    deferBatchRevealUntilAriaRead: true,
+  });
+
+  await revealJdWareExportEntry(target.page as never);
+
+  assert.equal(target.clicks.batchOperations, 1);
+  assert.equal(target.clicks.batchOperationsEnter, 0);
 });
 
 test("revealJdWareExportEntry ignores an early transient export clone and waits for the hydrated batch trigger", async () => {

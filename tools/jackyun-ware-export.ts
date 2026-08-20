@@ -537,7 +537,11 @@ export async function revealJdWareExportEntry(page: Page, queryBootstrapState: J
       } catch (error) {
         if (!(error instanceof Error) || error.message !== "导出查询商品按钮未达到连续可见稳定状态。") throw error;
         await exactlyOne(batchOperations, "批量操作按钮");
-        if (await batchOperations.getAttribute("aria-expanded") === "true") throw error;
+        if (await batchOperations.getAttribute("aria-expanded") === "true") {
+          // JD can mark the dropdown expanded before its lazy menu content is
+          // painted. Wait for that in-flight expansion without replaying input.
+          return waitForExportEntry(page, 12_000);
+        }
         // Some JD account variants ignore pointer clicks on this dropdown but
         // implement its keyboard contract. This remains the same reversible
         // menu action and is allowed only after the click produced no entry.
