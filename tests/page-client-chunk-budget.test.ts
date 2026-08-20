@@ -5,7 +5,7 @@ import test from "node:test";
 const PAGE_ENTRY_MAX_BYTES = 500_000;
 const AI_ASSISTANT_CHUNK_MAX_BYTES = 180_000;
 const CUSTOMER_SERVICE_CHUNK_MAX_BYTES = 150_000;
-const AI_RUNTIME_MARKER = "/api/ai/models";
+const AI_RUNTIME_MARKER = "/api/ai/conversations?";
 const CUSTOMER_RUNTIME_MARKER = "/api/customer-service/analyze";
 
 type ClientManifestEntry = {
