@@ -298,5 +298,6 @@ test("DPAPI 凭据不通过 n8n、环境变量、命令参数或日志传递", a
   assert.doesNotMatch(vaultSource, /Write-(?:Host|Output).*password|ConvertTo-SecureString[^\n]+-Key\b/i);
   assert.match(vaultSource, /ProtectedData.*Protect/);
   assert.match(vaultSource, /DataProtectionScope.*CurrentUser/);
+  assert.match(vaultSource, /Console\]::OutputEncoding.*utf8NoBom/);
   assert.match(vaultSource, /ZeroFreeBSTR/);
 });

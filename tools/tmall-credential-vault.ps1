@@ -12,6 +12,9 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 Add-Type -AssemblyName System.Security
+$utf8NoBom = New-Object Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
 
 $vaultRoot = Join-Path (Split-Path -Parent $PSScriptRoot) ".runtime\tmall-credentials"
 $vaultFile = Join-Path $vaultRoot "$StoreKey.json"
