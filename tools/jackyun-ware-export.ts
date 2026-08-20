@@ -518,7 +518,17 @@ export async function revealJdWareExportEntry(page: Page, queryBootstrapState: J
       exportEntryCount: await exportEntry.count(),
       batchOperationsCount: await batchOperations.count(),
     });
-    if (decision === "ready") return waitForExportEntry(page);
+    if (decision === "ready") {
+      try {
+        return await waitForExportEntry(page, 3_000);
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "导出查询商品按钮未达到连续可见稳定状态。") throw error;
+        // Some stores briefly paint a visible export-entry clone before the
+        // hydrated batch trigger exists. Let the bounded bootstrap loop observe
+        // the settled controls instead of waiting 90 seconds on that clone.
+        continue;
+      }
+    }
     if (decision === "open_batch_operations") {
       await exactlyOne(batchOperations, "批量操作按钮");
       await batchOperations.click({ timeout: 10_000 });
