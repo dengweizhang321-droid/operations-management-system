@@ -25,6 +25,8 @@ test("global search dialog traps focus and restores the background", async () =>
   ]);
   assert.match(page, /aria-haspopup="dialog"/);
   assert.match(page, /aria-controls="global-search-dialog"/);
+  assert.match(page, /ref=\{globalSearchButtonRef\}/);
+  assert.match(page, /returnFocusRef=\{globalSearchButtonRef\}/);
   assert.match(page, /\{searchOpen && <GlobalSearchLoadBoundary[\s\S]+<Suspense[\s\S]+<GlobalSearchDialogView/);
   assert.match(page, /GlobalSearchLoadingDialog[\s\S]+<Dialog/);
   assert.match(page, /GlobalSearchLoadBoundary[\s\S]+getDerivedStateFromError/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 
 import {
   isGlobalSearchGroupKey,
@@ -97,6 +97,7 @@ export type GlobalSearchDialogProps = {
   onLoadMoreGroup?: (groupKey: GlobalSearchGroupKey, nextPage: number) => void;
   loadingGroup?: GlobalSearchGroupKey | null;
   loadMoreError?: string;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 };
 
 export type GlobalSearchPresentation = {
@@ -241,6 +242,7 @@ export default function GlobalSearchDialog({
   onLoadMoreGroup,
   loadingGroup = null,
   loadMoreError = "",
+  returnFocusRef,
 }: GlobalSearchDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const presentation = deriveGlobalSearchPresentation(query, loading, error, result);
@@ -256,6 +258,7 @@ export default function GlobalSearchDialog({
       ariaLabel="全系统业务搜索"
       className="search-modal search-modal-global"
       initialFocusRef={inputRef}
+      returnFocusRef={returnFocusRef}
     >
       <div className="modal-search">
         <span aria-hidden="true">⌕</span>

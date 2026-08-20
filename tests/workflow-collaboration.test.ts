@@ -193,6 +193,9 @@ test("workflow collaboration routes are authenticated, operator-writable, and fa
     assert.match(source, /requireAppPrincipal\(\["operator", "admin"\]\)/, `${path} must allow operator and admin writes`);
   }
   const taskDomain = await readFile(new URL("../lib/workflow/tasks.ts", import.meta.url), "utf8");
+  const taskRoute = await readFile(new URL("../app/api/workflow/tasks/route.ts", import.meta.url), "utf8");
+  assert.match(taskRoute, /params\.get\("q"\) \?\? params\.get\("query"\) \?\? undefined/,
+    "a missing search query must remain undefined instead of becoming invalid null input");
   assert.match(taskDomain, /task\.created/);
   assert.match(taskDomain, /task\.status_changed/);
   assert.match(taskDomain, /changedFields/);

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "工作计划");
     const params = new URL(request.url).searchParams;
     const payload = await listWorkflowTasksPage({
-      query: params.get("q") ?? params.get("query"),
+      query: params.get("q") ?? params.get("query") ?? undefined,
       statuses: params.getAll("status"),
       priorities: params.getAll("priority"),
       owners: params.getAll("owner"),

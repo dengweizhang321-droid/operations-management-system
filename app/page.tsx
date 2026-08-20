@@ -1,7 +1,7 @@
 "use client";
 
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import { parseProductQueries } from "@/lib/sales/product-query";
 import AppShell from "./shell/app-shell";
@@ -53,6 +53,7 @@ type GlobalSearchLoadBoundaryProps = {
   resetKey: number;
   onRetry: () => void;
   onClose: () => void;
+  returnFocusRef: RefObject<HTMLElement | null>;
 };
 
 class GlobalSearchLoadBoundary extends Component<GlobalSearchLoadBoundaryProps, { failed: boolean }> {
@@ -70,7 +71,7 @@ class GlobalSearchLoadBoundary extends Component<GlobalSearchLoadBoundaryProps, 
 
   render() {
     if (!this.state.failed) return this.props.children;
-    return <Dialog open onClose={this.props.onClose} dialogId="global-search-load-error" ariaLabel="全系统搜索加载失败" className="panel search-modal">
+    return <Dialog open onClose={this.props.onClose} dialogId="global-search-load-error" ariaLabel="全系统搜索加载失败" className="panel search-modal" returnFocusRef={this.props.returnFocusRef}>
       <div className="data-state data-state-error" role="alert" aria-live="assertive">
         <span className="state-symbol" aria-hidden="true">!</span>
         <strong>全系统搜索加载失败</strong>
@@ -84,8 +85,8 @@ class GlobalSearchLoadBoundary extends Component<GlobalSearchLoadBoundaryProps, 
   }
 }
 
-function GlobalSearchLoadingDialog({ onClose }: { onClose: () => void }) {
-  return <Dialog open onClose={onClose} dialogId="global-search-loading" ariaLabel="正在加载全系统搜索" className="panel search-modal">
+function GlobalSearchLoadingDialog({ onClose, returnFocusRef }: { onClose: () => void; returnFocusRef: RefObject<HTMLElement | null> }) {
+  return <Dialog open onClose={onClose} dialogId="global-search-loading" ariaLabel="正在加载全系统搜索" className="panel search-modal" returnFocusRef={returnFocusRef}>
     <div className="data-state" role="status" aria-live="polite">
       <span className="state-spinner" aria-hidden="true" />
       <strong>正在加载全系统搜索</strong>
@@ -4737,6 +4738,7 @@ export default function Home() {
   const [globalSearchGroupError, setGlobalSearchGroupError] = useState("");
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitleRef = useRef<HTMLHeadingElement>(null);
+  const globalSearchButtonRef = useRef<HTMLButtonElement>(null);
   const globalSearchGenerationRef = useRef(0);
   const globalSearchControllerRef = useRef<AbortController | null>(null);
   const globalSearchGroupGenerationRef = useRef(0);
@@ -5114,7 +5116,7 @@ export default function Home() {
           mobileOpen={mobileMenu}
           onOpenMobile={() => setMobileMenu(true)}
           actions={<>
-            <button className="global-search" onClick={() => setSearchOpen(true)} aria-label="搜索系统全部数据" aria-haspopup="dialog" aria-expanded={searchOpen} aria-controls="global-search-dialog"><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
+            <button ref={globalSearchButtonRef} className="global-search" onClick={() => setSearchOpen(true)} aria-label="搜索系统全部数据" aria-haspopup="dialog" aria-expanded={searchOpen} aria-controls="global-search-dialog"><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
             {active !== "n8n_workflows" && <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
               <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "本月", "月度", "自定义"].map((value) => ({ value, label: value }))} />
@@ -5140,8 +5142,8 @@ export default function Home() {
 
       <TableColumnFilters />
 
-      {searchOpen && <GlobalSearchLoadBoundary resetKey={globalSearchLoadVersion} onRetry={retryGlobalSearchDialog} onClose={closeGlobalSearch}>
-        <Suspense fallback={<GlobalSearchLoadingDialog onClose={closeGlobalSearch} />}>
+      {searchOpen && <GlobalSearchLoadBoundary resetKey={globalSearchLoadVersion} onRetry={retryGlobalSearchDialog} onClose={closeGlobalSearch} returnFocusRef={globalSearchButtonRef}>
+        <Suspense fallback={<GlobalSearchLoadingDialog onClose={closeGlobalSearch} returnFocusRef={globalSearchButtonRef} />}>
         <GlobalSearchDialogView
           open={searchOpen}
           query={globalSearchQuery}
@@ -5152,6 +5154,7 @@ export default function Home() {
           loadMoreError={globalSearchGroupError}
           onQueryChange={updateGlobalSearchQuery}
           onClose={closeGlobalSearch}
+          returnFocusRef={globalSearchButtonRef}
           onSelectItem={(item) => void selectGlobalSearchItem(item)}
           onSelectQuickModule={(module) => {
             if (!isModuleKey(module)) return;

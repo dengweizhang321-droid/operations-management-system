@@ -20,6 +20,7 @@ type DialogProps = {
   ariaLabel: string;
   className?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
 };
 
@@ -100,11 +101,13 @@ export default function Dialog({
   ariaLabel,
   className = "",
   initialFocusRef,
+  returnFocusRef,
   children,
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   const initialFocusRefRef = useRef(initialFocusRef);
+  const returnFocusRefRef = useRef(returnFocusRef);
   const layerRef = useRef<DialogLayer>({ element: () => dialogRef.current });
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
@@ -117,13 +120,20 @@ export default function Dialog({
   }, [initialFocusRef]);
 
   useEffect(() => {
+    returnFocusRefRef.current = returnFocusRef;
+  }, [returnFocusRef]);
+
+  useEffect(() => {
     setPortalTarget(document.body);
   }, []);
 
   useEffect(() => {
     if (!open || !portalTarget) return;
     const layer = layerRef.current;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const explicitReturnFocus = returnFocusRefRef.current?.current;
+    const previousFocus = explicitReturnFocus?.isConnected
+      ? explicitReturnFocus
+      : document.activeElement instanceof HTMLElement ? document.activeElement : null;
     acquireDialogLayer(layer);
 
     const focusFrame = window.requestAnimationFrame(() => {

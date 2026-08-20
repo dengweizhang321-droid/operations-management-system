@@ -63,4 +63,6 @@ test("dialog is SSR-safe and portals outside the inert application shell", async
   assert.match(source, /event\.key !== "Tab"/);
   assert.match(source, /event\.target === event\.currentTarget/);
   assert.match(source, /focusTarget\?\.isConnected/);
+  assert.match(source, /returnFocusRef\?: RefObject<HTMLElement \| null>/);
+  assert.match(source, /explicitReturnFocus\?\.isConnected/);
 });
