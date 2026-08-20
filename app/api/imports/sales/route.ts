@@ -1,6 +1,7 @@
 import {
   XLSX_CONTENT_TYPE,
   importSalesLedgerBytes,
+  validateSalesImportChannels,
   validateSalesImportDateRange,
 } from "@/lib/sales/import-service";
 import {
@@ -59,9 +60,15 @@ export async function POST(request: Request) {
     const entry = formData?.get("file");
     const expectedStartDate = String(formData?.get("expectedStartDate") ?? "").trim();
     const expectedEndDate = String(formData?.get("expectedEndDate") ?? "").trim();
+    const expectedChannels = formData?.get("expectedChannels") ?? null;
     const dateRange = validateSalesImportDateRange(expectedStartDate, expectedEndDate);
     if (!dateRange.ok) return errorResponse(422, "销售导入必须提供有效的权威起止日期", {
       errors: [{ code: dateRange.code, message: dateRange.message }],
+      errorCount: 1,
+    });
+    const channelScope = validateSalesImportChannels(expectedChannels);
+    if (!channelScope.ok) return errorResponse(422, "销售导入必须提供有效的权威渠道范围", {
+      errors: [{ code: channelScope.code, message: channelScope.message }],
       errorCount: 1,
     });
     if (!(entry instanceof File)) return errorResponse(400, "缺少名为 file 的 Excel 文件");
@@ -75,6 +82,7 @@ export async function POST(request: Request) {
       fileSizeBytes: entry.size,
       expectedStartDate,
       expectedEndDate,
+      expectedChannels: channelScope.channels,
     });
     return Response.json(payload, {
       status: importExecutionHttpStatus(payload),

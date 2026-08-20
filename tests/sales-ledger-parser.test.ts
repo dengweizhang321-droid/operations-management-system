@@ -38,7 +38,7 @@ test("sales ledger parser keeps order number when export also has online order n
       [
         "JY202607160001",
         "3561428013514429",
-        "京东-志高切肉机旗舰店（志高迈德豪）",
+        "阿里巴巴-炊之王店",
         "京东快递",
         "JDVC1",
         "广东仓",
@@ -73,6 +73,8 @@ test("sales ledger parser keeps order number when export also has online order n
   assert.equal(parsed.rows[0].orderNo, "JY202607160001");
   assert.equal(parsed.rows[0].onlineOrderNo, "3561428013514429");
   assert.equal(parsed.rows[0].onlineSpecCode, "JD-SKU-1");
+  assert.equal(parsed.rows[0].platform, "1688");
+  assert.equal(parsed.rows[0].shopName, "炊之王店");
   assert.ok(parsed.headers.includes("订单编号"));
   assert.ok(parsed.headers.includes("网店订单号"));
 });

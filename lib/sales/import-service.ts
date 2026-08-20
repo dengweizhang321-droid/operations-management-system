@@ -30,6 +30,7 @@ import {
   isApprovedSalesChannel,
   isExcludedSalesWarehouse,
   isZeroCostProductName,
+  salesImportPolicy,
 } from "@/lib/sales/import-policy";
 import { cleanZeroCostSalesRows } from "@/lib/sales/system-cost-cleaning";
 
@@ -112,6 +113,37 @@ function addUtcDays(value: string, days: number) {
 }
 
 export const MAX_SALES_IMPORT_RANGE_DAYS = 366;
+export const MAX_SALES_IMPORT_CHANNELS = 50;
+
+export function validateSalesImportChannels(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true as const, channels: null };
+  }
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return { ok: false as const, code: "INVALID_EXPECTED_CHANNELS", message: "expectedChannels 必须是 JSON 字符串数组" };
+    }
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_SALES_IMPORT_CHANNELS) {
+    return { ok: false as const, code: "INVALID_EXPECTED_CHANNELS", message: `expectedChannels 必须包含 1 到 ${MAX_SALES_IMPORT_CHANNELS} 个销售渠道` };
+  }
+  const channels = parsed.map((item) => typeof item === "string" ? item.trim() : "");
+  if (channels.some((channel) => !channel || channel.length > 100)) {
+    return { ok: false as const, code: "INVALID_EXPECTED_CHANNELS", message: "expectedChannels 只能包含非空且不超过 100 字符的渠道名" };
+  }
+  const unique = [...new Set(channels)].sort((left, right) => left.localeCompare(right, "zh-CN"));
+  if (unique.length !== channels.length) {
+    return { ok: false as const, code: "DUPLICATE_EXPECTED_CHANNELS", message: "expectedChannels 不能包含重复渠道" };
+  }
+  const unapproved = unique.filter((channel) => !salesImportPolicy.approvedSalesChannels.includes(channel));
+  if (unapproved.length > 0) {
+    return { ok: false as const, code: "UNAPPROVED_EXPECTED_CHANNELS", message: `expectedChannels 包含未纳入白名单的渠道：${unapproved.join("、")}` };
+  }
+  return { ok: true as const, channels: unique };
+}
 
 function realIsoDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -264,8 +296,10 @@ export async function importSalesLedgerBytes(input: {
   fileSizeBytes: number;
   expectedStartDate: string;
   expectedEndDate: string;
+  expectedChannels?: unknown;
 }): Promise<SalesImportExecution> {
   const dateRange = validateSalesImportDateRange(input.expectedStartDate, input.expectedEndDate);
+  const channelScope = validateSalesImportChannels(input.expectedChannels);
   const rawFileHash = toHex(await sha256(input.bytes));
   const db = getSalesDatabase();
   await ensureSalesSchema(db);
@@ -273,7 +307,12 @@ export async function importSalesLedgerBytes(input: {
   const reject = (result: SalesImportExecution) => auditRejectedImportResult(db, {
     domain: "sales",
     rawFileHash,
-    scopeHint: { source: "sales_ledger", startDate: input.expectedStartDate, endDate: input.expectedEndDate },
+    scopeHint: {
+      source: "sales_ledger",
+      startDate: input.expectedStartDate,
+      endDate: input.expectedEndDate,
+      ...(channelScope.ok && channelScope.channels ? { channels: channelScope.channels } : {}),
+    },
     metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes },
   }, result);
   if (!isXlsxSignature(input.bytes)) {
@@ -282,6 +321,11 @@ export async function importSalesLedgerBytes(input: {
   if (!dateRange.ok) {
     return reject({ ok: false, status: "rejected", message: "销售导入必须提供有效的权威起止日期", warnings: [], errors: [{ code: dateRange.code, message: dateRange.message }], errorCount: 1 });
   }
+  if (!channelScope.ok) {
+    return reject({ ok: false, status: "rejected", message: "销售导入必须提供有效的权威渠道范围", warnings: [], errors: [{ code: channelScope.code, message: channelScope.message }], errorCount: 1 });
+  }
+  const expectedChannels = channelScope.channels;
+  const expectedChannelSet = expectedChannels ? new Set(expectedChannels) : null;
 
   let parsed: Awaited<ReturnType<typeof parseSalesLedgerXlsx>>;
   try {
@@ -300,8 +344,13 @@ export async function importSalesLedgerBytes(input: {
   const rowsWithinCutoff = mappedRows.filter((row) => row.shipTime.slice(0, 10) <= cutoffDate);
   const excludedBrushWarehouseRows = rowsWithinCutoff.filter((row) => isExcludedSalesWarehouse(row.warehouse)).length;
   let rows = rowsWithinCutoff.filter((row) => !isExcludedSalesWarehouse(row.warehouse));
+  const unexpectedScopedChannelRows = expectedChannelSet
+    ? rows.filter((row) => !expectedChannelSet.has(row.channel))
+    : [];
   const disallowedChannelRows = rows.filter((row) => !isApprovedSalesChannel(row.channel));
   rows = rows.filter((row) => isApprovedSalesChannel(row.channel));
+  const presentChannels = new Set(rows.map((row) => row.channel));
+  const missingExpectedChannels = expectedChannels?.filter((channel) => !presentChannels.has(channel)) ?? [];
   const outOfScopeRows = rows.filter((row) => {
     const date = row.shipTime.slice(0, 10);
     return date < input.expectedStartDate || date > input.expectedEndDate;
@@ -327,6 +376,12 @@ export async function importSalesLedgerBytes(input: {
   }));
   const rowErrors = validateRows(rows);
   const errors = [...parserErrors, ...policyErrors, ...rowErrors].slice(0, 200);
+  if (unexpectedScopedChannelRows.length > 0) {
+    errors.unshift({ code: "UNEXPECTED_IMPORT_CHANNELS", message: `${unexpectedScopedChannelRows.length} 行销售渠道不属于本次权威渠道范围` });
+  }
+  if (missingExpectedChannels.length > 0) {
+    errors.unshift({ code: "MISSING_EXPECTED_CHANNELS", message: `文件未覆盖本次声明的渠道：${missingExpectedChannels.join("、")}` });
+  }
   if (outOfScopeRows.length > 0) {
     errors.unshift({ code: "OUT_OF_EXPECTED_DATE_RANGE", message: `${outOfScopeRows.length} 行发货日期超出权威导入范围 ${input.expectedStartDate} 至 ${input.expectedEndDate}` });
   }
@@ -415,19 +470,31 @@ export async function importSalesLedgerBytes(input: {
   const scopeEnd = input.expectedEndDate;
   const fingerprint = await buildImportContentFingerprint({
     domain: "sales",
-    scope: { source: "sales_ledger", startDate: scopeStart, endDate: scopeEnd },
+    scope: {
+      source: "sales_ledger",
+      startDate: scopeStart,
+      endDate: scopeEnd,
+      ...(expectedChannels ? { channels: expectedChannels } : {}),
+    },
     lockScope: { source: "sales_ledger" },
     rows,
     ignoredTopLevelKeys: ["sourceRowNumber", "sourceLineKey", "sourceRowHash"],
   });
   const readScopeOwnership = async () => {
-    const current = await db.prepare(
+    const channelClause = expectedChannels
+      ? " AND channel IN (SELECT CAST(value AS TEXT) FROM json_each(?))"
+      : "";
+    const statement = db.prepare(
       `SELECT last_import_batch_id AS batch_id, COUNT(*) AS row_count
        FROM sales_order_lines
-       WHERE ship_time >= ? AND ship_time < ?
+       WHERE ship_time >= ? AND ship_time < ?${channelClause}
        GROUP BY last_import_batch_id
        ORDER BY last_import_batch_id`,
-    ).bind(scopeStart, dateRange.endExclusive).all<{ batch_id: string; row_count: number }>();
+    );
+    const current = await (expectedChannels
+      ? statement.bind(scopeStart, dateRange.endExclusive, JSON.stringify(expectedChannels))
+      : statement.bind(scopeStart, dateRange.endExclusive))
+      .all<{ batch_id: string; row_count: number }>();
     return current.results.map((row) => ({ batchId: row.batch_id, rowCount: Number(row.row_count) }));
   };
   const scopeOwnership = await readScopeOwnership();
@@ -477,6 +544,7 @@ export async function importSalesLedgerBytes(input: {
     warnings,
     replaceStartDate: scopeStart,
     replaceEndDate: scopeEnd,
+    replaceChannels: expectedChannels,
     reservationFence: {
       domain: fingerprint.domain,
       scopeKey: fingerprint.scopeKey,
@@ -490,6 +558,7 @@ export async function importSalesLedgerBytes(input: {
       excludedFutureDateRows,
       systemCost,
       }),
+      importScope: { startDate: scopeStart, endDate: scopeEnd, channels: expectedChannels },
       contentHash: fingerprint.contentHash,
     },
   });

@@ -471,6 +471,7 @@ type SaveSalesImportInput = {
   totals: unknown;
   replaceStartDate: string;
   replaceEndDate: string;
+  replaceChannels?: readonly string[] | null;
   reservationFence?: ImportReservationFence;
 };
 
@@ -485,6 +486,15 @@ export async function saveSalesImport(
   input: SaveSalesImportInput,
 ): Promise<{ batch: SalesImportBatch; created: boolean }> {
   const batchId = input.fileHash;
+  const replaceChannels = input.replaceChannels ? [...new Set(input.replaceChannels.map((channel) => channel.trim()))] : null;
+  if (input.replaceChannels && (replaceChannels.length === 0 || replaceChannels.some((channel) => !channel))) {
+    throw new Error("销售导入的权威渠道范围不能为空");
+  }
+  if (replaceChannels) {
+    const channelSet = new Set(replaceChannels);
+    const unexpectedRow = input.rows.find((row) => !channelSet.has(row.channel));
+    if (unexpectedRow) throw new Error(`销售明细渠道不属于权威替换范围：${unexpectedRow.channel}`);
+  }
   const shipTimeScope = {
     start: input.replaceStartDate,
     endExclusive: addUtcDays(input.replaceEndDate, 1),
@@ -522,12 +532,18 @@ export async function saveSalesImport(
   }
 
   if (shipTimeScope) {
+    const channelClause = replaceChannels
+      ? " AND channel IN (SELECT CAST(value AS TEXT) FROM json_each(?))"
+      : "";
+    const statement = db.prepare(
+      `DELETE FROM sales_order_lines
+       WHERE ship_time >= ? AND ship_time < ? AND last_import_batch_id <> ?${channelClause}
+         AND EXISTS (SELECT 1 FROM sales_import_batches WHERE id = ? AND status = 'processing')`,
+    );
     statements.push(
-      db.prepare(
-        `DELETE FROM sales_order_lines
-         WHERE ship_time >= ? AND ship_time < ? AND last_import_batch_id <> ?
-           AND EXISTS (SELECT 1 FROM sales_import_batches WHERE id = ? AND status = 'processing')`,
-      ).bind(shipTimeScope.start, shipTimeScope.endExclusive, batchId, batchId),
+      replaceChannels
+        ? statement.bind(shipTimeScope.start, shipTimeScope.endExclusive, batchId, JSON.stringify(replaceChannels), batchId)
+        : statement.bind(shipTimeScope.start, shipTimeScope.endExclusive, batchId, batchId),
     );
   }
 

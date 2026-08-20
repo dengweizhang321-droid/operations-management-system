@@ -7,7 +7,7 @@ import {
   finishSalesUpload,
   receiveSalesUploadChunk,
 } from "@/lib/sales/chunked-upload";
-import { importSalesLedgerBytes, validateSalesImportDateRange } from "@/lib/sales/import-service";
+import { importSalesLedgerBytes, validateSalesImportChannels, validateSalesImportDateRange } from "@/lib/sales/import-service";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -22,6 +22,10 @@ function reject(status: number, message: string, extra: Record<string, unknown> 
 function headerNumber(request: Request, name: string) {
   const value = Number(request.headers.get(name));
   return Number.isSafeInteger(value) ? value : NaN;
+}
+
+function uploadScopePrefix(startDate: string, endDate: string, channels: readonly string[] | null) {
+  return `sales:${startDate}:${endDate}:${JSON.stringify(channels)}:`;
 }
 
 export async function POST(request: Request) {
@@ -43,7 +47,12 @@ export async function POST(request: Request) {
         errors: [{ code: dateRange.code, message: dateRange.message }],
         errorCount: 1,
       });
-      const upload = await beginSalesUpload({ fileName, fileSizeBytes, chunkCount, fingerprint: `sales:${expectedStartDate}:${expectedEndDate}:${fingerprint}` });
+      const channelScope = validateSalesImportChannels(body.expectedChannels);
+      if (!channelScope.ok) return reject(422, "销售导入必须提供有效的权威渠道范围", {
+        errors: [{ code: channelScope.code, message: channelScope.message }],
+        errorCount: 1,
+      });
+      const upload = await beginSalesUpload({ fileName, fileSizeBytes, chunkCount, fingerprint: `${uploadScopePrefix(expectedStartDate, expectedEndDate, channelScope.channels)}${fingerprint}` });
       return Response.json({
         ok: true,
         status: "ready",
@@ -62,8 +71,13 @@ export async function POST(request: Request) {
         errors: [{ code: dateRange.code, message: dateRange.message }],
         errorCount: 1,
       });
+      const channelScope = validateSalesImportChannels(body.expectedChannels);
+      if (!channelScope.ok) return reject(422, "销售导入必须提供有效的权威渠道范围", {
+        errors: [{ code: channelScope.code, message: channelScope.message }],
+        errorCount: 1,
+      });
       const claim = await claimSalesUpload(uploadId);
-      if (!claim.session.fingerprint.startsWith(`sales:${expectedStartDate}:${expectedEndDate}:`)) {
+      if (!claim.session.fingerprint.startsWith(uploadScopePrefix(expectedStartDate, expectedEndDate, channelScope.channels))) {
         await finishSalesUpload(uploadId, [], false).catch(() => undefined);
         return reject(409, "上传会话与本次销售日期范围不一致");
       }
@@ -75,6 +89,7 @@ export async function POST(request: Request) {
           fileSizeBytes: assembled.session.fileSizeBytes,
           expectedStartDate,
           expectedEndDate,
+          expectedChannels: channelScope.channels,
         });
         await finishSalesUpload(uploadId, assembled.objectKeys, result.ok);
         return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });

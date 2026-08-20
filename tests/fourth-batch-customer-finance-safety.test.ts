@@ -70,7 +70,7 @@ const { ensureErpReferenceSchema, listErpReferenceBatches } = await import("../l
 const { AuthorizationError, requireUnrestrictedDataScope } = await import("../lib/auth/authorization");
 const { PublicApiError, importExecutionHttpStatus, safeApiErrorResponse } = await import("../lib/http/api-error");
 const { periodFor } = await import("../lib/sales/summary");
-const { importSalesLedgerBytes, validateSalesImportDateRange } = await import("../lib/sales/import-service");
+const { importSalesLedgerBytes, validateSalesImportChannels, validateSalesImportDateRange } = await import("../lib/sales/import-service");
 
 type QueryRecord = { sql: string; values: SQLInputValue[]; returned?: number };
 
@@ -1018,6 +1018,28 @@ test("销售权威日期严格校验，直传和分片均在创建会话或发�
   const chunks = await readFile(new URL("../app/api/imports/sales/chunks/route.ts", import.meta.url), "utf8");
   const initValidation = chunks.indexOf("validateSalesImportDateRange(expectedStartDate, expectedEndDate)");
   const completeValidation = chunks.indexOf("validateSalesImportDateRange(expectedStartDate, expectedEndDate)", initValidation + 1);
+  assert.ok(initValidation >= 0 && initValidation < chunks.indexOf("beginSalesUpload("));
+  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(uploadId)"));
+});
+
+test("销售部分台账只能声明去重后的白名单精确渠道范围", async () => {
+  assert.deepEqual(validateSalesImportChannels(null), { ok: true, channels: null });
+  assert.deepEqual(validateSalesImportChannels(JSON.stringify([
+    "阿里巴巴-亿用店",
+    "阿里巴巴-炊之王店",
+    "阿里巴巴-震坤行",
+  ])), {
+    ok: true,
+    channels: ["阿里巴巴-炊之王店", "阿里巴巴-亿用店", "阿里巴巴-震坤行"],
+  });
+  assert.equal(validateSalesImportChannels(["阿里巴巴-炊之王店", "阿里巴巴-炊之王店"]).ok, false);
+  assert.equal(validateSalesImportChannels(["阿里巴巴-振坤行"]).ok, false);
+
+  const direct = await readFile(new URL("../app/api/imports/sales/route.ts", import.meta.url), "utf8");
+  assert.ok(direct.indexOf("validateSalesImportChannels(expectedChannels)") < direct.indexOf("entry.arrayBuffer()"));
+  const chunks = await readFile(new URL("../app/api/imports/sales/chunks/route.ts", import.meta.url), "utf8");
+  const initValidation = chunks.indexOf("validateSalesImportChannels(body.expectedChannels)");
+  const completeValidation = chunks.indexOf("validateSalesImportChannels(body.expectedChannels)", initValidation + 1);
   assert.ok(initValidation >= 0 && initValidation < chunks.indexOf("beginSalesUpload("));
   assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(uploadId)"));
 });

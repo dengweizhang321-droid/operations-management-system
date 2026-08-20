@@ -614,16 +614,16 @@ test("事实已提交后异常清理释放 owner，精确 duplicate 重试仍会
   sqlite.close();
 });
 
-function salesLine(orderNo: string, shipDate: string, amountCents: number): SalesLineInput {
+function salesLine(orderNo: string, shipDate: string, amountCents: number, channel = "天猫"): SalesLineInput {
   return {
     sourceRowNumber: 1,
     sourceLineKey: orderNo,
     sourceRowHash: orderNo.padEnd(64, "0").slice(0, 64),
     orderNo,
     onlineOrderNo: orderNo,
-    channel: "天猫",
-    platform: "天猫",
-    shopName: "测试店铺",
+    channel,
+    platform: channel.startsWith("阿里巴巴-") ? "1688" : "天猫",
+    shopName: channel.startsWith("阿里巴巴-") ? channel.slice("阿里巴巴-".length) : "测试店铺",
     logisticsCompany: "",
     warehouse: "正常仓",
     productCode: "SKU-1",
@@ -738,6 +738,58 @@ test("销售导入按表单权威日期边界完整替换，不依赖新文件�
     amount: 300,
     batchId: "2".repeat(64),
   }]);
+  sqlite.close();
+});
+
+test("销售导入按精确渠道范围替换时保留同期其他渠道事实", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
+  await ensureSalesSchema(db);
+  const alibabaChannels = ["阿里巴巴-炊之王店", "阿里巴巴-亿用店", "阿里巴巴-震坤行"];
+  await saveSalesImport(db, {
+    fileHash: "3".repeat(64),
+    fileName: "sales-all.xlsx",
+    fileSizeBytes: 1,
+    sheetName: "销售",
+    rows: [
+      salesLine("JD-KEEP", "2026-07-01", 100, "京东-志高商用厨电旗舰店"),
+      salesLine("ALI-OLD", "2026-07-01", 200, "阿里巴巴-炊之王店"),
+    ],
+    warnings: [],
+    totals: {},
+    replaceStartDate: "2026-07-01",
+    replaceEndDate: "2026-07-31",
+  });
+  await saveSalesImport(db, {
+    fileHash: "4".repeat(64),
+    fileName: "sales-alibaba.xlsx",
+    fileSizeBytes: 1,
+    sheetName: "销售",
+    rows: [salesLine("ALI-NEW", "2026-07-01", 300, "阿里巴巴-亿用店")],
+    warnings: [],
+    totals: {},
+    replaceStartDate: "2026-07-01",
+    replaceEndDate: "2026-07-31",
+    replaceChannels: alibabaChannels,
+  });
+  assert.deepEqual(sqlite.prepare(
+    "SELECT order_no orderNo, channel, allocated_amount_cents amount FROM sales_order_lines ORDER BY order_no",
+  ).all().map((row) => ({ ...row })), [
+    { orderNo: "ALI-NEW", channel: "阿里巴巴-亿用店", amount: 300 },
+    { orderNo: "JD-KEEP", channel: "京东-志高商用厨电旗舰店", amount: 100 },
+  ]);
+  await assert.rejects(saveSalesImport(db, {
+    fileHash: "5".repeat(64),
+    fileName: "sales-invalid-scope.xlsx",
+    fileSizeBytes: 1,
+    sheetName: "销售",
+    rows: [salesLine("JD-OUTSIDE", "2026-07-01", 400, "京东-志高商用厨电旗舰店")],
+    warnings: [],
+    totals: {},
+    replaceStartDate: "2026-07-01",
+    replaceEndDate: "2026-07-31",
+    replaceChannels: alibabaChannels,
+  }), /不属于权威替换范围/);
   sqlite.close();
 });
 
