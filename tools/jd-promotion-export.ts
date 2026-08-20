@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { unzipSync } from "fflate";
 import type { Page } from "playwright-core";
 
 import { jdBrowserLaunchMode, isJdInteractiveBrowserFailure, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
@@ -9,6 +10,7 @@ import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import {
   inspectJdPromotionCsv,
   jdPromotionReportPrefix,
+  parseJdPromotionCsv,
   selectJdPromotionDownloadTask,
   validateJdPromotionImportProof,
   type JdPromotionDownloadTask,
@@ -69,7 +71,7 @@ type PromotionManifest = {
   startDate: string;
   endDate: string;
   reportPrefix: string;
-  status: "submitting" | "submitted" | "downloaded" | "completed";
+  status: "planned" | "submitting" | "submitted" | "downloaded" | "completed";
   baselineFingerprints: string[];
   task?: JdPromotionDownloadTask;
   savedPath?: string;
@@ -152,7 +154,7 @@ function newManifest(options: JdPromotionExportOptions, store: JdStore, baseline
     startDate: options.startDate,
     endDate: options.endDate,
     reportPrefix: jdPromotionReportPrefix(store.accountLabel, options.startDate, options.endDate),
-    status: "submitting",
+    status: "planned",
     baselineFingerprints,
     createdAt: now,
     updatedAt: now,
@@ -164,7 +166,7 @@ function assertManifest(manifest: PromotionManifest, options: JdPromotionExportO
   if (manifest.version !== 1 || manifest.runId !== options.runId || manifest.storeKey !== store.storeKey
     || manifest.shopId !== store.shopId || manifest.shopName !== store.shopName || manifest.accountLabel !== store.accountLabel
     || manifest.startDate !== options.startDate || manifest.endDate !== options.endDate || manifest.reportPrefix !== expectedPrefix
-    || !["submitting", "submitted", "downloaded", "completed"].includes(manifest.status)
+    || !["planned", "submitting", "submitted", "downloaded", "completed"].includes(manifest.status)
     || !Array.isArray(manifest.baselineFingerprints)) {
     throw new Error("京准通推广恢复清单与当前运行、店铺或日期范围不一致");
   }
@@ -228,13 +230,60 @@ async function setJdPromotionDateRange(page: Page, startDate: string, endDate: s
   const expected = `${startDate}至${endDate}`;
   if (await input.inputValue() === expected) return;
   await input.click();
-  const monthTitle = `${Number(startDate.slice(0, 4))}年 ${Number(startDate.slice(5, 7))}月`;
-  const visibleMonthTitle = page.getByText(monthTitle, { exact: true }).filter({ visible: true });
-  await visibleMonthTitle.first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
-  if (await visibleMonthTitle.count() < 1) {
-    throw new Error(`京准通日期面板未显示目标月份 ${monthTitle}，拒绝猜测翻页`);
+  const targetMonth = startDate.slice(0, 7);
+  const panelSelectors = [".jad-date-picker-content-left", ".jad-date-picker-content-right"] as const;
+  await page.locator(`${panelSelectors[0]} .jad-date-picker-header-label`).filter({ visible: true }).first()
+    .waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
+  const readPanelMonth = async (selector: typeof panelSelectors[number]) => {
+    const labels = await page.locator(`${selector} .jad-date-picker-header-label`).filter({ visible: true }).allTextContents();
+    const year = /^(\d{4})年$/.exec(labels[0]?.trim() ?? "")?.[1];
+    const month = /^(\d{1,2})月$/.exec(labels[1]?.trim() ?? "")?.[1];
+    return year && month ? `${year}-${month.padStart(2, "0")}` : null;
+  };
+  let targetPanel: typeof panelSelectors[number] | null = null;
+  let lastVisibleMonths: Array<string | null> = [];
+  let navigationFailure = "target month not reached";
+  for (let attempt = 0; attempt <= 24; attempt += 1) {
+    const visibleMonths = await Promise.all(panelSelectors.map(readPanelMonth));
+    lastVisibleMonths = visibleMonths;
+    const matchingIndex = visibleMonths.findIndex((month) => month === targetMonth);
+    if (matchingIndex >= 0) {
+      targetPanel = panelSelectors[matchingIndex]!;
+      break;
+    }
+    if (attempt === 24 || visibleMonths.some((month) => month === null)) {
+      navigationFailure = visibleMonths.some((month) => month === null) ? "month header unreadable" : "navigation bound exhausted";
+      break;
+    }
+    const targetOrdinal = Number(targetMonth.slice(0, 4)) * 12 + Number(targetMonth.slice(5, 7)) - 1;
+    const ordinals = visibleMonths.map((month) => Number(month!.slice(0, 4)) * 12 + Number(month!.slice(5, 7)) - 1);
+    const panelIndex = Math.abs(targetOrdinal - ordinals[0]!) <= Math.abs(targetOrdinal - ordinals[1]!) ? 0 : 1;
+    const panelSelector = panelSelectors[panelIndex]!;
+    const previousMonth = visibleMonths[panelIndex]!;
+    const direction = targetOrdinal < ordinals[panelIndex]! ? "prev" : "next";
+    const button = page.locator(`${panelSelector} .jad-date-picker-${direction}-btn-arrow`).filter({ visible: true });
+    const buttonCount = await button.count();
+    if (buttonCount !== 1) {
+      navigationFailure = `expected one ${direction} button in ${panelSelector}, found ${buttonCount}`;
+      break;
+    }
+    await button.click();
+    await page.waitForFunction(([selector, oldMonth]) => {
+      const labels = Array.from(document.querySelectorAll(`${selector} .jad-date-picker-header-label`))
+        .filter((element) => {
+          const rect = (element as HTMLElement).getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        })
+        .map((element) => element.textContent?.trim() ?? "");
+      const year = /^(\d{4})年$/.exec(labels[0] ?? "")?.[1];
+      const month = /^(\d{1,2})月$/.exec(labels[1] ?? "")?.[1];
+      return year && month && `${year}-${month.padStart(2, "0")}` !== oldMonth;
+    }, [panelSelector, previousMonth], { timeout: 5_000 });
   }
-  const calendar = page.locator(".jad-date-picker-dateRange").first();
+  if (!targetPanel) {
+    throw new Error(`京准通日期面板无法在有界翻页后精确显示目标月份 ${targetMonth}；已读月份=${lastVisibleMonths.join(",") || "none"}；原因=${navigationFailure}`);
+  }
+  const calendar = page.locator(`${targetPanel} .jad-date-picker-dateRange`);
   const day = (date: string) => calendar.locator(".jad-date-picker-cell:not(.jad-date-picker-cell-disabled):not(.jad-date-picker-cell-prev-month):not(.jad-date-picker-cell-next-month) em")
     .filter({ hasText: new RegExp(`^${Number(date.slice(8, 10))}$`) });
   const start = day(startDate);
@@ -261,19 +310,28 @@ async function createOrResumeDownloadTask(reportPage: Page, downloadPage: Page, 
     await persistManifest(manifest);
     return { manifest, task: recovered };
   }
-  const baseline = tasks.map((task) => task.fingerprint);
-  manifest = newManifest(options, store, baseline);
+  const baseline = manifest?.status === "planned" ? manifest.baselineFingerprints : tasks.map((task) => task.fingerprint);
+  manifest ??= newManifest(options, store, baseline);
   await persistManifest(manifest);
   await reportPage.bringToFront();
   const downloadButton = reportPage.locator("button.download-report-icon");
   if (await downloadButton.count() !== 1) throw new Error("京准通报表页下载操作无法唯一定位");
   await downloadButton.click();
+  await reportPage.waitForFunction((expectedPrefix) => Array.from(document.querySelectorAll("input"))
+    .filter((element) => {
+      const rect = (element as HTMLElement).getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    })
+    .filter((element) => (element as HTMLInputElement).value === expectedPrefix).length === 1,
+  manifest.reportPrefix, { timeout: 10_000 }).catch(() => undefined);
   const inputs = await reportPage.locator("input").all();
   const matchingInputs: typeof inputs = [];
   for (const input of inputs) if (await input.isVisible() && await input.inputValue() === manifest.reportPrefix) matchingInputs.push(input);
   if (matchingInputs.length !== 1) throw new Error("京准通生成任务名称与受控日期范围不一致");
   const startButton = reportPage.getByRole("button", { name: "开始生成", exact: true });
   if (await startButton.count() !== 1 || !await startButton.isEnabled()) throw new Error("京准通开始生成按钮不可用或不唯一");
+  manifest.status = "submitting";
+  await persistManifest(manifest);
   await startButton.click();
   await reportPage.getByText("正在生成", { exact: false }).waitFor({ state: "visible", timeout: 10_000 });
   const deadline = Date.now() + 120_000;
@@ -296,6 +354,10 @@ async function createOrResumeDownloadTask(reportPage: Page, downloadPage: Page, 
 async function waitAndDownload(page: Page, manifest: PromotionManifest, store: JdStore) {
   const task = manifest.task;
   if (!task) throw new Error("京准通恢复清单缺少下载任务身份");
+  const canonicalDirectory = path.join(store.browser.downloadDir, "jd-promotion", manifest.runId);
+  const finalPath = path.join(canonicalDirectory, `${task.reportName}.csv`);
+  const existing = await stat(finalPath).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? null : Promise.reject(error));
+  if (existing?.isFile() && existing.size > 0) return normalizeJdPromotionDownloadFile(finalPath);
   const deadline = Date.now() + 5 * 60_000;
   while (Date.now() < deadline) {
     await page.goto(downloadCenterUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -315,11 +377,9 @@ async function waitAndDownload(page: Page, manifest: PromotionManifest, store: J
           row.getByText("下载", { exact: true }).click(),
         ]);
         await download.saveAs(stagingPath);
-        const canonicalDirectory = path.join(store.browser.downloadDir, "jd-promotion", manifest.runId);
         await mkdir(canonicalDirectory, { recursive: true });
-        const finalPath = path.join(canonicalDirectory, `${current.reportName}.csv`);
         await rename(stagingPath, finalPath);
-        return finalPath;
+        return normalizeJdPromotionDownloadFile(finalPath);
       } finally {
         await rm(stagingDirectory, { recursive: true, force: true });
       }
@@ -327,6 +387,68 @@ async function waitAndDownload(page: Page, manifest: PromotionManifest, store: J
     await page.waitForTimeout(3_000);
   }
   throw new Error("京准通下载任务在 5 分钟内未生成完成");
+}
+
+export async function normalizeJdPromotionDownloadFile(filePath: string) {
+  const bytes = new Uint8Array(await readFile(filePath));
+  if (!(bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04)) return filePath;
+  const archiveEntries: string[] = [];
+  const entries = Object.entries(unzipSync(bytes, { filter(entry) {
+    if (entry.name.endsWith("/")) return false;
+    archiveEntries.push(entry.name);
+    if (entry.originalSize > maximumCsvBytes) throw new Error("京准通 ZIP 内 CSV 解压后超过 25MB");
+    return true;
+  } }));
+  if (archiveEntries.length < 1 || archiveEntries.length > 10 || entries.length !== archiveEntries.length
+    || entries.some(([name]) => !/\.csv$/i.test(name))) {
+    throw new Error("京准通下载 ZIP 必须只包含 1 至 10 个 CSV 分片");
+  }
+  if (entries.reduce((sum, [, entryBytes]) => sum + entryBytes.length, 0) > maximumCsvBytes) {
+    throw new Error("京准通 ZIP 内 CSV 分片合计超过 25MB");
+  }
+  const matrices = entries.sort(([left], [right]) => left.localeCompare(right, "zh-CN")).map(([name, entryBytes]) => {
+    let text: string;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(entryBytes);
+    } catch {
+      throw new Error(`京准通 ZIP 分片不是 UTF-8：${path.basename(name)}`);
+    }
+    const matrix = parseJdPromotionCsv(text);
+    if (matrix.length < 2) throw new Error(`京准通 ZIP 分片没有业务数据：${path.basename(name)}`);
+    return matrix;
+  });
+  const headers = matrices[0]![0]!.map((value) => value.replace(/\uFEFF/g, "").trim());
+  for (const matrix of matrices.slice(1)) {
+    const currentHeaders = matrix[0]!.map((value) => value.replace(/\uFEFF/g, "").trim());
+    if (currentHeaders.length !== headers.length || currentHeaders.some((value, index) => value !== headers[index])) {
+      throw new Error("京准通 ZIP 的 CSV 分片表头不一致");
+    }
+  }
+  const quoteCsvCell = (value: string) => /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+  const mergedText = [headers, ...matrices.flatMap((matrix) => matrix.slice(1))]
+    .map((row) => row.map(quoteCsvCell).join(","))
+    .join("\r\n");
+  const csvBytes = new TextEncoder().encode(mergedText);
+  if (csvBytes.length <= 0 || csvBytes.length > maximumCsvBytes) throw new Error("京准通 ZIP 内 CSV 大小无效或超过 25MB");
+  const archivePath = `${filePath}.source.zip`;
+  const temporaryCsvPath = `${filePath}.extracting`;
+  const existingArchive = await stat(archivePath).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? null : Promise.reject(error));
+  if (existingArchive) throw new Error("京准通 ZIP 原件归档路径已存在，拒绝覆盖");
+  await writeFile(temporaryCsvPath, csvBytes, { flag: "wx" });
+  let archived = false;
+  try {
+    await rename(filePath, archivePath);
+    archived = true;
+    await rename(temporaryCsvPath, filePath);
+  } catch (error) {
+    if (archived) {
+      const restored = await rename(archivePath, filePath).then(() => true).catch(() => false);
+      if (!restored) throw new Error("京准通 ZIP 解压发布失败且原件无法恢复；已保留归档与临时 CSV，需人工核对", { cause: error });
+    }
+    await rm(temporaryCsvPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
+  return filePath;
 }
 
 export async function importJdPromotionFile(
@@ -381,6 +503,10 @@ async function runUnlocked(options: JdPromotionExportOptions): Promise<JdPromoti
     const { inspection, proof } = await importJdPromotionFile(options, store, manifest.savedPath);
     await verifyJdPromotionPublishedBatch(options, store, proof);
     manifest.fileSizeBytes = (await stat(manifest.savedPath)).size;
+    manifest.sha256 = inspection.sha256;
+    manifest.rowCount = inspection.rowCount;
+    manifest.batchId = proof.batchId;
+    await persistManifest(manifest);
     return resultFrom(manifest, store, inspection, proof);
   }
   let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | null = null;

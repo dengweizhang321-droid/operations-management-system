@@ -116,7 +116,7 @@ function normalizeKey(value: string) {
   return value.toLowerCase().replace(/[\s_\-（）()【】[\]：:./\\]/g, "");
 }
 
-function parseCsv(text: string): TabularRow[] {
+function parseDelimitedText(text: string, delimiter: "," | "\t"): TabularRow[] {
   const rows: TabularRow[] = [];
   let current = "";
   let record: Array<string | null> = [];
@@ -135,7 +135,7 @@ function parseCsv(text: string): TabularRow[] {
       }
       continue;
     }
-    if (!inQuotes && (char === "," || char === "\t")) {
+    if (!inQuotes && char === delimiter) {
       record.push(current);
       current = "";
       continue;
@@ -157,6 +157,10 @@ function parseCsv(text: string): TabularRow[] {
     if (record.some((cell) => normalizeText(cell))) rows.push({ rowNumber, values: record });
   }
   return rows;
+}
+
+export function parseNetshopCsv(text: string): TabularRow[] {
+  return parseDelimitedText(text, ",");
 }
 
 function decodeText(bytes: Uint8Array) {
@@ -262,9 +266,10 @@ function parseFile(bytes: Uint8Array, fileName: string, source: NetshopSource): 
   if (isXlsx(bytes) || /\.xlsx$/i.test(fileName)) return parseXlsx(bytes);
   if (/\.xls$/i.test(fileName) && source === "tmall_product_daily") return parseLegacyXls(bytes);
   const text = decodeText(bytes);
-  if (/\.csv$/i.test(fileName)) return { sheetName: "csv", rows: parseCsv(text) };
+  if (/\.csv$/i.test(fileName)) return { sheetName: "csv", rows: parseNetshopCsv(text) };
   if (/\.xls$/i.test(fileName)) {
-    const rows = parseCsv(/<table|<tr|<td|<th/i.test(text) ? stripHtml(text) : text);
+    const normalized = /<table|<tr|<td|<th/i.test(text) ? stripHtml(text) : text;
+    const rows = parseDelimitedText(normalized, normalized.includes("\t") ? "\t" : ",");
     if (rows.length > 0) return { sheetName: "xls-text", rows };
   }
   throw new Error(`暂不支持该文件格式：${fileName}`);

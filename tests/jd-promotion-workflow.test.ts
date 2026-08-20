@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { zipSync } from "fflate";
 
 import {
   inspectJdPromotionCsv,
@@ -12,11 +13,13 @@ import {
   type JdPromotionDownloadTask,
 } from "../lib/jd/promotion-report";
 import type { JdStore } from "../lib/jd/store-registry";
+import { parseNetshopCsv } from "../lib/netshop/import-service";
 import {
   assertJdPromotionAccount,
   importJdPromotionFile,
   jdPromotionReportListUrl,
   jdPromotionReportName,
+  normalizeJdPromotionDownloadFile,
   parseJdPromotionArgs,
   type JdPromotionExportResult,
 } from "../tools/jd-promotion-export";
@@ -37,6 +40,60 @@ const csvText = [
 function bytes(text = csvText) {
   return new TextEncoder().encode(text);
 }
+
+test("京准通 CSV 字段内的制表符不能被网店导入器误当成分隔符", () => {
+  const text = [
+    "日期,搜索词,跟单SKU ID,展现数,点击数",
+    "20260709,绞肉机\t22s型\\功率2000w\t\t\t志高,10085446559278,6,3",
+  ].join("\r\n");
+  const rows = parseNetshopCsv(text);
+  assert.equal(rows[1]?.values.length, 5);
+  assert.equal(rows[1]?.values[1], "绞肉机\t22s型\\功率2000w\t\t\t志高");
+  assert.equal(rows[1]?.values[2], "10085446559278");
+  assert.equal(rows[1]?.values[3], "6");
+  assert.equal(rows[1]?.values[4], "3");
+});
+
+test("京准通误标为 CSV 的单文件 ZIP 会保留原件并发布 UTF-8 CSV", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-zip-"));
+  try {
+    const target = path.join(root, "report.csv");
+    const archive = zipSync({ "report-inner.csv": bytes() });
+    await writeFile(target, archive);
+    assert.equal(await normalizeJdPromotionDownloadFile(target), target);
+    assert.equal(new TextDecoder().decode(await readFile(target)), csvText);
+    assert.ok((await stat(`${target}.source.zip`)).size > 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("京准通 ZIP 的多个同表头 CSV 分片会按名称合并", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-zip-multiple-"));
+  try {
+    const target = path.join(root, "report.csv");
+    await writeFile(target, zipSync({ "one.csv": bytes(), "two.csv": bytes() }));
+    await normalizeJdPromotionDownloadFile(target);
+    const matrix = parseNetshopCsv(new TextDecoder().decode(await readFile(target)));
+    assert.equal(matrix.length, 5);
+    assert.equal(matrix[0]?.values[0], "日期");
+    assert.equal(matrix[1]?.values[0], "20260813");
+    assert.equal(matrix[3]?.values[0], "20260813");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("京准通 ZIP 的 CSV 分片表头不一致时拒绝合并", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-zip-mismatch-"));
+  try {
+    const target = path.join(root, "report.csv");
+    await writeFile(target, zipSync({ "one.csv": bytes(), "two.csv": new TextEncoder().encode("日期,错误列\r\n20260813,1") }));
+    await assert.rejects(() => normalizeJdPromotionDownloadFile(target), /分片表头不一致/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 function store(storeKey: "jd-yiyong-director" | "jd-maidehao-operator1" = "jd-yiyong-director"): JdStore {
   const cutMeat = storeKey === "jd-maidehao-operator1";
@@ -136,8 +193,30 @@ test("京准通没有恢复清单时只把历史任务纳入 baseline，不直�
   const source = await readFile(new URL("../tools/jd-promotion-export.ts", import.meta.url), "utf8");
   const taskSelection = source.slice(source.indexOf("async function createOrResumeDownloadTask"), source.indexOf("async function waitAndDownload"));
   assert.doesNotMatch(taskSelection, /if \(!manifest && existing\)/);
-  assert.match(taskSelection, /const baseline = tasks\.map/);
+  assert.match(taskSelection, /tasks\.map\(\(task\) => task\.fingerprint\)/);
   assert.match(taskSelection, /new Set\(baseline\)/);
+  assert.match(taskSelection, /manifest\?\.status === "planned"/);
+  assert.match(taskSelection, /manifest\.status = "submitting";\s+await persistManifest\(manifest\);\s+await startButton\.click\(\)/);
+});
+
+test("京准通日期面板按精确左右面板有界翻月并读回目标月份", async () => {
+  const source = await readFile(new URL("../tools/jd-promotion-export.ts", import.meta.url), "utf8");
+  const dateSelection = source.slice(source.indexOf("async function setJdPromotionDateRange"), source.indexOf("async function createOrResumeDownloadTask"));
+  assert.match(dateSelection, /jad-date-picker-content-left/);
+  assert.match(dateSelection, /jad-date-picker-content-right/);
+  assert.match(dateSelection, /attempt <= 24/);
+  assert.match(dateSelection, /jad-date-picker-\$\{direction\}-btn-arrow/);
+  assert.match(dateSelection, /targetPanel/);
+  assert.match(dateSelection, /无法在有界翻页后精确显示目标月份/);
+});
+
+test("京准通已完成清单用原文件修正重导后回写当前批次证明", async () => {
+  const source = await readFile(new URL("../tools/jd-promotion-export.ts", import.meta.url), "utf8");
+  const completedResume = source.slice(source.indexOf('if (manifest?.status === "completed"'), source.indexOf("let browser:"));
+  assert.match(completedResume, /manifest\.sha256 = inspection\.sha256/);
+  assert.match(completedResume, /manifest\.rowCount = inspection\.rowCount/);
+  assert.match(completedResume, /manifest\.batchId = proof\.batchId/);
+  assert.match(completedResume, /await persistManifest\(manifest\)/);
 });
 
 test("京准通导入证明必须绑定精确店铺、日期、行数、原文件哈希和零告警", () => {
