@@ -8,7 +8,9 @@ import {
   dismissJdNoticeWithBoundedRetry,
   importJdProductDetailFile,
   isJdCalendarEndSelected,
+  isJdProductOverviewNpsSurveyText,
   isRealtimeSummaryDownloadDialog,
+  isSafeJdNpsSurveySkipLabel,
   isSafeJdNoticeCloseLabel,
   isStaticCurrentTimestamp,
   isVerifiedJdDateRangeEcho,
@@ -96,6 +98,15 @@ test("JD notice dismissal only accepts explicit harmless close labels", () => {
   assert.equal(isSafeJdNoticeCloseLabel("Close"), true);
   assert.equal(isSafeJdNoticeCloseLabel("关闭"), true);
   assert.equal(isSafeJdNoticeCloseLabel("立即查看"), false);
+});
+
+test("JD product-overview NPS dismissal accepts only the exact opt-out on the identified survey", () => {
+  const survey = "请您对商品概览整体使用感受打分\n不满意 0 1 2 3 4 5 6 7 8 9 10 满意\n您在使用商品概览时有什么建议？\n我不愿作答\n提交";
+  assert.equal(isJdProductOverviewNpsSurveyText(survey), true);
+  assert.equal(isJdProductOverviewNpsSurveyText("商品概览\n我不愿作答\n提交"), false);
+  assert.equal(isSafeJdNpsSurveySkipLabel("我不愿作答"), true);
+  assert.equal(isSafeJdNpsSurveySkipLabel("提交"), false);
+  assert.equal(isSafeJdNpsSurveySkipLabel("10"), false);
 });
 
 test("JD notice waits for a stable hydrated close control before clicking", async () => {

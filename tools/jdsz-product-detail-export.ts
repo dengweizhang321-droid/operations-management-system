@@ -249,6 +249,7 @@ async function assertDimensionAndDateSelection(page: Page, dimension: CliOptions
 }
 
 async function selectDateRange(page: Page, startDate: string, endDate: string) {
+  await dismissJdNpsSurveyModal(page);
   // New JD sessions keep the custom-range item inside the collapsed date menu.
   // Open the menu first; this is a no-op when it is already expanded.
   const echo = page.locator(".jmt-combo-date-picker-echo-wrap").filter({ visible: true });
@@ -413,6 +414,18 @@ export function isSafeJdNoticeCloseLabel(label: string) {
   return /^(close|关闭|忽略|×|✕)$/i.test(label.trim());
 }
 
+export function isJdProductOverviewNpsSurveyText(text: string) {
+  const normalized = text.replace(/\s+/g, "");
+  return normalized.includes("请您对商品概览整体使用感受打分")
+    && normalized.includes("您在使用商品概览时有什么建议")
+    && normalized.includes("我不愿作答")
+    && normalized.includes("提交");
+}
+
+export function isSafeJdNpsSurveySkipLabel(label: string) {
+  return label.trim() === "我不愿作答";
+}
+
 export type JdNoticeDismissSnapshot = {
   noticeCount: number;
   noticeKey?: string;
@@ -485,6 +498,30 @@ async function dismissJdNoticeModal(page: Page) {
     if (await close.count() !== 1) throw new Error("京东公告弹窗缺少唯一关闭按钮，已停止避免误点");
     await close.click();
   }, (ms) => page.waitForTimeout(ms));
+}
+
+async function dismissJdNpsSurveyModal(page: Page) {
+  const survey = () => page.locator('#ux-scene-research').filter({ visible: true }).filter({ hasText: /请您对商品概览整体使用感受打分/ });
+  const skipControls = () => survey().getByText("我不愿作答", { exact: true }).filter({ visible: true });
+  await survey().first().waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);
+  await dismissJdNoticeWithBoundedRetry(async () => {
+    const current = survey();
+    const noticeCount = await current.count();
+    const text = noticeCount === 1 ? await current.innerText().catch(() => "") : "";
+    const noticeKey = noticeCount === 1 && isJdProductOverviewNpsSurveyText(text)
+      ? "jd-product-overview-nps-survey"
+      : undefined;
+    const closeControlCount = noticeKey ? await skipControls().count() : 0;
+    return { noticeCount, noticeKey, closeControlCount };
+  }, async () => {
+    const current = survey();
+    if (await current.count() !== 1) throw new Error("京东商品概览评价弹层不唯一，已停止避免误点");
+    const skip = skipControls();
+    if (await skip.count() !== 1 || !isSafeJdNpsSurveySkipLabel(await skip.innerText())) {
+      throw new Error("京东商品概览评价弹层缺少唯一安全退出项，已停止避免误点");
+    }
+    await skip.click();
+  }, (ms) => page.waitForTimeout(ms), { maxClicks: 1 });
 }
 
 async function selectDimensionAndWait(page: Page, dimension: CliOptions["dimension"]) {
