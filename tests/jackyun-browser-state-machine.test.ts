@@ -24,6 +24,7 @@ import {
   stableRowCount,
   type QueryRefreshTracking,
   waitForNestedControls,
+  withOwnedControllerChromeCleanup,
 } from "../tools/jackyun-browser-controller";
 
 test("row-count readback requests the exact total before accepting a page-sized grid count", () => {
@@ -231,6 +232,29 @@ test("dedicated Chrome session classification distinguishes login from authentic
   assert.equal(classifyJackyunSession("忘记密码 为企业注册吉客号 忘记吉客号 登录"), "login_required");
   assert.equal(classifyJackyunSession("主菜单 货品查询 分仓库存查询"), "authenticated");
   assert.equal(classifyJackyunSession("页面加载中"), "unknown");
+});
+
+test("controller closes only an owned Chrome and still cleans up after failure", async () => {
+  const closedPorts: number[] = [];
+  const closeBrowser = async (port: number) => {
+    closedPorts.push(port);
+    return true;
+  };
+
+  assert.equal(await withOwnedControllerChromeCleanup(false, 9223, async () => "reused", closeBrowser), "reused");
+  assert.deepEqual(closedPorts, []);
+  assert.equal(await withOwnedControllerChromeCleanup(true, 9223, async () => "completed", closeBrowser), "completed");
+  assert.deepEqual(closedPorts, [9223]);
+  await assert.rejects(
+    withOwnedControllerChromeCleanup(true, 9224, async () => { throw new Error("login probe failed"); }, closeBrowser),
+    /login probe failed/,
+  );
+  assert.deepEqual(closedPorts, [9223, 9224]);
+
+  const controllerSource = readFileSync(path.resolve("tools/jackyun-browser-controller.ts"), "utf8");
+  assert.match(controllerSource, /const launchedBrowser = await launchDedicatedChrome/);
+  assert.match(controllerSource, /const ownsBrowser = Boolean\(launchedBrowser\)/);
+  assert.match(controllerSource, /return withOwnedControllerChromeCleanup\(ownsBrowser, port, async \(\) => \{/);
 });
 
 test("saved-password login submits only Chrome-autofilled fields and never transports secrets", async () => {

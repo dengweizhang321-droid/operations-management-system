@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type BrowserAutomationClient,
+  closeChromeBrowser,
   connectJackyunTarget,
   evaluateValue,
   launchDedicatedChrome,
@@ -1652,15 +1653,30 @@ async function persistControllerState(filePath: string, state: ControllerState) 
   await writeJsonAtomic(filePath, state);
 }
 
+export async function withOwnedControllerChromeCleanup<T>(
+  ownsBrowser: boolean,
+  port: number,
+  action: () => Promise<T>,
+  closeBrowser: (port: number) => Promise<boolean> = closeChromeBrowser,
+): Promise<T> {
+  try {
+    return await action();
+  } finally {
+    if (ownsBrowser) await closeBrowser(port);
+  }
+}
+
 async function runController(options: CliOptions) {
   const policy = await readJsonFile<Policy>(policyPath);
   const chromePath = options.chromePath ?? policy.browser.controller?.chromePath ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   const profileDirectory = path.resolve(options.profileDirectory ?? policy.browser.controller?.profileDirectory ?? path.join(projectRoot, ".runtime", "jackyun-chrome-profile"));
   const port = options.debuggingPort ?? policy.browser.controller?.debuggingPort ?? 9223;
   const startUrl = policy.browser.controller?.startUrl ?? "https://web.jackyun.com/home/mainframe_web_horizontal.html";
-  await launchDedicatedChrome({ executablePath: chromePath, profileDirectory, port, startUrl, headless: options.launchOnly ? false : options.headless });
+  const launchedBrowser = await launchDedicatedChrome({ executablePath: chromePath, profileDirectory, port, startUrl, headless: options.launchOnly ? false : options.headless });
   if (options.launchOnly) return { status: "chrome_ready", profileDirectory, port };
+  const ownsBrowser = Boolean(launchedBrowser);
 
+  return withOwnedControllerChromeCleanup(ownsBrowser, port, async () => {
   let sessionStatus = await getJackyunSessionStatus(port);
   if (options.checkLoginOnly) {
     return { status: sessionStatus, port };
@@ -2290,6 +2306,7 @@ async function runController(options: CliOptions) {
       playwrightBrowser.close(),
     ]);
   }
+  });
 }
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
