@@ -4,7 +4,7 @@ import test from "node:test";
 
 const workflowPath = new URL("../automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json", import.meta.url);
 
-test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上海时区和凭证隔离", async () => {
+test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五段式、上海时区和凭证隔离", async () => {
   const raw = await readFile(workflowPath, "utf8");
   const workflow = JSON.parse(raw) as {
     id: string;
@@ -60,10 +60,14 @@ test("Cookie 直连 n8n 副本保持货品前置与推广收尾五段式、上�
   assert.match(raw, /生成成功/);
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
-  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
-  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
-  assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
+  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
+  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
+  assert.equal(workflow.connections["A·计划目标日期"]?.main?.[0]?.[0]?.node, "B·逐日下载并验证 XLS");
+  assert.equal(workflow.connections["B·逐日下载并验证 XLS"]?.main?.[0]?.[0]?.node, "C·签收、导入并覆盖回查");
   assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·全站推逐日报表下载、导入并回查");
+  assert.equal(workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
+  assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"], undefined);
+  assert.match(raw, /A→B→C→P→M/);
   assert.equal(requestNodes[0]?.parameters?.options?.timeout, 1_800_000);
   assert.equal(requestNodes.at(-1)?.parameters?.options?.timeout, 21_600_000);
   assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|Cookie:\s*[^`\n]/i);
@@ -95,7 +99,7 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.match(view, /http:\/\/127\.0\.0\.1:5791\/health/);
   assert.match(view, /data-helper-status=\{helperStatus\.kind\}/);
   assert.match(view, /业务范围与规范化后的完整业务内容都一致时返回 duplicate/);
-  assert.match(view, /M → A → B → C → P/);
+  assert.match(view, /A → B → C → P → M/);
   assert.match(view, /全站推推广/);
   assert.match(view, /scheduleMetric: "11:00"/);
   assert.match(view, /scheduleTriggerLabel: "每天"/);

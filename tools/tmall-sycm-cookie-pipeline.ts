@@ -63,13 +63,10 @@ import {
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
 const defaultCookiePointerFile = path.join(projectRoot, ".runtime", "tmall-yijiu-sycm-cookie-path.txt");
-const defaultSkipMasterPermitFile = path.join(projectRoot, ".runtime", "tmall-skip-master-once.json");
-const defaultProductMasterActiveAuditFile = path.join(projectRoot, "outputs", "tmall-product-master-export", "active-tmall-yijiu.json");
 const maximumDownloadBytes = 25 * 1024 * 1024;
 export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
-export const tmallSkipMasterPermitHeader = "x-teruisi-tmall-skip-master-permit";
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
 export const jdMarketResumeRunIdHeader = "x-teruisi-jd-market-resume-run-id";
 
@@ -91,8 +88,8 @@ const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
-export type HelperStage = "ready" | "mastered" | "planned" | "fetched" | "imported" | "running" | "executed" | "completed" | "failed";
-type HelperRoute = "/product-master" | "/plan" | "/fetch" | "/import" | "/promotion";
+export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "completed" | "failed";
+export type HelperRoute = "/plan" | "/fetch" | "/import" | "/promotion" | "/product-master";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
 
@@ -759,54 +756,12 @@ export function normalizeN8nExecutionId(value: string | string[] | undefined) {
     : null;
 }
 
-export function normalizeTmallSkipMasterPermitToken(value: string | string[] | undefined) {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim();
-  return normalized.length >= 32 && normalized.length <= 128 && /^[A-Za-z0-9._:-]+$/.test(normalized)
-    ? normalized
-    : null;
-}
-
-export async function consumeTmallSkipMasterPermit({
-  token,
-  executionId,
-  now = new Date(),
-  permitFile = defaultSkipMasterPermitFile,
-  activeAuditFile = defaultProductMasterActiveAuditFile,
-}: {
-  token: string;
-  executionId: string;
-  now?: Date;
-  permitFile?: string;
-  activeAuditFile?: string;
-}) {
-  const normalizedToken = normalizeTmallSkipMasterPermitToken(token);
-  if (!normalizedToken) throw new Error("天猫跳过 M 的一次性许可格式无效");
-  if (await stat(activeAuditFile).then(() => true).catch(() => false)) {
-    throw new Error("天猫货品活动清单仍存在，禁止跳过 M");
-  }
-  let raw: Record<string, unknown>;
-  try {
-    raw = JSON.parse(await readFile(permitFile, "utf8")) as Record<string, unknown>;
-  } catch {
-    throw new Error("天猫跳过 M 的一次性许可不存在、无效或已被使用");
-  }
-  if (
-    raw.version !== 1
-    || raw.storeKey !== "tmall-yijiu"
-    || raw.token !== normalizedToken
-    || typeof raw.expiresAt !== "string"
-  ) {
-    throw new Error("天猫跳过 M 的一次性许可不匹配");
-  }
-  const expiresAt = Date.parse(raw.expiresAt);
-  if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) {
-    throw new Error("天猫跳过 M 的一次性许可已过期");
-  }
-  const ownerDigest = createHash("sha256").update(executionId).digest("hex").slice(0, 16);
-  const consumedFile = `${permitFile}.consumed-${ownerDigest}.json`;
-  await rename(permitFile, consumedFile);
-  return { status: "master_skipped_by_operator" as const, consumedFile };
+export function tmallStageAfterRoute(route: HelperRoute): HelperStage {
+  if (route === "/plan") return "planned";
+  if (route === "/fetch") return "fetched";
+  if (route === "/import") return "imported";
+  if (route === "/promotion") return "promoted";
+  return "completed";
 }
 
 export function helperRequestError(
@@ -815,25 +770,24 @@ export function helperRequestError(
   route: HelperRoute,
   requestExecutionId: string | null,
   claimedExecutionId: string | null,
-  allowPlanClaim = false,
 ) {
   if (!requestExecutionId) return { error: "missing_or_invalid_execution_id" as const };
   if (claimedExecutionId && requestExecutionId !== claimedExecutionId) {
     return { error: "execution_mismatch" as const };
   }
-  if (!claimedExecutionId && route !== "/product-master" && !(allowPlanClaim && route === "/plan" && stage === "ready")) {
-    return { error: "execution_not_claimed" as const, expected: "/product-master" as const };
+  if (!claimedExecutionId && route !== "/plan") {
+    return { error: "execution_not_claimed" as const, expected: "/plan" as const };
   }
   if (busy) return { error: "pipeline_busy" as const };
-  if (route === "/product-master") {
-    return stage === "ready" || stage === "mastered"
-      ? null
-      : { error: "invalid_stage" as const, expected: "ready_or_mastered" as const, actual: stage };
-  }
   if (route === "/plan") {
-    return stage === "mastered" || (allowPlanClaim && !claimedExecutionId && stage === "ready")
+    return stage === "ready"
       ? null
-      : { error: "invalid_stage" as const, expected: "mastered" as const, actual: stage };
+      : { error: "invalid_stage" as const, expected: "ready" as const, actual: stage };
+  }
+  if (route === "/product-master") {
+    return stage === "promoted"
+      ? null
+      : { error: "invalid_stage" as const, expected: "promoted" as const, actual: stage };
   }
   const expected: HelperStage = route === "/fetch"
     ? "planned"
@@ -937,7 +891,6 @@ async function serveCommand(argv: string[]) {
   let claimedJdExecutionId: string | null = null;
   let claimedJdMarketExecutionId: string | null = null;
   let claimedJdPromotionExecutionId: string | null = null;
-  let tmallImportFallbackClose: ReturnType<typeof setTimeout> | null = null;
   let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
     const healthCorsHeaders = request.url === "/health"
@@ -1006,12 +959,6 @@ async function serveCommand(argv: string[]) {
     }
     const route = (request.url === "/jd-promotion-cut-meat/plan" ? "/jd-promotion/plan" : request.url) as HelperRoute | JackyunHelperRoute | JdHelperRoute | JdPromotionHelperRoute | "/jd-market/plan" | "/jd-market/run" | "/jd-market/verify";
     const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
-    const skipMasterPermitToken = normalizeTmallSkipMasterPermitToken(request.headers[tmallSkipMasterPermitHeader]);
-    const requestsPlanClaim = workflow === "tmall"
-      && route === "/plan"
-      && stage === "ready"
-      && claimedTmallExecutionId === null
-      && skipMasterPermitToken !== null;
     const stateError = isJackyun
       ? jackyunHelperRequestError(
           stage,
@@ -1026,26 +973,10 @@ async function serveCommand(argv: string[]) {
           ? jdMarketHelperRequestError(stage, busy, route, requestExecutionId, claimedJdMarketExecutionId)
           : isJdPromotion
             ? jdPromotionHelperRequestError(stage as "ready" | JdPromotionN8nStage, busy, route as JdPromotionHelperRoute, requestExecutionId, claimedJdPromotionExecutionId)
-        : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId, requestsPlanClaim);
+        : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
-    }
-    if (requestsPlanClaim) {
-      try {
-        await consumeTmallSkipMasterPermit({
-          token: skipMasterPermitToken!,
-          executionId: requestExecutionId!,
-        });
-        stage = "mastered";
-      } catch (error) {
-        reply(409, {
-          ok: false,
-          error: "skip_master_permit_rejected",
-          message: error instanceof Error ? error.message : String(error),
-        });
-        return;
-      }
     }
     if (isJackyun && !claimedJackyunExecutionId) claimedJackyunExecutionId = requestExecutionId;
     if (isJd && !claimedJdExecutionId) claimedJdExecutionId = requestExecutionId;
@@ -1053,10 +984,6 @@ async function serveCommand(argv: string[]) {
     if (isJdPromotion && !claimedJdPromotionExecutionId) claimedJdPromotionExecutionId = requestExecutionId;
     if (!isJackyun && !isJd && !isJdMarket && !isJdPromotion && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
     inactivityReaper?.clear();
-    if (request.url === "/promotion" && tmallImportFallbackClose) {
-      clearTimeout(tmallImportFallbackClose);
-      tmallImportFallbackClose = null;
-    }
     activeWorkflow = workflow;
     busy = true;
     let tmallBrowserClosure: Awaited<ReturnType<typeof closeTmallWorkflowBrowser>> | null = null;
@@ -1153,36 +1080,34 @@ async function serveCommand(argv: string[]) {
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master") {
         const result = await runTmallProductMasterStage({ storeKey: "tmall-yijiu" });
-        stage = "mastered";
-        reply(200, result);
-        inactivityReaper?.arm();
+        const store = await getTmallStore("tmall-yijiu");
+        tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
+        stage = tmallStageAfterRoute("/product-master");
+        reply(200, { ...result, browserClosure: tmallBrowserClosure });
+        inactivityReaper?.clear();
+        scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/plan") {
         const result = await planCommand(["--store-key", "tmall-yijiu", "--max-days", String(maximumDaysPerRun)]);
         planPathBase64 = result.planPathBase64;
-        stage = "planned";
+        stage = tmallStageAfterRoute("/plan");
         reply(200, result);
         inactivityReaper?.arm();
       } else if (request.url === "/fetch") {
         const result = await fetchCommand(["--plan-base64", planPathBase64]);
         manifestPathBase64 = result.manifestPathBase64;
-        stage = "fetched";
+        stage = tmallStageAfterRoute("/fetch");
         reply(200, result);
         inactivityReaper?.arm();
       } else if (request.url === "/import") {
         const result = await importCommand(["--manifest-base64", manifestPathBase64]);
-        stage = "imported";
+        stage = tmallStageAfterRoute("/import");
         reply(200, result);
-        // Give an already imported four-node workflow a bounded compatibility
-        // window while allowing the new promotion node to claim the next stage.
-        tmallImportFallbackClose = scheduleOneShotServerClose(server, 30_000);
+        inactivityReaper?.arm();
       } else {
         const result = await runTmallPromotionStage(getTmallPromotionStageOptions());
-        const store = await getTmallStore("tmall-yijiu");
-        tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
-        stage = "completed";
-        reply(200, { ...result, browserClosure: tmallBrowserClosure });
-        inactivityReaper?.clear();
-        scheduleOneShotServerClose(server, 500);
+        stage = tmallStageAfterRoute("/promotion");
+        reply(200, result);
+        inactivityReaper?.arm();
       }
     } catch (error) {
       stage = "failed";

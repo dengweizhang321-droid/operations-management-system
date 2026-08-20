@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -10,7 +10,6 @@ import {
   classifySycmInspectionErrors,
   closeOneShotServer,
   closeTmallWorkflowBrowser,
-  consumeTmallSkipMasterPermit,
   createHelperInactivityReaper,
   createInitialDownloadManifest,
   decodeArtifactPath,
@@ -25,71 +24,15 @@ import {
   isLegacyXls,
   maximumDaysPerRun,
   normalizeN8nExecutionId,
-  normalizeTmallSkipMasterPermitToken,
   parseCookieHeader,
   saveDownload,
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
-  tmallSkipMasterPermitHeader,
+  tmallStageAfterRoute,
 } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent copy uses one bounded non-secret no-window header", () => {
   assert.equal(jdSilentNoWindowHeader, "x-teruisi-jd-silent-no-window");
-});
-
-test("天猫跳过 M 只接受一次性有界许可请求头", async () => {
-  assert.equal(tmallSkipMasterPermitHeader, "x-teruisi-tmall-skip-master-permit");
-  const token = "permit-12345678901234567890123456789012";
-  assert.equal(normalizeTmallSkipMasterPermitToken(token), token);
-  assert.equal(normalizeTmallSkipMasterPermitToken("short"), null);
-
-  const root = await mkdtemp(path.join(tmpdir(), "tmall-skip-master-"));
-  const permitFile = path.join(root, "permit.json");
-  const activeAuditFile = path.join(root, "active.json");
-  try {
-    await writeFile(permitFile, JSON.stringify({
-      version: 1,
-      storeKey: "tmall-yijiu",
-      token,
-      expiresAt: "2026-08-17T10:30:00.000Z",
-    }));
-    const consumed = await consumeTmallSkipMasterPermit({
-      token,
-      executionId: "execution-200",
-      now: new Date("2026-08-17T10:00:00.000Z"),
-      permitFile,
-      activeAuditFile,
-    });
-    assert.equal(consumed.status, "master_skipped_by_operator");
-    assert.equal(await stat(permitFile).then(() => true).catch(() => false), false);
-    assert.equal(await stat(consumed.consumedFile).then(() => true).catch(() => false), true);
-
-    await writeFile(permitFile, JSON.stringify({
-      version: 1,
-      storeKey: "tmall-yijiu",
-      token,
-      expiresAt: "2026-08-17T09:59:59.000Z",
-    }));
-    await assert.rejects(() => consumeTmallSkipMasterPermit({
-      token,
-      executionId: "execution-201",
-      now: new Date("2026-08-17T10:00:00.000Z"),
-      permitFile,
-      activeAuditFile,
-    }), /已过期/);
-    assert.equal(await stat(permitFile).then(() => true).catch(() => false), true);
-
-    await writeFile(activeAuditFile, "{}");
-    await assert.rejects(() => consumeTmallSkipMasterPermit({
-      token,
-      executionId: "execution-202",
-      now: new Date("2026-08-17T09:00:00.000Z"),
-      permitFile,
-      activeAuditFile,
-    }), /活动清单仍存在/);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
 });
 
 test("不同执行可保存同一目标日的不同源文件，交由导入接口比较业务内容", async () => {
@@ -270,24 +213,26 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
   assert.equal(normalizeN8nExecutionId("bad execution"), null);
   assert.equal(normalizeN8nExecutionId(undefined), null);
 
-  assert.equal(helperRequestError("ready", false, "/product-master", "execution-100", null), null);
-  assert.equal(helperRequestError("mastered", false, "/product-master", "execution-100", "execution-100"), null);
+  assert.equal(helperRequestError("ready", false, "/plan", "execution-100", null), null);
+  assert.deepEqual(helperRequestError("ready", false, "/product-master", "execution-100", null), {
+    error: "execution_not_claimed",
+    expected: "/plan",
+  });
   assert.deepEqual(helperRequestError("planned", false, "/product-master", "execution-100", "execution-100"), {
     error: "invalid_stage",
-    expected: "ready_or_mastered",
+    expected: "promoted",
     actual: "planned",
   });
-  assert.deepEqual(helperRequestError("ready", false, "/plan", "execution-100", null), {
+  assert.deepEqual(helperRequestError("ready", true, "/plan", "execution-100", null), { error: "pipeline_busy" });
+  assert.deepEqual(helperRequestError("ready", false, "/fetch", "execution-100", null), {
     error: "execution_not_claimed",
-    expected: "/product-master",
+    expected: "/plan",
   });
-  assert.equal(helperRequestError("ready", false, "/plan", "execution-100", null, true), null);
-  assert.deepEqual(helperRequestError("ready", true, "/plan", "execution-100", null, true), { error: "pipeline_busy" });
-  assert.deepEqual(helperRequestError("ready", false, "/fetch", "execution-100", null, true), {
-    error: "execution_not_claimed",
-    expected: "/product-master",
+  assert.deepEqual(helperRequestError("planned", false, "/plan", "execution-100", "execution-100"), {
+    error: "invalid_stage",
+    expected: "ready",
+    actual: "planned",
   });
-  assert.equal(helperRequestError("mastered", false, "/plan", "execution-100", "execution-100"), null);
   assert.deepEqual(helperRequestError("planned", false, "/fetch", "execution-old", "execution-100"), {
     error: "execution_mismatch",
   });
@@ -295,11 +240,6 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
     error: "invalid_stage",
     expected: "planned",
     actual: "ready",
-  });
-  assert.deepEqual(helperRequestError("planned", false, "/plan", "execution-100", "execution-100"), {
-    error: "invalid_stage",
-    expected: "mastered",
-    actual: "planned",
   });
   assert.deepEqual(helperRequestError("planned", true, "/fetch", "execution-100", "execution-100"), { error: "pipeline_busy" });
   assert.equal(helperRequestError("planned", false, "/fetch", "execution-100", "execution-100"), null);
@@ -311,8 +251,26 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
     actual: "fetched",
   });
   assert.deepEqual(helperRequestError("imported", true, "/promotion", "execution-100", "execution-100"), { error: "pipeline_busy" });
-  assert.deepEqual(helperRequestError("ready", false, "/product-master", null, null), { error: "missing_or_invalid_execution_id" });
+  assert.equal(helperRequestError("promoted", false, "/product-master", "execution-100", "execution-100"), null);
+  assert.deepEqual(helperRequestError("promoted", false, "/promotion", "execution-100", "execution-100"), {
+    error: "invalid_stage",
+    expected: "imported",
+    actual: "promoted",
+  });
+  assert.deepEqual(helperRequestError("completed", false, "/product-master", "execution-100", "execution-100"), {
+    error: "invalid_stage",
+    expected: "promoted",
+    actual: "completed",
+  });
+  assert.deepEqual(helperRequestError("ready", false, "/plan", null, null), { error: "missing_or_invalid_execution_id" });
   assert.match(JSON.stringify(helperRequestError("completed", false, "/import", "execution-100", "execution-100")), /invalid_stage/);
+  assert.deepEqual([
+    tmallStageAfterRoute("/plan"),
+    tmallStageAfterRoute("/fetch"),
+    tmallStageAfterRoute("/import"),
+    tmallStageAfterRoute("/promotion"),
+    tmallStageAfterRoute("/product-master"),
+  ], ["planned", "fetched", "imported", "promoted", "completed"]);
 });
 
 test("A/B 等非终态在有界空闲后关闭 helper，下一段领取会取消旧回收计时", () => {
