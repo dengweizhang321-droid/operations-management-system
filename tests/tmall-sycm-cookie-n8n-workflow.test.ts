@@ -105,6 +105,18 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     assert.ok(store, `${definition.storeKey} 缺少注册项`);
     return store;
   });
+  const enabledStoreKeys = registry.stores.filter((store) => store.enabled).map((store) => store.storeKey).sort();
+  assert.deepEqual(tmallN8nWorkflowDefinitions.map((definition) => definition.storeKey).sort(), enabledStoreKeys);
+  assert.equal(new Set(tmallN8nWorkflowDefinitions.map((definition) => definition.workflowId)).size, tmallN8nWorkflowDefinitions.length);
+  assert.equal(new Set(tmallN8nWorkflowDefinitions.map((definition) => definition.fileName)).size, tmallN8nWorkflowDefinitions.length);
+  assert.deepEqual(tmallN8nWorkflowDefinitions.map((definition) => definition.cronExpression), [
+    "0 11 * * *",
+    "5 11 * * *",
+    "10 11 * * *",
+    "15 11 * * *",
+    "20 11 * * *",
+    "25 11 * * *",
+  ]);
   assert.equal(new Set(selectedStores.map((store) => store.browser.userDataDir)).size, selectedStores.length);
   assert.equal(new Set(selectedStores.map((store) => store.browser.profileDir)).size, selectedStores.length);
   assert.equal(new Set(selectedStores.map((store) => store.browser.debugPort)).size, selectedStores.length);

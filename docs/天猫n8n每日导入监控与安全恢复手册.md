@@ -2,18 +2,18 @@
 
 本手册用于复用 TERUISI 天猫店铺每日数据链路的发布核验、运行监控、异常诊断、最小修复和安全恢复。它适用于值班人员与 Codex；不授权绕过 n8n 直接执行下载、导入或平台业务点击。
 
-当前亿玖店实例参数如下。复制流程到其他店铺时，必须从店铺注册表重新解析对应值，不能照抄浏览器资源或店铺身份。
+当前本机发布实例固定为以下六店。值班必须从店铺注册表重新解析浏览器资源，不能照抄另一店的 Profile、端口或店铺身份。
 
-| 项目 | 当前值 |
-| --- | --- |
-| 工作流名称 | 天猫店铺数据导入 |
-| n8n workflow ID | `M4xY8kQ2vR6sT9pC` |
-| 仓库模板 | `automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json` |
-| 店铺注册键 | `tmall-yijiu` |
-| 平台 / 店铺 | `天猫` / `天猫-志高亿玖专卖店` |
-| 时区 / 计划 | `Asia/Shanghai` / `0 11 * * *` |
-| helper | `127.0.0.1:5791` |
-| 受控 Chromium 调试端口 | `9334` |
+| 计划 | n8n workflow ID | 店铺注册键 | 店铺 | 仓库模板 | 调试端口 |
+| --- | --- | --- | --- | --- | ---: |
+| 11:00 | `M4xY8kQ2vR6sT9pC` | `tmall-yijiu` | 天猫-志高亿玖专卖店 | `tmall-yijiu-sycm-cookie-daily.workflow.json` | 9334 |
+| 11:05 | `TmallLiliDaily2026` | `tmall-lili` | 天猫-志高丽力专卖店 | `tmall-lili-sycm-cookie-daily.workflow.json` | 9325 |
+| 11:10 | `TmallTuofengDaily2026` | `tmall-tuofeng` | 天猫-志高拓丰专卖店 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 9327 |
+| 11:15 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 9328 |
+| 11:20 | `TmallCuizhiwangDaily2026` | `tmall-cuizhiwang` | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 9329 |
+| 11:25 | `TmallMasituDaily2026` | `tmall-masitu` | 天猫-志高马思图专卖店 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 9331 |
+
+六条流程均使用 `Asia/Shanghai`，共享 `127.0.0.1:5791` 的原子协调门禁；调度可以同时处于等待状态，但 A→B→C→P→M 业务阶段只能串行。
 
 ## 1. 不可越过的边界
 
@@ -33,24 +33,24 @@
 
 1. 读取 `README.md`、`AGENTS.md`、本手册、`config/tmall-store-accounts.json` 和当前工作流模板。
 2. 检查 `git status --short`。工作区已有改动属于用户，不得覆盖、格式化、暂存或提交无关文件。
-3. 比较 n8n 当前已发布版本与仓库模板的 `nodes`、`connections` 和 `settings`。模板保留 `active=false` 是正常的；实际发布实例的启用状态单独核验。
-4. 确认只有预期的天猫日调度处于启用状态，时区为 `Asia/Shanghai`，表达式为 `0 11 * * *`；定时和手动入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。
-5. 从注册表解析当前店铺的 `shopName`、`executablePath`、`userDataDir`、`profileName`、`profileDir`、`debugPort` 和 `downloadDir`；不得回退到默认 Chrome、旧 `.runtime` profile 或另一店铺配置。
-6. 只读核验 `5678`、`5791` 和本店调试端口。空闲时本店调试端口应关闭；执行中只允许由当前 execution 占用。
+3. 逐店比较 n8n 当前版本及 `activeVersionId` 对应已发布历史与各自仓库模板的 `nodes`、`connections` 和 `settings`。模板保留 `active=false` 是正常的；实际发布实例的启用状态单独核验。
+4. 确认六店恰好各有一条 active 日调度，时区均为 `Asia/Shanghai`，cron 依次为 `0/5/10/15/20/25 11 * * *`；不得残留第二条 active 天猫业务流水线。定时和手动入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。
+5. 从注册表逐店解析 `shopName`、`executablePath`、`userDataDir`、`profileName`、`profileDir`、`debugPort` 和 `downloadDir`，并确认资源互不重复；不得回退到默认 Chrome、旧 `.runtime` profile 或另一店铺配置。
+6. 只读核验 `5678`、`5791` 和六店调试端口。空闲时调试端口都应关闭；执行中只允许由当前 execution 占用对应店铺端口。
 
 可直接使用的非业务健康检查：
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:5791/health
-Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9334 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331,9334 -ErrorAction SilentlyContinue
 ```
 
-### 2.2 11:03 监控判定
+### 2.2 11:03 起的六店监控判定
 
-- 按每个 `enabled=true` 店铺的已发布模板查找当日 scheduled execution，并记录 execution ID 与固定店铺键；亿玖店为 11:00，其他店铺只有在完成登录核验、启用并发布后才按各自错峰时间纳入监控。`enabled=false` 的店铺不应出现 active 调度。
-- 若正在运行，持续监控到终态，不以节点变绿、任务已创建或文件已下载提前结束。
-- 若 11:05 仍无 scheduled execution，检查当前发布版本、工作流启用状态、trigger 注册、时区和 n8n 服务；不得新建第二条并发业务流水线。
-- 任一阶段失败时，先保存 execution ID、店铺、目标业务日期、失败节点、脱敏错误、活动清单阶段和浏览器所有权，再决定是否可自动恢复。
+- 11:03 先查 11:00 的亿玖 execution，随后守候 11:05、11:10、11:15、11:20、11:25 五条触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。
+- 若某店正在运行或在 A 前等待 helper，持续监控到终态；协调等待是六店串行门禁的正常状态，不以此创建重复 execution。
+- 若到某店计划时间后 5 分钟仍无当日 `mode=trigger` execution，检查同一 workflow ID 的当前发布版本、启用状态、trigger 注册、时区和 n8n 服务；不得新建同名副本或并发业务流水线。
+- 任一阶段失败时，先保存 execution ID、店铺、目标业务日期、失败节点、脱敏错误、活动清单阶段和浏览器所有权，再决定是否可自动恢复。单店失败后仍要继续核验其余五店；只有 helper 未安全释放时才把后续等待视为同一阻塞链。
 
 ## 3. 五个节点的完成证据
 
@@ -164,7 +164,7 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9334 -ErrorAction Silent
 
 ## 8. 交付与状态汇报
 
-每次监控或恢复结束时至少报告：
+每次监控或恢复结束时逐店报告；六店汇总不得用一店成功替代其他店状态。至少包括：
 
 - n8n execution ID、店铺、目标业务日期和总体终态；
 - A/B/C/P/M 各节点状态；
