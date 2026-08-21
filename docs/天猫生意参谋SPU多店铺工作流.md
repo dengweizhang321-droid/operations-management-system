@@ -2,6 +2,8 @@
 
 本流程用于逐店补齐生意参谋“商品排行”SPU 分天 `.xls` 数据，并在运营系统中完成店铺隔离、日期校验、幂等导入和落库回查。业务日期以 `Asia/Shanghai` 为准，默认只处理到昨天。
 
+日常值班、当日 execution 核验、异常分类、完整 n8n 恢复、钉钉通知和扩店检查清单见 [`天猫 n8n 每日导入监控与安全恢复手册`](天猫n8n每日导入监控与安全恢复手册.md)。
+
 ## 1. 安全边界
 
 - 店铺注册表位于 `config/tmall-store-accounts.json`。每个店铺必须使用不同的 `profileDir`、`debugPort` 和 `downloadDir`。若 Profile 位于共享 Chromium 用户数据根目录，还必须配置 `executablePath`、`userDataDir` 与 `profileName`；程序会校验 `profileDir = userDataDir/profileName`，并同时传入 `--user-data-dir` 与 `--profile-directory`。
