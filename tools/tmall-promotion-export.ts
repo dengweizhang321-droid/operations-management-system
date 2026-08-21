@@ -9,6 +9,7 @@ import { launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { netshopOutletKey } from "../lib/netshop/query-contract";
 import {
   getTmallStore,
   resolveTmallBrowserLaunchTarget,
@@ -493,16 +494,20 @@ export function assertPromotionImportPayload(
   } as const;
 }
 
-async function coverageForStore(baseUrl: string, store: TmallStore, startDate: string, endDate: string, request: typeof fetch) {
+export function buildTmallPromotionCoverageUrl(baseUrl: string, store: Pick<TmallStore, "shopName">, startDate: string, endDate: string) {
   const params = new URLSearchParams({
     platform: "天猫",
-    shop: store.shopName,
+    outlet: netshopOutletKey("天猫", store.shopName),
     startDate,
     endDate,
     page: "1",
     pageSize: "1",
   });
-  const response = await request(`${baseUrl}/api/netshop/promotion-performance?${params}`, {
+  return `${baseUrl}/api/netshop/promotion-performance?${params}`;
+}
+
+async function coverageForStore(baseUrl: string, store: TmallStore, startDate: string, endDate: string, request: typeof fetch) {
+  const response = await request(buildTmallPromotionCoverageUrl(baseUrl, store, startDate, endDate), {
     signal: AbortSignal.timeout(30_000),
   });
   const payload = await response.json().catch(() => null) as PromotionCoveragePayload | null;

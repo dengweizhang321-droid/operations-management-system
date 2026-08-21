@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertPromotionCoveragePayload,
   assertPromotionImportPayload,
+  buildTmallPromotionCoverageUrl,
   clickCalendarMonthArrowWithFallback,
   chooseTmallPromotionDownloadTask,
   chooseTmallPromotionEntryPageIndex,
@@ -432,6 +433,22 @@ test("推广覆盖响应必须精确匹配请求周期并拒绝非法日期", ()
     requestedPeriod: expected,
     coverage: { productDailyDates: ["2026-07-27"], promotionDates: [] },
   }, expected), /请求区间外日期/);
+});
+
+test("推广覆盖回查使用平台与店铺复合 outlet，不再发送旧 shop 参数", () => {
+  const url = new URL(buildTmallPromotionCoverageUrl(
+    "http://localhost:3000",
+    { shopName: "天猫-志高亿玖专卖店" },
+    "2026-08-20",
+    "2026-08-20",
+  ));
+
+  assert.equal(url.pathname, "/api/netshop/promotion-performance");
+  assert.deepEqual(url.searchParams.getAll("platform"), ["天猫"]);
+  assert.equal(url.searchParams.get("outlet"), "天猫\u001f天猫-志高亿玖专卖店");
+  assert.equal(url.searchParams.has("shop"), false);
+  assert.equal(url.searchParams.get("startDate"), "2026-08-20");
+  assert.equal(url.searchParams.get("endDate"), "2026-08-20");
 });
 
 test("没有商品日覆盖时推广阶段明确等待并通过失败状态让调用链重试", async () => {
