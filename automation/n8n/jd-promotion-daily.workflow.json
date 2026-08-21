@@ -5,7 +5,7 @@
     {
       "parameters": {},
       "id": "7a8b9c10-1112-4314-8516-171819202101",
-      "name": "手动补跑8月13日至14日",
+      "name": "手动补跑8月20日",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [-700, -80]
@@ -14,8 +14,8 @@
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "target-start", "name": "startDate", "value": "2026-08-13", "type": "string" },
-            { "id": "target-end", "name": "endDate", "value": "2026-08-14", "type": "string" }
+            { "id": "target-start", "name": "startDate", "value": "2026-08-20", "type": "string" },
+            { "id": "target-end", "name": "endDate", "value": "2026-08-20", "type": "string" }
           ]
         },
         "options": {}
@@ -37,14 +37,64 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
+            { "name": "X-TERUISI-COORDINATION-ATTEMPT", "value": "={{ $runIndex }}" },
+            { "name": "X-TERUISI-WORKFLOW-KEY", "value": "jd-promotion" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      },
+      "id": "7a8b9c10-1112-4314-8516-171819202109",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-300, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "7a8b9c10-1112-4314-8516-171819202110",
+              "leftValue": "={{ $json.coordinationStatus }}",
+              "rightValue": "granted",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a8b9c10-1112-4314-8516-171819202111",
+      "name": "helper 领取成功？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-100, 0]
+    },
+    {
+      "parameters": { "resume": "timeInterval", "amount": 5, "unit": "minutes" },
+      "id": "7a8b9c10-1112-4314-8516-171819202112",
+      "name": "等待前序流程释放 helper",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-100, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://127.0.0.1:5791/jd-promotion/plan",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
             { "name": "X-TERUISI-JD-PROMOTION-STORE-KEY", "value": "jd-yiyong-director" },
-            { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $json.startDate || $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
-            { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $json.endDate || $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" }
+            { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.startDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
+            { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.endDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" }
           ]
         },
         "options": { "timeout": 120000 }
@@ -53,7 +103,7 @@
       "name": "A·固化京准通目标日期与店铺",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-330, 0]
+      "position": [120, 0]
     },
     {
       "parameters": {
@@ -67,7 +117,7 @@
       "name": "B·生成下载校验导入并回查",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [70, 0]
+      "position": [520, 0]
     },
     {
       "parameters": {
@@ -81,7 +131,7 @@
       "name": "C·独立复验文件与精确批次",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [470, 0]
+      "position": [920, 0]
     },
     {
       "parameters": {
@@ -98,7 +148,7 @@
     },
     {
       "parameters": {
-        "content": "## A → B → C 闭环\n手动入口当前固定补跑 2026-08-13 至 2026-08-14；每日 10:30 入口使用 Asia/Shanghai 的昨天。A 绑定 n8n execution ID、店铺注册表与本机系统；B 依次执行自定义报表、AI推广数据自动下载、日期选择、生成任务、下载中心唯一任务接管、UTF-8 CSV 校验、精确范围导入和回查；C 重新读取文件并核对 SHA-256、行数、账户集合及精确 completed 批次。任一歧义、重复候选、跨执行或日期缺口都会失败关闭。",
+        "content": "## 原子协调领取 + A → B → C 闭环\n手动入口当前补跑 2026-08-20；每日 10:30 入口使用 Asia/Shanghai 的昨天。定时和手动入口都先原子领取共享 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后，A 绑定 n8n execution ID、店铺注册表与本机系统；B 依次执行自定义报表、AI推广数据自动下载、日期选择、生成任务、下载中心唯一任务接管、UTF-8 CSV 校验、精确范围导入和回查；C 重新读取文件并核对 SHA-256、行数、账户集合及精确 completed 批次。任一歧义、重复候选、跨执行或日期缺口都会失败关闭。",
         "height": 205,
         "width": 880,
         "color": 4
@@ -112,15 +162,23 @@
   ],
   "pinData": {},
   "connections": {
-    "手动补跑8月13日至14日": { "main": [[{ "node": "手动补跑日期", "type": "main", "index": 0 }]] },
-    "手动补跑日期": { "main": [[{ "node": "A·固化京准通目标日期与店铺", "type": "main", "index": 0 }]] },
-    "每天 10:30 执行": { "main": [[{ "node": "A·固化京准通目标日期与店铺", "type": "main", "index": 0 }]] },
+    "手动补跑8月20日": { "main": [[{ "node": "手动补跑日期", "type": "main", "index": 0 }]] },
+    "手动补跑日期": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "每天 10:30 执行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "领取共享 helper": { "main": [[{ "node": "helper 领取成功？", "type": "main", "index": 0 }]] },
+    "helper 领取成功？": {
+      "main": [
+        [{ "node": "A·固化京准通目标日期与店铺", "type": "main", "index": 0 }],
+        [{ "node": "等待前序流程释放 helper", "type": "main", "index": 0 }]
+      ]
+    },
+    "等待前序流程释放 helper": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
     "A·固化京准通目标日期与店铺": { "main": [[{ "node": "B·生成下载校验导入并回查", "type": "main", "index": 0 }]] },
     "B·生成下载校验导入并回查": { "main": [[{ "node": "C·独立复验文件与精确批次", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1", "timezone": "Asia/Shanghai" },
-  "versionId": "5d213c74-b0fa-46bb-80ea-a3479de19101",
+  "versionId": "7c6293c5-84a6-454a-9aff-89b7da0c5465",
   "meta": { "templateCredsSetupCompleted": true },
   "tags": []
 }

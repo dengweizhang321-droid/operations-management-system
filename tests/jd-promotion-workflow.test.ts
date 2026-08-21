@@ -420,17 +420,19 @@ test("京准通 n8n A/B/C 固化 8月13日至14日并独立复验文件和已发
   assert.deepEqual([verified.stage, verified.rowCount, plan.stage], ["verify", 2, "completed"]);
 });
 
-test("京准通 n8n 模板保持未激活并以同一 execution ID 串联三段环回请求", async () => {
+test("京准通 n8n 模板保持未激活、先原子领取 helper 再以同一 execution ID 串联三段请求", async () => {
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-promotion-daily.workflow.json", import.meta.url), "utf8")) as {
     active: boolean;
     settings?: { timezone?: string };
-    nodes: Array<{ type: string; parameters?: { url?: string; rule?: { interval?: Array<{ expression?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
+    connections: Record<string, { main?: Array<Array<{ node?: string }>> }>;
+    nodes: Array<{ name: string; type: string; parameters?: { url?: string; rule?: { interval?: Array<{ expression?: string }> }; assignments?: { assignments?: Array<{ name?: string; value?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
   };
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings?.timezone, "Asia/Shanghai");
   assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger")?.parameters?.rule?.interval?.[0]?.expression, "30 10 * * *");
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
   assert.deepEqual(requests.map((node) => node.parameters?.url), [
+    "http://127.0.0.1:5791/coordination/claim",
     "http://127.0.0.1:5791/jd-promotion/plan",
     "http://127.0.0.1:5791/jd-promotion/run",
     "http://127.0.0.1:5791/jd-promotion/verify",
@@ -438,7 +440,20 @@ test("京准通 n8n 模板保持未激活并以同一 execution ID 串联三段�
   for (const request of requests) {
     assert.deepEqual(request.parameters?.headerParameters?.parameters?.[0], { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" });
   }
-  assert.deepEqual(requests[0]?.parameters?.headerParameters?.parameters?.[1], { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-yiyong-director" });
+  assert.deepEqual(requests[0]?.parameters?.headerParameters?.parameters?.slice(1), [
+    { name: "X-TERUISI-COORDINATION-ATTEMPT", value: "={{ $runIndex }}" },
+    { name: "X-TERUISI-WORKFLOW-KEY", value: "jd-promotion" },
+  ]);
+  assert.deepEqual(requests[1]?.parameters?.headerParameters?.parameters?.[1], { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-yiyong-director" });
+  assert.deepEqual(workflow.nodes.find((node) => node.name === "手动补跑日期")?.parameters?.assignments?.assignments?.map((item) => [item.name, item.value]), [
+    ["startDate", "2026-08-20"],
+    ["endDate", "2026-08-20"],
+  ]);
+  assert.equal(workflow.connections["手动补跑日期"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["每天 10:30 执行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["等待前序流程释放 helper"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·固化京准通目标日期与店铺");
+  assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
 });
 
 test("切肉机京准通 n8n 模板固定 Profile 2 店铺和 2026年8月13日至14日且保持未激活", async () => {
