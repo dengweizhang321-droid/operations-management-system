@@ -173,6 +173,7 @@ test("生意参谋二进制 XLS 转换金额、比率并校验目标日期", asy
     bytes,
     fileName: "daily.xls",
     fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
     expectedStartDate: "2026-07-31",
     expectedEndDate: "2026-07-31",
   });
@@ -187,6 +188,7 @@ test("生意参谋二进制 XLS 转换金额、比率并校验目标日期", asy
     bytes,
     fileName: "daily.xls",
     fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
     expectedStartDate: "2026-08-01",
     expectedEndDate: "2026-08-01",
   });
@@ -200,6 +202,7 @@ test("推广 ZIP 按 GB18030 解码并把 nan 规范为 null", async () => {
     bytes,
     fileName: "promotion.zip",
     fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
     expectedStartDate: "2026-07-31",
     expectedEndDate: "2026-07-31",
   });
@@ -220,6 +223,7 @@ test("推广 ZIP 多 CSV 时拒绝解析", async () => {
       bytes,
       fileName: "promotion.zip",
       fileSizeBytes: bytes.byteLength,
+      shopName: TMALL_YIJIU_SHOP,
       expectedStartDate: "2026-07-31",
       expectedEndDate: "2026-07-31",
     }),

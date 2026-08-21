@@ -90,7 +90,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.doesNotMatch(raw, /localhost:8000|teruisi123|_tb_token_=|cookie2=/i);
 });
 
-test("六店 n8n 模板固定绑定独立店铺键、错峰调度且新增五店默认停用", async () => {
+test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板默认未激活", async () => {
   const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as {
     stores: Array<{
       storeKey: string;
@@ -159,7 +159,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且新增五店
     const store = selectedStores[index]!;
     assert.equal(store.shopName, definition.shopName);
     assert.equal(store.loginMode, "windows_dpapi_credentials");
-    if (definition.storeKey !== "tmall-yijiu") assert.equal(store.enabled, false);
+    assert.equal(store.enabled, true);
   }
 });
 

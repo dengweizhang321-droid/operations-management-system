@@ -88,8 +88,8 @@ test("天猫店铺注册表拒绝 userDataDir 与 profileDir 错位", () => {
 });
 
 test("服务端只接受注册表中启用的天猫店铺", () => {
-  assert.equal(enabledTmallStoreCatalog().length, 1);
-  assert.equal(resolveEnabledTmallShop().shopName, "天猫-志高亿玖专卖店");
+  assert.equal(enabledTmallStoreCatalog().length, 6);
+  assert.throws(() => resolveEnabledTmallShop(), /必须明确指定已启用的店铺/);
   const yijiu = resolveEnabledTmallShop("天猫-志高亿玖专卖店");
   assert.equal(yijiu.storeKey, "tmall-yijiu");
   assert.equal(yijiu.browser.userDataDir, "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data");
@@ -97,10 +97,11 @@ test("服务端只接受注册表中启用的天猫店铺", () => {
   assert.equal(yijiu.browser.profileDir, "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data/Default");
   assert.equal(yijiu.browser.debugPort, 9334);
   assert.equal(yijiu.loginMode, "windows_dpapi_credentials");
-  assert.throws(() => resolveEnabledTmallShop("天猫-志高丽力专卖店"), /未注册或未启用/);
+  assert.equal(resolveEnabledTmallShop("天猫-志高丽力专卖店").storeKey, "tmall-lili");
+  assert.throws(() => resolveEnabledTmallShop("天猫-志高乐度专卖店"), /未注册或未启用/);
 });
 
-test("新增五店使用独立 Chromium 根目录并在首次登录完成前保持停用", () => {
+test("新增五店完成首次登录后启用且继续使用独立 Chromium 根目录", () => {
   const selectedKeys = ["tmall-lili", "tmall-tuofeng", "tmall-yiyong", "tmall-cuizhiwang", "tmall-masitu"];
   const stores = validateTmallStoreRegistry(
     { version: 1, stores: tmallStoreRegistryData.stores },
@@ -108,7 +109,7 @@ test("新增五店使用独立 Chromium 根目录并在首次登录完成前保�
     "C:\\Users\\test\\AppData\\Local",
   );
   const selected = selectedKeys.map((storeKey) => resolveRegisteredTmallStore(stores, storeKey));
-  assert.equal(selected.every((item) => item.enabled === false), true);
+  assert.equal(selected.every((item) => item.enabled === true), true);
   assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
   assert.equal(selected.every((item) => item.browser.profileName === "Default"), true);
   assert.equal(new Set(selected.map((item) => item.browser.userDataDir?.toLowerCase())).size, selected.length);
@@ -116,7 +117,8 @@ test("新增五店使用独立 Chromium 根目录并在首次登录完成前保�
   assert.equal(new Set(selected.map((item) => item.browser.downloadDir.toLowerCase())).size, selected.length);
   for (const item of selected) {
     assert.equal(item.browser.profileDir.toLowerCase(), path.join(item.browser.userDataDir!, "Default").toLowerCase());
-    assert.throws(() => resolveEnabledRegisteredTmallStore(stores, item.storeKey), /尚未启用/);
+    assert.equal(resolveEnabledRegisteredTmallStore(stores, item.storeKey).shopName, item.shopName);
   }
+  assert.throws(() => resolveEnabledRegisteredTmallStore(stores, "tmall-ledu"), /尚未启用/);
   assert.throws(() => resolveRegisteredTmallStore(stores, "tmall-unknown"), /未找到天猫店铺注册项/);
 });
