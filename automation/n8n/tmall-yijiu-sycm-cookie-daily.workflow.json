@@ -36,6 +36,91 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-COORDINATION-ATTEMPT",
+              "value": "={{ $runIndex }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "tmall"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578083",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -620,
+        40
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "89948ab3-2be8-4f02-85a2-8aba79578085",
+              "leftValue": "={{ $json.coordinationStatus }}",
+              "rightValue": "granted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578084",
+      "name": "helper 领取成功？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -400,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578086",
+      "name": "等待前序流程释放 helper",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://127.0.0.1:5791/product-master",
         "sendHeaders": true,
         "headerParameters": {
@@ -181,7 +266,7 @@
     },
     {
       "parameters": {
-        "content": "## 五段式安全门禁\n本地运营系统启动器会守护只监听 `127.0.0.1:5791` 的一次性辅助进程，并在每轮成功或失败退出后自动重新待命；点击执行前先确认工作流页面显示“辅助服务已就绪”。五个节点按 A→B→C→P→M 绑定同一 n8n 执行 ID，A 是唯一领取执行所有权的入口，旧执行、缺失 ID、乱序和并发请求均失败关闭；商品日与推广日每轮各最多处理一天。A 先启动注册表中的亿玖店独立 Chromium，登录失效时仅从当前 Windows 用户绑定的 DPAPI 凭据项向唯一密码表单提交一次，随后精确核验店铺身份；验证码、安全验证、凭据缺失/损坏或身份不符都停止，n8n 不传输或记录明文凭据。认证通过后 A 默认直接计划昨天，显式目标日期也不按已有覆盖预先跳过；B 从同一会话取得 Cookie，对当前业务日单独下载并验证 XLS；C 在导入时按业务范围与规范化后的完整内容判重并回查。P 仅在 C 完成后从千牛店铺后台最左侧依次点击“推广 > 货品全站推 > 报表 > 下载报表”（后两项分别位于全站推页面左侧和右侧）；关闭可安全识别的平台消息或广告弹窗，将目标日期按升序拆成独立日报，每份报表的开始和结束日期都选同一个业务日并选择、回读“全部数据指标”。确认后只点击右上角同时包含“离线数据生成成功”和“下载任务管理”的成功提示内“立即前往/前往下载”，进入新页面后只下载当前目标日与创建时间唯一匹配且状态为“生成成功”的 ZIP，校验单 CSV、商品主体、唯一目标日、店铺、行数和哈希后导入系统并回查；当天完整成功后才进入下一天。最后 M 复用同一亿玖店独立 Chromium 会话，进入千牛“商品 > 出售中”，关闭右下角“重要通知”（若显示），再从右下角打开“商品管家”，在右侧聊天发送“导出全部商品”、确认任务、等待生成并下载 XLSX；随后校验发布模板、店铺、行数和哈希，提交货品主数据导入并回查。M 成功或任一阶段失败后，只关闭本轮受控店铺实例；M 失败不会回滚已完成并回查的商品日或推广数据，但整个 n8n execution 仍保持失败，活动清单按原快照安全续接，禁止重置或重复发送导出指令。",
+        "content": "## 五段式安全门禁\n本地运营系统启动器会守护只监听 `127.0.0.1:5791` 的一次性辅助进程，并在每轮成功或失败退出后自动重新待命；点击执行前先确认工作流页面显示“辅助服务已就绪”。定时和手动入口先以 workflow key + n8n execution ID 原子领取 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后五个节点按 A→B→C→P→M 绑定同一 n8n 执行 ID，旧执行、缺失 ID、乱序和并发请求均失败关闭；商品日与推广日每轮各最多处理一天。A 先启动注册表中的亿玖店独立 Chromium，登录失效时仅从当前 Windows 用户绑定的 DPAPI 凭据项向唯一密码表单提交一次，随后精确核验店铺身份；验证码、安全验证、凭据缺失/损坏或身份不符都停止，n8n 不传输或记录明文凭据。认证通过后 A 默认直接计划昨天，显式目标日期也不按已有覆盖预先跳过；B 从同一会话取得 Cookie，对当前业务日单独下载并验证 XLS；C 在导入时按业务范围与规范化后的完整内容判重并回查。P 仅在 C 完成后从千牛店铺后台最左侧依次点击“推广 > 货品全站推 > 报表 > 下载报表”（后两项分别位于全站推页面左侧和右侧）；关闭可安全识别的平台消息或广告弹窗，将目标日期按升序拆成独立日报，每份报表的开始和结束日期都选同一个业务日并选择、回读“全部数据指标”。确认后只点击右上角同时包含“离线数据生成成功”和“下载任务管理”的成功提示内“立即前往/前往下载”，进入新页面后只下载当前目标日与创建时间唯一匹配且状态为“生成成功”的 ZIP，校验单 CSV、商品主体、唯一目标日、店铺、行数和哈希后导入系统并回查；当天完整成功后才进入下一天。最后 M 复用同一亿玖店独立 Chromium 会话，进入千牛“商品 > 出售中”，关闭右下角“重要通知”（若显示），再从右下角打开“商品管家”，在右侧聊天发送“导出全部商品”、确认任务、等待生成并下载 XLSX；随后校验发布模板、店铺、行数和哈希，提交货品主数据导入并回查。M 成功或任一阶段失败后，只关闭本轮受控店铺实例；M 失败不会回滚已完成并回查的商品日或推广数据，但整个 n8n execution 仍保持失败，活动清单按原快照安全续接，禁止重置或重复发送导出指令。",
         "height": 220,
         "width": 660,
         "color": 4
@@ -202,7 +287,7 @@
       "main": [
         [
           {
-            "node": "A·计划目标日期",
+            "node": "领取共享 helper",
             "type": "main",
             "index": 0
           }
@@ -213,7 +298,47 @@
       "main": [
         [
           {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "领取共享 helper": {
+      "main": [
+        [
+          {
+            "node": "helper 领取成功？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "helper 领取成功？": {
+      "main": [
+        [
+          {
             "node": "A·计划目标日期",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待前序流程释放 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待前序流程释放 helper": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
             "type": "main",
             "index": 0
           }

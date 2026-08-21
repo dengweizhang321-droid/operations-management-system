@@ -17,7 +17,7 @@
 
 ## 1. 不可越过的边界
 
-- 每次真实执行都必须由 n8n 创建完整 workflow execution，并按 `A→B→C→P→M` 串行运行。A 是唯一领取 helper execution owner 的入口。
+- 每次真实执行都必须由 n8n 创建完整 workflow execution，并在 A 前通过原子协调接口领取 helper；未获授权时每 5 分钟等待，累计 72 次、约 6 小时后失败关闭。领取成功后按 `A→B→C→P→M` 串行运行，A 是唯一进入业务计划和浏览器阶段的入口。
 - 监控与恢复人员不得直接调用 helper 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，也不得直接运行下载或导入脚本代替 n8n。
 - 允许直接读取 `/health`，因为它只返回阶段、忙碌状态和非敏感就绪状态。不得把“helper ready”解释为平台登录有效或数据已经导入。
 - 不得单独重跑 B、C、P 或 M；修复后只能从 n8n 启动新的完整 execution。导入接口的内容幂等负责处理已经成功发布的事实。
@@ -34,7 +34,7 @@
 1. 读取 `README.md`、`AGENTS.md`、本手册、`config/tmall-store-accounts.json` 和当前工作流模板。
 2. 检查 `git status --short`。工作区已有改动属于用户，不得覆盖、格式化、暂存或提交无关文件。
 3. 比较 n8n 当前已发布版本与仓库模板的 `nodes`、`connections` 和 `settings`。模板保留 `active=false` 是正常的；实际发布实例的启用状态单独核验。
-4. 确认只有预期的天猫日调度处于启用状态，时区为 `Asia/Shanghai`，表达式为 `0 11 * * *`，节点顺序为 `A→B→C→P→M`。
+4. 确认只有预期的天猫日调度处于启用状态，时区为 `Asia/Shanghai`，表达式为 `0 11 * * *`；定时和手动入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。
 5. 从注册表解析当前店铺的 `shopName`、`executablePath`、`userDataDir`、`profileName`、`profileDir`、`debugPort` 和 `downloadDir`；不得回退到默认 Chrome、旧 `.runtime` profile 或另一店铺配置。
 6. 只读核验 `5678`、`5791` 和本店调试端口。空闲时本店调试端口应关闭；执行中只允许由当前 execution 占用。
 

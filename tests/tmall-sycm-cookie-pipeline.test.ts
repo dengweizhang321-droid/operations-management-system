@@ -23,16 +23,70 @@ import {
   jdSilentNoWindowHeader,
   isLegacyXls,
   maximumDaysPerRun,
+  maximumWorkflowCoordinationAttempts,
   normalizeN8nExecutionId,
+  parseWorkflowCoordinationAttempt,
+  parseWorkflowCoordinationKey,
   parseCookieHeader,
   saveDownload,
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
   tmallStageAfterRoute,
+  workflowClaimDecision,
+  workflowCoordinationWaitExpired,
+  workflowCoordinationAttemptHeader,
+  workflowCoordinationKeyHeader,
 } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent copy uses one bounded non-secret no-window header", () => {
   assert.equal(jdSilentNoWindowHeader, "x-teruisi-jd-silent-no-window");
+});
+
+test("工作流协调领取使用受控键并在 A 前原子授予唯一 execution", () => {
+  assert.equal(workflowCoordinationKeyHeader, "x-teruisi-workflow-key");
+  assert.equal(workflowCoordinationAttemptHeader, "x-teruisi-coordination-attempt");
+  assert.equal(maximumWorkflowCoordinationAttempts, 72);
+  assert.equal(parseWorkflowCoordinationAttempt(undefined), 0);
+  assert.equal(parseWorkflowCoordinationAttempt("0"), 0);
+  assert.equal(parseWorkflowCoordinationAttempt("72"), 72);
+  assert.equal(parseWorkflowCoordinationAttempt("-1"), null);
+  assert.equal(parseWorkflowCoordinationAttempt("bad"), null);
+  assert.equal(workflowCoordinationWaitExpired(71, "waiting"), false);
+  assert.equal(workflowCoordinationWaitExpired(72, "waiting"), true);
+  assert.equal(workflowCoordinationWaitExpired(72, "granted"), false);
+  assert.equal(parseWorkflowCoordinationKey("tmall"), "tmall");
+  assert.equal(parseWorkflowCoordinationKey("jd-market"), "jd-market");
+  assert.equal(parseWorkflowCoordinationKey("unknown"), null);
+  assert.equal(parseWorkflowCoordinationKey(["jd"]), null);
+
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: null, requestedWorkflow: "jd",
+    requestExecutionId: "execution-jd", claimedExecutionId: null,
+  }), { coordinationStatus: "granted", shouldClaim: true });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: "jd", requestedWorkflow: "jd",
+    requestExecutionId: "execution-jd", claimedExecutionId: "execution-jd",
+  }), { coordinationStatus: "granted", shouldClaim: false });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "running", busy: true, activeWorkflow: "jd", requestedWorkflow: "tmall",
+    requestExecutionId: "execution-tmall", claimedExecutionId: null,
+  }), { coordinationStatus: "waiting", reason: "active_workflow", activeWorkflow: "jd" });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: "jd", requestedWorkflow: "jd",
+    requestExecutionId: "execution-new", claimedExecutionId: "execution-old",
+  }), { coordinationStatus: "waiting", reason: "active_workflow", activeWorkflow: "jd" });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "failed", busy: false, activeWorkflow: null, requestedWorkflow: "jd-market",
+    requestExecutionId: "execution-market", claimedExecutionId: null,
+  }), { coordinationStatus: "waiting", reason: "helper_not_ready", activeWorkflow: null });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: null, requestedWorkflow: null,
+    requestExecutionId: "execution", claimedExecutionId: null,
+  }), { error: "missing_or_invalid_workflow_key" });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: null, requestedWorkflow: "tmall",
+    requestExecutionId: null, claimedExecutionId: null,
+  }), { error: "missing_or_invalid_execution_id" });
 });
 
 test("不同执行可保存同一目标日的不同源文件，交由导入接口比较业务内容", async () => {

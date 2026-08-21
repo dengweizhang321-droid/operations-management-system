@@ -28,11 +28,14 @@
     },
     {
       "parameters": {
-        "url": "http://127.0.0.1:5791/health",
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-COORDINATION-ATTEMPT", "value": "={{ $runIndex }}" }, { "name": "X-TERUISI-WORKFLOW-KEY", "value": "jd-market" }] },
         "options": { "timeout": 10000 }
       },
       "id": "a96a27f9-b3a7-414a-a667-200000000009",
-      "name": "检查 helper 是否空闲",
+      "name": "领取共享 helper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [-310, 100],
@@ -46,8 +49,8 @@
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
           "conditions": [{
             "id": "a96a27f9-b3a7-414a-a667-200000000011",
-            "leftValue": "={{ $json.busy === false && $json.activeWorkflow === null && $json.stage === 'ready' ? 'ready' : 'wait' }}",
-            "rightValue": "ready",
+            "leftValue": "={{ $json.coordinationStatus }}",
+            "rightValue": "granted",
             "operator": { "type": "string", "operation": "equals" }
           }],
           "combinator": "and"
@@ -55,7 +58,7 @@
         "options": {}
       },
       "id": "a96a27f9-b3a7-414a-a667-200000000010",
-      "name": "helper 已空闲？",
+      "name": "helper 领取成功？",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [-110, 100]
@@ -63,7 +66,7 @@
     {
       "parameters": { "resume": "timeInterval", "amount": 5, "unit": "minutes" },
       "id": "a96a27f9-b3a7-414a-a667-200000000012",
-      "name": "等待四店流程释放 helper",
+      "name": "等待前序流程释放 helper",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [-110, 260]
@@ -125,7 +128,7 @@
     },
     {
       "parameters": {
-        "content": "## 7 类目串行、严格导入与恢复\n市场 → 商品榜单 → 交易榜单；SKU；依次处理商用净水设备、商用开水器/蒸气奶泡机、商用炒菜机、商用绞肉机/切肉机/切片机、商用切菜机、商用洗碗机、商用磨粉机/粉碎机。10:00 定时 execution 先让四店流程领取 helper，再每 5 分钟检查一次，仅在 stage=ready、busy=false 且 activeWorkflow=null 时进入 A；手动分支直接进入 A。A 分别只读计算缺失日；B 每个未完成分块前捕获当前类目的新鲜精确请求，按最多 5 日一文件静默下载；签收文件通过大小、SHA-256、身份、日期和行数重验后才导入，并要求严格 completed proof。响应丢失时，新 n8n execution 只能从 A 接管唯一未闭环计划并精确重投；running、歧义计划或身份漂移失败关闭。C 回查原计划全部目标日。主模板与静默副本不得同时启用。",
+        "content": "## 7 类目串行、严格导入与恢复\n市场 → 商品榜单 → 交易榜单；SKU；依次处理商用净水设备、商用开水器/蒸气奶泡机、商用炒菜机、商用绞肉机/切肉机/切片机、商用切菜机、商用洗碗机、商用磨粉机/粉碎机。10:00 定时 execution 先让四店流程领取 helper，再通过原子协调接口领取；未获授权时每 5 分钟等待，手动恢复也必须经过同一门禁。A 分别只读计算缺失日；B 每个未完成分块前捕获当前类目的新鲜精确请求，按最多 5 日一文件静默下载；签收文件通过大小、SHA-256、身份、日期和行数重验后才导入，并要求严格 completed proof。响应丢失时，新 n8n execution 只能从 A 接管唯一未闭环计划并精确重投；running、歧义计划或身份漂移失败关闭。C 回查原计划全部目标日。主模板与静默副本不得同时启用。",
         "height": 230,
         "width": 860,
         "color": 3
@@ -139,12 +142,12 @@
   ],
   "pinData": {},
   "connections": {
-    "手动运行": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
+    "手动运行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
     "每天 10:00 补缺": { "main": [[{ "node": "定时分支先让四店领取 helper", "type": "main", "index": 0 }]] },
-    "定时分支先让四店领取 helper": { "main": [[{ "node": "检查 helper 是否空闲", "type": "main", "index": 0 }]] },
-    "检查 helper 是否空闲": { "main": [[{ "node": "helper 已空闲？", "type": "main", "index": 0 }]] },
-    "helper 已空闲？": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }], [{ "node": "等待四店流程释放 helper", "type": "main", "index": 0 }]] },
-    "等待四店流程释放 helper": { "main": [[{ "node": "检查 helper 是否空闲", "type": "main", "index": 0 }]] },
+    "定时分支先让四店领取 helper": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "领取共享 helper": { "main": [[{ "node": "helper 领取成功？", "type": "main", "index": 0 }]] },
+    "helper 领取成功？": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }], [{ "node": "等待前序流程释放 helper", "type": "main", "index": 0 }]] },
+    "等待前序流程释放 helper": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
     "A·计算运营系统缺失日期": { "main": [[{ "node": "B·按日静默导出签收并导入", "type": "main", "index": 0 }]] },
     "B·按日静默导出签收并导入": { "main": [[{ "node": "C·回查全部目标日覆盖", "type": "main", "index": 0 }]] }
   },

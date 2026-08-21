@@ -21,6 +21,46 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-COORDINATION-ATTEMPT", "value": "={{ $runIndex }}" }, { "name": "X-TERUISI-WORKFLOW-KEY", "value": "jd" }] },
+        "options": { "timeout": 10000 }
+      },
+      "id": "d01a0d62-bd97-49e9-a2f6-000000000008",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 0],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "id": "d01a0d62-bd97-49e9-a2f6-000000000010", "leftValue": "={{ $json.coordinationStatus }}", "rightValue": "granted", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d01a0d62-bd97-49e9-a2f6-000000000009",
+      "name": "helper 领取成功？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-300, 0]
+    },
+    {
+      "parameters": { "resume": "timeInterval", "amount": 5, "unit": "minutes" },
+      "id": "d01a0d62-bd97-49e9-a2f6-000000000011",
+      "name": "等待前序流程释放 helper",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-300, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://127.0.0.1:5791/jd/plan",
         "sendHeaders": true,
         "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
@@ -75,7 +115,7 @@
     },
     {
       "parameters": {
-        "content": "## A → B → C 闭环\nA 按 Asia/Shanghai 固化“昨天所在月 1 日至昨天”的 startDate/endDate，预检本机系统和四店独立 profile；B 严格按每店“商品 SKU 主数据 → 商智 SKU 分天 → 商智 SPU 分天”串行完成下载、导入和回查；C 独立重读 runner 审计，逐店逐数据集复核完成批次、零告警、店铺身份和完整日期范围。A/B/C 绑定同一 n8n execution ID；空 ID、旧执行、跨执行接管、乱序和并发均失败关闭。",
+        "content": "## 原子协调领取 + A → B → C 闭环\n定时和手动入口先原子领取共享 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后 A 按 Asia/Shanghai 固化“昨天所在月 1 日至昨天”的 startDate/endDate，预检本机系统和四店独立 profile；B 严格按每店“商品 SKU 主数据 → 商智 SKU 分天 → 商智 SPU 分天”串行完成下载、导入和回查；C 独立重读 runner 审计，逐店逐数据集复核完成批次、零告警、店铺身份和完整日期范围。A/B/C 绑定同一 n8n execution ID；空 ID、旧执行、跨执行接管、乱序和并发均失败关闭。",
         "height": 205,
         "width": 830,
         "color": 4
@@ -89,8 +129,11 @@
   ],
   "pinData": {},
   "connections": {
-    "手动运行": { "main": [[{ "node": "A·生成京东多店铺计划", "type": "main", "index": 0 }]] },
-    "每天 10:00 执行": { "main": [[{ "node": "A·生成京东多店铺计划", "type": "main", "index": 0 }]] },
+    "手动运行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "每天 10:00 执行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "领取共享 helper": { "main": [[{ "node": "helper 领取成功？", "type": "main", "index": 0 }]] },
+    "helper 领取成功？": { "main": [[{ "node": "A·生成京东多店铺计划", "type": "main", "index": 0 }], [{ "node": "等待前序流程释放 helper", "type": "main", "index": 0 }]] },
+    "等待前序流程释放 helper": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
     "A·生成京东多店铺计划": { "main": [[{ "node": "B·四店串行下载、导入并回查", "type": "main", "index": 0 }]] },
     "B·四店串行下载、导入并回查": { "main": [[{ "node": "C·核验四店三类数据与批次", "type": "main", "index": 0 }]] }
   },

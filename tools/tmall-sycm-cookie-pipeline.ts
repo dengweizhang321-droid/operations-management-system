@@ -74,6 +74,9 @@ const maximumDownloadBytes = 25 * 1024 * 1024;
 export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
+export const workflowCoordinationKeyHeader = "x-teruisi-workflow-key";
+export const workflowCoordinationAttemptHeader = "x-teruisi-coordination-attempt";
+export const maximumWorkflowCoordinationAttempts = 72;
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
 export const jdMarketResumeRunIdHeader = "x-teruisi-jd-market-resume-run-id";
 
@@ -97,6 +100,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
 export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "completed" | "failed";
 export type HelperRoute = "/plan" | "/fetch" | "/import" | "/promotion" | "/product-master";
+export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
 
@@ -754,6 +758,59 @@ export function normalizeN8nExecutionId(value: string | string[] | undefined) {
     : null;
 }
 
+export function parseWorkflowCoordinationKey(value: string | string[] | undefined): CoordinatedWorkflow | null {
+  return typeof value === "string" && ["tmall", "jackyun", "jd", "jd-market", "jd-promotion"].includes(value)
+    ? value as CoordinatedWorkflow
+    : null;
+}
+
+export function parseWorkflowCoordinationAttempt(value: string | string[] | undefined) {
+  if (value === undefined) return 0;
+  if (typeof value !== "string" || !/^\d{1,3}$/.test(value)) return null;
+  const attempt = Number(value);
+  return Number.isSafeInteger(attempt) && attempt >= 0 ? attempt : null;
+}
+
+export function workflowCoordinationWaitExpired(
+  coordinationAttempt: number,
+  coordinationStatus: "granted" | "waiting",
+) {
+  return coordinationStatus === "waiting" && coordinationAttempt >= maximumWorkflowCoordinationAttempts;
+}
+
+export function workflowClaimDecision(input: {
+  stage: HelperStage;
+  busy: boolean;
+  activeWorkflow: CoordinatedWorkflow | null;
+  requestedWorkflow: CoordinatedWorkflow | null;
+  requestExecutionId: string | null;
+  claimedExecutionId: string | null;
+}) {
+  if (!input.requestedWorkflow) return { error: "missing_or_invalid_workflow_key" as const };
+  if (!input.requestExecutionId) return { error: "missing_or_invalid_execution_id" as const };
+  if (input.activeWorkflow === input.requestedWorkflow && input.claimedExecutionId === input.requestExecutionId) {
+    return { coordinationStatus: "granted" as const, shouldClaim: false };
+  }
+  if (input.activeWorkflow !== null) {
+    return {
+      coordinationStatus: "waiting" as const,
+      reason: "active_workflow" as const,
+      activeWorkflow: input.activeWorkflow,
+    };
+  }
+  if (input.busy) {
+    return { coordinationStatus: "waiting" as const, reason: "pipeline_busy" as const, activeWorkflow: null };
+  }
+  if (input.stage !== "ready" || input.claimedExecutionId !== null) {
+    return {
+      coordinationStatus: "waiting" as const,
+      reason: "helper_not_ready" as const,
+      activeWorkflow: null,
+    };
+  }
+  return { coordinationStatus: "granted" as const, shouldClaim: true };
+}
+
 export function tmallStageAfterRoute(route: HelperRoute): HelperStage {
   if (route === "/plan") return "planned";
   if (route === "/fetch") return "fetched";
@@ -877,7 +934,7 @@ async function serveCommand(argv: string[]) {
   const port = integerPort(cliValue(argv, "--port"));
   let stage: HelperStage = "ready";
   let busy = false;
-  let activeWorkflow: "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | null = null;
+  let activeWorkflow: CoordinatedWorkflow | null = null;
   let planPathBase64 = "";
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
@@ -935,6 +992,71 @@ async function serveCommand(argv: string[]) {
           .catch(() => "invalid" as const),
       ]);
       reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile });
+      return;
+    }
+    if (request.method === "POST" && request.url === "/coordination/claim") {
+      const requestedWorkflow = parseWorkflowCoordinationKey(request.headers[workflowCoordinationKeyHeader]);
+      const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
+      const coordinationAttempt = parseWorkflowCoordinationAttempt(request.headers[workflowCoordinationAttemptHeader]);
+      if (coordinationAttempt === null) {
+        reply(400, { ok: false, error: "missing_or_invalid_coordination_attempt" });
+        return;
+      }
+      const claimedExecutionId = requestedWorkflow === "tmall"
+        ? claimedTmallExecutionId
+        : requestedWorkflow === "jackyun"
+          ? claimedJackyunExecutionId
+          : requestedWorkflow === "jd"
+            ? claimedJdExecutionId
+            : requestedWorkflow === "jd-market"
+              ? claimedJdMarketExecutionId
+              : requestedWorkflow === "jd-promotion"
+                ? claimedJdPromotionExecutionId
+                : null;
+      const decision = workflowClaimDecision({
+        stage,
+        busy,
+        activeWorkflow,
+        requestedWorkflow,
+        requestExecutionId,
+        claimedExecutionId,
+      });
+      if ("error" in decision) {
+        reply(400, { ok: false, ...decision });
+        return;
+      }
+      if (decision.coordinationStatus === "waiting"
+        && workflowCoordinationWaitExpired(coordinationAttempt, decision.coordinationStatus)) {
+        reply(409, {
+          ok: false,
+          error: "coordination_wait_expired",
+          workflow: requestedWorkflow,
+          attempts: coordinationAttempt,
+          maxWaitMinutes: maximumWorkflowCoordinationAttempts * 5,
+          reason: decision.reason,
+          activeWorkflow: decision.activeWorkflow,
+        });
+        return;
+      }
+      const coordinatedWorkflow = requestedWorkflow as CoordinatedWorkflow;
+      const coordinatedExecutionId = requestExecutionId as string;
+      if (decision.coordinationStatus === "granted" && decision.shouldClaim) {
+        activeWorkflow = coordinatedWorkflow;
+        if (coordinatedWorkflow === "tmall") claimedTmallExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "jackyun") claimedJackyunExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "jd") claimedJdExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "jd-market") claimedJdMarketExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "jd-promotion") claimedJdPromotionExecutionId = coordinatedExecutionId;
+        inactivityReaper?.arm();
+      }
+      reply(200, {
+        ok: true,
+        coordinationStatus: decision.coordinationStatus,
+        workflow: coordinatedWorkflow,
+        ...(decision.coordinationStatus === "waiting"
+          ? { reason: decision.reason, activeWorkflow: decision.activeWorkflow }
+          : {}),
+      });
       return;
     }
     const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];

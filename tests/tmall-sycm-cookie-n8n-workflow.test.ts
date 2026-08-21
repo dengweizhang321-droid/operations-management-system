@@ -33,7 +33,14 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
   assert.equal(scheduleNode?.name, "每天 11:00 运行");
   assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "0 11 * * *");
-  const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
+  const coordination = workflow.nodes.find((node) => node.name === "领取共享 helper");
+  assert.equal(coordination?.parameters?.url, "http://127.0.0.1:5791/coordination/claim");
+  assert.deepEqual(coordination?.parameters?.headerParameters?.parameters, [
+    { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+    { name: "X-TERUISI-COORDINATION-ATTEMPT", value: "={{ $runIndex }}" },
+    { name: "X-TERUISI-WORKFLOW-KEY", value: "tmall" },
+  ]);
+  const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && node.name !== "领取共享 helper");
   assert.deepEqual(requestNodes.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/product-master",
     "http://127.0.0.1:5791/plan",
@@ -60,8 +67,12 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.match(raw, /生成成功/);
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
-  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
-  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
+  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["领取共享 helper"]?.main?.[0]?.[0]?.node, "helper 领取成功？");
+  assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
+  assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
+  assert.equal(workflow.connections["等待前序流程释放 helper"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["A·计划目标日期"]?.main?.[0]?.[0]?.node, "B·逐日下载并验证 XLS");
   assert.equal(workflow.connections["B·逐日下载并验证 XLS"]?.main?.[0]?.[0]?.node, "C·签收、导入并覆盖回查");
   assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·全站推逐日报表下载、导入并回查");

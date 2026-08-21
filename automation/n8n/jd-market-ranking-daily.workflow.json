@@ -21,6 +21,46 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-COORDINATION-ATTEMPT", "value": "={{ $runIndex }}" }, { "name": "X-TERUISI-WORKFLOW-KEY", "value": "jd-market" }] },
+        "options": { "timeout": 10000 }
+      },
+      "id": "c1302bb4-5dad-4a74-8bbf-000000000008",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 0],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "id": "c1302bb4-5dad-4a74-8bbf-000000000010", "leftValue": "={{ $json.coordinationStatus }}", "rightValue": "granted", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1302bb4-5dad-4a74-8bbf-000000000009",
+      "name": "helper 领取成功？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-300, 0]
+    },
+    {
+      "parameters": { "resume": "timeInterval", "amount": 5, "unit": "minutes" },
+      "id": "c1302bb4-5dad-4a74-8bbf-000000000011",
+      "name": "等待前序流程释放 helper",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-300, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "http://127.0.0.1:5791/jd-market/plan",
         "sendHeaders": true,
         "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }, { "name": "X-TERUISI-JD-SILENT-NO-WINDOW", "value": "1" }] },
@@ -75,7 +115,7 @@
     },
     {
       "parameters": {
-        "content": "## 全程隐藏 Chromium、严格导入与恢复\nA/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例。7 个类目按顺序处理、最多 5 日一文件，每个未完成分块前捕获当前类目的新鲜精确请求；签收文件必须通过大小、SHA-256、身份、日期和行数重验，导入必须取得严格 completed proof。响应丢失时，新 n8n execution 只能从 A 接管唯一未闭环计划并精确重投，running、歧义计划或身份漂移一律失败关闭；C 回查原计划全部目标日。主模板与静默副本不得同时启用。",
+        "content": "## 原子协调领取、全程隐藏 Chromium、严格导入与恢复\n定时和手动入口先原子领取共享 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后 A/B/C 均携带严格隐藏窗口约束；B 只启动注册表中的 Profile 3 普通有头 Chromium，离屏运行并持续隐藏顶层窗口，拒绝复用未受本轮守护的实例。7 个类目按顺序处理、最多 5 日一文件，每个未完成分块前捕获当前类目的新鲜精确请求；签收文件必须通过大小、SHA-256、身份、日期和行数重验，导入必须取得严格 completed proof。响应丢失时，新 n8n execution 只能从 A 接管唯一未闭环计划并精确重投，running、歧义计划或身份漂移一律失败关闭；C 回查原计划全部目标日。主模板与静默副本不得同时启用。",
         "height": 225,
         "width": 860,
         "color": 3
@@ -89,8 +129,11 @@
   ],
   "pinData": {},
   "connections": {
-    "手动运行": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
-    "每天 10:00 补缺": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }]] },
+    "手动运行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "每天 10:00 补缺": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "领取共享 helper": { "main": [[{ "node": "helper 领取成功？", "type": "main", "index": 0 }]] },
+    "helper 领取成功？": { "main": [[{ "node": "A·计算运营系统缺失日期", "type": "main", "index": 0 }], [{ "node": "等待前序流程释放 helper", "type": "main", "index": 0 }]] },
+    "等待前序流程释放 helper": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
     "A·计算运营系统缺失日期": { "main": [[{ "node": "B·Profile 3隐藏导出签收并导入", "type": "main", "index": 0 }]] },
     "B·Profile 3隐藏导出签收并导入": { "main": [[{ "node": "C·回查全部目标日覆盖", "type": "main", "index": 0 }]] }
   },
