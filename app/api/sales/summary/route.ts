@@ -17,6 +17,10 @@ import {
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
+import {
+  getCachedSalesOverview,
+  salesOverviewBusinessDate,
+} from "@/lib/sales/overview-response-cache";
 
 export async function GET(request: Request) {
   try {
@@ -69,7 +73,7 @@ export async function GET(request: Request) {
     if (outlets.length > 50) throw new SalesSummaryRequestError("outlet 筛选最多 50 项。");
     const normalizedOutlets = outlets
       .map((value) => ({ platform: value.platform, shop: value.shopName }));
-    const payload = await getSalesSummary(db, {
+    const summaryInput = {
       range: requested,
       startDate: searchParams.get("startDate") ?? undefined,
       endDate: searchParams.get("endDate") ?? undefined,
@@ -78,8 +82,17 @@ export async function GET(request: Request) {
       shop: searchParams.get("shop") ?? undefined,
       outlets: normalizedOutlets,
       categories,
+    } as const;
+    const result = await getCachedSalesOverview(db, {
+      ...summaryInput,
+      businessDate: salesOverviewBusinessDate(),
+    }, () => getSalesSummary(db, summaryInput));
+    return Response.json(result.payload, {
+      headers: {
+        "cache-control": "no-store",
+        "x-sales-overview-cache": result.status,
+      },
     });
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

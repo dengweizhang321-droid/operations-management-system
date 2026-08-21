@@ -731,6 +731,7 @@ test("销售导入按表单权威日期边界完整替换，不依赖新文件�
     replaceStartDate: "2026-07-01",
     replaceEndDate: "2026-07-31",
   });
+  assert.equal(sqlite.prepare("SELECT sales_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
   assert.deepEqual(sqlite.prepare(
     "SELECT order_no orderNo, allocated_amount_cents amount, last_import_batch_id batchId FROM sales_order_lines ORDER BY order_no",
   ).all().map((row) => ({ ...row })), [{
@@ -1101,6 +1102,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     totals: {},
   });
   assert.equal(first.created, true);
+  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 2);
   const changed = await saveProductMasterImport(db, {
     id: `products:${"e".repeat(64)}`,
     fileName: "products-b.xlsx",
@@ -1112,6 +1114,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     totals: {},
   });
   assert.equal(changed.created, true);
+  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
   assert.deepEqual(sqlite.prepare("SELECT product_code productCode, product_name productName FROM erp_product_master").all().map((item) => ({ ...item })), [
     { productCode: "P1", productName: "货品1更新" },
   ]);
@@ -1126,6 +1129,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     totals: {},
   });
   assert.equal(duplicateAttempt.created, false);
+  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM erp_reference_import_batches").get()?.count, 2);
   sqlite.close();
 });

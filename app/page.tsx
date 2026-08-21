@@ -3308,39 +3308,43 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
 
   useEffect(() => {
     const controller = new AbortController();
-    void (async () => {
-      await Promise.resolve();
-      if (controller.signal.aborted) return;
-      setLoading(true);
-      setError("");
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (controller.signal.aborted) return;
+        setLoading(true);
+        setError("");
 
-      try {
-        const query = new URLSearchParams({ range: apiRange });
-        if (apiRange === "custom") {
-          query.set("startDate", customStartDate);
-          query.set("endDate", customEndDate);
+        try {
+          const query = new URLSearchParams({ range: apiRange });
+          if (apiRange === "custom") {
+            query.set("startDate", customStartDate);
+            query.set("endDate", customEndDate);
+          }
+          productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
+          filters.platforms.forEach((platform) => query.append("platform", platform));
+          filters.outletKeys.forEach((shopKey) => query.append("outlet", shopKey));
+          filters.categories.forEach((category) => query.append("category", category));
+          const response = await fetch(`/api/sales/summary?${query.toString()}`, {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string; error?: string }) | null;
+          if (!response.ok) throw new Error(payload?.message || payload?.error || `销售汇总读取失败（${response.status}）`);
+          if (!payload?.current || !Array.isArray(payload.channels)) throw new Error("销售汇总响应格式不完整");
+          setSummary(payload);
+        } catch (requestError) {
+          if (requestError instanceof DOMException && requestError.name === "AbortError") return;
+          setError(requestError instanceof Error ? requestError.message : "暂时无法读取销售汇总");
+        } finally {
+          if (!controller.signal.aborted) setLoading(false);
         }
-        productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
-        filters.platforms.forEach((platform) => query.append("platform", platform));
-        filters.outletKeys.forEach((shopKey) => query.append("outlet", shopKey));
-        filters.categories.forEach((category) => query.append("category", category));
-        const response = await fetch(`/api/sales/summary?${query.toString()}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const payload = await response.json().catch(() => null) as (SalesSummaryResponse & { message?: string; error?: string }) | null;
-        if (!response.ok) throw new Error(payload?.message || payload?.error || `销售汇总读取失败（${response.status}）`);
-        if (!payload?.current || !Array.isArray(payload.channels)) throw new Error("销售汇总响应格式不完整");
-        setSummary(payload);
-      } catch (requestError) {
-        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-        setError(requestError instanceof Error ? requestError.message : "暂时无法读取销售汇总");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
+      })();
+    }, 0);
 
-    return () => controller.abort();
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [apiRange, customEndDate, customStartDate, filters.categories, filters.outletKeys, filters.platforms, productQueries, retryKey]);
 
   const current = summary?.current;

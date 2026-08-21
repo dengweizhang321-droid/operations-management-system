@@ -5,6 +5,10 @@ import {
   type ImportReservationFence,
 } from "@/lib/imports/content-fingerprint";
 import { PublicApiError } from "@/lib/http/api-error";
+import {
+  bumpSalesOverviewFactsRevisionSql,
+  salesOverviewCacheSchemaStatements,
+} from "@/lib/sales/overview-cache-schema";
 
 export const SALES_IMPORT_SOURCE = "吉客云 ERP · 销售单明细账";
 export const SALES_IMPORT_CHUNK_SIZE = 500;
@@ -99,6 +103,7 @@ const batchSelectColumns = `
 // D1's prepare() accepts one statement at a time. Keep every item here as an
 // individual statement and use batch() only to reduce network round trips.
 const schemaStatements = [
+  ...salesOverviewCacheSchemaStatements,
   `CREATE TABLE IF NOT EXISTS sales_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source TEXT NOT NULL,
@@ -548,6 +553,7 @@ export async function saveSalesImport(
   }
 
   statements.push(
+    db.prepare(bumpSalesOverviewFactsRevisionSql).bind(batchId),
     db
       .prepare(
         `UPDATE sales_import_batches

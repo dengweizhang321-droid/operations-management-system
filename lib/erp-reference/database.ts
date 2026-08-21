@@ -16,6 +16,10 @@ import {
   type ImportReservationFence,
 } from "@/lib/imports/content-fingerprint";
 import { PublicApiError } from "@/lib/http/api-error";
+import {
+  bumpSalesOverviewErpProductRevisionSql,
+  salesOverviewCacheSchemaStatements,
+} from "@/lib/sales/overview-cache-schema";
 
 export type ErpReferenceDatabase = SalesDatabase;
 
@@ -65,6 +69,7 @@ const WRITE_CHUNK_SIZE = 200;
 const LOOKUP_CHUNK_SIZE = 50;
 
 const schemaStatements = [
+  ...salesOverviewCacheSchemaStatements,
   `CREATE TABLE IF NOT EXISTS erp_reference_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source_key TEXT NOT NULL,
@@ -396,6 +401,7 @@ export async function saveProductMasterImport(
     db.prepare(`DELETE FROM erp_product_master
       WHERE last_import_batch_id <> ?
         AND EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')`).bind(input.id, input.id),
+    db.prepare(bumpSalesOverviewErpProductRevisionSql).bind(input.id),
     completeStatement(db, input.id, input.rows.length - existingCount, existingCount),
   );
   if (input.reservationFence) statements.push(importReservationCommitFence(db, input.reservationFence));
