@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { readJsonFile, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { netshopOutletKey } from "../lib/netshop/query-contract";
 import { loadTmallStores, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import type { TmallDownloadReceipt } from "./tmall-download-receipt";
 
@@ -133,9 +134,21 @@ export function parseRunnerArgs(argv: string[], now = new Date()): RunnerOptions
   };
 }
 
+export function buildTmallSpuCoverageUrl(baseUrl: string, store: Pick<TmallStore, "shopName">, startDate: string, endDate: string) {
+  const params = new URLSearchParams({
+    dimension: "spu",
+    platform: "天猫",
+    outlet: netshopOutletKey("天猫", store.shopName),
+    startDate,
+    endDate,
+    page: "1",
+    pageSize: "1",
+  });
+  return `${baseUrl}/api/netshop/product-performance?${params}`;
+}
+
 async function getActualDates(baseUrl: string, store: TmallStore, startDate: string, endDate: string, request: typeof fetch = fetch) {
-  const params = new URLSearchParams({ dimension: "spu", platform: "天猫", shop: store.shopName, startDate, endDate, page: "1", pageSize: "1" });
-  const response = await request(`${baseUrl}/api/netshop/product-performance?${params}`, { signal: AbortSignal.timeout(30_000) });
+  const response = await request(buildTmallSpuCoverageUrl(baseUrl, store, startDate, endDate), { signal: AbortSignal.timeout(30_000) });
   const payload = await response.json().catch(() => null) as CoveragePayload | null;
   const actualDates = payload?.coverage?.actualDates;
   if (!response.ok || payload?.requestedPeriod?.startDate !== startDate || payload.requestedPeriod.endDate !== endDate || !Array.isArray(actualDates)

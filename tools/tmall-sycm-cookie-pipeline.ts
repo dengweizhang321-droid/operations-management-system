@@ -9,7 +9,11 @@ import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
-import { runTmallMultiStoreImport, shanghaiYesterday } from "./tmall-multi-store-import-runner";
+import {
+  buildTmallSpuCoverageUrl,
+  runTmallMultiStoreImport,
+  shanghaiYesterday,
+} from "./tmall-multi-store-import-runner";
 import {
   ensureTmallStoreAuthenticatedSession,
   runTmallProductMasterStage,
@@ -467,16 +471,7 @@ function validateManifest(manifest: PipelineManifest) {
 }
 
 async function getActualDates(baseUrl: string, store: TmallStore, startDate: string, endDate: string) {
-  const params = new URLSearchParams({
-    dimension: "spu",
-    platform: "天猫",
-    shop: store.shopName,
-    startDate,
-    endDate,
-    page: "1",
-    pageSize: "1",
-  });
-  const response = await fetch(`${baseUrl}/api/netshop/product-performance?${params}`, { signal: AbortSignal.timeout(30_000) });
+  const response = await fetch(buildTmallSpuCoverageUrl(baseUrl, store, startDate, endDate), { signal: AbortSignal.timeout(30_000) });
   const payload = await response.json().catch(() => null) as CoveragePayload | null;
   const actualDates = payload?.coverage?.actualDates;
   if (!response.ok || payload?.requestedPeriod?.startDate !== startDate || payload.requestedPeriod.endDate !== endDate

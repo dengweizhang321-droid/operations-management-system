@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  buildTmallSpuCoverageUrl,
   datesInRange,
   parseRunnerArgs,
   requestedDatesToPlan,
@@ -14,6 +15,23 @@ import {
   validateImportPayload,
   verifiedReceipts,
 } from "../tools/tmall-multi-store-import-runner";
+
+test("天猫 SPU 覆盖回查使用平台与店铺复合 outlet，不再发送旧 shop 参数", () => {
+  const url = new URL(buildTmallSpuCoverageUrl(
+    "http://localhost:3000",
+    { shopName: "天猫-志高亿玖专卖店" },
+    "2026-08-20",
+    "2026-08-20",
+  ));
+
+  assert.equal(url.pathname, "/api/netshop/product-performance");
+  assert.equal(url.searchParams.get("dimension"), "spu");
+  assert.deepEqual(url.searchParams.getAll("platform"), ["天猫"]);
+  assert.equal(url.searchParams.get("outlet"), "天猫\u001f天猫-志高亿玖专卖店");
+  assert.equal(url.searchParams.has("shop"), false);
+  assert.equal(url.searchParams.get("startDate"), "2026-08-20");
+  assert.equal(url.searchParams.get("endDate"), "2026-08-20");
+});
 
 test("天猫导入日期按上海时区截止昨天并直接采用请求范围，不查询缺口", () => {
   const now = new Date("2026-08-02T04:00:00Z");
