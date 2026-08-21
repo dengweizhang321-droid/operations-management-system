@@ -176,19 +176,19 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
   jd_promotion_cut_meat: {
     key: "jd_promotion_cut_meat",
     definition: jdPromotionCutMeatWorkflowDefinition as N8nWorkflowDefinition,
-    subtitle: "京东志高切肉机旗舰店京准通 AI 推广明细的 2026年8月13日至14日补跑流程。",
+    subtitle: "京东志高切肉机旗舰店京准通 AI 推广明细的逐日生成、下载、校验、导入与回查。",
     tags: ["京准通", "志高切肉机旗舰店", "Profile 2"],
     flowLabel: "A → B → C",
-    pipelineTitle: "切肉机旗舰店三段式推广补跑链路",
-    pipelineDescription: "仅手动启动；店铺、日期、任务、文件和批次任一不唯一都会停止。",
-    workflowMetric: "切肉机店 AI 推广补跑",
-    scheduleMetric: "8月13–14日",
-    scheduleDescription: "固定历史范围 · 仅手动运行",
-    scheduleTriggerLabel: "手动",
+    pipelineTitle: "切肉机旗舰店三段式推广安全导入链路",
+    pipelineDescription: "默认处理上海时区昨天；店铺、日期、任务、文件和批次任一不唯一都会停止。",
+    workflowMetric: "切肉机店 AI 推广导入",
+    scheduleMetric: "11:30",
+    scheduleDescription: "上海时区 · 每天处理昨天",
+    scheduleTriggerLabel: "每日",
     iframeTitle: "京东志高切肉机 AI 推广数据下载与导入 n8n 工作流",
     safetyNote: "工作流固定绑定 jd-maidehao-operator1、志高切肉机旗舰店、shopId 745866 和 Profile 2，不保存京东凭证。A 固化店铺、日期与执行所有者；B 只接管唯一下载任务并完成严格导入回查；C 独立重验文件与 completed 批次。",
     stageDetails: {
-      A: { title: "固化切肉机店铺与日期", description: "绑定 n8n execution ID、Profile 2 和 2026-08-13 至 2026-08-14。" },
+      A: { title: "固化切肉机店铺与日期", description: "按上海时区确定昨天，绑定 n8n execution ID、Profile 2 和志高切肉机旗舰店。" },
       B: { title: "生成下载并导入", description: "设置自定义日期，只下载唯一候选 CSV，校验后按切肉机店精确范围导入。" },
       C: { title: "独立文件与批次复验", description: "重读文件并核对 SHA-256、行数、账户集合、日期范围及精确 completed 批次。" },
     },
@@ -275,7 +275,7 @@ function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): Hel
       : key === "jd_promotion"
         ? "服务与志高商用设备旗舰店 Default profile 已就绪；A/B/C 会按目标日期生成、下载、导入并独立回查。"
         : key === "jd_promotion_cut_meat"
-          ? "服务与志高切肉机旗舰店 Profile 2 已就绪；A/B/C 会按 8月13日至14日生成、下载、导入并独立回查。"
+          ? "服务与志高切肉机旗舰店 Profile 2 已就绪；A/B/C 会按上海时区昨天生成、下载、导入并独立回查。"
         : "服务与四店独立 profile 已就绪；A/B/C 会保持跨店串行、批次幂等与独立落库回查。",
   } : {
     kind: "ready",

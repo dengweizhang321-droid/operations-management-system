@@ -456,29 +456,41 @@ test("京准通 n8n 模板保持未激活、先原子领取 helper 再以同一 
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
 });
 
-test("切肉机京准通 n8n 模板固定 Profile 2 店铺和 2026年8月13日至14日且保持未激活", async () => {
+test("切肉机京准通 n8n 模板固定 Profile 2、每天 11:30 处理昨天并先领取 helper", async () => {
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json", import.meta.url), "utf8")) as {
     id: string;
     active: boolean;
     settings?: { timezone?: string };
-    nodes: Array<{ type: string; parameters?: { url?: string; assignments?: { assignments?: Array<{ name?: string; value?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
+    connections: Record<string, { main?: Array<Array<{ node?: string }>> }>;
+    nodes: Array<{ name: string; type: string; parameters?: { url?: string; rule?: { interval?: Array<{ expression?: string }> }; assignments?: { assignments?: Array<{ name?: string; value?: string }> }; headerParameters?: { parameters?: Array<{ name?: string; value?: string }> } } }>;
   };
   assert.equal(workflow.id, "JdPromotionCutMeat2026");
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings?.timezone, "Asia/Shanghai");
-  assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"), false);
+  assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger")?.parameters?.rule?.interval?.[0]?.expression, "30 11 * * *");
   const dates = workflow.nodes.find((node) => node.type === "n8n-nodes-base.set")?.parameters?.assignments?.assignments;
-  assert.deepEqual(dates?.map((item) => [item.name, item.value]), [["startDate", "2026-08-13"], ["endDate", "2026-08-14"]]);
+  assert.deepEqual(dates?.map((item) => [item.name, item.value]), [["startDate", "2026-08-20"], ["endDate", "2026-08-20"]]);
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
   assert.deepEqual(requests.map((node) => node.parameters?.url), [
+    "http://127.0.0.1:5791/coordination/claim",
     "http://127.0.0.1:5791/jd-promotion-cut-meat/plan",
     "http://127.0.0.1:5791/jd-promotion/run",
     "http://127.0.0.1:5791/jd-promotion/verify",
   ]);
   assert.deepEqual(requests[0]?.parameters?.headerParameters?.parameters, [
     { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
-    { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-maidehao-operator1" },
-    { name: "X-TERUISI-JD-PROMOTION-START-DATE", value: "={{ $json.startDate }}" },
-    { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $json.endDate }}" },
+    { name: "X-TERUISI-COORDINATION-ATTEMPT", value: "={{ $runIndex }}" },
+    { name: "X-TERUISI-WORKFLOW-KEY", value: "jd-promotion" },
   ]);
+  assert.deepEqual(requests[1]?.parameters?.headerParameters?.parameters, [
+    { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+    { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-maidehao-operator1" },
+    { name: "X-TERUISI-JD-PROMOTION-START-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.startDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
+    { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.endDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
+  ]);
+  assert.equal(workflow.connections["固定补跑日期"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["每天 11:30 执行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["等待前序流程释放 helper"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·固化切肉机店铺与目标日期");
+  assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
 });
