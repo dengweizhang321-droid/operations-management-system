@@ -189,11 +189,34 @@ export async function autoLoginJdWithWindowsDpapiCredential(
   return { attempted: true, submitted: true, reason: "submitted" };
 }
 
-export async function isJdLoginSurface(page: Page) {
-  const bodyText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+export type JdSessionSurface = "authenticated" | "login" | "pending";
+
+export function jdSessionSurfaceDecision(url: string, bodyText: string, hasPassword: boolean): JdSessionSurface {
+  if (/passport|login/i.test(url)
+    || (hasPassword && /登录/.test(bodyText) && /账号|账户|手机|用户名/.test(bodyText))) return "login";
+  if (/商品明细|下载中心|导出查询商品|批量操作|商品管理|出售中的商品|商品列表/.test(bodyText)) return "authenticated";
+  return "pending";
+}
+
+async function readJdSessionSurface(page: Page): Promise<JdSessionSurface> {
+  const bodyText = await page.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
   const hasPassword = await page.locator('input[type="password"],#nloginpwd').count().then((count) => count > 0).catch(() => false);
-  return /passport|login/i.test(page.url())
-    || (hasPassword && /登录/.test(bodyText) && /账号|账户|手机|用户名/.test(bodyText));
+  return jdSessionSurfaceDecision(page.url(), bodyText, hasPassword);
+}
+
+export async function waitForJdSessionSurface(page: Page, timeoutMs = 15_000): Promise<JdSessionSurface> {
+  const deadline = Date.now() + Math.max(0, timeoutMs);
+  do {
+    const surface = await readJdSessionSurface(page);
+    if (surface !== "pending") return surface;
+    if (Date.now() >= deadline) break;
+    await page.waitForTimeout(Math.min(250, Math.max(0, deadline - Date.now())));
+  } while (Date.now() <= deadline);
+  return "pending";
+}
+
+export async function isJdLoginSurface(page: Page) {
+  return await readJdSessionSurface(page) === "login";
 }
 
 export async function ensureJdStoreAuthenticatedSession(
@@ -205,7 +228,13 @@ export async function ensureJdStoreAuthenticatedSession(
   if (initialState.challengePresent) {
     throw new Error(`waiting_login：${store.shopName} 出现验证码或安全验证，需要人工处理`);
   }
-  if (!await isJdLoginSurface(page)) return { status: "authenticated" as const, authentication: "existing_session" as const };
+  const initialSurface = await waitForJdSessionSurface(page);
+  if (initialSurface === "authenticated") {
+    return { status: "authenticated" as const, authentication: "existing_session" as const };
+  }
+  if (initialSurface === "pending") {
+    throw new Error(`waiting_login：${store.shopName} 登录状态在有界等待后仍无法确认，需要人工检查`);
+  }
   if (store.loginMode !== "windows_dpapi_credentials") {
     throw new Error(`waiting_login：${store.shopName} 独立 Chromium 尚未登录，请先人工登录`);
   }
@@ -235,7 +264,8 @@ export async function ensureJdStoreAuthenticatedSession(
     if (state.temporarilyLocked) {
       throw new Error(`waiting_login：${store.shopName} 登录操作受限或过于频繁，需要稍后人工检查`);
     }
-    if (!await isJdLoginSurface(page)) {
+    const surface = await readJdSessionSurface(page);
+    if (surface === "authenticated") {
       return { status: "authenticated" as const, authentication: "windows_dpapi_credentials" as const };
     }
     await page.waitForTimeout(250);

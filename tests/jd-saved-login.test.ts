@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { Frame, Page } from "playwright-core";
 
-import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState } from "../tools/jd-saved-login";
+import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, jdSessionSurfaceDecision, waitForJdSessionSurface } from "../tools/jd-saved-login";
 
 function secureLoginPage(options: { challenge?: boolean; forms?: number; controls?: number } = {}) {
   const filled = { account: "", password: "", clicked: false };
@@ -86,6 +86,21 @@ test("JD login state combines challenge, credential rejection and lock signals w
   });
   const source = await readFile(new URL("../tools/jd-saved-login.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /(?:account|password)\.value\b/);
+});
+
+test("JD session guard waits through a blank business URL and catches the delayed passport redirect", async () => {
+  assert.equal(jdSessionSurfaceDecision("https://jdsz.jd.com/product", "", false), "pending");
+  assert.equal(jdSessionSurfaceDecision("https://passport.jd.com/new/login.aspx", "", false), "login");
+  assert.equal(jdSessionSurfaceDecision("https://jdsz.jd.com/product", "商品明细", false), "authenticated");
+  let sample = 0;
+  const page = {
+    url: () => sample === 0 ? "https://jdsz.jd.com/szweb/view/product/productDetail.html" : "https://passport.jd.com/new/login.aspx",
+    locator: (selector: string) => selector === "body"
+      ? { innerText: async () => sample === 0 ? "" : "账号 密码 登录" }
+      : { count: async () => sample === 0 ? 0 : 1 },
+    waitForTimeout: async () => { sample += 1; },
+  } as unknown as Page;
+  assert.equal(await waitForJdSessionSurface(page, 1_000), "login");
 });
 
 test("JD DPAPI credentials never travel through n8n, environment variables, CLI secrets or logs", async () => {
