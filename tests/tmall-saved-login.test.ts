@@ -300,4 +300,7 @@ test("DPAPI 凭据不通过 n8n、环境变量、命令参数或日志传递", a
   assert.match(vaultSource, /DataProtectionScope.*CurrentUser/);
   assert.match(vaultSource, /Console\]::OutputEncoding.*utf8NoBom/);
   assert.match(vaultSource, /ZeroFreeBSTR/);
+  assert.match(vaultSource, /config\\tmall-store-accounts\.json/);
+  assert.match(vaultSource, /storeKey -ceq \$StoreKey/);
+  assert.match(vaultSource, /windows_dpapi_credentials/);
 });

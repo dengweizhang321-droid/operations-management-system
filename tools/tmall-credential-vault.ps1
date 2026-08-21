@@ -19,6 +19,15 @@ $OutputEncoding = $utf8NoBom
 $vaultRoot = Join-Path (Split-Path -Parent $PSScriptRoot) ".runtime\tmall-credentials"
 $vaultFile = Join-Path $vaultRoot "$StoreKey.json"
 $entropy = [Text.Encoding]::UTF8.GetBytes("TERUISI-TMALL:$StoreKey:v1")
+$registryFile = Join-Path (Split-Path -Parent $PSScriptRoot) "config\tmall-store-accounts.json"
+
+if (-not (Test-Path -LiteralPath $registryFile)) { throw "The controlled Tmall store registry is missing" }
+$registry = Get-Content -LiteralPath $registryFile -Raw -Encoding utf8 | ConvertFrom-Json
+$registeredStores = @($registry.stores | Where-Object { $_.storeKey -ceq $StoreKey })
+if ($registeredStores.Count -ne 1) { throw "The Tmall store key is not uniquely registered" }
+if ($registeredStores[0].loginMode -ne "windows_dpapi_credentials") {
+  throw "The registered Tmall store does not allow Windows DPAPI credentials"
+}
 
 function Protect-PlainText([string]$PlainText) {
   $plainBytes = [Text.Encoding]::UTF8.GetBytes($PlainText)

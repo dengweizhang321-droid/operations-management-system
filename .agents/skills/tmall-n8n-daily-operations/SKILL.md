@@ -21,7 +21,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 必守契约
 
-- 当前五段顺序固定为 `A→B→C→P→M`；定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。A 是唯一进入业务计划和浏览器阶段的入口。
+- 当前五段顺序固定为 `A→B→C→P→M`；定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
 - 不直接调用 `127.0.0.1:5791` 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，不直接运行天猫下载/导入脚本代替 n8n。只读 `/health` 可以用于状态核验。
 - 不单独重跑节点。任何恢复都从 n8n 正式页面或受控 n8n 能力创建新的完整 workflow execution，并使用新的 execution ID。
 - `export_submitted`、`export_confirmed`、`downloaded`、推广已提交等状态只能按原店铺、原业务日期和原任务续接；禁止删除清单、倒退阶段或重复业务点击。`export_submitting` 必须转人工核对。
@@ -33,7 +33,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 执行流程
 
-1. 核验仓库模板与 n8n live `nodes/connections/settings` 一致，live 实例是唯一启用的目标日调度，时区、cron、店铺和节点顺序正确。
+1. 核验仓库模板与 n8n live `nodes/connections/settings` 一致；每个已启用店铺只能有一个目标日调度，未启用店铺不得有 active 调度，所有天猫流程共用同一 helper 协调门禁。时区、cron、店铺键和节点顺序必须正确。
 2. 读取当日 scheduled execution。运行中则监控到终态；11:05 仍不存在时检查 trigger 注册和服务状态，不能创建并发副本。
 3. 失败时先冻结证据：execution ID、店铺、目标日、节点、脱敏错误、活动清单阶段、文件签收、精确批次、日期覆盖和浏览器 owner。
 4. 区分“下载前失败、点击未决、任务已提交、文件已下载、事实已发布、仅回查失败”。不能因为节点红色就假设导入未发生。
@@ -48,6 +48,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 - 若导入接口已发布 completed 批次但覆盖回查失败，保留已发布事实；修复回查后通过新完整 execution 让内容幂等返回 duplicate 或精确替换。
 - M 位于末段。M 失败不会回滚已完成回查的商品日和推广事实，但整个 workflow 仍失败，通知必须写成部分成功和 M 的人工下一步。
 - 多店铺必须串行；每店的 profile/端口/下载目录/签收单/恢复清单/凭据项和批次身份必须隔离。
+- 新店首次登录允许读取 `enabled=false` 的已注册浏览器配置，但任何 A/B/C/P/M 业务执行仍必须要求 `enabled=true`；不能为了登录测试提前开放导入。
 
 ## 停止条件
 

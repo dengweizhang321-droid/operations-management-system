@@ -19,6 +19,30 @@
 3. 完成独立 profile 的首次登录，确认进入 `https://sycm.taobao.com/portal/home.htm` 后页面展示的店铺名与 `shopName` 完全一致。
 4. 只有上述核验完成后才把 `enabled` 改为 `true`。
 
+### 2.1 当前待接入的五家店
+
+仓库已为以下店铺预留完整独立 Chromium 配置和默认停用的 n8n 模板；它们目前全部保持 `enabled=false`，不会执行真实下载或导入：
+
+| 店铺 | `storeKey` | 调试端口 | n8n 模板 | 建议错峰时间 |
+| --- | --- | ---: | --- | --- |
+| 天猫-志高丽力专卖店 | `tmall-lili` | 9325 | `tmall-lili-sycm-cookie-daily.workflow.json` | 11:05 |
+| 天猫-志高拓丰专卖店 | `tmall-tuofeng` | 9327 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 11:10 |
+| 天猫-志高亿用专卖店 | `tmall-yiyong` | 9328 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 11:15 |
+| 天猫-志高炊之王专卖店 | `tmall-cuizhiwang` | 9329 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 11:20 |
+| 天猫-志高马思图专卖店 | `tmall-masitu` | 9331 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 11:25 |
+
+逐店完成下面的无业务导出操作。不要把账号或密码写进命令行：
+
+```powershell
+npm run tmall:credential:setup -- -StoreKey <storeKey>
+npm run tmall:login -- --store-key <storeKey>
+node --import tsx tools/tmall-promotion-export.ts --store-key <storeKey> --launch-only
+```
+
+第一个命令只把交互输入保存为当前 Windows 用户绑定的 DPAPI 密文；后两个命令只打开该店自己的可见 Chromium，不发送导出或导入请求。分别确认千牛、生意参谋和阿里妈妈页面显示精确店铺身份，处理完平台安全验证后关闭该店浏览器。首次登录完成前不要把注册项改为 `enabled=true`。
+
+如基础模板发生变化，运行 `npm run tmall:n8n:generate` 可重新生成六店模板。生成器始终写出 `active=false`，不会发布或启动 n8n 工作流。
+
 ## 3. 生成目标日期计划
 
 运营系统运行时执行：
@@ -107,15 +131,15 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-daily-import.workfl
 
 工作流 JSON 默认 `active=false`。导入后先确认 n8n 与运营系统运行在同一台 Windows 主机、项目绝对路径和下载目录未变化，再在 n8n 中发布。n8n 负责编排登录预检、计划、下载、文件签收、导入和回查；账号密码只允许从当前 Windows 用户的 DPAPI 加密凭据库在辅助进程内短暂解密，验证码、安全验证和页面店铺身份异常仍由操作者处理，工作流不得保存明文凭据或浏览器会话。
 
-### 6.1 亿玖店货品快照 + Cookie 直连 + 全站推推广五段式副本
+### 6.1 单店货品快照 + Cookie 直连 + 全站推推广五段式模板
 
-同事脚本或既有 Cookie 已经完成授权验证、且只处理注册表中的亿玖店时，可导入独立副本：
+亿玖店已经完成授权验证时，可导入现有副本：
 
 ```powershell
 n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json"
 ```
 
-该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。运营管理系统左侧“工作流”板块会展示 A→B→C→P→M 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。
+该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。新增五店分别使用 2.1 表中的独立模板和工作流 ID。运营管理系统左侧“工作流”板块会展示 A→B→C→P→M 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。
 
 该副本不依赖 n8n 2 默认禁用的 `ExecuteCommand`，五个执行节点只访问 `127.0.0.1:5791`。通过受保护命令启动本地 Worker 时，启动器会同时拉起并守护一次性辅助进程：
 
@@ -123,7 +147,7 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workfl
 npm run start:local-worker
 ```
 
-Cookie 原文件路径仍可通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供，或作为单独一行写入 Git 已忽略的 `.runtime/tmall-yijiu-sycm-cookie-path.txt`。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。A 首先启动注册表中的店铺独立 Chromium；登录失效且该店显式设置 `loginMode=windows_dpapi_credentials` 时，程序只从当前 Windows 用户绑定的店铺独立 DPAPI 凭据项在内存中解密，向唯一密码表单填入并最多提交一次；不回读字段值。验证码、短信、安全验证、凭据缺失/损坏、登录按钮歧义或店铺身份不符都失败关闭。B 随后通过注册表调试端口从同一会话读取适用于 `sycm.taobao.com` 的 Cookie，只在内存中使用且不落盘；仅当该实例不可连接时才使用受控 Cookie 原文件后备。辅助进程只监听本机环回地址，n8n 的 A、B、C、P、M 节点会把同一个 `$execution.id` 放入 `X-TERUISI-N8N-EXECUTION-ID` 请求头；helper 只允许 A 首次领取，后续节点必须同时匹配执行 ID 与当前阶段，旧执行、缺失 ID、乱序或并发请求均失败关闭。A、B、C 或 P 成功后若两分钟内没有下一节点领取，helper 会自动退出并由本地 Worker 启动器重新待命；M 是唯一成功终态，完成货品导入回查后关闭本轮受控浏览器并退出。任一阶段失败也关闭本轮受控浏览器并保留恢复证据。工作流页面每 5 秒读取一次只含阶段、忙碌状态、专属 Profile 与 Cookie 后备文件是否存在的 `/health`，不会读取路径、Cookie 或凭证内容。当前五段式副本必须从 A 开始，并由 M 收尾；M 失败不会回滚已完成回查的商品日或推广数据，但整个 n8n execution 仍保持失败。
+亿玖店为兼容旧配置，可通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供 Cookie 原文件路径；所有店铺都可以把路径单独写入 Git 已忽略的 `.runtime/<storeKey>-sycm-cookie-path.txt`。其他店铺不会读取亿玖店的全局环境变量。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。A 首先启动注册表中的店铺独立 Chromium；登录失效且该店显式设置 `loginMode=windows_dpapi_credentials` 时，程序只从当前 Windows 用户绑定的店铺独立 DPAPI 凭据项在内存中解密，向唯一密码表单填入并最多提交一次；不回读字段值。验证码、短信、安全验证、凭据缺失/损坏、登录按钮歧义或店铺身份不符都失败关闭。B 随后通过注册表调试端口从同一会话读取适用于 `sycm.taobao.com` 的 Cookie，只在内存中使用且不落盘；仅当该实例不可连接时才使用本店受控 Cookie 原文件后备。辅助进程只监听本机环回地址，协调节点和 A、B、C、P、M 节点会同时传递同一个 `$execution.id` 与固定 `X-TERUISI-TMALL-STORE-KEY`；helper 领取时把执行 ID 与店铺键一起绑定，跨店、旧执行、缺失 ID、乱序或并发请求均失败关闭。A、B、C 或 P 成功后若两分钟内没有下一节点领取，helper 会自动退出并由本地 Worker 启动器重新待命；M 是唯一成功终态，完成货品导入回查后关闭本轮受控浏览器并退出。任一阶段失败也只关闭本轮绑定店铺的受控浏览器并保留恢复证据。工作流页面每 5 秒读取一次只含阶段、忙碌状态、专属 Profile 与 Cookie 后备文件是否存在的 `/health`，不会读取路径、Cookie 或凭证内容。当前五段式副本必须从 A 开始，并由 M 收尾；M 失败不会回滚已完成回查的商品日或推广数据，但整个 n8n execution 仍保持失败。
 
 只有排查启动器时才单独运行下面的辅助命令；不要同时运行它和本地 Worker 启动器，否则 5791 端口门禁会安全拒绝第二个进程：
 

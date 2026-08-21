@@ -10,6 +10,7 @@ import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import {
+  getRegisteredTmallStore,
   getTmallStore,
   resolveTmallBrowserLaunchTarget,
   type TmallStore,
@@ -1641,7 +1642,7 @@ export async function ensureTmallStoreAuthenticatedSession(storeKey = "tmall-yij
 }
 
 export async function launchTmallProductMasterLogin(storeKey = "tmall-yijiu") {
-  const store = await getTmallStore(storeKey);
+  const store = await getRegisteredTmallStore(storeKey);
   const browser = await launchStoreChrome(store, true);
   return {
     ok: true,

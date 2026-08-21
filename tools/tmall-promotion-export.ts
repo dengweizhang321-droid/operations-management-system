@@ -11,6 +11,7 @@ import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { netshopOutletKey } from "../lib/netshop/query-contract";
 import {
+  getRegisteredTmallStore,
   getTmallStore,
   resolveTmallBrowserLaunchTarget,
   type TmallStore,
@@ -1362,7 +1363,7 @@ async function launchStoreChrome(store: TmallStore, interactiveLogin = false) {
 }
 
 export async function launchTmallPromotionLogin(storeKey = "tmall-yijiu") {
-  const store = await getTmallStore(storeKey);
+  const store = await getRegisteredTmallStore(storeKey);
   await launchStoreChrome(store, true);
   return {
     ok: true,

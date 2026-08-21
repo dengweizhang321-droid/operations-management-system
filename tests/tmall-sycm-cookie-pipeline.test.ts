@@ -16,6 +16,7 @@ import {
   encodeArtifactPath,
   getCookieSourceStatus,
   getTmallProfileStatus,
+  getTmallProfilesStatus,
   getTmallPromotionStageOptions,
   helperInactivityTimeoutMs,
   helperHealthCorsHeaders,
@@ -25,6 +26,7 @@ import {
   maximumDaysPerRun,
   maximumWorkflowCoordinationAttempts,
   normalizeN8nExecutionId,
+  normalizeTmallStoreKey,
   parseWorkflowCoordinationAttempt,
   parseWorkflowCoordinationKey,
   parseCookieHeader,
@@ -32,6 +34,9 @@ import {
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
   tmallStageAfterRoute,
+  tmallCookiePointerFile,
+  tmallStoreContextError,
+  tmallStoreKeyHeader,
   workflowClaimDecision,
   workflowCoordinationWaitExpired,
   workflowCoordinationAttemptHeader,
@@ -45,6 +50,7 @@ test("JD silent copy uses one bounded non-secret no-window header", () => {
 test("工作流协调领取使用受控键并在 A 前原子授予唯一 execution", () => {
   assert.equal(workflowCoordinationKeyHeader, "x-teruisi-workflow-key");
   assert.equal(workflowCoordinationAttemptHeader, "x-teruisi-coordination-attempt");
+  assert.equal(tmallStoreKeyHeader, "x-teruisi-tmall-store-key");
   assert.equal(maximumWorkflowCoordinationAttempts, 72);
   assert.equal(parseWorkflowCoordinationAttempt(undefined), 0);
   assert.equal(parseWorkflowCoordinationAttempt("0"), 0);
@@ -70,6 +76,7 @@ test("工作流协调领取使用受控键并在 A 前原子授予唯一 executi
   assert.deepEqual(workflowClaimDecision({
     stage: "running", busy: true, activeWorkflow: "jd", requestedWorkflow: "tmall",
     requestExecutionId: "execution-tmall", claimedExecutionId: null,
+    requestedTmallStoreKey: "tmall-lili", claimedTmallStoreKey: null,
   }), { coordinationStatus: "waiting", reason: "active_workflow", activeWorkflow: "jd" });
   assert.deepEqual(workflowClaimDecision({
     stage: "ready", busy: false, activeWorkflow: "jd", requestedWorkflow: "jd",
@@ -87,6 +94,27 @@ test("工作流协调领取使用受控键并在 A 前原子授予唯一 executi
     stage: "ready", busy: false, activeWorkflow: null, requestedWorkflow: "tmall",
     requestExecutionId: null, claimedExecutionId: null,
   }), { error: "missing_or_invalid_execution_id" });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: null, requestedWorkflow: "tmall",
+    requestExecutionId: "execution-tmall", claimedExecutionId: null,
+  }), { error: "missing_or_invalid_tmall_store_key" });
+  assert.deepEqual(workflowClaimDecision({
+    stage: "ready", busy: false, activeWorkflow: "tmall", requestedWorkflow: "tmall",
+    requestExecutionId: "execution-tmall", claimedExecutionId: "execution-tmall",
+    requestedTmallStoreKey: "tmall-lili", claimedTmallStoreKey: "tmall-yijiu",
+  }), { error: "tmall_store_context_mismatch" });
+});
+
+test("天猫 execution owner 同时绑定规范店铺键并拒绝缺失或跨店请求", () => {
+  assert.equal(normalizeTmallStoreKey("TMALL-LILI"), "tmall-lili");
+  assert.equal(normalizeTmallStoreKey("bad store"), null);
+  assert.equal(normalizeTmallStoreKey(["tmall-lili"]), null);
+  assert.deepEqual(tmallStoreContextError(null, "tmall-lili"), { error: "missing_or_invalid_tmall_store_key" });
+  assert.deepEqual(tmallStoreContextError("tmall-lili", null), { error: "tmall_store_not_claimed" });
+  assert.deepEqual(tmallStoreContextError("tmall-lili", "tmall-yijiu"), { error: "tmall_store_context_mismatch" });
+  assert.equal(tmallStoreContextError("tmall-lili", "tmall-lili"), null);
+  assert.notEqual(tmallCookiePointerFile("tmall-lili"), tmallCookiePointerFile("tmall-yijiu"));
+  assert.equal(path.basename(tmallCookiePointerFile("tmall-lili")), "tmall-lili-sycm-cookie-path.txt");
 });
 
 test("不同执行可保存同一目标日的不同源文件，交由导入接口比较业务内容", async () => {
@@ -184,6 +212,8 @@ test("下载响应必须是老式 XLS 魔数", () => {
 test("单轮只规划一个商品日，空计划不读取 Cookie 并可生成空下载清单", () => {
   assert.equal(maximumDaysPerRun, 1);
   assert.deepEqual(getTmallPromotionStageOptions(), { storeKey: "tmall-yijiu", maximumDays: 1 });
+  assert.deepEqual(getTmallPromotionStageOptions("tmall-lili"), { storeKey: "tmall-lili", maximumDays: 1 });
+  assert.throws(() => getTmallPromotionStageOptions("bad store"), /店铺键无效/);
   assert.equal(shouldLoadCookieForPlan([]), false);
   assert.equal(shouldLoadCookieForPlan(["2026-08-05"]), true);
   assert.deepEqual(createInitialDownloadManifest({
@@ -252,6 +282,14 @@ test("天猫健康检查接受完整专属 user-data-dir，备用 Cookie 缺失�
       debugPort: 9334,
       downloadDir: path.join(root, "downloads"),
     } }), "ready");
+    assert.equal(await getTmallProfilesStatus([{ browser: {
+      executablePath,
+      userDataDir,
+      profileName: "Default",
+      profileDir,
+      debugPort: 9334,
+      downloadDir: path.join(root, "downloads"),
+    } }]), "ready");
     assert.equal(await getTmallProfileStatus({ browser: {
       profileDir,
       debugPort: 9334,
@@ -267,20 +305,23 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
   assert.equal(normalizeN8nExecutionId("bad execution"), null);
   assert.equal(normalizeN8nExecutionId(undefined), null);
 
-  assert.equal(helperRequestError("ready", false, "/plan", "execution-100", null), null);
+  assert.deepEqual(helperRequestError("ready", false, "/plan", "execution-100", null), {
+    error: "execution_not_claimed",
+    expected: "/coordination/claim",
+  });
   assert.deepEqual(helperRequestError("ready", false, "/product-master", "execution-100", null), {
     error: "execution_not_claimed",
-    expected: "/plan",
+    expected: "/coordination/claim",
   });
   assert.deepEqual(helperRequestError("planned", false, "/product-master", "execution-100", "execution-100"), {
     error: "invalid_stage",
     expected: "promoted",
     actual: "planned",
   });
-  assert.deepEqual(helperRequestError("ready", true, "/plan", "execution-100", null), { error: "pipeline_busy" });
+  assert.deepEqual(helperRequestError("ready", true, "/plan", "execution-100", "execution-100"), { error: "pipeline_busy" });
   assert.deepEqual(helperRequestError("ready", false, "/fetch", "execution-100", null), {
     error: "execution_not_claimed",
-    expected: "/plan",
+    expected: "/coordination/claim",
   });
   assert.deepEqual(helperRequestError("planned", false, "/plan", "execution-100", "execution-100"), {
     error: "invalid_stage",

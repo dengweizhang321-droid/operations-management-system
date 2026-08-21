@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { tmallN8nWorkflowDefinitions } from "../tools/generate-tmall-n8n-workflows";
+
 const workflowPath = new URL("../automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json", import.meta.url);
 
 test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五段式、上海时区和凭证隔离", async () => {
@@ -39,6 +41,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
     { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
     { name: "X-TERUISI-COORDINATION-ATTEMPT", value: "={{ $runIndex }}" },
     { name: "X-TERUISI-WORKFLOW-KEY", value: "tmall" },
+    { name: "X-TERUISI-TMALL-STORE-KEY", value: "tmall-yijiu" },
   ]);
   const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && node.name !== "领取共享 helper");
   assert.deepEqual(requestNodes.map((node) => node.parameters?.url), [
@@ -50,10 +53,10 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   ]);
   for (const node of requestNodes) {
     assert.equal(node.parameters?.sendHeaders, true);
-    assert.deepEqual(node.parameters?.headerParameters?.parameters, [{
-      name: "X-TERUISI-N8N-EXECUTION-ID",
-      value: "={{ $execution.id }}",
-    }]);
+    assert.deepEqual(node.parameters?.headerParameters?.parameters, [
+      { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+      { name: "X-TERUISI-TMALL-STORE-KEY", value: "tmall-yijiu" },
+    ]);
   }
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
   assert.match(raw, /导出全部商品/);
@@ -85,6 +88,79 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(requestNodes.at(-1)?.parameters?.options?.timeout, 21_600_000);
   assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|Cookie:\s*[^`\n]/i);
   assert.doesNotMatch(raw, /localhost:8000|teruisi123|_tb_token_=|cookie2=/i);
+});
+
+test("六店 n8n 模板固定绑定独立店铺键、错峰调度且新增五店默认停用", async () => {
+  const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as {
+    stores: Array<{
+      storeKey: string;
+      shopName: string;
+      enabled: boolean;
+      loginMode?: string;
+      browser: { userDataDir?: string; profileDir: string; debugPort: number; downloadDir: string };
+    }>;
+  };
+  const selectedStores = tmallN8nWorkflowDefinitions.map((definition) => {
+    const store = registry.stores.find((candidate) => candidate.storeKey === definition.storeKey);
+    assert.ok(store, `${definition.storeKey} 缺少注册项`);
+    return store;
+  });
+  assert.equal(new Set(selectedStores.map((store) => store.browser.userDataDir)).size, selectedStores.length);
+  assert.equal(new Set(selectedStores.map((store) => store.browser.profileDir)).size, selectedStores.length);
+  assert.equal(new Set(selectedStores.map((store) => store.browser.debugPort)).size, selectedStores.length);
+  assert.equal(new Set(selectedStores.map((store) => store.browser.downloadDir)).size, selectedStores.length);
+
+  for (const [index, definition] of tmallN8nWorkflowDefinitions.entries()) {
+    const raw = await readFile(new URL(`../automation/n8n/${definition.fileName}`, import.meta.url), "utf8");
+    const workflow = JSON.parse(raw) as {
+      id: string;
+      name: string;
+      active: boolean;
+      settings: { timezone?: string };
+      nodes: Array<{
+        name: string;
+        type: string;
+        parameters?: {
+          url?: string;
+          rule?: { interval?: Array<{ expression?: string }> };
+          headerParameters?: { parameters?: Array<{ name?: string; value?: string }> };
+        };
+      }>;
+      connections: Record<string, { main?: Array<Array<{ node?: string }>> }>;
+    };
+    assert.equal(workflow.id, definition.workflowId);
+    assert.equal(workflow.name, definition.workflowName);
+    assert.equal(workflow.active, false);
+    assert.equal(workflow.settings.timezone, "Asia/Shanghai");
+    const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
+    assert.equal(schedule?.name, definition.scheduleName);
+    assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, definition.cronExpression);
+    assert.equal(workflow.connections[definition.scheduleName]?.main?.[0]?.[0]?.node, "领取共享 helper");
+
+    const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
+    assert.equal(requestNodes.length, 6);
+    for (const node of requestNodes) {
+      const headers = node.parameters?.headerParameters?.parameters ?? [];
+      assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-STORE-KEY"), [
+        { name: "X-TERUISI-TMALL-STORE-KEY", value: definition.storeKey },
+      ]);
+      assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-N8N-EXECUTION-ID"), [
+        { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
+      ]);
+    }
+    const coordination = requestNodes.find((node) => node.parameters?.url?.endsWith("/coordination/claim"));
+    assert.equal(coordination?.parameters?.headerParameters?.parameters?.some(
+      (header) => header.name === "X-TERUISI-WORKFLOW-KEY" && header.value === "tmall",
+    ), true);
+    assert.match(raw, new RegExp(definition.storeKey));
+    assert.match(raw, new RegExp(definition.shopName));
+    assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|_tb_token_=|cookie2=/i);
+
+    const store = selectedStores[index]!;
+    assert.equal(store.shopName, definition.shopName);
+    assert.equal(store.loginMode, "windows_dpapi_credentials");
+    if (definition.storeKey !== "tmall-yijiu") assert.equal(store.enabled, false);
+  }
 });
 
 test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async () => {

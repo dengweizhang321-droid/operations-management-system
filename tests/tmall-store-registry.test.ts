@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 
-import { enabledTmallStoreCatalog, resolveEnabledTmallShop } from "../lib/netshop/tmall-store-catalog";
 import {
+  enabledTmallStoreCatalog,
+  resolveEnabledTmallShop,
+  tmallStoreRegistryData,
+} from "../lib/netshop/tmall-store-catalog";
+import {
+  resolveEnabledRegisteredTmallStore,
+  resolveRegisteredTmallStore,
   resolveTmallBrowserLaunchTarget,
   type TmallStore,
   validateTmallStoreRegistry,
@@ -91,4 +98,25 @@ test("服务端只接受注册表中启用的天猫店铺", () => {
   assert.equal(yijiu.browser.debugPort, 9334);
   assert.equal(yijiu.loginMode, "windows_dpapi_credentials");
   assert.throws(() => resolveEnabledTmallShop("天猫-志高丽力专卖店"), /未注册或未启用/);
+});
+
+test("新增五店使用独立 Chromium 根目录并在首次登录完成前保持停用", () => {
+  const selectedKeys = ["tmall-lili", "tmall-tuofeng", "tmall-yiyong", "tmall-cuizhiwang", "tmall-masitu"];
+  const stores = validateTmallStoreRegistry(
+    { version: 1, stores: tmallStoreRegistryData.stores },
+    "D:\\workspace",
+    "C:\\Users\\test\\AppData\\Local",
+  );
+  const selected = selectedKeys.map((storeKey) => resolveRegisteredTmallStore(stores, storeKey));
+  assert.equal(selected.every((item) => item.enabled === false), true);
+  assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
+  assert.equal(selected.every((item) => item.browser.profileName === "Default"), true);
+  assert.equal(new Set(selected.map((item) => item.browser.userDataDir?.toLowerCase())).size, selected.length);
+  assert.equal(new Set(selected.map((item) => item.browser.debugPort)).size, selected.length);
+  assert.equal(new Set(selected.map((item) => item.browser.downloadDir.toLowerCase())).size, selected.length);
+  for (const item of selected) {
+    assert.equal(item.browser.profileDir.toLowerCase(), path.join(item.browser.userDataDir!, "Default").toLowerCase());
+    assert.throws(() => resolveEnabledRegisteredTmallStore(stores, item.storeKey), /尚未启用/);
+  }
+  assert.throws(() => resolveRegisteredTmallStore(stores, "tmall-unknown"), /未找到天猫店铺注册项/);
 });

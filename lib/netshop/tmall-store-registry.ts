@@ -132,9 +132,22 @@ export function bundledTmallStores(): TmallStore[] {
   return validateTmallStoreRegistry(tmallStoreRegistryData, projectRoot);
 }
 
-export async function getTmallStore(storeKey: string): Promise<TmallStore> {
-  const store = (await loadTmallStores()).find((item) => item.storeKey === storeKey);
+export function resolveRegisteredTmallStore(stores: readonly TmallStore[], storeKey: string): TmallStore {
+  const store = stores.find((item) => item.storeKey === storeKey);
   if (!store) throw new Error(`未找到天猫店铺注册项: ${storeKey}`);
+  return store;
+}
+
+export function resolveEnabledRegisteredTmallStore(stores: readonly TmallStore[], storeKey: string): TmallStore {
+  const store = resolveRegisteredTmallStore(stores, storeKey);
   if (!store.enabled) throw new Error(`天猫店铺尚未启用: ${storeKey}`);
   return store;
+}
+
+export async function getRegisteredTmallStore(storeKey: string): Promise<TmallStore> {
+  return resolveRegisteredTmallStore(await loadTmallStores(), storeKey);
+}
+
+export async function getTmallStore(storeKey: string): Promise<TmallStore> {
+  return resolveEnabledRegisteredTmallStore(await loadTmallStores(), storeKey);
 }

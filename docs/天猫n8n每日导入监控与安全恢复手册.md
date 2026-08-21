@@ -47,7 +47,7 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9334 -ErrorAction Silent
 
 ### 2.2 11:03 监控判定
 
-- 查找当日上海时间 11:00 的 scheduled execution，并记录 execution ID。
+- 按每个 `enabled=true` 店铺的已发布模板查找当日 scheduled execution，并记录 execution ID 与固定店铺键；亿玖店为 11:00，其他店铺只有在完成登录核验、启用并发布后才按各自错峰时间纳入监控。`enabled=false` 的店铺不应出现 active 调度。
 - 若正在运行，持续监控到终态，不以节点变绿、任务已创建或文件已下载提前结束。
 - 若 11:05 仍无 scheduled execution，检查当前发布版本、工作流启用状态、trigger 注册、时区和 n8n 服务；不得新建第二条并发业务流水线。
 - 任一阶段失败时，先保存 execution ID、店铺、目标业务日期、失败节点、脱敏错误、活动清单阶段和浏览器所有权，再决定是否可自动恢复。
@@ -154,12 +154,13 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9334 -ErrorAction Silent
 
 ## 7. 新增店铺复用清单
 
-1. 先以 `enabled=false` 在 `config/tmall-store-accounts.json` 注册唯一 `storeKey`、精确 `shopName`、`initialStartDate` 和完整浏览器配置。
+1. 先以 `enabled=false` 在 `config/tmall-store-accounts.json` 注册唯一 `storeKey`、精确 `shopName`、`initialStartDate` 和完整浏览器配置。首次登录命令允许读取该停用注册项，但业务节点仍会拒绝它。
 2. 每店使用独立 `userDataDir`（优先）或至少独立 `profileName/profileDir`，并使用唯一 `debugPort`、`downloadDir`、签收单、恢复清单和 DPAPI 凭据项。`profileDir` 必须精确等于 `userDataDir/profileName`。
 3. 交互录入该店凭据，打开该店受控浏览器完成首次登录和必要安全验证，并从页面精确核验店铺身份。
-4. 确认货品、商品日和推广三个阶段都只从同一注册项解析浏览器与店铺信息；禁止硬编码亿玖店或回退默认 profile。
+4. 确认货品、商品日和推广三个阶段都只从同一注册项解析浏览器与店铺信息；n8n 协调节点和 A/B/C/P/M 全部发送相同的 `X-TERUISI-TMALL-STORE-KEY`，helper 将它与 execution ID 绑定。禁止硬编码亿玖店或回退默认 profile。
 5. 补跨店隔离、凭据错配、端口冲突、下载目录冲突、清单错接和批次跨店重复的负向测试。
-6. 先执行无业务副作用的预检；再将店铺启用并纳入串行调度。不得为扩店创建会并发点击或导入的第二条流水线。
+6. 先执行无业务副作用的预检；再将店铺启用并导入其默认 `active=false` 的工作流模板。每店可以有独立 n8n 模板，但所有模板必须使用同一协调门禁串行业务阶段；不得创建绕过门禁、会并发点击或并发导入的第二条流水线。
+7. 只有人工确认该店千牛、生意参谋和阿里妈妈身份均正确后，才设置 `enabled=true` 并单独发布该店调度；每个启用店铺只能有一条 active 日调度。
 
 ## 8. 交付与状态汇报
 

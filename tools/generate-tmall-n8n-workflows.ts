@@ -1,0 +1,200 @@
+import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const workflowDirectory = path.join(projectRoot, "automation", "n8n");
+const baseWorkflowFile = path.join(workflowDirectory, "tmall-yijiu-sycm-cookie-daily.workflow.json");
+
+export type TmallN8nWorkflowDefinition = {
+  storeKey: string;
+  shopName: string;
+  shortName: string;
+  workflowId: string;
+  workflowName: string;
+  fileName: string;
+  cronExpression: string;
+  scheduleName: string;
+};
+
+export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] = [
+  {
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+    shortName: "亿玖",
+    workflowId: "M4xY8kQ2vR6sT9pC",
+    workflowName: "天猫店铺数据导入",
+    fileName: "tmall-yijiu-sycm-cookie-daily.workflow.json",
+    cronExpression: "0 11 * * *",
+    scheduleName: "每天 11:00 运行",
+  },
+  {
+    storeKey: "tmall-lili",
+    shopName: "天猫-志高丽力专卖店",
+    shortName: "丽力",
+    workflowId: "TmallLiliDaily2026",
+    workflowName: "天猫店铺数据导入-丽力",
+    fileName: "tmall-lili-sycm-cookie-daily.workflow.json",
+    cronExpression: "5 11 * * *",
+    scheduleName: "每天 11:05 运行",
+  },
+  {
+    storeKey: "tmall-tuofeng",
+    shopName: "天猫-志高拓丰专卖店",
+    shortName: "拓丰",
+    workflowId: "TmallTuofengDaily2026",
+    workflowName: "天猫店铺数据导入-拓丰",
+    fileName: "tmall-tuofeng-sycm-cookie-daily.workflow.json",
+    cronExpression: "10 11 * * *",
+    scheduleName: "每天 11:10 运行",
+  },
+  {
+    storeKey: "tmall-yiyong",
+    shopName: "天猫-志高亿用专卖店",
+    shortName: "亿用",
+    workflowId: "TmallYiyongDaily2026",
+    workflowName: "天猫店铺数据导入-亿用",
+    fileName: "tmall-yiyong-sycm-cookie-daily.workflow.json",
+    cronExpression: "15 11 * * *",
+    scheduleName: "每天 11:15 运行",
+  },
+  {
+    storeKey: "tmall-cuizhiwang",
+    shopName: "天猫-志高炊之王专卖店",
+    shortName: "炊之王",
+    workflowId: "TmallCuizhiwangDaily2026",
+    workflowName: "天猫店铺数据导入-炊之王",
+    fileName: "tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
+    cronExpression: "20 11 * * *",
+    scheduleName: "每天 11:20 运行",
+  },
+  {
+    storeKey: "tmall-masitu",
+    shopName: "天猫-志高马思图专卖店",
+    shortName: "马思图",
+    workflowId: "TmallMasituDaily2026",
+    workflowName: "天猫店铺数据导入-马思图",
+    fileName: "tmall-masitu-sycm-cookie-daily.workflow.json",
+    cronExpression: "25 11 * * *",
+    scheduleName: "每天 11:25 运行",
+  },
+] as const;
+
+type WorkflowNode = {
+  name: string;
+  type: string;
+  parameters?: {
+    content?: string;
+    sendHeaders?: boolean;
+    headerParameters?: { parameters?: Array<{ name?: string; value?: string }> };
+    rule?: { interval: Array<{ field: "cronExpression"; expression: string }> };
+    [key: string]: unknown;
+  };
+};
+
+type WorkflowTemplate = {
+  id: string;
+  name: string;
+  active: boolean;
+  versionId?: string;
+  nodes: WorkflowNode[];
+  connections: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+};
+
+const bindingEndMarker = "<!-- tmall-store-binding:end -->";
+
+function stableUuid(seed: string) {
+  const bytes = Buffer.from(createHash("sha256").update(seed).digest("hex").slice(0, 32), "hex");
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowDefinition) {
+  const withoutBinding = content.includes(bindingEndMarker)
+    ? content.slice(content.indexOf(bindingEndMarker) + bindingEndMarker.length).replace(/^\s+/, "")
+    : content;
+  let adapted = withoutBinding
+    .replaceAll("tmall-yijiu", definition.storeKey)
+    .replaceAll("亿玖店", `${definition.shortName}店`)
+    .replaceAll("亿玖", definition.shortName);
+  if (definition.storeKey !== "tmall-yijiu") {
+    adapted = adapted.replace(
+      "浏览器不可连接时才从临时环境变量 `TMALL_SYCM_COOKIE_FILE` 或 Git 已忽略的",
+      "浏览器不可连接时才从 Git 已忽略的店铺专属",
+    );
+  }
+  return [
+    "## 店铺绑定",
+    `本模板固定绑定 \`${definition.shopName}\`（\`${definition.storeKey}\`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。`,
+    bindingEndMarker,
+    "",
+    adapted,
+  ].join("\n");
+}
+
+function setStoreHeader(node: WorkflowNode, storeKey: string) {
+  if (node.type !== "n8n-nodes-base.httpRequest") return;
+  const parameters = node.parameters ??= {};
+  parameters.sendHeaders = true;
+  const headerParameters = parameters.headerParameters ??= { parameters: [] };
+  const headers = Array.isArray(headerParameters.parameters) ? headerParameters.parameters : [];
+  headerParameters.parameters = [
+    ...headers.filter((header) => String(header.name ?? "").toLowerCase() !== "x-teruisi-tmall-store-key"),
+    { name: "X-TERUISI-TMALL-STORE-KEY", value: storeKey },
+  ];
+}
+
+export function buildTmallN8nWorkflow(
+  source: WorkflowTemplate,
+  definition: TmallN8nWorkflowDefinition,
+): WorkflowTemplate {
+  const workflow = structuredClone(source);
+  workflow.id = definition.workflowId;
+  workflow.name = definition.workflowName;
+  workflow.active = false;
+  workflow.versionId = definition.storeKey === "tmall-yijiu"
+    ? source.versionId
+    : stableUuid(`teruisi:${definition.storeKey}:tmall-daily:v1`);
+  workflow.settings = { ...(workflow.settings ?? {}), executionOrder: "v1", timezone: "Asia/Shanghai" };
+
+  const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
+  if (!schedule) throw new Error("天猫 n8n 基础模板缺少 scheduleTrigger");
+  const oldScheduleName = schedule.name;
+  const scheduleParameters = schedule.parameters ??= {};
+  scheduleParameters.rule = { interval: [{ field: "cronExpression", expression: definition.cronExpression }] };
+  schedule.name = definition.scheduleName;
+  if (oldScheduleName !== definition.scheduleName) {
+    workflow.connections[definition.scheduleName] = workflow.connections[oldScheduleName];
+    delete workflow.connections[oldScheduleName];
+  }
+
+  for (const node of workflow.nodes) {
+    setStoreHeader(node, definition.storeKey);
+    if (node.type === "n8n-nodes-base.stickyNote" && typeof node.parameters?.content === "string") {
+      node.parameters.content = replaceStoreSpecificText(node.parameters.content, definition);
+    }
+  }
+  return workflow;
+}
+
+export async function generateTmallN8nWorkflows() {
+  const source = JSON.parse(await readFile(baseWorkflowFile, "utf8")) as WorkflowTemplate;
+  if (source.active) throw new Error("拒绝从已激活的天猫工作流生成扩店模板");
+  const generated: string[] = [];
+  for (const definition of tmallN8nWorkflowDefinitions) {
+    const outputPath = path.join(workflowDirectory, definition.fileName);
+    const workflow = buildTmallN8nWorkflow(source, definition);
+    await writeFile(outputPath, `${JSON.stringify(workflow, null, 2)}\n`, "utf8");
+    generated.push(outputPath);
+  }
+  return generated;
+}
+
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  const generated = await generateTmallN8nWorkflows();
+  console.log(JSON.stringify({ ok: true, generated: generated.map((file) => path.basename(file)) }, null, 2));
+}

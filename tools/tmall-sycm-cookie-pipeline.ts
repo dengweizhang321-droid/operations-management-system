@@ -7,7 +7,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
-import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
+import {
+  getRegisteredTmallStore,
+  getTmallStore,
+  loadTmallStores,
+  type TmallStore,
+} from "../lib/netshop/tmall-store-registry";
 import { createTmallDownloadReceipt } from "./tmall-download-receipt";
 import {
   buildTmallSpuCoverageUrl,
@@ -69,16 +74,28 @@ import {
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
-const defaultCookiePointerFile = path.join(projectRoot, ".runtime", "tmall-yijiu-sycm-cookie-path.txt");
 const maximumDownloadBytes = 25 * 1024 * 1024;
 export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
 export const workflowCoordinationKeyHeader = "x-teruisi-workflow-key";
 export const workflowCoordinationAttemptHeader = "x-teruisi-coordination-attempt";
+export const tmallStoreKeyHeader = "x-teruisi-tmall-store-key";
 export const maximumWorkflowCoordinationAttempts = 72;
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
 export const jdMarketResumeRunIdHeader = "x-teruisi-jd-market-resume-run-id";
+
+export function normalizeTmallStoreKey(value: string | string[] | undefined) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{0,63}$/.test(normalized) ? normalized : null;
+}
+
+export function tmallCookiePointerFile(storeKey: string) {
+  const normalized = normalizeTmallStoreKey(storeKey);
+  if (!normalized) throw new Error("天猫店铺键无效");
+  return path.join(projectRoot, ".runtime", `${normalized}-sycm-cookie-path.txt`);
+}
 
 export function parseJdSilentNoWindowHeader(value: string | string[] | undefined) {
   if (value === undefined || value === "0") return false;
@@ -528,15 +545,21 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function configuredCookieFilePath() {
-  return (process.env.TMALL_SYCM_COOKIE_FILE
-    ?? await readFile(defaultCookiePointerFile, "utf8").catch(() => "")).trim();
+async function configuredCookieFilePath(storeKey: string) {
+  const legacyEnvironmentFile = storeKey === "tmall-yijiu"
+    ? process.env.TMALL_SYCM_COOKIE_FILE
+    : undefined;
+  return (legacyEnvironmentFile
+    ?? await readFile(tmallCookiePointerFile(storeKey), "utf8").catch(() => "")).trim();
 }
 
 async function cookieFromConfiguredFile(store: TmallStore) {
-  const cookieFile = await configuredCookieFilePath();
+  const cookieFile = await configuredCookieFilePath(store.storeKey);
   if (!cookieFile || !path.isAbsolute(cookieFile)) {
-    throw new Error("店铺独立 Chrome 不可用，且未通过 TMALL_SYCM_COOKIE_FILE 或本机 .runtime 指针提供绝对 Cookie 文件路径");
+    const fallback = store.storeKey === "tmall-yijiu"
+      ? "TMALL_SYCM_COOKIE_FILE 或本店 .runtime 指针"
+      : "本店 .runtime 指针";
+    throw new Error(`店铺独立 Chromium 不可用，且未通过${fallback}提供绝对 Cookie 文件路径`);
   }
   if (await getCookieSourceStatus(cookieFile) !== "ready") {
     throw new Error("Cookie 原文件不存在或不是普通文件，请更新本机 .runtime 指针后重试");
@@ -552,8 +575,11 @@ export async function loadSycmCookieForStore(store: TmallStore) {
   return { cookie: await cookieFromConfiguredFile(store), source: "cookie_file" as const };
 }
 
-export async function getCookieSourceStatus(cookieFile?: string): Promise<CookieSourceStatus> {
-  const resolvedCookieFile = cookieFile ?? await configuredCookieFilePath();
+export async function getCookieSourceStatus(
+  cookieFile?: string,
+  storeKey = "tmall-yijiu",
+): Promise<CookieSourceStatus> {
+  const resolvedCookieFile = cookieFile ?? await configuredCookieFilePath(storeKey);
   if (!resolvedCookieFile) return "missing";
   if (!path.isAbsolute(resolvedCookieFile)) return "invalid";
   return stat(resolvedCookieFile)
@@ -574,6 +600,16 @@ export async function getTmallProfileStatus(store: Pick<TmallStore, "browser">):
   return executable.isFile() && userData.isDirectory() && profile.isDirectory() && localState.isFile()
     ? "ready"
     : "invalid";
+}
+
+export async function getTmallProfilesStatus(
+  stores: readonly Pick<TmallStore, "browser">[],
+): Promise<TmallProfileStatus> {
+  if (stores.length === 0) return "invalid";
+  const statuses = await Promise.all(stores.map(getTmallProfileStatus));
+  if (statuses.includes("invalid")) return "invalid";
+  if (statuses.includes("missing")) return "missing";
+  return "ready";
 }
 
 export function shouldLoadCookieForPlan(dates: readonly string[]) {
@@ -599,18 +635,23 @@ export function createInitialDownloadManifest(
   };
 }
 
-export function getTmallPromotionStageOptions() {
+export function getTmallPromotionStageOptions(storeKey = "tmall-yijiu") {
+  const normalized = normalizeTmallStoreKey(storeKey);
+  if (!normalized) throw new Error("天猫店铺键无效");
   return {
-    storeKey: "tmall-yijiu",
+    storeKey: normalized,
     maximumDays: maximumDaysPerRun,
   };
 }
 
-async function fetchCommand(argv: string[]) {
+async function fetchCommand(argv: string[], expectedStoreKey?: string) {
   const encodedPlan = cliValue(argv, "--plan-base64");
   if (!encodedPlan) throw new Error("fetch 阶段缺少 --plan-base64");
   const planPath = await artifactPathFromBase64(encodedPlan, "plan-");
   const plan = validatePlan(JSON.parse(await readFile(planPath, "utf8")) as PipelinePlan);
+  if (expectedStoreKey && plan.storeKey !== expectedStoreKey) {
+    throw new Error("计划店铺与当前 helper owner 不一致");
+  }
   const store = await getTmallStore(plan.storeKey);
   if (plan.shopName !== store.shopName || plan.baseUrl !== normalizeLocalBaseUrl(plan.baseUrl)) throw new Error("计划店铺或系统地址与注册表不一致");
   const manifestPath = path.join(artifactDirectory, `manifest-${plan.runId}.json`);
@@ -669,11 +710,14 @@ async function fetchCommand(argv: string[]) {
   };
 }
 
-async function importCommand(argv: string[]) {
+async function importCommand(argv: string[], expectedStoreKey?: string) {
   const encodedManifest = cliValue(argv, "--manifest-base64");
   if (!encodedManifest) throw new Error("import 阶段缺少 --manifest-base64");
   const manifestPath = await artifactPathFromBase64(encodedManifest, "manifest-");
   const manifest = validateManifest(JSON.parse(await readFile(manifestPath, "utf8")) as PipelineManifest);
+  if (expectedStoreKey && manifest.storeKey !== expectedStoreKey) {
+    throw new Error("下载清单店铺与当前 helper owner 不一致");
+  }
   const store = await getTmallStore(manifest.storeKey);
   const baseUrl = normalizeLocalBaseUrl(manifest.baseUrl);
   if (manifest.shopName !== store.shopName) throw new Error("下载清单店铺与注册表不一致");
@@ -785,9 +829,17 @@ export function workflowClaimDecision(input: {
   requestedWorkflow: CoordinatedWorkflow | null;
   requestExecutionId: string | null;
   claimedExecutionId: string | null;
+  requestedTmallStoreKey?: string | null;
+  claimedTmallStoreKey?: string | null;
 }) {
   if (!input.requestedWorkflow) return { error: "missing_or_invalid_workflow_key" as const };
   if (!input.requestExecutionId) return { error: "missing_or_invalid_execution_id" as const };
+  if (input.requestedWorkflow === "tmall") {
+    if (!input.requestedTmallStoreKey) return { error: "missing_or_invalid_tmall_store_key" as const };
+    if (input.claimedTmallStoreKey && input.claimedTmallStoreKey !== input.requestedTmallStoreKey) {
+      return { error: "tmall_store_context_mismatch" as const };
+    }
+  }
   if (input.activeWorkflow === input.requestedWorkflow && input.claimedExecutionId === input.requestExecutionId) {
     return { coordinationStatus: "granted" as const, shouldClaim: false };
   }
@@ -811,6 +863,17 @@ export function workflowClaimDecision(input: {
   return { coordinationStatus: "granted" as const, shouldClaim: true };
 }
 
+export function tmallStoreContextError(
+  requestStoreKey: string | null,
+  claimedStoreKey: string | null,
+) {
+  if (!requestStoreKey) return { error: "missing_or_invalid_tmall_store_key" as const };
+  if (!claimedStoreKey) return { error: "tmall_store_not_claimed" as const };
+  return requestStoreKey === claimedStoreKey
+    ? null
+    : { error: "tmall_store_context_mismatch" as const };
+}
+
 export function tmallStageAfterRoute(route: HelperRoute): HelperStage {
   if (route === "/plan") return "planned";
   if (route === "/fetch") return "fetched";
@@ -830,8 +893,8 @@ export function helperRequestError(
   if (claimedExecutionId && requestExecutionId !== claimedExecutionId) {
     return { error: "execution_mismatch" as const };
   }
-  if (!claimedExecutionId && route !== "/plan") {
-    return { error: "execution_not_claimed" as const, expected: "/plan" as const };
+  if (!claimedExecutionId) {
+    return { error: "execution_not_claimed" as const, expected: "/coordination/claim" as const };
   }
   if (busy) return { error: "pipeline_busy" as const };
   if (route === "/plan") {
@@ -942,6 +1005,7 @@ async function serveCommand(argv: string[]) {
   let jdMarketPlan: JdMarketDailyPlan | null = null;
   let jdPromotionPlan: JdPromotionN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
+  let claimedTmallStoreKey: string | null = null;
   let claimedJackyunExecutionId: string | null = null;
   let claimedJdExecutionId: string | null = null;
   let claimedJdMarketExecutionId: string | null = null;
@@ -977,7 +1041,9 @@ async function serveCommand(argv: string[]) {
     if (request.method === "GET" && request.url === "/health") {
       const [cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile] = await Promise.all([
         getCookieSourceStatus(),
-        getTmallStore("tmall-yijiu").then(getTmallProfileStatus).catch(() => "invalid" as const),
+        loadTmallStores()
+          .then((stores) => getTmallProfilesStatus(stores.filter((store) => store.enabled)))
+          .catch(() => "invalid" as const),
         getJackyunProfileStatus(),
         loadJdStores().then((stores) => getJdProfilesStatus(stores.filter((store) => store.enabled))).catch(() => "invalid" as const),
         loadJdMarketDailyConfig()
@@ -1002,6 +1068,21 @@ async function serveCommand(argv: string[]) {
         reply(400, { ok: false, error: "missing_or_invalid_coordination_attempt" });
         return;
       }
+      const requestedTmallStoreKey = requestedWorkflow === "tmall"
+        ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
+        : null;
+      if (requestedWorkflow === "tmall" && !requestedTmallStoreKey) {
+        reply(400, { ok: false, error: "missing_or_invalid_tmall_store_key" });
+        return;
+      }
+      if (requestedWorkflow === "tmall") {
+        try {
+          await getTmallStore(requestedTmallStoreKey!);
+        } catch {
+          reply(400, { ok: false, error: "tmall_store_not_enabled_or_registered" });
+          return;
+        }
+      }
       const claimedExecutionId = requestedWorkflow === "tmall"
         ? claimedTmallExecutionId
         : requestedWorkflow === "jackyun"
@@ -1020,6 +1101,8 @@ async function serveCommand(argv: string[]) {
         requestedWorkflow,
         requestExecutionId,
         claimedExecutionId,
+        requestedTmallStoreKey,
+        claimedTmallStoreKey,
       });
       if ("error" in decision) {
         reply(400, { ok: false, ...decision });
@@ -1042,7 +1125,10 @@ async function serveCommand(argv: string[]) {
       const coordinatedExecutionId = requestExecutionId as string;
       if (decision.coordinationStatus === "granted" && decision.shouldClaim) {
         activeWorkflow = coordinatedWorkflow;
-        if (coordinatedWorkflow === "tmall") claimedTmallExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "tmall") {
+          claimedTmallExecutionId = coordinatedExecutionId;
+          claimedTmallStoreKey = requestedTmallStoreKey;
+        }
         if (coordinatedWorkflow === "jackyun") claimedJackyunExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd") claimedJdExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-market") claimedJdMarketExecutionId = coordinatedExecutionId;
@@ -1079,7 +1165,10 @@ async function serveCommand(argv: string[]) {
     }
     const route = (request.url === "/jd-promotion-cut-meat/plan" ? "/jd-promotion/plan" : request.url) as HelperRoute | JackyunHelperRoute | JdHelperRoute | JdPromotionHelperRoute | "/jd-market/plan" | "/jd-market/run" | "/jd-market/verify";
     const requestExecutionId = normalizeN8nExecutionId(request.headers[n8nExecutionIdHeader]);
-    const stateError = isJackyun
+    const requestTmallStoreKey = workflow === "tmall"
+      ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
+      : null;
+    const requestStateError = isJackyun
       ? jackyunHelperRequestError(
           stage,
           busy,
@@ -1094,6 +1183,9 @@ async function serveCommand(argv: string[]) {
           : isJdPromotion
             ? jdPromotionHelperRequestError(stage as "ready" | JdPromotionN8nStage, busy, route as JdPromotionHelperRoute, requestExecutionId, claimedJdPromotionExecutionId)
         : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
+    const stateError = requestStateError ?? (workflow === "tmall"
+      ? tmallStoreContextError(requestTmallStoreKey, claimedTmallStoreKey)
+      : null);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
       return;
@@ -1102,7 +1194,6 @@ async function serveCommand(argv: string[]) {
     if (isJd && !claimedJdExecutionId) claimedJdExecutionId = requestExecutionId;
     if (isJdMarket && !claimedJdMarketExecutionId) claimedJdMarketExecutionId = requestExecutionId;
     if (isJdPromotion && !claimedJdPromotionExecutionId) claimedJdPromotionExecutionId = requestExecutionId;
-    if (!isJackyun && !isJd && !isJdMarket && !isJdPromotion && !claimedTmallExecutionId) claimedTmallExecutionId = requestExecutionId;
     inactivityReaper?.clear();
     activeWorkflow = workflow;
     busy = true;
@@ -1199,33 +1290,33 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master") {
-        const result = await runTmallProductMasterStage({ storeKey: "tmall-yijiu" });
-        const store = await getTmallStore("tmall-yijiu");
+        const result = await runTmallProductMasterStage({ storeKey: claimedTmallStoreKey! });
+        const store = await getTmallStore(claimedTmallStoreKey!);
         tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
         stage = tmallStageAfterRoute("/product-master");
         reply(200, { ...result, browserClosure: tmallBrowserClosure });
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/plan") {
-        const authentication = await ensureTmallStoreAuthenticatedSession("tmall-yijiu");
-        const result = await planCommand(["--store-key", "tmall-yijiu", "--max-days", String(maximumDaysPerRun)]);
+        const authentication = await ensureTmallStoreAuthenticatedSession(claimedTmallStoreKey!);
+        const result = await planCommand(["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)]);
         planPathBase64 = result.planPathBase64;
         stage = tmallStageAfterRoute("/plan");
         reply(200, { ...result, authentication });
         inactivityReaper?.arm();
       } else if (request.url === "/fetch") {
-        const result = await fetchCommand(["--plan-base64", planPathBase64]);
+        const result = await fetchCommand(["--plan-base64", planPathBase64], claimedTmallStoreKey!);
         manifestPathBase64 = result.manifestPathBase64;
         stage = tmallStageAfterRoute("/fetch");
         reply(200, result);
         inactivityReaper?.arm();
       } else if (request.url === "/import") {
-        const result = await importCommand(["--manifest-base64", manifestPathBase64]);
+        const result = await importCommand(["--manifest-base64", manifestPathBase64], claimedTmallStoreKey!);
         stage = tmallStageAfterRoute("/import");
         reply(200, result);
         inactivityReaper?.arm();
       } else {
-        const result = await runTmallPromotionStage(getTmallPromotionStageOptions());
+        const result = await runTmallPromotionStage(getTmallPromotionStageOptions(claimedTmallStoreKey!));
         stage = tmallStageAfterRoute("/promotion");
         reply(200, result);
         inactivityReaper?.arm();
@@ -1236,7 +1327,7 @@ async function serveCommand(argv: string[]) {
       let tmallBrowserCloseError: string | null = null;
       if (workflow === "tmall" && !tmallBrowserClosure) {
         try {
-          const store = await getTmallStore("tmall-yijiu");
+          const store = await getRegisteredTmallStore(claimedTmallStoreKey!);
           tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
         } catch (closeError) {
           tmallBrowserCloseError = closeError instanceof Error ? closeError.message : String(closeError);
