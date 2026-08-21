@@ -458,11 +458,13 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const operationId = "ui_aggregate_" + Date.now().toString(36);
     let committed = 0;
     let duplicates = 0;
+    let staleSelected = 0;
     for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
       setNotice(`正在分批入库：已完成 ${committed} 条，本批最多处理 500 条`);
       const result = await post({ action: "commit_selected", aggregateJobs: true, categories: reviewCategories, idempotencyKey: `${operationId}_${batch}` });
       committed += Number(result?.committed ?? 0);
       duplicates += Number(result?.duplicates ?? 0);
+      staleSelected = Math.max(staleSelected, Number(result?.staleSelected ?? 0));
       if (result?.ok === false || result?.partial) {
         await loadReview(true);
         throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条；页面已刷新，可重新点击续跑`));
@@ -470,7 +472,32 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       if (!result?.hasMore) break;
       if (batch === MAX_COMMIT_BATCHES) throw new Error(`已连续处理 ${committed} 条，但仍有剩余选择；请再次点击批量入库继续`);
     }
-    selectedPageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id)); await loadReview(true); setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条`);
+    let rebuilt = 0;
+    let priceOnly = 0;
+    let fullRecognition = 0;
+    const resumedJobs = new Set<string>();
+    if (staleSelected > 0) {
+      for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
+        setNotice(`有效候选已入库 ${committed} 条；正在重建图片已变化的候选 ${rebuilt}/${staleSelected}`);
+        const result = await post({ action: "rebuild_stale_selected", aggregateJobs: true, categories: reviewCategories });
+        rebuilt += Number(result?.rebuilt ?? 0);
+        priceOnly += Number(result?.priceOnly ?? 0);
+        fullRecognition += Number(result?.fullRecognition ?? 0);
+        for (const jobId of Array.isArray(result?.resumedJobIds) ? result.resumedJobIds : []) resumedJobs.add(String(jobId));
+        if (result?.ok === false || result?.partial) {
+          await loadReview(true);
+          throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条并重建 ${rebuilt} 条；页面已刷新，可重新点击续跑`));
+        }
+        if (!result?.hasMore) break;
+        if (batch === MAX_COMMIT_BATCHES) throw new Error(`已入库 ${committed} 条并重建 ${rebuilt} 条，仍有过期候选；请再次点击批量入库继续`);
+      }
+    }
+    selectedPageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id));
+    await loadReview(true);
+    const rebuildNotice = rebuilt
+      ? `；已重建过期候选 ${rebuilt} 条（仅重识别价格 ${priceOnly} 条，完整重识别 ${fullRecognition} 条），恢复云端任务 ${resumedJobs.size} 个`
+      : "";
+    setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条${rebuildNotice}`);
   });
   const rebuildStaleCandidate = () => act("rebuild-stale", async () => {
     if (!staleCandidateId) throw new Error("没有可重建的失效候选");

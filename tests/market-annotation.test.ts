@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -1704,6 +1704,56 @@ test("aggregate batch commit groups selected review items by job", async () => {
   assert.equal(result.committed, 2);
   assert.equal(result.jobs, 2);
   assert.deepEqual((sqlite.prepare("SELECT status FROM market_annotation_items ORDER BY id").all() as Array<{ status: string }>).map((row) => row.status), ["committed", "committed"]);
+  sqlite.close();
+});
+
+test("batch commit skips stale image candidates, rebuilds them, and resumes the cloud job", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('stale-batch-prompt','批量重建类目',1,'manual','active','["已确认分类"]','这是用于验证批量入库遇到旧图候选时仍可安全推进的 Prompt 正文。','admin@test');
+    INSERT INTO market_annotation_jobs
+      (id,category,prompt_version_id,executor,model_id,status,total_count,completed_count,reviewed_count,created_by)
+      VALUES ('stale-batch-job','批量重建类目','stale-batch-prompt','cloud','vision-1','review_ready',2,2,2,'operator@test');
+    INSERT INTO market_annotation_cloud_runs (job_id,state,retry_state_json,completed_at)
+      VALUES ('stale-batch-job','completed','{}',CURRENT_TIMESTAMP);
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,brand,image_url,raw_json,last_import_batch_id) VALUES
+      ('stale-batch-ranking-valid',1,'2026-08-01','2026-08-31','批量重建类目','POP','SKU','POP','VALID-SKU','有效商品','品牌','https://img.example/valid.jpg','{}','batch'),
+      ('stale-batch-ranking-old',2,'2026-08-01','2026-08-31','批量重建类目','POP','SKU','POP','STALE-SKU','新图商品','品牌','https://img.example/new.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status) VALUES
+      ('stale-batch-snapshot-valid','批量重建类目','POP','VALID-SKU','SKU','2026-08','valid-hash','https://img.example/valid.jpg','missing'),
+      ('stale-batch-snapshot-old','批量重建类目','POP','STALE-SKU','SKU','2026-08','new-hash','https://img.example/new.jpg','missing');
+    INSERT INTO market_annotation_items
+      (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,product_name,brand,source_image_url,status,selected,reviewed_segment,reviewed_image_price_cents,reviewed_price_type,reviewed_by) VALUES
+      ('market-item-22222222-2222-4222-8222-222222222222','stale-batch-job','批量重建类目','POP','VALID-SKU','SKU','2026-08','valid-hash','有效商品','品牌','https://img.example/valid.jpg','approved',1,'已确认分类',10000,'标准售价','admin@test'),
+      ('market-item-33333333-3333-4333-8333-333333333333','stale-batch-job','批量重建类目','POP','STALE-SKU','SKU','2026-08','old-hash','旧图商品','品牌','https://img.example/old.jpg','approved',1,'已确认分类',20000,'标准售价','admin@test');
+  `);
+
+  const committed = await commitSelectedAnnotationItems(db, {
+    aggregateJobs: true, categories: ["批量重建类目"], idempotencyKey: "stale-batch-commit-001",
+  }, { email: "admin@test", role: "admin" });
+  assert.equal(committed.committed, 1);
+  assert.equal(committed.staleSelected, 1);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_commit_receipts").get() as { count: number }).count, 1);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE sku_code='STALE-SKU'").get() as { status: string }).status, "approved");
+  sqlite.prepare("UPDATE market_annotation_jobs SET status='running' WHERE id='stale-batch-job'").run();
+  const repairWorkspace = await getAnnotationReviewWorkspace(db, { aggregateJobs: true, itemCategories: ["批量重建类目"] });
+  assert.equal(repairWorkspace.selection.scopeSelectedCount, 1);
+
+  const rebuilt = await rebuildSelectedStaleAnnotationItems(db, {
+    aggregateJobs: true, categories: ["批量重建类目"],
+  }, { email: "admin@test", role: "admin" });
+  assert.deepEqual({ rebuilt: rebuilt.rebuilt, priceOnly: rebuilt.priceOnly, fullRecognition: rebuilt.fullRecognition, remainingStale: rebuilt.remainingStale },
+    { rebuilt: 1, priceOnly: 1, fullRecognition: 0, remainingStale: 0 });
+  assert.deepEqual(rebuilt.resumedJobIds, ["stale-batch-job"]);
+  assert.equal((sqlite.prepare("SELECT state FROM market_annotation_cloud_runs WHERE job_id='stale-batch-job'").get() as { state: string }).state, "running");
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,selected FROM market_annotation_items WHERE id='market-item-33333333-3333-4333-8333-333333333333'").get() as Record<string, unknown>) }, { status: "superseded", selected: 0 });
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,image_content_sha256 hash,reviewed_segment segment FROM market_annotation_items WHERE sku_code='STALE-SKU' AND status<>'superseded'").get() as Record<string, unknown>) }, { status: "queued", hash: "new-hash", segment: "已确认分类" });
   sqlite.close();
 });
 

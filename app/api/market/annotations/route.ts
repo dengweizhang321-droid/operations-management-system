@@ -12,7 +12,7 @@ import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
   createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
-  rebuildStaleAnnotationItem, revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
+  rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
 type JsonRecord = Record<string, unknown>;
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     requireUnrestrictedDataScope(preliminaryPrincipal, "市场 SKU AI 标注", "修改");
     const parsed = await readBoundedJsonObject(request, MARKET_ANNOTATION_BODY_BYTES_MAX);
     const action = text(parsed, "action");
-    const adminActions = new Set(["commit", "commit_selected", "activate_prompt", "rollback_prompt", "delete_prompt", "delete_job", "create_agent", "revoke_agent", "mark_gold"]);
+    const adminActions = new Set(["commit", "commit_selected", "rebuild_stale_selected", "activate_prompt", "rollback_prompt", "delete_prompt", "delete_job", "create_agent", "revoke_agent", "mark_gold"]);
     const principal = await requireAppPrincipal(adminActions.has(action) ? ["admin"] : ["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "市场 SKU AI 标注", "修改");
     const db = getMarketDatabase();
@@ -101,6 +101,7 @@ export async function POST(request: Request) {
       }
       case "commit": result = await commitAnnotationItems(db, { jobId: text(parsed, "jobId"), candidateIds: texts(parsed, "candidateIds"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
       case "commit_selected": result = await commitSelectedAnnotationItems(db, { jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), idempotencyKey: text(parsed, "idempotencyKey") }, principal); break;
+      case "rebuild_stale_selected": result = await rebuildSelectedStaleAnnotationItems(db, { jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories") }, principal); break;
       case "rebuild_stale_item": result = await rebuildStaleAnnotationItem(db, { candidateId: text(parsed, "candidateId") }, principal); break;
       case "select_filtered": result = await setFilteredAnnotationSelection(db, {
         jobId: text(parsed, "jobId") || undefined, aggregateJobs: parsed.aggregateJobs === true, category: text(parsed, "category") || undefined, categories: texts(parsed, "categories"), selected: parsed.selected === true,
@@ -130,6 +131,9 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
+    if (error instanceof Error && /候选项|当前快照|图片哈希|Prompt 枚举|任务正在/.test(error.message)) {
+      return safeApiErrorResponse(new PublicApiError(409, "market_annotation_version_conflict", error.message.slice(0, 300)), "SKU AI 标注操作失败", { headers: { "cache-control": "no-store" } });
+    }
     return safeApiErrorResponse(error, "SKU AI 标注操作失败", { headers: { "cache-control": "no-store" } });
   }
 }

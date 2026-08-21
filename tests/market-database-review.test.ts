@@ -595,6 +595,43 @@ test("same market fact with different file hashes updates the canonical fact ins
   sqlite.close();
 });
 
+test("changing a ranking image URL invalidates the old snapshot hash and image-derived confirmation", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  sqlite.prepare("INSERT INTO market_image_cache (source_url,status,content_sha256) VALUES ('https://img10.360buyimg.com/imgzone/a.jpg','ready','old-hash')").run();
+  await saveMarketImportCore({
+    db, batchId: "image-change-old", sourceType: "jd", fileName: "old.csv", fileSizeBytes: 10,
+    fileHash: "image-change-old-file", sheetName: "CSV", rows: [entry()], warnings: [],
+  });
+  sqlite.prepare(`UPDATE market_price_snapshots SET ai_image_price_cents=188800,ai_price_type='标准售价',
+    ai_confidence_bps=9900,ai_reason='旧图识别',confirmed_market_price_cents=188800,
+    confirmation_status='confirmed',confirmed_by='admin@test',confirmed_at=CURRENT_TIMESTAMP,
+    source_job_item_id='old-item',prompt_version_id='old-prompt' WHERE sku_code='SKU-1'`).run();
+
+  await saveMarketImportCore({
+    db, batchId: "image-change-new", sourceType: "jd", fileName: "new.csv", fileSizeBytes: 11,
+    fileHash: "image-change-new-file", sheetName: "CSV",
+    rows: [entry({ imageUrl: "https://img10.360buyimg.com/imgzone/b.jpg" })], warnings: [],
+  });
+  assert.deepEqual({ ...(sqlite.prepare(`SELECT image_url imageUrl,image_content_sha256 hash,
+      ai_image_price_cents aiPrice,confirmed_market_price_cents confirmedPrice,confirmation_status status,
+      confirmed_by confirmedBy,source_job_item_id sourceItem,prompt_version_id promptId
+    FROM market_price_snapshots WHERE sku_code='SKU-1'`).get() as Record<string, unknown>) }, {
+    imageUrl: "https://img10.360buyimg.com/imgzone/b.jpg", hash: "", aiPrice: null,
+    confirmedPrice: null, status: "source_table", confirmedBy: "", sourceItem: "", promptId: "",
+  });
+
+  const claim = await claimMarketImageCache(db, "https://img10.360buyimg.com/imgzone/b.jpg");
+  assert.equal(claim, 1);
+  await completeMarketImageCacheClaim(db, {
+    sourceUrl: "https://img10.360buyimg.com/imgzone/b.jpg", attemptCount: claim!, objectKey: "market/new.jpg",
+    contentHash: "new-hash", mimeType: "image/jpeg", sizeBytes: 20, imageSource: "test",
+  });
+  assert.equal((sqlite.prepare("SELECT image_content_sha256 hash FROM market_price_snapshots WHERE sku_code='SKU-1'").get() as { hash: string }).hash, "new-hash");
+  sqlite.close();
+});
+
 test("market import directly inherits a confirmed standard price only for the same SKU image", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);

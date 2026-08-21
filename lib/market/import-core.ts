@@ -331,9 +331,41 @@ ON CONFLICT(category, scope, sku_code, ranking_dimension, month) DO UPDATE SET
   source_price_cents=excluded.source_price_cents,
   average_transaction_price_cents=excluded.average_transaction_price_cents,
   price_low_cents=excluded.price_low_cents, price_high_cents=excluded.price_high_cents,
-  image_content_sha256=CASE WHEN excluded.image_content_sha256<>'' THEN excluded.image_content_sha256 ELSE market_price_snapshots.image_content_sha256 END,
+  image_content_sha256=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN excluded.image_content_sha256
+    WHEN excluded.image_content_sha256<>'' THEN excluded.image_content_sha256
+    ELSE market_price_snapshots.image_content_sha256 END,
   image_url=CASE WHEN excluded.image_url<>'' THEN excluded.image_url ELSE market_price_snapshots.image_url END,
+  ai_image_price_cents=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN NULL
+    ELSE market_price_snapshots.ai_image_price_cents END,
+  ai_price_type=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN ''
+    ELSE market_price_snapshots.ai_price_type END,
+  ai_confidence_bps=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN NULL
+    ELSE market_price_snapshots.ai_confidence_bps END,
+  ai_reason=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN ''
+    ELSE market_price_snapshots.ai_reason END,
+  confirmed_market_price_cents=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN NULL
+    ELSE market_price_snapshots.confirmed_market_price_cents END,
+  confirmed_by=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN ''
+    ELSE market_price_snapshots.confirmed_by END,
+  confirmed_at=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN NULL
+    ELSE market_price_snapshots.confirmed_at END,
+  source_job_item_id=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN ''
+    ELSE market_price_snapshots.source_job_item_id END,
+  prompt_version_id=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url THEN ''
+    ELSE market_price_snapshots.prompt_version_id END,
   confirmation_status=CASE
+    WHEN excluded.image_url<>'' AND excluded.image_url<>market_price_snapshots.image_url
+      THEN CASE WHEN excluded.source_price_cents IS NOT NULL THEN 'source_table' ELSE 'missing' END
     WHEN market_price_snapshots.confirmed_market_price_cents IS NOT NULL THEN market_price_snapshots.confirmation_status
     WHEN excluded.source_price_cents IS NOT NULL THEN 'source_table' ELSE 'missing' END,
   source_import_batch_id=excluded.source_import_batch_id, updated_at=CURRENT_TIMESTAMP`;
