@@ -21,6 +21,7 @@
     "jackyun:day-sku-export": "node --import tsx tools/jackyun-day-sku-export.ts",
     "jdsz:product-detail-export": "node --import tsx tools/jdsz-product-detail-export.ts",
     "jd:all-stores": "node --import tsx tools/jd-multi-store-runner.ts",
+    "jd:credential:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/jd-credential-vault.ps1 -Action setup",
     "jd:promotion": "node --import tsx tools/jd-promotion-export.ts",
     "tmall:receipt": "node --import tsx tools/tmall-download-receipt.ts",
     "tmall:daily:import": "node --import tsx tools/tmall-multi-store-import-runner.ts",

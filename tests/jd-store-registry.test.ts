@@ -39,4 +39,11 @@ test("controlled registry maps all four JD shops to their Chromium profiles", as
   ]);
   assert.equal(new Set(stores.map((item) => item.browser.profileDir.toLowerCase())).size, 4);
   assert.ok(stores.every((item) => /Chromium[\\/]Application[\\/]chrome\.exe$/i.test(item.browser.executablePath)));
+  assert.ok(stores.every((item) => item.loginMode === "windows_dpapi_credentials"));
+});
+
+test("JD store registry rejects unknown login modes and secret fields", () => {
+  const base = store("one", "1", 9222, "Default", "D:/downloads/one");
+  assert.throws(() => validateJdStoreRegistry({ version: 1, stores: [{ ...base, loginMode: "plain_password" }] }, "D:/repo", "C:/Users/test/AppData/Local"), /字段无效/);
+  assert.throws(() => validateJdStoreRegistry({ version: 1, stores: [{ ...base, password: "forbidden" }] }, "D:/repo", "C:/Users/test/AppData/Local"), /不得保存敏感字段/);
 });

@@ -9,6 +9,7 @@ export type JdStore = {
   shopName: string;
   shopId: string;
   enabled: boolean;
+  loginMode?: "manual" | "windows_dpapi_credentials";
   browser: {
     executablePath: string;
     userDataDir: string;
@@ -54,6 +55,7 @@ export function validateJdStoreRegistry(parsed: unknown, rootDirectory = project
     assertNoSecrets(store, `stores.${store.storeKey}`);
     if (!store.storeKey?.trim() || !/^[a-z0-9][a-z0-9-]*$/.test(store.storeKey) || !store.accountLabel?.trim() || !store.shopName?.trim() || !/^\d+$/.test(store.shopId ?? "")
       || typeof store.enabled !== "boolean" || store.platform !== "京东" || !store.browser
+      || store.loginMode !== undefined && !["manual", "windows_dpapi_credentials"].includes(store.loginMode)
       || typeof store.browser.executablePath !== "string" || !store.browser.executablePath.trim()
       || typeof store.browser.userDataDir !== "string" || !store.browser.userDataDir.trim()
       || typeof store.browser.profileName !== "string" || !/^(?:Default|Profile [1-9]\d*)$/.test(store.browser.profileName)

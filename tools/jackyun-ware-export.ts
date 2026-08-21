@@ -20,6 +20,7 @@ import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, launchJdWareBrowser, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
+import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const targetUrl = "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare&businessModel=0";
@@ -61,6 +62,7 @@ export type CliOptions = {
   storeKey: string;
   shopName: string;
   shopId: string;
+  loginMode?: "manual" | "windows_dpapi_credentials";
   executablePath: string;
   userDataDirectory: string;
   profileName: string;
@@ -350,6 +352,7 @@ async function parseCliOptions(): Promise<CliOptions> {
     storeKey: store.storeKey,
     shopName: store.shopName,
     shopId: store.shopId,
+    loginMode: store.loginMode,
     executablePath: store.browser.executablePath,
     userDataDirectory: store.browser.userDataDir,
     profileName: store.browser.profileName,
@@ -650,25 +653,33 @@ export async function openExportEntryWithRepaintRetry(page: Page, queryBootstrap
   throw new Error("京东导出入口在重绘后仍无法稳定打开。");
 }
 
-async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootstrapState) {
+async function openTargetPage(
+  page: Page,
+  queryBootstrapState: JdWareQueryBootstrapState,
+  store: Pick<CliOptions, "storeKey" | "shopName" | "loginMode">,
+) {
   const response = await captureJdWareInitialProductQuery(queryBootstrapState, {
     gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
-    waitForQuery: () => waitForJdWareQueryOrInteractiveRedirect(
-      page.waitForResponse(
+    waitForQuery: () => {
+      const query = page.waitForResponse(
         (candidate) => isJdWareProductQueryRequest(candidate.url(), candidate.request().method()),
         // The listener is installed before navigation and must outlive the full
         // navigation budget. On a cold JD profile the page can finish its DOM
         // navigation before the application dispatches the initial query.
         { timeout: jdWareInitialProductQueryTimeoutMs },
-      ),
-      waitForJdWareLoginRedirect(
+      );
+      // DPAPI login is handled by verifyAfterNavigation below. Keep the query
+      // observer alive across the single login submission so the redirected
+      // merchant page's first query remains the only accepted freshness proof.
+      if (store.loginMode === "windows_dpapi_credentials") return query;
+      return waitForJdWareQueryOrInteractiveRedirect(query, waitForJdWareLoginRedirect(
         () => page.waitForURL(
           (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
           { timeout: jdWareInitialProductQueryTimeoutMs },
         ),
         () => page.url(),
-      ),
-    ),
+      ));
+    },
     gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
     verifyAfterNavigation: async () => {
       const pageText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
@@ -677,7 +688,7 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
       }
       const hasPasswordInput = await page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
       if (isLikelyJdLoginPage(page.url(), pageText, hasPasswordInput)) {
-        throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+        await ensureJdStoreAuthenticatedSession(page, store);
       }
     },
   });
@@ -689,7 +700,7 @@ async function openTargetPage(page: Page, queryBootstrapState: JdWareQueryBootst
       throw new Error("京东商家后台需要人工完成验证码或安全验证。");
     }
     if (isLikelyJdLoginPage(page.url(), pageText, await page.locator('input[type="password"]').count().then((count) => count > 0))) {
-      throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
+      await ensureJdStoreAuthenticatedSession(page, store);
     }
     if (/导出查询商品|批量操作|商品管理/.test(pageText)) break;
     await page.waitForTimeout(150);
@@ -1256,7 +1267,7 @@ async function main() {
     try {
       const queryBootstrapState = createJdWareQueryBootstrapState();
       await persistAudit({ stage: "verify_product_query", querySource: "initial_navigation" });
-      const verifiedQuery = await openTargetPage(page, queryBootstrapState);
+      const verifiedQuery = await openTargetPage(page, queryBootstrapState, options);
       await persistAudit({
         stage: "product_query_verified",
         querySource: "initial_navigation",

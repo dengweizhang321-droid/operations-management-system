@@ -23,6 +23,7 @@ import { assertJdNaturalDateRange } from "../lib/jd/date-range";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, jdBrowserLaunchMode, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
+import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = path.join(projectRoot, "outputs", "jdsz-product-detail-export");
@@ -46,6 +47,7 @@ type CliOptions = {
   storeKey: string;
   shopId: string;
   shopName: string;
+  loginMode?: "manual" | "windows_dpapi_credentials";
   startDate: string;
   endDate: string;
   dimension: "SKU" | "SPU";
@@ -129,6 +131,7 @@ async function parseArgs(argv: string[]): Promise<CliOptions> {
     storeKey: store.storeKey,
     shopId,
     shopName: store.shopName,
+    loginMode: store.loginMode,
     startDate,
     endDate,
     dimension,
@@ -893,6 +896,7 @@ async function run() {
       workerName: "codex-jdsz-product-detail-worker",
       targetUrlPattern: /jdsz\.jd\.com/i,
     });
+    await ensureJdStoreAuthenticatedSession(page, options);
     await client.send("Browser.setDownloadBehavior", {
       behavior: "allow",
       downloadPath: options.downloadDirectory,
