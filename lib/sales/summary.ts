@@ -23,6 +23,7 @@ type MetricRow = {
   gross_sales_cents: number | null;
   refund_amount_cents: number | null;
   net_sales_excluding_accessories_cents: number | null;
+  cost_amount_cents: number | null;
   gross_profit_cents: number | null;
   net_quantity: number | null;
   order_count: number;
@@ -281,6 +282,7 @@ function metricsSql(productCodes: string[], platform?: SalesPlatformFilter, shop
     COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
     COALESCE(SUM(CASE WHEN s.allocated_amount_cents < 0 THEN -s.allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
     COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') THEN s.allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+    COALESCE(SUM(s.cost_amount_cents), 0) AS cost_amount_cents,
     COALESCE(SUM(s.gross_profit_cents), 0) AS gross_profit_cents,
     COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') AND s.product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(s.product_name) <> '补差价专用' THEN s.quantity ELSE 0 END), 0) AS net_quantity,
     COUNT(DISTINCT CASE
@@ -301,6 +303,7 @@ function metric(row: MetricRow | null) {
   const refundAmountCents = Number(row?.refund_amount_cents ?? 0);
   const netSalesCents = grossSalesCents - refundAmountCents;
   const netSalesExcludingAccessoriesCents = Number(row?.net_sales_excluding_accessories_cents ?? 0);
+  const costAmountCents = Number(row?.cost_amount_cents ?? 0);
   const grossProfitCents = Number(row?.gross_profit_cents ?? 0);
   const orderCount = Number(row?.order_count ?? 0);
   const netQuantity = Number(row?.net_quantity ?? 0);
@@ -308,13 +311,14 @@ function metric(row: MetricRow | null) {
     grossSalesCents,
     netSalesCents,
     netSalesExcludingAccessoriesCents,
+    costAmountCents,
     grossProfitCents,
     refundAmountCents,
     orderCount,
     lineCount: Number(row?.line_count ?? 0),
     netQuantity,
     averageOrderValueCents: netQuantity === 0 ? 0 : netSalesExcludingAccessoriesCents / netQuantity,
-    grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
+    grossMarginRate: netSalesCents === 0 ? 0 : (netSalesCents - costAmountCents) / netSalesCents,
     refundRate: grossSalesCents === 0 ? 0 : refundAmountCents / grossSalesCents,
   };
 }
@@ -349,6 +353,7 @@ async function groupedMetrics(
       COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
       COALESCE(SUM(CASE WHEN s.allocated_amount_cents < 0 THEN -s.allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
       COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') THEN s.allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+      COALESCE(SUM(s.cost_amount_cents), 0) AS cost_amount_cents,
       COALESCE(SUM(s.gross_profit_cents), 0) AS gross_profit_cents,
       COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') AND s.product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(s.product_name) <> '补差价专用' THEN s.quantity ELSE 0 END), 0) AS net_quantity,
       COUNT(DISTINCT CASE WHEN s.order_no <> '' THEN s.order_no WHEN s.online_order_no <> '' THEN s.online_order_no ELSE s.source_line_key END) AS order_count,
@@ -458,6 +463,7 @@ async function dailyMetrics(
         COALESCE(SUM(CASE WHEN s.allocated_amount_cents > 0 THEN s.allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
         COALESCE(SUM(CASE WHEN s.allocated_amount_cents < 0 THEN -s.allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
         COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') THEN s.allocated_amount_cents ELSE 0 END), 0) AS net_sales_excluding_accessories_cents,
+        COALESCE(SUM(s.cost_amount_cents), 0) AS cost_amount_cents,
         COALESCE(SUM(s.gross_profit_cents), 0) AS gross_profit_cents,
         COALESCE(SUM(CASE WHEN NULLIF(TRIM(s.category), '') IS NOT NULL AND TRIM(s.category) NOT IN ('配件', '赠品配件') AND s.product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(s.product_name) <> '补差价专用' THEN s.quantity ELSE 0 END), 0) AS net_quantity,
         COUNT(DISTINCT CASE WHEN s.order_no <> '' THEN s.order_no WHEN s.online_order_no <> '' THEN s.online_order_no ELSE s.source_line_key END) AS order_count,

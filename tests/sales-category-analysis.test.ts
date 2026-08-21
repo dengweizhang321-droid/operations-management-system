@@ -42,20 +42,21 @@ function fixture() {
       category TEXT NOT NULL,
       quantity INTEGER NOT NULL,
       allocated_amount_cents INTEGER NOT NULL,
+      cost_amount_cents INTEGER NOT NULL,
       gross_profit_cents INTEGER NOT NULL,
       ship_time TEXT NOT NULL
     );
     INSERT INTO erp_product_master VALUES ('P1','饮水设备');
     INSERT INTO sales_order_lines VALUES
-      ('L1','O1','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',2,10000,3000,'2026-07-31 10:00:00'),
-      ('L2','O1','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',-1,-2000,-500,'2026-08-01 10:00:00'),
-      ('L3','O2','','渠道A','京东','京东一店','主仓','P2','制冰机','制冰设备',1,5000,1000,'2026-08-02 10:00:00'),
-      ('L4','O3','','渠道A','京东','京东二店','主仓','P3','未知商品','',1,1000,200,'2026-08-02 11:00:00'),
-      ('L5','O4','','渠道A','京东','京东一店','刷刷仓','P4','排除商品','排除品类',9,99999,50000,'2026-08-02 12:00:00'),
-      ('L6','O5','','渠道B','天猫','天猫一店','主仓','P5','切肉机','食品机械',1,7000,1000,'2026-08-02 13:00:00'),
-      ('L8','O7','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,4000,1000,'2026-07-28 10:00:00'),
-      ('L12','O12','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,6000,1500,'2026-07-24 10:00:00'),
-      ('L9','O8','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,5000,1200,'2025-07-31 10:00:00');
+      ('L1','O1','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',2,10000,7000,3000,'2026-07-31 10:00:00'),
+      ('L2','O1','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',-1,-2000,-1500,-500,'2026-08-01 10:00:00'),
+      ('L3','O2','','渠道A','京东','京东一店','主仓','P2','制冰机','制冰设备',1,5000,3500,1000,'2026-08-02 10:00:00'),
+      ('L4','O3','','渠道A','京东','京东二店','主仓','P3','未知商品','',1,1000,800,200,'2026-08-02 11:00:00'),
+      ('L5','O4','','渠道A','京东','京东一店','刷刷仓','P4','排除商品','排除品类',9,99999,49999,50000,'2026-08-02 12:00:00'),
+      ('L6','O5','','渠道B','天猫','天猫一店','主仓','P5','切肉机','食品机械',1,7000,6000,1000,'2026-08-02 13:00:00'),
+      ('L8','O7','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,4000,3000,1000,'2026-07-28 10:00:00'),
+      ('L12','O12','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,6000,4500,1500,'2026-07-24 10:00:00'),
+      ('L9','O8','','渠道A','京东','京东一店','主仓','P1','饮水机','旧类目',1,5000,3800,1200,'2025-07-31 10:00:00');
   `);
   return { sqlite, db: sqliteAdapter(sqlite) };
 }
@@ -78,6 +79,7 @@ test("category aggregation uses product master first, keeps refunds, excludes �
   assert.equal(result.summary.returnQuantity, 1);
   assert.equal(result.summary.netQuantity, 3);
   assert.equal(result.summary.grossProfitCents, 4_700);
+  assert.equal(result.details.items.find((item) => item.category === "制冰设备")?.grossMarginRate, 0.3);
   assert.equal(result.uncategorized.productCount, 1);
   assert.equal(result.uncategorized.netSalesCents, 1_000);
   assert.equal(result.uncategorized.visible, true);
@@ -133,8 +135,8 @@ test("date bounds are inclusive in the request and left-closed/right-open in SQL
 
 test("category detail drills into bounded platform and shop metrics with the same category resolution", async () => {
   const { sqlite, db } = fixture();
-  sqlite.prepare("INSERT INTO sales_order_lines VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
-    "L13", "O13", "", "渠道C", "天猫", "天猫二店", "主仓", "P1", "饮水机", "旧类目", 1, 3000, 900, "2026-08-02 18:00:00",
+  sqlite.prepare("INSERT INTO sales_order_lines VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+    "L13", "O13", "", "渠道C", "天猫", "天猫二店", "主仓", "P1", "饮水机", "旧类目", 1, 3000, 2100, 900, "2026-08-02 18:00:00",
   );
   const result = await getSalesCategoryOutletBreakdown(db, {
     startDate: "2026-07-31",
@@ -245,8 +247,8 @@ test("empty results, invalid hierarchy level, and ranges over 366 days fail or c
 
 test("zero-net-sales categories stay visible with zero contribution and zero margin", async () => {
   const { sqlite, db } = fixture();
-  sqlite.prepare("INSERT INTO sales_order_lines VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
-    "L7", "O6", "", "渠道A", "京东", "京东一店", "主仓", "P6", "零销售商品", "零销售", 0, 0, 0, "2026-08-02 14:00:00",
+  sqlite.prepare("INSERT INTO sales_order_lines VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+    "L7", "O6", "", "渠道A", "京东", "京东一店", "主仓", "P6", "零销售商品", "零销售", 0, 0, 0, 0, "2026-08-02 14:00:00",
   );
   const result = await getSalesCategoryAnalysis(db, {
     startDate: "2026-08-02",
@@ -267,8 +269,8 @@ test("net quantity and refund rate reuse the sales summary exclusions and amount
     INSERT INTO erp_product_master VALUES ('P7','饮水设备');
     INSERT INTO erp_product_master VALUES ('P8','饮水设备');
     INSERT INTO sales_order_lines VALUES
-      ('L10','O9','','渠道A','京东','京东一店','主仓','P7','随单配件','配件',5,0,0,'2026-08-02 15:00:00'),
-      ('L11','O10','','渠道A','京东','京东一店','主仓','P8','补差价专用','饮水设备',8,0,0,'2026-08-02 16:00:00');
+      ('L10','O9','','渠道A','京东','京东一店','主仓','P7','随单配件','配件',5,0,0,0,'2026-08-02 15:00:00'),
+      ('L11','O10','','渠道A','京东','京东一店','主仓','P8','补差价专用','饮水设备',8,0,0,0,'2026-08-02 16:00:00');
   `);
   const result = await getSalesCategoryAnalysis(db, {
     startDate: "2026-07-31",

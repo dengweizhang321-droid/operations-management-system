@@ -85,6 +85,7 @@ type CategoryRow = {
   gross_sales_cents: number;
   refund_amount_cents: number;
   net_sales_cents: number;
+  cost_amount_cents: number;
   gross_profit_cents: number;
   positive_quantity: number;
   return_quantity: number;
@@ -97,6 +98,7 @@ type CategoryRow = {
   total_gross_sales_cents: number;
   total_refund_amount_cents: number;
   total_net_sales_cents: number;
+  total_cost_amount_cents: number;
   total_gross_profit_cents: number;
   total_positive_quantity: number;
   total_return_quantity: number;
@@ -138,6 +140,7 @@ type OutletBreakdownRow = {
   gross_sales_cents: number;
   refund_amount_cents: number;
   net_sales_cents: number;
+  cost_amount_cents: number;
   gross_profit_cents: number;
   positive_quantity: number;
   return_quantity: number;
@@ -351,6 +354,7 @@ function filteredSalesSql(input: NormalizedInput, principal: AppPrincipal) {
         ${SHOP_EXPRESSION} AS shop_name,
         s.quantity,
         s.allocated_amount_cents,
+        s.cost_amount_cents,
         s.gross_profit_cents,
         substr(s.ship_time, 1, 10) AS business_date
       FROM sales_order_lines s
@@ -368,6 +372,7 @@ const groupedCategorySql = `
     COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
     COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
     COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
+    COALESCE(SUM(cost_amount_cents), 0) AS cost_amount_cents,
     COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
     COALESCE(SUM(CASE WHEN quantity > 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN quantity ELSE 0 END), 0) AS positive_quantity,
     COALESCE(SUM(CASE WHEN quantity < 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN -quantity ELSE 0 END), 0) AS return_quantity,
@@ -390,7 +395,7 @@ const sortSql: Record<SalesCategorySortKey, string> = {
   returnQuantity: "return_quantity",
   refundAmountCents: "refund_amount_cents",
   grossProfitCents: "gross_profit_cents",
-  grossMarginRate: "CASE WHEN net_sales_cents = 0 THEN 0.0 ELSE CAST(gross_profit_cents AS REAL) / net_sales_cents END",
+  grossMarginRate: "CASE WHEN net_sales_cents = 0 THEN 0.0 ELSE CAST(net_sales_cents - cost_amount_cents AS REAL) / net_sales_cents END",
   productCount: "product_count",
 };
 
@@ -398,19 +403,21 @@ function metric(row: CategoryRow) {
   const grossSalesCents = Number(row.gross_sales_cents ?? 0);
   const refundAmountCents = Number(row.refund_amount_cents ?? 0);
   const netSalesCents = Number(row.net_sales_cents ?? 0);
+  const costAmountCents = Number(row.cost_amount_cents ?? 0);
   const grossProfitCents = Number(row.gross_profit_cents ?? 0);
   return {
     category: row.category_key,
     grossSalesCents,
     refundAmountCents,
     netSalesCents,
+    costAmountCents,
     shareRate: Number(row.total_net_sales_cents ?? 0) === 0 ? 0 : netSalesCents / Number(row.total_net_sales_cents),
     positiveQuantity: Number(row.positive_quantity ?? 0),
     returnQuantity: Number(row.return_quantity ?? 0),
     netQuantity: Number(row.net_quantity ?? 0),
     refundRate: grossSalesCents === 0 ? 0 : refundAmountCents / grossSalesCents,
     grossProfitCents,
-    grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
+    grossMarginRate: netSalesCents === 0 ? 0 : (netSalesCents - costAmountCents) / netSalesCents,
     productCount: Number(row.product_count ?? 0),
     lineCount: Number(row.line_count ?? 0),
     currentWeekNetSalesCents: Number(row.current_week_net_sales_cents ?? 0),
@@ -430,6 +437,7 @@ function emptySummary() {
     grossSalesCents: 0,
     refundAmountCents: 0,
     netSalesCents: 0,
+    costAmountCents: 0,
     positiveQuantity: 0,
     returnQuantity: 0,
     netQuantity: 0,
@@ -444,6 +452,7 @@ function emptySummary() {
 function summary(row: CategoryRow | undefined) {
   if (!row) return emptySummary();
   const netSalesCents = Number(row.total_net_sales_cents ?? 0);
+  const costAmountCents = Number(row.total_cost_amount_cents ?? 0);
   const grossProfitCents = Number(row.total_gross_profit_cents ?? 0);
   const positiveQuantity = Number(row.total_positive_quantity ?? 0);
   const returnQuantity = Number(row.total_return_quantity ?? 0);
@@ -451,11 +460,12 @@ function summary(row: CategoryRow | undefined) {
     grossSalesCents: Number(row.total_gross_sales_cents ?? 0),
     refundAmountCents: Number(row.total_refund_amount_cents ?? 0),
     netSalesCents,
+    costAmountCents,
     positiveQuantity,
     returnQuantity,
     netQuantity: Number(row.total_net_quantity ?? 0),
     grossProfitCents,
-    grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
+    grossMarginRate: netSalesCents === 0 ? 0 : (netSalesCents - costAmountCents) / netSalesCents,
     productCount: Number(row.total_product_count ?? 0),
     lineCount: Number(row.total_line_count ?? 0),
     categoryCount: Number(row.total_count ?? 0),
@@ -509,6 +519,7 @@ async function readCategoryRows(db: SalesDatabase, input: NormalizedInput, princ
         SUM(gross_sales_cents) OVER () AS total_gross_sales_cents,
         SUM(refund_amount_cents) OVER () AS total_refund_amount_cents,
         SUM(net_sales_cents) OVER () AS total_net_sales_cents,
+        SUM(cost_amount_cents) OVER () AS total_cost_amount_cents,
         SUM(gross_profit_cents) OVER () AS total_gross_profit_cents,
         SUM(positive_quantity) OVER () AS total_positive_quantity,
         SUM(return_quantity) OVER () AS total_return_quantity,
@@ -670,18 +681,20 @@ function outletBreakdownMetric(row: OutletBreakdownRow, totalNetSalesCents: numb
   const grossSalesCents = Number(row.gross_sales_cents ?? 0);
   const refundAmountCents = Number(row.refund_amount_cents ?? 0);
   const netSalesCents = Number(row.net_sales_cents ?? 0);
+  const costAmountCents = Number(row.cost_amount_cents ?? 0);
   const grossProfitCents = Number(row.gross_profit_cents ?? 0);
   return {
     grossSalesCents,
     refundAmountCents,
     netSalesCents,
+    costAmountCents,
     shareRate: totalNetSalesCents === 0 ? 0 : netSalesCents / totalNetSalesCents,
     positiveQuantity: Number(row.positive_quantity ?? 0),
     returnQuantity: Number(row.return_quantity ?? 0),
     netQuantity: Number(row.net_quantity ?? 0),
     refundRate: grossSalesCents === 0 ? 0 : refundAmountCents / grossSalesCents,
     grossProfitCents,
-    grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents,
+    grossMarginRate: netSalesCents === 0 ? 0 : (netSalesCents - costAmountCents) / netSalesCents,
     lineCount: Number(row.line_count ?? 0),
   };
 }
@@ -715,6 +728,7 @@ export async function getSalesCategoryOutletBreakdown(
         COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
         COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
         COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
+        COALESCE(SUM(cost_amount_cents), 0) AS cost_amount_cents,
         COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
         COALESCE(SUM(CASE WHEN quantity > 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN quantity ELSE 0 END), 0) AS positive_quantity,
         COALESCE(SUM(CASE WHEN quantity < 0 AND product_code <> 'ERP_PRICE_ADJUSTMENT' THEN -quantity ELSE 0 END), 0) AS return_quantity,
@@ -742,6 +756,7 @@ export async function getSalesCategoryOutletBreakdown(
     grossSalesCents: number;
     refundAmountCents: number;
     netSalesCents: number;
+    costAmountCents: number;
     positiveQuantity: number;
     returnQuantity: number;
     netQuantity: number;
@@ -756,6 +771,7 @@ export async function getSalesCategoryOutletBreakdown(
       grossSalesCents: 0,
       refundAmountCents: 0,
       netSalesCents: 0,
+      costAmountCents: 0,
       positiveQuantity: 0,
       returnQuantity: 0,
       netQuantity: 0,
@@ -766,6 +782,7 @@ export async function getSalesCategoryOutletBreakdown(
     platform.grossSalesCents += shop.grossSalesCents;
     platform.refundAmountCents += shop.refundAmountCents;
     platform.netSalesCents += shop.netSalesCents;
+    platform.costAmountCents += shop.costAmountCents;
     platform.positiveQuantity += shop.positiveQuantity;
     platform.returnQuantity += shop.returnQuantity;
     platform.netQuantity += shop.netQuantity;
@@ -779,7 +796,7 @@ export async function getSalesCategoryOutletBreakdown(
       ...platform,
       shareRate: totalNetSalesCents === 0 ? 0 : platform.netSalesCents / totalNetSalesCents,
       refundRate: platform.grossSalesCents === 0 ? 0 : platform.refundAmountCents / platform.grossSalesCents,
-      grossMarginRate: platform.netSalesCents === 0 ? 0 : platform.grossProfitCents / platform.netSalesCents,
+      grossMarginRate: platform.netSalesCents === 0 ? 0 : (platform.netSalesCents - platform.costAmountCents) / platform.netSalesCents,
       shopCount: platform.shops.length,
     }))
     .sort((left, right) => right.netSalesCents - left.netSalesCents || left.platform.localeCompare(right.platform, "zh-CN"));

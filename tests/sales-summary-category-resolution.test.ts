@@ -46,16 +46,17 @@ function fixture() {
       source_line_key TEXT PRIMARY KEY, order_no TEXT NOT NULL, online_order_no TEXT NOT NULL,
       channel TEXT NOT NULL, platform TEXT NOT NULL, shop_name TEXT NOT NULL, warehouse TEXT NOT NULL,
       product_code TEXT NOT NULL, product_name TEXT NOT NULL, category TEXT NOT NULL, quantity INTEGER NOT NULL,
-      allocated_amount_cents INTEGER NOT NULL, gross_profit_cents INTEGER NOT NULL, ship_time TEXT NOT NULL
+      allocated_amount_cents INTEGER NOT NULL, cost_amount_cents INTEGER NOT NULL,
+      gross_profit_cents INTEGER NOT NULL, ship_time TEXT NOT NULL
     );
     INSERT INTO erp_product_master VALUES
       ('DW-LONG', '长龙洗碗机'),
       ('DW-HOOD', '揭盖洗碗机'),
       ('DW-IDLE', '台下洗碗机');
     INSERT INTO sales_order_lines VALUES
-      ('L1', 'O1', '', '京东-洗碗机店', '京东', '洗碗机店', '主仓', 'DW-LONG', '长龙式洗碗机', '商用洗碗机', 1, 120000, 30000, '2026-08-18 10:00:00'),
-      ('L2', 'O2', '', '京东-洗碗机店', '京东', '洗碗机店', '主仓', 'DW-HOOD', '揭盖式洗碗机', '', 1, 80000, 20000, '2026-08-18 11:00:00'),
-      ('L3', 'O3', '', '天猫-设备店', '天猫', '设备店', '主仓', 'DW-ULTRA', '超声波洗碗机', '超声波洗碗机', 1, 60000, 10000, '2026-08-18 12:00:00');
+      ('L1', 'O1', '', '京东-洗碗机店', '京东', '洗碗机店', '主仓', 'DW-LONG', '长龙式洗碗机', '商用洗碗机', 1, 120000, 60000, 30000, '2026-08-18 10:00:00'),
+      ('L2', 'O2', '', '京东-洗碗机店', '京东', '洗碗机店', '主仓', 'DW-HOOD', '揭盖式洗碗机', '', 1, 80000, 60000, 20000, '2026-08-18 11:00:00'),
+      ('L3', 'O3', '', '天猫-设备店', '天猫', '设备店', '主仓', 'DW-ULTRA', '超声波洗碗机', '超声波洗碗机', 1, 60000, 50000, 10000, '2026-08-18 12:00:00');
   `);
   return { sqlite, db: sqliteAdapter(sqlite) };
 }
@@ -71,6 +72,25 @@ test("sales overview resolves categories from ERP product master and falls back 
   assert.deepEqual(result.filterOptions.categories, ["台下洗碗机", "揭盖洗碗机", "超声波洗碗机", "长龙洗碗机"]);
   assert.deepEqual(result.filterOptions.platforms, ["京东", "天猫"]);
   assert.equal(result.current.netSalesCents, 260000);
+  assert.equal(result.current.grossMarginRate, 90_000 / 260_000);
+  sqlite.close();
+});
+
+test("销售大毛利率按分摊后金额减货品成本计算，不复用已扣费用的订单毛利", async () => {
+  const { sqlite, db } = fixture();
+  const result = await getSalesSummary(db, {
+    range: "custom",
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+    categories: ["长龙洗碗机"],
+  });
+
+  assert.equal(result.current.netSalesCents, 120_000);
+  assert.equal(result.current.costAmountCents, 60_000);
+  assert.equal(result.current.grossProfitCents, 30_000);
+  assert.equal(result.current.grossMarginRate, 0.5);
+  assert.equal(result.channels[0]?.grossMarginRate, 0.5);
+  assert.equal(result.daily[0]?.grossMarginRate, 0.5);
   sqlite.close();
 });
 
@@ -103,6 +123,7 @@ test("an ERP-resolved category filters every sales overview aggregation consiste
   });
 
   assert.equal(result.current.netSalesCents, 80000);
+  assert.equal(result.current.grossMarginRate, 0.25);
   assert.equal(result.current.lineCount, 1);
   assert.equal(result.outlets.length, 1);
   assert.equal(result.shops.length, 1);

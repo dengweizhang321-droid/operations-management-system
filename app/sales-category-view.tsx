@@ -10,6 +10,7 @@ type CategoryMetric = {
   grossSalesCents: number;
   refundAmountCents: number;
   netSalesCents: number;
+  costAmountCents: number;
   shareRate: number;
   positiveQuantity: number;
   returnQuantity: number;
@@ -54,7 +55,7 @@ type CategoryAnalysisResponse = {
   summary: {
     grossSalesCents: number; refundAmountCents: number; netSalesCents: number;
     positiveQuantity: number; returnQuantity: number; netQuantity: number;
-    grossProfitCents: number; grossMarginRate: number; productCount: number;
+    costAmountCents: number; grossProfitCents: number; grossMarginRate: number; productCount: number;
     lineCount: number; categoryCount: number;
   };
   uncategorized: { category: string; productCount: number; netSalesCents: number; shareRate: number; visible: boolean };
@@ -89,6 +90,7 @@ type CategoryOutletMetric = {
   grossSalesCents: number;
   refundAmountCents: number;
   netSalesCents: number;
+  costAmountCents: number;
   shareRate: number;
   positiveQuantity: number;
   returnQuantity: number;

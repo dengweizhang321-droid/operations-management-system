@@ -49,6 +49,8 @@ npm run start:local-worker
 
 本项目的主界面运行在 `http://localhost:3000`。
 
+销售分析的“大毛利率”统一按 `(分摊后金额合计 - 货品成本合计) / 分摊后金额合计` 计算，不扣费用分摊；“订单毛利”仍展示导入明细的毛利合计，两个指标不得混用。
+
 ### 钉钉自定义机器人加签消息
 
 按[钉钉官方自定义机器人文档](https://open.dingtalk.com/document/orgapp/custom-robot-access)的加签方式发送文本消息。使用环境变量传入 Webhook 和加签密钥，避免凭证出现在源码或命令行历史中：

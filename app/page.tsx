@@ -125,6 +125,7 @@ type SalesRange = "today" | "yesterday" | "last7" | "last15" | "month" | "quarte
 type SalesStats = {
   grossSalesCents: number;
   netSalesCents: number;
+  costAmountCents: number;
   grossProfitCents: number;
   refundAmountCents: number;
   orderCount: number;
@@ -141,6 +142,7 @@ type SalesChannel = {
   platform: string;
   grossSalesCents: number;
   netSalesCents: number;
+  costAmountCents: number;
   grossProfitCents: number;
   refundAmountCents: number;
   grossMarginRate: number;
@@ -1173,6 +1175,7 @@ function aggregateStorePeriods(daily: Array<{ date: string } & SalesStats>, gran
       label,
       grossSalesCents: 0,
       netSalesCents: 0,
+      costAmountCents: 0,
       grossProfitCents: 0,
       refundAmountCents: 0,
       orderCount: 0,
@@ -1184,13 +1187,14 @@ function aggregateStorePeriods(daily: Array<{ date: string } & SalesStats>, gran
     };
     row.grossSalesCents += item.grossSalesCents;
     row.netSalesCents += item.netSalesCents;
+    row.costAmountCents += item.costAmountCents;
     row.grossProfitCents += item.grossProfitCents;
     row.refundAmountCents += item.refundAmountCents;
     row.orderCount += item.orderCount;
     row.lineCount += item.lineCount;
     row.netQuantity += item.netQuantity;
     row.averageOrderValueCents = row.orderCount === 0 ? 0 : row.netSalesCents / row.orderCount;
-    row.grossMarginRate = row.netSalesCents === 0 ? 0 : row.grossProfitCents / row.netSalesCents;
+    row.grossMarginRate = row.netSalesCents === 0 ? 0 : (row.netSalesCents - row.costAmountCents) / row.netSalesCents;
     row.refundRate = row.grossSalesCents === 0 ? 0 : row.refundAmountCents / row.grossSalesCents;
     buckets.set(key, row);
   }
@@ -2563,7 +2567,7 @@ function ChannelAnalysisView({
 
 type TrendMetric = "netSales" | "netQuantity" | "grossMargin";
 type TrendGranularity = "day" | "week" | "month";
-type ProductTrendPoint = { key: string; label: string; netSalesCents: number; netQuantity: number; grossProfitCents: number; grossMarginRate: number };
+type ProductTrendPoint = { key: string; label: string; netSalesCents: number; netQuantity: number; costAmountCents: number; grossProfitCents: number; grossMarginRate: number };
 
 const trendMetricMeta: Record<TrendMetric, { label: string; color: string }> = {
   netSales: { label: "净销售额", color: "#4776e6" },
@@ -2586,15 +2590,16 @@ function aggregateProductTrend(daily: Array<{ date: string } & SalesStats>, gran
       key = item.date.slice(0, 7);
       label = key;
     }
-    const current = buckets.get(key) ?? { key, label, netSalesCents: 0, netQuantity: 0, grossProfitCents: 0 };
+    const current = buckets.get(key) ?? { key, label, netSalesCents: 0, netQuantity: 0, costAmountCents: 0, grossProfitCents: 0 };
     current.netSalesCents += item.netSalesCents;
     current.netQuantity += item.netQuantity;
+    current.costAmountCents += item.costAmountCents;
     current.grossProfitCents += item.grossProfitCents;
     buckets.set(key, current);
   }
   return [...buckets.values()].sort((left, right) => left.key.localeCompare(right.key)).map((item) => ({
     ...item,
-    grossMarginRate: item.netSalesCents === 0 ? 0 : item.grossProfitCents / item.netSalesCents,
+    grossMarginRate: item.netSalesCents === 0 ? 0 : (item.netSalesCents - item.costAmountCents) / item.netSalesCents,
   }));
 }
 
@@ -2609,8 +2614,8 @@ function ProductSalesTrend({ daily, selectedProductCount }: { daily: Array<{ dat
   const totals = useMemo(() => {
     const netSalesCents = points.reduce((sum, item) => sum + item.netSalesCents, 0);
     const netQuantity = points.reduce((sum, item) => sum + item.netQuantity, 0);
-    const grossProfitCents = points.reduce((sum, item) => sum + item.grossProfitCents, 0);
-    return { netSalesCents, netQuantity, grossMarginRate: netSalesCents === 0 ? 0 : grossProfitCents / netSalesCents };
+    const costAmountCents = points.reduce((sum, item) => sum + item.costAmountCents, 0);
+    return { netSalesCents, netQuantity, grossMarginRate: netSalesCents === 0 ? 0 : (netSalesCents - costAmountCents) / netSalesCents };
   }, [points]);
 
   useEffect(() => {
@@ -3436,7 +3441,7 @@ function SalesView({ range, customStartDate, customEndDate, currentUser, moduleV
               const tone = channelTones[index % channelTones.length];
               return <div key={item.name}><div><span>{item.name || "未分类"}<small>净销售同比 {formatNetSalesYearOverYear(item.salesYearOverYearRate)} · 退货率 {formatRate(item.refundRate)}</small></span><strong className="platform-margin"><b>{formatRate(item.grossMarginRate)}</b><small>大毛利率</small></strong></div><span className="progress-track"><i className={`bg-${tone}`} style={{ width: `${margin}%` }} /></span></div>;
             })}</div>
-            <div className="insight-card"><span>数据口径</span><p>渠道构成、毛利率与订单行数均来自当前统计周期内已成功导入的吉客云销售明细。</p></div>
+            <div className="insight-card"><span>数据口径</span><p>渠道构成与订单行数来自当前周期销售明细；大毛利率统一按（分摊后金额 − 货品成本）÷ 分摊后金额计算，不扣费用分摊。</p></div>
           </article>
         </section>
         <section className="product-situation-grid"><ProductSalesTrend daily={summary?.daily ?? []} selectedProductCount={productQueries.length} /><ShopSalesDistribution shops={summary?.outlets ?? []} /></section>

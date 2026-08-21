@@ -107,7 +107,7 @@ export const aiToolRegistry = [
   {
     name: "get_sales_summary",
     title: "销售经营汇总",
-    description: "按统计周期读取销售额、退款、毛利、订单、渠道、平台和每日趋势。返回 filtersApplied、daily 等汇总字段；所有金额字段单位均为人民币分。custom 时必须提供 startDate 和 endDate。",
+    description: "按统计周期读取销售额、退款、毛利、订单、渠道、平台和每日趋势。大毛利率统一按（分摊后金额合计−货品成本合计）÷分摊后金额合计计算，不扣费用分摊；订单毛利仍为导入毛利合计。返回 filtersApplied、daily 等汇总字段；所有金额字段单位均为人民币分。custom 时必须提供 startDate 和 endDate。",
     inputSchema: {
       type: "object",
       properties: {
@@ -131,7 +131,7 @@ export const aiToolRegistry = [
   {
     name: "get_sales_category_analysis",
     title: "销售品类分析",
-    description: "按自定义日期和真实用户数据范围只读查询品类净销售额、贡献率、净销量、退货率、退款、毛利、同比、环比上周、排名和月度趋势。环比上周固定使用截止日近 7 天对比此前 7 天；品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
+    description: "按自定义日期和真实用户数据范围只读查询品类净销售额、贡献率、净销量、退货率、退款、毛利、大毛利率、同比、环比上周、排名和月度趋势。大毛利率按（分摊后金额合计−货品成本合计）÷分摊后金额合计计算，不扣费用分摊；环比上周固定使用截止日近 7 天对比此前 7 天；品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
     inputSchema: {
       type: "object",
       properties: {
