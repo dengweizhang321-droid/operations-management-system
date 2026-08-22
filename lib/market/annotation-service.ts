@@ -2160,42 +2160,84 @@ export async function deletePromptVersion(db: MarketDatabase, promptIdValue: str
   return { ok: true, promptId, category: prompt.category, version: prompt.version };
 }
 
-export async function deleteCommittedAnnotationJob(db: MarketDatabase, jobIdValue: string, actor: Actor) {
+export async function deleteSettledAnnotationJob(db: MarketDatabase, jobIdValue: string, actor: Actor) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const jobId = jobIdValue.trim();
   if (!/^[A-Za-z0-9:_-]{12,160}$/.test(jobId)) throw new Error("标注任务 ID 无效");
-  const job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
-  if (!job) throw new Error("标注任务不存在");
-  if (job.status !== "committed") throw new Error("只能删除已经全部入库的任务记录");
-  const facts = await db.prepare(`SELECT COUNT(*) itemCount,
-      SUM(CASE WHEN status='committed' THEN 1 ELSE 0 END) committedCount,
-      (SELECT COUNT(*) FROM market_annotation_commit_receipts WHERE job_item_id IN
-        (SELECT id FROM market_annotation_items WHERE job_id=?)) receiptCount
-    FROM market_annotation_items WHERE job_id=?`).bind(jobId, jobId)
-    .first<{ itemCount: number; committedCount: number | null; receiptCount: number }>();
-  const itemCount = Number(facts?.itemCount ?? 0);
-  const committedCount = Number(facts?.committedCount ?? 0);
-  if (!itemCount || committedCount !== itemCount) throw new Error("任务明细并非全部已入库，禁止删除任务记录");
-  const before = jobValue(job);
-  const after = { status: "deleted", preservedItems: itemCount, preservedReceipts: Number(facts?.receiptCount ?? 0), formalAnnotationsPreserved: true };
-  await db.batch([
-    db.prepare(`UPDATE market_annotation_jobs SET status='deleted', commit_token_hash='', commit_started_at=NULL,
-        updated_at=CURRENT_TIMESTAMP
-      WHERE id=? AND status='committed' AND EXISTS (SELECT 1 FROM market_annotation_items WHERE job_id=?)
-        AND NOT EXISTS (SELECT 1 FROM market_annotation_items WHERE job_id=? AND status<>'committed')`)
-      .bind(jobId, jobId, jobId),
-    db.prepare(`UPDATE market_annotation_cloud_runs SET state='completed', lease_token_hash='', lease_expires_at=NULL,
-        next_run_at=NULL, completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP
-      WHERE job_id=?`).bind(jobId),
-    db.prepare(`INSERT INTO market_master_audit_logs
-        (id,actor_email,actor_role,action,entity_type,entity_id,before_json,after_json)
-      SELECT ?,?,?, 'delete_committed_market_annotation_job', 'market_annotation_job', ?, ?, ?
-      WHERE EXISTS (SELECT 1 FROM market_annotation_jobs WHERE id=? AND status='deleted')`)
-      .bind(`market-audit-${randomUUID()}`, actor.email, actor.role, jobId, JSON.stringify(before), JSON.stringify(after), jobId),
-  ]);
-  const deleted = await db.prepare("SELECT status FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<{ status: string }>();
-  if (deleted?.status !== "deleted") throw new Error("任务状态已变化，删除未生效，请刷新后重试");
-  return { ok: true, jobId, ...after };
+  await db.prepare("UPDATE market_annotation_jobs SET status=CASE WHEN status='committing' THEN 'review_ready' ELSE status END, commit_token_hash='', commit_started_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND commit_token_hash<>'' AND datetime(commit_started_at)<=datetime('now','-5 minutes')")
+    .bind(jobId).run();
+  const tokenHash = digest(randomBytes(24).toString("hex"));
+  const acquired = await db.prepare("UPDATE market_annotation_jobs SET commit_token_hash=?, commit_started_at=datetime('now'), updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('review_ready','committed') AND commit_token_hash='' ")
+    .bind(tokenHash, jobId).run();
+  if (!Number(acquired.meta.changes ?? 0)) {
+    const current = await db.prepare("SELECT status FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<{ status: string }>();
+    if (!current) throw new Error("标注任务不存在");
+    if (!["review_ready", "committed"].includes(current.status)) throw new Error("只能归档推理已结束或已经全部入库的任务记录；运行中的任务请等待完成");
+    throw new Error("任务正在复核或入库，请稍后重试");
+  }
+  try {
+    const job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? AND commit_token_hash=? LIMIT 1`).bind(jobId, tokenHash).first<JobRow>();
+    if (!job) throw new Error("任务状态已变化，归档未生效，请刷新后重试");
+    const facts = await db.prepare(`SELECT COUNT(*) itemCount,
+        SUM(CASE WHEN status='committed' THEN 1 ELSE 0 END) committedCount,
+        SUM(CASE WHEN status IN ('review_pending','approved','rejected') THEN 1 ELSE 0 END) pendingReviewCount,
+        SUM(CASE WHEN status='failed' AND attempt_count>=3 THEN 1 ELSE 0 END) cappedFailedCount,
+        SUM(CASE WHEN status IN ('queued','claimed','inferencing') OR (status='failed' AND attempt_count<3) THEN 1 ELSE 0 END) retryableCount,
+        SUM(CASE WHEN status='superseded' THEN 1 ELSE 0 END) supersededCount,
+        (SELECT COUNT(*) FROM market_annotation_commit_receipts WHERE job_item_id IN
+          (SELECT id FROM market_annotation_items WHERE job_id=?)) receiptCount
+      FROM market_annotation_items WHERE job_id=?`).bind(jobId, jobId)
+      .first<{ itemCount: number; committedCount: number | null; pendingReviewCount: number | null; cappedFailedCount: number | null; retryableCount: number | null; supersededCount: number | null; receiptCount: number }>();
+    const itemCount = Number(facts?.itemCount ?? 0);
+    const committedCount = Number(facts?.committedCount ?? 0);
+    const pendingReviewCount = Number(facts?.pendingReviewCount ?? 0);
+    const cappedFailedCount = Number(facts?.cappedFailedCount ?? 0);
+    const retryableCount = Number(facts?.retryableCount ?? 0);
+    const supersededCount = Number(facts?.supersededCount ?? 0);
+    if (!itemCount) throw new Error("任务没有可归档的明细");
+    if (retryableCount > 0) throw new Error(`任务仍有 ${retryableCount} 条可继续识别，禁止归档`);
+    if (committedCount + pendingReviewCount + cappedFailedCount + supersededCount !== itemCount) throw new Error("任务含有无法安全归档的明细状态，请刷新后检查");
+    if (job.status === "committed" && committedCount + supersededCount !== itemCount) throw new Error("已入库任务的明细状态不完整，禁止删除任务记录");
+    const before = jobValue(job);
+    const after = {
+      status: "deleted",
+      previousStatus: job.status,
+      preservedItems: itemCount,
+      preservedReceipts: Number(facts?.receiptCount ?? 0),
+      preservedCommittedItems: committedCount,
+      archivedPendingItems: pendingReviewCount,
+      cappedFailedItems: cappedFailedCount,
+      formalAnnotationsPreserved: true,
+    };
+    const auditAction = job.status === "committed" ? "delete_committed_market_annotation_job" : "archive_review_ready_market_annotation_job";
+    await db.batch([
+      db.prepare(`UPDATE market_annotation_jobs SET status='deleted', commit_token_hash='', commit_started_at=NULL,
+          updated_at=CURRENT_TIMESTAMP
+        WHERE id=? AND commit_token_hash=? AND status IN ('review_ready','committed')
+          AND EXISTS (SELECT 1 FROM market_annotation_items WHERE job_id=?)
+          AND NOT EXISTS (SELECT 1 FROM market_annotation_items WHERE job_id=?
+            AND (status IN ('queued','claimed','inferencing') OR (status='failed' AND attempt_count<3)))`)
+        .bind(jobId, tokenHash, jobId, jobId),
+      db.prepare(`UPDATE market_annotation_items SET status='superseded',selected=0,
+          lease_token_hash='',lease_agent_id='',lease_expires_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP
+        WHERE job_id=? AND status IN ('review_pending','approved','rejected')
+          AND EXISTS (SELECT 1 FROM market_annotation_jobs WHERE id=? AND status='deleted')`).bind(jobId, jobId),
+      db.prepare(`UPDATE market_annotation_cloud_runs SET state='completed', lease_token_hash='', lease_expires_at=NULL,
+          next_run_at=NULL, completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP
+        WHERE job_id=? AND EXISTS (SELECT 1 FROM market_annotation_jobs WHERE id=? AND status='deleted')`).bind(jobId, jobId),
+      db.prepare(`INSERT INTO market_master_audit_logs
+          (id,actor_email,actor_role,action,entity_type,entity_id,before_json,after_json)
+        SELECT ?,?,?, ?, 'market_annotation_job', ?, ?, ?
+        WHERE EXISTS (SELECT 1 FROM market_annotation_jobs WHERE id=? AND status='deleted')`)
+        .bind(`market-audit-${randomUUID()}`, actor.email, actor.role, auditAction, jobId, JSON.stringify(before), JSON.stringify(after), jobId),
+    ]);
+    const deleted = await db.prepare("SELECT status FROM market_annotation_jobs WHERE id=? LIMIT 1").bind(jobId).first<{ status: string }>();
+    if (deleted?.status !== "deleted") throw new Error("任务状态已变化，归档未生效，请刷新后重试");
+    return { ok: true, jobId, ...after };
+  } catch (error) {
+    await releaseJobMutex(db, jobId, tokenHash, false).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function createLocalAgent(db: MarketDatabase, nameValue: string, actor: Actor) {

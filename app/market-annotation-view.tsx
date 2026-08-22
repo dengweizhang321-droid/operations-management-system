@@ -284,6 +284,12 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const currentRemainingInferenceCount = remainingInferenceUnitsForJob(currentJob, cloudProgress);
   const currentCloudRunHasUnfinishedItems = currentJob?.executor === "cloud" && currentRemainingInferenceCount > 0;
   const currentCloudRunIsRunning = currentCloudRun?.state === "running" && currentCloudRunHasUnfinishedItems;
+  const currentJobPendingReviewCount = currentJob ? Math.max(0, currentJob.totalCount - currentJob.committedCount - currentJob.failedCount) : 0;
+  const currentJobSettledMessage = currentJob?.status === "committed"
+    ? "已全部正式入库，无需重复识别"
+    : currentJob?.status === "review_ready"
+      ? `识别已结束${currentJobPendingReviewCount ? `，待复核/入库 ${currentJobPendingReviewCount} 条` : ""}${currentJob.failedCount ? `，失败封顶 ${currentJob.failedCount} 条` : ""}；请在下方复核或归档旧任务`
+      : "当前没有待识别项";
   const backgroundJobId = currentJob?.id ?? "";
   const backgroundExecutor = currentJob?.executor ?? "";
   useEffect(() => {
@@ -560,13 +566,17 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     await load(jobId); setNotice(`Prompt v${item.version} 草稿已删除`);
   });
   const deleteJob = (item: Job) => act("delete-job", async () => {
-    if (item.status !== "committed") throw new Error("只能删除已经全部入库的任务记录");
-    if (!window.confirm(`确认删除“${item.category}”的这条已入库任务记录？\n\n任务卡片和复核候选会隐藏，但正式入库的 SKU 标注、价格、入库回执与审计记录都会保留。`)) return;
+    if (!["review_ready", "committed"].includes(item.status)) throw new Error("只能归档推理已结束或已经全部入库的任务记录");
+    const pendingReviewCount = Math.max(0, item.totalCount - item.committedCount - item.failedCount);
+    const detail = item.status === "committed"
+      ? `该任务 ${item.committedCount} 条明细已全部正式入库。`
+      : `该任务推理已经结束，仍有 ${pendingReviewCount} 条待复核/入库、${item.failedCount} 条失败封顶。归档后这些未入库候选会退出工作台。`;
+    if (!window.confirm(`确认归档“${item.category}”的这条任务记录？\n\n${detail}\n\n已经正式入库的 SKU 标注、价格、入库回执、任务明细和审计记录都会保留。`)) return;
     const result = await post({ action: "delete_job", jobId: item.id });
     dirtyDraftIdsRef.current.clear();
     if (jobId === item.id) { setJobId(""); setCloudProgress(null); }
     await load("", 1, true);
-    setNotice(`已删除任务记录；正式入库结果保持不变，保留 ${String(result?.preservedItems ?? item.committedCount)} 条任务明细用于审计`);
+    setNotice(`任务已归档；保留正式入库 ${String(result?.preservedCommittedItems ?? item.committedCount)} 条、审计明细 ${String(result?.preservedItems ?? item.totalCount)} 条，隐藏待复核 ${String(result?.archivedPendingItems ?? pendingReviewCount)} 条`);
   });
   const createAgent = () => act("agent", async () => { const name = window.prompt("本地 agent 名称", "办公室 Ollama") || ""; const result = await post({ action: "create_agent", name }); setAgentToken(String(result?.token || "")); await load(jobId); });
 
@@ -637,17 +647,17 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         {createBlockReason
           ? <small className="orange-text">无法创建任务：{createBlockReason}</small>
           : <small>{compatibleExistingJob ? `将切换并续跑兼容任务，剩余推理 ${compatibleExistingJob.remainingInferenceCount} 条；完成后可创建下一批` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条，单批最多 ${MARKET_ANNOTATION_JOB_LIMITS.maximum} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
-        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob?.executor === "cloud" ? "正在恢复并唤醒…" : "正在恢复任务…") : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "恢复兼容任务并续跑" : "恢复兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
+        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "正在恢复并唤醒…" : "正在恢复任务…") : "正在创建任务（候选较多时需几十秒）…") : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "恢复兼容任务并续跑" : "恢复兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
       </div>
 
       {currentJob && <div className="annotation-current-run">
         <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRunIsRunning ? `运行中（当前 ${currentCloudRun!.runConcurrency}/${currentCloudRun!.targetConcurrency} 路）` : currentCloudRunHasUnfinishedItems ? currentCloudRun?.state === "completed" ? "已停止（仍有未完成项，可恢复）" : "已暂停" : "已完成"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
         <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
-        {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || !currentCloudRunHasUnfinishedItems} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : !currentCloudRunHasUnfinishedItems ? "没有可重试识别项" : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
+        {currentJob.executor === "cloud" ? currentCloudRunHasUnfinishedItems ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">{currentJobSettledMessage}</small> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
 
-      <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务；已全部入库的记录可由管理员删除，正式入库结果不会受影响</small></div>
-      <div className="annotation-job-list">{visibleJobs.map((item) => <div className={`annotation-job-entry ${jobId === item.id ? "active" : ""}`} key={item.id}><button className="annotation-job-select" onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>{item.status === "committed" && <button className="annotation-job-delete" disabled={!isAdmin || busy !== ""} title={isAdmin ? "删除任务记录，保留正式入库结果和审计" : "仅管理员可删除已入库任务记录"} onClick={() => void deleteJob(item)}>{busy === "delete-job" && jobId === item.id ? "删除中…" : "删除记录"}</button>}</div>)}</div>
+      <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务；推理已结束或已全部入库的任务可由管理员归档，运行中的任务不能删除，正式入库结果不会受影响</small></div>
+      <div className="annotation-job-list">{visibleJobs.map((item) => <div className={`annotation-job-entry ${jobId === item.id ? "active" : ""}`} key={item.id}><button className="annotation-job-select" onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>{["review_ready", "committed"].includes(item.status) && <button className="annotation-job-delete" disabled={!isAdmin || busy !== ""} title={isAdmin ? "归档任务记录；正式入库结果、任务明细、回执和审计都会保留" : "仅管理员可归档已结束任务"} onClick={() => void deleteJob(item)}>{busy === "delete-job" ? "归档中…" : item.status === "committed" ? "删除记录" : "归档旧任务"}</button>}</div>)}</div>
     </section>
 
     <section className="panel annotation-review-card">

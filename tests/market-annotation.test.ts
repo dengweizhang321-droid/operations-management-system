@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deleteCommittedAnnotationJob, deletePromptVersion, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -306,9 +306,12 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /annotation-task-setup/);
   assert.match(ui, /annotation-current-run/);
   assert.match(ui, /action: "delete_job"/);
-  assert.match(ui, /正式入库结果保持不变/);
-  assert.match(service, /deleteCommittedAnnotationJob/);
+  assert.match(ui, /正式入库结果不会受影响/);
+  assert.match(ui, /识别已结束[\s\S]*待复核\/入库[\s\S]*失败封顶/);
+  assert.match(ui, /归档旧任务/);
+  assert.match(service, /deleteSettledAnnotationJob/);
   assert.match(service, /delete_committed_market_annotation_job/);
+  assert.match(service, /archive_review_ready_market_annotation_job/);
   const currentConcurrencyControl = ui.slice(ui.indexOf('aria-label="当前 AI 标注任务模型并发数"'), ui.indexOf("</label>", ui.indexOf('aria-label="当前 AI 标注任务模型并发数"')));
   assert.ok(currentConcurrencyControl.length > 0);
   assert.doesNotMatch(currentConcurrencyControl, /!category|busy !==/);
@@ -523,7 +526,7 @@ test("create job always answers a click with one actionable blocking reason", as
   assert.match(ui, /const blocked = createJobBlockReason\(\);\n\s*if \(blocked\) throw new Error\(blocked\);/);
   assert.match(ui, /无法创建任务：\{createBlockReason\}/);
   assert.match(ui, /disabled=\{busy !== ""\} onClick=\{createJob\}/);
-  assert.match(ui, /busy === "create-job" \? \(compatibleExistingJob\?\.executor === "cloud" \? "正在恢复并唤醒…" : "正在恢复任务…"\)/);
+  assert.match(ui, /busy === "create-job" \? \(compatibleExistingJob \? \(compatibleExistingJob\.executor === "cloud" \? "正在恢复并唤醒…" : "正在恢复任务…"\) : "正在创建任务（候选较多时需几十秒）…"\)/);
   assert.match(ui, /if \(compatibleExistingJob\) \{[\s\S]*?const id = compatibleExistingJob\.id/);
   assert.match(ui, /await post\(\{ action: "set_cloud_run_state", jobId: id, state: "running" \}\)/);
   assert.match(ui, /await loadJobProgress\(id\)/);
@@ -1595,7 +1598,7 @@ test("filtered selection accepts more than the former 5,000-row ceiling", async 
   sqlite.close();
 });
 
-test("deleting a committed task hides only the task record and preserves formal facts and audit evidence", async () => {
+test("archiving a settled task hides old review work while preserving formal facts and audit evidence", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -1606,18 +1609,36 @@ test("deleting a committed task hides only the task record and preserves formal 
       VALUES ('delete-committed-prompt','删除测试类目',1,'manual','active','["已确认"]','这是用于验证删除已入库任务只隐藏记录的测试 Prompt 正文。','admin@test');
     INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, status, total_count, completed_count, reviewed_count, committed_count, created_by) VALUES
       ('delete-committed-job','删除测试类目','delete-committed-prompt','local','committed',1,1,1,1,'operator@test'),
-      ('delete-pending-job','删除测试类目','delete-committed-prompt','local','review_ready',1,1,0,0,'operator@test');
+      ('delete-pending-job','删除测试类目','delete-committed-prompt','local','review_ready',1,1,0,0,'operator@test'),
+      ('delete-running-job','删除测试类目','delete-committed-prompt','local','running',1,0,0,0,'operator@test'),
+      ('delete-retryable-job','删除测试类目','delete-committed-prompt','local','review_ready',1,0,0,0,'operator@test'),
+      ('delete-locked-job','删除测试类目','delete-committed-prompt','local','review_ready',1,1,0,0,'operator@test');
+    UPDATE market_annotation_jobs SET commit_token_hash='active-commit-lock',commit_started_at=CURRENT_TIMESTAMP WHERE id='delete-locked-job';
     INSERT INTO market_annotation_items (id, job_id, category, sku_code, status, reviewed_segment) VALUES
       ('delete-committed-item','delete-committed-job','删除测试类目','DELETE-1','committed','已确认'),
-      ('delete-pending-item','delete-pending-job','删除测试类目','DELETE-2','review_pending','已确认');
+      ('delete-pending-item','delete-pending-job','删除测试类目','DELETE-2','review_pending','已确认'),
+      ('delete-running-item','delete-running-job','删除测试类目','DELETE-3','queued',''),
+      ('delete-retryable-item','delete-retryable-job','删除测试类目','DELETE-4','queued',''),
+      ('delete-locked-item','delete-locked-job','删除测试类目','DELETE-5','review_pending','已确认');
     INSERT INTO market_sku_annotations (id,category,sku_code,segment,source_job_item_id,prompt_version_id,reviewed_by,reviewed_at)
       VALUES ('delete-formal-annotation','删除测试类目','DELETE-1','已确认','delete-committed-item','delete-committed-prompt','admin@test',CURRENT_TIMESTAMP);
     INSERT INTO market_annotation_commit_receipts (id,job_item_id,annotation_id,idempotency_key,after_json,committed_by)
       VALUES ('delete-receipt','delete-committed-item','delete-formal-annotation','delete-committed-receipt-key','{}','admin@test');
   `);
 
-  await assert.rejects(() => deleteCommittedAnnotationJob(db, "delete-pending-job", { email: "admin@test", role: "admin" }), /只能删除已经全部入库/);
-  const deleted = await deleteCommittedAnnotationJob(db, "delete-committed-job", { email: "admin@test", role: "admin" });
+  await assert.rejects(() => deleteSettledAnnotationJob(db, "delete-running-job", { email: "admin@test", role: "admin" }), /只能归档推理已结束/);
+  await assert.rejects(() => deleteSettledAnnotationJob(db, "delete-locked-job", { email: "admin@test", role: "admin" }), /任务正在复核或入库/);
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE id='delete-locked-item'").get() as { status: string }).status, "review_pending");
+  await assert.rejects(() => deleteSettledAnnotationJob(db, "delete-retryable-job", { email: "admin@test", role: "admin" }), /仍有 1 条可继续识别/);
+  assert.deepEqual({ ...(sqlite.prepare("SELECT status,commit_token_hash token FROM market_annotation_jobs WHERE id='delete-retryable-job'").get() as Record<string, unknown>) }, { status: "review_ready", token: "" });
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE id='delete-retryable-item'").get() as { status: string }).status, "queued");
+  const archived = await deleteSettledAnnotationJob(db, "delete-pending-job", { email: "admin@test", role: "admin" });
+  assert.deepEqual({ status: archived.status, previousStatus: archived.previousStatus, archivedPendingItems: archived.archivedPendingItems, preservedCommittedItems: archived.preservedCommittedItems }, { status: "deleted", previousStatus: "review_ready", archivedPendingItems: 1, preservedCommittedItems: 0 });
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='delete-pending-job'").get() as { status: string }).status, "deleted");
+  assert.equal((sqlite.prepare("SELECT status FROM market_annotation_items WHERE id='delete-pending-item'").get() as { status: string }).status, "superseded");
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='archive_review_ready_market_annotation_job' AND entity_id='delete-pending-job'").get() as { count: number }).count, 1);
+
+  const deleted = await deleteSettledAnnotationJob(db, "delete-committed-job", { email: "admin@test", role: "admin" });
   assert.deepEqual({ status: deleted.status, preservedItems: deleted.preservedItems, preservedReceipts: deleted.preservedReceipts, formalAnnotationsPreserved: deleted.formalAnnotationsPreserved }, { status: "deleted", preservedItems: 1, preservedReceipts: 1, formalAnnotationsPreserved: true });
   assert.equal((sqlite.prepare("SELECT status FROM market_annotation_jobs WHERE id='delete-committed-job'").get() as { status: string }).status, "deleted");
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE id='delete-committed-item'").get() as { count: number }).count, 1);
@@ -1626,8 +1647,12 @@ test("deleting a committed task hides only the task record and preserves formal 
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_master_audit_logs WHERE action='delete_committed_market_annotation_job' AND entity_id='delete-committed-job'").get() as { count: number }).count, 1);
   const workspace = await getAnnotationWorkspace(db, { aggregateJobs: true });
   assert.equal(workspace.jobs.some((job) => job.id === "delete-committed-job"), false);
+  assert.equal(workspace.jobs.some((job) => job.id === "delete-pending-job"), false);
   assert.equal(workspace.items.some((item) => item.jobId === "delete-committed-job"), false);
-  assert.equal(workspace.items.some((item) => item.jobId === "delete-pending-job"), true);
+  assert.equal(workspace.items.some((item) => item.jobId === "delete-pending-job"), false);
+  assert.equal(workspace.jobs.some((job) => job.id === "delete-running-job"), true);
+  assert.equal(workspace.jobs.some((job) => job.id === "delete-retryable-job"), true);
+  assert.equal(workspace.jobs.some((job) => job.id === "delete-locked-job"), true);
   sqlite.close();
 });
 
