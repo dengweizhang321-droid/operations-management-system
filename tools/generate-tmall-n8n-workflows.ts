@@ -29,6 +29,7 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     fileName: "tmall-yijiu-sycm-cookie-daily.workflow.json",
     cronExpression: "0 11 * * *",
     scheduleName: "每天 11:00 运行",
+    productMasterExportMode: "on_sale_pagewise_excel",
   },
   {
     storeKey: "tmall-lili",
@@ -80,6 +81,7 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     fileName: "tmall-masitu-sycm-cookie-daily.workflow.json",
     cronExpression: "25 11 * * *",
     scheduleName: "每天 11:25 运行",
+    productMasterExportMode: "on_sale_pagewise_excel",
   },
 ] as const;
 
@@ -129,17 +131,14 @@ function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowD
       "浏览器不可连接时才从 Git 已忽略的店铺专属",
     );
   }
-  if (definition.productMasterExportMode === "on_sale_pagewise_excel") {
-    const productMasterStart = adapted.indexOf("最后 M ");
-    const productMasterEnd = adapted.indexOf("M 成功或任一阶段失败后", productMasterStart);
-    if (productMasterStart >= 0) {
-      if (productMasterEnd < 0) throw new Error("天猫 n8n 基础模板的 M 节点说明不完整");
-      adapted = [
-        adapted.slice(0, productMasterStart),
-        "最后 M 复用同一拓丰店独立 Chromium 会话，进入千牛“商品 > 我的商品 > 出售中”，读取“商品总数 + 当前页/总页数”并要求总页数与每页 20 条口径一致；每页严格执行“勾选商品标题全选框 → 精确读回已选数量 → 更多批量操作 → excel商品批量导出 → 确认任务创建成功”。最后一页之前只关闭成功弹窗并点击右上角下一页，最后一页才点击“前往下载”。导出记录只接管本轮提交时间窗内、数量与页数完全一致的全部已完成任务，逐个下载到拓丰独立目录；全部分页文件分别通过发布模板、店铺和商品数校验后，先合并成一个无跨页重复且唯一商品数等于出售中总数的权威 XLSX，再只提交一次货品主数据导入并回查，禁止逐页导入互相覆盖。点击创建任务结果未决、导出记录多于预期、缺页、任务失败、商品数变化或跨页重复都失败关闭并保留活动清单。",
-        adapted.slice(productMasterEnd),
-      ].join("");
-    }
+  const productMasterStart = adapted.indexOf("最后 M ");
+  const productMasterEnd = adapted.indexOf("M 成功或任一阶段失败后", productMasterStart);
+  if (productMasterStart >= 0) {
+    if (productMasterEnd < 0) throw new Error("天猫 n8n 基础模板的 M 节点说明不完整");
+    const productMasterDescription = definition.productMasterExportMode === "on_sale_pagewise_excel"
+      ? `最后 M 复用同一${definition.shortName}店独立 Chromium 会话，进入千牛“商品 > 我的商品 > 出售中”，读取“商品总数 + 当前页/总页数”并要求总页数与每页 20 条口径一致；每页严格执行“勾选商品标题全选框 → 精确读回已选数量 → 更多批量操作 → excel商品批量导出 → 确认任务创建成功”。最后一页之前只关闭成功弹窗并点击右上角下一页，最后一页才点击“前往下载”。导出记录只接管本轮提交时间窗内、数量与页数完全一致的全部已完成任务，逐个下载到${definition.shortName}独立目录；全部分页文件分别通过发布模板、店铺和商品数校验后，先合并成一个无跨页重复且唯一商品数等于出售中总数的权威 XLSX，再只提交一次货品主数据导入并回查，禁止逐页导入互相覆盖。点击创建任务结果未决、导出记录多于预期、缺页、任务失败、商品数变化或跨页重复都失败关闭并保留活动清单。`
+      : `最后 M 复用同一${definition.shortName}店独立 Chromium 会话，进入千牛“商品 > 出售中”，关闭右下角“重要通知”（若显示），再从右下角打开“商品管家”，在右侧聊天发送“导出全部商品”、确认任务、等待生成并下载 XLSX；随后校验发布模板、店铺、行数和哈希，提交货品主数据导入并回查。`;
+    adapted = [adapted.slice(0, productMasterStart), productMasterDescription, adapted.slice(productMasterEnd)].join("");
   }
   return [
     "## 店铺绑定",
@@ -171,17 +170,19 @@ function replaceConnectionNode(value: unknown, oldName: string, newName: string)
 }
 
 function adaptProductMasterNode(workflow: WorkflowTemplate, definition: TmallN8nWorkflowDefinition) {
-  if (definition.productMasterExportMode !== "on_sale_pagewise_excel") return;
   const oldName = "M·商品管家批量导出、校验并导入";
   const newName = "M·出售中逐页导出、合并校验并导入";
-  const node = workflow.nodes.find((candidate) => candidate.name === oldName);
-  if (!node) throw new Error("天猫 n8n 基础模板缺少商品管家 M 节点");
-  node.name = newName;
-  if (workflow.connections[oldName]) {
-    workflow.connections[newName] = workflow.connections[oldName];
-    delete workflow.connections[oldName];
+  const targetName = definition.productMasterExportMode === "on_sale_pagewise_excel" ? newName : oldName;
+  const candidates = workflow.nodes.filter((candidate) => candidate.name === oldName || candidate.name === newName);
+  if (candidates.length !== 1) throw new Error("天猫 n8n 基础模板必须且只能包含一个货品 M 节点");
+  const node = candidates[0]!;
+  const sourceName = node.name;
+  node.name = targetName;
+  if (sourceName !== targetName && workflow.connections[sourceName]) {
+    workflow.connections[targetName] = workflow.connections[sourceName];
+    delete workflow.connections[sourceName];
   }
-  replaceConnectionNode(workflow.connections, oldName, newName);
+  replaceConnectionNode(workflow.connections, sourceName, targetName);
 }
 
 export function buildTmallN8nWorkflow(

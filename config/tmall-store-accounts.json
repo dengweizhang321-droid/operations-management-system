@@ -7,6 +7,7 @@
       "shopName": "天猫-志高亿玖专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
+      "productMasterExportMode": "on_sale_pagewise_excel",
       "initialStartDate": "2026-07-28",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
@@ -119,6 +120,7 @@
       "shopName": "天猫-志高马思图专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
+      "productMasterExportMode": "on_sale_pagewise_excel",
       "initialStartDate": "2026-08-21",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {

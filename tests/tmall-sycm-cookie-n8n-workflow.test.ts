@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { tmallN8nWorkflowDefinitions } from "../tools/generate-tmall-n8n-workflows";
+import { buildTmallN8nWorkflow, tmallN8nWorkflowDefinitions } from "../tools/generate-tmall-n8n-workflows";
 
 const workflowPath = new URL("../automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json", import.meta.url);
 
@@ -59,10 +59,9 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
     ]);
   }
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
-  assert.match(raw, /导出全部商品/);
-  assert.match(raw, /重要通知/);
-  assert.match(raw, /商品管家/);
-  assert.match(raw, /再从右下角打开“商品管家”/);
+  assert.match(raw, /商品 > 我的商品 > 出售中/);
+  assert.match(raw, /excel商品批量导出/);
+  assert.match(raw, /最后一页才点击“前往下载”/);
   assert.match(raw, /推广 > 货品全站推 > 报表/);
   assert.match(raw, /全部数据指标/);
   assert.match(raw, /开始和结束日期都选同一个业务日/);
@@ -79,8 +78,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.connections["A·计划目标日期"]?.main?.[0]?.[0]?.node, "B·逐日下载并验证 XLS");
   assert.equal(workflow.connections["B·逐日下载并验证 XLS"]?.main?.[0]?.[0]?.node, "C·签收、导入并覆盖回查");
   assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·全站推逐日报表下载、导入并回查");
-  assert.equal(workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node, "M·商品管家批量导出、校验并导入");
-  assert.equal(workflow.connections["M·商品管家批量导出、校验并导入"], undefined);
+  assert.equal(workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node, "M·出售中逐页导出、合并校验并导入");
+  assert.equal(workflow.connections["M·出售中逐页导出、合并校验并导入"], undefined);
   assert.match(raw, /A→B→C→P→M/);
   assert.match(raw, /Windows 用户.*DPAPI/);
   assert.match(raw, /验证码、安全验证/);
@@ -91,6 +90,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
 });
 
 test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板默认未激活", async () => {
+  const pagewiseStoreKeys = new Set(["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"]);
   const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as {
     stores: Array<{
       storeKey: string;
@@ -173,7 +173,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     assert.equal(store.shopName, definition.shopName);
     assert.equal(store.loginMode, "windows_dpapi_credentials");
     assert.equal(store.enabled, true);
-    if (definition.storeKey === "tmall-tuofeng") {
+    if (pagewiseStoreKeys.has(definition.storeKey)) {
       assert.equal(store.productMasterExportMode, "on_sale_pagewise_excel");
       assert.match(raw, /M·出售中逐页导出、合并校验并导入/);
       assert.match(raw, /商品 > 我的商品 > 出售中/);
@@ -194,6 +194,28 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       );
     }
   }
+  assert.deepEqual(
+    tmallN8nWorkflowDefinitions.filter((definition) => definition.productMasterExportMode === "on_sale_pagewise_excel")
+      .map((definition) => definition.storeKey),
+    ["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"],
+  );
+});
+
+test("逐页版亿玖基础模板重复生成时仍能为未切换店铺还原商品管家 M 节点", async () => {
+  const source = JSON.parse(await readFile(workflowPath, "utf8"));
+  const lili = tmallN8nWorkflowDefinitions.find((definition) => definition.storeKey === "tmall-lili");
+  const masitu = tmallN8nWorkflowDefinitions.find((definition) => definition.storeKey === "tmall-masitu");
+  assert.ok(lili);
+  assert.ok(masitu);
+  const productManagerWorkflow = buildTmallN8nWorkflow(source, lili);
+  assert.equal(productManagerWorkflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), true);
+  assert.equal(
+    (productManagerWorkflow.connections["P·全站推逐日报表下载、导入并回查"] as { main?: Array<Array<{ node?: string }>> })
+      ?.main?.[0]?.[0]?.node,
+    "M·商品管家批量导出、校验并导入",
+  );
+  const pagewiseWorkflow = buildTmallN8nWorkflow(source, masitu);
+  assert.equal(pagewiseWorkflow.nodes.some((node) => node.name === "M·出售中逐页导出、合并校验并导入"), true);
 });
 
 test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async () => {
