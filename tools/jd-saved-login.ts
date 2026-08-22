@@ -20,6 +20,8 @@ export type JdLoginPageState = {
   temporarilyLocked: boolean;
 };
 
+export const jdAutomatedLoginFormWaitMs = 20_000;
+
 async function visibleCandidates(locator: Locator, limit = 20) {
   const candidates: Locator[] = [];
   const count = Math.min(await locator.count().catch(() => 0), limit);
@@ -88,7 +90,6 @@ async function secureLoginForm(frame: Frame) {
     'input[autocomplete="username"]',
     'input[type="email"]',
     'input[type="tel"]',
-    'input[type="text"]',
   ].join(",")))).filter((candidate) => candidate !== passwords[0]);
   if (passwords.length !== 1 || accounts.length !== 1) return null;
   return { frame, account: accounts[0]!, password: passwords[0]! };
@@ -97,7 +98,11 @@ async function secureLoginForm(frame: Frame) {
 async function selectUniquePasswordLoginMode(page: Page) {
   const candidates: Array<{ frame: Frame; control: Locator }> = [];
   for (const frame of page.frames()) {
-    const controls = await visibleCandidates(frame.locator('button,a,[role="button"],[role="tab"]'));
+    // The current JD merchant login renders the account/password tab as a
+    // clickable outer div rather than a button or link. Scope the extension to
+    // that observed stable class and retain the exact-label + global-uniqueness
+    // fence; do not click its duplicate child span.
+    const controls = await visibleCandidates(frame.locator('button,a,[role="button"],[role="tab"],div.tabs__item.tabs__item-click'));
     for (const control of controls) {
       const label = String(await control.textContent().catch(() => "")).replace(/\s+/g, "").trim();
       if (["账户登录", "账号登录", "密码登录", "账号密码登录"].includes(label)) {
@@ -121,7 +126,7 @@ export async function autoLoginJdWithWindowsDpapiCredential(
   page: Page,
   storeKey: string,
   loadCredential: (key: string) => Promise<JdRuntimeCredential> = readJdRuntimeCredential,
-  waitMs = 8_000,
+  waitMs = jdAutomatedLoginFormWaitMs,
 ): Promise<JdAutomatedLoginResult> {
   const deadline = Date.now() + Math.max(0, waitMs);
   let passwordModeSelected = false;

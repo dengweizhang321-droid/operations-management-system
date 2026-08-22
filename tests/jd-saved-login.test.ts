@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { Frame, Page } from "playwright-core";
 
-import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, jdSessionSurfaceDecision, waitForJdSessionSurface } from "../tools/jd-saved-login";
+import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, jdAutomatedLoginFormWaitMs, jdSessionSurfaceDecision, waitForJdSessionSurface } from "../tools/jd-saved-login";
 
 function secureLoginPage(options: { challenge?: boolean; forms?: number; controls?: number } = {}) {
   const filled = { account: "", password: "", clicked: false };
@@ -69,6 +69,87 @@ test("JD DPAPI login fails closed before reading credentials for challenge or cr
     async () => { reads += 1; return { username: "unused", password: "unused" }; },
   ), { attempted: false, submitted: false, reason: "login_control_ambiguous" });
   assert.equal(reads, 0);
+});
+
+test("JD DPAPI login waits for a delayed unique password form and still submits only once", async () => {
+  let samples = 0;
+  let reads = 0;
+  let submissions = 0;
+  const account = { isVisible: async () => true, fill: async () => undefined };
+  const password = { isVisible: async () => true, fill: async () => undefined };
+  const submit = {
+    isVisible: async () => true,
+    textContent: async () => "登录",
+    getAttribute: async () => null,
+    click: async () => { submissions += 1; },
+  };
+  const collection = (items: unknown[]) => ({ count: async () => items.length, nth: (index: number) => items[index] });
+  const frame = {
+    evaluate: async () => ({ challengePresent: false, credentialRejected: false, temporarilyLocked: false }),
+    locator: (selector: string) => {
+      if (selector.includes("#nloginpwd")) return collection(samples >= 2 ? [password] : []);
+      if (selector.includes("#loginname")) return collection(samples >= 2 ? [account] : []);
+      if (selector.includes("#loginsubmit")) return collection(samples >= 2 ? [submit] : []);
+      return collection([]);
+    },
+  } as unknown as Frame;
+  const page = {
+    frames: () => [frame],
+    waitForTimeout: async () => { samples += 1; },
+  } as unknown as Page;
+  const result = await autoLoginJdWithWindowsDpapiCredential(page, "jd-chudian-weizhang", async () => {
+    reads += 1;
+    return { username: "vault-account", password: "vault-password" };
+  }, 1_000);
+  assert.deepEqual(result, { attempted: true, submitted: true, reason: "submitted" });
+  assert.equal(reads, 1);
+  assert.equal(submissions, 1);
+  assert.ok(samples >= 2);
+  assert.equal(jdAutomatedLoginFormWaitMs, 20_000);
+});
+
+test("JD DPAPI login selects the unique current div password-mode control before reading credentials", async () => {
+  let modeSelected = false;
+  let modeClicks = 0;
+  let reads = 0;
+  let submissions = 0;
+  const account = { isVisible: async () => true, fill: async () => undefined };
+  const unrelatedLanguageInput = { isVisible: async () => true, fill: async () => { throw new Error("language input must not be filled"); } };
+  const password = { isVisible: async () => true, fill: async () => undefined };
+  const mode = {
+    isVisible: async () => true,
+    textContent: async () => "账号密码登录",
+    click: async () => { modeSelected = true; modeClicks += 1; },
+  };
+  const submit = {
+    isVisible: async () => true,
+    textContent: async () => "登录",
+    getAttribute: async () => null,
+    click: async () => { submissions += 1; },
+  };
+  const collection = (items: unknown[]) => ({ count: async () => items.length, nth: (index: number) => items[index] });
+  const frame = {
+    evaluate: async () => ({ challengePresent: false, credentialRejected: false, temporarilyLocked: false }),
+    locator: (selector: string) => {
+      if (selector.includes("#nloginpwd")) return collection(modeSelected ? [password] : []);
+      if (selector.includes("#loginname")) {
+        if (!modeSelected) return collection([]);
+        return collection(selector.includes('input[type="text"]') ? [account, unrelatedLanguageInput] : [account]);
+      }
+      if (selector.includes("#loginsubmit")) return collection(modeSelected ? [submit] : []);
+      if (selector.includes("div.tabs__item.tabs__item-click")) return collection(modeSelected ? [] : [mode]);
+      return collection([]);
+    },
+  } as unknown as Frame;
+  const page = { frames: () => [frame], waitForTimeout: async () => undefined } as unknown as Page;
+  const result = await autoLoginJdWithWindowsDpapiCredential(page, "jd-maidehao-operator1", async () => {
+    reads += 1;
+    return { username: "vault-account", password: "vault-password" };
+  }, 1_000);
+  assert.deepEqual(result, { attempted: true, submitted: true, reason: "submitted" });
+  assert.equal(modeClicks, 1);
+  assert.equal(reads, 1);
+  assert.equal(submissions, 1);
 });
 
 test("JD login state combines challenge, credential rejection and lock signals without reading fields", async () => {
