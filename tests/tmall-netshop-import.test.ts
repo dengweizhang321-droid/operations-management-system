@@ -154,8 +154,65 @@ test("天猫分页货品 XLSX 省略空发货时间列时仍按表头语义解�
   assert.equal(result.rows[0].raw["商品商家编码"], "ITEM-CODE");
   assert.equal(result.rows[0].raw["SKU商家编码"], "SKU-CODE");
   assert.equal(result.rows[0].raw["SKU库存"], 5);
-  assert.equal(result.rows[0].raw["商品发货时间"], undefined);
-  assert.equal(result.rows[0].raw["SKU发货时间"], undefined);
+  assert.equal(result.rows[0].raw["商品发货时间"], null);
+  assert.equal(result.rows[0].raw["SKU发货时间"], null);
+});
+
+test("天猫货品 16 列与等价 18 列生成相同业务内容指纹", async () => {
+  const compactHeaders = [
+    "商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码", "最长发货时间",
+    "销售属性", "属性对", "skuId", "价格（元）", "数量", "商家编码", "生产日期（年/月/日）", "保质期",
+  ];
+  const fullHeaders = [
+    "商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码", "发货时间",
+    "最长发货时间", "销售属性", "属性对", "发货时间", "skuId", "价格（元）", "数量", "商家编码",
+    "生产日期（年/月/日）", "保质期",
+  ];
+  const compact = workbookBytes([["发布模板"], [null], compactHeaders,
+    ["10001", "cat", "测试类目", "测试商品", "10.00", null, "ITEM", 15, "颜色:红", null, "20001", "9.90", 5, "SKU", null, null]],
+  { bookType: "xlsx", sheetName: "发布模板" });
+  const full = workbookBytes([["发布模板"], [null], fullHeaders,
+    ["10001", "cat", "测试类目", "测试商品", "10.00", null, "ITEM", null, 15, "颜色:红", null, null, "20001", "9.90", 5, "SKU", null, null]],
+  { bookType: "xlsx", sheetName: "发布模板" });
+  const inspect = (bytes: Uint8Array, fileName: string) => inspectTmallImportBytes({
+    source: "tmall_product_master", bytes, fileName, fileSizeBytes: bytes.byteLength,
+    platform: "天猫", shopName: "天猫-志高拓丰专卖店", snapshotDate: "2026-08-22",
+  });
+  const [compactResult, fullResult] = await Promise.all([inspect(compact, "compact.xlsx"), inspect(full, "full.xlsx")]);
+  const businessRows = (rows: typeof compactResult.rows) => rows.map((row) => ({
+    source: row.source, dataset: row.dataset, platform: row.platform, shopName: row.shopName,
+    businessDate: row.businessDate, snapshotDate: row.snapshotDate, productCode: row.productCode,
+    productName: row.productName, skuId: row.skuId, spuId: row.spuId, warehouseType: row.warehouseType,
+    metrics: row.metrics, raw: row.raw,
+  }));
+  const scope = { source: "tmall_product_master", dataset: "product_master", platform: "天猫", shopName: "天猫-志高拓丰专卖店", snapshotDate: "2026-08-22" };
+  const [compactFingerprint, fullFingerprint] = await Promise.all([
+    buildImportContentFingerprint({ domain: "netshop", scope, rows: businessRows(compactResult.rows) }),
+    buildImportContentFingerprint({ domain: "netshop", scope, rows: businessRows(fullResult.rows) }),
+  ]);
+  assert.equal(compactFingerprint.contentHash, fullFingerprint.contentHash);
+});
+
+test("天猫货品缺少最长发货时间列时仍按销售属性区段识别商品与 SKU 发货时间", async () => {
+  const inspect = (headers: string[], values: unknown[], fileName: string) => {
+    const bytes = workbookBytes([["发布模板"], [null], headers, values], { bookType: "xlsx", sheetName: "发布模板" });
+    return inspectTmallImportBytes({ source: "tmall_product_master", bytes, fileName, fileSizeBytes: bytes.byteLength,
+      platform: "天猫", shopName: "天猫-志高拓丰专卖店", snapshotDate: "2026-08-22" });
+  };
+  const prefix = ["商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码"];
+  const suffix = ["skuId", "价格（元）", "数量", "商家编码", "生产日期（年/月/日）", "保质期"];
+  const productOnly = await inspect([...prefix, "发货时间", "销售属性", "属性对", ...suffix],
+    ["10001", "cat", "类目", "商品", 10, null, "ITEM", 2, "颜色:红", null, "20001", 9, 5, "SKU", null, null], "product-ship.xlsx");
+  const skuOnly = await inspect([...prefix, "销售属性", "属性对", "发货时间", ...suffix],
+    ["10001", "cat", "类目", "商品", 10, null, "ITEM", "颜色:红", null, 3, "20001", 9, 5, "SKU", null, null], "sku-ship.xlsx");
+  const both = await inspect([...prefix, "发货时间", "销售属性", "属性对", "发货时间", ...suffix],
+    ["10001", "cat", "类目", "商品", 10, null, "ITEM", 2, "颜色:红", null, 3, "20001", 9, 5, "SKU", null, null], "both-ship.xlsx");
+  assert.equal(productOnly.rows[0].raw["商品发货时间"], 2);
+  assert.equal(productOnly.rows[0].raw["SKU发货时间"], null);
+  assert.equal(skuOnly.rows[0].raw["商品发货时间"], null);
+  assert.equal(skuOnly.rows[0].raw["SKU发货时间"], 3);
+  assert.equal(both.rows[0].raw["商品发货时间"], 2);
+  assert.equal(both.rows[0].raw["SKU发货时间"], 3);
 });
 
 test("天猫导入拒绝未注册或未启用店铺", async () => {

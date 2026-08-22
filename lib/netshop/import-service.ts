@@ -312,11 +312,18 @@ function tmallObjectFromRow(headers: readonly string[], values: readonly unknown
   return Object.fromEntries(headers.map((header, index) => [header, normalizedTmallValue(values[index])])) as Record<string, string | number | boolean | null>;
 }
 
+const tmallMasterCanonicalRawHeaders = [
+  "商品ID", "类目ID", "类目名称", "商品标题", "一口价", "导购标题", "商品商家编码", "商品发货时间",
+  "最长发货时间", "销售属性", "属性对", "SKU发货时间", "SKUID", "SKU价格", "SKU库存", "SKU商家编码",
+  "生产日期", "保质期",
+] as const;
+
 function tmallMasterCanonicalHeaders(values: readonly unknown[]) {
   const headers = values.map(normalizeHeader);
   const normalized = headers.map(normalizeKey);
   const skuIndex = normalized.findIndex((header) => header === "skuid");
-  const longestDeliveryIndex = normalized.findIndex((header) => header === "最长发货时间");
+  const salesAttributeIndex = normalized.findIndex((header) => header === "销售属性");
+  const attributePairIndex = normalized.findIndex((header) => header === "属性对");
   if (normalized[0] !== "商品id" || skuIndex < 0) {
     throw new Error("天猫货品文件缺少商品Id/SKU 表头");
   }
@@ -332,7 +339,13 @@ function tmallMasterCanonicalHeaders(values: readonly unknown[]) {
     if (key === "商家编码") return index < skuIndex ? "商品商家编码" : "SKU商家编码";
     if (key === "商品商家编码") return "商品商家编码";
     if (key === "sku商家编码") return "SKU商家编码";
-    if (key === "发货时间") return longestDeliveryIndex >= 0 && index < longestDeliveryIndex ? "商品发货时间" : "SKU发货时间";
+    if (key === "发货时间") {
+      if (salesAttributeIndex >= 0 && index < salesAttributeIndex) return "商品发货时间";
+      if (attributePairIndex >= 0 && index > attributePairIndex && index < skuIndex) return "SKU发货时间";
+      if (salesAttributeIndex >= 0 && index > salesAttributeIndex && index < skuIndex) return "SKU发货时间";
+      if (attributePairIndex >= 0 && index < attributePairIndex) return "商品发货时间";
+      throw new Error(`天猫货品文件第 ${index + 1} 列“发货时间”无法判定为商品或 SKU 字段`);
+    }
     if (key === "商品发货时间") return "商品发货时间";
     if (key === "sku发货时间") return "SKU发货时间";
     if (key === "最长发货时间") return "最长发货时间";
@@ -371,6 +384,9 @@ function findTmallHeader(source: NetshopSource, table: ParsedTable) {
 function tmallRowObject(source: NetshopSource, headers: readonly string[], values: readonly unknown[]) {
   const raw = tmallObjectFromRow(headers, values);
   if (source === "tmall_product_master") {
+    for (const header of tmallMasterCanonicalRawHeaders) {
+      if (!(header in raw)) raw[header] = null;
+    }
     raw["商品名称"] = raw["商品标题"];
     raw["商品编码"] = raw["商品商家编码"];
     raw["商家SKU"] = raw["SKU商家编码"];

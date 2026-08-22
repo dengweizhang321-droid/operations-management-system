@@ -7,6 +7,7 @@ import test from "node:test";
 import * as XLSX from "xlsx";
 
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { inspectTmallMasterFile } from "../tools/tmall-product-master-export";
 import {
   chooseTmallOnSaleHeaderCheckbox,
   chooseTmallOnSaleNextPageCandidate,
@@ -15,6 +16,7 @@ import {
   decideTmallPagewiseAuditRecovery,
   expectedTmallPageItemCount,
   mergeTmallPagewiseProductWorkbooks,
+  normalizeTmallPagewiseAuditForWrite,
   parseTmallOnSalePagination,
 } from "../tools/tmall-pagewise-product-master-export";
 
@@ -121,6 +123,11 @@ test("逐页清单在点击未决时失败关闭，预检失败可安全重试�
   });
 });
 
+test("失败后成功续接的最终审计不保留陈旧错误", () => {
+  assert.equal(normalizeTmallPagewiseAuditForWrite({ stage: "downloading", lastError: "旧错误" }).lastError, "旧错误");
+  assert.equal(normalizeTmallPagewiseAuditForWrite({ stage: "completed", lastError: "旧错误" }).lastError, undefined);
+});
+
 test("导出记录只接管本轮全部任务，处理中等待、失败或并发多任务均失败关闭", () => {
   const tasks = [
     { page: 1, itemCount: 20, submittedAt: "2026-08-22T10:30:00.000Z" },
@@ -180,6 +187,43 @@ test("所有分页先合并为一个权威货品快照，再由现有解析器�
     assert.equal(inspection.sheetName, "发布模板");
     assert.equal(inspection.totals.rowCount, 3);
     assert.deepEqual(new Set(inspection.rows.map((row) => row.spuId)), new Set(["10001", "10002", "10003"]));
+    const recovered = await mergeTmallPagewiseProductWorkbooks({
+      sourceFiles: [first, second], targetPath: merged, store, snapshotDate: "2026-08-22", expectedProductCount: 3,
+    });
+    assert.equal(recovered.sha256, evidence.sha256);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("分页文件变化后与活动清单证据不一致时禁止合并", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-pagewise-evidence-"));
+  const source = path.join(root, "page-1.xlsx");
+  const store = { shopName: "天猫-志高拓丰专卖店", browser: { profileDir: root, debugPort: 9327, downloadDir: root } };
+  try {
+    await writeFile(source, masterWorkbook([{ productId: "10001", skuId: "20001", skuCode: "SKU-1" }]));
+    const recorded = await inspectTmallMasterFile(source, store, "2026-08-22");
+    await writeFile(source, masterWorkbook([{ productId: "10002", skuId: "20002", skuCode: "SKU-2" }]));
+    await assert.rejects(() => mergeTmallPagewiseProductWorkbooks({
+      sourceFiles: [source], sourceEvidence: [{ ...recorded, page: 1, taskCreatedAt: "2026-08-22 18:30:00" }],
+      targetPath: path.join(root, "merged.xlsx"), store, snapshotDate: "2026-08-22", expectedProductCount: 1,
+    }), /活动清单证据不一致/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("已有合并文件与当前分页内容不同即使商品数相同也拒绝续接", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-pagewise-stale-merge-"));
+  const source = path.join(root, "page-1.xlsx");
+  const merged = path.join(root, "merged.xlsx");
+  const store = { shopName: "天猫-志高拓丰专卖店", browser: { profileDir: root, debugPort: 9327, downloadDir: root } };
+  try {
+    await writeFile(source, masterWorkbook([{ productId: "10001", skuId: "20001", skuCode: "SKU-1" }]));
+    await writeFile(merged, masterWorkbook([{ productId: "10002", skuId: "20002", skuCode: "SKU-2" }]));
+    await assert.rejects(() => mergeTmallPagewiseProductWorkbooks({
+      sourceFiles: [source], targetPath: merged, store, snapshotDate: "2026-08-22", expectedProductCount: 1,
+    }), /与当前分页内容不一致/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,12 +58,12 @@ type PagewiseTask = {
   submittedAt: string;
 };
 
-type PagewiseFileEvidence = Awaited<ReturnType<typeof inspectTmallMasterFile>> & {
+export type PagewiseFileEvidence = Awaited<ReturnType<typeof inspectTmallMasterFile>> & {
   page: number;
   taskCreatedAt: string;
 };
 
-type PagewiseAuditStage =
+export type PagewiseAuditStage =
   | "planned"
   | "browser_ready"
   | "page_export_submitting"
@@ -187,9 +187,14 @@ async function readActiveAudit(storeKey: string, auditRoot = artifactDirectory) 
 }
 
 async function writeActiveAudit(audit: PagewiseAudit, auditRoot = artifactDirectory) {
-  const updated = { ...audit, updatedAt: new Date().toISOString() };
+  const normalized = normalizeTmallPagewiseAuditForWrite(audit);
+  const updated = { ...normalized, updatedAt: new Date().toISOString() };
   await writeJsonAtomic(activeAuditPath(audit.storeKey, auditRoot), updated);
   return updated;
+}
+
+export function normalizeTmallPagewiseAuditForWrite<T extends { stage: PagewiseAuditStage; lastError?: string }>(audit: T) {
+  return audit.stage === "completed" ? { ...audit, lastError: undefined } : audit;
 }
 
 export function parseTmallOnSalePagination(text: string): PagewisePagination | null {
@@ -631,6 +636,7 @@ async function downloadRecordFile(options: {
 
 export async function mergeTmallPagewiseProductWorkbooks(options: {
   sourceFiles: readonly string[];
+  sourceEvidence?: readonly PagewiseFileEvidence[];
   targetPath: string;
   store: Pick<TmallStore, "shopName" | "browser">;
   snapshotDate: string;
@@ -639,16 +645,32 @@ export async function mergeTmallPagewiseProductWorkbooks(options: {
   if (options.sourceFiles.length < 1 || options.sourceFiles.length > maximumPages) throw new Error("逐页货品文件数量无效");
   const rows: Array<Record<string, unknown>> = [];
   const productIds = new Set<string>();
-  for (const filePath of options.sourceFiles) {
+  if (options.sourceEvidence && options.sourceEvidence.length !== options.sourceFiles.length) {
+    throw new Error("逐页货品文件与活动清单证据数量不一致");
+  }
+  for (const [index, filePath] of options.sourceFiles.entries()) {
     const resolved = path.resolve(filePath);
     if (!inside(options.store.browser.downloadDir, resolved)) throw new Error("逐页货品文件越过当前店铺独立下载目录");
     const bytes = new Uint8Array(await readFile(resolved));
+    const recorded = options.sourceEvidence?.[index];
+    if (recorded) {
+      if (recorded.page !== index + 1 || path.resolve(recorded.filePath) !== resolved || path.basename(resolved) !== recorded.fileName
+        || recorded.fileSizeBytes !== bytes.byteLength
+        || recorded.sha256 !== createHash("sha256").update(bytes).digest("hex")) {
+        throw new Error(`逐页货品文件 ${path.basename(resolved)} 与活动清单证据不一致`);
+      }
+    }
     const inspection = await inspectTmallImportBytes({
       source: "tmall_product_master", bytes, fileName: path.basename(resolved), fileSizeBytes: bytes.byteLength,
       platform: "天猫", shopName: options.store.shopName, snapshotDate: options.snapshotDate,
     });
     if (inspection.errors.length > 0 || inspection.totals.rowCount <= 0) {
       throw new Error(`逐页货品文件 ${path.basename(resolved)} 校验失败`);
+    }
+    if (recorded && (recorded.rowCount !== inspection.totals.rowCount
+      || recorded.uniqueProductCount !== inspection.totals.uniqueProductCount
+      || recorded.uniqueSkuCount !== inspection.totals.uniqueSkuCount)) {
+      throw new Error(`逐页货品文件 ${path.basename(resolved)} 回读结果与活动清单证据不一致`);
     }
     for (const row of inspection.rows) {
       const raw = row.raw as Record<string, unknown>;
@@ -672,11 +694,15 @@ export async function mergeTmallPagewiseProductWorkbooks(options: {
   if (!inside(options.store.browser.downloadDir, targetPath) || !/\.xlsx$/i.test(targetPath)) {
     throw new Error("合并货品文件必须位于当前店铺独立下载目录");
   }
-  if (await stat(targetPath).then(() => true).catch(() => false)) throw new Error("合并货品文件已存在，拒绝覆盖");
-  await writeFile(targetPath, bytes);
+  const expectedSha256 = createHash("sha256").update(bytes).digest("hex");
+  const targetExists = await stat(targetPath).then(() => true).catch(() => false);
+  if (!targetExists) await writeFile(targetPath, bytes);
   const evidence = await inspectTmallMasterFile(targetPath, options.store, options.snapshotDate);
   if (evidence.uniqueProductCount !== options.expectedProductCount || evidence.rowCount !== rows.length) {
     throw new Error("合并货品文件回读后的商品数或业务行数不一致");
+  }
+  if (evidence.sha256 !== expectedSha256) {
+    throw new Error("已有合并货品文件与当前分页内容不一致，拒绝续接或覆盖");
   }
   return evidence;
 }
@@ -860,11 +886,12 @@ export async function runTmallPagewiseProductMasterStage(options: {
       }
       const mergedPath = path.resolve(store.browser.downloadDir,
         `${safeSegment(store.shopName)}-出售中全部商品-${snapshotDate}-${activeAudit.runId}.xlsx`);
+      const orderedFiles = [...activeAudit.files].sort((left, right) => left.page - right.page);
       mergedFile = await mergeTmallPagewiseProductWorkbooks({
-        sourceFiles: activeAudit.files.sort((left, right) => left.page - right.page).map((file) => file.filePath),
+        sourceFiles: orderedFiles.map((file) => file.filePath), sourceEvidence: orderedFiles,
         targetPath: mergedPath, store, snapshotDate, expectedProductCount: activeAudit.totalProducts,
       });
-      activeAudit = await writeActiveAudit({ ...activeAudit, stage: "merged", mergedFile }, auditRoot);
+      activeAudit = await writeActiveAudit({ ...activeAudit, stage: "merged", mergedFile, lastError: undefined }, auditRoot);
     } else {
       const rechecked = await inspectTmallMasterFile(mergedFile.filePath, store, snapshotDate);
       if (rechecked.sha256 !== mergedFile.sha256 || rechecked.rowCount !== mergedFile.rowCount
@@ -877,7 +904,7 @@ export async function runTmallPagewiseProductMasterStage(options: {
       baseUrl, store, snapshotDate, evidence: mergedFile, request: options.request,
     });
     activeAudit = await writeActiveAudit({
-      ...activeAudit, stage: "completed", importResult: {
+      ...activeAudit, stage: "completed", lastError: undefined, importResult: {
         status: imported.status, batchId: imported.batchId, rowCount: imported.rowCount, warningCount: imported.warningCount,
       },
     }, auditRoot);
