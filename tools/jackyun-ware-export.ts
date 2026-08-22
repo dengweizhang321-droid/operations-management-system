@@ -54,6 +54,34 @@ export function isLikelyJdLoginPage(url: string, pageText: string, hasPasswordIn
   return hasLoginSignal && !hasMerchantUi;
 }
 
+export function isJdWareProductTargetPage(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:"
+      && parsed.hostname === "wares-jdm.jd.com"
+      && parsed.pathname === "/ware/wareList";
+  } catch {
+    return false;
+  }
+}
+
+export async function reopenJdWareTargetAfterAutomatedLogin(input: {
+  authentication: "existing_session" | "windows_dpapi_credentials";
+  currentUrl: string;
+  gotoTarget: () => Promise<void>;
+  verifyPostNavigation: () => Promise<void>;
+}) {
+  if (input.authentication !== "windows_dpapi_credentials" || isJdWareProductTargetPage(input.currentUrl)) return false;
+  // JD sometimes completes password login on the merchant home page instead
+  // of restoring the originally requested WareList URL. The first navigation
+  // never reached the product page or dispatched its query in that case, so a
+  // single post-login navigation is required while the original response
+  // listener remains armed. Never submit credentials again on this path.
+  await input.gotoTarget();
+  await input.verifyPostNavigation();
+  return true;
+}
+
 export function shouldCloseJdWareBrowserConnection(interactiveLogin: boolean) {
   return !interactiveLogin;
 }
@@ -658,6 +686,28 @@ async function openTargetPage(
   queryBootstrapState: JdWareQueryBootstrapState,
   store: Pick<CliOptions, "storeKey" | "shopName" | "loginMode">,
 ) {
+  let authenticationPromise: Promise<void> | null = null;
+  const authenticateAndRestoreTarget = () => {
+    authenticationPromise ??= (async () => {
+      const authenticated = await ensureJdStoreAuthenticatedSession(page, store);
+      await reopenJdWareTargetAfterAutomatedLogin({
+        authentication: authenticated.authentication,
+        currentUrl: page.url(),
+        gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
+        verifyPostNavigation: async () => {
+          const postLoginText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+          if (hasJdInteractivePageGate(postLoginText)) {
+            throw new Error("京东商家后台自动登录后需要人工完成验证码或安全验证。");
+          }
+          const postLoginHasPassword = await page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
+          if (isLikelyJdLoginPage(page.url(), postLoginText, postLoginHasPassword)) {
+            throw new Error(`waiting_login：${store.shopName} 自动登录后仍停留在登录页面，需要人工检查`);
+          }
+        },
+      });
+    })();
+    return authenticationPromise;
+  };
   const response = await captureJdWareInitialProductQuery(queryBootstrapState, {
     gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
     waitForQuery: () => {
@@ -671,7 +721,19 @@ async function openTargetPage(
       // DPAPI login is handled by verifyAfterNavigation below. Keep the query
       // observer alive across the single login submission so the redirected
       // merchant page's first query remains the only accepted freshness proof.
-      if (store.loginMode === "windows_dpapi_credentials") return query;
+      if (store.loginMode === "windows_dpapi_credentials") {
+        return waitForJdWareQueryOrAutomatedLoginRedirect(
+          query,
+          waitForJdWareLoginNavigation(
+            () => page.waitForURL(
+              (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
+              { timeout: jdWareInitialProductQueryTimeoutMs },
+            ),
+            () => page.url(),
+          ),
+          authenticateAndRestoreTarget,
+        );
+      }
       return waitForJdWareQueryOrInteractiveRedirect(query, waitForJdWareLoginRedirect(
         () => page.waitForURL(
           (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
@@ -688,7 +750,7 @@ async function openTargetPage(
       }
       const hasPasswordInput = await page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
       if (isLikelyJdLoginPage(page.url(), pageText, hasPasswordInput)) {
-        await ensureJdStoreAuthenticatedSession(page, store);
+        await authenticateAndRestoreTarget();
       }
     },
   });
@@ -905,21 +967,39 @@ export function waitForJdWareQueryOrInteractiveRedirect<T>(queryPromise: Promise
   ]));
 }
 
-export async function waitForJdWareLoginRedirect(
+export function waitForJdWareQueryOrAutomatedLoginRedirect<T>(
+  queryPromise: Promise<T>,
+  loginNavigationPromise: Promise<unknown>,
+  authenticateAndRestoreTarget: () => Promise<void>,
+) {
+  let querySettled = false;
+  const observedQuery = handleJdWareDownloadPromise(queryPromise.then(
+    (value) => { querySettled = true; return value; },
+    (error) => { querySettled = true; throw error; },
+  ));
+  const loginBranch = handleJdWareDownloadPromise(loginNavigationPromise.then(async () => {
+    // The losing URL observer can settle after a valid query during later page
+    // lifecycle changes. Never start a credential submission once the fresh
+    // product response has already won the race.
+    if (querySettled) return observedQuery;
+    await authenticateAndRestoreTarget();
+    return observedQuery;
+  }));
+  return handleJdWareDownloadPromise(Promise.race([observedQuery, loginBranch]));
+}
+
+export async function waitForJdWareLoginNavigation(
   waitForRedirect: () => Promise<unknown>,
   currentUrl: () => string,
   maxAttempts = 3,
-): Promise<never> {
+): Promise<"login"> {
   if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) throw new Error("京东登录跳转监听次数无效。");
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       await waitForRedirect();
-      throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
-    } catch (error) {
-      if (error instanceof Error && /京东商家后台尚未登录/.test(error.message)) throw error;
-      if (isLikelyJdLoginPage(currentUrl(), "")) {
-        throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
-      }
+      return "login";
+    } catch {
+      if (isLikelyJdLoginPage(currentUrl(), "")) return "login";
       // JD can replace the merchant frame while staying on WareList. Re-arm
       // the auxiliary login observer so a later real passport redirect is
       // still classified, while the authoritative query listener remains the
@@ -931,6 +1011,15 @@ export async function waitForJdWareLoginRedirect(
   // exhausted auxiliary observer pending prevents a transient frame error
   // from preempting its final response or timeout.
   return await new Promise<never>(() => undefined);
+}
+
+export async function waitForJdWareLoginRedirect(
+  waitForRedirect: () => Promise<unknown>,
+  currentUrl: () => string,
+  maxAttempts = 3,
+): Promise<never> {
+  await waitForJdWareLoginNavigation(waitForRedirect, currentUrl, maxAttempts);
+  throw new Error("京东商家后台尚未登录。请在专用浏览器中完成登录后重新运行。");
 }
 
 export async function withJdWareDownloadStaging<T>(downloadDirectory: string, operation: (stagingDirectory: string) => Promise<T>) {

@@ -146,7 +146,9 @@ test("all JD product and market flows authenticate before business identity or e
   const market = await readFile(new URL("../tools/jd-market-ranking-daily.ts", import.meta.url), "utf8");
   const wareOpen = ware.slice(ware.indexOf("async function openTargetPage"), ware.indexOf("async function dismissJdMenuUpdateNotice"));
   assert.match(wareOpen, /ensureJdStoreAuthenticatedSession/);
-  assert.match(wareOpen, /loginMode === "windows_dpapi_credentials"\) return query/);
+  assert.match(wareOpen, /loginMode === "windows_dpapi_credentials"/);
+  assert.match(wareOpen, /waitForJdWareQueryOrAutomatedLoginRedirect/);
+  assert.ok(wareOpen.indexOf("authenticateAndRestoreTarget") < wareOpen.indexOf("verifyJdWareProductQueryResponse"));
   const dailyRun = daily.slice(daily.indexOf("async function run()"), daily.indexOf("async function main()"));
   assert.ok(dailyRun.indexOf("ensureJdStoreAuthenticatedSession") < dailyRun.indexOf("readAndAssertJdProductDetailStoreIdentity"));
   const marketRun = market.slice(market.indexOf("export async function runJdMarketDailyPlan"));

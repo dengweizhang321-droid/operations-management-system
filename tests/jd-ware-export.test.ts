@@ -11,7 +11,7 @@ import {
   decideJdWareExportBaselineRecoveryAbandonment,
   unseenJdWareExportTasks,
 } from "../lib/jd/ware-export";
-import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareBatchOperationsTriggerSelector, jdWareExportEntryBootstrapDecision, jdWareInitialProductQueryTimeoutMs, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, jdWareTargetNavigationTimeoutMs, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldCloseJdWareBrowserConnection, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareLoginRedirect, waitForJdWareProductQueryBootstrap, waitForJdWareQueryOrInteractiveRedirect, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
+import { advanceWareExportAudit, captureJdWareInitialProductQuery, clickJdWareProductQueryControl, createJdWareBrowserDownloadSession, createJdWareQueryBootstrapState, createWareExportAudit, handleJdWareDownloadPromise, hasStableJdWareTaskSnapshot, hasStableUniqueVisibleJdExportEntry, importSkuFile, isConfirmedJdWareTaskListEmptyState, isJdWareCreateExportRequest, isJdWareDownloadPathInsideStaging, isJdWareProductQueryRequest, isJdWareProductTargetPage, isLikelyJdLoginPage, isTransientJdExportEntryRepaint, JdWareCreateExportRejectedError, jdWareBatchOperationsLabelPattern, jdWareBatchOperationsTriggerSelector, jdWareExportEntryBootstrapDecision, jdWareInitialProductQueryTimeoutMs, jdWareNormalizedExportDrawerSelector, jdWareProductQueryBootstrapDecision, jdWareSkuExportDrawerDecision, jdWareTargetNavigationTimeoutMs, openExportEntryWithRepaintRetry, parseJdWareProductTotalText, prepareJdWareExportEntry, reopenJdWareTargetAfterAutomatedLogin, revealJdWareExportEntry, selectJdWareTaskDownloadTarget, shouldCloseJdWareBrowserConnection, shouldDismissJdMenuUpdateNotice, validateJdWareBrowserDownloadBegin, validateJdWareCreateExportResponse, validateJdWareDownloadProgress, validateJdWareMasterWorkbook, validateJdWareProductQueryResponse, waitForJdWareLoginNavigation, waitForJdWareLoginRedirect, waitForJdWareProductQueryBootstrap, waitForJdWareQueryOrAutomatedLoginRedirect, waitForJdWareQueryOrInteractiveRedirect, wareActiveTaskPath, withJdWareDownloadStaging } from "../tools/jackyun-ware-export";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -428,6 +428,65 @@ test("races a delayed JD login redirect against the still-pending product query"
   );
 });
 
+test("reopens WareList once when DPAPI login lands on the merchant home page", async () => {
+  const calls: string[] = [];
+  assert.equal(isJdWareProductTargetPage("https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare"), true);
+  assert.equal(isJdWareProductTargetPage("https://shop.jd.com/home"), false);
+  assert.equal(await reopenJdWareTargetAfterAutomatedLogin({
+    authentication: "windows_dpapi_credentials",
+    currentUrl: "https://shop.jd.com/home",
+    gotoTarget: async () => { calls.push("target"); },
+    verifyPostNavigation: async () => { calls.push("verify"); },
+  }), true);
+  assert.deepEqual(calls, ["target", "verify"]);
+});
+
+test("does not reopen or resubmit when the session already reached WareList", async () => {
+  let calls = 0;
+  const dependencies = {
+    gotoTarget: async () => { calls += 1; },
+    verifyPostNavigation: async () => { calls += 1; },
+  };
+  assert.equal(await reopenJdWareTargetAfterAutomatedLogin({
+    authentication: "existing_session",
+    currentUrl: "https://shop.jd.com/home",
+    ...dependencies,
+  }), false);
+  assert.equal(await reopenJdWareTargetAfterAutomatedLogin({
+    authentication: "windows_dpapi_credentials",
+    currentUrl: "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare",
+    ...dependencies,
+  }), false);
+  assert.equal(calls, 0);
+});
+
+test("handles a delayed login redirect once and keeps the original product query listener", async () => {
+  let authenticated = 0;
+  let resolveQuery!: (value: string) => void;
+  const query = new Promise<string>((resolve) => { resolveQuery = resolve; });
+  const result = waitForJdWareQueryOrAutomatedLoginRedirect(
+    query,
+    Promise.resolve("login"),
+    async () => { authenticated += 1; resolveQuery("query-after-login"); },
+  );
+  assert.equal(await result, "query-after-login");
+  assert.equal(authenticated, 1);
+});
+
+test("a product query that wins first suppresses a later automated login submission", async () => {
+  let resolveLogin!: () => void;
+  let authenticated = 0;
+  const login = new Promise<void>((resolve) => { resolveLogin = resolve; });
+  assert.equal(await waitForJdWareQueryOrAutomatedLoginRedirect(
+    Promise.resolve("query"),
+    login,
+    async () => { authenticated += 1; },
+  ), "query");
+  resolveLogin();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(authenticated, 0);
+});
+
 test("does not let a detached non-login URL observer preempt the initial product query", async () => {
   const query = new Promise<string>((resolve) => setTimeout(() => resolve("query"), 5));
   const redirect = waitForJdWareLoginRedirect(
@@ -462,6 +521,18 @@ test("re-arms the login observer after a detached merchant frame", async () => {
     ),
     /尚未登录/,
   );
+  assert.equal(attempts, 2);
+});
+
+test("returns a delayed login navigation to the DPAPI guard without inventing a second observer", async () => {
+  let attempts = 0;
+  assert.equal(await waitForJdWareLoginNavigation(
+    async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("detached merchant frame");
+    },
+    () => "https://wares-jdm.jd.com/ware/wareList",
+  ), "login");
   assert.equal(attempts, 2);
 });
 
