@@ -24,7 +24,7 @@
       "shopName": "天猫-志高丽力专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": null,
+      "initialStartDate": "2026-08-21",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -54,7 +54,7 @@
       "shopName": "天猫-志高拓丰专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": null,
+      "initialStartDate": "2026-08-21",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -71,7 +71,7 @@
       "shopName": "天猫-志高亿用专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": null,
+      "initialStartDate": "2026-08-21",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -88,7 +88,7 @@
       "shopName": "天猫-志高炊之王专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": null,
+      "initialStartDate": "2026-08-21",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -118,7 +118,7 @@
       "shopName": "天猫-志高马思图专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": null,
+      "initialStartDate": "2026-08-21",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",

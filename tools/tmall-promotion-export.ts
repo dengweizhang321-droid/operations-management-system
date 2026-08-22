@@ -411,6 +411,7 @@ export function isPromotionReportSuccessNavigation(input: { label: string; conte
 export function shouldRecoverSubmittedPromotionTask(error: unknown) {
   if (!(error instanceof Error)) return false;
   return error.message === promotionSuccessNavigationMissingMessage
+    || error.message === "报表生成成功提示中存在多个前往下载操作，为防止误点已停止"
     || error.message === "点击前往下载后出现多个下载任务页面，为防止接管错误页面已停止"
     || error.message === "点击前往下载后未进入下载任务管理页面"
     || (/^locator\.click: Timeout \d+ms exceeded\./.test(error.message)
@@ -1476,6 +1477,9 @@ async function findReportSuccessNavigation(page: Page) {
     seen.add(signature);
     matching.push(candidate);
   }
+  // The report was already submitted and durably bound to one store/date before this
+  // probe. Do not click an ambiguous toast action; the caller will enter the fixed
+  // download-list URL and retain the existing unique-task/date/time gates instead.
   if (matching.length > 1) throw new Error("报表生成成功提示中存在多个前往下载操作，为防止误点已停止");
   return matching[0]?.locator ?? null;
 }

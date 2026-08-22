@@ -21,15 +21,19 @@ import {
   importTmallProductMasterFile,
   inspectTmallMasterFile,
   isExplicitTmallNoticeDismissAction,
+  isTmallClosableOverlayNotice,
+  isTmallNoticePointerInterceptionError,
   isResumableTmallExportStage,
   isTmallExportConfirmationLabel,
   isTmallProductWorkbookFilename,
   isTmallSellerBusinessUrl,
   isTmallSellerLoginUrl,
   matchTmallExportRecordChoice,
+  parseTmallExportRecordStatus,
   parseTmallShanghaiTaskTime,
   productManagerChatOpenTimeoutMs,
   productManagerFloatingClusterKey,
+  resolveTmallStagedDownloadPath,
   sameTmallNoticeActionTarget,
   scoreChatSendCandidate,
   scoreImportantNoticeCloseCandidate,
@@ -314,6 +318,37 @@ test("浏览器下载取消先解析为受控结果，不产生提前拒绝", ()
   });
 });
 
+test("Chrome 回报异常路径时只在本轮受控暂存目录按 GUID 或安全文件名签收", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-download-path-"));
+  try {
+    const staging = path.join(root, "staging");
+    await mkdir(staging);
+    const guidPath = path.join(staging, "download-guid");
+    await writeFile(guidPath, "current-download");
+    assert.equal(await resolveTmallStagedDownloadPath({
+      stagingDirectory: staging,
+      guid: "download-guid",
+      suggestedFilename: "出售中全部商品.xlsx",
+      reportedFilePath: path.join(root, "outside", "download-guid"),
+    }), guidPath);
+    assert.equal(await resolveTmallStagedDownloadPath({
+      stagingDirectory: staging,
+      guid: "download-guid",
+      suggestedFilename: "出售中全部商品.xlsx",
+      reportedFilePath: "download-guid",
+    }), guidPath);
+    await rm(guidPath);
+    await assert.rejects(() => resolveTmallStagedDownloadPath({
+      stagingDirectory: staging,
+      guid: "missing-guid",
+      suggestedFilename: "出售中全部商品.xlsx",
+      reportedFilePath: path.join(root, "outside", "download-guid"),
+    }), /未落入本轮受控暂存目录/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("导出记录按原任务创建时间和已完成状态选择同一行下载", () => {
   const runStartedAt = "2026-08-03T17:54:17.650Z";
   assert.deepEqual(parseTmallShanghaiTaskTime("2026-08-04 01:54:\n44"), {
@@ -321,6 +356,9 @@ test("导出记录按原任务创建时间和已完成状态选择同一行下�
     epochMs: Date.parse("2026-08-04T01:54:44+08:00"),
   });
   assert.equal(parseTmallShanghaiTaskTime("2026-02-30 01:54:44"), null);
+  assert.equal(parseTmallExportRecordStatus("334 5 2026-08-22 12:14:21 任务失败 下载"), "任务失败");
+  assert.equal(parseTmallExportRecordStatus("处理失败数 0 生成成功 下载"), "已完成");
+  assert.equal(parseTmallExportRecordStatus("任务生成中"), "处理中");
   assert.equal(chooseTmallExportRecordSignature([
     { signature: "later-duplicate", taskCreatedAt: "2026-08-04 02:01:32", status: "已完成" },
     { signature: "original", taskCreatedAt: "2026-08-04 01:54:44", status: "已完成" },
@@ -373,6 +411,12 @@ test("导出记录按原任务创建时间和已完成状态选择同一行下�
     { signature: "tie-a", recordIdentity: "task-a", taskCreatedAt: "2026-08-04 01:54:47", status: "处理中" },
     { signature: "tie-b", recordIdentity: "task-b", taskCreatedAt: "2026-08-04 01:55:07", status: "已完成" },
   ], runStartedAt), /多个创建时间同样接近/);
+  assert.throws(() => matchTmallExportRecordChoice([{
+    signature: "failed-current-run",
+    taskCreatedAt: "2026-08-04 01:54:44",
+    status: "任务失败",
+    downloadReady: true,
+  }], runStartedAt), /明确显示任务失败/);
 });
 
 test("重要通知、商品巡检或发货异常提醒只允许右下角安全关闭动作", () => {
@@ -475,6 +519,27 @@ test("重要通知、商品巡检或发货异常提醒只允许右下角安全�
     width: 380,
     height: 160,
   }) > 0);
+  const closableOverlay = {
+    ...notice,
+    text: "",
+    attributes: "next-balloon next-balloon-closable next-overlay-inner",
+    role: "tooltip",
+    top: 590,
+    width: 360,
+    height: 180,
+  };
+  assert.equal(isTmallClosableOverlayNotice(closableOverlay), true);
+  assert.ok(scoreTmallBlockingNoticeCandidate(closableOverlay) > scoreTmallBlockingNoticeCandidate({
+    ...notice,
+    text: "",
+    attributes: "notify_body__vpald",
+    top: 500,
+    width: 380,
+    height: 160,
+  }));
+  assert.equal(isTmallClosableOverlayNotice({ ...closableOverlay, attributes: "next-balloon" }), false);
+  assert.equal(isTmallNoticePointerInterceptionError(new Error("another element intercepts pointer events")), true);
+  assert.equal(isTmallNoticePointerInterceptionError(new Error("locator.click: Timeout exceeded")), false);
   assert.ok(scoreTmallBlockingNoticeCandidate(
     { ...notice, text: "商品巡检" },
     "商品巡检 商品当前存在以下问题，请及时关注：影响成交转化 质量分问题 忽略 去优化",

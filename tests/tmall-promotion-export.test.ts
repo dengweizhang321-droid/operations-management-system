@@ -304,7 +304,8 @@ test("确认报表后只点击生成成功提示中的前往下载动作", () =>
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error("点击前往下载后出现多个下载任务页面，为防止接管错误页面已停止")), true);
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error("点击前往下载后未进入下载任务管理页面")), true);
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error("locator.click: Timeout 10000ms exceeded. element was detached from the DOM while clicking 立即前往")), true);
-  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("报表生成成功提示中存在多个前往下载操作，为防止误点已停止")), false);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("报表生成成功提示中存在多个前往下载操作，为防止误点已停止")), true);
+  assert.equal(shouldRecoverSubmittedPromotionTask(new Error("下载任务存在多个相同日期候选，为防止误点已停止")), false);
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error("阿里妈妈登录身份与受控店铺不一致")), false);
 });
 

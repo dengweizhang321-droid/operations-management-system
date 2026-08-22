@@ -362,6 +362,15 @@ export function parseTmallShanghaiTaskTime(value: string) {
   return { text, epochMs };
 }
 
+export function parseTmallExportRecordStatus(value: string) {
+  const normalized = value.replace(/\s+/g, "");
+  if (normalized.includes("任务失败") || normalized.includes("生成失败")) return "任务失败" as const;
+  if (normalized.includes("已完成") || normalized.includes("生成成功")) return "已完成" as const;
+  if (normalized.includes("处理中") || normalized.includes("生成中")) return "处理中" as const;
+  if (normalized.includes("待执行")) return "待执行" as const;
+  return "未完成" as const;
+}
+
 export function chooseTmallExportRecordSignature(
   candidates: readonly TmallExportRecordChoice[],
   expectedRunStartedAt: string,
@@ -403,7 +412,11 @@ export function matchTmallExportRecordChoice(
   if (eligible[1] && eligible[1].distanceMs - eligible[0]!.distanceMs < 60_000) {
     throw new Error("导出记录中有多个创建时间同样接近的任务，无法唯一确认本轮文件");
   }
-  return eligible[0]!.candidate;
+  const matched = eligible[0]!.candidate;
+  if (matched.status.replace(/\s+/g, "") === "任务失败") {
+    throw new Error(`导出记录 ${matched.taskCreatedAt} 明确显示任务失败，拒绝下载失败文件或重复发送导出指令`);
+  }
+  return matched;
 }
 
 export function scoreImportantNoticeCloseCandidate(detail: PositionedUiElement, notice: PositionedUiElement) {
@@ -435,6 +448,11 @@ export function isExplicitTmallNoticeDismissAction(detail: PositionedUiElement) 
   }
   const label = `${detail.text} ${detail.attributes}`.replace(/\s+/g, " ").trim();
   return text === "忽略" || /关闭|close|dismiss|我知道了|知道了|^[×✕x]$/i.test(label);
+}
+
+export function isTmallNoticePointerInterceptionError(error: unknown) {
+  return error instanceof Error
+    && /intercepts pointer events|another element.*receives pointer events/i.test(error.message);
 }
 
 export function sameTmallNoticeActionTarget(left: PositionedUiElement, right: PositionedUiElement) {
@@ -484,7 +502,8 @@ export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, c
   if (detail.width < 2 || detail.height < 2 || detail.width > 800 || detail.height > 700) return -1;
   const text = detail.text.replace(/\s+/g, "").trim();
   const context = contextText.replace(/\s+/g, "").trim();
-  const structural = /notify[_-]?body/i.test(detail.attributes);
+  const closableOverlay = isTmallClosableOverlayNotice(detail);
+  const structural = /notify[_-]?body/i.test(detail.attributes) || closableOverlay;
   const importantNotice = text.includes(TMALL_IMPORTANT_NOTICE_LABEL);
   const importantMessage = text.includes(TMALL_IMPORTANT_MESSAGE_LABEL);
   const productInspection = text.includes(TMALL_PRODUCT_INSPECTION_NOTICE_LABEL);
@@ -515,9 +534,17 @@ export function scoreTmallBlockingNoticeCandidate(detail: PositionedUiElement, c
   if (importantMessage) score += 8;
   if (shippingException) score += 6;
   if (structural) score += 8;
+  if (closableOverlay) score += 20;
   score += Math.round((detail.left / detail.viewportWidth) * 5);
   score += Math.round((detail.top / detail.viewportHeight) * 5);
   return score;
+}
+
+export function isTmallClosableOverlayNotice(detail: PositionedUiElement) {
+  const attributes = detail.attributes.replace(/\s+/g, " ").trim();
+  return detail.role === "tooltip"
+    && /next-balloon/i.test(attributes)
+    && /closable/i.test(attributes);
 }
 
 function shanghaiToday(now = new Date()) {
@@ -853,6 +880,7 @@ async function importantNoticeCandidates(page: Page) {
     const sources = [
       frame.getByText(/重要通知|重要消息|商品巡检|发货异常提醒|渠道活动快速报名/),
       frame.locator('[class*="notify_body" i],[class*="notify-body" i]'),
+      frame.locator('[role="tooltip"][class*="next-balloon" i][class*="closable" i]'),
     ];
     for (const matches of sources) {
       const count = Math.min(await matches.count().catch(() => 0), 30);
@@ -903,6 +931,7 @@ async function receivesPointerAtCenter(locator: Locator) {
 async function dismissImportantNotice(page: Page) {
   const initialDeadline = Date.now() + 4_000;
   let dismissedCount = 0;
+  let pointerInterceptionRetries = 0;
   while (dismissedCount < 4) {
     const notices = await importantNoticeCandidates(page);
     if (notices.length === 0) {
@@ -929,14 +958,17 @@ async function dismissImportantNotice(page: Page) {
       if (!await locator.isVisible().catch(() => false)) continue;
       const detail = await positionedDetail(locator);
       if (!detail) continue;
+      const explicitDismiss = isExplicitTmallNoticeDismissAction(detail);
       const score = scoreImportantNoticeCloseCandidate(detail, notice.detail);
-      if (score < 0 || !await receivesPointerAtCenter(locator)) continue;
+      if (score < 0
+        || isTmallClosableOverlayNotice(notice.detail) && !explicitDismiss
+        || !await receivesPointerAtCenter(locator)) continue;
       candidates.push({
         locator,
         score,
         signature: `${detail.left}|${detail.top}|${detail.width}|${detail.height}|${detail.attributes}`,
         detail,
-        explicitDismiss: isExplicitTmallNoticeDismissAction(detail),
+        explicitDismiss,
       });
     }
     candidates.sort(compareTmallNoticeActionCandidates);
@@ -951,7 +983,18 @@ async function dismissImportantNotice(page: Page) {
       throw new Error("右下角通知存在多个同等“忽略/关闭”候选，为防止误点已停止");
     }
     const noticeSignaturesBeforeClick = new Set(notices.map((candidate) => candidate.signature));
-    await distinctCandidates[0].locator.click({ timeout: 10_000 });
+    try {
+      await distinctCandidates[0].locator.click({ timeout: 10_000 });
+      pointerInterceptionRetries = 0;
+    } catch (error) {
+      if (!isTmallNoticePointerInterceptionError(error) || pointerInterceptionRetries >= 2) throw error;
+      pointerInterceptionRetries += 1;
+      // Some QianNiu balloons are created only after the pointer moves toward an
+      // underlying close icon. Never force-click through them: wait for the new
+      // top layer to become inspectable, then rebuild the safe candidate set.
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      continue;
+    }
     await waitUntil(
       10_000,
       async () => {
@@ -1257,13 +1300,7 @@ async function exportRecordDownloadCandidates(page: Page) {
             .map((child) => (child.textContent ?? "").replace(/\s+/g, "").trim());
           return fields.length >= 8 ? fields.slice(0, -2).join("|") : "";
         }).catch(() => "");
-        const status = normalizedRowText.includes("已完成")
-          ? "已完成"
-          : normalizedRowText.includes("处理中")
-            ? "处理中"
-            : normalizedRowText.includes("待执行")
-              ? "待执行"
-              : "未完成";
+        const status = parseTmallExportRecordStatus(normalizedRowText);
         const actions = row.locator('a,button,[role="button"]').filter({ hasText: /下载/ });
         const actionCount = Math.min(await actions.count().catch(() => 0), 10);
         const clickable: Array<{ locator: Locator; score: number; signature: string }> = [];
@@ -1368,6 +1405,31 @@ export function tmallBrowserDownloadOutcome(
   return null;
 }
 
+export async function resolveTmallStagedDownloadPath(options: {
+  stagingDirectory: string;
+  guid: string;
+  suggestedFilename: string;
+  reportedFilePath?: string;
+}) {
+  const stagingDirectory = path.resolve(options.stagingDirectory);
+  const reported = options.reportedFilePath?.trim();
+  const candidates = [
+    reported
+      ? path.isAbsolute(reported)
+        ? path.resolve(reported)
+        : path.resolve(stagingDirectory, reported)
+      : undefined,
+    path.resolve(stagingDirectory, options.guid),
+    path.resolve(stagingDirectory, options.suggestedFilename),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  for (const candidate of new Set(candidates)) {
+    if (!inside(stagingDirectory, candidate)) continue;
+    const candidateStat = await stat(candidate).catch(() => null);
+    if (candidateStat?.isFile()) return candidate;
+  }
+  throw new Error("Chrome 下载结果未落入本轮受控暂存目录");
+}
+
 async function downloadWithBrowserEvents(options: {
   page: Page;
   locator: Locator;
@@ -1455,9 +1517,12 @@ async function downloadWithBrowserEvents(options: {
     }
     const finish = await withDeadline(completed, 120_000, "Chrome 商品管家 XLSX 下载未在两分钟内完成");
     if (!finish.ok) throw new Error(finish.error);
-    const stagedPath = path.resolve(finish.filePath || path.join(stagingDirectory, finish.guid));
-    if (!inside(stagingDirectory, stagedPath)) throw new Error("Chrome 下载结果越过本轮暂存目录");
-    await stat(stagedPath);
+    const stagedPath = await resolveTmallStagedDownloadPath({
+      stagingDirectory,
+      guid: finish.guid,
+      suggestedFilename: start.suggestedFilename,
+      reportedFilePath: finish.filePath,
+    });
     const targetExists = await stat(options.targetPath).then(() => true).catch(() => false);
     if (targetExists) throw new Error("本轮商品管家规范文件已存在，为防止覆盖已停止");
     await rename(stagedPath, options.targetPath);
@@ -1905,7 +1970,8 @@ export async function runTmallProductMasterStage(options: {
     }
 
     const imported = await importTmallProductMasterFile({ baseUrl, store, snapshotDate, evidence, request });
-    const { lastError: _lastError, ...completedAudit } = activeAudit;
+    const completedAudit = { ...activeAudit };
+    delete completedAudit.lastError;
     activeAudit = await writeActiveAudit({
       ...completedAudit,
       stage: "completed",
