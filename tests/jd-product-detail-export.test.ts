@@ -5,10 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import {
   createSubmittingTaskManifest,
+  clickWithJdNpsSurveyRecovery,
   dismissJdNoticeWithBoundedRetry,
   importJdProductDetailFile,
   isJdCalendarEndSelected,
   isJdProductOverviewNpsSurveyText,
+  isJdNpsSurveyPointerInterception,
   isRealtimeSummaryDownloadDialog,
   isSafeJdNpsSurveySkipLabel,
   isSafeJdNoticeCloseLabel,
@@ -107,6 +109,43 @@ test("JD product-overview NPS dismissal accepts only the exact opt-out on the id
   assert.equal(isSafeJdNpsSurveySkipLabel("我不愿作答"), true);
   assert.equal(isSafeJdNpsSurveySkipLabel("提交"), false);
   assert.equal(isSafeJdNpsSurveySkipLabel("10"), false);
+});
+
+test("a late JD NPS survey permits one exact reversible click replay", async () => {
+  let clicks = 0;
+  let dismissals = 0;
+  const recovered = await clickWithJdNpsSurveyRecovery(async () => {
+    clicks += 1;
+    if (clicks === 1) throw new Error('<div id="ux-scene-research"> intercepts pointer events');
+  }, async () => { dismissals += 1; });
+
+  assert.equal(recovered, true);
+  assert.equal(clicks, 2);
+  assert.equal(dismissals, 1);
+  assert.equal(isJdNpsSurveyPointerInterception(new Error("another modal intercepts pointer events")), false);
+});
+
+test("late-survey recovery never swallows unrelated or repeated click failures", async () => {
+  let dismissals = 0;
+  await assert.rejects(
+    clickWithJdNpsSurveyRecovery(
+      async () => { throw new Error("header intercepts pointer events"); },
+      async () => { dismissals += 1; },
+    ),
+    /header intercepts/,
+  );
+  assert.equal(dismissals, 0);
+
+  let clicks = 0;
+  await assert.rejects(
+    clickWithJdNpsSurveyRecovery(
+      async () => { clicks += 1; throw new Error('<div id="ux-scene-research"> intercepts pointer events'); },
+      async () => { dismissals += 1; },
+    ),
+    /ux-scene-research/,
+  );
+  assert.equal(clicks, 2);
+  assert.equal(dismissals, 1);
 });
 
 test("JD notice waits for a stable hydrated close control before clicking", async () => {

@@ -251,6 +251,30 @@ async function assertDimensionAndDateSelection(page: Page, dimension: CliOptions
   return waitForSelectedDateRange(page, startDate, endDate, 1_000);
 }
 
+export function isJdNpsSurveyPointerInterception(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /intercepts pointer events/i.test(message) && /ux-scene-research/i.test(message);
+}
+
+export async function clickWithJdNpsSurveyRecovery(
+  click: () => Promise<void>,
+  dismissSurvey: () => Promise<void>,
+) {
+  try {
+    await click();
+    return false;
+  } catch (error) {
+    // The survey is lazy-mounted and can appear after the initial bounded
+    // observation. Recover only from Playwright's exact pointer-interception
+    // evidence, revalidate the known opt-out, then replay this reversible UI
+    // action once. Any other overlay or second failure remains fail-closed.
+    if (!isJdNpsSurveyPointerInterception(error)) throw error;
+    await dismissSurvey();
+    await click();
+    return true;
+  }
+}
+
 async function selectDateRange(page: Page, startDate: string, endDate: string) {
   await dismissJdNpsSurveyModal(page);
   // New JD sessions keep the custom-range item inside the collapsed date menu.
@@ -259,12 +283,18 @@ async function selectDateRange(page: Page, startDate: string, endDate: string) {
   if (await echo.count() !== 1) throw new Error("无法唯一识别京东商智当前时间入口。");
   const customSelector = '[data-event-content="当前时间_自定义"]';
   if (await page.locator(customSelector).filter({ visible: true }).count() === 0) {
-    await echo.click();
+    await clickWithJdNpsSurveyRecovery(
+      () => echo.click(),
+      () => dismissJdNpsSurveyModal(page),
+    );
     await page.waitForTimeout(200);
   }
   const custom = page.locator(customSelector).filter({ visible: true });
   if (await custom.count() !== 1) throw new Error("无法唯一识别自定义时间入口。");
-  await custom.click();
+  await clickWithJdNpsSurveyRecovery(
+    () => custom.click(),
+    () => dismissJdNpsSurveyModal(page),
+  );
   await page.waitForTimeout(300);
 
   const monthKey = (date: string) => date.slice(0, 7);
