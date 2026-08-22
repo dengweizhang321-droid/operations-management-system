@@ -7,6 +7,7 @@ import { parseMarketRows, parseRange, parseRangeBounds } from "../lib/market/par
 import { aggregateMarketEstimates, annotateRankBounds } from "../lib/market/gmv-estimation";
 import { beginLatestRequest, invalidateLatestRequest, invokeLatestRequest, settleLatestRequest } from "../lib/market/latest-request";
 import { marketRankingPricePresentation } from "../lib/market/ranking-price-presentation";
+import { remainingInferenceUnitsForJob } from "../lib/market/annotation-progress";
 
 async function marketUiSource() {
   const [marketView, masterAdmin] = await Promise.all([
@@ -32,6 +33,19 @@ function xlsx1904Bytes(rows: Array<Array<string | number>>) {
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "sheet");
   return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer);
 }
+
+test("AI 标注设置首次加载和任务切换不会读取空进度", () => {
+  assert.equal(remainingInferenceUnitsForJob(undefined, null), 0);
+  assert.equal(remainingInferenceUnitsForJob({ id: "job-a", remainingInferenceCount: 7 }, null), 7);
+  assert.equal(remainingInferenceUnitsForJob(
+    { id: "job-a", remainingInferenceCount: 7 },
+    { job: { id: "job-a" }, remainingInferenceUnits: 3 },
+  ), 3);
+  assert.equal(remainingInferenceUnitsForJob(
+    { id: "job-b", remainingInferenceCount: 5 },
+    { job: { id: "job-a" }, remainingInferenceUnits: 3 },
+  ), 5);
+});
 
 test("市场榜单 CSV 映射商品、周期和经营指标", () => {
   const result = parseMarketRows({

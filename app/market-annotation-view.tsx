@@ -10,6 +10,7 @@ import {
   type MarketAnnotationExecutor,
 } from "@/lib/market/annotation-limits";
 import { defaultAnnotationPromptBody } from "@/lib/market/annotation-prompt-template";
+import { remainingInferenceUnitsForJob } from "@/lib/market/annotation-progress";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
@@ -280,9 +281,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const categoryReviewReadyJob = data?.jobs.find((item) => item.category === category && item.status === "review_ready");
   const currentJob = data?.jobs.find((item) => item.id === jobId);
   const currentCloudRun = data?.cloudRuns.find((item) => item.jobId === currentJob?.id) ?? null;
-  const currentRemainingInferenceCount = cloudProgress?.job.id === currentJob?.id
-    ? cloudProgress.remainingInferenceUnits
-    : currentJob?.remainingInferenceCount ?? 0;
+  const currentRemainingInferenceCount = remainingInferenceUnitsForJob(currentJob, cloudProgress);
   const currentCloudRunHasUnfinishedItems = currentJob?.executor === "cloud" && currentRemainingInferenceCount > 0;
   const backgroundJobId = currentJob?.id ?? "";
   const backgroundExecutor = currentJob?.executor ?? "";
