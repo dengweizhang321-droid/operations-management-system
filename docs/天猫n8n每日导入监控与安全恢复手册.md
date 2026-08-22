@@ -116,6 +116,8 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331
 
 跨日时，已提交、已确认或已下载的旧任务仍绑定原快照日。超时只更新脱敏错误并保留清单，不得把阶段倒退。
 
+平台任务已明确失败，或操作者明确确认某一条旧任务作废时，仍不得直接删除活动清单。只允许使用受控作废入口把 `export_submitted` / `export_confirmed` 清单原样移出活动槽并写入作废时间、原阶段和原因；归档成功后才能从 n8n 启动新的完整 execution。该入口不接受 `export_submitting`、`downloaded` 或自动恢复调用，也不得由超时自动触发。
+
 ### 4.6 浏览器关闭失败
 
 - helper 应在 M 成功或任一节点失败时关闭本 execution 启动的受控 Chromium，并释放注册表调试端口。

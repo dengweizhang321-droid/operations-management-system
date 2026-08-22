@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,6 +7,7 @@ import test from "node:test";
 import * as XLSX from "xlsx";
 
 import {
+  abandonActiveTmallProductMasterAudit,
   compareTmallNoticeActionCandidates,
   chooseFreshTmallDownloadSignature,
   chooseLatestTmallDownloadSignature,
@@ -210,6 +211,88 @@ test("商品管家跨日恢复旧任务且不重复发送导出指令", () => {
     snapshotDate: "2026-08-12",
     stage: "export_submitting",
   }), { action: "continue", snapshotDate: "2026-08-12" });
+});
+
+test("明确授权作废已确认货品任务时原清单完整归档且不能覆盖", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-abandon-audit-"));
+  const activePath = path.join(root, "active-tmall-yijiu.json");
+  const audit = {
+    version: 1,
+    runId: "confirmed-run",
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+    snapshotDate: "2026-08-19",
+    targetUrl: "https://myseller.taobao.com/home.htm/SellManage/on_sale",
+    prompt: "导出全部商品",
+    startedAt: "2026-08-19T03:47:03.320Z",
+    updatedAt: "2026-08-22T05:41:11.476Z",
+    stage: "export_confirmed",
+    exportSubmittedAt: "2026-08-19T03:47:10.645Z",
+    lastError: "等待千牛生成全部商品 Excel 超时",
+  };
+  try {
+    await writeFile(activePath, JSON.stringify(audit), "utf8");
+    await assert.rejects(() => abandonActiveTmallProductMasterAudit({
+      storeKey: "tmall-yijiu",
+      reason: "操作者确认旧任务已作废",
+      operatorConfirmed: false,
+      auditDirectory: root,
+    }), /必须取得操作者明确确认/);
+    assert.equal((await stat(activePath)).isFile(), true);
+
+    const result = await abandonActiveTmallProductMasterAudit({
+      storeKey: "tmall-yijiu",
+      reason: "操作者确认旧任务已作废",
+      operatorConfirmed: true,
+      auditDirectory: root,
+      now: new Date("2026-08-22T06:30:00.000Z"),
+    });
+    await assert.rejects(() => stat(activePath), { code: "ENOENT" });
+    const archived = JSON.parse(await readFile(path.join(root, result.archiveFileName), "utf8"));
+    assert.equal(archived.runId, audit.runId);
+    assert.equal(archived.stage, "export_confirmed");
+    assert.deepEqual(archived.abandonment, {
+      abandonedAt: "2026-08-22T06:30:00.000Z",
+      previousStage: "export_confirmed",
+      reason: "操作者确认旧任务已作废",
+    });
+    await assert.rejects(() => abandonActiveTmallProductMasterAudit({
+      storeKey: "tmall-yijiu",
+      reason: "重复请求不应覆盖归档",
+      operatorConfirmed: true,
+      auditDirectory: root,
+    }), /不存在可作废/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("业务点击前或点击未决的货品清单不能走已提交任务作废入口", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-abandon-stage-"));
+  const activePath = path.join(root, "active-tmall-yijiu.json");
+  try {
+    await writeFile(activePath, JSON.stringify({
+      version: 1,
+      runId: "submitting-run",
+      storeKey: "tmall-yijiu",
+      shopName: "天猫-志高亿玖专卖店",
+      snapshotDate: "2026-08-22",
+      targetUrl: "https://myseller.taobao.com/home.htm/SellManage/on_sale",
+      prompt: "导出全部商品",
+      startedAt: "2026-08-22T06:30:00.000Z",
+      updatedAt: "2026-08-22T06:30:01.000Z",
+      stage: "export_submitting",
+    }), "utf8");
+    await assert.rejects(() => abandonActiveTmallProductMasterAudit({
+      storeKey: "tmall-yijiu",
+      reason: "点击结果仍未确定",
+      operatorConfirmed: true,
+      auditDirectory: root,
+    }), /不允许按已提交任务作废/);
+    assert.equal((await stat(activePath)).isFile(), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("恢复商品管家任务只接管唯一含完成结果的千牛页面", () => {

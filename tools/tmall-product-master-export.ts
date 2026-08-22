@@ -114,6 +114,11 @@ type MasterExportAudit = {
     warningCount: number;
   };
   lastError?: string;
+  abandonment?: {
+    abandonedAt: string;
+    previousStage: "export_submitted" | "export_confirmed";
+    reason: string;
+  };
 };
 
 export type TmallProductMasterStageResult = {
@@ -603,6 +608,65 @@ async function writeActiveAudit(audit: MasterExportAudit, auditDirectory = artif
   const updated = { ...audit, updatedAt: new Date().toISOString() };
   await writeJsonAtomic(activeAuditPath(audit.storeKey, auditDirectory), updated);
   return updated;
+}
+
+export async function abandonActiveTmallProductMasterAudit(options: {
+  storeKey: string;
+  reason: string;
+  operatorConfirmed: boolean;
+  auditDirectory?: string;
+  now?: Date;
+}) {
+  if (options.operatorConfirmed !== true) {
+    throw new Error("作废已提交的天猫货品任务必须取得操作者明确确认");
+  }
+  const reason = options.reason.replace(/\s+/g, " ").trim();
+  if (reason.length < 4 || reason.length > 300) {
+    throw new Error("天猫货品任务作废原因必须为 4 至 300 个字符");
+  }
+  const store = await getTmallStore(options.storeKey);
+  const auditDirectory = path.resolve(options.auditDirectory ?? artifactDirectory);
+  const existing = await readActiveAudit(store.storeKey, auditDirectory);
+  if (!existing) throw new Error("当前店铺不存在可作废的天猫货品活动清单");
+  const audit = existing.audit;
+  if (audit.shopName !== store.shopName) {
+    throw new Error("天猫货品活动清单店铺身份不一致，拒绝作废");
+  }
+  if (!isResumableTmallExportStage(audit.stage)) {
+    throw new Error(`天猫货品活动清单阶段 ${audit.stage} 不允许按已提交任务作废`);
+  }
+  const previousStage = audit.stage;
+  const abandonedAt = (options.now ?? new Date()).toISOString();
+  const archiveFileName = `abandoned-${safeSegment(store.storeKey)}-${audit.snapshotDate}-${safeSegment(audit.runId)}.json`;
+  const archivePath = path.join(auditDirectory, archiveFileName);
+  if (await stat(archivePath).then(() => true).catch(() => false)) {
+    throw new Error("天猫货品任务作废归档已存在，拒绝覆盖");
+  }
+
+  // Renaming first removes the manifest from the active slot atomically while
+  // preserving its complete evidence. This entry point is intentionally not
+  // called by n8n or automatic recovery; it is only for an explicitly confirmed
+  // operator decision after the original platform task has been reviewed.
+  await rename(existing.filePath, archivePath);
+  const archivedAudit: MasterExportAudit = {
+    ...audit,
+    updatedAt: abandonedAt,
+    abandonment: {
+      abandonedAt,
+      previousStage,
+      reason,
+    },
+  };
+  await writeJsonAtomic(archivePath, archivedAudit);
+  return {
+    ok: true as const,
+    stage: "abandoned" as const,
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+    snapshotDate: audit.snapshotDate,
+    previousStage,
+    archiveFileName,
+  };
 }
 
 export async function inspectTmallMasterFile(
