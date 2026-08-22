@@ -23,6 +23,7 @@ import {
   ensureTmallStoreAuthenticatedSession,
   runTmallProductMasterStage,
 } from "./tmall-product-master-export";
+import { runTmallPagewiseProductMasterStage } from "./tmall-pagewise-product-master-export";
 import { runTmallPromotionStage } from "./tmall-promotion-export";
 import {
   getJackyunProfileStatus,
@@ -1292,8 +1293,10 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master") {
-        const result = await runTmallProductMasterStage({ storeKey: claimedTmallStoreKey! });
         const store = await getTmallStore(claimedTmallStoreKey!);
+        const result = store.productMasterExportMode === "on_sale_pagewise_excel"
+          ? await runTmallPagewiseProductMasterStage({ storeKey: store.storeKey })
+          : await runTmallProductMasterStage({ storeKey: store.storeKey });
         tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
         stage = tmallStageAfterRoute("/product-master");
         reply(200, { ...result, browserClosure: tmallBrowserClosure });

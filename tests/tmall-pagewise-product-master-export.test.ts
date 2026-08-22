@@ -1,0 +1,148 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+import * as XLSX from "xlsx";
+
+import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import {
+  chooseTmallPagewiseExportRecords,
+  decideTmallPagewiseAuditRecovery,
+  expectedTmallPageItemCount,
+  mergeTmallPagewiseProductWorkbooks,
+  parseTmallOnSalePagination,
+} from "../tools/tmall-pagewise-product-master-export";
+
+const headers = [
+  "商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码", "发货时间",
+  "最长发货时间", "销售属性", "属性对", "发货时间", "skuId", "价格（元）", "数量", "商家编码",
+  "生产日期（年/月/日）", "保质期",
+];
+
+function masterWorkbook(rows: Array<{ productId: string; skuId: string; skuCode: string }>) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["发布模板"],
+    [null],
+    headers,
+    ...rows.map((row) => [
+      row.productId, "cat", "测试类目", `测试商品-${row.productId}`, "10.00", null, `ITEM-${row.productId}`, 2,
+      15, "颜色:红", null, null, row.skuId, "9.90", 5, row.skuCode, null, null,
+    ]),
+  ]), "发布模板");
+  return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx" }));
+}
+
+test("出售中分页必须同时核对商品总数、当前页和按 20 条计算的总页数", () => {
+  assert.deepEqual(parseTmallOnSalePagination("共134件商品  1 / 7"), {
+    totalProducts: 134,
+    currentPage: 1,
+    totalPages: 7,
+  });
+  assert.equal(parseTmallOnSalePagination("共134件商品 1/6"), null);
+  assert.equal(parseTmallOnSalePagination("共134件商品 1/7 2/7"), null);
+  assert.equal(parseTmallOnSalePagination("1/7"), null);
+  assert.equal(expectedTmallPageItemCount(134, 7, 1), 20);
+  assert.equal(expectedTmallPageItemCount(134, 7, 7), 14);
+  assert.throws(() => expectedTmallPageItemCount(134, 6, 6), /分页参数无效/);
+});
+test("逐页清单在点击未决时失败关闭，已提交任务跨日只恢复原快照", () => {
+  const audit = (stage: "planned" | "page_export_submitting" | "page_export_submitted", taskCount = 0) => ({
+    snapshotDate: "2026-08-22",
+    stage,
+    tasks: Array.from({ length: taskCount }, (_, index) => ({ page: index + 1, itemCount: 20, submittedAt: "2026-08-22T10:30:00Z" })),
+    files: [],
+  });
+  assert.deepEqual(decideTmallPagewiseAuditRecovery("2026-08-23", audit("page_export_submitting")), {
+    action: "block", snapshotDate: "2026-08-22",
+  });
+  assert.deepEqual(decideTmallPagewiseAuditRecovery("2026-08-23", audit("page_export_submitted", 1)), {
+    action: "resume_previous", snapshotDate: "2026-08-22",
+  });
+  assert.deepEqual(decideTmallPagewiseAuditRecovery("2026-08-23", audit("planned")), {
+    action: "discard", snapshotDate: "2026-08-23",
+  });
+});
+
+test("导出记录只接管本轮全部任务，处理中等待、失败或并发多任务均失败关闭", () => {
+  const tasks = [
+    { page: 1, itemCount: 20, submittedAt: "2026-08-22T10:30:00.000Z" },
+    { page: 2, itemCount: 14, submittedAt: "2026-08-22T10:30:10.000Z" },
+  ];
+  const record = (patch: Partial<{
+    signature: string; recordIdentity: string; taskCreatedAt: string; status: string; downloadReady: boolean;
+  }> = {}) => ({
+    signature: "one", recordIdentity: "record-one", taskCreatedAt: "2026-08-22 18:30:02", status: "已完成", downloadReady: true,
+    ...patch,
+  });
+  assert.equal(chooseTmallPagewiseExportRecords([record()], tasks), null);
+  assert.equal(chooseTmallPagewiseExportRecords([
+    record(), record({ signature: "two", recordIdentity: "record-two", taskCreatedAt: "2026-08-22 18:30:12", status: "处理中", downloadReady: false }),
+  ], tasks), null);
+  assert.deepEqual(chooseTmallPagewiseExportRecords([
+    record(), record({ signature: "two", recordIdentity: "record-two", taskCreatedAt: "2026-08-22 18:30:12" }),
+  ], tasks)?.map((item) => item.recordIdentity), ["record-one", "record-two"]);
+  assert.throws(() => chooseTmallPagewiseExportRecords([
+    record(),
+    record({ signature: "two", recordIdentity: "record-two", taskCreatedAt: "2026-08-22 18:30:12" }),
+    record({ signature: "manual", recordIdentity: "record-manual", taskCreatedAt: "2026-08-22 18:30:14" }),
+  ], tasks), /超过预期/);
+  assert.throws(() => chooseTmallPagewiseExportRecords([
+    record(), record({ signature: "two", recordIdentity: "record-two", taskCreatedAt: "2026-08-22 18:30:12", status: "任务失败" }),
+  ], tasks), /明确失败/);
+});
+
+test("所有分页先合并为一个权威货品快照，再由现有解析器完整回读", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-pagewise-merge-"));
+  const first = path.join(root, "page-1.xlsx");
+  const second = path.join(root, "page-2.xlsx");
+  const merged = path.join(root, "merged.xlsx");
+  const store = {
+    shopName: "天猫-志高拓丰专卖店",
+    browser: { profileDir: root, debugPort: 9327, downloadDir: root },
+  };
+  try {
+    await writeFile(first, masterWorkbook([
+      { productId: "10001", skuId: "20001", skuCode: "SKU-1" },
+      { productId: "10002", skuId: "20002", skuCode: "SKU-2" },
+    ]));
+    await writeFile(second, masterWorkbook([
+      { productId: "10003", skuId: "20003", skuCode: "SKU-3" },
+    ]));
+    const evidence = await mergeTmallPagewiseProductWorkbooks({
+      sourceFiles: [first, second], targetPath: merged, store, snapshotDate: "2026-08-22", expectedProductCount: 3,
+    });
+    assert.equal(evidence.rowCount, 3);
+    assert.equal(evidence.uniqueProductCount, 3);
+    const bytes = new Uint8Array(await readFile(merged));
+    const inspection = await inspectTmallImportBytes({
+      source: "tmall_product_master", bytes, fileName: "merged.xlsx", fileSizeBytes: bytes.byteLength,
+      platform: "天猫", shopName: store.shopName, snapshotDate: "2026-08-22",
+    });
+    assert.deepEqual(inspection.errors, []);
+    assert.equal(inspection.sheetName, "发布模板");
+    assert.equal(inspection.totals.rowCount, 3);
+    assert.deepEqual(new Set(inspection.rows.map((row) => row.spuId)), new Set(["10001", "10002", "10003"]));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("分页文件商品重叠或缺页时禁止合并为完整快照", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-pagewise-overlap-"));
+  const first = path.join(root, "page-1.xlsx");
+  const second = path.join(root, "page-2.xlsx");
+  try {
+    await writeFile(first, masterWorkbook([{ productId: "10001", skuId: "20001", skuCode: "SKU-1" }]));
+    await writeFile(second, masterWorkbook([{ productId: "10001", skuId: "20002", skuCode: "SKU-2" }]));
+    await assert.rejects(() => mergeTmallPagewiseProductWorkbooks({
+      sourceFiles: [first, second], targetPath: path.join(root, "merged.xlsx"),
+      store: { shopName: "天猫-志高拓丰专卖店", browser: { profileDir: root, debugPort: 9327, downloadDir: root } },
+      snapshotDate: "2026-08-22", expectedProductCount: 2,
+    }), /唯一商品.*不一致/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

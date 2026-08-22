@@ -97,6 +97,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       shopName: string;
       enabled: boolean;
       loginMode?: string;
+      productMasterExportMode?: string;
       browser: { userDataDir?: string; profileDir: string; debugPort: number; downloadDir: string };
     }>;
   };
@@ -172,6 +173,26 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     assert.equal(store.shopName, definition.shopName);
     assert.equal(store.loginMode, "windows_dpapi_credentials");
     assert.equal(store.enabled, true);
+    if (definition.storeKey === "tmall-tuofeng") {
+      assert.equal(store.productMasterExportMode, "on_sale_pagewise_excel");
+      assert.match(raw, /M·出售中逐页导出、合并校验并导入/);
+      assert.match(raw, /商品 > 我的商品 > 出售中/);
+      assert.match(raw, /excel商品批量导出/);
+      assert.match(raw, /最后一页才点击“前往下载”/);
+      assert.match(raw, /先合并成一个无跨页重复/);
+      assert.match(raw, /禁止逐页导入互相覆盖/);
+      assert.equal(
+        workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node,
+        "M·出售中逐页导出、合并校验并导入",
+      );
+      assert.equal(workflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), false);
+    } else {
+      assert.equal(store.productMasterExportMode, undefined);
+      assert.equal(
+        workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node,
+        "M·商品管家批量导出、校验并导入",
+      );
+    }
   }
 });
 

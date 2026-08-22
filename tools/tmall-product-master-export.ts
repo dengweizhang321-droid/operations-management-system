@@ -158,7 +158,7 @@ type DownloadCandidate = {
 
 type TmallDownloadChoice = Omit<DownloadCandidate, "frame" | "locator">;
 
-type ExportRecordDownloadCandidate = {
+export type ExportRecordDownloadCandidate = {
   locator?: Locator;
   recordPage: Page;
   signature: string;
@@ -992,7 +992,7 @@ async function receivesPointerAtCenter(locator: Locator) {
   }).catch(() => false);
 }
 
-async function dismissImportantNotice(page: Page) {
+export async function dismissImportantNotice(page: Page) {
   const initialDeadline = Date.now() + 4_000;
   let dismissedCount = 0;
   let pointerInterceptionRetries = 0;
@@ -1336,7 +1336,7 @@ async function downloadCandidates(page: Page, scopeFrame?: Frame, scopeLocator?:
   return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
 }
 
-async function exportRecordDownloadCandidates(page: Page) {
+export async function exportRecordDownloadCandidates(page: Page) {
   const candidates: ExportRecordDownloadCandidate[] = [];
   const recordPages = new Set<Page>();
   const pages = page.context().pages();
@@ -1649,7 +1649,7 @@ async function assertSellerIdentity(page: Page, store: TmallStore) {
   if (!text.includes("出售中")) throw new Error("千牛页面未进入“商品 > 出售中”列表");
 }
 
-async function launchStoreChrome(store: TmallStore, interactiveLogin = false) {
+export async function launchStoreChrome(store: TmallStore, interactiveLogin = false) {
   const launchTarget = resolveTmallBrowserLaunchTarget(
     store,
     process.env.CHROME_EXECUTABLE_PATH?.trim() || defaultChromeExecutable,

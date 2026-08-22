@@ -44,6 +44,10 @@ test("天猫店铺注册表拒绝敏感字段和跨店重复资源", () => {
     version: 1,
     stores: [{ ...store("c", "C店", 9303), loginMode: "plain_password" }],
   }), /字段无效/);
+  assert.throws(() => validateTmallStoreRegistry({
+    version: 1,
+    stores: [{ ...store("c", "C店", 9303), productMasterExportMode: "unsafe_mode" }],
+  }), /字段无效/);
 });
 
 test("天猫店铺注册表支持共享 Chromium 根目录下的独立 Profile", () => {
@@ -112,6 +116,8 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
   assert.equal(selected.every((item) => item.enabled === true), true);
   assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
   assert.equal(selected.every((item) => item.initialStartDate === "2026-08-21"), true);
+  assert.equal(resolveRegisteredTmallStore(stores, "tmall-tuofeng").productMasterExportMode, "on_sale_pagewise_excel");
+  assert.equal(resolveRegisteredTmallStore(stores, "tmall-lili").productMasterExportMode, undefined);
   assert.equal(selected.every((item) => item.browser.profileName === "Default"), true);
   assert.equal(new Set(selected.map((item) => item.browser.userDataDir?.toLowerCase())).size, selected.length);
   assert.equal(new Set(selected.map((item) => item.browser.debugPort)).size, selected.length);

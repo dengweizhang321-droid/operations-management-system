@@ -1,0 +1,739 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import type { Frame, Locator, Page } from "playwright-core";
+import * as XLSX from "xlsx";
+
+import { writeJsonAtomic } from "../lib/jackyun/json-file";
+import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
+import {
+  TMALL_SELLER_ON_SALE_URL,
+  createTmallBrowserDownloadSession,
+  dismissImportantNotice,
+  ensureTmallSellerSession,
+  exportRecordDownloadCandidates,
+  importTmallProductMasterFile,
+  inspectTmallMasterFile,
+  isTmallProductWorkbookFilename,
+  launchStoreChrome,
+  parseTmallShanghaiTaskTime,
+  resolveTmallStagedDownloadPath,
+  tmallBrowserDownloadOutcome,
+  type ExportRecordDownloadCandidate,
+  type TmallProductMasterStageResult,
+} from "./tmall-product-master-export";
+
+export const TMALL_PAGEWISE_EXPORT_MODE = "on_sale_pagewise_excel" as const;
+export const TMALL_PAGEWISE_EXPORT_MENU = "excel商品批量导出";
+export const TMALL_PAGEWISE_EXPORT_SUCCESS = "商品批量导出任务创建成功";
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const artifactDirectory = path.join(projectRoot, "outputs", "tmall-pagewise-product-master-export");
+const legacyArtifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
+const maximumPages = 100;
+const recordWaitTimeoutMs = 10 * 60 * 1000;
+const recordRefreshIntervalMs = 8_000;
+
+type PagewisePagination = {
+  totalProducts: number;
+  currentPage: number;
+  totalPages: number;
+};
+
+type PagewiseTask = {
+  page: number;
+  itemCount: number;
+  submittedAt: string;
+};
+
+type PagewiseFileEvidence = Awaited<ReturnType<typeof inspectTmallMasterFile>> & {
+  page: number;
+  taskCreatedAt: string;
+};
+
+type PagewiseAuditStage =
+  | "planned"
+  | "browser_ready"
+  | "page_export_submitting"
+  | "page_export_submitted"
+  | "all_tasks_submitted"
+  | "downloading"
+  | "downloaded"
+  | "merged"
+  | "completed";
+
+type PagewiseAudit = {
+  version: 1;
+  strategy: typeof TMALL_PAGEWISE_EXPORT_MODE;
+  runId: string;
+  storeKey: string;
+  shopName: string;
+  snapshotDate: string;
+  startedAt: string;
+  updatedAt: string;
+  stage: PagewiseAuditStage;
+  totalProducts?: number;
+  totalPages?: number;
+  currentPage?: number;
+  recordPageUrl?: string;
+  tasks: PagewiseTask[];
+  files: PagewiseFileEvidence[];
+  mergedFile?: Awaited<ReturnType<typeof inspectTmallMasterFile>>;
+  importResult?: {
+    status: "imported" | "duplicate";
+    batchId: string;
+    rowCount: number;
+    warningCount: number;
+  };
+  lastError?: string;
+};
+
+type PositionedCandidate = {
+  frame: Frame;
+  locator: Locator;
+  signature: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  tag: string;
+  role: string;
+  attributes: string;
+};
+
+type PagewiseRecordChoice = {
+  signature: string;
+  recordIdentity?: string;
+  taskCreatedAt: string;
+  status: string;
+  downloadReady?: boolean;
+};
+
+const canonicalMasterHeaders = [
+  "商品ID", "类目ID", "类目名称", "商品标题", "一口价", "导购标题", "商品商家编码", "商品发货时间",
+  "最长发货时间", "销售属性", "属性对", "SKU发货时间", "SKUID", "SKU价格", "SKU库存", "SKU商家编码",
+  "生产日期", "保质期",
+] as const;
+
+const exportedMasterHeaders = [
+  "商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码", "发货时间",
+  "最长发货时间", "销售属性", "属性对", "发货时间", "skuId", "价格（元）", "数量", "商家编码",
+  "生产日期（年/月/日）", "保质期",
+] as const;
+
+function safeSegment(value: string) {
+  return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/\s+/g, "-").slice(0, 80);
+}
+
+function safeError(error: unknown) {
+  return (error instanceof Error ? error.message : String(error)).replace(/[\r\n]+/g, " ").slice(0, 500);
+}
+
+function inside(directory: string, filePath: string) {
+  const relative = path.relative(path.resolve(directory), path.resolve(filePath));
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+function shanghaiToday(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const read = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${read("year")}-${read("month")}-${read("day")}`;
+}
+
+function normalizeLocalBaseUrl(value: string) {
+  const url = new URL(value);
+  if (url.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(url.hostname)) {
+    throw new Error("天猫货品自动导入只允许连接本机运营系统");
+  }
+  return url.toString().replace(/\/$/, "");
+}
+
+function activeAuditPath(storeKey: string, auditRoot = artifactDirectory) {
+  return path.join(auditRoot, `active-${safeSegment(storeKey)}.json`);
+}
+
+async function readActiveAudit(storeKey: string, auditRoot = artifactDirectory) {
+  const filePath = activeAuditPath(storeKey, auditRoot);
+  try {
+    const audit = JSON.parse(await readFile(filePath, "utf8")) as PagewiseAudit;
+    if (audit.version !== 1 || audit.strategy !== TMALL_PAGEWISE_EXPORT_MODE
+      || audit.storeKey !== storeKey || !audit.runId || !audit.snapshotDate || !Array.isArray(audit.tasks)
+      || !Array.isArray(audit.files)) {
+      throw new Error("逐页导出活动清单结构无效");
+    }
+    return { filePath, audit };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+async function writeActiveAudit(audit: PagewiseAudit, auditRoot = artifactDirectory) {
+  const updated = { ...audit, updatedAt: new Date().toISOString() };
+  await writeJsonAtomic(activeAuditPath(audit.storeKey, auditRoot), updated);
+  return updated;
+}
+
+export function parseTmallOnSalePagination(text: string): PagewisePagination | null {
+  const normalized = text.replace(/\s+/g, "");
+  const totalMatch = normalized.match(/共(\d{1,7})件商品/);
+  const pageMatches = [...normalized.matchAll(/(?:^|\D)(\d{1,4})\/(\d{1,4})(?:\D|$)/g)];
+  if (!totalMatch || pageMatches.length !== 1) return null;
+  const totalProducts = Number(totalMatch[1]);
+  const currentPage = Number(pageMatches[0]![1]);
+  const totalPages = Number(pageMatches[0]![2]);
+  if (!Number.isInteger(totalProducts) || totalProducts <= 0
+    || !Number.isInteger(currentPage) || currentPage <= 0
+    || !Number.isInteger(totalPages) || totalPages <= 0 || totalPages > maximumPages
+    || currentPage > totalPages || Math.ceil(totalProducts / 20) !== totalPages) return null;
+  return { totalProducts, currentPage, totalPages };
+}
+
+export function expectedTmallPageItemCount(totalProducts: number, totalPages: number, page: number) {
+  if (!Number.isInteger(totalProducts) || totalProducts <= 0 || !Number.isInteger(totalPages) || totalPages <= 0
+    || !Number.isInteger(page) || page <= 0 || page > totalPages || Math.ceil(totalProducts / 20) !== totalPages) {
+    throw new Error("天猫出售中分页参数无效");
+  }
+  return page < totalPages ? 20 : totalProducts - (totalPages - 1) * 20;
+}
+
+export function decideTmallPagewiseAuditRecovery(
+  requestedSnapshotDate: string,
+  audit: Pick<PagewiseAudit, "snapshotDate" | "stage" | "tasks" | "files">,
+) {
+  if (audit.stage === "page_export_submitting") {
+    return { action: "block", snapshotDate: audit.snapshotDate } as const;
+  }
+  const hasBusinessEvidence = audit.tasks.length > 0 || audit.files.length > 0
+    || ["all_tasks_submitted", "downloading", "downloaded", "merged"].includes(audit.stage);
+  if (audit.snapshotDate !== requestedSnapshotDate && hasBusinessEvidence) {
+    return { action: "resume_previous", snapshotDate: audit.snapshotDate } as const;
+  }
+  if (audit.snapshotDate !== requestedSnapshotDate) {
+    return { action: "discard", snapshotDate: requestedSnapshotDate } as const;
+  }
+  return { action: "continue", snapshotDate: requestedSnapshotDate } as const;
+}
+
+export function chooseTmallPagewiseExportRecords(
+  candidates: readonly PagewiseRecordChoice[],
+  tasks: readonly PagewiseTask[],
+) {
+  if (tasks.length === 0) throw new Error("逐页导出清单没有已提交任务");
+  const firstSubmittedMs = Date.parse(tasks[0]!.submittedAt);
+  const lastSubmittedMs = Date.parse(tasks.at(-1)!.submittedAt);
+  if (!Number.isFinite(firstSubmittedMs) || !Number.isFinite(lastSubmittedMs) || lastSubmittedMs < firstSubmittedMs) {
+    throw new Error("逐页导出任务提交时间无效");
+  }
+  const unique = new Map<string, PagewiseRecordChoice>();
+  for (const candidate of candidates) {
+    const parsed = parseTmallShanghaiTaskTime(candidate.taskCreatedAt);
+    if (!parsed || parsed.epochMs < firstSubmittedMs - 5_000 || parsed.epochMs > lastSubmittedMs + 20 * 60_000) continue;
+    const identity = candidate.recordIdentity || candidate.signature;
+    const previous = unique.get(identity);
+    if (!previous || (!previous.downloadReady && candidate.downloadReady)) unique.set(identity, candidate);
+  }
+  const matched = [...unique.values()].sort((left, right) => (
+    parseTmallShanghaiTaskTime(left.taskCreatedAt)!.epochMs - parseTmallShanghaiTaskTime(right.taskCreatedAt)!.epochMs
+  ));
+  if (matched.length > tasks.length) {
+    throw new Error(`导出记录在本轮时间窗出现 ${matched.length} 条任务，超过预期 ${tasks.length} 条，无法排除人工或并发任务`);
+  }
+  const failed = matched.find((candidate) => /任务失败|生成失败/.test(candidate.status));
+  if (failed) throw new Error(`本轮逐页导出任务 ${failed.taskCreatedAt} 明确失败，拒绝重复创建或下载`);
+  if (matched.length < tasks.length) return null;
+  if (matched.some((candidate) => candidate.status.replace(/\s+/g, "") !== "已完成" || candidate.downloadReady === false)) {
+    return null;
+  }
+  return matched;
+}
+
+async function combinedPageText(page: Page) {
+  return (await Promise.all(page.frames().map((frame) => frame.locator("body").innerText({ timeout: 5_000 }).catch(() => ""))))
+    .map((text) => text.slice(0, 50_000)).join("\n");
+}
+
+async function waitUntil(timeoutMs: number, predicate: () => Promise<boolean>, message: string, intervalMs = 500) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      if (await predicate()) return;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  if (lastError instanceof Error) throw lastError;
+  throw new Error(message);
+}
+
+async function positionedCandidate(frame: Frame, locator: Locator): Promise<PositionedCandidate | null> {
+  const detail = await locator.evaluate((element) => {
+    const view = element.ownerDocument.defaultView;
+    if (!view) return null;
+    const rect = element.getBoundingClientRect();
+    const style = view.getComputedStyle(element);
+    if (rect.width < 2 || rect.height < 2 || style.display === "none" || style.visibility === "hidden"
+      || Number(style.opacity || "1") <= 0) return null;
+    return {
+      left: Math.round(rect.left), top: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height),
+      tag: element.tagName.toLowerCase(), role: element.getAttribute("role") ?? "",
+      attributes: [element.getAttribute("aria-label"), element.getAttribute("title"), element.getAttribute("class")]
+        .filter(Boolean).join(" "),
+    };
+  }).catch(() => null);
+  if (!detail) return null;
+  return { frame, locator, signature: `${frame.url()}|${detail.left}|${detail.top}|${detail.width}|${detail.height}`, ...detail };
+}
+
+async function exactTextCandidates(page: Page, text: string) {
+  const candidates: PositionedCandidate[] = [];
+  for (const frame of page.frames()) {
+    const matches = frame.getByText(text, { exact: true });
+    const count = Math.min(await matches.count().catch(() => 0), 20);
+    for (let index = 0; index < count; index += 1) {
+      const detail = await positionedCandidate(frame, matches.nth(index));
+      if (detail) candidates.push(detail);
+    }
+  }
+  return [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
+}
+
+async function clickUniqueExactText(page: Page, text: string) {
+  const candidates = await exactTextCandidates(page, text);
+  if (candidates.length === 0) throw new Error(`未找到唯一可见控件“${text}”`);
+  const scored = candidates.map((candidate) => ({
+    ...candidate,
+    score: ["button", "a"].includes(candidate.tag) || ["button", "link", "menuitem"].includes(candidate.role) ? 10 : 1,
+  })).sort((left, right) => right.score - left.score);
+  if (scored[1] && scored[1].score === scored[0]!.score && scored[1].signature !== scored[0]!.signature) {
+    throw new Error(`存在多个同等可见控件“${text}”，为防止误点已停止`);
+  }
+  await scored[0]!.locator.click({ timeout: 15_000 });
+}
+
+async function selectCurrentPageProducts(page: Page, expectedCount: number) {
+  const titleCandidates = await exactTextCandidates(page, "商品标题");
+  if (titleCandidates.length !== 1) throw new Error("无法唯一定位出售中列表的“商品标题”表头");
+  const title = titleCandidates[0]!;
+  const selector = 'input[type="checkbox"],[role="checkbox"],label[class*="checkbox" i],span[class*="checkbox" i]';
+  const matches = title.frame.locator(selector);
+  const checkboxCandidates: Array<PositionedCandidate & { score: number }> = [];
+  const count = Math.min(await matches.count().catch(() => 0), 200);
+  for (let index = 0; index < count; index += 1) {
+    const detail = await positionedCandidate(title.frame, matches.nth(index));
+    if (!detail) continue;
+    const centerY = detail.top + detail.height / 2;
+    const titleCenterY = title.top + title.height / 2;
+    if (detail.left > title.left || Math.abs(centerY - titleCenterY) > 48 || detail.top > 450) continue;
+    const score = 100 - Math.abs(centerY - titleCenterY) - Math.min(60, Math.abs(title.left - detail.left) / 4);
+    checkboxCandidates.push({ ...detail, score });
+  }
+  checkboxCandidates.sort((left, right) => right.score - left.score);
+  if (!checkboxCandidates[0] || checkboxCandidates[1] && checkboxCandidates[1].score === checkboxCandidates[0].score) {
+    throw new Error("无法唯一定位出售中列表当前页全选框");
+  }
+  await checkboxCandidates[0].locator.click({ timeout: 15_000 });
+  await waitUntil(15_000, async () => {
+    const text = (await combinedPageText(page)).replace(/\s+/g, "");
+    return text.includes(`已选${expectedCount}`);
+  }, `当前页全选后未精确读回“已选 ${expectedCount}”`);
+}
+
+async function dismissExportSuccessDialog(page: Page) {
+  await clickUniqueExactText(page, "取消");
+  await waitUntil(10_000, async () => !(await combinedPageText(page)).includes(TMALL_PAGEWISE_EXPORT_SUCCESS), "关闭导出成功弹窗超时");
+}
+
+async function clickNextPage(page: Page, expectedPage: number) {
+  const selectors = [
+    'button[aria-label*="下一页"]', '[role="button"][aria-label*="下一页"]',
+    '.next-pagination-item.next-next:not(.disabled)', '.next-pagination-item.next-next:not([aria-disabled="true"])',
+    '[class*="pagination"] [class*="next"]:not([class*="disabled"])',
+  ];
+  const candidates: PositionedCandidate[] = [];
+  for (const frame of page.frames()) {
+    for (const selector of selectors) {
+      const matches = frame.locator(selector);
+      const count = Math.min(await matches.count().catch(() => 0), 10);
+      for (let index = 0; index < count; index += 1) {
+        const detail = await positionedCandidate(frame, matches.nth(index));
+        if (detail && detail.left > 600 && detail.top < 500) candidates.push(detail);
+      }
+    }
+  }
+  const unique = [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
+  if (unique.length !== 1) throw new Error(`无法唯一定位第 ${expectedPage - 1} 页右上角“下一页”控件`);
+  await unique[0]!.locator.click({ timeout: 15_000 });
+  await waitUntil(30_000, async () => parseTmallOnSalePagination(await combinedPageText(page))?.currentPage === expectedPage,
+    `点击下一页后未精确读回第 ${expectedPage} 页`);
+}
+
+async function openRecordPageFromLastDialog(page: Page) {
+  const context = page.context();
+  const before = new Set(context.pages());
+  await clickUniqueExactText(page, "前往下载");
+  let recordPage: Page | undefined;
+  await waitUntil(30_000, async () => {
+    const pages = context.pages();
+    for (const candidate of pages) {
+      if (candidate.isClosed()) continue;
+      const text = await combinedPageText(candidate);
+      if (text.includes("导出记录") || (text.includes("任务创建时间") && text.includes("下载"))) {
+        recordPage = candidate;
+        return true;
+      }
+    }
+    recordPage = pages.find((candidate) => !before.has(candidate) && !candidate.isClosed());
+    return Boolean(recordPage && !recordPage.url().startsWith("about:blank"));
+  }, "点击“前往下载”后未出现导出记录页");
+  return recordPage!;
+}
+
+function safeRecordPageUrl(value: string) {
+  const url = new URL(value);
+  if (url.protocol !== "https:" || !/(?:taobao|tmall)\.com$/i.test(url.hostname)) {
+    throw new Error("导出记录页 URL 不属于受控天猫域名");
+  }
+  return url.toString();
+}
+
+async function waitForAllExportRecords(page: Page, tasks: readonly PagewiseTask[]) {
+  const deadline = Date.now() + recordWaitTimeoutMs;
+  let nextRefreshAt = Date.now() + recordRefreshIntervalMs;
+  while (Date.now() < deadline) {
+    const scan = await exportRecordDownloadCandidates(page);
+    const matched = chooseTmallPagewiseExportRecords(scan.candidates, tasks);
+    if (matched) {
+      const records = matched.map((choice) => scan.candidates.find((candidate) => candidate.signature === choice.signature));
+      if (records.every((record): record is ExportRecordDownloadCandidate => Boolean(record?.locator))) return records;
+    }
+    if (Date.now() >= nextRefreshAt) {
+      for (const recordPage of scan.recordPages) {
+        if (!recordPage.isClosed()) await recordPage.reload({ waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => undefined);
+      }
+      nextRefreshAt = Date.now() + recordRefreshIntervalMs;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`导出记录等待十分钟后仍未出现本轮全部 ${tasks.length} 条已完成任务`);
+}
+
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([promise, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    })]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function downloadRecordFile(options: {
+  record: ExportRecordDownloadCandidate;
+  downloadDirectory: string;
+  targetPath: string;
+}) {
+  if (!options.record.locator) throw new Error(`导出记录 ${options.record.taskCreatedAt} 缺少唯一下载控件`);
+  await mkdir(options.downloadDirectory, { recursive: true });
+  const stagingDirectory = await mkdtemp(path.join(options.downloadDirectory, ".tmall-pagewise-master-"));
+  if (!inside(options.downloadDirectory, stagingDirectory)) throw new Error("逐页下载暂存目录越过店铺独立目录");
+  const session = await createTmallBrowserDownloadSession(options.record.recordPage);
+  let activeGuid: string | undefined;
+  let resolveStarted!: (value: { guid: string; suggestedFilename: string }) => void;
+  let resolveCompleted!: (value: { ok: true; guid: string; filePath?: string } | { ok: false; guid: string; error: string }) => void;
+  const started = new Promise<{ guid: string; suggestedFilename: string }>((resolve) => { resolveStarted = resolve; });
+  const completed = new Promise<{ ok: true; guid: string; filePath?: string } | { ok: false; guid: string; error: string }>(
+    (resolve) => { resolveCompleted = resolve; },
+  );
+  session.on("Browser.downloadWillBegin", (event) => {
+    if (activeGuid) return;
+    activeGuid = event.guid;
+    resolveStarted({ guid: event.guid, suggestedFilename: event.suggestedFilename });
+  });
+  session.on("Browser.downloadProgress", (event) => {
+    const outcome = tmallBrowserDownloadOutcome(event, activeGuid);
+    if (outcome) resolveCompleted(outcome);
+  });
+  try {
+    await session.send("Browser.setDownloadBehavior", { behavior: "allowAndName", downloadPath: stagingDirectory, eventsEnabled: true });
+    await options.record.locator.click({ timeout: 15_000 });
+    const start = await withDeadline(started, 60_000, `点击导出记录 ${options.record.taskCreatedAt} 后 Chrome 未开始下载`);
+    if (!isTmallProductWorkbookFilename(start.suggestedFilename)) throw new Error("逐页导出返回的文件不是安全 .xlsx");
+    const finish = await withDeadline(completed, 120_000, `导出记录 ${options.record.taskCreatedAt} 下载未在两分钟内完成`);
+    if (!finish.ok) throw new Error(finish.error);
+    const stagedPath = await resolveTmallStagedDownloadPath({
+      stagingDirectory, guid: finish.guid, suggestedFilename: start.suggestedFilename, reportedFilePath: finish.filePath,
+    });
+    if (await stat(options.targetPath).then(() => true).catch(() => false)) throw new Error("逐页导出规范文件已存在，拒绝覆盖");
+    await rename(stagedPath, options.targetPath);
+  } finally {
+    await session.send("Browser.setDownloadBehavior", { behavior: "default" }).catch(() => undefined);
+    await session.detach().catch(() => undefined);
+    if (inside(options.downloadDirectory, stagingDirectory)) {
+      await rm(stagingDirectory, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+}
+
+export async function mergeTmallPagewiseProductWorkbooks(options: {
+  sourceFiles: readonly string[];
+  targetPath: string;
+  store: Pick<TmallStore, "shopName" | "browser">;
+  snapshotDate: string;
+  expectedProductCount: number;
+}) {
+  if (options.sourceFiles.length < 1 || options.sourceFiles.length > maximumPages) throw new Error("逐页货品文件数量无效");
+  const rows: Array<Record<string, unknown>> = [];
+  const productIds = new Set<string>();
+  for (const filePath of options.sourceFiles) {
+    const resolved = path.resolve(filePath);
+    if (!inside(options.store.browser.downloadDir, resolved)) throw new Error("逐页货品文件越过当前店铺独立下载目录");
+    const bytes = new Uint8Array(await readFile(resolved));
+    const inspection = await inspectTmallImportBytes({
+      source: "tmall_product_master", bytes, fileName: path.basename(resolved), fileSizeBytes: bytes.byteLength,
+      platform: "天猫", shopName: options.store.shopName, snapshotDate: options.snapshotDate,
+    });
+    if (inspection.errors.length > 0 || inspection.totals.rowCount <= 0) {
+      throw new Error(`逐页货品文件 ${path.basename(resolved)} 校验失败`);
+    }
+    for (const row of inspection.rows) {
+      const raw = row.raw as Record<string, unknown>;
+      const productId = String(raw["商品ID"] ?? "").trim();
+      if (!productId) throw new Error("逐页货品文件存在缺失商品ID的业务行");
+      productIds.add(productId);
+      rows.push(raw);
+    }
+  }
+  if (productIds.size !== options.expectedProductCount) {
+    throw new Error(`逐页货品文件合计 ${productIds.size} 个唯一商品，与出售中总数 ${options.expectedProductCount} 不一致`);
+  }
+  const matrix = [
+    [...exportedMasterHeaders],
+    ...rows.map((row) => canonicalMasterHeaders.map((header) => row[header] ?? null)),
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(matrix), "发布模板");
+  const bytes = new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx", compression: true }));
+  const targetPath = path.resolve(options.targetPath);
+  if (!inside(options.store.browser.downloadDir, targetPath) || !/\.xlsx$/i.test(targetPath)) {
+    throw new Error("合并货品文件必须位于当前店铺独立下载目录");
+  }
+  if (await stat(targetPath).then(() => true).catch(() => false)) throw new Error("合并货品文件已存在，拒绝覆盖");
+  await writeFile(targetPath, bytes);
+  const evidence = await inspectTmallMasterFile(targetPath, options.store, options.snapshotDate);
+  if (evidence.uniqueProductCount !== options.expectedProductCount || evidence.rowCount !== rows.length) {
+    throw new Error("合并货品文件回读后的商品数或业务行数不一致");
+  }
+  return evidence;
+}
+
+async function submitRemainingPages(options: {
+  page: Page;
+  audit: PagewiseAudit;
+  auditRoot: string;
+  onAudit: (audit: PagewiseAudit) => void;
+}) {
+  let activeAudit = options.audit;
+  const persist = async (patch: Partial<PagewiseAudit>) => {
+    activeAudit = await writeActiveAudit({ ...activeAudit, ...patch }, options.auditRoot);
+    options.onAudit(activeAudit);
+  };
+  const startPage = activeAudit.tasks.length + 1;
+  const target = new URL(TMALL_SELLER_ON_SALE_URL);
+  target.searchParams.set("current", String(startPage));
+  await options.page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await ensureTmallSellerSession(options.page, await getTmallStore(activeAudit.storeKey));
+  await dismissImportantNotice(options.page);
+  const initialPagination = parseTmallOnSalePagination(await combinedPageText(options.page));
+  if (!initialPagination || initialPagination.currentPage !== startPage) throw new Error(`出售中列表未精确进入第 ${startPage} 页`);
+  if (activeAudit.totalProducts !== undefined && activeAudit.totalProducts !== initialPagination.totalProducts
+    || activeAudit.totalPages !== undefined && activeAudit.totalPages !== initialPagination.totalPages) {
+    throw new Error("恢复时出售中商品总数或页数变化，拒绝把不同快照混入同一任务清单");
+  }
+  if (!activeAudit.totalProducts) await persist({ totalProducts: initialPagination.totalProducts, totalPages: initialPagination.totalPages });
+  const totalProducts = activeAudit.totalProducts ?? initialPagination.totalProducts;
+  const totalPages = activeAudit.totalPages ?? initialPagination.totalPages;
+  for (let pageNumber = startPage; pageNumber <= totalPages; pageNumber += 1) {
+    const pagination = parseTmallOnSalePagination(await combinedPageText(options.page));
+    if (!pagination || pagination.currentPage !== pageNumber || pagination.totalProducts !== totalProducts || pagination.totalPages !== totalPages) {
+      throw new Error(`第 ${pageNumber} 页分页身份与本轮清单不一致`);
+    }
+    const itemCount = expectedTmallPageItemCount(totalProducts, totalPages, pageNumber);
+    await selectCurrentPageProducts(options.page, itemCount);
+    await clickUniqueExactText(options.page, "更多批量操作");
+    const submittedAt = new Date().toISOString();
+    await persist({ stage: "page_export_submitting", currentPage: pageNumber });
+    await clickUniqueExactText(options.page, TMALL_PAGEWISE_EXPORT_MENU);
+    await waitUntil(30_000, async () => (await combinedPageText(options.page)).includes(TMALL_PAGEWISE_EXPORT_SUCCESS),
+      `第 ${pageNumber} 页未出现导出任务创建成功确认`);
+    const task: PagewiseTask = { page: pageNumber, itemCount, submittedAt };
+    await persist({ stage: "page_export_submitted", currentPage: pageNumber, tasks: [...activeAudit.tasks, task] });
+    if (pageNumber < totalPages) {
+      await dismissExportSuccessDialog(options.page);
+      await clickNextPage(options.page, pageNumber + 1);
+    } else {
+      await persist({ stage: "all_tasks_submitted", currentPage: pageNumber });
+      const recordPage = await openRecordPageFromLastDialog(options.page);
+      await persist({ recordPageUrl: safeRecordPageUrl(recordPage.url()) });
+    }
+  }
+  return activeAudit;
+}
+
+async function browserPagewiseExport(options: {
+  store: TmallStore;
+  audit: PagewiseAudit;
+  auditRoot: string;
+  onAudit: (audit: PagewiseAudit) => void;
+}) {
+  await launchStoreChrome(options.store);
+  const { connectPlaywrightBrowser } = await import("../lib/jackyun/playwright-client");
+  const browser = await connectPlaywrightBrowser(options.store.browser.debugPort);
+  const context = browser.contexts()[0];
+  if (!context) throw new Error(`${options.store.shopName} 独立 Chromium 没有可用上下文`);
+  let page = context.pages().find((candidate) => candidate.url().includes("myseller.taobao.com")) ?? await context.newPage();
+  page.setDefaultTimeout(15_000);
+  try {
+    let activeAudit = options.audit;
+    if (activeAudit.tasks.length < (activeAudit.totalPages ?? Number.POSITIVE_INFINITY)) {
+      activeAudit = await submitRemainingPages({ page, audit: activeAudit, auditRoot: options.auditRoot, onAudit: options.onAudit });
+    }
+    if (activeAudit.stage === "all_tasks_submitted" || activeAudit.stage === "page_export_submitted" || activeAudit.stage === "downloading") {
+      const candidatePage = context.pages().find((candidate) => !candidate.isClosed() && candidate.url() === activeAudit.recordPageUrl);
+      if (candidatePage) page = candidatePage;
+      else if (activeAudit.recordPageUrl) {
+        page = await context.newPage();
+        await page.goto(safeRecordPageUrl(activeAudit.recordPageUrl), { waitUntil: "domcontentloaded", timeout: 60_000 });
+      } else {
+        throw new Error("逐页任务已全部提交但活动清单缺少导出记录页，需人工确认原任务后恢复");
+      }
+      const records = await waitForAllExportRecords(page, activeAudit.tasks);
+      activeAudit = await writeActiveAudit({ ...activeAudit, stage: "downloading" }, options.auditRoot);
+      options.onAudit(activeAudit);
+      for (let index = activeAudit.files.length; index < records.length; index += 1) {
+        const record = records[index]!;
+        const task = activeAudit.tasks[index]!;
+        const canonicalName = `${safeSegment(options.store.shopName)}-出售中第${task.page}页-${activeAudit.snapshotDate}-${activeAudit.runId}.xlsx`;
+        const targetPath = path.resolve(options.store.browser.downloadDir, canonicalName);
+        if (!inside(options.store.browser.downloadDir, targetPath)) throw new Error("逐页下载目标越过店铺独立目录");
+        const exists = await stat(targetPath).then(() => true).catch(() => false);
+        if (!exists) await downloadRecordFile({ record, downloadDirectory: options.store.browser.downloadDir, targetPath });
+        const evidence = await inspectTmallMasterFile(targetPath, options.store, activeAudit.snapshotDate);
+        if (evidence.uniqueProductCount !== task.itemCount) {
+          throw new Error(`第 ${task.page} 页导出包含 ${evidence.uniqueProductCount} 个唯一商品，与选中 ${task.itemCount} 个不一致`);
+        }
+        const file: PagewiseFileEvidence = { ...evidence, page: task.page, taskCreatedAt: record.taskCreatedAt };
+        activeAudit = await writeActiveAudit({ ...activeAudit, files: [...activeAudit.files, file] }, options.auditRoot);
+        options.onAudit(activeAudit);
+      }
+      activeAudit = await writeActiveAudit({ ...activeAudit, stage: "downloaded" }, options.auditRoot);
+      options.onAudit(activeAudit);
+    }
+    return activeAudit;
+  } finally {
+    await browser.close().catch(() => undefined);
+  }
+}
+
+export async function runTmallPagewiseProductMasterStage(options: {
+  storeKey: string;
+  baseUrl?: string;
+  request?: typeof fetch;
+  snapshotDate?: string;
+  auditDirectory?: string;
+}): Promise<TmallProductMasterStageResult> {
+  const store = await getTmallStore(options.storeKey);
+  if (store.productMasterExportMode !== TMALL_PAGEWISE_EXPORT_MODE) {
+    throw new Error(`${store.shopName} 未启用出售中逐页 Excel 导出模式`);
+  }
+  const requestedSnapshotDate = options.snapshotDate ?? shanghaiToday();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedSnapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
+  const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
+  const auditRoot = path.resolve(options.auditDirectory ?? artifactDirectory);
+  await mkdir(auditRoot, { recursive: true });
+  const legacyActivePath = path.join(legacyArtifactDirectory, `active-${safeSegment(store.storeKey)}.json`);
+  if (await stat(legacyActivePath).then(() => true).catch(() => false)) {
+    throw new Error("检测到原商品管家 M 节点仍有活动清单；必须先人工核对原任务，不能直接切换为逐页导出");
+  }
+  const existing = await readActiveAudit(store.storeKey, auditRoot);
+  let snapshotDate = requestedSnapshotDate;
+  let audit = existing?.audit;
+  if (audit) {
+    if (audit.shopName !== store.shopName) throw new Error("逐页导出活动清单店铺身份不一致");
+    const recovery = decideTmallPagewiseAuditRecovery(requestedSnapshotDate, audit);
+    if (recovery.action === "block") throw new Error("逐页导出停在任务创建点击未决阶段，必须人工核对导出记录后再处理");
+    if (recovery.action === "discard") {
+      await rm(existing!.filePath, { force: true });
+      audit = undefined;
+    } else snapshotDate = recovery.snapshotDate;
+  }
+  if (!audit) {
+    const now = new Date().toISOString();
+    audit = await writeActiveAudit({
+      version: 1, strategy: TMALL_PAGEWISE_EXPORT_MODE, runId: randomUUID(), storeKey: store.storeKey,
+      shopName: store.shopName, snapshotDate, startedAt: now, updatedAt: now, stage: "planned", tasks: [], files: [],
+    }, auditRoot);
+  }
+  let activeAudit = audit;
+  try {
+    if (activeAudit.stage !== "merged") {
+      activeAudit = await browserPagewiseExport({
+        store, audit: activeAudit, auditRoot, onAudit: (updated) => { activeAudit = updated; },
+      });
+    }
+    let mergedFile = activeAudit.mergedFile;
+    if (!mergedFile) {
+      if (!activeAudit.totalProducts || activeAudit.files.length !== activeAudit.totalPages) {
+        throw new Error("逐页文件未覆盖全部出售中分页，拒绝合并导入");
+      }
+      const mergedPath = path.resolve(store.browser.downloadDir,
+        `${safeSegment(store.shopName)}-出售中全部商品-${snapshotDate}-${activeAudit.runId}.xlsx`);
+      mergedFile = await mergeTmallPagewiseProductWorkbooks({
+        sourceFiles: activeAudit.files.sort((left, right) => left.page - right.page).map((file) => file.filePath),
+        targetPath: mergedPath, store, snapshotDate, expectedProductCount: activeAudit.totalProducts,
+      });
+      activeAudit = await writeActiveAudit({ ...activeAudit, stage: "merged", mergedFile }, auditRoot);
+    } else {
+      const rechecked = await inspectTmallMasterFile(mergedFile.filePath, store, snapshotDate);
+      if (rechecked.sha256 !== mergedFile.sha256 || rechecked.rowCount !== mergedFile.rowCount
+        || rechecked.uniqueProductCount !== activeAudit.totalProducts) {
+        throw new Error("恢复时合并货品文件与活动清单不一致");
+      }
+      mergedFile = rechecked;
+    }
+    const imported = await importTmallProductMasterFile({
+      baseUrl, store, snapshotDate, evidence: mergedFile, request: options.request,
+    });
+    activeAudit = await writeActiveAudit({
+      ...activeAudit, stage: "completed", importResult: {
+        status: imported.status, batchId: imported.batchId, rowCount: imported.rowCount, warningCount: imported.warningCount,
+      },
+    }, auditRoot);
+    const finalAuditPath = path.join(auditRoot, `run-${activeAudit.runId}.json`);
+    await writeJsonAtomic(finalAuditPath, activeAudit);
+    await rm(activeAuditPath(store.storeKey, auditRoot), { force: true });
+    return {
+      ok: true, stage: "product_master", status: imported.status, storeKey: store.storeKey, shopName: store.shopName,
+      snapshotDate, batchId: imported.batchId, rowCount: imported.rowCount, warningCount: imported.warningCount,
+      auditPath: finalAuditPath, filePath: mergedFile.filePath,
+    };
+  } catch (error) {
+    const lastError = safeError(error);
+    await writeActiveAudit({ ...activeAudit, lastError }, auditRoot).catch(() => undefined);
+    if (["planned", "browser_ready"].includes(activeAudit.stage)) {
+      await rm(activeAuditPath(store.storeKey, auditRoot), { force: true }).catch(() => undefined);
+    }
+    throw error;
+  }
+}
