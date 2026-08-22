@@ -125,6 +125,39 @@ test("天猫货品 XLSX 按列位区分重复表头并忽略错误 dimension", a
   assert.notEqual(result.rows[0].sourceRowKey, result.rows[1].sourceRowKey);
 });
 
+test("天猫分页货品 XLSX 省略空发货时间列时仍按表头语义解析", async () => {
+  const headers = [
+    "商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码", "最长发货时间",
+    "销售属性", "属性对", "skuId", "价格（元）", "数量", "商家编码", "生产日期\n(格式：年-月-日 ~ 年-月-日)", "保质期（天）",
+  ];
+  const bytes = workbookBytes([
+    ["发布模板"],
+    [null],
+    headers,
+    ["10001", "cat", "测试类目", "测试商品", "10.00", null, "ITEM-CODE", 15, "颜色:红", null, "20001", "9.90", 5, "SKU-CODE", null, null],
+  ], { bookType: "xlsx", sheetName: "发布模板" });
+
+  const result = await inspectTmallImportBytes({
+    source: "tmall_product_master",
+    bytes,
+    fileName: "page-2.xlsx",
+    fileSizeBytes: bytes.byteLength,
+    platform: "天猫",
+    shopName: "天猫-志高拓丰专卖店",
+    snapshotDate: "2026-08-22",
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.totals.rowCount, 1);
+  assert.equal(result.totals.uniqueProductCount, 1);
+  assert.equal(result.totals.uniqueSkuCount, 1);
+  assert.equal(result.rows[0].raw["商品商家编码"], "ITEM-CODE");
+  assert.equal(result.rows[0].raw["SKU商家编码"], "SKU-CODE");
+  assert.equal(result.rows[0].raw["SKU库存"], 5);
+  assert.equal(result.rows[0].raw["商品发货时间"], undefined);
+  assert.equal(result.rows[0].raw["SKU发货时间"], undefined);
+});
+
 test("天猫导入拒绝未注册或未启用店铺", async () => {
   const bytes = dailyFixture();
   await assert.rejects(

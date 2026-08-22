@@ -312,18 +312,48 @@ function tmallObjectFromRow(headers: readonly string[], values: readonly unknown
   return Object.fromEntries(headers.map((header, index) => [header, normalizedTmallValue(values[index])])) as Record<string, string | number | boolean | null>;
 }
 
-const tmallMasterHeaders = [
-  "商品ID", "类目ID", "类目名称", "商品标题", "一口价", "导购标题", "商品商家编码", "商品发货时间",
-  "最长发货时间", "销售属性", "属性对", "SKU发货时间", "SKUID", "SKU价格", "SKU库存", "SKU商家编码",
-  "生产日期", "保质期",
-] as const;
+function tmallMasterCanonicalHeaders(values: readonly unknown[]) {
+  const headers = values.map(normalizeHeader);
+  const normalized = headers.map(normalizeKey);
+  const skuIndex = normalized.findIndex((header) => header === "skuid");
+  const longestDeliveryIndex = normalized.findIndex((header) => header === "最长发货时间");
+  if (normalized[0] !== "商品id" || skuIndex < 0) {
+    throw new Error("天猫货品文件缺少商品Id/SKU 表头");
+  }
+
+  return headers.map((header, index) => {
+    const key = normalized[index];
+    if (key === "商品id") return "商品ID";
+    if (key === "类目id") return "类目ID";
+    if (key === "类目名称") return "类目名称";
+    if (key === "商品标题") return "商品标题";
+    if (key === "一口价") return "一口价";
+    if (key === "导购标题") return "导购标题";
+    if (key === "商家编码") return index < skuIndex ? "商品商家编码" : "SKU商家编码";
+    if (key === "商品商家编码") return "商品商家编码";
+    if (key === "sku商家编码") return "SKU商家编码";
+    if (key === "发货时间") return longestDeliveryIndex >= 0 && index < longestDeliveryIndex ? "商品发货时间" : "SKU发货时间";
+    if (key === "商品发货时间") return "商品发货时间";
+    if (key === "sku发货时间") return "SKU发货时间";
+    if (key === "最长发货时间") return "最长发货时间";
+    if (key === "销售属性") return "销售属性";
+    if (key === "属性对") return "属性对";
+    if (key === "skuid") return "SKUID";
+    if (key === "价格元" || key === "sku价格") return "SKU价格";
+    if (key === "数量" || key === "sku库存") return "SKU库存";
+    if (key.startsWith("生产日期")) return "生产日期";
+    if (key.startsWith("保质期")) return "保质期";
+    return header || `列${index + 1}`;
+  });
+}
 
 function findTmallHeader(source: NetshopSource, table: ParsedTable) {
   if (source === "tmall_product_master") {
     if (table.sheetName !== "发布模板") throw new Error("天猫货品文件首个工作表必须为“发布模板”");
-    const index = table.rows.findIndex((row) => normalizeHeader(row.values[0]) === "商品Id" && normalizeHeader(row.values[12]) === "skuId");
+    const index = table.rows.findIndex((row) => normalizeKey(normalizeHeader(row.values[0])) === "商品id"
+      && row.values.some((value) => normalizeKey(normalizeHeader(value)) === "skuid"));
     if (index < 0) throw new Error("天猫货品文件缺少商品Id/SKU 表头");
-    return { index, headers: [...tmallMasterHeaders] };
+    return { index, headers: tmallMasterCanonicalHeaders(table.rows[index].values) };
   }
   if (source === "tmall_product_daily") {
     const index = table.rows.findIndex((row) => normalizeHeader(row.values[0]) === "统计日期" && normalizeHeader(row.values[1]) === "商品ID" && row.values.map(normalizeHeader).includes("支付金额"));
