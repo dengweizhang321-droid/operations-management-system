@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import {
   chooseTmallOnSaleHeaderCheckbox,
+  chooseTmallOnSaleNextPageCandidate,
   chooseTmallPagewiseExportRecords,
   chooseTmallOnSalePaginationRegions,
   decideTmallPagewiseAuditRecovery,
@@ -82,6 +83,21 @@ test("重复商品标题 DOM 只要指向同一全选框即可合并，真正的
     { signature: "near-checkbox", score: 97 },
     { signature: "far-checkbox", score: 91 },
   ]), { signature: "near-checkbox", score: 97 });
+});
+
+test("下一页父子 DOM 优先选择可操作控件，真正同分的两个下一页入口仍失败关闭", () => {
+  assert.deepEqual(chooseTmallOnSaleNextPageCandidate([
+    { signature: "same-next", score: 900 },
+    { signature: "same-next", score: 1_500 },
+  ]), { signature: "same-next", score: 1_500 });
+  assert.deepEqual(chooseTmallOnSaleNextPageCandidate([
+    { signature: "container", score: 720 },
+    { signature: "actionable", score: 1_520 },
+  ]), { signature: "actionable", score: 1_520 });
+  assert.equal(chooseTmallOnSaleNextPageCandidate([
+    { signature: "first-next", score: 1_520 },
+    { signature: "second-next", score: 1_520 },
+  ]), null);
 });
 
 test("逐页清单在点击未决时失败关闭，预检失败可安全重试，已提交任务跨日只恢复原快照", () => {

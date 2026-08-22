@@ -228,6 +228,17 @@ export function chooseTmallOnSaleHeaderCheckbox(candidates: readonly { signature
   return ranked[0];
 }
 
+export function chooseTmallOnSaleNextPageCandidate(candidates: readonly { signature: string; score: number }[]) {
+  const unique = new Map<string, { signature: string; score: number }>();
+  for (const candidate of candidates) {
+    const previous = unique.get(candidate.signature);
+    if (!previous || candidate.score > previous.score) unique.set(candidate.signature, candidate);
+  }
+  const ranked = [...unique.values()].sort((left, right) => right.score - left.score);
+  if (!ranked[0] || ranked[1]?.score === ranked[0].score) return null;
+  return ranked[0];
+}
+
 export function expectedTmallPageItemCount(totalProducts: number, totalPages: number, page: number) {
   if (!Number.isInteger(totalProducts) || totalProducts <= 0 || !Number.isInteger(totalPages) || totalPages <= 0
     || !Number.isInteger(page) || page <= 0 || page > totalPages || Math.ceil(totalProducts / 20) !== totalPages) {
@@ -485,20 +496,28 @@ async function clickNextPage(page: Page, expectedPage: number) {
     '.next-pagination-item.next-next:not(.disabled)', '.next-pagination-item.next-next:not([aria-disabled="true"])',
     '[class*="pagination"] [class*="next"]:not([class*="disabled"])',
   ];
-  const candidates: PositionedCandidate[] = [];
+  const candidates: Array<PositionedCandidate & { score: number }> = [];
   for (const frame of page.frames()) {
     for (const selector of selectors) {
       const matches = frame.locator(selector);
       const count = Math.min(await matches.count().catch(() => 0), 10);
       for (let index = 0; index < count; index += 1) {
         const detail = await positionedCandidate(frame, matches.nth(index));
-        if (detail && detail.left > 600 && detail.top < 500) candidates.push(detail);
+        if (!detail || detail.left <= 600 || detail.top >= 500) continue;
+        const actionable = ["button", "a"].includes(detail.tag) || ["button", "link"].includes(detail.role) ? 1_000 : 0;
+        const explicitlyNext = /下一页|next-next/i.test(detail.attributes) ? 500 : 0;
+        const compactControl = Math.max(0, 100 - Math.min(100, detail.width * detail.height / 100));
+        const score = actionable + explicitlyNext + compactControl + Math.min(200, detail.left / 10);
+        candidates.push({ ...detail, score });
       }
     }
   }
-  const unique = [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
-  if (unique.length !== 1) throw new Error(`无法唯一定位第 ${expectedPage - 1} 页右上角“下一页”控件`);
-  await unique[0]!.locator.click({ timeout: 15_000 });
+  const chosen = chooseTmallOnSaleNextPageCandidate(candidates);
+  const uniqueCount = new Set(candidates.map((candidate) => candidate.signature)).size;
+  if (!chosen) throw new Error(`无法唯一定位第 ${expectedPage - 1} 页右上角“下一页”控件（候选 ${uniqueCount}）`);
+  const next = candidates.find((candidate) => candidate.signature === chosen.signature);
+  if (!next) throw new Error(`第 ${expectedPage - 1} 页“下一页”控件在点击前失效`);
+  await next.locator.click({ timeout: 15_000 });
   await waitForStableTmallOnSalePagination({ page, expectedPage });
 }
 
