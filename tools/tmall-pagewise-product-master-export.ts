@@ -43,6 +43,15 @@ type PagewisePagination = {
   totalPages: number;
 };
 
+type PagewisePaginationDiagnostic = {
+  checkedAt: string;
+  totalAnchorCount: number;
+  scopedRegionCount: number;
+  parsedRegionCount: number;
+  uniquePaginationCount: number;
+  observed: PagewisePagination[];
+};
+
 type PagewiseTask = {
   page: number;
   itemCount: number;
@@ -78,6 +87,7 @@ type PagewiseAudit = {
   totalProducts?: number;
   totalPages?: number;
   currentPage?: number;
+  paginationDiagnostic?: PagewisePaginationDiagnostic;
   recordPageUrl?: string;
   tasks: PagewiseTask[];
   files: PagewiseFileEvidence[];
@@ -195,6 +205,16 @@ export function parseTmallOnSalePagination(text: string): PagewisePagination | n
     || !Number.isInteger(totalPages) || totalPages <= 0 || totalPages > maximumPages
     || currentPage > totalPages || Math.ceil(totalProducts / 20) !== totalPages) return null;
   return { totalProducts, currentPage, totalPages };
+}
+
+export function chooseTmallOnSalePaginationRegions(regions: readonly string[]): PagewisePagination | null {
+  const parsed = regions.map((region) => parseTmallOnSalePagination(region))
+    .filter((value): value is PagewisePagination => value !== null);
+  const unique = new Map(parsed.map((value) => [
+    `${value.totalProducts}:${value.currentPage}:${value.totalPages}`,
+    value,
+  ]));
+  return unique.size === 1 ? [...unique.values()][0]! : null;
 }
 
 export function expectedTmallPageItemCount(totalProducts: number, totalPages: number, page: number) {
@@ -321,6 +341,96 @@ async function clickUniqueExactText(page: Page, text: string) {
   await scored[0]!.locator.click({ timeout: 15_000 });
 }
 
+async function inspectTmallOnSalePagination(page: Page) {
+  const regions: string[] = [];
+  let totalAnchorCount = 0;
+  for (const frame of page.frames()) {
+    const anchors = frame.getByText(/共\s*\d{1,7}\s*件商品/, { exact: true });
+    const count = Math.min(await anchors.count().catch(() => 0), 20);
+    totalAnchorCount += count;
+    for (let index = 0; index < count; index += 1) {
+      const region = await anchors.nth(index).evaluate((element) => {
+        const view = element.ownerDocument.defaultView;
+        if (!view) return null;
+        let current: Element | null = element;
+        for (let depth = 0; current && depth < 8; depth += 1, current = current.parentElement) {
+          const rect = current.getBoundingClientRect();
+          const style = view.getComputedStyle(current);
+          if (rect.width < 2 || rect.height < 2 || style.display === "none" || style.visibility === "hidden"
+            || Number(style.opacity || "1") <= 0) continue;
+          const text = (current as HTMLElement).innerText?.replace(/\s+/g, " ").trim() ?? "";
+          if (text.length > 2_000 || !/共\s*\d{1,7}\s*件商品/.test(text)
+            || !/(?:^|\D)\d{1,4}\s*\/\s*\d{1,4}(?:\D|$)/.test(text)) continue;
+          return text;
+        }
+        return null;
+      }).catch(() => null);
+      if (region) regions.push(region);
+    }
+  }
+  const observed = regions.map((region) => parseTmallOnSalePagination(region))
+    .filter((value): value is PagewisePagination => value !== null);
+  const uniqueObserved = [...new Map(observed.map((value) => [
+    `${value.totalProducts}:${value.currentPage}:${value.totalPages}`,
+    value,
+  ])).values()];
+  return {
+    pagination: chooseTmallOnSalePaginationRegions(regions),
+    diagnostic: {
+      checkedAt: new Date().toISOString(),
+      totalAnchorCount,
+      scopedRegionCount: regions.length,
+      parsedRegionCount: observed.length,
+      uniquePaginationCount: uniqueObserved.length,
+      observed: uniqueObserved.slice(0, 5),
+    } satisfies PagewisePaginationDiagnostic,
+  };
+}
+
+async function waitForStableTmallOnSalePagination(options: {
+  page: Page;
+  expectedPage: number;
+  expectedTotalProducts?: number;
+  expectedTotalPages?: number;
+  timeoutMs?: number;
+}) {
+  const deadline = Date.now() + (options.timeoutMs ?? 30_000);
+  let stableKey = "";
+  let stableReads = 0;
+  let lastDiagnostic: PagewisePaginationDiagnostic = {
+    checkedAt: new Date().toISOString(), totalAnchorCount: 0, scopedRegionCount: 0,
+    parsedRegionCount: 0, uniquePaginationCount: 0, observed: [],
+  };
+  while (Date.now() < deadline) {
+    const inspected = await inspectTmallOnSalePagination(options.page);
+    lastDiagnostic = inspected.diagnostic;
+    const pagination = inspected.pagination;
+    const matches = pagination?.currentPage === options.expectedPage
+      && (options.expectedTotalProducts === undefined || pagination.totalProducts === options.expectedTotalProducts)
+      && (options.expectedTotalPages === undefined || pagination.totalPages === options.expectedTotalPages);
+    if (matches && pagination) {
+      const key = `${pagination.totalProducts}:${pagination.currentPage}:${pagination.totalPages}`;
+      stableReads = key === stableKey ? stableReads + 1 : 1;
+      stableKey = key;
+      if (stableReads >= 2) return { pagination, diagnostic: lastDiagnostic };
+    } else {
+      stableKey = "";
+      stableReads = 0;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  const observed = lastDiagnostic.observed.map((item) => (
+    `${item.totalProducts}:${item.currentPage}/${item.totalPages}`
+  )).join(",") || "none";
+  const error = new Error(
+    `出售中列表未稳定读回第 ${options.expectedPage} 页`
+    + `（总数锚点 ${lastDiagnostic.totalAnchorCount}，分页区域 ${lastDiagnostic.scopedRegionCount}，`
+    + `有效区域 ${lastDiagnostic.parsedRegionCount}，唯一分页 ${lastDiagnostic.uniquePaginationCount}，观测 ${observed}）`,
+  ) as Error & { paginationDiagnostic?: PagewisePaginationDiagnostic };
+  error.paginationDiagnostic = lastDiagnostic;
+  throw error;
+}
+
 async function selectCurrentPageProducts(page: Page, expectedCount: number) {
   const titleCandidates = await exactTextCandidates(page, "商品标题");
   if (titleCandidates.length !== 1) throw new Error("无法唯一定位出售中列表的“商品标题”表头");
@@ -374,8 +484,7 @@ async function clickNextPage(page: Page, expectedPage: number) {
   const unique = [...new Map(candidates.map((candidate) => [candidate.signature, candidate])).values()];
   if (unique.length !== 1) throw new Error(`无法唯一定位第 ${expectedPage - 1} 页右上角“下一页”控件`);
   await unique[0]!.locator.click({ timeout: 15_000 });
-  await waitUntil(30_000, async () => parseTmallOnSalePagination(await combinedPageText(page))?.currentPage === expectedPage,
-    `点击下一页后未精确读回第 ${expectedPage} 页`);
+  await waitForStableTmallOnSalePagination({ page, expectedPage });
 }
 
 async function openRecordPageFromLastDialog(page: Page) {
@@ -555,20 +664,38 @@ async function submitRemainingPages(options: {
   await options.page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
   await ensureTmallSellerSession(options.page, await getTmallStore(activeAudit.storeKey));
   await dismissImportantNotice(options.page);
-  const initialPagination = parseTmallOnSalePagination(await combinedPageText(options.page));
-  if (!initialPagination || initialPagination.currentPage !== startPage) throw new Error(`出售中列表未精确进入第 ${startPage} 页`);
+  let initial;
+  try {
+    initial = await waitForStableTmallOnSalePagination({
+      page: options.page,
+      expectedPage: startPage,
+      expectedTotalProducts: activeAudit.totalProducts,
+      expectedTotalPages: activeAudit.totalPages,
+    });
+  } catch (error) {
+    const paginationDiagnostic = (error as Error & { paginationDiagnostic?: PagewisePaginationDiagnostic }).paginationDiagnostic;
+    await persist({ stage: "browser_ready", paginationDiagnostic });
+    throw error;
+  }
+  const initialPagination = initial.pagination;
   if (activeAudit.totalProducts !== undefined && activeAudit.totalProducts !== initialPagination.totalProducts
     || activeAudit.totalPages !== undefined && activeAudit.totalPages !== initialPagination.totalPages) {
     throw new Error("恢复时出售中商品总数或页数变化，拒绝把不同快照混入同一任务清单");
   }
-  if (!activeAudit.totalProducts) await persist({ totalProducts: initialPagination.totalProducts, totalPages: initialPagination.totalPages });
+  await persist({
+    stage: "browser_ready",
+    totalProducts: initialPagination.totalProducts,
+    totalPages: initialPagination.totalPages,
+    currentPage: startPage,
+    paginationDiagnostic: initial.diagnostic,
+  });
   const totalProducts = activeAudit.totalProducts ?? initialPagination.totalProducts;
   const totalPages = activeAudit.totalPages ?? initialPagination.totalPages;
   for (let pageNumber = startPage; pageNumber <= totalPages; pageNumber += 1) {
-    const pagination = parseTmallOnSalePagination(await combinedPageText(options.page));
-    if (!pagination || pagination.currentPage !== pageNumber || pagination.totalProducts !== totalProducts || pagination.totalPages !== totalPages) {
-      throw new Error(`第 ${pageNumber} 页分页身份与本轮清单不一致`);
-    }
+    const current = await waitForStableTmallOnSalePagination({
+      page: options.page, expectedPage: pageNumber, expectedTotalProducts: totalProducts, expectedTotalPages: totalPages,
+    });
+    await persist({ currentPage: pageNumber, paginationDiagnostic: current.diagnostic });
     const itemCount = expectedTmallPageItemCount(totalProducts, totalPages, pageNumber);
     await selectCurrentPageProducts(options.page, itemCount);
     await clickUniqueExactText(options.page, "更多批量操作");
@@ -730,8 +857,13 @@ export async function runTmallPagewiseProductMasterStage(options: {
     };
   } catch (error) {
     const lastError = safeError(error);
-    await writeActiveAudit({ ...activeAudit, lastError }, auditRoot).catch(() => undefined);
+    const failedAudit = await writeActiveAudit({ ...activeAudit, lastError }, auditRoot).catch(() => undefined);
     if (["planned", "browser_ready"].includes(activeAudit.stage)) {
+      if (failedAudit) {
+        const preflightFailurePath = path.join(auditRoot,
+          `preflight-failure-${safeSegment(store.storeKey)}-${snapshotDate}-${safeSegment(activeAudit.runId)}.json`);
+        await writeJsonAtomic(preflightFailurePath, failedAudit).catch(() => undefined);
+      }
       await rm(activeAuditPath(store.storeKey, auditRoot), { force: true }).catch(() => undefined);
     }
     throw error;

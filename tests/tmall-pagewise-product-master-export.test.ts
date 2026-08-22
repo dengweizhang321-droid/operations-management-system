@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import {
   chooseTmallPagewiseExportRecords,
+  chooseTmallOnSalePaginationRegions,
   decideTmallPagewiseAuditRecovery,
   expectedTmallPageItemCount,
   mergeTmallPagewiseProductWorkbooks,
@@ -48,8 +49,26 @@ test("出售中分页必须同时核对商品总数、当前页和按 20 条计�
   assert.equal(expectedTmallPageItemCount(134, 7, 7), 14);
   assert.throws(() => expectedTmallPageItemCount(134, 6, 6), /分页参数无效/);
 });
-test("逐页清单在点击未决时失败关闭，已提交任务跨日只恢复原快照", () => {
-  const audit = (stage: "planned" | "page_export_submitting" | "page_export_submitted", taskCount = 0) => ({
+
+test("出售中分页只接受商品总数附近的唯一稳定区域，不受页面其他页码干扰", () => {
+  assert.deepEqual(chooseTmallOnSalePaginationRegions([
+    "共134件商品 上一页 1 / 7 下一页",
+    "商品巡检 1/1",
+  ]), {
+    totalProducts: 134,
+    currentPage: 1,
+    totalPages: 7,
+  });
+  assert.equal(chooseTmallOnSalePaginationRegions([
+    "共134件商品 1/7",
+    "共134件商品 2/7",
+  ]), null);
+  assert.equal(chooseTmallOnSalePaginationRegions([
+    "共134件商品 1/7 2/7",
+  ]), null);
+});
+test("逐页清单在点击未决时失败关闭，预检失败可安全重试，已提交任务跨日只恢复原快照", () => {
+  const audit = (stage: "planned" | "browser_ready" | "page_export_submitting" | "page_export_submitted", taskCount = 0) => ({
     snapshotDate: "2026-08-22",
     stage,
     tasks: Array.from({ length: taskCount }, (_, index) => ({ page: index + 1, itemCount: 20, submittedAt: "2026-08-22T10:30:00Z" })),
@@ -62,6 +81,9 @@ test("逐页清单在点击未决时失败关闭，已提交任务跨日只恢�
     action: "resume_previous", snapshotDate: "2026-08-22",
   });
   assert.deepEqual(decideTmallPagewiseAuditRecovery("2026-08-23", audit("planned")), {
+    action: "discard", snapshotDate: "2026-08-23",
+  });
+  assert.deepEqual(decideTmallPagewiseAuditRecovery("2026-08-23", audit("browser_ready")), {
     action: "discard", snapshotDate: "2026-08-23",
   });
 });
