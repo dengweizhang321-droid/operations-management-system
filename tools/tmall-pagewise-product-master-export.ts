@@ -217,6 +217,17 @@ export function chooseTmallOnSalePaginationRegions(regions: readonly string[]): 
   return unique.size === 1 ? [...unique.values()][0]! : null;
 }
 
+export function chooseTmallOnSaleHeaderCheckbox(candidates: readonly { signature: string; score: number }[]) {
+  const unique = new Map<string, { signature: string; score: number }>();
+  for (const candidate of candidates) {
+    const previous = unique.get(candidate.signature);
+    if (!previous || candidate.score > previous.score) unique.set(candidate.signature, candidate);
+  }
+  const ranked = [...unique.values()].sort((left, right) => right.score - left.score);
+  if (!ranked[0] || ranked[1]?.score === ranked[0].score) return null;
+  return ranked[0];
+}
+
 export function expectedTmallPageItemCount(totalProducts: number, totalPages: number, page: number) {
   if (!Number.isInteger(totalProducts) || totalProducts <= 0 || !Number.isInteger(totalPages) || totalPages <= 0
     || !Number.isInteger(page) || page <= 0 || page > totalPages || Math.ceil(totalProducts / 20) !== totalPages) {
@@ -433,26 +444,30 @@ async function waitForStableTmallOnSalePagination(options: {
 
 async function selectCurrentPageProducts(page: Page, expectedCount: number) {
   const titleCandidates = await exactTextCandidates(page, "商品标题");
-  if (titleCandidates.length !== 1) throw new Error("无法唯一定位出售中列表的“商品标题”表头");
-  const title = titleCandidates[0]!;
+  if (titleCandidates.length === 0) throw new Error("未找到出售中列表的“商品标题”表头");
   const selector = 'input[type="checkbox"],[role="checkbox"],label[class*="checkbox" i],span[class*="checkbox" i]';
-  const matches = title.frame.locator(selector);
   const checkboxCandidates: Array<PositionedCandidate & { score: number }> = [];
-  const count = Math.min(await matches.count().catch(() => 0), 200);
-  for (let index = 0; index < count; index += 1) {
-    const detail = await positionedCandidate(title.frame, matches.nth(index));
-    if (!detail) continue;
-    const centerY = detail.top + detail.height / 2;
-    const titleCenterY = title.top + title.height / 2;
-    if (detail.left > title.left || Math.abs(centerY - titleCenterY) > 48 || detail.top > 450) continue;
-    const score = 100 - Math.abs(centerY - titleCenterY) - Math.min(60, Math.abs(title.left - detail.left) / 4);
-    checkboxCandidates.push({ ...detail, score });
+  for (const title of titleCandidates) {
+    const matches = title.frame.locator(selector);
+    const count = Math.min(await matches.count().catch(() => 0), 200);
+    for (let index = 0; index < count; index += 1) {
+      const detail = await positionedCandidate(title.frame, matches.nth(index));
+      if (!detail) continue;
+      const centerY = detail.top + detail.height / 2;
+      const titleCenterY = title.top + title.height / 2;
+      if (detail.left > title.left || Math.abs(centerY - titleCenterY) > 48 || detail.top > 450) continue;
+      const score = 100 - Math.abs(centerY - titleCenterY) - Math.min(60, Math.abs(title.left - detail.left) / 4);
+      checkboxCandidates.push({ ...detail, score });
+    }
   }
-  checkboxCandidates.sort((left, right) => right.score - left.score);
-  if (!checkboxCandidates[0] || checkboxCandidates[1] && checkboxCandidates[1].score === checkboxCandidates[0].score) {
-    throw new Error("无法唯一定位出售中列表当前页全选框");
+  const chosen = chooseTmallOnSaleHeaderCheckbox(checkboxCandidates);
+  if (!chosen) {
+    const uniqueCheckboxes = new Set(checkboxCandidates.map((candidate) => candidate.signature)).size;
+    throw new Error(`无法唯一定位出售中列表当前页全选框（表头 ${titleCandidates.length}，候选 ${uniqueCheckboxes}）`);
   }
-  await checkboxCandidates[0].locator.click({ timeout: 15_000 });
+  const checkbox = checkboxCandidates.find((candidate) => candidate.signature === chosen.signature);
+  if (!checkbox) throw new Error("出售中列表全选框候选在点击前失效");
+  await checkbox.locator.click({ timeout: 15_000 });
   await waitUntil(15_000, async () => {
     const text = (await combinedPageText(page)).replace(/\s+/g, "");
     return text.includes(`已选${expectedCount}`);

@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import {
+  chooseTmallOnSaleHeaderCheckbox,
   chooseTmallPagewiseExportRecords,
   chooseTmallOnSalePaginationRegions,
   decideTmallPagewiseAuditRecovery,
@@ -67,6 +68,22 @@ test("出售中分页只接受商品总数附近的唯一稳定区域，不受�
     "共134件商品 1/7 2/7",
   ]), null);
 });
+
+test("重复商品标题 DOM 只要指向同一全选框即可合并，真正的并列全选框仍失败关闭", () => {
+  assert.deepEqual(chooseTmallOnSaleHeaderCheckbox([
+    { signature: "same-checkbox", score: 96 },
+    { signature: "same-checkbox", score: 92 },
+  ]), { signature: "same-checkbox", score: 96 });
+  assert.equal(chooseTmallOnSaleHeaderCheckbox([
+    { signature: "first-checkbox", score: 96 },
+    { signature: "second-checkbox", score: 96 },
+  ]), null);
+  assert.deepEqual(chooseTmallOnSaleHeaderCheckbox([
+    { signature: "near-checkbox", score: 97 },
+    { signature: "far-checkbox", score: 91 },
+  ]), { signature: "near-checkbox", score: 97 });
+});
+
 test("逐页清单在点击未决时失败关闭，预检失败可安全重试，已提交任务跨日只恢复原快照", () => {
   const audit = (stage: "planned" | "browser_ready" | "page_export_submitting" | "page_export_submitted", taskCount = 0) => ({
     snapshotDate: "2026-08-22",
