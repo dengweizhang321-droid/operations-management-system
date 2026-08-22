@@ -836,7 +836,9 @@ export function workflowClaimDecision(input: {
   if (!input.requestExecutionId) return { error: "missing_or_invalid_execution_id" as const };
   if (input.requestedWorkflow === "tmall") {
     if (!input.requestedTmallStoreKey) return { error: "missing_or_invalid_tmall_store_key" as const };
-    if (input.claimedTmallStoreKey && input.claimedTmallStoreKey !== input.requestedTmallStoreKey) {
+    if (input.claimedExecutionId === input.requestExecutionId
+      && input.claimedTmallStoreKey
+      && input.claimedTmallStoreKey !== input.requestedTmallStoreKey) {
       return { error: "tmall_store_context_mismatch" as const };
     }
   }

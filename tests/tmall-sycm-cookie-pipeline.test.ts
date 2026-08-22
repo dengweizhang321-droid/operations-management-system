@@ -99,6 +99,11 @@ test("工作流协调领取使用受控键并在 A 前原子授予唯一 executi
     requestExecutionId: "execution-tmall", claimedExecutionId: null,
   }), { error: "missing_or_invalid_tmall_store_key" });
   assert.deepEqual(workflowClaimDecision({
+    stage: "running", busy: true, activeWorkflow: "tmall", requestedWorkflow: "tmall",
+    requestExecutionId: "execution-lili", claimedExecutionId: "execution-yijiu",
+    requestedTmallStoreKey: "tmall-lili", claimedTmallStoreKey: "tmall-yijiu",
+  }), { coordinationStatus: "waiting", reason: "active_workflow", activeWorkflow: "tmall" });
+  assert.deepEqual(workflowClaimDecision({
     stage: "ready", busy: false, activeWorkflow: "tmall", requestedWorkflow: "tmall",
     requestExecutionId: "execution-tmall", claimedExecutionId: "execution-tmall",
     requestedTmallStoreKey: "tmall-lili", claimedTmallStoreKey: "tmall-yijiu",
