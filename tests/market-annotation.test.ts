@@ -523,7 +523,12 @@ test("create job always answers a click with one actionable blocking reason", as
   assert.match(ui, /const blocked = createJobBlockReason\(\);\n\s*if \(blocked\) throw new Error\(blocked\);/);
   assert.match(ui, /无法创建任务：\{createBlockReason\}/);
   assert.match(ui, /disabled=\{busy !== ""\} onClick=\{createJob\}/);
-  assert.match(ui, /busy === "create-job" \? "创建任务中…"/);
+  assert.match(ui, /busy === "create-job" \? \(compatibleExistingJob\?\.executor === "cloud" \? "正在恢复并唤醒…" : "正在恢复任务…"\)/);
+  assert.match(ui, /if \(compatibleExistingJob\) \{[\s\S]*?const id = compatibleExistingJob\.id/);
+  assert.match(ui, /await post\(\{ action: "set_cloud_run_state", jobId: id, state: "running" \}\)/);
+  assert.match(ui, /await loadJobProgress\(id\)/);
+  assert.match(ui, /恢复兼容任务并续跑/);
+  assert.match(ui, /!currentCloudRunIsRunning/);
   assert.doesNotMatch(ui, /disabled=\{!canEdit \|\| !activePrompt \|\| busy !== ""/);
   assert.match(ui, /defaultAnnotationPromptBody\(nextCategory, nextSegments\)/);
   const template = defaultAnnotationPromptBody("商用净饮水设备", ["商用直饮机", "净饮一体机"]);

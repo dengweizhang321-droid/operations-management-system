@@ -283,10 +283,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const currentCloudRun = data?.cloudRuns.find((item) => item.jobId === currentJob?.id) ?? null;
   const currentRemainingInferenceCount = remainingInferenceUnitsForJob(currentJob, cloudProgress);
   const currentCloudRunHasUnfinishedItems = currentJob?.executor === "cloud" && currentRemainingInferenceCount > 0;
+  const currentCloudRunIsRunning = currentCloudRun?.state === "running" && currentCloudRunHasUnfinishedItems;
   const backgroundJobId = currentJob?.id ?? "";
   const backgroundExecutor = currentJob?.executor ?? "";
   useEffect(() => {
-    if (!backgroundJobId || backgroundExecutor !== "cloud" || currentCloudRun?.state !== "running") return;
+    if (!backgroundJobId || backgroundExecutor !== "cloud" || !currentCloudRunIsRunning) return;
     let disposed = false;
     let polling = false;
     const tick = async () => {
@@ -304,7 +305,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     void tick();
     const timer = window.setInterval(() => void tick(), 5_000);
     return () => { disposed = true; window.clearInterval(timer); };
-  }, [backgroundExecutor, backgroundJobId, currentCloudRun?.state, loadJobProgress, loadReview]);
+  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, loadJobProgress, loadReview]);
   const concurrencyFor = (targetCategory: string, targetExecutor: MarketAnnotationExecutor) => {
     const key = annotationConcurrencyKey(targetCategory, targetExecutor);
     const stored = data?.concurrencySettings.find((item) => item.category === targetCategory && item.executor === targetExecutor)?.concurrency;
@@ -378,14 +379,38 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const blocked = createJobBlockReason();
     if (blocked) throw new Error(blocked);
     const concurrency = normalizeMarketAnnotationConcurrency(concurrencyFor(category, executor), executor);
+    if (compatibleExistingJob) {
+      const id = compatibleExistingJob.id;
+      dirtyDraftIdsRef.current.clear();
+      setCloudProgress(null);
+      setItemPage(1);
+      setJobId(id);
+      let savedConcurrency = concurrency;
+      if (executor === "cloud") {
+        savedConcurrency = await persistConcurrency(category, "cloud", concurrency);
+        await post({ action: "set_cloud_run_state", jobId: id, state: "running" });
+      }
+      const progress = await loadJobProgress(id);
+      await load(id, 1);
+      setJobId(id);
+      setCloudProgress(progress);
+      setNotice(progress.remainingInferenceUnits === 0
+        ? "兼容任务已处理完毕，现在可以创建下一批任务"
+        : executor === "cloud"
+          ? `已切换到兼容任务并重新唤醒云端后台（目标并发 ${savedConcurrency}），剩余推理 ${progress.remainingInferenceUnits} 条`
+          : `已切换到兼容任务，剩余推理 ${progress.remainingInferenceUnits} 条；本地 Ollama agent 可继续领取`);
+      return;
+    }
     const result = await post({ action: "create_job", category, promptVersionId: activePrompt?.id, executor, modelId: executor === "cloud" ? visionModelId : undefined, localModelName: executor === "local" ? localModelName : undefined, limit, concurrency });
-    const id = String(result?.id || ""); dirtyDraftIdsRef.current.clear(); setCloudProgress(null); setItemPage(1); setJobId(id);
-    setNotice(compatibleExistingJob ? "已恢复仍有推理项的兼容任务" : categoryReviewReadyJob ? "下一批标注任务已创建；上一批可继续人工复核" : "标注任务已创建");
+    const id = String(result?.id || "");
+    if (!id) throw new Error("创建任务成功，但服务端没有返回任务 ID；请刷新后重试");
+    dirtyDraftIdsRef.current.clear(); setCloudProgress(null); setItemPage(1); setJobId(id);
+    setNotice(categoryReviewReadyJob ? "下一批标注任务已创建；上一批可继续人工复核" : "标注任务已创建");
     await load(id, 1);
   });
   const pumpCloud = () => act("run-cloud", async () => {
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要继续的云端标注任务");
-    const alreadyRunning = currentCloudRun?.state === "running";
+    const alreadyRunning = currentCloudRunIsRunning;
     const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
     await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
     const progress = await loadJobProgress(currentJob.id);
@@ -611,14 +636,14 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <div className="annotation-task-footer">
         {createBlockReason
           ? <small className="orange-text">无法创建任务：{createBlockReason}</small>
-          : <small>{compatibleExistingJob ? `将恢复兼容任务，剩余推理 ${compatibleExistingJob.remainingInferenceCount} 条` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条，单批最多 ${MARKET_ANNOTATION_JOB_LIMITS.maximum} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
-        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? "创建任务中…" : compatibleExistingJob ? "恢复兼容任务" : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
+          : <small>{compatibleExistingJob ? `将切换并续跑兼容任务，剩余推理 ${compatibleExistingJob.remainingInferenceCount} 条；完成后可创建下一批` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条，单批最多 ${MARKET_ANNOTATION_JOB_LIMITS.maximum} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
+        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob?.executor === "cloud" ? "正在恢复并唤醒…" : "正在恢复任务…") : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "恢复兼容任务并续跑" : "恢复兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
       </div>
 
       {currentJob && <div className="annotation-current-run">
-        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRun?.state === "running" ? `运行中（当前 ${currentCloudRun.runConcurrency}/${currentCloudRun.targetConcurrency} 路）` : currentCloudRun?.state === "completed" ? currentCloudRunHasUnfinishedItems ? "已停止（仍有未完成项，可恢复）" : "已完成" : "已暂停"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
+        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRunIsRunning ? `运行中（当前 ${currentCloudRun!.runConcurrency}/${currentCloudRun!.targetConcurrency} 路）` : currentCloudRunHasUnfinishedItems ? currentCloudRun?.state === "completed" ? "已停止（仍有未完成项，可恢复）" : "已暂停" : "已完成"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
         <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
-        {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || !currentCloudRunHasUnfinishedItems} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRun?.state === "running" ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : !currentCloudRunHasUnfinishedItems ? "没有可重试识别项" : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRun?.state === "running" ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || currentCloudRun?.state !== "running"} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
+        {currentJob.executor === "cloud" ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || !currentCloudRunHasUnfinishedItems} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : !currentCloudRunHasUnfinishedItems ? "没有可重试识别项" : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
 
       <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务；已全部入库的记录可由管理员删除，正式入库结果不会受影响</small></div>
