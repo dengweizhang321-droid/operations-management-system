@@ -92,15 +92,40 @@ test("JD session guard waits through a blank business URL and catches the delaye
   assert.equal(jdSessionSurfaceDecision("https://jdsz.jd.com/product", "", false), "pending");
   assert.equal(jdSessionSurfaceDecision("https://passport.jd.com/new/login.aspx", "", false), "login");
   assert.equal(jdSessionSurfaceDecision("https://jdsz.jd.com/product", "商品明细", false), "authenticated");
+  assert.equal(jdSessionSurfaceDecision(
+    "https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html",
+    "商品榜单 交易榜单",
+    false,
+  ), "authenticated");
   let sample = 0;
-  const page = {
+  const frame = {
     url: () => sample === 0 ? "https://jdsz.jd.com/szweb/view/product/productDetail.html" : "https://passport.jd.com/new/login.aspx",
     locator: (selector: string) => selector === "body"
       ? { innerText: async () => sample === 0 ? "" : "账号 密码 登录" }
       : { count: async () => sample === 0 ? 0 : 1 },
+  } as unknown as Frame;
+  const page = {
+    frames: () => [frame],
     waitForTimeout: async () => { sample += 1; },
   } as unknown as Page;
   assert.equal(await waitForJdSessionSurface(page, 1_000), "login");
+});
+
+test("JD session guard gives a child passport frame precedence over an authenticated market shell", async () => {
+  const frame = (url: string, bodyText: string, hasPassword: boolean) => ({
+    url: () => url,
+    locator: (selector: string) => selector === "body"
+      ? { innerText: async () => bodyText }
+      : { count: async () => hasPassword ? 1 : 0 },
+  }) as unknown as Frame;
+  const page = {
+    frames: () => [
+      frame("https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html", "商品榜单 交易榜单", false),
+      frame("https://passport.jd.com/new/login.aspx", "账号 密码 登录", true),
+    ],
+    waitForTimeout: async () => undefined,
+  } as unknown as Page;
+  assert.equal(await waitForJdSessionSurface(page, 0), "login");
 });
 
 test("JD DPAPI credentials never travel through n8n, environment variables, CLI secrets or logs", async () => {
@@ -115,12 +140,15 @@ test("JD DPAPI credentials never travel through n8n, environment variables, CLI 
   assert.match(vaultSource, /ZeroFreeBSTR/);
 });
 
-test("both JD product flows authenticate before business identity or export actions", async () => {
+test("all JD product and market flows authenticate before business identity or export actions", async () => {
   const ware = await readFile(new URL("../tools/jackyun-ware-export.ts", import.meta.url), "utf8");
   const daily = await readFile(new URL("../tools/jdsz-product-detail-export.ts", import.meta.url), "utf8");
+  const market = await readFile(new URL("../tools/jd-market-ranking-daily.ts", import.meta.url), "utf8");
   const wareOpen = ware.slice(ware.indexOf("async function openTargetPage"), ware.indexOf("async function dismissJdMenuUpdateNotice"));
   assert.match(wareOpen, /ensureJdStoreAuthenticatedSession/);
   assert.match(wareOpen, /loginMode === "windows_dpapi_credentials"\) return query/);
   const dailyRun = daily.slice(daily.indexOf("async function run()"), daily.indexOf("async function main()"));
   assert.ok(dailyRun.indexOf("ensureJdStoreAuthenticatedSession") < dailyRun.indexOf("readAndAssertJdProductDetailStoreIdentity"));
+  const marketRun = market.slice(market.indexOf("export async function runJdMarketDailyPlan"));
+  assert.ok(marketRun.indexOf("ensureJdStoreAuthenticatedSession") < marketRun.indexOf("assertStoreIdentity(page, plan)"));
 });

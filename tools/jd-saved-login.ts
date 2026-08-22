@@ -194,14 +194,23 @@ export type JdSessionSurface = "authenticated" | "login" | "pending";
 export function jdSessionSurfaceDecision(url: string, bodyText: string, hasPassword: boolean): JdSessionSurface {
   if (/passport|login/i.test(url)
     || (hasPassword && /登录/.test(bodyText) && /账号|账户|手机|用户名/.test(bodyText))) return "login";
+  if (/jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html/i.test(url)
+    && /商品榜单|交易榜单/.test(bodyText)) return "authenticated";
   if (/商品明细|下载中心|导出查询商品|批量操作|商品管理|出售中的商品|商品列表/.test(bodyText)) return "authenticated";
   return "pending";
 }
 
 async function readJdSessionSurface(page: Page): Promise<JdSessionSurface> {
-  const bodyText = await page.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
-  const hasPassword = await page.locator('input[type="password"],#nloginpwd').count().then((count) => count > 0).catch(() => false);
-  return jdSessionSurfaceDecision(page.url(), bodyText, hasPassword);
+  const surfaces = await Promise.all(page.frames().map(async (frame) => {
+    const bodyText = await frame.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
+    const hasPassword = await frame.locator('input[type="password"],#nloginpwd').count()
+      .then((count) => count > 0)
+      .catch(() => false);
+    return jdSessionSurfaceDecision(frame.url(), bodyText, hasPassword);
+  }));
+  if (surfaces.includes("login")) return "login";
+  if (surfaces.includes("authenticated")) return "authenticated";
+  return "pending";
 }
 
 export async function waitForJdSessionSurface(page: Page, timeoutMs = 15_000): Promise<JdSessionSurface> {

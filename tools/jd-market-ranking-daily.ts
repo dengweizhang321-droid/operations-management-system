@@ -11,6 +11,7 @@ import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
+import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 import {
   assertJdMarketImportProof,
   claimExactJdMarketPlan,
@@ -944,8 +945,20 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
       activePage = page;
       await installRequestCapture(page);
       const navigation = await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
-      if (!navigation?.ok() || !/^https:\/\/jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html(?:\?|$)/i.test(page.url())) {
-        throw new Error("京东商品榜单唯一受控页面未精确导航到榜单地址。");
+      if (!navigation?.ok()) {
+        throw new Error(`京东商品榜单目标页面导航失败：HTTP ${navigation?.status() ?? "unknown"}`);
+      }
+      await ensureJdStoreAuthenticatedSession(page, store);
+      const targetUrlRegex = /^https:\/\/jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html(?:\?|$)/i;
+      if (!targetUrlRegex.test(page.url())) {
+        const resumedNavigation = await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        if (!resumedNavigation?.ok()) {
+          throw new Error(`京东商品榜单登录后目标页面导航失败：HTTP ${resumedNavigation?.status() ?? "unknown"}`);
+        }
+        await ensureJdStoreAuthenticatedSession(page, store);
+      }
+      if (!targetUrlRegex.test(page.url())) {
+        throw new Error("京东商品榜单登录后未回到唯一受控榜单地址。");
       }
       await assertStoreIdentity(page, plan);
       for (const targetPlan of plan.targets) {
