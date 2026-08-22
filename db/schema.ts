@@ -1146,7 +1146,7 @@ export const marketAnnotationJobs = sqliteTable("market_annotation_jobs", {
   commitTokenHash: text("commit_token_hash").notNull().default(""), commitStartedAt: text("commit_started_at"),
 }, (table) => [
   index("market_annotation_jobs_category_created_idx").on(table.category, table.createdAt),
-  uniqueIndex("market_annotation_jobs_active_work_uq").on(table.workKey).where(sql`${table.workKey} <> '' AND ${table.status} IN ('queued','running','failed','review_ready','committing')`),
+  uniqueIndex("market_annotation_jobs_active_work_uq").on(table.workKey).where(sql`${table.workKey} <> '' AND ${table.status} IN ('queued','running','failed')`),
 ]);
 
 export const marketAnnotationItems = sqliteTable("market_annotation_items", {

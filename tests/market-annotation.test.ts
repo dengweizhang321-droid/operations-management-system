@@ -280,7 +280,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /输入类目关键词/);
   assert.match(ui, /filteredCategories/);
   assert.match(ui, /new URLSearchParams\(\{ view: "review"/);
-  assert.match(ui, /new URLSearchParams\(\{ view: "catalog"/);
+  assert.doesNotMatch(ui, /new URLSearchParams\(\{ view: "catalog"/);
   assert.doesNotMatch(ui, /void load\(item\.id, search, searchPage, 1\)/);
   assert.match(ui, /action: "commit_selected"/);
   assert.match(ui, /action: "select_filtered"/);
@@ -294,7 +294,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /MAX_FILTERED_SELECTION = 50_000/);
   assert.match(service, /COMMIT_SELECTION_BATCH_SIZE = 500/);
   assert.match(ui, /AI 标注识别来源/);
-  assert.match(ui, /完整市场 SKU 库检索/);
+  assert.doesNotMatch(ui, /完整市场 SKU 库检索/);
+  assert.match(route, /includeCatalog: params\.get\("includeCatalog"\) === "1"/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
   assert.match(ui, /lastFailureCode.*lastFailureMessage/);
@@ -467,6 +468,8 @@ test("restarting an already-running cloud job preserves its coordinator lease an
       VALUES ('重启类目','cloud',6,'admin@test');
     INSERT INTO market_annotation_jobs (id, category, prompt_version_id, executor, model_id, status, total_count, reuse_status, created_by)
       VALUES ('restart-job','重启类目','restart-prompt','cloud','unused','running',1,'ready','admin@test');
+    INSERT INTO market_annotation_items (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status)
+      VALUES ('restart-item','restart-job','重启类目','pop','RESTART','SKU','2026-08','restart-hash','queued');
   `);
   sqlite.prepare(`INSERT INTO market_annotation_cloud_runs
       (job_id,state,retry_state_json,next_run_at,lease_token_hash,lease_expires_at,last_failure_code,last_failure_message)
@@ -1026,6 +1029,31 @@ test("0057 installs persistent cloud-run coordination and per-image timing field
   sqlite.close();
 });
 
+test("0066 lets review batches coexist while keeping runnable work unique", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE market_annotation_jobs (
+    id TEXT PRIMARY KEY NOT NULL,
+    work_key TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'queued'
+  );
+  CREATE UNIQUE INDEX market_annotation_jobs_active_work_uq ON market_annotation_jobs(work_key)
+    WHERE work_key<>'' AND status IN ('queued','running','failed','review_ready','committing');`);
+  const migration = await readFile(new URL("../drizzle/0066_market_annotation_runnable_work.sql", import.meta.url), "utf8");
+  for (let run = 0; run < 2; run += 1) {
+    for (const statement of migration.split("--> statement-breakpoint").map((value) => value.trim()).filter(Boolean)) sqlite.exec(statement);
+  }
+  sqlite.exec(`INSERT INTO market_annotation_jobs VALUES
+    ('review-a','same-work','review_ready'),
+    ('review-b','same-work','review_ready'),
+    ('commit-a','same-work','committing'),
+    ('runnable-a','same-work','queued');`);
+  assert.throws(() => sqlite.prepare("INSERT INTO market_annotation_jobs VALUES ('runnable-b','same-work','running')").run(), /UNIQUE constraint/);
+  const definition = String((sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='market_annotation_jobs_active_work_uq'").get() as { sql: string }).sql);
+  assert.match(definition, /'queued','running','failed'/);
+  assert.doesNotMatch(definition, /review_ready|committing/);
+  sqlite.close();
+});
+
 test("market annotation commit directly inherits standard prices across matching SKU-image months only", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
@@ -1118,7 +1146,7 @@ test("new annotation jobs reuse same-image prices and mark changed images for pr
   sqlite.close();
 });
 
-test("price recognition resumes the compatible unfinished job instead of creating duplicates", async () => {
+test("price recognition resumes unfinished work and creates the next batch after review is ready", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -1144,12 +1172,74 @@ test("price recognition resumes the compatible unfinished job instead of creatin
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_jobs WHERE category='净水'").get() as { count: number }).count, 1);
 
   sqlite.prepare("UPDATE market_annotation_items SET status='review_pending',ai_segment='台式',ai_image_price_cents=19900 WHERE job_id=?").run(first.id);
-  sqlite.prepare("UPDATE market_annotation_jobs SET status='review_ready' WHERE id=?").run(first.id);
-  const reviewResume = await createPriceRecognitionJob(db, { category: "净水", modelId: "vision-resume", limit: 100 }, { email: "operator@test", role: "operator" });
-  assert.equal(reviewResume.id, first.id);
+  await getAnnotationJobProgress(db, first.id);
+  sqlite.exec(`
+    INSERT INTO market_ranking_entries
+      (natural_key, source_row_number, period_start, period_end, category, scope, ranking_dimension, operation_mode, sku_code, product_name, image_url, raw_json, last_import_batch_id)
+      VALUES ('resume-next-ranking',2,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-NEXT','下一批商品','https://img10.360buyimg.com/imgzone/next.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, image_url, confirmation_status)
+      VALUES ('resume-next-snapshot','净水','pop','SKU-NEXT','SKU','2026-05','next-hash','https://img10.360buyimg.com/imgzone/next.jpg','missing');
+  `);
+  const nextBatch = await createPriceRecognitionJob(db, { category: "净水", modelId: "vision-resume", limit: 100 }, { email: "operator@test", role: "operator" });
+  assert.notEqual(nextBatch.id, first.id);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_jobs WHERE category='净水'").get() as { count: number }).count, 2);
+  assert.equal((sqlite.prepare("SELECT sku_code skuCode FROM market_annotation_items WHERE job_id=?").get(nextBatch.id) as { skuCode: string }).skuCode, "SKU-NEXT");
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_annotation_items WHERE job_id=?").get(first.id) as { count: number }).count, 1);
   const completed = sqlite.prepare("SELECT status,ai_image_price_cents price FROM market_annotation_items WHERE job_id=?").get(first.id) as Record<string, unknown>;
   assert.deepEqual({ ...completed }, { status: "review_pending", price: 19900 });
+  sqlite.close();
+});
+
+test("a review-ready 10k-compatible batch cannot intercept the next general annotation batch", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`CREATE TABLE ai_models (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, protocol TEXT NOT NULL, model_type TEXT NOT NULL,
+    model_name TEXT NOT NULL, base_url TEXT NOT NULL, api_key_encrypted TEXT NOT NULL,
+    is_default_text_model INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  sqlite.exec("INSERT INTO ai_models (id,name,protocol,model_type,model_name,base_url,api_key_encrypted,status) VALUES ('vision-next-batch','视觉模型','openai','vision','vision-next','https://example.test','encrypted','enabled')");
+  sqlite.exec(`
+    INSERT INTO market_annotation_prompt_versions (id,category,version,source,status,segments_json,prompt_body,created_by)
+      VALUES ('prompt-next-batch','净水',1,'manual','active','["台式","立式"]','这是用于验证超过单批上限后可继续创建下一批标注任务的正式 Prompt。','admin@test');
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+      VALUES ('next-batch-a',1,'2026-06-01','2026-06-30','净水','pop','SKU','POP','SKU-BATCH-A','第一批','https://img.test/batch-a.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES ('next-batch-snapshot-a','净水','pop','SKU-BATCH-A','SKU','2026-06','batch-hash-a','https://img.test/batch-a.jpg','missing');
+  `);
+  const actor = { email: "operator@test", role: "operator" };
+  const input = { category: "净水", promptVersionId: "prompt-next-batch", executor: "cloud", modelId: "vision-next-batch", limit: 1 } as const;
+  const first = await createAnnotationJob(db, input, actor);
+  sqlite.prepare("UPDATE market_annotation_items SET status='review_pending',ai_segment='台式',ai_image_price_cents=188800 WHERE job_id=?").run(first.id);
+  const firstProgress = await getAnnotationJobProgress(db, first.id);
+  assert.equal(firstProgress.job.status, "review_ready");
+  assert.equal(firstProgress.remainingInferenceUnits, 0);
+  await assert.rejects(() => setCloudAnnotationRunState(db, { jobId: first.id, state: "running" }, actor), /没有可重试的 AI 推理项.*创建下一批任务/);
+
+  sqlite.exec(`
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+      VALUES ('next-batch-b',2,'2026-07-01','2026-07-31','净水','pop','SKU','POP','SKU-BATCH-B','第二批','https://img.test/batch-b.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,confirmation_status)
+      VALUES ('next-batch-snapshot-b','净水','pop','SKU-BATCH-B','SKU','2026-07','batch-hash-b','https://img.test/batch-b.jpg','missing');
+  `);
+  const second = await createAnnotationJob(db, input, actor);
+  assert.notEqual(second.id, first.id);
+  assert.equal((sqlite.prepare("SELECT sku_code skuCode FROM market_annotation_items WHERE job_id=?").get(second.id) as { skuCode: string }).skuCode, "SKU-BATCH-B");
+  assert.deepEqual((sqlite.prepare("SELECT status,COUNT(*) count FROM market_annotation_jobs GROUP BY status ORDER BY status").all() as Array<Record<string, unknown>>).map((row) => ({ ...row })), [
+    { status: "review_ready", count: 1 },
+    { status: "running", count: 1 },
+  ]);
+  const workspace = await getAnnotationWorkspace(db, { includeCatalog: false });
+  assert.equal(workspace.jobs.find((job) => job.id === first.id)?.remainingInferenceCount, 0);
+  assert.equal(workspace.jobs.find((job) => job.id === second.id)?.remainingInferenceCount, 1);
   sqlite.close();
 });
 

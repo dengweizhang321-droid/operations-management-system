@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       storageStatuses: params.getAll("storageStatus").filter((value) => value === "pending" || value === "committed"),
       recognitionSources: params.getAll("recognitionSource").filter((value) => value === "ai" || value === "non_ai"),
       includeAgents: principal.role === "admin",
-      includeCatalog: params.get("includeCatalog") !== "0",
+      includeCatalog: params.get("includeCatalog") === "1",
     } as const;
     if (view === "progress") {
       return Response.json(await getAnnotationJobProgress(db, workspaceInput.jobId ?? ""), { headers: { "cache-control": "no-store" } });
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
-    if (error instanceof Error && /候选项|当前快照|图片哈希|Prompt 枚举|任务正在/.test(error.message)) {
+    if (error instanceof Error && /候选项|当前快照|图片哈希|Prompt 枚举|任务正在|没有可重试的 AI 推理项|创建下一批任务/.test(error.message)) {
       return safeApiErrorResponse(new PublicApiError(409, "market_annotation_version_conflict", error.message.slice(0, 300)), "SKU AI 标注操作失败", { headers: { "cache-control": "no-store" } });
     }
     return safeApiErrorResponse(error, "SKU AI 标注操作失败", { headers: { "cache-control": "no-store" } });

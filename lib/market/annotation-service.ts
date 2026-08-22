@@ -23,7 +23,7 @@ import { inheritConfirmedStandardSkuImagePrices } from "@/lib/market/schema-core
 
 type Actor = { email: string; role: string };
 type PromptRow = { id: string; category: string; version: number; parent_id: string | null; source: string; status: string; segments_json: string; prompt_body: string; change_note: string; metrics_json: string; created_by: string; created_at: string; activated_by: string | null; activated_at: string | null };
-type JobRow = { id: string; category: string; prompt_version_id: string; executor: string; model_id: string | null; local_model_name: string; work_key: string; reuse_status: string; reuse_started_at: string | null; status: string; total_count: number; completed_count: number; failed_count: number; reviewed_count: number; committed_count: number; created_by: string; created_at: string; started_at: string | null; completed_at: string | null; updated_at: string; commit_token_hash: string; commit_started_at: string | null };
+type JobRow = { id: string; category: string; prompt_version_id: string; executor: string; model_id: string | null; local_model_name: string; work_key: string; reuse_status: string; reuse_started_at: string | null; status: string; total_count: number; completed_count: number; failed_count: number; reviewed_count: number; committed_count: number; created_by: string; created_at: string; started_at: string | null; completed_at: string | null; updated_at: string; commit_token_hash: string; commit_started_at: string | null; remaining_inference_count?: number };
 type ItemRow = { id: string; job_id: string; category: string; scope: string; sku_code: string; ranking_dimension: string; month: string; image_content_sha256: string; product_name: string; brand: string; source_image_url: string; resolved_image_url: string; image_source: string; status: string; ai_segment: string; ai_image_price_cents: number | null; ai_price_type: string; ai_price_low_cents: number | null; ai_price_high_cents: number | null; ai_confidence_bps: number | null; ai_reason: string; model_input_bytes: number; image_load_ms: number; image_prepare_ms: number; model_call_ms: number; total_inference_ms: number; reviewed_segment: string; reviewed_image_price_cents: number | null; reviewed_price_type: string; reviewed_price_low_cents: number | null; reviewed_price_high_cents: number | null; selected: number; reviewed_by: string; reviewed_at: string | null; lease_token_hash: string; lease_agent_id: string; lease_expires_at: string | null; attempt_count: number; error_message: string; version: number; created_at: string; updated_at: string };
 type ValidationSampleRow = { id: string; category: string; sku_code: string; product_name: string; brand: string; image_url: string; gold_segment: string; gold_image_price_cents: number | null };
 type ValidationSnapshot = { id: string; skuCode: string; productName: string; brand: string; imageUrl: string; goldSegment: string; goldImagePriceCents: number | null };
@@ -77,7 +77,7 @@ async function ensureMarketSchemaLazy(db: MarketDatabase) {
   }
 }
 function promptValue(row: PromptRow) { return { id: row.id, category: row.category, version: row.version, parentId: row.parent_id, source: row.source, status: row.status, segments: json<string[]>(row.segments_json, []), promptBody: row.prompt_body, changeNote: row.change_note, metrics: json(row.metrics_json, {}), createdBy: row.created_by, createdAt: row.created_at, activatedBy: row.activated_by, activatedAt: row.activated_at }; }
-function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
+function jobValue(row: JobRow) { return { id: row.id, category: row.category, promptVersionId: row.prompt_version_id, executor: row.executor, modelId: row.model_id, localModelName: row.local_model_name, status: row.status, totalCount: row.total_count, completedCount: row.completed_count, failedCount: row.failed_count, reviewedCount: row.reviewed_count, committedCount: row.committed_count, remainingInferenceCount: Number(row.remaining_inference_count ?? 0), createdBy: row.created_by, createdAt: row.created_at, startedAt: row.started_at, completedAt: row.completed_at, updatedAt: row.updated_at }; }
 function itemValue(row: ItemRow) { return { id: row.id, candidateId: row.id, jobId: row.job_id, category: row.category, skuCode: row.sku_code, rankingDimension: row.ranking_dimension, month: row.month, imageContentSha256: row.image_content_sha256, productName: row.product_name, brand: row.brand, sourceImageUrl: row.source_image_url, resolvedImageUrl: row.resolved_image_url, imageSource: row.image_source, status: row.status, aiSegment: row.ai_segment, aiImagePriceCents: row.ai_image_price_cents, aiPriceType: row.ai_price_type, aiPriceLowCents: row.ai_price_low_cents, aiPriceHighCents: row.ai_price_high_cents, aiConfidenceBps: row.ai_confidence_bps, aiReason: row.ai_reason, modelInputBytes: row.model_input_bytes, imageLoadMs: row.image_load_ms, imagePrepareMs: row.image_prepare_ms, modelCallMs: row.model_call_ms, totalInferenceMs: row.total_inference_ms, reviewedSegment: row.reviewed_segment, reviewedImagePriceCents: row.reviewed_image_price_cents, reviewedPriceType: row.reviewed_price_type, reviewedPriceLowCents: row.reviewed_price_low_cents, reviewedPriceHighCents: row.reviewed_price_high_cents, reviewPriceSource: row.reviewed_by === HISTORY_SAME_IMAGE_REVIEWER ? "history_same_image" : (row.ai_segment || row.ai_image_price_cents !== null || row.ai_confidence_bps !== null || row.ai_reason) ? "ai" : "manual", selected: Boolean(row.selected), reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, attemptCount: row.attempt_count, errorMessage: row.error_message, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at }; }
 
 const currentAnnotationSnapshotExistsSql = (itemAlias: string) => `EXISTS (
@@ -187,9 +187,21 @@ export async function setCloudAnnotationRunState(
 ) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const jobId = input.jobId.trim();
-  const job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
+  let job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
   if (!job || job.executor !== "cloud") throw new Error("云端标注任务不存在");
+  if (job.status === "committing") throw new Error("该任务正在入库，不能调整后台运行状态");
+  if (input.state === "running") {
+    await refreshJob(db, jobId);
+    job = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE id=? LIMIT 1`).bind(jobId).first<JobRow>();
+    if (!job) throw new Error("云端标注任务不存在");
+  }
   if (["cancelled", "committed", "deleted"].includes(job.status)) throw new Error("该任务已经结束，不能调整后台运行状态");
+  if (input.state === "running") {
+    const retryable = job.reuse_status !== "ready" || Boolean(await db.prepare(`SELECT 1 ok FROM market_annotation_items
+      WHERE job_id=? AND (status IN ('queued','claimed','inferencing') OR (status='failed' AND attempt_count<3)) LIMIT 1`)
+      .bind(jobId).first<{ ok: number }>());
+    if (!retryable) throw new Error("该任务没有可重试的 AI 推理项；如该类目仍显示可新建候选，请创建下一批任务");
+  }
   const configured = await annotationConcurrency(db, job.category, "cloud");
   const before = await getCloudRunControl(db, jobId, configured);
   const retryJson = input.state === "running"
@@ -408,7 +420,12 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
     db.prepare("SELECT item.category value, COUNT(DISTINCT item.job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items item JOIN market_annotation_jobs job ON job.id=item.job_id WHERE item.category<>'' AND job.status<>'deleted' GROUP BY item.category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
     db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
-    db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs WHERE status<>'deleted' ORDER BY created_at DESC LIMIT 50`).all<JobRow>(),
+    db.prepare(`SELECT ${jobColumns}, CASE WHEN job.reuse_status<>'ready' THEN 1 ELSE (
+        SELECT COUNT(*) FROM market_annotation_items remaining
+        WHERE remaining.job_id=job.id AND (remaining.status IN ('queued','claimed','inferencing')
+          OR (remaining.status='failed' AND remaining.attempt_count<3))
+      ) END remaining_inference_count
+      FROM market_annotation_jobs job WHERE job.status<>'deleted' ORDER BY job.created_at DESC LIMIT 50`).all<JobRow>(),
     db.prepare("SELECT category, executor, concurrency, updated_by, updated_at FROM market_annotation_concurrency_settings ORDER BY category, executor LIMIT 400").all<ConcurrencySettingRow>(),
     db.prepare(`SELECT run.job_id,run.state,run.retry_state_json,run.next_run_at,run.lease_token_hash,run.lease_expires_at,
         run.last_failure_code,run.last_failure_message,run.last_started_at,run.last_heartbeat_at,run.completed_at,run.updated_at,
@@ -630,17 +647,37 @@ async function findCompatibleActiveAnnotationJob(db: MarketDatabase, input: {
   category: string; promptVersionId: string; executor: string; modelId?: string; localModelName?: string; workKey: string;
 }) {
   return db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs job
-    WHERE job.status IN ('queued','running','failed','review_ready','committing')
+    WHERE job.status IN ('queued','running','failed')
       AND (job.work_key=? OR (job.work_key='' AND job.category=? AND job.prompt_version_id=? AND job.executor=?
-        AND COALESCE(job.model_id,'')=? AND job.local_model_name=?
-        AND EXISTS (SELECT 1 FROM market_annotation_items item WHERE item.job_id=job.id
-          AND (item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected')
-            OR (item.status='failed' AND item.attempt_count<3)))))
+        AND COALESCE(job.model_id,'')=? AND job.local_model_name=?))
+      AND (job.reuse_status<>'ready'
+        OR EXISTS (SELECT 1 FROM market_annotation_items item WHERE item.job_id=job.id
+          AND (item.status IN ('queued','claimed','inferencing') OR (item.status='failed' AND item.attempt_count<3)))
+        OR (job.status='queued' AND job.total_count>0 AND datetime(job.updated_at)>=datetime('now','-5 minutes')))
     ORDER BY CASE WHEN job.work_key=? THEN 0 ELSE 1 END, datetime(job.updated_at) DESC, job.id DESC LIMIT 1`)
     .bind(input.workKey, input.category, input.promptVersionId, input.executor,
       input.executor === "cloud" ? input.modelId ?? "" : "",
       input.executor === "local" ? input.localModelName?.trim().slice(0, 160) ?? "" : "",
       input.workKey).first<JobRow>();
+}
+
+async function settleDormantCompatibleAnnotationJobs(db: MarketDatabase, input: {
+  category: string; promptVersionId: string; executor: string; modelId?: string; localModelName?: string; workKey: string;
+}) {
+  const rows = await db.prepare(`SELECT job.id FROM market_annotation_jobs job
+    WHERE ((job.status IN ('running','failed'))
+        OR (job.status='queued' AND datetime(job.updated_at)<datetime('now','-5 minutes')))
+      AND (job.work_key=? OR (job.work_key='' AND job.category=? AND job.prompt_version_id=? AND job.executor=?
+        AND COALESCE(job.model_id,'')=? AND job.local_model_name=?))
+      AND job.reuse_status='ready'
+      AND NOT EXISTS (SELECT 1 FROM market_annotation_items item WHERE item.job_id=job.id
+        AND (item.status IN ('queued','claimed','inferencing') OR (item.status='failed' AND item.attempt_count<3)))
+    ORDER BY datetime(job.updated_at), job.id LIMIT 50`)
+    .bind(input.workKey, input.category, input.promptVersionId, input.executor,
+      input.executor === "cloud" ? input.modelId ?? "" : "",
+      input.executor === "local" ? input.localModelName?.trim().slice(0, 160) ?? "" : "")
+    .all<{ id: string }>();
+  for (const row of rows.results ?? []) await refreshJob(db, row.id);
 }
 
 export async function createAnnotationJob(db: MarketDatabase, input: { category: string; promptVersionId: string; executor?: string; modelId?: string; localModelName?: string; limit?: number; allowInactivePrompt?: boolean }, actor: Actor) {
@@ -656,7 +693,14 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
     if (!model) throw new Error("所选云端视觉模型不存在或未启用");
   } else if (!input.localModelName?.trim()) throw new Error("本地任务必须填写 Ollama 模型名");
   const workKey = annotationJobWorkKey({ category, promptVersionId: prompt.id, executor, modelId: input.modelId, localModelName: input.localModelName });
-  const compatible = await findCompatibleActiveAnnotationJob(db, { category, promptVersionId: prompt.id, executor, modelId: input.modelId, localModelName: input.localModelName, workKey });
+  const compatibility = { category, promptVersionId: prompt.id, executor, modelId: input.modelId, localModelName: input.localModelName, workKey };
+  let compatible = await findCompatibleActiveAnnotationJob(db, compatibility);
+  if (compatible) {
+    if (executor === "cloud") await ensureCloudRunControl(db, compatible.id, await annotationConcurrency(db, category, "cloud"));
+    return jobValue(compatible);
+  }
+  await settleDormantCompatibleAnnotationJobs(db, compatibility);
+  compatible = await findCompatibleActiveAnnotationJob(db, compatibility);
   if (compatible) {
     if (executor === "cloud") await ensureCloudRunControl(db, compatible.id, await annotationConcurrency(db, category, "cloud"));
     return jobValue(compatible);
@@ -784,7 +828,7 @@ export async function createAnnotationJob(db: MarketDatabase, input: { category:
         executor === "local" ? input.localModelName!.trim().slice(0, 160) : "", workKey, rows.results.length, actor.email,
         prompt.id, category, category, category, category).run() as { meta?: { changes?: number } };
   } catch (error) {
-    const winner = await findCompatibleActiveAnnotationJob(db, { category, promptVersionId: prompt.id, executor, modelId: input.modelId, localModelName: input.localModelName, workKey });
+    const winner = await findCompatibleActiveAnnotationJob(db, compatibility);
     if (winner) {
       if (executor === "cloud") await ensureCloudRunControl(db, winner.id, await annotationConcurrency(db, category, "cloud"));
       return jobValue(winner);
@@ -872,12 +916,12 @@ export async function createPriceRecognitionJob(db: MarketDatabase, input: { cat
   if (!prompt) throw new Error("系统价格识别 Prompt 创建失败");
   const existing = await db.prepare(`SELECT ${jobColumns} FROM market_annotation_jobs job
     WHERE job.category=? AND job.prompt_version_id=? AND job.executor='cloud' AND job.model_id=?
-      AND job.status IN ('queued','running','failed','review_ready')
-      AND EXISTS (
+      AND job.status IN ('queued','running','failed')
+      AND (job.reuse_status<>'ready' OR EXISTS (
         SELECT 1 FROM market_annotation_items item WHERE item.job_id=job.id
-          AND (item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected')
+          AND (item.status IN ('queued','claimed','inferencing')
             OR (item.status='failed' AND item.attempt_count<3))
-      )
+      ))
     ORDER BY datetime(job.updated_at) DESC, job.id DESC LIMIT 1`)
     .bind(category, prompt.id, input.modelId).first<JobRow>();
   if (existing) {
@@ -1920,7 +1964,7 @@ export async function getAnnotationJobProgress(db: MarketDatabase, jobId: string
     job.executor === "cloud" ? getCloudRunControl(db, id, await annotationConcurrency(db, job.category, "cloud")) : Promise.resolve(null),
   ]);
   return {
-    job: jobValue(job),
+    job: jobValue({ ...job, remaining_inference_count: Number(metrics?.remaining_inference_units ?? 0) }),
     activeClaims: Number(metrics?.active_claims ?? 0),
     uniqueInferenceUnits: Number(metrics?.unique_inference_units ?? 0),
     remainingInferenceUnits: Number(metrics?.remaining_inference_units ?? 0),
