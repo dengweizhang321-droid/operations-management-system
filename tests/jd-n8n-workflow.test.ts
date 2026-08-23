@@ -149,8 +149,8 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
   }
   assert.match(view, /jd-market-ranking-daily\.chromium-silent-copy\.workflow\.json/);
   assert.match(view, /jd_market:[\s\S]*?scheduleMetric: "10:00"/);
-  assert.match(view, /jd_promotion:[\s\S]*?scheduleMetric: "10:30"/);
-  assert.match(view, /jd_promotion_cut_meat:[\s\S]*?scheduleMetric: "11:30"/);
+  assert.match(view, /jd_promotion:[\s\S]*?scheduleMetric: "13:00"/);
+  assert.match(view, /jd_promotion_cut_meat:[\s\S]*?scheduleMetric: "13:00"/);
   assert.match(view, /Profile 3 隐藏 Chromium/);
 });
 

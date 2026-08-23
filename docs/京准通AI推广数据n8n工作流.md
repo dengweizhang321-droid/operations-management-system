@@ -10,7 +10,7 @@
 - 报表入口：`https://jzt.jd.com/custom-report/#/list`，在当前账号列表内按名称唯一选择“AI推广数据自动下载”；禁止跨店复用报表 ID
 - n8n 模板：`automation/n8n/jd-promotion-daily.workflow.json`
 
-仓库模板默认保持 `active=false`；实际发布状态以本机 n8n 为准。当前手动入口补跑 `2026-08-20`；定时入口在上海时区每天 10:30 运行，目标日为昨天。需要变更历史补跑范围时，只修改 n8n 的“手动补跑日期”节点，不修改定时入口。
+仓库模板默认保持 `active=false`；实际发布状态以本机 n8n 为准。当前手动入口补跑 `2026-08-20`；定时入口在上海时区每天 13:00 运行，目标日为昨天。需要变更历史补跑范围时，只修改 n8n 的“手动补跑日期”节点，不修改定时入口。
 
 定时和手动入口都必须先调用 `POST http://127.0.0.1:5791/coordination/claim`，以 `workflow key=jd-promotion + n8n execution ID` 原子领取共享 helper。未获授权时每 5 分钟等待，累计 72 次、约 6 小时后失败关闭；领取成功前不得进入 A、启动 Chromium、创建京东任务或调用导入接口。
 
