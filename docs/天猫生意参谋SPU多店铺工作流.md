@@ -25,12 +25,12 @@
 
 | 店铺 | `storeKey` | 调试端口 | n8n 模板 | 本机 live 调度 |
 | --- | --- | ---: | --- | --- |
-| 天猫-志高亿玖专卖店 | `tmall-yijiu` | 9334 | `tmall-yijiu-sycm-cookie-daily.workflow.json` | 11:00 |
-| 天猫-志高丽力专卖店 | `tmall-lili` | 9325 | `tmall-lili-sycm-cookie-daily.workflow.json` | 11:05 |
-| 天猫-志高拓丰专卖店 | `tmall-tuofeng` | 9327 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 11:10 |
-| 天猫-志高亿用专卖店 | `tmall-yiyong` | 9328 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 11:15 |
-| 天猫-志高炊之王专卖店 | `tmall-cuizhiwang` | 9329 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 11:20 |
-| 天猫-志高马思图专卖店 | `tmall-masitu` | 9331 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 11:25 |
+| 天猫-志高亿玖专卖店 | `tmall-yijiu` | 9334 | `tmall-yijiu-sycm-cookie-daily.workflow.json` | 13:30 |
+| 天猫-志高丽力专卖店 | `tmall-lili` | 9325 | `tmall-lili-sycm-cookie-daily.workflow.json` | 13:40 |
+| 天猫-志高拓丰专卖店 | `tmall-tuofeng` | 9327 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 13:50 |
+| 天猫-志高炊之王专卖店 | `tmall-cuizhiwang` | 9329 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 14:00 |
+| 天猫-志高马思图专卖店 | `tmall-masitu` | 9331 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 14:10 |
+| 天猫-志高亿用专卖店 | `tmall-yiyong` | 9328 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 14:20 |
 
 逐店完成下面的无业务导出操作。不要把账号或密码写进命令行：
 
@@ -195,7 +195,7 @@ npm run tmall:login -- --store-key tmall-yijiu
 node --import tsx tools/tmall-promotion-export.ts --store-key tmall-yijiu --launch-only
 ```
 
-当前一次性辅助进程每轮只接受一条串行链路；本地 Worker 启动器负责其服务生命周期，并在退出后采用 500ms 至 5s 有界退避重新待命。六店分别在上海时间 11:00、11:05、11:10、11:15、11:20、11:25 触发，尚未取得 helper 的 execution 只在 A 前等待，业务阶段不会并发。若要发布定时触发，仍需先确认本地 Worker、n8n、阿里妈妈受控登录态和 `/health` 长期在线，不能让 n8n 在宿主机休眠或服务未运行时空触发。每轮都会重新取得目标资料并提交导入；业务范围与规范化完整内容一致时由导入接口安全返回 `duplicate`。Cookie 或阿里妈妈登录失效、身份不一致、接口返回错误格式时只恢复对应受控会话或 Cookie 原文件，再等待页面恢复，不得把 Cookie 或登录密码粘贴进 n8n 节点。仓库模板继续保持 `active=false`；live 副本按确认后的计划发布。每天 11:03 的 Codex 监控任务覆盖六店，并按“各店计划时间后 5 分钟”判断是否缺少触发，不再只监控亿玖店。
+当前一次性辅助进程每轮只接受一条串行链路；本地 Worker 启动器负责其服务生命周期，并在退出后采用 500ms 至 5s 有界退避重新待命。六店按亿玖、丽力、拓丰、炊之王、马思图、亿用的顺序，分别在上海时间 13:30、13:40、13:50、14:00、14:10、14:20 触发，尚未取得 helper 的 execution 只在 A 前等待，业务阶段不会并发。若要发布定时触发，仍需先确认本地 Worker、n8n、阿里妈妈受控登录态和 `/health` 长期在线，不能让 n8n 在宿主机休眠或服务未运行时空触发。每轮都会重新取得目标资料并提交导入；业务范围与规范化完整内容一致时由导入接口安全返回 `duplicate`。Cookie 或阿里妈妈登录失效、身份不一致、接口返回错误格式时只恢复对应受控会话或 Cookie 原文件，再等待页面恢复，不得把 Cookie 或登录密码粘贴进 n8n 节点。仓库模板继续保持 `active=false`；live 副本按确认后的计划发布。每天 13:32 的 Codex 监控任务覆盖六店，并按“各店计划时间后 5 分钟”判断是否缺少触发，不再只监控亿玖店。
 
 ## 7. 手工或 PAD 备用流程
 

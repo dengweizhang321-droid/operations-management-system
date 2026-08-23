@@ -33,8 +33,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.settings.timezone, "Asia/Shanghai");
   assert.ok(workflow.nodes.some((node) => node.type === "n8n-nodes-base.manualTrigger"));
   const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
-  assert.equal(scheduleNode?.name, "每天 11:00 运行");
-  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "0 11 * * *");
+  assert.equal(scheduleNode?.name, "每天 13:30 运行");
+  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "30 13 * * *");
   const coordination = workflow.nodes.find((node) => node.name === "领取共享 helper");
   assert.equal(coordination?.parameters?.url, "http://127.0.0.1:5791/coordination/claim");
   assert.deepEqual(coordination?.parameters?.headerParameters?.parameters, [
@@ -70,7 +70,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
   assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
-  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["每天 13:30 运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["领取共享 helper"]?.main?.[0]?.[0]?.node, "helper 领取成功？");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
@@ -111,12 +111,12 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
   assert.equal(new Set(tmallN8nWorkflowDefinitions.map((definition) => definition.workflowId)).size, tmallN8nWorkflowDefinitions.length);
   assert.equal(new Set(tmallN8nWorkflowDefinitions.map((definition) => definition.fileName)).size, tmallN8nWorkflowDefinitions.length);
   assert.deepEqual(tmallN8nWorkflowDefinitions.map((definition) => definition.cronExpression), [
-    "0 11 * * *",
-    "5 11 * * *",
-    "10 11 * * *",
-    "15 11 * * *",
-    "20 11 * * *",
-    "25 11 * * *",
+    "30 13 * * *",
+    "40 13 * * *",
+    "50 13 * * *",
+    "0 14 * * *",
+    "10 14 * * *",
+    "20 14 * * *",
   ]);
   assert.equal(new Set(selectedStores.map((store) => store.browser.userDataDir)).size, selectedStores.length);
   assert.equal(new Set(selectedStores.map((store) => store.browser.profileDir)).size, selectedStores.length);
@@ -245,7 +245,8 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.match(view, /业务范围与规范化后的完整业务内容都一致时返回 duplicate/);
   assert.match(view, /A → B → C → P → M/);
   assert.match(view, /全站推推广/);
-  assert.match(view, /scheduleMetric: "11:00"/);
+  assert.match(view, /scheduleMetric: "13:30"/);
+  assert.match(view, /jackyun:[\s\S]*?scheduleMetric: "已停用"/);
   assert.match(view, /scheduleTriggerLabel: "每天"/);
   assert.match(view, /scheduleMetric: "10:00"/);
   assert.match(view, /\{config\.scheduleMetric\} \{config\.scheduleTriggerLabel\}/);

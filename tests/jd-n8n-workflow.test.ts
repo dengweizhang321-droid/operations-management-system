@@ -128,7 +128,7 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
     assert.equal(workflow.settings.timezone, "Asia/Shanghai");
     assert.doesNotMatch(workflow.name, /5类目/);
     const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
-    assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "0 10 * * *");
+    assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "30 10 * * *");
     const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && /^http:\/\/127\.0\.0\.1:5791\/jd-market\//.test(node.parameters?.url ?? ""));
     assert.deepEqual(requests.map((node) => node.parameters?.url), [
       "http://127.0.0.1:5791/jd-market/plan",
@@ -148,9 +148,9 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
     assert.match(raw, /不得同时启用/);
   }
   assert.match(view, /jd-market-ranking-daily\.chromium-silent-copy\.workflow\.json/);
-  assert.match(view, /jd_market:[\s\S]*?scheduleMetric: "10:00"/);
+  assert.match(view, /jd_market:[\s\S]*?scheduleMetric: "10:30"/);
   assert.match(view, /jd_promotion:[\s\S]*?scheduleMetric: "13:00"/);
-  assert.match(view, /jd_promotion_cut_meat:[\s\S]*?scheduleMetric: "13:00"/);
+  assert.match(view, /jd_promotion_cut_meat:[\s\S]*?scheduleMetric: "13:10"/);
   assert.match(view, /Profile 3 隐藏 Chromium/);
 });
 
@@ -173,7 +173,7 @@ test("JD market scheduled and manual runs atomically claim the shared helper bef
   assert.equal(gate?.parameters?.conditions?.conditions?.[0]?.rightValue, "granted");
   assert.deepEqual(retryWait?.parameters, { resume: "timeInterval", amount: 5, unit: "minutes" });
   assert.equal(workflow.connections["手动运行"]?.main[0]?.[0]?.node, "领取共享 helper");
-  assert.equal(workflow.connections["每天 10:00 补缺"]?.main[0]?.[0]?.node, "定时分支先让四店领取 helper");
+  assert.equal(workflow.connections["每天 10:30 补缺"]?.main[0]?.[0]?.node, "定时分支先让四店领取 helper");
   assert.equal(workflow.connections["定时分支先让四店领取 helper"]?.main[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["helper 领取成功？"]?.main[0]?.[0]?.node, "A·计算运营系统缺失日期");
   assert.equal(workflow.connections["helper 领取成功？"]?.main[1]?.[0]?.node, "等待前序流程释放 helper");
