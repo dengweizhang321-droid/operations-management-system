@@ -666,7 +666,11 @@ export async function openExportEntryWithRepaintRetry(page: Page, queryBootstrap
   // click retry loop: a detached export button must never replay that query.
   let exportEntry = await revealJdWareExportEntry(page, queryBootstrapState);
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (attempt > 0) exportEntry = await waitForExportEntry(page);
+    // A JD repaint can close the short-lived batch menu together with the
+    // detached entry. Re-run the bounded reveal step so the same reversible
+    // menu may be opened once more; queryBootstrapState still fences the
+    // already-observed product query from being replayed.
+    if (attempt > 0) exportEntry = await revealJdWareExportEntry(page, queryBootstrapState);
     try {
       await exportEntry.click({ timeout: 10_000 });
       return;

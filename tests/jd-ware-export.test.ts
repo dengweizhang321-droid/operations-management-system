@@ -596,10 +596,11 @@ test("classifies the WareList query control only when it is uniquely bound to it
   assert.throws(() => jdWareSkuExportDrawerDecision({ exportDrawerCount: 0, scopedSkuTabCount: 0, pageSkuTabCount: 1 }), /不在唯一导出条件抽屉/);
 });
 
-function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; initialExportEntryCount?: number; revealAfterWaits?: number; hideInitialExportAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none"; batchAriaExpanded?: "true" | "false"; deferBatchRevealUntilAriaRead?: boolean }) {
+function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; initialExportEntryCount?: number; revealAfterWaits?: number; hideInitialExportAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; hideExportEntryOnClickFailure?: boolean; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none"; batchAriaExpanded?: "true" | "false"; deferBatchRevealUntilAriaRead?: boolean }) {
   let exportEntryCount = input.initialExportEntryCount ?? 0;
   let waitCount = 0;
   let batchAriaRead = false;
+  let requiredBatchClicks = 1;
   const clicks = { scopedQuery: 0, batchOperations: 0, batchOperationsEnter: 0, exportEntry: 0 };
   const selectors: string[] = [];
   const chain = <T extends object>(locator: T) => Object.assign(locator, { filter: () => locator });
@@ -641,7 +642,13 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
     count: async () => exportEntryCount,
     click: async () => {
       clicks.exportEntry += 1;
-      if (clicks.exportEntry <= (input.exportClickFailures ?? 0)) throw new Error("element is detached from the DOM");
+      if (clicks.exportEntry <= (input.exportClickFailures ?? 0)) {
+        if (input.hideExportEntryOnClickFailure) {
+          exportEntryCount = 0;
+          requiredBatchClicks = clicks.batchOperations + 1;
+        }
+        throw new Error("element is detached from the DOM");
+      }
     },
   });
   const batchOperationsButton = chain({ count: async () => input.batchOperationsCount ?? 0 });
@@ -666,7 +673,7 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
     waitForTimeout: async () => {
       waitCount += 1;
       const batchRevealed = (input.batchRevealMethod ?? "click") === "click"
-        ? clicks.batchOperations === 1 && (!input.deferBatchRevealUntilAriaRead || batchAriaRead)
+        ? clicks.batchOperations >= requiredBatchClicks && (!input.deferBatchRevealUntilAriaRead || batchAriaRead)
         : input.batchRevealMethod === "enter"
           ? clicks.batchOperationsEnter === 1
           : false;
@@ -820,6 +827,25 @@ test("clicks a briefly stable JD export entry without waiting for the same menu 
 
   assert.equal(briefMenu.clicks.batchOperations, 1);
   assert.equal(briefMenu.clicks.exportEntry, 1);
+});
+
+test("reopens the same reversible batch menu when a JD repaint removes the first export entry", async () => {
+  const repaint = createWareListEntryPageFixture({
+    productSearchContainerCount: 1,
+    scopedQueryButtonCount: 1,
+    pageQueryButtonCount: 1,
+    batchOperationsCount: 1,
+    exportClickFailures: 1,
+    hideExportEntryOnClickFailure: true,
+  });
+  const queryBootstrapState = createJdWareQueryBootstrapState();
+  queryBootstrapState.queryTriggered = true;
+
+  await openExportEntryWithRepaintRetry(repaint.page as never, queryBootstrapState);
+
+  assert.equal(repaint.clicks.batchOperations, 2);
+  assert.equal(repaint.clicks.scopedQuery, 0);
+  assert.equal(repaint.clicks.exportEntry, 2);
 });
 
 test("records an auto-import failure audit after a rejected connection without browser startup", async () => {
