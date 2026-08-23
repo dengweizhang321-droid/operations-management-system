@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import type { TmallStore } from "../lib/netshop/tmall-store-registry";
 import {
+  assertTmallBrowserProcessOwnership,
   assertCookieMatchesStore,
   buildSycmExportUrl,
   classifySycmInspectionErrors,
@@ -30,6 +32,7 @@ import {
   parseWorkflowCoordinationAttempt,
   parseWorkflowCoordinationKey,
   parseCookieHeader,
+  runTmallPromotionStageWithTimeout,
   saveDownload,
   shouldLoadCookieForPlan,
   sycmCookieHeaderFromChromeStorage,
@@ -42,6 +45,23 @@ import {
   workflowCoordinationAttemptHeader,
   workflowCoordinationKeyHeader,
 } from "../tools/tmall-sycm-cookie-pipeline";
+
+const ownedTmallStore: TmallStore = {
+  storeKey: "tmall-test",
+  platform: "天猫",
+  shopName: "天猫-测试专卖店",
+  enabled: true,
+  initialStartDate: "2026-08-01",
+  portalUrl: "https://example.invalid",
+  browser: {
+    executablePath: "C:\\Chromium\\chrome.exe",
+    userDataDir: "C:\\Tmall\\Test",
+    profileName: "Default",
+    profileDir: "C:\\Tmall\\Test\\Default",
+    debugPort: 9334,
+    downloadDir: "C:\\Tmall\\Downloads",
+  },
+};
 
 test("JD silent copy uses one bounded non-secret no-window header", () => {
   assert.equal(jdSilentNoWindowHeader, "x-teruisi-jd-silent-no-window");
@@ -163,6 +183,69 @@ test("天猫工作流终态只关闭注册端口对应的独立 Chromium", async
   }), { ok: true, status: "already_closed" });
   assert.deepEqual(ports, [9334, 9334]);
   await assert.rejects(() => closeTmallWorkflowBrowser(0, async () => true), /调试端口无效/);
+});
+
+test("天猫受控 Chromium 只在端口、可执行文件、用户目录和 Profile 全部匹配时允许进程级关闭", () => {
+  const identity = {
+    processId: 4321,
+    executablePath: "C:\\Chromium\\chrome.exe",
+    commandLine: '"C:\\Chromium\\chrome.exe" --remote-debugging-port=9334 "--user-data-dir=C:\\Tmall\\Test" --profile-directory=Default',
+  };
+  assert.equal(assertTmallBrowserProcessOwnership(ownedTmallStore, identity), 4321);
+  assert.throws(() => assertTmallBrowserProcessOwnership(ownedTmallStore, {
+    ...identity,
+    commandLine: identity.commandLine.replace("9334", "9335"),
+  }), /端口、用户目录或 Profile/);
+  assert.throws(() => assertTmallBrowserProcessOwnership(ownedTmallStore, {
+    ...identity,
+    executablePath: "C:\\Other\\chrome.exe",
+  }), /可执行文件.*不一致/);
+});
+
+test("CDP 关闭失效时只对已核验的本店 Chromium 使用进程级后备关闭", async () => {
+  const calls: string[] = [];
+  const result = await closeTmallWorkflowBrowser(
+    ownedTmallStore,
+    async (port) => {
+      calls.push(`cdp:${port}`);
+      throw new Error("cdp_stalled");
+    },
+    async (store) => {
+      calls.push(`force:${store.storeKey}`);
+      return true;
+    },
+  );
+  assert.deepEqual(result, { ok: true, status: "force_closed" });
+  assert.deepEqual(calls, ["cdp:9334", "force:tmall-test"]);
+});
+
+test("推广阶段硬超时会中止运行并等待受控浏览器关闭后失败返回", async () => {
+  let fireTimeout!: () => void;
+  let aborted = false;
+  let closed = false;
+  const result = runTmallPromotionStageWithTimeout((signal) => new Promise<never>((_resolve, reject) => {
+    const onAbort = () => {
+      aborted = true;
+      reject(signal.reason);
+    };
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  }), {
+    timeoutMs: 100,
+    schedule: (callback) => {
+      fireTimeout = callback;
+      return "timer";
+    },
+    cancel: () => undefined,
+    onTimeout: async () => {
+      closed = true;
+    },
+  });
+  await Promise.resolve();
+  fireTimeout();
+  await assert.rejects(result, /推广阶段超过 1 分钟未完成，已失败关闭/);
+  assert.equal(aborted, true);
+  assert.equal(closed, true);
 });
 
 test("Cookie 只接受单行请求头并核验亿玖店登录身份", () => {

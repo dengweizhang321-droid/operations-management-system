@@ -1612,6 +1612,12 @@ async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, message: 
   }
 }
 
+function assertPromotionRunActive(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  throw new Error("天猫推广阶段已被安全中止");
+}
+
 async function downloadTask(options: {
   page: Page;
   locator: Locator;
@@ -1827,8 +1833,10 @@ async function runTmallPromotionDate(options: {
   request: typeof fetch;
   auditDirectory: string;
   plan: PromotionDatePlan;
+  signal?: AbortSignal;
 }) {
-  const { store, baseUrl, request, auditDirectory: runAuditDirectory, plan } = options;
+  const { store, baseUrl, request, auditDirectory: runAuditDirectory, plan, signal } = options;
+  assertPromotionRunActive(signal);
   if (plan.startDate !== plan.endDate || plan.dates.length !== 1 || plan.dates[0] !== plan.startDate) {
     throw new Error("推广报表必须按单个业务日下载，起止日期必须为同一天");
   }
@@ -1866,8 +1874,10 @@ async function runTmallPromotionDate(options: {
     let file = audit.file;
     const resume = resumableStage(audit);
     if (file) {
+      assertPromotionRunActive(signal);
       file = await assertFileUnchanged(file, store, plan);
     } else {
+      assertPromotionRunActive(signal);
       await launchStoreChrome(store);
       const browser = await connectPlaywrightBrowser(store.browser.debugPort);
       const context = browser.contexts()[0];
@@ -1878,8 +1888,12 @@ async function runTmallPromotionDate(options: {
       if (!page) page = await context.newPage();
       page.setDefaultTimeout(15_000);
       const dialogGuard = installPromotionNativeDialogGuard(page);
-      try {
+      const assertDialogAndRunSafe = async () => {
         await dialogGuard.assertSafe();
+        assertPromotionRunActive(signal);
+      };
+      try {
+        await assertDialogAndRunSafe();
         let downloadPage = page;
         if (!["report_submitting", "report_submitted"].includes(resume)) {
           audit.stage = "browser_ready";
@@ -1889,7 +1903,7 @@ async function runTmallPromotionDate(options: {
             store,
             startDate: plan.startDate,
             endDate: plan.endDate,
-            assertDialogSafe: dialogGuard.assertSafe,
+            assertDialogSafe: assertDialogAndRunSafe,
             onDialogOpening: async (attempt) => {
               audit.stage = "dialog_opening";
               audit.dialogAttempts = attempt;
@@ -1929,7 +1943,7 @@ async function runTmallPromotionDate(options: {
           audit.dismissedPopups += submission.dismissedPopups;
           downloadPage = submission.downloadPage;
         }
-        await dialogGuard.assertSafe();
+        await assertDialogAndRunSafe();
         const filePath = await waitForGeneratedTask({
           page: downloadPage,
           store,
@@ -1938,7 +1952,7 @@ async function runTmallPromotionDate(options: {
           runStartedAt: audit.startedAt,
           runId: audit.runId,
         });
-        await dialogGuard.assertSafe();
+        await assertDialogAndRunSafe();
         try {
           file = await inspectPromotionFile(filePath, store, plan);
         } catch (error) {
@@ -1953,7 +1967,7 @@ async function runTmallPromotionDate(options: {
         audit.stage = "downloaded";
         await writeAudit(audit, runAuditDirectory);
       } catch (error) {
-        await dialogGuard.assertSafe();
+        await assertDialogAndRunSafe();
         throw error;
       } finally {
         try {
@@ -1968,9 +1982,11 @@ async function runTmallPromotionDate(options: {
       }
     }
 
+    assertPromotionRunActive(signal);
     audit.stage = "importing";
     await writeAudit(audit, runAuditDirectory);
     const imported = await importPromotionFile({ baseUrl, store, plan, file, request });
+    assertPromotionRunActive(signal);
     const after = await coverageForStore(baseUrl, store, plan.startDate, plan.endDate, request);
     const missingAfterImport = plan.dates.filter((date) => !after.promotionDates.includes(date));
     if (missingAfterImport.length > 0) {
@@ -2021,7 +2037,9 @@ export async function runTmallPromotionStage(options: {
   forceExistingDates?: boolean;
   maximumDays?: number;
   executeDate?: typeof runTmallPromotionDate;
+  signal?: AbortSignal;
 } = {}) {
+  assertPromotionRunActive(options.signal);
   const store = await getTmallStore(options.storeKey ?? "tmall-yijiu");
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const request = options.request ?? fetch;
@@ -2037,6 +2055,7 @@ export async function runTmallPromotionStage(options: {
   }
   const requestedStartDate = requestedDates[0]!;
   const requestedEndDate = requestedDates.at(-1)!;
+  assertPromotionRunActive(options.signal);
   const coverage = await coverageForStore(baseUrl, store, requestedStartDate, requestedEndDate, request);
   const missingProductDailyDates = requestedDates.filter((date) => !coverage.productDailyDates.includes(date));
   if (missingProductDailyDates.length > 0) {
@@ -2058,6 +2077,7 @@ export async function runTmallPromotionStage(options: {
       request,
       auditDirectory: runAuditDirectory,
       plan,
+      signal: options.signal,
     }));
   const executedResults = dailyResults;
   const importedCount = executedResults.filter((result) => result.status === "imported").length;
