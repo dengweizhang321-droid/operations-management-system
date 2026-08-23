@@ -368,6 +368,40 @@ async function clickUniqueExactText(page: Page, text: string) {
   await scored[0]!.locator.click({ timeout: 15_000 });
 }
 
+async function waitForUniqueExactTextCandidate(page: Page, text: string, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const candidates = await exactTextCandidates(page, text);
+    if (candidates.length > 0) {
+      const scored = candidates.map((candidate) => ({
+        ...candidate,
+        score: ["button", "a"].includes(candidate.tag) || ["button", "link", "menuitem"].includes(candidate.role) ? 10 : 1,
+      })).sort((left, right) => right.score - left.score);
+      if (scored[1] && scored[1].score === scored[0]!.score && scored[1].signature !== scored[0]!.signature) {
+        throw new Error(`存在多个同等可见控件“${text}”，为防止误点已停止`);
+      }
+      return scored[0]!;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`等待唯一可见控件“${text}”超时`);
+}
+
+export async function submitTmallPagewiseExportAction(options: {
+  resolveAction: () => Promise<() => Promise<void>>;
+  markSubmitting: (submittedAt: string) => Promise<void>;
+  now?: () => string;
+}) {
+  // Resolve the exact business control before recording an unresolved click. A
+  // missing or ambiguous menu item is a retryable preflight failure, not proof
+  // that an export task may already have been created.
+  const click = await options.resolveAction();
+  const submittedAt = (options.now ?? (() => new Date().toISOString()))();
+  await options.markSubmitting(submittedAt);
+  await click();
+  return submittedAt;
+}
+
 async function inspectTmallOnSalePagination(page: Page) {
   const regions: string[] = [];
   let totalAnchorCount = 0;
@@ -759,9 +793,13 @@ async function submitRemainingPages(options: {
     const itemCount = expectedTmallPageItemCount(totalProducts, totalPages, pageNumber);
     await selectCurrentPageProducts(options.page, itemCount);
     await clickUniqueExactText(options.page, "更多批量操作");
-    const submittedAt = new Date().toISOString();
-    await persist({ stage: "page_export_submitting", currentPage: pageNumber });
-    await clickUniqueExactText(options.page, TMALL_PAGEWISE_EXPORT_MENU);
+    const submittedAt = await submitTmallPagewiseExportAction({
+      resolveAction: async () => {
+        const exportMenu = await waitForUniqueExactTextCandidate(options.page, TMALL_PAGEWISE_EXPORT_MENU);
+        return () => exportMenu.locator.click({ timeout: 15_000 });
+      },
+      markSubmitting: async () => persist({ stage: "page_export_submitting", currentPage: pageNumber }),
+    });
     await waitUntil(30_000, async () => (await combinedPageText(options.page)).includes(TMALL_PAGEWISE_EXPORT_SUCCESS),
       `第 ${pageNumber} 页未出现导出任务创建成功确认`);
     const task: PagewiseTask = { page: pageNumber, itemCount, submittedAt };

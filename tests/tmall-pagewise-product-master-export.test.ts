@@ -18,6 +18,7 @@ import {
   mergeTmallPagewiseProductWorkbooks,
   normalizeTmallPagewiseAuditForWrite,
   parseTmallOnSalePagination,
+  submitTmallPagewiseExportAction,
 } from "../tools/tmall-pagewise-product-master-export";
 
 const headers = [
@@ -121,6 +122,30 @@ test("逐页清单在点击未决时失败关闭，预检失败可安全重试�
   assert.deepEqual(decideTmallPagewiseAuditRecovery("2026-08-23", audit("browser_ready")), {
     action: "discard", snapshotDate: "2026-08-23",
   });
+});
+
+test("逐页导出只有在唯一业务控件已解析后才记录点击未决", async () => {
+  const failedCalls: string[] = [];
+  await assert.rejects(() => submitTmallPagewiseExportAction({
+    resolveAction: async () => {
+      failedCalls.push("resolve");
+      throw new Error("菜单尚未出现");
+    },
+    markSubmitting: async () => { failedCalls.push("mark"); },
+  }), /菜单尚未出现/);
+  assert.deepEqual(failedCalls, ["resolve"]);
+
+  const calls: string[] = [];
+  const submittedAt = await submitTmallPagewiseExportAction({
+    resolveAction: async () => {
+      calls.push("resolve");
+      return async () => { calls.push("click"); };
+    },
+    markSubmitting: async (value) => { calls.push(`mark:${value}`); },
+    now: () => "2026-08-23T06:03:40.000Z",
+  });
+  assert.equal(submittedAt, "2026-08-23T06:03:40.000Z");
+  assert.deepEqual(calls, ["resolve", "mark:2026-08-23T06:03:40.000Z", "click"]);
 });
 
 test("失败后成功续接的最终审计不保留陈旧错误", () => {
