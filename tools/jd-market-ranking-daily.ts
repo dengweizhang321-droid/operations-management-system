@@ -534,6 +534,28 @@ async function waitForSelectorText(control: Locator, frame: Frame, expected: str
   throw new Error(`京东商品榜单筛选未生效：${expected}`);
 }
 
+export async function withSingleJdMarketFilterSelectionRetry(
+  select: () => Promise<void>,
+  verify: () => Promise<void>,
+) {
+  let firstError: unknown;
+  for (let selectionAttempt = 0; selectionAttempt < 2; selectionAttempt += 1) {
+    try {
+      await select();
+      await verify();
+      return { retried: selectionAttempt === 1 } as const;
+    } catch (error) {
+      if (selectionAttempt === 0) {
+        firstError = error;
+        continue;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`京东商品榜单筛选连续两次未精确生效：${message}`, { cause: firstError });
+    }
+  }
+  throw new Error("京东商品榜单筛选重试状态异常");
+}
+
 function activeExportPanel(frame: Frame) {
   return frame.locator("xpath=//*[@id='jdsz-export-panel' and not(ancestor::*[@id='sz-old-version'])]");
 }
@@ -568,8 +590,10 @@ async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, ta
   const { dimensionControl, categoryControl } = await waitForRankingIdentityControls(surface, frame);
   const currentDimension = (await dimensionControl.innerText()).trim();
   if (currentDimension !== "SKU") {
-    await clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl);
-    await waitForSelectorText(dimensionControl, frame, "SKU", true);
+    await withSingleJdMarketFilterSelectionRetry(
+      () => clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl),
+      () => waitForSelectorText(dimensionControl, frame, "SKU", true),
+    );
   }
   const categoryLabel = target.categoryPath.join(" > ");
   const currentCategory = (await categoryControl.innerText()).trim();
