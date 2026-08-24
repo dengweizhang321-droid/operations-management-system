@@ -25,6 +25,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 - 不直接调用 `127.0.0.1:5791` 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，不直接运行天猫下载/导入脚本代替 n8n。只读 `/health` 可以用于状态核验。
 - 不单独重跑节点。任何恢复都从 n8n 正式页面或受控 n8n 能力创建新的完整 workflow execution，并使用新的 execution ID。
 - `export_submitted`、`export_confirmed`、`downloaded`、推广已提交等状态只能按原店铺、原业务日期和原任务续接；禁止删除清单、倒退阶段或重复业务点击。`export_submitting` 必须转人工核对。
+- 逐页 M 的 `downloaded` 唯一例外是：全部分页任务和文件均已绑定，但合并前明确报出“唯一商品数少于出售中总数”的内容完整性错误。只有操作者明确确认该批作废后，才可使用逐页专用受控入口原子归档活动清单；任务、文件和错误证据必须完整保留，随后仍只能从 n8n 启动新的完整 execution。该入口不得处理超时、网络错误、缺页、点击未决或无明确内容错误的清单。
 - 账号密码只允许由操作者交互写入当前 Windows 用户绑定的 DPAPI 密文。不得进入 n8n、注册表、环境变量、命令参数、日志、文档或 Git。
 - 验证码、安全验证、店铺身份不符、任务歧义、登录按钮歧义或不能证明可安全续接时失败关闭并要求人工操作。
 - 每店独立解析 `executablePath + userDataDir + profileName + profileDir + debugPort + downloadDir`。不得回退默认 Chrome，不得扫描、复用或关闭其他 Chromium。

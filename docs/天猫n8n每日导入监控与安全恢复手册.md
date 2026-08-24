@@ -118,6 +118,8 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331
 
 平台任务已明确失败，或操作者明确确认某一条旧任务作废时，仍不得直接删除活动清单。只允许使用受控作废入口把 `export_submitted` / `export_confirmed` 清单原样移出活动槽并写入作废时间、原阶段和原因；归档成功后才能从 n8n 启动新的完整 execution。该入口不接受 `export_submitting`、`downloaded` 或自动恢复调用，也不得由超时自动触发。
 
+逐页 M 有一个更窄的专用例外：全部分页任务和文件已绑定、活动清单处于 `downloaded`，且合并前明确报出“唯一商品数少于出售中总数”的内容完整性错误时，操作者可以确认该批分页任务作废。此时只能运行 `node --import tsx tools/tmall-pagewise-audit-admin.ts --action abandon-invalid-downloaded --store-key <store-key> --reason <原因> --confirm`，由工具原子归档原清单并保留全部任务、文件、错误和确认信息；不得删除分页文件。归档后仍必须从 n8n 创建新的完整 execution。该入口拒绝超时、网络错误、缺页、点击未决、页码证据不连续或没有精确内容错误的清单。
+
 ### 4.6 浏览器关闭失败
 
 - helper 应在 M 成功或任一节点失败时关闭本 execution 启动的受控 Chromium，并释放注册表调试端口。

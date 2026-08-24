@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { inspectTmallMasterFile } from "../tools/tmall-product-master-export";
 import {
+  abandonInvalidDownloadedTmallPagewiseAudit,
   chooseTmallOnSaleHeaderCheckbox,
   chooseTmallOnSaleNextPageCandidate,
   chooseTmallPagewiseExportRecords,
@@ -151,6 +152,150 @@ test("逐页导出只有在唯一业务控件已解析后才记录点击未决",
 test("失败后成功续接的最终审计不保留陈旧错误", () => {
   assert.equal(normalizeTmallPagewiseAuditForWrite({ stage: "downloading", lastError: "旧错误" }).lastError, "旧错误");
   assert.equal(normalizeTmallPagewiseAuditForWrite({ stage: "completed", lastError: "旧错误" }).lastError, undefined);
+});
+
+test("逐页文件完整性失败只有在明确确认后才原子归档且保留全部证据", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-pagewise-abandon-"));
+  const activePath = path.join(root, "active-tmall-masitu.json");
+  const tasks = Array.from({ length: 6 }, (_, index) => ({
+    page: index + 1,
+    itemCount: 20,
+    submittedAt: `2026-08-24T06:1${index}:00.000Z`,
+  }));
+  const files = tasks.map((task) => ({
+    page: task.page,
+    taskCreatedAt: "2026-08-24 14:10:00",
+    filePath: path.join(root, `page-${task.page}.xlsx`),
+    fileName: `page-${task.page}.xlsx`,
+    fileSizeBytes: 100,
+    sha256: `${task.page}`.repeat(64),
+    rowCount: 20,
+    uniqueProductCount: 20,
+    uniqueSkuCount: 20,
+  }));
+  const audit = {
+    version: 1,
+    strategy: "on_sale_pagewise_excel",
+    runId: "run-masitu-invalid",
+    storeKey: "tmall-masitu",
+    shopName: "天猫-志高马思图专卖店",
+    snapshotDate: "2026-08-24",
+    startedAt: "2026-08-24T06:10:00.000Z",
+    updatedAt: "2026-08-24T06:14:00.000Z",
+    stage: "downloaded",
+    totalProducts: 120,
+    totalPages: 6,
+    tasks,
+    files,
+    lastError: "逐页货品文件合计 119 个唯一商品，与出售中总数 120 不一致",
+  };
+  try {
+    await writeFile(activePath, JSON.stringify(audit), "utf8");
+    await assert.rejects(() => abandonInvalidDownloadedTmallPagewiseAudit({
+      storeKey: "tmall-masitu",
+      reason: "操作者确认该批分页文件不完整",
+      operatorConfirmed: false,
+      auditDirectory: root,
+    }), /明确确认/);
+    assert.equal(await stat(activePath).then(() => true), true);
+
+    const result = await abandonInvalidDownloadedTmallPagewiseAudit({
+      storeKey: "tmall-masitu",
+      reason: "操作者确认该批分页文件跨页重复且快照不完整",
+      operatorConfirmed: true,
+      auditDirectory: root,
+      now: new Date("2026-08-24T07:00:00.000Z"),
+    });
+    assert.equal(result.previousStage, "downloaded");
+    assert.deepEqual(result.integrityFailure, { uniqueProductCount: 119, expectedProductCount: 120 });
+    assert.equal(await stat(activePath).then(() => true).catch(() => false), false);
+    const archived = JSON.parse(await readFile(path.join(root, result.archiveFileName), "utf8"));
+    assert.equal(archived.stage, "downloaded");
+    assert.deepEqual(archived.tasks, tasks);
+    assert.deepEqual(archived.files, files);
+    assert.deepEqual(archived.abandonment, {
+      abandonedAt: "2026-08-24T07:00:00.000Z",
+      previousStage: "downloaded",
+      reason: "操作者确认该批分页文件跨页重复且快照不完整",
+      integrityFailure: { uniqueProductCount: 119, expectedProductCount: 120 },
+    });
+    await assert.rejects(() => abandonInvalidDownloadedTmallPagewiseAudit({
+      storeKey: "tmall-masitu",
+      reason: "操作者重复确认同一批次作废",
+      operatorConfirmed: true,
+      auditDirectory: root,
+    }), /不存在可作废/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("逐页专用作废入口拒绝非完整下载、非内容完整性错误和不连续页证据", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-pagewise-abandon-negative-"));
+  const activePath = path.join(root, "active-tmall-masitu.json");
+  const base = {
+    version: 1,
+    strategy: "on_sale_pagewise_excel",
+    runId: "run-masitu-negative",
+    storeKey: "tmall-masitu",
+    shopName: "天猫-志高马思图专卖店",
+    snapshotDate: "2026-08-24",
+    startedAt: "2026-08-24T06:10:00.000Z",
+    updatedAt: "2026-08-24T06:14:00.000Z",
+    totalProducts: 40,
+    totalPages: 2,
+    tasks: [
+      { page: 1, itemCount: 20, submittedAt: "2026-08-24T06:10:00.000Z" },
+      { page: 2, itemCount: 20, submittedAt: "2026-08-24T06:11:00.000Z" },
+    ],
+    files: [
+      { page: 1, taskCreatedAt: "2026-08-24 14:10:00" },
+      { page: 2, taskCreatedAt: "2026-08-24 14:11:00" },
+    ],
+  };
+  const abandon = () => abandonInvalidDownloadedTmallPagewiseAudit({
+    storeKey: "tmall-masitu",
+    reason: "操作者确认该批分页文件不完整",
+    operatorConfirmed: true,
+    auditDirectory: root,
+  });
+  try {
+    await writeFile(activePath, JSON.stringify({ ...base, stage: "downloading", lastError: "下载超时" }), "utf8");
+    await assert.rejects(abandon, /阶段 downloading 不允许/);
+
+    await writeFile(activePath, JSON.stringify({ ...base, stage: "downloaded", lastError: "网络连接失败" }), "utf8");
+    await assert.rejects(abandon, /没有可核验的唯一商品数完整性错误/);
+
+    await writeFile(activePath, JSON.stringify({
+      ...base,
+      stage: "downloaded",
+      tasks: [{ ...base.tasks[0], page: 2 }, base.tasks[1]],
+      lastError: "逐页货品文件合计 39 个唯一商品，与出售中总数 40 不一致",
+    }), "utf8");
+    await assert.rejects(abandon, /页码证据不连续/);
+    assert.equal(await stat(activePath).then(() => true), true);
+
+    await writeFile(activePath, JSON.stringify({
+      ...base,
+      stage: "downloaded",
+      shopName: "天猫-其他店铺",
+      lastError: "逐页货品文件合计 39 个唯一商品，与出售中总数 40 不一致",
+    }), "utf8");
+    await assert.rejects(abandon, /店铺身份不一致/);
+
+    await writeFile(activePath, JSON.stringify({
+      ...base,
+      stage: "downloaded",
+      lastError: "逐页货品文件合计 39 个唯一商品，与出售中总数 40 不一致",
+    }), "utf8");
+    const archivePath = path.join(root,
+      "abandoned-invalid-downloaded-tmall-masitu-2026-08-24-run-masitu-negative.json");
+    await writeFile(archivePath, "existing archive", "utf8");
+    await assert.rejects(abandon, /归档已存在/);
+    assert.equal(await stat(activePath).then(() => true), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("导出记录只接管本轮全部任务，处理中等待、失败或并发多任务均失败关闭", () => {
