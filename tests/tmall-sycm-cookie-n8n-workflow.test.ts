@@ -31,7 +31,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.name, "天猫店铺数据导入");
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings.timezone, "Asia/Shanghai");
-  assert.ok(workflow.nodes.some((node) => node.type === "n8n-nodes-base.manualTrigger"));
+  assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.manualTrigger")?.name, "手动完整运行（强制 M）");
   const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
   assert.equal(scheduleNode?.name, "每天 13:30 运行");
   assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "30 13 * * *");
@@ -53,10 +53,17 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   ]);
   for (const node of requestNodes) {
     assert.equal(node.parameters?.sendHeaders, true);
-    assert.deepEqual(node.parameters?.headerParameters?.parameters, [
+    const expectedHeaders = [
       { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
       { name: "X-TERUISI-TMALL-STORE-KEY", value: "tmall-yijiu" },
-    ]);
+      ...(node.parameters?.url?.endsWith("/product-master")
+        ? [{
+            name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
+            value: "={{ $execution.mode === 'manual' ? '1' : '0' }}",
+          }]
+        : []),
+    ];
+    assert.deepEqual(node.parameters?.headerParameters?.parameters, expectedHeaders);
   }
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
   assert.match(raw, /商品 > 我的商品 > 出售中/);
@@ -69,7 +76,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.match(raw, /生成成功/);
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
-  assert.equal(workflow.connections["手动运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["手动完整运行（强制 M）"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["手动运行"], undefined);
   assert.equal(workflow.connections["每天 13:30 运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["领取共享 helper"]?.main?.[0]?.[0]?.node, "helper 领取成功？");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
@@ -81,6 +89,9 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node, "M·出售中逐页导出、合并校验并导入");
   assert.equal(workflow.connections["M·出售中逐页导出、合并校验并导入"], undefined);
   assert.match(raw, /A→B→C→P→M/);
+  assert.match(raw, /每 3 天到期一次/);
+  assert.match(raw, /not_due/);
+  assert.match(raw, /到期失败不推进下次日期/);
   assert.match(raw, /Windows 用户.*DPAPI/);
   assert.match(raw, /验证码、安全验证/);
   assert.equal(requestNodes[0]?.parameters?.options?.timeout, 1_800_000);
@@ -98,6 +109,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       enabled: boolean;
       loginMode?: string;
       productMasterExportMode?: string;
+      productMasterCadence?: { intervalDays: number; initialDueDate: string };
       browser: { userDataDir?: string; profileDir: string; debugPort: number; downloadDir: string };
     }>;
   };
@@ -149,6 +161,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     assert.equal(schedule?.name, definition.scheduleName);
     assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, definition.cronExpression);
     assert.equal(workflow.connections[definition.scheduleName]?.main?.[0]?.[0]?.node, "领取共享 helper");
+    assert.equal(workflow.connections["手动完整运行（强制 M）"]?.main?.[0]?.[0]?.node, "领取共享 helper");
 
     const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
     assert.equal(requestNodes.length, 6);
@@ -160,6 +173,13 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-N8N-EXECUTION-ID"), [
         { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
       ]);
+      assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER"),
+        node.parameters?.url?.endsWith("/product-master")
+          ? [{
+              name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
+              value: "={{ $execution.mode === 'manual' ? '1' : '0' }}",
+            }]
+          : []);
     }
     const coordination = requestNodes.find((node) => node.parameters?.url?.endsWith("/coordination/claim"));
     assert.equal(coordination?.parameters?.headerParameters?.parameters?.some(
@@ -173,6 +193,8 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     assert.equal(store.shopName, definition.shopName);
     assert.equal(store.loginMode, "windows_dpapi_credentials");
     assert.equal(store.enabled, true);
+    assert.deepEqual(store.productMasterCadence, definition.productMasterCadence);
+    assert.match(raw, new RegExp(`初始到期日为 .${definition.productMasterCadence.initialDueDate}.`));
     if (pagewiseStoreKeys.has(definition.storeKey)) {
       assert.equal(store.productMasterExportMode, "on_sale_pagewise_excel");
       assert.match(raw, /M·出售中逐页导出、合并校验并导入/);
@@ -198,6 +220,17 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     tmallN8nWorkflowDefinitions.filter((definition) => definition.productMasterExportMode === "on_sale_pagewise_excel")
       .map((definition) => definition.storeKey),
     ["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"],
+  );
+  assert.deepEqual(
+    tmallN8nWorkflowDefinitions.map((definition) => [definition.storeKey, definition.productMasterCadence.initialDueDate]),
+    [
+      ["tmall-yijiu", "2026-08-27"],
+      ["tmall-lili", "2026-08-27"],
+      ["tmall-tuofeng", "2026-08-25"],
+      ["tmall-cuizhiwang", "2026-08-25"],
+      ["tmall-masitu", "2026-08-26"],
+      ["tmall-yiyong", "2026-08-26"],
+    ],
   );
 });
 

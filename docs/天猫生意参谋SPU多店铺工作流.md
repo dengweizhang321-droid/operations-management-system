@@ -140,7 +140,7 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-daily-import.workfl
 n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json"
 ```
 
-该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。新增五店分别使用 2.1 表中的独立模板和工作流 ID。运营管理系统左侧“工作流”板块会展示 A→B→C→P→M 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。
+该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。新增五店分别使用 2.1 表中的独立模板和工作流 ID。运营管理系统左侧“工作流”板块会展示 A→B→C→P→M 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。A/B/C/P 保持每日执行，M 每日进入终态门禁，但只在本店持久三日节奏到期、存在未决清单或手动完整运行明确强制时执行货品导出与导入。
 
 该副本不依赖 n8n 2 默认禁用的 `ExecuteCommand`，五个执行节点只访问 `127.0.0.1:5791`。通过受保护命令启动本地 Worker 时，启动器会同时拉起并守护一次性辅助进程：
 
@@ -148,7 +148,7 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workfl
 npm run start:local-worker
 ```
 
-亿玖店为兼容旧配置，可通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供 Cookie 原文件路径；所有店铺都可以把路径单独写入 Git 已忽略的 `.runtime/<storeKey>-sycm-cookie-path.txt`。其他店铺不会读取亿玖店的全局环境变量。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。A 首先启动注册表中的店铺独立 Chromium；登录失效且该店显式设置 `loginMode=windows_dpapi_credentials` 时，程序只从当前 Windows 用户绑定的店铺独立 DPAPI 凭据项在内存中解密，向唯一密码表单填入并最多提交一次；不回读字段值。验证码、短信、安全验证、凭据缺失/损坏、登录按钮歧义或店铺身份不符都失败关闭。B 随后通过注册表调试端口从同一会话读取适用于 `sycm.taobao.com` 的 Cookie，只在内存中使用且不落盘；仅当该实例不可连接时才使用本店受控 Cookie 原文件后备。辅助进程只监听本机环回地址，协调节点和 A、B、C、P、M 节点会同时传递同一个 `$execution.id` 与固定 `X-TERUISI-TMALL-STORE-KEY`；helper 领取时把执行 ID 与店铺键一起绑定，跨店、旧执行、缺失 ID、乱序或并发请求均失败关闭。A、B、C 或 P 成功后若两分钟内没有下一节点领取，helper 会自动退出并由本地 Worker 启动器重新待命；M 是唯一成功终态，完成货品导入回查后关闭本轮受控浏览器并退出。任一阶段失败也只关闭本轮绑定店铺的受控浏览器并保留恢复证据。工作流页面每 5 秒读取一次只含阶段、忙碌状态、专属 Profile 与 Cookie 后备文件是否存在的 `/health`，不会读取路径、Cookie 或凭证内容。当前五段式副本必须从 A 开始，并由 M 收尾；M 失败不会回滚已完成回查的商品日或推广数据，但整个 n8n execution 仍保持失败。
+亿玖店为兼容旧配置，可通过 `TMALL_SYCM_COOKIE_FILE` 环境变量提供 Cookie 原文件路径；所有店铺都可以把路径单独写入 Git 已忽略的 `.runtime/<storeKey>-sycm-cookie-path.txt`。其他店铺不会读取亿玖店的全局环境变量。指针文件只能保存路径，不能复制 Cookie 内容、账号或密码。A 首先启动注册表中的店铺独立 Chromium；登录失效且该店显式设置 `loginMode=windows_dpapi_credentials` 时，程序只从当前 Windows 用户绑定的店铺独立 DPAPI 凭据项在内存中解密，向唯一密码表单填入并最多提交一次；不回读字段值。验证码、短信、安全验证、凭据缺失/损坏、登录按钮歧义或店铺身份不符都失败关闭。B 随后通过注册表调试端口从同一会话读取适用于 `sycm.taobao.com` 的 Cookie，只在内存中使用且不落盘；仅当该实例不可连接时才使用本店受控 Cookie 原文件后备。辅助进程只监听本机环回地址，协调节点和 A、B、C、P、M 节点会同时传递同一个 `$execution.id` 与固定 `X-TERUISI-TMALL-STORE-KEY`；helper 领取时把执行 ID 与店铺键一起绑定，跨店、旧执行、缺失 ID、乱序或并发请求均失败关闭。A、B、C 或 P 成功后若两分钟内没有下一节点领取，helper 会自动退出并由本地 Worker 启动器重新待命；M 是唯一成功终态：到期时完成货品导入回查并推进下次到期日，未到期时返回 `not_due` 且不创建货品任务；两种路径都关闭本轮受控浏览器并退出。任一阶段失败也只关闭本轮绑定店铺的受控浏览器并保留恢复证据。工作流页面每 5 秒读取一次只含阶段、忙碌状态、专属 Profile 与 Cookie 后备文件是否存在的 `/health`，不会读取路径、Cookie 或凭证内容。当前五段式副本必须从 A 开始并由 M 安全收尾；到期 M 失败不会推进节奏，也不会回滚已完成回查的商品日或推广数据，但整个 n8n execution 仍保持失败。
 
 只有排查启动器时才单独运行下面的辅助命令；不要同时运行它和本地 Worker 启动器，否则 5791 端口门禁会安全拒绝第二个进程：
 

@@ -21,7 +21,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 必守契约
 
-- 当前五段顺序固定为 `A→B→C→P→M`；定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
+- 当前五段顺序固定为 `A→B→C→P→M`；A/B/C/P 每日执行，M 作为每日安全终态入口，只在该店持久三日节奏到期、存在未决货品活动清单或 n8n 手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回 `status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店 Chromium 并释放 helper；M 到期失败不得推进日期，翌日必须从新完整 execution 补跑。定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
 - 不直接调用 `127.0.0.1:5791` 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，不直接运行天猫下载/导入脚本代替 n8n。只读 `/health` 可以用于状态核验。
 - 不单独重跑节点。任何恢复都从 n8n 正式页面或受控 n8n 能力创建新的完整 workflow execution，并使用新的 execution ID。
 - `export_submitted`、`export_confirmed`、`downloaded`、推广已提交等状态只能按原店铺、原业务日期和原任务续接；禁止删除清单、倒退阶段或重复业务点击。`export_submitting` 必须转人工核对。
@@ -30,7 +30,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 - 验证码、安全验证、店铺身份不符、任务歧义、登录按钮歧义或不能证明可安全续接时失败关闭并要求人工操作。
 - 每店独立解析 `executablePath + userDataDir + profileName + profileDir + debugPort + downloadDir`。不得回退默认 Chrome，不得扫描、复用或关闭其他 Chromium。
 - 服务重启遵守项目授权门禁。只能在确认精确目标进程并获当前授权后重启所需服务。
-- M 成功或任一阶段失败后，核验该 execution 的受控 Chromium 已关闭；关闭失败也算 execution 失败。
+- M 实际成功、`not_due` 或任一阶段失败后，核验该 execution 的受控 Chromium 已关闭；关闭失败也算 execution 失败。不得把 `*/3` cron、单独 M 工作流或仅按日期取模当成三日节奏；必须以每店持久的下一到期日和最后成功事实判定。
 
 ## 执行流程
 
@@ -40,14 +40,14 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 4. 区分“下载前失败、点击未决、任务已提交、文件已下载、事实已发布、仅回查失败”。不能因为节点红色就假设导入未发生。
 5. 源码或配置缺陷用 `apply_patch` 做聚焦修复，并补失败、重试、重复、跨店、日期覆盖、活动清单和回查的相关负向测试。
 6. 运行聚焦测试、`npm run test:unit`、`npm run lint`、`git diff --check`。保护用户已有改动；只暂存本任务文件并创建聚焦提交、推送。
-7. 需要恢复时只从对应店铺的 n8n 工作流启动新完整 execution，监控到终态，并逐项验证 A/B/C/P/M、文件证据、completed/duplicate 批次、行数、零告警、日期覆盖和浏览器关闭；不得让恢复 execution 与该店尚未终止的定时 execution 并存。
+7. 需要恢复时只从对应店铺的 n8n 工作流启动新完整 execution，监控到终态，并逐项验证 A/B/C/P，以及 M 的 `imported/duplicate` 完成证据或未到期 `not_due + nextDueDate` 证据、文件、批次、行数、告警、日期覆盖和浏览器关闭；不得让恢复 execution 与该店尚未终止的定时 execution 并存。
 8. 按手册格式交付结果。下载成功、任务已创建或节点变绿都不是导入成功。
 
 ## 特殊判断
 
 - C/P 的表现回查必须使用项目领域函数生成的复合 `outlet`（平台 + 店铺），不能使用旧的单独 `shop` 参数。
 - 若导入接口已发布 completed 批次但覆盖回查失败，保留已发布事实；修复回查后通过新完整 execution 让内容幂等返回 duplicate 或精确替换。
-- M 位于末段。M 失败不会回滚已完成回查的商品日和推广事实，但整个 workflow 仍失败，通知必须写成部分成功和 M 的人工下一步。
+- M 位于末段。未到期 `not_due` 且浏览器关闭属于预期成功，不得误报为跳过失败；到期 M 失败不会回滚已完成回查的商品日和推广事实，但整个 workflow 仍失败，节奏日期保持不变，通知必须写成部分成功和 M 的人工下一步/翌日补跑状态。
 - 多店铺必须串行；每店的 profile/端口/下载目录/签收单/恢复清单/凭据项和批次身份必须隔离。
 - 新店首次登录允许读取 `enabled=false` 的已注册浏览器配置，但任何 A/B/C/P/M 业务执行仍必须要求 `enabled=true`；不能为了登录测试提前开放导入。
 

@@ -26,6 +26,12 @@ import {
   runTmallProductMasterStage,
 } from "./tmall-product-master-export";
 import { runTmallPagewiseProductMasterStage } from "./tmall-pagewise-product-master-export";
+import {
+  getTmallProductMasterCadenceDecision,
+  parseTmallForceProductMasterHeader,
+  recordTmallProductMasterCadenceSuccess,
+  tmallForceProductMasterHeader,
+} from "./tmall-product-master-cadence";
 import { runTmallPromotionStage } from "./tmall-promotion-export";
 import {
   getJackyunProfileStatus,
@@ -1098,6 +1104,60 @@ export async function closeTmallWorkflowBrowser(
   }
 }
 
+export async function runTmallProductMasterTerminalStage(input: {
+  store: TmallStore;
+  forced: boolean;
+  getDecision?: typeof getTmallProductMasterCadenceDecision;
+  runProductManager?: typeof runTmallProductMasterStage;
+  runPagewise?: typeof runTmallPagewiseProductMasterStage;
+  recordSuccess?: typeof recordTmallProductMasterCadenceSuccess;
+  closeBrowser?: typeof closeTmallWorkflowBrowser;
+}) {
+  const getDecision = input.getDecision ?? getTmallProductMasterCadenceDecision;
+  const runProductManager = input.runProductManager ?? runTmallProductMasterStage;
+  const runPagewise = input.runPagewise ?? runTmallPagewiseProductMasterStage;
+  const recordSuccess = input.recordSuccess ?? recordTmallProductMasterCadenceSuccess;
+  const closeBrowser = input.closeBrowser ?? closeTmallWorkflowBrowser;
+  const cadenceDecision = await getDecision({ store: input.store, forced: input.forced });
+  let result: Record<string, unknown>;
+  if (cadenceDecision.due) {
+    const productMasterResult = input.store.productMasterExportMode === "on_sale_pagewise_excel"
+      ? await runPagewise({ storeKey: input.store.storeKey })
+      : await runProductManager({ storeKey: input.store.storeKey });
+    const cadenceState = await recordSuccess({
+      store: input.store,
+      decision: cadenceDecision,
+      snapshotDate: productMasterResult.snapshotDate,
+    });
+    result = {
+      ...productMasterResult,
+      cadence: cadenceState
+        ? {
+            configured: true,
+            due: true,
+            forced: cadenceDecision.forced,
+            reason: cadenceDecision.reason,
+            intervalDays: cadenceState.intervalDays,
+            lastSuccessDate: cadenceState.lastSuccessDate,
+            lastSnapshotDate: cadenceState.lastSnapshotDate,
+            nextDueDate: cadenceState.nextDueDate,
+          }
+        : cadenceDecision,
+    };
+  } else {
+    result = {
+      ok: true,
+      stage: "product_master",
+      status: "not_due",
+      storeKey: input.store.storeKey,
+      shopName: input.store.shopName,
+      cadence: cadenceDecision,
+    };
+  }
+  const browserClosure = await closeBrowser(input.store);
+  return { ...result, browserClosure };
+}
+
 export async function runTmallPromotionStageWithTimeout<T>(
   run: (signal: AbortSignal) => Promise<T>,
   options: {
@@ -1450,12 +1510,13 @@ async function serveCommand(argv: string[]) {
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master") {
         const store = await getTmallStore(claimedTmallStoreKey!);
-        const result = store.productMasterExportMode === "on_sale_pagewise_excel"
-          ? await runTmallPagewiseProductMasterStage({ storeKey: store.storeKey })
-          : await runTmallProductMasterStage({ storeKey: store.storeKey });
-        tmallBrowserClosure = await closeTmallWorkflowBrowser(store);
+        const result = await runTmallProductMasterTerminalStage({
+          store,
+          forced: parseTmallForceProductMasterHeader(request.headers[tmallForceProductMasterHeader]),
+        });
+        tmallBrowserClosure = result.browserClosure;
         stage = tmallStageAfterRoute("/product-master");
-        reply(200, { ...result, browserClosure: tmallBrowserClosure });
+        reply(200, result);
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/plan") {
