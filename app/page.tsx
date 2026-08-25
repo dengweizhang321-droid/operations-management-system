@@ -5092,7 +5092,7 @@ export default function Home() {
         sidebar={<>
         <div className="brand">
           <div className="brand-mark"><span>T</span></div>
-          <div className="brand-copy"><strong>TERUISI</strong><small>电商运营中台</small></div>
+          <div className="brand-copy"><strong>我的工作台</strong><small>电商运营中台</small></div>
         </div>
         <SidebarNavigation active={active} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />
         <div className="sidebar-help"><span>?</span><div><strong>需要帮助？</strong><small>查看使用指南</small></div></div>

@@ -27,7 +27,7 @@ test("build emits the operations console", async () => {
   assert.match(server, /api\/settings/);
   assert.match(server, /api\/auth\/me/);
   assert.match(server, /api\/search/);
-  assert.match(page, /TERUISI/);
+  assert.match(page, /我的工作台/);
   assert.match(page, /销售分析/);
   assert.match(page, /渠道经营诊断/);
   assert.match(page, /channel-detail-panel/);
@@ -147,6 +147,7 @@ test("wires the sales import and analytics capabilities", async () => {
   assert.match(page, /marginFilters/);
   assert.match(page, /type="file"/);
   assert.match(layout, /generateMetadata/);
+  assert.match(layout, /const title = "电商运营中台"/);
   assert.match(layout, /\/og\.png/);
   assert.match(schema, /sales_import_batches/);
   assert.match(schema, /sales_order_lines/);
