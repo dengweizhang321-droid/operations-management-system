@@ -69,10 +69,13 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.match(raw, /商品 > 我的商品 > 出售中/);
   assert.match(raw, /excel商品批量导出/);
   assert.match(raw, /最后一页才点击“前往下载”/);
-  assert.match(raw, /推广 > 货品全站推 > 报表/);
+  assert.match(raw, /报表 > 商品报表/);
+  assert.match(raw, /货品全站推广、关键词推广、人群推广、店铺直达/);
+  assert.match(raw, /商品、计划/);
   assert.match(raw, /全部数据指标/);
-  assert.match(raw, /开始和结束日期都选同一个业务日/);
-  assert.match(raw, /当天完整成功后才进入下一天/);
+  assert.match(raw, /同日起止日期/);
+  assert.match(raw, /计划维度多行先按“日期 \+ 商品”完整汇总/);
+  assert.match(raw, /拒绝旧全站推任务/);
   assert.match(raw, /生成成功/);
   assert.doesNotMatch(raw, /从左下角打开“商品管家”/);
   assert.doesNotMatch(raw, /批量导出表格/);
@@ -85,8 +88,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.connections["等待前序流程释放 helper"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["A·计划目标日期"]?.main?.[0]?.[0]?.node, "B·逐日下载并验证 XLS");
   assert.equal(workflow.connections["B·逐日下载并验证 XLS"]?.main?.[0]?.[0]?.node, "C·签收、导入并覆盖回查");
-  assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·全站推逐日报表下载、导入并回查");
-  assert.equal(workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node, "M·出售中逐页导出、合并校验并导入");
+  assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·商品报表逐日下载、汇总导入并回查");
+  assert.equal(workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node, "M·出售中逐页导出、合并校验并导入");
   assert.equal(workflow.connections["M·出售中逐页导出、合并校验并导入"], undefined);
   assert.match(raw, /A→B→C→P→M/);
   assert.match(raw, /每 3 天到期一次/);
@@ -204,14 +207,14 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       assert.match(raw, /先合并成一个无跨页重复/);
       assert.match(raw, /禁止逐页导入互相覆盖/);
       assert.equal(
-        workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node,
+        workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node,
         "M·出售中逐页导出、合并校验并导入",
       );
       assert.equal(workflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), false);
     } else {
       assert.equal(store.productMasterExportMode, undefined);
       assert.equal(
-        workflow.connections["P·全站推逐日报表下载、导入并回查"]?.main?.[0]?.[0]?.node,
+        workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node,
         "M·商品管家批量导出、校验并导入",
       );
     }
@@ -243,7 +246,7 @@ test("逐页版亿玖基础模板重复生成时仍能为未切换店铺还原�
   const productManagerWorkflow = buildTmallN8nWorkflow(source, lili);
   assert.equal(productManagerWorkflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), true);
   assert.equal(
-    (productManagerWorkflow.connections["P·全站推逐日报表下载、导入并回查"] as { main?: Array<Array<{ node?: string }>> })
+    (productManagerWorkflow.connections["P·商品报表逐日下载、汇总导入并回查"] as { main?: Array<Array<{ node?: string }>> })
       ?.main?.[0]?.[0]?.node,
     "M·商品管家批量导出、校验并导入",
   );
@@ -277,7 +280,7 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.match(view, /data-helper-status=\{helperStatus\.kind\}/);
   assert.match(view, /业务范围与规范化后的完整业务内容都一致时返回 duplicate/);
   assert.match(view, /A → B → C → P → M/);
-  assert.match(view, /全站推推广/);
+  assert.match(view, /商品推广报表/);
   assert.match(view, /scheduleMetric: "13:30"/);
   assert.match(view, /jackyun:[\s\S]*?scheduleMetric: "已停用"/);
   assert.match(view, /scheduleTriggerLabel: "每天"/);
@@ -287,6 +290,10 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.match(view, /payload\.tmallProfile !== "ready"/);
   assert.doesNotMatch(view, /key === "tmall" && payload\.cookieSource !== "ready"/);
   assert.match(view, /实际发布状态以 n8n 画布为准/);
+  assert.match(view, /document\.visibilityState === "hidden"/);
+  assert.match(view, /document\.addEventListener\("visibilitychange", onVisibilityChange\)/);
+  assert.match(view, /stableChecks >= 2 \? 15_000 : 5_000/);
+  assert.doesNotMatch(view, /setInterval\(\(\) => void check\(\), 5_000\)/);
 });
 
 test("n8n 工作流视图只在操作角色且 helper ready 时挂载可执行入口", async () => {

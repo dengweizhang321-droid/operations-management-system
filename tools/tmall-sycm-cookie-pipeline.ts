@@ -91,6 +91,8 @@ export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
 export const workflowCoordinationKeyHeader = "x-teruisi-workflow-key";
 export const workflowCoordinationAttemptHeader = "x-teruisi-coordination-attempt";
 export const tmallStoreKeyHeader = "x-teruisi-tmall-store-key";
+export const tmallPlanStartDateHeader = "x-teruisi-tmall-plan-start-date";
+export const tmallPlanEndDateHeader = "x-teruisi-tmall-plan-end-date";
 export const maximumWorkflowCoordinationAttempts = 72;
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
 export const jdMarketResumeRunIdHeader = "x-teruisi-jd-market-resume-run-id";
@@ -101,6 +103,24 @@ export function normalizeTmallStoreKey(value: string | string[] | undefined) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   return /^[a-z0-9][a-z0-9-]{0,63}$/.test(normalized) ? normalized : null;
+}
+
+function parseOptionalTmallPlanDateHeader(value: string | string[] | undefined) {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string" || !validDate(value)) throw new Error("天猫显式计划日期请求头无效");
+  return value;
+}
+
+export function parseTmallPlanDateRangeHeaders(
+  startValue: string | string[] | undefined,
+  endValue: string | string[] | undefined,
+) {
+  const startDate = parseOptionalTmallPlanDateHeader(startValue);
+  const endDate = parseOptionalTmallPlanDateHeader(endValue);
+  if (startDate === undefined && endDate === undefined) return null;
+  if (!startDate || !endDate) throw new Error("天猫显式计划日期必须同时提供开始日与结束日");
+  if (startDate > endDate || endDate > shanghaiYesterday()) throw new Error("天猫显式计划日期范围无效");
+  return { startDate, endDate };
 }
 
 export function tmallCookiePointerFile(storeKey: string) {
@@ -647,12 +667,13 @@ export function createInitialDownloadManifest(
   };
 }
 
-export function getTmallPromotionStageOptions(storeKey = "tmall-yijiu") {
+export function getTmallPromotionStageOptions(storeKey = "tmall-yijiu", dates?: readonly string[]) {
   const normalized = normalizeTmallStoreKey(storeKey);
   if (!normalized) throw new Error("天猫店铺键无效");
   return {
     storeKey: normalized,
     maximumDays: maximumDaysPerRun,
+    ...(dates ? { dates: [...dates] } : {}),
   };
 }
 
@@ -1218,6 +1239,7 @@ async function serveCommand(argv: string[]) {
   let busy = false;
   let activeWorkflow: CoordinatedWorkflow | null = null;
   let planPathBase64 = "";
+  let tmallPlanDates: string[] = [];
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
   let jdPlan: JdN8nPlan | null = null;
@@ -1521,8 +1543,15 @@ async function serveCommand(argv: string[]) {
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/plan") {
         const authentication = await ensureTmallStoreAuthenticatedSession(claimedTmallStoreKey!);
-        const result = await planCommand(["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)]);
+        const explicitDates = parseTmallPlanDateRangeHeaders(
+          request.headers[tmallPlanStartDateHeader],
+          request.headers[tmallPlanEndDateHeader],
+        );
+        const planArguments = ["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)];
+        if (explicitDates) planArguments.push("--start-date", explicitDates.startDate, "--end-date", explicitDates.endDate);
+        const result = await planCommand(planArguments);
         planPathBase64 = result.planPathBase64;
+        tmallPlanDates = [...result.dates];
         stage = tmallStageAfterRoute("/plan");
         reply(200, { ...result, authentication });
         inactivityReaper?.arm();
@@ -1538,10 +1567,11 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         inactivityReaper?.arm();
       } else {
+        if (tmallPlanDates.length === 0) throw new Error("天猫推广阶段缺少同一 execution 的目标日期计划");
         const store = await getTmallStore(claimedTmallStoreKey!);
         const result = await runTmallPromotionStageWithTimeout(
           (signal) => runTmallPromotionStage({
-            ...getTmallPromotionStageOptions(claimedTmallStoreKey!),
+            ...getTmallPromotionStageOptions(claimedTmallStoreKey!, tmallPlanDates),
             signal,
           }),
           {

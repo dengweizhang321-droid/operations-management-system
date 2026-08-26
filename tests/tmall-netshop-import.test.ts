@@ -305,6 +305,39 @@ test("推广 ZIP 按 GB18030 解码并把 nan 规范为 null", async () => {
   assert.equal(result.rows[0].metrics.clickThroughRate, 0.05);
 });
 
+test("阿里妈妈商品报表按日期和商品汇总计划维度后再生成唯一推广日事实", async () => {
+  const itemPromotionCsv = strToU8([
+    "日期,商品ID,商品名称,计划ID,计划名称,花费,净成交金额,总成交金额,展现量,点击量,净成交笔数,总成交笔数,总购物车数,收藏宝贝数",
+    "2026-07-31,10001,测试商品,plan-a,计划A,10.00,20.00,30.00,100,10,1,2,3,1",
+    "2026-07-31,10001,测试商品,plan-b,计划B,20.00,40.00,70.00,200,20,2,3,4,2",
+  ].join("\r\n"));
+  const bytes = zipSync({ "商品报表_20260801_110000.csv": itemPromotionCsv });
+  const result = await inspectTmallImportBytes({
+    source: "tmall_promotion",
+    bytes,
+    fileName: "商品报表.zip",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-07-31",
+    expectedEndDate: "2026-07-31",
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.totals.rowCount, 1);
+  assert.equal(result.totals.uniqueProductCount, 1);
+  assert.equal(result.totals.spendCents, 3_000);
+  assert.equal(result.totals.netTransactionAmountCents, 6_000);
+  assert.equal(result.totals.impressions, 300);
+  assert.equal(result.totals.clicks, 30);
+  assert.equal(result.rows[0]?.spuId, "10001");
+  assert.equal(result.rows[0]?.metrics.clickThroughRate, 0.1);
+  assert.equal(result.rows[0]?.metrics.averageClickCostCents, 100);
+  assert.equal(result.rows[0]?.raw["主体类型"], "商品");
+  assert.equal(result.rows[0]?.raw["报表维度"], "商品,计划");
+  assert.equal(result.rows[0]?.raw["计划明细行数"], 2);
+  assert.equal(result.rows[0]?.raw["计划列表"], "plan-a:计划A|plan-b:计划B");
+});
+
 test("推广 ZIP 多 CSV 时拒绝解析", async () => {
   const bytes = zipSync({ "a.csv": gb18030PromotionCsv, "b.csv": gb18030PromotionCsv });
   await assert.rejects(

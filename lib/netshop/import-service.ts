@@ -312,6 +312,25 @@ function tmallObjectFromRow(headers: readonly string[], values: readonly unknown
   return Object.fromEntries(headers.map((header, index) => [header, normalizedTmallValue(values[index])])) as Record<string, string | number | boolean | null>;
 }
 
+function canonicalTmallPromotionHeader(value: unknown) {
+  const header = normalizeHeader(value);
+  const key = normalizeKey(header);
+  if (["日期", "数据日期", "统计日期"].includes(key)) return "日期";
+  if (["主体id", "商品id", "宝贝id"].includes(key)) return "主体ID";
+  if (["主体名称", "商品名称", "商品标题", "宝贝名称", "宝贝标题"].includes(key)) return "主体名称";
+  if (["主体类型", "商品类型"].includes(key)) return "主体类型";
+  return header;
+}
+
+function canonicalTmallPromotionRaw(raw: Record<string, string | number | boolean | null>) {
+  const output = { ...raw };
+  output["日期"] = normalizedTmallValue(output["日期"] ?? output["数据日期"] ?? output["统计日期"]);
+  output["主体ID"] = normalizedTmallValue(output["主体ID"] ?? output["商品ID"] ?? output["宝贝ID"]);
+  output["主体名称"] = normalizedTmallValue(output["主体名称"] ?? output["商品名称"] ?? output["商品标题"] ?? output["宝贝名称"] ?? output["宝贝标题"]);
+  output["主体类型"] = normalizedTmallValue(output["主体类型"] ?? (output["主体ID"] ? "商品" : null));
+  return output;
+}
+
 const tmallMasterCanonicalRawHeaders = [
   "商品ID", "类目ID", "类目名称", "商品标题", "一口价", "导购标题", "商品商家编码", "商品发货时间",
   "最长发货时间", "销售属性", "属性对", "SKU发货时间", "SKUID", "SKU价格", "SKU库存", "SKU商家编码",
@@ -374,9 +393,12 @@ function findTmallHeader(source: NetshopSource, table: ParsedTable) {
     return { index, headers: table.rows[index].values.map((value, cellIndex) => normalizeHeader(value) || `列${cellIndex + 1}`) };
   }
   if (source === "tmall_promotion") {
-    const index = table.rows.findIndex((row) => normalizeHeader(row.values[0]) === "日期" && normalizeHeader(row.values[1]) === "主体ID" && row.values.map(normalizeHeader).includes("花费"));
-    if (index < 0) throw new Error("天猫推广文件缺少日期、主体ID或花费表头");
-    return { index, headers: table.rows[index].values.map((value, cellIndex) => normalizeHeader(value) || `列${cellIndex + 1}`) };
+    const index = table.rows.findIndex((row) => {
+      const headers = row.values.map(canonicalTmallPromotionHeader);
+      return headers.includes("日期") && headers.includes("主体ID") && headers.includes("花费");
+    });
+    if (index < 0) throw new Error("天猫商品推广报表缺少日期、商品ID（或主体ID）或花费表头");
+    return { index, headers: table.rows[index].values.map((value, cellIndex) => canonicalTmallPromotionHeader(value) || `列${cellIndex + 1}`) };
   }
   return findHeader(table);
 }
@@ -393,6 +415,7 @@ function tmallRowObject(source: NetshopSource, headers: readonly string[], value
     raw["商品总库存"] = raw["SKU库存"];
     raw["商品可用库存"] = raw["SKU库存"];
   }
+  if (source === "tmall_promotion") return canonicalTmallPromotionRaw(raw);
   return raw;
 }
 
@@ -531,6 +554,97 @@ function isDailyAggregateRow(source: NetshopSource, row: Record<string, unknown>
   return normalizeText(findValue(row, [/^sku$/i, /^spu$/i])) === "合计";
 }
 
+type ParsedNetshopRawRow = {
+  rowNumber: number;
+  raw: Record<string, string | number | boolean | null>;
+};
+
+const tmallPromotionAdditiveHeaders = new Set([
+  "花费",
+  "净成交金额",
+  "总成交金额",
+  "直接净成交金额",
+  "直接成交金额",
+  "展现量",
+  "点击量",
+  "净成交笔数",
+  "总成交笔数",
+  "直接净成交笔数",
+  "直接成交笔数",
+  "总购物车数",
+  "直接购物车数",
+  "收藏宝贝数",
+  "直接收藏宝贝数",
+  "宝贝收藏加购数",
+  "宝贝直接收藏加购数",
+]);
+
+function sumTmallPromotionHeader(rows: readonly ParsedNetshopRawRow[], header: string) {
+  const values = rows.map((row) => numberFromUnknown(row.raw[header])).filter((value): value is number => value !== null);
+  return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+function safeRatio(numerator: number | null, denominator: number | null, multiplier = 1) {
+  return numerator !== null && denominator !== null && denominator !== 0 ? numerator / denominator * multiplier : null;
+}
+
+/**
+ * 阿里妈妈“商品报表”在选择“商品、计划”维度后，同一商品同一天会出现多条计划行。
+ * 运营系统的 promotion_daily 自然键仍是“店铺 + 日期 + 商品”，因此必须先把计划行
+ * 汇总为唯一商品日事实，不能依赖数据库冲突覆盖，也不能丢掉某个计划的指标。
+ */
+function prepareTmallPromotionRows(rows: readonly ParsedNetshopRawRow[]) {
+  const groups = new Map<string, ParsedNetshopRawRow[]>();
+  for (const row of rows) {
+    const date = normalizeText(row.raw["日期"]);
+    const subjectId = normalizeText(row.raw["主体ID"]);
+    const key = JSON.stringify([date, subjectId]);
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()].map((group) => {
+    const first = group[0]!;
+    if (group.length === 1) return first;
+    const subjectNames = [...new Set(group.map((row) => normalizeText(row.raw["主体名称"])).filter(Boolean))];
+    const subjectTypes = [...new Set(group.map((row) => normalizeText(row.raw["主体类型"])).filter(Boolean))];
+    if (subjectNames.length > 1) throw new Error(`天猫商品报表同一商品存在多个商品名称（源行 ${group.map((row) => row.rowNumber).join("、")}）`);
+    if (subjectTypes.some((value) => value !== "商品")) throw new Error("天猫商品报表计划维度包含非商品主体，拒绝汇总");
+
+    const raw = { ...first.raw };
+    for (const header of tmallPromotionAdditiveHeaders) raw[header] = sumTmallPromotionHeader(group, header);
+    const spend = numberFromUnknown(raw["花费"]);
+    const impressions = numberFromUnknown(raw["展现量"]);
+    const clicks = numberFromUnknown(raw["点击量"]);
+    const netAmount = numberFromUnknown(raw["净成交金额"]);
+    const grossAmount = numberFromUnknown(raw["总成交金额"]);
+    const grossOrders = numberFromUnknown(raw["总成交笔数"]);
+    const directNetAmount = numberFromUnknown(raw["直接净成交金额"]);
+    raw["点击率"] = safeRatio(clicks, impressions);
+    raw["平均点击花费"] = safeRatio(spend, clicks);
+    raw["千次展现花费"] = safeRatio(spend, impressions, 1000);
+    raw["净实际投产比"] = safeRatio(netAmount, spend);
+    raw["实际投产比"] = safeRatio(grossAmount, spend);
+    raw["点击转化率"] = safeRatio(grossOrders, clicks);
+    raw["直接净实际投产比"] = safeRatio(directNetAmount, spend);
+
+    const plans = [...new Set(group.map((row) => {
+      const id = normalizeText(row.raw["计划ID"]);
+      const name = normalizeText(row.raw["计划名称"] ?? row.raw["计划"]);
+      return [id, name].filter(Boolean).join(":");
+    }).filter(Boolean))].sort();
+    raw["报表维度"] = "商品,计划";
+    raw["计划明细行数"] = group.length;
+    raw["计划数量"] = plans.length || group.length;
+    raw["计划列表"] = plans.join("|") || null;
+    raw["计划ID"] = null;
+    raw["计划名称"] = null;
+    raw["计划"] = null;
+    return { rowNumber: Math.min(...group.map((row) => row.rowNumber)), raw };
+  });
+}
+
 export function detectDataset(source: NetshopSource, fileName: string, headers: readonly string[]) {
   const haystack = `${fileName} ${headers.join(" ")}`;
   if (source === "jd_shop_overview") return "trade_overview";
@@ -659,7 +773,7 @@ function buildNetshopRows(input: NetshopImportInput, context: {
   snapshotDate: string;
 }) {
   const snapshotSource = usesSnapshotDate(input.source);
-  const rawRows = context.parsed.rows.slice(context.header.index + 1)
+  const parsedRawRows = context.parsed.rows.slice(context.header.index + 1)
     .map((row) => ({
       rowNumber: row.rowNumber,
       raw: isTmallSource(input.source)
@@ -668,6 +782,7 @@ function buildNetshopRows(input: NetshopImportInput, context: {
     }))
     .filter((row) => Object.values(row.raw).some((value) => normalizeText(value)))
     .filter((row) => !isDailyAggregateRow(input.source, row.raw));
+  const rawRows = input.source === "tmall_promotion" ? prepareTmallPromotionRows(parsedRawRows) : parsedRawRows;
   if (rawRows.length > MAX_TABULAR_ROWS) throw new Error(`单次最多导入 ${MAX_TABULAR_ROWS} 行`);
 
   const rows: NetshopRowInput[] = [];
@@ -926,10 +1041,11 @@ export async function importNetshopBytes(
     const message = `${input.source} 快照导入必须提供有效 snapshot_date=YYYY-MM-DD`;
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "MISSING_SNAPSHOT_DATE", message }], errorCount: 1 });
   }
-  const rawRows = parsed.rows.slice(header.index + 1)
+  const parsedRawRows = parsed.rows.slice(header.index + 1)
     .map((row) => ({ rowNumber: row.rowNumber, raw: isTmallSource(input.source) ? tmallRowObject(input.source, header.headers, row.values) : objectFromRow(header.headers, row.values) }))
     .filter((row) => Object.values(row.raw).some((value) => normalizeText(value)))
     .filter((row) => !isDailyAggregateRow(input.source, row.raw));
+  const rawRows = input.source === "tmall_promotion" ? prepareTmallPromotionRows(parsedRawRows) : parsedRawRows;
   if (rawRows.length > MAX_TABULAR_ROWS) {
     const message = `单次最多导入 ${MAX_TABULAR_ROWS} 行`;
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "ROW_LIMIT_EXCEEDED", message }], errorCount: 1 });

@@ -31,6 +31,7 @@ import {
   normalizeTmallStoreKey,
   parseWorkflowCoordinationAttempt,
   parseWorkflowCoordinationKey,
+  parseTmallPlanDateRangeHeaders,
   parseCookieHeader,
   runTmallPromotionStageWithTimeout,
   saveDownload,
@@ -40,6 +41,8 @@ import {
   tmallCookiePointerFile,
   tmallStoreContextError,
   tmallStoreKeyHeader,
+  tmallPlanStartDateHeader,
+  tmallPlanEndDateHeader,
   workflowClaimDecision,
   workflowCoordinationWaitExpired,
   workflowCoordinationAttemptHeader,
@@ -128,6 +131,20 @@ test("工作流协调领取使用受控键并在 A 前原子授予唯一 executi
     requestExecutionId: "execution-tmall", claimedExecutionId: "execution-tmall",
     requestedTmallStoreKey: "tmall-lili", claimedTmallStoreKey: "tmall-yijiu",
   }), { error: "tmall_store_context_mismatch" });
+});
+
+test("天猫 n8n 可为恢复灰度显式绑定完整历史日期且默认仍使用昨天", () => {
+  assert.equal(tmallPlanStartDateHeader, "x-teruisi-tmall-plan-start-date");
+  assert.equal(tmallPlanEndDateHeader, "x-teruisi-tmall-plan-end-date");
+  assert.equal(parseTmallPlanDateRangeHeaders(undefined, undefined), null);
+  assert.equal(parseTmallPlanDateRangeHeaders("", ""), null);
+  assert.deepEqual(parseTmallPlanDateRangeHeaders("2026-08-25", "2026-08-25"), {
+    startDate: "2026-08-25",
+    endDate: "2026-08-25",
+  });
+  assert.throws(() => parseTmallPlanDateRangeHeaders("2026-08-25", undefined), /必须同时提供/);
+  assert.throws(() => parseTmallPlanDateRangeHeaders("2026-08-26", "2026-08-25"), /范围无效/);
+  assert.throws(() => parseTmallPlanDateRangeHeaders("bad", "2026-08-25"), /请求头无效/);
 });
 
 test("天猫 execution owner 同时绑定规范店铺键并拒绝缺失或跨店请求", () => {
@@ -301,6 +318,11 @@ test("单轮只规划一个商品日，空计划不读取 Cookie 并可生成空
   assert.equal(maximumDaysPerRun, 1);
   assert.deepEqual(getTmallPromotionStageOptions(), { storeKey: "tmall-yijiu", maximumDays: 1 });
   assert.deepEqual(getTmallPromotionStageOptions("tmall-lili"), { storeKey: "tmall-lili", maximumDays: 1 });
+  assert.deepEqual(getTmallPromotionStageOptions("tmall-yijiu", ["2026-08-25"]), {
+    storeKey: "tmall-yijiu",
+    maximumDays: 1,
+    dates: ["2026-08-25"],
+  });
   assert.throws(() => getTmallPromotionStageOptions("bad store"), /店铺键无效/);
   assert.equal(shouldLoadCookieForPlan([]), false);
   assert.equal(shouldLoadCookieForPlan(["2026-08-05"]), true);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,30 +7,45 @@ import test from "node:test";
 import {
   assertPromotionCoveragePayload,
   assertPromotionImportPayload,
+  buildTmallPromotionItemReportUrl,
   buildTmallPromotionCoverageUrl,
   clickCalendarMonthArrowWithFallback,
   chooseTmallPromotionDownloadTask,
+  chooseTmallPromotionGeneratedTask,
   chooseTmallPromotionEntryPageIndex,
   isPromotionMetricSelectionState,
+  isPromotionDateRangeControlText,
   isPromotionDownloadDialogText,
+  isPromotionDownloadActionAligned,
+  isPromotionDownloadActionOwnedByRowBand,
   isPromotionReportSuccessNavigation,
   isSafePromotionDismissLabel,
+  isTmallPromotionDimensionSelection,
+  isTmallPromotionItemReportUrl,
+  isTmallPromotionMarketingSceneSelection,
   parsePromotionTaskDateRange,
+  parsePromotionTaskRowIdentity,
+  parsePromotionSelectedCount,
   openPromotionDialogWithRetry,
   planTmallPromotionDailyReports,
   planTmallPromotionDateRange,
+  promotionDateRangeControlMatches,
+  promotionLabeledControlSemanticScore,
   promotionNativeDialogAction,
   sanitizePromotionNativeDialogMessage,
   promotionDatePickerRole,
+  promotionAuditProtocolDisposition,
   promotionSuccessNavigationMissingMessage,
+  reacquireTmallPromotionDownloadTask,
   runPromotionDailyPlansSequentially,
   runTmallPromotionStage,
   sanitizePromotionDiagnosticUrl,
+  shouldRedownloadUnverifiedPromotionFile,
   shouldRecoverSubmittedPromotionTask,
   TMALL_PROMOTION_DOWNLOAD_LIST_URL,
   TMALL_PROMOTION_ENTRY_URL,
+  TMALL_PROMOTION_REPORT_PROTOCOL,
 } from "../tools/tmall-promotion-export";
-import { TMALL_SELLER_ON_SALE_URL } from "../tools/tmall-product-master-export";
 
 function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
   const url = new URL(typeof input === "string" || input instanceof URL ? input.toString() : input.url);
@@ -40,12 +55,12 @@ function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
   };
 }
 
-test("推广入口严格选择千牛业务页并排除相似登录域名", () => {
+test("推广入口严格选择阿里妈妈商品报表页并排除相似登录域名", () => {
   assert.equal(chooseTmallPromotionEntryPageIndex([
     "https://loginmyseller.taobao.com/?redirect_url=on_sale",
-    "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20",
-    "https://one.alimama.com/index.html",
-  ]), 1);
+    "https://one.alimama.com/index.html#!/report/download-list",
+    "https://one.alimama.com/index.html#!/report/item_promotion?rptType=item_promotion",
+  ]), 2);
   assert.equal(chooseTmallPromotionEntryPageIndex([
     "https://loginmyseller.taobao.com/?redirect_url=on_sale",
     "https://one.alimama.com/index.html",
@@ -167,11 +182,35 @@ test("下载任务日期同时兼容同日起止范围和带标签的单日展�
   assert.equal(parsePromotionTaskDateRange("创建日期 2026-08-06"), null);
 });
 
+test("下载任务行必须只有一个文件名和一个业务日期范围", () => {
+  const identity = parsePromotionTaskRowIdentity(
+    "商品报表_20260827_044500 2026-08-25 至 2026-08-25 生成成功 下载",
+  );
+  assert.equal(identity?.fileName, "商品报表_20260827_044500");
+  assert.equal(identity?.startDate, "2026-08-25");
+  assert.equal(identity?.endDate, "2026-08-25");
+  assert.equal(parsePromotionTaskRowIdentity(
+    "商品报表_20260827_044500 2026-08-25 至 2026-08-25 下载 商品报表_20260822_120830 2026-08-21 至 2026-08-21 下载",
+  ), null);
+});
+
+test("已提交推广任务只允许对纯日期错配文件受控重下发一次", () => {
+  const mismatch = new Error("推广 ZIP 内容、日期或店铺校验失败：MISSING_EXPECTED_DATES, OUT_OF_RANGE_DATES");
+  assert.equal(shouldRedownloadUnverifiedPromotionFile(mismatch, 1), true);
+  assert.equal(shouldRedownloadUnverifiedPromotionFile(mismatch, 2), false);
+  assert.equal(shouldRedownloadUnverifiedPromotionFile(
+    new Error("推广 ZIP 内容、日期或店铺校验失败：UNSUPPORTED_SUBJECT_TYPE, MISSING_EXPECTED_DATES, OUT_OF_RANGE_DATES"),
+    1,
+  ), false);
+  assert.equal(shouldRedownloadUnverifiedPromotionFile(new Error("恢复清单中的未校验商品推广文件已变化"), 1), false);
+});
+
 test("下载中心只选择本轮日期、创建时间、成功状态和唯一下载动作一致的任务", () => {
   const runStartedAt = new Date(Date.now() - 30_000).toISOString();
   const createdAt = new Date(Date.now() - 5_000).toISOString();
   const common = {
-    fileName: "报表_20260805_230918",
+    fileName: "商品报表_20260805_230918",
+    reportName: "商品报表",
     startDate: "2026-07-29",
     endDate: "2026-08-04",
     createdAt,
@@ -204,7 +243,62 @@ test("下载中心只选择本轮日期、创建时间、成功状态和唯一�
     endDate: "2026-08-04",
     runStartedAt,
   }), null);
+  assert.equal(chooseTmallPromotionDownloadTask([{
+    ...common,
+    signature: "legacy-full-site-report",
+    fileName: "报表_20260805_230918",
+    reportName: "未知报表",
+    status: "生成成功",
+  }], {
+    startDate: "2026-07-29",
+    endDate: "2026-08-04",
+    runStartedAt,
+  }), null);
   assert.match(TMALL_PROMOTION_DOWNLOAD_LIST_URL, /#!\/report\/download-list$/);
+});
+
+test("生成完成但悬浮下载按钮尚未绑定时只允许定位任务行而不允许直接下载", () => {
+  const runStartedAt = new Date(Date.now() - 30_000).toISOString();
+  const task = {
+    signature: "generated-without-action",
+    fileName: "商品报表_20260827_044452",
+    reportName: "商品报表",
+    status: "生成成功",
+    startDate: "2026-08-25",
+    endDate: "2026-08-25",
+    createdAt: new Date(Date.now() - 5_000).toISOString(),
+    downloadReady: false,
+  };
+  const expected = { startDate: task.startDate, endDate: task.endDate, runStartedAt };
+  assert.equal(chooseTmallPromotionGeneratedTask([task], expected), task.signature);
+  assert.equal(chooseTmallPromotionDownloadTask([task], expected), null);
+});
+
+test("悬浮下载按钮只绑定垂直对齐且位于任务行右侧的唯一动作", () => {
+  const row = { x: 100, y: 200, width: 1_000, height: 52 };
+  assert.equal(isPromotionDownloadActionAligned(row, { x: 1_000, y: 210, width: 60, height: 28 }), true);
+  assert.equal(isPromotionDownloadActionAligned(row, { x: 1_000, y: 270, width: 60, height: 28 }), false);
+  assert.equal(isPromotionDownloadActionAligned(row, { x: 150, y: 210, width: 60, height: 28 }), false);
+});
+
+test("虚拟表格展开操作行按当前任务至下一任务的独占纵向区间绑定", () => {
+  const firstRow = { x: -367, y: 319, width: 1_290, height: 41 };
+  const secondRow = { x: -367, y: 401, width: 1_290, height: 41 };
+  const expandedAction = { x: -343, y: 369, width: 49, height: 24 };
+  assert.equal(isPromotionDownloadActionOwnedByRowBand(firstRow, secondRow.y - 2, expandedAction), true);
+  assert.equal(isPromotionDownloadActionOwnedByRowBand(secondRow, 480, expandedAction), false);
+  assert.equal(isPromotionDownloadActionOwnedByRowBand(firstRow, secondRow.y - 2, {
+    ...expandedAction,
+    x: 1_000,
+  }), false);
+});
+
+test("下载点击前只重新绑定同一个稳定任务且拒绝消失或重复候选", () => {
+  const task = { signature: "current", downloadReady: true, marker: "fresh" };
+  assert.equal(reacquireTmallPromotionDownloadTask([task], "current"), task);
+  assert.equal(reacquireTmallPromotionDownloadTask([{ ...task, downloadReady: false }], "current"), null);
+  assert.equal(reacquireTmallPromotionDownloadTask([task, { ...task, marker: "duplicate" }], "current"), null);
+  assert.equal(reacquireTmallPromotionDownloadTask([task], "other"), null);
 });
 
 test("平台消息和广告弹窗只允许无业务副作用的明确关闭动作", () => {
@@ -223,6 +317,23 @@ test("下载报表弹窗同时兼容旧版和新版语义结构但拒绝不完�
   assert.equal(isPromotionDownloadDialogText("下载报表 历史任务 下载"), false);
   assert.equal(isPromotionDownloadDialogText("日期范围 数据指标 确定"), false);
   assert.equal(isPromotionDownloadDialogText("生成报表 日期范围 数据指标"), false);
+});
+
+test("新版商品报表日期控件兼容绝对日期到昨日且拒绝无关日期文本", () => {
+  assert.equal(isPromotionDateRangeControlText("2026-08-24 至 昨日"), true);
+  assert.equal(isPromotionDateRangeControlText("日期范围：2026-08-24 至 2026-08-25"), true);
+  assert.equal(isPromotionDateRangeControlText("2026-08-25"), true);
+  assert.equal(isPromotionDateRangeControlText("过去 7 天"), true);
+  assert.equal(isPromotionDateRangeControlText("商品数据范围 2026-08-24"), false);
+  assert.equal(isPromotionDateRangeControlText("2026-08-24 商品数据明细"), false);
+});
+
+test("下载报表日期确认后必须精确读回目标单日", () => {
+  const expected = { startDate: "2026-08-25", endDate: "2026-08-25", yesterday: "2026-08-26" };
+  assert.equal(promotionDateRangeControlMatches("2026-08-25", expected), true);
+  assert.equal(promotionDateRangeControlMatches("日期范围：2026-08-25 至 2026-08-25", expected), true);
+  assert.equal(promotionDateRangeControlMatches("2026-08-25 至 昨日", expected), false);
+  assert.equal(promotionDateRangeControlMatches("2026-08-21 至 2026-08-21", expected), false);
 });
 
 test("下载报表弹窗握手只允许一次安全重试且不会重复已有弹窗", async () => {
@@ -309,10 +420,53 @@ test("确认报表后只点击生成成功提示中的前往下载动作", () =>
   assert.equal(shouldRecoverSubmittedPromotionTask(new Error("阿里妈妈登录身份与受控店铺不一致")), false);
 });
 
-test("推广报表必须从千牛店铺后台入口逐级进入", () => {
-  assert.equal(TMALL_PROMOTION_ENTRY_URL, TMALL_SELLER_ON_SALE_URL);
-  assert.match(TMALL_PROMOTION_ENTRY_URL, /^https:\/\/myseller\.taobao\.com\/home\.htm\/SellManage\/on_sale/);
+test("推广报表固定使用阿里妈妈商品报表协议和精确日期路由", () => {
+  assert.match(TMALL_PROMOTION_ENTRY_URL, /^https:\/\/one\.alimama\.com\/index\.html#!\/report\/item_promotion/);
   assert.match(TMALL_PROMOTION_DOWNLOAD_LIST_URL, /^https:\/\/one\.alimama\.com\//);
+  const target = buildTmallPromotionItemReportUrl("2026-08-25", "2026-08-25");
+  assert.equal(isTmallPromotionItemReportUrl(target, { startDate: "2026-08-25", endDate: "2026-08-25" }), true);
+  assert.equal(isTmallPromotionItemReportUrl(target, { startDate: "2026-08-24", endDate: "2026-08-24" }), false);
+  assert.equal(isTmallPromotionItemReportUrl(TMALL_PROMOTION_DOWNLOAD_LIST_URL), false);
+  assert.match(target, /rptType=item_promotion/);
+  assert.match(target, /startTime=2026-08-25/);
+  assert.throws(() => buildTmallPromotionItemReportUrl("2026-08-26", "2026-08-25"), /日期范围无效/);
+});
+
+test("商品报表必须精确选择全部营销场景与商品计划两个维度", () => {
+  assert.equal(isTmallPromotionMarketingSceneSelection(["人群推广", "货品全站推广", "店铺直达", "关键词推广"]), true);
+  assert.equal(isTmallPromotionMarketingSceneSelection(["货品全站推广", "关键词推广", "人群推广"]), false);
+  assert.equal(isTmallPromotionMarketingSceneSelection(["货品全站推广", "关键词推广", "人群推广", "店铺直达", "内容营销"]), false);
+  assert.equal(isTmallPromotionDimensionSelection(["计划", "商品"]), true);
+  assert.equal(isTmallPromotionDimensionSelection(["商品"]), false);
+});
+
+test("营销场景全选以页面已选数量作为四类精确回读证据", () => {
+  assert.equal(parsePromotionSelectedCount("全选 已选：4 货品全站推广 关键词推广 人群推广 店铺直达"), 4);
+  assert.equal(parsePromotionSelectedCount("已选 4"), 4);
+  assert.equal(parsePromotionSelectedCount("已选：3"), 3);
+  assert.equal(parsePromotionSelectedCount("已选：4 已选：3"), null);
+  assert.equal(parsePromotionSelectedCount("没有选择数量"), null);
+});
+
+test("营销场景真实多选框必须优先于同一行的箭头图标", () => {
+  const iconScore = promotionLabeledControlSemanticScore(68.3, "");
+  const selectorScore = promotionLabeledControlSemanticScore(
+    68,
+    "货品全站推广 关键词推广 人群推广 店铺直达",
+  );
+  assert.ok(selectorScore > iconScore);
+});
+
+test("新版商品报表不会接管旧全站推已提交或已下载的活动清单", () => {
+  assert.equal(promotionAuditProtocolDisposition({
+    version: 2,
+    reportProtocol: TMALL_PROMOTION_REPORT_PROTOCOL,
+    stage: "report_submitted",
+  }), "reuse");
+  assert.equal(promotionAuditProtocolDisposition({ version: 1, stage: "completed" }), "replace_pre_submit");
+  assert.equal(promotionAuditProtocolDisposition({ version: 1, stage: "report_configured" }), "replace_pre_submit");
+  assert.equal(promotionAuditProtocolDisposition({ version: 1, stage: "report_submitted" }), "block_existing_business_action");
+  assert.equal(promotionAuditProtocolDisposition({ version: 1, stage: "failed", resumeStage: "downloaded" }), "block_existing_business_action");
 });
 
 test("推广日期弹层能识别自定义组件的起止控件", () => {
@@ -534,6 +688,46 @@ test("损坏的推广恢复清单必须失败关闭且测试不读取真实活�
       auditDirectory: directory,
       dates: ["2026-07-28"],
     }), /JSON|Unexpected|结构无效/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("旧全站推已提交活动清单保持原样并阻止商品报表重复提交", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-promotion-legacy-audit-"));
+  const auditPath = path.join(directory, "active-tmall-yijiu.json");
+  const legacy = {
+    version: 1,
+    runId: "legacy-run",
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+    baseUrl: "http://localhost:3000",
+    startedAt: "2026-08-26T03:00:00.000Z",
+    updatedAt: "2026-08-26T03:01:00.000Z",
+    stage: "failed",
+    resumeStage: "report_submitted",
+    startDate: "2026-07-28",
+    endDate: "2026-07-28",
+    dates: ["2026-07-28"],
+    metrics: "全部数据指标",
+    downloadListUrl: TMALL_PROMOTION_DOWNLOAD_LIST_URL,
+    dismissedPopups: 0,
+    error: "legacy failure",
+  };
+  try {
+    await writeFile(auditPath, JSON.stringify(legacy), "utf8");
+    const request = (async (input: Parameters<typeof fetch>[0]) => Response.json({
+      requestedPeriod: requestedPeriodFromFetchInput(input),
+      coverage: { productDailyDates: ["2026-07-28"], promotionDates: ["2026-07-28"] },
+    })) as typeof fetch;
+    await assert.rejects(runTmallPromotionStage({
+      storeKey: "tmall-yijiu",
+      baseUrl: "http://localhost:3000",
+      request,
+      auditDirectory: directory,
+      dates: ["2026-07-28"],
+    }), /旧版或不同协议.*拒绝由商品报表流程接管/);
+    assert.deepEqual(JSON.parse(await readFile(auditPath, "utf8")), legacy);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
