@@ -4,7 +4,9 @@ import {
 } from "@/lib/inventory/database";
 import {
   classifyInventoryAge,
+  inventoryAgeBuckets,
   normalizeInventoryPagination,
+  type InventoryAgeBucketKey,
   type InventoryAgeStatus,
 } from "@/lib/inventory/query-contract";
 import { findLatestCompletedErpReferenceBatch } from "@/lib/erp-reference/database";
@@ -35,6 +37,7 @@ export type InventoryAgeAnalysisOptions = {
   query?: string;
   warehouses?: string[];
   statuses?: InventoryAgeStatus[];
+  ageBuckets?: InventoryAgeBucketKey[];
 };
 
 type AgeRow = {
@@ -61,6 +64,8 @@ type MetricsRow = {
   stagnant_value_cents: number;
   zero_sales_count: number;
   cleanup_count: number;
+  aged_quantity: number;
+  aged_value_cents: number;
   bucket_0_30_count: number;
   bucket_0_30_value: number;
   bucket_31_60_count: number;
@@ -69,7 +74,7 @@ type MetricsRow = {
   bucket_61_89_value: number;
   bucket_90_count: number;
   bucket_90_value: number;
-};
+} & Record<string, number>;
 
 function normalizeWarehouseType(value: string): InventoryAgeItem["warehouseType"] {
   return value === "owned" || value === "jd_rdc" ? value : "other";
@@ -113,6 +118,13 @@ function filterClause(options: InventoryAgeAnalysisOptions) {
     clauses.push(`status IN (${statuses.map(() => "?").join(", ")})`);
     values.push(...statuses);
   }
+  const ageBucketKeys = new Set(inventoryAgeBuckets.map((bucket) => bucket.key));
+  const selectedAgeBuckets = uniqueStrings(options.ageBuckets, inventoryAgeBuckets.length)
+    .filter((value): value is InventoryAgeBucketKey => ageBucketKeys.has(value as InventoryAgeBucketKey));
+  if (selectedAgeBuckets.length > 0) {
+    const selected = inventoryAgeBuckets.filter((bucket) => selectedAgeBuckets.includes(bucket.key));
+    clauses.push(`(${selected.map(bucketCondition).join(" OR ")})`);
+  }
   return { sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", values };
 }
 
@@ -128,6 +140,16 @@ function ageCte(sourceSql: string) {
     END AS status
     FROM base
   )`;
+}
+
+function bucketCondition(bucket: (typeof inventoryAgeBuckets)[number]) {
+  return bucket.maxDays === null
+    ? `inventory_age_days >= ${bucket.minDays}`
+    : `inventory_age_days BETWEEN ${bucket.minDays} AND ${bucket.maxDays}`;
+}
+
+function bucketAlias(key: InventoryAgeBucketKey) {
+  return key.replace("-", "_").replace("+", "_plus");
 }
 
 function mapItem(row: AgeRow): InventoryAgeItem {
@@ -170,7 +192,8 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
       sync: { inventoryAsOf: null, latestInventoryBatchId: null, hasAgeSales: false },
       metrics: { skuWarehouseCount: 0, stockValueComplete: true, aged90Count: 0, aged90ValueCents: 0, stagnantCount: 0, stagnantValueCents: 0, zeroSalesCount: 0, cleanupCount: 0 },
       distribution: [] as Array<{ key: string; label: string; count: number; valueCents: number }>,
-      filters: { warehouses: [], statuses: ["healthy", "aged", "slow", "stagnant", "no_stock"] },
+      fineDistribution: [] as Array<{ key: string; label: string; count: number; quantity: number; valueCents: number; quantityShare: number; valueShare: number }>,
+      filters: { warehouses: [], statuses: ["healthy", "aged", "slow", "stagnant", "no_stock"], ageBuckets: inventoryAgeBuckets.map(({ key, label }) => ({ value: key, label })) },
       pagination: { page: pagination.page, pageSize: pagination.pageSize, limit: pagination.pageSize, total: 0, returned: 0, totalPages: 0, truncated: false },
       items: [] as InventoryAgeItem[],
     };
@@ -188,7 +211,10 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
       warehouse,
       CASE WHEN warehouse_type IN ('owned', 'jd_rdc') THEN warehouse_type ELSE 'other' END AS warehouse_type,
       available_quantity,
-      CASE WHEN available_quantity > 0 AND unit_cost_cents <= 0 THEN NULL ELSE stock_value_cents END AS stock_value_cents,
+      CASE
+        WHEN available_quantity > 0 AND unit_cost_cents <= 0 THEN NULL
+        ELSE MAX(available_quantity, 0) * unit_cost_cents
+      END AS stock_value_cents,
       inventory_age_days,
       sales_7d_quantity,
       sales_30d_quantity
@@ -241,6 +267,8 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
         COALESCE(SUM(CASE WHEN status = 'stagnant' THEN stock_value_cents ELSE 0 END), 0) AS stagnant_value_cents,
         COALESCE(SUM(CASE WHEN sales_30d_quantity IS NOT NULL AND sales_30d_quantity <= 0 AND available_quantity > 0 THEN 1 ELSE 0 END), 0) AS zero_sales_count,
         COALESCE(SUM(CASE WHEN status IN ('stagnant', 'slow', 'aged') THEN 1 ELSE 0 END), 0) AS cleanup_count,
+        COALESCE(SUM(CASE WHEN inventory_age_days IS NOT NULL AND inventory_age_days >= 0 AND available_quantity > 0 THEN available_quantity ELSE 0 END), 0) AS aged_quantity,
+        COALESCE(SUM(CASE WHEN inventory_age_days IS NOT NULL AND inventory_age_days >= 0 AND available_quantity > 0 THEN stock_value_cents ELSE 0 END), 0) AS aged_value_cents,
         COALESCE(SUM(CASE WHEN inventory_age_days BETWEEN 0 AND 30 THEN 1 ELSE 0 END), 0) AS bucket_0_30_count,
         COALESCE(SUM(CASE WHEN inventory_age_days BETWEEN 0 AND 30 THEN stock_value_cents ELSE 0 END), 0) AS bucket_0_30_value,
         COALESCE(SUM(CASE WHEN inventory_age_days BETWEEN 31 AND 60 THEN 1 ELSE 0 END), 0) AS bucket_31_60_count,
@@ -248,7 +276,16 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
         COALESCE(SUM(CASE WHEN inventory_age_days BETWEEN 61 AND 89 THEN 1 ELSE 0 END), 0) AS bucket_61_89_count,
         COALESCE(SUM(CASE WHEN inventory_age_days BETWEEN 61 AND 89 THEN stock_value_cents ELSE 0 END), 0) AS bucket_61_89_value,
         COALESCE(SUM(CASE WHEN inventory_age_days >= 90 THEN 1 ELSE 0 END), 0) AS bucket_90_count,
-        COALESCE(SUM(CASE WHEN inventory_age_days >= 90 THEN stock_value_cents ELSE 0 END), 0) AS bucket_90_value
+        COALESCE(SUM(CASE WHEN inventory_age_days >= 90 THEN stock_value_cents ELSE 0 END), 0) AS bucket_90_value,
+        ${inventoryAgeBuckets.flatMap((bucket) => {
+          const condition = `${bucketCondition(bucket)} AND available_quantity > 0`;
+          const alias = bucketAlias(bucket.key);
+          return [
+            `COALESCE(SUM(CASE WHEN ${condition} THEN 1 ELSE 0 END), 0) AS bucket_${alias}_count`,
+            `COALESCE(SUM(CASE WHEN ${condition} THEN available_quantity ELSE 0 END), 0) AS bucket_${alias}_quantity`,
+            `COALESCE(SUM(CASE WHEN ${condition} THEN stock_value_cents ELSE 0 END), 0) AS bucket_${alias}_value`,
+          ];
+        }).join(",\n        ")}
       FROM filtered`).bind(...sourceValues, ...filter.values).first<MetricsRow>(),
     db.prepare(`${cte}, filtered AS (SELECT * FROM classified ${filter.sql})
       SELECT * FROM filtered
@@ -262,9 +299,11 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
     total: 0, stock_value_complete_count: 0, aged_90_count: 0, aged_90_value_cents: 0, stagnant_count: 0, stagnant_value_cents: 0,
     zero_sales_count: 0, cleanup_count: 0, bucket_0_30_count: 0, bucket_0_30_value: 0,
     bucket_31_60_count: 0, bucket_31_60_value: 0, bucket_61_89_count: 0, bucket_61_89_value: 0,
-    bucket_90_count: 0, bucket_90_value: 0,
+    bucket_90_count: 0, bucket_90_value: 0, aged_quantity: 0, aged_value_cents: 0,
   };
   const total = Number(metrics.total ?? 0);
+  const agedQuantity = Number(metrics.aged_quantity ?? 0);
+  const agedValueCents = Number(metrics.aged_value_cents ?? 0);
   return {
     hasInventory: true,
     sync: {
@@ -289,7 +328,22 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
       { key: "61-90", label: "61–89 天", count: Number(metrics.bucket_61_89_count ?? 0), valueCents: Number(metrics.bucket_61_89_value ?? 0) },
       { key: "90+", label: "90 天以上", count: Number(metrics.bucket_90_count ?? 0), valueCents: Number(metrics.bucket_90_value ?? 0) },
     ],
-    filters: { warehouses: warehousesResult.results.map((row) => row.warehouse), statuses: ["healthy", "aged", "slow", "stagnant", "no_stock"] },
+    fineDistribution: inventoryAgeBuckets.map((bucket) => {
+      const alias = bucketAlias(bucket.key);
+      const count = Number(metrics[`bucket_${alias}_count`] ?? 0);
+      const quantity = Number(metrics[`bucket_${alias}_quantity`] ?? 0);
+      const valueCents = Number(metrics[`bucket_${alias}_value`] ?? 0);
+      return {
+        key: bucket.key,
+        label: bucket.label,
+        count,
+        quantity,
+        valueCents,
+        quantityShare: agedQuantity > 0 ? quantity / agedQuantity : 0,
+        valueShare: agedValueCents > 0 ? valueCents / agedValueCents : 0,
+      };
+    }),
+    filters: { warehouses: warehousesResult.results.map((row) => row.warehouse), statuses: ["healthy", "aged", "slow", "stagnant", "no_stock"], ageBuckets: inventoryAgeBuckets.map(({ key, label }) => ({ value: key, label })) },
     pagination: { page: pagination.page, pageSize: pagination.pageSize, limit: pagination.pageSize, total, returned: pageResult.results.length, totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize), truncated: pagination.offset + pageResult.results.length < total },
     items: pageResult.results.map(mapItem),
   };

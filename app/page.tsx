@@ -389,7 +389,8 @@ type InventoryAgeAnalysisResponse = {
   sync: { inventoryAsOf: string | null; latestInventoryBatchId: string | null; sourceKey?: "inventory_age" | "inventory"; hasAgeSales: boolean };
   metrics: { skuWarehouseCount: number; stockValueComplete: boolean; aged90Count: number; aged90ValueCents: number; stagnantCount: number; stagnantValueCents: number; zeroSalesCount: number; cleanupCount: number };
   distribution: Array<{ key: string; label: string; count: number; valueCents: number }>;
-  filters: { warehouses: string[]; statuses: InventoryAgeStatus[] };
+  fineDistribution: Array<{ key: string; label: string; count: number; quantity: number; valueCents: number; quantityShare: number; valueShare: number }>;
+  filters: { warehouses: string[]; statuses: InventoryAgeStatus[]; ageBuckets: Array<{ value: string; label: string }> };
   pagination: { page: number; pageSize: number; limit: number; total: number; returned: number; totalPages: number; truncated: boolean };
   items: InventoryAgeItem[];
 };
@@ -3515,6 +3516,7 @@ function InventoryView({ customStartDate, customEndDate, currentUser, moduleView
   const [warehouseFilters, setWarehouseFilters] = useState<string[]>([]);
   const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [ageBucketFilters, setAgeBucketFilters] = useState<string[]>([]);
   const [planActionId, setPlanActionId] = useState("");
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
   const [overviewPage, setOverviewPage] = useState(1);
@@ -3579,6 +3581,7 @@ function InventoryView({ customStartDate, customEndDate, currentUser, moduleView
     setAgeError("");
     try {
       const params = new URLSearchParams({ page: String(agePage), pageSize: "50" });
+      ageBucketFilters.forEach((bucket) => params.append("ageBucket", bucket));
       if (activeTab === "stale") ["stagnant", "slow", "aged"].forEach((status) => params.append("status", status));
       const response = await fetch(`/api/inventory/age-analysis?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (InventoryAgeAnalysisResponse & { error?: string }) | null;
@@ -3594,7 +3597,7 @@ function InventoryView({ customStartDate, customEndDate, currentUser, moduleView
         if (ageControllerRef.current === controller) ageControllerRef.current = null;
       }
     }
-  }, [activeTab, agePage]);
+  }, [activeTab, ageBucketFilters, agePage]);
 
   useEffect(() => {
     if (activeTab !== "age" && activeTab !== "stale") return;
@@ -3609,7 +3612,7 @@ function InventoryView({ customStartDate, customEndDate, currentUser, moduleView
   const inventoryItems = overview?.items ?? [];
 
   useEffect(() => setOverviewPage(1), [customEndDate, customStartDate, debouncedInventoryQuery, statusFilters, typeFilters, warehouseFilters]);
-  useEffect(() => setAgePage(1), [activeTab]);
+  useEffect(() => setAgePage(1), [activeTab, ageBucketFilters]);
   useEffect(() => setPlanPage(1), [planStatus]);
 
   const inventoryQueryCount = useMemo(
@@ -3834,6 +3837,12 @@ function InventoryView({ customStartDate, customEndDate, currentUser, moduleView
     cancelled: "已取消",
   };
   const cleanupItems = (ageAnalysis?.items ?? []).filter((item) => item.status === "stagnant" || item.status === "slow" || item.status === "aged");
+  const ageFilterBar = ageAnalysis?.hasInventory && <section className="panel inventory-age-filter-panel">
+    <div className="filter-row inventory-filter-row">
+      <MultiFilterSelect label="库龄" allLabel="全部库龄" ariaLabel="库龄区间" options={ageAnalysis.filters.ageBuckets} selected={ageBucketFilters} onChange={setAgeBucketFilters} />
+      {ageBucketFilters.length > 0 && <button className="row-action" onClick={() => setAgeBucketFilters([])}>清除筛选</button>}
+    </div>
+  </section>;
 
   return (
     <>
@@ -3920,12 +3929,14 @@ function InventoryView({ customStartDate, customEndDate, currentUser, moduleView
         {!ageLoading && !ageError && ageAnalysis && !ageAnalysis.hasInventory && <section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p></section>}
         {!ageLoading && !ageError && ageAnalysis?.hasInventory && activeTab === "age" && <>
           <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
-          <section className="age-distribution-grid">{ageAnalysis.distribution.map((bucket) => <article className="panel age-distribution-card" key={bucket.key}><span>{bucket.label}</span><strong>{formatCount(bucket.count)} 项</strong><small>{ageAnalysis.metrics.stockValueComplete ? "库存货值" : "已覆盖货值"} {formatCurrencyFromCents(bucket.valueCents)}</small></article>)}</section>
+          {ageFilterBar}
+          <section className="panel inventory-age-distribution-panel"><div className="table-toolbar"><div><h2>库龄分布图</h2><p>数量与成本金额双口径；区间多选会同步更新图表、指标与明细</p></div><span className="soft-tag">10 个库龄区间</span></div><div className="age-distribution-grid">{ageAnalysis.fineDistribution.map((bucket) => <article className="age-distribution-card" key={bucket.key}><span>{bucket.label}</span><strong>{formatCount(bucket.quantity)} 件</strong><small>{formatCount(bucket.count)} 个 SKU × 仓库 · {formatRate(bucket.quantityShare)}</small><div className="age-bucket-meter age-bucket-meter-quantity" title={`数量占比 ${formatRate(bucket.quantityShare)}`}><i style={{ width: `${Math.min(100, bucket.quantityShare * 100)}%` }} /></div><small>{ageAnalysis.metrics.stockValueComplete ? "库龄金额" : "已覆盖库龄金额"} {formatCurrencyFromCents(bucket.valueCents)} · {formatRate(bucket.valueShare)}</small><div className="age-bucket-meter age-bucket-meter-value" title={`成本金额占比 ${formatRate(bucket.valueShare)}`}><i style={{ width: `${Math.min(100, bucket.valueShare * 100)}%` }} /></div></article>)}</div></section>
           <section className="panel table-panel inventory-age-table-panel"><div className="table-toolbar"><div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div><span className="soft-tag">显示 {formatCount(ageAnalysis.items.length)} / {formatCount(ageAnalysis.pagination.total)}</span></div><div className="data-table-wrap"><table className="data-table inventory-age-table"><thead><tr><th>货品</th><th>仓库</th><th>可用库存</th><th>库龄</th><th>前7天销量</th><th>前30天销量</th><th>库存货值</th><th>状态</th></tr></thead><tbody>{ageAnalysis.items.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td>{item.warehouse}</td><td>{formatCount(item.availableQuantity)}</td><td><strong>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</strong></td><td>{item.sales7dQuantity === null ? "—" : formatCount(item.sales7dQuantity)}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className={`status status-${meta.tone}`} title={item.recommendation}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{ageAnalysis.items.length === 0 && <tr><td colSpan={8}><div className="table-state">当前快照没有可展示的库龄记录。</div></td></tr>}</tbody></table></div></section>
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
         {!ageLoading && !ageError && ageAnalysis?.hasInventory && activeTab === "stale" && <>
           <section className="inventory-kpi-grid age-kpi-grid"><InventoryKpiCard label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
+          {ageFilterBar}
           <section className="panel table-panel stale-cleanup-panel"><div className="table-toolbar"><div><h2>滞销清理清单</h2><p>仅输出清理建议，不会自动修改库存或创建补货计划。</p></div><span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span></div><div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理建议</th><th>风险状态</th></tr></thead><tbody>{cleanupItems.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td><td>{item.warehouse}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{formatCount(item.availableQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className="cleanup-recommendation">{item.recommendation}</span></td><td><span className={`status status-${meta.tone}`}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{cleanupItems.length === 0 && <tr><td colSpan={8}><div className="table-state">当前没有需要优先清理的滞销或高库龄商品。</div></td></tr>}</tbody></table></div></section>
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}

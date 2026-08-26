@@ -69,6 +69,21 @@ export function calculateInventoryCostValuation(input: {
 
 export type InventoryAgeStatus = "healthy" | "aged" | "slow" | "stagnant" | "no_stock";
 
+export const inventoryAgeBuckets = [
+  { key: "0-7", label: "0–7 天", minDays: 0, maxDays: 7 },
+  { key: "8-15", label: "8–15 天", minDays: 8, maxDays: 15 },
+  { key: "16-30", label: "16–30 天", minDays: 16, maxDays: 30 },
+  { key: "31-60", label: "31–60 天", minDays: 31, maxDays: 60 },
+  { key: "61-90", label: "61–90 天", minDays: 61, maxDays: 90 },
+  { key: "91-120", label: "91–120 天", minDays: 91, maxDays: 120 },
+  { key: "121-150", label: "121–150 天", minDays: 121, maxDays: 150 },
+  { key: "151-180", label: "151–180 天", minDays: 151, maxDays: 180 },
+  { key: "181-360", label: "181–360 天", minDays: 181, maxDays: 360 },
+  { key: "361+", label: "1 年以上", minDays: 361, maxDays: null },
+] as const;
+
+export type InventoryAgeBucketKey = (typeof inventoryAgeBuckets)[number]["key"];
+
 export function classifyInventoryAge(input: {
   availableQuantity: number;
   inventoryAgeDays: number | null;
