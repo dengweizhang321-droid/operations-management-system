@@ -1,9 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeTableCellValue, tableRowMatchesColumnFilters } from "@/lib/ui/table-column-filter";
+import { normalizeTableCellValue, scoreTableFilterControl, tableRowMatchesColumnFilters, tableSummaryShowsPartialDataset } from "@/lib/ui/table-column-filter";
+
+type ExternalFilterControl = {
+  element: HTMLElement;
+  label: string;
+  score: number;
+};
 
 type ColumnFilterTarget = {
+  mode: "values" | "controls";
   table: HTMLTableElement;
   header: HTMLTableCellElement;
   columnIndex: number;
@@ -15,6 +22,7 @@ type ColumnFilterTarget = {
   width: number;
   visibleRows: number;
   totalRows: number;
+  controls: ExternalFilterControl[];
 };
 
 const interactiveSelector = "button,input,select,textarea,a,label";
@@ -60,6 +68,147 @@ function columnOptions(table: HTMLTableElement, columnIndex: number) {
     .sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true }));
 }
 
+function tableBoundary(table: HTMLTableElement) {
+  // A tabpanel can be only the scroll wrapper while its pagination and filters
+  // are siblings in the enclosing business panel (for example market review).
+  return table.closest<HTMLElement>(".table-panel, article, section")
+    ?? table.closest<HTMLElement>("[role='tabpanel']")
+    ?? table.parentElement;
+}
+
+function numericText(value: string) {
+  const parsed = Number(value.replace(/,/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function declaredDatasetTotal(table: HTMLTableElement) {
+  const declared = table.dataset.columnFilterTotal;
+  return declared === undefined ? null : numericText(declared);
+}
+
+function tableUsesPartialDataset(table: HTMLTableElement) {
+  const declaredScope = table.dataset.columnFilterScope;
+  if (declaredScope === "full") return false;
+  if (declaredScope === "server" || declaredScope === "none") return true;
+
+  const boundary = tableBoundary(table);
+  if (!boundary) return false;
+  const rowCount = tableRows(table).filter((row) => !Array.from(row.cells).some((cell) => cell.colSpan > 1)).length;
+  const total = declaredDatasetTotal(table);
+  if (total !== null && total > rowCount) return true;
+
+  const paginationAction = Array.from(boundary.querySelectorAll<HTMLElement>("button,select"))
+    .some((control) => {
+      if (control.closest("table") === table) return false;
+      const label = normalizeTableCellValue(`${control.getAttribute("aria-label") ?? ""} ${control.textContent ?? ""}`);
+      return /上一页|下一页|继续加载|加载更多|页码|每页(?:加载|条数)/.test(label);
+    });
+  if (paginationAction) return true;
+
+  // Pagination summaries often sit below the rows. The helper intentionally
+  // inspects the untruncated boundary text so a long table cannot hide its
+  // footer from scope detection.
+  return tableSummaryShowsPartialDataset(boundary.textContent ?? "", rowCount);
+}
+
+function controlLabel(control: HTMLElement) {
+  const ariaLabel = control.getAttribute("aria-label");
+  if (ariaLabel) return normalizeTableCellValue(ariaLabel);
+  const labelled = control.closest("label");
+  const fieldLabel = labelled?.querySelector(":scope > span")?.textContent;
+  if (fieldLabel) return normalizeTableCellValue(fieldLabel);
+  const leadingLabel = control.querySelector(":scope > span")?.textContent;
+  if (leadingLabel) return normalizeTableCellValue(leadingLabel);
+  if (control instanceof HTMLSelectElement) {
+    const selectedLabel = control.selectedOptions[0]?.textContent ?? "";
+    const firstLabel = control.options[0]?.textContent ?? "";
+    return normalizeTableCellValue(`${selectedLabel} ${firstLabel}`);
+  }
+  const placeholder = control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement
+    ? control.placeholder
+    : "";
+  return normalizeTableCellValue(placeholder || control.textContent || "");
+}
+
+function controlIsVisible(control: HTMLElement) {
+  if (!control.isConnected || control.closest("table") || control.closest(".column-filter-popover")) return false;
+  if (control instanceof HTMLButtonElement || control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) {
+    if (control.disabled) return false;
+  }
+  return control.getClientRects().length > 0;
+}
+
+function externalFilterControls(table: HTMLTableElement, header: HTMLTableCellElement) {
+  const boundary = tableBoundary(table);
+  const moduleRoot = table.closest<HTMLElement>("main")
+    ?? table.closest<HTMLElement>(".module-stage")
+    ?? document.body;
+  const selector = [
+    "button[aria-label]",
+    "button[aria-expanded]",
+    "input[aria-label]",
+    "input[placeholder]",
+    "textarea[aria-label]",
+    "textarea[placeholder]",
+    "select",
+    "[role='combobox']",
+    "summary[aria-label]",
+    "details > summary",
+  ].join(",");
+  const find = (root: ParentNode | null) => {
+    if (!root) return [];
+    const candidates = Array.from(root.querySelectorAll<HTMLElement>(selector));
+    const scored = candidates
+      .filter(controlIsVisible)
+      .map((element) => {
+        const label = controlLabel(element);
+        return { element, label, score: scoreTableFilterControl(headerLabel(header), label) };
+      })
+      .filter((item) => item.label && item.score >= 30)
+      .sort((left, right) => right.score - left.score || left.label.localeCompare(right.label, "zh-CN"));
+    if (!scored.length) return scored;
+    const bestScore = scored[0]!.score;
+    const unique = new Map<string, ExternalFilterControl>();
+    for (const item of scored) {
+      if (item.score < bestScore - 18) continue;
+      const key = item.label.toLocaleLowerCase("zh-CN");
+      if (!unique.has(key)) unique.set(key, item);
+    }
+    return [...unique.values()].slice(0, 4);
+  };
+  const nearby = find(boundary);
+  return nearby.length ? nearby : find(moduleRoot);
+}
+
+function activateExternalControl(control: ExternalFilterControl) {
+  const element = control.element;
+  element.scrollIntoView({ block: "nearest", inline: "nearest" });
+  element.focus({ preventScroll: true });
+  if (element instanceof HTMLSelectElement) {
+    try {
+      element.showPicker();
+    } catch {
+      element.click();
+    }
+    return;
+  }
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) return;
+  element.click();
+}
+
+function clearHeaderFilterUi(header: HTMLTableCellElement) {
+  const sourceAriaLabel = header.dataset.columnFilterSourceAriaLabel;
+  if (sourceAriaLabel) header.setAttribute("aria-label", sourceAriaLabel);
+  else header.removeAttribute("aria-label");
+  if (header.dataset.columnFilterOwnedTabIndex === "true") header.removeAttribute("tabindex");
+  delete header.dataset.columnFilterHeader;
+  delete header.dataset.columnFilterResolvedLabel;
+  delete header.dataset.columnFilterActive;
+  delete header.dataset.columnFilterMode;
+  delete header.dataset.columnFilterOwnedTabIndex;
+  header.removeAttribute("aria-haspopup");
+}
+
 function targetPosition(header: HTMLTableCellElement) {
   const bounds = header.getBoundingClientRect();
   const width = Math.min(320, Math.max(240, window.innerWidth - 24));
@@ -93,6 +242,15 @@ export default function TableColumnFilters() {
   }, []);
 
   const applyFilters = useCallback((table: HTMLTableElement) => {
+    if (tableUsesPartialDataset(table)) {
+      filtersFor(table).clear();
+      const rows = tableRows(table);
+      for (const row of rows) row.classList.remove("column-filter-row-hidden");
+      const totalRows = rows.filter((row) => !Array.from(row.cells).some((cell) => cell.colSpan > 1)).length;
+      table.dataset.columnFilterVisibleRows = String(totalRows);
+      table.dataset.columnFilterTotalRows = String(totalRows);
+      return { visibleRows: totalRows, totalRows };
+    }
     const filters = filtersFor(table);
     const rows = tableRows(table);
     let visibleRows = 0;
@@ -115,20 +273,34 @@ export default function TableColumnFilters() {
   }, [filtersFor]);
 
   const prepareTable = useCallback((table: HTMLTableElement) => {
-    table.dataset.columnFilterTable = "true";
+    const partialDataset = tableUsesPartialDataset(table);
+    const explicitlyDisabled = table.dataset.columnFilterScope === "none";
+    let enabledHeaders = 0;
     for (const header of Array.from(table.querySelectorAll<HTMLTableCellElement>("thead th"))) {
       if (header.dataset.columnFilterHeader !== "true") {
         const sourceAriaLabel = header.getAttribute("aria-label");
         if (sourceAriaLabel) header.dataset.columnFilterSourceAriaLabel = sourceAriaLabel;
       }
       const label = headerLabel(header);
+      const controls = partialDataset && !explicitlyDisabled ? externalFilterControls(table, header) : [];
+      if (explicitlyDisabled || (partialDataset && controls.length === 0)) {
+        clearHeaderFilterUi(header);
+        continue;
+      }
+      enabledHeaders += 1;
       header.dataset.columnFilterHeader = "true";
       header.dataset.columnFilterResolvedLabel = label;
-      if (!header.hasAttribute("tabindex")) header.tabIndex = 0;
-      header.setAttribute("aria-haspopup", "dialog");
-      header.setAttribute("aria-label", `${label}，打开列筛选`);
-      header.dataset.columnFilterActive = filtersFor(table).get(header.cellIndex)?.size ? "true" : "false";
+      header.dataset.columnFilterMode = partialDataset ? "server" : "local";
+      if (!header.hasAttribute("tabindex")) {
+        header.tabIndex = 0;
+        header.dataset.columnFilterOwnedTabIndex = "true";
+      }
+      header.setAttribute("aria-haspopup", partialDataset && controls.length === 1 ? "listbox" : "dialog");
+      header.setAttribute("aria-label", `${label}，打开${partialDataset ? "全量" : ""}列筛选`);
+      header.dataset.columnFilterActive = partialDataset ? "false" : filtersFor(table).get(header.cellIndex)?.size ? "true" : "false";
     }
+    table.dataset.columnFilterTable = enabledHeaders > 0 ? "true" : "false";
+    table.dataset.columnFilterScopeResolved = explicitlyDisabled ? "none" : partialDataset ? "server" : "full";
     return applyFilters(table);
   }, [applyFilters, filtersFor]);
 
@@ -136,19 +308,29 @@ export default function TableColumnFilters() {
     const table = header.closest("table");
     if (!(table instanceof HTMLTableElement)) return;
     const columnIndex = header.cellIndex;
+    const partialDataset = tableUsesPartialDataset(table);
+    const controls = partialDataset ? externalFilterControls(table, header) : [];
+    if (partialDataset && controls.length === 1) {
+      setTarget(null);
+      activateExternalControl(controls[0]!);
+      return;
+    }
+    if (partialDataset && controls.length === 0) return;
     const options = columnOptions(table, columnIndex);
     const selected = [...(filtersFor(table).get(columnIndex) ?? new Set<string>())];
     const counts = prepareTable(table);
     setQuery("");
     setTarget({
+      mode: partialDataset ? "controls" : "values",
       table,
       header,
       columnIndex,
       label: header.dataset.columnFilterResolvedLabel || headerLabel(header),
-      options,
+      options: partialDataset ? controls.map((control) => control.label) : options,
       selected,
       ...targetPosition(header),
       ...counts,
+      controls,
     });
   }, [filtersFor, prepareTable]);
 
@@ -173,8 +355,8 @@ export default function TableColumnFilters() {
           return {
             ...current,
             label: current.header.dataset.columnFilterResolvedLabel || headerLabel(current.header),
-            options: columnOptions(current.table, current.columnIndex),
-            selected: [...(filtersFor(current.table).get(current.columnIndex) ?? new Set<string>())],
+            options: current.mode === "controls" ? current.controls.map((control) => control.label) : columnOptions(current.table, current.columnIndex),
+            selected: current.mode === "controls" ? [] : [...(filtersFor(current.table).get(current.columnIndex) ?? new Set<string>())],
             ...counts,
           };
         });
@@ -307,7 +489,7 @@ export default function TableColumnFilters() {
   }, [filtersFor, openForHeader, prepareTable]);
 
   const updateSelection = (nextValues: string[]) => {
-    if (!target) return;
+    if (!target || target.mode !== "values") return;
     const filters = filtersFor(target.table);
     const normalized = [...new Set(nextValues)];
     if (normalized.length) filters.set(target.columnIndex, new Set(normalized));
@@ -328,13 +510,15 @@ export default function TableColumnFilters() {
     aria-label={`${target.label}列筛选`}
     style={{ left: target.left, top: target.top, width: target.width }}
   >
-    <header><div><strong>{target.label}</strong><small>多选当前表格中的值</small></div><button type="button" onClick={() => setTarget(null)} aria-label="关闭列筛选">×</button></header>
-    <div className="column-filter-actions"><button type="button" onClick={() => updateSelection(target.options)}>全选</button><button type="button" onClick={() => updateSelection([])} disabled={target.selected.length === 0}>清除筛选</button></div>
+    <header><div><strong>{target.label}</strong><small>{target.mode === "controls" ? "选择覆盖全部分页数据的业务筛选" : "多选完整表格中的值"}</small></div><button type="button" onClick={() => setTarget(null)} aria-label="关闭列筛选">×</button></header>
+    {target.mode === "values" ? <div className="column-filter-actions"><button type="button" onClick={() => updateSelection(target.options)}>全选</button><button type="button" onClick={() => updateSelection([])} disabled={target.selected.length === 0}>清除筛选</button></div> : <div className="column-filter-actions"><span>不会再使用当前页临时选项</span></div>}
     <label className="column-filter-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索本列值" aria-label={`搜索${target.label}列值`} /></label>
     <div className="column-filter-options" role="listbox" aria-multiselectable="true">
-      {visibleOptions.map((value) => <label key={value || "__empty__"} role="option" aria-selected={selectedValues.has(value)}><input type="checkbox" checked={selectedValues.has(value)} onChange={() => updateSelection(selectedValues.has(value) ? target.selected.filter((item) => item !== value) : [...target.selected, value])} /><span title={value || "（空白）"}>{value || "（空白）"}</span></label>)}
+      {visibleOptions.map((value) => target.mode === "controls"
+        ? <label key={value} role="option" aria-selected="false"><input type="radio" name="column-filter-control" checked={false} onChange={() => { const control = target.controls.find((item) => item.label === value); if (control) { setTarget(null); activateExternalControl(control); } }} /><span title={value}>{value}</span></label>
+        : <label key={value || "__empty__"} role="option" aria-selected={selectedValues.has(value)}><input type="checkbox" checked={selectedValues.has(value)} onChange={() => updateSelection(selectedValues.has(value) ? target.selected.filter((item) => item !== value) : [...target.selected, value])} /><span title={value || "（空白）"}>{value || "（空白）"}</span></label>)}
       {visibleOptions.length === 0 && <p>没有匹配项</p>}
     </div>
-    <footer aria-live="polite">显示 {target.visibleRows} / {target.totalRows} 行{target.selected.length ? ` · 已选 ${target.selected.length} 项` : " · 未筛选"}</footer>
+    <footer aria-live="polite">{target.mode === "controls" ? "所选业务筛选会重新查询全部数据" : `显示 ${target.visibleRows} / ${target.totalRows} 行${target.selected.length ? ` · 已选 ${target.selected.length} 项` : " · 未筛选"}`}</footer>
   </div>;
 }
