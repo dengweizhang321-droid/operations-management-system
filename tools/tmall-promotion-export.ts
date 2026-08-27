@@ -36,6 +36,8 @@ const maximumDownloadBytes = 25 * 1024 * 1024;
 const maximumDaysPerRun = 30;
 const reportGenerationTimeoutMs = 10 * 60 * 1000;
 const reportRefreshIntervalMs = 8_000;
+const promotionCoverageTimeoutMs = 30_000;
+const postImportCoverageRetryDelaysMs = [5_000] as const;
 
 export function chooseTmallPromotionEntryPageIndex(urls: readonly string[]) {
   const reportIndex = urls.findIndex((url) => /one\.alimama\.com\/index\.html.*#!\/report\/item_promotion(?:[/?]|$)/i.test(url));
@@ -684,21 +686,102 @@ export function buildTmallPromotionCoverageUrl(baseUrl: string, store: Pick<Tmal
     outlet: netshopOutletKey("天猫", store.shopName),
     startDate,
     endDate,
-    page: "1",
-    pageSize: "1",
   });
-  return `${baseUrl}/api/netshop/promotion-performance?${params}`;
+  return `${baseUrl}/api/netshop/promotion-performance/overview?${params}`;
 }
 
-async function coverageForStore(baseUrl: string, store: TmallStore, startDate: string, endDate: string, request: typeof fetch) {
-  const response = await request(buildTmallPromotionCoverageUrl(baseUrl, store, startDate, endDate), {
-    signal: AbortSignal.timeout(30_000),
+function isPromotionCoverageTimeout(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const name = "name" in error ? String(error.name ?? "") : "";
+  const message = "message" in error ? String(error.message ?? "") : "";
+  return name === "TimeoutError" || /operation was aborted due to timeout/i.test(message);
+}
+
+export async function fetchTmallPromotionCoverage(options: {
+  baseUrl: string;
+  store: Pick<TmallStore, "shopName">;
+  startDate: string;
+  endDate: string;
+  request?: typeof fetch;
+  timeoutMs?: number;
+  timeoutRetryDelaysMs?: readonly number[];
+  wait?: (delayMs: number) => Promise<void>;
+}) {
+  const request = options.request ?? fetch;
+  const timeoutMs = options.timeoutMs ?? promotionCoverageTimeoutMs;
+  const retryDelaysMs = options.timeoutRetryDelaysMs ?? [];
+  const wait = options.wait ?? (async (delayMs: number) => {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   });
-  const payload = await response.json().catch(() => null) as PromotionCoveragePayload | null;
-  if (!response.ok) {
-    throw new Error(`无法读取 ${store.shopName} 的推广/商品日期覆盖（HTTP ${response.status}）`);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await request(buildTmallPromotionCoverageUrl(
+        options.baseUrl,
+        options.store,
+        options.startDate,
+        options.endDate,
+      ), {
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      let payload: PromotionCoveragePayload | null;
+      try {
+        payload = await response.json() as PromotionCoveragePayload;
+      } catch (error) {
+        if (isPromotionCoverageTimeout(error)) throw error;
+        payload = null;
+      }
+      if (!response.ok) {
+        throw new Error(`无法读取 ${options.store.shopName} 的推广/商品日期覆盖（HTTP ${response.status}）`);
+      }
+      return assertPromotionCoveragePayload(payload, {
+        startDate: options.startDate,
+        endDate: options.endDate,
+      });
+    } catch (error) {
+      const delayMs = retryDelaysMs[attempt];
+      if (delayMs === undefined || !isPromotionCoverageTimeout(error)) throw error;
+      await wait(delayMs);
+    }
   }
-  return assertPromotionCoveragePayload(payload, { startDate, endDate });
+}
+
+export async function verifyTmallPromotionCoverageAfterImport(options: {
+  baseUrl: string;
+  store: Pick<TmallStore, "shopName">;
+  startDate: string;
+  endDate: string;
+  dates: readonly string[];
+  request?: typeof fetch;
+  timeoutMs?: number;
+  timeoutRetryDelaysMs?: readonly number[];
+  wait?: (delayMs: number) => Promise<void>;
+}) {
+  const coverage = await fetchTmallPromotionCoverage({
+    ...options,
+    timeoutRetryDelaysMs: options.timeoutRetryDelaysMs ?? postImportCoverageRetryDelaysMs,
+  });
+  const missingDates = options.dates.filter((date) => !coverage.promotionDates.includes(date));
+  if (missingDates.length > 0) {
+    throw new Error(`推广导入接口成功但日期覆盖回查缺少：${missingDates.join(", ")}`);
+  }
+  return coverage;
+}
+
+async function coverageForStore(
+  baseUrl: string,
+  store: TmallStore,
+  startDate: string,
+  endDate: string,
+  request: typeof fetch,
+) {
+  return fetchTmallPromotionCoverage({
+    baseUrl,
+    store,
+    startDate,
+    endDate,
+    request,
+    timeoutRetryDelaysMs: postImportCoverageRetryDelaysMs,
+  });
 }
 
 async function combinedPageText(page: Page) {
@@ -886,10 +969,14 @@ export function promotionDateRangeControlMatches(
   expected: { startDate: string; endDate: string; yesterday?: string },
 ) {
   const text = normalizeText(value).replace(/^日期范围\s*[:：]?\s*/, "");
+  const yesterday = expected.yesterday ?? shanghaiYesterday();
+  if (text === "昨日") {
+    return expected.startDate === yesterday && expected.endDate === yesterday;
+  }
   if (text === expected.startDate && expected.startDate === expected.endDate) return true;
   const range = text.match(/(\d{4}-\d{2}-\d{2})\s*(?:至|到|~|～|—|–)\s*(\d{4}-\d{2}-\d{2}|昨日)/);
   if (!range) return false;
-  const endDate = range[2] === "昨日" ? (expected.yesterday ?? shanghaiYesterday()) : range[2];
+  const endDate = range[2] === "昨日" ? yesterday : range[2];
   return range[1] === expected.startDate && endDate === expected.endDate;
 }
 
@@ -2799,11 +2886,14 @@ async function runTmallPromotionDate(options: {
     await writeAudit(audit, runAuditDirectory);
     const imported = await importPromotionFile({ baseUrl, store, plan, file, request });
     assertPromotionRunActive(signal);
-    const after = await coverageForStore(baseUrl, store, plan.startDate, plan.endDate, request);
-    const missingAfterImport = plan.dates.filter((date) => !after.promotionDates.includes(date));
-    if (missingAfterImport.length > 0) {
-      throw new Error(`推广导入接口成功但日期覆盖回查缺少：${missingAfterImport.join(", ")}`);
-    }
+    await verifyTmallPromotionCoverageAfterImport({
+      baseUrl,
+      store,
+      startDate: plan.startDate,
+      endDate: plan.endDate,
+      dates: plan.dates,
+      request,
+    });
     audit.stage = "completed";
     audit.batchId = imported.batchId;
     audit.importStatus = imported.status;

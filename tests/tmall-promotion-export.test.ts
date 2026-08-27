@@ -13,6 +13,7 @@ import {
   chooseTmallPromotionDownloadTask,
   chooseTmallPromotionGeneratedTask,
   chooseTmallPromotionEntryPageIndex,
+  fetchTmallPromotionCoverage,
   isPromotionMetricSelectionState,
   isPromotionDateRangeControlText,
   isPromotionDownloadDialogText,
@@ -45,6 +46,7 @@ import {
   TMALL_PROMOTION_DOWNLOAD_LIST_URL,
   TMALL_PROMOTION_ENTRY_URL,
   TMALL_PROMOTION_REPORT_PROTOCOL,
+  verifyTmallPromotionCoverageAfterImport,
 } from "../tools/tmall-promotion-export";
 
 function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
@@ -332,6 +334,17 @@ test("下载报表日期确认后必须精确读回目标单日", () => {
   const expected = { startDate: "2026-08-25", endDate: "2026-08-25", yesterday: "2026-08-26" };
   assert.equal(promotionDateRangeControlMatches("2026-08-25", expected), true);
   assert.equal(promotionDateRangeControlMatches("日期范围：2026-08-25 至 2026-08-25", expected), true);
+  assert.equal(promotionDateRangeControlMatches("昨日", {
+    startDate: "2026-08-26",
+    endDate: "2026-08-26",
+    yesterday: "2026-08-26",
+  }), true);
+  assert.equal(promotionDateRangeControlMatches("昨日", expected), false);
+  assert.equal(promotionDateRangeControlMatches("昨日", {
+    startDate: "2026-08-25",
+    endDate: "2026-08-26",
+    yesterday: "2026-08-26",
+  }), false);
   assert.equal(promotionDateRangeControlMatches("2026-08-25 至 昨日", expected), false);
   assert.equal(promotionDateRangeControlMatches("2026-08-21 至 2026-08-21", expected), false);
 });
@@ -590,7 +603,7 @@ test("推广覆盖响应必须精确匹配请求周期并拒绝非法日期", ()
   }, expected), /请求区间外日期/);
 });
 
-test("推广覆盖回查使用平台与店铺复合 outlet，不再发送旧 shop 参数", () => {
+test("推广覆盖回查使用轻量 overview 与平台店铺复合 outlet", () => {
   const url = new URL(buildTmallPromotionCoverageUrl(
     "http://localhost:3000",
     { shopName: "天猫-志高亿玖专卖店" },
@@ -598,12 +611,132 @@ test("推广覆盖回查使用平台与店铺复合 outlet，不再发送旧 sho
     "2026-08-20",
   ));
 
-  assert.equal(url.pathname, "/api/netshop/promotion-performance");
+  assert.equal(url.pathname, "/api/netshop/promotion-performance/overview");
   assert.deepEqual(url.searchParams.getAll("platform"), ["天猫"]);
   assert.equal(url.searchParams.get("outlet"), "天猫\u001f天猫-志高亿玖专卖店");
   assert.equal(url.searchParams.has("shop"), false);
+  assert.equal(url.searchParams.has("page"), false);
+  assert.equal(url.searchParams.has("pageSize"), false);
   assert.equal(url.searchParams.get("startDate"), "2026-08-20");
   assert.equal(url.searchParams.get("endDate"), "2026-08-20");
+});
+
+test("导入后推广覆盖回查只对瞬时超时做一次有界重试并仍要求覆盖证据", async () => {
+  let requestCount = 0;
+  const waits: number[] = [];
+  const request = (async (input: Parameters<typeof fetch>[0]) => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }
+    const requestedPeriod = requestedPeriodFromFetchInput(input);
+    return Response.json({
+      requestedPeriod,
+      coverage: {
+        productDailyDates: [requestedPeriod.startDate],
+        promotionDates: [requestedPeriod.startDate],
+      },
+    });
+  }) as typeof fetch;
+
+  const coverage = await verifyTmallPromotionCoverageAfterImport({
+    baseUrl: "http://localhost:3000",
+    store: { shopName: "天猫-志高亿玖专卖店" },
+    startDate: "2026-08-26",
+    endDate: "2026-08-26",
+    dates: ["2026-08-26"],
+    request,
+    timeoutRetryDelaysMs: [1_000],
+    wait: async (delayMs) => { waits.push(delayMs); },
+  });
+
+  assert.equal(requestCount, 2);
+  assert.deepEqual(waits, [1_000]);
+  assert.deepEqual(coverage.promotionDates, ["2026-08-26"]);
+});
+
+test("推广覆盖回查重试耗尽或仍缺日期时失败关闭，不能绕过落库回查", async () => {
+  let timeoutRequestCount = 0;
+  const timeoutRequest = (async () => {
+    timeoutRequestCount += 1;
+    throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  }) as typeof fetch;
+  await assert.rejects(verifyTmallPromotionCoverageAfterImport({
+    baseUrl: "http://localhost:3000",
+    store: { shopName: "天猫-志高亿玖专卖店" },
+    startDate: "2026-08-26",
+    endDate: "2026-08-26",
+    dates: ["2026-08-26"],
+    request: timeoutRequest,
+    timeoutRetryDelaysMs: [0],
+    wait: async () => undefined,
+  }), /aborted due to timeout/);
+  assert.equal(timeoutRequestCount, 2);
+
+  let invalidCoverageRequestCount = 0;
+  const invalidCoverageRequest = (async (input: Parameters<typeof fetch>[0]) => {
+    invalidCoverageRequestCount += 1;
+    return Response.json({
+      requestedPeriod: requestedPeriodFromFetchInput(input),
+      coverage: { productDailyDates: ["2026-08-26"], promotionDates: [] },
+    });
+  }) as typeof fetch;
+  await assert.rejects(verifyTmallPromotionCoverageAfterImport({
+    baseUrl: "http://localhost:3000",
+    store: { shopName: "天猫-志高亿玖专卖店" },
+    startDate: "2026-08-26",
+    endDate: "2026-08-26",
+    dates: ["2026-08-26"],
+    request: invalidCoverageRequest,
+    timeoutRetryDelaysMs: [0],
+    wait: async () => undefined,
+  }), /日期覆盖回查缺少：2026-08-26/);
+  assert.equal(invalidCoverageRequestCount, 1);
+});
+
+test("推广计划前覆盖检查仅对瞬时超时做一次有界重试", async () => {
+  let timeoutRequestCount = 0;
+  const waits: number[] = [];
+  const timeoutThenSuccessRequest = (async (input: Parameters<typeof fetch>[0]) => {
+    timeoutRequestCount += 1;
+    if (timeoutRequestCount === 1) {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }
+    const requestedPeriod = requestedPeriodFromFetchInput(input);
+    return Response.json({
+      requestedPeriod,
+      coverage: {
+        productDailyDates: [requestedPeriod.startDate],
+        promotionDates: [requestedPeriod.startDate],
+      },
+    });
+  }) as typeof fetch;
+  const coverage = await fetchTmallPromotionCoverage({
+    baseUrl: "http://localhost:3000",
+    store: { shopName: "天猫-志高亿玖专卖店" },
+    startDate: "2026-08-26",
+    endDate: "2026-08-26",
+    request: timeoutThenSuccessRequest,
+    timeoutRetryDelaysMs: [1_000],
+    wait: async (delayMs) => { waits.push(delayMs); },
+  });
+  assert.equal(timeoutRequestCount, 2);
+  assert.deepEqual(waits, [1_000]);
+  assert.deepEqual(coverage.productDailyDates, ["2026-08-26"]);
+
+  let requestCount = 0;
+  const request = (async () => {
+    requestCount += 1;
+    return new Response("unavailable", { status: 503 });
+  }) as typeof fetch;
+  await assert.rejects(fetchTmallPromotionCoverage({
+    baseUrl: "http://localhost:3000",
+    store: { shopName: "天猫-志高亿玖专卖店" },
+    startDate: "2026-08-26",
+    endDate: "2026-08-26",
+    request,
+  }), /HTTP 503/);
+  assert.equal(requestCount, 1);
 });
 
 test("没有商品日覆盖时推广阶段明确等待并通过失败状态让调用链重试", async () => {
