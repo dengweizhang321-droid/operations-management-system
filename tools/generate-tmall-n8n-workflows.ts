@@ -68,6 +68,7 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     fileName: "tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
     cronExpression: "0 14 * * *",
     scheduleName: "每天 14:00 运行",
+    productMasterExportMode: "on_sale_pagewise_excel",
     productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-25" },
   },
   {

@@ -142,12 +142,13 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
     ],
   );
   assert.deepEqual(
-    ["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"].map(
+    ["tmall-yijiu", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu"].map(
       (storeKey) => resolveRegisteredTmallStore(stores, storeKey).productMasterExportMode,
     ),
-    ["on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel"],
+    ["on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel"],
   );
   assert.equal(resolveRegisteredTmallStore(stores, "tmall-lili").productMasterExportMode, undefined);
+  assert.equal(resolveRegisteredTmallStore(stores, "tmall-yiyong").productMasterExportMode, undefined);
   assert.equal(selected.every((item) => item.browser.profileName === "Default"), true);
   assert.equal(new Set(selected.map((item) => item.browser.userDataDir?.toLowerCase())).size, selected.length);
   assert.equal(new Set(selected.map((item) => item.browser.debugPort)).size, selected.length);

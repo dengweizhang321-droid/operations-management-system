@@ -106,6 +106,7 @@
       "shopName": "天猫-志高炊之王专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
+      "productMasterExportMode": "on_sale_pagewise_excel",
       "productMasterCadence": {
         "intervalDays": 3,
         "initialDueDate": "2026-08-25"

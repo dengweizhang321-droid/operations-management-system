@@ -104,7 +104,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
 });
 
 test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板默认未激活", async () => {
-  const pagewiseStoreKeys = new Set(["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"]);
+  const pagewiseStoreKeys = new Set(["tmall-yijiu", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu"]);
   const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as {
     stores: Array<{
       storeKey: string;
@@ -222,7 +222,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
   assert.deepEqual(
     tmallN8nWorkflowDefinitions.filter((definition) => definition.productMasterExportMode === "on_sale_pagewise_excel")
       .map((definition) => definition.storeKey),
-    ["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"],
+    ["tmall-yijiu", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu"],
   );
   assert.deepEqual(
     tmallN8nWorkflowDefinitions.map((definition) => [definition.storeKey, definition.productMasterCadence.initialDueDate]),
