@@ -9,6 +9,7 @@ import {
   buildTmallSpuCoverageUrl,
   datesInRange,
   parseRunnerArgs,
+  postTmallImportWithNetworkRetry,
   requestedDatesToPlan,
   selectReceiptForDate,
   shanghaiYesterday,
@@ -159,4 +160,47 @@ test("天猫导入结果必须精确匹配店铺、日期、数据集与 HTTP �
       failure.label,
     );
   }
+});
+
+test("天猫导入只对无 HTTP 响应的网络错误重建表单并有限重试", async () => {
+  let requests = 0;
+  let forms = 0;
+  const waits: number[] = [];
+  const response = await postTmallImportWithNetworkRetry({
+    url: "http://localhost:3000/api/netshop/import",
+    buildForm: () => {
+      forms += 1;
+      return new FormData();
+    },
+    request: async () => {
+      requests += 1;
+      if (requests === 1) throw new TypeError("fetch failed");
+      return Response.json({ ok: true }, { status: 200 });
+    },
+    wait: async (delayMs) => { waits.push(delayMs); },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(requests, 2);
+  assert.equal(forms, 2);
+  assert.deepEqual(waits, [500]);
+
+  requests = 0;
+  const rejectedResponse = await postTmallImportWithNetworkRetry({
+    url: "http://localhost:3000/api/netshop/import",
+    buildForm: () => new FormData(),
+    request: async () => {
+      requests += 1;
+      return Response.json({ ok: false }, { status: 500 });
+    },
+    wait: async () => { throw new Error("HTTP 响应不得重试"); },
+  });
+  assert.equal(rejectedResponse.status, 500);
+  assert.equal(requests, 1);
+
+  await assert.rejects(postTmallImportWithNetworkRetry({
+    url: "http://localhost:3000/api/netshop/import",
+    buildForm: () => new FormData(),
+    request: async () => { throw new DOMException("timed out", "TimeoutError"); },
+    wait: async () => { throw new Error("超时不得重试"); },
+  }), (error: unknown) => error instanceof DOMException && error.name === "TimeoutError");
 });

@@ -38,6 +38,7 @@ import {
   promotionAuditProtocolDisposition,
   promotionSuccessNavigationMissingMessage,
   reacquireTmallPromotionDownloadTask,
+  retryStablePromotionDownloadTask,
   runPromotionDailyPlansSequentially,
   runTmallPromotionStage,
   sanitizePromotionDiagnosticUrl,
@@ -301,6 +302,38 @@ test("下载点击前只重新绑定同一个稳定任务且拒绝消失或重�
   assert.equal(reacquireTmallPromotionDownloadTask([{ ...task, downloadReady: false }], "current"), null);
   assert.equal(reacquireTmallPromotionDownloadTask([task, { ...task, marker: "duplicate" }], "current"), null);
   assert.equal(reacquireTmallPromotionDownloadTask([task], "other"), null);
+});
+
+test("虚拟下载任务行刷新时有限重绑同一任务且绝不接受身份不一致候选", async () => {
+  let acquisitions = 0;
+  const waits: number[] = [];
+  const recovered = await retryStablePromotionDownloadTask({
+    acquire: async () => {
+      acquisitions += 1;
+      return acquisitions < 3 ? null : { signature: "stable-task", identity: "expected" };
+    },
+    verify: async (candidate) => candidate.signature === "stable-task" && candidate.identity === "expected",
+    attempts: 4,
+    delayMs: 25,
+    wait: async (delayMs) => { waits.push(delayMs); },
+  });
+  assert.deepEqual(recovered, { signature: "stable-task", identity: "expected" });
+  assert.equal(acquisitions, 3);
+  assert.deepEqual(waits, [25, 25]);
+
+  acquisitions = 0;
+  const rejected = await retryStablePromotionDownloadTask({
+    acquire: async () => {
+      acquisitions += 1;
+      return { signature: "stable-task", identity: "other" };
+    },
+    verify: async (candidate) => candidate.identity === "expected",
+    attempts: 3,
+    delayMs: 0,
+    wait: async () => undefined,
+  });
+  assert.equal(rejected, null);
+  assert.equal(acquisitions, 3);
 });
 
 test("平台消息和广告弹窗只允许无业务副作用的明确关闭动作", () => {

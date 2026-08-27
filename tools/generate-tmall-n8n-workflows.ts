@@ -164,6 +164,7 @@ function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowD
 function setStoreHeader(node: WorkflowNode, storeKey: string) {
   if (node.type !== "n8n-nodes-base.httpRequest") return;
   const parameters = node.parameters ??= {};
+  const url = String(parameters.url ?? "");
   parameters.sendHeaders = true;
   const headerParameters = parameters.headerParameters ??= { parameters: [] };
   const headers = Array.isArray(headerParameters.parameters) ? headerParameters.parameters : [];
@@ -171,12 +172,26 @@ function setStoreHeader(node: WorkflowNode, storeKey: string) {
     ...headers.filter((header) => ![
       "x-teruisi-tmall-store-key",
       "x-teruisi-tmall-force-product-master",
+      "x-teruisi-tmall-plan-start-date",
+      "x-teruisi-tmall-plan-end-date",
     ].includes(String(header.name ?? "").toLowerCase())),
     { name: "X-TERUISI-TMALL-STORE-KEY", value: storeKey },
-    ...(String(parameters.url ?? "").endsWith("/product-master")
+    ...(url.endsWith("/plan")
+      ? [
+          {
+            name: "X-TERUISI-TMALL-PLAN-START-DATE",
+            value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}",
+          },
+          {
+            name: "X-TERUISI-TMALL-PLAN-END-DATE",
+            value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}",
+          },
+        ]
+      : []),
+    ...(url.endsWith("/product-master")
       ? [{
           name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-          value: "={{ $execution.mode === 'manual' ? '1' : '0' }}",
+          value: "={{ $mode === 'manual' ? '1' : '0' }}",
         }]
       : []),
   ];

@@ -56,10 +56,22 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
     const expectedHeaders = [
       { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
       { name: "X-TERUISI-TMALL-STORE-KEY", value: "tmall-yijiu" },
+      ...(node.parameters?.url?.endsWith("/plan")
+        ? [
+            {
+              name: "X-TERUISI-TMALL-PLAN-START-DATE",
+              value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}",
+            },
+            {
+              name: "X-TERUISI-TMALL-PLAN-END-DATE",
+              value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}",
+            },
+          ]
+        : []),
       ...(node.parameters?.url?.endsWith("/product-master")
         ? [{
             name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-            value: "={{ $execution.mode === 'manual' ? '1' : '0' }}",
+            value: "={{ $mode === 'manual' ? '1' : '0' }}",
           }]
         : []),
     ];
@@ -180,7 +192,21 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
         node.parameters?.url?.endsWith("/product-master")
           ? [{
               name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-              value: "={{ $execution.mode === 'manual' ? '1' : '0' }}",
+              value: "={{ $mode === 'manual' ? '1' : '0' }}",
+            }]
+          : []);
+      assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-PLAN-START-DATE"),
+        node.parameters?.url?.endsWith("/plan")
+          ? [{
+              name: "X-TERUISI-TMALL-PLAN-START-DATE",
+              value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}",
+            }]
+          : []);
+      assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-PLAN-END-DATE"),
+        node.parameters?.url?.endsWith("/plan")
+          ? [{
+              name: "X-TERUISI-TMALL-PLAN-END-DATE",
+              value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}",
             }]
           : []);
     }

@@ -33,7 +33,7 @@
         "intervalDays": 3,
         "initialDueDate": "2026-08-27"
       },
-      "initialStartDate": "2026-08-21",
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -68,7 +68,7 @@
         "intervalDays": 3,
         "initialDueDate": "2026-08-25"
       },
-      "initialStartDate": "2026-08-21",
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -89,7 +89,7 @@
         "intervalDays": 3,
         "initialDueDate": "2026-08-26"
       },
-      "initialStartDate": "2026-08-21",
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -111,7 +111,7 @@
         "intervalDays": 3,
         "initialDueDate": "2026-08-25"
       },
-      "initialStartDate": "2026-08-21",
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -146,7 +146,7 @@
         "intervalDays": 3,
         "initialDueDate": "2026-08-26"
       },
-      "initialStartDate": "2026-08-21",
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",

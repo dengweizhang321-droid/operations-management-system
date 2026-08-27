@@ -1215,6 +1215,36 @@ export async function importNetshopBytes(
         metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings: currentBatch.warnings },
         outcome: "duplicate",
       });
+      const duplicateRepairStateToken = await fingerprintDependencies.nextImportScopeStateToken({
+        previousStateToken: currentStateToken,
+        batchId: currentBatch.id,
+        contentHash: fingerprint.contentHash,
+        rowCount: rows.length,
+      });
+      const recordedStateToken = await fingerprintDependencies.readImportScopeStateToken(db, fingerprint);
+      const recordedOwnership = await readNetshopScopeOwnership(db, {
+        source: input.source,
+        dataset,
+        platform,
+        shopName,
+        startDate: replaceStartDate,
+        endDate: replaceEndDate,
+        snapshotDate: snapshotSource ? snapshotDate : null,
+        fullScope: replaceFullScope,
+      });
+      if (![currentStateToken, duplicateRepairStateToken].includes(recordedStateToken)
+        || recordedOwnership.length !== 1
+        || recordedOwnership[0]?.batchId !== currentBatch.id
+        || recordedOwnership[0]?.rowCount !== rows.length) {
+        return reject({
+          ok: false,
+          status: "rejected",
+          message: "重复导入确认期间同一网店业务范围已更新，请重新提交最新文件",
+          warnings: [],
+          errors: [{ code: "IMPORT_SCOPE_CHANGED", message: "重复导入审计完成前当前业务范围版本已变化" }],
+          errorCount: 1,
+        });
+      }
       const unmatchedProductCount = Number((currentBatch.totals as { unmatchedProductCount?: number } | null)?.unmatchedProductCount ?? 0);
       return {
         ok: true,

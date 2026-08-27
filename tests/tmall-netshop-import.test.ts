@@ -504,6 +504,43 @@ test("重复天猫文件必须经过真实落库回查后才能返回 duplicate"
   assert.equal(accepted.verification?.readbackRowCount, 1);
 });
 
+test("重复天猫文件允许同批次范围头确定性修复但拒绝其他并发状态", async () => {
+  const bytes = dailyFixture();
+  const run = (recordedStateToken: string) => {
+    let tokenReads = 0;
+    const dependencies: NetshopImportFingerprintDependencies = {
+      ...duplicateFingerprintDependencies,
+      readImportScopeStateToken: async () => {
+        tokenReads += 1;
+        return tokenReads < 3 ? "initial" : recordedStateToken;
+      },
+      nextImportScopeStateToken: async () => "published-test-state",
+    };
+    return importNetshopBytes({
+      source: "tmall_product_daily",
+      bytes,
+      fileName: "daily.xls",
+      fileSizeBytes: bytes.byteLength,
+      shopName: TMALL_YIJIU_SHOP,
+      expectedStartDate: "2026-07-31",
+      expectedEndDate: "2026-07-31",
+    }, duplicateDatabaseDependencies({
+      verified: true,
+      expectedFileSize: bytes.byteLength,
+      onVerify: () => undefined,
+    }), dependencies);
+  };
+
+  const repaired = await run("published-test-state");
+  assert.equal(repaired.ok, true);
+  assert.equal(repaired.status, "duplicate");
+
+  const changed = await run("unrelated-concurrent-state");
+  assert.equal(changed.ok, false);
+  assert.equal(changed.status, "rejected");
+  assert.deepEqual(changed.errors?.map((issue) => issue.code), ["IMPORT_SCOPE_CHANGED"]);
+});
+
 test("网店重复候选会重算当前事实内容，同批次同数量的字段损坏必须重新导入", async () => {
   const bytes = dailyFixture();
   let fingerprintCalls = 0;

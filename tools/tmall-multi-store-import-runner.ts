@@ -229,6 +229,33 @@ export function validateImportPayload(
   };
 }
 
+export async function postTmallImportWithNetworkRetry(options: {
+  url: string;
+  buildForm: () => FormData;
+  request?: typeof fetch;
+  wait?: (delayMs: number) => Promise<void>;
+  timeoutMs?: number;
+}) {
+  const request = options.request ?? fetch;
+  const wait = options.wait ?? ((delayMs: number) => new Promise<void>((resolve) => {
+    setTimeout(resolve, delayMs);
+  }));
+  const timeoutMs = options.timeoutMs ?? 120_000;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      return await request(options.url, {
+        method: "POST",
+        body: options.buildForm(),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      if (attempt >= 2 || !(error instanceof TypeError)) throw error;
+      await wait(500);
+    }
+  }
+  throw new Error("天猫导入网络重试未返回结果");
+}
+
 async function importReceipt(baseUrl: string, store: TmallStore, businessDate: string, candidate: VerifiedReceipt, request: typeof fetch = fetch) {
   const inspected = await inspectTmallImportBytes({
     source: "tmall_product_daily",
@@ -240,16 +267,23 @@ async function importReceipt(baseUrl: string, store: TmallStore, businessDate: s
     expectedEndDate: businessDate,
   });
   if (inspected.errors.length) throw new Error(inspected.errors.map((issue) => issue.message).join("；"));
-  const form = new FormData();
-  form.set("source", "tmall_product_daily");
-  form.set("platform", "天猫");
-  form.set("shopName", store.shopName);
-  form.set("expectedDataset", "spu_daily");
-  form.set("expectedStartDate", businessDate);
-  form.set("expectedEndDate", businessDate);
   const fileBuffer = candidate.bytes.buffer.slice(candidate.bytes.byteOffset, candidate.bytes.byteOffset + candidate.bytes.byteLength) as ArrayBuffer;
-  form.set("file", new File([fileBuffer], path.basename(candidate.filePath), { type: "application/vnd.ms-excel" }));
-  const response = await request(`${baseUrl}/api/netshop/import`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
+  const buildForm = () => {
+    const form = new FormData();
+    form.set("source", "tmall_product_daily");
+    form.set("platform", "天猫");
+    form.set("shopName", store.shopName);
+    form.set("expectedDataset", "spu_daily");
+    form.set("expectedStartDate", businessDate);
+    form.set("expectedEndDate", businessDate);
+    form.set("file", new File([fileBuffer], path.basename(candidate.filePath), { type: "application/vnd.ms-excel" }));
+    return form;
+  };
+  const response = await postTmallImportWithNetworkRetry({
+    url: `${baseUrl}/api/netshop/import`,
+    buildForm,
+    request,
+  });
   const payload = await response.json().catch(() => null) as ImportPayload | null;
   const imported = validateImportPayload(payload, response.status, store, businessDate, inspected.totals.rowCount);
   const actualDates = await getActualDates(baseUrl, store, businessDate, businessDate, request);

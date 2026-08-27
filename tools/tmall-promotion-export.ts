@@ -2290,6 +2290,45 @@ async function reacquireInteractivePromotionDownloadTask(page: Page, signature: 
   return null;
 }
 
+export async function retryStablePromotionDownloadTask<T>(options: {
+  acquire: () => Promise<T | null>;
+  verify: (candidate: T) => Promise<boolean>;
+  attempts?: number;
+  delayMs?: number;
+  wait?: (delayMs: number) => Promise<void>;
+}) {
+  const attempts = options.attempts ?? 6;
+  const delayMs = options.delayMs ?? 500;
+  if (!Number.isInteger(attempts) || attempts < 1 || attempts > 20) {
+    throw new Error("推广下载任务重绑次数必须介于 1 至 20");
+  }
+  if (!Number.isFinite(delayMs) || delayMs < 0 || delayMs > 5_000) {
+    throw new Error("推广下载任务重绑等待时间无效");
+  }
+  const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  }));
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const candidate = await options.acquire();
+    if (candidate !== null && await options.verify(candidate)) return candidate;
+    if (attempt < attempts) await wait(delayMs);
+  }
+  return null;
+}
+
+async function reacquireVerifiedPromotionDownloadTask(
+  page: Page,
+  signature: string,
+  evidence: PromotionDownloadTaskEvidence,
+) {
+  return retryStablePromotionDownloadTask<PromotionDownloadTaskCandidate>({
+    acquire: () => reacquireInteractivePromotionDownloadTask(page, signature),
+    verify: async (candidate) => Boolean(candidate.locator
+      && await candidate.locator.isVisible().catch(() => false)
+      && await promotionDownloadCandidateMatchesTask(candidate, evidence)),
+  });
+}
+
 function assertPromotionRunActive(signal?: AbortSignal) {
   if (!signal?.aborted) return;
   if (signal.reason instanceof Error) throw signal.reason;
@@ -2337,12 +2376,13 @@ async function downloadTask(options: {
     // Download-center rows can re-render while the Chrome download session is
     // being attached. Re-scan and bind the same stable task signature again so
     // a stale text locator cannot resolve to a now-hidden historical row.
-    let refreshed = await reacquireInteractivePromotionDownloadTask(options.page, options.taskSignature);
-    if (!refreshed?.locator || !await refreshed.locator.isVisible().catch(() => false)) {
+    let refreshed = await reacquireVerifiedPromotionDownloadTask(
+      options.page,
+      options.taskSignature,
+      options.taskEvidence,
+    );
+    if (!refreshed?.locator) {
       throw new Error("本轮商品报表下载任务在点击前发生变化，已保留任务并停止下载");
-    }
-    if (!await promotionDownloadCandidateMatchesTask(refreshed, options.taskEvidence)) {
-      throw new Error("本轮商品报表下载按钮与任务身份不一致，已保留任务并停止下载");
     }
     await refreshed.rowLocator?.hover({ timeout: 3_000 }).catch(() => undefined);
     try {
@@ -2355,11 +2395,12 @@ async function downloadTask(options: {
       // invoke that exact button once through the page DOM.
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (!activeGuid) {
-        refreshed = await reacquireInteractivePromotionDownloadTask(options.page, options.taskSignature);
+        refreshed = await reacquireVerifiedPromotionDownloadTask(
+          options.page,
+          options.taskSignature,
+          options.taskEvidence,
+        );
         if (!refreshed?.locator) throw new Error("本轮商品报表下载任务在点击前消失，已保留任务并停止下载");
-        if (!await promotionDownloadCandidateMatchesTask(refreshed, options.taskEvidence)) {
-          throw new Error("本轮商品报表下载按钮重绑后与任务身份不一致，已保留任务并停止下载");
-        }
         await refreshed.locator.evaluate((element) => (element as HTMLElement).click());
       }
     }

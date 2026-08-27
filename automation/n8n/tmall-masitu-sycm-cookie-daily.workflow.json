@@ -139,7 +139,7 @@
             },
             {
               "name": "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-              "value": "={{ $execution.mode === 'manual' ? '1' : '0' }}"
+              "value": "={{ $mode === 'manual' ? '1' : '0' }}"
             }
           ]
         },
@@ -170,6 +170,14 @@
             {
               "name": "X-TERUISI-TMALL-STORE-KEY",
               "value": "tmall-masitu"
+            },
+            {
+              "name": "X-TERUISI-TMALL-PLAN-START-DATE",
+              "value": "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-PLAN-END-DATE",
+              "value": "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}"
             }
           ]
         },
