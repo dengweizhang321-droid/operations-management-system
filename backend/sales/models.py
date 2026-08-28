@@ -1,6 +1,62 @@
 from __future__ import annotations
 
+from datetime import date
+from typing import Mapping
+
 from django.db import models
+
+
+UNCATEGORIZED = "未分类"
+EXCLUDED_WAREHOUSE = "刷刷仓"
+EXCLUDED_SOURCE_CATEGORIES = frozenset({"配件", "赠品配件"})
+PRICE_ADJUSTMENT_PRODUCT_CODE = "ERP_PRICE_ADJUSTMENT"
+PRICE_ADJUSTMENT_PRODUCT_NAME = "补差价专用"
+
+
+def _text(value: object) -> str:
+    return "" if value is None else str(value)
+
+
+def _trimmed(value: object) -> str:
+    return _text(value).strip()
+
+
+def sales_projection_values(
+    raw: Mapping[str, object], *, erp_category: object = ""
+) -> dict[str, object]:
+    """Build the deterministic, query-ready columns for one D1 sales row."""
+    ship_time = _text(raw.get("ship_time"))
+    try:
+        business_date = date.fromisoformat(ship_time[:10])
+    except ValueError as error:
+        raise ValueError("ship_time must start with a valid ISO business date") from error
+
+    platform = _trimmed(raw.get("platform"))
+    channel = _trimmed(raw.get("channel"))
+    shop = _trimmed(raw.get("shop_name"))
+    source_category = _trimmed(raw.get("category"))
+    product_name = _trimmed(raw.get("product_name"))
+    product_code = _text(raw.get("product_code"))
+    source_line_key = _text(raw.get("source_line_key"))
+    order_no = _text(raw.get("order_no"))
+    online_order_no = _text(raw.get("online_order_no"))
+    included_category = bool(source_category) and source_category not in EXCLUDED_SOURCE_CATEGORIES
+
+    return {
+        "business_date": business_date,
+        "platform_key": platform or UNCATEGORIZED,
+        "channel_key": channel or UNCATEGORIZED,
+        "shop_key": shop or channel or platform or UNCATEGORIZED,
+        "resolved_category": _trimmed(erp_category) or source_category or UNCATEGORIZED,
+        "order_identity": order_no or online_order_no or source_line_key,
+        "is_business_row": _trimmed(raw.get("warehouse")) != EXCLUDED_WAREHOUSE,
+        "is_net_sales_row": included_category,
+        "is_net_quantity_row": (
+            included_category
+            and product_code != PRICE_ADJUSTMENT_PRODUCT_CODE
+            and product_name != PRICE_ADJUSTMENT_PRODUCT_NAME
+        ),
+    }
 
 
 class SalesImportBatch(models.Model):
@@ -66,16 +122,45 @@ class SalesOrderLine(models.Model):
     business_type = models.TextField()
     created_at = models.TextField()
     updated_at = models.TextField()
+    business_date = models.DateField()
+    platform_key = models.TextField()
+    channel_key = models.TextField()
+    shop_key = models.TextField()
+    resolved_category = models.TextField()
+    order_identity = models.TextField()
+    is_business_row = models.BooleanField()
+    is_net_sales_row = models.BooleanField()
+    is_net_quantity_row = models.BooleanField()
     migration_generation = models.CharField(max_length=64, default="", db_index=True)
 
     class Meta:
         db_table = "sales_order_lines"
         indexes = [
-            models.Index(fields=["ship_time"], name="sales_line_ship_idx"),
-            models.Index(fields=["sales_time"], name="sales_line_sale_idx"),
-            models.Index(fields=["channel"], name="sales_line_channel_idx"),
-            models.Index(fields=["platform"], name="sales_line_platform_idx"),
-            models.Index(fields=["product_code"], name="sales_line_product_idx"),
+            models.Index(
+                fields=["business_date"],
+                name="sales_biz_date_idx",
+                condition=models.Q(is_business_row=True),
+            ),
+            models.Index(
+                fields=["platform_key", "shop_key", "business_date"],
+                name="sales_platform_shop_date_idx",
+                condition=models.Q(is_business_row=True),
+            ),
+            models.Index(
+                fields=["channel_key", "business_date"],
+                name="sales_channel_date_idx",
+                condition=models.Q(is_business_row=True),
+            ),
+            models.Index(
+                fields=["resolved_category", "business_date"],
+                name="sales_category_date_idx",
+                condition=models.Q(is_business_row=True),
+            ),
+            models.Index(
+                fields=["product_code", "business_date"],
+                name="sales_product_date_idx",
+                condition=models.Q(is_business_row=True),
+            ),
             models.Index(fields=["last_import_batch_id"], name="sales_line_batch_idx"),
         ]
 

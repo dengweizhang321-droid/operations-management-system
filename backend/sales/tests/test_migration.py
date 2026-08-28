@@ -5,6 +5,7 @@ import json
 import os
 import sqlite3
 import tempfile
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -150,6 +151,50 @@ class SalesMigrationTests(TestCase):
         self.apply_approved(approval)
         output = self.run_command(verify_only=True)
         self.assertIn('"status": "verified"', output)
+
+    def test_apply_materializes_and_verifies_query_ready_projection(self) -> None:
+        connection = sqlite3.connect(self.source)
+        connection.execute(
+            """
+            UPDATE sales_order_lines
+               SET platform = ' 京东 ', channel = ' 渠道A ', shop_name = ' ',
+                   warehouse = ' 刷刷仓 ', category = ' 配件 ',
+                   order_no = '', online_order_no = ''
+             WHERE source_line_key = 'L2'
+            """
+        )
+        connection.commit()
+        connection.close()
+
+        approval = self.approved_dry_run()
+        self.apply_approved(approval)
+        row = SalesOrderLine.objects.get(source_line_key="L2")
+        self.assertEqual(row.business_date, date(2026, 8, 1))
+        self.assertEqual(row.platform_key, "京东")
+        self.assertEqual(row.channel_key, "渠道A")
+        self.assertEqual(row.shop_key, "渠道A")
+        self.assertEqual(row.resolved_category, "配件")
+        self.assertEqual(row.order_identity, "L2")
+        self.assertFalse(row.is_business_row)
+        self.assertFalse(row.is_net_sales_row)
+        self.assertFalse(row.is_net_quantity_row)
+
+        SalesOrderLine.objects.filter(source_line_key="L2").update(platform_key="被篡改")
+        with self.assertRaisesMessage(CommandError, "查询投影"):
+            self.run_command(verify_only=True)
+
+    def test_dry_run_rejects_ship_time_without_valid_business_date(self) -> None:
+        connection = sqlite3.connect(self.source)
+        connection.execute(
+            "UPDATE sales_order_lines SET ship_time = 'not-a-date' WHERE source_line_key = 'L1'"
+        )
+        connection.commit()
+        connection.close()
+
+        with self.assertRaisesMessage(CommandError, "无法生成业务日期"):
+            self.run_command(dry_run=True)
+        self.assertEqual(SalesOrderLine.objects.count(), 0)
+        self.assertEqual(SalesMigrationRun.objects.get().status, "failed")
 
     def test_source_row_id_changes_and_target_id_collisions_do_not_change_identity_or_digest(self) -> None:
         approval = self.approved_dry_run()

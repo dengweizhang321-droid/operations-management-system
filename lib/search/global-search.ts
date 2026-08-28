@@ -552,7 +552,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_target_versions", "finance_target_deletion_audits",
     "finance_target_scoped_versions", "finance_target_scoped_deletion_audits", "finance_target_legacy_migrations",
     "ai_tool_audit_logs",
-    "sales_import_uploads", "sales_import_upload_chunks",
+    "sales_import_uploads", "sales_import_upload_chunks", "sales_projection_outbox", "sales_projection_source_state",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
     "market_annotation_prompt_versions", "market_annotation_prompt_audits", "market_annotation_jobs", "market_annotation_items",
     "market_annotation_commit_receipts", "market_annotation_validation_samples",

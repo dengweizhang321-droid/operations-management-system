@@ -4,8 +4,8 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db.models import BigIntegerField, CharField, F, Max, Sum, TextField, Value
-from django.db.models.functions import Coalesce, Concat, Trim
+from django.db.models import BigIntegerField, CharField, F, Max, Q, Sum, TextField, Value
+from django.db.models.functions import Coalesce, Concat, NullIf
 
 from .models import ErpProductMaster, SalesOrderLine
 from .query import (
@@ -123,25 +123,52 @@ def _base(period: dict[str, str], filters: dict[str, object]):
     # successor to the legacy shop scalar.  When both are present, outlets win
     # instead of intersecting the two filters.
     if shop and not filters["outlets"]:
-        queryset = queryset.filter(shop_key=shop)
+        queryset = queryset.filter(report_shop_key=shop, shop_key=shop)
     return queryset
 
 
-def _metric(period: dict[str, str], filters: dict[str, object]) -> dict[str, int | float]:
-    return serialize_metric(_base(period, filters).aggregate(**metric_aggregates()))
+def _period_filter(period: dict[str, str]) -> Q:
+    return Q(
+        business_date__gte=period["startDate"],
+        business_date__lt=add_days(period["endDate"], 1),
+    )
 
 
-def _grouped(dimension: str, period: dict[str, str], filters: dict[str, object], group_keys: list[str] | None = None) -> dict[str, object]:
-    queryset = _base(period, filters)
+def _combined_base(periods: list[dict[str, str]], filters: dict[str, object]):
+    start_date = min(period["startDate"] for period in periods)
+    end_date = max(period["endDate"] for period in periods)
+    queryset = _base({"startDate": start_date, "endDate": end_date}, filters)
+    included = Q()
+    for period in periods:
+        included |= _period_filter(period)
+    return queryset.filter(included)
+
+
+def _period_metrics(
+    filters: dict[str, object], periods: dict[str, dict[str, str]]
+) -> dict[str, dict[str, int | float]]:
+    queryset = _combined_base(list(periods.values()), filters)
+    aggregate_fields: dict[str, object] = {}
+    for label, period in periods.items():
+        for name, expression in metric_aggregates(filter_q=_period_filter(period)).items():
+            aggregate_fields[f"{label}_{name}"] = expression
+    row = queryset.aggregate(**aggregate_fields)
+    return {
+        label: serialize_metric(
+            {name: row[f"{label}_{name}"] for name in metric_aggregates()}
+        )
+        for label in periods
+    }
+
+
+def _with_grouping(queryset, dimension: str):
     if dimension == "shop":
         queryset = queryset.annotate(
-            group_key=Concat(F("platform_key"), Value("\x1f"), F("shop_key"), output_field=CharField()),
-            group_name=F("shop_key"),
+            group_key=Concat(F("report_platform_key"), Value("\x1f"), F("report_shop_key"), output_field=CharField()),
+            group_name=F("report_shop_key"),
         )
     elif dimension == "channel":
         # Existing contract falls back to platform only when channel is exactly empty.
-        from django.db.models.functions import NullIf
-
         queryset = queryset.annotate(
             group_name=Coalesce(
                 NullIf(F("channel"), Value("")),
@@ -151,8 +178,6 @@ def _grouped(dimension: str, period: dict[str, str], filters: dict[str, object],
             )
         ).annotate(group_key=F("group_name"))
     else:
-        from django.db.models.functions import NullIf
-
         queryset = queryset.annotate(
             group_name=Coalesce(
                 NullIf(F("platform"), Value("")),
@@ -161,16 +186,38 @@ def _grouped(dimension: str, period: dict[str, str], filters: dict[str, object],
                 output_field=TextField(),
             )
         ).annotate(group_key=F("group_name"))
-    if group_keys:
-        queryset = queryset.filter(group_key__in=group_keys)
-    aggregate_fields = metric_aggregates()
-    grouped = queryset.values("group_key", "group_name").annotate(platform_value=Max("platform"), **aggregate_fields).annotate(
+    return queryset
+
+
+def _grouped_yoy(dimension: str, period: dict[str, str], year_ago: dict[str, str], filters: dict[str, object]) -> dict[str, object]:
+    current_filter = _period_filter(period)
+    year_filter = _period_filter(year_ago)
+    queryset = _with_grouping(_combined_base([period, year_ago], filters), dimension)
+    grouped = queryset.values("group_key", "group_name").annotate(
+        platform_value=Max("platform", filter=current_filter),
+        **metric_aggregates(filter_q=current_filter),
+        year_ago_net_sales_cents=Coalesce(
+            Sum("allocated_amount_cents", filter=year_filter),
+            Value(0),
+            output_field=BigIntegerField(),
+        ),
+    ).filter(line_count__gt=0).annotate(
         net_sort=F("gross_sales_cents") - F("refund_amount_cents")
     )
-    total = grouped.count()
     rows = list(grouped.order_by("-net_sort", binary_order("group_name"), binary_order("group_key"))[: MAX_GROUP_ROWS + 1])
+    truncated = len(rows) > MAX_GROUP_ROWS
     returned = rows[:MAX_GROUP_ROWS]
-    total_net = int(queryset.aggregate(total=Coalesce(Sum("allocated_amount_cents"), Value(0), output_field=BigIntegerField()))["total"] or 0)
+    if truncated:
+        total = grouped.count()
+        total_net = int(
+            _base(period, filters).aggregate(
+                total=Coalesce(Sum("allocated_amount_cents"), Value(0), output_field=BigIntegerField())
+            )["total"]
+            or 0
+        )
+    else:
+        total = len(returned)
+        total_net = sum(int(row["net_sort"] or 0) for row in returned)
     items: list[dict[str, object]] = []
     for row in returned:
         values = serialize_metric(row)
@@ -181,46 +228,52 @@ def _grouped(dimension: str, period: dict[str, str], filters: dict[str, object],
                 "platform": row["platform_value"] or (row["group_name"] if dimension == "platform" else "未分类"),
                 **values,
                 "shareRate": 0 if total_net == 0 else values["netSalesCents"] / total_net,
+                "yearAgoNetSalesCents": int(row["year_ago_net_sales_cents"] or 0),
             }
         )
-    return {"items": items, "pagination": {"total": total, "returned": len(items), "truncated": len(rows) > MAX_GROUP_ROWS}}
-
-
-def _grouped_yoy(dimension: str, period: dict[str, str], year_ago: dict[str, str], filters: dict[str, object]) -> dict[str, object]:
-    current = _grouped(dimension, period, filters)
-    keys = [str(item["groupKey"]) for item in current["items"]]
-    historic = _grouped(dimension, year_ago, filters, keys)
-    historic_by_key = {item["groupKey"]: item for item in historic["items"]}
-    for item in current["items"]:
-        old = int(historic_by_key.get(item["groupKey"], {}).get("netSalesCents", 0))
-        item["yearAgoNetSalesCents"] = old
+    for item in items:
+        old = int(item["yearAgoNetSalesCents"])
         item["salesYearOverYearRate"] = None if old == 0 else (int(item["netSalesCents"]) - old) / abs(old)
-    return current
+    return {"items": items, "pagination": {"total": total, "returned": len(items), "truncated": truncated}}
 
 
-def _daily(period: dict[str, str], filters: dict[str, object]) -> list[dict[str, object]]:
-    rows = _base(period, filters).values("business_date").annotate(**metric_aggregates()).order_by("business_date")
-    return [{"date": row["business_date"], **serialize_metric(row)} for row in rows]
+def _daily_ranges(
+    periods: dict[str, dict[str, str]], filters: dict[str, object]
+) -> dict[str, list[dict[str, object]]]:
+    rows = (
+        _combined_base(list(periods.values()), filters)
+        .values("business_date")
+        .annotate(**metric_aggregates())
+        .order_by("business_date")
+    )
+    result: dict[str, list[dict[str, object]]] = {label: [] for label in periods}
+    for row in rows:
+        business_date = row["business_date"].isoformat()
+        serialized = {"date": business_date, **serialize_metric(row)}
+        for label, period in periods.items():
+            if period["startDate"] <= business_date <= period["endDate"]:
+                result[label].append(serialized)
+    return result
 
 
 def _filter_options(period: dict[str, str], product_codes: list[str]) -> dict[str, object]:
     filters = {"productCodes": product_codes, "categories": [], "platforms": [], "outlets": [], "shop": None}
     queryset = _base(period, filters)
-    shops = list(queryset.values("platform_key", "shop_key").distinct().order_by(binary_order("platform_key"), binary_order("shop_key"))[:500])
-    platforms = list(queryset.values_list("platform_key", flat=True).distinct().order_by(binary_order("platform_key"))[:200])
+    shops = list(queryset.values("report_platform_key", "report_shop_key").distinct().order_by(binary_order("report_platform_key"), binary_order("report_shop_key"))[:500])
+    platforms = list(queryset.values_list("report_platform_key", flat=True).distinct().order_by(binary_order("report_platform_key"))[:200])
     if product_codes:
-        categories = list(queryset.values_list("category_key", flat=True).distinct().order_by(binary_order("category_key"))[:200])
+        categories = list(queryset.values_list("resolved_category", flat=True).distinct().order_by(binary_order("resolved_category"))[:200])
     else:
         master_categories = set(
             ErpProductMaster.objects.annotate(category_trim=F("category")).exclude(category="").values_list("category", flat=True)
         )
-        sales_categories = set(queryset.values_list("category_key", flat=True).distinct())
+        sales_categories = set(queryset.values_list("resolved_category", flat=True).distinct())
         categories = sorted(
             {category.strip() for category in master_categories | sales_categories if category.strip()},
             key=binary_text_key,
         )[:200]
     return {
-        "shops": [{"key": f"{row['platform_key']}\x1f{row['shop_key']}", "name": row["shop_key"], "platform": row["platform_key"]} for row in shops],
+        "shops": [{"key": f"{row['report_platform_key']}\x1f{row['report_shop_key']}", "name": row["report_shop_key"], "platform": row["report_platform_key"]} for row in shops],
         "platforms": platforms,
         "categories": categories,
     }
@@ -239,20 +292,21 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         "outlets": outlets,
     }
     cutoff = (
-        SalesOrderLine.objects.annotate(warehouse_trim=Trim("warehouse"))
-        .exclude(warehouse_trim="刷刷仓")
-        .order_by("-ship_time")
-        .values_list("ship_time", flat=True)
+        SalesOrderLine.objects.filter(is_business_row=True)
+        .order_by("-business_date")
+        .values_list("business_date", flat=True)
         .first()
     )
-    cutoff_date = cutoff[:10] if cutoff else None
+    cutoff_date = cutoff.isoformat() if cutoff else None
     today = _today()
     if range_name == "all":
-        # Avoid database-specific MIN(substr(...)) expression behavior by two indexed reads.
-        bounded = _base({"startDate": "0001-01-01", "endDate": "9998-12-31"}, filters).order_by("ship_time")
-        first = bounded.values_list("ship_time", flat=True).first()
-        last = bounded.order_by("-ship_time").values_list("ship_time", flat=True).first()
-        requested = {"startDate": first[:10] if first else today, "endDate": last[:10] if last else today}
+        bounded = _base({"startDate": "0001-01-01", "endDate": "9998-12-31"}, filters).order_by("business_date")
+        first = bounded.values_list("business_date", flat=True).first()
+        last = bounded.order_by("-business_date").values_list("business_date", flat=True).first()
+        requested = {
+            "startDate": first.isoformat() if first else today,
+            "endDate": last.isoformat() if last else today,
+        }
     elif range_name == "custom":
         requested = _custom_period(start_date or "", end_date or "")
     else:
@@ -269,16 +323,25 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
     }
     year_ago_trend = {"startDate": add_years(trend_period["startDate"], -1), "endDate": add_years(trend_period["endDate"], -1)}
     outlet_result = _grouped_yoy("shop", period, year_ago, filters)
-    daily = _daily(trend_period, filters)
+    metric_periods = {"current": period, "yearAgo": year_ago}
+    if previous:
+        metric_periods["previous"] = previous
+    metrics = _period_metrics(filters, metric_periods)
     empty_group = {"items": [], "pagination": {"total": 0, "returned": 0, "truncated": False}}
     if projection == "full":
         channel_result = _grouped_yoy("channel", period, year_ago, filters)
         platform_result = _grouped_yoy("platform", period, year_ago, filters)
-        previous_daily = _daily(previous, filters) if previous else []
-        year_ago_daily = _daily(year_ago_trend, filters)
+        daily_periods = {"current": trend_period, "yearAgo": year_ago_trend}
+        if previous:
+            daily_periods["previous"] = previous
+        daily_rows = _daily_ranges(daily_periods, filters)
+        daily = daily_rows["current"]
+        previous_daily = daily_rows.get("previous", [])
+        year_ago_daily = daily_rows["yearAgo"]
         options = _filter_options(period, product_codes)
     else:
         channel_result = platform_result = empty_group
+        daily = _daily_ranges({"current": trend_period}, filters)["current"]
         previous_daily = []
         year_ago_daily = []
         options = {"shops": [], "platforms": [], "categories": []}
@@ -301,8 +364,8 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         "dataCutoffDate": cutoff_date,
         "periodAdjustedToDataCutoff": adjusted,
         "comparisonDayCount": day_count(period["startDate"], period["endDate"]),
-        "current": _metric(period, filters),
-        "yearAgo": _metric(year_ago, filters),
+        "current": metrics["current"],
+        "yearAgo": metrics["yearAgo"],
         "yearAgoStartDate": year_ago["startDate"],
         "yearAgoEndDate": year_ago["endDate"],
         # Preserve the existing response names, including their historic channel/platform mapping.
@@ -325,7 +388,7 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         "latestBatch": latest_batch_payload(),
     }
     if previous:
-        payload["previous"] = _metric(previous, filters)
+        payload["previous"] = metrics["previous"]
     return payload
 
 

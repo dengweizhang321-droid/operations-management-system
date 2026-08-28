@@ -315,6 +315,38 @@ export const salesImportBatches = sqliteTable(
   ],
 );
 
+/** Stable identity of the authoritative D1 source; rotate it after a source restore. */
+export const salesProjectionSourceState = sqliteTable("sales_projection_source_state", {
+  id: integer("id").primaryKey(),
+  sourceEpoch: text("source_epoch").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/** Transactional replication log for the rebuildable Django sales projection. */
+export const salesProjectionOutbox = sqliteTable(
+  "sales_projection_outbox",
+  {
+    eventSequence: integer("event_sequence").primaryKey({ autoIncrement: true }),
+    eventId: text("event_id").notNull(),
+    sourceEpoch: text("source_epoch").notNull(),
+    domain: text("domain").notNull(),
+    operation: text("operation").notNull(),
+    scopeJson: text("scope_json").notNull(),
+    sourceBatchId: text("source_batch_id").notNull(),
+    salesRevision: integer("sales_revision").notNull(),
+    erpRevision: integer("erp_revision").notNull(),
+    rowCount: integer("row_count").notNull(),
+    contentHash: text("content_hash").notNull(),
+    canonicalFormatVersion: text("canonical_format_version").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("sales_projection_outbox_event_id_uq").on(table.eventId),
+    index("sales_projection_outbox_domain_sequence_idx").on(table.domain, table.eventSequence),
+  ],
+);
+
 /**
  * Analysis-safe sales facts. Customer names/accounts, recipients, addresses,
  * customer notes, and other free-form personal data are deliberately absent.

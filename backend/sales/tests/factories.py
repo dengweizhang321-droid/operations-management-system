@@ -9,7 +9,13 @@ from urllib.parse import urlsplit
 
 from django.utils.encoding import iri_to_uri
 
-from sales.models import ErpProductMaster, SalesDataRevision, SalesImportBatch, SalesOrderLine
+from sales.models import (
+    ErpProductMaster,
+    SalesDataRevision,
+    SalesImportBatch,
+    SalesOrderLine,
+    sales_projection_values,
+)
 
 
 TEST_SECRET = "django-sales-contract-test-secret-at-least-32-bytes"
@@ -79,6 +85,13 @@ def make_line(identifier: int, key: str, **overrides) -> SalesOrderLine:
         "updated_at": "2026-08-01 10:00:00",
     }
     defaults.update(overrides)
+    erp_category = (
+        ErpProductMaster.objects.filter(product_code=defaults["product_code"])
+        .values_list("category", flat=True)
+        .first()
+        or ""
+    )
+    defaults.update(sales_projection_values(defaults, erp_category=erp_category))
     return SalesOrderLine(**defaults)
 
 

@@ -21,6 +21,7 @@ from sales.models import (
     SalesMigrationLock,
     SalesMigrationRun,
     SalesOrderLine,
+    sales_projection_values,
 )
 
 
@@ -82,6 +83,19 @@ SPECS = (
 # material. Version 2 deliberately excludes that allocation-local id and binds
 # the table name plus the exact ordered column list into every table digest.
 CANONICAL_FORMAT_VERSION = "sales-projection-v2"
+QUERY_PROJECTION_FORMAT_VERSION = "sales-query-projection-v1"
+QUERY_PROJECTION_DIGEST_KEY = "sales_query_projection"
+SALES_PROJECTION_FIELDS = (
+    "business_date",
+    "platform_key",
+    "channel_key",
+    "shop_key",
+    "resolved_category",
+    "order_identity",
+    "is_business_row",
+    "is_net_sales_row",
+    "is_net_quantity_row",
+)
 
 
 def _canonical_bytes(values: Sequence[Any]) -> bytes:
@@ -221,6 +235,52 @@ def _source_digest(connection: sqlite3.Connection, spec: TableSpec, batch_size: 
     return count, digest.hexdigest()
 
 
+def _source_erp_categories(connection: sqlite3.Connection) -> dict[str, object]:
+    return {
+        str(row[0]): row[1]
+        for row in connection.execute("SELECT product_code, category FROM erp_product_master")
+    }
+
+
+def _projection_digest_values(source_line_key: object, projection: dict[str, object]) -> tuple[object, ...]:
+    business_date = projection["business_date"]
+    return (
+        source_line_key,
+        business_date.isoformat() if hasattr(business_date, "isoformat") else str(business_date),
+        *(projection[field] for field in SALES_PROJECTION_FIELDS[1:]),
+    )
+
+
+def _new_projection_digest():
+    digest = hashlib.sha256()
+    digest.update(_canonical_bytes((QUERY_PROJECTION_FORMAT_VERSION, *SALES_PROJECTION_FIELDS)))
+    return digest
+
+
+def _source_projection_digest(
+    connection: sqlite3.Connection, batch_size: int
+) -> tuple[int, str]:
+    erp_categories = _source_erp_categories(connection)
+    digest = _new_projection_digest()
+    count = 0
+    line_spec = next(spec for spec in SPECS if spec.model is SalesOrderLine)
+    for rows in _source_rows(connection, line_spec, batch_size):
+        for row in rows:
+            payload = dict(row)
+            try:
+                projection = sales_projection_values(
+                    payload,
+                    erp_category=erp_categories.get(str(payload.get("product_code") or ""), ""),
+                )
+            except ValueError as error:
+                raise CommandError(
+                    f"D1 销售行 {payload.get('source_line_key')!r} 的 ship_time 无法生成业务日期"
+                ) from error
+            digest.update(_canonical_bytes(_projection_digest_values(payload["source_line_key"], projection)))
+            count += 1
+    return count, digest.hexdigest()
+
+
 def _target_binary_collation(vendor: str) -> str:
     if vendor == "sqlite":
         return "BINARY"
@@ -242,22 +302,52 @@ def _target_digest(spec: TableSpec, batch_size: int) -> tuple[int, str]:
     return count, digest.hexdigest()
 
 
+def _target_projection_digest(batch_size: int) -> tuple[int, str]:
+    digest = _new_projection_digest()
+    count = 0
+    collation = _target_binary_collation(target_connection.vendor)
+    queryset = SalesOrderLine.objects.order_by(
+        Collate(models.F("source_line_key"), collation)
+    ).values_list("source_line_key", *SALES_PROJECTION_FIELDS)
+    for values in queryset.iterator(chunk_size=batch_size):
+        business_date = values[1]
+        canonical = (
+            values[0],
+            business_date.isoformat() if hasattr(business_date, "isoformat") else str(business_date),
+            *values[2:],
+        )
+        digest.update(_canonical_bytes(canonical))
+        count += 1
+    return count, digest.hexdigest()
+
+
 def _apply_table(connection: sqlite3.Connection, spec: TableSpec, batch_size: int, generation: str) -> tuple[int, str]:
     digest = _new_table_digest(spec)
     count = 0
+    erp_categories = _source_erp_categories(connection) if spec.model is SalesOrderLine else {}
+    update_fields = list(spec.update_fields)
+    if spec.model is SalesOrderLine:
+        update_fields.extend(SALES_PROJECTION_FIELDS)
     for rows in _source_rows(connection, spec, batch_size):
         objects = []
         for row in rows:
             values = tuple(row)
             digest.update(_canonical_bytes(values))
             payload = dict(zip(spec.payload_columns, values, strict=True))
+            if spec.model is SalesOrderLine:
+                payload.update(
+                    sales_projection_values(
+                        payload,
+                        erp_category=erp_categories.get(str(payload.get("product_code") or ""), ""),
+                    )
+                )
             payload["migration_generation"] = generation
             objects.append(spec.model(**payload))
         spec.model.objects.bulk_create(
             objects,
             batch_size=batch_size,
             update_conflicts=True,
-            update_fields=spec.update_fields,
+            update_fields=update_fields,
             unique_fields=list(spec.unique_fields),
         )
         count += len(objects)
@@ -404,6 +494,13 @@ class Command(BaseCommand):
                 source_counts[spec.source_table], source_digests[spec.source_table] = _source_digest(
                     connection, spec, batch_size
                 )
+            source_projection_count, source_projection_digest = _source_projection_digest(
+                connection, batch_size
+            )
+            if source_projection_count != source_counts["sales_order_lines"]:
+                raise CommandError("D1 销售查询投影校验行数不一致")
+            source_counts[QUERY_PROJECTION_DIGEST_KEY] = source_projection_count
+            source_digests[QUERY_PROJECTION_DIGEST_KEY] = source_projection_digest
 
             if dry_run:
                 _ensure_source_stable(source, source_revision)
@@ -447,8 +544,11 @@ class Command(BaseCommand):
                         target_counts[spec.source_table], target_digests[spec.source_table] = _target_digest(
                             spec, batch_size
                         )
+                    target_projection_count, target_projection_digest = _target_projection_digest(batch_size)
+                    target_counts[QUERY_PROJECTION_DIGEST_KEY] = target_projection_count
+                    target_digests[QUERY_PROJECTION_DIGEST_KEY] = target_projection_digest
                     if source_counts != target_counts or source_digests != target_digests:
-                        raise CommandError("源与目标销售快照的行数或摘要不一致")
+                        raise CommandError("源与目标销售快照及查询投影的行数或摘要不一致")
                     _verify_target_revisions(source_revision)
                     run.target_revision = source_revision_token
                 _ensure_source_stable(source, source_revision)
@@ -489,14 +589,20 @@ class Command(BaseCommand):
                     applied_counts[spec.source_table], applied_digests[spec.source_table] = _apply_table(
                         connection, spec, batch_size, generation
                     )
+                applied_projection_count, applied_projection_digest = _target_projection_digest(batch_size)
+                applied_counts[QUERY_PROJECTION_DIGEST_KEY] = applied_projection_count
+                applied_digests[QUERY_PROJECTION_DIGEST_KEY] = applied_projection_digest
                 if source_counts != applied_counts or source_digests != applied_digests:
                     raise CommandError("apply 期间读取的 D1 快照与已审批摘要不一致")
                 target_counts: dict[str, int] = {}
                 target_digests: dict[str, str] = {}
                 for spec in SPECS:
                     target_counts[spec.source_table], target_digests[spec.source_table] = _target_digest(spec, batch_size)
+                target_projection_count, target_projection_digest = _target_projection_digest(batch_size)
+                target_counts[QUERY_PROJECTION_DIGEST_KEY] = target_projection_count
+                target_digests[QUERY_PROJECTION_DIGEST_KEY] = target_projection_digest
                 if source_counts != target_counts or source_digests != target_digests:
-                    raise CommandError("迁移后目标销售快照的行数或摘要校验失败")
+                    raise CommandError("迁移后目标销售快照及查询投影的行数或摘要校验失败")
                 _ensure_source_stable(source, source_revision)
                 for domain, source_value in (
                     ("sales", source_revision[0]),

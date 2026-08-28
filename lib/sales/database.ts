@@ -9,6 +9,13 @@ import {
   bumpSalesOverviewFactsRevisionSql,
   salesOverviewCacheSchemaStatements,
 } from "@/lib/sales/overview-cache-schema";
+import {
+  SALES_PROJECTION_CANONICAL_FORMAT_VERSION,
+  assertProjectionContentHash,
+  buildSalesProjectionScopeJson,
+  insertSalesProjectionOutboxEventSql,
+  salesProjectionOutboxSchemaStatements,
+} from "@/lib/sales/projection-outbox";
 
 export const SALES_IMPORT_SOURCE = "吉客云 ERP · 销售单明细账";
 export const SALES_IMPORT_CHUNK_SIZE = 500;
@@ -104,6 +111,7 @@ const batchSelectColumns = `
 // individual statement and use batch() only to reduce network round trips.
 const schemaStatements = [
   ...salesOverviewCacheSchemaStatements,
+  ...salesProjectionOutboxSchemaStatements,
   `CREATE TABLE IF NOT EXISTS sales_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source TEXT NOT NULL,
@@ -474,6 +482,7 @@ type SaveSalesImportInput = {
   rows: SalesLineInput[];
   warnings: SalesImportIssue[];
   totals: unknown;
+  contentHash: string;
   replaceStartDate: string;
   replaceEndDate: string;
   replaceChannels?: readonly string[] | null;
@@ -492,7 +501,7 @@ export async function saveSalesImport(
 ): Promise<{ batch: SalesImportBatch; created: boolean }> {
   const batchId = input.fileHash;
   const replaceChannels = input.replaceChannels ? [...new Set(input.replaceChannels.map((channel) => channel.trim()))] : null;
-  if (input.replaceChannels && (replaceChannels.length === 0 || replaceChannels.some((channel) => !channel))) {
+  if (replaceChannels && (replaceChannels.length === 0 || replaceChannels.some((channel) => !channel))) {
     throw new Error("销售导入的权威渠道范围不能为空");
   }
   if (replaceChannels) {
@@ -506,6 +515,12 @@ export async function saveSalesImport(
   };
   const warningsJson = JSON.stringify(input.warnings);
   const totalsJson = JSON.stringify(input.totals ?? {});
+  const contentHash = assertProjectionContentHash(input.contentHash);
+  const projectionScopeJson = buildSalesProjectionScopeJson({
+    startDate: input.replaceStartDate,
+    endDate: input.replaceEndDate,
+    channels: replaceChannels,
+  });
   const statements = [
     db
       .prepare(
@@ -554,6 +569,15 @@ export async function saveSalesImport(
 
   statements.push(
     db.prepare(bumpSalesOverviewFactsRevisionSql).bind(batchId),
+    db.prepare(insertSalesProjectionOutboxEventSql).bind(
+      batchId,
+      projectionScopeJson,
+      batchId,
+      input.rows.length,
+      contentHash,
+      SALES_PROJECTION_CANONICAL_FORMAT_VERSION,
+      batchId,
+    ),
     db
       .prepare(
         `UPDATE sales_import_batches

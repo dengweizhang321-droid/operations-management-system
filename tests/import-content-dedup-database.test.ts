@@ -685,7 +685,8 @@ test("领域事实发布事务的提交栅栏拒绝 takeover 后恢复的旧 own
   assert.equal(newOwner.recoveredStaleReservation, true);
   await saveSalesImport(db, {
     fileHash: newHash, fileName: "new.xlsx", fileSizeBytes: 1, sheetName: "销售",
-    rows: newRows, warnings: [], totals: {}, replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
+    rows: newRows, warnings: [], totals: {}, contentHash: newFingerprint.contentHash,
+    replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
     reservationFence: { domain: newFingerprint.domain, scopeKey: newFingerprint.scopeKey, batchId: newHash, attemptId: newOwner.attemptId },
   });
   await recordImportFingerprint(db as never, {
@@ -695,7 +696,8 @@ test("领域事实发布事务的提交栅栏拒绝 takeover 后恢复的旧 own
 
   await assert.rejects(saveSalesImport(db, {
     fileHash: oldHash, fileName: "old.xlsx", fileSizeBytes: 1, sheetName: "销售",
-    rows: oldRows, warnings: [], totals: {}, replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
+    rows: oldRows, warnings: [], totals: {}, contentHash: oldFingerprint.contentHash,
+    replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
     reservationFence: { domain: oldFingerprint.domain, scopeKey: oldFingerprint.scopeKey, batchId: oldHash, attemptId: oldOwner.attemptId },
   }), (error: unknown) => error instanceof PublicApiError && error.status === 409 && error.code === "conflict");
   assert.equal(sqlite.prepare(
@@ -717,6 +719,7 @@ test("销售导入按表单权威日期边界完整替换，不依赖新文件�
     rows: [salesLine("ORDER-START", "2026-07-01", 100), salesLine("ORDER-END", "2026-07-31", 200)],
     warnings: [],
     totals: {},
+    contentHash: "1".repeat(64),
     replaceStartDate: "2026-07-01",
     replaceEndDate: "2026-07-31",
   });
@@ -728,6 +731,7 @@ test("销售导入按表单权威日期边界完整替换，不依赖新文件�
     rows: [salesLine("ORDER-START", "2026-07-01", 300)],
     warnings: [],
     totals: {},
+    contentHash: "2".repeat(64),
     replaceStartDate: "2026-07-01",
     replaceEndDate: "2026-07-31",
   });
@@ -758,6 +762,7 @@ test("销售导入按精确渠道范围替换时保留同期其他渠道事实",
     ],
     warnings: [],
     totals: {},
+    contentHash: "3".repeat(64),
     replaceStartDate: "2026-07-01",
     replaceEndDate: "2026-07-31",
   });
@@ -769,6 +774,7 @@ test("销售导入按精确渠道范围替换时保留同期其他渠道事实",
     rows: [salesLine("ALI-NEW", "2026-07-01", 300, "阿里巴巴-亿用店")],
     warnings: [],
     totals: {},
+    contentHash: "4".repeat(64),
     replaceStartDate: "2026-07-01",
     replaceEndDate: "2026-07-31",
     replaceChannels: alibabaChannels,
@@ -787,6 +793,7 @@ test("销售导入按精确渠道范围替换时保留同期其他渠道事实",
     rows: [salesLine("JD-OUTSIDE", "2026-07-01", 400, "京东-志高商用厨电旗舰店")],
     warnings: [],
     totals: {},
+    contentHash: "5".repeat(64),
     replaceStartDate: "2026-07-01",
     replaceEndDate: "2026-07-31",
     replaceChannels: alibabaChannels,
@@ -1100,6 +1107,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     rows: [row("P1", "货品1", 1), row("P2", "货品2", 2)],
     warnings: [],
     totals: {},
+    contentHash: "d".repeat(64),
   });
   assert.equal(first.created, true);
   assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 2);
@@ -1112,6 +1120,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     rows: [row("P1", "货品1更新", 1)],
     warnings: [],
     totals: {},
+    contentHash: "e".repeat(64),
   });
   assert.equal(changed.created, true);
   assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
@@ -1127,6 +1136,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     rows: [row("P1", "货品1更新", 99)],
     warnings: [],
     totals: {},
+    contentHash: "e".repeat(64),
   });
   assert.equal(duplicateAttempt.created, false);
   assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
