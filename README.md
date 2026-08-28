@@ -92,7 +92,7 @@ npm run dingtalk:robot:send -- --text "hello"
 
 销售分析读侧已完成首批本机部署，范围严格限定为 `/api/sales/summary`、`/api/sales/category-analysis` 和 `/api/sales/category-analysis/detail`：公开入口仍由 Worker 鉴权并签发真实 principal，Django 提供可重建只读投影，路由支持 `legacy`、`shadow`、`django` 三种模式和动态修订水位栅栏。D1 仍是销售导入与事实的唯一写入源；销售导入、财务目标/分析及其他业务域仍由原 Worker 负责。
 
-2026-08-28 已在 `D:\teruisi-runtime\django-sales` 部署仅监听回环的 PostgreSQL 17.11、Django 5.2.17 与 Waitress 3.0.2，并使用最小权限投影 writer、只读在线 reader、D1 事务 outbox 和持续消费者同步。真实投影包含 572,015 条销售事实、88 个销售批次和 8,443 条 ERP 主数据，revision 为当次动态水位 `8:5`；27 天与 366 天五项影子契约均为 `match`，366 天并发 8×2 的整体 p95（含冷启动）约 7.96 秒。当前用户读取模式仍为 `legacy`，尚未切到 Django，最终切换必须由用户明确确认。当前用户登录快捷方式只负责登录时启动，不具备崩溃自动拉起能力。迁移、运行、验证、备份审计和回滚步骤见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
+2026-08-28 已在 `D:\teruisi-runtime\django-sales` 部署仅监听回环的 PostgreSQL 17.11、Django 5.2.17 与 Waitress 3.0.2，并使用最小权限投影 writer、只读在线 reader、D1 事务 outbox 和持续消费者同步。真实投影包含 572,015 条销售事实、88 个销售批次和 8,443 条 ERP 主数据，D1 与 PostgreSQL 行数一致，revision 为当次动态水位 `8:5`；27 天与 366 天五项影子契约均为 `match`，366 天并发 8×2 的整体 p95（含冷启动）约 7.96 秒。2026-08-28 18:58（Asia/Shanghai）经用户明确确认，当前用户读取模式已正式切换为 `django`；三个公开端点均返回 HTTP 200、`x-teruisi-sales-backend: django`，且两条 revision 响应头均为 `8:5`。切换复核中 366 天 dashboard 冷请求为 5003 毫秒、缓存命中为 430 毫秒；投影 checkpoint sequence 为 0、revision 为 `8:5`，最近心跳约 10 秒。D1 仍是唯一写入源，`legacy` 仅保留为显式秒级回滚模式，Django 异常时不会静默回退。当前用户登录快捷方式只负责登录时启动，不具备崩溃自动拉起能力。迁移、运行、验证、备份审计和回滚步骤见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
 
 ## 项目文档与长期信息
 

@@ -1,6 +1,6 @@
 # Django 销售分析渐进迁移操作手册
 
-> 状态（2026-08-28）：销售分析第一批读侧已经在本机完成 PostgreSQL 17、Django 5.2 和 Waitress 部署、真实数据迁移、持续投影同步、影子契约与并发性能验收。D1 仍是销售事实与 ERP 参照的唯一写入源，Django/PostgreSQL 只是可重建的只读投影。当前用户读取模式仍为 `legacy`，尚未切换为 `django`；最终切换必须由用户明确确认。
+> 状态（2026-08-28 18:58，Asia/Shanghai）：销售分析第一批读侧已经在本机完成 PostgreSQL 17、Django 5.2 和 Waitress 部署、真实数据迁移、持续投影同步、影子契约、并发性能与正式切换验收。当前用户读取模式已由 `legacy` 切换为 `django`。D1 仍是销售事实与 ERP 参照的唯一写入源，Django/PostgreSQL 只是可重建的只读投影；`legacy` 仅保留为显式回滚模式，Django 异常时不会静默回退。
 
 ## 1. 本批边界
 
@@ -215,7 +215,7 @@ Worker 使用以下变量：
 3. 只有动态修订完全一致、影子结果持续 `match`、性能和错误率达标且正式检查清单签字后，才切为 `django`。
 4. 切换后继续观察 D1 导入与投影刷新；每次 D1 新写入都会推进源修订，在新投影完成前 Django 会因水位不一致失败关闭。
 
-截至 2026-08-28，本机已完成前两步及技术验收，当前停在第 3 步的用户确认门禁，实际读取配置仍为 `legacy`。
+截至 2026-08-28 18:58（Asia/Shanghai），本机已完成前三步并进入第 4 步持续观察，实际读取配置为 `django`。三个公开端点均返回 HTTP 200 和 `x-teruisi-sales-backend: django`，`x-sales-data-revision`、`x-sales-source-revision` 均为动态水位 `8:5`。
 
 当前网关是模式开关，不是百分比流量分配器。若需要小流量试运行，应使用独立预览环境或经批准的边缘流量策略，不能在代码中临时随机分流。
 
@@ -263,24 +263,24 @@ Remove-Item Env:TERUISI_DJANGO_INTERNAL_SECRET
 - `django` 在超时、重定向、非 JSON、超大响应、缺失/不一致修订时返回 503 且不回退。
 - 迁移 dry-run 无业务写入；apply 必须显式绑定且单次消费审批；verify-only 能发现行数、摘要和修订漂移。
 
-2026-08-28 的本机 PostgreSQL 验收结果：27 天与 366 天范围的五项影子契约（full summary、dashboard、category、受限 scope category、category detail）全部为 `match`。366 天、并发 8、2 轮的验收中，full 首次冷请求约 7.9 秒、warm 约 29–86 毫秒；dashboard 冷请求约 4.1 秒、warm 约 13–39 毫秒；category 冷请求约 3.0 秒、warm 约 86–188 毫秒；包含冷启动的整体 p95 约 7.96 秒。该结果证明当前本机部署通过本轮门禁，但不是其他机器、远程网络或未来数据规模的永久 SLA。
+2026-08-28 的本机 PostgreSQL 验收结果：27 天与 366 天范围的五项影子契约（full summary、dashboard、category、受限 scope category、category detail）全部为 `match`。366 天、并发 8、2 轮的验收中，full 首次冷请求约 7.9 秒、warm 约 29–86 毫秒；dashboard 冷请求约 4.1 秒、warm 约 13–39 毫秒；category 冷请求约 3.0 秒、warm 约 86–188 毫秒；包含冷启动的整体 p95 约 7.96 秒。正式切换后的 366 天 dashboard 在线复核中，冷请求为 5003 毫秒，缓存命中为 430 毫秒。该结果证明当前本机部署通过本轮门禁，但不是其他机器、远程网络或未来数据规模的永久 SLA。
 
 ## 8. 正式切换检查清单
 
-本机技术门禁已完成，但用户流量当前仍保持 `legacy`。以下清单区分已验证事实与最终切换事项：
+本机技术门禁、用户确认与在线切换复核均已完成，当前用户读取模式为 `django`。以下清单记录已验证事实与仍待完善的运行治理事项：
 
 - [x] 本机 PostgreSQL 17、Waitress、只回环监听、备份审计、查询索引和运行目录 ACL 已验证。
 - [x] 投影 writer 与 Django 在线只读 reader 已分离，最小权限和 reader 只读事务已实测。
 - [x] 精确源 D1 的 dry-run、apply、verify-only 已成功并留存脱敏审计。
 - [x] apply 使用同一源的单次 dry-run 审批与 `sales-projection-v2` 门禁。
-- [x] 源/目标为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 主数据，完整摘要一致。
-- [x] 动态源、目标、checkpoint 和响应头 revision 均为本次真实 `8:5`，未把它固化为常量。
+- [x] 切换复核时 D1/PG 均为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 主数据，行数与完整摘要一致。
+- [x] 动态源、目标、checkpoint 和两条响应头 revision 均为本次真实 `8:5`，checkpoint sequence 为 0、最近心跳约 10 秒，且未把该水位固化为常量。
 - [x] 27 天与 366 天五项影子契约全部 `match`，关键业务口径、scope 与 HMAC 负向测试通过。
-- [x] 366 天并发 8×2 的 cold/warm、响应体上限和 revision/JSON 一致性验收通过。
+- [x] 366 天并发 8×2 的 cold/warm、响应体上限和 revision/JSON 一致性验收通过；正式切换复核的 dashboard 冷请求为 5003 毫秒、缓存命中为 430 毫秒。
 - [x] D1 仍是唯一写入路径；事务 outbox、持续消费者和 checkpoint 心跳正常，财务域仍在 Worker。
 - [ ] 监控、告警、切换负责人、回滚负责人和变更时间窗已确认。
-- [ ] 用户已明确确认把 `TERUISI_SALES_BACKEND` 从 `legacy` 切换为 `django`。
-- [ ] 切换后已用三个端点的 `x-teruisi-sales-backend: django`、revision 和关键页面完成在线复核。
+- [x] 用户已于 2026-08-28 18:58（Asia/Shanghai）明确确认并完成 `TERUISI_SALES_BACKEND` 从 `legacy` 到 `django` 的正式切换。
+- [x] 切换后已在线复核三个公开端点均为 HTTP 200、`x-teruisi-sales-backend: django`，且两条 revision 响应头均为 `8:5`。
 
 ## 9. 秒级回滚
 
@@ -293,7 +293,7 @@ Remove-Item Env:TERUISI_DJANGO_INTERNAL_SECRET
 
 该机制本身只有一个配置开关、无反向数据动作，平台配置发布生效后可以在秒级完成路由回退；实际生效时间仍以部署平台回执和上述请求验证为准，不能只凭控制台显示“成功”宣告回滚完成。
 
-若只需要停用本机 Django 栈而保留数据与证据，使用受控 runtime 脚本；这不会改变 D1 或当前 `legacy` 用户读取：
+若需要停用本机 Django 栈，必须先按上文把 `TERUISI_SALES_BACKEND` 显式回滚为 `legacy`，并验证三个公开端点已经返回 `x-teruisi-sales-backend: legacy`；确认用户读取恢复到 Worker/D1 后，再使用受控 runtime 脚本停服并保留数据与证据：
 
 ```powershell
 $runtime = "D:\teruisi-runtime\django-sales"
@@ -306,8 +306,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action Sta
 
 ## 10. 当前本机部署与读取状态
 
-截至 2026-08-28，本机 `D:\teruisi-runtime\django-sales` 已运行 PostgreSQL 17.11、Django 5.2.17、Waitress 3.0.2 和持续投影消费者；5432 与 8001 均严格监听 `127.0.0.1`。真实 PostgreSQL 投影为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 主数据，revision `8:5`。D1 outbox/head 与 PostgreSQL checkpoint sequence 当前均为 0，持续消费者仍按 15 秒刷新心跳，`/health/ready` 返回 database/projection ready。
+截至 2026-08-28 18:58（Asia/Shanghai），本机 `D:\teruisi-runtime\django-sales` 已运行 PostgreSQL 17.11、Django 5.2.17、Waitress 3.0.2 和持续投影消费者；5432 与 8001 均严格监听 `127.0.0.1`。切换复核时 D1 与 PostgreSQL 均为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 主数据，revision 为 `8:5`；D1 outbox/head 与 PostgreSQL checkpoint sequence 均为 0，checkpoint revision 为 `8:5`，最近心跳约 10 秒，`/health/ready` 返回 database/projection ready。
 
-该部署的“生产”含义仅指当前受控 Windows 主机上的常驻本机服务，不代表已部署远程服务器、云数据库或高可用集群。当前用户请求仍由 `TERUISI_SALES_BACKEND=legacy` 读取 Worker/D1；本机 Django 仅完成迁移、同步、shadow 和性能验收，尚未成为用户流量后端。D1、销售导入、财务域和其他 Worker 自动化没有停用或改道。最终 `legacy -> django` 切换必须等待用户明确确认。
+该部署的“生产”含义仅指当前受控 Windows 主机上的常驻本机服务，不代表已部署远程服务器、云数据库或高可用集群。当前用户请求已由 `TERUISI_SALES_BACKEND=django` 路由至 Django 只读投影，公开 Worker 继续负责鉴权、principal 签名、参数契约和动态 revision 栅栏。D1、销售导入、财务域和其他 Worker 自动化没有停用或改道，D1 仍是唯一写入源；`legacy` 保留为显式秒级回滚模式，Django 异常时继续失败关闭，不能静默回退。
 
 当前用户登录快捷方式可在下次登录时启动整套服务，但不具备进程崩溃后的自动拉起能力。日常应以 `Status`、`/health/ready`、checkpoint 心跳和脱敏日志共同判断运行状态，不能仅凭快捷方式存在或端口监听宣告服务健康。

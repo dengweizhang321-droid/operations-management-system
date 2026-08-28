@@ -76,8 +76,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action Ins
 
 `InstallStartup` creates a shortcut for the current Windows user's next login;
 it is not a crash supervisor and does not restart a process that dies after
-login. Stop the stack without deleting data by running the runtime script with
-`-Action Stop`. The public read mode is still `legacy`; changing it to `django`
-is a separate, reversible edge configuration change that requires explicit user
-confirmation. See the [migration guide](../docs/DJANGO_SALES_MIGRATION.md) for evidence, performance,
-backup/audit paths, and rollback.
+login. At 2026-08-28 18:58 Asia/Shanghai, following explicit user confirmation,
+the public read mode was switched to `django`. All three public endpoints
+returned HTTP 200 with `x-teruisi-sales-backend: django`; both revision headers
+were `8:5`. D1 remains the sole writer, and `legacy` remains an explicit rollback
+mode rather than a silent fallback. Before stopping the local stack while
+`django` is active, first switch the edge configuration to `legacy` and verify
+the three public endpoints; then run the runtime script with `-Action Stop`.
+See the [migration guide](../docs/DJANGO_SALES_MIGRATION.md) for evidence,
+performance, backup/audit paths, and rollback.
