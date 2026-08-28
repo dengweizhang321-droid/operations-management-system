@@ -54,7 +54,7 @@ try {
   }
   if (-not $reuseRejected) { throw "tampered PID creation identity was accepted" }
   [IO.File]::WriteAllText($PidFile, $originalRecord, $Utf8NoBom)
-  $DescendantSnapshots = @(Get-VerifiedProcessDescendants ([int]$OwnedSnapshot.ProcessId))
+  $DescendantSnapshots = @(Get-VerifiedProcessDescendants $OwnedSnapshot)
   Stop-OwnedProcess "identity-test" $PidFile $TestPython
   foreach ($snapshot in $DescendantSnapshots) {
     $current = Get-ProcessSnapshot ([int]$snapshot.ProcessId) 1

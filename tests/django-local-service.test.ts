@@ -36,6 +36,9 @@ test("managed PID ownership survives venv launchers without weakening identity c
   assert.match(script, /Test-CommandLineReferencesPath \$snapshot\.CommandLine \$ExpectedLauncher/);
   assert.match(script, /Stop-VerifiedProcessTree \$process/);
   assert.match(script, /Test-ProcessSnapshotIdentity \$currentRoot \$RootSnapshot/);
+  assert.match(script, /Queue\[object\]/);
+  assert.match(script, /Test-ProcessSnapshotIdentity \$currentParent \$parentSnapshot/);
+  assert.match(script, /Get-ProcessCreation \$child/);
   assert.match(script, /root_pid_reused/);
   assert.doesNotMatch(script, /\$snapshot\.ExecutablePath -ieq \(Get-CanonicalPath \$ExpectedLauncher\)/);
 });

@@ -439,23 +439,40 @@ function Test-ProcessSnapshotIdentity([object]$Left, [object]$Right) {
   )
 }
 
-function Get-VerifiedProcessDescendants([int]$RootProcessId) {
-  $pending = [Collections.Generic.Queue[int]]::new()
-  $pending.Enqueue($RootProcessId)
+function Get-VerifiedProcessDescendants([object]$RootSnapshot) {
+  $rootProcessId = [int]$RootSnapshot.ProcessId
+  $pending = [Collections.Generic.Queue[object]]::new()
+  $pending.Enqueue($RootSnapshot)
   $seen = @{}
   $seen[$RootProcessId] = $true
   $descendants = [Collections.Generic.List[object]]::new()
   while ($pending.Count -gt 0) {
-    $parentId = $pending.Dequeue()
+    $parentSnapshot = $pending.Dequeue()
+    $parentId = [int]$parentSnapshot.ProcessId
+    $currentParent = Get-ProcessSnapshot $parentId 1
+    if ($null -eq $currentParent -or -not (Test-ProcessSnapshotIdentity $currentParent $parentSnapshot)) {
+      throw "服务进程谱系在枚举前发生变化，已拒绝停止：$parentId"
+    }
     $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $parentId" -ErrorAction Stop)
+    $currentParent = Get-ProcessSnapshot $parentId 1
+    if ($null -eq $currentParent -or -not (Test-ProcessSnapshotIdentity $currentParent $parentSnapshot)) {
+      throw "服务进程谱系在枚举后发生变化，已拒绝停止：$parentId"
+    }
     foreach ($child in $children) {
       $childId = [int]$child.ProcessId
       if ($seen.ContainsKey($childId)) { continue }
       $seen[$childId] = $true
       $snapshot = Get-ProcessSnapshot $childId 1
       if ($null -eq $snapshot -or [int]$snapshot.Process.ParentProcessId -ne $parentId) { continue }
+      if (
+        $snapshot.CreationDate -cne (Get-ProcessCreation $child) -or
+        $snapshot.ExecutablePath -ine (Get-CanonicalPath ([string]$child.ExecutablePath)) -or
+        $snapshot.CommandLine -cne [string]$child.CommandLine
+      ) {
+        throw "服务子进程身份在枚举期间发生变化，已拒绝停止：$childId"
+      }
       [void]$descendants.Add($snapshot)
-      $pending.Enqueue($childId)
+      $pending.Enqueue($snapshot)
     }
   }
   return @($descendants.ToArray())
@@ -468,7 +485,7 @@ function Stop-VerifiedProcessTree([object]$RootSnapshot) {
     Write-LauncherEvent "WARN" "root_pid_reused" "pid=$($RootSnapshot.ProcessId)"
     throw "服务根 PID 已复用，已拒绝停止：$($RootSnapshot.ProcessId)"
   }
-  $descendants = @(Get-VerifiedProcessDescendants ([int]$RootSnapshot.ProcessId))
+  $descendants = @(Get-VerifiedProcessDescendants $RootSnapshot)
   $currentRoot = Get-ProcessSnapshot ([int]$RootSnapshot.ProcessId) 1
   if ($currentRoot -and -not (Test-ProcessSnapshotIdentity $currentRoot $RootSnapshot)) {
     Write-LauncherEvent "WARN" "root_pid_reused" "pid=$($RootSnapshot.ProcessId)"
