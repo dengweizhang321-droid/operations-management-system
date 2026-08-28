@@ -392,6 +392,27 @@ function Get-ProcessCreation([object]$Process) {
   return ([datetime]$Process.CreationDate).ToUniversalTime().ToString("o")
 }
 
+function ConvertTo-CanonicalCreationDate([object]$Value) {
+  if ($null -eq $Value) { throw "进程所有权记录 creationDate 缺失" }
+  if ($Value -is [datetime]) {
+    return ([datetime]$Value).ToUniversalTime().ToString("o")
+  }
+  if ($Value -is [DateTimeOffset]) {
+    return ([DateTimeOffset]$Value).UtcDateTime.ToString("o")
+  }
+  $parsed = [DateTimeOffset]::MinValue
+  if (-not [DateTimeOffset]::TryParseExact(
+    [string]$Value,
+    "o",
+    [Globalization.CultureInfo]::InvariantCulture,
+    [Globalization.DateTimeStyles]::RoundtripKind,
+    [ref]$parsed
+  )) {
+    throw "进程所有权记录 creationDate 不是规范 ISO 时间"
+  }
+  return $parsed.UtcDateTime.ToString("o")
+}
+
 function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
   for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
@@ -407,6 +428,77 @@ function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
     Start-Sleep -Milliseconds 100
   }
   return $null
+}
+
+function Test-ProcessSnapshotIdentity([object]$Left, [object]$Right) {
+  return (
+    [int]$Left.ProcessId -eq [int]$Right.ProcessId -and
+    [string]$Left.CreationDate -ceq [string]$Right.CreationDate -and
+    [string]$Left.ExecutablePath -ieq [string]$Right.ExecutablePath -and
+    [string]$Left.CommandLine -ceq [string]$Right.CommandLine
+  )
+}
+
+function Get-VerifiedProcessDescendants([int]$RootProcessId) {
+  $pending = [Collections.Generic.Queue[int]]::new()
+  $pending.Enqueue($RootProcessId)
+  $seen = @{}
+  $seen[$RootProcessId] = $true
+  $descendants = [Collections.Generic.List[object]]::new()
+  while ($pending.Count -gt 0) {
+    $parentId = $pending.Dequeue()
+    $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $parentId" -ErrorAction Stop)
+    foreach ($child in $children) {
+      $childId = [int]$child.ProcessId
+      if ($seen.ContainsKey($childId)) { continue }
+      $seen[$childId] = $true
+      $snapshot = Get-ProcessSnapshot $childId 1
+      if ($null -eq $snapshot -or [int]$snapshot.Process.ParentProcessId -ne $parentId) { continue }
+      [void]$descendants.Add($snapshot)
+      $pending.Enqueue($childId)
+    }
+  }
+  return @($descendants.ToArray())
+}
+
+function Stop-VerifiedProcessTree([object]$RootSnapshot) {
+  $currentRoot = Get-ProcessSnapshot ([int]$RootSnapshot.ProcessId) 1
+  if ($null -eq $currentRoot) { return 0 }
+  if (-not (Test-ProcessSnapshotIdentity $currentRoot $RootSnapshot)) {
+    Write-LauncherEvent "WARN" "root_pid_reused" "pid=$($RootSnapshot.ProcessId)"
+    throw "服务根 PID 已复用，已拒绝停止：$($RootSnapshot.ProcessId)"
+  }
+  $descendants = @(Get-VerifiedProcessDescendants ([int]$RootSnapshot.ProcessId))
+  $currentRoot = Get-ProcessSnapshot ([int]$RootSnapshot.ProcessId) 1
+  if ($currentRoot -and -not (Test-ProcessSnapshotIdentity $currentRoot $RootSnapshot)) {
+    Write-LauncherEvent "WARN" "root_pid_reused" "pid=$($RootSnapshot.ProcessId)"
+    throw "服务根 PID 在停止前已复用，已拒绝停止：$($RootSnapshot.ProcessId)"
+  }
+  if ($currentRoot) {
+    Stop-Process -Id $RootSnapshot.ProcessId -Force -ErrorAction Stop
+    Wait-Process -Id $RootSnapshot.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
+  }
+  $remainingRoot = Get-ProcessSnapshot ([int]$RootSnapshot.ProcessId) 1
+  if ($remainingRoot -and (Test-ProcessSnapshotIdentity $remainingRoot $RootSnapshot)) {
+    throw "已验证的服务根进程未能停止：$($RootSnapshot.ProcessId)"
+  }
+
+  [array]::Reverse($descendants)
+  foreach ($snapshot in $descendants) {
+    $current = Get-ProcessSnapshot ([int]$snapshot.ProcessId) 1
+    if ($null -eq $current) { continue }
+    if (-not (Test-ProcessSnapshotIdentity $current $snapshot)) {
+      Write-LauncherEvent "WARN" "descendant_pid_reused" "pid=$($snapshot.ProcessId)"
+      continue
+    }
+    Stop-Process -Id $snapshot.ProcessId -Force -ErrorAction Stop
+    Wait-Process -Id $snapshot.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
+    $remaining = Get-ProcessSnapshot ([int]$snapshot.ProcessId) 1
+    if ($remaining -and (Test-ProcessSnapshotIdentity $remaining $snapshot)) {
+      throw "已验证的服务子进程未能停止：$($snapshot.ProcessId)"
+    }
+  }
+  return $descendants.Count
 }
 
 function Test-ExactStringArray([object[]]$Left, [object[]]$Right) {
@@ -465,6 +557,7 @@ function Resolve-OwnedProcess(
   ) {
     throw "进程所有权记录格式无效：$PidPath"
   }
+  $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
   $snapshot = Get-ProcessSnapshot $processId 1
   if ($null -eq $snapshot) {
     Remove-Item -LiteralPath $PidPath -Force
@@ -473,7 +566,7 @@ function Resolve-OwnedProcess(
   }
   $recordArguments = @($record.arguments | ForEach-Object { [string]$_ })
   $matches = (
-    $snapshot.CreationDate -ceq [string]$record.creationDate -and
+    $snapshot.CreationDate -ceq $recordCreationDate -and
     $snapshot.ExecutablePath -ieq (Get-CanonicalPath ([string]$record.executablePath)) -and
     (Get-CanonicalPath ([string]$record.launcherPath)) -ieq (Get-CanonicalPath $ExpectedLauncher) -and
     $snapshot.CommandLine -ceq [string]$record.commandLine -and
@@ -484,7 +577,7 @@ function Resolve-OwnedProcess(
   if (-not $matches) {
     throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
   }
-  return $snapshot.Process
+  return $snapshot
 }
 
 function ConvertTo-ProcessArgument([string]$Value) {
@@ -538,9 +631,8 @@ function Start-ManagedProcess(
 function Stop-OwnedProcess([string]$Service, [string]$PidPath, [string]$ExpectedExecutable) {
   $process = Resolve-OwnedProcess $Service $PidPath $ExpectedExecutable
   if ($process) {
-    Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
-    Wait-Process -Id $process.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
-    Write-LauncherEvent "INFO" "process_stopped" "$Service pid=$($process.ProcessId)"
+    $descendantCount = Stop-VerifiedProcessTree $process
+    Write-LauncherEvent "INFO" "process_stopped" "$Service pid=$($process.ProcessId) descendants=$descendantCount"
   }
   if (Test-Path -LiteralPath $PidPath) { Remove-Item -LiteralPath $PidPath -Force }
 }

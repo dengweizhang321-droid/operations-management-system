@@ -18,8 +18,10 @@ $RunRoot = Join-Path $TestRoot "run"
 $PidFile = Join-Path $RunRoot "identity.json"
 $Stdout = Join-Path $LogRoot "stdout.log"
 $Stderr = Join-Path $LogRoot "stderr.log"
-$Arguments = @("-c", "import time;time.sleep(8)")
+$Arguments = @("-c", "import time;time.sleep(20)")
 $Fingerprint = "e" * 64
+$OwnedSnapshot = $null
+$DescendantSnapshots = @()
 $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
 
 try {
@@ -28,9 +30,13 @@ try {
   # No-listener is a normal result, while CIM failures must still fail closed.
   [void]@(Get-PortListeners 65534)
   Start-ManagedProcess "identity-test" $TestPython $Arguments $TestRoot $PidFile $Fingerprint $Stdout $Stderr | Out-Null
-  $owned = Resolve-OwnedProcess "identity-test" $PidFile $TestPython $Arguments $Fingerprint
-  if (-not $owned) { throw "managed process round-trip returned no process" }
+  $OwnedSnapshot = Resolve-OwnedProcess "identity-test" $PidFile $TestPython $Arguments $Fingerprint
+  if (-not $OwnedSnapshot) { throw "managed process round-trip returned no process" }
   $record = Get-Content -Raw -LiteralPath $PidFile -Encoding UTF8 | ConvertFrom-Json
+  $recordFromServiceReader = Read-JsonFile $PidFile "test record"
+  if ((ConvertTo-CanonicalCreationDate $record.creationDate) -cne (ConvertTo-CanonicalCreationDate $recordFromServiceReader.creationDate)) {
+    throw "creationDate canonicalization is not stable across JSON runtimes"
+  }
   if ((Get-CanonicalPath ([string]$record.launcherPath)) -ine (Get-CanonicalPath $TestPython)) {
     throw "PID record lost the protected launcher path"
   }
@@ -48,10 +54,29 @@ try {
   }
   if (-not $reuseRejected) { throw "tampered PID creation identity was accepted" }
   [IO.File]::WriteAllText($PidFile, $originalRecord, $Utf8NoBom)
+  $DescendantSnapshots = @(Get-VerifiedProcessDescendants ([int]$OwnedSnapshot.ProcessId))
   Stop-OwnedProcess "identity-test" $PidFile $TestPython
-  Write-Output ("PASS: launcher={0}; actual={1}" -f $record.launcherPath, $record.executablePath)
+  foreach ($snapshot in $DescendantSnapshots) {
+    $current = Get-ProcessSnapshot ([int]$snapshot.ProcessId) 1
+    if ($current -and (Test-ProcessSnapshotIdentity $current $snapshot)) {
+      throw "verified venv descendant survived Stop-OwnedProcess: $($snapshot.ProcessId)"
+    }
+  }
+  Write-Output ("PASS: launcher={0}; actual={1}; descendants={2}" -f $record.launcherPath, $record.executablePath, $DescendantSnapshots.Count)
 } finally {
   Remove-Item Env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ErrorAction SilentlyContinue
+  if ($OwnedSnapshot) {
+    $currentRoot = Get-ProcessSnapshot ([int]$OwnedSnapshot.ProcessId) 1
+    if ($currentRoot -and (Test-ProcessSnapshotIdentity $currentRoot $OwnedSnapshot)) {
+      Stop-VerifiedProcessTree $currentRoot | Out-Null
+    }
+  }
+  foreach ($snapshot in $DescendantSnapshots) {
+    $current = Get-ProcessSnapshot ([int]$snapshot.ProcessId) 1
+    if ($current -and (Test-ProcessSnapshotIdentity $current $snapshot)) {
+      Stop-Process -Id $snapshot.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+  }
   foreach ($file in @($PidFile, $Stdout, $Stderr, (Join-Path $LogRoot "launcher.jsonl"))) {
     if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
   }

@@ -27,12 +27,16 @@ test("Django local service uses deterministic production secrets and least-privi
 
 test("managed PID ownership survives venv launchers without weakening identity checks", () => {
   assert.match(script, /creationDate = \$snapshot\.CreationDate/);
+  assert.match(script, /ConvertTo-CanonicalCreationDate \$record\.creationDate/);
   assert.match(script, /launcherPath = Get-CanonicalPath \$Executable/);
   assert.match(script, /executablePath = \$snapshot\.ExecutablePath/);
   assert.match(script, /\$snapshot\.CommandLine -ceq \[string\]\$record\.commandLine/);
   assert.match(script, /\[string\]\$record\.service -cne \$Service/);
   assert.match(script, /Test-ExactStringArray \$recordArguments \$ExpectedArguments/);
   assert.match(script, /Test-CommandLineReferencesPath \$snapshot\.CommandLine \$ExpectedLauncher/);
+  assert.match(script, /Stop-VerifiedProcessTree \$process/);
+  assert.match(script, /Test-ProcessSnapshotIdentity \$currentRoot \$RootSnapshot/);
+  assert.match(script, /root_pid_reused/);
   assert.doesNotMatch(script, /\$snapshot\.ExecutablePath -ieq \(Get-CanonicalPath \$ExpectedLauncher\)/);
 });
 
@@ -72,16 +76,25 @@ test("runtime deployment and ACL hardening precede an exact startup shortcut", (
   assert.match(script, /RemoveStartup/);
 });
 
-test(
-  "Windows managed-process round trip accepts protected venv launchers",
-  { skip: process.platform !== "win32" || !existsSync("D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe") },
-  () => {
-    const result = spawnSync(
-      "powershell.exe",
-      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests\\django-local-service-process-identity.test.ps1"],
-      { encoding: "utf8", timeout: 30_000 },
-    );
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    assert.match(result.stdout, /PASS: launcher=/);
-  },
-);
+for (const shell of ["powershell.exe", "pwsh.exe"]) {
+  const shellProbe = spawnSync(shell, ["-NoProfile", "-Command", "exit 0"], { timeout: 10_000 });
+  test(
+    `Windows managed-process round trip accepts protected venv launchers in ${shell}`,
+    {
+      skip: process.platform !== "win32"
+        || !existsSync("D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe")
+        || shellProbe.error !== undefined
+        || shellProbe.status !== 0,
+    },
+    () => {
+      const result = spawnSync(
+        shell,
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests\\django-local-service-process-identity.test.ps1"],
+        { encoding: "utf8", timeout: 30_000 },
+      );
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stdout, /PASS: launcher=/);
+      assert.match(result.stdout, /descendants=\d+/);
+    },
+  );
+}
