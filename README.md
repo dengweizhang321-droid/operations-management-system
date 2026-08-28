@@ -90,7 +90,7 @@ npm run dingtalk:robot:send -- --text "hello"
 
 2026-08-27 已确认 Django 为后端长期目标框架。迁移采用按业务域逐步替换的方式：现有 React/Next.js 前端继续保留，所有新增后端业务能力默认使用 Django；尚未完成迁移、契约验证和单写切换的业务域仍由当前 TypeScript/Cloudflare Worker 后端负责，不能把“已确定迁移方向”表述为“当前已经运行在 Django 上”。迁移期间不长期双写，每个业务范围只保留一个权威写入后端，并在权限、审计、业务口径、幂等、并发、性能、数据回查和回滚全部通过后逐域切换。
 
-当前仅记录长期技术决策，尚未执行 Django 服务搭建、生产数据库迁移、D1/R2 停用或生产路由切换。Django 的数据库、任务队列和部署方案将在迁移实施前单独确认。
+销售分析读侧已完成首批本地迁移实现，范围严格限定为 `/api/sales/summary`、`/api/sales/category-analysis` 和 `/api/sales/category-analysis/detail`：公开入口仍由 Worker 鉴权并签发真实 principal，Django 提供可重建只读投影，路由支持 `legacy`、`shadow`、`django` 三种模式和动态修订水位栅栏。D1 仍是销售导入与事实的唯一写入源；销售导入、财务目标/分析及其他业务域仍由原 Worker 负责。当前完成的是本地 SQLite 投影迁移与系统验证，不代表生产 PostgreSQL、Django 运行环境或生产路由已经部署，也未停用 D1/R2。迁移、灰度、验证和秒级回滚步骤见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
 
 ## 项目文档与长期信息
 

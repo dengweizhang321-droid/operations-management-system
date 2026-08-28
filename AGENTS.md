@@ -33,6 +33,9 @@
 - 每个既有业务域在完成数据结构与数据迁移、API 契约对比、真实 principal 权限与 scope、审计、业务口径、并发/幂等、性能、回滚演练和单写所有者切换前，仍由当前 TypeScript/Worker 实现作为该域的权威后端。不得因已确定 Django 方向就声称尚未迁移的模块已经运行在 Django 上。
 - 迁移期间禁止新旧后端长期双写。同一精确业务范围任一时刻只能有一个写入所有者；优先通过只读影子对比、按域灰度路由和可立即回退的切换完成迁移。现有金额、时区、日期边界、店铺身份、权限、审计、导入幂等、租约 fencing、跨店隔离和落库回查契约必须原样保留。
 - Django 的生产数据库、任务队列、部署环境、服务边界和 D1/R2 迁移方案尚未完成专项确认；在对应方案、验证和回滚计划获批前，不得擅自迁移生产数据、停用 Worker/D1/R2 或改变现有自动化的生产写入路径。
+- 销售分析第一批 Django 读侧边界固定为 `/api/sales/summary`、`/api/sales/category-analysis` 和 `/api/sales/category-analysis/detail`。公开 Worker 继续负责真实 `requireAppPrincipal()`、参数契约、HMAC principal 信封、灰度与动态 D1 修订水位栅栏；Django 只读取可重建投影。D1 继续是销售导入和事实的唯一写入所有者，销售导入、分片、校验、财务目标/分析均不得因本批迁移改道 Django。
+- 销售读侧切换顺序固定为 `legacy` → `shadow` → `django`；`shadow` 始终向用户返回 legacy 响应，`django` 模式在超时、签名、响应上限、JSON 或修订不一致时失败关闭，不得静默回退。每次 D1 写入推进修订后，必须先重建并完整回查 Django 投影，再恢复 Django 读流量。当前本地 SQLite 迁移成功不能表述为生产 PostgreSQL 已迁移或生产路由已切换。
+- 销售投影 apply 必须显式使用 `--apply --approved-run-id <成功 dry-run ID>`，并在同一目标事务内核验和单次消费相同解析路径、稳定文件身份、`sales-projection-v2` 格式版本、动态修订、完整行数与摘要；同一 D1 中无关表写入造成的 mtime 变化不能替代业务摘要，销售/ERP 材料变化仍必须零业务写入拒绝。省略模式、未审批、审批复用或材料变化都必须失败关闭。生产持续同步和真实 PostgreSQL 性能/并发门禁完成前，生产路由保持 `legacy`，最多使用受控 `shadow`。
 
 ## 3. 统一业务口径
 

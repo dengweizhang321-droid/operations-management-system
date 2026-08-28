@@ -161,6 +161,18 @@ const DETAIL_TREND_PERIOD_LIMIT = 24;
 const DETAIL_TREND_ROW_LIMIT = MAX_PAGE_SIZE * DETAIL_TREND_PERIOD_LIMIT;
 const MAX_FILTER_VALUES = 50;
 const MAX_RANGE_DAYS = 366;
+const utf8Encoder = new TextEncoder();
+
+function compareUtf8Binary(left: string, right: string): number {
+  const leftBytes = utf8Encoder.encode(left);
+  const rightBytes = utf8Encoder.encode(right);
+  const length = Math.min(leftBytes.length, rightBytes.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = leftBytes[index] - rightBytes[index];
+    if (difference !== 0) return difference;
+  }
+  return leftBytes.length - rightBytes.length;
+}
 
 function isIsoDate(value: string): boolean {
   if (!/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/.test(value)) return false;
@@ -303,6 +315,34 @@ function scopeSql(principal: AppPrincipal): { clauses: string[]; bindings: strin
   }
   if (outletScope.length > 0) clauses.push(`(${outletScope.join(" OR ")})`);
   return { clauses, bindings, mode: "restricted" };
+}
+
+async function resolveScopedProductFilterCodes(
+  db: SalesDatabase,
+  productQueries: string[],
+  principal: AppPrincipal,
+): Promise<string[]> {
+  if (productQueries.length === 0) return [];
+  if (principal.scope === null) return resolveProductFilterCodes(db, productQueries);
+  const scope = scopeSql(principal);
+  const result = await db.prepare(`
+    SELECT s.product_name, s.product_code
+    FROM sales_order_lines s
+    WHERE s.product_name IN (SELECT CAST(value AS TEXT) FROM json_each(?))
+      AND NULLIF(TRIM(s.product_code), '') IS NOT NULL
+      AND TRIM(s.warehouse) <> '刷刷仓'
+      ${scope.clauses.map((clause) => `AND ${clause}`).join("\n      ")}
+    GROUP BY s.product_name, s.product_code
+    ORDER BY s.product_name COLLATE BINARY ASC, s.product_code COLLATE BINARY ASC
+    LIMIT 100
+  `).bind(JSON.stringify(productQueries), ...scope.bindings).all<{ product_name: string; product_code: string }>();
+  const codesByName = new Map<string, string[]>();
+  for (const row of result.results ?? []) {
+    const codes = codesByName.get(row.product_name) ?? [];
+    if (!codes.includes(row.product_code)) codes.push(row.product_code);
+    codesByName.set(row.product_name, codes);
+  }
+  return [...new Set(productQueries.flatMap((query) => codesByName.get(query) ?? [query]))].slice(0, 100);
 }
 
 function filteredSalesSql(input: NormalizedInput, principal: AppPrincipal) {
@@ -513,8 +553,8 @@ async function readCategoryRows(db: SalesDatabase, input: NormalizedInput, princ
     ),
     ranked AS (
       SELECT enriched.*,
-        ROW_NUMBER() OVER (ORDER BY net_sales_cents DESC, category_key ASC) AS sales_rank,
-        ROW_NUMBER() OVER (ORDER BY ${sort} ${direction}, category_key ASC) AS detail_position,
+        ROW_NUMBER() OVER (ORDER BY net_sales_cents DESC, category_key COLLATE BINARY ASC) AS sales_rank,
+        ROW_NUMBER() OVER (ORDER BY ${sort} ${direction}, category_key COLLATE BINARY ASC) AS detail_position,
         COUNT(*) OVER () AS total_count,
         SUM(gross_sales_cents) OVER () AS total_gross_sales_cents,
         SUM(refund_amount_cents) OVER () AS total_refund_amount_cents,
@@ -555,7 +595,7 @@ async function readTrend(db: SalesDatabase, input: NormalizedInput, principal: A
     top_categories AS (
       SELECT category_key
       FROM grouped
-      ORDER BY net_sales_cents DESC, category_key ASC
+      ORDER BY net_sales_cents DESC, category_key COLLATE BINARY ASC
       LIMIT ${TREND_CATEGORY_LIMIT}
     )
     SELECT
@@ -569,7 +609,7 @@ async function readTrend(db: SalesDatabase, input: NormalizedInput, principal: A
     FROM scoped
     INNER JOIN top_categories ON top_categories.category_key = scoped.category_key
     GROUP BY period_key, scoped.category_key
-    ORDER BY period_key ASC, net_sales_cents DESC, scoped.category_key ASC
+    ORDER BY period_key ASC, net_sales_cents DESC, scoped.category_key COLLATE BINARY ASC
     LIMIT 3000
   `).bind(...scoped.bindings).all<TrendRow>();
   return result.results ?? [];
@@ -609,7 +649,7 @@ async function readDetailTrend(
     SELECT aggregated.*
     FROM aggregated
     INNER JOIN recent_periods ON recent_periods.period_key = aggregated.period_key
-    ORDER BY aggregated.category_key ASC, aggregated.period_key ASC
+    ORDER BY aggregated.category_key COLLATE BINARY ASC, aggregated.period_key ASC
     LIMIT ${DETAIL_TREND_ROW_LIMIT}
   `).bind(...scoped.bindings, JSON.stringify(categories)).all<TrendRow>();
   return result.results ?? [];
@@ -648,7 +688,7 @@ async function readOptions(db: SalesDatabase, input: NormalizedInput, principal:
     ),
     ranked_options AS (
       SELECT raw_options.*,
-        ROW_NUMBER() OVER (PARTITION BY dimension ORDER BY option_label ASC, option_value ASC) AS option_index,
+        ROW_NUMBER() OVER (PARTITION BY dimension ORDER BY option_label COLLATE BINARY ASC, option_value COLLATE BINARY ASC) AS option_index,
         COUNT(*) OVER (PARTITION BY dimension) AS option_total
       FROM raw_options
     )
@@ -707,7 +747,7 @@ export async function getSalesCategoryOutletBreakdown(
   const category = boundedList([rawInput.category], 1, "品类")[0];
   if (!category) throw new SalesCategoryRequestError("category 不能为空");
   const productQueries = parseProductQueries(rawInput.productQueries ?? []);
-  const productCodes = await resolveProductFilterCodes(db, productQueries);
+  const productCodes = await resolveScopedProductFilterCodes(db, productQueries, principal);
   const input = normalizeInput({
     ...rawInput,
     categories: [category],
@@ -745,7 +785,7 @@ export async function getSalesCategoryOutletBreakdown(
       FROM grouped
     )
     SELECT * FROM bounded
-    ORDER BY net_sales_cents DESC, platform ASC, shop_name ASC
+    ORDER BY net_sales_cents DESC, platform COLLATE BINARY ASC, shop_name COLLATE BINARY ASC
     LIMIT 500
   `).bind(...scoped.bindings).all<OutletBreakdownRow>();
   const rows = result.results ?? [];
@@ -799,7 +839,7 @@ export async function getSalesCategoryOutletBreakdown(
       grossMarginRate: platform.netSalesCents === 0 ? 0 : (platform.netSalesCents - platform.costAmountCents) / platform.netSalesCents,
       shopCount: platform.shops.length,
     }))
-    .sort((left, right) => right.netSalesCents - left.netSalesCents || left.platform.localeCompare(right.platform, "zh-CN"));
+    .sort((left, right) => right.netSalesCents - left.netSalesCents || compareUtf8Binary(left.platform, right.platform));
   return {
     range: { startDate: input.startDate, endDate: input.endDate, endExclusive: input.endExclusive, timezone: "Asia/Shanghai" },
     category,
@@ -819,7 +859,7 @@ export async function getSalesCategoryAnalysis(
   principal: AppPrincipal,
 ) {
   const productQueries = parseProductQueries(rawInput.productQueries ?? []);
-  const productCodes = await resolveProductFilterCodes(db, productQueries);
+  const productCodes = await resolveScopedProductFilterCodes(db, productQueries, principal);
   const input = normalizeInput({ ...rawInput, productQueries }, productCodes);
   const [categoryResult, trendRows, filterOptions] = await Promise.all([
     readCategoryRows(db, input, principal),

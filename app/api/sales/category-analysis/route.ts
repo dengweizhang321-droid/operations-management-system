@@ -13,6 +13,8 @@ import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
 import { parseProductQueriesStrict } from "@/lib/sales/product-query";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
 import { parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
+import { routeSalesReadRequest } from "@/lib/django/sales-gateway";
+import { getSalesOverviewCacheRevision } from "@/lib/sales/overview-response-cache";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -60,30 +62,45 @@ export async function GET(request: Request) {
     const outlets = parsedOutlets
       .filter((value): value is NonNullable<typeof value> => value !== null)
       .map((value) => ({ platform: value.platform, shop: value.shopName }));
+    const categories = selections(params, "category", "categories");
+    const channels = selections(params, "channel", "channels");
+    const platforms = selections(params, "platform", "platforms");
+    const productQueries = (() => {
+      try {
+        return parseProductQueriesStrict(keysForProductQueries(params));
+      } catch (error) {
+        throw new SalesCategoryRequestError(error instanceof Error ? error.message : "商品筛选无效");
+      }
+    })();
+    const page = parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000);
+    const pageSize = parsePositiveIntegerQuery(params.get("pageSize"), 20, "pageSize", 100);
     const db = getSalesDatabase();
     await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
-    const payload = await getSalesCategoryAnalysis(db, {
-      startDate,
-      endDate,
-      level,
-      categories: selections(params, "category", "categories"),
-      channels: selections(params, "channel", "channels"),
-      platforms: selections(params, "platform", "platforms"),
-      outlets,
-      productQueries: (() => {
-        try {
-          return parseProductQueriesStrict(keysForProductQueries(params));
-        } catch (error) {
-          throw new SalesCategoryRequestError(error instanceof Error ? error.message : "商品筛选无效");
-        }
-      })(),
-      granularity: granularityValue as SalesCategoryGranularity,
-      sortBy: sortValue as SalesCategorySortKey,
-      direction: directionValue,
-      page: parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000),
-      pageSize: parsePositiveIntegerQuery(params.get("pageSize"), 20, "pageSize", 100),
-    }, principal);
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const expectedRevision = await getSalesOverviewCacheRevision(db);
+    return routeSalesReadRequest({
+      request,
+      principal,
+      expectedRevision,
+      readCurrentRevision: () => getSalesOverviewCacheRevision(db),
+      legacy: async () => {
+        const payload = await getSalesCategoryAnalysis(db, {
+          startDate,
+          endDate,
+          level,
+          categories,
+          channels,
+          platforms,
+          outlets,
+          productQueries,
+          granularity: granularityValue as SalesCategoryGranularity,
+          sortBy: sortValue as SalesCategorySortKey,
+          direction: directionValue,
+          page,
+          pageSize,
+        }, principal);
+        return Response.json(payload, { headers: { "cache-control": "no-store" } });
+      },
+    });
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;

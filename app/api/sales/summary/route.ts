@@ -19,8 +19,10 @@ import {
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import {
   getCachedSalesOverview,
+  getSalesOverviewCacheRevision,
   salesOverviewBusinessDate,
 } from "@/lib/sales/overview-response-cache";
+import { routeSalesReadRequest } from "@/lib/django/sales-gateway";
 
 export async function GET(request: Request) {
   try {
@@ -83,14 +85,23 @@ export async function GET(request: Request) {
       outlets: normalizedOutlets,
       categories,
     } as const;
-    const result = await getCachedSalesOverview(db, {
-      ...summaryInput,
-      businessDate: salesOverviewBusinessDate(),
-    }, () => getSalesSummary(db, summaryInput));
-    return Response.json(result.payload, {
-      headers: {
-        "cache-control": "no-store",
-        "x-sales-overview-cache": result.status,
+    const expectedRevision = await getSalesOverviewCacheRevision(db);
+    return routeSalesReadRequest({
+      request,
+      principal,
+      expectedRevision,
+      readCurrentRevision: () => getSalesOverviewCacheRevision(db),
+      legacy: async () => {
+        const result = await getCachedSalesOverview(db, {
+          ...summaryInput,
+          businessDate: salesOverviewBusinessDate(),
+        }, () => getSalesSummary(db, summaryInput));
+        return Response.json({ projection: "full" as const, ...result.payload }, {
+          headers: {
+            "cache-control": "no-store",
+            "x-sales-overview-cache": result.status,
+          },
+        });
       },
     });
   } catch (error) {

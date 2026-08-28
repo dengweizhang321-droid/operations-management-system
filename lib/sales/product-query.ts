@@ -40,8 +40,9 @@ export async function resolveProductFilterCodes(db: SalesDatabase, productQuerie
     FROM sales_order_lines
     WHERE product_name IN (${productQueries.map(() => "?").join(", ")})
       AND NULLIF(TRIM(product_code), '') IS NOT NULL
+      AND TRIM(warehouse) <> '刷刷仓'
     GROUP BY product_name, product_code
-    ORDER BY product_name ASC, product_code ASC
+    ORDER BY product_name COLLATE BINARY ASC, product_code COLLATE BINARY ASC
     LIMIT 100
   `).bind(...productQueries).all<{ product_name: string; product_code: string }>();
   const codesByName = new Map<string, string[]>();

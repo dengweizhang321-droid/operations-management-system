@@ -33,13 +33,14 @@ test("product filter resolves an exact product name while preserving code and un
   sqlite.exec(`
     CREATE TABLE sales_order_lines (
       product_code TEXT NOT NULL,
-      product_name TEXT NOT NULL
+      product_name TEXT NOT NULL,
+      warehouse TEXT NOT NULL
     );
   `);
   const productName = "志高YT-3H 柜式直饮机（遥控款）五级超滤（一开二温）-不锈钢";
-  const insert = sqlite.prepare("INSERT INTO sales_order_lines (product_code, product_name) VALUES (?, ?)");
-  insert.run("ZG-YT-3H-008", productName);
-  insert.run("OTHER-001", "其他货品");
+  const insert = sqlite.prepare("INSERT INTO sales_order_lines (product_code, product_name, warehouse) VALUES (?, ?, ?)");
+  insert.run("ZG-YT-3H-008", productName, "主仓");
+  insert.run("OTHER-001", "其他货品", "主仓");
 
   const resolved = await resolveProductFilterCodes(
     sqliteAdapter(sqlite),

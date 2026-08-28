@@ -9,6 +9,8 @@ import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
 import { parseProductQueriesStrict } from "@/lib/sales/product-query";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
+import { routeSalesReadRequest } from "@/lib/django/sales-gateway";
+import { getSalesOverviewCacheRevision } from "@/lib/sales/overview-response-cache";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -50,18 +52,29 @@ export async function GET(request: Request) {
         throw new SalesCategoryRequestError(error instanceof Error ? error.message : "商品筛选无效");
       }
     })();
+    const channels = selections(params, "channel", "channels");
+    const platforms = selections(params, "platform", "platforms");
     const db = getSalesDatabase();
     await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
-    const payload = await getSalesCategoryOutletBreakdown(db, {
-      startDate,
-      endDate,
-      category,
-      channels: selections(params, "channel", "channels"),
-      platforms: selections(params, "platform", "platforms"),
-      outlets,
-      productQueries,
-    }, principal);
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const expectedRevision = await getSalesOverviewCacheRevision(db);
+    return routeSalesReadRequest({
+      request,
+      principal,
+      expectedRevision,
+      readCurrentRevision: () => getSalesOverviewCacheRevision(db),
+      legacy: async () => {
+        const payload = await getSalesCategoryOutletBreakdown(db, {
+          startDate,
+          endDate,
+          category,
+          channels,
+          platforms,
+          outlets,
+          productQueries,
+        }, principal);
+        return Response.json(payload, { headers: { "cache-control": "no-store" } });
+      },
+    });
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
