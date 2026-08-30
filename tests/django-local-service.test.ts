@@ -257,6 +257,11 @@ test("runtime deployment includes every finance cutover dependency", () => {
   assert.match(script, /drizzle\\0093_finance_write_authority\.sql/);
 });
 
+test("runtime deployment includes the protected PostgreSQL backup operator", () => {
+  assert.match(script, /tools\\django-postgres-maintenance\.ps1/);
+  assert.match(script, /tools\\postgres-consistent-backup\.py/);
+});
+
 test("configuration, deployment, and code rollback require a fully stopped stack", () => {
   assert.match(script, /function Assert-ServiceStackStopped/);
   assert.match(script, /Assert-ServiceStackStopped "Configure"/);
