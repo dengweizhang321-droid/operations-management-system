@@ -32,13 +32,21 @@
 - 自本决策起，所有新增后端业务能力默认且必须在 Django 服务中实现。现有 TypeScript/Next.js API 仅继续承担尚未迁移业务的维护、缺陷修复、迁移适配、边缘路由和必须依赖 Cloudflare Worker binding 的兼容职责，不得把新的领域事实源或长期业务流程继续堆入旧后端。确需临时例外时必须获得用户明确批准，隔离实现并记录后续迁移项。
 - 每个既有业务域在完成数据结构与数据迁移、API 契约对比、真实 principal 权限与 scope、审计、业务口径、并发/幂等、性能、回滚演练和单写所有者切换前，仍由当前 TypeScript/Worker 实现作为该域的权威后端。不得因已确定 Django 方向就声称尚未迁移的模块已经运行在 Django 上。
 - 迁移期间禁止新旧后端长期双写。同一精确业务范围任一时刻只能有一个写入所有者；优先通过只读影子对比、按域灰度路由和可立即回退的切换完成迁移。现有金额、时区、日期边界、店铺身份、权限、审计、导入幂等、租约 fencing、跨店隔离和落库回查契约必须原样保留。
+- 任一业务域在正式切换前可以按上述门禁使用影子对比和受控灰度，但一旦宣布正式切换，切换单元必须覆盖完整垂直调用链，不接受只迁数据库、只迁写接口或只迁读取作为完成：权威写入源和读取源、浏览器/客户端调用、公开 API 与边缘适配、Django 服务端领域实现、后台任务与自动化、配置、部署、启动和监控必须在同一次受控切换中全部指向新代码。除明确属于鉴权、解析或短期传输的薄边缘适配外，旧客户端分支、旧服务端领域逻辑、旧数据库读写、同步器、feature flag 和 fallback 必须退出可达生产路径；旧客户端与服务端实现必须从生产源码入口和运行包中删除，仅必要的迁移/恢复工具、审计材料、只读 tombstone 和测试夹具可以隔离保留在非生产执行面。正式切换后的恢复只能使用新架构的备份恢复、兼容修复或前向修复，不得把流量或写入重新导向旧后端。只有全链路正向与负向测试、静态旧路径可达性检查、真实部署回读和旧路径拒绝证明全部通过，才可宣称该模块迁移完成。
 - 2026-08-29/30，本机销售域已完成 Django/PostgreSQL 终态单写切换。PostgreSQL 是销售事实、批次、导入范围与幂等、尝试审计、上传/暂存状态、revision 和全部销售读写的唯一权威；D1 不再是销售写入源，也不得作为读取、容灾或回滚路径。该结论只覆盖当前 Windows 主机和销售域，不自动批准远程生产、高可用、其他业务域或整个 D1/R2 的迁移。
-- 公开 Worker 继续负责真实 `requireAppPrincipal()`、参数契约、HMAC principal 信封、Excel 解析、R2 短期传输、请求超时与体积边界和边缘适配；销售查询进入 `127.0.0.1:8001`，销售导入进入 `127.0.0.1:8002`。超时、签名、响应上限、JSON、revision、reader/writer 或权限异常必须失败关闭，不得回查 D1。
+- 公开 Worker 继续负责真实 `requireAppPrincipal()`、参数契约、HMAC principal 信封、Excel 解析、分片请求边界、请求超时与体积边界和边缘适配；销售查询进入 `127.0.0.1:8001`，销售导入及原始分片字节进入 `127.0.0.1:8002` 的 PostgreSQL 写侧。销售生产路径不得读写 R2；超时、签名、响应上限、JSON、revision、reader/writer 或权限异常必须失败关闭，不得回查 D1/R2。全局 R2 binding 仍供其他业务域使用，不得因销售退役 R2 而删除。
 - D1 `0092_sales_domain_retirement.sql` 已退役销售事实、批次、上传、缓存、投影 outbox 和 authority 对象。保留的只读 tombstone views、retirement receipt、共享导入表销售永久写入 guard、迁移工具和测试夹具是防复活终态证据，不代表仍存在销售 D1 后端；普通 Drizzle 生成在建立新审计 baseline 前仍须失败关闭。
-- ERP 主数据继续以 D1 为权威，由独立 ERP-only bridge 同步到 PostgreSQL，并使用独立角色、revision 和 checkpoint。该 bridge 不得承载销售事件、生成销售 outbox 或回写 D1；ERP 与销售权限必须在数据库层隔离。
+- ERP 主数据继续以 D1 为权威，由独立 ERP-only bridge 同步到 PostgreSQL，并使用独立角色、revision 和 checkpoint。该 bridge 除维护 ERP 参照、ERP revision/checkpoint 外，只允许按 ERP 映射更新现有 `sales_order_lines.resolved_category` 派生分类；不得新增或删除销售事实，不得修改金额、成本、销量、`gross_profit`、其他销售字段或批次，也不得承载销售事件、生成销售 outbox 或回写 D1。该例外不改变原始销售事实的 PostgreSQL/Django 权威边界，ERP 与销售权限必须在数据库层隔离。
 - 切换已跨过 PNR，不支持 `pending→d1`、`legacy`/`shadow` 路由或反向迁移。故障恢复仅允许兼容代码、PostgreSQL 备份/WAL/PITR 或经审批的前向数据修复；成功正式备份、恢复演练、attestation、forward-recovery 和 retirement 证据不得清理。
-- Worker bootstrap current/authority 是不可变切换证据。后续 release 只能在 Worker 停止时执行受控 `plan`，再用精确 plan SHA 执行 `apply`，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
+- Worker bootstrap current/authority 只是 append-only 链根和不可变切换证据，当前运行版本必须以经验证的 effective successor head 为准。后续 release 只能在 Worker 停止时执行受控 `plan`，再用精确 plan SHA 执行 `apply`，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
+- Worker supervisor 的 prelaunch 不得递归调用 PowerShell `Status`；只能直接、有界验证 service 原子写入的 create-only canonical process receipt，且等待预算必须覆盖 controller 建立精确 CIM identity 和写入 receipt 的时延。外层 controller 仍须按 PID、CreationDate、命令行和进程树二次核验。PowerShell 读取受控 JSON 时必须保留 ISO 日期字符串，不能让 pwsh 自动转换为 `DateTime` 后进入递归规范化。
+- Miniflare 的 `Request.cf` 缓存固定写入 Worker runtime 的 `cache\miniflare\cf.json`，不得写入 immutable release、`node_modules` 或业务 `.wrangler/state`。每次启动和子进程重启前都必须清除继承的同名环境变量并安装固定绑定，核验 runtime/release/persist 边界、目录全链、文件叶和硬链接身份；release 出现 `.mf` 或其他未列入 manifest 的对象必须失败关闭。
 - 本机销售服务固定运行于 `D:\teruisi-runtime\django-sales`：PostgreSQL 17.11 只监听 `127.0.0.1:5432`，Django 5.2.17/Waitress 3.0.2 只监听 `127.0.0.1:8001/8002`。长期进程使用独立最小权限 reader、writer 与 ERP bridge 角色，凭据仅保存为当前 Windows 用户绑定的 DPAPI 密文；readiness 必须验证 schema、索引、authority、attestation、revision、ERP checkpoint/心跳和只读事务。登录快捷方式不是 Windows Service；顶层进程崩溃后仍需受控检查和显式启动。
+- 销售 PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。过期备份清理必须保留至少 30 天和至少 7 份已验证成功备份，只能删除固定 `postgres-daily` 根目录下通过 manifest、SHA-256 与 archive 复验的精确 `daily-*` 直接子目录，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
+- Django runtime 守护只能在显式 `desiredState=running`、连续两次确认本部署 PostgreSQL 或 reader/writer/ERP bridge 进程确实停止、且端口/进程/ACL 身份均正常时调用既有 `Start`；状态探针失败、端口冲突、所有权异常、进程仍在但 readiness 失败或 ERP checkpoint/revision/摘要/心跳分歧只能告警，禁止自动重启或调用 `Stop`。自动 Start 必须在服务 mutex 内复验 desired-state 文件 SHA-256 fencing token，15 分钟最多 3 次。告警只写脱敏本地 outbox；外部发送仍须动态唯一核验“志高助手”与“测试群聊”，不得保存或猜测机器人/群身份。启用与回退见 `docs/DJANGO_RUNTIME_SUPERVISION.md`。
+- `GET /api/sales/data-health` 只允许无数据范围限制的 `operator/admin`，且只能复用 Django reader 已有的 `freshness` consumer；返回单写来源、动态 revision、上海业务日期、销售覆盖、机械 lag 天数和最近成功批次。不得为该接口扩大 reader 数据库权限、读取 runtime/备份/告警文件、定义未经确认的“过期”阈值，或在销售/财务页面模板中复制另一套新鲜度口径。
+- 后续业务域复用 Django/PostgreSQL 时必须遵守 `docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`。每个领域保留独立 app、迁移、写权限、revision、幂等/范围 owner 和切换证据；新增领域故障只能使该领域失败关闭，不得改变销售 authority、销售事实、ERP bridge、其他模块写入所有权或其他页面可用性。迁移开发和测试只使用隔离工作树与临时数据库，正式切换前不得停止或重启其他模块服务。
+- 2026-08-30 财务域 Django 实现与历史数据隔离演练已经完成，但尚未正式部署或切换。当前本机财务事实、目标、导入和读取仍以 Worker/D1 为唯一权威，`TERUISI_DJANGO_FINANCE_MODE` 必须保持 `legacy`；不得把演练结果表述为正式迁移完成。正式切换必须按 `docs/DJANGO_FINANCE_MIGRATION.md` 使用独立 `finance_reader`/`finance_writer` 端点与数据库角色，完成最终迁移、公开 API 核对、单写 authority、真实部署回读和旧路径退出；不得修改已完成的财务页面模板，不得停止、重启或改变销售、ERP 和其他模块服务。
 
 ## 3. 统一业务口径
 
@@ -104,10 +112,10 @@
 
 ## 8. D1、R2、迁移与缓存
 
-- D1 保存尚未迁移业务域的结构化事实、配置、批次与审计，以及 ERP 主数据；已迁移销售域的上述对象只在 PostgreSQL。R2 保存经验证的原文件、短期销售分片或图片对象，不是任何业务域的完成证明。
-- 数据库结构变更使用新的前向 `drizzle/*.sql` 迁移；不得改写已应用迁移。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
+- D1 保存尚未迁移业务域的结构化事实、配置、批次与审计，以及 ERP 主数据；已迁移销售域的上述对象只在 PostgreSQL。销售原始分片字节也只保存在 PostgreSQL 的有界、可过期会话中。R2 继续保存其他业务域经验证的原文件、附件或图片对象，不是任何业务域的完成证明；不得从全局配置移除其他模块仍在使用的 R2 binding。
+- 仍以 D1 为权威的业务域使用新的前向 `drizzle/*.sql` 迁移；Django/PostgreSQL 业务域使用新的 Django migrations。两类迁移都不得改写已应用版本。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
 - 迁移先补列/补表、回填和去重，再创建依赖新结构的索引或唯一约束。升级必须可重复执行，并保护已有人工确认、审计和批次历史。
-- D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
+- 对仍以 D1 为权威的业务域，D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
 - 查询设计必须适应 D1 限制，保持参数、表达式深度、复合查询项、结果体和执行时间有界。涉及复杂市场查询时保留表达式深度 100、复合查询 5 项的回归门禁。
 - 有效指标、月度汇总和 overview 响应缓存都只是派生数据。任何影响结果的事实、价格、图片状态、映射或主数据变更必须递增版本或精确失效；版本不一致、构建未完成或租约失效时不得返回旧缓存。
 

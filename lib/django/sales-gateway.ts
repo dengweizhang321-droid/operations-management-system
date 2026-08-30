@@ -52,6 +52,14 @@ function configurationUnavailable(): PublicApiError {
   );
 }
 
+function financeConfigurationUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 财务服务配置不完整。",
+  );
+}
+
 function parseBoundedInteger(
   value: string | undefined,
   fallback: number,
@@ -214,6 +222,60 @@ export async function createSalesGatewayAuthHeaders(
 
   const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
   if (principalBytes.byteLength > 16_384) throw configurationUnavailable();
+  const principal = base64Url(principalBytes);
+  const canonical = [
+    "v1",
+    String(input.timestamp),
+    input.requestId,
+    method,
+    input.path,
+    input.rawQuery,
+    bodySha256,
+    principal,
+  ].join("\n");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(input.secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = hex(await crypto.subtle.sign("HMAC", key, encoder.encode(canonical)));
+  return new Headers({
+    accept: "application/json",
+    "x-teruisi-content-sha256": bodySha256,
+    "x-teruisi-principal": principal,
+    "x-teruisi-request-id": input.requestId,
+    "x-teruisi-signature": `v1=${signature}`,
+    "x-teruisi-timestamp": String(input.timestamp),
+  });
+}
+
+/** Finance keeps a separate service URL and process role while reusing only
+ * the signed principal-envelope protocol. The sales signer above deliberately
+ * remains restricted to /api/sales/. */
+export async function createFinanceGatewayAuthHeaders(
+  input: SalesGatewaySignatureInput,
+): Promise<Headers> {
+  const method = input.method.toUpperCase();
+  if (
+    !["GET", "POST", "DELETE"].includes(method)
+    || !input.path.startsWith("/api/finance/")
+  ) {
+    throw financeConfigurationUnavailable();
+  }
+  const bodySha256 = input.bodySha256?.trim().toLowerCase()
+    ?? (method === "GET" || method === "DELETE" ? EMPTY_SHA256 : "");
+  if (!/^[a-f0-9]{64}$/.test(bodySha256)) throw financeConfigurationUnavailable();
+  if (!Number.isSafeInteger(input.timestamp) || input.timestamp <= 0) {
+    throw financeConfigurationUnavailable();
+  }
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(input.requestId)) {
+    throw financeConfigurationUnavailable();
+  }
+
+  const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
+  if (principalBytes.byteLength > 16_384) throw financeConfigurationUnavailable();
   const principal = base64Url(principalBytes);
   const canonical = [
     "v1",

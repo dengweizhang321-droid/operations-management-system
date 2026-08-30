@@ -9,11 +9,13 @@ import { PublicApiError } from "@/lib/http/api-error";
 
 export const SALES_IMPORTS_PATH = "/api/sales/imports";
 export const SALES_RAW_UPLOADS_PATH = "/api/sales/imports/uploads";
+export const SALES_RAW_UPLOAD_CHUNK_PATH = "/api/sales/imports/uploads/chunk";
 export const SALES_STAGED_IMPORTS_PATH = "/api/sales/imports/staged";
 export const SALES_IMPORT_VERIFY_PATH = "/api/sales/imports/verify";
 
 const WRITER_ONLY_SALES_PATHS = new Set([
   SALES_RAW_UPLOADS_PATH,
+  SALES_RAW_UPLOAD_CHUNK_PATH,
   SALES_STAGED_IMPORTS_PATH,
 ]);
 

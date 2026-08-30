@@ -147,7 +147,7 @@ test("product and inventory APIs expose real page contracts", async () => {
   assert.match(productRoute, /searchParams\.get\("pageSize"\)/);
   assert.match(productRoute, /parseProductSummaryPaginationParameter/);
   assert.match(productRoute, /searchParams\.get\("q"\)/);
-  assert.match(inventory, /LIMIT \? OFFSET \?/);
+  assert.match(inventory, /page_rows AS MATERIALIZED[\s\S]*?ORDER BY \$\{INVENTORY_PAGE_ORDER_SQL\}[\s\S]*?LIMIT \? OFFSET \?/);
   assert.match(inventory, /returned:/);
   assert.match(inventory, /stockValueComplete/);
   assert.match(inventory, /operation: "inventory_demand"/);

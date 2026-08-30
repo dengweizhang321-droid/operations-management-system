@@ -16,7 +16,7 @@ type Journal = {
   entries: JournalEntry[];
 };
 
-test("Drizzle journal registers normal migrations and excludes operator-only 0092 live DDL", async () => {
+test("Drizzle journal registers normal migrations and excludes operator-only post-cutover DDL", async () => {
   const migrationDirectory = new URL("../drizzle/", import.meta.url);
   const [fileNames, journalText] = await Promise.all([
     readdir(migrationDirectory),
@@ -26,12 +26,17 @@ test("Drizzle journal registers normal migrations and excludes operator-only 009
     .filter((name) => name.endsWith(".sql"))
     .sort()
     .map((name) => name.slice(0, -4))
-    .filter((tag) => tag !== "0092_sales_domain_retirement");
+    .filter((tag) => ![
+      "0092_sales_domain_retirement",
+      "0093_finance_write_authority",
+    ].includes(tag));
   const journal = JSON.parse(journalText) as Journal;
 
   assert.equal(journal.dialect, "sqlite");
   assert.equal(fileNames.includes("0092_sales_domain_retirement.sql"), true);
   assert.equal(journal.entries.some((entry) => entry.tag === "0092_sales_domain_retirement"), false);
+  assert.equal(fileNames.includes("0093_finance_write_authority.sql"), true);
+  assert.equal(journal.entries.some((entry) => entry.tag === "0093_finance_write_authority"), false);
   assert.deepEqual(journal.entries.map((entry) => entry.idx), sqlTags.map((_, index) => index));
   assert.deepEqual(journal.entries.map((entry) => entry.tag), sqlTags);
   assert.equal(new Set(journal.entries.map((entry) => entry.when)).size, journal.entries.length);

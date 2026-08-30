@@ -126,6 +126,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "sales.apps.SalesConfig",
     "erp_reference.apps.ErpReferenceConfig",
+    "finance.apps.FinanceConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -171,14 +172,22 @@ SALES_WRITE_AUTHORITY_EPOCH = os.getenv(
     "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH", ""
 ).strip()
 SALES_WRITE_CUTOVER_ID = os.getenv("TERUISI_DJANGO_SALES_CUTOVER_ID", "").strip()
+FINANCE_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH", ""
+).strip()
+FINANCE_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_FINANCE_CUTOVER_ID", ""
+).strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
     "sales_writer",
     "erp_reference_sync",
+    "finance_reader",
+    "finance_writer",
 }:
     raise RuntimeError(
-        "生产 Django 必须显式声明 reader、migration_writer、sales_writer 或 erp_reference_sync 进程角色"
+        "生产 Django 必须显式声明 reader、migration_writer、sales_writer、erp_reference_sync、finance_reader 或 finance_writer 进程角色"
     )
 if DJANGO_PROCESS_ROLE == "reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django reader 进程必须启用只读连接门禁")
@@ -186,6 +195,10 @@ if DJANGO_PROCESS_ROLE == "sales_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django sales_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "erp_reference_sync" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django erp_reference_sync 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "finance_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django finance_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "finance_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django finance_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "sales_writer":
     try:
         uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
@@ -193,13 +206,22 @@ if DJANGO_PROCESS_ROLE == "sales_writer":
         raise RuntimeError("Django sales_writer 必须配置有效的销售 authority epoch") from error
     if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", SALES_WRITE_CUTOVER_ID):
         raise RuntimeError("Django sales_writer 必须配置有效的销售 cutover id")
+if DJANGO_PROCESS_ROLE == "finance_writer":
+    try:
+        uuid.UUID(FINANCE_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django finance_writer 必须配置有效的财务 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", FINANCE_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django finance_writer 必须配置有效的财务 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )
 DJANGO_MAX_HEADER_BYTES = env_int("TERUISI_DJANGO_MAX_HEADER_BYTES", 32_768, 8_192, 65_536)
 DJANGO_MAX_BODY_BYTES = env_int(
     "TERUISI_DJANGO_MAX_BODY_BYTES",
-    8_388_608 if DJANGO_PROCESS_ROLE == "sales_writer" else 1_048_576,
+    16_777_216 if DJANGO_PROCESS_ROLE == "finance_writer"
+    else 8_388_608 if DJANGO_PROCESS_ROLE == "sales_writer"
+    else 1_048_576,
     0,
     16_777_216,
 )

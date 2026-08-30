@@ -18,7 +18,7 @@ test("multi-select choices stay open while another option is selected", async ()
   const toggle = multiSelect.slice(multiSelect.indexOf("const toggle"), multiSelect.indexOf("const selectAll"));
 
   assert.match(multiSelect, /aria-multiselectable="true"/);
-  assert.match(toggle, /onChange\(selectedValues\.has\(nextValue\)/);
+  assert.match(toggle, /onChange\(nextSearchableMultiSelection\(values, nextValue, maxSelections\)\)/);
   assert.doesNotMatch(toggle, /setOpen\(false\)/);
   assert.match(multiSelect, /onClick=\{\(\) => toggle\(option\.value\)\}/);
 });

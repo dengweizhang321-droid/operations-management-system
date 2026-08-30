@@ -299,6 +299,13 @@ export async function ensureFinanceSchema(db = getFinanceDatabase()): Promise<vo
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
   if (existing) return existing;
+  // After the operator closes D1 finance writes, new Worker isolates must not
+  // replay legacy backfills or no-op UPDATE statements merely to serve a read.
+  // The authority migration is applied only after this schema is complete.
+  const authority = await db.prepare(
+    "SELECT owner FROM finance_write_authority WHERE id = 1 LIMIT 1",
+  ).first<{ owner: string }>().catch(() => null);
+  if (authority && authority.owner !== "d1") return;
   const setup = db.batch(financeSchemaStatements.map((statement) => db.prepare(statement)))
     .then(async () => {
       const targetColumnsResult = await db.prepare("PRAGMA table_info(finance_targets)").all<{ name: string }>();

@@ -1125,6 +1125,15 @@ export const financeImportBatches = sqliteTable(
   ],
 );
 
+/** D1-side single-write fence used only during the controlled finance cutover. */
+export const financeWriteAuthority = sqliteTable("finance_write_authority", {
+  id: integer("id").primaryKey(),
+  owner: text("owner").notNull().default("d1"),
+  epoch: integer("epoch").notNull().default(1),
+  cutoverId: text("cutover_id").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 /** Month is the idempotency anchor: a later file cannot duplicate a closed month. */
 export const financeMonths = sqliteTable(
   "finance_months",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import math
@@ -54,7 +56,6 @@ MAX_STAGED_CHUNKS = 1_000
 MAX_ROWS_PER_STAGED_CHUNK = 1_000
 UPLOAD_TTL = timedelta(hours=24)
 STALE_OWNER_AGE = timedelta(minutes=30)
-ORPHAN_RECHECK_AGE = timedelta(hours=1)
 JS_SAFE_INTEGER = 9_007_199_254_740_991
 HEX_64_RE = re.compile(r"^[a-f0-9]{64}$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -659,6 +660,25 @@ def register_raw_upload_chunk(payload: Mapping[str, object], actor_email: str) -
     )
     checksum = _hex_64(payload.get("sha256"), "sha256")
     object_key = str(payload.get("objectKey") or "")
+    encoded_payload = payload.get("contentBase64")
+    maximum_encoded_bytes = ((SALES_UPLOAD_CHUNK_BYTES + 2) // 3) * 4
+    if (
+        not isinstance(encoded_payload, str)
+        or not encoded_payload
+        or len(encoded_payload) > maximum_encoded_bytes
+        or len(encoded_payload) % 4 != 0
+    ):
+        raise SalesImportServiceError("分片内容编码无效", status=400)
+    try:
+        chunk_payload = base64.b64decode(encoded_payload, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise SalesImportServiceError("分片内容编码无效", status=400) from error
+    if base64.b64encode(chunk_payload).decode("ascii") != encoded_payload:
+        raise SalesImportServiceError("分片内容编码不是规范 Base64", status=400)
+    if len(chunk_payload) != size_bytes:
+        raise SalesImportServiceError("分片内容大小与声明不一致")
+    if hashlib.sha256(chunk_payload).hexdigest() != checksum:
+        raise SalesImportServiceError("分片内容校验码与声明不一致")
     with transaction.atomic():
         lock_active_write_authority()
         try:
@@ -689,22 +709,25 @@ def register_raw_upload_chunk(payload: Mapping[str, object], actor_email: str) -
             object_key,
             re.IGNORECASE,
         ):
-            raise SalesImportServiceError("R2 分片对象键与会话、序号或摘要不一致")
+            raise SalesImportServiceError("分片存储键与会话、序号或摘要不一致")
         previous = SalesRawUploadChunk.objects.filter(
             session=session, chunk_index=chunk_index
         ).first()
         discarded_object_key = None
         if previous:
-            if previous.size_bytes != size_bytes or previous.sha256 != checksum:
+            if (
+                previous.size_bytes != size_bytes
+                or previous.sha256 != checksum
+                or bytes(previous.payload) != chunk_payload
+            ):
                 raise SalesImportServiceError(
                     "同一分片序号已绑定不同内容，请重新创建上传会话",
                     code="conflict",
                     status=409,
                 )
             if previous.object_key != object_key:
-                # Keep the first authoritative object. This makes response-loss
-                # retries adoptable without ever orphaning the previously
-                # registered R2 object.
+                # Keep the first authoritative storage identity. PostgreSQL has
+                # already verified that the retried payload is byte-identical.
                 discarded_object_key = object_key
         else:
             SalesRawUploadChunk.objects.create(
@@ -713,6 +736,7 @@ def register_raw_upload_chunk(payload: Mapping[str, object], actor_email: str) -
                 object_key=object_key,
                 size_bytes=size_bytes,
                 sha256=checksum,
+                payload=chunk_payload,
             )
         aggregate = session.chunks.aggregate(total=Count("id"), size=Max("chunk_index"))
         # Count and byte sum are deliberately recalculated from authoritative rows.
@@ -733,6 +757,52 @@ def register_raw_upload_chunk(payload: Mapping[str, object], actor_email: str) -
         response = _raw_upload_payload(session)
         response["discardedObjectKey"] = discarded_object_key
         return response
+
+
+def read_raw_upload_chunk(
+    payload: Mapping[str, object], actor_email: str
+) -> dict[str, object]:
+    upload_id = payload.get("uploadId")
+    chunk_index = _bounded_integer(payload.get("chunkIndex"), "chunkIndex", 0, 63)
+    owner_token = str(payload.get("ownerToken") or "").strip()
+    if not re.fullmatch(r"[0-9a-f]{32}", owner_token):
+        raise SalesImportServiceError("ownerToken 无效", code="conflict", status=409)
+    with transaction.atomic():
+        lock_active_write_authority()
+        try:
+            session = SalesRawUploadSession.objects.select_for_update().get(
+                id=upload_id, actor_email=actor_email
+            )
+        except (SalesRawUploadSession.DoesNotExist, ValueError) as error:
+            raise SalesImportServiceError(
+                "上传会话不存在", code="not_found", status=404
+            ) from error
+        if session.expires_at <= timezone.now():
+            raise SalesImportServiceError("上传会话已过期", code="not_found", status=404)
+        if session.status != "processing" or session.owner_token != owner_token:
+            raise SalesImportServiceError(
+                "上传分片不属于当前处理 owner", code="conflict", status=409
+            )
+        try:
+            chunk = session.chunks.get(chunk_index=chunk_index)
+        except SalesRawUploadChunk.DoesNotExist as error:
+            raise SalesImportServiceError(
+                "上传分片不存在", code="not_found", status=404
+            ) from error
+        chunk_payload = bytes(chunk.payload)
+        if (
+            len(chunk_payload) != chunk.size_bytes
+            or hashlib.sha256(chunk_payload).hexdigest() != chunk.sha256
+        ):
+            raise SalesImportServiceError(
+                "PostgreSQL 上传分片完整性校验失败", code="conflict", status=409
+            )
+        return {
+            "chunkIndex": chunk.chunk_index,
+            "sizeBytes": chunk.size_bytes,
+            "sha256": chunk.sha256,
+            "contentBase64": base64.b64encode(chunk_payload).decode("ascii"),
+        }
 
 
 def claim_raw_upload(upload_id: object, actor_email: str) -> dict[str, object]:
@@ -851,6 +921,7 @@ def list_expired_raw_uploads(_maintenance_actor_email: str, limit: object = 10) 
         sessions = list(
             SalesRawUploadSession.objects.select_for_update()
             .filter(expires_at__lte=timezone.now())
+            .exclude(status="expired")
             .order_by("expires_at")[:bounded_limit]
         )
         items: list[dict[str, object]] = []
@@ -872,12 +943,6 @@ def list_expired_raw_uploads(_maintenance_actor_email: str, limit: object = 10) 
                     "id": str(session.id),
                     "ownerGeneration": session.owner_generation,
                     "cleanupToken": session.owner_token,
-                    "objectPrefix": f"sales-upload/{session.id}/",
-                    "objectKeys": list(
-                        session.chunks.order_by("chunk_index").values_list(
-                            "object_key", flat=True
-                        )
-                    ),
                 }
             )
         return {"items": items}
@@ -889,16 +954,11 @@ def purge_expired_raw_upload(
     *,
     owner_generation: object,
     cleanup_token: object,
-    object_keys: object,
 ) -> dict[str, object]:
     generation = _bounded_integer(owner_generation, "ownerGeneration", 0, JS_SAFE_INTEGER)
     supplied_cleanup_token = str(cleanup_token or "").strip()
     if not re.fullmatch(r"[0-9a-f]{32}", supplied_cleanup_token):
         raise SalesImportServiceError("cleanupToken 无效", status=400)
-    if not isinstance(object_keys, list) or len(object_keys) > 64 or any(
-        not isinstance(item, str) for item in object_keys
-    ):
-        raise SalesImportServiceError("objectKeys 无效", status=400)
     with transaction.atomic():
         lock_active_write_authority()
         try:
@@ -907,14 +967,10 @@ def purge_expired_raw_upload(
             raise SalesImportServiceError(
                 "上传会话不存在", code="not_found", status=404
             ) from error
-        current_keys = list(
-            session.chunks.order_by("chunk_index").values_list("object_key", flat=True)
-        )
         if (
             session.status != "cleaning"
             or session.owner_generation != generation
             or session.owner_token != supplied_cleanup_token
-            or current_keys != object_keys
         ):
             raise SalesImportServiceError(
                 "过期上传清理栅栏已变化", code="conflict", status=409
@@ -930,11 +986,9 @@ def purge_expired_raw_upload(
         session.owner_token = ""
         session.received_chunk_count = 0
         session.received_bytes = 0
-        # Keep a periodic tombstone sweep. A worker that read the session before
-        # the cleanup lease could crash after a late R2 put but before register;
-        # the immutable session prefix is therefore rechecked indefinitely on
-        # later maintenance cycles instead of being forgotten after one pass.
-        session.expires_at = timezone.now() + ORPHAN_RECHECK_AGE
+        # PostgreSQL owns both metadata and bytes, so the fenced transaction is
+        # terminal; no external object-store orphan recheck is required.
+        session.expires_at = timezone.now()
         session.save(
             update_fields=[
                 "status",
@@ -945,8 +999,8 @@ def purge_expired_raw_upload(
                 "updated_at",
             ]
         )
-        # Direct-upload staging rows contain no R2 objects and can be pruned in
-        # the same bounded maintenance transaction.
+        # Direct-upload staging rows can be pruned in the same bounded
+        # maintenance transaction.
         expired_stage_ids = list(
             SalesStagedImportSession.objects.filter(
                 raw_upload__isnull=True, expires_at__lte=timezone.now()

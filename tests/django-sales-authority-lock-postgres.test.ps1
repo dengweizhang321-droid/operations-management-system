@@ -227,7 +227,11 @@ finally:
             admin.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(database)))
 '@
 
-  & $Python -c $pythonCode
+  # Windows PowerShell 5.1 rewrites embedded quotes when a multiline script is
+  # passed as a native-process argument. Feed the source through stdin so the
+  # Python code reaches the interpreter byte-for-byte without exposing secrets
+  # on the process command line.
+  $pythonCode | & $Python -c "import sys; exec(sys.stdin.read())"
   if ($LASTEXITCODE -ne 0) {
     throw "authority lock PostgreSQL integration test failed"
   }

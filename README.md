@@ -93,9 +93,15 @@ npm run dingtalk:robot:send -- --text "hello"
 
 2026-08-27 已确认 Django 为后端长期目标框架。迁移采用按业务域逐步替换：现有 React/Next.js 前端继续保留，所有新增后端业务能力默认使用 Django；尚未完成迁移、契约验证和单写切换的业务域仍由当前 TypeScript/Cloudflare Worker 后端负责。迁移期间不长期双写，每个业务范围只保留一个权威写入后端。
 
-2026-08-29/30，本机销售域已完成 Django/PostgreSQL 终态单写切换。销售事实、批次、导入幂等与尝试审计、上传/暂存元数据、revision、查询和分析均以 PostgreSQL 为唯一权威来源；公开 Worker 仅负责真实鉴权、principal HMAC、Excel 解析、R2 短期分片、请求超时与体积边界和边缘协议适配，任何销售读写故障都失败关闭，不存在销售 D1、`legacy` 或 `shadow` 回退路径。D1 中的销售事实、批次、上传、缓存、投影 outbox 和 authority 对象已由受控 `0092_sales_domain_retirement.sql` 退役；只读 tombstone view、retirement receipt 与共享表永久写入 guard 是防止旧代码复活的终态证据，不是仍在运行的销售后端。ERP 主数据及其他未迁移业务域仍保留各自原有权威来源。
+2026-08-29/30，本机销售域已完成 Django/PostgreSQL 终态单写切换。销售事实、批次、导入幂等与尝试审计、上传/暂存元数据、revision、查询和分析均以 PostgreSQL 为唯一权威来源；公开 Worker 仅负责真实鉴权、principal HMAC、Excel 解析、分片请求边界、请求超时与体积边界和边缘协议适配，销售分片字节与生命周期也由 PostgreSQL 原子管理，不再读写 R2。任何销售读写故障都失败关闭，不存在销售 D1、R2、`legacy` 或 `shadow` 回退路径。D1 中的销售事实、批次、上传、缓存、投影 outbox 和 authority 对象已由受控 `0092_sales_domain_retirement.sql` 退役；只读 tombstone view、retirement receipt 与共享表永久写入 guard 是防止旧代码复活的终态证据，不是仍在运行的销售后端。ERP 主数据及其他未迁移业务域仍保留各自原有权威来源；ERP bridge 除维护 ERP 参照、revision 和 checkpoint 外，只能按 ERP 映射回填现有 `sales_order_lines.resolved_category` 派生分类，不能新增或删除销售事实，也不能修改金额、成本、销量、`gross_profit`、其他销售字段或批次。全局 R2 binding 仍供市场图片、库存或工作流等未迁移范围使用，不得因销售下线 R2 而删除。
 
 本机 cutover ID 为 `sales-pg-20260829T204417Z-d9896e904d8092cb`，`0092` SHA-256 为 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`。切换快照记录为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 参照与 revision `8:5`；这些只是该次验收水位，不是当前常量。PostgreSQL、Django reader/writer 仍只监听 `127.0.0.1:5432/8001/8002`。Worker bootstrap current/authority 是不可变切换证据，后续 release 只能通过受控的 append-only successor 链前向发布，不得覆盖旧 release、attestation 或 forward-recovery。该结论仅适用于当前 Windows 主机和销售域，不代表远程生产、高可用或其他业务域已经迁移。迁移、运行、验证、备份审计和恢复边界见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
+
+后续业务域复用销售基础时必须遵守 [`docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`](docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md)。财务分析虽然位于“销售分析”页面内，但仍是独立数据所有权范围；其迁移不得修改销售 authority、销售事实、ERP bridge 或其他模块运行状态。销售 PostgreSQL 的不停服日常备份、独立端口恢复演练和受控保留规则见 [`docs/DJANGO_POSTGRES_OPERATIONS.md`](docs/DJANGO_POSTGRES_OPERATIONS.md)；Django runtime 的崩溃恢复、desired-state fencing 和主动健康告警见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。
+
+2026-08-30，月度财报 Django app、独立 reader/writer、导入幂等与审计、经营目标、只读消费者、历史迁移和单写 authority 已在隔离工作树、财务专用 D1 副本及临时 PostgreSQL 端口完成系统演练；真实快照为 3 个完成批次、19 个月和 40,233 条财报行。该结果只是上线前证据：本机正式 Worker/D1 仍是财务唯一权威，`TERUISI_DJANGO_FINANCE_MODE` 必须保持 `legacy`，未部署财务进程、未应用正式 D1 authority、未切换流量，也未改动已经完成的“销售分析 → 财务分析”前端模板。正式切换和 PNR 恢复边界见 [`docs/DJANGO_FINANCE_MIGRATION.md`](docs/DJANGO_FINANCE_MIGRATION.md)。
+
+销售数据运维可见性使用只读 `GET /api/sales/data-health`：仅 `operator/admin` 且无数据范围限制的账号可读取，返回 Django/PostgreSQL 单写来源、动态 sales/ERP revision、上海业务日期、销售覆盖起止日、距当前业务日的机械天数、是否覆盖昨天及最近成功批次。该接口不自行定义“过期”阈值，不读取 runtime 文件或凭据，也没有改动销售/财务页面模板。
 
 ## 项目文档与长期信息
 

@@ -33,6 +33,7 @@ from .write_service import (
     read_raw_upload,
     read_staged_import,
     purge_expired_raw_upload,
+    read_raw_upload_chunk,
     register_raw_upload_chunk,
     stage_normalized_chunk,
     validate_import_date_range,
@@ -157,6 +158,24 @@ def _handle_write(
         )
 
 
+def _handle_post_read(
+    callback: Callable[[Principal, dict[str, object]], dict[str, object]],
+    request: HttpRequest,
+) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        return _json(callback(principal, _parse_json(request)))
+    except PrincipalEnvelopeError as error:
+        return _json({"error": str(error), "code": error.code}, error.status)
+    except SalesImportServiceError as error:
+        return _json(_service_error_payload(error), error.status)
+    except Exception:
+        logger.exception("Unhandled sales write-side payload read error")
+        return _json(
+            {"error": "读取销售上传分片失败。", "code": "internal_error"}, 500
+        )
+
+
 @require_GET
 def imports(request: HttpRequest) -> JsonResponse:
     def execute(_principal_value: Principal) -> dict[str, object]:
@@ -183,7 +202,14 @@ def raw_uploads(request: HttpRequest) -> JsonResponse:
         if request.method == "PUT":
             _reject_unknown_fields(
                 payload,
-                {"uploadId", "chunkIndex", "objectKey", "sizeBytes", "sha256"},
+                {
+                    "uploadId",
+                    "chunkIndex",
+                    "objectKey",
+                    "sizeBytes",
+                    "sha256",
+                    "contentBase64",
+                },
             )
             return {
                 "ok": True,
@@ -264,7 +290,6 @@ def raw_uploads(request: HttpRequest) -> JsonResponse:
                     "uploadId",
                     "ownerGeneration",
                     "cleanupToken",
-                    "objectKeys",
                 },
             )
             return {
@@ -275,12 +300,22 @@ def raw_uploads(request: HttpRequest) -> JsonResponse:
                     principal.email,
                     owner_generation=payload.get("ownerGeneration"),
                     cleanup_token=payload.get("cleanupToken"),
-                    object_keys=payload.get("objectKeys"),
                 ),
             }, 200
         raise SalesImportServiceError("未知的原始分片操作", status=400)
 
     return _handle_write(execute, request)
+
+
+@require_http_methods(["POST"])
+def raw_upload_chunk(request: HttpRequest) -> JsonResponse:
+    def execute(
+        principal: Principal, payload: dict[str, object]
+    ) -> dict[str, object]:
+        _reject_unknown_fields(payload, {"uploadId", "chunkIndex", "ownerToken"})
+        return {"chunk": read_raw_upload_chunk(payload, principal.email)}
+
+    return _handle_post_read(execute, request)
 
 
 @require_GET

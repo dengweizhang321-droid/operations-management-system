@@ -24,6 +24,11 @@ reader_import_patterns = [
 write_patterns = [
     path("imports", write_views.imports, name="sales-imports"),
     path("imports/uploads", write_views.raw_uploads, name="sales-raw-uploads"),
+    path(
+        "imports/uploads/chunk",
+        write_views.raw_upload_chunk,
+        name="sales-raw-upload-chunk",
+    ),
     path("imports/staged", write_views.staged_imports, name="sales-staged-imports"),
     path("imports/verify", write_views.verify_import, name="sales-import-verify"),
 ]

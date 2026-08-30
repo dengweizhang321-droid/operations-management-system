@@ -56,6 +56,17 @@ function sqliteAdapter(sqlite: DatabaseSync) {
   };
 }
 
+function futureShanghaiDate(days: number) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(Date.now() + days * 86_400_000));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
 function inventoryRow(overrides: Record<string, unknown> = {}) {
   return {
     sourceRowNumber: 2,
@@ -237,8 +248,9 @@ test("已确认补货计划幂等创建采购执行事项并关联原计划", as
     INSERT INTO erp_product_master VALUES ('P1','供应商甲');
   `);
   const db = sqliteAdapter(sqlite) as never;
-  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate: "2026-08-30", dueDate: "2026-08-30" }, "operator@example.com", db);
-  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate: "2026-08-30", dueDate: "2026-08-30" }, "operator@example.com", db);
+  const expectedArrivalDate = futureShanghaiDate(7);
+  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, "operator@example.com", db);
+  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, "operator@example.com", db);
   assert.equal(first.created, true);
   assert.equal(second.created, false);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM workflow_task_entity_links WHERE entity_id = 'replenishment-plan:plan-1'").get()?.count, 1);

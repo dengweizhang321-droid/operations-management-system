@@ -46,6 +46,8 @@ import {
   workerGuardEntrypointPaths,
   workerGuardForbiddenScans,
   assertWorkerManifestProvenance,
+  workerLegacySourceRoot,
+  workerSourceRoot,
   assertBundledNpmToolchainProvenance,
   bundledNpmCliRelativePath,
   bundledNpmPackageRootRelativePath,
@@ -224,10 +226,10 @@ test("real release artifact packer carries every guarded entrypoint and binds ea
   }
 });
 
-test("production manifest provenance pins combined source, main .dev.vars, and exact npm ci", () => {
+test("production manifest provenance accepts only the legacy predecessor or isolated successor source", () => {
   const nodeRoot = path.dirname(process.execPath);
   const manifest = {
-    source: { rootPathSha256: windowsPathSha256("D:\\运营管理系统-django-sales-combined") },
+    source: { rootPathSha256: windowsPathSha256(workerLegacySourceRoot) },
     build: {
       nodeVersion: process.version,
       nodeExecutablePathSha256: windowsPathSha256(process.execPath),
@@ -249,14 +251,18 @@ test("production manifest provenance pins combined source, main .dev.vars, and e
     },
   };
   assert.doesNotThrow(() => assertWorkerManifestProvenance(manifest));
+  assert.doesNotThrow(() => assertWorkerManifestProvenance({
+    ...manifest,
+    source: { rootPathSha256: windowsPathSha256(workerSourceRoot) },
+  }));
   assert.throws(() => assertWorkerManifestProvenance({
     ...manifest,
     source: { rootPathSha256: windowsPathSha256("D:\\wrong-source") },
-  }), /fixed combined\/main|固定 combined\/main/);
+  }), /fixed legacy\/successor\/main|固定 legacy\/successor\/main/);
   assert.throws(() => assertWorkerManifestProvenance({
     ...manifest,
     runtime: { ...manifest.runtime, devVars: { sourcePath: "D:\\other\\.dev.vars" } },
-  }), /protected source root|combined\/main/);
+  }), /protected source root|legacy\/successor\/main/);
   assert.throws(() => assertWorkerManifestProvenance({
     ...manifest,
     build: { ...manifest.build, npmCiArguments: ["ci", "--no-audit"] },

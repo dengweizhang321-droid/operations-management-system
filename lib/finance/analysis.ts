@@ -131,6 +131,30 @@ function isSelectableShopName(name: string) {
 
 export type FinanceShopOption = { key: string; name: string; platform: string };
 
+export class FinanceDimensionFilterError extends PublicApiError {
+  readonly invalidPlatforms: string[];
+  readonly invalidShops: FinanceShopOption[];
+  readonly incompatibleShops: FinanceShopOption[];
+
+  constructor({
+    message,
+    invalidPlatforms,
+    invalidShops,
+    incompatibleShops,
+  }: {
+    message: string;
+    invalidPlatforms: string[];
+    invalidShops: FinanceShopOption[];
+    incompatibleShops: FinanceShopOption[];
+  }) {
+    super(400, "invalid_request", message);
+    this.name = "FinanceDimensionFilterError";
+    this.invalidPlatforms = invalidPlatforms;
+    this.invalidShops = invalidShops;
+    this.incompatibleShops = incompatibleShops;
+  }
+}
+
 export function financeShopIdentityKey(platform: string, name: string) {
   return JSON.stringify([platform, name]);
 }
@@ -184,7 +208,12 @@ export function resolveFinanceDimensionFilters(
       ...(invalidShops.length ? [`店铺：${invalidShops.map((item) => `${item.platform} · ${item.name}`).join("、")}`] : []),
       ...(incompatibleShops.length ? [`店铺不属于所选平台：${incompatibleShops.map((item) => `${item.platform} · ${item.name}`).join("、")}`] : []),
     ].join("；");
-    throw new PublicApiError(400, "invalid_request", `筛选项不存在或不属于当前财务期间（${detail}）。`);
+    throw new FinanceDimensionFilterError({
+      message: `筛选项不存在或不属于当前财务期间（${detail}）。`,
+      invalidPlatforms,
+      invalidShops,
+      incompatibleShops,
+    });
   }
   return {
     platformFilter: new Set(requestedPlatforms),

@@ -31,7 +31,7 @@ export async function searchSystemDataForAi(
     page: args.page,
     perGroupLimit: args.limitPerDomain,
     totalLimit: args.totalLimit,
-  }, context.execution.principal);
+  }, context.execution.principal, { signal: context.execution.signal });
   return {
     dataCutoff: result.dataCutoffDate,
     filtersApplied: result.filtersApplied,

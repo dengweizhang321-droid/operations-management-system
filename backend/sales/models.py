@@ -503,7 +503,7 @@ class SalesImportFingerprint(models.Model):
 
 
 class SalesRawUploadSession(models.Model):
-    """PostgreSQL authority for resumable raw XLSX uploads stored in R2."""
+    """PostgreSQL authority for resumable raw XLSX uploads."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client_fingerprint = models.CharField(max_length=255, db_index=True)
@@ -568,6 +568,7 @@ class SalesRawUploadChunk(models.Model):
     object_key = models.TextField(unique=True)
     size_bytes = models.BigIntegerField()
     sha256 = models.CharField(max_length=64)
+    payload = models.BinaryField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

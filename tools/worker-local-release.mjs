@@ -23,7 +23,11 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 
 export const workerRuntimeRoot = "D:\\teruisi-runtime\\teruisi-worker-sales";
-export const workerSourceRoot = "D:\\运营管理系统-django-sales-combined";
+// Existing immutable releases retain the original combined-tree provenance.
+// New successors are built only from the clean integration worktree so the
+// user's live development tree never has to be edited or moved for a release.
+export const workerLegacySourceRoot = "D:\\运营管理系统-django-sales-combined";
+export const workerSourceRoot = "D:\\运营管理系统-sales-django-release";
 export const workerProtectedSourceRoot = "D:\\运营管理系统";
 export const workerPersistRoot = "D:\\运营管理系统\\.wrangler\\state";
 export const workerDevVarsSource = "D:\\运营管理系统\\.dev.vars";
@@ -293,12 +297,16 @@ export function assertWorkerManifestProvenance(manifest, { allowTestRuntimeRoot 
     || !isWithinWindowsPath(runtime.protectedSourceRoot, devVars.sourcePath)) {
     fail("manifest .dev.vars 未受 protected source root 精确约束");
   }
+  const acceptedProductionSourceRoots = new Set([
+    windowsPathSha256(workerLegacySourceRoot),
+    windowsPathSha256(workerSourceRoot),
+  ]);
   if (!allowTestRuntimeRoot && (
-    source.rootPathSha256 !== windowsPathSha256(workerSourceRoot)
+    !acceptedProductionSourceRoots.has(source.rootPathSha256)
     || canonicalWindowsPath(runtime.protectedSourceRoot) !== canonicalWindowsPath(workerProtectedSourceRoot)
     || canonicalWindowsPath(devVars.sourcePath) !== canonicalWindowsPath(workerDevVarsSource)
   )) {
-    fail("production manifest source/.dev.vars provenance 未绑定固定 combined/main 根");
+    fail("production manifest source/.dev.vars provenance 未绑定固定 legacy/successor/main 根");
   }
 }
 
@@ -1487,7 +1495,7 @@ async function buildWorkerReleaseInternal({
   persistRoot = path.resolve(persistRoot);
   sourceD1Path = path.resolve(sourceD1Path);
   if (!allowTestRuntimeRoot && canonicalWindowsPath(sourceRoot) !== canonicalWindowsPath(workerSourceRoot)) {
-    fail(`Worker 发布源必须固定为 combined 集成树 ${workerSourceRoot}`);
+    fail(`Worker 新发布源必须固定为隔离集成树 ${workerSourceRoot}`);
   }
   if (!allowTestRuntimeRoot && (canonicalWindowsPath(devVarsSource) !== canonicalWindowsPath(workerDevVarsSource)
     || canonicalWindowsPath(persistRoot) !== canonicalWindowsPath(workerPersistRoot))) {
