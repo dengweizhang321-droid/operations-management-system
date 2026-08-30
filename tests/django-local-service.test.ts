@@ -247,6 +247,11 @@ test("finance runtime uses independent loopback processes, credentials, permissi
   assert.match(financeCutover, /Assert-FinanceWriterStopped/);
   assert.match(financeCutover, /finance_write_authority/);
   assert.match(financeCutover, /Invoke-WithServiceMutex/);
+  assert.match(financeCutover, /\$commandArguments = @\(\$manage\) \+ @\(\$Arguments\)/);
+  assert.match(financeCutover, /\$operationLabel = \[string\]\$Operation/);
+  assert.match(financeCutover, /\$invokeCommand = \{[\s\S]*?\}\.GetNewClosure\(\)/);
+  assert.match(financeCutover, /Write-NativeDiagnosticLog \$diagnosticLogPath \$operationLabel/);
+  assert.doesNotMatch(financeCutover, /Write-NativeDiagnosticLog \$logPath \$Operation/);
   assert.doesNotMatch(financeCutover, /(?:password|secret)[=:]/i);
 });
 

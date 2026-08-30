@@ -72,14 +72,26 @@ function Invoke-FinanceManagementCommand([string[]]$Arguments, [string]$Operatio
   $secrets = Read-Secrets
   $ownerUrl = Database-Url "teruisi_sales_owner" $secrets.OwnerPassword "teruisi_finance_cutover" $WriterStatementTimeoutMs
   $manage = Join-Path $BackendRoot "manage.py"
+  $commandArguments = @($manage) + @($Arguments)
+  $operationLabel = [string]$Operation
+  $pythonExecutable = [string]$Python
+  $backendWorkingDirectory = [string]$BackendRoot
+  $diagnosticLogPath = Join-Path $LogDirectory "finance-cutover.$RunId.log"
+  if ($operationLabel -cnotmatch "^[a-z0-9_-]{1,64}$" -or
+      @($commandArguments | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) {
+    throw "Finance management command contract is invalid"
+  }
+  $invokeCommand = {
+    $nativeRun = Invoke-BoundedNativeProcess (
+      $pythonExecutable
+    ) $commandArguments $backendWorkingDirectory
+    Write-NativeDiagnosticLog $diagnosticLogPath $operationLabel $nativeRun
+    return ConvertFrom-UniqueNativeJson $nativeRun $operationLabel
+  }.GetNewClosure()
   try {
-    return Invoke-WithDjangoEnvironment $secrets $ownerUrl "migration_writer" $false $WriterMaxBodyBytes "" "" {
-      $commandArguments = @($manage) + $Arguments
-      $nativeRun = Invoke-BoundedNativeProcess $Python $commandArguments $BackendRoot
-      $logPath = Join-Path $LogDirectory "finance-cutover.$RunId.log"
-      Write-NativeDiagnosticLog $logPath $Operation $nativeRun
-      return ConvertFrom-UniqueNativeJson $nativeRun $Operation
-    }
+    return Invoke-WithDjangoEnvironment $secrets $ownerUrl "migration_writer" (
+      $false
+    ) $WriterMaxBodyBytes "" "" $invokeCommand
   } finally {
     $ownerUrl = $null
     $secrets = $null
