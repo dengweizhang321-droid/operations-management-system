@@ -23,6 +23,7 @@ from finance.models import (
 
 from .migrate_finance_from_d1 import (
     FORMAT_VERSION,
+    _valid_hex,
     _open_source,
     _path_digest,
     _snapshot,
@@ -55,11 +56,16 @@ def _verified_run(identifier: str, path_digest: str) -> FinanceMigrationRun:
     run = FinanceMigrationRun.objects.filter(
         id=identifier, mode="verify", status="succeeded"
     ).first()
+    provenance = run.manifest.get("sourceProvenance") if run is not None else None
     if (
         run is None
-        or run.source_path_digest != path_digest
         or run.manifest.get("formatVersion") != FORMAT_VERSION
         or not run.target_snapshot_digest
+        or not isinstance(provenance, dict)
+        or provenance.get("liveSourcePathDigest") != path_digest
+        or not _valid_hex(provenance.get("sourceArtifactSha256"))
+        or provenance.get("formatVersion")
+        not in {"finance-d1-rehearsal-snapshot-v1", "finance-direct-source-v1"}
     ):
         raise CommandError("verify-run-id 不是当前 D1 源的成功财务核对运行。")
     return run

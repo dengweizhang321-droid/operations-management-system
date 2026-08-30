@@ -35,7 +35,8 @@ from finance.models import (
 )
 
 
-FORMAT_VERSION = "finance-d1-migration-v2"
+FORMAT_VERSION = "finance-d1-migration-v3"
+SOURCE_MANIFEST_FORMAT_VERSION = "finance-d1-rehearsal-snapshot-v1"
 LEGACY_SYNTHESIS_VERSION = "finance-legacy-audit-synthesis-v1"
 LEGACY_ATTEMPT_NAMESPACE = uuid.UUID("4a945c8f-6db2-42a5-9046-9d15e508a522")
 ZERO_TOKEN = "0" * 64
@@ -843,11 +844,70 @@ def _path_digest(path: Path) -> str:
     return hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()
 
 
-def _manifest(snapshot: Snapshot) -> dict[str, object]:
+def _file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _source_provenance(
+    source_path: Path, source_manifest_path: Path | None
+) -> dict[str, str]:
+    artifact_digest = _file_digest(source_path)
+    if source_manifest_path is None:
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise CommandError("生产财务迁移必须提供受控源清单。")
+        return {
+            "formatVersion": "finance-direct-source-v1",
+            "liveSourcePathDigest": _path_digest(source_path),
+            "sourceArtifactSha256": artifact_digest,
+            "sourceManifestSha256": "",
+            "sourceFinanceDigest": "",
+        }
+
+    manifest_path = source_manifest_path.expanduser().resolve()
+    if (
+        not manifest_path.is_file()
+        or manifest_path.name != "finance-source-manifest.json"
+        or manifest_path.parent != source_path.parent
+    ):
+        raise CommandError("财务迁移受控源清单路径无效。")
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise CommandError("财务迁移受控源清单无法读取。") from error
+    if not isinstance(payload, dict):
+        raise CommandError("财务迁移受控源清单结构无效。")
+    live_path_digest = payload.get("sourcePathSha256")
+    source_finance_digest = payload.get("sourceFinanceDigest")
+    if (
+        payload.get("formatVersion") != SOURCE_MANIFEST_FORMAT_VERSION
+        or payload.get("outputSha256") != artifact_digest
+        or not _valid_hex(live_path_digest)
+        or not _valid_hex(source_finance_digest)
+        or not isinstance(payload.get("counts"), dict)
+        or not isinstance(payload.get("authority"), dict)
+    ):
+        raise CommandError("财务迁移受控源清单与快照不一致。")
+    return {
+        "formatVersion": SOURCE_MANIFEST_FORMAT_VERSION,
+        "liveSourcePathDigest": str(live_path_digest),
+        "sourceArtifactSha256": artifact_digest,
+        "sourceManifestSha256": _file_digest(manifest_path),
+        "sourceFinanceDigest": str(source_finance_digest),
+    }
+
+
+def _manifest(
+    snapshot: Snapshot, source_provenance: dict[str, str]
+) -> dict[str, object]:
     return {
         "formatVersion": FORMAT_VERSION,
         "legacySynthesisVersion": LEGACY_SYNTHESIS_VERSION,
         "projectionDigests": snapshot.digests,
+        "sourceProvenance": source_provenance,
         "sourceAuthority": {
             "owner": snapshot.authority["owner"],
             "epoch": int(snapshot.authority["epoch"]),
@@ -863,6 +923,7 @@ def _record_run(
     source: Snapshot,
     target_counts: dict[str, int],
     target_digest: str,
+    source_provenance: dict[str, str],
     approved_run_id: str = "",
 ) -> FinanceMigrationRun:
     return FinanceMigrationRun.objects.create(
@@ -875,7 +936,7 @@ def _record_run(
         source_counts=source.counts,
         target_counts=target_counts,
         approved_run_id=approved_run_id,
-        manifest=_manifest(source),
+        manifest=_manifest(source, source_provenance),
         completed_at=timezone.now(),
     )
 
@@ -885,6 +946,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser) -> None:
         parser.add_argument("--source", required=True)
+        parser.add_argument("--source-manifest")
         mode = parser.add_mutually_exclusive_group()
         mode.add_argument("--apply", action="store_true")
         mode.add_argument("--verify-only", action="store_true")
@@ -914,10 +976,15 @@ class Command(BaseCommand):
             raise CommandError("dry-run 不接受 approved-run-id。")
         mode = "apply" if apply else "verify" if verify_only else "dry-run"
         path_digest = _path_digest(source_path)
+        source_manifest_value = str(options.get("source_manifest") or "").strip()
+        source_manifest_path = Path(source_manifest_value) if source_manifest_value else None
 
         source = _open_source(source_path)
         try:
             snapshot = _snapshot(source)
+            source_provenance = _source_provenance(
+                source_path, source_manifest_path
+            )
             if mode == "dry-run":
                 run = _record_run(
                     mode=mode,
@@ -925,6 +992,7 @@ class Command(BaseCommand):
                     source=snapshot,
                     target_counts={},
                     target_digest="",
+                    source_provenance=source_provenance,
                 )
                 self.stdout.write(json.dumps({
                     "status": "succeeded", "mode": mode, "runId": run.id,
@@ -944,7 +1012,7 @@ class Command(BaseCommand):
                 approved.source_path_digest != path_digest
                 or approved.source_snapshot_digest != snapshot.source_digest
                 or approved.source_counts != snapshot.counts
-                or approved.manifest != _manifest(snapshot)
+                or approved.manifest != _manifest(snapshot, source_provenance)
             ):
                 raise CommandError("D1 财务迁移材料与已审批运行不一致。")
 
@@ -962,6 +1030,7 @@ class Command(BaseCommand):
                     source=snapshot,
                     target_counts=target_counts,
                     target_digest=target_digest,
+                    source_provenance=source_provenance,
                     approved_run_id=approved_run_id,
                 )
             else:
@@ -992,6 +1061,7 @@ class Command(BaseCommand):
                         source=snapshot,
                         target_counts=target_counts,
                         target_digest=target_digest,
+                        source_provenance=source_provenance,
                         approved_run_id=approved_run_id,
                     )
             self.stdout.write(json.dumps({

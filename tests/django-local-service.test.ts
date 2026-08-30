@@ -241,7 +241,11 @@ test("finance runtime uses independent loopback processes, credentials, permissi
 
   assert.match(financeCutover, /Assert-InstalledFinanceOperator/);
   assert.match(financeCutover, /Resolve-FinanceSnapshot/);
+  assert.match(financeCutover, /Resolve-FinanceSnapshotManifest/);
   assert.match(financeCutover, /migrate_finance_from_d1/);
+  assert.match(financeCutover, /--source-manifest/);
+  assert.match(financeCutover, /sourcePathSha256/);
+  assert.match(financeCutover, /outputSha256 -cne \(Get-FileSha256 \$Source\)/);
   assert.match(financeCutover, /--approved-run-id/);
   assert.match(financeCutover, /finance-d1-authority-install\.py/);
   assert.match(financeCutover, /Assert-FinanceWriterStopped/);

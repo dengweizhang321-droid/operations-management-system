@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import io
 import json
+import shutil
 import sqlite3
 import tempfile
 import uuid
@@ -10,7 +12,7 @@ from pathlib import Path
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from finance.import_service import _fingerprint, finance_scope_key
 from finance.models import (
@@ -193,6 +195,25 @@ def create_source(path: Path) -> None:
         connection.close()
 
 
+def write_source_manifest(snapshot: Path, live_source: Path, manifest: Path) -> None:
+    payload = {
+        "authority": {"cutoverId": "", "epoch": 1, "owner": "d1"},
+        "authoritySqlSha256": "e" * 64,
+        "counts": {},
+        "createdAt": "2026-08-30T01:00:00+00:00",
+        "formatVersion": "finance-d1-rehearsal-snapshot-v1",
+        "outputSha256": hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+        "sourceFinanceDigest": "f" * 64,
+        "sourcePathSha256": hashlib.sha256(
+            str(live_source.resolve()).encode("utf-8")
+        ).hexdigest(),
+    }
+    manifest.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 class FinanceMigrationCommandTests(TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -212,11 +233,11 @@ class FinanceMigrationCommandTests(TestCase):
         )
         return json.loads(output.getvalue().strip().splitlines()[-1])
 
-    def run_authority_command(self, **options):
+    def run_authority_command(self, *, source: Path | None = None, **options):
         output = io.StringIO()
         call_command(
             "finance_write_authority",
-            source=str(self.source),
+            source=str(source or self.source),
             stdout=output,
             **options,
         )
@@ -262,6 +283,13 @@ class FinanceMigrationCommandTests(TestCase):
         with self.assertRaisesMessage(CommandError, "已审批运行不一致"):
             self.run_command(**{"apply": True}, approved_run_id=dry_run["runId"])
         self.assertEqual(FinanceLine.objects.count(), 0)
+
+    @override_settings(
+        DJANGO_ENVIRONMENT="production", DJANGO_PROCESS_ROLE="migration_writer"
+    )
+    def test_production_migration_requires_controlled_source_manifest(self) -> None:
+        with self.assertRaisesMessage(CommandError, "必须提供受控源清单"):
+            self.run_command()
 
     def test_pre_fingerprint_batch_gets_deterministic_migration_audit(self) -> None:
         connection = sqlite3.connect(self.source)
@@ -328,26 +356,36 @@ class FinanceMigrationCommandTests(TestCase):
         self.assertEqual(FinanceImportAttempt.objects.count(), 2)
 
     def test_authority_prepare_abort_and_activate_are_single_writer_transitions(self) -> None:
-        dry_run = self.run_command()
+        live_source = Path(self.temporary.name) / "live.sqlite"
+        shutil.copy2(self.source, live_source)
+        source_manifest = Path(self.temporary.name) / "finance-source-manifest.json"
+        write_source_manifest(self.source, live_source, source_manifest)
+        migration_options = {"source_manifest": str(source_manifest)}
+        dry_run = self.run_command(**migration_options)
         applied = self.run_command(
-            **{"apply": True}, approved_run_id=dry_run["runId"]
+            **{"apply": True},
+            approved_run_id=dry_run["runId"],
+            **migration_options,
         )
         verified = self.run_command(
-            verify_only=True, approved_run_id=applied["runId"]
+            verify_only=True,
+            approved_run_id=applied["runId"],
+            **migration_options,
         )
         cutover_id = "finance-20260830-a"
 
-        status = self.run_authority_command()
+        status = self.run_authority_command(source=live_source)
         self.assertEqual(status["d1"]["owner"], "d1")
         self.assertEqual(status["postgresql"]["status"], "d1")
 
         prepared = self.run_authority_command(
+            source=live_source,
             prepare=True,
             verify_run_id=verified["runId"],
             cutover_id=cutover_id,
         )
         self.assertEqual(prepared["status"], "prepared")
-        with closing(sqlite3.connect(self.source)) as connection:
+        with closing(sqlite3.connect(live_source)) as connection:
             self.assertEqual(
                 connection.execute(
                     "SELECT owner FROM finance_write_authority WHERE id=1"
@@ -360,12 +398,13 @@ class FinanceMigrationCommandTests(TestCase):
                 )
 
         aborted = self.run_authority_command(
+            source=live_source,
             abort_pending=True,
             verify_run_id=verified["runId"],
             cutover_id=cutover_id,
         )
         self.assertEqual(aborted["status"], "aborted")
-        with closing(sqlite3.connect(self.source)) as connection:
+        with closing(sqlite3.connect(live_source)) as connection:
             self.assertEqual(
                 connection.execute(
                     "SELECT owner FROM finance_write_authority WHERE id=1"
@@ -374,11 +413,13 @@ class FinanceMigrationCommandTests(TestCase):
             )
 
         self.run_authority_command(
+            source=live_source,
             prepare=True,
             verify_run_id=verified["runId"],
             cutover_id=cutover_id,
         )
         activated = self.run_authority_command(
+            source=live_source,
             activate=True,
             verify_run_id=verified["runId"],
             cutover_id=cutover_id,
@@ -389,7 +430,7 @@ class FinanceMigrationCommandTests(TestCase):
         self.assertEqual(target.cutover_id, cutover_id)
         self.assertEqual(target.migration_verify_run_id, verified["runId"])
         self.assertEqual(str(target.authority_epoch), activated["authorityEpoch"])
-        with closing(sqlite3.connect(self.source)) as connection:
+        with closing(sqlite3.connect(live_source)) as connection:
             self.assertEqual(
                 connection.execute(
                     "SELECT owner FROM finance_write_authority WHERE id=1"

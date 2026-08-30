@@ -68,6 +68,24 @@ function Resolve-FinanceSnapshot([string]$Value) {
   return $canonical
 }
 
+function Resolve-FinanceSnapshotManifest([string]$Source) {
+  $manifest = Get-CanonicalPath (Join-Path (Split-Path -Parent $Source) "finance-source-manifest.json")
+  [void](Assert-RuntimeChildPath $manifest)
+  if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
+    throw "Finance migration controlled source manifest is missing"
+  }
+  $payload = Read-JsonFile $manifest "Finance migration controlled source manifest"
+  if (
+    [string]$payload.formatVersion -cne "finance-d1-rehearsal-snapshot-v1" -or
+    [string]$payload.outputSha256 -cne (Get-FileSha256 $Source) -or
+    [string]$payload.sourcePathSha256 -cnotmatch "^[0-9a-f]{64}$" -or
+    [string]$payload.sourceFinanceDigest -cnotmatch "^[0-9a-f]{64}$"
+  ) {
+    throw "Finance migration controlled source manifest does not match the snapshot"
+  }
+  return $manifest
+}
+
 function Invoke-FinanceManagementCommand([string[]]$Arguments, [string]$Operation) {
   $secrets = Read-Secrets
   $ownerUrl = Database-Url "teruisi_sales_owner" $secrets.OwnerPassword "teruisi_finance_cutover" $WriterStatementTimeoutMs
@@ -127,7 +145,11 @@ function Invoke-FinanceSnapshot {
 function Invoke-FinanceMigration([string]$Mode) {
   Assert-InstalledFinanceOperator
   $source = Resolve-FinanceSnapshot $FinanceSource
-  $arguments = @("migrate_finance_from_d1", "--source", $source)
+  $manifest = Resolve-FinanceSnapshotManifest $source
+  $arguments = @(
+    "migrate_finance_from_d1", "--source", $source,
+    "--source-manifest", $manifest
+  )
   if ($Mode -eq "apply") {
     if ($ApprovedRunId -cnotmatch "^[0-9a-f]{32}$") { throw "Finance apply requires a valid approved run id" }
     $arguments += @("--apply", "--approved-run-id", $ApprovedRunId)
