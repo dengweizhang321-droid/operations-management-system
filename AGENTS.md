@@ -44,6 +44,7 @@
 - 本机销售服务固定运行于 `D:\teruisi-runtime\django-sales`：PostgreSQL 17.11 只监听 `127.0.0.1:5432`，Django 5.2.17/Waitress 3.0.2 只监听 `127.0.0.1:8001/8002`。长期进程使用独立最小权限 reader、writer 与 ERP bridge 角色，凭据仅保存为当前 Windows 用户绑定的 DPAPI 密文；readiness 必须验证 schema、索引、authority、attestation、revision、ERP checkpoint/心跳和只读事务。登录快捷方式不是 Windows Service；顶层进程崩溃后仍需受控检查和显式启动。
 - 销售 PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。过期备份清理必须保留至少 30 天和至少 7 份已验证成功备份，只能删除固定 `postgres-daily` 根目录下通过 manifest、SHA-256 与 archive 复验的精确 `daily-*` 直接子目录，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
 - Django runtime 守护只能在显式 `desiredState=running`、连续两次确认本部署 PostgreSQL 或 reader/writer/ERP bridge 进程确实停止、且端口/进程/ACL 身份均正常时调用既有 `Start`；状态探针失败、端口冲突、所有权异常、进程仍在但 readiness 失败或 ERP checkpoint/revision/摘要/心跳分歧只能告警，禁止自动重启或调用 `Stop`。自动 Start 必须在服务 mutex 内复验 desired-state 文件 SHA-256 fencing token，15 分钟最多 3 次。告警只写脱敏本地 outbox；外部发送仍须动态唯一核验“志高助手”与“测试群聊”，不得保存或猜测机器人/群身份。启用与回退见 `docs/DJANGO_RUNTIME_SUPERVISION.md`。
+- `GET /api/sales/data-health` 只允许无数据范围限制的 `operator/admin`，且只能复用 Django reader 已有的 `freshness` consumer；返回单写来源、动态 revision、上海业务日期、销售覆盖、机械 lag 天数和最近成功批次。不得为该接口扩大 reader 数据库权限、读取 runtime/备份/告警文件、定义未经确认的“过期”阈值，或在销售/财务页面模板中复制另一套新鲜度口径。
 - 后续业务域复用 Django/PostgreSQL 时必须遵守 `docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`。每个领域保留独立 app、迁移、写权限、revision、幂等/范围 owner 和切换证据；新增领域故障只能使该领域失败关闭，不得改变销售 authority、销售事实、ERP bridge、其他模块写入所有权或其他页面可用性。迁移开发和测试只使用隔离工作树与临时数据库，正式切换前不得停止或重启其他模块服务。
 
 ## 3. 统一业务口径

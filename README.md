@@ -91,6 +91,8 @@ npm run dingtalk:robot:send -- --text "hello"
 
 后续业务域复用销售基础时必须遵守 [`docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`](docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md)。财务分析虽然位于“销售分析”页面内，但仍是独立数据所有权范围；其迁移不得修改销售 authority、销售事实、ERP bridge 或其他模块运行状态。销售 PostgreSQL 的不停服日常备份、独立端口恢复演练和受控保留规则见 [`docs/DJANGO_POSTGRES_OPERATIONS.md`](docs/DJANGO_POSTGRES_OPERATIONS.md)；该流程不会自动启停任何在线服务，也不会把演练数据恢复到生产库。Django runtime 的崩溃恢复、desired-state fencing 和主动健康告警见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)；仓库提供能力不代表当前本机已安装，启用必须在现有服务全健康且不中断运行的独立步骤中完成。
 
+销售数据运维可见性使用只读 `GET /api/sales/data-health`：仅 `operator/admin` 且无数据范围限制的账号可读取，返回 Django/PostgreSQL 单写来源、动态 sales/ERP revision、上海业务日期、销售覆盖起止日、距当前业务日的机械天数、是否覆盖昨天及最近成功批次。该接口不自行定义“过期”阈值，不读取 runtime 文件或凭据，也没有改动销售/财务页面模板。
+
 ## 项目文档与长期信息
 
 - `README.md` 维护面向使用者的当前系统说明、启动方式、主要能力和必要限制。
