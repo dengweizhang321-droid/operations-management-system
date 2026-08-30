@@ -1421,6 +1421,23 @@ test("trusted Django verifier refuses a different candidate verifier", async () 
   }
 });
 
+test("local port probe detects an exact IPv4 loopback listener", async () => {
+  const server = createServer();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen({ host: "127.0.0.1", port: 0, exclusive: true }, resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    assert.equal(await probeAnyLocalPort(address.port), true);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
+
 test("release source fixes build closure, real contract tests, guard and authority protocols", async () => {
   const source = await readFile("tools/worker-local-release.mjs", "utf8");
   assert.match(source, /Worker 发布构建固定要求 Node 24\.x/);

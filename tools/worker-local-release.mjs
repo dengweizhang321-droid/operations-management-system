@@ -17,7 +17,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { createServer } from "node:net";
+import { createConnection, createServer } from "node:net";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
@@ -1837,6 +1837,28 @@ async function verifyHardLinks(manifest, releaseRoot) {
 }
 
 export async function probeAnyLocalPort(port) {
+  const canConnect = (host) => new Promise((resolveProbe, rejectProbe) => {
+    const socket = createConnection({ host, port });
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolveProbe(value);
+    };
+    socket.setTimeout(500);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", (error) => {
+      if (["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL"].includes(error?.code)) {
+        finish(false);
+      } else {
+        settled = true;
+        socket.destroy();
+        rejectProbe(error);
+      }
+    });
+  });
   const cannotBind = (host, options = {}) => new Promise((resolveProbe, rejectProbe) => {
     const server = createServer();
     server.unref();
@@ -1848,6 +1870,7 @@ export async function probeAnyLocalPort(port) {
       server.close((error) => (error ? rejectProbe(error) : resolveProbe(false)));
     });
   });
+  if (await canConnect("127.0.0.1") || await canConnect("::1")) return true;
   if (await cannotBind("0.0.0.0")) return true;
   return cannotBind("::", { ipv6Only: true });
 }
