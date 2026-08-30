@@ -22,6 +22,7 @@ const nativePs5RuntimeTest = readFileSync(
   "tests/django-local-service-native-ps5.test.ps1",
   "utf8",
 );
+const financeCutover = readFileSync("tools/django-finance-cutover.ps1", "utf8");
 
 test("Django local service binds PostgreSQL and Waitress to loopback with bounded requests", () => {
   assert.match(script, /127\.0\.0\.1:5432\/\$\{escapedDatabase\}/);
@@ -40,7 +41,7 @@ test("Django local service binds PostgreSQL and Waitress to loopback with bounde
 
 test("Django local status keeps ACL verification bounded and labels its root-only scope", () => {
   const statusBlock = script.match(
-    /function Show-ServiceStatus \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Install-StartupShortcut/,
+    /function Show-ServiceStatus \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Show-FinanceServiceStatus/,
   )?.[1];
   assert.ok(statusBlock, "Show-ServiceStatus block must remain discoverable");
   assert.match(statusBlock, /Assert-RuntimeRootAclHardened/);
@@ -115,6 +116,10 @@ test("writer readiness fails closed on stale or divergent ERP bridge state", () 
     /"erp_reference_sync_checkpoint": \("SELECT",\)/,
   );
   assert.match(health, /WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES/);
+  assert.match(
+    health,
+    /"sales_raw_upload_chunks": \{[\s\S]*?"payload"/,
+  );
   assert.match(
     health,
     /if writer_process:[\s\S]*?_validate_writer_permissions\(cursor\)[\s\S]*?_validate_reader_state\(cursor\)/,
@@ -199,7 +204,7 @@ test("critical Django native calls are PS5-safe and report only bounded redacted
 });
 
 test("configuration fixes separate endpoints and an exact ERP-only D1 source", () => {
-  assert.match(script, /version = 3/);
+  assert.match(script, /version = 4/);
   assert.match(script, /readerAddress = "127\.0\.0\.1:8001"/);
   assert.match(script, /writerAddress = "127\.0\.0\.1:8002"/);
   assert.match(script, /erpSourceD1 = \$resolvedErpSource/);
@@ -213,6 +218,43 @@ test("configuration fixes separate endpoints and an exact ERP-only D1 source", (
   assert.match(script, /DjangoWriter = \$writer/);
   assert.match(script, /ErpReferenceSync = \$erpReference/);
   assert.doesNotMatch(script, /sales_projection_source|sales_projection_outbox/);
+});
+
+test("finance runtime uses independent loopback processes, credentials, permissions, and cutover gates", () => {
+  assert.match(script, /--listen=127\.0\.0\.1:8011/);
+  assert.match(script, /--listen=127\.0\.0\.1:8012/);
+  assert.match(script, /databaseFinanceReader/);
+  assert.match(script, /databaseFinanceWriter/);
+  assert.match(script, /Database-Url "teruisi_finance_reader" \$Secrets\.FinanceReaderPassword/);
+  assert.match(script, /Database-Url "teruisi_finance_writer" \$Secrets\.FinanceWriterPassword/);
+  assert.match(script, /TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = \$AuthorityEpoch/);
+  assert.match(script, /TERUISI_DJANGO_FINANCE_CUTOVER_ID = \$CutoverId/);
+  assert.match(script, /ALTER ROLE teruisi_finance_reader SET default_transaction_read_only = on/);
+  assert.match(script, /GRANT SELECT ON finance_import_batches, finance_months, finance_lines/);
+  assert.match(script, /GRANT SELECT ON finance_write_authority TO teruisi_finance_writer/);
+  assert.match(script, /Start-DjangoFinanceWriter \$secrets \$financeAuthority/);
+  assert.match(script, /\$salesCoreReady = \$true[\s\S]*?Start-DjangoFinanceReader/);
+  assert.match(script, /if \(\$salesCoreReady\) \{[\s\S]*?finance_domain_start_failed_sales_preserved[\s\S]*?throw \$originalError/);
+  assert.match(script, /Stop-OwnedProcess "django-finance-writer"/);
+  assert.match(script, /Stop-OwnedProcess "django-finance-reader"/);
+  assert.doesNotMatch(script, /Database-Url "teruisi_sales_(?:reader|writer)" \$Secrets\.Finance/);
+
+  assert.match(financeCutover, /Assert-InstalledFinanceOperator/);
+  assert.match(financeCutover, /Resolve-FinanceSnapshot/);
+  assert.match(financeCutover, /migrate_finance_from_d1/);
+  assert.match(financeCutover, /--approved-run-id/);
+  assert.match(financeCutover, /finance-d1-authority-install\.py/);
+  assert.match(financeCutover, /Assert-FinanceWriterStopped/);
+  assert.match(financeCutover, /finance_write_authority/);
+  assert.match(financeCutover, /Invoke-WithServiceMutex/);
+  assert.doesNotMatch(financeCutover, /(?:password|secret)[=:]/i);
+});
+
+test("runtime deployment includes every finance cutover dependency", () => {
+  assert.match(script, /tools\\django-finance-cutover\.ps1/);
+  assert.match(script, /tools\\finance-d1-authority-install\.py/);
+  assert.match(script, /tools\\finance_d1_rehearsal_snapshot\.py/);
+  assert.match(script, /drizzle\\0093_finance_write_authority\.sql/);
 });
 
 test("configuration, deployment, and code rollback require a fully stopped stack", () => {

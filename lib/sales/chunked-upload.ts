@@ -1,14 +1,14 @@
-import { env } from "cloudflare:workers";
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import {
+  SALES_RAW_UPLOAD_CHUNK_PATH,
   SALES_RAW_UPLOADS_PATH,
   requestDjangoSalesService,
 } from "@/lib/django/sales-writer";
 import { PublicApiError } from "@/lib/http/api-error";
 import type { SalesImportExecution } from "@/lib/sales/import-service";
 
-// Raw bytes remain in R2, while PostgreSQL is the sole authority for upload
-// identity, state, ownership and chunk metadata.
+// PostgreSQL is the sole authority for raw bytes, upload identity, state,
+// ownership and chunk metadata.
 export const SALES_UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 export const MAX_CHUNKED_SALES_FILE_BYTES = 128 * 1024 * 1024;
 
@@ -62,11 +62,30 @@ function sha256(bytes: Uint8Array) {
   return crypto.subtle.digest("SHA-256", input);
 }
 
-function bucket() {
-  if (!env.SALES_IMPORT_FILES) {
-    throw new Error("R2 binding `SALES_IMPORT_FILES` is unavailable.");
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (let offset = 0; offset < bytes.byteLength; offset += 32_768) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 32_768));
   }
-  return env.SALES_IMPORT_FILES;
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string) {
+  if (!value || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value)) {
+    throw uploadRequestError(422, "PostgreSQL 分片内容编码无效，请重新上传该文件");
+  }
+  let binary: string;
+  try {
+    binary = atob(value);
+  } catch {
+    throw uploadRequestError(422, "PostgreSQL 分片内容编码无效，请重新上传该文件");
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  if (bytesToBase64(bytes) !== value) {
+    throw uploadRequestError(422, "PostgreSQL 分片内容编码无效，请重新上传该文件");
+  }
+  return bytes;
 }
 
 function assertSession(value: unknown): SalesUploadSession {
@@ -143,8 +162,6 @@ export async function sweepExpiredSalesUploads(principal: AppPrincipal) {
       id: string;
       ownerGeneration: number;
       cleanupToken: string;
-      objectPrefix: string;
-      objectKeys: string[];
     }> };
   }>(principal, {
     method: "POST",
@@ -158,21 +175,8 @@ export async function sweepExpiredSalesUploads(principal: AppPrincipal) {
     if (!item || typeof item.id !== "string"
       || !Number.isSafeInteger(item.ownerGeneration)
       || typeof item.cleanupToken !== "string"
-      || !/^[a-f0-9]{32}$/.test(item.cleanupToken)
-      || item.objectPrefix !== `sales-upload/${item.id}/`
-      || !Array.isArray(item.objectKeys)
-      || item.objectKeys.some((key) => typeof key !== "string")) continue;
+      || !/^[a-f0-9]{32}$/.test(item.cleanupToken)) continue;
     try {
-      // The PG cleanup lease freezes this session before any R2 deletion. List
-      // the whole session prefix as well as the registered manifest so an
-      // ambiguous register response cannot leave an untracked object forever.
-      const listed = await bucket().list({ prefix: item.objectPrefix, limit: 1_000 });
-      const keys = Array.from(new Set([
-        ...item.objectKeys,
-        ...listed.objects.map((object) => object.key),
-      ]));
-      if (keys.length > 0) await bucket().delete(keys);
-      if (listed.truncated) continue;
       await requestDjangoSalesService(principal, {
         method: "POST",
         path: SALES_RAW_UPLOADS_PATH,
@@ -182,12 +186,11 @@ export async function sweepExpiredSalesUploads(principal: AppPrincipal) {
           uploadId: item.id,
           ownerGeneration: item.ownerGeneration,
           cleanupToken: item.cleanupToken,
-          objectKeys: item.objectKeys,
         },
       });
     } catch {
-      // Keep the PostgreSQL manifest unless R2 deletion and the generation-
-      // fenced purge both complete. The next init retries the same cleanup.
+      // Keep the PostgreSQL manifest unless the generation-fenced purge
+      // completes. The next init retries the same cleanup lease.
     }
   }
 }
@@ -210,7 +213,6 @@ export async function receiveSalesUploadChunk(principal: AppPrincipal, input: {
 
   const checksum = toHex(await sha256(input.bytes));
   const objectKey = `sales-upload/${upload.id}/${input.chunkIndex.toString().padStart(6, "0")}-${checksum}-${crypto.randomUUID()}`;
-  await bucket().put(objectKey, input.bytes, { httpMetadata: { contentType: "application/octet-stream" } });
   try {
     const result = await requestDjangoSalesService<{ upload: SalesUploadSession }>(principal, {
       method: "PUT",
@@ -222,29 +224,23 @@ export async function receiveSalesUploadChunk(principal: AppPrincipal, input: {
         objectKey,
         sizeBytes: input.bytes.byteLength,
         sha256: checksum,
+        contentBase64: bytesToBase64(input.bytes),
       },
     });
     const adopted = assertSession(result.data.upload);
-    if (adopted.discardedObjectKey === objectKey) {
-      await bucket().delete(objectKey).catch(() => undefined);
-    }
     return adopted;
   } catch (error) {
-    // The writer may have committed the registration while its response was
-    // lost. A writer-side reconciliation is authoritative: never delete an
-    // object that PostgreSQL has already adopted.
+    // The writer may have committed the bytes while its response was lost.
+    // PostgreSQL metadata is authoritative for response-loss reconciliation.
     try {
       const reconciled = await readSalesUpload(principal, upload.id);
       const adopted = (reconciled.chunks ?? []).find((chunk) => chunk.chunkIndex === input.chunkIndex);
-      if (adopted?.objectKey === objectKey
-        && adopted.sha256 === checksum
+      if (adopted?.sha256 === checksum
         && adopted.sizeBytes === input.bytes.byteLength) {
         return reconciled;
       }
-      // PostgreSQL positively points elsewhere, so this new object is orphaned.
-      await bucket().delete(objectKey).catch(() => undefined);
     } catch {
-      // An ambiguous writer read must retain the object for a later retry/sweeper.
+      // Preserve the original error when writer reconciliation is ambiguous.
     }
     throw error;
   }
@@ -273,7 +269,6 @@ export async function claimSalesUpload(principal: AppPrincipal, uploadId: string
 export async function assembleSalesUpload(principal: AppPrincipal, claimed: SalesUploadSession): Promise<{
   session: SalesUploadSession;
   bytes: Uint8Array;
-  objectKeys: string[];
 }> {
   if (claimed.status !== "processing" || typeof claimed.ownerToken !== "string") {
     throw uploadRequestError(409, "销售上传会话尚未由本次请求接管");
@@ -288,9 +283,30 @@ export async function assembleSalesUpload(principal: AppPrincipal, claimed: Sale
   const bytes = new Uint8Array(upload.fileSizeBytes);
   let offset = 0;
   for (const chunk of chunks) {
-    const object = await bucket().get(chunk.objectKey);
-    if (!object) throw uploadRequestError(422, "部分上传分片已丢失，请重新上传该文件");
-    const part = new Uint8Array(await object.arrayBuffer());
+    const result = await requestDjangoSalesService<{
+      chunk: {
+        chunkIndex: number;
+        sizeBytes: number;
+        sha256: string;
+        contentBase64: string;
+      };
+    }>(principal, {
+      method: "POST",
+      path: SALES_RAW_UPLOAD_CHUNK_PATH,
+      service: "writer",
+      payload: {
+        uploadId: upload.id,
+        chunkIndex: chunk.chunkIndex,
+        ownerToken: claimed.ownerToken,
+      },
+    });
+    const stored = result.data.chunk;
+    if (!stored || stored.chunkIndex !== chunk.chunkIndex
+      || stored.sizeBytes !== chunk.sizeBytes || stored.sha256 !== chunk.sha256
+      || typeof stored.contentBase64 !== "string") {
+      throw uploadRequestError(422, "PostgreSQL 分片元数据不一致，请重新上传该文件");
+    }
+    const part = base64ToBytes(stored.contentBase64);
     if (part.byteLength !== chunk.sizeBytes) throw uploadRequestError(422, "分片完整性校验失败，请重新上传该文件");
     if (toHex(await sha256(part)) !== chunk.sha256) throw uploadRequestError(422, "分片校验码不一致，请重新上传该文件");
     bytes.set(part, offset);
@@ -300,7 +316,6 @@ export async function assembleSalesUpload(principal: AppPrincipal, claimed: Sale
   return {
     session: { ...upload, ownerToken: claimed.ownerToken },
     bytes,
-    objectKeys: chunks.map((chunk) => chunk.objectKey),
   };
 }
 
@@ -308,7 +323,6 @@ export async function finishSalesUpload(
   principal: AppPrincipal,
   uploadId: string,
   ownerToken: string,
-  objectKeys: string[],
   completed: boolean,
   resultBatchId?: string,
 ) {
@@ -334,16 +348,14 @@ export async function finishSalesUpload(
     if (!committed) throw error;
   }
   if (!completed) return;
-  await cleanupCompletedSalesUpload(principal, uploadId, objectKeys);
+  await cleanupCompletedSalesUpload(principal, uploadId);
 }
 
 export async function cleanupCompletedSalesUpload(
   principal: AppPrincipal,
   uploadId: string,
-  objectKeys: readonly string[],
 ) {
   try {
-    if (objectKeys.length > 0) await bucket().delete(Array.from(objectKeys));
     await requestDjangoSalesService(principal, {
       method: "POST",
       path: SALES_RAW_UPLOADS_PATH,
@@ -352,6 +364,6 @@ export async function cleanupCompletedSalesUpload(
     });
   } catch {
     // PostgreSQL keeps the terminal session/chunk manifest. A completed replay
-    // will retry idempotent R2 deletion and metadata cleanup.
+    // retries the same idempotent metadata-and-payload cleanup.
   }
 }

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import uuid
 from datetime import datetime, timedelta
@@ -40,6 +42,7 @@ from sales.write_service import (
     list_expired_raw_uploads,
     lock_active_write_authority,
     purge_expired_raw_upload,
+    read_raw_upload_chunk,
     register_raw_upload_chunk,
     stage_normalized_chunk,
 )
@@ -49,6 +52,28 @@ AUTHORITY_EPOCH = "11111111-1111-4111-8111-111111111111"
 CUTOVER_ID = "sales-cutover-20260828"
 CHANNEL_A = "京东-志高商用厨电旗舰店"
 CHANNEL_B = "天猫-志高拓丰专卖店"
+
+
+def raw_chunk_registration(
+    upload_id: str,
+    chunk_index: int,
+    content: bytes,
+    *,
+    object_key: str | None = None,
+) -> dict[str, object]:
+    checksum = hashlib.sha256(content).hexdigest()
+    return {
+        "uploadId": upload_id,
+        "chunkIndex": chunk_index,
+        "sizeBytes": len(content),
+        "sha256": checksum,
+        "objectKey": object_key
+        or (
+            f"sales-upload/{upload_id}/{chunk_index:06d}-{checksum}-"
+            f"{uuid.uuid4()}"
+        ),
+        "contentBase64": base64.b64encode(content).decode("ascii"),
+    }
 
 
 def normalized_row(number: int, **overrides: object) -> dict[str, object]:
@@ -389,36 +414,24 @@ class SalesWriteServiceTests(TestCase):
             "admin@example.test",
         )
         upload_id = str(upload["id"])
-        checksums = ["1" * 64, "2" * 64]
-        sizes = [2 * 1024 * 1024, 7]
+        contents = [b"a" * (2 * 1024 * 1024), b"second!"]
+        registrations = [
+            raw_chunk_registration(upload_id, index, content)
+            for index, content in enumerate(contents)
+        ]
         for index in range(2):
-            object_key = (
-                f"sales-upload/{upload_id}/{index:06d}-{checksums[index]}-{uuid.uuid4()}"
-            )
+            object_key = str(registrations[index]["objectKey"])
             registered = register_raw_upload_chunk(
-                {
-                    "uploadId": upload_id,
-                    "chunkIndex": index,
-                    "sizeBytes": sizes[index],
-                    "sha256": checksums[index],
-                    "objectKey": object_key,
-                },
+                registrations[index],
                 "admin@example.test",
             )
             if index == 0:
                 first_object_key = object_key
         self.assertEqual(registered["status"], "ready")
-        retry_object_key = (
-            f"sales-upload/{upload_id}/000000-{checksums[0]}-{uuid.uuid4()}"
-        )
+        retry = raw_chunk_registration(upload_id, 0, contents[0])
+        retry_object_key = str(retry["objectKey"])
         retried = register_raw_upload_chunk(
-            {
-                "uploadId": upload_id,
-                "chunkIndex": 0,
-                "sizeBytes": sizes[0],
-                "sha256": checksums[0],
-                "objectKey": retry_object_key,
-            },
+            retry,
             "admin@example.test",
         )
         self.assertEqual(retried["discardedObjectKey"], retry_object_key)
@@ -428,29 +441,40 @@ class SalesWriteServiceTests(TestCase):
             ).object_key,
             first_object_key,
         )
-        with self.assertRaisesRegex(SalesImportServiceError, "对象键"):
+        with self.assertRaisesRegex(SalesImportServiceError, "存储键"):
+            invalid_key = raw_chunk_registration(upload_id, 1, contents[1])
+            invalid_key["objectKey"] = f"{invalid_key['objectKey']}/unexpected"
             register_raw_upload_chunk(
-                {
-                    "uploadId": upload_id,
-                    "chunkIndex": 1,
-                    "sizeBytes": 7,
-                    "sha256": checksums[1],
-                    "objectKey": (
-                        f"sales-upload/{upload_id}/000001-{checksums[1]}-"
-                        f"{uuid.uuid4()}/unexpected"
-                    ),
-                },
+                invalid_key,
                 "admin@example.test",
             )
 
         first_claim = claim_raw_upload(upload_id, "admin@example.test")
         first_owner = str(first_claim["ownerToken"])
+        stored = read_raw_upload_chunk(
+            {
+                "uploadId": upload_id,
+                "chunkIndex": 1,
+                "ownerToken": first_owner,
+            },
+            "admin@example.test",
+        )
+        self.assertEqual(base64.b64decode(str(stored["contentBase64"])), contents[1])
         SalesRawUploadSession.objects.filter(id=upload_id).update(
             updated_at=timezone.now() - timedelta(minutes=31)
         )
         second_claim = claim_raw_upload(upload_id, "admin@example.test")
         second_owner = str(second_claim["ownerToken"])
         self.assertNotEqual(first_owner, second_owner)
+        with self.assertRaisesRegex(SalesImportServiceError, "当前处理 owner"):
+            read_raw_upload_chunk(
+                {
+                    "uploadId": upload_id,
+                    "chunkIndex": 1,
+                    "ownerToken": first_owner,
+                },
+                "admin@example.test",
+            )
         with self.assertRaisesRegex(SalesImportServiceError, "新 owner"):
             finish_raw_upload(
                 upload_id,
@@ -481,17 +505,8 @@ class SalesWriteServiceTests(TestCase):
             "admin@example.test",
         )
         upload_id = str(upload["id"])
-        checksum = "3" * 64
         register_raw_upload_chunk(
-            {
-                "uploadId": upload_id,
-                "chunkIndex": 0,
-                "sizeBytes": 1,
-                "sha256": checksum,
-                "objectKey": (
-                    f"sales-upload/{upload_id}/000000-{checksum}-{uuid.uuid4()}"
-                ),
-            },
+            raw_chunk_registration(upload_id, 0, b"3"),
             "admin@example.test",
         )
         first_owner = str(
@@ -568,7 +583,7 @@ class SalesWriteServiceTests(TestCase):
         self.assertEqual(len(cleanup["removedObjectKeys"]), 1)
         self.assertEqual(cleanup_raw_upload_chunks(upload_id, "admin@example.test")["removedObjectKeys"], [])
 
-    def test_expired_raw_cleanup_requires_exact_generation_and_manifest(self) -> None:
+    def test_expired_raw_cleanup_requires_exact_generation(self) -> None:
         uploader = "uploader@example.test"
         upload = begin_raw_upload(
             {
@@ -582,16 +597,9 @@ class SalesWriteServiceTests(TestCase):
             uploader,
         )
         upload_id = str(upload["id"])
-        checksum = "d" * 64
-        object_key = f"sales-upload/{upload_id}/000000-{checksum}-{uuid.uuid4()}"
+        registration = raw_chunk_registration(upload_id, 0, b"d")
         register_raw_upload_chunk(
-            {
-                "uploadId": upload_id,
-                "chunkIndex": 0,
-                "sizeBytes": 1,
-                "sha256": checksum,
-                "objectKey": object_key,
-            },
+            registration,
             uploader,
         )
         old_claim = claim_raw_upload(upload_id, uploader)
@@ -599,7 +607,6 @@ class SalesWriteServiceTests(TestCase):
             expires_at=timezone.now() - timedelta(seconds=1)
         )
         candidate = list_expired_raw_uploads("admin@example.test")["items"][0]
-        self.assertEqual(candidate["objectKeys"], [object_key])
         self.assertEqual(candidate["ownerGeneration"], 2)
         replay_candidate = list_expired_raw_uploads("admin@example.test")["items"][0]
         self.assertEqual(replay_candidate["cleanupToken"], candidate["cleanupToken"])
@@ -618,13 +625,7 @@ class SalesWriteServiceTests(TestCase):
             )
         with self.assertRaises(SalesImportServiceError):
             register_raw_upload_chunk(
-                {
-                    "uploadId": upload_id,
-                    "chunkIndex": 0,
-                    "sizeBytes": 1,
-                    "sha256": checksum,
-                    "objectKey": object_key,
-                },
+                registration,
                 uploader,
             )
         with self.assertRaisesRegex(SalesImportServiceError, "栅栏"):
@@ -633,38 +634,26 @@ class SalesWriteServiceTests(TestCase):
                 "admin@example.test",
                 owner_generation=3,
                 cleanup_token=candidate["cleanupToken"],
-                object_keys=[object_key],
             )
         purge_expired_raw_upload(
             upload_id,
             "admin@example.test",
             owner_generation=2,
             cleanup_token=candidate["cleanupToken"],
-            object_keys=[object_key],
         )
         expired = SalesRawUploadSession.objects.get(id=upload_id)
         self.assertEqual(expired.status, "expired")
         self.assertEqual(expired.received_chunk_count, 0)
         self.assertEqual(SalesRawUploadChunk.objects.filter(session=expired).count(), 0)
-        self.assertGreater(expired.expires_at, timezone.now())
+        self.assertLessEqual(expired.expires_at, timezone.now())
 
-        # A late put can occur after the first prefix listing. The expired
-        # tombstone becomes globally claimable again when its recheck is due.
+        # PostgreSQL deletion is terminal; expired tombstones are not leased
+        # again because there is no external object-store orphan to recheck.
         SalesRawUploadSession.objects.filter(id=upload_id).update(
             expires_at=timezone.now() - timedelta(seconds=1)
         )
-        orphan_recheck = list_expired_raw_uploads("another-admin@example.test")[
-            "items"
-        ][0]
-        self.assertEqual(orphan_recheck["ownerGeneration"], 3)
-        self.assertNotEqual(orphan_recheck["cleanupToken"], candidate["cleanupToken"])
-        self.assertEqual(orphan_recheck["objectKeys"], [])
-        purge_expired_raw_upload(
-            upload_id,
-            "another-admin@example.test",
-            owner_generation=3,
-            cleanup_token=orphan_recheck["cleanupToken"],
-            object_keys=[],
+        self.assertEqual(
+            list_expired_raw_uploads("another-admin@example.test")["items"], []
         )
 
     def test_scope_stale_takeover_fences_old_owner(self) -> None:

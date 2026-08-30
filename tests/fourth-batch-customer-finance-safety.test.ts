@@ -13,7 +13,6 @@ const testEnvironment: {
   TERUISI_DJANGO_SALES_READER_BASE_URL?: string;
   TERUISI_DJANGO_SALES_WRITER_BASE_URL?: string;
   TERUISI_DJANGO_INTERNAL_SECRET?: string;
-  SALES_IMPORT_FILES?: unknown;
 } = {};
 (globalThis as typeof globalThis & { __fourthBatchEnv?: typeof testEnvironment }).__fourthBatchEnv = testEnvironment;
 
@@ -1197,45 +1196,26 @@ test("销售、财务、库存和 ERP 畸形工作簿只返回受控解析错误
   sqlite.close();
 });
 
-test("过期销售 R2 清理先领取 PG lease，删除失败和响应丢失都用同 token 重放", async () => {
+test("过期销售 PG 分片清理先领取 lease，响应丢失仍用同 token 重放", async () => {
   const { sweepExpiredSalesUploads } = await import("../lib/sales/chunked-upload");
   const originalFetch = globalThis.fetch;
   const uploadId = "11111111-1111-4111-8111-111111111111";
   const cleanupToken = "a".repeat(32);
-  const manifestKey = `sales-upload/${uploadId}/000000-manifest`;
-  const orphanKey = `sales-upload/${uploadId}/000000-ambiguous-orphan`;
-  const remaining = new Set([manifestKey, orphanKey]);
-  const deletedBatches: string[][] = [];
   const purgePayloads: Array<Record<string, unknown>> = [];
-  let deleteAttempts = 0;
   try {
     testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001";
     testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = "http://127.0.0.1:8002";
     testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = "s".repeat(32);
-    testEnvironment.SALES_IMPORT_FILES = {
-      list: async ({ prefix }: { prefix: string }) => ({
-        objects: [...remaining].filter((key) => key.startsWith(prefix)).map((key) => ({ key })),
-        truncated: false,
-      }),
-      delete: async (keys: string[]) => {
-        deleteAttempts += 1;
-        if (deleteAttempts === 1) throw new Error("injected R2 delete failure");
-        deletedBatches.push([...keys]);
-        keys.forEach((key) => remaining.delete(key));
-      },
-    };
     globalThis.fetch = async (_input, init) => {
       const payload = JSON.parse(Buffer.from(init?.body as Uint8Array).toString("utf8")) as Record<string, unknown>;
       if (payload.action === "sweep") {
         return new Response(JSON.stringify({
           sweep: {
             items: [{
-              id: uploadId,
-              ownerGeneration: 2,
-              cleanupToken,
-              objectPrefix: `sales-upload/${uploadId}/`,
-              objectKeys: [manifestKey],
-            }],
+               id: uploadId,
+               ownerGeneration: 2,
+               cleanupToken,
+             }],
           },
         }), { status: 200, headers: { "content-type": "application/json" } });
       }
@@ -1253,24 +1233,19 @@ test("过期销售 R2 清理先领取 PG lease，删除失败和响应丢失都�
     };
 
     await sweepExpiredSalesUploads(unrestrictedAdmin);
-    assert.equal(purgePayloads.length, 0);
-    assert.deepEqual([...remaining].sort(), [manifestKey, orphanKey].sort());
-
-    await sweepExpiredSalesUploads(unrestrictedAdmin);
     assert.equal(purgePayloads.length, 1);
-    assert.deepEqual(deletedBatches[0]?.sort(), [manifestKey, orphanKey].sort());
-    assert.equal(remaining.size, 0);
 
     await sweepExpiredSalesUploads(unrestrictedAdmin);
     assert.equal(purgePayloads.length, 2);
     assert.ok(purgePayloads.every((payload) => payload.cleanupToken === cleanupToken));
     assert.ok(purgePayloads.every((payload) => payload.ownerGeneration === 2));
+    assert.ok(purgePayloads.every((payload) => payload.uploadId === uploadId));
+    assert.ok(purgePayloads.every((payload) => !("objectKeys" in payload)));
   } finally {
     globalThis.fetch = originalFetch;
     delete testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
     delete testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
     delete testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
-    delete testEnvironment.SALES_IMPORT_FILES;
   }
 });
 

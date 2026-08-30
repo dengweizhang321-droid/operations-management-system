@@ -24,7 +24,9 @@ from sales.write_service import SalesImportServiceError
 from sales.write_service import (
     begin_raw_upload,
     begin_staged_import,
+    claim_raw_upload,
     complete_staged_import,
+    register_raw_upload_chunk,
     stage_normalized_chunk,
 )
 
@@ -33,6 +35,7 @@ from .test_write_service import (
     AUTHORITY_EPOCH,
     CUTOVER_ID,
     normalized_row,
+    raw_chunk_registration,
 )
 from .cutover_fixtures import install_writer_runtime_guard
 
@@ -289,6 +292,63 @@ class SalesWriteApiTests(TestCase):
         )
         self.assertEqual(restricted.status_code, 403)
         self.assertEqual(SalesWriteRequestReceipt.objects.count(), 0)
+
+    def test_chunk_payload_read_is_owner_fenced_and_not_a_write_receipt(self) -> None:
+        upload = begin_raw_upload(
+            {
+                "fingerprint": "chunk-payload-api",
+                "fileName": "sales.xlsx",
+                "fileSizeBytes": 7,
+                "chunkCount": 1,
+                "expectedStartDate": "2024-01-01",
+                "expectedEndDate": "2024-01-01",
+            },
+            "admin@example.test",
+        )
+        registration = raw_chunk_registration(str(upload["id"]), 0, b"payload")
+        register_raw_upload_chunk(registration, "admin@example.test")
+        owner = str(
+            claim_raw_upload(str(upload["id"]), "admin@example.test")["ownerToken"]
+        )
+        url = "/api/sales/imports/uploads/chunk"
+        payload: dict[str, object] = {
+            "uploadId": upload["id"],
+            "chunkIndex": 0,
+            "ownerToken": owner,
+        }
+        body = json_body(payload)
+        response = self.client.post(
+            url,
+            data=body,
+            content_type="application/json",
+            headers=signed_headers(
+                url,
+                method="POST",
+                body=body,
+                request_id="chunk-payload-read-1",
+            ),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(
+            response.json()["chunk"]["contentBase64"],
+            registration["contentBase64"],
+        )
+        self.assertEqual(SalesWriteRequestReceipt.objects.count(), 0)
+
+        stale_body = json_body({**payload, "ownerToken": "f" * 32})
+        stale = self.client.post(
+            url,
+            data=stale_body,
+            content_type="application/json",
+            headers=signed_headers(
+                url,
+                method="POST",
+                body=stale_body,
+                request_id="chunk-payload-read-2",
+            ),
+        )
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.json()["code"], "conflict")
 
     def test_verify_and_import_listing_read_back_published_batch(self) -> None:
         session = begin_staged_import(

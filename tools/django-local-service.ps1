@@ -2,7 +2,8 @@
 param(
   [ValidateSet(
     "Configure", "DeployApp", "HardenAcl", "Start", "Stop", "Status",
-    "ProvisionErpRole", "InitializeErpReference", "RollbackApp",
+    "ProvisionErpRole", "ProvisionFinanceRoles", "InitializeErpReference", "RollbackApp",
+    "StartFinance", "StopFinance", "FinanceStatus",
     "InstallStartup", "RemoveStartup", "PlanSalesD1Retirement", "RetireSalesD1",
     "CreateSalesCutoverSmokeReceipt"
   )]
@@ -37,6 +38,8 @@ $LogDirectory = Join-Path $RuntimeRoot "logs"
 $RunDirectory = Join-Path $RuntimeRoot "run"
 $DjangoReaderPidPath = Join-Path $RunDirectory "django-reader.pid.json"
 $DjangoWriterPidPath = Join-Path $RunDirectory "django-writer.pid.json"
+$DjangoFinanceReaderPidPath = Join-Path $RunDirectory "django-finance-reader.pid.json"
+$DjangoFinanceWriterPidPath = Join-Path $RunDirectory "django-finance-writer.pid.json"
 $ErpReferenceSyncPidPath = Join-Path $RunDirectory "erp-reference-sync.pid.json"
 $DjangoSupervisorPidPath = Join-Path $RunDirectory "django-supervisor.pid.json"
 $SupervisorDesiredStatePath = Join-Path $RunDirectory "django-supervisor-desired-state.json"
@@ -47,6 +50,8 @@ $Node = Join-Path ([Environment]::GetFolderPath("ProgramFiles")) "nodejs\node.ex
 $LauncherLogPath = Join-Path $LogDirectory "launcher.jsonl"
 $DjangoReaderHealthUrl = "http://127.0.0.1:8001/health/ready"
 $DjangoWriterHealthUrl = "http://127.0.0.1:8002/health/ready"
+$DjangoFinanceReaderHealthUrl = "http://127.0.0.1:8011/health/ready"
+$DjangoFinanceWriterHealthUrl = "http://127.0.0.1:8012/health/ready"
 $StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "TERUISI Django Sales.lnk"
 $RunId = "{0}-{1}" -f (Get-Date -Format "yyyyMMdd-HHmmss"), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
 $ReaderStatementTimeoutMs = 7000
@@ -418,13 +423,15 @@ function Assert-StrongSecret([string]$Value, [string]$Label) {
 
 function Read-Secrets {
   $payload = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
-  if ([int]$payload.version -ne 2) {
-    throw "Django 本机 DPAPI 凭据库尚未包含独立 ERP sync 凭据；请先执行 ProvisionErpRole"
+  if ([int]$payload.version -ne 3) {
+    throw "Django 本机 DPAPI 凭据库尚未包含独立 ERP sync 与财务凭据；请先执行 ProvisionErpRole 和 ProvisionFinanceRoles"
   }
   $owner = Unprotect-Value ([string]$payload.databaseOwner) "databaseOwner"
   $reader = Unprotect-Value ([string]$payload.databaseReader) "databaseReader"
   $writer = Unprotect-Value ([string]$payload.databaseWriter) "databaseWriter"
   $erpSync = Unprotect-Value ([string]$payload.databaseErpSync) "databaseErpSync"
+  $financeReader = Unprotect-Value ([string]$payload.databaseFinanceReader) "databaseFinanceReader"
+  $financeWriter = Unprotect-Value ([string]$payload.databaseFinanceWriter) "databaseFinanceWriter"
   $django = Unprotect-Value ([string]$payload.djangoSecretKey) "djangoSecretKey"
   $internal = Unprotect-Value ([string]$payload.internalSecret) "internalSecret"
   Assert-StrongSecret $django "djangoSecretKey"
@@ -433,15 +440,19 @@ function Read-Secrets {
     [string]::IsNullOrWhiteSpace($owner) -or
     [string]::IsNullOrWhiteSpace($reader) -or
     [string]::IsNullOrWhiteSpace($writer) -or
-    [string]::IsNullOrWhiteSpace($erpSync)
+    [string]::IsNullOrWhiteSpace($erpSync) -or
+    [string]::IsNullOrWhiteSpace($financeReader) -or
+    [string]::IsNullOrWhiteSpace($financeWriter)
   ) {
-    throw "数据库 owner/reader/writer/ERP sync 凭据不能为空"
+    throw "数据库 owner/reader/writer/ERP sync/finance 凭据不能为空"
   }
   return [pscustomobject]@{
     OwnerPassword = $owner
     ReaderPassword = $reader
     WriterPassword = $writer
     ErpSyncPassword = $erpSync
+    FinanceReaderPassword = $financeReader
+    FinanceWriterPassword = $financeWriter
     DjangoSecretKey = $django
     InternalSecret = $internal
   }
@@ -488,10 +499,12 @@ function Resolve-ErpSourceD1([string]$Path) {
 
 function Get-ServiceConfig {
   $config = Read-JsonFile $ConfigPath "Django 本机服务配置"
-  if ([int]$config.version -ne 3) { throw "Django 本机服务配置版本不受支持；请重新执行 Configure" }
+  if ([int]$config.version -ne 4) { throw "Django 本机服务配置版本不受支持；请重新执行 Configure" }
   if (
     [string]$config.readerAddress -cne "127.0.0.1:8001" -or
     [string]$config.writerAddress -cne "127.0.0.1:8002" -or
+    [string]$config.financeReaderAddress -cne "127.0.0.1:8011" -or
+    [string]$config.financeWriterAddress -cne "127.0.0.1:8012" -or
     [string]$config.postgresAddress -cne "127.0.0.1:5432"
   ) {
     throw "Django 本机服务地址配置不符合固定回环契约"
@@ -1310,9 +1323,13 @@ function Deploy-Application {
       "tools\sqlite-consistent-backup.py",
       "tools\sales-local-cutover-backup.ps1",
       "tools\sales-local-cutover-backup-prune.ps1",
+      "tools\django-finance-cutover.ps1",
+      "tools\finance-d1-authority-install.py",
+      "tools\finance_d1_rehearsal_snapshot.py",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
-      "drizzle\0092_sales_domain_retirement.sql"
+      "drizzle\0092_sales_domain_retirement.sql",
+      "drizzle\0093_finance_write_authority.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -1718,14 +1735,25 @@ function Assert-DjangoSupervisorStopped([string]$Operation) {
 
 function Assert-ApplicationProcessesStopped([string]$Operation) {
   Assert-DjangoSupervisorStopped $Operation
-  if (@(Get-PortListeners 8001).Count -gt 0 -or @(Get-PortListeners 8002).Count -gt 0) {
-    throw "$Operation 前必须停止 Django reader 与 writer"
+  if (
+    @(Get-PortListeners 8001).Count -gt 0 -or
+    @(Get-PortListeners 8002).Count -gt 0 -or
+    @(Get-PortListeners 8011).Count -gt 0 -or
+    @(Get-PortListeners 8012).Count -gt 0
+  ) {
+    throw "$Operation 前必须停止 Django 销售与财务 reader/writer"
   }
   if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress) {
     throw "$Operation 前必须通过 Stop 停止 Django reader"
   }
   if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress) {
     throw "$Operation 前必须通过 Stop 停止 Django writer"
+  }
+  if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress) {
+    throw "$Operation 前必须通过 Stop 停止 Django finance reader"
+  }
+  if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress) {
+    throw "$Operation 前必须通过 Stop 停止 Django finance writer"
   }
   if (Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python) {
     throw "$Operation 前必须通过 Stop 停止 ERP reference sync"
@@ -1855,12 +1883,12 @@ function Stop-Postgres {
 
 function Get-ErpRoleProvisioningSecrets {
   $payload = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
-  if ([int]$payload.version -notin @(1, 2)) {
+  if ([int]$payload.version -notin @(1, 2, 3)) {
     throw "Django 本机 DPAPI 凭据库版本不受支持"
   }
   $superuser = Unprotect-Value ([string]$payload.postgresSuperuser) "postgresSuperuser"
   $erpPassword = ""
-  if ([int]$payload.version -eq 2) {
+  if ([int]$payload.version -in @(2, 3)) {
     $erpPassword = Unprotect-Value ([string]$payload.databaseErpSync) "databaseErpSync"
   } else {
     $erpPassword = New-RandomSecret
@@ -1877,6 +1905,37 @@ function Get-ErpRoleProvisioningSecrets {
   return [pscustomobject]@{
     SuperuserPassword = $superuser
     ErpSyncPassword = $erpPassword
+  }
+}
+
+function Get-FinanceRoleProvisioningSecrets {
+  $payload = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
+  if ([int]$payload.version -notin @(2, 3)) {
+    throw "配置财务数据库角色前必须先执行 ProvisionErpRole"
+  }
+  $superuser = Unprotect-Value ([string]$payload.postgresSuperuser) "postgresSuperuser"
+  if ([int]$payload.version -eq 3) {
+    $financeReader = Unprotect-Value ([string]$payload.databaseFinanceReader) "databaseFinanceReader"
+    $financeWriter = Unprotect-Value ([string]$payload.databaseFinanceWriter) "databaseFinanceWriter"
+  } else {
+    $financeReader = New-RandomSecret
+    $financeWriter = New-RandomSecret
+    $updated = [ordered]@{}
+    foreach ($property in $payload.PSObject.Properties) {
+      $updated[$property.Name] = $property.Value
+    }
+    $updated.version = 3
+    $updated.databaseFinanceReader = Protect-Value $financeReader
+    $updated.databaseFinanceWriter = Protect-Value $financeWriter
+    Write-AtomicJson $CredentialPath $updated
+    Write-LauncherEvent "INFO" "credential_vault_upgraded" "version=3"
+  }
+  Assert-StrongSecret $financeReader "databaseFinanceReader"
+  Assert-StrongSecret $financeWriter "databaseFinanceWriter"
+  return [pscustomobject]@{
+    SuperuserPassword = $superuser
+    FinanceReaderPassword = $financeReader
+    FinanceWriterPassword = $financeWriter
   }
 }
 
@@ -1963,6 +2022,101 @@ connection.close()
   }
 }
 
+function Provision-FinanceDatabaseRoles {
+  if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
+    throw "ProvisionFinanceRoles 必须从受保护的 runtime app 启动脚本执行；请先运行 DeployApp"
+  }
+  Assert-DeployedApplication
+  Assert-RuntimeAclHardened
+  Assert-ApplicationProcessesStopped "ProvisionFinanceRoles"
+  Get-ServiceConfig | Out-Null
+  New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
+  $provisioning = Get-FinanceRoleProvisioningSecrets
+  $postgresStarted = $false
+  $previousUrl = [Environment]::GetEnvironmentVariable("TERUISI_PROVISION_DATABASE_URL", "Process")
+  $previousReader = [Environment]::GetEnvironmentVariable("TERUISI_PROVISION_FINANCE_READER_PASSWORD", "Process")
+  $previousWriter = [Environment]::GetEnvironmentVariable("TERUISI_PROVISION_FINANCE_WRITER_PASSWORD", "Process")
+  try {
+    $postgresStarted = Start-Postgres
+    $env:TERUISI_PROVISION_DATABASE_URL = Database-Url "postgres" $provisioning.SuperuserPassword "teruisi_finance_role_provision" $ReaderStatementTimeoutMs
+    $env:TERUISI_PROVISION_FINANCE_READER_PASSWORD = $provisioning.FinanceReaderPassword
+    $env:TERUISI_PROVISION_FINANCE_WRITER_PASSWORD = $provisioning.FinanceWriterPassword
+    $code = @'
+import os
+
+import psycopg
+from psycopg import sql
+
+roles = {
+    "teruisi_finance_reader": os.environ["TERUISI_PROVISION_FINANCE_READER_PASSWORD"],
+    "teruisi_finance_writer": os.environ["TERUISI_PROVISION_FINANCE_WRITER_PASSWORD"],
+}
+connection = psycopg.connect(os.environ["TERUISI_PROVISION_DATABASE_URL"])
+connection.autocommit = True
+with connection.cursor() as cursor:
+    for role, password in roles.items():
+        cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
+        if cursor.fetchone() is None:
+            cursor.execute(
+                sql.SQL("CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+                        "NOINHERIT NOREPLICATION NOBYPASSRLS").format(sql.Identifier(role))
+            )
+        cursor.execute(
+            sql.SQL("ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+                    "NOINHERIT NOREPLICATION NOBYPASSRLS").format(sql.Identifier(role))
+        )
+        cursor.execute(
+            "SELECT parent.rolname FROM pg_auth_members membership "
+            "JOIN pg_roles parent ON parent.oid = membership.roleid "
+            "JOIN pg_roles member ON member.oid = membership.member "
+            "WHERE member.rolname = %s",
+            (role,),
+        )
+        for parent_role in (row[0] for row in cursor.fetchall()):
+            cursor.execute(
+                sql.SQL("REVOKE {} FROM {}").format(
+                    sql.Identifier(parent_role), sql.Identifier(role)
+                )
+            )
+        cursor.execute(
+            sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+                sql.Identifier(role), sql.Literal(password)
+            )
+        )
+    cursor.execute(
+        "ALTER ROLE teruisi_finance_reader SET default_transaction_read_only = on"
+    )
+    cursor.execute(
+        "ALTER ROLE teruisi_finance_writer RESET default_transaction_read_only"
+    )
+    cursor.execute(
+        "GRANT CONNECT ON DATABASE teruisi_sales TO "
+        "teruisi_finance_reader, teruisi_finance_writer"
+    )
+connection.close()
+'@
+    $logPath = Join-Path $LogDirectory "finance-role-provision.$RunId.log"
+    $launcher = ConvertTo-PythonBase64Launcher $code "finance_role_provision.py"
+    $nativeRun = Invoke-BoundedNativeProcess $Python @("-c", $launcher) $BackendRoot
+    Write-NativeDiagnosticLog $logPath "finance_role_provision" $nativeRun
+    if ($nativeRun.ExitCode -ne 0) {
+      throw "独立财务 reader/writer 数据库角色配置失败（$(Get-NativeFailureSummary $nativeRun)）"
+    }
+    Write-LauncherEvent "INFO" "finance_database_roles_provisioned"
+    Write-Output "独立财务 reader/writer 数据库角色与 DPAPI 凭据已配置。"
+  } finally {
+    [Environment]::SetEnvironmentVariable("TERUISI_PROVISION_DATABASE_URL", $previousUrl, "Process")
+    [Environment]::SetEnvironmentVariable("TERUISI_PROVISION_FINANCE_READER_PASSWORD", $previousReader, "Process")
+    [Environment]::SetEnvironmentVariable("TERUISI_PROVISION_FINANCE_WRITER_PASSWORD", $previousWriter, "Process")
+    $provisioning = $null
+    if ($postgresStarted) {
+      try { Stop-Postgres } catch {
+        Write-LauncherEvent "ERROR" "provision_cleanup_failed" $_.Exception.Message
+      }
+    }
+  }
+}
+
 function Invoke-WithDjangoEnvironment(
   [object]$Secrets,
   [string]$DatabaseUrl,
@@ -1982,6 +2136,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_LOG_LEVEL", "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS",
     "TERUISI_DJANGO_DB_CONN_MAX_AGE", "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH",
     "TERUISI_DJANGO_SALES_CUTOVER_ID",
+    "TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH", "TERUISI_DJANGO_FINANCE_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -1998,8 +2153,17 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_EXPECT_READ_ONLY = if ($ExpectReadOnly) { "true" } else { "false" }
     $env:TERUISI_DJANGO_SALES_CACHE_SECONDS = if ($ProcessRole -eq "reader") { "300" } else { "0" }
     $env:TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS = "60"
-    $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = $AuthorityEpoch
-    $env:TERUISI_DJANGO_SALES_CUTOVER_ID = $CutoverId
+    if ($ProcessRole -eq "finance_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = $CutoverId
+    } else {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = $CutoverId
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+    }
     $env:TERUISI_DJANGO_LOG_LEVEL = "INFO"
     $env:TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS = "60"
     $env:TERUISI_DJANGO_DB_CONN_MAX_AGE = "60"
@@ -2036,7 +2200,13 @@ function Invoke-DjangoMigrations(
     $grantCode = @'
 from django.db import connection
 
-roles = ("teruisi_sales_reader", "teruisi_sales_writer", "teruisi_erp_reference_sync")
+roles = (
+    "teruisi_sales_reader",
+    "teruisi_sales_writer",
+    "teruisi_erp_reference_sync",
+    "teruisi_finance_reader",
+    "teruisi_finance_writer",
+)
 quote = connection.ops.quote_name
 with connection.cursor() as c:
     c.execute(
@@ -2051,7 +2221,8 @@ with connection.cursor() as c:
     current_database = quote(str(c.fetchone()[0]))
     c.execute(
         f"GRANT CONNECT ON DATABASE {current_database} TO "
-        "teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync"
+        "teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, "
+        "teruisi_finance_reader, teruisi_finance_writer"
     )
     c.execute(
         "SELECT member.rolname, parent.rolname FROM pg_auth_members membership "
@@ -2083,9 +2254,9 @@ with connection.cursor() as c:
                 f"{quote(schema)}.{quote(table)} FROM {quote(role)}"
             )
 
-    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync")
-    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync")
-    c.execute("GRANT USAGE ON SCHEMA public TO teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync")
+    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, teruisi_finance_reader, teruisi_finance_writer")
+    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, teruisi_finance_reader, teruisi_finance_writer")
+    c.execute("GRANT USAGE ON SCHEMA public TO teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, teruisi_finance_reader, teruisi_finance_writer")
 
     c.execute("GRANT SELECT ON sales_order_lines, sales_import_batches, erp_product_master, sales_data_revisions, erp_reference_sync_checkpoint TO teruisi_sales_reader")
 
@@ -2115,6 +2286,25 @@ with connection.cursor() as c:
     c.execute("GRANT UPDATE (revision, source_digest, updated_at) ON sales_data_revisions TO teruisi_erp_reference_sync")
     c.execute("GRANT SELECT (product_code, category, resolved_category) ON sales_order_lines TO teruisi_erp_reference_sync")
     c.execute("GRANT UPDATE (resolved_category) ON sales_order_lines TO teruisi_erp_reference_sync")
+
+    c.execute(
+        "GRANT SELECT ON finance_import_batches, finance_months, finance_lines, "
+        "finance_targets_scoped, finance_data_revisions TO teruisi_finance_reader"
+    )
+
+    c.execute("GRANT SELECT, INSERT, UPDATE ON finance_import_batches, finance_months, finance_import_scope_heads, finance_import_attempts, finance_data_revisions, finance_write_request_receipts TO teruisi_finance_writer")
+    c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON finance_lines, finance_targets_scoped TO teruisi_finance_writer")
+    c.execute("GRANT SELECT, INSERT ON finance_target_deletion_audits, finance_import_fingerprints TO teruisi_finance_writer")
+    c.execute("GRANT SELECT ON finance_write_authority TO teruisi_finance_writer")
+    for table in ("finance_lines", "finance_import_fingerprints"):
+        c.execute("SELECT pg_get_serial_sequence(%s, 'id')", [f"public.{table}"])
+        sequence = c.fetchone()[0]
+        if sequence:
+            schema, name = sequence.split(".", 1)
+            c.execute(
+                f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE "
+                f"{quote(schema)}.{quote(name)} TO teruisi_finance_writer"
+            )
 
     c.execute("ALTER TABLE sales_data_revisions ENABLE ROW LEVEL SECURITY")
     c.execute("DROP POLICY IF EXISTS sales_revision_reader ON sales_data_revisions")
@@ -2172,7 +2362,7 @@ with connection.cursor() as c:
     ) $BackendRoot
     Write-NativeDiagnosticLog $logPath "django_runtime_grants" $grantRun
     if ($grantRun.ExitCode -ne 0) {
-      throw "Django reader/writer/ERP sync 最小权限重置失败（$(Get-NativeFailureSummary $grantRun)）"
+      throw "Django 销售/财务 reader、writer 与 ERP sync 最小权限重置失败（$(Get-NativeFailureSummary $grantRun)）"
     }
   }
   $ownerUrl = $null
@@ -2195,6 +2385,38 @@ function Get-ActiveWriteAuthority([object]$Secrets) {
     -not ([string]$payload.cutoverId -match "^[A-Za-z0-9._:-]{8,128}$")
   ) {
     throw "PostgreSQL 尚未成为销售唯一写入源；拒绝启动 writer"
+  }
+  return $payload
+}
+
+function Get-FinanceWriteAuthority([object]$Secrets) {
+  $writerUrl = Database-Url "teruisi_finance_writer" $Secrets.FinanceWriterPassword "teruisi_finance_authority_probe" $ReaderStatementTimeoutMs
+  $manage = Join-Path $BackendRoot "manage.py"
+  $code = @'
+import json
+from finance.models import FinanceWriteAuthority
+
+authority = FinanceWriteAuthority.objects.filter(id=1).first()
+print(json.dumps({
+    "status": authority.status if authority else "missing",
+    "authorityEpoch": str(authority.authority_epoch) if authority and authority.authority_epoch else "",
+    "cutoverId": authority.cutover_id if authority else "",
+}, separators=(",", ":")))
+'@
+  $launcher = ConvertTo-PythonBase64Launcher $code "finance_authority_probe.py"
+  $payload = Invoke-WithDjangoEnvironment $Secrets $writerUrl "migration_writer" $false $ReaderMaxBodyBytes "" "" {
+    $nativeRun = Invoke-BoundedNativeProcess $Python @($manage, "shell", "-c", $launcher) $BackendRoot
+    return ConvertFrom-UniqueNativeJson $nativeRun "读取 PostgreSQL 财务写入权威"
+  }
+  $writerUrl = $null
+  if ([string]$payload.status -cnotin @("d1", "postgres")) {
+    throw "PostgreSQL 财务写入权威状态无效"
+  }
+  if ([string]$payload.status -ceq "postgres" -and (
+      -not ([string]$payload.authorityEpoch -match "^[0-9a-fA-F-]{36}$") -or
+      -not ([string]$payload.cutoverId -match "^[A-Za-z0-9._:-]{8,128}$")
+    )) {
+    throw "PostgreSQL 财务写入权威身份无效"
   }
   return $payload
 }
@@ -2433,21 +2655,90 @@ function Start-DjangoWriter([object]$Secrets, [object]$Authority) {
   }
 }
 
+function Start-DjangoFinanceReader([object]$Secrets) {
+  if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
+  $arguments = @(
+    "--listen=127.0.0.1:8011", "--threads=6", "--connection-limit=60",
+    "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-finance-reader",
+    "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$ReaderMaxBodyBytes",
+    "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
+  )
+  $fingerprint = Get-ConfigFingerprint "django-finance-reader" $Waitress $arguments
+  $existing = Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress $arguments $fingerprint
+  if ($existing) {
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    return $false
+  }
+  if (@(Get-PortListeners 8011).Count -gt 0) { throw "端口 8011 被非本部署的服务占用" }
+  Remove-OldServiceLogs "django-finance-reader"
+  $stdout = Join-Path $LogDirectory "django-finance-reader.$RunId.stdout.log"
+  $stderr = Join-Path $LogDirectory "django-finance-reader.$RunId.stderr.log"
+  $readerUrl = Database-Url "teruisi_finance_reader" $Secrets.FinanceReaderPassword "teruisi_django_finance_read" $ReaderStatementTimeoutMs
+  Invoke-WithDjangoEnvironment $Secrets $readerUrl "finance_reader" $true $ReaderMaxBodyBytes "" "" {
+    Start-ManagedProcess "django-finance-reader" $Waitress $arguments $BackendRoot $DjangoFinanceReaderPidPath $fingerprint $stdout $stderr | Out-Null
+  }
+  $readerUrl = $null
+  try {
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    return $true
+  } catch {
+    Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress
+    throw
+  }
+}
+
+function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority) {
+  if ([string]$Authority.status -cne "postgres") {
+    throw "PostgreSQL 尚未成为财务唯一写入源；拒绝启动 finance writer"
+  }
+  if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
+  $arguments = @(
+    "--listen=127.0.0.1:8012", "--threads=4", "--connection-limit=20",
+    "--channel-timeout=960", "--cleanup-interval=30", "--ident=teruisi-django-finance-writer",
+    "--max-request-header-size=$MaxHeaderBytes", "--max-request-body-size=$WriterMaxBodyBytes",
+    "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
+  )
+  $fingerprint = Get-ConfigFingerprint "django-finance-writer" $Waitress $arguments
+  $existing = Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress $arguments $fingerprint
+  if ($existing) {
+    Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+    return $false
+  }
+  if (@(Get-PortListeners 8012).Count -gt 0) { throw "端口 8012 被非本部署的服务占用" }
+  Remove-OldServiceLogs "django-finance-writer"
+  $stdout = Join-Path $LogDirectory "django-finance-writer.$RunId.stdout.log"
+  $stderr = Join-Path $LogDirectory "django-finance-writer.$RunId.stderr.log"
+  $writerUrl = Database-Url "teruisi_finance_writer" $Secrets.FinanceWriterPassword "teruisi_django_finance_write" $WriterStatementTimeoutMs
+  Invoke-WithDjangoEnvironment $Secrets $writerUrl "finance_writer" $false $WriterMaxBodyBytes ([string]$Authority.authorityEpoch) ([string]$Authority.cutoverId) {
+    Start-ManagedProcess "django-finance-writer" $Waitress $arguments $BackendRoot $DjangoFinanceWriterPidPath $fingerprint $stdout $stderr | Out-Null
+  }
+  $writerUrl = $null
+  try {
+    Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+    return $true
+  } catch {
+    Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress
+    throw
+  }
+}
+
 function Configure-Service {
   Assert-ServiceStackStopped "Configure"
   $resolvedErpSource = Resolve-ErpSourceD1 $ErpSourceD1
   New-Item -ItemType Directory -Path $RuntimeRoot, $LogDirectory, $RunDirectory -Force | Out-Null
   Write-AtomicJson $ConfigPath ([ordered]@{
-    version = 3
+    version = 4
     configuredAt = [DateTimeOffset]::Now.ToString("o")
     configuredFrom = $ExecutionRoot
     readerAddress = "127.0.0.1:8001"
     writerAddress = "127.0.0.1:8002"
+    financeReaderAddress = "127.0.0.1:8011"
+    financeWriterAddress = "127.0.0.1:8012"
     postgresAddress = "127.0.0.1:5432"
     erpSourceD1 = $resolvedErpSource
   })
   Write-LauncherEvent "INFO" "service_configured"
-  Write-Output "Django 本机 reader/writer/ERP reference sync 配置已固定；未启动服务。"
+  Write-Output "Django 本机销售/财务 reader/writer 与 ERP reference sync 配置已固定；未启动服务。"
 }
 
 function Initialize-ErpReferenceCheckpoint {
@@ -2714,7 +3005,10 @@ function Start-ServiceStack {
   $postgresStarted = $false
   $readerStarted = $false
   $writerStarted = $false
+  $financeReaderStarted = $false
+  $financeWriterStarted = $false
   $erpSyncStarted = $false
+  $salesCoreReady = $false
   try {
     $postgresStarted = Start-Postgres
     Invoke-DjangoMigrations $secrets
@@ -2725,11 +3019,36 @@ function Start-ServiceStack {
     $writerStarted = Start-DjangoWriter $secrets $authority
     Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
     Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
+    $salesCoreReady = $true
+    $financeReaderStarted = Start-DjangoFinanceReader $secrets
+    $financeAuthority = Get-FinanceWriteAuthority $secrets
+    if ([string]$financeAuthority.status -ceq "postgres") {
+      $financeWriterStarted = Start-DjangoFinanceWriter $secrets $financeAuthority
+    }
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    if ([string]$financeAuthority.status -ceq "postgres") {
+      Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+    }
     Write-LauncherEvent "INFO" "service_stack_ready"
-    Write-Output "Django 本机服务已就绪：reader=http://127.0.0.1:8001 writer=http://127.0.0.1:8002；ERP reference sync 已持续运行。"
+    $financeWriterState = if ([string]$financeAuthority.status -ceq "postgres") { "ready" } else { "not_active" }
+    Write-Output "Django 本机服务已就绪：sales reader=8001 writer=8002，finance reader=8011 writer=$financeWriterState，ERP reference sync 已持续运行。"
   } catch {
     $originalError = $_.Exception
     Write-LauncherEvent "ERROR" "service_stack_start_failed" $originalError.Message
+    if ($financeWriterStarted) {
+      try { Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress } catch {
+        Write-LauncherEvent "ERROR" "rollback_failed" "django-finance-writer: $($_.Exception.Message)"
+      }
+    }
+    if ($financeReaderStarted) {
+      try { Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress } catch {
+        Write-LauncherEvent "ERROR" "rollback_failed" "django-finance-reader: $($_.Exception.Message)"
+      }
+    }
+    if ($salesCoreReady) {
+      Write-LauncherEvent "ERROR" "finance_domain_start_failed_sales_preserved" $originalError.Message
+      throw $originalError
+    }
     if ($writerStarted) {
       try { Stop-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress } catch {
         Write-LauncherEvent "ERROR" "rollback_failed" "django-writer: $($_.Exception.Message)"
@@ -2757,6 +3076,8 @@ function Start-ServiceStack {
 }
 
 function Stop-ServiceStack {
+  Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress
+  Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress
   Stop-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress
   Stop-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress
   Stop-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python
@@ -2765,6 +3086,51 @@ function Stop-ServiceStack {
   }
   Stop-Postgres
   Write-Output "Django 本机服务已停止；数据目录未删除。"
+}
+
+function Start-FinanceStack {
+  if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
+    throw "StartFinance 必须从受保护的 runtime app 启动脚本执行；请先运行 DeployApp"
+  }
+  Assert-DeployedApplication
+  Assert-RuntimeAclHardened
+  Get-ServiceConfig | Out-Null
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动财务服务" }
+  $secrets = Read-Secrets
+  $readerStarted = $false
+  $writerStarted = $false
+  try {
+    $readerStarted = Start-DjangoFinanceReader $secrets
+    $authority = Get-FinanceWriteAuthority $secrets
+    if ([string]$authority.status -ceq "postgres") {
+      $writerStarted = Start-DjangoFinanceWriter $secrets $authority
+    }
+    Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
+    if ([string]$authority.status -ceq "postgres") {
+      Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
+      Write-Output "Django 财务服务已就绪：reader=http://127.0.0.1:8011 writer=http://127.0.0.1:8012。"
+    } else {
+      Write-Output "Django 财务 reader 已就绪；PostgreSQL 财务写权尚未激活，writer 保持停止。"
+    }
+  } catch {
+    $originalError = $_.Exception
+    if ($writerStarted) {
+      try { Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress } catch {}
+    }
+    if ($readerStarted) {
+      try { Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress } catch {}
+    }
+    throw $originalError
+  } finally {
+    $secrets = $null
+  }
+}
+
+function Stop-FinanceStack {
+  Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress
+  Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress
+  Write-Output "Django 财务 reader/writer 已停止；销售、ERP 与 PostgreSQL 未改变。"
 }
 
 function Show-ServiceStatus {
@@ -2832,6 +3198,54 @@ function Show-ServiceStatus {
     RuntimeAcl = $acl
     RuntimeAclVerification = "root_only_status"
     Startup = if (Test-Path -LiteralPath $StartupShortcut) { "installed" } else { "not_installed" }
+    CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
+  }
+  if ($Json.IsPresent) {
+    Write-Output ($status | ConvertTo-Json -Compress)
+  } else {
+    $status | Format-List
+  }
+}
+
+function Show-FinanceServiceStatus {
+  $reader = "stopped"
+  try {
+    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress) { $reader = "running" }
+    elseif (@(Get-PortListeners 8011).Count -gt 0) { $reader = "foreign_port_owner" }
+  } catch { $reader = "ownership_error" }
+  $writer = "stopped"
+  try {
+    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress) { $writer = "running" }
+    elseif (@(Get-PortListeners 8012).Count -gt 0) { $writer = "foreign_port_owner" }
+  } catch { $writer = "ownership_error" }
+  $readerReady = "not_ready"
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8011" }
+    if ($response.StatusCode -eq 200) { $readerReady = "ready" }
+  } catch {}
+  $writerReady = "not_ready"
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8012" }
+    if ($response.StatusCode -eq 200) { $writerReady = "ready" }
+  } catch {}
+  $authority = "unknown"
+  try {
+    if (Test-PostgresReady) {
+      $statusSecrets = Read-Secrets
+      try {
+        $authorityPayload = Get-FinanceWriteAuthority $statusSecrets
+        $authority = [string]$authorityPayload.status
+      } finally {
+        $statusSecrets = $null
+      }
+    }
+  } catch {}
+  $status = [pscustomobject][ordered]@{
+    FinanceReader = $reader
+    FinanceWriter = $writer
+    ReaderReadiness = $readerReady
+    WriterReadiness = $writerReady
+    PostgreSQLAuthority = $authority
     CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
   }
   if ($Json.IsPresent) {
@@ -2909,6 +3323,10 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
       }
       "Status" { Show-ServiceStatus }
       "ProvisionErpRole" { Invoke-WithServiceMutex { Provision-ErpDatabaseRole } }
+      "ProvisionFinanceRoles" { Invoke-WithServiceMutex { Provision-FinanceDatabaseRoles } }
+      "StartFinance" { Invoke-WithServiceMutex { Start-FinanceStack } }
+      "StopFinance" { Invoke-WithServiceMutex { Stop-FinanceStack } }
+      "FinanceStatus" { Show-FinanceServiceStatus }
       "InitializeErpReference" { Invoke-WithServiceMutex { Initialize-ErpReferenceCheckpoint } }
       "PlanSalesD1Retirement" { Invoke-WithServiceMutex { Invoke-PlanSalesD1Retirement } }
       "RetireSalesD1" { Invoke-WithServiceMutex { Invoke-RetireSalesD1 } }

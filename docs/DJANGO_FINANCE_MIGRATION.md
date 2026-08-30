@@ -79,13 +79,36 @@ node --import tsx tools/finance-analysis-parity.ts `
 Remove-Item Env:TERUISI_DJANGO_INTERNAL_SECRET
 ```
 
+正式本机运行必须使用受保护 runtime 中的操作者脚本，不能从源码工作树直接解密凭据或修改 authority。服务配置从 v3 升级到 v4 时，顺序固定为：完整停止 Django 本机栈、用源码脚本 `Configure` 和 `DeployApp`、执行 `HardenAcl`、从已部署脚本执行 `ProvisionFinanceRoles`，最后再执行 `Start`。首次启动只会启动 `8011` reader；PostgreSQL 财务 authority 仍为 `d1` 时，`8012` writer 保持停止。
+
+```powershell
+$sourceService = "<隔离工作树>\tools\django-local-service.ps1"
+$runtimeService = "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1"
+$financeOperator = "D:\teruisi-runtime\django-sales\app\tools\django-finance-cutover.ps1"
+
+& $sourceService -Action Stop
+& $sourceService -Action Configure -ErpSourceD1 "<精确权威D1绝对路径>"
+& $sourceService -Action DeployApp
+& $runtimeService -Action HardenAcl
+& $runtimeService -Action ProvisionFinanceRoles
+& $runtimeService -Action Start
+& $runtimeService -Action FinanceStatus -Json
+
+& $financeOperator -Action Snapshot
+& $financeOperator -Action MigrateDryRun -FinanceSource "<Snapshot返回的受控sqlite路径>"
+& $financeOperator -Action MigrateApply -FinanceSource "<同一路径>" -ApprovedRunId "<dry-run-id>"
+& $financeOperator -Action MigrateVerify -FinanceSource "<同一路径>" -ApprovedRunId "<apply-id>"
+```
+
+`Snapshot` 只在 `D:\teruisi-runtime\django-sales\audits\finance-cutover\` 下生成 SQLite 快照和清单。`MigrateApply`/`MigrateVerify` 必须消费同一路径、同一内容和精确前序 run ID；脚本在内存中使用 migration owner，日志只记录有界诊断。
+
 ## 6. 正式不停服切换顺序
 
 除“财务写入短暂停顿”外，其他模块持续运行。任何一步失败都停止在当前阶段，不重启销售服务，不改变其他模块配置。
 
 1. 确认销售、ERP、Worker 和其他模块健康；确认财务路由仍为 `legacy`。
 2. 生成并验证 PostgreSQL 备份；对权威 D1 做精确财务快照和清单，不修改源。
-3. 部署独立 finance_reader/finance_writer 代码和最小权限数据库角色，但只启动 reader；writer 尚无激活 authority，readiness 应失败关闭。
+3. 部署独立 finance_reader/finance_writer 代码和最小权限数据库角色，但只启动 reader；writer 尚无激活 authority，必须保持停止，若被误启动则 readiness 失败关闭。
 4. 执行初次 dry-run/apply/verify-only，在 `shadow` 只比较读取。影子异常不改变用户响应。
 5. 在财务导入和目标维护入口短暂停写；销售总览、渠道、品类和其他系统继续运行。
 6. 对最新权威 D1 重新执行财务快照、dry-run/apply/verify-only，并核对公开分析、导入历史、目标、权限、scope、幂等和响应契约。
@@ -101,6 +124,19 @@ authority 命令骨架：
 python manage.py finance_write_authority --source <权威D1> --prepare --verify-run-id <verify-id> --cutover-id <唯一cutover-id>
 python manage.py finance_write_authority --source <权威D1> --abort-pending --verify-run-id <verify-id> --cutover-id <唯一cutover-id>
 python manage.py finance_write_authority --source <权威D1> --activate --verify-run-id <verify-id> --cutover-id <唯一cutover-id>
+```
+
+正式环境对应的受保护入口如下；每次 authority 变化前都会再次证明 `8012` 无监听且没有登记的 finance writer：
+
+```powershell
+$financeOperator = "D:\teruisi-runtime\django-sales\app\tools\django-finance-cutover.ps1"
+& $financeOperator -Action InstallD1Authority
+& $financeOperator -Action AuthorityStatus
+& $financeOperator -Action AuthorityPrepare -VerifyRunId "<verify-id>" -FinanceCutoverId "<cutover-id>"
+# 仅 prepare 后、activate 前发生失败时允许：
+& $financeOperator -Action AuthorityAbort -VerifyRunId "<verify-id>" -FinanceCutoverId "<cutover-id>"
+& $financeOperator -Action AuthorityActivate -VerifyRunId "<verify-id>" -FinanceCutoverId "<cutover-id>"
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" -Action StartFinance
 ```
 
 ## 7. PNR 与恢复

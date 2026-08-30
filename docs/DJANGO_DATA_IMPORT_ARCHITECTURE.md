@@ -10,7 +10,7 @@
 
 ```text
 浏览器
-  -> 公开 Worker：真实鉴权、权限、上传边界、Excel 解析、HMAC、R2 短期传输
+  -> 公开 Worker：真实鉴权、权限、上传边界、Excel 解析、HMAC、有界传输
   -> Django domain writer：二次校验、请求幂等、范围锁、原子发布、审计、回查
   -> PostgreSQL domain tables：唯一权威事实与历史审计
   -> Django domain reader：有界查询、scope、revision
@@ -19,7 +19,7 @@
 
 - Worker 不保存已迁移领域的事实、批次、指纹或写入状态。
 - Django writer 不直接暴露给浏览器或外网。
-- R2 文件/分片不是事实源；成功只能由 PostgreSQL 完成批次与落库回查证明。
+- 临时文件/分片不是事实源；成功只能由 PostgreSQL 完成批次与落库回查证明。领域可以选择 PostgreSQL 有界暂存或既有对象存储，但不得因此形成第二写入所有者；已经退役对象存储的领域不得保留可达旧路径。
 - 每个精确业务范围任一时刻只有一个写入所有者，迁移期间禁止长期双写。
 
 ## 3. 领域隔离
@@ -34,6 +34,8 @@
 - 备份核对清单和恢复验收。
 
 财务写入故障不得阻断销售总览、渠道或品类查询。财务迁移不得改变销售 write authority、销售表、ERP bridge 或 D1 销售 retirement 对象。
+
+销售域的原始分片字节、owner、摘要和生命周期固定由 PostgreSQL 管理，生产代码不得读写 R2；这不授权删除市场图片、库存、工作流等其他领域仍使用的全局 R2 binding。
 
 ## 4. 公开请求与内部鉴权
 

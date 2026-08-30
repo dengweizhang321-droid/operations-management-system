@@ -10,18 +10,18 @@
 | --- | --- | --- |
 | 销售事实、批次、revision | Django/PostgreSQL | 读写均只进入 PostgreSQL |
 | 导入范围、幂等指纹、尝试审计、锁与 fencing | Django/PostgreSQL | 必须随事实原子发布并保留完整历史 |
-| 原文件签收、分片会话、暂存与校验元数据 | Django/PostgreSQL | R2 对象只是短期传输材料，不构成完成证明 |
+| 原文件签收、分片字节、分片会话、暂存与校验元数据 | Django/PostgreSQL | PostgreSQL 是唯一存储与生命周期所有者，不存在销售 R2 回退 |
 | 销售总览、品类分析、明细和消费者查询 | Django reader/PostgreSQL | 不从 D1 读取销售结果 |
 | ERP 货品主数据 | D1 | 仍是 ERP 权威来源 |
 | PostgreSQL ERP 参照副本 | 独立 ERP-only outbox bridge | 消费 ERP 事件并维护独立 checkpoint；仅以 ERP 映射回填现有 `sales_order_lines.resolved_category` 派生分类 |
 | 其他尚未迁移业务域 | 原有系统 | 不因销售切换而扩大迁移范围 |
 
-Cloudflare Worker 只承担公开鉴权、principal/scope 校验、HMAC principal 信封、Excel 解析、R2 短期分片、请求超时与体积边界和边缘协议适配。它不得：
+Cloudflare Worker 只承担公开鉴权、principal/scope 校验、HMAC principal 信封、Excel 解析、分片请求边界、请求超时与体积边界和边缘协议适配。分片字节经受控回环写入 PostgreSQL，Worker 不保存销售对象。它不得：
 
 - 在 D1 创建、更新或查询销售事实、批次、幂等、revision 或审计状态；
 - 在 Django reader/writer 异常时把销售请求改道 D1；
 - 接受浏览器自报角色、scope 或内部签名头；
-- 将 R2 上传成功当成销售导入成功。
+- 读写销售 R2 对象，或将分片签收成功当成销售导入成功。
 
 销售写入所有权任一时刻只能有一个。禁止长期双写，也禁止用“先写 D1、异步补 PostgreSQL”作为切换后的正常路径。
 
@@ -45,7 +45,7 @@ Cloudflare Worker 只承担公开鉴权、principal/scope 校验、HMAC principa
   │
   ▼
 Cloudflare Worker
-  ├─ 公开鉴权 / principal HMAC / Excel 解析 / R2 短期分片
+  ├─ 公开鉴权 / principal HMAC / Excel 解析 / 分片请求边界
   ├──────────────► Django reader 127.0.0.1:8001 ─┐
   └──────────────► Django writer 127.0.0.1:8002 ─┤
                                                   ▼
@@ -330,7 +330,7 @@ D1 销售退役清单与验证:
 - 受控 D1 退役迁移：`0092_sales_domain_retirement.sql`，SHA-256 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`；
 - 正式切换快照：销售事实 `572,015` 条、销售批次 `88` 个、ERP 参照 `8,443` 条、动态 revision `8:5`；
 - 销售事实业务日期覆盖：`2025-01-01` 至 `2026-08-27`；
-- 终态：销售事实、批次、导入幂等与尝试审计、上传/暂存状态、revision、查询和分析均以 PostgreSQL 为唯一权威；D1 销售事实、批次、上传、缓存、投影 outbox 和 authority 对象已退役，只保留防复活所需的只读 tombstone、retirement receipt、永久 guard、历史工具与测试夹具；
+- 终态：销售事实、批次、导入幂等与尝试审计、原始分片字节、上传/暂存状态、revision、查询和分析均以 PostgreSQL 为唯一权威；D1 销售事实、批次、上传、缓存、投影 outbox 和 authority 对象已退役，销售 R2 路径也退出生产代码，只保留防复活所需的只读 tombstone、retirement receipt、永久 guard、历史工具与测试夹具；
 - ERP 主数据仍以 D1 为权威并经 ERP-only bridge 进入 PostgreSQL；其他业务域继续遵守各自现行边界。
 
 上述行数、日期和 revision 是本次切换时的验收快照，不是代码常量，也不能代替以后查询时的动态新鲜度检查。本记录只证明当前 Windows 主机的销售域终态，不代表远程生产、高可用、整个 D1/R2 或其他业务域已经迁移。

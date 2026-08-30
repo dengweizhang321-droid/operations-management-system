@@ -124,7 +124,6 @@ export async function POST(request: Request) {
             principal,
             uploadId,
             claim.session.ownerToken ?? "",
-            [],
             false,
           ).catch(() => undefined);
         }
@@ -134,7 +133,6 @@ export async function POST(request: Request) {
         await cleanupCompletedSalesUpload(
           principal,
           uploadId,
-          (claim.session.chunks ?? []).map((chunk) => chunk.objectKey),
         );
         return Response.json(claim.result, {
           status: importExecutionHttpStatus(claim.result),
@@ -158,20 +156,19 @@ export async function POST(request: Request) {
           fingerprint: assembled.session.fingerprint,
         });
         if (!result.ok || !result.batch?.id) {
-          await finishSalesUpload(principal, uploadId, ownerToken, [], false);
+          await finishSalesUpload(principal, uploadId, ownerToken, false);
         } else {
           await finishSalesUpload(
             principal,
             uploadId,
             ownerToken,
-            assembled.objectKeys,
             true,
             result.batch.id,
           );
         }
         return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
       } catch (error) {
-        await finishSalesUpload(principal, uploadId, ownerToken, [], false).catch(() => undefined);
+        await finishSalesUpload(principal, uploadId, ownerToken, false).catch(() => undefined);
         throw error;
       }
     }

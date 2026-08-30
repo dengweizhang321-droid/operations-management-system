@@ -159,7 +159,9 @@ REQUIRED_WRITER_COLUMNS = {
         "result_batch_id",
         "expires_at",
     },
-    "sales_raw_upload_chunks": {"session_id", "chunk_index", "object_key", "sha256"},
+    "sales_raw_upload_chunks": {
+        "session_id", "chunk_index", "object_key", "sha256", "payload",
+    },
     "sales_staged_import_sessions": {
         "id",
         "status",

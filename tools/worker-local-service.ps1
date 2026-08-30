@@ -15,7 +15,7 @@
 
 $ErrorActionPreference = "Stop"
 $FixedRuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales"
-$FixedSourceRoot = "D:\运营管理系统-django-sales-combined"
+$FixedSourceRoot = "D:\运营管理系统-sales-django-release"
 $FixedProtectedRoot = "D:\运营管理系统"
 $FixedDevVarsSource = "D:\运营管理系统\.dev.vars"
 $FixedPersistRoot = "D:\运营管理系统\.wrangler\state"

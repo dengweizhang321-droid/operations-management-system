@@ -8,14 +8,14 @@
 
 | 组件 | 责任 | 明确不负责 |
 | --- | --- | --- |
-| Cloudflare Worker | 公开鉴权、真实 principal 校验、HMAC principal 信封、Excel 解析、R2 短期分片、请求超时与体积边界和边缘协议适配 | 不保存销售事实、批次或幂等状态；不读写 D1 销售表；不把销售请求回退到 D1 |
+| Cloudflare Worker | 公开鉴权、真实 principal 校验、HMAC principal 信封、Excel 解析、分片请求边界、请求超时与体积边界和边缘协议适配 | 不保存销售事实、批次、幂等状态或分片对象；不读写销售 D1/R2；不把销售请求回退到旧存储 |
 | Django reader | 销售查询、分析和消费者查询，只读访问 PostgreSQL | 不执行导入写入 |
 | Django writer | 导入、分片签收、暂存、校验和销售域写入 | 不对公网直接暴露 |
 | PostgreSQL | 销售域唯一事实源和读写数据库；保存完整历史审计 | 不成为 ERP 主数据的上游权威 |
 | ERP bridge | 独立消费 ERP-only outbox，将 D1 中的 ERP 主数据同步到 PostgreSQL；按 ERP 映射回填现有 `sales_order_lines.resolved_category` 派生分类 | 不消费或生成销售事件，不回写 D1；不新增/删除销售事实，不修改金额、成本、销量、`gross_profit`、其他销售字段或批次 |
 | D1 | 继续作为 ERP 主数据权威来源及 ERP-only outbox 来源 | 不再承载销售事实、销售批次、销售导入审计或销售读路径 |
 
-R2 分片只是有生命周期约束的传输材料，不是销售数据权威来源。销售写入成功必须以 PostgreSQL 中的原子发布、幂等审计和落库回查为准。
+销售原始分片字节、元数据、owner fencing 和过期清理均由 PostgreSQL 管理，Worker 只经签名回环接口传输有界分片；销售生产路径不再使用 R2。销售写入成功必须以 PostgreSQL 中的原子发布、幂等审计和落库回查为准。全局 R2 binding 仍属于其他业务域，不能随销售切换删除。
 
 ## 本机生产拓扑
 
@@ -26,6 +26,8 @@ R2 分片只是有生命周期约束的传输材料，不是销售数据权威�
 | `127.0.0.1:5432` | PostgreSQL 17 | — |
 | `127.0.0.1:8001` | Django reader | `teruisi_sales_reader` |
 | `127.0.0.1:8002` | Django writer | `teruisi_sales_writer` |
+| `127.0.0.1:8011` | Django finance reader | `teruisi_finance_reader` |
+| `127.0.0.1:8012` | Django finance writer（authority 激活前保持停止） | `teruisi_finance_writer` |
 | 后台进程，无监听端口 | ERP bridge | `teruisi_erp_reference_sync` |
 
 三种运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
