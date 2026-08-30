@@ -53,7 +53,7 @@ function Resolve-FinanceSnapshot([string]$Value) {
     throw "Finance migration requires an absolute controlled snapshot path"
   }
   $canonical = Get-CanonicalPath $Value
-  Assert-RuntimeChildPath $canonical
+  [void](Assert-RuntimeChildPath $canonical)
   $auditRoot = Get-CanonicalPath $FinanceAuditRoot
   if (-not $canonical.StartsWith(
       $auditRoot + [IO.Path]::DirectorySeparatorChar,
@@ -74,24 +74,21 @@ function Invoke-FinanceManagementCommand([string[]]$Arguments, [string]$Operatio
   $manage = Join-Path $BackendRoot "manage.py"
   $commandArguments = @($manage) + @($Arguments)
   $operationLabel = [string]$Operation
-  $pythonExecutable = [string]$Python
-  $backendWorkingDirectory = [string]$BackendRoot
   $diagnosticLogPath = Join-Path $LogDirectory "finance-cutover.$RunId.log"
   if ($operationLabel -cnotmatch "^[a-z0-9_-]{1,64}$" -or
       @($commandArguments | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) {
     throw "Finance management command contract is invalid"
   }
-  $invokeCommand = {
-    $nativeRun = Invoke-BoundedNativeProcess (
-      $pythonExecutable
-    ) $commandArguments $backendWorkingDirectory
-    Write-NativeDiagnosticLog $diagnosticLogPath $operationLabel $nativeRun
-    return ConvertFrom-UniqueNativeJson $nativeRun $operationLabel
-  }.GetNewClosure()
   try {
     return Invoke-WithDjangoEnvironment $secrets $ownerUrl "migration_writer" (
       $false
-    ) $WriterMaxBodyBytes "" "" $invokeCommand
+    ) $WriterMaxBodyBytes "" "" {
+      $nativeRun = Invoke-BoundedNativeProcess (
+        $Python
+      ) $commandArguments $BackendRoot
+      Write-NativeDiagnosticLog $diagnosticLogPath $operationLabel $nativeRun
+      return ConvertFrom-UniqueNativeJson $nativeRun $operationLabel
+    }
   } finally {
     $ownerUrl = $null
     $secrets = $null
