@@ -196,6 +196,6 @@ test("Python helper snapshot and restore behavior passes isolated unit fixtures"
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /Ran 4 tests/);
+  assert.match(result.stderr, /Ran 5 tests/);
   assert.match(result.stderr, /OK/);
 });

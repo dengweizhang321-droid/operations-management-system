@@ -56,6 +56,13 @@ def _table_names(cursor: psycopg.Cursor[Any]) -> list[str]:
     return names
 
 
+def _canonical_loopback_address(value: Any) -> str:
+    address = str(value).split("/", 1)[0]
+    if address not in ("127.0.0.1", "::1"):
+        raise RuntimeError("database is not bound to a loopback address")
+    return address
+
+
 def collect_evidence(
     connection: psycopg.Connection[Any],
     expected_database: str,
@@ -75,8 +82,7 @@ def collect_evidence(
         database_name, database_user, server_address, server_port, recovery, version = identity
         if str(database_name) != expected_database or str(database_user) != expected_user:
             raise RuntimeError("database identity does not match the approved target")
-        if str(server_address) not in ("127.0.0.1", "::1"):
-            raise RuntimeError("database is not bound to a loopback address")
+        canonical_server_address = _canonical_loopback_address(server_address)
 
         tables = _table_names(cursor)
         required = {
@@ -147,7 +153,7 @@ def collect_evidence(
         "database": {
             "name": str(database_name),
             "user": str(database_user),
-            "serverAddress": str(server_address),
+            "serverAddress": canonical_server_address,
             "serverPort": int(server_port),
             "inRecovery": bool(recovery),
             "serverVersionNumber": int(version),

@@ -52,6 +52,15 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_loopback_identity_normalizes_postgres_inet_cidr_text(self):
+        self.assertEqual(
+            MODULE._canonical_loopback_address("127.0.0.1/32"),
+            "127.0.0.1",
+        )
+        self.assertEqual(MODULE._canonical_loopback_address("::1/128"), "::1")
+        with self.assertRaisesRegex(RuntimeError, "not bound to a loopback"):
+            MODULE._canonical_loopback_address("127.0.0.2/32")
+
     def test_backup_binds_dump_to_exported_snapshot(self):
         with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
             root = Path(temporary)
