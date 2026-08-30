@@ -31,7 +31,7 @@ import { GLOBAL_SEARCH_COVERAGE } from "@/lib/search/global-search";
 import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/database";
 import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 
@@ -90,7 +90,7 @@ export const aiToolRegistry = [
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
     execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
-    handler: (args, context) => searchAiKnowledge(args, context.principal, getSalesDatabase()),
+    handler: (args, context) => searchAiKnowledge(args, context.principal, getD1Database()),
   },
   {
     name: "get_data_freshness",
@@ -102,7 +102,7 @@ export const aiToolRegistry = [
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callOperationsTool("get_data_freshness", args),
+    handler: (args, context) => callOperationsTool("get_data_freshness", args, context.principal, { signal: context.signal }),
   },
   {
     name: "get_sales_summary",
@@ -126,7 +126,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callOperationsTool("get_sales_summary", args),
+    handler: (args, context) => callOperationsTool("get_sales_summary", args, context.principal, { signal: context.signal }),
   },
   {
     name: "get_sales_category_analysis",
@@ -178,7 +178,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callOperationsTool("get_inventory_health", args),
+    handler: (args, context) => callOperationsTool("get_inventory_health", args, context.principal, { signal: context.signal }),
   },
   {
     name: "get_product_performance",
@@ -205,7 +205,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callOperationsTool("get_product_performance", args),
+    handler: (args, context) => callOperationsTool("get_product_performance", args, context.principal, { signal: context.signal }),
   },
   {
     name: "list_replenishment_plans",
@@ -226,7 +226,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callOperationsTool("list_replenishment_plans", args),
+    handler: (args, context) => callOperationsTool("list_replenishment_plans", args, context.principal, { signal: context.signal }),
   },
   {
     name: "get_customer_service_conversations",
@@ -251,7 +251,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => getCustomerServiceConversationsForAi(args),
+    handler: (args, context) => getCustomerServiceConversationsForAi(args, context.principal, { signal: context.signal }),
   },
   {
     name: "get_market_overview",
@@ -277,7 +277,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callMarketTool("get_market_overview", args),
+    handler: (args, context) => callMarketTool("get_market_overview", args, context.principal),
   },
   {
     name: "get_market_sku_trend",
@@ -300,7 +300,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callMarketTool("get_market_sku_trend", args),
+    handler: (args, context) => callMarketTool("get_market_sku_trend", args, context.principal),
   },
   {
     name: "get_market_brand_analysis",
@@ -324,7 +324,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callMarketTool("get_market_brand_analysis", args),
+    handler: (args, context) => callMarketTool("get_market_brand_analysis", args, context.principal),
   },
   {
     name: "get_market_price_band_analysis",
@@ -348,7 +348,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callMarketTool("get_market_price_band_analysis", args),
+    handler: (args, context) => callMarketTool("get_market_price_band_analysis", args, context.principal),
   },
   {
     name: "get_market_pending_review_summary",
@@ -367,7 +367,7 @@ export const aiToolRegistry = [
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
     execution: synchronousReadOnlyExecution,
-    handler: (args) => callMarketTool("get_market_pending_review_summary", args),
+    handler: (args, context) => callMarketTool("get_market_pending_review_summary", args, context.principal),
   },
   {
     name: "get_netshop_performance",

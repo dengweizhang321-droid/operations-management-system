@@ -73,12 +73,11 @@ test("市场榜单 CSV 映射商品、周期和经营指标", () => {
 });
 
 test("市场商品与自有商品关联字段具备独立索引", async () => {
-  const [salesDatabase, netshopDatabase] = await Promise.all([
-    readFile(new URL("../lib/sales/database.ts", import.meta.url), "utf8"),
+  const [salesModels, netshopDatabase] = await Promise.all([
+    readFile(new URL("../backend/sales/models.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(salesDatabase, /sales_order_lines_product_code_idx[\s\S]*ON sales_order_lines \(product_code\)/);
-  assert.match(salesDatabase, /sales_order_lines_online_spec_code_idx[\s\S]*ON sales_order_lines \(online_spec_code\)/);
+  assert.match(salesModels, /fields=\["product_code", "business_date"\],[\s\S]*name="sales_product_date_idx"/);
   assert.match(netshopDatabase, /netshop_rows_sku_id_idx[\s\S]*ON netshop_rows \(sku_id\)/);
   assert.match(netshopDatabase, /netshop_rows_spu_id_idx[\s\S]*ON netshop_rows \(spu_id\)/);
   assert.match(netshopDatabase, /netshop_rows_product_code_idx[\s\S]*ON netshop_rows \(product_code\)/);

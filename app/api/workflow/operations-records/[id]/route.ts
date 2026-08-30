@@ -5,7 +5,7 @@ import {
   updateOperationRecord,
   type UpdateOperationRecordInput,
 } from "@/lib/workflow/operations-records";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -29,7 +29,7 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     const { id } = await context.params;
-    const item = await getOperationRecord(id, principal, getSalesDatabase());
+    const item = await getOperationRecord(id, principal, getD1Database());
     if (!item) {
       return Response.json({ error: "运营记录不存在或不可访问", code: "not_found" }, {
         status: 404,
@@ -53,7 +53,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       });
     }
     const { id } = await context.params;
-    const item = await updateOperationRecord(id, body, principal, getSalesDatabase());
+    const item = await updateOperationRecord(id, body, principal, getD1Database());
     return Response.json({ item }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error, "更新运营记录失败");
@@ -65,7 +65,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     const { id } = await context.params;
     const expectedVersion = new URL(request.url).searchParams.get("expectedVersion");
-    const result = await deleteOperationRecord(id, expectedVersion, principal, getSalesDatabase());
+    const result = await deleteOperationRecord(id, expectedVersion, principal, getD1Database());
     return Response.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error, "删除运营记录失败");

@@ -32,7 +32,22 @@ test("local Worker keeps runtime arguments bounded without test-only middleware"
 
   assert.match(command.args[0] ?? "", /example-project[\\/]node_modules[\\/]wrangler[\\/]bin[\\/]wrangler\.js$/);
   assert.equal(command.args.includes("--test-scheduled"), false);
+  assert.equal(command.args[command.args.indexOf("--persist-to") + 1], ".wrangler/state");
   assert.deepEqual(command.args.slice(-2), ["--log-level", "warn"]);
+});
+
+test("local Worker can mount one explicit existing Wrangler state directory", () => {
+  const command = getLocalWorkerRuntimeCommand(
+    "D:/deployment-worktree",
+    [],
+    "D:/operations-system/.wrangler/state",
+  );
+
+  assert.equal(
+    command.args[command.args.indexOf("--persist-to") + 1],
+    "D:/operations-system/.wrangler/state",
+  );
+  assert.equal(command.args.filter((argument) => argument === "--persist-to").length, 1);
 });
 
 test("local Worker starts the loopback-only Tmall workflow helper without passing credentials", () => {
@@ -72,7 +87,7 @@ test("local Worker refuses an unknown listener on the Tmall helper port", async 
   await assert.doesNotReject(assertTmallWorkflowHelperPortAvailable(async () => false));
 });
 
-test("Tmall helper supervisor restarts a completed one-shot process and stops its owned child", () => {
+test("Tmall helper supervisor restarts a completed one-shot process and stops its owned child", async () => {
   class FakeChild extends EventEmitter {
     exitCode: number | null = null;
     signalCode: string | null = null;
@@ -104,6 +119,7 @@ test("Tmall helper supervisor restarts a completed one-shot process and stops it
       timer.cancelled = true;
     },
     now: () => 1_000,
+    assertLaunchAllowed: async () => {},
   });
 
   supervisor.start();
@@ -112,6 +128,7 @@ test("Tmall helper supervisor restarts a completed one-shot process and stops it
   assert.equal(timers.length, 1);
   assert.equal(timers[0]!.delay, 500);
   timers[0]!.callback();
+  await Promise.resolve();
   assert.equal(children.length, 2);
 
   supervisor.stop();

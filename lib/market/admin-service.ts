@@ -1467,10 +1467,14 @@ export async function getMarketSkuComparison(db: MarketDatabase, input: {
   };
 }
 
-export async function getMarketOverviewForAi(db: MarketDatabase, args: Record<string, unknown>) {
+export async function getMarketOverviewForAi(
+  db: MarketDatabase,
+  args: Record<string, unknown>,
+  principal: AppPrincipal,
+) {
   const { getMarketOverview } = await import("@/lib/market/database");
   const filtersApplied = aiFilters(args);
-  const overview = await getMarketOverview(db, filtersApplied);
+  const overview = await getMarketOverview(db, principal, filtersApplied);
   const industryReport = overview.industryReport;
   return {
     filtersApplied,
@@ -1502,9 +1506,13 @@ export async function getMarketOverviewForAi(db: MarketDatabase, args: Record<st
   };
 }
 
-export async function getMarketBrandAnalysisForAi(db: MarketDatabase, args: Record<string, unknown>) {
+export async function getMarketBrandAnalysisForAi(
+  db: MarketDatabase,
+  args: Record<string, unknown>,
+  principal: AppPrincipal,
+) {
   const { getMarketOverview } = await import("@/lib/market/database");
-  const overview = await getMarketOverview(db, aiFilters(args));
+  const overview = await getMarketOverview(db, principal, aiFilters(args));
   return {
     filtersApplied: aiFilters(args),
     dataRange: overview.dataRange,
@@ -1517,9 +1525,13 @@ export async function getMarketBrandAnalysisForAi(db: MarketDatabase, args: Reco
   };
 }
 
-export async function getMarketPriceBandAnalysisForAi(db: MarketDatabase, args: Record<string, unknown>) {
+export async function getMarketPriceBandAnalysisForAi(
+  db: MarketDatabase,
+  args: Record<string, unknown>,
+  principal: AppPrincipal,
+) {
   const { getMarketOverview } = await import("@/lib/market/database");
-  const overview = await getMarketOverview(db, aiFilters(args), { priceBandBasis: "confirmed_only" });
+  const overview = await getMarketOverview(db, principal, aiFilters(args), { priceBandBasis: "confirmed_only" });
   return {
     filtersApplied: aiFilters(args),
     dataRange: overview.dataRange,

@@ -8,7 +8,7 @@ import {
 import { isAiRequestCancelled } from "@/lib/ai/cancellation";
 import { createWebChatEntryContext } from "@/lib/ai/entry-context";
 import { answerAiQuestion } from "@/lib/ai/question-workflow";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -23,7 +23,7 @@ import {
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
-    const db = getSalesDatabase();
+    const db = getD1Database();
     await ensureAiAssistantSchema(db);
     const searchParams = new URL(request.url).searchParams;
     const conversationIds = searchParams.getAll("conversationId");
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
-    const db = getSalesDatabase();
+    const db = getD1Database();
     await ensureAiAssistantSchema(db);
     const payload = await readAiJsonObject(request);
     const conversationId = optionalAiId(payload.conversationId, "conversationId");

@@ -10,10 +10,11 @@ from threading import Lock
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpRequest, JsonResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .auth import PrincipalEnvelopeError, verify_principal
 from .category import get_category_analysis, get_category_detail
+from .consumers import execute_consumer_query, parse_consumer_body
 from .query import (
     SalesAccessError,
     SalesRequestError,
@@ -143,6 +144,25 @@ def _principal(request: HttpRequest):
     if principal.role not in {"viewer", "analyst", "operator", "admin"}:
         raise PrincipalEnvelopeError("当前角色无权访问", status=403, code="insufficient_role")
     return principal
+
+
+@require_POST
+def consumer_query(request: HttpRequest) -> JsonResponse:
+    def execute(inner: HttpRequest) -> JsonResponse:
+        principal = _principal(inner)
+        consumer_request = parse_consumer_body(inner)
+        body_identity = hashlib.sha256(inner.body).hexdigest()
+        payload, stable_revision, cache_status = _consistent_read(
+            lambda: execute_consumer_query(principal, consumer_request),
+            f"{_cache_identity(inner, principal)}:{body_identity}",
+        )
+        return _json(
+            {"operation": consumer_request["operation"], "data": payload},
+            revision=stable_revision,
+            extra_headers={"X-Sales-Overview-Cache": cache_status},
+        )
+
+    return _handle(execute, request)
 
 
 @require_GET

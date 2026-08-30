@@ -4,7 +4,7 @@ import {
   OperationRecordRequestError,
   type CreateOperationRecordInput,
 } from "@/lib/workflow/operations-records";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 
 function requestErrorResponse(error: unknown, fallback: string) {
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       to: params.get("to"),
       page: params.get("page"),
       pageSize: params.get("pageSize"),
-    }, principal, getSalesDatabase());
+    }, principal, getD1Database());
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return requestErrorResponse(error, "读取运营记录失败");
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         headers: { "cache-control": "no-store" },
       });
     }
-    const item = await createOperationRecord(body, principal, getSalesDatabase());
+    const item = await createOperationRecord(body, principal, getD1Database());
     return Response.json({ item }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
     return requestErrorResponse(error, "保存运营记录失败");

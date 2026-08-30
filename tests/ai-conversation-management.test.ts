@@ -9,7 +9,7 @@ import {
   isAiChatCapableModelType,
 } from "../lib/ai/conversation-management";
 import type { AppPrincipal } from "../lib/auth/authorization";
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database } from "../lib/database/d1";
 
 const owner: AppPrincipal = { email: "owner@example.com", displayName: "Owner", role: "analyst", scope: null };
 const otherUser: AppPrincipal = { email: "other@example.com", displayName: "Other", role: "analyst", scope: null };
@@ -59,7 +59,7 @@ function countRows(sqlite: DatabaseSync, table: string): number {
   return Number((sqlite.prepare(`SELECT COUNT(*) total FROM ${table}`).get() as { total: number }).total);
 }
 
-function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
+function sqliteAdapter(sqlite: DatabaseSync): D1Database {
   return {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -82,5 +82,5 @@ function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
         throw error;
       }
     },
-  } as unknown as SalesDatabase;
+  } as unknown as D1Database;
 }

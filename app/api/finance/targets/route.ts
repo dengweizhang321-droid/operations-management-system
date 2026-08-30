@@ -76,7 +76,7 @@ export async function GET(request: Request) {
         page,
         pageSize,
       }),
-      getFinanceTargetOptions(db),
+      getFinanceTargetOptions(db, principal, { signal: request.signal }),
     ]);
     return Response.json({ ...targets, options }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

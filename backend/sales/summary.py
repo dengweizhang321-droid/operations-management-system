@@ -8,6 +8,7 @@ from django.db.models import BigIntegerField, CharField, F, Max, Q, Sum, TextFie
 from django.db.models.functions import Coalesce, Concat, NullIf
 
 from .models import ErpProductMaster, SalesOrderLine
+from .auth import Principal
 from .query import (
     SalesRequestError,
     ISO_DATE_RE,
@@ -20,6 +21,7 @@ from .query import (
     metric_aggregates,
     sales_queryset,
     serialize_metric,
+    _apply_principal_scope,
 )
 
 
@@ -117,6 +119,7 @@ def _base(period: dict[str, str], filters: dict[str, object]):
         categories=filters["categories"],
         platforms=filters["platforms"],
         outlets=filters["outlets"],
+        principal=filters.get("principal"),
     )
     shop = filters.get("shop")
     # The public Worker contract treats the structured outlet filter as the
@@ -256,15 +259,15 @@ def _daily_ranges(
     return result
 
 
-def _filter_options(period: dict[str, str], product_codes: list[str]) -> dict[str, object]:
-    filters = {"productCodes": product_codes, "categories": [], "platforms": [], "outlets": [], "shop": None}
+def _filter_options(period: dict[str, str], product_codes: list[str], principal: Principal | None = None) -> dict[str, object]:
+    filters = {"productCodes": product_codes, "categories": [], "platforms": [], "outlets": [], "shop": None, "principal": principal}
     queryset = _base(period, filters)
     shops = list(queryset.values("report_platform_key", "report_shop_key").distinct().order_by(binary_order("report_platform_key"), binary_order("report_shop_key"))[:500])
     platforms = list(queryset.values_list("report_platform_key", flat=True).distinct().order_by(binary_order("report_platform_key"))[:200])
     if product_codes:
         categories = list(queryset.values_list("resolved_category", flat=True).distinct().order_by(binary_order("resolved_category"))[:200])
     else:
-        master_categories = set(
+        master_categories = set() if principal is not None and principal.scope is not None else set(
             ErpProductMaster.objects.annotate(category_trim=F("category")).exclude(category="").values_list("category", flat=True)
         )
         sales_categories = set(queryset.values_list("resolved_category", flat=True).distinct())
@@ -279,7 +282,7 @@ def _filter_options(period: dict[str, str], product_codes: list[str]) -> dict[st
     }
 
 
-def get_sales_summary(*, range_name: str, projection: str, start_date: str | None, end_date: str | None, product_queries: list[str], product_codes: list[str], platforms: list[str], shop: str | None, outlets: list[dict[str, str]], categories: list[str]) -> dict[str, object]:
+def get_sales_summary(*, range_name: str, projection: str, start_date: str | None, end_date: str | None, product_queries: list[str], product_codes: list[str], platforms: list[str], shop: str | None, outlets: list[dict[str, str]], categories: list[str], principal: Principal | None = None) -> dict[str, object]:
     if range_name not in SALES_RANGES:
         raise SalesRequestError(f"range 必须是 {', '.join(['today', 'yesterday', 'last7', 'last15', 'month', 'quarter', 'custom', 'all'])} 之一")
     if projection not in {"full", "dashboard"}:
@@ -290,9 +293,13 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         "platforms": platforms,
         "shop": shop.strip() if shop and shop.strip() else None,
         "outlets": outlets,
+        "principal": principal,
     }
+    cutoff_queryset, _scope_mode = _apply_principal_scope(
+        SalesOrderLine.objects.filter(is_business_row=True), principal
+    )
     cutoff = (
-        SalesOrderLine.objects.filter(is_business_row=True)
+        cutoff_queryset
         .order_by("-business_date")
         .values_list("business_date", flat=True)
         .first()
@@ -338,7 +345,7 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         daily = daily_rows["current"]
         previous_daily = daily_rows.get("previous", [])
         year_ago_daily = daily_rows["yearAgo"]
-        options = _filter_options(period, product_codes)
+        options = _filter_options(period, product_codes, principal)
     else:
         channel_result = platform_result = empty_group
         daily = _daily_ranges({"current": trend_period}, filters)["current"]

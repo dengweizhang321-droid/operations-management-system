@@ -16,7 +16,7 @@ import type { AiQuestionEntryContext } from "@/lib/ai/entry-context";
 import { getVisibleToolCatalog } from "@/lib/ai/tool-registry";
 import { AI_TOOL_SYSTEM_PROMPT } from "@/lib/ai/tool-loop";
 import { recordAiToolAudit } from "@/lib/ai/tool-audit";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 const MAX_QUESTION_LENGTH = 12_000;
 const RESET_COMMANDS = new Set(["新话题", "清空上下文", "/new", "/reset"]);
@@ -40,7 +40,7 @@ export type AiQuestionWorkflowInput = {
 
 export async function answerAiQuestion(
   input: AiQuestionWorkflowInput,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiQuestionWorkflowResult> {
   const startedAt = Date.now();
   const prompt = normalizeQuestion(input.message);
@@ -106,7 +106,7 @@ export async function answerAiQuestion(
 async function createShortcutConversation(
   input: AiQuestionWorkflowInput,
   requestedModelId: string | undefined,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiConversationRecord> {
   let modelId: string | null = null;
   if (requestedModelId) {
@@ -121,7 +121,7 @@ async function createShortcutConversation(
 async function createQuestionConversation(
   input: AiQuestionWorkflowInput,
   modelId: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiConversationRecord> {
   const id = await createConversation(input.title || "新对话", input.entry.principal, modelId, db);
   return requireConversationAccess(id, input.entry.principal, db);
@@ -129,7 +129,7 @@ async function createQuestionConversation(
 
 async function resolveWorkflowModel(
   input: { conversation: AiConversationRecord | null; requestedModelId?: string },
-  db: SalesDatabase,
+  db: D1Database,
 ) {
   if (input.requestedModelId) {
     const requested = await resolveChatModel({ modelId: input.requestedModelId, allowFallback: false }, db);
@@ -167,7 +167,7 @@ function buildSystemPrompt(entry: AiQuestionEntryContext, knowledgeContext = "")
 async function retrieveWorkflowKnowledge(
   prompt: string,
   entry: AiQuestionEntryContext,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<{ context: string; sourceIds: string[] }> {
   const startedAt = Date.now();
   try {

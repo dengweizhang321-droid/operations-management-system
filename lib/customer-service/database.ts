@@ -21,7 +21,12 @@ import {
   reserveImportFingerprint,
 } from "@/lib/imports/content-fingerprint";
 import { ensureNetshopSchema, getNetshopDatabase } from "@/lib/netshop/database";
-import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
+import { requireUnrestrictedDataScope, type AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
 import { PublicApiError } from "@/lib/http/api-error";
 import { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes, type CustomerServiceAnnotationInput, type CustomerServiceConversionStatus, type CustomerServiceProblemType, type CustomerServiceRobotScope } from "./contracts";
 import { buildCustomerServiceProductMappings, customerServiceOnlineSpecCodes, type CustomerServiceMasterProductRow, type CustomerServiceProductMapping, type CustomerServiceSalesProductRow } from "./product-mapping";
@@ -547,7 +552,71 @@ function nextNaturalDate(value: string) {
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
 }
 
-export async function listCustomerServiceConversations(filters: CustomerServiceConversationFilters) {
+type CustomerServiceSalesOptions = {
+  salesReader?: SalesConsumerReader;
+  signal?: AbortSignal;
+};
+
+function salesConsumerUnavailable(): PublicApiError {
+  return new PublicApiError(503, "service_unavailable", "Django 销售读取服务暂时不可用，请稍后重试。");
+}
+
+function validSalesProductRow(
+  value: unknown,
+): value is SalesConsumerResponseMap["customer_service_products"]["rows"][number] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.onlineSpecCode === "string" && row.onlineSpecCode.length <= 200
+    && typeof row.productCode === "string" && row.productCode.length <= 200
+    && typeof row.category === "string" && row.category.length <= 200
+    && (row.latestAt === null || (typeof row.latestAt === "string" && row.latestAt.length <= 80));
+}
+
+async function readCustomerServiceSalesProducts(
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
+  input: { onlineSpecCodes?: string[]; categories?: string[]; signal?: AbortSignal },
+): Promise<CustomerServiceSalesProductRow[]> {
+  const onlineSpecCodes = [...new Set(input.onlineSpecCodes ?? [])];
+  const chunks = onlineSpecCodes.length > 0
+    ? Array.from({ length: Math.ceil(onlineSpecCodes.length / 2_000) }, (_, index) => onlineSpecCodes.slice(index * 2_000, (index + 1) * 2_000))
+    : [[]];
+  const rows: CustomerServiceSalesProductRow[] = [];
+  let revision: string | null = null;
+  for (const chunk of chunks) {
+    const result = await salesReader.read(principal, {
+      operation: "customer_service_products",
+      ...(chunk.length > 0 ? { onlineSpecCodes: chunk } : {}),
+      ...(input.categories?.length ? { categories: input.categories } : {}),
+      limit: 5_000,
+    }, { signal: input.signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || (revision !== null && result.revision !== revision)
+      || !result.data || !Array.isArray(result.data.rows)
+      || typeof result.data.truncated !== "boolean" || result.data.truncated
+      || !result.data.rows.every(validSalesProductRow)) {
+      throw salesConsumerUnavailable();
+    }
+    revision = result.revision;
+    const requested = new Set(chunk);
+    for (const row of result.data.rows) {
+      if (requested.size > 0 && !requested.has(row.onlineSpecCode)) throw salesConsumerUnavailable();
+      rows.push({
+        online_spec_code: row.onlineSpecCode,
+        product_code: row.productCode,
+        category: row.category,
+      });
+    }
+  }
+  return rows;
+}
+
+export async function listCustomerServiceConversations(
+  filters: CustomerServiceConversationFilters,
+  principal: AppPrincipal,
+  options: CustomerServiceSalesOptions = {},
+) {
+  requireUnrestrictedDataScope(principal, "客服会话");
   const shopFilters = filterValues(filters.shopNames, filters.shopName, "店铺筛选", 50, 100);
   const agentFilters = filterValues(filters.agents, filters.agent, "客服筛选", 50, 120);
   const statusFilters = enumFilter(
@@ -572,7 +641,8 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
   );
   const categoryFilters = filterValues(filters.categories, filters.category, "品类筛选", 50, 120);
   const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
-  await Promise.all([ensureNetshopSchema(getNetshopDatabase()), ensureSalesSchema(getSalesDatabase())]);
+  await ensureNetshopSchema(getNetshopDatabase());
+  const salesReader = options.salesReader ?? createDjangoSalesConsumerReader();
   const conditions: string[] = []; const values: unknown[] = [];
   addInFilter(conditions, values, "shop_name", shopFilters);
   const startDate = filters.startDate ? normalizeNaturalDate(filters.startDate, "开始日期") : null;
@@ -586,7 +656,15 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
   addInFilter(conditions, values, "problem_type", problemTypeFilters);
   addInFilter(conditions, values, "conversion_status", conversionStatusFilters);
   if (categoryFilters.length) {
-    const mappedProductCodes = await db.prepare(`WITH master_map AS MATERIALIZED (
+    const salesRows = await readCustomerServiceSalesProducts(principal, salesReader, {
+      categories: categoryFilters,
+      signal: options.signal,
+    });
+    const matchedOnlineSpecCodes = [...new Set(salesRows.map((row) => row.online_spec_code).filter(Boolean))];
+    if (matchedOnlineSpecCodes.length === 0) {
+      conditions.push("1 = 0");
+    } else {
+      const mappedProductCodes = await db.prepare(`WITH master_map AS MATERIALIZED (
         SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
         FROM netshop_rows n
         WHERE n.source = 'jd_product_master'
@@ -601,22 +679,23 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
         WHERE online_spec_code <> ''
         GROUP BY online_spec_code
         HAVING COUNT(DISTINCT sku_id) = 1
-      ), matched_codes AS MATERIALIZED (
-        SELECT DISTINCT online_spec_code FROM sales_order_lines
-        WHERE TRIM(category) IN (SELECT CAST(value AS TEXT) FROM json_each(?))
       )
       SELECT lookup_code FROM (
         SELECT mapping.sku_id AS lookup_code FROM relevant_map mapping
-        JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
+        WHERE mapping.online_spec_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))
         UNION
         SELECT mapping.online_spec_code AS lookup_code FROM reverse_map mapping
-        JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
-      ) ORDER BY lookup_code LIMIT 5000`).bind(JSON.stringify(categoryFilters)).all<{ lookup_code: string }>();
-    if (mappedProductCodes.results.length) {
-      conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
-      values.push(JSON.stringify(mappedProductCodes.results.map((item) => item.lookup_code)));
-    } else {
-      conditions.push("1 = 0");
+        WHERE mapping.online_spec_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))
+      ) ORDER BY lookup_code LIMIT 5001`)
+        .bind(JSON.stringify(matchedOnlineSpecCodes), JSON.stringify(matchedOnlineSpecCodes))
+        .all<{ lookup_code: string }>();
+      if (mappedProductCodes.results.length > 5_000) throw salesConsumerUnavailable();
+      if (mappedProductCodes.results.length) {
+        conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+        values.push(JSON.stringify(mappedProductCodes.results.map((item) => item.lookup_code)));
+      } else {
+        conditions.push("1 = 0");
+      }
     }
   }
   const query = filters.query?.trim() ?? "";
@@ -673,15 +752,24 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
         UNION
         SELECT online_spec_code AS lookup_code, online_spec_code FROM reverse_map
       )
-      SELECT DISTINCT TRIM(s.category) AS category
+      SELECT DISTINCT mapping.online_spec_code
       FROM lookup_map mapping
-      JOIN sales_order_lines s ON s.online_spec_code = mapping.online_spec_code
       WHERE mapping.lookup_code IN (
           SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''
-        ) AND NULLIF(TRIM(s.category), '') IS NOT NULL
-      ORDER BY category COLLATE NOCASE ASC LIMIT 100`).all<{ category: string }>()
-      : Promise.resolve({ results: [] as Array<{ category: string }> }),
+        ) AND NULLIF(TRIM(mapping.online_spec_code), '') IS NOT NULL
+      ORDER BY mapping.online_spec_code COLLATE NOCASE ASC LIMIT 10001`).all<{ online_spec_code: string }>()
+      : Promise.resolve({ results: [] as Array<{ online_spec_code: string }> }),
   ]);
+  if (categories.results.length > 10_000) throw salesConsumerUnavailable();
+  const categorySalesRows = includeOptions && categories.results.length > 0
+    ? await readCustomerServiceSalesProducts(principal, salesReader, {
+      onlineSpecCodes: categories.results.map((item) => item.online_spec_code),
+      signal: options.signal,
+    })
+    : [];
+  const categoryOptions = [...new Set(categorySalesRows.map((item) => item.category.trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right))
+    .slice(0, 100);
   const customerItems = items.results.map((row) => mapCustomerServiceConversation(row));
   const productSkus = [...new Set(customerItems.map((item) => item.productSku).filter(Boolean))];
   let catalog = new Map<string, CustomerServiceProductMapping>();
@@ -695,17 +783,15 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
     const onlineSpecCodes = customerServiceOnlineSpecCodes(rows.results);
     let salesRows: CustomerServiceSalesProductRow[] = [];
     if (onlineSpecCodes.length) {
-      const erpRows = await db.prepare(`SELECT online_spec_code, product_code, category, MAX(sales_time) AS latest_at
-        FROM sales_order_lines
-        WHERE online_spec_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))
-        GROUP BY online_spec_code, product_code, category
-        ORDER BY latest_at DESC`).bind(JSON.stringify(onlineSpecCodes)).all<CustomerServiceSalesProductRow>();
-      salesRows = erpRows.results;
+      salesRows = await readCustomerServiceSalesProducts(principal, salesReader, {
+        onlineSpecCodes,
+        signal: options.signal,
+      });
     }
     catalog = buildCustomerServiceProductMappings(productSkus, rows.results, salesRows);
   }
   const total = Number(summaryResult?.total ?? 0);
-  return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, matchedSkuId: matched?.matchedSkuId ?? "", productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categories.results.map((item) => item.category), summary: { total, matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total, returned: customerItems.length, truncated: page * pageSize < total } };
+  return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, matchedSkuId: matched?.matchedSkuId ?? "", productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categoryOptions, summary: { total, matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total, returned: customerItems.length, truncated: page * pageSize < total } };
 }
 
 function boundedMessages(row: Record<string, unknown>, includeMessages: boolean) {
@@ -830,8 +916,12 @@ export async function updateCustomerServiceConversationAnnotation(id: number, in
   return { id, updated: true, version: Number(updated.version), updatedAt: String(updated.updated_at) };
 }
 
-export async function getCustomerServiceConversationsForAi(args: Record<string, unknown>) {
-  const payload = await listCustomerServiceConversations({ startDate: typeof args.startDate === "string" ? args.startDate : null, endDate: typeof args.endDate === "string" ? args.endDate : null, agent: typeof args.agent === "string" ? args.agent : null, problemType: typeof args.problemType === "string" ? args.problemType : null, conversionStatus: typeof args.conversionStatus === "string" ? args.conversionStatus : null, category: typeof args.category === "string" ? args.category : null, query: typeof args.query === "string" ? args.query : null, page: 1, pageSize: Math.max(1, Math.min(50, Number(args.limit) || 20)) });
+export async function getCustomerServiceConversationsForAi(
+  args: Record<string, unknown>,
+  principal: AppPrincipal,
+  options: CustomerServiceSalesOptions = {},
+) {
+  const payload = await listCustomerServiceConversations({ startDate: typeof args.startDate === "string" ? args.startDate : null, endDate: typeof args.endDate === "string" ? args.endDate : null, agent: typeof args.agent === "string" ? args.agent : null, problemType: typeof args.problemType === "string" ? args.problemType : null, conversionStatus: typeof args.conversionStatus === "string" ? args.conversionStatus : null, category: typeof args.category === "string" ? args.category : null, query: typeof args.query === "string" ? args.query : null, page: 1, pageSize: Math.max(1, Math.min(50, Number(args.limit) || 20)) }, principal, options);
   return { filtersApplied: { startDate: args.startDate ?? null, endDate: args.endDate ?? null, agent: args.agent ?? null, problemType: args.problemType ?? null, conversionStatus: args.conversionStatus ?? null, category: args.category ?? null, query: args.query ?? null }, returned: payload.items.length, totalMatched: payload.pagination.total, truncated: payload.pagination.total > payload.items.length, items: payload.items.map((item) => ({ id: item.id, shopName: item.shopName, consultedAt: item.consultedAt, agent: item.agent, sourceProductCode: item.productSku, matchedSkuId: item.matchedSkuId, productSpuId: item.productSpuId, erpProductCode: item.erpProductCode, productCategory: item.productCategory, robotScope: item.robotScope, problemType: item.problemType, conversionStatus: item.conversionStatus, serviceIssues: item.serviceIssues, summary: item.summaryText, matchStatus: item.matchStatus })) };
 }
 

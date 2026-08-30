@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 import {
   LoadCheckError,
+  LoadCheckThresholdError,
   parseLoadCheckArgs,
   runLoadCheck,
   validateLoadCheckBaseUrl,
@@ -50,6 +51,24 @@ test("load check arguments require explicit bounded inputs and safe base URLs", 
   assert.deepEqual(parsed.views, ["full", "dashboard", "category"]);
   assert.equal(parsed.timeoutMs, 10_000);
   assert.equal(parsed.maxResponseBytes, 4 * 1024 * 1024);
+  assert.equal(parsed.category, undefined);
+  assert.equal(parsed.thresholds, undefined);
+
+  const detail = parseLoadCheckArgs([
+    "--base-url", "http://127.0.0.1:8001",
+    "--start-date", "2026-08-01",
+    "--end-date", "2026-08-27",
+    "--concurrency", "2",
+    "--rounds", "5",
+    "--view", "category-detail",
+    "--category", "饮水设备",
+    "--timeout-ms", "20000",
+    "--p95-ms", "2000.5",
+    "--p99-ms", "3000",
+    "--max-ms", "5000",
+  ]);
+  assert.equal(detail.category, "饮水设备");
+  assert.deepEqual(detail.thresholds, { p95Ms: 2000.5, p99Ms: 3000, maxMs: 5000 });
 
   for (const unsafe of [
     "http://sales.example.com",
@@ -68,6 +87,34 @@ test("load check arguments require explicit bounded inputs and safe base URLs", 
     "--rounds", "1",
     "--secret", secret,
   ]), /unknown option: --secret/);
+
+  const required = [
+    "--base-url", "http://127.0.0.1:8001",
+    "--start-date", "2026-08-01",
+    "--end-date", "2026-08-27",
+    "--concurrency", "1",
+    "--rounds", "1",
+  ];
+  assert.throws(() => parseLoadCheckArgs([...required, "--view", "category-detail"]), /--category is required/);
+  assert.throws(() => parseLoadCheckArgs([...required, "--category", "饮水设备"]), /--category is only allowed/);
+  for (const invalidCategory of [" 饮水设备", "饮水设备 ", "bad\nname", "品".repeat(101)]) {
+    assert.throws(
+      () => parseLoadCheckArgs([...required, "--view", "category-detail", "--category", invalidCategory]),
+      /--category must be an exact non-empty value/,
+    );
+  }
+  for (const [flag, value] of [["--p95-ms", "0"], ["--p99-ms", "1.234"], ["--max-ms", "30001"]]) {
+    assert.throws(() => parseLoadCheckArgs([...required, flag, value]), new RegExp(flag));
+  }
+  assert.throws(() => parseLoadCheckArgs([...required, "--timeout-ms", "100", "--p95-ms", "101"]), /must not exceed --timeout-ms/);
+  assert.throws(() => parseLoadCheckArgs([...required, "--p95-ms", "20", "--p99-ms", "10"]), /--p95-ms must not exceed --p99-ms/);
+  assert.throws(() => parseLoadCheckArgs([
+    ...required.slice(0, -4),
+    "--concurrency", "32",
+    "--rounds", "8",
+    "--view", "full,dashboard,category,category-detail",
+    "--category", "饮水设备",
+  ]), /planned request count exceeds 1000/);
 });
 
 test("load check sends the exact signed principal envelope and reports stable concurrent metrics", async () => {
@@ -91,7 +138,11 @@ test("load check sends the exact signed principal envelope and reports stable co
   assert.equal(samples.length, 4);
   assert.equal(report.revision, "8:5");
   assert.equal(report.overall.requests, 4);
+  assert.equal(report.overall.p99Ms, report.overall.maxMs);
   assert.equal(report.byView.full?.requests, 4);
+  assert.equal(report.byView["category-detail"], null);
+  assert.equal(report.thresholds, null);
+  assert.equal(report.passed, true);
   assert.equal(report.samples.every((sample) => sample.overviewCache === "bypass"), true);
   assert.equal(new Set(report.samples.map((sample) => sample.jsonSha256)).size, 1);
 
@@ -120,6 +171,117 @@ test("load check sends the exact signed principal envelope and reports stable co
   );
   assert.equal(first.headers.has("authorization"), false);
   assert.equal([...first.headers.values()].some((value) => value.includes(secret)), false);
+});
+
+test("category detail load uses only the explicit exact category and the bounded real endpoint", async () => {
+  const observed: URL[] = [];
+  const report = await runLoadCheck(config({
+    views: ["category-detail"],
+    category: "饮水设备",
+    concurrency: 2,
+    rounds: 1,
+  }), {
+    environment: { TERUISI_DJANGO_INTERNAL_SECRET: secret },
+    fetchImpl: async (input) => {
+      observed.push(new URL(String(input)));
+      return jsonResponse({
+        range: { startDate: "2026-08-01", endDate: "2026-08-27" },
+        category: "饮水设备",
+        totals: { netSalesCents: 100, platformCount: 1, shopCount: 1 },
+        platforms: [{ platform: "京东", shops: [{ shop: "测试店铺" }] }],
+        pagination: { total: 1, returned: 1, truncated: false, limit: 500 },
+      });
+    },
+  });
+
+  assert.equal(observed.length, 2);
+  for (const target of observed) {
+    assert.equal(target.pathname, "/api/sales/category-analysis/detail");
+    assert.deepEqual([...target.searchParams], [
+      ["startDate", "2026-08-01"],
+      ["endDate", "2026-08-27"],
+      ["category", "饮水设备"],
+    ]);
+  }
+  assert.equal(report.byView["category-detail"]?.requests, 2);
+  assert.equal(report.overall.p99Ms, report.overall.maxMs);
+});
+
+test("category detail load fails closed on mismatched identity, range, and empty coverage", async () => {
+  const valid = {
+    range: { startDate: "2026-08-01", endDate: "2026-08-27" },
+    category: "饮水设备",
+    totals: { netSalesCents: 100, platformCount: 1, shopCount: 1 },
+    platforms: [{ platform: "京东", shops: [{ shop: "测试店铺" }] }],
+    pagination: { total: 1, returned: 1, truncated: false, limit: 500 },
+  };
+  const cases: Array<{ payload: unknown; pattern: RegExp }> = [
+    { payload: { ...valid, category: "其他品类" }, pattern: /response category does not match/ },
+    {
+      payload: { ...valid, range: { ...valid.range, endDate: "2026-08-26" } },
+      pattern: /response range does not match/,
+    },
+    {
+      payload: {
+        ...valid,
+        totals: { ...valid.totals, netSalesCents: 0, platformCount: 0, shopCount: 0 },
+        platforms: [],
+        pagination: { ...valid.pagination, total: 0, returned: 0 },
+      },
+      pattern: /no non-empty, internally consistent shop coverage/,
+    },
+  ];
+
+  for (const selected of cases) {
+    await assert.rejects(
+      runLoadCheck(config({
+        views: ["category-detail"],
+        category: "饮水设备",
+        concurrency: 1,
+        rounds: 1,
+      }), {
+        environment: { TERUISI_DJANGO_INTERNAL_SECRET: secret },
+        fetchImpl: async () => jsonResponse(selected.payload),
+      }),
+      selected.pattern,
+    );
+  }
+});
+
+test("optional latency thresholds pass explicitly or fail closed with the completed report", async () => {
+  const passing = await runLoadCheck(config({
+    concurrency: 1,
+    rounds: 1,
+    thresholds: { p95Ms: 1_000, p99Ms: 1_000, maxMs: 1_000 },
+  }), {
+    environment: { TERUISI_DJANGO_INTERNAL_SECRET: secret },
+    fetchImpl: async () => jsonResponse({ stable: true }),
+  });
+  assert.equal(passing.passed, true);
+  assert.deepEqual(passing.thresholds, { p95Ms: 1_000, p99Ms: 1_000, maxMs: 1_000 });
+  assert.deepEqual(passing.thresholdViolations, []);
+
+  await assert.rejects(
+    runLoadCheck(config({
+      concurrency: 1,
+      rounds: 1,
+      thresholds: { p95Ms: 1, p99Ms: 1, maxMs: 1 },
+    }), {
+      environment: { TERUISI_DJANGO_INTERNAL_SECRET: secret },
+      fetchImpl: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        return jsonResponse({ stable: true });
+      },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof LoadCheckThresholdError);
+      assert.equal(error.report.passed, false);
+      assert.equal(error.report.overall.p99Ms > 1, true);
+      assert.equal(error.report.thresholdViolations.some((item) => item.metric === "p99Ms"), true);
+      assert.match(error.message, /latency thresholds exceeded/);
+      return true;
+    },
+  );
 });
 
 test("load check fails closed on inconsistent JSON, revisions, status, and response limits", async () => {

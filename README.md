@@ -2,21 +2,16 @@
 
 ## 启动方式
 
-双击 `运行项目.bat`，或在命令行中执行：
-
-```cmd
-npm run dev
-```
-
-若需要启动预构建的 Workers 产物，先以本机模式完成构建，再执行：
+当前本机正式环境必须先启动并检查 Django/PostgreSQL，再启动已经验证的不可变 Worker effective head：
 
 ```powershell
-$env:VITE_TERUISI_LOCAL_BUILD = "true"
-npm run build
-npm run start:local-worker
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" Start
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" Status
+& "D:\运营管理系统\tools\worker-local-service.ps1" -Action Start
+& "D:\运营管理系统\tools\worker-local-service.ps1" -Action Status
 ```
 
-`start:local-worker` 会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给 `dist/server/wrangler.json`，确保 AI 凭证加密密钥和本机管理员模式进入 Worker；它不会打印或提交密钥。Wrangler 本地开发不会自行触发 Cron，因此该受保护启动器还会通过仅限开发环境和 `127.0.0.1` 的内部入口，每分钟调用与 Cloudflare `scheduled()` 相同的后台执行器，让已经启动的云端图片识别在关闭浏览器后继续推进；关闭本机后只有已部署的 Cloudflare 生产定时任务能够继续运行。
+`运行项目.bat` 只调用受控 Worker 启动器并打开浏览器，不能代替 Django 健康检查。正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
 
 ## 吉客云自动化
 
@@ -88,11 +83,11 @@ npm run dingtalk:robot:send -- --text "hello"
 
 ## Django 后端渐进迁移方向
 
-2026-08-27 已确认 Django 为后端长期目标框架。迁移采用按业务域逐步替换的方式：现有 React/Next.js 前端继续保留，所有新增后端业务能力默认使用 Django；尚未完成迁移、契约验证和单写切换的业务域仍由当前 TypeScript/Cloudflare Worker 后端负责，不能把“已确定迁移方向”表述为“当前已经运行在 Django 上”。迁移期间不长期双写，每个业务范围只保留一个权威写入后端，并在权限、审计、业务口径、幂等、并发、性能、数据回查和回滚全部通过后逐域切换。
+2026-08-27 已确认 Django 为后端长期目标框架。迁移采用按业务域逐步替换：现有 React/Next.js 前端继续保留，所有新增后端业务能力默认使用 Django；尚未完成迁移、契约验证和单写切换的业务域仍由当前 TypeScript/Cloudflare Worker 后端负责。迁移期间不长期双写，每个业务范围只保留一个权威写入后端。
 
-销售分析读侧已完成首批本机部署，范围严格限定为 `/api/sales/summary`、`/api/sales/category-analysis` 和 `/api/sales/category-analysis/detail`：公开入口仍由 Worker 鉴权并签发真实 principal，Django 提供可重建只读投影，路由支持 `legacy`、`shadow`、`django` 三种模式和动态修订水位栅栏。D1 仍是销售导入与事实的唯一写入源；销售导入、财务目标/分析及其他业务域仍由原 Worker 负责。
+2026-08-29/30，本机销售域已完成 Django/PostgreSQL 终态单写切换。销售事实、批次、导入幂等与尝试审计、上传/暂存元数据、revision、查询和分析均以 PostgreSQL 为唯一权威来源；公开 Worker 仅负责真实鉴权、principal HMAC、Excel 解析、R2 短期分片、请求超时与体积边界和边缘协议适配，任何销售读写故障都失败关闭，不存在销售 D1、`legacy` 或 `shadow` 回退路径。D1 中的销售事实、批次、上传、缓存、投影 outbox 和 authority 对象已由受控 `0092_sales_domain_retirement.sql` 退役；只读 tombstone view、retirement receipt 与共享表永久写入 guard 是防止旧代码复活的终态证据，不是仍在运行的销售后端。ERP 主数据及其他未迁移业务域仍保留各自原有权威来源；ERP bridge 除维护 ERP 参照、revision 和 checkpoint 外，只能按 ERP 映射回填现有 `sales_order_lines.resolved_category` 派生分类，不能新增或删除销售事实，也不能修改金额、成本、销量、`gross_profit`、其他销售字段或批次。
 
-2026-08-28 已在 `D:\teruisi-runtime\django-sales` 部署仅监听回环的 PostgreSQL 17.11、Django 5.2.17 与 Waitress 3.0.2，并使用最小权限投影 writer、只读在线 reader、D1 事务 outbox 和持续消费者同步。真实投影包含 572,015 条销售事实、88 个销售批次和 8,443 条 ERP 主数据，D1 与 PostgreSQL 行数一致，revision 为当次动态水位 `8:5`；27 天与 366 天五项影子契约均为 `match`，366 天并发 8×2 的整体 p95（含冷启动）约 7.96 秒。2026-08-28 18:58（Asia/Shanghai）经用户明确确认，当前用户读取模式已正式切换为 `django`；三个公开端点均返回 HTTP 200、`x-teruisi-sales-backend: django`，且两条 revision 响应头均为 `8:5`。切换复核中 366 天 dashboard 冷请求为 5003 毫秒、缓存命中为 430 毫秒；投影 checkpoint sequence 为 0、revision 为 `8:5`，最近心跳约 10 秒。D1 仍是唯一写入源，`legacy` 仅保留为显式秒级回滚模式，Django 异常时不会静默回退。当前用户登录快捷方式只负责登录时启动，不具备崩溃自动拉起能力。迁移、运行、验证、备份审计和回滚步骤见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
+本机 cutover ID 为 `sales-pg-20260829T204417Z-d9896e904d8092cb`，`0092` SHA-256 为 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`。切换快照记录为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 参照与 revision `8:5`；这些只是该次验收水位，不是当前常量。PostgreSQL、Django reader/writer 仍只监听 `127.0.0.1:5432/8001/8002`。Worker bootstrap current/authority 仅是 append-only 链根和不可变切换证据，当前运行版本以经验证的 effective successor head 为准；当前 head 为 `20260830T020314Z-16b6c1b89ed012a9`，manifest SHA-256 为 `05574809aa2435c4b80032846e75d08c5d668ffdb370bb2d7bb538fdc223606b`，由正式 plan `7e3f6d2cd0b220489bd0bbd7c235986687f8d886cc1f71ef699b83898e81c7ea` 激活。后续 release 仍只能通过受控的 append-only successor 链前向发布，不得覆盖旧 release、attestation 或 forward-recovery。该结论仅适用于当前 Windows 主机和销售域，不代表远程生产、高可用或其他业务域已经迁移。迁移、运行、验证、备份审计和恢复边界见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
 
 ## 项目文档与长期信息
 

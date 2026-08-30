@@ -3,7 +3,6 @@ import {
   getNetshopDatabase,
   getNetshopProductCatalog,
 } from "@/lib/netshop/database";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
@@ -34,8 +33,8 @@ export async function GET(request: Request) {
       requestedPlatforms,
     );
     const db = getNetshopDatabase();
-    await Promise.all([ensureNetshopSchema(db), ensureSalesSchema(db)]);
-    const payload = await getNetshopProductCatalog(db, {
+    await ensureNetshopSchema(db);
+    const payload = await getNetshopProductCatalog(db, principal, {
       query: params.get("q") ?? undefined,
       page,
       pageSize,

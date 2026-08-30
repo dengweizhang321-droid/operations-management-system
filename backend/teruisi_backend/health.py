@@ -4,17 +4,21 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone as datetime_timezone
+import uuid
 
 from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
-from django.utils import timezone
 from django.views.decorators.http import require_GET
+
+from sales.runtime_guard import (
+    WriterRuntimeGuardError,
+    validate_erp_reference_runtime_state,
+    validate_writer_runtime_state,
+)
 
 
 logger = logging.getLogger(__name__)
-HEX_32 = re.compile(r"^[0-9a-f]{32}$")
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 
 REQUIRED_COLUMNS = {
@@ -32,16 +36,16 @@ REQUIRED_COLUMNS = {
     },
     "sales_import_batches": {"migration_generation"},
     "erp_product_master": {"migration_generation"},
-    "sales_projection_sync_checkpoint": {
-        "id",
+    "sales_data_revisions": {"domain", "revision", "source_digest"},
+    "erp_reference_sync_checkpoint": {
         "source_epoch",
         "source_path_digest",
         "last_event_sequence",
         "last_event_id",
-        "sales_revision",
         "erp_revision",
-        "created_at",
-        "updated_at",
+        "content_hash",
+        "row_count",
+        "source_batch_id",
         "last_checked_at",
     },
 }
@@ -52,6 +56,115 @@ REQUIRED_SALES_INDEXES = {
     "sales_category_date_idx",
     "sales_product_date_idx",
 }
+REQUIRED_WRITER_COLUMNS = {
+    "sales_order_lines": {
+        "source_line_key",
+        "last_import_batch_id",
+        "business_date",
+    },
+    "sales_import_batches": {
+        "id",
+        "status",
+        "content_hash",
+        "scope_key",
+        "published_state_token",
+    },
+    "sales_data_revisions": {"domain", "revision", "source_digest"},
+    "sales_write_authority": {"id", "status", "authority_epoch", "cutover_id"},
+    "sales_cutover_attestations": {
+        "cutover_id",
+        "d1_authority_epoch",
+        "source_path_digest",
+        "migration_apply_run_id",
+        "migration_verify_run_id",
+        "cleanup_manifest_id",
+        "cleanup_manifest_sha256",
+        "payload",
+        "payload_sha256",
+        "observed_at",
+    },
+    "sales_import_scope_heads": {
+        "scope_key",
+        "state_token",
+        "status",
+        "owner_token",
+        "generation",
+    },
+    "sales_import_attempts": {"id", "scope_key", "outcome", "error_code"},
+    "sales_import_fingerprints": {
+        "domain",
+        "batch_id",
+        "scope_key",
+        "content_hash",
+    },
+    "sales_raw_upload_sessions": {
+        "id",
+        "status",
+        "owner_token",
+        "owner_generation",
+        "result_batch_id",
+        "expires_at",
+    },
+    "sales_raw_upload_chunks": {"session_id", "chunk_index", "object_key", "sha256"},
+    "sales_staged_import_sessions": {
+        "id",
+        "status",
+        "owner_token",
+        "raw_upload_owner_token",
+        "raw_upload_owner_generation",
+        "expires_at",
+    },
+    "sales_staged_import_chunks": {"session_id", "chunk_index", "content_hash"},
+    "sales_write_request_receipts": {
+        "request_id",
+        "body_sha256",
+        "claim_token",
+        "status",
+        "response_payload",
+    },
+    "erp_product_master": {"product_code"},
+    "erp_reference_sync_checkpoint": {
+        "source_epoch",
+        "source_path_digest",
+        "last_event_sequence",
+        "last_event_id",
+        "erp_revision",
+        "content_hash",
+        "row_count",
+        "source_batch_id",
+        "last_checked_at",
+    },
+}
+WRITER_TABLE_PRIVILEGES = {
+    "sales_order_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "sales_import_batches": ("SELECT", "INSERT", "UPDATE"),
+    "sales_data_revisions": ("SELECT", "INSERT", "UPDATE"),
+    "sales_write_authority": ("SELECT",),
+    "sales_cutover_attestations": ("SELECT",),
+    "sales_import_scope_heads": ("SELECT", "INSERT", "UPDATE"),
+    "sales_import_attempts": ("SELECT", "INSERT", "UPDATE"),
+    "sales_import_fingerprints": ("SELECT", "INSERT"),
+    "sales_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE"),
+    "sales_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "sales_staged_import_sessions": ("SELECT", "INSERT", "UPDATE"),
+    "sales_staged_import_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "sales_write_request_receipts": ("SELECT", "INSERT", "UPDATE"),
+    "erp_product_master": ("SELECT",),
+    "erp_reference_sync_checkpoint": ("SELECT",),
+}
+WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES = {
+    "sales_write_authority": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "erp_product_master": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "erp_reference_sync_checkpoint": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "sales_cutover_attestations": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "sales_legacy_upload_audits": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+}
+WRITER_AUTO_ID_TABLES = (
+    "sales_order_lines",
+    "sales_import_fingerprints",
+    "sales_raw_upload_chunks",
+    "sales_staged_import_chunks",
+)
 
 
 class ReadinessError(RuntimeError):
@@ -84,71 +197,89 @@ def _validate_schema(cursor) -> None:
         raise ReadinessError("projection_indexes_incomplete")
 
 
-def _parse_checked_at(value: object) -> datetime:
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str):
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError as error:
-            raise ReadinessError("projection_checkpoint_invalid") from error
-    else:
-        raise ReadinessError("projection_checkpoint_invalid")
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime_timezone.utc)
-    return parsed.astimezone(datetime_timezone.utc)
+def _validate_writer_schema(cursor) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    for table, expected_columns in REQUIRED_WRITER_COLUMNS.items():
+        if table not in tables:
+            raise ReadinessError("sales_writer_schema_missing")
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError("sales_writer_schema_incomplete")
 
 
-def _validate_projection(cursor) -> None:
+def _validate_writer_authority(cursor) -> str:
     cursor.execute(
-        "SELECT domain, revision, source_digest FROM sales_data_revisions "
-        "WHERE domain IN ('sales', 'erp') ORDER BY domain"
+        "SELECT status, authority_epoch, cutover_id "
+        "FROM sales_write_authority WHERE id = 1"
     )
-    rows = cursor.fetchall()
-    if [row[0] for row in rows] != ["erp", "sales"]:
-        raise ReadinessError("projection_revision_incomplete")
-    revisions: dict[str, int] = {}
-    for domain, raw_revision, raw_digest in rows:
-        revision = int(raw_revision)
-        digest = str(raw_digest or "")
-        if revision < 1 or (digest and not HEX_64.fullmatch(digest)):
-            raise ReadinessError("projection_revision_invalid")
-        revisions[str(domain)] = revision
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "active":
+        raise ReadinessError("sales_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("sales_writer_authority_invalid") from error
+    if (
+        epoch != settings.SALES_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.SALES_WRITE_CUTOVER_ID
+    ):
+        raise ReadinessError("sales_writer_authority_mismatch")
+    return str(row[2])
 
+
+def _validate_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("sales_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("sales_writer_database_read_only")
+    for table, privileges in WRITER_TABLE_PRIVILEGES.items():
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user, %s, %s)",
+                [table, privilege],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_writer_database_privilege_missing")
+    for table, privileges in WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES.items():
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user, %s, %s)",
+                [table, privilege],
+            )
+            if cursor.fetchone()[0] is not False:
+                raise ReadinessError("sales_writer_database_privilege_excessive")
+            if privilege in {"INSERT", "UPDATE"}:
+                cursor.execute(
+                    "SELECT has_any_column_privilege(current_user, %s, %s)",
+                    [table, privilege],
+                )
+                if cursor.fetchone()[0] is not False:
+                    raise ReadinessError("sales_writer_database_privilege_excessive")
+    for table in WRITER_AUTO_ID_TABLES:
+        cursor.execute("SELECT pg_get_serial_sequence(%s, 'id')", [table])
+        sequence = cursor.fetchone()[0]
+        if sequence:
+            cursor.execute(
+                "SELECT has_sequence_privilege(current_user, %s, 'USAGE')",
+                [sequence],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_writer_database_privilege_missing")
+
+
+def _validate_reader_state(cursor) -> None:
+    try:
+        validate_erp_reference_runtime_state(cursor)
+    except WriterRuntimeGuardError as error:
+        raise ReadinessError(error.code) from error
     cursor.execute(
-        "SELECT source_epoch, source_path_digest, last_event_sequence, last_event_id, "
-        "sales_revision, erp_revision, last_checked_at "
-        "FROM sales_projection_sync_checkpoint WHERE id = 1"
+        "SELECT revision, source_digest FROM sales_data_revisions WHERE domain='sales'"
     )
-    checkpoint = cursor.fetchone()
-    if checkpoint is None:
-        raise ReadinessError("projection_checkpoint_missing")
-    source_epoch = str(checkpoint[0])
-    source_path_digest = str(checkpoint[1])
-    event_sequence = int(checkpoint[2])
-    event_id = str(checkpoint[3])
-    sales_revision = int(checkpoint[4])
-    erp_revision = int(checkpoint[5])
-    if not HEX_32.fullmatch(source_epoch) or not HEX_64.fullmatch(source_path_digest):
-        raise ReadinessError("projection_checkpoint_invalid")
-    if event_sequence < 0 or bool(event_id) != (event_sequence > 0):
-        raise ReadinessError("projection_checkpoint_invalid")
-    if event_sequence > 0:
-        event_parts = event_id.split(":", 2)
-        if (
-            len(event_parts) != 3
-            or event_parts[0] != source_epoch
-            or event_parts[1] not in {"sales", "erp"}
-            or not event_parts[2]
-        ):
-            raise ReadinessError("projection_checkpoint_invalid")
-    if (sales_revision, erp_revision) != (revisions["sales"], revisions["erp"]):
-        raise ReadinessError("projection_checkpoint_mismatch")
-
-    checked_at = _parse_checked_at(checkpoint[6])
-    age_seconds = (timezone.now() - checked_at).total_seconds()
-    if age_seconds < -30 or age_seconds > settings.PROJECTION_SYNC_MAX_AGE_SECONDS:
-        raise ReadinessError("projection_sync_stale")
+    row = cursor.fetchone()
+    if row is None or int(row[0]) < 1 or not HEX_64.fullmatch(str(row[1] or "")):
+        raise ReadinessError("sales_reader_revision_invalid")
 
 
 @require_GET
@@ -158,44 +289,67 @@ def live(_request):
 
 @require_GET
 def ready(_request):
+    writer_process = settings.DJANGO_PROCESS_ROLE == "sales_writer"
     try:
         with connection.cursor() as cursor:
-            _validate_schema(cursor)
-            _validate_projection(cursor)
-            if settings.DJANGO_EXPECT_READ_ONLY:
-                if connection.vendor != "postgresql":
-                    raise ReadinessError("database_role_not_read_only")
-                cursor.execute("SHOW transaction_read_only")
-                if cursor.fetchone()[0] != "on":
-                    raise ReadinessError("database_role_not_read_only")
+            if writer_process:
+                _validate_writer_schema(cursor)
+                cutover_id = _validate_writer_authority(cursor)
+                _validate_writer_permissions(cursor)
+                # Sales imports resolve ERP categories in the same transaction. A
+                # writer must therefore fail closed when the independently owned
+                # D1 -> PostgreSQL ERP bridge is stopped, stale, or divergent.
+                # This deliberately reuses the reader's exact checkpoint/revision/
+                # digest/row-count contract without requiring a read-only database
+                # connection for the writer process.
+                try:
+                    validate_writer_runtime_state(cutover_id=cutover_id, cursor=cursor)
+                except WriterRuntimeGuardError as error:
+                    raise ReadinessError(error.code) from error
+            else:
+                _validate_schema(cursor)
+                _validate_reader_state(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
     except ReadinessError as error:
         logger.warning("readiness_failed code=%s", error.code)
         return _response(
             {
                 "status": "not_ready",
                 "service": "teruisi-django",
-                "code": "projection_unavailable",
+                "code": (
+                    "sales_writer_unavailable"
+                    if writer_process
+                    else "sales_reader_unavailable"
+                ),
             },
             status=503,
         )
     except Exception as error:  # Database/driver details must stay out of HTTP.
         logger.exception(
-            "readiness_failed code=projection_probe_error type=%s",
+            "readiness_failed code=sales_reader_probe_error type=%s",
             type(error).__name__,
         )
         return _response(
             {
                 "status": "not_ready",
                 "service": "teruisi-django",
-                "code": "projection_unavailable",
+                "code": (
+                    "sales_writer_unavailable"
+                    if writer_process
+                    else "sales_reader_unavailable"
+                ),
             },
             status=503,
         )
-    return _response(
-        {
-            "status": "ready",
-            "service": "teruisi-django",
-            "database": "ready",
-            "projection": "ready",
-        }
-    )
+    payload = {
+        "status": "ready",
+        "service": "teruisi-django",
+        "database": "ready",
+    }
+    payload["writer" if writer_process else "reader"] = "ready"
+    return _response(payload)

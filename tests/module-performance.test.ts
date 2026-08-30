@@ -64,8 +64,10 @@ test("inventory APIs bound response rows while preserving totals and recommendat
     readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(overview, /LIMIT \? OFFSET \?/);
-  assert.match(overview, /returned: pageResult\.results\.length/);
+  assert.match(overview, /normalizeInventoryPagination\(options\)/);
+  assert.match(overview, /MAX_INVENTORY_STOCK_GROUPS \+ 1/);
+  assert.match(overview, /orderedRows\.slice\(pagination\.offset, pagination\.offset \+ pagination\.pageSize\)/);
+  assert.match(overview, /returned: pageRows\.length/);
   assert.match(overview, /recommendations/);
   assert.match(age, /LIMIT \? OFFSET \?/);
   assert.match(age, /returned: pageResult\.results\.length/);
@@ -81,15 +83,16 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
     readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/sales/summary.py", import.meta.url), "utf8"),
   ]);
   assert.match(customer, /debouncedCustomerQuery/);
   assert.match(customer, /includeOptions/);
   assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
   assert.match(customer, /listGenerationRef\.current === generation/);
   assert.match(customer, /listRequestKeyRef\.current === requestKey/);
-  assert.match(page, /products\/summary\?\$\{params\}.*signal/s);
+  assert.match(page, /products\/summary\?\$\{params\}[\s\S]*signal/);
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
-  assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}.*SELECT COUNT\(\*\) AS total, SUM/s);
-  assert.match(sales, /\[currentRow, previousRow, yearAgoRow,[\s\S]+Promise\.all/);
+  assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}[\s\S]*SELECT COUNT\(\*\) AS total, SUM/);
+  assert.match(sales, /def _period_metrics\([\s\S]*queryset\.aggregate\(\*\*aggregate_fields\)/);
+  assert.match(sales, /def _grouped_yoy\([\s\S]*\.annotate\([\s\S]*year_ago_net_sales_cents/);
 });

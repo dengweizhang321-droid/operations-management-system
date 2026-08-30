@@ -10,6 +10,13 @@ import {
 } from "@/lib/inventory/query-contract";
 import { resolveInventorySalesPeriod } from "@/lib/inventory/sales-period";
 import { readOperatingSettings } from "@/lib/settings/service";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export type InventoryHealthStatus = "urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales";
 
@@ -57,6 +64,7 @@ export type InventoryOverviewOptions = {
   planPageSize?: number;
   planStatus?: "draft" | "confirmed" | "completed" | "cancelled";
   includeCancelledPlans?: boolean;
+  signal?: AbortSignal;
 };
 
 type InventoryThresholdSettings = {
@@ -93,24 +101,24 @@ type OverviewRow = {
   suggested_quantity: number | null;
 };
 
-type OverviewMetricsRow = {
-  total: number;
-  total_available_quantity: number;
-  known_stock_value_cents: number;
-  positive_available_quantity: number;
-  covered_quantity: number;
-  matched_count: number;
-  total_daily_sales: number;
-  demand_available_quantity: number;
-  urgent_count: number;
-  replenish_count: number;
-  healthy_count: number;
-  slow_count: number;
-  stagnant_count: number;
-  no_sales_count: number;
-  slow_moving_value_cents: number;
-  recommendation_count: number;
-  has_jd_rdc: number;
+type InventoryStockAggregateRow = Omit<
+  OverviewRow,
+  | "resolved_product_name"
+  | "sales_quantity"
+  | "absolute_quantity"
+  | "absolute_cost_cents"
+  | "fallback_unit_cost_cents"
+  | "planned_in_transit_quantity"
+  | "in_draft_plan"
+  | "status"
+  | "suggested_quantity"
+>;
+
+type ActivePlanRow = {
+  product_code: string;
+  warehouse: string;
+  planned_in_transit_quantity: number;
+  in_draft_plan: number;
 };
 
 function addDays(value: string, days: number) {
@@ -136,6 +144,117 @@ function shanghaiToday() {
 
 function normalizeWarehouseType(value: string): InventoryOverviewItem["warehouseType"] {
   return value === "owned" || value === "jd_rdc" ? value : "other";
+}
+
+const INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE = 500;
+const INVENTORY_DEMAND_LIMIT = 10_000;
+const MAX_INVENTORY_STOCK_GROUPS = 20_000;
+const MAX_ACTIVE_PLAN_GROUPS = 20_000;
+
+function salesConsumerUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 销售读取服务返回的数据不完整，请稍后重试。",
+  );
+}
+
+function isIsoDateOrNull(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+function normalizedWarehouseKey(value: string) {
+  let normalized = value.trim().toLowerCase();
+  for (const token of ["配送中心", "仓库", "库房", "仓", " ", "（", "）", "(", ")", "-"]) {
+    normalized = normalized.split(token).join("");
+  }
+  return normalized;
+}
+
+function compareText(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function assertFiniteNumber(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) throw salesConsumerUnavailable();
+}
+
+function validateLatestBatch(value: SalesConsumerResponseMap["freshness"]["latestBatch"]) {
+  if (value === null) return;
+  if (!value || typeof value !== "object"
+    || typeof value.id !== "string" || value.id.length === 0
+    || typeof value.fileName !== "string" || value.fileName.length === 0
+    || (value.completedAt !== null && typeof value.completedAt !== "string")
+    || !Number.isSafeInteger(value.rowCount) || value.rowCount < 0) {
+    throw salesConsumerUnavailable();
+  }
+}
+
+function validateFreshness(data: SalesConsumerResponseMap["freshness"]) {
+  if (!data || !isIsoDateOrNull(data.dataStartDate) || !isIsoDateOrNull(data.dataCutoffDate)) {
+    throw salesConsumerUnavailable();
+  }
+  validateLatestBatch(data.latestBatch);
+}
+
+async function readInventoryDemand(
+  reader: SalesConsumerReader,
+  principal: AppPrincipal,
+  input: {
+    productCodes: string[];
+    startDate: string | null;
+    endDateExclusive: string | null;
+    expectedRevision: string;
+    signal?: AbortSignal;
+  },
+) {
+  const rows = new Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>();
+  const chunks: string[][] = [];
+  for (let offset = 0; offset < input.productCodes.length; offset += INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE) {
+    chunks.push(input.productCodes.slice(offset, offset + INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE));
+  }
+  for (let offset = 0; offset < chunks.length; offset += 4) {
+    const group = chunks.slice(offset, offset + 4);
+    const results = await Promise.all(group.map((productCodes) => reader.read(principal, {
+      operation: "inventory_demand",
+      startDate: input.startDate,
+      endDate: input.endDateExclusive,
+      productCodes,
+      limit: INVENTORY_DEMAND_LIMIT,
+    }, { signal: input.signal })));
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const requested = new Set(group[index]);
+      if (!result || typeof result !== "object" || !result.data || typeof result.data !== "object"
+        || result.revision !== input.expectedRevision
+        || result.data.truncated !== false
+        || !Array.isArray(result.data.rows)
+        || !isIsoDateOrNull(result.data.dataStartDate)
+        || !isIsoDateOrNull(result.data.dataCutoffDate)) {
+        throw salesConsumerUnavailable();
+      }
+      for (const row of result.data.rows) {
+        if (!row || typeof row.productCode !== "string" || !requested.has(row.productCode)
+          || typeof row.warehouseKey !== "string" || typeof row.productName !== "string") {
+          throw salesConsumerUnavailable();
+        }
+        assertFiniteNumber(row.salesQuantity);
+        assertFiniteNumber(row.absoluteQuantity);
+        assertFiniteNumber(row.absoluteCostCents);
+        if (row.warehouseKey !== normalizedWarehouseKey(row.warehouseKey)
+          || row.absoluteQuantity < 0 || row.absoluteCostCents < 0) {
+          throw salesConsumerUnavailable();
+        }
+        const key = `${row.productCode}\u001f${row.warehouseKey}`;
+        if (rows.has(key)) throw salesConsumerUnavailable();
+        rows.set(key, row);
+      }
+    }
+  }
+  return rows;
 }
 
 function statusFor(input: {
@@ -168,27 +287,13 @@ function statusFor(input: {
   return { status: "healthy" as const, label: "库存健康", reason: "库存覆盖处于目标区间" };
 }
 
-function normalizedWarehouseSql(column: string) {
-  return `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(TRIM(${column})), '配送中心', ''), '仓库', ''), '库房', ''), '仓', ''), ' ', ''), '（', ''), '）', ''), '(', ''), ')', ''), '-', '')`;
-}
-
 function uniqueStrings(values: readonly string[] | undefined, max = 20) {
   return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, max);
 }
 
-function buildInventoryCte(input: {
-  batchId: string;
-  salesStartDate: string | null;
-  salesEndDate: string | null;
-  salesWindowDays: number;
-  settings: InventoryThresholdSettings;
-}) {
-  const hasSalesRange = Boolean(input.salesStartDate && input.salesEndDate);
-  const rangeStart = hasSalesRange ? `${input.salesStartDate} 00:00:00` : "";
-  const rangeEnd = hasSalesRange ? `${addDays(input.salesEndDate!, 1)} 00:00:00` : "";
-  const warehouseExpression = normalizedWarehouseSql("warehouse");
-  const sql = `WITH stock AS (
-    SELECT
+async function loadInventoryStockRows(db: InventoryDatabase, batchId: string) {
+  const result = await db.prepare(
+    `SELECT
       product_code,
       MAX(NULLIF(product_name, '')) AS product_name,
       MAX(NULLIF(specification, '')) AS specification,
@@ -205,131 +310,103 @@ function buildInventoryCte(input: {
       SUM(in_transit_quantity) AS in_transit_quantity,
       SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END) AS imported_stock_value_cents,
       SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) ELSE 0 END) AS priced_available_quantity,
-      MAX(inventory_age_days) AS inventory_age_days,
-      ${normalizedWarehouseSql("warehouse")} AS warehouse_key
-    FROM inventory_stock_lines
-    WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓'
-    GROUP BY product_code, warehouse
-  ), sales AS (
-    SELECT
-      product_code,
-      ${warehouseExpression} AS warehouse_key,
-      MAX(NULLIF(product_name, '')) AS product_name,
-      SUM(CASE WHEN product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN quantity ELSE 0 END) AS sales_quantity,
-      SUM(CASE WHEN product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN ABS(quantity) ELSE 0 END) AS absolute_quantity,
-      SUM(CASE WHEN product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN ABS(cost_amount_cents) ELSE 0 END) AS absolute_cost_cents
-    FROM sales_order_lines
-    WHERE ? = 1 AND ship_time >= ? AND ship_time < ? AND TRIM(warehouse) <> '刷刷仓'
-    GROUP BY product_code, ${warehouseExpression}
-  ), active_plans AS (
-    SELECT
+      MAX(inventory_age_days) AS inventory_age_days
+     FROM inventory_stock_lines
+     WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓'
+     GROUP BY product_code, warehouse
+     ORDER BY product_code, warehouse
+     LIMIT ?`,
+  ).bind(batchId, MAX_INVENTORY_STOCK_GROUPS + 1).all<InventoryStockAggregateRow>();
+  if (result.results.length > MAX_INVENTORY_STOCK_GROUPS) throw salesConsumerUnavailable();
+  return result.results;
+}
+
+async function loadActivePlans(db: InventoryDatabase, batchId: string) {
+  const result = await db.prepare(
+    `SELECT
       product_code,
       warehouse,
       COALESCE(SUM(planned_quantity), 0) AS planned_in_transit_quantity,
       MAX(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS in_draft_plan
-    FROM replenishment_plan_items
-    WHERE status IN ('draft', 'confirmed') OR (status = 'completed' AND source_batch_id = ?)
-    GROUP BY product_code, warehouse
-  ), base AS (
-    SELECT
-      st.*,
-      COALESCE(NULLIF(st.product_name, ''), sa.product_name, st.product_code) AS resolved_product_name,
-      sa.sales_quantity,
-      COALESCE(sa.absolute_quantity, 0) AS absolute_quantity,
-      COALESCE(sa.absolute_cost_cents, 0) AS absolute_cost_cents,
-      CASE WHEN COALESCE(sa.absolute_quantity, 0) > 0 THEN sa.absolute_cost_cents * 1.0 / sa.absolute_quantity ELSE 0 END AS fallback_unit_cost_cents,
-      COALESCE(ap.planned_in_transit_quantity, 0) AS planned_in_transit_quantity,
-      COALESCE(ap.in_draft_plan, 0) AS in_draft_plan
-    FROM stock st
-    LEFT JOIN sales sa ON sa.product_code = st.product_code AND sa.warehouse_key = st.warehouse_key
-    LEFT JOIN active_plans ap ON ap.product_code = st.product_code AND ap.warehouse = st.warehouse
-  ), valued AS (
-    SELECT
-      *,
-      imported_stock_value_cents
-        + CASE WHEN fallback_unit_cost_cents > 0
-          THEN MAX(0, MAX(available_quantity, 0) - MAX(priced_available_quantity, 0)) * fallback_unit_cost_cents
-          ELSE 0 END AS known_stock_value_cents,
-      MIN(MAX(available_quantity, 0), MAX(priced_available_quantity, 0)
-        + CASE WHEN fallback_unit_cost_cents > 0 THEN MAX(0, MAX(available_quantity, 0) - MAX(priced_available_quantity, 0)) ELSE 0 END
-      ) AS cost_covered_quantity,
-      CASE WHEN sales_quantity IS NOT NULL AND sales_quantity > 0
-        THEN MAX(available_quantity, 0) * ? * 1.0 / sales_quantity ELSE NULL END AS coverage_days
-    FROM base
-  ), classified AS (
-    SELECT
-      *,
-      CASE
-        WHEN sales_quantity IS NULL THEN 'no_sales'
-        WHEN sales_quantity <= 0 AND available_quantity > 0 AND COALESCE(inventory_age_days, 0) >= ? THEN 'stagnant'
-        WHEN sales_quantity <= 0 THEN 'no_sales'
-        WHEN available_quantity <= 0 OR coverage_days <= ? THEN 'urgent'
-        WHEN coverage_days < ? THEN 'replenish'
-        WHEN coverage_days >= ? THEN 'stagnant'
-        WHEN coverage_days >= ? THEN 'slow'
-        ELSE 'healthy'
-      END AS status,
-      CASE WHEN sales_quantity IS NULL OR sales_quantity <= 0 THEN NULL ELSE
-        MAX(0, CAST((sales_quantity * ? * 1.0 / ? - available_quantity - in_transit_quantity - planned_in_transit_quantity) + 0.999999 AS INTEGER))
-      END AS suggested_quantity
-    FROM valued
-  )`;
-  return {
-    sql,
-    values: [
-      input.batchId,
-      hasSalesRange ? 1 : 0,
-      rangeStart,
-      rangeEnd,
-      input.batchId,
-      input.salesWindowDays,
-      input.settings.stagnantDays,
-      input.settings.criticalDays,
-      input.settings.replenishDays,
-      input.settings.stagnantDays,
-      input.settings.slowDays,
-      input.settings.targetDays,
-      input.salesWindowDays,
-    ],
-  };
+     FROM replenishment_plan_items
+     WHERE status IN ('draft', 'confirmed') OR (status = 'completed' AND source_batch_id = ?)
+     GROUP BY product_code, warehouse
+     ORDER BY product_code, warehouse
+     LIMIT ?`,
+  ).bind(batchId, MAX_ACTIVE_PLAN_GROUPS + 1).all<ActivePlanRow>();
+  if (result.results.length > MAX_ACTIVE_PLAN_GROUPS) throw salesConsumerUnavailable();
+  return result.results;
 }
 
-function buildFilter(options: InventoryOverviewOptions) {
-  const clauses: string[] = [];
-  const values: Array<string | number> = [];
+function mergeInventoryRows(input: {
+  stockRows: InventoryStockAggregateRow[];
+  demandRows: Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>;
+  activePlans: ActivePlanRow[];
+  settings: InventoryThresholdSettings;
+}) {
+  const plans = new Map(input.activePlans.map((row) => [
+    `${row.product_code}\u001f${row.warehouse}`,
+    row,
+  ]));
+  return input.stockRows.map((stock): OverviewRow => {
+    const demand = input.demandRows.get(`${stock.product_code}\u001f${normalizedWarehouseKey(stock.warehouse)}`);
+    const plan = plans.get(`${stock.product_code}\u001f${stock.warehouse}`);
+    const salesQuantity = demand ? Number(demand.salesQuantity) : null;
+    const absoluteQuantity = demand ? Number(demand.absoluteQuantity) : 0;
+    const absoluteCostCents = demand ? Number(demand.absoluteCostCents) : 0;
+    const fallbackUnitCostCents = absoluteQuantity > 0 ? absoluteCostCents / absoluteQuantity : 0;
+    const plannedInTransit = Number(plan?.planned_in_transit_quantity ?? 0);
+    const available = Number(stock.available_quantity ?? 0);
+    const sourceInTransit = Number(stock.in_transit_quantity ?? 0);
+    const suggestedQuantity = salesQuantity === null || salesQuantity <= 0
+      ? null
+      : Math.max(0, Math.ceil(
+        salesQuantity * input.settings.targetDays / input.settings.salesWindowDays
+          - available
+          - sourceInTransit
+          - plannedInTransit,
+      ));
+    const dailySales = salesQuantity === null ? null : Math.max(0, salesQuantity) / input.settings.salesWindowDays;
+    const coverageDays = dailySales && dailySales > 0 ? Math.max(available, 0) / dailySales : null;
+    const inventoryAgeDays = stock.inventory_age_days === null ? null : Number(stock.inventory_age_days);
+    const status = statusFor({ available, dailySales, coverageDays, inventoryAgeDays }, input.settings).status;
+    return {
+      ...stock,
+      resolved_product_name: stock.product_name || demand?.productName || stock.product_code,
+      sales_quantity: salesQuantity,
+      absolute_quantity: absoluteQuantity,
+      absolute_cost_cents: absoluteCostCents,
+      fallback_unit_cost_cents: fallbackUnitCostCents,
+      planned_in_transit_quantity: plannedInTransit,
+      in_draft_plan: Number(plan?.in_draft_plan ?? 0),
+      status,
+      suggested_quantity: suggestedQuantity,
+    };
+  });
+}
+
+function filterInventoryRows(rows: OverviewRow[], options: InventoryOverviewOptions) {
   const query = options.query?.trim().slice(0, 100);
-  if (query) {
-    const keywords = uniqueStrings(query.split(/[\s,，;；]+/), 8).map((value) => `%${value.toLowerCase()}%`);
-    clauses.push(`(${keywords.map(() => "(LOWER(product_code) LIKE ? OR LOWER(resolved_product_name) LIKE ? OR LOWER(specification) LIKE ? OR LOWER(category) LIKE ? OR LOWER(warehouse) LIKE ?)").join(" OR ")})`);
-    for (const keyword of keywords) values.push(keyword, keyword, keyword, keyword, keyword);
-  }
+  const keywords = query ? uniqueStrings(query.split(/[\s,，;；]+/), 8).map((value) => value.toLowerCase()) : [];
   const warehouses = uniqueStrings(options.warehouses, 10);
-  if (warehouses.length > 0) {
-    clauses.push(`warehouse IN (${warehouses.map(() => "?").join(", ")})`);
-    values.push(...warehouses);
-  }
   const warehouseTypes = uniqueStrings(options.warehouseTypes)
     .filter((value) => ["owned", "jd_rdc", "other"].includes(value));
-  if (warehouseTypes.length > 0) {
-    clauses.push(`warehouse_type IN (${warehouseTypes.map(() => "?").join(", ")})`);
-    values.push(...warehouseTypes);
-  }
   const categories = uniqueStrings(options.categories, 10);
-  if (categories.length > 0) {
-    clauses.push(`category IN (${categories.map(() => "?").join(", ")})`);
-    values.push(...categories);
-  }
   const statuses = uniqueStrings(options.statuses)
     .filter((value) => ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"].includes(value));
-  if (statuses.length > 0) {
-    clauses.push(`status IN (${statuses.map(() => "?").join(", ")})`);
-    values.push(...statuses);
-  }
-  if (options.exactKey) {
-    clauses.push("warehouse || char(31) || product_code = ?");
-    values.push(options.exactKey);
-  }
-  return { sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", values };
+  return rows.filter((row) => {
+    if (keywords.length > 0) {
+      const fields = [row.product_code, row.resolved_product_name, row.specification, row.category, row.warehouse]
+        .map((value) => (value ?? "").toLowerCase());
+      if (!keywords.some((keyword) => fields.some((field) => field.includes(keyword)))) return false;
+    }
+    if (warehouses.length > 0 && !warehouses.includes(row.warehouse)) return false;
+    if (warehouseTypes.length > 0 && !warehouseTypes.includes(row.warehouse_type)) return false;
+    if (categories.length > 0 && !categories.includes(row.category)) return false;
+    if (statuses.length > 0 && !statuses.includes(row.status)) return false;
+    if (options.exactKey && `${row.warehouse}\u001f${row.product_code}` !== options.exactKey) return false;
+    return true;
+  });
 }
 
 function mapItem(row: OverviewRow, settings: InventoryThresholdSettings): InventoryOverviewItem {
@@ -377,22 +454,24 @@ function mapItem(row: OverviewRow, settings: InventoryThresholdSettings): Invent
   };
 }
 
-export async function getInventoryOverview(db: InventoryDatabase, options: InventoryOverviewOptions = {}) {
+export async function getInventoryOverview(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  options: InventoryOverviewOptions = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
+) {
   const pagination = normalizeInventoryPagination(options);
-  const [latestBatch, salesBounds, persistedSettings] = await Promise.all([
+  const [latestBatch, persistedSettings, freshness] = await Promise.all([
     findLatestInventoryImportBatch(db),
-    db.prepare(
-      `SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date
-       FROM sales_order_lines
-       WHERE TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'`,
-    ).first<{ start_date: string | null; end_date: string | null }>(),
     readOperatingSettings(db),
+    salesReader.read(principal, { operation: "freshness" }, { signal: options.signal }),
   ]);
+  if (!freshness || typeof freshness !== "object" || typeof freshness.revision !== "string"
+    || !freshness.revision || freshness.revision.length > 128) throw salesConsumerUnavailable();
+  validateFreshness(freshness.data);
   const { salesStartDate, salesEndDate, salesWindowDays } = resolveInventorySalesPeriod(options, {
-    startDate: salesBounds?.start_date ?? null,
-    endDate: salesBounds?.end_date ?? null,
+    startDate: freshness.data.dataStartDate,
+    endDate: freshness.data.dataCutoffDate,
   });
   const settings: InventoryThresholdSettings = {
     targetDays: persistedSettings.targetDays,
@@ -434,87 +513,118 @@ export async function getInventoryOverview(db: InventoryDatabase, options: Inven
     };
   }
 
-  const cte = buildInventoryCte({ batchId: latestBatch.id, salesStartDate, salesEndDate, salesWindowDays, settings });
-  const filter = buildFilter(options);
-  const [metricsRow, pageResult, recommendationsResult, warehouseResult] = await Promise.all([
-    db.prepare(`${cte.sql}, filtered AS (SELECT * FROM classified ${filter.sql})
-      SELECT
-        COUNT(*) AS total,
-        COALESCE(SUM(available_quantity), 0) AS total_available_quantity,
-        COALESCE(SUM(known_stock_value_cents), 0) AS known_stock_value_cents,
-        COALESCE(SUM(MAX(available_quantity, 0)), 0) AS positive_available_quantity,
-        COALESCE(SUM(cost_covered_quantity), 0) AS covered_quantity,
-        COALESCE(SUM(CASE WHEN sales_quantity IS NOT NULL THEN 1 ELSE 0 END), 0) AS matched_count,
-        COALESCE(SUM(CASE WHEN sales_quantity > 0 THEN sales_quantity * 1.0 / ? ELSE 0 END), 0) AS total_daily_sales,
-        COALESCE(SUM(CASE WHEN sales_quantity > 0 THEN MAX(available_quantity, 0) ELSE 0 END), 0) AS demand_available_quantity,
-        COALESCE(SUM(CASE WHEN status = 'urgent' THEN 1 ELSE 0 END), 0) AS urgent_count,
-        COALESCE(SUM(CASE WHEN status = 'replenish' THEN 1 ELSE 0 END), 0) AS replenish_count,
-        COALESCE(SUM(CASE WHEN status = 'healthy' THEN 1 ELSE 0 END), 0) AS healthy_count,
-        COALESCE(SUM(CASE WHEN status = 'slow' THEN 1 ELSE 0 END), 0) AS slow_count,
-        COALESCE(SUM(CASE WHEN status = 'stagnant' THEN 1 ELSE 0 END), 0) AS stagnant_count,
-        COALESCE(SUM(CASE WHEN status = 'no_sales' THEN 1 ELSE 0 END), 0) AS no_sales_count,
-        COALESCE(SUM(CASE WHEN status IN ('slow', 'stagnant', 'no_sales') THEN known_stock_value_cents ELSE 0 END), 0) AS slow_moving_value_cents,
-        COALESCE(SUM(CASE WHEN suggested_quantity > 0 THEN 1 ELSE 0 END), 0) AS recommendation_count,
-        COALESCE(MAX(CASE WHEN warehouse_type = 'jd_rdc' THEN 1 ELSE 0 END), 0) AS has_jd_rdc
-      FROM filtered`).bind(...cte.values, ...filter.values, salesWindowDays).first<OverviewMetricsRow>(),
-    db.prepare(`${cte.sql}, filtered AS (SELECT * FROM classified ${filter.sql})
-      SELECT * FROM filtered
-      ORDER BY CASE status WHEN 'urgent' THEN 0 WHEN 'replenish' THEN 1 WHEN 'healthy' THEN 2 WHEN 'slow' THEN 3 WHEN 'stagnant' THEN 4 ELSE 5 END,
-        coverage_days ASC, product_code ASC, warehouse ASC
-      LIMIT ? OFFSET ?`).bind(...cte.values, ...filter.values, pagination.pageSize, pagination.offset).all<OverviewRow>(),
-    db.prepare(`${cte.sql}, filtered AS (SELECT * FROM classified ${filter.sql})
-      SELECT * FROM filtered
-      WHERE suggested_quantity > 0
-      ORDER BY suggested_quantity DESC, product_code ASC, warehouse ASC
-      LIMIT 50 OFFSET 0`).bind(...cte.values, ...filter.values).all<OverviewRow>(),
-    db.prepare(`${cte.sql} SELECT DISTINCT warehouse FROM classified ORDER BY warehouse LIMIT 500`)
-      .bind(...cte.values).all<{ warehouse: string }>(),
+  const [stockRows, activePlans] = await Promise.all([
+    loadInventoryStockRows(db, latestBatch.id),
+    loadActivePlans(db, latestBatch.id),
   ]);
-
-  const metrics = metricsRow ?? {
-    total: 0, total_available_quantity: 0, known_stock_value_cents: 0, positive_available_quantity: 0,
-    covered_quantity: 0, matched_count: 0, total_daily_sales: 0, demand_available_quantity: 0,
-    urgent_count: 0, replenish_count: 0, healthy_count: 0, slow_count: 0, stagnant_count: 0,
-    no_sales_count: 0, slow_moving_value_cents: 0, recommendation_count: 0, has_jd_rdc: 0,
+  const productCodes = [...new Set(stockRows.map((row) => row.product_code).filter(Boolean))];
+  const demandRows = salesStartDate && salesEndDate && productCodes.length > 0
+    ? await readInventoryDemand(salesReader, principal, {
+      productCodes,
+      startDate: salesStartDate,
+      endDateExclusive: addDays(salesEndDate, 1),
+      expectedRevision: freshness.revision,
+      signal: options.signal,
+    })
+    : new Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>();
+  const allRows = mergeInventoryRows({ stockRows, demandRows, activePlans, settings });
+  const filteredRows = filterInventoryRows(allRows, options);
+  const statusOrder: Record<InventoryHealthStatus, number> = {
+    urgent: 0,
+    replenish: 1,
+    healthy: 2,
+    slow: 3,
+    stagnant: 4,
+    no_sales: 5,
   };
-  const total = Number(metrics.total ?? 0);
-  const positiveAvailable = Number(metrics.positive_available_quantity ?? 0);
-  const coveredQuantity = Number(metrics.covered_quantity ?? 0);
-  const totalDailySales = Number(metrics.total_daily_sales ?? 0);
+  const orderedRows = [...filteredRows].sort((left, right) => {
+    const byStatus = statusOrder[left.status] - statusOrder[right.status];
+    if (byStatus !== 0) return byStatus;
+    const leftCoverage = left.sales_quantity !== null && left.sales_quantity > 0
+      ? Math.max(0, Number(left.available_quantity)) * salesWindowDays / left.sales_quantity
+      : null;
+    const rightCoverage = right.sales_quantity !== null && right.sales_quantity > 0
+      ? Math.max(0, Number(right.available_quantity)) * salesWindowDays / right.sales_quantity
+      : null;
+    if (leftCoverage === null && rightCoverage !== null) return -1;
+    if (leftCoverage !== null && rightCoverage === null) return 1;
+    if (leftCoverage !== null && rightCoverage !== null && leftCoverage !== rightCoverage) return leftCoverage - rightCoverage;
+    return compareText(left.product_code, right.product_code) || compareText(left.warehouse, right.warehouse);
+  });
+  const recommendationCandidates = filteredRows
+    .filter((row) => Number(row.suggested_quantity ?? 0) > 0)
+    .sort((left, right) => Number(right.suggested_quantity ?? 0) - Number(left.suggested_quantity ?? 0)
+      || compareText(left.product_code, right.product_code)
+      || compareText(left.warehouse, right.warehouse));
+  const recommendations = recommendationCandidates.slice(0, 50);
+  let totalAvailableQuantity = 0;
+  let knownStockValueCents = 0;
+  let positiveAvailable = 0;
+  let coveredQuantity = 0;
+  let matchedCount = 0;
+  let totalDailySales = 0;
+  let demandAvailableQuantity = 0;
+  let slowMovingValueCents = 0;
+  let hasJdRdc = false;
+  const health = { urgent: 0, replenish: 0, healthy: 0, slow: 0, stagnant: 0, noSales: 0 };
+  for (const row of filteredRows) {
+    const available = Number(row.available_quantity ?? 0);
+    const valuation = calculateInventoryCostValuation({
+      availableQuantity: available,
+      importedValueCents: Number(row.imported_stock_value_cents ?? 0),
+      importedPricedQuantity: Number(row.priced_available_quantity ?? 0),
+      fallbackUnitCostCents: Number(row.fallback_unit_cost_cents ?? 0),
+    });
+    totalAvailableQuantity += available;
+    knownStockValueCents += valuation.knownStockValueCents;
+    positiveAvailable += Math.max(available, 0);
+    coveredQuantity += valuation.coveredQuantity;
+    if (row.sales_quantity !== null) matchedCount += 1;
+    if (row.sales_quantity !== null && row.sales_quantity > 0) {
+      totalDailySales += row.sales_quantity / salesWindowDays;
+      demandAvailableQuantity += Math.max(available, 0);
+    }
+    if (row.status === "urgent") health.urgent += 1;
+    else if (row.status === "replenish") health.replenish += 1;
+    else if (row.status === "healthy") health.healthy += 1;
+    else if (row.status === "slow") health.slow += 1;
+    else if (row.status === "stagnant") health.stagnant += 1;
+    else health.noSales += 1;
+    if (["slow", "stagnant", "no_sales"].includes(row.status)) slowMovingValueCents += valuation.knownStockValueCents;
+    if (row.warehouse_type === "jd_rdc") hasJdRdc = true;
+  }
+  const total = filteredRows.length;
+  const pageRows = orderedRows.slice(pagination.offset, pagination.offset + pagination.pageSize);
   const inventoryStale = dayDifference(latestBatch.snapshotDate, shanghaiToday()) > 3;
-  const hasJdRdc = Number(metrics.has_jd_rdc ?? 0) > 0;
   return {
     hasInventory: true,
     sync: { latestInventoryBatchId: latestBatch.id, inventoryAsOf: latestBatch.snapshotDate, inventorySyncedAt: latestBatch.completedAt, salesThrough: salesEndDate, salesWindowStart: salesStartDate, latestInventoryFile: latestBatch.fileName, inventoryStale },
     settings,
     metrics: {
       skuWarehouseCount: total,
-      totalAvailableQuantity: Number(metrics.total_available_quantity ?? 0),
-      totalStockValueCents: Number(metrics.known_stock_value_cents ?? 0),
-      knownStockValueCents: Number(metrics.known_stock_value_cents ?? 0),
+      totalAvailableQuantity,
+      totalStockValueCents: knownStockValueCents,
+      knownStockValueCents,
       stockValueComplete: positiveAvailable <= 0 || coveredQuantity >= positiveAvailable,
       costCoverageRate: positiveAvailable > 0 ? coveredQuantity / positiveAvailable : 1,
-      salesDemandMatchRate: total > 0 ? Number(metrics.matched_count ?? 0) / total : 0,
-      averageCoverageDays: totalDailySales > 0 ? Number(metrics.demand_available_quantity ?? 0) / totalDailySales : null,
-      urgentCount: Number(metrics.urgent_count ?? 0),
-      replenishCount: Number(metrics.replenish_count ?? 0),
-      slowMovingValueCents: Number(metrics.slow_moving_value_cents ?? 0),
-      noSalesCount: Number(metrics.no_sales_count ?? 0),
-      recommendationCount: Number(metrics.recommendation_count ?? 0),
+      salesDemandMatchRate: total > 0 ? matchedCount / total : 0,
+      averageCoverageDays: totalDailySales > 0 ? demandAvailableQuantity / totalDailySales : null,
+      urgentCount: health.urgent,
+      replenishCount: health.replenish,
+      slowMovingValueCents,
+      noSalesCount: health.noSales,
+      recommendationCount: recommendationCandidates.length,
     },
-    health: {
-      urgent: Number(metrics.urgent_count ?? 0), replenish: Number(metrics.replenish_count ?? 0), healthy: Number(metrics.healthy_count ?? 0),
-      slow: Number(metrics.slow_count ?? 0), stagnant: Number(metrics.stagnant_count ?? 0), noSales: Number(metrics.no_sales_count ?? 0),
-    },
+    health,
     sources: [
       { key: "warehouse_stock", label: "吉客云分仓库存", status: inventoryStale ? "stale" : "ready", asOfDate: latestBatch.snapshotDate },
       { key: "sales_demand", label: `所选 ${settings.salesWindowDays} 日销售需求`, status: salesEndDate ? "ready" : "missing", asOfDate: salesEndDate },
       { key: "jd_rdc", label: "京东 RDC / DC", status: hasJdRdc ? (inventoryStale ? "stale" : "ready") : "missing", asOfDate: hasJdRdc ? latestBatch.snapshotDate : null },
     ],
-    filters: { warehouses: warehouseResult.results.map((row) => row.warehouse), statuses: ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"] },
-    pagination: { page: pagination.page, pageSize: pagination.pageSize, limit: pagination.pageSize, total, returned: pageResult.results.length, totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize), truncated: pagination.offset + pageResult.results.length < total },
-    recommendations: recommendationsResult.results.map((row) => mapItem(row, settings)),
-    items: pageResult.results.map((row) => mapItem(row, settings)),
+    filters: { warehouses: [...new Set(allRows.map((row) => row.warehouse))].sort(compareText).slice(0, 500), statuses: ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"] },
+    pagination: { page: pagination.page, pageSize: pagination.pageSize, limit: pagination.pageSize, total, returned: pageRows.length, totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize), truncated: pagination.offset + pageRows.length < total },
+    recommendations: recommendations.map((row) => mapItem(row, settings)),
+    items: pageRows.map((row) => mapItem(row, settings)),
     plans: planPage.items,
     plansPagination: planPage.pagination,
     planSummary,

@@ -221,19 +221,21 @@ test("the shared market request aborts only after its last subscriber leaves", a
 });
 
 test("market overview response cache is canonical, version-invalidated, and coalesces duplicate loads", async () => {
-  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {} }), /"formatVersion":3/);
+  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {}, salesRevision: "sales:1" }), /"formatVersion":4/);
   assert.notEqual(
-    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 1, pageSize: 20 } }),
-    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 2, pageSize: 20 } }),
+    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 1, pageSize: 20 }, salesRevision: "sales:1" }),
+    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 2, pageSize: 20 }, salesRevision: "sales:1" }),
   );
   assert.equal(
     canonicalMarketOverviewCacheIdentity({
       view: "ranking",
       filters: { categories: ["B", "A", "A"], rankingDimensions: ["SKU"] },
+      salesRevision: "sales:1",
     }),
     canonicalMarketOverviewCacheIdentity({
       view: "ranking",
       filters: { categories: ["A", "B"], rankingDimensions: ["SKU"] },
+      salesRevision: "sales:1",
     }),
   );
 
@@ -253,7 +255,7 @@ test("market overview response cache is canonical, version-invalidated, and coal
     sqlite.exec(statement);
   }
   const db = asyncDatabase(sqlite);
-  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
+  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] }, salesRevision: "sales:1" };
   let loads = 0;
   const load = async () => {
     loads += 1;
@@ -274,6 +276,9 @@ test("market overview response cache is canonical, version-invalidated, and coal
   const invalidated = await getCachedMarketOverview(db, identity, load);
   assert.equal(invalidated.status, "miss");
   assert.deepEqual(invalidated.payload, { revision: 2 });
+  const salesInvalidated = await getCachedMarketOverview(db, { ...identity, salesRevision: "sales:2" }, load);
+  assert.equal(salesInvalidated.status, "miss");
+  assert.deepEqual(salesInvalidated.payload, { revision: 3 });
   sqlite.close();
 });
 

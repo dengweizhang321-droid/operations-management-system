@@ -29,6 +29,12 @@ import {
   type NetshopQueryPeriod,
 } from "@/lib/netshop/query-contract";
 import { resolveNetshopSalesOutletMatches } from "@/lib/netshop/sales-shop-aliases";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+} from "@/lib/django/sales-consumer-reader";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export type NetshopDatabase = NonNullable<typeof env.DB>;
 export const NETSHOP_DAILY_SERIES_LIMIT = NETSHOP_QUERY_MAX_DAYS;
@@ -1165,18 +1171,6 @@ type NetshopProductSummaryRow = {
   available_inventory: number | null;
 };
 
-type NetshopProductSalesMetricRow = {
-  platform: string;
-  shop_name: string;
-  sales_product_code: string;
-  gross_sales_cents: number | null;
-  refund_amount_cents: number | null;
-  net_sales_cents: number | null;
-  gross_profit_cents: number | null;
-  absolute_quantity: number | null;
-  absolute_cost_cents: number | null;
-};
-
 type NetshopProductSalesMetrics = Pick<
   NetshopProductCatalogItem,
   "costPriceCents" | "netSalesCents" | "grossMarginRate" | "refundRate" | "salesMatched"
@@ -1284,8 +1278,13 @@ function emptyNetshopProductSalesMetrics(): NetshopProductSalesMetrics {
   };
 }
 
+function invalidNetshopSalesMetrics(): never {
+  throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务返回了无效的网店指标。");
+}
+
 async function readJdProductSalesMetrics(
-  db: NetshopDatabase,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
   productIdentities: readonly NetshopProductSalesIdentity[],
   outletScopes: readonly NetshopOutletFilter[],
   salesPeriod: NetshopQueryPeriod | null,
@@ -1325,101 +1324,60 @@ async function readJdProductSalesMetrics(
   if (channelScope !== null && channelScope.length === 0) {
     return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: salesScope };
   }
-  const channelMatchesPlatformSql = `(TRIM(s.channel) = TRIM(s.platform) OR (
-    SUBSTR(TRIM(s.channel), 1, LENGTH(TRIM(s.platform))) = TRIM(s.platform)
-    AND SUBSTR(TRIM(s.channel), LENGTH(TRIM(s.platform)) + 1, 1) IN ('-', '—', '–', ':', '：')
-  ))`;
-  const channelScopeSql = channelScope === null
-    ? ""
-    : ` AND EXISTS (
-           SELECT 1 FROM json_each(?) AS allowed_channel
-           WHERE TRIM(s.channel) = CAST(allowed_channel.value AS TEXT)
-         )`;
-  const dataCutoff = scopes.length === 0
-    ? null
-    : await db
-    .prepare(
-      `SELECT substr(ship_time, 1, 10) AS data_cutoff_date
-       FROM sales_order_lines s
-       WHERE ship_time<>'' AND TRIM(warehouse) <> '刷刷仓'
-         AND ${channelMatchesPlatformSql}
-         AND EXISTS (
-           SELECT 1
-           FROM json_each(?) AS outlet
-           WHERE TRIM(s.platform) = CAST(json_extract(outlet.value, '$.platform') AS TEXT)
-             AND TRIM(s.shop_name) = CAST(json_extract(outlet.value, '$.rawShopName') AS TEXT)
-             AND (
-               json_extract(outlet.value, '$.rawChannel') IS NULL
-               OR TRIM(s.channel) = CAST(json_extract(outlet.value, '$.rawChannel') AS TEXT)
-             )
-         )${channelScopeSql}
-       ORDER BY ship_time DESC
-       LIMIT 1`,
-    )
-    .bind(JSON.stringify(scopes), ...(channelScope === null ? [] : [JSON.stringify(channelScope)]))
-    .first<{ data_cutoff_date: string | null }>();
-
-  if (!salesPeriod || identities.length === 0) {
-    return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
+  if (identities.length === 0 && scopes.length === 0) {
+    return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: salesScope };
+  }
+  const { data } = await salesReader.read(principal, {
+    operation: "netshop_product_metrics",
+    identities,
+    outletScopes: scopes,
+    startDate: salesPeriod?.startDate ?? null,
+    endDate: salesPeriod?.endExclusive ?? null,
+    allowedChannels: channelScope,
+  });
+  if (!data || data.platform !== salesScope || !Array.isArray(data.rows)
+    || (data.dataCutoffDate !== null && !isIsoDate(data.dataCutoffDate))) {
+    invalidNetshopSalesMetrics();
   }
 
-  const rows = await db
-    .prepare(
-      `SELECT
-         CAST(json_extract(identity.value, '$.platform') AS TEXT) AS platform,
-         CAST(json_extract(identity.value, '$.canonicalShopName') AS TEXT) AS shop_name,
-         COALESCE(NULLIF(s.online_spec_code, ''), s.product_code) AS sales_product_code,
-         COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
-         COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-         COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
-         COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-         COALESCE(SUM(ABS(quantity)), 0) AS absolute_quantity,
-         COALESCE(SUM(ABS(cost_amount_cents)), 0) AS absolute_cost_cents
-       FROM sales_order_lines s
-       JOIN json_each(?) AS identity
-         ON TRIM(s.platform) = CAST(json_extract(identity.value, '$.platform') AS TEXT)
-        AND TRIM(s.shop_name) = CAST(json_extract(identity.value, '$.rawShopName') AS TEXT)
-        AND COALESCE(NULLIF(s.online_spec_code, ''), s.product_code)
-          = CAST(json_extract(identity.value, '$.salesProductCode') AS TEXT)
-        AND (
-          json_extract(identity.value, '$.rawChannel') IS NULL
-          OR TRIM(s.channel) = CAST(json_extract(identity.value, '$.rawChannel') AS TEXT)
-        )
-       WHERE ship_time >= ? AND ship_time < ?
-         AND TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'
-         AND ${channelMatchesPlatformSql}
-         ${channelScopeSql}
-       GROUP BY
-         CAST(json_extract(identity.value, '$.platform') AS TEXT),
-         CAST(json_extract(identity.value, '$.canonicalShopName') AS TEXT),
-         COALESCE(NULLIF(s.online_spec_code, ''), s.product_code)`,
-    )
-    .bind(
-      JSON.stringify(identities),
-      `${salesPeriod.startDate} 00:00:00`,
-      `${salesPeriod.endExclusive} 00:00:00`,
-      ...(channelScope === null ? [] : [JSON.stringify(channelScope)]),
-    )
-    .all<NetshopProductSalesMetricRow>();
-
   const metrics = new Map<string, NetshopProductSalesMetrics>();
-  for (const row of rows.results) {
-    const grossSalesCents = Number(row.gross_sales_cents ?? 0);
-    const netSalesCents = Number(row.net_sales_cents ?? 0);
-    const grossProfitCents = Number(row.gross_profit_cents ?? 0);
-    const absoluteQuantity = Number(row.absolute_quantity ?? 0);
-    const absoluteCostCents = Number(row.absolute_cost_cents ?? 0);
-    metrics.set(JSON.stringify([row.platform, row.shop_name, row.sales_product_code]), {
+  const expectedKeys = new Set(identities.map((identity) => JSON.stringify([
+    identity.platform,
+    identity.canonicalShopName,
+    identity.salesProductCode,
+  ])));
+  for (const row of data.rows) {
+    if (!row || typeof row !== "object") invalidNetshopSalesMetrics();
+    const key = JSON.stringify([row.platform, row.shopName, row.salesProductCode]);
+    const values = [
+      row.grossSalesCents,
+      row.refundAmountCents,
+      row.netSalesCents,
+      row.grossProfitCents,
+      row.absoluteQuantity,
+      row.absoluteCostCents,
+    ];
+    if (typeof row.platform !== "string" || typeof row.shopName !== "string"
+      || typeof row.salesProductCode !== "string" || !expectedKeys.has(key) || metrics.has(key)
+      || values.some((value) => !Number.isSafeInteger(value))
+      || row.grossSalesCents < 0 || row.refundAmountCents < 0
+      || row.absoluteQuantity < 0 || row.absoluteCostCents < 0) {
+      invalidNetshopSalesMetrics();
+    }
+    const grossSalesCents = row.grossSalesCents;
+    const netSalesCents = row.netSalesCents;
+    const grossProfitCents = row.grossProfitCents;
+    const absoluteQuantity = row.absoluteQuantity;
+    const absoluteCostCents = row.absoluteCostCents;
+    metrics.set(key, {
       costPriceCents: absoluteQuantity > 0 ? absoluteCostCents / absoluteQuantity : null,
       netSalesCents,
       grossMarginRate: netSalesCents !== 0 ? grossProfitCents / netSalesCents : null,
-      refundRate: grossSalesCents > 0 ? Number(row.refund_amount_cents ?? 0) / grossSalesCents : null,
+      refundRate: grossSalesCents > 0 ? row.refundAmountCents / grossSalesCents : null,
       salesMatched: true,
     });
   }
-  return { metrics, dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
+  return { metrics, dataCutoffDate: data.dataCutoffDate, platform: data.platform };
 }
 
 function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInternalItem {
@@ -1458,7 +1416,9 @@ function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInte
 
 export async function getNetshopProductCatalog(
   db: NetshopDatabase,
+  principal: AppPrincipal,
   input: { query?: string; page?: number; pageSize?: number; outlets?: NetshopOutletFilter[]; platformNames?: string[]; salesStartDate?: string; salesEndDate?: string; salesChannels?: readonly string[] | null } = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
 ): Promise<NetshopProductCatalog> {
   const page = boundedNetshopInteger(input.page, "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
   const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
@@ -1566,7 +1526,8 @@ export async function getNetshopProductCatalog(
     .filter((item) => item.platform === "京东")
     .map((item) => ({ platform: item.platform, shopName: item.shopName }));
   const sales = await readJdProductSalesMetrics(
-    db,
+    principal,
+    salesReader,
     jdItems.map((item) => ({
       platform: item.platform,
       shopName: item.shopName,

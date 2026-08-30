@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 import {
   createWorkflowTask,
   listWorkflowTasksPage,
@@ -118,7 +118,7 @@ test("rejects stale and non-integer optimistic versions", async () => {
   sqlite.close();
 });
 
-function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
+function sqliteAdapter(sqlite: DatabaseSync): D1Database {
   return {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -141,5 +141,5 @@ function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
         throw error;
       }
     },
-  } as unknown as SalesDatabase;
+  } as unknown as D1Database;
 }

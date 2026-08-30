@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -22,6 +23,37 @@ import {
 
 const admin: AppPrincipal = { email: "admin@example.com", displayName: "Admin", role: "admin", scope: null };
 const viewer: AppPrincipal = { email: "viewer@example.com", displayName: "Viewer", role: "viewer", scope: null };
+
+function fakeSalesSearchReader(input: {
+  orders?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: number }>;
+  orderTotal?: number;
+  imports?: Array<{ id: string; source: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  importTotal?: number;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): SalesConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      if (request.operation === "order_search") {
+        const allItems = input.orders ?? [];
+        const page = Number(request.page);
+        const pageSize = Number(request.pageSize);
+        const total = input.orderTotal ?? allItems.length;
+        const items = allItems.slice((page - 1) * pageSize, page * pageSize);
+        return { revision: "9:1", data: { items, total, truncated: page * pageSize < total } };
+      }
+      if (request.operation === "import_batch_search") {
+        const allItems = input.imports ?? [];
+        const page = Number(request.page);
+        const pageSize = Number(request.pageSize);
+        const total = input.importTotal ?? allItems.length;
+        const items = allItems.slice((page - 1) * pageSize, page * pageSize);
+        return { revision: "9:1", data: { items, total, truncated: page * pageSize < total } };
+      }
+      throw new Error(`unexpected operation ${String(request.operation)}`);
+    }) as SalesConsumerReader["read"],
+  };
+}
 
 test("全局搜索校验关键词、分组和严格分页上限", () => {
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=一")), GlobalSearchRequestError);
@@ -126,29 +158,8 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
   assert.equal(result.truncated, true);
 });
 
-test("销售订单搜索在 SQL 聚合和统一投影两层限制响应体积", async () => {
+test("销售订单搜索仅读 Django 并在统一投影层限制响应体积", async () => {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(`CREATE TABLE sales_order_lines (
-    order_no TEXT NOT NULL,
-    online_order_no TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    shop_name TEXT NOT NULL,
-    channel TEXT NOT NULL,
-    ship_time TEXT NOT NULL,
-    product_name TEXT NOT NULL,
-    product_code TEXT NOT NULL,
-    online_spec_code TEXT NOT NULL,
-    allocated_amount_cents INTEGER NOT NULL
-  )`);
-  const insert = sqlite.prepare(`INSERT INTO sales_order_lines (
-    order_no, online_order_no, platform, shop_name, channel, ship_time,
-    product_name, product_code, online_spec_code, allocated_amount_cents
-  ) VALUES ('ORDER-LARGE', '', '京东', '测试店', '京东', '2026-08-20', ?, ?, '', 1)`);
-  sqlite.exec("BEGIN");
-  for (let index = 0; index < 10_000; index += 1) {
-    insert.run(`净水机-${index}-${"长".repeat(1_000)}`, `SKU-${index}`);
-  }
-  sqlite.exec("COMMIT");
   const database = {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -162,12 +173,92 @@ test("销售订单搜索在 SQL 聚合和统一投影两层限制响应体积", 
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=orders&pageSize=1&totalLimit=1")),
     admin,
+    { salesReader: fakeSalesSearchReader({
+      orders: [{
+        id: "ORDER-LARGE",
+        title: "ORDER-LARGE",
+        subtitle: "京东 · 测试店",
+        detail: `净水机-${"长".repeat(10_000)}`,
+        updatedAt: "2026-08-20",
+        amountCents: 10_000,
+      }],
+    }) },
   );
   const detail = result.groups[0]?.items[0]?.detail ?? "";
   assert.ok(Array.from(detail).length <= 400);
   assert.ok(new TextEncoder().encode(detail).byteLength <= 1_536);
   assert.ok(new TextEncoder().encode(JSON.stringify(result)).byteLength <= 8 * 1024);
-  assert.doesNotMatch(detail, /净水机-9999/);
+  sqlite.close();
+});
+
+test("Django 销售搜索不可用时明确标记分组不可用且绝不回查 D1 销售表", async () => {
+  const sqlCalls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      sqlCalls.push(sql);
+      return {
+        bind() { return this; },
+        async all<T>() {
+          if (sql.includes("sqlite_master")) {
+            return { results: [{ name: "sales_order_lines" }, { name: "sales_import_batches" }] as T[] };
+          }
+          return { results: [] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const unavailableReader = {
+    read: async () => { throw new Error("django unavailable"); },
+  } as unknown as SalesConsumerReader;
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=orders")),
+    admin,
+    { salesReader: unavailableReader },
+  );
+  assert.equal(result.groups[0]?.available, false);
+  assert.deepEqual(result.unavailableDomains, ["销售订单"]);
+  assert.equal(sqlCalls.some((sql) => /FROM\s+sales_|JOIN\s+sales_/i.test(sql)), false);
+});
+
+test("导入搜索以 Django 销售批次和其他域 D1 批次分区精确分页", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE inventory_import_batches (
+    id TEXT PRIMARY KEY, file_name TEXT NOT NULL, source TEXT NOT NULL,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT
+  );
+  INSERT INTO inventory_import_batches VALUES
+    ('inventory-1', '库存净水机.xlsx', 'inventory', 'completed', '2026-08-20', '2026-08-20');`);
+  const sqlCalls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      sqlCalls.push(sql);
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const imports = [1, 2, 3].map((index) => ({
+    id: `sales-${index}`,
+    source: "erp_sales",
+    fileName: `销售净水机-${index}.xlsx`,
+    status: "completed",
+    rowCount: 10,
+    createdAt: `2026-08-${20 + index}`,
+    completedAt: `2026-08-${20 + index}`,
+  }));
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=imports&page=2&pageSize=2")),
+    admin,
+    { salesReader: fakeSalesSearchReader({ imports }) },
+  );
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["sales-3", "inventory-1"]);
+  assert.equal(result.groups[0]?.total, 4);
+  assert.equal(result.groups[0]?.hasMore, false);
+  assert.equal(sqlCalls.some((sql) => /sales_import_batches|sales_order_lines/i.test(sql)), false);
   sqlite.close();
 });
 
@@ -197,7 +288,9 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const migrationDirectory = new URL("../drizzle/", import.meta.url);
   const migrations = (await readdir(migrationDirectory)).filter((name) => name.endsWith(".sql")).sort();
-  for (const migration of migrations) sqlite.exec(await readFile(new URL(migration, migrationDirectory), "utf8"));
+  for (const migration of migrations) {
+    sqlite.exec(await readFile(new URL(migration, migrationDirectory), "utf8"));
+  }
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS customer_service_import_batches (
       id TEXT PRIMARY KEY, session_file_name TEXT NOT NULL, chat_file_name TEXT NOT NULL,
@@ -225,6 +318,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
     admin,
+    { salesReader: fakeSalesSearchReader() },
   );
   assert.equal(result.groups.length, 14);
   assert.equal(result.groups.every((group) => group.available), true);
@@ -469,7 +563,7 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
         async all<T>() {
           calls.push({ sql, values });
           if (sql.includes("sqlite_master")) return { results: [
-            { name: "customer_service_conversations" }, { name: "finance_lines" }, { name: "sales_order_lines" },
+            { name: "customer_service_conversations" }, { name: "finance_lines" },
           ] as T[] };
           return { results: [] as T[] };
         },
@@ -480,18 +574,19 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
     ...viewer,
     scope: { warehouses: [], channels: ["线上"], platforms: ["京东"] },
   };
+  const salesCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const result = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=客户消息")),
     scopedViewer,
+    { salesReader: fakeSalesSearchReader({ calls: salesCalls }) },
   );
   assert.equal(result.groups.some((group) => group.key === "customer_service" || group.key === "finance"), false);
   assert.equal(calls.some((call) => call.sql.includes("messages_json") || call.sql.includes("finance_lines")), false);
-  const sales = calls.find((call) => call.sql.includes("sales_order_lines"));
-  assert.ok(sales);
-  assert.match(sales.sql, /online_spec_code LIKE \?/);
-  assert.match(sales.sql, /channel IN \(\?\)[\s\S]*platform IN \(\?\)/);
-  assert.deepEqual(sales.values.slice(7, 9), ["线上", "京东"]);
+  assert.equal(calls.some((call) => call.sql.includes("sales_order_lines")), false);
+  assert.equal(salesCalls.length, 1);
+  assert.equal(salesCalls[0]?.request.operation, "order_search");
+  assert.deepEqual(salesCalls[0]?.principal, scopedViewer);
   assert.deepEqual(result.filtersApplied.dataScope, {
     mode: "restricted", warehouses: [], channels: ["线上"], platforms: ["京东"],
   });

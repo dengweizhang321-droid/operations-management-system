@@ -3,7 +3,7 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 import { requestJson } from "@/lib/http/api-client";
-import { parseProductQueries } from "@/lib/sales/product-query";
+import { parseProductQueries } from "@/lib/sales/read-contract";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";

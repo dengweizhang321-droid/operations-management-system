@@ -1,4 +1,4 @@
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 import { ensureWorkflowTaskSchema } from "@/lib/workflow/tasks";
 import {
   invalidWorkflowRequest,
@@ -141,13 +141,13 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS workflow_attachment_cleanup_queue_updated_idx ON workflow_attachment_cleanup_queue (updated_at, object_key)`,
 ] as const;
 
-async function workflowDatabase(db?: SalesDatabase) {
+async function workflowDatabase(db?: D1Database) {
   if (db) return db;
-  const { getSalesDatabase } = await import("@/lib/sales/database");
-  return getSalesDatabase();
+  const { getD1Database } = await import("@/lib/database/d1");
+  return getD1Database();
 }
 
-export async function ensureWorkflowCollaborationSchema(db?: SalesDatabase) {
+export async function ensureWorkflowCollaborationSchema(db?: D1Database) {
   const database = await workflowDatabase(db);
   const key = database as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
@@ -204,7 +204,7 @@ function metadataJson(value: Record<string, unknown> = {}) {
   return json;
 }
 
-function activityStatement(db: SalesDatabase, taskId: string, action: string, summary: string, actor: string, metadata: Record<string, unknown> = {}) {
+function activityStatement(db: D1Database, taskId: string, action: string, summary: string, actor: string, metadata: Record<string, unknown> = {}) {
   return db.prepare(`INSERT INTO workflow_task_activity_logs
     (id, task_id, action, summary, metadata_json, actor_email) VALUES (?, ?, ?, ?, ?, ?)`)
     .bind(crypto.randomUUID(), taskId, boundedText(action, "活动类型", 80), boundedText(summary, "活动摘要", 300), metadataJson(metadata), actorEmail(actor));
@@ -216,7 +216,7 @@ export async function appendWorkflowTaskActivity(input: {
   summary: string;
   actorEmail: string;
   metadata?: Record<string, unknown>;
-}, db?: SalesDatabase) {
+}, db?: D1Database) {
   const database = await workflowDatabase(db);
   await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(input.taskId, "工作项标识");
@@ -224,7 +224,7 @@ export async function appendWorkflowTaskActivity(input: {
   await activityStatement(database, taskId, input.action, input.summary, input.actorEmail, input.metadata).run();
 }
 
-async function assertTaskExists(db: SalesDatabase, taskId: string) {
+async function assertTaskExists(db: D1Database, taskId: string) {
   const row = await db.prepare(`SELECT t.id FROM workflow_tasks t JOIN workflow_task_states s ON s.task_id = t.id
     WHERE t.id = ? AND s.deleted_at IS NULL LIMIT 1`).bind(taskId).first<{ id: string }>();
   if (!row) missingWorkflowResource("工作项不存在或已删除");
@@ -271,7 +271,7 @@ function mapTemplate(row: TemplateRow): WorkflowTaskTemplate {
   };
 }
 
-export async function listWorkflowTaskComments(taskIdValue: unknown, db?: SalesDatabase) {
+export async function listWorkflowTaskComments(taskIdValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const rows = await database.prepare(`SELECT id, task_id, content, created_by, created_at FROM workflow_task_comments
@@ -279,7 +279,7 @@ export async function listWorkflowTaskComments(taskIdValue: unknown, db?: SalesD
   return rows.results.map(mapComment);
 }
 
-export async function createWorkflowTaskComment(taskIdValue: unknown, contentValue: unknown, actor: string, db?: SalesDatabase) {
+export async function createWorkflowTaskComment(taskIdValue: unknown, contentValue: unknown, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const content = boundedText(contentValue, "评论内容", MAX_COMMENT_LENGTH); const id = crypto.randomUUID();
@@ -292,7 +292,7 @@ export async function createWorkflowTaskComment(taskIdValue: unknown, contentVal
   return mapComment(row);
 }
 
-export async function listWorkflowTaskActivity(taskIdValue: unknown, db?: SalesDatabase) {
+export async function listWorkflowTaskActivity(taskIdValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const rows = await database.prepare(`SELECT id, task_id, action, summary, metadata_json, actor_email, created_at
@@ -317,7 +317,7 @@ function reminderTime(value: unknown) {
   return new Date(timestamp).toISOString();
 }
 
-export async function listWorkflowTaskReminders(taskIdValue: unknown, db?: SalesDatabase) {
+export async function listWorkflowTaskReminders(taskIdValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const rows = await database.prepare(`SELECT id, task_id, remind_at, note, status, created_by, created_at, updated_at
@@ -325,7 +325,7 @@ export async function listWorkflowTaskReminders(taskIdValue: unknown, db?: Sales
   return rows.results.map(mapReminder);
 }
 
-export async function createWorkflowTaskReminder(taskIdValue: unknown, input: { remindAt?: unknown; note?: unknown }, actor: string, db?: SalesDatabase) {
+export async function createWorkflowTaskReminder(taskIdValue: unknown, input: { remindAt?: unknown; note?: unknown }, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   assertInputKeys(input, ["remindAt", "note"]);
@@ -340,7 +340,7 @@ export async function createWorkflowTaskReminder(taskIdValue: unknown, input: { 
   if (!row) throw new Error("提醒保存后无法读取"); return mapReminder(row);
 }
 
-export async function dismissWorkflowTaskReminder(taskIdValue: unknown, reminderIdValue: unknown, actor: string, db?: SalesDatabase) {
+export async function dismissWorkflowTaskReminder(taskIdValue: unknown, reminderIdValue: unknown, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); const id = resourceId(reminderIdValue, "提醒标识"); await assertTaskExists(database, taskId);
   const current = await database.prepare("SELECT id FROM workflow_task_reminders WHERE id = ? AND task_id = ? AND status = 'pending' LIMIT 1")
@@ -367,7 +367,7 @@ function safeEntityUrl(value: unknown) {
   return parsed.toString();
 }
 
-export async function listWorkflowTaskLinks(taskIdValue: unknown, db?: SalesDatabase) {
+export async function listWorkflowTaskLinks(taskIdValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const rows = await database.prepare(`SELECT id, task_id, entity_type, entity_id, label, url, created_by, created_at
@@ -375,7 +375,7 @@ export async function listWorkflowTaskLinks(taskIdValue: unknown, db?: SalesData
   return rows.results.map(mapLink);
 }
 
-export async function createWorkflowTaskLink(taskIdValue: unknown, input: { entityType?: unknown; entityId?: unknown; label?: unknown; url?: unknown }, actor: string, db?: SalesDatabase) {
+export async function createWorkflowTaskLink(taskIdValue: unknown, input: { entityType?: unknown; entityId?: unknown; label?: unknown; url?: unknown }, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   assertInputKeys(input, ["entityType", "entityId", "label", "url"]);
@@ -400,7 +400,7 @@ export async function createWorkflowTaskLink(taskIdValue: unknown, input: { enti
   if (!row) throw new Error("业务关联保存后无法读取"); return mapLink(row);
 }
 
-export async function deleteWorkflowTaskLink(taskIdValue: unknown, linkIdValue: unknown, actor: string, db?: SalesDatabase) {
+export async function deleteWorkflowTaskLink(taskIdValue: unknown, linkIdValue: unknown, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); const id = resourceId(linkIdValue, "关联标识"); await assertTaskExists(database, taskId);
   const current = await database.prepare("SELECT id FROM workflow_task_entity_links WHERE id = ? AND task_id = ? LIMIT 1")
@@ -483,13 +483,13 @@ function cleanupErrorSummary(error: unknown) {
   return Array.from(name).slice(0, 120).join("") || "storage_cleanup_failed";
 }
 
-async function enqueueAttachmentCleanup(db: SalesDatabase, objectKey: string) {
+async function enqueueAttachmentCleanup(db: D1Database, objectKey: string) {
   if (!objectKey.startsWith(`${ATTACHMENT_PREFIX}/`)) return;
   await db.prepare(`INSERT INTO workflow_attachment_cleanup_queue (object_key)
     VALUES (?) ON CONFLICT(object_key) DO UPDATE SET updated_at = CURRENT_TIMESTAMP`).bind(objectKey).run();
 }
 
-async function processAttachmentCleanupKeys(db: SalesDatabase, objectKeys: string[]) {
+async function processAttachmentCleanupKeys(db: D1Database, objectKeys: string[]) {
   const safeKeys = [...new Set(objectKeys.filter((key) => key.startsWith(`${ATTACHMENT_PREFIX}/`)))].slice(0, 100);
   if (safeKeys.length === 0) return { attempted: 0, deleted: 0, failed: 0 };
   let bucket: R2Bucket;
@@ -519,12 +519,12 @@ async function processAttachmentCleanupKeys(db: SalesDatabase, objectKeys: strin
   return { attempted: safeKeys.length, deleted, failed };
 }
 
-async function drainAttachmentCleanup(db: SalesDatabase, objectKeys: string[]) {
+async function drainAttachmentCleanup(db: D1Database, objectKeys: string[]) {
   return processAttachmentCleanupKeys(db, objectKeys);
 }
 
 /** Bounded outbox consumer that can be invoked by a scheduled worker or an admin maintenance action. */
-export async function runWorkflowAttachmentCleanup(input: { limit?: unknown } = {}, db?: SalesDatabase) {
+export async function runWorkflowAttachmentCleanup(input: { limit?: unknown } = {}, db?: D1Database) {
   const database = await workflowDatabase(db);
   await ensureWorkflowCollaborationSchema(database);
   const rawLimit = input.limit ?? 50;
@@ -539,7 +539,7 @@ export async function runWorkflowAttachmentCleanup(input: { limit?: unknown } = 
   return { ...result, remaining: Number(remaining?.total ?? 0) };
 }
 
-export async function listWorkflowTaskAttachments(taskIdValue: unknown, db?: SalesDatabase) {
+export async function listWorkflowTaskAttachments(taskIdValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const rows = await database.prepare(`SELECT id, task_id, file_name, mime_type, size_bytes, sha256, object_key, created_by, created_at
@@ -547,7 +547,7 @@ export async function listWorkflowTaskAttachments(taskIdValue: unknown, db?: Sal
   return rows.results.map(mapAttachment);
 }
 
-export async function createWorkflowTaskAttachment(taskIdValue: unknown, file: File, actor: string, db?: SalesDatabase) {
+export async function createWorkflowTaskAttachment(taskIdValue: unknown, file: File, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); await assertTaskExists(database, taskId);
   const stale = await database.prepare("SELECT object_key FROM workflow_attachment_cleanup_queue ORDER BY updated_at ASC, object_key ASC LIMIT 50")
@@ -583,7 +583,7 @@ export async function createWorkflowTaskAttachment(taskIdValue: unknown, file: F
   if (!row) throw new Error("附件保存后无法读取"); return mapAttachment(row);
 }
 
-export async function getWorkflowTaskAttachmentDownload(taskIdValue: unknown, attachmentIdValue: unknown, db?: SalesDatabase) {
+export async function getWorkflowTaskAttachmentDownload(taskIdValue: unknown, attachmentIdValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); const id = resourceId(attachmentIdValue, "附件标识"); await assertTaskExists(database, taskId);
   const row = await database.prepare(`SELECT id, task_id, file_name, mime_type, size_bytes, sha256, object_key, created_by, created_at
@@ -597,7 +597,7 @@ export async function getWorkflowTaskAttachmentDownload(taskIdValue: unknown, at
   return { attachment: mapAttachment(row), bytes };
 }
 
-export async function deleteWorkflowTaskAttachment(taskIdValue: unknown, attachmentIdValue: unknown, actor: string, db?: SalesDatabase) {
+export async function deleteWorkflowTaskAttachment(taskIdValue: unknown, attachmentIdValue: unknown, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识"); const id = resourceId(attachmentIdValue, "附件标识"); await assertTaskExists(database, taskId);
   const row = await database.prepare("SELECT object_key, file_name FROM workflow_task_attachments WHERE id = ? AND task_id = ? LIMIT 1")
@@ -622,7 +622,7 @@ export async function deleteWorkflowTaskWithCollaboration(
   taskIdValue: unknown,
   expectedVersionValue: unknown,
   actor: string,
-  db?: SalesDatabase,
+  db?: D1Database,
 ) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const taskId = resourceId(taskIdValue, "工作项标识");
@@ -664,7 +664,7 @@ export async function deleteWorkflowTaskWithCollaboration(
   return true;
 }
 
-export async function getWorkflowTaskCollaboration(taskId: unknown, db?: SalesDatabase) {
+export async function getWorkflowTaskCollaboration(taskId: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   return {
     comments: await listWorkflowTaskComments(taskId, database),
@@ -720,7 +720,7 @@ function normalizedTemplate(input: WorkflowTaskTemplateInput, current?: Template
   return value;
 }
 
-export async function listWorkflowTaskTemplates(includeInactive: boolean, db?: SalesDatabase) {
+export async function listWorkflowTaskTemplates(includeInactive: boolean, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   const rows = await database.prepare(`SELECT t.id, t.name, t.description, t.title, t.work_content, t.category, t.owner, t.shop_name,
     t.start_offset_days, t.due_offset_days, t.priority, t.active, t.created_by, t.updated_by, t.created_at, t.updated_at, s.version
@@ -729,7 +729,7 @@ export async function listWorkflowTaskTemplates(includeInactive: boolean, db?: S
   return rows.results.map(mapTemplate);
 }
 
-export async function createWorkflowTaskTemplate(input: WorkflowTaskTemplateInput, actor: string, db?: SalesDatabase) {
+export async function createWorkflowTaskTemplate(input: WorkflowTaskTemplateInput, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database);
   assertTemplateKeys(input, false);
   const value = normalizedTemplate(input); const id = crypto.randomUUID(); const createdBy = actorEmail(actor);
@@ -743,7 +743,7 @@ export async function createWorkflowTaskTemplate(input: WorkflowTaskTemplateInpu
   return getTemplate(database, id);
 }
 
-async function getTemplate(db: SalesDatabase, id: string) {
+async function getTemplate(db: D1Database, id: string) {
   const row = await db.prepare(`SELECT t.id, t.name, t.description, t.title, t.work_content, t.category, t.owner, t.shop_name,
     t.start_offset_days, t.due_offset_days, t.priority, t.active, t.created_by, t.updated_by, t.created_at, t.updated_at, s.version
     FROM workflow_task_templates t JOIN workflow_task_template_states s ON s.template_id = t.id
@@ -751,7 +751,7 @@ async function getTemplate(db: SalesDatabase, id: string) {
   return row ? mapTemplate(row) : null;
 }
 
-export async function updateWorkflowTaskTemplate(idValue: unknown, input: WorkflowTaskTemplateInput, actor: string, db?: SalesDatabase) {
+export async function updateWorkflowTaskTemplate(idValue: unknown, input: WorkflowTaskTemplateInput, actor: string, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database); const id = resourceId(idValue, "模板标识");
   assertTemplateKeys(input, true);
   const expectedVersion = strictExpectedVersion(input.expectedVersion);
@@ -784,7 +784,7 @@ export async function updateWorkflowTaskTemplate(idValue: unknown, input: Workfl
   return getTemplate(database, id);
 }
 
-export async function deleteWorkflowTaskTemplate(idValue: unknown, expectedVersionValue: unknown, db?: SalesDatabase) {
+export async function deleteWorkflowTaskTemplate(idValue: unknown, expectedVersionValue: unknown, db?: D1Database) {
   const database = await workflowDatabase(db); await ensureWorkflowCollaborationSchema(database); const id = resourceId(idValue, "模板标识");
   const expectedVersion = strictExpectedVersion(expectedVersionValue);
   const current = await database.prepare(`SELECT s.version FROM workflow_task_templates t

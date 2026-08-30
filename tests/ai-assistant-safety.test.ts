@@ -477,8 +477,9 @@ test("0063 scope migration and runtime upgrade are idempotent in both orders and
   const journal = JSON.parse(await readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8")) as {
     entries: Array<{ idx: number; tag: string }>;
   };
-  assert.equal(journal.entries.at(-1)?.idx, 63);
-  assert.equal(journal.entries.at(-1)?.tag, "0063_ai_conversation_scope_snapshots");
+  const scopeEntry = journal.entries.find((entry) => entry.tag === "0063_ai_conversation_scope_snapshots");
+  assert.equal(scopeEntry?.idx, 63);
+  assert.equal(scopeEntry?.tag, "0063_ai_conversation_scope_snapshots");
 });
 
 test("default AI model clear and upsert are one atomic D1 batch", async () => {

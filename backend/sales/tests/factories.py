@@ -21,7 +21,16 @@ from sales.models import (
 TEST_SECRET = "django-sales-contract-test-secret-at-least-32-bytes"
 
 
-def signed_headers(url: str, *, scope=None, secret: str = TEST_SECRET, role: str = "admin") -> dict[str, str]:
+def signed_headers(
+    url: str,
+    *,
+    scope=None,
+    secret: str = TEST_SECRET,
+    role: str = "admin",
+    method: str = "GET",
+    body: bytes | str = b"",
+    request_id: str = "test-request-1",
+) -> dict[str, str]:
     split = urlsplit(iri_to_uri(url))
     principal = {
         "email": "admin@example.test",
@@ -31,9 +40,20 @@ def signed_headers(url: str, *, scope=None, secret: str = TEST_SECRET, role: str
     }
     encoded = base64.urlsafe_b64encode(json.dumps(principal, ensure_ascii=False, separators=(",", ":")).encode()).decode().rstrip("=")
     timestamp = str(int(time.time()))
-    request_id = "test-request-1"
-    body_digest = hashlib.sha256(b"").hexdigest()
-    canonical = "\n".join(["v1", timestamp, request_id, "GET", split.path, split.query, body_digest, encoded])
+    body_bytes = body.encode("utf-8") if isinstance(body, str) else body
+    body_digest = hashlib.sha256(body_bytes).hexdigest()
+    canonical = "\n".join(
+        [
+            "v1",
+            timestamp,
+            request_id,
+            method.upper(),
+            split.path,
+            split.query,
+            body_digest,
+            encoded,
+        ]
+    )
     signature = hmac.new(secret.encode(), canonical.encode(), hashlib.sha256).hexdigest()
     return {
         "X-Teruisi-Principal": encoded,

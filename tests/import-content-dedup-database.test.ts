@@ -19,7 +19,6 @@ registerHooks({
 const { saveCustomerServiceImport } = await import("../lib/customer-service/database");
 const { ensureFinanceSchema, saveFinanceImport } = await import("../lib/finance/database");
 const { ensureErpReferenceSchema, saveProductMasterImport } = await import("../lib/erp-reference/database");
-const { ensureSalesSchema, saveSalesImport } = await import("../lib/sales/database");
 const { ensureInventorySchema, saveInventoryImport, syncInventoryStockDimensions } = await import("../lib/inventory/database");
 const { ensureNetshopSchema, readNetshopScopeRows, saveNetshopImport } = await import("../lib/netshop/database");
 const { PublicApiError } = await import("../lib/http/api-error");
@@ -36,8 +35,6 @@ const {
 } = await import("../lib/imports/content-fingerprint");
 type FinanceDatabase = import("../lib/finance/database").FinanceDatabase;
 type ErpReferenceDatabase = import("../lib/erp-reference/database").ErpReferenceDatabase;
-type SalesDatabase = import("../lib/sales/database").SalesDatabase;
-type SalesLineInput = import("../lib/sales/database").SalesLineInput;
 type InventoryDatabase = import("../lib/inventory/database").InventoryDatabase;
 type InventoryStockRow = import("../lib/imports/inventory-stock").InventoryStockRow;
 type NetshopDatabase = import("../lib/netshop/database").NetshopDatabase;
@@ -614,193 +611,6 @@ test("事实已提交后异常清理释放 owner，精确 duplicate 重试仍会
   sqlite.close();
 });
 
-function salesLine(orderNo: string, shipDate: string, amountCents: number, channel = "天猫"): SalesLineInput {
-  return {
-    sourceRowNumber: 1,
-    sourceLineKey: orderNo,
-    sourceRowHash: orderNo.padEnd(64, "0").slice(0, 64),
-    orderNo,
-    onlineOrderNo: orderNo,
-    channel,
-    platform: channel.startsWith("阿里巴巴-") ? "1688" : "天猫",
-    shopName: channel.startsWith("阿里巴巴-") ? channel.slice("阿里巴巴-".length) : "测试店铺",
-    logisticsCompany: "",
-    warehouse: "正常仓",
-    productCode: "SKU-1",
-    onlineSpecCode: "SKU-1",
-    productName: "测试商品",
-    specification: "",
-    barcode: "",
-    supplier: "",
-    category: "测试类目",
-    quantity: 1,
-    listUnitPriceCents: amountCents,
-    costAmountCents: 0,
-    allocatedUnitPriceCents: amountCents,
-    allocatedAmountCents: amountCents,
-    feeAllocationCents: 0,
-    grossProfitCents: amountCents,
-    grossMarginBps: 10_000,
-    untaxedGrossProfitCents: amountCents,
-    untaxedGrossMarginBps: 10_000,
-    orderTime: `${shipDate} 08:00:00`,
-    salesTime: `${shipDate} 08:00:00`,
-    shipTime: `${shipDate} 09:00:00`,
-    lineShipTime: `${shipDate} 09:00:00`,
-    businessType: "sale",
-  };
-}
-
-test("领域事实发布事务的提交栅栏拒绝 takeover 后恢复的旧 owner", async () => {
-  const sqlite = new DatabaseSync(":memory:");
-  const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
-  await ensureSalesSchema(db);
-  await ensureImportFingerprintSchema(db as never);
-  const scope = { source: "sales_ledger", startDate: "2026-08-01", endDate: "2026-08-01" };
-  const oldRows = [salesLine("ORDER-FENCE", "2026-08-01", 100)];
-  const oldFingerprint = await buildImportContentFingerprint({
-    domain: "sales", scope, lockScope: { source: "sales_ledger" }, rows: oldRows,
-    ignoredTopLevelKeys: ["sourceRowNumber", "sourceLineKey", "sourceRowHash"],
-  });
-  const oldHash = await buildImportAttemptHash({ fingerprint: oldFingerprint, currentStateToken: "initial" });
-  const oldOwner = await reserveImportFingerprint(db as never, {
-    ...oldFingerprint, batchId: oldHash, importHash: oldHash,
-    rawFileHash: "8".repeat(64), currentStateToken: "initial",
-  });
-  await renewImportFingerprintReservation(db as never, {
-    ...oldFingerprint, batchId: oldHash, attemptId: oldOwner.attemptId,
-  });
-  sqlite.prepare("UPDATE import_scope_heads SET updated_at=datetime('now', '-31 minutes')").run();
-
-  const newRows = [salesLine("ORDER-FENCE", "2026-08-01", 200)];
-  const newFingerprint = await buildImportContentFingerprint({
-    domain: "sales", scope, lockScope: { source: "sales_ledger" }, rows: newRows,
-    ignoredTopLevelKeys: ["sourceRowNumber", "sourceLineKey", "sourceRowHash"],
-  });
-  const newHash = await buildImportAttemptHash({ fingerprint: newFingerprint, currentStateToken: "initial" });
-  const newOwner = await reserveImportFingerprint(db as never, {
-    ...newFingerprint, batchId: newHash, importHash: newHash,
-    rawFileHash: "9".repeat(64), currentStateToken: "initial",
-  });
-  assert.equal(newOwner.recoveredStaleReservation, true);
-  await saveSalesImport(db, {
-    fileHash: newHash, fileName: "new.xlsx", fileSizeBytes: 1, sheetName: "销售",
-    rows: newRows, warnings: [], totals: {}, contentHash: newFingerprint.contentHash,
-    replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
-    reservationFence: { domain: newFingerprint.domain, scopeKey: newFingerprint.scopeKey, batchId: newHash, attemptId: newOwner.attemptId },
-  });
-  await recordImportFingerprint(db as never, {
-    ...newFingerprint, batchId: newHash, importHash: newHash,
-    rawFileHash: "9".repeat(64), attemptId: newOwner.attemptId, publishedStateToken: "state-new",
-  });
-
-  await assert.rejects(saveSalesImport(db, {
-    fileHash: oldHash, fileName: "old.xlsx", fileSizeBytes: 1, sheetName: "销售",
-    rows: oldRows, warnings: [], totals: {}, contentHash: oldFingerprint.contentHash,
-    replaceStartDate: "2026-08-01", replaceEndDate: "2026-08-01",
-    reservationFence: { domain: oldFingerprint.domain, scopeKey: oldFingerprint.scopeKey, batchId: oldHash, attemptId: oldOwner.attemptId },
-  }), (error: unknown) => error instanceof PublicApiError && error.status === 409 && error.code === "conflict");
-  assert.equal(sqlite.prepare(
-    "SELECT allocated_amount_cents amount FROM sales_order_lines WHERE order_no='ORDER-FENCE'",
-  ).get()?.amount, 200);
-  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM sales_import_batches WHERE id=?").get(oldHash)?.count, 0);
-  sqlite.close();
-});
-
-test("销售导入按表单权威日期边界完整替换，不依赖新文件实际出现的末日", async () => {
-  const sqlite = new DatabaseSync(":memory:");
-  const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
-  await ensureSalesSchema(db);
-  await saveSalesImport(db, {
-    fileHash: "1".repeat(64),
-    fileName: "sales-a.xlsx",
-    fileSizeBytes: 1,
-    sheetName: "销售",
-    rows: [salesLine("ORDER-START", "2026-07-01", 100), salesLine("ORDER-END", "2026-07-31", 200)],
-    warnings: [],
-    totals: {},
-    contentHash: "1".repeat(64),
-    replaceStartDate: "2026-07-01",
-    replaceEndDate: "2026-07-31",
-  });
-  await saveSalesImport(db, {
-    fileHash: "2".repeat(64),
-    fileName: "sales-b.xlsx",
-    fileSizeBytes: 1,
-    sheetName: "销售",
-    rows: [salesLine("ORDER-START", "2026-07-01", 300)],
-    warnings: [],
-    totals: {},
-    contentHash: "2".repeat(64),
-    replaceStartDate: "2026-07-01",
-    replaceEndDate: "2026-07-31",
-  });
-  assert.equal(sqlite.prepare("SELECT sales_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
-  assert.deepEqual(sqlite.prepare(
-    "SELECT order_no orderNo, allocated_amount_cents amount, last_import_batch_id batchId FROM sales_order_lines ORDER BY order_no",
-  ).all().map((row) => ({ ...row })), [{
-    orderNo: "ORDER-START",
-    amount: 300,
-    batchId: "2".repeat(64),
-  }]);
-  sqlite.close();
-});
-
-test("销售导入按精确渠道范围替换时保留同期其他渠道事实", async () => {
-  const sqlite = new DatabaseSync(":memory:");
-  const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
-  await ensureSalesSchema(db);
-  const alibabaChannels = ["阿里巴巴-炊之王店", "阿里巴巴-亿用店", "阿里巴巴-震坤行"];
-  await saveSalesImport(db, {
-    fileHash: "3".repeat(64),
-    fileName: "sales-all.xlsx",
-    fileSizeBytes: 1,
-    sheetName: "销售",
-    rows: [
-      salesLine("JD-KEEP", "2026-07-01", 100, "京东-志高商用厨电旗舰店"),
-      salesLine("ALI-OLD", "2026-07-01", 200, "阿里巴巴-炊之王店"),
-    ],
-    warnings: [],
-    totals: {},
-    contentHash: "3".repeat(64),
-    replaceStartDate: "2026-07-01",
-    replaceEndDate: "2026-07-31",
-  });
-  await saveSalesImport(db, {
-    fileHash: "4".repeat(64),
-    fileName: "sales-alibaba.xlsx",
-    fileSizeBytes: 1,
-    sheetName: "销售",
-    rows: [salesLine("ALI-NEW", "2026-07-01", 300, "阿里巴巴-亿用店")],
-    warnings: [],
-    totals: {},
-    contentHash: "4".repeat(64),
-    replaceStartDate: "2026-07-01",
-    replaceEndDate: "2026-07-31",
-    replaceChannels: alibabaChannels,
-  });
-  assert.deepEqual(sqlite.prepare(
-    "SELECT order_no orderNo, channel, allocated_amount_cents amount FROM sales_order_lines ORDER BY order_no",
-  ).all().map((row) => ({ ...row })), [
-    { orderNo: "ALI-NEW", channel: "阿里巴巴-亿用店", amount: 300 },
-    { orderNo: "JD-KEEP", channel: "京东-志高商用厨电旗舰店", amount: 100 },
-  ]);
-  await assert.rejects(saveSalesImport(db, {
-    fileHash: "5".repeat(64),
-    fileName: "sales-invalid-scope.xlsx",
-    fileSizeBytes: 1,
-    sheetName: "销售",
-    rows: [salesLine("JD-OUTSIDE", "2026-07-01", 400, "京东-志高商用厨电旗舰店")],
-    warnings: [],
-    totals: {},
-    contentHash: "5".repeat(64),
-    replaceStartDate: "2026-07-01",
-    replaceEndDate: "2026-07-31",
-    replaceChannels: alibabaChannels,
-  }), /不属于权威替换范围/);
-  sqlite.close();
-});
-
 function inventoryRow(productCode: string, sourceRowNumber: number, quantity: number): InventoryStockRow {
   const warehouse = "正常仓";
   return {
@@ -1110,7 +920,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     contentHash: "d".repeat(64),
   });
   assert.equal(first.created, true);
-  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 2);
+  assert.equal(sqlite.prepare("SELECT erp_revision revision FROM erp_product_projection_state WHERE id=1").get()?.revision, 2);
   const changed = await saveProductMasterImport(db, {
     id: `products:${"e".repeat(64)}`,
     fileName: "products-b.xlsx",
@@ -1123,7 +933,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     contentHash: "e".repeat(64),
   });
   assert.equal(changed.created, true);
-  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
+  assert.equal(sqlite.prepare("SELECT erp_revision revision FROM erp_product_projection_state WHERE id=1").get()?.revision, 3);
   assert.deepEqual(sqlite.prepare("SELECT product_code productCode, product_name productName FROM erp_product_master").all().map((item) => ({ ...item })), [
     { productCode: "P1", productName: "货品1更新" },
   ]);
@@ -1139,7 +949,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     contentHash: "e".repeat(64),
   });
   assert.equal(duplicateAttempt.created, false);
-  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
+  assert.equal(sqlite.prepare("SELECT erp_revision revision FROM erp_product_projection_state WHERE id=1").get()?.revision, 3);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM erp_reference_import_batches").get()?.count, 2);
   sqlite.close();
 });

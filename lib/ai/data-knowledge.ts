@@ -1,5 +1,5 @@
 import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 export const AI_KNOWLEDGE_LIMITS = {
   queryCharacters: { minimum: 2, maximum: 80 },
@@ -126,7 +126,7 @@ const knowledgeSchemaStatements = [
 const knowledgeReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export async function ensureAiDataKnowledgeSchema(
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   const key = db as unknown as object;
   const existing = knowledgeReadyByDatabase.get(key);
@@ -178,7 +178,7 @@ export async function ensureAiDataKnowledgeSchema(
 export async function searchAiKnowledge(
   input: { query?: unknown; limit?: unknown },
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ) {
   const query = normalizeQuery(input.query);
   const limit = boundedLimit(input.limit);
@@ -209,7 +209,7 @@ export async function searchAiKnowledge(
 export async function retrieveKnowledgeForPrompt(
   queryInput: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<{ context: string; sourceIds: string[] }> {
   const queryCharacters = Array.from(queryInput.trim()).slice(0, AI_KNOWLEDGE_LIMITS.queryCharacters.maximum);
   if (queryCharacters.length < AI_KNOWLEDGE_LIMITS.queryCharacters.minimum) {
@@ -235,7 +235,7 @@ export async function retrieveKnowledgeForPrompt(
 async function rankKnowledge(
   query: string,
   role: AppRole,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<RankedKnowledge[]> {
   await ensureAiDataKnowledgeSchema(db);
   const rows = await db.prepare(

@@ -14,6 +14,7 @@ type CacheIdentity = {
   view: "ranking" | "full";
   filters: MarketOverviewFilters;
   pagination?: { page: number; pageSize: number };
+  salesRevision: string;
 };
 
 type CacheRevisionRow = {
@@ -31,7 +32,7 @@ export type MarketOverviewCacheResult<T> = {
 
 const CACHE_TTL_MINUTES = 5;
 const CACHE_MAX_ROWS = 40;
-const CACHE_FORMAT_VERSION = 3;
+const CACHE_FORMAT_VERSION = 4;
 const FILTER_OPTIONS_FORMAT_VERSION = 1;
 const inFlight = new Map<string, Promise<MarketOverviewCacheResult<unknown>>>();
 const filterOptionsInFlight = new Map<string, Promise<unknown>>();
@@ -41,10 +42,19 @@ function normalizedList(values: string[] | undefined) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+function normalizedSalesRevision(value: string) {
+  const revision = value.trim();
+  if (!revision || revision.length > 128 || /[\u0000-\u001f\u007f]/.test(revision)) {
+    throw new Error("INVALID_DJANGO_SALES_REVISION");
+  }
+  return revision;
+}
+
 export function canonicalMarketOverviewCacheIdentity(identity: CacheIdentity) {
   const filters = identity.filters;
   return JSON.stringify({
     formatVersion: CACHE_FORMAT_VERSION,
+    salesRevision: normalizedSalesRevision(identity.salesRevision),
     view: identity.view,
     query: filters.query?.trim() || "",
     categories: normalizedList(filters.categories),
@@ -67,7 +77,10 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function getMarketOverviewCacheRevision(db: MarketOverviewResponseCacheDatabase) {
+export async function getMarketOverviewCacheRevision(
+  db: MarketOverviewResponseCacheDatabase,
+  salesRevision: string,
+) {
   const row = await db.prepare(`SELECT
     CAST(COALESCE((SELECT source_revision FROM market_monthly_summary_cache_state WHERE id=1),0) AS TEXT)
       || ':' || CAST((SELECT COUNT(*) FROM market_image_cache) AS TEXT)
@@ -85,7 +98,7 @@ export async function getMarketOverviewCacheRevision(db: MarketOverviewResponseC
       || ':' || CAST(COALESCE((SELECT SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) FROM market_subcategory_taxonomy),0) AS TEXT)
       || ':' || COALESCE((SELECT MAX(updated_at) FROM market_subcategory_taxonomy),'') AS revision_key`)
     .first<CacheRevisionRow>();
-  return row?.revision_key ?? "0";
+  return `${row?.revision_key ?? "0"}:django-sales:${normalizedSalesRevision(salesRevision)}`;
 }
 
 async function getMarketFilterOptionsRevision(db: MarketOverviewResponseCacheDatabase) {
@@ -145,7 +158,7 @@ export async function getCachedMarketOverview<T>(
 ): Promise<MarketOverviewCacheResult<T>> {
   const [cacheKey, revisionKey] = await Promise.all([
     sha256(canonicalMarketOverviewCacheIdentity(identity)),
-    getMarketOverviewCacheRevision(db),
+    getMarketOverviewCacheRevision(db, identity.salesRevision),
   ]);
   const flightKey = `${cacheKey}:${revisionKey}`;
   const running = inFlight.get(flightKey);

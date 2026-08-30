@@ -1,7 +1,7 @@
 import {
-  getSalesDatabase,
-  type SalesDatabase,
-} from "@/lib/sales/database";
+  getD1Database,
+  type D1Database,
+} from "@/lib/database/d1";
 import {
   ERP_REFERENCE_SOURCE_LABELS,
   type ComboItemImportRow,
@@ -17,18 +17,15 @@ import {
 } from "@/lib/imports/content-fingerprint";
 import { PublicApiError } from "@/lib/http/api-error";
 import {
-  bumpSalesOverviewErpProductRevisionSql,
-  salesOverviewCacheSchemaStatements,
-} from "@/lib/sales/overview-cache-schema";
-import {
+  ERP_REFERENCE_PROJECTION_CANONICAL_FORMAT_VERSION,
   ERP_PRODUCT_PROJECTION_SCOPE_JSON,
-  SALES_PROJECTION_CANONICAL_FORMAT_VERSION,
-  assertProjectionContentHash,
-  insertErpProjectionOutboxEventSql,
-  salesProjectionOutboxSchemaStatements,
-} from "@/lib/sales/projection-outbox";
+  assertErpProjectionContentHash,
+  bumpErpProductProjectionRevisionSql,
+  erpReferenceProjectionSchemaStatements,
+  insertErpReferenceProjectionOutboxEventSql,
+} from "@/lib/erp-reference/projection-outbox";
 
-export type ErpReferenceDatabase = SalesDatabase;
+export type ErpReferenceDatabase = D1Database;
 
 export type ErpReferenceImportBatch = {
   id: string;
@@ -76,8 +73,6 @@ const WRITE_CHUNK_SIZE = 200;
 const LOOKUP_CHUNK_SIZE = 50;
 
 const schemaStatements = [
-  ...salesOverviewCacheSchemaStatements,
-  ...salesProjectionOutboxSchemaStatements,
   `CREATE TABLE IF NOT EXISTS erp_reference_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source_key TEXT NOT NULL,
@@ -158,12 +153,13 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS erp_combo_items_parent_idx ON erp_combo_items (parent_code)`,
   `CREATE INDEX IF NOT EXISTS erp_combo_items_child_idx ON erp_combo_items (child_code)`,
   `CREATE INDEX IF NOT EXISTS erp_combo_items_last_batch_idx ON erp_combo_items (last_import_batch_id)`,
+  ...erpReferenceProjectionSchemaStatements,
 ] as const;
 
 const schemaReady = new WeakMap<object, Promise<void>>();
 
 export function getErpReferenceDatabase(): ErpReferenceDatabase {
-  return getSalesDatabase();
+  return getD1Database();
 }
 
 export async function ensureErpReferenceSchema(db = getErpReferenceDatabase()) {
@@ -385,8 +381,18 @@ export async function saveProductMasterImport(
   },
 ) {
   const existingCount = await countExistingProducts(db, input.rows);
-  const contentHash = assertProjectionContentHash(input.contentHash);
-  const statements = [batchInsertStatement(db, { ...input, source: "products", snapshotDate: null, rowCount: input.rows.length, excludedCount: 0 })];
+  const contentHash = assertErpProjectionContentHash(input.contentHash);
+  const totals = input.totals && typeof input.totals === "object" && !Array.isArray(input.totals)
+    ? { ...input.totals, contentHash }
+    : { contentHash };
+  const statements = [batchInsertStatement(db, {
+    ...input,
+    totals,
+    source: "products",
+    snapshotDate: null,
+    rowCount: input.rows.length,
+    excludedCount: 0,
+  })];
   const sql = `INSERT INTO erp_product_master (
     product_code, product_name, brand, specification, barcode, category, supplier,
     product_status, source_row_number, last_import_batch_id
@@ -411,14 +417,17 @@ export async function saveProductMasterImport(
     db.prepare(`DELETE FROM erp_product_master
       WHERE last_import_batch_id <> ?
         AND EXISTS (SELECT 1 FROM erp_reference_import_batches WHERE id = ? AND status = 'processing')`).bind(input.id, input.id),
-    db.prepare(bumpSalesOverviewErpProductRevisionSql).bind(input.id),
-    db.prepare(insertErpProjectionOutboxEventSql).bind(
-      input.id,
-      ERP_PRODUCT_PROJECTION_SCOPE_JSON,
+    db.prepare(bumpErpProductProjectionRevisionSql).bind(
       input.id,
       input.rows.length,
       contentHash,
-      SALES_PROJECTION_CANONICAL_FORMAT_VERSION,
+      input.id,
+      input.rows.length,
+      contentHash,
+    ),
+    db.prepare(insertErpReferenceProjectionOutboxEventSql).bind(
+      ERP_PRODUCT_PROJECTION_SCOPE_JSON,
+      ERP_REFERENCE_PROJECTION_CANONICAL_FORMAT_VERSION,
       input.id,
     ),
     completeStatement(db, input.id, input.rows.length - existingCount, existingCount),

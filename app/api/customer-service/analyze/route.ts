@@ -1,14 +1,14 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
 import { analyzeCustomerServiceConversations } from "@/lib/customer-service/analysis";
 import { resolveChatModel } from "@/lib/ai/assistant-service";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 
 export async function GET() {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "客服 AI 分析");
-    return Response.json({ configured: Boolean(await resolveChatModel(getSalesDatabase())) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ configured: Boolean(await resolveChatModel(getD1Database())) }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
     return safeApiErrorResponse(error, "读取 AI 分析状态失败。", { headers: { "cache-control": "no-store" } });

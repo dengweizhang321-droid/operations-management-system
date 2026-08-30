@@ -3,7 +3,6 @@ import {
   getInventoryDatabase,
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -30,7 +29,7 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "库存健康数据");
     const db = getInventoryDatabase();
-    await Promise.all([ensureInventorySchema(db), ensureSalesSchema(db)]);
+    await ensureInventorySchema(db);
     const params = new URL(request.url).searchParams;
     const requestedPlanStatus = params.get("planStatus");
     const allowedPlanStatuses = ["draft", "confirmed", "completed", "cancelled"] as const;
@@ -44,7 +43,7 @@ export async function GET(request: Request) {
     }
     const query = params.get("q")?.trim() || undefined;
     if (query && query.length > 100) throw new InventoryQueryContractError("搜索词不能超过 100 个字符");
-    const payload = await getInventoryOverview(db, {
+    const payload = await getInventoryOverview(db, principal, {
       query,
       startDate: params.get("startDate")?.trim() || undefined,
       endDate: params.get("endDate")?.trim() || undefined,
@@ -65,6 +64,7 @@ export async function GET(request: Request) {
       planPageSize: parseInventoryPaginationParameter(params.get("planPageSize"), "pageSize"),
       planStatus: planStatus ?? undefined,
       includeCancelledPlans: planStatus === "cancelled" || requestedIncludeCancelled === "true",
+      signal: request.signal,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

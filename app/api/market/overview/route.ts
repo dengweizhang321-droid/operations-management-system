@@ -1,7 +1,7 @@
 import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
 import { ensureNetshopSchema } from "@/lib/netshop/database";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import { getCachedMarketOverview } from "@/lib/market/overview-response-cache";
+import { createDjangoSalesConsumerReader } from "@/lib/django/sales-consumer-reader";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -17,9 +17,23 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const { view, pagination, filters } = parseMarketOverviewQuery(params);
     const db = getMarketDatabase();
-    await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db), ensureSalesSchema(db)]);
-    const result = await getCachedMarketOverview(db, { view, filters, pagination }, () =>
-      getMarketOverview(db, filters, { view, rankingPage: pagination.page, rankingPageSize: pagination.pageSize }));
+    const salesReader = createDjangoSalesConsumerReader();
+    const [, , salesFreshness] = await Promise.all([
+      ensureMarketSchema(db),
+      ensureNetshopSchema(db),
+      salesReader.read(principal, { operation: "freshness" }),
+    ]);
+    const result = await getCachedMarketOverview(
+      db,
+      { view, filters, pagination, salesRevision: salesFreshness.revision },
+      () => getMarketOverview(db, principal, filters, {
+        view,
+        rankingPage: pagination.page,
+        rankingPageSize: pagination.pageSize,
+        salesReader,
+        expectedSalesRevision: salesFreshness.revision,
+      }),
+    );
     return Response.json(result.payload, {
       headers: { "cache-control": "no-store", "x-market-overview-cache": result.status },
     });

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import uuid
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -124,6 +125,7 @@ if DJANGO_ENVIRONMENT == "production" and (
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "sales.apps.SalesConfig",
+    "erp_reference.apps.ErpReferenceConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -160,23 +162,47 @@ USE_I18N = True
 USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SALES_READ_CACHE_SECONDS = env_int("TERUISI_DJANGO_SALES_CACHE_SECONDS", 60, 0, 3600)
+ERP_REFERENCE_SYNC_MAX_AGE_SECONDS = env_int(
+    "TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS", 60, 30, 3600
+)
 DJANGO_EXPECT_READ_ONLY = env_bool("TERUISI_DJANGO_EXPECT_READ_ONLY", False)
 DJANGO_PROCESS_ROLE = os.getenv("TERUISI_DJANGO_PROCESS_ROLE", "development").strip().lower()
+SALES_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH", ""
+).strip()
+SALES_WRITE_CUTOVER_ID = os.getenv("TERUISI_DJANGO_SALES_CUTOVER_ID", "").strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
-    "projection_writer",
+    "migration_writer",
+    "sales_writer",
+    "erp_reference_sync",
 }:
-    raise RuntimeError("生产 Django 必须显式声明 reader 或 projection_writer 进程角色")
+    raise RuntimeError(
+        "生产 Django 必须显式声明 reader、migration_writer、sales_writer 或 erp_reference_sync 进程角色"
+    )
 if DJANGO_PROCESS_ROLE == "reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django reader 进程必须启用只读连接门禁")
-PROJECTION_SYNC_MAX_AGE_SECONDS = env_int(
-    "TERUISI_DJANGO_SYNC_MAX_AGE_SECONDS", 60, 30, 3600
-)
+if DJANGO_PROCESS_ROLE == "sales_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django sales_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "erp_reference_sync" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django erp_reference_sync 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "sales_writer":
+    try:
+        uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django sales_writer 必须配置有效的销售 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", SALES_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django sales_writer 必须配置有效的销售 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )
 DJANGO_MAX_HEADER_BYTES = env_int("TERUISI_DJANGO_MAX_HEADER_BYTES", 32_768, 8_192, 65_536)
-DJANGO_MAX_BODY_BYTES = env_int("TERUISI_DJANGO_MAX_BODY_BYTES", 1_048_576, 0, 4_194_304)
+DJANGO_MAX_BODY_BYTES = env_int(
+    "TERUISI_DJANGO_MAX_BODY_BYTES",
+    8_388_608 if DJANGO_PROCESS_ROLE == "sales_writer" else 1_048_576,
+    0,
+    16_777_216,
+)
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -192,8 +218,10 @@ USE_X_FORWARDED_HOST = False
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "no-referrer"
 X_FRAME_OPTIONS = "DENY"
-# CSRF, HSTS and HTTPS redirects are intentionally not used on this signed,
-# GET-only loopback API.  The middleware above rejects non-loopback peers.
+# CSRF, HSTS and HTTPS redirects are intentionally not used on this signed
+# loopback API. Mutations authenticate the method and exact body digest and
+# additionally require a replay-fenced request id. The middleware above rejects
+# non-loopback peers before request dispatch.
 SILENCED_SYSTEM_CHECKS = ["security.W003", "security.W004", "security.W008"]
 DATA_UPLOAD_MAX_MEMORY_SIZE = DJANGO_MAX_BODY_BYTES
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 100

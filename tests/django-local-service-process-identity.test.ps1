@@ -29,6 +29,9 @@ try {
   New-Item -ItemType Directory -Path $TestRoot, $LogRoot, $RunRoot -Force | Out-Null
   # No-listener is a normal result, while CIM failures must still fail closed.
   [void]@(Get-PortListeners 65534)
+  if (@(Get-ErpReferenceSyncCandidates).Count -ne 0) {
+    throw "temporary runtime unexpectedly matched an ERP sync process"
+  }
   Start-ManagedProcess "identity-test" $TestPython $Arguments $TestRoot $PidFile $Fingerprint $Stdout $Stderr | Out-Null
   $OwnedSnapshot = Resolve-OwnedProcess "identity-test" $PidFile $TestPython $Arguments $Fingerprint
   if (-not $OwnedSnapshot) { throw "managed process round-trip returned no process" }

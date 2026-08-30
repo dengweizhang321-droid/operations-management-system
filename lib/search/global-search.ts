@@ -6,6 +6,12 @@ import {
   type GlobalSearchNavigationModule,
   type GlobalSearchNavigationTarget,
 } from "./target-contract";
+import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -220,39 +226,6 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
         OR supplier LIKE ? ESCAPE '\\' COLLATE NOCASE
       ORDER BY updated_at DESC, product_code ASC
       LIMIT ? OFFSET ?`,
-  },
-  {
-    key: "orders",
-    label: "销售订单",
-    icon: "单",
-    module: "sales",
-    requiredTables: ["sales_order_lines"],
-    likeParameterCount: 7,
-    allowedRoles: allRoles,
-    scopeKind: "channel_platform",
-    sql: `
-      WITH matched AS (
-        SELECT order_no, online_order_no, MAX(platform) AS platform, MAX(shop_name) AS shop_name,
-          MAX(ship_time) AS latest_ship_time,
-          MIN(substr(COALESCE(product_name, ''), 1, 120)) AS sample_product_name,
-          COUNT(DISTINCT CASE WHEN product_name <> '' THEN product_name END) AS product_name_count,
-          SUM(allocated_amount_cents) AS net_sales_cents
-        FROM sales_order_lines
-        WHERE (order_no LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_order_no LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_spec_code LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE)
-          /*SCOPE*/
-        GROUP BY order_no, online_order_no
-      )
-      SELECT COALESCE(NULLIF(order_no, ''), online_order_no) AS result_id,
-        COALESCE(NULLIF(order_no, ''), online_order_no, '未编号订单') AS title,
-        COALESCE(platform, '') || CASE WHEN shop_name <> '' THEN ' · ' || shop_name ELSE '' END AS subtitle,
-        COALESCE(sample_product_name, '')
-          || CASE WHEN product_name_count > 1 THEN ' 等 ' || product_name_count || ' 个商品' ELSE '' END AS detail,
-        latest_ship_time AS updated_at,
-        net_sales_cents AS amount_cents, COUNT(*) OVER() AS total_count
-      FROM matched ORDER BY latest_ship_time DESC, result_id ASC LIMIT ? OFFSET ?`,
   },
   {
     key: "jd_products",
@@ -492,8 +465,21 @@ const workflowDefinition = {
   module: "workflow" as const,
 };
 
+const salesOrderDefinition = {
+  key: "orders" as const,
+  label: "销售订单",
+  icon: "单",
+  module: "sales" as const,
+};
+
+const importDefinition = {
+  key: "imports" as const,
+  label: "导入批次",
+  icon: "入",
+  module: "import" as const,
+};
+
 const importSources = [
-  { table: "sales_import_batches", source: "'销售明细'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "inventory_import_batches", source: "'库存快照'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "erp_reference_import_batches", source: "source_label", file: "file_name", searchable: ["id", "file_name", "source_key", "source_label", "status"] },
   { table: "finance_import_batches", source: "'月度财报'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
@@ -531,7 +517,6 @@ export const GLOBAL_SEARCH_COVERAGE = [
 export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   searchable: [
     "workflow_tasks", "workflow_operation_records",
-    "sales_import_batches", "sales_order_lines",
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_metrics",
     "erp_reference_import_batches", "erp_product_master", "erp_inventory_age_lines", "erp_combo_items",
     "replenishment_plan_items",
@@ -552,7 +537,6 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_target_versions", "finance_target_deletion_audits",
     "finance_target_scoped_versions", "finance_target_scoped_deletion_audits", "finance_target_legacy_migrations",
     "ai_tool_audit_logs",
-    "sales_import_uploads", "sales_import_upload_chunks", "sales_projection_outbox", "sales_projection_source_state",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
     "market_annotation_prompt_versions", "market_annotation_prompt_audits", "market_annotation_jobs", "market_annotation_items",
     "market_annotation_commit_receipts", "market_annotation_validation_samples",
@@ -811,10 +795,94 @@ async function queryWorkflowGroup(
   }
 }
 
-async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
-  const definition = { key: "imports" as const, label: "导入批次", icon: "入", module: "import" as const };
+function validSalesOrderSearch(
+  value: unknown,
+): value is SalesConsumerResponseMap["order_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string" && Number.isSafeInteger(row.amountCents);
+    });
+}
+
+function validSalesImportSearch(
+  value: unknown,
+): value is SalesConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+function validConsumerPage(
+  data: { items: unknown[]; total: number; truncated: boolean },
+  page: number,
+  pageSize: number,
+) {
+  const offset = (page - 1) * pageSize;
+  const expectedLength = offset >= data.total ? 0 : Math.min(pageSize, data.total - offset);
+  return data.items.length === expectedLength
+    && data.truncated === page * pageSize < data.total;
+}
+
+async function querySalesOrderGroup(
+  salesReader: SalesConsumerReader,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const result = await salesReader.read(principal, {
+      operation: "order_search",
+      query: request.query,
+      page: request.page,
+      pageSize: request.groupLimit,
+    }, { signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || !validSalesOrderSearch(result.data)
+      || !validConsumerPage(result.data, request.page, request.groupLimit)) {
+      return emptyGroup(salesOrderDefinition);
+    }
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.id,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+      total_count: result.data.total,
+    }));
+    return mapSearchRows(salesOrderDefinition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(salesOrderDefinition);
+  }
+}
+
+async function queryLocalImportRows(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  like: string,
+  limit: number,
+  offset: number,
+) {
   const availableSources = importSources.filter((source) => tables.has(source.table));
-  if (availableSources.length === 0) return emptyGroup(definition);
+  if (availableSources.length === 0) return { rows: [] as SearchRow[], total: 0 };
   const binds: unknown[] = [];
   const fragments = availableSources.map((source) => {
     const conditions = source.searchable.map((column) => {
@@ -828,19 +896,73 @@ async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, r
   const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents,
     COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
+  const result = await db.prepare(sql).bind(...binds, limit, offset).all<SearchRow>();
+  const rows = result.results ?? [];
+  if (rows.length > 0) return { rows, total: Number(rows[0]?.total_count ?? 0) };
+  const firstPage = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
+  return { rows, total: Number(firstPage.results?.[0]?.total_count ?? 0) };
+}
+
+async function queryImportGroup(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  request: GlobalSearchRequest,
+  like: string,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
+  signal?: AbortSignal,
+) {
   try {
-    const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit, (request.page - 1) * request.groupLimit)
-      .all<SearchRow>();
-    const rows = result.results ?? [];
-    let totalOverride: number | undefined;
-    if (rows.length === 0 && request.page > 1) {
-      const firstPage = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
-      totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
+    // Keep pagination exact without a cross-database offset join: sales import
+    // matches form the first stable partition, followed by the remaining D1
+    // domain imports. Both partitions keep their own deterministic recency order.
+    const salesHead = await salesReader.read(principal, {
+      operation: "import_batch_search",
+      query: request.query,
+      page: 1,
+      pageSize: 1,
+    }, { signal });
+    if (!salesHead || typeof salesHead.revision !== "string" || !salesHead.revision
+      || !validSalesImportSearch(salesHead.data)
+      || !validConsumerPage(salesHead.data, 1, 1)) return emptyGroup(importDefinition);
+    const salesTotal = salesHead.data.total;
+    const globalOffset = (request.page - 1) * request.groupLimit;
+    const salesTake = globalOffset < salesTotal
+      ? Math.min(request.groupLimit, salesTotal - globalOffset)
+      : 0;
+    let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (salesTake > 0) {
+      const salesPage = await salesReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        page: request.page,
+        pageSize: request.groupLimit,
+      }, { signal });
+      if (!salesPage || salesPage.revision !== salesHead.revision
+        || !validSalesImportSearch(salesPage.data) || salesPage.data.total !== salesTotal
+        || !validConsumerPage(salesPage.data, request.page, request.groupLimit)
+        || salesPage.data.items.length !== salesTake) return emptyGroup(importDefinition);
+      salesItems = salesPage.data.items;
     }
-    return mapSearchRows(definition, rows, request, principal, totalOverride);
+    const localTake = request.groupLimit - salesItems.length;
+    const localOffset = Math.max(0, globalOffset - salesTotal);
+    const local = await queryLocalImportRows(db, tables, like, localTake, localOffset);
+    const combinedTotal = salesTotal + local.total;
+    const rows: SearchRow[] = [
+      ...salesItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: "销售明细",
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+        total_count: combinedTotal,
+      })),
+      ...local.rows.map((row) => ({ ...row, total_count: combinedTotal })),
+    ];
+    return mapSearchRows(importDefinition, rows, request, principal, combinedTotal);
   } catch {
-    return emptyGroup(definition);
+    return emptyGroup(importDefinition);
   }
 }
 
@@ -861,7 +983,9 @@ export async function searchAllBusinessData(
   db: GlobalSearchDatabase,
   request: GlobalSearchRequest,
   principal: AppPrincipal,
+  dependencies: { salesReader?: SalesConsumerReader; signal?: AbortSignal } = {},
 ): Promise<GlobalSearchResponse> {
+  const salesReader = dependencies.salesReader ?? createDjangoSalesConsumerReader();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
   const like = escapeGlobalSearchLike(request.query);
@@ -869,6 +993,11 @@ export async function searchAllBusinessData(
     (!request.group || definition.key === request.group) && isGroupAuthorized(definition, principal));
   const groupTasks: Array<Promise<GlobalSearchGroup>> = selectedStaticDefinitions.map((definition) =>
     queryStaticGroup(db, definition, tables, request, like, principal));
+  if (!request.group) {
+    groupTasks.splice(1, 0, querySalesOrderGroup(salesReader, request, principal, dependencies.signal));
+  } else if (request.group === "orders" && allRoles.includes(principal.role)) {
+    groupTasks.push(querySalesOrderGroup(salesReader, request, principal, dependencies.signal));
+  }
   if ((!request.group || request.group === "workflow") && allRoles.includes(principal.role)) {
     groupTasks.push(queryWorkflowGroup(db, tables, request, like, principal));
   }
@@ -876,7 +1005,7 @@ export async function searchAllBusinessData(
     groupTasks.push(queryInventoryAgeGroup(db, tables, request, like, principal));
   }
   if ((!request.group || request.group === "imports") && operatorRoles.some((role) => role === principal.role) && principal.scope === null) {
-    groupTasks.push(queryImportGroup(db, tables, request, like, principal));
+    groupTasks.push(queryImportGroup(db, tables, request, like, principal, salesReader, dependencies.signal));
   }
   const groups = trimToTotalLimit(await Promise.all(groupTasks), request.totalLimit);
   const returned = groups.reduce((sum, group) => sum + group.items.length, 0);
@@ -910,4 +1039,3 @@ export async function searchAllBusinessData(
     unavailableDomains: groups.filter((group) => !group.available).map((group) => group.label),
   };
 }
-import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";

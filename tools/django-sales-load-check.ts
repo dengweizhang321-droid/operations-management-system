@@ -11,9 +11,16 @@ const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_CONCURRENCY = 32;
 const MAX_ROUNDS = 100;
 const MAX_REQUESTS = 1_000;
+const MAX_CATEGORY_LENGTH = 100;
 
-export const loadCheckViews = ["full", "dashboard", "category"] as const;
+export const loadCheckViews = ["full", "dashboard", "category", "category-detail"] as const;
 export type LoadCheckView = (typeof loadCheckViews)[number];
+
+export type LoadCheckThresholds = {
+  p95Ms?: number;
+  p99Ms?: number;
+  maxMs?: number;
+};
 
 export type LoadCheckConfig = {
   baseUrl: URL;
@@ -24,6 +31,8 @@ export type LoadCheckConfig = {
   views: LoadCheckView[];
   timeoutMs: number;
   maxResponseBytes: number;
+  category?: string;
+  thresholds?: LoadCheckThresholds;
 };
 
 export type LoadCheckSample = {
@@ -42,7 +51,15 @@ export type LoadCheckStatistics = {
   requests: number;
   p50Ms: number;
   p95Ms: number;
+  p99Ms: number;
   maxMs: number;
+};
+
+export type LoadCheckThresholdViolation = {
+  scope: "overall" | LoadCheckView;
+  metric: keyof LoadCheckThresholds;
+  observedMs: number;
+  thresholdMs: number;
 };
 
 export type LoadCheckReport = {
@@ -50,6 +67,9 @@ export type LoadCheckReport = {
   samples: LoadCheckSample[];
   overall: LoadCheckStatistics;
   byView: Record<LoadCheckView, LoadCheckStatistics | null>;
+  thresholds: LoadCheckThresholds | null;
+  thresholdViolations: LoadCheckThresholdViolation[];
+  passed: boolean;
 };
 
 type LoadCheckDependencies = {
@@ -74,6 +94,19 @@ export class LoadCheckError extends Error {
   }
 }
 
+export class LoadCheckThresholdError extends LoadCheckError {
+  readonly report: LoadCheckReport;
+
+  constructor(report: LoadCheckReport) {
+    const details = report.thresholdViolations.map((violation) => (
+      `${violation.scope}.${violation.metric}=${violation.observedMs}ms>${violation.thresholdMs}ms`
+    )).join(", ");
+    super(`latency thresholds exceeded: ${details}`);
+    this.name = "LoadCheckThresholdError";
+    this.report = report;
+  }
+}
+
 function usage(): string {
   return [
     "Usage:",
@@ -81,11 +114,24 @@ function usage(): string {
     "    --base-url <http-loopback-or-https-origin> \\",
     "    --start-date <YYYY-MM-DD> --end-date <YYYY-MM-DD> \\",
     "    --concurrency <1-32> --rounds <1-100> \\",
-    "    [--view full,dashboard,category] [--timeout-ms <1-30000>] \\",
-    "    [--max-response-bytes <1-8388608>]",
+    "    [--view full,dashboard,category,category-detail] \\",
+    "    [--category <exact-category-for-category-detail>] \\",
+    "    [--timeout-ms <1-30000>] [--max-response-bytes <1-8388608>] \\",
+    "    [--p95-ms <0.01-30000>] [--p99-ms <0.01-30000>] [--max-ms <0.01-30000>]",
     "",
     "TERUISI_DJANGO_INTERNAL_SECRET must be provided through the environment.",
   ].join("\n");
+}
+
+function exactPositiveMilliseconds(raw: string, label: string): number {
+  if (!/^(?:0\.\d{1,2}|[1-9]\d*(?:\.\d{1,2})?)$/.test(raw)) {
+    throw new LoadCheckError(`${label} must be a positive millisecond value with at most two decimals`);
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value > MAX_TIMEOUT_MS) {
+    throw new LoadCheckError(`${label} must be between 0.01 and ${MAX_TIMEOUT_MS}`);
+  }
+  return value;
 }
 
 function exactPositiveInteger(raw: string, label: string, maximum: number): number {
@@ -129,6 +175,75 @@ function parseViews(raw: string): LoadCheckView[] {
   return values as LoadCheckView[];
 }
 
+function validateCategory(views: LoadCheckView[], raw: string | undefined): string | undefined {
+  const detailSelected = views.includes("category-detail");
+  if (raw === undefined) {
+    if (detailSelected) throw new LoadCheckError("--category is required when --view includes category-detail");
+    return undefined;
+  }
+  if (!detailSelected) throw new LoadCheckError("--category is only allowed when --view includes category-detail");
+  if (raw !== raw.trim() || raw.length === 0 || raw.length > MAX_CATEGORY_LENGTH || /[\u0000-\u001f\u007f]/.test(raw)) {
+    throw new LoadCheckError(`--category must be an exact non-empty value of at most ${MAX_CATEGORY_LENGTH} characters without surrounding whitespace or control characters`);
+  }
+  return raw;
+}
+
+function validateThresholds(thresholds: LoadCheckThresholds | undefined, timeoutMs: number): LoadCheckThresholds | undefined {
+  if (thresholds === undefined) return undefined;
+  const normalized: LoadCheckThresholds = {};
+  for (const [metric, label] of [
+    ["p95Ms", "--p95-ms"],
+    ["p99Ms", "--p99-ms"],
+    ["maxMs", "--max-ms"],
+  ] as const) {
+    const value = thresholds[metric];
+    if (value === undefined) continue;
+    if (!Number.isFinite(value) || value <= 0 || value > MAX_TIMEOUT_MS || Number(value.toFixed(2)) !== value) {
+      throw new LoadCheckError(`${label} must be between 0.01 and ${MAX_TIMEOUT_MS} with at most two decimals`);
+    }
+    if (value > timeoutMs) throw new LoadCheckError(`${label} must not exceed --timeout-ms`);
+    normalized[metric] = value;
+  }
+  if (normalized.p95Ms !== undefined && normalized.p99Ms !== undefined && normalized.p95Ms > normalized.p99Ms) {
+    throw new LoadCheckError("--p95-ms must not exceed --p99-ms");
+  }
+  if (normalized.p95Ms !== undefined && normalized.maxMs !== undefined && normalized.p95Ms > normalized.maxMs) {
+    throw new LoadCheckError("--p95-ms must not exceed --max-ms");
+  }
+  if (normalized.p99Ms !== undefined && normalized.maxMs !== undefined && normalized.p99Ms > normalized.maxMs) {
+    throw new LoadCheckError("--p99-ms must not exceed --max-ms");
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function validateRuntimeConfig(config: LoadCheckConfig): void {
+  validateLoadCheckBaseUrl(config.baseUrl.href);
+  if (!validIsoDate(config.startDate) || !validIsoDate(config.endDate) || config.startDate > config.endDate) {
+    throw new LoadCheckError("startDate and endDate must be a valid ordered YYYY-MM-DD range");
+  }
+  if (!Number.isInteger(config.concurrency) || config.concurrency < 1 || config.concurrency > MAX_CONCURRENCY) {
+    throw new LoadCheckError(`concurrency must be between 1 and ${MAX_CONCURRENCY}`);
+  }
+  if (!Number.isInteger(config.rounds) || config.rounds < 1 || config.rounds > MAX_ROUNDS) {
+    throw new LoadCheckError(`rounds must be between 1 and ${MAX_ROUNDS}`);
+  }
+  if (config.views.length === 0 || new Set(config.views).size !== config.views.length
+    || config.views.some((view) => !loadCheckViews.includes(view))) {
+    throw new LoadCheckError(`views must be unique and contain only ${loadCheckViews.join(",")}`);
+  }
+  if (config.concurrency * config.rounds * config.views.length > MAX_REQUESTS) {
+    throw new LoadCheckError(`planned request count exceeds ${MAX_REQUESTS}`);
+  }
+  if (!Number.isInteger(config.timeoutMs) || config.timeoutMs < 1 || config.timeoutMs > MAX_TIMEOUT_MS) {
+    throw new LoadCheckError(`timeoutMs must be between 1 and ${MAX_TIMEOUT_MS}`);
+  }
+  if (!Number.isInteger(config.maxResponseBytes) || config.maxResponseBytes < 1 || config.maxResponseBytes > MAX_RESPONSE_BYTES) {
+    throw new LoadCheckError(`maxResponseBytes must be between 1 and ${MAX_RESPONSE_BYTES}`);
+  }
+  validateCategory(config.views, config.category);
+  validateThresholds(config.thresholds, config.timeoutMs);
+}
+
 export function parseLoadCheckArgs(argv: string[]): LoadCheckConfig {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 1) {
@@ -137,7 +252,7 @@ export function parseLoadCheckArgs(argv: string[]): LoadCheckConfig {
     if (!flag?.startsWith("--")) throw new LoadCheckError(`unexpected argument: ${flag ?? ""}`);
     const allowed = new Set([
       "--base-url", "--start-date", "--end-date", "--concurrency", "--rounds", "--view",
-      "--timeout-ms", "--max-response-bytes",
+      "--timeout-ms", "--max-response-bytes", "--category", "--p95-ms", "--p99-ms", "--max-ms",
     ]);
     if (!allowed.has(flag)) throw new LoadCheckError(`unknown option: ${flag}`);
     if (values.has(flag)) throw new LoadCheckError(`option cannot be repeated: ${flag}`);
@@ -166,6 +281,15 @@ export function parseLoadCheckArgs(argv: string[]): LoadCheckConfig {
     throw new LoadCheckError(`planned request count exceeds ${MAX_REQUESTS}`);
   }
 
+  const timeoutMs = values.has("--timeout-ms")
+    ? exactPositiveInteger(required("--timeout-ms"), "--timeout-ms", MAX_TIMEOUT_MS)
+    : DEFAULT_TIMEOUT_MS;
+  const thresholds = validateThresholds({
+    p95Ms: values.has("--p95-ms") ? exactPositiveMilliseconds(required("--p95-ms"), "--p95-ms") : undefined,
+    p99Ms: values.has("--p99-ms") ? exactPositiveMilliseconds(required("--p99-ms"), "--p99-ms") : undefined,
+    maxMs: values.has("--max-ms") ? exactPositiveMilliseconds(required("--max-ms"), "--max-ms") : undefined,
+  }, timeoutMs);
+
   return {
     baseUrl: validateLoadCheckBaseUrl(required("--base-url")),
     startDate,
@@ -173,12 +297,12 @@ export function parseLoadCheckArgs(argv: string[]): LoadCheckConfig {
     concurrency,
     rounds,
     views,
-    timeoutMs: values.has("--timeout-ms")
-      ? exactPositiveInteger(required("--timeout-ms"), "--timeout-ms", MAX_TIMEOUT_MS)
-      : DEFAULT_TIMEOUT_MS,
+    timeoutMs,
     maxResponseBytes: values.has("--max-response-bytes")
       ? exactPositiveInteger(required("--max-response-bytes"), "--max-response-bytes", MAX_RESPONSE_BYTES)
       : DEFAULT_MAX_RESPONSE_BYTES,
+    category: validateCategory(views, values.get("--category")),
+    thresholds,
   };
 }
 
@@ -191,9 +315,13 @@ function requireSecret(environment: Record<string, string | undefined>): string 
 }
 
 function targetFor(config: LoadCheckConfig, view: LoadCheckView): URL {
-  const path = view === "category" ? "/api/sales/category-analysis" : "/api/sales/summary";
+  const path = view === "category"
+    ? "/api/sales/category-analysis"
+    : view === "category-detail"
+      ? "/api/sales/category-analysis/detail"
+      : "/api/sales/summary";
   const target = new URL(path, config.baseUrl);
-  if (view !== "category") target.searchParams.set("range", "custom");
+  if (view === "full" || view === "dashboard") target.searchParams.set("range", "custom");
   target.searchParams.set("startDate", config.startDate);
   target.searchParams.set("endDate", config.endDate);
   if (view === "dashboard") target.searchParams.set("view", "dashboard");
@@ -201,6 +329,7 @@ function targetFor(config: LoadCheckConfig, view: LoadCheckView): URL {
     target.searchParams.set("page", "1");
     target.searchParams.set("pageSize", "100");
   }
+  if (view === "category-detail") target.searchParams.set("category", config.category!);
   return target;
 }
 
@@ -284,6 +413,39 @@ function stableJson(value: unknown): string {
   return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validateCategoryDetailPayload(config: LoadCheckConfig, value: unknown): void {
+  if (!isJsonObject(value) || value.category !== config.category) {
+    throw new LoadCheckError("category-detail response category does not match the requested category");
+  }
+  const range = value.range;
+  if (!isJsonObject(range)
+    || range.startDate !== config.startDate
+    || range.endDate !== config.endDate) {
+    throw new LoadCheckError("category-detail response range does not match the requested range");
+  }
+  const pagination = value.pagination;
+  const totals = value.totals;
+  const returned = isJsonObject(pagination) ? pagination.returned : undefined;
+  const shopCount = isJsonObject(totals) ? totals.shopCount : undefined;
+  if (typeof returned !== "number"
+    || !Number.isSafeInteger(returned)
+    || returned < 1
+    || typeof shopCount !== "number"
+    || !Number.isSafeInteger(shopCount)
+    || shopCount < 1
+    || shopCount !== returned) {
+    throw new LoadCheckError("category-detail response has no non-empty, internally consistent shop coverage");
+  }
+}
+
+function validateViewPayload(config: LoadCheckConfig, view: LoadCheckView, value: unknown): void {
+  if (view === "category-detail") validateCategoryDetailPayload(config, value);
+}
+
 async function sample(
   config: LoadCheckConfig,
   view: LoadCheckView,
@@ -322,6 +484,7 @@ async function sample(
       throw new LoadCheckError(`${view} response revision headers are missing or inconsistent`);
     }
     const body = await readBoundedJson(response, config.maxResponseBytes);
+    validateViewPayload(config, view, body.value);
     const durationMs = performance.now() - started;
     return {
       view,
@@ -353,11 +516,36 @@ function statistics(samples: LoadCheckSample[]): LoadCheckStatistics {
     requests: durations.length,
     p50Ms: percentile(durations, 0.5),
     p95Ms: percentile(durations, 0.95),
+    p99Ms: percentile(durations, 0.99),
     maxMs: Number((durations.at(-1) ?? 0).toFixed(2)),
   };
 }
 
+function thresholdViolations(
+  overall: LoadCheckStatistics,
+  byView: Record<LoadCheckView, LoadCheckStatistics | null>,
+  views: LoadCheckView[],
+  thresholds: LoadCheckThresholds | undefined,
+): LoadCheckThresholdViolation[] {
+  if (thresholds === undefined) return [];
+  const scopes: Array<{ scope: "overall" | LoadCheckView; statistics: LoadCheckStatistics }> = [
+    { scope: "overall", statistics: overall },
+    ...views.map((view) => ({ scope: view, statistics: byView[view]! })),
+  ];
+  const violations: LoadCheckThresholdViolation[] = [];
+  for (const { scope, statistics: selected } of scopes) {
+    for (const metric of ["p95Ms", "p99Ms", "maxMs"] as const) {
+      const thresholdMs = thresholds[metric];
+      if (thresholdMs !== undefined && selected[metric] > thresholdMs) {
+        violations.push({ scope, metric, observedMs: selected[metric], thresholdMs });
+      }
+    }
+  }
+  return violations;
+}
+
 export async function runLoadCheck(config: LoadCheckConfig, dependencies: LoadCheckDependencies = {}): Promise<LoadCheckReport> {
+  validateRuntimeConfig(config);
   const secret = requireSecret(dependencies.environment ?? process.env);
   const samples: LoadCheckSample[] = [];
   const expectedDigest = new Map<LoadCheckView, string>();
@@ -386,15 +574,43 @@ export async function runLoadCheck(config: LoadCheckConfig, dependencies: LoadCh
   }
   if (expectedRevision === null || samples.length === 0) throw new LoadCheckError("load check produced no samples");
 
-  return {
+  const overall = statistics(samples);
+  const byView = Object.fromEntries(loadCheckViews.map((view) => {
+    const selected = samples.filter((sampleValue) => sampleValue.view === view);
+    return [view, selected.length > 0 ? statistics(selected) : null];
+  })) as Record<LoadCheckView, LoadCheckStatistics | null>;
+  const thresholds = validateThresholds(config.thresholds, config.timeoutMs);
+  const violations = thresholdViolations(overall, byView, config.views, thresholds);
+  const report: LoadCheckReport = {
     revision: expectedRevision,
     samples,
-    overall: statistics(samples),
-    byView: Object.fromEntries(loadCheckViews.map((view) => {
-      const selected = samples.filter((sampleValue) => sampleValue.view === view);
-      return [view, selected.length > 0 ? statistics(selected) : null];
-    })) as Record<LoadCheckView, LoadCheckStatistics | null>,
+    overall,
+    byView,
+    thresholds: thresholds ?? null,
+    thresholdViolations: violations,
+    passed: violations.length === 0,
   };
+  if (!report.passed) throw new LoadCheckThresholdError(report);
+  return report;
+}
+
+function writeSummary(config: LoadCheckConfig, report: LoadCheckReport): void {
+  process.stdout.write(`${JSON.stringify({
+    type: "summary",
+    baseUrl: config.baseUrl.origin,
+    startDate: config.startDate,
+    endDate: config.endDate,
+    views: config.views,
+    category: config.category,
+    concurrency: config.concurrency,
+    rounds: config.rounds,
+    revision: report.revision,
+    overall: report.overall,
+    byView: report.byView,
+    thresholds: report.thresholds,
+    thresholdViolations: report.thresholdViolations,
+    passed: report.passed,
+  })}\n`);
 }
 
 async function main(): Promise<void> {
@@ -403,23 +619,17 @@ async function main(): Promise<void> {
     return;
   }
   const config = parseLoadCheckArgs(process.argv.slice(2));
-  const report = await runLoadCheck(config, {
-    onSample(sampleValue) {
-      process.stdout.write(`${JSON.stringify({ type: "sample", ...sampleValue })}\n`);
-    },
-  });
-  process.stdout.write(`${JSON.stringify({
-    type: "summary",
-    baseUrl: config.baseUrl.origin,
-    startDate: config.startDate,
-    endDate: config.endDate,
-    views: config.views,
-    concurrency: config.concurrency,
-    rounds: config.rounds,
-    revision: report.revision,
-    overall: report.overall,
-    byView: report.byView,
-  })}\n`);
+  try {
+    const report = await runLoadCheck(config, {
+      onSample(sampleValue) {
+        process.stdout.write(`${JSON.stringify({ type: "sample", ...sampleValue })}\n`);
+      },
+    });
+    writeSummary(config, report);
+  } catch (error) {
+    if (error instanceof LoadCheckThresholdError) writeSummary(config, error.report);
+    throw error;
+  }
 }
 
 const directEntry = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";

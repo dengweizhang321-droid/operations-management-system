@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -14,7 +16,7 @@ registerHooks({
 
 const {
   ensureNetshopSchema,
-  getNetshopProductCatalog,
+  getNetshopProductCatalog: getNetshopProductCatalogCore,
   getNetshopProductPerformance,
   getNetshopPromotionPerformance,
   NETSHOP_DAILY_SERIES_LIMIT,
@@ -29,6 +31,110 @@ const {
   ensureImportFingerprintSchema,
   reserveImportFingerprint,
 } = await import("../lib/imports/content-fingerprint");
+
+const testPrincipal: AppPrincipal = {
+  email: "netshop-test@example.com",
+  displayName: "Netshop test",
+  role: "admin",
+  scope: null,
+};
+
+function channelMatchesPlatform(channel: string, platform: string) {
+  const normalizedChannel = channel.trim();
+  const normalizedPlatform = platform.trim();
+  return normalizedChannel === normalizedPlatform
+    || ["-", "—", "–", ":", "："].some((separator) => normalizedChannel.startsWith(`${normalizedPlatform}${separator}`));
+}
+
+function sqliteSalesReader(sqlite: DatabaseSync): SalesConsumerReader {
+  return {
+    async read(actualPrincipal, request) {
+      assert.equal(actualPrincipal, testPrincipal);
+      assert.equal(request.operation, "netshop_product_metrics");
+      if (request.operation !== "netshop_product_metrics") throw new Error("unexpected sales operation");
+      const sourceRows = sqlite.prepare(`SELECT ship_time,warehouse,product_code,product_name,platform,channel,
+        shop_name,online_spec_code,allocated_amount_cents,gross_profit_cents,quantity,cost_amount_cents
+        FROM sales_order_lines`).all() as Array<Record<string, string | number>>;
+      const allowedChannels = request.allowedChannels ?? null;
+      const eligible = sourceRows.filter((row) => String(row.warehouse).trim() !== "刷刷仓"
+        && channelMatchesPlatform(String(row.channel), String(row.platform))
+        && (allowedChannels === null || allowedChannels.includes(String(row.channel).trim())));
+      const scoped = eligible.filter((row) => request.outletScopes.some((scope) =>
+        String(row.platform).trim() === scope.platform
+        && String(row.shop_name).trim() === scope.rawShopName
+        && (scope.rawChannel === null || String(row.channel).trim() === scope.rawChannel)));
+      const dataCutoffDate = scoped.map((row) => String(row.ship_time).slice(0, 10)).sort().at(-1) ?? null;
+      const combined = new Map<string, {
+        platform: string;
+        shopName: string;
+        salesProductCode: string;
+        grossSalesCents: number;
+        refundAmountCents: number;
+        netSalesCents: number;
+        grossProfitCents: number;
+        absoluteQuantity: number;
+        absoluteCostCents: number;
+      }>();
+      const startDate = request.startDate ?? null;
+      const endDate = request.endDate ?? null;
+      if (startDate !== null && endDate !== null) {
+        for (const row of eligible) {
+          const businessDate = String(row.ship_time).slice(0, 10);
+          if (businessDate < startDate || businessDate >= endDate
+            || String(row.product_code) === "ERP_PRICE_ADJUSTMENT"
+            || String(row.product_name).trim() === "补差价专用") continue;
+          const salesProductCode = String(row.online_spec_code || row.product_code);
+          const targets = new Set<string>();
+          for (const identity of request.identities) {
+            if (String(row.platform).trim() !== identity.platform
+              || String(row.shop_name).trim() !== identity.rawShopName
+              || salesProductCode !== identity.salesProductCode
+              || (identity.rawChannel !== null && String(row.channel).trim() !== identity.rawChannel)) continue;
+            const key = JSON.stringify([identity.platform, identity.canonicalShopName, identity.salesProductCode]);
+            if (targets.has(key)) continue;
+            targets.add(key);
+            const aggregate = combined.get(key) ?? {
+              platform: identity.platform,
+              shopName: identity.canonicalShopName,
+              salesProductCode: identity.salesProductCode,
+              grossSalesCents: 0,
+              refundAmountCents: 0,
+              netSalesCents: 0,
+              grossProfitCents: 0,
+              absoluteQuantity: 0,
+              absoluteCostCents: 0,
+            };
+            const sales = Number(row.allocated_amount_cents);
+            aggregate.grossSalesCents += Math.max(0, sales);
+            aggregate.refundAmountCents += Math.max(0, -sales);
+            aggregate.netSalesCents += sales;
+            aggregate.grossProfitCents += Number(row.gross_profit_cents);
+            aggregate.absoluteQuantity += Math.abs(Number(row.quantity));
+            aggregate.absoluteCostCents += Math.abs(Number(row.cost_amount_cents));
+            combined.set(key, aggregate);
+          }
+        }
+      }
+      return {
+        revision: "sales:test:1",
+        data: { dataCutoffDate, platform: "京东", rows: [...combined.values()] },
+      } as never;
+    },
+  };
+}
+
+function getNetshopProductCatalog(
+  db: unknown,
+  input: Parameters<typeof getNetshopProductCatalogCore>[2],
+) {
+  const sqlite = (db as { __sqlite: DatabaseSync }).__sqlite;
+  return getNetshopProductCatalogCore(
+    db as never,
+    testPrincipal,
+    input,
+    sqliteSalesReader(sqlite),
+  );
+}
 
 function createDatabase() {
   const sqlite = new DatabaseSync(":memory:");
@@ -141,6 +247,7 @@ function createProductCatalogDatabase() {
 
 function adapter(sqlite: DatabaseSync, reads: string[], bindCounts: number[] = []) {
   return {
+    __sqlite: sqlite,
     prepare(sql: string) {
       let values: SQLInputValue[] = [];
       return {
@@ -505,7 +612,7 @@ test("maximum legal netshop filters stay below D1's 100-bind ceiling", async () 
   sqlite.close();
 });
 
-test("a 100-item product page aggregates sales through one JSON bind instead of 103 scalar binds", async () => {
+test("a 100-item product page reads sales through the bounded Django consumer contract", async () => {
   const sqlite = createProductCatalogDatabase();
   const reads: string[] = [];
   const bindCounts: number[] = [];
@@ -522,7 +629,37 @@ test("a 100-item product page aggregates sales through one JSON bind instead of 
   assert.equal(result.items.length, 100);
   assert.equal(result.items.every((item) => item.salesMatched), true);
   assert.ok(Math.max(...bindCounts) <= 100, `maximum bind count was ${Math.max(...bindCounts)}`);
-  assert.ok(reads.some((sql) => /online_spec_code[\s\S]*json_each\(\?\)/i.test(sql)));
+  assert.ok(reads.every((sql) => !/sales_order_lines/i.test(sql)));
+  sqlite.close();
+});
+
+test("product catalog fails closed when Django returns a malformed sales row", async () => {
+  const sqlite = createProductCatalogDatabase();
+  const reader: SalesConsumerReader = {
+    async read(actualPrincipal, request) {
+      assert.equal(actualPrincipal, testPrincipal);
+      assert.equal(request.operation, "netshop_product_metrics");
+      return {
+        revision: "sales:test:1",
+        data: { dataCutoffDate: "2026-08-01", platform: "京东", rows: [null] },
+      } as never;
+    },
+  };
+  await assert.rejects(
+    getNetshopProductCatalogCore(
+      adapter(sqlite, []) as never,
+      testPrincipal,
+      {
+        query: "PAIR-JD-SAME",
+        pageSize: 10,
+        outlets: [{ platform: "京东", shopName: "目录店铺" }],
+        salesStartDate: "2026-08-01",
+        salesEndDate: "2026-08-01",
+      },
+      reader,
+    ),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
   sqlite.close();
 });
 
@@ -792,7 +929,7 @@ test("product catalog bridges only controlled JD canonical shops to exact approv
   assert.equal(wrongChannelScope.items[0]?.netSalesCents, null);
   assert.equal(wrongChannelScope.sales.dataCutoffDate, null);
   assert.ok(Math.max(...bindCounts) <= 100, `maximum bind count was ${Math.max(...bindCounts)}`);
-  assert.ok(reads.some((sql) => /canonicalShopName[\s\S]*rawShopName[\s\S]*rawChannel/i.test(sql)));
+  assert.ok(reads.every((sql) => !/sales_order_lines/i.test(sql)));
   sqlite.close();
 });
 

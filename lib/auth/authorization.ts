@@ -1,9 +1,9 @@
 import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { env } from "cloudflare:workers";
 import {
-  getSalesDatabase,
-  type SalesDatabase,
-} from "@/lib/sales/database";
+  getD1Database,
+  type D1Database,
+} from "@/lib/database/d1";
 import { decideLocalDirectAccess } from "@/lib/auth/local-direct-access";
 
 export const BOOTSTRAP_ADMIN_EMAIL = "dengweizhang321@gmail.com";
@@ -96,7 +96,7 @@ const schemaStatements = [
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export async function ensureAuthorizationSchema(
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
@@ -121,7 +121,7 @@ export async function ensureAuthorizationSchema(
   return setup;
 }
 
-async function ensureAiToolAuditExecutionIndex(db: SalesDatabase): Promise<void> {
+async function ensureAiToolAuditExecutionIndex(db: D1Database): Promise<void> {
   const info = await db.prepare("PRAGMA table_info(ai_tool_audit_logs)").all<{ name: string }>();
   const names = new Set((info.results ?? []).map((column) => column.name));
   if (!names.has("invocation_id")) return;
@@ -177,7 +177,7 @@ export async function requireAppPrincipal(
     );
   }
 
-  const db = getSalesDatabase();
+  const db = getD1Database();
   await ensureAuthorizationSchema(db);
   const normalizedEmail = identity.email.trim().toLowerCase();
   let row = await findAppUser(db, normalizedEmail);
@@ -247,7 +247,7 @@ function isAppRole(value: string): value is AppRole {
   return appRoles.includes(value as AppRole);
 }
 
-function findAppUser(db: SalesDatabase, email: string) {
+function findAppUser(db: D1Database, email: string) {
   return db
     .prepare(
       `SELECT email, display_name, role, status, scope_json

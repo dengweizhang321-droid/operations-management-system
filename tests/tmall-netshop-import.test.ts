@@ -512,7 +512,7 @@ test("重复天猫文件允许同批次范围头确定性修复但拒绝其他�
       ...duplicateFingerprintDependencies,
       readImportScopeStateToken: async () => {
         tokenReads += 1;
-        return tokenReads < 3 ? "initial" : recordedStateToken;
+        return tokenReads < 2 ? "initial" : recordedStateToken;
       },
       nextImportScopeStateToken: async () => "published-test-state",
     };

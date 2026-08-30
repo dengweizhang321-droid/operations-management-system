@@ -136,19 +136,21 @@ test("product and inventory APIs expose real page contracts", async () => {
     source("../lib/erp-reference/database.ts"),
     source("../lib/inventory/database.ts"),
   ]);
-  assert.match(product, /LIMIT \? OFFSET \?/);
+  assert.match(product, /orderedRows\.slice\(pagination\.offset, pagination\.offset \+ pagination\.pageSize\)/);
   assert.match(product, /pagination:/);
-  assert.match(product, /categoryFacetCte/);
+  assert.match(product, /facetRows/);
   assert.match(product, /known_stock_value_cents/);
   assert.match(product, /priced_available_quantity/);
-  assert.match(product, /st\.available_quantity <= st\.priced_available_quantity/);
+  assert.match(product, /availableQuantity <= pricedAvailableQuantity/);
+  assert.match(product, /operation: "product_performance"/);
   assert.match(productRoute, /searchParams\.get\("page"\)/);
   assert.match(productRoute, /searchParams\.get\("pageSize"\)/);
   assert.match(productRoute, /parseProductSummaryPaginationParameter/);
   assert.match(productRoute, /searchParams\.get\("q"\)/);
-  assert.match(inventory, /LIMIT \? OFFSET \?/);
+  assert.match(inventory, /orderedRows\.slice\(pagination\.offset, pagination\.offset \+ pagination\.pageSize\)/);
   assert.match(inventory, /returned:/);
   assert.match(inventory, /stockValueComplete/);
+  assert.match(inventory, /operation: "inventory_demand"/);
   assert.match(age, /findLatestCompletedErpReferenceBatch/);
   assert.match(erpDatabase, /status = 'completed'/);
   assert.match(age, /LIMIT \? OFFSET \?/);

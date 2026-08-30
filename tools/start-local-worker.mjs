@@ -4,6 +4,8 @@ import { createConnection } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { assertLegacyWorkerLaunchAllowed } from "./worker-authority-guard.mjs";
+
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const localWorkerPort = 3000;
 const tmallWorkflowHelperPort = 5791;
@@ -21,7 +23,11 @@ export function getLocalWorkerBuildCommand(root = projectRoot) {
   };
 }
 
-export function getLocalWorkerRuntimeCommand(root = projectRoot, wranglerArgs = []) {
+export function getLocalWorkerRuntimeCommand(
+  root = projectRoot,
+  wranglerArgs = [],
+  persistDirectory = process.env.TERUISI_LOCAL_WRANGLER_STATE_DIR?.trim() || ".wrangler/state",
+) {
   return {
     command: process.execPath,
     args: [
@@ -32,7 +38,7 @@ export function getLocalWorkerRuntimeCommand(root = projectRoot, wranglerArgs = 
       "--port",
       String(localWorkerPort),
       "--persist-to",
-      ".wrangler/state",
+      persistDirectory,
       ...wranglerArgs,
     ],
   };
@@ -99,6 +105,7 @@ export function createTmallWorkflowHelperSupervisor({
   scheduleRestart = setTimeout,
   cancelRestart = clearTimeout,
   now = Date.now,
+  assertLaunchAllowed = assertLegacyWorkerLaunchAllowed,
 } = {}) {
   let child = null;
   let restartTimer = null;
@@ -130,7 +137,10 @@ export function createTmallWorkflowHelperSupervisor({
       console.warn(`天猫工作流辅助服务已退出（${reason}），将在 ${delay}ms 后重新待命`);
       restartTimer = scheduleRestart(() => {
         restartTimer = null;
-        launch();
+        void assertLaunchAllowed().then(launch).catch((error) => {
+          stopping = true;
+          console.error(error instanceof Error ? error.message : String(error));
+        });
       }, delay);
     };
 
@@ -282,6 +292,7 @@ export async function ensureRuntimeDevVarsLink(root = projectRoot) {
 }
 
 export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
+  await assertLegacyWorkerLaunchAllowed();
   await assertLocalWorkerPortAvailable();
   await assertTmallWorkflowHelperPortAvailable();
   const { runtimePath, created } = await ensureRuntimeDevVarsLink();
@@ -314,6 +325,7 @@ export async function startLocalWorker(wranglerArgs = process.argv.slice(2)) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { shouldBuild, wranglerArgs } = parseLocalWorkerArguments(process.argv.slice(2));
   const run = async () => {
+    await assertLegacyWorkerLaunchAllowed();
     if (shouldBuild) {
       await assertLocalWorkerPortAvailable();
       await buildLocalWorker();

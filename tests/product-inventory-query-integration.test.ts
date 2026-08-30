@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 
 const testEnvironment: { DB?: unknown } = {};
 (globalThis as typeof globalThis & { __productInventoryEnv?: typeof testEnvironment }).__productInventoryEnv = testEnvironment;
@@ -18,7 +20,6 @@ registerHooks({
   },
 });
 
-const { ensureSalesSchema } = await import("../lib/sales/database");
 const { ensureInventorySchema } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
 const { getProductSummary } = await import("../lib/products/summary");
@@ -55,44 +56,6 @@ function sqliteAdapter(sqlite: DatabaseSync) {
   };
 }
 
-function insertSalesLine(sqlite: DatabaseSync, input: {
-  productCode: string;
-  productName: string;
-  category: string;
-  quantity: number;
-  netSalesCents: number;
-  costCents: number;
-}) {
-  sqlite.prepare(`INSERT INTO sales_order_lines (
-    source_line_key, source_row_hash, first_import_batch_id, last_import_batch_id, source_row_number,
-    order_no, online_order_no, channel, platform, shop_name, logistics_company, warehouse,
-    product_code, online_spec_code, product_name, specification, barcode, supplier, category,
-    quantity, list_unit_price_cents, cost_amount_cents, allocated_unit_price_cents,
-    allocated_amount_cents, fee_allocation_cents, gross_profit_cents, gross_margin_bps,
-    untaxed_gross_profit_cents, untaxed_gross_margin_bps, order_time, sales_time, ship_time,
-    line_ship_time, business_type
-  ) VALUES (
-    ?, ?, 'sales-batch', 'sales-batch', 1,
-    ?, '', '京东', '京东', '测试店铺', '', '上海仓',
-    ?, '', ?, '', '', '', ?,
-    ?, 0, ?, 0,
-    ?, 0, ?, 0,
-    0, 0, '2026-08-18 08:00:00', '2026-08-18 08:00:00', '2026-08-18 08:00:00',
-    '2026-08-18 08:00:00', '销售'
-  )`).run(
-    `${input.productCode}-line`,
-    `${input.productCode}-hash`,
-    `${input.productCode}-order`,
-    input.productCode,
-    input.productName,
-    input.category,
-    input.quantity,
-    input.costCents,
-    input.netSalesCents,
-    input.netSalesCents - input.costCents,
-  );
-}
-
 function insertStockLine(sqlite: DatabaseSync, input: {
   rowKey: string;
   productCode: string;
@@ -120,47 +83,106 @@ function insertStockLine(sqlite: DatabaseSync, input: {
     );
 }
 
-test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", async () => {
+const principal: AppPrincipal = {
+  email: "admin@example.com",
+  displayName: "管理员",
+  role: "admin",
+  scope: null,
+};
+
+function salesReader(): SalesConsumerReader {
+  const products = [
+    {
+      productCode: "A", productName: "货品A", specification: "", category: "类目A", supplier: "",
+      netQuantity: 10, grossSalesCents: 10_000, refundAmountCents: 0, netSalesCents: 10_000,
+      costCents: 0, feeCents: 0, grossProfitCents: 10_000, absoluteQuantity: 10, absoluteCostCents: 0,
+      outlets: [{ platform: "京东", shopName: "测试店铺", channel: "京东" }],
+    },
+    {
+      productCode: "B", productName: "货品B", specification: "", category: "类目B", supplier: "",
+      netQuantity: 5, grossSalesCents: 5_000, refundAmountCents: 0, netSalesCents: 5_000,
+      costCents: 2_500, feeCents: 0, grossProfitCents: 2_500, absoluteQuantity: 5, absoluteCostCents: 2_500,
+      outlets: [{ platform: "京东", shopName: "测试店铺", channel: "京东" }],
+    },
+  ];
+  return {
+    read: async (_principal, request) => {
+      if (request.operation === "freshness") return {
+        revision: "sales:1/erp:1",
+        data: {
+          dataStartDate: "2026-08-18",
+          dataCutoffDate: "2026-08-18",
+          latestBatch: { id: "sales-batch", fileName: "sales.xlsx", completedAt: "2026-08-18 10:00:00", rowCount: 2 },
+        },
+      } as never;
+      if (request.operation === "inventory_demand") return {
+        revision: "sales:1/erp:1",
+        data: {
+          dataStartDate: "2026-08-18",
+          dataCutoffDate: "2026-08-18",
+          rows: products.filter((row) => request.productCodes?.includes(row.productCode)).map((row) => ({
+            productCode: row.productCode,
+            warehouseKey: "上海",
+            productName: row.productName,
+            salesQuantity: row.netQuantity,
+            absoluteQuantity: row.absoluteQuantity,
+            absoluteCostCents: row.absoluteCostCents,
+          })),
+          truncated: false,
+        },
+      } as never;
+      if (request.operation === "product_performance") return {
+        revision: "sales:1/erp:1",
+        data: {
+          dataStartDate: "2026-08-18",
+          dataCutoffDate: "2026-08-18",
+          latestBatch: { id: "sales-batch", fileName: "sales.xlsx", completedAt: "2026-08-18 10:00:00", rowCount: 2 },
+          rows: products.filter((row) => request.productCodes?.includes(row.productCode)),
+          outletOptions: [{ platform: "京东", shopName: "测试店铺", channel: "京东" }],
+          truncated: false,
+        },
+      } as never;
+      throw new Error(`unexpected operation: ${request.operation}`);
+    },
+  };
+}
+
+test("Django 销售聚合与 D1 库存合并后保持稳定类目 facet，并披露部分成本覆盖", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as never;
   testEnvironment.DB = db;
-  await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
-
-  sqlite.prepare(`INSERT INTO sales_import_batches (
-    id, source, file_name, file_size_bytes, file_hash, sheet_name, status, row_count, inserted_count, completed_at
-  ) VALUES ('sales-batch', 'test', 'sales.xlsx', 1, 'sales-hash', 'Sheet1', 'completed', 2, 2, '2026-08-18 10:00:00')`).run();
+  await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
   sqlite.prepare(`INSERT INTO inventory_import_batches (
     id, source, file_name, file_size_bytes, file_hash, sheet_name, snapshot_date, status,
     row_count, inserted_count, totals_json, completed_at
   ) VALUES ('inventory-batch', 'test', 'inventory.xlsx', 1, 'inventory-hash', 'Sheet1', '2026-08-18', 'completed', 3, 3, '{}', '2026-08-18 10:00:00')`).run();
 
-  insertSalesLine(sqlite, { productCode: "A", productName: "货品A", category: "类目A", quantity: 10, netSalesCents: 10_000, costCents: 0 });
-  insertSalesLine(sqlite, { productCode: "B", productName: "货品B", category: "类目B", quantity: 5, netSalesCents: 5_000, costCents: 2_500 });
   insertStockLine(sqlite, { rowKey: "a-priced", productCode: "A", productName: "货品A", category: "类目A", availableQuantity: 1, unitCostCents: 1_000, ageDays: 120 });
   insertStockLine(sqlite, { rowKey: "a-missing", productCode: "A", productName: "货品A", category: "类目A", availableQuantity: 99, unitCostCents: 0, ageDays: 120 });
   insertStockLine(sqlite, { rowKey: "b-priced", productCode: "B", productName: "货品B", category: "类目B", availableQuantity: 5, unitCostCents: 500, ageDays: 30 });
 
-  const product = await getProductSummary(db, {
+  const reader = salesReader();
+  const product = await getProductSummary(db, principal, {
     range: "custom",
     startDate: "2026-08-18",
     endDate: "2026-08-18",
     categories: ["类目A"],
     page: 1,
     pageSize: 1,
-  });
+  }, reader);
   assert.equal(product.pagination.total, 1);
   assert.deepEqual(product.filters.categories, ["类目A", "类目B"], "选中类目后可选类目不应收缩");
   assert.equal(product.items[0]?.stockValueCents, null);
   assert.equal(product.items[0]?.knownStockValueCents, 1_000);
   assert.equal(product.items[0]?.costCoverageRate, 0.01);
 
-  const overview = await getInventoryOverview(db, {
+  const overview = await getInventoryOverview(db, principal, {
     exactKey: `上海仓\u001fA`,
     startDate: "2026-08-18",
     endDate: "2026-08-18",
     page: 1,
     pageSize: 1,
-  });
+  }, reader);
   assert.equal(overview.pagination.total, 1);
   assert.equal(overview.metrics.stockValueComplete, false);
   assert.equal(overview.metrics.knownStockValueCents, 1_000);

@@ -1,7 +1,7 @@
 import {
-  getSalesDatabase,
-  type SalesDatabase,
-} from "@/lib/sales/database";
+  getD1Database,
+  type D1Database,
+} from "@/lib/database/d1";
 import type { InventoryStockRow } from "@/lib/imports/inventory-stock";
 import {
   importReservationCommitFence,
@@ -14,7 +14,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const INVENTORY_IMPORT_SOURCE = "吉客云 ERP · 分仓库存查询";
 const INVENTORY_IMPORT_CHUNK_SIZE = 300;
 
-export type InventoryDatabase = SalesDatabase;
+export type InventoryDatabase = D1Database;
 
 export type InventoryImportIssue = {
   row?: number;
@@ -224,7 +224,7 @@ const schemaStatements = [
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export function getInventoryDatabase(): InventoryDatabase {
-  return getSalesDatabase();
+  return getD1Database();
 }
 
 export async function ensureInventorySchema(db = getInventoryDatabase()): Promise<void> {

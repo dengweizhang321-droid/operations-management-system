@@ -1,22 +1,31 @@
 ﻿param(
-  [switch]$Check
+  [switch]$Check,
+  [switch]$StopWorker
 )
 
 # 本地运营管理系统控制面板：启动、停止并打开本地服务。
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Net.Http
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ServerUrl = "http://localhost:3000/"
 $ServerPort = 3000
-$LocalWorkerStarter = Join-Path $ProjectRoot "tools\start-local-worker.mjs"
+$LivenessUrl = "http://127.0.0.1:3000/_teruisi/local/health/live"
+$ReadinessUrl = "http://127.0.0.1:3000/_teruisi/local/health/ready"
+$LocalWorkerStarter = Join-Path $ProjectRoot "tools\worker-local-service.ps1"
+$WorkflowHelperScript = Join-Path $ProjectRoot "tools\tmall-sycm-cookie-pipeline.ts"
+$WranglerBinScript = Join-Path $ProjectRoot "node_modules\wrangler\bin\wrangler.js"
+$WranglerCliScript = Join-Path $ProjectRoot "node_modules\wrangler\wrangler-dist\cli.js"
 $script:launchProcess = $null
 $script:launchStartedAt = $null
 $script:launchStdoutLog = $null
 $script:launchStderrLog = $null
+$script:lastHealthCheckAt = $null
+$script:lastHealthState = "Unresponsive"
 
 function Get-NodeExecutable {
   $systemNode = Get-Command "node.exe" -ErrorAction SilentlyContinue
@@ -48,25 +57,260 @@ function Get-PortProcesses {
   }
 }
 
-function Get-SystemState {
-  $portProcesses = Get-PortProcesses
-  if ($portProcesses.Count -eq 0) {
-    return [pscustomobject]@{ State = "Stopped"; ProcessIds = @() }
+function Test-CommandLineContainsExactPath {
+  param(
+    [string]$CommandLine,
+    [string]$ExpectedPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($CommandLine) -or [string]::IsNullOrWhiteSpace($ExpectedPath)) {
+    return $false
   }
 
-  $managedProcessIds = @()
-  foreach ($processId in $portProcesses) {
-    $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
-    if ($processInfo -and $processInfo.CommandLine -and $processInfo.CommandLine -like "*$ProjectRoot*") {
-      $managedProcessIds += $processId
+  $escapedPath = [System.Text.RegularExpressions.Regex]::Escape($ExpectedPath)
+  $exactPathArgument = '(?i)(?:^|\s)(?:"' + $escapedPath + '"|' + $escapedPath + ')(?=\s|$)'
+  return [System.Text.RegularExpressions.Regex]::IsMatch($CommandLine, $exactPathArgument)
+}
+
+function Test-IsLocalWorkerSupervisorProcess {
+  param([object]$ProcessInfo)
+
+  if (-not $ProcessInfo -or [string]$ProcessInfo.Name -notin @("node", "node.exe")) {
+    return $false
+  }
+  return Test-CommandLineContainsExactPath -CommandLine ([string]$ProcessInfo.CommandLine) -ExpectedPath $LocalWorkerStarter
+}
+
+function Get-UniqueProcessRecord {
+  param(
+    [int]$ProcessId,
+    [object[]]$AllProcesses
+  )
+
+  $records = @($AllProcesses | Where-Object { $_.ProcessId -eq $ProcessId })
+  if ($records.Count -ne 1) {
+    return $null
+  }
+  return $records[0]
+}
+
+function Get-ControlledLocalWorkerSupervisor {
+  param(
+    [int[]]$PortProcessIds,
+    [object[]]$AllProcesses
+  )
+
+  if ($PortProcessIds.Count -eq 0) {
+    return $null
+  }
+
+  $supervisorCandidates = @()
+  foreach ($portProcessId in $PortProcessIds) {
+    $currentProcessId = $portProcessId
+    $visitedProcessIds = [System.Collections.Generic.HashSet[int]]::new()
+    $ownerSupervisorMatches = @()
+
+    for ($depth = 0; $depth -lt 32 -and $currentProcessId -gt 0; $depth++) {
+      if (-not $visitedProcessIds.Add($currentProcessId)) {
+        break
+      }
+      $processInfo = Get-UniqueProcessRecord -ProcessId $currentProcessId -AllProcesses $AllProcesses
+      if (-not $processInfo) {
+        break
+      }
+      if (Test-IsLocalWorkerSupervisorProcess -ProcessInfo $processInfo) {
+        $ownerSupervisorMatches += $processInfo
+      }
+      $currentProcessId = [int]$processInfo.ParentProcessId
+    }
+
+    if ($ownerSupervisorMatches.Count -ne 1) {
+      return $null
+    }
+    $supervisorCandidates += $ownerSupervisorMatches[0]
+  }
+
+  $uniqueSupervisorIds = @($supervisorCandidates | Select-Object -ExpandProperty ProcessId -Unique)
+  if ($uniqueSupervisorIds.Count -ne 1) {
+    return $null
+  }
+  return Get-UniqueProcessRecord -ProcessId $uniqueSupervisorIds[0] -AllProcesses $AllProcesses
+}
+
+function Get-ProcessTreeEntries {
+  param(
+    [int]$RootProcessId,
+    [object[]]$AllProcesses
+  )
+
+  $pending = [System.Collections.Generic.Queue[object]]::new()
+  $pending.Enqueue([pscustomobject]@{ ProcessId = $RootProcessId; Depth = 0 })
+  $visitedProcessIds = [System.Collections.Generic.HashSet[int]]::new()
+  $entries = @()
+
+  while ($pending.Count -gt 0) {
+    $candidate = $pending.Dequeue()
+    if (-not $visitedProcessIds.Add([int]$candidate.ProcessId)) {
+      continue
+    }
+    $processInfo = Get-UniqueProcessRecord -ProcessId ([int]$candidate.ProcessId) -AllProcesses $AllProcesses
+    if (-not $processInfo) {
+      continue
+    }
+    $entries += [pscustomobject]@{ Process = $processInfo; Depth = [int]$candidate.Depth }
+    foreach ($child in @($AllProcesses | Where-Object { $_.ParentProcessId -eq $processInfo.ProcessId })) {
+      $pending.Enqueue([pscustomobject]@{ ProcessId = [int]$child.ProcessId; Depth = [int]$candidate.Depth + 1 })
     }
   }
 
-  if ($managedProcessIds.Count -gt 0) {
-    return [pscustomobject]@{ State = "Running"; ProcessIds = $managedProcessIds }
+  return $entries
+}
+
+function Test-IsExpectedLocalWorkerTreeProcess {
+  param(
+    [object]$ProcessInfo,
+    [int]$SupervisorProcessId
+  )
+
+  if ($ProcessInfo.ProcessId -eq $SupervisorProcessId) {
+    return Test-IsLocalWorkerSupervisorProcess -ProcessInfo $ProcessInfo
   }
 
-  return [pscustomobject]@{ State = "PortInUse"; ProcessIds = $portProcesses }
+  $processName = ([string]$ProcessInfo.Name).ToLowerInvariant()
+  $commandLine = [string]$ProcessInfo.CommandLine
+  if ($processName -in @("node", "node.exe")) {
+    return (
+      (Test-CommandLineContainsExactPath -CommandLine $commandLine -ExpectedPath $WorkflowHelperScript) -or
+      (Test-CommandLineContainsExactPath -CommandLine $commandLine -ExpectedPath $WranglerBinScript) -or
+      (Test-CommandLineContainsExactPath -CommandLine $commandLine -ExpectedPath $WranglerCliScript)
+    )
+  }
+
+  if ($processName -in @("workerd", "workerd.exe", "esbuild", "esbuild.exe")) {
+    $nodeModulesRoot = (Join-Path $ProjectRoot "node_modules") + [System.IO.Path]::DirectorySeparatorChar
+    return -not [string]::IsNullOrWhiteSpace([string]$ProcessInfo.ExecutablePath) -and
+      ([string]$ProcessInfo.ExecutablePath).StartsWith($nodeModulesRoot, [System.StringComparison]::OrdinalIgnoreCase)
+  }
+
+  if ($processName -eq "conhost.exe") {
+    return $ProcessInfo.ParentProcessId -eq $SupervisorProcessId
+  }
+
+  return $false
+}
+
+function Stop-ControlledLocalWorker {
+  try {
+    $raw = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $LocalWorkerStarter -Action Stop -Json 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      return [pscustomobject]@{ Success = $false; Reason = (($raw | Out-String).Trim()) }
+    }
+    $result = ($raw | Out-String).Trim() | ConvertFrom-Json -ErrorAction Stop
+    if ($result.status -notin @("stopped", "already_stopped", "stale_receipt_cleared")) {
+      return [pscustomobject]@{ Success = $false; Reason = "不可变 Worker 停止回执无效" }
+    }
+    return [pscustomobject]@{ Success = $true; Reason = $null }
+  } catch {
+    return [pscustomobject]@{ Success = $false; Reason = $_.Exception.Message }
+  }
+}
+
+function Invoke-SystemHealthProbe {
+  param([string]$Uri)
+
+  $client = $null
+  $request = $null
+  $response = $null
+  try {
+    $handler = [System.Net.Http.HttpClientHandler]::new()
+    $handler.UseProxy = $false
+    $client = [System.Net.Http.HttpClient]::new($handler)
+    $client.Timeout = [TimeSpan]::FromSeconds(2)
+    $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $Uri)
+    [void]$request.Headers.TryAddWithoutValidation("x-teruisi-local-health", "1")
+    $response = $client.SendAsync($request).GetAwaiter().GetResult()
+    $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    return [pscustomobject]@{
+      StatusCode = [int]$response.StatusCode
+      Content = $content
+      Error = $null
+    }
+  } catch {
+    return [pscustomobject]@{
+      StatusCode = $null
+      Content = $null
+      Error = $_.Exception.Message
+    }
+  } finally {
+    if ($response) { $response.Dispose() }
+    if ($request) { $request.Dispose() }
+    if ($client) { $client.Dispose() }
+  }
+}
+
+function ConvertFrom-SystemHealthContent {
+  param([object]$Probe)
+
+  if (-not $Probe -or [string]::IsNullOrWhiteSpace([string]$Probe.Content)) {
+    return $null
+  }
+  try {
+    return $Probe.Content | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    return $null
+  }
+}
+
+function Get-SystemHealthState {
+  $now = Get-Date
+  if ($script:lastHealthCheckAt -and (($now - $script:lastHealthCheckAt).TotalSeconds -lt 10)) {
+    return $script:lastHealthState
+  }
+
+  $script:lastHealthCheckAt = $now
+  $healthState = "Unresponsive"
+  $liveness = Invoke-SystemHealthProbe -Uri $LivenessUrl
+  $livenessPayload = ConvertFrom-SystemHealthContent -Probe $liveness
+  if ($liveness.StatusCode -eq 200 -and $livenessPayload.ok -eq $true -and $livenessPayload.status -eq "live") {
+    $readiness = Invoke-SystemHealthProbe -Uri $ReadinessUrl
+    $readinessPayload = ConvertFrom-SystemHealthContent -Probe $readiness
+    if ($readiness.StatusCode -eq 200 -and $readinessPayload.ok -eq $true -and $readinessPayload.status -eq "ready") {
+      $healthState = "Running"
+    } elseif (
+      $readiness.StatusCode -eq 503 -and
+      $readinessPayload.ok -eq $false -and
+      $readinessPayload.status -eq "degraded" -and
+      $readinessPayload.code -eq "d1_unavailable"
+    ) {
+      $healthState = "D1Degraded"
+    }
+  }
+
+  $script:lastHealthState = $healthState
+  return $healthState
+}
+
+function Get-SystemState {
+  try {
+    $raw = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $LocalWorkerStarter -Action Status -Json 2>&1
+    if ($LASTEXITCODE -ne 0) { throw (($raw | Out-String).Trim()) }
+    $releaseState = ($raw | Out-String).Trim() | ConvertFrom-Json -ErrorAction Stop
+    if ($releaseState.state -eq "stopped") {
+      $script:lastHealthCheckAt = $null
+      return [pscustomobject]@{ State = "Stopped"; ProcessIds = @() }
+    }
+    if ($releaseState.state -eq "exact_release") {
+      $state = Get-SystemHealthState
+      return [pscustomobject]@{
+        State = $state
+        ProcessIds = @([int]$releaseState.portProcessId)
+        SupervisorProcessId = [int]$releaseState.supervisorProcessId
+      }
+    }
+    return [pscustomobject]@{ State = "PortInUse"; ProcessIds = @(Get-PortProcesses) }
+  } catch {
+    return [pscustomobject]@{ State = "PortInUse"; ProcessIds = @(Get-PortProcesses) }
+  }
 }
 
 function Stop-ProcessTree {
@@ -80,6 +324,16 @@ function Stop-ProcessTree {
   }
 
   Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+}
+
+if ($StopWorker) {
+  $stopResult = Stop-ControlledLocalWorker
+  if ($stopResult.Success) {
+    Write-Output "Stopped: local Worker supervisor and verified project descendants"
+    exit 0
+  }
+  Write-Error $stopResult.Reason
+  exit 1
 }
 
 if ($Check) {
@@ -177,6 +431,22 @@ function Update-Status {
       $stopButton.Enabled = $true
       $openButton.Enabled = $true
     }
+    "D1Degraded" {
+      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(224, 133, 27)
+      $status.Text = "D1 暂时降级"
+      $details.Text = "Worker 存活，D1 返回受控降级；系统会继续运行且不会因此重启。"
+      $startButton.Enabled = $false
+      $stopButton.Enabled = $true
+      $openButton.Enabled = $false
+    }
+    "Unresponsive" {
+      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
+      $status.Text = "Worker 无响应 / 重启中"
+      $details.Text = "端口仍由系统进程持有，但存活或就绪检查未通过；启动器正在按存活策略处理。"
+      $startButton.Enabled = $false
+      $stopButton.Enabled = $true
+      $openButton.Enabled = $false
+    }
     "Stopped" {
       if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
         $elapsed = [math]::Floor(((Get-Date) - $script:launchStartedAt).TotalSeconds)
@@ -243,8 +513,9 @@ $startButton.Add_Click({
   }
 
   $actionState = Get-SystemState
-  if ($actionState.State -eq "Running") {
-    [System.Windows.Forms.MessageBox]::Show("运营管理系统已经在运行，无需重复构建。", "系统已运行", "OK", "Information") | Out-Null
+  if ($actionState.State -in @("Running", "D1Degraded", "Unresponsive")) {
+    $message = if ($actionState.State -eq "Running") { "运营管理系统已经在运行，无需重复构建。" } else { "运营管理系统已启动但暂未就绪，请稍候，无需重复启动。" }
+    [System.Windows.Forms.MessageBox]::Show($message, "系统已启动", "OK", "Information") | Out-Null
     Update-Status
     return
   }
@@ -260,12 +531,34 @@ $startButton.Add_Click({
   $script:launchStdoutLog = Join-Path $logDirectory "local-worker-panel-$stamp.stdout.log"
   $script:launchStderrLog = Join-Path $logDirectory "local-worker-panel-$stamp.stderr.log"
   $script:launchStartedAt = Get-Date
-  $script:launchProcess = Start-Process -FilePath $nodeExecutable -ArgumentList @("`"$LocalWorkerStarter`"", "--build") -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $script:launchStdoutLog -RedirectStandardError $script:launchStderrLog -PassThru
+  $script:lastHealthCheckAt = $null
+  $script:lastHealthState = "Unresponsive"
+  $script:launchProcess = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$LocalWorkerStarter`"", "-Action", "Start") -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $script:launchStdoutLog -RedirectStandardError $script:launchStderrLog -PassThru
   Update-Status
 })
 
 $stopButton.Add_Click({
   $systemState = Get-SystemState
+  if ($systemState.State -in @("Running", "D1Degraded", "Unresponsive")) {
+    $stopResult = Stop-ControlledLocalWorker
+    if (-not $stopResult.Success) {
+      [System.Windows.Forms.MessageBox]::Show(
+        "$($stopResult.Reason)。为避免影响 n8n、Chromium 或其他 Node 服务，本次停止已取消。",
+        "无法安全停止",
+        "OK",
+        "Warning"
+      ) | Out-Null
+      Update-Status
+      return
+    }
+
+    $script:launchProcess = $null
+    Start-Sleep -Milliseconds 500
+    Update-Status
+    return
+  }
+
+  # 构建尚未监听 3000 时，只能停止当前面板亲自创建并持有句柄的启动进程。
   if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
     $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
     Stop-ProcessTree -ProcessId $script:launchProcess.Id -AllProcesses $allProcesses
@@ -273,18 +566,6 @@ $stopButton.Add_Click({
     Update-Status
     return
   }
-  if ($systemState.State -ne "Running") {
-    Update-Status
-    return
-  }
-
-  $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
-  foreach ($processId in $systemState.ProcessIds) {
-    Stop-ProcessTree -ProcessId $processId -AllProcesses $allProcesses
-  }
-
-  $script:launchProcess = $null
-  Start-Sleep -Milliseconds 500
   Update-Status
 })
 

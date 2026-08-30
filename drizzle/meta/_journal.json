@@ -470,6 +470,20 @@
       "when": 1787932800000,
       "tag": "0089_sales_projection_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1787943600000,
+      "tag": "0090_sales_write_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1787947200000,
+      "tag": "0091_erp_reference_projection",
+      "breakpoints": true
     }
   ]
 }
