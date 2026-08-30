@@ -1,6 +1,6 @@
-# Django 销售域后端
+# Django 领域后端
 
-本目录承载销售域的 Django 后端。当前本机架构已经采用：销售事实、导入批次、导入幂等与尝试审计、上传/暂存元数据、查询和分析全部由 Django + PostgreSQL 单写并作为唯一权威来源。
+本目录承载按领域隔离的 Django 后端。当前本机销售域已经采用：销售事实、导入批次、导入幂等与尝试审计、上传/暂存元数据、查询和分析全部由 Django + PostgreSQL 单写并作为唯一权威来源。财务域代码和迁移门禁已经完成隔离演练，但尚未部署或切换本机正式流量，当前财务权威仍是 Worker/D1。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -102,6 +102,14 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 受控进程守护使用 `tools/django-runtime-supervisor.ps1`，其 desired-state、停止竞态 fencing、恢复预算、主动探针、告警 outbox、安装与回退门禁见[运行守护手册](../docs/DJANGO_RUNTIME_SUPERVISION.md)。它只对明确停止的本 runtime 进程调用既有 `Start`；数据分歧、readiness 失败、端口冲突和所有权异常都不会触发自动重启。
 
 公开 Worker 的 `GET /api/sales/data-health` 只复用 reader 上已有的有界 `freshness` consumer，面向无数据 scope 的 `operator/admin` 返回动态 revision、业务日期、覆盖区间和最近成功批次。它不授予 reader 新表权限、不读取本机监控/备份目录，也不把机械 lag 天数静默解释为业务过期结论。
+
+## 财务域待切换实现
+
+财务域使用独立 `finance_reader` 与 `finance_writer` 进程角色、独立数据库角色和独立回环端点；不能复用销售 reader/writer 的 URL 或数据库凭据。reader 只开放财报分析、导入历史、目标读取和有界消费者查询，writer 只开放规范化财报导入和目标增删改。writer readiness 必须核验财务 schema、revision、激活的 authority epoch/cutover ID、财务表写权限，以及对销售事实和 authority 表的越权拒绝；reader 连接必须为只读事务。
+
+公开路径继续保持 `/api/imports/finance`、`/api/finance/analysis` 和 `/api/finance/targets`，Worker 只做鉴权、现有 Excel 解析、HMAC 和薄适配。内部 Django 路径为 `/api/finance/imports`、`/api/finance/analysis`、`/api/finance/targets` 和固定操作集合的 `/api/finance/consumers/query`。`TERUISI_DJANGO_FINANCE_MODE` 默认为 `legacy`；`shadow` 仅旁路比较读取并始终返回 legacy 响应，写入仍只进 D1；`django` 模式才把财务读写路由至两个独立 Django 进程，任何异常都失败关闭而不静默回退。
+
+历史迁移和 D1 单写 authority 使用 `migrate_finance_from_d1`、`finance_write_authority` 与 operator-only `drizzle/0093_finance_write_authority.sql`；`tools/finance-analysis-parity.ts` 在只读财务副本和候选 reader 之间执行脱敏的逐字段响应对比。完整命令、真实隔离演练证据、上线顺序和 PNR 恢复边界见[财务后端迁移手册](../docs/DJANGO_FINANCE_MIGRATION.md)。该准备工作没有修改“销售分析 → 财务分析”页面模板，也没有改变当前销售、ERP 或其他模块的运行状态。
 
 ## 当前本机终态记录
 

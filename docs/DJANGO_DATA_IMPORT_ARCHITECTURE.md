@@ -58,7 +58,7 @@ Django 拒绝未知字段、过期或未来签名、正文摘要不一致、角�
 
 ### 6.1 请求幂等
 
-写请求 receipt 绑定 `request_id + actor + method + path + body_sha256`。同一身份和正文安全重放原响应；相同 request ID 携带不同正文必须冲突拒绝。处理中请求只能由有效 claim token 完成，迟到 owner 不得覆盖新状态。
+写请求 receipt 绑定 `request_id + actor + method + path + raw_query/query_sha256 + body_sha256`。同一身份、query 和正文可安全重放原响应；相同 request ID 携带不同 query 或正文必须冲突拒绝。即使 DELETE 等请求没有正文，也不能省略 query 绑定。处理中请求只能由有效 claim token 完成，迟到 owner 不得覆盖新状态。
 
 ### 6.2 业务幂等
 
@@ -103,6 +103,7 @@ dry-run -> 人工批准精确 run ID -> apply -> verify-only
 - dry-run 只读源，输出解析版本、源身份、表/范围行数、完整规范摘要和 revision，不写业务表。
 - apply 在目标事务内重新核对同一材料并单次消费批准；材料变化、批准复用或模式省略均零业务写入失败。
 - verify-only 独立比较源/目标事实、批次、审计、摘要和 revision。
+- 早期历史批次缺失现行内容指纹，或旧指纹与当前已发布权威事实不一致时，只能从该批次当前拥有的完整月份和事实行按现行规范确定性重建；必须保留原始哈希（如有）并新增带固定版本和原因的迁移审计，不能伪造为原始导入审计或静默沿用失真的指纹。
 - 切换前暂停该领域写入，执行最终迁移和公开 API 契约核对；其他业务域继续运行。
 
 ## 10. 单写切换与恢复

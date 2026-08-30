@@ -4,6 +4,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
+import type { FinanceConsumerReader } from "../lib/django/finance-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -52,6 +53,34 @@ function fakeSalesSearchReader(input: {
       }
       throw new Error(`unexpected operation ${String(request.operation)}`);
     }) as SalesConsumerReader["read"],
+  };
+}
+
+function fakeFinanceSearchReader(input: {
+  lines?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: number | null }>;
+  targets?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: number | null }>;
+  imports?: Array<{ id: string; source: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): FinanceConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      const allItems = request.operation === "line_search"
+        ? input.lines ?? []
+        : request.operation === "target_search"
+          ? input.targets ?? []
+          : input.imports ?? [];
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "3:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as FinanceConsumerReader["read"],
   };
 }
 
@@ -219,6 +248,114 @@ test("Django 销售搜索不可用时明确标记分组不可用且绝不回查 
   assert.equal(result.groups[0]?.available, false);
   assert.deepEqual(result.unavailableDomains, ["销售订单"]);
   assert.equal(sqlCalls.some((sql) => /FROM\s+sales_|JOIN\s+sales_/i.test(sql)), false);
+});
+
+test("Django 财务模式下财务科目和目标搜索不再读取 D1 财务表", async () => {
+  const calls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      calls.push(sql);
+      return {
+        bind() { return this; },
+        async all<T>() {
+          assert.match(sql, /sqlite_master/);
+          return { results: [{ name: "finance_lines" }, { name: "finance_targets_scoped" }] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const financeCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
+  const dependencies = {
+    salesReader: fakeSalesSearchReader(),
+    financeReader: fakeFinanceSearchReader({
+      calls: financeCalls,
+      lines: [{
+        id: "line-1", title: "财务迁移科目", subtitle: "2026-08", detail: "summary",
+        updatedAt: "2026-08-30", amountCents: 10_000,
+      }],
+      targets: [{
+        id: "target-1", title: "2026-08", subtitle: "京东 · 财务迁移店", detail: "month",
+        updatedAt: "2026-08-30", amountCents: 20_000,
+      }],
+    }),
+    financeBackendMode: "django" as const,
+  };
+  const financeResult = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=财务迁移&group=finance")),
+    admin,
+    dependencies,
+  );
+  const targetResult = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=财务迁移&group=targets")),
+    admin,
+    dependencies,
+  );
+  assert.equal(financeResult.groups[0]?.items[0]?.id, "line-1");
+  assert.equal(targetResult.groups[0]?.items[0]?.id, "target-1");
+  assert.deepEqual(financeCalls.map((call) => call.request.operation), ["line_search", "target_search"]);
+  assert.equal(calls.some((sql) => /FROM\s+finance_(?:lines|targets_scoped)/i.test(sql)), false);
+});
+
+test("Django 财务批次在销售与其余 D1 批次之间保持精确跨源分页", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE inventory_import_batches (
+    id TEXT PRIMARY KEY, file_name TEXT NOT NULL, source TEXT NOT NULL,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT
+  );
+  CREATE TABLE finance_import_batches (
+    id TEXT PRIMARY KEY, file_name TEXT NOT NULL, source TEXT NOT NULL,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT
+  );
+  INSERT INTO inventory_import_batches VALUES
+    ('inventory-1', '库存净水机.xlsx', 'inventory', 'completed', '2026-08-20', '2026-08-20');
+  INSERT INTO finance_import_batches VALUES
+    ('stale-d1-finance', '旧财务净水机.xlsx', 'finance', 'completed', '2026-08-19', '2026-08-19');`);
+  const sqlCalls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      sqlCalls.push(sql);
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const salesImports = [1, 2, 3].map((index) => ({
+    id: `sales-${index}`,
+    source: "erp_sales",
+    fileName: `销售净水机-${index}.xlsx`,
+    status: "completed",
+    rowCount: 10,
+    createdAt: `2026-08-${20 + index}`,
+    completedAt: `2026-08-${20 + index}`,
+  }));
+  const financeImports = [1, 2].map((index) => ({
+    id: `finance-${index}`,
+    source: "月度财报",
+    fileName: `财务净水机-${index}.xlsx`,
+    status: "completed",
+    rowCount: 10,
+    createdAt: `2026-08-${18 + index}`,
+    completedAt: `2026-08-${18 + index}`,
+  }));
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=imports&page=3&pageSize=2")),
+    admin,
+    {
+      salesReader: fakeSalesSearchReader({ imports: salesImports }),
+      financeReader: fakeFinanceSearchReader({ imports: financeImports }),
+      financeBackendMode: "django",
+    },
+  );
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["finance-2", "inventory-1"]);
+  assert.equal(result.groups[0]?.total, 6);
+  assert.equal(result.groups[0]?.hasMore, false);
+  assert.equal(sqlCalls.some((sql) => /FROM\s+finance_import_batches/i.test(sql)), false);
+  sqlite.close();
 });
 
 test("导入搜索以 Django 销售批次和其他域 D1 批次分区精确分页", async () => {

@@ -46,6 +46,7 @@
 - Django runtime 守护只能在显式 `desiredState=running`、连续两次确认本部署 PostgreSQL 或 reader/writer/ERP bridge 进程确实停止、且端口/进程/ACL 身份均正常时调用既有 `Start`；状态探针失败、端口冲突、所有权异常、进程仍在但 readiness 失败或 ERP checkpoint/revision/摘要/心跳分歧只能告警，禁止自动重启或调用 `Stop`。自动 Start 必须在服务 mutex 内复验 desired-state 文件 SHA-256 fencing token，15 分钟最多 3 次。告警只写脱敏本地 outbox；外部发送仍须动态唯一核验“志高助手”与“测试群聊”，不得保存或猜测机器人/群身份。启用与回退见 `docs/DJANGO_RUNTIME_SUPERVISION.md`。
 - `GET /api/sales/data-health` 只允许无数据范围限制的 `operator/admin`，且只能复用 Django reader 已有的 `freshness` consumer；返回单写来源、动态 revision、上海业务日期、销售覆盖、机械 lag 天数和最近成功批次。不得为该接口扩大 reader 数据库权限、读取 runtime/备份/告警文件、定义未经确认的“过期”阈值，或在销售/财务页面模板中复制另一套新鲜度口径。
 - 后续业务域复用 Django/PostgreSQL 时必须遵守 `docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`。每个领域保留独立 app、迁移、写权限、revision、幂等/范围 owner 和切换证据；新增领域故障只能使该领域失败关闭，不得改变销售 authority、销售事实、ERP bridge、其他模块写入所有权或其他页面可用性。迁移开发和测试只使用隔离工作树与临时数据库，正式切换前不得停止或重启其他模块服务。
+- 2026-08-30 财务域 Django 实现与历史数据隔离演练已经完成，但尚未正式部署或切换。当前本机财务事实、目标、导入和读取仍以 Worker/D1 为唯一权威，`TERUISI_DJANGO_FINANCE_MODE` 必须保持 `legacy`；不得把演练结果表述为正式迁移完成。正式切换必须按 `docs/DJANGO_FINANCE_MIGRATION.md` 使用独立 `finance_reader`/`finance_writer` 端点与数据库角色，完成最终迁移、公开 API 核对、单写 authority、真实部署回读和旧路径退出；不得修改已完成的财务页面模板，不得停止、重启或改变销售、ERP 和其他模块服务。
 
 ## 3. 统一业务口径
 

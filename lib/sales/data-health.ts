@@ -149,7 +149,7 @@ export async function getSalesDataHealth(
     source: "django_postgresql",
     authority: "sales_single_write",
     revision: freshness.revision,
-    timeZone: dates.timeZone,
+    timeZone: "Asia/Shanghai",
     currentBusinessDate: dates.today,
     expectedThroughDate: dates.yesterday,
     checkedAt: now.toISOString(),

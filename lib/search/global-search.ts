@@ -12,6 +12,15 @@ import {
   type SalesConsumerReader,
   type SalesConsumerResponseMap,
 } from "@/lib/django/sales-consumer-reader";
+import {
+  createDjangoFinanceConsumerReader,
+  type FinanceConsumerReader,
+  type FinanceConsumerResponseMap,
+} from "@/lib/django/finance-consumer-reader";
+import {
+  getFinanceBackendMode,
+  type FinanceBackendMode,
+} from "@/lib/django/finance-service";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -436,6 +445,9 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
   },
 ] as const;
 
+const financeSearchDefinition = staticDefinitions.find((definition) => definition.key === "finance")!;
+const targetSearchDefinition = staticDefinitions.find((definition) => definition.key === "targets")!;
+
 const legacyTargetsDefinition: SearchGroupDefinition = {
   key: "targets",
   label: "经营目标",
@@ -534,7 +546,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "workflow_operation_activities", "workflow_task_states", "workflow_task_template_states",
     "workflow_attachment_cleanup_queue", "workflow_task_activity_logs", "workflow_task_attachments", "workflow_task_comments",
     "workflow_task_entity_links", "workflow_task_reminders", "workflow_task_templates",
-    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_target_versions", "finance_target_deletion_audits",
+    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_write_authority", "finance_target_versions", "finance_target_deletion_audits",
     "finance_target_scoped_versions", "finance_target_scoped_deletion_audits", "finance_target_legacy_migrations",
     "ai_tool_audit_logs",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
@@ -874,14 +886,100 @@ async function querySalesOrderGroup(
   }
 }
 
+type FinanceSearchOperation = "line_search" | "target_search";
+
+function validFinanceSearch(
+  value: unknown,
+): value is FinanceConsumerResponseMap[FinanceSearchOperation] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string"
+        && (row.amountCents === null || Number.isSafeInteger(row.amountCents));
+    });
+}
+
+function validFinanceImportSearch(
+  value: unknown,
+): value is FinanceConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+function validFinanceConsumerWindow(
+  data: { items: unknown[]; total: number; truncated: boolean },
+  offset: number,
+  limit: number,
+) {
+  const expectedLength = offset >= data.total ? 0 : Math.min(limit, data.total - offset);
+  return data.items.length === expectedLength
+    && data.truncated === offset + limit < data.total;
+}
+
+async function queryFinanceSearchGroup(
+  financeReader: FinanceConsumerReader,
+  operation: FinanceSearchOperation,
+  definition: SearchGroupDefinition,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const offset = (request.page - 1) * request.groupLimit;
+    const result = await financeReader.read(principal, {
+      operation,
+      query: request.query,
+      offset,
+      limit: request.groupLimit,
+    }, { signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || !validFinanceSearch(result.data)
+      || !validFinanceConsumerWindow(result.data, offset, request.groupLimit)) {
+      return emptyGroup(definition);
+    }
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.id,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+      total_count: result.data.total,
+    }));
+    return mapSearchRows(definition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(definition);
+  }
+}
+
 async function queryLocalImportRows(
   db: GlobalSearchDatabase,
   tables: Set<string>,
   like: string,
   limit: number,
   offset: number,
+  includeFinance: boolean,
 ) {
-  const availableSources = importSources.filter((source) => tables.has(source.table));
+  const availableSources = importSources.filter((source) =>
+    tables.has(source.table) && (includeFinance || source.table !== "finance_import_batches"));
   if (availableSources.length === 0) return { rows: [] as SearchRow[], total: 0 };
   const binds: unknown[] = [];
   const fragments = availableSources.map((source) => {
@@ -910,12 +1008,14 @@ async function queryImportGroup(
   like: string,
   principal: AppPrincipal,
   salesReader: SalesConsumerReader,
+  financeReader: FinanceConsumerReader,
+  financeMode: FinanceBackendMode,
   signal?: AbortSignal,
 ) {
   try {
-    // Keep pagination exact without a cross-database offset join: sales import
-    // matches form the first stable partition, followed by the remaining D1
-    // domain imports. Both partitions keep their own deterministic recency order.
+    // Keep pagination exact without a cross-database offset join. Migrated
+    // sales and finance batches are stable leading partitions; domains still
+    // owned by D1 form the final partition.
     const salesHead = await salesReader.read(principal, {
       operation: "import_batch_search",
       query: request.query,
@@ -926,6 +1026,21 @@ async function queryImportGroup(
       || !validSalesImportSearch(salesHead.data)
       || !validConsumerPage(salesHead.data, 1, 1)) return emptyGroup(importDefinition);
     const salesTotal = salesHead.data.total;
+    let financeRevision = "";
+    let financeTotal = 0;
+    if (financeMode === "django") {
+      const financeHead = await financeReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: 0,
+        limit: 1,
+      }, { signal });
+      if (!financeHead || typeof financeHead.revision !== "string" || !financeHead.revision
+        || !validFinanceImportSearch(financeHead.data)
+        || !validFinanceConsumerWindow(financeHead.data, 0, 1)) return emptyGroup(importDefinition);
+      financeRevision = financeHead.revision;
+      financeTotal = financeHead.data.total;
+    }
     const globalOffset = (request.page - 1) * request.groupLimit;
     const salesTake = globalOffset < salesTotal
       ? Math.min(request.groupLimit, salesTotal - globalOffset)
@@ -944,15 +1059,50 @@ async function queryImportGroup(
         || salesPage.data.items.length !== salesTake) return emptyGroup(importDefinition);
       salesItems = salesPage.data.items;
     }
-    const localTake = request.groupLimit - salesItems.length;
-    const localOffset = Math.max(0, globalOffset - salesTotal);
-    const local = await queryLocalImportRows(db, tables, like, localTake, localOffset);
-    const combinedTotal = salesTotal + local.total;
+    const financeOffset = Math.max(0, globalOffset - salesTotal);
+    const financeTake = financeMode === "django" && financeOffset < financeTotal
+      ? Math.min(request.groupLimit - salesItems.length, financeTotal - financeOffset)
+      : 0;
+    let financeItems: FinanceConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (financeTake > 0) {
+      const financePage = await financeReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: financeOffset,
+        limit: financeTake,
+      }, { signal });
+      if (!financePage || financePage.revision !== financeRevision
+        || !validFinanceImportSearch(financePage.data)
+        || !validFinanceConsumerWindow(financePage.data, financeOffset, financeTake)
+        || financePage.data.total !== financeTotal
+        || financePage.data.items.length !== financeTake) return emptyGroup(importDefinition);
+      financeItems = financePage.data.items;
+    }
+    const localTake = request.groupLimit - salesItems.length - financeItems.length;
+    const localOffset = Math.max(0, globalOffset - salesTotal - financeTotal);
+    const local = await queryLocalImportRows(
+      db,
+      tables,
+      like,
+      localTake,
+      localOffset,
+      financeMode !== "django",
+    );
+    const combinedTotal = salesTotal + financeTotal + local.total;
     const rows: SearchRow[] = [
       ...salesItems.map((item) => ({
         result_id: item.id,
         title: item.fileName,
         subtitle: "销售明细",
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+        total_count: combinedTotal,
+      })),
+      ...financeItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: item.source,
         detail: item.status,
         updated_at: item.completedAt ?? item.createdAt,
         amount_cents: null,
@@ -983,16 +1133,44 @@ export async function searchAllBusinessData(
   db: GlobalSearchDatabase,
   request: GlobalSearchRequest,
   principal: AppPrincipal,
-  dependencies: { salesReader?: SalesConsumerReader; signal?: AbortSignal } = {},
+  dependencies: {
+    salesReader?: SalesConsumerReader;
+    financeReader?: FinanceConsumerReader;
+    financeBackendMode?: FinanceBackendMode;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<GlobalSearchResponse> {
   const salesReader = dependencies.salesReader ?? createDjangoSalesConsumerReader();
+  const financeReader = dependencies.financeReader ?? createDjangoFinanceConsumerReader();
+  const financeMode = dependencies.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
   const like = escapeGlobalSearchLike(request.query);
   const selectedStaticDefinitions = staticDefinitions.filter((definition) =>
     (!request.group || definition.key === request.group) && isGroupAuthorized(definition, principal));
-  const groupTasks: Array<Promise<GlobalSearchGroup>> = selectedStaticDefinitions.map((definition) =>
-    queryStaticGroup(db, definition, tables, request, like, principal));
+  const groupTasks: Array<Promise<GlobalSearchGroup>> = selectedStaticDefinitions.map((definition) => {
+    if (financeMode === "django" && definition.key === "finance") {
+      return queryFinanceSearchGroup(
+        financeReader,
+        "line_search",
+        financeSearchDefinition,
+        request,
+        principal,
+        dependencies.signal,
+      );
+    }
+    if (financeMode === "django" && definition.key === "targets") {
+      return queryFinanceSearchGroup(
+        financeReader,
+        "target_search",
+        targetSearchDefinition,
+        request,
+        principal,
+        dependencies.signal,
+      );
+    }
+    return queryStaticGroup(db, definition, tables, request, like, principal);
+  });
   if (!request.group) {
     groupTasks.splice(1, 0, querySalesOrderGroup(salesReader, request, principal, dependencies.signal));
   } else if (request.group === "orders" && allRoles.includes(principal.role)) {
@@ -1005,7 +1183,17 @@ export async function searchAllBusinessData(
     groupTasks.push(queryInventoryAgeGroup(db, tables, request, like, principal));
   }
   if ((!request.group || request.group === "imports") && operatorRoles.some((role) => role === principal.role) && principal.scope === null) {
-    groupTasks.push(queryImportGroup(db, tables, request, like, principal, salesReader, dependencies.signal));
+    groupTasks.push(queryImportGroup(
+      db,
+      tables,
+      request,
+      like,
+      principal,
+      salesReader,
+      financeReader,
+      financeMode,
+      dependencies.signal,
+    ));
   }
   const groups = trimToTotalLimit(await Promise.all(groupTasks), request.totalLimit);
   const returned = groups.reduce((sum, group) => sum + group.items.length, 0);

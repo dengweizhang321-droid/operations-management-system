@@ -3,6 +3,13 @@ import {
   getFinanceDatabase,
 } from "@/lib/finance/database";
 import { FinanceDimensionFilterError, getFinanceAnalysis, MAX_FINANCE_ANALYSIS_MONTHS } from "@/lib/finance/analysis";
+import { observeFinanceShadow } from "@/lib/finance/backend-routing";
+import {
+  createDjangoFinanceService,
+  DjangoFinanceServiceResponseError,
+  FINANCE_ANALYSIS_PATH,
+  getFinanceBackendMode,
+} from "@/lib/django/finance-service";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -38,16 +45,32 @@ export async function GET(request: Request) {
     if (requestedMonths.length > MAX_FINANCE_ANALYSIS_MONTHS) {
       throw new PublicApiError(400, "invalid_request", `单次最多分析 ${MAX_FINANCE_ANALYSIS_MONTHS} 个财务月份。`);
     }
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    return Response.json(await getFinanceAnalysis(db, {
+    const analysisOptions = {
       requestedMonths,
       allMonths,
       fallbackToLatestCompletedMonth,
       platformNames: searchParams.getAll("platform").filter(Boolean),
       shopKeys: searchParams.getAll("shop").filter(Boolean),
-    }), { headers: { "cache-control": "no-store" } });
+    };
+    const mode = await getFinanceBackendMode();
+    const djangoRead = () => createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: FINANCE_ANALYSIS_PATH, query: searchParams, service: "reader" },
+      { signal: request.signal },
+    ).then((result) => result.data);
+    if (mode === "django") {
+      return Response.json(await djangoRead(), { headers: { "cache-control": "no-store" } });
+    }
+    const db = getFinanceDatabase();
+    await ensureFinanceSchema(db);
+    const payload = await getFinanceAnalysis(db, analysisOptions);
+    if (mode === "shadow") observeFinanceShadow("analysis", payload, djangoRead());
+    return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    if (error instanceof DjangoFinanceServiceResponseError
+      && error.upstreamCode === "finance_dimension_filter_out_of_scope") {
+      return Response.json(error.payload, { status: error.status, headers: { "cache-control": "no-store" } });
+    }
     if (error instanceof FinanceDimensionFilterError) {
       const issueFields = (items: typeof error.invalidShops) => items.map(({ platform, name }) => ({ platform, name }));
       return Response.json({
