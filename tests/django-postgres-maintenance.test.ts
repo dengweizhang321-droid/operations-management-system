@@ -101,10 +101,20 @@ test("credentials stay in bounded process environment and diagnostics are redact
 test("restore rehearsal uses a separate cluster and never creates or drops a production database", async () => {
   const script = await readFile(operatorPath, "utf8");
   const helper = await readFile(helperPath, "utf8");
+  const pgCtlStartBlock = script.match(
+    /function Invoke-MaintenancePgCtlStart\(([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Remove-MaintenanceRehearsalData/,
+  )?.[1];
   const restoreBlock = script.match(
     /function Invoke-MaintenanceRestoreRehearsal \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Get-MaintenancePrunePlan/,
   )?.[1];
+  assert.ok(pgCtlStartBlock, "bounded pg_ctl start helper must remain discoverable");
   assert.ok(restoreBlock, "restore function must remain discoverable");
+  assert.match(pgCtlStartBlock, /Start-Process -FilePath \$PgCtl/);
+  assert.match(pgCtlStartBlock, /-WindowStyle Hidden/);
+  assert.match(pgCtlStartBlock, /-RedirectStandardOutput \$stdoutPath/);
+  assert.match(pgCtlStartBlock, /-RedirectStandardError \$stderrPath/);
+  assert.match(pgCtlStartBlock, /\.WaitForExit\(45000\)/);
+  assert.doesNotMatch(pgCtlStartBlock, /Start-Process[^\r\n]*\s-Wait(?:\s|$)/);
   assert.match(restoreBlock, /initdb\.exe/);
   assert.match(restoreBlock, /rehearsals\\postgres-restore/);
   assert.match(restoreBlock, /--auth-host=scram-sha-256/);
@@ -119,6 +129,10 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(restoreBlock, /restoredContentSha256/);
   assert.match(restoreBlock, /productionDatabaseTouched = \$false/);
   assert.match(restoreBlock, /serviceStateChanged = \$false/);
+  assert.match(
+    restoreBlock,
+    /Assert-MaintenanceRehearsalListenerOwnership[\s\S]*?\$isolatedStarted = \$true/,
+  );
   assert.doesNotMatch(restoreBlock, /postgresSuperuser|Get-ErpRoleProvisioningSecrets/);
   assert.doesNotMatch(restoreBlock, /DROP DATABASE|CREATE DATABASE/);
   assert.doesNotMatch(restoreBlock, /(?:PGPORT|--port)[^\n]*5432/);

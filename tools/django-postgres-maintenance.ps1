@@ -626,6 +626,67 @@ function Assert-MaintenanceRehearsalListenerOwnership(
   return $snapshot
 }
 
+function Invoke-MaintenancePgCtlStart(
+  [string]$PgCtl,
+  [string]$DataDirectory,
+  [string]$LogPath,
+  [string]$ServerOptions,
+  [string]$WorkingDirectory
+) {
+  $stdoutPath = Join-Path $WorkingDirectory "pgctl-start.stdout.log"
+  $stderrPath = Join-Path $WorkingDirectory "pgctl-start.stderr.log"
+  $output = @()
+  $exitCode = -1
+  $launchFailed = $false
+  $process = $null
+  try {
+    foreach ($value in @($PgCtl, $DataDirectory, $LogPath, $WorkingDirectory)) {
+      if ([string]::IsNullOrWhiteSpace($value)) {
+        throw "隔离 PostgreSQL 启动参数缺失"
+      }
+    }
+    if (-not (Test-Path -LiteralPath $PgCtl -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $WorkingDirectory -PathType Container) -or
+        $DataDirectory.Contains('"') -or $LogPath.Contains('"') -or
+        $ServerOptions.Contains('"')) {
+      throw "隔离 PostgreSQL 启动参数无效"
+    }
+    $argumentLine = (
+      'start -D "{0}" -l "{1}" -w -t 30 -o "{2}"' -f
+      $DataDirectory, $LogPath, $ServerOptions
+    )
+    $process = Start-Process -FilePath $PgCtl -ArgumentList $argumentLine `
+      -WorkingDirectory $WorkingDirectory -WindowStyle Hidden -PassThru `
+      -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+    if (-not $process.WaitForExit(45000)) {
+      try {
+        Stop-Process -Id $process.Id -Force -ErrorAction Stop
+      } catch {
+        # The caller revalidates the exact rehearsal listener before any cleanup.
+      }
+      $output = @("pg_ctl start exceeded bounded wait")
+    } else {
+      $exitCode = [int]$process.ExitCode
+      foreach ($path in @($stdoutPath, $stderrPath)) {
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+          $output += @(Get-Content -LiteralPath $path -ErrorAction SilentlyContinue)
+        }
+      }
+    }
+  } catch {
+    $output = @($_)
+    $launchFailed = $true
+  } finally {
+    if ($null -ne $process) { $process.Dispose() }
+  }
+  return [pscustomobject][ordered]@{
+    ExitCode = [int]$exitCode
+    LaunchFailed = [bool]$launchFailed
+    Output = @($output)
+    Diagnostic = Get-BoundedNativeDiagnostic $output
+  }
+}
+
 function Remove-MaintenanceRehearsalData(
   [string]$DataDirectory,
   [string]$RehearsalRoot,
@@ -713,9 +774,8 @@ function Invoke-MaintenanceRestoreRehearsal {
     Remove-Item -LiteralPath $passwordPath -Force
 
     $serverOptions = "-p $($MaintenanceRequest.RehearsalPort) -h 127.0.0.1 -c max_connections=10 -c shared_buffers=128MB -c log_min_messages=warning"
-    $startRun = Invoke-BoundedNativeProcess $pgCtl @(
-      "start", "-D", $dataDirectory, "-l", $logPath,
-      "-w", "-t", "30", "-o", $serverOptions
+    $startRun = Invoke-MaintenancePgCtlStart $pgCtl $dataDirectory $logPath (
+      $serverOptions
     ) $rehearsalRoot
     if ($startRun.ExitCode -ne 0) {
       throw "隔离 PostgreSQL 启动失败（$(Get-NativeFailureSummary $startRun)）"
@@ -818,6 +878,17 @@ function Invoke-MaintenanceRestoreRehearsal {
     }
   } catch {
     $failure = $_.Exception
+    if (-not $isolatedStarted -and
+        @(Get-PortListeners $MaintenanceRequest.RehearsalPort).Count -gt 0) {
+      try {
+        Assert-MaintenanceRehearsalListenerOwnership (
+          $MaintenanceRequest.RehearsalPort
+        ) $dataDirectory | Out-Null
+        $isolatedStarted = $true
+      } catch {
+        $cleanupStatus = "isolated_process_requires_manual_review"
+      }
+    }
     if ($isolatedStarted) {
       try {
         Assert-MaintenanceRehearsalListenerOwnership (
