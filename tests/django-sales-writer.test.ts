@@ -6,6 +6,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import {
   DjangoSalesServiceResponseError,
   SALES_IMPORTS_PATH,
+  SALES_RAW_UPLOADS_PATH,
   SALES_STAGED_IMPORTS_PATH,
   requestDjangoSalesService,
   type DjangoSalesServiceConfig,
@@ -98,6 +99,53 @@ test("sales import reads use the read-only service and preserve the exact query"
     },
   });
   assert.equal(capturedUrl, "http://127.0.0.1:8001/api/sales/imports?page=2&pageSize=20");
+});
+
+test("sales upload coordination reads use the isolated writer service", async () => {
+  const uploadId = "11111111-1111-4111-8111-111111111111";
+  let capturedUrl = "";
+  await requestDjangoSalesService(principal, {
+    method: "GET",
+    path: SALES_RAW_UPLOADS_PATH,
+    query: new URLSearchParams({ uploadId }),
+    service: "writer",
+  }, {
+    config,
+    requestId: () => "upload-read-request-1",
+    fetchImpl: async (input) => {
+      capturedUrl = String(input);
+      return jsonResponse({ id: uploadId, status: "uploading" });
+    },
+  });
+  assert.equal(
+    capturedUrl,
+    `http://127.0.0.1:8002${SALES_RAW_UPLOADS_PATH}?uploadId=${uploadId}`,
+  );
+});
+
+test("writer-owned sales coordination paths fail closed on the reader service", async () => {
+  let fetched = false;
+  for (const path of [SALES_RAW_UPLOADS_PATH, SALES_STAGED_IMPORTS_PATH]) {
+    await assert.rejects(
+      requestDjangoSalesService(principal, {
+        method: "GET",
+        path,
+        query: new URLSearchParams({ uploadId: "blocked" }),
+        service: "reader",
+      }, {
+        config,
+        fetchImpl: async () => {
+          fetched = true;
+          return jsonResponse({ ok: true });
+        },
+      }),
+      (error: unknown) => error instanceof PublicApiError
+        && error.status === 503
+        && error.code === "service_unavailable",
+      path,
+    );
+  }
+  assert.equal(fetched, false);
 });
 
 test("controlled Django import rejections retain their structured payload", async () => {

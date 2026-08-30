@@ -983,7 +983,18 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   try {
     imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash, period);
   } catch (error) {
-    throw wrapSalesImportError(error, "IMPORT_FAILED", "chunk_upload_and_import");
+    const failure = wrapSalesImportError(error, "IMPORT_FAILED", "chunk_upload_and_import");
+    audit.ok = false;
+    audit.import = null;
+    audit.postImportVerification = null;
+    audit.failure = {
+      code: failure.failureCode,
+      stage: failure.stage,
+      message: failure.message,
+      failedAt: new Date().toISOString(),
+    };
+    await writeJson(path.join(runDir, "audit.json"), audit);
+    throw failure;
   }
   let verification: SalesPostImportVerification | null = null;
   try {

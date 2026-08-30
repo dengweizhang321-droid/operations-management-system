@@ -94,7 +94,9 @@ async function readSalesUpload(principal: AppPrincipal, uploadId: string): Promi
     method: "GET",
     path: SALES_RAW_UPLOADS_PATH,
     query: new URLSearchParams({ uploadId }),
-    service: "reader",
+    // Upload sessions are writer-owned coordination state, even for reads.
+    // The projection reader intentionally has no access to these tables.
+    service: "writer",
   });
   return assertSession(result.data);
 }
@@ -229,7 +231,7 @@ export async function receiveSalesUploadChunk(principal: AppPrincipal, input: {
     return adopted;
   } catch (error) {
     // The writer may have committed the registration while its response was
-    // lost. A reader-side reconciliation is authoritative: never delete an
+    // lost. A writer-side reconciliation is authoritative: never delete an
     // object that PostgreSQL has already adopted.
     try {
       const reconciled = await readSalesUpload(principal, upload.id);
@@ -242,7 +244,7 @@ export async function receiveSalesUploadChunk(principal: AppPrincipal, input: {
       // PostgreSQL positively points elsewhere, so this new object is orphaned.
       await bucket().delete(objectKey).catch(() => undefined);
     } catch {
-      // An ambiguous read must retain the object for a later retry/sweeper.
+      // An ambiguous writer read must retain the object for a later retry/sweeper.
     }
     throw error;
   }
