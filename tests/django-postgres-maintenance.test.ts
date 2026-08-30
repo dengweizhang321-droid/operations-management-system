@@ -116,6 +116,7 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(pgCtlStartBlock, /\.WaitForExit\(45000\)/);
   assert.doesNotMatch(pgCtlStartBlock, /Start-Process[^\r\n]*\s-Wait(?:\s|$)/);
   assert.match(restoreBlock, /initdb\.exe/);
+  assert.match(restoreBlock, /createuser\.exe/);
   assert.match(restoreBlock, /rehearsals\\postgres-restore/);
   assert.match(restoreBlock, /--auth-host=scram-sha-256/);
   assert.match(restoreBlock, /-h 127\.0\.0\.1/);
@@ -129,6 +130,26 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(restoreBlock, /restoredContentSha256/);
   assert.match(restoreBlock, /productionDatabaseTouched = \$false/);
   assert.match(restoreBlock, /serviceStateChanged = \$false/);
+  assert.match(restoreBlock, /Initialize-MaintenanceRehearsalRoles/);
+  assert.match(
+    restoreBlock,
+    /Assert-MaintenanceRehearsalListenerOwnership[\s\S]*?Initialize-MaintenanceRehearsalRoles/,
+  );
+  assert.ok(
+    restoreBlock.indexOf("Initialize-MaintenanceRehearsalRoles")
+      < restoreBlock.indexOf('"restore"'),
+    "policy roles must exist before pg_restore replays row-level policies",
+  );
+  for (const role of [
+    "teruisi_sales_owner",
+    "teruisi_sales_reader",
+    "teruisi_sales_writer",
+    "teruisi_erp_reference_sync",
+    "teruisi_finance_reader",
+    "teruisi_finance_writer",
+  ]) {
+    assert.match(script, new RegExp(`"${role}"`));
+  }
   assert.match(
     restoreBlock,
     /Assert-MaintenanceRehearsalListenerOwnership[\s\S]*?\$isolatedStarted = \$true/,

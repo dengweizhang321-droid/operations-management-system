@@ -23,6 +23,14 @@ $MaintenanceFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
 $MaintenanceBackupVersion = "teruisi-postgres-daily-backup-v1"
 $MaintenanceRestoreVersion = "teruisi-postgres-restore-rehearsal-v1"
 $MaintenancePruneVersion = "teruisi-postgres-backup-prune-v1"
+$MaintenanceRehearsalRoles = @(
+  "teruisi_sales_owner",
+  "teruisi_sales_reader",
+  "teruisi_sales_writer",
+  "teruisi_erp_reference_sync",
+  "teruisi_finance_reader",
+  "teruisi_finance_writer"
+)
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
   RuntimeRoot = $RuntimeRoot
@@ -687,6 +695,27 @@ function Invoke-MaintenancePgCtlStart(
   }
 }
 
+function Initialize-MaintenanceRehearsalRoles(
+  [string]$CreateUser,
+  [string]$WorkingDirectory,
+  [int]$Port
+) {
+  foreach ($roleName in $MaintenanceRehearsalRoles) {
+    if ($roleName -cnotmatch "^teruisi_[a-z_]{1,64}$") {
+      throw "隔离恢复角色契约无效"
+    }
+    $roleRun = Invoke-BoundedNativeProcess $CreateUser @(
+      "--host=127.0.0.1", "--port=$Port", "--username=postgres",
+      "--dbname=postgres", "--no-password", "--no-login",
+      "--no-superuser", "--no-createdb", "--no-createrole",
+      "--no-replication", "--no-bypassrls", $roleName
+    ) $WorkingDirectory
+    if ($roleRun.ExitCode -ne 0) {
+      throw "隔离恢复所需数据库角色创建失败（$(Get-NativeFailureSummary $roleRun)）"
+    }
+  }
+}
+
 function Remove-MaintenanceRehearsalData(
   [string]$DataDirectory,
   [string]$RehearsalRoot,
@@ -751,10 +780,11 @@ function Invoke-MaintenanceRestoreRehearsal {
 
   $initDb = Join-Path $PostgresBin "initdb.exe"
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
+  $createUser = Join-Path $PostgresBin "createuser.exe"
   $createdb = Join-Path $PostgresBin "createdb.exe"
   $pgRestore = Join-Path $PostgresBin "pg_restore.exe"
   $pgIsReady = Join-Path $PostgresBin "pg_isready.exe"
-  foreach ($tool in @($initDb, $pgCtl, $createdb, $pgRestore, $pgIsReady, $Python, $evidenceTool)) {
+  foreach ($tool in @($initDb, $pgCtl, $createUser, $createdb, $pgRestore, $pgIsReady, $Python, $evidenceTool)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) {
       throw "隔离恢复演练缺少受控 PostgreSQL/Python 工具"
     }
@@ -800,6 +830,12 @@ function Invoke-MaintenanceRestoreRehearsal {
       PGOPTIONS = "-c statement_timeout=1800000 -c idle_in_transaction_session_timeout=1860000"
       PGCLIENTENCODING = "UTF8"
     } {
+      Assert-MaintenanceRehearsalListenerOwnership (
+        $MaintenanceRequest.RehearsalPort
+      ) $dataDirectory | Out-Null
+      Initialize-MaintenanceRehearsalRoles $createUser $rehearsalRoot (
+        $MaintenanceRequest.RehearsalPort
+      )
       $createRun = Invoke-BoundedNativeProcess $createdb @(
         "--host=127.0.0.1", "--port=$($MaintenanceRequest.RehearsalPort)",
         "--username=postgres", "--owner=postgres", "teruisi_sales"
