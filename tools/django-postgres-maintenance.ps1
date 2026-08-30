@@ -203,9 +203,8 @@ function Get-MaintenanceBackupRoot([bool]$Create = $false) {
 function Assert-MaintenanceRuntimeContext {
   Assert-DeployedApplication
   Assert-RuntimeRootAclHardened
-  $config = Read-JsonFile $ConfigPath "Django 本机服务配置"
-  if ([int]$config.version -ne 3 -or
-      [string]$config.postgresAddress -cne "127.0.0.1:5432") {
+  $config = Get-ServiceConfig
+  if ([string]$config.postgresAddress -cne "127.0.0.1:5432") {
     throw "Django 本机 PostgreSQL 配置不符合固定回环契约"
   }
   $expectedTool = Join-Path $InstalledAppRoot "tools\postgres-consistent-backup.py"

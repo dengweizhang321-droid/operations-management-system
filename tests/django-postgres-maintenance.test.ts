@@ -37,6 +37,17 @@ test("PostgreSQL maintenance operators parse under Windows PowerShell 5", async 
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
+test("maintenance reuses the deployed service's strict v4 configuration contract", async () => {
+  const script = await readFile(operatorPath, "utf8");
+  const context = script.match(
+    /function Assert-MaintenanceRuntimeContext \{([\s\S]*?)\r?\n\}/,
+  )?.[1];
+  assert.ok(context, "runtime context validator must remain discoverable");
+  assert.match(context, /\$config = Get-ServiceConfig/);
+  assert.match(context, /\$config\.postgresAddress -cne "127\.0\.0\.1:5432"/);
+  assert.doesNotMatch(context, /config\.version -ne 3/);
+});
+
 test("daily backup is online read-only and never changes managed service state", async () => {
   const script = await readFile(operatorPath, "utf8");
   const backupBlock = script.match(
