@@ -73,6 +73,7 @@ export type FinanceActualMetrics = {
 export type FinanceAnalysisOptions = {
   requestedMonths?: string[];
   allMonths?: boolean;
+  fallbackToLatestCompletedMonth?: boolean;
   platformNames?: string[];
   shopKeys?: string[];
 };
@@ -130,6 +131,30 @@ function isSelectableShopName(name: string) {
 
 export type FinanceShopOption = { key: string; name: string; platform: string };
 
+export class FinanceDimensionFilterError extends PublicApiError {
+  readonly invalidPlatforms: string[];
+  readonly invalidShops: FinanceShopOption[];
+  readonly incompatibleShops: FinanceShopOption[];
+
+  constructor({
+    message,
+    invalidPlatforms,
+    invalidShops,
+    incompatibleShops,
+  }: {
+    message: string;
+    invalidPlatforms: string[];
+    invalidShops: FinanceShopOption[];
+    incompatibleShops: FinanceShopOption[];
+  }) {
+    super(400, "invalid_request", message);
+    this.name = "FinanceDimensionFilterError";
+    this.invalidPlatforms = invalidPlatforms;
+    this.invalidShops = invalidShops;
+    this.incompatibleShops = incompatibleShops;
+  }
+}
+
 export function financeShopIdentityKey(platform: string, name: string) {
   return JSON.stringify([platform, name]);
 }
@@ -183,7 +208,12 @@ export function resolveFinanceDimensionFilters(
       ...(invalidShops.length ? [`店铺：${invalidShops.map((item) => `${item.platform} · ${item.name}`).join("、")}`] : []),
       ...(incompatibleShops.length ? [`店铺不属于所选平台：${incompatibleShops.map((item) => `${item.platform} · ${item.name}`).join("、")}`] : []),
     ].join("；");
-    throw new PublicApiError(400, "invalid_request", `筛选项不存在或不属于当前财务期间（${detail}）。`);
+    throw new FinanceDimensionFilterError({
+      message: `筛选项不存在或不属于当前财务期间（${detail}）。`,
+      invalidPlatforms,
+      invalidShops,
+      incompatibleShops,
+    });
   }
   return {
     platformFilter: new Set(requestedPlatforms),
@@ -352,7 +382,7 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
   requestedMonthResult.results.forEach((row) => monthByKey.set(row.month, row));
   const months = [...monthByKey.values()].sort((left, right) => left.month.localeCompare(right.month));
   if (months.length === 0) {
-    if (requestedMonths.length) {
+    if (requestedMonths.length && !options.fallbackToLatestCompletedMonth) {
       throw new PublicApiError(400, "invalid_request", `以下财务月份尚未导入：${requestedMonths.join("、")}`);
     }
     return {
@@ -369,10 +399,13 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
   }
   const monthKeys = months.map((item) => item.month);
   const missingMonths = requestedMonths.filter((month) => !monthKeys.includes(month));
-  if (missingMonths.length) {
+  const fallbackApplied = Boolean(options.fallbackToLatestCompletedMonth && requestedMonths.length && missingMonths.length);
+  if (missingMonths.length && !fallbackApplied) {
     throw new PublicApiError(400, "invalid_request", `以下财务月份尚未导入：${missingMonths.join("、")}`);
   }
-  const selectedMonths = options.allMonths
+  const selectedMonths = fallbackApplied
+    ? [monthKeys.at(-1)!]
+    : options.allMonths
     ? monthKeys.slice(-MAX_FINANCE_ANALYSIS_MONTHS)
     : requestedMonths.length > 0
       ? requestedMonths
@@ -929,6 +962,8 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
       truncated: Boolean(options.allMonths && monthKeys.length > MAX_FINANCE_ANALYSIS_MONTHS),
       availableMonthCount: Number(monthCount?.total ?? monthKeys.length),
       months: selectedMonths,
+      requestedMonths,
+      fallbackApplied,
       platforms: [...platformFilter],
       shops: [...shopFilter],
     },

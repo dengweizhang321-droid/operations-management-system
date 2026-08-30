@@ -903,6 +903,47 @@ test("财务分析最多选择 24 个真实月份且 SQL 不再读取全部历�
   sqlite.close();
 });
 
+test("财报只在显式允许的初始缺失月份上回退到最新 completed 月份", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite) as never;
+  await ensureFinanceSchema(db);
+  const insert = sqlite.prepare(`INSERT INTO finance_months (
+    month, batch_id, sheet_name, business_name, source_file_name, status, shop_count, subject_count, imported_at
+  ) VALUES (?, ?, 'Sheet1', '测试业务', ?, 'completed', 0, 0, CURRENT_TIMESTAMP)`);
+  insert.run("2026-06", "batch-2026-06", "2026-06.xlsx");
+  insert.run("2026-07", "batch-2026-07", "2026-07.xlsx");
+
+  await assert.rejects(
+    getFinanceAnalysis(db, { requestedMonths: ["2026-08"] }),
+    (error: unknown) => error instanceof PublicApiError
+      && error.status === 400
+      && /财务月份尚未导入/.test(error.message),
+    "ordinary explicit selection must keep the strict missing-month contract",
+  );
+  const fallback = await getFinanceAnalysis(db, {
+    requestedMonths: ["2026-08"],
+    fallbackToLatestCompletedMonth: true,
+  });
+  assert.equal(fallback.selectedMonth, "2026-07");
+  assert.deepEqual(fallback.selectedMonths, ["2026-07"]);
+  assert.equal(fallback.selection?.fallbackApplied, true);
+  assert.deepEqual(fallback.selection?.requestedMonths, ["2026-08"]);
+  assert.equal(fallback.sync?.dataCutoffMonth, "2026-07");
+
+  const alreadyImported = await getFinanceAnalysis(db, {
+    requestedMonths: ["2026-06"],
+    fallbackToLatestCompletedMonth: true,
+  });
+  assert.equal(alreadyImported.selectedMonth, "2026-06", "a valid requested month must never be replaced by the latest month");
+  assert.equal(alreadyImported.selection?.fallbackApplied, false);
+  await assert.rejects(
+    getFinanceAnalysis(db, { requestedMonths: ["2026-13"], fallbackToLatestCompletedMonth: true }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 400 && /必须使用 YYYY-MM/.test(error.message),
+    "fallback must not weaken month syntax validation",
+  );
+  sqlite.close();
+});
+
 test("财务平台 KPI 全量聚合但店铺、目标明细与费用科目保持有界", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const queries: QueryRecord[] = [];
