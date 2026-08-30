@@ -23,12 +23,12 @@ function createFinanceD1(target: string, processing = false) {
     CREATE TABLE finance_target_scoped_deletion_audits (id TEXT);
     CREATE TABLE finance_target_legacy_migrations (id TEXT);
     CREATE TABLE import_content_fingerprints (domain TEXT);
-    CREATE TABLE import_content_attempts (domain TEXT, status TEXT);
+    CREATE TABLE import_content_attempts (domain TEXT, outcome TEXT);
     CREATE TABLE import_scope_heads (domain TEXT, status TEXT, owner_token TEXT);
   `);
   if (processing) {
     database.prepare(
-      "INSERT INTO import_content_attempts (domain, status) VALUES (?, ?)",
+      "INSERT INTO import_content_attempts (domain, outcome) VALUES (?, ?)",
     ).run("finance", "processing");
   }
   database.close();

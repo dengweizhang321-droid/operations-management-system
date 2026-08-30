@@ -55,6 +55,15 @@ def table_exists(connection: sqlite3.Connection, table: str) -> bool:
     )
 
 
+def table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
+    return {
+        str(row[0])
+        for row in connection.execute(
+            "SELECT name FROM pragma_table_info(?)", (table,)
+        )
+    }
+
+
 def scalar(connection: sqlite3.Connection, statement: str, parameters=()) -> int:
     row = connection.execute(statement, parameters).fetchone()
     return int(row[0] if row else 0)
@@ -62,15 +71,20 @@ def scalar(connection: sqlite3.Connection, statement: str, parameters=()) -> int
 
 def preflight(connection: sqlite3.Connection) -> dict[str, int]:
     required = {
-        "finance_import_batches",
-        "finance_months",
-        "finance_lines",
-        "finance_targets_scoped",
-        "import_content_attempts",
-        "import_scope_heads",
+        "finance_import_batches": {"status"},
+        "finance_months": {"status"},
+        "finance_lines": set(),
+        "finance_targets_scoped": set(),
+        "import_content_attempts": {"domain", "outcome"},
+        "import_scope_heads": {"domain", "status", "owner_token"},
     }
     missing = sorted(table for table in required if not table_exists(connection, table))
-    if missing:
+    malformed = sorted(
+        table
+        for table, columns in required.items()
+        if table not in missing and not columns.issubset(table_columns(connection, table))
+    )
+    if missing or malformed:
         raise RuntimeError("finance D1 schema is incomplete")
     counts = {
         "processingBatches": scalar(
@@ -84,12 +98,13 @@ def preflight(connection: sqlite3.Connection) -> dict[str, int]:
         "processingAttempts": scalar(
             connection,
             "SELECT COUNT(*) FROM import_content_attempts "
-            "WHERE domain='finance' AND status='processing'",
+            "WHERE domain='finance' AND outcome='processing'",
         ),
         "nonReadyHeads": scalar(
             connection,
             "SELECT COUNT(*) FROM import_scope_heads "
-            "WHERE domain='finance' AND (status<>'ready' OR owner_token<>'')",
+            "WHERE domain='finance' AND "
+            "(COALESCE(status, '')<>'ready' OR COALESCE(owner_token, '')<>'')",
         ),
     }
     if any(counts.values()):
