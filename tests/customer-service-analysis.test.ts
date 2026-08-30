@@ -58,11 +58,12 @@ test("customer-service category filter and display use the netshop SKU to Jackyu
   assert.match(page, /吉客云类目筛选/);
   assert.match(page, /categories\.forEach\(\(value\) => params\.append\("category", value\)\)/);
   assert.match(route, /searchParams\.getAll\("category"\)/);
-  assert.match(database, /SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''/);
-  assert.match(database, /s\.online_spec_code = mapping\.online_spec_code/);
+  assert.match(database, /SELECT DISTINCT product_sku\s+FROM customer_service_conversations\s+WHERE product_sku <> ''/);
+  assert.match(database, /operation: "customer_service_products"/);
+  assert.match(database, /readCustomerServiceSalesProducts/);
   assert.match(mapping, /onlineSpecCode: String\(raw\["商家SKU"\]/);
-  assert.doesNotMatch(database, /s\.online_spec_code = customer_service_conversations\.product_sku/);
-  assert.match(database, /categories: categories\.results\.map/);
+  assert.doesNotMatch(database, /FROM sales_order_lines/);
+  assert.match(database, /categories: categoryOptions/);
   assert.doesNotMatch(database, /catalog\.get\(`\$\{item\.shopName\}/);
 });
 

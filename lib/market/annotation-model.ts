@@ -1,5 +1,8 @@
 import { decryptSecret } from "@/lib/ai/crypto";
-import { resolveAiModelEndpointUrl } from "@/lib/ai/endpoint-security";
+import {
+  loadAiEndpointSecurityContext,
+  resolveAiModelEndpointUrl,
+} from "@/lib/ai/endpoint-security";
 import { completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
@@ -203,11 +206,13 @@ function modelCallError(kind: "文本" | "视觉", status: number, data: unknown
 }
 
 async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number) {
+  const endpointSecurityContext = await loadAiEndpointSecurityContext();
+  const endpointUrl = resolveAiModelEndpointUrl(model.base_url, "openai_compatible", endpointSecurityContext);
   const key = await decryptSecret(model.api_key_encrypted);
   if (!key) throw new Error("视觉模型 API Key 未配置");
   const content: Array<Record<string, unknown>> = [{ type: "text", text }];
   if (image) content.push({ type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: "high" } });
-  const { response, data } = await fetchJsonLimited<{ choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }> }>(resolveAiModelEndpointUrl(model.base_url, "openai_compatible"), {
+  const { response, data } = await fetchJsonLimited<{ choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }> }>(endpointUrl, {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model: model.model_name, temperature: 0,
@@ -223,12 +228,14 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
 }
 
 async function callAnthropicVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number) {
+  const endpointSecurityContext = await loadAiEndpointSecurityContext();
+  const endpointUrl = resolveAiModelEndpointUrl(model.base_url, "anthropic", endpointSecurityContext);
   const key = await decryptSecret(model.api_key_encrypted);
   if (!key) throw new Error("视觉模型 API Key 未配置");
   const content: Array<Record<string, unknown>> = [];
   if (image) content.push({ type: "image", source: { type: "base64", media_type: image.mimeType, data: image.base64 } });
   content.push({ type: "text", text });
-  const { response, data } = await fetchJsonLimited<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(resolveAiModelEndpointUrl(model.base_url, "anthropic"), {
+  const { response, data } = await fetchJsonLimited<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(endpointUrl, {
     method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: model.model_name, max_tokens: Math.min(boundedModelSetting(model.max_tokens, VISION_ANNOTATION_OUTPUT_TOKEN_MAX, 128, 1_600), outputTokenCap ?? VISION_ANNOTATION_OUTPUT_TOKEN_MAX), messages: [{ role: "user", content }],

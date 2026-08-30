@@ -17,10 +17,12 @@ import {
   isAiChatCapableModelType,
 } from "@/lib/ai/conversation-management";
 import {
+  loadAiEndpointSecurityContext,
   maskWebhookUrl,
   normalizeAiEndpointUrl,
   normalizeAiModelEndpointForStorage,
   redactAiModelEndpointUrl,
+  type AiEndpointSecurityContext,
 } from "@/lib/ai/endpoint-security";
 import {
   extractAiTableArtifactCandidates,
@@ -47,6 +49,7 @@ import {
   AI_MODEL_TOOL_BUDGET_LIMITS,
   AI_MODEL_TOOL_BUDGET_MIGRATION_KEY,
 } from "@/lib/ai/model-tool-budget";
+import type { AiPageContext } from "@/lib/ai/page-context";
 import type { ProviderToolCallMetadata } from "@/lib/ai/tool-loop";
 import { PublicApiError } from "@/lib/http/api-error";
 
@@ -55,7 +58,7 @@ export {
   runOpenAiCompatibleToolLoop,
   ToolLoopLimitError,
 } from "@/lib/ai/tool-loop";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
 
@@ -73,6 +76,7 @@ export type AiChannelStatus = "enabled" | "disabled";
 
 export type AiModelRecord = {
   id: string;
+  version: number;
   name: string;
   protocol: AiModelProtocol;
   modelType: AiModelType;
@@ -167,6 +171,18 @@ export type AiAssistantReply = {
   artifacts: AiTableArtifact[];
 };
 
+export type AiChatRequestReceiptResult = {
+  conversationId: string;
+  reply: string;
+  modelId: string | null;
+  outcome: "answered" | "context_reset" | "help";
+  assistantMessageId: string;
+};
+
+export type AiChatRequestClaim =
+  | { kind: "claimed"; receiptId: string; requestDigest: string }
+  | { kind: "replayed"; receiptId: string; requestDigest: string; result: AiChatRequestReceiptResult };
+
 export type AiAvailableChatModel = {
   id: string;
   name: string;
@@ -178,6 +194,8 @@ export type AiAvailableChatModel = {
 
 export type AiModelInput = {
   id?: string;
+  /** Required for edits; omitted for newly generated model IDs. */
+  expectedVersion?: number;
   name: string;
   protocol: AiModelProtocol;
   modelType: AiModelType;
@@ -228,6 +246,7 @@ export type AiChannelSecret = {
 
 type AiModelRow = {
   id: string;
+  version: number;
   name: string;
   protocol: string;
   model_type: string;
@@ -288,11 +307,30 @@ type AiConversationMessageRow = {
   original_content_bytes?: number;
 };
 
+type AiChatRequestReceiptRow = {
+  id: string;
+  owner_email: string;
+  client_request_id: string;
+  request_digest: string;
+  status: string;
+  model_id: string | null;
+  conversation_id: string | null;
+  assistant_message_id: string | null;
+  result_json: string | null;
+  error_code: string | null;
+  admitted_at: string | null;
+  provider_started_at: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+
 type CountRow = { total: number };
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS ai_models (
     id TEXT PRIMARY KEY NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
     name TEXT NOT NULL,
     protocol TEXT NOT NULL CHECK (protocol IN ('openai_compatible', 'anthropic')),
     model_type TEXT NOT NULL CHECK (model_type IN ('text', 'image', 'vision')),
@@ -373,6 +411,75 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS ai_conversation_messages_conversation_idx
     ON ai_conversation_messages (conversation_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS ai_chat_request_receipts (
+    id TEXT PRIMARY KEY NOT NULL,
+    owner_email TEXT NOT NULL,
+    client_request_id TEXT NOT NULL,
+    request_digest TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('processing', 'dispatched', 'succeeded', 'failed', 'unknown')),
+    model_id TEXT,
+    conversation_id TEXT,
+    assistant_message_id TEXT,
+    result_json TEXT,
+    error_code TEXT,
+    admitted_at TEXT,
+    provider_started_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+    FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE SET NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS ai_chat_request_receipts_owner_client_uq
+    ON ai_chat_request_receipts (owner_email, client_request_id)`,
+  `CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_status_updated_idx
+    ON ai_chat_request_receipts (status, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_conversation_idx
+    ON ai_chat_request_receipts (conversation_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS ai_chat_provider_dispatches (
+    id TEXT PRIMARY KEY NOT NULL,
+    receipt_id TEXT NOT NULL,
+    owner_email TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    dispatch_ordinal INTEGER NOT NULL CHECK (dispatch_ordinal > 0),
+    reserved_at TEXT NOT NULL,
+    provider_called_at TEXT,
+    FOREIGN KEY (receipt_id) REFERENCES ai_chat_request_receipts(id) ON DELETE CASCADE
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS ai_chat_provider_dispatches_receipt_ordinal_uq
+    ON ai_chat_provider_dispatches (receipt_id, dispatch_ordinal)`,
+  `CREATE INDEX IF NOT EXISTS ai_chat_provider_dispatches_owner_reserved_idx
+    ON ai_chat_provider_dispatches (owner_email, reserved_at)`,
+  `CREATE INDEX IF NOT EXISTS ai_chat_provider_dispatches_model_reserved_idx
+    ON ai_chat_provider_dispatches (model_id, reserved_at)`,
+  `CREATE INDEX IF NOT EXISTS ai_chat_provider_dispatches_reserved_idx
+    ON ai_chat_provider_dispatches (reserved_at)`,
+  // Shared Chat + durable Agent dispatch budgets query this ledger. SQLite
+  // permits the forward foreign-key declaration before the Agent schema is
+  // materialized; Agent inserts only occur after its own schema ensure.
+  `CREATE TABLE IF NOT EXISTS ai_agent_provider_dispatches (
+    id TEXT PRIMARY KEY NOT NULL,
+    job_id TEXT NOT NULL REFERENCES ai_agent_jobs(id) ON DELETE RESTRICT,
+    dispatch_ordinal INTEGER NOT NULL CHECK (dispatch_ordinal BETWEEN 1 AND 20),
+    owner_email TEXT NOT NULL COLLATE NOCASE,
+    actor_role TEXT NOT NULL CHECK (actor_role IN ('analyst','operator','admin')),
+    model_id TEXT NOT NULL,
+    model_version INTEGER NOT NULL CHECK (model_version >= 1),
+    tool_policy_digest TEXT NOT NULL,
+    request_digest TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'calling' CHECK (state IN ('calling','succeeded','failed','unknown')),
+    lease_epoch INTEGER NOT NULL CHECK (lease_epoch >= 1),
+    reserved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    provider_called_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    error_code TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '', completed_at TEXT
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS ai_agent_provider_dispatches_job_ordinal_uq
+    ON ai_agent_provider_dispatches (job_id, dispatch_ordinal)`,
+  `CREATE INDEX IF NOT EXISTS ai_agent_provider_dispatches_owner_reserved_idx
+    ON ai_agent_provider_dispatches (owner_email, reserved_at)`,
+  `CREATE INDEX IF NOT EXISTS ai_agent_provider_dispatches_model_reserved_idx
+    ON ai_agent_provider_dispatches (model_id, reserved_at)`,
+  `CREATE INDEX IF NOT EXISTS ai_agent_provider_dispatches_state_reserved_idx
+    ON ai_agent_provider_dispatches (state, reserved_at)`,
   `CREATE TABLE IF NOT EXISTS ai_conversation_deletion_audits (
     audit_id TEXT PRIMARY KEY NOT NULL,
     conversation_id TEXT NOT NULL UNIQUE,
@@ -424,15 +531,31 @@ const DEFAULT_MODEL_TEMPERATURE_MILLI = 200;
 const DEFAULT_MODEL_MAX_TOOL_ROUNDS = AI_MODEL_TOOL_BUDGET_LIMITS.defaultRounds;
 const DEFAULT_MODEL_MAX_TOTAL_TOOL_CALLS = AI_MODEL_TOOL_BUDGET_LIMITS.defaultTotalCalls;
 
-const modelSelectColumns = `id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
+/**
+ * Admission limits bound top-level requests. Provider-dispatch limits are charged independently
+ * before every model HTTP request, including every tool-loop round.
+ */
+export const AI_CHAT_DISPATCH_LIMITS = {
+  maximumDailyRequestsPerOwner: 40,
+  maximumDailyProviderDispatchesPerOwner: 120,
+  maximumDailyProviderDispatchesGlobal: 1_000,
+  maximumDailyProviderDispatchesPerModel: 500,
+  maximumActivePerOwner: 2,
+  maximumActiveGlobal: 24,
+  maximumActivePerModel: 8,
+  activeWindowMinutes: 240,
+} as const;
+
+const modelSelectColumns = `id, version, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
   is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
   last_test_result, last_tested_at, created_at, updated_at`;
 
-async function applyAiModelToolBudgetIncrease(db: SalesDatabase): Promise<void> {
+async function applyAiModelToolBudgetIncrease(db: D1Database): Promise<void> {
   await db.batch([
     db.prepare(`UPDATE ai_models
       SET max_tool_rounds = MIN(max_tool_rounds + ?, ?),
           max_total_tool_calls = MIN(max_total_tool_calls + ?, ?),
+          version = version + 1,
           updated_at = CURRENT_TIMESTAMP
       WHERE model_type = 'text'
         AND NOT EXISTS (
@@ -453,7 +576,7 @@ async function applyAiModelToolBudgetIncrease(db: SalesDatabase): Promise<void> 
   ]);
 }
 
-export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDatabase()): Promise<void> {
+export async function ensureAiAssistantSchema(db: D1Database = getD1Database()): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
   if (existing) return existing;
@@ -464,6 +587,7 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
     .then(async () => {
       await addMissingColumns(db, "ai_channels", [["receiver_id", "TEXT NOT NULL DEFAULT ''"]]);
       await addMissingColumns(db, "ai_models", [
+        ["version", "INTEGER NOT NULL DEFAULT 1"],
         ["timeout_ms", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_TIMEOUT_MS}`],
         ["max_tokens", `INTEGER NOT NULL DEFAULT ${DEFAULT_MODEL_MAX_TOKENS}`],
         ["reasoning_mode", `TEXT NOT NULL DEFAULT '${DEFAULT_MODEL_REASONING_MODE}'`],
@@ -473,6 +597,30 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
       ]);
       await applyAiModelToolBudgetIncrease(db);
       await addMissingColumns(db, "ai_conversation_messages", [["message_kind", "TEXT NOT NULL DEFAULT 'message'"]]);
+      // Runtime schema creation may have happened before migration 0083 was applied. Add the
+      // receipt admission columns before creating indexes that depend on them so either upgrade
+      // order remains valid.
+      await addMissingColumns(db, "ai_chat_request_receipts", [
+        ["model_id", "TEXT"],
+        ["admitted_at", "TEXT"],
+        ["provider_started_at", "TEXT"],
+      ]);
+      await db.batch([
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_provider_started_idx
+          ON ai_chat_request_receipts (provider_started_at)`),
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_owner_dispatch_idx
+          ON ai_chat_request_receipts (owner_email, provider_started_at)`),
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_model_dispatch_idx
+          ON ai_chat_request_receipts (model_id, provider_started_at)`),
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_status_owner_model_idx
+          ON ai_chat_request_receipts (status, owner_email, model_id, provider_started_at)`),
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_owner_admitted_idx
+          ON ai_chat_request_receipts (owner_email, admitted_at)`),
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_status_admitted_idx
+          ON ai_chat_request_receipts (status, admitted_at)`),
+        db.prepare(`CREATE INDEX IF NOT EXISTS ai_chat_request_receipts_status_model_admitted_idx
+          ON ai_chat_request_receipts (status, model_id, admitted_at)`),
+      ]);
       await db.prepare(`CREATE INDEX IF NOT EXISTS ai_conversation_messages_context_idx
         ON ai_conversation_messages (conversation_id, message_kind, created_at)`).run();
     })
@@ -486,7 +634,7 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
   return setup;
 }
 
-export async function listAiModels(db: SalesDatabase = getSalesDatabase()): Promise<AiModelRecord[]> {
+export async function listAiModels(db: D1Database = getD1Database()): Promise<AiModelRecord[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT ${modelSelectColumns}
@@ -496,7 +644,7 @@ export async function listAiModels(db: SalesDatabase = getSalesDatabase()): Prom
   return (rows.results ?? []).map(mapAiModelRecord);
 }
 
-export async function listAvailableChatModels(db: SalesDatabase = getSalesDatabase()): Promise<AiAvailableChatModel[]> {
+export async function listAvailableChatModels(db: D1Database = getD1Database()): Promise<AiAvailableChatModel[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT ${modelSelectColumns}
@@ -514,14 +662,35 @@ export async function listAvailableChatModels(db: SalesDatabase = getSalesDataba
   }));
 }
 
-export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = getSalesDatabase()): Promise<AiModelRecord> {
+export async function upsertAiModel(input: AiModelInput, db: D1Database = getD1Database()): Promise<AiModelRecord> {
   await ensureAiAssistantSchema(db);
-  const normalized = normalizeAiModelInput(input);
+  const endpointSecurityContext = await loadAiEndpointSecurityContext();
+  const normalized = normalizeAiModelInput(input, endpointSecurityContext);
   const id = normalized.id ?? `ai-model-${randomUUID()}`;
   const existing = normalized.id ? await getAiModelSecretById(id, db) : null;
-  const baseUrl = normalized.baseUrl ?? existing?.base_url;
-  if (!baseUrl) {
+  if (normalized.id && !existing) {
+    throw new PublicApiError(409, "version_conflict", "模型配置已被删除或更新，请刷新后重试。");
+  }
+  if (existing && existing.version !== normalized.expectedVersion) {
+    throw new PublicApiError(409, "version_conflict", "模型配置已被其他管理员更新，请刷新后重试。");
+  }
+  const configuredBaseUrl = normalized.baseUrl ?? existing?.base_url;
+  if (!configuredBaseUrl) {
     throw new PublicApiError(400, "invalid_request", "模型地址不能为空");
+  }
+  // Revalidate retained legacy values as well as newly submitted addresses so
+  // an unrelated profile edit cannot preserve a production-disallowed origin.
+  const baseUrl = normalizeAiModelEndpointForStorage(configuredBaseUrl, endpointSecurityContext);
+  if (existing && !normalized.apiKey) {
+    const previousCredentialIdentity = `${existing.protocol}:${new URL(existing.base_url).origin}`;
+    const nextCredentialIdentity = `${normalized.protocol}:${new URL(baseUrl).origin}`;
+    if (previousCredentialIdentity !== nextCredentialIdentity) {
+      throw new PublicApiError(
+        400,
+        "invalid_request",
+        "更换模型协议或服务 origin 时必须同时填写该服务的新 API Key，不能把原密钥转发到新来源。",
+      );
+    }
   }
   const apiKeyEncrypted = normalized.apiKey ? await encryptSecret(normalized.apiKey) : existing?.api_key_encrypted ?? "";
   const apiKeySuffix = normalized.apiKey ? maskSuffix(normalized.apiKey) : existing?.api_key_suffix ?? "";
@@ -534,32 +703,7 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     && asModelReasoningMode(existing?.reasoning_mode) === normalized.reasoningMode;
   const lastTestResult = testStillApplies ? existing?.last_test_result ?? null : null;
   const lastTestedAt = testStillApplies ? existing?.last_tested_at ?? null : null;
-  const upsertStatement = db.prepare(
-    `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
-       is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
-       last_test_result, last_tested_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-     ON CONFLICT(id) DO UPDATE SET
-       name = excluded.name,
-       protocol = excluded.protocol,
-       model_type = excluded.model_type,
-       model_name = excluded.model_name,
-       base_url = excluded.base_url,
-       api_key_encrypted = excluded.api_key_encrypted,
-       api_key_suffix = excluded.api_key_suffix,
-       is_default_text_model = excluded.is_default_text_model,
-       status = excluded.status,
-       timeout_ms = excluded.timeout_ms,
-       max_tokens = excluded.max_tokens,
-       reasoning_mode = excluded.reasoning_mode,
-       temperature_milli = excluded.temperature_milli,
-       max_tool_rounds = excluded.max_tool_rounds,
-       max_total_tool_calls = excluded.max_total_tool_calls,
-       last_test_result = excluded.last_test_result,
-       last_tested_at = excluded.last_tested_at,
-       updated_at = CURRENT_TIMESTAMP`,
-  ).bind(
-    id,
+  const values = [
     normalized.name,
     normalized.protocol,
     normalized.modelType,
@@ -577,27 +721,74 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
     normalized.maxTotalToolCalls,
     lastTestResult,
     lastTestedAt,
-  );
-  if (normalized.isDefaultTextModel && normalized.modelType === "text" && normalized.status === "enabled") {
-    await db.batch([
-      db.prepare("UPDATE ai_models SET is_default_text_model = 0 WHERE model_type = 'text'"),
-      upsertStatement,
-    ]);
+  ] as const;
+  const becomesDefault = normalized.isDefaultTextModel
+    && normalized.modelType === "text"
+    && normalized.status === "enabled";
+
+  if (existing) {
+    const expectedVersion = normalized.expectedVersion!;
+    const updateStatement = db.prepare(
+      `UPDATE ai_models SET
+         name = ?, protocol = ?, model_type = ?, model_name = ?, base_url = ?,
+         api_key_encrypted = ?, api_key_suffix = ?, is_default_text_model = ?, status = ?,
+         timeout_ms = ?, max_tokens = ?, reasoning_mode = ?, temperature_milli = ?,
+         max_tool_rounds = ?, max_total_tool_calls = ?, last_test_result = ?, last_tested_at = ?,
+         version = version + 1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND version = ?`,
+    ).bind(...values, id, expectedVersion);
+    let updatedChanges: number;
+    if (becomesDefault) {
+      const results = await db.batch([
+        db.prepare(`UPDATE ai_models
+          SET is_default_text_model = 0, version = version + 1, updated_at = CURRENT_TIMESTAMP
+          WHERE model_type = 'text' AND is_default_text_model = 1 AND id <> ?
+            AND EXISTS (SELECT 1 FROM ai_models target WHERE target.id = ? AND target.version = ?)`)
+          .bind(id, id, expectedVersion),
+        updateStatement,
+      ]);
+      updatedChanges = Number(results[1]?.meta.changes ?? 0);
+    } else {
+      const result = await updateStatement.run();
+      updatedChanges = Number(result.meta.changes ?? 0);
+    }
+    if (updatedChanges !== 1) {
+      throw new PublicApiError(409, "version_conflict", "模型配置已被其他管理员更新，请刷新后重试。");
+    }
   } else {
-    await upsertStatement.run();
+    const insertStatement = db.prepare(
+      `INSERT INTO ai_models (id, name, protocol, model_type, model_name, base_url, api_key_encrypted, api_key_suffix,
+         is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
+         last_test_result, last_tested_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+    ).bind(id, ...values);
+    if (becomesDefault) {
+      await db.batch([
+        db.prepare(`UPDATE ai_models
+          SET is_default_text_model = 0, version = version + 1, updated_at = CURRENT_TIMESTAMP
+          WHERE model_type = 'text' AND is_default_text_model = 1`),
+        insertStatement,
+      ]);
+    } else {
+      await insertStatement.run();
+    }
   }
   const row = await getAiModelSecretById(id, db);
   if (!row) throw new Error("模型配置保存后无法读取");
   return mapAiModelRecord(row);
 }
 
-export async function deleteAiModel(id: string, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+export async function deleteAiModel(id: string, expectedVersion: number, db: D1Database = getD1Database()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
-  const result = await db.prepare("DELETE FROM ai_models WHERE id = ?").bind(id).run();
-  return Number(result.meta.changes ?? 0) > 0;
+  const version = requireAiModelExpectedVersion(expectedVersion);
+  const result = await db.prepare("DELETE FROM ai_models WHERE id = ? AND version = ?").bind(id, version).run();
+  if (Number(result.meta.changes ?? 0) !== 1) {
+    throw new PublicApiError(409, "version_conflict", "模型配置已被删除或更新，请刷新后重试。");
+  }
+  return true;
 }
 
-export async function listAiChannels(db: SalesDatabase = getSalesDatabase()): Promise<AiChannelRecord[]> {
+export async function listAiChannels(db: D1Database = getD1Database()): Promise<AiChannelRecord[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT id, name, kind, status, send_enabled, callback_enabled, webhook_url, callback_token_encrypted, callback_token_suffix,
@@ -608,7 +799,7 @@ export async function listAiChannels(db: SalesDatabase = getSalesDatabase()): Pr
   return (rows.results ?? []).map(mapAiChannelRecord);
 }
 
-export async function upsertAiChannel(input: AiChannelInput, db: SalesDatabase = getSalesDatabase()): Promise<AiChannelRecord> {
+export async function upsertAiChannel(input: AiChannelInput, db: D1Database = getD1Database()): Promise<AiChannelRecord> {
   await ensureAiAssistantSchema(db);
   const normalized = normalizeAiChannelInput(input);
   const id = normalized.id ?? `ai-channel-${randomUUID()}`;
@@ -650,13 +841,13 @@ export async function upsertAiChannel(input: AiChannelInput, db: SalesDatabase =
   return mapAiChannelRecord(row);
 }
 
-export async function deleteAiChannel(id: string, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+export async function deleteAiChannel(id: string, db: D1Database = getD1Database()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
   const result = await db.prepare("DELETE FROM ai_channels WHERE id = ?").bind(id).run();
   return Number(result.meta.changes ?? 0) > 0;
 }
 
-export async function getAiChannelSecretById(id: string, db: SalesDatabase = getSalesDatabase()): Promise<AiChannelSecret | null> {
+export async function getAiChannelSecretById(id: string, db: D1Database = getD1Database()): Promise<AiChannelSecret | null> {
   const row = await getAiChannelRowById(id, db);
   if (!row) return null;
   return {
@@ -676,11 +867,11 @@ export async function getAiChannelSecretById(id: string, db: SalesDatabase = get
 
 export async function listAiConversations(
   principal: AppPrincipal,
-  inputOrDb: { page?: number; pageSize?: number } | SalesDatabase = {},
-  database: SalesDatabase = getSalesDatabase(),
+  inputOrDb: { page?: number; pageSize?: number } | D1Database = {},
+  database: D1Database = getD1Database(),
 ): Promise<AiConversationPage> {
-  const input = isSalesDatabase(inputOrDb) ? {} : inputOrDb;
-  const db = isSalesDatabase(inputOrDb) ? inputOrDb : database;
+  const input = isD1Database(inputOrDb) ? {} : inputOrDb;
+  const db = isD1Database(inputOrDb) ? inputOrDb : database;
   await ensureAiAssistantSchema(db);
   const page = requireBoundedPositiveInteger(input.page, 1, AI_CONVERSATION_PAGE_MAX, "page");
   const pageSize = requireBoundedPositiveInteger(input.pageSize, 30, AI_CONVERSATION_PAGE_SIZE_MAX, "pageSize");
@@ -721,7 +912,7 @@ export async function createConversation(
   title: string,
   principal: Pick<AppPrincipal, "email" | "scope">,
   modelId: string | null,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<string> {
   await ensureAiAssistantSchema(db);
   const id = `ai-conv-${randomUUID()}`;
@@ -742,8 +933,8 @@ export async function appendConversationMessage(
   conversationId: string,
   role: "user" | "assistant",
   content: string,
-  kindOrDb: AiConversationMessage["messageKind"] | SalesDatabase = "message",
-  database: SalesDatabase = getSalesDatabase(),
+  kindOrDb: AiConversationMessage["messageKind"] | D1Database = "message",
+  database: D1Database = getD1Database(),
 ): Promise<string> {
   const messageKind = typeof kindOrDb === "string" ? kindOrDb : "message";
   const db = typeof kindOrDb === "string" ? database : kindOrDb;
@@ -751,20 +942,653 @@ export async function appendConversationMessage(
   const normalizedContent = normalizeMessageContent(content, MAX_MESSAGE_LENGTH);
   if (!normalizedContent) throw new Error("消息不能为空");
   const id = `ai-msg-${randomUUID()}`;
+  await appendConversationMessageWithId({ id, conversationId, role, content: normalizedContent, messageKind }, db);
+  return id;
+}
+
+async function appendConversationMessageWithId(input: {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  content: string;
+  messageKind: AiConversationMessage["messageKind"];
+}, db: D1Database): Promise<void> {
   const results = await db.batch([
     db.prepare(`INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind)
       SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM ai_conversations WHERE id = ?)`)
-      .bind(id, conversationId, role, normalizedContent, messageKind, conversationId),
-    db.prepare("UPDATE ai_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(conversationId),
+      .bind(input.id, input.conversationId, input.role, input.content, input.messageKind, input.conversationId),
+    db.prepare("UPDATE ai_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(input.conversationId),
   ]);
   if (Number(results[0]?.meta.changes ?? 0) === 0) throw new Error("对话不存在或已删除");
-  return id;
+}
+
+export async function digestAiChatRequestPayload(input: {
+  conversationId: string | null;
+  modelId: string | null;
+  message: string;
+  title: string | null;
+  pageContext?: AiPageContext | null;
+}): Promise<string> {
+  const canonicalParts: unknown[] = [
+    input.conversationId,
+    input.modelId,
+    input.message,
+    input.title,
+  ];
+  // Preserve historical no-context digests so in-flight response-loss replays
+  // from an older build remain recoverable after this optional field ships.
+  if (input.pageContext) canonicalParts.push(input.pageContext);
+  const canonical = JSON.stringify(canonicalParts);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function claimAiChatRequest(input: {
+  clientRequestId: string;
+  requestDigest: string;
+  principal: Pick<AppPrincipal, "email">;
+}, db: D1Database = getD1Database()): Promise<AiChatRequestClaim> {
+  await ensureAiAssistantSchema(db);
+  const clientRequestId = requireAiEntityId(input.clientRequestId, "clientRequestId");
+  const requestDigest = input.requestDigest.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(requestDigest)) {
+    throw new PublicApiError(400, "invalid_request", "聊天请求摘要格式无效。");
+  }
+  const receiptId = `ai-chat-receipt-${randomUUID()}`;
+  const inserted = await db.prepare(`INSERT OR IGNORE INTO ai_chat_request_receipts (
+      id, owner_email, client_request_id, request_digest, status
+    ) VALUES (?, ?, ?, ?, 'processing')`)
+    .bind(receiptId, input.principal.email, clientRequestId, requestDigest).run();
+  if (Number(inserted.meta.changes ?? 0) === 1) {
+    return { kind: "claimed", receiptId, requestDigest };
+  }
+
+  const existing = await db.prepare(`SELECT id, owner_email, client_request_id, request_digest, status, model_id,
+      conversation_id, assistant_message_id, result_json, error_code, provider_started_at,
+      admitted_at,
+      created_at, updated_at, completed_at
+    FROM ai_chat_request_receipts
+    WHERE owner_email = ? AND client_request_id = ? LIMIT 1`)
+    .bind(input.principal.email, clientRequestId).first<AiChatRequestReceiptRow>();
+  if (!existing) {
+    throw new PublicApiError(409, "conflict", "聊天请求回执冲突，请刷新后重试。");
+  }
+  if (existing.request_digest !== requestDigest) {
+    throw new PublicApiError(409, "conflict", "同一个 clientRequestId 已用于不同的聊天请求。");
+  }
+  if (existing.status === "succeeded") {
+    return {
+      kind: "replayed",
+      receiptId: existing.id,
+      requestDigest,
+      result: parseAiChatReceiptResult(existing),
+    };
+  }
+  if (existing.status === "processing") {
+    throw new PublicApiError(409, "conflict", "该消息正在处理，已阻止重复提交，请稍后刷新对话记录。");
+  }
+  if (existing.status === "dispatched" || existing.status === "unknown") {
+    throw new PublicApiError(409, "ai_chat_result_unknown", "该消息可能已发送给模型，但结果尚未确认。为避免重复计费，已阻止再次提交，请刷新对话记录。");
+  }
+  throw new PublicApiError(409, "ai_chat_not_dispatched", "该消息此前已确认未发送给模型。请重新发送，系统将使用新的请求号。");
+}
+
+export async function markAiChatRequestDispatched(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  conversationId: string | null;
+  modelId: string;
+  now?: Date;
+}, db: D1Database = getD1Database()): Promise<void> {
+  await ensureAiAssistantSchema(db);
+  const modelId = requireAiEntityId(input.modelId, "modelId");
+  const now = input.now ?? new Date();
+  const { dayStart, dayEnd, activeCutoff, dispatchedAt } = aiChatDispatchTimeBounds(now);
+  const admitted = await db.prepare(`UPDATE ai_chat_request_receipts
+    SET status = 'dispatched', conversation_id = ?, model_id = ?, admitted_at = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND owner_email = ? AND request_digest = ? AND status = 'processing'
+      AND (SELECT COUNT(*) FROM ai_chat_request_receipts daily
+        WHERE daily.owner_email = ? AND daily.admitted_at >= ? AND daily.admitted_at < ?) < ?
+      AND (SELECT COUNT(*) FROM ai_chat_request_receipts active
+        WHERE active.status = 'dispatched' AND active.owner_email = ?
+          AND active.admitted_at >= ? AND active.admitted_at <= ?) < ?
+      AND (SELECT COUNT(*) FROM ai_chat_request_receipts active
+        WHERE active.status = 'dispatched'
+          AND active.admitted_at >= ? AND active.admitted_at <= ?) < ?
+      AND (SELECT COUNT(*) FROM ai_chat_request_receipts active
+        WHERE active.status = 'dispatched' AND active.model_id = ?
+          AND active.admitted_at >= ? AND active.admitted_at <= ?) < ?`)
+    .bind(
+      input.conversationId,
+      modelId,
+      dispatchedAt,
+      input.receiptId,
+      input.ownerEmail,
+      input.requestDigest,
+      input.ownerEmail,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyRequestsPerOwner,
+      input.ownerEmail,
+      activeCutoff,
+      dispatchedAt,
+      AI_CHAT_DISPATCH_LIMITS.maximumActivePerOwner,
+      activeCutoff,
+      dispatchedAt,
+      AI_CHAT_DISPATCH_LIMITS.maximumActiveGlobal,
+      modelId,
+      activeCutoff,
+      dispatchedAt,
+      AI_CHAT_DISPATCH_LIMITS.maximumActivePerModel,
+    ).run();
+  if (Number(admitted.meta.changes ?? 0) !== 1) {
+    const current = await db.prepare(`SELECT status FROM ai_chat_request_receipts
+      WHERE id = ? AND owner_email = ? AND request_digest = ? LIMIT 1`)
+      .bind(input.receiptId, input.ownerEmail, input.requestDigest).first<{ status: string }>();
+    if (!current || current.status !== "processing") {
+      throw new PublicApiError(409, "conflict", "聊天请求派发权已失效，未调用模型。");
+    }
+    const counts = await readAiChatDispatchCounts({
+      ownerEmail: input.ownerEmail,
+      modelId,
+      dayStart,
+      dayEnd,
+      activeCutoff,
+      dispatchedAt,
+    }, db);
+    if (counts.ownerRequestsDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyRequestsPerOwner) {
+      throw new PublicApiError(429, "rate_limited", "今日 AI 对话请求额度已满，未调用模型，请于下一个上海自然日再试。");
+    }
+    if (
+      counts.ownerActive >= AI_CHAT_DISPATCH_LIMITS.maximumActivePerOwner
+      || counts.globalActive >= AI_CHAT_DISPATCH_LIMITS.maximumActiveGlobal
+      || counts.modelActive >= AI_CHAT_DISPATCH_LIMITS.maximumActivePerModel
+    ) {
+      throw new PublicApiError(409, "conflict", "AI 对话并发请求已达上限，未调用模型，请等待当前请求完成。");
+    }
+    throw new PublicApiError(409, "conflict", "聊天请求派发权已失效，未调用模型。");
+  }
+}
+
+/**
+ * Pre-reserve the first provider turn before persisting a new chat. The reservation is refunded
+ * only when failAiChatRequestBeforeDispatch proves that no provider request was attempted.
+ */
+export async function reserveAiChatInitialProviderDispatch(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  modelId: string;
+  now?: Date;
+}, db: D1Database = getD1Database()): Promise<void> {
+  await ensureAiAssistantSchema(db);
+  const modelId = requireAiEntityId(input.modelId, "modelId");
+  const now = input.now ?? new Date();
+  const { dayStart, dayEnd, activeCutoff, dispatchedAt } = aiChatDispatchTimeBounds(now);
+  const dispatchId = `ai-chat-dispatch-${randomUUID()}`;
+  const reserved = await db.prepare(`INSERT OR IGNORE INTO ai_chat_provider_dispatches (
+      id, receipt_id, owner_email, model_id, dispatch_ordinal, reserved_at, provider_called_at
+    )
+    SELECT ?, r.id, r.owner_email, ?, 1, ?, NULL
+    FROM ai_chat_request_receipts r
+    WHERE r.id = ? AND r.owner_email = ? AND r.request_digest = ?
+      AND r.status = 'dispatched' AND r.model_id = ?
+      AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.owner_email = ? AND d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.owner_email = ? AND d.reserved_at >= ? AND d.reserved_at < ?)) < ?
+      AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.reserved_at >= ? AND d.reserved_at < ?)) < ?
+      AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.model_id = ? AND d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.model_id = ? AND d.reserved_at >= ? AND d.reserved_at < ?)) < ?`)
+    .bind(
+      dispatchId,
+      modelId,
+      dispatchedAt,
+      input.receiptId,
+      input.ownerEmail,
+      input.requestDigest,
+      modelId,
+      input.ownerEmail,
+      dayStart,
+      dayEnd,
+      input.ownerEmail,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerOwner,
+      dayStart,
+      dayEnd,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesGlobal,
+      modelId,
+      dayStart,
+      dayEnd,
+      modelId,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerModel,
+    ).run();
+  if (Number(reserved.meta.changes ?? 0) === 1) return;
+  const current = await db.prepare(`SELECT r.status,
+      EXISTS (SELECT 1 FROM ai_chat_provider_dispatches d
+        WHERE d.receipt_id = r.id AND d.dispatch_ordinal = 1) ordinal_exists
+    FROM ai_chat_request_receipts r
+    WHERE r.id = ? AND r.owner_email = ? AND r.request_digest = ? AND r.model_id = ?
+    LIMIT 1`)
+    .bind(input.receiptId, input.ownerEmail, input.requestDigest, modelId)
+    .first<{ status: string; ordinal_exists: number }>();
+  if (!current || current.status !== "dispatched" || Boolean(current.ordinal_exists)) {
+    throw new PublicApiError(409, "conflict", "首轮模型派发凭证已失效，未调用模型。");
+  }
+  const counts = await readAiChatDispatchCounts({
+    ownerEmail: input.ownerEmail,
+    modelId,
+    dayStart,
+    dayEnd,
+    activeCutoff,
+    dispatchedAt,
+  }, db);
+  if (
+    counts.ownerProviderDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerOwner
+    || counts.globalProviderDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesGlobal
+    || counts.modelProviderDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerModel
+  ) {
+    throw new PublicApiError(429, "rate_limited", "今日模型派发额度已满，本轮未调用模型，请于下一个上海自然日再试。");
+  }
+  throw new PublicApiError(409, "conflict", "首轮模型派发凭证已失效，未调用模型。");
+}
+
+export async function attachAiChatRequestConversation(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  conversationId: string;
+}, db: D1Database = getD1Database()): Promise<void> {
+  const conversationId = requireAiEntityId(input.conversationId, "conversationId");
+  const attached = await db.prepare(`UPDATE ai_chat_request_receipts
+    SET conversation_id = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND owner_email = ? AND request_digest = ? AND status = 'dispatched'
+      AND EXISTS (SELECT 1 FROM ai_conversations c WHERE c.id = ?)`)
+    .bind(conversationId, input.receiptId, input.ownerEmail, input.requestDigest, conversationId).run();
+  if (Number(attached.meta.changes ?? 0) !== 1) {
+    throw new PublicApiError(409, "conflict", "聊天请求与对话绑定失败，未调用模型。");
+  }
+}
+
+type AiChatDispatchCounts = {
+  ownerRequestsDaily: number;
+  ownerProviderDaily: number;
+  globalProviderDaily: number;
+  modelProviderDaily: number;
+  ownerActive: number;
+  globalActive: number;
+  modelActive: number;
+};
+
+function aiChatDispatchTimeBounds(now: Date): {
+  dayStart: string;
+  dayEnd: string;
+  activeCutoff: string;
+  dispatchedAt: string;
+} {
+  if (!Number.isFinite(now.getTime())) throw new Error("AI chat dispatch time is invalid");
+  const shanghaiOffsetMs = 8 * 60 * 60 * 1_000;
+  const shifted = new Date(now.getTime() + shanghaiOffsetMs);
+  const dayStartMs = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - shanghaiOffsetMs;
+  return {
+    dayStart: sqliteUtcTimestamp(new Date(dayStartMs)),
+    dayEnd: sqliteUtcTimestamp(new Date(dayStartMs + 24 * 60 * 60 * 1_000)),
+    activeCutoff: sqliteUtcTimestamp(new Date(now.getTime() - AI_CHAT_DISPATCH_LIMITS.activeWindowMinutes * 60 * 1_000)),
+    dispatchedAt: sqliteUtcTimestamp(now),
+  };
+}
+
+function sqliteUtcTimestamp(value: Date): string {
+  return value.toISOString().slice(0, 19).replace("T", " ");
+}
+
+async function readAiChatDispatchCounts(input: {
+  ownerEmail: string;
+  modelId: string;
+  dayStart: string;
+  dayEnd: string;
+  activeCutoff: string;
+  dispatchedAt: string;
+}, db: D1Database): Promise<AiChatDispatchCounts> {
+  const row = await db.prepare(`SELECT
+      (SELECT COUNT(*) FROM ai_chat_request_receipts admitted
+        WHERE admitted.owner_email = ?
+          AND admitted.admitted_at >= ? AND admitted.admitted_at < ?) owner_requests_daily,
+      ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.owner_email = ? AND d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.owner_email = ? AND d.reserved_at >= ? AND d.reserved_at < ?)) owner_provider_daily,
+      ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.reserved_at >= ? AND d.reserved_at < ?)) global_provider_daily,
+      ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.model_id = ? AND d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.model_id = ? AND d.reserved_at >= ? AND d.reserved_at < ?)) model_provider_daily,
+      (SELECT COUNT(*) FROM ai_chat_request_receipts active
+        WHERE active.status = 'dispatched' AND active.owner_email = ?
+          AND active.admitted_at >= ? AND active.admitted_at <= ?) owner_active,
+      (SELECT COUNT(*) FROM ai_chat_request_receipts active
+        WHERE active.status = 'dispatched'
+          AND active.admitted_at >= ? AND active.admitted_at <= ?) global_active,
+      (SELECT COUNT(*) FROM ai_chat_request_receipts active
+        WHERE active.status = 'dispatched' AND active.model_id = ?
+          AND active.admitted_at >= ? AND active.admitted_at <= ?) model_active`)
+    .bind(
+      input.ownerEmail,
+      input.dayStart,
+      input.dayEnd,
+      input.ownerEmail,
+      input.dayStart,
+      input.dayEnd,
+      input.ownerEmail,
+      input.dayStart,
+      input.dayEnd,
+      input.dayStart,
+      input.dayEnd,
+      input.dayStart,
+      input.dayEnd,
+      input.modelId,
+      input.dayStart,
+      input.dayEnd,
+      input.modelId,
+      input.dayStart,
+      input.dayEnd,
+      input.ownerEmail,
+      input.activeCutoff,
+      input.dispatchedAt,
+      input.activeCutoff,
+      input.dispatchedAt,
+      input.modelId,
+      input.activeCutoff,
+      input.dispatchedAt,
+    ).first<{
+      owner_requests_daily: number;
+      owner_provider_daily: number;
+      global_provider_daily: number;
+      model_provider_daily: number;
+      owner_active: number;
+      global_active: number;
+      model_active: number;
+    }>();
+  return {
+    ownerRequestsDaily: Number(row?.owner_requests_daily ?? 0),
+    ownerProviderDaily: Number(row?.owner_provider_daily ?? 0),
+    globalProviderDaily: Number(row?.global_provider_daily ?? 0),
+    modelProviderDaily: Number(row?.model_provider_daily ?? 0),
+    ownerActive: Number(row?.owner_active ?? 0),
+    globalActive: Number(row?.global_active ?? 0),
+    modelActive: Number(row?.model_active ?? 0),
+  };
+}
+
+export async function reserveAiChatProviderDispatch(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  modelId: string;
+  ordinal: number;
+  now?: Date;
+}, db: D1Database = getD1Database()): Promise<void> {
+  await ensureAiAssistantSchema(db);
+  const modelId = requireAiEntityId(input.modelId, "modelId");
+  if (!Number.isSafeInteger(input.ordinal) || input.ordinal < 1 || input.ordinal > AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds) {
+    throw new PublicApiError(409, "conflict", "模型派发轮次超出安全上限，未调用模型。");
+  }
+  const now = input.now ?? new Date();
+  const { dayStart, dayEnd, activeCutoff, dispatchedAt } = aiChatDispatchTimeBounds(now);
+  if (input.ordinal === 1) {
+    const [activated, receiptStarted] = await db.batch([
+      db.prepare(`UPDATE ai_chat_provider_dispatches
+        SET provider_called_at = ?
+        WHERE receipt_id = ? AND owner_email = ? AND model_id = ? AND dispatch_ordinal = 1
+          AND provider_called_at IS NULL
+          AND EXISTS (SELECT 1 FROM ai_chat_request_receipts r
+            WHERE r.id = ai_chat_provider_dispatches.receipt_id AND r.request_digest = ?
+              AND r.status = 'dispatched' AND r.model_id = ?)`)
+        .bind(dispatchedAt, input.receiptId, input.ownerEmail, modelId, input.requestDigest, modelId),
+      db.prepare(`UPDATE ai_chat_request_receipts
+        SET provider_started_at = COALESCE(provider_started_at, ?), updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND owner_email = ? AND request_digest = ? AND status = 'dispatched'
+          AND EXISTS (SELECT 1 FROM ai_chat_provider_dispatches d
+            WHERE d.receipt_id = ai_chat_request_receipts.id AND d.dispatch_ordinal = 1
+              AND d.provider_called_at = ?)`)
+        .bind(dispatchedAt, input.receiptId, input.ownerEmail, input.requestDigest, dispatchedAt),
+    ]);
+    if (Number(activated?.meta.changes ?? 0) !== 1 || Number(receiptStarted?.meta.changes ?? 0) !== 1) {
+      throw new PublicApiError(409, "conflict", "首轮模型派发凭证已失效，未调用模型。");
+    }
+    return;
+  }
+
+  const dispatchId = `ai-chat-dispatch-${randomUUID()}`;
+  const reserved = await db.prepare(`INSERT OR IGNORE INTO ai_chat_provider_dispatches (
+      id, receipt_id, owner_email, model_id, dispatch_ordinal, reserved_at, provider_called_at
+    )
+    SELECT ?, r.id, r.owner_email, ?, ?, ?, ?
+    FROM ai_chat_request_receipts r
+    WHERE r.id = ? AND r.owner_email = ? AND r.request_digest = ?
+      AND r.status = 'dispatched' AND r.model_id = ?
+      AND EXISTS (SELECT 1 FROM ai_chat_provider_dispatches previous
+        WHERE previous.receipt_id = r.id AND previous.dispatch_ordinal = ?
+          AND previous.provider_called_at IS NOT NULL)
+      AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.owner_email = ? AND d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.owner_email = ? AND d.reserved_at >= ? AND d.reserved_at < ?)) < ?
+      AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.reserved_at >= ? AND d.reserved_at < ?)) < ?
+      AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
+          WHERE d.model_id = ? AND d.reserved_at >= ? AND d.reserved_at < ?)
+        + (SELECT COUNT(*) FROM ai_agent_provider_dispatches d
+          WHERE d.model_id = ? AND d.reserved_at >= ? AND d.reserved_at < ?)) < ?`)
+    .bind(
+      dispatchId,
+      modelId,
+      input.ordinal,
+      dispatchedAt,
+      dispatchedAt,
+      input.receiptId,
+      input.ownerEmail,
+      input.requestDigest,
+      modelId,
+      input.ordinal - 1,
+      input.ownerEmail,
+      dayStart,
+      dayEnd,
+      input.ownerEmail,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerOwner,
+      dayStart,
+      dayEnd,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesGlobal,
+      modelId,
+      dayStart,
+      dayEnd,
+      modelId,
+      dayStart,
+      dayEnd,
+      AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerModel,
+    ).run();
+  if (Number(reserved.meta.changes ?? 0) === 1) return;
+  const current = await db.prepare(`SELECT r.status,
+      EXISTS (SELECT 1 FROM ai_chat_provider_dispatches d
+        WHERE d.receipt_id = r.id AND d.dispatch_ordinal = ?) ordinal_exists,
+      EXISTS (SELECT 1 FROM ai_chat_provider_dispatches previous
+        WHERE previous.receipt_id = r.id AND previous.dispatch_ordinal = ?
+          AND previous.provider_called_at IS NOT NULL) previous_called
+    FROM ai_chat_request_receipts r
+    WHERE r.id = ? AND r.owner_email = ? AND r.request_digest = ? AND r.model_id = ?
+    LIMIT 1`)
+    .bind(input.ordinal, input.ordinal - 1, input.receiptId, input.ownerEmail, input.requestDigest, modelId)
+    .first<{ status: string; ordinal_exists: number; previous_called: number }>();
+  if (!current || current.status !== "dispatched" || Boolean(current.ordinal_exists) || !Boolean(current.previous_called)) {
+    throw new PublicApiError(409, "conflict", "模型派发凭证已失效，本轮未调用模型。");
+  }
+  const counts = await readAiChatDispatchCounts({
+    ownerEmail: input.ownerEmail,
+    modelId,
+    dayStart,
+    dayEnd,
+    activeCutoff,
+    dispatchedAt,
+  }, db);
+  if (
+    counts.ownerProviderDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerOwner
+    || counts.globalProviderDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesGlobal
+    || counts.modelProviderDaily >= AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerModel
+  ) {
+    throw new PublicApiError(429, "rate_limited", "今日模型派发额度已满，本轮未调用模型，请于下一个上海自然日再试。");
+  }
+  throw new PublicApiError(409, "conflict", "模型派发凭证已失效，本轮未调用模型。");
+}
+
+export async function completeAiChatRequest(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  expectedStatus: "processing" | "dispatched";
+  conversationId: string;
+  userMessage?: { content: string; messageKind: AiConversationMessage["messageKind"] };
+  assistantMessage: { id: string; content: string; messageKind: AiConversationMessage["messageKind"] };
+  result: Omit<AiChatRequestReceiptResult, "assistantMessageId">;
+}, db: D1Database = getD1Database()): Promise<void> {
+  await ensureAiAssistantSchema(db);
+  const assistantContent = normalizeMessageContent(input.assistantMessage.content, MAX_MESSAGE_LENGTH);
+  if (!assistantContent) throw new Error("消息不能为空");
+  const userMessage = input.userMessage
+    ? {
+      id: `ai-msg-${randomUUID()}`,
+      content: normalizeMessageContent(input.userMessage.content, MAX_MESSAGE_LENGTH),
+      messageKind: input.userMessage.messageKind,
+    }
+    : null;
+  if (input.userMessage && !userMessage?.content) throw new Error("消息不能为空");
+  const receiptResult: AiChatRequestReceiptResult = {
+    ...input.result,
+    conversationId: input.conversationId,
+    assistantMessageId: input.assistantMessage.id,
+  };
+  const receiptFence = `EXISTS (
+    SELECT 1 FROM ai_chat_request_receipts r
+    WHERE r.id = ? AND r.owner_email = ? AND r.request_digest = ? AND r.status = ?
+  )`;
+  const statements = [];
+  if (userMessage) {
+    statements.push(db.prepare(`INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind)
+      SELECT ?, ?, 'user', ?, ? WHERE EXISTS (SELECT 1 FROM ai_conversations WHERE id = ?) AND ${receiptFence}`)
+      .bind(
+        userMessage.id,
+        input.conversationId,
+        userMessage.content,
+        userMessage.messageKind,
+        input.conversationId,
+        input.receiptId,
+        input.ownerEmail,
+        input.requestDigest,
+        input.expectedStatus,
+      ));
+  }
+  statements.push(
+    db.prepare(`INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind)
+      SELECT ?, ?, 'assistant', ?, ? WHERE EXISTS (SELECT 1 FROM ai_conversations WHERE id = ?) AND ${receiptFence}`)
+      .bind(
+        input.assistantMessage.id,
+        input.conversationId,
+        assistantContent,
+        input.assistantMessage.messageKind,
+        input.conversationId,
+        input.receiptId,
+        input.ownerEmail,
+        input.requestDigest,
+        input.expectedStatus,
+      ),
+    db.prepare(`UPDATE ai_conversations SET updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND EXISTS (
+        SELECT 1 FROM ai_conversation_messages WHERE id = ? AND conversation_id = ?
+      )`).bind(input.conversationId, input.assistantMessage.id, input.conversationId),
+    db.prepare(`UPDATE ai_chat_request_receipts
+      SET status = 'succeeded', conversation_id = ?, assistant_message_id = ?, result_json = ?,
+          error_code = NULL, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND owner_email = ? AND request_digest = ? AND status = ?
+        AND EXISTS (
+          SELECT 1 FROM ai_conversation_messages WHERE id = ? AND conversation_id = ?
+        )`).bind(
+      input.conversationId,
+      input.assistantMessage.id,
+      JSON.stringify(receiptResult),
+      input.receiptId,
+      input.ownerEmail,
+      input.requestDigest,
+      input.expectedStatus,
+      input.assistantMessage.id,
+      input.conversationId,
+    ),
+  );
+  const results = await db.batch(statements);
+  if (results.some((result) => Number(result?.meta.changes ?? 0) !== 1)) {
+    throw new PublicApiError(409, "conflict", "聊天请求完成权已失效，结果未发布。");
+  }
+}
+
+export async function failAiChatRequestBeforeDispatch(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  errorCode: string;
+}, db: D1Database = getD1Database()): Promise<boolean> {
+  const errorCode = normalizeReceiptErrorCode(input.errorCode);
+  const [failed] = await db.batch([
+    db.prepare(`UPDATE ai_chat_request_receipts
+      SET status = 'failed', error_code = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND owner_email = ? AND request_digest = ?
+        AND status IN ('processing', 'dispatched')
+        AND NOT EXISTS (SELECT 1 FROM ai_chat_provider_dispatches d
+          WHERE d.receipt_id = ai_chat_request_receipts.id AND d.provider_called_at IS NOT NULL)`)
+      .bind(errorCode, input.receiptId, input.ownerEmail, input.requestDigest),
+    db.prepare(`DELETE FROM ai_chat_provider_dispatches
+      WHERE receipt_id = ? AND provider_called_at IS NULL
+        AND EXISTS (SELECT 1 FROM ai_chat_request_receipts r
+          WHERE r.id = ai_chat_provider_dispatches.receipt_id AND r.owner_email = ?
+            AND r.request_digest = ? AND r.status = 'failed' AND r.error_code = ?)`)
+      .bind(input.receiptId, input.ownerEmail, input.requestDigest, errorCode),
+  ]);
+  return Number(failed?.meta.changes ?? 0) === 1;
+}
+
+export async function markAiChatRequestUnknown(input: {
+  receiptId: string;
+  requestDigest: string;
+  ownerEmail: string;
+  errorCode: string;
+}, db: D1Database = getD1Database()): Promise<void> {
+  await db.prepare(`UPDATE ai_chat_request_receipts
+    SET status = 'unknown', error_code = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND owner_email = ? AND request_digest = ? AND status = 'dispatched'`)
+    .bind(normalizeReceiptErrorCode(input.errorCode), input.receiptId, input.ownerEmail, input.requestDigest).run();
 }
 
 export async function updateConversationModel(
   conversationId: string,
   modelId: string,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   await ensureAiAssistantSchema(db);
   await db.prepare("UPDATE ai_conversations SET model_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
@@ -775,7 +1599,7 @@ export async function selectConversationModel(
   conversationId: string,
   modelId: string,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiConversationRecord> {
   const conversation = await requireConversationAccess(conversationId, principal, db);
   const model = await resolveChatModel({ modelId, allowFallback: false }, db);
@@ -787,8 +1611,8 @@ export async function selectConversationModel(
 export async function deleteAiConversation(
   conversationId: string,
   principal: AppPrincipal,
-  reasonOrDb: string | SalesDatabase = "用户删除对话",
-  db: SalesDatabase = getSalesDatabase(),
+  reasonOrDb: string | D1Database = "用户删除对话",
+  db: D1Database = getD1Database(),
 ): Promise<boolean> {
   const reason = typeof reasonOrDb === "string" ? reasonOrDb : "用户删除对话";
   const database = typeof reasonOrDb === "string" ? db : reasonOrDb;
@@ -842,7 +1666,7 @@ export async function deleteAiConversation(
   return Number(auditResult?.meta.changes ?? 0) === 1;
 }
 
-export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationRecord> {
+export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<AiConversationRecord> {
   await ensureAiAssistantSchema(db);
   const normalizedId = requireAiEntityId(conversationId, "conversationId");
   const scopeAccess = aiConversationScopeAccessSql(principal.scope);
@@ -860,11 +1684,11 @@ export async function requireConversationAccess(conversationId: string, principa
 export async function listConversationMessages(
   conversationId: string,
   principal: AppPrincipal,
-  inputOrDb: { pageSize?: number; before?: number | null } | SalesDatabase = {},
-  database: SalesDatabase = getSalesDatabase(),
+  inputOrDb: { pageSize?: number; before?: number | null } | D1Database = {},
+  database: D1Database = getD1Database(),
 ): Promise<AiConversationMessagePage> {
-  const input = isSalesDatabase(inputOrDb) ? {} : inputOrDb;
-  const db = isSalesDatabase(inputOrDb) ? inputOrDb : database;
+  const input = isD1Database(inputOrDb) ? {} : inputOrDb;
+  const db = isD1Database(inputOrDb) ? inputOrDb : database;
   const conversation = await requireConversationAccess(conversationId, principal, db);
   const pageSize = requireBoundedPositiveInteger(input.pageSize, AI_MESSAGE_PAGE_SIZE_DEFAULT, AI_MESSAGE_PAGE_SIZE_MAX, "pageSize");
   const before = input.before === null || input.before === undefined
@@ -933,7 +1757,7 @@ export async function listConversationMessages(
 
 export async function listConversationContextMessages(
   conversationId: string,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
   limit = 24,
 ): Promise<AiConversationMessage[]> {
   await ensureAiAssistantSchema(db);
@@ -958,7 +1782,7 @@ export async function listConversationContextMessages(
   return (rows.results ?? []).map(mapConversationMessage);
 }
 
-export async function recordAiChannelCallbackEvent(input: { channelId: string; eventKey: string; payloadDigest: string }, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+export async function recordAiChannelCallbackEvent(input: { channelId: string; eventKey: string; payloadDigest: string }, db: D1Database = getD1Database()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
   const result = await db.prepare(
     `INSERT INTO ai_channel_callback_events (id, channel_id, event_key, payload_digest)
@@ -969,11 +1793,11 @@ export async function recordAiChannelCallbackEvent(input: { channelId: string; e
 }
 
 export async function resolveChatModel(
-  input?: { modelId?: string | null; allowFallback?: boolean } | SalesDatabase,
-  database: SalesDatabase = getSalesDatabase(),
-): Promise<AiTextModelRuntimeConfig | null> {
-  const db = isSalesDatabase(input) ? input : database;
-  const options = isSalesDatabase(input) ? undefined : input;
+  input?: { modelId?: string | null; allowFallback?: boolean } | D1Database,
+  database: D1Database = getD1Database(),
+): Promise<VersionedAiTextModelRuntimeConfig | null> {
+  const db = isD1Database(input) ? input : database;
+  const options = isD1Database(input) ? undefined : input;
   await ensureAiAssistantSchema(db);
   const modelId = options?.modelId?.trim();
   if (modelId) {
@@ -996,7 +1820,7 @@ export async function resolveChatModel(
   return fallback ? mapAiTextModelRuntime(fallback) : null;
 }
 
-export async function testAiModelConnection(modelId: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
+export async function testAiModelConnection(modelId: string, db: D1Database = getD1Database()): Promise<{ ok: true; message: string }> {
   const model = await getAiModelSecretById(modelId, db);
   if (!model) throw new Error("模型不存在");
   try {
@@ -1014,7 +1838,7 @@ export async function testAiModelConnection(modelId: string, db: SalesDatabase =
   }
 }
 
-export async function sendAiChannelText(channelId: string, content: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
+export async function sendAiChannelText(channelId: string, content: string, db: D1Database = getD1Database()): Promise<{ ok: true; message: string }> {
   const channel = await getAiChannelSecretById(channelId, db);
   if (!channel) throw new Error("渠道不存在");
   if (channel.status !== "enabled") throw new Error("渠道已停用");
@@ -1064,7 +1888,7 @@ export async function sendAiChannelText(channelId: string, content: string, db: 
   return { ok: true, message: "渠道消息已发送" };
 }
 
-export async function testAiChannelConnection(channelId: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
+export async function testAiChannelConnection(channelId: string, db: D1Database = getD1Database()): Promise<{ ok: true; message: string }> {
   try {
     const result = await sendAiChannelText(channelId, "TERUISI AI 助理渠道连接测试", db);
     await setChannelTestResult(channelId, "连接成功", db);
@@ -1084,12 +1908,19 @@ export async function generateAssistantReply(input: {
   surface?: AiToolExecutionContext["surface"];
   signal?: AbortSignal;
   systemPrompt?: string;
-}, db: SalesDatabase = getSalesDatabase()): Promise<AiAssistantReply> {
+  /** Untrusted, request-local data appended to the latest user message only. Never persisted. */
+  runtimeUserContext?: string;
+  beforeProviderRequest?: () => Promise<void>;
+  persistAssistantMessage?: (message: { id: string; content: string }) => Promise<void>;
+}, db: D1Database = getD1Database()): Promise<AiAssistantReply> {
   const startedAt = Date.now();
   const requestId = input.requestId ?? `ai-chat-${randomUUID()}`;
   const surface = input.surface ?? "ai_chat";
   try {
-    const messages = await listConversationContextMessages(input.conversationId, db, 24);
+    const messages = appendRuntimeUserContext(
+      await listConversationContextMessages(input.conversationId, db, 24),
+      input.runtimeUserContext,
+    );
     const toolContext: AiToolExecutionContext = {
       principal: input.principal,
       requestId,
@@ -1122,9 +1953,23 @@ export async function generateAssistantReply(input: {
       tools,
       executeTool,
       signal: input.signal,
+      beforeProviderRequest: input.beforeProviderRequest,
     });
     if (!reply) throw new Error("模型未返回内容");
-    const messageId = await appendConversationMessage(input.conversationId, "assistant", reply, "message", db);
+    const persistedReply = normalizeMessageContent(reply, MAX_MESSAGE_LENGTH);
+    if (!persistedReply) throw new Error("模型未返回内容");
+    const messageId = `ai-msg-${randomUUID()}`;
+    if (input.persistAssistantMessage) {
+      await input.persistAssistantMessage({ id: messageId, content: persistedReply });
+    } else {
+      await appendConversationMessageWithId({
+        id: messageId,
+        conversationId: input.conversationId,
+        role: "assistant",
+        content: persistedReply,
+        messageKind: "message",
+      }, db);
+    }
     let artifacts: AiTableArtifact[] = [];
     try {
       artifacts = await persistAiTableArtifacts({
@@ -1156,9 +2001,9 @@ export async function generateAssistantReply(input: {
       arguments: { conversationId: input.conversationId, promptCharacters: input.prompt.length },
       status: "succeeded",
       durationMs: Date.now() - startedAt,
-      result: { reply, artifactCount: artifacts.length },
+      result: { reply: persistedReply, artifactCount: artifacts.length },
     });
-    return { reply, messageId, artifacts };
+    return { reply: persistedReply, messageId, artifacts };
   } catch (error) {
     await recordAiToolAudit({
       requestId,
@@ -1175,12 +2020,27 @@ export async function generateAssistantReply(input: {
   }
 }
 
+export function appendRuntimeUserContext(
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+  runtimeUserContext: string | undefined,
+) {
+  const context = runtimeUserContext?.trim().slice(0, 6_000) ?? "";
+  if (!context) return messages.map((message) => ({ role: message.role, content: message.content }));
+  const output = messages.map((message) => ({ role: message.role, content: message.content }));
+  for (let index = output.length - 1; index >= 0; index -= 1) {
+    if (output[index]?.role !== "user") continue;
+    output[index] = { ...output[index]!, content: `${output[index]!.content}\n\n${context}` };
+    return output;
+  }
+  return [...output, { role: "user" as const, content: context }];
+}
+
 export async function generateConfiguredAnalysisReply(input: {
   prompt: string;
   principal: AppPrincipal;
   requestId: string;
   auditArguments: Record<string, unknown>;
-}, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+}, db: D1Database = getD1Database()): Promise<string> {
   const startedAt = Date.now();
   const model = await resolveChatModel(db);
   if (!model) throw new Error("尚未配置可用的文本模型。请由管理员先在“AI 助理”中新增、启用并测试文本模型；客服数据导入不受影响。");
@@ -1207,21 +2067,28 @@ export async function generateConfiguredAnalysisReply(input: {
   }
 }
 
-async function getAiModelSecretById(id: string, db: SalesDatabase): Promise<AiModelRow | null> {
+async function getAiModelSecretById(id: string, db: D1Database): Promise<AiModelRow | null> {
   await ensureAiAssistantSchema(db);
   return db.prepare(
     `SELECT ${modelSelectColumns} FROM ai_models WHERE id = ? LIMIT 1`,
   ).bind(id).first<AiModelRow>();
 }
 
-async function getAiChannelRowById(id: string, db: SalesDatabase): Promise<AiChannelRow | null> {
+async function getAiChannelRowById(id: string, db: D1Database): Promise<AiChannelRow | null> {
   await ensureAiAssistantSchema(db);
   return db.prepare(
     "SELECT id, name, kind, status, send_enabled, callback_enabled, webhook_url, callback_token_encrypted, callback_token_suffix, aes_key_encrypted, aes_key_suffix, receiver_id, last_test_result, last_tested_at, created_at, updated_at FROM ai_channels WHERE id = ? LIMIT 1",
   ).bind(id).first<AiChannelRow>();
 }
 
-function normalizeAiModelInput(input: AiModelInput) {
+function normalizeAiModelInput(input: AiModelInput, endpointSecurityContext: AiEndpointSecurityContext) {
+  const id = optionalId(input.id);
+  const expectedVersion = id
+    ? requireAiModelExpectedVersion(input.expectedVersion)
+    : undefined;
+  if (!id && input.expectedVersion !== undefined) {
+    throw new PublicApiError(400, "invalid_request", "新增模型不能携带 expectedVersion。");
+  }
   const protocol = asModelProtocol(input.protocol);
   const modelType = asModelType(input.modelType);
   const status = asModelStatus(input.status);
@@ -1234,12 +2101,15 @@ function normalizeAiModelInput(input: AiModelInput) {
   if (!name || !modelName) throw new Error("模型名称和模型标识不能为空");
   const apiKey = input.apiKey?.trim() || undefined;
   return {
-    id: optionalId(input.id),
+    id,
+    expectedVersion,
     name,
     protocol,
     modelType,
     modelName,
-    baseUrl: input.baseUrl === undefined ? undefined : normalizeAiModelEndpointForStorage(input.baseUrl),
+    baseUrl: input.baseUrl === undefined
+      ? undefined
+      : normalizeAiModelEndpointForStorage(input.baseUrl, endpointSecurityContext),
     apiKey,
     status,
     isDefaultTextModel: Boolean(input.isDefaultTextModel),
@@ -1277,6 +2147,7 @@ function normalizeAiChannelInput(input: AiChannelInput): Required<Omit<AiChannel
 function mapAiModelRecord(row: AiModelRow): AiModelRecord {
   return {
     id: row.id,
+    version: row.version,
     name: row.name,
     protocol: asModelProtocol(row.protocol),
     modelType: asModelType(row.model_type),
@@ -1319,6 +2190,45 @@ function mapAiChannelRecord(row: AiChannelRow): AiChannelRecord {
 
 function mapConversationRecord(row: AiConversationRow): AiConversationRecord {
   return { id: row.id, title: row.title, modelId: row.model_id, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+function parseAiChatReceiptResult(row: AiChatRequestReceiptRow): AiChatRequestReceiptResult {
+  let parsed: unknown;
+  try {
+    parsed = row.result_json ? JSON.parse(row.result_json) : null;
+  } catch {
+    throw new PublicApiError(503, "service_unavailable", "聊天请求回执损坏，已阻止重复调用模型。");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new PublicApiError(503, "service_unavailable", "聊天请求回执不完整，已阻止重复调用模型。");
+  }
+  const value = parsed as Record<string, unknown>;
+  const outcome = value.outcome;
+  const modelId = value.modelId;
+  if (
+    typeof value.conversationId !== "string"
+    || value.conversationId !== row.conversation_id
+    || typeof value.reply !== "string"
+    || value.reply.length > MAX_MESSAGE_LENGTH
+    || (modelId !== null && typeof modelId !== "string")
+    || (outcome !== "answered" && outcome !== "context_reset" && outcome !== "help")
+    || typeof value.assistantMessageId !== "string"
+    || value.assistantMessageId !== row.assistant_message_id
+  ) {
+    throw new PublicApiError(503, "service_unavailable", "聊天请求回执不完整，已阻止重复调用模型。");
+  }
+  return {
+    conversationId: value.conversationId,
+    reply: value.reply,
+    modelId,
+    outcome,
+    assistantMessageId: value.assistantMessageId,
+  };
+}
+
+function normalizeReceiptErrorCode(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_").slice(0, 80);
+  return normalized || "unknown_error";
 }
 
 function mapConversationMessage(row: AiConversationMessageRow): AiConversationMessage {
@@ -1378,9 +2288,12 @@ function truncateUtf8(value: string, maximumBytes: number): {
   };
 }
 
-function mapAiTextModelRuntime(row: AiModelRow): AiTextModelRuntimeConfig {
+export type VersionedAiTextModelRuntimeConfig = AiTextModelRuntimeConfig & { version: number };
+
+function mapAiTextModelRuntime(row: AiModelRow): VersionedAiTextModelRuntimeConfig {
   return {
     id: row.id,
+    version: row.version,
     name: row.name,
     protocol: asModelProtocol(row.protocol),
     modelName: row.model_name,
@@ -1475,12 +2388,12 @@ function boundedInteger(value: number | undefined, fallback: number, minimum: nu
   return normalized;
 }
 
-function isSalesDatabase(value: unknown): value is SalesDatabase {
+function isD1Database(value: unknown): value is D1Database {
   return Boolean(value && typeof value === "object" && "prepare" in value && typeof value.prepare === "function");
 }
 
 async function addMissingColumns(
-  db: SalesDatabase,
+  db: D1Database,
   table: string,
   columns: ReadonlyArray<readonly [name: string, definition: string]>,
 ): Promise<void> {
@@ -1498,16 +2411,23 @@ function optionalId(value: string | undefined): string | undefined {
   return id;
 }
 
+function requireAiModelExpectedVersion(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new PublicApiError(400, "invalid_request", "expectedVersion 必须为 JSON 安全正整数。");
+  }
+  return value;
+}
+
 function maskSuffix(value: string): string {
   return value ? `••••${value.slice(-4)}` : "";
 }
 
-async function setModelTestResult(id: string, result: string, db: SalesDatabase): Promise<void> {
+async function setModelTestResult(id: string, result: string, db: D1Database): Promise<void> {
   await db.prepare("UPDATE ai_models SET last_test_result = ?, last_tested_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(result.slice(0, 300), id).run();
 }
 
-async function setChannelTestResult(id: string, result: string, db: SalesDatabase): Promise<void> {
+async function setChannelTestResult(id: string, result: string, db: D1Database): Promise<void> {
   await db.prepare("UPDATE ai_channels SET last_test_result = ?, last_tested_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(result.slice(0, 300), id).run();
 }

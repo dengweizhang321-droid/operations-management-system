@@ -5,6 +5,7 @@ export type AppCurrentUser = {
   displayName: string;
   role: "viewer" | "analyst" | "operator" | "admin";
   roleLabel: string;
+  scopeRestricted?: boolean;
 };
 
 export type AppNavigate = (key: ModuleKey, importSource?: ImportSourceKey) => void;

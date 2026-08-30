@@ -15,6 +15,15 @@ import {
 import { parsePositiveIntegerQuery, PublicApiError, requirePositiveSafeIntegerNumber, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FINANCE_TARGET_AMOUNT_CENTS = 10_000_000_000_000;
+type FinanceTargetReadView = "full" | "items" | "options";
+
+function readFinanceTargetView(values: string[]): FinanceTargetReadView {
+  if (values.length === 0) return "full";
+  if (values.length !== 1 || !(["full", "items", "options"] as const).includes(values[0] as FinanceTargetReadView)) {
+    throw new PublicApiError(400, "invalid_request", "view 必须且只能是 full、items 或 options");
+  }
+  return values[0] as FinanceTargetReadView;
+}
 
 function finiteInteger(value: unknown, field: string, maximum = MAX_FINANCE_TARGET_AMOUNT_CENTS) {
   const number = value === undefined ? 0 : value;
@@ -67,16 +76,23 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "经营目标");
     const params = new URL(request.url).searchParams;
+    const view = readFinanceTargetView(params.getAll("view"));
     const page = parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000);
     const pageSize = parsePositiveIntegerQuery(params.get("pageSize"), 50, "pageSize", 100);
     const db = getFinanceDatabase();
     await ensureFinanceSchema(db);
+    if (view === "items") {
+      return Response.json(await listFinanceTargets(db, { page, pageSize }), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "options") {
+      return Response.json({ options: await getFinanceTargetOptions(db, principal, { signal: request.signal }) }, { headers: { "cache-control": "no-store" } });
+    }
     const [targets, options] = await Promise.all([
       listFinanceTargets(db, {
         page,
         pageSize,
       }),
-      getFinanceTargetOptions(db),
+      getFinanceTargetOptions(db, principal, { signal: request.signal }),
     ]);
     return Response.json({ ...targets, options }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

@@ -1,7 +1,7 @@
 import {
-  getSalesDatabase,
-  type SalesDatabase,
-} from "@/lib/sales/database";
+  getD1Database,
+  type D1Database,
+} from "@/lib/database/d1";
 import type { InventoryStockRow } from "@/lib/imports/inventory-stock";
 import {
   importReservationCommitFence,
@@ -14,7 +14,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const INVENTORY_IMPORT_SOURCE = "吉客云 ERP · 分仓库存查询";
 const INVENTORY_IMPORT_CHUNK_SIZE = 300;
 
-export type InventoryDatabase = SalesDatabase;
+export type InventoryDatabase = D1Database;
 
 export type InventoryImportIssue = {
   row?: number;
@@ -96,6 +96,9 @@ export type ReplenishmentPlanQuery = {
   includeCancelled?: boolean;
   query?: string;
   warehouse?: string;
+  warehouses?: string[];
+  brands?: string[];
+  categories?: string[];
 };
 
 export class ReplenishmentPlanTransitionError extends Error {
@@ -224,7 +227,7 @@ const schemaStatements = [
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export function getInventoryDatabase(): InventoryDatabase {
-  return getSalesDatabase();
+  return getD1Database();
 }
 
 export async function ensureInventorySchema(db = getInventoryDatabase()): Promise<void> {
@@ -568,29 +571,82 @@ export async function listReplenishmentPlans(
   return result.items;
 }
 
+export async function getReplenishmentPlanById(
+  db: InventoryDatabase,
+  id: string,
+): Promise<ReplenishmentPlanItem | null> {
+  const row = await db.prepare(
+    `SELECT ${planColumns}
+     FROM replenishment_plan_items
+     WHERE id = ?
+     LIMIT 1`,
+  ).bind(id).first<PlanRow>();
+  return row ? mapPlan(row) : null;
+}
+
+function uniquePlanFilterValues(values: readonly string[] | undefined, maximum: number) {
+  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, maximum);
+}
+
+function buildReplenishmentPlanScopeFilter(
+  options: Pick<ReplenishmentPlanQuery, "query" | "warehouse" | "warehouses" | "brands" | "categories">,
+) {
+  const clauses: string[] = [];
+  const values: string[] = [];
+  const query = options.query?.trim().slice(0, 100);
+  if (query) {
+    const keywords = uniquePlanFilterValues(query.split(/[\s,，;；]+/), 8).map((value) => value.toLowerCase());
+    if (keywords.length > 0) {
+      clauses.push(`(${keywords.map(() => "(INSTR(LOWER(product_code), ?) > 0 OR INSTR(LOWER(product_name), ?) > 0 OR INSTR(LOWER(warehouse), ?) > 0)").join(" OR ")})`);
+      for (const keyword of keywords) values.push(keyword, keyword, keyword);
+    }
+  }
+  const warehouses = uniquePlanFilterValues([
+    ...(options.warehouses ?? []),
+    ...(options.warehouse ? [options.warehouse] : []),
+  ], 10);
+  if (warehouses.length > 0) {
+    clauses.push("warehouse IN (SELECT value FROM json_each(?))");
+    values.push(JSON.stringify(warehouses));
+  }
+  const brands = uniquePlanFilterValues(options.brands, 20);
+  if (brands.length > 0) {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM inventory_stock_lines plan_stock
+      WHERE plan_stock.batch_id = replenishment_plan_items.source_batch_id
+        AND plan_stock.product_code = replenishment_plan_items.product_code
+        AND plan_stock.warehouse = replenishment_plan_items.warehouse
+        AND COALESCE(NULLIF(TRIM(plan_stock.brand), ''), '') IN (SELECT value FROM json_each(?))
+    )`);
+    values.push(JSON.stringify(brands));
+  }
+  const categories = uniquePlanFilterValues(options.categories, 20);
+  if (categories.length > 0) {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM inventory_stock_lines plan_stock
+      WHERE plan_stock.batch_id = replenishment_plan_items.source_batch_id
+        AND plan_stock.product_code = replenishment_plan_items.product_code
+        AND plan_stock.warehouse = replenishment_plan_items.warehouse
+        AND COALESCE(NULLIF(TRIM(plan_stock.category), ''), '未分类') IN (SELECT value FROM json_each(?))
+    )`);
+    values.push(JSON.stringify(categories));
+  }
+  return { clauses, values };
+}
+
 export async function queryReplenishmentPlans(
   db: InventoryDatabase,
   options: ReplenishmentPlanQuery = {},
 ) {
   const { page, pageSize } = normalizeInventoryPagination(options);
-  const clauses: string[] = [];
-  const values: Array<string | number> = [];
+  const scope = buildReplenishmentPlanScopeFilter(options);
+  const clauses = [...scope.clauses];
+  const values: Array<string | number> = [...scope.values];
   if (options.status) {
     clauses.push("status = ?");
     values.push(options.status);
   } else if (!options.includeCancelled) {
     clauses.push("status <> 'cancelled'");
-  }
-  const query = options.query?.trim().slice(0, 100);
-  if (query) {
-    const keyword = `%${query.toLowerCase()}%`;
-    clauses.push("(LOWER(product_code) LIKE ? OR LOWER(product_name) LIKE ? OR LOWER(warehouse) LIKE ?)");
-    values.push(keyword, keyword, keyword);
-  }
-  const warehouse = options.warehouse?.trim().slice(0, 100);
-  if (warehouse) {
-    clauses.push("warehouse = ?");
-    values.push(warehouse);
   }
   const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
   const [result, countRow] = await Promise.all([
@@ -623,7 +679,13 @@ export async function queryReplenishmentPlans(
   };
 }
 
-export async function getReplenishmentPlanSummary(db: InventoryDatabase, currentBatchId: string | null) {
+export async function getReplenishmentPlanSummary(
+  db: InventoryDatabase,
+  currentBatchId: string | null,
+  options: Pick<ReplenishmentPlanQuery, "query" | "warehouse" | "warehouses" | "brands" | "categories"> = {},
+) {
+  const scope = buildReplenishmentPlanScopeFilter(options);
+  const where = scope.clauses.length > 0 ? `WHERE ${scope.clauses.join(" AND ")}` : "";
   const row = await db.prepare(
     `SELECT
        COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft_count,
@@ -633,8 +695,9 @@ export async function getReplenishmentPlanSummary(db: InventoryDatabase, current
        COALESCE(SUM(CASE
          WHEN status IN ('draft', 'confirmed') OR (status = 'completed' AND source_batch_id = ?)
          THEN planned_quantity ELSE 0 END), 0) AS active_quantity
-     FROM replenishment_plan_items`,
-  ).bind(currentBatchId ?? "").first<{
+     FROM replenishment_plan_items
+     ${where}`,
+  ).bind(currentBatchId ?? "", ...scope.values).first<{
     draft_count: number;
     confirmed_count: number;
     completed_count: number;

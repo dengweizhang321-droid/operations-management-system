@@ -1,5 +1,5 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 export type AiConversationAccessRecord = {
   createdBy: string;
@@ -20,7 +20,7 @@ export function isAiChatCapableModelType(value: string): value is "text" | "visi
 
 export async function deleteAiConversationData(
   conversationId: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const results = await db.batch([
     db.prepare("DELETE FROM ai_artifacts WHERE conversation_id = ?").bind(conversationId),

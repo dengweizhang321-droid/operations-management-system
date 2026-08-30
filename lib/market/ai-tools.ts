@@ -4,15 +4,20 @@ import {
   getMarketPendingReviewSummaryForAi,
   getMarketPriceBandAnalysisForAi,
 } from "@/lib/market/admin-service";
+import type { AppPrincipal } from "@/lib/auth/authorization";
 
-export async function callMarketTool(name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function callMarketTool(
+  name: string,
+  args: Record<string, unknown>,
+  principal: AppPrincipal,
+): Promise<Record<string, unknown>> {
   const { getMarketDatabase, getMarketItemTrend } = await import("@/lib/market/database");
   const { ensureMarketAdminSchema } = await import("@/lib/market/admin-service");
   const db = getMarketDatabase();
   await ensureMarketAdminSchema(db);
-  if (name === "get_market_overview") return getMarketOverviewForAi(db, args);
-  if (name === "get_market_brand_analysis") return getMarketBrandAnalysisForAi(db, args);
-  if (name === "get_market_price_band_analysis") return getMarketPriceBandAnalysisForAi(db, args);
+  if (name === "get_market_overview") return getMarketOverviewForAi(db, args, principal);
+  if (name === "get_market_brand_analysis") return getMarketBrandAnalysisForAi(db, args, principal);
+  if (name === "get_market_price_band_analysis") return getMarketPriceBandAnalysisForAi(db, args, principal);
   if (name === "get_market_pending_review_summary") return getMarketPendingReviewSummaryForAi(db, args);
   if (name === "get_market_sku_trend") {
     const skuCode = stringArg(args.skuCode, "skuCode", 80);

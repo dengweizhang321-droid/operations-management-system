@@ -31,13 +31,13 @@ test("销售 tab 切换保留公共筛选查询参数", () => {
 });
 
 test("销售各分析页由同一父级筛选状态驱动，品类页不再拥有公共 URL 字段", async () => {
-  const [page, category] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  const [sales, category] = await Promise.all([
+    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/sales-category-view.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<SalesFilterBar filters=\{filters\}/);
-  assert.match(page, /SalesCategoryView[\s\S]*filters=\{filters\}[\s\S]*onFiltersChange=\{updateFilters\}/);
-  assert.match(page, /FinanceAnalysisView[\s\S]*selectedPlatforms=\{filters\.platforms\}[\s\S]*selectedShopKeys=\{filters\.outletKeys\}/);
+  assert.match(sales, /<SalesFilterBar filters=\{filters\}/);
+  assert.match(sales, /SalesCategoryView[\s\S]*filters=\{filters\}[\s\S]*onFiltersChange=\{updateFilters\}/);
+  assert.match(sales, /FinanceAnalysisView[\s\S]*selectedPlatforms=\{filters\.platforms\}[\s\S]*selectedShopKeys=\{filters\.outletKeys\}/);
   assert.doesNotMatch(category.slice(category.indexOf("const categoryOwnedUrlKeys"), category.indexOf("] as const;")), /salesPlatform|salesOutlet|salesCategory"|salesProductQuery/);
 });

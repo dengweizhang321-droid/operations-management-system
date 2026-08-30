@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 import {
   createOperationRecord,
   deleteOperationRecord,
@@ -204,7 +204,7 @@ test("migration and API routes preserve schema, role and no-store contracts", as
   for (const route of [collectionRoute, itemRoute, activityRoute]) assert.match(route, /cache-control[\s\S]*no-store/);
 });
 
-function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
+function sqliteAdapter(sqlite: DatabaseSync): D1Database {
   return {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -227,5 +227,5 @@ function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
         throw error;
       }
     },
-  } as unknown as SalesDatabase;
+  } as unknown as D1Database;
 }

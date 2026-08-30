@@ -24,6 +24,8 @@ import {
   saveInventoryImport,
   type InventoryImportIssue,
 } from "@/lib/inventory/database";
+import { validateInventoryImportRows } from "@/lib/inventory/data-quality";
+import { readOperatingSettings } from "@/lib/settings/service";
 
 function toHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -170,10 +172,28 @@ export async function importInventoryStockBytes(input: {
   let excludedBrushWarehouseRows = 0;
   let excludedZeroCostRows = 0;
   const importRows: InventoryStockRow[] = [];
+  const qualityCandidateRows: InventoryStockRow[] = [];
   for (const row of parsed.rows) {
     if (row.warehouse.trim() === "刷刷仓") excludedBrushWarehouseRows += 1;
-    else if (row.unitCostCents <= 0) excludedZeroCostRows += 1;
-    else importRows.push(row);
+    else {
+      qualityCandidateRows.push(row);
+      if (row.unitCostCents <= 0) excludedZeroCostRows += 1;
+      else importRows.push(row);
+    }
+  }
+  const operatingSettings = await readOperatingSettings(db);
+  const qualityErrors = validateInventoryImportRows(qualityCandidateRows, {
+    allowNegativeInventory: operatingSettings.allowNegativeInventory,
+  });
+  if (qualityErrors.length > 0) {
+    return reject({
+      ok: false,
+      status: "rejected",
+      message: "库存数据质量门禁未通过，未写入任何库存数据",
+      warnings: [],
+      errors: qualityErrors.slice(0, 200),
+      errorCount: qualityErrors.length,
+    });
   }
   if (importRows.length === 0) {
     return reject({

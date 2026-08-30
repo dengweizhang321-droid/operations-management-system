@@ -1,5 +1,5 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { createWorkflowTaskComment, listWorkflowTaskComments } from "@/lib/workflow/collaboration";
 import { workflowErrorResponse } from "@/lib/workflow/errors";
 
@@ -8,7 +8,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项评论");
     const { taskId } = await context.params;
-    return Response.json({ items: await listWorkflowTaskComments(taskId, getSalesDatabase()) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ items: await listWorkflowTaskComments(taskId, getD1Database()) }, { headers: { "cache-control": "no-store" } });
   } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "读取评论失败"); }
 }
 export async function POST(request: Request, context: Context) {
@@ -16,6 +16,6 @@ export async function POST(request: Request, context: Context) {
     const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项评论"); const payload = await request.json().catch(() => null) as { content?: unknown } | null;
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) return Response.json({ error: "评论内容必须是有效的 JSON 对象" }, { status: 400 });
     const { taskId } = await context.params;
-    return Response.json({ item: await createWorkflowTaskComment(taskId, payload.content, principal.email, getSalesDatabase()) }, { status: 201, headers: { "cache-control": "no-store" } });
+    return Response.json({ item: await createWorkflowTaskComment(taskId, payload.content, principal.email, getD1Database()) }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "保存评论失败"); }
 }

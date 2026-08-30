@@ -32,12 +32,12 @@ const expectedViews = {
   market: { defaultView: "ranking", views: ["ranking", "overview", "compare", "settings"] },
   customer_service: { defaultView: "conversations", views: ["conversations"] },
   sales: { defaultView: "overview", views: ["overview", "channel", "category", "finance", "targets"] },
-  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale"] },
+  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale", "inbound"] },
   product: { defaultView: "overview", views: ["overview", "calculator"] },
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "continuity"] },
   settings: { defaultView: "parameters", views: ["parameters", "master", "permissions"] },
-  ai: { defaultView: "assistant", views: ["assistant"] },
+  ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "sandbox", "space", "management"] },
 } as const;
 
 test("module view registry covers every shell module with a unique, legal default", () => {

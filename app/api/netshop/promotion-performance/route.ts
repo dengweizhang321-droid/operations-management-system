@@ -7,7 +7,7 @@ import {
 } from "@/lib/netshop/database";
 import {
   NETSHOP_QUERY_MAX_PAGE,
-  NETSHOP_QUERY_MAX_PAGE_SIZE,
+  NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE,
   NetshopQueryError,
   netshopQueryErrorPayload,
   readNetshopOutletFilters,
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal();
     const params = new URL(request.url).searchParams;
     const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
-    const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
+    const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 20, 1, NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE);
     const period = resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
     if (params.has("shop")) {
       throw new NetshopQueryError("invalid_outlet_filter", "店铺筛选必须使用 outlet 平台与店铺复合键");
