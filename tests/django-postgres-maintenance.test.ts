@@ -117,6 +117,7 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.doesNotMatch(pgCtlStartBlock, /Start-Process[^\r\n]*\s-Wait(?:\s|$)/);
   assert.match(restoreBlock, /initdb\.exe/);
   assert.match(restoreBlock, /createuser\.exe/);
+  assert.doesNotMatch(script, /createuser[\s\S]{0,800}--dbname/);
   assert.match(restoreBlock, /rehearsals\\postgres-restore/);
   assert.match(restoreBlock, /--auth-host=scram-sha-256/);
   assert.match(restoreBlock, /-h 127\.0\.0\.1/);

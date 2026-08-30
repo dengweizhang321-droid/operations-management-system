@@ -706,7 +706,7 @@ function Initialize-MaintenanceRehearsalRoles(
     }
     $roleRun = Invoke-BoundedNativeProcess $CreateUser @(
       "--host=127.0.0.1", "--port=$Port", "--username=postgres",
-      "--dbname=postgres", "--no-password", "--no-login",
+      "--no-password", "--no-login",
       "--no-superuser", "--no-createdb", "--no-createrole",
       "--no-replication", "--no-bypassrls", $roleName
     ) $WorkingDirectory
