@@ -65,6 +65,7 @@ type MarketIndustryReport = {
 };
 type MarketOverview = {
   view: "ranking" | "full";
+  salesRevision: string;
   summary: {
     productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;
     ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;

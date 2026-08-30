@@ -165,6 +165,7 @@ function validSystemKpiPayload(seed = 0) {
 function validMarketOverviewPayload(view: "ranking" | "full" = "ranking", seed = 0) {
   return {
     view,
+    salesRevision: "sales:test:1",
     summary: {
       productCount: seed, categoryCount: 0, brandCount: 0, gmvCents: 0, quantity: 0,
       pageViews: 0, visitors: 0, ownProductCount: 0, activeSkuCount: 0, pendingAiCount: 0,
