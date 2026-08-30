@@ -2,7 +2,7 @@
 
 本文定义销售域从旧存储切换到 Django/PostgreSQL 的终态契约、执行顺序、验收门禁和恢复边界，并记录当前本机已经完成的不可逆切换证据。
 
-> 当前状态：2026-08-29/30，当前 Windows 主机的销售域已完成 Django/PostgreSQL 单写切换和 D1 销售对象退役，cutover ID 为 `sales-pg-20260829T204417Z-d9896e904d8092cb`。PostgreSQL 已是销售读写唯一权威，D1 不再是销售写入、读取、容灾或回滚来源。第 5、7、11、12 节保留为本次过程说明及新环境重建模板，不表示当前本机仍等待执行；本机终态证据见第 13 节，最终 Worker 发布、全量测试和性能复核已补录于第 13.3 节。该结论不扩大到远程生产、高可用、ERP 权威来源或其他业务域。
+> 当前状态：2026-08-29/30，当前 Windows 主机的销售域已完成 Django/PostgreSQL 单写切换和 D1 销售对象退役，cutover ID 为 `sales-pg-20260829T204417Z-d9896e904d8092cb`。PostgreSQL 已是销售读写唯一权威，D1 不再是销售写入、读取、容灾或回滚来源。2026-08-31 又完成财务正式切换和销售五个 Tab 的整体验收；本机最新运行证据见第 13.4 节。第 5、7、11、12 节保留为本次过程说明及新环境重建模板，不表示当前本机仍等待执行。该结论不扩大到远程生产、高可用、ERP 权威来源或其他业务域。
 
 ## 1. 最终所有权
 
@@ -197,7 +197,7 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 ### 9.2 写入、幂等与并发
 
-- Excel 解析、R2 分片、上传、暂存、提交、校验和落库回查走 Django writer；
+- Excel 解析由公开 Worker 的薄适配完成，原始分片字节、上传/暂存、提交、校验和落库回查全部走 Django writer/PostgreSQL；销售生产路径不得读写 R2；
 - 精确重复返回既有结果但新增本次重复尝试审计；
 - 同范围内容变化进行原子替换，被移除旧行不残留；
 - 冲突重复、零行、签名失败、解析失败和范围错误不创建事实或抢占范围状态；
@@ -362,7 +362,7 @@ D1 销售退役清单与验证:
 2026-08-30 已完成本机最终部署与复核：
 
 - Django 应用部署 fingerprint 为 `774936c5efe8365a370dc6b29a6110a3e97d3868a1a04e1ec879ff16a84f30c7`，`deployment.json` 原始 SHA-256 为 `4c828b2c740bcc41fe0f66920246a154d53a62c0335ded9574e1f702cb121cfd`，共 `1,652` 个应用文件。PostgreSQL、Django reader/writer、ERP bridge、runtime ACL 和登录启动项均通过受控 `Status`；reader/writer readiness 为 200。
-- 最终 Worker effective head 为 `20260830T020314Z-16b6c1b89ed012a9`，manifest SHA-256 `05574809aa2435c4b80032846e75d08c5d668ffdb370bb2d7bb538fdc223606b`，guard receipt `b7868197ac69a7599aed7930b58d4affaa4b799f3f2a946d0e2fee7184232a20`。正式 plan 为 `7e3f6d2cd0b220489bd0bbd7c235986687f8d886cc1f71ef699b83898e81c7ea`，successor `228e2c11dedf7c629a85fc0d82c03cd152ff43c87f4e450c625eb3cd6a81390e`，consumption `284aa6f909ab3ab113145acc3fb98e7a9bdb118afcaf89b312e781809c476417`，startup binding `98b76c730ad355d718f1a0863c6d86c1d09692006c3ddcb832b826b1a2b4fda5`。effective-head 链共有 `3` 个 successor，chain state `ce75e7a153e467d74f096cc938b18bd96ab2b619979653caead25f1427450316`。
+- 截至该轮复核的 Worker effective head 为 `20260830T020314Z-16b6c1b89ed012a9`，manifest SHA-256 `05574809aa2435c4b80032846e75d08c5d668ffdb370bb2d7bb538fdc223606b`，guard receipt `b7868197ac69a7599aed7930b58d4affaa4b799f3f2a946d0e2fee7184232a20`。正式 plan 为 `7e3f6d2cd0b220489bd0bbd7c235986687f8d886cc1f71ef699b83898e81c7ea`，successor `228e2c11dedf7c629a85fc0d82c03cd152ff43c87f4e450c625eb3cd6a81390e`，consumption `284aa6f909ab3ab113145acc3fb98e7a9bdb118afcaf89b312e781809c476417`，startup binding `98b76c730ad355d718f1a0863c6d86c1d09692006c3ddcb832b826b1a2b4fda5`。当时 effective-head 链共有 `3` 个 successor，chain state `ce75e7a153e467d74f096cc938b18bd96ab2b619979653caead25f1427450316`；后续 head 见第 13.4 节。
 - Worker 已在 PS5 与 pwsh 下回读为 `exact_release`，只监听 `127.0.0.1:3000`；helper 只监听 `127.0.0.1:5791` 且为 `ready/idle`。一次完整 Stop → 未放宽 full Verify → Start 回归通过并保持在线。首次和第二次启动后 `node_modules` 都保持 `29,932` 文件、SHA-256 `be8a030751e67e048becd5a5e52b09d132b574091632456e5498665832356b2c`，release 内无 `.mf`；Miniflare 缓存只写入 runtime 的 `cache\miniflare\cf.json`。
 - 启动事故根因及修复包括：pwsh 把 ISO JSON 字符串自动转为 `DateTime` 后触发递归规范化；supervisor prelaunch 递归启动 PowerShell `Status`，使其子探针被进程树策略误判；controller 写 receipt 与 supervisor 约 2 秒等待存在竞态；Miniflare 默认向 immutable `node_modules/.mf/cf.json` 写缓存。修复后使用保留 ISO 字符串的解析、Node 直接验证 create-only canonical receipt、15 秒有界握手与外层 CIM 二次核验，并把缓存固定到 release 外且校验重解析点/硬链接。旧缓存事故已隔离到 create-only incidents 目录，审计 SHA-256 为 `234d982349b585647d1ff3e27879007242aaf575bc479650fbafcdbfb8def1b6`，没有删除证据或放宽 verifier。
 - 最终前端/Worker 全量回归：feature build 后 `1,328/1,328`，combined build 后 `1,618` 通过、`4` 项预期跳过；两个 rendered HTML 套件均 `19/19`。Django `143/143`，`manage.py check` 和 `makemigrations --check --dry-run` 均通过。Worker release/rotation/PS5/pwsh 组合测试在 feature 与 combined 各 `56/56`，独立复审最终为 P0/P1/P2 全 `0`。
@@ -370,3 +370,12 @@ D1 销售退役清单与验证:
 - 性能门禁使用真实 Django reader、四个视图（full/dashboard/category/category-detail）和精确品类。366 天冷启动、并发 `1`、`1` 轮共 4 请求，整体 p95/p99/max 均为 `9,213.08 ms`，低于 10 秒冷启动上限；27 天热态、并发 `8`、`20` 轮共 640 请求，p95 `55.46 ms`、p99 `1,112.17 ms`、max `1,132.98 ms`；366 天热态同样 640 请求，p95 `168.05 ms`、p99 `189.37 ms`、max `216.92 ms`。三组 revision 均为 `8:5`，无阈值违规。
 - 最终现场仍为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 参照和 revision `8:5`；所有 processing/upload/staged/scope/attempt/write receipt 未决数为 0。以上只是验收时动态水位，不得固化为业务常量。
 - 本次只恢复本机 Worker/helper 与销售域运行时，没有触发任何天猫 A/B/C/P/M 业务节点；n8n `5678` 始终保持原进程在线。该完成状态仅覆盖当前 Windows 主机和销售域，不代表远程生产、高可用、任务队列或其他业务域已经迁移。
+
+### 13.4 2026-08-31 销售所有 Tab 与最新发布复核
+
+- 销售域 R2 清理审计 `sales-legacy-r2-cleanup-v1` 保持 `completed`：99 个销售上传会话元数据已纳入清理，92 个销售对象均逐一验证不存在，manifest ID 为 `3f2397a023e868c5398a61905b89217050acc34af8bc12e99acbbae2579d1a36`。该记录只证明销售域 R2 退出；市场图片、库存、工作流和其他未迁移范围继续使用全局 R2 binding。
+- 财务后端已按独立 authority 正式切换到 PostgreSQL/Django，`TERUISI_DJANGO_FINANCE_MODE=django`，因此“销售分析”中的销售总览、渠道分析、品类分析、财务分析和目标设置五个 Tab 均已走 Django/PostgreSQL 权威。财务的独立 cutover、D1 guard 和 PNR 见 `docs/DJANGO_FINANCE_MIGRATION.md`；它不改变销售 cutover ID 或 ERP bridge 边界。
+- 市场分析在销售消费者切换后的在线抽检暴露出严格缓存契约漏接 `salesRevision`，导致新鲜响应被错误拒绝为 503。修复后响应、前端类型和缓存校验统一携带该修订，定向 28 项测试通过，市场小分页接口恢复 200；没有修改市场事实或缓存 authority。
+- 最新 Worker effective head 为 `20260830T201224Z-0efa51b94c6abe47`，manifest SHA-256 `b47d9ac948d7fd9929596aadd9ab9e9467cf51105c9a049bde7365309c434509`，guard receipt `24af76ebf964fb833bd1ccfb92c1a45e34ebf905522a7a599dd9164d62a7978b`。批准 plan 为 `277045fe563e05f514c3f83a89eca3112b18b2071ccb96f8e77d74de3aa35c7d`，successor `7c874420e3436338e3f0214094eda4a1d63cf457c898ef982dad85e3477a18ca`，consumption `2c7dde0b93155f2e2ee31e29d514e5900a017a9b1f4d02cc5f3f54d61b553140`，startup binding `26d2891f5b08a0694adaccace8584db01fceaaac1f090665705aeb7a272f68d8`。effective-head 链共有 `9` 个 successor，chain state 为 `c6a0ca8cab496003b7771ad7b869936bcc8c48e03db4f6a9ab3db5e838b48881`；完整 Verify 在进程在线时返回 `exact_release`。
+- 发布后销售 summary（同时支撑总览与渠道）、品类分析、品类明细、财务分析、目标 items/options、销售与财务导入历史、销售数据健康均为 200；销售数据健康返回 `sales_single_write`。鉴权、库存、网店、市场、客服、工作流和商品汇总代表接口也均为 200，helper 为 `ready/idle`，四个 Django reader/writer readiness 均为 ready。
+- 最终源码验证为 Worker/领域测试共 `1,680` 项，其中 `1,676` 通过、`4` 项已退役 D1 销售路径预期跳过；rendered HTML `19/19`，Django `sales`、`erp_reference`、`finance` 共 `161/161`，`manage.py check` 与 `makemigrations --check --dry-run` 通过；Lint 为 `0` error、`9` 个既有 warning。

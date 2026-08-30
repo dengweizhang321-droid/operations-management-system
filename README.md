@@ -99,7 +99,7 @@ npm run dingtalk:robot:send -- --text "hello"
 
 后续业务域复用销售基础时必须遵守 [`docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`](docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md)。财务分析虽然位于“销售分析”页面内，但仍是独立数据所有权范围；其迁移不得修改销售 authority、销售事实、ERP bridge 或其他模块运行状态。销售 PostgreSQL 的不停服日常备份、独立端口恢复演练和受控保留规则见 [`docs/DJANGO_POSTGRES_OPERATIONS.md`](docs/DJANGO_POSTGRES_OPERATIONS.md)；Django runtime 的崩溃恢复、desired-state fencing 和主动健康告警见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。
 
-2026-08-30，月度财报 Django app、独立 reader/writer、导入幂等与审计、经营目标、只读消费者、历史迁移和单写 authority 已在隔离工作树、财务专用 D1 副本及临时 PostgreSQL 端口完成系统演练；真实快照为 3 个完成批次、19 个月和 40,233 条财报行。该结果只是上线前证据：本机正式 Worker/D1 仍是财务唯一权威，`TERUISI_DJANGO_FINANCE_MODE` 必须保持 `legacy`，未部署财务进程、未应用正式 D1 authority、未切换流量，也未改动已经完成的“销售分析 → 财务分析”前端模板。正式切换和 PNR 恢复边界见 [`docs/DJANGO_FINANCE_MIGRATION.md`](docs/DJANGO_FINANCE_MIGRATION.md)。
+2026-08-31，本机月度财报已完成 PostgreSQL/Django 正式单写切换，未改动已经完成的“销售分析 → 财务分析”前端模板。独立 `finance_reader`/`finance_writer` 固定监听 `127.0.0.1:8011/8012`，`TERUISI_DJANGO_FINANCE_MODE=django`；财报事实、导入幂等与审计、经营目标、读取和全局搜索中的财务来源均以 PostgreSQL 为唯一权威。正式迁移核对了 3 个完成批次、19 个月和 40,233 条财报行，cutover ID 为 `finance-pg-20260830T194437Z-184fdca41051401f`。切换已跨过 PNR，D1 财务对象只作为永久写保护下的审计材料保留，不得重新承担读写或回滚；恢复仅允许 PostgreSQL 备份恢复、兼容代码或审批过的前向修复。销售总览、渠道、品类、销售导入、ERP bridge 和其他模块的权威边界均未改变，正式证据与恢复边界见 [`docs/DJANGO_FINANCE_MIGRATION.md`](docs/DJANGO_FINANCE_MIGRATION.md)。
 
 销售数据运维可见性使用只读 `GET /api/sales/data-health`：仅 `operator/admin` 且无数据范围限制的账号可读取，返回 Django/PostgreSQL 单写来源、动态 sales/ERP revision、上海业务日期、销售覆盖起止日、距当前业务日的机械天数、是否覆盖昨天及最近成功批次。该接口不自行定义“过期”阈值，不读取 runtime 文件或凭据，也没有改动销售/财务页面模板。
 

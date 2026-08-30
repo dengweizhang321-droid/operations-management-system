@@ -8,7 +8,7 @@
 - `GET /api/finance/analysis`
 - `GET/POST/DELETE /api/finance/targets`
 
-截至 2026-08-30，Django 代码、历史迁移、权限隔离、单写切换和真实 HTTP 联调只在隔离环境完成。本机正式环境未部署财务 Django 进程、未修改正式 D1、未切换 Worker，财务唯一权威仍是 Worker/D1。销售 Django/PostgreSQL、ERP bridge、其他页面和自动化不属于本次切换单元。
+截至 2026-08-31，当前 Windows 主机已经完成财务正式切换。PostgreSQL 是财报事实、批次、月份、目标、导入幂等与审计、revision 和读写的唯一权威；独立 finance_reader/finance_writer 已上线，公开 Worker 固定为 `TERUISI_DJANGO_FINANCE_MODE=django`。D1 财务对象只作为永久写保护下的审计材料保留，不是读取、写入或回滚来源。切换未改动既有财务前端模板、销售 authority、销售事实、ERP bridge、其他页面或自动化；本机正式证据见第 10 节。
 
 ## 2. 目标拓扑
 
@@ -20,7 +20,7 @@
         -> PostgreSQL finance_*：唯一权威事实、revision、幂等和审计
 ```
 
-建议端口是财务专用保留值，正式配置前仍须检查占用。两个进程必须使用不同 URL 和不同数据库身份；不能共用销售的 `8001/8002` 进程或凭据。财务故障只使财务 API 失败关闭，不能改变销售、ERP 或其他模块的可用性。
+当前本机财务专用端口固定为 `8011/8012`。两个进程必须使用不同 URL 和不同数据库身份；不能共用销售的 `8001/8002` 进程或凭据。财务故障只使财务 API 失败关闭，不能改变销售、ERP 或其他模块的可用性。
 
 ## 3. 已实现契约
 
@@ -37,9 +37,9 @@
 
 | 模式 | 读取 | 写入 | 用途 |
 | --- | --- | --- | --- |
-| `legacy` | D1 | D1 | 当前正式默认 |
-| `shadow` | 返回 D1，后台脱敏摘要比较 Django | D1 | 上线前只读观察；禁止双写 |
-| `django` | finance_reader | finance_writer | authority 激活后的正式模式 |
+| `legacy` | D1 | D1 | 仅保留为切换前历史状态；当前本机禁止恢复 |
+| `shadow` | 返回 D1，后台脱敏摘要比较 Django | D1 | 仅限切换前只读观察；当前本机禁止恢复 |
+| `django` | finance_reader | finance_writer | 当前本机唯一正式模式 |
 
 reader/writer URL 必须不同。Django 模式遇到超时、重定向、签名错误、响应超限、非 JSON、revision 缺失或服务不可用时直接失败关闭，不查询或写回 D1。
 
@@ -59,12 +59,12 @@ python tools/finance_d1_rehearsal_snapshot.py `
 
 ```powershell
 cd backend
-python manage.py migrate_finance_from_d1 --source <finance-source.sqlite>
-python manage.py migrate_finance_from_d1 --source <finance-source.sqlite> --apply --approved-run-id <dry-run-id>
-python manage.py migrate_finance_from_d1 --source <finance-source.sqlite> --verify-only --approved-run-id <apply-run-id>
+python manage.py migrate_finance_from_d1 --source <finance-source.sqlite> --source-manifest <source-manifest.json>
+python manage.py migrate_finance_from_d1 --source <finance-source.sqlite> --source-manifest <source-manifest.json> --apply --approved-run-id <dry-run-id>
+python manage.py migrate_finance_from_d1 --source <finance-source.sqlite> --source-manifest <source-manifest.json> --verify-only --approved-run-id <apply-run-id>
 ```
 
-命令会拒绝：源与目标是同一文件、非只读源、schema 缺失、非 completed 批次、月份所有权不完整、进行中的导入、非 `d1` authority、零事实、超过行数上限、源在审批后变化、审批复用、目标回查不一致或生产角色不是 `migration_writer`。
+正式 `finance-d1-migration-v3` 运行必须消费快照工具生成的同一份 source manifest，并同时绑定快照 SHA-256、manifest SHA-256、财务业务摘要、规范化源路径和当时真实 D1 路径摘要。命令会拒绝：源与目标是同一文件、manifest 缺失或不匹配、非只读源、schema 缺失、非 completed 批次、月份所有权不完整、进行中的导入、非 `d1` authority、零事实、超过行数上限、源在审批后变化、审批复用、目标回查不一致、verify run 不属于精确真实 D1，或生产角色不是 `migration_writer`。
 
 早期批次若缺少现行内容指纹，或旧指纹已经与当前已发布事实分歧，迁移只从该批次当前拥有的完整月份和事实行按当前算法确定性重建。系统额外写入 `finance-legacy-audit-synthesis-v1` 审计，记录 `missing_source_fingerprint` 或 `source_fingerprint_diverged_from_current_facts`，并保留原始哈希；它不冒充原始导入尝试。
 
@@ -172,3 +172,26 @@ PNR 后的恢复只允许：兼容 Django/Worker 版本、PostgreSQL 备份/WAL/
 - 最新历史迁移的表计数、逐投影摘要和公开 API 新旧结果一致；迁移后新导入的 duplicate 行为一致。
 - 销售总览、渠道、品类、销售导入、ERP bridge、全局搜索中的非财务来源和其他导航模块回归通过。
 - 正式部署、Worker effective head、切换 receipt、备份/恢复证据和观察结果均已保存后，才能宣布财务迁移完成。
+
+## 10. 2026-08-31 本机正式切换记录
+
+本次只切换“销售分析 → 财务分析”的后端所有权；财务页面模板保持不变，销售、ERP 和其他业务域保持原权威与端口。正式结果如下：
+
+| 项目 | 正式结果 |
+| --- | --- |
+| 历史迁移 dry-run / apply / verify | `7f09c0417eb749139548fb520ad1a265` / `5fbc9cfc8f69429c90e07fa448b12d85` / `af76d860242440919caaa2069536fa57` |
+| 财务批次 / 月份 / 行 | 3 / 19 / 40,233 |
+| 目标 / 删除审计 / 尝试 / 指纹 / scope head | 0 / 0 / 4 / 3 / 1 |
+| 源快照摘要 | `53e90a02a4f48f0c4344537ab38b8bf86856f01062027dee32313173fe0f71b5` |
+| PostgreSQL 投影摘要 | `71b80db513c4fc8472d1a754654a66e7482ad3a69d882f2041179857763b3ec9` |
+| cutover ID | `finance-pg-20260830T194437Z-184fdca41051401f` |
+| authority epoch | `2154ae48-b359-4064-bfb0-91b4b5fee375` |
+| D1 authority 保护 | owner=`postgresql`、epoch=`3`、42 个永久写 guard；切换后 no-op 写探针被 `finance_write_authority_not_d1` 拒绝 |
+| D1 切换前备份 | 9,586,368,512 bytes；SHA-256 `41485e934a669d83b1b89236a2c4e7a2da5a163f016d10e8ae33a4d430a2330d` |
+| D1 authority receipt | `faaf28d70fc77159d1da4dba47beb565cc31c7bd37c9df0dc4d43a0448986611` |
+| PostgreSQL 在线备份 | `daily-20260830T170853Z-082d3fab7657`；manifest `f63039131e347e21baa794edd2f3d76e49b821577fe6c282005621f2b20eebbd` |
+| 独立恢复演练 | `4e375e8264bc`；恢复内容摘要与备份同为 `b0fe4a3cc630e645d329039071441f76d7060573796f58d381d7939378dbd3bd`，生产数据库和服务状态均未改变 |
+
+正式进程只监听 `127.0.0.1:8011/8012`，reader/writer readiness 和 `FinanceStatus` 均为 ready，`PostgreSQLAuthority=postgres`。公开 `/api/finance/analysis`、财务导入历史、目标 items/options 均通过；安全写侧以不存在目标的 DELETE 验证 writer 路由，按契约返回 404 且事务回滚，没有业务数据变更。销售总览/渠道、品类与明细、销售导入、数据健康，以及鉴权、库存、网店、市场、客服、工作流和商品汇总的发布后只读冒烟均为 200。
+
+切换已跨过 PNR。今后不得把 mode 改回 `legacy`/`shadow`，不得删除 guard 或让 D1 财务重新写入；D1 财务对象在独立退役审批前继续作为受保护审计材料。故障只允许按第 7 节使用 PostgreSQL 恢复、兼容版本或前向修复。
