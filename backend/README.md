@@ -99,6 +99,8 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 持续逻辑备份、备份复验、独立临时 PostgreSQL cluster 恢复演练和保留清理使用 `tools/django-postgres-maintenance.ps1`，详细门禁见[持续备份与隔离恢复手册](../docs/DJANGO_POSTGRES_OPERATIONS.md)。日常备份不会自动启停本机服务；恢复演练不得在生产 cluster 内创建、覆盖或删除数据库。
 
+受控进程守护使用 `tools/django-runtime-supervisor.ps1`，其 desired-state、停止竞态 fencing、恢复预算、主动探针、告警 outbox、安装与回退门禁见[运行守护手册](../docs/DJANGO_RUNTIME_SUPERVISION.md)。它只对明确停止的本 runtime 进程调用既有 `Start`；数据分歧、readiness 失败、端口冲突和所有权异常都不会触发自动重启。
+
 ## 当前本机终态记录
 
 本机 cutover `sales-pg-20260829T204417Z-d9896e904d8092cb` 已完成 PostgreSQL 单写激活及 D1 `0092` 销售对象退役；`0092` SHA-256 为 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`。正式切换快照为 `572,015` 条销售事实、`88` 个销售批次、`8,443` 条 ERP 参照和 revision `8:5`。这些是切换时水位，不是代码常量；当前查询仍须动态核验新鲜度。

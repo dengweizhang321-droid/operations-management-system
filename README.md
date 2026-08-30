@@ -89,7 +89,7 @@ npm run dingtalk:robot:send -- --text "hello"
 
 本机 cutover ID 为 `sales-pg-20260829T204417Z-d9896e904d8092cb`，`0092` SHA-256 为 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`。切换快照记录为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 参照与 revision `8:5`；这些只是该次验收水位，不是当前常量。PostgreSQL、Django reader/writer 仍只监听 `127.0.0.1:5432/8001/8002`。Worker bootstrap current/authority 仅是 append-only 链根和不可变切换证据，当前运行版本以经验证的 effective successor head 为准；当前 head 为 `20260830T020314Z-16b6c1b89ed012a9`，manifest SHA-256 为 `05574809aa2435c4b80032846e75d08c5d668ffdb370bb2d7bb538fdc223606b`，由正式 plan `7e3f6d2cd0b220489bd0bbd7c235986687f8d886cc1f71ef699b83898e81c7ea` 激活。后续 release 仍只能通过受控的 append-only successor 链前向发布，不得覆盖旧 release、attestation 或 forward-recovery。该结论仅适用于当前 Windows 主机和销售域，不代表远程生产、高可用或其他业务域已经迁移。迁移、运行、验证、备份审计和恢复边界见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
 
-后续业务域复用销售基础时必须遵守 [`docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`](docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md)。财务分析虽然位于“销售分析”页面内，但仍是独立数据所有权范围；其迁移不得修改销售 authority、销售事实、ERP bridge 或其他模块运行状态。销售 PostgreSQL 的不停服日常备份、独立端口恢复演练和受控保留规则见 [`docs/DJANGO_POSTGRES_OPERATIONS.md`](docs/DJANGO_POSTGRES_OPERATIONS.md)；该流程不会自动启停任何在线服务，也不会把演练数据恢复到生产库。
+后续业务域复用销售基础时必须遵守 [`docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`](docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md)。财务分析虽然位于“销售分析”页面内，但仍是独立数据所有权范围；其迁移不得修改销售 authority、销售事实、ERP bridge 或其他模块运行状态。销售 PostgreSQL 的不停服日常备份、独立端口恢复演练和受控保留规则见 [`docs/DJANGO_POSTGRES_OPERATIONS.md`](docs/DJANGO_POSTGRES_OPERATIONS.md)；该流程不会自动启停任何在线服务，也不会把演练数据恢复到生产库。Django runtime 的崩溃恢复、desired-state fencing 和主动健康告警见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)；仓库提供能力不代表当前本机已安装，启用必须在现有服务全健康且不中断运行的独立步骤中完成。
 
 ## 项目文档与长期信息
 

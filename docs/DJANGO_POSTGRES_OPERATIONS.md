@@ -111,3 +111,5 @@ D:\teruisi-runtime\django-sales\rehearsals\postgres-restore\restore-<RehearsalId
 维护 operator 和 Python helper 属于 Django runtime app 的不可变部署内容。发布前必须通过 PowerShell 5 解析、专项单测和完整回归；发布时不得顺带启动、停止或重启服务。发布后先执行 `Status` 和一轮人工 `Backup → Verify → RestoreRehearsal`，确认无服务状态变化，再单独审批每日备份调度。
 
 代码回退只回退 operator/helper 版本，不删除已经生成的备份或演练审计。销售数据恢复仍是独立审批操作；本工具不会自动把备份覆盖回生产库。
+
+进程崩溃恢复、desired-state fencing、主动 readiness 监控和本地告警 outbox 见 [`DJANGO_RUNTIME_SUPERVISION.md`](DJANGO_RUNTIME_SUPERVISION.md)。守护只处理本 Django runtime，不把备份失败或数据分歧转化为自动重启。

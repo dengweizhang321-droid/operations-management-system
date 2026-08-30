@@ -15,6 +15,8 @@ param(
   [string]$ApprovedPlanId = "",
   [string]$SmokeReceiptPath = "",
   [string]$SmokeReceiptSha256 = "",
+  [string]$SupervisorExpectedDesiredStateSha256 = "",
+  [switch]$Json,
   [switch]$Execute
 )
 
@@ -36,6 +38,8 @@ $RunDirectory = Join-Path $RuntimeRoot "run"
 $DjangoReaderPidPath = Join-Path $RunDirectory "django-reader.pid.json"
 $DjangoWriterPidPath = Join-Path $RunDirectory "django-writer.pid.json"
 $ErpReferenceSyncPidPath = Join-Path $RunDirectory "erp-reference-sync.pid.json"
+$DjangoSupervisorPidPath = Join-Path $RunDirectory "django-supervisor.pid.json"
+$SupervisorDesiredStatePath = Join-Path $RunDirectory "django-supervisor-desired-state.json"
 $RetirementAuditDirectory = Join-Path $RuntimeRoot "audits\sales-retirement"
 $RetirementOperator = Join-Path $InstalledAppRoot "tools\sales-d1-retirement.ts"
 $RetirementMigration = Join-Path $InstalledAppRoot "drizzle\0092_sales_domain_retirement.sql"
@@ -320,6 +324,39 @@ function Write-AtomicJson([string]$Path, [object]$Value) {
     Move-Item -LiteralPath $temporary -Destination $Path -Force
   } finally {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+  }
+}
+
+function Write-ServiceDesiredState([string]$DesiredState, [string]$Reason) {
+  if ($DesiredState -notin @("running", "stopped") -or
+      $Reason -cnotmatch "^[a-z][a-z0-9_]{2,63}$") {
+    throw "Django supervisor desired-state 参数无效"
+  }
+  Write-AtomicJson $SupervisorDesiredStatePath ([pscustomobject][ordered]@{
+    version = "teruisi-django-supervisor-desired-state-v1"
+    desiredState = $DesiredState
+    reason = $Reason
+    updatedAt = [DateTimeOffset]::UtcNow.ToString("o")
+    serviceScriptSha256 = Get-FileSha256 $PSCommandPath
+  })
+}
+
+function Assert-SupervisorStartFence([string]$ExpectedSha256) {
+  if ($ExpectedSha256 -cnotmatch "^[0-9a-f]{64}$" -or
+      (Get-FileSha256 $SupervisorDesiredStatePath) -cne $ExpectedSha256) {
+    throw "Django supervisor Start desired-state fence 已变化"
+  }
+  $state = Read-JsonFile $SupervisorDesiredStatePath "Django supervisor desired-state"
+  $updatedAt = [DateTimeOffset]::MinValue
+  if (-not (Test-ExactObjectPropertyNames $state @(
+        "version", "desiredState", "reason", "updatedAt", "serviceScriptSha256"
+      )) -or
+      [string]$state.version -cne "teruisi-django-supervisor-desired-state-v1" -or
+      [string]$state.desiredState -cne "running" -or
+      [string]$state.reason -cnotmatch "^[a-z][a-z0-9_]{2,63}$" -or
+      -not [DateTimeOffset]::TryParse([string]$state.updatedAt, [ref]$updatedAt) -or
+      [string]$state.serviceScriptSha256 -cne (Get-FileSha256 $PSCommandPath)) {
+    throw "Django supervisor Start desired-state fence 无效"
   }
 }
 
@@ -1636,7 +1673,51 @@ function Get-ErpReferenceSyncCandidates {
   )
 }
 
+function Get-DjangoSupervisorCandidates {
+  $supervisorPath = Join-Path $InstalledAppRoot "tools\django-runtime-supervisor.ps1"
+  try {
+    $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+  } catch {
+    throw "无法可靠枚举 Django supervisor 进程；拒绝继续服务操作"
+  }
+  return @(
+    $processes | Where-Object {
+      $_.CommandLine -and
+      (Test-CommandLineReferencesPath ([string]$_.CommandLine) $supervisorPath) -and
+      ([string]$_.CommandLine -match '(?i)(?:^|\s|"|-)Action(?:\s+|"\s*)Run(?:\s|"|$)')
+    }
+  )
+}
+
+function Assert-DjangoSupervisorStopped([string]$Operation) {
+  if (Test-Path -LiteralPath $DjangoSupervisorPidPath -PathType Leaf) {
+    $receipt = Read-JsonFile $DjangoSupervisorPidPath "Django supervisor process receipt"
+    if (-not (Test-ExactObjectPropertyNames $receipt @(
+          "version", "processId", "creationDate", "executablePath", "commandLine",
+          "scriptPathSha256", "scriptSha256", "startedAt"
+        )) -or
+        [string]$receipt.version -cne "teruisi-django-supervisor-process-v1") {
+      throw "$Operation 发现无效 Django supervisor process receipt；拒绝修改运行环境"
+    }
+    $snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1
+    if ($null -ne $snapshot) {
+      $creation = ConvertTo-CanonicalCreationDate $receipt.creationDate
+      if ([string]$snapshot.CreationDate -cne $creation -or
+          [string]$snapshot.ExecutablePath -ine [string]$receipt.executablePath -or
+          [string]$snapshot.CommandLine -cne [string]$receipt.commandLine) {
+        throw "$Operation 发现 Django supervisor PID 复用或身份变化"
+      }
+      throw "$Operation 前必须先 Disarm 并等待 Django supervisor 退出"
+    }
+    Remove-Item -LiteralPath $DjangoSupervisorPidPath -Force
+  }
+  if (@(Get-DjangoSupervisorCandidates).Count -gt 0) {
+    throw "$Operation 发现未登记的 Django supervisor；拒绝修改或自动终止"
+  }
+}
+
 function Assert-ApplicationProcessesStopped([string]$Operation) {
+  Assert-DjangoSupervisorStopped $Operation
   if (@(Get-PortListeners 8001).Count -gt 0 -or @(Get-PortListeners 8002).Count -gt 0) {
     throw "$Operation 前必须停止 Django reader 与 writer"
   }
@@ -2741,7 +2822,7 @@ function Show-ServiceStatus {
   # the read-only status path reports its deliberately narrower root contract.
   $acl = "not_hardened"
   try { Assert-RuntimeRootAclHardened; $acl = "root_hardened" } catch {}
-  [pscustomobject]@{
+  $status = [pscustomobject][ordered]@{
     PostgreSQL = $postgres
     DjangoReader = $reader
     DjangoWriter = $writer
@@ -2751,7 +2832,13 @@ function Show-ServiceStatus {
     RuntimeAcl = $acl
     RuntimeAclVerification = "root_only_status"
     Startup = if (Test-Path -LiteralPath $StartupShortcut) { "installed" } else { "not_installed" }
-  } | Format-List
+    CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
+  }
+  if ($Json.IsPresent) {
+    Write-Output ($status | ConvertTo-Json -Compress)
+  } else {
+    $status | Format-List
+  }
 }
 
 function Install-StartupShortcut {
@@ -2803,8 +2890,23 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
       "DeployApp" { Invoke-WithServiceMutex { Deploy-Application } }
       "RollbackApp" { Invoke-WithServiceMutex { Rollback-Application } }
       "HardenAcl" { Invoke-WithServiceMutex { Set-RuntimeAcl } }
-      "Start" { Invoke-WithServiceMutex { Start-ServiceStack } }
-      "Stop" { Invoke-WithServiceMutex { Stop-ServiceStack } }
+      "Start" {
+        Invoke-WithServiceMutex {
+          if ([string]::IsNullOrWhiteSpace($SupervisorExpectedDesiredStateSha256)) {
+            Start-ServiceStack
+            Write-ServiceDesiredState "running" "explicit_start"
+          } else {
+            Assert-SupervisorStartFence $SupervisorExpectedDesiredStateSha256
+            Start-ServiceStack
+          }
+        }
+      }
+      "Stop" {
+        Invoke-WithServiceMutex {
+          Write-ServiceDesiredState "stopped" "explicit_stop"
+          Stop-ServiceStack
+        }
+      }
       "Status" { Show-ServiceStatus }
       "ProvisionErpRole" { Invoke-WithServiceMutex { Provision-ErpDatabaseRole } }
       "InitializeErpReference" { Invoke-WithServiceMutex { Initialize-ErpReferenceCheckpoint } }
