@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 import {
@@ -95,7 +95,8 @@ function createProjectTempDirectory() {
 function cleanupProjectTempDirectory(directory: string) {
   const root = resolve(".");
   const target = resolve(directory);
-  assert.ok(target.startsWith(`${root}\\.promotion-backfill-test-`));
+  assert.equal(dirname(target), root);
+  assert.ok(target.startsWith(join(root, ".promotion-backfill-test-")));
   if (existsSync(target)) rmSync(target, { recursive: true, force: true });
 }
 

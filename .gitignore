@@ -15,6 +15,7 @@ __pycache__/
 
 # testing
 /coverage
+/.promotion-backfill-test-*/
 
 # next.js
 /.next/
