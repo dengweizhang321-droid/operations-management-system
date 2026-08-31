@@ -6,6 +6,21 @@ import {
   type GlobalSearchNavigationModule,
   type GlobalSearchNavigationTarget,
 } from "./target-contract";
+import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
+import {
+  createDjangoFinanceConsumerReader,
+  type FinanceConsumerReader,
+  type FinanceConsumerResponseMap,
+} from "@/lib/django/finance-consumer-reader";
+import {
+  getFinanceBackendMode,
+  type FinanceBackendMode,
+} from "@/lib/django/finance-service";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -16,6 +31,10 @@ export const GLOBAL_SEARCH_DEFAULT_GROUP_LIMIT = 4;
 export const GLOBAL_SEARCH_MAX_GROUP_LIMIT = 8;
 export const GLOBAL_SEARCH_DEFAULT_TOTAL_LIMIT = 48;
 export const GLOBAL_SEARCH_MAX_TOTAL_LIMIT = 50;
+export const GLOBAL_SEARCH_MAX_GROUP_CONCURRENCY = 3;
+export const GLOBAL_SEARCH_GROUP_DEADLINE_MS = 2_000;
+
+const GLOBAL_SEARCH_MAX_GROUP_DEADLINE_MS = 10_000;
 
 const GLOBAL_SEARCH_TEXT_LIMITS = {
   id: { characters: 160, bytes: 320 },
@@ -45,7 +64,9 @@ export type GlobalSearchGroup = {
   icon: string;
   module: GlobalSearchModule;
   available: boolean;
+  /** `total` is exact only when this flag is true; otherwise it is a known lower bound. */
   total: number;
+  totalExact: boolean;
   hasMore: boolean;
   items: GlobalSearchItem[];
 };
@@ -78,6 +99,8 @@ export type GlobalSearchResponse = {
     };
   };
   truncated: boolean;
+  deadlineExceeded: boolean;
+  timedOutDomains: string[];
   groups: GlobalSearchGroup[];
   coveredDomains: string[];
   unavailableDomains: string[];
@@ -100,8 +123,17 @@ type SearchRow = {
   detail: string | null;
   updated_at: string | null;
   amount_cents: number | null;
-  total_count: number;
   target_hint?: string | null;
+  total_count?: number;
+};
+
+export type GlobalSearchExecutionOptions = {
+  /** Test/worker override; callers cannot raise the hard 10-second ceiling. */
+  deadlineMs?: number;
+  salesReader?: SalesConsumerReader;
+  financeReader?: FinanceConsumerReader;
+  financeBackendMode?: FinanceBackendMode;
+  signal?: AbortSignal;
 };
 
 type SearchGroupDefinitionBase = {
@@ -212,7 +244,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
       SELECT product_code AS result_id, product_name AS title,
         TRIM(COALESCE(specification, '') || CASE WHEN brand <> '' THEN ' · ' || brand ELSE '' END || CASE WHEN supplier <> '' THEN ' · ' || supplier ELSE '' END) AS subtitle,
         COALESCE(category, '') || CASE WHEN product_status <> '' THEN ' · ' || product_status ELSE '' END AS detail,
-        updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
+        updated_at, NULL AS amount_cents
       FROM erp_product_master
       WHERE product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR specification LIKE ? ESCAPE '\\' COLLATE NOCASE OR barcode LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -226,60 +258,56 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "销售订单",
     icon: "单",
     module: "sales",
-    requiredTables: ["sales_order_lines"],
-    likeParameterCount: 7,
+    requiredTables: [],
+    likeParameterCount: 0,
     allowedRoles: allRoles,
     scopeKind: "channel_platform",
-    sql: `
-      WITH matched AS (
-        SELECT order_no, online_order_no, MAX(platform) AS platform, MAX(shop_name) AS shop_name,
-          MAX(ship_time) AS latest_ship_time,
-          MIN(substr(COALESCE(product_name, ''), 1, 120)) AS sample_product_name,
-          COUNT(DISTINCT CASE WHEN product_name <> '' THEN product_name END) AS product_name_count,
-          SUM(allocated_amount_cents) AS net_sales_cents
-        FROM sales_order_lines
-        WHERE (order_no LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_order_no LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_spec_code LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE)
-          /*SCOPE*/
-        GROUP BY order_no, online_order_no
-      )
-      SELECT COALESCE(NULLIF(order_no, ''), online_order_no) AS result_id,
-        COALESCE(NULLIF(order_no, ''), online_order_no, '未编号订单') AS title,
-        COALESCE(platform, '') || CASE WHEN shop_name <> '' THEN ' · ' || shop_name ELSE '' END AS subtitle,
-        COALESCE(sample_product_name, '')
-          || CASE WHEN product_name_count > 1 THEN ' 等 ' || product_name_count || ' 个商品' ELSE '' END AS detail,
-        latest_ship_time AS updated_at,
-        net_sales_cents AS amount_cents, COUNT(*) OVER() AS total_count
-      FROM matched ORDER BY latest_ship_time DESC, result_id ASC LIMIT ? OFFSET ?`,
+    sql: "",
   },
   {
     key: "jd_products",
     label: "京东 SKU / SPU / 网店商品",
     icon: "京",
     module: "shop",
-    requiredTables: ["netshop_rows"],
+    requiredTables: ["netshop_rows", "netshop_import_batches"],
     likeParameterCount: 7,
     allowedRoles: allRoles,
     scopeKind: "platform",
     sql: `
-      WITH matched AS (
-        SELECT sku_id, spu_id, product_code, product_name, shop_name, platform,
-          MAX(dataset) AS dataset, MAX(COALESCE(business_date, snapshot_date, updated_at)) AS latest_date
-        FROM netshop_rows
-        WHERE (sku_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR spu_id LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR dataset LIKE ? ESCAPE '\\' COLLATE NOCASE)
+      WITH ranked_batches AS (
+        SELECT id AS batch_id, source AS batch_source, dataset AS batch_dataset,
+          platform AS batch_platform, shop_name AS batch_shop_name,
+          ROW_NUMBER() OVER (
+            PARTITION BY source, dataset, platform, shop_name
+            ORDER BY COALESCE(NULLIF(snapshot_date, ''), NULLIF(date_max, ''), '') DESC,
+              completed_at DESC, created_at DESC, id DESC
+          ) AS scope_rank
+        FROM netshop_import_batches
+        WHERE status = 'completed' AND source NOT IN ('jd_promotion', 'tmall_promotion')
+      ), matched AS (
+        SELECT item.sku_id, item.spu_id, item.product_code, item.product_name, item.shop_name, item.platform,
+          MAX(item.dataset) AS dataset,
+          MAX(COALESCE(item.business_date, item.snapshot_date, item.updated_at)) AS latest_date
+        FROM ranked_batches batch
+        JOIN netshop_rows item
+          ON item.source = batch.batch_source
+         AND item.dataset = batch.batch_dataset
+         AND item.platform = batch.batch_platform
+         AND item.shop_name = batch.batch_shop_name
+         AND item.last_import_batch_id = batch.batch_id
+        WHERE batch.scope_rank = 1
+          AND (item.sku_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.spu_id LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR item.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR item.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.platform LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR item.dataset LIKE ? ESCAPE '\\' COLLATE NOCASE)
           /*SCOPE*/
-        GROUP BY sku_id, spu_id, product_code, product_name, shop_name, platform
+        GROUP BY item.sku_id, item.spu_id, item.product_code, item.product_name, item.shop_name, item.platform
       )
       SELECT COALESCE(NULLIF(sku_id, ''), NULLIF(spu_id, ''), NULLIF(product_code, ''), product_name) || ':' || shop_name AS result_id,
         COALESCE(NULLIF(product_name, ''), NULLIF(product_code, ''), NULLIF(sku_id, ''), NULLIF(spu_id, ''), '未命名商品') AS title,
         TRIM(CASE WHEN sku_id <> '' THEN 'SKU ' || sku_id ELSE '' END || CASE WHEN spu_id <> '' THEN ' · SPU ' || spu_id ELSE '' END || CASE WHEN product_code <> '' THEN ' · ' || product_code ELSE '' END) AS subtitle,
         COALESCE(platform, '') || CASE WHEN shop_name <> '' THEN ' · ' || shop_name ELSE '' END || CASE WHEN dataset <> '' THEN ' · ' || dataset ELSE '' END AS detail,
-        latest_date AS updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
+        latest_date AS updated_at, NULL AS amount_cents
       FROM matched ORDER BY latest_date DESC, result_id ASC LIMIT ? OFFSET ?`,
   },
   {
@@ -287,55 +315,59 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "库存记录",
     icon: "库",
     module: "inventory",
-    requiredTables: ["inventory_stock_lines"],
+    requiredTables: ["inventory_stock_lines", "inventory_import_batches"],
     likeParameterCount: 7,
     allowedRoles: allRoles,
     scopeKind: "warehouse",
     sql: `
-      WITH ranked AS (
-        SELECT product_code, product_name, warehouse, warehouse_type, specification, brand, category,
-          snapshot_date, available_quantity, unit_cost_cents,
-          ROW_NUMBER() OVER (PARTITION BY product_code, warehouse ORDER BY snapshot_date DESC, id DESC) AS recency_rank
-        FROM inventory_stock_lines
-        WHERE (product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR warehouse_type LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR specification LIKE ? ESCAPE '\\' COLLATE NOCASE OR brand LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR category LIKE ? ESCAPE '\\' COLLATE NOCASE)
-          /*SCOPE*/
+      WITH latest_batch AS (
+        SELECT id AS batch_id
+        FROM inventory_import_batches
+        WHERE status = 'completed'
+        ORDER BY snapshot_date DESC, rowid DESC
+        LIMIT 1
       )
-      SELECT product_code || ':' || warehouse AS result_id, product_name AS title,
-        product_code || CASE WHEN specification <> '' THEN ' · ' || specification ELSE '' END AS subtitle,
-        warehouse || CASE WHEN warehouse_type <> '' THEN ' · ' || warehouse_type ELSE '' END || ' · 可用 ' || available_quantity AS detail,
-        snapshot_date AS updated_at, unit_cost_cents AS amount_cents, COUNT(*) OVER() AS total_count
-      FROM ranked WHERE recency_rank = 1 ORDER BY snapshot_date DESC, product_code ASC LIMIT ? OFFSET ?`,
+      SELECT item.product_code || ':' || item.warehouse AS result_id, item.product_name AS title,
+        item.product_code || CASE WHEN item.specification <> '' THEN ' · ' || item.specification ELSE '' END AS subtitle,
+        item.warehouse || CASE WHEN item.warehouse_type <> '' THEN ' · ' || item.warehouse_type ELSE '' END || ' · 可用 ' || item.available_quantity AS detail,
+        item.snapshot_date AS updated_at, item.unit_cost_cents AS amount_cents
+      FROM latest_batch batch
+      JOIN inventory_stock_lines item ON item.batch_id = batch.batch_id
+      WHERE TRIM(item.warehouse) <> '刷刷仓'
+        AND (item.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR item.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.warehouse_type LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR item.specification LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.brand LIKE ? ESCAPE '\\' COLLATE NOCASE
+          OR item.category LIKE ? ESCAPE '\\' COLLATE NOCASE)
+          /*SCOPE*/
+      ORDER BY item.snapshot_date DESC, item.product_code ASC LIMIT ? OFFSET ?`,
   },
   {
     key: "market_skus",
     label: "市场 SKU",
     icon: "市",
     module: "market",
-    requiredTables: ["market_ranking_entries", "market_price_snapshots"],
+    requiredTables: ["market_ranking_entries", "market_price_snapshots", "market_master_identities"],
     likeParameterCount: 5,
     allowedRoles: allRoles,
     scopeKind: "unscoped_only",
     sql: `
-      WITH ranked AS (
-        SELECT m.sku_code, m.product_name, m.brand, m.category, m.scope, m.period_end,
-          COALESCE(ps.confirmed_market_price_cents, ps.source_price_cents, ps.average_transaction_price_cents, ps.ai_image_price_cents, m.price_cents) price_cents,
-          m.rank,
-          ROW_NUMBER() OVER (PARTITION BY m.sku_code, m.category, m.scope ORDER BY m.period_end DESC, m.id DESC) AS recency_rank
-        FROM market_ranking_entries m
-        LEFT JOIN market_price_snapshots ps ON ps.category=m.category AND ps.sku_code=m.sku_code
-          AND ps.ranking_dimension=m.ranking_dimension AND ps.month=substr(m.period_end, 1, 7)
-        WHERE m.sku_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR m.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR m.brand LIKE ? ESCAPE '\\' COLLATE NOCASE OR m.category LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR m.scope LIKE ? ESCAPE '\\' COLLATE NOCASE
-      )
-      SELECT sku_code || ':' || category || ':' || scope AS result_id, product_name AS title,
-        sku_code || CASE WHEN brand <> '' THEN ' · ' || brand ELSE '' END AS subtitle,
-        category || CASE WHEN scope <> '' THEN ' · ' || scope ELSE '' END || CASE WHEN rank IS NOT NULL THEN ' · 第 ' || rank || ' 名' ELSE '' END AS detail,
-        period_end AS updated_at, price_cents AS amount_cents, COUNT(*) OVER() AS total_count
-      FROM ranked WHERE recency_rank = 1 ORDER BY period_end DESC, rank ASC LIMIT ? OFFSET ?`,
+      SELECT market.sku_code || ':' || market.category || ':' || market.scope AS result_id,
+        market.product_name AS title,
+        market.sku_code || CASE WHEN market.brand <> '' THEN ' · ' || market.brand ELSE '' END AS subtitle,
+        market.category || CASE WHEN market.scope <> '' THEN ' · ' || market.scope ELSE '' END
+          || CASE WHEN market.rank IS NOT NULL THEN ' · 第 ' || market.rank || ' 名' ELSE '' END AS detail,
+        market.period_end AS updated_at,
+        COALESCE(price.confirmed_market_price_cents, price.source_price_cents,
+          price.average_transaction_price_cents, price.ai_image_price_cents, market.price_cents) AS amount_cents
+      FROM market_master_identities identity
+      JOIN market_ranking_entries market ON market.id = identity.latest_entry_id
+      LEFT JOIN market_price_snapshots price
+        ON price.category = market.category AND price.sku_code = market.sku_code
+       AND price.ranking_dimension = market.ranking_dimension AND price.month = substr(market.period_end, 1, 7)
+      WHERE market.sku_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR market.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR market.brand LIKE ? ESCAPE '\\' COLLATE NOCASE OR market.category LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR market.scope LIKE ? ESCAPE '\\' COLLATE NOCASE
+      ORDER BY market.period_end DESC, market.rank ASC LIMIT ? OFFSET ?`,
   },
   {
     key: "combos",
@@ -349,7 +381,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
       SELECT CAST(id AS TEXT) AS result_id, parent_name AS title,
         parent_code || ' · 子件 ' || child_code AS subtitle,
         child_name || ' · 数量 ' || (child_quantity_milli / 1000.0) AS detail,
-        updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
+        updated_at, NULL AS amount_cents
       FROM erp_combo_items
       WHERE parent_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR parent_name LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR child_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR child_name LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -367,7 +399,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     sql: `
       SELECT id AS result_id, product_name AS title, product_code || ' · ' || warehouse AS subtitle,
         status || ' · 计划 ' || planned_quantity || CASE WHEN reason <> '' THEN ' · ' || reason ELSE '' END AS detail,
-        updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
+        updated_at, NULL AS amount_cents
       FROM replenishment_plan_items
       WHERE (product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR status LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -387,7 +419,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     sql: `
       SELECT id AS result_id, sku_code AS title, segment AS subtitle,
         category AS detail,
-        updated_at, image_price_cents AS amount_cents, COUNT(*) OVER() AS total_count
+        updated_at, image_price_cents AS amount_cents
       FROM market_sku_annotations
       WHERE sku_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR segment LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -399,7 +431,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     icon: "服",
     module: "customer_service",
     requiredTables: ["customer_service_conversations"],
-    likeParameterCount: 11,
+    likeParameterCount: 10,
     allowedRoles: businessRoles,
     scopeKind: "unscoped_only",
     sql: `
@@ -407,12 +439,12 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
         COALESCE(NULLIF(customer_alias, ''), NULLIF(customer_id, ''), NULLIF(chat_customer_alias, ''), '匿名顾客') AS title,
         COALESCE(NULLIF(product_name, ''), NULLIF(product_sku, ''), '未关联商品') || CASE WHEN agent <> '' THEN ' · ' || agent ELSE '' END AS subtitle,
         COALESCE(NULLIF(summary_text, ''), NULLIF(service_issues, ''), consultation_type) || CASE WHEN problem_type <> '' THEN ' · ' || problem_type ELSE '' END AS detail,
-        consulted_at AS updated_at, NULL AS amount_cents, COUNT(*) OVER() AS total_count
+        consulted_at AS updated_at, NULL AS amount_cents
       FROM customer_service_conversations
       WHERE customer_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR customer_alias LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR chat_customer_alias LIKE ? ESCAPE '\\' COLLATE NOCASE OR agent LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR product_sku LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR conversation_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR messages_json LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR conversation_id LIKE ? ESCAPE '\\' COLLATE NOCASE /*CUSTOMER_MESSAGES*/
         OR problem_type LIKE ? ESCAPE '\\' COLLATE NOCASE OR service_issues LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR summary_text LIKE ? ESCAPE '\\' COLLATE NOCASE
       ORDER BY consulted_at DESC, id DESC LIMIT ? OFFSET ?`,
@@ -430,7 +462,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
       SELECT CAST(id AS TEXT) AS result_id, subject_name AS title,
         month || CASE WHEN scope_name <> '' THEN ' · ' || scope_name ELSE '' END AS subtitle,
         section || CASE WHEN group_name <> '' THEN ' · ' || group_name ELSE '' END AS detail,
-        created_at AS updated_at, amount_cents, COUNT(*) OVER() AS total_count
+        created_at AS updated_at, amount_cents
       FROM finance_lines
       WHERE (subject_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR metric_key LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR scope_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR scope_key LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -453,7 +485,7 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
         CASE WHEN platform <> '' THEN platform || ' · ' ELSE '' END || COALESCE(NULLIF(shop_name, ''), '全局')
           || CASE WHEN category <> '' THEN ' · ' || category ELSE '' END AS subtitle,
         period_type || CASE WHEN manager <> '' THEN ' · ' || manager ELSE '' END AS detail,
-        updated_at, sales_target_cents AS amount_cents, COUNT(*) OVER() AS total_count
+        updated_at, sales_target_cents AS amount_cents
       FROM finance_targets_scoped
       WHERE (period_key LIKE ? ESCAPE '\\' COLLATE NOCASE OR period_type LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -462,6 +494,9 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
       ORDER BY updated_at DESC, period_key DESC LIMIT ? OFFSET ?`,
   },
 ] as const;
+
+const financeSearchDefinition = staticDefinitions.find((definition) => definition.key === "finance")!;
+const targetSearchDefinition = staticDefinitions.find((definition) => definition.key === "targets")!;
 
 const legacyTargetsDefinition: SearchGroupDefinition = {
   key: "targets",
@@ -476,7 +511,7 @@ const legacyTargetsDefinition: SearchGroupDefinition = {
     SELECT id AS result_id, period_key AS title,
       COALESCE(NULLIF(shop_name, ''), '全局') || CASE WHEN category <> '' THEN ' · ' || category ELSE '' END AS subtitle,
       period_type || CASE WHEN manager <> '' THEN ' · ' || manager ELSE '' END AS detail,
-      updated_at, sales_target_cents AS amount_cents, COUNT(*) OVER() AS total_count
+      updated_at, sales_target_cents AS amount_cents
     FROM finance_targets
     WHERE (period_key LIKE ? ESCAPE '\\' COLLATE NOCASE OR period_type LIKE ? ESCAPE '\\' COLLATE NOCASE
       OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -492,9 +527,16 @@ const workflowDefinition = {
   module: "workflow" as const,
 };
 
+const salesOrderDefinition = {
+  key: "orders" as const,
+  label: "销售订单",
+  icon: "单",
+  module: "sales" as const,
+};
+
 const importSources = [
-  { table: "sales_import_batches", source: "'销售明细'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "inventory_import_batches", source: "'库存快照'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
+  { table: "product_shipping_rate_import_batches", source: "'SKU 快递费率'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "erp_reference_import_batches", source: "source_label", file: "file_name", searchable: ["id", "file_name", "source_key", "source_label", "status"] },
   { table: "finance_import_batches", source: "'月度财报'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "netshop_import_batches", source: "'网店 · ' || source", file: "file_name", searchable: ["id", "file_name", "source", "dataset", "platform", "shop_name", "status"] },
@@ -509,6 +551,13 @@ const inventoryAgeDefinition = {
   module: "inventory" as const,
 };
 
+const importDefinition = {
+  key: "imports" as const,
+  label: "导入批次",
+  icon: "入",
+  module: "import" as const,
+};
+
 export const GLOBAL_SEARCH_COVERAGE = [
   "货品主数据",
   "销售订单",
@@ -518,7 +567,7 @@ export const GLOBAL_SEARCH_COVERAGE = [
   "组合装关系",
   "备货计划",
   "市场 SKU 与细分品类标注",
-  "客服会话（授权角色可按正文匹配，仅返回最小摘要）",
+  "客服会话（仅显式客服分组允许授权角色按正文匹配，且只返回最小摘要）",
   "财务科目与经营目标",
   "运营事务",
   "导入批次",
@@ -531,8 +580,8 @@ export const GLOBAL_SEARCH_COVERAGE = [
 export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   searchable: [
     "workflow_tasks", "workflow_operation_records",
-    "sales_import_batches", "sales_order_lines",
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_metrics",
+    "product_shipping_rate_import_batches",
     "erp_reference_import_batches", "erp_product_master", "erp_inventory_age_lines", "erp_combo_items",
     "replenishment_plan_items",
     "finance_import_batches", "finance_lines", "finance_targets_scoped",
@@ -542,17 +591,25 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   coveredByProjection: [
     "finance_months", "finance_targets",
     "market_price_snapshots",
+    "product_shipping_rates",
   ],
   excludedSensitiveOrInternal: [
     "app_users", "ai_models", "ai_channels", "ai_channel_callback_events",
+    "ai_chat_request_receipts", "ai_chat_provider_dispatches",
     "ai_conversations", "ai_conversation_scopes", "ai_conversation_messages", "ai_conversation_deletion_audits", "system_settings", "workflow_task_bootstrap",
+    "ai_space_model_profiles", "ai_space_templates", "ai_space_jobs", "ai_space_job_items", "ai_space_assets",
+    "ai_space_asset_favorites", "ai_space_asset_cleanup_queue", "ai_space_admin_audits",
+    "ai_space_dispatch_receipts", "ai_space_dispatch_results", "ai_space_schema_upgrades",
+    "ai_memory_entries", "ai_memory_audit_logs", "ai_memory_commit_guards",
+    "ai_analysis_runs", "ai_agent_jobs", "ai_agent_checkpoints", "ai_agent_events",
+    "ai_agent_provider_dispatches", "ai_agent_provider_results", "ai_agent_tool_dispatches", "ai_agent_tool_results",
+    "ai_workflow_runs", "ai_workflow_node_runs", "ai_workflow_events",
     "workflow_operation_activities", "workflow_task_states", "workflow_task_template_states",
     "workflow_attachment_cleanup_queue", "workflow_task_activity_logs", "workflow_task_attachments", "workflow_task_comments",
     "workflow_task_entity_links", "workflow_task_reminders", "workflow_task_templates",
-    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_target_versions", "finance_target_deletion_audits",
+    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_write_authority", "finance_target_versions", "finance_target_deletion_audits",
     "finance_target_scoped_versions", "finance_target_scoped_deletion_audits", "finance_target_legacy_migrations",
     "ai_tool_audit_logs",
-    "sales_import_uploads", "sales_import_upload_chunks",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
     "market_annotation_prompt_versions", "market_annotation_prompt_audits", "market_annotation_jobs", "market_annotation_items",
     "market_annotation_commit_receipts", "market_annotation_validation_samples",
@@ -562,19 +619,39 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   ],
 } as const;
 
-function emptyGroup(definition: Pick<SearchGroupDefinition, "key" | "label" | "icon" | "module">): GlobalSearchGroup {
-  return { ...definition, available: false, total: 0, hasMore: false, items: [] };
+type SearchGroupIdentity = Pick<SearchGroupDefinition, "key" | "label" | "icon" | "module">;
+
+function emptyGroup(definition: SearchGroupIdentity, totalExact = true): GlobalSearchGroup {
+  return { ...definition, available: false, total: 0, totalExact, hasMore: false, items: [] };
+}
+
+function incompleteGroup(definition: SearchGroupIdentity, available: boolean): GlobalSearchGroup {
+  return available
+    ? { ...definition, available: true, total: 0, totalExact: false, hasMore: false, items: [] }
+    : emptyGroup(definition);
 }
 
 function mapSearchRows(
-  definition: Pick<SearchGroupDefinition, "key" | "label" | "icon" | "module">,
+  definition: SearchGroupIdentity,
   rows: SearchRow[],
   request: GlobalSearchRequest,
   principal: AppPrincipal,
   totalOverride?: number,
 ): GlobalSearchGroup {
-  const total = totalOverride ?? Number(rows[0]?.total_count ?? 0);
-  const items = rows.map((row) => {
+  const offset = (request.page - 1) * request.groupLimit;
+  const hasMore = totalOverride === undefined
+    ? rows.length > request.groupLimit
+    : offset + Math.min(rows.length, request.groupLimit) < totalOverride;
+  const visibleRows = rows.slice(0, request.groupLimit);
+  // LIMIT + 1 proves only that another row exists. On a non-empty terminal
+  // page the offset makes the count exact; an out-of-range page has no safe
+  // lower bound beyond zero without re-running a count query.
+  const total = totalOverride ?? (visibleRows.length === 0 && request.page > 1
+    ? 0
+    : offset + visibleRows.length + (hasMore ? 1 : 0));
+  const totalExact = totalOverride !== undefined
+    || (!hasMore && (request.page === 1 || visibleRows.length > 0));
+  const items = visibleRows.map((row) => {
     const target = getGlobalSearchNavigationTarget(definition.key, row.target_hint);
     return {
       kind: definition.key,
@@ -594,7 +671,8 @@ function mapSearchRows(
     ...definition,
     available: true,
     total,
-    hasMore: request.page * request.groupLimit < total,
+    totalExact,
+    hasMore,
     items,
   };
 }
@@ -664,12 +742,16 @@ function scopeSql(
   };
 }
 
-async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGroupDefinition, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
-  const activeDefinition = definition.key === "targets"
+function activeStaticDefinition(definition: SearchGroupDefinition, tables: Set<string>): SearchGroupDefinition {
+  return definition.key === "targets"
     && !definition.requiredTables.every((table) => tables.has(table))
     && legacyTargetsDefinition.requiredTables.every((table) => tables.has(table))
     ? legacyTargetsDefinition
     : definition;
+}
+
+async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGroupDefinition, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
+  const activeDefinition = activeStaticDefinition(definition, tables);
   if (!activeDefinition.requiredTables.every((table) => tables.has(table))) return emptyGroup(definition);
   // Legacy finance targets do not carry a platform identity. A restricted
   // principal cannot safely infer platform access from the free-form shop name.
@@ -678,21 +760,22 @@ async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGrou
   }
   try {
     const scope = scopeSql(principal, activeDefinition.scopeKind);
-    const sql = activeDefinition.sql.replace("/*SCOPE*/", scope.clause);
-    const values: unknown[] = [...Array.from({ length: activeDefinition.likeParameterCount }, () => like), ...scope.values];
+    const includeCustomerMessages = activeDefinition.key === "customer_service" && request.group === "customer_service";
+    const sql = activeDefinition.sql
+      .replace("/*SCOPE*/", scope.clause)
+      .replace(
+        "/*CUSTOMER_MESSAGES*/",
+        includeCustomerMessages ? "OR messages_json LIKE ? ESCAPE '\\' COLLATE NOCASE" : "",
+      );
+    const likeParameterCount = activeDefinition.likeParameterCount + (includeCustomerMessages ? 1 : 0);
+    const values: unknown[] = [...Array.from({ length: likeParameterCount }, () => like), ...scope.values];
     const result = await db.prepare(sql)
-      .bind(...values, request.groupLimit, (request.page - 1) * request.groupLimit)
+      .bind(...values, request.groupLimit + 1, (request.page - 1) * request.groupLimit)
       .all<SearchRow>();
-    const rows = result.results ?? [];
-    let totalOverride: number | undefined;
-    if (rows.length === 0 && request.page > 1) {
-      const firstPage = await db.prepare(sql).bind(...values, 1, 0).all<SearchRow>();
-      totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
-    }
-    return mapSearchRows(activeDefinition, rows, request, principal, totalOverride);
+    return mapSearchRows(activeDefinition, result.results ?? [], request, principal);
   } catch {
     // A partially migrated table must not take down search for every other domain.
-    return emptyGroup(definition);
+    return emptyGroup(definition, false);
   }
 }
 
@@ -705,48 +788,60 @@ async function queryInventoryAgeGroup(
 ) {
   const fragments: string[] = [];
   const binds: unknown[] = [];
-  if (tables.has("erp_inventory_age_lines")) {
-    const scope = scopeSql(principal, "warehouse");
-    fragments.push(`SELECT 'erp:' || id AS result_id, product_name AS title,
-      product_code || ' · ' || warehouse AS subtitle,
-      COALESCE(category, '') || ' · 库龄 ' || COALESCE(inventory_age_days, 0) || ' 天 · 可用 ' || available_quantity AS detail,
-      snapshot_date AS updated_at, stock_value_cents AS amount_cents
-      FROM erp_inventory_age_lines
-      WHERE (product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR specification LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
+  if (tables.has("erp_inventory_age_lines") && tables.has("erp_reference_import_batches")) {
+    const scope = scopeSql(principal, "warehouse", { warehouse: "age.warehouse" });
+    fragments.push(`SELECT 'erp:' || age.id AS result_id, age.product_name AS title,
+      age.product_code || ' · ' || age.warehouse AS subtitle,
+      COALESCE(age.category, '') || ' · 库龄 ' || COALESCE(age.inventory_age_days, 0) || ' 天 · 可用 ' || age.available_quantity AS detail,
+      age.snapshot_date AS updated_at, age.stock_value_cents AS amount_cents
+      FROM (
+        SELECT id, snapshot_date
+        FROM erp_reference_import_batches
+        WHERE source_key = 'inventory_age' AND status = 'completed'
+          AND snapshot_date IS NOT NULL AND snapshot_date <> ''
+        ORDER BY snapshot_date DESC, completed_at DESC, created_at DESC, id DESC
+        LIMIT 1
+      ) batch
+      JOIN erp_inventory_age_lines age
+        ON age.last_import_batch_id = batch.id AND age.snapshot_date = batch.snapshot_date
+      WHERE TRIM(age.warehouse) <> '刷刷仓'
+        AND (age.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR age.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR age.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR age.category LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR age.specification LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
     binds.push(like, like, like, like, like, ...scope.values);
   }
-  if (tables.has("inventory_age_metrics") && tables.has("inventory_stock_lines")) {
-    const scope = scopeSql(principal, "warehouse", { warehouse: "s.warehouse" });
-    fragments.push(`SELECT 'metric:' || s.id AS result_id, s.product_name AS title,
-      s.product_code || ' · ' || s.warehouse AS subtitle,
-      COALESCE(s.category, '') || ' · 7日销量 ' || m.sales_7d_quantity || ' · 30日销量 ' || m.sales_30d_quantity AS detail,
-      s.snapshot_date AS updated_at, NULL AS amount_cents
-      FROM inventory_age_metrics m
-      JOIN inventory_stock_lines s ON s.batch_id = m.batch_id AND s.row_key = m.row_key
-      WHERE (s.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR s.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.category LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR s.specification LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
+  if (tables.has("inventory_age_metrics") && tables.has("inventory_stock_lines") && tables.has("inventory_import_batches")) {
+    const scope = scopeSql(principal, "warehouse", { warehouse: "stock.warehouse" });
+    fragments.push(`SELECT 'metric:' || stock.id AS result_id, stock.product_name AS title,
+      stock.product_code || ' · ' || stock.warehouse AS subtitle,
+      COALESCE(stock.category, '') || ' · 7日销量 ' || metric.sales_7d_quantity || ' · 30日销量 ' || metric.sales_30d_quantity AS detail,
+      stock.snapshot_date AS updated_at, NULL AS amount_cents
+      FROM (
+        SELECT id
+        FROM inventory_import_batches
+        WHERE status = 'completed'
+        ORDER BY snapshot_date DESC, rowid DESC
+        LIMIT 1
+      ) batch
+      JOIN inventory_stock_lines stock ON stock.batch_id = batch.id
+      JOIN inventory_age_metrics metric ON metric.batch_id = stock.batch_id AND metric.row_key = stock.row_key
+      WHERE TRIM(stock.warehouse) <> '刷刷仓'
+        AND (stock.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR stock.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR stock.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR stock.category LIKE ? ESCAPE '\\' COLLATE NOCASE
+        OR stock.specification LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
     binds.push(like, like, like, like, like, ...scope.values);
   }
   if (fragments.length === 0) return emptyGroup(inventoryAgeDefinition);
-  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents,
-    COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
+  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents
+    FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
   try {
     const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit, (request.page - 1) * request.groupLimit)
+      .bind(...binds, request.groupLimit + 1, (request.page - 1) * request.groupLimit)
       .all<SearchRow>();
-    const rows = result.results ?? [];
-    let totalOverride: number | undefined;
-    if (rows.length === 0 && request.page > 1) {
-      const firstPage = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
-      totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
-    }
-    return mapSearchRows(inventoryAgeDefinition, rows, request, principal, totalOverride);
+    return mapSearchRows(inventoryAgeDefinition, result.results ?? [], request, principal);
   } catch {
-    return emptyGroup(inventoryAgeDefinition);
+    return emptyGroup(inventoryAgeDefinition, false);
   }
 }
 
@@ -792,29 +887,187 @@ async function queryWorkflowGroup(
     binds.push(like, like, like, like, like, like, like, ...scope.values);
   }
   if (fragments.length === 0) return emptyGroup(workflowDefinition);
-  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents, target_hint,
-    COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
+  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents, target_hint
+    FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
   try {
     const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit, (request.page - 1) * request.groupLimit)
+      .bind(...binds, request.groupLimit + 1, (request.page - 1) * request.groupLimit)
       .all<SearchRow>();
-    const rows = result.results ?? [];
-    let totalOverride: number | undefined;
-    if (rows.length === 0 && request.page > 1) {
-      const firstPage = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
-      totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
-    }
-    return mapSearchRows(workflowDefinition, rows, request, principal, totalOverride);
+    return mapSearchRows(workflowDefinition, result.results ?? [], request, principal);
   } catch {
-    return emptyGroup(workflowDefinition);
+    return emptyGroup(workflowDefinition, false);
   }
 }
 
-async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
-  const definition = { key: "imports" as const, label: "导入批次", icon: "入", module: "import" as const };
-  const availableSources = importSources.filter((source) => tables.has(source.table));
-  if (availableSources.length === 0) return emptyGroup(definition);
+function validSalesOrderSearch(value: unknown): value is SalesConsumerResponseMap["order_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string" && Number.isSafeInteger(row.amountCents);
+    });
+}
+
+function validSalesImportSearch(value: unknown): value is SalesConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+function validConsumerPage(
+  data: { items: unknown[]; total: number; truncated: boolean },
+  page: number,
+  pageSize: number,
+) {
+  const offset = (page - 1) * pageSize;
+  const expectedLength = offset >= data.total ? 0 : Math.min(pageSize, data.total - offset);
+  return data.items.length === expectedLength && data.truncated === page * pageSize < data.total;
+}
+
+async function querySalesOrderGroup(
+  salesReader: SalesConsumerReader,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const result = await salesReader.read(principal, {
+      operation: "order_search",
+      query: request.query,
+      page: request.page,
+      pageSize: request.groupLimit,
+    }, { signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || !validSalesOrderSearch(result.data)
+      || !validConsumerPage(result.data, request.page, request.groupLimit)) {
+      return emptyGroup(salesOrderDefinition, false);
+    }
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.id,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+    }));
+    return mapSearchRows(salesOrderDefinition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(salesOrderDefinition, false);
+  }
+}
+
+type FinanceSearchOperation = "line_search" | "target_search";
+
+function validFinanceSearch(
+  value: unknown,
+): value is FinanceConsumerResponseMap[FinanceSearchOperation] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string"
+        && (row.amountCents === null || Number.isSafeInteger(row.amountCents));
+    });
+}
+
+function validFinanceImportSearch(
+  value: unknown,
+): value is FinanceConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+function validFinanceConsumerWindow(
+  data: { items: unknown[]; total: number; truncated: boolean },
+  offset: number,
+  limit: number,
+) {
+  const expectedLength = offset >= data.total ? 0 : Math.min(limit, data.total - offset);
+  return data.items.length === expectedLength
+    && data.truncated === offset + limit < data.total;
+}
+
+async function queryFinanceSearchGroup(
+  financeReader: FinanceConsumerReader,
+  operation: FinanceSearchOperation,
+  definition: SearchGroupDefinition,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const offset = (request.page - 1) * request.groupLimit;
+    const result = await financeReader.read(principal, {
+      operation,
+      query: request.query,
+      offset,
+      limit: request.groupLimit,
+    }, { signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || !validFinanceSearch(result.data)
+      || !validFinanceConsumerWindow(result.data, offset, request.groupLimit)) {
+      return emptyGroup(definition, false);
+    }
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.id,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+      total_count: result.data.total,
+    }));
+    return mapSearchRows(definition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(definition, false);
+  }
+}
+
+async function queryLocalImportRows(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  like: string,
+  limit: number,
+  offset: number,
+  includeFinance: boolean,
+) {
+  const availableSources = importSources.filter((source) =>
+    tables.has(source.table) && (includeFinance || source.table !== "finance_import_batches"));
+  if (availableSources.length === 0 || limit <= 0) return { rows: [] as SearchRow[], total: 0 };
   const binds: unknown[] = [];
   const fragments = availableSources.map((source) => {
     const conditions = source.searchable.map((column) => {
@@ -828,20 +1081,195 @@ async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, r
   const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents,
     COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
+  const result = await db.prepare(sql).bind(...binds, limit, offset).all<SearchRow>();
+  const rows = result.results ?? [];
+  if (rows.length > 0) return { rows, total: Number(rows[0].total_count ?? 0) };
+  const head = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
+  return { rows, total: Number(head.results?.[0]?.total_count ?? 0) };
+}
+
+async function queryImportGroup(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  request: GlobalSearchRequest,
+  like: string,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
+  financeReader: FinanceConsumerReader,
+  financeMode: FinanceBackendMode,
+  signal?: AbortSignal,
+) {
   try {
-    const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit, (request.page - 1) * request.groupLimit)
-      .all<SearchRow>();
-    const rows = result.results ?? [];
-    let totalOverride: number | undefined;
-    if (rows.length === 0 && request.page > 1) {
-      const firstPage = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
-      totalOverride = Number(firstPage.results?.[0]?.total_count ?? 0);
+    const salesHead = await salesReader.read(principal, {
+      operation: "import_batch_search",
+      query: request.query,
+      page: 1,
+      pageSize: 1,
+    }, { signal });
+    if (!salesHead || typeof salesHead.revision !== "string" || !salesHead.revision
+      || !validSalesImportSearch(salesHead.data)
+      || !validConsumerPage(salesHead.data, 1, 1)) return emptyGroup(importDefinition, false);
+    const salesTotal = salesHead.data.total;
+    let financeRevision = "";
+    let financeTotal = 0;
+    if (financeMode === "django") {
+      const financeHead = await financeReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: 0,
+        limit: 1,
+      }, { signal });
+      if (!financeHead || typeof financeHead.revision !== "string" || !financeHead.revision
+        || !validFinanceImportSearch(financeHead.data)
+        || !validFinanceConsumerWindow(financeHead.data, 0, 1)) {
+        return emptyGroup(importDefinition, false);
+      }
+      financeRevision = financeHead.revision;
+      financeTotal = financeHead.data.total;
     }
-    return mapSearchRows(definition, rows, request, principal, totalOverride);
+    const globalOffset = (request.page - 1) * request.groupLimit;
+    const salesTake = globalOffset < salesTotal ? Math.min(request.groupLimit, salesTotal - globalOffset) : 0;
+    let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (salesTake > 0) {
+      const salesPage = await salesReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        page: request.page,
+        pageSize: request.groupLimit,
+      }, { signal });
+      if (!salesPage || salesPage.revision !== salesHead.revision
+        || !validSalesImportSearch(salesPage.data) || salesPage.data.total !== salesTotal
+        || !validConsumerPage(salesPage.data, request.page, request.groupLimit)
+        || salesPage.data.items.length !== salesTake) return emptyGroup(importDefinition, false);
+      salesItems = salesPage.data.items;
+    }
+    const financeOffset = Math.max(0, globalOffset - salesTotal);
+    const financeTake = financeMode === "django" && financeOffset < financeTotal
+      ? Math.min(request.groupLimit - salesItems.length, financeTotal - financeOffset)
+      : 0;
+    let financeItems: FinanceConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (financeTake > 0) {
+      const financePage = await financeReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: financeOffset,
+        limit: financeTake,
+      }, { signal });
+      if (!financePage || financePage.revision !== financeRevision
+        || !validFinanceImportSearch(financePage.data)
+        || !validFinanceConsumerWindow(financePage.data, financeOffset, financeTake)
+        || financePage.data.total !== financeTotal
+        || financePage.data.items.length !== financeTake) {
+        return emptyGroup(importDefinition, false);
+      }
+      financeItems = financePage.data.items;
+    }
+    const localTake = request.groupLimit - salesItems.length - financeItems.length;
+    const localOffset = Math.max(0, globalOffset - salesTotal - financeTotal);
+    const local = await queryLocalImportRows(
+      db,
+      tables,
+      like,
+      localTake,
+      localOffset,
+      financeMode !== "django",
+    );
+    const combinedTotal = salesTotal + financeTotal + local.total;
+    const rows: SearchRow[] = [
+      ...salesItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: "销售明细",
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...financeItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: item.source,
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...local.rows,
+    ];
+    return mapSearchRows(importDefinition, rows, request, principal, combinedTotal);
   } catch {
-    return emptyGroup(definition);
+    return emptyGroup(importDefinition, false);
   }
+}
+
+type SearchGroupTask = {
+  definition: SearchGroupIdentity;
+  available: boolean;
+  run: () => Promise<GlobalSearchGroup>;
+};
+
+const groupDeadlineToken = Symbol("global-search-group-deadline");
+
+function boundedGroupDeadlineMs(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value) || value <= 0) return GLOBAL_SEARCH_GROUP_DEADLINE_MS;
+  return Math.min(Math.max(1, Math.floor(value)), GLOBAL_SEARCH_MAX_GROUP_DEADLINE_MS);
+}
+
+async function runBoundedGroupTasks(
+  tasks: readonly SearchGroupTask[],
+  deadlineMs: number,
+): Promise<{ groups: GlobalSearchGroup[]; deadlineExceeded: boolean; timedOutDomains: string[] }> {
+  if (tasks.length === 0) return { groups: [], deadlineExceeded: false, timedOutDomains: [] };
+  const deadlineAt = Date.now() + deadlineMs;
+  const groups: Array<GlobalSearchGroup | undefined> = new Array(tasks.length);
+  const timedOutDomains = new Set<string>();
+  let nextIndex = 0;
+  let deadlineExceeded = false;
+
+  const worker = async () => {
+    while (nextIndex < tasks.length) {
+      if (Date.now() >= deadlineAt) {
+        deadlineExceeded = true;
+        return;
+      }
+      const taskIndex = nextIndex;
+      nextIndex += 1;
+      const task = tasks[taskIndex];
+      const remainingMs = Math.max(1, deadlineAt - Date.now());
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const deadline = new Promise<typeof groupDeadlineToken>((resolve) => {
+        timer = setTimeout(() => resolve(groupDeadlineToken), remainingMs);
+      });
+      const result = await Promise.race([
+        Promise.resolve().then(task.run).catch(() => emptyGroup(task.definition, false)),
+        deadline,
+      ]);
+      if (timer !== undefined) clearTimeout(timer);
+      if (result === groupDeadlineToken) {
+        deadlineExceeded = true;
+        timedOutDomains.add(task.definition.label);
+        groups[taskIndex] = incompleteGroup(task.definition, task.available);
+        return;
+      }
+      groups[taskIndex] = result;
+    }
+  };
+
+  await Promise.all(Array.from(
+    { length: Math.min(GLOBAL_SEARCH_MAX_GROUP_CONCURRENCY, tasks.length) },
+    () => worker(),
+  ));
+
+  for (let index = 0; index < tasks.length; index += 1) {
+    if (groups[index]) continue;
+    deadlineExceeded = true;
+    timedOutDomains.add(tasks[index].definition.label);
+    groups[index] = incompleteGroup(tasks[index].definition, tasks[index].available);
+  }
+
+  return {
+    groups: groups as GlobalSearchGroup[],
+    deadlineExceeded,
+    timedOutDomains: [...timedOutDomains],
+  };
 }
 
 function trimToTotalLimit(groups: GlobalSearchGroup[], totalLimit: number) {
@@ -861,24 +1289,93 @@ export async function searchAllBusinessData(
   db: GlobalSearchDatabase,
   request: GlobalSearchRequest,
   principal: AppPrincipal,
+  options: GlobalSearchExecutionOptions = {},
 ): Promise<GlobalSearchResponse> {
+  const salesReader = options.salesReader ?? createDjangoSalesConsumerReader();
+  const financeReader = options.financeReader ?? createDjangoFinanceConsumerReader();
+  const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
   const like = escapeGlobalSearchLike(request.query);
   const selectedStaticDefinitions = staticDefinitions.filter((definition) =>
     (!request.group || definition.key === request.group) && isGroupAuthorized(definition, principal));
-  const groupTasks: Array<Promise<GlobalSearchGroup>> = selectedStaticDefinitions.map((definition) =>
-    queryStaticGroup(db, definition, tables, request, like, principal));
+  const groupTasks: SearchGroupTask[] = selectedStaticDefinitions.map((definition) => {
+    if (definition.key === "orders") {
+      return {
+        definition: salesOrderDefinition,
+        available: true,
+        run: () => querySalesOrderGroup(salesReader, request, principal, options.signal),
+      };
+    }
+    if (financeMode === "django" && definition.key === "finance") {
+      return {
+        definition: financeSearchDefinition,
+        available: true,
+        run: () => queryFinanceSearchGroup(
+          financeReader,
+          "line_search",
+          financeSearchDefinition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
+    if (financeMode === "django" && definition.key === "targets") {
+      return {
+        definition: targetSearchDefinition,
+        available: true,
+        run: () => queryFinanceSearchGroup(
+          financeReader,
+          "target_search",
+          targetSearchDefinition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
+    const activeDefinition = activeStaticDefinition(definition, tables);
+    return {
+      definition,
+      available: activeDefinition.requiredTables.every((table) => tables.has(table)),
+      run: () => queryStaticGroup(db, definition, tables, request, like, principal),
+    };
+  });
   if ((!request.group || request.group === "workflow") && allRoles.includes(principal.role)) {
-    groupTasks.push(queryWorkflowGroup(db, tables, request, like, principal));
+    groupTasks.push({
+      definition: workflowDefinition,
+      available: (tables.has("workflow_tasks") && principal.scope === null) || tables.has("workflow_operation_records"),
+      run: () => queryWorkflowGroup(db, tables, request, like, principal),
+    });
   }
   if ((!request.group || request.group === "inventory_age") && allRoles.includes(principal.role)) {
-    groupTasks.push(queryInventoryAgeGroup(db, tables, request, like, principal));
+    groupTasks.push({
+      definition: inventoryAgeDefinition,
+      available: (tables.has("erp_inventory_age_lines") && tables.has("erp_reference_import_batches"))
+        || (tables.has("inventory_age_metrics") && tables.has("inventory_stock_lines") && tables.has("inventory_import_batches")),
+      run: () => queryInventoryAgeGroup(db, tables, request, like, principal),
+    });
   }
   if ((!request.group || request.group === "imports") && operatorRoles.some((role) => role === principal.role) && principal.scope === null) {
-    groupTasks.push(queryImportGroup(db, tables, request, like, principal));
+    groupTasks.push({
+      definition: importDefinition,
+      available: true,
+      run: () => queryImportGroup(
+        db,
+        tables,
+        request,
+        like,
+        principal,
+        salesReader,
+        financeReader,
+        financeMode,
+        options.signal,
+      ),
+    });
   }
-  const groups = trimToTotalLimit(await Promise.all(groupTasks), request.totalLimit);
+  const execution = await runBoundedGroupTasks(groupTasks, boundedGroupDeadlineMs(options.deadlineMs));
+  const groups = trimToTotalLimit(execution.groups, request.totalLimit);
   const returned = groups.reduce((sum, group) => sum + group.items.length, 0);
   const latestMatchedDate = groups
     .flatMap((group) => group.items.map((item) => item.updatedAt).filter(Boolean))
@@ -904,10 +1401,11 @@ export async function searchAllBusinessData(
             platforms: [...principal.scope.platforms],
           },
     },
-    truncated: groups.some((group) => group.hasMore) || returned >= request.totalLimit,
+    truncated: execution.deadlineExceeded || groups.some((group) => group.hasMore) || returned >= request.totalLimit,
+    deadlineExceeded: execution.deadlineExceeded,
+    timedOutDomains: execution.timedOutDomains,
     groups,
     coveredDomains: [...GLOBAL_SEARCH_COVERAGE],
     unavailableDomains: groups.filter((group) => !group.available).map((group) => group.label),
   };
 }
-import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";

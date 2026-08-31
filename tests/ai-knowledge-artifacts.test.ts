@@ -21,7 +21,7 @@ import {
   recordAiArtifactDelivery,
   toSafeCsv,
 } from "../lib/ai/artifacts";
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database } from "../lib/database/d1";
 
 const analyst: AppPrincipal = {
   email: "analyst@example.com",
@@ -187,7 +187,7 @@ test("artifact persistence and download recheck owner and record bounded receipt
   sqlite.close();
 });
 
-function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
+function sqliteAdapter(sqlite: DatabaseSync): D1Database {
   return {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -210,5 +210,5 @@ function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
         throw error;
       }
     },
-  } as unknown as SalesDatabase;
+  } as unknown as D1Database;
 }

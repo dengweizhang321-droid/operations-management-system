@@ -2,7 +2,7 @@ import {
   listOperationRecordActivities,
   OperationRecordRequestError,
 } from "@/lib/workflow/operations-records";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -15,7 +15,7 @@ export async function GET(request: Request, context: RouteContext) {
     const payload = await listOperationRecordActivities(id, {
       page: params.get("page"),
       pageSize: params.get("pageSize"),
-    }, principal, getSalesDatabase());
+    }, principal, getD1Database());
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authorization = authorizationErrorResponse(error);

@@ -2,10 +2,17 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runScheduledCloudAnnotations } from "../lib/market/annotation-service";
+import { runScheduledMarketImageCacheBatch } from "../lib/market/image-cache";
+import { runScheduledAiSpace } from "../lib/ai/space";
+import { runNextAiWorkflowMicrostep } from "../lib/ai/agent-workflows";
+import { runNextFormalAiAgentMicrostep } from "../lib/ai/agent-executor";
+import { selectNextWorkflowExecutorAdmission } from "../lib/ai/agent-executor-admission";
+import { enforceDynamicCachePolicy } from "./cache-policy";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  SALES_IMPORT_FILES?: R2Bucket;
   TERUISI_LOCAL_DIRECT_ACCESS?: string;
   TERUISI_RUNTIME_ENV?: string;
   IMAGES: {
@@ -29,13 +36,81 @@ interface ScheduledController {
 }
 
 const localScheduledPath = "/_teruisi/local/market-annotation-scheduled";
+const localLivenessPath = "/_teruisi/local/health/live";
+const localReadinessPath = "/_teruisi/local/health/ready";
+
+type ScheduledMarketTaskResult =
+  | { ok: true; result: unknown }
+  | { ok: false; error: string };
+
+async function runScheduledMarketTask(
+  label: string,
+  task: () => Promise<unknown>,
+): Promise<ScheduledMarketTaskResult> {
+  try {
+    return { ok: true, result: await task() };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `${label} failed`;
+    console.error(`${label}: ${message.slice(0, 300)}`);
+    return { ok: false, error: label };
+  }
+}
+
+async function runScheduledMarketMaintenance(
+  db: D1Database,
+  input: { annotationMaxRuntimeMs?: number; aiSpaceBucket?: R2Bucket } = {},
+) {
+  // 每个队列每次最多推进一个持久微步，并放在可能耗时更长的图片任务之前，避免队列饥饿。
+  const aiWorkflow = await runScheduledMarketTask(
+    "AI workflow scheduled runner failed",
+    async () => {
+      const executorAdmission = await selectNextWorkflowExecutorAdmission(db);
+      return runNextAiWorkflowMicrostep({ db, ...(executorAdmission ? { executorAdmission } : {}) });
+    },
+  );
+  // 正式 Agent 一次只允许一次 provider HTTP 或一次中央注册表只读工具调用。
+  const aiAgent = await runScheduledMarketTask(
+    "AI Agent scheduled runner failed",
+    () => runNextFormalAiAgentMicrostep({ db }),
+  );
+  // 图片缓存每次只处理一个有界批次；任一 runner 失败都不能阻塞其余独立队列。
+  const imageCache = await runScheduledMarketTask(
+    "market image cache scheduled runner failed",
+    () => runScheduledMarketImageCacheBatch({ db }),
+  );
+  const aiSpace = await runScheduledMarketTask(
+    "AI space scheduled runner failed",
+    () => runScheduledAiSpace({ db, bucket: input.aiSpaceBucket }),
+  );
+  const annotations = await runScheduledMarketTask(
+    "market annotation scheduled runner failed",
+    () => runScheduledCloudAnnotations(db, input.annotationMaxRuntimeMs
+      ? { maxRuntimeMs: input.annotationMaxRuntimeMs }
+      : {}),
+  );
+  return { aiWorkflow, aiAgent, imageCache, annotations, aiSpace };
+}
+
+function allowsLoopbackDevelopmentRequest(request: Request, env: Env) {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  return (hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]" || hostname === "::1")
+    && env.TERUISI_RUNTIME_ENV === "development";
+}
+
+function localDirectAccessRequested(env: Env) {
+  return env.TERUISI_LOCAL_DIRECT_ACCESS?.trim().toLowerCase() === "true"
+    && env.TERUISI_RUNTIME_ENV?.trim().toLowerCase() === "development";
+}
 
 function allowsLocalScheduledRequest(request: Request, env: Env) {
-  const hostname = new URL(request.url).hostname.toLowerCase();
-  return (hostname === "127.0.0.1" || hostname === "localhost")
-    && env.TERUISI_RUNTIME_ENV === "development"
+  return allowsLoopbackDevelopmentRequest(request, env)
     && env.TERUISI_LOCAL_DIRECT_ACCESS === "true"
     && request.headers.get("x-teruisi-local-scheduled") === "1";
+}
+
+function allowsLocalHealthRequest(request: Request, env: Env) {
+  return allowsLoopbackDevelopmentRequest(request, env)
+    && request.headers.get("x-teruisi-local-health") === "1";
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the
@@ -48,16 +123,53 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    // Local anonymous admin is useful for the controlled desktop launcher, but
+    // must never be reachable through a LAN address, hostile Host, or DNS rebinding.
+    if (localDirectAccessRequested(env) && !allowsLoopbackDevelopmentRequest(request, env)) {
+      return new Response(null, { status: 404, headers: { "cache-control": "no-store" } });
+    }
+
+    if (url.pathname === localLivenessPath) {
+      if (request.method !== "GET") return new Response(null, { status: 405, headers: { allow: "GET" } });
+      if (!allowsLocalHealthRequest(request, env)) return new Response(null, { status: 404 });
+      return Response.json(
+        { ok: true, status: "live" },
+        { headers: { "cache-control": "no-store" } },
+      );
+    }
+
+    if (url.pathname === localReadinessPath) {
+      if (request.method !== "GET") return new Response(null, { status: 405, headers: { allow: "GET" } });
+      if (!allowsLocalHealthRequest(request, env)) return new Response(null, { status: 404 });
+      try {
+        const row = await env.DB.prepare(
+          "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' LIMIT 1",
+        ).first<{ ok: number }>();
+        if (row?.ok !== 1) throw new Error("database schema is unavailable");
+        return Response.json({ ok: true, status: "ready" }, { headers: { "cache-control": "no-store" } });
+      } catch {
+        console.error("本地 D1 就绪检查失败");
+        return Response.json(
+          { ok: false, status: "degraded", code: "d1_unavailable" },
+          { status: 503, headers: { "cache-control": "no-store" } },
+        );
+      }
+    }
+
     if (url.pathname === localScheduledPath) {
       if (request.method !== "POST") return new Response(null, { status: 405, headers: { allow: "POST" } });
       if (!allowsLocalScheduledRequest(request, env)) return new Response(null, { status: 404 });
       try {
-        const result = await runScheduledCloudAnnotations(env.DB);
+        // 本地触发器不会重叠执行，因此限制标注时间片，让图片缓存也能按分钟持续推进。
+        const result = await runScheduledMarketMaintenance(env.DB, {
+          annotationMaxRuntimeMs: 45_000,
+          aiSpaceBucket: env.SALES_IMPORT_FILES,
+        });
         return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "market annotation local scheduler failed";
+        const message = error instanceof Error ? error.message : "market maintenance local scheduler failed";
         console.error(message.slice(0, 300));
-        return Response.json({ ok: false, error: "本地云端标注调度失败" }, { status: 500, headers: { "cache-control": "no-store" } });
+        return Response.json({ ok: false, error: "本地市场后台调度失败" }, { status: 500, headers: { "cache-control": "no-store" } });
       }
     }
 
@@ -72,16 +184,12 @@ const worker = {
       }, allowedWidths);
     }
 
-    return handler.fetch(request, env, ctx);
+    const response = await handler.fetch(request, env, ctx);
+    return enforceDynamicCachePolicy(request, response);
   },
   async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
     void _ctx;
-    try {
-      await runScheduledCloudAnnotations(env.DB);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "market annotation scheduled runner failed";
-      console.error(message.slice(0, 300));
-    }
+    await runScheduledMarketMaintenance(env.DB, { aiSpaceBucket: env.SALES_IMPORT_FILES });
   },
 };
 

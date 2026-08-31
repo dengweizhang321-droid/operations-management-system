@@ -9,6 +9,7 @@ import {
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import {
   InventoryQueryContractError,
+  inventoryAgeBuckets,
   normalizeInventorySelections,
   parseInventoryPaginationParameter,
 } from "@/lib/inventory/query-contract";
@@ -27,6 +28,14 @@ export async function GET(request: Request) {
       label: "库龄状态",
     });
     const warehouses = normalizeInventorySelections(params.getAll("warehouse"), { maximum: 10, label: "仓库" });
+    const brands = normalizeInventorySelections(params.getAll("brand"), { maximum: 20, label: "品牌" });
+    const categories = normalizeInventorySelections(params.getAll("category"), { maximum: 20, label: "品类" });
+    const allowedAgeBuckets = inventoryAgeBuckets.map((bucket) => bucket.key);
+    const ageBuckets = normalizeInventorySelections(params.getAll("ageBucket"), {
+      maximum: allowedAgeBuckets.length,
+      allowed: allowedAgeBuckets,
+      label: "库龄区间",
+    });
     const query = params.get("q")?.trim() || undefined;
     if (query && query.length > 100) throw new InventoryQueryContractError("搜索词不能超过 100 个字符");
     return Response.json(await getInventoryAgeAnalysis(db, {
@@ -34,7 +43,10 @@ export async function GET(request: Request) {
       pageSize: parseInventoryPaginationParameter(params.get("pageSize"), "pageSize"),
       query,
       warehouses,
+      brands,
+      categories,
       statuses: statusValues as Array<typeof allowedStatuses[number]>,
+      ageBuckets: ageBuckets as Array<(typeof inventoryAgeBuckets)[number]["key"]>,
     }), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

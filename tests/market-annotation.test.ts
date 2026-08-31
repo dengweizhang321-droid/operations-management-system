@@ -8,7 +8,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+import { activatePromptVersion, annotationCandidateCountsSql, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, getAnnotationCandidateCounts, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
@@ -256,7 +256,9 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /retry_state_json/);
   assert.match(service, /model_input_bytes=\?, image_load_ms=\?, image_prepare_ms=\?, model_call_ms=\?, total_inference_ms=\?/);
   assert.match(workerEntry, /async scheduled\(_controller: ScheduledController, env: Env, _ctx: ExecutionContext\)/);
-  assert.match(workerEntry, /await runScheduledCloudAnnotations\(env\.DB\)/);
+  assert.match(workerEntry, /runScheduledMarketMaintenance\(env\.DB(?:,|\))/);
+  assert.match(workerEntry, /runScheduledCloudAnnotations\(db/);
+  assert.match(workerEntry, /const aiSpace = await runScheduledMarketTask\([\s\S]*?const annotations = await runScheduledMarketTask\(/);
   assert.match(workerEntry, /\/_teruisi\/local\/market-annotation-scheduled/);
   assert.match(workerEntry, /TERUISI_RUNTIME_ENV === "development"/);
   assert.match(workerEntry, /TERUISI_LOCAL_DIRECT_ACCESS === "true"/);
@@ -296,6 +298,24 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /AI 标注识别来源/);
   assert.doesNotMatch(ui, /完整市场 SKU 库检索/);
   assert.match(route, /includeCatalog: params\.get\("includeCatalog"\) === "1"/);
+  assert.match(route, /view === "candidate_counts"/);
+  assert.match(route, /view === "workspace_fast" \? \{ \.\.\.workspaceInput, includeCandidateCounts: false \} : workspaceInput/);
+  assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf('view === "candidate_counts"'));
+  assert.ok(route.indexOf('view === "candidate_counts"') < route.indexOf("await Promise.all([ensureAiAssistantSchema"));
+  assert.match(ui, /view: deferCandidateCounts \? "workspace_fast" : "workspace"/);
+  assert.match(ui, /await load\(jobId, itemPage, false, true\)/);
+  assert.match(ui, /annotations\?view=candidate_counts/);
+  assert.match(ui, /if \(deferCandidateCounts\) void loadCandidateCounts\(loadSequence, candidateScopeKey\)/);
+  assert.match(ui, /candidateCountsControllerRef\.current\?\.abort\(\)/);
+  assert.match(ui, /requestGeneration === candidateCountsGenerationRef\.current/);
+  assert.match(ui, /workspaceGeneration === loadSequenceRef\.current/);
+  assert.match(ui, /categoryScopeKey === candidateCountsScopeRef\.current/);
+  assert.match(ui, /mountedRef\.current/);
+  assert.match(ui, /mountedRef\.current = false[\s\S]*?candidateCountsControllerRef\.current\?\.abort\(\)/);
+  assert.match(ui, /annotationCandidateScopeKey\(current\.categories\) !== categoryScopeKey/);
+  assert.match(ui, /candidateCountsStatus !== "ready"/);
+  assert.ok(ui.indexOf('candidateCountsStatus !== "ready"') < ui.indexOf("(selectedCategorySummary?.candidateCount ?? 0) === 0"));
+  assert.match(ui, /重新读取候选数量/);
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
   assert.match(ui, /lastFailureCode.*lastFailureMessage/);
@@ -522,11 +542,11 @@ test("create job always answers a click with one actionable blocking reason", as
   assert.match(ui, /没有可用的云端视觉模型/);
   assert.match(ui, /当前可新建候选为 0/);
   assert.match(ui, /candidateCount/);
-  assert.match(ui, /总 \{item\.count\} · 可新建 \{item\.candidateCount\}/);
+  assert.match(ui, /item\.candidateCount === null[\s\S]*?计算中…/);
   assert.match(ui, /const blocked = createJobBlockReason\(\);\n\s*if \(blocked\) throw new Error\(blocked\);/);
   assert.match(ui, /无法创建任务：\{createBlockReason\}/);
-  assert.match(ui, /disabled=\{busy !== ""\} onClick=\{createJob\}/);
-  assert.match(ui, /busy === "create-job" \? \(compatibleExistingJob \? \(compatibleExistingJob\.executor === "cloud" \? "正在恢复并唤醒…" : "正在恢复任务…"\) : "正在创建任务（候选较多时需几十秒）…"\)/);
+  assert.match(ui, /disabled=\{busy !== "" \|\| candidateCountsStatus !== "ready"\} onClick=\{createJob\}/);
+  assert.match(ui, /candidateCountsStatus === "loading" \|\| candidateCountsStatus === "idle" \? "正在计算可新建候选…"/);
   assert.match(ui, /if \(compatibleExistingJob\) \{[\s\S]*?const id = compatibleExistingJob\.id/);
   assert.match(ui, /await post\(\{ action: "set_cloud_run_state", jobId: id, state: "running" \}\)/);
   assert.match(ui, /await loadJobProgress\(id\)/);
@@ -541,7 +561,7 @@ test("create job always answers a click with one actionable blocking reason", as
   assert.match(defaultAnnotationPromptBody("", []), /尚未维护细分品类字典/);
 });
 
-test("workspace candidate counts match create-job eligibility and exclude SPU, same-image reuse, and occupied snapshots", async () => {
+test("workspace candidate counts match create-job eligibility and exclude stale snapshots", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   await ensureMarketSchemaCore(db);
@@ -571,7 +591,8 @@ test("workspace candidate counts match create-job eligibility and exclude SPU, s
       ('snapshot-c-may','净水','pop','SKU-C','SKU','2026-05','hash-c','https://img.test/c.jpg','',NULL,'missing'),
       ('snapshot-d','净水','pop','SKU-D','SKU','2026-05','hash-d','https://img.test/d.jpg','',NULL,'missing'),
       ('snapshot-e','净水','pop','SKU-E','SKU','2026-05','','','',NULL,'missing'),
-      ('snapshot-f','净水','pop','SKU-F','SKU','2026-05','hash-f','https://img.test/f.jpg','',NULL,'missing');
+      ('snapshot-f','净水','pop','SKU-F','SKU','2026-05','hash-f','https://img.test/f.jpg','',NULL,'missing'),
+      ('snapshot-stale','净水','pop','SKU-H','SKU','2026-05','hash-h','https://img.test/h.jpg','',NULL,'missing');
     INSERT INTO market_annotation_jobs (id,category,prompt_version_id,executor,status,total_count,created_by)
       VALUES ('occupied-job','净水','older-prompt','local','running',2,'operator@test');
     INSERT INTO market_annotation_items (id,job_id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,status,attempt_count)
@@ -583,8 +604,68 @@ test("workspace candidate counts match create-job eligibility and exclude SPU, s
   const workspace = await getAnnotationWorkspace(db, { includeCatalog: false });
   assert.deepEqual(workspace.categories.map((item) => ({ ...item })), [{ value: "净水", count: 6, candidateCount: 1 }]);
 
+  let candidateQueryPreparations = 0;
+  const trackedDb = {
+    ...db,
+    prepare(sql: string) {
+      if (sql === annotationCandidateCountsSql) candidateQueryPreparations += 1;
+      return db.prepare(sql);
+    },
+  } as MarketDatabase;
+  const fastWorkspace = await getAnnotationWorkspace(trackedDb, { includeCatalog: false, includeCandidateCounts: false });
+  assert.deepEqual(fastWorkspace.categories.map((item) => ({ ...item })), [{ value: "净水", count: 6, candidateCount: null }]);
+  assert.equal(candidateQueryPreparations, 0);
+  const fullWorkspace = await getAnnotationWorkspace(trackedDb, { includeCatalog: false });
+  assert.deepEqual(fullWorkspace.categories.map((item) => ({ ...item })), [{ value: "净水", count: 6, candidateCount: 1 }]);
+  assert.equal(candidateQueryPreparations, 1);
+  assert.deepEqual(await getAnnotationCandidateCounts(trackedDb), { categories: [{ value: "净水", candidateCount: 1 }] });
+  assert.equal(candidateQueryPreparations, 2);
+
   const job = await createAnnotationJob(db, { category: "净水", promptVersionId: "prompt-candidate", executor: "cloud", modelId: "vision-candidate", limit: 10 }, { email: "operator@test", role: "operator" });
-  assert.deepEqual((sqlite.prepare("SELECT sku_code skuCode FROM market_annotation_items WHERE job_id=?").all(job.id) as Array<{ skuCode: string }>).map((row) => row.skuCode), ["SKU-A"]);
+  assert.deepEqual((sqlite.prepare("SELECT sku_code skuCode FROM market_annotation_items WHERE job_id=? ORDER BY sku_code").all(job.id) as Array<{ skuCode: string }>).map((row) => row.skuCode), ["SKU-A"]);
+  sqlite.close();
+});
+
+test("workspace candidate counts preserve the current-ranking image-cache fallback", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+  sqlite.exec(`
+    INSERT INTO market_ranking_entries
+      (natural_key,source_row_number,period_start,period_end,category,scope,ranking_dimension,operation_mode,sku_code,product_name,image_url,raw_json,last_import_batch_id)
+    VALUES ('candidate-cache-fallback',1,'2026-05-01','2026-05-31','净水','pop','SKU','POP','SKU-G','榜单图片回退','https://img.test/g.jpg','{}','batch');
+    INSERT INTO market_price_snapshots
+      (id,category,scope,sku_code,ranking_dimension,month,image_content_sha256,image_url,ai_price_type,confirmed_market_price_cents,confirmation_status)
+    VALUES ('snapshot-g','净水','pop','SKU-G','SKU','2026-05','','','',NULL,'missing');
+    INSERT INTO market_image_cache (source_url,status,object_key,content_sha256,mime_type,size_bytes,image_source,attempt_count)
+    VALUES ('https://img.test/g.jpg','ready','market/g.jpg','hash-g','image/jpeg',8,'test',1);
+  `);
+
+  const rows = sqlite.prepare(annotationCandidateCountsSql).all() as Array<{ value: string; candidateCount: number }>;
+  assert.deepEqual(rows.map((row) => ({ ...row })), [{ value: "净水", candidateCount: 1 }]);
+  sqlite.close();
+});
+
+test("workspace candidate count plan avoids the full ranking window sort", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  await ensureMarketSchemaCore(db);
+  await ensureAnnotationSchema(db);
+
+  assert.match(annotationCandidateCountsSql, /candidate_snapshots AS NOT MATERIALIZED/);
+  assert.doesNotMatch(annotationCandidateCountsSql, /ROW_NUMBER\(\) OVER|latest_market AS MATERIALIZED/);
+  const existingItemProbe = annotationCandidateCountsSql.indexOf("market_annotation_items existing_item");
+  const standardPriceProbe = annotationCandidateCountsSql.indexOf("market_price_snapshots standard");
+  const freshnessProbe = annotationCandidateCountsSql.indexOf("market_ranking_entries current_market");
+  assert.ok(existingItemProbe > 0 && existingItemProbe < standardPriceProbe && standardPriceProbe < freshnessProbe);
+
+  const plan = sqlite.prepare(`EXPLAIN QUERY PLAN ${annotationCandidateCountsSql}`).all()
+    .map((row) => String((row as { detail?: string }).detail ?? "")).join("\n");
+  assert.match(plan, /market_entries_representative_idx/);
+  assert.match(plan, /market_annotation_items_reuse_idx/);
+  assert.match(plan, /SEARCH standard USING INDEX market_price_snapshots_(?:hash_idx|sku_month_uq)/);
+  assert.doesNotMatch(plan, /market_entries_dimension_idx|CO-ROUTINE/);
   sqlite.close();
 });
 

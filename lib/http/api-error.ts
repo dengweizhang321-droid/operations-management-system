@@ -22,14 +22,20 @@ export class ApiError extends Error {
 
 export type PublicApiErrorCode =
   | "invalid_request"
+  | "access_denied"
+  | "cross_site_request_rejected"
+  | "unsupported_media_type"
   | "not_found"
   | "conflict"
   | "version_conflict"
   | "payload_too_large"
+  | "rate_limited"
+  | "ai_chat_not_dispatched"
+  | "ai_chat_result_unknown"
   | "service_unavailable";
 
 export class PublicApiError extends Error {
-  readonly status: 400 | 404 | 409 | 413 | 422 | 503;
+  readonly status: 400 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 503;
   readonly code: PublicApiErrorCode;
 
   constructor(

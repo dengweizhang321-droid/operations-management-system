@@ -11,11 +11,11 @@
 
 ## 2. 当前系统与模块边界
 
-- 技术栈：TypeScript、React 19、Next.js 16 API/组件约定、Vinext/Vite、Cloudflare Workers、D1 和 R2。
+- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、Cloudflare Workers、Django 5.2、PostgreSQL 17、D1 和 R2；销售域已使用 Django/PostgreSQL，其他业务域按各自迁移状态运行。
 - 页面入口集中在 `app/page.tsx`，市场分析主体位于 `app/market-view.tsx` 和 `app/market-annotation-view.tsx`；业务逻辑应放在 `lib/<domain>/`，API 路由只负责鉴权、输入解析、调用服务和稳定响应。
 - 当前导航模块为：工作流、BI 看板、网店分析、市场分析、客服分析、销售分析、库存管理、货品详情、运营事务、数据导入、系统设置和 AI 助理。
 - 主要业务域及代码目录：
-  - 销售、毛利和渠道：`lib/sales/`
+  - 销售事实、导入、查询和分析权威实现：`backend/sales/`；Worker 适配与消费者：`lib/django/`、`lib/sales/*-contract.ts`
   - 库存、库龄和补货：`lib/inventory/`
   - 京东/天猫网店 SKU/SPU、推广与商品主数据：`lib/netshop/`、`lib/jd/`
   - 吉客云自动化：`lib/jackyun/`、`tools/jackyun-*`
@@ -32,10 +32,21 @@
 - 自本决策起，所有新增后端业务能力默认且必须在 Django 服务中实现。现有 TypeScript/Next.js API 仅继续承担尚未迁移业务的维护、缺陷修复、迁移适配、边缘路由和必须依赖 Cloudflare Worker binding 的兼容职责，不得把新的领域事实源或长期业务流程继续堆入旧后端。确需临时例外时必须获得用户明确批准，隔离实现并记录后续迁移项。
 - 每个既有业务域在完成数据结构与数据迁移、API 契约对比、真实 principal 权限与 scope、审计、业务口径、并发/幂等、性能、回滚演练和单写所有者切换前，仍由当前 TypeScript/Worker 实现作为该域的权威后端。不得因已确定 Django 方向就声称尚未迁移的模块已经运行在 Django 上。
 - 迁移期间禁止新旧后端长期双写。同一精确业务范围任一时刻只能有一个写入所有者；优先通过只读影子对比、按域灰度路由和可立即回退的切换完成迁移。现有金额、时区、日期边界、店铺身份、权限、审计、导入幂等、租约 fencing、跨店隔离和落库回查契约必须原样保留。
-- Django 的生产数据库、任务队列、部署环境、服务边界和 D1/R2 迁移方案尚未完成专项确认；在对应方案、验证和回滚计划获批前，不得擅自迁移生产数据、停用 Worker/D1/R2 或改变现有自动化的生产写入路径。
-- 销售分析第一批 Django 读侧边界固定为 `/api/sales/summary`、`/api/sales/category-analysis` 和 `/api/sales/category-analysis/detail`。公开 Worker 继续负责真实 `requireAppPrincipal()`、参数契约、HMAC principal 信封、灰度与动态 D1 修订水位栅栏；Django 只读取可重建投影。D1 继续是销售导入和事实的唯一写入所有者，销售导入、分片、校验、财务目标/分析均不得因本批迁移改道 Django。
-- 销售读侧切换顺序固定为 `legacy` → `shadow` → `django`；`shadow` 始终向用户返回 legacy 响应，`django` 模式在超时、签名、响应上限、JSON 或修订不一致时失败关闭，不得静默回退。每次 D1 写入推进修订后，必须先重建并完整回查 Django 投影，再恢复 Django 读流量。当前本地 SQLite 迁移成功不能表述为生产 PostgreSQL 已迁移或生产路由已切换。
-- 销售投影 apply 必须显式使用 `--apply --approved-run-id <成功 dry-run ID>`，并在同一目标事务内核验和单次消费相同解析路径、稳定文件身份、`sales-projection-v2` 格式版本、动态修订、完整行数与摘要；同一 D1 中无关表写入造成的 mtime 变化不能替代业务摘要，销售/ERP 材料变化仍必须零业务写入拒绝。省略模式、未审批、审批复用或材料变化都必须失败关闭。生产持续同步和真实 PostgreSQL 性能/并发门禁完成前，生产路由保持 `legacy`，最多使用受控 `shadow`。
+- 任一业务域在正式切换前可以按上述门禁使用影子对比和受控灰度，但一旦宣布正式切换，切换单元必须覆盖完整垂直调用链，不接受只迁数据库、只迁写接口或只迁读取作为完成：权威写入源和读取源、浏览器/客户端调用、公开 API 与边缘适配、Django 服务端领域实现、后台任务与自动化、配置、部署、启动和监控必须在同一次受控切换中全部指向新代码。除明确属于鉴权、解析或短期传输的薄边缘适配外，旧客户端分支、旧服务端领域逻辑、旧数据库读写、同步器、feature flag 和 fallback 必须退出可达生产路径；旧客户端与服务端实现必须从生产源码入口和运行包中删除，仅必要的迁移/恢复工具、审计材料、只读 tombstone 和测试夹具可以隔离保留在非生产执行面。正式切换后的恢复只能使用新架构的备份恢复、兼容修复或前向修复，不得把流量或写入重新导向旧后端。只有全链路正向与负向测试、静态旧路径可达性检查、真实部署回读和旧路径拒绝证明全部通过，才可宣称该模块迁移完成。
+- 2026-08-29/30，本机销售域已完成 Django/PostgreSQL 终态单写切换。PostgreSQL 是销售事实、批次、导入范围与幂等、尝试审计、上传/暂存状态、revision 和全部销售读写的唯一权威；D1 不再是销售写入源，也不得作为读取、容灾或回滚路径。该结论只覆盖当前 Windows 主机和销售域，不自动批准远程生产、高可用、其他业务域或整个 D1/R2 的迁移。
+- 公开 Worker 继续负责真实 `requireAppPrincipal()`、参数契约、HMAC principal 信封、Excel 解析、分片请求边界、请求超时与体积边界和边缘适配；销售查询进入 `127.0.0.1:8001`，销售导入及原始分片字节进入 `127.0.0.1:8002` 的 PostgreSQL 写侧。销售生产路径不得读写 R2；超时、签名、响应上限、JSON、revision、reader/writer 或权限异常必须失败关闭，不得回查 D1/R2。全局 R2 binding 仍供其他业务域使用，不得因销售退役 R2 而删除。
+- D1 `0092_sales_domain_retirement.sql` 已退役销售事实、批次、上传、缓存、投影 outbox 和 authority 对象。保留的只读 tombstone views、retirement receipt、共享导入表销售永久写入 guard、迁移工具和测试夹具是防复活终态证据，不代表仍存在销售 D1 后端；普通 Drizzle 生成在建立新审计 baseline 前仍须失败关闭。
+- ERP 主数据继续以 D1 为权威，由独立 ERP-only bridge 同步到 PostgreSQL，并使用独立角色、revision 和 checkpoint。该 bridge 除维护 ERP 参照、ERP revision/checkpoint 外，只允许按 ERP 映射更新现有 `sales_order_lines.resolved_category` 派生分类；不得新增或删除销售事实，不得修改金额、成本、销量、`gross_profit`、其他销售字段或批次，也不得承载销售事件、生成销售 outbox 或回写 D1。该例外不改变原始销售事实的 PostgreSQL/Django 权威边界，ERP 与销售权限必须在数据库层隔离。
+- 切换已跨过 PNR，不支持 `pending→d1`、`legacy`/`shadow` 路由或反向迁移。故障恢复仅允许兼容代码、PostgreSQL 备份/WAL/PITR 或经审批的前向数据修复；成功正式备份、恢复演练、attestation、forward-recovery 和 retirement 证据不得清理。
+- Worker bootstrap current/authority 只是 append-only 链根和不可变切换证据，当前运行版本必须以经验证的 effective successor head 为准。后续 release 只能在 Worker 停止时执行受控 `plan`，再用精确 plan SHA 执行 `apply`，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
+- Worker supervisor 的 prelaunch 不得递归调用 PowerShell `Status`；只能直接、有界验证 service 原子写入的 create-only canonical process receipt，且等待预算必须覆盖 controller 建立精确 CIM identity 和写入 receipt 的时延。外层 controller 仍须按 PID、CreationDate、命令行和进程树二次核验。PowerShell 读取受控 JSON 时必须保留 ISO 日期字符串，不能让 pwsh 自动转换为 `DateTime` 后进入递归规范化。
+- Miniflare 的 `Request.cf` 缓存固定写入 Worker runtime 的 `cache\miniflare\cf.json`，不得写入 immutable release、`node_modules` 或业务 `.wrangler/state`。每次启动和子进程重启前都必须清除继承的同名环境变量并安装固定绑定，核验 runtime/release/persist 边界、目录全链、文件叶和硬链接身份；release 出现 `.mf` 或其他未列入 manifest 的对象必须失败关闭。
+- 本机销售服务固定运行于 `D:\teruisi-runtime\django-sales`：PostgreSQL 17.11 只监听 `127.0.0.1:5432`，Django 5.2.17/Waitress 3.0.2 只监听 `127.0.0.1:8001/8002`。长期进程使用独立最小权限 reader、writer 与 ERP bridge 角色，凭据仅保存为当前 Windows 用户绑定的 DPAPI 密文；readiness 必须验证 schema、索引、authority、attestation、revision、ERP checkpoint/心跳和只读事务。登录快捷方式不是 Windows Service；顶层进程崩溃后仍需受控检查和显式启动。
+- 销售 PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。过期备份清理必须保留至少 30 天和至少 7 份已验证成功备份，只能删除固定 `postgres-daily` 根目录下通过 manifest、SHA-256 与 archive 复验的精确 `daily-*` 直接子目录，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
+- Django runtime 守护只能在显式 `desiredState=running`、连续两次确认本部署 PostgreSQL 或 reader/writer/ERP bridge 进程确实停止、且端口/进程/ACL 身份均正常时调用既有 `Start`；状态探针失败、端口冲突、所有权异常、进程仍在但 readiness 失败或 ERP checkpoint/revision/摘要/心跳分歧只能告警，禁止自动重启或调用 `Stop`。自动 Start 必须在服务 mutex 内复验 desired-state 文件 SHA-256 fencing token，15 分钟最多 3 次。告警只写脱敏本地 outbox；外部发送仍须动态唯一核验“志高助手”与“测试群聊”，不得保存或猜测机器人/群身份。启用与回退见 `docs/DJANGO_RUNTIME_SUPERVISION.md`。
+- `GET /api/sales/data-health` 只允许无数据范围限制的 `operator/admin`，且只能复用 Django reader 已有的 `freshness` consumer；返回单写来源、动态 revision、上海业务日期、销售覆盖、机械 lag 天数和最近成功批次。不得为该接口扩大 reader 数据库权限、读取 runtime/备份/告警文件、定义未经确认的“过期”阈值，或在销售/财务页面模板中复制另一套新鲜度口径。
+- 后续业务域复用 Django/PostgreSQL 时必须遵守 `docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`。每个领域保留独立 app、迁移、写权限、revision、幂等/范围 owner 和切换证据；新增领域故障只能使该领域失败关闭，不得改变销售 authority、销售事实、ERP bridge、其他模块写入所有权或其他页面可用性。迁移开发和测试只使用隔离工作树与临时数据库，正式切换前不得停止或重启其他模块服务。
+- 2026-08-30 财务域 Django 实现与历史数据隔离演练已经完成，但尚未正式部署或切换。当前本机财务事实、目标、导入和读取仍以 Worker/D1 为唯一权威，`TERUISI_DJANGO_FINANCE_MODE` 必须保持 `legacy`；不得把演练结果表述为正式迁移完成。正式切换必须按 `docs/DJANGO_FINANCE_MIGRATION.md` 使用独立 `finance_reader`/`finance_writer` 端点与数据库角色，完成最终迁移、公开 API 核对、单写 authority、真实部署回读和旧路径退出；不得修改已完成的财务页面模板，不得停止、重启或改变销售、ERP 和其他模块服务。
 
 ## 3. 统一业务口径
 
@@ -53,7 +64,7 @@
 ## 4. 运营数据查询规则
 
 1. 查询当前 TERUISI 运营数据时，优先使用只读（read-only）`teruisi_operations` MCP；第一步调用 `get_data_freshness`。
-2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用本机 D1 的只读副本，并在回复中说明替代来源。
+2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用对应权威存储的最小只读身份：销售域使用 PostgreSQL reader，ERP 和未迁移域才可按其现行契约使用本机 D1 只读副本；回复中必须说明替代来源。
 3. 输出必须写明数据来源、数据截止日期、时间范围、渠道/平台/店铺/SKU 等筛选、金额和销量口径，以及缺数或映射异常。
 4. 中文筛选必须参数化并保证 UTF-8。零结果要先核验覆盖日期、字段枚举、编码、退款和时间边界，不能直接断言无数据。
 5. 只读连接不得导入、修改或删除数据，也不得声称已创建或改变补货计划。相关工具可调用时，不得用记忆、样例或估算代替真实查询。
@@ -62,6 +73,7 @@
 
 - 所有导入必须保留来源、原文件 SHA-256、规范化业务内容指纹、业务范围、批次、店铺、数据集、覆盖日期、行数、告警和最终状态，并在返回成功前做落库回查。下载成功不等于导入成功，创建下载任务也不等于数据已经发布。
 - 所有导入接口的重复判定统一为“业务域 + 精确业务范围 + 解析、清洗和业务过滤后的完整规范化内容”全部一致。行顺序、对象键顺序、文件名、原始行号和工作簿元数据等非业务差异不得触发新导入；通过校验的权威业务集合中任一业务字段、业务行数或业务范围变化都必须创建新批次。原文件哈希只用于签收、审计和原文件追踪，不能单独决定 `duplicate`，也不得用全局哈希把不同店铺、月份或数据集误判为重复。签名、解析、表头、范围或空数据等预校验拒绝只写尝试审计，不得创建业务内容指纹、抢占范围锁或改变范围状态；没有受控来源提供的权威空集合证明时，零行必须失败关闭，不能删除既有事实。分天数据的行身份仍必须包含数据集、业务日期和 SKU/SPU。
+- SKU 快递费率导入固定读取名称精确为 `SKU累计` 的工作表，并以 B 列“代码”、M 列“实际金额”、Z 列“合计快递费”和 AA 列“快递费占比”为固定契约。规格代码是事实身份，快递费率必须由 `Z / M` 重算（M 为 0 时按 0）并与 AA 缓存值交叉核验；仅允许同费率或一条完整、一条空白的安全重复行折叠，冲突重复必须拒绝。每次通过校验的文件都是全量权威集合，须使用全局业务内容指纹、owner fencing、原子替换和落库行数回查；负值和超过 100% 的比率保留原值并告警，不得截断。商品经营明细只读取最新已完成批次，列位于退货率之后，未匹配规格显示 `—`。
 - 同一月份、日期或快照的内容变化必须在精确业务范围内原子替换完整事实集合；被新版本移除的旧行不能残留，失败不得留下部分事实。大文件和分块上传要保留会话所有权、完成状态和可恢复性，过期 worker 或迟到响应不能覆盖新任务结果。
 - 可能重叠的日期、月份或会话集合必须按稳定的业务基域串行抢占写锁，不能把整段范围集合本身当作互斥键；锁所有者必须是唯一导入尝试而不是确定性批次号。锁申请、处理中指纹和尝试审计要原子写入，完成与失败只能由同一尝试释放；事实已发布但响应丢失时，精确重试必须完成原尝试、推进范围状态令牌并另记本次 `duplicate` 尝试。粗范围状态令牌必须固定长度并从锁头 O(1) 读取，不能为每次导入扫描整个历史事实表；事实发布前要续验 owner，并在同一事实发布事务内安装 owner 提交栅栏。30 分钟无进展且状态令牌未变化的 `processing` 尝试才可原子接管，旧 owner 不得写事实、清理或完成新尝试；失败释放必须保留上一个已发布状态令牌。库存行身份使用稳定的“仓库 + 货品”业务键且拒绝同文件重复身份，不能把源行号写入事实键，也不能在 `duplicate` 路径补插事实。
 - 多店铺京东任务按店铺串行执行，并使用 `config/jd-store-accounts.json` 中受控的 Chromium 可执行文件、独立 `profileName/profileDir`、调试端口和下载目录。允许四店共享同一 Chromium `userDataDir`，但启动参数必须同时传入 `--user-data-dir` 和唯一的 `--profile-directory`；商品主数据、商智 SKU/SPU 和市场榜单还必须共用一个带活进程校验的全局 Chromium 所有权锁，同一用户数据根目录不得并发启动。京东账号密码不得进入 n8n、注册表、环境变量、命令参数、日志或审计；仅注册表显式设置 `loginMode=windows_dpapi_credentials` 的受控店铺可由当前 Windows 用户绑定的 DPAPI 凭据库自动登录，在唯一账号密码表单中内存解密、填入并最多提交一次，且不得回读字段值。商品主数据导航若先停留在空白业务页、随后才跳转登录页，原首屏查询监听必须保持有效并把延迟跳转交给同一次 DPAPI 登录；登录成功却落到商家首页时，只允许在确认首轮未产生商品查询后单次返回目标商品页，不得再次提交凭据或补点“查询”。验证码、短信、滑块、安全验证、凭据缺失/损坏/拒绝、登录控件歧义或店铺身份不符都必须失败关闭并要求人工处理，不得绕过或在另一店 Profile 重试。京东商品主数据页面禁止使用带 `HeadlessChrome` 特征的模式，日常必须以普通有头 Chromium 后台运行；严格静默模式除离屏启动外，还必须按实际 browser PID 持续隐藏 Windows 顶层窗口，拒绝复用不受本轮窗口守护和执行所有权控制的既有实例。商智 SKU/SPU 分天可继续使用 `headless=new`；每个自动阶段只关闭自己启动的 Chromium，并在释放调试端口后才能进入下一阶段或切店。商品主数据自动流程必须从空白页启动，在唯一受控页面导航前监听首屏 `queryValidProductList`，以首屏响应和页面总数回显作为新鲜度证据；不得先打开未接管的重复商品页，不得在首屏查询后再次补点“查询”。普通流程在登录失效、验证码、安全验证、业务码 `601` 或店铺登录身份异常时，才允许关闭后台实例并打开当前店铺对应的可见 Chromium profile；Chromium 静默副本必须把 `silentNoWindow` 绑定进运行计划、runner 审计和所有子流程，异常时只失败关闭并保留证据，不得打开可见窗口。两种模式都必须保持原任务失败关闭、保留恢复清单并禁止自动重放业务点击；`601` 只能认定为京东服务端风控拒绝，不能仅凭无头、有头、CDP 或点击方式归因，更不能通过反检测或注入式系统输入绕过。发现同端口残留旧 `HeadlessChrome` 时，商品主数据步骤必须先关闭旧实例再启动后台有头实例；切换期间端口被其他进程接管则失败关闭。人工首次登录使用显式 `--interactive-login`。切店后必须验证当前账号/店铺身份；商智恢复清单、建立下载中心 baseline、确认创建任务和点击下载前必须从页头唯一商城链接精确核验 `shopName + shopId`，清单同时绑定 `storeKey + shopName + shopId`；不一致时失败关闭并保留/归档证据，不得接管、提交或下载另一店任务。商智公告必须等同一公告的唯一安全关闭控件连续稳定后才点击，首击无效仅可在公告身份不变时重试一次；跨日后昨天尚未开放时必须按来源未就绪失败关闭，不得缩短日期范围。不得共享会话、下载清单或恢复状态。
@@ -87,7 +99,7 @@
 - 应用角色固定为 `viewer`、`analyst`、`operator`、`admin`。所有权限和数据 scope 均使用服务端 `requireAppPrincipal()` 得到的真实身份；客户端、模型参数和请求正文中的身份/角色声明不可信。
 - 读取也要应用 principal scope；写入、配置、导入、发布、回滚、删除等操作按现有角色契约收紧，不能为了修复页面流程绕过鉴权。
 - `.dev.vars`、API Key、Token、Webhook、AES Key、浏览器登录状态和原始客户聊天不得提交、打印到日志、写进审计摘要或持久记忆。列表接口只返回掩码。
-- 本地免登录管理员仅在 `TERUISI_LOCAL_DIRECT_ACCESS=true`、`TERUISI_RUNTIME_ENV=development` 与真实开发/本地构建标记同时满足时可用；生产环境必须保持拒绝匿名直连。
+- 本地免登录管理员仅在 `TERUISI_LOCAL_DIRECT_ACCESS=true`、`TERUISI_RUNTIME_ENV=development` 与真实开发/受控本地构建标记同时满足时可用，并必须在 Worker 入口和身份解析两层把请求限制到精确回环地址；Host 不能作为开发证明，LAN 地址、任意域名和 DNS rebinding 必须失败关闭。所有非 Webhook AI 写请求还必须提供精确同源 `Origin` 或明确的 `Sec-Fetch-Site: same-origin`；生产环境必须保持拒绝匿名直连。
 - 外部回调必须验签、解密、校验接收方并防重。聊天平台消息不能绕过后台权限直接修改运营数据。
 
 ## 7. 中央 AI 工具注册表
@@ -100,10 +112,10 @@
 
 ## 8. D1、R2、迁移与缓存
 
-- D1 保存结构化业务事实、配置、批次与审计；R2 保存经验证的原文件或图片对象。不要在 D1 中保存大二进制，也不要把 R2 对象当作未经校验即可导入的事实。
-- 数据库结构变更使用新的前向 `drizzle/*.sql` 迁移；不得改写已应用迁移。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
+- D1 保存尚未迁移业务域的结构化事实、配置、批次与审计，以及 ERP 主数据；已迁移销售域的上述对象只在 PostgreSQL。销售原始分片字节也只保存在 PostgreSQL 的有界、可过期会话中。R2 继续保存其他业务域经验证的原文件、附件或图片对象，不是任何业务域的完成证明；不得从全局配置移除其他模块仍在使用的 R2 binding。
+- 仍以 D1 为权威的业务域使用新的前向 `drizzle/*.sql` 迁移；Django/PostgreSQL 业务域使用新的 Django migrations。两类迁移都不得改写已应用版本。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
 - 迁移先补列/补表、回填和去重，再创建依赖新结构的索引或唯一约束。升级必须可重复执行，并保护已有人工确认、审计和批次历史。
-- D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
+- 对仍以 D1 为权威的业务域，D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
 - 查询设计必须适应 D1 限制，保持参数、表达式深度、复合查询项、结果体和执行时间有界。涉及复杂市场查询时保留表达式深度 100、复合查询 5 项的回归门禁。
 - 有效指标、月度汇总和 overview 响应缓存都只是派生数据。任何影响结果的事实、价格、图片状态、映射或主数据变更必须递增版本或精确失效；版本不一致、构建未完成或租约失效时不得返回旧缓存。
 
@@ -121,8 +133,8 @@
 
 - 根据改动范围运行最小充分验证：优先相关测试，再运行 `npm run test:unit`、`npm run lint` 和 `git diff --check`。仅文档变更无需运行生产构建，但必须检查链接、命令和当前代码一致。
 - `npm test` 会先执行生产构建。生产构建会改写 `dist`，而本地预构建 Worker 会监听该目录；构建前必须检查 `127.0.0.1:3000` 是否被本项目服务占用。
-- 未经用户在当前对话中明确批准，不得停止、重启或中断本地开发/Workers 服务，也不得在运行中的 Worker 监听 `dist` 时原地构建。需要本地预构建 Worker 时使用 `npm run start:local-worker`；需要构建并启动时使用受保护的 `tools/start-local-worker.mjs --build` 流程。
-- 不得为了测试而覆盖本机 D1/R2、浏览器 profile、下载目录或 `.dev.vars`。测试优先使用临时目录、内存/临时 SQLite 和夹具。
+- 未经用户在当前对话中明确批准，不得停止、重启或中断本地服务，也不得在运行中的 Worker 监听构建产物时原地构建。当前本机正式 Worker 只能由 `tools/worker-local-service.ps1` 解析并管理不可变 effective head；禁止直接运行 Wrangler、旧 release、`dist` 或 `tools/start-local-worker.mjs`。
+- 不得为了测试而覆盖本机 PostgreSQL/Django runtime、Worker release runtime、D1/R2、浏览器 profile、下载目录、备份、审计或 `.dev.vars`。测试优先使用临时目录、内存/临时 SQLite 和夹具。
 - 未经明确要求，不执行生产部署、远程 D1 迁移、生产数据导入或外部平台真实发送。涉及这类动作时，应先说明目标环境、影响范围和验证/回滚方案。
 - 修改注册表、鉴权、导入、市场迁移、缓存或自动化状态机时，必须增加针对失败、重试、重复、跨范围和并发交错的负向测试，不能只验证成功路径。
 

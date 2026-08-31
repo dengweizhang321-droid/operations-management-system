@@ -178,7 +178,8 @@ export function validateJdMarketImportResponse(httpStatus: number, payload: unkn
   const receipt = body?.importReceipt && typeof body.importReceipt === "object" && !Array.isArray(body.importReceipt)
     ? body.importReceipt as JdMarketImportReceipt
     : null;
-  if (!statusMatches || body?.ok !== true || !batch || !receipt || !Array.isArray(batch.warnings) || batch.warnings.length !== 0) {
+  if (!statusMatches || body?.ok !== true || !batch || !receipt || !Array.isArray(batch.warnings)
+    || batch.warnings.length !== 0 || Number(batch.warningCount) !== 0) {
     const observedStatus = typeof resultStatus === "string" && resultStatus.trim()
       ? `，status=${resultStatus.trim().replace(/\s+/g, " ").slice(0, 40)}`
       : "";
@@ -194,7 +195,7 @@ export function validateJdMarketImportResponse(httpStatus: number, payload: unkn
     batchStatus: String(batch.status ?? "") as "completed",
     sourceType: String(batch.sourceType ?? "") as "market_ranking",
     rowCount: Number(batch.rowCount),
-    warningCount: Number(batch.warningCount),
+    warningCount: 0,
     periodStart: String(batch.periodStart ?? ""),
     periodEnd: String(batch.periodEnd ?? ""),
     receipt,

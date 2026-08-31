@@ -16,6 +16,38 @@ const targetUrl = "https://jdsz.jd.com/szweb/view/industry/industry-product-rank
 
 type CandidatePage = { items: MarketImageRepairCandidate[]; pagination: { page: number; pageSize: number; pageCount: number; total: number } };
 
+type MarketImageCacheTotals = {
+  pending: number;
+  cached: number;
+  failed: number;
+  processed: number;
+};
+
+type MarketImageCacheJobSnapshot = {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  total: number;
+  pending: number;
+  propagationPending: number;
+  cached: number;
+  failed: number;
+  processedCount: number;
+  errorCode: string;
+  errorMessage: string;
+};
+
+type MarketImageCacheRequest = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
+type MarketImageCachePollOptions = {
+  signal?: AbortSignal;
+  pollIntervalMs?: number;
+  maxPolls?: number;
+  request?: MarketImageCacheRequest;
+};
+
+const DEFAULT_IMAGE_CACHE_POLL_INTERVAL_MS = 2_000;
+const DEFAULT_IMAGE_CACHE_MAX_POLLS = 7_200;
+
 function normalizeBaseUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname) || (url.pathname !== "/" && url.pathname !== "")) {
@@ -24,8 +56,10 @@ function normalizeBaseUrl(value: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-async function jsonRequest<T>(url: string, init?: RequestInit) {
-  const response = await fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(120_000) });
+async function jsonRequest<T>(url: string, init?: RequestInit, request: MarketImageCacheRequest = fetch) {
+  const timeoutSignal = AbortSignal.timeout(120_000);
+  const signal = init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+  const response = await request(url, { ...init, signal });
   const body = await response.json().catch(() => null) as (T & { error?: string }) | null;
   if (!response.ok || !body) throw new Error(body?.error || `运营系统请求失败：HTTP ${response.status}`);
   return body;
@@ -102,11 +136,27 @@ async function captureSkuHeaders(page: Page) {
   await page.addInitScript(() => {
     const target = window as typeof window & { __teruisiImageRepairRank?: { headers: Record<string, string>; url: string } };
     const rawOpen = XMLHttpRequest.prototype.open;
+    const invokeOpen = rawOpen as unknown as (
+      this: XMLHttpRequest,
+      method: string,
+      url: string | URL,
+      async?: boolean,
+      username?: string | null,
+      password?: string | null,
+    ) => void;
     const rawHeader = XMLHttpRequest.prototype.setRequestHeader;
     const rawSend = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.open = function (...args: Parameters<XMLHttpRequest["open"]>) {
-      (this as XMLHttpRequest & { __teruisiUrl?: string }).__teruisiUrl = String(args[1]);
-      return rawOpen.apply(this, args as never);
+    XMLHttpRequest.prototype.open = function (
+      method: string,
+      url: string | URL,
+      async?: boolean,
+      username?: string | null,
+      password?: string | null,
+    ) {
+      (this as XMLHttpRequest & { __teruisiUrl?: string }).__teruisiUrl = String(url);
+      return async === undefined
+        ? invokeOpen.call(this, method, url)
+        : invokeOpen.call(this, method, url, async, username, password);
     };
     XMLHttpRequest.prototype.setRequestHeader = function (...args: Parameters<XMLHttpRequest["setRequestHeader"]>) {
       const request = this as XMLHttpRequest & { __teruisiHeaders?: Record<string, string> };
@@ -217,23 +267,169 @@ async function fetchJdImages(frame: Frame, skuIds: string[], headers: Record<str
   return images;
 }
 
-async function cacheRepairedImages(baseUrl: string) {
-  let latest = { pending: 0, cached: 0, failed: 0, processed: 0 };
+function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number, label: string) {
+  const candidate = value ?? fallback;
+  if (!Number.isInteger(candidate) || candidate < minimum || candidate > maximum) {
+    throw new Error(`${label} 必须是 ${minimum}–${maximum} 的整数`);
+  }
+  return candidate;
+}
+
+function numericField(record: Record<string, unknown>, key: string, fallback?: number) {
+  if (!Object.hasOwn(record, key) && fallback !== undefined) return fallback;
+  const value = Number(record[key]);
+  if (!Number.isFinite(value) || value < 0) throw new Error(`图片缓存响应字段 ${key} 无效`);
+  return value;
+}
+
+function parseMarketImageCacheJob(value: unknown): MarketImageCacheJobSnapshot | null {
+  const job = recordValue(value);
+  if (!job) return null;
+  const id = typeof job.id === "string" ? job.id.trim() : "";
+  const status = typeof job.status === "string" ? job.status : "";
+  if (!id || !["queued", "running", "completed", "failed"].includes(status)) {
+    throw new Error("图片缓存任务响应缺少有效的 job id 或 status");
+  }
+  return {
+    id,
+    status: status as MarketImageCacheJobSnapshot["status"],
+    total: numericField(job, "total"),
+    pending: numericField(job, "pending"),
+    propagationPending: numericField(job, "propagationPending", 0),
+    cached: numericField(job, "cached"),
+    failed: numericField(job, "failed"),
+    processedCount: numericField(job, "processedCount", 0),
+    errorCode: typeof job.errorCode === "string" ? job.errorCode.slice(0, 120) : "",
+    errorMessage: typeof job.errorMessage === "string" ? job.errorMessage.slice(0, 500) : "",
+  };
+}
+
+function parseLegacyMarketImageCacheResult(value: unknown): MarketImageCacheTotals | null {
+  const result = recordValue(value);
+  if (!result) return null;
+  return {
+    pending: numericField(result, "pending"),
+    cached: numericField(result, "cached"),
+    failed: numericField(result, "failed"),
+    processed: numericField(result, "processed", 0),
+  };
+}
+
+function interruptedImageCacheError(signal?: AbortSignal) {
+  const suffix = typeof signal?.reason === "string"
+    ? signal.reason
+    : signal?.reason instanceof Error && signal.reason.message !== "This operation was aborted"
+      ? signal.reason.message
+      : "";
+  const error = new Error(`市场图片缓存任务轮询已中断${suffix ? `：${suffix}` : ""}`);
+  error.name = "AbortError";
+  return error;
+}
+
+function assertImageCachePollingActive(signal?: AbortSignal) {
+  if (signal?.aborted) throw interruptedImageCacheError(signal);
+}
+
+function waitForImageCachePoll(signal: AbortSignal | undefined, delayMs: number) {
+  assertImageCachePollingActive(signal);
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, delayMs);
+    const abort = () => {
+      cleanup();
+      reject(interruptedImageCacheError(signal));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+  });
+}
+
+function completedCacheTotals(job: MarketImageCacheJobSnapshot): MarketImageCacheTotals {
+  return { pending: job.pending + job.propagationPending, cached: job.cached, failed: job.failed, processed: job.processedCount };
+}
+
+function assertImageCacheJobSucceeded(job: MarketImageCacheJobSnapshot) {
+  if (job.status !== "failed") return;
+  const details = job.errorMessage || job.errorCode || "后台任务未提供失败原因";
+  throw new Error(`市场图片缓存任务失败（${job.id}）：${details}`);
+}
+
+async function pollMarketImageCacheJob(
+  baseUrl: string,
+  initialJob: MarketImageCacheJobSnapshot,
+  options: Required<Pick<MarketImageCachePollOptions, "pollIntervalMs" | "maxPolls" | "request">> & Pick<MarketImageCachePollOptions, "signal">,
+) {
+  let job = initialJob;
+  assertImageCacheJobSucceeded(job);
+  if (job.status === "completed") return completedCacheTotals(job);
+  for (let poll = 0; poll < options.maxPolls; poll += 1) {
+    await waitForImageCachePoll(options.signal, options.pollIntervalMs);
+    assertImageCachePollingActive(options.signal);
+    let body: { job?: unknown };
+    try {
+      body = await jsonRequest<{ job?: unknown }>(
+        `${baseUrl}/api/market/images/cache?jobId=${encodeURIComponent(job.id)}`,
+        { cache: "no-store", signal: options.signal },
+        options.request,
+      );
+    } catch (error) {
+      if (options.signal?.aborted) throw interruptedImageCacheError(options.signal);
+      throw error;
+    }
+    const nextJob = parseMarketImageCacheJob(body.job);
+    if (!nextJob) throw new Error("图片缓存任务状态响应缺少 job");
+    if (nextJob.id !== job.id) throw new Error(`图片缓存任务身份不一致：期望 ${job.id}，实际 ${nextJob.id}`);
+    job = nextJob;
+    assertImageCacheJobSucceeded(job);
+    if (job.status === "completed") return completedCacheTotals(job);
+  }
+  throw new Error(
+    `市场图片缓存任务轮询超时（${job.id}）：状态 ${job.status}，待缓存 ${job.pending}，待传播 ${job.propagationPending}；后台任务仍会继续运行`,
+  );
+}
+
+/** Submit the background cache job and wait for its bounded terminal state. */
+export async function cacheRepairedImages(baseUrl: string, options: MarketImageCachePollOptions = {}) {
+  const pollOptions = {
+    signal: options.signal,
+    pollIntervalMs: boundedInteger(options.pollIntervalMs, DEFAULT_IMAGE_CACHE_POLL_INTERVAL_MS, 0, 60_000, "轮询间隔"),
+    maxPolls: boundedInteger(options.maxPolls, DEFAULT_IMAGE_CACHE_MAX_POLLS, 1, 10_000, "最大轮询次数"),
+    request: options.request ?? fetch,
+  };
   let noProgressRounds = 0;
+  let latest: MarketImageCacheTotals = { pending: 0, cached: 0, failed: 0, processed: 0 };
   for (let round = 0; round < 250; round += 1) {
-    const body = await jsonRequest<{ result: { pending: number; cached: number; failed: number; processed: number; cachedThisRun: number } }>(
-      `${baseUrl}/api/market/images/cache`,
-      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ limit: 24 }) },
-    );
-    latest = { ...body.result, processed: Number(body.result.processed ?? 0) };
+    assertImageCachePollingActive(pollOptions.signal);
+    let body: { job?: unknown; result?: unknown };
+    try {
+      body = await jsonRequest<{ job?: unknown; result?: unknown }>(
+        `${baseUrl}/api/market/images/cache`,
+        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ limit: 24 }), signal: pollOptions.signal },
+        pollOptions.request,
+      );
+    } catch (error) {
+      if (pollOptions.signal?.aborted) throw interruptedImageCacheError(pollOptions.signal);
+      throw error;
+    }
+    const job = parseMarketImageCacheJob(body.job);
+    if (job) return pollMarketImageCacheJob(baseUrl, job, pollOptions);
+    const legacyResult = parseLegacyMarketImageCacheResult(body.result);
+    if (!legacyResult) throw new Error("图片缓存响应既不包含异步 job，也不包含兼容 result");
+    latest = legacyResult;
     if (latest.pending <= 0) break;
-    noProgressRounds = Number(body.result.processed ?? 0) === 0 ? noProgressRounds + 1 : 0;
+    noProgressRounds = latest.processed === 0 ? noProgressRounds + 1 : 0;
     if (noProgressRounds >= 3) break;
   }
   return latest;
 }
 
-export async function runJdMarketImageRepair(options: { baseUrl?: string } = {}) {
+export async function runJdMarketImageRepair(options: { baseUrl?: string; signal?: AbortSignal } = {}) {
   const baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://127.0.0.1:3000");
   const candidates = await readRepairCandidates(baseUrl);
   if (!candidates.length) return { ok: true, candidateCount: 0, repairedCount: 0, unresolvedCount: 0 };
@@ -290,7 +486,7 @@ export async function runJdMarketImageRepair(options: { baseUrl?: string } = {})
     }] : [];
   });
   const resolvedResult = resolved.length ? await applyRepairs(baseUrl, resolved) : { repairCount: 0, rankingRowsUpdated: 0, snapshotsUpdated: 0, inheritedPrices: 0 };
-  const cache = await cacheRepairedImages(baseUrl);
+  const cache = await cacheRepairedImages(baseUrl, { signal: options.signal });
   const repairedCount = reusableResult.repairCount + resolvedResult.repairCount;
   return {
     ok: true,
@@ -307,11 +503,24 @@ export async function runJdMarketImageRepair(options: { baseUrl?: string } = {})
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  runJdMarketImageRepair().then((result) => {
+  const controller = new AbortController();
+  let interruptedExitCode = 0;
+  const interrupt = (signal: "SIGINT" | "SIGTERM") => {
+    interruptedExitCode ||= signal === "SIGINT" ? 130 : 143;
+    if (!controller.signal.aborted) controller.abort(`收到 ${signal}`);
+  };
+  const onSigint = () => interrupt("SIGINT");
+  const onSigterm = () => interrupt("SIGTERM");
+  process.once("SIGINT", onSigint);
+  process.once("SIGTERM", onSigterm);
+  runJdMarketImageRepair({ signal: controller.signal }).then((result) => {
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (result.unresolvedCount > 0) process.exitCode = 2;
   }).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+    process.exitCode = interruptedExitCode || 1;
+  }).finally(() => {
+    process.removeListener("SIGINT", onSigint);
+    process.removeListener("SIGTERM", onSigterm);
   });
 }

@@ -65,6 +65,7 @@ type MarketIndustryReport = {
 };
 type MarketOverview = {
   view: "ranking" | "full";
+  salesRevision: string;
   summary: {
     productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;
     ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;
@@ -87,6 +88,63 @@ type MarketOverview = {
   imageCache: { total: number; cached: number; failed: number; pending: number };
   error?: string;
 };
+type MarketSettingsStatus = Pick<MarketOverview, "dataRange" | "batches" | "imageCache">;
+type MarketImageCacheJob = MarketOverview["imageCache"] & {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  discoveryComplete: boolean;
+  discoveredCount: number;
+  propagationPending: number;
+  processedCount: number;
+  runCount: number;
+  errorMessage: string;
+};
+
+function imageCacheWorkPending(job: MarketImageCacheJob) {
+  return job.pending + job.propagationPending;
+}
+
+function cacheStatsFromJob(job: MarketImageCacheJob): MarketOverview["imageCache"] {
+  return { total: job.total, cached: job.cached, failed: job.failed, pending: imageCacheWorkPending(job) };
+}
+
+function imageCacheJobProgress(job: MarketImageCacheJob) {
+  if (!job.discoveryComplete) {
+    return `后台扫描/排队中：已发现 ${job.discoveredCount} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;
+  }
+  return `已缓存 ${job.cached} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;
+}
+
+function waitForImageCachePoll(signal: AbortSignal, delayMs = 2_000) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => { cleanup(); resolve(); }, delayMs);
+    const abort = () => { cleanup(); reject(new DOMException("请求已取消", "AbortError")); };
+    const cleanup = () => { window.clearTimeout(timer); signal.removeEventListener("abort", abort); };
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
+async function pollMarketImageCacheJob(
+  initialJob: MarketImageCacheJob,
+  signal: AbortSignal,
+  onUpdate: (job: MarketImageCacheJob) => void,
+  maxPolls = 30,
+) {
+  let job = initialJob;
+  for (let poll = 0; poll < maxPolls && job.status !== "completed" && job.status !== "failed"; poll += 1) {
+    await waitForImageCachePoll(signal);
+    const response = await fetch(`/api/market/images/cache?jobId=${encodeURIComponent(job.id)}`, {
+      cache: "no-store",
+      signal,
+    });
+    const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;
+    if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务状态无响应");
+    job = payload.job;
+    onUpdate(job);
+  }
+  return { job, timedOut: job.status !== "completed" && job.status !== "failed" };
+}
 type MarketOverviewClientCacheEntry = { payload: MarketOverview; storedAt: number };
 type MarketOverviewSharedRequest = {
   controller: AbortController;
@@ -556,8 +614,10 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
     return { requestKey, url: selections.length < 2 ? null : `/api/market/master?${requestKey}` };
   }, [selections, query, categories, scopes, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate]);
   const [result, setResult] = useState<{ requestKey: string; payload: ComparePayload | null; error: string } | null>(null);
-  const data = result?.requestKey === request.requestKey ? result.payload : null;
-  const error = result?.requestKey === request.requestKey ? result.error : "";
+  const currentResult = result?.requestKey === request.requestKey ? result : null;
+  const data = currentResult?.payload ?? result?.payload ?? null;
+  const error = currentResult?.error ?? "";
+  const loading = Boolean(request.url && result?.requestKey !== request.requestKey);
   const requestGeneration = useRef(0);
   useEffect(() => {
     const requestId = beginLatestRequest(requestGeneration);
@@ -573,7 +633,7 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
       .catch((reason) => {
         if (requestId !== requestGeneration.current) return;
         if (!(reason instanceof DOMException && reason.name === "AbortError")) {
-          setResult({ requestKey: request.requestKey, payload: null, error: reason instanceof Error ? reason.message : "商品对比读取失败" });
+          setResult((current) => ({ requestKey: request.requestKey, payload: current?.payload ?? null, error: reason instanceof Error ? reason.message : "商品对比读取失败" }));
         }
       });
     return () => { invalidateLatestRequest(requestGeneration); controller.abort(); };
@@ -586,11 +646,11 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
   const compared = selections.map((selection) => data?.items.find((item) => marketCompareSelectionKey(item) === marketCompareSelectionKey(selection))).filter(Boolean) as NonNullable<ComparePayload>["items"];
   const missingSelections = data?.missingSelections ?? [];
   const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.slice(-12).map((row) => Number(row.gmvCents ?? 0))));
-  return <section className="panel market-compare-workspace">
+  return <section className="panel market-compare-workspace data-refresh-region" aria-busy={loading}>
     <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>主指标按当前筛选范围完整汇总；月度火花图只展示最近 12 个月。</p></div><div><strong>已选择 {selections.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
     <div className="market-compare-selection">{selections.map((item) => <button type="button" key={marketCompareSelectionKey(item)} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
     {error && <small className="red-text">{error}</small>}
-    {!data && !error && <small>正在读取对比数据...</small>}
+    {loading && !data && !error && <small>正在读取对比数据...</small>}
     {data && missingSelections.length > 0 && <small className="red-text">当前筛选范围无数据：{missingSelections.map((item) => `${item.skuCode}（${item.scope}）`).join("、")}。可调整筛选，或从上方移除。</small>}
     {data && <div className="market-compare-grid market-compare-grid-live">
       <div className="metric-labels"><strong>指标</strong>{["销售额", "成交件数", "市场定位价", "成交均价", "访客", "转化率", "最好排名", "月度趋势"].map((label) => <span key={label}>{label}</span>)}</div>
@@ -604,47 +664,91 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
   </section>;
 }
 
-export function MarketDataImportPanel({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketOverview | null; onImported?: () => void }) {
+export function MarketDataImportPanel({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketSettingsStatus | null; onImported?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [sourceType, setSourceType] = useState("market_ranking");
   const [category, setCategory] = useState("");
   const [scope, setScope] = useState("全部SKU");
   const [priceBandFilter, setPriceBandFilter] = useState("全部");
-  const [periodStart, setPeriodStart] = useState(data?.dataRange.startDate ?? new Date().toISOString().slice(0, 10));
-  const [periodEnd, setPeriodEnd] = useState(data?.dataRange.endDate ?? new Date().toISOString().slice(0, 10));
+  const [periodStart, setPeriodStart] = useState(data?.dataRange.startDate ?? shanghaiToday());
+  const [periodEnd, setPeriodEnd] = useState(data?.dataRange.endDate ?? shanghaiToday());
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const importRequestRef = useRef<AbortController | null>(null);
+  const imageCachePollRef = useRef<AbortController | null>(null);
+  const imageCachePollGenerationRef = useRef(0);
+  useEffect(() => () => {
+    importRequestRef.current?.abort();
+    imageCachePollRef.current?.abort();
+    imageCachePollGenerationRef.current += 1;
+  }, []);
+  const startImageCachePolling = (initialJob: MarketImageCacheJob, importMessage: string) => {
+    imageCachePollRef.current?.abort();
+    const controller = new AbortController();
+    const generation = imageCachePollGenerationRef.current + 1;
+    imageCachePollGenerationRef.current = generation;
+    imageCachePollRef.current = controller;
+    void (async () => {
+      try {
+        const polled = await pollMarketImageCacheJob(initialJob, controller.signal, (job) => {
+          if (imageCachePollGenerationRef.current !== generation || imageCachePollRef.current !== controller) return;
+          setFeedback(`${importMessage}；${imageCacheJobProgress(job)}`);
+        });
+        if (imageCachePollGenerationRef.current !== generation || imageCachePollRef.current !== controller) return;
+        if (polled.job.status === "failed") {
+          setFeedback(`${importMessage}；后台图片缓存失败：${polled.job.errorMessage || "请在系统设置中重试"}`);
+        } else if (polled.timedOut) {
+          setFeedback(`${importMessage}；图片缓存仍在后台运行，${imageCacheJobProgress(polled.job)}`);
+        } else {
+          setFeedback(`${importMessage}；商品图处理完成：已缓存 ${polled.job.cached} 张，失败 ${polled.job.failed} 张`);
+          onImported?.();
+        }
+      } catch (reason) {
+        if (controller.signal.aborted || imageCachePollGenerationRef.current !== generation) return;
+        setFeedback(`${importMessage}；后台进度读取中断：${reason instanceof Error ? reason.message : "请稍后刷新查看"}`);
+      } finally {
+        if (imageCachePollRef.current === controller) imageCachePollRef.current = null;
+      }
+    })();
+  };
   const upload = async () => {
     if (!file) { setError("请先选择 XLS、XLSX 或 CSV 文件"); return; }
+    imageCachePollRef.current?.abort();
+    imageCachePollGenerationRef.current += 1;
+    const controller = new AbortController();
+    importRequestRef.current = controller;
     setBusy(true); setError(""); setFeedback("");
     try {
       const form = new FormData();
       form.set("file", file); form.set("sourceType", sourceType); form.set("category", category);
       form.set("scope", scope); form.set("priceBandFilter", priceBandFilter); form.set("periodStart", periodStart); form.set("periodEnd", periodEnd);
-      const response = await fetch("/api/market/import", { method: "POST", body: form });
-      const payload = await response.json().catch(() => null) as { error?: string; message?: string; batch?: { id: string }; imageCache?: { pending: number; cached: number; failed: number } } | null;
+      const response = await fetch("/api/market/import", { method: "POST", body: form, signal: controller.signal });
+      const payload = await response.json().catch(() => null) as {
+        error?: string;
+        message?: string;
+        batch?: { id: string };
+        imageCacheJob?: MarketImageCacheJob & { maintenanceFailed?: boolean };
+      } | null;
       if (!response.ok) throw new Error(payload?.error || "导入失败");
-      setFeedback(payload?.message || "市场数据导入完成");
+      const importMessage = payload?.message || "市场数据导入完成";
+      setFeedback(importMessage);
       setFile(null); onImported?.();
-      if (payload?.batch?.id && (payload.imageCache?.pending ?? 0) > 0) {
-        const initialImageCache = payload.imageCache!;
-        let pending = initialImageCache.pending;
-        let cached = initialImageCache.cached;
-        let failed = initialImageCache.failed;
-        for (let round = 0; round < 50 && pending > 0; round += 1) {
-          setFeedback(`数据已导入，正在自动缓存商品图：已缓存 ${cached}，待处理 ${pending}`);
-          const cacheResponse = await fetch("/api/market/images/cache", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ batchId: payload.batch.id, limit: 24 }) });
-          const cachePayload = await cacheResponse.json().catch(() => null) as { error?: string; result?: { processed: number; pending: number; cached: number; failed: number } } | null;
-          if (!cacheResponse.ok || !cachePayload?.result) throw new Error(`市场数据已导入，但图片缓存中断：${cachePayload?.error || "缓存接口无响应"}`);
-          ({ pending, cached, failed } = cachePayload.result);
-          if (cachePayload.result.processed === 0) break;
-        }
-        setFeedback(`市场数据与商品图处理完成：已缓存 ${cached} 张，待处理 ${pending} 张，失败 ${failed} 张`);
-        onImported?.();
+      if (payload?.imageCacheJob?.maintenanceFailed) {
+        setFeedback(`${importMessage}；图片缓存任务创建失败，可在系统设置中重试`);
+      } else if (payload?.imageCacheJob?.id) {
+        const initialJob = payload.imageCacheJob;
+        setFeedback(`${importMessage}；图片缓存已转入后台，${imageCacheJobProgress(initialJob)}`);
+        startImageCachePolling(initialJob, importMessage);
       }
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "导入失败"); }
-    finally { setBusy(false); }
+    } catch (reason) {
+      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "导入失败");
+    } finally {
+      if (importRequestRef.current === controller) {
+        importRequestRef.current = null;
+        setBusy(false);
+      }
+    }
   };
   return <section className="panel market-import-card"><div className="section-header"><div><h2>市场数据导入</h2><p>位于市场分析 → 系统和 AI 设置；导入会保留原榜单、图片缓存和已确认价格。</p></div></div>
     {!currentUser || currentUser.role !== "admin" ? <div className="market-import-permission">仅管理员可导入市场数据。</div> : <>
@@ -662,7 +766,7 @@ export function MarketDataImportPanel({ currentUser, data, onImported }: { curre
   </section>;
 }
 
-export function MarketWorkflowPanel({ data }: { data: MarketOverview | null }) {
+export function MarketWorkflowPanel({ data }: { data: MarketSettingsStatus | null }) {
   return <section className="panel market-batch-list"><div className="section-header"><div><h2>AI 数据工作流与任务记录</h2><p>自动下载导入、结构化校验、缺失字段识别、人工确认和发布均在此跟踪。</p></div></div>
     <div className="market-workflow-steps">{["自动下载导入", "结构化校验", "缺失字段识别", "人工确认", "发布到分析"].map((step, index) => <article key={step}><strong>{index + 1}</strong><span>{step}</span></article>)}</div>
     {data?.batches.map((batch) => <article key={batch.id}><div><strong>{batch.fileName}</strong><small>{batch.sourceType} · {batch.completedAt ? new Date(batch.completedAt).toLocaleString("zh-CN") : "处理中"}</small></div><span>{count(batch.rowCount)} 行</span><small>新增 {count(batch.insertedCount)} · 更新 {count(batch.updatedCount)} · 告警 {count(batch.warningCount)}</small></article>)}
@@ -682,16 +786,19 @@ export function MarketMasterAdminPanel(props: {
   </Suspense>;
 }
 
-function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketOverview; onImported: () => void }) {
+const EMPTY_IMAGE_CACHE_STATS: MarketOverview["imageCache"] = { total: 0, cached: 0, failed: 0, pending: 0 };
+
+function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUser: CurrentUser; data: MarketSettingsStatus | null; onImported: () => void }) {
   const [tab, setTab] = useState<MarketSettingsTab>("database");
   const [databaseArea, setDatabaseArea] = useState<"master" | "annotation">("master");
   const [systemKpis, setSystemKpis] = useState<MarketSystemKpis | null>(null);
   const [systemKpisError, setSystemKpisError] = useState("");
-  const [cacheStats, setCacheStats] = useState(data.imageCache);
+  const [cacheStats, setCacheStats] = useState(data?.imageCache ?? EMPTY_IMAGE_CACHE_STATS);
   const [cacheRunning, setCacheRunning] = useState(false);
-  const [cacheNotice, setCacheNotice] = useState("");
+  const [cacheNotice, setCacheNotice] = useState(data ? "" : "图片统计将在后台维护任务启动后更新");
   const [cacheError, setCacheError] = useState("");
-  const stopImageCacheRef = useRef(false);
+  const cachePollControllerRef = useRef<AbortController | null>(null);
+  const cachePollStoppedRef = useRef(false);
   const isAdmin = currentUser?.role === "admin";
   useEffect(() => {
     const controller = new AbortController();
@@ -710,48 +817,47 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    if (!cacheRunning) setCacheStats(data.imageCache);
-  }, [cacheRunning, data.imageCache]);
-  useEffect(() => () => { stopImageCacheRef.current = true; }, []);
+    if (!cacheRunning && data?.imageCache) setCacheStats(data.imageCache);
+  }, [cacheRunning, data?.imageCache]);
+  useEffect(() => () => cachePollControllerRef.current?.abort(), []);
   const refreshImageCache = async () => {
-    if (!isAdmin || cacheRunning || cacheStats.pending <= 0) return;
-    stopImageCacheRef.current = false;
+    if (!isAdmin || cacheRunning) return;
+    cachePollControllerRef.current?.abort();
+    const controller = new AbortController();
+    cachePollControllerRef.current = controller;
+    cachePollStoppedRef.current = false;
     setCacheRunning(true);
     setCacheError("");
-    let latest = cacheStats;
-    let batches = 0;
-    let cachedThisSession = 0;
-    let failedThisSession = 0;
     try {
-      while (!stopImageCacheRef.current && latest.pending > 0) {
-        setCacheNotice(`正在缓存第 ${batches + 1} 批：已成功 ${count(cachedThisSession)} 张，剩余 ${count(latest.pending)} 张`);
-        const response = await fetch("/api/market/images/cache", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ limit: 24 }),
-        });
-        const payload = await response.json().catch(() => null) as {
-          error?: string;
-          result?: MarketOverview["imageCache"] & { processed: number; cachedThisRun: number; failedThisRun: number };
-        } | null;
-        if (!response.ok || !payload?.result) throw new Error(payload?.error || "图片缓存接口无响应");
-        latest = payload.result;
-        batches += 1;
-        cachedThisSession += payload.result.cachedThisRun;
-        failedThisSession += payload.result.failedThisRun;
-        setCacheStats(latest);
-        if (payload.result.processed === 0) break;
-      }
-      if (stopImageCacheRef.current) {
-        setCacheNotice(`已停止：本次完成 ${count(batches)} 批，成功 ${count(cachedThisSession)} 张，剩余 ${count(latest.pending)} 张`);
-      } else if (latest.pending === 0) {
-        setCacheNotice(`图片缓存完成：本次成功 ${count(cachedThisSession)} 张，失败尝试 ${count(failedThisSession)} 张`);
-      } else {
-        setCacheNotice(`当前没有可领取的缓存批次，可能已有任务正在处理；剩余 ${count(latest.pending)} 张`);
-      }
+      setCacheNotice("正在创建或续接后台图片缓存任务…");
+      const response = await fetch("/api/market/images/cache", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;
+      if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务创建失败");
+      setCacheStats(cacheStatsFromJob(payload.job));
+      setCacheNotice(payload.job.status === "completed"
+        ? `图片后台维护已是最新状态：已缓存 ${count(payload.job.cached)} 张`
+        : `后台任务已${payload.job.status === "running" ? "续接" : "排队"}：${imageCacheJobProgress(payload.job)}`);
+      const polled = await pollMarketImageCacheJob(payload.job, controller.signal, (job) => {
+        setCacheStats(cacheStatsFromJob(job));
+        setCacheNotice(`后台任务${job.status === "running" ? "正在执行" : "已排队"}：${imageCacheJobProgress(job)}`);
+      });
+      if (polled.job.status === "failed") throw new Error(polled.job.errorMessage || "后台图片缓存任务失败");
+      setCacheNotice(polled.timedOut
+        ? `图片缓存仍在后台运行；${imageCacheJobProgress(polled.job)}`
+        : `图片缓存完成：已缓存 ${count(polled.job.cached)} 张，失败 ${count(polled.job.failed)} 张`);
     } catch (reason) {
-      setCacheError(reason instanceof Error ? reason.message : "图片缓存刷新失败");
+      if (controller.signal.aborted) {
+        if (cachePollStoppedRef.current) setCacheNotice("已停止查看进度；后台缓存任务仍会继续运行");
+      } else {
+        setCacheError(reason instanceof Error ? reason.message : "图片缓存刷新失败");
+      }
     } finally {
+      if (cachePollControllerRef.current === controller) cachePollControllerRef.current = null;
       setCacheRunning(false);
       onImported();
     }
@@ -781,7 +887,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
   };
   return <section className="market-settings-workspace">
-    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；“待 AI 标注总量”按最高算力需求归入下方四种互斥路径，四项合计与总量一致。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待缓存图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning || cacheStats.pending <= 0} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在分批缓存…" : cacheStats.pending > 0 ? "一键刷新图片缓存" : "图片缓存已完成"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { stopImageCacheRef.current = true; setCacheNotice("正在停止，当前批次完成后停止…"); }}>停止</button>}</div></div></div></article>
+    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；“待 AI 标注总量”按最高算力需求归入下方四种互斥路径，四项合计与总量一致。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待后台处理图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在查看后台进度…" : cacheStats.pending > 0 ? "启动后台图片缓存" : "检查后台图片维护"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { cachePollStoppedRef.current = true; cachePollControllerRef.current?.abort(); }}>停止查看</button>}</div></div></div></article>
     <nav className="panel market-settings-tabs" role="tablist" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" role="tab" id={`market-settings-tab-${item.key}`} aria-controls={`market-settings-panel-${item.key}`} aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)} onKeyDown={onTabKeyDown}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
     <div role="tabpanel" id={`market-settings-panel-${tab}`} aria-labelledby={`market-settings-tab-${tab}`}>
       {tab === "database" ? <>
@@ -803,10 +909,11 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   onModuleViewChange: (view: ModuleViewKey<"market">) => void;
   onApplyPeriod?: (startDate: string, endDate: string) => void;
 }) {
+  const activeSection: MarketSectionKey = moduleView;
   const initialRequestKey = defaultMarketRankingParams(customStartDate, customEndDate).toString();
   const initialOverview = cachedMarketOverview(initialRequestKey);
   const [data, setData] = useState<MarketOverview | null>(initialOverview);
-  const [loading, setLoading] = useState(!initialOverview);
+  const [loading, setLoading] = useState(activeSection !== "settings" && activeSection !== "compare" && !initialOverview);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -821,8 +928,14 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [compareSelections, setCompareSelections] = useState<MarketCompareSelection[]>([]);
   const compareKeys = useMemo(() => compareSelections.map(marketCompareSelectionKey), [compareSelections]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
-  const activeSection: MarketSectionKey = moduleView;
   const [reloadKey, setReloadKey] = useState(0);
+  const [settingsStatus, setSettingsStatus] = useState<MarketSettingsStatus | null>(null);
+  const [settingsStatusLoading, setSettingsStatusLoading] = useState(false);
+  const [settingsStatusError, setSettingsStatusError] = useState("");
+  const [settingsStatusRequestKey, setSettingsStatusRequestKey] = useState("");
+  const [settingsStatusScopeKey, setSettingsStatusScopeKey] = useState("");
+  const [settingsStatusReloadScope, setSettingsStatusReloadScope] = useState(-1);
+  const settingsStatusGenerationRef = useRef(0);
   const loadRequestId = useRef(0);
   const loadMoreController = useRef<AbortController | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -866,6 +979,14 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     }
   }, [buildOverviewParams, requestedView]);
   useEffect(() => {
+    if (activeSection === "settings" || activeSection === "compare") {
+      loadMoreController.current?.abort();
+      loadRequestId.current += 1;
+      setLoadingMore(false);
+      setLoading(false);
+      setError("");
+      return;
+    }
     const controller = new AbortController();
     loadMoreController.current?.abort();
     loadRequestId.current += 1;
@@ -878,7 +999,49 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       isInitialLoad ? MARKET_OVERVIEW_RECENT_PREFETCH_MS : 0,
     ), delay);
     return () => { window.clearTimeout(timer); controller.abort(); loadMoreController.current?.abort(); };
-  }, [load, reloadKey]);
+  }, [activeSection, load, reloadKey]);
+  useEffect(() => {
+    if (activeSection !== "settings") {
+      settingsStatusGenerationRef.current += 1;
+      setSettingsStatus(null);
+      setSettingsStatusRequestKey("");
+      setSettingsStatusScopeKey("");
+      setSettingsStatusReloadScope(-1);
+      setSettingsStatusLoading(false);
+      setSettingsStatusError("");
+      return;
+    }
+    const controller = new AbortController();
+    const generation = settingsStatusGenerationRef.current + 1;
+    settingsStatusGenerationRef.current = generation;
+    const requestKey = `settings:${reloadKey}:${generation}`;
+    setSettingsStatusRequestKey(requestKey);
+    setSettingsStatusLoading(true);
+    setSettingsStatusError("");
+    void (async () => {
+      try {
+        const response = await fetch("/api/market/master?view=settings_status", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => null) as (MarketSettingsStatus & { error?: string }) | null;
+        if (!response.ok || !payload) throw new Error(payload?.error || "市场设置状态读取失败");
+        if (controller.signal.aborted || generation !== settingsStatusGenerationRef.current) return;
+        setSettingsStatus(payload);
+        setSettingsStatusScopeKey(requestKey);
+        setSettingsStatusReloadScope(reloadKey);
+      } catch (reason) {
+        if (controller.signal.aborted || generation !== settingsStatusGenerationRef.current) return;
+        setSettingsStatusError(reason instanceof Error ? reason.message : "市场设置状态读取失败");
+      } finally {
+        if (!controller.signal.aborted && generation === settingsStatusGenerationRef.current) setSettingsStatusLoading(false);
+      }
+    })();
+    return () => {
+      settingsStatusGenerationRef.current += 1;
+      controller.abort();
+    };
+  }, [activeSection, reloadKey]);
   const loadMore = useCallback(async () => {
     if (!data || data.view !== "ranking" || loadingMore || data.pagination.page >= data.pagination.pageCount) return;
     loadMoreController.current?.abort();
@@ -934,20 +1097,31 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     selectMarketSection("overview");
   };
   const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...(data?.filters.operationModes ?? [])].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [data]);
-  if (loading && !data) return <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
-  if (error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
-  if (!data) return null;
-  const reportDimensionLabel = marketReportDimensionLabel(data);
+  if (activeSection !== "settings" && activeSection !== "compare" && loading && !data) return <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在连接市场分析数据</strong><p>正在读取榜单、价格快照、图片缓存和 AI 标注结果…</p></section>;
+  if (activeSection !== "settings" && activeSection !== "compare" && error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>市场分析暂时不可用</strong><p>{error}</p><button className="secondary-button" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></section>;
+  if (activeSection !== "settings" && activeSection !== "compare" && !data) return null;
+  const reportDimensionLabel = data ? marketReportDimensionLabel(data) : "商品";
   const sectionCopy: Record<Exclude<MarketSectionKey, "settings">, { eyebrow: string; title: string; note: string }> = {
     ranking: { eyebrow: "PRODUCT RANKING", title: "商品榜单工作台", note: "查看 TOP 商品表现、成交均价、主图价格、排名变化和单品趋势。" },
     overview: { eyebrow: "INDUSTRY REPORT", title: "行业汇报", note: "按当前 TOP 榜单覆盖口径回答市场趋势、增长结构、竞争胜负和进入机会。" },
     compare: { eyebrow: "COMPETITOR BENCHMARK", title: "竞品对比", note: "使用统一筛选口径挑选 2–5 个 SKU，进行核心指标和月度趋势对照。" },
   };
   const activeCopy = activeSection === "settings" ? null : sectionCopy[activeSection];
-  return <div className="market-module">
+  // Settings must mount from its own unfiltered status response. Reusing the
+  // ranking projection here would permanently seed import dates from whichever
+  // market filter happened to be active before the user opened settings.
+  const settingsStatusIsCurrent = settingsStatusRequestKey !== ""
+    && settingsStatusScopeKey === settingsStatusRequestKey
+    && settingsStatusReloadScope === reloadKey;
+  const settingsData: MarketSettingsStatus | null = activeSection === "settings"
+    && settingsStatus
+    && (settingsStatusIsCurrent || settingsStatusLoading || Boolean(settingsStatusError) || settingsStatusReloadScope < reloadKey)
+    ? settingsStatus
+    : null;
+  return <div className="market-module data-refresh-region" aria-busy={loading || settingsStatusLoading}>
     <MarketSectionNav active={activeSection} compareCount={compareSelections.length} onChange={selectMarketSection} />
     <div role="tabpanel" id={`market-panel-${activeSection}`} aria-labelledby={`market-tab-${activeSection}`}>
-    {activeCopy && <section className="panel market-filter-bar market-filter-bar-v2">
+    {activeCopy && data && <section className="panel market-filter-bar market-filter-bar-v2">
       <div><span className="eyebrow">{activeCopy.eyebrow}</span><h2>{activeCopy.title}</h2><p>{activeCopy.note}</p>{activeSection === "overview" && <button type="button" className="secondary-button market-report-preset" onClick={applyCommercialDirectDrinkingProfile}>应用商用直饮机核心口径 · 近12月</button>}</div>
       <div className="market-filter-controls market-filter-controls-v2">
         <div className="market-overview-period market-global-period"><span>全局统计周期</span><strong>{marketStartDate} 至 {marketEndDate}</strong></div>
@@ -962,9 +1136,9 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       </div>
       <footer><span className="status status-success">当前 TOP 榜单覆盖口径</span><strong>截止 {data.dataRange.endDate ?? "暂无日期"} · 覆盖 {monthText(data.dataRange.startDate, data.dataRange.endDate)}</strong><small>有效 {reportDimensionLabel} {count(data.summary.activeSkuCount)} · 待确认 AI 数据 {count(data.summary.pendingAiCount)} · 图片缓存 {count(data.imageCache.cached)}/{count(data.imageCache.total)}{data.imageCache.pending ? ` · 待处理 ${count(data.imageCache.pending)}` : ""}</small></footer>
     </section>}
-    {error && <div className="market-feedback error" role="alert">{error}</div>}
-    {activeSection === "ranking" && <RankingTable data={data} compareKeys={compareKeys} loadingMore={loadingMore} onLoadMore={() => void loadMore()} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => selectMarketSection("compare")} />}
-    {activeSection === "overview" && data.view !== "full" ? <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && <>
+    {error && activeSection !== "settings" && <div className="market-feedback error" role="alert">{error}</div>}
+    {activeSection === "ranking" && data && <RankingTable data={data} compareKeys={compareKeys} loadingMore={loadingMore} onLoadMore={() => void loadMore()} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => selectMarketSection("compare")} />}
+    {activeSection === "overview" && data && data.view !== "full" ? <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && data && <>
       <IndustryExecutiveSummary data={data} />
       <MarketKpis data={data} />
       <TrendSection data={data} />
@@ -978,7 +1152,9 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <IndustryDataGapSection data={data} />
     </>}
     {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => selectMarketSection("ranking")} query={query} categories={categories} scopes={scopes} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
-    {activeSection === "settings" && <MarketSettingsWorkspace currentUser={currentUser} data={data} onImported={() => setReloadKey((key) => key + 1)} />}
+    {activeSection === "settings" && settingsStatusLoading && !settingsData && <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取市场设置状态</strong><p>正在同步导入记录、图片缓存和业务日期…</p></section>}
+    {activeSection === "settings" && settingsStatusError && <div className="market-feedback error" role="alert">{settingsStatusError}<button type="button" className="row-action" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></div>}
+    {activeSection === "settings" && settingsData && <MarketSettingsWorkspace currentUser={currentUser} data={settingsData} onImported={() => setReloadKey((key) => key + 1)} />}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
     </div>
   </div>;

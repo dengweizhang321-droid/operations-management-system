@@ -4,8 +4,8 @@ import {
   ProductSummaryRequestError,
   type ProductSummaryRange,
 } from "@/lib/products/summary";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
+import { ensureProductShippingRateSchema } from "@/lib/products/shipping-rate-database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -30,9 +30,32 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "商品经营汇总");
-    const db = getInventoryDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
     const searchParams = new URL(request.url).searchParams;
+    const requestedViews = searchParams.getAll("view");
+    if (requestedViews.length > 1) {
+      throw new ProductSummaryRequestError("view 参数不能重复");
+    }
+    const requestedView = requestedViews[0] ?? null;
+    if (requestedView !== null && requestedView !== "page") {
+      throw new ProductSummaryRequestError("view 必须是 page");
+    }
+    const requestedSnapshotTokens = searchParams.getAll("snapshotToken");
+    if (requestedSnapshotTokens.length > 1) {
+      throw new ProductSummaryRequestError("snapshotToken 参数不能重复");
+    }
+    const expectedSnapshotToken = requestedSnapshotTokens[0];
+    if (requestedView === "page" && !/^[a-f0-9]{64}$/.test(expectedSnapshotToken ?? "")) {
+      throw new ProductSummaryRequestError("page 视图必须使用完整汇总返回的有效数据版本");
+    }
+    if (requestedView === null && expectedSnapshotToken !== undefined) {
+      throw new ProductSummaryRequestError("完整汇总不接受 snapshotToken");
+    }
+    const db = getInventoryDatabase();
+    await Promise.all([
+      ensureInventorySchema(db),
+      ensureErpReferenceSchema(db),
+      ensureProductShippingRateSchema(db),
+    ]);
     const requestedRange = searchParams.get("range");
     const allowedRanges = new Set<ProductSummaryRange>(["last30", "last90", "halfYear", "custom"]);
     if (requestedRange && !allowedRanges.has(requestedRange as ProductSummaryRange)) {
@@ -66,7 +89,7 @@ export async function GET(request: Request) {
     if (requestedDirection !== null && requestedDirection !== "asc" && requestedDirection !== "desc") {
       throw new ProductSummaryRequestError("商品排序方向必须是 asc 或 desc");
     }
-    const payload = await getProductSummary(db, {
+    const payload = await getProductSummary(db, principal, {
       range: requestedRange ? requestedRange as ProductSummaryRange : undefined,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
@@ -80,6 +103,9 @@ export async function GET(request: Request) {
       marginBands,
       sortBy: requestedSort === null ? undefined : requestedSort as typeof allowedSorts[number],
       direction: requestedDirection === null ? undefined : requestedDirection,
+      projection: requestedView === "page" ? "page" : "full",
+      expectedSnapshotToken,
+      signal: request.signal,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

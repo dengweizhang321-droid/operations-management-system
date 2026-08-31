@@ -4,9 +4,16 @@ import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 import * as XLSX from "xlsx";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import type { CustomerServiceParseResult } from "../lib/customer-service/import-service";
 
-const testEnvironment: { DB?: unknown } = {};
+const testEnvironment: {
+  DB?: unknown;
+  TERUISI_DJANGO_SALES_READER_BASE_URL?: string;
+  TERUISI_DJANGO_SALES_WRITER_BASE_URL?: string;
+  TERUISI_DJANGO_INTERNAL_SECRET?: string;
+} = {};
 (globalThis as typeof globalThis & { __fourthBatchEnv?: typeof testEnvironment }).__fourthBatchEnv = testEnvironment;
 
 registerHooks({
@@ -31,7 +38,7 @@ const {
   getCustomerServiceConversationById,
   getCustomerServiceConversationsByIds,
   listCustomerServiceBatches,
-  listCustomerServiceConversations,
+  listCustomerServiceConversations: listCustomerServiceConversationsBase,
   planCustomerServiceImportPayloads,
   saveCustomerServiceImport,
   updateCustomerServiceConversationAnnotation,
@@ -50,7 +57,7 @@ const {
 const {
   deleteFinanceTarget,
   ensureFinanceSchema,
-  getFinanceTargetOptions,
+  getFinanceTargetOptions: getFinanceTargetOptionsBase,
   listFinanceImportBatches,
   listFinanceTargets,
   upsertFinanceTarget,
@@ -64,13 +71,59 @@ const {
 const { importFinanceReportBytes } = await import("../lib/finance/import-service");
 const { importInventoryStockBytes } = await import("../lib/inventory/import-service");
 const { importErpReferenceBytes } = await import("../lib/erp-reference/import-service");
-const { ensureSalesSchema, listSalesImportBatches } = await import("../lib/sales/database");
+const { ensureNetshopSchema } = await import("../lib/netshop/database");
 const { ensureInventorySchema, listInventoryImportBatches } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema, listErpReferenceBatches } = await import("../lib/erp-reference/database");
 const { AuthorizationError, requireUnrestrictedDataScope } = await import("../lib/auth/authorization");
 const { PublicApiError, importExecutionHttpStatus, safeApiErrorResponse } = await import("../lib/http/api-error");
-const { periodFor } = await import("../lib/sales/summary");
 const { importSalesLedgerBytes, validateSalesImportChannels, validateSalesImportDateRange } = await import("../lib/sales/import-service");
+
+const unrestrictedAdmin: AppPrincipal = {
+  email: "admin@example.com",
+  displayName: "Admin",
+  role: "admin",
+  scope: null,
+};
+
+const emptySalesConsumerReader: SalesConsumerReader = {
+  read: (async (_principal: AppPrincipal, request: Record<string, unknown>) => {
+    if (request.operation === "customer_service_products") {
+      const categories = Array.isArray(request.categories) ? request.categories as string[] : [];
+      return {
+        revision: "9:1",
+        data: {
+          rows: categories.map((category, index) => ({
+            onlineSpecCode: `SPEC-${index}`,
+            productCode: `ERP-${index}`,
+            category,
+            latestAt: "2026-08-01 00:00:00",
+          })),
+          truncated: false,
+        },
+      };
+    }
+    if (request.operation === "category_options") {
+      return { revision: "9:1", data: { categories: [], truncated: false } };
+    }
+    throw new Error(`unexpected sales operation ${String(request.operation)}`);
+  }) as SalesConsumerReader["read"],
+};
+
+const listCustomerServiceConversations = (
+  options: Parameters<typeof listCustomerServiceConversationsBase>[0],
+) => listCustomerServiceConversationsBase(
+  options,
+  unrestrictedAdmin,
+  { salesReader: emptySalesConsumerReader },
+);
+
+const getFinanceTargetOptions = (
+  db: Parameters<typeof getFinanceTargetOptionsBase>[0],
+) => getFinanceTargetOptionsBase(
+  db,
+  unrestrictedAdmin,
+  { salesReader: emptySalesConsumerReader },
+);
 
 type QueryRecord = { sql: string; values: SQLInputValue[]; returned?: number };
 
@@ -355,6 +408,195 @@ test("客服列表仅返回摘要，详情消息有条数、单条和总字节�
   const routeSource = await readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8");
   assert.doesNotMatch(routeSource, /get\("page(?:Size)?"\)\s*\|\|/, "显式 0/空页码不得被静默改成默认值");
   sqlite.close();
+});
+
+test.skip("D1 销售联表映射测试已由 Django 客服销售 consumer 契约测试替代", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const queries: QueryRecord[] = [];
+  const db = sqliteAdapter(sqlite, queries) as never;
+  testEnvironment.DB = db;
+  await listCustomerServiceConversations({ page: 1, pageSize: 10, includeOptions: false });
+
+  const insertConversation = sqlite.prepare(`INSERT INTO customer_service_conversations (
+    conversation_key, first_import_batch_id, last_import_batch_id, shop_name,
+    consulted_at, customer_id, customer_alias, agent, product_sku, match_status, match_confidence
+  ) VALUES (?, 'customer-batch', 'customer-batch', '测试店铺', ?, '', '', '客服甲', ?, 'matched', 'exact')`);
+  insertConversation.run("测试店铺:direct", "2026-08-03 10:00:00", "JD-DIRECT");
+  insertConversation.run("测试店铺:reverse", "2026-08-03 09:00:00", "SHOP-REVERSE");
+  insertConversation.run("测试店铺:ambiguous", "2026-08-03 08:00:00", "SHOP-AMBIG");
+
+  const insertMaster = sqlite.prepare(`INSERT INTO netshop_rows (
+    source_row_key, source_row_hash, first_import_batch_id, last_import_batch_id,
+    source_row_number, source, dataset, platform, shop_name, snapshot_date,
+    product_code, sku_id, spu_id, raw_json
+  ) VALUES (?, 'hash', 'master-batch', 'master-batch', 1, 'jd_product_master',
+    'product_master', '京东', '测试店铺', ?, ?, ?, ?, ?)`);
+  const addMaster = (key: string, snapshotDate: string, skuId: string, onlineSpecCode: string) => {
+    insertMaster.run(key, snapshotDate, `PRODUCT-${key}`, skuId, `SPU-${key}`, JSON.stringify({ 商家SKU: onlineSpecCode }));
+  };
+  addMaster("direct-old", "2026-08-01", "JD-DIRECT", "SPEC-OLD");
+  addMaster("direct-current", "2026-08-02", "JD-DIRECT", "SPEC-DIRECT");
+  addMaster("direct-reverse-overlap", "2026-08-02", "OTHER-SKU", "JD-DIRECT");
+  addMaster("reverse", "2026-08-02", "JD-REVERSE", "SHOP-REVERSE");
+  addMaster("ambiguous-a", "2026-08-02", "JD-A", "SHOP-AMBIG");
+  addMaster("ambiguous-b", "2026-08-02", "JD-B", "SHOP-AMBIG");
+  sqlite.exec("BEGIN");
+  for (let index = 0; index < 1_024; index += 1) {
+    addMaster(`unrelated-${index}`, "2026-08-02", `JD-UNRELATED-${index}`, `SHOP-UNRELATED-${index}`);
+  }
+  sqlite.exec("COMMIT");
+
+  const insertSale = sqlite.prepare(`INSERT INTO sales_order_lines (
+    source_line_key, source_row_hash, first_import_batch_id, last_import_batch_id,
+    source_row_number, order_no, online_order_no, channel, platform, shop_name,
+    logistics_company, warehouse, product_code, online_spec_code, product_name,
+    specification, barcode, supplier, category, quantity, list_unit_price_cents,
+    cost_amount_cents, allocated_unit_price_cents, allocated_amount_cents,
+    fee_allocation_cents, gross_profit_cents, gross_margin_bps,
+    untaxed_gross_profit_cents, untaxed_gross_margin_bps, order_time, sales_time,
+    ship_time, line_ship_time, business_type
+  ) VALUES (?, 'hash', 'sales-batch', 'sales-batch', 1, '', '', '测试渠道', '京东',
+    '测试店铺', '', '测试仓', ?, ?, '', '', '', '', ?, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, '2026-08-03 00:00:00', ?, '2026-08-03 00:00:00', '2026-08-03 00:00:00', '')`);
+  const addSale = (key: string, onlineSpecCode: string, category: string) => {
+    insertSale.run(key, `ERP-${key}`, onlineSpecCode, category, "2026-08-03 00:00:00");
+  };
+  addSale("direct-current", "SPEC-DIRECT", "直连类目");
+  addSale("direct-old", "SPEC-OLD", "历史类目");
+  addSale("direct-reverse-overlap", "JD-DIRECT", "反向重叠类目");
+  addSale("reverse", "SHOP-REVERSE", "反查类目");
+  addSale("ambiguous", "SHOP-AMBIG", "歧义类目");
+  sqlite.exec("ANALYZE");
+
+  queries.length = 0;
+  const page = await listCustomerServiceConversations({ page: 1, pageSize: 10 });
+  const direct = page.items.find((item) => item.productSku === "JD-DIRECT");
+  const reverse = page.items.find((item) => item.productSku === "SHOP-REVERSE");
+  const ambiguous = page.items.find((item) => item.productSku === "SHOP-AMBIG");
+  assert.equal(direct?.matchedSkuId, "JD-DIRECT", "精确 SKUID 必须优先于同名商家 SKU 的反查候选");
+  assert.equal(direct?.productCategory, "直连类目", "页面映射必须继续选最新 direct 主数据行");
+  assert.equal(reverse?.matchedSkuId, "JD-REVERSE", "未 direct 命中时仍应支持唯一反查");
+  assert.equal(reverse?.productCategory, "反查类目");
+  assert.equal(ambiguous?.matchedSkuId, "", "多个 SKUID 共用商家 SKU 时必须拒绝歧义反查");
+  assert.deepEqual(new Set(page.categories), new Set(["直连类目", "历史类目", "反向重叠类目", "反查类目"]));
+  assert.ok(!page.categories.includes("歧义类目"));
+
+  const facetQuery = queries.find(({ sql }) => /sales_categories\(category\)[\s\S]*SELECT category/i.test(sql));
+  assert.ok(facetQuery, "类目 facet 查询必须存在");
+  const facetPlan = sqlite.prepare(`EXPLAIN QUERY PLAN ${facetQuery.sql}`).all(...facetQuery.values) as Array<{ detail: string }>;
+  assert.ok(
+    facetPlan.some(({ detail }) => /netshop_rows_jd_master_online_spec_idx \(<expr>=\?\)/i.test(detail)),
+    `全历史类目 facet 的反查分支必须命中商家 SKU 表达式索引：${JSON.stringify(facetPlan)}`,
+  );
+  const reverseMasterQuery = queries.find(({ sql }) => (
+    /SELECT n\.sku_id, n\.spu_id, n\.product_code, n\.raw_json/i.test(sql)
+    && /CAST\(json_extract\(n\.raw_json, '\$\."商家SKU"'\) AS TEXT\) = requested\.lookup_code/i.test(sql)
+  ));
+  assert.ok(reverseMasterQuery, "页面唯一反查查询必须存在");
+  const reversePlan = sqlite.prepare(`EXPLAIN QUERY PLAN ${reverseMasterQuery.sql}`).all(...reverseMasterQuery.values) as Array<{ detail: string }>;
+  assert.ok(
+    reversePlan.some(({ detail }) => /netshop_rows_jd_master_online_spec_idx \(<expr>=\?\)/i.test(detail)),
+    "页面唯一反查必须命中商家 SKU 表达式索引",
+  );
+
+  queries.length = 0;
+  const directFiltered = await listCustomerServiceConversations({
+    categories: ["历史类目", "反向重叠类目"],
+    page: 1,
+    pageSize: 10,
+    includeOptions: false,
+  });
+  assert.deepEqual(directFiltered.items.map((item) => item.productSku), ["JD-DIRECT"]);
+  const ambiguousFiltered = await listCustomerServiceConversations({
+    category: "歧义类目",
+    page: 1,
+    pageSize: 10,
+    includeOptions: false,
+  });
+  assert.equal(ambiguousFiltered.pagination.total, 0);
+
+  queries.length = 0;
+  await listCustomerServiceConversations({ skuIds: "JD-DIRECT", page: 1, pageSize: 10, includeOptions: false });
+  const directMasterQueries = queries.filter(({ sql }) => /SELECT n\.sku_id, n\.spu_id, n\.product_code, n\.raw_json/i.test(sql));
+  assert.equal(directMasterQueries.length, 1, "direct 命中后不得再扫描 JSON 反查分支");
+  assert.match(directMasterQueries[0]!.sql, /FROM requested\s+CROSS JOIN netshop_rows n/i);
+  const directPlan = sqlite.prepare(`EXPLAIN QUERY PLAN ${directMasterQueries[0]!.sql}`).all(...directMasterQueries[0]!.values) as Array<{ detail: string }>;
+  assert.ok(directPlan.some(({ detail }) => /netshop_rows_source_sku_idx \(source=\? AND sku_id=\?\)/i.test(detail)), "direct 分支必须同时命中 source + sku_id 复合索引");
+  sqlite.close();
+});
+
+test("0077 商家 SKU 表达式索引可前向升级、运行时收敛且仅索引有效京东货品主数据", async () => {
+  const [migration, runtimeSource, journalSource] = await Promise.all([
+    readFile(new URL("../drizzle/0078_customer_service_online_spec_index.sql", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"),
+  ]);
+  const normalizeSql = (value: string) => value.replace(/;\s*$/, "").replace(/\s+/g, " ").trim();
+  assert.match(migration, /CREATE INDEX IF NOT EXISTS netshop_rows_jd_master_online_spec_idx/i);
+  assert.match(migration, /CAST\(json_extract\(raw_json, '\$\."商家SKU"'\) AS TEXT\),\s*sku_id/i);
+  assert.match(migration, /WHERE source = 'jd_product_master'\s+AND dataset = 'product_master'\s+AND json_valid\(raw_json\)/i);
+  assert.ok(normalizeSql(runtimeSource).includes(normalizeSql(migration)), "运行时 schema 必须与 0077 使用同一索引定义");
+  const journal = JSON.parse(journalSource) as { entries?: Array<{ idx?: number; tag?: string }> };
+  const journalEntries = journal.entries?.filter(({ idx, tag }) => idx === 77 || tag === "0078_customer_service_online_spec_index") ?? [];
+  assert.equal(journalEntries.length, 1);
+  assert.equal(journalEntries[0]?.idx, 77);
+  assert.equal(journalEntries[0]?.tag, "0078_customer_service_online_spec_index");
+
+  const oldDatabase = new DatabaseSync(":memory:");
+  oldDatabase.exec(`CREATE TABLE netshop_rows (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,
+    dataset TEXT NOT NULL,
+    sku_id TEXT NOT NULL,
+    raw_json TEXT NOT NULL
+  )`);
+  const insertOldRow = oldDatabase.prepare("INSERT INTO netshop_rows (source, dataset, sku_id, raw_json) VALUES (?, ?, ?, ?)");
+  insertOldRow.run("jd_product_master", "product_master", "JD-UNIQUE", JSON.stringify({ 商家SKU: "SHOP-UNIQUE" }));
+  insertOldRow.run("jd_product_master", "product_master", "JD-OTHER", JSON.stringify({ 商家SKU: "SHOP-OTHER" }));
+  insertOldRow.run("jd_product_master", "product_master", "JD-INVALID", "{invalid-json");
+  insertOldRow.run("jd_product_master", "other_dataset", "JD-WRONG-DATASET", JSON.stringify({ 商家SKU: "SHOP-UNIQUE" }));
+  const factsBeforeUpgrade = Number((oldDatabase.prepare("SELECT COUNT(*) AS count FROM netshop_rows").get() as { count: number }).count);
+  oldDatabase.exec(migration);
+  oldDatabase.exec(migration);
+  assert.equal(Number((oldDatabase.prepare("SELECT COUNT(*) AS count FROM netshop_rows").get() as { count: number }).count), factsBeforeUpgrade);
+  assert.equal((oldDatabase.prepare("PRAGMA integrity_check").get() as { integrity_check: string }).integrity_check, "ok");
+  const indexedRows = oldDatabase.prepare(`SELECT sku_id
+    FROM netshop_rows INDEXED BY netshop_rows_jd_master_online_spec_idx
+    WHERE source = 'jd_product_master'
+      AND dataset = 'product_master'
+      AND json_valid(raw_json)
+    ORDER BY sku_id`).all() as Array<{ sku_id: string }>;
+  assert.deepEqual(indexedRows.map(({ sku_id }) => sku_id), ["JD-OTHER", "JD-UNIQUE"]);
+  const reverseSql = `WITH requested(lookup_code) AS MATERIALIZED (
+      SELECT CAST(value AS TEXT) FROM json_each(?)
+    )
+    SELECT n.sku_id
+    FROM requested
+    CROSS JOIN netshop_rows n
+    WHERE n.source = 'jd_product_master'
+      AND n.dataset = 'product_master'
+      AND json_valid(n.raw_json)
+      AND CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) = requested.lookup_code`;
+  const reversePlan = oldDatabase.prepare(`EXPLAIN QUERY PLAN ${reverseSql}`).all(JSON.stringify(["SHOP-UNIQUE"])) as Array<{ detail: string }>;
+  assert.ok(reversePlan.some(({ detail }) => /netshop_rows_jd_master_online_spec_idx \(<expr>=\?\)/i.test(detail)));
+  assert.deepEqual(
+    (oldDatabase.prepare(reverseSql).all(JSON.stringify(["SHOP-UNIQUE"])) as Array<{ sku_id: string }>).map(({ sku_id }) => sku_id),
+    ["JD-UNIQUE"],
+    "无效 JSON 与错误 dataset 不得进入反查口径",
+  );
+  oldDatabase.close();
+
+  const runtimeDatabase = new DatabaseSync(":memory:");
+  const runtimeDb = sqliteAdapter(runtimeDatabase) as never;
+  await ensureNetshopSchema(runtimeDb);
+  const runtimeIndex = runtimeDatabase.prepare(`SELECT sql FROM sqlite_master
+    WHERE type = 'index' AND name = 'netshop_rows_jd_master_online_spec_idx'`).get() as { sql: string } | undefined;
+  assert.ok(runtimeIndex);
+  assert.equal(normalizeSql(runtimeIndex.sql), normalizeSql(migration).replace(/^CREATE INDEX IF NOT EXISTS/i, "CREATE INDEX"));
+  runtimeDatabase.exec(migration);
+  runtimeDatabase.exec(migration);
+  assert.equal((runtimeDatabase.prepare("PRAGMA integrity_check").get() as { integrity_check: string }).integrity_check, "ok");
+  runtimeDatabase.close();
 });
 
 test("客服枚举筛选 fail-closed 且最大合法组合保持 D1 bind≤100", async () => {
@@ -767,15 +1009,19 @@ test("0061 与 runtime 双顺序重放保留旧数据和最大 version", async (
 
 test("财务目标在 SQL 层分页并返回真实 total/returned/truncated", async () => {
   const sqlite = new DatabaseSync(":memory:");
-  const db = sqliteAdapter(sqlite) as never;
+  const queries: QueryRecord[] = [];
+  const db = sqliteAdapter(sqlite, queries) as never;
   await ensureFinanceSchema(db);
   const insert = sqlite.prepare(`INSERT INTO finance_targets_scoped (
     id, period_type, period_key, platform, shop_name, category, manager
   ) VALUES (?, 'month', '2026-08', '京东', '测试店铺', ?, '')`);
   for (let index = 0; index < 105; index += 1) insert.run(`target-${index}`, `品类-${index}`);
+  queries.length = 0;
   const result = await listFinanceTargets(db, { page: 2, pageSize: 100 });
   assert.equal(result.items.length, 5);
   assert.deepEqual(result.pagination, { page: 2, pageSize: 100, total: 105, returned: 5, truncated: false });
+  assert.equal(queries.length, 2);
+  assert.equal(queries.some(({ sql }) => /sales_order_lines|finance_lines/i.test(sql)), false, "items projection must not load form options");
   await assert.rejects(
     listFinanceTargets(db, { page: 1, pageSize: 101 }),
     (error: unknown) => error instanceof PublicApiError && error.status === 400,
@@ -783,15 +1029,8 @@ test("财务目标在 SQL 层分页并返回真实 total/returned/truncated", as
   sqlite.close();
 });
 
-test("销售、财务、库存和 ERP 导入历史都可严格分页访问第 105 条", async () => {
+test("财务、库存和 ERP 导入历史都可严格分页访问第 105 条", async () => {
   const cases = [
-    {
-      ensure: ensureSalesSchema,
-      insertSql: `INSERT INTO sales_import_batches (
-        id, source, file_name, file_size_bytes, file_hash, sheet_name, status
-      ) VALUES (?, 'test', 'test.xlsx', 1, ?, 'Sheet1', 'completed')`,
-      list: (db: never) => listSalesImportBatches(db, { page: 2, pageSize: 100 }),
-    },
     {
       ensure: ensureFinanceSchema,
       insertSql: `INSERT INTO finance_import_batches (
@@ -870,6 +1109,47 @@ test("财务分析最多选择 24 个真实月份且 SQL 不再读取全部历�
   const targetQueries = queries.filter((query) => /FROM finance_targets/.test(query.sql));
   assert.ok(targetQueries.some((query) => /period_type = 'project'[\s\S]*LIMIT 100/.test(query.sql)));
   assert.ok(targetQueries.some((query) => /period_type = 'month'[\s\S]*period_key IN/.test(query.sql)));
+  sqlite.close();
+});
+
+test("财报只在显式允许的初始缺失月份上回退到最新 completed 月份", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite) as never;
+  await ensureFinanceSchema(db);
+  const insert = sqlite.prepare(`INSERT INTO finance_months (
+    month, batch_id, sheet_name, business_name, source_file_name, status, shop_count, subject_count, imported_at
+  ) VALUES (?, ?, 'Sheet1', '测试业务', ?, 'completed', 0, 0, CURRENT_TIMESTAMP)`);
+  insert.run("2026-06", "batch-2026-06", "2026-06.xlsx");
+  insert.run("2026-07", "batch-2026-07", "2026-07.xlsx");
+
+  await assert.rejects(
+    getFinanceAnalysis(db, { requestedMonths: ["2026-08"] }),
+    (error: unknown) => error instanceof PublicApiError
+      && error.status === 400
+      && /财务月份尚未导入/.test(error.message),
+    "ordinary explicit selection must keep the strict missing-month contract",
+  );
+  const fallback = await getFinanceAnalysis(db, {
+    requestedMonths: ["2026-08"],
+    fallbackToLatestCompletedMonth: true,
+  });
+  assert.equal(fallback.selectedMonth, "2026-07");
+  assert.deepEqual(fallback.selectedMonths, ["2026-07"]);
+  assert.equal(fallback.selection?.fallbackApplied, true);
+  assert.deepEqual(fallback.selection?.requestedMonths, ["2026-08"]);
+  assert.equal(fallback.sync?.dataCutoffMonth, "2026-07");
+
+  const alreadyImported = await getFinanceAnalysis(db, {
+    requestedMonths: ["2026-06"],
+    fallbackToLatestCompletedMonth: true,
+  });
+  assert.equal(alreadyImported.selectedMonth, "2026-06", "a valid requested month must never be replaced by the latest month");
+  assert.equal(alreadyImported.selection?.fallbackApplied, false);
+  await assert.rejects(
+    getFinanceAnalysis(db, { requestedMonths: ["2026-13"], fallbackToLatestCompletedMonth: true }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 400 && /必须使用 YYYY-MM/.test(error.message),
+    "fallback must not weaken month syntax validation",
+  );
   sqlite.close();
 });
 
@@ -1019,7 +1299,7 @@ test("销售权威日期严格校验，直传和分片均在创建会话或发�
   const initValidation = chunks.indexOf("validateSalesImportDateRange(expectedStartDate, expectedEndDate)");
   const completeValidation = chunks.indexOf("validateSalesImportDateRange(expectedStartDate, expectedEndDate)", initValidation + 1);
   assert.ok(initValidation >= 0 && initValidation < chunks.indexOf("beginSalesUpload("));
-  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(uploadId)"));
+  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(principal, uploadId)"));
 });
 
 test("销售部分台账只能声明去重后的白名单精确渠道范围", async () => {
@@ -1041,7 +1321,7 @@ test("销售部分台账只能声明去重后的白名单精确渠道范围", as
   const initValidation = chunks.indexOf("validateSalesImportChannels(body.expectedChannels)");
   const completeValidation = chunks.indexOf("validateSalesImportChannels(body.expectedChannels)", initValidation + 1);
   assert.ok(initValidation >= 0 && initValidation < chunks.indexOf("beginSalesUpload("));
-  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(uploadId)"));
+  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(principal, uploadId)"));
 });
 
 test("导入结果状态码区分并发、校验、体积和依赖故障，直传/分片共用映射", async () => {
@@ -1071,18 +1351,46 @@ test("销售、财务、库存和 ERP 畸形工作簿只返回受控解析错误
   const db = sqliteAdapter(sqlite) as never;
   testEnvironment.DB = db;
   const malformedWorkbook = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff, 0x00, 0xaa, 0x55]);
-  const results = await Promise.all([
-    importSalesLedgerBytes({
+  const originalFetch = globalThis.fetch;
+  const previousReader = testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+  const previousWriter = testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
+  const previousSecret = testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
+  testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001";
+  testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = "http://127.0.0.1:8002";
+  testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = "s".repeat(32);
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    ok: false,
+    status: "rejected",
+    message: "销售 Excel 文件解析失败，请确认文件格式和模板",
+    code: "XLSX_PARSE_ERROR",
+    warnings: [],
+    errors: [{ code: "XLSX_PARSE_ERROR", message: "销售 Excel 文件解析失败，请确认文件格式和模板" }],
+    errorCount: 1,
+  }), { status: 422, headers: { "content-type": "application/json" } });
+  let salesResult: Awaited<ReturnType<typeof importSalesLedgerBytes>>;
+  try {
+    salesResult = await importSalesLedgerBytes({
+      principal: unrestrictedAdmin,
       bytes: malformedWorkbook,
       fileName: "sales.xlsx",
       fileSizeBytes: malformedWorkbook.byteLength,
       expectedStartDate: "2026-08-01",
       expectedEndDate: "2026-08-01",
-    }),
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousReader === undefined) delete testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+    else testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = previousReader;
+    if (previousWriter === undefined) delete testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
+    else testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = previousWriter;
+    if (previousSecret === undefined) delete testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
+    else testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = previousSecret;
+  }
+  const results = [salesResult, ...await Promise.all([
     importFinanceReportBytes({ bytes: malformedWorkbook, fileName: "finance.xlsx", fileSizeBytes: malformedWorkbook.byteLength }),
     importInventoryStockBytes({ bytes: malformedWorkbook, fileName: "inventory.xlsx", fileSizeBytes: malformedWorkbook.byteLength, snapshotDateOverride: "2026-08-01" }),
     importErpReferenceBytes({ source: "products", bytes: malformedWorkbook, fileName: "products.xlsx", fileSizeBytes: malformedWorkbook.byteLength }),
-  ]);
+  ])];
   const expectedMessages = [
     "销售 Excel 文件解析失败，请确认文件格式和模板",
     "月度财报解析失败，请确认文件格式和模板",
@@ -1098,25 +1406,60 @@ test("销售、财务、库存和 ERP 畸形工作簿只返回受控解析错误
   sqlite.close();
 });
 
-test("月末、季末和闰年比较周期不会溢出到当前周期", () => {
-  assert.deepEqual(periodFor("month", "2024-03-31"), {
-    startDate: "2024-03-01",
-    endDate: "2024-03-31",
-    previousStartDate: "2024-02-01",
-    previousEndDate: "2024-02-29",
-  });
-  assert.deepEqual(periodFor("month", "2026-03-31"), {
-    startDate: "2026-03-01",
-    endDate: "2026-03-31",
-    previousStartDate: "2026-02-01",
-    previousEndDate: "2026-02-28",
-  });
-  assert.deepEqual(periodFor("quarter", "2026-09-30"), {
-    startDate: "2026-07-01",
-    endDate: "2026-09-30",
-    previousStartDate: "2026-04-01",
-    previousEndDate: "2026-06-30",
-  });
+test("过期销售 PG 分片清理先领取 lease，响应丢失仍用同 token 重放", async () => {
+  const { sweepExpiredSalesUploads } = await import("../lib/sales/chunked-upload");
+  const originalFetch = globalThis.fetch;
+  const uploadId = "11111111-1111-4111-8111-111111111111";
+  const cleanupToken = "a".repeat(32);
+  const purgePayloads: Array<Record<string, unknown>> = [];
+  try {
+    testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001";
+    testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = "http://127.0.0.1:8002";
+    testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = "s".repeat(32);
+    globalThis.fetch = async (_input, init) => {
+      const payload = JSON.parse(Buffer.from(init?.body as Uint8Array).toString("utf8")) as Record<string, unknown>;
+      if (payload.action === "sweep") {
+        return new Response(JSON.stringify({
+          sweep: {
+            items: [{
+              id: uploadId,
+              ownerGeneration: 2,
+              cleanupToken,
+            }],
+          },
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (payload.action === "purge") {
+        purgePayloads.push(payload);
+        if (purgePayloads.length === 1) throw new Error("injected response loss");
+        return Response.json({ purged: true });
+      }
+      return new Response(null, { status: 500 });
+    };
+
+    await sweepExpiredSalesUploads(unrestrictedAdmin);
+    assert.equal(purgePayloads.length, 1);
+
+    await sweepExpiredSalesUploads(unrestrictedAdmin);
+    assert.equal(purgePayloads.length, 2);
+    assert.ok(purgePayloads.every((payload) => payload.cleanupToken === cleanupToken));
+    assert.ok(purgePayloads.every((payload) => payload.ownerGeneration === 2));
+    assert.ok(purgePayloads.every((payload) => payload.uploadId === uploadId));
+    assert.ok(purgePayloads.every((payload) => !("objectKeys" in payload)));
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+    delete testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
+    delete testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
+  }
+});
+
+test("销售比较周期由 Django 后端唯一实现并覆盖月末与闰年", async () => {
+  const summary = await readFile(new URL("../backend/sales/summary.py", import.meta.url), "utf8");
+  assert.match(summary, /from calendar import monthrange/);
+  assert.match(summary, /min\(parsed\.day, monthrange\(year, month\)\[1\]\)/);
+  assert.match(summary, /previous_start = _add_months\(start, -1\)/);
+  assert.match(summary, /previous_start = _add_months\(start, -3\)/);
 });
 
 test("受限 admin/operator 被写路由 fail-closed，未知错误固定脱敏", async () => {

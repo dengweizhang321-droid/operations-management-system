@@ -35,6 +35,53 @@ type CloudRunRow = { job_id: string; state: "running" | "paused" | "completed"; 
 const promptColumns = "id, category, version, parent_id, source, status, segments_json, prompt_body, change_note, metrics_json, created_by, created_at, activated_by, activated_at";
 const jobColumns = "id, category, prompt_version_id, executor, model_id, local_model_name, work_key, reuse_status, reuse_started_at, status, total_count, completed_count, failed_count, reviewed_count, committed_count, created_by, created_at, started_at, completed_at, updated_at, commit_token_hash, commit_started_at";
 const itemColumns = "id, job_id, category, scope, sku_code, ranking_dimension, month, image_content_sha256, product_name, brand, source_image_url, resolved_image_url, image_source, status, ai_segment, ai_image_price_cents, ai_price_type, ai_price_low_cents, ai_price_high_cents, ai_confidence_bps, ai_reason, model_input_bytes, image_load_ms, image_prepare_ms, model_call_ms, total_inference_ms, reviewed_segment, reviewed_image_price_cents, reviewed_price_type, reviewed_price_low_cents, reviewed_price_high_cents, selected, reviewed_by, reviewed_at, lease_token_hash, lease_agent_id, lease_expires_at, attempt_count, error_message, version, created_at, updated_at";
+// This is first-paint metadata. Drive from the unique snapshot identity and probe the
+// current market set instead of sorting every ranking row into a window result.
+export const annotationCandidateCountsSql = `WITH candidate_snapshots AS NOT MATERIALIZED (
+  SELECT snapshot.category, snapshot.scope, snapshot.sku_code, snapshot.ranking_dimension, snapshot.month,
+    COALESCE(NULLIF(snapshot.image_content_sha256,''), image_cache.content_sha256, '') image_content_sha256
+  FROM market_price_snapshots snapshot
+  LEFT JOIN market_image_cache image_cache
+    ON image_cache.source_url=COALESCE(NULLIF(snapshot.image_url,''), (
+      SELECT fallback.image_url
+      FROM market_ranking_entries fallback INDEXED BY market_entries_representative_idx
+      WHERE fallback.category=snapshot.category AND fallback.scope=snapshot.scope
+        AND fallback.sku_code=snapshot.sku_code AND fallback.ranking_dimension=snapshot.ranking_dimension
+        AND substr(fallback.period_end,1,7)=snapshot.month
+      ORDER BY fallback.period_end DESC, fallback.updated_at DESC, fallback.id DESC
+      LIMIT 1
+    ))
+    AND image_cache.status='ready' AND image_cache.content_sha256<>''
+  WHERE snapshot.category<>'' AND snapshot.confirmed_market_price_cents IS NULL
+    AND snapshot.ranking_dimension='SKU'
+)
+SELECT candidate.category value, COUNT(*) candidateCount
+FROM candidate_snapshots candidate
+WHERE candidate.image_content_sha256<>''
+  AND NOT EXISTS (
+    SELECT 1 FROM market_annotation_items existing_item
+    WHERE existing_item.category=candidate.category AND existing_item.scope=candidate.scope
+      AND existing_item.sku_code=candidate.sku_code AND existing_item.ranking_dimension=candidate.ranking_dimension
+      AND existing_item.month=candidate.month AND existing_item.image_content_sha256=candidate.image_content_sha256
+      AND (existing_item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected','committed')
+        OR existing_item.status='failed')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM market_price_snapshots standard
+    WHERE standard.category=candidate.category AND standard.scope=candidate.scope
+      AND standard.sku_code=candidate.sku_code AND standard.ranking_dimension=candidate.ranking_dimension
+      AND standard.image_content_sha256=candidate.image_content_sha256
+      AND standard.confirmed_market_price_cents IS NOT NULL AND standard.ai_price_type='标准售价'
+  )
+  AND EXISTS (
+    SELECT 1 FROM market_ranking_entries current_market INDEXED BY market_entries_representative_idx
+    WHERE current_market.category=candidate.category AND current_market.scope=candidate.scope
+      AND current_market.sku_code=candidate.sku_code AND current_market.ranking_dimension=candidate.ranking_dimension
+      AND substr(current_market.period_end,1,7)=candidate.month
+  )
+GROUP BY candidate.category
+ORDER BY candidateCount DESC, value
+LIMIT 200`;
 const HISTORY_SAME_IMAGE_REVIEWER = "system:history_same_image";
 const HISTORY_SAME_SKU_SEGMENT_REVIEWER = "system:history_same_sku_segment";
 
@@ -292,7 +339,7 @@ function annotationReviewScope(input: { jobId?: string; aggregateJobs?: boolean;
 
 type AnnotationWorkspaceInput = {
   jobId?: string; q?: string; page?: number; pageSize?: number; itemPage?: number; itemPageSize?: number;
-  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; itemSegments?: string[]; storageStatus?: "pending" | "committed"; storageStatuses?: string[]; recognitionSource?: "ai" | "non_ai"; recognitionSources?: string[]; includeAgents?: boolean; includeCatalog?: boolean;
+  aggregateJobs?: boolean; itemCategory?: string; itemCategories?: string[]; itemSegment?: string; itemSegments?: string[]; storageStatus?: "pending" | "committed"; storageStatuses?: string[]; recognitionSource?: "ai" | "non_ai"; recognitionSources?: string[]; includeAgents?: boolean; includeCatalog?: boolean; includeCandidateCounts?: boolean;
 };
 
 async function queryAnnotationReviewWorkspace(db: MarketDatabase, input: AnnotationWorkspaceInput = {}) {
@@ -334,6 +381,16 @@ export async function getAnnotationCatalogWorkspace(db: MarketDatabase, input: {
   return searchAnnotationCatalog(db, input);
 }
 
+async function queryAnnotationCandidateCounts(db: MarketDatabase) {
+  const rows = await db.prepare(annotationCandidateCountsSql).all<{ value: string; candidateCount: number }>();
+  return (rows.results ?? []).map((row) => ({ value: row.value, candidateCount: Number(row.candidateCount ?? 0) }));
+}
+
+export async function getAnnotationCandidateCounts(db: MarketDatabase) {
+  await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
+  return { categories: await queryAnnotationCandidateCounts(db) };
+}
+
 export async function setAnnotationConcurrency(db: MarketDatabase, input: { category: string; executor: string; concurrency?: number }, actor: Actor) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
   const category = input.category.trim().slice(0, 120);
@@ -366,57 +423,14 @@ export async function setAnnotationConcurrency(db: MarketDatabase, input: { cate
 
 export async function getAnnotationWorkspace(db: MarketDatabase, input: AnnotationWorkspaceInput = {}) {
   await Promise.all([ensureMarketSchemaLazy(db), ensureAnnotationSchema(db)]);
-  await ensureMarketMasterIdentities(db);
+  if (input.includeCatalog !== false) await ensureMarketMasterIdentities(db);
   const page = Math.max(1, Math.trunc(input.page ?? 1));
   const pageSize = Math.max(10, Math.min(100, Math.trunc(input.pageSize ?? 30)));
   const q = input.q?.trim().slice(0, 120) ?? "";
-  const [review, categoryRows, candidateRows, reviewCategoryRows, taxonomyRows, promptRows, jobRows, concurrencyRows, cloudRunRows, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
+  const [review, categoryRows, candidateCounts, reviewCategoryRows, taxonomyRows, promptRows, jobRows, concurrencyRows, cloudRunRows, models, textModels, catalog, runRows, agentRows, validationRows] = await Promise.all([
     queryAnnotationReviewWorkspace(db, input),
     db.prepare("SELECT category value, COUNT(DISTINCT sku_code) count FROM market_ranking_entries WHERE category <> '' GROUP BY category ORDER BY count DESC, value LIMIT 200").all<{ value: string; count: number }>(),
-    db.prepare(`WITH latest_market AS MATERIALIZED (
-      SELECT category, scope, sku_code, ranking_dimension, month, image_url
-      FROM (
-        SELECT m.category, m.scope, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7) month, m.image_url,
-          ROW_NUMBER() OVER (
-            PARTITION BY m.category, m.scope, m.sku_code, m.ranking_dimension, substr(m.period_end, 1, 7)
-            ORDER BY m.period_end DESC, m.updated_at DESC, m.id DESC
-          ) rn
-        FROM market_ranking_entries m
-        WHERE m.category<>'' AND m.ranking_dimension='SKU'
-      ) WHERE rn=1
-    ), candidate_snapshots AS MATERIALIZED (
-      SELECT snapshot.category, snapshot.scope, snapshot.sku_code, snapshot.ranking_dimension, snapshot.month,
-        COALESCE(NULLIF(snapshot.image_content_sha256,''), image_cache.content_sha256, '') image_content_sha256
-      FROM market_price_snapshots snapshot
-      JOIN latest_market market ON market.category=snapshot.category AND market.scope=snapshot.scope
-        AND market.sku_code=snapshot.sku_code AND market.ranking_dimension=snapshot.ranking_dimension
-        AND market.month=snapshot.month
-      LEFT JOIN market_image_cache image_cache
-        ON image_cache.source_url=COALESCE(NULLIF(snapshot.image_url,''), market.image_url)
-        AND image_cache.status='ready' AND image_cache.content_sha256<>''
-      WHERE snapshot.confirmed_market_price_cents IS NULL AND snapshot.ranking_dimension='SKU'
-    )
-    SELECT candidate.category value, COUNT(*) candidateCount
-    FROM candidate_snapshots candidate
-    WHERE candidate.image_content_sha256<>''
-      AND NOT EXISTS (
-        SELECT 1 FROM market_price_snapshots standard
-        WHERE standard.category=candidate.category AND standard.scope=candidate.scope
-          AND standard.sku_code=candidate.sku_code AND standard.ranking_dimension=candidate.ranking_dimension
-          AND standard.image_content_sha256=candidate.image_content_sha256
-          AND standard.confirmed_market_price_cents IS NOT NULL AND standard.ai_price_type='标准售价'
-      )
-      AND NOT EXISTS (
-        SELECT 1 FROM market_annotation_items existing_item
-        WHERE existing_item.category=candidate.category AND existing_item.scope=candidate.scope
-          AND existing_item.sku_code=candidate.sku_code AND existing_item.ranking_dimension=candidate.ranking_dimension
-          AND existing_item.month=candidate.month AND existing_item.image_content_sha256=candidate.image_content_sha256
-          AND (existing_item.status IN ('queued','claimed','inferencing','review_pending','approved','rejected','committed')
-            OR existing_item.status='failed')
-      )
-    GROUP BY candidate.category
-    ORDER BY candidateCount DESC, value
-    LIMIT 200`).all<{ value: string; candidateCount: number }>(),
+    input.includeCandidateCounts === false ? Promise.resolve(null) : queryAnnotationCandidateCounts(db),
     db.prepare("SELECT item.category value, COUNT(DISTINCT item.job_id) jobCount, COUNT(*) recordCount FROM market_annotation_items item JOIN market_annotation_jobs job ON job.id=item.job_id WHERE item.category<>'' AND job.status<>'deleted' GROUP BY item.category ORDER BY jobCount DESC, recordCount DESC, value LIMIT 200").all<{ value: string; jobCount: number; recordCount: number }>(),
     db.prepare("SELECT category, subcategory value FROM market_subcategory_taxonomy WHERE status='active' ORDER BY category, sort_order, subcategory LIMIT 2000").all<{ category: string; value: string }>(),
     db.prepare(`SELECT ${promptColumns} FROM market_annotation_prompt_versions WHERE status<>'deleted' ORDER BY category, version DESC LIMIT 300`).all<PromptRow>(),
@@ -442,9 +456,9 @@ export async function getAnnotationWorkspace(db: MarketDatabase, input: Annotati
     input.includeAgents ? db.prepare("SELECT id, name, status, capabilities_json capabilitiesJson, created_by createdBy, created_at createdAt, last_seen_at lastSeenAt, revoked_at revokedAt FROM market_annotation_local_agents ORDER BY created_at DESC LIMIT 50").all<Record<string, unknown>>() : Promise.resolve({ results: [] as Record<string, unknown>[] }),
     db.prepare("SELECT id, run_id runId, prompt_version_id promptVersionId, status, predicted_segment predictedSegment, predicted_image_price_cents predictedImagePriceCents, confidence_bps confidenceBps, is_correct isCorrect, error_message errorMessage, sample_snapshot_json sampleSnapshotJson FROM market_annotation_validation_results ORDER BY created_at DESC LIMIT 500").all<Record<string, unknown>>(),
   ]);
-  const candidateCountByCategory = new Map((candidateRows.results ?? []).map((row) => [row.value, Number(row.candidateCount ?? 0)]));
+  const candidateCountByCategory = new Map((candidateCounts ?? []).map((row) => [row.value, row.candidateCount]));
   return {
-    categories: (categoryRows.results ?? []).map((row) => ({ ...row, candidateCount: candidateCountByCategory.get(row.value) ?? 0 })), reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
+    categories: (categoryRows.results ?? []).map((row) => ({ ...row, candidateCount: candidateCounts === null ? null : candidateCountByCategory.get(row.value) ?? 0 })), reviewCategories: reviewCategoryRows.results ?? [], taxonomy: taxonomyRows.results ?? [], prompts: (promptRows.results ?? []).map(promptValue), jobs: (jobRows.results ?? []).map(jobValue),
     concurrencySettings: (concurrencyRows.results ?? []).map((row) => ({ category: row.category, executor: row.executor, concurrency: row.concurrency, updatedBy: row.updated_by, updatedAt: row.updated_at })),
     cloudRuns: (cloudRunRows.results ?? []).map((row) => cloudRunValue(row, normalizeMarketAnnotationConcurrency(row.configured_concurrency, "cloud"))),
     ...review,

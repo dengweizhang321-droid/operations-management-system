@@ -1,5 +1,5 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 export const operationRecordTypes = ["inspection", "review", "launch"] as const;
 export type OperationRecordType = (typeof operationRecordTypes)[number];
@@ -190,13 +190,13 @@ const schemaStatements = [
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
-async function operationsDatabase(db?: SalesDatabase) {
+async function operationsDatabase(db?: D1Database) {
   if (db) return db;
-  const { getSalesDatabase } = await import("@/lib/sales/database");
-  return getSalesDatabase();
+  const { getD1Database } = await import("@/lib/database/d1");
+  return getD1Database();
 }
 
-export async function ensureOperationRecordsSchema(db?: SalesDatabase): Promise<void> {
+export async function ensureOperationRecordsSchema(db?: D1Database): Promise<void> {
   const database = await operationsDatabase(db);
   const key = database as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
@@ -458,7 +458,7 @@ function escapedLike(value: string) {
   return `%${value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
 }
 
-export async function listOperationRecords(input: OperationRecordListInput, principal: AppPrincipal, db?: SalesDatabase) {
+export async function listOperationRecords(input: OperationRecordListInput, principal: AppPrincipal, db?: D1Database) {
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);
   const filters = normalizeOperationRecordListInput(input);
@@ -521,14 +521,14 @@ export async function listOperationRecords(input: OperationRecordListInput, prin
   };
 }
 
-async function findVisibleRecord(database: SalesDatabase, id: string, principal: AppPrincipal, includeDeleted = false) {
+async function findVisibleRecord(database: D1Database, id: string, principal: AppPrincipal, includeDeleted = false) {
   const scope = scopeSql(principal);
   const sql = `SELECT ${recordColumns} FROM workflow_operation_records
     WHERE id = ?${includeDeleted ? "" : " AND deleted_at IS NULL"}${scope.clause ? ` AND ${scope.clause}` : ""} LIMIT 1`;
   return database.prepare(sql).bind(id, ...scope.values).first<RecordRow>();
 }
 
-export async function getOperationRecord(id: unknown, principal: AppPrincipal, db?: SalesDatabase) {
+export async function getOperationRecord(id: unknown, principal: AppPrincipal, db?: D1Database) {
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);
   const validId = requiredText(id, "记录标识", 128);
@@ -536,7 +536,7 @@ export async function getOperationRecord(id: unknown, principal: AppPrincipal, d
   return row ? mapRecord(row) : null;
 }
 
-export async function createOperationRecord(input: CreateOperationRecordInput, actor: AppPrincipal, db?: SalesDatabase) {
+export async function createOperationRecord(input: CreateOperationRecordInput, actor: AppPrincipal, db?: D1Database) {
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);
   const record = normalizeCreate(input, actor);
@@ -591,7 +591,7 @@ function nextRecord(current: RecordRow, input: UpdateOperationRecordInput, actor
   return next;
 }
 
-export async function updateOperationRecord(id: unknown, input: UpdateOperationRecordInput, actor: AppPrincipal, db?: SalesDatabase) {
+export async function updateOperationRecord(id: unknown, input: UpdateOperationRecordInput, actor: AppPrincipal, db?: D1Database) {
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);
   const validId = requiredText(id, "记录标识", 128);
@@ -638,7 +638,7 @@ export async function updateOperationRecord(id: unknown, input: UpdateOperationR
   return mapRecord(saved);
 }
 
-export async function deleteOperationRecord(id: unknown, expectedVersionInput: unknown, actor: AppPrincipal, db?: SalesDatabase) {
+export async function deleteOperationRecord(id: unknown, expectedVersionInput: unknown, actor: AppPrincipal, db?: D1Database) {
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);
   const validId = requiredText(id, "记录标识", 128);
@@ -672,7 +672,7 @@ export async function listOperationRecordActivities(
   id: unknown,
   input: { page?: unknown; pageSize?: unknown },
   principal: AppPrincipal,
-  db?: SalesDatabase,
+  db?: D1Database,
 ) {
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);

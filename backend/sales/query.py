@@ -8,25 +8,21 @@ from typing import Iterable, Sequence
 from django.db.models import (
     BigIntegerField,
     Case,
-    CharField,
     Count,
     F,
-    IntegerField,
     Max,
-    OuterRef,
     Q,
     QuerySet,
-    Subquery,
     Sum,
     TextField,
     Value,
     When,
 )
 from django.db import connection
-from django.db.models.functions import Coalesce, Collate, Concat, NullIf, Substr, Trim
+from django.db.models.functions import Coalesce, Collate, NullIf
 
 from .auth import Principal
-from .models import ErpProductMaster, SalesDataRevision, SalesImportBatch, SalesOrderLine
+from .models import SalesDataRevision, SalesImportBatch, SalesOrderLine
 
 
 FILTER_SPLIT_RE = re.compile(r"[，,;；]+")
@@ -127,9 +123,9 @@ def _apply_principal_scope(
         queryset = queryset.filter(warehouse__in=warehouses)
     outlet_scope = Q()
     if scoped_channels:
-        outlet_scope |= Q(channel__in=scoped_channels)
+        outlet_scope |= Q(channel__in=scoped_channels, channel_key__in=scoped_channels)
     if scoped_platforms:
-        outlet_scope |= Q(platform__in=scoped_platforms)
+        outlet_scope |= Q(platform__in=scoped_platforms, platform_key__in=scoped_platforms)
     if scoped_channels or scoped_platforms:
         queryset = queryset.filter(outlet_scope)
     return queryset, "restricted"
@@ -139,7 +135,7 @@ def resolve_product_codes(queries: Sequence[str], principal: Principal | None = 
     if not queries:
         return []
     lookup, _ = _apply_principal_scope(
-        SalesOrderLine.objects.annotate(warehouse_trim=Trim("warehouse")).exclude(warehouse_trim="刷刷仓"),
+        SalesOrderLine.objects.filter(is_business_row=True),
         principal,
     )
     rows = (
@@ -174,37 +170,6 @@ def parse_outlets(values: Sequence[str]) -> list[dict[str, str]]:
     return outlets
 
 
-def _category_expression():
-    master_category = Subquery(
-        ErpProductMaster.objects.filter(product_code=OuterRef("product_code")).values("category")[:1],
-        output_field=TextField(),
-    )
-    return Coalesce(
-        NullIf(Trim(master_category), Value("")),
-        NullIf(Trim(F("category")), Value("")),
-        Value("未分类"),
-        output_field=TextField(),
-    )
-
-
-def _shop_expression(*, trim_values: bool):
-    shop = Trim(F("shop_name")) if trim_values else F("shop_name")
-    channel = Trim(F("channel")) if trim_values else F("channel")
-    platform = Trim(F("platform")) if trim_values else F("platform")
-    return Coalesce(
-        NullIf(shop, Value("")),
-        NullIf(channel, Value("")),
-        NullIf(platform, Value("")),
-        Value("未分类"),
-        output_field=TextField(),
-    )
-
-
-def _platform_expression(*, trim_values: bool):
-    platform = Trim(F("platform")) if trim_values else F("platform")
-    return Coalesce(NullIf(platform, Value("")), Value("未分类"), output_field=TextField())
-
-
 def sales_queryset(
     *,
     start_date: str,
@@ -217,79 +182,97 @@ def sales_queryset(
     principal: Principal | None = None,
     category_contract: bool = False,
 ) -> tuple[QuerySet[SalesOrderLine], str]:
-    queryset = SalesOrderLine.objects.annotate(
-        source_category_trim=Trim("category"),
-        product_name_trim=Trim("product_name"),
-        warehouse_trim=Trim("warehouse"),
-        category_key=_category_expression(),
-        shop_key=_shop_expression(trim_values=category_contract),
-        platform_key=_platform_expression(trim_values=category_contract),
-        business_date=Substr("ship_time", 1, 10, output_field=CharField()),
-    ).filter(ship_time__gte=start_date, ship_time__lt=end_exclusive).exclude(warehouse_trim="刷刷仓")
+    queryset = SalesOrderLine.objects.filter(
+        business_date__gte=start_date,
+        business_date__lt=end_exclusive,
+        is_business_row=True,
+    )
+    if not category_contract:
+        # Summary intentionally preserves the legacy raw-whitespace outlet
+        # identity; category analysis uses the normalized stored keys.
+        queryset = queryset.annotate(
+            report_shop_key=Coalesce(
+                NullIf(F("shop_name"), Value("")),
+                NullIf(F("channel"), Value("")),
+                NullIf(F("platform"), Value("")),
+                Value("未分类"),
+                output_field=TextField(),
+            ),
+            report_platform_key=Coalesce(
+                NullIf(F("platform"), Value("")),
+                Value("未分类"),
+                output_field=TextField(),
+            ),
+        )
     queryset, scope_mode = _apply_principal_scope(queryset, principal)
     if product_codes:
         queryset = queryset.filter(product_code__in=product_codes)
     if categories:
-        queryset = queryset.filter(category_key__in=categories)
+        queryset = queryset.filter(resolved_category__in=categories)
     if channels:
-        queryset = queryset.filter(channel__in=channels)
+        queryset = queryset.filter(channel__in=channels, channel_key__in=channels)
     if platforms:
-        queryset = queryset.filter(**({"platform__in": platforms} if category_contract else {"platform_key__in": platforms}))
+        if category_contract:
+            queryset = queryset.filter(platform__in=platforms, platform_key__in=platforms)
+        else:
+            queryset = queryset.filter(report_platform_key__in=platforms, platform_key__in=platforms)
     if outlets:
         outlet_query = Q()
         for outlet in outlets:
-            platform_key = "platform" if category_contract else "platform_key"
-            outlet_query |= Q(**{platform_key: outlet["platform"], "shop_key": outlet["shop"]})
+            if category_contract:
+                outlet_query |= Q(
+                    platform=outlet["platform"],
+                    platform_key=outlet["platform"],
+                    shop_key=outlet["shop"],
+                )
+            else:
+                outlet_query |= Q(
+                    report_platform_key=outlet["platform"],
+                    report_shop_key=outlet["shop"],
+                    platform_key=outlet["platform"],
+                    shop_key=outlet["shop"],
+                )
         queryset = queryset.filter(outlet_query)
     return queryset, scope_mode
 
 
-def metric_aggregates(prefix: str = "") -> dict[str, object]:
+def metric_aggregates(prefix: str = "", filter_q: Q | None = None) -> dict[str, object]:
     amount = f"{prefix}allocated_amount_cents"
     cost = f"{prefix}cost_amount_cents"
     profit = f"{prefix}gross_profit_cents"
     quantity = f"{prefix}quantity"
-    code = f"{prefix}product_code"
-    name = f"{prefix}product_name_trim"
-    category_trim = f"{prefix}source_category_trim"
-    order_no = f"{prefix}order_no"
-    online_order_no = f"{prefix}online_order_no"
+    net_sales_row = f"{prefix}is_net_sales_row"
+    net_quantity_row = f"{prefix}is_net_quantity_row"
+    order_identity = f"{prefix}order_identity"
     line_key = f"{prefix}source_line_key"
-    included_category = ~Q(**{category_trim: ""}) & ~Q(**{f"{category_trim}__in": ["配件", "赠品配件"]})
-    quantity_condition = included_category & ~Q(**{code: "ERP_PRICE_ADJUSTMENT"}) & ~Q(**{name: "补差价专用"})
-    order_identity = Case(
-        When(~Q(**{order_no: ""}), then=F(order_no)),
-        When(~Q(**{online_order_no: ""}), then=F(online_order_no)),
-        default=F(line_key),
-        output_field=TextField(),
-    )
+    row_filter = filter_q if filter_q is not None else Q()
     return {
-        "gross_sales_cents": Coalesce(Sum(Case(When(**{f"{amount}__gt": 0}, then=F(amount)), default=Value(0), output_field=BigIntegerField())), 0),
-        "refund_amount_cents": Coalesce(Sum(Case(When(**{f"{amount}__lt": 0}, then=-F(amount)), default=Value(0), output_field=BigIntegerField())), 0),
-        "net_sales_excluding_accessories_cents": Coalesce(Sum(Case(When(included_category, then=F(amount)), default=Value(0), output_field=BigIntegerField())), 0),
-        "cost_amount_cents": Coalesce(Sum(cost), 0),
-        "gross_profit_cents": Coalesce(Sum(profit), 0),
-        "net_quantity": Coalesce(Sum(Case(When(quantity_condition, then=F(quantity)), default=Value(0), output_field=BigIntegerField())), 0),
-        "order_count": Count(order_identity, distinct=True),
-        "line_count": Count(line_key),
+        "gross_sales_cents": Coalesce(Sum(Case(When(row_filter & Q(**{f"{amount}__gt": 0}), then=F(amount)), default=Value(0), output_field=BigIntegerField())), 0),
+        "refund_amount_cents": Coalesce(Sum(Case(When(row_filter & Q(**{f"{amount}__lt": 0}), then=-F(amount)), default=Value(0), output_field=BigIntegerField())), 0),
+        "net_sales_excluding_accessories_cents": Coalesce(Sum(Case(When(row_filter & Q(**{net_sales_row: True}), then=F(amount)), default=Value(0), output_field=BigIntegerField())), 0),
+        "cost_amount_cents": Coalesce(Sum(cost, filter=filter_q), 0),
+        "gross_profit_cents": Coalesce(Sum(profit, filter=filter_q), 0),
+        "net_quantity": Coalesce(Sum(Case(When(row_filter & Q(**{net_quantity_row: True}), then=F(quantity)), default=Value(0), output_field=BigIntegerField())), 0),
+        "order_count": Count(order_identity, distinct=True, filter=filter_q),
+        "line_count": Count(line_key, filter=filter_q),
     }
 
 
-def category_aggregates() -> dict[str, object]:
-    included_category = ~Q(source_category_trim="") & ~Q(source_category_trim__in=["配件", "赠品配件"])
+def category_aggregates(filter_q: Q | None = None) -> dict[str, object]:
+    row_filter = filter_q if filter_q is not None else Q()
     valid_product = ~Q(product_code="ERP_PRICE_ADJUSTMENT")
     return {
-        "gross_sales_cents": Coalesce(Sum(Case(When(allocated_amount_cents__gt=0, then=F("allocated_amount_cents")), default=Value(0), output_field=BigIntegerField())), 0),
-        "refund_amount_cents": Coalesce(Sum(Case(When(allocated_amount_cents__lt=0, then=-F("allocated_amount_cents")), default=Value(0), output_field=BigIntegerField())), 0),
-        "net_sales_cents": Coalesce(Sum("allocated_amount_cents"), 0),
-        "cost_amount_cents": Coalesce(Sum("cost_amount_cents"), 0),
-        "gross_profit_cents": Coalesce(Sum("gross_profit_cents"), 0),
-        "positive_quantity": Coalesce(Sum(Case(When(Q(quantity__gt=0) & valid_product, then=F("quantity")), default=Value(0), output_field=BigIntegerField())), 0),
-        "return_quantity": Coalesce(Sum(Case(When(Q(quantity__lt=0) & valid_product, then=-F("quantity")), default=Value(0), output_field=BigIntegerField())), 0),
-        "net_quantity": Coalesce(Sum(Case(When(included_category & valid_product & ~Q(product_name_trim="补差价专用"), then=F("quantity")), default=Value(0), output_field=BigIntegerField())), 0),
-        "product_count": Count("product_code", distinct=True, filter=~Q(product_code="")),
-        "line_count": Count("source_line_key"),
-        "latest_business_date": Max("business_date"),
+        "gross_sales_cents": Coalesce(Sum(Case(When(row_filter & Q(allocated_amount_cents__gt=0), then=F("allocated_amount_cents")), default=Value(0), output_field=BigIntegerField())), 0),
+        "refund_amount_cents": Coalesce(Sum(Case(When(row_filter & Q(allocated_amount_cents__lt=0), then=-F("allocated_amount_cents")), default=Value(0), output_field=BigIntegerField())), 0),
+        "net_sales_cents": Coalesce(Sum("allocated_amount_cents", filter=filter_q), 0),
+        "cost_amount_cents": Coalesce(Sum("cost_amount_cents", filter=filter_q), 0),
+        "gross_profit_cents": Coalesce(Sum("gross_profit_cents", filter=filter_q), 0),
+        "positive_quantity": Coalesce(Sum(Case(When(row_filter & Q(quantity__gt=0) & valid_product, then=F("quantity")), default=Value(0), output_field=BigIntegerField())), 0),
+        "return_quantity": Coalesce(Sum(Case(When(row_filter & Q(quantity__lt=0) & valid_product, then=-F("quantity")), default=Value(0), output_field=BigIntegerField())), 0),
+        "net_quantity": Coalesce(Sum(Case(When(row_filter & Q(is_net_quantity_row=True), then=F("quantity")), default=Value(0), output_field=BigIntegerField())), 0),
+        "product_count": Count("product_code", distinct=True, filter=row_filter & ~Q(product_code="")),
+        "line_count": Count("source_line_key", filter=filter_q),
+        "latest_business_date": Max("business_date", filter=filter_q),
     }
 
 

@@ -3,7 +3,14 @@ import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 
-const testEnvironment: { DB?: unknown } = {};
+const testEnvironment: {
+  DB?: unknown;
+  AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST?: string;
+  TERUISI_RUNTIME_ENV?: string;
+} = {
+  AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST: "https://api.example.com",
+  TERUISI_RUNTIME_ENV: "production",
+};
 (globalThis as typeof globalThis & { __aiApiRouteEnv?: typeof testEnvironment }).__aiApiRouteEnv = testEnvironment;
 
 registerHooks({
@@ -122,17 +129,23 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
 
   const oversized = await chatRoute.POST(new Request("https://example.test/api/ai/chat", {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ message: "中".repeat(20_000) }),
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
+    body: JSON.stringify({ clientRequestId: "oversized-chat-request", message: "中".repeat(20_000) }),
   }));
   assert.equal(oversized.status, 413);
   assert.equal(oversized.headers.get("cache-control"), "no-store");
 
-  const deniedDelete = await conversationsRoute.DELETE(new Request("https://example.test/api/ai/conversations?id=other-one", { method: "DELETE" }));
+  const deniedDelete = await conversationsRoute.DELETE(new Request("https://example.test/api/ai/conversations?id=other-one", {
+    method: "DELETE",
+    headers: { "sec-fetch-site": "same-origin" },
+  }));
   assert.equal(deniedDelete.status, 404);
   assert.equal(sqlite.prepare("SELECT COUNT(*) total FROM ai_conversations WHERE id='other-one'").get()?.total, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) total FROM ai_conversation_deletion_audits WHERE conversation_id='other-one'").get()?.total, 0);
-  const ownerDelete = await conversationsRoute.DELETE(new Request("https://example.test/api/ai/conversations?id=owner-one", { method: "DELETE" }));
+  const ownerDelete = await conversationsRoute.DELETE(new Request("https://example.test/api/ai/conversations?id=owner-one", {
+    method: "DELETE",
+    headers: { "sec-fetch-site": "same-origin" },
+  }));
   assert.equal(ownerDelete.status, 200);
   assert.equal(sqlite.prepare("SELECT COUNT(*) total FROM ai_conversations WHERE id='owner-one'").get()?.total, 0);
   assert.equal(sqlite.prepare("SELECT COUNT(*) total FROM ai_conversation_deletion_audits WHERE conversation_id='owner-one'").get()?.total, 1);
@@ -148,9 +161,10 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
     .run(legacyBaseUrl);
   const modelsResponse = await modelsRoute.GET();
   assert.equal(modelsResponse.status, 200);
-  const modelsPayload = await modelsResponse.json() as { items: Array<{ id: string; baseUrl: string }> };
+  const modelsPayload = await modelsResponse.json() as { items: Array<{ id: string; version: number; baseUrl: string }> };
   const legacyDto = modelsPayload.items.find((item) => item.id === "legacy-query-secret");
   assert.equal(legacyDto?.baseUrl, "https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a");
+  assert.equal(legacyDto?.version, 1);
   assert.doesNotMatch(JSON.stringify(modelsPayload), /LEGACY_SUBSCRIPTION|LEGACY_FUNCTION|LEGACY_CODE|subscription-key|functions-key|[?&]code=/i);
 
   const runtimeModel = await resolveChatModel({ modelId: "legacy-query-secret", allowFallback: false }, database as never);
@@ -162,9 +176,10 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
 
   const updateWithoutBaseUrl = await modelsRoute.POST(new Request("https://example.test/api/ai/models", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
     body: JSON.stringify({
       id: "legacy-query-secret",
+      expectedVersion: legacyDto?.version,
       name: "旧模型已改名",
       protocol: "openai_compatible",
       modelType: "text",
@@ -172,13 +187,14 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
       status: "enabled",
     }),
   }));
-  assert.equal(updateWithoutBaseUrl.status, 200);
+  assert.equal(updateWithoutBaseUrl.status, 400);
   assert.equal(sqlite.prepare("SELECT base_url FROM ai_models WHERE id='legacy-query-secret'").get()?.base_url, legacyBaseUrl);
+  assert.equal(sqlite.prepare("SELECT name FROM ai_models WHERE id='legacy-query-secret'").get()?.name, "旧模型");
   assert.doesNotMatch(JSON.stringify(await updateWithoutBaseUrl.json()), /LEGACY_SUBSCRIPTION|LEGACY_FUNCTION|LEGACY_CODE|subscription-key|functions-key|[?&]code=/i);
 
   const regularQuery = await modelsRoute.POST(new Request("https://example.test/api/ai/models", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
     body: JSON.stringify({
       name: "普通查询参数模型",
       protocol: "openai_compatible",
@@ -189,15 +205,64 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
     }),
   }));
   assert.equal(regularQuery.status, 200);
-  assert.equal((await regularQuery.json() as { item: { baseUrl: string } }).item.baseUrl, "https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a");
+  const regularPayload = await regularQuery.json() as { item: { id: string; version: number; baseUrl: string } };
+  assert.equal(regularPayload.item.baseUrl, "https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a");
+  assert.equal(regularPayload.item.version, 1);
   assert.equal(
     sqlite.prepare("SELECT base_url FROM ai_models WHERE model_name='regular-model'").get()?.base_url,
     "https://api.example.com/v1?api-version=2026-08-01&tenant=tenant-a",
   );
 
+  const editedRegular = await modelsRoute.POST(new Request("https://example.test/api/ai/models", {
+    method: "POST",
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
+    body: JSON.stringify({
+      id: regularPayload.item.id,
+      expectedVersion: regularPayload.item.version,
+      name: "普通查询参数模型（已编辑）",
+      protocol: "openai_compatible",
+      modelType: "text",
+      modelName: "regular-model",
+      status: "disabled",
+    }),
+  }));
+  assert.equal(editedRegular.status, 200);
+  const editedRegularPayload = await editedRegular.json() as { item: { version: number } };
+  assert.equal(editedRegularPayload.item.version, 2);
+  const staleRegular = await modelsRoute.POST(new Request("https://example.test/api/ai/models", {
+    method: "POST",
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
+    body: JSON.stringify({
+      id: regularPayload.item.id,
+      expectedVersion: regularPayload.item.version,
+      name: "过期覆盖",
+      protocol: "openai_compatible",
+      modelType: "text",
+      modelName: "regular-model",
+      status: "disabled",
+    }),
+  }));
+  assert.equal(staleRegular.status, 409);
+  assert.equal((await staleRegular.json() as { code?: string }).code, "version_conflict");
+  const missingDeleteVersion = await modelsRoute.DELETE(new Request(
+    `https://example.test/api/ai/models?id=${encodeURIComponent(regularPayload.item.id)}`,
+    { method: "DELETE", headers: { "sec-fetch-site": "same-origin" } },
+  ));
+  assert.equal(missingDeleteVersion.status, 400);
+  const staleDelete = await modelsRoute.DELETE(new Request(
+    `https://example.test/api/ai/models?id=${encodeURIComponent(regularPayload.item.id)}&expectedVersion=1`,
+    { method: "DELETE", headers: { "sec-fetch-site": "same-origin" } },
+  ));
+  assert.equal(staleDelete.status, 409);
+  const currentDelete = await modelsRoute.DELETE(new Request(
+    `https://example.test/api/ai/models?id=${encodeURIComponent(regularPayload.item.id)}&expectedVersion=2`,
+    { method: "DELETE", headers: { "sec-fetch-site": "same-origin" } },
+  ));
+  assert.equal(currentDelete.status, 200);
+
   const rejectedSecret = await modelsRoute.POST(new Request("https://example.test/api/ai/models", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
     body: JSON.stringify({
       name: "错误模型",
       protocol: "openai_compatible",
@@ -221,7 +286,7 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
     const secretValue = `ROUTE_SECRET_${index}`;
     const response = await modelsRoute.POST(new Request("https://example.test/api/ai/models", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
       body: JSON.stringify({
         name: `敏感查询参数-${index}`,
         protocol: "openai_compatible",

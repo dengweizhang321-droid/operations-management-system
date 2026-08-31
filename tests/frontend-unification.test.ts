@@ -22,8 +22,9 @@ test("column filters normalize cells and combine multi-select columns with AND s
 });
 
 test("all rendered tables receive accessible multi-select column filtering", async () => {
-  const [page, component, styles, netshopDatabase] = await Promise.all([
+  const [page, shopView, component, styles, netshopDatabase] = await Promise.all([
     source("../app/page.tsx"),
+    source("../app/shop-module-view.tsx"),
     source("../app/ui/table-column-filters.tsx"),
     source("../app/globals.css"),
     source("../lib/netshop/database.ts"),
@@ -42,7 +43,7 @@ test("all rendered tables receive accessible multi-select column filtering", asy
   assert.match(component, /document\.addEventListener\("change", scheduleEventTable\)/);
   assert.match(component, /closeOnExternalScroll/);
   assert.match(component, /popoverRef\.current\?\.contains\(source\)/);
-  assert.match(page, /data-column-filter-values=\{item\.dates\?\.join\("\\u001f"\)\}/);
+  assert.match(shopView, /data-column-filter-values=\{item\.dates\?\.join\("\\u001f"\)\}/);
   assert.match(netshopDatabase, /period \? "GROUP_CONCAT\(DISTINCT r\.business_date\)" : "NULL"/);
   assert.match(netshopDatabase, /dates: \[\.\.\.new Set\(\(row\.coverage_dates/);
   assert.match(netshopDatabase, /datesTruncated:/);
@@ -68,13 +69,13 @@ test("left navigation follows the task-oriented groups and exact order", async (
 });
 
 test("data import navigation switches real workspaces instead of rendering inert tabs", async () => {
-  const page = await source("../app/page.tsx");
-  assert.match(page, /type ImportTab = ModuleViewKey<"import">/);
-  assert.match(page, /const activeSection = moduleView/);
-  assert.match(page, /role="tablist" aria-label="数据导入工作区"/);
-  assert.match(page, /onClick=\{\(\) => onModuleViewChange\("history"\)\}/);
-  assert.match(page, /activeSection === "continuity" && <>[\s\S]*?<section className="import-overview-grid"/);
-  assert.match(page, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel">/);
+  const importView = await source("../app/import-module-view.tsx");
+  assert.match(importView, /type ImportTab = ModuleViewKey<"import">/);
+  assert.match(importView, /const activeSection = moduleView/);
+  assert.match(importView, /role="tablist" aria-label="数据导入工作区"/);
+  assert.match(importView, /onClick=\{\(\) => onModuleViewChange\("history"\)\}/);
+  assert.match(importView, /activeSection === "continuity" && <>[\s\S]*?<section className="import-overview-grid/);
+  assert.match(importView, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel/);
 });
 
 test("operational navigation and tables use the balanced density baseline", async () => {
@@ -92,16 +93,17 @@ test("operational navigation and tables use the balanced density baseline", asyn
 });
 
 test("one global page head owns the shared period and passes it to every module", async () => {
-  const [page, header, market] = await Promise.all([
+  const [page, header, dashboard, market] = await Promise.all([
     source("../app/page.tsx"),
     source("../app/shell/global-header.tsx"),
+    source("../app/dashboard-module-view.tsx"),
     source("../app/market-view.tsx"),
   ]);
   assert.doesNotMatch(page, /className="page-intro"/);
   assert.match(page, /title=\{current\.label\}/);
   assert.match(header, /<h1 id="global-page-title" ref=\{titleRef\} tabIndex=\{-1\}>\{title\}<\/h1>/);
   assert.match(page, /customStartDate=\{globalPeriod\.startDate\} customEndDate=\{globalPeriod\.endDate\}/);
-  assert.match(page, /new URLSearchParams\(\{ startDate: customStartDate, endDate: customEndDate \}\)/);
+  assert.match(dashboard, /new URLSearchParams\(\{ view: "dashboard", startDate: customStartDate, endDate: customEndDate \}\)/);
   assert.match(market, /const marketStartDate = customStartDate/);
   assert.match(market, /const marketEndDate = customEndDate/);
   assert.match(market, /market-overview-period market-global-period/);
@@ -130,18 +132,18 @@ test("module filters transmit repeated values through their API boundaries", asy
 });
 
 test("promotion analysis separates JD and Tmall pages with platform-specific labels and links", async () => {
-  const [page, database, query, route] = await Promise.all([
-    source("../app/page.tsx"),
+  const [shopView, database, query, route] = await Promise.all([
+    source("../app/shop-module-view.tsx"),
     source("../lib/netshop/database.ts"),
     source("../lib/netshop/promotion-query.ts"),
     source("../app/api/netshop/promotion-performance/route.ts"),
   ]);
-  assert.match(page, /title: "京东推广"/);
-  assert.match(page, />京东推广<\/button>/);
-  assert.match(page, />天猫推广<\/button>/);
-  assert.match(page, /platform: pageConfig\.platform/);
-  assert.match(page, /netshopProductUrl\(item\.platform, item\.id\)/);
-  assert.match(page, /京准通总订单金额不是退款后的销售净额/);
+  assert.match(shopView, /title: "京东推广"/);
+  assert.match(shopView, />京东推广<\/button>/);
+  assert.match(shopView, />天猫推广<\/button>/);
+  assert.match(shopView, /platform: pageConfig\.platform/);
+  assert.match(shopView, /netshopProductUrl\(item\.platform, item\.id\)/);
+  assert.match(shopView, /京准通总订单金额不是退款后的销售净额/);
   assert.match(database, /netshopPromotionSourceSql/);
   assert.match(database, /netshopPromotionPaymentSourceSql/);
   assert.match(query, /r\.source = 'jd_promotion'/);

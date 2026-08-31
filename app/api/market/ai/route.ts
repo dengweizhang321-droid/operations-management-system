@@ -8,7 +8,6 @@ import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/auth
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
 import { ensureNetshopSchema } from "@/lib/netshop/database";
-import { ensureSalesSchema } from "@/lib/sales/database";
 
 type MarketAiRequest = {
   question?: string;
@@ -46,8 +45,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null) as MarketAiRequest | null;
     if (!body) return Response.json({ error: "请求内容不是有效 JSON" }, { status: 400 });
     const db = getMarketDatabase();
-    await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db), ensureSalesSchema(db)]);
-    const overview = await getMarketOverview(db, {
+    await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db)]);
+    const overview = await getMarketOverview(db, principal, {
       query: body.query?.trim() || undefined,
       categories: safeList(body.categories),
       scopes: safeList(body.scopes),
