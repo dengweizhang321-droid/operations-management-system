@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 const runtimeProcess = typeof process === "undefined" ? undefined : process;
 const runtimeCwd = typeof runtimeProcess?.cwd === "function" ? runtimeProcess.cwd() : undefined;
-const runtimeEnv = runtimeProcess?.env ?? {};
+const runtimeEnv = (runtimeProcess?.env ?? {}) as Record<string, string | undefined>;
 const chromePath = runtimeEnv.JACKYUN_CHROME_PATH ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const profileDirectory = resolveJackyunChromeProfileDirectory({
   cwd: runtimeCwd,

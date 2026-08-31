@@ -1,18 +1,15 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
+import { routeDjangoSalesReadRequest } from "@/lib/django/sales-gateway";
+import { parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 import {
-  getSalesCategoryAnalysis,
-  SalesCategoryAccessError,
-  SalesCategoryRequestError,
+  parseProductQueriesStrict,
   salesCategoryGranularities,
   salesCategorySortKeys,
+  SalesReadRequestError,
   type SalesCategoryGranularity,
   type SalesCategorySortKey,
-} from "@/lib/sales/category-analysis";
-import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
-import { parseProductQueriesStrict } from "@/lib/sales/product-query";
+} from "@/lib/sales/read-contract";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
-import { parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -22,13 +19,9 @@ function selections(params: URLSearchParams, ...keys: string[]) {
     .map((value) => value.trim())
     .filter(Boolean))];
   if (values.length > 50 || values.some((value) => value.length > 100)) {
-    throw new SalesCategoryRequestError(`${keys[0]} 筛选最多 50 项，且每项不能超过 100 字。`);
+    throw new SalesReadRequestError(`${keys[0]} 筛选最多 50 项，且每项不能超过 100 字。`);
   }
   return values;
-}
-
-function keysForProductQueries(params: URLSearchParams) {
-  return [...params.getAll("productQuery"), ...params.getAll("productQueries")];
 }
 
 export async function GET(request: Request) {
@@ -38,60 +31,40 @@ export async function GET(request: Request) {
     const startDate = params.get("startDate") ?? "";
     const endDate = params.get("endDate") ?? "";
     if (!isoDatePattern.test(startDate) || !isoDatePattern.test(endDate)) {
-      throw new SalesCategoryRequestError("startDate 和 endDate 必须使用 YYYY-MM-DD");
+      throw new SalesReadRequestError("startDate 和 endDate 必须使用 YYYY-MM-DD");
     }
-    const granularityValue = params.get("granularity") ?? "day";
-    if (!salesCategoryGranularities.includes(granularityValue as SalesCategoryGranularity)) {
-      throw new SalesCategoryRequestError(`granularity 必须是 ${salesCategoryGranularities.join(", ")} 之一`);
+    const granularity = params.get("granularity") ?? "day";
+    if (!salesCategoryGranularities.includes(granularity as SalesCategoryGranularity)) {
+      throw new SalesReadRequestError(`granularity 必须是 ${salesCategoryGranularities.join(", ")} 之一`);
     }
-    const sortValue = params.get("sortBy") ?? "netSalesCents";
-    if (!salesCategorySortKeys.includes(sortValue as SalesCategorySortKey)) {
-      throw new SalesCategoryRequestError(`sortBy 必须是 ${salesCategorySortKeys.join(", ")} 之一`);
+    const sortBy = params.get("sortBy") ?? "netSalesCents";
+    if (!salesCategorySortKeys.includes(sortBy as SalesCategorySortKey)) {
+      throw new SalesReadRequestError(`sortBy 必须是 ${salesCategorySortKeys.join(", ")} 之一`);
     }
-    const directionValue = params.get("direction") ?? "desc";
-    if (directionValue !== "asc" && directionValue !== "desc") {
-      throw new SalesCategoryRequestError("direction 必须是 asc 或 desc");
+    const direction = params.get("direction") ?? "desc";
+    if (direction !== "asc" && direction !== "desc") {
+      throw new SalesReadRequestError("direction 必须是 asc 或 desc");
     }
-    const level = parsePositiveIntegerQuery(params.get("level"), 1, "level", 3);
-    const parsedOutlets = selections(params, "outlet", "outlets").map(parseShopFilterKey);
-    if (parsedOutlets.some((value) => value === null)) {
-      throw new SalesCategoryRequestError("outlet 必须使用有效的平台与店铺复合键。");
+    parsePositiveIntegerQuery(params.get("level"), 1, "level", 3);
+    parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000);
+    parsePositiveIntegerQuery(params.get("pageSize"), 20, "pageSize", 100);
+    const outlets = selections(params, "outlet", "outlets").map(parseShopFilterKey);
+    if (outlets.some((value) => value === null)) {
+      throw new SalesReadRequestError("outlet 必须使用有效的平台与店铺复合键。");
     }
-    const outlets = parsedOutlets
-      .filter((value): value is NonNullable<typeof value> => value !== null)
-      .map((value) => ({ platform: value.platform, shop: value.shopName }));
-    const db = getSalesDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
-    const payload = await getSalesCategoryAnalysis(db, {
-      startDate,
-      endDate,
-      level,
-      categories: selections(params, "category", "categories"),
-      channels: selections(params, "channel", "channels"),
-      platforms: selections(params, "platform", "platforms"),
-      outlets,
-      productQueries: (() => {
-        try {
-          return parseProductQueriesStrict(keysForProductQueries(params));
-        } catch (error) {
-          throw new SalesCategoryRequestError(error instanceof Error ? error.message : "商品筛选无效");
-        }
-      })(),
-      granularity: granularityValue as SalesCategoryGranularity,
-      sortBy: sortValue as SalesCategorySortKey,
-      direction: directionValue,
-      page: parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000),
-      pageSize: parsePositiveIntegerQuery(params.get("pageSize"), 20, "pageSize", 100),
-    }, principal);
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    selections(params, "category", "categories");
+    selections(params, "channel", "channels");
+    selections(params, "platform", "platforms");
+    parseProductQueriesStrict([...params.getAll("productQuery"), ...params.getAll("productQueries")]);
+    return routeDjangoSalesReadRequest({ request, principal });
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
-    if (error instanceof SalesCategoryAccessError) {
-      return Response.json({ error: error.message, code: "access_denied" }, { status: 403, headers: { "cache-control": "no-store" } });
-    }
-    if (error instanceof SalesCategoryRequestError) {
-      return Response.json({ error: error.message, code: "invalid_request" }, { status: 400, headers: { "cache-control": "no-store" } });
+    if (error instanceof SalesReadRequestError) {
+      return Response.json(
+        { error: error.message, code: "invalid_request" },
+        { status: 400, headers: { "cache-control": "no-store" } },
+      );
     }
     return safeApiErrorResponse(error, "读取品类分析失败。", { headers: { "cache-control": "no-store" } });
   }

@@ -7,8 +7,10 @@ import {
 } from "@/lib/ai/assistant-service";
 import { isAiRequestCancelled } from "@/lib/ai/cancellation";
 import { createWebChatEntryContext } from "@/lib/ai/entry-context";
+import { normalizeAiPageContext } from "@/lib/ai/page-context";
 import { answerAiQuestion } from "@/lib/ai/question-workflow";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
+import { PublicApiError } from "@/lib/http/api-error";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -17,13 +19,14 @@ import {
   parseAiPositiveInteger,
   readAiJsonObject,
   requireAiId,
+  requireAiSameOriginWrite,
   requireAiString,
 } from "@/app/api/ai/route-helpers";
 
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
-    const db = getSalesDatabase();
+    const db = getD1Database();
     await ensureAiAssistantSchema(db);
     const searchParams = new URL(request.url).searchParams;
     const conversationIds = searchParams.getAll("conversationId");
@@ -38,26 +41,36 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
-    const db = getSalesDatabase();
+    const db = getD1Database();
     await ensureAiAssistantSchema(db);
     const payload = await readAiJsonObject(request);
+    const clientRequestId = requireAiId(payload.clientRequestId, "clientRequestId");
     const conversationId = optionalAiId(payload.conversationId, "conversationId");
     const modelId = optionalAiId(payload.modelId, "modelId");
     const message = requireAiString(payload.message, "消息", { maximumCharacters: 12_000, maximumBytes: 48_000 });
     const title = payload.title === undefined
       ? undefined
       : requireAiString(payload.title, "标题", { maximumCharacters: 120, maximumBytes: 480 });
+    const pageContext = payload.pageContext === undefined
+      ? null
+      : normalizeAiPageContext(payload.pageContext);
+    if (payload.pageContext !== undefined && !pageContext) {
+      throw new PublicApiError(400, "invalid_request", "页面上下文格式无效。");
+    }
     const result = await answerAiQuestion({
       entry: createWebChatEntryContext({
         principal,
         requestIdHeader: request.headers.get("x-request-id"),
         signal: request.signal,
       }),
+      clientRequestId,
       conversationId,
       title,
       message,
       modelId,
+      pageContext,
     }, db);
     return aiJsonResponse(result);
   } catch (error) {

@@ -11,6 +11,26 @@ export type SearchableSelectOption = {
   disabled?: boolean;
 };
 
+export function nextSearchableMultiSelection(
+  values: readonly string[],
+  nextValue: string,
+  maxSelections?: number,
+) {
+  const selectedValues = new Set(values);
+  if (selectedValues.has(nextValue)) return values.filter((value) => value !== nextValue);
+  if (maxSelections !== undefined && selectedValues.size >= maxSelections) return [...values];
+  return [...values, nextValue];
+}
+
+export function searchableMultiSelectAllValues(
+  options: readonly SearchableSelectOption[],
+  maxSelections?: number,
+) {
+  const values = options.filter((option) => !option.disabled).map((option) => option.value);
+  if (maxSelections !== undefined && values.length > maxSelections) return null;
+  return values;
+}
+
 export function SearchableSelect({
   value,
   onChange,
@@ -85,6 +105,7 @@ export function SearchableMultiSelect({
   searchPlaceholder = "输入关键词搜索",
   emptyLabel = "没有匹配项",
   disabled = false,
+  maxSelections,
 }: {
   values: string[];
   onChange: (values: string[]) => void;
@@ -95,6 +116,7 @@ export function SearchableMultiSelect({
   searchPlaceholder?: string;
   emptyLabel?: string;
   disabled?: boolean;
+  maxSelections?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -102,6 +124,8 @@ export function SearchableMultiSelect({
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
   const selectedValues = new Set(values);
   const availableOptions = options.filter((option) => !option.disabled);
+  const allValues = searchableMultiSelectAllValues(options, maxSelections);
+  const selectionLimitReached = maxSelections !== undefined && selectedValues.size >= maxSelections;
   const selectedOptions = options.filter((option) => selectedValues.has(option.value));
   const visibleOptions = options.filter((option) => {
     if (!normalizedQuery) return true;
@@ -130,22 +154,22 @@ export function SearchableMultiSelect({
   }, [open]);
 
   const toggle = (nextValue: string) => {
-    onChange(selectedValues.has(nextValue)
-      ? values.filter((value) => value !== nextValue)
-      : [...values, nextValue]);
+    onChange(nextSearchableMultiSelection(values, nextValue, maxSelections));
   };
-  const selectAll = () => onChange(availableOptions.map((option) => option.value));
+  const selectAll = () => {
+    if (allValues) onChange(allValues);
+  };
 
   return <div className={`searchable-select searchable-multi-select ${className} ${open ? "open" : ""}`} ref={rootRef}>
     <button type="button" className="searchable-select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => { if (!disabled) { setOpen((current) => !current); setQuery(""); } }}>
       <span title={summary}>{summary}</span><i aria-hidden="true">⌄</i>
     </button>
     {open && <div className="searchable-select-menu" role="listbox" aria-label={`${ariaLabel}选项`} aria-multiselectable="true">
-      <div className="searchable-select-menu-head"><strong>{ariaLabel}</strong><span><button type="button" onClick={selectAll} disabled={availableOptions.length === 0 || selectedOptions.length === availableOptions.length}>全选</button><button type="button" onClick={() => onChange([])} disabled={selectedOptions.length === 0}>清空</button></span></div>
+      <div className="searchable-select-menu-head"><strong>{ariaLabel}</strong><span><button type="button" onClick={selectAll} disabled={availableOptions.length === 0 || selectedOptions.length === availableOptions.length || allValues === null} title={allValues === null ? `最多可显式选择 ${maxSelections} 项；“${allLabel}”无需逐项全选。` : undefined}>全选</button><button type="button" onClick={() => onChange([])} disabled={selectedOptions.length === 0}>清空</button></span></div>
       <label className="searchable-select-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchPlaceholder} aria-label={`搜索${ariaLabel}`} /></label>
       <div className="searchable-select-options searchable-multi-select-options">
         <button type="button" className={selectedOptions.length === 0 ? "selected" : ""} role="option" aria-selected={selectedOptions.length === 0} onClick={() => onChange([])}><span className="searchable-multi-check" aria-hidden="true">{selectedOptions.length === 0 ? "✓" : ""}</span><span title={allLabel}>{allLabel}</span></button>
-        {visibleOptions.map((option) => { const selected = selectedValues.has(option.value); return <button type="button" key={`${option.value}-${option.label}`} className={selected ? "selected" : ""} role="option" aria-selected={selected} disabled={option.disabled} onClick={() => toggle(option.value)}><span className="searchable-multi-check" aria-hidden="true">{selected ? "✓" : ""}</span><span title={option.label}>{option.label}</span></button>; })}
+        {visibleOptions.map((option) => { const selected = selectedValues.has(option.value); const optionDisabled = option.disabled || (selectionLimitReached && !selected); return <button type="button" key={`${option.value}-${option.label}`} className={selected ? "selected" : ""} role="option" aria-selected={selected} disabled={optionDisabled} title={optionDisabled && !option.disabled ? `最多可选择 ${maxSelections} 项` : undefined} onClick={() => toggle(option.value)}><span className="searchable-multi-check" aria-hidden="true">{selected ? "✓" : ""}</span><span title={option.label}>{option.label}</span></button>; })}
         {visibleOptions.length === 0 && <p>{emptyLabel}</p>}
       </div>
     </div>}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 
-const title = "TERUISI 电商运营中台";
+const title = "电商运营中台";
 const description = "销售、库存、商品与运营事务一体化管理平台。";
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -1,6 +1,10 @@
 import { assertMarketPeriod, marketImportRangeKey, marketNaturalKey, MAX_MARKET_IMPORT_ROWS, normalizeMarketSkuCode } from "@/lib/market/import-identity";
 import { marketSkuGmvRefreshStatements } from "@/lib/market/gmv-total";
-import { marketMasterIdentityRefreshStatements } from "@/lib/market/master-identity";
+import {
+  marketMasterIdentityRefreshStatements,
+  marketSystemKpiBulkRevisionFinishStatements,
+  marketSystemKpiBulkRevisionStartStatements,
+} from "@/lib/market/master-identity";
 import { marketStandardSkuImagePriceInheritanceSql, type MarketSchemaDatabase } from "@/lib/market/schema-core";
 import {
   importReservationCommitFence,
@@ -95,6 +99,7 @@ const MAX_STAGING_PAYLOAD_BYTES = 750_000;
 const MAX_STAGING_ROW_BYTES = 500_000;
 const MAX_STAGING_PAYLOADS = 100;
 const MAX_CLAIM_PAYLOAD_BYTES = 500_000;
+const MAX_MARKET_IDENTITY_REFRESH_KEYS = 10_000;
 const CLAIM_LEASE_MINUTES = 30;
 
 export const marketBatchColumns = `id, source_type, file_name, file_size_bytes, file_hash, sheet_name, status,
@@ -286,6 +291,53 @@ WHERE (
 )
 AND (SELECT COUNT(*) FROM market_import_range_claims WHERE batch_id = ? AND claim_token = ?) = ?`;
 
+const captureOldMarketIdentityRefreshKeysSql = `WITH authorized AS MATERIALIZED (
+  SELECT 1
+  WHERE EXISTS (SELECT 1 FROM market_import_batches
+    WHERE id=? AND owner_token=? AND status='processing')
+    AND (SELECT COUNT(*) FROM market_import_range_claims WHERE batch_id=? AND claim_token=?)=?
+), replacement_ranges AS MATERIALIZED (
+  SELECT DISTINCT
+    json_extract(staged.row_json, '$.periodStart') period_start,
+    json_extract(staged.row_json, '$.periodEnd') period_end,
+    json_extract(staged.row_json, '$.category') category,
+    json_extract(staged.row_json, '$.scope') scope,
+    json_extract(staged.row_json, '$.priceBandFilter') price_band_filter,
+    json_extract(staged.row_json, '$.rankingDimension') ranking_dimension
+  FROM market_import_staging_rows staged, authorized
+  WHERE staged.batch_id=?
+)
+INSERT OR IGNORE INTO market_import_identity_refresh_keys_v2
+  (batch_id, owner_token, category, scope, ranking_dimension, sku_code)
+SELECT DISTINCT ?, ?, fact.category, fact.scope, fact.ranking_dimension, fact.sku_code
+  FROM market_ranking_entries fact
+  JOIN replacement_ranges replacement
+    ON fact.period_start=replacement.period_start
+    AND fact.period_end=replacement.period_end
+    AND fact.category=replacement.category
+    AND fact.scope=replacement.scope
+    AND fact.price_band_filter=replacement.price_band_filter
+    AND fact.ranking_dimension=replacement.ranking_dimension
+  LIMIT ${MAX_MARKET_IDENTITY_REFRESH_KEYS + 1}`;
+
+const captureNewMarketIdentityRefreshKeysSql = `WITH authorized AS MATERIALIZED (
+  SELECT 1
+  WHERE EXISTS (SELECT 1 FROM market_import_batches
+    WHERE id=? AND owner_token=? AND status='processing')
+    AND (SELECT COUNT(*) FROM market_import_range_claims WHERE batch_id=? AND claim_token=?)=?
+)
+INSERT OR IGNORE INTO market_import_identity_refresh_keys_v2
+  (batch_id, owner_token, category, scope, ranking_dimension, sku_code)
+SELECT ?, ?,
+    json_extract(staged.row_json, '$.category'),
+    json_extract(staged.row_json, '$.scope'),
+    json_extract(staged.row_json, '$.rankingDimension'),
+    json_extract(staged.row_json, '$.skuCode')
+  FROM market_import_staging_rows staged, authorized
+  WHERE staged.batch_id=?
+  GROUP BY 3, 4, 5, 6
+  LIMIT ${MAX_MARKET_IDENTITY_REFRESH_KEYS + 1}`;
+
 const snapshotInsertSql = `WITH decoded AS (
   SELECT s.row_number,
     json_extract(s.row_json, '$.category') category,
@@ -427,7 +479,11 @@ export async function saveMarketImportCore(input: {
       input.sheetName, rows.length, input.warnings.length, dates[0] ?? null,
       dates.at(-1) ?? null, JSON.stringify(input.warnings.slice(0, 100)), claimToken,
     ).run();
-    if (changes(insertedBatch) !== 1) {
+    // D1 reports trigger side effects in meta.changes. The batch table has
+    // revision-maintenance triggers, so a successful single-row insert/update
+    // can legitimately report more than one changed row. Zero still means the
+    // INSERT OR IGNORE lost the idempotency race.
+    if (changes(insertedBatch) < 1) {
       const existing = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE file_hash=? LIMIT 1`)
         .bind(input.fileHash).first<BatchRow>();
       if (existing?.status === "completed") return { ...mapMarketBatch(existing), created: false };
@@ -491,14 +547,41 @@ export async function saveMarketImportCore(input: {
 
     publishAttempted = true;
     const publishStatements = [
+      db.prepare(`INSERT INTO market_system_kpi_cache_control
+          (id, suppress_all_revision, suppress_identity_revision, owner_token, updated_at)
+        SELECT CASE WHEN EXISTS (
+          SELECT 1 FROM market_import_batches batch
+          WHERE batch.id=? AND batch.owner_token=? AND batch.status='processing'
+            AND (SELECT COUNT(*) FROM market_import_range_claims
+              WHERE batch_id=? AND claim_token=?)=?
+        ) THEN 1 ELSE 2 END, 0, 0, '', CURRENT_TIMESTAMP
+        ON CONFLICT(id) DO UPDATE SET updated_at=market_system_kpi_cache_control.updated_at`)
+        .bind(input.batchId, claimToken, input.batchId, claimToken, claimKeys.length),
       ...fenceStatements,
+      ...marketSystemKpiBulkRevisionStartStatements(db, claimToken),
+      db.prepare(captureOldMarketIdentityRefreshKeysSql).bind(
+        input.batchId, claimToken, input.batchId, claimToken, claimKeys.length,
+        input.batchId, input.batchId, claimToken,
+      ),
+      db.prepare(captureNewMarketIdentityRefreshKeysSql).bind(
+        input.batchId, claimToken, input.batchId, claimToken, claimKeys.length,
+        input.batchId, claimToken, input.batchId,
+      ),
+      db.prepare(`UPDATE market_import_batches SET source_type=CASE WHEN (
+        SELECT COUNT(*) FROM market_import_identity_refresh_keys_v2 WHERE batch_id=? AND owner_token=?
+      )<=? THEN source_type ELSE NULL END
+      WHERE id=? AND owner_token=? AND status='processing'`)
+        .bind(input.batchId, claimToken, MAX_MARKET_IDENTITY_REFRESH_KEYS, input.batchId, claimToken),
       db.prepare(replaceClaimedMarketFactsSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length),
       db.prepare(factInsertSql).bind(input.batchId, input.batchId, input.batchId, claimToken, claimKeys.length),
       db.prepare(snapshotInsertSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length, input.batchId),
       db.prepare(marketStandardSkuImagePriceInheritanceSql("target.source_import_batch_id=?")).bind(input.batchId),
       db.prepare(taxonomyInsertSql).bind(input.batchId, input.batchId, claimToken, claimKeys.length),
-      ...marketSkuGmvRefreshStatements(db, input.batchId),
-      ...marketMasterIdentityRefreshStatements(db, input.batchId),
+      ...marketSkuGmvRefreshStatements(db, { batchId: input.batchId, ownerToken: claimToken }),
+      ...marketMasterIdentityRefreshStatements(db, {
+        batchId: input.batchId, ownerToken: claimToken, revisionControl: "external",
+      }),
+      ...marketSystemKpiBulkRevisionFinishStatements(db, claimToken),
     ];
     const completionStatementIndex = publishStatements.length;
     publishStatements.push(
@@ -510,11 +593,15 @@ export async function saveMarketImportCore(input: {
       db.prepare(`DELETE FROM market_import_staging_rows WHERE batch_id=? AND EXISTS (
         SELECT 1 FROM market_import_batches WHERE id=? AND owner_token=?)`)
         .bind(input.batchId, input.batchId, claimToken),
+      db.prepare(`DELETE FROM market_import_identity_refresh_keys_v2
+        WHERE batch_id=? AND owner_token=? AND EXISTS (
+          SELECT 1 FROM market_import_batches WHERE id=? AND owner_token=?)`)
+        .bind(input.batchId, claimToken, input.batchId, claimToken),
       db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=? AND claim_token=?").bind(input.batchId, claimToken),
     );
     if (input.reservationFence) publishStatements.push(importReservationCommitFence(db, input.reservationFence));
     const publish = await db.batch(publishStatements) as RunResult[];
-    if (changes(publish[completionStatementIndex]) !== 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
+    if (changes(publish[completionStatementIndex]) < 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
 
     const completedAt = new Date().toISOString();
     completedFallback = {
@@ -543,6 +630,10 @@ export async function saveMarketImportCore(input: {
       db.prepare(`DELETE FROM market_import_staging_rows WHERE batch_id=? AND EXISTS (
         SELECT 1 FROM market_import_batches WHERE id=? AND owner_token=?)`)
         .bind(input.batchId, input.batchId, claimToken),
+      db.prepare(`DELETE FROM market_import_identity_refresh_keys_v2
+        WHERE batch_id=? AND owner_token=? AND EXISTS (
+          SELECT 1 FROM market_import_batches WHERE id=? AND owner_token=?)`)
+        .bind(input.batchId, claimToken, input.batchId, claimToken),
       db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=? AND claim_token=?").bind(input.batchId, claimToken),
       db.prepare(`UPDATE market_import_batches SET status='failed', completed_at=CURRENT_TIMESTAMP
         WHERE id=? AND owner_token=? AND status='processing'`).bind(input.batchId, claimToken),

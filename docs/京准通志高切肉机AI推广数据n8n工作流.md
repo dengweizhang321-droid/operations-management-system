@@ -10,7 +10,7 @@
 - shopId：745866
 - Chromium：Profile 2，调试端口 9226，店铺独立下载目录
 - 手动入口当前日期：2026-08-20
-- 定时入口：每天 13:00（`Asia/Shanghai`），只处理昨天
+- 定时入口：每天 13:10（`Asia/Shanghai`），只处理昨天
 
 仓库模板默认 `active=false`，实际发布状态以本机 n8n 为准。它不会与设备旗舰店工作流共享 profile、下载目录、恢复清单或下载任务，但仍与全部京东自动化共用一个全局 Chromium 所有权锁，因此不能并发运行。定时和手动入口都先使用 `workflow key=jd-promotion + n8n execution ID` 原子领取共享 helper；未获授权时每 5 分钟等待，累计 72 次后失败关闭。
 

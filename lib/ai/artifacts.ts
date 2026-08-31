@@ -3,7 +3,7 @@ import {
   aiConversationScopeAccessSql,
   ensureAiConversationScopeSchema,
 } from "@/lib/ai/conversation-scope";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 export const AI_ARTIFACT_LIMITS = {
   artifactsPerMessage: 3,
@@ -100,7 +100,7 @@ export function isAiArtifactId(value: string) {
 }
 
 export async function ensureAiArtifactSchema(
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   const key = db as unknown as object;
   const existing = artifactReadyByDatabase.get(key);
@@ -147,7 +147,7 @@ export async function persistAiTableArtifacts(input: {
   messageId: string;
   principal: Pick<AppPrincipal, "email" | "role" | "scope">;
   candidates: readonly AiTableArtifactCandidate[];
-  database: SalesDatabase;
+  database: D1Database;
 }): Promise<AiTableArtifact[]> {
   const db = input.database;
   await ensureAiArtifactSchema(db);
@@ -241,7 +241,7 @@ export function boundAiTableArtifactCandidates(
 export async function listAiArtifactsForConversation(
   conversationId: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
   messageIds?: readonly string[],
 ): Promise<Map<string, AiTableArtifact[]>> {
   await ensureAiArtifactSchema(db);
@@ -285,7 +285,7 @@ export async function listAiArtifactsForConversation(
 export async function getAiArtifactDownload(
   artifactId: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<{ artifact: AiTableArtifact; bytes: Uint8Array; contentDigest: string } | null> {
   if (!isAiArtifactId(artifactId)) return null;
   await ensureAiArtifactSchema(db);
@@ -319,7 +319,7 @@ export async function recordAiArtifactDelivery(input: {
   byteSize?: number;
   contentDigest?: string;
   errorCode?: string;
-  database: SalesDatabase;
+  database: D1Database;
 }): Promise<void> {
   const db = input.database;
   await ensureAiArtifactSchema(db);

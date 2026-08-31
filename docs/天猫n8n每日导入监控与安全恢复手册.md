@@ -6,18 +6,18 @@
 
 | 计划 | n8n workflow ID | 店铺注册键 | 店铺 | 仓库模板 | 调试端口 |
 | --- | --- | --- | --- | --- | ---: |
-| 11:00 | `M4xY8kQ2vR6sT9pC` | `tmall-yijiu` | 天猫-志高亿玖专卖店 | `tmall-yijiu-sycm-cookie-daily.workflow.json` | 9334 |
-| 11:05 | `TmallLiliDaily2026` | `tmall-lili` | 天猫-志高丽力专卖店 | `tmall-lili-sycm-cookie-daily.workflow.json` | 9325 |
-| 11:10 | `TmallTuofengDaily2026` | `tmall-tuofeng` | 天猫-志高拓丰专卖店 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 9327 |
-| 11:15 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 9328 |
-| 11:20 | `TmallCuizhiwangDaily2026` | `tmall-cuizhiwang` | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 9329 |
-| 11:25 | `TmallMasituDaily2026` | `tmall-masitu` | 天猫-志高马思图专卖店 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 9331 |
+| 13:30 | `M4xY8kQ2vR6sT9pC` | `tmall-yijiu` | 天猫-志高亿玖专卖店 | `tmall-yijiu-sycm-cookie-daily.workflow.json` | 9334 |
+| 13:40 | `TmallLiliDaily2026` | `tmall-lili` | 天猫-志高丽力专卖店 | `tmall-lili-sycm-cookie-daily.workflow.json` | 9325 |
+| 13:50 | `TmallTuofengDaily2026` | `tmall-tuofeng` | 天猫-志高拓丰专卖店 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 9327 |
+| 14:00 | `TmallCuizhiwangDaily2026` | `tmall-cuizhiwang` | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 9329 |
+| 14:10 | `TmallMasituDaily2026` | `tmall-masitu` | 天猫-志高马思图专卖店 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 9331 |
+| 14:20 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 9328 |
 
-六条流程均使用 `Asia/Shanghai`，共享 `127.0.0.1:5791` 的原子协调门禁；调度可以同时处于等待状态，但 A→B→C→P→M 业务阶段只能串行。
+六条流程均使用 `Asia/Shanghai`，共享 `127.0.0.1:5791` 的原子协调门禁；调度可以同时处于等待状态，但 A→B→C→P→M 业务阶段只能串行。A/B/C/P 每日执行；M 每日作为终态入口，但货品业务动作按每店持久三日节奏错峰执行。
 
 ## 1. 不可越过的边界
 
-- 每次真实执行都必须由 n8n 创建完整 workflow execution，并在 A 前通过原子协调接口领取 helper；未获授权时每 5 分钟等待，累计 72 次、约 6 小时后失败关闭。领取成功后按 `A→B→C→P→M` 串行运行，A 是唯一进入业务计划和浏览器阶段的入口。
+- 每次真实执行都必须由 n8n 创建完整 workflow execution，并在 A 前通过原子协调接口领取 helper；未获授权时每 5 分钟等待，累计 72 次、约 6 小时后失败关闭。领取成功后按 `A→B→C→P→M` 串行运行，A 是唯一进入业务计划和浏览器阶段的入口。定时 M 未到期只返回 `not_due` 并安全收尾；手动完整运行明确强制 M，仍不得绕过前四段。
 - 监控与恢复人员不得直接调用 helper 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，也不得直接运行下载或导入脚本代替 n8n。
 - 允许直接读取 `/health`，因为它只返回阶段、忙碌状态和非敏感就绪状态。不得把“helper ready”解释为平台登录有效或数据已经导入。
 - 不得单独重跑 B、C、P 或 M；修复后只能从 n8n 启动新的完整 execution。导入接口的内容幂等负责处理已经成功发布的事实。
@@ -34,7 +34,7 @@
 1. 读取 `README.md`、`AGENTS.md`、本手册、`config/tmall-store-accounts.json` 和当前工作流模板。
 2. 检查 `git status --short`。工作区已有改动属于用户，不得覆盖、格式化、暂存或提交无关文件。
 3. 逐店比较 n8n 当前版本及 `activeVersionId` 对应已发布历史与各自仓库模板的 `nodes`、`connections` 和 `settings`。模板保留 `active=false` 是正常的；实际发布实例的启用状态单独核验。
-4. 确认六店恰好各有一条 active 日调度，时区均为 `Asia/Shanghai`，cron 依次为 `0/5/10/15/20/25 11 * * *`；不得残留第二条 active 天猫业务流水线。定时和手动入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。
+4. 确认六店恰好各有一条 active 日调度，时区均为 `Asia/Shanghai`，cron 按亿玖、丽力、拓丰、炊之王、马思图、亿用依次为 `30 13 * * *`、`40 13 * * *`、`50 13 * * *`、`0 14 * * *`、`10 14 * * *`、`20 14 * * *`；不得残留第二条 active 天猫业务流水线。定时和“手动完整运行（强制 M）”入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。M 请求只有手动 mode 才发送强制标记，定时或 CLI 恢复不得伪造。
 5. 从注册表逐店解析 `shopName`、`executablePath`、`userDataDir`、`profileName`、`profileDir`、`debugPort` 和 `downloadDir`，并确认资源互不重复；不得回退到默认 Chrome、旧 `.runtime` profile 或另一店铺配置。
 6. 只读核验 `5678`、`5791` 和六店调试端口。空闲时调试端口都应关闭；执行中只允许由当前 execution 占用对应店铺端口。
 
@@ -45,9 +45,9 @@ Invoke-RestMethod http://127.0.0.1:5791/health
 Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331,9334 -ErrorAction SilentlyContinue
 ```
 
-### 2.2 11:03 起的六店监控判定
+### 2.2 13:32 起的六店监控判定
 
-- 11:03 先查 11:00 的亿玖 execution，随后守候 11:05、11:10、11:15、11:20、11:25 五条触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。
+- 13:32 先查 13:30 的亿玖 execution，随后守候 13:40、13:50、14:00、14:10、14:20 五条触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。
 - 若某店正在运行或在 A 前等待 helper，持续监控到终态；协调等待是六店串行门禁的正常状态，不以此创建重复 execution。
 - 若到某店计划时间后 5 分钟仍无当日 `mode=trigger` execution，检查同一 workflow ID 的当前发布版本、启用状态、trigger 注册、时区和 n8n 服务；不得新建同名副本或并发业务流水线。
 - 任一阶段失败时，先保存 execution ID、店铺、目标业务日期、失败节点、脱敏错误、活动清单阶段和浏览器所有权，再决定是否可自动恢复。单店失败后仍要继续核验其余五店；只有 helper 未安全释放时才把后续等待视为同一阻塞链。
@@ -60,9 +60,9 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331
 | B | 只下载计划内单日 XLS；店铺、唯一业务日期、表头、魔数、大小、行数和 SHA-256 校验通过。 |
 | C | 签收单与文件一致；导入返回 `imported/completed` 或经完整业务内容指纹确认的 `duplicate`；来源、数据集、平台、店铺、日期、行数和覆盖回查一致。 |
 | P | 仅在同日商品日已签收导入后执行；单日 ZIP 内唯一商品 CSV 校验通过；推广批次、行数、零告警和商品日/推广日交集覆盖回查一致。 |
-| M | 货品 XLSX 的店铺、快照日、发布模板、结构、行数和哈希通过；货品批次 completed/duplicate 且落库回查一致；本轮受控 Chromium 已关闭。 |
+| M | 到期/强制时，货品 XLSX 的店铺、快照日、发布模板、结构、行数和哈希通过，货品批次 completed/duplicate 且落库回查一致，并原子推进该店下次到期日；未到期时必须返回 `status=not_due`、`nextDueDate` 与三日节奏证据，且没有创建货品任务或改写节奏状态。两种成功路径都要求本轮受控 Chromium 已关闭。 |
 
-整个 execution 只有在五个节点都成功且浏览器关闭后才算完成。M 位于末段；M 失败不会回滚已完成回查的商品日和推广事实，但整个 execution 仍必须标记失败，不能通知“全部完成”。
+整个 execution 只有在 A/B/C/P 成功，且 M 为实际导入成功或预期 `not_due`，同时浏览器关闭后才算完成。M 位于末段；到期 M 失败不会推进下次到期日，也不会回滚已完成回查的商品日和推广事实，但整个 execution 仍必须标记失败，不能通知“全部完成”。
 
 ## 4. 异常分类与最小处理
 
@@ -118,21 +118,31 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331
 
 平台任务已明确失败，或操作者明确确认某一条旧任务作废时，仍不得直接删除活动清单。只允许使用受控作废入口把 `export_submitted` / `export_confirmed` 清单原样移出活动槽并写入作废时间、原阶段和原因；归档成功后才能从 n8n 启动新的完整 execution。该入口不接受 `export_submitting`、`downloaded` 或自动恢复调用，也不得由超时自动触发。
 
+逐页 M 有一个更窄的专用例外：全部分页任务和文件已绑定、活动清单处于 `downloaded`，且合并前明确报出“唯一商品数少于出售中总数”的内容完整性错误时，操作者可以确认该批分页任务作废。此时只能运行 `node --import tsx tools/tmall-pagewise-audit-admin.ts --action abandon-invalid-downloaded --store-key <store-key> --reason <原因> --confirm`，由工具原子归档原清单并保留全部任务、文件、错误和确认信息；不得删除分页文件。归档后仍必须从 n8n 创建新的完整 execution。该入口拒绝超时、网络错误、缺页、点击未决、页码证据不连续或没有精确内容错误的清单。
+
 ### 4.6 浏览器关闭失败
 
-- helper 应在 M 成功或任一节点失败时关闭本 execution 启动的受控 Chromium，并释放注册表调试端口。
+- helper 应在 M 实际成功、`not_due` 或任一节点失败时关闭本 execution 启动的受控 Chromium，并释放注册表调试端口。
 - 终态后只读确认本店调试端口无监听。若仍被占用，先确认 PID 与 execution 所有权；不得关闭日常 Chromium 或其他店铺实例。
 - 关闭失败时整个 execution 失败关闭并保留清单和审计证据。
 
-### 4.7 亿玖、拓丰和马思图 M 节点逐页导出
+### 4.7 M 三日错峰门禁
 
-- 亿玖、拓丰和马思图各自的 n8n workflow ID、定时、A/B/C/P 和 `/product-master` 接口均不变；只有 M 内部按店铺注册项切换为 `on_sale_pagewise_excel`。不得另建第二条 active 工作流，也不得让两种 M 策略同时创建任务。
+- 当前初始分组固定为：拓丰/炊之王 `2026-08-25`，马思图/亿用 `2026-08-26`，亿玖/丽力 `2026-08-27`；每组包含一家逐页店和一家商品管家店。首次成功后，以该店 M 实际完成的上海日期加 3 天作为独立 `nextDueDate`。
+- 到期判断来自注册表与 Git 忽略的店铺独立持久状态，不使用 `*/3` cron，也不依赖 n8n 节点静态日期取模。状态缺失时使用注册表初始到期日；状态损坏、跨店、间隔不一致或日期无效时失败关闭。
+- 到期 M 只有在货品文件、导入批次和落库回查全部成功后才原子推进节奏。失败、超时、登录异常、点击未决或浏览器关闭前的业务失败均不推进，因此次日完整 workflow 仍判定到期并安全续接。
+- 已存在本店商品管家或逐页活动清单时，即使日历未到期也必须进入 M 续接，不能以 `not_due` 绕过已发生业务点击。n8n 手动完整运行发送明确强制标记；定时和普通 CLI 恢复不强制。
+- `not_due` 只能说明本日货品更新未到期；通知仍要分别报告 A/B/C/P 的每日导入事实、M 的下次到期日和浏览器关闭，不得写成货品已导入。
+
+### 4.8 亿玖、拓丰、炊之王和马思图 M 节点逐页导出
+
+- 亿玖、拓丰、炊之王和马思图各自的 n8n workflow ID、定时、A/B/C/P 和 `/product-master` 接口均不变；只有 M 内部按店铺注册项切换为 `on_sale_pagewise_excel`。不得另建第二条 active 工作流，也不得让两种 M 策略同时创建任务。
 - 正常路径按“出售中逐页全选 → 更多批量操作 → excel商品批量导出 → 非末页取消弹窗并下一页 → 末页前往下载”执行。完成证据不是单个文件下载，而是本轮任务数等于总页数、全部任务已完成、全部分页分别校验、合并唯一商品数等于出售中总数，以及合并文件单次导入后的精确批次和落库回查。
 - 进入出售中或翻页后，必须围绕唯一“共 N 件商品”锚点读取最近的分页区域，并在有界等待内连续两次得到相同的“商品总数 + 当前页/总页数”后才允许勾选。页面其他区域的页码不得参与身份判断；超时只记录锚点数、候选区域数和脱敏页码元数据，业务点击前失败清单归档为 preflight 证据后释放活动槽。
 - “商品标题”表头因固定列或包装节点形成多个可见 DOM 时，只能合并指向同一个空间全选框的等价候选；不同全选框得分并列时失败关闭。点击后必须精确读回当前页“已选 N”，否则不得打开更多批量操作或创建导出任务。
 - “下一页”因按钮、外层分页项和图标形成父子 DOM 时，按可操作语义、明确下一页属性和空间位置合并、排序；两个独立入口仍同分时失败关闭。点击后必须稳定读回下一页的页码身份，才能继续勾选和创建下一页任务。
 - `page_export_submitting` 表示创建任务点击结果未决，必须人工核对导出记录，不能自动重发；已经记录的分页任务跨日仍绑定原快照继续。记录时间窗内任务多于预期、缺页、明确失败、商品总数变化、分页文件商品数不符或跨页重复都失败关闭。
-- 若目标店仍存在原商品管家 `active-<storeKey>.json` 活动清单，新策略必须停止。先按 4.5 核对旧任务；未经操作者明确确认，不得删除、重置或跨模式忽略该清单。三店的逐页清单、下载目录、Profile 和调试端口必须继续相互隔离。
+- 若目标店仍存在原商品管家 `active-<storeKey>.json` 活动清单，新策略必须停止。先按 4.5 核对旧任务；未经操作者明确确认，不得删除、重置或跨模式忽略该清单。四店的逐页清单、下载目录、Profile 和调试端口必须继续相互隔离。
 
 ## 5. 安全恢复步骤
 
@@ -142,27 +152,31 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331
 4. 运行相关聚焦测试，再运行 `npm run test:unit`、`npm run lint` 和 `git diff --check`。不得为了文档或脚本测试重启正在监听 `dist` 的本地 Worker。
 5. 若修复需要 helper 重新加载代码，先取得重启授权并精确重启 helper；n8n 与本地 Worker保持不动，除非证据明确要求且另有授权。
 6. 在已登录的 n8n 正式页面启动一个新的完整 workflow execution。不得直接请求 helper 业务接口，也不得单节点执行。
-7. 监控新 execution 到终态，逐项回查 A/B/C/P/M 和受控 Chromium 关闭状态。
+7. 监控新 execution 到终态，逐项回查 A/B/C/P，以及 M 的实际导入证据或 `not_due + nextDueDate`，并核验受控 Chromium 关闭状态。
 8. 只暂存本任务文件，创建聚焦提交并推送；不得带入用户已有改动、下载文件、凭据或运行产物。
-9. 发送成功、异常或恢复通知。若通知账号认证失效，停止重复发送并在当前任务明确要求重新认证。
+9. 商品日、推广日和货品主数据终态分别取得完成证据后立即逐项发送成功通知；异常、恢复和最终汇总仍按状态发送。若通知账号认证失效，停止重复发送并在当前任务明确要求重新认证。
 
 ## 6. 钉钉通知最小模板
 
-通知只发送给每次查询得到的当前唯一账号自身单聊，不猜测或持久化 userId。正文不得包含 Cookie、Token、账号标识、本机路径或原始业务数据。
+通知只能由名称精确等于“志高助手”的唯一企业机器人发送到标题精确等于“测试群聊”的唯一群聊，禁止发送到当前 DWS 登录用户或任何个人账号。每次发送前使用 `dws chat search` 唯一核验群标题并取得 `openConversationId`，使用 `dws chat bot search` 唯一核验机器人名称并取得 `robotCode`，再使用 `dws chat group bots` 复核同一机器人已安装且可用；三项任一不唯一或不一致时不得猜测 ID、不得回退个人单聊。正文不得包含 Cookie、Token、账号标识、本机路径、用户 ID 或原始业务数据。
+
+每日每店的完成通知按三个独立业务事项发送：C 完成后的商品日导入、P 完成后的推广日导入，以及 M 的货品主数据终态。每项必须在文件/任务校验、精确批次、告警数和落库覆盖回查全部通过后立即发送，不等待六店汇总。M 的 `due_completed`、`duplicate` 与 `not_due` 必须如实区分；`not_due` 只写“本日未到期、正常收尾”和 `nextDueDate`，不能写成货品已导入。按 `workflow ID + execution ID + storeKey + 事项 + 业务日期` 形成稳定完成键，恢复或重复回查不得重复投递。
 
 ```markdown
-## 天猫数据导入异常
+## 天猫事项完成｜<店铺>｜<商品日/推广日/货品主数据>
 
 - 上海时间：YYYY-MM-DD HH:mm:ss
 - n8n execution ID：<id>
 - 店铺：<shopName>
-- 阶段：A/B/C/P/M
+- 事项：商品日/推广日/货品主数据
 - 目标业务日期：YYYY-MM-DD
-- 脱敏结果：<error>
-- 需要人工操作：是/否（说明唯一下一步）
+- 最终状态：completed/duplicate/due_completed/not_due
+- 批次与行数：<适用时填写>
+- 告警与覆盖回查：0，已通过
+- 浏览器/helper 收尾：<状态>
 ```
 
-恢复成功使用标题“天猫数据导入已恢复”，完整成功使用“天猫数据导入完成”。所有 dws 命令使用 `--format json`；认证失效后不得循环重试。
+异常、恢复和六店汇总可另外发送，但不能替代逐事项完成通知。所有 dws 命令使用 `--format json`；认证失效后不得循环重试。
 
 ## 7. 新增店铺复用清单
 

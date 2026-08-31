@@ -6,10 +6,10 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
     "build": "vinext build",
-    "start": "vinext start",
-    "start:local-worker": "node tools/start-local-worker.mjs",
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
+    "start:local-worker": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
     "test": "vinext build && node --import tsx --test tests/*.test.ts && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .runtime --ignore-pattern .codex-tmp --ignore-pattern .vite-sites-cache --ignore-pattern tmp --ignore-pattern outputs",
     "test:unit": "node --import tsx --test tests/*.test.ts",
@@ -23,6 +23,7 @@
     "jd:all-stores": "node --import tsx tools/jd-multi-store-runner.ts",
     "jd:credential:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/jd-credential-vault.ps1 -Action setup",
     "jd:promotion": "node --import tsx tools/jd-promotion-export.ts",
+    "netshop:promotion:backfill": "node --import tsx tools/netshop-promotion-aggregate-backfill.ts",
     "tmall:receipt": "node --import tsx tools/tmall-download-receipt.ts",
     "tmall:daily:import": "node --import tsx tools/tmall-multi-store-import-runner.ts",
     "tmall:login": "node --import tsx tools/tmall-product-master-export.ts --launch-only",
@@ -37,7 +38,7 @@
     "erp:sales:login": "node --import tsx tools/erp-sales-automation.ts --login",
     "sales:import": "node --import tsx tools/sales-import-runner.ts",
     "dingtalk:robot:send": "node --import tsx tools/dingtalk-custom-robot-send.ts",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "node tools/drizzle-generate-guard.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

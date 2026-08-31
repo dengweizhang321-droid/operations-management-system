@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
+import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
@@ -24,6 +26,12 @@ import {
   runTmallProductMasterStage,
 } from "./tmall-product-master-export";
 import { runTmallPagewiseProductMasterStage } from "./tmall-pagewise-product-master-export";
+import {
+  getTmallProductMasterCadenceDecision,
+  parseTmallForceProductMasterHeader,
+  recordTmallProductMasterCadenceSuccess,
+  tmallForceProductMasterHeader,
+} from "./tmall-product-master-cadence";
 import { runTmallPromotionStage } from "./tmall-promotion-export";
 import {
   getJackyunProfileStatus,
@@ -78,18 +86,41 @@ const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-p
 const maximumDownloadBytes = 25 * 1024 * 1024;
 export const maximumDaysPerRun = 1;
 export const helperInactivityTimeoutMs = 2 * 60_000;
+export const tmallPromotionStageTimeoutMs = 10 * 60_000;
 export const n8nExecutionIdHeader = "x-teruisi-n8n-execution-id";
 export const workflowCoordinationKeyHeader = "x-teruisi-workflow-key";
 export const workflowCoordinationAttemptHeader = "x-teruisi-coordination-attempt";
 export const tmallStoreKeyHeader = "x-teruisi-tmall-store-key";
+export const tmallPlanStartDateHeader = "x-teruisi-tmall-plan-start-date";
+export const tmallPlanEndDateHeader = "x-teruisi-tmall-plan-end-date";
 export const maximumWorkflowCoordinationAttempts = 72;
 export const jdSilentNoWindowHeader = "x-teruisi-jd-silent-no-window";
 export const jdMarketResumeRunIdHeader = "x-teruisi-jd-market-resume-run-id";
+
+const execFile = promisify(execFileCallback);
 
 export function normalizeTmallStoreKey(value: string | string[] | undefined) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   return /^[a-z0-9][a-z0-9-]{0,63}$/.test(normalized) ? normalized : null;
+}
+
+function parseOptionalTmallPlanDateHeader(value: string | string[] | undefined) {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string" || !validDate(value)) throw new Error("天猫显式计划日期请求头无效");
+  return value;
+}
+
+export function parseTmallPlanDateRangeHeaders(
+  startValue: string | string[] | undefined,
+  endValue: string | string[] | undefined,
+) {
+  const startDate = parseOptionalTmallPlanDateHeader(startValue);
+  const endDate = parseOptionalTmallPlanDateHeader(endValue);
+  if (startDate === undefined && endDate === undefined) return null;
+  if (!startDate || !endDate) throw new Error("天猫显式计划日期必须同时提供开始日与结束日");
+  if (startDate > endDate || endDate > shanghaiYesterday()) throw new Error("天猫显式计划日期范围无效");
+  return { startDate, endDate };
 }
 
 export function tmallCookiePointerFile(storeKey: string) {
@@ -636,12 +667,13 @@ export function createInitialDownloadManifest(
   };
 }
 
-export function getTmallPromotionStageOptions(storeKey = "tmall-yijiu") {
+export function getTmallPromotionStageOptions(storeKey = "tmall-yijiu", dates?: readonly string[]) {
   const normalized = normalizeTmallStoreKey(storeKey);
   if (!normalized) throw new Error("天猫店铺键无效");
   return {
     storeKey: normalized,
     maximumDays: maximumDaysPerRun,
+    ...(dates ? { dates: [...dates] } : {}),
   };
 }
 
@@ -981,15 +1013,220 @@ export function closeOneShotServer(server: Pick<Server, "close" | "closeAllConne
   server.closeAllConnections();
 }
 
+export type TmallBrowserProcessIdentity = {
+  processId: number;
+  executablePath: string;
+  commandLine: string;
+};
+
+function normalizedWindowsPath(value: string) {
+  return path.win32.normalize(value).replace(/[\\/]+$/, "").toLowerCase();
+}
+
+export function assertTmallBrowserProcessOwnership(store: TmallStore, processInfo: TmallBrowserProcessIdentity) {
+  const expectedExecutablePath = store.browser.executablePath;
+  const expectedUserDataDir = store.browser.userDataDir;
+  if (!expectedExecutablePath || !expectedUserDataDir || !store.browser.profileName) {
+    throw new Error("天猫店铺缺少进程级关闭所需的 Chromium 注册信息");
+  }
+  if (!Number.isSafeInteger(processInfo.processId) || processInfo.processId <= 0) {
+    throw new Error("天猫受控 Chromium 监听进程 PID 无效");
+  }
+  if (normalizedWindowsPath(processInfo.executablePath) !== normalizedWindowsPath(expectedExecutablePath)) {
+    throw new Error("天猫 Chromium 可执行文件与店铺注册项不一致，拒绝结束进程");
+  }
+  const commandLine = processInfo.commandLine.toLowerCase();
+  const requiredArguments = [
+    `--remote-debugging-port=${store.browser.debugPort}`.toLowerCase(),
+    `--user-data-dir=${normalizedWindowsPath(expectedUserDataDir)}`,
+    `--profile-directory=${store.browser.profileName}`.toLowerCase(),
+  ];
+  if (requiredArguments.some((argument) => !commandLine.includes(argument))) {
+    throw new Error("天猫 Chromium 端口、用户目录或 Profile 与店铺注册项不一致，拒绝结束进程");
+  }
+  return processInfo.processId;
+}
+
+async function windowsListeningProcessIds(port: number) {
+  if (process.platform !== "win32") throw new Error("天猫 Chromium 进程级关闭仅支持 Windows");
+  const script = [
+    `$listenerPids = @(Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique)`,
+    `[pscustomobject]@{ pids = @($listenerPids | ForEach-Object { [int]$_ }) } | ConvertTo-Json -Compress`,
+  ].join("; ");
+  const result = await execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    encoding: "utf8",
+    timeout: 5_000,
+    windowsHide: true,
+  });
+  const parsed = JSON.parse(String(result.stdout || "{}")) as { pids?: unknown };
+  const values = Array.isArray(parsed.pids) ? parsed.pids : [];
+  return values.map(Number).filter((pid) => Number.isSafeInteger(pid) && pid > 0);
+}
+
+async function windowsProcessIdentity(processId: number): Promise<TmallBrowserProcessIdentity> {
+  const script = [
+    `$targetProcess = Get-CimInstance Win32_Process -Filter \"ProcessId = ${processId}\" -ErrorAction SilentlyContinue`,
+    `if ($null -eq $targetProcess) { [pscustomobject]@{ found = $false } | ConvertTo-Json -Compress } else { [pscustomobject]@{ found = $true; processId = [int]$targetProcess.ProcessId; executablePath = [string]$targetProcess.ExecutablePath; commandLine = [string]$targetProcess.CommandLine } | ConvertTo-Json -Compress }`,
+  ].join("; ");
+  const result = await execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    encoding: "utf8",
+    timeout: 5_000,
+    windowsHide: true,
+  });
+  const parsed = JSON.parse(String(result.stdout || "{}")) as Partial<TmallBrowserProcessIdentity> & { found?: boolean };
+  if (!parsed.found || !parsed.processId || !parsed.executablePath || !parsed.commandLine) {
+    throw new Error("天猫受控 Chromium 监听进程已消失或无法核验");
+  }
+  return {
+    processId: Number(parsed.processId),
+    executablePath: String(parsed.executablePath),
+    commandLine: String(parsed.commandLine),
+  };
+}
+
+export async function forceCloseRegisteredTmallBrowser(store: TmallStore) {
+  const listeningPids = await windowsListeningProcessIds(store.browser.debugPort);
+  if (listeningPids.length === 0) return false;
+  if (listeningPids.length !== 1) throw new Error("天猫受控 Chromium 调试端口存在多个监听进程，拒绝结束进程");
+  const processId = assertTmallBrowserProcessOwnership(store, await windowsProcessIdentity(listeningPids[0]!));
+  try {
+    await execFile("taskkill.exe", ["/PID", String(processId), "/T", "/F"], {
+      encoding: "utf8",
+      timeout: 10_000,
+      windowsHide: true,
+    });
+  } catch (error) {
+    if ((await windowsListeningProcessIds(store.browser.debugPort)).length > 0) throw error;
+  }
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if ((await windowsListeningProcessIds(store.browser.debugPort)).length === 0) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error("天猫受控 Chromium 进程级关闭后调试端口仍未释放");
+}
+
 export async function closeTmallWorkflowBrowser(
-  debugPort: number,
+  target: number | TmallStore,
   closeBrowser: (port: number) => Promise<boolean> = closeChromeBrowser,
+  forceCloseBrowser: (store: TmallStore) => Promise<boolean> = forceCloseRegisteredTmallBrowser,
 ) {
+  const debugPort = typeof target === "number" ? target : target.browser.debugPort;
   if (!Number.isInteger(debugPort) || debugPort < 1 || debugPort > 65_535) {
     throw new Error("天猫工作流 Chromium 调试端口无效");
   }
-  const closed = await closeBrowser(debugPort);
-  return { ok: true as const, status: closed ? "closed" as const : "already_closed" as const };
+  try {
+    const closed = await closeBrowser(debugPort);
+    return { ok: true as const, status: closed ? "closed" as const : "already_closed" as const };
+  } catch (error) {
+    if (typeof target === "number") throw error;
+    const forced = await forceCloseBrowser(target);
+    return { ok: true as const, status: forced ? "force_closed" as const : "already_closed" as const };
+  }
+}
+
+export async function runTmallProductMasterTerminalStage(input: {
+  store: TmallStore;
+  forced: boolean;
+  getDecision?: typeof getTmallProductMasterCadenceDecision;
+  runProductManager?: typeof runTmallProductMasterStage;
+  runPagewise?: typeof runTmallPagewiseProductMasterStage;
+  recordSuccess?: typeof recordTmallProductMasterCadenceSuccess;
+  closeBrowser?: typeof closeTmallWorkflowBrowser;
+}) {
+  const getDecision = input.getDecision ?? getTmallProductMasterCadenceDecision;
+  const runProductManager = input.runProductManager ?? runTmallProductMasterStage;
+  const runPagewise = input.runPagewise ?? runTmallPagewiseProductMasterStage;
+  const recordSuccess = input.recordSuccess ?? recordTmallProductMasterCadenceSuccess;
+  const closeBrowser = input.closeBrowser ?? closeTmallWorkflowBrowser;
+  const cadenceDecision = await getDecision({ store: input.store, forced: input.forced });
+  let result: Record<string, unknown>;
+  if (cadenceDecision.due) {
+    const productMasterResult = input.store.productMasterExportMode === "on_sale_pagewise_excel"
+      ? await runPagewise({ storeKey: input.store.storeKey })
+      : await runProductManager({ storeKey: input.store.storeKey });
+    const cadenceState = await recordSuccess({
+      store: input.store,
+      decision: cadenceDecision,
+      snapshotDate: productMasterResult.snapshotDate,
+    });
+    result = {
+      ...productMasterResult,
+      cadence: cadenceState
+        ? {
+            configured: true,
+            due: true,
+            forced: cadenceDecision.forced,
+            reason: cadenceDecision.reason,
+            intervalDays: cadenceState.intervalDays,
+            lastSuccessDate: cadenceState.lastSuccessDate,
+            lastSnapshotDate: cadenceState.lastSnapshotDate,
+            nextDueDate: cadenceState.nextDueDate,
+          }
+        : cadenceDecision,
+    };
+  } else {
+    result = {
+      ok: true,
+      stage: "product_master",
+      status: "not_due",
+      storeKey: input.store.storeKey,
+      shopName: input.store.shopName,
+      cadence: cadenceDecision,
+    };
+  }
+  const browserClosure = await closeBrowser(input.store);
+  return { ...result, browserClosure };
+}
+
+export async function runTmallPromotionStageWithTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  options: {
+    timeoutMs?: number;
+    onTimeout?: () => Promise<void>;
+    schedule?: (callback: () => void, delayMs: number) => unknown;
+    cancel?: (handle: unknown) => void;
+  } = {},
+) {
+  const timeoutMs = options.timeoutMs ?? tmallPromotionStageTimeoutMs;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("天猫推广阶段硬超时必须是正数");
+  const schedule = options.schedule ?? ((callback: () => void, delayMs: number) => setTimeout(callback, delayMs));
+  const cancel = options.cancel ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const controller = new AbortController();
+  let timer: unknown = null;
+  let settled = false;
+  let timedOut = false;
+  return new Promise<T>((resolve, reject) => {
+    const finish = () => {
+      if (timer !== null) cancel(timer);
+      timer = null;
+      settled = true;
+    };
+    const timeoutError = new Error(`天猫推广阶段超过 ${Math.ceil(timeoutMs / 60_000)} 分钟未完成，已失败关闭`);
+    timer = schedule(() => {
+      if (settled) return;
+      timedOut = true;
+      controller.abort(timeoutError);
+      void Promise.resolve(options.onTimeout?.()).then(() => {
+        if (settled) return;
+        finish();
+        reject(timeoutError);
+      }, () => {
+        if (settled) return;
+        finish();
+        reject(new Error(`${timeoutError.message}；受控 Chromium 关闭失败`));
+      });
+    }, timeoutMs);
+    void Promise.resolve().then(() => run(controller.signal)).then((value) => {
+      if (timedOut || settled) return;
+      finish();
+      resolve(value);
+    }, (error) => {
+      if (timedOut || settled) return;
+      finish();
+      reject(error);
+    });
+  });
 }
 
 function scheduleOneShotServerClose(server: Pick<Server, "close" | "closeAllConnections">, delayMs: number) {
@@ -1002,6 +1239,7 @@ async function serveCommand(argv: string[]) {
   let busy = false;
   let activeWorkflow: CoordinatedWorkflow | null = null;
   let planPathBase64 = "";
+  let tmallPlanDates: string[] = [];
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
   let jdPlan: JdN8nPlan | null = null;
@@ -1294,18 +1532,26 @@ async function serveCommand(argv: string[]) {
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master") {
         const store = await getTmallStore(claimedTmallStoreKey!);
-        const result = store.productMasterExportMode === "on_sale_pagewise_excel"
-          ? await runTmallPagewiseProductMasterStage({ storeKey: store.storeKey })
-          : await runTmallProductMasterStage({ storeKey: store.storeKey });
-        tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
+        const result = await runTmallProductMasterTerminalStage({
+          store,
+          forced: parseTmallForceProductMasterHeader(request.headers[tmallForceProductMasterHeader]),
+        });
+        tmallBrowserClosure = result.browserClosure;
         stage = tmallStageAfterRoute("/product-master");
-        reply(200, { ...result, browserClosure: tmallBrowserClosure });
+        reply(200, result);
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/plan") {
         const authentication = await ensureTmallStoreAuthenticatedSession(claimedTmallStoreKey!);
-        const result = await planCommand(["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)]);
+        const explicitDates = parseTmallPlanDateRangeHeaders(
+          request.headers[tmallPlanStartDateHeader],
+          request.headers[tmallPlanEndDateHeader],
+        );
+        const planArguments = ["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)];
+        if (explicitDates) planArguments.push("--start-date", explicitDates.startDate, "--end-date", explicitDates.endDate);
+        const result = await planCommand(planArguments);
         planPathBase64 = result.planPathBase64;
+        tmallPlanDates = [...result.dates];
         stage = tmallStageAfterRoute("/plan");
         reply(200, { ...result, authentication });
         inactivityReaper?.arm();
@@ -1321,7 +1567,19 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         inactivityReaper?.arm();
       } else {
-        const result = await runTmallPromotionStage(getTmallPromotionStageOptions(claimedTmallStoreKey!));
+        if (tmallPlanDates.length === 0) throw new Error("天猫推广阶段缺少同一 execution 的目标日期计划");
+        const store = await getTmallStore(claimedTmallStoreKey!);
+        const result = await runTmallPromotionStageWithTimeout(
+          (signal) => runTmallPromotionStage({
+            ...getTmallPromotionStageOptions(claimedTmallStoreKey!, tmallPlanDates),
+            signal,
+          }),
+          {
+            onTimeout: async () => {
+              tmallBrowserClosure = await closeTmallWorkflowBrowser(store);
+            },
+          },
+        );
         stage = tmallStageAfterRoute("/promotion");
         reply(200, result);
         inactivityReaper?.arm();
@@ -1333,7 +1591,7 @@ async function serveCommand(argv: string[]) {
       if (workflow === "tmall" && !tmallBrowserClosure) {
         try {
           const store = await getRegisteredTmallStore(claimedTmallStoreKey!);
-          tmallBrowserClosure = await closeTmallWorkflowBrowser(store.browser.debugPort);
+          tmallBrowserClosure = await closeTmallWorkflowBrowser(store);
         } catch (closeError) {
           tmallBrowserCloseError = closeError instanceof Error ? closeError.message : String(closeError);
         }

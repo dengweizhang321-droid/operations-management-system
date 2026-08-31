@@ -10,6 +10,10 @@ export type TmallStore = {
   enabled: boolean;
   loginMode?: "manual" | "saved_browser_credentials" | "windows_dpapi_credentials";
   productMasterExportMode?: "product_manager" | "on_sale_pagewise_excel";
+  productMasterCadence?: {
+    intervalDays: number;
+    initialDueDate: string;
+  };
   initialStartDate: string | null;
   portalUrl: string;
   browser: {
@@ -49,7 +53,10 @@ function assertNoSecrets(value: unknown, location: string): void {
 }
 
 function validIsoDate(value: string | null) {
-  return value === null || (isoDatePattern.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)));
+  if (value === null) return true;
+  if (!isoDatePattern.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 export function validateTmallStoreRegistry(
@@ -79,6 +86,11 @@ export function validateTmallStoreRegistry(
       || store.loginMode !== undefined && !["manual", "saved_browser_credentials", "windows_dpapi_credentials"].includes(store.loginMode)
       || store.productMasterExportMode !== undefined
         && !["product_manager", "on_sale_pagewise_excel"].includes(store.productMasterExportMode)
+      || store.productMasterCadence !== undefined && (
+        !Number.isInteger(store.productMasterCadence.intervalDays)
+        || store.productMasterCadence.intervalDays < 1 || store.productMasterCadence.intervalDays > 30
+        || !validIsoDate(store.productMasterCadence.initialDueDate)
+      )
       || !validIsoDate(store.initialStartDate) || store.portalUrl !== "https://sycm.taobao.com/portal/home.htm"
       || !store.browser || !store.browser.profileDir?.trim() || !store.browser.downloadDir?.trim()
       || usesSharedUserData && (

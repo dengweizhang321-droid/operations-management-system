@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** Server-side allowlist and authorization source for the operations console. */
 export const appUsers = sqliteTable(
@@ -21,6 +21,7 @@ export const appUsers = sqliteTable(
 /** Configured AI model endpoints; credentials are stored encrypted. */
 export const aiModels = sqliteTable("ai_models", {
   id: text("id").primaryKey(),
+  version: integer("version").notNull().default(1),
   name: text("name").notNull(),
   protocol: text("protocol").notNull(),
   modelType: text("model_type").notNull(),
@@ -73,8 +74,58 @@ export const aiConversationScopes = sqliteTable("ai_conversation_scopes", {
 
 export const aiConversationMessages = sqliteTable("ai_conversation_messages", {
   id: text("id").primaryKey(), conversationId: text("conversation_id").notNull(), role: text("role").notNull(), content: text("content").notNull(),
+  messageKind: text("message_kind").notNull().default("message"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => [index("ai_conversation_messages_conversation_idx").on(table.conversationId, table.createdAt)]);
+}, (table) => [
+  index("ai_conversation_messages_conversation_idx").on(table.conversationId, table.createdAt),
+  index("ai_conversation_messages_context_idx").on(table.conversationId, table.messageKind, table.createdAt),
+]);
+
+/** Durable idempotency fence for chat requests that may incur provider charges. */
+export const aiChatRequestReceipts = sqliteTable("ai_chat_request_receipts", {
+  id: text("id").primaryKey(),
+  ownerEmail: text("owner_email").notNull(),
+  clientRequestId: text("client_request_id").notNull(),
+  requestDigest: text("request_digest").notNull(),
+  status: text("status").notNull(),
+  modelId: text("model_id"),
+  conversationId: text("conversation_id").references(() => aiConversations.id, { onDelete: "set null" }),
+  assistantMessageId: text("assistant_message_id"),
+  resultJson: text("result_json"),
+  errorCode: text("error_code"),
+  admittedAt: text("admitted_at"),
+  providerStartedAt: text("provider_started_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  completedAt: text("completed_at"),
+}, (table) => [
+  uniqueIndex("ai_chat_request_receipts_owner_client_uq").on(table.ownerEmail, table.clientRequestId),
+  index("ai_chat_request_receipts_status_updated_idx").on(table.status, table.updatedAt),
+  index("ai_chat_request_receipts_conversation_idx").on(table.conversationId, table.createdAt),
+  index("ai_chat_request_receipts_provider_started_idx").on(table.providerStartedAt),
+  index("ai_chat_request_receipts_owner_dispatch_idx").on(table.ownerEmail, table.providerStartedAt),
+  index("ai_chat_request_receipts_model_dispatch_idx").on(table.modelId, table.providerStartedAt),
+  index("ai_chat_request_receipts_status_owner_model_idx").on(table.status, table.ownerEmail, table.modelId, table.providerStartedAt),
+  index("ai_chat_request_receipts_owner_admitted_idx").on(table.ownerEmail, table.admittedAt),
+  index("ai_chat_request_receipts_status_admitted_idx").on(table.status, table.admittedAt),
+  index("ai_chat_request_receipts_status_model_admitted_idx").on(table.status, table.modelId, table.admittedAt),
+]);
+
+/** One durable budget charge immediately before each AI chat provider HTTP request. */
+export const aiChatProviderDispatches = sqliteTable("ai_chat_provider_dispatches", {
+  id: text("id").primaryKey(),
+  receiptId: text("receipt_id").notNull().references(() => aiChatRequestReceipts.id, { onDelete: "cascade" }),
+  ownerEmail: text("owner_email").notNull(),
+  modelId: text("model_id").notNull(),
+  dispatchOrdinal: integer("dispatch_ordinal").notNull(),
+  reservedAt: text("reserved_at").notNull(),
+  providerCalledAt: text("provider_called_at"),
+}, (table) => [
+  uniqueIndex("ai_chat_provider_dispatches_receipt_ordinal_uq").on(table.receiptId, table.dispatchOrdinal),
+  index("ai_chat_provider_dispatches_owner_reserved_idx").on(table.ownerEmail, table.reservedAt),
+  index("ai_chat_provider_dispatches_model_reserved_idx").on(table.modelId, table.reservedAt),
+  index("ai_chat_provider_dispatches_reserved_idx").on(table.reservedAt),
+]);
 
 /** Append-only proof that an authorized actor deleted an AI conversation; raw messages are never retained. */
 export const aiConversationDeletionAudits = sqliteTable("ai_conversation_deletion_audits", {
@@ -88,6 +139,506 @@ export const aiConversationDeletionAudits = sqliteTable("ai_conversation_deletio
   deletedArtifactCount: integer("deleted_artifact_count").notNull().default(0),
   deletedAt: text("deleted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("ai_conversation_deletion_audits_actor_deleted_idx").on(table.actorEmail, table.deletedAt)]);
+
+/** Explicit, owner-only global memories. Content remains untrusted data at retrieval time. */
+export const aiMemoryEntries = sqliteTable("ai_memory_entries", {
+  id: text("id").primaryKey(),
+  ownerEmail: text("owner_email").notNull(),
+  kind: text("kind").notNull(),
+  memoryKey: text("memory_key").notNull(),
+  memoryKeyNormalized: text("memory_key_normalized").notNull(),
+  content: text("content").notNull(),
+  contentDigest: text("content_digest").notNull(),
+  scopeMode: text("scope_mode").notNull(),
+  scopeJson: text("scope_json").notNull(),
+  scopeDigest: text("scope_digest").notNull(),
+  status: text("status").notNull().default("active"),
+  version: integer("version").notNull().default(1),
+  source: text("source").notNull(),
+  sourceConversationId: text("source_conversation_id"),
+  sourceMessageId: text("source_message_id"),
+  lastOperationId: text("last_operation_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  archivedAt: text("archived_at"),
+}, (table) => [
+  uniqueIndex("ai_memory_entries_active_key_uq")
+    .on(table.ownerEmail, table.kind, table.memoryKeyNormalized, table.scopeDigest)
+    .where(sql`${table.status} = 'active'`),
+  index("ai_memory_entries_owner_status_updated_idx")
+    .on(table.ownerEmail, table.status, table.updatedAt, table.id),
+]);
+
+/** Append-only audit metadata; raw memory content is deliberately excluded. */
+export const aiMemoryAuditLogs = sqliteTable("ai_memory_audit_logs", {
+  id: text("id").primaryKey(),
+  operationId: text("operation_id").notNull().unique(),
+  requestId: text("request_id").notNull(),
+  memoryId: text("memory_id").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  operation: text("operation").notNull(),
+  status: text("status").notNull(),
+  scopeDigest: text("scope_digest").notNull(),
+  beforeDigest: text("before_digest"),
+  afterDigest: text("after_digest"),
+  resultVersion: integer("result_version").notNull(),
+  policyVersion: text("policy_version").notNull(),
+  gateResultsJson: text("gate_results_json").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("ai_memory_audit_logs_owner_created_idx").on(table.ownerEmail, table.createdAt, table.id),
+  index("ai_memory_audit_logs_memory_created_idx").on(table.memoryId, table.createdAt, table.id),
+]);
+
+/** Transient transaction fence proving that a memory mutation emitted its audit row. */
+export const aiMemoryCommitGuards = sqliteTable("ai_memory_commit_guards", {
+  operationId: text("operation_id").primaryKey(),
+  auditPresent: integer("audit_present").notNull(),
+});
+
+/** Redacted owner-only receipts for deterministic analysis-sandbox runs. */
+export const aiAnalysisRuns = sqliteTable("ai_analysis_runs", {
+  id: text("id").primaryKey(),
+  ownerEmail: text("owner_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  scopeJson: text("scope_json").notNull(),
+  dataset: text("dataset").notNull(),
+  queryDigest: text("query_digest").notNull(),
+  planDigest: text("plan_digest").notNull(),
+  operationsJson: text("operations_json").notNull(),
+  dataCutoffDate: text("data_cutoff_date"),
+  sourceRows: integer("source_rows").notNull(),
+  returnedRows: integer("returned_rows").notNull(),
+  truncated: integer("truncated", { mode: "boolean" }).notNull().default(false),
+  resultDigest: text("result_digest").notNull(),
+  requestId: text("request_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("ai_analysis_runs_owner_created_idx").on(table.ownerEmail, table.createdAt, table.id),
+  index("ai_analysis_runs_dataset_created_idx").on(table.dataset, table.createdAt, table.id),
+]);
+
+/** Durable owner-scoped Agent jobs. The stored payload is passive JSON only. */
+export const aiAgentJobs = sqliteTable("ai_agent_jobs", {
+  id: text("id").primaryKey(),
+  ownerEmail: text("owner_email").notNull(),
+  clientRequestId: text("client_request_id").notNull(),
+  requestDigest: text("request_digest").notNull(),
+  scopeJson: text("scope_json").notNull(),
+  task: text("task").notNull(),
+  inputJson: text("input_json").notNull().default("{}"),
+  stateJson: text("state_json").notNull().default("{}"),
+  outputJson: text("output_json"),
+  status: text("status").notNull().default("queued"),
+  phase: text("phase").notNull().default("queued"),
+  stepIndex: integer("step_index").notNull().default(0),
+  version: integer("version").notNull().default(1),
+  mutationToken: text("mutation_token").notNull().default(""),
+  cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
+  retryable: integer("retryable", { mode: "boolean" }).notNull().default(false),
+  resumeCount: integer("resume_count").notNull().default(0),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  leaseToken: text("lease_token").notNull().default(""),
+  leaseEpoch: integer("lease_epoch").notNull().default(0),
+  leaseExpiresAt: text("lease_expires_at"),
+  nextRunAt: text("next_run_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  modelId: text("model_id").notNull().default(""),
+  modelVersion: integer("model_version").notNull().default(0),
+  allowedToolsJson: text("allowed_tools_json").notNull().default("[]"),
+  toolPolicyDigest: text("tool_policy_digest").notNull().default(""),
+  providerRoundCount: integer("provider_round_count").notNull().default(0),
+  toolCallCount: integer("tool_call_count").notNull().default(0),
+  providerDispatchStartedAt: text("provider_dispatch_started_at"),
+  workflowRunId: text("workflow_run_id"),
+  workflowNodeKey: text("workflow_node_key"),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_agent_jobs_owner_client_request_uq").on(table.ownerEmail, table.clientRequestId),
+  index("ai_agent_jobs_owner_created_idx").on(table.ownerEmail, table.createdAt, table.id),
+  index("ai_agent_jobs_runnable_idx").on(table.status, table.nextRunAt, table.createdAt, table.id),
+  uniqueIndex("ai_agent_jobs_workflow_node_uq")
+    .on(table.workflowRunId, table.workflowNodeKey)
+    .where(sql`${table.workflowRunId} IS NOT NULL AND ${table.workflowNodeKey} IS NOT NULL`),
+]);
+
+export const aiAgentCheckpoints = sqliteTable("ai_agent_checkpoints", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => aiAgentJobs.id, { onDelete: "cascade" }),
+  ordinal: integer("ordinal").notNull(),
+  kind: text("kind").notNull(),
+  stateJson: text("state_json").notNull().default("{}"),
+  outputDigest: text("output_digest").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_agent_checkpoints_job_ordinal_uq").on(table.jobId, table.ordinal),
+  index("ai_agent_checkpoints_job_idx").on(table.jobId, table.ordinal),
+]);
+
+export const aiAgentEvents = sqliteTable("ai_agent_events", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => aiAgentJobs.id, { onDelete: "cascade" }),
+  ownerEmail: text("owner_email").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  eventType: text("event_type").notNull(),
+  fromStatus: text("from_status").notNull().default(""),
+  toStatus: text("to_status").notNull().default(""),
+  jobVersion: integer("job_version").notNull(),
+  detailsJson: text("details_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_agent_events_job_created_idx").on(table.jobId, table.createdAt, table.id)]);
+
+/** Irreversible, at-most-once boundary immediately before each Agent provider HTTP request. */
+export const aiAgentProviderDispatches = sqliteTable("ai_agent_provider_dispatches", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => aiAgentJobs.id),
+  dispatchOrdinal: integer("dispatch_ordinal").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  modelId: text("model_id").notNull(),
+  modelVersion: integer("model_version").notNull(),
+  toolPolicyDigest: text("tool_policy_digest").notNull(),
+  requestDigest: text("request_digest").notNull(),
+  state: text("state").notNull().default("calling"),
+  leaseEpoch: integer("lease_epoch").notNull(),
+  reservedAt: text("reserved_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  providerCalledAt: text("provider_called_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  completedAt: text("completed_at"),
+}, (table) => [
+  uniqueIndex("ai_agent_provider_dispatches_job_ordinal_uq").on(table.jobId, table.dispatchOrdinal),
+  index("ai_agent_provider_dispatches_owner_reserved_idx").on(table.ownerEmail, table.reservedAt),
+  index("ai_agent_provider_dispatches_model_reserved_idx").on(table.modelId, table.reservedAt),
+  index("ai_agent_provider_dispatches_state_reserved_idx").on(table.state, table.reservedAt),
+]);
+
+/** Immutable normalized provider response, persisted before a job checkpoint can advance. */
+export const aiAgentProviderResults = sqliteTable("ai_agent_provider_results", {
+  dispatchId: text("dispatch_id").primaryKey().references(() => aiAgentProviderDispatches.id),
+  responseJson: text("response_json").notNull(),
+  responseDigest: text("response_digest").notNull(),
+  usageJson: text("usage_json").notNull().default("{}"),
+  providerRequestId: text("provider_request_id").notNull().default(""),
+  completedAt: text("completed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/** Irreversible boundary before a model-requested, registry-approved read-only tool call. */
+export const aiAgentToolDispatches = sqliteTable("ai_agent_tool_dispatches", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => aiAgentJobs.id),
+  providerDispatchId: text("provider_dispatch_id").notNull().references(() => aiAgentProviderDispatches.id),
+  toolCallOrdinal: integer("tool_call_ordinal").notNull(),
+  providerCallId: text("provider_call_id").notNull(),
+  toolName: text("tool_name").notNull(),
+  argumentsJson: text("arguments_json").notNull(),
+  argumentsDigest: text("arguments_digest").notNull(),
+  invocationId: text("invocation_id").notNull(),
+  state: text("state").notNull().default("calling"),
+  leaseEpoch: integer("lease_epoch").notNull(),
+  reservedAt: text("reserved_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  toolCalledAt: text("tool_called_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  completedAt: text("completed_at"),
+}, (table) => [
+  uniqueIndex("ai_agent_tool_dispatches_job_ordinal_uq").on(table.jobId, table.toolCallOrdinal),
+  uniqueIndex("ai_agent_tool_dispatches_provider_call_uq").on(table.providerDispatchId, table.providerCallId),
+  index("ai_agent_tool_dispatches_job_state_idx").on(table.jobId, table.state, table.toolCallOrdinal),
+]);
+
+/** Immutable normalized tool result, persisted before a job checkpoint can advance. */
+export const aiAgentToolResults = sqliteTable("ai_agent_tool_results", {
+  toolDispatchId: text("tool_dispatch_id").primaryKey().references(() => aiAgentToolDispatches.id),
+  resultJson: text("result_json").notNull(),
+  resultDigest: text("result_digest").notNull(),
+  completedAt: text("completed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const aiWorkflowRuns = sqliteTable("ai_workflow_runs", {
+  id: text("id").primaryKey(),
+  ownerEmail: text("owner_email").notNull(),
+  clientRequestId: text("client_request_id").notNull(),
+  requestDigest: text("request_digest").notNull(),
+  scopeJson: text("scope_json").notNull(),
+  name: text("name").notNull(),
+  graphJson: text("graph_json").notNull(),
+  graphDigest: text("graph_digest").notNull(),
+  inputJson: text("input_json").notNull().default("{}"),
+  outputJson: text("output_json"),
+  dryRun: integer("dry_run", { mode: "boolean" }).notNull().default(false),
+  status: text("status").notNull().default("queued"),
+  currentNodeKey: text("current_node_key"),
+  version: integer("version").notNull().default(1),
+  mutationToken: text("mutation_token").notNull().default(""),
+  cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
+  retryable: integer("retryable", { mode: "boolean" }).notNull().default(false),
+  resumeCount: integer("resume_count").notNull().default(0),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  leaseToken: text("lease_token").notNull().default(""),
+  leaseEpoch: integer("lease_epoch").notNull().default(0),
+  leaseExpiresAt: text("lease_expires_at"),
+  nextRunAt: text("next_run_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  modelId: text("model_id").notNull().default(""),
+  modelVersion: integer("model_version").notNull().default(0),
+  allowedToolsJson: text("allowed_tools_json").notNull().default("[]"),
+  toolPolicyDigest: text("tool_policy_digest").notNull().default(""),
+  providerRoundCount: integer("provider_round_count").notNull().default(0),
+  toolCallCount: integer("tool_call_count").notNull().default(0),
+  providerDispatchStartedAt: text("provider_dispatch_started_at"),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_workflow_runs_owner_client_request_uq").on(table.ownerEmail, table.clientRequestId),
+  index("ai_workflow_runs_owner_created_idx").on(table.ownerEmail, table.createdAt, table.id),
+  index("ai_workflow_runs_runnable_idx").on(table.status, table.nextRunAt, table.createdAt, table.id),
+]);
+
+export const aiWorkflowNodeRuns = sqliteTable("ai_workflow_node_runs", {
+  id: text("id").primaryKey(),
+  runId: text("run_id").notNull().references(() => aiWorkflowRuns.id, { onDelete: "cascade" }),
+  nodeKey: text("node_key").notNull(),
+  position: integer("position").notNull(),
+  nodeType: text("node_type").notNull(),
+  dependsOnJson: text("depends_on_json").notNull().default("[]"),
+  instruction: text("instruction").notNull(),
+  inputJson: text("input_json").notNull().default("{}"),
+  outputJson: text("output_json"),
+  status: text("status").notNull().default("pending"),
+  version: integer("version").notNull().default(1),
+  mutationToken: text("mutation_token").notNull().default(""),
+  agentJobId: text("agent_job_id").references(() => aiAgentJobs.id, { onDelete: "set null" }),
+  reviewerEmail: text("reviewer_email"),
+  reviewedAt: text("reviewed_at"),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_workflow_node_runs_run_key_uq").on(table.runId, table.nodeKey),
+  uniqueIndex("ai_workflow_node_runs_run_position_uq").on(table.runId, table.position),
+  uniqueIndex("ai_workflow_node_runs_agent_job_uq")
+    .on(table.agentJobId)
+    .where(sql`${table.agentJobId} IS NOT NULL`),
+  index("ai_workflow_node_runs_run_position_idx").on(table.runId, table.position, table.status),
+]);
+
+export const aiWorkflowEvents = sqliteTable("ai_workflow_events", {
+  id: text("id").primaryKey(),
+  runId: text("run_id").notNull().references(() => aiWorkflowRuns.id, { onDelete: "cascade" }),
+  nodeKey: text("node_key"),
+  ownerEmail: text("owner_email").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  eventType: text("event_type").notNull(),
+  fromStatus: text("from_status").notNull().default(""),
+  toStatus: text("to_status").notNull().default(""),
+  runVersion: integer("run_version").notNull(),
+  detailsJson: text("details_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_workflow_events_run_created_idx").on(table.runId, table.createdAt, table.id)]);
+
+/** Independent image-generation providers for the AI Space workspace. */
+export const aiSpaceModelProfiles = sqliteTable("ai_space_model_profiles", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  protocol: text("protocol").notNull().default("openai_images"),
+  modelName: text("model_name").notNull(),
+  baseUrl: text("base_url").notNull(),
+  apiKeyEncrypted: text("api_key_encrypted").notNull().default(""),
+  apiKeySuffix: text("api_key_suffix").notNull().default(""),
+  status: text("status").notNull().default("enabled"),
+  version: integer("version").notNull().default(1),
+  timeoutMs: integer("timeout_ms").notNull().default(90_000),
+  lastSuccessResult: text("last_success_result"),
+  lastSuccessAt: text("last_success_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_space_model_profiles_status_updated_idx").on(table.status, table.updatedAt, table.id)]);
+
+/** Versioned, administrator-managed prompt templates for bounded product-image scenes. */
+export const aiSpaceTemplates = sqliteTable("ai_space_templates", {
+  id: text("id").primaryKey(),
+  scene: text("scene").notNull(),
+  name: text("name").notNull(),
+  promptTemplate: text("prompt_template").notNull(),
+  size: text("size").notNull().default("1024x1024"),
+  modelProfileId: text("model_profile_id").references(() => aiSpaceModelProfiles.id, { onDelete: "restrict" }),
+  version: integer("version").notNull().default(1),
+  isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  updatedBy: text("updated_by").notNull().default("system"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_space_templates_default_scene_uq").on(table.scene).where(sql`${table.isDefault} = 1 AND ${table.isEnabled} = 1`),
+  index("ai_space_templates_scene_enabled_idx").on(table.scene, table.isEnabled, table.isDefault, table.updatedAt, table.id),
+]);
+
+/** Immutable generation intent plus authorization scope captured at submission time. */
+export const aiSpaceJobs = sqliteTable("ai_space_jobs", {
+  id: text("id").primaryKey(),
+  clientRequestId: text("client_request_id").notNull(),
+  requestDigest: text("request_digest").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  scopeJson: text("scope_json").notNull(),
+  scene: text("scene").notNull(),
+  templateId: text("template_id").notNull().references(() => aiSpaceTemplates.id, { onDelete: "restrict" }),
+  templateName: text("template_name").notNull(),
+  templateVersion: integer("template_version").notNull(),
+  modelProfileId: text("model_profile_id").notNull().references(() => aiSpaceModelProfiles.id, { onDelete: "restrict" }),
+  modelProfileName: text("model_profile_name").notNull(),
+  modelProfileVersion: integer("model_profile_version").notNull(),
+  modelName: text("model_name").notNull(),
+  productName: text("product_name").notNull(),
+  brand: text("brand").notNull().default(""),
+  sku: text("sku").notNull().default(""),
+  sellingPoints: text("selling_points").notNull().default(""),
+  finalPrompt: text("final_prompt").notNull(),
+  promptDigest: text("prompt_digest").notNull(),
+  size: text("size").notNull(),
+  requestedCount: integer("requested_count").notNull(),
+  succeededCount: integer("succeeded_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  cancelledCount: integer("cancelled_count").notNull().default(0),
+  status: text("status").notNull().default("queued"),
+  cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_space_jobs_owner_client_request_uq").on(table.ownerEmail, table.clientRequestId),
+  index("ai_space_jobs_owner_created_idx").on(table.ownerEmail, table.createdAt, table.id),
+  index("ai_space_jobs_status_created_idx").on(table.status, table.cancelRequested, table.createdAt, table.id),
+]);
+
+/** Per-image execution state with fencing to prevent stale Worker completion. */
+export const aiSpaceJobItems = sqliteTable("ai_space_job_items", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => aiSpaceJobs.id, { onDelete: "cascade" }),
+  ordinal: integer("ordinal").notNull(),
+  status: text("status").notNull().default("queued"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  leaseToken: text("lease_token").notNull().default(""),
+  leaseEpoch: integer("lease_epoch").notNull().default(0),
+  leaseExpiresAt: text("lease_expires_at"),
+  dispatchStartedAt: text("dispatch_started_at"),
+  pendingObjectKey: text("pending_object_key").notNull().default(""),
+  providerRequestId: text("provider_request_id").notNull().default(""),
+  assetId: text("asset_id"),
+  errorCode: text("error_code").notNull().default(""),
+  errorMessage: text("error_message").notNull().default(""),
+  durationMs: integer("duration_ms"),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_space_job_items_job_ordinal_uq").on(table.jobId, table.ordinal),
+  index("ai_space_job_items_runnable_idx").on(table.status, table.createdAt, table.jobId, table.ordinal),
+  index("ai_space_job_items_job_idx").on(table.jobId, table.ordinal),
+]);
+
+/** Validated image metadata; the image bytes remain private in R2. */
+export const aiSpaceAssets = sqliteTable("ai_space_assets", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull().references(() => aiSpaceJobs.id, { onDelete: "cascade" }),
+  itemId: text("item_id").notNull().references(() => aiSpaceJobItems.id, { onDelete: "cascade" }).unique(),
+  ownerEmail: text("owner_email").notNull(),
+  scopeJson: text("scope_json").notNull(),
+  scene: text("scene").notNull(),
+  objectKey: text("object_key").notNull().unique(),
+  contentSha256: text("content_sha256").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("ai_space_assets_owner_created_idx").on(table.ownerEmail, table.createdAt, table.id),
+  index("ai_space_assets_job_idx").on(table.jobId, table.createdAt, table.id),
+]);
+
+export const aiSpaceAssetFavorites = sqliteTable("ai_space_asset_favorites", {
+  assetId: text("asset_id").notNull().references(() => aiSpaceAssets.id, { onDelete: "cascade" }),
+  actorEmail: text("actor_email").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ai_space_asset_favorites_asset_actor_uq").on(table.assetId, table.actorEmail),
+  index("ai_space_asset_favorites_actor_created_idx").on(table.actorEmail, table.createdAt, table.assetId),
+]);
+
+/** Best-effort deletion outbox for orphaned AI Space objects. */
+export const aiSpaceAssetCleanupQueue = sqliteTable("ai_space_asset_cleanup_queue", {
+  objectKey: text("object_key").primaryKey(),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastError: text("last_error").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/** Durable markers make crash-safe runtime upgrades repeatable across Worker isolates. */
+export const aiSpaceSchemaUpgrades = sqliteTable("ai_space_schema_upgrades", {
+  id: text("id").primaryKey(),
+  completedAt: text("completed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+/** Append-only, redacted audit receipts for AI Space administrator mutations. */
+export const aiSpaceAdminAudits = sqliteTable("ai_space_admin_audits", {
+  id: text("id").primaryKey(),
+  actorEmail: text("actor_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  beforeJson: text("before_json").notNull().default("{}"),
+  afterJson: text("after_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("ai_space_admin_audits_entity_created_idx").on(table.entityType, table.entityId, table.createdAt, table.id)]);
+
+/** Unique pre-dispatch receipts enforce provider-call quotas on the actual Shanghai business day. */
+export const aiSpaceDispatchReceipts = sqliteTable("ai_space_dispatch_receipts", {
+  id: text("id").primaryKey(),
+  itemId: text("item_id").notNull().unique(),
+  jobId: text("job_id").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  actorRole: text("actor_role").notNull(),
+  modelProfileId: text("model_profile_id").notNull(),
+  modelProfileVersion: integer("model_profile_version").notNull(),
+  modelName: text("model_name").notNull(),
+  scene: text("scene").notNull(),
+  size: text("size").notNull(),
+  promptDigest: text("prompt_digest").notNull(),
+  dispatchedAt: text("dispatched_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("ai_space_dispatch_receipts_owner_day_idx").on(table.ownerEmail, table.dispatchedAt, table.id),
+  index("ai_space_dispatch_receipts_profile_day_idx").on(table.modelProfileId, table.dispatchedAt, table.id),
+]);
+
+/** One bounded provider outcome per immutable dispatch receipt; never stores prompts or image bytes. */
+export const aiSpaceDispatchResults = sqliteTable("ai_space_dispatch_results", {
+  dispatchId: text("dispatch_id").primaryKey().references(() => aiSpaceDispatchReceipts.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  providerRequestId: text("provider_request_id").notNull().default(""),
+  errorCode: text("error_code").notNull().default(""),
+  usageJson: text("usage_json").notNull().default("{}"),
+  estimatedCostCents: integer("estimated_cost_cents"),
+  priceVersion: text("price_version").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 /** Administrator-managed operating thresholds used by inventory analysis. */
 export const systemSettings = sqliteTable(
@@ -283,134 +834,6 @@ export const aiToolAuditLogs = sqliteTable(
   (table) => [
     index("ai_tool_audit_logs_actor_created_idx").on(table.actorEmail, table.createdAt),
     index("ai_tool_audit_logs_tool_created_idx").on(table.toolName, table.createdAt),
-  ],
-);
-
-/**
- * Import audit data. The file hash is also used as the stable batch id, which
- * makes concurrent retries of the same upload safe.
- */
-export const salesImportBatches = sqliteTable(
-  "sales_import_batches",
-  {
-    id: text("id").primaryKey(),
-    source: text("source").notNull(),
-    fileName: text("file_name").notNull(),
-    fileSizeBytes: integer("file_size_bytes").notNull(),
-    fileHash: text("file_hash").notNull(),
-    sheetName: text("sheet_name").notNull(),
-    status: text("status").notNull(),
-    rowCount: integer("row_count").notNull().default(0),
-    insertedCount: integer("inserted_count").notNull().default(0),
-    duplicateCount: integer("duplicate_count").notNull().default(0),
-    warningCount: integer("warning_count").notNull().default(0),
-    warningsJson: text("warnings_json").notNull().default("[]"),
-    totalsJson: text("totals_json").notNull().default("{}"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    completedAt: text("completed_at"),
-  },
-  (table) => [
-    uniqueIndex("sales_import_batches_file_hash_uq").on(table.fileHash),
-    index("sales_import_batches_created_at_idx").on(table.createdAt),
-  ],
-);
-
-/**
- * Analysis-safe sales facts. Customer names/accounts, recipients, addresses,
- * customer notes, and other free-form personal data are deliberately absent.
- * Monetary values are stored as integer cents and rates as integer basis
- * points, so aggregation never depends on floating-point currency math.
- */
-export const salesOrderLines = sqliteTable(
-  "sales_order_lines",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    sourceLineKey: text("source_line_key").notNull(),
-    sourceRowHash: text("source_row_hash").notNull(),
-    firstImportBatchId: text("first_import_batch_id").notNull(),
-    lastImportBatchId: text("last_import_batch_id").notNull(),
-    sourceRowNumber: integer("source_row_number").notNull(),
-    orderNo: text("order_no").notNull(),
-    onlineOrderNo: text("online_order_no").notNull(),
-    channel: text("channel").notNull(),
-    platform: text("platform").notNull(),
-    shopName: text("shop_name").notNull(),
-    logisticsCompany: text("logistics_company").notNull(),
-    warehouse: text("warehouse").notNull(),
-    productCode: text("product_code").notNull(),
-    onlineSpecCode: text("online_spec_code").notNull().default(""),
-    productName: text("product_name").notNull(),
-    specification: text("specification").notNull(),
-    barcode: text("barcode").notNull(),
-    supplier: text("supplier").notNull(),
-    category: text("category").notNull(),
-    quantity: integer("quantity").notNull(),
-    listUnitPriceCents: integer("list_unit_price_cents").notNull(),
-    costAmountCents: integer("cost_amount_cents").notNull(),
-    allocatedUnitPriceCents: integer("allocated_unit_price_cents").notNull(),
-    allocatedAmountCents: integer("allocated_amount_cents").notNull(),
-    feeAllocationCents: integer("fee_allocation_cents").notNull(),
-    grossProfitCents: integer("gross_profit_cents").notNull(),
-    grossMarginBps: integer("gross_margin_bps").notNull(),
-    untaxedGrossProfitCents: integer("untaxed_gross_profit_cents").notNull(),
-    untaxedGrossMarginBps: integer("untaxed_gross_margin_bps").notNull(),
-    orderTime: text("order_time").notNull(),
-    salesTime: text("sales_time").notNull(),
-    shipTime: text("ship_time").notNull(),
-    lineShipTime: text("line_ship_time").notNull(),
-    businessType: text("business_type").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    uniqueIndex("sales_order_lines_source_line_key_uq").on(table.sourceLineKey),
-    index("sales_order_lines_sales_time_idx").on(table.salesTime),
-    index("sales_order_lines_ship_time_idx").on(table.shipTime),
-    index("sales_order_lines_channel_idx").on(table.channel),
-    index("sales_order_lines_platform_idx").on(table.platform),
-    index("sales_order_lines_online_spec_code_idx").on(table.onlineSpecCode),
-    index("sales_order_lines_inventory_demand_idx").on(table.salesTime, table.productCode, table.warehouse),
-    index("sales_order_lines_ship_time_inventory_demand_idx").on(table.shipTime, table.productCode, table.warehouse),
-    index("sales_order_lines_last_batch_idx").on(table.lastImportBatchId),
-  ],
-);
-
-/** Temporary metadata for resumable chunked Excel uploads. File bytes live in R2. */
-export const salesImportUploads = sqliteTable(
-  "sales_import_uploads",
-  {
-    id: text("id").primaryKey(),
-    fingerprint: text("fingerprint").notNull(),
-    fileName: text("file_name").notNull(),
-    fileSizeBytes: integer("file_size_bytes").notNull(),
-    chunkSizeBytes: integer("chunk_size_bytes").notNull(),
-    chunkCount: integer("chunk_count").notNull(),
-    receivedChunkCount: integer("received_chunk_count").notNull().default(0),
-    receivedBytes: integer("received_bytes").notNull().default(0),
-    status: text("status").notNull().default("uploading"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    expiresAt: text("expires_at").notNull(),
-  },
-  (table) => [
-    uniqueIndex("sales_import_uploads_fingerprint_uq").on(table.fingerprint),
-    index("sales_import_uploads_expires_at_idx").on(table.expiresAt),
-  ],
-);
-
-export const salesImportUploadChunks = sqliteTable(
-  "sales_import_upload_chunks",
-  {
-    uploadId: text("upload_id").notNull(),
-    chunkIndex: integer("chunk_index").notNull(),
-    objectKey: text("object_key").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    sha256: text("sha256").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    uniqueIndex("sales_import_upload_chunks_upload_chunk_uq").on(table.uploadId, table.chunkIndex),
-    index("sales_import_upload_chunks_upload_id_idx").on(table.uploadId),
   ],
 );
 
@@ -701,6 +1124,15 @@ export const financeImportBatches = sqliteTable(
     index("finance_import_batches_created_idx").on(table.createdAt),
   ],
 );
+
+/** D1-side single-write fence used only during the controlled finance cutover. */
+export const financeWriteAuthority = sqliteTable("finance_write_authority", {
+  id: integer("id").primaryKey(),
+  owner: text("owner").notNull().default("d1"),
+  epoch: integer("epoch").notNull().default(1),
+  cutoverId: text("cutover_id").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 /** Month is the idempotency anchor: a later file cannot duplicate a closed month. */
 export const financeMonths = sqliteTable(
@@ -1269,3 +1701,40 @@ export const customerServiceDeletionAudits = sqliteTable("customer_service_delet
   reason: text("reason").notNull(),
   deletedAt: text("deleted_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const productShippingRateImportBatches = sqliteTable("product_shipping_rate_import_batches", {
+  id: text("id").primaryKey(),
+  source: text("source").notNull().default("sku_cumulative"),
+  fileName: text("file_name").notNull(),
+  fileSizeBytes: integer("file_size_bytes").notNull(),
+  fileHash: text("file_hash").notNull(),
+  rawFileHash: text("raw_file_hash").notNull(),
+  contentHash: text("content_hash").notNull(),
+  sheetName: text("sheet_name").notNull(),
+  actor: text("actor").notNull().default(""),
+  status: text("status").notNull().default("processing"),
+  sourceRowCount: integer("source_row_count").notNull().default(0),
+  rowCount: integer("row_count").notNull().default(0),
+  insertedCount: integer("inserted_count").notNull().default(0),
+  updatedCount: integer("updated_count").notNull().default(0),
+  duplicateCount: integer("duplicate_count").notNull().default(0),
+  warningCount: integer("warning_count").notNull().default(0),
+  warningsJson: text("warnings_json").notNull().default("[]"),
+  totalsJson: text("totals_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  completedAt: text("completed_at"),
+}, (table) => [
+  uniqueIndex("product_shipping_rate_batches_file_hash_uq").on(table.fileHash),
+  index("product_shipping_rate_batches_completed_idx").on(table.completedAt, table.createdAt),
+]);
+
+export const productShippingRates = sqliteTable("product_shipping_rates", {
+  productCode: text("product_code").primaryKey(),
+  shippingRate: real("shipping_rate").notNull(),
+  sourceRowNumber: integer("source_row_number").notNull(),
+  lastImportBatchId: text("last_import_batch_id").notNull()
+    .references(() => productShippingRateImportBatches.id, { onDelete: "restrict" }),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("product_shipping_rates_batch_idx").on(table.lastImportBatchId, table.productCode),
+]);

@@ -20,8 +20,10 @@ type Item = { id: string; candidateId: string; jobId: string; category: string; 
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
 type CloudRun = { jobId: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
-type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
+type CandidateCountsPayload = { categories: Array<{ value: string; candidateCount: number }>; error?: string };
+type CandidateCountsStatus = "idle" | "loading" | "ready" | "error";
 
 function handleRovingTabKey(event: KeyboardEvent<HTMLButtonElement>) {
   const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
@@ -62,6 +64,7 @@ const annotationTimingMessage = (item: Pick<Item, "totalInferenceMs" | "modelCal
   ? `耗时：总计 ${duration(item.totalInferenceMs)}，模型 ${duration(item.modelCallMs)}，取图 ${duration(item.imageLoadMs)}，图片处理 ${duration(item.imagePrepareMs)}，输入 ${bytes(item.modelInputBytes)}`
   : "";
 const annotationReviewScopeKey = (input: { page: number; pageSize: number; categories: string[]; segments: string[]; storageStatuses: string[]; recognitionSources: string[] }) => JSON.stringify(input);
+const annotationCandidateScopeKey = (categories: Array<{ value: string }>) => JSON.stringify(categories.map((item) => item.value).sort());
 const annotationConcurrencyKey = (category: string, executor: MarketAnnotationExecutor) => `${category}\u0000${executor}`;
 const isValidAnnotationConcurrency = (value: number) => Number.isSafeInteger(value)
   && value >= MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum
@@ -73,7 +76,7 @@ function AnnotationMultiFilter({ label, allLabel, values, options, onChange }: {
     onChange(next.length === options.length ? [] : next);
   };
   const summary = values.length === 0 ? allLabel : values.length === 1 ? options.find((item) => item.value === values[0])?.label ?? values[0] : `已选 ${values.length} 项`;
-  return <div className="annotation-review-category-filter annotation-review-compact-filter"><span>{label}（可多选）</span><details><summary>{summary}</summary><div className="annotation-review-category-menu"><button type="button" onClick={() => onChange([])}>{allLabel}</button>{options.map((option) => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={() => toggle(option.value)} /><span>{option.label}</span></label>)}</div></details></div>;
+  return <div className="annotation-review-category-filter annotation-review-compact-filter"><span>{label}（可多选）</span><details><summary aria-label={`${label}筛选`}>{summary}</summary><div className="annotation-review-category-menu"><button type="button" onClick={() => onChange([])}>{allLabel}</button>{options.map((option) => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={() => toggle(option.value)} /><span>{option.label}</span></label>)}</div></details></div>;
 }
 export default function MarketAnnotationView({ currentUser, embedded = false }: { currentUser: CurrentUser; embedded?: boolean }) {
   const [data, setData] = useState<Workspace | null>(null);
@@ -108,17 +111,72 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [error, setError] = useState("");
   const [staleCandidateId, setStaleCandidateId] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [candidateCountsStatus, setCandidateCountsStatus] = useState<CandidateCountsStatus>("idle");
+  const [candidateCountsError, setCandidateCountsError] = useState("");
   const [agentToken, setAgentToken] = useState("");
   const dirtyDraftIdsRef = useRef(new Set<string>());
   const loadSequenceRef = useRef(0);
   const reviewLoadSequenceRef = useRef(0);
+  const reviewControllerRef = useRef<AbortController | null>(null);
+  const candidateCountsGenerationRef = useRef(0);
+  const candidateCountsControllerRef = useRef<AbortController | null>(null);
+  const candidateCountsScopeRef = useRef("");
+  const mountedRef = useRef(false);
   const initialReadyRef = useRef(false);
   const isAdmin = currentUser?.role === "admin";
   const canEdit = currentUser?.role === "admin" || currentUser?.role === "operator";
 
-  const load = useCallback(async (nextJobId = jobId, nextItemPage = itemPage, resetDrafts = false) => {
+  const loadCandidateCounts = useCallback(async (workspaceGeneration: number, categoryScopeKey: string) => {
+    const requestGeneration = ++candidateCountsGenerationRef.current;
+    candidateCountsControllerRef.current?.abort();
+    const controller = new AbortController();
+    candidateCountsControllerRef.current = controller;
+    candidateCountsScopeRef.current = categoryScopeKey;
+    setCandidateCountsStatus("loading");
+    setCandidateCountsError("");
+    let timedOut = false;
+    const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, LOAD_TIMEOUT_MS);
+    const isCurrent = () => mountedRef.current
+      && requestGeneration === candidateCountsGenerationRef.current
+      && workspaceGeneration === loadSequenceRef.current
+      && categoryScopeKey === candidateCountsScopeRef.current;
+    let response: Response;
+    let payload: CandidateCountsPayload | null;
+    try {
+      response = await fetch("/api/market/annotations?view=candidate_counts", { cache: "no-store", signal: controller.signal });
+      payload = await response.json().catch(() => null) as CandidateCountsPayload | null;
+      if (!response.ok || !payload || !Array.isArray(payload.categories)) throw new Error(payload?.error || "读取可新建候选数量失败");
+    } catch (reason) {
+      if (!isCurrent()) return;
+      const message = timedOut ? "读取可新建候选数量超时，请重试" : reason instanceof Error ? reason.message : "读取可新建候选数量失败";
+      setCandidateCountsStatus("error");
+      setCandidateCountsError(message);
+      return;
+    } finally {
+      window.clearTimeout(timeout);
+      if (candidateCountsControllerRef.current === controller) candidateCountsControllerRef.current = null;
+    }
+    if (!isCurrent()) return;
+    const counts = new Map(payload.categories.map((item) => [item.value, Number(item.candidateCount ?? 0)]));
+    setData((current) => {
+      if (!current || annotationCandidateScopeKey(current.categories) !== categoryScopeKey) return current;
+      return { ...current, categories: current.categories.map((item) => ({ ...item, candidateCount: counts.get(item.value) ?? 0 })) };
+    });
+    setCandidateCountsStatus("ready");
+    setCandidateCountsError("");
+  }, []);
+
+  const load = useCallback(async (nextJobId = jobId, nextItemPage = itemPage, resetDrafts = false, deferCandidateCounts = false) => {
     const loadSequence = ++loadSequenceRef.current;
-    const params = new URLSearchParams({ itemPage: String(nextItemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
+    candidateCountsGenerationRef.current += 1;
+    candidateCountsControllerRef.current?.abort();
+    candidateCountsControllerRef.current = null;
+    candidateCountsScopeRef.current = "";
+    setCandidateCountsStatus("loading");
+    setCandidateCountsError("");
+    setData((current) => current ? { ...current, categories: current.categories.map((item) => ({ ...item, candidateCount: null })) } : current);
+    const params = new URLSearchParams({ view: deferCandidateCounts ? "workspace_fast" : "workspace", itemPage: String(nextItemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
     if (nextJobId) params.set("jobId", nextJobId);
     reviewCategories.forEach((value) => params.append("itemCategory", value));
     itemSegments.forEach((value) => params.append("itemSegment", value));
@@ -138,15 +196,30 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       }
     } catch (reason) {
       if (loadSequence !== loadSequenceRef.current) return;
+      const message = controller.signal.aborted ? "读取标注工作台超时，请重试" : reason instanceof Error ? reason.message : "读取标注工作台失败";
+      setCandidateCountsStatus("error");
+      setCandidateCountsError(message);
       if (controller.signal.aborted) throw new Error("读取标注工作台超时，请重试");
       throw reason;
     } finally {
       window.clearTimeout(timeout);
     }
     if (loadSequence !== loadSequenceRef.current) return;
-    if (!response.ok || !payload) throw new Error(payload?.error || "读取标注工作台失败");
+    if (!response.ok || !payload) {
+      const message = payload?.error || "读取标注工作台失败";
+      setCandidateCountsStatus("error");
+      setCandidateCountsError(message);
+      throw new Error(message);
+    }
     setLoadedReviewScopeKey(annotationReviewScopeKey({ page: nextItemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources }));
     setData(payload);
+    const candidateScopeKey = annotationCandidateScopeKey(payload.categories);
+    if (deferCandidateCounts) void loadCandidateCounts(loadSequence, candidateScopeKey);
+    else {
+      candidateCountsScopeRef.current = candidateScopeKey;
+      setCandidateCountsStatus("ready");
+      setCandidateCountsError("");
+    }
     const resolvedJobId = nextJobId || payload.jobs[0]?.id || "";
     setJobId(resolvedJobId);
     if (!nextJobId && resolvedJobId) setItemPage(1);
@@ -166,17 +239,21 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
       return [item.id, preserve ? existing : serverDraft];
     })));
-  }, [jobId, itemPage, itemPageSize, category, reviewCategories, promptId, itemSegments, storageStatuses, recognitionSources]);
+  }, [jobId, itemPage, itemPageSize, category, reviewCategories, promptId, itemSegments, storageStatuses, recognitionSources, loadCandidateCounts]);
 
   const loadReview = useCallback(async (resetDrafts = false) => {
     const loadSequence = ++reviewLoadSequenceRef.current;
+    reviewControllerRef.current?.abort();
     const params = new URLSearchParams({ view: "review", itemPage: String(itemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
     reviewCategories.forEach((value) => params.append("itemCategory", value));
     itemSegments.forEach((value) => params.append("itemSegment", value));
     storageStatuses.forEach((value) => params.append("storageStatus", value));
     recognitionSources.forEach((value) => params.append("recognitionSource", value));
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+    reviewControllerRef.current = controller;
+    setReviewLoading(true);
+    let timedOut = false;
+    const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, LOAD_TIMEOUT_MS);
     let response: Response;
     let payload: ReviewWorkspace | null;
     try {
@@ -184,10 +261,13 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       payload = await response.json().catch(() => null) as ReviewWorkspace | null;
     } catch (reason) {
       if (loadSequence !== reviewLoadSequenceRef.current) return;
-      if (controller.signal.aborted) throw new Error("读取人工复核列表超时，请重试");
+      if (timedOut) throw new Error("读取人工复核列表超时，请重试");
+      if (controller.signal.aborted) return;
       throw reason;
     } finally {
       window.clearTimeout(timeout);
+      if (reviewControllerRef.current === controller) reviewControllerRef.current = null;
+      if (loadSequence === reviewLoadSequenceRef.current) setReviewLoading(false);
     }
     if (loadSequence !== reviewLoadSequenceRef.current) return;
     if (!response.ok || !payload) throw new Error(payload?.error || "读取人工复核列表失败");
@@ -222,17 +302,40 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     setInitialLoading(true);
     setError("");
     try {
-      await load();
+      await load(jobId, itemPage, false, true);
       initialReadyRef.current = true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "加载失败");
     } finally {
       setInitialLoading(false);
     }
-  }, [load]);
+  }, [jobId, itemPage, load]);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      loadSequenceRef.current += 1;
+      reviewLoadSequenceRef.current += 1;
+      reviewControllerRef.current?.abort();
+      reviewControllerRef.current = null;
+      candidateCountsGenerationRef.current += 1;
+      candidateCountsScopeRef.current = "";
+      candidateCountsControllerRef.current?.abort();
+      candidateCountsControllerRef.current = null;
+    };
+  }, []);
   useEffect(() => { const timer = window.setTimeout(() => void loadInitial(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!initialReadyRef.current) return; const timer = window.setTimeout(() => void loadReview().catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败")), 0); return () => window.clearTimeout(timer); }, [loadReview]);
+  useEffect(() => {
+    if (!initialReadyRef.current) return;
+    const timer = window.setTimeout(() => void loadReview().catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败")), 0);
+    return () => {
+      window.clearTimeout(timer);
+      reviewLoadSequenceRef.current += 1;
+      reviewControllerRef.current?.abort();
+      reviewControllerRef.current = null;
+    };
+  }, [loadReview]);
   const post = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
@@ -369,6 +472,9 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const createJobBlockReason = () => {
     if (!canEdit) return "当前账号只读，创建标注任务需要 operator 或 admin 角色";
     if (!category) return "“全部三级类目”仅用于浏览和筛选，创建任务前请先选择一个具体三级类目";
+    if (candidateCountsStatus !== "ready") return candidateCountsStatus === "error"
+      ? `可新建候选数量读取失败：${candidateCountsError || "请重试"}`
+      : "正在读取可新建候选数量，请稍候";
     if (!activePrompt) return `“${category}”还没有已激活的 Prompt 版本：请在下方“3. Prompt 版本与自动进化”确认正文后点击“保存人工子版本”，再点击“激活此版”`;
     if (executor === "cloud" && !visionModelId) return "没有可用的云端视觉模型：请先在 AI 助理的模型配置中启用一个 vision 模型";
     if (executor === "local" && !localModelName.trim()) return "本地执行器必须填写 Ollama 模型名";
@@ -380,6 +486,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       return `“${category}”当前可新建候选为 0；顶部待 AI 总量包含无图、非 SKU、Prompt 不可用、失败封顶或已由现有任务覆盖的快照，请先处理阻塞原因`;
     }
     return "";
+  };
+  const retryCandidateCounts = () => {
+    if (!data) return;
+    void loadCandidateCounts(loadSequenceRef.current, annotationCandidateScopeKey(data.categories));
   };
   const createJob = () => act("create-job", async () => {
     const blocked = createJobBlockReason();
@@ -630,7 +740,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <div className="annotation-task-setup">
         <div className="annotation-task-fields">
           <label><span>筛选三级类目</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="输入类目关键词" /></label>
-          <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（总 {item.count} · 可新建 {item.candidateCount}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
+          <label><span>三级类目</span><select value={category} onChange={(event) => chooseCategory(event.target.value)}><option value="">全部三级类目（{categoryTotal}）</option>{filteredCategories.map((item) => <option key={item.value} value={item.value}>{item.value}（总 {item.count} · 可新建 {item.candidateCount === null ? candidateCountsStatus === "error" ? "读取失败" : "计算中…" : item.candidateCount}）</option>)}{normalizedCategoryQuery && !filteredCategories.length && <option disabled>没有匹配的三级类目</option>}</select></label>
           <label><span>执行器</span><select value={executor} onChange={(event) => setExecutor(event.target.value as "cloud" | "local")}><option value="cloud">云端视觉（默认）</option><option value="local">本地 Ollama（可选容灾）</option></select></label>
           {executor === "cloud" ? <label><span>enabled vision 模型</span><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)}>{data.models.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.modelName}</option>)}</select></label> : <label><span>Ollama 模型名</span><input value={localModelName} onChange={(event) => setLocalModelName(event.target.value)} /></label>}
           <label><span>任务上限</span><input type="number" min={1} max={MARKET_ANNOTATION_JOB_LIMITS.maximum} value={limit} onChange={(event) => setLimit(Number(event.target.value))} /><small>单个任务最多 10,000 条，可随时暂停并继续。</small></label>
@@ -647,7 +757,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         {createBlockReason
           ? <small className="orange-text">无法创建任务：{createBlockReason}</small>
           : <small>{compatibleExistingJob ? `将切换并续跑兼容任务，剩余推理 ${compatibleExistingJob.remainingInferenceCount} 条；完成后可创建下一批` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条，单批最多 ${MARKET_ANNOTATION_JOB_LIMITS.maximum} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
-        <button className="primary-button" disabled={busy !== ""} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "正在恢复并唤醒…" : "正在恢复任务…") : "正在创建任务（候选较多时需几十秒）…") : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "恢复兼容任务并续跑" : "恢复兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
+        {candidateCountsStatus === "error" && <button className="secondary-button" disabled={busy !== ""} onClick={retryCandidateCounts}>重新读取候选数量</button>}
+        <button className="primary-button" disabled={busy !== "" || candidateCountsStatus !== "ready"} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "正在恢复并唤醒…" : "正在恢复任务…") : "正在创建任务（候选较多时需几十秒）…") : candidateCountsStatus === "loading" || candidateCountsStatus === "idle" ? "正在计算可新建候选…" : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "恢复兼容任务并续跑" : "恢复兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
       </div>
 
       {currentJob && <div className="annotation-current-run">
@@ -660,7 +771,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <div className="annotation-job-list">{visibleJobs.map((item) => <div className={`annotation-job-entry ${jobId === item.id ? "active" : ""}`} key={item.id}><button className="annotation-job-select" onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>{["review_ready", "committed"].includes(item.status) && <button className="annotation-job-delete" disabled={!isAdmin || busy !== ""} title={isAdmin ? "归档任务记录；正式入库结果、任务明细、回执和审计都会保留" : "仅管理员可归档已结束任务"} onClick={() => void deleteJob(item)}>{busy === "delete-job" ? "归档中…" : item.status === "committed" ? "删除记录" : "归档旧任务"}</button>}</div>)}</div>
     </section>
 
-    <section className="panel annotation-review-card">
+    <section className="panel annotation-review-card data-refresh-region" aria-busy={reviewLoading}>
       <div className="section-header">
         <div><h3>2. 人工复核与批量入库</h3><p>汇总当前类目全部历史 AI 标注任务；支持跨任务筛选、复核、全选和分组入库。</p></div>
         <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || !reviewScopeReady || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !reviewScopeReady || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>

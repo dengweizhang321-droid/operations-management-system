@@ -456,7 +456,7 @@ test("京准通 n8n 模板保持未激活、先原子领取 helper 再以同一 
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
 });
 
-test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:00 处理昨天并先领取 helper", async () => {
+test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:10 处理昨天并先领取 helper", async () => {
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json", import.meta.url), "utf8")) as {
     id: string;
     active: boolean;
@@ -467,7 +467,7 @@ test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:00 处理昨天�
   assert.equal(workflow.id, "JdPromotionCutMeat2026");
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings?.timezone, "Asia/Shanghai");
-  assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger")?.parameters?.rule?.interval?.[0]?.expression, "0 13 * * *");
+  assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger")?.parameters?.rule?.interval?.[0]?.expression, "10 13 * * *");
   const dates = workflow.nodes.find((node) => node.type === "n8n-nodes-base.set")?.parameters?.assignments?.assignments;
   assert.deepEqual(dates?.map((item) => [item.name, item.value]), [["startDate", "2026-08-20"], ["endDate", "2026-08-20"]]);
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
@@ -489,7 +489,7 @@ test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:00 处理昨天�
     { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.endDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
   ]);
   assert.equal(workflow.connections["固定补跑日期"]?.main?.[0]?.[0]?.node, "领取共享 helper");
-  assert.equal(workflow.connections["每天 13:00 执行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["每天 13:10 执行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["等待前序流程释放 helper"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·固化切肉机店铺与目标日期");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");

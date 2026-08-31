@@ -17,6 +17,10 @@ export type TmallN8nWorkflowDefinition = {
   cronExpression: string;
   scheduleName: string;
   productMasterExportMode?: "on_sale_pagewise_excel";
+  productMasterCadence: {
+    intervalDays: 3;
+    initialDueDate: string;
+  };
 };
 
 export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] = [
@@ -27,9 +31,10 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     workflowId: "M4xY8kQ2vR6sT9pC",
     workflowName: "天猫店铺数据导入",
     fileName: "tmall-yijiu-sycm-cookie-daily.workflow.json",
-    cronExpression: "0 11 * * *",
-    scheduleName: "每天 11:00 运行",
+    cronExpression: "30 13 * * *",
+    scheduleName: "每天 13:30 运行",
     productMasterExportMode: "on_sale_pagewise_excel",
+    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-27" },
   },
   {
     storeKey: "tmall-lili",
@@ -38,8 +43,9 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     workflowId: "TmallLiliDaily2026",
     workflowName: "天猫店铺数据导入-丽力",
     fileName: "tmall-lili-sycm-cookie-daily.workflow.json",
-    cronExpression: "5 11 * * *",
-    scheduleName: "每天 11:05 运行",
+    cronExpression: "40 13 * * *",
+    scheduleName: "每天 13:40 运行",
+    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-27" },
   },
   {
     storeKey: "tmall-tuofeng",
@@ -48,19 +54,10 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     workflowId: "TmallTuofengDaily2026",
     workflowName: "天猫店铺数据导入-拓丰",
     fileName: "tmall-tuofeng-sycm-cookie-daily.workflow.json",
-    cronExpression: "10 11 * * *",
-    scheduleName: "每天 11:10 运行",
+    cronExpression: "50 13 * * *",
+    scheduleName: "每天 13:50 运行",
     productMasterExportMode: "on_sale_pagewise_excel",
-  },
-  {
-    storeKey: "tmall-yiyong",
-    shopName: "天猫-志高亿用专卖店",
-    shortName: "亿用",
-    workflowId: "TmallYiyongDaily2026",
-    workflowName: "天猫店铺数据导入-亿用",
-    fileName: "tmall-yiyong-sycm-cookie-daily.workflow.json",
-    cronExpression: "15 11 * * *",
-    scheduleName: "每天 11:15 运行",
+    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-25" },
   },
   {
     storeKey: "tmall-cuizhiwang",
@@ -69,8 +66,10 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     workflowId: "TmallCuizhiwangDaily2026",
     workflowName: "天猫店铺数据导入-炊之王",
     fileName: "tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
-    cronExpression: "20 11 * * *",
-    scheduleName: "每天 11:20 运行",
+    cronExpression: "0 14 * * *",
+    scheduleName: "每天 14:00 运行",
+    productMasterExportMode: "on_sale_pagewise_excel",
+    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-25" },
   },
   {
     storeKey: "tmall-masitu",
@@ -79,9 +78,21 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     workflowId: "TmallMasituDaily2026",
     workflowName: "天猫店铺数据导入-马思图",
     fileName: "tmall-masitu-sycm-cookie-daily.workflow.json",
-    cronExpression: "25 11 * * *",
-    scheduleName: "每天 11:25 运行",
+    cronExpression: "10 14 * * *",
+    scheduleName: "每天 14:10 运行",
     productMasterExportMode: "on_sale_pagewise_excel",
+    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-26" },
+  },
+  {
+    storeKey: "tmall-yiyong",
+    shopName: "天猫-志高亿用专卖店",
+    shortName: "亿用",
+    workflowId: "TmallYiyongDaily2026",
+    workflowName: "天猫店铺数据导入-亿用",
+    fileName: "tmall-yiyong-sycm-cookie-daily.workflow.json",
+    cronExpression: "20 14 * * *",
+    scheduleName: "每天 14:20 运行",
+    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-26" },
   },
 ] as const;
 
@@ -143,6 +154,7 @@ function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowD
   return [
     "## 店铺绑定",
     `本模板固定绑定 \`${definition.shopName}\`（\`${definition.storeKey}\`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。`,
+    `定时执行仍每日完成 A→B→C→P；M 货品主数据按上海日期每 ${definition.productMasterCadence.intervalDays} 天到期一次，初始到期日为 \`${definition.productMasterCadence.initialDueDate}\`。未到期时 M 返回 \`not_due\`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。`,
     bindingEndMarker,
     "",
     adapted,
@@ -152,12 +164,40 @@ function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowD
 function setStoreHeader(node: WorkflowNode, storeKey: string) {
   if (node.type !== "n8n-nodes-base.httpRequest") return;
   const parameters = node.parameters ??= {};
+  const url = String(parameters.url ?? "");
   parameters.sendHeaders = true;
   const headerParameters = parameters.headerParameters ??= { parameters: [] };
   const headers = Array.isArray(headerParameters.parameters) ? headerParameters.parameters : [];
   headerParameters.parameters = [
-    ...headers.filter((header) => String(header.name ?? "").toLowerCase() !== "x-teruisi-tmall-store-key"),
+    ...headers.filter((header) => ![
+      "x-teruisi-tmall-store-key",
+      "x-teruisi-tmall-force-product-master",
+      "x-teruisi-tmall-plan-start-date",
+      "x-teruisi-tmall-plan-end-date",
+    ].includes(String(header.name ?? "").toLowerCase())),
     { name: "X-TERUISI-TMALL-STORE-KEY", value: storeKey },
+    ...(url.endsWith("/plan")
+      ? [
+          {
+            name: "X-TERUISI-TMALL-PLAN-START-DATE",
+            value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}",
+          },
+          {
+            name: "X-TERUISI-TMALL-PLAN-END-DATE",
+            value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}",
+          },
+        ]
+      : []),
+    ...(url.endsWith("/product-master")
+      ? [{
+          name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
+          // n8n labels an execution started from the schedule node in the
+          // editor as `manual` too.  The force flag must therefore identify
+          // the actual Manual Trigger, otherwise a same-day recovery would
+          // incorrectly bypass the store's three-day M cadence.
+          value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
+        }]
+      : []),
   ];
 }
 
@@ -183,6 +223,19 @@ function adaptProductMasterNode(workflow: WorkflowTemplate, definition: TmallN8n
     delete workflow.connections[sourceName];
   }
   replaceConnectionNode(workflow.connections, sourceName, targetName);
+}
+
+function adaptManualTrigger(workflow: WorkflowTemplate) {
+  const node = workflow.nodes.find((candidate) => candidate.type === "n8n-nodes-base.manualTrigger");
+  if (!node) throw new Error("天猫 n8n 基础模板缺少 manualTrigger");
+  const targetName = "手动完整运行（强制 M）";
+  const sourceName = node.name;
+  node.name = targetName;
+  if (sourceName !== targetName && workflow.connections[sourceName]) {
+    workflow.connections[targetName] = workflow.connections[sourceName];
+    delete workflow.connections[sourceName];
+    replaceConnectionNode(workflow.connections, sourceName, targetName);
+  }
 }
 
 export function buildTmallN8nWorkflow(
@@ -215,6 +268,7 @@ export function buildTmallN8nWorkflow(
       node.parameters.content = replaceStoreSpecificText(node.parameters.content, definition);
     }
   }
+  adaptManualTrigger(workflow);
   adaptProductMasterNode(workflow, definition);
   return workflow;
 }

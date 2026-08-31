@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       page: parsePositiveIntegerQuery(page, 1, "page", 10_000),
       pageSize: parsePositiveIntegerQuery(pageSize, 30, "pageSize", 100),
       includeOptions: url.searchParams.get("includeOptions") !== "false",
-    });
+    }, principal, { signal: request.signal });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return safeApiErrorResponse(error, "读取客服会话失败。", { headers: { "cache-control": "no-store" } }); }
 }

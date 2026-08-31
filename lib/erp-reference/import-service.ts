@@ -260,6 +260,7 @@ export async function importErpReferenceBytes(input: {
       sheetName: parsed.sheetName,
       rows,
       warnings,
+      contentHash: fingerprint.contentHash,
       reservationFence: { domain: fingerprint.domain, scopeKey: fingerprint.scopeKey, batchId: id, attemptId: reservation.attemptId },
       totals: { ...parsed.totals, rawFileHash, contentHash: fingerprint.contentHash },
     });

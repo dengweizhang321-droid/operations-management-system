@@ -9,7 +9,6 @@ import {
   type ReplenishmentPlanItem,
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -28,7 +27,7 @@ function errorResponse(status: number, message: string) {
 
 async function readyDatabase() {
   const db = getInventoryDatabase();
-  await Promise.all([ensureInventorySchema(db), ensureSalesSchema(db)]);
+  await ensureInventorySchema(db);
   return db;
 }
 
@@ -71,7 +70,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const principal = await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "备货计划", "修改");
     const body = await request.json().catch(() => null) as {
       key?: unknown;
@@ -97,13 +96,25 @@ export async function POST(request: Request) {
       return errorResponse(400, "计划补货量必须使用 JSON 整数");
     }
     const db = await readyDatabase();
-    const overview = await getInventoryOverview(db, {
+    const overview = await getInventoryOverview(db, principal, {
       exactKey: body.key,
       startDate: body.startDate,
       endDate: body.endDate,
       page: 1,
       pageSize: 1,
+      signal: request.signal,
     });
+    if (!overview.controls.autoReplenishmentEnabled) {
+      return errorResponse(409, "系统设置已关闭自动补货建议，请由管理员开启后再创建计划");
+    }
+    if (overview.quality.recommendationsSuppressed) {
+      return Response.json({
+        ok: false,
+        message: "库存数据质量门禁未通过，已暂停创建精确补货计划",
+        code: "inventory_quality_blocked",
+        quality: overview.quality,
+      }, { status: 409, headers: { "cache-control": "no-store" } });
+    }
     if (overview.sync.inventoryStale && body.acknowledgeStale !== true) {
       return errorResponse(409, `库存快照 ${overview.sync.inventoryAsOf ?? ""} 已过期，请先同步最新库存或明确确认继续`);
     }
@@ -141,7 +152,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const principal = await requireAppPrincipal(["admin"]);
+    const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "备货计划", "修改");
     const body = await request.json().catch(() => null) as {
       id?: unknown;

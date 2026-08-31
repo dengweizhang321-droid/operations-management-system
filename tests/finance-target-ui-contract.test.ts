@@ -5,9 +5,9 @@ import test from "node:test";
 import {
   canManageFinanceTargets,
   validateFinanceTargetDeletionReason,
-} from "../app/page";
+} from "../app/module-view-shared";
 
-const pagePath = new URL("../app/page.tsx", import.meta.url);
+const salesPath = new URL("../app/sales-module-view.tsx", import.meta.url);
 
 test("finance target write controls are restricted to administrators", async () => {
   assert.equal(canManageFinanceTargets({ role: "admin" }), true);
@@ -16,14 +16,14 @@ test("finance target write controls are restricted to administrators", async () 
   assert.equal(canManageFinanceTargets({ role: "operator" }), false);
   assert.equal(canManageFinanceTargets(null), false);
 
-  const page = await readFile(pagePath, "utf8");
-  assert.match(page, /function SalesView\(\{[^\n]+currentUser[^\n]+\}: \{[^\n]+currentUser: CurrentUser \| null;/);
-  assert.match(page, /const canManageTargets = canManageFinanceTargets\(currentUser\);/);
-  assert.match(page, /<FinanceTargetSettingsView canManageTargets=\{canManageTargets\}/);
-  assert.match(page, /\{canManageTargets \? <section className="panel finance-target-form-panel">/);
-  assert.match(page, /\{canManageTargets \? <div className="finance-target-row-actions">/);
-  assert.match(page, /仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。/);
-  assert.match(page, /if \(!canManageTargets \|\| saving \|\| deletingTargetId !== null\) return;/);
+  const sales = await readFile(salesPath, "utf8");
+  assert.match(sales, /function SalesView\(\{[^\n]+currentUser[^\n]+\}: \{[^\n]+currentUser: CurrentUser \| null;/);
+  assert.match(sales, /const canManageTargets = canManageFinanceTargets\(currentUser\);/);
+  assert.match(sales, /<FinanceTargetSettingsView canManageTargets=\{canManageTargets\}/);
+  assert.match(sales, /\{canManageTargets \? <section className="panel finance-target-form-panel">/);
+  assert.match(sales, /\{canManageTargets \? <div className="finance-target-row-actions">/);
+  assert.match(sales, /仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。/);
+  assert.match(sales, /if \(!canManageTargets \|\| saving \|\| deletingTargetId !== null\) return;/);
 });
 
 test("finance target deletion requires confirmation and a bounded reason", async () => {
@@ -36,8 +36,8 @@ test("finance target deletion requires confirmation and a bounded reason", async
     reason: "月度目标录入有误",
   });
 
-  const page = await readFile(pagePath, "utf8");
-  const removeTarget = page.slice(page.indexOf("const removeTarget = async"), page.indexOf("return <div className=\"finance-target-page\">"));
+  const sales = await readFile(salesPath, "utf8");
+  const removeTarget = sales.slice(sales.indexOf("const removeTarget = async"), sales.indexOf("return <div className=\"finance-target-page\">"));
   assert.ok(removeTarget.includes("window.confirm("));
   assert.ok(removeTarget.indexOf("window.confirm(") < removeTarget.indexOf("window.prompt("));
   assert.match(removeTarget, /const reasonResult = validateFinanceTargetDeletionReason\(providedReason\);/);
@@ -55,15 +55,52 @@ test("the page has no customer-service delete control that could omit an audit r
 });
 
 test("finance target form preserves the platform+shop composite identity and discloses truncated options", async () => {
-  const [page, route] = await Promise.all([
-    readFile(pagePath, "utf8"),
+  const [sales, shared, route] = await Promise.all([
+    readFile(salesPath, "utf8"),
+    readFile(new URL("../app/module-view-shared.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/finance/targets/route.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /type FinanceTarget = \{[\s\S]*?platform: string;[\s\S]*?shopName: string;/);
-  assert.match(page, /shopKey: item\.platform && item\.shopName \? JSON\.stringify\(\[item\.platform, item\.shopName\]\)/);
-  assert.match(page, /platform: form\.platform,[\s\S]*?shopName: form\.shopName/);
-  assert.match(page, /label: `\$\{item\.platform\} · \$\{item\.name\}`/);
-  assert.match(page, /options\.pagination\?\.shops\.truncated[\s\S]*?店铺选项已设上限/);
+  assert.match(shared, /export type FinanceTarget = \{[\s\S]*?platform: string;[\s\S]*?shopName: string;/);
+  assert.match(sales, /shopKey: item\.platform && item\.shopName \? JSON\.stringify\(\[item\.platform, item\.shopName\]\)/);
+  assert.match(sales, /platform: form\.platform,[\s\S]*?shopName: form\.shopName/);
+  assert.match(sales, /label: `\$\{item\.platform\} · \$\{item\.name\}`/);
+  assert.match(sales, /options\.pagination\?\.shops\.truncated[\s\S]*?店铺选项已设上限/);
   assert.match(route, /const platform = String\(body\.platform/);
   assert.match(route, /月度或年度目标必须选择有效平台/);
+});
+
+test("finance target list is decoupled from slow admin-only options while full stays compatible", async () => {
+  const [sales, route] = await Promise.all([
+    readFile(salesPath, "utf8"),
+    readFile(new URL("../app/api/finance/targets/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /type FinanceTargetReadView = "full" \| "items" \| "options"/);
+  assert.match(route, /if \(values\.length === 0\) return "full"/);
+  assert.match(route, /view 必须且只能是 full、items 或 options/);
+  assert.match(route, /if \(view === "items"\) \{[\s\S]*?listFinanceTargets[\s\S]*?return Response\.json/);
+  assert.match(route, /if \(view === "options"\) \{[\s\S]*?getFinanceTargetOptions/);
+  assert.match(route, /const \[targets, options\] = await Promise\.all\(/, "default full response must remain compatible");
+
+  assert.match(sales, /finance\/targets\?view=items&page=\$\{targetPage\}&pageSize=100/);
+  assert.match(sales, /if \(!canManageTargets\) return;[\s\S]*?finance\/targets\?view=options/);
+  assert.match(sales, /if \(loading \|\| optionsLoadedRef\.current\) return;/, "option scan must start only after the target list settles");
+  assert.match(sales, /optionsRequestGenerationRef[\s\S]*?generation !== optionsRequestGenerationRef\.current/);
+  assert.match(sales, /optionsRequestControllerRef\.current\?\.abort\(\)/);
+  assert.match(sales, /管理选项加载失败[\s\S]*?重试加载/);
+});
+
+test("finance initial missing month fallback is explicit and manual selection disables it", async () => {
+  const [sales, route, shared] = await Promise.all([
+    readFile(salesPath, "utf8"),
+    readFile(new URL("../app/api/finance/analysis/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/module-view-shared.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /getAll\("initialMonthFallback"\)/);
+  assert.match(route, /fallbackValues\[0\] !== "latest_completed"/);
+  assert.match(route, /fallbackToLatestCompletedMonth/);
+  assert.match(sales, /allowInitialMonthFallback && selectedMonths !== null && selectedMonths\.length > 0/);
+  assert.match(sales, /query\.set\("initialMonthFallback", "latest_completed"\)/);
+  assert.match(sales, /const selectMonthsStrictly[\s\S]*?setAllowInitialMonthFallback\(false\);[\s\S]*?setSelectedMonths\(months\)/);
+  assert.match(sales, /已显示最新可用财报[\s\S]*?手动选择月份后将严格按选择读取/);
+  assert.match(shared, /fallbackApplied\?: boolean/);
 });

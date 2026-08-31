@@ -28,10 +28,10 @@
     },
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 13 * * *" }] }
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "10 13 * * *" }] }
       },
       "id": "8b9c0d11-1213-4415-8617-181920212208",
-      "name": "每天 13:00 执行",
+      "name": "每天 13:10 执行",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [-700, 100]
@@ -166,7 +166,7 @@
   "connections": {
     "手动补跑8月20日": { "main": [[{ "node": "固定补跑日期", "type": "main", "index": 0 }]] },
     "固定补跑日期": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
-    "每天 13:00 执行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
+    "每天 13:10 执行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
     "领取共享 helper": { "main": [[{ "node": "helper 领取成功？", "type": "main", "index": 0 }]] },
     "helper 领取成功？": {
       "main": [

@@ -99,6 +99,15 @@ type PagewiseAudit = {
     warningCount: number;
   };
   lastError?: string;
+  abandonment?: {
+    abandonedAt: string;
+    previousStage: "downloaded";
+    reason: string;
+    integrityFailure: {
+      uniqueProductCount: number;
+      expectedProductCount: number;
+    };
+  };
 };
 
 type PositionedCandidate = {
@@ -191,6 +200,92 @@ async function writeActiveAudit(audit: PagewiseAudit, auditRoot = artifactDirect
   const updated = { ...normalized, updatedAt: new Date().toISOString() };
   await writeJsonAtomic(activeAuditPath(audit.storeKey, auditRoot), updated);
   return updated;
+}
+
+function parseDownloadedIntegrityFailure(value: string | undefined) {
+  const match = value?.match(/^逐页货品文件合计 (\d+) 个唯一商品，与出售中总数 (\d+) 不一致$/);
+  if (!match) return null;
+  const uniqueProductCount = Number(match[1]);
+  const expectedProductCount = Number(match[2]);
+  if (!Number.isInteger(uniqueProductCount) || uniqueProductCount < 1
+    || !Number.isInteger(expectedProductCount) || expectedProductCount < 1
+    || uniqueProductCount >= expectedProductCount) return null;
+  return { uniqueProductCount, expectedProductCount };
+}
+
+export async function abandonInvalidDownloadedTmallPagewiseAudit(options: {
+  storeKey: string;
+  reason: string;
+  operatorConfirmed: boolean;
+  auditDirectory?: string;
+  now?: Date;
+}) {
+  if (options.operatorConfirmed !== true) {
+    throw new Error("作废无效的逐页货品下载必须取得操作者明确确认");
+  }
+  const reason = options.reason.replace(/\s+/g, " ").trim();
+  if (reason.length < 4 || reason.length > 300) {
+    throw new Error("逐页货品任务作废原因必须为 4 至 300 个字符");
+  }
+  const store = await getTmallStore(options.storeKey);
+  const auditRoot = path.resolve(options.auditDirectory ?? artifactDirectory);
+  const existing = await readActiveAudit(store.storeKey, auditRoot);
+  if (!existing) throw new Error("当前店铺不存在可作废的逐页货品活动清单");
+  const audit = existing.audit;
+  if (audit.shopName !== store.shopName) {
+    throw new Error("逐页货品活动清单店铺身份不一致，拒绝作废");
+  }
+  if (audit.stage !== "downloaded") {
+    throw new Error(`逐页货品活动清单阶段 ${audit.stage} 不允许按无效下载作废`);
+  }
+  const integrityFailure = parseDownloadedIntegrityFailure(audit.lastError);
+  if (!integrityFailure || integrityFailure.expectedProductCount !== audit.totalProducts) {
+    throw new Error("逐页货品活动清单没有可核验的唯一商品数完整性错误，拒绝作废");
+  }
+  if (!audit.totalPages || audit.tasks.length !== audit.totalPages || audit.files.length !== audit.totalPages) {
+    throw new Error("逐页货品任务或文件未完整绑定全部分页，拒绝按下载完整性错误作废");
+  }
+  for (let page = 1; page <= audit.totalPages; page += 1) {
+    const task = audit.tasks[page - 1];
+    const file = audit.files[page - 1];
+    if (task?.page !== page || file?.page !== page
+      || task.itemCount !== expectedTmallPageItemCount(audit.totalProducts, audit.totalPages, page)) {
+      throw new Error("逐页货品任务与文件页码证据不连续，拒绝作废");
+    }
+  }
+
+  const abandonedAt = (options.now ?? new Date()).toISOString();
+  const archiveFileName = `abandoned-invalid-downloaded-${safeSegment(store.storeKey)}-${audit.snapshotDate}-${safeSegment(audit.runId)}.json`;
+  const archivePath = path.join(auditRoot, archiveFileName);
+  if (await stat(archivePath).then(() => true).catch(() => false)) {
+    throw new Error("逐页货品无效下载作废归档已存在，拒绝覆盖");
+  }
+
+  // The atomic rename releases only this store's active slot while preserving
+  // every submitted task and downloaded-file evidence. This entry point is
+  // intentionally operator-only and is never called by n8n recovery itself.
+  await rename(existing.filePath, archivePath);
+  const archivedAudit: PagewiseAudit = {
+    ...audit,
+    updatedAt: abandonedAt,
+    abandonment: {
+      abandonedAt,
+      previousStage: "downloaded",
+      reason,
+      integrityFailure,
+    },
+  };
+  await writeJsonAtomic(archivePath, archivedAudit);
+  return {
+    ok: true as const,
+    stage: "abandoned" as const,
+    storeKey: store.storeKey,
+    shopName: store.shopName,
+    snapshotDate: audit.snapshotDate,
+    previousStage: "downloaded" as const,
+    archiveFileName,
+    integrityFailure,
+  };
 }
 
 export function normalizeTmallPagewiseAuditForWrite<T extends { stage: PagewiseAuditStage; lastError?: string }>(audit: T) {
@@ -366,6 +461,40 @@ async function clickUniqueExactText(page: Page, text: string) {
     throw new Error(`存在多个同等可见控件“${text}”，为防止误点已停止`);
   }
   await scored[0]!.locator.click({ timeout: 15_000 });
+}
+
+async function waitForUniqueExactTextCandidate(page: Page, text: string, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const candidates = await exactTextCandidates(page, text);
+    if (candidates.length > 0) {
+      const scored = candidates.map((candidate) => ({
+        ...candidate,
+        score: ["button", "a"].includes(candidate.tag) || ["button", "link", "menuitem"].includes(candidate.role) ? 10 : 1,
+      })).sort((left, right) => right.score - left.score);
+      if (scored[1] && scored[1].score === scored[0]!.score && scored[1].signature !== scored[0]!.signature) {
+        throw new Error(`存在多个同等可见控件“${text}”，为防止误点已停止`);
+      }
+      return scored[0]!;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`等待唯一可见控件“${text}”超时`);
+}
+
+export async function submitTmallPagewiseExportAction(options: {
+  resolveAction: () => Promise<() => Promise<void>>;
+  markSubmitting: (submittedAt: string) => Promise<void>;
+  now?: () => string;
+}) {
+  // Resolve the exact business control before recording an unresolved click. A
+  // missing or ambiguous menu item is a retryable preflight failure, not proof
+  // that an export task may already have been created.
+  const click = await options.resolveAction();
+  const submittedAt = (options.now ?? (() => new Date().toISOString()))();
+  await options.markSubmitting(submittedAt);
+  await click();
+  return submittedAt;
 }
 
 async function inspectTmallOnSalePagination(page: Page) {
@@ -759,9 +888,13 @@ async function submitRemainingPages(options: {
     const itemCount = expectedTmallPageItemCount(totalProducts, totalPages, pageNumber);
     await selectCurrentPageProducts(options.page, itemCount);
     await clickUniqueExactText(options.page, "更多批量操作");
-    const submittedAt = new Date().toISOString();
-    await persist({ stage: "page_export_submitting", currentPage: pageNumber });
-    await clickUniqueExactText(options.page, TMALL_PAGEWISE_EXPORT_MENU);
+    const submittedAt = await submitTmallPagewiseExportAction({
+      resolveAction: async () => {
+        const exportMenu = await waitForUniqueExactTextCandidate(options.page, TMALL_PAGEWISE_EXPORT_MENU);
+        return () => exportMenu.locator.click({ timeout: 15_000 });
+      },
+      markSubmitting: async () => persist({ stage: "page_export_submitting", currentPage: pageNumber }),
+    });
     await waitUntil(30_000, async () => (await combinedPageText(options.page)).includes(TMALL_PAGEWISE_EXPORT_SUCCESS),
       `第 ${pageNumber} 页未出现导出任务创建成功确认`);
     const task: PagewiseTask = { page: pageNumber, itemCount, submittedAt };

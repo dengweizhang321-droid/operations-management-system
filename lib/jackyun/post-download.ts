@@ -36,6 +36,10 @@ export type JackyunPreprocessingSummary = {
   kind: "none" | "exact_warehouse_filter";
   excludedBrushWarehouseRows: number;
   excludedZeroCostRows: number;
+  /** 单行库存货值超过门禁上限（¥10亿）的占位数据行，仅 inventory 模块。 */
+  excludedImplausibleValueRows: number;
+  /** 实盘/可用库存为负数且系统未允许负库存的行，仅 inventory 模块。 */
+  excludedNegativeQuantityRows: number;
   retainedRows: number;
   similarWarehouseNames: string[];
 };
@@ -191,6 +195,8 @@ function noPreprocessing(rowCount: number): JackyunPreprocessingSummary {
     kind: "none",
     excludedBrushWarehouseRows: 0,
     excludedZeroCostRows: 0,
+    excludedImplausibleValueRows: 0,
+    excludedNegativeQuantityRows: 0,
     retainedRows: rowCount,
     similarWarehouseNames: [],
   };
@@ -234,12 +240,33 @@ function prepareSingleSheet(
   const costColumn = module === "inventory"
     ? requiredColumn(header, "固定成本价", `${module} 工作表`)
     : undefined;
+  const quantityColumn = module === "inventory"
+    ? requiredColumn(header, "库存数量", `${module} 工作表`)
+    : undefined;
+  // 吉客云分仓库存通常包含“可用库存”，但它不是导入文件的基础必需列。
+  // 若存在，必须与实盘库存同时满足库存质量门禁，避免服务端在完成阶段整批拒绝。
+  const availableQuantityColumn = module === "inventory"
+    ? header.indexes.get(normalizeHeader("可用库存"))
+    : undefined;
   const excludedRows: XlsxRow[] = [];
   const excludedZeroCostRows: XlsxRow[] = [];
+  const excludedImplausibleValueRows: XlsxRow[] = [];
+  const excludedNegativeQuantityRows: XlsxRow[] = [];
   const retainedRows: XlsxRow[] = [];
   for (const row of sourceRows) {
     if (text(row.cells[warehouseColumn]) === "刷刷仓") excludedRows.push(row);
     else if (costColumn !== undefined && positiveNumber(row.cells[costColumn]) === null) excludedZeroCostRows.push(row);
+    else if (module === "inventory" && quantityColumn !== undefined
+      && hasNegativeInventoryQuantity(row.cells[quantityColumn], availableQuantityColumn === undefined ? undefined : row.cells[availableQuantityColumn])) {
+      excludedNegativeQuantityRows.push(row);
+    }
+    else if (module === "inventory" && quantityColumn !== undefined && costColumn !== undefined
+      && isImplausibleInventoryRow(row.cells[quantityColumn], row.cells[costColumn])) {
+      // 吉客云 ERP 供应商仓存在数量≈百万/十万的占位库存（单行货值可达数十亿元），
+      // 这些行会被服务端库存质量门禁整批拒绝，
+      // 在预处理阶段剔除以保证其余真实数据可按快照日全量替换入库。
+      excludedImplausibleValueRows.push(row);
+    }
     else retainedRows.push(row);
   }
   assertRequiredValues(retainedRows, [
@@ -289,6 +316,8 @@ function prepareSingleSheet(
       kind: "exact_warehouse_filter",
       excludedBrushWarehouseRows: excludedRows.length,
       excludedZeroCostRows: excludedZeroCostRows.length,
+      excludedImplausibleValueRows: excludedImplausibleValueRows.length,
+      excludedNegativeQuantityRows: excludedNegativeQuantityRows.length,
       retainedRows: retainedRows.length,
       similarWarehouseNames,
     },
@@ -302,6 +331,32 @@ function positiveNumber(value: XlsxCellValue | undefined) {
   if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseNumberOrNull(value: XlsxCellValue | undefined) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replace(/,/g, "");
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isImplausibleInventoryRow(quantityValue: XlsxCellValue | undefined, costValue: XlsxCellValue | undefined) {
+  const quantity = parseNumberOrNull(quantityValue);
+  const cost = parseNumberOrNull(costValue);
+  if (quantity === null || cost === null) return false;
+  // 单行货值超过 10 亿元通常是 ERP 占位/异常值。
+  return Math.abs(quantity * cost) > 1_000_000_000;
+}
+
+function hasNegativeInventoryQuantity(
+  onHandValue: XlsxCellValue | undefined,
+  availableValue: XlsxCellValue | undefined,
+) {
+  return [onHandValue, availableValue]
+    .map(parseNumberOrNull)
+    .some((quantity) => quantity !== null && quantity < 0);
 }
 
 function prepareCombos(bytes: Uint8Array, options: PrepareJackyunWorkbookOptions): PreparedJackyunWorkbook {

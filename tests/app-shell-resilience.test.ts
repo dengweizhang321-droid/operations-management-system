@@ -59,7 +59,8 @@ test("mobile navigation releases its interaction lock at the desktop breakpoint"
 
 test("market master initial failures are visible and retryable", async () => {
   const marketAdmin = await source("../app/market-master-admin-panel.tsx");
-  assert.match(marketAdmin, /if \(!data && error\) return <section[^>]*role="alert"/);
+  assert.match(marketAdmin, /const fatalError = primaryError/);
+  assert.match(marketAdmin, /if \(!data && fatalError\) return <section[^>]*role="alert"/);
   assert.match(marketAdmin, /TOP SKU 主数据中心加载失败/);
   assert.match(marketAdmin, /重新加载/);
   assert.match(marketAdmin, /if \(!data\) return <section[^>]*role="status"/);

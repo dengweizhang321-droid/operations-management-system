@@ -3,12 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  beginLatestRequest,
-  invalidateLatestRequest,
-  invokeLatestRequest,
-  settleLatestRequest,
-} from "@/lib/market/latest-request";
+import { invokeLatestRequest } from "@/lib/market/latest-request";
 import {
   annotationRequestRetryKind,
   annotationRetryDelayMs,
@@ -77,6 +72,31 @@ type MarketMasterWorkspace = {
   error?: string;
 };
 type AiModelSummary = { id: string; name: string; modelType: "text" | "vision"; modelName: string; status: "enabled" | "disabled"; isDefaultTextModel: boolean };
+type MarketMasterDatabasePrimary = Pick<MarketMasterWorkspace, "masterData">;
+type MarketMasterDatabaseFilters = Pick<MarketMasterWorkspace, "categories" | "subcategories">;
+type MarketMasterDatabaseSecondary = Pick<MarketMasterWorkspace, "pendingPrices" | "imageCache" | "priceRecognition" | "statusCounts">;
+
+const emptyMarketMasterWorkspace = (): MarketMasterWorkspace => ({
+  masterData: { items: [], pagination: { total: 0, page: 1, pageSize: 30, pageCount: 1 } },
+  pendingPrices: { items: [], pagination: { total: 0, page: 1, pageSize: 20, pageCount: 1 } },
+  mappings: { items: [] },
+  priceBands: { items: [] },
+  downloadTasks: [],
+  downloadConfigs: [],
+  coverage: [],
+  imageCache: { total: 0, cached: 0, failed: 0, pending: 0 },
+  categories: [],
+  subcategories: [],
+  priceRecognition: { prompts: [] },
+  brandRecognitionJob: null,
+  brandSeeds: {
+    dictionary: { items: [], counts: { total: 0, enabled: 0, system: 0, manual: 0 } },
+    unknown: { items: [], pagination: { total: 0, page: 1, pageCount: 1 } },
+  },
+  statusCounts: { total: 0, pendingPrices: 0, confirmedPrices: 0 },
+  subcategorySettings: { category: "", categories: [], items: [] },
+  audits: [],
+});
 
 const money = (cents?: number | null) => cents === null || cents === undefined
   ? "-"
@@ -158,13 +178,32 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
   const [newSubcategory, setNewSubcategory] = useState("");
   const [brandJob, setBrandJob] = useState<BrandRecognitionJob | null>(null);
   const brandRunnerStop = useRef(false);
-  const loadRequestId = useRef(0);
+  const primaryLoadControllerRef = useRef<AbortController | null>(null);
+  const primaryLoadGenerationRef = useRef(0);
+  const databaseFiltersControllerRef = useRef<AbortController | null>(null);
+  const databaseFiltersGenerationRef = useRef(0);
+  const secondaryLoadControllerRef = useRef<AbortController | null>(null);
+  const secondaryLoadGenerationRef = useRef(0);
+  const aiModelsControllerRef = useRef<AbortController | null>(null);
+  const aiModelsRequestedRef = useRef(false);
+  const lifecycleGenerationRef = useRef(0);
   const latestLoadRef = useRef<() => Promise<void>>(async () => undefined);
   const skuEditorInitialFocusRef = useRef<HTMLInputElement>(null);
   const busyActionRef = useRef("");
   const [busy, setBusy] = useState("");
+  const [databaseSecondaryRequested, setDatabaseSecondaryRequested] = useState(false);
+  const [databaseSecondaryLoaded, setDatabaseSecondaryLoaded] = useState(false);
+  const [databaseSecondaryLoading, setDatabaseSecondaryLoading] = useState(false);
+  const [primaryLoading, setPrimaryLoading] = useState(false);
+  const [databaseFiltersScope, setDatabaseFiltersScope] = useState<string | null>(null);
+  const [databaseFiltersLoading, setDatabaseFiltersLoading] = useState(false);
+  const [aiModelsLoading, setAiModelsLoading] = useState(false);
   busyActionRef.current = busy;
   const [error, setError] = useState("");
+  const [primaryError, setPrimaryError] = useState("");
+  const [databaseFiltersError, setDatabaseFiltersError] = useState("");
+  const [secondaryError, setSecondaryError] = useState("");
+  const [aiModelsError, setAiModelsError] = useState("");
   const [notice, setNotice] = useState("");
   const isAdmin = currentUser?.role === "admin";
   const skuEditorSaving = !canCloseMarketSkuEditor(busy);
@@ -173,9 +212,15 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
     setEditingSku(null);
   }, []);
   const load = useCallback(async () => {
-    const requestId = beginLatestRequest(loadRequestId);
+    primaryLoadControllerRef.current?.abort();
+    const controller = new AbortController();
+    primaryLoadControllerRef.current = controller;
+    const generation = primaryLoadGenerationRef.current + 1;
+    primaryLoadGenerationRef.current = generation;
+    setPrimaryLoading(true);
     const params = new URLSearchParams();
-    params.set("section", mode);
+    params.set("view", mode === "database" ? "database_primary" : "workspace");
+    if (mode !== "database") params.set("section", mode);
     if (query.trim()) params.set("q", query.trim());
     if (mode === "database") masterCategories.forEach((value) => params.append("category", value));
     else if (category) params.set("category", category);
@@ -187,48 +232,168 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
     annotationStatuses.forEach((value) => params.append("annotationStatus", value));
     params.set("page", String(page));
     params.set("pageSize", String(masterPageSize));
-    if (mode === "database") {
-      masterCategories.forEach((value) => params.append("pendingPriceCategory", value));
-      pendingPriceSources.forEach((value) => params.append("pendingPriceSource", value));
-      params.set("pendingPricePage", String(pendingPricePage));
-      params.set("pendingPricePageSize", String(pendingPricePageSize));
-    }
-    const settled = await settleLatestRequest(loadRequestId, requestId, async () => {
-      const [response, modelsResponse] = await Promise.all([
-        fetch(`/api/market/master?${params}`, { cache: "no-store" }),
-        isAdmin && (mode === "database" || mode === "brand") ? fetch("/api/ai/models", { cache: "no-store" }) : Promise.resolve(null),
-      ]);
-      const payload = await response.json().catch(() => null) as MarketMasterWorkspace | null;
-      const modelsPayload = modelsResponse
-        ? await modelsResponse.json().catch(() => null) as { items?: AiModelSummary[]; error?: string } | null
-        : null;
+    try {
+      const response = await fetch(`/api/market/master?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as (MarketMasterWorkspace & MarketMasterDatabasePrimary) | null;
+      if (controller.signal.aborted || generation !== primaryLoadGenerationRef.current) return;
       if (!response.ok || !payload) throw new Error(payload?.error || "市场主数据读取失败");
-      if (modelsResponse && !modelsResponse.ok) throw new Error(modelsPayload?.error || "运营管理系统 AI 算力读取失败");
-      return { payload, modelsPayload, modelsResponse };
-    });
-    if (!settled.current) return;
-    const { payload, modelsPayload, modelsResponse } = settled.value;
-    setError("");
-    setData(payload);
-    setPage(payload.masterData.pagination.page);
-    if (mode === "database") setPendingPricePage(payload.pendingPrices.pagination.page);
-    setBrandJob(payload.brandRecognitionJob);
-    setSubcategoryDrafts(Object.fromEntries(payload.subcategorySettings.items.map((item) => [String(item.subcategory), String(item.subcategory)])));
-    if (modelsResponse) {
-      const models = modelsPayload?.items ?? [];
-      setAiModels(models);
-      setBrandModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "text" && item.isDefaultTextModel)?.id || models.find((item) => item.status === "enabled" && item.modelType === "text")?.id || "");
-      setVisionModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "vision")?.id || "");
+      setPrimaryError("");
+      if (mode === "database") {
+        const primary = payload as MarketMasterDatabasePrimary;
+        setData((current) => ({ ...(current ?? emptyMarketMasterWorkspace()), ...primary }));
+        setPage(primary.masterData.pagination.page);
+        setDatabaseFiltersScope(JSON.stringify([...new Set(masterCategories)].sort()));
+        return;
+      }
+      const workspace = payload as MarketMasterWorkspace;
+      setData(workspace);
+      setPage(workspace.masterData.pagination.page);
+      setBrandJob(workspace.brandRecognitionJob);
+      setSubcategoryDrafts(Object.fromEntries(workspace.subcategorySettings.items.map((item) => [String(item.subcategory), String(item.subcategory)])));
+    } catch (reason) {
+      if (controller.signal.aborted || generation !== primaryLoadGenerationRef.current) return;
+      throw reason;
+    } finally {
+      if (generation === primaryLoadGenerationRef.current) setPrimaryLoading(false);
+      if (primaryLoadControllerRef.current === controller) primaryLoadControllerRef.current = null;
     }
-  }, [query, category, masterCategories, page, masterPageSize, masterCandidatePriceSources, pendingPriceSources, pendingPricePage, pendingPricePageSize, rankingDimensions, operationModes, subcategoryFilters, priceStatuses, annotationStatuses, isAdmin, mode]);
-  latestLoadRef.current = load;
+  }, [query, category, masterCategories, page, masterPageSize, masterCandidatePriceSources, rankingDimensions, operationModes, subcategoryFilters, priceStatuses, annotationStatuses, mode]);
+  const loadDatabaseFilters = useCallback(async () => {
+    if (mode !== "database") return;
+    const scopeKey = JSON.stringify([...new Set(masterCategories)].sort());
+    if (databaseFiltersScope !== scopeKey) return;
+    databaseFiltersControllerRef.current?.abort();
+    const controller = new AbortController();
+    databaseFiltersControllerRef.current = controller;
+    const generation = databaseFiltersGenerationRef.current + 1;
+    databaseFiltersGenerationRef.current = generation;
+    const params = new URLSearchParams({ view: "database_filters" });
+    masterCategories.forEach((value) => params.append("category", value));
+    setDatabaseFiltersLoading(true);
+    try {
+      const response = await fetch(`/api/market/master?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as (MarketMasterDatabaseFilters & { error?: string }) | null;
+      if (controller.signal.aborted || generation !== databaseFiltersGenerationRef.current) return;
+      if (!response.ok || !payload) throw new Error(payload?.error || "市场分类筛选项读取失败");
+      setDatabaseFiltersError("");
+      setData((current) => ({ ...(current ?? emptyMarketMasterWorkspace()), ...payload }));
+    } catch (reason) {
+      if (controller.signal.aborted || generation !== databaseFiltersGenerationRef.current) return;
+      throw reason;
+    } finally {
+      if (generation === databaseFiltersGenerationRef.current) setDatabaseFiltersLoading(false);
+      if (databaseFiltersControllerRef.current === controller) databaseFiltersControllerRef.current = null;
+    }
+  }, [databaseFiltersScope, masterCategories, mode]);
+  const loadDatabaseSecondary = useCallback(async () => {
+    if (mode !== "database" || !databaseSecondaryRequested) return;
+    secondaryLoadControllerRef.current?.abort();
+    const controller = new AbortController();
+    secondaryLoadControllerRef.current = controller;
+    const generation = secondaryLoadGenerationRef.current + 1;
+    secondaryLoadGenerationRef.current = generation;
+    const params = new URLSearchParams({
+      view: "database_secondary",
+      pendingPricePage: String(pendingPricePage),
+      pendingPricePageSize: String(pendingPricePageSize),
+    });
+    masterCategories.forEach((value) => params.append("pendingPriceCategory", value));
+    pendingPriceSources.forEach((value) => params.append("pendingPriceSource", value));
+    setDatabaseSecondaryLoading(true);
+    try {
+      const response = await fetch(`/api/market/master?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as (MarketMasterDatabaseSecondary & { error?: string }) | null;
+      if (controller.signal.aborted || generation !== secondaryLoadGenerationRef.current) return;
+      if (!response.ok || !payload) throw new Error(payload?.error || "价格审核数据读取失败");
+      setSecondaryError("");
+      setData((current) => ({ ...(current ?? emptyMarketMasterWorkspace()), ...payload }));
+      setPendingPricePage(payload.pendingPrices.pagination.page);
+      setDatabaseSecondaryLoaded(true);
+    } catch (reason) {
+      if (controller.signal.aborted || generation !== secondaryLoadGenerationRef.current) return;
+      throw reason;
+    } finally {
+      if (generation === secondaryLoadGenerationRef.current) setDatabaseSecondaryLoading(false);
+      if (secondaryLoadControllerRef.current === controller) secondaryLoadControllerRef.current = null;
+    }
+  }, [databaseSecondaryRequested, masterCategories, mode, pendingPricePage, pendingPricePageSize, pendingPriceSources]);
+  const reloadLatest = useCallback(async () => {
+    await Promise.all([
+      load().catch((reason) => setPrimaryError(reason instanceof Error ? reason.message : "市场主数据读取失败")),
+      loadDatabaseFilters().catch((reason) => setDatabaseFiltersError(reason instanceof Error ? reason.message : "市场分类筛选项读取失败")),
+      loadDatabaseSecondary().catch((reason) => setSecondaryError(reason instanceof Error ? reason.message : "价格审核数据读取失败")),
+    ]);
+  }, [load, loadDatabaseFilters, loadDatabaseSecondary]);
+  latestLoadRef.current = reloadLatest;
   const loadLatest = useCallback(() => invokeLatestRequest(latestLoadRef), []);
   useEffect(() => {
-    invalidateLatestRequest(loadRequestId);
-    const timer = window.setTimeout(() => { void load().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败")); }, 200);
-    return () => { window.clearTimeout(timer); invalidateLatestRequest(loadRequestId); };
+    const timer = window.setTimeout(() => { void load().catch((reason) => setPrimaryError(reason instanceof Error ? reason.message : "市场主数据读取失败")); }, 200);
+    return () => {
+      window.clearTimeout(timer);
+      primaryLoadGenerationRef.current += 1;
+      primaryLoadControllerRef.current?.abort();
+    };
   }, [load]);
-  useEffect(() => () => { brandRunnerStop.current = true; }, []);
+  useEffect(() => {
+    if (mode !== "database") return;
+    const scopeKey = JSON.stringify([...new Set(masterCategories)].sort());
+    if (databaseFiltersScope !== scopeKey) return;
+    const timer = window.setTimeout(() => { void loadDatabaseFilters().catch((reason) => setDatabaseFiltersError(reason instanceof Error ? reason.message : "市场分类筛选项读取失败")); }, 50);
+    return () => {
+      window.clearTimeout(timer);
+      databaseFiltersGenerationRef.current += 1;
+      databaseFiltersControllerRef.current?.abort();
+    };
+  }, [databaseFiltersScope, loadDatabaseFilters, masterCategories, mode]);
+  useEffect(() => {
+    if (!databaseSecondaryRequested || mode !== "database") return;
+    setDatabaseSecondaryLoading(true);
+    const timer = window.setTimeout(() => { void loadDatabaseSecondary().catch((reason) => setSecondaryError(reason instanceof Error ? reason.message : "价格审核数据读取失败")); }, 200);
+    return () => {
+      window.clearTimeout(timer);
+      secondaryLoadGenerationRef.current += 1;
+      secondaryLoadControllerRef.current?.abort();
+    };
+  }, [databaseSecondaryRequested, loadDatabaseSecondary, mode]);
+  useEffect(() => {
+    const shouldLoad = isAdmin && (mode === "brand" || (mode === "database" && databaseSecondaryRequested));
+    if (!shouldLoad || aiModelsRequestedRef.current) return;
+    aiModelsRequestedRef.current = true;
+    const controller = new AbortController();
+    aiModelsControllerRef.current = controller;
+    setAiModelsError("");
+    setAiModelsLoading(true);
+    void (async () => {
+      try {
+        const response = await fetch("/api/ai/models", { cache: "no-store", signal: controller.signal });
+        const payload = await response.json().catch(() => null) as { items?: AiModelSummary[]; error?: string } | null;
+        if (controller.signal.aborted) return;
+        if (!response.ok) throw new Error(payload?.error || "运营管理系统 AI 算力读取失败");
+        const models = payload?.items ?? [];
+        setAiModels(models);
+        setBrandModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "text" && item.isDefaultTextModel)?.id || models.find((item) => item.status === "enabled" && item.modelType === "text")?.id || "");
+        setVisionModelId((current) => current || models.find((item) => item.status === "enabled" && item.modelType === "vision")?.id || "");
+      } catch (reason) {
+        if (!controller.signal.aborted) setAiModelsError(reason instanceof Error ? reason.message : "运营管理系统 AI 算力读取失败");
+      } finally {
+        if (!controller.signal.aborted) setAiModelsLoading(false);
+      }
+    })();
+  }, [databaseSecondaryRequested, isAdmin, mode]);
+  useEffect(() => {
+    const generation = lifecycleGenerationRef.current + 1;
+    lifecycleGenerationRef.current = generation;
+    return () => {
+      queueMicrotask(() => {
+        if (generation !== lifecycleGenerationRef.current) return;
+        brandRunnerStop.current = true;
+        primaryLoadControllerRef.current?.abort();
+        databaseFiltersControllerRef.current?.abort();
+        secondaryLoadControllerRef.current?.abort();
+        aiModelsControllerRef.current?.abort();
+      });
+    };
+  }, []);
   const post = async (body: Record<string, unknown>) => {
     const busyAction = String(body.action ?? "action");
     busyActionRef.current = busyAction;
@@ -552,20 +717,27 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
     } catch (reason) { setError(reason instanceof Error ? reason.message : "榜单文件校验导入失败"); }
     finally { setBusy(""); }
   };
-  if (!data && error) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol" aria-hidden="true">!</span><strong>TOP SKU 主数据中心加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => void loadLatest().catch((reason) => setError(reason instanceof Error ? reason.message : "市场主数据读取失败"))}>重新加载</button></section>;
+  const relevantDatabaseFiltersError = mode === "database" ? databaseFiltersError : "";
+  const relevantSecondaryError = mode === "database" && databaseSecondaryRequested ? secondaryError : "";
+  const relevantAiModelsError = mode === "brand" || (mode === "database" && databaseSecondaryRequested) ? aiModelsError : "";
+  const fatalError = primaryError;
+  const visibleError = error || fatalError || relevantDatabaseFiltersError || relevantSecondaryError || relevantAiModelsError;
+  if (!data && fatalError) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol" aria-hidden="true">!</span><strong>TOP SKU 主数据中心加载失败</strong><p>{fatalError}</p><button className="secondary-button" onClick={() => void load().catch((reason) => setPrimaryError(reason instanceof Error ? reason.message : "市场主数据读取失败"))}>重新加载</button></section>;
   if (!data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取 TOP SKU 主数据中心</strong></section>;
   const enabledModels = aiModels.filter((item) => item.status === "enabled");
   const textModels = enabledModels.filter((item) => item.modelType === "text");
   const visionModels = enabledModels.filter((item) => item.modelType === "vision");
   const priceRecognitionBlocker = !isAdmin
     ? "仅管理员可以创建价格识别任务。"
+    : aiModelsLoading
+      ? "正在读取已启用的视觉模型……"
     : !visionModels.length
       ? "当前没有已启用的视觉模型：请先到 AI 助理配置新增并启用视觉模型；文本模型不能代替主图识别。"
       : !priceCategory
         ? "请选择需要识别价格的类目。"
         : "";
-  return <section className="settings-market-master-live">
-    {(error || notice) && <div className={`market-feedback ${error ? "error" : "success"}`}>{error || notice}</div>}
+  return <section className="settings-market-master-live data-refresh-region" aria-busy={primaryLoading || (mode === "database" && (databaseFiltersLoading || databaseSecondaryLoading))}>
+    {(visibleError || notice) && <div className={`market-feedback ${visibleError ? "error" : "success"}`}>{visibleError || notice}{primaryError && <button className="row-action" onClick={() => void load().catch((reason) => setPrimaryError(reason instanceof Error ? reason.message : "市场主数据读取失败"))}>重试主数据</button>}{databaseFiltersError && !primaryError && <button className="row-action" onClick={() => void loadDatabaseFilters().catch((reason) => setDatabaseFiltersError(reason instanceof Error ? reason.message : "市场分类筛选项读取失败"))}>重试筛选项</button>}</div>}
     {mode === "database" && <article className="panel market-master-unified-toolbar"><div className="section-header"><div><h2>SKU 数据库与价格审核</h2><p>待确认价格已合并到 TOP SKU/SPU 主数据；同一张列表可筛选、查看候选价并直接编辑完整 SKU 数据。</p></div><div className="market-view-switch"><button className={databaseView === "cards" ? "active" : ""} onClick={() => setDatabaseView("cards")}>大图</button><button className={databaseView === "table" ? "active" : ""} onClick={() => setDatabaseView("table")}>列表</button></div></div><div className="market-master-filter-grid">
       <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" />
       <SearchMultiFilter label="三级类目" values={masterCategories} options={data.categories} onChange={(values) => { setMasterCategories(values); setPriceCategory(values.length === 1 ? values[0] : ""); setSubcategoryFilters([]); setPage(1); setPendingPricePage(1); }} />
@@ -576,24 +748,25 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
       <SearchMultiFilter label="候选价来源" values={masterCandidatePriceSources} options={[{ value: "ai", label: "AI 识别价", count: 0 }, { value: "non_ai", label: "非 AI 识别价", count: 0 }]} onChange={(values) => { setMasterCandidatePriceSources(values); setPage(1); }} />
       <SearchMultiFilter label="入库状态" values={annotationStatuses} options={[{ value: "pending", label: "待入库", count: 0 }, { value: "committed", label: "已入库", count: 0 }]} onChange={(values) => { setAnnotationStatuses(values); setPage(1); }} />
       <select aria-label="SKU 数据库每页条数" value={masterPageSize} onChange={(event) => { setMasterPageSize(Number(event.target.value)); setPage(1); }}><option value={20}>每页 20 条</option><option value={30}>每页 30 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select>
-    </div><div className="market-price-recognition-inline"><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="secondary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别待确认价格（最多100条）"}</button>{priceRecognitionBlocker && <span>{priceRecognitionBlocker}</span>}</div></article>}
-    {mode === "database" && <><article className="panel settings-master-overview">
-      <div className="settings-master-cards"><div><strong>{count(data.masterData.pagination.total)}</strong><span>主数据</span></div><div><strong>{count(data.pendingPrices.pagination.total)}</strong><span>待确认价格</span></div><div><strong>{count(data.imageCache.cached)} / {count(data.imageCache.total)}</strong><span>图片缓存</span></div><div><strong>{count(data.downloadTasks.length)}</strong><span>下载任务</span></div></div>
+    </div><div className="market-price-recognition-inline"><button className="secondary-button" disabled={databaseSecondaryRequested} onClick={() => { setDatabaseSecondaryLoading(true); setDatabaseSecondaryRequested(true); }}>{databaseSecondaryRequested ? "价格审核已展开" : "展开价格审核与缓存统计"}</button><span>{databaseFiltersLoading ? "当前页已就绪，分类筛选项正在后台补齐；" : "分类筛选项已就绪；"}待确认价格、图片统计和 AI 算力按需读取。</span></div></article>}
+    {mode === "database" && <>{databaseSecondaryRequested && (databaseSecondaryLoaded ? <><article className="panel settings-master-overview">
+      <div className="settings-master-cards"><div><strong>{count(data.masterData.pagination.total)}</strong><span>主数据</span></div><div><strong>{count(data.pendingPrices.pagination.total)}</strong><span>待确认价格</span></div><div><strong>{count(data.imageCache.cached)} / {count(data.imageCache.total)}</strong><span>图片缓存</span></div><div><strong>{count(data.statusCounts.confirmedPrices)}</strong><span>已确认价格</span></div></div>
     </article>
-    <article className="panel"><div className="section-header"><div><h3>待确认价格</h3><p>本表沿用上方三级类目多选，并可叠加候选价来源多选；AI 识别目标仍保持单类目，避免写入任务范围含糊。</p></div><div className="market-master-toolbar"><select aria-label="AI 价格识别目标类目" value={priceCategory} onChange={(event) => setPriceCategory(event.target.value)}><option value="">AI 识别目标类目</option>{data.priceRecognition.prompts.map((item) => <option key={item.category} value={item.category}>{item.category}（可识别 {count(Number(item.pending_count))}）</option>)}</select><SearchMultiFilter label="待确认价来源" values={pendingPriceSources} options={[{ value: "ai", label: "AI 识别价", count: 0 }, { value: "non_ai", label: "非 AI 识别价", count: 0 }]} onChange={(values) => { setPendingPriceSources(values); setPendingPricePage(1); }} /><select aria-label="每页条数" value={pendingPricePageSize} onChange={(event) => { setPendingPricePageSize(Number(event.target.value)); setPendingPricePage(1); }}><option value={20}>每页 20 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="primary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别价格（最多100条）"}</button></div></div>{priceRecognitionBlocker && <p className="market-price-blocker">{priceRecognitionBlocker}</p>}<div className="data-table-wrap"><table className="data-table market-price-review-table"><thead><tr><th>主图</th><th>SKU / 商品链接</th><th>榜单口径</th><th>月份</th><th>候选价</th><th>来源 / AI 依据</th><th>操作</th></tr></thead><tbody>{data.pendingPrices.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={`pending-price-${row.id}`}><td>{href && row.displayImageUrl ? <a href={href} target="_blank" rel="noreferrer"><img className="market-review-image" src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}<code>{String(row.imageContentSha256 ?? "").slice(0, 16)}</code></td><td>{String(row.scope || row.operationMode || "-")}</td><td>{String(row.month)}</td><td>{money(Number(row.candidatePriceCents ?? 0) || null)}</td><td><strong>{priceSourceLabel(row.candidatePriceSource)}</strong>{row.candidatePriceSource === "ai_suggestion" && <small>{String(row.aiPriceType || "待判断")} · 置信度 {percent(row.aiConfidenceBps === null ? null : Number(row.aiConfidenceBps))}<br />{String(row.aiReason || "未返回识别依据")}</small>}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmPrice(row)}>修改 / 确认价格</button></td></tr>; })}{!data.pendingPrices.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有待确认价格。</div></td></tr>}</tbody></table></div><div className="market-pagination"><button disabled={pendingPricePage <= 1} onClick={() => setPendingPricePage((current) => Math.max(1, current - 1))}>上一页</button><label>第 <select aria-label="待确认价格页码" value={pendingPricePage} onChange={(event) => setPendingPricePage(Number(event.target.value))}>{Array.from({ length: data.pendingPrices.pagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.pendingPrices.pagination.pageCount} 页</label><span>共 {count(data.pendingPrices.pagination.total)} 条</span><button disabled={pendingPricePage >= data.pendingPrices.pagination.pageCount} onClick={() => setPendingPricePage((current) => Math.min(data.pendingPrices.pagination.pageCount, current + 1))}>下一页</button></div></article>
+    <article className="panel data-refresh-region" aria-busy={databaseSecondaryLoading}><div className="section-header"><div><h3>待确认价格</h3><p>本表沿用上方三级类目多选，并可叠加候选价来源多选；AI 识别目标仍保持单类目，避免写入任务范围含糊。</p></div><div className="market-master-toolbar"><select aria-label="AI 价格识别目标类目" value={priceCategory} onChange={(event) => setPriceCategory(event.target.value)}><option value="">AI 识别目标类目</option>{data.priceRecognition.prompts.map((item) => <option key={item.category} value={item.category}>{item.category}（可识别 {count(Number(item.pending_count))}）</option>)}</select><SearchMultiFilter label="待确认价来源" values={pendingPriceSources} options={[{ value: "ai", label: "AI 识别价", count: 0 }, { value: "non_ai", label: "非 AI 识别价", count: 0 }]} onChange={(values) => { setPendingPriceSources(values); setPendingPricePage(1); }} /><select aria-label="每页条数" value={pendingPricePageSize} onChange={(event) => { setPendingPricePageSize(Number(event.target.value)); setPendingPricePage(1); }}><option value={20}>每页 20 条</option><option value={50}>每页 50 条</option><option value={100}>每页 100 条</option></select><select value={visionModelId} onChange={(event) => setVisionModelId(event.target.value)} disabled={!visionModels.length}><option value="">{visionModels.length ? "选择视觉模型" : "暂无已启用视觉模型"}</option>{visionModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}</option>)}</select><button className="primary-button" disabled={Boolean(priceRecognitionBlocker) || !visionModelId || busy !== ""} onClick={() => void recognizePrices()}>{busy === "recognize_prices" ? "AI 识别中…" : "AI 一键识别价格（最多100条）"}</button></div></div>{priceRecognitionBlocker && <p className="market-price-blocker">{priceRecognitionBlocker}</p>}<div className="data-table-wrap"><table className="data-table market-price-review-table"><thead><tr><th>主图</th><th>SKU / 商品链接</th><th>榜单口径</th><th>月份</th><th>候选价</th><th>来源 / AI 依据</th><th>操作</th></tr></thead><tbody>{data.pendingPrices.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={`pending-price-${row.id}`}><td>{href && row.displayImageUrl ? <a href={href} target="_blank" rel="noreferrer"><img className="market-review-image" src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}<code>{String(row.imageContentSha256 ?? "").slice(0, 16)}</code></td><td>{String(row.scope || row.operationMode || "-")}</td><td>{String(row.month)}</td><td>{money(Number(row.candidatePriceCents ?? 0) || null)}</td><td><strong>{priceSourceLabel(row.candidatePriceSource)}</strong>{row.candidatePriceSource === "ai_suggestion" && <small>{String(row.aiPriceType || "待判断")} · 置信度 {percent(row.aiConfidenceBps === null ? null : Number(row.aiConfidenceBps))}<br />{String(row.aiReason || "未返回识别依据")}</small>}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmPrice(row)}>修改 / 确认价格</button></td></tr>; })}{!data.pendingPrices.items.length && <tr><td colSpan={7}><div className="table-state">当前筛选范围没有待确认价格。</div></td></tr>}</tbody></table></div><div className="market-pagination"><button disabled={pendingPricePage <= 1} onClick={() => setPendingPricePage((current) => Math.max(1, current - 1))}>上一页</button><label>第 <select aria-label="待确认价格页码" value={pendingPricePage} onChange={(event) => setPendingPricePage(Number(event.target.value))}>{Array.from({ length: data.pendingPrices.pagination.pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> / {data.pendingPrices.pagination.pageCount} 页</label><span>共 {count(data.pendingPrices.pagination.total)} 条</span><button disabled={pendingPricePage >= data.pendingPrices.pagination.pageCount} onClick={() => setPendingPricePage((current) => Math.min(data.pendingPrices.pagination.pageCount, current + 1))}>下一页</button></div></article>
+    </> : <article className="panel data-state" role="status">{databaseSecondaryLoading && <span className="state-spinner" />}<strong>{databaseSecondaryLoading ? "正在按需读取价格审核与图片统计" : "价格审核数据暂未就绪"}</strong>{!databaseSecondaryLoading && <button className="secondary-button" onClick={() => void loadDatabaseSecondary().catch((reason) => setSecondaryError(reason instanceof Error ? reason.message : "价格审核数据读取失败"))}>重试价格审核</button>}</article>)}
     <article className="panel"><div className="section-header"><div><h3>TOP SKU/SPU 数据库</h3><p>卡片完整呈现商品主图、标题、价格与标签，也可切换为带图片和商品链接的表格。</p></div><div className="market-view-switch"><button className={databaseView === "cards" ? "active" : ""} onClick={() => setDatabaseView("cards")}>卡片</button><button className={databaseView === "table" ? "active" : ""} onClick={() => setDatabaseView("table")}>表格</button></div></div>{databaseView === "cards" ? <div className="market-master-product-grid">{data.masterData.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <article key={String(row.id)}><a className="market-master-product-image" href={href || undefined} target={href ? "_blank" : undefined} rel={href ? "noreferrer" : undefined}>{row.displayImageUrl ? <img src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /> : <span>暂无主图</span>}</a><div className="market-master-product-body">{href ? <a href={href} target="_blank" rel="noreferrer"><h4>{String(row.productName || row.skuCode)}</h4></a> : <h4>{String(row.productName || row.skuCode)}</h4>}<strong className="market-master-price">{money(row.officialMarketPriceCents === null ? Number(row.candidatePriceCents ?? 0) || null : Number(row.officialMarketPriceCents))}</strong><div className="market-master-tags"><span>{String(row.category)}</span><span>{String(row.operationMode)}</span><span>{String(row.rankingDimension)}</span><span>{String(row.brand || "待识别品牌")}</span><span>{String(row.priceBand || "待确认价格")}</span></div><small>#{String(row.rank ?? "-")} · {String(row.skuCode)} · {String(row.scope)}</small><footer><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => modifyProductBrand(row)}>编辑 SKU 数据</button>{href && <a href={href} target="_blank" rel="noreferrer">商品链接</a>}</footer></div></article>; })}</div> : <div className="data-table-wrap"><table className="data-table market-master-database-table"><thead><tr><th>主图</th><th>商品 / 链接</th><th>维度</th><th>POP/自营</th><th>品牌</th><th>细分类目</th><th>确认价</th><th>价格带</th><th>操作</th></tr></thead><tbody>{data.masterData.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={String(row.id)}><td className="market-master-table-image">{row.displayImageUrl ? (href ? <a href={href} target="_blank" rel="noreferrer"><img src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" /></a> : <img src={String(row.displayImageUrl)} alt={String(row.productName ?? row.skuCode)} loading="lazy" />) : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName ?? "")}</small></>}{href && <a className="market-master-table-link" href={href} target="_blank" rel="noreferrer">打开商品链接 ↗</a>}</td><td>{String(row.rankingDimension)}</td><td>{String(row.operationMode)}</td><td>{String(row.brand || "待识别")}</td><td>{String(row.subcategory ?? "")}</td><td>{money(row.officialMarketPriceCents === null ? null : Number(row.officialMarketPriceCents))}</td><td>{String(row.priceBand ?? "")}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => modifyProductBrand(row)}>编辑 SKU 数据</button></td></tr>; })}</tbody></table></div>}<div className="market-pagination"><button disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>上一页</button><span>第 {page} / {data.masterData.pagination.pageCount} 页</span><button disabled={page >= data.masterData.pagination.pageCount} onClick={() => setPage((current) => current + 1)}>下一页</button></div></article></>}
     {mode === "brand" && <><article className="panel market-ai-capacity"><div className="section-header"><div><h2>运营管理系统 AI 算力</h2><p>这里直接读取“AI 助理配置”中已启用的模型，不再维护独立密钥或重复配置。</p></div><select value={brandModelId} onChange={(event) => setBrandModelId(event.target.value)} disabled={!textModels.length}>{textModels.length ? textModels.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.modelName}{item.isDefaultTextModel ? "（默认）" : ""}</option>) : <option value="">暂无已启用文本模型</option>}</select></div><div className="market-ai-model-grid">{enabledModels.map((item) => <div key={item.id}><strong>{item.name}</strong><span>{item.modelType} · {item.modelName}</span><small>{item.isDefaultTextModel ? "默认文本算力" : "已接入系统算力"}</small></div>)}{!enabledModels.length && <p>尚未配置可用模型，请先到 AI 助理配置中新增并测试模型。</p>}</div></article>
-    <article className="panel"><div className="section-header"><div><h3>品牌种子词典</h3><p>从 ERP、库存、店铺商品和已确认市场品牌刷新系统品牌；B店/京东自营仅匹配标题前缀，C店/POP可匹配标题任意位置。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void upsertBrandSeed()}>新增品牌种子</button><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void refreshBrandSeeds()}>{busy === "refresh_brand_seeds" ? "刷新中…" : "刷新系统品牌"}</button><button className="primary-button" disabled={!isAdmin || busy !== "" || !data.brandSeeds.dictionary.counts.enabled} onClick={() => void matchSystemBrandSeeds()}>{busy === "match_brand_seeds" ? "匹配中…" : "按种子匹配未知 SKU"}</button></div></div><div className="settings-master-cards"><div><strong>{count(data.brandSeeds.dictionary.counts.enabled)}</strong><span>启用种子</span></div><div><strong>{count(data.brandSeeds.dictionary.counts.system)}</strong><span>系统品牌</span></div><div><strong>{count(data.brandSeeds.dictionary.counts.manual)}</strong><span>人工补录</span></div><div><strong>{count(data.brandSeeds.unknown.pagination.total)}</strong><span>未知品牌 SKU</span></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>标准品牌</th><th>种子词</th><th>来源</th><th>状态</th><th>更新时间</th></tr></thead><tbody>{data.brandSeeds.dictionary.items.map((row) => <tr key={String(row.id)}><td><strong>{String(row.canonical_brand)}</strong></td><td>{String(row.seed_text)}</td><td>{row.source === "manual" ? "人工补录" : "系统刷新"}<small>{String(row.source_ref || "")}</small></td><td>{row.status === "enabled" ? "启用" : "停用"}</td><td>{String(row.updated_at || "-")}</td></tr>)}{!data.brandSeeds.dictionary.items.length && <tr><td colSpan={5}><div className="table-state">词典为空，请先刷新系统品牌或新增种子。</div></td></tr>}</tbody></table></div></article>
+    <article className="panel"><div className="section-header"><div><h3>品牌种子词典</h3><p>从 ERP、库存、店铺商品和已确认市场品牌刷新系统品牌；B店/京东自营仅匹配标题前缀，C店/POP可匹配标题任意位置。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void upsertBrandSeed()}>新增品牌种子</button><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void refreshBrandSeeds()}>{busy === "refresh_brand_seeds" ? "刷新中…" : "刷新系统品牌"}</button><button className="primary-button" disabled={!isAdmin || busy !== "" || !data.brandSeeds.dictionary.counts.enabled} onClick={() => void matchSystemBrandSeeds()}>{busy === "match_brand_seeds" ? "匹配中…" : "按种子匹配未知 SKU"}</button></div></div><div className="settings-master-cards"><div><strong>{count(data.brandSeeds.dictionary.counts.enabled)}</strong><span>启用种子</span></div><div><strong>{count(data.brandSeeds.dictionary.counts.system)}</strong><span>系统品牌</span></div><div><strong>{count(data.brandSeeds.dictionary.counts.manual)}</strong><span>人工补录</span></div><div><strong>{count(data.brandSeeds.unknown.pagination.total)}</strong><span>未知品牌 SKU</span></div></div><div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>标准品牌</th><th>种子词</th><th>来源</th><th>状态</th><th>更新时间</th></tr></thead><tbody>{data.brandSeeds.dictionary.items.map((row) => <tr key={String(row.id)}><td><strong>{String(row.canonical_brand)}</strong></td><td>{String(row.seed_text)}</td><td>{row.source === "manual" ? "人工补录" : "系统刷新"}<small>{String(row.source_ref || "")}</small></td><td>{row.status === "enabled" ? "启用" : "停用"}</td><td>{String(row.updated_at || "-")}</td></tr>)}{!data.brandSeeds.dictionary.items.length && <tr><td colSpan={5}><div className="table-state">词典为空，请先刷新系统品牌或新增种子。</div></td></tr>}</tbody></table></div></article>
     <article className="panel"><div className="section-header"><div><h3>未知品牌 SKU 清单</h3><p>这里只列出当前仍未匹配的去重 SKU；补录种子时会立即补齐当前 SKU，之后导入也会自动复用。</p></div><strong>{count(data.brandSeeds.unknown.pagination.total)} 个待处理</strong></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>SKU / 商品标题</th><th>店铺</th><th>匹配规则</th><th>类目</th><th>操作</th></tr></thead><tbody>{data.brandSeeds.unknown.items.map((row) => { const href = marketProductHref(row.productUrl, row.skuCode); return <tr key={`${row.category}-${row.scope}-${row.rankingDimension}-${row.skuCode}`}><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.skuCode)}</strong><small>{String(row.productName)}</small></a> : <><strong>{String(row.skuCode)}</strong><small>{String(row.productName)}</small></>}</td><td>{String(row.storeName || "-")}<small>{String(row.storeType || row.scope || "-")}</small></td><td>{row.matchPolicy === "title_prefix" ? "B店 / 自营：标题前缀" : "C店 / POP：任意位置"}</td><td>{String(row.category)}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => void upsertBrandSeed(row)}>补录品牌种子</button></td></tr>})}{!data.brandSeeds.unknown.items.length && <tr><td colSpan={5}><div className="table-state">当前筛选范围没有未知品牌 SKU。</div></td></tr>}</tbody></table></div><div className="market-pagination"><button disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>上一页</button><span>第 {page} / {data.brandSeeds.unknown.pagination.pageCount} 页</span><button disabled={page >= data.brandSeeds.unknown.pagination.pageCount} onClick={() => setPage((current) => current + 1)}>下一页</button></div></article>
     <article className="panel"><div className="section-header market-brand-batch-header"><div><h3>品牌识别与人工确认</h3><p>“所有页”按当前搜索和类目筛选处理去重商品；任务可暂停、恢复，刷新或关闭页面不会丢失已完成批次。</p></div><div className="market-master-toolbar"><select value={category} disabled={busy === "recognize_brand_all"} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">全部类目</option>{data.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select><input value={query} disabled={busy === "recognize_brand_all"} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="搜索 SKU、标题或品牌" />{busy === "recognize_brand_all" ? <button className="secondary-button" disabled={!isAdmin} onClick={() => void pauseBrandRecognition()}>暂停识别</button> : <button className="primary-button" disabled={!isAdmin || !brandModelId || busy !== ""} onClick={() => void recognizeAllBrands()}>{brandJob && ["queued", "running", "paused", "failed"].includes(brandJob.status) ? "继续识别" : "AI 一键识别品牌（所有页）"}</button>}<button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void confirmAllBrandSuggestions()}>{busy === "confirm_brand_all" ? "批量确认中…" : "一键确认全部候选"}</button></div></div>{brandJob && <div className="market-brand-job-progress"><header><div><strong>{brandJob.status === "completed" ? "识别完成" : brandJob.status === "paused" ? "已暂停" : brandJob.status === "failed" ? "可重试" : "识别任务进行中"}</strong><small>任务 {brandJob.id.slice(-8)} · 每批 {brandJob.batchSize} 个</small></div><b>{percent(brandJob.progressBps)}</b></header><span><i style={{ width: `${Math.min(100, brandJob.progressBps / 100)}%` }} /></span><div><label><strong>{count(brandJob.processedCount)}</strong><small>已处理</small></label><label><strong>{count(brandJob.remainingCount)}</strong><small>剩余</small></label><label><strong>{count(brandJob.recognizedCount)}</strong><small>识别出品牌</small></label><label><strong>{brandJobEta(brandJob)}</strong><small>预计剩余</small></label></div>{brandJob.lastError && <p>{brandJob.lastError}</p>}</div>}<div className="data-table-wrap"><table className="data-table market-brand-review-table"><thead><tr><th>主图</th><th>商品标题 / 类目</th><th>当前品牌</th><th>AI / 人工品牌</th><th>操作</th></tr></thead><tbody>{data.masterData.items.map((row) => { const key = brandRowKey(row); const href = marketProductHref(row.productUrl, row.skuCode); const suggested = String(row.suggestedBrand || "") || String(row.brand || ""); return <tr key={`${key}-${row.id}`}><td>{row.displayImageUrl ? <img className="market-review-image" src={String(row.displayImageUrl)} alt="" loading="lazy" /> : <span className="annotation-no-image">无图</span>}</td><td>{href ? <a href={href} target="_blank" rel="noreferrer"><strong>{String(row.productName || row.skuCode)}</strong></a> : <strong>{String(row.productName || row.skuCode)}</strong>}<small>{String(row.skuCode)} · 类目：{String(row.category)} · {String(row.scope)}</small></td><td>{String(row.brand || "待识别")}</td><td><input value={brandDrafts[key] ?? suggested} onChange={(event) => setBrandDrafts((current) => ({ ...current, [key]: event.target.value }))} placeholder="识别不了可留空" />{row.brandSuggestionStatus === "ai_pending" && <small className="market-ai-suggestion">AI 候选，待确认</small>}</td><td><div className="annotation-actions"><button className="row-action" disabled={!isAdmin || !brandModelId || busy !== ""} onClick={() => void inferBrand(row)}>{busy === `infer_brand:${key}` ? "识别中…" : "重新识别"}</button><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => confirmBrand(row)}>修改 / 确认</button></div></td></tr>; })}</tbody></table></div><div className="market-pagination"><button disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>上一页</button><span>第 {page} / {data.masterData.pagination.pageCount} 页</span><button disabled={page >= data.masterData.pagination.pageCount} onClick={() => setPage((current) => current + 1)}>下一页</button></div></article></>}
     {mode === "mapping" && <article className="panel"><div className="section-header"><div><h3>映射与价格带</h3><p>细分类目、品牌别名、单品品牌确认、POP/自营映射和价格带配置均持久化并审计。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("subcategory")}>新增细分类目映射</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("brand_alias")}>新增品牌别名</button><button className="secondary-button" disabled={!isAdmin} onClick={() => createMapping("operation_mode")}>新增经营模式规则</button><button className="secondary-button" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "apply_mappings" })}>重算并应用映射</button><button className="secondary-button" disabled={!isAdmin} onClick={createPriceBandDraft}>新建价格带版本</button></div></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类型</th><th>来源</th><th>目标</th><th>状态</th><th>版本</th><th>操作</th></tr></thead><tbody>{data.mappings.items.map((row) => <tr key={String(row.id)}><td>{String(row.kind)}</td><td>{String(row.source_value)}</td><td>{String(row.target_value)}</td><td>{String(row.status)}</td><td>{String(row.version)}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => editMapping(row)}>编辑</button></td></tr>)}</tbody></table></div>
+      <div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>类型</th><th>来源</th><th>目标</th><th>状态</th><th>版本</th><th>操作</th></tr></thead><tbody>{data.mappings.items.map((row) => <tr key={String(row.id)}><td>{String(row.kind)}</td><td>{String(row.source_value)}</td><td>{String(row.target_value)}</td><td>{String(row.status)}</td><td>{String(row.version)}</td><td><button className="row-action" disabled={!isAdmin || busy !== ""} onClick={() => editMapping(row)}>编辑</button></td></tr>)}</tbody></table></div>
       <div className="market-brand-list">{data.priceBands.items.map((row) => <article key={String(row.id)}><label><strong>{String(row.category)} v{String(row.version)}</strong><span>{String(row.status)}</span></label><small>{String(row.effective_from)} · {String(row.note ?? "")}</small><div className="annotation-actions"><button className="row-action" disabled={!isAdmin || busy !== "" || row.status === "published"} onClick={() => void post({ action: "publish_price_band_version", id: row.id })}>发布</button><button className="row-action" disabled={!isAdmin || busy !== "" || row.status !== "archived"} onClick={() => void post({ action: "rollback_price_band_version", targetVersionId: row.id })}>回滚到此版本</button></div></article>)}</div>
     </article>}
     {mode === "data" && <><article className="panel"><div className="section-header"><div><h3>自动下载与导入工作流</h3><p>计算缺失范围、创建或复用下载任务，登录态未验证时保持 waiting_login。</p></div><div className="annotation-actions"><button className="secondary-button" disabled={!isAdmin} onClick={createDownloadConfig}>新增下载配置</button><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void post({ action: "plan_downloads" })}>计算缺失任务</button></div></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>类目/口径/月/维度</th><th>状态</th><th>次数</th><th>文件</th><th>错误</th><th>执行</th></tr></thead><tbody>{data.downloadTasks.map((row) => <tr key={String(row.id)}><td>{String(row.category)} · {String(row.scope)} · {String(row.month)} · {String(row.ranking_dimension)}</td><td>{String(row.status)}</td><td>{String(row.attempt_count)}</td><td>{String(row.source_file_name ?? "")}</td><td>{String(row.error_message ?? "")}</td><td><div className="annotation-actions"><label className="row-action">上传并校验导入<input type="file" accept=".xls,.xlsx,.csv" hidden disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void importDownloadedTask(row, file); event.currentTarget.value = ""; }} /></label><button className="row-action" disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onClick={() => void post({ action: "record_download_attempt", taskId: row.id, status: "waiting_login", errorCode: "waiting_login", errorMessage: "等待京东登录验证" })}>等待登录</button></div></td></tr>)}</tbody></table></div>
+      <div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>类目/口径/月/维度</th><th>状态</th><th>次数</th><th>文件</th><th>错误</th><th>执行</th></tr></thead><tbody>{data.downloadTasks.map((row) => <tr key={String(row.id)}><td>{String(row.category)} · {String(row.scope)} · {String(row.month)} · {String(row.ranking_dimension)}</td><td>{String(row.status)}</td><td>{String(row.attempt_count)}</td><td>{String(row.source_file_name ?? "")}</td><td>{String(row.error_message ?? "")}</td><td><div className="annotation-actions"><label className="row-action">上传并校验导入<input type="file" accept=".xls,.xlsx,.csv" hidden disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onChange={(event) => { const file = event.target.files?.[0]; if (file) void importDownloadedTask(row, file); event.currentTarget.value = ""; }} /></label><button className="row-action" disabled={!isAdmin || busy !== "" || row.status === "imported" || row.status === "published"} onClick={() => void post({ action: "record_download_attempt", taskId: row.id, status: "waiting_login", errorCode: "waiting_login", errorMessage: "等待京东登录验证" })}>等待登录</button></div></td></tr>)}</tbody></table></div>
     </article>
-    <article className="panel"><div className="section-header"><div><h3>数据覆盖、图片缓存与审计</h3><p>覆盖检查和完整审计记录来自市场主数据审计表。</p></div></div><div className="settings-master-cards">{data.coverage.slice(0, 8).map((row) => <div key={`${row.category}-${row.scope}-${row.ranking_dimension}`}><strong>{String(row.month_min ?? "-")}~{String(row.month_max ?? "-")}</strong><span>{String(row.category)} · {String(row.scope)} · {String(row.ranking_dimension)} · SKU {String(row.sku_count)}</span></div>)}</div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>时间</th><th>人员</th><th>动作</th><th>对象</th></tr></thead><tbody>{data.audits.map((row) => <tr key={String(row.id)}><td>{String(row.created_at)}</td><td>{String(row.actor_email)}</td><td>{String(row.action)}</td><td>{String(row.entity_type)} · {String(row.entity_id)}</td></tr>)}</tbody></table></div></article>
+    <article className="panel"><div className="section-header"><div><h3>数据覆盖、图片缓存与审计</h3><p>覆盖检查和完整审计记录来自市场主数据审计表。</p></div></div><div className="settings-master-cards">{data.coverage.slice(0, 8).map((row) => <div key={`${row.category}-${row.scope}-${row.ranking_dimension}`}><strong>{String(row.month_min ?? "-")}~{String(row.month_max ?? "-")}</strong><span>{String(row.category)} · {String(row.scope)} · {String(row.ranking_dimension)} · SKU {String(row.sku_count)}</span></div>)}</div><div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>时间</th><th>人员</th><th>动作</th><th>对象</th></tr></thead><tbody>{data.audits.map((row) => <tr key={String(row.id)}><td>{String(row.created_at)}</td><td>{String(row.actor_email)}</td><td>{String(row.action)}</td><td>{String(row.entity_type)} · {String(row.entity_id)}</td></tr>)}</tbody></table></div></article>
     </>}
     {mode === "subcategory" && <article className="panel market-subcategory-settings"><div className="section-header"><div><h2>细分品类设置</h2><p>按三级类目维护统一细分品类。保存后会同步刷新榜单、SKU 入库标注和待复核候选，并发布映射供后续导入复用。</p></div><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">请选择三级类目</option>{data.subcategorySettings.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select></div>{category ? <><div className="data-table-wrap"><table className="data-table"><thead><tr><th>当前细分品类</th><th>关联 SKU</th><th>已入库标注</th><th>修改为</th></tr></thead><tbody>{data.subcategorySettings.items.map((item) => <tr key={item.subcategory}><td><strong>{item.subcategory}</strong></td><td>{count(Number(item.sku_count))}</td><td>{count(Number(item.annotation_count))}</td><td><input value={subcategoryDrafts[item.subcategory] ?? item.subcategory} onChange={(event) => setSubcategoryDrafts((current) => ({ ...current, [item.subcategory]: event.target.value }))} /></td></tr>)}{!data.subcategorySettings.items.length && <tr><td colSpan={4}><div className="table-state">该三级类目尚无细分品类，可直接新增。</div></td></tr>}</tbody></table></div><label className="market-subcategory-add"><span>新增细分品类（每行一个）</span><textarea value={newSubcategory} onChange={(event) => setNewSubcategory(event.target.value)} placeholder="例如：台式净饮机&#10;商用直饮机" /></label><div className="annotation-actions"><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void saveSubcategories()}>{busy === "save_subcategory_settings" ? "刷新关联数据中…" : "保存并刷新全部关联数据"}</button></div></> : <div className="table-state">请先选择三级类目。</div>}</article>}
     {editingSku && <Dialog

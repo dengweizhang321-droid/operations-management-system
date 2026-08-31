@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { assertJdMarketImageCoverage, isJdMarketRankRequestForTarget, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig, withSingleJdMarketRequestRefresh } from "../tools/jd-market-ranking-daily";
+import { assertJdMarketImageCoverage, isJdMarketRankRequestForTarget, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig, withSingleJdMarketFilterSelectionRetry, withSingleJdMarketRequestRefresh } from "../tools/jd-market-ranking-daily";
 import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent-window header is strict and shared by multi-store and market plans", () => {
@@ -28,6 +28,31 @@ test("JD promotion and market helper plan retries preserve persisted stages", as
   const helper = await readFile(new URL("../tools/tmall-sycm-cookie-pipeline.ts", import.meta.url), "utf8");
   assert.match(helper, /jdPromotionPlan = await planJdPromotionN8nRun[\s\S]*?stage = jdPromotionPlan\.stage/);
   assert.match(helper, /jdMarketPlan = await planJdMarketDailyRun[\s\S]*?stage = jdMarketPlan\.stage/);
+});
+
+test("JD market filter selection retries one ignored click and still fails closed after the second miss", async () => {
+  let selections = 0;
+  let verifications = 0;
+  const recovered = await withSingleJdMarketFilterSelectionRetry(
+    async () => { selections += 1; },
+    async () => {
+      verifications += 1;
+      if (verifications === 1) throw new Error("SKU 未读回");
+    },
+  );
+  assert.deepEqual(recovered, { retried: true });
+  assert.equal(selections, 2);
+  assert.equal(verifications, 2);
+
+  let failedSelections = 0;
+  await assert.rejects(
+    withSingleJdMarketFilterSelectionRetry(
+      async () => { failedSelections += 1; },
+      async () => { throw new Error("仍为 SPU"); },
+    ),
+    /连续两次未精确生效.*仍为 SPU/,
+  );
+  assert.equal(failedSelections, 2);
 });
 
 test("JD market image responses accept array and SKU-keyed shapes but fail closed on missing images", () => {
@@ -126,7 +151,7 @@ test("JD market n8n workflow stays inactive, uses Profile 3 hidden Chromium, and
   assert.equal(workflow.active, false);
   assert.match(workflow.name, /Profile 3隐藏Chromium/);
   const schedule = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
-  assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "0 10 * * *");
+  assert.equal(schedule?.parameters?.rule?.interval?.[0]?.expression, "30 10 * * *");
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && /^http:\/\/127\.0\.0\.1:5791\/jd-market\//.test(node.parameters?.url ?? ""));
   assert.deepEqual(requests.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/jd-market/plan",

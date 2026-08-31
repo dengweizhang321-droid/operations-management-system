@@ -46,7 +46,7 @@ test("global search presentation preserves guide, short, loading, error, and res
     showShortQuery: false,
     showLoading: true,
     showError: false,
-    showResult: false,
+    showResult: true,
   });
   assert.deepEqual(deriveGlobalSearchPresentation("净", true, "查询失败", emptyResult), {
     showGuide: false,

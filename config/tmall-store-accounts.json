@@ -8,6 +8,10 @@
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
       "productMasterExportMode": "on_sale_pagewise_excel",
+      "productMasterCadence": {
+        "intervalDays": 3,
+        "initialDueDate": "2026-08-27"
+      },
       "initialStartDate": "2026-07-28",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
@@ -25,7 +29,11 @@
       "shopName": "天猫-志高丽力专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": "2026-08-21",
+      "productMasterCadence": {
+        "intervalDays": 3,
+        "initialDueDate": "2026-08-27"
+      },
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -56,7 +64,11 @@
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
       "productMasterExportMode": "on_sale_pagewise_excel",
-      "initialStartDate": "2026-08-21",
+      "productMasterCadence": {
+        "intervalDays": 3,
+        "initialDueDate": "2026-08-25"
+      },
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -73,7 +85,11 @@
       "shopName": "天猫-志高亿用专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": "2026-08-21",
+      "productMasterCadence": {
+        "intervalDays": 3,
+        "initialDueDate": "2026-08-26"
+      },
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -90,7 +106,12 @@
       "shopName": "天猫-志高炊之王专卖店",
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
-      "initialStartDate": "2026-08-21",
+      "productMasterExportMode": "on_sale_pagewise_excel",
+      "productMasterCadence": {
+        "intervalDays": 3,
+        "initialDueDate": "2026-08-25"
+      },
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",
@@ -121,7 +142,11 @@
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
       "productMasterExportMode": "on_sale_pagewise_excel",
-      "initialStartDate": "2026-08-21",
+      "productMasterCadence": {
+        "intervalDays": 3,
+        "initialDueDate": "2026-08-26"
+      },
+      "initialStartDate": "2026-08-01",
       "portalUrl": "https://sycm.taobao.com/portal/home.htm",
       "browser": {
         "executablePath": "%LOCALAPPDATA%/Chromium/Application/chrome.exe",

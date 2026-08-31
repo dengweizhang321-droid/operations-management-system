@@ -252,9 +252,10 @@ function CategoryOutletDrawer({ category, data, loading, error, onClose }: {
         <button ref={closeButtonRef} type="button" aria-label="关闭品类详情" onClick={onClose}>×</button>
       </header>
       {loading && !data ? <div className="category-drawer-state" role="status"><span className="state-spinner" /><strong>正在汇总平台与店铺数据</strong></div>
-        : error ? <div className="category-drawer-state error" role="alert"><strong>详情加载失败</strong><p>{error}</p></div>
+        : error && !data ? <div className="category-drawer-state error" role="alert"><strong>详情加载失败</strong><p>{error}</p></div>
           : data ? <>
-            <section className="category-drawer-summary">
+            {error && <div className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>详情刷新失败</strong><p>{error}；当前仍显示上一次成功结果。</p></div></div>}
+            <section className="category-drawer-summary data-refresh-region" aria-busy={loading}>
               <div><span>品类净销售额</span><strong>{formatCurrency(data.totals.netSalesCents)}</strong></div>
               <div><span>平台</span><strong>{formatCount(data.totals.platformCount)} 个</strong></div>
               <div><span>店铺</span><strong>{formatCount(data.totals.shopCount)} 个</strong></div>
@@ -262,7 +263,7 @@ function CategoryOutletDrawer({ category, data, loading, error, onClose }: {
             <div className="category-platform-list">
               {data.platforms.map((platform) => <section key={platform.platform} className="category-platform-group">
                 <div className="category-platform-heading"><div><strong>{platform.platform}</strong><span>{platform.shopCount} 个店铺 · 贡献 {formatRate(platform.shareRate)}</span></div><div><strong>{formatCurrency(platform.netSalesCents)}</strong><span>毛利率 {formatRate(platform.grossMarginRate)}</span></div></div>
-                <div className="data-table-wrap"><table className="data-table category-outlet-table"><thead><tr><th>店铺</th><th>净销售额</th><th>贡献率</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>毛利额</th><th>毛利率</th></tr></thead><tbody>
+                <div className="data-table-wrap"><table className="data-table category-outlet-table" data-column-filter-scope={data.pagination.truncated ? "none" : "full"}><thead><tr><th>店铺</th><th>净销售额</th><th>贡献率</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>毛利额</th><th>毛利率</th></tr></thead><tbody>
                   {platform.shops.map((shop) => <tr key={`${platform.platform}-${shop.shop}`}><td><strong>{shop.shop}</strong></td><td>{formatCurrency(shop.netSalesCents)}</td><td>{formatRate(shop.shareRate)}</td><td>{formatCount(shop.netQuantity)}</td><td>{formatCurrency(shop.refundAmountCents)}</td><td>{formatRate(shop.refundRate)}</td><td>{formatCurrency(shop.grossProfitCents)}</td><td className={shop.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(shop.grossMarginRate)}</td></tr>)}
                 </tbody></table></div>
               </section>)}
@@ -317,6 +318,7 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
   const [retryKey, setRetryKey] = useState(0);
   const [detailCategory, setDetailCategory] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<CategoryOutletBreakdownResponse | null>(null);
+  const [detailDataCategory, setDetailDataCategory] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const requestGenerationRef = useRef(0);
@@ -325,6 +327,7 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
   const closeCategoryDetail = useCallback(() => {
     setDetailCategory(null);
     setDetailData(null);
+    setDetailDataCategory(null);
     setDetailError("");
   }, []);
 
@@ -363,7 +366,7 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
         filters.outletKeys.forEach((value) => query.append("outlet", value));
         if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
         const payload = await requestJson<CategoryAnalysisResponse>(`/api/sales/category-analysis?${query}`, { signal: controller.signal });
-        if (generation !== requestGenerationRef.current) return;
+        if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
         setData(payload);
       } catch (reason) {
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
@@ -382,7 +385,6 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
     void (async () => {
       setDetailLoading(true);
       setDetailError("");
-      setDetailData(null);
       try {
         const query = new URLSearchParams({ startDate, endDate, category: detailCategory });
         filters.channels.forEach((value) => query.append("channel", value));
@@ -390,7 +392,10 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
         filters.outletKeys.forEach((value) => query.append("outlet", value));
         if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
         const payload = await requestJson<CategoryOutletBreakdownResponse>(`/api/sales/category-analysis/detail?${query}`, { signal: controller.signal });
-        if (generation === detailRequestGenerationRef.current) setDetailData(payload);
+        if (!controller.signal.aborted && generation === detailRequestGenerationRef.current) {
+          setDetailData(payload);
+          setDetailDataCategory(detailCategory);
+        }
       } catch (reason) {
         if (!controller.signal.aborted && generation === detailRequestGenerationRef.current) {
           setDetailError(reason instanceof Error ? reason.message : "暂时无法读取平台店铺详情");
@@ -411,7 +416,8 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
 
   const summary = data.summary;
   const maxRankingSales = Math.max(1, ...data.ranking.map((item) => Math.max(0, item.netSalesCents)));
-  return <div className="sales-category-view" aria-busy={loading}>
+  const visibleDetailData = detailDataCategory === detailCategory ? detailData : null;
+  return <div className="sales-category-view data-refresh-region" aria-busy={loading}>
     <section className="panel category-filter-panel category-analysis-settings" aria-label="品类分析设置">
       <div className="category-filter-heading"><div><span className="eyebrow">CATEGORY SETTINGS</span><h2>品类分析设置</h2><p>{data.range.startDate} 至 {data.range.endDate} · 公共筛选已同步应用，渠道与趋势粒度为品类页专属设置。</p></div><span className="soft-tag">{data.filtersApplied.dataScope.mode === "restricted" ? "已应用账号数据范围" : "全部授权范围"}</span></div>
       <div className="category-filter-layout">
@@ -453,6 +459,6 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
       </section>
     </>}
     <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销量沿用销售总览口径，排除配件、赠品配件、补差价专用和销售行未分类，退货率 = 退款金额 / 正向销售额。</span><span>同比：{data.comparisonPeriods.yearAgo.startDate} 至 {data.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {data.comparisonPeriods.weekOverWeek.current.startDate} 至 {data.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {data.comparisonPeriods.weekOverWeek.previous.startDate} 至 {data.comparisonPeriods.weekOverWeek.previous.endDate}。</span><span>品类趋势：按当前{data.details.trend.granularity === "day" ? "日" : data.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {data.details.trend.periodLimit} 个有数据周期；数据截止 {data.dataCutoffDate ?? "暂无"}。</span></section>
-    {detailCategory && <CategoryOutletDrawer category={detailCategory} data={detailData} loading={detailLoading} error={detailError} onClose={closeCategoryDetail} />}
+    {detailCategory && <CategoryOutletDrawer category={detailCategory} data={visibleDetailData} loading={detailLoading} error={detailError} onClose={closeCategoryDetail} />}
   </div>;
 }

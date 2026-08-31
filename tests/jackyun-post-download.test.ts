@@ -69,6 +69,24 @@ test("inventory processing removes the exact brush warehouse and non-positive co
   assert.ok(inventoryRows.every((row) => row.unitCostCents > 0));
 });
 
+test("inventory processing removes negative on-hand or available quantity and implausible value rows", () => {
+  const workbook = createXlsxWorkbookBytes([{
+    name: "sheetTitle",
+    rows: [
+      ["货品编号", "货品名称", "规格", "单位", "仓库", "固定成本价", "库存数量", "可用库存"],
+      ["SKU-1", "正常", "标准", "台", "主仓", 10, 3, 2],
+      ["SKU-2", "负实盘库存", "标准", "台", "主仓", 10, -1, 0],
+      ["SKU-3", "负可用库存", "标准", "台", "主仓", 10, 1, -1],
+      ["SKU-4", "异常占位", "标准", "台", "供应商仓", 20_000, 100_000, 100_000],
+    ],
+  }]);
+  const prepared = prepareJackyunWorkbook("inventory", workbook, { minimumRows: 1, snapshotDate: "2026-08-26" });
+  assert.equal(prepared.preprocessing.excludedNegativeQuantityRows, 2);
+  assert.equal(prepared.preprocessing.excludedImplausibleValueRows, 1);
+  assert.equal(prepared.preprocessing.retainedRows, 1);
+  assert.equal(prepared.expectedBatchRowCount, 1);
+});
+
 test("inventory row identity is stable when workbook rows are reordered", () => {
   const workbook = (rows: XlsxCellValue[][]) => createXlsxWorkbookBytes([{
     name: "库存",

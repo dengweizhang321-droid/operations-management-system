@@ -72,6 +72,211 @@ function masterFixture() {
   return zipSync(archive);
 }
 
+function productAssetFixture(options: {
+  rows?: Array<{ id: string; title: string; shop: string; url: string }>;
+  imageRows?: number[];
+  imageBytes?: Uint8Array[];
+} = {}) {
+  const rows = options.rows ?? [
+    { id: "562048375368", title: "测试饮水机", shop: "志高炊之王专卖店", url: "https://item.taobao.com/item.htm?id=562048375368" },
+    { id: "812345678901", title: "测试净水器", shop: "志高炊之王专卖店", url: "https://detail.tmall.com/item.htm?id=812345678901" },
+  ];
+  const imageRows = options.imageRows ?? rows.map((_row, index) => index + 2);
+  const bytes = workbookBytes([
+    ["主图", "ID", "标题", "商品价格", "付款人数", "店铺", "链接"],
+    ...rows.map((row) => [null, row.id, row.title, "99.00", "10人付款", row.shop, row.url]),
+  ], { bookType: "xlsx", sheetName: "商品图" });
+  const archive = unzipSync(bytes);
+  archive["xl/worksheets/_rels/sheet1.xml.rels"] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+       <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+     </Relationships>`,
+  );
+  archive["xl/drawings/drawing1.xml"] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+     <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+       ${imageRows.map((rowNumber, index) => `<xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:row>${rowNumber - 1}</xdr:row></xdr:from><xdr:to><xdr:col>1</xdr:col><xdr:row>${rowNumber}</xdr:row></xdr:to><xdr:pic><xdr:blipFill><a:blip r:embed="rId${index + 1}"/></xdr:blipFill></xdr:pic></xdr:twoCellAnchor>`).join("")}
+     </xdr:wsDr>`,
+  );
+  archive["xl/drawings/_rels/drawing1.xml.rels"] = strToU8(
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+       ${imageRows.map((_rowNumber, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${index + 1}.jpeg"/>`).join("")}
+     </Relationships>`,
+  );
+  imageRows.forEach((_rowNumber, index) => {
+    archive[`xl/media/image${index + 1}.jpeg`] = options.imageBytes?.[index] ?? new Uint8Array([
+      0xff, 0xd8,
+      0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x01, 0x00, 0x01, 0x03,
+      0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+      0xff, 0xda, 0x00, 0x0c, 0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00, 0x3f, 0x00,
+      index + 1,
+      0xff, 0xd9,
+    ]);
+  });
+  return zipSync(archive);
+}
+
+test("天猫炊之王 SPU 商品图按行绑定内嵌图片与商品链接", async () => {
+  const bytes = productAssetFixture();
+  const result = await inspectTmallImportBytes({
+    source: "tmall_product_assets",
+    bytes,
+    fileName: "志高炊之王专卖店店透视-商品下载-2026-08-23_00_38.xlsx",
+    fileSizeBytes: bytes.byteLength,
+    shopName: "天猫-志高炊之王专卖店",
+    snapshotDate: "2026-08-23",
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.dataset, "spu_assets");
+  assert.equal(result.shopName, "天猫-志高炊之王专卖店");
+  assert.equal(result.totals.rowCount, 2);
+  assert.equal(result.totals.imageCount, 2);
+  assert.equal(result.rows[0]?.spuId, "562048375368");
+  assert.equal(result.rows[0]?.raw["商品链接"], "https://item.taobao.com/item.htm?id=562048375368");
+  assert.match(String(result.rows[0]?.raw["图片内容SHA256"]), /^[a-f0-9]{64}$/);
+  assert.match(String(result.rows[0]?.raw["图片对象键"]), /^netshop-product-images\/v1\/[a-f0-9]{64}\.jpg$/);
+  assert.equal(result.rows[0]?.raw["图片MIME"], "image/jpeg");
+  assert.equal(JSON.parse(result.rows[0]!.sourceRowKey)[2], "天猫-志高炊之王专卖店");
+});
+
+test("天猫 SPU 商品图拒绝缺图、跨店与链接 SPUID 错配", async () => {
+  const bytes = productAssetFixture({
+    rows: [
+      { id: "562048375368", title: "测试饮水机", shop: "另一店铺", url: "https://item.taobao.com/item.htm?id=999999999999" },
+      { id: "812345678901", title: "测试净水器", shop: "志高炊之王专卖店", url: "https://detail.tmall.com/item.htm?id=812345678901" },
+    ],
+    imageRows: [2],
+  });
+  const result = await inspectTmallImportBytes({
+    source: "tmall_product_assets",
+    bytes,
+    fileName: "assets.xlsx",
+    fileSizeBytes: bytes.byteLength,
+    shopName: "天猫-志高炊之王专卖店",
+    snapshotDate: "2026-08-23",
+  });
+  assert.deepEqual(result.errors.map((issue) => issue.code), [
+    "TMALL_ASSET_SHOP_MISMATCH",
+    "INVALID_PRODUCT_URL",
+    "MISSING_PRODUCT_IMAGE",
+  ]);
+});
+
+test("天猫 SPU 商品图拒绝伪造图片容器并限制校验问题响应体", async () => {
+  const forged = productAssetFixture({
+    rows: [{ id: "562048375368", title: "伪图片商品", shop: "志高炊之王专卖店", url: "https://item.taobao.com/item.htm?id=562048375368" }],
+    imageBytes: [new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x01, 0xff, 0xd9])],
+  });
+  await assert.rejects(() => inspectTmallImportBytes({
+    source: "tmall_product_assets",
+    bytes: forged,
+    fileName: "forged.xlsx",
+    fileSizeBytes: forged.byteLength,
+    shopName: "天猫-志高炊之王专卖店",
+    snapshotDate: "2026-08-23",
+  }), /结构完整/);
+
+  const rows = Array.from({ length: 250 }, (_value, index) => {
+    const id = String(700000000000 + index);
+    return { id, title: `商品${index}`, shop: "志高炊之王专卖店", url: `https://item.taobao.com/item.htm?id=${id}` };
+  });
+  const bounded = productAssetFixture({ rows, imageRows: [2] });
+  const inspected = await inspectTmallImportBytes({
+    source: "tmall_product_assets",
+    bytes: bounded,
+    fileName: "bounded-errors.xlsx",
+    fileSizeBytes: bounded.byteLength,
+    shopName: "天猫-志高炊之王专卖店",
+    snapshotDate: "2026-08-23",
+  });
+  assert.equal(inspected.errors.length, 200);
+  assert.equal(inspected.errors.at(-1)?.code, "TOO_MANY_VALIDATION_ERRORS");
+});
+
+test("天猫 SPU 商品图在发布 D1 映射前完成图片持久化与回查", async () => {
+  const bytes = productAssetFixture();
+  let imagesPersisted = false;
+  let factsPublished = false;
+  let savedRows: Array<{ spuId: string; raw: Record<string, unknown> }> = [];
+  const batch = {
+    id: "tmall-product-assets-batch",
+    source: "tmall_product_assets" as const,
+    dataset: "spu_assets",
+    platform: TMALL_PLATFORM,
+    shopName: "天猫-志高炊之王专卖店",
+    fileName: "assets.xlsx",
+    fileSizeBytes: bytes.byteLength,
+    fileHash: "a".repeat(64),
+    sheetName: "商品图",
+    status: "completed",
+    rowCount: 2,
+    insertedCount: 2,
+    duplicateCount: 0,
+    warningCount: 0,
+    dateMin: null,
+    dateMax: null,
+    snapshotDate: "2026-08-23",
+    warnings: [],
+    totals: {},
+    note: "",
+    createdAt: "2026-08-23 08:00:00",
+    completedAt: "2026-08-23 08:00:01",
+  };
+  const databaseDependencies = {
+    getNetshopDatabase: () => ({}),
+    ensureNetshopSchema: async () => undefined,
+    findNetshopImportBatchById: async () => factsPublished ? batch : null,
+    readNetshopScopeOwnership: async () => factsPublished ? [{ batchId: batch.id, rowCount: 2 }] : [],
+    readNetshopScopeRows: async () => [],
+    normalizeJdProductMasterRows: async () => undefined,
+    reconcileNetshopMasterProducts: async () => ({ masterAvailable: true, unmatchedCount: 0, unmatchedSample: [] }),
+    sanitizeNetshopIssues: (issues: unknown[]) => issues,
+    saveNetshopImport: async (_db: unknown, input: { rows: Array<{ spuId: string; raw: Record<string, unknown> }> }) => {
+      assert.equal(imagesPersisted, true, "R2 images must be verified before D1 facts are published");
+      savedRows = input.rows;
+      factsPublished = true;
+      return { batch, created: true };
+    },
+    verifyNetshopImportBatch: async () => ({
+      verified: factsPublished,
+      parsedRowCount: 2,
+      readbackRowCount: 2,
+      currentScopeRowCount: 2,
+      dateMin: null,
+      dateMax: null,
+      dataset: "spu_assets",
+      platform: TMALL_PLATFORM,
+      shopName: "天猫-志高炊之王专卖店",
+    }),
+  } as unknown as NetshopImportDatabaseDependencies;
+
+  const result = await importNetshopBytes({
+    source: "tmall_product_assets",
+    bytes,
+    fileName: "assets.xlsx",
+    fileSizeBytes: bytes.byteLength,
+    shopName: "天猫-志高炊之王专卖店",
+    snapshotDate: "2026-08-23",
+  }, databaseDependencies, isolatedFingerprintDependencies, {
+    persistTmallProductAssetImages: async (images, options) => {
+      assert.equal(images.length, 2);
+      assert.equal(images.every((image) => image.objectKey.includes(image.contentHash)), true);
+      imagesPersisted = true;
+      await options?.onBatchPersisted?.();
+      return { total: 2, unique: 2, verified: 2 };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "imported");
+  assert.equal(result.verification?.verifiedImageCount, 2);
+  assert.deepEqual(savedRows.map((row) => row.spuId), ["562048375368", "812345678901"]);
+  assert.equal(savedRows.every((row) => /^[a-f0-9]{64}$/.test(String(row.raw["图片内容SHA256"]))), true);
+});
+
 function dailyFixtureWithProductIds(productIds: readonly string[]) {
   return workbookBytes([
     ["生意参谋商品明细"],
@@ -156,6 +361,38 @@ test("天猫分页货品 XLSX 省略空发货时间列时仍按表头语义解�
   assert.equal(result.rows[0].raw["SKU库存"], 5);
   assert.equal(result.rows[0].raw["商品发货时间"], null);
   assert.equal(result.rows[0].raw["SKU发货时间"], null);
+});
+
+test("天猫分页货品允许平台省略整段 SKU 表头并保留商品级主数据", async () => {
+  const headers = [
+    "商品Id", "类目id", "类目名称", "商品标题", "一口价", "导购标题", "商家编码", "最长发货时间",
+    "生产日期\n(格式：年-月-日 ~ 年-月-日)", "保质期（天）",
+  ];
+  const bytes = workbookBytes([
+    ["发布模板"],
+    [null],
+    headers,
+    ["10001", "cat", "测试类目", "无 SKU 表头商品", "10.00", null, "ITEM-CODE", 15, null, null],
+  ], { bookType: "xlsx", sheetName: "发布模板" });
+
+  const result = await inspectTmallImportBytes({
+    source: "tmall_product_master",
+    bytes,
+    fileName: "product-only-page.xlsx",
+    fileSizeBytes: bytes.byteLength,
+    platform: "天猫",
+    shopName: "天猫-志高亿玖专卖店",
+    snapshotDate: "2026-08-27",
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.totals.rowCount, 1);
+  assert.equal(result.totals.uniqueProductCount, 1);
+  assert.equal(result.totals.uniqueSkuCount, 0);
+  assert.equal(result.totals.missingSkuCount, 1);
+  assert.equal(result.rows[0].raw["商品商家编码"], "ITEM-CODE");
+  assert.equal(result.rows[0].raw["SKUID"], null);
+  assert.equal(result.rows[0].raw["SKU商家编码"], null);
 });
 
 test("天猫货品 16 列与等价 18 列生成相同业务内容指纹", async () => {
@@ -303,6 +540,39 @@ test("推广 ZIP 按 GB18030 解码并把 nan 规范为 null", async () => {
   assert.equal(result.totals.clicks, 5);
   assert.equal(result.rows[0].raw["花费"], null);
   assert.equal(result.rows[0].metrics.clickThroughRate, 0.05);
+});
+
+test("阿里妈妈商品报表按日期和商品汇总计划维度后再生成唯一推广日事实", async () => {
+  const itemPromotionCsv = strToU8([
+    "日期,商品ID,商品名称,计划ID,计划名称,花费,净成交金额,总成交金额,展现量,点击量,净成交笔数,总成交笔数,总购物车数,收藏宝贝数",
+    "2026-07-31,10001,测试商品,plan-a,计划A,10.00,20.00,30.00,100,10,1,2,3,1",
+    "2026-07-31,10001,测试商品,plan-b,计划B,20.00,40.00,70.00,200,20,2,3,4,2",
+  ].join("\r\n"));
+  const bytes = zipSync({ "商品报表_20260801_110000.csv": itemPromotionCsv });
+  const result = await inspectTmallImportBytes({
+    source: "tmall_promotion",
+    bytes,
+    fileName: "商品报表.zip",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-07-31",
+    expectedEndDate: "2026-07-31",
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.totals.rowCount, 1);
+  assert.equal(result.totals.uniqueProductCount, 1);
+  assert.equal(result.totals.spendCents, 3_000);
+  assert.equal(result.totals.netTransactionAmountCents, 6_000);
+  assert.equal(result.totals.impressions, 300);
+  assert.equal(result.totals.clicks, 30);
+  assert.equal(result.rows[0]?.spuId, "10001");
+  assert.equal(result.rows[0]?.metrics.clickThroughRate, 0.1);
+  assert.equal(result.rows[0]?.metrics.averageClickCostCents, 100);
+  assert.equal(result.rows[0]?.raw["主体类型"], "商品");
+  assert.equal(result.rows[0]?.raw["报表维度"], "商品,计划");
+  assert.equal(result.rows[0]?.raw["计划明细行数"], 2);
+  assert.equal(result.rows[0]?.raw["计划列表"], "plan-a:计划A|plan-b:计划B");
 });
 
 test("推广 ZIP 多 CSV 时拒绝解析", async () => {
@@ -469,6 +739,43 @@ test("重复天猫文件必须经过真实落库回查后才能返回 duplicate"
   assert.equal(accepted.status, "duplicate");
   assert.equal(accepted.verification?.verified, true);
   assert.equal(accepted.verification?.readbackRowCount, 1);
+});
+
+test("重复天猫文件允许同批次范围头确定性修复但拒绝其他并发状态", async () => {
+  const bytes = dailyFixture();
+  const run = (recordedStateToken: string) => {
+    let tokenReads = 0;
+    const dependencies: NetshopImportFingerprintDependencies = {
+      ...duplicateFingerprintDependencies,
+      readImportScopeStateToken: async () => {
+        tokenReads += 1;
+        return tokenReads < 3 ? "initial" : recordedStateToken;
+      },
+      nextImportScopeStateToken: async () => "published-test-state",
+    };
+    return importNetshopBytes({
+      source: "tmall_product_daily",
+      bytes,
+      fileName: "daily.xls",
+      fileSizeBytes: bytes.byteLength,
+      shopName: TMALL_YIJIU_SHOP,
+      expectedStartDate: "2026-07-31",
+      expectedEndDate: "2026-07-31",
+    }, duplicateDatabaseDependencies({
+      verified: true,
+      expectedFileSize: bytes.byteLength,
+      onVerify: () => undefined,
+    }), dependencies);
+  };
+
+  const repaired = await run("published-test-state");
+  assert.equal(repaired.ok, true);
+  assert.equal(repaired.status, "duplicate");
+
+  const changed = await run("unrelated-concurrent-state");
+  assert.equal(changed.ok, false);
+  assert.equal(changed.status, "rejected");
+  assert.deepEqual(changed.errors?.map((issue) => issue.code), ["IMPORT_SCOPE_CHANGED"]);
 });
 
 test("网店重复候选会重算当前事实内容，同批次同数量的字段损坏必须重新导入", async () => {

@@ -37,6 +37,11 @@ export async function readAiJsonObject(
   request: Request,
   maximumBytes = AI_JSON_BODY_BYTES_MAX,
 ): Promise<AiJsonRecord> {
+  requireAiSameOriginWrite(request);
+  const mediaType = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  if (mediaType !== "application/json") {
+    throw new PublicApiError(415, "unsupported_media_type", "AI 写入接口只接受 application/json 请求。");
+  }
   const text = await readAiBoundedText(request, maximumBytes);
   let parsed: unknown;
   try {
@@ -48,6 +53,34 @@ export async function readAiJsonObject(
     throw new PublicApiError(400, "invalid_request", "请求数据格式无效。");
   }
   return parsed as AiJsonRecord;
+}
+
+/**
+ * Browser write protection for authenticated and local-direct AI surfaces.
+ * Cross-origin webhooks deliberately do not call this helper; they use their
+ * own signature/decryption contract instead.
+ */
+export function requireAiSameOriginWrite(request: Request): void {
+  const fetchSite = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
+  if (fetchSite && fetchSite !== "same-origin") {
+    throw new PublicApiError(403, "cross_site_request_rejected", "已拒绝跨站 AI 写入请求。");
+  }
+  const origin = request.headers.get("origin");
+  if (!origin) {
+    if (fetchSite === "same-origin") return;
+    throw new PublicApiError(403, "cross_site_request_rejected", "AI 写入请求缺少同源证明。");
+  }
+  let requestOrigin: string;
+  let suppliedOrigin: string;
+  try {
+    requestOrigin = new URL(request.url).origin;
+    suppliedOrigin = new URL(origin).origin;
+  } catch {
+    throw new PublicApiError(403, "cross_site_request_rejected", "AI 写入请求 Origin 无效。");
+  }
+  if (origin === "null" || origin !== suppliedOrigin || suppliedOrigin !== requestOrigin) {
+    throw new PublicApiError(403, "cross_site_request_rejected", "已拒绝跨站 AI 写入请求。");
+  }
 }
 
 export async function readAiBoundedText(request: Request, maximumBytes: number): Promise<string> {

@@ -47,7 +47,7 @@
 
 ## n8n 流程
 
-当前发布调度使用仓库模板 `automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json`，工作流 ID 为 `JdMarketSilentCopy2026`，上海时区每天 10:00 触发，同时保留手动触发入口。为避免与同在 10:00 启动的京东四店流程争抢一次性 helper，市场榜单的定时分支先等待 1 分钟，再向 `127.0.0.1:5791/coordination/claim` 提交 `workflow key + n8n execution ID + 当前领取次数`；helper 在同一事件循环内原子判定并绑定唯一 owner。未获授权时每 5 分钟重试，定时和手动入口都必须经过该门禁；累计 72 次、约 6 小时仍未领取时以 `coordination_wait_expired` 失败关闭，防止无限等待和跨日堆积。A/B/C 三个节点均固定发送 `X-TERUISI-JD-SILENT-NO-WINDOW: 1`，后端配置也固定 `silentNoWindow=true`。仓库 JSON 为安全起见仍保持 `active=false`，本机 n8n 实例在核验后单独发布并启用；未激活的主模板 `JdMarketDaily2026` 不得同时启用。Codex 定时任务只监控 n8n execution、修复异常和发送钉钉通知，不再直接调用 helper 执行 A/B/C。
+当前发布调度使用仓库模板 `automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json`，工作流 ID 为 `JdMarketSilentCopy2026`，上海时区每天 10:30 触发，同时保留手动触发入口。京东四店流程已在 10:00 启动；市场榜单的定时分支仍保留 1 分钟安全等待，再向 `127.0.0.1:5791/coordination/claim` 提交 `workflow key + n8n execution ID + 当前领取次数`，由 helper 在同一事件循环内原子判定并绑定唯一 owner。未获授权时每 5 分钟重试，定时和手动入口都必须经过该门禁；累计 72 次、约 6 小时仍未领取时以 `coordination_wait_expired` 失败关闭，防止无限等待和跨日堆积。A/B/C 三个节点均固定发送 `X-TERUISI-JD-SILENT-NO-WINDOW: 1`，后端配置也固定 `silentNoWindow=true`。仓库 JSON 为安全起见仍保持 `active=false`，本机 n8n 实例在核验后单独发布并启用；未激活的主模板 `JdMarketDaily2026` 不得同时启用。Codex 定时任务在 10:32 开始监控 n8n execution、修复异常和发送钉钉通知，不直接调用 helper 执行 A/B/C。
 
 ![n8n 三段式工作流画布](images/jd-market-ranking-daily/03-n8n-workflow-canvas.png)
 
@@ -74,4 +74,4 @@ A、C 节点超时均为 15 分钟，B 节点最长允许 6 小时。单个市�
 
 ## 启用注意事项
 
-主模板和静默副本不能同时启用。加载新版 5791 helper 后，先保持静默副本未激活并手动运行一次，确认 A 返回 `silentNoWindow=true`、B 使用 Profile 3 且 C 完成全部类目覆盖回查，再发布并启用每天 10:00 的定时触发器。Codex 监控任务不得直调 helper；发现执行失败后先诊断和修复，再从 A 触发新的完整 n8n execution。若 10:00 时京东昨日数据尚未开放，必须保留原日期范围，每 10 分钟用新的 n8n execution 从 A 安全重试，不能直接重试 B、缩短日期范围或导入空数据。
+主模板和静默副本不能同时启用。加载新版 5791 helper 后，先保持静默副本未激活并手动运行一次，确认 A 返回 `silentNoWindow=true`、B 使用 Profile 3 且 C 完成全部类目覆盖回查，再发布并启用每天 10:30 的定时触发器。Codex 监控任务不得直调 helper；发现执行失败后先诊断和修复，再从 A 触发新的完整 n8n execution。若 10:30 时京东昨日数据尚未开放，必须保留原日期范围，每 10 分钟用新的 n8n execution 从 A 安全重试，不能直接重试 B、缩短日期范围或导入空数据。

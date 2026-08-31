@@ -30,7 +30,7 @@ function sha256(bytes: Uint8Array) {
   return crypto.subtle.digest("SHA-256", input);
 }
 
-function safeFileName(name: string) {
+export function safeFinanceFileName(name: string) {
   const baseName = name.split(/[\\/]/).pop() ?? "monthly-finance-report.xls";
   return baseName.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 255);
 }
@@ -84,6 +84,78 @@ export type FinanceImportExecution = {
   errors?: FinanceImportIssue[];
   errorCount?: number;
 };
+
+export type NormalizedFinanceImportPayload = {
+  schemaVersion: "finance-normalized-v1";
+  disposition: "prepared" | "rejected";
+  fileName: string;
+  fileSizeBytes: number;
+  rawFileHash: string;
+  warnings: FinanceImportIssue[];
+  sourceSheetCount?: number;
+  months?: ReturnType<typeof parseFinanceWorkbook>["months"];
+  errors?: FinanceImportIssue[];
+  message?: string;
+};
+
+/**
+ * Parse and validate at the Worker boundary without touching a database. The
+ * Django writer independently validates every field and recomputes the content
+ * fingerprint before it can publish facts.
+ */
+export async function prepareNormalizedFinanceImport(input: {
+  bytes: Uint8Array;
+  fileName: string;
+  fileSizeBytes: number;
+}): Promise<NormalizedFinanceImportPayload> {
+  const rawFileHash = toHex(await sha256(input.bytes));
+  const base = {
+    schemaVersion: "finance-normalized-v1" as const,
+    fileName: safeFinanceFileName(input.fileName),
+    fileSizeBytes: input.fileSizeBytes,
+    rawFileHash,
+  };
+  if (!isSupportedFinanceSignature(input.bytes)) {
+    const issue = { code: "INVALID_EXCEL_SIGNATURE", message: "文件签名不是有效的 .xls 或 .xlsx 格式" };
+    return {
+      ...base,
+      disposition: "rejected",
+      warnings: [],
+      errors: [issue],
+      message: issue.message,
+    };
+  }
+  let parsed: ReturnType<typeof parseFinanceWorkbook>;
+  try {
+    parsed = parseFinanceWorkbook(input.bytes);
+  } catch {
+    const message = "月度财报解析失败，请确认文件格式和模板";
+    return {
+      ...base,
+      disposition: "rejected",
+      warnings: [],
+      errors: [{ code: "FINANCE_PARSE_ERROR", message }],
+      message,
+    };
+  }
+  const errors = validateParsedWorkbook(parsed);
+  if (errors.length > 0) {
+    return {
+      ...base,
+      disposition: "rejected",
+      warnings: parsed.warnings,
+      errors,
+      message: "财报结构校验未通过，未写入任何月份数据",
+    };
+  }
+  return {
+    ...base,
+    disposition: "prepared",
+    warnings: parsed.warnings,
+    sourceSheetCount: parsed.sourceSheetCount,
+    months: parsed.months,
+  };
+}
 
 export async function importFinanceReportBytes(input: {
   bytes: Uint8Array;
@@ -198,7 +270,7 @@ export async function importFinanceReportBytes(input: {
   try {
   const result = await saveFinanceImport(db, {
     fileHash,
-    fileName: safeFileName(input.fileName),
+    fileName: safeFinanceFileName(input.fileName),
     fileSizeBytes: input.fileSizeBytes,
     parsed,
     reservationFence: {

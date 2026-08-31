@@ -6,7 +6,7 @@ import {
   type CreateWorkflowTaskInput,
   type UpdateWorkflowTaskInput,
 } from "@/lib/workflow/tasks";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { workflowErrorResponse } from "@/lib/workflow/errors";
 import {
   authorizationErrorResponse,
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       dueTo: params.get("dueTo"),
       page: params.get("page"),
       pageSize: params.get("pageSize"),
-    }, getSalesDatabase());
+    }, getD1Database());
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "工作项内容必须是有效的 JSON 对象", code: "invalid_request" },
         { status: 400, headers: { "cache-control": "no-store" } });
     }
-    const db = getSalesDatabase();
+    const db = getD1Database();
     const item = await createWorkflowTask(payload, principal.email, db);
     return Response.json({ item }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
       return Response.json({ error: "缺少可更新的工作项字段", code: "invalid_request" },
         { status: 400, headers: { "cache-control": "no-store" } });
     }
-    const db = getSalesDatabase();
+    const db = getD1Database();
     const item = await updateWorkflowTask(id, payload, principal.email, db);
     if (!item) return Response.json({ error: "工作项不存在或已删除", code: "not_found" }, {
       status: 404,
@@ -88,7 +88,7 @@ export async function DELETE(request: Request) {
     const params = new URL(request.url).searchParams;
     const id = params.get("id");
     const expectedVersion = params.get("expectedVersion");
-    const db = getSalesDatabase();
+    const db = getD1Database();
     const deleted = await deleteWorkflowTask(id, expectedVersion, principal.email, db);
     if (!deleted) return Response.json({ error: "工作项不存在或已删除", code: "not_found" }, {
       status: 404,

@@ -48,6 +48,18 @@ test("天猫店铺注册表拒绝敏感字段和跨店重复资源", () => {
     version: 1,
     stores: [{ ...store("c", "C店", 9303), productMasterExportMode: "unsafe_mode" }],
   }), /字段无效/);
+  assert.throws(() => validateTmallStoreRegistry({
+    version: 1,
+    stores: [{ ...store("c", "C店", 9303), productMasterCadence: { intervalDays: 0, initialDueDate: "2026-08-25" } }],
+  }), /字段无效/);
+  assert.throws(() => validateTmallStoreRegistry({
+    version: 1,
+    stores: [{ ...store("c", "C店", 9303), productMasterCadence: { intervalDays: 3, initialDueDate: "bad-date" } }],
+  }), /字段无效/);
+  assert.throws(() => validateTmallStoreRegistry({
+    version: 1,
+    stores: [{ ...store("c", "C店", 9303), productMasterCadence: { intervalDays: 3, initialDueDate: "2026-02-30" } }],
+  }), /字段无效/);
 });
 
 test("天猫店铺注册表支持共享 Chromium 根目录下的独立 Profile", () => {
@@ -115,14 +127,28 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
   const selected = selectedKeys.map((storeKey) => resolveRegisteredTmallStore(stores, storeKey));
   assert.equal(selected.every((item) => item.enabled === true), true);
   assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
-  assert.equal(selected.every((item) => item.initialStartDate === "2026-08-21"), true);
+  assert.equal(selected.every((item) => item.initialStartDate === "2026-08-01"), true);
+  assert.equal(selected.every((item) => item.productMasterCadence?.intervalDays === 3), true);
   assert.deepEqual(
-    ["tmall-yijiu", "tmall-tuofeng", "tmall-masitu"].map(
+    ["tmall-yijiu", "tmall-lili", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu", "tmall-yiyong"]
+      .map((storeKey) => [storeKey, resolveRegisteredTmallStore(stores, storeKey).productMasterCadence?.initialDueDate]),
+    [
+      ["tmall-yijiu", "2026-08-27"],
+      ["tmall-lili", "2026-08-27"],
+      ["tmall-tuofeng", "2026-08-25"],
+      ["tmall-cuizhiwang", "2026-08-25"],
+      ["tmall-masitu", "2026-08-26"],
+      ["tmall-yiyong", "2026-08-26"],
+    ],
+  );
+  assert.deepEqual(
+    ["tmall-yijiu", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu"].map(
       (storeKey) => resolveRegisteredTmallStore(stores, storeKey).productMasterExportMode,
     ),
-    ["on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel"],
+    ["on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel"],
   );
   assert.equal(resolveRegisteredTmallStore(stores, "tmall-lili").productMasterExportMode, undefined);
+  assert.equal(resolveRegisteredTmallStore(stores, "tmall-yiyong").productMasterExportMode, undefined);
   assert.equal(selected.every((item) => item.browser.profileName === "Default"), true);
   assert.equal(new Set(selected.map((item) => item.browser.userDataDir?.toLowerCase())).size, selected.length);
   assert.equal(new Set(selected.map((item) => item.browser.debugPort)).size, selected.length);
