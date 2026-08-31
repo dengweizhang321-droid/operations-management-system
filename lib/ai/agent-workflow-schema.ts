@@ -1,4 +1,4 @@
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export const AI_AGENT_WORKFLOW_SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS ai_agent_jobs (
@@ -145,12 +145,12 @@ const AI_AGENT_WORKFLOW_LEGACY_COLUMN_UPGRADES = [
 
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
-async function tableColumns(table: "ai_agent_jobs" | "ai_workflow_runs", db: SalesDatabase) {
+async function tableColumns(table: "ai_agent_jobs" | "ai_workflow_runs", db: D1Database) {
   const rows = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   return new Set((rows.results ?? []).map((row) => row.name));
 }
 
-async function ensureLegacyAdmissionColumns(db: SalesDatabase): Promise<void> {
+async function ensureLegacyAdmissionColumns(db: D1Database): Promise<void> {
   for (const upgrade of AI_AGENT_WORKFLOW_LEGACY_COLUMN_UPGRADES) {
     const columns = await tableColumns(upgrade.table, db);
     if (columns.has(upgrade.column)) continue;
@@ -196,7 +196,7 @@ async function ensureLegacyAdmissionColumns(db: SalesDatabase): Promise<void> {
 }
 
 export async function ensureAiAgentWorkflowSchema(
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);

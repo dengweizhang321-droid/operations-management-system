@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+import uuid
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -10,11 +12,28 @@ from urllib.parse import parse_qs, unquote, urlparse
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+TRUE_VALUES = {"1", "true", "yes", "on"}
+FALSE_VALUES = {"0", "false", "no", "off"}
+SECRET_PLACEHOLDERS = {
+    "unsafe-local-development-key",
+    "replace-me",
+    "replace-with-at-least-32-random-bytes",
+    "change-me",
+    "changeme",
+    "placeholder",
+}
+
+
 def env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = value.strip().lower()
+    if normalized in TRUE_VALUES:
+        return True
+    if normalized in FALSE_VALUES:
+        return False
+    raise RuntimeError(f"{name} 必须是明确的布尔值")
 
 
 def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -28,35 +47,93 @@ def env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     return value
 
 
+def validate_secret(name: str, value: str, *, required: bool) -> str:
+    """Fail closed on missing, short, or documented placeholder secrets."""
+
+    if not required and not value:
+        return value
+    normalized = value.strip()
+    if (
+        len(normalized.encode("utf-8")) < 32
+        or normalized.lower() in SECRET_PLACEHOLDERS
+        or len(set(normalized)) < 4
+        or re.fullmatch(
+            r"(?:replace|change|example|sample|test|secret|password)[-_a-z0-9]*",
+            normalized,
+            re.I,
+        )
+    ):
+        raise RuntimeError(f"{name} 必须至少 32 字节且不能使用占位值")
+    return value
+
+
 def database_from_url(value: str) -> dict[str, object]:
     parsed = urlparse(value)
     if parsed.scheme not in {"postgres", "postgresql"}:
         raise RuntimeError("TERUISI_DJANGO_DATABASE_URL 仅支持 postgresql://")
     options = {key: values[-1] for key, values in parse_qs(parsed.query).items() if values}
-    return {
+    configuration = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": unquote(parsed.path.lstrip("/")),
         "USER": unquote(parsed.username or ""),
         "PASSWORD": unquote(parsed.password or ""),
         "HOST": parsed.hostname or "",
         "PORT": str(parsed.port or ""),
-        "CONN_MAX_AGE": int(os.getenv("TERUISI_DJANGO_DB_CONN_MAX_AGE", "60")),
+        "CONN_MAX_AGE": env_int("TERUISI_DJANGO_DB_CONN_MAX_AGE", 60, 0, 600),
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": options,
     }
+    if DJANGO_ENVIRONMENT == "production":
+        if (
+            not configuration["NAME"]
+            or not configuration["USER"]
+            or not configuration["PASSWORD"]
+            or configuration["HOST"] != "127.0.0.1"
+            or configuration["PORT"] != "5432"
+        ):
+            raise RuntimeError("生产 Django 数据库必须固定为带凭据的 127.0.0.1:5432 PostgreSQL")
+    return configuration
 
+
+DJANGO_ENVIRONMENT = os.getenv("TERUISI_DJANGO_ENVIRONMENT", "development").strip().lower()
+if DJANGO_ENVIRONMENT not in {"development", "test", "production"}:
+    raise RuntimeError("TERUISI_DJANGO_ENVIRONMENT 仅支持 development、test 或 production")
 
 database_url = os.getenv("TERUISI_DJANGO_DATABASE_URL", "").strip()
 DEBUG = env_bool("DJANGO_DEBUG", default=not bool(database_url))
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-local-development-key")
-if not DEBUG and SECRET_KEY == "unsafe-local-development-key":
-    raise RuntimeError("非调试 Django 环境必须显式设置安全的 DJANGO_SECRET_KEY")
-ALLOWED_HOSTS = [item.strip() for item in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if item.strip()]
+DJANGO_INTERNAL_SECRET = os.getenv("TERUISI_DJANGO_INTERNAL_SECRET", "")
+if DJANGO_ENVIRONMENT == "production" and (DEBUG or not database_url):
+    raise RuntimeError("生产 Django 必须关闭 DEBUG 并显式配置 PostgreSQL")
+if not DEBUG:
+    SECRET_KEY = validate_secret("DJANGO_SECRET_KEY", SECRET_KEY, required=True)
+    DJANGO_INTERNAL_SECRET = validate_secret(
+        "TERUISI_DJANGO_INTERNAL_SECRET", DJANGO_INTERNAL_SECRET, required=True
+    )
+ALLOWED_HOSTS = [
+    item.strip()
+    for item in os.getenv(
+        "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost,testserver"
+    ).split(",")
+    if item.strip()
+]
+if DJANGO_ENVIRONMENT == "production" and (
+    not ALLOWED_HOSTS or not set(ALLOWED_HOSTS).issubset({"127.0.0.1", "localhost"})
+):
+    raise RuntimeError("生产 Django ALLOWED_HOSTS 只能包含 127.0.0.1 和 localhost")
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "sales.apps.SalesConfig",
+    "erp_reference.apps.ErpReferenceConfig",
+    "finance.apps.FinanceConfig",
 ]
-MIDDLEWARE: list[str] = []
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "teruisi_backend.security.LoopbackOnlyMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
 ROOT_URLCONF = "teruisi_backend.urls"
 TEMPLATES: list[dict[str, object]] = []
 WSGI_APPLICATION = "teruisi_backend.wsgi.application"
@@ -65,7 +142,12 @@ ASGI_APPLICATION = "teruisi_backend.asgi.application"
 if database_url:
     DATABASES = {"default": database_from_url(database_url)}
 else:
-    sqlite_path = Path(os.getenv("TERUISI_DJANGO_SQLITE_PATH", BASE_DIR.parent / ".runtime" / "django" / "teruisi.sqlite3"))
+    sqlite_path = Path(
+        os.getenv(
+            "TERUISI_DJANGO_SQLITE_PATH",
+            BASE_DIR.parent / ".runtime" / "django" / "teruisi.sqlite3",
+        )
+    )
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     DATABASES = {
         "default": {
@@ -81,14 +163,100 @@ USE_I18N = True
 USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SALES_READ_CACHE_SECONDS = env_int("TERUISI_DJANGO_SALES_CACHE_SECONDS", 60, 0, 3600)
+ERP_REFERENCE_SYNC_MAX_AGE_SECONDS = env_int(
+    "TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS", 60, 30, 3600
+)
+DJANGO_EXPECT_READ_ONLY = env_bool("TERUISI_DJANGO_EXPECT_READ_ONLY", False)
+DJANGO_PROCESS_ROLE = os.getenv("TERUISI_DJANGO_PROCESS_ROLE", "development").strip().lower()
+SALES_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH", ""
+).strip()
+SALES_WRITE_CUTOVER_ID = os.getenv("TERUISI_DJANGO_SALES_CUTOVER_ID", "").strip()
+FINANCE_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH", ""
+).strip()
+FINANCE_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_FINANCE_CUTOVER_ID", ""
+).strip()
+if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
+    "reader",
+    "migration_writer",
+    "sales_writer",
+    "erp_reference_sync",
+    "finance_reader",
+    "finance_writer",
+}:
+    raise RuntimeError(
+        "生产 Django 必须显式声明 reader、migration_writer、sales_writer、erp_reference_sync、finance_reader 或 finance_writer 进程角色"
+    )
+if DJANGO_PROCESS_ROLE == "reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "sales_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django sales_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "erp_reference_sync" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django erp_reference_sync 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "finance_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django finance_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "finance_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django finance_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "sales_writer":
+    try:
+        uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django sales_writer 必须配置有效的销售 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", SALES_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django sales_writer 必须配置有效的销售 cutover id")
+if DJANGO_PROCESS_ROLE == "finance_writer":
+    try:
+        uuid.UUID(FINANCE_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django finance_writer 必须配置有效的财务 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", FINANCE_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django finance_writer 必须配置有效的财务 cutover id")
+DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
+    "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
+)
+DJANGO_MAX_HEADER_BYTES = env_int("TERUISI_DJANGO_MAX_HEADER_BYTES", 32_768, 8_192, 65_536)
+DJANGO_MAX_BODY_BYTES = env_int(
+    "TERUISI_DJANGO_MAX_BODY_BYTES",
+    16_777_216 if DJANGO_PROCESS_ROLE == "finance_writer"
+    else 8_388_608 if DJANGO_PROCESS_ROLE == "sales_writer"
+    else 1_048_576,
+    0,
+    16_777_216,
+)
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "teruisi-sales-read-projection",
-        "OPTIONS": {"MAX_ENTRIES": 500},
+        "OPTIONS": {"MAX_ENTRIES": 200},
     }
 }
 
-# Django is behind the local edge adapter; it must never infer public identity.
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-DATA_UPLOAD_MAX_MEMORY_SIZE = 1_048_576
+# Django is an HTTP-only loopback service behind the local edge adapter.  It
+# must never infer public identity or network origin from forwarded headers.
+SECURE_PROXY_SSL_HEADER = None
+USE_X_FORWARDED_HOST = False
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "no-referrer"
+X_FRAME_OPTIONS = "DENY"
+# CSRF, HSTS and HTTPS redirects are intentionally not used on this signed
+# loopback API. Mutations authenticate the method and exact body digest and
+# additionally require a replay-fenced request id. The middleware above rejects
+# non-loopback peers before request dispatch.
+SILENCED_SYSTEM_CHECKS = ["security.W003", "security.W004", "security.W008"]
+DATA_UPLOAD_MAX_MEMORY_SIZE = DJANGO_MAX_BODY_BYTES
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 100
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "service": {
+            "format": "{asctime} level={levelname} logger={name} message={message}",
+            "style": "{",
+        }
+    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "service"}},
+    "root": {"handlers": ["console"], "level": os.getenv("TERUISI_DJANGO_LOG_LEVEL", "INFO")},
+}

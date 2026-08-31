@@ -1,5 +1,5 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   createWorkflowTaskTemplate,
   deleteWorkflowTaskTemplate,
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "工作事项模板");
     const includeInactive = new URL(request.url).searchParams.get("includeInactive") === "true"
       && (principal.role === "operator" || principal.role === "admin");
-    return Response.json({ items: await listWorkflowTaskTemplates(includeInactive, getSalesDatabase()) }, {
+    return Response.json({ items: await listWorkflowTaskTemplates(includeInactive, getD1Database()) }, {
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     requireUnrestrictedDataScope(principal, "工作事项模板");
     const payload = await request.json().catch(() => null) as WorkflowTaskTemplateInput | null;
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) return invalidJson("模板必须是有效的 JSON 对象");
-    return Response.json({ item: await createWorkflowTaskTemplate(payload, principal.email, getSalesDatabase()) }, {
+    return Response.json({ item: await createWorkflowTaskTemplate(payload, principal.email, getD1Database()) }, {
       status: 201,
       headers: { "cache-control": "no-store" },
     });
@@ -57,7 +57,7 @@ export async function PATCH(request: Request) {
     const id = new URL(request.url).searchParams.get("id");
     const payload = await request.json().catch(() => null) as WorkflowTaskTemplateInput | null;
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) return invalidJson("模板必须是有效的 JSON 对象");
-    const item = await updateWorkflowTaskTemplate(id, payload, principal.email, getSalesDatabase());
+    const item = await updateWorkflowTaskTemplate(id, payload, principal.email, getD1Database());
     if (!item) return Response.json({ error: "模板不存在", code: "not_found" }, {
       status: 404,
       headers: { "cache-control": "no-store" },
@@ -73,7 +73,7 @@ export async function DELETE(request: Request) {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "工作事项模板");
     const params = new URL(request.url).searchParams;
-    const deleted = await deleteWorkflowTaskTemplate(params.get("id"), params.get("expectedVersion"), getSalesDatabase());
+    const deleted = await deleteWorkflowTaskTemplate(params.get("id"), params.get("expectedVersion"), getD1Database());
     if (!deleted) return Response.json({ error: "模板不存在", code: "not_found" }, {
       status: 404,
       headers: { "cache-control": "no-store" },

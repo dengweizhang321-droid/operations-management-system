@@ -837,166 +837,6 @@ export const aiToolAuditLogs = sqliteTable(
   ],
 );
 
-/**
- * Import audit data. The file hash is also used as the stable batch id, which
- * makes concurrent retries of the same upload safe.
- */
-export const salesImportBatches = sqliteTable(
-  "sales_import_batches",
-  {
-    id: text("id").primaryKey(),
-    source: text("source").notNull(),
-    fileName: text("file_name").notNull(),
-    fileSizeBytes: integer("file_size_bytes").notNull(),
-    fileHash: text("file_hash").notNull(),
-    sheetName: text("sheet_name").notNull(),
-    status: text("status").notNull(),
-    rowCount: integer("row_count").notNull().default(0),
-    insertedCount: integer("inserted_count").notNull().default(0),
-    duplicateCount: integer("duplicate_count").notNull().default(0),
-    warningCount: integer("warning_count").notNull().default(0),
-    warningsJson: text("warnings_json").notNull().default("[]"),
-    totalsJson: text("totals_json").notNull().default("{}"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    completedAt: text("completed_at"),
-  },
-  (table) => [
-    uniqueIndex("sales_import_batches_file_hash_uq").on(table.fileHash),
-    index("sales_import_batches_created_at_idx").on(table.createdAt),
-  ],
-);
-
-/** Stable identity of the authoritative D1 source; rotate it after a source restore. */
-export const salesProjectionSourceState = sqliteTable("sales_projection_source_state", {
-  id: integer("id").primaryKey(),
-  sourceEpoch: text("source_epoch").notNull(),
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
-
-/** Transactional replication log for the rebuildable Django sales projection. */
-export const salesProjectionOutbox = sqliteTable(
-  "sales_projection_outbox",
-  {
-    eventSequence: integer("event_sequence").primaryKey({ autoIncrement: true }),
-    eventId: text("event_id").notNull(),
-    sourceEpoch: text("source_epoch").notNull(),
-    domain: text("domain").notNull(),
-    operation: text("operation").notNull(),
-    scopeJson: text("scope_json").notNull(),
-    sourceBatchId: text("source_batch_id").notNull(),
-    salesRevision: integer("sales_revision").notNull(),
-    erpRevision: integer("erp_revision").notNull(),
-    rowCount: integer("row_count").notNull(),
-    contentHash: text("content_hash").notNull(),
-    canonicalFormatVersion: text("canonical_format_version").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    uniqueIndex("sales_projection_outbox_event_id_uq").on(table.eventId),
-    index("sales_projection_outbox_domain_sequence_idx").on(table.domain, table.eventSequence),
-  ],
-);
-
-/**
- * Analysis-safe sales facts. Customer names/accounts, recipients, addresses,
- * customer notes, and other free-form personal data are deliberately absent.
- * Monetary values are stored as integer cents and rates as integer basis
- * points, so aggregation never depends on floating-point currency math.
- */
-export const salesOrderLines = sqliteTable(
-  "sales_order_lines",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    sourceLineKey: text("source_line_key").notNull(),
-    sourceRowHash: text("source_row_hash").notNull(),
-    firstImportBatchId: text("first_import_batch_id").notNull(),
-    lastImportBatchId: text("last_import_batch_id").notNull(),
-    sourceRowNumber: integer("source_row_number").notNull(),
-    orderNo: text("order_no").notNull(),
-    onlineOrderNo: text("online_order_no").notNull(),
-    channel: text("channel").notNull(),
-    platform: text("platform").notNull(),
-    shopName: text("shop_name").notNull(),
-    logisticsCompany: text("logistics_company").notNull(),
-    warehouse: text("warehouse").notNull(),
-    productCode: text("product_code").notNull(),
-    onlineSpecCode: text("online_spec_code").notNull().default(""),
-    productName: text("product_name").notNull(),
-    specification: text("specification").notNull(),
-    barcode: text("barcode").notNull(),
-    supplier: text("supplier").notNull(),
-    category: text("category").notNull(),
-    quantity: integer("quantity").notNull(),
-    listUnitPriceCents: integer("list_unit_price_cents").notNull(),
-    costAmountCents: integer("cost_amount_cents").notNull(),
-    allocatedUnitPriceCents: integer("allocated_unit_price_cents").notNull(),
-    allocatedAmountCents: integer("allocated_amount_cents").notNull(),
-    feeAllocationCents: integer("fee_allocation_cents").notNull(),
-    grossProfitCents: integer("gross_profit_cents").notNull(),
-    grossMarginBps: integer("gross_margin_bps").notNull(),
-    untaxedGrossProfitCents: integer("untaxed_gross_profit_cents").notNull(),
-    untaxedGrossMarginBps: integer("untaxed_gross_margin_bps").notNull(),
-    orderTime: text("order_time").notNull(),
-    salesTime: text("sales_time").notNull(),
-    shipTime: text("ship_time").notNull(),
-    lineShipTime: text("line_ship_time").notNull(),
-    businessType: text("business_type").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    uniqueIndex("sales_order_lines_source_line_key_uq").on(table.sourceLineKey),
-    index("sales_order_lines_sales_time_idx").on(table.salesTime),
-    index("sales_order_lines_ship_time_idx").on(table.shipTime),
-    index("sales_order_lines_channel_idx").on(table.channel),
-    index("sales_order_lines_platform_idx").on(table.platform),
-    index("sales_order_lines_online_spec_code_idx").on(table.onlineSpecCode),
-    index("sales_order_lines_inventory_demand_idx").on(table.salesTime, table.productCode, table.warehouse),
-    index("sales_order_lines_ship_time_inventory_demand_idx").on(table.shipTime, table.productCode, table.warehouse),
-    index("sales_order_lines_last_batch_idx").on(table.lastImportBatchId),
-  ],
-);
-
-/** Temporary metadata for resumable chunked Excel uploads. File bytes live in R2. */
-export const salesImportUploads = sqliteTable(
-  "sales_import_uploads",
-  {
-    id: text("id").primaryKey(),
-    fingerprint: text("fingerprint").notNull(),
-    fileName: text("file_name").notNull(),
-    fileSizeBytes: integer("file_size_bytes").notNull(),
-    chunkSizeBytes: integer("chunk_size_bytes").notNull(),
-    chunkCount: integer("chunk_count").notNull(),
-    receivedChunkCount: integer("received_chunk_count").notNull().default(0),
-    receivedBytes: integer("received_bytes").notNull().default(0),
-    status: text("status").notNull().default("uploading"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    expiresAt: text("expires_at").notNull(),
-  },
-  (table) => [
-    uniqueIndex("sales_import_uploads_fingerprint_uq").on(table.fingerprint),
-    index("sales_import_uploads_expires_at_idx").on(table.expiresAt),
-  ],
-);
-
-export const salesImportUploadChunks = sqliteTable(
-  "sales_import_upload_chunks",
-  {
-    uploadId: text("upload_id").notNull(),
-    chunkIndex: integer("chunk_index").notNull(),
-    objectKey: text("object_key").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    sha256: text("sha256").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    uniqueIndex("sales_import_upload_chunks_upload_chunk_uq").on(table.uploadId, table.chunkIndex),
-    index("sales_import_upload_chunks_upload_id_idx").on(table.uploadId),
-  ],
-);
-
 /** Audit trail for immutable warehouse-stock snapshot imports. */
 export const inventoryImportBatches = sqliteTable(
   "inventory_import_batches",
@@ -1284,6 +1124,15 @@ export const financeImportBatches = sqliteTable(
     index("finance_import_batches_created_idx").on(table.createdAt),
   ],
 );
+
+/** D1-side single-write fence used only during the controlled finance cutover. */
+export const financeWriteAuthority = sqliteTable("finance_write_authority", {
+  id: integer("id").primaryKey(),
+  owner: text("owner").notNull().default("d1"),
+  epoch: integer("epoch").notNull().default(1),
+  cutoverId: text("cutover_id").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 /** Month is the idempotency anchor: a later file cannot duplicate a closed month. */
 export const financeMonths = sqliteTable(

@@ -1,7 +1,7 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { setAiSpaceAssetFavorite } from "@/lib/ai/space";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -18,7 +18,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ asset
     const id = requireAiId(params.assetId, "assetId");
     const body = await readAiJsonObject(request);
     if (typeof body.favorite !== "boolean") throw new PublicApiError(400, "invalid_request", "favorite 必须为布尔值。");
-    return aiJsonResponse({ item: await setAiSpaceAssetFavorite(id, body.favorite, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await setAiSpaceAssetFavorite(id, body.favorite, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "更新 AI 空间收藏失败");
   }

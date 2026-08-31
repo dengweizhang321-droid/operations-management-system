@@ -6,6 +6,21 @@ import {
   type GlobalSearchNavigationModule,
   type GlobalSearchNavigationTarget,
 } from "./target-contract";
+import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
+import {
+  createDjangoFinanceConsumerReader,
+  type FinanceConsumerReader,
+  type FinanceConsumerResponseMap,
+} from "@/lib/django/finance-consumer-reader";
+import {
+  getFinanceBackendMode,
+  type FinanceBackendMode,
+} from "@/lib/django/finance-service";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -109,6 +124,16 @@ type SearchRow = {
   updated_at: string | null;
   amount_cents: number | null;
   target_hint?: string | null;
+  total_count?: number;
+};
+
+export type GlobalSearchExecutionOptions = {
+  /** Test/worker override; callers cannot raise the hard 10-second ceiling. */
+  deadlineMs?: number;
+  salesReader?: SalesConsumerReader;
+  financeReader?: FinanceConsumerReader;
+  financeBackendMode?: FinanceBackendMode;
+  signal?: AbortSignal;
 };
 
 export type GlobalSearchExecutionOptions = {
@@ -238,33 +263,11 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "销售订单",
     icon: "单",
     module: "sales",
-    requiredTables: ["sales_order_lines"],
-    likeParameterCount: 7,
+    requiredTables: [],
+    likeParameterCount: 0,
     allowedRoles: allRoles,
     scopeKind: "channel_platform",
-    sql: `
-      WITH matched AS (
-        SELECT order_no, online_order_no, MAX(platform) AS platform, MAX(shop_name) AS shop_name,
-          MAX(ship_time) AS latest_ship_time,
-          MIN(substr(COALESCE(product_name, ''), 1, 120)) AS sample_product_name,
-          COUNT(DISTINCT CASE WHEN product_name <> '' THEN product_name END) AS product_name_count,
-          SUM(allocated_amount_cents) AS net_sales_cents
-        FROM sales_order_lines
-        WHERE (order_no LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_order_no LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR online_spec_code LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR platform LIKE ? ESCAPE '\\' COLLATE NOCASE)
-          /*SCOPE*/
-        GROUP BY order_no, online_order_no
-      )
-      SELECT COALESCE(NULLIF(order_no, ''), online_order_no) AS result_id,
-        COALESCE(NULLIF(order_no, ''), online_order_no, '未编号订单') AS title,
-        COALESCE(platform, '') || CASE WHEN shop_name <> '' THEN ' · ' || shop_name ELSE '' END AS subtitle,
-        COALESCE(sample_product_name, '')
-          || CASE WHEN product_name_count > 1 THEN ' 等 ' || product_name_count || ' 个商品' ELSE '' END AS detail,
-        latest_ship_time AS updated_at,
-        net_sales_cents AS amount_cents
-      FROM matched ORDER BY latest_ship_time DESC, result_id ASC LIMIT ? OFFSET ?`,
+    sql: "",
   },
   {
     key: "jd_products",
@@ -497,6 +500,9 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
   },
 ] as const;
 
+const financeSearchDefinition = staticDefinitions.find((definition) => definition.key === "finance")!;
+const targetSearchDefinition = staticDefinitions.find((definition) => definition.key === "targets")!;
+
 const legacyTargetsDefinition: SearchGroupDefinition = {
   key: "targets",
   label: "经营目标",
@@ -526,8 +532,14 @@ const workflowDefinition = {
   module: "workflow" as const,
 };
 
+const salesOrderDefinition = {
+  key: "orders" as const,
+  label: "销售订单",
+  icon: "单",
+  module: "sales" as const,
+};
+
 const importSources = [
-  { table: "sales_import_batches", source: "'销售明细'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "inventory_import_batches", source: "'库存快照'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "product_shipping_rate_import_batches", source: "'SKU 快递费率'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "erp_reference_import_batches", source: "source_label", file: "file_name", searchable: ["id", "file_name", "source_key", "source_label", "status"] },
@@ -573,7 +585,6 @@ export const GLOBAL_SEARCH_COVERAGE = [
 export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
   searchable: [
     "workflow_tasks", "workflow_operation_records",
-    "sales_import_batches", "sales_order_lines",
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_metrics",
     "product_shipping_rate_import_batches",
     "erp_reference_import_batches", "erp_product_master", "erp_inventory_age_lines", "erp_combo_items",
@@ -596,14 +607,14 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "ai_space_dispatch_receipts", "ai_space_dispatch_results", "ai_space_schema_upgrades",
     "ai_memory_entries", "ai_memory_audit_logs", "ai_memory_commit_guards",
     "ai_analysis_runs", "ai_agent_jobs", "ai_agent_checkpoints", "ai_agent_events",
+    "ai_agent_provider_dispatches", "ai_agent_provider_results", "ai_agent_tool_dispatches", "ai_agent_tool_results",
     "ai_workflow_runs", "ai_workflow_node_runs", "ai_workflow_events",
     "workflow_operation_activities", "workflow_task_states", "workflow_task_template_states",
     "workflow_attachment_cleanup_queue", "workflow_task_activity_logs", "workflow_task_attachments", "workflow_task_comments",
     "workflow_task_entity_links", "workflow_task_reminders", "workflow_task_templates",
-    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_target_versions", "finance_target_deletion_audits",
+    "customer_service_conversation_versions", "customer_service_deletion_audits", "finance_write_authority", "finance_target_versions", "finance_target_deletion_audits",
     "finance_target_scoped_versions", "finance_target_scoped_deletion_audits", "finance_target_legacy_migrations",
     "ai_tool_audit_logs",
-    "sales_import_uploads", "sales_import_upload_chunks", "sales_projection_outbox", "sales_projection_source_state",
     "inventory_import_uploads", "inventory_import_upload_chunks", "inventory_import_upload_results",
     "market_annotation_prompt_versions", "market_annotation_prompt_audits", "market_annotation_jobs", "market_annotation_items",
     "market_annotation_commit_receipts", "market_annotation_validation_samples",
@@ -631,16 +642,19 @@ function mapSearchRows(
   request: GlobalSearchRequest,
   principal: AppPrincipal,
 ): GlobalSearchGroup {
-  const hasMore = rows.length > request.groupLimit;
-  const visibleRows = rows.slice(0, request.groupLimit);
   const offset = (request.page - 1) * request.groupLimit;
+  const hasMore = totalOverride === undefined
+    ? rows.length > request.groupLimit
+    : offset + Math.min(rows.length, request.groupLimit) < totalOverride;
+  const visibleRows = rows.slice(0, request.groupLimit);
   // LIMIT + 1 proves only that another row exists. On a non-empty terminal
   // page the offset makes the count exact; an out-of-range page has no safe
   // lower bound beyond zero without re-running a count query.
-  const total = visibleRows.length === 0 && request.page > 1
+  const total = totalOverride ?? (visibleRows.length === 0 && request.page > 1
     ? 0
-    : offset + visibleRows.length + (hasMore ? 1 : 0);
-  const totalExact = !hasMore && (request.page === 1 || visibleRows.length > 0);
+    : offset + visibleRows.length + (hasMore ? 1 : 0));
+  const totalExact = totalOverride !== undefined
+    || (!hasMore && (request.page === 1 || visibleRows.length > 0));
   const items = visibleRows.map((row) => {
     const target = getGlobalSearchNavigationTarget(definition.key, row.target_hint);
     return {
@@ -890,9 +904,174 @@ async function queryWorkflowGroup(
   }
 }
 
-async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, request: GlobalSearchRequest, like: string, principal: AppPrincipal) {
-  const availableSources = importSources.filter((source) => tables.has(source.table));
-  if (availableSources.length === 0) return emptyGroup(importDefinition);
+function validSalesOrderSearch(value: unknown): value is SalesConsumerResponseMap["order_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string" && Number.isSafeInteger(row.amountCents);
+    });
+}
+
+function validSalesImportSearch(value: unknown): value is SalesConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+function validConsumerPage(
+  data: { items: unknown[]; total: number; truncated: boolean },
+  page: number,
+  pageSize: number,
+) {
+  const offset = (page - 1) * pageSize;
+  const expectedLength = offset >= data.total ? 0 : Math.min(pageSize, data.total - offset);
+  return data.items.length === expectedLength && data.truncated === page * pageSize < data.total;
+}
+
+async function querySalesOrderGroup(
+  salesReader: SalesConsumerReader,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const result = await salesReader.read(principal, {
+      operation: "order_search",
+      query: request.query,
+      page: request.page,
+      pageSize: request.groupLimit,
+    }, { signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || !validSalesOrderSearch(result.data)
+      || !validConsumerPage(result.data, request.page, request.groupLimit)) {
+      return emptyGroup(salesOrderDefinition, false);
+    }
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.id,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+    }));
+    return mapSearchRows(salesOrderDefinition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(salesOrderDefinition, false);
+  }
+}
+
+type FinanceSearchOperation = "line_search" | "target_search";
+
+function validFinanceSearch(
+  value: unknown,
+): value is FinanceConsumerResponseMap[FinanceSearchOperation] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string"
+        && (row.amountCents === null || Number.isSafeInteger(row.amountCents));
+    });
+}
+
+function validFinanceImportSearch(
+  value: unknown,
+): value is FinanceConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+function validFinanceConsumerWindow(
+  data: { items: unknown[]; total: number; truncated: boolean },
+  offset: number,
+  limit: number,
+) {
+  const expectedLength = offset >= data.total ? 0 : Math.min(limit, data.total - offset);
+  return data.items.length === expectedLength
+    && data.truncated === offset + limit < data.total;
+}
+
+async function queryFinanceSearchGroup(
+  financeReader: FinanceConsumerReader,
+  operation: FinanceSearchOperation,
+  definition: SearchGroupDefinition,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const offset = (request.page - 1) * request.groupLimit;
+    const result = await financeReader.read(principal, {
+      operation,
+      query: request.query,
+      offset,
+      limit: request.groupLimit,
+    }, { signal });
+    if (!result || typeof result.revision !== "string" || !result.revision
+      || !validFinanceSearch(result.data)
+      || !validFinanceConsumerWindow(result.data, offset, request.groupLimit)) {
+      return emptyGroup(definition, false);
+    }
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.id,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+      total_count: result.data.total,
+    }));
+    return mapSearchRows(definition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(definition, false);
+  }
+}
+
+async function queryLocalImportRows(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  like: string,
+  limit: number,
+  offset: number,
+  includeFinance: boolean,
+) {
+  const availableSources = importSources.filter((source) =>
+    tables.has(source.table) && (includeFinance || source.table !== "finance_import_batches"));
+  if (availableSources.length === 0 || limit <= 0) return { rows: [] as SearchRow[], total: 0 };
   const binds: unknown[] = [];
   const fragments = availableSources.map((source) => {
     const conditions = source.searchable.map((column) => {
@@ -906,11 +1085,120 @@ async function queryImportGroup(db: GlobalSearchDatabase, tables: Set<string>, r
   const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents
     FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
+  const result = await db.prepare(sql).bind(...binds, limit, offset).all<SearchRow>();
+  const rows = result.results ?? [];
+  if (rows.length > 0) return { rows, total: Number(rows[0].total_count ?? 0) };
+  const head = await db.prepare(sql).bind(...binds, 1, 0).all<SearchRow>();
+  return { rows, total: Number(head.results?.[0]?.total_count ?? 0) };
+}
+
+async function queryImportGroup(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  request: GlobalSearchRequest,
+  like: string,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
+  financeReader: FinanceConsumerReader,
+  financeMode: FinanceBackendMode,
+  signal?: AbortSignal,
+) {
   try {
-    const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit + 1, (request.page - 1) * request.groupLimit)
-      .all<SearchRow>();
-    return mapSearchRows(importDefinition, result.results ?? [], request, principal);
+    const salesHead = await salesReader.read(principal, {
+      operation: "import_batch_search",
+      query: request.query,
+      page: 1,
+      pageSize: 1,
+    }, { signal });
+    if (!salesHead || typeof salesHead.revision !== "string" || !salesHead.revision
+      || !validSalesImportSearch(salesHead.data)
+      || !validConsumerPage(salesHead.data, 1, 1)) return emptyGroup(importDefinition, false);
+    const salesTotal = salesHead.data.total;
+    let financeRevision = "";
+    let financeTotal = 0;
+    if (financeMode === "django") {
+      const financeHead = await financeReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: 0,
+        limit: 1,
+      }, { signal });
+      if (!financeHead || typeof financeHead.revision !== "string" || !financeHead.revision
+        || !validFinanceImportSearch(financeHead.data)
+        || !validFinanceConsumerWindow(financeHead.data, 0, 1)) {
+        return emptyGroup(importDefinition, false);
+      }
+      financeRevision = financeHead.revision;
+      financeTotal = financeHead.data.total;
+    }
+    const globalOffset = (request.page - 1) * request.groupLimit;
+    const salesTake = globalOffset < salesTotal ? Math.min(request.groupLimit, salesTotal - globalOffset) : 0;
+    let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (salesTake > 0) {
+      const salesPage = await salesReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        page: request.page,
+        pageSize: request.groupLimit,
+      }, { signal });
+      if (!salesPage || salesPage.revision !== salesHead.revision
+        || !validSalesImportSearch(salesPage.data) || salesPage.data.total !== salesTotal
+        || !validConsumerPage(salesPage.data, request.page, request.groupLimit)
+        || salesPage.data.items.length !== salesTake) return emptyGroup(importDefinition, false);
+      salesItems = salesPage.data.items;
+    }
+    const financeOffset = Math.max(0, globalOffset - salesTotal);
+    const financeTake = financeMode === "django" && financeOffset < financeTotal
+      ? Math.min(request.groupLimit - salesItems.length, financeTotal - financeOffset)
+      : 0;
+    let financeItems: FinanceConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (financeTake > 0) {
+      const financePage = await financeReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: financeOffset,
+        limit: financeTake,
+      }, { signal });
+      if (!financePage || financePage.revision !== financeRevision
+        || !validFinanceImportSearch(financePage.data)
+        || !validFinanceConsumerWindow(financePage.data, financeOffset, financeTake)
+        || financePage.data.total !== financeTotal
+        || financePage.data.items.length !== financeTake) {
+        return emptyGroup(importDefinition, false);
+      }
+      financeItems = financePage.data.items;
+    }
+    const localTake = request.groupLimit - salesItems.length - financeItems.length;
+    const localOffset = Math.max(0, globalOffset - salesTotal - financeTotal);
+    const local = await queryLocalImportRows(
+      db,
+      tables,
+      like,
+      localTake,
+      localOffset,
+      financeMode !== "django",
+    );
+    const combinedTotal = salesTotal + financeTotal + local.total;
+    const rows: SearchRow[] = [
+      ...salesItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: "销售明细",
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...financeItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: item.source,
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...local.rows,
+    ];
+    return mapSearchRows(importDefinition, rows, request, principal, combinedTotal);
   } catch {
     return emptyGroup(importDefinition, false);
   }
@@ -1007,12 +1295,50 @@ export async function searchAllBusinessData(
   principal: AppPrincipal,
   options: GlobalSearchExecutionOptions = {},
 ): Promise<GlobalSearchResponse> {
+  const salesReader = options.salesReader ?? createDjangoSalesConsumerReader();
+  const financeReader = options.financeReader ?? createDjangoFinanceConsumerReader();
+  const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
   const like = escapeGlobalSearchLike(request.query);
   const selectedStaticDefinitions = staticDefinitions.filter((definition) =>
     (!request.group || definition.key === request.group) && isGroupAuthorized(definition, principal));
   const groupTasks: SearchGroupTask[] = selectedStaticDefinitions.map((definition) => {
+    if (definition.key === "orders") {
+      return {
+        definition: salesOrderDefinition,
+        available: true,
+        run: () => querySalesOrderGroup(salesReader, request, principal, options.signal),
+      };
+    }
+    if (financeMode === "django" && definition.key === "finance") {
+      return {
+        definition: financeSearchDefinition,
+        available: true,
+        run: () => queryFinanceSearchGroup(
+          financeReader,
+          "line_search",
+          financeSearchDefinition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
+    if (financeMode === "django" && definition.key === "targets") {
+      return {
+        definition: targetSearchDefinition,
+        available: true,
+        run: () => queryFinanceSearchGroup(
+          financeReader,
+          "target_search",
+          targetSearchDefinition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
     const activeDefinition = activeStaticDefinition(definition, tables);
     return {
       definition,
@@ -1038,8 +1364,18 @@ export async function searchAllBusinessData(
   if ((!request.group || request.group === "imports") && operatorRoles.some((role) => role === principal.role) && principal.scope === null) {
     groupTasks.push({
       definition: importDefinition,
-      available: importSources.some((source) => tables.has(source.table)),
-      run: () => queryImportGroup(db, tables, request, like, principal),
+      available: true,
+      run: () => queryImportGroup(
+        db,
+        tables,
+        request,
+        like,
+        principal,
+        salesReader,
+        financeReader,
+        financeMode,
+        options.signal,
+      ),
     });
   }
   const execution = await runBoundedGroupTasks(groupTasks, boundedGroupDeadlineMs(options.deadlineMs));
@@ -1077,4 +1413,3 @@ export async function searchAllBusinessData(
     unavailableDomains: groups.filter((group) => !group.available).map((group) => group.label),
   };
 }
-import type { AppPrincipal, AppRole } from "@/lib/auth/authorization";

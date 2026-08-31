@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -15,8 +17,8 @@ registerHooks({
 
 const {
   ensureNetshopSchema,
-  getNetshopProductCatalog,
-  getNetshopProductCatalogPage,
+  getNetshopProductCatalog: getNetshopProductCatalogCore,
+  getNetshopProductCatalogPage: getNetshopProductCatalogPageCore,
   getNetshopProductPerformance,
   getNetshopProductPerformancePage,
   getNetshopProductPerformanceSummary,
@@ -36,6 +38,143 @@ const {
   ensureImportFingerprintSchema,
   reserveImportFingerprint,
 } = await import("../lib/imports/content-fingerprint");
+
+const testPrincipal: AppPrincipal = {
+  email: "netshop-test@example.com",
+  displayName: "Netshop test",
+  role: "admin",
+  scope: null,
+};
+
+function channelMatchesPlatform(channel: string, platform: string) {
+  const normalizedChannel = channel.trim();
+  const normalizedPlatform = platform.trim();
+  return normalizedChannel === normalizedPlatform
+    || ["-", "—", "–", ":", "："].some((separator) => normalizedChannel.startsWith(`${normalizedPlatform}${separator}`));
+}
+
+function sqliteSalesReader(sqlite: DatabaseSync): SalesConsumerReader {
+  const currentRevision = () => {
+    try {
+      const row = sqlite.prepare("SELECT sales_revision FROM sales_overview_cache_state WHERE id=1").get() as
+        | { sales_revision?: number | string }
+        | undefined;
+      return `sales:test:${String(row?.sales_revision ?? 1)}`;
+    } catch {
+      return "sales:test:1";
+    }
+  };
+  return {
+    async read(actualPrincipal, request) {
+      assert.equal(actualPrincipal, testPrincipal);
+      if (request.operation === "freshness") {
+        return {
+          revision: currentRevision(),
+          data: {
+            dataStartDate: "2026-08-01",
+            dataCutoffDate: "2026-08-03",
+            latestBatch: { id: "sales-batch", fileName: "sales.xlsx", completedAt: "2026-08-03 12:00:00", rowCount: 1 },
+          },
+        } as never;
+      }
+      assert.equal(request.operation, "netshop_product_metrics");
+      if (request.operation !== "netshop_product_metrics") throw new Error("unexpected sales operation");
+      const sourceRows = sqlite.prepare(`SELECT ship_time,warehouse,product_code,product_name,platform,channel,
+        shop_name,online_spec_code,allocated_amount_cents,gross_profit_cents,quantity,cost_amount_cents
+        FROM sales_order_lines`).all() as Array<Record<string, string | number>>;
+      const allowedChannels = request.allowedChannels ?? null;
+      const eligible = sourceRows.filter((row) => String(row.warehouse).trim() !== "刷刷仓"
+        && channelMatchesPlatform(String(row.channel), String(row.platform))
+        && (allowedChannels === null || allowedChannels.includes(String(row.channel).trim())));
+      const scoped = eligible.filter((row) => request.outletScopes.some((scope) =>
+        String(row.platform).trim() === scope.platform
+        && String(row.shop_name).trim() === scope.rawShopName
+        && (scope.rawChannel === null || String(row.channel).trim() === scope.rawChannel)));
+      const dataCutoffDate = scoped.map((row) => String(row.ship_time).slice(0, 10)).sort().at(-1) ?? null;
+      const combined = new Map<string, {
+        platform: string;
+        shopName: string;
+        salesProductCode: string;
+        grossSalesCents: number;
+        refundAmountCents: number;
+        netSalesCents: number;
+        grossProfitCents: number;
+        absoluteQuantity: number;
+        absoluteCostCents: number;
+      }>();
+      const startDate = request.startDate ?? null;
+      const endDate = request.endDate ?? null;
+      if (startDate !== null && endDate !== null) {
+        for (const row of eligible) {
+          const businessDate = String(row.ship_time).slice(0, 10);
+          if (businessDate < startDate || businessDate >= endDate
+            || String(row.product_code) === "ERP_PRICE_ADJUSTMENT"
+            || String(row.product_name).trim() === "补差价专用") continue;
+          const salesProductCode = String(row.online_spec_code || row.product_code);
+          const targets = new Set<string>();
+          for (const identity of request.identities) {
+            if (String(row.platform).trim() !== identity.platform
+              || String(row.shop_name).trim() !== identity.rawShopName
+              || salesProductCode !== identity.salesProductCode
+              || (identity.rawChannel !== null && String(row.channel).trim() !== identity.rawChannel)) continue;
+            const key = JSON.stringify([identity.platform, identity.canonicalShopName, identity.salesProductCode]);
+            if (targets.has(key)) continue;
+            targets.add(key);
+            const aggregate = combined.get(key) ?? {
+              platform: identity.platform,
+              shopName: identity.canonicalShopName,
+              salesProductCode: identity.salesProductCode,
+              grossSalesCents: 0,
+              refundAmountCents: 0,
+              netSalesCents: 0,
+              grossProfitCents: 0,
+              absoluteQuantity: 0,
+              absoluteCostCents: 0,
+            };
+            const sales = Number(row.allocated_amount_cents);
+            aggregate.grossSalesCents += Math.max(0, sales);
+            aggregate.refundAmountCents += Math.max(0, -sales);
+            aggregate.netSalesCents += sales;
+            aggregate.grossProfitCents += Number(row.gross_profit_cents);
+            aggregate.absoluteQuantity += Math.abs(Number(row.quantity));
+            aggregate.absoluteCostCents += Math.abs(Number(row.cost_amount_cents));
+            combined.set(key, aggregate);
+          }
+        }
+      }
+      return {
+        revision: currentRevision(),
+        data: { dataCutoffDate, platform: "京东", rows: [...combined.values()] },
+      } as never;
+    },
+  };
+}
+
+function getNetshopProductCatalog(
+  db: unknown,
+  input: Parameters<typeof getNetshopProductCatalogCore>[2],
+) {
+  const sqlite = (db as { __sqlite: DatabaseSync }).__sqlite;
+  return getNetshopProductCatalogCore(
+    db as never,
+    testPrincipal,
+    input,
+    sqliteSalesReader(sqlite),
+  );
+}
+
+function getNetshopProductCatalogPage(
+  db: unknown,
+  input: Parameters<typeof getNetshopProductCatalogPageCore>[2],
+) {
+  const sqlite = (db as { __sqlite: DatabaseSync }).__sqlite;
+  return getNetshopProductCatalogPageCore(
+    db as never,
+    testPrincipal,
+    input,
+    sqliteSalesReader(sqlite),
+  );
+}
 
 function createDatabase() {
   const sqlite = new DatabaseSync(":memory:");
@@ -182,6 +321,7 @@ function adapter(
   transformFirst?: (sql: string, value: unknown) => unknown,
 ) {
   return {
+    __sqlite: sqlite,
     prepare(sql: string) {
       let values: SQLInputValue[] = [];
       return {
@@ -992,7 +1132,7 @@ test("product performance projections keep summary and page reads bounded and fe
         sqlite.prepare("UPDATE netshop_product_daily_revisions SET data_version=data_version+1 WHERE platform='京东'").run();
       }
     }) as never, { ...scope, snapshotToken: refreshed.snapshotToken }),
-    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间已更新/.test(error.message),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间.*已更新/.test(error.message),
   );
   assert.equal(mutatedDuringPage, true);
   sqlite.close();
@@ -1197,7 +1337,7 @@ test("published JD SPU imports atomically invalidate old performance tokens, inc
         await saveSpuVersion(3);
       }
     }) as never, { ...scope, snapshotToken: second.snapshotToken }),
-    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间已更新/.test(error.message),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间.*已更新/.test(error.message),
   );
   assert.equal(publishedDuringPage, true);
   assert.deepEqual({ ...sqlite.prepare(`SELECT
@@ -1209,7 +1349,7 @@ test("published JD SPU imports atomically invalidate old performance tokens, inc
   sqlite.close();
 });
 
-test("a 100-item product page aggregates sales through one JSON bind instead of 103 scalar binds", async () => {
+test("a 100-item product page reads sales through the bounded Django consumer contract", async () => {
   const sqlite = createProductCatalogDatabase();
   const reads: string[] = [];
   const bindCounts: number[] = [];
@@ -1226,7 +1366,204 @@ test("a 100-item product page aggregates sales through one JSON bind instead of 
   assert.equal(result.items.length, 100);
   assert.equal(result.items.every((item) => item.salesMatched), true);
   assert.ok(Math.max(...bindCounts) <= 100, `maximum bind count was ${Math.max(...bindCounts)}`);
-  assert.ok(reads.some((sql) => /online_spec_code[\s\S]*json_each\(\?\)/i.test(sql)));
+  assert.ok(reads.every((sql) => !/sales_order_lines/i.test(sql)));
+  sqlite.close();
+});
+
+test("product catalog page uses authoritative batch totals, the batch-prefix index, and scoped fences", async () => {
+  const sqlite = createProductCatalogDatabase();
+  const scope = {
+    platformNames: ["京东"],
+    outlets: [{ platform: "京东", shopName: "目录店铺" }],
+  };
+  const full = await getNetshopProductCatalog(adapter(sqlite, []) as never, { ...scope, pageSize: 20 });
+  assert.deepEqual(Object.keys(full).sort(), [
+    "batch", "items", "pagination", "sales", "shops", "snapshotToken", "summary",
+  ]);
+  assert.equal(full.summary.totalSkus, 102);
+
+  const pageReads: string[] = [];
+  const page = await getNetshopProductCatalogPage(adapter(sqlite, pageReads) as never, {
+    ...scope,
+    pageSize: 20,
+    snapshotToken: full.snapshotToken,
+  });
+  assert.deepEqual(Object.keys(page).sort(), ["items", "pagination", "snapshotToken"]);
+  assert.equal(page.pagination.total, 102);
+  assert.equal(
+    Number((sqlite.prepare("SELECT COUNT(*) AS total FROM netshop_rows WHERE last_import_batch_id='master-batch'").get() as { total: number }).total),
+    page.pagination.total,
+    "completed product-master batch.row_count must equal its published fact count",
+  );
+  assert.equal(pageReads.some((sql) => /COUNT\(\*\) OVER/i.test(sql)), false);
+  assert.equal(pageReads.some((sql) => /SELECT COUNT\(\*\) AS total\s+FROM netshop_rows product/i.test(sql)), false);
+  const pageSql = pageReads.find((sql) => /FROM json_each\(\?\) requested_batch CROSS JOIN netshop_rows product[\s\S]*LIMIT \? OFFSET \?/i.test(sql));
+  assert.ok(pageSql);
+  assert.match(pageSql, /product\.last_import_batch_id = CAST\(requested_batch\.value AS TEXT\)/);
+  assert.match(pageSql, /product\.source IN \('jd_product_master', 'tmall_product_master'\)[\s\S]*product\.dataset = 'product_master'/);
+  assert.match(
+    pageSql,
+    /ORDER BY product\.shop_name ASC, product\.product_name ASC, product\.sku_id ASC,\s*product\.platform ASC, product\.id ASC/,
+  );
+  assert.deepEqual(
+    (sqlite.prepare("PRAGMA index_info('netshop_rows_product_batch_page_idx')").all() as Array<{ name: string }>).map((row) => row.name),
+    ["last_import_batch_id", "shop_name", "product_name", "sku_id", "platform", "id"],
+  );
+
+  const plan = sqlite.prepare(`EXPLAIN QUERY PLAN
+    SELECT product.sku_id
+    FROM json_each(?) requested_batch
+    CROSS JOIN netshop_rows product
+    WHERE product.source IN ('jd_product_master','tmall_product_master')
+      AND product.dataset='product_master'
+      AND product.last_import_batch_id = CAST(requested_batch.value AS TEXT)
+    ORDER BY product.shop_name,product.product_name,product.sku_id,product.platform,product.id
+    LIMIT ? OFFSET ?`).all(JSON.stringify(["master-batch"]), 20, 0) as Array<{ detail: string }>;
+  assert.ok(plan.some((row) => /netshop_rows_product_batch_page_idx/i.test(row.detail)), JSON.stringify(plan));
+
+  const searchedReads: string[] = [];
+  const searched = await getNetshopProductCatalogPage(adapter(sqlite, searchedReads) as never, {
+    ...scope,
+    query: "PAIR-JD-SAME",
+    pageSize: 10,
+    snapshotToken: full.snapshotToken,
+  });
+  assert.equal(searched.pagination.total, 1, "catalog token is reusable across q and pageSize");
+  assert.ok(searchedReads.some((sql) => /SELECT COUNT\(\*\) AS total\s+FROM json_each\(\?\) requested_batch CROSS JOIN netshop_rows product/i.test(sql)));
+
+  const batch = sqlite.prepare(`INSERT INTO netshop_import_batches VALUES
+    (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const product = sqlite.prepare(`INSERT INTO netshop_rows VALUES
+    (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  batch.run(
+    "jd-other-new", "jd_product_master", "product_master", "京东", "另一店铺", "other-new.xlsx", 1,
+    "other-new-hash", "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-02", "[]", "{}", "",
+    "2026-08-10 08:00:00", "2026-08-10 08:01:00",
+  );
+  product.run(
+    600, "other-new-row", "other-new-row-hash", "jd-other-new", "jd-other-new", 1,
+    "jd_product_master", "product_master", "京东", "另一店铺", null, "2026-08-02",
+    "OTHER-NEW", "另一店新商品", "OTHER-NEW", "SPU-OTHER-NEW", "", "{}", "{}",
+    "2026-08-10 08:00:00", "2026-08-10 08:00:00",
+  );
+  await assert.doesNotReject(() => getNetshopProductCatalogPage(adapter(sqlite, []) as never, {
+    ...scope,
+    snapshotToken: full.snapshotToken,
+  }), "another shop's product head must not invalidate an exact-shop page token");
+
+  batch.run(
+    "jd-image-blank", "jd_yimei_sku", "sku_image", "京东", "", "blank-image.xlsx", 1,
+    "blank-image-hash", "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-03", "[]", "{}", "",
+    "2026-08-11 08:00:00", "2026-08-11 08:01:00",
+  );
+  product.run(
+    601, "blank-image-row", "blank-image-row-hash", "jd-image-blank", "jd-image-blank", 1,
+    "jd_yimei_sku", "sku_image", "京东", "", null, "2026-08-03",
+    "SKU-PAGE-000", "共享图片", "SKU-PAGE-000", "", "", "{}", JSON.stringify({ 主图链接: "https://example.test/new.jpg" }),
+    "2026-08-11 08:00:00", "2026-08-11 08:00:00",
+  );
+  await assert.rejects(
+    () => getNetshopProductCatalogPage(adapter(sqlite, []) as never, { ...scope, snapshotToken: full.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+    "blank-shop JD image heads participate in the page fence",
+  );
+
+  const refreshed = await getNetshopProductCatalog(adapter(sqlite, []) as never, scope);
+  batch.run(
+    "master-new", "jd_product_master", "product_master", "京东", "目录店铺", "master-new.xlsx", 1,
+    "master-new-hash", "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-04", "[]", "{}", "",
+    "2026-08-12 08:00:00", "2026-08-12 08:01:00",
+  );
+  product.run(
+    602, "master-new-row", "master-new-row-hash", "master-new", "master-new", 1,
+    "jd_product_master", "product_master", "京东", "目录店铺", null, "2026-08-04",
+    "MASTER-NEW", "目录店新商品", "MASTER-NEW", "SPU-MASTER-NEW", "", "{}", "{}",
+    "2026-08-12 08:00:00", "2026-08-12 08:00:00",
+  );
+  await assert.rejects(
+    () => getNetshopProductCatalogPage(adapter(sqlite, []) as never, { ...scope, snapshotToken: refreshed.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
+  sqlite.close();
+
+  const mismatchDb = createProductCatalogDatabase();
+  mismatchDb.prepare("UPDATE netshop_import_batches SET row_count=101 WHERE id='master-batch'").run();
+  await assert.rejects(
+    () => getNetshopProductCatalog(adapter(mismatchDb, []) as never, scope),
+    (error: unknown) => error instanceof PublicApiError
+      && error.status === 503
+      && /批次元数据与已发布事实不一致/.test(error.message),
+    "full must fail closed before issuing a token for legacy row_count drift",
+  );
+  mismatchDb.close();
+
+  const raceDb = createProductCatalogDatabase();
+  const raceFull = await getNetshopProductCatalog(adapter(raceDb, []) as never, scope);
+  let raced = false;
+  await assert.rejects(
+    () => getNetshopProductCatalogPage(adapter(raceDb, [], [], (sql) => {
+      if (!raced && /FROM json_each\(\?\) requested_batch CROSS JOIN netshop_rows product[\s\S]*LIMIT \? OFFSET \?/i.test(sql)) {
+        raced = true;
+        raceDb.prepare("UPDATE sales_overview_cache_state SET sales_revision=sales_revision+1 WHERE id=1").run();
+      }
+    }) as never, { ...scope, snapshotToken: raceFull.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间.*已更新/.test(error.message),
+  );
+  assert.equal(raced, true);
+  raceDb.close();
+});
+
+test("product catalog OFFSET pages remain complete for cross-platform rows with identical visible sort keys", async () => {
+  const sqlite = createProductCatalogDatabase();
+  const product = sqlite.prepare(`INSERT INTO netshop_rows VALUES
+    (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const tiedRows = [
+    { id: 704, batchId: "tm-same-batch", source: "tmall_product_master", platform: "天猫", code: "TIE-TM-2" },
+    { id: 702, batchId: "master-batch", source: "jd_product_master", platform: "京东", code: "TIE-JD-2" },
+    { id: 703, batchId: "tm-same-batch", source: "tmall_product_master", platform: "天猫", code: "TIE-TM-1" },
+    { id: 701, batchId: "master-batch", source: "jd_product_master", platform: "京东", code: "TIE-JD-1" },
+  ] as const;
+  for (const row of tiedRows) {
+    product.run(
+      row.id, `row-${row.id}`, `hash-${row.id}`, row.batchId, row.batchId, row.id,
+      row.source, "product_master", row.platform, "目录店铺", null, "2026-08-01",
+      row.code, "完全并列目录商品", "TIE-SKU", "TIE-SPU", "", "{}",
+      JSON.stringify({ "商家SKU": "TIE-SKU", "商品状态": "上架" }),
+      "2026-08-01 08:00:00", "2026-08-01 08:00:00",
+    );
+  }
+  sqlite.prepare("UPDATE netshop_import_batches SET row_count=row_count+2, inserted_count=inserted_count+2 WHERE id IN ('master-batch','tm-same-batch')").run();
+
+  const query = "完全并列目录商品";
+  const full = await getNetshopProductCatalog(adapter(sqlite, []) as never, { query, pageSize: 1 });
+  const expected = [
+    "京东/TIE-JD-1",
+    "京东/TIE-JD-2",
+    "天猫/TIE-TM-1",
+    "天猫/TIE-TM-2",
+  ];
+  assert.equal(full.pagination.total, expected.length);
+  assert.deepEqual(full.items.map((item) => `${item.platform}/${item.productCode}`), expected.slice(0, 1));
+
+  const paged: string[] = [];
+  for (let page = 1; page <= expected.length; page += 1) {
+    const result = await getNetshopProductCatalogPage(adapter(sqlite, []) as never, {
+      query,
+      page,
+      pageSize: 1,
+      snapshotToken: full.snapshotToken,
+    });
+    assert.deepEqual(result.pagination, {
+      page,
+      pageSize: 1,
+      total: expected.length,
+      returned: 1,
+      truncated: page < expected.length,
+    });
+    paged.push(...result.items.map((item) => `${item.platform}/${item.productCode}`));
+  }
+  assert.deepEqual(paged, expected);
+  assert.equal(new Set(paged).size, expected.length, "adjacent OFFSET pages must neither repeat nor omit tied rows");
   sqlite.close();
 });
 
@@ -1745,7 +2082,7 @@ test("product catalog bridges only controlled JD canonical shops to exact approv
   assert.equal(wrongChannelScope.items[0]?.netSalesCents, null);
   assert.equal(wrongChannelScope.sales.dataCutoffDate, null);
   assert.ok(Math.max(...bindCounts) <= 100, `maximum bind count was ${Math.max(...bindCounts)}`);
-  assert.ok(reads.some((sql) => /canonicalShopName[\s\S]*rawShopName[\s\S]*rawChannel/i.test(sql)));
+  assert.ok(reads.every((sql) => !/sales_order_lines/i.test(sql)));
   sqlite.close();
 });
 

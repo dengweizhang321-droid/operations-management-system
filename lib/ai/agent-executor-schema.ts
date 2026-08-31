@@ -1,6 +1,6 @@
 import { ensureAiAgentWorkflowSchema } from "@/lib/ai/agent-workflow-schema";
 import { ensureAiAssistantSchema } from "@/lib/ai/assistant-service";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 /**
  * Immutable dispatch/result ledgers for the durable Agent executor.
@@ -84,7 +84,7 @@ export const AI_AGENT_EXECUTOR_SCHEMA_STATEMENTS = [
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export async function ensureAiAgentExecutorSchema(
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);

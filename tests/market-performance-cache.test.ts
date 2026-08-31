@@ -165,6 +165,7 @@ function validSystemKpiPayload(seed = 0) {
 function validMarketOverviewPayload(view: "ranking" | "full" = "ranking", seed = 0) {
   return {
     view,
+    salesRevision: "sales:test:1",
     summary: {
       productCount: seed, categoryCount: 0, brandCount: 0, gmvCents: 0, quantity: 0,
       pageViews: 0, visitors: 0, ownProductCount: 0, activeSkuCount: 0, pendingAiCount: 0,
@@ -535,19 +536,21 @@ test("the shared market request aborts only after its last subscriber leaves", a
 });
 
 test("market overview response cache is canonical, version-invalidated, and coalesces duplicate loads", async () => {
-  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {} }), /"formatVersion":4/);
+  assert.match(canonicalMarketOverviewCacheIdentity({ view: "full", filters: {}, salesRevision: "test:1" }), /"formatVersion":5/);
   assert.notEqual(
-    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 1, pageSize: 20 } }),
-    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 2, pageSize: 20 } }),
+    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 1, pageSize: 20 }, salesRevision: "test:1" }),
+    canonicalMarketOverviewCacheIdentity({ view: "ranking", filters: {}, pagination: { page: 2, pageSize: 20 }, salesRevision: "test:1" }),
   );
   assert.equal(
     canonicalMarketOverviewCacheIdentity({
       view: "ranking",
       filters: { categories: ["B", "A", "A"], rankingDimensions: ["SKU"] },
+      salesRevision: "test:1",
     }),
     canonicalMarketOverviewCacheIdentity({
       view: "ranking",
       filters: { categories: ["A", "B"], rankingDimensions: ["SKU"] },
+      salesRevision: "test:1",
     }),
   );
 
@@ -568,7 +571,7 @@ test("market overview response cache is canonical, version-invalidated, and coal
     sqlite.exec(statement);
   }
   const db = asyncDatabase(sqlite);
-  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
+  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] }, salesRevision: "test:1" };
   let loads = 0;
   const load = async () => {
     loads += 1;
@@ -608,22 +611,22 @@ test("exact market revisions invalidate same-second batch, image, and taxonomy c
     INSERT INTO market_subcategory_taxonomy
       (id,subcategory,status,updated_at) VALUES (1,'旧分类','active','2026-08-25 01:02:03');
   `);
-  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
+  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] }, salesRevision: "test:1" };
   const validateOverview = (value: unknown) => validateMarketOverviewCachePayload(value, "ranking");
   let overviewLoads = 0;
   const loadOverview = async () => validMarketOverviewPayload("ranking", ++overviewLoads);
 
   assert.equal((await getCachedMarketOverviewRaw(db, identity, loadOverview, validateOverview)).status, "miss");
-  const initialRevision = await getMarketOverviewCacheRevision(db);
+  const initialRevision = await getMarketOverviewCacheRevision(db, "test:1");
   sqlite.exec(`UPDATE market_import_batches SET file_size_bytes=101
     WHERE id='batch-1' AND created_at='2026-08-25 01:02:03'`);
-  const batchRevision = await getMarketOverviewCacheRevision(db);
+  const batchRevision = await getMarketOverviewCacheRevision(db, "test:1");
   assert.notEqual(batchRevision, initialRevision);
   assert.equal((await getCachedMarketOverviewRaw(db, identity, loadOverview, validateOverview)).status, "miss");
 
   sqlite.exec(`UPDATE market_image_cache SET content_sha256='new-hash'
     WHERE id=1 AND updated_at='2026-08-25 01:02:03'`);
-  const imageRevision = await getMarketOverviewCacheRevision(db);
+  const imageRevision = await getMarketOverviewCacheRevision(db, "test:1");
   assert.notEqual(imageRevision, batchRevision);
   assert.equal((await getCachedMarketOverviewRaw(db, identity, loadOverview, validateOverview)).status, "miss");
   assert.equal(overviewLoads, 3);
@@ -643,7 +646,7 @@ test("exact market revisions invalidate same-second batch, image, and taxonomy c
 
 test("market cache validators fail closed on valid JSON with the wrong surface shape", async () => {
   const { sqlite, db } = createMarketResponseCacheFixture();
-  const identity = { view: "ranking" as const, filters: { categories: ["shape-check"] } };
+  const identity = { view: "ranking" as const, filters: { categories: ["shape-check"] }, salesRevision: "test:1" };
   const overviewValidator = (value: unknown) => validateMarketOverviewCachePayload(value, "ranking");
   assert.equal(overviewValidator(validMarketOverviewPayload()), true);
   assert.equal(overviewValidator([]), false);
@@ -693,7 +696,7 @@ test("shared market cache capacity remains bounded and usable across mixed surfa
   for (let index = 0; index < 40; index += 1) {
     await getCachedMarketOverviewRaw(
       db,
-      { view: "ranking", filters: { categories: [`capacity-${index}`] } },
+      { view: "ranking", filters: { categories: [`capacity-${index}`] }, salesRevision: "test:1" },
       async () => validMarketOverviewPayload("ranking", index),
       overviewValidator,
     );
@@ -725,7 +728,7 @@ test("shared market cache capacity remains bounded and usable across mixed surfa
 test("market overview and filter single-flight streams are isolated by database", async () => {
   const left = createMarketResponseCacheFixture();
   const right = createMarketResponseCacheFixture();
-  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
+  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] }, salesRevision: "test:1" };
 
   let leftOverviewLoads = 0;
   let rightOverviewLoads = 0;
@@ -781,7 +784,7 @@ test("market overview and filter single-flight streams are isolated by database"
 
 test("market overview and filter single-flight entries are removed after loader errors", async () => {
   const { sqlite, db } = createMarketResponseCacheFixture();
-  const identity = { view: "ranking" as const, filters: { categories: ["error-cleanup"] } };
+  const identity = { view: "ranking" as const, filters: { categories: ["error-cleanup"] }, salesRevision: "test:1" };
   let overviewLoads = 0;
   await assert.rejects(() => getCachedMarketOverview(db, identity, async () => {
     overviewLoads += 1;
@@ -825,7 +828,7 @@ test("market overview and filter cache misses close their revision fence and ret
     sqlite.exec(statement);
   }
   const db = asyncDatabase(sqlite);
-  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
+  const identity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] }, salesRevision: "test:1" };
   let overviewLoads = 0;
   const overview = await getCachedMarketOverview(db, identity, async () => {
     overviewLoads += 1;

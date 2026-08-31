@@ -18,6 +18,13 @@ import {
   jdInboundWarehousePredicateSql,
   resolvedGroupedWarehouseTypeSql,
 } from "@/lib/inventory/warehouse-classification";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export type InventoryHealthStatus = "urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales";
 
@@ -66,6 +73,63 @@ export type InventoryOverviewOptions = {
   planPageSize?: number;
   planStatus?: "draft" | "confirmed" | "completed" | "cancelled";
   includeCancelledPlans?: boolean;
+  signal?: AbortSignal;
+};
+
+export type InventoryDashboardOverviewResponse = {
+  hasInventory: boolean;
+  sync: {
+    latestInventoryBatchId: string | null;
+    inventoryAsOf: string | null;
+    inventorySyncedAt: string | null;
+    salesThrough: string | null;
+    salesWindowStart: string | null;
+    latestInventoryFile: string | null;
+    inventoryStale: boolean;
+  };
+  metrics: {
+    skuWarehouseCount: number;
+    totalAvailableQuantity: number;
+    totalStockValueCents: number;
+    knownStockValueCents: number;
+    stockValueComplete: boolean;
+    costCoverageRate: number;
+    salesDemandMatchRate: number;
+    averageCoverageDays: number | null;
+    urgentCount: number;
+    replenishCount: number;
+    slowMovingValueCents: number;
+    noSalesCount: number;
+    recommendationCount: number;
+    inventoryAlertsEnabled: boolean;
+    recommendationsSuppressed: boolean;
+    qualityIssues: InventoryDataQuality["issues"];
+  };
+  health: {
+    urgent: number;
+    replenish: number;
+    healthy: number;
+    slow: number;
+    stagnant: number;
+    noSales: number;
+  };
+  controls: {
+    autoReplenishmentEnabled: boolean;
+    alertsEnabled: boolean;
+  };
+  quality: InventoryDataQuality;
+};
+
+export type InventoryDashboardProjectionResponse = Omit<InventoryDashboardOverviewResponse, "controls" | "quality">;
+
+export type InventoryMappingGap = {
+  key: string;
+  productCode: string;
+  productName: string;
+  inventoryWarehouse: string;
+  warehouseType: InventoryOverviewItem["warehouseType"];
+  availableQuantity: number;
+  candidateSalesWarehouses: string[];
 };
 
 export type InventoryDashboardOverviewResponse = {
@@ -193,7 +257,13 @@ type InventoryOverviewContext = {
   salesEndDate: string | null;
   salesWindowDays: number;
   settings: InventoryThresholdSettings;
+  salesRevision: string;
+  demandRows: Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>;
 };
+
+const INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE = 500;
+const INVENTORY_DEMAND_LIMIT = 10_000;
+const MAX_INVENTORY_DEMAND_PRODUCTS = 20_000;
 
 const EMPTY_OVERVIEW_METRICS: OverviewMetricsRow = {
   total: 0,
@@ -477,6 +547,96 @@ function normalizeWarehouseType(value: string): InventoryOverviewItem["warehouse
   return value === "owned" || value === "jd_rdc" ? value : "other";
 }
 
+function salesConsumerUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 销售读取服务返回的数据不完整，请稍后重试。",
+  );
+}
+
+function isIsoDateOrNull(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+function validateSalesFreshness(data: SalesConsumerResponseMap["freshness"]) {
+  if (!data || !isIsoDateOrNull(data.dataStartDate) || !isIsoDateOrNull(data.dataCutoffDate)) {
+    throw salesConsumerUnavailable();
+  }
+  const batch = data.latestBatch;
+  if (batch !== null && (!batch || typeof batch !== "object"
+    || typeof batch.id !== "string" || !batch.id
+    || typeof batch.fileName !== "string" || !batch.fileName
+    || (batch.completedAt !== null && typeof batch.completedAt !== "string")
+    || !Number.isSafeInteger(batch.rowCount) || batch.rowCount < 0)) {
+    throw salesConsumerUnavailable();
+  }
+}
+
+function normalizedWarehouseKey(value: string) {
+  let normalized = value.trim().toLowerCase();
+  for (const token of ["配送中心", "仓库", "库房", "仓", " ", "（", "）", "(", ")", "-"]) {
+    normalized = normalized.split(token).join("");
+  }
+  return normalized;
+}
+
+async function readInventoryDemand(
+  reader: SalesConsumerReader,
+  principal: AppPrincipal,
+  input: {
+    productCodes: string[];
+    startDate: string | null;
+    endDateExclusive: string | null;
+    expectedRevision: string;
+    signal?: AbortSignal;
+  },
+) {
+  const rows = new Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>();
+  for (let offset = 0; offset < input.productCodes.length; offset += INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE * 4) {
+    const chunks: string[][] = [];
+    for (let chunkOffset = offset;
+      chunkOffset < Math.min(input.productCodes.length, offset + INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE * 4);
+      chunkOffset += INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE) {
+      chunks.push(input.productCodes.slice(chunkOffset, chunkOffset + INVENTORY_DEMAND_PRODUCT_CHUNK_SIZE));
+    }
+    const results = await Promise.all(chunks.map((productCodes) => reader.read(principal, {
+      operation: "inventory_demand",
+      startDate: input.startDate,
+      endDate: input.endDateExclusive,
+      productCodes,
+      limit: INVENTORY_DEMAND_LIMIT,
+    }, { signal: input.signal })));
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const requested = new Set(chunks[index]);
+      if (!result || result.revision !== input.expectedRevision || result.data.truncated !== false
+        || !Array.isArray(result.data.rows)
+        || !isIsoDateOrNull(result.data.dataStartDate)
+        || !isIsoDateOrNull(result.data.dataCutoffDate)) {
+        throw salesConsumerUnavailable();
+      }
+      for (const row of result.data.rows) {
+        if (!row || typeof row.productCode !== "string" || !requested.has(row.productCode)
+          || typeof row.productName !== "string" || typeof row.warehouseKey !== "string"
+          || row.warehouseKey !== normalizedWarehouseKey(row.warehouseKey)
+          || !Number.isFinite(row.salesQuantity)
+          || !Number.isFinite(row.absoluteQuantity) || row.absoluteQuantity < 0
+          || !Number.isFinite(row.absoluteCostCents) || row.absoluteCostCents < 0) {
+          throw salesConsumerUnavailable();
+        }
+        const key = `${row.productCode}\u001f${row.warehouseKey}`;
+        if (rows.has(key)) throw salesConsumerUnavailable();
+        rows.set(key, row);
+      }
+    }
+  }
+  return rows;
+}
+
 function statusFor(input: {
   available: number;
   dailySales: number | null;
@@ -517,15 +677,10 @@ function uniqueStrings(values: readonly string[] | undefined, max = 20) {
 
 function buildInventoryCte(input: {
   batchId: string;
-  salesStartDate: string | null;
-  salesEndDate: string | null;
+  demandRows: Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>;
   salesWindowDays: number;
   settings: InventoryThresholdSettings;
 }) {
-  const hasSalesRange = Boolean(input.salesStartDate && input.salesEndDate);
-  const rangeStart = hasSalesRange ? `${input.salesStartDate} 00:00:00` : "";
-  const rangeEnd = hasSalesRange ? `${addDays(input.salesEndDate!, 1)} 00:00:00` : "";
-  const warehouseExpression = normalizedWarehouseSql("warehouse");
   const sql = `WITH stock AS (
     SELECT
       product_code,
@@ -548,15 +703,13 @@ function buildInventoryCte(input: {
     GROUP BY product_code, warehouse
   ), sales AS (
     SELECT
-      product_code,
-      ${warehouseExpression} AS warehouse_key,
-      MAX(NULLIF(product_name, '')) AS product_name,
-      SUM(CASE WHEN product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN quantity ELSE 0 END) AS sales_quantity,
-      SUM(CASE WHEN product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN ABS(quantity) ELSE 0 END) AS absolute_quantity,
-      SUM(CASE WHEN product_code <> 'ERP_PRICE_ADJUSTMENT' AND TRIM(product_name) <> '补差价专用' THEN ABS(cost_amount_cents) ELSE 0 END) AS absolute_cost_cents
-    FROM sales_order_lines
-    WHERE ? = 1 AND ship_time >= ? AND ship_time < ? AND TRIM(warehouse) <> '刷刷仓'
-    GROUP BY product_code, ${warehouseExpression}
+      CAST(json_extract(value, '$.productCode') AS TEXT) AS product_code,
+      CAST(json_extract(value, '$.warehouseKey') AS TEXT) AS warehouse_key,
+      CAST(json_extract(value, '$.productName') AS TEXT) AS product_name,
+      CAST(json_extract(value, '$.salesQuantity') AS REAL) AS sales_quantity,
+      CAST(json_extract(value, '$.absoluteQuantity') AS REAL) AS absolute_quantity,
+      CAST(json_extract(value, '$.absoluteCostCents') AS REAL) AS absolute_cost_cents
+    FROM json_each(?)
   ), active_plans AS (
     SELECT
       product_code,
@@ -614,9 +767,7 @@ function buildInventoryCte(input: {
     sql,
     values: [
       input.batchId,
-      hasSalesRange ? 1 : 0,
-      rangeStart,
-      rangeEnd,
+      JSON.stringify([...input.demandRows.values()]),
       input.batchId,
       input.salesWindowDays,
       input.settings.stagnantDays,
@@ -730,28 +881,22 @@ function mapItem(
 
 async function loadInventoryOverviewContext(
   db: InventoryDatabase,
-  options: Pick<InventoryOverviewOptions, "startDate" | "endDate">,
+  principal: AppPrincipal,
+  options: Pick<InventoryOverviewOptions, "startDate" | "endDate" | "signal">,
+  salesReader: SalesConsumerReader,
 ): Promise<InventoryOverviewContext> {
-  const [latestBatch, salesBounds, persistedSettings] = await Promise.all([
+  const [latestBatch, persistedSettings, freshness] = await Promise.all([
     findLatestInventoryImportBatch(db),
-    db.prepare(
-      `SELECT
-        (SELECT substr(MIN(ship_time), 1, 10)
-         FROM sales_order_lines
-         WHERE TRIM(warehouse) <> '刷刷仓'
-           AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-           AND TRIM(product_name) <> '补差价专用') AS start_date,
-        (SELECT substr(MAX(ship_time), 1, 10)
-         FROM sales_order_lines
-         WHERE TRIM(warehouse) <> '刷刷仓'
-           AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-           AND TRIM(product_name) <> '补差价专用') AS end_date`,
-    ).first<{ start_date: string | null; end_date: string | null }>(),
     readOperatingSettings(db),
+    salesReader.read(principal, { operation: "freshness" }, { signal: options.signal }),
   ]);
+  if (!freshness || typeof freshness.revision !== "string" || !freshness.revision || freshness.revision.length > 128) {
+    throw salesConsumerUnavailable();
+  }
+  validateSalesFreshness(freshness.data);
   const { salesStartDate, salesEndDate, salesWindowDays } = resolveInventorySalesPeriod(options, {
-    startDate: salesBounds?.start_date ?? null,
-    endDate: salesBounds?.end_date ?? null,
+    startDate: freshness.data.dataStartDate,
+    endDate: freshness.data.dataCutoffDate,
   });
   const settings: InventoryThresholdSettings = {
     targetDays: persistedSettings.targetDays,
@@ -763,7 +908,37 @@ async function loadInventoryOverviewContext(
     autoReplenishment: persistedSettings.autoReplenishment,
     inventoryAlert: persistedSettings.inventoryAlert,
   };
-  return { latestBatch, salesStartDate, salesEndDate, salesWindowDays, settings };
+  let demandRows = new Map<string, SalesConsumerResponseMap["inventory_demand"]["rows"][number]>();
+  if (latestBatch && salesStartDate && salesEndDate) {
+    const productResult = await db.prepare(
+      `SELECT product_code
+       FROM inventory_stock_lines
+       WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓' AND TRIM(product_code) <> ''
+       GROUP BY product_code
+       ORDER BY product_code
+       LIMIT ?`,
+    ).bind(latestBatch.id, MAX_INVENTORY_DEMAND_PRODUCTS + 1).all<{ product_code: string }>();
+    if (productResult.results.length > MAX_INVENTORY_DEMAND_PRODUCTS) throw salesConsumerUnavailable();
+    const productCodes = productResult.results.map((row) => row.product_code);
+    if (productCodes.length > 0) {
+      demandRows = await readInventoryDemand(salesReader, principal, {
+        productCodes,
+        startDate: salesStartDate,
+        endDateExclusive: addDays(salesEndDate, 1),
+        expectedRevision: freshness.revision,
+        signal: options.signal,
+      });
+    }
+  }
+  return {
+    latestBatch,
+    salesStartDate,
+    salesEndDate,
+    salesWindowDays,
+    settings,
+    salesRevision: freshness.revision,
+    demandRows,
+  };
 }
 
 async function readInventoryOverviewMetrics(
@@ -895,29 +1070,12 @@ async function readInventoryMappingGaps(
     }>();
   const productCodes = [...new Set(gaps.results.map((row) => row.product_code))];
   const candidateMap = new Map<string, string[]>();
-  if (productCodes.length > 0 && context.salesStartDate && context.salesEndDate) {
-    const placeholders = productCodes.map(() => "?").join(", ");
-    const candidates = await db.prepare(
-      `SELECT product_code, warehouse
-       FROM sales_order_lines
-       WHERE ship_time >= ? AND ship_time < ?
-         AND TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'
-         AND product_code IN (${placeholders})
-       GROUP BY product_code, warehouse
-       ORDER BY product_code, warehouse
-       LIMIT 500`,
-    ).bind(
-      `${context.salesStartDate} 00:00:00`,
-      `${addDays(context.salesEndDate, 1)} 00:00:00`,
-      ...productCodes,
-    ).all<{ product_code: string; warehouse: string }>();
-    for (const row of candidates.results) {
-      const list = candidateMap.get(row.product_code) ?? [];
-      if (list.length < 8) list.push(row.warehouse);
-      candidateMap.set(row.product_code, list);
-    }
+  const requestedProducts = new Set(productCodes);
+  for (const row of context.demandRows.values()) {
+    if (!requestedProducts.has(row.productCode)) continue;
+    const list = candidateMap.get(row.productCode) ?? [];
+    if (list.length < 8 && !list.includes(row.warehouseKey)) list.push(row.warehouseKey);
+    candidateMap.set(row.productCode, list);
   }
   return {
     matchedCount: Number(metrics.matched_count ?? 0),
@@ -1100,16 +1258,17 @@ function toInventoryDashboardProjection(
 
 export async function getInventoryDashboardOverview(
   db: InventoryDatabase,
-  options: Pick<InventoryOverviewOptions, "startDate" | "endDate"> = {},
+  principal: AppPrincipal,
+  options: Pick<InventoryOverviewOptions, "startDate" | "endDate" | "signal"> = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
 ): Promise<InventoryDashboardProjectionResponse> {
-  const context = await loadInventoryOverviewContext(db, options);
+  const context = await loadInventoryOverviewContext(db, principal, options, salesReader);
   if (!context.latestBatch) {
     return toInventoryDashboardProjection(buildInventoryDashboardResponse(context));
   }
   const cte = buildInventoryCte({
     batchId: context.latestBatch.id,
-    salesStartDate: context.salesStartDate,
-    salesEndDate: context.salesEndDate,
+    demandRows: context.demandRows,
     salesWindowDays: context.salesWindowDays,
     settings: context.settings,
   });
@@ -1117,9 +1276,14 @@ export async function getInventoryDashboardOverview(
   return toInventoryDashboardProjection(buildInventoryDashboardResponse(context, metricsRow));
 }
 
-export async function getInventoryOverview(db: InventoryDatabase, options: InventoryOverviewOptions = {}) {
+export async function getInventoryOverview(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  options: InventoryOverviewOptions = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
+) {
   const pagination = normalizeInventoryPagination(options);
-  const context = await loadInventoryOverviewContext(db, options);
+  const context = await loadInventoryOverviewContext(db, principal, options, salesReader);
   const { latestBatch, salesStartDate, salesEndDate, salesWindowDays, settings } = context;
 
   if (!latestBatch) {
@@ -1140,7 +1304,7 @@ export async function getInventoryOverview(db: InventoryDatabase, options: Inven
     };
   }
 
-  const cte = buildInventoryCte({ batchId: latestBatch.id, salesStartDate, salesEndDate, salesWindowDays, settings });
+  const cte = buildInventoryCte({ batchId: latestBatch.id, demandRows: context.demandRows, salesWindowDays, settings });
   const filter = buildFilter(options);
   const [projection, filterOptions, qualityMetrics] = await Promise.all([
     readInventoryOverviewProjection(db, cte, filter, pagination, salesWindowDays),
@@ -1198,9 +1362,14 @@ export async function getInventoryOverview(db: InventoryDatabase, options: Inven
   };
 }
 
-export async function getInventoryFullOverview(db: InventoryDatabase, options: InventoryOverviewOptions = {}) {
+export async function getInventoryFullOverview(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  options: InventoryOverviewOptions = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
+) {
   const [overview, planPage] = await Promise.all([
-    getInventoryOverview(db, options),
+    getInventoryOverview(db, principal, options, salesReader),
     queryReplenishmentPlans(db, {
       page: options.planPage,
       pageSize: options.planPageSize ?? 50,
@@ -1228,9 +1397,14 @@ export async function getInventoryFullOverview(db: InventoryDatabase, options: I
   };
 }
 
-export async function getInventoryPlanOverview(db: InventoryDatabase, options: InventoryOverviewOptions = {}) {
+export async function getInventoryPlanOverview(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  options: InventoryOverviewOptions = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
+) {
   const [context, planPage] = await Promise.all([
-    loadInventoryOverviewContext(db, options),
+    loadInventoryOverviewContext(db, principal, options, salesReader),
     queryReplenishmentPlans(db, {
       page: options.planPage,
       pageSize: options.planPageSize ?? 50,

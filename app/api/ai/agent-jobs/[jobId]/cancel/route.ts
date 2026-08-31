@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { cancelAiAgentJob, requireAiExpectedVersionBody } from "@/lib/ai/agent-workflows";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -16,7 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ jobId:
     const params = await context.params;
     const jobId = requireAiId(params.jobId, "jobId");
     const expectedVersion = requireAiExpectedVersionBody(await readAiJsonObject(request));
-    return aiJsonResponse({ item: await cancelAiAgentJob(jobId, expectedVersion, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await cancelAiAgentJob(jobId, expectedVersion, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "取消 AI Agent 任务失败");
   }

@@ -1,5 +1,5 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { getWorkflowTaskAttachmentDownload } from "@/lib/workflow/collaboration";
 import { workflowErrorResponse } from "@/lib/workflow/errors";
 
@@ -7,7 +7,7 @@ function asciiFileName(name: string) { return name.replace(/[^A-Za-z0-9._-]/g, "
 export async function GET(_request: Request, context: { params: Promise<{ taskId: string; attachmentId: string }> }) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项附件");
-    const { taskId, attachmentId } = await context.params; const result = await getWorkflowTaskAttachmentDownload(taskId, attachmentId, getSalesDatabase());
+    const { taskId, attachmentId } = await context.params; const result = await getWorkflowTaskAttachmentDownload(taskId, attachmentId, getD1Database());
     if (!result) return Response.json({ error: "附件不存在" }, { status: 404, headers: { "cache-control": "private, no-store" } });
     const encoded = encodeURIComponent(result.attachment.fileName);
     const body = new Uint8Array(result.bytes.byteLength); body.set(result.bytes);

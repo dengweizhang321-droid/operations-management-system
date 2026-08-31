@@ -100,7 +100,7 @@ test("finance initial missing month fallback is explicit and manual selection di
   assert.match(route, /fallbackToLatestCompletedMonth/);
   assert.match(sales, /allowInitialMonthFallback && selectedMonths !== null && selectedMonths\.length > 0/);
   assert.match(sales, /query\.set\("initialMonthFallback", "latest_completed"\)/);
-  assert.match(sales, /setAllowInitialMonthFallback\(false\); setSelectedMonths\(months\)/);
+  assert.match(sales, /const selectMonthsStrictly[\s\S]*?setAllowInitialMonthFallback\(false\);[\s\S]*?setSelectedMonths\(months\)/);
   assert.match(sales, /已显示最新可用财报[\s\S]*?手动选择月份后将严格按选择读取/);
   assert.match(shared, /fallbackApplied\?: boolean/);
 });

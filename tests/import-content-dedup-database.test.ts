@@ -19,7 +19,6 @@ registerHooks({
 const { saveCustomerServiceImport } = await import("../lib/customer-service/database");
 const { ensureFinanceSchema, saveFinanceImport } = await import("../lib/finance/database");
 const { ensureErpReferenceSchema, saveProductMasterImport } = await import("../lib/erp-reference/database");
-const { ensureSalesSchema, saveSalesImport } = await import("../lib/sales/database");
 const { ensureInventorySchema, saveInventoryImport, syncInventoryStockDimensions } = await import("../lib/inventory/database");
 const { ensureNetshopSchema, readNetshopScopeRows, saveNetshopImport } = await import("../lib/netshop/database");
 const { PublicApiError } = await import("../lib/http/api-error");
@@ -36,8 +35,12 @@ const {
 } = await import("../lib/imports/content-fingerprint");
 type FinanceDatabase = import("../lib/finance/database").FinanceDatabase;
 type ErpReferenceDatabase = import("../lib/erp-reference/database").ErpReferenceDatabase;
-type SalesDatabase = import("../lib/sales/database").SalesDatabase;
-type SalesLineInput = import("../lib/sales/database").SalesLineInput;
+type SalesDatabase = unknown;
+type SalesLineInput = Record<string, string | number>;
+const ensureSalesSchema = async (_db: SalesDatabase) => undefined;
+const saveSalesImport = async (..._args: unknown[]): Promise<never> => {
+  throw new Error("retired D1 sales contract");
+};
 type InventoryDatabase = import("../lib/inventory/database").InventoryDatabase;
 type InventoryStockRow = import("../lib/imports/inventory-stock").InventoryStockRow;
 type NetshopDatabase = import("../lib/netshop/database").NetshopDatabase;
@@ -651,7 +654,7 @@ function salesLine(orderNo: string, shipDate: string, amountCents: number, chann
   };
 }
 
-test("领域事实发布事务的提交栅栏拒绝 takeover 后恢复的旧 owner", async () => {
+test.skip("已退役的 D1 销售提交栅栏由 Django 写服务契约测试替代", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
   await ensureSalesSchema(db);
@@ -707,7 +710,7 @@ test("领域事实发布事务的提交栅栏拒绝 takeover 后恢复的旧 own
   sqlite.close();
 });
 
-test("销售导入按表单权威日期边界完整替换，不依赖新文件实际出现的末日", async () => {
+test.skip("已退役的 D1 销售日期替换由 Django 写服务契约测试替代", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
   await ensureSalesSchema(db);
@@ -746,7 +749,7 @@ test("销售导入按表单权威日期边界完整替换，不依赖新文件�
   sqlite.close();
 });
 
-test("销售导入按精确渠道范围替换时保留同期其他渠道事实", async () => {
+test.skip("已退役的 D1 销售渠道替换由 Django 写服务契约测试替代", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as unknown as SalesDatabase;
   await ensureSalesSchema(db);
@@ -1139,7 +1142,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     contentHash: "d".repeat(64),
   });
   assert.equal(first.created, true);
-  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 2);
+  assert.equal(sqlite.prepare("SELECT erp_revision revision FROM erp_product_projection_state WHERE id=1").get()?.revision, 2);
   const changed = await saveProductMasterImport(db, {
     id: `products:${"e".repeat(64)}`,
     fileName: "products-b.xlsx",
@@ -1152,7 +1155,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     contentHash: "e".repeat(64),
   });
   assert.equal(changed.created, true);
-  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
+  assert.equal(sqlite.prepare("SELECT erp_revision revision FROM erp_product_projection_state WHERE id=1").get()?.revision, 3);
   assert.deepEqual(sqlite.prepare("SELECT product_code productCode, product_name productName FROM erp_product_master").all().map((item) => ({ ...item })), [
     { productCode: "P1", productName: "货品1更新" },
   ]);
@@ -1168,7 +1171,7 @@ test("ERP 全量货品差异导入会删除旧快照残留，并发相同尝试�
     contentHash: "e".repeat(64),
   });
   assert.equal(duplicateAttempt.created, false);
-  assert.equal(sqlite.prepare("SELECT erp_product_revision revision FROM sales_overview_cache_state WHERE id=1").get()?.revision, 3);
+  assert.equal(sqlite.prepare("SELECT erp_revision revision FROM erp_product_projection_state WHERE id=1").get()?.revision, 3);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM erp_reference_import_batches").get()?.count, 2);
   sqlite.close();
 });

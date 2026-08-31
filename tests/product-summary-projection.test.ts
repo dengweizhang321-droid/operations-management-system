@@ -3,8 +3,14 @@ import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader, SalesProductAggregate } from "../lib/django/sales-consumer-reader";
 
-const testEnvironment: { DB?: unknown } = {};
+const testEnvironment: {
+  DB?: unknown;
+  TERUISI_DJANGO_SALES_READER_BASE_URL?: string;
+  TERUISI_DJANGO_INTERNAL_SECRET?: string;
+} = {};
 (globalThis as typeof globalThis & { __productSummaryProjectionEnv?: typeof testEnvironment }).__productSummaryProjectionEnv = testEnvironment;
 
 registerHooks({
@@ -54,6 +60,86 @@ function sqliteAdapter(sqlite: DatabaseSync, onPrepare?: (sql: string) => void) 
       return results;
     },
   };
+}
+
+const testPrincipal: AppPrincipal = {
+  email: "product-reader@example.com",
+  displayName: "Product reader",
+  role: "viewer",
+  scope: null,
+};
+
+const salesProducts: SalesProductAggregate[] = [
+  {
+    productCode: "A", productName: "货品A", specification: "", category: "类目A", supplier: "",
+    netQuantity: 10, grossSalesCents: 10_000, refundAmountCents: 0, netSalesCents: 10_000,
+    costCents: 9_000, feeCents: 0, grossProfitCents: 1_000, absoluteQuantity: 10,
+    absoluteCostCents: 9_000, outlets: [{ platform: "京东", shopName: "测试店铺", channel: "京东" }],
+  },
+  {
+    productCode: "B", productName: "货品B", specification: "", category: "类目B", supplier: "",
+    netQuantity: 5, grossSalesCents: 5_000, refundAmountCents: 0, netSalesCents: 5_000,
+    costCents: 2_500, feeCents: 0, grossProfitCents: 2_500, absoluteQuantity: 5,
+    absoluteCostCents: 2_500, outlets: [{ platform: "京东", shopName: "测试店铺", channel: "京东" }],
+  },
+];
+
+const latestSalesBatch = {
+  id: "sales-batch",
+  fileName: "sales.xlsx",
+  completedAt: "2026-08-18 10:00:00",
+  rowCount: 2,
+};
+
+function fixtureSalesReader(input: {
+  products?: SalesProductAggregate[];
+  revision?: () => string;
+  hasSales?: boolean;
+} = {}): SalesConsumerReader {
+  const products = input.products ?? salesProducts;
+  const revision = input.revision ?? (() => "sales:fixture:1");
+  const hasSales = input.hasSales ?? true;
+  return {
+    async read(_principal, request) {
+      if (request.operation === "freshness") {
+        return {
+          revision: revision(),
+          data: {
+            dataStartDate: hasSales ? "2026-08-18" : null,
+            dataCutoffDate: hasSales ? "2026-08-18" : null,
+            latestBatch: hasSales ? latestSalesBatch : null,
+          },
+        } as never;
+      }
+      if (request.operation !== "product_performance") throw new Error(`unexpected operation: ${request.operation}`);
+      const requested = new Set(request.productCodes ?? []);
+      const platformAllowed = !request.platforms?.length || request.platforms.includes("京东");
+      const outletAllowed = !request.outlets?.length || request.outlets.some((outlet) => (
+        outlet.platform === "京东" && outlet.shopName === "测试店铺"
+      ));
+      return {
+        revision: revision(),
+        data: {
+          dataStartDate: hasSales ? "2026-08-18" : null,
+          dataCutoffDate: hasSales ? "2026-08-18" : null,
+          latestBatch: hasSales ? latestSalesBatch : null,
+          rows: platformAllowed && outletAllowed ? products.filter((row) => requested.has(row.productCode)) : [],
+          outletOptions: platformAllowed && outletAllowed
+            ? [{ platform: "京东", shopName: "测试店铺", channel: "京东" }]
+            : [],
+          truncated: false,
+        },
+      } as never;
+    },
+  };
+}
+
+function insertErpProducts(sqlite: DatabaseSync) {
+  const insert = sqlite.prepare(`INSERT INTO erp_product_master
+    (product_code,product_name,brand,specification,barcode,category,supplier,product_status,source_row_number,last_import_batch_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  insert.run("A", "货品A", "", "", "", "类目A", "", "active", 1, "erp-batch");
+  insert.run("B", "货品B", "", "", "", "类目B", "", "active", 2, "erp-batch");
 }
 
 function insertSalesLine(sqlite: DatabaseSync, input: {
@@ -111,22 +197,32 @@ test("商品汇总真实 API 将指标与分页合并，并让翻页排序跳过
   testEnvironment.DB = database;
 
   const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
-  const { ensureSalesSchema } = await import("../lib/sales/database");
   const { ensureInventorySchema } = await import("../lib/inventory/database");
   const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
   await Promise.all([
     ensureAuthorizationSchema(database as never),
-    ensureSalesSchema(database as never),
     ensureInventorySchema(database as never),
     ensureErpReferenceSchema(database as never),
   ]);
   sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)
     VALUES ('product-reader@example.com', 'Product reader', 'viewer', 'active', NULL)`).run();
-  sqlite.prepare(`INSERT INTO sales_import_batches (
-    id, source, file_name, file_size_bytes, file_hash, sheet_name, status, row_count, inserted_count, completed_at
-  ) VALUES ('sales-batch', 'test', 'sales.xlsx', 1, 'sales-hash', 'Sheet1', 'completed', 2, 2, '2026-08-18 10:00:00')`).run();
-  insertSalesLine(sqlite, { productCode: "A", productName: "货品A", category: "类目A", quantity: 10, netSalesCents: 10_000, costCents: 9_000 });
-  insertSalesLine(sqlite, { productCode: "B", productName: "货品B", category: "类目B", quantity: 5, netSalesCents: 5_000, costCents: 2_500 });
+  insertErpProducts(sqlite);
+
+  let salesRevision = "sales:fixture:1";
+  const reader = fixtureSalesReader({ revision: () => salesRevision });
+  const originalFetch = globalThis.fetch;
+  testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001";
+  testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = "product-summary-test-secret-at-least-32-bytes";
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(Buffer.from(init?.body as Uint8Array).toString("utf8")) as { operation: string };
+    const result = await reader.read(testPrincipal, body as never);
+    return Response.json({ operation: body.operation, data: result.data }, {
+      headers: {
+        "x-sales-data-revision": result.revision,
+        "x-sales-source-revision": result.revision,
+      },
+    });
+  };
 
   const route = await import("../app/api/products/summary/route");
   const base = "https://example.test/api/products/summary?range=custom&startDate=2026-08-18&endDate=2026-08-18&pageSize=1";
@@ -144,20 +240,8 @@ test("商品汇总真实 API 将指标与分页合并，并让翻页排序跳过
   assert.equal(bootstrap.metrics?.netSalesCents, 15_000);
   assert.equal(bootstrap.metrics?.grossProfitCents, 3_500);
   assert.equal(bootstrap.pagination.total, 2);
-  const boundsSql = bootstrapSql.find((sql) => sql.includes("substr(MIN(ship_time)") && sql.includes("substr(MAX(ship_time)"));
-  assert.ok(boundsSql, "商品汇总应通过独立标量子查询读取销售日期上下界");
-  assert.doesNotMatch(boundsSql, /MIN\(substr\(ship_time/);
-  assert.doesNotMatch(boundsSql, /MAX\(substr\(ship_time/);
-  const boundsPlan = sqlite.prepare(`EXPLAIN QUERY PLAN ${boundsSql}`).all() as Array<{ detail: string }>;
-  assert.equal(
-    boundsPlan.filter((row) => row.detail.includes("USING INDEX sales_order_lines_ship_time_idx")).length,
-    2,
-    "日期上下界都应命中 ship_time 索引的 min/max 快速路径",
-  );
-  assert.equal(boundsPlan.some((row) => row.detail === "SCAN sales_order_lines"), false);
-  assert.equal(bootstrapSql.filter((sql) => sql.includes("WITH sales_agg AS (")).length, 2);
-  assert.equal(bootstrapSql.filter((sql) => sql.includes("metrics AS MATERIALIZED")).length, 1);
-  assert.equal(bootstrapSql.filter((sql) => sql.includes("paged AS MATERIALIZED")).length, 1);
+  assert.equal(bootstrapSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
+  assert.equal(bootstrapSql.some((sql) => /FROM erp_product_master/i.test(sql)), true);
 
   preparedSql.length = 0;
   const pageResponse = await route.GET(new Request(`${base}&view=page&snapshotToken=${bootstrap.snapshotToken}&page=2&sortBy=grossProfitCents&direction=asc`));
@@ -169,27 +253,7 @@ test("商品汇总真实 API 将指标与分页合并，并让翻页排序跳过
   assert.equal(page.projection, "page");
   assert.equal(page.snapshotToken, bootstrap.snapshotToken);
   assert.deepEqual(page.items.map((item) => item.productCode), ["B"]);
-  assert.equal(pageSql.filter((sql) => sql.includes("WITH sales_agg AS (")).length, 1);
-  assert.equal(pageSql.some((sql) => sql.includes("SELECT DISTINCT category FROM filtered")), false);
-  assert.equal(pageSql.some((sql) => sql.includes("GROUP BY platform, shop_name, channel")), false);
-  const pageOutletSql = pageSql.find((sql) => sql.includes("ranged_outlet_sales AS MATERIALIZED"));
-  assert.ok(pageOutletSql, "当前页渠道查询应先物化日期范围");
-  assert.match(
-    pageOutletSql,
-    /WITH ranged_outlet_sales AS MATERIALIZED \([\s\S]+WHERE ship_time >= \? AND ship_time < \?[\s\S]+\)\s+SELECT[\s\S]+FROM ranged_outlet_sales\s+WHERE product_code IN/,
-  );
-  assert.doesNotMatch(pageOutletSql, /INDEXED BY/, "查询不应依赖脆弱的强制索引名称");
-  const pageOutletPlan = sqlite.prepare(`EXPLAIN QUERY PLAN ${pageOutletSql}`).all(
-    "2026-08-18 00:00:00",
-    "2026-08-19 00:00:00",
-    "B",
-  ) as Array<{ detail: string }>;
-  assert.equal(pageOutletPlan.some((row) => row.detail === "MATERIALIZE ranged_outlet_sales"), true);
-  assert.equal(
-    pageOutletPlan.some((row) => row.detail.includes("USING INDEX sales_order_lines_ship_time_idx")),
-    true,
-    "日期物化阶段应使用 ship_time 范围索引",
-  );
+  assert.equal(pageSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
 
   preparedSql.length = 0;
   const equivalentResponse = await route.GET(new Request(`${base}&page=2&sortBy=grossProfitCents&direction=asc`));
@@ -200,7 +264,7 @@ test("商品汇总真实 API 将指标与分页合并，并让翻页排序跳过
   assert.deepEqual(page.sort, equivalent.sort);
   assert.deepEqual(bootstrap.metrics, equivalent.metrics, "仅翻页和排序不应改变业务指标");
   assert.deepEqual(bootstrap.filters, equivalent.filters, "仅翻页和排序不应改变 bootstrap facet");
-  assert.equal(preparedSql.filter((sql) => sql.includes("WITH sales_agg AS (")).length, 2);
+  assert.equal(preparedSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
 
   preparedSql.length = 0;
   const scopedResponse = await route.GET(new Request(
@@ -209,9 +273,7 @@ test("商品汇总真实 API 将指标与分页合并，并让翻页排序跳过
   assert.equal(scopedResponse.status, 200);
   const scoped = await scopedResponse.json() as ProductApiPayload;
   assert.deepEqual(scoped.items.map((item) => item.productCode), ["A"]);
-  const scopedBoundsSql = preparedSql.find((sql) => sql.includes("substr(MIN(ship_time)") && sql.includes("platform IN"));
-  assert.ok(scopedBoundsSql, "带平台和店铺筛选的上下界查询应复用相同过滤条件并完成双份绑定");
-  assert.match(scopedBoundsSql, /platform IN \(\?\)[\s\S]+platform = \? AND shop_name IN \(\?\)/);
+  assert.equal(preparedSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
 
   preparedSql.length = 0;
   const beyondResponse = await route.GET(new Request(`${base}&view=page&snapshotToken=${bootstrap.snapshotToken}&page=99&sortBy=netSalesCents&direction=desc`));
@@ -220,24 +282,27 @@ test("商品汇总真实 API 将指标与分页合并，并让翻页排序跳过
   assert.deepEqual(beyond.items, []);
   assert.equal(beyond.pagination.total, 2);
   assert.equal(beyond.pagination.returned, 0);
-  assert.equal(preparedSql.filter((sql) => sql.includes("WITH sales_agg AS (")).length, 1);
+  assert.equal(preparedSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
 
   for (const suffix of ["view=other", "view=page&view=page", "view=page", "view=page&snapshotToken=bad"]) {
     preparedSql.length = 0;
     const response = await route.GET(new Request(`${base}&${suffix}`));
     assert.equal(response.status, 400, suffix);
-    assert.equal(preparedSql.some((sql) => sql.includes("WITH sales_agg AS (")), false, suffix);
+    assert.equal(preparedSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false, suffix);
   }
 
-  sqlite.exec("UPDATE sales_overview_cache_state SET sales_revision=sales_revision+1 WHERE id=1");
+  salesRevision = "sales:fixture:2";
   preparedSql.length = 0;
   const stalePageResponse = await route.GET(new Request(`${base}&view=page&snapshotToken=${bootstrap.snapshotToken}&page=1`));
   assert.equal(stalePageResponse.status, 503);
   const stalePage = await stalePageResponse.json() as { code?: string; error?: string };
   assert.equal(stalePage.code, "service_unavailable");
   assert.match(stalePage.error ?? "", /数据版本已变化/);
-  assert.equal(preparedSql.some((sql) => sql.includes("WITH sales_agg AS (")), false);
+  assert.equal(preparedSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
 
+  globalThis.fetch = originalFetch;
+  delete testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+  delete testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
   sqlite.close();
 });
 
@@ -245,34 +310,32 @@ test("商品汇总拆分日期上下界后保持空库 full 与 page 语义", as
   const sqlite = new DatabaseSync(":memory:");
   const preparedSql: string[] = [];
   const database = sqliteAdapter(sqlite, (sql) => preparedSql.push(sql));
-  const { ensureSalesSchema } = await import("../lib/sales/database");
   const { ensureInventorySchema } = await import("../lib/inventory/database");
   const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
   const { getProductSummary } = await import("../lib/products/summary");
   await Promise.all([
-    ensureSalesSchema(database as never),
     ensureInventorySchema(database as never),
     ensureErpReferenceSchema(database as never),
   ]);
+  const reader = fixtureSalesReader({ products: [], hasSales: false });
 
   preparedSql.length = 0;
-  const full = await getProductSummary(database as never, { range: "last30" });
+  const full = await getProductSummary(database as never, testPrincipal, { range: "last30" }, reader);
   assert.equal(full.projection, "full");
   assert.equal(full.hasSales, false);
   assert.equal(full.sync.dataStartDate, null);
   assert.equal(full.sync.dataCutoffDate, null);
   assert.deepEqual(full.items, []);
   assert.equal(full.pagination.total, 0);
-  assert.equal(preparedSql.filter((sql) => sql.includes("substr(MIN(ship_time)")).length, 1);
-  assert.equal(preparedSql.some((sql) => sql.includes("WITH sales_agg AS (")), false);
+  assert.equal(preparedSql.some((sql) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
 
-  const page = await getProductSummary(database as never, {
+  const page = await getProductSummary(database as never, testPrincipal, {
     range: "last30",
     projection: "page",
     expectedSnapshotToken: full.snapshotToken,
     page: 7,
     pageSize: 25,
-  });
+  }, reader);
   assert.equal(page.projection, "page");
   assert.equal(page.snapshotToken, full.snapshotToken);
   assert.deepEqual(page.items, []);

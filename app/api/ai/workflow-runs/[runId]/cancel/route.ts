@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { cancelAiWorkflowRun, requireAiExpectedVersionBody } from "@/lib/ai/agent-workflows";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -16,7 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ runId:
     const params = await context.params;
     const runId = requireAiId(params.runId, "runId");
     const expectedVersion = requireAiExpectedVersionBody(await readAiJsonObject(request));
-    return aiJsonResponse({ item: await cancelAiWorkflowRun(runId, expectedVersion, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await cancelAiWorkflowRun(runId, expectedVersion, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "取消 AI 工作流失败");
   }

@@ -4,7 +4,7 @@ import {
   listAiWorkflowRuns,
 } from "@/lib/ai/agent-workflows";
 import { createCurrentAgentExecutorAdmission } from "@/lib/ai/agent-executor-admission";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { PublicApiError } from "@/lib/http/api-error";
 import {
   aiJsonResponse,
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     rejectUnknownListParams(params);
     const page = parseAiPositiveInteger(params, "page", 1, 10_000);
     const pageSize = parseAiPositiveInteger(params, "pageSize", 20, 50);
-    return aiJsonResponse(await listAiWorkflowRuns({ page, pageSize }, principal, getSalesDatabase()));
+    return aiJsonResponse(await listAiWorkflowRuns({ page, pageSize }, principal, getD1Database()));
   } catch (error) {
     return aiRouteErrorResponse(error, "读取 AI 工作流失败");
   }
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
     const body = await readAiJsonObject(request);
     rejectUnknownCreateKeys(body, ["clientRequestId", "name", "graph", "input", "dryRun", "modelId"]);
-    const db = getSalesDatabase();
+    const db = getD1Database();
     const admission = body.dryRun === true
       ? undefined
       : (await createCurrentAgentExecutorAdmission(

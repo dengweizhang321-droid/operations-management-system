@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { getAiAgentJob } from "@/lib/ai/agent-workflows";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { aiJsonResponse, aiRouteErrorResponse, requireAiId } from "@/app/api/ai/route-helpers";
 
 export async function GET(_request: Request, context: { params: Promise<{ jobId: string }> }) {
@@ -8,7 +8,7 @@ export async function GET(_request: Request, context: { params: Promise<{ jobId:
     const principal = await requireAppPrincipal();
     const params = await context.params;
     const jobId = requireAiId(params.jobId, "jobId");
-    return aiJsonResponse({ item: await getAiAgentJob(jobId, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await getAiAgentJob(jobId, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "读取 AI Agent 任务失败");
   }

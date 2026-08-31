@@ -31,8 +31,10 @@ test("workflow task mutations use cycle-free static dependencies", async () => {
   assert.match(tasks, /import \{ ensureWorkflowCollaborationSchema, ensureWorkflowTaskSchema \} from "@\/lib\/workflow\/schema"/);
   assert.doesNotMatch(collaboration, /from ["']@\/lib\/workflow\/tasks["']/);
   assert.match(collaboration, /from "@\/lib\/workflow\/schema"/);
+  assert.match(schema, /import type \{ D1Database \} from "@\/lib\/database\/d1"/);
   assert.match(schema, /export async function ensureWorkflowTaskSchema/);
   assert.match(schema, /export async function ensureWorkflowCollaborationSchema/);
+  assert.doesNotMatch(schema, /@\/lib\/sales\/database/);
 });
 
 test("fresh server bundle does not lazy-import workflow mutations from its default-only entry", async (context) => {

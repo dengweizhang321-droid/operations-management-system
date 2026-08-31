@@ -65,6 +65,7 @@ type MarketIndustryReport = {
 };
 type MarketOverview = {
   view: "ranking" | "full";
+  salesRevision: string;
   summary: {
     productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;
     ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;
@@ -472,8 +473,8 @@ function BrandSection({ data }: { data: MarketOverview }) {
 function SubcategorySection({ data }: { data: MarketOverview }) {
   const dimensionLabel = marketReportDimensionLabel(data);
   return <section className="panel market-section market-subcategory-panel">
-    <div className="section-header"><div><h2>细分类目拆分汇总</h2><p>服务端完整汇总 {dimensionLabel} 数、销售额、成交件数、价格和待确认数据。</p></div></div>
-    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>细分类目</th><th>{dimensionLabel} 数</th><th>销售额</th><th>销售占比</th><th>环比</th><th>同比</th><th>成交件数</th><th>成交均价</th><th>自营占比</th><th>主要品牌</th><th>主力价格带</th><th>待确认{dimensionLabel}</th></tr></thead><tbody>
+    <div className="section-header"><div><h2>细分类目拆分汇总</h2><p>服务端按销售额汇总展示前 60 个细分类目，覆盖 {dimensionLabel} 数、成交件数、价格和待确认数据。</p></div></div>
+    <div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>细分类目</th><th>{dimensionLabel} 数</th><th>销售额</th><th>销售占比</th><th>环比</th><th>同比</th><th>成交件数</th><th>成交均价</th><th>自营占比</th><th>主要品牌</th><th>主力价格带</th><th>待确认{dimensionLabel}</th></tr></thead><tbody>
       {data.subcategorySummary.map((item) => <tr key={item.subcategory}><td>{item.subcategory || "未分类"}</td><td>{count(item.skuCount)}</td><td>{money(item.gmvCents)}</td><td>{percent(item.gmvShareBps)}</td><td>{growthPercent(item.monthOverMonthBps)}</td><td>{growthPercent(item.yearOverYearBps)}</td><td>{count(item.quantity)}</td><td>{money(item.averageTransactionPriceCents)}</td><td>{percent(item.selfOperatedShareBps)}</td><td>{item.mainBrands.join(" / ") || "-"}</td><td>{item.mainPriceBands.join(" / ") || "-"}</td><td>{count(item.pendingSkuCount)}</td></tr>)}
       {!data.subcategorySummary.length && <tr><td colSpan={12}><div className="table-state">当前筛选范围暂无细分类目数据。</div></td></tr>}
     </tbody></table></div>
@@ -523,7 +524,7 @@ function OpportunityMatrixSection({ data }: { data: MarketOverview }) {
   const dimensionLabel = marketReportDimensionLabel(data);
   return <section className="panel market-section market-opportunity-panel">
     <div className="section-header"><div><h2>细分类目 × 价格带 × 场景机会矩阵</h2><p>评分综合规模、最新月增长、单 {dimensionLabel} 效率、转化和自营门槛；未包含成本、推广、退货、复购与真实售后，不能直接替代投资决策。</p></div></div>
-    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>建议</th><th>评分</th><th>细分类目</th><th>价格带</th><th>场景</th><th>销售额/占比</th><th>最新月增长</th><th>转化率</th><th>{dimensionLabel}/品牌</th><th>自营占比</th><th>价格完整性</th><th>主要依据</th></tr></thead><tbody>{data.industryReport.opportunities.map((item) => <tr key={`${item.subcategory}-${item.priceBand}`}><td><span className={`market-opportunity-status ${item.recommendation === "建议进入" ? "enter" : item.recommendation === "谨慎回避" ? "avoid" : "watch"}`}>{item.recommendation}</span>{!item.decisionReady && <small>待补齐数据</small>}</td><td><strong>{item.score}</strong></td><td>{item.subcategory}</td><td>{item.priceBand}</td><td>{item.scenario}</td><td>{money(item.gmvCents)}<small>{percent(item.gmvShareBps)}</small></td><td>{growthPercent(item.growthBps)}</td><td>{percent(item.conversionBps)}</td><td>{count(item.skuCount)} / {count(item.brandCount)}</td><td>{percent(item.selfOperatedShareBps)}</td><td>{item.pendingPriceShareBps ? `待确认 ${percent(item.pendingPriceShareBps)}` : "已覆盖"}</td><td>{item.reasons.join("；") || "暂无显著信号"}</td></tr>)}{!data.industryReport.opportunities.length && <tr><td colSpan={12}><div className="table-state">当前筛选范围没有可评级的细分类目与价格带组合。</div></td></tr>}</tbody></table></div>
+    <div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>建议</th><th>评分</th><th>细分类目</th><th>价格带</th><th>场景</th><th>销售额/占比</th><th>最新月增长</th><th>转化率</th><th>{dimensionLabel}/品牌</th><th>自营占比</th><th>价格完整性</th><th>主要依据</th></tr></thead><tbody>{data.industryReport.opportunities.map((item) => <tr key={`${item.subcategory}-${item.priceBand}`}><td><span className={`market-opportunity-status ${item.recommendation === "建议进入" ? "enter" : item.recommendation === "谨慎回避" ? "avoid" : "watch"}`}>{item.recommendation}</span>{!item.decisionReady && <small>待补齐数据</small>}</td><td><strong>{item.score}</strong></td><td>{item.subcategory}</td><td>{item.priceBand}</td><td>{item.scenario}</td><td>{money(item.gmvCents)}<small>{percent(item.gmvShareBps)}</small></td><td>{growthPercent(item.growthBps)}</td><td>{percent(item.conversionBps)}</td><td>{count(item.skuCount)} / {count(item.brandCount)}</td><td>{percent(item.selfOperatedShareBps)}</td><td>{item.pendingPriceShareBps ? `待确认 ${percent(item.pendingPriceShareBps)}` : "已覆盖"}</td><td>{item.reasons.join("；") || "暂无显著信号"}</td></tr>)}{!data.industryReport.opportunities.length && <tr><td colSpan={12}><div className="table-state">当前筛选范围没有可评级的细分类目与价格带组合。</div></td></tr>}</tbody></table></div>
   </section>;
 }
 
@@ -585,7 +586,7 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
     <header><div><span>{item.skuCode}</span><h3>{item.productName || item.skuCode}</h3><small>{item.category} · {item.rankingDimension}</small></div><button ref={closeButtonRef} type="button" onClick={onClose} aria-label="关闭商品月度趋势">×</button></header>
     {error && <div className="market-feedback error">{error}</div>}
     {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取最近 120 个月的月度趋势…</div>}
-    {data && <><small>{data.truncated ? `展示最近 ${count(data.items.length)} / 共 ${count(data.totalMonths)} 个月` : `展示全部 ${count(data.totalMonths)} 个月`}</small><div className="data-table-wrap"><table className="data-table"><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row) => <tr key={`${row.month}-${row.rank}`}>
+    {data && <><small>{data.truncated ? `展示最近 ${count(data.items.length)} / 共 ${count(data.totalMonths)} 个月` : `展示全部 ${count(data.totalMonths)} 个月`}</small><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.truncated ? "none" : "full"} data-column-filter-total={data.totalMonths}><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row) => <tr key={`${row.month}-${row.rank}`}>
       <td>{String(row.month)}</td><td>{money(Number(row.gmvCents ?? 0))}</td><td>{count(Number(row.quantity ?? 0))}</td><td>{money(row.marketPriceCents === null ? null : Number(row.marketPriceCents))}</td><td>{money(row.averageTransactionPriceCents === null ? null : Number(row.averageTransactionPriceCents))}</td><td>{row.rank === null ? "-" : `#${row.rank}`}</td><td>{String(row.operationMode)}</td><td>{String(row.priceStatus)} · {String(row.confirmationStatus)}</td>
     </tr>)}</tbody></table></div></>}
   </Dialog>;

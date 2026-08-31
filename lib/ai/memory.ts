@@ -8,9 +8,9 @@ import {
 } from "@/lib/ai/conversation-scope";
 import { PublicApiError } from "@/lib/http/api-error";
 import {
-  getSalesDatabase,
-  type SalesDatabase,
-} from "@/lib/sales/database";
+  getD1Database,
+  type D1Database,
+} from "@/lib/database/d1";
 
 export const AI_MEMORY_POLICY_VERSION = "ai-memory-v1";
 
@@ -173,7 +173,7 @@ export const AI_MEMORY_SCHEMA_STATEMENTS = [
 const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 export async function ensureAiMemorySchema(
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
@@ -420,7 +420,7 @@ function activeAccessSql(
 async function findActiveMemory(
   id: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiMemoryRow | null> {
   const access = activeAccessSql(principal);
   return db
@@ -433,7 +433,7 @@ async function findActiveMemory(
 async function findExactKey(
   prepared: PreparedMemory,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
   excludedId?: string,
 ): Promise<AiMemoryRow | null> {
   const exclusion = excludedId ? " AND id <> ?" : "";
@@ -481,7 +481,7 @@ function jaccard(left: Set<string>, right: Set<string>): number {
 async function enforceSimilarityGate(
   prepared: PreparedMemory,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
   excludedId?: string,
 ): Promise<void> {
   const access = activeAccessSql(principal);
@@ -540,7 +540,7 @@ type AuditInput = {
 };
 
 function auditInsertStatement(
-  db: SalesDatabase,
+  db: D1Database,
   input: AuditInput,
   conditional: { sql: string; values: unknown[] } = { sql: "", values: [] },
 ) {
@@ -569,7 +569,7 @@ function auditInsertStatement(
     );
 }
 
-function auditGuardStatements(db: SalesDatabase, operationId: string) {
+function auditGuardStatements(db: D1Database, operationId: string) {
   return [
     db.prepare(`INSERT INTO ai_memory_commit_guards (operation_id, audit_present)
       VALUES (?, CASE WHEN EXISTS (
@@ -583,7 +583,7 @@ async function auditDuplicate(
   row: AiMemoryRow,
   principal: AppPrincipal,
   requestId: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   const operationId = `ai-memory-operation-${crypto.randomUUID()}`;
   const audit = auditInsertStatement(db, {
@@ -616,7 +616,7 @@ export async function createAiMemory(
     requestId?: unknown;
   },
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<{ item: AiMemoryItem; created: boolean; duplicate: boolean }> {
   requireMemoryWriter(principal);
   requireConfirmed(input.confirmed);
@@ -702,7 +702,7 @@ export async function createAiMemory(
 export async function getAiMemory(
   memoryId: string,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiMemoryItem> {
   await ensureAiMemorySchema(db);
   const row = await findActiveMemory(memoryId, principal, db);
@@ -734,7 +734,7 @@ function optionalQuery(value: unknown): string | null {
 export async function listAiMemories(
   input: { page?: unknown; pageSize?: unknown; q?: unknown; kind?: unknown } = {},
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiMemoryPage> {
   const page = requirePageValue(input.page, 1, AI_MEMORY_LIMITS.page, "page");
   const pageSize = requirePageValue(input.pageSize, 20, AI_MEMORY_LIMITS.pageSize, "pageSize");
@@ -790,7 +790,7 @@ export async function updateAiMemory(
     requestId?: unknown;
   },
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<{ item: AiMemoryItem; updated: boolean; duplicate: boolean }> {
   requireMemoryWriter(principal);
   requireConfirmed(input.confirmed);
@@ -888,7 +888,7 @@ export async function archiveAiMemory(
     requestId?: unknown;
   },
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<{ id: string; archived: true; version: number }> {
   requireMemoryWriter(principal);
   requireConfirmed(input.confirmed);
@@ -961,7 +961,7 @@ export async function archiveAiMemory(
 export async function retrieveAiMemoriesForContext(
   queryValue: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiMemoryContextResult> {
   const query = optionalQuery(queryValue);
   if (!query) {

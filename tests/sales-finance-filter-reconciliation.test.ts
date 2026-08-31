@@ -116,11 +116,17 @@ test("全部筛选无效时必须等待显式确认，部分有效时才可自�
     incompatibleShops: [],
   });
   assert.equal(decideFinanceDimensionReconciliation(partiallyValid), "auto_apply");
-  assert.equal(decideFinanceDimensionReconciliation({ ...partiallyValid, canReconcile: false }), "reject");
+  assert.equal(decideFinanceDimensionReconciliation({
+    ...partiallyValid,
+    canReconcile: false,
+  }), "reject");
 });
 
 test("旧财报结果只在请求签名完全一致时可见", () => {
-  const unfilteredResult = { requestSignature: "unfiltered", payload: { current: 100 } };
+  const unfilteredResult = {
+    requestSignature: "unfiltered",
+    payload: { current: 100 },
+  };
   assert.deepEqual(financeAnalysisPayloadForRequest(unfilteredResult, "unfiltered"), { current: 100 });
   assert.equal(financeAnalysisPayloadForRequest(unfilteredResult, "tmall-filter"), null);
   assert.equal(financeAnalysisPayloadForRequest(null, "tmall-filter"), null);
@@ -130,6 +136,7 @@ test("财报多选严格限制50项且候选超限时禁用显式全选", () => 
   const selected = Array.from({ length: MAX_SALES_SHARED_FILTER_SELECTIONS }, (_, index) => `店铺${index + 1}`);
   assert.deepEqual(nextSearchableMultiSelection(selected, "店铺51", MAX_SALES_SHARED_FILTER_SELECTIONS), selected);
   assert.deepEqual(nextSearchableMultiSelection(selected, "店铺1", MAX_SALES_SHARED_FILTER_SELECTIONS), selected.slice(1));
+
   const options = Array.from({ length: 501 }, (_, index) => ({ value: `店铺${index + 1}`, label: `店铺${index + 1}` }));
   assert.equal(searchableMultiSelectAllValues(options, MAX_SALES_SHARED_FILTER_SELECTIONS), null);
   assert.deepEqual(searchableMultiSelectAllValues(options.slice(0, 2), MAX_SALES_SHARED_FILTER_SELECTIONS), ["店铺1", "店铺2"]);
@@ -142,7 +149,7 @@ test("服务端继续以400失败关闭并精确返回无效与跨平台店铺",
     () => resolveFinanceDimensionFilters(
       [{ key: jdFinanceKey, platform: "京东", name: "旗舰店" }],
       ["京东"],
-      [tmallFinanceKey, JSON.stringify(["京东", "不存在店"])]
+      [tmallFinanceKey, JSON.stringify(["京东", "不存在店"])],
     ),
     (error: unknown) => {
       assert.ok(error instanceof FinanceDimensionFilterError);
@@ -167,7 +174,8 @@ test("财报前端按结构化400只清理无效项、同步URL并显示调整�
     readFile(new URL("../app/api/finance/analysis/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(source, /payload\?\.code === "finance_dimension_filter_out_of_scope"/);
-  assert.match(source, /reconcileFinanceDimensionFilters\(selectedPlatforms, validSelectedShopKeys, issues\)/);
+  assert.match(source, /const issues = parseFinanceDimensionFilterIssues\(payload\)/);
+  assert.match(source, /reconcileFinanceDimensionFilters\([\s\S]*?selectedPlatforms,[\s\S]*?validSelectedShopKeys,[\s\S]*?issues/);
   assert.match(source, /decision === "require_confirmation"[\s\S]*?setPendingDimensionChange/);
   assert.match(source, /清除筛选并查看全部财报/);
   assert.match(source, /onDimensionFiltersChange\(reconciliation\.platforms, reconciliation\.outletKeys\)/);
@@ -182,11 +190,17 @@ test("财报前端按结构化400只清理无效项、同步URL并显示调整�
   assert.match(route, /invalidPlatforms: error\.invalidPlatforms/);
 });
 
-test("初始财务月份回退保持显式且三个手动入口都恢复严格读取", async () => {
-  const source = await readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8");
+test("初始财务月份回退保持显式且手动选择后恢复严格读取", async () => {
+  const [source, route] = await Promise.all([
+    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/finance/analysis/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(route, /getAll\("initialMonthFallback"\)/);
+  assert.match(route, /fallbackValues\[0\] !== "latest_completed"/);
   assert.match(source, /allowInitialMonthFallback && selectedMonths !== null && selectedMonths\.length > 0/);
   assert.match(source, /query\.set\("initialMonthFallback", "latest_completed"\)/);
   assert.match(source, /const selectMonthsStrictly[\s\S]*?setAllowInitialMonthFallback\(false\);[\s\S]*?setSelectedMonths\(months\)/);
   assert.equal((source.match(/onChange=\{selectMonthsStrictly\}/g) ?? []).length, 3);
   assert.match(source, /const resetMonthsStrictly[\s\S]*?setAllowInitialMonthFallback\(false\);[\s\S]*?setSelectedMonths\(globalMonths\)/);
+  assert.match(source, /已显示最新可用财报[\s\S]*?手动选择月份后将严格按选择读取/);
 });

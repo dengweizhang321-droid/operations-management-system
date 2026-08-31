@@ -108,7 +108,7 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
     readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/sales/summary.py", import.meta.url), "utf8"),
   ]);
   assert.match(customer, /debouncedCustomerQuery/);
   assert.match(customer, /includeOptions/);
@@ -119,6 +119,7 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
   assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}.*SELECT COUNT\(\*\) AS total, SUM/s);
   const aiConversationQuery = customerDatabase.slice(customerDatabase.indexOf("export async function getCustomerServiceConversationsForAi"));
-  assert.match(aiConversationQuery, /listCustomerServiceConversations\(\{[^}]+includeOptions: false \}\)/);
-  assert.match(sales, /\[currentRow, previousRow, yearAgoRow,[\s\S]+Promise\.all/);
+  assert.match(aiConversationQuery, /listCustomerServiceConversations\(\{[\s\S]*?includeOptions: false \}, principal, options\)/);
+  assert.match(sales, /def _period_metrics\([\s\S]*queryset\.aggregate\(\*\*aggregate_fields\)/);
+  assert.match(sales, /def _grouped_yoy\([\s\S]*\.annotate\([\s\S]*year_ago_net_sales_cents/);
 });

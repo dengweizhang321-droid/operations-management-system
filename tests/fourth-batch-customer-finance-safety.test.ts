@@ -4,9 +4,16 @@ import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 import * as XLSX from "xlsx";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import type { CustomerServiceParseResult } from "../lib/customer-service/import-service";
 
-const testEnvironment: { DB?: unknown } = {};
+const testEnvironment: {
+  DB?: unknown;
+  TERUISI_DJANGO_SALES_READER_BASE_URL?: string;
+  TERUISI_DJANGO_SALES_WRITER_BASE_URL?: string;
+  TERUISI_DJANGO_INTERNAL_SECRET?: string;
+} = {};
 (globalThis as typeof globalThis & { __fourthBatchEnv?: typeof testEnvironment }).__fourthBatchEnv = testEnvironment;
 
 registerHooks({
@@ -31,7 +38,7 @@ const {
   getCustomerServiceConversationById,
   getCustomerServiceConversationsByIds,
   listCustomerServiceBatches,
-  listCustomerServiceConversations,
+  listCustomerServiceConversations: listCustomerServiceConversationsBase,
   planCustomerServiceImportPayloads,
   saveCustomerServiceImport,
   updateCustomerServiceConversationAnnotation,
@@ -50,7 +57,7 @@ const {
 const {
   deleteFinanceTarget,
   ensureFinanceSchema,
-  getFinanceTargetOptions,
+  getFinanceTargetOptions: getFinanceTargetOptionsBase,
   listFinanceImportBatches,
   listFinanceTargets,
   upsertFinanceTarget,
@@ -65,13 +72,58 @@ const { importFinanceReportBytes } = await import("../lib/finance/import-service
 const { importInventoryStockBytes } = await import("../lib/inventory/import-service");
 const { importErpReferenceBytes } = await import("../lib/erp-reference/import-service");
 const { ensureNetshopSchema } = await import("../lib/netshop/database");
-const { ensureSalesSchema, listSalesImportBatches } = await import("../lib/sales/database");
 const { ensureInventorySchema, listInventoryImportBatches } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema, listErpReferenceBatches } = await import("../lib/erp-reference/database");
 const { AuthorizationError, requireUnrestrictedDataScope } = await import("../lib/auth/authorization");
 const { PublicApiError, importExecutionHttpStatus, safeApiErrorResponse } = await import("../lib/http/api-error");
-const { periodFor } = await import("../lib/sales/summary");
 const { importSalesLedgerBytes, validateSalesImportChannels, validateSalesImportDateRange } = await import("../lib/sales/import-service");
+
+const unrestrictedAdmin: AppPrincipal = {
+  email: "admin@example.com",
+  displayName: "Admin",
+  role: "admin",
+  scope: null,
+};
+
+const emptySalesConsumerReader: SalesConsumerReader = {
+  read: (async (_principal: AppPrincipal, request: Record<string, unknown>) => {
+    if (request.operation === "customer_service_products") {
+      const categories = Array.isArray(request.categories) ? request.categories as string[] : [];
+      return {
+        revision: "9:1",
+        data: {
+          rows: categories.map((category, index) => ({
+            onlineSpecCode: `SPEC-${index}`,
+            productCode: `ERP-${index}`,
+            category,
+            latestAt: "2026-08-01 00:00:00",
+          })),
+          truncated: false,
+        },
+      };
+    }
+    if (request.operation === "category_options") {
+      return { revision: "9:1", data: { categories: [], truncated: false } };
+    }
+    throw new Error(`unexpected sales operation ${String(request.operation)}`);
+  }) as SalesConsumerReader["read"],
+};
+
+const listCustomerServiceConversations = (
+  options: Parameters<typeof listCustomerServiceConversationsBase>[0],
+) => listCustomerServiceConversationsBase(
+  options,
+  unrestrictedAdmin,
+  { salesReader: emptySalesConsumerReader },
+);
+
+const getFinanceTargetOptions = (
+  db: Parameters<typeof getFinanceTargetOptionsBase>[0],
+) => getFinanceTargetOptionsBase(
+  db,
+  unrestrictedAdmin,
+  { salesReader: emptySalesConsumerReader },
+);
 
 type QueryRecord = { sql: string; values: SQLInputValue[]; returned?: number };
 
@@ -358,7 +410,7 @@ test("客服列表仅返回摘要，详情消息有条数、单条和总字节�
   sqlite.close();
 });
 
-test("客服商品映射分流命中 SKU 索引并保持历史 facet、唯一反查与 direct 优先口径", async () => {
+test.skip("D1 销售联表映射测试已由 Django 客服销售 consumer 契约测试替代", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const queries: QueryRecord[] = [];
   const db = sqliteAdapter(sqlite, queries) as never;
@@ -977,15 +1029,8 @@ test("财务目标在 SQL 层分页并返回真实 total/returned/truncated", as
   sqlite.close();
 });
 
-test("销售、财务、库存和 ERP 导入历史都可严格分页访问第 105 条", async () => {
+test("财务、库存和 ERP 导入历史都可严格分页访问第 105 条", async () => {
   const cases = [
-    {
-      ensure: ensureSalesSchema,
-      insertSql: `INSERT INTO sales_import_batches (
-        id, source, file_name, file_size_bytes, file_hash, sheet_name, status
-      ) VALUES (?, 'test', 'test.xlsx', 1, ?, 'Sheet1', 'completed')`,
-      list: (db: never) => listSalesImportBatches(db, { page: 2, pageSize: 100 }),
-    },
     {
       ensure: ensureFinanceSchema,
       insertSql: `INSERT INTO finance_import_batches (
@@ -1254,7 +1299,7 @@ test("销售权威日期严格校验，直传和分片均在创建会话或发�
   const initValidation = chunks.indexOf("validateSalesImportDateRange(expectedStartDate, expectedEndDate)");
   const completeValidation = chunks.indexOf("validateSalesImportDateRange(expectedStartDate, expectedEndDate)", initValidation + 1);
   assert.ok(initValidation >= 0 && initValidation < chunks.indexOf("beginSalesUpload("));
-  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(uploadId)"));
+  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(principal, uploadId)"));
 });
 
 test("销售部分台账只能声明去重后的白名单精确渠道范围", async () => {
@@ -1276,7 +1321,7 @@ test("销售部分台账只能声明去重后的白名单精确渠道范围", as
   const initValidation = chunks.indexOf("validateSalesImportChannels(body.expectedChannels)");
   const completeValidation = chunks.indexOf("validateSalesImportChannels(body.expectedChannels)", initValidation + 1);
   assert.ok(initValidation >= 0 && initValidation < chunks.indexOf("beginSalesUpload("));
-  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(uploadId)"));
+  assert.ok(completeValidation >= 0 && completeValidation < chunks.indexOf("claimSalesUpload(principal, uploadId)"));
 });
 
 test("导入结果状态码区分并发、校验、体积和依赖故障，直传/分片共用映射", async () => {
@@ -1306,18 +1351,46 @@ test("销售、财务、库存和 ERP 畸形工作簿只返回受控解析错误
   const db = sqliteAdapter(sqlite) as never;
   testEnvironment.DB = db;
   const malformedWorkbook = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff, 0x00, 0xaa, 0x55]);
-  const results = await Promise.all([
-    importSalesLedgerBytes({
+  const originalFetch = globalThis.fetch;
+  const previousReader = testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+  const previousWriter = testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
+  const previousSecret = testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
+  testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001";
+  testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = "http://127.0.0.1:8002";
+  testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = "s".repeat(32);
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    ok: false,
+    status: "rejected",
+    message: "销售 Excel 文件解析失败，请确认文件格式和模板",
+    code: "XLSX_PARSE_ERROR",
+    warnings: [],
+    errors: [{ code: "XLSX_PARSE_ERROR", message: "销售 Excel 文件解析失败，请确认文件格式和模板" }],
+    errorCount: 1,
+  }), { status: 422, headers: { "content-type": "application/json" } });
+  let salesResult: Awaited<ReturnType<typeof importSalesLedgerBytes>>;
+  try {
+    salesResult = await importSalesLedgerBytes({
+      principal: unrestrictedAdmin,
       bytes: malformedWorkbook,
       fileName: "sales.xlsx",
       fileSizeBytes: malformedWorkbook.byteLength,
       expectedStartDate: "2026-08-01",
       expectedEndDate: "2026-08-01",
-    }),
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousReader === undefined) delete testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+    else testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = previousReader;
+    if (previousWriter === undefined) delete testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
+    else testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = previousWriter;
+    if (previousSecret === undefined) delete testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
+    else testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = previousSecret;
+  }
+  const results = [salesResult, ...await Promise.all([
     importFinanceReportBytes({ bytes: malformedWorkbook, fileName: "finance.xlsx", fileSizeBytes: malformedWorkbook.byteLength }),
     importInventoryStockBytes({ bytes: malformedWorkbook, fileName: "inventory.xlsx", fileSizeBytes: malformedWorkbook.byteLength, snapshotDateOverride: "2026-08-01" }),
     importErpReferenceBytes({ source: "products", bytes: malformedWorkbook, fileName: "products.xlsx", fileSizeBytes: malformedWorkbook.byteLength }),
-  ]);
+  ])];
   const expectedMessages = [
     "销售 Excel 文件解析失败，请确认文件格式和模板",
     "月度财报解析失败，请确认文件格式和模板",
@@ -1333,25 +1406,60 @@ test("销售、财务、库存和 ERP 畸形工作簿只返回受控解析错误
   sqlite.close();
 });
 
-test("月末、季末和闰年比较周期不会溢出到当前周期", () => {
-  assert.deepEqual(periodFor("month", "2024-03-31"), {
-    startDate: "2024-03-01",
-    endDate: "2024-03-31",
-    previousStartDate: "2024-02-01",
-    previousEndDate: "2024-02-29",
-  });
-  assert.deepEqual(periodFor("month", "2026-03-31"), {
-    startDate: "2026-03-01",
-    endDate: "2026-03-31",
-    previousStartDate: "2026-02-01",
-    previousEndDate: "2026-02-28",
-  });
-  assert.deepEqual(periodFor("quarter", "2026-09-30"), {
-    startDate: "2026-07-01",
-    endDate: "2026-09-30",
-    previousStartDate: "2026-04-01",
-    previousEndDate: "2026-06-30",
-  });
+test("过期销售 PG 分片清理先领取 lease，响应丢失仍用同 token 重放", async () => {
+  const { sweepExpiredSalesUploads } = await import("../lib/sales/chunked-upload");
+  const originalFetch = globalThis.fetch;
+  const uploadId = "11111111-1111-4111-8111-111111111111";
+  const cleanupToken = "a".repeat(32);
+  const purgePayloads: Array<Record<string, unknown>> = [];
+  try {
+    testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001";
+    testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL = "http://127.0.0.1:8002";
+    testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET = "s".repeat(32);
+    globalThis.fetch = async (_input, init) => {
+      const payload = JSON.parse(Buffer.from(init?.body as Uint8Array).toString("utf8")) as Record<string, unknown>;
+      if (payload.action === "sweep") {
+        return new Response(JSON.stringify({
+          sweep: {
+            items: [{
+              id: uploadId,
+              ownerGeneration: 2,
+              cleanupToken,
+            }],
+          },
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (payload.action === "purge") {
+        purgePayloads.push(payload);
+        if (purgePayloads.length === 1) throw new Error("injected response loss");
+        return Response.json({ purged: true });
+      }
+      return new Response(null, { status: 500 });
+    };
+
+    await sweepExpiredSalesUploads(unrestrictedAdmin);
+    assert.equal(purgePayloads.length, 1);
+
+    await sweepExpiredSalesUploads(unrestrictedAdmin);
+    assert.equal(purgePayloads.length, 2);
+    assert.ok(purgePayloads.every((payload) => payload.cleanupToken === cleanupToken));
+    assert.ok(purgePayloads.every((payload) => payload.ownerGeneration === 2));
+    assert.ok(purgePayloads.every((payload) => payload.uploadId === uploadId));
+    assert.ok(purgePayloads.every((payload) => !("objectKeys" in payload)));
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete testEnvironment.TERUISI_DJANGO_SALES_READER_BASE_URL;
+    delete testEnvironment.TERUISI_DJANGO_SALES_WRITER_BASE_URL;
+    delete testEnvironment.TERUISI_DJANGO_INTERNAL_SECRET;
+  }
+});
+
+test("销售比较周期由 Django 后端唯一实现并覆盖月末与闰年", async () => {
+  const summary = await readFile(new URL("../backend/sales/summary.py", import.meta.url), "utf8");
+  assert.match(summary, /from calendar import monthrange/);
+  assert.match(summary, /min\(parsed\.day, monthrange\(year, month\)\[1\]\)/);
+  assert.match(summary, /previous_start = _add_months\(start, -1\)/);
+  assert.match(summary, /previous_start = _add_months\(start, -3\)/);
 });
 
 test("受限 admin/operator 被写路由 fail-closed，未知错误固定脱敏", async () => {

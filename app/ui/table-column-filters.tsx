@@ -27,6 +27,20 @@ type ColumnFilterTarget = {
 
 const interactiveSelector = "button,input,select,textarea,a,label";
 const filterValueSeparator = "\u001f";
+const externalFilterControlSelector = [
+  "button.searchable-select-trigger[aria-label]",
+  "button.multi-filter-trigger[aria-label]",
+  "input[type='search'][aria-label]",
+  "input[type='search'][placeholder]",
+  "input[aria-label*='搜索']",
+  "input[placeholder*='搜索']",
+  "select",
+  "[role='combobox'][aria-label]",
+  "[role='combobox'][aria-labelledby]",
+  "summary[aria-label]",
+  "details > summary",
+  "[data-column-filter-control='true']",
+].join(",");
 
 function tableRows(table: HTMLTableElement) {
   return Array.from(table.tBodies).flatMap((body) => Array.from(body.rows));
@@ -143,21 +157,9 @@ function externalFilterControls(table: HTMLTableElement, header: HTMLTableCellEl
   const moduleRoot = table.closest<HTMLElement>("main")
     ?? table.closest<HTMLElement>(".module-stage")
     ?? document.body;
-  const selector = [
-    "button[aria-label]",
-    "button[aria-expanded]",
-    "input[aria-label]",
-    "input[placeholder]",
-    "textarea[aria-label]",
-    "textarea[placeholder]",
-    "select",
-    "[role='combobox']",
-    "summary[aria-label]",
-    "details > summary",
-  ].join(",");
   const find = (root: ParentNode | null) => {
     if (!root) return [];
-    const candidates = Array.from(root.querySelectorAll<HTMLElement>(selector));
+    const candidates = Array.from(root.querySelectorAll<HTMLElement>(externalFilterControlSelector));
     const scored = candidates
       .filter(controlIsVisible)
       .map((element) => {
@@ -225,6 +227,31 @@ function tablesInSubtree(node: Node) {
   if (node instanceof HTMLTableElement) return [node];
   if (!(node instanceof Element)) return [];
   return Array.from(node.querySelectorAll<HTMLTableElement>("table"));
+}
+
+function nodeContainsExternalFilterControl(node: Node) {
+  return node instanceof Element && (
+    node.matches(externalFilterControlSelector)
+    || Boolean(node.querySelector(externalFilterControlSelector))
+  );
+}
+
+function attributeMutationTouchesExternalFilterControl(record: MutationRecord, target: Element) {
+  if (target.matches(externalFilterControlSelector)) return true;
+  if (record.attributeName === "data-column-filter-control" && record.oldValue === "true") return true;
+  if (record.attributeName === "role" && record.oldValue === "combobox") return true;
+  return target.matches("button.searchable-select-trigger,button.multi-filter-trigger,input,select,summary");
+}
+
+function tablesRelatedToExternalFilter(target: Element) {
+  const boundarySelector = ".table-panel, article, section, [role='tabpanel'], .module-stage, main";
+  let boundary = target.closest<HTMLElement>(boundarySelector);
+  while (boundary) {
+    const tables = Array.from(boundary.querySelectorAll<HTMLTableElement>("table"));
+    if (tables.length > 0) return tables;
+    boundary = boundary.parentElement?.closest<HTMLElement>(boundarySelector) ?? null;
+  }
+  return [];
 }
 
 export default function TableColumnFilters() {
@@ -295,7 +322,13 @@ export default function TableColumnFilters() {
         header.tabIndex = 0;
         header.dataset.columnFilterOwnedTabIndex = "true";
       }
-      header.setAttribute("aria-haspopup", partialDataset && controls.length === 1 ? "listbox" : "dialog");
+      const directControl = partialDataset && controls.length === 1 ? controls[0]!.element : null;
+      if (directControl instanceof HTMLInputElement || directControl instanceof HTMLTextAreaElement) {
+        header.removeAttribute("aria-haspopup");
+      } else {
+        const opensListbox = directControl instanceof HTMLSelectElement || directControl?.getAttribute("role") === "combobox";
+        header.setAttribute("aria-haspopup", directControl?.getAttribute("aria-haspopup") || (opensListbox ? "listbox" : "dialog"));
+      }
       header.setAttribute("aria-label", `${label}，打开${partialDataset ? "全量" : ""}列筛选`);
       header.dataset.columnFilterActive = partialDataset ? "false" : filtersFor(table).get(header.cellIndex)?.size ? "true" : "false";
     }
@@ -307,6 +340,7 @@ export default function TableColumnFilters() {
   const openForHeader = useCallback((header: HTMLTableCellElement) => {
     const table = header.closest("table");
     if (!(table instanceof HTMLTableElement)) return;
+    if (header.dataset.columnFilterHeader !== "true" || table.dataset.columnFilterScope === "none") return;
     const columnIndex = header.cellIndex;
     const partialDataset = tableUsesPartialDataset(table);
     const controls = partialDataset ? externalFilterControls(table, header) : [];
@@ -351,12 +385,17 @@ export default function TableColumnFilters() {
           if (!current) return current;
           const counts = refreshed.get(current.table);
           if (!counts) return current;
-          if (!current.header.isConnected) return null;
+          if (!current.header.isConnected || current.header.dataset.columnFilterHeader !== "true") return null;
+          const controls = current.mode === "controls"
+            ? externalFilterControls(current.table, current.header)
+            : current.controls;
+          if (current.mode === "controls" && controls.length === 0) return null;
           return {
             ...current,
             label: current.header.dataset.columnFilterResolvedLabel || headerLabel(current.header),
-            options: current.mode === "controls" ? current.controls.map((control) => control.label) : columnOptions(current.table, current.columnIndex),
+            options: current.mode === "controls" ? controls.map((control) => control.label) : columnOptions(current.table, current.columnIndex),
             selected: current.mode === "controls" ? [] : [...(filtersFor(current.table).get(current.columnIndex) ?? new Set<string>())],
+            controls,
             ...counts,
           };
         });
@@ -377,7 +416,7 @@ export default function TableColumnFilters() {
         subtree: true,
         characterData: true,
         attributes: true,
-        attributeFilter: ["data-column-filter-values"],
+        attributeFilter: ["data-column-filter-values", "data-column-filter-scope", "data-column-filter-total"],
       });
       tableObservers.set(table, observer);
       scheduleTable(table);
@@ -395,6 +434,7 @@ export default function TableColumnFilters() {
     const documentObserver = new MutationObserver((records) => {
       const addedTables = new Set<HTMLTableElement>();
       const removedTables = new Set<HTMLTableElement>();
+      const affectedTables = new Set<HTMLTableElement>();
       for (const record of records) {
         for (const node of record.addedNodes) {
           for (const table of tablesInSubtree(node)) addedTables.add(table);
@@ -402,14 +442,31 @@ export default function TableColumnFilters() {
         for (const node of record.removedNodes) {
           for (const table of tablesInSubtree(node)) removedTables.add(table);
         }
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        const externalControlChanged = record.type === "attributes"
+          ? Boolean(target && attributeMutationTouchesExternalFilterControl(record, target))
+          : [...record.addedNodes, ...record.removedNodes].some(nodeContainsExternalFilterControl);
+        if (target && !target.closest("table") && externalControlChanged) {
+          for (const table of tablesRelatedToExternalFilter(target)) affectedTables.add(table);
+        }
       }
       for (const table of removedTables) forgetTable(table);
       for (const table of addedTables) observeTable(table);
+      for (const table of affectedTables) {
+        observeTable(table);
+        scheduleTable(table);
+      }
       if (removedTables.size > 0) {
         setTarget((current) => current && !current.table.isConnected ? null : current);
       }
     });
-    documentObserver.observe(document.body, { childList: true, subtree: true });
+    documentObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["aria-label", "aria-labelledby", "disabled", "hidden", "placeholder", "role", "data-column-filter-control"],
+    });
 
     const scheduleEventTable = (event: Event) => {
       const table = event.target instanceof Element
@@ -423,9 +480,12 @@ export default function TableColumnFilters() {
       const element = event.target instanceof Element ? event.target : null;
       const header = element?.closest<HTMLTableCellElement>("table thead th");
       if (!header || element?.closest(interactiveSelector)) return;
-      event.preventDefault();
       const table = header.closest<HTMLTableElement>("table");
-      if (table) observeTable(table);
+      if (!table) return;
+      observeTable(table);
+      prepareTable(table);
+      if (header.dataset.columnFilterHeader !== "true") return;
+      event.preventDefault();
       openForHeader(header);
     };
     const onKeyDown = (event: KeyboardEvent) => {
@@ -448,9 +508,12 @@ export default function TableColumnFilters() {
         || interactive
         || (event.key !== "Enter" && event.key !== " ")
       ) return;
-      event.preventDefault();
       const table = header.closest<HTMLTableElement>("table");
-      if (table) observeTable(table);
+      if (!table) return;
+      observeTable(table);
+      prepareTable(table);
+      if (header.dataset.columnFilterHeader !== "true") return;
+      event.preventDefault();
       openForHeader(header);
     };
     const onPointerDown = (event: PointerEvent) => {
@@ -512,13 +575,16 @@ export default function TableColumnFilters() {
   >
     <header><div><strong>{target.label}</strong><small>{target.mode === "controls" ? "选择覆盖全部分页数据的业务筛选" : "多选完整表格中的值"}</small></div><button type="button" onClick={() => setTarget(null)} aria-label="关闭列筛选">×</button></header>
     {target.mode === "values" ? <div className="column-filter-actions"><button type="button" onClick={() => updateSelection(target.options)}>全选</button><button type="button" onClick={() => updateSelection([])} disabled={target.selected.length === 0}>清除筛选</button></div> : <div className="column-filter-actions"><span>不会再使用当前页临时选项</span></div>}
-    <label className="column-filter-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索本列值" aria-label={`搜索${target.label}列值`} /></label>
-    <div className="column-filter-options" role="listbox" aria-multiselectable="true">
-      {visibleOptions.map((value) => target.mode === "controls"
-        ? <label key={value} role="option" aria-selected="false"><input type="radio" name="column-filter-control" checked={false} onChange={() => { const control = target.controls.find((item) => item.label === value); if (control) { setTarget(null); activateExternalControl(control); } }} /><span title={value}>{value}</span></label>
-        : <label key={value || "__empty__"} role="option" aria-selected={selectedValues.has(value)}><input type="checkbox" checked={selectedValues.has(value)} onChange={() => updateSelection(selectedValues.has(value) ? target.selected.filter((item) => item !== value) : [...target.selected, value])} /><span title={value || "（空白）"}>{value || "（空白）"}</span></label>)}
-      {visibleOptions.length === 0 && <p>没有匹配项</p>}
-    </div>
+    <label className="column-filter-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={target.mode === "controls" ? "搜索全量筛选入口" : "搜索本列值"} aria-label={target.mode === "controls" ? `搜索${target.label}全量筛选入口` : `搜索${target.label}列值`} /></label>
+    {target.mode === "controls"
+      ? <div className="column-filter-options" role="radiogroup" aria-label={`${target.label}全量筛选入口`}>
+          {visibleOptions.map((value) => <label key={value}><input type="radio" name="column-filter-control" checked={false} onChange={() => { const control = target.controls.find((item) => item.label === value); if (control) { setTarget(null); activateExternalControl(control); } }} /><span title={value}>{value}</span></label>)}
+          {visibleOptions.length === 0 && <p>没有匹配项</p>}
+        </div>
+      : <div className="column-filter-options" role="listbox" aria-multiselectable="true">
+          {visibleOptions.map((value) => <label key={value || "__empty__"} role="option" aria-selected={selectedValues.has(value)}><input type="checkbox" checked={selectedValues.has(value)} onChange={() => updateSelection(selectedValues.has(value) ? target.selected.filter((item) => item !== value) : [...target.selected, value])} /><span title={value || "（空白）"}>{value || "（空白）"}</span></label>)}
+          {visibleOptions.length === 0 && <p>没有匹配项</p>}
+        </div>}
     <footer aria-live="polite">{target.mode === "controls" ? "所选业务筛选会重新查询全部数据" : `显示 ${target.visibleRows} / ${target.totalRows} 行${target.selected.length ? ` · 已选 ${target.selected.length} 项` : " · 未筛选"}`}</footer>
   </div>;
 }

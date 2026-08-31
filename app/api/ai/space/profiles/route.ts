@@ -4,7 +4,7 @@ import {
   listAiSpaceModelProfiles,
   upsertAiSpaceModelProfile,
 } from "@/lib/ai/space";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -22,7 +22,7 @@ async function requireManager(operation: string) {
 export async function GET() {
   try {
     await requireManager("读取");
-    return aiJsonResponse({ items: await listAiSpaceModelProfiles({}, getSalesDatabase()) });
+    return aiJsonResponse({ items: await listAiSpaceModelProfiles({}, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "读取图片生成模型失败");
   }
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       status: body.status,
       timeoutMs: body.timeoutMs,
       expectedVersion: body.expectedVersion,
-    }, principal, getSalesDatabase());
+    }, principal, getD1Database());
     return aiJsonResponse({ item });
   } catch (error) {
     return aiRouteErrorResponse(error, "保存图片生成模型失败");
@@ -60,7 +60,7 @@ export async function DELETE(request: Request) {
       id,
       versionValues.length === 1 ? Number(versionValues[0]) : undefined,
       principal,
-      getSalesDatabase(),
+      getD1Database(),
     );
     return aiJsonResponse({ ok: true });
   } catch (error) {

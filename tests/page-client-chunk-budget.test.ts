@@ -193,7 +193,7 @@ test("page keeps the AI workspace and customer service behind direct lazy bounda
   }
   assert.ok((aiModule.match(/<Suspense fallback=/g) ?? []).length >= 6);
   assert.match(aiModule, /<AiAssistantView[^>]+workspace="chat"/);
-  assert.match(aiModule, /<AiAgentWorkflowView currentUser={currentUser}/);
+  assert.match(aiModule, /<AiAgentWorkflowView[\s\S]*?currentUser=\{currentUser\}/);
   assert.match(aiModule, /<AiMemoryView currentUser={currentUser}/);
   assert.match(aiModule, /<AiSandboxView currentUser={currentUser}/);
   assert.match(aiModule, /<AiSpaceView/);

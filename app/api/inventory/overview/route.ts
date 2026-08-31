@@ -8,7 +8,6 @@ import {
   getInventoryOverview,
   getInventoryPlanOverview,
 } from "@/lib/inventory/overview";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -36,13 +35,14 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "库存健康数据");
     const db = getInventoryDatabase();
-    await Promise.all([ensureInventorySchema(db), ensureSalesSchema(db)]);
+    await ensureInventorySchema(db);
     const params = new URL(request.url).searchParams;
     const requestedView = parseInventoryOverviewView(params);
     if (requestedView === "dashboard") {
-      const payload = await getInventoryDashboardOverview(db, {
+      const payload = await getInventoryDashboardOverview(db, principal, {
         startDate: params.get("startDate")?.trim() || undefined,
         endDate: params.get("endDate")?.trim() || undefined,
+        signal: request.signal,
       });
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
@@ -71,11 +71,12 @@ export async function GET(request: Request) {
       categories: readInventorySelections(params, "category", { maximum: 20, label: "品类" }),
     };
     if (requestedView === "plan") {
-      const payload = await getInventoryPlanOverview(db, {
+      const payload = await getInventoryPlanOverview(db, principal, {
         startDate: params.get("startDate")?.trim() || undefined,
         endDate: params.get("endDate")?.trim() || undefined,
         ...commonOptions,
         ...planOptions,
+        signal: request.signal,
       });
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
@@ -96,10 +97,11 @@ export async function GET(request: Request) {
       page: parseInventoryPaginationParameter(params.get("page"), "page"),
       pageSize: parseInventoryPaginationParameter(params.get("pageSize"), "pageSize"),
       ...planOptions,
+      signal: request.signal,
     };
     const payload = requestedView === "full"
-      ? await getInventoryFullOverview(db, overviewOptions)
-      : await getInventoryOverview(db, overviewOptions);
+      ? await getInventoryFullOverview(db, principal, overviewOptions)
+      : await getInventoryOverview(db, principal, overviewOptions);
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

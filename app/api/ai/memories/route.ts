@@ -4,7 +4,7 @@ import {
   listAiMemories,
 } from "@/lib/ai/memory";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       pageSize: parseAiPositiveInteger(params, "pageSize", 20, 50),
       q: params.get("q") ?? undefined,
       kind: params.get("kind") ?? undefined,
-    }, principal, getSalesDatabase()));
+    }, principal, getD1Database()));
   } catch (error) {
     return aiRouteErrorResponse(error, "读取全局记忆失败");
   }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       content: body.content,
       surface: "management_ui",
       requestId: request.headers.get("x-request-id"),
-    }, principal, getSalesDatabase());
+    }, principal, getD1Database());
     return aiJsonResponse(result, { status: result.created ? 201 : 200 });
   } catch (error) {
     return aiRouteErrorResponse(error, "保存全局记忆失败");

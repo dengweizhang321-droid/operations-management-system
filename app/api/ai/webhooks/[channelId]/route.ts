@@ -10,7 +10,7 @@ import {
   recordAiChannelCallbackEvent,
   type AiChannelSecret,
 } from "@/lib/ai/assistant-service";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { readAiBoundedText } from "@/app/api/ai/route-helpers";
 
 type RouteContext = { params: Promise<{ channelId: string }> };
@@ -28,7 +28,7 @@ function invalidCallback(): Response {
 async function resolveCallbackChannel(context: RouteContext): Promise<AiChannelSecret | null> {
   const { channelId } = await context.params;
   if (!/^[a-zA-Z0-9_-]{1,160}$/.test(channelId)) return null;
-  const channel = await getAiChannelSecretById(channelId, getSalesDatabase());
+  const channel = await getAiChannelSecretById(channelId, getD1Database());
   if (!channel || channel.status !== "enabled" || !channel.callbackEnabled || !channel.receiverId) return null;
   return channel;
 }

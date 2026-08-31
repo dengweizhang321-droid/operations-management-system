@@ -17,6 +17,8 @@ test("full-scope controls match table headers by business dimension", () => {
   assert.equal(scoreTableFilterControl("库龄", "库龄仓库"), 0);
   assert.equal(scoreTableFilterControl("销售净额", "统计周期"), 0);
   assert.equal(scoreTableFilterControl("操作", "刷新"), 0);
+  assert.equal(scoreTableFilterControl("SKU图", "按平台筛选货品"), 0);
+  assert.equal(scoreTableFilterControl("主图", "搜索商品名称"), 0);
 });
 
 test("paging and server-truncated table summaries never use page-local values", () => {
@@ -34,4 +36,41 @@ test("global table filters route partial tables to full-scope business controls"
   assert.match(source, /tableSummaryShowsPartialDataset/);
   assert.match(source, /不会再使用当前页临时选项/);
   assert.match(source, /打开\$\{partialDataset \? "全量" : ""\}列筛选/);
+});
+
+test("full-scope routing only activates explicit filter controls and fails closed", async () => {
+  const source = await readFile(new URL("../app/ui/table-column-filters.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /"button\[aria-label\]"/);
+  assert.doesNotMatch(source, /"button\[aria-expanded\]"/);
+  assert.match(source, /button\.searchable-select-trigger\[aria-label\]/);
+  assert.match(source, /button\.multi-filter-trigger\[aria-label\]/);
+  assert.match(source, /\[data-column-filter-control='true'\]/);
+  assert.match(source, /header\.dataset\.columnFilterHeader !== "true"/);
+  assert.match(source, /table\.dataset\.columnFilterScope === "none"/);
+  assert.match(source, /"data-column-filter-scope", "data-column-filter-total"/);
+  assert.match(source, /prepareTable\(table\);[\s\S]{0,120}header\.dataset\.columnFilterHeader !== "true"/);
+  assert.match(source, /role="radiogroup"/);
+});
+
+test("known bounded result tables declare an explicit safe column-filter scope", async () => {
+  const [assistant, sandbox, imports, market, marketAdmin, salesCategory, sales, shops, shared] = await Promise.all([
+    "ai-assistant-view.tsx", "ai-sandbox-view.tsx", "import-module-view.tsx", "market-view.tsx",
+    "market-master-admin-panel.tsx", "sales-category-view.tsx", "sales-module-view.tsx", "shop-module-view.tsx", "module-view-shared.tsx",
+  ].map((file) => readFile(new URL(`../app/${file}`, import.meta.url), "utf8")));
+  assert.match(assistant, /data-column-filter-scope=\{artifact\.truncated \? "none" : "full"\}/);
+  assert.match(sandbox, /data-column-filter-scope=\{result\.truncated \? "none" : "full"\}/);
+  assert.match(imports, /import-history-panel[\s\S]{0,500}data-column-filter-scope="none"/);
+  assert.ok((market.match(/data-column-filter-scope="none"/g) ?? []).length >= 2);
+  assert.match(market, /data-column-filter-scope=\{data\.truncated \? "none" : "full"\} data-column-filter-total=\{data\.totalMonths\}/);
+  assert.ok((marketAdmin.match(/data-column-filter-scope="none"/g) ?? []).length >= 4);
+  assert.match(salesCategory, /data-column-filter-scope=\{data\.pagination\.truncated \? "none" : "full"\}/);
+  assert.match(sales, /dimensionPagination\?\.truncated === false \? "full" : "none"/);
+  assert.match(sales, /data\.expensePagination\?\.truncated === false \? "full" : "none"/);
+  assert.match(sales, /data\.shopPagination\?\.truncated === false \? "full" : "none"/);
+  assert.match(shops, /dimensionPagination\?\.truncated === false \? "full" : "none"/);
+  assert.match(shops, /summary\.trendTruncated === false[\s\S]{0,120}promotion\?\.dailyPagination\.truncated === false/);
+  assert.match(shared, /groupPagination\?:/);
+  assert.match(shared, /expensePagination\?:/);
+  assert.match(shared, /shopPagination\?:/);
+  assert.match(shared, /trendTruncated\?: boolean/);
 });

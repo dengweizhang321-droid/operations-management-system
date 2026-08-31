@@ -6,7 +6,7 @@ import {
   type AppRole,
 } from "@/lib/auth/authorization";
 import { decideLocalDirectAccess } from "@/lib/auth/local-direct-access";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 const BACKGROUND_AGENT_ROLES = ["analyst", "operator", "admin"] as const;
 const LOCAL_BACKGROUND_OWNER = "local-admin@teruisi.local";
@@ -26,7 +26,7 @@ export type AiBackgroundPrincipalResult =
 export async function resolveAiBackgroundPrincipal(
   ownerEmailInput: string,
   scopeSnapshotJson: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiBackgroundPrincipalResult> {
   const ownerEmail = ownerEmailInput.trim().toLowerCase();
   const snapshot = parseStoredScope(scopeSnapshotJson, false);

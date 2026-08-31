@@ -80,6 +80,11 @@ export type SalesSummaryResponse = {
   outlets?: SalesChannel[];
   shops?: SalesChannel[];
   platforms?: SalesChannel[];
+  groupPagination?: {
+    outlets: { total: number; returned: number; truncated: boolean };
+    shops: { total: number; returned: number; truncated: boolean };
+    platforms: { total: number; returned: number; truncated: boolean };
+  };
   latestBatch?: {
     id: string;
     fileName: string;
@@ -88,6 +93,8 @@ export type SalesSummaryResponse = {
   daily?: Array<{ date: string } & SalesStats>;
   previousDaily?: Array<{ date: string } & SalesStats>;
   yearAgoDaily?: Array<{ date: string } & SalesStats>;
+  trendReturned?: number;
+  trendTruncated?: boolean;
   filters?: { productCodes: string[]; platform?: string | null; platforms?: string[]; shop?: string | null; outlets?: Array<{ platform: string; shop: string }>; categories?: string[] };
   filterOptions?: {
     platforms: string[];
@@ -842,7 +849,9 @@ export type FinanceAnalysisResponse = {
   targets?: { month: FinanceTargetTotals; year: FinanceTargetTotals; projects: FinanceTarget[]; legacyCompatibility?: { excluded: number; reason: string } };
   progress?: { month: FinanceProgress; year: FinanceProgress };
   expenses: Array<{ name: string; current: number; previous: number | null; yearAgo: number | null; feeRateBps: number; yearAgoFeeRateBps: number | null; momRate: number | null; yoyRate: number | null; abnormal: boolean }>;
+  expensePagination?: { total: number; returned: number; truncated: boolean };
   shops: Array<{ key: string; name: string; groupName: string; manager: string; actual: FinanceActualMetrics; target: FinanceTargetTotals; progress: FinanceProgress }>;
+  shopPagination?: { total: number; returned: number; truncated: boolean };
   anomalies: Array<{ level: "critical" | "warning" | "info"; title: string; detail: string }>;
   filters?: { platforms: string[]; shops: Array<{ key: string; name: string; platform: string }> };
   selection?: {

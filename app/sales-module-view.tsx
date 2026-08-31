@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchWithTransientRetry } from "@/lib/http/transient-retry";
-import { parseProductQueries } from "@/lib/sales/product-query";
+import { parseProductQueries } from "@/lib/sales/read-contract";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { SearchableSelect } from "./ui/searchable-select";
 import { ProductSalesTrend, ShopSalesDistribution } from "./module-view-business-ui";
@@ -69,10 +69,15 @@ function ChannelAnalysisView({
   channels,
   platforms,
   current,
+  pagination,
 }: {
   channels: SalesChannel[];
   platforms: SalesChannel[];
   current: SalesStats;
+  pagination?: {
+    channel?: { total: number; returned: number; truncated: boolean };
+    platform?: { total: number; returned: number; truncated: boolean };
+  };
 }) {
   const [dimension, setDimension] = useState<ChannelDimension>("channel");
   const rows = useMemo(
@@ -101,6 +106,7 @@ function ChannelAnalysisView({
   const concentrationLabel = topThreeShare >= .75 ? "集中度较高" : topThreeShare >= .5 ? "集中度适中" : "渠道较均衡";
   const maxSales = Math.max(1, ...rows.map((item) => Math.max(0, item.netSalesCents)));
   const dimensionLabel = dimension === "channel" ? "销售渠道" : "平台";
+  const dimensionPagination = dimension === "channel" ? pagination?.channel : pagination?.platform;
   const refundLeaderRate = refundLeader.grossSalesCents === 0 ? 0 : refundLeader.refundAmountCents / refundLeader.grossSalesCents;
 
   return (
@@ -187,7 +193,7 @@ function ChannelAnalysisView({
           <span className="soft-tag">共 {formatCount(rows.length)} 个{dimensionLabel}</span>
         </div>
         <div className="data-table-wrap">
-          <table className="data-table channel-data-table">
+          <table className="data-table channel-data-table" data-column-filter-scope={dimensionPagination?.truncated === false ? "full" : "none"}>
             <thead><tr><th>排名</th><th>{dimensionLabel}</th><th>销售额（GMV）</th><th>销售净额</th><th>净额占比</th><th>净销售同比</th><th>订单毛利</th><th>毛利率</th><th>订单量</th><th>退货率</th><th>经营状态</th></tr></thead>
             <tbody>{rows.map((item, index) => {
               const refundRate = item.grossSalesCents === 0 ? 0 : item.refundAmountCents / item.grossSalesCents;
@@ -432,19 +438,18 @@ function FinanceAnalysisView({
         }
         selectedPlatforms.forEach((platform) => query.append("platform", platform));
         validSelectedShopKeys.map(salesOutletKeyToFinanceKey).filter((value): value is string => value !== null).forEach((shop) => query.append("shop", shop));
-        const requestAnalysis = async (requestQuery: URLSearchParams) => {
-          const queryText = requestQuery.toString();
-          const response = await fetch(`/api/finance/analysis${queryText ? `?${queryText}` : ""}`, { cache: "no-store", signal: controller.signal });
-          const payload = await response.json().catch(() => null) as (FinanceAnalysisResponse & { code?: string }) | null;
-          return { response, payload };
-        };
-        const { response, payload } = await requestAnalysis(query);
-        const isDimensionFailure = response.status === 400
-          && payload?.code === "finance_dimension_filter_out_of_scope";
+        const queryText = query.toString();
+        const response = await fetch(`/api/finance/analysis${queryText ? `?${queryText}` : ""}`, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json().catch(() => null) as (FinanceAnalysisResponse & { code?: string }) | null;
+        const isDimensionFailure = response.status === 400 && payload?.code === "finance_dimension_filter_out_of_scope";
         if (isDimensionFailure && (selectedPlatforms.length > 0 || validSelectedShopKeys.length > 0)) {
           const issues = parseFinanceDimensionFilterIssues(payload);
           if (!issues) throw new Error("财报筛选校验响应格式不完整，请重试。");
-          const reconciliation = reconcileFinanceDimensionFilters(selectedPlatforms, validSelectedShopKeys, issues);
+          const reconciliation = reconcileFinanceDimensionFilters(
+            selectedPlatforms,
+            validSelectedShopKeys,
+            issues,
+          );
           const decision = decideFinanceDimensionReconciliation(reconciliation);
           if (decision === "reject") {
             throw new Error(payload.error || "财报筛选与当前财务期间不一致，请清空筛选后重试。");
@@ -579,7 +584,7 @@ function FinanceAnalysisView({
       <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${data.expenses.length} 项` : `共 ${expenseRows.length} 项`}</span></div>
       <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份与上方公共平台、店铺筛选同步更新所有指标</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /><button type="button" className="finance-filter-reset" onClick={resetMonthsStrictly}>重置月份</button></div>
       <div className="data-table-wrap finance-expense-scroll">
-        <table className="data-table finance-expense-table">
+        <table className="data-table finance-expense-table" data-column-filter-scope={data.expensePagination?.truncated === false ? "full" : "none"}>
           <thead><tr>
             <th><div className="finance-expense-name-head"><FinanceSortButton label="费用科目" column="name" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /><label className="finance-expense-name-search"><span aria-hidden="true">⌕</span><input type="search" value={expenseSearch} onChange={(event) => setExpenseSearch(event.target.value)} placeholder="搜索费用名称" aria-label="搜索费用名称" /></label></div></th>
             <th><FinanceSortButton label={(data.selectedMonths?.length ?? 1) > 1 ? "所选期间金额" : "本月金额"} column="current" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /></th>
@@ -605,7 +610,7 @@ function FinanceAnalysisView({
         </table>
       </div>
     </section>
-    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table"><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
+    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table" data-column-filter-scope={data.shopPagination?.truncated === false ? "full" : "none"}><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
   </div>;
 }
 
@@ -890,6 +895,10 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
     updateFilters({ ...filters, platforms, outletKeys });
   }, [filters, updateFilters]);
 
+  useEffect(() => {
+    setFinanceFilterOptions(null);
+  }, [customEndDate, customStartDate]);
+
   const changeSalesTab = useCallback((tab: SalesTab) => {
     onModuleViewChange(tab);
   }, [onModuleViewChange]);
@@ -1015,7 +1024,7 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
       {sharedFilterBar()}
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>销售数据刷新失败</strong><p>{error}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}
       {activeTab === "channel" ? (
-        <div className="data-refresh-region" aria-busy={loading}><ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} /></div>
+        <div className="data-refresh-region" aria-busy={loading}><ChannelAnalysisView channels={salesChannels} platforms={platforms} current={current} pagination={{ channel: summary.groupPagination?.shops, platform: summary.groupPagination?.platforms }} /></div>
       ) : <>
         <section className="metrics-grid sales-metrics-grid data-refresh-region" aria-busy={loading}>
           <MetricCard label="销售额（GMV）" value={formatCurrencyFromCents(current.grossSalesCents)} change={formatChange(current.grossSalesCents, previous?.grossSalesCents)} hint={comparisonHint(current.grossSalesCents, previous?.grossSalesCents, yearAgo?.grossSalesCents)} tone="blue" />

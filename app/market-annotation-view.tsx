@@ -76,7 +76,7 @@ function AnnotationMultiFilter({ label, allLabel, values, options, onChange }: {
     onChange(next.length === options.length ? [] : next);
   };
   const summary = values.length === 0 ? allLabel : values.length === 1 ? options.find((item) => item.value === values[0])?.label ?? values[0] : `已选 ${values.length} 项`;
-  return <div className="annotation-review-category-filter annotation-review-compact-filter"><span>{label}（可多选）</span><details><summary>{summary}</summary><div className="annotation-review-category-menu"><button type="button" onClick={() => onChange([])}>{allLabel}</button>{options.map((option) => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={() => toggle(option.value)} /><span>{option.label}</span></label>)}</div></details></div>;
+  return <div className="annotation-review-category-filter annotation-review-compact-filter"><span>{label}（可多选）</span><details><summary aria-label={`${label}筛选`}>{summary}</summary><div className="annotation-review-category-menu"><button type="button" onClick={() => onChange([])}>{allLabel}</button>{options.map((option) => <label key={option.value}><input type="checkbox" checked={values.includes(option.value)} onChange={() => toggle(option.value)} /><span>{option.label}</span></label>)}</div></details></div>;
 }
 export default function MarketAnnotationView({ currentUser, embedded = false }: { currentUser: CurrentUser; embedded?: boolean }) {
   const [data, setData] = useState<Workspace | null>(null);

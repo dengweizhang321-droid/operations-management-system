@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 
 const testEnvironment: { DB?: unknown } = {};
 (globalThis as typeof globalThis & { __inventoryManagementUpgradeEnv?: typeof testEnvironment }).__inventoryManagementUpgradeEnv = testEnvironment;
@@ -52,6 +54,17 @@ function sqliteAdapter(sqlite: DatabaseSync) {
       return results;
     },
   };
+}
+
+function futureShanghaiDate(days: number) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(Date.now() + days * 86_400_000));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 function inventoryRow(overrides: Record<string, unknown> = {}) {
@@ -144,7 +157,6 @@ test("京东入仓监控只统计 RDC/DC，并披露固定成本与原生指标�
       batch_id TEXT, product_code TEXT, product_name TEXT, brand TEXT, category TEXT, warehouse TEXT, warehouse_type TEXT,
       available_quantity INTEGER, in_transit_quantity INTEGER, inventory_age_days INTEGER, unit_cost_cents INTEGER
     );
-    CREATE TABLE sales_order_lines (product_code TEXT, product_name TEXT, warehouse TEXT, ship_time TEXT, quantity INTEGER);
     CREATE TABLE erp_product_master (product_code TEXT PRIMARY KEY, supplier TEXT);
     INSERT INTO inventory_import_batches VALUES ('stock-batch','inventory_stock','stock.xlsx',1,'hash','Sheet1','2026-08-24','completed',4,4,0,'[]','{}','2026-08-24','2026-08-24');
     INSERT INTO inventory_stock_lines VALUES
@@ -152,10 +164,40 @@ test("京东入仓监控只统计 RDC/DC，并披露固定成本与原生指标�
       ('stock-batch','P2','入仓货品2','品牌乙','类目乙','华北DC仓','jd_rdc',10,0,100,200),
       ('stock-batch','P3','自有货品','品牌甲','类目甲','自有仓','owned',99,0,10,100),
       ('stock-batch','P4','历史平台仓货品','品牌乙','类目乙','上海常温C平台仓9号库-CHN','owned',8,1,30,300);
-    INSERT INTO sales_order_lines VALUES ('P1','入仓货品1','华东RDC仓','2026-08-24 10:00:00',6);
     INSERT INTO erp_product_master VALUES ('P1','供应商甲'),('P2',''),('P4','供应商乙');
   `);
-  const result = await getInventoryInboundMonitor(sqliteAdapter(sqlite) as never, { page: 1, pageSize: 20 });
+  const principal: AppPrincipal = { email: "admin@example.test", displayName: "Admin", role: "admin", scope: null };
+  let consumerCalls = 0;
+  const salesReader: SalesConsumerReader = {
+    read: (async (_principal: AppPrincipal, request: Record<string, unknown>) => {
+      consumerCalls += 1;
+      assert.equal(request.operation, "inventory_inbound_windows");
+      return {
+        revision: "7:3",
+        data: {
+          asOfDate: "2026-08-24",
+          dataStartDate: "2026-08-01",
+          dataCutoffDate: "2026-08-24",
+          rows: [{
+            productCode: "P1",
+            warehouseKey: "华东rdc",
+            productName: "入仓货品1",
+            sales7dQuantity: 6,
+            sales30dQuantity: 6,
+            sales90dQuantity: 6,
+          }],
+          truncated: false,
+        },
+      };
+    }) as SalesConsumerReader["read"],
+  };
+  const result = await getInventoryInboundMonitor(
+    sqliteAdapter(sqlite) as never,
+    principal,
+    { page: 1, pageSize: 20 },
+    salesReader,
+  );
+  assert.equal(consumerCalls, 1, "每次入仓请求必须只读取一次 7/30/90 同 revision Django 聚合");
   assert.equal(result.metrics.itemCount, 3);
   assert.equal(result.metrics.warehouseCount, 3);
   assert.equal(result.metrics.missingSupplierCount, 1);
@@ -168,16 +210,27 @@ test("京东入仓监控只统计 RDC/DC，并披露固定成本与原生指标�
   assert.match(result.disclosures.join("\n"), /固定成本|原生库存/);
   assert.deepEqual(result.filters.brands, ["品牌乙", "品牌甲"]);
   assert.deepEqual(result.filters.categories, ["类目乙", "类目甲"]);
-  const supplierFiltered = await getInventoryInboundMonitor(sqliteAdapter(sqlite) as never, { suppliers: ["供应商乙"], page: 1, pageSize: 20 });
+  const supplierFiltered = await getInventoryInboundMonitor(
+    sqliteAdapter(sqlite) as never,
+    principal,
+    { suppliers: ["供应商乙"], page: 1, pageSize: 20 },
+    salesReader,
+  );
   assert.equal(supplierFiltered.metrics.itemCount, 1);
   assert.deepEqual(supplierFiltered.regions.map((region) => region.warehouse), ["上海常温C平台仓9号库-CHN"]);
-  const commonFiltered = await getInventoryInboundMonitor(sqliteAdapter(sqlite) as never, {
-    brands: ["品牌乙"],
-    categories: ["类目乙"],
-    warehouses: ["华北DC仓"],
-    page: 1,
-    pageSize: 20,
-  });
+  const commonFiltered = await getInventoryInboundMonitor(
+    sqliteAdapter(sqlite) as never,
+    principal,
+    {
+      brands: ["品牌乙"],
+      categories: ["类目乙"],
+      warehouses: ["华北DC仓"],
+      page: 1,
+      pageSize: 20,
+    },
+    salesReader,
+  );
+  assert.equal(consumerCalls, 3);
   assert.deepEqual(commonFiltered.items.map((item) => [item.productCode, item.brand, item.category]), [["P2", "品牌乙", "类目乙"]]);
   sqlite.close();
 });
@@ -195,8 +248,9 @@ test("已确认补货计划幂等创建采购执行事项并关联原计划", as
     INSERT INTO erp_product_master VALUES ('P1','供应商甲');
   `);
   const db = sqliteAdapter(sqlite) as never;
-  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate: "2026-08-30", dueDate: "2026-08-30" }, "operator@example.com", db);
-  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate: "2026-08-30", dueDate: "2026-08-30" }, "operator@example.com", db);
+  const expectedArrivalDate = futureShanghaiDate(7);
+  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, "operator@example.com", db);
+  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, "operator@example.com", db);
   assert.equal(first.created, true);
   assert.equal(second.created, false);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM workflow_task_entity_links WHERE entity_id = 'replenishment-plan:plan-1'").get()?.count, 1);

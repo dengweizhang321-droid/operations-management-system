@@ -304,6 +304,7 @@ const marketBatch: ValueValidator = (value) => fields(value, {
 export function validateMarketOverviewCachePayload(value: unknown, expectedView: "ranking" | "full") {
   const topLevel = {
     view: (item: unknown) => item === expectedView,
+    salesRevision: stringValue,
     summary: (item: unknown) => fields(item, {
       productCount: numberValue,
       categoryCount: numberValue,

@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { cancelAiSpaceJob } from "@/lib/ai/space";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ jobId:
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
     const params = await context.params;
     const id = requireAiId(params.jobId, "jobId");
-    return aiJsonResponse({ item: await cancelAiSpaceJob(id, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await cancelAiSpaceJob(id, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "取消 AI 空间任务失败");
   }

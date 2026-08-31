@@ -4,7 +4,7 @@ import {
   serializeAiConversationScope,
 } from "@/lib/ai/conversation-scope";
 import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 const MAX_SOURCE_ROWS = 50;
 const MAX_STEPS = 8;
@@ -100,7 +100,7 @@ export class AiAnalysisSandboxError extends RegistryToolError {
   }
 }
 
-export async function ensureAiAnalysisSandboxSchema(db: SalesDatabase): Promise<void> {
+export async function ensureAiAnalysisSandboxSchema(db: D1Database): Promise<void> {
   const key = db as unknown as object;
   const existing = analysisSchemaReadyByDatabase.get(key);
   if (existing) return existing;
@@ -191,9 +191,9 @@ export async function runAndRecordAiAnalysisPlan(
   rawInput: unknown,
   principal: AppPrincipal,
   requestId: string,
-  database?: SalesDatabase,
+  database?: D1Database,
 ) {
-  const db = database ?? (await import("@/lib/sales/database")).getSalesDatabase();
+  const db = database ?? (await import("@/lib/database/d1")).getD1Database();
   await ensureAiAnalysisSandboxSchema(db);
   const input = normalizePlan(rawInput);
   const result = await runAiAnalysisPlan(input, principal);
@@ -232,9 +232,9 @@ export async function runAndRecordAiAnalysisPlan(
 export async function listAiAnalysisRuns(
   principal: AppPrincipal,
   input: { page?: number; pageSize?: number } = {},
-  database?: SalesDatabase,
+  database?: D1Database,
 ) {
-  const db = database ?? (await import("@/lib/sales/database")).getSalesDatabase();
+  const db = database ?? (await import("@/lib/database/d1")).getD1Database();
   await ensureAiAnalysisSandboxSchema(db);
   const page = boundedInteger(input.page, 1, 10_000, 1);
   const pageSize = boundedInteger(input.pageSize, 1, 50, 20);

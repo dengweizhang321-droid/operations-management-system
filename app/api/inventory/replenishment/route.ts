@@ -9,7 +9,6 @@ import {
   type ReplenishmentPlanItem,
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -28,7 +27,7 @@ function errorResponse(status: number, message: string) {
 
 async function readyDatabase() {
   const db = getInventoryDatabase();
-  await Promise.all([ensureInventorySchema(db), ensureSalesSchema(db)]);
+  await ensureInventorySchema(db);
   return db;
 }
 
@@ -97,12 +96,13 @@ export async function POST(request: Request) {
       return errorResponse(400, "计划补货量必须使用 JSON 整数");
     }
     const db = await readyDatabase();
-    const overview = await getInventoryOverview(db, {
+    const overview = await getInventoryOverview(db, principal, {
       exactKey: body.key,
       startDate: body.startDate,
       endDate: body.endDate,
       page: 1,
       pageSize: 1,
+      signal: request.signal,
     });
     if (!overview.controls.autoReplenishmentEnabled) {
       return errorResponse(409, "系统设置已关闭自动补货建议，请由管理员开启后再创建计划");

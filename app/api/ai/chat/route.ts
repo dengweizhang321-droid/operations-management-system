@@ -9,7 +9,7 @@ import { isAiRequestCancelled } from "@/lib/ai/cancellation";
 import { createWebChatEntryContext } from "@/lib/ai/entry-context";
 import { normalizeAiPageContext } from "@/lib/ai/page-context";
 import { answerAiQuestion } from "@/lib/ai/question-workflow";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { PublicApiError } from "@/lib/http/api-error";
 import {
   aiJsonResponse,
@@ -26,7 +26,7 @@ import {
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
-    const db = getSalesDatabase();
+    const db = getD1Database();
     await ensureAiAssistantSchema(db);
     const searchParams = new URL(request.url).searchParams;
     const conversationIds = searchParams.getAll("conversationId");
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   try {
     requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
-    const db = getSalesDatabase();
+    const db = getD1Database();
     await ensureAiAssistantSchema(db);
     const payload = await readAiJsonObject(request);
     const clientRequestId = requireAiId(payload.clientRequestId, "clientRequestId");

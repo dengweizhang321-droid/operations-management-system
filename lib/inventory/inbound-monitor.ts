@@ -4,6 +4,13 @@ import {
 } from "@/lib/inventory/database";
 import { normalizeInventoryPagination } from "@/lib/inventory/query-contract";
 import { jdInboundWarehousePredicateSql } from "@/lib/inventory/warehouse-classification";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+} from "@/lib/django/sales-consumer-reader";
+import { PublicApiError } from "@/lib/http/api-error";
 
 export type InventoryInboundMonitorOptions = {
   page?: number;
@@ -13,6 +20,7 @@ export type InventoryInboundMonitorOptions = {
   brands?: string[];
   categories?: string[];
   suppliers?: string[];
+  signal?: AbortSignal;
 };
 
 type InboundRow = {
@@ -57,14 +65,16 @@ type RegionRow = {
   matched_sales_count: number;
 };
 
-function addDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 function normalizedWarehouseSql(column: string) {
   return `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(TRIM(${column})), '配送中心', ''), '仓库', ''), '库房', ''), '仓', ''), ' ', ''), '（', ''), '）', ''), '(', ''), ')', ''), '-', '')`;
+}
+
+function normalizedWarehouseKey(value: string) {
+  let normalized = value.trim().toLowerCase();
+  for (const token of ["配送中心", "仓库", "库房", "仓", " ", "（", "）", "(", ")", "-"]) {
+    normalized = normalized.split(token).join("");
+  }
+  return normalized;
 }
 
 function uniqueStrings(values: readonly string[] | undefined, max = 20) {
@@ -107,14 +117,9 @@ function buildFilter(options: InventoryInboundMonitorOptions) {
 
 function buildInboundCte(input: {
   batchId: string;
-  salesThrough: string | null;
+  salesRows: SalesConsumerResponseMap["inventory_inbound_windows"]["rows"];
+  hasSales: boolean;
 }) {
-  const hasSales = Boolean(input.salesThrough);
-  const endExclusive = input.salesThrough ? `${addDays(input.salesThrough, 1)} 00:00:00` : "";
-  const start7 = input.salesThrough ? `${addDays(input.salesThrough, -6)} 00:00:00` : "";
-  const start30 = input.salesThrough ? `${addDays(input.salesThrough, -29)} 00:00:00` : "";
-  const start90 = input.salesThrough ? `${addDays(input.salesThrough, -89)} 00:00:00` : "";
-  const salesWarehouse = normalizedWarehouseSql("warehouse");
   return {
     sql: `WITH stock AS (
       SELECT
@@ -134,17 +139,12 @@ function buildInboundCte(input: {
       GROUP BY product_code, warehouse
     ), outbound AS (
       SELECT
-        product_code,
-        ${salesWarehouse} AS warehouse_key,
-        SUM(CASE WHEN ship_time >= ? AND ship_time < ? AND quantity > 0 THEN quantity ELSE 0 END) AS sales_7d_quantity,
-        SUM(CASE WHEN ship_time >= ? AND ship_time < ? AND quantity > 0 THEN quantity ELSE 0 END) AS sales_30d_quantity,
-        SUM(CASE WHEN ship_time >= ? AND ship_time < ? AND quantity > 0 THEN quantity ELSE 0 END) AS sales_90d_quantity
-      FROM sales_order_lines
-      WHERE ? = 1 AND ship_time >= ? AND ship_time < ?
-        AND TRIM(warehouse) <> '刷刷仓'
-        AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-        AND TRIM(product_name) <> '补差价专用'
-      GROUP BY product_code, ${salesWarehouse}
+        CAST(json_extract(value, '$.productCode') AS TEXT) AS product_code,
+        CAST(json_extract(value, '$.warehouseKey') AS TEXT) AS warehouse_key,
+        CAST(json_extract(value, '$.sales7dQuantity') AS REAL) AS sales_7d_quantity,
+        CAST(json_extract(value, '$.sales30dQuantity') AS REAL) AS sales_30d_quantity,
+        CAST(json_extract(value, '$.sales90dQuantity') AS REAL) AS sales_90d_quantity
+      FROM json_each(?)
     ), base AS (
       SELECT
         st.product_code,
@@ -167,13 +167,10 @@ function buildInboundCte(input: {
     )`,
     values: [
       input.batchId,
-      start7, endExclusive,
-      start30, endExclusive,
-      start90, endExclusive,
-      hasSales ? 1 : 0, start90, endExclusive,
-      hasSales ? 1 : 0,
-      hasSales ? 1 : 0,
-      hasSales ? 1 : 0,
+      JSON.stringify(input.salesRows),
+      input.hasSales ? 1 : 0,
+      input.hasSales ? 1 : 0,
+      input.hasSales ? 1 : 0,
     ],
   };
 }
@@ -183,23 +180,59 @@ function numberValue(value: unknown) {
   return Number.isFinite(number) ? number : 0;
 }
 
+const MAX_INBOUND_PRODUCT_CODES = 5_000;
+
+function inboundConsumerUnavailable() {
+  return new PublicApiError(503, "service_unavailable", "Django 销售读取服务返回的数据不完整，请稍后重试。");
+}
+
+function isIsoDateOrNull(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  return new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+}
+
+function validateInboundSalesResult(
+  result: { revision: string; data: SalesConsumerResponseMap["inventory_inbound_windows"] },
+  requestedProductCodes: Set<string>,
+): void {
+  if (!result || typeof result.revision !== "string" || !result.revision || result.revision.length > 128
+    || !result.data || !Array.isArray(result.data.rows)) {
+    throw inboundConsumerUnavailable();
+  }
+  const data = result.data;
+  if (data.truncated !== false || !isIsoDateOrNull(data.asOfDate)
+    || !isIsoDateOrNull(data.dataStartDate) || !isIsoDateOrNull(data.dataCutoffDate)) {
+    throw inboundConsumerUnavailable();
+  }
+  const keys = new Set<string>();
+  for (const row of data.rows) {
+    if (!row || typeof row.productCode !== "string" || !requestedProductCodes.has(row.productCode)
+      || typeof row.productName !== "string" || typeof row.warehouseKey !== "string"
+      || row.warehouseKey !== normalizedWarehouseKey(row.warehouseKey)
+      || !Number.isFinite(row.sales7dQuantity) || row.sales7dQuantity < 0
+      || !Number.isFinite(row.sales30dQuantity) || row.sales30dQuantity < 0
+      || !Number.isFinite(row.sales90dQuantity) || row.sales90dQuantity < 0) {
+      throw inboundConsumerUnavailable();
+    }
+    const key = `${row.productCode}\u001f${row.warehouseKey}`;
+    if (keys.has(key)) throw inboundConsumerUnavailable();
+    keys.add(key);
+  }
+}
+
 export async function getInventoryInboundMonitor(
   db: InventoryDatabase,
+  principal: AppPrincipal,
   options: InventoryInboundMonitorOptions = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
 ) {
   const pagination = normalizeInventoryPagination(options);
-  const [latestBatch, salesBound] = await Promise.all([
-    findLatestInventoryImportBatch(db),
-    db.prepare(`SELECT substr(MAX(ship_time), 1, 10) AS sales_through
-      FROM sales_order_lines
-      WHERE TRIM(warehouse) <> '刷刷仓'
-        AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-        AND TRIM(product_name) <> '补差价专用'`).first<{ sales_through: string | null }>(),
-  ]);
+  const latestBatch = await findLatestInventoryImportBatch(db);
   if (!latestBatch) {
     return {
       hasInventory: false,
-      sync: { inventoryAsOf: null, salesThrough: salesBound?.sales_through ?? null, latestInventoryBatchId: null },
+      sync: { inventoryAsOf: null, salesThrough: null, latestInventoryBatchId: null, salesRevision: null },
       scope: { warehouseType: "jd_rdc" as const, valuationBasis: "fixed_cost" as const, supplyPriceAvailable: false, nativeComparisonAvailable: false },
       metrics: { itemCount: 0, warehouseCount: 0, availableQuantity: 0, inTransitQuantity: 0, knownStockValueCents: 0, costCoverageRate: 1, salesMatchRate: 0, outbound30dQuantity: 0, turnoverDays: null, staleItemCount: 0, staleValueCents: 0, missingSupplierCount: 0 },
       filters: { warehouses: [], brands: [], categories: [], suppliers: [] },
@@ -210,7 +243,32 @@ export async function getInventoryInboundMonitor(
     };
   }
 
-  const cte = buildInboundCte({ batchId: latestBatch.id, salesThrough: salesBound?.sales_through ?? null });
+  const productResult = await db.prepare(
+    `SELECT product_code
+     FROM inventory_stock_lines
+     WHERE batch_id = ? AND ${jdInboundWarehousePredicateSql("warehouse", "warehouse_type")}
+       AND TRIM(warehouse) <> '刷刷仓' AND TRIM(product_code) <> ''
+     GROUP BY product_code
+     ORDER BY product_code
+     LIMIT ?`,
+  ).bind(latestBatch.id, MAX_INBOUND_PRODUCT_CODES + 1).all<{ product_code: string }>();
+  if (productResult.results.length > MAX_INBOUND_PRODUCT_CODES) throw inboundConsumerUnavailable();
+  const productCodes = productResult.results.map((row) => row.product_code);
+  const salesResult = productCodes.length > 0
+    ? await salesReader.read(principal, {
+      operation: "inventory_inbound_windows",
+      asOfDate: null,
+      productCodes,
+      limit: 10_000,
+    }, { signal: options.signal })
+    : null;
+  if (salesResult) validateInboundSalesResult(salesResult, new Set(productCodes));
+  const salesData = salesResult?.data as SalesConsumerResponseMap["inventory_inbound_windows"] | undefined;
+  const cte = buildInboundCte({
+    batchId: latestBatch.id,
+    salesRows: salesData?.rows ?? [],
+    hasSales: salesData?.asOfDate !== null && salesData?.asOfDate !== undefined,
+  });
   const filter = buildFilter(options);
   const metricsSql = `SELECT
     COUNT(*) AS item_count,
@@ -265,7 +323,12 @@ export async function getInventoryInboundMonitor(
   const total = itemCount;
   return {
     hasInventory: true,
-    sync: { inventoryAsOf: latestBatch.snapshotDate, salesThrough: salesBound?.sales_through ?? null, latestInventoryBatchId: latestBatch.id },
+    sync: {
+      inventoryAsOf: latestBatch.snapshotDate,
+      salesThrough: salesData?.asOfDate ?? null,
+      latestInventoryBatchId: latestBatch.id,
+      salesRevision: salesResult?.revision ?? null,
+    },
     scope: { warehouseType: "jd_rdc" as const, valuationBasis: "fixed_cost" as const, supplyPriceAvailable: false, nativeComparisonAvailable: false },
     metrics: {
       itemCount,

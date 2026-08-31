@@ -4,7 +4,7 @@ import {
   listAiSpaceTemplates,
   upsertAiSpaceTemplate,
 } from "@/lib/ai/space";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -22,7 +22,7 @@ async function requireManager(operation: string) {
 export async function GET() {
   try {
     await requireManager("读取");
-    return aiJsonResponse({ items: await listAiSpaceTemplates({}, getSalesDatabase()) });
+    return aiJsonResponse({ items: await listAiSpaceTemplates({}, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "读取 AI 空间模板失败");
   }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       isEnabled: body.isEnabled,
       isDefault: body.isDefault,
       expectedVersion: body.expectedVersion,
-    }, principal, getSalesDatabase());
+    }, principal, getD1Database());
     return aiJsonResponse({ item });
   } catch (error) {
     return aiRouteErrorResponse(error, "保存 AI 空间模板失败");
@@ -61,7 +61,7 @@ export async function DELETE(request: Request) {
       id,
       versionValues.length === 1 ? Number(versionValues[0]) : undefined,
       principal,
-      getSalesDatabase(),
+      getD1Database(),
     );
     return aiJsonResponse({ ok: true });
   } catch (error) {

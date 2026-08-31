@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { createAiSpaceJob, listAiSpaceJobs } from "@/lib/ai/space";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const page = parseAiPositiveInteger(params, "page", 1, 10_000);
     const pageSize = parseAiPositiveInteger(params, "pageSize", 20, 50);
-    return aiJsonResponse(await listAiSpaceJobs({ page, pageSize }, principal, getSalesDatabase()));
+    return aiJsonResponse(await listAiSpaceJobs({ page, pageSize }, principal, getD1Database()));
   } catch (error) {
     return aiRouteErrorResponse(error, "读取 AI 空间任务失败");
   }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       sellingPoints: body.sellingPoints,
       additionalInstructions: body.additionalInstructions,
       count: body.count,
-    }, principal, getSalesDatabase());
+    }, principal, getD1Database());
     return aiJsonResponse(result, { status: result.replayed ? 200 : 201 });
   } catch (error) {
     return aiRouteErrorResponse(error, "创建 AI 空间任务失败");

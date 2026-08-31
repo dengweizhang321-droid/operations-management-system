@@ -31,7 +31,7 @@ import type {
   AiToolExecutionResult,
 } from "@/lib/ai/tool-registry-contract";
 import { AI_TOOL_SYSTEM_PROMPT, type ProviderToolDefinition } from "@/lib/ai/tool-loop";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export const AI_FORMAL_AGENT_LIMITS = {
   maximumProviderRounds: 20,
@@ -145,12 +145,12 @@ class AgentPreDispatchError extends Error {
  * external side effect and is also bounded to one job.
  */
 export async function runNextFormalAiAgentMicrostep(options: {
-  db?: SalesDatabase;
+  db?: D1Database;
   now?: Date;
   providerTurn?: ProviderTurnRunner;
   executeTool?: ToolRunner;
 } = {}): Promise<AiFormalAgentMicrostepOutcome> {
-  const db = options.db ?? getSalesDatabase();
+  const db = options.db ?? getD1Database();
   await ensureAiAgentExecutorSchema(db);
   const recovered = await recoverOneExpiredFormalJob(db);
   if (recovered) return recovered;
@@ -265,7 +265,7 @@ export async function runNextFormalAiAgentMicrostep(options: {
   });
 }
 
-async function resolveRuntime(job: FormalAgentJobRow, db: SalesDatabase): Promise<
+async function resolveRuntime(job: FormalAgentJobRow, db: D1Database): Promise<
   | { ok: true; principal: AppPrincipal; model: VersionedAiTextModelRuntimeConfig; entries: readonly AiToolEntry[] }
   | { ok: false; code: string; message: string }
 > {
@@ -286,7 +286,7 @@ async function resolveRuntime(job: FormalAgentJobRow, db: SalesDatabase): Promis
   return { ok: true, principal: principal.principal, model, entries: policy.entries };
 }
 
-async function recoverOneExpiredFormalJob(db: SalesDatabase): Promise<AiFormalAgentMicrostepOutcome | null> {
+async function recoverOneExpiredFormalJob(db: D1Database): Promise<AiFormalAgentMicrostepOutcome | null> {
   await db.batch([
     db.prepare(`UPDATE ai_agent_provider_dispatches SET state = 'succeeded', completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
       WHERE state = 'calling' AND EXISTS (
@@ -352,7 +352,7 @@ async function recoverOneExpiredFormalJob(db: SalesDatabase): Promise<AiFormalAg
   return { status: terminal ? "failed" : "recovered", jobId: expired.id, code: code || "lease_expired_requeued" };
 }
 
-async function acquireFormalAgentLease(db: SalesDatabase): Promise<FormalAgentLease | null> {
+async function acquireFormalAgentLease(db: D1Database): Promise<FormalAgentLease | null> {
   const leaseToken = crypto.randomUUID();
   const mutationToken = crypto.randomUUID();
   const writes = await db.batch([
@@ -383,7 +383,7 @@ async function acquireFormalAgentLease(db: SalesDatabase): Promise<FormalAgentLe
   return row ? { jobId: row.id, leaseToken: row.lease_token, leaseEpoch: Number(row.lease_epoch) } : null;
 }
 
-async function loadLeasedJob(lease: FormalAgentLease, db: SalesDatabase): Promise<FormalAgentJobRow | null> {
+async function loadLeasedJob(lease: FormalAgentLease, db: D1Database): Promise<FormalAgentJobRow | null> {
   return db.prepare(`SELECT id, owner_email, scope_json, request_digest, task, input_json, state_json,
       status, phase, step_index, version, cancel_requested, retryable, lease_token, lease_epoch,
       lease_expires_at, model_id, model_version, allowed_tools_json, tool_policy_digest,
@@ -395,7 +395,7 @@ async function loadLeasedJob(lease: FormalAgentLease, db: SalesDatabase): Promis
     .first<FormalAgentJobRow>();
 }
 
-async function loadAgentLedgers(jobId: string, db: SalesDatabase) {
+async function loadAgentLedgers(jobId: string, db: D1Database) {
   const [providerRows, toolRows] = await Promise.all([
     db.prepare(`SELECT p.id, p.dispatch_ordinal, p.state, p.request_digest,
         r.response_json, r.response_digest
@@ -446,7 +446,7 @@ async function consumeProviderResult(
   job: FormalAgentJobRow,
   provider: ProviderLedgerRow,
   model: VersionedAiTextModelRuntimeConfig,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   let result: ModelProviderTurnResult;
   try {
@@ -506,7 +506,7 @@ async function consumeToolResult(
   lease: FormalAgentLease,
   job: FormalAgentJobRow,
   tool: ToolLedgerRow,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   const resultJson = requireStoredResult(tool.result_json);
   parseJsonObject(resultJson, "工具结果");
@@ -534,7 +534,7 @@ async function checkpointProviderTerminalFailure(
   provider: ProviderLedgerRow,
   code: string,
   message: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   return commitConsumedCheckpoint({
     lease,
@@ -559,7 +559,7 @@ async function completeFromAlreadyConsumedFinal(
   lease: FormalAgentLease,
   job: FormalAgentJobRow,
   result: Extract<ModelProviderTurnResult, { kind: "final" }>,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   let boundedOutput: ReturnType<typeof boundedFinalOutput>;
   try {
@@ -606,7 +606,7 @@ async function commitConsumedCheckpoint(input: {
   eventType: string;
   errorCode?: string;
   errorMessage?: string;
-  db: SalesDatabase;
+  db: D1Database;
 }): Promise<AiFormalAgentMicrostepOutcome> {
   const nextStep = Number(input.job.step_index) + 1;
   if (nextStep > AI_AGENT_WORKFLOW_LIMITS.maximumMicrosteps) {
@@ -681,7 +681,7 @@ async function dispatchOneProviderTurn(input: {
   tools: readonly ToolLedgerRow[];
   providerTurn: ProviderTurnRunner;
   now: Date;
-  db: SalesDatabase;
+  db: D1Database;
 }): Promise<AiFormalAgentMicrostepOutcome> {
   const maximumRounds = Math.min(AI_FORMAL_AGENT_LIMITS.maximumProviderRounds, input.model.maxToolRounds);
   const ordinal = input.providers.length + 1;
@@ -810,7 +810,7 @@ async function reserveProviderDispatch(input: {
   principal: AppPrincipal;
   model: VersionedAiTextModelRuntimeConfig;
   now: Date;
-  db: SalesDatabase;
+  db: D1Database;
 }) {
   const time = shanghaiDispatchBounds(input.now);
   const allowedToolsJson = JSON.stringify(parseAllowedTools(input.job.allowed_tools_json));
@@ -884,7 +884,7 @@ async function persistProviderResult(
   dispatchId: string,
   responseJson: string,
   result: ModelProviderTurnResult,
-  db: SalesDatabase,
+  db: D1Database,
 ) {
   const digest = await digestCanonicalJson(result);
   const usageJson = boundedJson(result.usage ?? {}, 8 * 1024, "模型 usage");
@@ -918,7 +918,7 @@ async function dispatchOneTool(input: {
   entries: readonly AiToolEntry[];
   priorTools: readonly ToolLedgerRow[];
   executeTool: ToolRunner;
-  db: SalesDatabase;
+  db: D1Database;
 }): Promise<AiFormalAgentMicrostepOutcome> {
   const ordinal = input.priorTools.length + 1;
   const maximumCalls = Math.min(AI_FORMAL_AGENT_LIMITS.maximumToolCalls, input.model.maxTotalToolCalls);
@@ -1013,7 +1013,7 @@ async function reserveToolDispatch(input: {
   job: FormalAgentJobRow;
   principal: AppPrincipal;
   model: VersionedAiTextModelRuntimeConfig;
-  db: SalesDatabase;
+  db: D1Database;
 }) {
   const allowedToolsJson = JSON.stringify(parseAllowedTools(input.job.allowed_tools_json));
   const scopeCoverage = storedScopeCoverageSql("u.scope_json", "j.scope_json");
@@ -1054,7 +1054,7 @@ async function persistToolResult(
   toolDispatchId: string,
   resultJson: string,
   result: AiToolExecutionResult,
-  db: SalesDatabase,
+  db: D1Database,
 ) {
   const digest = await digestCanonicalJson(result);
   const writes = await db.batch([
@@ -1083,7 +1083,7 @@ async function failAfterKnownDispatch(
   job: FormalAgentJobRow,
   code: string,
   message: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   const safeCode = safeErrorCode(code);
   const safeMessage = message.replace(/\s+/g, " ").trim().slice(0, 800);
@@ -1118,7 +1118,7 @@ async function failAfterUnknownDispatch(
   lease: FormalAgentLease,
   job: FormalAgentJobRow,
   error: unknown,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   const code = kind === "provider" ? "provider_result_unknown" : "tool_result_unknown";
   const message = kind === "provider"
@@ -1154,7 +1154,7 @@ async function failLeasedJob(
   job: FormalAgentJobRow,
   code: string,
   message: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   const mutationToken = crypto.randomUUID();
   const safeCode = safeErrorCode(code);
@@ -1184,7 +1184,7 @@ async function deferLeasedJob(
   job: FormalAgentJobRow,
   code: string,
   message: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiFormalAgentMicrostepOutcome> {
   const mutationToken = crypto.randomUUID();
   const safeCode = safeErrorCode(code);
@@ -1391,7 +1391,7 @@ async function readCombinedDispatchCounts(
   modelId: string,
   dayStart: string,
   dayEnd: string,
-  db: SalesDatabase,
+  db: D1Database,
 ) {
   const row = await db.prepare(`SELECT
       ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d

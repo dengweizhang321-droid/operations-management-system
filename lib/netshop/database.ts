@@ -42,6 +42,11 @@ import {
 } from "@/lib/netshop/query-contract";
 import { resolveNetshopSalesOutletMatches } from "@/lib/netshop/sales-shop-aliases";
 import { PublicApiError } from "@/lib/http/api-error";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+} from "@/lib/django/sales-consumer-reader";
 import {
   netshopProductImageUrl,
   storedNetshopProductImage,
@@ -1384,18 +1389,6 @@ type NetshopProductSummaryRow = {
   available_inventory: number | null;
 };
 
-type NetshopProductSalesMetricRow = {
-  platform: string;
-  shop_name: string;
-  sales_product_code: string;
-  gross_sales_cents: number | null;
-  refund_amount_cents: number | null;
-  net_sales_cents: number | null;
-  gross_profit_cents: number | null;
-  absolute_quantity: number | null;
-  absolute_cost_cents: number | null;
-};
-
 type NetshopProductSalesMetrics = Pick<
   NetshopProductCatalogItem,
   "costPriceCents" | "netSalesCents" | "grossMarginRate" | "refundRate" | "salesMatched"
@@ -1559,17 +1552,6 @@ async function readLatestProductAssetHeads(
   return rows.results;
 }
 
-async function readSalesFactsRevision(db: NetshopDatabase) {
-  const row = await db.prepare(
-    "SELECT sales_revision FROM sales_overview_cache_state WHERE id = 1",
-  ).first<{ sales_revision: number | null }>();
-  const revision = Number(row?.sales_revision ?? 0);
-  if (!Number.isSafeInteger(revision) || revision < 0) {
-    throw new PublicApiError(503, "service_unavailable", "销售事实版本无效，请稍后重试");
-  }
-  return revision;
-}
-
 type ProductCatalogSnapshotInput = {
   requestedPlatforms: readonly string[];
   requestedOutlets: readonly NetshopOutletFilter[];
@@ -1581,6 +1563,7 @@ type ProductCatalogSnapshotInput = {
 async function readProductCatalogSnapshot(
   db: NetshopDatabase,
   input: ProductCatalogSnapshotInput,
+  salesRevision: string,
 ) {
   const latestBatches = await latestProductBatches(db);
   const requestedOutletKeys = new Set(input.requestedOutlets.map((value) => `${value.platform}\u001f${value.shopName}`));
@@ -1589,10 +1572,7 @@ async function readProductCatalogSnapshot(
   const assetScopes = batches.map((batch) => ({ platform: batch.platform, shopName: batch.shopName }));
   const hasJd = batches.some((batch) => batch.platform === "京东");
   const hasTmall = batches.some((batch) => batch.platform === "天猫");
-  const [assetHeads, salesRevision] = await Promise.all([
-    readLatestProductAssetHeads(db, assetScopes, hasJd, hasTmall),
-    hasJd ? readSalesFactsRevision(db) : Promise.resolve(null),
-  ]);
+  const assetHeads = await readLatestProductAssetHeads(db, assetScopes, hasJd, hasTmall);
   const snapshotToken = await sha256SnapshotPayload({
     version: 1,
     platforms: [...input.requestedPlatforms].sort(),
@@ -1611,7 +1591,7 @@ async function readProductCatalogSnapshot(
       snapshotDate: batch.snapshotDate,
     })).sort((left, right) => left.platform.localeCompare(right.platform) || left.shopName.localeCompare(right.shopName)),
     assetHeads,
-    salesRevision,
+    salesRevision: hasJd ? salesRevision : null,
   });
   const shopOptionsSnapshotToken = input.includeShopOptions
     ? await sha256SnapshotPayload({
@@ -1633,8 +1613,16 @@ async function verifyProductCatalogSnapshot(
   input: ProductCatalogSnapshotInput,
   expectedSnapshotToken: string,
   expectedShopOptionsSnapshotToken: string | null,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
+  expectedSalesRevision: string,
+  signal?: AbortSignal,
 ) {
-  const closing = await readProductCatalogSnapshot(db, input);
+  const closingFreshness = await salesReader.read(principal, { operation: "freshness" }, { signal });
+  if (!closingFreshness.revision || closingFreshness.revision !== expectedSalesRevision) {
+    throw new PublicApiError(503, "service_unavailable", "货品目录在读取期间销售数据已更新，请重新加载后重试");
+  }
+  const closing = await readProductCatalogSnapshot(db, input, expectedSalesRevision);
   if (closing.snapshotToken !== expectedSnapshotToken) {
     throw new PublicApiError(503, "service_unavailable", "货品目录在读取期间已更新，请重新加载后重试");
   }
@@ -1654,12 +1642,15 @@ function emptyNetshopProductSalesMetrics(): NetshopProductSalesMetrics {
 }
 
 async function readJdProductSalesMetrics(
-  db: NetshopDatabase,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
   productIdentities: readonly NetshopProductSalesIdentity[],
   outletScopes: readonly NetshopOutletFilter[],
   salesPeriod: NetshopQueryPeriod | null,
   allowedChannels: readonly string[] | null,
+  expectedRevision: string,
   includeDataCutoff = true,
+  signal?: AbortSignal,
 ) {
   const identities = [...new Map(productIdentities
     .flatMap((identity): NetshopProductSalesMatch[] => {
@@ -1693,103 +1684,61 @@ async function readJdProductSalesMetrics(
     : [...new Set(allowedChannels.map((channel) => channel.trim()).filter(Boolean))];
   const salesScope = "京东";
   if (channelScope !== null && channelScope.length === 0) {
-    return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: salesScope };
+    return { revision: expectedRevision, metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: salesScope };
   }
-  const channelMatchesPlatformSql = `(TRIM(s.channel) = TRIM(s.platform) OR (
-    SUBSTR(TRIM(s.channel), 1, LENGTH(TRIM(s.platform))) = TRIM(s.platform)
-    AND SUBSTR(TRIM(s.channel), LENGTH(TRIM(s.platform)) + 1, 1) IN ('-', '—', '–', ':', '：')
-  ))`;
-  const channelScopeSql = channelScope === null
-    ? ""
-    : ` AND EXISTS (
-           SELECT 1 FROM json_each(?) AS allowed_channel
-           WHERE TRIM(s.channel) = CAST(allowed_channel.value AS TEXT)
-         )`;
-  const dataCutoff = !includeDataCutoff || scopes.length === 0
-    ? null
-    : await db
-    .prepare(
-      `SELECT substr(ship_time, 1, 10) AS data_cutoff_date
-       FROM sales_order_lines s
-       WHERE ship_time<>'' AND TRIM(warehouse) <> '刷刷仓'
-         AND ${channelMatchesPlatformSql}
-         AND EXISTS (
-           SELECT 1
-           FROM json_each(?) AS outlet
-           WHERE TRIM(s.platform) = CAST(json_extract(outlet.value, '$.platform') AS TEXT)
-             AND TRIM(s.shop_name) = CAST(json_extract(outlet.value, '$.rawShopName') AS TEXT)
-             AND (
-               json_extract(outlet.value, '$.rawChannel') IS NULL
-               OR TRIM(s.channel) = CAST(json_extract(outlet.value, '$.rawChannel') AS TEXT)
-             )
-         )${channelScopeSql}
-       ORDER BY ship_time DESC
-       LIMIT 1`,
-    )
-    .bind(JSON.stringify(scopes), ...(channelScope === null ? [] : [JSON.stringify(channelScope)]))
-    .first<{ data_cutoff_date: string | null }>();
-
-  if (!salesPeriod || identities.length === 0) {
-    return { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
+  if (identities.length === 0 && scopes.length === 0) {
+    return { revision: expectedRevision, metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: salesScope };
   }
-
-  const rows = await db
-    .prepare(
-      `SELECT
-         CAST(json_extract(identity.value, '$.platform') AS TEXT) AS platform,
-         CAST(json_extract(identity.value, '$.canonicalShopName') AS TEXT) AS shop_name,
-         COALESCE(NULLIF(s.online_spec_code, ''), s.product_code) AS sales_product_code,
-         COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
-         COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-         COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
-         COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-         COALESCE(SUM(ABS(quantity)), 0) AS absolute_quantity,
-         COALESCE(SUM(ABS(cost_amount_cents)), 0) AS absolute_cost_cents
-       FROM sales_order_lines s
-       JOIN json_each(?) AS identity
-         ON TRIM(s.platform) = CAST(json_extract(identity.value, '$.platform') AS TEXT)
-        AND TRIM(s.shop_name) = CAST(json_extract(identity.value, '$.rawShopName') AS TEXT)
-        AND COALESCE(NULLIF(s.online_spec_code, ''), s.product_code)
-          = CAST(json_extract(identity.value, '$.salesProductCode') AS TEXT)
-        AND (
-          json_extract(identity.value, '$.rawChannel') IS NULL
-          OR TRIM(s.channel) = CAST(json_extract(identity.value, '$.rawChannel') AS TEXT)
-        )
-       WHERE ship_time >= ? AND ship_time < ?
-         AND TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'
-         AND ${channelMatchesPlatformSql}
-         ${channelScopeSql}
-       GROUP BY
-         CAST(json_extract(identity.value, '$.platform') AS TEXT),
-         CAST(json_extract(identity.value, '$.canonicalShopName') AS TEXT),
-         COALESCE(NULLIF(s.online_spec_code, ''), s.product_code)`,
-    )
-    .bind(
-      JSON.stringify(identities),
-      `${salesPeriod.startDate} 00:00:00`,
-      `${salesPeriod.endExclusive} 00:00:00`,
-      ...(channelScope === null ? [] : [JSON.stringify(channelScope)]),
-    )
-    .all<NetshopProductSalesMetricRow>();
+  const result = await salesReader.read(principal, {
+    operation: "netshop_product_metrics",
+    identities: salesPeriod ? identities : [],
+    outletScopes: scopes,
+    startDate: salesPeriod?.startDate ?? null,
+    endDate: salesPeriod?.endExclusive ?? null,
+    allowedChannels: channelScope,
+  }, { signal });
+  const data = result.data;
+  if (!result.revision || result.revision !== expectedRevision
+    || !data || data.platform !== salesScope || !Array.isArray(data.rows)
+    || (data.dataCutoffDate !== null && !isNetshopIsoDate(data.dataCutoffDate))) {
+    throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务返回了无效的网店指标。");
+  }
 
   const metrics = new Map<string, NetshopProductSalesMetrics>();
-  for (const row of rows.results) {
-    const grossSalesCents = Number(row.gross_sales_cents ?? 0);
-    const netSalesCents = Number(row.net_sales_cents ?? 0);
-    const grossProfitCents = Number(row.gross_profit_cents ?? 0);
-    const absoluteQuantity = Number(row.absolute_quantity ?? 0);
-    const absoluteCostCents = Number(row.absolute_cost_cents ?? 0);
-    metrics.set(JSON.stringify([row.platform, row.shop_name, row.sales_product_code]), {
+  const expectedKeys = new Set((salesPeriod ? identities : []).map((identity) => JSON.stringify([
+    identity.platform,
+    identity.canonicalShopName,
+    identity.salesProductCode,
+  ])));
+  for (const row of data.rows) {
+    const key = JSON.stringify([row.platform, row.shopName, row.salesProductCode]);
+    const values = [row.grossSalesCents, row.refundAmountCents, row.netSalesCents, row.grossProfitCents, row.absoluteQuantity, row.absoluteCostCents];
+    if (typeof row.platform !== "string" || typeof row.shopName !== "string"
+      || typeof row.salesProductCode !== "string" || !expectedKeys.has(key) || metrics.has(key)
+      || values.some((value) => !Number.isSafeInteger(value))
+      || row.grossSalesCents < 0 || row.refundAmountCents < 0
+      || row.absoluteQuantity < 0 || row.absoluteCostCents < 0) {
+      throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务返回了无效的网店指标。");
+    }
+    const grossSalesCents = row.grossSalesCents;
+    const netSalesCents = row.netSalesCents;
+    const grossProfitCents = row.grossProfitCents;
+    const absoluteQuantity = row.absoluteQuantity;
+    const absoluteCostCents = row.absoluteCostCents;
+    metrics.set(key, {
       costPriceCents: absoluteQuantity > 0 ? absoluteCostCents / absoluteQuantity : null,
       netSalesCents,
       grossMarginRate: netSalesCents !== 0 ? grossProfitCents / netSalesCents : null,
-      refundRate: grossSalesCents > 0 ? Number(row.refund_amount_cents ?? 0) / grossSalesCents : null,
+      refundRate: grossSalesCents > 0 ? row.refundAmountCents / grossSalesCents : null,
       salesMatched: true,
     });
   }
-  return { metrics, dataCutoffDate: dataCutoff?.data_cutoff_date ?? null, platform: salesScope };
+  return {
+    revision: result.revision,
+    metrics,
+    dataCutoffDate: includeDataCutoff ? data.dataCutoffDate : null,
+    platform: data.platform,
+  };
 }
 
 function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInternalItem {
@@ -1836,13 +1785,16 @@ type NetshopProductCatalogQueryInput = {
   salesStartDate?: string;
   salesEndDate?: string;
   salesChannels?: readonly string[] | null;
+  signal?: AbortSignal;
 };
 
 async function readNetshopProductCatalogProjection(
   db: NetshopDatabase,
+  principal: AppPrincipal,
   input: NetshopProductCatalogQueryInput,
   view: "full" | "page",
   expectedSnapshotToken?: string,
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
 ): Promise<NetshopProductCatalog | NetshopProductCatalogPage> {
   const page = boundedNetshopInteger(input.page, "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
   const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
@@ -1862,7 +1814,11 @@ async function readNetshopProductCatalogProjection(
     salesChannels,
     includeShopOptions: view === "full" && requestedOutlets.length > 0,
   };
-  const opening = await readProductCatalogSnapshot(db, snapshotInput);
+  const salesFreshness = await salesReader.read(principal, { operation: "freshness" }, { signal: input.signal });
+  if (!salesFreshness.revision || salesFreshness.revision.length > 128) {
+    throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务返回了无效版本。");
+  }
+  const opening = await readProductCatalogSnapshot(db, snapshotInput, salesFreshness.revision);
   if (view === "page" && opening.snapshotToken !== expectedSnapshotToken) {
     throw new PublicApiError(503, "service_unavailable", "货品目录版本已变化，请重新加载");
   }
@@ -1883,7 +1839,16 @@ async function readNetshopProductCatalogProjection(
       items: [],
       pagination: { page, pageSize, total: 0, returned: 0, truncated: false },
     };
-    await verifyProductCatalogSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+    await verifyProductCatalogSnapshot(
+      db,
+      snapshotInput,
+      opening.snapshotToken,
+      opening.shopOptionsSnapshotToken,
+      principal,
+      salesReader,
+      salesFreshness.revision,
+      input.signal,
+    );
     if (view === "page") return pagePayload;
     return {
       ...pagePayload,
@@ -2012,7 +1977,8 @@ async function readNetshopProductCatalogProjection(
     .map((item) => ({ platform: item.platform, shopName: item.shopName }));
   const sales = view === "full" || (Boolean(salesPeriod) && jdItems.length > 0)
     ? await readJdProductSalesMetrics(
-      db,
+      principal,
+      salesReader,
       jdItems.map((item) => ({
         platform: item.platform,
         shopName: item.shopName,
@@ -2021,9 +1987,11 @@ async function readNetshopProductCatalogProjection(
       jdOutletScopes,
       salesPeriod,
       salesChannels,
+      salesFreshness.revision,
       view === "full",
+      input.signal,
     )
-    : { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: "京东" };
+    : { revision: salesFreshness.revision, metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: "京东" };
   const pagePayload: NetshopProductCatalogPage = {
     snapshotToken: opening.snapshotToken,
     items: rawItems.map(({ salesProductCode, ...item }) => ({
@@ -2040,7 +2008,16 @@ async function readNetshopProductCatalogProjection(
       truncated: offset + rawItems.length < total,
     },
   };
-  await verifyProductCatalogSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+  await verifyProductCatalogSnapshot(
+    db,
+    snapshotInput,
+    opening.snapshotToken,
+    opening.shopOptionsSnapshotToken,
+    principal,
+    salesReader,
+    salesFreshness.revision,
+    input.signal,
+  );
   if (view === "page") return pagePayload;
   return {
     ...pagePayload,
@@ -2063,16 +2040,20 @@ async function readNetshopProductCatalogProjection(
 
 export async function getNetshopProductCatalog(
   db: NetshopDatabase,
+  principal: AppPrincipal,
   input: NetshopProductCatalogQueryInput = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
 ): Promise<NetshopProductCatalog> {
-  return readNetshopProductCatalogProjection(db, input, "full") as Promise<NetshopProductCatalog>;
+  return readNetshopProductCatalogProjection(db, principal, input, "full", undefined, salesReader) as Promise<NetshopProductCatalog>;
 }
 
 export async function getNetshopProductCatalogPage(
   db: NetshopDatabase,
+  principal: AppPrincipal,
   input: NetshopProductCatalogQueryInput & { snapshotToken: string },
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
 ): Promise<NetshopProductCatalogPage> {
-  return readNetshopProductCatalogProjection(db, input, "page", input.snapshotToken) as Promise<NetshopProductCatalogPage>;
+  return readNetshopProductCatalogProjection(db, principal, input, "page", input.snapshotToken, salesReader) as Promise<NetshopProductCatalogPage>;
 }
 
 type NetshopProductPerformanceSummaryRow = {

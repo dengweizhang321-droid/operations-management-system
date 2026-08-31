@@ -4,43 +4,87 @@ import {
   getInventoryDatabase,
   queryReplenishmentPlans,
 } from "@/lib/inventory/database";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+} from "@/lib/django/sales-consumer-reader";
 import { getInventoryOverview } from "@/lib/inventory/overview";
 import { getProductSummary } from "@/lib/products/summary";
 import { ensureProductShippingRateSchema } from "@/lib/products/shipping-rate-database";
 import {
-  ensureSalesSchema,
-  findLatestSalesImportBatch,
-  getSalesDatabase,
-} from "@/lib/sales/database";
-import {
-  getSalesSummary,
   isSalesRange,
-} from "@/lib/sales/summary";
+} from "@/lib/sales/read-contract";
 import { getOperationsBusinessDates } from "@/lib/ai/business-time";
-import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
+import { PublicApiError } from "@/lib/http/api-error";
+
+type OperationsToolDependencies = {
+  salesReader?: SalesConsumerReader;
+  signal?: AbortSignal;
+};
+
+function salesConsumerUnavailable(): PublicApiError {
+  return new PublicApiError(503, "service_unavailable", "Django 销售读取服务暂时不可用，请稍后重试。");
+}
+
+function validTextOrNull(value: unknown, maximum = 500): value is string | null {
+  return value === null || (typeof value === "string" && value.length <= maximum);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function validFreshnessData(value: unknown): boolean {
+  if (!isRecord(value) || !validTextOrNull(value.dataStartDate, 10)
+    || !validTextOrNull(value.dataCutoffDate, 10)) return false;
+  if (value.latestBatch === null) return true;
+  if (!isRecord(value.latestBatch)) return false;
+  return typeof value.latestBatch.id === "string" && value.latestBatch.id.length <= 200
+    && typeof value.latestBatch.fileName === "string" && value.latestBatch.fileName.length <= 500
+    && validTextOrNull(value.latestBatch.completedAt, 80)
+    && Number.isSafeInteger(value.latestBatch.rowCount) && Number(value.latestBatch.rowCount) >= 0;
+}
+
+function validSummaryData(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.range !== "string" || !isSalesRange(value.range)
+    || typeof value.startDate !== "string" || typeof value.endDate !== "string"
+    || !validTextOrNull(value.dataCutoffDate, 10) || !isRecord(value.current)) return false;
+  return ["channels", "outlets", "shops", "platforms", "daily", "previousDaily", "yearAgoDaily"]
+    .every((key) => Array.isArray(value[key]));
+}
 
 export async function callOperationsTool(
   name: string,
   rawArguments: unknown,
+  principal: AppPrincipal,
+  dependencies: OperationsToolDependencies = {},
 ): Promise<Record<string, unknown>> {
   const args = asRecord(rawArguments);
+  const salesReader = dependencies.salesReader ?? createDjangoSalesConsumerReader();
 
   if (name === "get_data_freshness") {
     assertOnlyKeys(args, []);
     const db = getInventoryDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureProductShippingRateSchema(db)]);
-    const [salesBatch, inventoryBatch, salesBounds] = await Promise.all([
-      findLatestSalesImportBatch(db),
+    await ensureInventorySchema(db);
+    const [sales, inventoryBatch] = await Promise.all([
+      salesReader.read(
+        principal,
+        { operation: "freshness" },
+        { signal: dependencies.signal },
+      ),
       findLatestInventoryImportBatch(db),
-      db.prepare("SELECT MAX(substr(ship_time, 1, 10)) AS end_date FROM sales_order_lines")
-        .first<{ end_date: string | null }>(),
     ]);
+    if (!sales || typeof sales.revision !== "string" || !sales.revision
+      || !validFreshnessData(sales.data)) {
+      throw salesConsumerUnavailable();
+    }
     const businessDates = getOperationsBusinessDates();
     return {
       sales: {
-        through: salesBounds?.end_date ?? null,
-        importedAt: salesBatch?.completedAt ?? null,
-        fileName: salesBatch?.fileName ?? null,
+        through: sales.data.dataCutoffDate,
+        importedAt: sales.data.latestBatch?.completedAt ?? null,
+        fileName: sales.data.latestBatch?.fileName ?? null,
       },
       inventory: {
         asOf: inventoryBatch?.snapshotDate ?? null,
@@ -57,14 +101,15 @@ export async function callOperationsTool(
     assertOnlyKeys(args, ["range", "startDate", "endDate"]);
     const requestedRange = optionalString(args.range) ?? "month";
     if (!isSalesRange(requestedRange)) throw new ToolInputError("range 参数无效");
-    const db = getSalesDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
-    const summary = await getSalesSummary(db, {
+    const summary = await salesReader.read(principal, {
+      operation: "summary",
       range: requestedRange,
       startDate: optionalString(args.startDate),
       endDate: optionalString(args.endDate),
-    });
-    return { ...summary, currency: "CNY", monetaryUnit: "cents" };
+    }, { signal: dependencies.signal });
+    if (!summary || typeof summary.revision !== "string" || !summary.revision
+      || !validSummaryData(summary.data)) throw salesConsumerUnavailable();
+    return { ...summary.data, currency: "CNY", monetaryUnit: "cents" };
   }
 
   if (name === "get_inventory_health") {
@@ -75,15 +120,16 @@ export async function callOperationsTool(
     const query = optionalString(args.query);
     const limit = integer(args.limit, 20, 1, 100);
     const db = getInventoryDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db)]);
-    const overview = await getInventoryOverview(db, {
+    await ensureInventorySchema(db);
+    const overview = await getInventoryOverview(db, principal, {
       page: 1,
       pageSize: limit,
       query,
       warehouses: warehouse ? [warehouse] : [],
       categories: category ? [category] : [],
       statuses: status ? [status] : [],
-    });
+      signal: dependencies.signal,
+    }, salesReader);
     return {
       sync: overview.sync,
       settings: overview.settings,
@@ -108,8 +154,8 @@ export async function callOperationsTool(
     const direction = optionalEnum(args.direction, ["asc", "desc"] as const) ?? "desc";
     const limit = integer(args.limit, 20, 1, 100);
     const db = getInventoryDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db)]);
-    const summary = await getProductSummary(db, {
+    await ensureInventorySchema(db);
+    const summary = await getProductSummary(db, principal, {
       days,
       page: 1,
       pageSize: limit,
@@ -117,7 +163,8 @@ export async function callOperationsTool(
       categories: category ? [category] : [],
       sortBy,
       direction,
-    });
+      signal: dependencies.signal,
+    }, salesReader);
     return {
       sync: summary.sync,
       metrics: summary.metrics,

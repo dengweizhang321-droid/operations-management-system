@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 import {
   createWorkflowTaskAttachment,
   createWorkflowTaskComment,
@@ -131,7 +131,7 @@ test("persists an R2 cleanup outbox entry when both metadata save and immediate 
       if (failNextBatch) { failNextBatch = false; throw new Error("simulated_d1_failure"); }
       return base.batch(statements as never);
     },
-  } as unknown as SalesDatabase;
+  } as unknown as D1Database;
   const task = await createWorkflowTask({ title: "附件 outbox 回归" }, "operator@example.com", db);
   await ensureWorkflowCollaborationSchema(db);
   const objects = new Map<string, Uint8Array>();
@@ -201,7 +201,7 @@ test("workflow collaboration routes are authenticated, operator-writable, and fa
   assert.match(taskDomain, /changedFields/);
 });
 
-function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
+function sqliteAdapter(sqlite: DatabaseSync): D1Database {
   return {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -217,5 +217,5 @@ function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
       try { const results = []; for (const statement of statements) results.push(await statement.run()); sqlite.exec("COMMIT"); return results; }
       catch (error) { sqlite.exec("ROLLBACK"); throw error; }
     },
-  } as unknown as SalesDatabase;
+  } as unknown as D1Database;
 }

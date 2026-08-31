@@ -1,12 +1,13 @@
 import {
-  MAX_CHUNKED_SALES_FILE_BYTES,
-  SALES_UPLOAD_CHUNK_BYTES,
-  assembleSalesUpload,
-  beginSalesUpload,
-  claimSalesUpload,
-  finishSalesUpload,
-  receiveSalesUploadChunk,
-} from "@/lib/sales/chunked-upload";
+  INVENTORY_UPLOAD_CHUNK_BYTES,
+  MAX_CHUNKED_INVENTORY_FILE_BYTES,
+  assembleInventoryUpload,
+  beginInventoryUpload,
+  claimInventoryUpload,
+  finishInventoryUpload,
+  receiveInventoryUploadChunk,
+  releaseInventoryUpload,
+} from "@/lib/inventory/chunked-upload";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     if (!body) return reject(400, "请求内容无效");
     if (body.action === "init") {
       const clientFingerprint = typeof body.fingerprint === "string" ? body.fingerprint.slice(0, 220) : "";
-      const upload = await beginSalesUpload({
+      const upload = await beginInventoryUpload({
         fileName: typeof body.fileName === "string" ? body.fileName : "",
         fileSizeBytes: Number(body.fileSizeBytes),
         chunkCount: Number(body.chunkCount),
@@ -48,34 +49,37 @@ export async function POST(request: Request) {
         status: "ready",
         upload,
         limits: {
-          chunkSizeBytes: SALES_UPLOAD_CHUNK_BYTES,
-          maxFileSizeBytes: MAX_CHUNKED_SALES_FILE_BYTES,
+          chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES,
+          maxFileSizeBytes: MAX_CHUNKED_INVENTORY_FILE_BYTES,
         },
       }, { headers: { "cache-control": "no-store" } });
     }
     if (body.action === "complete") {
       const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
       if (!uploadId) return reject(400, "缺少上传会话标识");
-      const claim = await claimSalesUpload(uploadId);
+      const claim = await claimInventoryUpload(uploadId);
+      if (claim.kind === "completed") {
+        return Response.json(claim.result, { headers: { "cache-control": "no-store" } });
+      }
       if (!claim.session.fingerprint.startsWith(UPLOAD_SCOPE_PREFIX)) {
-        await finishSalesUpload(uploadId, [], false).catch(() => undefined);
+        await releaseInventoryUpload(uploadId).catch(() => undefined);
         return reject(409, "上传会话未绑定 SKU 快递费率数据集");
       }
       try {
-        const assembled = await assembleSalesUpload(uploadId);
+        const assembled = await assembleInventoryUpload(uploadId);
         const result = await importProductShippingRateBytes({
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
           actor: principal.email,
         });
-        await finishSalesUpload(uploadId, assembled.objectKeys, result.ok);
+        await finishInventoryUpload(uploadId, assembled.objectKeys, result);
         return Response.json(result, {
           status: importExecutionHttpStatus(result),
           headers: { "cache-control": "no-store" },
         });
       } catch (error) {
-        await finishSalesUpload(uploadId, [], false).catch(() => undefined);
+        await releaseInventoryUpload(uploadId).catch(() => undefined);
         throw error;
       }
     }
@@ -95,10 +99,10 @@ export async function PUT(request: Request) {
     const chunkIndex = headerNumber(request, "x-chunk-index");
     if (!uploadId || !Number.isSafeInteger(chunkIndex)) return reject(400, "缺少有效的分片上传标识");
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > SALES_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 2MB");
+    if (contentLength > INVENTORY_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 1MB");
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
-    const upload = await receiveSalesUploadChunk({ uploadId, chunkIndex, bytes });
+    const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
     return Response.json({ ok: true, status: "uploading", upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

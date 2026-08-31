@@ -2,7 +2,7 @@ import {
   ensureAuthorizationSchema,
   type AppRole,
 } from "@/lib/auth/authorization";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export type AiToolAuditInput = {
   requestId: string;
@@ -20,7 +20,7 @@ export type AiToolAuditInput = {
 };
 
 export async function recordAiToolAudit(input: AiToolAuditInput) {
-  const db = getSalesDatabase();
+  const db = getD1Database();
   await ensureAuthorizationSchema(db);
   const resultJson = input.result ? JSON.stringify(input.result) : "";
   const responseDigest = resultJson ? await sha256Hex(resultJson) : null;
@@ -75,7 +75,7 @@ export async function recordAiToolAudit(input: AiToolAuditInput) {
 
 const invocationCorrelationByDatabase = new WeakMap<object, Promise<boolean>>();
 
-async function supportsInvocationCorrelation(db: SalesDatabase): Promise<boolean> {
+async function supportsInvocationCorrelation(db: D1Database): Promise<boolean> {
   const key = db as unknown as object;
   const existing = invocationCorrelationByDatabase.get(key);
   if (existing) return existing;

@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { reviewAiWorkflowNode } from "@/lib/ai/agent-workflows";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -20,7 +20,7 @@ export async function POST(
     const runId = requireAiId(params.runId, "runId");
     const nodeKey = requireAiId(params.nodeKey, "nodeKey");
     const body = await readAiJsonObject(request);
-    return aiJsonResponse({ item: await reviewAiWorkflowNode(runId, nodeKey, body, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await reviewAiWorkflowNode(runId, nodeKey, body, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "提交 AI 工作流人工复核失败");
   }

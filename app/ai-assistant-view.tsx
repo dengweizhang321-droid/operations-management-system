@@ -366,7 +366,7 @@ function AiMessageArtifacts({ artifacts }: { artifacts: AiTableArtifact[] }) {
     {artifacts.map((artifact) => <section key={artifact.id} className="ai-artifact-card">
       <header><div><strong>{artifact.title}</strong><small>来源工具：{artifact.sourceTool} · 展示 {artifact.rows.length}/{artifact.rowCount} 行{artifact.truncated ? " · 已截断" : ""}</small></div><a href={artifact.downloadUrl} download={artifact.fileName}>下载 CSV</a></header>
       <div className="ai-artifact-table-wrap">
-        <table><thead><tr>{artifact.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{artifact.rows.map((row, rowIndex) => <tr key={`${artifact.id}-${rowIndex}`}>{artifact.columns.map((column, columnIndex) => <td key={`${column}-${columnIndex}`}>{formatAiArtifactCell(row[columnIndex])}</td>)}</tr>)}</tbody></table>
+        <table data-column-filter-scope={artifact.truncated ? "none" : "full"} data-column-filter-total={artifact.rowCount}><thead><tr>{artifact.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{artifact.rows.map((row, rowIndex) => <tr key={`${artifact.id}-${rowIndex}`}>{artifact.columns.map((column, columnIndex) => <td key={`${column}-${columnIndex}`}>{formatAiArtifactCell(row[columnIndex])}</td>)}</tr>)}</tbody></table>
       </div>
     </section>)}
   </div>;

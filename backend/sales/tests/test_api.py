@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase
 from django.core.cache import cache
+from django.test.utils import CaptureQueriesContext
 from django.utils.encoding import iri_to_uri
 
 from .factories import TEST_SECRET, install_fixture, make_line, signed_headers
@@ -57,6 +59,19 @@ class SalesApiContractTests(TestCase):
         self.assertNotIn("yearAgoDaily", payload)
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_full_and_category_contracts_accept_the_366_day_boundary(self) -> None:
+        summary_url = "/api/sales/summary?range=custom&startDate=2025-08-02&endDate=2026-08-02"
+        summary = self.client.get(summary_url, headers=signed_headers(summary_url))
+        self.assertEqual(summary.status_code, 200, summary.content)
+        self.assertEqual(summary.json()["current"]["netSalesCents"], 14_000)
+        self.assertEqual(summary.json()["comparisonDayCount"], 366)
+
+        category_url = "/api/sales/category-analysis?startDate=2025-08-02&endDate=2026-08-02&pageSize=100"
+        category = self.client.get(category_url, headers=signed_headers(category_url))
+        self.assertEqual(category.status_code, 200, category.content)
+        self.assertEqual(category.json()["summary"]["netSalesCents"], 14_000)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_category_analysis_uses_erp_category_and_keeps_refunds(self) -> None:
         url = "/api/sales/category-analysis?startDate=2026-08-01&endDate=2026-08-02&pageSize=100"
         response = self.client.get(url, headers=signed_headers(url))
@@ -67,8 +82,22 @@ class SalesApiContractTests(TestCase):
         water = next(item for item in payload["details"]["items"] if item["category"] == "饮水设备")
         self.assertEqual(water["netSalesCents"], 8_000)
         self.assertEqual(water["netQuantity"], 1)
+        self.assertEqual(water["currentWeekNetSalesCents"], 8_000)
+        self.assertEqual(water["previousWeekNetSalesCents"], 0)
         self.assertEqual(payload["uncategorized"]["netSalesCents"], 1_000)
         self.assertFalse(any(item["category"] == "旧类目" for item in payload["details"]["items"]))
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_category_queries_use_materialized_projection_without_runtime_trim_or_substr(self) -> None:
+        url = "/api/sales/category-analysis?startDate=2026-08-01&endDate=2026-08-02&pageSize=100"
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(url, headers=signed_headers(url))
+        self.assertEqual(response.status_code, 200, response.content)
+        sql = "\n".join(query["sql"] for query in captured.captured_queries).lower()
+        self.assertNotIn("trim(", sql)
+        self.assertNotIn("substr(", sql)
+        self.assertNotIn("erp_product_master", sql)
+        self.assertLessEqual(len(captured), 10)
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_category_detail_uses_platform_plus_shop_identity(self) -> None:

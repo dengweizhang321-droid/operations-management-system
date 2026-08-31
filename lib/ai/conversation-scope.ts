@@ -1,5 +1,5 @@
 import type { AppDataScope } from "@/lib/auth/authorization";
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 type RestrictedScope = Exclude<AppDataScope, null>;
 
@@ -15,7 +15,7 @@ export const AI_CONVERSATION_SCOPE_SCHEMA_STATEMENTS = [
 
 const scopeReadyByDatabase = new WeakMap<object, Promise<void>>();
 
-export async function ensureAiConversationScopeSchema(db: SalesDatabase): Promise<void> {
+export async function ensureAiConversationScopeSchema(db: D1Database): Promise<void> {
   const key = db as unknown as object;
   const existing = scopeReadyByDatabase.get(key);
   if (existing) return existing;

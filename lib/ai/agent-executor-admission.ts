@@ -18,7 +18,7 @@ import {
 } from "@/lib/ai/tool-registry";
 import type { AiToolEntry } from "@/lib/ai/tool-registry-contract";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export const AI_AGENT_EXECUTOR_PROMPT_VERSION = "teruisi-agent-v1";
 export const AI_FORMAL_WORKFLOW_INACTIVE_TTL_DAYS = 30;
@@ -35,7 +35,7 @@ export type CurrentAgentExecutorAdmission = {
 export async function createCurrentAgentExecutorAdmission(
   principal: AppPrincipal,
   modelId?: string | null,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<CurrentAgentExecutorAdmission> {
   const normalizedModelId = normalizeOptionalModelId(modelId);
   const model = await resolveChatModel({
@@ -101,7 +101,7 @@ export async function validateCurrentAgentToolPolicy(
  * `null` means either the selected run is a dry-run or no run is ready.
  */
 export async function selectNextWorkflowExecutorAdmission(
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<ExecutorAdmission | null> {
   // This selector runs before the deterministic workflow runner. Upgrade and
   // fail-close legacy rows first so an old/default admission snapshot cannot
@@ -162,7 +162,7 @@ type ActiveFormalWorkflowAuthorizationRow = {
  * revocation or scope narrowing cannot strand an invisible run in the global
  * active quota forever.
  */
-async function failRevokedActiveFormalWorkflows(db: SalesDatabase): Promise<void> {
+async function failRevokedActiveFormalWorkflows(db: D1Database): Promise<void> {
   const rows = await db.prepare(`SELECT id, owner_email, scope_json, status, version,
       CASE WHEN status IN ('waiting_review','paused')
         AND datetime(updated_at) <= datetime('now', '-${AI_FORMAL_WORKFLOW_INACTIVE_TTL_DAYS} days')
@@ -187,7 +187,7 @@ async function failRevokedActiveFormalWorkflows(db: SalesDatabase): Promise<void
 async function failWorkflowForRevokedAuthorization(
   row: ActiveFormalWorkflowAuthorizationRow,
   authorization: Extract<Awaited<ReturnType<typeof resolveAiBackgroundPrincipal>>, { ok: false }>,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   const errorCode = authorization.code;
   const errorMessage = authorization.message.slice(0, 800);
@@ -212,7 +212,7 @@ async function failWorkflowForRevokedAuthorization(
 
 async function failWorkflowIfInactiveExpired(
   row: ActiveFormalWorkflowAuthorizationRow,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   await failActiveFormalWorkflow(row, {
     actor: "system:workflow-lifecycle-maintenance",
@@ -230,7 +230,7 @@ async function failActiveFormalWorkflow(
     message: string;
     updateGuardSql: string;
   },
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   const mutationToken = crypto.randomUUID();
   await db.batch([
@@ -288,7 +288,7 @@ async function failInvalidWorkflowAdmission(
     allowed_tools_json: string;
     tool_policy_digest: string;
   },
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<void> {
   const mutationToken = crypto.randomUUID();
   await db.batch([

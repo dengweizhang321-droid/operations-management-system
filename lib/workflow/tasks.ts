@@ -1,4 +1,4 @@
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 import { deleteWorkflowTaskWithCollaboration } from "@/lib/workflow/collaboration";
 import { invalidWorkflowRequest, workflowVersionConflict } from "@/lib/workflow/errors";
 import { ensureWorkflowCollaborationSchema, ensureWorkflowTaskSchema } from "@/lib/workflow/schema";
@@ -51,10 +51,10 @@ const initialTasks: Array<Omit<WorkflowTask, "attachments" | "source" | "version
   { id: "task-7", title: "新品 SKU 映射", workContent: "完成 ERP 与平台规格代码映射并交接给上架同事。", category: "新品上架", owner: "商品组", shopName: "京东-志高商用设备旗舰店", startDate: "2026-07-14", due: "2026-07-17", status: "已完成", priority: "low" },
 ];
 
-async function workflowDatabase(db?: SalesDatabase) {
+async function workflowDatabase(db?: D1Database) {
   if (db) return db;
-  const { getSalesDatabase } = await import("@/lib/sales/database");
-  return getSalesDatabase();
+  const { getD1Database } = await import("@/lib/database/d1");
+  return getD1Database();
 }
 function isWorkflowTaskStatus(value: unknown): value is WorkflowTaskStatus {
   return typeof value === "string" && workflowTaskStatuses.includes(value as WorkflowTaskStatus);
@@ -133,7 +133,7 @@ function normalizedCreateInput(input: CreateWorkflowTaskInput) {
   };
 }
 
-async function ensureInitialTasks(db: SalesDatabase) {
+async function ensureInitialTasks(db: D1Database) {
   await ensureWorkflowTaskSchema(db);
   const statements = initialTasks.map((task) => db.prepare(`INSERT OR IGNORE INTO workflow_tasks (
     id, title, work_content, category, owner, shop_name, start_date, due_date, status, priority, created_by, updated_by)
@@ -196,7 +196,7 @@ function taskFilters(filters: ReturnType<typeof normalizeListInput>, includeStat
   return { where: `WHERE ${clauses.join(" AND ")}`, values };
 }
 
-export async function listWorkflowTasksPage(input: WorkflowTaskListInput = {}, db?: SalesDatabase) {
+export async function listWorkflowTasksPage(input: WorkflowTaskListInput = {}, db?: D1Database) {
   const database = await workflowDatabase(db);
   await ensureInitialTasks(database);
   const filters = normalizeListInput(input);
@@ -232,11 +232,11 @@ export async function listWorkflowTasksPage(input: WorkflowTaskListInput = {}, d
 }
 
 /** Compatibility helper for bounded domain callers. API callers must use listWorkflowTasksPage. */
-export async function listWorkflowTasks(db?: SalesDatabase) {
+export async function listWorkflowTasks(db?: D1Database) {
   return (await listWorkflowTasksPage({ page: 1, pageSize: MAX_PAGE_SIZE }, db)).items;
 }
 
-export async function createWorkflowTask(input: CreateWorkflowTaskInput, updatedBy: string, db?: SalesDatabase) {
+export async function createWorkflowTask(input: CreateWorkflowTaskInput, updatedBy: string, db?: D1Database) {
   const database = await workflowDatabase(db);
   await ensureInitialTasks(database);
   const task = normalizedCreateInput(input);
@@ -263,7 +263,7 @@ export async function createWorkflowTask(input: CreateWorkflowTaskInput, updated
   return mapTask(row);
 }
 
-export async function updateWorkflowTask(id: unknown, input: UpdateWorkflowTaskInput, updatedBy: string, db?: SalesDatabase) {
+export async function updateWorkflowTask(id: unknown, input: UpdateWorkflowTaskInput, updatedBy: string, db?: D1Database) {
   const database = await workflowDatabase(db);
   await ensureInitialTasks(database);
   assertAllowedKeys(input, ["title", "workContent", "category", "owner", "shopName", "startDate", "due", "status", "priority", "expectedVersion"]);
@@ -329,6 +329,6 @@ export async function updateWorkflowTask(id: unknown, input: UpdateWorkflowTaskI
   return mapTask(row);
 }
 
-export async function deleteWorkflowTask(id: unknown, version: unknown, actor: string, db?: SalesDatabase) {
+export async function deleteWorkflowTask(id: unknown, version: unknown, actor: string, db?: D1Database) {
   return deleteWorkflowTaskWithCollaboration(id, version, actor, db);
 }

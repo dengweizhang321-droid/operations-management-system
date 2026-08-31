@@ -13,7 +13,7 @@ import {
   loadAiEndpointSecurityContext,
 } from "@/lib/ai/endpoint-security";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export const aiSpaceScenes = ["product_main", "product_detail", "promotion"] as const;
 export type AiSpaceScene = (typeof aiSpaceScenes)[number];
@@ -408,12 +408,12 @@ export function setAiSpaceBucketForTest(bucket?: R2Bucket) {
   bucketOverride = bucket;
 }
 
-async function aiSpaceTableColumns(table: (typeof AI_SPACE_LEGACY_COLUMN_UPGRADES)[number]["table"], db: SalesDatabase) {
+async function aiSpaceTableColumns(table: (typeof AI_SPACE_LEGACY_COLUMN_UPGRADES)[number]["table"], db: D1Database) {
   const rows = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
   return new Set((rows.results ?? []).map((row) => row.name));
 }
 
-async function ensureAiSpaceLegacyColumns(db: SalesDatabase): Promise<void> {
+async function ensureAiSpaceLegacyColumns(db: D1Database): Promise<void> {
   const migrationId = "legacy_provider_snapshot_v2";
   const completed = await db.prepare("SELECT 1 present FROM ai_space_schema_upgrades WHERE id = ? LIMIT 1")
     .bind(migrationId).first<{ present: number }>();
@@ -460,7 +460,7 @@ async function ensureAiSpaceLegacyColumns(db: SalesDatabase): Promise<void> {
   await db.prepare("INSERT OR IGNORE INTO ai_space_schema_upgrades (id) VALUES (?)").bind(migrationId).run();
 }
 
-export async function ensureAiSpaceSchema(db: SalesDatabase = getSalesDatabase()): Promise<void> {
+export async function ensureAiSpaceSchema(db: D1Database = getD1Database()): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
   if (existing) return existing;
@@ -636,7 +636,7 @@ function aiSpaceAdminAuditStatement(input: {
   before: unknown;
   after: unknown;
   requirePreviousChange?: boolean;
-}, db: SalesDatabase) {
+}, db: D1Database) {
   return db.prepare(`INSERT INTO ai_space_admin_audits
       (id, actor_email, actor_role, action, entity_type, entity_id, before_json, after_json)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?${input.requirePreviousChange ? " WHERE changes() = 1" : ""}`)
@@ -654,7 +654,7 @@ function aiSpaceAdminAuditStatement(input: {
 
 export async function listAiSpaceModelProfiles(
   input: { enabledOnly?: boolean } = {},
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiSpaceModelProfile[]> {
   await ensureAiSpaceSchema(db);
   const rows = await db.prepare(`SELECT ${profileColumns} FROM ai_space_model_profiles
@@ -672,7 +672,7 @@ export async function upsertAiSpaceModelProfile(input: {
   status?: unknown;
   timeoutMs?: unknown;
   expectedVersion?: unknown;
-}, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiSpaceModelProfile> {
+}, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<AiSpaceModelProfile> {
   await ensureAiSpaceSchema(db);
   const id = input.id === undefined ? `ai-space-profile-${crypto.randomUUID()}` : safeId(input.id, "id");
   const name = boundedText(input.name, "配置名称", 100);
@@ -764,7 +764,7 @@ export async function deleteAiSpaceModelProfile(
   idInput: unknown,
   expectedVersionInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   await ensureAiSpaceSchema(db);
   const id = safeId(idInput, "id");
@@ -798,7 +798,7 @@ export async function deleteAiSpaceModelProfile(
 
 export async function listAiSpaceTemplates(
   input: { enabledOnly?: boolean } = {},
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiSpaceTemplate[]> {
   await ensureAiSpaceSchema(db);
   const rows = await db.prepare(`SELECT ${templateColumns} FROM ai_space_templates
@@ -836,7 +836,7 @@ export async function upsertAiSpaceTemplate(input: {
   isEnabled?: unknown;
   isDefault?: unknown;
   expectedVersion?: unknown;
-}, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiSpaceTemplate> {
+}, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<AiSpaceTemplate> {
   await ensureAiSpaceSchema(db);
   const id = input.id === undefined ? `ai-space-template-${crypto.randomUUID()}` : safeId(input.id, "id");
   const existing = await db.prepare(`SELECT ${templateColumns} FROM ai_space_templates WHERE id = ? LIMIT 1`)
@@ -911,7 +911,7 @@ export async function deleteAiSpaceTemplate(
   idInput: unknown,
   expectedVersionInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   await ensureAiSpaceSchema(db);
   const id = safeId(idInput, "id");
@@ -941,7 +941,7 @@ export async function deleteAiSpaceTemplate(
   if (changes(results[1]) !== 1) throw new Error("AI 空间模板删除审计未写入");
 }
 
-export async function getAiSpaceMeta(principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()) {
+export async function getAiSpaceMeta(principal: AppPrincipal, db: D1Database = getD1Database()) {
   const [templates, profiles] = await Promise.all([
     listAiSpaceTemplates({ enabledOnly: true }, db),
     listAiSpaceModelProfiles({ enabledOnly: true }, db),
@@ -1056,7 +1056,7 @@ function mapJob(row: JobRow, items: AiSpaceJobItem[]): AiSpaceJob {
   };
 }
 
-async function hydrateAiSpaceJobs(rows: JobRow[], principal: AppPrincipal, db: SalesDatabase): Promise<AiSpaceJob[]> {
+async function hydrateAiSpaceJobs(rows: JobRow[], principal: AppPrincipal, db: D1Database): Promise<AiSpaceJob[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((row) => row.id);
   const itemRows = await db.prepare(`SELECT id, job_id, ordinal, status, error_code, error_message, duration_ms
@@ -1093,7 +1093,7 @@ async function hydrateAiSpaceJobs(rows: JobRow[], principal: AppPrincipal, db: S
 export async function listAiSpaceJobs(input: {
   page?: number;
   pageSize?: number;
-}, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()) {
+}, principal: AppPrincipal, db: D1Database = getD1Database()) {
   await ensureAiSpaceSchema(db);
   const page = integerInRange(input.page ?? 1, "page", 1, 10_000);
   const pageSize = integerInRange(input.pageSize ?? 20, "pageSize", 1, AI_SPACE_LIMITS.maximumJobsPageSize);
@@ -1122,7 +1122,7 @@ export async function listAiSpaceJobs(input: {
   };
 }
 
-async function getAiSpaceJobRow(id: string, principal: AppPrincipal, db: SalesDatabase): Promise<JobRow> {
+async function getAiSpaceJobRow(id: string, principal: AppPrincipal, db: D1Database): Promise<JobRow> {
   const access = aiScopeSnapshotAccessSql(principal.scope, "j.scope_json");
   const row = await db.prepare(`SELECT ${qualifiedJobColumns}
     FROM ai_space_jobs j WHERE j.id = ? AND j.owner_email = ?${access.clause} LIMIT 1`)
@@ -1131,7 +1131,7 @@ async function getAiSpaceJobRow(id: string, principal: AppPrincipal, db: SalesDa
   return row;
 }
 
-export async function getAiSpaceJob(idInput: unknown, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiSpaceJob> {
+export async function getAiSpaceJob(idInput: unknown, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<AiSpaceJob> {
   await ensureAiSpaceSchema(db);
   const id = safeId(idInput, "id");
   const row = await getAiSpaceJobRow(id, principal, db);
@@ -1149,7 +1149,7 @@ export async function createAiSpaceJob(input: {
   sellingPoints?: unknown;
   additionalInstructions?: unknown;
   count: unknown;
-}, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<{ item: AiSpaceJob; replayed: boolean }> {
+}, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<{ item: AiSpaceJob; replayed: boolean }> {
   await ensureAiSpaceSchema(db);
   const clientRequestId = safeId(input.clientRequestId, "clientRequestId");
   const scene = asScene(input.scene);
@@ -1239,7 +1239,7 @@ export async function createAiSpaceJob(input: {
   return { item: await getAiSpaceJob(id, principal, db), replayed: false };
 }
 
-async function refreshAiSpaceJobAggregate(jobId: string, db: SalesDatabase): Promise<void> {
+async function refreshAiSpaceJobAggregate(jobId: string, db: D1Database): Promise<void> {
   await db.prepare(`UPDATE ai_space_jobs SET
       succeeded_count = (SELECT COUNT(*) FROM ai_space_job_items WHERE job_id = ? AND status = 'succeeded'),
       failed_count = (SELECT COUNT(*) FROM ai_space_job_items WHERE job_id = ? AND status = 'failed'),
@@ -1261,7 +1261,7 @@ async function refreshAiSpaceJobAggregate(jobId: string, db: SalesDatabase): Pro
     .bind(jobId, jobId, jobId, jobId, jobId, jobId, jobId, jobId, jobId, jobId).run();
 }
 
-export async function cancelAiSpaceJob(idInput: unknown, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiSpaceJob> {
+export async function cancelAiSpaceJob(idInput: unknown, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<AiSpaceJob> {
   await ensureAiSpaceSchema(db);
   const id = safeId(idInput, "id");
   const row = await getAiSpaceJobRow(id, principal, db);
@@ -1283,7 +1283,7 @@ export async function listAiSpaceAssets(input: {
   page?: number;
   pageSize?: number;
   favoritesOnly?: boolean;
-}, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()) {
+}, principal: AppPrincipal, db: D1Database = getD1Database()) {
   await ensureAiSpaceSchema(db);
   const page = integerInRange(input.page ?? 1, "page", 1, 10_000);
   const pageSize = integerInRange(input.pageSize ?? 24, "pageSize", 1, AI_SPACE_LIMITS.maximumAssetsPageSize);
@@ -1310,7 +1310,7 @@ export async function listAiSpaceAssets(input: {
   };
 }
 
-async function getAiSpaceAssetRow(id: string, principal: AppPrincipal, db: SalesDatabase): Promise<AssetRow> {
+async function getAiSpaceAssetRow(id: string, principal: AppPrincipal, db: D1Database): Promise<AssetRow> {
   const access = aiScopeSnapshotAccessSql(principal.scope, "a.scope_json");
   const row = await db.prepare(`SELECT a.*, j.product_name, j.brand, j.sku,
       EXISTS(SELECT 1 FROM ai_space_asset_favorites f WHERE f.asset_id = a.id AND f.actor_email = ?) favorite
@@ -1325,7 +1325,7 @@ export async function setAiSpaceAssetFavorite(
   idInput: unknown,
   favorite: boolean,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiSpaceAsset> {
   await ensureAiSpaceSchema(db);
   const id = safeId(idInput, "id");
@@ -1343,7 +1343,7 @@ export async function setAiSpaceAssetFavorite(
 export async function getAiSpaceAssetDownload(
   idInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
   bucket?: R2Bucket,
 ) {
   await ensureAiSpaceSchema(db);
@@ -1729,7 +1729,7 @@ async function callAiSpaceImageProvider(
   return { bytes, providerRequestId, usageJson: boundedProviderUsageJson(payload?.usage), ...image };
 }
 
-async function acquireAiSpaceItemLease(db: SalesDatabase): Promise<AiSpaceItemLease | null> {
+async function acquireAiSpaceItemLease(db: D1Database): Promise<AiSpaceItemLease | null> {
   const expired = await db.prepare(`SELECT id, job_id, dispatch_started_at, pending_object_key FROM ai_space_job_items
     WHERE status = 'running' AND lease_expires_at IS NOT NULL AND datetime(lease_expires_at) <= CURRENT_TIMESTAMP
     LIMIT 100`).all<{ id: string; job_id: string; dispatch_started_at: string | null; pending_object_key: string }>();
@@ -1788,7 +1788,7 @@ async function acquireAiSpaceItemLease(db: SalesDatabase): Promise<AiSpaceItemLe
   return { itemId: row.id, jobId: row.job_id, ordinal: Number(row.ordinal), leaseToken: row.lease_token, leaseEpoch: Number(row.lease_epoch) };
 }
 
-async function runnerContext(lease: AiSpaceItemLease, db: SalesDatabase): Promise<RunnerContextRow | null> {
+async function runnerContext(lease: AiSpaceItemLease, db: D1Database): Promise<RunnerContextRow | null> {
   return db.prepare(`SELECT ${qualifiedJobColumns},
       p.base_url profile_base_url, p.api_key_encrypted profile_api_key_encrypted,
       p.status profile_status, p.version profile_version, p.timeout_ms profile_timeout_ms
@@ -1860,7 +1860,7 @@ async function localRunnerRole(context: RunnerContextRow): Promise<string | null
   }
 }
 
-async function authorizeAiSpaceDispatch(context: RunnerContextRow, db: SalesDatabase): Promise<{ role: string } | null> {
+async function authorizeAiSpaceDispatch(context: RunnerContextRow, db: D1Database): Promise<{ role: string } | null> {
   const localRole = await localRunnerRole(context);
   if (localRole) return { role: localRole };
   const user = await db.prepare(`SELECT role, status, scope_json FROM app_users
@@ -1876,7 +1876,7 @@ async function beginAiSpaceDispatch(
   lease: AiSpaceItemLease,
   context: RunnerContextRow,
   actorRole: string,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<{ dispatchId: string } | { errorCode: "dispatch_quota_exceeded" | "dispatch_state_unknown" }> {
   const dispatchId = `ai-space-dispatch-${lease.itemId}`;
   const results = await db.batch([
@@ -1919,7 +1919,7 @@ async function recordAiSpaceDispatchResult(input: {
   providerRequestId?: string;
   errorCode?: string;
   usageJson?: string;
-}, db: SalesDatabase): Promise<void> {
+}, db: D1Database): Promise<void> {
   const result = await db.prepare(`INSERT OR IGNORE INTO ai_space_dispatch_results
       (dispatch_id, status, provider_request_id, error_code, usage_json)
     SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM ai_space_dispatch_receipts WHERE id = ?)`)
@@ -1939,7 +1939,7 @@ async function failAiSpaceItemLease(
   code: string,
   message: string,
   startedAt: number,
-  db: SalesDatabase,
+  db: D1Database,
 ) {
   const result = await db.prepare(`UPDATE ai_space_job_items SET status = 'failed',
       error_code = ?, error_message = ?, duration_ms = ?, lease_token = '', lease_expires_at = NULL,
@@ -1969,7 +1969,7 @@ function providerFailure(error: unknown): { code: string; message: string } {
   return { code: "provider_failed", message: "图片生成服务调用失败" };
 }
 
-async function queueAiSpaceObjectCleanup(db: SalesDatabase, objectKey: string, error: unknown) {
+async function queueAiSpaceObjectCleanup(db: D1Database, objectKey: string, error: unknown) {
   if (!objectKey.startsWith("ai-space/v1/")) return;
   const errorName = error instanceof Error ? error.name : "cleanup_failed";
   await db.prepare(`INSERT INTO ai_space_asset_cleanup_queue (object_key, attempt_count, last_error)
@@ -1979,7 +1979,7 @@ async function queueAiSpaceObjectCleanup(db: SalesDatabase, objectKey: string, e
     .bind(objectKey, errorName.slice(0, 120)).run().catch(() => undefined);
 }
 
-async function deleteAiSpaceObjectOrQueue(db: SalesDatabase, bucket: R2Bucket, objectKey: string) {
+async function deleteAiSpaceObjectOrQueue(db: D1Database, bucket: R2Bucket, objectKey: string) {
   try {
     await bucket.delete(objectKey);
   } catch (error) {
@@ -1987,7 +1987,7 @@ async function deleteAiSpaceObjectOrQueue(db: SalesDatabase, bucket: R2Bucket, o
   }
 }
 
-async function drainAiSpaceObjectCleanup(db: SalesDatabase, bucket: R2Bucket, limit = 10) {
+async function drainAiSpaceObjectCleanup(db: D1Database, bucket: R2Bucket, limit = 10) {
   const rows = await db.prepare("SELECT object_key FROM ai_space_asset_cleanup_queue ORDER BY updated_at LIMIT ?")
     .bind(limit).all<{ object_key: string }>();
   let deleted = 0;
@@ -2009,7 +2009,7 @@ async function publishAiSpaceImage(
   context: RunnerContextRow,
   generated: ValidatedGeneratedImage,
   startedAt: number,
-  db: SalesDatabase,
+  db: D1Database,
   bucket: R2Bucket,
 ) {
   const [expectedWidth, expectedHeight] = context.size.split("x").map(Number);
@@ -2080,11 +2080,11 @@ async function publishAiSpaceImage(
 }
 
 export async function runScheduledAiSpace(input: {
-  db?: SalesDatabase;
+  db?: D1Database;
   bucket?: R2Bucket;
   fetcher?: typeof fetch;
 } = {}) {
-  const db = input.db ?? getSalesDatabase();
+  const db = input.db ?? getD1Database();
   await ensureAiSpaceSchema(db);
   const bucket = input.bucket ?? await aiSpaceBucket();
   const cleaned = await drainAiSpaceObjectCleanup(db, bucket);

@@ -4,7 +4,6 @@ import {
   getNetshopProductCatalog,
   getNetshopProductCatalogPage,
 } from "@/lib/netshop/database";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
@@ -39,7 +38,7 @@ export async function GET(request: Request) {
       requestedPlatforms,
     );
     const db = getNetshopDatabase();
-    await Promise.all([ensureNetshopSchema(db), ensureSalesSchema(db)]);
+    await ensureNetshopSchema(db);
     const input = {
       query: params.get("q") ?? undefined,
       page,
@@ -49,10 +48,11 @@ export async function GET(request: Request) {
       salesChannels: principal.scope === null ? null : principal.scope.channels,
       salesStartDate: salesPeriod?.startDate,
       salesEndDate: salesPeriod?.endDate,
+      signal: request.signal,
     };
     const payload = view === "page"
-      ? await getNetshopProductCatalogPage(db, { ...input, snapshotToken: snapshotToken! })
-      : await getNetshopProductCatalog(db, input);
+      ? await getNetshopProductCatalogPage(db, principal, { ...input, snapshotToken: snapshotToken! })
+      : await getNetshopProductCatalog(db, principal, input);
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

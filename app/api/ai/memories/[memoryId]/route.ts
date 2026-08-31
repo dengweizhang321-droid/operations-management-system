@@ -5,7 +5,7 @@ import {
   updateAiMemory,
 } from "@/lib/ai/memory";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -43,7 +43,7 @@ export async function GET(
     rejectQuery(request);
     const principal = await requireAppPrincipal();
     const memoryId = await memoryIdFrom(context);
-    return aiJsonResponse({ item: await getAiMemory(memoryId, principal, getSalesDatabase()) });
+    return aiJsonResponse({ item: await getAiMemory(memoryId, principal, getD1Database()) });
   } catch (error) {
     return aiRouteErrorResponse(error, "读取全局记忆失败");
   }
@@ -67,7 +67,7 @@ export async function PATCH(
       content: body.content,
       surface: "management_ui",
       requestId: request.headers.get("x-request-id"),
-    }, principal, getSalesDatabase()));
+    }, principal, getD1Database()));
   } catch (error) {
     return aiRouteErrorResponse(error, "更新全局记忆失败");
   }
@@ -89,7 +89,7 @@ export async function DELETE(
       expectedVersion: body.expectedVersion,
       surface: "management_ui",
       requestId: request.headers.get("x-request-id"),
-    }, principal, getSalesDatabase()));
+    }, principal, getD1Database()));
   } catch (error) {
     return aiRouteErrorResponse(error, "归档全局记忆失败");
   }

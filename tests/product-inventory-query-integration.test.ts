@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 
 const testEnvironment: { DB?: unknown } = {};
 (globalThis as typeof globalThis & { __productInventoryEnv?: typeof testEnvironment }).__productInventoryEnv = testEnvironment;
@@ -18,11 +20,15 @@ registerHooks({
   },
 });
 
-const { ensureSalesSchema } = await import("../lib/sales/database");
 const { ensureInventorySchema } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
-const { getProductSummary } = await import("../lib/products/summary");
-const { getInventoryDashboardOverview, getInventoryFullOverview, getInventoryOverview, getInventoryPlanOverview } = await import("../lib/inventory/overview");
+const { getProductSummary: getProductSummaryCore } = await import("../lib/products/summary");
+const {
+  getInventoryDashboardOverview: getInventoryDashboardOverviewCore,
+  getInventoryFullOverview: getInventoryFullOverviewCore,
+  getInventoryOverview: getInventoryOverviewCore,
+  getInventoryPlanOverview: getInventoryPlanOverviewCore,
+} = await import("../lib/inventory/overview");
 const { parseInventoryOverviewView } = await import("../lib/inventory/query-contract");
 const { getInventoryAgeAnalysis } = await import("../lib/inventory/age-analysis");
 
@@ -33,6 +39,7 @@ function sqliteAdapter(
   transformAll?: (sql: string, rows: Array<Record<string, unknown>>) => Array<Record<string, unknown>>,
 ) {
   return {
+    __sqlite: sqlite,
     prepare(sql: string) {
       onPrepare?.(sql);
       let values: SQLInputValue[] = [];
@@ -63,6 +70,167 @@ function sqliteAdapter(
       return results;
     },
   };
+}
+
+const principal: AppPrincipal = {
+  email: "admin@example.com",
+  displayName: "管理员",
+  role: "admin",
+  scope: null,
+};
+
+function ensureSalesFixtureSchema(sqlite: DatabaseSync) {
+  sqlite.exec(`
+    CREATE TABLE sales_import_batches (
+      id TEXT PRIMARY KEY, source TEXT, file_name TEXT, file_size_bytes INTEGER, file_hash TEXT,
+      sheet_name TEXT, status TEXT, row_count INTEGER, inserted_count INTEGER, completed_at TEXT
+    );
+    CREATE TABLE sales_order_lines (
+      source_line_key TEXT, source_row_hash TEXT, first_import_batch_id TEXT, last_import_batch_id TEXT,
+      source_row_number INTEGER, order_no TEXT, online_order_no TEXT, channel TEXT, platform TEXT,
+      shop_name TEXT, logistics_company TEXT, warehouse TEXT, product_code TEXT, online_spec_code TEXT,
+      product_name TEXT, specification TEXT, barcode TEXT, supplier TEXT, category TEXT, quantity REAL,
+      list_unit_price_cents INTEGER, cost_amount_cents INTEGER, allocated_unit_price_cents INTEGER,
+      allocated_amount_cents INTEGER, fee_allocation_cents INTEGER, gross_profit_cents INTEGER,
+      gross_margin_bps INTEGER, untaxed_gross_profit_cents INTEGER, untaxed_gross_margin_bps INTEGER,
+      order_time TEXT, sales_time TEXT, ship_time TEXT, line_ship_time TEXT, business_type TEXT
+    );
+  `);
+}
+
+function salesReader(sqlite: DatabaseSync): SalesConsumerReader {
+  const revision = "sales:fixture:1";
+  const latestBatch = () => {
+    const row = sqlite.prepare(`SELECT id,file_name,completed_at,row_count
+      FROM sales_import_batches WHERE status='completed' ORDER BY completed_at DESC LIMIT 1`).get() as
+      | { id: string; file_name: string; completed_at: string | null; row_count: number }
+      | undefined;
+    return row ? { id: row.id, fileName: row.file_name, completedAt: row.completed_at, rowCount: Number(row.row_count) } : null;
+  };
+  return {
+    async read(_principal, request) {
+      const coverage = sqlite.prepare(`SELECT MIN(SUBSTR(ship_time,1,10)) AS start_date,
+        MAX(SUBSTR(ship_time,1,10)) AS end_date FROM sales_order_lines`).get() as
+        { start_date: string | null; end_date: string | null };
+      if (request.operation === "freshness") {
+        return {
+          revision,
+          data: { dataStartDate: coverage.start_date, dataCutoffDate: coverage.end_date, latestBatch: latestBatch() },
+        } as never;
+      }
+      if (request.operation !== "inventory_demand" && request.operation !== "product_performance") {
+        throw new Error(`unexpected sales operation: ${request.operation}`);
+      }
+      const requestedCodes = new Set(request.productCodes ?? []);
+      const sourceRows = sqlite.prepare(`SELECT ship_time,warehouse,product_code,product_name,specification,
+        category,supplier,quantity,allocated_amount_cents,cost_amount_cents,fee_allocation_cents,
+        gross_profit_cents,platform,shop_name,channel
+        FROM sales_order_lines ORDER BY product_code`).all() as Array<Record<string, string | number>>;
+      const eligible = sourceRows.filter((row) => {
+        const date = String(row.ship_time).slice(0, 10);
+        if (request.startDate && date < request.startDate) return false;
+        if (request.endDate && date >= request.endDate) return false;
+        if (String(row.warehouse).trim() === "刷刷仓") return false;
+        return requestedCodes.size === 0 || requestedCodes.has(String(row.product_code));
+      });
+      const grouped = new Map<string, Array<Record<string, string | number>>>();
+      for (const row of eligible) {
+        const code = String(row.product_code);
+        const rows = grouped.get(code) ?? [];
+        rows.push(row);
+        grouped.set(code, rows);
+      }
+      const dataStartDate = eligible.map((row) => String(row.ship_time).slice(0, 10)).sort()[0] ?? null;
+      const dataCutoffDate = eligible.map((row) => String(row.ship_time).slice(0, 10)).sort().at(-1) ?? null;
+      if (request.operation === "inventory_demand") {
+        return {
+          revision,
+          data: {
+            dataStartDate,
+            dataCutoffDate,
+            rows: [...grouped.entries()].map(([productCode, rows]) => ({
+              productCode,
+              warehouseKey: String(rows[0]!.warehouse).trim().replace(/仓$/, ""),
+              productName: String(rows[0]!.product_name),
+              salesQuantity: rows.reduce((sum, row) => sum + Number(row.quantity), 0),
+              absoluteQuantity: rows.reduce((sum, row) => sum + Math.abs(Number(row.quantity)), 0),
+              absoluteCostCents: rows.reduce((sum, row) => sum + Math.abs(Number(row.cost_amount_cents)), 0),
+            })),
+            truncated: false,
+          },
+        } as never;
+      }
+      const outletOptions = new Map<string, { platform: string; shopName: string; channel: string }>();
+      const rows = [...grouped.entries()].map(([productCode, productRows]) => {
+        const outlets = new Map<string, { platform: string; shopName: string; channel: string }>();
+        for (const row of productRows) {
+          const outlet = { platform: String(row.platform), shopName: String(row.shop_name), channel: String(row.channel) };
+          const key = JSON.stringify(outlet);
+          outlets.set(key, outlet);
+          outletOptions.set(key, outlet);
+        }
+        const netSalesCents = productRows.reduce((sum, row) => sum + Number(row.allocated_amount_cents), 0);
+        return {
+          productCode,
+          productName: String(productRows[0]!.product_name),
+          specification: String(productRows[0]!.specification),
+          category: String(productRows[0]!.category),
+          supplier: String(productRows[0]!.supplier),
+          netQuantity: productRows.reduce((sum, row) => sum + Number(row.quantity), 0),
+          grossSalesCents: productRows.reduce((sum, row) => sum + Math.max(0, Number(row.allocated_amount_cents)), 0),
+          refundAmountCents: productRows.reduce((sum, row) => sum + Math.max(0, -Number(row.allocated_amount_cents)), 0),
+          netSalesCents,
+          costCents: productRows.reduce((sum, row) => sum + Number(row.cost_amount_cents), 0),
+          feeCents: productRows.reduce((sum, row) => sum + Number(row.fee_allocation_cents), 0),
+          grossProfitCents: productRows.reduce((sum, row) => sum + Number(row.gross_profit_cents), 0),
+          absoluteQuantity: productRows.reduce((sum, row) => sum + Math.abs(Number(row.quantity)), 0),
+          absoluteCostCents: productRows.reduce((sum, row) => sum + Math.abs(Number(row.cost_amount_cents)), 0),
+          outlets: [...outlets.values()],
+        };
+      });
+      return {
+        revision,
+        data: {
+          dataStartDate,
+          dataCutoffDate,
+          latestBatch: latestBatch(),
+          rows,
+          outletOptions: [...outletOptions.values()],
+          truncated: false,
+        },
+      } as never;
+    },
+  };
+}
+
+function fixtureContext(db: unknown) {
+  const sqlite = (db as { __sqlite: DatabaseSync }).__sqlite;
+  return { sqlite, reader: salesReader(sqlite) };
+}
+
+function getProductSummary(db: unknown, input: Parameters<typeof getProductSummaryCore>[2]) {
+  const { reader } = fixtureContext(db);
+  return getProductSummaryCore(db as never, principal, input, reader);
+}
+
+function getInventoryDashboardOverview(db: unknown, input: Parameters<typeof getInventoryDashboardOverviewCore>[2] = {}) {
+  const { reader } = fixtureContext(db);
+  return getInventoryDashboardOverviewCore(db as never, principal, input, reader);
+}
+
+function getInventoryOverview(db: unknown, input: Parameters<typeof getInventoryOverviewCore>[2] = {}) {
+  const { reader } = fixtureContext(db);
+  return getInventoryOverviewCore(db as never, principal, input, reader);
+}
+
+function getInventoryFullOverview(db: unknown, input: Parameters<typeof getInventoryFullOverviewCore>[2] = {}) {
+  const { reader } = fixtureContext(db);
+  return getInventoryFullOverviewCore(db as never, principal, input, reader);
+}
+
+function getInventoryPlanOverview(db: unknown, input: Parameters<typeof getInventoryPlanOverviewCore>[2] = {}) {
+  const { reader } = fixtureContext(db);
+  return getInventoryPlanOverviewCore(db as never, principal, input, reader);
 }
 
 function insertSalesLine(sqlite: DatabaseSync, input: {
@@ -146,7 +314,8 @@ test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", 
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as never;
   testEnvironment.DB = db;
-  await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
+  ensureSalesFixtureSchema(sqlite);
+  await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
 
   sqlite.prepare(`INSERT INTO sales_import_batches (
     id, source, file_name, file_size_bytes, file_hash, sheet_name, status, row_count, inserted_count, completed_at
@@ -440,7 +609,8 @@ test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", 
 test("库存 overview 推荐投影严格限制为排序后的前 50 条", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as never;
-  await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
+  ensureSalesFixtureSchema(sqlite);
+  await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
   sqlite.prepare(`INSERT INTO sales_import_batches (
     id, source, file_name, file_size_bytes, file_hash, sheet_name, status, row_count, inserted_count, completed_at
   ) VALUES ('sales-batch', 'test', 'sales.xlsx', 1, 'sales-hash', 'Sheet1', 'completed', 55, 55, '2026-08-18 10:00:00')`).run();

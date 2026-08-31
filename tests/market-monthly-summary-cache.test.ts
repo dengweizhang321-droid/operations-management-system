@@ -155,10 +155,11 @@ function insertMarketRow(sqlite: DatabaseSync, id: number, sku: string, gmv: num
     VALUES (?,?,0,0,10,?,200)`).run(id, gmv, Math.round(gmv / 10));
 }
 
-test("monthly summary migration invalidates every material source", async () => {
+test("monthly summary invalidation ignores D1 sales and response cache follows Django revision", async () => {
   const sqlite = new DatabaseSync(":memory:");
   createSourceSchema(sqlite);
   await applyMonthlyCacheMigration(sqlite);
+  await ensureMarketMonthlySummaryCache(sqliteAdapter(sqlite));
   const revision = () => Number((sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision);
   const initial = revision();
   insertMarketRow(sqlite, 1, "SKU-1", 100000);
@@ -177,24 +178,24 @@ test("monthly summary migration invalidates every material source", async () => 
   sqlite.exec(`UPDATE netshop_rows SET metrics_json='{"transactionAmountCents":200}',business_date='2026-06-02' WHERE id=1`);
   assert.ok(revision() > afterNetshopIdentity);
   assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_products WHERE product_code='SKU-2'").get());
+  const beforeSalesInsert = revision();
   sqlite.exec("INSERT INTO sales_order_lines (id,product_code,allocated_amount_cents,sales_time) VALUES (1,'SKU-1',100,'2026-06-01')");
-  const afterSalesInsert = revision();
+  assert.equal(revision(), beforeSalesInsert);
   const responseCacheDb = sqliteAdapter(sqlite);
-  const responseIdentity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
+  const responseIdentity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] }, salesRevision: "sales:1" };
   let responseLoads = 0;
   const loadResponse = async () => ({ load: ++responseLoads });
   const validateResponse = (value: unknown) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse, validateResponse)).status, "miss");
   assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse, validateResponse)).status, "hit");
   sqlite.exec("UPDATE sales_order_lines SET product_code=product_code WHERE id=1");
-  assert.equal(revision(), afterSalesInsert);
+  assert.equal(revision(), beforeSalesInsert);
   sqlite.exec("UPDATE sales_order_lines SET allocated_amount_cents=200,sales_time='2026-06-02' WHERE id=1");
-  assert.ok(revision() > afterSalesInsert);
-  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse, validateResponse)).status, "miss");
+  assert.equal(revision(), beforeSalesInsert);
+  assert.equal((await getCachedMarketOverview(responseCacheDb, { ...responseIdentity, salesRevision: "sales:2" }, loadResponse, validateResponse)).status, "miss");
   assert.equal(responseLoads, 2);
-  const afterSalesCorrection = revision();
   sqlite.exec("UPDATE sales_order_lines SET product_code='SKU-2' WHERE id=1");
-  assert.ok(revision() > afterSalesCorrection);
+  assert.equal(revision(), beforeSalesInsert);
   sqlite.exec("UPDATE market_price_band_versions SET version=2 WHERE id='default-band'");
   assert.ok(revision() >= initial + 5);
   assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_products WHERE product_code='SKU-1'").get());
@@ -220,7 +221,9 @@ test("runtime replaces the original broad update triggers on an existing databas
   const beforeSalesCorrection = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
   sqlite.exec("UPDATE sales_order_lines SET allocated_amount_cents=999,sales_time='2026-06-02' WHERE id=1");
   const afterSalesCorrection = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
-  assert.ok(afterSalesCorrection > beforeSalesCorrection);
+  assert.equal(afterSalesCorrection, beforeSalesCorrection);
+  assert.equal(sqlite.prepare(`SELECT COUNT(*) count FROM sqlite_master
+    WHERE type='trigger' AND name LIKE 'market_monthly_summary_sales_%'`).get()?.count, 0);
   sqlite.close();
 });
 

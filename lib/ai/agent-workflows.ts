@@ -5,7 +5,7 @@ import {
 } from "@/lib/ai/conversation-scope";
 import { ensureAiAgentWorkflowSchema } from "@/lib/ai/agent-workflow-schema";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export const AI_AGENT_WORKFLOW_LIMITS = {
   maximumActiveAgentJobsPerOwner: 8,
@@ -627,7 +627,7 @@ function mapNode(row: WorkflowNodeRow): AiWorkflowNodeRun {
 async function accessibleAgentRow(
   id: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AgentJobRow> {
   const access = aiScopeSnapshotAccessSql(principal.scope, "j.scope_json");
   const row = await db.prepare(`SELECT ${AGENT_COLUMNS.split(",").map((column) => `j.${column.trim()}`).join(", ")}
@@ -640,7 +640,7 @@ async function accessibleAgentRow(
 async function accessibleWorkflowRow(
   id: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<WorkflowRunRow> {
   const access = aiScopeSnapshotAccessSql(principal.scope, "w.scope_json");
   const row = await db.prepare(`SELECT ${WORKFLOW_COLUMNS.split(",").map((column) => `w.${column.trim()}`).join(", ")}
@@ -653,7 +653,7 @@ async function accessibleWorkflowRow(
 export async function listAiAgentJobs(
   input: { page?: number; pageSize?: number },
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ) {
   await ensureAiAgentWorkflowSchema(db);
   const page = Number.isSafeInteger(input.page) && Number(input.page) > 0 ? Number(input.page) : 1;
@@ -674,7 +674,7 @@ export async function listAiAgentJobs(
 export async function getAiAgentJob(
   idInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiAgentJobDetail> {
   await ensureAiAgentWorkflowSchema(db);
   const id = safeId(idInput, "jobId");
@@ -697,7 +697,7 @@ export async function getAiAgentJob(
 export async function createAiAgentJob(
   inputValue: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
   options: { executorAdmission?: ExecutorAdmission } = {},
 ): Promise<{ item: AiAgentJobDetail; replayed: boolean }> {
   await ensureAiAgentWorkflowSchema(db);
@@ -773,7 +773,7 @@ async function versionConflictOrNotFound(
   kind: "agent" | "workflow",
   id: string,
   principal: AppPrincipal,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<never> {
   if (kind === "agent") await accessibleAgentRow(id, principal, db);
   else await accessibleWorkflowRow(id, principal, db);
@@ -784,7 +784,7 @@ export async function cancelAiAgentJob(
   idInput: unknown,
   expectedVersionInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiAgentJobDetail> {
   await ensureAiAgentWorkflowSchema(db);
   requireAgentMutationRole(principal);
@@ -820,7 +820,7 @@ export async function resumeAiAgentJob(
   idInput: unknown,
   expectedVersionInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiAgentJobDetail> {
   await ensureAiAgentWorkflowSchema(db);
   requireAgentMutationRole(principal);
@@ -895,7 +895,7 @@ export type AiAgentMicrostepOutcome = {
   code?: string;
 };
 
-async function acquireAgentLease(db: SalesDatabase): Promise<AiAgentLease | null> {
+async function acquireAgentLease(db: D1Database): Promise<AiAgentLease | null> {
   await db.prepare(`UPDATE ai_agent_jobs SET status = 'failed', phase = 'failed',
       retryable = 0, lease_token = '', lease_expires_at = NULL,
       error_code = 'provider_dispatch_unknown',
@@ -943,7 +943,7 @@ async function acquireAgentLease(db: SalesDatabase): Promise<AiAgentLease | null
   return row ? { jobId: row.id, leaseToken: row.lease_token, leaseEpoch: Number(row.lease_epoch) } : null;
 }
 
-async function agentLeaseContext(lease: AiAgentLease, db: SalesDatabase): Promise<AgentJobRow | null> {
+async function agentLeaseContext(lease: AiAgentLease, db: D1Database): Promise<AgentJobRow | null> {
   return db.prepare(`SELECT ${AGENT_COLUMNS} FROM ai_agent_jobs
     WHERE id = ? AND status = 'running' AND cancel_requested = 0
       AND lease_token = ? AND lease_epoch = ?
@@ -1014,7 +1014,7 @@ async function commitAgentLease(
   lease: AiAgentLease,
   row: AgentJobRow,
   result: ReturnType<typeof normalizedMicrostepResult>,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<AiAgentMicrostepOutcome> {
   const nextOrdinal = Number(row.step_index) + 1;
   if (nextOrdinal > AI_AGENT_WORKFLOW_LIMITS.maximumMicrosteps) {
@@ -1074,9 +1074,9 @@ async function commitAgentLease(
  */
 export async function runNextAiAgentMicrostep(
   executeDeterministicStep: AiAgentMicrostepExecutor,
-  options: { db?: SalesDatabase; timeoutMs?: number } = {},
+  options: { db?: D1Database; timeoutMs?: number } = {},
 ): Promise<AiAgentMicrostepOutcome> {
-  const db = options.db ?? getSalesDatabase();
+  const db = options.db ?? getD1Database();
   await ensureAiAgentWorkflowSchema(db);
   const lease = await acquireAgentLease(db);
   if (!lease) return { status: "idle" };
@@ -1239,7 +1239,7 @@ export function validateAiWorkflowGraph(value: unknown): AiWorkflowGraph {
 export async function listAiWorkflowRuns(
   input: { page?: number; pageSize?: number },
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ) {
   await ensureAiAgentWorkflowSchema(db);
   const page = Number.isSafeInteger(input.page) && Number(input.page) > 0 ? Number(input.page) : 1;
@@ -1260,7 +1260,7 @@ export async function listAiWorkflowRuns(
 export async function getAiWorkflowRun(
   idInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiWorkflowRunDetail> {
   await ensureAiAgentWorkflowSchema(db);
   const id = safeId(idInput, "runId");
@@ -1273,7 +1273,7 @@ export async function getAiWorkflowRun(
 export async function createAiWorkflowRun(
   inputValue: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
   options: { executorAdmission?: ExecutorAdmission } = {},
 ): Promise<{ item: AiWorkflowRunDetail; replayed: boolean }> {
   await ensureAiAgentWorkflowSchema(db);
@@ -1372,7 +1372,7 @@ export async function cancelAiWorkflowRun(
   idInput: unknown,
   expectedVersionInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiWorkflowRunDetail> {
   await ensureAiAgentWorkflowSchema(db);
   requireAgentMutationRole(principal);
@@ -1429,7 +1429,7 @@ export async function resumeAiWorkflowRun(
   idInput: unknown,
   expectedVersionInput: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiWorkflowRunDetail> {
   await ensureAiAgentWorkflowSchema(db);
   requireAgentMutationRole(principal);
@@ -1508,7 +1508,7 @@ export async function reviewAiWorkflowNode(
   nodeKeyInput: unknown,
   inputValue: unknown,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiWorkflowRunDetail> {
   await ensureAiAgentWorkflowSchema(db);
   requireAgentMutationRole(principal);
@@ -1605,7 +1605,7 @@ export const AI_AGENT_EXECUTOR_UNAVAILABLE_MESSAGE =
   "后台 AI Agent 执行器尚未启用；当前只开放可完整推进的 dry-run 工作流。";
 
 async function acquireWorkflowLease(
-  db: SalesDatabase,
+  db: D1Database,
   admission: ExecutorAdmission | null,
 ): Promise<AiWorkflowLease | null> {
   const admissionClause = admission
@@ -1669,7 +1669,7 @@ async function acquireWorkflowLease(
   return row ? { runId: row.id, leaseToken: row.lease_token, leaseEpoch: Number(row.lease_epoch) } : null;
 }
 
-async function workflowLeaseContext(lease: AiWorkflowLease, db: SalesDatabase): Promise<WorkflowRunRow | null> {
+async function workflowLeaseContext(lease: AiWorkflowLease, db: D1Database): Promise<WorkflowRunRow | null> {
   return db.prepare(`SELECT ${WORKFLOW_COLUMNS} FROM ai_workflow_runs
     WHERE id = ? AND status = 'running' AND cancel_requested = 0
       AND lease_token = ? AND lease_epoch = ?
@@ -1679,7 +1679,7 @@ async function workflowLeaseContext(lease: AiWorkflowLease, db: SalesDatabase): 
 
 async function failWorkflowForUnavailableExecutor(
   lease: AiWorkflowLease,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const mutationToken = crypto.randomUUID();
   const writes = await db.batch([
@@ -1758,7 +1758,7 @@ async function handbackWorkflowLease(
     delaySeconds?: number;
     eventType: string;
   },
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const mutationToken = crypto.randomUUID();
   const nextRun = input.delaySeconds && input.delaySeconds > 0
@@ -1788,7 +1788,7 @@ async function handbackWorkflowLease(
 async function completeWorkflowWithoutNode(
   lease: AiWorkflowLease,
   nodes: readonly WorkflowNodeRow[],
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const mutationToken = crypto.randomUUID();
   const outputJson = workflowManifest(nodes);
@@ -1817,7 +1817,7 @@ async function advanceDryRunNode(
   lease: AiWorkflowLease,
   node: WorkflowNodeRow,
   nodes: readonly WorkflowNodeRow[],
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const nodeOutput = normalizePassiveJson({
     dryRun: true,
@@ -1861,7 +1861,7 @@ async function advanceDryRunNode(
 async function waitForHumanReview(
   lease: AiWorkflowLease,
   node: WorkflowNodeRow,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const nodeToken = crypto.randomUUID();
   const runToken = crypto.randomUUID();
@@ -1916,7 +1916,7 @@ async function createWorkflowChildAgent(
   run: WorkflowRunRow,
   node: WorkflowNodeRow,
   nodes: readonly WorkflowNodeRow[],
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<{ created: boolean; childJobId?: string }> {
   const childInput = dependencyInput(run, node, nodes);
   const clientRequestId = `wfnode-${(await sha256(`${run.id}:${node.node_key}`)).slice(0, 48)}`;
@@ -1996,7 +1996,7 @@ async function advanceCompletedChild(
   node: WorkflowNodeRow,
   child: AgentJobRow,
   nodes: readonly WorkflowNodeRow[],
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<{ completed: boolean; workflowCompleted: boolean }> {
   if (child.output_json === null) throw new Error("已完成的 AI Agent 子任务缺少结构化输出");
   normalizePassiveJson(JSON.parse(child.output_json), "AI Agent 子任务输出", AI_AGENT_WORKFLOW_LIMITS.maximumOutputBytes, true);
@@ -2041,7 +2041,7 @@ async function failWorkflowForChild(
   lease: AiWorkflowLease,
   node: WorkflowNodeRow,
   child: AgentJobRow,
-  db: SalesDatabase,
+  db: D1Database,
 ): Promise<boolean> {
   const childStatus = asAgentStatus(child.status);
   const retryable = (childStatus === "paused" || childStatus === "failed") && Boolean(child.retryable);
@@ -2082,9 +2082,9 @@ async function failWorkflowForChild(
 
 /** Advances one deterministic orchestration transition; Agent work remains in its own durable job. */
 export async function runNextAiWorkflowMicrostep(
-  options: { db?: SalesDatabase; executorAdmission?: ExecutorAdmission } = {},
+  options: { db?: D1Database; executorAdmission?: ExecutorAdmission } = {},
 ): Promise<AiWorkflowMicrostepOutcome> {
-  const db = options.db ?? getSalesDatabase();
+  const db = options.db ?? getD1Database();
   await ensureAiAgentWorkflowSchema(db);
   const admission = options.executorAdmission === undefined
     ? null

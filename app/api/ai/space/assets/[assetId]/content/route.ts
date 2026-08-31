@@ -1,6 +1,6 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { getAiSpaceAssetDownload } from "@/lib/ai/space";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { aiRouteErrorResponse, requireAiId } from "@/app/api/ai/route-helpers";
 
 export async function GET(_request: Request, context: { params: Promise<{ assetId: string }> }) {
@@ -8,7 +8,7 @@ export async function GET(_request: Request, context: { params: Promise<{ assetI
     const principal = await requireAppPrincipal();
     const params = await context.params;
     const id = requireAiId(params.assetId, "assetId");
-    const file = await getAiSpaceAssetDownload(id, principal, getSalesDatabase());
+    const file = await getAiSpaceAssetDownload(id, principal, getD1Database());
     return new Response(file.body, {
       headers: {
         "cache-control": "private, no-store",

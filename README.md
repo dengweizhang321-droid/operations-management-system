@@ -2,21 +2,18 @@
 
 ## 启动方式
 
-双击 `运行项目.bat`，或在命令行中执行：
-
-```cmd
-npm run dev
-```
-
-若需要启动预构建的 Workers 产物，先以本机模式完成构建，再执行：
+当前本机正式环境必须先启动并检查 Django/PostgreSQL，再启动已经验证的不可变 Worker effective head：
 
 ```powershell
-$env:VITE_TERUISI_LOCAL_BUILD = "true"
-npm run build
-npm run start:local-worker
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" Start
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" Status
+& "D:\运营管理系统\tools\worker-local-service.ps1" -Action Start
+& "D:\运营管理系统\tools\worker-local-service.ps1" -Action Status
 ```
 
-`start:local-worker` 会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给 `dist/server/wrangler.json`，确保 AI 凭证加密密钥和本机管理员模式进入 Worker；它不会打印或提交密钥。Wrangler 本地开发不会自行触发 Cron，因此该受保护启动器还会通过强制绑定 `127.0.0.1`、仅限开发环境的内部入口，每分钟调用与 Cloudflare `scheduled()` 相同的后台执行器，让已排队的市场图片缓存维护和云端图片识别在关闭浏览器后继续推进；关闭本机后只有已部署的 Cloudflare 生产定时任务能够继续运行。图片缓存每轮只领取一个有租约与递增 epoch 栅栏的有界批次，HTTP 导入和设置页只登记任务与读取持久进度，不再同步等待图床或 R2；单轮外部取图、压图和 R2 阶段受 30 秒墙钟限制，超时会释放任务等待重试，迟到的 D1 完成写由 token 与 epoch 栅栏拒绝，避免继续阻塞同一 scheduled 调用中的云端 AI 标注。启动器拒绝外部 `--ip`/`--host` 覆盖，每 10 秒分别执行不访问 D1 的常量级存活检查与 D1 就绪观察；D1 繁忙只报告降级并继续运行，只有 Worker 进程退出或存活检查连续 3 次失败时才重启自己持有的进程树，并以 10 分钟最多 5 次的熔断门禁阻止重启风暴。控制面板先验证 liveness，只有 readiness 返回受控的 D1 降级契约时才显示“D1 暂时降级”，其余超时或异常响应显示“Worker 无响应 / 重启中”。
+`运行项目.bat` 只调用受控 Worker 启动器并打开浏览器，不能代替 Django 健康检查。正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
+
+隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；D1 降级只影响仍由 D1 承载的业务域，不得让已迁移的销售请求回退 D1。
 
 本机 `.dev.vars` 同时显式设置 `TERUISI_LOCAL_DIRECT_ACCESS=true` 与 `TERUISI_RUNTIME_ENV=development` 时，AI 助理可直接使用本地管理员身份，无需登录；该能力还要求真实开发/受控本机构建，并由 Worker 与身份层双重限制在 `127.0.0.1`、`localhost` 或 IPv6 回环地址。生产构建、LAN 地址、任意域名、Host 伪装和 DNS rebinding 都不会获得匿名管理员权限。具体配置与验收方法见 [`docs/AI_ASSISTANT_SETUP.md`](docs/AI_ASSISTANT_SETUP.md)。
 
@@ -94,11 +91,17 @@ npm run dingtalk:robot:send -- --text "hello"
 
 ## Django 后端渐进迁移方向
 
-2026-08-27 已确认 Django 为后端长期目标框架。迁移采用按业务域逐步替换的方式：现有 React/Next.js 前端继续保留，所有新增后端业务能力默认使用 Django；尚未完成迁移、契约验证和单写切换的业务域仍由当前 TypeScript/Cloudflare Worker 后端负责，不能把“已确定迁移方向”表述为“当前已经运行在 Django 上”。迁移期间不长期双写，每个业务范围只保留一个权威写入后端，并在权限、审计、业务口径、幂等、并发、性能、数据回查和回滚全部通过后逐域切换。
+2026-08-27 已确认 Django 为后端长期目标框架。迁移采用按业务域逐步替换：现有 React/Next.js 前端继续保留，所有新增后端业务能力默认使用 Django；尚未完成迁移、契约验证和单写切换的业务域仍由当前 TypeScript/Cloudflare Worker 后端负责。迁移期间不长期双写，每个业务范围只保留一个权威写入后端。
 
-销售分析读侧已完成首批本机部署，范围严格限定为 `/api/sales/summary`、`/api/sales/category-analysis` 和 `/api/sales/category-analysis/detail`：公开入口仍由 Worker 鉴权并签发真实 principal，Django 提供可重建只读投影，路由支持 `legacy`、`shadow`、`django` 三种模式和动态修订水位栅栏。D1 仍是销售导入与事实的唯一写入源；销售导入、财务目标/分析及其他业务域仍由原 Worker 负责。
+2026-08-29/30，本机销售域已完成 Django/PostgreSQL 终态单写切换。销售事实、批次、导入幂等与尝试审计、上传/暂存元数据、revision、查询和分析均以 PostgreSQL 为唯一权威来源；公开 Worker 仅负责真实鉴权、principal HMAC、Excel 解析、分片请求边界、请求超时与体积边界和边缘协议适配，销售分片字节与生命周期也由 PostgreSQL 原子管理，不再读写 R2。任何销售读写故障都失败关闭，不存在销售 D1、R2、`legacy` 或 `shadow` 回退路径。D1 中的销售事实、批次、上传、缓存、投影 outbox 和 authority 对象已由受控 `0092_sales_domain_retirement.sql` 退役；只读 tombstone view、retirement receipt 与共享表永久写入 guard 是防止旧代码复活的终态证据，不是仍在运行的销售后端。ERP 主数据及其他未迁移业务域仍保留各自原有权威来源；ERP bridge 除维护 ERP 参照、revision 和 checkpoint 外，只能按 ERP 映射回填现有 `sales_order_lines.resolved_category` 派生分类，不能新增或删除销售事实，也不能修改金额、成本、销量、`gross_profit`、其他销售字段或批次。全局 R2 binding 仍供市场图片、库存或工作流等未迁移范围使用，不得因销售下线 R2 而删除。
 
-2026-08-28 已在 `D:\teruisi-runtime\django-sales` 部署仅监听回环的 PostgreSQL 17.11、Django 5.2.17 与 Waitress 3.0.2，并使用最小权限投影 writer、只读在线 reader、D1 事务 outbox 和持续消费者同步。真实投影包含 572,015 条销售事实、88 个销售批次和 8,443 条 ERP 主数据，revision 为当次动态水位 `8:5`；27 天与 366 天五项影子契约均为 `match`，366 天并发 8×2 的整体 p95（含冷启动）约 7.96 秒。经用户明确确认并完成三个端点在线复核，当前用户读取模式已切换为 `django`；在线响应由 Django 只读投影提供，D1 仍是唯一写入源，`legacy` 保留为秒级显式回滚模式。当前用户登录快捷方式只负责登录时启动，不具备崩溃自动拉起能力。迁移、运行、验证、备份审计和回滚步骤见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
+本机 cutover ID 为 `sales-pg-20260829T204417Z-d9896e904d8092cb`，`0092` SHA-256 为 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`。切换快照记录为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 参照与 revision `8:5`；这些只是该次验收水位，不是当前常量。PostgreSQL、Django reader/writer 仍只监听 `127.0.0.1:5432/8001/8002`。Worker bootstrap current/authority 是不可变切换证据，后续 release 只能通过受控的 append-only successor 链前向发布，不得覆盖旧 release、attestation 或 forward-recovery。该结论仅适用于当前 Windows 主机和销售域，不代表远程生产、高可用或其他业务域已经迁移。迁移、运行、验证、备份审计和恢复边界见 [`docs/DJANGO_SALES_MIGRATION.md`](docs/DJANGO_SALES_MIGRATION.md)。
+
+后续业务域复用销售基础时必须遵守 [`docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`](docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md)。财务分析虽然位于“销售分析”页面内，但仍是独立数据所有权范围；其迁移不得修改销售 authority、销售事实、ERP bridge 或其他模块运行状态。销售 PostgreSQL 的不停服日常备份、独立端口恢复演练和受控保留规则见 [`docs/DJANGO_POSTGRES_OPERATIONS.md`](docs/DJANGO_POSTGRES_OPERATIONS.md)；Django runtime 的崩溃恢复、desired-state fencing 和主动健康告警见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。
+
+2026-08-31，本机月度财报已完成 PostgreSQL/Django 正式单写切换，未改动已经完成的“销售分析 → 财务分析”前端模板。独立 `finance_reader`/`finance_writer` 固定监听 `127.0.0.1:8011/8012`，`TERUISI_DJANGO_FINANCE_MODE=django`；财报事实、导入幂等与审计、经营目标、读取和全局搜索中的财务来源均以 PostgreSQL 为唯一权威。正式迁移核对了 3 个完成批次、19 个月和 40,233 条财报行，cutover ID 为 `finance-pg-20260830T194437Z-184fdca41051401f`。切换已跨过 PNR，D1 财务对象只作为永久写保护下的审计材料保留，不得重新承担读写或回滚；恢复仅允许 PostgreSQL 备份恢复、兼容代码或审批过的前向修复。销售总览、渠道、品类、销售导入、ERP bridge 和其他模块的权威边界均未改变，正式证据与恢复边界见 [`docs/DJANGO_FINANCE_MIGRATION.md`](docs/DJANGO_FINANCE_MIGRATION.md)。
+
+销售数据运维可见性使用只读 `GET /api/sales/data-health`：仅 `operator/admin` 且无数据范围限制的账号可读取，返回 Django/PostgreSQL 单写来源、动态 sales/ERP revision、上海业务日期、销售覆盖起止日、距当前业务日的机械天数、是否覆盖昨天及最近成功批次。该接口不自行定义“过期”阈值，不读取 runtime 文件或凭据，也没有改动销售/财务页面模板。
 
 ## 项目文档与长期信息
 

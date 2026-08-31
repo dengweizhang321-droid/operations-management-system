@@ -1,7 +1,7 @@
 import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
 import { ensureNetshopSchema } from "@/lib/netshop/database";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import { getCachedMarketOverview } from "@/lib/market/overview-response-cache";
+import { createDjangoSalesConsumerReader } from "@/lib/django/sales-consumer-reader";
 import { validateMarketOverviewCachePayload } from "@/lib/market/cache-payload-validators";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
@@ -19,16 +19,23 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const { view, pagination, filters } = parseMarketOverviewQuery(params);
     const db = getMarketDatabase();
-    await Promise.all([
+    const salesReader = createDjangoSalesConsumerReader();
+    const [, , , salesFreshness] = await Promise.all([
       ensureMarketSchema(db),
       ensureAnnotationSchema(db),
       ensureNetshopSchema(db),
-      ensureSalesSchema(db),
+      salesReader.read(principal, { operation: "freshness" }, { signal: request.signal }),
     ]);
     const result = await getCachedMarketOverview(
       db,
-      { view, filters, pagination },
-      () => getMarketOverview(db, filters, { view, rankingPage: pagination.page, rankingPageSize: pagination.pageSize }),
+      { view, filters, pagination, salesRevision: salesFreshness.revision },
+      () => getMarketOverview(db, principal, filters, {
+        view,
+        rankingPage: pagination.page,
+        rankingPageSize: pagination.pageSize,
+        salesReader,
+        expectedSalesRevision: salesFreshness.revision,
+      }),
       (payload) => validateMarketOverviewCachePayload(payload, view),
     );
     return Response.json(result.payload, {

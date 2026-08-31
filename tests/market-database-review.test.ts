@@ -18,6 +18,7 @@ import { ensureMarketSchemaCore, marketImportIdentityRefreshKeysTableStatement, 
 function sqliteAdapter(sqlite: DatabaseSync, hooks: {
   afterRun?: (sql: string) => Promise<void>;
   beforeBatch?: () => Promise<void>;
+  reportTriggerChanges?: boolean;
 } = {}): MarketSchemaDatabase {
   return {
     prepare(sql: string) {
@@ -28,9 +29,15 @@ function sqliteAdapter(sqlite: DatabaseSync, hooks: {
         async first<T>() { return (statement.get(...values) ?? null) as T | null; },
         async all<T>() { return { results: statement.all(...values) as T[] }; },
         async run() {
+          const before = hooks.reportTriggerChanges
+            ? Number((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes)
+            : 0;
           const result = statement.run(...values);
           await hooks.afterRun?.(sql);
-          return { meta: { changes: Number(result.changes) } };
+          const reportedChanges = hooks.reportTriggerChanges
+            ? Number((sqlite.prepare("SELECT total_changes() changes").get() as { changes: number }).changes) - before
+            : Number(result.changes);
+          return { meta: { changes: reportedChanges } };
         },
       };
     },
@@ -49,6 +56,29 @@ function sqliteAdapter(sqlite: DatabaseSync, hooks: {
     },
   };
 }
+
+test("market import accepts D1 change counts that include batch revision triggers", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite, { reportTriggerChanges: true });
+  await ensureMarketSchemaCore(db);
+  sqlite.exec(`CREATE TABLE trigger_revision (id INTEGER PRIMARY KEY, revision INTEGER NOT NULL);
+    INSERT INTO trigger_revision (id,revision) VALUES (1,0);
+    CREATE TRIGGER market_batch_insert_revision AFTER INSERT ON market_import_batches
+    BEGIN UPDATE trigger_revision SET revision=revision+1 WHERE id=1; END;
+    CREATE TRIGGER market_batch_update_revision AFTER UPDATE ON market_import_batches
+    BEGIN UPDATE trigger_revision SET revision=revision+1 WHERE id=1; END;`);
+
+  const result = await saveMarketImportCore({
+    db, batchId: "trigger-count-batch", sourceType: "jd", fileName: "trigger.csv",
+    fileSizeBytes: 10, fileHash: "trigger-count-hash", sheetName: "CSV",
+    rows: [entry({ category: "trigger-count-category" })], warnings: [],
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal((sqlite.prepare("SELECT revision FROM trigger_revision WHERE id=1").get() as { revision: number }).revision, 3);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE category='trigger-count-category'").get() as { count: number }).count, 1);
+  sqlite.close();
+});
 
 type OverviewAggregateTestRow = {
   section: string; row_key: string; text_1: string | null; text_2: string | null;

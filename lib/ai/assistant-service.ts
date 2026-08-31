@@ -58,7 +58,7 @@ export {
   runOpenAiCompatibleToolLoop,
   ToolLoopLimitError,
 } from "@/lib/ai/tool-loop";
-import { getSalesDatabase, type SalesDatabase } from "@/lib/sales/database";
+import { getD1Database, type D1Database } from "@/lib/database/d1";
 
 export { maskWebhookUrl, normalizeAiEndpointUrl } from "@/lib/ai/endpoint-security";
 
@@ -550,7 +550,7 @@ const modelSelectColumns = `id, version, name, protocol, model_type, model_name,
   is_default_text_model, status, timeout_ms, max_tokens, reasoning_mode, temperature_milli, max_tool_rounds, max_total_tool_calls,
   last_test_result, last_tested_at, created_at, updated_at`;
 
-async function applyAiModelToolBudgetIncrease(db: SalesDatabase): Promise<void> {
+async function applyAiModelToolBudgetIncrease(db: D1Database): Promise<void> {
   await db.batch([
     db.prepare(`UPDATE ai_models
       SET max_tool_rounds = MIN(max_tool_rounds + ?, ?),
@@ -576,7 +576,7 @@ async function applyAiModelToolBudgetIncrease(db: SalesDatabase): Promise<void> 
   ]);
 }
 
-export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDatabase()): Promise<void> {
+export async function ensureAiAssistantSchema(db: D1Database = getD1Database()): Promise<void> {
   const key = db as unknown as object;
   const existing = schemaReadyByDatabase.get(key);
   if (existing) return existing;
@@ -634,7 +634,7 @@ export async function ensureAiAssistantSchema(db: SalesDatabase = getSalesDataba
   return setup;
 }
 
-export async function listAiModels(db: SalesDatabase = getSalesDatabase()): Promise<AiModelRecord[]> {
+export async function listAiModels(db: D1Database = getD1Database()): Promise<AiModelRecord[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT ${modelSelectColumns}
@@ -644,7 +644,7 @@ export async function listAiModels(db: SalesDatabase = getSalesDatabase()): Prom
   return (rows.results ?? []).map(mapAiModelRecord);
 }
 
-export async function listAvailableChatModels(db: SalesDatabase = getSalesDatabase()): Promise<AiAvailableChatModel[]> {
+export async function listAvailableChatModels(db: D1Database = getD1Database()): Promise<AiAvailableChatModel[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT ${modelSelectColumns}
@@ -662,7 +662,7 @@ export async function listAvailableChatModels(db: SalesDatabase = getSalesDataba
   }));
 }
 
-export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = getSalesDatabase()): Promise<AiModelRecord> {
+export async function upsertAiModel(input: AiModelInput, db: D1Database = getD1Database()): Promise<AiModelRecord> {
   await ensureAiAssistantSchema(db);
   const endpointSecurityContext = await loadAiEndpointSecurityContext();
   const normalized = normalizeAiModelInput(input, endpointSecurityContext);
@@ -778,7 +778,7 @@ export async function upsertAiModel(input: AiModelInput, db: SalesDatabase = get
   return mapAiModelRecord(row);
 }
 
-export async function deleteAiModel(id: string, expectedVersion: number, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+export async function deleteAiModel(id: string, expectedVersion: number, db: D1Database = getD1Database()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
   const version = requireAiModelExpectedVersion(expectedVersion);
   const result = await db.prepare("DELETE FROM ai_models WHERE id = ? AND version = ?").bind(id, version).run();
@@ -788,7 +788,7 @@ export async function deleteAiModel(id: string, expectedVersion: number, db: Sal
   return true;
 }
 
-export async function listAiChannels(db: SalesDatabase = getSalesDatabase()): Promise<AiChannelRecord[]> {
+export async function listAiChannels(db: D1Database = getD1Database()): Promise<AiChannelRecord[]> {
   await ensureAiAssistantSchema(db);
   const rows = await db.prepare(
     `SELECT id, name, kind, status, send_enabled, callback_enabled, webhook_url, callback_token_encrypted, callback_token_suffix,
@@ -799,7 +799,7 @@ export async function listAiChannels(db: SalesDatabase = getSalesDatabase()): Pr
   return (rows.results ?? []).map(mapAiChannelRecord);
 }
 
-export async function upsertAiChannel(input: AiChannelInput, db: SalesDatabase = getSalesDatabase()): Promise<AiChannelRecord> {
+export async function upsertAiChannel(input: AiChannelInput, db: D1Database = getD1Database()): Promise<AiChannelRecord> {
   await ensureAiAssistantSchema(db);
   const normalized = normalizeAiChannelInput(input);
   const id = normalized.id ?? `ai-channel-${randomUUID()}`;
@@ -841,13 +841,13 @@ export async function upsertAiChannel(input: AiChannelInput, db: SalesDatabase =
   return mapAiChannelRecord(row);
 }
 
-export async function deleteAiChannel(id: string, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+export async function deleteAiChannel(id: string, db: D1Database = getD1Database()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
   const result = await db.prepare("DELETE FROM ai_channels WHERE id = ?").bind(id).run();
   return Number(result.meta.changes ?? 0) > 0;
 }
 
-export async function getAiChannelSecretById(id: string, db: SalesDatabase = getSalesDatabase()): Promise<AiChannelSecret | null> {
+export async function getAiChannelSecretById(id: string, db: D1Database = getD1Database()): Promise<AiChannelSecret | null> {
   const row = await getAiChannelRowById(id, db);
   if (!row) return null;
   return {
@@ -867,11 +867,11 @@ export async function getAiChannelSecretById(id: string, db: SalesDatabase = get
 
 export async function listAiConversations(
   principal: AppPrincipal,
-  inputOrDb: { page?: number; pageSize?: number } | SalesDatabase = {},
-  database: SalesDatabase = getSalesDatabase(),
+  inputOrDb: { page?: number; pageSize?: number } | D1Database = {},
+  database: D1Database = getD1Database(),
 ): Promise<AiConversationPage> {
-  const input = isSalesDatabase(inputOrDb) ? {} : inputOrDb;
-  const db = isSalesDatabase(inputOrDb) ? inputOrDb : database;
+  const input = isD1Database(inputOrDb) ? {} : inputOrDb;
+  const db = isD1Database(inputOrDb) ? inputOrDb : database;
   await ensureAiAssistantSchema(db);
   const page = requireBoundedPositiveInteger(input.page, 1, AI_CONVERSATION_PAGE_MAX, "page");
   const pageSize = requireBoundedPositiveInteger(input.pageSize, 30, AI_CONVERSATION_PAGE_SIZE_MAX, "pageSize");
@@ -912,7 +912,7 @@ export async function createConversation(
   title: string,
   principal: Pick<AppPrincipal, "email" | "scope">,
   modelId: string | null,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<string> {
   await ensureAiAssistantSchema(db);
   const id = `ai-conv-${randomUUID()}`;
@@ -933,8 +933,8 @@ export async function appendConversationMessage(
   conversationId: string,
   role: "user" | "assistant",
   content: string,
-  kindOrDb: AiConversationMessage["messageKind"] | SalesDatabase = "message",
-  database: SalesDatabase = getSalesDatabase(),
+  kindOrDb: AiConversationMessage["messageKind"] | D1Database = "message",
+  database: D1Database = getD1Database(),
 ): Promise<string> {
   const messageKind = typeof kindOrDb === "string" ? kindOrDb : "message";
   const db = typeof kindOrDb === "string" ? database : kindOrDb;
@@ -952,7 +952,7 @@ async function appendConversationMessageWithId(input: {
   role: "user" | "assistant";
   content: string;
   messageKind: AiConversationMessage["messageKind"];
-}, db: SalesDatabase): Promise<void> {
+}, db: D1Database): Promise<void> {
   const results = await db.batch([
     db.prepare(`INSERT INTO ai_conversation_messages (id, conversation_id, role, content, message_kind)
       SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM ai_conversations WHERE id = ?)`)
@@ -987,7 +987,7 @@ export async function claimAiChatRequest(input: {
   clientRequestId: string;
   requestDigest: string;
   principal: Pick<AppPrincipal, "email">;
-}, db: SalesDatabase = getSalesDatabase()): Promise<AiChatRequestClaim> {
+}, db: D1Database = getD1Database()): Promise<AiChatRequestClaim> {
   await ensureAiAssistantSchema(db);
   const clientRequestId = requireAiEntityId(input.clientRequestId, "clientRequestId");
   const requestDigest = input.requestDigest.trim().toLowerCase();
@@ -1040,7 +1040,7 @@ export async function markAiChatRequestDispatched(input: {
   conversationId: string | null;
   modelId: string;
   now?: Date;
-}, db: SalesDatabase = getSalesDatabase()): Promise<void> {
+}, db: D1Database = getD1Database()): Promise<void> {
   await ensureAiAssistantSchema(db);
   const modelId = requireAiEntityId(input.modelId, "modelId");
   const now = input.now ?? new Date();
@@ -1121,7 +1121,7 @@ export async function reserveAiChatInitialProviderDispatch(input: {
   ownerEmail: string;
   modelId: string;
   now?: Date;
-}, db: SalesDatabase = getSalesDatabase()): Promise<void> {
+}, db: D1Database = getD1Database()): Promise<void> {
   await ensureAiAssistantSchema(db);
   const modelId = requireAiEntityId(input.modelId, "modelId");
   const now = input.now ?? new Date();
@@ -1209,7 +1209,7 @@ export async function attachAiChatRequestConversation(input: {
   requestDigest: string;
   ownerEmail: string;
   conversationId: string;
-}, db: SalesDatabase = getSalesDatabase()): Promise<void> {
+}, db: D1Database = getD1Database()): Promise<void> {
   const conversationId = requireAiEntityId(input.conversationId, "conversationId");
   const attached = await db.prepare(`UPDATE ai_chat_request_receipts
     SET conversation_id = ?, updated_at = CURRENT_TIMESTAMP
@@ -1260,7 +1260,7 @@ async function readAiChatDispatchCounts(input: {
   dayEnd: string;
   activeCutoff: string;
   dispatchedAt: string;
-}, db: SalesDatabase): Promise<AiChatDispatchCounts> {
+}, db: D1Database): Promise<AiChatDispatchCounts> {
   const row = await db.prepare(`SELECT
       (SELECT COUNT(*) FROM ai_chat_request_receipts admitted
         WHERE admitted.owner_email = ?
@@ -1341,7 +1341,7 @@ export async function reserveAiChatProviderDispatch(input: {
   modelId: string;
   ordinal: number;
   now?: Date;
-}, db: SalesDatabase = getSalesDatabase()): Promise<void> {
+}, db: D1Database = getD1Database()): Promise<void> {
   await ensureAiAssistantSchema(db);
   const modelId = requireAiEntityId(input.modelId, "modelId");
   if (!Number.isSafeInteger(input.ordinal) || input.ordinal < 1 || input.ordinal > AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds) {
@@ -1469,7 +1469,7 @@ export async function completeAiChatRequest(input: {
   userMessage?: { content: string; messageKind: AiConversationMessage["messageKind"] };
   assistantMessage: { id: string; content: string; messageKind: AiConversationMessage["messageKind"] };
   result: Omit<AiChatRequestReceiptResult, "assistantMessageId">;
-}, db: SalesDatabase = getSalesDatabase()): Promise<void> {
+}, db: D1Database = getD1Database()): Promise<void> {
   await ensureAiAssistantSchema(db);
   const assistantContent = normalizeMessageContent(input.assistantMessage.content, MAX_MESSAGE_LENGTH);
   if (!assistantContent) throw new Error("消息不能为空");
@@ -1553,7 +1553,7 @@ export async function failAiChatRequestBeforeDispatch(input: {
   requestDigest: string;
   ownerEmail: string;
   errorCode: string;
-}, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+}, db: D1Database = getD1Database()): Promise<boolean> {
   const errorCode = normalizeReceiptErrorCode(input.errorCode);
   const [failed] = await db.batch([
     db.prepare(`UPDATE ai_chat_request_receipts
@@ -1578,7 +1578,7 @@ export async function markAiChatRequestUnknown(input: {
   requestDigest: string;
   ownerEmail: string;
   errorCode: string;
-}, db: SalesDatabase = getSalesDatabase()): Promise<void> {
+}, db: D1Database = getD1Database()): Promise<void> {
   await db.prepare(`UPDATE ai_chat_request_receipts
     SET status = 'unknown', error_code = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND owner_email = ? AND request_digest = ? AND status = 'dispatched'`)
@@ -1588,7 +1588,7 @@ export async function markAiChatRequestUnknown(input: {
 export async function updateConversationModel(
   conversationId: string,
   modelId: string,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<void> {
   await ensureAiAssistantSchema(db);
   await db.prepare("UPDATE ai_conversations SET model_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
@@ -1599,7 +1599,7 @@ export async function selectConversationModel(
   conversationId: string,
   modelId: string,
   principal: AppPrincipal,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
 ): Promise<AiConversationRecord> {
   const conversation = await requireConversationAccess(conversationId, principal, db);
   const model = await resolveChatModel({ modelId, allowFallback: false }, db);
@@ -1611,8 +1611,8 @@ export async function selectConversationModel(
 export async function deleteAiConversation(
   conversationId: string,
   principal: AppPrincipal,
-  reasonOrDb: string | SalesDatabase = "用户删除对话",
-  db: SalesDatabase = getSalesDatabase(),
+  reasonOrDb: string | D1Database = "用户删除对话",
+  db: D1Database = getD1Database(),
 ): Promise<boolean> {
   const reason = typeof reasonOrDb === "string" ? reasonOrDb : "用户删除对话";
   const database = typeof reasonOrDb === "string" ? db : reasonOrDb;
@@ -1666,7 +1666,7 @@ export async function deleteAiConversation(
   return Number(auditResult?.meta.changes ?? 0) === 1;
 }
 
-export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: SalesDatabase = getSalesDatabase()): Promise<AiConversationRecord> {
+export async function requireConversationAccess(conversationId: string, principal: AppPrincipal, db: D1Database = getD1Database()): Promise<AiConversationRecord> {
   await ensureAiAssistantSchema(db);
   const normalizedId = requireAiEntityId(conversationId, "conversationId");
   const scopeAccess = aiConversationScopeAccessSql(principal.scope);
@@ -1684,11 +1684,11 @@ export async function requireConversationAccess(conversationId: string, principa
 export async function listConversationMessages(
   conversationId: string,
   principal: AppPrincipal,
-  inputOrDb: { pageSize?: number; before?: number | null } | SalesDatabase = {},
-  database: SalesDatabase = getSalesDatabase(),
+  inputOrDb: { pageSize?: number; before?: number | null } | D1Database = {},
+  database: D1Database = getD1Database(),
 ): Promise<AiConversationMessagePage> {
-  const input = isSalesDatabase(inputOrDb) ? {} : inputOrDb;
-  const db = isSalesDatabase(inputOrDb) ? inputOrDb : database;
+  const input = isD1Database(inputOrDb) ? {} : inputOrDb;
+  const db = isD1Database(inputOrDb) ? inputOrDb : database;
   const conversation = await requireConversationAccess(conversationId, principal, db);
   const pageSize = requireBoundedPositiveInteger(input.pageSize, AI_MESSAGE_PAGE_SIZE_DEFAULT, AI_MESSAGE_PAGE_SIZE_MAX, "pageSize");
   const before = input.before === null || input.before === undefined
@@ -1757,7 +1757,7 @@ export async function listConversationMessages(
 
 export async function listConversationContextMessages(
   conversationId: string,
-  db: SalesDatabase = getSalesDatabase(),
+  db: D1Database = getD1Database(),
   limit = 24,
 ): Promise<AiConversationMessage[]> {
   await ensureAiAssistantSchema(db);
@@ -1782,7 +1782,7 @@ export async function listConversationContextMessages(
   return (rows.results ?? []).map(mapConversationMessage);
 }
 
-export async function recordAiChannelCallbackEvent(input: { channelId: string; eventKey: string; payloadDigest: string }, db: SalesDatabase = getSalesDatabase()): Promise<boolean> {
+export async function recordAiChannelCallbackEvent(input: { channelId: string; eventKey: string; payloadDigest: string }, db: D1Database = getD1Database()): Promise<boolean> {
   await ensureAiAssistantSchema(db);
   const result = await db.prepare(
     `INSERT INTO ai_channel_callback_events (id, channel_id, event_key, payload_digest)
@@ -1793,11 +1793,11 @@ export async function recordAiChannelCallbackEvent(input: { channelId: string; e
 }
 
 export async function resolveChatModel(
-  input?: { modelId?: string | null; allowFallback?: boolean } | SalesDatabase,
-  database: SalesDatabase = getSalesDatabase(),
+  input?: { modelId?: string | null; allowFallback?: boolean } | D1Database,
+  database: D1Database = getD1Database(),
 ): Promise<VersionedAiTextModelRuntimeConfig | null> {
-  const db = isSalesDatabase(input) ? input : database;
-  const options = isSalesDatabase(input) ? undefined : input;
+  const db = isD1Database(input) ? input : database;
+  const options = isD1Database(input) ? undefined : input;
   await ensureAiAssistantSchema(db);
   const modelId = options?.modelId?.trim();
   if (modelId) {
@@ -1820,7 +1820,7 @@ export async function resolveChatModel(
   return fallback ? mapAiTextModelRuntime(fallback) : null;
 }
 
-export async function testAiModelConnection(modelId: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
+export async function testAiModelConnection(modelId: string, db: D1Database = getD1Database()): Promise<{ ok: true; message: string }> {
   const model = await getAiModelSecretById(modelId, db);
   if (!model) throw new Error("模型不存在");
   try {
@@ -1838,7 +1838,7 @@ export async function testAiModelConnection(modelId: string, db: SalesDatabase =
   }
 }
 
-export async function sendAiChannelText(channelId: string, content: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
+export async function sendAiChannelText(channelId: string, content: string, db: D1Database = getD1Database()): Promise<{ ok: true; message: string }> {
   const channel = await getAiChannelSecretById(channelId, db);
   if (!channel) throw new Error("渠道不存在");
   if (channel.status !== "enabled") throw new Error("渠道已停用");
@@ -1888,7 +1888,7 @@ export async function sendAiChannelText(channelId: string, content: string, db: 
   return { ok: true, message: "渠道消息已发送" };
 }
 
-export async function testAiChannelConnection(channelId: string, db: SalesDatabase = getSalesDatabase()): Promise<{ ok: true; message: string }> {
+export async function testAiChannelConnection(channelId: string, db: D1Database = getD1Database()): Promise<{ ok: true; message: string }> {
   try {
     const result = await sendAiChannelText(channelId, "TERUISI AI 助理渠道连接测试", db);
     await setChannelTestResult(channelId, "连接成功", db);
@@ -1912,7 +1912,7 @@ export async function generateAssistantReply(input: {
   runtimeUserContext?: string;
   beforeProviderRequest?: () => Promise<void>;
   persistAssistantMessage?: (message: { id: string; content: string }) => Promise<void>;
-}, db: SalesDatabase = getSalesDatabase()): Promise<AiAssistantReply> {
+}, db: D1Database = getD1Database()): Promise<AiAssistantReply> {
   const startedAt = Date.now();
   const requestId = input.requestId ?? `ai-chat-${randomUUID()}`;
   const surface = input.surface ?? "ai_chat";
@@ -2040,7 +2040,7 @@ export async function generateConfiguredAnalysisReply(input: {
   principal: AppPrincipal;
   requestId: string;
   auditArguments: Record<string, unknown>;
-}, db: SalesDatabase = getSalesDatabase()): Promise<string> {
+}, db: D1Database = getD1Database()): Promise<string> {
   const startedAt = Date.now();
   const model = await resolveChatModel(db);
   if (!model) throw new Error("尚未配置可用的文本模型。请由管理员先在“AI 助理”中新增、启用并测试文本模型；客服数据导入不受影响。");
@@ -2067,14 +2067,14 @@ export async function generateConfiguredAnalysisReply(input: {
   }
 }
 
-async function getAiModelSecretById(id: string, db: SalesDatabase): Promise<AiModelRow | null> {
+async function getAiModelSecretById(id: string, db: D1Database): Promise<AiModelRow | null> {
   await ensureAiAssistantSchema(db);
   return db.prepare(
     `SELECT ${modelSelectColumns} FROM ai_models WHERE id = ? LIMIT 1`,
   ).bind(id).first<AiModelRow>();
 }
 
-async function getAiChannelRowById(id: string, db: SalesDatabase): Promise<AiChannelRow | null> {
+async function getAiChannelRowById(id: string, db: D1Database): Promise<AiChannelRow | null> {
   await ensureAiAssistantSchema(db);
   return db.prepare(
     "SELECT id, name, kind, status, send_enabled, callback_enabled, webhook_url, callback_token_encrypted, callback_token_suffix, aes_key_encrypted, aes_key_suffix, receiver_id, last_test_result, last_tested_at, created_at, updated_at FROM ai_channels WHERE id = ? LIMIT 1",
@@ -2388,12 +2388,12 @@ function boundedInteger(value: number | undefined, fallback: number, minimum: nu
   return normalized;
 }
 
-function isSalesDatabase(value: unknown): value is SalesDatabase {
+function isD1Database(value: unknown): value is D1Database {
   return Boolean(value && typeof value === "object" && "prepare" in value && typeof value.prepare === "function");
 }
 
 async function addMissingColumns(
-  db: SalesDatabase,
+  db: D1Database,
   table: string,
   columns: ReadonlyArray<readonly [name: string, definition: string]>,
 ): Promise<void> {
@@ -2422,12 +2422,12 @@ function maskSuffix(value: string): string {
   return value ? `••••${value.slice(-4)}` : "";
 }
 
-async function setModelTestResult(id: string, result: string, db: SalesDatabase): Promise<void> {
+async function setModelTestResult(id: string, result: string, db: D1Database): Promise<void> {
   await db.prepare("UPDATE ai_models SET last_test_result = ?, last_tested_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(result.slice(0, 300), id).run();
 }
 
-async function setChannelTestResult(id: string, result: string, db: SalesDatabase): Promise<void> {
+async function setChannelTestResult(id: string, result: string, db: D1Database): Promise<void> {
   await db.prepare("UPDATE ai_channels SET last_test_result = ?, last_tested_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .bind(result.slice(0, 300), id).run();
 }

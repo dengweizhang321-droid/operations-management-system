@@ -66,7 +66,23 @@ test("local Worker keeps runtime arguments bounded without test-only middleware"
     ["--ip", "127.0.0.1"],
   );
   assert.equal(command.args.filter((argument) => argument === "--ip").length, 1);
+  assert.equal(command.args[command.args.indexOf("--persist-to") + 1], ".wrangler/state");
+  assert.equal(command.args.filter((argument) => argument === "--persist-to").length, 1);
   assert.deepEqual(command.args.slice(-2), ["--log-level", "warn"]);
+});
+
+test("local Worker can mount one explicit existing Wrangler state directory", () => {
+  const command = getLocalWorkerRuntimeCommand(
+    "D:/deployment-worktree",
+    [],
+    "D:/operations-system/.wrangler/state",
+  );
+
+  assert.equal(
+    command.args[command.args.indexOf("--persist-to") + 1],
+    "D:/operations-system/.wrangler/state",
+  );
+  assert.equal(command.args.filter((argument) => argument === "--persist-to").length, 1);
 });
 
 test("local Worker starts the loopback-only Tmall workflow helper without passing credentials", () => {

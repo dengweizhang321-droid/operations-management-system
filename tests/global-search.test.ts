@@ -3,6 +3,8 @@ import test from "node:test";
 import { readFile, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
+import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
+import type { FinanceConsumerReader } from "../lib/django/finance-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -24,16 +26,79 @@ const admin: AppPrincipal = { email: "admin@example.com", displayName: "Admin", 
 const viewer: AppPrincipal = { email: "viewer@example.com", displayName: "Viewer", role: "viewer", scope: null };
 
 const allSearchTables = [
-  "erp_product_master", "sales_order_lines", "netshop_rows", "inventory_stock_lines",
+  "erp_product_master", "netshop_rows", "inventory_stock_lines",
   "market_ranking_entries", "market_price_snapshots", "market_master_identities", "erp_combo_items", "replenishment_plan_items",
   "market_sku_annotations", "customer_service_conversations", "finance_lines", "finance_targets_scoped",
   "workflow_tasks", "workflow_task_states", "workflow_operation_records", "erp_inventory_age_lines",
-  "sales_import_batches", "inventory_import_batches", "erp_reference_import_batches", "finance_import_batches",
+  "inventory_import_batches", "erp_reference_import_batches", "finance_import_batches",
   "netshop_import_batches", "market_import_batches", "customer_service_import_batches",
 ] as const;
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function fakeSalesSearchReader(input: {
+  orders?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: number }>;
+  orderTotal?: number;
+  imports?: Array<{ id: string; source: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  importTotal?: number;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): SalesConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      if (request.operation === "order_search") {
+        const allItems = input.orders ?? [];
+        const page = Number(request.page);
+        const pageSize = Number(request.pageSize);
+        const total = input.orderTotal ?? allItems.length;
+        return {
+          revision: "9:1",
+          data: { items: allItems.slice((page - 1) * pageSize, page * pageSize), total, truncated: page * pageSize < total },
+        };
+      }
+      if (request.operation === "import_batch_search") {
+        const allItems = input.imports ?? [];
+        const page = Number(request.page);
+        const pageSize = Number(request.pageSize);
+        const total = input.importTotal ?? allItems.length;
+        return {
+          revision: "9:1",
+          data: { items: allItems.slice((page - 1) * pageSize, page * pageSize), total, truncated: page * pageSize < total },
+        };
+      }
+      throw new Error(`unexpected operation ${String(request.operation)}`);
+    }) as SalesConsumerReader["read"],
+  };
+}
+
+function fakeFinanceSearchReader(input: {
+  lines?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: number | null }>;
+  targets?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: number | null }>;
+  imports?: Array<{ id: string; source: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): FinanceConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      const allItems = request.operation === "line_search"
+        ? input.lines ?? []
+        : request.operation === "target_search"
+          ? input.targets ?? []
+          : input.imports ?? [];
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "3:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as FinanceConsumerReader["read"],
+  };
 }
 
 test("全局搜索校验关键词、分组和严格分页上限", () => {
@@ -327,29 +392,8 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
   assert.equal(result.truncated, true);
 });
 
-test("销售订单搜索在 SQL 聚合和统一投影两层限制响应体积", async () => {
+test("销售订单搜索仅读 Django 并在统一投影层限制响应体积", async () => {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(`CREATE TABLE sales_order_lines (
-    order_no TEXT NOT NULL,
-    online_order_no TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    shop_name TEXT NOT NULL,
-    channel TEXT NOT NULL,
-    ship_time TEXT NOT NULL,
-    product_name TEXT NOT NULL,
-    product_code TEXT NOT NULL,
-    online_spec_code TEXT NOT NULL,
-    allocated_amount_cents INTEGER NOT NULL
-  )`);
-  const insert = sqlite.prepare(`INSERT INTO sales_order_lines (
-    order_no, online_order_no, platform, shop_name, channel, ship_time,
-    product_name, product_code, online_spec_code, allocated_amount_cents
-  ) VALUES ('ORDER-LARGE', '', '京东', '测试店', '京东', '2026-08-20', ?, ?, '', 1)`);
-  sqlite.exec("BEGIN");
-  for (let index = 0; index < 10_000; index += 1) {
-    insert.run(`净水机-${index}-${"长".repeat(1_000)}`, `SKU-${index}`);
-  }
-  sqlite.exec("COMMIT");
   const database = {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -363,12 +407,127 @@ test("销售订单搜索在 SQL 聚合和统一投影两层限制响应体积", 
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=orders&pageSize=1&totalLimit=1")),
     admin,
+    { salesReader: fakeSalesSearchReader({ orders: [{
+      id: "ORDER-LARGE",
+      title: "ORDER-LARGE",
+      subtitle: "京东 · 测试店",
+      detail: `净水机-${"长".repeat(10_000)}`,
+      updatedAt: "2026-08-20",
+      amountCents: 10_000,
+    }] }) },
   );
   const detail = result.groups[0]?.items[0]?.detail ?? "";
   assert.ok(Array.from(detail).length <= 400);
   assert.ok(new TextEncoder().encode(detail).byteLength <= 1_536);
   assert.ok(new TextEncoder().encode(JSON.stringify(result)).byteLength <= 8 * 1024);
-  assert.doesNotMatch(detail, /净水机-9999/);
+  sqlite.close();
+});
+
+test("Django 财务模式下财务科目和目标搜索不再读取 D1 财务表", async () => {
+  const calls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      calls.push(sql);
+      return {
+        bind() { return this; },
+        async all<T>() {
+          assert.match(sql, /sqlite_master/);
+          return { results: [{ name: "finance_lines" }, { name: "finance_targets_scoped" }] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const financeCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
+  const dependencies = {
+    salesReader: fakeSalesSearchReader(),
+    financeReader: fakeFinanceSearchReader({
+      calls: financeCalls,
+      lines: [{
+        id: "line-1", title: "财务迁移科目", subtitle: "2026-08", detail: "summary",
+        updatedAt: "2026-08-30", amountCents: 10_000,
+      }],
+      targets: [{
+        id: "target-1", title: "2026-08", subtitle: "京东 · 财务迁移店", detail: "month",
+        updatedAt: "2026-08-30", amountCents: 20_000,
+      }],
+    }),
+    financeBackendMode: "django" as const,
+  };
+  const financeResult = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=财务迁移&group=finance")),
+    admin,
+    dependencies,
+  );
+  const targetResult = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=财务迁移&group=targets")),
+    admin,
+    dependencies,
+  );
+  assert.equal(financeResult.groups[0]?.items[0]?.id, "line-1");
+  assert.equal(targetResult.groups[0]?.items[0]?.id, "target-1");
+  assert.deepEqual(financeCalls.map((call) => call.request.operation), ["line_search", "target_search"]);
+  assert.equal(calls.some((sql) => /FROM\s+finance_(?:lines|targets_scoped)/i.test(sql)), false);
+});
+
+test("Django 财务批次在销售与其余 D1 批次之间保持精确跨源分页", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE inventory_import_batches (
+    id TEXT PRIMARY KEY, file_name TEXT NOT NULL, source TEXT NOT NULL,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT
+  );
+  CREATE TABLE finance_import_batches (
+    id TEXT PRIMARY KEY, file_name TEXT NOT NULL, source TEXT NOT NULL,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT
+  );
+  INSERT INTO inventory_import_batches VALUES
+    ('inventory-1', '库存净水机.xlsx', 'inventory', 'completed', '2026-08-20', '2026-08-20');
+  INSERT INTO finance_import_batches VALUES
+    ('stale-d1-finance', '旧财务净水机.xlsx', 'finance', 'completed', '2026-08-19', '2026-08-19');`);
+  const sqlCalls: string[] = [];
+  const database = {
+    prepare(sql: string) {
+      sqlCalls.push(sql);
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const salesImports = [1, 2, 3].map((index) => ({
+    id: `sales-${index}`,
+    source: "erp_sales",
+    fileName: `销售净水机-${index}.xlsx`,
+    status: "completed",
+    rowCount: 10,
+    createdAt: `2026-08-${20 + index}`,
+    completedAt: `2026-08-${20 + index}`,
+  }));
+  const financeImports = [1, 2].map((index) => ({
+    id: `finance-${index}`,
+    source: "月度财报",
+    fileName: `财务净水机-${index}.xlsx`,
+    status: "completed",
+    rowCount: 10,
+    createdAt: `2026-08-${18 + index}`,
+    completedAt: `2026-08-${18 + index}`,
+  }));
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=imports&page=3&pageSize=2")),
+    admin,
+    {
+      salesReader: fakeSalesSearchReader({ imports: salesImports }),
+      financeReader: fakeFinanceSearchReader({ imports: financeImports }),
+      financeBackendMode: "django",
+    },
+  );
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["finance-2", "inventory-1"]);
+  assert.equal(result.groups[0]?.total, 6);
+  assert.equal(result.groups[0]?.hasMore, false);
+  assert.equal(sqlCalls.some((sql) => /FROM\s+finance_import_batches/i.test(sql)), false);
   sqlite.close();
 });
 
@@ -426,6 +585,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
     admin,
+    { salesReader: fakeSalesSearchReader() },
   );
   assert.equal(result.groups.length, 14);
   assert.equal(result.groups.every((group) => group.available), true);
@@ -662,6 +822,7 @@ test("every durable schema table is explicitly searchable, projected, or securit
 
 test("viewer cannot probe customer-service bodies or finance and scoped SQL binds the real principal scope", async () => {
   const calls: Array<{ sql: string; values: unknown[] }> = [];
+  const salesCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const database = {
     prepare(sql: string) {
       let values: unknown[] = [];
@@ -670,7 +831,7 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
         async all<T>() {
           calls.push({ sql, values });
           if (sql.includes("sqlite_master")) return { results: [
-            { name: "customer_service_conversations" }, { name: "finance_lines" }, { name: "sales_order_lines" },
+            { name: "customer_service_conversations" }, { name: "finance_lines" },
           ] as T[] };
           return { results: [] as T[] };
         },
@@ -685,14 +846,14 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=客户消息")),
     scopedViewer,
+    { salesReader: fakeSalesSearchReader({ calls: salesCalls }) },
   );
   assert.equal(result.groups.some((group) => group.key === "customer_service" || group.key === "finance"), false);
   assert.equal(calls.some((call) => call.sql.includes("messages_json") || call.sql.includes("finance_lines")), false);
-  const sales = calls.find((call) => call.sql.includes("sales_order_lines"));
-  assert.ok(sales);
-  assert.match(sales.sql, /online_spec_code LIKE \?/);
-  assert.match(sales.sql, /channel IN \(\?\)[\s\S]*platform IN \(\?\)/);
-  assert.deepEqual(sales.values.slice(7, 9), ["线上", "京东"]);
+  assert.equal(calls.some((call) => /sales_order_lines|sales_import_batches/.test(call.sql)), false);
+  assert.equal(salesCalls.length, 1);
+  assert.equal(salesCalls[0]?.principal, scopedViewer);
+  assert.equal(salesCalls[0]?.request.operation, "order_search");
   assert.deepEqual(result.filtersApplied.dataScope, {
     mode: "restricted", warehouses: [], channels: ["线上"], platforms: ["京东"],
   });
@@ -731,6 +892,7 @@ test("multi-domain search caps database concurrency at three and performs one LI
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&limit=2")),
     admin,
+    { salesReader: fakeSalesSearchReader() },
   );
 
   assert.equal(result.groups.length, 14);
@@ -739,8 +901,11 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.ok(peak <= 3);
   assert.equal(businessCalls.length, 14);
   assert.equal(statementCount, 15);
-  assert.equal(businessCalls.every(({ values }) => values.at(-2) === 3 && values.at(-1) === 0), true);
-  assert.equal(businessCalls.some(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql)), false);
+  const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
+  assert.equal(businessCalls.filter((call) => !localImportCalls.includes(call))
+    .every(({ values }) => values.at(-2) === 3 && values.at(-1) === 0), true);
+  assert.equal(localImportCalls.length, 2);
+  assert.equal(businessCalls.some(({ sql }) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
   assert.equal(businessCalls.some(({ sql }) => sql.includes("messages_json")), false);
 });
 
@@ -839,7 +1004,7 @@ test("one failed group is isolated and does not prevent another group from retur
         bind() { return this; },
         async all<T>() {
           if (sql.includes("sqlite_master")) {
-            return { results: [{ name: "erp_product_master" }, { name: "sales_order_lines" }] as T[] };
+            return { results: [{ name: "erp_product_master" }] as T[] };
           }
           businessQueryCount += 1;
           if (sql.includes("erp_product_master")) throw new Error("simulated product query failure");
@@ -856,8 +1021,12 @@ test("one failed group is isolated and does not prevent another group from retur
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
     admin,
+    { salesReader: fakeSalesSearchReader({ orders: [{
+      id: "ORDER-1", title: "ORDER-1", subtitle: "京东 · 测试店", detail: "净水机",
+      updatedAt: "2026-08-25", amountCents: 100,
+    }] }) },
   );
-  assert.equal(businessQueryCount, 2);
+  assert.equal(businessQueryCount, 1);
   assert.equal(result.groups.find((group) => group.key === "products")?.available, false);
   assert.equal(result.groups.find((group) => group.key === "products")?.totalExact, false);
   assert.equal(result.groups.find((group) => group.key === "orders")?.items[0]?.id, "ORDER-1");
@@ -885,13 +1054,16 @@ test("group deadline returns a disclosed partial response and never starts queue
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
     admin,
-    { deadlineMs: 15 },
+    {
+      deadlineMs: 15,
+      salesReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as SalesConsumerReader,
+    },
   );
-  assert.equal(businessStarts, 3);
+  assert.equal(businessStarts, 2);
   assert.equal(result.deadlineExceeded, true);
   assert.equal(result.truncated, true);
   assert.equal(result.timedOutDomains.length, 14);
   assert.equal(result.groups.every((group) => group.totalExact === false), true);
   await wait(70);
-  assert.equal(businessStarts, 3);
+  assert.equal(businessStarts, 2);
 });

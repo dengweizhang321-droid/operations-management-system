@@ -1,7 +1,7 @@
 import { requireAppPrincipal } from "@/lib/auth/authorization";
 import { listAiSpaceAssets } from "@/lib/ai/space";
 import { PublicApiError } from "@/lib/http/api-error";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import {
   aiJsonResponse,
   aiRouteErrorResponse,
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       page,
       pageSize,
       favoritesOnly: favorites[0] === "1",
-    }, principal, getSalesDatabase()));
+    }, principal, getD1Database()));
   } catch (error) {
     return aiRouteErrorResponse(error, "读取 AI 空间图片失败");
   }

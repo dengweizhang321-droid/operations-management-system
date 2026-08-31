@@ -31,6 +31,7 @@ interface R2HttpMetadata {
 }
 
 interface R2Object {
+  key: string;
   size: number;
   httpMetadata?: R2HttpMetadata;
   customMetadata?: Record<string, string>;
@@ -50,6 +51,11 @@ interface R2Bucket {
   head(key: string): Promise<R2Object | null>;
   get(key: string): Promise<R2ObjectBody | null>;
   delete(keys: string | string[]): Promise<void>;
+  list(options?: { prefix?: string; limit?: number; cursor?: string }): Promise<{
+    objects: R2Object[];
+    truncated: boolean;
+    cursor?: string;
+  }>;
 }
 
 interface ImagesBinding {

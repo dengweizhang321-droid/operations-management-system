@@ -246,9 +246,10 @@ test("shipping-rate import contract keeps full-scope fingerprinting, fenced repl
   assert.match(migration, /product_shipping_rates/);
   assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(route, /MAX_DIRECT_FILE_BYTES = 2 \* 1024 \* 1024/);
-  assert.match(chunks, /MAX_CHUNKED_SALES_FILE_BYTES/);
+  assert.match(chunks, /MAX_CHUNKED_INVENTORY_FILE_BYTES/);
   assert.match(chunks, /UPLOAD_SCOPE_PREFIX = "sku-shipping-rates:"/);
-  assert.match(productSummary, /LEFT JOIN product_shipping_rates sr ON sr\.product_code = s\.product_code/);
+  assert.match(productSummary, /FROM product_shipping_rates/);
+  assert.match(productSummary, /const shipping = new Map\(shippingResult\.results/);
   assert.match(productSummary, /shippingRate: row\.shipping_rate/);
   assert.match(productView, /<th>退货率<\/th><th>快递费率<\/th><th>操作<\/th>/);
   assert.doesNotMatch(productView, /<th>费用<\/th>/);

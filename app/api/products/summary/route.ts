@@ -4,7 +4,6 @@ import {
   ProductSummaryRequestError,
   type ProductSummaryRange,
 } from "@/lib/products/summary";
-import { ensureSalesSchema } from "@/lib/sales/database";
 import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
 import { ensureProductShippingRateSchema } from "@/lib/products/shipping-rate-database";
 import {
@@ -53,7 +52,6 @@ export async function GET(request: Request) {
     }
     const db = getInventoryDatabase();
     await Promise.all([
-      ensureSalesSchema(db),
       ensureInventorySchema(db),
       ensureErpReferenceSchema(db),
       ensureProductShippingRateSchema(db),
@@ -91,7 +89,7 @@ export async function GET(request: Request) {
     if (requestedDirection !== null && requestedDirection !== "asc" && requestedDirection !== "desc") {
       throw new ProductSummaryRequestError("商品排序方向必须是 asc 或 desc");
     }
-    const payload = await getProductSummary(db, {
+    const payload = await getProductSummary(db, principal, {
       range: requestedRange ? requestedRange as ProductSummaryRange : undefined,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
@@ -107,6 +105,7 @@ export async function GET(request: Request) {
       direction: requestedDirection === null ? undefined : requestedDirection,
       projection: requestedView === "page" ? "page" : "full",
       expectedSnapshotToken,
+      signal: request.signal,
     });
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {

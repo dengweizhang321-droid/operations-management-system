@@ -4,6 +4,7 @@ import {
   assembleSalesUpload,
   beginSalesUpload,
   claimSalesUpload,
+  cleanupCompletedSalesUpload,
   finishSalesUpload,
   receiveSalesUploadChunk,
 } from "@/lib/sales/chunked-upload";
@@ -24,8 +25,29 @@ function headerNumber(request: Request, name: string) {
   return Number.isSafeInteger(value) ? value : NaN;
 }
 
-function uploadScopePrefix(startDate: string, endDate: string, channels: readonly string[] | null) {
-  return `sales:${startDate}:${endDate}:${JSON.stringify(channels)}:`;
+async function sha256Text(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function uploadFingerprint(
+  startDate: string,
+  endDate: string,
+  channels: readonly string[] | null,
+  clientFingerprint: string,
+) {
+  const scopeDigest = await sha256Text(JSON.stringify({ startDate, endDate, channels }));
+  const clientDigest = await sha256Text(clientFingerprint);
+  return `sales-upload-v2:${scopeDigest}:${clientDigest}`;
+}
+
+async function uploadScopePrefix(
+  startDate: string,
+  endDate: string,
+  channels: readonly string[] | null,
+) {
+  const scopeDigest = await sha256Text(JSON.stringify({ startDate, endDate, channels }));
+  return `sales-upload-v2:${scopeDigest}:`;
 }
 
 export async function POST(request: Request) {
@@ -40,6 +62,7 @@ export async function POST(request: Request) {
       const fileSizeBytes = Number(body.fileSizeBytes);
       const chunkCount = Number(body.chunkCount);
       const fingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
+      if (!fingerprint || fingerprint.length > 2_048) return reject(400, "上传指纹无效");
       const expectedStartDate = typeof body.expectedStartDate === "string" ? body.expectedStartDate : "";
       const expectedEndDate = typeof body.expectedEndDate === "string" ? body.expectedEndDate : "";
       const dateRange = validateSalesImportDateRange(expectedStartDate, expectedEndDate);
@@ -52,7 +75,20 @@ export async function POST(request: Request) {
         errors: [{ code: channelScope.code, message: channelScope.message }],
         errorCount: 1,
       });
-      const upload = await beginSalesUpload({ fileName, fileSizeBytes, chunkCount, fingerprint: `${uploadScopePrefix(expectedStartDate, expectedEndDate, channelScope.channels)}${fingerprint}` });
+      const upload = await beginSalesUpload(principal, {
+        fileName,
+        fileSizeBytes,
+        chunkCount,
+        fingerprint: await uploadFingerprint(
+          expectedStartDate,
+          expectedEndDate,
+          channelScope.channels,
+          fingerprint,
+        ),
+        expectedStartDate,
+        expectedEndDate,
+        expectedChannels: channelScope.channels,
+      });
       return Response.json({
         ok: true,
         status: "ready",
@@ -76,25 +112,63 @@ export async function POST(request: Request) {
         errors: [{ code: channelScope.code, message: channelScope.message }],
         errorCount: 1,
       });
-      const claim = await claimSalesUpload(uploadId);
-      if (!claim.session.fingerprint.startsWith(uploadScopePrefix(expectedStartDate, expectedEndDate, channelScope.channels))) {
-        await finishSalesUpload(uploadId, [], false).catch(() => undefined);
+      const expectedPrefix = await uploadScopePrefix(
+        expectedStartDate,
+        expectedEndDate,
+        channelScope.channels,
+      );
+      const claim = await claimSalesUpload(principal, uploadId);
+      if (!claim.session.fingerprint.startsWith(expectedPrefix)) {
+        if (claim.kind === "claimed") {
+          await finishSalesUpload(
+            principal,
+            uploadId,
+            claim.session.ownerToken ?? "",
+            false,
+          ).catch(() => undefined);
+        }
         return reject(409, "上传会话与本次销售日期范围不一致");
       }
+      if (claim.kind === "completed") {
+        await cleanupCompletedSalesUpload(
+          principal,
+          uploadId,
+        );
+        return Response.json(claim.result, {
+          status: importExecutionHttpStatus(claim.result),
+          headers: { "cache-control": "no-store" },
+        });
+      }
+      const ownerToken = claim.session.ownerToken;
+      if (!ownerToken) throw new Error("销售上传会话缺少 owner token");
       try {
-        const assembled = await assembleSalesUpload(uploadId);
+        const assembled = await assembleSalesUpload(principal, claim.session);
         const result = await importSalesLedgerBytes({
+          principal,
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
           expectedStartDate,
           expectedEndDate,
           expectedChannels: channelScope.channels,
+          rawUploadId: uploadId,
+          rawUploadOwnerToken: ownerToken,
+          fingerprint: assembled.session.fingerprint,
         });
-        await finishSalesUpload(uploadId, assembled.objectKeys, result.ok);
+        if (!result.ok || !result.batch?.id) {
+          await finishSalesUpload(principal, uploadId, ownerToken, false);
+        } else {
+          await finishSalesUpload(
+            principal,
+            uploadId,
+            ownerToken,
+            true,
+            result.batch.id,
+          );
+        }
         return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
       } catch (error) {
-        await finishSalesUpload(uploadId, [], false).catch(() => undefined);
+        await finishSalesUpload(principal, uploadId, ownerToken, false).catch(() => undefined);
         throw error;
       }
     }
@@ -118,7 +192,7 @@ export async function PUT(request: Request) {
     if (contentLength > SALES_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 2MB");
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
-    const upload = await receiveSalesUploadChunk({ uploadId, chunkIndex, bytes });
+    const upload = await receiveSalesUploadChunk(principal, { uploadId, chunkIndex, bytes });
     return Response.json({ ok: true, status: "uploading", upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

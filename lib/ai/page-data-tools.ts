@@ -22,6 +22,7 @@ import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
 
 export type PageDataToolContext = {
   principal: AppPrincipal;
+  signal?: AbortSignal;
 };
 
 export class PageDataToolInputError extends RegistryToolError {
@@ -137,8 +138,8 @@ export type PageDataToolServices = {
   readFinanceAnalysis(input: FinanceAnalysisInput): Promise<unknown>;
   readFinanceTargets(input: { page: number; pageSize: number }): Promise<unknown>;
   readInventoryAge(input: InventoryAgeInput): Promise<unknown>;
-  readInventoryInbound(input: InventoryInboundInput): Promise<unknown>;
-  readNetshopCatalog(input: NetshopCatalogInput): Promise<unknown>;
+  readInventoryInbound(input: InventoryInboundInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
+  readNetshopCatalog(input: NetshopCatalogInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopPerformance(input: NetshopPerformanceInput): Promise<unknown>;
   readWorkflowTasks(input: WorkflowTaskListInput): Promise<unknown>;
   readOperationRecords(input: OperationRecordListInput, principal: AppPrincipal): Promise<unknown>;
@@ -146,6 +147,8 @@ export type PageDataToolServices = {
   readImportBatches(
     source: PageImportSource,
     input: { page: number; pageSize: number; platforms: string[] },
+    principal: AppPrincipal,
+    signal?: AbortSignal,
   ): Promise<unknown>;
   readMarketComparison(input: {
     selections: MarketSelection[];
@@ -182,30 +185,25 @@ const defaultPageDataToolServices: PageDataToolServices = {
     await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
     return getInventoryAgeAnalysis(db, input);
   },
-  async readInventoryInbound(input) {
+  async readInventoryInbound(input, principal, signal) {
     const [
       { ensureInventorySchema, getInventoryDatabase },
       { getInventoryInboundMonitor },
       { ensureErpReferenceSchema },
-      { ensureSalesSchema },
     ] = await Promise.all([
       import("@/lib/inventory/database"),
       import("@/lib/inventory/inbound-monitor"),
       import("@/lib/erp-reference/database"),
-      import("@/lib/sales/database"),
     ]);
     const db = getInventoryDatabase();
-    await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db), ensureSalesSchema(db)]);
-    return getInventoryInboundMonitor(db, input);
+    await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
+    return getInventoryInboundMonitor(db, principal, { ...input, signal });
   },
-  async readNetshopCatalog(input) {
-    const [{ ensureNetshopSchema, getNetshopDatabase, getNetshopProductCatalog }, { ensureSalesSchema }] = await Promise.all([
-      import("@/lib/netshop/database"),
-      import("@/lib/sales/database"),
-    ]);
+  async readNetshopCatalog(input, principal, signal) {
+    const { ensureNetshopSchema, getNetshopDatabase, getNetshopProductCatalog } = await import("@/lib/netshop/database");
     const db = getNetshopDatabase();
-    await Promise.all([ensureNetshopSchema(db), ensureSalesSchema(db)]);
-    return getNetshopProductCatalog(db, input);
+    await ensureNetshopSchema(db);
+    return getNetshopProductCatalog(db, principal, { ...input, signal });
   },
   async readNetshopPerformance(input) {
     const { ensureNetshopSchema, getNetshopDatabase, getNetshopProductPerformance } = await import("@/lib/netshop/database");
@@ -225,12 +223,34 @@ const defaultPageDataToolServices: PageDataToolServices = {
     const { listWorkflowTaskTemplates } = await import("@/lib/workflow/collaboration");
     return listWorkflowTaskTemplates(includeInactive);
   },
-  async readImportBatches(source, input) {
+  async readImportBatches(source, input, principal, signal) {
     if (source === "sales") {
-      const { ensureSalesSchema, getSalesDatabase, listSalesImportBatches } = await import("@/lib/sales/database");
-      const db = getSalesDatabase();
-      await ensureSalesSchema(db);
-      return listSalesImportBatches(db, input);
+      const { createDjangoSalesConsumerReader } = await import("@/lib/django/sales-consumer-reader");
+      const result = await createDjangoSalesConsumerReader().read(principal, {
+        operation: "import_batch_search",
+        query: "",
+        page: input.page,
+        pageSize: input.pageSize,
+      }, { signal });
+      if (!result || typeof result.revision !== "string" || !result.revision
+        || !Array.isArray(result.data.items)
+        || !Number.isSafeInteger(result.data.total) || result.data.total < 0
+        || result.data.items.length > input.pageSize
+        || result.data.truncated !== input.page * input.pageSize < result.data.total) {
+        throw new RegistryToolError("tool_execution_failed", "Django 销售导入批次读取结果无效");
+      }
+      return {
+        items: result.data.items,
+        pagination: {
+          page: input.page,
+          pageSize: input.pageSize,
+          total: result.data.total,
+          returned: result.data.items.length,
+          totalPages: result.data.total === 0 ? 0 : Math.ceil(result.data.total / input.pageSize),
+          truncated: result.data.truncated,
+        },
+        salesRevision: result.revision,
+      };
     }
     if (source === "inventory") {
       const { ensureInventorySchema, getInventoryDatabase, listInventoryImportBatches } = await import("@/lib/inventory/database");
@@ -720,7 +740,7 @@ export async function getInventoryInboundPageData(
   const result = resultObject(await serviceSet(overrides).readInventoryInbound({
     ...filters,
     ...pageInput,
-  }));
+  }, principal, context.signal));
   const filterOptions = resultObject(result.filters);
   return {
     page: "inventory.inbound",
@@ -807,7 +827,7 @@ export async function getNetshopProductCatalogPageData(
     salesChannels: principal.scope === null ? null : principal.scope.channels,
     ...pagination(input),
   };
-  const result = resultObject(await serviceSet(overrides).readNetshopCatalog(filters));
+  const result = resultObject(await serviceSet(overrides).readNetshopCatalog(filters, principal, context.signal));
   const batch = result.batch === null ? null : pickScalars(result.batch, importBatchKeys);
   return {
     page: "netshop.products",
@@ -1073,7 +1093,7 @@ export async function getImportStatusPageData(
   const result = resultObject(await serviceSet(overrides).readImportBatches(source, {
     ...pageInput,
     platforms,
-  }));
+  }, principal, context.signal));
   return {
     page: "imports.status",
     available: true,
