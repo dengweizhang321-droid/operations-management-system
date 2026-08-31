@@ -1,5 +1,9 @@
 import type { SalesDatabase } from "@/lib/sales/database";
+import { deleteWorkflowTaskWithCollaboration } from "@/lib/workflow/collaboration";
 import { invalidWorkflowRequest, workflowVersionConflict } from "@/lib/workflow/errors";
+import { ensureWorkflowCollaborationSchema, ensureWorkflowTaskSchema } from "@/lib/workflow/schema";
+
+export { ensureWorkflowTaskSchema };
 
 export const workflowTaskStatuses = ["待开始", "工作中", "已完成"] as const;
 export type WorkflowTaskStatus = (typeof workflowTaskStatuses)[number];
@@ -37,23 +41,6 @@ const MAX_OFFSET = 100_000;
 const taskColumns = `t.id, t.title, t.work_content, t.category, t.owner, t.shop_name,
   t.start_date, t.due_date, t.status, t.priority, t.created_by, t.created_at, t.updated_at, s.version`;
 
-const schemaStatements = [
-  `CREATE TABLE IF NOT EXISTS workflow_tasks (
-    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, work_content TEXT NOT NULL DEFAULT '',
-    category TEXT NOT NULL DEFAULT '工作计划', owner TEXT NOT NULL DEFAULT '', shop_name TEXT NOT NULL DEFAULT '',
-    start_date TEXT NOT NULL DEFAULT '', due_date TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, priority TEXT NOT NULL,
-    created_by TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-  `CREATE INDEX IF NOT EXISTS workflow_tasks_status_created_idx ON workflow_tasks (status, created_at DESC)`,
-  `CREATE TABLE IF NOT EXISTS workflow_task_bootstrap (
-    key TEXT PRIMARY KEY NOT NULL, seeded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-  `CREATE TABLE IF NOT EXISTS workflow_task_states (
-    task_id TEXT PRIMARY KEY NOT NULL, version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
-    mutation_token TEXT NOT NULL DEFAULT '', deleted_at TEXT, deleted_by TEXT,
-    FOREIGN KEY (task_id) REFERENCES workflow_tasks(id) ON DELETE CASCADE)`,
-  `CREATE INDEX IF NOT EXISTS workflow_task_states_deleted_idx ON workflow_task_states (deleted_at, task_id)`,
-] as const;
-
 const initialTasks: Array<Omit<WorkflowTask, "attachments" | "source" | "version" | "createdAt" | "updatedAt">> = [
   { id: "task-1", title: "完成 7 月大促价格检查", workContent: "核对重点商品活动价、优惠券和到手价，并整理差异项。", category: "活动运营", owner: "京东自营", shopName: "京东-志高商用设备旗舰店", startDate: "2026-07-18", due: "2026-07-18", status: "待开始", priority: "high" },
   { id: "task-2", title: "新品成分资料归档", workContent: "归档新品成分表、质检资料和平台备案所需文件。", category: "新品上架", owner: "商品组", shopName: "天猫-志高亿用专卖店", startDate: "2026-07-17", due: "2026-07-18", status: "待开始", priority: "normal" },
@@ -63,8 +50,6 @@ const initialTasks: Array<Omit<WorkflowTask, "attachments" | "source" | "version
   { id: "task-6", title: "天猫周报数据核对", workContent: "复核周度销售、退款和投放数据，完成周报归档。", category: "数据分析", owner: "运营组", shopName: "天猫-志高亿用专卖店", startDate: "2026-07-14", due: "2026-07-17", status: "已完成", priority: "low" },
   { id: "task-7", title: "新品 SKU 映射", workContent: "完成 ERP 与平台规格代码映射并交接给上架同事。", category: "新品上架", owner: "商品组", shopName: "京东-志高商用设备旗舰店", startDate: "2026-07-14", due: "2026-07-17", status: "已完成", priority: "low" },
 ];
-
-const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
 async function workflowDatabase(db?: SalesDatabase) {
   if (db) return db;
@@ -148,18 +133,6 @@ function normalizedCreateInput(input: CreateWorkflowTaskInput) {
   };
 }
 
-export async function ensureWorkflowTaskSchema(db?: SalesDatabase) {
-  const database = await workflowDatabase(db);
-  const key = database as unknown as object;
-  const existing = schemaReadyByDatabase.get(key);
-  if (existing) return existing;
-  const setup = database.batch(schemaStatements.map((statement) => database.prepare(statement)))
-    .then(() => database.prepare("INSERT OR IGNORE INTO workflow_task_states (task_id) SELECT id FROM workflow_tasks").run())
-    .then(() => undefined)
-    .catch((error: unknown) => { schemaReadyByDatabase.delete(key); throw error; });
-  schemaReadyByDatabase.set(key, setup);
-  return setup;
-}
 async function ensureInitialTasks(db: SalesDatabase) {
   await ensureWorkflowTaskSchema(db);
   const statements = initialTasks.map((task) => db.prepare(`INSERT OR IGNORE INTO workflow_tasks (
@@ -270,7 +243,6 @@ export async function createWorkflowTask(input: CreateWorkflowTaskInput, updated
   const actor = boundedText(updatedBy, "", 320, "操作人");
   if (!actor) invalidWorkflowRequest("操作人不能为空");
   const id = crypto.randomUUID();
-  const { ensureWorkflowCollaborationSchema } = await import("@/lib/workflow/collaboration");
   await ensureWorkflowCollaborationSchema(database);
   await database.batch([
     database.prepare(`INSERT INTO workflow_tasks (
@@ -330,7 +302,6 @@ export async function updateWorkflowTask(id: unknown, input: UpdateWorkflowTaskI
   const statusChanged = current.status !== next.status;
   const nextVersion = version + 1;
   const mutationToken = crypto.randomUUID();
-  const { ensureWorkflowCollaborationSchema } = await import("@/lib/workflow/collaboration");
   await ensureWorkflowCollaborationSchema(database);
   const results = await database.batch([
     database.prepare(`UPDATE workflow_task_states SET version = ?, mutation_token = ?
@@ -359,6 +330,5 @@ export async function updateWorkflowTask(id: unknown, input: UpdateWorkflowTaskI
 }
 
 export async function deleteWorkflowTask(id: unknown, version: unknown, actor: string, db?: SalesDatabase) {
-  const { deleteWorkflowTaskWithCollaboration } = await import("@/lib/workflow/collaboration");
   return deleteWorkflowTaskWithCollaboration(id, version, actor, db);
 }
