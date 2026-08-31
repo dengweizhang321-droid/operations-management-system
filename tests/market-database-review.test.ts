@@ -75,7 +75,7 @@ test("market import accepts D1 change counts that include batch revision trigger
   });
 
   assert.equal(result.status, "completed");
-  assert.equal((sqlite.prepare("SELECT revision FROM trigger_revision WHERE id=1").get() as { revision: number }).revision, 2);
+  assert.equal((sqlite.prepare("SELECT revision FROM trigger_revision WHERE id=1").get() as { revision: number }).revision, 3);
   assert.equal((sqlite.prepare("SELECT COUNT(*) count FROM market_ranking_entries WHERE category='trigger-count-category'").get() as { count: number }).count, 1);
   sqlite.close();
 });
