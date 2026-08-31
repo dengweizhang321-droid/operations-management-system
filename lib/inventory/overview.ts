@@ -132,62 +132,6 @@ export type InventoryMappingGap = {
   candidateSalesWarehouses: string[];
 };
 
-export type InventoryDashboardOverviewResponse = {
-  hasInventory: boolean;
-  sync: {
-    latestInventoryBatchId: string | null;
-    inventoryAsOf: string | null;
-    inventorySyncedAt: string | null;
-    salesThrough: string | null;
-    salesWindowStart: string | null;
-    latestInventoryFile: string | null;
-    inventoryStale: boolean;
-  };
-  metrics: {
-    skuWarehouseCount: number;
-    totalAvailableQuantity: number;
-    totalStockValueCents: number;
-    knownStockValueCents: number;
-    stockValueComplete: boolean;
-    costCoverageRate: number;
-    salesDemandMatchRate: number;
-    averageCoverageDays: number | null;
-    urgentCount: number;
-    replenishCount: number;
-    slowMovingValueCents: number;
-    noSalesCount: number;
-    recommendationCount: number;
-    inventoryAlertsEnabled: boolean;
-    recommendationsSuppressed: boolean;
-    qualityIssues: InventoryDataQuality["issues"];
-  };
-  health: {
-    urgent: number;
-    replenish: number;
-    healthy: number;
-    slow: number;
-    stagnant: number;
-    noSales: number;
-  };
-  controls: {
-    autoReplenishmentEnabled: boolean;
-    alertsEnabled: boolean;
-  };
-  quality: InventoryDataQuality;
-};
-
-export type InventoryDashboardProjectionResponse = Omit<InventoryDashboardOverviewResponse, "controls" | "quality">;
-
-export type InventoryMappingGap = {
-  key: string;
-  productCode: string;
-  productName: string;
-  inventoryWarehouse: string;
-  warehouseType: InventoryOverviewItem["warehouseType"];
-  availableQuantity: number;
-  candidateSalesWarehouses: string[];
-};
-
 type InventoryThresholdSettings = {
   targetDays: number;
   criticalDays: number;

@@ -127,57 +127,6 @@ type ProductSummaryFilters = {
   shops: CanonicalShopIdentity[];
 };
 
-type ProductSummaryRevisionRow = {
-  sales_revision: number | null;
-  erp_product_revision: number | null;
-};
-
-function checkedRevision(value: number | null | undefined) {
-  const revision = Number(value ?? 0);
-  if (!Number.isSafeInteger(revision) || revision < 0) {
-    throw new PublicApiError(503, "service_unavailable", "商品汇总数据版本无效，请稍后重试");
-  }
-  return revision;
-}
-
-async function buildProductSummarySnapshotToken(input: {
-  revision: ProductSummaryRevisionRow | null;
-  inventoryBatchId: string | null;
-  shippingRateBatchId: string | null;
-}) {
-  const payload = JSON.stringify({
-    version: 2,
-    salesRevision: checkedRevision(input.revision?.sales_revision),
-    erpProductRevision: checkedRevision(input.revision?.erp_product_revision),
-    inventoryBatchId: input.inventoryBatchId ?? "",
-    shippingRateBatchId: input.shippingRateBatchId ?? "",
-  });
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function readProductSummaryRevision(db: InventoryDatabase) {
-  return db.prepare(`SELECT sales_revision, erp_product_revision
-    FROM sales_overview_cache_state WHERE id = 1`)
-    .first<ProductSummaryRevisionRow>();
-}
-
-async function verifyProductSummarySnapshot(db: InventoryDatabase, expectedSnapshotToken: string) {
-  const [revision, latestInventoryBatch, shippingRateBatchId] = await Promise.all([
-    readProductSummaryRevision(db),
-    findLatestInventoryImportBatch(db),
-    findLatestProductShippingRateBatchId(db),
-  ]);
-  const currentSnapshotToken = await buildProductSummarySnapshotToken({
-    revision,
-    inventoryBatchId: latestInventoryBatch?.id ?? null,
-    shippingRateBatchId,
-  });
-  if (currentSnapshotToken !== expectedSnapshotToken) {
-    throw new PublicApiError(503, "service_unavailable", "商品汇总在读取期间已更新，请重新加载");
-  }
-}
-
 type ProductRow = {
   product_code: string;
   product_name: string | null;

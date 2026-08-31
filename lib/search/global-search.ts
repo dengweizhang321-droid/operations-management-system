@@ -136,11 +136,6 @@ export type GlobalSearchExecutionOptions = {
   signal?: AbortSignal;
 };
 
-export type GlobalSearchExecutionOptions = {
-  /** Test/worker override; callers cannot raise the hard 10-second ceiling. */
-  deadlineMs?: number;
-};
-
 type SearchGroupDefinitionBase = {
   label: string;
   icon: string;
@@ -641,6 +636,7 @@ function mapSearchRows(
   rows: SearchRow[],
   request: GlobalSearchRequest,
   principal: AppPrincipal,
+  totalOverride?: number,
 ): GlobalSearchGroup {
   const offset = (request.page - 1) * request.groupLimit;
   const hasMore = totalOverride === undefined
@@ -1082,8 +1078,8 @@ async function queryLocalImportRows(
       status AS detail, COALESCE(completed_at, created_at) AS updated_at, NULL AS amount_cents
       FROM ${source.table} WHERE ${conditions.join(" OR ")}`;
   });
-  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents
-    FROM (${fragments.join(" UNION ALL ")})
+  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents,
+    COUNT(*) OVER() AS total_count FROM (${fragments.join(" UNION ALL ")})
     ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
   const result = await db.prepare(sql).bind(...binds, limit, offset).all<SearchRow>();
   const rows = result.results ?? [];

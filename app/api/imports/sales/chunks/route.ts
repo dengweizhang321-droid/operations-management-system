@@ -200,5 +200,3 @@ export async function PUT(request: Request) {
     return safeApiErrorResponse(error, "销售分片上传失败。", { shape: "import", headers: { "cache-control": "no-store" } });
   }
 }
-
-// hot-reload trigger 2026-08-27: sales-ledger 费用分摊可选化

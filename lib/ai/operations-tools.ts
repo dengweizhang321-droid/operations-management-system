@@ -11,7 +11,6 @@ import {
 } from "@/lib/django/sales-consumer-reader";
 import { getInventoryOverview } from "@/lib/inventory/overview";
 import { getProductSummary } from "@/lib/products/summary";
-import { ensureProductShippingRateSchema } from "@/lib/products/shipping-rate-database";
 import {
   isSalesRange,
 } from "@/lib/sales/read-contract";

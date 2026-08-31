@@ -53,12 +53,6 @@ export async function GET(request: Request) {
         { status: 400, headers: { "cache-control": "no-store" } },
       );
     }
-    if (error instanceof SalesOverviewRevisionChangedError) {
-      return Response.json(
-        { error: error.message, code: error.code },
-        { status: 503, headers: { "cache-control": "no-store", "retry-after": "1" } },
-      );
-    }
     return safeApiErrorResponse(error, "读取销售汇总失败。", { headers: { "cache-control": "no-store" } });
   }
 }
