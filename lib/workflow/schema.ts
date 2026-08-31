@@ -1,4 +1,4 @@
-import type { SalesDatabase } from "@/lib/sales/database";
+import type { D1Database } from "@/lib/database/d1";
 
 const taskSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS workflow_tasks (
@@ -67,13 +67,13 @@ const collaborationSchemaStatements = [
 const taskSchemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 const collaborationSchemaReadyByDatabase = new WeakMap<object, Promise<void>>();
 
-async function workflowDatabase(db?: SalesDatabase) {
+async function workflowDatabase(db?: D1Database) {
   if (db) return db;
-  const { getSalesDatabase } = await import("@/lib/sales/database");
-  return getSalesDatabase();
+  const { getD1Database } = await import("@/lib/database/d1");
+  return getD1Database();
 }
 
-export async function ensureWorkflowTaskSchema(db?: SalesDatabase) {
+export async function ensureWorkflowTaskSchema(db?: D1Database) {
   const database = await workflowDatabase(db);
   const key = database as unknown as object;
   const existing = taskSchemaReadyByDatabase.get(key);
@@ -89,7 +89,7 @@ export async function ensureWorkflowTaskSchema(db?: SalesDatabase) {
   return setup;
 }
 
-export async function ensureWorkflowCollaborationSchema(db?: SalesDatabase) {
+export async function ensureWorkflowCollaborationSchema(db?: D1Database) {
   const database = await workflowDatabase(db);
   const key = database as unknown as object;
   const existing = collaborationSchemaReadyByDatabase.get(key);
