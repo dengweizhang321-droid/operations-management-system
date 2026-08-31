@@ -427,7 +427,11 @@ export async function saveMarketImportCore(input: {
       input.sheetName, rows.length, input.warnings.length, dates[0] ?? null,
       dates.at(-1) ?? null, JSON.stringify(input.warnings.slice(0, 100)), claimToken,
     ).run();
-    if (changes(insertedBatch) !== 1) {
+    // D1 reports trigger side effects in meta.changes. The batch table has
+    // revision-maintenance triggers, so a successful single-row insert/update
+    // can legitimately report more than one changed row. Zero still means the
+    // INSERT OR IGNORE lost the idempotency race.
+    if (changes(insertedBatch) < 1) {
       const existing = await db.prepare(`SELECT ${marketBatchColumns} FROM market_import_batches WHERE file_hash=? LIMIT 1`)
         .bind(input.fileHash).first<BatchRow>();
       if (existing?.status === "completed") return { ...mapMarketBatch(existing), created: false };
@@ -514,7 +518,7 @@ export async function saveMarketImportCore(input: {
     );
     if (input.reservationFence) publishStatements.push(importReservationCommitFence(db, input.reservationFence));
     const publish = await db.batch(publishStatements) as RunResult[];
-    if (changes(publish[completionStatementIndex]) !== 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
+    if (changes(publish[completionStatementIndex]) < 1) throw new Error("市场分析导入发布租约已失效，未发布任何数据");
 
     const completedAt = new Date().toISOString();
     completedFallback = {
