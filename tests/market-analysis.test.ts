@@ -328,6 +328,7 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(annotation, /AI 标注每页条数/);
   assert.match(annotation, /AI 标注页码/);
   assert.match(annotation, /aria-label="AI 标注三级类目多选"/);
+  assert.match(annotation, /<summary aria-label=\{`\$\{label\}筛选`\}>\{summary\}<\/summary>/);
   assert.match(annotation, /reviewCategories\.forEach\(\(value\) => params\.append\("itemCategory", value\)\)/);
   assert.match(annotation, /data\.taxonomy\.filter\(\(item\) => !reviewCategories\.length \|\| reviewCategories\.includes\(item\.category\)\)/);
   assert.match(annotation, /setItemSegments\(\[\]\)/);

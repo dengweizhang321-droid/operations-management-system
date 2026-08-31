@@ -263,7 +263,7 @@ function CategoryOutletDrawer({ category, data, loading, error, onClose }: {
             <div className="category-platform-list">
               {data.platforms.map((platform) => <section key={platform.platform} className="category-platform-group">
                 <div className="category-platform-heading"><div><strong>{platform.platform}</strong><span>{platform.shopCount} 个店铺 · 贡献 {formatRate(platform.shareRate)}</span></div><div><strong>{formatCurrency(platform.netSalesCents)}</strong><span>毛利率 {formatRate(platform.grossMarginRate)}</span></div></div>
-                <div className="data-table-wrap"><table className="data-table category-outlet-table"><thead><tr><th>店铺</th><th>净销售额</th><th>贡献率</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>毛利额</th><th>毛利率</th></tr></thead><tbody>
+                <div className="data-table-wrap"><table className="data-table category-outlet-table" data-column-filter-scope={data.pagination.truncated ? "none" : "full"}><thead><tr><th>店铺</th><th>净销售额</th><th>贡献率</th><th>净销量</th><th>退款金额</th><th>退货率</th><th>毛利额</th><th>毛利率</th></tr></thead><tbody>
                   {platform.shops.map((shop) => <tr key={`${platform.platform}-${shop.shop}`}><td><strong>{shop.shop}</strong></td><td>{formatCurrency(shop.netSalesCents)}</td><td>{formatRate(shop.shareRate)}</td><td>{formatCount(shop.netQuantity)}</td><td>{formatCurrency(shop.refundAmountCents)}</td><td>{formatRate(shop.refundRate)}</td><td>{formatCurrency(shop.grossProfitCents)}</td><td className={shop.grossMarginRate < 0 ? "orange-text" : "green-text"}>{formatRate(shop.grossMarginRate)}</td></tr>)}
                 </tbody></table></div>
               </section>)}

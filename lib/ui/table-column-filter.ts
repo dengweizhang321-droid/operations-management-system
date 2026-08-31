@@ -65,6 +65,8 @@ function filterConcepts(value: string) {
 export function scoreTableFilterControl(headerLabel: string, controlLabel: string) {
   const control = normalizeFilterControlLabel(controlLabel);
   if (!control) return 0;
+  const normalizedHeaderLabel = normalizeFilterControlLabel(headerLabel);
+  if (/^(?:(?:sku|spu|商品|货品|产品)?(?:主图|图片|图))$/.test(normalizedHeaderLabel)) return 0;
   const headerParts = [headerLabel, ...headerLabel.split(/[\/／·]/)]
     .map((value) => ({ raw: value, normalized: normalizeFilterControlLabel(value) }))
     .filter((value, index, values) => value.normalized && values.findIndex((candidate) => candidate.normalized === value.normalized) === index);

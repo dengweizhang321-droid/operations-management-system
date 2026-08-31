@@ -478,7 +478,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
       {activeSection === "history" &&
       <section className="panel table-panel import-history-panel data-refresh-region" aria-busy={historyLoading}>
         <div className="section-header"><div><h2>最近导入记录</h2><p>来自导入接口的真实批次记录</p></div><button className="text-button" disabled={historyLoading} onClick={() => void loadHistory()}>{historyLoading ? "刷新中…" : "刷新记录"} <span>↻</span></button></div>
-        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
+        <div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
           {historyLoading && !historyLoaded && <tr><td colSpan={6}><div className="table-state"><span className="state-spinner" />正在读取导入记录…</div></td></tr>}
           {!historyLoading && historyDomainErrors.length > 0 && <tr><td colSpan={6}><div className="table-state table-state-error" role="alert"><span>{historyDomainErrors.length === IMPORT_HISTORY_DOMAIN_COUNT ? "导入记录读取失败" : "部分来源读取失败"}：{historyDomainErrors.join("；")}</span><button className="row-action" onClick={() => void loadHistory()}>重试</button></div></td></tr>}
           {historyLoaded && historyDomainErrors.length === 0 && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请先上传业务报表。</div></td></tr>}

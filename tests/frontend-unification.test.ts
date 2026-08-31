@@ -37,7 +37,7 @@ test("all rendered tables receive accessible multi-select column filtering", asy
   assert.match(component, /dataset\.columnFilterValues/);
   assert.match(component, /const pendingTables = new Set<HTMLTableElement>\(\)/);
   assert.match(component, /observer\.observe\(table, \{[\s\S]*?characterData: true/);
-  assert.match(component, /documentObserver\.observe\(document\.body, \{ childList: true, subtree: true \}\)/);
+  assert.match(component, /documentObserver\.observe\(document\.body, \{[\s\S]*?childList: true,[\s\S]*?subtree: true,[\s\S]*?attributes: true/);
   assert.doesNotMatch(component, /documentObserver\.observe\(document\.body, \{[^}]*characterData/);
   assert.match(component, /document\.addEventListener\("input", scheduleEventTable\)/);
   assert.match(component, /document\.addEventListener\("change", scheduleEventTable\)/);
