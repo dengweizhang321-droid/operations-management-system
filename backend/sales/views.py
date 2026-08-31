@@ -4,14 +4,17 @@ import logging
 import hashlib
 import json
 from collections.abc import Callable
+from functools import lru_cache
+from threading import Lock
 
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpRequest, JsonResponse
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .auth import PrincipalEnvelopeError, verify_principal
 from .category import get_category_analysis, get_category_detail
+from .consumers import execute_consumer_query, parse_consumer_body
 from .query import (
     SalesAccessError,
     SalesRequestError,
@@ -29,6 +32,18 @@ logger = logging.getLogger(__name__)
 
 class SalesRevisionChangedError(Exception):
     pass
+
+
+@lru_cache(maxsize=1024)
+def _read_cache_lock(cache_key: str) -> Lock:
+    """One in-process computation per revision/query identity.
+
+    The local production service intentionally runs one Waitress process with
+    multiple threads, so this prevents a cold long-range query from being
+    recomputed concurrently after a restart or revision change.
+    """
+
+    return Lock()
 
 
 def _first(query, key: str, default: str | None = None) -> str | None:
@@ -58,14 +73,26 @@ def _consistent_read(loader: Callable[[], object], cache_identity: str) -> tuple
         before = revision_token()
         cache_key = f"teruisi:sales-read:v1:{before}:{cache_identity}"
         payload = cache.get(cache_key)
-        cache_status = "hit" if payload is not None else "miss"
-        if payload is None:
-            payload = loader()
-        after = revision_token()
-        if before == after:
-            if cache_status == "miss" and settings.SALES_READ_CACHE_SECONDS > 0:
-                cache.set(cache_key, payload, timeout=settings.SALES_READ_CACHE_SECONDS)
-            return payload, after, cache_status
+        if payload is not None:
+            after = revision_token()
+            if before == after:
+                return payload, after, "hit"
+            continue
+        with _read_cache_lock(cache_key):
+            # The leading request may have populated the cache while this
+            # thread waited. Re-read the revision before trusting that value.
+            locked_before = revision_token()
+            if locked_before != before:
+                continue
+            payload = cache.get(cache_key)
+            cache_status = "hit" if payload is not None else "miss"
+            if payload is None:
+                payload = loader()
+            after = revision_token()
+            if before == after:
+                if cache_status == "miss" and settings.SALES_READ_CACHE_SECONDS > 0:
+                    cache.set(cache_key, payload, timeout=settings.SALES_READ_CACHE_SECONDS)
+                return payload, after, cache_status
     raise SalesRevisionChangedError("销售数据版本持续变化，请稍后重试。")
 
 
@@ -117,6 +144,25 @@ def _principal(request: HttpRequest):
     if principal.role not in {"viewer", "analyst", "operator", "admin"}:
         raise PrincipalEnvelopeError("当前角色无权访问", status=403, code="insufficient_role")
     return principal
+
+
+@require_POST
+def consumer_query(request: HttpRequest) -> JsonResponse:
+    def execute(inner: HttpRequest) -> JsonResponse:
+        principal = _principal(inner)
+        consumer_request = parse_consumer_body(inner)
+        body_identity = hashlib.sha256(inner.body).hexdigest()
+        payload, stable_revision, cache_status = _consistent_read(
+            lambda: execute_consumer_query(principal, consumer_request),
+            f"{_cache_identity(inner, principal)}:{body_identity}",
+        )
+        return _json(
+            {"operation": consumer_request["operation"], "data": payload},
+            revision=stable_revision,
+            extra_headers={"X-Sales-Overview-Cache": cache_status},
+        )
+
+    return _handle(execute, request)
 
 
 @require_GET

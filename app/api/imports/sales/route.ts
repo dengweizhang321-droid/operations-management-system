@@ -5,10 +5,9 @@ import {
   validateSalesImportDateRange,
 } from "@/lib/sales/import-service";
 import {
-  ensureSalesSchema,
-  getSalesDatabase,
-  listSalesImportBatches,
-} from "@/lib/sales/database";
+  SALES_IMPORTS_PATH,
+  requestDjangoSalesService,
+} from "@/lib/django/sales-writer";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -26,14 +25,17 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "销售导入历史");
-    const db = getSalesDatabase();
-    await ensureSalesSchema(db);
     const params = new URL(request.url).searchParams;
     const paged = params.has("page") || params.has("pageSize");
     const page = parsePositiveIntegerQuery(paged ? params.get("page") : null, 1, "page", 10_000);
     const pageSize = parsePositiveIntegerQuery(paged ? params.get("pageSize") : params.get("limit"), 20, paged ? "pageSize" : "limit", 100);
-    const payload = await listSalesImportBatches(db, { page, pageSize });
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const payload = await requestDjangoSalesService(principal, {
+      method: "GET",
+      path: SALES_IMPORTS_PATH,
+      query: new URLSearchParams({ page: String(page), pageSize: String(pageSize) }),
+      service: "reader",
+    });
+    return Response.json(payload.data, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
     if (entry.size > MAX_DIRECT_FILE_BYTES) return errorResponse(413, "超过 2MB 的报表请使用分片上传接口");
 
     const payload = await importSalesLedgerBytes({
+      principal,
       bytes: new Uint8Array(await entry.arrayBuffer()),
       fileName: entry.name,
       fileSizeBytes: entry.size,

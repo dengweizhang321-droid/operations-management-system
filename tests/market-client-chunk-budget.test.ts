@@ -58,7 +58,7 @@ test("market ranking keeps master administration behind a direct lazy boundary",
     /import\("\.\/market-view"\)\.then\(\(module\) => \(\{\s*default: module\.MarketMasterAdminPanel/,
   );
   assert.match(settingsView, /activeTab === "master" && <section[\s\S]*?<LazyMarketMasterAdminPanel/);
-  assert.match(marketView, /activeSection === "settings" && <MarketSettingsWorkspace/);
+  assert.match(marketView, /activeSection === "settings" && settingsData && <MarketSettingsWorkspace/);
 });
 
 test("fresh production artifacts keep market administration out of the page entry budget", async (context) => {

@@ -20,7 +20,7 @@ import {
   saveMarketImport,
 } from "@/lib/market/database";
 import { parseMarketRows } from "@/lib/market/parser";
-import { cacheMarketImages } from "@/lib/market/image-cache";
+import { createOrResumeMarketImageCacheJob } from "@/lib/market/image-cache-job";
 import { matchImportedMarketBrands, refreshSystemMarketBrandSeeds } from "@/lib/market/brand-seeds";
 import { refreshMarketSkuGmvTotals } from "@/lib/market/gmv-total";
 import { refreshMarketMasterIdentities } from "@/lib/market/master-identity";
@@ -28,11 +28,15 @@ import { marketImportRangeKey } from "@/lib/market/import-identity";
 
 export { parseMarketRows } from "@/lib/market/parser";
 
-async function cacheImagesAfterImport(db: ReturnType<typeof getMarketDatabase>, batchId: string) {
+async function queueImagesAfterImport(db: ReturnType<typeof getMarketDatabase>, batchId: string, requestedBy?: string) {
   try {
-    return await cacheMarketImages({ db, batchId, limit: 4 });
+    return await createOrResumeMarketImageCacheJob(db, { batchId, requestedBy: requestedBy || "market-import" });
   } catch {
-    return { processed: 0, cachedThisRun: 0, failedThisRun: 0, total: 0, cached: 0, failed: 0, pending: 0, maintenanceFailed: true };
+    return {
+      id: "", status: "failed" as const, total: 0, discoveredCount: 0, discoveryComplete: false,
+      cached: 0, failed: 0, pending: 0, propagationPending: 0, processedCount: 0,
+      runCount: 0, errorMessage: "", maintenanceFailed: true,
+    };
   }
 }
 
@@ -178,14 +182,18 @@ export async function importMarketFile(input: {
       outcome: "duplicate",
     });
     await repairLegacyDerivedCaches(db);
-    const imageCache = await cacheImagesAfterImport(db, currentBatch.id);
+    const imageCacheJob = await queueImagesAfterImport(db, currentBatch.id, input.actorEmail);
     return {
       ok: true,
       status: "duplicate" as const,
-      message: "全部标准化市场资料与当前范围一致，无需重复导入；已继续检查商品图片缓存",
+      message: "全部标准化市场资料与当前范围一致，无需重复导入；图片缓存已交给后台任务",
       batch: currentBatch,
       importReceipt: importReceipt(currentBatch.id),
-      imageCache,
+      imageCacheJob,
+      imageCache: {
+        total: imageCacheJob.total, cached: imageCacheJob.cached, failed: imageCacheJob.failed,
+        pending: imageCacheJob.pending + imageCacheJob.propagationPending,
+      },
     };
   }
   const fileHash = await buildImportAttemptHash({
@@ -199,6 +207,7 @@ export async function importMarketFile(input: {
   if (existing) {
     await db.batch([
       db.prepare("DELETE FROM market_import_staging_rows WHERE batch_id=?").bind(existing.id),
+      db.prepare("DELETE FROM market_import_identity_refresh_keys_v2 WHERE batch_id=?").bind(existing.id),
       db.prepare("DELETE FROM market_import_range_claims WHERE batch_id=?").bind(existing.id),
       db.prepare("DELETE FROM market_import_batches WHERE id=? AND status<>'completed'").bind(existing.id),
     ]);
@@ -257,8 +266,8 @@ export async function importMarketFile(input: {
     metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, actor: input.actorEmail, warnings: parsed.warnings },
     outcome: created ? "imported" : "duplicate",
   });
-  const [imageCache, brandSeedRefresh] = await Promise.all([
-    cacheImagesAfterImport(db, batch.id),
+  const [imageCacheJob, brandSeedRefresh] = await Promise.all([
+    queueImagesAfterImport(db, batch.id, input.actorEmail),
     refreshBrandSeedsAfterImport(db, input.actorEmail?.trim() || "market-import", brandMatch.systemSeedSnapshot),
   ]);
   return {
@@ -266,10 +275,14 @@ export async function importMarketFile(input: {
     status: created ? "imported" as const : "duplicate" as const,
     message: created
       ? `成功导入 ${batch.rowCount} 条市场商品数据，系统品牌种子自动匹配 ${brandMatch.summary.matched} 条`
-      : "全部标准化市场资料与当前范围一致，无需重复导入；已继续检查商品图片缓存",
+      : "全部标准化市场资料与当前范围一致，无需重复导入；图片缓存已交给后台任务",
     batch,
     importReceipt: importReceipt(batch.id),
-    imageCache,
+    imageCacheJob,
+    imageCache: {
+      total: imageCacheJob.total, cached: imageCacheJob.cached, failed: imageCacheJob.failed,
+      pending: imageCacheJob.pending + imageCacheJob.propagationPending,
+    },
     brandSeedRefresh,
     brandMatch: brandMatch.summary,
   };

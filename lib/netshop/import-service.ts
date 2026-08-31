@@ -25,6 +25,12 @@ import type {
 } from "@/lib/netshop/database";
 import { netshopBatchId, netshopMasterRowKey } from "@/lib/netshop/batch-identity";
 import { dailyDateCoverage, dailyRowKey, detectJdDailyDataset } from "@/lib/netshop/daily-contract";
+import {
+  extractTmallProductAssetImages,
+  persistTmallProductAssetImages,
+  productAssetMetadata,
+  type TmallProductAssetImage,
+} from "@/lib/netshop/product-image-assets";
 import { resolveEnabledTmallShop } from "@/lib/netshop/tmall-store-catalog";
 
 const DEFAULT_PLATFORM = "京东";
@@ -44,6 +50,7 @@ const sourceSet = new Set<NetshopSource>([
   "jd_cs",
   "jd_yimei_sku",
   "tmall_product_master",
+  "tmall_product_assets",
   "tmall_product_daily",
   "tmall_promotion",
   "inv_selfop",
@@ -67,6 +74,8 @@ export type NetshopImportExecution = {
     platform: string;
     shopName: string;
     unmatchedProductCount: number;
+    imageCount?: number;
+    verifiedImageCount?: number;
   };
 };
 
@@ -188,9 +197,9 @@ function stripHtml(value: string) {
     .replace(/&quot;/g, '"');
 }
 
-function parseXlsx(bytes: Uint8Array): ParsedTable {
+function parseXlsx(bytes: Uint8Array, maxCompressedBytes = 25 * 1024 * 1024): ParsedTable {
   const sheet = parseXlsxFirstSheet(bytes, {
-    maxCompressedBytes: 25 * 1024 * 1024,
+    maxCompressedBytes,
     maxUncompressedBytes: 100 * 1024 * 1024,
     maxWorksheetBytes: 75 * 1024 * 1024,
     maxRows: MAX_TABULAR_ROWS + 10,
@@ -263,7 +272,9 @@ function parseZip(bytes: Uint8Array, fileName: string, source: NetshopSource): P
 
 function parseFile(bytes: Uint8Array, fileName: string, source: NetshopSource): ParsedTable {
   if (/\.zip$/i.test(fileName)) return parseZip(bytes, fileName, source);
-  if (isXlsx(bytes) || /\.xlsx$/i.test(fileName)) return parseXlsx(bytes);
+  if (isXlsx(bytes) || /\.xlsx$/i.test(fileName)) {
+    return parseXlsx(bytes, source === "tmall_product_assets" ? 64 * 1024 * 1024 : undefined);
+  }
   if (/\.xls$/i.test(fileName) && source === "tmall_product_daily") return parseLegacyXls(bytes);
   const text = decodeText(bytes);
   if (/\.csv$/i.test(fileName)) return { sheetName: "csv", rows: parseNetshopCsv(text) };
@@ -343,8 +354,8 @@ function tmallMasterCanonicalHeaders(values: readonly unknown[]) {
   const skuIndex = normalized.findIndex((header) => header === "skuid");
   const salesAttributeIndex = normalized.findIndex((header) => header === "销售属性");
   const attributePairIndex = normalized.findIndex((header) => header === "属性对");
-  if (normalized[0] !== "商品id" || skuIndex < 0) {
-    throw new Error("天猫货品文件缺少商品Id/SKU 表头");
+  if (normalized[0] !== "商品id" || !normalized.includes("商品标题") || !normalized.includes("一口价")) {
+    throw new Error("天猫货品文件缺少商品Id、商品标题或一口价表头");
   }
 
   return headers.map((header, index) => {
@@ -355,10 +366,11 @@ function tmallMasterCanonicalHeaders(values: readonly unknown[]) {
     if (key === "商品标题") return "商品标题";
     if (key === "一口价") return "一口价";
     if (key === "导购标题") return "导购标题";
-    if (key === "商家编码") return index < skuIndex ? "商品商家编码" : "SKU商家编码";
+    if (key === "商家编码") return skuIndex < 0 || index < skuIndex ? "商品商家编码" : "SKU商家编码";
     if (key === "商品商家编码") return "商品商家编码";
     if (key === "sku商家编码") return "SKU商家编码";
     if (key === "发货时间") {
+      if (skuIndex < 0) return "商品发货时间";
       if (salesAttributeIndex >= 0 && index < salesAttributeIndex) return "商品发货时间";
       if (attributePairIndex >= 0 && index > attributePairIndex && index < skuIndex) return "SKU发货时间";
       if (salesAttributeIndex >= 0 && index > salesAttributeIndex && index < skuIndex) return "SKU发货时间";
@@ -383,9 +395,20 @@ function findTmallHeader(source: NetshopSource, table: ParsedTable) {
   if (source === "tmall_product_master") {
     if (table.sheetName !== "发布模板") throw new Error("天猫货品文件首个工作表必须为“发布模板”");
     const index = table.rows.findIndex((row) => normalizeKey(normalizeHeader(row.values[0])) === "商品id"
-      && row.values.some((value) => normalizeKey(normalizeHeader(value)) === "skuid"));
-    if (index < 0) throw new Error("天猫货品文件缺少商品Id/SKU 表头");
+      && row.values.some((value) => normalizeKey(normalizeHeader(value)) === "商品标题")
+      && row.values.some((value) => normalizeKey(normalizeHeader(value)) === "一口价"));
+    if (index < 0) throw new Error("天猫货品文件缺少商品Id、商品标题或一口价表头");
     return { index, headers: tmallMasterCanonicalHeaders(table.rows[index].values) };
+  }
+  if (source === "tmall_product_assets") {
+    if (table.sheetName !== "商品图") throw new Error("天猫 SPU 商品图文件首个工作表必须为“商品图”");
+    const expected = ["主图", "ID", "标题", "商品价格", "付款人数", "店铺", "链接"];
+    const index = table.rows.findIndex((row) => {
+      const headers = row.values.map(normalizeHeader);
+      return expected.every((header, headerIndex) => headers[headerIndex] === header);
+    });
+    if (index < 0) throw new Error(`天猫 SPU 商品图文件缺少标准表头：${expected.join("、")}`);
+    return { index, headers: expected };
   }
   if (source === "tmall_product_daily") {
     const index = table.rows.findIndex((row) => normalizeHeader(row.values[0]) === "统计日期" && normalizeHeader(row.values[1]) === "商品ID" && row.values.map(normalizeHeader).includes("支付金额"));
@@ -415,6 +438,14 @@ function tmallRowObject(source: NetshopSource, headers: readonly string[], value
     raw["商品总库存"] = raw["SKU库存"];
     raw["商品可用库存"] = raw["SKU库存"];
   }
+  if (source === "tmall_product_assets") {
+    return {
+      "商品ID": raw["ID"],
+      "商品名称": raw["标题"],
+      "店铺": raw["店铺"],
+      "商品链接": raw["链接"],
+    };
+  }
   if (source === "tmall_promotion") return canonicalTmallPromotionRaw(raw);
   return raw;
 }
@@ -433,6 +464,7 @@ function rateFromUnknown(value: unknown) {
 }
 
 function tmallMetrics(source: NetshopSource, raw: Record<string, string | number | boolean | null>): Record<string, number | string | null> {
+  if (source === "tmall_product_assets") return {};
   if (source === "tmall_product_master") {
     return {
       itemPriceCents: moneyCents(raw["一口价"]),
@@ -645,6 +677,78 @@ function prepareTmallPromotionRows(rows: readonly ParsedNetshopRawRow[]) {
   });
 }
 
+function prepareTmallProductAssetRows(
+  rows: readonly ParsedNetshopRawRow[],
+  images: ReadonlyMap<number, TmallProductAssetImage> | undefined,
+  canonicalShopName: string,
+) {
+  const maxIssues = 200;
+  const errors: NetshopImportIssue[] = [];
+  let issuesTruncated = false;
+  const addIssue = (issue: NetshopImportIssue) => {
+    if (errors.length < maxIssues - 1) errors.push(issue);
+    else issuesTruncated = true;
+  };
+  const sourceRows = new Set(rows.map((row) => row.rowNumber));
+  const seenSpuIds = new Set<string>();
+  const workbookShopName = canonicalShopName.replace(/^天猫-/, "");
+
+  for (const row of rows) {
+    const spuId = normalizeText(row.raw["商品ID"]);
+    const productName = normalizeText(row.raw["商品名称"]);
+    const sourceShopName = normalizeText(row.raw["店铺"]);
+    const rawProductUrl = normalizeText(row.raw["商品链接"]);
+    const image = images?.get(row.rowNumber);
+
+    if (!/^\d+$/.test(spuId)) {
+      addIssue({ row: row.rowNumber, field: "ID", code: "INVALID_SPU_ID", message: "SPUID 必须为纯数字" });
+    } else if (seenSpuIds.has(spuId)) {
+      addIssue({ row: row.rowNumber, field: "ID", code: "DUPLICATE_SPU_ID", message: `文件内存在重复 SPUID：${spuId}` });
+    } else {
+      seenSpuIds.add(spuId);
+    }
+    if (!productName) addIssue({ row: row.rowNumber, field: "标题", code: "MISSING_PRODUCT_NAME", message: "商品标题不能为空" });
+    if (sourceShopName !== canonicalShopName && sourceShopName !== workbookShopName) {
+      addIssue({ row: row.rowNumber, field: "店铺", code: "TMALL_ASSET_SHOP_MISMATCH", message: `文件店铺必须为 ${workbookShopName}` });
+    }
+
+    let normalizedProductUrl = "";
+    try {
+      const parsedUrl = new URL(rawProductUrl);
+      const linkedIds = parsedUrl.searchParams.getAll("id");
+      if (parsedUrl.protocol !== "https:"
+        || !["item.taobao.com", "detail.tmall.com"].includes(parsedUrl.hostname.toLowerCase())
+        || parsedUrl.username || parsedUrl.password || parsedUrl.port
+        || linkedIds.length !== 1 || linkedIds[0] !== spuId) {
+        throw new Error("invalid product URL");
+      }
+      normalizedProductUrl = parsedUrl.toString();
+    } catch {
+      addIssue({ row: row.rowNumber, field: "链接", code: "INVALID_PRODUCT_URL", message: "商品链接必须为与 SPUID 一致的淘宝或天猫 HTTPS 商品链接" });
+    }
+
+    if (!image) {
+      addIssue({ row: row.rowNumber, field: "主图", code: "MISSING_PRODUCT_IMAGE", message: "该 SPUID 缺少锚定在主图列的内嵌图片" });
+    }
+
+    row.raw["商品ID"] = spuId;
+    row.raw["商品名称"] = productName;
+    row.raw["店铺"] = canonicalShopName;
+    row.raw["商品链接"] = normalizedProductUrl || rawProductUrl;
+    if (image) Object.assign(row.raw, productAssetMetadata(image));
+  }
+
+  for (const rowNumber of images?.keys() ?? []) {
+    if (!sourceRows.has(rowNumber)) {
+      addIssue({ row: rowNumber, field: "主图", code: "ORPHAN_PRODUCT_IMAGE", message: "内嵌图片没有对应的商品数据行" });
+    }
+  }
+  if (issuesTruncated) {
+    errors.push({ code: "TOO_MANY_VALIDATION_ERRORS", message: `校验问题超过 ${maxIssues} 条，仅返回前 ${maxIssues - 1} 条` });
+  }
+  return errors;
+}
+
 export function detectDataset(source: NetshopSource, fileName: string, headers: readonly string[]) {
   const haystack = `${fileName} ${headers.join(" ")}`;
   if (source === "jd_shop_overview") return "trade_overview";
@@ -652,6 +756,7 @@ export function detectDataset(source: NetshopSource, fileName: string, headers: 
   if (source === "jd_b2b") return "b2b";
   if (source === "jd_product_master") return "product_master";
   if (source === "tmall_product_master") return "product_master";
+  if (source === "tmall_product_assets") return "spu_assets";
   if (source === "tmall_product_daily") return "spu_daily";
   if (source === "tmall_promotion") return "promotion_daily";
   if (source === "jd_yimei_sku") return "yimei_sku";
@@ -676,11 +781,11 @@ function warehouseType(fileName: string, row: Record<string, unknown>) {
 }
 
 function usesSnapshotDate(source: NetshopSource) {
-  return source === "inv_selfop" || source === "jd_product_master" || source === "tmall_product_master";
+  return source === "inv_selfop" || source === "jd_product_master" || source === "tmall_product_master" || source === "tmall_product_assets";
 }
 
 function isTmallSource(source: NetshopSource) {
-  return source === "tmall_product_master" || source === "tmall_product_daily" || source === "tmall_promotion";
+  return source === "tmall_product_master" || source === "tmall_product_assets" || source === "tmall_product_daily" || source === "tmall_promotion";
 }
 
 function tmallMasterRowKey(input: {
@@ -695,6 +800,16 @@ function tmallMasterRowKey(input: {
 }) {
   const dimension = input.skuId || `${input.saleAttribute}|row:${input.rowNumber}`;
   return JSON.stringify([input.dataset, input.platform, input.shopName, input.snapshotDate, input.spuId, dimension]);
+}
+
+function tmallProductAssetRowKey(input: {
+  dataset: string;
+  platform: string;
+  shopName: string;
+  snapshotDate: string;
+  spuId: string;
+}) {
+  return JSON.stringify([input.dataset, input.platform, input.shopName, input.snapshotDate, input.spuId]);
 }
 
 function metricsFromRow(row: Record<string, string | number | boolean | null>) {
@@ -725,6 +840,7 @@ function validateRows(rows: readonly NetshopRowInput[]) {
     }
     if (row.dataset === "sku_daily" && !row.skuId) errors.push({ row: row.sourceRowNumber, field: "SKU", code: "MISSING_SKU_ID", message: "SKU 分天数据缺少 SKU" });
     if (row.dataset === "spu_daily" && !row.spuId) errors.push({ row: row.sourceRowNumber, field: "SPU", code: "MISSING_SPU_ID", message: "SPU 分天数据缺少 SPU" });
+    if (row.dataset === "spu_assets" && !row.spuId) errors.push({ row: row.sourceRowNumber, field: "ID", code: "MISSING_SPU_ID", message: "SPU 商品图数据缺少 SPUID" });
     if (row.dataset === "promotion_daily" && !row.spuId) errors.push({ row: row.sourceRowNumber, field: "主体ID", code: "MISSING_SUBJECT_ID", message: "推广分天数据缺少主体ID" });
     if (errors.length >= 200) break;
   }
@@ -771,6 +887,7 @@ function buildNetshopRows(input: NetshopImportInput, context: {
   shopName: string;
   fileHash: string;
   snapshotDate: string;
+  assetImages?: ReadonlyMap<number, TmallProductAssetImage>;
 }) {
   const snapshotSource = usesSnapshotDate(input.source);
   const parsedRawRows = context.parsed.rows.slice(context.header.index + 1)
@@ -784,20 +901,26 @@ function buildNetshopRows(input: NetshopImportInput, context: {
     .filter((row) => !isDailyAggregateRow(input.source, row.raw));
   const rawRows = input.source === "tmall_promotion" ? prepareTmallPromotionRows(parsedRawRows) : parsedRawRows;
   if (rawRows.length > MAX_TABULAR_ROWS) throw new Error(`单次最多导入 ${MAX_TABULAR_ROWS} 行`);
+  const sourceErrors = input.source === "tmall_product_assets"
+    ? prepareTmallProductAssetRows(rawRows, context.assetImages, context.shopName)
+    : [];
 
   const rows: NetshopRowInput[] = [];
+  if (sourceErrors.length > 0) return Promise.resolve({ rawRows, rows, sourceErrors });
   return (async () => {
     for (const row of rawRows) {
-      const isProductMaster = input.source === "jd_product_master" || input.source === "tmall_product_master";
+      const isProductMaster = input.source === "jd_product_master" || input.source === "tmall_product_master" || input.source === "tmall_product_assets";
       const businessDate = isProductMaster ? "" : firstDate(row.raw);
-      const tmallSpuId = input.source === "tmall_product_master"
+      const tmallSpuId = input.source === "tmall_product_master" || input.source === "tmall_product_assets"
         ? normalizeText(row.raw["商品ID"])
         : input.source === "tmall_product_daily"
           ? normalizeText(row.raw["商品ID"])
           : input.source === "tmall_promotion"
             ? normalizeText(row.raw["主体ID"])
             : "";
-      const productCode = input.source === "tmall_product_master"
+      const productCode = input.source === "tmall_product_assets"
+        ? ""
+        : input.source === "tmall_product_master"
         ? normalizeText(row.raw["SKU商家编码"] ?? row.raw["商品商家编码"])
         : input.source === "tmall_product_daily"
           ? normalizeText(row.raw["货号"])
@@ -810,14 +933,24 @@ function buildNetshopRows(input: NetshopImportInput, context: {
       const spuId = tmallSpuId || (input.source === "jd_product_master"
         ? productCode
         : normalizeText(findValue(row.raw, [/^spu$/i, /spu.?id/i, /spuid/i, /SPU编码/i])));
-      const productName = input.source === "tmall_product_master"
+      const productName = input.source === "tmall_product_assets"
+        ? normalizeText(row.raw["商品名称"])
+        : input.source === "tmall_product_master"
         ? normalizeText(row.raw["商品标题"])
         : input.source === "tmall_promotion"
           ? normalizeText(row.raw["主体名称"])
           : normalizeText(findValue(row.raw, [/商品名称/, /货品名称/, /产品名称/, /名称/]));
       const rawJson = JSON.stringify(row.raw);
       const rowHash = await hashText(rawJson);
-      const sourceRowKey = input.source === "tmall_product_master"
+      const sourceRowKey = input.source === "tmall_product_assets"
+        ? tmallProductAssetRowKey({
+            dataset: context.dataset,
+            platform: context.platform,
+            shopName: context.shopName,
+            snapshotDate: context.snapshotDate,
+            spuId,
+          })
+        : input.source === "tmall_product_master"
         ? tmallMasterRowKey({
             dataset: context.dataset,
             platform: context.platform,
@@ -850,21 +983,25 @@ function buildNetshopRows(input: NetshopImportInput, context: {
         raw: row.raw,
       });
     }
-    return { rawRows, rows, snapshotSource };
+    return { rawRows, rows, snapshotSource, sourceErrors };
   })();
 }
 
 export async function inspectTmallImportBytes(input: NetshopImportInput) {
-  if (!isTmallSource(input.source)) throw new Error("样本检查器仅接受天猫三类来源");
+  if (!isTmallSource(input.source)) throw new Error("样本检查器仅接受天猫来源");
   if (input.source === "tmall_product_master" && !/\.xlsx$/i.test(input.fileName)) throw new Error("天猫货品主数据只接受 .xlsx 文件");
+  if (input.source === "tmall_product_assets" && !/\.xlsx$/i.test(input.fileName)) throw new Error("天猫 SPU 商品图只接受 .xlsx 文件");
   if (input.source === "tmall_product_daily" && !/\.xls$/i.test(input.fileName)) throw new Error("生意参谋商品日数据只接受二进制 .xls 文件");
   if (input.source === "tmall_promotion" && !/\.zip$/i.test(input.fileName)) throw new Error("天猫推广数据只接受包含单个 CSV 的 .zip 文件");
+  const fileHash = toHex(await sha256(input.bytes));
   const parsed = parseFile(input.bytes, input.fileName, input.source);
+  const assetImages = input.source === "tmall_product_assets"
+    ? await extractTmallProductAssetImages(input.bytes)
+    : undefined;
   const header = findTmallHeader(input.source, parsed);
   const dataset = detectDataset(input.source, input.fileName, header.headers);
-  const snapshotDate = input.source === "tmall_product_master" ? isoDateFromValue(input.snapshotDate) : "";
-  if (input.source === "tmall_product_master" && !snapshotDate) throw new Error("天猫货品主数据必须提供有效 snapshot_date=YYYY-MM-DD");
-  const fileHash = toHex(await sha256(input.bytes));
+  const snapshotDate = usesSnapshotDate(input.source) ? isoDateFromValue(input.snapshotDate) : "";
+  if (usesSnapshotDate(input.source) && !snapshotDate) throw new Error("天猫快照数据必须提供有效 snapshot_date=YYYY-MM-DD");
   const tmallStore = resolveEnabledTmallShop(input.shopName);
   const built = await buildNetshopRows(input, {
     parsed,
@@ -874,8 +1011,9 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
     shopName: tmallStore.shopName,
     fileHash,
     snapshotDate,
+    assetImages,
   });
-  const errors = validateRows(built.rows);
+  const errors = built.sourceErrors.length > 0 ? built.sourceErrors : validateRows(built.rows);
   if (input.source === "tmall_promotion") {
     for (const row of built.rawRows) {
       if (normalizeText(row.raw["主体类型"]) !== "商品") {
@@ -915,6 +1053,7 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
       netOrders: sumMetric("netOrders"),
       dateMin: dates[0] ?? null,
       dateMax: dates[dates.length - 1] ?? null,
+      ...(assetImages ? { imageCount: assetImages.size } : {}),
     },
   };
 }
@@ -947,6 +1086,10 @@ export type NetshopImportFingerprintDependencies = Pick<
   | "reserveImportFingerprint"
 >;
 
+export type NetshopProductAssetDependencies = {
+  persistTmallProductAssetImages: typeof persistTmallProductAssetImages;
+};
+
 export async function importNetshopBytes(
   input: NetshopImportInput,
   databaseDependencies?: NetshopImportDatabaseDependencies,
@@ -961,6 +1104,9 @@ export async function importNetshopBytes(
     recordImportFingerprint,
     renewImportFingerprintReservation,
     reserveImportFingerprint,
+  },
+  productAssetDependencies: NetshopProductAssetDependencies = {
+    persistTmallProductAssetImages,
   },
 ): Promise<NetshopImportExecution> {
   const {
@@ -993,11 +1139,14 @@ export async function importNetshopBytes(
   }, result);
 
   let parsed: ParsedTable;
+  let assetImages: ReadonlyMap<number, TmallProductAssetImage> | undefined;
   try {
     if (input.source === "tmall_product_master" && !/\.xlsx$/i.test(input.fileName)) throw new Error("天猫货品主数据只接受 .xlsx 文件");
+    if (input.source === "tmall_product_assets" && !/\.xlsx$/i.test(input.fileName)) throw new Error("天猫 SPU 商品图只接受 .xlsx 文件");
     if (input.source === "tmall_product_daily" && !/\.xls$/i.test(input.fileName)) throw new Error("生意参谋商品日数据只接受二进制 .xls 文件");
     if (input.source === "tmall_promotion" && !/\.zip$/i.test(input.fileName)) throw new Error("天猫推广数据只接受包含单个 CSV 的 .zip 文件");
     parsed = parseFile(input.bytes, input.fileName, input.source);
+    if (input.source === "tmall_product_assets") assetImages = await extractTmallProductAssetImages(input.bytes);
   } catch (error) {
     const message = error instanceof Error ? error.message : "文件解析失败";
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "PARSE_ERROR", message }], errorCount: 1 });
@@ -1033,7 +1182,7 @@ export async function importNetshopBytes(
     const message = error instanceof Error ? error.message : "天猫店铺身份无效";
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "TMALL_SHOP_NOT_ALLOWED", message }], errorCount: 1 });
   }
-  const snapshotDate = input.source === "tmall_product_master"
+  const snapshotDate = input.source === "tmall_product_master" || input.source === "tmall_product_assets"
     ? isoDateFromValue(input.snapshotDate)
     : isoDateFromValue(input.snapshotDate) || fileDate(input.fileName) || "";
   const snapshotSource = usesSnapshotDate(input.source);
@@ -1050,21 +1199,26 @@ export async function importNetshopBytes(
     const message = `单次最多导入 ${MAX_TABULAR_ROWS} 行`;
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "ROW_LIMIT_EXCEEDED", message }], errorCount: 1 });
   }
+  const sourceErrors = input.source === "tmall_product_assets"
+    ? prepareTmallProductAssetRows(rawRows, assetImages, shopName)
+    : [];
 
   const rows: NetshopRowInput[] = [];
   for (const row of rawRows) {
     // 商品 SKU 导出中的“创建时间”属于商品主数据，不是经营发生日期。
     // 将它当作业务日期会把商品目录错误地混入日度经营口径。
-    const isProductMaster = input.source === "jd_product_master" || input.source === "tmall_product_master";
+    const isProductMaster = input.source === "jd_product_master" || input.source === "tmall_product_master" || input.source === "tmall_product_assets";
     const businessDate = isProductMaster ? "" : firstDate(row.raw);
-    const tmallSpuId = input.source === "tmall_product_master"
+    const tmallSpuId = input.source === "tmall_product_master" || input.source === "tmall_product_assets"
       ? normalizeText(row.raw["商品ID"])
       : input.source === "tmall_product_daily"
         ? normalizeText(row.raw["商品ID"])
         : input.source === "tmall_promotion"
           ? normalizeText(row.raw["主体ID"])
           : "";
-    const productCode = input.source === "tmall_product_master"
+    const productCode = input.source === "tmall_product_assets"
+      ? ""
+      : input.source === "tmall_product_master"
       ? normalizeText(row.raw["SKU商家编码"] ?? row.raw["商品商家编码"])
       : input.source === "tmall_product_daily"
         ? normalizeText(row.raw["货号"])
@@ -1077,14 +1231,18 @@ export async function importNetshopBytes(
     const spuId = tmallSpuId || (input.source === "jd_product_master"
       ? productCode
       : normalizeText(findValue(row.raw, [/^spu$/i, /spu.?id/i, /spuid/i, /SPU编码/i])));
-    const productName = input.source === "tmall_product_master"
+    const productName = input.source === "tmall_product_assets"
+      ? normalizeText(row.raw["商品名称"])
+      : input.source === "tmall_product_master"
       ? normalizeText(row.raw["商品标题"])
       : input.source === "tmall_promotion"
         ? normalizeText(row.raw["主体名称"])
         : normalizeText(findValue(row.raw, [/商品名称/, /货品名称/, /产品名称/, /名称/]));
     const rawJson = JSON.stringify(row.raw);
     const rowHash = await hashText(rawJson);
-    const sourceRowKey = input.source === "tmall_product_master"
+    const sourceRowKey = input.source === "tmall_product_assets"
+      ? tmallProductAssetRowKey({ dataset, platform, shopName, snapshotDate, spuId })
+      : input.source === "tmall_product_master"
       ? tmallMasterRowKey({
           dataset,
           platform,
@@ -1118,7 +1276,7 @@ export async function importNetshopBytes(
     });
   }
 
-  const errors = validateRows(rows);
+  const errors = sourceErrors.length > 0 ? sourceErrors : validateRows(rows);
   if (input.source === "tmall_promotion") {
     for (const row of rawRows) {
       if (normalizeText(row.raw["主体类型"]) !== "商品") {
@@ -1206,6 +1364,39 @@ export async function importNetshopBytes(
       ? await verifyNetshopImportBatch(db, currentBatch, expectedVerification)
       : null;
     if (verification?.verified) {
+      let imagePersistence: Awaited<ReturnType<typeof persistTmallProductAssetImages>> | null = null;
+      if (input.source === "tmall_product_assets") {
+        try {
+          imagePersistence = await productAssetDependencies.persistTmallProductAssetImages([...(assetImages?.values() ?? [])]);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "商品图片存储回查失败";
+          return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "PRODUCT_IMAGE_PERSIST_FAILED", message }], errorCount: 1 });
+        }
+      }
+      const duplicateStateToken = await fingerprintDependencies.readImportScopeStateToken(db, fingerprint);
+      const duplicateOwnership = await readNetshopScopeOwnership(db, {
+        source: input.source,
+        dataset,
+        platform,
+        shopName,
+        startDate: replaceStartDate,
+        endDate: replaceEndDate,
+        snapshotDate: snapshotSource ? snapshotDate : null,
+        fullScope: replaceFullScope,
+      });
+      if (duplicateStateToken !== currentStateToken
+        || duplicateOwnership.length !== 1
+        || duplicateOwnership[0]?.batchId !== currentBatch.id
+        || duplicateOwnership[0]?.rowCount !== rows.length) {
+        return reject({
+          ok: false,
+          status: "rejected",
+          message: "商品图片回查期间同一网店业务范围已更新，请重新提交最新文件",
+          warnings: [],
+          errors: [{ code: "IMPORT_SCOPE_CHANGED", message: "重复导入确认前当前业务范围版本已变化" }],
+          errorCount: 1,
+        });
+      }
       await fingerprintDependencies.recordImportFingerprint(db, {
         ...fingerprint,
         batchId: currentBatch.id,
@@ -1252,7 +1443,11 @@ export async function importNetshopBytes(
         message: "全部标准化业务资料与当前数据一致，无需重复导入",
         batch: currentBatch,
         warnings: currentBatch.warnings,
-        verification: { ...verification, unmatchedProductCount },
+        verification: {
+          ...verification,
+          unmatchedProductCount,
+          ...(imagePersistence ? { imageCount: imagePersistence.total, verifiedImageCount: imagePersistence.verified } : {}),
+        },
       };
     }
   }
@@ -1323,6 +1518,15 @@ export async function importNetshopBytes(
   });
 
   try {
+  const imagePersistence = input.source === "tmall_product_assets"
+    ? await productAssetDependencies.persistTmallProductAssetImages([...(assetImages?.values() ?? [])], {
+        onBatchPersisted: () => fingerprintDependencies.renewImportFingerprintReservation(db, {
+          ...fingerprint,
+          batchId: reservedBatchId,
+          attemptId: reservation.attemptId,
+        }),
+      })
+    : null;
   const sumMetric = (key: string) => rows.reduce((sum, row) => sum + Number(row.metrics[key] ?? 0), 0);
   const result = await saveNetshopImport(db, {
     source: input.source,
@@ -1346,6 +1550,9 @@ export async function importNetshopBytes(
       unmatchedProductCount: reconciliation.unmatchedCount,
       uniqueProductCount: new Set(rows.map((row) => row.spuId).filter(Boolean)).size,
       uniqueSkuCount: new Set(rows.map((row) => row.skuId).filter(Boolean)).size,
+      imageCount: imagePersistence?.total ?? 0,
+      uniqueImageCount: imagePersistence?.unique ?? 0,
+      verifiedImageCount: imagePersistence?.verified ?? 0,
       inventoryQuantity: sumMetric("inventoryQuantity"),
       transactionAmountCents: sumMetric("transactionAmountCents"),
       refundAmountCents: sumMetric("refundAmountCents"),
@@ -1418,7 +1625,11 @@ export async function importNetshopBytes(
     message: result.created ? `${platform}网店数据导入成功` : "全部标准化业务资料与当前数据一致，无需重复导入",
     batch: result.batch,
     warnings,
-    verification: { ...verification, unmatchedProductCount: reconciliation.unmatchedCount },
+    verification: {
+      ...verification,
+      unmatchedProductCount: reconciliation.unmatchedCount,
+      ...(imagePersistence ? { imageCount: imagePersistence.total, verifiedImageCount: imagePersistence.verified } : {}),
+    },
   };
   } catch (error) {
     await fingerprintDependencies.failImportFingerprint(db, { ...fingerprint, batchId: reservedBatchId, importHash: fileHash, rawFileHash, attemptId: reservation.attemptId, metadata: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes, warnings }, errorCode: "NETSHOP_IMPORT_FAILED" }).catch(() => undefined);

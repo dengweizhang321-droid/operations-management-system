@@ -70,6 +70,7 @@ export type GlobalSearchGroup = {
   available: boolean;
   page?: number;
   total: number;
+  totalExact?: boolean;
   hasMore: boolean;
   items: GlobalSearchItem[];
 };
@@ -79,6 +80,8 @@ export type GlobalSearchResult = {
   page?: number;
   returned: number;
   truncated: boolean;
+  deadlineExceeded?: boolean;
+  timedOutDomains?: string[];
   groups: GlobalSearchGroup[];
   unavailableDomains: string[];
   error?: string;
@@ -200,7 +203,7 @@ export function deriveGlobalSearchPresentation(
     showShortQuery: hasQuery && Array.from(trimmed).length < 2,
     showLoading: hasQuery && loading,
     showError: hasQuery && Boolean(error),
-    showResult: hasQuery && !loading && !error && result !== null,
+    showResult: hasQuery && Array.from(trimmed).length >= 2 && !error && result !== null,
   };
 }
 
@@ -275,9 +278,9 @@ export default function GlobalSearchDialog({
       </div>
 
       {!presentation.showGuide && (
-        <div className="search-results" aria-live="polite" aria-busy={presentation.showLoading}>
+        <div className="search-results data-refresh-region" aria-live="polite" aria-busy={presentation.showLoading}>
           {presentation.showShortQuery && <div className="search-state" role="status">请输入至少 2 个字符。</div>}
-          {presentation.showLoading && <div className="search-state" role="status">正在按业务域搜索已接入数据…</div>}
+          {presentation.showLoading && !presentation.showResult && <div className="search-state" role="status">正在按业务域搜索已接入数据…</div>}
           {presentation.showError && <div className="search-state search-state-error" role="alert">{error}</div>}
           {presentation.showResult && result && (
             <>
@@ -289,12 +292,12 @@ export default function GlobalSearchDialog({
                   <section className="search-result-section" key={group.key} aria-labelledby={headingId}>
                     <div>
                       <p id={headingId}>{group.label}</p>
-                      <small>显示 {formatCount(group.items.length)} / {formatCount(group.total)} 条{group.hasMore ? " · 可继续分页" : ""}</small>
+                      <small>显示 {formatCount(group.items.length)} 条 · {group.totalExact === false ? "至少 " : "共 "}{formatCount(group.total)} 条{group.hasMore ? " · 可继续分页" : ""}</small>
                       {group.hasMore && onLoadMoreGroup && (
                         <button
                           type="button"
                           className="row-action"
-                          disabled={groupLoading}
+                          disabled={loading || groupLoading}
                           aria-busy={groupLoading}
                           aria-label={`加载更多${group.label}结果`}
                           onClick={() => onLoadMoreGroup(group.key, nextPage)}
@@ -310,6 +313,7 @@ export default function GlobalSearchDialog({
                           type="button"
                           className="search-result-item"
                           key={`${group.key}-${item.id}`}
+                          disabled={loading}
                           onClick={() => onSelectItem(item)}
                         >
                           <span className={`search-result-icon search-result-icon-${group.key}`} aria-hidden="true">{group.icon}</span>
@@ -329,6 +333,7 @@ export default function GlobalSearchDialog({
               {loadMoreError && <div className="search-state search-state-error" role="alert">{loadMoreError}</div>}
               <div className="search-coverage-note">
                 按字段白名单搜索，单域和总结果均有限额
+                {result.deadlineExceeded ? `；${result.timedOutDomains?.length ?? 0} 个业务域达到本次搜索时限，可指定业务域重试` : ""}
                 {result.unavailableDomains.length > 0 ? `；${result.unavailableDomains.length} 个未建表业务域已安全跳过` : ""}。
               </div>
             </>
@@ -341,7 +346,7 @@ export default function GlobalSearchDialog({
           <p>全系统搜索</p>
           <div className="search-guide">
             <strong>覆盖货品、订单、京东商品、库存、市场 SKU、客服、财务、目标、事务与导入批次</strong>
-            <small>按业务域分组返回；聊天正文可匹配，结果只展示必要摘要。</small>
+            <small>按业务域分组返回；仅在明确搜索客服分组时匹配聊天正文，结果只展示必要摘要。</small>
           </div>
           <p>快速访问</p>
           <div className="quick-links">

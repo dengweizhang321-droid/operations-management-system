@@ -94,7 +94,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
   tmall: {
     key: "tmall",
     definition: tmallWorkflowDefinition as N8nWorkflowDefinition,
-    subtitle: "天猫货品主数据、生意参谋 SPU 分天数据与全站推推广报表的一体化导入流程。",
+    subtitle: "天猫货品主数据、生意参谋 SPU 分天数据与阿里妈妈商品推广报表的一体化导入流程。",
     tags: ["天猫-志高亿玖专卖店", "Asia/Shanghai", "本机安全执行"],
     flowLabel: "A → B → C → P → M",
     pipelineTitle: "五段式安全导入链路",
@@ -110,7 +110,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
       A: { title: "登录预检与目标日计划", description: "启动店铺独立 Chromium，仅从 Windows DPAPI 凭据库向唯一登录表单提交一次并核验店铺身份；通过后默认生成昨天。" },
       B: { title: "逐日下载", description: "每个业务日独立下载生意参谋 XLS，并核验店铺身份、文件类型与日期覆盖。" },
       C: { title: "签收导入", description: "签收受控文件，按业务范围与规范化完整内容判重，并回查批次、行数、店铺与同日覆盖。" },
-      P: { title: "全站推推广", description: "从千牛左侧推广进入货品全站推报表；目标日按升序串行，起止日期为同一天并选全部指标，每日下载、校验、导入和回查成功后再处理下一天。" },
+      P: { title: "商品推广报表", description: "进入阿里妈妈商品报表，营销场景全选、维度选择商品和计划；目标日逐日下载，按商品汇总计划行，校验、导入并完成覆盖回查。" },
     },
   },
   jd: {
@@ -316,7 +316,23 @@ export default function N8nWorkflowView({ currentUser, moduleView, onModuleViewC
   useEffect(() => {
     let cancelled = false;
     let activeController: AbortController | null = null;
+    let pollTimer: number | null = null;
+    let lastKind: HelperAvailability["kind"] | "" = "";
+    let stableChecks = 0;
+    let checkGeneration = 0;
+    const recordKind = (kind: HelperAvailability["kind"]) => {
+      stableChecks = kind === lastKind ? stableChecks + 1 : 0;
+      lastKind = kind;
+    };
+    const scheduleNext = () => {
+      if (cancelled || document.visibilityState === "hidden") return;
+      const delay = stableChecks >= 2 ? 15_000 : 5_000;
+      pollTimer = window.setTimeout(() => void check(), delay);
+    };
     const check = async () => {
+      const generation = ++checkGeneration;
+      if (pollTimer !== null) window.clearTimeout(pollTimer);
+      pollTimer = null;
       activeController?.abort();
       const controller = new AbortController();
       activeController = controller;
@@ -325,13 +341,15 @@ export default function N8nWorkflowView({ currentUser, moduleView, onModuleViewC
         const response = await fetch(helperHealthUrl, { cache: "no-store", signal: controller.signal });
         const payload = await response.json() as HelperHealthPayload;
         if (!response.ok) throw new Error("helper_unavailable");
-        if (!cancelled) {
+        if (!cancelled && generation === checkGeneration) {
           const availability = helperAvailability(payload, selectedWorkflowKey);
+          recordKind(availability.kind);
           if (availability.kind !== "ready") setFrameReady(false);
           setHelperStatus(availability);
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && generation === checkGeneration) {
+          recordKind("offline");
           setFrameReady(false);
           setHelperStatus({
             kind: "offline",
@@ -341,15 +359,30 @@ export default function N8nWorkflowView({ currentUser, moduleView, onModuleViewC
         }
       } finally {
         window.clearTimeout(timeout);
+        if (activeController === controller) activeController = null;
+        if (generation === checkGeneration) scheduleNext();
       }
     };
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        checkGeneration += 1;
+        if (pollTimer !== null) window.clearTimeout(pollTimer);
+        pollTimer = null;
+        activeController?.abort();
+        return;
+      }
+      void check();
+    };
+
     void check();
-    const interval = window.setInterval(() => void check(), 5_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
+      checkGeneration += 1;
       activeController?.abort();
-      window.clearInterval(interval);
+      if (pollTimer !== null) window.clearTimeout(pollTimer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [helperRefreshKey, selectedWorkflowKey]);
 

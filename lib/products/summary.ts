@@ -13,14 +13,24 @@ import {
   type ProductSummaryRange,
   type ProductSummarySort,
 } from "@/lib/products/query-contract";
-import { findLatestSalesImportBatch } from "@/lib/sales/database";
 import {
   canonicalizeShopIdentity,
-  expandShopAliases,
   parseShopFilterKey,
   shopFilterKey,
   type CanonicalShopIdentity,
 } from "@/lib/sales/shop-identity";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+  type SalesConsumerResponseMap,
+  type SalesProductAggregate,
+} from "@/lib/django/sales-consumer-reader";
+import { PublicApiError } from "@/lib/http/api-error";
+import {
+  ensureProductShippingRateSchema,
+  findLatestProductShippingRateBatchId,
+} from "@/lib/products/shipping-rate-database";
 
 export type { ProductSummaryRange } from "@/lib/products/query-contract";
 export { ProductSummaryContractError as ProductSummaryRequestError } from "@/lib/products/query-contract";
@@ -42,6 +52,7 @@ export type ProductSummaryItem = {
   grossProfitCents: number;
   grossMarginRate: number | null;
   refundRate: number;
+  shippingRate: number | null;
   averageSalePriceCents: number | null;
   averageCostCents: number | null;
   observedFeeRate: number | null;
@@ -54,6 +65,61 @@ export type ProductSummaryItem = {
 export type ProductSummaryOptions = ProductSummaryQueryOptions & {
   platforms?: string[];
   shopKeys?: string[];
+  projection?: ProductSummaryProjection;
+  expectedSnapshotToken?: string;
+  signal?: AbortSignal;
+};
+
+export type ProductSummaryProjection = "full" | "page";
+
+export type ProductSummaryPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  returned: number;
+  totalPages: number;
+  truncated: boolean;
+};
+
+export type ProductSummaryPageResponse = {
+  projection: "page";
+  snapshotToken: string;
+  sort: { by: ProductSummarySort; direction: ProductSummaryDirection };
+  pagination: ProductSummaryPagination;
+  items: ProductSummaryItem[];
+};
+
+export type ProductSummaryFullResponse = {
+  projection: "full";
+  snapshotToken: string;
+  hasSales: boolean;
+  range: ProductSummaryRange;
+  sync: {
+    salesThrough: string | null;
+    salesWindowStart: string | null;
+    requestedStartDate: string | null;
+    requestedEndDate: string | null;
+    dataStartDate: string | null;
+    dataCutoffDate: string | null;
+    inventoryAsOf: string | null;
+    latestSalesFile: string | null;
+  };
+  filters: {
+    platforms: string[];
+    shops: Array<{ key: string; platform: string; shop: string }>;
+    categories: string[];
+  };
+  filtersApplied: {
+    platforms: string[];
+    shops: Array<{ key: string; platform: string; shop: string }>;
+    query: string;
+    categories: string[];
+    marginBands: ProductMarginBand[];
+  };
+  sort: { by: ProductSummarySort; direction: ProductSummaryDirection };
+  metrics: ReturnType<typeof emptyMetrics>;
+  pagination: ProductSummaryPagination;
+  items: ProductSummaryItem[];
 };
 
 type ProductSummaryFilters = {
@@ -83,26 +149,29 @@ type ProductRow = {
   priced_available_quantity: number | null;
   gross_margin_rate: number | null;
   refund_rate: number | null;
+  shipping_rate: number | null;
 };
 
-type MetricsRow = {
-  sku_count: number | null;
-  gross_sales_cents: number | null;
-  net_sales_cents: number | null;
-  gross_profit_cents: number | null;
-  loss_sku_count: number | null;
-  stocked_sku_count: number | null;
-  below_35_count: number | null;
-  between_35_and_40_count: number | null;
-  between_40_and_45_count: number | null;
-  at_least_45_count: number | null;
-};
-
-type OutletRow = {
+type ErpProductRow = {
   product_code: string;
-  platform: string;
-  shop_name: string;
-  channel: string;
+  product_name: string;
+  brand: string;
+  specification: string;
+  category: string;
+  supplier: string;
+};
+
+type ProductStockRow = {
+  product_code: string;
+  brand: string | null;
+  available_quantity: number;
+  known_stock_value_cents: number;
+  priced_available_quantity: number;
+};
+
+type ProductShippingRateRow = {
+  product_code: string;
+  shipping_rate: number;
 };
 
 function rate(numerator: number, denominator: number) {
@@ -123,27 +192,6 @@ function normalizeFilters(options: ProductSummaryOptions): ProductSummaryFilters
   return { platforms, shops: [...shopsByKey.values()] };
 }
 
-function salesFilterClause(filters: ProductSummaryFilters) {
-  const clauses: string[] = [];
-  const values: string[] = [];
-  if (filters.platforms.length > 0) {
-    clauses.push(`platform IN (${filters.platforms.map(() => "?").join(", ")})`);
-    values.push(...filters.platforms);
-  }
-  if (filters.shops.length > 0) {
-    const shopClauses = filters.shops.map((identity) => {
-      const aliases = expandShopAliases(identity).slice(0, 5);
-      values.push(identity.platform, ...aliases);
-      return `(platform = ? AND shop_name IN (${aliases.map(() => "?").join(", ")}))`;
-    });
-    clauses.push(`(${shopClauses.join(" OR ")})`);
-  }
-  return {
-    sql: clauses.length > 0 ? ` AND ${clauses.join(" AND ")}` : "",
-    values,
-  };
-}
-
 function normalizeQuery(options: ProductSummaryOptions) {
   const query = options.query?.trim().slice(0, 100) ?? "";
   const categories = uniqueStrings(options.categories ?? [], 10);
@@ -156,105 +204,312 @@ function normalizeQuery(options: ProductSummaryOptions) {
   return { query, categories, marginBands, sortBy, direction };
 }
 
-function itemFilterClause(query: ReturnType<typeof normalizeQuery>) {
-  const clauses: string[] = [];
-  const values: Array<string | number> = [];
-  if (query.query) {
-    const keywords = uniqueStrings(query.query.split(/[\s,，;；]+/), 8).map((value) => `%${value.toLowerCase()}%`);
-    clauses.push(`(${keywords.map(() => `(
-      LOWER(product_code) LIKE ? OR LOWER(product_name) LIKE ? OR LOWER(brand) LIKE ?
-      OR LOWER(supplier_name) LIKE ? OR LOWER(specification) LIKE ? OR LOWER(category) LIKE ?
-    )`).join(" OR ")})`);
-    for (const keyword of keywords) values.push(keyword, keyword, keyword, keyword, keyword, keyword);
+const PRODUCT_PERFORMANCE_PRODUCT_CHUNK_SIZE = 1_000;
+const PRODUCT_PERFORMANCE_LIMIT = 5_000;
+const MAX_LOCAL_PRODUCT_KEYS = 20_000;
+
+function validRevision(value: unknown): string {
+  const revision = String(value ?? "").trim();
+  if (!revision || revision.length > 128 || /[\u0000-\u001f\u007f]/.test(revision)) {
+    throw new PublicApiError(503, "service_unavailable", "商品汇总数据版本无效，请稍后重试");
   }
-  if (query.categories.length > 0) {
-    clauses.push(`category IN (${query.categories.map(() => "?").join(", ")})`);
-    values.push(...query.categories);
-  }
-  if (query.marginBands.length > 0) {
-    const bands: string[] = [];
-    for (const band of query.marginBands) {
-      if (band === "below35") bands.push("gross_margin_rate < 0.35");
-      else if (band === "35to40") bands.push("gross_margin_rate >= 0.35 AND gross_margin_rate < 0.4");
-      else if (band === "40to45") bands.push("gross_margin_rate >= 0.4 AND gross_margin_rate < 0.45");
-      else if (band === "atLeast45") bands.push("gross_margin_rate >= 0.45");
-      else bands.push("gross_margin_rate IS NULL");
-    }
-    clauses.push(`(${bands.map((band) => `(${band})`).join(" OR ")})`);
-  }
-  return { sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", values };
+  return revision;
 }
 
-function productCte(input: {
-  rangeStart: string;
-  rangeEndExclusive: string;
+async function readErpProductRevision(db: InventoryDatabase) {
+  const row = await db.prepare(
+    "SELECT erp_revision FROM erp_product_projection_state WHERE id = 1",
+  ).first<{ erp_revision: number | null }>();
+  const revision = Number(row?.erp_revision ?? 0);
+  if (!Number.isSafeInteger(revision) || revision < 1) {
+    throw new PublicApiError(503, "service_unavailable", "ERP 货品版本无效，请稍后重试");
+  }
+  return revision;
+}
+
+async function buildProductSummarySnapshotToken(input: {
+  salesRevision: string;
+  erpProductRevision: number;
   inventoryBatchId: string | null;
-  salesFilter: ReturnType<typeof salesFilterClause>;
-  itemFilter: ReturnType<typeof itemFilterClause>;
+  shippingRateBatchId: string | null;
 }) {
-  const sql = `WITH sales_agg AS (
-    SELECT
-      product_code,
-      MAX(NULLIF(product_name, '')) AS product_name,
-      MAX(NULLIF(specification, '')) AS specification,
-      MAX(NULLIF(category, '')) AS category,
-      MAX(NULLIF(supplier, '')) AS supplier,
-      COALESCE(SUM(quantity), 0) AS net_quantity,
-      COALESCE(SUM(CASE WHEN allocated_amount_cents > 0 THEN allocated_amount_cents ELSE 0 END), 0) AS gross_sales_cents,
-      COALESCE(SUM(CASE WHEN allocated_amount_cents < 0 THEN -allocated_amount_cents ELSE 0 END), 0) AS refund_amount_cents,
-      COALESCE(SUM(allocated_amount_cents), 0) AS net_sales_cents,
-      COALESCE(SUM(cost_amount_cents), 0) AS cost_cents,
-      COALESCE(SUM(fee_allocation_cents), 0) AS fee_cents,
-      COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-      COALESCE(SUM(ABS(quantity)), 0) AS absolute_quantity,
-      COALESCE(SUM(ABS(cost_amount_cents)), 0) AS absolute_cost_cents
-    FROM sales_order_lines
-    WHERE ship_time >= ? AND ship_time < ?
-      AND TRIM(warehouse) <> '刷刷仓'
-      AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-      AND TRIM(product_name) <> '补差价专用'${input.salesFilter.sql}
-    GROUP BY product_code
-  ), stock_agg AS (
-    SELECT
-      product_code,
-      MAX(NULLIF(brand, '')) AS brand,
-      COALESCE(SUM(MAX(available_quantity, 0)), 0) AS available_quantity,
-      COALESCE(SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END), 0) AS known_stock_value_cents,
-      COALESCE(SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) ELSE 0 END), 0) AS priced_available_quantity
-    FROM inventory_stock_lines
-    WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓'
-    GROUP BY product_code
-  ), base AS (
-    SELECT
-      s.product_code,
-      COALESCE(NULLIF(m.product_name, ''), s.product_name, s.product_code) AS product_name,
-      COALESCE(NULLIF(m.brand, ''), st.brand, '') AS brand,
-      COALESCE(NULLIF(m.supplier, ''), s.supplier, '') AS supplier_name,
-      COALESCE(NULLIF(m.specification, ''), s.specification, '') AS specification,
-      COALESCE(NULLIF(m.category, ''), s.category, '未分类') AS category,
-      s.net_quantity, s.gross_sales_cents, s.refund_amount_cents, s.net_sales_cents,
-      s.cost_cents, s.fee_cents, s.gross_profit_cents, s.absolute_quantity, s.absolute_cost_cents,
-      st.available_quantity,
-      CASE WHEN st.available_quantity <= st.priced_available_quantity THEN st.known_stock_value_cents ELSE NULL END AS stock_value_cents,
-      st.known_stock_value_cents, st.priced_available_quantity,
-      CASE WHEN s.net_sales_cents > 0 THEN s.gross_profit_cents * 1.0 / s.net_sales_cents ELSE NULL END AS gross_margin_rate,
-      CASE WHEN s.gross_sales_cents > 0 THEN s.refund_amount_cents * 1.0 / s.gross_sales_cents ELSE 0 END AS refund_rate
-    FROM sales_agg s
-    LEFT JOIN erp_product_master m ON m.product_code = s.product_code
-    LEFT JOIN stock_agg st ON st.product_code = s.product_code
-  ), filtered AS (
-    SELECT * FROM base ${input.itemFilter.sql}
-  )`;
+  const payload = JSON.stringify({
+    version: 3,
+    salesRevision: validRevision(input.salesRevision),
+    erpProductRevision: input.erpProductRevision,
+    inventoryBatchId: input.inventoryBatchId ?? "",
+    shippingRateBatchId: input.shippingRateBatchId ?? "",
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyProductSummarySnapshot(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  salesReader: SalesConsumerReader,
+  expectedSnapshotToken: string,
+  expectedSalesRevision: string,
+  signal?: AbortSignal,
+) {
+  const [freshness, erpProductRevision, latestInventoryBatch, shippingRateBatchId] = await Promise.all([
+    salesReader.read(principal, { operation: "freshness" }, { signal }),
+    readErpProductRevision(db),
+    findLatestInventoryImportBatch(db),
+    findLatestProductShippingRateBatchId(db),
+  ]);
+  if (freshness.revision !== expectedSalesRevision) {
+    throw new PublicApiError(503, "service_unavailable", "商品汇总在读取期间销售数据已更新，请重新加载");
+  }
+  const currentSnapshotToken = await buildProductSummarySnapshotToken({
+    salesRevision: freshness.revision,
+    erpProductRevision,
+    inventoryBatchId: latestInventoryBatch?.id ?? null,
+    shippingRateBatchId,
+  });
+  if (currentSnapshotToken !== expectedSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品汇总在读取期间已更新，请重新加载");
+  }
+}
+
+function salesConsumerUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 销售读取服务返回的数据不完整，请稍后重试。",
+  );
+}
+
+function compareText(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function isIsoDateOrNull(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+function assertFiniteNumber(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) throw salesConsumerUnavailable();
+}
+
+type SalesLatestBatch = SalesConsumerResponseMap["freshness"]["latestBatch"];
+
+function validateLatestBatch(value: SalesLatestBatch) {
+  if (value === null) return;
+  if (!value || typeof value !== "object"
+    || typeof value.id !== "string" || value.id.length === 0
+    || typeof value.fileName !== "string" || value.fileName.length === 0
+    || (value.completedAt !== null && typeof value.completedAt !== "string")
+    || !Number.isSafeInteger(value.rowCount) || value.rowCount < 0) {
+    throw salesConsumerUnavailable();
+  }
+}
+
+function sameLatestBatch(left: SalesLatestBatch, right: SalesLatestBatch) {
+  if (left === null || right === null) return left === right;
+  return left.id === right.id
+    && left.fileName === right.fileName
+    && left.completedAt === right.completedAt
+    && left.rowCount === right.rowCount;
+}
+
+function validateSalesProduct(row: SalesProductAggregate, requested: ReadonlySet<string>) {
+  if (!row || typeof row.productCode !== "string" || !requested.has(row.productCode)
+    || typeof row.productName !== "string" || typeof row.specification !== "string"
+    || typeof row.category !== "string" || typeof row.supplier !== "string"
+    || !Array.isArray(row.outlets)) {
+    throw salesConsumerUnavailable();
+  }
+  for (const value of [
+    row.netQuantity,
+    row.grossSalesCents,
+    row.refundAmountCents,
+    row.netSalesCents,
+    row.costCents,
+    row.feeCents,
+    row.grossProfitCents,
+    row.absoluteQuantity,
+    row.absoluteCostCents,
+  ]) assertFiniteNumber(value);
+  if (row.grossSalesCents < 0 || row.refundAmountCents < 0
+    || row.absoluteQuantity < 0 || row.absoluteCostCents < 0) {
+    throw salesConsumerUnavailable();
+  }
+  for (const outlet of row.outlets) {
+    if (!outlet || typeof outlet.platform !== "string" || typeof outlet.shopName !== "string"
+      || (outlet.channel !== undefined && outlet.channel !== null && typeof outlet.channel !== "string")) {
+      throw salesConsumerUnavailable();
+    }
+  }
+}
+
+async function loadLocalProductDimensions(db: InventoryDatabase, inventoryBatchId: string | null) {
+  const [erpResult, stockResult, shippingResult] = await Promise.all([
+    db.prepare(
+      `SELECT product_code, product_name, brand, specification, category, supplier
+       FROM erp_product_master
+       ORDER BY product_code
+       LIMIT ?`,
+    ).bind(MAX_LOCAL_PRODUCT_KEYS + 1).all<ErpProductRow>(),
+    inventoryBatchId
+      ? db.prepare(
+        `SELECT
+          product_code,
+          MAX(NULLIF(brand, '')) AS brand,
+          COALESCE(SUM(MAX(available_quantity, 0)), 0) AS available_quantity,
+          COALESCE(SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END), 0) AS known_stock_value_cents,
+          COALESCE(SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) ELSE 0 END), 0) AS priced_available_quantity
+         FROM inventory_stock_lines
+         WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓'
+         GROUP BY product_code
+         ORDER BY product_code
+         LIMIT ?`,
+      ).bind(inventoryBatchId, MAX_LOCAL_PRODUCT_KEYS + 1).all<ProductStockRow>()
+      : Promise.resolve({ results: [] as ProductStockRow[] }),
+    db.prepare(
+      `SELECT product_code, shipping_rate
+       FROM product_shipping_rates
+       ORDER BY product_code
+       LIMIT ?`,
+    ).bind(MAX_LOCAL_PRODUCT_KEYS + 1).all<ProductShippingRateRow>(),
+  ]);
+  if (erpResult.results.length > MAX_LOCAL_PRODUCT_KEYS || stockResult.results.length > MAX_LOCAL_PRODUCT_KEYS
+    || shippingResult.results.length > MAX_LOCAL_PRODUCT_KEYS) {
+    throw salesConsumerUnavailable();
+  }
+  const erp = new Map(erpResult.results.map((row) => [row.product_code, row]));
+  const stock = new Map(stockResult.results.map((row) => [row.product_code, row]));
+  const shipping = new Map(shippingResult.results.map((row) => [row.product_code, Number(row.shipping_rate)]));
+  const productCodes = [...new Set([...erp.keys(), ...stock.keys()])].filter(Boolean).sort(compareText);
+  if (productCodes.length > MAX_LOCAL_PRODUCT_KEYS) throw salesConsumerUnavailable();
+  return { productCodes, erp, stock, shipping };
+}
+
+async function readProductPerformance(
+  reader: SalesConsumerReader,
+  principal: AppPrincipal,
+  input: {
+    productCodes: string[];
+    startDate: string;
+    endDateExclusive: string;
+    filters: ProductSummaryFilters;
+    expectedRevision: string;
+    expectedLatestBatch: SalesLatestBatch;
+    signal?: AbortSignal;
+  },
+) {
+  const rows = new Map<string, SalesProductAggregate>();
+  const outletOptions = new Map<string, CanonicalShopIdentity>();
+  const chunks: string[][] = [];
+  for (let offset = 0; offset < input.productCodes.length; offset += PRODUCT_PERFORMANCE_PRODUCT_CHUNK_SIZE) {
+    chunks.push(input.productCodes.slice(offset, offset + PRODUCT_PERFORMANCE_PRODUCT_CHUNK_SIZE));
+  }
+  for (let offset = 0; offset < chunks.length; offset += 4) {
+    const group = chunks.slice(offset, offset + 4);
+    const results = await Promise.all(group.map((productCodes) => reader.read(principal, {
+      operation: "product_performance",
+      startDate: input.startDate,
+      endDate: input.endDateExclusive,
+      platforms: input.filters.platforms,
+      outlets: input.filters.shops.map((outlet) => ({ platform: outlet.platform, shopName: outlet.shopName })),
+      productCodes,
+      limit: PRODUCT_PERFORMANCE_LIMIT,
+    }, { signal: input.signal })));
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const requested = new Set(group[index]);
+      if (!result || typeof result !== "object" || !result.data || typeof result.data !== "object"
+        || result.revision !== input.expectedRevision
+        || result.data.truncated !== false
+        || !Array.isArray(result.data.rows)
+        || !Array.isArray(result.data.outletOptions)
+        || !isIsoDateOrNull(result.data.dataStartDate)
+        || !isIsoDateOrNull(result.data.dataCutoffDate)) {
+        throw salesConsumerUnavailable();
+      }
+      validateLatestBatch(result.data.latestBatch);
+      if (!sameLatestBatch(result.data.latestBatch, input.expectedLatestBatch)) {
+        throw salesConsumerUnavailable();
+      }
+      for (const row of result.data.rows) {
+        validateSalesProduct(row, requested);
+        if (rows.has(row.productCode)) throw salesConsumerUnavailable();
+        rows.set(row.productCode, row);
+      }
+      for (const outlet of result.data.outletOptions) {
+        if (!outlet || typeof outlet.platform !== "string" || typeof outlet.shopName !== "string"
+          || (outlet.channel !== undefined && outlet.channel !== null && typeof outlet.channel !== "string")) {
+          throw salesConsumerUnavailable();
+        }
+        const identity = canonicalizeShopIdentity(outlet.platform, outlet.shopName, outlet.channel);
+        outletOptions.set(shopFilterKey(identity), identity);
+      }
+    }
+  }
+  return { rows, outletOptions };
+}
+
+function mergeProductRow(
+  sales: SalesProductAggregate,
+  erp: ErpProductRow | undefined,
+  stock: ProductStockRow | undefined,
+  shippingRate: number | undefined,
+): ProductRow {
+  const netSalesCents = Number(sales.netSalesCents);
+  const grossSalesCents = Number(sales.grossSalesCents);
+  const refundAmountCents = Number(sales.refundAmountCents);
+  const availableQuantity = stock ? Number(stock.available_quantity) : null;
+  const pricedAvailableQuantity = stock ? Number(stock.priced_available_quantity) : null;
+  const knownStockValueCents = stock ? Number(stock.known_stock_value_cents) : null;
   return {
-    sql,
-    values: [
-      input.rangeStart,
-      input.rangeEndExclusive,
-      ...input.salesFilter.values,
-      input.inventoryBatchId ?? "",
-      ...input.itemFilter.values,
-    ],
+    product_code: sales.productCode,
+    product_name: erp?.product_name || sales.productName || sales.productCode,
+    brand: erp?.brand || stock?.brand || "",
+    supplier_name: erp?.supplier || sales.supplier || "",
+    specification: erp?.specification || sales.specification || "",
+    category: erp?.category || sales.category || "未分类",
+    net_quantity: Number(sales.netQuantity),
+    gross_sales_cents: grossSalesCents,
+    refund_amount_cents: refundAmountCents,
+    net_sales_cents: netSalesCents,
+    cost_cents: Number(sales.costCents),
+    fee_cents: Number(sales.feeCents),
+    gross_profit_cents: Number(sales.grossProfitCents),
+    absolute_quantity: Number(sales.absoluteQuantity),
+    absolute_cost_cents: Number(sales.absoluteCostCents),
+    available_quantity: availableQuantity,
+    stock_value_cents: availableQuantity !== null && pricedAvailableQuantity !== null
+      && availableQuantity <= pricedAvailableQuantity ? knownStockValueCents : null,
+    known_stock_value_cents: knownStockValueCents,
+    priced_available_quantity: pricedAvailableQuantity,
+    gross_margin_rate: rate(Number(sales.grossProfitCents), netSalesCents),
+    refund_rate: rate(refundAmountCents, grossSalesCents) ?? 0,
+    shipping_rate: shippingRate ?? null,
   };
+}
+
+function matchesTextQuery(row: ProductRow, query: string) {
+  if (!query) return true;
+  const fields = [row.product_code, row.product_name, row.brand, row.supplier_name, row.specification, row.category]
+    .map((value) => (value ?? "").toLowerCase());
+  const keywords = uniqueStrings(query.split(/[\s,，;；]+/), 8).map((value) => value.toLowerCase());
+  return keywords.some((keyword) => fields.some((field) => field.includes(keyword)));
+}
+
+function matchesMarginBands(row: ProductRow, bands: ProductMarginBand[]) {
+  if (bands.length === 0) return true;
+  const margin = row.gross_margin_rate;
+  return bands.some((band) => {
+    if (band === "unavailable") return margin === null;
+    if (margin === null) return false;
+    if (band === "below35") return margin < 0.35;
+    if (band === "35to40") return margin >= 0.35 && margin < 0.4;
+    if (band === "40to45") return margin >= 0.4 && margin < 0.45;
+    return margin >= 0.45;
+  });
 }
 
 function emptyMetrics() {
@@ -267,26 +522,6 @@ function emptyMetrics() {
     lossSkuCount: 0,
     stockedSkuCount: 0,
     marginBuckets: { below35Count: 0, between35And40Count: 0, between40And45Count: 0, atLeast45Count: 0 },
-  };
-}
-
-function mapMetrics(row: MetricsRow | null) {
-  const netSalesCents = Number(row?.net_sales_cents ?? 0);
-  const grossProfitCents = Number(row?.gross_profit_cents ?? 0);
-  return {
-    skuCount: Number(row?.sku_count ?? 0),
-    grossSalesCents: Number(row?.gross_sales_cents ?? 0),
-    netSalesCents,
-    grossProfitCents,
-    grossMarginRate: rate(grossProfitCents, netSalesCents),
-    lossSkuCount: Number(row?.loss_sku_count ?? 0),
-    stockedSkuCount: Number(row?.stocked_sku_count ?? 0),
-    marginBuckets: {
-      below35Count: Number(row?.below_35_count ?? 0),
-      between35And40Count: Number(row?.between_35_and_40_count ?? 0),
-      between40And45Count: Number(row?.between_40_and_45_count ?? 0),
-      atLeast45Count: Number(row?.at_least_45_count ?? 0),
-    },
   };
 }
 
@@ -314,6 +549,7 @@ function mapItem(row: ProductRow, outlets: Array<{ platform: string; shop: strin
     grossProfitCents: Number(row.gross_profit_cents ?? 0),
     grossMarginRate: row.gross_margin_rate === null ? null : Number(row.gross_margin_rate),
     refundRate: row.refund_rate === null ? 0 : Number(row.refund_rate),
+    shippingRate: row.shipping_rate === null ? null : Number(row.shipping_rate),
     averageSalePriceCents: rate(netSalesCents, netQuantity),
     averageCostCents: rate(absoluteCostCents, absoluteQuantity),
     observedFeeRate: rate(Math.abs(Number(row.fee_cents ?? 0)), grossSalesCents),
@@ -328,33 +564,81 @@ function mapItem(row: ProductRow, outlets: Array<{ platform: string; shop: strin
   };
 }
 
-export async function getProductSummary(db: InventoryDatabase, optionsOrDays: ProductSummaryOptions | number = {}) {
+export function getProductSummary(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  options: Omit<ProductSummaryOptions, "projection"> & { projection: "page" },
+  salesReader?: SalesConsumerReader,
+): Promise<ProductSummaryPageResponse>;
+export function getProductSummary(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  optionsOrDays?: (Omit<ProductSummaryOptions, "projection"> & { projection?: "full" }) | number,
+  salesReader?: SalesConsumerReader,
+): Promise<ProductSummaryFullResponse>;
+export function getProductSummary(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  options: ProductSummaryOptions,
+  salesReader?: SalesConsumerReader,
+): Promise<ProductSummaryFullResponse | ProductSummaryPageResponse>;
+export async function getProductSummary(
+  db: InventoryDatabase,
+  principal: AppPrincipal,
+  optionsOrDays: ProductSummaryOptions | number = {},
+  salesReader: SalesConsumerReader = createDjangoSalesConsumerReader(),
+): Promise<ProductSummaryFullResponse | ProductSummaryPageResponse> {
   const options = typeof optionsOrDays === "number" ? { days: optionsOrDays } : optionsOrDays;
+  await ensureProductShippingRateSchema(db);
+  const projection: ProductSummaryProjection = options.projection === "page" ? "page" : "full";
   const appliedFilters = normalizeFilters(options);
   const query = normalizeQuery(options);
   const pagination = normalizeProductSummaryPagination(options);
-  const salesFilter = salesFilterClause(appliedFilters);
-  const [salesBounds, latestSalesBatch, latestInventoryBatch] = await Promise.all([
-    db.prepare(
-      `SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date
-       FROM sales_order_lines
-       WHERE TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}`,
-    ).bind(...salesFilter.values).first<{ start_date: string | null; end_date: string | null }>(),
-    findLatestSalesImportBatch(db),
+  const [freshness, latestInventoryBatch, erpProductRevision, shippingRateBatchId] = await Promise.all([
+    salesReader.read(principal, { operation: "freshness" }, { signal: options.signal }),
     findLatestInventoryImportBatch(db),
+    readErpProductRevision(db),
+    findLatestProductShippingRateBatchId(db),
   ]);
-  const dataStartDate = salesBounds?.start_date ?? null;
-  const dataCutoffDate = salesBounds?.end_date ?? null;
+  if (!freshness || typeof freshness !== "object" || typeof freshness.revision !== "string"
+    || !freshness.revision || freshness.revision.length > 128
+    || !freshness.data
+    || !isIsoDateOrNull(freshness.data.dataStartDate)
+    || !isIsoDateOrNull(freshness.data.dataCutoffDate)) {
+    throw salesConsumerUnavailable();
+  }
+  validateLatestBatch(freshness.data.latestBatch);
+  const snapshotToken = await buildProductSummarySnapshotToken({
+    salesRevision: freshness.revision,
+    erpProductRevision,
+    inventoryBatchId: latestInventoryBatch?.id ?? null,
+    shippingRateBatchId,
+  });
+  if (projection === "page" && options.expectedSnapshotToken !== snapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品列表与汇总数据版本已变化，请重新加载");
+  }
+  const dataStartDate = freshness.data.dataStartDate;
+  const dataCutoffDate = freshness.data.dataCutoffDate;
   const appliedShops = appliedFilters.shops.map((outlet) => ({
     key: shopFilterKey(outlet), platform: outlet.platform, shop: outlet.shopName,
   }));
 
-  const empty = (range: ProductSummaryRange, requestedStartDate: string | null, requestedEndDate: string | null) => ({
-    hasSales: Boolean(dataCutoffDate),
-    range,
-    sync: {
+  const empty = async (range: ProductSummaryRange, requestedStartDate: string | null, requestedEndDate: string | null) => {
+    const pagePayload: ProductSummaryPageResponse = {
+      projection: "page",
+      snapshotToken,
+      sort: { by: query.sortBy, direction: query.direction },
+      pagination: { page: pagination.page, pageSize: pagination.pageSize, total: 0, returned: 0, totalPages: 0, truncated: false },
+      items: [],
+    };
+    await verifyProductSummarySnapshot(db, principal, salesReader, snapshotToken, freshness.revision, options.signal);
+    if (projection === "page") return pagePayload;
+    return {
+      projection: "full" as const,
+      snapshotToken,
+      hasSales: Boolean(dataCutoffDate),
+      range,
+      sync: {
       salesThrough: null,
       salesWindowStart: null,
       requestedStartDate,
@@ -362,15 +646,16 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
       dataStartDate,
       dataCutoffDate,
       inventoryAsOf: latestInventoryBatch?.snapshotDate ?? null,
-      latestSalesFile: latestSalesBatch?.fileName ?? null,
-    },
-    filters: { platforms: [] as string[], shops: [] as Array<{ key: string; platform: string; shop: string }>, categories: [] as string[] },
-    filtersApplied: { platforms: appliedFilters.platforms, shops: appliedShops, query: query.query, categories: query.categories, marginBands: query.marginBands },
-    sort: { by: query.sortBy, direction: query.direction },
-    metrics: emptyMetrics(),
-    pagination: { page: pagination.page, pageSize: pagination.pageSize, total: 0, returned: 0, totalPages: 0, truncated: false },
-    items: [] as ProductSummaryItem[],
-  });
+      latestSalesFile: freshness.data.latestBatch?.fileName ?? null,
+      },
+      filters: { platforms: [], shops: [], categories: [] },
+      filtersApplied: { platforms: appliedFilters.platforms, shops: appliedShops, query: query.query, categories: query.categories, marginBands: query.marginBands },
+      sort: pagePayload.sort,
+      metrics: emptyMetrics(),
+      pagination: pagePayload.pagination,
+      items: pagePayload.items,
+    };
+  };
 
   if (!dataStartDate || !dataCutoffDate) return empty(options.range ?? "last30", null, null);
 
@@ -385,102 +670,96 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
     return empty(period.range, period.requestedStartDate, period.requestedEndDate);
   }
 
-  const rangeStart = `${period.startDate} 00:00:00`;
-  const rangeEndExclusive = `${addProductSummaryDays(period.endDate, 1)} 00:00:00`;
-  const itemFilter = itemFilterClause(query);
-  const cte = productCte({ rangeStart, rangeEndExclusive, inventoryBatchId: latestInventoryBatch?.id ?? null, salesFilter, itemFilter });
-  const categoryFacetCte = productCte({
-    rangeStart,
-    rangeEndExclusive,
-    inventoryBatchId: latestInventoryBatch?.id ?? null,
-    salesFilter,
-    itemFilter: itemFilterClause({ ...query, categories: [], marginBands: [] }),
+  const local = await loadLocalProductDimensions(db, latestInventoryBatch?.id ?? null);
+  if (local.productCodes.length === 0) return empty(period.range, period.requestedStartDate, period.requestedEndDate);
+  const performance = await readProductPerformance(salesReader, principal, {
+    productCodes: local.productCodes,
+    startDate: period.startDate,
+    endDateExclusive: addProductSummaryDays(period.endDate, 1),
+    filters: appliedFilters,
+    expectedRevision: freshness.revision,
+    expectedLatestBatch: freshness.data.latestBatch,
+    signal: options.signal,
   });
-  const sortColumn: Record<ProductSummarySort, string> = {
-    netSalesCents: "net_sales_cents",
-    grossProfitCents: "gross_profit_cents",
-    grossMarginRate: "gross_margin_rate",
-    refundRate: "refund_rate",
-    stockValueCents: "stock_value_cents",
-    netQuantity: "net_quantity",
+  const allRows = [...performance.rows.values()].map((sales) => mergeProductRow(
+    sales,
+    local.erp.get(sales.productCode),
+    local.stock.get(sales.productCode),
+    local.shipping.get(sales.productCode),
+  ));
+  const facetRows = allRows.filter((row) => matchesTextQuery(row, query.query));
+  const filteredRows = facetRows.filter((row) => (
+    (query.categories.length === 0 || query.categories.includes(row.category || "未分类"))
+    && matchesMarginBands(row, query.marginBands)
+  ));
+  const sortValue = (row: ProductRow) => {
+    if (query.sortBy === "netSalesCents") return row.net_sales_cents;
+    if (query.sortBy === "grossProfitCents") return row.gross_profit_cents;
+    if (query.sortBy === "grossMarginRate") return row.gross_margin_rate;
+    if (query.sortBy === "refundRate") return row.refund_rate;
+    if (query.sortBy === "stockValueCents") return row.stock_value_cents;
+    return row.net_quantity;
   };
-  const orderDirection = query.direction === "asc" ? "ASC" : "DESC";
-  const [metricsRow, pageResult, outletOptionsResult, categoryResult] = await Promise.all([
-    db.prepare(`${cte.sql}
-      SELECT
-        COUNT(*) AS sku_count,
-        COALESCE(SUM(gross_sales_cents), 0) AS gross_sales_cents,
-        COALESCE(SUM(net_sales_cents), 0) AS net_sales_cents,
-        COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-        COALESCE(SUM(CASE WHEN net_sales_cents > 0 AND gross_profit_cents < 0 THEN 1 ELSE 0 END), 0) AS loss_sku_count,
-        COALESCE(SUM(CASE WHEN available_quantity > 0 THEN 1 ELSE 0 END), 0) AS stocked_sku_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate < 0.35 THEN 1 ELSE 0 END), 0) AS below_35_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.35 AND gross_margin_rate < 0.4 THEN 1 ELSE 0 END), 0) AS between_35_and_40_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.4 AND gross_margin_rate < 0.45 THEN 1 ELSE 0 END), 0) AS between_40_and_45_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.45 THEN 1 ELSE 0 END), 0) AS at_least_45_count
-      FROM filtered`).bind(...cte.values).first<MetricsRow>(),
-    db.prepare(`${cte.sql}
-      SELECT * FROM filtered
-      ORDER BY ${sortColumn[query.sortBy]} ${orderDirection}, product_code ASC
-      LIMIT ? OFFSET ?`).bind(...cte.values, pagination.pageSize, pagination.offset).all<ProductRow>(),
-    db.prepare(
-      `SELECT
-        COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
-        COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
-        COALESCE(NULLIF(channel, ''), '') AS channel
-       FROM sales_order_lines
-       WHERE ship_time >= ? AND ship_time < ?
-         AND TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'
-       GROUP BY platform, shop_name, channel
-       ORDER BY platform, shop_name, channel
-       LIMIT 500`,
-    ).bind(rangeStart, rangeEndExclusive).all<OutletRow>(),
-    db.prepare(`${categoryFacetCte.sql} SELECT DISTINCT category FROM filtered ORDER BY category LIMIT 500`)
-      .bind(...categoryFacetCte.values).all<{ category: string }>(),
-  ]);
-
-  const productCodes = pageResult.results.map((row) => row.product_code);
-  const outletsByProduct = new Map<string, Array<{ platform: string; shop: string }>>();
-  if (productCodes.length > 0) {
-    for (let offset = 0; offset < productCodes.length; offset += 40) {
-      const productCodeChunk = productCodes.slice(offset, offset + 40);
-      const outletRows = await db.prepare(
-        `SELECT
-          product_code,
-          COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
-          COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
-          COALESCE(NULLIF(channel, ''), '') AS channel
-         FROM sales_order_lines
-         WHERE ship_time >= ? AND ship_time < ?
-           AND TRIM(warehouse) <> '刷刷仓'
-           AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-           AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}
-           AND product_code IN (${productCodeChunk.map(() => "?").join(", ")})
-         GROUP BY product_code, platform, shop_name, channel
-         ORDER BY product_code, platform, shop_name, channel`,
-      ).bind(rangeStart, rangeEndExclusive, ...salesFilter.values, ...productCodeChunk).all<OutletRow>();
-      for (const row of outletRows.results) {
-        const outlet = canonicalizeShopIdentity(row.platform, row.shop_name, row.channel);
-        const list = outletsByProduct.get(row.product_code) ?? [];
-        if (!list.some((item) => shopFilterKey({ platform: item.platform, shopName: item.shop }) === shopFilterKey(outlet))) {
-          list.push({ platform: outlet.platform, shop: outlet.shopName });
-        }
-        outletsByProduct.set(row.product_code, list);
-      }
+  const orderedRows = [...filteredRows].sort((left, right) => {
+    const leftValue = sortValue(left);
+    const rightValue = sortValue(right);
+    if (leftValue === null && rightValue !== null) return query.direction === "asc" ? -1 : 1;
+    if (leftValue !== null && rightValue === null) return query.direction === "asc" ? 1 : -1;
+    if (leftValue !== null && rightValue !== null && leftValue !== rightValue) {
+      return query.direction === "asc" ? leftValue - rightValue : rightValue - leftValue;
     }
-  }
-
-  const outletOptionsByKey = new Map<string, CanonicalShopIdentity>();
-  for (const row of outletOptionsResult.results) {
-    const outlet = canonicalizeShopIdentity(row.platform, row.shop_name, row.channel);
-    outletOptionsByKey.set(shopFilterKey(outlet), outlet);
-  }
-  const outletOptions = [...outletOptionsByKey.values()]
+    return compareText(left.product_code, right.product_code);
+  });
+  const pageRows = orderedRows.slice(pagination.offset, pagination.offset + pagination.pageSize);
+  const grossSalesCents = filteredRows.reduce((sum, row) => sum + Number(row.gross_sales_cents ?? 0), 0);
+  const netSalesCents = filteredRows.reduce((sum, row) => sum + Number(row.net_sales_cents ?? 0), 0);
+  const grossProfitCents = filteredRows.reduce((sum, row) => sum + Number(row.gross_profit_cents ?? 0), 0);
+  const metrics = {
+    skuCount: filteredRows.length,
+    grossSalesCents,
+    netSalesCents,
+    grossProfitCents,
+    grossMarginRate: rate(grossProfitCents, netSalesCents),
+    lossSkuCount: filteredRows.filter((row) => Number(row.net_sales_cents ?? 0) > 0 && Number(row.gross_profit_cents ?? 0) < 0).length,
+    stockedSkuCount: filteredRows.filter((row) => Number(row.available_quantity ?? 0) > 0).length,
+    marginBuckets: {
+      below35Count: filteredRows.filter((row) => row.gross_margin_rate !== null && row.gross_margin_rate < 0.35).length,
+      between35And40Count: filteredRows.filter((row) => row.gross_margin_rate !== null && row.gross_margin_rate >= 0.35 && row.gross_margin_rate < 0.4).length,
+      between40And45Count: filteredRows.filter((row) => row.gross_margin_rate !== null && row.gross_margin_rate >= 0.4 && row.gross_margin_rate < 0.45).length,
+      atLeast45Count: filteredRows.filter((row) => row.gross_margin_rate !== null && row.gross_margin_rate >= 0.45).length,
+    },
+  };
+  const outletOptions = [...performance.outletOptions.values()]
     .sort((left, right) => left.platform.localeCompare(right.platform, "zh-CN") || left.shopName.localeCompare(right.shopName, "zh-CN"));
-  const total = Number(metricsRow?.sku_count ?? 0);
+  const total = filteredRows.length;
+  const outletsByProduct = new Map<string, Array<{ platform: string; shop: string }>>();
+  for (const [productCode, sales] of performance.rows) {
+    const deduplicated = new Map<string, { platform: string; shop: string }>();
+    for (const rawOutlet of sales.outlets) {
+      const outlet = canonicalizeShopIdentity(rawOutlet.platform, rawOutlet.shopName, rawOutlet.channel);
+      deduplicated.set(shopFilterKey(outlet), { platform: outlet.platform, shop: outlet.shopName });
+    }
+    outletsByProduct.set(productCode, [...deduplicated.values()]);
+  }
+  const pagePayload: ProductSummaryPageResponse = {
+    projection: "page",
+    snapshotToken,
+    sort: { by: query.sortBy, direction: query.direction },
+    pagination: {
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      total,
+      returned: pageRows.length,
+      totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize),
+      truncated: pagination.offset + pageRows.length < total,
+    },
+    items: pageRows.map((row) => mapItem(row, outletsByProduct.get(row.product_code) ?? [])),
+  };
+  await verifyProductSummarySnapshot(db, principal, salesReader, snapshotToken, freshness.revision, options.signal);
+  if (projection === "page") return pagePayload;
   return {
+    projection: "full",
+    snapshotToken,
     hasSales: true,
     range: period.range,
     sync: {
@@ -491,12 +770,12 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
       dataStartDate,
       dataCutoffDate,
       inventoryAsOf: latestInventoryBatch?.snapshotDate ?? null,
-      latestSalesFile: latestSalesBatch?.fileName ?? null,
+      latestSalesFile: freshness.data.latestBatch?.fileName ?? null,
     },
     filters: {
       platforms: [...new Set(outletOptions.map((outlet) => outlet.platform))],
       shops: outletOptions.map((outlet) => ({ key: shopFilterKey(outlet), platform: outlet.platform, shop: outlet.shopName })),
-      categories: categoryResult.results.map((row) => row.category).filter(Boolean),
+      categories: [...new Set(facetRows.map((row) => row.category || "未分类"))].sort(compareText).slice(0, 500),
     },
     filtersApplied: {
       platforms: appliedFilters.platforms,
@@ -505,16 +784,9 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
       categories: query.categories,
       marginBands: query.marginBands,
     },
-    sort: { by: query.sortBy, direction: query.direction },
-    metrics: mapMetrics(metricsRow),
-    pagination: {
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      total,
-      returned: pageResult.results.length,
-      totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize),
-      truncated: pagination.offset + pageResult.results.length < total,
-    },
-    items: pageResult.results.map((row) => mapItem(row, outletsByProduct.get(row.product_code) ?? [])),
+    sort: pagePayload.sort,
+    metrics,
+    pagination: pagePayload.pagination,
+    items: pagePayload.items,
   };
 }

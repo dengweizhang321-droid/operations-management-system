@@ -73,6 +73,7 @@ export type FinanceActualMetrics = {
 export type FinanceAnalysisOptions = {
   requestedMonths?: string[];
   allMonths?: boolean;
+  fallbackToLatestCompletedMonth?: boolean;
   platformNames?: string[];
   shopKeys?: string[];
 };
@@ -352,7 +353,7 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
   requestedMonthResult.results.forEach((row) => monthByKey.set(row.month, row));
   const months = [...monthByKey.values()].sort((left, right) => left.month.localeCompare(right.month));
   if (months.length === 0) {
-    if (requestedMonths.length) {
+    if (requestedMonths.length && !options.fallbackToLatestCompletedMonth) {
       throw new PublicApiError(400, "invalid_request", `以下财务月份尚未导入：${requestedMonths.join("、")}`);
     }
     return {
@@ -369,10 +370,13 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
   }
   const monthKeys = months.map((item) => item.month);
   const missingMonths = requestedMonths.filter((month) => !monthKeys.includes(month));
-  if (missingMonths.length) {
+  const fallbackApplied = Boolean(options.fallbackToLatestCompletedMonth && requestedMonths.length && missingMonths.length);
+  if (missingMonths.length && !fallbackApplied) {
     throw new PublicApiError(400, "invalid_request", `以下财务月份尚未导入：${missingMonths.join("、")}`);
   }
-  const selectedMonths = options.allMonths
+  const selectedMonths = fallbackApplied
+    ? [monthKeys.at(-1)!]
+    : options.allMonths
     ? monthKeys.slice(-MAX_FINANCE_ANALYSIS_MONTHS)
     : requestedMonths.length > 0
       ? requestedMonths
@@ -929,6 +933,8 @@ export async function getFinanceAnalysis(db: FinanceDatabase, options: FinanceAn
       truncated: Boolean(options.allMonths && monthKeys.length > MAX_FINANCE_ANALYSIS_MONTHS),
       availableMonthCount: Number(monthCount?.total ?? monthKeys.length),
       months: selectedMonths,
+      requestedMonths,
+      fallbackApplied,
       platforms: [...platformFilter],
       shops: [...shopFilter],
     },

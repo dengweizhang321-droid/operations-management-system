@@ -1,6 +1,6 @@
 import { requireAppPrincipal, type AppPrincipal } from "@/lib/auth/authorization";
 import { getAiArtifactDownload, isAiArtifactId, recordAiArtifactDelivery } from "@/lib/ai/artifacts";
-import { getSalesDatabase } from "@/lib/sales/database";
+import { getD1Database } from "@/lib/database/d1";
 import { aiRouteErrorResponse } from "@/app/api/ai/route-helpers";
 
 export async function GET(
@@ -19,7 +19,7 @@ export async function GET(
     if (artifactId === "[invalid_artifact_id]") {
       return Response.json({ error: "产物不存在" }, { status: 404, headers: { "cache-control": "private, no-store" } });
     }
-    const result = await getAiArtifactDownload(artifactId, principal, getSalesDatabase());
+    const result = await getAiArtifactDownload(artifactId, principal, getD1Database());
     if (!result) {
       await recordAiArtifactDelivery({
         artifactId,
@@ -27,7 +27,7 @@ export async function GET(
         principal,
         status: "failed",
         errorCode: "artifact_not_found_or_denied",
-        database: getSalesDatabase(),
+        database: getD1Database(),
       });
       return Response.json({ error: "产物不存在或无权访问" }, { status: 404, headers: { "cache-control": "private, no-store" } });
     }
@@ -38,7 +38,7 @@ export async function GET(
       status: "succeeded",
       byteSize: result.bytes.byteLength,
       contentDigest: result.contentDigest,
-      database: getSalesDatabase(),
+      database: getD1Database(),
     });
     const responseBody = new Uint8Array(result.bytes.byteLength);
     responseBody.set(result.bytes);
@@ -58,7 +58,7 @@ export async function GET(
         principal,
         status: "failed",
         errorCode: "artifact_delivery_failed",
-        database: getSalesDatabase(),
+        database: getD1Database(),
       }).catch(() => undefined);
     }
     return aiRouteErrorResponse(error, "产物下载失败", { "cache-control": "private, no-store" });

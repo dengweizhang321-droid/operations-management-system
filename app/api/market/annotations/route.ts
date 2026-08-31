@@ -11,7 +11,7 @@ import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { MARKET_ANNOTATION_JOB_LIMITS } from "@/lib/market/annotation-limits";
 import {
   activatePromptVersion, commitAnnotationItems, commitSelectedAnnotationItems, createAnnotationJob, createLocalAgent, createPromptVersion,
-  createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, generatePromptVersion, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
+  createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, generatePromptVersion, getAnnotationCandidateCounts, getAnnotationCatalogWorkspace, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, markAnnotationsAsGold,
   rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, revokeLocalAgent, runCloudAnnotationBatch, runNextCloudAnnotation, runNextValidation, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems,
 } from "@/lib/market/annotation-service";
 
@@ -51,6 +51,9 @@ export async function GET(request: Request) {
     if (view === "progress") {
       return Response.json(await getAnnotationJobProgress(db, workspaceInput.jobId ?? ""), { headers: { "cache-control": "no-store" } });
     }
+    if (view === "candidate_counts") {
+      return Response.json(await getAnnotationCandidateCounts(db), { headers: { "cache-control": "no-store" } });
+    }
     await Promise.all([ensureAiAssistantSchema(db), ensureAnnotationSchema(db)]);
     if (view === "review") {
       return Response.json(await getAnnotationReviewWorkspace(db, workspaceInput), { headers: { "cache-control": "no-store" } });
@@ -59,7 +62,7 @@ export async function GET(request: Request) {
       const catalog = await getAnnotationCatalogWorkspace(db, { q: workspaceInput.q, page: workspaceInput.page, pageSize: workspaceInput.pageSize });
       return Response.json({ catalog }, { headers: { "cache-control": "no-store" } });
     }
-    const payload = await getAnnotationWorkspace(db, workspaceInput);
+    const payload = await getAnnotationWorkspace(db, view === "workspace_fast" ? { ...workspaceInput, includeCandidateCounts: false } : workspaceInput);
     return Response.json({ ...payload, principal }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;

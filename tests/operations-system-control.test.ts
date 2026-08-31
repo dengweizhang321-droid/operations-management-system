@@ -4,21 +4,122 @@ import test from "node:test";
 
 const panel = readFileSync("tools/operations-system-control.ps1", "utf8");
 
-test("control panel starts the built local Worker and preserves launch diagnostics", () => {
-  assert.match(panel, /\$LocalWorkerStarter = Join-Path \$ProjectRoot "tools\\start-local-worker\.mjs"/);
-  assert.match(panel, /-ArgumentList @\("`"\$LocalWorkerStarter`"", "--build"\)/);
+test("control panel starts only the immutable Worker service and preserves launch diagnostics", () => {
+  assert.match(panel, /\$LocalWorkerStarter = Join-Path \$ProjectRoot "tools\\worker-local-service\.ps1"/);
+  assert.match(panel, /-File", "`"\$LocalWorkerStarter`"", "-Action", "Start"/);
   assert.match(panel, /-RedirectStandardOutput \$script:launchStdoutLog/);
   assert.match(panel, /-RedirectStandardError \$script:launchStderrLog/);
   assert.match(panel, /\$script:launchProcess\.WaitForExit\(\)/);
-  assert.match(panel, /\$exitCode = "未知"/);
+  assert.match(panel, /function Get-LaunchFailureSummary/);
+  assert.match(panel, /Get-Content -LiteralPath \$script:launchStderrLog -Tail 8/);
+  assert.match(panel, /\$exitCode = \[int\]\$script:launchProcess\.ExitCode/);
+  assert.doesNotMatch(panel, /退出码 未知|\$exitCode = "未知"/);
   assert.match(panel, /启动失败，退出码/);
+  assert.match(panel, /原因：\$failureSummary/);
   assert.doesNotMatch(panel, /\$VinextCli/);
+  assert.doesNotMatch(panel, /start-local-worker\.mjs|--build/);
   assert.doesNotMatch(panel, /Start-Sleep -Seconds 1/);
 });
 
-test("control panel rechecks the port immediately before launching a build", () => {
+test("control panel rechecks immutable service ownership immediately before launch", () => {
   assert.match(panel, /\$actionState = Get-SystemState/);
-  assert.match(panel, /\$actionState\.State -eq "Running"/);
+  assert.match(panel, /\$actionState\.State -in @\("Running", "D1Degraded", "Unresponsive", "Starting"\)/);
   assert.match(panel, /\$actionState\.State -eq "PortInUse"/);
-  assert.match(panel, /为避免覆盖运行中的构建，本次启动已取消/);
+  assert.match(panel, /为避免覆盖或停止其他程序，本次启动已取消/);
+});
+
+test("control panel checks loopback liveness before interpreting D1 readiness", () => {
+  assert.match(panel, /\$LivenessUrl = "http:\/\/127\.0\.0\.1:3000\/_teruisi\/local\/health\/live"/);
+  assert.match(panel, /\$ReadinessUrl = "http:\/\/127\.0\.0\.1:3000\/_teruisi\/local\/health\/ready"/);
+  assert.match(panel, /\$handler\.UseProxy = \$false/);
+  assert.match(panel, /\$client\.Timeout = \[TimeSpan\]::FromSeconds\(2\)/);
+  assert.match(panel, /TryAddWithoutValidation\("x-teruisi-local-health", "1"\)/);
+
+  const healthStateStart = panel.indexOf("function Get-SystemHealthState");
+  const livenessProbe = panel.indexOf("Invoke-SystemHealthProbe -Uri $LivenessUrl", healthStateStart);
+  const readinessProbe = panel.indexOf("Invoke-SystemHealthProbe -Uri $ReadinessUrl", healthStateStart);
+  assert.ok(healthStateStart >= 0);
+  assert.ok(livenessProbe > healthStateStart);
+  assert.ok(readinessProbe > livenessProbe);
+  assert.match(panel, /\$liveness\.StatusCode -eq 200[^\n]*\$livenessPayload\.ok -eq \$true[^\n]*\$livenessPayload\.status -eq "live"/);
+});
+
+test("control panel labels only the explicit D1 503 contract as degraded", () => {
+  assert.match(panel, /\$healthState = "Unresponsive"/);
+  assert.match(panel, /\$readiness\.StatusCode -eq 503/);
+  assert.match(panel, /\$readinessPayload\.ok -eq \$false/);
+  assert.match(panel, /\$readinessPayload\.status -eq "degraded"/);
+  assert.match(panel, /\$readinessPayload\.code -eq "d1_unavailable"/);
+  assert.match(panel, /\$healthState = "D1Degraded"/);
+  assert.equal(panel.match(/\$healthState = "D1Degraded"/g)?.length, 1);
+  assert.match(panel, /"D1Degraded"/);
+  assert.match(panel, /D1 暂时降级/);
+  assert.match(panel, /"Unresponsive"/);
+  assert.match(panel, /Worker 无响应 \/ 重启中/);
+  assert.match(panel, /State = \$state/);
+  assert.match(panel, /系统会继续运行且不会因此重启/);
+  assert.doesNotMatch(panel, /D1 尚未就绪；看门狗会在连续失败后受控重启/);
+  assert.match(panel, /TotalSeconds -lt 10/);
+});
+
+test("reopened control panel delegates status to the immutable service", () => {
+  const stateStart = panel.indexOf("function Get-SystemState");
+  const stopTreeStart = panel.indexOf("function Stop-ProcessTree");
+  assert.ok(stateStart >= 0);
+  assert.ok(stopTreeStart > stateStart);
+  const stateBlock = panel.slice(stateStart, stopTreeStart);
+  assert.match(stateBlock, /-File \$LocalWorkerStarter -Action Status -Json/);
+  assert.match(stateBlock, /"exact_release"/);
+  assert.match(stateBlock, /SupervisorProcessId = \[int\]\$releaseState\.supervisorProcessId/);
+});
+
+test("control panel distinguishes a stale receipt from a real port ownership conflict", () => {
+  const stateStart = panel.indexOf("function Get-SystemState");
+  const stopTreeStart = panel.indexOf("function Stop-ProcessTree");
+  const stateBlock = panel.slice(stateStart, stopTreeStart);
+  assert.match(stateBlock, /"stale_or_invalid_receipt"/);
+  assert.match(stateBlock, /State = "StaleReceipt"/);
+  assert.match(stateBlock, /"foreign_or_ambiguous"/);
+  assert.match(stateBlock, /State = "PortInUse"/);
+  assert.match(stateBlock, /State = "StatusError"/);
+  assert.doesNotMatch(stateBlock, /catch \{\s*return \[pscustomobject\]@\{ State = "PortInUse"/);
+  assert.match(panel, /检测到上次异常退出/);
+  assert.match(panel, /系统端口或进程归属冲突/);
+  assert.match(panel, /无法确认系统状态/);
+});
+
+test("starting after an abnormal exit clears only a validated stale receipt before launch", () => {
+  const clickStart = panel.indexOf("$startButton.Add_Click({");
+  const clickEnd = panel.indexOf("$stopButton.Add_Click({", clickStart);
+  const clickBlock = panel.slice(clickStart, clickEnd);
+  assert.match(clickBlock, /\$actionState\.State -eq "StaleReceipt"/);
+  assert.match(clickBlock, /\$repairResult = Stop-ControlledLocalWorker/);
+  assert.match(clickBlock, /残留回执未被清理，本次启动已取消/);
+  assert.match(clickBlock, /\$actionState = Get-SystemState/);
+  assert.match(clickBlock, /\$actionState\.State -ne "Stopped"/);
+  assert.match(clickBlock, /\$actionState\.State -ne "Stopped"[\s\S]*return[\s\S]*Start-Process/);
+});
+
+test("reopened control panel delegates stop to the same fail-closed immutable service", () => {
+  assert.match(panel, /function Stop-ControlledLocalWorker/);
+  assert.match(panel, /-File \$LocalWorkerStarter -Action Stop -Json/);
+  assert.match(panel, /\$result\.status -notin @\("stopped", "already_stopped", "stale_receipt_cleared"\)/);
+
+  assert.match(panel, /\$stopResult = Stop-ControlledLocalWorker/);
+  assert.match(panel, /为避免影响 n8n、Chromium 或其他 Node 服务，本次停止已取消/);
+  assert.doesNotMatch(panel, /foreach \(\$processId in \$systemState\.ProcessIds\)/);
+
+  const clickStart = panel.indexOf("$stopButton.Add_Click({");
+  const clickEnd = panel.indexOf("$openButton.Add_Click({", clickStart);
+  const clickBlock = panel.slice(clickStart, clickEnd);
+  assert.ok(clickBlock.indexOf("Stop-ControlledLocalWorker") < clickBlock.indexOf("if ($script:launchProcess"));
+  assert.match(clickBlock, /"Starting", "StaleReceipt"/);
+  assert.match(clickBlock, /构建尚未监听 3000 时，只能停止当前面板亲自创建并持有句柄的启动进程/);
+});
+
+test("control panel exposes a headless stop entry that reuses the same ownership gate", () => {
+  assert.match(panel, /\[switch\]\$StopWorker/);
+  assert.match(panel, /if \(\$StopWorker\) \{[\s\S]*\$stopResult = Stop-ControlledLocalWorker/);
+  assert.match(panel, /Stopped: local Worker supervisor and verified project descendants/);
+  assert.match(panel, /Write-Error \$stopResult\.Reason[\s\S]*exit 1/);
 });

@@ -9,26 +9,27 @@ const migratedRoutes = [
   "app/api/sales/category-analysis/detail/route.ts",
 ];
 
-test("the three approved sales read routes share the signed, revision-fenced Django gateway", async () => {
+test("all public sales analysis routes use the Django-only signed gateway", async () => {
   for (const route of migratedRoutes) {
     const source = await readFile(resolve(route), "utf8");
     assert.match(source, /requireAppPrincipal\(/, route);
-    assert.match(source, /routeSalesReadRequest\(\{/, route);
-    assert.match(source, /principal,/, route);
-    assert.match(source, /expectedRevision,/, route);
-    assert.match(source, /readCurrentRevision:\s*\(\)\s*=>\s*getSalesOverviewCacheRevision\(db\)/, route);
-    assert.match(source, /legacy:\s*async\s*\(\)\s*=>/, route);
+    assert.match(source, /routeDjangoSalesReadRequest\(\{/, route);
+    assert.match(source, /routeDjangoSalesReadRequest\(\{\s*request,\s*principal\s*\}\)/, route);
+    assert.doesNotMatch(source, /getSalesDatabase|ensureSalesSchema|legacy|shadow/, route);
   }
 });
 
-test("sales writes and finance reads remain outside the Django sales read slice", async () => {
-  const legacyOnlyRoutes = [
+test("sales imports use the Django writer and never write D1", async () => {
+  const writerRoutes = [
+    "app/api/imports/sales/route.ts",
     "app/api/imports/sales/chunks/route.ts",
-    "app/api/finance/analysis/route.ts",
-    "app/api/finance/targets/route.ts",
+    "app/api/imports/sales/verify/route.ts",
   ];
-  for (const route of legacyOnlyRoutes) {
+  for (const route of writerRoutes) {
     const source = await readFile(resolve(route), "utf8");
-    assert.doesNotMatch(source, /routeSalesReadRequest/, route);
+    assert.doesNotMatch(source, /getSalesDatabase|ensureSalesSchema|saveSalesImport/, route);
   }
+
+  const gateway = await readFile(resolve("lib/django/sales-gateway.ts"), "utf8");
+  assert.doesNotMatch(gateway, /routeSalesReadRequest|legacy|shadow|TERUISI_SALES_BACKEND/);
 });

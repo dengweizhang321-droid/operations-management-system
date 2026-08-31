@@ -1,11 +1,10 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
+import { routeDjangoSalesReadRequest } from "@/lib/django/sales-gateway";
+import { PublicApiError } from "@/lib/http/api-error";
 import {
-  getSalesCategoryAnalysis,
   salesCategorySortKeys,
   type SalesCategorySortKey,
-} from "@/lib/sales/category-analysis";
-import { ensureSalesSchema, getSalesDatabase } from "@/lib/sales/database";
+} from "@/lib/sales/read-contract";
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -25,7 +24,24 @@ function integer(value: unknown, fallback: number, maximum: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.min(maximum, Math.trunc(parsed)) : fallback;
 }
 
-export async function getSalesCategoryAnalysisForAi(rawArgs: unknown, principal: AppPrincipal) {
+function naturalDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return year >= 1900 && year <= 2199
+    && parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+}
+
+export async function getSalesCategoryAnalysisForAi(
+  rawArgs: unknown,
+  principal: AppPrincipal,
+  options: { route?: typeof routeDjangoSalesReadRequest } = {},
+) {
   const args = record(rawArgs);
   const startDate = text(args.startDate, 10);
   const endDate = text(args.endDate, 10);
@@ -33,21 +49,38 @@ export async function getSalesCategoryAnalysisForAi(rawArgs: unknown, principal:
   const sortBy = salesCategorySortKeys.includes(sortCandidate as SalesCategorySortKey)
     ? sortCandidate as SalesCategorySortKey
     : "netSalesCents";
-  const db = getSalesDatabase();
-  await Promise.all([ensureSalesSchema(db), ensureErpReferenceSchema(db)]);
-  const result = await getSalesCategoryAnalysis(db, {
+  if (!naturalDate(startDate) || !naturalDate(endDate) || startDate > endDate) {
+    throw new PublicApiError(400, "invalid_request", "startDate 和 endDate 必须使用 YYYY-MM-DD。");
+  }
+  const query = new URLSearchParams({
     startDate,
     endDate,
-    categories: list(args.categories, 20),
-    channels: list(args.channels, 20),
-    platforms: list(args.platforms, 20),
-    productQueries: list(args.productQueries, 20),
+    level: "1",
     granularity: "month",
     sortBy,
     direction: args.direction === "asc" ? "asc" : "desc",
-    page: 1,
-    pageSize: integer(args.limit, 20, 50),
-  }, principal);
+    page: "1",
+    pageSize: String(integer(args.limit, 20, 50)),
+  });
+  for (const value of list(args.categories, 20)) query.append("category", value);
+  for (const value of list(args.channels, 20)) query.append("channel", value);
+  for (const value of list(args.platforms, 20)) query.append("platform", value);
+  for (const value of list(args.productQueries, 20)) query.append("productQuery", value);
+  const response = await (options.route ?? routeDjangoSalesReadRequest)({
+    request: new Request(`http://sales.internal/api/sales/category-analysis?${query.toString()}`),
+    principal,
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务暂时不可用，请稍后重试。");
+  }
+  const result = await response.json().catch(() => null) as Record<string, unknown> | null;
+  const details = record(result?.details);
+  const pagination = record(details.pagination);
+  if (!result || !Array.isArray(result.ranking) || !Array.isArray(result.trend)
+    || !Array.isArray(details.items) || !Number.isFinite(Number(pagination.total))) {
+    throw new PublicApiError(503, "service_unavailable", "Django 销售读取响应无效，请稍后重试。");
+  }
   return {
     range: result.range,
     comparisonPeriods: result.comparisonPeriods,
@@ -58,9 +91,9 @@ export async function getSalesCategoryAnalysisForAi(rawArgs: unknown, principal:
     uncategorized: result.uncategorized,
     ranking: result.ranking,
     trend: result.trend,
-    items: result.details.items,
-    totalMatched: result.details.pagination.total,
-    returned: result.details.pagination.returned,
-    truncated: result.details.pagination.truncated,
+    items: details.items,
+    totalMatched: pagination.total,
+    returned: pagination.returned,
+    truncated: pagination.truncated,
   };
 }

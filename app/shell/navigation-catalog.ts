@@ -30,12 +30,12 @@ export const moduleViewCatalog = {
   market: { defaultView: "ranking", views: ["ranking", "overview", "compare", "settings"] },
   customer_service: { defaultView: "conversations", views: ["conversations"] },
   sales: { defaultView: "overview", views: ["overview", "channel", "category", "finance", "targets"] },
-  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale"] },
+  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale", "inbound"] },
   product: { defaultView: "overview", views: ["overview", "calculator"] },
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "continuity"] },
   settings: { defaultView: "parameters", views: ["parameters", "master", "permissions"] },
-  ai: { defaultView: "assistant", views: ["assistant"] },
+  ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "sandbox", "space", "management"] },
 } as const satisfies Record<ModuleKey, { defaultView: string; views: readonly string[] }>;
 
 export type ModuleViewKey<M extends ModuleKey = ModuleKey> =
@@ -71,7 +71,7 @@ export const navItems = [
   { key: "inventory", label: "库存管理", short: "库", description: "库存健康与备货" },
   { key: "workflow", label: "运营事务", short: "务", description: "计划、巡店与新品" },
   { key: "n8n_workflows", label: "自动化中心", short: "流", description: "流程运行、核验与恢复" },
-  { key: "ai", label: "AI 助理", short: "AI", description: "模型、对话与渠道接入" },
+  { key: "ai", label: "AI 助理", short: "AI", description: "对话、Agent、记忆、分析沙箱与模型治理" },
   { key: "import", label: "数据导入", short: "入", description: "批次导入与校验" },
   { key: "settings", label: "系统设置", short: "设", description: "参数、映射与权限" },
 ] as const satisfies readonly NavItem[];
@@ -104,6 +104,7 @@ export const importSourceKeys = [
   "sales",
   "inventory",
   "products",
+  "sku_shipping_rates",
   "inventory_age",
   "combos",
   "finance",
@@ -112,6 +113,7 @@ export const importSourceKeys = [
   "jd_sku_daily",
   "jd_spu_daily",
   "tmall_product_master",
+  "tmall_product_assets",
   "tmall_product_daily",
   "tmall_promotion",
   "customer_service",

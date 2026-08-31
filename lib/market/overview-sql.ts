@@ -299,8 +299,6 @@ export function buildMarketOverviewEnrichedSql(options: MarketOverviewSqlOptions
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id = m.sku_code OR n.product_code = m.sku_code OR n.spu_id = m.sku_code
-      ) OR EXISTS (
-        SELECT 1 FROM sales_order_lines s WHERE s.product_code = m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
     FROM market_effective_rows m
     LEFT JOIN market_image_cache mic ON mic.source_url = m.image_url
@@ -401,8 +399,6 @@ export function buildMarketRankingCtes(options: Pick<MarketOverviewSqlOptions, "
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
-      ) OR EXISTS (
-        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
     FROM top_ranked_sources m
     LEFT JOIN market_image_cache mic ON mic.source_url=m.resolved_image_url
@@ -587,7 +583,11 @@ const marketAnalyticsResultSql = `SELECT * FROM analytics_core
   UNION ALL
   SELECT * FROM analytics_dimensions
   UNION ALL
-  SELECT * FROM analytics_industry`;
+  SELECT * FROM analytics_industry
+  UNION ALL
+  SELECT 'ownership_product', sku_code, NULL, NULL,
+    MAX(is_own), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+  FROM analytics_filtered GROUP BY sku_code`;
 
 export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlOptions, "materialized"> = {}) {
   const priceBandWhere = options.priceBandWhere ?? "";
@@ -624,8 +624,6 @@ export function buildMarketOverviewAnalyticsSql(options: Omit<MarketOverviewSqlO
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
-      ) OR EXISTS (
-        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
     FROM market_monthly_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category
@@ -678,8 +676,6 @@ export function buildMarketMonthlySummaryRefreshSql() {
       CASE WHEN EXISTS (
         SELECT 1 FROM netshop_rows n
         WHERE n.sku_id=m.sku_code OR n.product_code=m.sku_code OR n.spu_id=m.sku_code
-      ) OR EXISTS (
-        SELECT 1 FROM sales_order_lines s WHERE s.product_code=m.sku_code
       ) THEN 1 ELSE 0 END AS is_own
     FROM market_monthly_rows m
     LEFT JOIN market_price_snapshots ps ON ps.category=m.category

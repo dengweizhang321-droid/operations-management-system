@@ -17,20 +17,87 @@ import {
   verifyDingTalkSignature,
   verifyWeComSignature,
 } from "../lib/ai/channel-callbacks";
-import { buildOpenAiChatRequestBody, resolveModelToolLoopLimits } from "../lib/ai/model-gateway";
+import { buildOpenAiChatRequestBody, completeText, resolveModelToolLoopLimits } from "../lib/ai/model-gateway";
+import { probeVisionModelConnection } from "../lib/market/annotation-model";
 
 test("AI endpoint validation rejects insecure and private targets", () => {
   assert.equal(normalizeAiEndpointUrl("https://api.example.com/v1/", "model"), "https://api.example.com/v1");
   assert.equal(normalizeAiEndpointUrl("https://oapi.dingtalk.com/robot/send?access_token=secret", "channel"), "https://oapi.dingtalk.com/robot/send?access_token=secret");
   assert.throws(() => normalizeAiEndpointUrl("http://api.example.com/v1", "model"), /HTTPS/);
   assert.throws(() => normalizeAiEndpointUrl("https://127.0.0.1/private", "channel"), /内网|localhost/);
+  assert.throws(() => normalizeAiEndpointUrl("https://localhost./private", "model"), /内网|localhost/);
+  assert.throws(() => normalizeAiEndpointUrl("https://foo.localhost./private", "model"), /内网|localhost/);
+  assert.throws(() => normalizeAiEndpointUrl("https://[fe90::1]/private", "model"), /内网|localhost/);
+  assert.throws(() => normalizeAiEndpointUrl("https://[::ffff:127.0.0.1]/private", "model"), /内网|localhost/);
   assert.throws(() => normalizeAiEndpointUrl("https://user:pass@example.com/v1", "model"), /用户名/);
+});
+
+test("production AI model endpoints require an exact hostname allowlist", () => {
+  const mutableEnvironment = process.env as Record<string, string | undefined>;
+  const previousNodeEnvironment = mutableEnvironment.NODE_ENV;
+  const previousAllowlist = mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST;
+  try {
+    mutableEnvironment.NODE_ENV = "production";
+    mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = "models.example.com";
+    assert.equal(normalizeAiEndpointUrl("https://models.example.com/v1/", "model"), "https://models.example.com/v1");
+    assert.equal(normalizeAiEndpointUrl("https://api.openai.com/v1", "model"), "https://api.openai.com/v1");
+    assert.throws(() => normalizeAiEndpointUrl("https://api.example.com/v1", "model"), /白名单/);
+    assert.throws(() => normalizeAiEndpointUrl("https://api.openai.com:8443/v1", "model"), /白名单/);
+    assert.equal(normalizeAiEndpointUrl("https://models.example.com./v1", "model"), "https://models.example.com/v1");
+  } finally {
+    if (previousNodeEnvironment === undefined) delete mutableEnvironment.NODE_ENV;
+    else mutableEnvironment.NODE_ENV = previousNodeEnvironment;
+    if (previousAllowlist === undefined) delete mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST;
+    else mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = previousAllowlist;
+  }
 });
 
 test("AI model endpoint accepts either a provider root or a complete request URL", () => {
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "openai_compatible"), "https://api.example.com/v1/chat/completions");
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1/chat/completions", "openai_compatible"), "https://api.example.com/v1/chat/completions");
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "anthropic"), "https://api.example.com/v1/messages");
+});
+
+test("text and vision dispatch validate the runtime origin before touching model credentials", async () => {
+  const mutableEnvironment = process.env as Record<string, string | undefined>;
+  const previousNodeEnvironment = mutableEnvironment.NODE_ENV;
+  const previousAllowlist = mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST;
+  try {
+    mutableEnvironment.NODE_ENV = "production";
+    mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = "models.example.com";
+    await assert.rejects(() => completeText({
+      model: {
+        id: "blocked-text",
+        name: "blocked text",
+        protocol: "openai_compatible",
+        modelName: "test-model",
+        baseUrl: "https://blocked.example/v1",
+        apiKeyEncrypted: "",
+        timeoutMs: 3_000,
+        maxTokens: 128,
+        reasoningMode: "auto",
+        temperature: 0,
+        maxToolRounds: 1,
+        maxTotalToolCalls: 1,
+      },
+      messages: [{ role: "user", content: "test" }],
+    }), /白名单/);
+    await assert.rejects(() => probeVisionModelConnection({
+      id: "blocked-vision",
+      name: "blocked vision",
+      protocol: "anthropic",
+      model_type: "vision",
+      model_name: "test-model",
+      base_url: "https://blocked.example/v1",
+      api_key_encrypted: "",
+      status: "enabled",
+    }), /白名单/);
+  } finally {
+    if (previousNodeEnvironment === undefined) delete mutableEnvironment.NODE_ENV;
+    else mutableEnvironment.NODE_ENV = previousNodeEnvironment;
+    if (previousAllowlist === undefined) delete mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST;
+    else mutableEnvironment.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = previousAllowlist;
+  }
 });
 
 test("AI model endpoints reject sensitive query keys and redact legacy values without changing runtime resolution", () => {
@@ -230,6 +297,11 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.doesNotMatch(workflow, /已有对话已固定模型/);
   assert.match(workflow, /selectConversationModel/);
   assert.match(gateway, /completeTextWithTools/);
+  assert.match(gateway, /loadAiEndpointSecurityContext\(\)/);
+  assert.ok(gateway.indexOf("resolveRuntimeModelEndpoint(input.model)") < gateway.indexOf("requireModelApiKey(input.model)"));
+  assert.match(service, /normalizeAiModelInput\(input, endpointSecurityContext\)/);
+  assert.match(visionModel, /resolveAiModelEndpointUrl\(model\.base_url, "openai_compatible", endpointSecurityContext\)/);
+  assert.match(visionModel, /resolveAiModelEndpointUrl\(model\.base_url, "anthropic", endpointSecurityContext\)/);
   assert.match(gateway, /max_tokens: model\.maxTokens/);
   assert.match(gateway, /thinking: \{ type: "disabled" \}/);
   assert.match(gateway, /signal/);
@@ -273,6 +345,29 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
   assert.match(rolloutGuide, /数据与知识层/);
   assert.match(rolloutGuide, /产物与投递层/);
+});
+
+test("AI chat POST and UI carry a stable client request idempotency key", async () => {
+  const [page, route, workflow, service, migration] = await Promise.all([
+    readFile(new URL("../app/ai-assistant-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0083_ai_chat_idempotency.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /pendingChatRequestRef/);
+  assert.match(page, /resolvePendingAiChatRequest\(pendingChatRequestRef\.current, requestPayload\)/);
+  assert.match(page, /JSON\.stringify\(\{ \.\.\.pendingRequest\.requestPayload, clientRequestId \}\)/);
+  assert.match(page, /attachPendingAiChatResponse\(pendingRequest/);
+  assert.match(page, /markPendingAiChatSynchronized/);
+  assert.match(page, /服务端同步尚未完整确认；原请求号已保留/);
+  assert.match(route, /requireAiId\(payload\.clientRequestId, "clientRequestId"\)/);
+  assert.match(workflow, /claimAiChatRequest/);
+  assert.match(workflow, /markAiChatRequestDispatched/);
+  assert.match(workflow, /markAiChatRequestUnknown/);
+  assert.match(service, /status IN \('processing', 'dispatched', 'succeeded', 'failed', 'unknown'\)/);
+  assert.match(service, /同一个 clientRequestId 已用于不同的聊天请求/);
+  assert.match(migration, /ai_chat_request_receipts_owner_client_uq/);
 });
 
 test("AI tool execution migration preserves audit rows and adds invocation correlation", async () => {

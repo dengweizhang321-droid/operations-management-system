@@ -1,4 +1,9 @@
 import { env } from "cloudflare:workers";
+import { requireUnrestrictedDataScope, type AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoSalesConsumerReader,
+  type SalesConsumerReader,
+} from "@/lib/django/sales-consumer-reader";
 import {
   importReservationCommitFence,
   rethrowImportPublishError,
@@ -752,8 +757,14 @@ export async function deleteFinanceTarget(db: FinanceDatabase, id: string, expec
   throw new PublicApiError(409, "version_conflict", "经营目标已被其他人更新，请刷新后重试");
 }
 
-export async function getFinanceTargetOptions(db: FinanceDatabase) {
-  const [shopResult, shopCount] = await Promise.all([
+export async function getFinanceTargetOptions(
+  db: FinanceDatabase,
+  principal: AppPrincipal,
+  options: { salesReader?: SalesConsumerReader; signal?: AbortSignal } = {},
+) {
+  requireUnrestrictedDataScope(principal, "经营目标");
+  const salesReader = options.salesReader ?? createDjangoSalesConsumerReader();
+  const [shopResult, shopCount, salesCategories] = await Promise.all([
     db.prepare(
       `SELECT DISTINCT COALESCE(NULLIF(group_name, ''), '未分组') AS platform, scope_name AS name
        FROM finance_lines
@@ -765,16 +776,17 @@ export async function getFinanceTargetOptions(db: FinanceDatabase) {
       FROM finance_lines WHERE scope_type = 'shop' AND TRIM(scope_name) <> ''
       GROUP BY COALESCE(NULLIF(group_name, ''), '未分组'), scope_name
     )`).first<{ total: number }>(),
+    salesReader.read(
+      principal,
+      { operation: "category_options", limit: 300 },
+      { signal: options.signal },
+    ),
   ]);
-  let categories: string[] = [];
-  try {
-    const categoryResult = await db.prepare(
-      `SELECT DISTINCT category AS value FROM sales_order_lines
-       WHERE TRIM(category) <> '' ORDER BY category LIMIT 300`,
-    ).all<{ value: string }>();
-    categories = categoryResult.results.map((item) => item.value);
-  } catch {
-    categories = [];
+  if (!salesCategories || typeof salesCategories.revision !== "string" || !salesCategories.revision
+    || !salesCategories.data || !Array.isArray(salesCategories.data.categories)
+    || typeof salesCategories.data.truncated !== "boolean"
+    || salesCategories.data.categories.some((item) => typeof item !== "string" || item.length > 200)) {
+    throw new PublicApiError(503, "service_unavailable", "Django 销售读取服务暂时不可用，请稍后重试。");
   }
   return {
     shops: shopResult.results.map((item) => ({
@@ -782,7 +794,7 @@ export async function getFinanceTargetOptions(db: FinanceDatabase) {
       platform: item.platform,
       name: item.name,
     })),
-    categories,
+    categories: salesCategories.data.categories,
     projects: ["8系列"],
     pagination: {
       shops: {

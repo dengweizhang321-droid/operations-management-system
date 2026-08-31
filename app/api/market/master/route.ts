@@ -6,6 +6,7 @@ import {
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readBoundedJsonObject } from "@/lib/http/bounded-json";
 import { getMarketDatabase } from "@/lib/market/database";
+import { parseMarketMasterView } from "@/lib/market/admin-query-contract";
 import {
   confirmMarketPrice,
   confirmMarketBrand,
@@ -13,6 +14,10 @@ import {
   createMarketBrandRecognitionJob,
   applyPublishedMarketMappings,
   createMarketPriceBandVersion,
+  getMarketMasterDatabaseFilters,
+  getMarketMasterDatabasePrimary,
+  getMarketMasterDatabaseSecondary,
+  getMarketSettingsStatus,
   getMarketMasterWorkspace,
   getMarketSubcategoryWorkspace,
   getMarketBrandRecognitionJob,
@@ -88,9 +93,39 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "市场主数据");
     const db = getMarketDatabase();
     const params = new URL(request.url).searchParams;
-    const view = params.get("view") ?? "workspace";
+    const view = parseMarketMasterView(params);
     if (view === "system_kpis") {
       return Response.json(await getMarketSystemKpis(db), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "settings_status") {
+      return Response.json(await getMarketSettingsStatus(db), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "database_primary") {
+      return Response.json(await getMarketMasterDatabasePrimary(db, {
+        q: params.get("q") ?? undefined,
+        categories: params.getAll("category"),
+        rankingDimensions: params.getAll("rankingDimension"),
+        operationModes: params.getAll("operationMode"),
+        subcategories: params.getAll("subcategory"),
+        priceStatuses: params.getAll("priceStatus"),
+        candidatePriceSources: params.getAll("priceSource"),
+        annotationStatuses: params.getAll("annotationStatus"),
+        page: numberParam(params, "page", 1),
+        pageSize: numberParam(params, "pageSize", 30),
+      }), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "database_filters") {
+      return Response.json(await getMarketMasterDatabaseFilters(db, {
+        categories: params.getAll("category"),
+      }), { headers: { "cache-control": "no-store" } });
+    }
+    if (view === "database_secondary") {
+      return Response.json(await getMarketMasterDatabaseSecondary(db, {
+        categories: params.getAll("pendingPriceCategory"),
+        candidatePriceSources: params.getAll("pendingPriceSource"),
+        page: numberParam(params, "pendingPricePage", 1),
+        pageSize: numberParam(params, "pendingPricePageSize", 20),
+      }), { headers: { "cache-control": "no-store" } });
     }
     if (view === "master") {
       return Response.json(await listMarketMasterData(db, {

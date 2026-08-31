@@ -4,8 +4,8 @@ from collections import defaultdict
 from datetime import date
 from typing import Any, Sequence
 
-from django.db.models import BigIntegerField, CharField, DateField, F, Sum, Value
-from django.db.models.functions import Cast, Coalesce, Substr, TruncWeek
+from django.db.models import BigIntegerField, F, Q, Sum, Value
+from django.db.models.functions import Coalesce, TruncMonth, TruncWeek
 
 from .auth import Principal
 from .query import (
@@ -73,9 +73,68 @@ def _base(params: dict[str, Any], principal: Principal, start_date: str | None =
     return queryset, scope_mode
 
 
-def _grouped(params: dict[str, Any], principal: Principal, start_date: str | None = None, end_date: str | None = None) -> tuple[list[dict[str, Any]], str]:
+def _period_filter(start_date: str, end_date: str) -> Q:
+    return Q(business_date__gte=start_date, business_date__lt=add_days(end_date, 1))
+
+
+def _grouped_with_comparisons(
+    params: dict[str, Any], principal: Principal, comparisons: dict[str, Any]
+) -> tuple[list[dict[str, Any]], str]:
+    periods = [
+        {"startDate": params["startDate"], "endDate": params["endDate"]},
+        comparisons["weekOverWeek"]["current"],
+        comparisons["weekOverWeek"]["previous"],
+        comparisons["yearAgo"],
+    ]
+    start_date = min(period["startDate"] for period in periods)
+    end_date = max(period["endDate"] for period in periods)
     queryset, scope_mode = _base(params, principal, start_date, end_date)
-    rows = list(queryset.values("category_key").annotate(**category_aggregates()).order_by(binary_order("category_key")))
+    included = Q()
+    for period in periods:
+        included |= _period_filter(period["startDate"], period["endDate"])
+    current_filter = _period_filter(params["startDate"], params["endDate"])
+    queryset = queryset.filter(included)
+    rows = list(
+        queryset.values("resolved_category")
+        .annotate(
+            **category_aggregates(filter_q=current_filter),
+            current_week_net_sales_cents=Coalesce(
+                Sum(
+                    "allocated_amount_cents",
+                    filter=_period_filter(
+                        comparisons["weekOverWeek"]["current"]["startDate"],
+                        comparisons["weekOverWeek"]["current"]["endDate"],
+                    ),
+                ),
+                Value(0),
+                output_field=BigIntegerField(),
+            ),
+            previous_week_net_sales_cents=Coalesce(
+                Sum(
+                    "allocated_amount_cents",
+                    filter=_period_filter(
+                        comparisons["weekOverWeek"]["previous"]["startDate"],
+                        comparisons["weekOverWeek"]["previous"]["endDate"],
+                    ),
+                ),
+                Value(0),
+                output_field=BigIntegerField(),
+            ),
+            year_ago_net_sales_cents=Coalesce(
+                Sum(
+                    "allocated_amount_cents",
+                    filter=_period_filter(
+                        comparisons["yearAgo"]["startDate"],
+                        comparisons["yearAgo"]["endDate"],
+                    ),
+                ),
+                Value(0),
+                output_field=BigIntegerField(),
+            ),
+        )
+        .filter(line_count__gt=0)
+        .order_by(binary_order("resolved_category"))
+    )
     return rows, scope_mode
 
 
@@ -92,7 +151,7 @@ def _serialize_category(row: dict[str, Any], total_net: int) -> dict[str, Any]:
     previous_week = int(row.get("previous_week_net_sales_cents") or 0)
     year_ago = int(row.get("year_ago_net_sales_cents") or 0)
     return {
-        "category": row["category_key"],
+        "category": row["resolved_category"],
         "grossSalesCents": gross,
         "refundAmountCents": refund,
         "netSalesCents": net,
@@ -142,13 +201,9 @@ def _summary(rows: Sequence[dict[str, Any]]) -> dict[str, int | float]:
 
 def _period_annotation(queryset, granularity: str):
     if granularity == "month":
-        return queryset.annotate(period_key=Substr("business_date", 1, 7, output_field=CharField()))
+        return queryset.annotate(period_key=TruncMonth("business_date"))
     if granularity == "week":
-        return queryset.annotate(
-            business_date_value=Cast("business_date", output_field=DateField()),
-            week_value=TruncWeek("business_date_value"),
-            period_key=Cast("week_value", output_field=CharField()),
-        )
+        return queryset.annotate(period_key=TruncWeek("business_date"))
     return queryset.annotate(period_key=F("business_date"))
 
 
@@ -156,20 +211,22 @@ def _trend_rows(params: dict[str, Any], principal: Principal, categories: Sequen
     if not categories:
         return []
     queryset, _ = _base(params, principal)
-    queryset = _period_annotation(queryset.filter(category_key__in=categories), params["granularity"])
+    queryset = _period_annotation(queryset.filter(resolved_category__in=categories), params["granularity"])
     aggregate = category_aggregates()
     keep = {key: aggregate[key] for key in ["net_sales_cents", "gross_profit_cents", "positive_quantity", "return_quantity", "refund_amount_cents"]}
-    grouped = queryset.values("period_key", "category_key").annotate(**keep).order_by(
-        "period_key", "-net_sales_cents", binary_order("category_key")
+    grouped = queryset.values("period_key", "resolved_category").annotate(**keep).order_by(
+        "period_key", "-net_sales_cents", binary_order("resolved_category")
     )
     rows = list(grouped if recent_periods is not None else grouped[:3000])
     for row in rows:
-        row["period_key"] = str(row["period_key"])[:10] if params["granularity"] == "week" else str(row["period_key"])
+        value = row["period_key"]
+        normalized = value.isoformat() if hasattr(value, "isoformat") else str(value)
+        row["period_key"] = normalized[:7] if params["granularity"] == "month" else normalized[:10]
     if recent_periods is not None:
         periods = sorted({row["period_key"] for row in rows}, reverse=True)[:recent_periods]
         allowed = set(periods)
         rows = [row for row in rows if row["period_key"] in allowed]
-        rows.sort(key=lambda row: (binary_text_key(row["category_key"]), row["period_key"]))
+        rows.sort(key=lambda row: (binary_text_key(row["resolved_category"]), row["period_key"]))
     return rows
 
 
@@ -182,7 +239,7 @@ def _category_trend(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
 def _filter_options(params: dict[str, Any], principal: Principal) -> dict[str, Any]:
     queryset, _ = _base(params, principal, clear_dimensions=True)
-    categories = list(queryset.values_list("category_key", flat=True).distinct().order_by(binary_order("category_key")))
+    categories = list(queryset.values_list("resolved_category", flat=True).distinct().order_by(binary_order("resolved_category")))
     channels = list(queryset.values_list("channel", flat=True).distinct().order_by(binary_order("channel")))
     channels = [value.strip() or "未分类" for value in channels]
     platforms = list(queryset.values_list("platform_key", flat=True).distinct().order_by(binary_order("platform_key")))
@@ -210,18 +267,7 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
     if params["sortBy"] not in SORT_KEYS:
         raise SalesRequestError("sortBy 无效")
     comparisons = _comparison_periods(params["startDate"], params["endDate"])
-    current_rows, scope_mode = _grouped(params, principal)
-    current_week_rows, _ = _grouped(params, principal, **{"start_date": comparisons["weekOverWeek"]["current"]["startDate"], "end_date": comparisons["weekOverWeek"]["current"]["endDate"]})
-    previous_week_rows, _ = _grouped(params, principal, **{"start_date": comparisons["weekOverWeek"]["previous"]["startDate"], "end_date": comparisons["weekOverWeek"]["previous"]["endDate"]})
-    year_ago_rows, _ = _grouped(params, principal, **{"start_date": comparisons["yearAgo"]["startDate"], "end_date": comparisons["yearAgo"]["endDate"]})
-    current_week_by_category = {row["category_key"]: row for row in current_week_rows}
-    previous_week_by_category = {row["category_key"]: row for row in previous_week_rows}
-    year_ago_by_category = {row["category_key"]: row for row in year_ago_rows}
-    by_category = {row["category_key"]: row for row in current_rows}
-    for category, row in by_category.items():
-        row["current_week_net_sales_cents"] = current_week_by_category.get(category, {}).get("net_sales_cents", 0)
-        row["previous_week_net_sales_cents"] = previous_week_by_category.get(category, {}).get("net_sales_cents", 0)
-        row["year_ago_net_sales_cents"] = year_ago_by_category.get(category, {}).get("net_sales_cents", 0)
+    current_rows, scope_mode = _grouped_with_comparisons(params, principal, comparisons)
     totals = _summary(current_rows)
     total_net = int(totals["netSalesCents"])
     metrics = [_serialize_category(row, total_net) for row in current_rows]
@@ -245,7 +291,7 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
     detail_trends = _trend_rows(params, principal, [item["category"] for item in details], recent_periods=DETAIL_TREND_PERIOD_LIMIT)
     trend_by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in detail_trends:
-        trend_by_category[row["category_key"]].append(row)
+        trend_by_category[row["resolved_category"]].append(row)
     details = [{**item, "trend": _category_trend(trend_by_category[item["category"]])} for item in details]
     top_categories = [item["category"] for item in ranking[:TREND_CATEGORY_LIMIT]]
     trend_rows = _trend_rows(params, principal, top_categories)
@@ -285,7 +331,7 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
             "granularity": params["granularity"], "categoryLimit": TREND_CATEGORY_LIMIT, "returned": len(trend_rows),
             "truncated": len(trend_rows) >= 3000,
             "items": [{
-                "period": row["period_key"], "category": row["category_key"], "netSalesCents": int(row["net_sales_cents"] or 0),
+                "period": row["period_key"], "category": row["resolved_category"], "netSalesCents": int(row["net_sales_cents"] or 0),
                 "grossProfitCents": int(row["gross_profit_cents"] or 0), "positiveQuantity": int(row["positive_quantity"] or 0),
                 "returnQuantity": int(row["return_quantity"] or 0), "refundAmountCents": int(row["refund_amount_cents"] or 0),
             } for row in trend_rows],
@@ -307,11 +353,17 @@ def get_category_detail(params: dict[str, Any], principal: Principal) -> dict[st
         raise SalesRequestError("category 不能为空且不能超过 100 字")
     detail_params = {**params, "categories": [category]}
     queryset, _ = _base(detail_params, principal)
-    rows = list(queryset.values("platform_key", "shop_key").annotate(**category_aggregates()).order_by(
+    grouped = queryset.values("platform_key", "shop_key").annotate(**category_aggregates()).order_by(
         "-net_sales_cents", binary_order("platform_key"), binary_order("shop_key")
-    )[:500])
-    total_count = queryset.values("platform_key", "shop_key").distinct().count()
-    total_net = int(queryset.aggregate(total=Coalesce(Sum("allocated_amount_cents"), Value(0), output_field=BigIntegerField()))["total"] or 0)
+    )
+    fetched = list(grouped[:501])
+    rows = fetched[:500]
+    if len(fetched) > 500:
+        total_count = grouped.count()
+        total_net = int(queryset.aggregate(total=Coalesce(Sum("allocated_amount_cents"), Value(0), output_field=BigIntegerField()))["total"] or 0)
+    else:
+        total_count = len(rows)
+        total_net = sum(int(row["net_sales_cents"] or 0) for row in rows)
     platform_map: dict[str, dict[str, Any]] = {}
     for row in rows:
         gross = int(row["gross_sales_cents"] or 0)
