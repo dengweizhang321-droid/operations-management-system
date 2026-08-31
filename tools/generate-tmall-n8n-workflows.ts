@@ -191,7 +191,11 @@ function setStoreHeader(node: WorkflowNode, storeKey: string) {
     ...(url.endsWith("/product-master")
       ? [{
           name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-          value: "={{ $mode === 'manual' ? '1' : '0' }}",
+          // n8n labels an execution started from the schedule node in the
+          // editor as `manual` too.  The force flag must therefore identify
+          // the actual Manual Trigger, otherwise a same-day recovery would
+          // incorrectly bypass the store's three-day M cadence.
+          value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
         }]
       : []),
   ];

@@ -153,6 +153,56 @@ test("sales dry-run uses the stable price-adjustment product code", async () => 
   }
 });
 
+test("sales dry-run --use-file-cost keeps the workbook cost column as final cost", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "sales-file-cost-test-"));
+  try {
+    // 文件自带货品成本列（整行成本）为 50，库存成本源固定成本价为 20。
+    // --use-file-cost 应以文件 50 为准，而不是成本源的 20×数量。
+    const salesBytes = salesSheet([
+      ["网店订单号", "销售渠道", "发货仓库", "货品编号", "货品名称", "数量", "下单时间", "发货时间", "货品成本", "分摊后单价", "分摊后金额", "费用分摊", "毛利"],
+      ["ON-1", "京东-志高切肉机旗舰店（志高迈德豪）", "主仓", "SKU-1", "测试货品", 1, "2026-07-10 09:00:00", "2026-07-10 10:00:00", 50, 100, 100, 5, 45],
+    ]);
+    const costBytes = costSheet([
+      ["货品编号", "固定成本价", "货品名称"],
+      ["SKU-1", 20, "测试货品"],
+    ]);
+    const salesPath = path.join(directory, "销售单明细账.xlsx");
+    const costPath = path.join(directory, "分仓库存查询_已剔除刷刷仓.xlsx");
+    await Promise.all([writeFile(salesPath, salesBytes), writeFile(costPath, costBytes)]);
+
+    // 以文件成本为准：不传 --cost-source
+    const result = await execFileAsync(process.execPath, [
+      "--import", "tsx", path.resolve("tools/sales-import-runner.ts"),
+      "--download", salesPath,
+      "--use-file-cost",
+      "--expected-source-rows", "1",
+      "--as-of", "2026-07-15",
+      "--audit-root", path.join(directory, "audit"),
+      "--dry-run",
+    ], { cwd: path.resolve("."), encoding: "utf8", timeout: 30_000 });
+
+    const output = JSON.parse(result.stdout) as { status?: string; auditPath?: string; outputPath?: string };
+    assert.equal(output.status, "prepared");
+    assert.ok(output.outputPath);
+    const workbook = parseXlsxFirstSheet(new Uint8Array(await readFile(output.outputPath)));
+    const head = workbook.rows[0]?.cells.map((cell) => String(cell)) ?? [];
+    const costIdx = head.indexOf("货品成本");
+    const grossIdx = head.indexOf("毛利");
+    assert.ok(costIdx >= 0);
+    // 文件成本列保留为 50（整行成本），毛利保留文件值 45
+    assert.equal(Number(workbook.rows[1]?.cells[costIdx]), 50);
+    assert.equal(Number(workbook.rows[1]?.cells[grossIdx]), 45);
+    const audit = JSON.parse(await readFile(output.auditPath!, "utf8")) as {
+      sources?: { costSource?: { mode?: string } };
+      totals?: { costAmountCents?: number };
+    };
+    assert.equal(audit.sources?.costSource?.mode, "file_cost");
+    assert.equal(audit.totals?.costAmountCents, 5000);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("sales dry-run accepts the current sales export shape", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "sales-runner-test-"));
   try {

@@ -157,44 +157,48 @@ test("product and inventory APIs expose real page contracts", async () => {
 });
 
 test("replenishment, AI and frontend do not reuse truncated pages", async () => {
-  const [route, ai, page] = await Promise.all([
+  const [route, ai, inventoryView, productView] = await Promise.all([
     source("../app/api/inventory/replenishment/route.ts"),
     source("../lib/ai/operations-tools.ts"),
-    source("../app/page.tsx"),
+    source("../app/inventory-module-view.tsx"),
+    source("../app/product-module-view.tsx"),
   ]);
+  const frontend = `${inventoryView}\n${productView}`;
   assert.match(route, /exactKey: body\.key/);
   assert.match(route, /startDate: body\.startDate/);
   assert.doesNotMatch(ai, /const overview = await getInventoryOverview\(db\);[\s\S]*?overview\.items\.filter/);
-  assert.match(page, /useState\(shanghaiIsoToday\)/);
-  assert.match(page, /currentUser\?\.role === "admin"/);
-  assert.match(page, /overviewGenerationRef/);
-  assert.match(page, /productSummaryGenerationRef/);
-  assert.match(page, /已覆盖库存货值/);
-  assert.match(page, /成本缺口/);
-  assert.match(page, /stockValueComplete/);
-  assert.doesNotMatch(page, /filtered\.slice\(0, 300\)/);
-  assert.doesNotMatch(page, /filteredItems\.slice\(0, 300\)/);
-  assert.doesNotMatch(page, /cleanupItems\.slice\(/);
+  assert.match(inventoryView, /useState\(shanghaiIsoToday\)/);
+  assert.match(inventoryView, /currentUser\?\.role === "admin"/);
+  assert.match(inventoryView, /overviewGenerationRef/);
+  assert.match(productView, /productSummaryGenerationRef/);
+  assert.match(inventoryView, /已覆盖库存货值/);
+  assert.match(inventoryView, /成本缺口/);
+  assert.match(inventoryView, /stockValueComplete/);
+  assert.doesNotMatch(frontend, /filtered\.slice\(0, 300\)/);
+  assert.doesNotMatch(frontend, /filteredItems\.slice\(0, 300\)/);
+  assert.doesNotMatch(frontend, /cleanupItems\.slice\(/);
 });
 
 test("netshop requests reject late filter responses", async () => {
-  const page = await source("../app/page.tsx");
+  const page = await source("../app/shop-module-view.tsx");
   for (const gate of [
     "productPerformanceGenerationRef",
     "skuCatalogGenerationRef",
-    "promotionGenerationRef",
+    "promotionItemsGenerationRef",
+    "promotionOverviewGenerationRef",
   ]) {
     assert.match(page, new RegExp(`${gate}\\.current`));
   }
   assert.match(page, /signal: controller\.signal/);
   assert.match(page, /generation === productPerformanceGenerationRef\.current/);
   assert.match(page, /generation === skuCatalogGenerationRef\.current/);
-  assert.match(page, /generation === promotionGenerationRef\.current/);
+  assert.match(page, /generation === promotionItemsGenerationRef\.current/);
+  assert.match(page, /generation === promotionOverviewGenerationRef\.current/);
 });
 
 test("page consumes customer and finance bounded detail, pagination and CAS contracts", async () => {
-  const [page, customer] = await Promise.all([
-    source("../app/page.tsx"),
+  const [sales, customer] = await Promise.all([
+    source("../app/sales-module-view.tsx"),
     source("../app/customer-service-view.tsx"),
   ]);
   assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
@@ -208,13 +212,13 @@ test("page consumes customer and finance bounded detail, pagination and CAS cont
   assert.match(customer, /expectedVersion: item\.version/);
   assert.match(customer, /payload\.incomplete === true/);
   assert.match(customer, /冲突 \$\{conflictCount\}、失败 \$\{failedCount\}/);
-  assert.match(page, /finance\/targets\?page=\$\{targetPage\}&pageSize=100/);
-  assert.match(page, /targetRequestGenerationRef/);
-  assert.match(page, /expectedVersion: form\.id \? form\.expectedVersion/);
-  assert.match(page, /const query = new URLSearchParams\(\{[\s\S]*?expectedVersion: String\(item\.version\),[\s\S]*?reason: reasonResult\.reason,/);
-  assert.match(page, /finance\/targets\?\$\{query\.toString\(\)\}/);
-  assert.match(page, /targetPagination\.truncated/);
-  assert.match(page, /data\.selection\?\.truncated/);
+  assert.match(sales, /finance\/targets\?view=items&page=\$\{targetPage\}&pageSize=100/);
+  assert.match(sales, /targetRequestGenerationRef/);
+  assert.match(sales, /expectedVersion: form\.id \? form\.expectedVersion/);
+  assert.match(sales, /const query = new URLSearchParams\(\{[\s\S]*?expectedVersion: String\(item\.version\),[\s\S]*?reason: reasonResult\.reason,/);
+  assert.match(sales, /finance\/targets\?\$\{query\.toString\(\)\}/);
+  assert.match(sales, /targetPagination\.truncated/);
+  assert.match(sales, /data\.selection\?\.truncated/);
 });
 
 test("customer detail uses the shared dialog and saves both draft fields through one CAS", async () => {

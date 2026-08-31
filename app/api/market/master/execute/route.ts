@@ -6,7 +6,7 @@ import {
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { getMarketDatabase } from "@/lib/market/database";
 import { executeMarketDownloadTask } from "@/lib/market/download-executor";
-import { cacheMarketImages } from "@/lib/market/image-cache";
+import { createOrResumeMarketImageCacheJob } from "@/lib/market/image-cache-job";
 
 export async function POST(request: Request) {
   try {
@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     const result = await executeMarketDownloadTask(db, { taskId }, principal, {
       download: async () => ({ bytes, fileName: file.name.slice(0, 240), jdTaskId }),
       cacheImages: async ({ batchId }) => {
-        const cached = await cacheMarketImages({ db, batchId, limit: 24 });
-        return { cached: cached.cachedThisRun, queued: cached.pending };
+        const job = await createOrResumeMarketImageCacheJob(db, { batchId, requestedBy: principal.email });
+        return { cached: job.cached, queued: job.pending + job.propagationPending };
       },
     });
     return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });

@@ -15,6 +15,7 @@ import {
   parseAiPositiveInteger,
   readAiJsonObject,
   requireAiId,
+  requireAiSameOriginWrite,
 } from "@/app/api/ai/route-helpers";
 
 export async function GET(request: Request) {
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
     const payload = await readAiJsonObject(request);
     const conversationId = requireAiId(payload.conversationId, "conversationId");
@@ -50,6 +52,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin", "operator", "analyst"]);
     const ids = new URL(request.url).searchParams.getAll("id");
     const conversationId = requireAiId(ids.length === 1 ? ids[0] : undefined, "id");

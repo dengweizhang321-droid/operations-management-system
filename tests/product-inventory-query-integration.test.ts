@@ -22,12 +22,19 @@ const { ensureSalesSchema } = await import("../lib/sales/database");
 const { ensureInventorySchema } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
 const { getProductSummary } = await import("../lib/products/summary");
-const { getInventoryOverview } = await import("../lib/inventory/overview");
+const { getInventoryDashboardOverview, getInventoryFullOverview, getInventoryOverview, getInventoryPlanOverview } = await import("../lib/inventory/overview");
+const { parseInventoryOverviewView } = await import("../lib/inventory/query-contract");
 const { getInventoryAgeAnalysis } = await import("../lib/inventory/age-analysis");
 
-function sqliteAdapter(sqlite: DatabaseSync) {
+function sqliteAdapter(
+  sqlite: DatabaseSync,
+  onPrepare?: (sql: string) => void,
+  transformFirst?: (sql: string, row: Record<string, unknown> | undefined) => Record<string, unknown> | undefined,
+  transformAll?: (sql: string, rows: Array<Record<string, unknown>>) => Array<Record<string, unknown>>,
+) {
   return {
     prepare(sql: string) {
+      onPrepare?.(sql);
       let values: SQLInputValue[] = [];
       return {
         bind(...nextValues: unknown[]) {
@@ -35,11 +42,14 @@ function sqliteAdapter(sqlite: DatabaseSync) {
           return this;
         },
         async first<T>(column?: string) {
-          const row = sqlite.prepare(sql).get(...values) as Record<string, unknown> | undefined;
+          const rawRow = sqlite.prepare(sql).get(...values) as Record<string, unknown> | undefined;
+          const row = transformFirst ? transformFirst(sql, rawRow) : rawRow;
           return (column ? row?.[column] : row ?? null) as T | null;
         },
         async all<T>() {
-          return { results: sqlite.prepare(sql).all(...values) as T[] };
+          const rawRows = sqlite.prepare(sql).all(...values) as Array<Record<string, unknown>>;
+          const rows = transformAll ? transformAll(sql, rawRows) : rawRows;
+          return { results: rows as T[] };
         },
         async run() {
           const result = sqlite.prepare(sql).run(...values);
@@ -97,6 +107,7 @@ function insertStockLine(sqlite: DatabaseSync, input: {
   rowKey: string;
   productCode: string;
   productName: string;
+  brand?: string;
   category: string;
   availableQuantity: number;
   unitCostCents: number;
@@ -107,11 +118,12 @@ function insertStockLine(sqlite: DatabaseSync, input: {
     product_code, product_name, brand, specification, barcode, category,
     on_hand_quantity, available_quantity, locked_quantity, in_transit_quantity,
     unit_cost_cents, inventory_age_days
-  ) VALUES ('inventory-batch', ?, 1, '2026-08-18', '上海仓', 'owned', ?, ?, '', '', '', ?, ?, ?, 0, 0, ?, ?)`)
+  ) VALUES ('inventory-batch', ?, 1, '2026-08-18', '上海仓', 'owned', ?, ?, ?, '', '', ?, ?, ?, 0, 0, ?, ?)`)
     .run(
       input.rowKey,
       input.productCode,
       input.productName,
+      input.brand ?? "",
       input.category,
       input.availableQuantity,
       input.availableQuantity,
@@ -119,6 +131,16 @@ function insertStockLine(sqlite: DatabaseSync, input: {
       input.ageDays,
     );
 }
+
+test("库存 overview 保留缺省 full 兼容并支持唯一受控投影", () => {
+  assert.equal(parseInventoryOverviewView(new URLSearchParams()), "full");
+  assert.equal(parseInventoryOverviewView(new URLSearchParams("view=full")), "full");
+  assert.equal(parseInventoryOverviewView(new URLSearchParams("view=dashboard")), "dashboard");
+  assert.equal(parseInventoryOverviewView(new URLSearchParams("view=overview")), "overview");
+  assert.equal(parseInventoryOverviewView(new URLSearchParams("view=plan")), "plan");
+  assert.throws(() => parseInventoryOverviewView(new URLSearchParams("view=overview&view=plan")), /view 只能提供一次/);
+  assert.throws(() => parseInventoryOverviewView(new URLSearchParams("view=unknown")), /full、dashboard、overview 或 plan/);
+});
 
 test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", async () => {
   const sqlite = new DatabaseSync(":memory:");
@@ -136,9 +158,13 @@ test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", 
 
   insertSalesLine(sqlite, { productCode: "A", productName: "货品A", category: "类目A", quantity: 10, netSalesCents: 10_000, costCents: 0 });
   insertSalesLine(sqlite, { productCode: "B", productName: "货品B", category: "类目B", quantity: 5, netSalesCents: 5_000, costCents: 2_500 });
-  insertStockLine(sqlite, { rowKey: "a-priced", productCode: "A", productName: "货品A", category: "类目A", availableQuantity: 1, unitCostCents: 1_000, ageDays: 120 });
-  insertStockLine(sqlite, { rowKey: "a-missing", productCode: "A", productName: "货品A", category: "类目A", availableQuantity: 99, unitCostCents: 0, ageDays: 120 });
-  insertStockLine(sqlite, { rowKey: "b-priced", productCode: "B", productName: "货品B", category: "类目B", availableQuantity: 5, unitCostCents: 500, ageDays: 30 });
+  insertStockLine(sqlite, { rowKey: "a-priced", productCode: "A", productName: "货品A", brand: "品牌甲", category: "类目A", availableQuantity: 1, unitCostCents: 1_000, ageDays: 120 });
+  insertStockLine(sqlite, { rowKey: "a-missing", productCode: "A", productName: "货品A", brand: "品牌甲", category: "类目A", availableQuantity: 99, unitCostCents: 0, ageDays: 120 });
+  insertStockLine(sqlite, { rowKey: "b-priced", productCode: "B", productName: "货品B", brand: "品牌乙", category: "类目B", availableQuantity: 5, unitCostCents: 500, ageDays: 30 });
+  sqlite.prepare(`INSERT INTO replenishment_plan_items (
+    id, source_batch_id, product_code, product_name, warehouse,
+    suggested_quantity, planned_quantity, coverage_days_tenths, reason, status
+  ) VALUES ('plan-a', 'inventory-batch', 'A', '货品A', '上海仓', 20, 12, 300, '真实 SQL 投影测试', 'draft')`).run();
 
   const product = await getProductSummary(db, {
     range: "custom",
@@ -167,10 +193,295 @@ test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", 
   assert.equal(overview.metrics.costCoverageRate, 0.01);
   assert.equal(overview.items[0]?.stockValueCents, null);
 
+  const fullSql: string[] = [];
+  const fullOverview = await getInventoryOverview(sqliteAdapter(sqlite, (sql) => fullSql.push(sql)) as never, {
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+  });
+  const dashboardSql: string[] = [];
+  const dashboardOverview = await getInventoryDashboardOverview(
+    sqliteAdapter(sqlite, (sql) => dashboardSql.push(sql)) as never,
+    { startDate: "2026-08-18", endDate: "2026-08-18" },
+  );
+  assert.deepEqual(Object.keys(dashboardOverview).sort(), ["hasInventory", "health", "metrics", "sync"]);
+  assert.deepEqual(dashboardOverview.sync, fullOverview.sync);
+  assert.deepEqual(dashboardOverview.metrics, fullOverview.metrics);
+  assert.deepEqual(dashboardOverview.health, fullOverview.health);
+  assert.equal(fullOverview.projection, "overview");
+  assert.deepEqual(fullOverview.plans, []);
+  assert.deepEqual(fullOverview.items.map((item) => item.productCode), ["B", "A"]);
+  assert.deepEqual(fullOverview.recommendations.map((item) => item.productCode), ["A", "B"]);
+  assert.equal(fullOverview.metrics.skuWarehouseCount, 2);
+  assert.equal(fullOverview.metrics.totalAvailableQuantity, 105);
+  assert.equal(fullOverview.metrics.knownStockValueCents, 3_500);
+  assert.equal(fullOverview.metrics.urgentCount, 1);
+  assert.equal(fullOverview.metrics.replenishCount, 1);
+  assert.equal(fullOverview.metrics.recommendationCount, 2);
+  assert.equal(fullOverview.metrics.averageCoverageDays, 7);
+  assert.deepEqual(new Set(fullOverview.filters.brands), new Set(["品牌甲", "品牌乙"]));
+  assert.deepEqual(new Set(fullOverview.filters.categories), new Set(["类目A", "类目B"]));
+  const legacyFullOverview = await getInventoryFullOverview(db, {
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+  });
+  assert.equal("projection" in legacyFullOverview, false, "缺省 full 响应不得新增投影字段破坏旧契约");
+  assert.deepEqual(legacyFullOverview.items, fullOverview.items);
+  assert.equal(legacyFullOverview.plans.length, 1);
+  assert.equal(legacyFullOverview.plans[0]?.id, "plan-a");
+  assert.equal(legacyFullOverview.planSummary.draftCount, 1);
+  assert.equal(fullSql.filter((sql) => sql.includes("WITH stock AS (")).length, 1);
+  const combinedOverviewSql = fullSql.find((sql) => sql.includes("filtered AS MATERIALIZED"));
+  assert.ok(combinedOverviewSql, "overview 应只物化一次筛选后的库存集合");
+  assert.match(combinedOverviewSql, /metrics AS MATERIALIZED/);
+  assert.match(combinedOverviewSql, /page_rows AS MATERIALIZED/);
+  assert.match(combinedOverviewSql, /recommendation_rows AS MATERIALIZED/);
+  assert.match(combinedOverviewSql, /page_projection AS MATERIALIZED/);
+  assert.match(combinedOverviewSql, /recommendation_projection AS MATERIALIZED/);
+  assert.match(combinedOverviewSql, /json_patch/);
+  assert.match(combinedOverviewSql, /'metrics' AS section/);
+  assert.match(combinedOverviewSql, /'page' AS section/);
+  assert.match(combinedOverviewSql, /'recommendation' AS section/);
+  assert.doesNotMatch(combinedOverviewSql, /json_group_array/);
+  assert.match(combinedOverviewSql, /LIMIT 50 OFFSET 0/);
+  assert.equal(fullSql.some((sql) => sql.includes("SELECT COUNT(*) AS total FROM replenishment_plan_items")), false);
+  assert.equal(fullSql.some((sql) => sql.includes("AS draft_count")), false);
+  assert.equal(dashboardSql.filter((sql) => sql.includes("WITH stock AS (")).length, 1);
+  assert.equal(dashboardSql.some((sql) => sql.includes("filtered AS MATERIALIZED")), false);
+  assert.equal(dashboardSql.some((sql) => sql.includes("page_json")), false);
+  assert.equal(dashboardSql.some((sql) => sql.includes("SELECT DISTINCT warehouse FROM classified")), false);
+  assert.equal(dashboardSql.some((sql) => sql.includes("LIMIT 50 OFFSET 0")), false);
+  assert.equal(dashboardSql.some((sql) => sql.includes("LIMIT ? OFFSET ?")), false);
+  assert.equal(dashboardSql.some((sql) => sql.includes("SELECT COUNT(*) AS total FROM replenishment_plan_items")), false);
+
+  const filteredOverview = await getInventoryOverview(db, {
+    query: "货品A",
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+    warehouses: ["上海仓"],
+    brands: ["品牌甲"],
+    categories: ["类目A"],
+    warehouseTypes: ["owned"],
+    statuses: ["replenish"],
+    page: 1,
+    pageSize: 50,
+  });
+  assert.equal(filteredOverview.pagination.total, 1);
+  assert.deepEqual(filteredOverview.items.map((item) => item.productCode), ["A"]);
+  assert.deepEqual(filteredOverview.recommendations.map((item) => item.productCode), ["A"]);
+  assert.equal(filteredOverview.metrics.skuWarehouseCount, 1);
+  assert.equal(filteredOverview.metrics.urgentCount, 0);
+  assert.equal(filteredOverview.metrics.replenishCount, 1);
+  assert.equal(filteredOverview.metrics.recommendationCount, 1);
+
+  const noSalesOverview = await getInventoryOverview(db, {
+    startDate: "2026-08-19",
+    endDate: "2026-08-19",
+    page: 1,
+    pageSize: 50,
+  });
+  assert.equal(noSalesOverview.items.length, 2);
+  assert.equal(noSalesOverview.items.every((item) => item.sales30d === null && item.suggestedQuantity === null), true);
+  assert.equal(noSalesOverview.items.every((item) => item.status === "no_sales"), true);
+
+  const maximumFilterSql: string[] = [];
+  const maximumFilterOverview = await getInventoryOverview(
+    sqliteAdapter(sqlite, (sql) => maximumFilterSql.push(sql)) as never,
+    {
+      query: "K1 K2 K3 K4 K5 K6 K7 K8",
+      startDate: "2026-08-18",
+      endDate: "2026-08-18",
+      warehouses: Array.from({ length: 10 }, (_, index) => `仓库${index}`),
+      brands: Array.from({ length: 20 }, (_, index) => `品牌${index}`),
+      categories: Array.from({ length: 20 }, (_, index) => `类目${index}`),
+      warehouseTypes: ["owned", "jd_rdc", "other"],
+      statuses: ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"],
+      exactKey: "不存在的仓库\u001f不存在的货品",
+      page: 1,
+      pageSize: 100,
+    },
+  );
+  assert.equal(maximumFilterOverview.pagination.total, 0);
+  const maximumProjectionSql = maximumFilterSql.find((sql) => sql.includes("'metrics' AS section"));
+  assert.ok(maximumProjectionSql);
+  assert.ok((maximumProjectionSql.match(/\?/g) ?? []).length <= 100, "最大合法筛选必须保持在 D1 100 bind 上限内");
+  assert.match(maximumProjectionSql, /INSTR\(LOWER\(product_code\), \?\) > 0/);
+  assert.doesNotMatch(maximumProjectionSql, /\bLIKE\s+\?/);
+
+  const longUnicodeQuerySql: string[] = [];
+  const longUnicodeQueryOverview = await getInventoryOverview(
+    sqliteAdapter(sqlite, (sql) => longUnicodeQuerySql.push(sql)) as never,
+    {
+      query: "超长中文检索词".repeat(15),
+      startDate: "2026-08-18",
+      endDate: "2026-08-18",
+    },
+  );
+  assert.equal(longUnicodeQueryOverview.pagination.total, 0);
+  const longUnicodeProjectionSql = longUnicodeQuerySql.find((sql) => sql.includes("'metrics' AS section"));
+  assert.ok(longUnicodeProjectionSql);
+  assert.match(longUnicodeProjectionSql, /INSTR\(LOWER\(resolved_product_name\), \?\) > 0/);
+  assert.doesNotMatch(longUnicodeProjectionSql, /\bLIKE\s+\?/);
+
+  const emptyOverview = await getInventoryOverview(db, {
+    query: "不存在的货品",
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+    page: 1,
+    pageSize: 1,
+  });
+  assert.equal(emptyOverview.pagination.total, 0);
+  assert.equal(emptyOverview.pagination.totalPages, 0);
+  assert.deepEqual(emptyOverview.items, []);
+  assert.deepEqual(emptyOverview.recommendations, []);
+  assert.equal(emptyOverview.metrics.skuWarehouseCount, 0);
+  assert.equal(emptyOverview.metrics.recommendationCount, 0);
+  assert.deepEqual(emptyOverview.filters.warehouses, ["上海仓"], "空筛选结果不应清空批次仓库 facet");
+  assert.deepEqual(new Set(emptyOverview.filters.brands), new Set(["品牌甲", "品牌乙"]), "空筛选结果不应清空批次品牌 facet");
+  assert.deepEqual(new Set(emptyOverview.filters.categories), new Set(["类目A", "类目B"]), "空筛选结果不应清空批次品类 facet");
+
+  const beyondOverview = await getInventoryOverview(db, {
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+    page: 3,
+    pageSize: 1,
+  });
+  assert.equal(beyondOverview.pagination.total, 2);
+  assert.equal(beyondOverview.pagination.totalPages, 2);
+  assert.equal(beyondOverview.pagination.returned, 0);
+  assert.equal(beyondOverview.pagination.truncated, false);
+  assert.deepEqual(beyondOverview.items, []);
+  assert.deepEqual(beyondOverview.recommendations.map((item) => item.productCode), ["A", "B"]);
+  assert.deepEqual(beyondOverview.metrics, fullOverview.metrics, "超页请求仍应返回完整且同口径的指标");
+
+  const corruptProjection = (
+    transform: (rows: Array<Record<string, unknown>>) => Array<Record<string, unknown>>,
+  ) => getInventoryOverview(
+    sqliteAdapter(sqlite, undefined, undefined, (sql, rows) => sql.includes("'metrics' AS section") ? transform(rows) : rows) as never,
+    { startDate: "2026-08-18", endDate: "2026-08-18" },
+  );
+  await assert.rejects(
+    () => corruptProjection((rows) => rows.map((row) => row.section === "page" && row.section_index === 0
+      ? { ...row, item_json: '{"product_code":"A"}' }
+      : row)),
+    /无效的数据结构/,
+    "JSON 业务行结构损坏时必须失败关闭",
+  );
+  await assert.rejects(
+    () => corruptProjection((rows) => rows.map((row) => row.section === "page" && row.section_index === 0
+      ? { ...row, section: "unknown" }
+      : row)),
+    /无效分区或索引/,
+    "未知投影分区必须失败关闭",
+  );
+  await assert.rejects(
+    () => corruptProjection((rows) => {
+      const recommendationRows = rows.filter((row) => row.section === "recommendation");
+      if (recommendationRows.length < 2) return rows;
+      const duplicateTarget = recommendationRows[1];
+      return rows.map((row) => row === duplicateTarget ? { ...row, section_index: 0 } : row);
+    }),
+    /重复索引/,
+    "重复投影索引必须失败关闭",
+  );
+  await assert.rejects(
+    () => corruptProjection((rows) => rows.filter((row) => row.section !== "metrics")),
+    /缺少唯一指标行/,
+    "缺少指标分区必须失败关闭",
+  );
+  await assert.rejects(
+    () => corruptProjection((rows) => {
+      const metricsRow = rows.find((row) => row.section === "metrics");
+      return metricsRow ? [metricsRow, { ...metricsRow }, ...rows.filter((row) => row !== metricsRow)] : rows;
+    }),
+    /重复索引/,
+    "重复指标分区必须失败关闭",
+  );
+
+  const planSql: string[] = [];
+  const planOverview = await getInventoryPlanOverview(
+    sqliteAdapter(sqlite, (sql) => planSql.push(sql)) as never,
+    { startDate: "2026-08-18", endDate: "2026-08-18", planPage: 1, planPageSize: 50 },
+  );
+  assert.equal(planOverview.projection, "plan");
+  assert.equal(planOverview.plans.length, 1);
+  assert.equal(planOverview.plans[0]?.id, "plan-a");
+  assert.equal(planOverview.planSummary.draftCount, 1);
+  assert.equal(planOverview.planSummary.activeQuantity, 12);
+  assert.equal(planSql.filter((sql) => sql.includes("WITH stock AS (")).length, 0);
+  assert.equal(planSql.some((sql) => sql.includes("SELECT COUNT(*) AS total FROM replenishment_plan_items")), true);
+  assert.equal(planSql.some((sql) => sql.includes("AS draft_count")), true);
+
+  const filteredPlanOverview = await getInventoryPlanOverview(db, {
+    query: "货品A",
+    warehouses: ["上海仓"],
+    brands: ["品牌甲"],
+    categories: ["类目A"],
+    planPage: 1,
+    planPageSize: 50,
+  });
+  assert.deepEqual(filteredPlanOverview.plans.map((plan) => plan.id), ["plan-a"]);
+  assert.equal(filteredPlanOverview.planSummary.draftCount, 1);
+  const mismatchedPlanOverview = await getInventoryPlanOverview(db, {
+    brands: ["品牌乙"],
+    planPage: 1,
+    planPageSize: 50,
+  });
+  assert.deepEqual(mismatchedPlanOverview.plans, []);
+  assert.equal(mismatchedPlanOverview.planSummary.draftCount, 0);
+
   const age = await getInventoryAgeAnalysis(db, { query: "A", page: 1, pageSize: 1 });
   assert.equal(age.pagination.total, 1);
   assert.equal(age.metrics.stockValueComplete, false);
   assert.equal(age.items[0]?.stockValueCents, null);
   assert.equal(age.items[0]?.sales30dQuantity, null);
+  sqlite.close();
+});
+
+test("库存 overview 推荐投影严格限制为排序后的前 50 条", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite) as never;
+  await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
+  sqlite.prepare(`INSERT INTO sales_import_batches (
+    id, source, file_name, file_size_bytes, file_hash, sheet_name, status, row_count, inserted_count, completed_at
+  ) VALUES ('sales-batch', 'test', 'sales.xlsx', 1, 'sales-hash', 'Sheet1', 'completed', 55, 55, '2026-08-18 10:00:00')`).run();
+  sqlite.prepare(`INSERT INTO inventory_import_batches (
+    id, source, file_name, file_size_bytes, file_hash, sheet_name, snapshot_date, status,
+    row_count, inserted_count, totals_json, completed_at
+  ) VALUES ('inventory-batch', 'test', 'inventory.xlsx', 1, 'inventory-hash', 'Sheet1', '2026-08-18', 'completed', 55, 55, '{}', '2026-08-18 10:00:00')`).run();
+
+  const expectedRecommendationCodes: string[] = [];
+  for (let index = 1; index <= 55; index += 1) {
+    const productCode = `R${String(index).padStart(3, "0")}`;
+    insertSalesLine(sqlite, {
+      productCode,
+      productName: `推荐货品${index}`,
+      category: "推荐测试",
+      quantity: 1,
+      netSalesCents: 100,
+      costCents: 50,
+    });
+    insertStockLine(sqlite, {
+      rowKey: `stock-${productCode}`,
+      productCode,
+      productName: `推荐货品${index}`,
+      category: "推荐测试",
+      availableQuantity: 0,
+      unitCostCents: 100,
+      ageDays: 0,
+    });
+    if (index <= 50) expectedRecommendationCodes.push(productCode);
+  }
+
+  const overview = await getInventoryOverview(db, {
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+    page: 1,
+    pageSize: 1,
+  });
+  assert.equal(overview.metrics.skuWarehouseCount, 55);
+  assert.equal(overview.metrics.recommendationCount, 55, "指标必须披露完整推荐总数而非截断数量");
+  assert.equal(overview.recommendations.length, 50);
+  assert.deepEqual(overview.recommendations.map((item) => item.productCode), expectedRecommendationCodes);
+  assert.deepEqual(overview.items.map((item) => item.productCode), ["R001"]);
   sqlite.close();
 });

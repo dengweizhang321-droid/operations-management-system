@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppCurrentUser, AppNavigate } from "./shell/view-contract";
 import CustomerServiceImportCard from "./customer-service-import-card";
 import Dialog from "./ui/dialog";
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
+import { effectivePageForScope } from "./module-view-shared";
 
 type CurrentUser = AppCurrentUser;
 type CustomerServiceMessage = { sender: string; sentAt: string; content: string };
@@ -86,6 +87,22 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   const debouncedCustomerQuery = useDebouncedValue(query);
   const debouncedSkuIds = useDebouncedValue(skuIds);
   const debouncedSpuIds = useDebouncedValue(spuIds);
+  const customerListScopeKey = useMemo(() => JSON.stringify({
+    agents: [...agents].sort(),
+    categories: [...categories].sort(),
+    conversionStatuses: [...conversionStatuses].sort(),
+    customerQuery: debouncedCustomerQuery.trim(),
+    endDate,
+    problemTypes: [...problemTypes].sort(),
+    robotScopes: [...robotScopes].sort(),
+    shopNames: [...shopNames].sort(),
+    skuIds: debouncedSkuIds.trim(),
+    spuIds: debouncedSpuIds.trim(),
+    startDate,
+    statuses: [...statuses].sort(),
+  }), [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, problemTypes, robotScopes, shopNames, startDate, statuses]);
+  const [committedCustomerListScopeKey, setCommittedCustomerListScopeKey] = useState(customerListScopeKey);
+  const effectivePage = effectivePageForScope(page, customerListScopeKey, committedCustomerListScopeKey);
   const canAnnotate = currentUser?.role === "operator" || currentUser?.role === "admin";
   const canImport = currentUser?.role === "admin";
 
@@ -108,7 +125,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     const generation = ++listGenerationRef.current;
     setLoading(true); setError("");
     try {
-      const params = new URLSearchParams({ page: String(page), pageSize: "30" });
+      const params = new URLSearchParams({ page: String(effectivePage), pageSize: "30" });
       params.set("includeOptions", optionsLoadedRef.current ? "false" : "true");
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
@@ -146,7 +163,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     } finally {
       if (!controller.signal.aborted && listGenerationRef.current === generation) setLoading(false);
     }
-  }, [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, endDate, page, problemTypes, robotScopes, shopNames, startDate, statuses]);
+  }, [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, effectivePage, endDate, problemTypes, robotScopes, shopNames, startDate, statuses]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => () => {
@@ -155,7 +172,10 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     detailGenerationRef.current += 1;
     detailControllerRef.current?.abort();
   }, []);
-  useEffect(() => { setPage(1); }, [agents, categories, conversionStatuses, endDate, problemTypes, query, robotScopes, shopNames, skuIds, spuIds, startDate, statuses]);
+  useEffect(() => {
+    setCommittedCustomerListScopeKey(customerListScopeKey);
+    setPage((current) => current === 1 ? current : 1);
+  }, [customerListScopeKey]);
   const pageCount = Math.max(1, Math.ceil((data?.pagination.total ?? 0) / (data?.pagination.pageSize ?? 30)));
 
   const openConversation = useCallback(async (id: number, summary?: CustomerServiceConversation, preservedDraft?: { serviceIssues: string; summaryText: string }) => {
@@ -333,9 +353,9 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
       <label className="customer-service-id-search"><span>SPU ID（可多项）</span><input value={spuIds} onChange={(event) => setSpuIds(event.target.value)} placeholder="逗号、空格或换行分隔" /></label>
       <label className="customer-service-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索顾客、客服、商品、服务问题或小结" /></label>
     </section>
-    <section className="panel table-panel customer-service-table-panel"><div className="section-header"><div><h2>会话列表</h2><p>正向按 SKUID → 商家SKU → 吉客云网店规格编码匹配；未命中时从吉客云网店规格编码唯一反查 SKUID，最终展示 SKUID、吉客云货品编号与品类。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table customer-service-analysis-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKUID / 吉客云编号</th><th>吉客云类目</th><th>消息数</th><th>机器人内容</th><th>问题类型</th><th>订单转化</th><th>AI服务问题 / 小结</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
-      {loading && <tr><td colSpan={11}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}
-      {!loading && error && <tr><td colSpan={11}><div className="table-state table-state-error">{error}</div></td></tr>}
+    <section className="panel table-panel customer-service-table-panel data-refresh-region" aria-busy={loading}><div className="section-header"><div><h2>会话列表</h2><p>正向按 SKUID → 商家SKU → 吉客云网店规格编码匹配；未命中时从吉客云网店规格编码唯一反查 SKUID，最终展示 SKUID、吉客云货品编号与品类。</p></div><span className="soft-tag">{formatCount(data?.pagination.total ?? 0)} 条</span></div><div className="data-table-wrap"><table className="data-table customer-service-table customer-service-analysis-table"><thead><tr><th>时间 / 顾客</th><th>客服</th><th>SKUID / 吉客云编号</th><th>吉客云类目</th><th>消息数</th><th>机器人内容</th><th>问题类型</th><th>订单转化</th><th>AI服务问题 / 小结</th><th>匹配状态</th><th aria-label="操作" /></tr></thead><tbody>
+      {loading && !data && <tr><td colSpan={11}><div className="table-state"><span className="state-spinner" />正在读取客服会话…</div></td></tr>}
+      {!loading && error && !data && <tr><td colSpan={11}><div className="table-state table-state-error">{error}</div></td></tr>}
       {!loading && !error && data?.items.length === 0 && <tr><td colSpan={11}><div className="table-state">暂无会话记录。请在数据导入模块完成客服会话导入。</div></td></tr>}
       {data?.items.map((item) => <tr key={item.id}>
         <td><div className="customer-time"><small>{item.consultedAt}</small><strong>{item.customerId || item.chatCustomerAlias || "未知顾客"}</strong><small>{item.shopName}</small></div></td>

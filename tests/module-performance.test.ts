@@ -58,26 +58,53 @@ test("market read indexes cover ranking order and distinct image aggregation", a
 });
 
 test("inventory APIs bound response rows while preserving totals and recommendations", async () => {
-  const [overview, age, route, page] = await Promise.all([
+  const [overview, age, route, inventoryView] = await Promise.all([
     readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/inventory-module-view.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(overview, /LIMIT \? OFFSET \?/);
-  assert.match(overview, /returned: pageResult\.results\.length/);
+  assert.match(overview, /filtered AS MATERIALIZED/);
+  assert.match(overview, /metrics AS MATERIALIZED/);
+  assert.match(overview, /returned: projection\.items\.length/);
   assert.match(overview, /recommendations/);
   assert.match(age, /LIMIT \? OFFSET \?/);
   assert.match(age, /returned: pageResult\.results\.length/);
   assert.match(route, /normalizeInventorySelections\(params\.getAll\(key\), options\)/);
   assert.match(route, /readInventorySelections\(params, "warehouse"/);
-  assert.match(page, /debouncedInventoryQuery/);
-  assert.match(page, /overviewGenerationRef/);
+  assert.match(inventoryView, /debouncedInventoryQuery/);
+  assert.match(inventoryView, /overviewGenerationRef/);
+});
+
+test("sales and inventory tabs only request the data source needed by the visible tab", async () => {
+  const [salesView, inventoryView] = await Promise.all([
+    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/inventory-module-view.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal((salesView.match(/\/api\/sales\/summary/g) ?? []).length, 1);
+  assert.match(salesView, /const usesSalesSummary = activeTab === "overview" \|\| activeTab === "channel"/);
+  assert.match(salesView, /if \(!usesSalesSummary\) return;/);
+  assert.match(salesView, /retryKey, usesSalesSummary\]/);
+
+  assert.equal((inventoryView.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
+  assert.equal((inventoryView.match(/\/api\/inventory\/age-analysis/g) ?? []).length, 1);
+  assert.match(inventoryView, /const usesInventoryOverview = activeTab === "overview" \|\| activeTab === "plan"/);
+  assert.match(inventoryView, /const projection = activeTab === "plan" \? "plan" : "overview"/);
+  assert.match(inventoryView, /new URLSearchParams\(\{ view: projection, startDate: customStartDate, endDate: customEndDate \}\)/);
+  assert.match(inventoryView, /if \(projection === "plan"\)[\s\S]*?params\.set\("planPage"[\s\S]*?else[\s\S]*?params\.set\("page"/);
+  assert.match(inventoryView, /const usesInventoryAgeAnalysis = activeTab === "age" \|\| activeTab === "stale"/);
+  assert.match(inventoryView, /if \(!usesInventoryOverview\) return;/);
+  assert.match(inventoryView, /if \(!usesInventoryAgeAnalysis\) return;/);
+  assert.match(inventoryView, /if \(tab === "age" \|\| tab === "stale"\) await loadAgeAnalysis\(tab\);\s+else if \(tab === "inbound"\) await loadInboundMonitor\(\);\s+else await loadOverview\(\);/);
+  assert.equal((inventoryView.match(/await refreshActiveInventoryTab\(\)/g) ?? []).length, 3);
+  assert.doesNotMatch(inventoryView, /Promise\.all\(\[loadOverview\(\), loadAgeAnalysis\(\)\]\)/);
 });
 
 test("customer, sales, and product views avoid superseded or duplicate work", async () => {
-  const [page, customer, customerRoute, customerDatabase, sales] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  const [productView, customer, customerRoute, customerDatabase, sales] = await Promise.all([
+    readFile(new URL("../app/product-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/conversations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
@@ -88,8 +115,10 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
   assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
   assert.match(customer, /listGenerationRef\.current === generation/);
   assert.match(customer, /listRequestKeyRef\.current === requestKey/);
-  assert.match(page, /products\/summary\?\$\{params\}.*signal/s);
+  assert.match(productView, /products\/summary\?\$\{params\}.*signal/s);
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
   assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}.*SELECT COUNT\(\*\) AS total, SUM/s);
+  const aiConversationQuery = customerDatabase.slice(customerDatabase.indexOf("export async function getCustomerServiceConversationsForAi"));
+  assert.match(aiConversationQuery, /listCustomerServiceConversations\(\{[^}]+includeOptions: false \}\)/);
   assert.match(sales, /\[currentRow, previousRow, yearAgoRow,[\s\S]+Promise\.all/);
 });

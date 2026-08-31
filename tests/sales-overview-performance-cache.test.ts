@@ -10,6 +10,7 @@ import {
 import {
   canonicalSalesOverviewCacheIdentity,
   getCachedSalesOverview,
+  SalesOverviewRevisionChangedError,
   salesOverviewBusinessDate,
 } from "../lib/sales/overview-response-cache";
 
@@ -68,6 +69,13 @@ test("sales overview cache identity is canonical and rolls over with the Shangha
     platforms: ["京东", "天猫"],
     categories: ["A", "B"],
   }));
+  assert.notEqual(left, canonicalSalesOverviewCacheIdentity({
+    range: "month",
+    projection: "dashboard",
+    businessDate: "2026-08-22",
+    platforms: ["京东", "天猫"],
+    categories: ["A", "B"],
+  }));
   assert.equal(salesOverviewBusinessDate(new Date("2026-08-22T15:59:59Z")), "2026-08-22");
   assert.equal(salesOverviewBusinessDate(new Date("2026-08-22T16:00:00Z")), "2026-08-23");
 });
@@ -101,25 +109,45 @@ test("sales overview response cache coalesces misses and invalidates on sales or
   sqlite.close();
 });
 
-test("a revision change during an expensive load prevents stale cache publication", async () => {
+test("a revision change during an expensive load retries once and only publishes a stable payload", async () => {
   const sqlite = new DatabaseSync(":memory:");
   installCacheSchema(sqlite);
   const db = asyncDatabase(sqlite);
   const identity = { range: "last7" as const, businessDate: "2026-08-22" };
   let loads = 0;
 
-  await getCachedSalesOverview(db, identity, async () => {
+  const refreshed = await getCachedSalesOverview(db, identity, async () => {
     loads += 1;
-    sqlite.exec("UPDATE sales_overview_cache_state SET sales_revision = sales_revision + 1 WHERE id = 1");
+    if (loads === 1) {
+      sqlite.exec("UPDATE sales_overview_cache_state SET sales_revision = sales_revision + 1 WHERE id = 1");
+    }
     return { loads };
   });
-  const cacheRowsAfterRace = sqlite.prepare("SELECT COUNT(*) AS count FROM sales_overview_response_cache").get() as { count: number };
-  assert.equal(cacheRowsAfterRace.count, 0);
-
-  const refreshed = await getCachedSalesOverview(db, identity, async () => ({ loads: ++loads }));
   assert.deepEqual(refreshed.payload, { loads: 2 });
+  const cacheRowsAfterRace = sqlite.prepare("SELECT COUNT(*) AS count FROM sales_overview_response_cache").get() as { count: number };
+  assert.equal(cacheRowsAfterRace.count, 1);
   assert.equal((await getCachedSalesOverview(db, identity, async () => ({ loads: ++loads }))).status, "hit");
   assert.equal(loads, 2);
+  sqlite.close();
+});
+
+test("continuous sales revisions fail closed after one bounded retry", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  installCacheSchema(sqlite);
+  const db = asyncDatabase(sqlite);
+  const identity = { range: "last7" as const, businessDate: "2026-08-22" };
+  let loads = 0;
+
+  await assert.rejects(
+    getCachedSalesOverview(db, identity, async () => {
+      loads += 1;
+      sqlite.exec("UPDATE sales_overview_cache_state SET sales_revision = sales_revision + 1 WHERE id = 1");
+      return { loads };
+    }),
+    (error: unknown) => error instanceof SalesOverviewRevisionChangedError,
+  );
+  assert.equal(loads, 2);
+  assert.equal((sqlite.prepare("SELECT COUNT(*) AS count FROM sales_overview_response_cache").get() as { count: number }).count, 0);
   sqlite.close();
 });
 
@@ -150,20 +178,33 @@ test("revision bumps are guarded by a processing owner and ignore completed dupl
 });
 
 test("sales overview route, runtime schemas, migration, and UI use the optimized contracts", async () => {
-  const [page, route, salesDatabase, erpDatabase, migration] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+  const [salesView, dashboardView, route, summary, salesDatabase, erpDatabase, migration] = await Promise.all([
+    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/dashboard-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/sales/summary/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/sales/summary.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/sales/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/erp-reference/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0064_sales_overview_response_cache.sql", import.meta.url), "utf8"),
   ]);
-  const salesView = page.slice(page.indexOf("function SalesView"), page.indexOf("type InventoryTab"));
   assert.match(salesView, /window\.setTimeout\(\(\) => \{/);
   assert.match(salesView, /window\.clearTimeout\(timer\)/);
   assert.doesNotMatch(salesView, /await Promise\.resolve\(\)/);
   assert.match(route, /getCachedSalesOverview/);
   assert.match(route, /x-sales-overview-cache/);
   assert.match(route, /businessDate: salesOverviewBusinessDate\(\)/);
+  assert.match(dashboardView, /new URLSearchParams\(\{ range: apiRange, view: "dashboard" \}\)/);
+  assert.match(dashboardView, /salesPayload\?\.projection !== "dashboard"/);
+  assert.doesNotMatch(dashboardView, /setSales\(null\)|setInventory\(null\)/);
+  assert.match(dashboardView, /经营看板刷新失败/);
+  assert.match(route, /requestedView !== null && requestedView !== "dashboard"/);
+  assert.match(route, /requestedViews\.length > 1/);
+  assert.match(route, /projection: requestedView === "dashboard" \? "dashboard" : "full"/);
+  assert.match(route, /const responsePayload = requestedView === "dashboard"/);
+  assert.match(route, /error instanceof SalesOverviewRevisionChangedError/);
+  assert.match(route, /"retry-after": "1"/);
+  assert.match(summary, /const dashboardProjection = input\.projection === "dashboard"/);
+  assert.match(summary, /dashboardProjection\s+\? Promise\.resolve\(null\)\s+: Promise\.all/);
   for (const source of [salesDatabase, erpDatabase, migration]) {
     assert.match(source, /sales_overview_cache_state|salesOverviewCacheSchemaStatements/);
     assert.match(source, /sales_overview_response_cache|salesOverviewCacheSchemaStatements/);

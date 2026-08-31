@@ -528,6 +528,75 @@ const conversationSummaryColumns = `
   CASE WHEN json_valid(messages_json) THEN json_array_length(messages_json) ELSE 0 END AS message_total_count
 `;
 
+const customerServiceProductLookupCtes = `WITH conversation_skus(lookup_code) AS MATERIALIZED (
+    SELECT DISTINCT product_sku
+    FROM customer_service_conversations
+    WHERE product_sku <> ''
+  ), direct_map AS MATERIALIZED (
+    SELECT DISTINCT n.sku_id AS lookup_code,
+      CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
+    FROM conversation_skus requested
+    CROSS JOIN netshop_rows n
+    WHERE n.source = 'jd_product_master'
+      AND n.dataset = 'product_master'
+      AND json_valid(n.raw_json)
+      AND n.sku_id = requested.lookup_code
+  ), reverse_candidates AS MATERIALIZED (
+    SELECT n.sku_id,
+      CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
+    FROM conversation_skus requested
+    CROSS JOIN netshop_rows n
+    WHERE n.source = 'jd_product_master'
+      AND n.dataset = 'product_master'
+      AND json_valid(n.raw_json)
+      AND CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) = requested.lookup_code
+    GROUP BY n.sku_id, online_spec_code
+  ), reverse_map AS MATERIALIZED (
+    SELECT online_spec_code AS lookup_code, online_spec_code
+    FROM reverse_candidates
+    WHERE online_spec_code <> ''
+    GROUP BY online_spec_code
+    HAVING COUNT(DISTINCT sku_id) = 1
+  ), lookup_map(lookup_code, online_spec_code) AS MATERIALIZED (
+    SELECT lookup_code, online_spec_code FROM direct_map
+    UNION
+    SELECT lookup_code, online_spec_code FROM reverse_map
+  )`;
+
+async function loadCustomerServiceMasterRows(
+  db: CustomerServiceDatabase,
+  productSkus: readonly string[],
+) {
+  if (!productSkus.length) return [] as CustomerServiceMasterProductRow[];
+  const serializedProductSkus = JSON.stringify(productSkus);
+  const directRows = await db.prepare(`WITH requested(lookup_code) AS MATERIALIZED (
+      SELECT CAST(value AS TEXT) FROM json_each(?)
+    )
+    SELECT n.sku_id, n.spu_id, n.product_code, n.raw_json
+    FROM requested
+    CROSS JOIN netshop_rows n
+    WHERE n.source = 'jd_product_master'
+      AND n.dataset = 'product_master'
+      AND json_valid(n.raw_json)
+      AND n.sku_id = requested.lookup_code
+    ORDER BY n.snapshot_date DESC, n.id DESC`).bind(serializedProductSkus).all<CustomerServiceMasterProductRow>();
+  const directMatches = new Set(directRows.results.map((row) => row.sku_id));
+  const reverseProductSkus = productSkus.filter((productSku) => !directMatches.has(productSku));
+  if (!reverseProductSkus.length) return directRows.results;
+  const reverseRows = await db.prepare(`WITH requested(lookup_code) AS MATERIALIZED (
+      SELECT CAST(value AS TEXT) FROM json_each(?)
+    )
+    SELECT n.sku_id, n.spu_id, n.product_code, n.raw_json
+    FROM requested
+    CROSS JOIN netshop_rows n
+    WHERE n.source = 'jd_product_master'
+      AND n.dataset = 'product_master'
+      AND json_valid(n.raw_json)
+      AND CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) = requested.lookup_code
+    ORDER BY n.snapshot_date DESC, n.id DESC`).bind(JSON.stringify(reverseProductSkus)).all<CustomerServiceMasterProductRow>();
+  return [...directRows.results, ...reverseRows.results];
+}
+
 function normalizeNaturalDate(value: string, label: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) throw new PublicApiError(400, "invalid_request", `${label}必须为 YYYY-MM-DD 格式。`);
@@ -586,32 +655,15 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
   addInFilter(conditions, values, "problem_type", problemTypeFilters);
   addInFilter(conditions, values, "conversion_status", conversionStatusFilters);
   if (categoryFilters.length) {
-    const mappedProductCodes = await db.prepare(`WITH master_map AS MATERIALIZED (
-        SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
-        FROM netshop_rows n
-        WHERE n.source = 'jd_product_master'
-        GROUP BY n.sku_id, online_spec_code
-      ), relevant_map AS MATERIALIZED (
-        SELECT * FROM master_map
-        WHERE sku_id IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
-           OR online_spec_code IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
-      ), reverse_map AS MATERIALIZED (
-        SELECT online_spec_code, MAX(sku_id) AS sku_id
-        FROM relevant_map
-        WHERE online_spec_code <> ''
-        GROUP BY online_spec_code
-        HAVING COUNT(DISTINCT sku_id) = 1
-      ), matched_codes AS MATERIALIZED (
+    const mappedProductCodes = await db.prepare(`${customerServiceProductLookupCtes}, matched_codes AS MATERIALIZED (
         SELECT DISTINCT online_spec_code FROM sales_order_lines
         WHERE TRIM(category) IN (SELECT CAST(value AS TEXT) FROM json_each(?))
       )
-      SELECT lookup_code FROM (
-        SELECT mapping.sku_id AS lookup_code FROM relevant_map mapping
-        JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
-        UNION
-        SELECT mapping.online_spec_code AS lookup_code FROM reverse_map mapping
-        JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
-      ) ORDER BY lookup_code LIMIT 5000`).bind(JSON.stringify(categoryFilters)).all<{ lookup_code: string }>();
+      SELECT DISTINCT mapping.lookup_code
+      FROM lookup_map mapping
+      JOIN matched_codes matched ON matched.online_spec_code = mapping.online_spec_code
+      ORDER BY mapping.lookup_code
+      LIMIT 5000`).bind(JSON.stringify(categoryFilters)).all<{ lookup_code: string }>();
     if (mappedProductCodes.results.length) {
       conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
       values.push(JSON.stringify(mappedProductCodes.results.map((item) => item.lookup_code)));
@@ -653,46 +705,29 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
     includeOptions
       ? db.prepare(`SELECT DISTINCT shop_name FROM customer_service_conversations WHERE shop_name <> '' ORDER BY shop_name COLLATE NOCASE ASC LIMIT 100`).all<{ shop_name: string }>()
       : Promise.resolve({ results: [] as Array<{ shop_name: string }> }),
-    includeOptions ? db.prepare(`WITH master_map AS MATERIALIZED (
-        SELECT n.sku_id, CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
-        FROM netshop_rows n
-        WHERE n.source = 'jd_product_master'
-        GROUP BY n.sku_id, online_spec_code
-      ), relevant_map AS MATERIALIZED (
-        SELECT * FROM master_map
-        WHERE sku_id IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
-           OR online_spec_code IN (SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> '')
-      ), reverse_map AS MATERIALIZED (
-        SELECT online_spec_code, MAX(sku_id) AS sku_id
-        FROM relevant_map
+    includeOptions ? db.prepare(`${customerServiceProductLookupCtes}, online_specs(online_spec_code) AS MATERIALIZED (
+        SELECT DISTINCT online_spec_code
+        FROM lookup_map
         WHERE online_spec_code <> ''
-        GROUP BY online_spec_code
-        HAVING COUNT(DISTINCT sku_id) = 1
-      ), lookup_map AS MATERIALIZED (
-        SELECT sku_id AS lookup_code, online_spec_code FROM relevant_map
-        UNION
-        SELECT online_spec_code AS lookup_code, online_spec_code FROM reverse_map
+      ), sales_categories(category) AS MATERIALIZED (
+        SELECT DISTINCT TRIM(s.category)
+        FROM online_specs requested
+        CROSS JOIN sales_order_lines s
+        WHERE s.online_spec_code = requested.online_spec_code
+          AND NULLIF(TRIM(s.category), '') IS NOT NULL
       )
-      SELECT DISTINCT TRIM(s.category) AS category
-      FROM lookup_map mapping
-      JOIN sales_order_lines s ON s.online_spec_code = mapping.online_spec_code
-      WHERE mapping.lookup_code IN (
-          SELECT DISTINCT product_sku FROM customer_service_conversations WHERE product_sku <> ''
-        ) AND NULLIF(TRIM(s.category), '') IS NOT NULL
-      ORDER BY category COLLATE NOCASE ASC LIMIT 100`).all<{ category: string }>()
+      SELECT category
+      FROM sales_categories
+      ORDER BY category COLLATE NOCASE ASC
+      LIMIT 100`).all<{ category: string }>()
       : Promise.resolve({ results: [] as Array<{ category: string }> }),
   ]);
   const customerItems = items.results.map((row) => mapCustomerServiceConversation(row));
   const productSkus = [...new Set(customerItems.map((item) => item.productSku).filter(Boolean))];
   let catalog = new Map<string, CustomerServiceProductMapping>();
   if (productSkus.length) {
-    const rows = await db.prepare(`SELECT sku_id, spu_id, product_code, raw_json
-      FROM netshop_rows
-      WHERE source = 'jd_product_master'
-        AND (sku_id IN (SELECT CAST(value AS TEXT) FROM json_each(?))
-          OR CAST(json_extract(raw_json, '$."商家SKU"') AS TEXT) IN (SELECT CAST(value AS TEXT) FROM json_each(?)))
-      ORDER BY snapshot_date DESC, id DESC`).bind(JSON.stringify(productSkus), JSON.stringify(productSkus)).all<CustomerServiceMasterProductRow>();
-    const onlineSpecCodes = customerServiceOnlineSpecCodes(rows.results);
+    const rows = await loadCustomerServiceMasterRows(db, productSkus);
+    const onlineSpecCodes = customerServiceOnlineSpecCodes(rows);
     let salesRows: CustomerServiceSalesProductRow[] = [];
     if (onlineSpecCodes.length) {
       const erpRows = await db.prepare(`SELECT online_spec_code, product_code, category, MAX(sales_time) AS latest_at
@@ -702,7 +737,7 @@ export async function listCustomerServiceConversations(filters: CustomerServiceC
         ORDER BY latest_at DESC`).bind(JSON.stringify(onlineSpecCodes)).all<CustomerServiceSalesProductRow>();
       salesRows = erpRows.results;
     }
-    catalog = buildCustomerServiceProductMappings(productSkus, rows.results, salesRows);
+    catalog = buildCustomerServiceProductMappings(productSkus, rows, salesRows);
   }
   const total = Number(summaryResult?.total ?? 0);
   return { items: customerItems.map((item) => { const matched = catalog.get(item.productSku); return { ...item, matchedSkuId: matched?.matchedSkuId ?? "", productSpuId: matched?.spuId ?? "", erpProductCode: matched?.erpProductCode ?? "", productCategory: matched?.category ?? "" }; }), agents: agents.results.map((item) => item.agent), shops: shops.results.map((item) => item.shop_name), categories: categories.results.map((item) => item.category), summary: { total, matched: Number(summaryResult?.matched ?? 0), sessionOnly: Number(summaryResult?.session_only ?? 0), chatOnly: Number(summaryResult?.chat_only ?? 0) }, pagination: { page, pageSize, total, returned: customerItems.length, truncated: page * pageSize < total } };
@@ -831,7 +866,7 @@ export async function updateCustomerServiceConversationAnnotation(id: number, in
 }
 
 export async function getCustomerServiceConversationsForAi(args: Record<string, unknown>) {
-  const payload = await listCustomerServiceConversations({ startDate: typeof args.startDate === "string" ? args.startDate : null, endDate: typeof args.endDate === "string" ? args.endDate : null, agent: typeof args.agent === "string" ? args.agent : null, problemType: typeof args.problemType === "string" ? args.problemType : null, conversionStatus: typeof args.conversionStatus === "string" ? args.conversionStatus : null, category: typeof args.category === "string" ? args.category : null, query: typeof args.query === "string" ? args.query : null, page: 1, pageSize: Math.max(1, Math.min(50, Number(args.limit) || 20)) });
+  const payload = await listCustomerServiceConversations({ startDate: typeof args.startDate === "string" ? args.startDate : null, endDate: typeof args.endDate === "string" ? args.endDate : null, agent: typeof args.agent === "string" ? args.agent : null, problemType: typeof args.problemType === "string" ? args.problemType : null, conversionStatus: typeof args.conversionStatus === "string" ? args.conversionStatus : null, category: typeof args.category === "string" ? args.category : null, query: typeof args.query === "string" ? args.query : null, page: 1, pageSize: Math.max(1, Math.min(50, Number(args.limit) || 20)), includeOptions: false });
   return { filtersApplied: { startDate: args.startDate ?? null, endDate: args.endDate ?? null, agent: args.agent ?? null, problemType: args.problemType ?? null, conversionStatus: args.conversionStatus ?? null, category: args.category ?? null, query: args.query ?? null }, returned: payload.items.length, totalMatched: payload.pagination.total, truncated: payload.pagination.total > payload.items.length, items: payload.items.map((item) => ({ id: item.id, shopName: item.shopName, consultedAt: item.consultedAt, agent: item.agent, sourceProductCode: item.productSku, matchedSkuId: item.matchedSkuId, productSpuId: item.productSpuId, erpProductCode: item.erpProductCode, productCategory: item.productCategory, robotScope: item.robotScope, problemType: item.problemType, conversionStatus: item.conversionStatus, serviceIssues: item.serviceIssues, summary: item.summaryText, matchStatus: item.matchStatus })) };
 }
 

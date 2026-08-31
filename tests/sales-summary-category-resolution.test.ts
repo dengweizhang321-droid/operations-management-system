@@ -17,9 +17,10 @@ const { getSalesSummary } = await import("../lib/sales/summary");
 
 type SqlValue = string | number | bigint | Uint8Array | null;
 
-function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
+function sqliteAdapter(sqlite: DatabaseSync, onPrepare?: (sql: string) => void): SalesDatabase {
   return {
     prepare(sql: string) {
+      onPrepare?.(sql);
       const statement = sqlite.prepare(sql);
       let values: SqlValue[] = [];
       return {
@@ -31,6 +32,44 @@ function sqliteAdapter(sqlite: DatabaseSync): SalesDatabase {
     },
   } as SalesDatabase;
 }
+
+test("dashboard sales projection preserves visible KPIs while skipping full-analysis queries", async () => {
+  let fullQueryCount = 0;
+  const fullFixture = fixture();
+  const fullDb = sqliteAdapter(fullFixture.sqlite, () => { fullQueryCount += 1; });
+  const full = await getSalesSummary(fullDb, {
+    range: "custom",
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+  });
+
+  let dashboardQueryCount = 0;
+  const dashboardFixture = fixture();
+  const dashboardDb = sqliteAdapter(dashboardFixture.sqlite, () => { dashboardQueryCount += 1; });
+  const dashboard = await getSalesSummary(dashboardDb, {
+    range: "custom",
+    projection: "dashboard",
+    startDate: "2026-08-18",
+    endDate: "2026-08-18",
+  });
+
+  assert.deepEqual(dashboard.current, full.current);
+  assert.equal(dashboard.projection, "dashboard");
+  assert.equal(full.projection, "full");
+  assert.deepEqual(dashboard.previous, full.previous);
+  assert.deepEqual(dashboard.yearAgo, full.yearAgo);
+  assert.deepEqual(dashboard.daily, full.daily);
+  assert.deepEqual(dashboard.outlets, full.outlets);
+  assert.deepEqual(dashboard.filterOptions, { shops: [], platforms: [], categories: [] });
+  assert.deepEqual(dashboard.previousDaily, []);
+  assert.deepEqual(dashboard.yearAgoDaily, []);
+  assert.ok(
+    dashboardQueryCount <= fullQueryCount - 8,
+    `dashboard 应至少减少 8 条查询，完整=${fullQueryCount}，dashboard=${dashboardQueryCount}`,
+  );
+  fullFixture.sqlite.close();
+  dashboardFixture.sqlite.close();
+});
 
 function fixture() {
   const sqlite = new DatabaseSync(":memory:");

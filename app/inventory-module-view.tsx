@@ -1,0 +1,944 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ModuleViewKey } from "./shell/navigation-catalog";
+import { InventoryKpiCard } from "./module-view-business-ui";
+import InventoryFilterBar, {
+  readInventorySharedFilters,
+  writeInventorySharedFilters,
+  type InventorySharedFilters,
+  type InventorySharedFilterOptions,
+} from "./inventory-filter-bar";
+import {
+  type CurrentUser,
+  type InventoryHealthStatus,
+  type InventoryAgeStatus,
+  type InventoryOverviewItem,
+  type ReplenishmentPlanItem,
+  type InventoryOverviewResponse,
+  type InventoryAgeAnalysisResponse,
+  type InventoryAgeItem,
+  type InventoryInboundMonitorResponse,
+  type InventoryImportResponse,
+  type InventoryChunkUploadResponse,
+  MAX_INVENTORY_FILE_SIZE,
+  DIRECT_INVENTORY_FILE_SIZE,
+  INVENTORY_UPLOAD_CHUNK_SIZE,
+  formatCurrencyFromCents,
+  formatCount,
+  formatRate,
+  formatFileSize,
+  shanghaiIsoToday,
+  useDebouncedValue,
+  effectivePageForScope,
+  Dot,
+  SectionHeader,
+} from "./module-view-shared";
+
+type InventoryTab = ModuleViewKey<"inventory">;
+
+type InventoryWorkItemDraft = {
+  kind: "procurement" | "stale_cleanup";
+  label: string;
+  planId?: string;
+  inventoryKey?: string;
+  owner: string;
+  dueDate: string;
+  expectedArrivalDate: string;
+  planType: "daily" | "new_product";
+  cleanupStrategy: "promotion" | "transfer" | "return" | "review";
+  expectedConsumptionDays: number;
+  notes: string;
+};
+
+function addCalendarDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function csvCell(value: string | number | null) {
+  let text = value === null ? "" : String(value);
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadInventoryCsv(fileName: string, rows: Array<Array<string | number | null>>) {
+  const content = `\ufeff${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+const inventoryStatusMeta: Record<InventoryHealthStatus, { label: string; tone: string }> = {
+  urgent: { label: "紧急补货", tone: "danger" },
+  replenish: { label: "建议补货", tone: "warning" },
+  healthy: { label: "库存健康", tone: "success" },
+  slow: { label: "低周转", tone: "purple" },
+  stagnant: { label: "呆滞风险", tone: "danger" },
+  no_sales: { label: "无销量数据", tone: "gray" },
+};
+
+const inventoryAgeStatusMeta: Record<InventoryAgeStatus, { label: string; tone: string }> = {
+  healthy: { label: "库龄健康", tone: "success" },
+  aged: { label: "高库龄", tone: "warning" },
+  slow: { label: "低动销", tone: "purple" },
+  stagnant: { label: "滞销清理", tone: "danger" },
+  no_stock: { label: "无可用库存", tone: "gray" },
+};
+
+type InventoryAgeDistributionBucket = InventoryAgeAnalysisResponse["fineDistribution"][number];
+
+function niceChartMaximum(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  const roughStep = value / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalizedStep = roughStep / magnitude;
+  const niceStep = normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 2.5 ? 2.5 : normalizedStep <= 5 ? 5 : 10;
+  const step = niceStep * magnitude;
+  return Math.ceil(value / step) * step;
+}
+
+function chartNumber(value: number) {
+  return Math.round(value).toLocaleString("zh-CN");
+}
+
+function chartAmount(value: number) {
+  return value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+}
+
+function InventoryAgeDistributionChart({ buckets, stockValueComplete }: { buckets: InventoryAgeDistributionBucket[]; stockValueComplete: boolean }) {
+  const width = 1200;
+  const height = 350;
+  const plotLeft = 66;
+  const plotRight = 1124;
+  const plotTop = 42;
+  const plotBottom = 292;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
+  const quantityMaximum = niceChartMaximum(Math.max(0, ...buckets.map((bucket) => bucket.quantity)));
+  const valueMaximum = niceChartMaximum(Math.max(0, ...buckets.map((bucket) => bucket.valueCents / 100)));
+  const slotWidth = buckets.length > 0 ? plotWidth / buckets.length : plotWidth;
+  const barWidth = Math.min(64, slotWidth * 0.62);
+  const xFor = (index: number) => plotLeft + slotWidth * (index + 0.5);
+  const quantityY = (value: number) => plotBottom - Math.max(0, value) / quantityMaximum * plotHeight;
+  const valueY = (valueCents: number) => plotBottom - Math.max(0, valueCents / 100) / valueMaximum * plotHeight;
+  const linePoints = buckets.map((bucket, index) => `${xFor(index)},${valueY(bucket.valueCents)}`).join(" ");
+  const ticks = [0, 1, 2, 3, 4];
+
+  return <div className="age-distribution-chart" role="group" aria-label="库龄分布双轴组合图">
+    <div className="age-distribution-svg-wrap">
+      <svg className="age-distribution-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="inventory-age-chart-title inventory-age-chart-description">
+        <title id="inventory-age-chart-title">库龄库存数量与库存金额分布</title>
+        <desc id="inventory-age-chart-description">蓝色柱形表示各库龄区间的可用库存数量，橙色折线表示按固定成本计算的库存金额。</desc>
+        <text className="age-chart-axis-title" x={plotLeft - 12} y={24}>数量（件）</text>
+        <text className="age-chart-axis-title" x={plotRight + 12} y={24} textAnchor="end">金额（元）</text>
+        {ticks.map((tick) => {
+          const y = plotBottom - plotHeight * tick / 4;
+          return <g key={tick}>
+            <line className="age-chart-grid-line" x1={plotLeft} x2={plotRight} y1={y} y2={y} />
+            <text className="age-chart-axis-label" x={plotLeft - 12} y={y + 4} textAnchor="end">{chartNumber(quantityMaximum * tick / 4)}</text>
+            <text className="age-chart-axis-label" x={plotRight + 12} y={y + 4}>{chartAmount(valueMaximum * tick / 4)}</text>
+          </g>;
+        })}
+        {buckets.map((bucket, index) => {
+          const center = xFor(index);
+          const top = quantityY(bucket.quantity);
+          const barHeight = Math.max(0, plotBottom - top);
+          const labelInside = barHeight >= 28;
+          return <g key={bucket.key}>
+            <title>{`${bucket.label}：库存数量 ${chartNumber(bucket.quantity)} 件；库存金额 ${formatCurrencyFromCents(bucket.valueCents)}；${chartNumber(bucket.count)} 个 SKU × 仓库`}</title>
+            <rect className="age-chart-bar" x={center - barWidth / 2} y={top} width={barWidth} height={barHeight} rx="2" />
+            {bucket.quantity > 0 && <text className={labelInside ? "age-chart-bar-label inside" : "age-chart-bar-label"} x={center} y={labelInside ? top + 20 : Math.max(plotTop + 11, top - 7)} textAnchor="middle">{chartNumber(bucket.quantity)}</text>}
+            <text className="age-chart-x-label" x={center} y={plotBottom + 24} textAnchor="middle">{bucket.label.replace(" 天", "天")}</text>
+          </g>;
+        })}
+        {buckets.length > 0 && <polyline className="age-chart-value-line" points={linePoints} />}
+        {buckets.map((bucket, index) => {
+          const x = xFor(index);
+          const y = valueY(bucket.valueCents);
+          const labelY = y > plotBottom - 28 ? plotBottom - 34 : Math.max(plotTop + 12, y - 10);
+          return <g key={`value-${bucket.key}`}>
+            <circle className="age-chart-value-point" cx={x} cy={y} r="4" />
+            <text className="age-chart-value-label" x={x} y={labelY} textAnchor="middle">{chartAmount(bucket.valueCents / 100)}</text>
+          </g>;
+        })}
+      </svg>
+    </div>
+    {!stockValueComplete && <p className="age-chart-coverage-note">库存金额仅统计已有可信固定成本的库存；缺失成本未按 0 元处理。</p>}
+  </div>;
+}
+
+const inboundRiskMeta: Record<InventoryInboundMonitorResponse["items"][number]["risk"], { label: string; tone: string; dot: string }> = {
+  stale: { label: "滞销/长库龄", tone: "danger", dot: "red" },
+  normal: { label: "正常", tone: "success", dot: "green" },
+  unknown: { label: "数据不足", tone: "gray", dot: "gray" },
+  no_stock: { label: "无可用库存", tone: "gray", dot: "gray" },
+};
+
+export default function InventoryView({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onAskAi }: { customStartDate: string; customEndDate: string; currentUser: CurrentUser | null; moduleView: InventoryTab; onModuleViewChange: (view: InventoryTab) => void; onAskAi: (prompt: string) => void }) {
+  const syncInputRef = useRef<HTMLInputElement>(null);
+  const activeTab = moduleView;
+  const usesInventoryOverview = activeTab === "overview" || activeTab === "plan";
+  const usesInventoryAgeAnalysis = activeTab === "age" || activeTab === "stale";
+  const usesInboundMonitor = activeTab === "inbound";
+  const activeInventoryTabRef = useRef(activeTab);
+  const [overviewResponse, setOverviewResponse] = useState<InventoryOverviewResponse | null>(null);
+  const overview = usesInventoryOverview && overviewResponse?.projection === activeTab ? overviewResponse : null;
+  const [ageAnalysis, setAgeAnalysis] = useState<InventoryAgeAnalysisResponse | null>(null);
+  const [ageLoading, setAgeLoading] = useState(false);
+  const [ageError, setAgeError] = useState("");
+  const [ageRetryKey, setAgeRetryKey] = useState(0);
+  const [inboundMonitor, setInboundMonitor] = useState<InventoryInboundMonitorResponse | null>(null);
+  const [inboundLoading, setInboundLoading] = useState(false);
+  const [inboundError, setInboundError] = useState("");
+  const [inboundRetryKey, setInboundRetryKey] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStage, setSyncStage] = useState("");
+  const [snapshotDate, setSnapshotDate] = useState(shanghaiIsoToday);
+  const [syncFeedback, setSyncFeedback] = useState<{ tone: "success" | "warning" | "error"; title: string; message: string } | null>(null);
+  const [filters, setFilters] = useState<InventorySharedFilters>(readInventorySharedFilters);
+  const [planActionId, setPlanActionId] = useState("");
+  const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
+  const [overviewPage, setOverviewPage] = useState(1);
+  const [agePage, setAgePage] = useState(1);
+  const [planPage, setPlanPage] = useState(1);
+  const [inboundPage, setInboundPage] = useState(1);
+  const [workItemDraft, setWorkItemDraft] = useState<InventoryWorkItemDraft | null>(null);
+  const [workItemSaving, setWorkItemSaving] = useState(false);
+  const overviewGenerationRef = useRef(0);
+  const overviewControllerRef = useRef<AbortController | null>(null);
+  const ageGenerationRef = useRef(0);
+  const ageControllerRef = useRef<AbortController | null>(null);
+  const inboundGenerationRef = useRef(0);
+  const inboundControllerRef = useRef<AbortController | null>(null);
+  const debouncedInventoryQuery = useDebouncedValue(filters.productQuery);
+  const overviewPageScopeKey = useMemo(() => JSON.stringify({
+    startDate: customStartDate,
+    endDate: customEndDate,
+    query: debouncedInventoryQuery.trim(),
+    warehouses: [...filters.warehouses].sort(),
+    brands: [...filters.brands].sort(),
+    categories: [...filters.categories].sort(),
+    statuses: [...filters.healthStatuses].sort(),
+    types: [...filters.warehouseTypes].sort(),
+  }), [customEndDate, customStartDate, debouncedInventoryQuery, filters.brands, filters.categories, filters.healthStatuses, filters.warehouses, filters.warehouseTypes]);
+  const planPageScopeKey = JSON.stringify({
+    query: debouncedInventoryQuery.trim(),
+    warehouses: [...filters.warehouses].sort(),
+    brands: [...filters.brands].sort(),
+    categories: [...filters.categories].sort(),
+    status: filters.planStatus,
+  });
+  const agePageScopeKey = usesInventoryAgeAnalysis ? JSON.stringify({
+    tab: activeTab,
+    query: debouncedInventoryQuery.trim(),
+    warehouses: [...filters.warehouses].sort(),
+    brands: [...filters.brands].sort(),
+    categories: [...filters.categories].sort(),
+    statuses: [...filters.ageStatuses].sort(),
+    ageBuckets: [...filters.ageBuckets].sort(),
+  }) : "inactive";
+  const inboundPageScopeKey = usesInboundMonitor ? JSON.stringify({
+    query: debouncedInventoryQuery.trim(),
+    warehouses: [...filters.warehouses].sort(),
+    brands: [...filters.brands].sort(),
+    categories: [...filters.categories].sort(),
+    suppliers: [...filters.suppliers].sort(),
+  }) : "inactive";
+  const [committedOverviewPageScopeKey, setCommittedOverviewPageScopeKey] = useState(overviewPageScopeKey);
+  const [committedPlanPageScopeKey, setCommittedPlanPageScopeKey] = useState(planPageScopeKey);
+  const [committedAgePageScopeKey, setCommittedAgePageScopeKey] = useState(agePageScopeKey);
+  const [committedInboundPageScopeKey, setCommittedInboundPageScopeKey] = useState(inboundPageScopeKey);
+  const effectiveOverviewPage = effectivePageForScope(overviewPage, overviewPageScopeKey, committedOverviewPageScopeKey);
+  const effectivePlanPage = effectivePageForScope(planPage, planPageScopeKey, committedPlanPageScopeKey);
+  const effectiveAgePage = effectivePageForScope(agePage, agePageScopeKey, committedAgePageScopeKey);
+  const effectiveInboundPage = effectivePageForScope(inboundPage, inboundPageScopeKey, committedInboundPageScopeKey);
+  const canSyncInventory = currentUser?.role === "admin";
+  const canManageInventory = currentUser?.role === "admin" || currentUser?.role === "operator";
+
+  const updateFilters = useCallback((next: InventorySharedFilters) => {
+    setFilters(next);
+    writeInventorySharedFilters(next);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => setFilters(readInventorySharedFilters());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    activeInventoryTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const loadOverview = useCallback(async () => {
+    const generation = overviewGenerationRef.current + 1;
+    overviewGenerationRef.current = generation;
+    overviewControllerRef.current?.abort();
+    const controller = new AbortController();
+    overviewControllerRef.current = controller;
+    setLoading(true);
+    setError("");
+    try {
+      const projection = activeTab === "plan" ? "plan" : "overview";
+      const params = new URLSearchParams({ view: projection, startDate: customStartDate, endDate: customEndDate });
+      if (debouncedInventoryQuery.trim()) params.set("q", debouncedInventoryQuery.trim());
+      filters.warehouses.forEach((value) => params.append("warehouse", value));
+      filters.brands.forEach((value) => params.append("brand", value));
+      filters.categories.forEach((value) => params.append("category", value));
+      if (projection === "plan") {
+        params.set("planPage", String(effectivePlanPage));
+        params.set("planPageSize", "50");
+        if (filters.planStatus) params.set("planStatus", filters.planStatus);
+      } else {
+        params.set("page", String(effectiveOverviewPage));
+        params.set("pageSize", "50");
+        filters.warehouseTypes.forEach((value) => params.append("warehouseType", value));
+        filters.healthStatuses.forEach((value) => params.append("status", value));
+      }
+      const response = await fetch(`/api/inventory/overview?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as (InventoryOverviewResponse & { error?: string; message?: string }) | null;
+      if (!response.ok) throw new Error(payload?.error || payload?.message || `库存数据读取失败（${response.status}）`);
+      if (!payload || payload.projection !== projection || !payload.metrics || !payload.sync) throw new Error("库存响应格式不完整");
+      if (projection === "overview" && !Array.isArray(payload.items)) throw new Error("库存总览响应格式不完整");
+      if (projection === "plan" && (!Array.isArray(payload.plans) || !payload.planSummary)) throw new Error("备货计划响应格式不完整");
+      if (!controller.signal.aborted && generation === overviewGenerationRef.current) setOverviewResponse(payload);
+    } catch (requestError) {
+      if (!controller.signal.aborted && generation === overviewGenerationRef.current) setError(requestError instanceof Error ? requestError.message : "暂时无法读取库存数据");
+    } finally {
+      if (!controller.signal.aborted && generation === overviewGenerationRef.current) {
+        setLoading(false);
+        if (overviewControllerRef.current === controller) overviewControllerRef.current = null;
+      }
+    }
+  }, [activeTab, customEndDate, customStartDate, debouncedInventoryQuery, effectiveOverviewPage, effectivePlanPage, filters.brands, filters.categories, filters.healthStatuses, filters.planStatus, filters.warehouses, filters.warehouseTypes]);
+
+  useEffect(() => {
+    if (!usesInventoryOverview) return;
+    const timer = window.setTimeout(() => void loadOverview(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      overviewGenerationRef.current += 1;
+      overviewControllerRef.current?.abort();
+    };
+  }, [loadOverview, retryKey, usesInventoryOverview]);
+
+  const loadAgeAnalysis = useCallback(async (tab: "age" | "stale") => {
+    const generation = ageGenerationRef.current + 1;
+    ageGenerationRef.current = generation;
+    ageControllerRef.current?.abort();
+    const controller = new AbortController();
+    ageControllerRef.current = controller;
+    setAgeLoading(true);
+    setAgeError("");
+    try {
+      const params = new URLSearchParams({ page: String(effectiveAgePage), pageSize: "50" });
+      if (debouncedInventoryQuery.trim()) params.set("q", debouncedInventoryQuery.trim());
+      filters.warehouses.forEach((warehouse) => params.append("warehouse", warehouse));
+      filters.brands.forEach((brand) => params.append("brand", brand));
+      filters.categories.forEach((category) => params.append("category", category));
+      filters.ageBuckets.forEach((bucket) => params.append("ageBucket", bucket));
+      const cleanupStatuses = ["stagnant", "slow", "aged"];
+      const selectedCleanupStatuses = filters.ageStatuses.filter((status) => cleanupStatuses.includes(status));
+      const selectedAgeStatuses = tab === "stale"
+        ? (selectedCleanupStatuses.length > 0 ? selectedCleanupStatuses : cleanupStatuses)
+        : filters.ageStatuses;
+      selectedAgeStatuses.forEach((status) => params.append("status", status));
+      const response = await fetch(`/api/inventory/age-analysis?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as (InventoryAgeAnalysisResponse & { error?: string }) | null;
+      if (!response.ok || !payload || !Array.isArray(payload.items) || !payload.metrics) {
+        throw new Error(payload?.error || `库龄数据读取失败（${response.status}）`);
+      }
+      if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeAnalysis(payload);
+    } catch (requestError) {
+      if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeError(requestError instanceof Error ? requestError.message : "暂时无法读取库龄分析数据");
+    } finally {
+      if (!controller.signal.aborted && generation === ageGenerationRef.current) {
+        setAgeLoading(false);
+        if (ageControllerRef.current === controller) ageControllerRef.current = null;
+      }
+    }
+  }, [debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
+
+  useEffect(() => {
+    if (!usesInventoryAgeAnalysis) return;
+    const timer = window.setTimeout(() => void loadAgeAnalysis(activeTab === "stale" ? "stale" : "age"), 0);
+    return () => {
+      window.clearTimeout(timer);
+      ageGenerationRef.current += 1;
+      ageControllerRef.current?.abort();
+    };
+  }, [activeTab, ageRetryKey, loadAgeAnalysis, usesInventoryAgeAnalysis]);
+
+  const loadInboundMonitor = useCallback(async () => {
+    const generation = inboundGenerationRef.current + 1;
+    inboundGenerationRef.current = generation;
+    inboundControllerRef.current?.abort();
+    const controller = new AbortController();
+    inboundControllerRef.current = controller;
+    setInboundLoading(true);
+    setInboundError("");
+    try {
+      const params = new URLSearchParams({ page: String(effectiveInboundPage), pageSize: "50" });
+      if (debouncedInventoryQuery.trim()) params.set("q", debouncedInventoryQuery.trim());
+      filters.warehouses.forEach((warehouse) => params.append("warehouse", warehouse));
+      filters.brands.forEach((brand) => params.append("brand", brand));
+      filters.categories.forEach((category) => params.append("category", category));
+      filters.suppliers.forEach((supplier) => params.append("supplier", supplier));
+      const response = await fetch(`/api/inventory/inbound-monitor?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as (InventoryInboundMonitorResponse & { error?: string }) | null;
+      if (!response.ok || !payload || !Array.isArray(payload.items) || !Array.isArray(payload.regions) || !payload.metrics) {
+        throw new Error(payload?.error || `京东入仓监控读取失败（${response.status}）`);
+      }
+      if (!controller.signal.aborted && generation === inboundGenerationRef.current) setInboundMonitor(payload);
+    } catch (requestError) {
+      if (!controller.signal.aborted && generation === inboundGenerationRef.current) setInboundError(requestError instanceof Error ? requestError.message : "暂时无法读取京东入仓监控");
+    } finally {
+      if (!controller.signal.aborted && generation === inboundGenerationRef.current) {
+        setInboundLoading(false);
+        if (inboundControllerRef.current === controller) inboundControllerRef.current = null;
+      }
+    }
+  }, [debouncedInventoryQuery, effectiveInboundPage, filters.brands, filters.categories, filters.suppliers, filters.warehouses]);
+
+  useEffect(() => {
+    if (!usesInboundMonitor) return;
+    const timer = window.setTimeout(() => void loadInboundMonitor(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      inboundGenerationRef.current += 1;
+      inboundControllerRef.current?.abort();
+    };
+  }, [inboundRetryKey, loadInboundMonitor, usesInboundMonitor]);
+
+  const inventoryItems = overview?.items ?? [];
+
+  useEffect(() => {
+    setCommittedOverviewPageScopeKey(overviewPageScopeKey);
+    setOverviewPage((current) => current === 1 ? current : 1);
+  }, [overviewPageScopeKey]);
+  useEffect(() => {
+    setCommittedAgePageScopeKey(agePageScopeKey);
+    setAgePage((current) => current === 1 ? current : 1);
+  }, [agePageScopeKey]);
+  useEffect(() => {
+    setCommittedPlanPageScopeKey(planPageScopeKey);
+    setPlanPage((current) => current === 1 ? current : 1);
+  }, [planPageScopeKey]);
+  useEffect(() => {
+    setCommittedInboundPageScopeKey(inboundPageScopeKey);
+    setInboundPage((current) => current === 1 ? current : 1);
+  }, [inboundPageScopeKey]);
+
+  const inventoryQueryCount = useMemo(
+    () => filters.productQuery.trim().split(/[\s,，;；]+/).filter(Boolean).length,
+    [filters.productQuery],
+  );
+
+  const recommendations = useMemo(
+    () => overview?.recommendations ?? [],
+    [overview?.recommendations],
+  );
+
+  const refreshActiveInventoryTab = useCallback(async () => {
+    const tab = activeInventoryTabRef.current;
+    if (tab === "age" || tab === "stale") await loadAgeAnalysis(tab);
+    else if (tab === "inbound") await loadInboundMonitor();
+    else await loadOverview();
+  }, [loadAgeAnalysis, loadInboundMonitor, loadOverview]);
+
+  const syncInventory = useCallback(async (file?: File) => {
+    if (!file || !canSyncInventory) return;
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      setSyncFeedback({ tone: "error", title: "文件格式不支持", message: "请选择吉客云导出的 .xlsx 分仓库存查询报表。" });
+      if (syncInputRef.current) syncInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_INVENTORY_FILE_SIZE) {
+      setSyncFeedback({ tone: "error", title: "文件超过 20MB", message: `当前文件为 ${formatFileSize(file.size)}，请拆分后再同步。` });
+      if (syncInputRef.current) syncInputRef.current.value = "";
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) {
+      setSyncFeedback({ tone: "error", title: "请填写快照日期", message: "库龄报表未包含日期时，需要填写 YYYY-MM-DD 格式的库存快照日期。" });
+      return;
+    }
+    setSyncing(true);
+    setSyncProgress(0);
+    setSyncStage(file.size > DIRECT_INVENTORY_FILE_SIZE ? "正在分片上传库存报表…" : "正在上传库存报表…");
+    setSyncFeedback(null);
+    try {
+      let payload: InventoryImportResponse | null;
+      let responseStatus = 0;
+      if (file.size <= DIRECT_INVENTORY_FILE_SIZE) {
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+        formData.append("snapshotDate", snapshotDate);
+        const response = await fetch("/api/imports/inventory", { method: "POST", body: formData });
+        responseStatus = response.status;
+        payload = await response.json().catch(() => null) as InventoryImportResponse | null;
+      } else {
+        const chunkCount = Math.ceil(file.size / INVENTORY_UPLOAD_CHUNK_SIZE);
+        const fingerprint = `inventory:${file.name}:${file.size}:${file.lastModified}:${INVENTORY_UPLOAD_CHUNK_SIZE}`;
+        const initResponse = await fetch("/api/imports/inventory/chunks", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "init", fileName: file.name, fileSizeBytes: file.size, chunkCount, fingerprint }),
+        });
+        const initPayload = await initResponse.json().catch(() => null) as InventoryChunkUploadResponse | null;
+        if (!initResponse.ok || !initPayload?.ok || !initPayload.upload) throw new Error(initPayload?.message || "无法初始化库存分片上传");
+        const uploadId = initPayload.upload.id;
+        const received = new Set(initPayload.upload.receivedChunkIndexes ?? []);
+        setSyncProgress(Math.round((initPayload.upload.receivedBytes / file.size) * 85));
+        for (let index = 0; index < chunkCount; index += 1) {
+          if (received.has(index)) continue;
+          const start = index * INVENTORY_UPLOAD_CHUNK_SIZE;
+          const end = Math.min(start + INVENTORY_UPLOAD_CHUNK_SIZE, file.size);
+          const chunkResponse = await fetch("/api/imports/inventory/chunks", {
+            method: "PUT",
+            headers: {
+              "content-type": "application/octet-stream",
+              "x-upload-id": uploadId,
+              "x-chunk-index": String(index),
+            },
+            body: file.slice(start, end),
+          });
+          const chunkPayload = await chunkResponse.json().catch(() => null) as InventoryChunkUploadResponse | null;
+          if (!chunkResponse.ok || !chunkPayload?.ok) throw new Error(chunkPayload?.message || `第 ${index + 1} 个库存分片上传失败`);
+          setSyncProgress(Math.min(85, Math.round((end / file.size) * 85)));
+        }
+        setSyncProgress(90);
+        setSyncStage("分片已上传，正在合并并计算库存健康…");
+        const completeResponse = await fetch("/api/imports/inventory/chunks", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "complete", uploadId, snapshotDate }),
+        });
+        responseStatus = completeResponse.status;
+        payload = await completeResponse.json().catch(() => null) as InventoryImportResponse | null;
+      }
+      if (responseStatus < 200 || responseStatus >= 300 || !payload?.ok) {
+        const firstError = payload?.errors?.[0];
+        const errorRow = firstError?.row ?? firstError?.sourceRowNumber;
+        const errorDetail = firstError
+          ? `${errorRow ? `第 ${errorRow} 行：` : ""}${firstError.message}${(payload?.errors?.length ?? 0) > 1 ? `（另有 ${(payload?.errors?.length ?? 1) - 1} 项）` : ""}`
+          : payload?.message;
+        throw new Error(errorDetail || `库存同步失败（${responseStatus}）`);
+      }
+      setSyncProgress(100);
+      const warningText = payload.warnings?.length ? `；${payload.warnings[0].message}` : "";
+      setSyncFeedback({
+        tone: payload.status === "duplicate" ? "warning" : "success",
+        title: payload.status === "duplicate" ? "库存快照已同步" : "库存数据同步成功",
+        message: `${payload.batch?.snapshotDate ?? "最新"} · ${formatCount(payload.batch?.insertedCount ?? payload.batch?.rowCount ?? 0)} 行库存明细${warningText}`,
+      });
+      await refreshActiveInventoryTab();
+    } catch (requestError) {
+      setSyncFeedback({ tone: "error", title: "库存同步失败", message: requestError instanceof Error ? requestError.message : "请检查文件后重试" });
+    } finally {
+      setSyncing(false);
+      setSyncStage("");
+      if (syncInputRef.current) syncInputRef.current.value = "";
+    }
+  }, [canSyncInventory, refreshActiveInventoryTab, snapshotDate]);
+
+  const createPlan = useCallback(async (item: InventoryOverviewItem) => {
+    if (!canManageInventory) return;
+    if (overview?.sync.inventoryStale) {
+      const confirmed = window.confirm(`库存快照日期为 ${overview.sync.inventoryAsOf ?? "未知"}，已超过 3 天。建议先同步最新库存；是否仍按当前快照创建备货草稿？`);
+      if (!confirmed) return;
+    }
+    setPlanActionId(item.key);
+    setSyncFeedback(null);
+    try {
+      const response = await fetch("/api/inventory/replenishment", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          key: item.key,
+          plannedQuantity: item.suggestedQuantity,
+          acknowledgeStale: Boolean(overview?.sync.inventoryStale),
+          startDate: customStartDate,
+          endDate: customEndDate,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "创建备货计划失败");
+      setSyncFeedback({ tone: "success", title: "已加入备货草稿", message: `${item.productName} · 建议补货 ${formatCount(item.suggestedQuantity ?? 0)} 件` });
+      await refreshActiveInventoryTab();
+    } catch (requestError) {
+      setSyncFeedback({ tone: "error", title: "备货计划创建失败", message: requestError instanceof Error ? requestError.message : "请稍后重试" });
+    } finally {
+      setPlanActionId("");
+    }
+  }, [canManageInventory, customEndDate, customStartDate, overview, refreshActiveInventoryTab]);
+
+  const updatePlanStatus = useCallback(async (plan: ReplenishmentPlanItem, status: ReplenishmentPlanItem["status"]) => {
+    if (!canManageInventory) return;
+    const confirmationText = status === "confirmed"
+      ? `确认 ${plan.productName} 的备货计划并计入执行在途？`
+      : status === "completed"
+        ? `确认 ${plan.productName} 的备货已完成？完成数量会持续扣减建议，直到下一次库存同步。`
+        : status === "cancelled"
+          ? `确认取消 ${plan.productName} 的备货计划？`
+          : "";
+    if (confirmationText && !window.confirm(confirmationText)) return;
+    setPlanActionId(plan.id);
+    try {
+      const response = await fetch("/api/inventory/replenishment", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: plan.id,
+          status,
+          ...(plan.status === "draft" ? { plannedQuantity: planQuantities[plan.id] ?? plan.plannedQuantity } : {}),
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || "更新备货计划失败");
+      setSyncFeedback({
+        tone: "success",
+        title: status === "confirmed" ? "备货计划已确认" : status === "completed" ? "备货计划已完成" : "备货草稿已取消",
+        message: `${plan.productName} · ${formatCount(planQuantities[plan.id] ?? plan.plannedQuantity)} 件`,
+      });
+      await refreshActiveInventoryTab();
+    } catch (requestError) {
+      setSyncFeedback({ tone: "error", title: "备货计划更新失败", message: requestError instanceof Error ? requestError.message : "请稍后重试" });
+    } finally {
+      setPlanActionId("");
+    }
+  }, [canManageInventory, planQuantities, refreshActiveInventoryTab]);
+
+  const openProcurementWorkItem = useCallback((plan: ReplenishmentPlanItem) => {
+    const expectedArrivalDate = addCalendarDays(shanghaiIsoToday(), 7);
+    setWorkItemDraft({
+      kind: "procurement",
+      label: `${plan.productName} · ${plan.warehouse} · ${formatCount(plan.plannedQuantity)} 件`,
+      planId: plan.id,
+      owner: currentUser?.email ?? "",
+      dueDate: expectedArrivalDate,
+      expectedArrivalDate,
+      planType: "daily",
+      cleanupStrategy: "review",
+      expectedConsumptionDays: 30,
+      notes: "",
+    });
+  }, [currentUser?.email]);
+
+  const openCleanupWorkItem = useCallback((item: InventoryAgeItem) => {
+    setWorkItemDraft({
+      kind: "stale_cleanup",
+      label: `${item.productName} · ${item.warehouse}`,
+      inventoryKey: item.key,
+      owner: currentUser?.email ?? "",
+      dueDate: addCalendarDays(shanghaiIsoToday(), 14),
+      expectedArrivalDate: "",
+      planType: "daily",
+      cleanupStrategy: item.status === "stagnant" ? "promotion" : "review",
+      expectedConsumptionDays: 30,
+      notes: "",
+    });
+  }, [currentUser?.email]);
+
+  const submitInventoryWorkItem = useCallback(async () => {
+    if (!workItemDraft || workItemSaving || !canManageInventory) return;
+    setWorkItemSaving(true);
+    try {
+      const response = await fetch("/api/inventory/work-items", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(workItemDraft),
+      });
+      const payload = await response.json().catch(() => null) as { ok?: boolean; created?: boolean; message?: string; task?: { title?: string } } | null;
+      if (!response.ok || !payload?.ok) throw new Error(payload?.message || `创建执行事项失败（${response.status}）`);
+      setSyncFeedback({
+        tone: "success",
+        title: payload.created ? "执行事项已创建" : "已有未完成执行事项",
+        message: payload.task?.title || workItemDraft.label,
+      });
+      setWorkItemDraft(null);
+    } catch (requestError) {
+      setSyncFeedback({ tone: "error", title: "创建执行事项失败", message: requestError instanceof Error ? requestError.message : "请稍后重试" });
+    } finally {
+      setWorkItemSaving(false);
+    }
+  }, [canManageInventory, workItemDraft, workItemSaving]);
+
+  const askInventoryAi = useCallback((intent: "analyze" | "explain" | "export") => {
+    const viewLabel = activeTab === "overview" ? "库存总览" : activeTab === "age" ? "库龄分析" : activeTab === "plan" ? "备货计划" : activeTab === "stale" ? "滞销清理" : "京东入仓监控";
+    const summarizeSelections = (values: string[]) => values.length > 0
+      ? `${values.slice(0, 5).join("、")}${values.length > 5 ? `等 ${values.length} 项` : ""}`
+      : "全部";
+    const filterContext = `公共筛选=货品${filters.productQuery.trim() ? `“${filters.productQuery.trim()}”` : "全部"}；仓库=${summarizeSelections(filters.warehouses)}；品牌=${summarizeSelections(filters.brands)}；品类=${summarizeSelections(filters.categories)}`;
+    const context = activeTab === "overview" && overview
+      ? `库存快照=${overview.sync.inventoryAsOf ?? "未知"}；销售范围=${overview.sync.salesWindowStart ?? "未知"}至${overview.sync.salesThrough ?? "未知"}；SKU×仓库=${overview.metrics.skuWarehouseCount}；可用库存=${overview.metrics.totalAvailableQuantity}；销量匹配率=${formatRate(overview.metrics.salesDemandMatchRate)}；数据质量=${overview.quality.status}；质量问题=${overview.quality.issues.map((issue) => issue.message).join("、") || "无"}`
+      : (activeTab === "age" || activeTab === "stale") && ageAnalysis
+        ? `库存快照=${ageAnalysis.sync.inventoryAsOf ?? "未知"}；SKU×仓库=${ageAnalysis.metrics.skuWarehouseCount}；90天以上=${ageAnalysis.metrics.aged90Count}；滞销项=${ageAnalysis.metrics.stagnantCount}；缺库龄项=${ageAnalysis.coverage.unagedStockCount}`
+        : activeTab === "inbound" && inboundMonitor
+          ? `库存快照=${inboundMonitor.sync.inventoryAsOf ?? "未知"}；销售截至=${inboundMonitor.sync.salesThrough ?? "未知"}；京东入仓SKU×仓库=${inboundMonitor.metrics.itemCount}；可用库存=${inboundMonitor.metrics.availableQuantity}；30日计算周转=${inboundMonitor.metrics.turnoverDays ?? "未知"}天；销量匹配率=${formatRate(inboundMonitor.metrics.salesMatchRate)}；原生对账能力=${inboundMonitor.scope.nativeComparisonAvailable ? "已接入" : "未接入"}`
+          : `统计周期=${customStartDate}至${customEndDate}`;
+    const request = intent === "analyze"
+      ? "请分析本页最重要的库存风险、优先级和可执行动作，并明确数据缺口。"
+      : intent === "explain"
+        ? "请解释本页指标口径、彼此关系、适用边界，以及哪些数字不能直接用于决策。"
+        : "请使用中央只读工具重新核验可获得的数据，并生成一个有界 CSV 表格产物；无法导出的字段请明确说明，不要估算。";
+    onAskAi(`当前页面：库存管理 / ${viewLabel}\n页面上下文：${filterContext}；${context}\n要求：${request}\n必须遵守：刷刷仓排除；金额为人民币；销量口径需明确；低可信或缺少原生口径时不得输出精确执行结论。`);
+  }, [activeTab, ageAnalysis, customEndDate, customStartDate, filters.brands, filters.categories, filters.productQuery, filters.warehouses, inboundMonitor, onAskAi, overview]);
+
+  const sharedFilterOptions = useMemo<InventorySharedFilterOptions>(() => {
+    const unique = (values: string[]) => [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+    return {
+      warehouses: unique([
+        ...(overviewResponse?.filters.warehouses ?? []),
+        ...(ageAnalysis?.filters.warehouses ?? []),
+        ...(inboundMonitor?.filters.warehouses ?? []),
+      ]),
+      brands: unique([
+        ...(overviewResponse?.filters.brands ?? []),
+        ...(ageAnalysis?.filters.brands ?? []),
+        ...(inboundMonitor?.filters.brands ?? []),
+      ]),
+      categories: unique([
+        ...(overviewResponse?.filters.categories ?? []),
+        ...(ageAnalysis?.filters.categories ?? []),
+        ...(inboundMonitor?.filters.categories ?? []),
+      ]),
+      suppliers: unique(inboundMonitor?.filters.suppliers ?? []),
+      ageBuckets: ageAnalysis?.filters.ageBuckets ?? [],
+    };
+  }, [ageAnalysis, inboundMonitor, overviewResponse]);
+  const sharedFilterBar = <InventoryFilterBar
+    activeTab={activeTab}
+    filters={filters}
+    options={sharedFilterOptions}
+    updating={usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading}
+    onChange={updateFilters}
+  />;
+
+  const subnav = (
+    <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
+      <button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => onModuleViewChange("overview")}>库存总览</button>
+      <button type="button" role="tab" aria-selected={activeTab === "age"} className={activeTab === "age" ? "active" : ""} onClick={() => onModuleViewChange("age")}>库龄分析</button>
+      <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
+      <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
+      <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
+    </div>
+  );
+
+  const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
+  const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;
+
+  const syncBar = (
+    <section className="inventory-sync-bar">
+      <div className="inventory-sync-title">
+        <span className={`sync-pulse ${usesInventoryOverview && overview?.sync.inventoryStale ? "stale" : activeInventoryHasData ? "ready" : ""}`} aria-hidden="true" />
+        <div><strong>{usesInventoryAgeAnalysis
+          ? activeInventoryHasData ? "库龄与动销数据已同步" : "等待首次库龄库存同步"
+          : usesInboundMonitor ? activeInventoryHasData ? "京东入仓库存监控已就绪" : "等待包含京东 RDC / DC 的库存快照"
+          : overview?.hasInventory ? overview.sync.salesThrough ? "库存与销售数据已按全局周期联动" : "库存已同步，所选周期暂无销售数据" : "等待首次库存同步"}</strong><small>{usesInventoryAgeAnalysis
+            ? activeInventoryHasData ? `库存快照 ${activeInventoryAsOf ?? "—"} · ${ageAnalysis?.sync.hasAgeSales ? "包含前 7 天与前 30 天销量" : "当前报表未提供销量列"}` : "上传包含库龄字段的分仓库存报表后生成库龄与滞销分析"
+            : usesInboundMonitor ? activeInventoryHasData ? `京东入仓快照 ${activeInventoryAsOf ?? "—"} · 销售截至 ${inboundMonitor?.sync.salesThrough ?? "暂无"}` : "同步包含京东 RDC / DC 仓库的库存报表后生成监控"
+            : overview?.hasInventory ? `全局周期 ${customStartDate} 至 ${customEndDate} · 实际销售 ${overview.sync.salesWindowStart ?? "暂无"} 至 ${overview.sync.salesThrough ?? "暂无"} · 库存快照 ${overview.sync.inventoryAsOf}` : `全局周期 ${customStartDate} 至 ${customEndDate} · 上传分仓库存报表后生成健康与备货建议`}</small></div>
+      </div>
+      <div className="inventory-source-status" aria-label="库存数据源状态">
+        {usesInventoryOverview && (overview?.sources ?? []).map((source) => <span className={`source-status source-status-${source.status}`} key={source.key}><Dot tone={source.status === "ready" ? "green" : source.status === "stale" ? "orange" : "gray"} />{source.label}<small>{source.status === "ready" ? "已同步" : source.status === "stale" ? "待更新" : "未接入"}</small></span>)}
+      </div>
+      <div className="inventory-ai-actions" aria-label="库存上下文 AI"><button type="button" className="row-action" onClick={() => askInventoryAi("analyze")}>问问小特 · 分析</button><button type="button" className="row-action" onClick={() => askInventoryAi("explain")}>指标解读</button><button type="button" className="row-action" onClick={() => askInventoryAi("export")}>导出表格</button></div>
+      {canSyncInventory ? <>
+        <label className="inventory-snapshot-input"><span>快照日期</span><input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} disabled={syncing} /></label>
+        <input ref={syncInputRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void syncInventory(event.currentTarget.files?.[0])} />
+        <button type="button" className="primary-button inventory-sync-button" disabled={syncing} onClick={() => syncInputRef.current?.click()}>{syncing ? `${syncProgress}%` : "↻ 同步库存"}</button>
+      </> : <span className="soft-tag">仅管理员可同步库存；运营可维护执行计划</span>}
+      {syncing && <div className="inventory-sync-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={syncProgress} aria-label={syncStage}><span style={{ width: `${syncProgress}%` }} /><small>{syncStage}</small></div>}
+    </section>
+  );
+
+  const feedback = syncFeedback && <section className={`inventory-feedback inventory-feedback-${syncFeedback.tone}`} role={syncFeedback.tone === "error" ? "alert" : "status"}><span>{syncFeedback.tone === "success" ? "✓" : syncFeedback.tone === "warning" ? "!" : "×"}</span><div><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div></section>;
+  const refreshError = usesInventoryOverview && error && overview && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>最新数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>;
+  const ageRefreshError = usesInventoryAgeAnalysis && ageError && ageAnalysis && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>库龄数据刷新失败</strong><p>{ageError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setAgeRetryKey((key) => key + 1)}>重试</button></section>;
+  const inboundRefreshError = usesInboundMonitor && inboundError && inboundMonitor && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>京东入仓监控刷新失败</strong><p>{inboundError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setInboundRetryKey((key) => key + 1)}>重试</button></section>;
+
+  if (usesInventoryAgeAnalysis && !ageAnalysis) {
+    if (!ageLoading && ageError) {
+      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库龄数据加载失败</strong><p>{ageError}</p><button className="secondary-button" onClick={() => setAgeRetryKey((key) => key + 1)}>重新加载</button></section></>;
+    }
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section></>;
+  }
+
+  if (usesInventoryAgeAnalysis && ageAnalysis && !ageAnalysis.hasInventory) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+  }
+
+  if (usesInboundMonitor && !inboundMonitor) {
+    if (!inboundLoading && inboundError) {
+      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>京东入仓监控加载失败</strong><p>{inboundError}</p><button className="secondary-button" onClick={() => setInboundRetryKey((key) => key + 1)}>重新加载</button></section></>;
+    }
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总京东入仓库存</strong><p>正在关联 RDC / DC 库存、供应商和近 7/30/90 日正向出库…</p></section></>;
+  }
+
+  if (usesInboundMonitor && inboundMonitor && !inboundMonitor.hasInventory) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">仓</span><strong>暂无京东入仓库存</strong><p>当前快照中没有京东 RDC / DC 或可识别的京东区域平台仓。请核对仓名规则并同步最新库存。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+  }
+
+  if (usesInventoryOverview && loading && !overview) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与 {customStartDate} 至 {customEndDate} 的销售明细…</p></section></>;
+  }
+
+  if (usesInventoryOverview && !overview) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库存数据加载失败</strong><p>{error || "暂时无法读取库存数据"}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section></>;
+  }
+
+  if (usesInventoryOverview && overview && !overview.hasInventory) {
+    return <>{subnav}{syncBar}{feedback}{refreshError}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+  }
+
+  const totalHealth = Math.max(1, overview?.metrics.skuWarehouseCount ?? 0);
+  const planStatusLabel: Record<ReplenishmentPlanItem["status"], string> = {
+    draft: "草稿",
+    confirmed: "已确认",
+    completed: "已完成",
+    cancelled: "已取消",
+  };
+  const cleanupItems = (ageAnalysis?.items ?? []).filter((item) => item.status === "stagnant" || item.status === "slow" || item.status === "aged");
+  const ageDistribution = ageAnalysis?.fineDistribution ?? [];
+  const hasKnownAgeDistribution = ageDistribution.some((bucket) => bucket.quantity > 0);
+
+  return (
+    <>
+      {subnav}
+      {syncBar}
+      {feedback}
+      {refreshError}
+      {ageRefreshError}
+      {inboundRefreshError}
+      {sharedFilterBar}
+      {activeTab === "overview" && overview && overview.quality.issues.length > 0 && <section className={`inventory-feedback inventory-feedback-${overview.quality.status === "blocked" ? "error" : "warning"}`} role={overview.quality.status === "blocked" ? "alert" : "status"}>
+        <span>{overview.quality.status === "blocked" ? "×" : "!"}</span>
+        <div><strong>{overview.quality.status === "blocked" ? "库存数据质量门禁已暂停精确补货" : "库存数据需要关注"}</strong><p>{overview.quality.issues.map((issue) => issue.message).join("；")}</p></div>
+      </section>}
+      {activeTab === "overview" && overview ? <>
+        <section className="inventory-kpi-grid data-refresh-region" aria-busy={loading}>
+          <InventoryKpiCard label="可用库存" value={`${formatCount(overview.metrics.totalAvailableQuantity)} 件`} note={`${formatCount(overview.metrics.skuWarehouseCount)} 个 SKU × 仓库`} tone="blue" icon="存" />
+          <InventoryKpiCard label={overview.metrics.stockValueComplete ? "库存货值" : "已覆盖库存货值"} value={formatCurrencyFromCents(overview.metrics.knownStockValueCents)} note={overview.metrics.stockValueComplete ? "全部可用库存已有成本" : `成本覆盖 ${formatRate(overview.metrics.costCoverageRate)}，缺失部分未计入`} tone="purple" icon="值" />
+          <InventoryKpiCard label="平均可售天数" value={overview.quality.recommendationsSuppressed ? "待校验" : overview.metrics.averageCoverageDays === null ? "暂无销量" : `${overview.metrics.averageCoverageDays.toFixed(1)} 天`} note={`销量匹配 ${formatRate(overview.metrics.salesDemandMatchRate)} · 可信门槛 ${formatRate(overview.quality.salesMatchThreshold)}`} tone="green" icon="天" />
+          <InventoryKpiCard label="待补货货品" value={overview.quality.recommendationsSuppressed ? "已暂停" : `${formatCount(overview.metrics.urgentCount + overview.metrics.replenishCount)} 个`} note={overview.controls.autoReplenishmentEnabled ? `${formatCount(overview.metrics.urgentCount)} 个需要紧急处理` : "系统设置已关闭自动建议"} tone="orange" icon="补" />
+        </section>
+
+        {overview.mapping.unmatchedCount > 0 && <section className="panel table-panel inventory-mapping-panel"><div className="table-toolbar"><div><h2>销量映射缺口工作台</h2><p>库存仓库无法与同货品销售仓库匹配；请核对源报表仓名或仓库映射后重新同步</p></div><span className="soft-tag">已匹配 {formatCount(overview.mapping.matchedCount)} · 未匹配 {formatCount(overview.mapping.unmatchedCount)} · 展示前 {formatCount(overview.mapping.samples.length)}</span></div><div className="data-table-wrap"><table className="data-table inventory-mapping-table"><thead><tr><th>货品</th><th>库存仓库</th><th>同货品销售仓库候选</th><th>可用库存</th><th>诊断</th><th>查看</th></tr></thead><tbody>{overview.mapping.samples.map((gap) => <tr key={gap.key}><td><strong>{gap.productName}</strong><small className="cell-note">{gap.productCode}</small></td><td>{gap.inventoryWarehouse}<small className="cell-note">{gap.warehouseType === "owned" ? "自有仓" : gap.warehouseType === "jd_rdc" ? "京东 RDC / DC" : "其他仓"}</small></td><td>{gap.candidateSalesWarehouses.length > 0 ? gap.candidateSalesWarehouses.join("、") : "该周期没有同货品销售仓库"}</td><td>{formatCount(gap.availableQuantity)}</td><td><span className="status status-warning"><Dot tone="orange" />{gap.candidateSalesWarehouses.length > 0 ? "仓库名称未对齐" : "周期内无同货品销量"}</span></td><td><button type="button" className="row-action" onClick={() => updateFilters({ ...filters, productQuery: gap.productCode, warehouses: [gap.inventoryWarehouse] })}>定位明细</button></td></tr>)}</tbody></table></div></section>}
+
+        <section className="inventory-diagnosis-grid">
+          <article className="panel inventory-health-panel">
+            <SectionHeader title="库存健康分布" note="按 SKU × 仓库实时诊断" />
+            <div className="health-stack" aria-label="库存健康状态分布">
+              {([
+                ["urgent", overview.health.urgent], ["replenish", overview.health.replenish], ["healthy", overview.health.healthy],
+                ["slow", overview.health.slow], ["stagnant", overview.health.stagnant], ["no_sales", overview.health.noSales],
+              ] as [InventoryHealthStatus, number][]).map(([status, count]) => count > 0 && <i className={`health-${status}`} style={{ width: `${count / totalHealth * 100}%` }} title={`${inventoryStatusMeta[status].label} ${count}`} key={status} />)}
+            </div>
+            <div className="health-legend">
+              {([
+                ["urgent", overview.health.urgent], ["replenish", overview.health.replenish], ["healthy", overview.health.healthy],
+                ["slow", overview.health.slow], ["stagnant", overview.health.stagnant], ["no_sales", overview.health.noSales],
+              ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" onClick={() => updateFilters({ ...filters, healthStatuses: [status] })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
+            </div>
+            <div className="inventory-health-note"><span>低周转与呆滞货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>{overview.metrics.noSalesCount} 个 SKU × 仓库暂无有效销量</small></div>
+          </article>
+
+          <article className="panel replenishment-opportunity-panel">
+            <SectionHeader title="优先补货建议" note="已扣减库存、报表在途和备货计划" />
+            <div className="replenishment-opportunity-list">
+              {recommendations.slice(0, 5).map((item, index) => <div key={item.key}><span className={`opportunity-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span><div><strong title={item.productName}>{item.productName}</strong><small>{item.warehouse} · 可售 {item.coverageDays?.toFixed(1) ?? "—"} 天</small></div><em>+{formatCount(item.suggestedQuantity ?? 0)}</em></div>)}
+              {recommendations.length === 0 && <div className="inventory-mini-empty">{overview.quality.recommendationsSuppressed ? "先修复数据质量或仓库映射，再生成补货建议" : "当前没有需要补货的货品"}</div>}
+            </div>
+            <button className="inventory-plan-link" onClick={() => onModuleViewChange("plan")}>查看备货计划 <span>→</span></button>
+          </article>
+        </section>
+
+        <section className="panel table-panel inventory-detail-panel">
+          <div className="table-toolbar"><div><h2>库存健康明细</h2><p>自有仓与京东 RDC / DC 分开核算，销量仅按相同仓库匹配</p></div><span className="soft-tag">{inventoryQueryCount > 1 ? `已查询 ${formatCount(inventoryQueryCount)} 个货品编码 · ` : ""}显示 {formatCount(inventoryItems.length)} / {formatCount(overview.pagination.total)}</span><button type="button" className="row-action" disabled={inventoryItems.length === 0} onClick={() => downloadInventoryCsv(`库存健康_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.pagination.page}页.csv`, [["货品编码", "货品名称", "仓库", "可用库存", "在途", "周期销量", "可售天数", "库龄", "建议补货", "状态", "数据质量"], ...inventoryItems.map((item) => [item.productCode, item.productName, item.warehouse, item.availableQuantity, item.totalInTransitQuantity, item.sales30d, item.coverageDays, item.inventoryAgeDays, item.suggestedQuantity, item.statusLabel, overview.quality.status])])}>导出当前页 CSV</button></div>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table inventory-data-table"><thead><tr><th>货品</th><th>库存类型 / 仓库</th><th>可用 / 在途</th><th>{overview.settings.salesWindowDays}日周期销量</th><th>日均销量</th><th>预计可售</th><th>库龄</th><th>建议补货</th><th>健康状态</th><th>操作</th></tr></thead><tbody>
+            {inventoryItems.map((item) => {
+              const meta = inventoryStatusMeta[item.status];
+              const canPlan = canManageInventory && !overview.quality.recommendationsSuppressed && (item.suggestedQuantity ?? 0) > 0 && !item.inDraftPlan;
+              return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他"}</span><small>{item.warehouse}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(item.availableQuantity)}</strong><small>在途 {formatCount(item.totalInTransitQuantity)}</small>{item.costCoverageRate < 1 && <small className="orange-text">成本缺口 {formatRate(1 - item.costCoverageRate)}</small>}</div></td><td>{item.sales30d === null ? "—" : formatCount(item.sales30d)}</td><td>{item.averageDailySales === null ? "—" : item.averageDailySales.toFixed(1)}</td><td><strong>{item.coverageDays === null ? "—" : `${item.coverageDays.toFixed(1)} 天`}</strong></td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td className={(item.suggestedQuantity ?? 0) > 0 ? "orange-text" : ""}><strong>{item.suggestedQuantity === null ? "—" : formatCount(item.suggestedQuantity)}</strong></td><td><span className={`status status-${meta.tone}`} title={item.reason}><Dot tone={meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone} />{item.statusLabel}</span></td><td>{canManageInventory ? <button className="row-action" disabled={!canPlan || planActionId === item.key} onClick={() => void createPlan(item)}>{item.inDraftPlan ? "已在草稿" : canPlan ? planActionId === item.key ? "处理中…" : "加入计划" : "无需补货"}</button> : <span className="soft-text">只读</span>}</td></tr>;
+            })}
+            {inventoryItems.length === 0 && <tr><td colSpan={10}><div className="table-state">没有符合当前筛选条件的库存记录。</div></td></tr>}
+          </tbody></table></div>
+          <footer className="jd-sku-pagination"><span>第 {overview.pagination.page} / {Math.max(1, overview.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.pagination.page <= 1} onClick={() => setOverviewPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.pagination.page >= Math.max(1, overview.pagination.totalPages)} onClick={() => setOverviewPage((value) => value + 1)}>下一页</button></div></footer>
+        </section>
+      </> : activeTab === "plan" && overview ? <>
+        <section className="inventory-kpi-grid inventory-plan-kpis data-refresh-region" aria-busy={loading}>
+          <InventoryKpiCard label="待确认草稿" value={`${formatCount(overview.planSummary.draftCount)} 项`} note="确认后进入执行队列" tone="orange" icon="草" />
+          <InventoryKpiCard label="已确认计划" value={`${formatCount(overview.planSummary.confirmedCount)} 项`} note="已计入在途库存" tone="blue" icon="确" />
+          <InventoryKpiCard label="计划待回写量" value={`${formatCount(overview.planSummary.activeQuantity)} 件`} note="含完成后等待库存快照回写的数量" tone="purple" icon="途" />
+          <InventoryKpiCard label="已完成计划" value={`${formatCount(overview.planSummary.completedCount)} 项`} note="保留历史执行记录" tone="green" icon="完" />
+        </section>
+
+        <section className="panel table-panel replenishment-plan-panel">
+          <div className="table-toolbar"><div><h2>备货计划</h2><p>调整草稿数量并确认；草稿、已确认数量会自动计入在途，防止重复建议</p></div><span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th>货品</th><th>仓库</th><th>建议依据</th><th>当前可售</th><th>系统建议</th><th>计划数量</th><th>状态</th><th>操作</th></tr></thead><tbody>
+            {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode}</small></span></div></td><td>{plan.warehouse}</td><td><span className="plan-reason" title={plan.reason}>{plan.reason}</span></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td><strong>{formatCount(plan.suggestedQuantity)}</strong></td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}</td><td><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <><button className="row-action primary-row-action" onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <span className="plan-done">✓ 已完成</span>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>)}
+            {overview.plans.length === 0 && <tr><td colSpan={8}><div className="table-state">暂无备货计划。请在“库存总览”中将补货建议加入计划。</div></td></tr>}
+          </tbody></table></div>
+          <footer className="jd-sku-pagination"><span>第 {overview.plansPagination.page} / {Math.max(1, overview.plansPagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.plansPagination.page <= 1} onClick={() => setPlanPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.plansPagination.page >= Math.max(1, overview.plansPagination.totalPages)} onClick={() => setPlanPage((value) => value + 1)}>下一页</button></div></footer>
+        </section>
+
+      </> : activeTab === "inbound" && inboundMonitor ? <>
+        <section className="inventory-kpi-grid inbound-kpi-grid data-refresh-region" aria-busy={inboundLoading}>
+          <InventoryKpiCard label="京东入仓库存" value={`${formatCount(inboundMonitor.metrics.availableQuantity)} 件`} note={`${formatCount(inboundMonitor.metrics.itemCount)} 个 SKU × 仓库 · ${formatCount(inboundMonitor.metrics.warehouseCount)} 个仓`} tone="blue" icon="仓" />
+          <InventoryKpiCard label="固定成本货值" value={formatCurrencyFromCents(inboundMonitor.metrics.knownStockValueCents)} note={`成本覆盖 ${formatRate(inboundMonitor.metrics.costCoverageRate)} · 暂无供应价口径`} tone="purple" icon="值" />
+          <InventoryKpiCard label="30日计算周转" value={inboundMonitor.metrics.turnoverDays === null ? "待匹配" : `${inboundMonitor.metrics.turnoverDays.toFixed(1)} 天`} note={`出库 ${formatCount(inboundMonitor.metrics.outbound30dQuantity)} 件 · 销量匹配 ${formatRate(inboundMonitor.metrics.salesMatchRate)}`} tone="green" icon="转" />
+          <InventoryKpiCard label="滞销 / 长库龄" value={`${formatCount(inboundMonitor.metrics.staleItemCount)} 项`} note={`${formatCurrencyFromCents(inboundMonitor.metrics.staleValueCents)} · 供应商缺口 ${formatCount(inboundMonitor.metrics.missingSupplierCount)}`} tone="orange" icon="险" />
+        </section>
+        <section className="inventory-feedback inventory-feedback-warning inbound-disclosure" role="status"><span>!</span><div><strong>口径边界</strong><p>{inboundMonitor.disclosures.join("；")}</p></div></section>
+        <section className="panel inbound-region-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>RDC / DC 区域概览</h2><p>库存、在途、固定成本货值和 30 日计算周转按入仓仓库拆分</p></div><span className="soft-tag">计算口径，非京东原生指标</span></div><div className="inbound-region-grid">{inboundMonitor.regions.map((region) => <article key={region.warehouse}><span>{region.warehouse}</span><strong>{formatCount(region.availableQuantity)} 件</strong><small>{formatCurrencyFromCents(region.knownStockValueCents)} · 在途 {formatCount(region.inTransitQuantity)}</small><div><em>30日出库 {formatCount(region.outbound30dQuantity)}</em><em>周转 {region.turnoverDays === null ? "—" : `${region.turnoverDays.toFixed(1)}天`}</em></div><small>销量匹配 {formatRate(region.salesMatchRate)}</small></article>)}</div></section>
+        <section className="panel table-panel inbound-detail-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>京东入仓 SKU 明细</h2><p>7/30/90 日出库只统计正向销量；退款不计为出库</p></div><span className="soft-tag">显示 {formatCount(inboundMonitor.pagination.returned)} / {formatCount(inboundMonitor.pagination.total)}</span><button type="button" className="row-action" disabled={inboundMonitor.items.length === 0} onClick={() => downloadInventoryCsv(`京东入仓监控_${inboundMonitor.sync.inventoryAsOf ?? "snapshot"}_第${inboundMonitor.pagination.page}页.csv`, [["货品编码", "货品名称", "品类", "供应商", "RDC/DC", "可用库存", "在途", "7日出库", "30日出库", "90日出库", "计算周转天数", "库龄天数", "固定成本分", "库存货值分", "风险"], ...inboundMonitor.items.map((item) => [item.productCode, item.productName, item.category, item.supplier, item.warehouse, item.availableQuantity, item.inTransitQuantity, item.outbound7dQuantity, item.outbound30dQuantity, item.outbound90dQuantity, item.turnoverDays, item.inventoryAgeDays, item.unitCostCents, item.knownStockValueCents, inboundRiskMeta[item.risk].label])])}>导出当前页 CSV</button></div><div className="data-table-wrap"><table className="data-table inbound-detail-table"><thead><tr><th>货品</th><th>供应商</th><th>RDC / DC</th><th>库存 / 在途</th><th>7日出库</th><th>30日出库</th><th>90日出库</th><th>计算周转</th><th>库龄</th><th>固定成本 / 货值</th><th>风险</th></tr></thead><tbody>{inboundMonitor.items.map((item) => { const risk = inboundRiskMeta[item.risk]; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode} · {item.category}</small></span></div></td><td>{item.supplier}<small className="cell-note">{item.supplier === "未映射供应商" ? "待补映射" : "ERP 货品档案"}</small></td><td>{item.warehouse}</td><td><strong>{formatCount(item.availableQuantity)}</strong><small className="cell-note">在途 {formatCount(item.inTransitQuantity)}</small></td><td>{item.outbound7dQuantity === null ? "—" : formatCount(item.outbound7dQuantity)}</td><td>{item.outbound30dQuantity === null ? "—" : formatCount(item.outbound30dQuantity)}</td><td>{item.outbound90dQuantity === null ? "—" : formatCount(item.outbound90dQuantity)}</td><td>{item.turnoverDays === null ? "—" : `${item.turnoverDays.toFixed(1)} 天`}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.unitCostCents === null ? "—" : formatCurrencyFromCents(item.unitCostCents)}<small className="cell-note">货值 {formatCurrencyFromCents(item.knownStockValueCents)}</small></td><td><span className={`status status-${risk.tone}`}><Dot tone={risk.dot} />{risk.label}</span></td></tr>; })}{inboundMonitor.items.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的京东入仓库存。</div></td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><span>第 {inboundMonitor.pagination.page} / {Math.max(1, inboundMonitor.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={inboundLoading || inboundMonitor.pagination.page <= 1} onClick={() => setInboundPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={inboundLoading || inboundMonitor.pagination.page >= Math.max(1, inboundMonitor.pagination.totalPages)} onClick={() => setInboundPage((value) => value + 1)}>下一页</button></div></footer></section>
+      </> : <>
+        {ageLoading && !ageAnalysis && <section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section>}
+        {!ageLoading && !ageError && ageAnalysis && !ageAnalysis.hasInventory && <section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p></section>}
+        {ageAnalysis?.hasInventory && activeTab === "age" && <>
+          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
+          {ageAnalysis.coverage.unagedStockCount > 0 && <section className="inventory-feedback inventory-feedback-warning" role="status"><span>!</span><div><strong>部分库存缺少库龄</strong><p>{formatCount(ageAnalysis.coverage.unagedStockCount)} 个 SKU × 仓库、{formatCount(ageAnalysis.coverage.unagedQuantity)} 件库存未进入库龄区间占比。</p></div></section>}
+          <section className="panel inventory-age-distribution-panel data-refresh-region" aria-labelledby="inventory-age-distribution-title" aria-busy={ageLoading}>
+            <div className="table-toolbar inventory-age-distribution-heading"><div><h2 id="inventory-age-distribution-title">库龄分布图</h2><p>库存数量按可用库存件数统计；库存金额按固定成本价 × 可用库存计算</p></div><div className="age-distribution-legend" aria-label="库龄分布图图例"><span><i className="quantity" />库存数量</span><span><i className="value" />库存金额</span></div></div>
+            {!hasKnownAgeDistribution && <div className="inventory-age-distribution-empty" role="status"><strong>当前筛选范围没有已识别的库龄数量</strong><p>10 个库龄区间和成本金额口径已启用；请确认当前库龄快照已正确导入“库龄(天)”列。</p></div>}
+            {hasKnownAgeDistribution && <InventoryAgeDistributionChart buckets={ageDistribution} stockValueComplete={ageAnalysis.metrics.stockValueComplete} />}
+          </section>
+          <section className="panel table-panel inventory-age-table-panel data-refresh-region" aria-busy={ageLoading}><div className="table-toolbar"><div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div><span className="soft-tag">显示 {formatCount(ageAnalysis.items.length)} / {formatCount(ageAnalysis.pagination.total)}</span><button type="button" className="row-action" disabled={ageAnalysis.items.length === 0} onClick={() => downloadInventoryCsv(`库龄分析_${ageAnalysis.sync.inventoryAsOf ?? "snapshot"}_第${ageAnalysis.pagination.page}页.csv`, [["货品编码", "货品名称", "品牌", "仓库", "库龄分布", "库龄天数", "库存数", "库存金额（元）", "前7天销量", "前30天销量", "状态"], ...ageAnalysis.items.map((item) => [item.productCode, item.productName, item.brand, item.warehouse, item.ageBucketLabel, item.inventoryAgeDays, item.availableQuantity, item.stockValueCents === null ? null : (item.stockValueCents / 100).toFixed(2), item.sales7dQuantity, item.sales30dQuantity, item.statusLabel])])}>导出当前页 CSV</button></div><div className="data-table-wrap"><table className="data-table inventory-age-table"><thead><tr><th>货品</th><th>品牌</th><th>仓库</th><th>库龄分布</th><th>库龄天数</th><th>库存数</th><th>库存金额</th><th>前7天销量</th><th>前30天销量</th><th>状态</th></tr></thead><tbody>{ageAnalysis.items.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td><td>{item.brand || <span className="soft-text">未设置品牌</span>}</td><td>{item.warehouse}</td><td><span className={`age-bucket-tag ${item.ageBucketKey ? "" : "unknown"}`}>{item.ageBucketLabel}</span></td><td><strong>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</strong></td><td><strong>{formatCount(item.availableQuantity)}</strong></td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td>{item.sales7dQuantity === null ? "—" : formatCount(item.sales7dQuantity)}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td><span className={`status status-${meta.tone}`} title={item.recommendation}><Dot tone={tone} />{item.statusLabel}</span></td></tr>; })}{ageAnalysis.items.length === 0 && <tr><td colSpan={10}><div className="table-state">当前快照没有可展示的库龄记录。</div></td></tr>}</tbody></table></div></section>
+          <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
+        </>}
+        {ageAnalysis?.hasInventory && activeTab === "stale" && <>
+          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
+          <section className="panel table-panel stale-cleanup-panel data-refresh-region" aria-busy={ageLoading}><div className="table-toolbar"><div><h2>滞销清理清单</h2><p>创建清理事项后进入“运营事务”跟进；系统不会自动改库存或删除数据。</p></div><span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span></div><div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理建议</th><th>风险状态</th><th>执行</th></tr></thead><tbody>{cleanupItems.map((item) => { const meta = inventoryAgeStatusMeta[item.status]; const tone = meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td><td>{item.warehouse}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td><td>{formatCount(item.availableQuantity)}</td><td>{item.stockValueCents === null ? "—" : formatCurrencyFromCents(item.stockValueCents)}</td><td><span className="cleanup-recommendation">{item.recommendation}</span></td><td><span className={`status status-${meta.tone}`}><Dot tone={tone} />{item.statusLabel}</span></td><td>{canManageInventory ? <button className="row-action primary-row-action" onClick={() => openCleanupWorkItem(item)}>创建清理事项</button> : <span className="soft-text">只读</span>}</td></tr>; })}{cleanupItems.length === 0 && <tr><td colSpan={9}><div className="table-state">当前没有需要优先清理的滞销或高库龄商品。</div></td></tr>}</tbody></table></div></section>
+          <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
+        </>}
+      </>}
+      {workItemDraft && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !workItemSaving) setWorkItemDraft(null); }}>
+        <form className="inventory-work-item-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-work-item-title" onSubmit={(event) => { event.preventDefault(); void submitInventoryWorkItem(); }}>
+          <header><div><small>{workItemDraft.kind === "procurement" ? "补货 → 采购执行" : "滞销 → 清理执行"}</small><h2 id="inventory-work-item-title">{workItemDraft.kind === "procurement" ? "创建采购备货任务" : "创建滞销清理事项"}</h2><p>{workItemDraft.label}</p></div><button type="button" aria-label="关闭" disabled={workItemSaving} onClick={() => setWorkItemDraft(null)}>×</button></header>
+          <div className="inventory-work-item-fields">
+            <label><span>负责人</span><input required maxLength={120} value={workItemDraft.owner} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, owner: event.target.value } : current)} /></label>
+            <label><span>截止日期</span><input required type="date" value={workItemDraft.dueDate} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, dueDate: event.target.value } : current)} /></label>
+            {workItemDraft.kind === "procurement" ? <>
+              <label><span>计划类型</span><select value={workItemDraft.planType} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, planType: event.target.value as InventoryWorkItemDraft["planType"] } : current)}><option value="daily">日常补货</option><option value="new_product">新品首单</option></select></label>
+              <label><span>预计到货日期</span><input required type="date" value={workItemDraft.expectedArrivalDate} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, expectedArrivalDate: event.target.value } : current)} /></label>
+            </> : <>
+              <label><span>清理方案</span><select value={workItemDraft.cleanupStrategy} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, cleanupStrategy: event.target.value as InventoryWorkItemDraft["cleanupStrategy"] } : current)}><option value="promotion">促销清理</option><option value="transfer">渠道 / 仓间调拨</option><option value="return">退供或清退评估</option><option value="review">人工复核后定方案</option></select></label>
+              <label><span>期望消耗天数</span><input required type="number" min={1} max={365} value={workItemDraft.expectedConsumptionDays} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, expectedConsumptionDays: Math.max(1, Math.min(365, Math.trunc(Number(event.target.value) || 1))) } : current)} /></label>
+            </>}
+            <label className="inventory-work-item-notes"><span>备注</span><textarea rows={4} maxLength={800} value={workItemDraft.notes} onChange={(event) => setWorkItemDraft((current) => current ? { ...current, notes: event.target.value } : current)} placeholder="补充供应商沟通、价格、调拨渠道或清理要求" /></label>
+          </div>
+          <footer><span>保存后自动进入“运营事务”，并关联本次库存对象。</span><div><button type="button" className="secondary-button" disabled={workItemSaving} onClick={() => setWorkItemDraft(null)}>取消</button><button type="submit" className="primary-button" disabled={workItemSaving || !workItemDraft.owner.trim()}>{workItemSaving ? "正在创建…" : "创建执行事项"}</button></div></footer>
+        </form>
+      </div>}
+    </>
+  );
+}

@@ -71,7 +71,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
       ...(node.parameters?.url?.endsWith("/product-master")
         ? [{
             name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-            value: "={{ $mode === 'manual' ? '1' : '0' }}",
+            value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
           }]
         : []),
     ];
@@ -192,7 +192,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
         node.parameters?.url?.endsWith("/product-master")
           ? [{
               name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-              value: "={{ $mode === 'manual' ? '1' : '0' }}",
+              value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
             }]
           : []);
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-PLAN-START-DATE"),

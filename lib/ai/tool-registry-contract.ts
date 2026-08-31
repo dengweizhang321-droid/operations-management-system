@@ -16,7 +16,7 @@ export type AiToolAnnotations = {
 };
 
 export type AiToolRisk = "read_only" | "write" | "dangerous";
-export const aiToolSurfaces = ["ai_chat", "market_ai", "customer_service_ai", "codex_mcp", "test"] as const;
+export const aiToolSurfaces = ["ai_chat", "ai_agent", "ai_sandbox", "market_ai", "customer_service_ai", "codex_mcp", "test"] as const;
 export type AiToolSurface = (typeof aiToolSurfaces)[number];
 export type AiToolScopePolicy = "unscoped_only" | "principal_scope" | "metadata_safe";
 export type AiToolExecutionMode = "direct" | "confirmation_required" | "background_job";

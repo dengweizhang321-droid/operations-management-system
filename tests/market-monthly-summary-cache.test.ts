@@ -103,6 +103,9 @@ function createSourceSchema(sqlite: DatabaseSync) {
     CREATE TABLE market_subcategory_taxonomy (
       status TEXT NOT NULL, updated_at TEXT NOT NULL
     );
+    CREATE TABLE market_annotation_prompt_versions (id INTEGER PRIMARY KEY);
+    CREATE TABLE market_annotation_items (id INTEGER PRIMARY KEY);
+    CREATE TABLE market_master_identities (id INTEGER PRIMARY KEY);
     INSERT INTO market_price_band_versions VALUES ('default-band','*',1,'published','2020-01-01');
     INSERT INTO market_price_band_items VALUES
       ('low','default-band','0-499',0,50000,1),('high','default-band','500+',50000,NULL,2);
@@ -180,13 +183,14 @@ test("monthly summary migration invalidates every material source", async () => 
   const responseIdentity = { view: "ranking" as const, filters: { rankingDimensions: ["SKU"] } };
   let responseLoads = 0;
   const loadResponse = async () => ({ load: ++responseLoads });
-  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse)).status, "miss");
-  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse)).status, "hit");
+  const validateResponse = (value: unknown) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse, validateResponse)).status, "miss");
+  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse, validateResponse)).status, "hit");
   sqlite.exec("UPDATE sales_order_lines SET product_code=product_code WHERE id=1");
   assert.equal(revision(), afterSalesInsert);
   sqlite.exec("UPDATE sales_order_lines SET allocated_amount_cents=200,sales_time='2026-06-02' WHERE id=1");
   assert.ok(revision() > afterSalesInsert);
-  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse)).status, "miss");
+  assert.equal((await getCachedMarketOverview(responseCacheDb, responseIdentity, loadResponse, validateResponse)).status, "miss");
   assert.equal(responseLoads, 2);
   const afterSalesCorrection = revision();
   sqlite.exec("UPDATE sales_order_lines SET product_code='SKU-2' WHERE id=1");

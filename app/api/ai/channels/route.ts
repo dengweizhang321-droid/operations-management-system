@@ -16,6 +16,7 @@ import {
   optionalAiId,
   readAiJsonObject,
   requireAiId,
+  requireAiSameOriginWrite,
   requireAiString,
 } from "@/app/api/ai/route-helpers";
 
@@ -58,6 +59,7 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin"]);
     requireUnrestrictedDataScope(principal, "AI 渠道配置", "删除");
     const ids = new URL(request.url).searchParams.getAll("id");
@@ -71,6 +73,7 @@ export async function DELETE(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin"]);
     requireUnrestrictedDataScope(principal, "AI 渠道配置", "修改");
     const parsed = await readAiJsonObject(request);

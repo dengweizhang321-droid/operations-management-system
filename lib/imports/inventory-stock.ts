@@ -5,6 +5,7 @@ import {
   type XlsxRow,
 } from "./xlsx";
 import { normalizeSalesLedgerDate } from "./sales-ledger";
+import { inferInventoryWarehouseType } from "@/lib/inventory/warehouse-classification";
 
 export const MAX_INVENTORY_STOCK_ROWS = 100_000;
 
@@ -300,7 +301,7 @@ function parseRow(
     rowKey: JSON.stringify([warehouse, productCode]),
     snapshotDate,
     warehouse,
-    warehouseType: inferWarehouseType(warehouse),
+    warehouseType: inferInventoryWarehouseType(warehouse),
     productCode,
     productName: text("productName"),
     brand: text("brand"),
@@ -394,13 +395,6 @@ function parseDecimal(value: XlsxCellValue): number | null {
   if (/^\(.*\)$/.test(text)) text = `-${text.slice(1, -1)}`;
   const parsed = Number(text);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function inferWarehouseType(warehouse: string): InventoryWarehouseType {
-  const normalized = warehouse.toLowerCase();
-  if (/京东|rdc|dc仓|配送中心/.test(normalized)) return "jd_rdc";
-  if (/仓|库/.test(normalized)) return "owned";
-  return "other";
 }
 
 function normalizeHeader(value: XlsxCellValue): string {

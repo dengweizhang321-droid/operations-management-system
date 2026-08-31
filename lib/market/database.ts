@@ -24,6 +24,8 @@ import {
   isMarketMonthlySummaryCacheEligible,
 } from "@/lib/market/monthly-summary-cache";
 import { getCachedMarketFilterOptions } from "@/lib/market/overview-response-cache";
+import { validateMarketFilterOptionsCachePayload } from "@/lib/market/cache-payload-validators";
+import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 
 export type MarketDatabase = NonNullable<typeof env.DB>;
 
@@ -237,6 +239,32 @@ function batchRows<T>(result: { results?: unknown[] } | undefined): T[] {
 const effectiveMetricsRefreshByDatabase = new WeakMap<object, Promise<void>>();
 const effectiveMetricsTriggersByDatabase = new WeakMap<object, Promise<void>>();
 
+const marketEffectiveMetricsNetshopRevisionSql = `SELECT COUNT(*) row_count, MAX(updated_at) updated_at
+  FROM netshop_rows
+  WHERE source='jd_sku_daily' AND dataset IN ('sku_daily','spu_daily')`;
+
+const marketEffectiveMetricsNetshopTriggerDropStatements = [
+  `DROP TRIGGER IF EXISTS market_effective_cache_netshop_insert`,
+  `DROP TRIGGER IF EXISTS market_effective_cache_netshop_update`,
+  `DROP TRIGGER IF EXISTS market_effective_cache_netshop_delete`,
+];
+
+const marketEffectiveMetricsNetshopTriggerStatements = [
+  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_insert
+    AFTER INSERT ON netshop_rows
+    WHEN NEW.source='jd_sku_daily' AND NEW.dataset IN ('sku_daily','spu_daily')
+    BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`,
+  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_update
+    AFTER UPDATE ON netshop_rows
+    WHEN (OLD.source='jd_sku_daily' AND OLD.dataset IN ('sku_daily','spu_daily'))
+      OR (NEW.source='jd_sku_daily' AND NEW.dataset IN ('sku_daily','spu_daily'))
+    BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`,
+  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_delete
+    AFTER DELETE ON netshop_rows
+    WHEN OLD.source='jd_sku_daily' AND OLD.dataset IN ('sku_daily','spu_daily')
+    BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`,
+];
+
 function ensureEffectiveMetricsInvalidationTriggers(db: MarketDatabase): Promise<void> {
   const key = db as object;
   const ready = effectiveMetricsTriggersByDatabase.get(key);
@@ -248,12 +276,8 @@ function ensureEffectiveMetricsInvalidationTriggers(db: MarketDatabase): Promise
       AFTER UPDATE ON market_ranking_entries BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
     db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_market_delete
       AFTER DELETE ON market_ranking_entries BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
-    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_insert
-      AFTER INSERT ON netshop_rows BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
-    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_update
-      AFTER UPDATE ON netshop_rows BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
-    db.prepare(`CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_delete
-      AFTER DELETE ON netshop_rows BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`),
+    ...marketEffectiveMetricsNetshopTriggerDropStatements.map((statement) => db.prepare(statement)),
+    ...marketEffectiveMetricsNetshopTriggerStatements.map((statement) => db.prepare(statement)),
   ]).then(() => undefined).catch((error: unknown) => {
     effectiveMetricsTriggersByDatabase.delete(key);
     throw error;
@@ -277,7 +301,7 @@ function sameEffectiveMetricsRevision(
 async function refreshEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
   const [market, netshop, state] = await Promise.all([
     db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM market_ranking_entries").first<EffectiveMetricsCacheRevision>(),
-    db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM netshop_rows").first<EffectiveMetricsCacheRevision>(),
+    db.prepare(marketEffectiveMetricsNetshopRevisionSql).first<EffectiveMetricsCacheRevision>(),
     db.prepare("SELECT market_row_count, market_updated_at, netshop_row_count, netshop_updated_at FROM market_effective_metrics_cache_state WHERE id=1")
       .first<EffectiveMetricsCacheState>(),
   ]);
@@ -336,7 +360,7 @@ async function refreshEffectiveMetricsCache(db: MarketDatabase): Promise<void> {
     )`).run();
   const [currentMarket, currentNetshop] = await Promise.all([
     db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM market_ranking_entries").first<EffectiveMetricsCacheRevision>(),
-    db.prepare("SELECT COUNT(*) row_count, MAX(updated_at) updated_at FROM netshop_rows").first<EffectiveMetricsCacheRevision>(),
+    db.prepare(marketEffectiveMetricsNetshopRevisionSql).first<EffectiveMetricsCacheRevision>(),
   ]);
   if (!sameEffectiveMetricsRevision({
     market_row_count: Number(currentMarket?.row_count ?? 0),
@@ -455,6 +479,7 @@ export async function getMarketOverview(
     rankingPageSize?: number;
   } = {},
 ) {
+  await ensureAnnotationSchema(db);
   try {
     await ensureMarketEffectiveMetricsCache(db);
   } catch (error) {
@@ -525,8 +550,11 @@ export async function getMarketOverview(
   const rankingBindings = [...values, ...priceBandValues];
   const realtimeAnalyticsBindings = [...values, ...priceBandValues];
   const analyticsBindings = monthlyCacheReady ? monthlyCacheFilter.values : realtimeAnalyticsBindings;
-  const filterOptionsPromise = getCachedMarketFilterOptions(db, async () =>
-    await db.prepare(marketOverviewFilterOptionsSql).first<FilterOptionsRow>());
+  const filterOptionsPromise = getCachedMarketFilterOptions(
+    db,
+    async () => await db.prepare(marketOverviewFilterOptionsSql).first<FilterOptionsRow>(),
+    validateMarketFilterOptionsCachePayload,
+  );
   const [overviewResults, filterOptions] = await Promise.all([
     db.batch([
       db.prepare(view === "full" ? analyticsSql : rankingSummarySql).bind(...analyticsBindings),

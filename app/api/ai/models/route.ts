@@ -13,8 +13,10 @@ import {
   aiJsonResponse,
   aiRouteErrorResponse,
   optionalAiId,
+  optionalAiPositiveInteger,
   readAiJsonObject,
   requireAiId,
+  requireAiSameOriginWrite,
 } from "@/app/api/ai/route-helpers";
 
 type JsonRecord = Record<string, unknown>;
@@ -46,6 +48,7 @@ function modelInputFromPayload(payload: JsonRecord): AiModelInput | null {
   if (!name || !protocol || !modelType || !modelName || (!id && !baseUrl)) return null;
   return {
     id,
+    expectedVersion: numberValue(payload, "expectedVersion"),
     name,
     protocol: protocol as AiModelInput["protocol"],
     modelType: modelType as AiModelInput["modelType"],
@@ -77,11 +80,16 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin"]);
     requireUnrestrictedDataScope(principal, "AI 模型配置", "删除");
     const ids = new URL(request.url).searchParams.getAll("id");
     const id = requireAiId(ids.length === 1 ? ids[0] : undefined, "id");
-    const deleted = await deleteAiModel(id, getSalesDatabase());
+    const expectedVersion = optionalAiPositiveInteger(new URL(request.url).searchParams, "expectedVersion");
+    if (expectedVersion === null) {
+      throw new PublicApiError(400, "invalid_request", "缺少 expectedVersion。");
+    }
+    const deleted = await deleteAiModel(id, expectedVersion, getSalesDatabase());
     return aiJsonResponse({ ok: true, deleted });
   } catch (error) {
     return aiRouteErrorResponse(error, "删除模型失败");
@@ -90,6 +98,7 @@ export async function DELETE(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(["admin"]);
     requireUnrestrictedDataScope(principal, "AI 模型配置", "修改");
     const parsed = await readAiJsonObject(request);

@@ -5,7 +5,27 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 import { applyMarketImageRepairs, listMarketImageRepairCandidates, normalizeJdMarketRepairImageUrl } from "../lib/market/image-repair";
 import { ensureMarketSchemaCore, type MarketSchemaDatabase } from "../lib/market/schema-core";
-import { parseJdMarketRepairImageResponse, summarizeJdMarketRepairImageResponse } from "../tools/jd-market-image-repair";
+import { cacheRepairedImages, parseJdMarketRepairImageResponse, summarizeJdMarketRepairImageResponse } from "../tools/jd-market-image-repair";
+
+function imageCacheJob(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "market-image-cache-job-1",
+    status: "queued",
+    total: 6,
+    pending: 4,
+    propagationPending: 1,
+    cached: 1,
+    failed: 0,
+    processedCount: 1,
+    errorCode: "",
+    errorMessage: "",
+    ...overrides,
+  };
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
 
 function sqliteAdapter(sqlite: DatabaseSync): MarketSchemaDatabase {
   return {
@@ -123,6 +143,105 @@ test("JD image repair accepts keyed image responses and normalizes them to the c
   } } })], [["1001", "https://img10.360buyimg.com/n5/jfs/a.jpg"]]);
   assert.deepEqual(summarizeJdMarketRepairImageResponse({ code: 601, content: { errorCode: "limited", secret: "hidden" } }), {
     rootKeys: ["code", "content"], contentKeys: ["errorCode", "secret"], code: "601", status: "", message: "", success: null,
+  });
+});
+
+test("JD image repair submits the async cache job once and polls its exact id to completion", async () => {
+  const calls: Array<{ url: string; method: string }> = [];
+  const responses = [
+    jsonResponse({ ok: true, job: imageCacheJob() }, 202),
+    jsonResponse({ ok: true, job: imageCacheJob({ status: "running", pending: 2, processedCount: 3 }) }),
+    jsonResponse({ ok: true, job: imageCacheJob({ status: "completed", pending: 0, propagationPending: 0, cached: 5, failed: 1, processedCount: 6 }) }),
+  ];
+  const result = await cacheRepairedImages("http://127.0.0.1:3000", {
+    pollIntervalMs: 0,
+    maxPolls: 3,
+    request: async (input, init) => {
+      calls.push({ url: String(input), method: init?.method ?? "GET" });
+      assert.equal(init?.signal instanceof AbortSignal, true);
+      const response = responses.shift();
+      assert.ok(response);
+      return response;
+    },
+  });
+  assert.deepEqual(result, { pending: 0, cached: 5, failed: 1, processed: 6 });
+  assert.deepEqual(calls, [
+    { url: "http://127.0.0.1:3000/api/market/images/cache", method: "POST" },
+    { url: "http://127.0.0.1:3000/api/market/images/cache?jobId=market-image-cache-job-1", method: "GET" },
+    { url: "http://127.0.0.1:3000/api/market/images/cache?jobId=market-image-cache-job-1", method: "GET" },
+  ]);
+});
+
+test("JD image repair preserves the legacy synchronous cache result contract", async () => {
+  let posts = 0;
+  const result = await cacheRepairedImages("http://localhost:3000", {
+    pollIntervalMs: 0,
+    maxPolls: 1,
+    request: async (_input, init) => {
+      posts += 1;
+      assert.equal(init?.method, "POST");
+      return posts === 1
+        ? jsonResponse({ result: { pending: 1, cached: 2, failed: 0, processed: 1, cachedThisRun: 1 } })
+        : jsonResponse({ result: { pending: 0, cached: 3, failed: 0, processed: 1, cachedThisRun: 1 } });
+    },
+  });
+  assert.equal(posts, 2);
+  assert.deepEqual(result, { pending: 0, cached: 3, failed: 0, processed: 1 });
+});
+
+test("JD image repair fails closed when an async cache job reaches a failed terminal state", async () => {
+  let requests = 0;
+  await assert.rejects(
+    cacheRepairedImages("http://127.0.0.1:3000", {
+      pollIntervalMs: 0,
+      maxPolls: 2,
+      request: async () => {
+        requests += 1;
+        return requests === 1
+          ? jsonResponse({ job: imageCacheJob() }, 202)
+          : jsonResponse({ job: imageCacheJob({ status: "failed", errorCode: "cache_batch_timeout", errorMessage: "图片源连续超时" }) });
+      },
+    }),
+    /市场图片缓存任务失败.*图片源连续超时/,
+  );
+  assert.equal(requests, 2);
+});
+
+test("JD image repair reports bounded cache polling timeouts without resubmitting the job", async () => {
+  let posts = 0;
+  let gets = 0;
+  await assert.rejects(
+    cacheRepairedImages("http://127.0.0.1:3000", {
+      pollIntervalMs: 0,
+      maxPolls: 2,
+      request: async (_input, init) => {
+        if (init?.method === "POST") {
+          posts += 1;
+          return jsonResponse({ job: imageCacheJob() }, 202);
+        }
+        gets += 1;
+        return jsonResponse({ job: imageCacheJob({ status: "running" }) });
+      },
+    }),
+    /轮询超时.*market-image-cache-job-1.*后台任务仍会继续运行/,
+  );
+  assert.equal(posts, 1);
+  assert.equal(gets, 2);
+});
+
+test("JD image repair aborts an in-flight cache poll with an explicit interruption error", async () => {
+  const controller = new AbortController();
+  const pending = cacheRepairedImages("http://127.0.0.1:3000", {
+    signal: controller.signal,
+    pollIntervalMs: 5_000,
+    maxPolls: 2,
+    request: async () => jsonResponse({ job: imageCacheJob() }, 202),
+  });
+  setTimeout(() => controller.abort("测试中断"), 5);
+  await assert.rejects(pending, (error: unknown) => {
+    assert.equal((error as Error).name, "AbortError");
+    assert.match((error as Error).message, /轮询已中断：测试中断/);
+    return true;
   });
 });
 

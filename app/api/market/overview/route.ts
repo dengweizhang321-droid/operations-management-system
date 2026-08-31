@@ -2,6 +2,8 @@ import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/
 import { ensureNetshopSchema } from "@/lib/netshop/database";
 import { ensureSalesSchema } from "@/lib/sales/database";
 import { getCachedMarketOverview } from "@/lib/market/overview-response-cache";
+import { validateMarketOverviewCachePayload } from "@/lib/market/cache-payload-validators";
+import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -17,9 +19,18 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const { view, pagination, filters } = parseMarketOverviewQuery(params);
     const db = getMarketDatabase();
-    await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db), ensureSalesSchema(db)]);
-    const result = await getCachedMarketOverview(db, { view, filters, pagination }, () =>
-      getMarketOverview(db, filters, { view, rankingPage: pagination.page, rankingPageSize: pagination.pageSize }));
+    await Promise.all([
+      ensureMarketSchema(db),
+      ensureAnnotationSchema(db),
+      ensureNetshopSchema(db),
+      ensureSalesSchema(db),
+    ]);
+    const result = await getCachedMarketOverview(
+      db,
+      { view, filters, pagination },
+      () => getMarketOverview(db, filters, { view, rankingPage: pagination.page, rankingPageSize: pagination.pageSize }),
+      (payload) => validateMarketOverviewCachePayload(payload, view),
+    );
     return Response.json(result.payload, {
       headers: { "cache-control": "no-store", "x-market-overview-cache": result.status },
     });

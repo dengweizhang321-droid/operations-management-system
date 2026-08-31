@@ -217,10 +217,10 @@ class SalesApiContractTests(TestCase):
         self.assertEqual(response["Retry-After"], "1")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
-    @patch("sales.views.revision_token", side_effect=["7:3", "7:3", "99:99"])
+    @patch("sales.views.revision_token", side_effect=["7:3", "7:3", "7:3", "99:99"])
     def test_payload_header_uses_the_revision_verified_with_payload(self, revision) -> None:
         url = "/api/sales/summary?range=custom&startDate=2026-08-01&endDate=2026-08-02&view=dashboard"
         response = self.client.get(url, headers=signed_headers(url))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Sales-Data-Revision"], "7:3")
-        self.assertEqual(revision.call_count, 2)
+        self.assertEqual(revision.call_count, 3)

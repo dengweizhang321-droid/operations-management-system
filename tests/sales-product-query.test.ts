@@ -52,7 +52,7 @@ test("product filter resolves an exact product name while preserving code and un
 });
 
 test("sales page and API send product names through the shared resolver", () => {
-  const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/sales/summary/route.ts", import.meta.url), "utf8");
   const summary = readFileSync(new URL("../lib/sales/summary.ts", import.meta.url), "utf8");
 

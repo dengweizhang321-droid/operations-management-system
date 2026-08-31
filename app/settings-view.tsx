@@ -53,11 +53,13 @@ type OperatingSettings = {
 };
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-type MarketOverviewData = MarketDataImportPanelProps["data"];
+type MarketSettingsStatusData = MarketDataImportPanelProps["data"];
 type NumericSettingKey = "targetDays" | "criticalDays" | "slowDays" | "stagnantDays";
 type BooleanSettingKey = "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory";
+export type MarketSettingsPane = "master-data" | "imports" | "annotation";
 
 const settingsTabs = ["parameters", "master", "permissions"] as const satisfies readonly SettingsTab[];
+const marketSettingsPanes = ["master-data", "imports", "annotation"] as const satisfies readonly MarketSettingsPane[];
 
 const settingsTabLabels: Record<SettingsTab, string> = {
   parameters: "系统参数",
@@ -76,6 +78,40 @@ export function nextSettingsTab(current: SettingsTab, key: string): SettingsTab 
     return settingsTabs[(currentIndex - 1 + settingsTabs.length) % settingsTabs.length];
   }
   return null;
+}
+
+export function nextMarketSettingsPane(
+  current: MarketSettingsPane,
+  key: string,
+): MarketSettingsPane | null {
+  const currentIndex = marketSettingsPanes.indexOf(current);
+  if (key === "Home") return marketSettingsPanes[0];
+  if (key === "End") return marketSettingsPanes[marketSettingsPanes.length - 1];
+  if (key === "ArrowRight" || key === "ArrowDown") {
+    return marketSettingsPanes[(currentIndex + 1) % marketSettingsPanes.length];
+  }
+  if (key === "ArrowLeft" || key === "ArrowUp") {
+    return marketSettingsPanes[(currentIndex - 1 + marketSettingsPanes.length) % marketSettingsPanes.length];
+  }
+  return null;
+}
+
+export function shouldLoadMarketSettingsStatus(
+  activeTab: SettingsTab,
+  pane: MarketSettingsPane,
+): boolean {
+  return activeTab === "master" && pane === "imports";
+}
+
+export function marketStatusMatchesCurrentRequest(
+  requestKey: string,
+  responseScopeKey: string,
+  responseReloadScope: number,
+  currentReloadScope: number,
+): boolean {
+  return requestKey !== ""
+    && responseScopeKey === requestKey
+    && responseReloadScope === currentReloadScope;
 }
 
 export function canEditOperatingSettings(
@@ -155,10 +191,14 @@ export default function SettingsView({
   const saveGenerationRef = useRef(0);
   const saveControllerRef = useRef<AbortController | null>(null);
 
-  const [marketData, setMarketData] = useState<MarketOverviewData>(null);
+  const [marketData, setMarketData] = useState<MarketSettingsStatusData>(null);
   const [marketState, setMarketState] = useState<LoadState>("idle");
   const [marketError, setMarketError] = useState("");
   const [marketReloadKey, setMarketReloadKey] = useState(0);
+  const [marketPane, setMarketPane] = useState<MarketSettingsPane>("master-data");
+  const [marketStatusRequestKey, setMarketStatusRequestKey] = useState("");
+  const [marketStatusScopeKey, setMarketStatusScopeKey] = useState("");
+  const [marketStatusReloadScope, setMarketStatusReloadScope] = useState(-1);
   const marketGenerationRef = useRef(0);
   const marketControllerRef = useRef<AbortController | null>(null);
 
@@ -190,29 +230,45 @@ export default function SettingsView({
     }
   }, []);
 
-  const loadMarketOverview = useCallback(async () => {
+  const loadMarketSettingsStatus = useCallback(async (reloadScope: number) => {
     const generation = ++marketGenerationRef.current;
+    const requestKey = `market-settings:${reloadScope}:${generation}`;
     marketControllerRef.current?.abort();
     const controller = new AbortController();
     marketControllerRef.current = controller;
     setMarketState("loading");
     setMarketError("");
+    setMarketStatusRequestKey(requestKey);
     try {
-      const response = await fetch("/api/market/overview", { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as MarketOverviewData;
-      if (!response.ok || !payload) throw new Error(payloadError(payload, "市场主数据读取失败"));
+      const response = await fetch("/api/market/master?view=settings_status", { cache: "no-store", signal: controller.signal });
+      const payload = await response.json().catch(() => null) as MarketSettingsStatusData;
+      if (!response.ok || !payload) throw new Error(payloadError(payload, "市场导入与任务状态读取失败"));
       if (generation !== marketGenerationRef.current || controller.signal.aborted) return;
       setMarketData(payload);
+      setMarketStatusScopeKey(requestKey);
+      setMarketStatusReloadScope(reloadScope);
       setMarketState("ready");
     } catch (reason) {
       if (generation !== marketGenerationRef.current || controller.signal.aborted || isAbortError(reason)) return;
-      setMarketError(reason instanceof Error ? reason.message : "市场主数据读取失败");
+      setMarketError(reason instanceof Error ? reason.message : "市场导入与任务状态读取失败");
       setMarketState("error");
     } finally {
       if (generation === marketGenerationRef.current && marketControllerRef.current === controller) {
         marketControllerRef.current = null;
       }
     }
+  }, []);
+
+  const invalidateMarketSettingsStatus = useCallback(() => {
+    marketGenerationRef.current += 1;
+    marketControllerRef.current?.abort();
+    marketControllerRef.current = null;
+    setMarketData(null);
+    setMarketState("idle");
+    setMarketError("");
+    setMarketStatusRequestKey("");
+    setMarketStatusScopeKey("");
+    setMarketStatusReloadScope(-1);
   }, []);
 
   useEffect(() => {
@@ -227,15 +283,19 @@ export default function SettingsView({
   }, [activeTab, loadSettings]);
 
   useEffect(() => {
-    if (activeTab !== "master") return;
-    const timer = window.setTimeout(() => void loadMarketOverview(), 0);
+    if (!shouldLoadMarketSettingsStatus(activeTab, marketPane)) {
+      invalidateMarketSettingsStatus();
+      return;
+    }
+    const reloadScope = marketReloadKey;
+    const timer = window.setTimeout(() => void loadMarketSettingsStatus(reloadScope), 0);
     return () => {
       window.clearTimeout(timer);
       marketGenerationRef.current += 1;
       marketControllerRef.current?.abort();
       marketControllerRef.current = null;
     };
-  }, [activeTab, loadMarketOverview, marketReloadKey]);
+  }, [activeTab, invalidateMarketSettingsStatus, loadMarketSettingsStatus, marketPane, marketReloadKey]);
 
   useEffect(() => () => {
     saveGenerationRef.current += 1;
@@ -298,6 +358,30 @@ export default function SettingsView({
       ?.focus();
     selectTab(next);
   };
+  const handleMarketPaneKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    pane: MarketSettingsPane,
+  ) => {
+    const next = nextMarketSettingsPane(pane, event.key);
+    if (!next) return;
+    event.preventDefault();
+    setMarketPane(next);
+    event.currentTarget.parentElement
+      ?.querySelector<HTMLButtonElement>(`#settings-master-tab-${next}`)
+      ?.focus();
+  };
+
+  const marketStatusIsCurrent = marketStatusMatchesCurrentRequest(
+    marketStatusRequestKey,
+    marketStatusScopeKey,
+    marketStatusReloadScope,
+    marketReloadKey,
+  );
+  const currentMarketData = shouldLoadMarketSettingsStatus(activeTab, marketPane)
+    && marketData
+    && (marketStatusIsCurrent || marketState === "loading" || marketState === "error" || marketStatusReloadScope < marketReloadKey)
+    ? marketData
+    : null;
 
   const renderParameters = () => {
     if ((settingsState === "idle" || settingsState === "loading") && !settings) {
@@ -400,8 +484,10 @@ export default function SettingsView({
 
     {activeTab === "parameters" && <div
       id="settings-panel-parameters"
+      className="data-refresh-region"
       role="tabpanel"
       aria-labelledby="settings-tab-parameters"
+      aria-busy={settingsState === "loading"}
       tabIndex={0}
     >{renderParameters()}</div>}
 
@@ -412,17 +498,68 @@ export default function SettingsView({
       aria-labelledby="settings-tab-master"
       tabIndex={0}
     >
-      {marketState === "loading" && !marketData && <LoadingState>正在读取市场主数据</LoadingState>}
-      {marketError && <section className="inventory-feedback inventory-feedback-error" role="alert">
-        <span>!</span><div><strong>市场主数据加载失败</strong><p>{marketError}</p></div>
-        <button type="button" className="secondary-button" onClick={() => setMarketReloadKey((key) => key + 1)}>重新加载</button>
+      <div className="subnav settings-master-subnav" role="tablist" aria-label="主数据与映射工作区">
+        {marketSettingsPanes.map((pane) => {
+          const label = pane === "master-data"
+            ? "市场主数据"
+            : pane === "imports"
+              ? "导入与任务"
+              : "AI 图片标注";
+          return <button
+            key={pane}
+            id={`settings-master-tab-${pane}`}
+            type="button"
+            role="tab"
+            className={marketPane === pane ? "active" : ""}
+            aria-selected={marketPane === pane}
+            aria-controls={`settings-master-panel-${pane}`}
+            tabIndex={marketPane === pane ? 0 : -1}
+            onClick={() => setMarketPane(pane)}
+            onKeyDown={(event) => handleMarketPaneKeyDown(event, pane)}
+          >{label}</button>;
+        })}
+      </div>
+
+      {marketPane === "master-data" && <section
+        id="settings-master-panel-master-data"
+        role="tabpanel"
+        aria-labelledby="settings-master-tab-master-data"
+        tabIndex={0}
+      >
+        <Suspense fallback={<LoadingState>正在加载市场主数据</LoadingState>}>
+          <LazyMarketMasterAdminPanel currentUser={currentUser} />
+        </Suspense>
       </section>}
-      <Suspense fallback={<LoadingState>正在加载主数据工作区</LoadingState>}>
-        <LazyMarketMasterAdminPanel currentUser={currentUser} />
-        <LazyMarketDataImportPanel currentUser={currentUser} data={marketData} onImported={() => setMarketReloadKey((key) => key + 1)} />
-        <LazyMarketWorkflowPanel data={marketData} />
-        <LazyMarketAnnotationView currentUser={currentUser} />
-      </Suspense>
+
+      {marketPane === "imports" && <section
+        id="settings-master-panel-imports"
+        className="data-refresh-region"
+        role="tabpanel"
+        aria-labelledby="settings-master-tab-imports"
+        aria-busy={marketState === "loading"}
+        tabIndex={0}
+      >
+        {(marketState === "idle" || marketState === "loading") && !currentMarketData && <LoadingState>正在读取导入与任务数据</LoadingState>}
+        {marketError && <section className="inventory-feedback inventory-feedback-error" role="alert">
+          <span>!</span><div><strong>导入与任务数据加载失败</strong><p>{marketError}</p></div>
+          <button type="button" className="secondary-button" onClick={() => setMarketReloadKey((key) => key + 1)}>重新加载</button>
+        </section>}
+        {currentMarketData && <Suspense fallback={<LoadingState>正在加载导入与任务工作区</LoadingState>}>
+          <LazyMarketDataImportPanel currentUser={currentUser} data={currentMarketData} onImported={() => setMarketReloadKey((key) => key + 1)} />
+          <LazyMarketWorkflowPanel data={currentMarketData} />
+        </Suspense>}
+      </section>}
+
+      {marketPane === "annotation" && <section
+        id="settings-master-panel-annotation"
+        role="tabpanel"
+        aria-labelledby="settings-master-tab-annotation"
+        tabIndex={0}
+      >
+        <Suspense fallback={<LoadingState>正在加载 AI 图片标注</LoadingState>}>
+          <LazyMarketAnnotationView currentUser={currentUser} />
+        </Suspense>
+      </section>}
     </section>}
 
     {activeTab === "permissions" && <section

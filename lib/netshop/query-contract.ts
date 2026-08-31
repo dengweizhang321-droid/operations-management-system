@@ -1,6 +1,9 @@
+import { PublicApiError } from "@/lib/http/api-error";
+
 export const NETSHOP_QUERY_MAX_DAYS = 730;
 export const NETSHOP_QUERY_MAX_PAGE = 10_000;
 export const NETSHOP_QUERY_MAX_PAGE_SIZE = 100;
+export const NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE = 500;
 export const NETSHOP_OUTLET_MAX_ITEMS = 50;
 export const NETSHOP_OUTLET_SEPARATOR = "\u001f";
 
@@ -8,6 +11,9 @@ export type NetshopOutletFilter = {
   platform: string;
   shopName: string;
 };
+
+export type NetshopProductCatalogView = "full" | "page";
+export type NetshopProductPerformanceView = "summary" | "full" | "page";
 
 export class NetshopQueryError extends Error {
   readonly status = 400;
@@ -165,6 +171,40 @@ export function readNetshopQueryInteger(
   return boundedNetshopInteger(parsed, name, fallback, minimum, maximum);
 }
 
+function readStrictNetshopView<T extends string>(
+  values: readonly string[],
+  allowed: readonly T[],
+  fallback: T,
+) {
+  if (values.length === 0) return fallback;
+  if (values.length !== 1 || !allowed.includes(values[0] as T)) {
+    throw new NetshopQueryError("invalid_view", `view 必须且只能是 ${allowed.join("、")} 之一`);
+  }
+  return values[0] as T;
+}
+
+export function readNetshopProductCatalogView(values: readonly string[]): NetshopProductCatalogView {
+  return readStrictNetshopView(values, ["full", "page"] as const, "full");
+}
+
+export function readNetshopProductPerformanceView(values: readonly string[]): NetshopProductPerformanceView {
+  return readStrictNetshopView(values, ["summary", "full", "page"] as const, "full");
+}
+
+export function readNetshopSnapshotToken(values: readonly string[], required: boolean) {
+  if (values.length === 0) {
+    if (required) throw new NetshopQueryError("snapshot_token_required", "page 视图必须提供 snapshotToken");
+    return undefined;
+  }
+  if (!required) {
+    throw new NetshopQueryError("unexpected_snapshot_token", "只有 page 视图可以提供 snapshotToken");
+  }
+  if (values.length !== 1 || !/^[a-fA-F0-9]{64}$/.test(values[0] ?? "")) {
+    throw new NetshopQueryError("invalid_snapshot_token", "snapshotToken 必须是唯一的 64 位十六进制版本令牌");
+  }
+  return values[0].toLowerCase();
+}
+
 export function netshopQueryErrorPayload(error: unknown, fallback: string) {
   if (error instanceof NetshopQueryError) {
     return { body: { error: error.message, code: error.code }, status: error.status };
@@ -174,4 +214,3 @@ export function netshopQueryErrorPayload(error: unknown, fallback: string) {
   }
   return { body: { error: fallback, code: "internal_error" }, status: 500 };
 }
-import { PublicApiError } from "@/lib/http/api-error";

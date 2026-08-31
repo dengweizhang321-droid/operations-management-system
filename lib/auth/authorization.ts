@@ -1,10 +1,14 @@
 import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { env } from "cloudflare:workers";
+import { headers } from "next/headers";
 import {
   getSalesDatabase,
   type SalesDatabase,
 } from "@/lib/sales/database";
-import { decideLocalDirectAccess } from "@/lib/auth/local-direct-access";
+import {
+  decideLocalDirectAccess,
+  isLoopbackRequestHost,
+} from "@/lib/auth/local-direct-access";
 
 export const BOOTSTRAP_ADMIN_EMAIL = "dengweizhang321@gmail.com";
 
@@ -152,12 +156,23 @@ export async function requireAppPrincipal(
         : undefined,
     viteDevelopment: viteEnvironment?.DEV === true,
     viteProduction: viteEnvironment?.PROD === true,
+    nodeEnvironment: process.env.NODE_ENV,
     localBuild:
       viteEnvironment?.VITE_TERUISI_LOCAL_BUILD?.trim().toLowerCase() ===
-      "true",
+        "true" ||
+      (typeof env.VITE_TERUISI_LOCAL_BUILD === "string" &&
+        env.VITE_TERUISI_LOCAL_BUILD.trim().toLowerCase() === "true"),
   });
 
   if (localAccess === "allowed") {
+    const requestHeaders = await headers();
+    if (!isLoopbackRequestHost(requestHeaders.get("host"))) {
+      throw new AuthorizationError(
+        403,
+        "access_denied",
+        "本地直连仅允许通过回环地址访问",
+      );
+    }
     return LOCAL_DIRECT_ACCESS_PRINCIPAL;
   }
   if (localAccess === "role_denied") {

@@ -542,6 +542,7 @@ export async function importSalesLedgerBytes(input: {
     sheetName: parsed.sheetName,
     rows,
     warnings,
+    contentHash: fingerprint.contentHash,
     replaceStartDate: scopeStart,
     replaceEndDate: scopeEnd,
     replaceChannels: expectedChannels,

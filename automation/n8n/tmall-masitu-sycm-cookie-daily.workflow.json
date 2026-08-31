@@ -139,7 +139,7 @@
             },
             {
               "name": "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-              "value": "={{ $mode === 'manual' ? '1' : '0' }}"
+              "value": "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}"
             }
           ]
         },

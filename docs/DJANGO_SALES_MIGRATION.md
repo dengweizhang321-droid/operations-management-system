@@ -1,6 +1,6 @@
 # Django 销售分析渐进迁移操作手册
 
-> 状态：第一批仅迁移销售分析读侧。D1 继续是销售事实与 ERP 参照的唯一写入源，Django/PostgreSQL 只是可重建的只读投影。本文不代表已经执行生产部署、生产数据迁移或生产路由切换；这些动作仍需单独审批。
+> 状态（2026-08-28 18:58，Asia/Shanghai）：销售分析第一批读侧已完成本机部署、真实数据迁移、持续同步、影子契约、并发性能及正式切换验收。当前用户读取模式已由 `legacy` 切换为 `django`；D1 仍是唯一写入源，Django/PostgreSQL 仍是可重建只读投影。
 
 ## 1. 本批边界
 
@@ -35,15 +35,17 @@
                          Django 三个只读 API
 ```
 
-生产 PostgreSQL 应拆分权限：迁移命令使用受控的投影写入账号；Django 在线服务使用只读账号。不要把迁移账号凭据交给在线服务。投影失败不能影响 D1 写入，也不能用 PostgreSQL 回写 D1。
+本机 PostgreSQL 已拆分为最小权限角色：投影迁移与持续消费者使用 `teruisi_sales_writer`，在线 Waitress/Django 使用 `teruisi_sales_reader`，并在 readiness 中验证连接处于只读事务模式。writer 凭据不交给在线服务；两类凭据与 Django/HMAC 密钥均由当前 Windows 用户绑定的 DPAPI 凭据库保存，不能写入命令、日志、审计或仓库。投影失败不能影响 D1 写入，也不能用 PostgreSQL 回写 D1。
 
-每次同步都必须从源 D1 动态读取 `sales_overview_cache_state.sales_revision` 与 `erp_product_revision`，并让目标的 `sales`、`erp` 修订完全匹配。当前本机曾观测到 `8:5`，它只说明当时 `sales=8`、`erp=5`，仅可用于理解格式；不得写进配置、代码、告警阈值或迁移脚本。正式同步过程中源修订发生变化时，本轮必须失败关闭并重新执行。
+每次同步都必须从源 D1 动态读取 `sales_overview_cache_state.sales_revision` 与 `erp_product_revision`，并让目标的 `sales`、`erp` 修订完全匹配。本机 2026-08-28 完成基线迁移时的真实水位为 `8:5`；这是该次验收事实，不是永久常量，仍不得写进配置、代码、告警阈值或迁移脚本。同步过程中源修订发生变化时，本轮必须失败关闭并重新执行。
+
+基线之后使用 D1 事务 outbox 与 PostgreSQL 持续消费者：销售或 ERP 导入在发布事实和推进 revision 的同一 D1 事务内写入 outbox；消费者按 sequence、source epoch、来源批次、规范摘要与 revision 严格校验，在 PostgreSQL 单事务中发布事实、revision 和 checkpoint。进程以 15 秒间隔持续检查；无新事件时只刷新 checkpoint 心跳。当前 D1 outbox 为 0 条、head sequence 为 0，PostgreSQL checkpoint sequence 为 0、revision 为 `8:5`，心跳与 readiness 正常。
 
 网关会在调用 Django 前读取当前 D1 修订作为期望值。Django 成功响应必须同时返回完全一致的 `x-sales-data-revision` 与 `x-sales-source-revision`；网关完整读取并验证 JSON 后，还会再次读取 D1 修订。前后两次 D1 修订、目标修订或两条响应头任一不一致，都说明请求期间数据已变化：`django` 模式返回 `503`，`shadow` 标记 `mismatch`，不会把旧投影视为新数据。
 
 ## 3. 环境准备
 
-在仓库根目录使用独立虚拟环境，避免改动系统 Python：
+开发和测试仍可在仓库根目录使用独立虚拟环境，避免改动系统 Python：
 
 ```powershell
 Set-Location "D:\运营管理系统"
@@ -76,13 +78,15 @@ $env:DJANGO_ALLOWED_HOSTS = "127.0.0.1,localhost"
 $env:DJANGO_DEBUG = "true"
 ```
 
-生产 PostgreSQL 示例只展示格式，严禁把真实凭据提交到仓库：
+本机常驻部署不使用上述开发 SQLite。当前受控运行根目录为 `D:\teruisi-runtime\django-sales`，其中安装 PostgreSQL 17.11、Python 虚拟环境、Django 5.2.17、Waitress 3.0.2、只读投影、日志、PID 所有权记录与 DPAPI 密文凭据；源码副本位于 `app\`。PostgreSQL 只监听 `127.0.0.1:5432`，Waitress 只监听 `127.0.0.1:8001`，不向 LAN 或公网开放。
+
+外部 PostgreSQL 示例只展示格式，严禁把真实凭据提交到仓库：
 
 ```powershell
 $env:TERUISI_DJANGO_DATABASE_URL = "postgresql://<user>:<password>@<host>:5432/<database>?sslmode=require"
 ```
 
-## 4. 建库、迁移与验证
+## 4. 基线迁移、持续同步与本机服务
 
 先确认 D1 精确源文件；不要依赖模糊的“最新文件”，不要修改、复制覆盖或删除源库。迁移命令会以 SQLite 只读模式打开源库。
 
@@ -119,14 +123,41 @@ $sourceD1 = "<经只读核验的 D1 sqlite 绝对路径>"
 
 apply 必须显式携带一次尚未消费的成功 dry-run ID；命令会在目标事务内复核同一解析路径、稳定文件身份、`sales-projection-v2` 摘要格式、动态修订、三张表行数与完整摘要，并原子消费该审批。文件身份使用卷与文件 ID，避免同一活动 D1 中无关业务表写入仅改变 mtime 就误拦截；销售/ERP 任一事实变化仍会由完整摘要或修订门禁拒绝。省略模式、缺审批、复用审批或任一材料变化都不会写业务投影。任一步非零退出、零行、源表缺失、源在迁移中变化、行数/摘要/修订不一致，都视为失败；不得进入 `shadow` 或 `django`。不要用手工 `UPDATE` 修正水位，也不要在失败后把 PostgreSQL 当成完整投影。
 
-本地启动仅用于开发验证：
+2026-08-28 已按上述门禁把真实 D1 基线迁移至本机 PostgreSQL：`sales_order_lines=572015`、`sales_import_batches=88`、`erp_product_master=8443`，源/目标 revision 均为 `8:5`。基线之后不再把人工全量迁移当作日常同步；D1 事务 outbox 和 `sync_sales_projection --watch --interval-seconds=15` 持续消费者负责增量发布，启动器会在启动在线读服务前先执行一次 one-shot 追平。
+
+### 4.1 本机服务命令
+
+以下命令适用于当前已预置 PostgreSQL、虚拟环境与 DPAPI 凭据的 Windows 主机。`Configure`、`DeployApp`、`HardenAcl` 从源码工作树执行；`Start` 必须从部署后的 runtime 脚本执行：
 
 ```powershell
-& $python backend\manage.py check
-& $python backend\manage.py runserver 127.0.0.1:8001
+$repo = "D:\运营管理系统"
+$runtime = "D:\teruisi-runtime\django-sales"
+$sourceD1 = "<当前权威 D1 sqlite 绝对路径>"
+$sourceTool = Join-Path $repo "tools\django-local-service.ps1"
+$runtimeTool = Join-Path $runtime "app\tools\django-local-service.ps1"
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $sourceTool -Action Configure -RuntimeRoot $runtime -SourceD1 $sourceD1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $sourceTool -Action DeployApp -RuntimeRoot $runtime
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $sourceTool -Action HardenAcl -RuntimeRoot $runtime
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action Start -RuntimeRoot $runtime
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action Status -RuntimeRoot $runtime
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action InstallStartup -RuntimeRoot $runtime
 ```
 
-生产不能使用 `runserver`。生产进程、TLS、健康检查、只读数据库账号和部署拓扑尚未在本批执行，须在正式上线方案中单独确认。
+`Start` 依次核验部署指纹和 ACL，启动仅回环的 PostgreSQL，使用 writer one-shot 追平投影，启动只读 reader 的 Waitress，再启动持续消费者并检查 `/health/ready`。`Status` 应同时检查 PostgreSQL、Django、ProjectionSync、Readiness、RuntimeAcl 和 Startup；readiness 只有在投影结构、索引、revision、checkpoint 与最近心跳均正常，且在线连接确认为只读 PostgreSQL 时才返回 200。
+
+`InstallStartup` 安装的是“当前 Windows 用户登录”快捷方式，不是 Windows Service，也不是崩溃监控器：用户登录时会尝试启动整套服务，但进程在登录后崩溃不会被自动拉起。此时应先查看脱敏日志和 `Status`，再由操作者显式执行 `Start`；不得把快捷方式表述为高可用守护。
+
+### 4.2 备份与审计证据
+
+本轮 D1 outbox DDL 前的可恢复备份和审计位于：
+
+- 数据库备份：`D:\teruisi-runtime\django-sales\backups\d1-before-outbox-20260828T1759.sqlite`
+- 备份审计：`D:\teruisi-runtime\django-sales\backups\d1-before-outbox-20260828T1759.json`
+- 审计摘要：`D:\teruisi-runtime\django-sales\backups\d1-before-outbox-20260828T1759.json.sha256`
+- DDL 审计：`D:\teruisi-runtime\django-sales\migration-d1-outbox-0089.json`
+
+运行日志、备份和审计目录必须保持对当前用户、SYSTEM 与 Administrators 可写，并由 `HardenAcl` 限制继承权限；任何文件都不得记录数据库密码、HMAC secret、Django secret、完整连接串或其他凭据。失败的临时副本不是权威迁移材料，也不能替代以上备份、摘要和审计链。
 
 ## 5. Worker 到 Django 的身份签名契约
 
@@ -184,6 +215,8 @@ Worker 使用以下变量：
 3. 只有动态修订完全一致、影子结果持续 `match`、性能和错误率达标且正式检查清单签字后，才切为 `django`。
 4. 切换后继续观察 D1 导入与投影刷新；每次 D1 新写入都会推进源修订，在新投影完成前 Django 会因水位不一致失败关闭。
 
+截至 2026-08-28 18:58（Asia/Shanghai），前三步及正式切换已完成，实际读取配置为 `django`；三个端点均已验证 `x-teruisi-sales-backend: django`，且响应 revision 与动态 D1 水位一致。当前进入切换后持续观察阶段。
+
 当前网关是模式开关，不是百分比流量分配器。若需要小流量试运行，应使用独立预览环境或经批准的边缘流量策略，不能在代码中临时随机分流。
 
 ## 7. 测试命令
@@ -208,6 +241,18 @@ $env:TERUISI_DJANGO_INTERNAL_SECRET = "<与本地 Django 相同的测试密钥>"
 node --import tsx tools/django-sales-shadow-check.ts $sourceD1 2026-08-01 2026-08-27
 ```
 
+只读并发/性能验收工具会生成合法 HMAC principal，只允许精确回环 HTTP 或 HTTPS origin，限制并发、轮数、请求超时和响应体大小，并校验 HTTP 200、两条 revision header、同视图 JSON 摘要与全程 revision 一致；密钥只能从环境变量读取且不会输出：
+
+```powershell
+$env:TERUISI_DJANGO_INTERNAL_SECRET = "<与本机 Django 相同的临时进程级密钥>"
+node --import tsx tools/django-sales-load-check.ts `
+  --base-url http://127.0.0.1:8001 `
+  --start-date 2025-08-28 --end-date 2026-08-28 `
+  --concurrency 8 --rounds 2 `
+  --view full,dashboard,category
+Remove-Item Env:TERUISI_DJANGO_INTERNAL_SECRET
+```
+
 如执行完整构建，先按仓库约束确认本地 `3000` 端口没有被服务占用，再执行 `npm run build`。测试至少要证明：
 
 - 三个 JSON 响应的状态码、字段、排序、分页、筛选和错误契约与 Worker 一致。
@@ -218,25 +263,26 @@ node --import tsx tools/django-sales-shadow-check.ts $sourceD1 2026-08-01 2026-0
 - `django` 在超时、重定向、非 JSON、超大响应、缺失/不一致修订时返回 503 且不回退。
 - 迁移 dry-run 无业务写入；apply 必须显式绑定且单次消费审批；verify-only 能发现行数、摘要和修订漂移。
 
-本机没有可用的 PostgreSQL 服务时，只能完成 SQLite 投影的契约与真实数据验证；正式发布前仍必须在获批的 PostgreSQL 环境重跑迁移、摘要、索引、查询计划、并发和回滚测试，不能以 SQLite 结果替代该发布门禁。
+2026-08-28 的本机 PostgreSQL 验收结果：27 天与 366 天范围的五项影子契约（full summary、dashboard、category、受限 scope category、category detail）全部为 `match`。366 天、并发 8、2 轮的验收中，full 首次冷请求约 7.9 秒、warm 约 29–86 毫秒；dashboard 冷请求约 4.1 秒、warm 约 13–39 毫秒；category 冷请求约 3.0 秒、warm 约 86–188 毫秒；包含冷启动的整体 p95 约 7.96 秒。该结果证明当前本机部署通过本轮门禁，但不是其他机器、远程网络或未来数据规模的永久 SLA。
+
+正式切换后的公开 Worker 在线复核中，三个端点均返回 200、`x-teruisi-sales-backend: django`、`x-sales-data-revision: 8:5`、`x-sales-source-revision: 8:5` 和 `cache-control: no-store`。366 天 dashboard 冷请求约 5.00 秒，随后缓存命中约 0.43 秒，均在本机 12 秒网关超时上限内。
 
 ## 8. 正式切换检查清单
 
-以下各项必须全部完成；任一项为“否”都保持 `legacy`：
+本机技术门禁与用户流量切换均已完成，当前读取模式为 `django`。以下清单记录正式切换证据：
 
-- [ ] 生产 PostgreSQL、备份恢复、容量、索引、连接池和部署拓扑已专项审批。
-- [ ] 投影迁移账号与 Django 在线只读账号已分离，最小权限已实测。
-- [ ] 精确源 D1 已只读确认，dry-run、apply、verify-only 全部成功并留存脱敏审计。
-- [ ] apply 使用同一源的单次 dry-run 审批，`canonicalFormatVersion=sales-projection-v2`，未绕过 `--apply --approved-run-id` 门禁。
-- [ ] 源/目标三张业务表的行数与规范 SHA-256 摘要一致。
-- [ ] 动态读取的 `sales_revision:erp_product_revision` 与目标、两条 Django 响应头完全一致；未使用临时 `8:5` 常量。
-- [ ] 三个端点的全量契约与关键业务口径对比通过。
-- [ ] 四种角色、受限/非受限 principal、越权和 HMAC 负向测试通过。
-- [ ] `shadow` 观察窗口内无未解释的 `mismatch`、`comparison_skipped` 或 `upstream_error`。
-- [ ] 延迟、并发、响应体大小、数据库连接数与错误率达到经审批的上线阈值。
-- [ ] D1 销售导入仍是唯一写入路径，财务域仍在 Worker，现有自动化未改写。
+- [x] 本机 PostgreSQL 17、Waitress、只回环监听、备份审计、查询索引和运行目录 ACL 已验证。
+- [x] 投影 writer 与 Django 在线只读 reader 已分离，最小权限和 reader 只读事务已实测。
+- [x] 精确源 D1 的 dry-run、apply、verify-only 已成功并留存脱敏审计。
+- [x] apply 使用同一源的单次 dry-run 审批与 `sales-projection-v2` 门禁。
+- [x] 源/目标为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 主数据，完整摘要一致。
+- [x] 动态源、目标、checkpoint 和响应头 revision 均为本次真实 `8:5`，未把它固化为常量。
+- [x] 27 天与 366 天五项影子契约全部 `match`，关键业务口径、scope 与 HMAC 负向测试通过。
+- [x] 366 天并发 8×2 的 cold/warm、响应体上限和 revision/JSON 一致性验收通过。
+- [x] D1 仍是唯一写入路径；事务 outbox、持续消费者和 checkpoint 心跳正常，财务域仍在 Worker。
 - [ ] 监控、告警、切换负责人、回滚负责人和变更时间窗已确认。
-- [ ] 已在非生产环境演练 `django -> legacy`，并用响应头与关键页面复核回滚成功。
+- [x] 用户已于 2026-08-28 18:58（Asia/Shanghai）明确确认把 `TERUISI_SALES_BACKEND` 从 `legacy` 切换为 `django`。
+- [x] 切换后已用三个端点的 `x-teruisi-sales-backend: django`、revision 和关键页面完成在线复核。
 
 ## 9. 秒级回滚
 
@@ -249,8 +295,21 @@ node --import tsx tools/django-sales-shadow-check.ts $sourceD1 2026-08-01 2026-0
 
 该机制本身只有一个配置开关、无反向数据动作，平台配置发布生效后可以在秒级完成路由回退；实际生效时间仍以部署平台回执和上述请求验证为准，不能只凭控制台显示“成功”宣告回滚完成。
 
-## 10. 当前生产状态
+若需要停用本机 Django 栈，必须先把 `TERUISI_SALES_BACKEND` 回滚为 `legacy` 并验证三个端点已返回 `x-teruisi-sales-backend: legacy`；确认用户读取恢复到 Worker/D1 后，才能执行受控 runtime `Stop`。停服不删除 PostgreSQL 数据、备份或审计证据：
 
-截至本手册编写时，生产 PostgreSQL 目标、生产 Django 运行环境、持续投影同步计划和生产路由尚未执行。当前投影同步仍是受控全量快照；D1 新导入推进修订后，在下一次审批迁移完成前 Django 读取会失败关闭，因此尚不具备生产 `django` 常态流量条件。现有 D1、Worker 写入与财务域均继续运行原契约。后续生产动作必须明确目标、影响范围、动态数据水位、增量或 staging 原子发布方案、真实 PostgreSQL 性能/并发、回滚方案和审批结果，不能把本地测试或 `shadow` 验证表述为生产已完成迁移。
+```powershell
+$runtime = "D:\teruisi-runtime\django-sales"
+$runtimeTool = Join-Path $runtime "app\tools\django-local-service.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action Stop -RuntimeRoot $runtime
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runtimeTool -Action Status -RuntimeRoot $runtime
+```
 
-2026-08-28 的本机 SQLite 真实规模验证包含 572,015 条销售事实：27 天冷查询的 dashboard、完整 summary、category 分别约为 2.03 秒、4.95 秒、1.83 秒，revision-keyed dashboard 缓存命中约 0.002 秒；366 天上限冷查询分别约为 25.67 秒、61.73 秒、23.09 秒，超过当前 8 秒默认网关超时，完整 summary 也超过 30 秒配置上限。这只是本机 SQLite 诊断而不是 PostgreSQL 基准，但已经构成明确的生产阻断项：在真实 PostgreSQL 上完成查询计划优化、性能阈值和冷启动/并发测试前必须保持 `legacy`，不得仅靠调高超时切换生产。
+若不希望下次登录自动启动，再显式执行 `-Action RemoveStartup`。不要删除 `postgres-data`、备份、审计或日志来代替回滚。恢复服务时执行 `-Action Start`；启动器会先追平投影并通过 readiness，失败则回滚本轮新启动的进程。
+
+## 10. 当前本机部署与读取状态
+
+截至 2026-08-28，本机 `D:\teruisi-runtime\django-sales` 已运行 PostgreSQL 17.11、Django 5.2.17、Waitress 3.0.2 和持续投影消费者；5432 与 8001 均严格监听 `127.0.0.1`。真实 PostgreSQL 投影为 572,015 条销售事实、88 个销售批次、8,443 条 ERP 主数据，revision `8:5`。D1 outbox/head 与 PostgreSQL checkpoint sequence 当前均为 0，持续消费者仍按 15 秒刷新心跳，`/health/ready` 返回 database/projection ready。
+
+该部署的“生产”含义仅指当前受控 Windows 主机上的常驻本机服务，不代表已部署远程服务器、云数据库或高可用集群。当前用户请求已由 `TERUISI_SALES_BACKEND=django` 路由至 Django 只读投影，公开 Worker 继续负责鉴权、principal 签名、参数契约和动态 revision 栅栏；D1、销售导入、财务域及其他 Worker 自动化仍按原契约运行。`legacy` 保留为显式秒级回滚模式，Django 异常时仍失败关闭，不静默回退。
+
+当前用户登录快捷方式可在下次登录时启动整套服务，但不具备进程崩溃后的自动拉起能力。日常应以 `Status`、`/health/ready`、checkpoint 心跳和脱敏日志共同判断运行状态，不能仅凭快捷方式存在或端口监听宣告服务健康。

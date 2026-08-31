@@ -10,9 +10,10 @@ const domainServices = [
   "lib/finance/import-service.ts",
   "lib/customer-service/database.ts",
   "lib/market/import-service.ts",
+  "lib/products/shipping-rate-import-service.ts",
 ] as const;
 
-test("全部七类导入领域都在解析后使用共享业务内容指纹", async () => {
+test("全部八类导入领域都在解析后使用共享业务内容指纹", async () => {
   for (const file of domainServices) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.match(source, /buildImportContentFingerprint\(/, file);
@@ -26,13 +27,14 @@ test("全部七类导入领域都在解析后使用共享业务内容指纹", as
   }
 });
 
-test("全部七类导入入口都审计预校验拒绝且不让坏文件参与业务判重", async () => {
+test("全部八类导入入口都审计预校验拒绝且不让坏文件参与业务判重", async () => {
   for (const file of [
     "lib/netshop/import-service.ts",
     "lib/inventory/import-service.ts",
     "lib/erp-reference/import-service.ts",
     "lib/sales/import-service.ts",
     "lib/finance/import-service.ts",
+    "lib/products/shipping-rate-import-service.ts",
   ]) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.match(source, /auditRejectedImportResult/, file);
@@ -55,7 +57,7 @@ test("全部七类导入入口都审计预校验拒绝且不让坏文件参与�
   assert.doesNotMatch(rejectedBlock, /INSERT INTO import_content_fingerprints|UPDATE import_scope_heads|INSERT INTO import_scope_heads/);
 });
 
-test("七类事实发布事务都安装共享 owner 提交栅栏", async () => {
+test("八类事实发布事务都安装共享 owner 提交栅栏", async () => {
   for (const file of [
     "lib/sales/database.ts",
     "lib/inventory/database.ts",
@@ -64,6 +66,7 @@ test("七类事实发布事务都安装共享 owner 提交栅栏", async () => {
     "lib/netshop/database.ts",
     "lib/market/import-core.ts",
     "lib/customer-service/database.ts",
+    "lib/products/shipping-rate-database.ts",
   ]) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.match(source, /importReservationCommitFence\(/, file);

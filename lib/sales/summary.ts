@@ -14,6 +14,7 @@ import {
 
 export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
+export type SalesSummaryProjection = "full" | "dashboard";
 export const MAX_SALES_TREND_DAYS = 366;
 export const MAX_SALES_GROUP_ROWS = 500;
 
@@ -369,7 +370,8 @@ async function groupedMetrics(
       SUM(gross_sales_cents - refund_amount_cents) OVER () AS total_net_sales_cents
     FROM grouped
     ${groupKeys.length ? "WHERE group_key IN (SELECT CAST(value AS TEXT) FROM json_each(?))" : ""}
-    ORDER BY (gross_sales_cents - refund_amount_cents) DESC, name ASC
+    ORDER BY (gross_sales_cents - refund_amount_cents) DESC,
+      name COLLATE BINARY ASC, group_key COLLATE BINARY ASC
     LIMIT ${MAX_SALES_GROUP_ROWS + 1}
   `);
   const result = await bindPeriod(
@@ -507,7 +509,7 @@ async function filterOptions(
         )
         SELECT category
         FROM available_categories
-        ORDER BY category ASC
+        ORDER BY category COLLATE BINARY ASC
         LIMIT 200
       `), period.startDate, period.endDate).all<FilterCategoryRow>()
     : bindPeriod(
@@ -518,7 +520,7 @@ async function filterOptions(
           WHERE s.ship_time >= ? AND s.ship_time < ?
             AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
           GROUP BY ${SALES_CATEGORY_EXPRESSION}
-          ORDER BY ${SALES_CATEGORY_EXPRESSION} ASC
+          ORDER BY ${SALES_CATEGORY_EXPRESSION} COLLATE BINARY ASC
           LIMIT 200
         `),
         period.startDate,
@@ -536,7 +538,8 @@ async function filterOptions(
         WHERE s.ship_time >= ? AND s.ship_time < ?
           AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
         GROUP BY COALESCE(NULLIF(s.platform, ''), '未分类'), ${shopName}
-        ORDER BY COALESCE(NULLIF(s.platform, ''), '未分类') ASC, name ASC
+        ORDER BY COALESCE(NULLIF(s.platform, ''), '未分类') COLLATE BINARY ASC,
+          name COLLATE BINARY ASC
         LIMIT 500
       `),
       period.startDate,
@@ -551,7 +554,7 @@ async function filterOptions(
         WHERE s.ship_time >= ? AND s.ship_time < ?
           AND TRIM(s.warehouse) <> '刷刷仓'${productCodeClause(productCodes)}
         GROUP BY COALESCE(NULLIF(s.platform, ''), '未分类')
-        ORDER BY platform ASC
+        ORDER BY platform COLLATE BINARY ASC
         LIMIT 200
       `),
       period.startDate,
@@ -583,8 +586,9 @@ async function latestSalesDataDate(db: SalesDatabase) {
 
 export async function getSalesSummary(
   db: SalesDatabase,
-  input: { range: SalesRange; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; platforms?: string[]; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
+  input: { range: SalesRange; projection?: SalesSummaryProjection; startDate?: string; endDate?: string; productQueries?: string[]; productCodes?: string[]; platform?: string; platforms?: string[]; shop?: string; outlets?: SalesOutletFilter[]; categories?: string[] },
 ) {
+  const dashboardProjection = input.projection === "dashboard";
   const today = shanghaiToday();
   let productQueries: string[];
   try {
@@ -683,21 +687,32 @@ export async function getSalesSummary(
     startDate: addYears(trendPeriod.startDate, -1),
     endDate: addYears(trendPeriod.endDate, -1),
   };
-  const [currentRow, previousRow, yearAgoRow, outletResult, shopResult, platformResult, daily, previousDaily, yearAgoDaily, filterOptionsData, latestBatch] = await Promise.all([
+  const extendedResultPromise = dashboardProjection
+    ? Promise.resolve(null)
+    : Promise.all([
+      groupedMetricsWithYearOverYear(db, "channel", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
+      groupedMetricsWithYearOverYear(db, "platform", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
+      previousTrendPeriod ? dailyMetrics(db, previousTrendPeriod, productCodes, platform, shop, categories, outletFilters) : Promise.resolve([]),
+      dailyMetrics(db, yearAgoTrendPeriod, productCodes, platform, shop, categories, outletFilters),
+      filterOptions(db, period, productCodes),
+    ] as const);
+  const [currentRow, previousRow, yearAgoRow, outletResult, daily, latestBatch, extendedResult] = await Promise.all([
     currentPromise,
     previousPromise,
     yearAgoPromise,
     groupedMetricsWithYearOverYear(db, "shop", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
-    groupedMetricsWithYearOverYear(db, "channel", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
-    groupedMetricsWithYearOverYear(db, "platform", period, yearAgoPeriod, productCodes, platform, shop, categories, outletFilters),
     dailyMetrics(db, trendPeriod, productCodes, platform, shop, categories, outletFilters),
-    previousTrendPeriod ? dailyMetrics(db, previousTrendPeriod, productCodes, platform, shop, categories, outletFilters) : Promise.resolve([]),
-    dailyMetrics(db, yearAgoTrendPeriod, productCodes, platform, shop, categories, outletFilters),
-    filterOptions(db, period, productCodes),
     findLatestSalesImportBatch(db),
+    extendedResultPromise,
   ]);
+  const channelResult = extendedResult?.[0] ?? { items: [], pagination: { total: 0, returned: 0, truncated: false } };
+  const platformResult = extendedResult?.[1] ?? { items: [], pagination: { total: 0, returned: 0, truncated: false } };
+  const previousDaily = extendedResult?.[2] ?? [];
+  const yearAgoDaily = extendedResult?.[3] ?? [];
+  const filterOptionsData = extendedResult?.[4] ?? { shops: [], platforms: [], categories: [] };
 
   return {
+    projection: dashboardProjection ? "dashboard" as const : "full" as const,
     range: input.range,
     filters: {
       productQueries,
@@ -722,11 +737,11 @@ export async function getSalesSummary(
     yearAgoEndDate: yearAgoPeriod.endDate,
     channels: platformResult.items,
     outlets: outletResult.items,
-    shops: shopResult.items,
+    shops: channelResult.items,
     platforms: platformResult.items,
     groupPagination: {
       outlets: outletResult.pagination,
-      shops: shopResult.pagination,
+      shops: channelResult.pagination,
       platforms: platformResult.pagination,
     },
     daily,

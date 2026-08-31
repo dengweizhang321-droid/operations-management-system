@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
@@ -15,12 +16,18 @@ registerHooks({
 const {
   ensureNetshopSchema,
   getNetshopProductCatalog,
+  getNetshopProductCatalogPage,
   getNetshopProductPerformance,
+  getNetshopProductPerformancePage,
+  getNetshopProductPerformanceSummary,
+  getNetshopPromotionItems,
+  getNetshopPromotionOverview,
   getNetshopPromotionPerformance,
   NETSHOP_DAILY_SERIES_LIMIT,
   saveNetshopImport,
 } = await import("../lib/netshop/database");
 const { resolveNetshopSalesOutletMatches } = await import("../lib/netshop/sales-shop-aliases");
+const { ensurePromotionAggregateSchema, rebuildPromotionAggregates } = await import("../lib/netshop/promotion-aggregate");
 const { PublicApiError } = await import("../lib/http/api-error");
 const { netshopBatchId } = await import("../lib/netshop/batch-identity");
 const {
@@ -40,15 +47,34 @@ function createDatabase() {
       platform TEXT NOT NULL,
       shop_name TEXT NOT NULL,
       business_date TEXT,
+      snapshot_date TEXT,
       product_code TEXT NOT NULL DEFAULT '',
       product_name TEXT NOT NULL DEFAULT '',
       sku_id TEXT NOT NULL DEFAULT '',
       spu_id TEXT NOT NULL DEFAULT '',
       metrics_json TEXT NOT NULL DEFAULT '{}',
-      raw_json TEXT NOT NULL DEFAULT '{}'
+      raw_json TEXT NOT NULL DEFAULT '{}',
+      last_import_batch_id TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX netshop_rows_source_dataset_scope_date_idx
       ON netshop_rows (source,dataset,platform,shop_name,business_date);
+    CREATE TABLE netshop_import_batches (
+      id TEXT PRIMARY KEY, source TEXT NOT NULL DEFAULT '', dataset TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL, platform TEXT NOT NULL, shop_name TEXT NOT NULL,
+      snapshot_date TEXT, created_at TEXT NOT NULL, completed_at TEXT
+    );
+    CREATE TABLE netshop_product_daily_revisions (
+      platform TEXT PRIMARY KEY NOT NULL,
+      data_version INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE netshop_product_daily_scope_revisions (
+      platform TEXT NOT NULL,
+      shop_name TEXT NOT NULL,
+      data_version INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (platform,shop_name)
+    );
   `);
   return sqlite;
 }
@@ -80,9 +106,17 @@ function createProductCatalogDatabase() {
       channel TEXT NOT NULL, shop_name TEXT NOT NULL, online_spec_code TEXT NOT NULL, allocated_amount_cents INTEGER NOT NULL,
       gross_profit_cents INTEGER NOT NULL, quantity REAL NOT NULL, cost_amount_cents INTEGER NOT NULL
     );
+    CREATE TABLE sales_overview_cache_state (
+      id INTEGER PRIMARY KEY, sales_revision INTEGER NOT NULL,
+      erp_product_revision INTEGER NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO sales_overview_cache_state (id,sales_revision,erp_product_revision) VALUES (1,1,1);
+    CREATE INDEX netshop_rows_product_batch_page_idx
+      ON netshop_rows (last_import_batch_id,shop_name,product_name,sku_id,platform,id)
+      WHERE source IN ('jd_product_master','tmall_product_master') AND dataset='product_master';
     INSERT INTO netshop_import_batches VALUES (
       'master-batch','jd_product_master','product_master','京东','目录店铺','master.xlsx',1,
-      'hash','sheet','completed',100,100,0,0,NULL,NULL,'2026-08-01','[]','{}','',
+      'hash','sheet','completed',102,102,0,0,NULL,NULL,'2026-08-01','[]','{}','',
       '2026-08-01 08:00:00','2026-08-01 08:01:00'
     );
   `);
@@ -109,9 +143,10 @@ function createProductCatalogDatabase() {
   const batchInsert = sqlite.prepare(`INSERT INTO netshop_import_batches VALUES
     (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   for (const batch of extraBatches) {
+    const rowCount = batch.id === "jd-other-batch" ? 2 : 1;
     batchInsert.run(
       batch.id, batch.source, "product_master", batch.platform, batch.shopName, `${batch.id}.xlsx`, 1,
-      `${batch.id}-hash`, "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-01", "[]", "{}", "",
+      `${batch.id}-hash`, "sheet", "completed", rowCount, rowCount, 0, 0, null, null, "2026-08-01", "[]", "{}", "",
       "2026-08-01 08:00:00", "2026-08-01 08:01:00",
     );
   }
@@ -139,14 +174,32 @@ function createProductCatalogDatabase() {
   return sqlite;
 }
 
-function adapter(sqlite: DatabaseSync, reads: string[], bindCounts: number[] = []) {
+function adapter(
+  sqlite: DatabaseSync,
+  reads: string[],
+  bindCounts: number[] = [],
+  afterRead?: (sql: string) => void | Promise<void>,
+  transformFirst?: (sql: string, value: unknown) => unknown,
+) {
   return {
     prepare(sql: string) {
       let values: SQLInputValue[] = [];
       return {
         bind(...nextValues: unknown[]) { values = nextValues as SQLInputValue[]; return this; },
-        async first<T>() { reads.push(sql); bindCounts.push(values.length); return (sqlite.prepare(sql).get(...values) ?? null) as T | null; },
-        async all<T>() { reads.push(sql); bindCounts.push(values.length); return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+        async first<T>() {
+          reads.push(sql);
+          bindCounts.push(values.length);
+          const result = (sqlite.prepare(sql).get(...values) ?? null) as T | null;
+          await afterRead?.(sql);
+          return (transformFirst ? transformFirst(sql, result) : result) as T | null;
+        },
+        async all<T>() {
+          reads.push(sql);
+          bindCounts.push(values.length);
+          const results = sqlite.prepare(sql).all(...values) as T[];
+          await afterRead?.(sql);
+          return { results };
+        },
         async run() { return sqlite.prepare(sql).run(...values); },
       };
     },
@@ -181,6 +234,55 @@ function transactionalAdapter(sqlite: DatabaseSync) {
     },
   };
 }
+
+function installPromotionManifest(sqlite: DatabaseSync, platform: "京东" | "天猫") {
+  sqlite.prepare(`INSERT INTO netshop_promotion_aggregate_manifest (platform,ready,completed_at)
+    VALUES (?,1,CURRENT_TIMESTAMP)
+    ON CONFLICT(platform) DO UPDATE SET ready=1,completed_at=CURRENT_TIMESTAMP`).run(platform);
+  sqlite.prepare(`UPDATE netshop_promotion_aggregate_control
+    SET maintenance_token='',maintenance_version=0,maintenance_previous_ready=0,
+      maintenance_started_at=NULL,updated_at=CURRENT_TIMESTAMP
+    WHERE platform=?`).run(platform);
+}
+
+test("product catalog runtime and projection migration indexes match the paging total order", async () => {
+  const expectedColumns = ["last_import_batch_id", "shop_name", "product_name", "sku_id", "platform", "id"];
+  const runtimeSqlite = new DatabaseSync(":memory:");
+  await ensureNetshopSchema(transactionalAdapter(runtimeSqlite) as never);
+  assert.deepEqual(
+    (runtimeSqlite.prepare("PRAGMA index_info('netshop_rows_product_batch_page_idx')").all() as Array<{ name: string }>).map((row) => row.name),
+    expectedColumns,
+  );
+  runtimeSqlite.close();
+
+  const migrationSqlite = new DatabaseSync(":memory:");
+  migrationSqlite.exec(`
+    CREATE TABLE netshop_rows (
+      id INTEGER PRIMARY KEY,
+      last_import_batch_id TEXT NOT NULL,
+      shop_name TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      sku_id TEXT NOT NULL,
+      platform TEXT NOT NULL,
+      source TEXT NOT NULL,
+      dataset TEXT NOT NULL
+    );
+    CREATE INDEX netshop_rows_product_batch_page_idx
+      ON netshop_rows (last_import_batch_id,shop_name,product_name,sku_id)
+      WHERE source IN ('jd_product_master','tmall_product_master') AND dataset='product_master';
+  `);
+  const migrationSql = readFileSync(
+    new URL("../drizzle/0076_netshop_product_query_projections.sql", import.meta.url),
+    "utf8",
+  );
+  migrationSqlite.exec(migrationSql);
+  migrationSqlite.exec(migrationSql);
+  assert.deepEqual(
+    (migrationSqlite.prepare("PRAGMA index_info('netshop_rows_product_batch_page_idx')").all() as Array<{ name: string }>).map((row) => row.name),
+    expectedColumns,
+  );
+  migrationSqlite.close();
+});
 
 test("netshop publish maps a proven commit-fence takeover to a safe 409 and rolls back facts", async () => {
   const sqlite = new DatabaseSync(":memory:");
@@ -305,7 +407,11 @@ test("100k product-day query stays equivalent, bounded, and avoids the duplicate
   assert.equal(result.summary.transactionAmountCents, reference.amount);
   assert.equal(result.pagination.returned, 20);
   assert.equal(result.coverage.actualDates.length, 20);
-  assert.equal(reads.length, 5);
+  assert.equal(reads.length, 3);
+  const fullProjectionReads = reads.filter((sql) => /WITH filtered AS MATERIALIZED/i.test(sql));
+  assert.equal(fullProjectionReads.length, 1, "full product performance should use one fact projection query");
+  assert.match(fullProjectionReads[0]!, /available_facts AS MATERIALIZED/i);
+  assert.match(fullProjectionReads[0]!, /grouped_items AS MATERIALIZED/i);
   assert.equal(reads.some((sql) => /AS total FROM netshop_rows/.test(sql)), false);
   assert.ok(elapsedMs < 5_000, `100k product-day query took ${Math.round(elapsedMs)}ms`);
   const readsBeforeInvalidInput = reads.length;
@@ -356,11 +462,11 @@ test("platform-qualified outlet filters isolate same-name shops and never expand
       identity.shopName,
       "2026-08-01",
       identity.id,
-      identity.id,
+      identity.id === "JD-SAME" ? "" : identity.id,
       identity.platform === "京东" ? identity.id : "",
       identity.platform === "天猫" ? identity.id : "",
       JSON.stringify({ spendCents: 10, netTransactionAmountCents: 100, impressions: 10, clicks: 1, netOrders: 1 }),
-      "{}",
+      identity.id === "JD-SAME" ? JSON.stringify({ 产品线: "京东产品线" }) : "{}",
     );
   }
 
@@ -401,11 +507,283 @@ test("platform-qualified outlet filters isolate same-name shops and never expand
   const promotion = await getNetshopPromotionPerformance(adapter(sqlite, []) as never, {
     startDate: "2026-08-01",
     endDate: "2026-08-01",
-    pageSize: 100,
+    pageSize: 500,
     outlets: exactPairs,
   });
   assert.equal(promotion.summary.productCount, 2);
   assert.deepEqual(new Set(promotion.items.map((item) => `${item.platform}/${item.id}`)), new Set(["京东/JD-SAME", "天猫/TM-OTHER"]));
+  assert.deepEqual(promotion.filterOptions, {
+    shops: [
+      { platform: "京东", shopName: "另一店" },
+      { platform: "京东", shopName: "同名店" },
+      { platform: "天猫", shopName: "另一店" },
+      { platform: "天猫", shopName: "同名店" },
+    ],
+    pagination: { total: 4, returned: 4, truncated: false },
+  });
+
+  await ensurePromotionAggregateSchema(transactionalAdapter(sqlite) as never);
+  await rebuildPromotionAggregates(transactionalAdapter(sqlite) as never, {
+    source: "jd_promotion",
+    dataset: "ad",
+    platform: "京东",
+    shopName: "同名店",
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+  });
+  await rebuildPromotionAggregates(transactionalAdapter(sqlite) as never, {
+    source: "tmall_promotion",
+    dataset: "promotion_daily",
+    platform: "天猫",
+    shopName: "另一店",
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+  });
+  installPromotionManifest(sqlite, "京东");
+  installPromotionManifest(sqlite, "天猫");
+  const overviewReads: string[] = [];
+  const overview = await getNetshopPromotionOverview(adapter(sqlite, overviewReads) as never, {
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    platformNames: ["京东", "天猫"],
+    outlets: exactPairs,
+  });
+  const itemReads: string[] = [];
+  const items = await getNetshopPromotionItems(adapter(sqlite, itemReads) as never, {
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    platformNames: ["京东", "天猫"],
+    pageSize: 20,
+    outlets: exactPairs,
+  });
+  assert.deepEqual(overview.summary, promotion.summary);
+  assert.deepEqual(overview.coverage, promotion.coverage);
+  assert.deepEqual(overview.daily, promotion.daily);
+  assert.deepEqual(overview.filterOptions, {
+    shops: [
+      { platform: "京东", shopName: "同名店" },
+      { platform: "天猫", shopName: "另一店" },
+    ],
+    pagination: { total: 2, returned: 2, truncated: false },
+  });
+  assert.deepEqual(items.items, promotion.items);
+  assert.deepEqual(items.pagination, { page: 1, pageSize: 20, total: 2, returned: 2, truncated: false });
+  assert.equal(overviewReads.filter((sql) => /SUM\([^)]*metrics_json/i.test(sql)).length, 1);
+  assert.ok(overviewReads.some((sql) => /netshop_promotion_shop_daily/i.test(sql)));
+  assert.ok(overviewReads.every((sql) => !/FROM netshop_rows r[\s\S]*jd_promotion|FROM netshop_rows r[\s\S]*tmall_promotion/i.test(sql)));
+  assert.equal(overviewReads.filter((sql) => /all_spend_cents/i.test(sql)).length, 1);
+  assert.ok(itemReads.some((sql) => /COUNT\(\*\) OVER \(\) AS total_items/i.test(sql)));
+
+  await rebuildPromotionAggregates(transactionalAdapter(sqlite) as never, {
+    source: "jd_promotion",
+    dataset: "ad",
+    platform: "京东",
+    shopName: "同名店",
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+  });
+  installPromotionManifest(sqlite, "京东");
+  const aggregateOverviewReads: string[] = [];
+  const aggregateOverview = await getNetshopPromotionOverview(adapter(sqlite, aggregateOverviewReads) as never, {
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    platformNames: ["京东"],
+    outlets: [{ platform: "京东", shopName: "同名店" }],
+  });
+  const aggregateItemReads: string[] = [];
+  const aggregateItems = await getNetshopPromotionItems(adapter(sqlite, aggregateItemReads) as never, {
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    platformNames: ["京东"],
+    outlets: [{ platform: "京东", shopName: "同名店" }],
+    query: "JD-SAME",
+  });
+  assert.equal(aggregateOverview.summary.productCount, 1);
+  assert.equal(aggregateOverview.summary.spendCents, 10);
+  assert.deepEqual(aggregateItems.items.map((item) => item.id), ["JD-SAME"]);
+  assert.equal(aggregateItems.items[0]?.productName, "京东产品线");
+  const aggregateOverviewSql = aggregateOverviewReads.find((sql) => /WITH daily_series/i.test(sql) && /netshop_promotion_shop_daily/i.test(sql));
+  const aggregateItemsSql = aggregateItemReads.find((sql) => /WITH grouped_items/i.test(sql));
+  assert.ok(aggregateOverviewSql);
+  assert.ok(aggregateItemsSql);
+  assert.match(aggregateOverviewSql, /INNER JOIN netshop_promotion_aggregate_state/);
+  assert.match(aggregateItemsSql, /INNER JOIN netshop_promotion_aggregate_state/);
+  assert.doesNotMatch(aggregateOverviewSql, /metrics_json|raw_json/);
+  assert.doesNotMatch(aggregateItemsSql, /metrics_json|raw_json/);
+  assert.match(aggregateItemsSql, /p\.product_line LIKE \?/);
+  sqlite.close();
+});
+
+test("split promotion reads fail explicitly when aggregates are not backfilled and never fall back to raw facts", async () => {
+  const sqlite = createDatabase();
+  await ensurePromotionAggregateSchema(transactionalAdapter(sqlite) as never);
+  const insert = sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,sku_id,metrics_json,raw_json,last_import_batch_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  insert.run(1, "jd_promotion", "ad", "京东", "已回填店铺", "2026-08-01", "SKU-JD", '{"spendCents":100}', "{}", "jd-batch");
+  insert.run(2, "tmall_promotion", "promotion_daily", "天猫", "未回填店铺", "2026-08-01", "", '{"spendCents":200}', "{}", "tmall-batch");
+  sqlite.prepare("UPDATE netshop_rows SET spu_id='SPU-TM' WHERE id=2").run();
+  await rebuildPromotionAggregates(transactionalAdapter(sqlite) as never, {
+    source: "jd_promotion",
+    dataset: "ad",
+    platform: "京东",
+    shopName: "已回填店铺",
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+  });
+  installPromotionManifest(sqlite, "京东");
+  const reads: string[] = [];
+  const db = adapter(sqlite, reads) as never;
+  for (const read of [getNetshopPromotionOverview, getNetshopPromotionItems]) {
+    await assert.rejects(
+      () => read(db, { startDate: "2026-08-01", endDate: "2026-08-01", platformNames: ["京东", "天猫"] }),
+      (error: unknown) => error instanceof PublicApiError
+        && error.status === 503
+        && error.code === "service_unavailable"
+        && /尚未完成回填或已失效/.test(error.message),
+    );
+  }
+  assert.ok(reads.length > 0);
+  assert.equal(reads.some((sql) => /FROM netshop_rows/i.test(sql)), false);
+  assert.equal(reads.some((sql) => /GROUP BY r\.platform, r\.shop_name, r\.business_date/i.test(sql)), false);
+  const readsBeforeInvalidInputs = reads.length;
+  await assert.rejects(
+    () => getNetshopPromotionOverview(db, { platformNames: ["京东"] }),
+    (error: unknown) => error instanceof Error && error.name === "NetshopQueryError" && /显式提供 startDate/.test(error.message),
+  );
+  await assert.rejects(
+    () => getNetshopPromotionItems(db, { startDate: "2026-08-01", endDate: "2026-08-01" }),
+    (error: unknown) => error instanceof Error && error.name === "NetshopQueryError" && /显式选择京东或天猫/.test(error.message),
+  );
+  assert.equal(reads.length, readsBeforeInvalidInputs);
+  sqlite.close();
+});
+
+test("SPU 商品明细用一次有界查询按平台、店铺与 SPUID 关联最新商品图", async () => {
+  const sqlite = createDatabase();
+  const productImageHash = "3".repeat(64);
+  sqlite.prepare(`INSERT INTO netshop_import_batches
+    (id,source,dataset,status,platform,shop_name,snapshot_date,created_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run("asset-batch", "tmall_product_assets", "spu_assets", "completed", "天猫", "天猫-志高炊之王专卖店", "2026-08-23", "2026-08-23 08:00:00", "2026-08-23 08:01:00");
+  sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,snapshot_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json,last_import_batch_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    1, "tmall_product_daily", "spu_daily", "天猫", "天猫-志高炊之王专卖店", "2026-08-22", null,
+    "SPU-CODE", "炊之王商品", "", "562048375368", JSON.stringify({ visitors: 3, transactionAmountCents: 12300, transactionCustomers: 1 }), "{}", "daily-batch",
+  );
+  sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,snapshot_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json,last_import_batch_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    2, "tmall_product_assets", "spu_assets", "天猫", "天猫-志高炊之王专卖店", null, "2026-08-23",
+    "", "炊之王商品", "", "562048375368", "{}", JSON.stringify({
+      商品链接: "https://item.taobao.com/item.htm?id=562048375368",
+      图片内容SHA256: productImageHash,
+      图片对象键: `netshop-product-images/v1/${productImageHash}.jpg`,
+      图片MIME: "image/jpeg",
+      图片字节数: 7,
+    }), "asset-batch",
+  );
+
+  const reads: string[] = [];
+  const bindCounts: number[] = [];
+  const result = await getNetshopProductPerformance(adapter(sqlite, reads, bindCounts) as never, {
+    dimension: "spu",
+    startDate: "2026-08-22",
+    endDate: "2026-08-22",
+    pageSize: 100,
+    outlets: [{ platform: "天猫", shopName: "天猫-志高炊之王专卖店" }],
+  });
+
+  assert.equal(result.items[0]?.imageUrl, `/api/netshop/product-images/${productImageHash}`);
+  assert.equal(result.items[0]?.productUrl, "https://item.taobao.com/item.htm?id=562048375368");
+  assert.equal(reads.filter((sql) => /asset\.source = 'tmall_product_assets'/.test(sql)).length, 1);
+  assert.ok(Math.max(...bindCounts) <= 100);
+
+  sqlite.prepare(`INSERT INTO netshop_import_batches
+    (id,source,dataset,status,platform,shop_name,snapshot_date,created_at,completed_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run("asset-batch-empty-latest", "tmall_product_assets", "spu_assets", "completed", "天猫", "天猫-志高炊之王专卖店", "2026-08-24", "2026-08-24 08:00:00", "2026-08-24 08:01:00");
+  sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,snapshot_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json,last_import_batch_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    3, "tmall_product_assets", "spu_assets", "天猫", "天猫-志高炊之王专卖店", null, "2026-08-24",
+    "", "最新快照中的其他商品", "", "999999999999", "{}", "{}", "asset-batch-empty-latest",
+  );
+  await assert.rejects(
+    () => getNetshopProductPerformancePage(adapter(sqlite, []) as never, {
+      dimension: "spu",
+      startDate: "2026-08-22",
+      endDate: "2026-08-22",
+      pageSize: 100,
+      outlets: [{ platform: "天猫", shopName: "天猫-志高炊之王专卖店" }],
+      snapshotToken: result.snapshotToken,
+    }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+    "a newer SPU asset head invalidates the old item-page token",
+  );
+  const withoutHistoricalFallback = await getNetshopProductPerformance(adapter(sqlite, []) as never, {
+    dimension: "spu",
+    startDate: "2026-08-22",
+    endDate: "2026-08-22",
+    pageSize: 100,
+    outlets: [{ platform: "天猫", shopName: "天猫-志高炊之王专卖店" }],
+  });
+  assert.equal(withoutHistoricalFallback.items[0]?.imageUrl, "");
+  assert.equal(withoutHistoricalFallback.items[0]?.productUrl, "");
+  sqlite.close();
+});
+
+test("SPU product performance pins every fact aggregation to the composite scope index", async () => {
+  const sqlite = createDatabase();
+  const insert = sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+  insert.run(
+    1, "jd_sku_daily", "spu_daily", "京东", "京东店", "2026-08-01",
+    "JD-SPU", "京东商品", "", "JD-SPU", JSON.stringify({ visitors: 3, transactionAmountCents: 300 }), "{}",
+  );
+  insert.run(
+    2, "tmall_product_daily", "spu_daily", "天猫", "天猫店", "2026-08-01",
+    "TM-SPU", "天猫商品", "", "TM-SPU", JSON.stringify({ visitors: 5, transactionAmountCents: 500 }), "{}",
+  );
+
+  const reads: string[] = [];
+  const result = await getNetshopProductPerformance(adapter(sqlite, reads) as never, {
+    dimension: "spu",
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    page: 1,
+    pageSize: 50,
+  });
+  assert.equal(result.summary.productCount, 2);
+  assert.equal(result.summary.visitors, 8);
+  assert.equal(result.summary.transactionAmountCents, 800);
+
+  const factReads = reads.filter((sql) => /FROM netshop_rows r(?:\s|$)/i.test(sql));
+  assert.equal(factReads.length, 1, `unexpected SPU fact query count: ${factReads.length}`);
+  const projectionSql = factReads[0]!;
+  assert.equal(
+    (projectionSql.match(/FROM netshop_rows r INDEXED BY netshop_rows_source_dataset_scope_date_idx/gi) ?? []).length,
+    2,
+    "the bounded-period metrics and full-history options each scan the composite scope index once",
+  );
+  assert.match(projectionSql, /filtered AS MATERIALIZED/i);
+  assert.match(projectionSql, /available_facts AS MATERIALIZED/i);
+  const plan = sqlite.prepare(`EXPLAIN QUERY PLAN ${projectionSql}`).all(
+    "spu_daily",
+    "2026-08-01",
+    "2026-08-02",
+    "spu_daily",
+    50,
+    0,
+    NETSHOP_DAILY_SERIES_LIMIT,
+  ) as Array<{ detail: string }>;
+  assert.ok(plan.some((row) => /MATERIALIZE filtered/i.test(row.detail)), JSON.stringify(plan));
+  assert.ok(plan.some((row) => /MATERIALIZE available_facts/i.test(row.detail)), JSON.stringify(plan));
+  assert.equal(
+    plan.filter((row) => /netshop_rows_source_dataset_scope_date_idx/i.test(row.detail)).length,
+    2,
+    JSON.stringify(plan),
+  );
   sqlite.close();
 });
 
@@ -505,6 +883,332 @@ test("maximum legal netshop filters stay below D1's 100-bind ceiling", async () 
   sqlite.close();
 });
 
+test("product performance projections keep summary and page reads bounded and fence exact-shop versions", async () => {
+  const sqlite = createDatabase();
+  const insert = sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+  insert.run(1, "jd_sku_daily", "sku_daily", "京东", "A店", "2026-08-01", "SKU-A", "A商品", "SKU-A", "SPU-A",
+    JSON.stringify({ visitors: 7, transactionAmountCents: 700, transactionCustomers: 2 }), "{}");
+  insert.run(2, "jd_sku_daily", "sku_daily", "京东", "B店", "2026-08-01", "SKU-B", "B商品", "SKU-B", "SPU-B",
+    JSON.stringify({ visitors: 9, transactionAmountCents: 900, transactionCustomers: 3 }), "{}");
+  insert.run(3, "jd_sku_daily", "sku_daily", "京东", "A店", "2026-07-30", "SKU-A", "A商品", "SKU-A", "SPU-A",
+    JSON.stringify({ visitors: 99, transactionAmountCents: 9_900, transactionCustomers: 9 }), "{}");
+  sqlite.prepare("INSERT INTO netshop_product_daily_revisions (platform,data_version) VALUES ('京东',2)").run();
+  sqlite.prepare("INSERT INTO netshop_product_daily_scope_revisions (platform,shop_name,data_version) VALUES ('京东','A店',1),('京东','B店',1)").run();
+  const scope = {
+    dimension: "sku" as const,
+    query: "SKU",
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    outlets: [{ platform: "京东", shopName: "A店" }],
+    pageSize: 1,
+  };
+
+  const fullReads: string[] = [];
+  const full = await getNetshopProductPerformance(adapter(sqlite, fullReads) as never, scope);
+  assert.equal(full.summary.visitors, 7);
+  assert.deepEqual(full.shops.map((shop) => shop.shopName), ["A店", "B店"], "full keeps platform-wide shop options");
+  assert.deepEqual(full.shops.map((shop) => shop.productCount), [1, 1]);
+  assert.deepEqual(full.coverage, {
+    actualDates: ["2026-08-01"],
+    missingDates: [],
+    availableDateMin: "2026-07-30",
+    availableDateMax: "2026-08-01",
+    total: 1,
+    returned: 1,
+    truncated: false,
+  });
+  assert.deepEqual(full.daily, [{
+    date: "2026-08-01",
+    pageViews: 0,
+    visitors: 7,
+    transactionCustomers: 2,
+    transactionQuantity: 0,
+    transactionAmountCents: 700,
+    refundAmountCents: 0,
+    favorites: 0,
+    addCartCustomers: 0,
+    addCartQuantity: 0,
+  }]);
+  assert.equal(fullReads.filter((sql) => /WITH filtered AS MATERIALIZED/i.test(sql)).length, 1);
+  assert.ok(fullReads.some((sql) => /available_facts AS MATERIALIZED/i.test(sql)));
+
+  const summaryReads: string[] = [];
+  const summary = await getNetshopProductPerformanceSummary(adapter(sqlite, summaryReads) as never, scope);
+  assert.deepEqual(Object.keys(summary).sort(), [
+    "dataCutoffDate", "dataset", "dateMin", "dimension", "monetaryUnit",
+    "requestedPeriod", "snapshotToken", "summary", "visitorAggregation",
+  ]);
+  assert.equal(summary.summary.visitors, 7);
+  assert.equal(summaryReads.length, 3);
+  assert.equal(summaryReads.some((sql) => /daily_series|tmall_product_assets|GROUP BY r\.platform, r\.shop_name/i.test(sql)), false);
+
+  const pageReads: string[] = [];
+  const page = await getNetshopProductPerformancePage(adapter(sqlite, pageReads) as never, {
+    ...scope,
+    snapshotToken: full.snapshotToken,
+  });
+  assert.deepEqual(Object.keys(page).sort(), ["items", "pagination", "snapshotToken"]);
+  assert.equal(page.items[0]?.id, "SKU-A");
+  assert.equal(page.pagination.total, 1);
+  assert.deepEqual(page.items, full.items, "split page and materialized full projection keep identical item semantics");
+  assert.equal(pageReads.length, 3);
+  assert.ok(pageReads.some((sql) => /WITH grouped_items[\s\S]*COUNT\(\*\) OVER \(\) AS total_items/i.test(sql)));
+  assert.equal(pageReads.some((sql) => /daily_series|AS available_date|tmall_product_assets/i.test(sql)), false);
+
+  const changedQueryReads: string[] = [];
+  await assert.rejects(
+    () => getNetshopProductPerformancePage(adapter(sqlite, changedQueryReads) as never, {
+      ...scope,
+      query: "SKU-A",
+      snapshotToken: full.snapshotToken,
+    }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
+  assert.equal(changedQueryReads.some((sql) => /WITH grouped_items/i.test(sql)), false, "mismatched query fails before fact reads");
+
+  sqlite.prepare("UPDATE netshop_product_daily_scope_revisions SET data_version=data_version+1 WHERE platform='京东' AND shop_name='B店'").run();
+  sqlite.prepare("UPDATE netshop_product_daily_revisions SET data_version=data_version+1 WHERE platform='京东'").run();
+  await assert.doesNotReject(() => getNetshopProductPerformancePage(adapter(sqlite, []) as never, {
+    ...scope,
+    snapshotToken: full.snapshotToken,
+  }));
+
+  sqlite.prepare("UPDATE netshop_product_daily_scope_revisions SET data_version=data_version+1 WHERE platform='京东' AND shop_name='A店'").run();
+  sqlite.prepare("UPDATE netshop_product_daily_revisions SET data_version=data_version+1 WHERE platform='京东'").run();
+  await assert.rejects(
+    () => getNetshopProductPerformancePage(adapter(sqlite, []) as never, { ...scope, snapshotToken: full.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
+
+  const refreshed = await getNetshopProductPerformance(adapter(sqlite, []) as never, scope);
+  let mutatedDuringPage = false;
+  await assert.rejects(
+    () => getNetshopProductPerformancePage(adapter(sqlite, [], [], (sql) => {
+      if (!mutatedDuringPage && /WITH grouped_items/i.test(sql)) {
+        mutatedDuringPage = true;
+        sqlite.prepare("UPDATE netshop_product_daily_scope_revisions SET data_version=data_version+1 WHERE platform='京东' AND shop_name='A店'").run();
+        sqlite.prepare("UPDATE netshop_product_daily_revisions SET data_version=data_version+1 WHERE platform='京东'").run();
+      }
+    }) as never, { ...scope, snapshotToken: refreshed.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间已更新/.test(error.message),
+  );
+  assert.equal(mutatedDuringPage, true);
+  sqlite.close();
+});
+
+test("product performance pagination totally orders cross-platform duplicate SPU ids and same-name shops", async () => {
+  const sqlite = createDatabase();
+  const insert = sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const tiedMetrics = JSON.stringify({
+    visitors: 5,
+    transactionAmountCents: 500,
+    transactionCustomers: 1,
+  });
+  const identities = [
+    { id: 1, platform: "天猫", shopName: "B店", source: "tmall_product_daily" },
+    { id: 2, platform: "京东", shopName: "B店", source: "jd_sku_daily" },
+    { id: 3, platform: "天猫", shopName: "A店", source: "tmall_product_daily" },
+    { id: 4, platform: "京东", shopName: "A店", source: "jd_sku_daily" },
+  ] as const;
+  for (const identity of identities) {
+    insert.run(
+      identity.id,
+      identity.source,
+      "spu_daily",
+      identity.platform,
+      identity.shopName,
+      "2026-08-01",
+      "SPU-TIE",
+      "完全并列商品",
+      "",
+      "SPU-TIE",
+      tiedMetrics,
+      "{}",
+    );
+  }
+  sqlite.prepare(
+    "INSERT INTO netshop_product_daily_revisions (platform,data_version) VALUES ('京东',1),('天猫',1)",
+  ).run();
+  sqlite.prepare(`INSERT INTO netshop_product_daily_scope_revisions (platform,shop_name,data_version) VALUES
+    ('京东','A店',1),('京东','B店',1),('天猫','A店',1),('天猫','B店',1)`).run();
+
+  const scope = {
+    dimension: "spu" as const,
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+    pageSize: 1,
+  };
+  const expectedItems = [
+    "京东/A店/SPU-TIE",
+    "京东/B店/SPU-TIE",
+    "天猫/A店/SPU-TIE",
+    "天猫/B店/SPU-TIE",
+  ];
+  const fullReads: string[] = [];
+  const full = await getNetshopProductPerformance(adapter(sqlite, fullReads) as never, scope);
+  assert.deepEqual(
+    full.items.map((item) => `${item.platform}/${item.shopNames[0]}/${item.id}`),
+    expectedItems.slice(0, 1),
+  );
+  assert.deepEqual(
+    full.shops.map((shop) => `${shop.shopName}/${shop.platform}`),
+    ["A店/京东", "A店/天猫", "B店/京东", "B店/天猫"],
+  );
+  const fullProjectionSql = fullReads.find((sql) => /WITH filtered AS MATERIALIZED/i.test(sql)) ?? "";
+  assert.match(
+    fullProjectionSql,
+    /ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC,\s*id ASC, platform ASC, shop_name COLLATE NOCASE ASC, shop_name ASC/,
+  );
+  assert.match(
+    fullProjectionSql,
+    /SELECT \* FROM shop_rows\s+ORDER BY shop_name COLLATE NOCASE ASC, shop_name ASC, platform ASC/,
+  );
+
+  const pagedItems: string[] = [];
+  for (let page = 1; page <= expectedItems.length; page += 1) {
+    const pageReads: string[] = [];
+    const result = await getNetshopProductPerformancePage(adapter(sqlite, pageReads) as never, {
+      ...scope,
+      page,
+      snapshotToken: full.snapshotToken,
+    });
+    assert.deepEqual(result.pagination, {
+      page,
+      pageSize: 1,
+      total: expectedItems.length,
+      returned: 1,
+      truncated: page < expectedItems.length,
+    });
+    pagedItems.push(...result.items.map((item) => `${item.platform}/${item.shopNames[0]}/${item.id}`));
+    const pageSql = pageReads.find((sql) => /WITH grouped_items AS/i.test(sql)) ?? "";
+    assert.match(
+      pageSql,
+      /ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC,\s*id ASC, platform ASC, shop_name COLLATE NOCASE ASC, shop_name ASC/,
+    );
+  }
+  assert.deepEqual(pagedItems, expectedItems);
+  sqlite.close();
+});
+
+test("product performance full projection rejects malformed JSON rows before returning a partial payload", async () => {
+  const sqlite = createDatabase();
+  sqlite.prepare(`INSERT INTO netshop_rows
+    (id,source,dataset,platform,shop_name,business_date,product_code,product_name,sku_id,spu_id,metrics_json,raw_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    1,
+    "jd_sku_daily",
+    "sku_daily",
+    "京东",
+    "安全投影店",
+    "2026-08-01",
+    "SKU-SAFE",
+    "安全投影商品",
+    "SKU-SAFE",
+    "SPU-SAFE",
+    JSON.stringify({ visitors: 1, transactionAmountCents: 100 }),
+    "{}",
+  );
+  await assert.rejects(
+    () => getNetshopProductPerformance(adapter(sqlite, [], [], undefined, (sql, value) => {
+      if (!/WITH filtered AS MATERIALIZED/i.test(sql) || !value || typeof value !== "object") return value;
+      return { ...(value as Record<string, unknown>), items_json: '[{"id":"incomplete"}]' };
+    }) as never, {
+      dimension: "sku",
+      startDate: "2026-08-01",
+      endDate: "2026-08-01",
+    }),
+    (error: unknown) => error instanceof PublicApiError
+      && error.status === 503
+      && error.code === "service_unavailable"
+      && /商品明细投影结构无效/.test(error.message),
+  );
+  sqlite.close();
+});
+
+test("published JD SPU imports atomically invalidate old performance tokens, including closing-fence races", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const importDb = transactionalAdapter(sqlite);
+  await ensureNetshopSchema(importDb as never);
+  const saveSpuVersion = (version: number) => saveNetshopImport(importDb as never, {
+    source: "jd_sku_daily",
+    dataset: "spu_daily",
+    platform: "京东",
+    shopName: "SPU版本店",
+    fileHash: String(version).repeat(64),
+    fileName: `spu-v${version}.xlsx`,
+    fileSizeBytes: version,
+    sheetName: "SPU",
+    rows: [{
+      sourceRowNumber: 1,
+      sourceRowKey: JSON.stringify(["spu_daily", "京东", "SPU版本店", "2026-08-01", "SPU-1"]),
+      sourceRowHash: String(version).repeat(64),
+      source: "jd_sku_daily" as const,
+      dataset: "spu_daily",
+      platform: "京东",
+      shopName: "SPU版本店",
+      businessDate: "2026-08-01",
+      snapshotDate: "",
+      productCode: "SPU-1",
+      productName: `SPU商品-v${version}`,
+      skuId: "",
+      spuId: "SPU-1",
+      warehouseType: "",
+      metrics: { visitors: version, transactionAmountCents: version * 100 },
+      raw: {},
+    }],
+    warnings: [],
+    totals: {},
+    note: "",
+    replaceScope: { startDate: "2026-08-01", endDate: "2026-08-01" },
+  });
+  const scope = {
+    dimension: "spu" as const,
+    platformNames: ["京东"],
+    outlets: [{ platform: "京东", shopName: "SPU版本店" }],
+    startDate: "2026-08-01",
+    endDate: "2026-08-01",
+  };
+
+  await saveSpuVersion(1);
+  const first = await getNetshopProductPerformance(importDb as never, scope);
+  await saveSpuVersion(2);
+  assert.deepEqual({ ...sqlite.prepare(`SELECT
+      (SELECT data_version FROM netshop_product_daily_revisions WHERE platform='京东') platformVersion,
+      (SELECT data_version FROM netshop_product_daily_scope_revisions WHERE platform='京东' AND shop_name='SPU版本店') shopVersion`).get()! }, {
+    platformVersion: 2,
+    shopVersion: 2,
+  });
+  await assert.rejects(
+    () => getNetshopProductPerformancePage(importDb as never, { ...scope, snapshotToken: first.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+    "a completed JD spu_daily publish must invalidate the old token",
+  );
+
+  const second = await getNetshopProductPerformance(importDb as never, scope);
+  let publishedDuringPage = false;
+  await assert.rejects(
+    () => getNetshopProductPerformancePage(adapter(sqlite, [], [], async (sql) => {
+      if (!publishedDuringPage && /WITH grouped_items/i.test(sql)) {
+        publishedDuringPage = true;
+        await saveSpuVersion(3);
+      }
+    }) as never, { ...scope, snapshotToken: second.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间已更新/.test(error.message),
+  );
+  assert.equal(publishedDuringPage, true);
+  assert.deepEqual({ ...sqlite.prepare(`SELECT
+      (SELECT data_version FROM netshop_product_daily_revisions WHERE platform='京东') platformVersion,
+      (SELECT data_version FROM netshop_product_daily_scope_revisions WHERE platform='京东' AND shop_name='SPU版本店') shopVersion`).get()! }, {
+    platformVersion: 3,
+    shopVersion: 3,
+  });
+  sqlite.close();
+});
+
 test("a 100-item product page aggregates sales through one JSON bind instead of 103 scalar binds", async () => {
   const sqlite = createProductCatalogDatabase();
   const reads: string[] = [];
@@ -523,6 +1227,203 @@ test("a 100-item product page aggregates sales through one JSON bind instead of 
   assert.equal(result.items.every((item) => item.salesMatched), true);
   assert.ok(Math.max(...bindCounts) <= 100, `maximum bind count was ${Math.max(...bindCounts)}`);
   assert.ok(reads.some((sql) => /online_spec_code[\s\S]*json_each\(\?\)/i.test(sql)));
+  sqlite.close();
+});
+
+test("product catalog page uses authoritative batch totals, the batch-prefix index, and scoped fences", async () => {
+  const sqlite = createProductCatalogDatabase();
+  const scope = {
+    platformNames: ["京东"],
+    outlets: [{ platform: "京东", shopName: "目录店铺" }],
+  };
+  const full = await getNetshopProductCatalog(adapter(sqlite, []) as never, { ...scope, pageSize: 20 });
+  assert.deepEqual(Object.keys(full).sort(), [
+    "batch", "items", "pagination", "sales", "shops", "snapshotToken", "summary",
+  ]);
+  assert.equal(full.summary.totalSkus, 102);
+
+  const pageReads: string[] = [];
+  const page = await getNetshopProductCatalogPage(adapter(sqlite, pageReads) as never, {
+    ...scope,
+    pageSize: 20,
+    snapshotToken: full.snapshotToken,
+  });
+  assert.deepEqual(Object.keys(page).sort(), ["items", "pagination", "snapshotToken"]);
+  assert.equal(page.pagination.total, 102);
+  assert.equal(
+    Number((sqlite.prepare("SELECT COUNT(*) AS total FROM netshop_rows WHERE last_import_batch_id='master-batch'").get() as { total: number }).total),
+    page.pagination.total,
+    "completed product-master batch.row_count must equal its published fact count",
+  );
+  assert.equal(pageReads.some((sql) => /COUNT\(\*\) OVER/i.test(sql)), false);
+  assert.equal(pageReads.some((sql) => /SELECT COUNT\(\*\) AS total\s+FROM netshop_rows product/i.test(sql)), false);
+  const pageSql = pageReads.find((sql) => /FROM json_each\(\?\) requested_batch CROSS JOIN netshop_rows product[\s\S]*LIMIT \? OFFSET \?/i.test(sql));
+  assert.ok(pageSql);
+  assert.match(pageSql, /product\.last_import_batch_id = CAST\(requested_batch\.value AS TEXT\)/);
+  assert.match(pageSql, /product\.source IN \('jd_product_master', 'tmall_product_master'\)[\s\S]*product\.dataset = 'product_master'/);
+  assert.match(
+    pageSql,
+    /ORDER BY product\.shop_name ASC, product\.product_name ASC, product\.sku_id ASC,\s*product\.platform ASC, product\.id ASC/,
+  );
+  assert.deepEqual(
+    (sqlite.prepare("PRAGMA index_info('netshop_rows_product_batch_page_idx')").all() as Array<{ name: string }>).map((row) => row.name),
+    ["last_import_batch_id", "shop_name", "product_name", "sku_id", "platform", "id"],
+  );
+
+  const plan = sqlite.prepare(`EXPLAIN QUERY PLAN
+    SELECT product.sku_id
+    FROM json_each(?) requested_batch
+    CROSS JOIN netshop_rows product
+    WHERE product.source IN ('jd_product_master','tmall_product_master')
+      AND product.dataset='product_master'
+      AND product.last_import_batch_id = CAST(requested_batch.value AS TEXT)
+    ORDER BY product.shop_name,product.product_name,product.sku_id,product.platform,product.id
+    LIMIT ? OFFSET ?`).all(JSON.stringify(["master-batch"]), 20, 0) as Array<{ detail: string }>;
+  assert.ok(plan.some((row) => /netshop_rows_product_batch_page_idx/i.test(row.detail)), JSON.stringify(plan));
+
+  const searchedReads: string[] = [];
+  const searched = await getNetshopProductCatalogPage(adapter(sqlite, searchedReads) as never, {
+    ...scope,
+    query: "PAIR-JD-SAME",
+    pageSize: 10,
+    snapshotToken: full.snapshotToken,
+  });
+  assert.equal(searched.pagination.total, 1, "catalog token is reusable across q and pageSize");
+  assert.ok(searchedReads.some((sql) => /SELECT COUNT\(\*\) AS total\s+FROM json_each\(\?\) requested_batch CROSS JOIN netshop_rows product/i.test(sql)));
+
+  const batch = sqlite.prepare(`INSERT INTO netshop_import_batches VALUES
+    (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const product = sqlite.prepare(`INSERT INTO netshop_rows VALUES
+    (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  batch.run(
+    "jd-other-new", "jd_product_master", "product_master", "京东", "另一店铺", "other-new.xlsx", 1,
+    "other-new-hash", "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-02", "[]", "{}", "",
+    "2026-08-10 08:00:00", "2026-08-10 08:01:00",
+  );
+  product.run(
+    600, "other-new-row", "other-new-row-hash", "jd-other-new", "jd-other-new", 1,
+    "jd_product_master", "product_master", "京东", "另一店铺", null, "2026-08-02",
+    "OTHER-NEW", "另一店新商品", "OTHER-NEW", "SPU-OTHER-NEW", "", "{}", "{}",
+    "2026-08-10 08:00:00", "2026-08-10 08:00:00",
+  );
+  await assert.doesNotReject(() => getNetshopProductCatalogPage(adapter(sqlite, []) as never, {
+    ...scope,
+    snapshotToken: full.snapshotToken,
+  }), "another shop's product head must not invalidate an exact-shop page token");
+
+  batch.run(
+    "jd-image-blank", "jd_yimei_sku", "sku_image", "京东", "", "blank-image.xlsx", 1,
+    "blank-image-hash", "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-03", "[]", "{}", "",
+    "2026-08-11 08:00:00", "2026-08-11 08:01:00",
+  );
+  product.run(
+    601, "blank-image-row", "blank-image-row-hash", "jd-image-blank", "jd-image-blank", 1,
+    "jd_yimei_sku", "sku_image", "京东", "", null, "2026-08-03",
+    "SKU-PAGE-000", "共享图片", "SKU-PAGE-000", "", "", "{}", JSON.stringify({ 主图链接: "https://example.test/new.jpg" }),
+    "2026-08-11 08:00:00", "2026-08-11 08:00:00",
+  );
+  await assert.rejects(
+    () => getNetshopProductCatalogPage(adapter(sqlite, []) as never, { ...scope, snapshotToken: full.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+    "blank-shop JD image heads participate in the page fence",
+  );
+
+  const refreshed = await getNetshopProductCatalog(adapter(sqlite, []) as never, scope);
+  batch.run(
+    "master-new", "jd_product_master", "product_master", "京东", "目录店铺", "master-new.xlsx", 1,
+    "master-new-hash", "sheet", "completed", 1, 1, 0, 0, null, null, "2026-08-04", "[]", "{}", "",
+    "2026-08-12 08:00:00", "2026-08-12 08:01:00",
+  );
+  product.run(
+    602, "master-new-row", "master-new-row-hash", "master-new", "master-new", 1,
+    "jd_product_master", "product_master", "京东", "目录店铺", null, "2026-08-04",
+    "MASTER-NEW", "目录店新商品", "MASTER-NEW", "SPU-MASTER-NEW", "", "{}", "{}",
+    "2026-08-12 08:00:00", "2026-08-12 08:00:00",
+  );
+  await assert.rejects(
+    () => getNetshopProductCatalogPage(adapter(sqlite, []) as never, { ...scope, snapshotToken: refreshed.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
+  sqlite.close();
+
+  const mismatchDb = createProductCatalogDatabase();
+  mismatchDb.prepare("UPDATE netshop_import_batches SET row_count=101 WHERE id='master-batch'").run();
+  await assert.rejects(
+    () => getNetshopProductCatalog(adapter(mismatchDb, []) as never, scope),
+    (error: unknown) => error instanceof PublicApiError
+      && error.status === 503
+      && /批次元数据与已发布事实不一致/.test(error.message),
+    "full must fail closed before issuing a token for legacy row_count drift",
+  );
+  mismatchDb.close();
+
+  const raceDb = createProductCatalogDatabase();
+  const raceFull = await getNetshopProductCatalog(adapter(raceDb, []) as never, scope);
+  let raced = false;
+  await assert.rejects(
+    () => getNetshopProductCatalogPage(adapter(raceDb, [], [], (sql) => {
+      if (!raced && /FROM json_each\(\?\) requested_batch CROSS JOIN netshop_rows product[\s\S]*LIMIT \? OFFSET \?/i.test(sql)) {
+        raced = true;
+        raceDb.prepare("UPDATE sales_overview_cache_state SET sales_revision=sales_revision+1 WHERE id=1").run();
+      }
+    }) as never, { ...scope, snapshotToken: raceFull.snapshotToken }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503 && /读取期间已更新/.test(error.message),
+  );
+  assert.equal(raced, true);
+  raceDb.close();
+});
+
+test("product catalog OFFSET pages remain complete for cross-platform rows with identical visible sort keys", async () => {
+  const sqlite = createProductCatalogDatabase();
+  const product = sqlite.prepare(`INSERT INTO netshop_rows VALUES
+    (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const tiedRows = [
+    { id: 704, batchId: "tm-same-batch", source: "tmall_product_master", platform: "天猫", code: "TIE-TM-2" },
+    { id: 702, batchId: "master-batch", source: "jd_product_master", platform: "京东", code: "TIE-JD-2" },
+    { id: 703, batchId: "tm-same-batch", source: "tmall_product_master", platform: "天猫", code: "TIE-TM-1" },
+    { id: 701, batchId: "master-batch", source: "jd_product_master", platform: "京东", code: "TIE-JD-1" },
+  ] as const;
+  for (const row of tiedRows) {
+    product.run(
+      row.id, `row-${row.id}`, `hash-${row.id}`, row.batchId, row.batchId, row.id,
+      row.source, "product_master", row.platform, "目录店铺", null, "2026-08-01",
+      row.code, "完全并列目录商品", "TIE-SKU", "TIE-SPU", "", "{}",
+      JSON.stringify({ "商家SKU": "TIE-SKU", "商品状态": "上架" }),
+      "2026-08-01 08:00:00", "2026-08-01 08:00:00",
+    );
+  }
+  sqlite.prepare("UPDATE netshop_import_batches SET row_count=row_count+2, inserted_count=inserted_count+2 WHERE id IN ('master-batch','tm-same-batch')").run();
+
+  const query = "完全并列目录商品";
+  const full = await getNetshopProductCatalog(adapter(sqlite, []) as never, { query, pageSize: 1 });
+  const expected = [
+    "京东/TIE-JD-1",
+    "京东/TIE-JD-2",
+    "天猫/TIE-TM-1",
+    "天猫/TIE-TM-2",
+  ];
+  assert.equal(full.pagination.total, expected.length);
+  assert.deepEqual(full.items.map((item) => `${item.platform}/${item.productCode}`), expected.slice(0, 1));
+
+  const paged: string[] = [];
+  for (let page = 1; page <= expected.length; page += 1) {
+    const result = await getNetshopProductCatalogPage(adapter(sqlite, []) as never, {
+      query,
+      page,
+      pageSize: 1,
+      snapshotToken: full.snapshotToken,
+    });
+    assert.deepEqual(result.pagination, {
+      page,
+      pageSize: 1,
+      total: expected.length,
+      returned: 1,
+      truncated: page < expected.length,
+    });
+    paged.push(...result.items.map((item) => `${item.platform}/${item.productCode}`));
+  }
+  assert.deepEqual(paged, expected);
+  assert.equal(new Set(paged).size, expected.length, "adjacent OFFSET pages must neither repeat nor omit tied rows");
   sqlite.close();
 });
 
@@ -566,6 +1467,16 @@ test("product catalog image enrichment keeps platform and resolved shop in the i
       input.completedAt, input.completedAt,
     );
   }
+  for (const input of [
+    { id: "tmall-asset-correct", shopName: "目录店铺", completedAt: "2026-08-03 08:00:00" },
+    { id: "tmall-asset-other-shop", shopName: "另一店铺", completedAt: "2026-08-06 08:00:00" },
+  ]) {
+    batch.run(
+      input.id, "tmall_product_assets", "spu_assets", "天猫", input.shopName, `${input.id}.xlsx`, 1,
+      `${input.id}-hash`, "商品图", "completed", 1, 1, 0, 0, null, null, "2026-08-03", "[]", "{}", "",
+      input.completedAt, input.completedAt,
+    );
+  }
   const image = sqlite.prepare(`INSERT INTO netshop_rows VALUES
     (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   image.run(
@@ -589,13 +1500,55 @@ test("product catalog image enrichment keeps platform and resolved shop in the i
     JSON.stringify({ 主图链接: "https://example.test/other-shop.jpg" }),
     "2026-08-05 08:00:00", "2026-08-05 08:00:00",
   );
+  const productImageHash = "1".repeat(64);
+  image.run(
+    110, "tmall-asset-correct", "hash-110", "tmall-asset-correct", "tmall-asset-correct", 2,
+    "tmall_product_assets", "spu_assets", "天猫", "目录店铺", null, "2026-08-03",
+    "", "天猫正确商品图", "", "SPU-PAIR-TM-SAME", "", "{}",
+    JSON.stringify({
+      商品ID: "SPU-PAIR-TM-SAME",
+      商品链接: "https://item.taobao.com/item.htm?id=812345678901",
+      图片内容SHA256: productImageHash,
+      图片对象键: `netshop-product-images/v1/${productImageHash}.jpg`,
+      图片MIME: "image/jpeg",
+      图片字节数: 7,
+    }),
+    "2026-08-03 08:00:00", "2026-08-03 08:00:00",
+  );
+  image.run(
+    111, "tmall-asset-other-shop", "hash-111", "tmall-asset-other-shop", "tmall-asset-other-shop", 2,
+    "tmall_product_assets", "spu_assets", "天猫", "另一店铺", null, "2026-08-03",
+    "", "跨店错误商品图", "", "SPU-PAIR-TM-SAME", "", "{}",
+    JSON.stringify({ 商品链接: "https://example.test/wrong-shop", 图片内容SHA256: "2".repeat(64), 图片对象键: `netshop-product-images/v1/${"2".repeat(64)}.jpg`, 图片MIME: "image/jpeg", 图片字节数: 7 }),
+    "2026-08-06 08:00:00", "2026-08-06 08:00:00",
+  );
 
   const tmall = await getNetshopProductCatalog(adapter(sqlite, []) as never, {
     query: "PAIR-TM-SAME",
     pageSize: 10,
     outlets: [{ platform: "天猫", shopName: "目录店铺" }],
   });
-  assert.equal(tmall.items[0]?.imageUrl, "");
+  assert.equal(tmall.items[0]?.imageUrl, `/api/netshop/product-images/${productImageHash}`);
+  assert.equal(tmall.items[0]?.productUrl, "https://item.taobao.com/item.htm?id=812345678901");
+
+  batch.run(
+    "tmall-asset-empty-latest", "tmall_product_assets", "spu_assets", "天猫", "目录店铺", "empty-latest.xlsx", 1,
+    "tmall-asset-empty-latest-hash", "商品图", "completed", 1, 1, 0, 0, null, null, "2026-08-04", "[]", "{}", "",
+    "2026-08-07 08:00:00", "2026-08-07 08:01:00",
+  );
+  image.run(
+    112, "tmall-asset-empty-latest", "hash-112", "tmall-asset-empty-latest", "tmall-asset-empty-latest", 2,
+    "tmall_product_assets", "spu_assets", "天猫", "目录店铺", null, "2026-08-04",
+    "", "最新快照中的其他商品", "", "SPU-OTHER-LATEST", "", "{}", "{}",
+    "2026-08-07 08:00:00", "2026-08-07 08:01:00",
+  );
+  const tmallWithoutHistoricalFallback = await getNetshopProductCatalog(adapter(sqlite, []) as never, {
+    query: "PAIR-TM-SAME",
+    pageSize: 10,
+    outlets: [{ platform: "天猫", shopName: "目录店铺" }],
+  });
+  assert.equal(tmallWithoutHistoricalFallback.items[0]?.imageUrl, "");
+  assert.equal(tmallWithoutHistoricalFallback.items[0]?.productUrl, "https://detail.tmall.com/item.htm?id=SPU-PAIR-TM-SAME");
 
   const jd = await getNetshopProductCatalog(adapter(sqlite, []) as never, {
     query: "PAIR-JD-SAME",

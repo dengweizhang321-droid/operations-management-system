@@ -14,6 +14,11 @@ import {
   type ProductSummarySort,
 } from "@/lib/products/query-contract";
 import { findLatestSalesImportBatch } from "@/lib/sales/database";
+import { PublicApiError } from "@/lib/http/api-error";
+import {
+  ensureProductShippingRateSchema,
+  findLatestProductShippingRateBatchId,
+} from "@/lib/products/shipping-rate-database";
 import {
   canonicalizeShopIdentity,
   expandShopAliases,
@@ -42,6 +47,7 @@ export type ProductSummaryItem = {
   grossProfitCents: number;
   grossMarginRate: number | null;
   refundRate: number;
+  shippingRate: number | null;
   averageSalePriceCents: number | null;
   averageCostCents: number | null;
   observedFeeRate: number | null;
@@ -54,12 +60,131 @@ export type ProductSummaryItem = {
 export type ProductSummaryOptions = ProductSummaryQueryOptions & {
   platforms?: string[];
   shopKeys?: string[];
+  projection?: ProductSummaryProjection;
+  expectedSnapshotToken?: string;
+};
+
+export type ProductSummaryProjection = "full" | "page";
+
+export type ProductSummaryPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  returned: number;
+  totalPages: number;
+  truncated: boolean;
+};
+
+export type ProductSummaryPageResponse = {
+  projection: "page";
+  snapshotToken: string;
+  sort: { by: ProductSummarySort; direction: ProductSummaryDirection };
+  pagination: ProductSummaryPagination;
+  items: ProductSummaryItem[];
+};
+
+export type ProductSummaryFullResponse = {
+  projection: "full";
+  snapshotToken: string;
+  hasSales: boolean;
+  range: ProductSummaryRange;
+  sync: {
+    salesThrough: string | null;
+    salesWindowStart: string | null;
+    requestedStartDate: string | null;
+    requestedEndDate: string | null;
+    dataStartDate: string | null;
+    dataCutoffDate: string | null;
+    inventoryAsOf: string | null;
+    latestSalesFile: string | null;
+  };
+  filters: {
+    platforms: string[];
+    shops: Array<{ key: string; platform: string; shop: string }>;
+    categories: string[];
+  };
+  filtersApplied: {
+    platforms: string[];
+    shops: Array<{ key: string; platform: string; shop: string }>;
+    query: string;
+    categories: string[];
+    marginBands: ProductMarginBand[];
+  };
+  sort: { by: ProductSummarySort; direction: ProductSummaryDirection };
+  metrics: {
+    skuCount: number;
+    grossSalesCents: number;
+    netSalesCents: number;
+    grossProfitCents: number;
+    grossMarginRate: number | null;
+    lossSkuCount: number;
+    stockedSkuCount: number;
+    marginBuckets: {
+      below35Count: number;
+      between35And40Count: number;
+      between40And45Count: number;
+      atLeast45Count: number;
+    };
+  };
+  pagination: ProductSummaryPagination;
+  items: ProductSummaryItem[];
 };
 
 type ProductSummaryFilters = {
   platforms: string[];
   shops: CanonicalShopIdentity[];
 };
+
+type ProductSummaryRevisionRow = {
+  sales_revision: number | null;
+  erp_product_revision: number | null;
+};
+
+function checkedRevision(value: number | null | undefined) {
+  const revision = Number(value ?? 0);
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    throw new PublicApiError(503, "service_unavailable", "商品汇总数据版本无效，请稍后重试");
+  }
+  return revision;
+}
+
+async function buildProductSummarySnapshotToken(input: {
+  revision: ProductSummaryRevisionRow | null;
+  inventoryBatchId: string | null;
+  shippingRateBatchId: string | null;
+}) {
+  const payload = JSON.stringify({
+    version: 2,
+    salesRevision: checkedRevision(input.revision?.sales_revision),
+    erpProductRevision: checkedRevision(input.revision?.erp_product_revision),
+    inventoryBatchId: input.inventoryBatchId ?? "",
+    shippingRateBatchId: input.shippingRateBatchId ?? "",
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function readProductSummaryRevision(db: InventoryDatabase) {
+  return db.prepare(`SELECT sales_revision, erp_product_revision
+    FROM sales_overview_cache_state WHERE id = 1`)
+    .first<ProductSummaryRevisionRow>();
+}
+
+async function verifyProductSummarySnapshot(db: InventoryDatabase, expectedSnapshotToken: string) {
+  const [revision, latestInventoryBatch, shippingRateBatchId] = await Promise.all([
+    readProductSummaryRevision(db),
+    findLatestInventoryImportBatch(db),
+    findLatestProductShippingRateBatchId(db),
+  ]);
+  const currentSnapshotToken = await buildProductSummarySnapshotToken({
+    revision,
+    inventoryBatchId: latestInventoryBatch?.id ?? null,
+    shippingRateBatchId,
+  });
+  if (currentSnapshotToken !== expectedSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品汇总在读取期间已更新，请重新加载");
+  }
+}
 
 type ProductRow = {
   product_code: string;
@@ -83,6 +208,7 @@ type ProductRow = {
   priced_available_quantity: number | null;
   gross_margin_rate: number | null;
   refund_rate: number | null;
+  shipping_rate: number | null;
 };
 
 type MetricsRow = {
@@ -96,6 +222,10 @@ type MetricsRow = {
   between_35_and_40_count: number | null;
   between_40_and_45_count: number | null;
   at_least_45_count: number | null;
+};
+
+type ProductAggregateRow = MetricsRow & {
+  page_json: string | null;
 };
 
 type OutletRow = {
@@ -238,11 +368,13 @@ function productCte(input: {
       CASE WHEN st.available_quantity <= st.priced_available_quantity THEN st.known_stock_value_cents ELSE NULL END AS stock_value_cents,
       st.known_stock_value_cents, st.priced_available_quantity,
       CASE WHEN s.net_sales_cents > 0 THEN s.gross_profit_cents * 1.0 / s.net_sales_cents ELSE NULL END AS gross_margin_rate,
-      CASE WHEN s.gross_sales_cents > 0 THEN s.refund_amount_cents * 1.0 / s.gross_sales_cents ELSE 0 END AS refund_rate
+      CASE WHEN s.gross_sales_cents > 0 THEN s.refund_amount_cents * 1.0 / s.gross_sales_cents ELSE 0 END AS refund_rate,
+      sr.shipping_rate
     FROM sales_agg s
     LEFT JOIN erp_product_master m ON m.product_code = s.product_code
     LEFT JOIN stock_agg st ON st.product_code = s.product_code
-  ), filtered AS (
+    LEFT JOIN product_shipping_rates sr ON sr.product_code = s.product_code
+  ), filtered AS MATERIALIZED (
     SELECT * FROM base ${input.itemFilter.sql}
   )`;
   return {
@@ -290,6 +422,20 @@ function mapMetrics(row: MetricsRow | null) {
   };
 }
 
+function parseProductPageRows(value: string | null): ProductRow[] {
+  if (!value) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error("商品分页查询返回了无效的 JSON");
+  }
+  if (!Array.isArray(parsed) || parsed.some((row) => !row || typeof row !== "object" || typeof (row as { product_code?: unknown }).product_code !== "string")) {
+    throw new Error("商品分页查询返回了无效的数据结构");
+  }
+  return parsed as ProductRow[];
+}
+
 function mapItem(row: ProductRow, outlets: Array<{ platform: string; shop: string }>): ProductSummaryItem {
   const netQuantity = Number(row.net_quantity ?? 0);
   const netSalesCents = Number(row.net_sales_cents ?? 0);
@@ -314,6 +460,7 @@ function mapItem(row: ProductRow, outlets: Array<{ platform: string; shop: strin
     grossProfitCents: Number(row.gross_profit_cents ?? 0),
     grossMarginRate: row.gross_margin_rate === null ? null : Number(row.gross_margin_rate),
     refundRate: row.refund_rate === null ? 0 : Number(row.refund_rate),
+    shippingRate: row.shipping_rate == null ? null : Number(row.shipping_rate),
     averageSalePriceCents: rate(netSalesCents, netQuantity),
     averageCostCents: rate(absoluteCostCents, absoluteQuantity),
     observedFeeRate: rate(Math.abs(Number(row.fee_cents ?? 0)), grossSalesCents),
@@ -328,49 +475,95 @@ function mapItem(row: ProductRow, outlets: Array<{ platform: string; shop: strin
   };
 }
 
-export async function getProductSummary(db: InventoryDatabase, optionsOrDays: ProductSummaryOptions | number = {}) {
+export function getProductSummary(
+  db: InventoryDatabase,
+  optionsOrDays?: (Omit<ProductSummaryOptions, "projection"> & { projection?: "full" }) | number,
+): Promise<ProductSummaryFullResponse>;
+export function getProductSummary(
+  db: InventoryDatabase,
+  options: Omit<ProductSummaryOptions, "projection"> & { projection: "page" },
+): Promise<ProductSummaryPageResponse>;
+export function getProductSummary(
+  db: InventoryDatabase,
+  options: ProductSummaryOptions,
+): Promise<ProductSummaryFullResponse | ProductSummaryPageResponse>;
+export async function getProductSummary(
+  db: InventoryDatabase,
+  optionsOrDays: ProductSummaryOptions | number = {},
+): Promise<ProductSummaryFullResponse | ProductSummaryPageResponse> {
   const options = typeof optionsOrDays === "number" ? { days: optionsOrDays } : optionsOrDays;
+  await ensureProductShippingRateSchema(db);
+  const projection: ProductSummaryProjection = options.projection === "page" ? "page" : "full";
   const appliedFilters = normalizeFilters(options);
   const query = normalizeQuery(options);
   const pagination = normalizeProductSummaryPagination(options);
   const salesFilter = salesFilterClause(appliedFilters);
-  const [salesBounds, latestSalesBatch, latestInventoryBatch] = await Promise.all([
+  const [salesBounds, latestSalesBatch, latestInventoryBatch, openingRevision, shippingRateBatchId] = await Promise.all([
     db.prepare(
-      `SELECT MIN(substr(ship_time, 1, 10)) AS start_date, MAX(substr(ship_time, 1, 10)) AS end_date
-       FROM sales_order_lines
-       WHERE TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}`,
-    ).bind(...salesFilter.values).first<{ start_date: string | null; end_date: string | null }>(),
+      `SELECT
+        (SELECT substr(MIN(ship_time), 1, 10)
+         FROM sales_order_lines
+         WHERE TRIM(warehouse) <> '刷刷仓'
+           AND product_code <> 'ERP_PRICE_ADJUSTMENT'
+           AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}) AS start_date,
+        (SELECT substr(MAX(ship_time), 1, 10)
+         FROM sales_order_lines
+         WHERE TRIM(warehouse) <> '刷刷仓'
+           AND product_code <> 'ERP_PRICE_ADJUSTMENT'
+           AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}) AS end_date`,
+    ).bind(...salesFilter.values, ...salesFilter.values).first<{ start_date: string | null; end_date: string | null }>(),
     findLatestSalesImportBatch(db),
     findLatestInventoryImportBatch(db),
+    readProductSummaryRevision(db),
+    findLatestProductShippingRateBatchId(db),
   ]);
+  const snapshotToken = await buildProductSummarySnapshotToken({
+    revision: openingRevision,
+    inventoryBatchId: latestInventoryBatch?.id ?? null,
+    shippingRateBatchId,
+  });
+  if (projection === "page" && options.expectedSnapshotToken !== snapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品列表与汇总数据版本已变化，请重新加载");
+  }
   const dataStartDate = salesBounds?.start_date ?? null;
   const dataCutoffDate = salesBounds?.end_date ?? null;
   const appliedShops = appliedFilters.shops.map((outlet) => ({
     key: shopFilterKey(outlet), platform: outlet.platform, shop: outlet.shopName,
   }));
 
-  const empty = (range: ProductSummaryRange, requestedStartDate: string | null, requestedEndDate: string | null) => ({
-    hasSales: Boolean(dataCutoffDate),
-    range,
-    sync: {
-      salesThrough: null,
-      salesWindowStart: null,
-      requestedStartDate,
-      requestedEndDate,
-      dataStartDate,
-      dataCutoffDate,
-      inventoryAsOf: latestInventoryBatch?.snapshotDate ?? null,
-      latestSalesFile: latestSalesBatch?.fileName ?? null,
-    },
-    filters: { platforms: [] as string[], shops: [] as Array<{ key: string; platform: string; shop: string }>, categories: [] as string[] },
-    filtersApplied: { platforms: appliedFilters.platforms, shops: appliedShops, query: query.query, categories: query.categories, marginBands: query.marginBands },
-    sort: { by: query.sortBy, direction: query.direction },
-    metrics: emptyMetrics(),
-    pagination: { page: pagination.page, pageSize: pagination.pageSize, total: 0, returned: 0, totalPages: 0, truncated: false },
-    items: [] as ProductSummaryItem[],
-  });
+  const empty = async (range: ProductSummaryRange, requestedStartDate: string | null, requestedEndDate: string | null) => {
+    const pagePayload = {
+      projection: "page" as const,
+      snapshotToken,
+      sort: { by: query.sortBy, direction: query.direction },
+      pagination: { page: pagination.page, pageSize: pagination.pageSize, total: 0, returned: 0, totalPages: 0, truncated: false },
+      items: [] as ProductSummaryItem[],
+    };
+    await verifyProductSummarySnapshot(db, snapshotToken);
+    if (projection === "page") return pagePayload;
+    return {
+      projection: "full" as const,
+      snapshotToken,
+      hasSales: Boolean(dataCutoffDate),
+      range,
+      sync: {
+        salesThrough: null,
+        salesWindowStart: null,
+        requestedStartDate,
+        requestedEndDate,
+        dataStartDate,
+        dataCutoffDate,
+        inventoryAsOf: latestInventoryBatch?.snapshotDate ?? null,
+        latestSalesFile: latestSalesBatch?.fileName ?? null,
+      },
+      filters: { platforms: [] as string[], shops: [] as Array<{ key: string; platform: string; shop: string }>, categories: [] as string[] },
+      filtersApplied: { platforms: appliedFilters.platforms, shops: appliedShops, query: query.query, categories: query.categories, marginBands: query.marginBands },
+      sort: pagePayload.sort,
+      metrics: emptyMetrics(),
+      pagination: pagePayload.pagination,
+      items: pagePayload.items,
+    };
+  };
 
   if (!dataStartDate || !dataCutoffDate) return empty(options.range ?? "last30", null, null);
 
@@ -389,13 +582,13 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
   const rangeEndExclusive = `${addProductSummaryDays(period.endDate, 1)} 00:00:00`;
   const itemFilter = itemFilterClause(query);
   const cte = productCte({ rangeStart, rangeEndExclusive, inventoryBatchId: latestInventoryBatch?.id ?? null, salesFilter, itemFilter });
-  const categoryFacetCte = productCte({
+  const categoryFacetCte = projection === "full" ? productCte({
     rangeStart,
     rangeEndExclusive,
     inventoryBatchId: latestInventoryBatch?.id ?? null,
     salesFilter,
     itemFilter: itemFilterClause({ ...query, categories: [], marginBands: [] }),
-  });
+  }) : null;
   const sortColumn: Record<ProductSummarySort, string> = {
     netSalesCents: "net_sales_cents",
     grossProfitCents: "gross_profit_cents",
@@ -405,50 +598,64 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
     netQuantity: "net_quantity",
   };
   const orderDirection = query.direction === "asc" ? "ASC" : "DESC";
-  const [metricsRow, pageResult, outletOptionsResult, categoryResult] = await Promise.all([
-    db.prepare(`${cte.sql}
-      SELECT
-        COUNT(*) AS sku_count,
-        COALESCE(SUM(gross_sales_cents), 0) AS gross_sales_cents,
-        COALESCE(SUM(net_sales_cents), 0) AS net_sales_cents,
-        COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
-        COALESCE(SUM(CASE WHEN net_sales_cents > 0 AND gross_profit_cents < 0 THEN 1 ELSE 0 END), 0) AS loss_sku_count,
-        COALESCE(SUM(CASE WHEN available_quantity > 0 THEN 1 ELSE 0 END), 0) AS stocked_sku_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate < 0.35 THEN 1 ELSE 0 END), 0) AS below_35_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.35 AND gross_margin_rate < 0.4 THEN 1 ELSE 0 END), 0) AS between_35_and_40_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.4 AND gross_margin_rate < 0.45 THEN 1 ELSE 0 END), 0) AS between_40_and_45_count,
-        COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.45 THEN 1 ELSE 0 END), 0) AS at_least_45_count
-      FROM filtered`).bind(...cte.values).first<MetricsRow>(),
-    db.prepare(`${cte.sql}
-      SELECT * FROM filtered
-      ORDER BY ${sortColumn[query.sortBy]} ${orderDirection}, product_code ASC
-      LIMIT ? OFFSET ?`).bind(...cte.values, pagination.pageSize, pagination.offset).all<ProductRow>(),
-    db.prepare(
-      `SELECT
-        COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
-        COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
-        COALESCE(NULLIF(channel, ''), '') AS channel
-       FROM sales_order_lines
-       WHERE ship_time >= ? AND ship_time < ?
-         AND TRIM(warehouse) <> '刷刷仓'
-         AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-         AND TRIM(product_name) <> '补差价专用'
-       GROUP BY platform, shop_name, channel
-       ORDER BY platform, shop_name, channel
-       LIMIT 500`,
-    ).bind(rangeStart, rangeEndExclusive).all<OutletRow>(),
-    db.prepare(`${categoryFacetCte.sql} SELECT DISTINCT category FROM filtered ORDER BY category LIMIT 500`)
-      .bind(...categoryFacetCte.values).all<{ category: string }>(),
-  ]);
-
-  const productCodes = pageResult.results.map((row) => row.product_code);
-  const outletsByProduct = new Map<string, Array<{ platform: string; shop: string }>>();
-  if (productCodes.length > 0) {
-    for (let offset = 0; offset < productCodes.length; offset += 40) {
-      const productCodeChunk = productCodes.slice(offset, offset + 40);
-      const outletRows = await db.prepare(
+  const aggregatePromise = db.prepare(`${cte.sql},
+      metrics AS MATERIALIZED (
+        SELECT
+          COUNT(*) AS sku_count,
+          COALESCE(SUM(gross_sales_cents), 0) AS gross_sales_cents,
+          COALESCE(SUM(net_sales_cents), 0) AS net_sales_cents,
+          COALESCE(SUM(gross_profit_cents), 0) AS gross_profit_cents,
+          COALESCE(SUM(CASE WHEN net_sales_cents > 0 AND gross_profit_cents < 0 THEN 1 ELSE 0 END), 0) AS loss_sku_count,
+          COALESCE(SUM(CASE WHEN available_quantity > 0 THEN 1 ELSE 0 END), 0) AS stocked_sku_count,
+          COALESCE(SUM(CASE WHEN gross_margin_rate < 0.35 THEN 1 ELSE 0 END), 0) AS below_35_count,
+          COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.35 AND gross_margin_rate < 0.4 THEN 1 ELSE 0 END), 0) AS between_35_and_40_count,
+          COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.4 AND gross_margin_rate < 0.45 THEN 1 ELSE 0 END), 0) AS between_40_and_45_count,
+          COALESCE(SUM(CASE WHEN gross_margin_rate >= 0.45 THEN 1 ELSE 0 END), 0) AS at_least_45_count
+        FROM filtered
+      ), paged AS MATERIALIZED (
+        SELECT * FROM filtered
+        ORDER BY ${sortColumn[query.sortBy]} ${orderDirection}, product_code ASC
+        LIMIT ? OFFSET ?
+      )
+      SELECT metrics.*,
+        COALESCE((
+          SELECT json_group_array(json_object(
+            'product_code', product_code,
+            'product_name', product_name,
+            'brand', brand,
+            'supplier_name', supplier_name,
+            'specification', specification,
+            'category', category,
+            'net_quantity', net_quantity,
+            'gross_sales_cents', gross_sales_cents,
+            'refund_amount_cents', refund_amount_cents,
+            'net_sales_cents', net_sales_cents,
+            'cost_cents', cost_cents,
+            'fee_cents', fee_cents,
+            'gross_profit_cents', gross_profit_cents,
+            'absolute_quantity', absolute_quantity,
+            'absolute_cost_cents', absolute_cost_cents,
+            'available_quantity', available_quantity,
+            'stock_value_cents', stock_value_cents,
+            'known_stock_value_cents', known_stock_value_cents,
+            'priced_available_quantity', priced_available_quantity,
+            'gross_margin_rate', gross_margin_rate,
+            'refund_rate', refund_rate,
+            'shipping_rate', shipping_rate
+          ))
+          FROM (
+            SELECT * FROM paged
+            ORDER BY ${sortColumn[query.sortBy]} ${orderDirection}, product_code ASC
+          ) ordered_page
+        ), '[]') AS page_json
+      FROM metrics`)
+    .bind(...cte.values, pagination.pageSize, pagination.offset)
+    .first<ProductAggregateRow>();
+  const facetPromise = categoryFacetCte === null
+    ? Promise.resolve(null)
+    : Promise.all([
+      db.prepare(
         `SELECT
-          product_code,
           COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
           COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
           COALESCE(NULLIF(channel, ''), '') AS channel
@@ -456,8 +663,39 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
          WHERE ship_time >= ? AND ship_time < ?
            AND TRIM(warehouse) <> '刷刷仓'
            AND product_code <> 'ERP_PRICE_ADJUSTMENT'
-           AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}
-           AND product_code IN (${productCodeChunk.map(() => "?").join(", ")})
+           AND TRIM(product_name) <> '补差价专用'
+         GROUP BY platform, shop_name, channel
+         ORDER BY platform, shop_name, channel
+         LIMIT 500`,
+      ).bind(rangeStart, rangeEndExclusive).all<OutletRow>(),
+      db.prepare(`${categoryFacetCte.sql} SELECT DISTINCT category FROM filtered ORDER BY category LIMIT 500`)
+        .bind(...categoryFacetCte.values).all<{ category: string }>(),
+    ]);
+  const [aggregateRow, facetResults] = await Promise.all([aggregatePromise, facetPromise]);
+  const pageRows = parseProductPageRows(aggregateRow?.page_json ?? null);
+  const metricsRow: MetricsRow | null = aggregateRow;
+
+  const productCodes = pageRows.map((row) => row.product_code);
+  const outletsByProduct = new Map<string, Array<{ platform: string; shop: string }>>();
+  if (productCodes.length > 0) {
+    for (let offset = 0; offset < productCodes.length; offset += 40) {
+      const productCodeChunk = productCodes.slice(offset, offset + 40);
+      const outletRows = await db.prepare(
+        `WITH ranged_outlet_sales AS MATERIALIZED (
+          SELECT product_code, platform, shop_name, channel
+          FROM sales_order_lines
+          WHERE ship_time >= ? AND ship_time < ?
+            AND TRIM(warehouse) <> '刷刷仓'
+            AND product_code <> 'ERP_PRICE_ADJUSTMENT'
+            AND TRIM(product_name) <> '补差价专用'${salesFilter.sql}
+        )
+        SELECT
+          product_code,
+          COALESCE(NULLIF(platform, ''), NULLIF(channel, ''), '未分类') AS platform,
+          COALESCE(NULLIF(shop_name, ''), NULLIF(channel, ''), NULLIF(platform, ''), '未分类') AS shop_name,
+          COALESCE(NULLIF(channel, ''), '') AS channel
+         FROM ranged_outlet_sales
+         WHERE product_code IN (${productCodeChunk.map(() => "?").join(", ")})
          GROUP BY product_code, platform, shop_name, channel
          ORDER BY product_code, platform, shop_name, channel`,
       ).bind(rangeStart, rangeEndExclusive, ...salesFilter.values, ...productCodeChunk).all<OutletRow>();
@@ -472,6 +710,28 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
     }
   }
 
+  const total = Number(metricsRow?.sku_count ?? 0);
+  const items = pageRows.map((row) => mapItem(row, outletsByProduct.get(row.product_code) ?? []));
+  const paginationPayload = {
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    total,
+    returned: pageRows.length,
+    totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize),
+    truncated: pagination.offset + pageRows.length < total,
+  };
+  const pagePayload = {
+    projection: "page" as const,
+    snapshotToken,
+    sort: { by: query.sortBy, direction: query.direction },
+    pagination: paginationPayload,
+    items,
+  };
+  await verifyProductSummarySnapshot(db, snapshotToken);
+  if (projection === "page") return pagePayload;
+  if (!facetResults) throw new Error("商品完整汇总缺少筛选项结果");
+
+  const [outletOptionsResult, categoryResult] = facetResults;
   const outletOptionsByKey = new Map<string, CanonicalShopIdentity>();
   for (const row of outletOptionsResult.results) {
     const outlet = canonicalizeShopIdentity(row.platform, row.shop_name, row.channel);
@@ -479,8 +739,9 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
   }
   const outletOptions = [...outletOptionsByKey.values()]
     .sort((left, right) => left.platform.localeCompare(right.platform, "zh-CN") || left.shopName.localeCompare(right.shopName, "zh-CN"));
-  const total = Number(metricsRow?.sku_count ?? 0);
   return {
+    projection: "full" as const,
+    snapshotToken,
     hasSales: true,
     range: period.range,
     sync: {
@@ -507,14 +768,7 @@ export async function getProductSummary(db: InventoryDatabase, optionsOrDays: Pr
     },
     sort: { by: query.sortBy, direction: query.direction },
     metrics: mapMetrics(metricsRow),
-    pagination: {
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      total,
-      returned: pageResult.results.length,
-      totalPages: total === 0 ? 0 : Math.ceil(total / pagination.pageSize),
-      truncated: pagination.offset + pageResult.results.length < total,
-    },
-    items: pageResult.results.map((row) => mapItem(row, outletsByProduct.get(row.product_code) ?? [])),
+    pagination: paginationPayload,
+    items,
   };
 }

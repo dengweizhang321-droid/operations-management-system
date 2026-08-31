@@ -2,7 +2,12 @@ import {
   ensureInventorySchema,
   getInventoryDatabase,
 } from "@/lib/inventory/database";
-import { getInventoryOverview } from "@/lib/inventory/overview";
+import {
+  getInventoryDashboardOverview,
+  getInventoryFullOverview,
+  getInventoryOverview,
+  getInventoryPlanOverview,
+} from "@/lib/inventory/overview";
 import { ensureSalesSchema } from "@/lib/sales/database";
 import {
   authorizationErrorResponse,
@@ -14,6 +19,7 @@ import {
   InventoryQueryContractError,
   normalizeInventorySelections,
   parseInventoryPaginationParameter,
+  parseInventoryOverviewView,
 } from "@/lib/inventory/query-contract";
 import { InventorySalesPeriodError } from "@/lib/inventory/sales-period";
 
@@ -32,6 +38,14 @@ export async function GET(request: Request) {
     const db = getInventoryDatabase();
     await Promise.all([ensureInventorySchema(db), ensureSalesSchema(db)]);
     const params = new URL(request.url).searchParams;
+    const requestedView = parseInventoryOverviewView(params);
+    if (requestedView === "dashboard") {
+      const payload = await getInventoryDashboardOverview(db, {
+        startDate: params.get("startDate")?.trim() || undefined,
+        endDate: params.get("endDate")?.trim() || undefined,
+      });
+      return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    }
     const requestedPlanStatus = params.get("planStatus");
     const allowedPlanStatuses = ["draft", "confirmed", "completed", "cancelled"] as const;
     if (requestedPlanStatus !== null && !allowedPlanStatuses.some((status) => status === requestedPlanStatus)) {
@@ -42,13 +56,33 @@ export async function GET(request: Request) {
     if (requestedIncludeCancelled !== null && requestedIncludeCancelled !== "true" && requestedIncludeCancelled !== "false") {
       throw new InventoryQueryContractError("includeCancelledPlans 必须是 true 或 false");
     }
+    const planOptions = {
+      planPage: parseInventoryPaginationParameter(params.get("planPage"), "page"),
+      planPageSize: parseInventoryPaginationParameter(params.get("planPageSize"), "pageSize"),
+      planStatus: planStatus ?? undefined,
+      includeCancelledPlans: planStatus === "cancelled" || requestedIncludeCancelled === "true",
+    };
     const query = params.get("q")?.trim() || undefined;
     if (query && query.length > 100) throw new InventoryQueryContractError("搜索词不能超过 100 个字符");
-    const payload = await getInventoryOverview(db, {
+    const commonOptions = {
       query,
+      warehouses: readInventorySelections(params, "warehouse", { maximum: 10, label: "仓库" }),
+      brands: readInventorySelections(params, "brand", { maximum: 20, label: "品牌" }),
+      categories: readInventorySelections(params, "category", { maximum: 20, label: "品类" }),
+    };
+    if (requestedView === "plan") {
+      const payload = await getInventoryPlanOverview(db, {
+        startDate: params.get("startDate")?.trim() || undefined,
+        endDate: params.get("endDate")?.trim() || undefined,
+        ...commonOptions,
+        ...planOptions,
+      });
+      return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    }
+    const overviewOptions = {
       startDate: params.get("startDate")?.trim() || undefined,
       endDate: params.get("endDate")?.trim() || undefined,
-      warehouses: readInventorySelections(params, "warehouse", { maximum: 10, label: "仓库" }),
+      ...commonOptions,
       warehouseTypes: readInventorySelections(params, "warehouseType", {
         maximum: 3,
         allowed: ["owned", "jd_rdc", "other"],
@@ -61,11 +95,11 @@ export async function GET(request: Request) {
       }) as Array<"urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales">,
       page: parseInventoryPaginationParameter(params.get("page"), "page"),
       pageSize: parseInventoryPaginationParameter(params.get("pageSize"), "pageSize"),
-      planPage: parseInventoryPaginationParameter(params.get("planPage"), "page"),
-      planPageSize: parseInventoryPaginationParameter(params.get("planPageSize"), "pageSize"),
-      planStatus: planStatus ?? undefined,
-      includeCancelledPlans: planStatus === "cancelled" || requestedIncludeCancelled === "true",
-    });
+      ...planOptions,
+    };
+    const payload = requestedView === "full"
+      ? await getInventoryFullOverview(db, overviewOptions)
+      : await getInventoryOverview(db, overviewOptions);
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

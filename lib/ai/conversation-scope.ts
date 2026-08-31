@@ -59,14 +59,30 @@ export function aiConversationScopeAccessSql(
   alias = "s",
 ): { join: string; clause: string; values: string[] } {
   if (scope === null) return { join: "", clause: "", values: [] };
-  const serialized = serializeAiConversationScope(scope);
-  const safeSnapshot = `CASE WHEN ${alias}.scope_json IS NOT NULL AND json_valid(${alias}.scope_json)
-        THEN ${alias}.scope_json ELSE 'null' END`;
+  const access = aiScopeSnapshotAccessSql(scope, `${alias}.scope_json`);
   return {
     join: ` LEFT JOIN ai_conversation_scopes ${alias} ON ${alias}.conversation_id = c.id`,
-    clause: ` AND ${alias}.scope_json IS NOT NULL
-      AND ${alias}.scope_json <> 'null'
-      AND json_valid(${alias}.scope_json)
+    clause: access.clause,
+    values: access.values,
+  };
+}
+
+/**
+ * Generic immutable-scope SQL used by AI resources outside conversations.
+ * The expression must be a trusted column expression chosen by server code.
+ */
+export function aiScopeSnapshotAccessSql(
+  scope: AppDataScope,
+  scopeJsonExpression: string,
+): { clause: string; values: string[] } {
+  if (scope === null) return { clause: "", values: [] };
+  const serialized = serializeAiConversationScope(scope);
+  const safeSnapshot = `CASE WHEN ${scopeJsonExpression} IS NOT NULL AND json_valid(${scopeJsonExpression})
+        THEN ${scopeJsonExpression} ELSE 'null' END`;
+  return {
+    clause: ` AND ${scopeJsonExpression} IS NOT NULL
+      AND ${scopeJsonExpression} <> 'null'
+      AND json_valid(${scopeJsonExpression})
       AND json_type(${safeSnapshot}) = 'object'
       AND json_type(${safeSnapshot}, '$.warehouses') = 'array'
       AND json_type(${safeSnapshot}, '$.channels') = 'array'

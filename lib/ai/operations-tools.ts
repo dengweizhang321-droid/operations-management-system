@@ -6,6 +6,7 @@ import {
 } from "@/lib/inventory/database";
 import { getInventoryOverview } from "@/lib/inventory/overview";
 import { getProductSummary } from "@/lib/products/summary";
+import { ensureProductShippingRateSchema } from "@/lib/products/shipping-rate-database";
 import {
   ensureSalesSchema,
   findLatestSalesImportBatch,
@@ -27,7 +28,7 @@ export async function callOperationsTool(
   if (name === "get_data_freshness") {
     assertOnlyKeys(args, []);
     const db = getInventoryDatabase();
-    await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db)]);
+    await Promise.all([ensureSalesSchema(db), ensureInventorySchema(db), ensureProductShippingRateSchema(db)]);
     const [salesBatch, inventoryBatch, salesBounds] = await Promise.all([
       findLatestSalesImportBatch(db),
       findLatestInventoryImportBatch(db),

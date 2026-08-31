@@ -2,6 +2,8 @@ import {
   ensureNetshopSchema,
   getNetshopDatabase,
   getNetshopProductPerformance,
+  getNetshopProductPerformancePage,
+  getNetshopProductPerformanceSummary,
   type NetshopProductPerformanceDimension,
 } from "@/lib/netshop/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
@@ -12,19 +14,27 @@ import {
   NetshopQueryError,
   netshopQueryErrorPayload,
   readNetshopOutletFilters,
+  readNetshopProductPerformanceView,
   readNetshopQueryInteger,
+  readNetshopSnapshotToken,
   resolveNetshopQueryPeriod,
 } from "@/lib/netshop/query-contract";
 
-function readDimension(value: string | null): NetshopProductPerformanceDimension {
-  return value === "spu" ? "spu" : "sku";
+function readDimension(values: readonly string[]): NetshopProductPerformanceDimension {
+  if (values.length === 0) return "sku";
+  if (values.length !== 1 || (values[0] !== "sku" && values[0] !== "spu")) {
+    throw new NetshopQueryError("invalid_dimension", "dimension 必须且只能是 sku 或 spu");
+  }
+  return values[0];
 }
 
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
     const params = new URL(request.url).searchParams;
-    const dimension = readDimension(params.get("dimension"));
+    const dimension = readDimension(params.getAll("dimension"));
+    const view = readNetshopProductPerformanceView(params.getAll("view"));
+    const snapshotToken = readNetshopSnapshotToken(params.getAll("snapshotToken"), view === "page");
     const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
     const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
     const period = resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
@@ -40,7 +50,7 @@ export async function GET(request: Request) {
     );
     const db = getNetshopDatabase();
     await ensureNetshopSchema(db);
-    const payload = await getNetshopProductPerformance(db, {
+    const input = {
       dimension,
       query: params.get("q") ?? undefined,
       page,
@@ -49,11 +59,16 @@ export async function GET(request: Request) {
       outlets,
       startDate: period?.startDate,
       endDate: period?.endDate,
-    });
+    };
+    const payload = view === "page"
+      ? await getNetshopProductPerformancePage(db, { ...input, snapshotToken: snapshotToken! })
+      : view === "summary"
+        ? await getNetshopProductPerformanceSummary(db, input)
+        : await getNetshopProductPerformance(db, input);
     const platformOptions = netshopPlatformOptionsForPrincipal(principal)
       .filter((platform) => dimension === "spu" || platform === "京东");
     return Response.json(
-      { ...payload, platforms: platformOptions },
+      view === "full" ? { ...payload, platforms: platformOptions } : payload,
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {

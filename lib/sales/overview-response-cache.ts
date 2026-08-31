@@ -12,6 +12,7 @@ export type SalesOverviewResponseCacheDatabase = {
 
 export type SalesOverviewCacheIdentity = {
   range: SalesRange;
+  projection?: "full" | "dashboard";
   startDate?: string;
   endDate?: string;
   productQueries?: string[];
@@ -36,7 +37,16 @@ export type SalesOverviewCacheResult<T> = {
   status: "hit" | "miss" | "coalesced";
 };
 
-const CACHE_FORMAT_VERSION = 1;
+export class SalesOverviewRevisionChangedError extends Error {
+  readonly code = "sales_overview_revision_changed";
+
+  constructor() {
+    super("销售数据版本持续变化，请稍后重试。");
+    this.name = "SalesOverviewRevisionChangedError";
+  }
+}
+
+const CACHE_FORMAT_VERSION = 2;
 const CACHE_MAX_ROWS = 80;
 const inFlight = new Map<string, Promise<SalesOverviewCacheResult<unknown>>>();
 
@@ -58,6 +68,7 @@ export function canonicalSalesOverviewCacheIdentity(identity: SalesOverviewCache
     formatVersion: CACHE_FORMAT_VERSION,
     businessDate: identity.businessDate,
     range: identity.range,
+    projection: identity.projection ?? "full",
     startDate: identity.startDate?.trim() || "",
     endDate: identity.endDate?.trim() || "",
     productQueries: normalizedList(identity.productQueries),
@@ -154,15 +165,20 @@ export async function getCachedSalesOverview<T>(
   }
 
   const task = (async (): Promise<SalesOverviewCacheResult<T>> => {
-    const cached = await readCachedPayload<T>(db, cacheKey, revisionKey);
-    if (cached !== null) return { payload: cached, status: "hit" };
+    let activeRevisionKey = revisionKey;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const cached = await readCachedPayload<T>(db, cacheKey, activeRevisionKey);
+      if (cached !== null) return { payload: cached, status: "hit" };
 
-    const payload = await load();
-    const revisionAfterLoad = await getSalesOverviewCacheRevision(db);
-    if (revisionAfterLoad === revisionKey) {
-      await writeCachedPayload(db, cacheKey, revisionKey, payload);
+      const payload = await load();
+      const revisionAfterLoad = await getSalesOverviewCacheRevision(db);
+      if (revisionAfterLoad === activeRevisionKey) {
+        await writeCachedPayload(db, cacheKey, activeRevisionKey, payload);
+        return { payload, status: "miss" };
+      }
+      activeRevisionKey = revisionAfterLoad;
     }
-    return { payload, status: "miss" };
+    throw new SalesOverviewRevisionChangedError();
   })();
   inFlight.set(flightKey, task as Promise<SalesOverviewCacheResult<unknown>>);
   try {

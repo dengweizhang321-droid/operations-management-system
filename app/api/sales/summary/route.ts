@@ -20,6 +20,7 @@ import { safeApiErrorResponse } from "@/lib/http/api-error";
 import {
   getCachedSalesOverview,
   getSalesOverviewCacheRevision,
+  SalesOverviewRevisionChangedError,
   salesOverviewBusinessDate,
 } from "@/lib/sales/overview-response-cache";
 import { routeSalesReadRequest } from "@/lib/django/sales-gateway";
@@ -29,6 +30,14 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "销售汇总");
     const searchParams = new URL(request.url).searchParams;
+    const requestedViews = searchParams.getAll("view");
+    if (requestedViews.length > 1) {
+      throw new SalesSummaryRequestError("view 参数不能重复。");
+    }
+    const requestedView = requestedViews[0] ?? null;
+    if (requestedView !== null && requestedView !== "dashboard") {
+      throw new SalesSummaryRequestError("view 必须是 dashboard。");
+    }
     const requested = searchParams.get("range") ?? "month";
     if (!isSalesRange(requested)) {
       return Response.json(
@@ -77,6 +86,7 @@ export async function GET(request: Request) {
       .map((value) => ({ platform: value.platform, shop: value.shopName }));
     const summaryInput = {
       range: requested,
+      projection: requestedView === "dashboard" ? "dashboard" : "full",
       startDate: searchParams.get("startDate") ?? undefined,
       endDate: searchParams.get("endDate") ?? undefined,
       productQueries,
@@ -96,7 +106,26 @@ export async function GET(request: Request) {
           ...summaryInput,
           businessDate: salesOverviewBusinessDate(),
         }, () => getSalesSummary(db, summaryInput));
-        return Response.json({ projection: "full" as const, ...result.payload }, {
+        const responsePayload = requestedView === "dashboard"
+          ? {
+              projection: "dashboard" as const,
+              range: result.payload.range,
+              startDate: result.payload.startDate,
+              endDate: result.payload.endDate,
+              requestedStartDate: result.payload.requestedStartDate,
+              requestedEndDate: result.payload.requestedEndDate,
+              dataCutoffDate: result.payload.dataCutoffDate,
+              periodAdjustedToDataCutoff: result.payload.periodAdjustedToDataCutoff,
+              comparisonDayCount: result.payload.comparisonDayCount,
+              current: result.payload.current,
+              previous: result.payload.previous,
+              yearAgo: result.payload.yearAgo,
+              outlets: result.payload.outlets,
+              daily: result.payload.daily,
+              latestBatch: result.payload.latestBatch,
+            }
+          : result.payload;
+        return Response.json(responsePayload, {
           headers: {
             "cache-control": "no-store",
             "x-sales-overview-cache": result.status,
@@ -109,6 +138,12 @@ export async function GET(request: Request) {
     if (authResponse) return authResponse;
     if (error instanceof SalesSummaryRequestError) {
       return Response.json({ error: error.message, code: "invalid_request" }, { status: 400, headers: { "cache-control": "no-store" } });
+    }
+    if (error instanceof SalesOverviewRevisionChangedError) {
+      return Response.json(
+        { error: error.message, code: error.code },
+        { status: 503, headers: { "cache-control": "no-store", "retry-after": "1" } },
+      );
     }
     return safeApiErrorResponse(error, "读取销售汇总失败。", { headers: { "cache-control": "no-store" } });
   }

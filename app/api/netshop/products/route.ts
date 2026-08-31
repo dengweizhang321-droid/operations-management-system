@@ -2,6 +2,7 @@ import {
   ensureNetshopSchema,
   getNetshopDatabase,
   getNetshopProductCatalog,
+  getNetshopProductCatalogPage,
 } from "@/lib/netshop/database";
 import { ensureSalesSchema } from "@/lib/sales/database";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
@@ -12,7 +13,9 @@ import {
   NetshopQueryError,
   netshopQueryErrorPayload,
   readNetshopOutletFilters,
+  readNetshopProductCatalogView,
   readNetshopQueryInteger,
+  readNetshopSnapshotToken,
   resolveNetshopQueryPeriod,
 } from "@/lib/netshop/query-contract";
 
@@ -20,6 +23,8 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
     const params = new URL(request.url).searchParams;
+    const view = readNetshopProductCatalogView(params.getAll("view"));
+    const snapshotToken = readNetshopSnapshotToken(params.getAll("snapshotToken"), view === "page");
     const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
     const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
     const salesPeriod = resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
@@ -35,7 +40,7 @@ export async function GET(request: Request) {
     );
     const db = getNetshopDatabase();
     await Promise.all([ensureNetshopSchema(db), ensureSalesSchema(db)]);
-    const payload = await getNetshopProductCatalog(db, {
+    const input = {
       query: params.get("q") ?? undefined,
       page,
       pageSize,
@@ -44,7 +49,10 @@ export async function GET(request: Request) {
       salesChannels: principal.scope === null ? null : principal.scope.channels,
       salesStartDate: salesPeriod?.startDate,
       salesEndDate: salesPeriod?.endDate,
-    });
+    };
+    const payload = view === "page"
+      ? await getNetshopProductCatalogPage(db, { ...input, snapshotToken: snapshotToken! })
+      : await getNetshopProductCatalog(db, input);
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

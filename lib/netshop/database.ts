@@ -12,6 +12,16 @@ import {
   netshopPromotionSourceSql,
 } from "@/lib/netshop/promotion-query";
 import {
+  buildPromotionAggregatePublishStatements,
+  ensurePromotionAggregateSchema,
+  PROMOTION_AGGREGATE_PRODUCT_FIELDS,
+  PROMOTION_AGGREGATE_PRODUCT_READY_JOIN_SQL,
+  PROMOTION_AGGREGATE_SHOP_FIELDS,
+  PROMOTION_AGGREGATE_SHOP_READY_JOIN_SQL,
+  promotionAggregateScopeForSource,
+  readPromotionAggregateVersions,
+} from "@/lib/netshop/promotion-aggregate";
+import {
   importReservationCommitFence,
   rethrowImportPublishError,
   type ImportReservationFence,
@@ -19,6 +29,8 @@ import {
 import {
   boundedNetshopInteger,
   isNetshopIsoDate,
+  NETSHOP_OUTLET_MAX_ITEMS,
+  NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE,
   NETSHOP_QUERY_MAX_DAYS,
   NETSHOP_QUERY_MAX_PAGE,
   NETSHOP_QUERY_MAX_PAGE_SIZE,
@@ -29,6 +41,12 @@ import {
   type NetshopQueryPeriod,
 } from "@/lib/netshop/query-contract";
 import { resolveNetshopSalesOutletMatches } from "@/lib/netshop/sales-shop-aliases";
+import { PublicApiError } from "@/lib/http/api-error";
+import {
+  netshopProductImageUrl,
+  storedNetshopProductImage,
+  type StoredNetshopProductImage,
+} from "@/lib/netshop/product-image-assets";
 
 export type NetshopDatabase = NonNullable<typeof env.DB>;
 export const NETSHOP_DAILY_SERIES_LIMIT = NETSHOP_QUERY_MAX_DAYS;
@@ -49,6 +67,7 @@ export type NetshopSource =
   | "jd_cs"
   | "jd_yimei_sku"
   | "tmall_product_master"
+  | "tmall_product_assets"
   | "tmall_product_daily"
   | "tmall_promotion"
   | "inv_selfop";
@@ -161,6 +180,7 @@ export type NetshopProductCatalogItem = {
 };
 
 export type NetshopProductCatalog = {
+  snapshotToken: string;
   batch: NetshopImportBatch | null;
   summary: {
     totalSkus: number;
@@ -190,6 +210,11 @@ export type NetshopProductCatalog = {
   };
 };
 
+export type NetshopProductCatalogPage = Pick<
+  NetshopProductCatalog,
+  "snapshotToken" | "items" | "pagination"
+>;
+
 export type NetshopProductPerformanceDimension = "sku" | "spu";
 
 export type NetshopProductPerformanceItem = {
@@ -199,6 +224,8 @@ export type NetshopProductPerformanceItem = {
   spuId: string;
   productCode: string;
   productName: string;
+  imageUrl: string;
+  productUrl: string;
   category: string;
   shopNames: string[];
   dateMin: string | null;
@@ -229,6 +256,7 @@ export type NetshopProductPerformanceItem = {
 };
 
 export type NetshopProductPerformance = {
+  snapshotToken: string;
   dimension: NetshopProductPerformanceDimension;
   dataset: "sku_daily" | "spu_daily";
   requestedPeriod: { startDate: string | null; endDate: string | null };
@@ -289,6 +317,24 @@ export type NetshopProductPerformance = {
   pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
 };
 
+export type NetshopProductPerformanceSummary = Pick<
+  NetshopProductPerformance,
+  | "snapshotToken"
+  | "dimension"
+  | "dataset"
+  | "requestedPeriod"
+  | "dateMin"
+  | "dataCutoffDate"
+  | "monetaryUnit"
+  | "visitorAggregation"
+  | "summary"
+>;
+
+export type NetshopProductPerformancePage = Pick<
+  NetshopProductPerformance,
+  "snapshotToken" | "items" | "pagination"
+>;
+
 export type NetshopPromotionPerformance = {
   monetaryUnit: "cents";
   requestedPeriod: { startDate: string | null; endDate: string | null };
@@ -333,6 +379,10 @@ export type NetshopPromotionPerformance = {
     spendRate: number | null;
     promotionTransactionShare: number | null;
   }>;
+  filterOptions: {
+    shops: Array<{ platform: string; shopName: string }>;
+    pagination: { total: number; returned: number; truncated: boolean };
+  };
   items: Array<{
     id: string;
     platform: string;
@@ -358,6 +408,23 @@ export type NetshopPromotionPerformance = {
   dailyPagination: { total: number; returned: number; truncated: boolean };
   pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
 };
+
+export type NetshopPromotionOverview = Pick<
+  NetshopPromotionPerformance,
+  | "monetaryUnit"
+  | "requestedPeriod"
+  | "dataCutoffDate"
+  | "summary"
+  | "coverage"
+  | "daily"
+  | "dailyPagination"
+  | "filterOptions"
+> & { snapshotToken: string };
+
+export type NetshopPromotionItems = Pick<
+  NetshopPromotionPerformance,
+  "monetaryUnit" | "requestedPeriod" | "dataCutoffDate" | "items" | "pagination"
+> & { snapshotToken: string };
 
 const batchColumns = `
   id, source, dataset, platform, shop_name, file_name, file_size_bytes, file_hash,
@@ -392,8 +459,24 @@ const batchTableSql = `CREATE TABLE IF NOT EXISTS netshop_import_batches (
     UNIQUE(source, platform, shop_name, file_hash)
   )`;
 
+const productDailyRevisionTableSql = `CREATE TABLE IF NOT EXISTS netshop_product_daily_revisions (
+    platform TEXT PRIMARY KEY NOT NULL,
+    data_version INTEGER NOT NULL DEFAULT 0 CHECK (data_version >= 0),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`;
+
+const productDailyScopeRevisionTableSql = `CREATE TABLE IF NOT EXISTS netshop_product_daily_scope_revisions (
+    platform TEXT NOT NULL,
+    shop_name TEXT NOT NULL,
+    data_version INTEGER NOT NULL DEFAULT 0 CHECK (data_version >= 0),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (platform, shop_name)
+  )`;
+
 const schemaStatements = [
   batchTableSql,
+  productDailyRevisionTableSql,
+  productDailyScopeRevisionTableSql,
   `CREATE TABLE IF NOT EXISTS netshop_schema_migrations (
     migration_key TEXT PRIMARY KEY,
     completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -438,6 +521,14 @@ const schemaStatements = [
     ON netshop_rows (source, snapshot_date, warehouse_type)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_source_sku_idx
     ON netshop_rows (source, sku_id, product_code)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_jd_master_online_spec_idx
+    ON netshop_rows (
+      CAST(json_extract(raw_json, '$."商家SKU"') AS TEXT),
+      sku_id
+    )
+    WHERE source = 'jd_product_master'
+      AND dataset = 'product_master'
+      AND json_valid(raw_json)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_scope_date_product_idx
     ON netshop_rows (dataset, platform, shop_name, business_date, spu_id)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_master_snapshot_idx
@@ -450,6 +541,52 @@ const schemaStatements = [
     ON netshop_rows (product_code)`,
   `CREATE INDEX IF NOT EXISTS netshop_rows_lock_ownership_idx
     ON netshop_rows (source, dataset, platform, shop_name, last_import_batch_id)`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_product_batch_page_idx
+    ON netshop_rows (last_import_batch_id, shop_name, product_name, sku_id, platform, id)
+    WHERE source IN ('jd_product_master', 'tmall_product_master') AND dataset = 'product_master'`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_product_assets_identity_idx
+    ON netshop_rows (platform, shop_name, spu_id, snapshot_date DESC)
+    WHERE source = 'tmall_product_assets' AND dataset = 'spu_assets'`,
+  `CREATE INDEX IF NOT EXISTS netshop_rows_product_assets_hash_idx
+    ON netshop_rows (json_extract(raw_json, '$."图片内容SHA256"'))
+    WHERE source = 'tmall_product_assets' AND dataset = 'spu_assets' AND json_valid(raw_json)`,
+  `CREATE TABLE IF NOT EXISTS netshop_asset_uploads (
+    id TEXT PRIMARY KEY NOT NULL,
+    fingerprint TEXT NOT NULL UNIQUE,
+    shop_name TEXT NOT NULL,
+    snapshot_date TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    chunk_size_bytes INTEGER NOT NULL,
+    chunk_count INTEGER NOT NULL,
+    received_chunk_count INTEGER NOT NULL DEFAULT 0,
+    received_bytes INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'uploading',
+    processing_owner TEXT,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS netshop_asset_uploads_expiry_idx
+    ON netshop_asset_uploads (expires_at, status)`,
+  `CREATE TABLE IF NOT EXISTS netshop_asset_upload_chunks (
+    upload_id TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    object_key TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (upload_id, chunk_index),
+    FOREIGN KEY (upload_id) REFERENCES netshop_asset_uploads(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS netshop_asset_upload_chunks_upload_idx
+    ON netshop_asset_upload_chunks (upload_id, chunk_index)`,
+  `CREATE TABLE IF NOT EXISTS netshop_asset_upload_results (
+    upload_id TEXT PRIMARY KEY NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (upload_id) REFERENCES netshop_asset_uploads(id) ON DELETE CASCADE
+  )`,
   `UPDATE netshop_rows
     SET platform = '京东', shop_name = '志高商用设备旗舰店', updated_at = CURRENT_TIMESTAMP
     WHERE source = 'jd_product_master'
@@ -504,6 +641,7 @@ export async function ensureNetshopSchema(db = getNetshopDatabase()) {
   const setup = migrateBatchIdentityConstraint(db)
     .then(() => db.batch(schemaStatements.map((statement) => db.prepare(statement))))
     .then(() => ensureDailyRowNaturalKeys(db))
+    .then(() => ensurePromotionAggregateSchema(db))
     .catch((error: unknown) => {
       schemaReadyByDatabase.delete(key);
       throw error;
@@ -518,6 +656,35 @@ function parseJson<T>(value: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+export async function getNetshopProductImageMetadata(
+  db: NetshopDatabase,
+  contentHash: string,
+  platformNames: readonly string[],
+): Promise<StoredNetshopProductImage | null> {
+  const normalizedHash = contentHash.trim().toLowerCase();
+  const platforms = [...new Set(platformNames.map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  if (!/^[a-f0-9]{64}$/.test(normalizedHash) || platforms.length === 0) return null;
+  const row = await db.prepare(
+    `SELECT asset.raw_json
+     FROM netshop_rows asset
+     JOIN netshop_import_batches batch
+      ON batch.id = asset.last_import_batch_id
+      AND batch.status = 'completed'
+      AND batch.source = asset.source
+      AND batch.dataset = asset.dataset
+      AND batch.platform = asset.platform
+      AND batch.shop_name = asset.shop_name
+     WHERE asset.source = 'tmall_product_assets'
+       AND asset.dataset = 'spu_assets'
+       AND json_valid(asset.raw_json)
+       AND asset.platform IN (${platforms.map(() => "?").join(", ")})
+       AND json_extract(asset.raw_json, '$."图片内容SHA256"') = ?
+     ORDER BY asset.snapshot_date DESC, batch.completed_at DESC, batch.created_at DESC, asset.id DESC
+     LIMIT 1`,
+  ).bind(...platforms, normalizedHash).first<{ raw_json: string }>();
+  return row ? storedNetshopProductImage(parseJson<Record<string, unknown>>(row.raw_json, {})) : null;
 }
 
 function mapBatch(row: NetshopBatchRow): NetshopImportBatch {
@@ -932,6 +1099,58 @@ export async function saveNetshopImport(
     ).bind(batchId, batchId));
   }
 
+  if (input.replaceScope && "startDate" in input.replaceScope) {
+    const promotionScope = promotionAggregateScopeForSource({
+      source: input.source,
+      platform: input.platform,
+      shopName: input.shopName,
+      startDate: input.replaceScope.startDate,
+      endDate: input.replaceScope.endDate,
+    });
+    if (promotionScope) {
+      const aggregateStatements = buildPromotionAggregatePublishStatements(db, {
+        ...promotionScope,
+        batchId,
+        rows: input.rows,
+      }) as Array<(typeof statements)[number]>;
+      statements.push(...aggregateStatements);
+    }
+  }
+
+  const updatesProductDailyFacts = (
+    input.source === "jd_sku_daily"
+      && (input.dataset === "sku_daily" || input.dataset === "spu_daily")
+      && input.platform === "京东"
+  ) || (
+    input.source === "tmall_product_daily"
+      && input.dataset === "spu_daily"
+      && input.platform === "天猫"
+  );
+  if (updatesProductDailyFacts) {
+    statements.push(db.prepare(
+      `INSERT INTO netshop_product_daily_revisions (platform, data_version, updated_at)
+       SELECT ?, 1, CURRENT_TIMESTAMP
+       WHERE EXISTS (
+         SELECT 1 FROM netshop_import_batches WHERE id = ? AND status = 'processing'
+       )
+       ON CONFLICT(platform) DO UPDATE SET
+         data_version = netshop_product_daily_revisions.data_version + 1,
+         updated_at = CURRENT_TIMESTAMP`,
+    ).bind(input.platform, batchId));
+    statements.push(db.prepare(
+      `INSERT INTO netshop_product_daily_scope_revisions (
+         platform, shop_name, data_version, updated_at
+       )
+       SELECT ?, ?, 1, CURRENT_TIMESTAMP
+       WHERE EXISTS (
+         SELECT 1 FROM netshop_import_batches WHERE id = ? AND status = 'processing'
+       )
+       ON CONFLICT(platform, shop_name) DO UPDATE SET
+         data_version = netshop_product_daily_scope_revisions.data_version + 1,
+         updated_at = CURRENT_TIMESTAMP`,
+    ).bind(input.platform, input.shopName, batchId));
+  }
+
   statements.push(
     db
       .prepare(
@@ -1274,6 +1493,156 @@ async function latestProductBatches(db: NetshopDatabase) {
   return rows.results.map(mapBatch);
 }
 
+type NetshopAssetHeadRow = {
+  source: string;
+  dataset: string;
+  platform: string;
+  shop_name: string;
+  batch_id: string;
+  snapshot_date: string | null;
+};
+
+async function sha256SnapshotPayload(value: unknown) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(value)),
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function readLatestProductAssetHeads(
+  db: NetshopDatabase,
+  scopes: readonly { platform: string; shopName: string }[],
+  includeJd: boolean,
+  includeTmall: boolean,
+) {
+  const requested = [...new Map(scopes
+    .map((scope) => ({ platform: scope.platform.trim(), shopName: scope.shopName.trim() }))
+    .filter((scope) => scope.platform && scope.shopName)
+    .map((scope) => [`${scope.platform}\u001f${scope.shopName}`, scope])).values()]
+    .sort((left, right) => left.platform.localeCompare(right.platform) || left.shopName.localeCompare(right.shopName));
+  if (requested.length === 0 || (!includeJd && !includeTmall)) return [] as NetshopAssetHeadRow[];
+  const sourcePredicates = [
+    includeJd ? "(batch.source = 'jd_yimei_sku' AND batch.platform = '京东')" : "",
+    includeTmall ? "(batch.source = 'tmall_product_assets' AND batch.dataset = 'spu_assets' AND batch.platform = '天猫')" : "",
+  ].filter(Boolean);
+  const rows = await db.prepare(
+    `WITH requested AS (
+       SELECT DISTINCT
+         CAST(json_extract(value, '$.platform') AS TEXT) AS platform,
+         CAST(json_extract(value, '$.shopName') AS TEXT) AS shop_name
+       FROM json_each(?)
+     ), ranked AS (
+       SELECT batch.source, batch.dataset, batch.platform, batch.shop_name,
+         batch.id AS batch_id, batch.snapshot_date,
+         ROW_NUMBER() OVER (
+           PARTITION BY batch.source, batch.dataset, batch.platform, batch.shop_name
+           ORDER BY batch.snapshot_date DESC, batch.completed_at DESC, batch.created_at DESC, batch.id DESC
+         ) AS batch_rank
+       FROM netshop_import_batches batch
+       WHERE batch.status = 'completed'
+         AND (${sourcePredicates.join(" OR ")})
+         AND EXISTS (
+           SELECT 1 FROM requested
+           WHERE requested.platform = batch.platform
+             AND (
+               requested.shop_name = batch.shop_name
+               OR (batch.source = 'jd_yimei_sku' AND batch.shop_name = '')
+             )
+         )
+     )
+     SELECT source, dataset, platform, shop_name, batch_id, snapshot_date
+     FROM ranked
+     WHERE batch_rank = 1
+     ORDER BY source, dataset, platform, shop_name`,
+  ).bind(JSON.stringify(requested)).all<NetshopAssetHeadRow>();
+  return rows.results;
+}
+
+async function readSalesFactsRevision(db: NetshopDatabase) {
+  const row = await db.prepare(
+    "SELECT sales_revision FROM sales_overview_cache_state WHERE id = 1",
+  ).first<{ sales_revision: number | null }>();
+  const revision = Number(row?.sales_revision ?? 0);
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    throw new PublicApiError(503, "service_unavailable", "销售事实版本无效，请稍后重试");
+  }
+  return revision;
+}
+
+type ProductCatalogSnapshotInput = {
+  requestedPlatforms: readonly string[];
+  requestedOutlets: readonly NetshopOutletFilter[];
+  salesPeriod: NetshopQueryPeriod | null;
+  salesChannels: readonly string[] | null;
+  includeShopOptions: boolean;
+};
+
+async function readProductCatalogSnapshot(
+  db: NetshopDatabase,
+  input: ProductCatalogSnapshotInput,
+) {
+  const latestBatches = await latestProductBatches(db);
+  const requestedOutletKeys = new Set(input.requestedOutlets.map((value) => `${value.platform}\u001f${value.shopName}`));
+  const visibleBatches = latestBatches.filter((batch) => input.requestedPlatforms.length === 0 || input.requestedPlatforms.includes(batch.platform));
+  const batches = visibleBatches.filter((batch) => requestedOutletKeys.size === 0 || requestedOutletKeys.has(`${batch.platform}\u001f${batch.shopName}`));
+  const assetScopes = batches.map((batch) => ({ platform: batch.platform, shopName: batch.shopName }));
+  const hasJd = batches.some((batch) => batch.platform === "京东");
+  const hasTmall = batches.some((batch) => batch.platform === "天猫");
+  const [assetHeads, salesRevision] = await Promise.all([
+    readLatestProductAssetHeads(db, assetScopes, hasJd, hasTmall),
+    hasJd ? readSalesFactsRevision(db) : Promise.resolve(null),
+  ]);
+  const snapshotToken = await sha256SnapshotPayload({
+    version: 1,
+    platforms: [...input.requestedPlatforms].sort(),
+    outlets: [...input.requestedOutlets]
+      .map((outlet) => ({ platform: outlet.platform, shopName: outlet.shopName }))
+      .sort((left, right) => left.platform.localeCompare(right.platform) || left.shopName.localeCompare(right.shopName)),
+    salesPeriod: input.salesPeriod
+      ? { startDate: input.salesPeriod.startDate, endDate: input.salesPeriod.endDate }
+      : null,
+    salesChannels: input.salesChannels === null ? null : [...input.salesChannels].sort(),
+    selectedProductHeads: batches.map((batch) => ({
+      id: batch.id,
+      source: batch.source,
+      platform: batch.platform,
+      shopName: batch.shopName,
+      snapshotDate: batch.snapshotDate,
+    })).sort((left, right) => left.platform.localeCompare(right.platform) || left.shopName.localeCompare(right.shopName)),
+    assetHeads,
+    salesRevision,
+  });
+  const shopOptionsSnapshotToken = input.includeShopOptions
+    ? await sha256SnapshotPayload({
+      version: 1,
+      visibleProductHeads: visibleBatches.map((batch) => ({
+        id: batch.id,
+        source: batch.source,
+        platform: batch.platform,
+        shopName: batch.shopName,
+        snapshotDate: batch.snapshotDate,
+      })).sort((left, right) => left.platform.localeCompare(right.platform) || left.shopName.localeCompare(right.shopName)),
+    })
+    : null;
+  return { latestBatches, visibleBatches, batches, snapshotToken, shopOptionsSnapshotToken };
+}
+
+async function verifyProductCatalogSnapshot(
+  db: NetshopDatabase,
+  input: ProductCatalogSnapshotInput,
+  expectedSnapshotToken: string,
+  expectedShopOptionsSnapshotToken: string | null,
+) {
+  const closing = await readProductCatalogSnapshot(db, input);
+  if (closing.snapshotToken !== expectedSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "货品目录在读取期间已更新，请重新加载后重试");
+  }
+  if (closing.shopOptionsSnapshotToken !== expectedShopOptionsSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "货品目录店铺选项在读取期间已更新，请重新加载后重试");
+  }
+}
+
 function emptyNetshopProductSalesMetrics(): NetshopProductSalesMetrics {
   return {
     costPriceCents: null,
@@ -1290,6 +1659,7 @@ async function readJdProductSalesMetrics(
   outletScopes: readonly NetshopOutletFilter[],
   salesPeriod: NetshopQueryPeriod | null,
   allowedChannels: readonly string[] | null,
+  includeDataCutoff = true,
 ) {
   const identities = [...new Map(productIdentities
     .flatMap((identity): NetshopProductSalesMatch[] => {
@@ -1335,7 +1705,7 @@ async function readJdProductSalesMetrics(
            SELECT 1 FROM json_each(?) AS allowed_channel
            WHERE TRIM(s.channel) = CAST(allowed_channel.value AS TEXT)
          )`;
-  const dataCutoff = scopes.length === 0
+  const dataCutoff = !includeDataCutoff || scopes.length === 0
     ? null
     : await db
     .prepare(
@@ -1431,7 +1801,8 @@ function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInte
   const metrics = parseJson<Record<string, unknown>>(row.metrics_json, {});
   const priceCents = typeof metrics.skuPriceCents === "number" ? metrics.skuPriceCents : rawNumber(raw, "SKU价格") !== null ? Math.round(Number(rawNumber(raw, "SKU价格")) * 100) : null;
   const spuId = row.spu_id || rawText(raw, "商品ID") || rawText(raw, "商品编码");
-  const productUrl = rawText(raw, "商品链接") || (row.platform === "天猫" && spuId ? `https://detail.tmall.com/item.htm?id=${encodeURIComponent(spuId)}` : "");
+  const productUrl = rawText(imageRaw, "商品链接") || rawText(raw, "商品链接")
+    || (row.platform === "天猫" && spuId ? `https://detail.tmall.com/item.htm?id=${encodeURIComponent(spuId)}` : "");
   return {
     platform: row.platform,
     shopName: row.shop_name,
@@ -1439,7 +1810,7 @@ function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInte
     skuId: row.sku_id || rawText(raw, "SKUID"),
     productCode: rawText(raw, "SKU商家编码") || rawText(raw, "商品编码") || row.product_code,
     productName: row.product_name || rawText(raw, "商品名称"),
-    imageUrl: productImageUrl(raw, imageRaw),
+    imageUrl: netshopProductImageUrl(imageRaw) || productImageUrl(raw, imageRaw),
     salesProductCode: rawText(raw, "商家SKU") || rawText(raw, "SKU商家编码"),
     saleAttribute: rawText(raw, "销售属性"),
     category,
@@ -1456,20 +1827,46 @@ function mapNetshopProductRow(row: NetshopProductRow): NetshopProductCatalogInte
   };
 }
 
-export async function getNetshopProductCatalog(
+type NetshopProductCatalogQueryInput = {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  outlets?: NetshopOutletFilter[];
+  platformNames?: string[];
+  salesStartDate?: string;
+  salesEndDate?: string;
+  salesChannels?: readonly string[] | null;
+};
+
+async function readNetshopProductCatalogProjection(
   db: NetshopDatabase,
-  input: { query?: string; page?: number; pageSize?: number; outlets?: NetshopOutletFilter[]; platformNames?: string[]; salesStartDate?: string; salesEndDate?: string; salesChannels?: readonly string[] | null } = {},
-): Promise<NetshopProductCatalog> {
+  input: NetshopProductCatalogQueryInput,
+  view: "full" | "page",
+  expectedSnapshotToken?: string,
+): Promise<NetshopProductCatalog | NetshopProductCatalogPage> {
   const page = boundedNetshopInteger(input.page, "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
   const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
   const salesPeriod = resolveNetshopQueryPeriod(input.salesStartDate, input.salesEndDate);
-  const latestBatches = await latestProductBatches(db);
   const requestedOutlets = normalizeNetshopOutletFilters(input.outlets);
-  const requestedOutletKeys = new Set(requestedOutlets.map((value) => `${value.platform}\u001f${value.shopName}`));
-  const requestedPlatforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))];
+  const requestedPlatforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))].sort();
   assertNetshopOutletPlatformSelection(requestedPlatforms, requestedOutlets);
-  const visibleBatches = latestBatches.filter((batch) => requestedPlatforms.length === 0 || requestedPlatforms.includes(batch.platform));
-  const batches = visibleBatches.filter((batch) => requestedOutletKeys.size === 0 || requestedOutletKeys.has(`${batch.platform}\u001f${batch.shopName}`));
+  const query = (input.query ?? "").trim().slice(0, 120);
+  const salesChannels = input.salesChannels === undefined ? null : input.salesChannels;
+  if (view === "page" && (!expectedSnapshotToken || !/^[a-f0-9]{64}$/.test(expectedSnapshotToken))) {
+    throw new NetshopQueryError("snapshot_token_required", "page 视图必须提供有效 snapshotToken");
+  }
+  const snapshotInput: ProductCatalogSnapshotInput = {
+    requestedPlatforms,
+    requestedOutlets,
+    salesPeriod,
+    salesChannels,
+    includeShopOptions: view === "full" && requestedOutlets.length > 0,
+  };
+  const opening = await readProductCatalogSnapshot(db, snapshotInput);
+  if (view === "page" && opening.snapshotToken !== expectedSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "货品目录版本已变化，请重新加载");
+  }
+  const { visibleBatches, batches } = opening;
   const batch = batches[0] ?? null;
   const shops = visibleBatches
     .map((item) => ({ shopName: item.shopName, platform: item.platform, snapshotDate: item.snapshotDate, completedAt: item.completedAt }))
@@ -1481,49 +1878,60 @@ export async function getNetshopProductCatalog(
     platform: "京东",
   };
   if (!batch) {
+    const pagePayload: NetshopProductCatalogPage = {
+      snapshotToken: opening.snapshotToken,
+      items: [],
+      pagination: { page, pageSize, total: 0, returned: 0, truncated: false },
+    };
+    await verifyProductCatalogSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+    if (view === "page") return pagePayload;
     return {
+      ...pagePayload,
       batch: null,
       summary: { totalSkus: 0, onSaleSkus: 0, totalInventory: 0, availableInventory: 0 },
       shops,
       sales: emptySales,
-      items: [],
-      pagination: { page, pageSize, total: 0, returned: 0, truncated: false },
     };
   }
 
   const batchIds = batches.map((item) => item.id);
-  const batchClause = "last_import_batch_id IN (SELECT CAST(value AS TEXT) FROM json_each(?))";
+  const authoritativeTotal = batches.reduce((sum, item) => sum + item.rowCount, 0);
+  if (!Number.isSafeInteger(authoritativeTotal) || authoritativeTotal < 0) {
+    throw new PublicApiError(503, "service_unavailable", "货品目录批次行数无效，请稍后重试");
+  }
+  const batchFrom = "json_each(?) requested_batch CROSS JOIN netshop_rows product";
+  const batchClause = `product.source IN ('jd_product_master', 'tmall_product_master')
+    AND product.dataset = 'product_master'
+    AND product.last_import_batch_id = CAST(requested_batch.value AS TEXT)`;
   const batchBinding = JSON.stringify(batchIds);
-
-  const summary = await db
-    .prepare(
-      `SELECT
-         COUNT(*) AS total_skus,
-         SUM(CASE WHEN json_extract(raw_json, '$."商品状态"') = '上架' THEN 1 ELSE 0 END) AS on_sale_skus,
-         SUM(COALESCE(CAST(json_extract(metrics_json, '$.inventoryQuantity') AS REAL), CAST(json_extract(raw_json, '$."商品总库存"') AS REAL), 0)) AS total_inventory,
-         SUM(COALESCE(CAST(json_extract(metrics_json, '$.inventoryQuantity') AS REAL), CAST(json_extract(raw_json, '$."商品可用库存"') AS REAL), 0)) AS available_inventory
-       FROM netshop_rows
-       WHERE ${batchClause}`,
-    )
-    .bind(batchBinding)
-    .first<NetshopProductSummaryRow>();
-
-  const query = (input.query ?? "").trim().slice(0, 120);
   const searchClause = query
-    ? " AND (shop_name LIKE ? OR spu_id LIKE ? OR sku_id LIKE ? OR product_code LIKE ? OR product_name LIKE ?)"
+    ? " AND (product.shop_name LIKE ? OR product.spu_id LIKE ? OR product.sku_id LIKE ? OR product.product_code LIKE ? OR product.product_name LIKE ?)"
     : "";
   const searchTerm = `%${query}%`;
   const bindings = query
     ? [batchBinding, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]
     : [batchBinding];
-  const totalRow = await db
-    .prepare(`SELECT COUNT(*) AS total FROM netshop_rows WHERE ${batchClause}${searchClause}`)
-    .bind(...bindings)
-    .first<{ total: number }>();
   const offset = (page - 1) * pageSize;
-  const rows = await db
-    .prepare(
-       `SELECT
+  const summaryPromise = view === "full"
+    ? db.prepare(
+      `SELECT
+         COUNT(*) AS total_skus,
+         SUM(CASE WHEN json_extract(product.raw_json, '$."商品状态"') = '上架' THEN 1 ELSE 0 END) AS on_sale_skus,
+         SUM(COALESCE(CAST(json_extract(product.metrics_json, '$.inventoryQuantity') AS REAL), CAST(json_extract(product.raw_json, '$."商品总库存"') AS REAL), 0)) AS total_inventory,
+         SUM(COALESCE(CAST(json_extract(product.metrics_json, '$.inventoryQuantity') AS REAL), CAST(json_extract(product.raw_json, '$."商品可用库存"') AS REAL), 0)) AS available_inventory
+       FROM ${batchFrom}
+       WHERE ${batchClause}`,
+    ).bind(batchBinding).first<NetshopProductSummaryRow>()
+    : Promise.resolve(null);
+  const searchedTotalPromise = query
+    ? db.prepare(
+      `SELECT COUNT(*) AS total
+       FROM ${batchFrom}
+       WHERE ${batchClause}${searchClause}`,
+    ).bind(...bindings).first<{ total: number | null }>()
+    : Promise.resolve(null);
+  const rowsPromise = db.prepare(
+    `SELECT
          product.source,
          product.platform,
          product.shop_name,
@@ -1539,44 +1947,103 @@ export async function getNetshopProductCatalog(
            FROM netshop_rows image_row
            JOIN netshop_import_batches image_batch
              ON image_batch.id = image_row.last_import_batch_id
-           WHERE image_row.source = 'jd_yimei_sku'
-             AND image_batch.status = 'completed'
-             AND image_row.platform = product.platform
-             AND image_batch.platform = product.platform
-             AND TRIM(image_batch.shop_name) = TRIM(product.shop_name)
-             AND (TRIM(image_row.shop_name) = TRIM(product.shop_name) OR TRIM(image_row.shop_name) = '')
-             AND (
-               (image_row.sku_id <> '' AND image_row.sku_id = product.sku_id)
-               OR (image_row.product_code <> '' AND image_row.product_code = product.product_code)
-             )
-           ORDER BY image_batch.completed_at DESC, image_batch.created_at DESC, image_row.id DESC
+            WHERE image_batch.status = 'completed'
+              AND image_batch.source = image_row.source
+              AND image_batch.dataset = image_row.dataset
+              AND image_row.platform = product.platform
+              AND image_batch.platform = product.platform
+              AND TRIM(image_batch.shop_name) = TRIM(product.shop_name)
+              AND (
+                (
+                  product.platform = '天猫'
+                  AND image_row.source = 'tmall_product_assets'
+                  AND image_row.dataset = 'spu_assets'
+                  AND TRIM(image_row.shop_name) = TRIM(product.shop_name)
+                  AND image_row.spu_id <> ''
+                  AND image_row.spu_id = product.spu_id
+                  AND image_row.last_import_batch_id = (
+                    SELECT latest_asset_batch.id
+                    FROM netshop_import_batches latest_asset_batch
+                    WHERE latest_asset_batch.source = 'tmall_product_assets'
+                      AND latest_asset_batch.dataset = 'spu_assets'
+                      AND latest_asset_batch.status = 'completed'
+                      AND latest_asset_batch.platform = product.platform
+                      AND TRIM(latest_asset_batch.shop_name) = TRIM(product.shop_name)
+                    ORDER BY latest_asset_batch.snapshot_date DESC,
+                      latest_asset_batch.completed_at DESC,
+                      latest_asset_batch.created_at DESC,
+                      latest_asset_batch.id DESC
+                    LIMIT 1
+                  )
+                )
+                OR (
+                  product.platform = '京东'
+                  AND image_row.source = 'jd_yimei_sku'
+                  AND (TRIM(image_row.shop_name) = TRIM(product.shop_name) OR TRIM(image_row.shop_name) = '')
+                  AND (
+                    (image_row.sku_id <> '' AND image_row.sku_id = product.sku_id)
+                    OR (image_row.product_code <> '' AND image_row.product_code = product.product_code)
+                  )
+                )
+              )
+            ORDER BY image_row.snapshot_date DESC, image_batch.completed_at DESC, image_batch.created_at DESC, image_row.id DESC
            LIMIT 1
          ) AS image_raw_json
-       FROM netshop_rows product
+       FROM ${batchFrom}
        WHERE ${batchClause}${searchClause}
-       ORDER BY product.shop_name ASC, product.product_name ASC, product.sku_id ASC
+       ORDER BY product.shop_name ASC, product.product_name ASC, product.sku_id ASC,
+         product.platform ASC, product.id ASC
        LIMIT ? OFFSET ?`,
-    )
-    .bind(...bindings, pageSize, offset)
-    .all<NetshopProductRow>();
+  ).bind(...bindings, pageSize, offset).all<NetshopProductRow>();
+  const [summary, searchedTotal, rows] = await Promise.all([summaryPromise, searchedTotalPromise, rowsPromise]);
+  if (view === "full" && Number(summary?.total_skus ?? 0) !== authoritativeTotal) {
+    throw new PublicApiError(
+      503,
+      "service_unavailable",
+      "货品目录批次元数据与已发布事实不一致，请完成数据修复后重试",
+    );
+  }
+  const total = query ? Number(searchedTotal?.total ?? 0) : authoritativeTotal;
 
   const rawItems = rows.results.map(mapNetshopProductRow);
   const jdItems = rawItems.filter((item) => item.platform === "京东");
   const jdOutletScopes = batches
     .filter((item) => item.platform === "京东")
     .map((item) => ({ platform: item.platform, shopName: item.shopName }));
-  const sales = await readJdProductSalesMetrics(
-    db,
-    jdItems.map((item) => ({
-      platform: item.platform,
-      shopName: item.shopName,
-      salesProductCode: item.salesProductCode,
+  const sales = view === "full" || (Boolean(salesPeriod) && jdItems.length > 0)
+    ? await readJdProductSalesMetrics(
+      db,
+      jdItems.map((item) => ({
+        platform: item.platform,
+        shopName: item.shopName,
+        salesProductCode: item.salesProductCode,
+      })),
+      jdOutletScopes,
+      salesPeriod,
+      salesChannels,
+      view === "full",
+    )
+    : { metrics: new Map<string, NetshopProductSalesMetrics>(), dataCutoffDate: null, platform: "京东" };
+  const pagePayload: NetshopProductCatalogPage = {
+    snapshotToken: opening.snapshotToken,
+    items: rawItems.map(({ salesProductCode, ...item }) => ({
+      ...item,
+      ...(item.platform === "京东"
+        ? sales.metrics.get(JSON.stringify([item.platform, item.shopName, salesProductCode])) ?? emptyNetshopProductSalesMetrics()
+        : emptyNetshopProductSalesMetrics()),
     })),
-    jdOutletScopes,
-    salesPeriod,
-    input.salesChannels === undefined ? null : input.salesChannels,
-  );
+    pagination: {
+      page,
+      pageSize,
+      total,
+      returned: rawItems.length,
+      truncated: offset + rawItems.length < total,
+    },
+  };
+  await verifyProductCatalogSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+  if (view === "page") return pagePayload;
   return {
+    ...pagePayload,
     batch,
     summary: {
       totalSkus: Number(summary?.total_skus ?? 0),
@@ -1591,20 +2058,21 @@ export async function getNetshopProductCatalog(
       dataCutoffDate: sales.dataCutoffDate,
       platform: sales.platform,
     },
-    items: rawItems.map(({ salesProductCode, ...item }) => ({
-      ...item,
-      ...(item.platform === "京东"
-        ? sales.metrics.get(JSON.stringify([item.platform, item.shopName, salesProductCode])) ?? emptyNetshopProductSalesMetrics()
-        : emptyNetshopProductSalesMetrics()),
-    })),
-    pagination: {
-      page,
-      pageSize,
-      total: Number(totalRow?.total ?? 0),
-      returned: rawItems.length,
-      truncated: offset + rawItems.length < Number(totalRow?.total ?? 0),
-    },
   };
+}
+
+export async function getNetshopProductCatalog(
+  db: NetshopDatabase,
+  input: NetshopProductCatalogQueryInput = {},
+): Promise<NetshopProductCatalog> {
+  return readNetshopProductCatalogProjection(db, input, "full") as Promise<NetshopProductCatalog>;
+}
+
+export async function getNetshopProductCatalogPage(
+  db: NetshopDatabase,
+  input: NetshopProductCatalogQueryInput & { snapshotToken: string },
+): Promise<NetshopProductCatalogPage> {
+  return readNetshopProductCatalogProjection(db, input, "page", input.snapshotToken) as Promise<NetshopProductCatalogPage>;
 }
 
 type NetshopProductPerformanceSummaryRow = {
@@ -1634,6 +2102,7 @@ type NetshopProductPerformanceSummaryRow = {
 type NetshopProductPerformanceRow = {
   id: string;
   platform: string;
+  shop_name: string;
   sku_id: string;
   spu_id: string;
   product_code: string;
@@ -1660,6 +2129,14 @@ type NetshopProductPerformanceRow = {
   refund_amount_cents: number | null;
   search_visitors: number | null;
   search_transaction_customers: number | null;
+  total_items?: number | null;
+};
+
+type NetshopProductAssetLookupRow = {
+  platform: string;
+  shop_name: string;
+  spu_id: string;
+  raw_json: string;
 };
 
 type NetshopProductPerformanceDailyRow = {
@@ -1686,6 +2163,14 @@ type NetshopProductPerformanceAvailableCoverageRow = {
   date_max: string | null;
 };
 
+type NetshopProductPerformanceFullProjectionRow = NetshopProductPerformanceSummaryRow & {
+  items_json: string;
+  shops_json: string;
+  available_date_min: string | null;
+  available_date_max: string | null;
+  daily_json: string;
+};
+
 const dailyPerformanceMetrics = {
   pageViews: `COALESCE(CAST(json_extract(r.metrics_json, '$.pageViews') AS REAL), CAST(json_extract(r.metrics_json, '$."商品浏览量"') AS REAL), 0)`,
   visitors: `COALESCE(CAST(json_extract(r.metrics_json, '$.visitors') AS REAL), CAST(json_extract(r.metrics_json, '$."商品访客数"') AS REAL), 0)`,
@@ -1709,6 +2194,159 @@ const dailyPerformanceMetrics = {
 function numberFromDailyMetric(value: number | null | undefined) {
   const number = Number(value ?? 0);
   return Number.isFinite(number) ? number : 0;
+}
+
+function hasExactProjectionFields(row: Record<string, unknown>, fields: readonly string[]) {
+  const keys = Object.keys(row);
+  return keys.length === fields.length && fields.every((field) => Object.hasOwn(row, field));
+}
+
+function hasProjectionText(row: Record<string, unknown>, fields: readonly string[], nullable = false) {
+  return fields.every((field) => typeof row[field] === "string" || (nullable && row[field] === null));
+}
+
+function hasProjectionNumber(row: Record<string, unknown>, fields: readonly string[]) {
+  return fields.every((field) => row[field] === null
+    || (typeof row[field] === "number" && Number.isFinite(row[field])));
+}
+
+const productPerformanceItemProjectionFields = [
+  "id", "platform", "shop_name", "sku_id", "spu_id", "product_code", "product_name", "category", "shop_names",
+  "date_min", "date_max", "data_days", "page_views", "visitors", "search_impressions", "search_clicks",
+  "add_cart_customers", "add_cart_quantity", "order_customers", "order_quantity", "order_amount",
+  "transaction_orders", "transaction_amount", "transaction_quantity", "transaction_customers", "favorites",
+  "refund_amount_cents", "search_visitors", "search_transaction_customers",
+] as const;
+const productPerformanceItemProjectionNumbers = productPerformanceItemProjectionFields.slice(11);
+
+function isProductPerformanceItemProjection(row: Record<string, unknown>) {
+  return hasExactProjectionFields(row, productPerformanceItemProjectionFields)
+    && hasProjectionText(row, ["id", "platform", "shop_name", "sku_id", "spu_id"])
+    && hasProjectionText(row, ["product_code", "product_name", "category", "shop_names", "date_min", "date_max"], true)
+    && hasProjectionNumber(row, productPerformanceItemProjectionNumbers);
+}
+
+const productPerformanceShopProjectionFields = ["shop_name", "platform", "product_count"] as const;
+
+function isProductPerformanceShopProjection(row: Record<string, unknown>) {
+  return hasExactProjectionFields(row, productPerformanceShopProjectionFields)
+    && hasProjectionText(row, ["shop_name", "platform"])
+    && hasProjectionNumber(row, ["product_count"]);
+}
+
+const productPerformanceDailyProjectionFields = [
+  "business_date", "page_views", "visitors", "transaction_customers", "transaction_quantity",
+  "transaction_amount_cents", "refund_amount_cents", "favorites", "add_cart_customers", "add_cart_quantity",
+] as const;
+
+function isProductPerformanceDailyProjection(row: Record<string, unknown>) {
+  return hasExactProjectionFields(row, productPerformanceDailyProjectionFields)
+    && hasProjectionText(row, ["business_date"])
+    && hasProjectionNumber(row, productPerformanceDailyProjectionFields.slice(1));
+}
+
+function parseProductPerformanceProjectionRows<T extends Record<string, unknown>>(
+  value: string,
+  label: string,
+  maximumRows: number | null,
+  isValid: (row: Record<string, unknown>) => boolean,
+) {
+  let parsed: unknown;
+  try {
+    if (typeof value !== "string") throw new TypeError("projection is not text");
+    parsed = JSON.parse(value);
+  } catch {
+    throw new PublicApiError(503, "service_unavailable", `${label}投影不是有效 JSON，请稍后重试`);
+  }
+  if (!Array.isArray(parsed)
+    || (maximumRows !== null && parsed.length > maximumRows)
+    || parsed.some((item) => !item
+      || typeof item !== "object"
+      || Array.isArray(item)
+      || !isValid(item as Record<string, unknown>))) {
+    throw new PublicApiError(503, "service_unavailable", `${label}投影结构无效，请稍后重试`);
+  }
+  return parsed as T[];
+}
+
+async function readTmallProductAssets(
+  db: NetshopDatabase,
+  performanceRows: readonly NetshopProductPerformanceRow[],
+) {
+  const identities = [...new Map(performanceRows
+    .filter((row) => row.platform === "天猫" && row.shop_name.trim() && row.spu_id.trim())
+    .map((row) => {
+      const identity = { platform: row.platform, shopName: row.shop_name.trim(), spuId: row.spu_id.trim() };
+      return [JSON.stringify([identity.platform, identity.shopName, identity.spuId]), identity] as const;
+    })).values()];
+  if (identities.length === 0) return new Map<string, { imageUrl: string; productUrl: string }>();
+
+  const result = await db.prepare(
+    `WITH requested AS (
+       SELECT
+         CAST(json_extract(value, '$.platform') AS TEXT) AS platform,
+         CAST(json_extract(value, '$.shopName') AS TEXT) AS shop_name,
+         CAST(json_extract(value, '$.spuId') AS TEXT) AS spu_id
+       FROM json_each(?)
+     ), requested_shops AS (
+       SELECT DISTINCT platform, shop_name FROM requested
+     ), latest_asset_batches AS (
+       SELECT
+         requested_shops.platform,
+         requested_shops.shop_name,
+         (
+           SELECT batch.id
+           FROM netshop_import_batches batch
+           WHERE batch.source = 'tmall_product_assets'
+             AND batch.dataset = 'spu_assets'
+             AND batch.status = 'completed'
+             AND batch.platform = requested_shops.platform
+             AND batch.shop_name = requested_shops.shop_name
+           ORDER BY batch.snapshot_date DESC, batch.completed_at DESC, batch.created_at DESC, batch.id DESC
+           LIMIT 1
+         ) AS batch_id
+       FROM requested_shops
+     ), ranked AS (
+       SELECT
+         requested.platform,
+         requested.shop_name,
+         requested.spu_id,
+         asset.raw_json,
+         ROW_NUMBER() OVER (
+           PARTITION BY requested.platform, requested.shop_name, requested.spu_id
+           ORDER BY asset.snapshot_date DESC, batch.completed_at DESC, batch.created_at DESC, asset.id DESC
+         ) AS asset_rank
+       FROM requested
+       JOIN latest_asset_batches latest
+         ON latest.platform = requested.platform
+        AND latest.shop_name = requested.shop_name
+       JOIN netshop_rows asset
+         ON asset.source = 'tmall_product_assets'
+        AND asset.dataset = 'spu_assets'
+        AND asset.platform = requested.platform
+        AND asset.shop_name = requested.shop_name
+        AND asset.spu_id = requested.spu_id
+        AND asset.last_import_batch_id = latest.batch_id
+       JOIN netshop_import_batches batch
+         ON batch.id = asset.last_import_batch_id
+        AND batch.status = 'completed'
+        AND batch.source = asset.source
+        AND batch.dataset = asset.dataset
+        AND batch.platform = requested.platform
+        AND batch.shop_name = requested.shop_name
+     )
+     SELECT platform, shop_name, spu_id, raw_json
+     FROM ranked
+     WHERE asset_rank = 1`,
+  ).bind(JSON.stringify(identities)).all<NetshopProductAssetLookupRow>();
+
+  return new Map(result.results.map((row) => {
+    const raw = parseJson<Record<string, unknown>>(row.raw_json, {});
+    return [JSON.stringify([row.platform, row.shop_name, row.spu_id]), {
+      imageUrl: netshopProductImageUrl(raw),
+      productUrl: rawText(raw, "商品链接"),
+    }];
+  }));
 }
 
 function dailyPerformanceCategorySql() {
@@ -1747,24 +2385,150 @@ function assertNetshopOutletPlatformSelection(
   }
 }
 
+function productPerformanceRevisionScopes(
+  dimension: NetshopProductPerformanceDimension,
+  platforms: readonly string[],
+  outlets: readonly NetshopOutletFilter[],
+) {
+  const supportedPlatforms = dimension === "sku" ? ["京东"] : ["京东", "天猫"];
+  const activePlatforms = (platforms.length > 0 ? platforms : supportedPlatforms)
+    .filter((platform) => supportedPlatforms.includes(platform));
+  if (outlets.length > 0) {
+    return activePlatforms.flatMap((platform) => {
+      const shopNames = outlets
+        .filter((outlet) => outlet.platform === platform)
+        .map((outlet) => outlet.shopName);
+      return shopNames.length > 0 ? [{ platform, shopNames }] : [];
+    });
+  }
+  return activePlatforms.map((platform) => ({ platform }));
+}
+
+function productPerformancePlatformRevisionScopes(
+  dimension: NetshopProductPerformanceDimension,
+  platforms: readonly string[],
+) {
+  const supportedPlatforms = dimension === "sku" ? ["京东"] : ["京东", "天猫"];
+  return (platforms.length > 0 ? platforms : supportedPlatforms)
+    .filter((platform) => supportedPlatforms.includes(platform))
+    .map((platform) => ({ platform }));
+}
+
+async function readProductPerformanceAssetHeads(
+  db: NetshopDatabase,
+  platforms: readonly string[],
+  outlets: readonly NetshopOutletFilter[],
+) {
+  const includesTmall = platforms.length === 0 || platforms.includes("天猫");
+  if (!includesTmall) return [] as NetshopAssetHeadRow[];
+  const tmallOutlets = outlets.filter((outlet) => outlet.platform === "天猫");
+  if (outlets.length > 0) {
+    return readLatestProductAssetHeads(db, tmallOutlets, false, true);
+  }
+  const rows = await db.prepare(
+    `WITH ranked AS (
+       SELECT batch.source, batch.dataset, batch.platform, batch.shop_name,
+         batch.id AS batch_id, batch.snapshot_date,
+         ROW_NUMBER() OVER (
+           PARTITION BY batch.platform, batch.shop_name
+           ORDER BY batch.snapshot_date DESC, batch.completed_at DESC, batch.created_at DESC, batch.id DESC
+         ) AS batch_rank
+       FROM netshop_import_batches batch
+       WHERE batch.source = 'tmall_product_assets'
+         AND batch.dataset = 'spu_assets'
+         AND batch.status = 'completed'
+         AND batch.platform = '天猫'
+     )
+     SELECT source, dataset, platform, shop_name, batch_id, snapshot_date
+     FROM ranked WHERE batch_rank = 1
+     ORDER BY platform, shop_name`,
+  ).all<NetshopAssetHeadRow>();
+  return rows.results;
+}
+
+type ProductPerformanceSnapshotInput = {
+  dimension: NetshopProductPerformanceDimension;
+  query: string;
+  period: NetshopQueryPeriod | null;
+  platforms: readonly string[];
+  outlets: readonly NetshopOutletFilter[];
+  includeAssets: boolean;
+  includeShopOptions: boolean;
+};
+
+async function readProductPerformanceSnapshot(
+  db: NetshopDatabase,
+  input: ProductPerformanceSnapshotInput,
+) {
+  const revisionScopes = productPerformanceRevisionScopes(input.dimension, input.platforms, input.outlets);
+  const [productDailyRevisions, assetHeads, shopOptionRevisions] = await Promise.all([
+    readNetshopProductDailyRevisions(db, revisionScopes),
+    input.includeAssets && input.dimension === "spu"
+      ? readProductPerformanceAssetHeads(db, input.platforms, input.outlets)
+      : Promise.resolve([] as NetshopAssetHeadRow[]),
+    input.includeShopOptions
+      ? readNetshopProductDailyRevisions(
+        db,
+        productPerformancePlatformRevisionScopes(input.dimension, input.platforms),
+      )
+      : Promise.resolve([]),
+  ]);
+  const snapshotToken = await sha256SnapshotPayload({
+    version: 1,
+    projectionFacts: input.includeAssets ? "items" : "summary",
+    dimension: input.dimension,
+    query: input.query,
+    period: input.period ? { startDate: input.period.startDate, endDate: input.period.endDate } : null,
+    platforms: [...input.platforms].sort(),
+    outlets: [...input.outlets]
+      .map((outlet) => ({ platform: outlet.platform, shopName: outlet.shopName }))
+      .sort((left, right) => left.platform.localeCompare(right.platform) || left.shopName.localeCompare(right.shopName)),
+    productDailyRevisions,
+    assetHeads,
+  });
+  const shopOptionsSnapshotToken = input.includeShopOptions
+    ? await sha256SnapshotPayload({ version: 1, shopOptionRevisions })
+    : null;
+  return { snapshotToken, shopOptionsSnapshotToken };
+}
+
+async function verifyProductPerformanceSnapshot(
+  db: NetshopDatabase,
+  input: ProductPerformanceSnapshotInput,
+  expectedSnapshotToken: string,
+  expectedShopOptionsSnapshotToken: string | null,
+) {
+  const closing = await readProductPerformanceSnapshot(db, input);
+  if (closing.snapshotToken !== expectedSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品日数据在读取期间已更新，请重新加载后重试");
+  }
+  if (closing.shopOptionsSnapshotToken !== expectedShopOptionsSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品日店铺选项在读取期间已更新，请重新加载后重试");
+  }
+}
+
 /**
  * Aggregates the imported JD Business Intelligence product-detail workbooks.
  * The data is deliberately read-only: each SKU/SPU day remains the source of
  * truth and is only summed for the selected analysis range.
  */
-export async function getNetshopProductPerformance(
+type NetshopProductPerformanceQueryInput = {
+  dimension: NetshopProductPerformanceDimension;
+  query?: string;
+  page?: number;
+  pageSize?: number;
+  platformNames?: string[];
+  outlets?: NetshopOutletFilter[];
+  startDate?: string;
+  endDate?: string;
+};
+
+async function readNetshopProductPerformanceProjection(
   db: NetshopDatabase,
-  input: {
-    dimension: NetshopProductPerformanceDimension;
-    query?: string;
-    page?: number;
-    pageSize?: number;
-    platformNames?: string[];
-    outlets?: NetshopOutletFilter[];
-    startDate?: string;
-    endDate?: string;
-  },
-): Promise<NetshopProductPerformance> {
+  input: NetshopProductPerformanceQueryInput,
+  view: "summary" | "full" | "page",
+  expectedSnapshotToken?: string,
+): Promise<NetshopProductPerformance | NetshopProductPerformanceSummary | NetshopProductPerformancePage> {
   const page = boundedNetshopInteger(input.page, "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
   const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
   const dataset = input.dimension === "sku" ? "sku_daily" : "spu_daily";
@@ -1776,9 +2540,34 @@ export async function getNetshopProductPerformance(
   const selectedOutlets = normalizeNetshopOutletFilters(input.outlets);
   assertNetshopOutletPlatformSelection(selectedPlatforms, selectedOutlets);
   const query = (input.query ?? "").trim().slice(0, 120);
+  if (view === "page" && (!expectedSnapshotToken || !/^[a-f0-9]{64}$/.test(expectedSnapshotToken))) {
+    throw new NetshopQueryError("snapshot_token_required", "page 视图必须提供有效 snapshotToken");
+  }
+  const snapshotInput: ProductPerformanceSnapshotInput = {
+    dimension: input.dimension,
+    query,
+    period,
+    platforms: selectedPlatforms,
+    outlets: selectedOutlets,
+    includeAssets: view !== "summary",
+    includeShopOptions: view === "full" && selectedOutlets.length > 0,
+  };
+  const opening = await readProductPerformanceSnapshot(db, snapshotInput);
+  if (view === "page" && opening.snapshotToken !== expectedSnapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "商品日数据版本已变化，请重新加载");
+  }
   const sourceSql = input.dimension === "sku"
     ? "r.source = 'jd_sku_daily'"
     : "r.source IN ('jd_sku_daily', 'tmall_product_daily')";
+  // SPU projections aggregate JSON metrics across both JD and Tmall. Without an
+  // explicit plan SQLite prefers the narrower source/date index, which turns the
+  // metric reads into scattered table lookups. This composite index is installed
+  // by ensureNetshopSchema and keeps source, dataset, platform and shop rows
+  // together; INDEXED BY only changes the access path, never the result contract.
+  // SKU projections keep the planner free to use their partial identity index.
+  const factTableSql = input.dimension === "spu"
+    ? "netshop_rows r INDEXED BY netshop_rows_source_dataset_scope_date_idx"
+    : "netshop_rows r";
   const identitySql = `r.platform || char(31) || r.shop_name || char(31) || ${dimensionSql}`;
   const whereParts = [sourceSql, "r.dataset = ?", `${dimensionSql} <> ''`];
   const bindings: string[] = [dataset];
@@ -1800,8 +2589,8 @@ export async function getNetshopProductPerformance(
   const whereSql = whereParts.join(" AND ");
   const categorySql = dailyPerformanceCategorySql();
   const metric = dailyPerformanceMetrics;
-  const summaryPromise = db
-    .prepare(
+  const summaryPromise = view === "summary"
+    ? db.prepare(
       `SELECT
          COUNT(DISTINCT ${identitySql}) AS product_count,
          COUNT(DISTINCT r.business_date) AS date_count,
@@ -1824,18 +2613,16 @@ export async function getNetshopProductPerformance(
          ,SUM(${metric.refundAmountCents}) AS refund_amount_cents
          ,SUM(${metric.searchVisitors}) AS search_visitors
          ,SUM(${metric.searchTransactionCustomers}) AS search_transaction_customers
-       FROM netshop_rows r
+       FROM ${factTableSql}
        WHERE ${whereSql}`,
-    )
-    .bind(...bindings)
-    .first<NetshopProductPerformanceSummaryRow>();
+    ).bind(...bindings).first<NetshopProductPerformanceSummaryRow>()
+    : Promise.resolve(null);
 
   const offset = (page - 1) * pageSize;
-  const rowsPromise = db
-    .prepare(
-      `SELECT
+  const groupedItemsSql = `SELECT
          ${dimensionSql} AS id,
          MAX(r.platform) AS platform,
+         MAX(r.shop_name) AS shop_name,
          MAX(r.sku_id) AS sku_id,
          MAX(r.spu_id) AS spu_id,
          MAX(NULLIF(r.product_code, '')) AS product_code,
@@ -1862,14 +2649,23 @@ export async function getNetshopProductPerformance(
          ,SUM(${metric.refundAmountCents}) AS refund_amount_cents
          ,SUM(${metric.searchVisitors}) AS search_visitors
          ,SUM(${metric.searchTransactionCustomers}) AS search_transaction_customers
-       FROM netshop_rows r
+       FROM ${factTableSql}
        WHERE ${whereSql}
-       GROUP BY r.platform, r.shop_name, ${dimensionSql}
-       ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC, id ASC
-       LIMIT ? OFFSET ?`,
-    )
-    .bind(...bindings, pageSize, offset)
-    .all<NetshopProductPerformanceRow>();
+       GROUP BY r.platform, r.shop_name, ${dimensionSql}`;
+  const rowsSql = view === "page"
+    ? `WITH grouped_items AS (${groupedItemsSql})
+       SELECT grouped_items.*, COUNT(*) OVER () AS total_items
+       FROM grouped_items
+       ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC,
+                id ASC, platform ASC, shop_name COLLATE NOCASE ASC, shop_name ASC
+       LIMIT ? OFFSET ?`
+    : `${groupedItemsSql}
+       ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC,
+                id ASC, platform ASC, shop_name COLLATE NOCASE ASC, shop_name ASC
+       LIMIT ? OFFSET ?`;
+  const rowsPromise = view === "page"
+    ? db.prepare(rowsSql).bind(...bindings, pageSize, offset).all<NetshopProductPerformanceRow>()
+    : Promise.resolve({ results: [] as NetshopProductPerformanceRow[] });
 
   const shopWhereParts = [sourceSql, "r.dataset = ?", `${dimensionSql} <> ''`];
   const shopBindings: string[] = [dataset];
@@ -1877,85 +2673,277 @@ export async function getNetshopProductPerformance(
     shopWhereParts.push(`r.platform IN (${selectedPlatforms.map(() => "?").join(", ")})`);
     shopBindings.push(...selectedPlatforms);
   }
-  const shopsPromise = db
-    .prepare(
-      `SELECT
-         r.shop_name,
-         MAX(r.platform) AS platform,
-         COUNT(DISTINCT ${identitySql}) AS product_count
-       FROM netshop_rows r
-       WHERE ${shopWhereParts.join(" AND ")}
-         AND r.shop_name <> ''
-       GROUP BY r.platform, r.shop_name
-       ORDER BY r.shop_name COLLATE NOCASE ASC`,
-    )
-    .bind(...shopBindings)
-    .all<NetshopProductPerformanceShopRow>();
+  const shopsPromise = Promise.resolve({ results: [] as NetshopProductPerformanceShopRow[] });
 
-  const availableCoverageWhereParts = [...shopWhereParts];
-  const availableCoverageBindings = [...shopBindings];
-  appendNetshopOutletFilter(availableCoverageWhereParts, availableCoverageBindings, selectedOutlets);
-  const availableCoveragePromise = db
-    .prepare(
-      `SELECT MIN(r.business_date) AS date_min, MAX(r.business_date) AS date_max
-       FROM netshop_rows r
-       WHERE ${availableCoverageWhereParts.join(" AND ")}`,
-    )
-    .bind(...availableCoverageBindings)
-    .first<NetshopProductPerformanceAvailableCoverageRow>();
+  const availableCoveragePromise = Promise.resolve(null as NetshopProductPerformanceAvailableCoverageRow | null);
+  const dailyRowsPromise = Promise.resolve({ results: [] as NetshopProductPerformanceDailyRow[] });
 
-  const dailyRowsPromise = db.prepare(
-    `WITH daily_series AS (
-     SELECT
-       r.business_date,
-       SUM(${metric.pageViews}) AS page_views,
-       SUM(${metric.visitors}) AS visitors,
-       SUM(${metric.transactionCustomers}) AS transaction_customers,
-       SUM(${metric.transactionQuantity}) AS transaction_quantity,
-       SUM(${metric.transactionAmountCents}) AS transaction_amount_cents,
-       SUM(${metric.refundAmountCents}) AS refund_amount_cents,
-       SUM(${metric.favorites}) AS favorites,
-       SUM(${metric.addCartCustomers}) AS add_cart_customers,
-       SUM(${metric.addCartQuantity}) AS add_cart_quantity
-     FROM netshop_rows r
-     WHERE ${whereSql}
-     GROUP BY r.business_date
-    )
-    SELECT * FROM daily_series
-    ORDER BY business_date DESC
-    LIMIT ?`,
-  ).bind(...bindings, NETSHOP_DAILY_SERIES_LIMIT).all<NetshopProductPerformanceDailyRow>();
+  const coverageWhereParts: string[] = [];
+  const coverageBindings: string[] = [];
+  appendNetshopOutletFilter(coverageWhereParts, coverageBindings, selectedOutlets, "available");
+  const coverageWhereSql = coverageWhereParts.length > 0 ? coverageWhereParts.join(" AND ") : "1 = 1";
+  const fullProjectionPromise = view === "full"
+    ? db.prepare(
+      `WITH filtered AS MATERIALIZED (
+         SELECT
+           r.platform,
+           r.shop_name,
+           r.business_date,
+           r.sku_id,
+           r.spu_id,
+           r.product_code,
+           r.product_name,
+           ${dimensionSql} AS dimension_id,
+           ${categorySql} AS category,
+           ${metric.pageViews} AS page_views,
+           ${metric.visitors} AS visitors,
+           ${metric.searchImpressions} AS search_impressions,
+           ${metric.searchClicks} AS search_clicks,
+           ${metric.addCartCustomers} AS add_cart_customers,
+           ${metric.addCartQuantity} AS add_cart_quantity,
+           ${metric.orderCustomers} AS order_customers,
+           ${metric.orderQuantity} AS order_quantity,
+           ${metric.orderAmountCents} AS order_amount,
+           ${metric.transactionOrders} AS transaction_orders,
+           ${metric.transactionAmountCents} AS transaction_amount,
+           ${metric.transactionQuantity} AS transaction_quantity,
+           ${metric.transactionCustomers} AS transaction_customers,
+           ${metric.favorites} AS favorites,
+           ${metric.refundAmountCents} AS refund_amount_cents,
+           ${metric.searchVisitors} AS search_visitors,
+           ${metric.searchTransactionCustomers} AS search_transaction_customers
+         FROM ${factTableSql}
+         WHERE ${whereSql}
+       ), available_facts AS MATERIALIZED (
+         SELECT
+           r.platform,
+           r.shop_name,
+           r.business_date,
+           ${dimensionSql} AS dimension_id
+         FROM ${factTableSql}
+         WHERE ${shopWhereParts.join(" AND ")}
+       ), summary AS MATERIALIZED (
+         SELECT
+           COUNT(DISTINCT platform || char(31) || shop_name || char(31) || dimension_id) AS product_count,
+           COUNT(DISTINCT business_date) AS date_count,
+           MIN(business_date) AS date_min,
+           MAX(business_date) AS data_cutoff_date,
+           SUM(page_views) AS page_views,
+           SUM(visitors) AS visitors,
+           SUM(search_impressions) AS search_impressions,
+           SUM(search_clicks) AS search_clicks,
+           SUM(add_cart_customers) AS add_cart_customers,
+           SUM(add_cart_quantity) AS add_cart_quantity,
+           SUM(order_customers) AS order_customers,
+           SUM(order_quantity) AS order_quantity,
+           SUM(order_amount) AS order_amount,
+           SUM(transaction_orders) AS transaction_orders,
+           SUM(transaction_amount) AS transaction_amount,
+           SUM(transaction_quantity) AS transaction_quantity,
+           SUM(transaction_customers) AS transaction_customers,
+           SUM(favorites) AS favorites,
+           SUM(refund_amount_cents) AS refund_amount_cents,
+           SUM(search_visitors) AS search_visitors,
+           SUM(search_transaction_customers) AS search_transaction_customers
+         FROM filtered
+       ), grouped_items AS MATERIALIZED (
+         SELECT
+           dimension_id AS id,
+           MAX(platform) AS platform,
+           MAX(shop_name) AS shop_name,
+           MAX(sku_id) AS sku_id,
+           MAX(spu_id) AS spu_id,
+           MAX(NULLIF(product_code, '')) AS product_code,
+           MAX(NULLIF(product_name, '')) AS product_name,
+           MAX(category) AS category,
+           GROUP_CONCAT(DISTINCT NULLIF(shop_name, '')) AS shop_names,
+           MIN(business_date) AS date_min,
+           MAX(business_date) AS date_max,
+           COUNT(DISTINCT business_date) AS data_days,
+           SUM(page_views) AS page_views,
+           SUM(visitors) AS visitors,
+           SUM(search_impressions) AS search_impressions,
+           SUM(search_clicks) AS search_clicks,
+           SUM(add_cart_customers) AS add_cart_customers,
+           SUM(add_cart_quantity) AS add_cart_quantity,
+           SUM(order_customers) AS order_customers,
+           SUM(order_quantity) AS order_quantity,
+           SUM(order_amount) AS order_amount,
+           SUM(transaction_orders) AS transaction_orders,
+           SUM(transaction_amount) AS transaction_amount,
+           SUM(transaction_quantity) AS transaction_quantity,
+           SUM(transaction_customers) AS transaction_customers,
+           SUM(favorites) AS favorites,
+           SUM(refund_amount_cents) AS refund_amount_cents,
+           SUM(search_visitors) AS search_visitors,
+           SUM(search_transaction_customers) AS search_transaction_customers
+         FROM filtered
+         GROUP BY platform, shop_name, dimension_id
+       ), shop_rows AS MATERIALIZED (
+         SELECT
+           shop_name,
+           MAX(platform) AS platform,
+           COUNT(DISTINCT platform || char(31) || shop_name || char(31) || dimension_id) AS product_count
+         FROM available_facts
+         WHERE shop_name <> ''
+         GROUP BY platform, shop_name
+       ), coverage AS MATERIALIZED (
+         SELECT MIN(business_date) AS date_min, MAX(business_date) AS date_max
+         FROM available_facts available
+         WHERE ${coverageWhereSql}
+       ), daily_series AS MATERIALIZED (
+         SELECT
+           business_date,
+           SUM(page_views) AS page_views,
+           SUM(visitors) AS visitors,
+           SUM(transaction_customers) AS transaction_customers,
+           SUM(transaction_quantity) AS transaction_quantity,
+           SUM(transaction_amount) AS transaction_amount_cents,
+           SUM(refund_amount_cents) AS refund_amount_cents,
+           SUM(favorites) AS favorites,
+           SUM(add_cart_customers) AS add_cart_customers,
+           SUM(add_cart_quantity) AS add_cart_quantity
+         FROM filtered
+         GROUP BY business_date
+       )
+       SELECT summary.*,
+         COALESCE((
+           SELECT json_group_array(json_object(
+             'id', page_items.id,
+             'platform', page_items.platform,
+             'shop_name', page_items.shop_name,
+             'sku_id', page_items.sku_id,
+             'spu_id', page_items.spu_id,
+             'product_code', page_items.product_code,
+             'product_name', page_items.product_name,
+             'category', page_items.category,
+             'shop_names', page_items.shop_names,
+             'date_min', page_items.date_min,
+             'date_max', page_items.date_max,
+             'data_days', page_items.data_days,
+             'page_views', page_items.page_views,
+             'visitors', page_items.visitors,
+             'search_impressions', page_items.search_impressions,
+             'search_clicks', page_items.search_clicks,
+             'add_cart_customers', page_items.add_cart_customers,
+             'add_cart_quantity', page_items.add_cart_quantity,
+             'order_customers', page_items.order_customers,
+             'order_quantity', page_items.order_quantity,
+             'order_amount', page_items.order_amount,
+             'transaction_orders', page_items.transaction_orders,
+             'transaction_amount', page_items.transaction_amount,
+             'transaction_quantity', page_items.transaction_quantity,
+             'transaction_customers', page_items.transaction_customers,
+             'favorites', page_items.favorites,
+             'refund_amount_cents', page_items.refund_amount_cents,
+             'search_visitors', page_items.search_visitors,
+             'search_transaction_customers', page_items.search_transaction_customers
+           ))
+           FROM (
+             SELECT *
+             FROM grouped_items
+             ORDER BY transaction_amount DESC, visitors DESC, product_name COLLATE NOCASE ASC,
+                      id ASC, platform ASC, shop_name COLLATE NOCASE ASC, shop_name ASC
+             LIMIT ? OFFSET ?
+           ) page_items
+         ), '[]') AS items_json,
+         COALESCE((
+           SELECT json_group_array(json_object(
+             'shop_name', shops.shop_name,
+             'platform', shops.platform,
+             'product_count', shops.product_count
+           ))
+           FROM (
+             SELECT * FROM shop_rows
+             ORDER BY shop_name COLLATE NOCASE ASC, shop_name ASC, platform ASC
+           ) shops
+         ), '[]') AS shops_json,
+         coverage.date_min AS available_date_min,
+         coverage.date_max AS available_date_max,
+         COALESCE((
+           SELECT json_group_array(json_object(
+             'business_date', daily.business_date,
+             'page_views', daily.page_views,
+             'visitors', daily.visitors,
+             'transaction_customers', daily.transaction_customers,
+             'transaction_quantity', daily.transaction_quantity,
+             'transaction_amount_cents', daily.transaction_amount_cents,
+             'refund_amount_cents', daily.refund_amount_cents,
+             'favorites', daily.favorites,
+             'add_cart_customers', daily.add_cart_customers,
+             'add_cart_quantity', daily.add_cart_quantity
+           ))
+           FROM (
+             SELECT * FROM daily_series ORDER BY business_date DESC LIMIT ?
+           ) daily
+         ), '[]') AS daily_json
+       FROM summary CROSS JOIN coverage`,
+    ).bind(
+      ...bindings,
+      ...shopBindings,
+      ...coverageBindings,
+      pageSize,
+      offset,
+      NETSHOP_DAILY_SERIES_LIMIT,
+    ).first<NetshopProductPerformanceFullProjectionRow>()
+    : Promise.resolve(null);
 
-  const [summary, rows, shops, availableCoverage, dailyRows] = await Promise.all([
+  const [standaloneSummary, standaloneRows, standaloneShops, standaloneAvailableCoverage, standaloneDailyRows, fullProjection] = await Promise.all([
     summaryPromise,
     rowsPromise,
     shopsPromise,
     availableCoveragePromise,
     dailyRowsPromise,
+    fullProjectionPromise,
   ]);
+  if (view === "full" && !fullProjection) {
+    throw new PublicApiError(503, "service_unavailable", "商品日首屏投影为空，请稍后重试");
+  }
+  const summary = fullProjection ?? standaloneSummary;
+  const rows = fullProjection
+    ? {
+      results: parseProductPerformanceProjectionRows<NetshopProductPerformanceRow>(
+        fullProjection.items_json,
+        "商品明细",
+        pageSize,
+        isProductPerformanceItemProjection,
+      ),
+    }
+    : standaloneRows;
+  const shops = fullProjection
+    ? {
+      results: parseProductPerformanceProjectionRows<NetshopProductPerformanceShopRow>(
+        fullProjection.shops_json,
+        "店铺选项",
+        null,
+        isProductPerformanceShopProjection,
+      ),
+    }
+    : standaloneShops;
+  const availableCoverage = fullProjection
+    ? { date_min: fullProjection.available_date_min, date_max: fullProjection.available_date_max }
+    : standaloneAvailableCoverage;
+  const dailyRows = fullProjection
+    ? {
+      results: parseProductPerformanceProjectionRows<NetshopProductPerformanceDailyRow>(
+        fullProjection.daily_json,
+        "商品日趋势",
+        NETSHOP_DAILY_SERIES_LIMIT,
+        isProductPerformanceDailyProjection,
+      ),
+    }
+    : standaloneDailyRows;
+  const productAssets = view !== "summary" && input.dimension === "spu"
+    ? await readTmallProductAssets(db, rows.results)
+    : new Map<string, { imageUrl: string; productUrl: string }>();
 
   const visitors = numberFromDailyMetric(summary?.visitors);
   const transactionCustomers = numberFromDailyMetric(summary?.transaction_customers);
   const searchImpressions = numberFromDailyMetric(summary?.search_impressions);
   const searchClicks = numberFromDailyMetric(summary?.search_clicks);
   const transactionAmountCents = numberFromDailyMetric(summary?.transaction_amount);
-  const dailySeriesRows = [...dailyRows.results].sort((left, right) => left.business_date.localeCompare(right.business_date));
-  const actualDates = dailySeriesRows.map((row) => row.business_date).filter(Boolean);
-  const dailyTotal = numberFromDailyMetric(summary?.date_count);
-  const requestedCoverage = period
-    ? dailyDateCoverageForQuery(period.startDate, period.endDate, actualDates)
-    : { actualDates, missingDates: [] as string[] };
-  const coverage = {
-    ...requestedCoverage,
-    availableDateMin: availableCoverage?.date_min ?? null,
-    availableDateMax: availableCoverage?.date_max ?? null,
-    total: dailyTotal,
-    returned: actualDates.length,
-    truncated: actualDates.length < dailyTotal,
-  };
-  const platforms = [...new Set(shops.results.map((shop) => shop.platform.trim()).filter(Boolean))]
-    .sort((left, right) => left.localeCompare(right, "zh-CN"));
-  return {
+  const summaryPayload: NetshopProductPerformanceSummary = {
+    snapshotToken: opening.snapshotToken,
     dimension: input.dimension,
     dataset,
     requestedPeriod: { startDate, endDate },
@@ -1963,13 +2951,6 @@ export async function getNetshopProductPerformance(
     dataCutoffDate: summary?.data_cutoff_date ?? null,
     monetaryUnit: "cents",
     visitorAggregation: "product_day_sum",
-    coverage,
-    platforms,
-    shops: shops.results.map((shop) => ({
-      shopName: shop.shop_name,
-      platform: shop.platform || "京东",
-      productCount: numberFromDailyMetric(shop.product_count),
-    })),
     summary: {
       productCount: numberFromDailyMetric(summary?.product_count),
       pageViews: numberFromDailyMetric(summary?.page_views),
@@ -1995,6 +2976,112 @@ export async function getNetshopProductPerformance(
       uvValue: visitors > 0 ? transactionAmountCents / 100 / visitors : null,
       conversionRate: visitors > 0 ? transactionCustomers / visitors : null,
     },
+  };
+  if (view === "summary") {
+    await verifyProductPerformanceSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+    return summaryPayload;
+  }
+
+  const items: NetshopProductPerformanceItem[] = rows.results.map((row) => {
+    const itemVisitors = numberFromDailyMetric(row.visitors);
+    const itemTransactionCustomers = numberFromDailyMetric(row.transaction_customers);
+    const itemSearchImpressions = numberFromDailyMetric(row.search_impressions);
+    const itemSearchClicks = numberFromDailyMetric(row.search_clicks);
+    const itemTransactionAmountCents = numberFromDailyMetric(row.transaction_amount);
+    const productAsset = productAssets.get(JSON.stringify([row.platform, row.shop_name, row.spu_id]));
+    return {
+      id: row.id,
+      platform: row.platform,
+      skuId: row.sku_id,
+      spuId: row.spu_id,
+      productCode: row.product_code,
+      productName: row.product_name,
+      imageUrl: productAsset?.imageUrl ?? "",
+      productUrl: productAsset?.productUrl ?? "",
+      category: row.category || "",
+      shopNames: (row.shop_names ?? "").split(",").map((value) => value.trim()).filter(Boolean),
+      dateMin: row.date_min,
+      dateMax: row.date_max,
+      dataDays: numberFromDailyMetric(row.data_days),
+      pageViews: numberFromDailyMetric(row.page_views),
+      visitors: itemVisitors,
+      searchImpressions: itemSearchImpressions,
+      searchClicks: itemSearchClicks,
+      searchClickRate: itemSearchImpressions > 0 ? itemSearchClicks / itemSearchImpressions : null,
+      addCartCustomers: numberFromDailyMetric(row.add_cart_customers),
+      addCartQuantity: numberFromDailyMetric(row.add_cart_quantity),
+      orderCustomers: numberFromDailyMetric(row.order_customers),
+      orderQuantity: numberFromDailyMetric(row.order_quantity),
+      orderAmount: numberFromDailyMetric(row.order_amount) / 100,
+      orderAmountCents: numberFromDailyMetric(row.order_amount),
+      transactionOrders: numberFromDailyMetric(row.transaction_orders),
+      transactionAmount: itemTransactionAmountCents / 100,
+      transactionAmountCents: itemTransactionAmountCents,
+      transactionQuantity: numberFromDailyMetric(row.transaction_quantity),
+      transactionCustomers: itemTransactionCustomers,
+      favorites: numberFromDailyMetric(row.favorites),
+      refundAmountCents: numberFromDailyMetric(row.refund_amount_cents),
+      searchVisitors: numberFromDailyMetric(row.search_visitors),
+      searchTransactionCustomers: numberFromDailyMetric(row.search_transaction_customers),
+      uvValue: itemVisitors > 0 ? itemTransactionAmountCents / 100 / itemVisitors : null,
+      conversionRate: itemVisitors > 0 ? itemTransactionCustomers / itemVisitors : null,
+    };
+  });
+  let pageTotal = view === "page"
+    ? numberFromDailyMetric(rows.results[0]?.total_items)
+    : numberFromDailyMetric(summary?.product_count);
+  if (view === "page" && rows.results.length === 0 && page > 1) {
+    const fallbackTotal = await db.prepare(
+      `SELECT COUNT(*) AS total FROM (
+         SELECT 1 FROM ${factTableSql}
+         WHERE ${whereSql}
+         GROUP BY r.platform, r.shop_name, ${dimensionSql}
+       ) grouped_items`,
+    ).bind(...bindings).first<{ total: number | null }>();
+    pageTotal = numberFromDailyMetric(fallbackTotal?.total);
+  }
+  const pagePayload: NetshopProductPerformancePage = {
+    snapshotToken: opening.snapshotToken,
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total: pageTotal,
+      returned: items.length,
+      truncated: offset + items.length < pageTotal,
+    },
+  };
+  if (view === "page") {
+    await verifyProductPerformanceSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+    return pagePayload;
+  }
+
+  const dailySeriesRows = [...dailyRows.results].sort((left, right) => left.business_date.localeCompare(right.business_date));
+  const actualDates = dailySeriesRows.map((row) => row.business_date).filter(Boolean);
+  const dailyTotal = numberFromDailyMetric(summary?.date_count);
+  const requestedCoverage = period
+    ? dailyDateCoverageForQuery(period.startDate, period.endDate, actualDates)
+    : { actualDates, missingDates: [] as string[] };
+  const coverage = {
+    ...requestedCoverage,
+    availableDateMin: availableCoverage?.date_min ?? null,
+    availableDateMax: availableCoverage?.date_max ?? null,
+    total: dailyTotal,
+    returned: actualDates.length,
+    truncated: actualDates.length < dailyTotal,
+  };
+  const platforms = [...new Set(shops.results.map((shop) => shop.platform.trim()).filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right, "zh-CN"));
+  const payload: NetshopProductPerformance = {
+    ...summaryPayload,
+    ...pagePayload,
+    coverage,
+    platforms,
+    shops: shops.results.map((shop) => ({
+      shopName: shop.shop_name,
+      platform: shop.platform || "京东",
+      productCount: numberFromDailyMetric(shop.product_count),
+    })),
     daily: dailySeriesRows.map((row) => ({
       date: row.business_date,
       pageViews: numberFromDailyMetric(row.page_views),
@@ -2012,56 +3099,30 @@ export async function getNetshopProductPerformance(
       returned: dailySeriesRows.length,
       truncated: dailySeriesRows.length < dailyTotal,
     },
-    items: rows.results.map((row) => {
-      const itemVisitors = numberFromDailyMetric(row.visitors);
-      const itemTransactionCustomers = numberFromDailyMetric(row.transaction_customers);
-      const itemSearchImpressions = numberFromDailyMetric(row.search_impressions);
-      const itemSearchClicks = numberFromDailyMetric(row.search_clicks);
-      const itemTransactionAmountCents = numberFromDailyMetric(row.transaction_amount);
-      return {
-        id: row.id,
-        platform: row.platform,
-        skuId: row.sku_id,
-        spuId: row.spu_id,
-        productCode: row.product_code,
-        productName: row.product_name,
-        category: row.category || "",
-        shopNames: (row.shop_names ?? "").split(",").map((value) => value.trim()).filter(Boolean),
-        dateMin: row.date_min,
-        dateMax: row.date_max,
-        dataDays: numberFromDailyMetric(row.data_days),
-        pageViews: numberFromDailyMetric(row.page_views),
-        visitors: itemVisitors,
-        searchImpressions: itemSearchImpressions,
-        searchClicks: itemSearchClicks,
-        searchClickRate: itemSearchImpressions > 0 ? itemSearchClicks / itemSearchImpressions : null,
-        addCartCustomers: numberFromDailyMetric(row.add_cart_customers),
-        addCartQuantity: numberFromDailyMetric(row.add_cart_quantity),
-        orderCustomers: numberFromDailyMetric(row.order_customers),
-        orderQuantity: numberFromDailyMetric(row.order_quantity),
-        orderAmount: numberFromDailyMetric(row.order_amount) / 100,
-        orderAmountCents: numberFromDailyMetric(row.order_amount),
-        transactionOrders: numberFromDailyMetric(row.transaction_orders),
-        transactionAmount: itemTransactionAmountCents / 100,
-        transactionAmountCents: itemTransactionAmountCents,
-        transactionQuantity: numberFromDailyMetric(row.transaction_quantity),
-        transactionCustomers: itemTransactionCustomers,
-        favorites: numberFromDailyMetric(row.favorites),
-        refundAmountCents: numberFromDailyMetric(row.refund_amount_cents),
-        searchVisitors: numberFromDailyMetric(row.search_visitors),
-        searchTransactionCustomers: numberFromDailyMetric(row.search_transaction_customers),
-        uvValue: itemVisitors > 0 ? itemTransactionAmountCents / 100 / itemVisitors : null,
-        conversionRate: itemVisitors > 0 ? itemTransactionCustomers / itemVisitors : null,
-      };
-    }),
-    pagination: {
-      page,
-      pageSize,
-      total: numberFromDailyMetric(summary?.product_count),
-      returned: rows.results.length,
-      truncated: offset + rows.results.length < numberFromDailyMetric(summary?.product_count),
-    },
   };
+  await verifyProductPerformanceSnapshot(db, snapshotInput, opening.snapshotToken, opening.shopOptionsSnapshotToken);
+  return payload;
+}
+
+export async function getNetshopProductPerformance(
+  db: NetshopDatabase,
+  input: NetshopProductPerformanceQueryInput,
+): Promise<NetshopProductPerformance> {
+  return readNetshopProductPerformanceProjection(db, input, "full") as Promise<NetshopProductPerformance>;
+}
+
+export async function getNetshopProductPerformanceSummary(
+  db: NetshopDatabase,
+  input: NetshopProductPerformanceQueryInput,
+): Promise<NetshopProductPerformanceSummary> {
+  return readNetshopProductPerformanceProjection(db, input, "summary") as Promise<NetshopProductPerformanceSummary>;
+}
+
+export async function getNetshopProductPerformancePage(
+  db: NetshopDatabase,
+  input: NetshopProductPerformanceQueryInput & { snapshotToken: string },
+): Promise<NetshopProductPerformancePage> {
+  return readNetshopProductPerformanceProjection(db, input, "page", input.snapshotToken) as Promise<NetshopProductPerformancePage>;
 }
 
 type PromotionAggregateRow = {
@@ -2081,6 +3142,7 @@ type PromotionAggregateRow = {
 
 type PromotionDailyRow = Omit<PromotionAggregateRow, "product_count" | "date_count" | "date_min" | "date_max"> & { business_date: string };
 type PromotionPaymentDailyRow = { business_date: string; payment_cents: number | null; total_dates: number | null };
+type PromotionOutletOptionRow = { platform: string; shop_name: string; total: number | null };
 
 type PromotionItemRow = PromotionAggregateRow & {
   id: string;
@@ -2104,7 +3166,7 @@ export async function getNetshopPromotionPerformance(
   } = {},
 ): Promise<NetshopPromotionPerformance> {
   const page = boundedNetshopInteger(input.page, "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
-  const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
+  const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 20, 1, NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE);
   const period = resolveNetshopQueryPeriod(input.startDate, input.endDate);
   const startDate = period?.startDate ?? null;
   const endDate = period?.endDate ?? null;
@@ -2135,6 +3197,23 @@ export async function getNetshopPromotionPerformance(
     SUM(${metric.cartQuantity}) AS cart_quantity`;
   const summaryPromise = db.prepare(`SELECT ${aggregateSelect} FROM netshop_rows r WHERE ${whereSql}`)
     .bind(...bindings).first<PromotionAggregateRow>();
+  const outletOptionWhere = [netshopPromotionSourceSql];
+  const outletOptionBindings: string[] = [];
+  if (platforms.length) {
+    outletOptionWhere.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`);
+    outletOptionBindings.push(...platforms);
+  }
+  const outletOptionsPromise = db.prepare(
+    `SELECT platform, shop_name, COUNT(*) OVER () AS total
+     FROM (
+       SELECT r.platform AS platform, r.shop_name AS shop_name
+       FROM netshop_rows r
+       WHERE ${outletOptionWhere.join(" AND ")}
+       GROUP BY r.platform, r.shop_name
+     ) promotion_outlets
+     ORDER BY platform ASC, shop_name ASC
+     LIMIT ?`,
+  ).bind(...outletOptionBindings, NETSHOP_OUTLET_MAX_ITEMS).all<PromotionOutletOptionRow>();
   const dailyPromise = db.prepare(
     `WITH daily_series AS (
      SELECT r.business_date,
@@ -2199,8 +3278,9 @@ export async function getNetshopPromotionPerformance(
      LIMIT ? OFFSET ?`,
   ).bind(...itemBindings, pageSize, offset).all<PromotionItemRow>();
 
-  const [summary, daily, paymentRows, totalRow, itemRows] = await Promise.all([
+  const [summary, outletOptions, daily, paymentRows, totalRow, itemRows] = await Promise.all([
     summaryPromise,
+    outletOptionsPromise,
     dailyPromise,
     paymentRowsPromise,
     totalPromise,
@@ -2229,6 +3309,7 @@ export async function getNetshopPromotionPerformance(
   const total = query
     ? numberFromDailyMetric(totalRow?.total)
     : numberFromDailyMetric(summary?.product_count);
+  const outletOptionTotal = numberFromDailyMetric(outletOptions.results[0]?.total);
   return {
     monetaryUnit: "cents",
     requestedPeriod: { startDate, endDate },
@@ -2286,6 +3367,14 @@ export async function getNetshopPromotionPerformance(
         promotionTransactionShare: payment && payment > 0 ? netTransactionAmountCents / payment : null,
       };
     }),
+    filterOptions: {
+      shops: outletOptions.results.map((row) => ({ platform: row.platform, shopName: row.shop_name })),
+      pagination: {
+        total: outletOptionTotal,
+        returned: outletOptions.results.length,
+        truncated: outletOptions.results.length < outletOptionTotal,
+      },
+    },
     dailyPagination: {
       total: promotionDateTotal,
       returned: orderedDailyRows.length,
@@ -2320,5 +3409,573 @@ export async function getNetshopPromotionPerformance(
       };
     }),
     pagination: { page, pageSize, total, returned: itemRows.results.length, truncated: offset + itemRows.results.length < total },
+  };
+}
+
+type PromotionScopeInput = {
+  platformNames?: string[];
+  outlets?: NetshopOutletFilter[];
+  startDate?: string;
+  endDate?: string;
+  expectedSnapshotToken?: string;
+};
+
+type PromotionOverviewDailyRow = PromotionDailyRow & {
+  total_dates: number | null;
+  all_date_min: string | null;
+  all_date_max: string | null;
+  all_spend_cents: number | null;
+  all_net_transaction_amount_cents: number | null;
+  all_gross_transaction_amount_cents: number | null;
+  all_impressions: number | null;
+  all_clicks: number | null;
+  all_net_orders: number | null;
+  all_favorites: number | null;
+  all_cart_quantity: number | null;
+};
+
+type PromotionItemsQueryRow = PromotionItemRow & {
+  total_items: number | null;
+  data_cutoff_date: string | null;
+};
+
+type PromotionProductDailyRevisionRow = {
+  platform: string;
+  shop_name?: string;
+  data_version: number | null;
+};
+
+async function readNetshopProductDailyRevisions(
+  db: NetshopDatabase,
+  scopes: ReadonlyArray<{ platform: string; shopNames?: readonly string[] }>,
+) {
+  const normalized = scopes.map((scope) => ({
+    platform: scope.platform,
+    shopNames: [...new Set((scope.shopNames ?? []).map((shop) => shop.trim()).filter(Boolean))].sort(),
+  }));
+  const platformHeads = normalized.filter((scope) => scope.shopNames.length === 0).map((scope) => scope.platform);
+  const requestedShops = normalized.flatMap((scope) => scope.shopNames.map((shopName) => ({
+    platform: scope.platform,
+    shopName,
+  })));
+  const [headRows, shopRows] = await Promise.all([
+    platformHeads.length > 0
+      ? db.prepare(`SELECT platform, data_version
+          FROM netshop_product_daily_revisions
+          WHERE platform IN (${platformHeads.map(() => "?").join(", ")})
+          ORDER BY platform ASC`)
+        .bind(...platformHeads).all<PromotionProductDailyRevisionRow>()
+      : Promise.resolve({ results: [] as PromotionProductDailyRevisionRow[] }),
+    requestedShops.length > 0
+      ? db.prepare(`WITH requested_shops AS (
+          SELECT
+            CAST(json_extract(value, '$.platform') AS TEXT) AS platform,
+            CAST(json_extract(value, '$.shopName') AS TEXT) AS shop_name
+          FROM json_each(?)
+        )
+        SELECT requested_shops.platform, requested_shops.shop_name,
+          COALESCE(revision.data_version, 0) AS data_version
+        FROM requested_shops
+        LEFT JOIN netshop_product_daily_scope_revisions revision
+          ON revision.platform = requested_shops.platform
+         AND revision.shop_name = requested_shops.shop_name
+        ORDER BY requested_shops.platform ASC, requested_shops.shop_name ASC`)
+        .bind(JSON.stringify(requestedShops)).all<PromotionProductDailyRevisionRow>()
+      : Promise.resolve({ results: [] as PromotionProductDailyRevisionRow[] }),
+  ]);
+  const headByPlatform = new Map((headRows.results ?? []).map((row) => [row.platform, row]));
+  const shopByKey = new Map((shopRows.results ?? []).map((row) => [`${row.platform}\u001f${row.shop_name ?? ""}`, row]));
+  const revisionValue = (row: PromotionProductDailyRevisionRow | undefined) => {
+    const dataVersion = Number(row?.data_version ?? 0);
+    if (!Number.isSafeInteger(dataVersion) || dataVersion < 0) {
+      throw new PublicApiError(503, "service_unavailable", "商品日依赖版本无效，请稍后重试");
+    }
+    return dataVersion;
+  };
+  return normalized.sort((left, right) => left.platform.localeCompare(right.platform)).map((scope) => ({
+    platform: scope.platform,
+    dataVersion: scope.shopNames.length === 0 ? revisionValue(headByPlatform.get(scope.platform)) : null,
+    shopRevisions: scope.shopNames.map((shopName) => ({
+      shopName,
+      dataVersion: revisionValue(shopByKey.get(`${scope.platform}\u001f${shopName}`)),
+    })),
+  }));
+}
+
+async function buildPromotionSnapshotToken(input: {
+  period: NetshopQueryPeriod;
+  snapshots: ReadonlyArray<{
+    platform: string;
+    shopNames?: readonly string[];
+    dataVersion: number | null;
+    shopRevisions: readonly { shopName: string; dataVersion: number }[];
+  }>;
+  productDailyRevisions: Awaited<ReturnType<typeof readNetshopProductDailyRevisions>>;
+}) {
+  const payload = JSON.stringify({
+    version: 2,
+    startDate: input.period.startDate,
+    endDate: input.period.endDate,
+    promotion: [...input.snapshots]
+      .sort((left, right) => left.platform < right.platform ? -1 : left.platform > right.platform ? 1 : 0)
+      .map((snapshot) => ({
+        platform: snapshot.platform,
+        shopNames: [...(snapshot.shopNames ?? [])].sort(),
+        dataVersion: snapshot.dataVersion,
+        shopRevisions: [...snapshot.shopRevisions]
+          .sort((left, right) => left.shopName.localeCompare(right.shopName)),
+      })),
+    productDaily: [...input.productDailyRevisions]
+      .sort((left, right) => left.platform.localeCompare(right.platform))
+      .map((revision) => ({
+        platform: revision.platform,
+        dataVersion: revision.dataVersion,
+        shopRevisions: [...revision.shopRevisions]
+          .sort((left, right) => left.shopName.localeCompare(right.shopName)),
+      })),
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function resolvePromotionScope(input: PromotionScopeInput) {
+  const period = resolveNetshopQueryPeriod(input.startDate, input.endDate);
+  const platforms = [...new Set((input.platformNames ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  const outlets = normalizeNetshopOutletFilters(input.outlets);
+  assertNetshopOutletPlatformSelection(platforms, outlets);
+  const where = [netshopPromotionSourceSql];
+  const bindings: string[] = [];
+  if (period) {
+    where.push("r.business_date >= ?", "r.business_date < ?");
+    bindings.push(period.startDate, period.endExclusive);
+  }
+  if (platforms.length) {
+    where.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`);
+    bindings.push(...platforms);
+  }
+  appendNetshopOutletFilter(where, bindings, outlets);
+  return { period, platforms, outlets, where, bindings };
+}
+
+async function requirePromotionAggregateScope(
+  db: NetshopDatabase,
+  period: NetshopQueryPeriod | null,
+  platforms: readonly string[],
+  outlets: readonly NetshopOutletFilter[],
+  expectedSnapshotToken?: string,
+) {
+  if (!period) throw new NetshopQueryError("invalid_date_range", "推广聚合查询必须显式提供 startDate 和 endDate");
+  if (!platforms.length || platforms.some((platform) => platform !== "京东" && platform !== "天猫")) {
+    throw new NetshopQueryError("invalid_platform_filter", "推广聚合查询必须显式选择京东或天猫平台");
+  }
+  const activePlatforms = outlets.length
+    ? platforms.filter((platform) => outlets.some((outlet) => outlet.platform === platform))
+    : [...platforms];
+  const scopes = activePlatforms.map((platform) => {
+    const shopNames = outlets.length
+      ? outlets.filter((outlet) => outlet.platform === platform).map((outlet) => outlet.shopName)
+      : undefined;
+    return {
+      platform,
+      shopNames,
+      startDate: period.startDate,
+      endDate: period.endDate,
+    };
+  });
+  const [versionRows, productDailyRevisions] = await Promise.all([
+    readPromotionAggregateVersions(db, scopes),
+    readNetshopProductDailyRevisions(db, scopes),
+  ]);
+  const versionsByPlatform = new Map(versionRows.map((row) => [row.platform, row]));
+  if (versionsByPlatform.size !== scopes.length) {
+    throw new PublicApiError(503, "service_unavailable", "所选推广聚合尚未完成回填或已失效，请完成聚合回填后重试");
+  }
+  const snapshots = scopes.map((scope) => {
+    const version = versionsByPlatform.get(scope.platform)!;
+    const isShopScoped = Boolean(scope.shopNames?.length);
+    return {
+      ...scope,
+      dataVersion: isShopScoped ? null : version.dataVersion,
+      shopRevisions: isShopScoped ? version.shopRevisions : [],
+    };
+  });
+  const snapshotToken = await buildPromotionSnapshotToken({ period, snapshots, productDailyRevisions });
+  if (expectedSnapshotToken && expectedSnapshotToken !== snapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "推广商品与概览数据版本已变化，请重新加载");
+  }
+  return {
+    period,
+    snapshots,
+    productDailyRevisions,
+    snapshotToken,
+  };
+}
+
+async function verifyPromotionAggregateScope(
+  db: NetshopDatabase,
+  fence: Awaited<ReturnType<typeof requirePromotionAggregateScope>>,
+) {
+  const [currentVersions, productDailyRevisions] = await Promise.all([
+    readPromotionAggregateVersions(db, fence.snapshots.map((snapshot) => ({
+      platform: snapshot.platform,
+      shopNames: snapshot.shopNames,
+      startDate: fence.period.startDate,
+      endDate: fence.period.endDate,
+    }))),
+    readNetshopProductDailyRevisions(
+      db,
+      fence.snapshots,
+    ),
+  ]);
+  const currentByPlatform = new Map(currentVersions.map((row) => [row.platform, row]));
+  if (currentByPlatform.size !== fence.snapshots.length) {
+    throw new PublicApiError(503, "service_unavailable", "推广聚合在读取期间已失效或更新，请重试");
+  }
+  const currentSnapshots = fence.snapshots.map((snapshot) => {
+    const version = currentByPlatform.get(snapshot.platform)!;
+    const isShopScoped = Boolean(snapshot.shopNames?.length);
+    return {
+      ...snapshot,
+      dataVersion: isShopScoped ? null : version.dataVersion,
+      shopRevisions: isShopScoped ? version.shopRevisions : [],
+    };
+  });
+  const currentSnapshotToken = await buildPromotionSnapshotToken({
+    period: fence.period,
+    snapshots: currentSnapshots,
+    productDailyRevisions,
+  });
+  if (currentSnapshotToken !== fence.snapshotToken) {
+    throw new PublicApiError(503, "service_unavailable", "推广依赖数据在读取期间已更新，请重试");
+  }
+}
+
+function promotionAggregateWhere(
+  alias: "p" | "s",
+  platforms: readonly string[],
+  period: NetshopQueryPeriod,
+  outlets: readonly NetshopOutletFilter[],
+) {
+  const where = [`${alias}.platform IN (${platforms.map(() => "?").join(", ")})`, `${alias}.business_date >= ?`, `${alias}.business_date <= ?`];
+  const bindings = [...platforms, period.startDate, period.endDate];
+  appendNetshopOutletFilter(where, bindings, [...outlets], alias);
+  return { whereSql: where.join(" AND "), bindings };
+}
+
+export async function getNetshopPromotionOverview(
+  db: NetshopDatabase,
+  input: PromotionScopeInput = {},
+): Promise<NetshopPromotionOverview> {
+  const { period, platforms, outlets } = resolvePromotionScope(input);
+  const startDate = period?.startDate ?? null;
+  const endDate = period?.endDate ?? null;
+  const aggregateFence = await requirePromotionAggregateScope(
+    db,
+    period,
+    platforms,
+    outlets,
+    input.expectedSnapshotToken,
+  );
+  const aggregatePeriod = aggregateFence.period;
+  const aggregateShopScope = promotionAggregateWhere("s", platforms, aggregatePeriod, outlets);
+  const aggregateProductScope = promotionAggregateWhere("p", platforms, aggregatePeriod, outlets);
+
+  // The daily aggregation extracts every JSON metric once. Overall totals are
+  // derived with window functions instead of scanning the raw rows again for a
+  // separate summary query.
+  const dailyPromise = db.prepare(
+      `WITH daily_series AS (
+         SELECT s.business_date,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.spendCents}) AS spend_cents,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.netTransactionAmountCents}) AS net_transaction_amount_cents,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.grossTransactionAmountCents}) AS gross_transaction_amount_cents,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.impressions}) AS impressions,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.clicks}) AS clicks,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.netOrders}) AS net_orders,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.favorites}) AS favorites,
+           SUM(${PROMOTION_AGGREGATE_SHOP_FIELDS.cartQuantity}) AS cart_quantity
+         FROM netshop_promotion_shop_daily s
+         ${PROMOTION_AGGREGATE_SHOP_READY_JOIN_SQL}
+         WHERE ${aggregateShopScope.whereSql}
+         GROUP BY s.business_date
+       )
+       SELECT daily_series.*,
+         COUNT(*) OVER () AS total_dates,
+         MIN(business_date) OVER () AS all_date_min,
+         MAX(business_date) OVER () AS all_date_max,
+         SUM(spend_cents) OVER () AS all_spend_cents,
+         SUM(net_transaction_amount_cents) OVER () AS all_net_transaction_amount_cents,
+         SUM(gross_transaction_amount_cents) OVER () AS all_gross_transaction_amount_cents,
+         SUM(impressions) OVER () AS all_impressions,
+         SUM(clicks) OVER () AS all_clicks,
+         SUM(net_orders) OVER () AS all_net_orders,
+         SUM(favorites) OVER () AS all_favorites,
+         SUM(cart_quantity) OVER () AS all_cart_quantity
+       FROM daily_series
+       ORDER BY business_date DESC
+       LIMIT ?`,
+    ).bind(...aggregateShopScope.bindings, NETSHOP_DAILY_SERIES_LIMIT).all<PromotionOverviewDailyRow>();
+
+  // Product count does not need any JSON extraction and is kept separate from
+  // the expensive metric aggregation.
+  const productCountPromise = db.prepare(
+      `SELECT COUNT(DISTINCT p.platform || char(31) || p.shop_name || char(31) || p.product_id) AS total
+       FROM netshop_promotion_product_daily p
+       ${PROMOTION_AGGREGATE_PRODUCT_READY_JOIN_SQL}
+       WHERE ${aggregateProductScope.whereSql}`,
+    ).bind(...aggregateProductScope.bindings).first<{ total: number | null }>();
+
+  const paymentWhere = [netshopPromotionPaymentSourceSql];
+  const paymentBindings: string[] = [];
+  if (period) {
+    paymentWhere.push("r.business_date >= ?", "r.business_date < ?");
+    paymentBindings.push(period.startDate, period.endExclusive);
+  }
+  if (platforms.length) {
+    paymentWhere.push(`r.platform IN (${platforms.map(() => "?").join(", ")})`);
+    paymentBindings.push(...platforms);
+  }
+  appendNetshopOutletFilter(paymentWhere, paymentBindings, outlets);
+  const paymentRowsPromise = db.prepare(
+    `WITH daily_series AS (
+       SELECT r.business_date, SUM(${dailyPerformanceMetrics.transactionAmountCents}) AS payment_cents
+       FROM netshop_rows r
+       WHERE ${paymentWhere.join(" AND ")}
+       GROUP BY r.business_date
+     )
+     SELECT daily_series.*, COUNT(*) OVER () AS total_dates
+     FROM daily_series
+     ORDER BY business_date DESC
+     LIMIT ?`,
+  ).bind(...paymentBindings, NETSHOP_DAILY_SERIES_LIMIT).all<PromotionPaymentDailyRow>();
+
+  // Options follow the principal-constrained platform scope, but deliberately
+  // do not inherit the currently selected outlet filters.
+  const outletOptionBindings = [...platforms];
+  const outletOptionsPromise = db.prepare(
+    `SELECT platform, shop_name, COUNT(*) OVER () AS total
+     FROM (
+       SELECT s.platform AS platform, s.shop_name AS shop_name
+       FROM netshop_promotion_shop_daily s
+       ${PROMOTION_AGGREGATE_SHOP_READY_JOIN_SQL}
+       WHERE s.platform IN (${platforms.map(() => "?").join(", ")})
+       GROUP BY s.platform, s.shop_name
+     ) promotion_outlets
+     ORDER BY platform ASC, shop_name ASC
+     LIMIT ?`,
+  ).bind(...outletOptionBindings, NETSHOP_OUTLET_MAX_ITEMS).all<PromotionOutletOptionRow>();
+
+  const [dailyResult, productCountRow, paymentResult, outletOptions] = await Promise.all([
+    dailyPromise,
+    productCountPromise,
+    paymentRowsPromise,
+    outletOptionsPromise,
+  ]);
+  await verifyPromotionAggregateScope(db, aggregateFence);
+  const orderedDailyRows = [...dailyResult.results].sort((left, right) => left.business_date.localeCompare(right.business_date));
+  const orderedPaymentRows = [...paymentResult.results].sort((left, right) => left.business_date.localeCompare(right.business_date));
+  const paymentByDate = new Map(orderedPaymentRows.map((row) => [row.business_date, numberFromDailyMetric(row.payment_cents)]));
+  const dailyByDate = new Map(orderedDailyRows.map((row) => [row.business_date, row]));
+  const promotionDates = [...dailyByDate.keys()].sort();
+  const productDailyDates = [...paymentByDate.keys()].sort();
+  const intersectionDates = promotionDates.filter((date) => paymentByDate.has(date));
+  const requestedDates = period
+    ? dailyDateCoverageForQuery(period.startDate, period.endDate, []).missingDates
+    : [...new Set([...promotionDates, ...productDailyDates])].sort();
+  const firstDaily = dailyResult.results[0];
+  const summarySpend = numberFromDailyMetric(firstDaily?.all_spend_cents);
+  const summaryNetTransaction = numberFromDailyMetric(firstDaily?.all_net_transaction_amount_cents);
+  const summaryImpressions = numberFromDailyMetric(firstDaily?.all_impressions);
+  const summaryClicks = numberFromDailyMetric(firstDaily?.all_clicks);
+  const promotionDateTotal = numberFromDailyMetric(firstDaily?.total_dates);
+  const productDailyDateTotal = numberFromDailyMetric(paymentResult.results[0]?.total_dates);
+  const ratioSpendCents = intersectionDates.reduce((sum, date) => sum + numberFromDailyMetric(dailyByDate.get(date)?.spend_cents), 0);
+  const ratioTransactionCents = intersectionDates.reduce((sum, date) => sum + numberFromDailyMetric(dailyByDate.get(date)?.net_transaction_amount_cents), 0);
+  const platformPaymentAmountCents = intersectionDates.reduce((sum, date) => sum + numberFromDailyMetric(paymentByDate.get(date)), 0);
+  const outletOptionTotal = numberFromDailyMetric(outletOptions.results[0]?.total);
+
+  return {
+    snapshotToken: aggregateFence.snapshotToken,
+    monetaryUnit: "cents",
+    requestedPeriod: { startDate, endDate },
+    dataCutoffDate: firstDaily?.all_date_max ?? null,
+    coverage: {
+      promotionDates,
+      productDailyDates,
+      intersectionDates,
+      missingProductDailyDates: requestedDates.filter((date) => !paymentByDate.has(date)),
+      missingPromotionDates: requestedDates.filter((date) => !dailyByDate.has(date)),
+      promotionDatesPagination: {
+        total: promotionDateTotal,
+        returned: promotionDates.length,
+        truncated: promotionDates.length < promotionDateTotal,
+      },
+      productDailyDatesPagination: {
+        total: productDailyDateTotal,
+        returned: productDailyDates.length,
+        truncated: productDailyDates.length < productDailyDateTotal,
+      },
+      intersectionTruncated: promotionDates.length < promotionDateTotal || productDailyDates.length < productDailyDateTotal,
+    },
+    summary: {
+      productCount: numberFromDailyMetric(productCountRow?.total),
+      spendCents: summarySpend,
+      netTransactionAmountCents: summaryNetTransaction,
+      grossTransactionAmountCents: numberFromDailyMetric(firstDaily?.all_gross_transaction_amount_cents),
+      platformPaymentAmountCents,
+      impressions: summaryImpressions,
+      clicks: summaryClicks,
+      netOrders: numberFromDailyMetric(firstDaily?.all_net_orders),
+      favorites: numberFromDailyMetric(firstDaily?.all_favorites),
+      cartQuantity: numberFromDailyMetric(firstDaily?.all_cart_quantity),
+      clickThroughRate: summaryImpressions > 0 ? summaryClicks / summaryImpressions : null,
+      averageClickCostCents: summaryClicks > 0 ? summarySpend / summaryClicks : null,
+      roas: summarySpend > 0 ? summaryNetTransaction / summarySpend : null,
+      spendRate: platformPaymentAmountCents > 0 ? ratioSpendCents / platformPaymentAmountCents : null,
+      promotionTransactionShare: platformPaymentAmountCents > 0 ? ratioTransactionCents / platformPaymentAmountCents : null,
+    },
+    daily: orderedDailyRows.map((row) => {
+      const spendCents = numberFromDailyMetric(row.spend_cents);
+      const netTransactionAmountCents = numberFromDailyMetric(row.net_transaction_amount_cents);
+      const payment = paymentByDate.has(row.business_date) ? numberFromDailyMetric(paymentByDate.get(row.business_date)) : null;
+      return {
+        date: row.business_date,
+        spendCents,
+        netTransactionAmountCents,
+        platformPaymentAmountCents: payment,
+        impressions: numberFromDailyMetric(row.impressions),
+        clicks: numberFromDailyMetric(row.clicks),
+        netOrders: numberFromDailyMetric(row.net_orders),
+        roas: spendCents > 0 ? netTransactionAmountCents / spendCents : null,
+        spendRate: payment && payment > 0 ? spendCents / payment : null,
+        promotionTransactionShare: payment && payment > 0 ? netTransactionAmountCents / payment : null,
+      };
+    }),
+    dailyPagination: {
+      total: promotionDateTotal,
+      returned: orderedDailyRows.length,
+      truncated: orderedDailyRows.length < promotionDateTotal,
+    },
+    filterOptions: {
+      shops: outletOptions.results.map((row) => ({ platform: row.platform, shopName: row.shop_name })),
+      pagination: {
+        total: outletOptionTotal,
+        returned: outletOptions.results.length,
+        truncated: outletOptions.results.length < outletOptionTotal,
+      },
+    },
+  };
+}
+
+export async function getNetshopPromotionItems(
+  db: NetshopDatabase,
+  input: PromotionScopeInput & { query?: string; page?: number; pageSize?: number } = {},
+): Promise<NetshopPromotionItems> {
+  const page = boundedNetshopInteger(input.page, "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
+  const pageSize = boundedNetshopInteger(input.pageSize, "pageSize", 20, 1, NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE);
+  const { period, platforms, outlets } = resolvePromotionScope(input);
+  const startDate = period?.startDate ?? null;
+  const endDate = period?.endDate ?? null;
+  const query = (input.query ?? "").trim().slice(0, 120);
+  const aggregateFence = await requirePromotionAggregateScope(db, period, platforms, outlets);
+  const aggregatePeriod = aggregateFence.period;
+  const offset = (page - 1) * pageSize;
+  const aggregateScope = promotionAggregateWhere("p", platforms, aggregatePeriod, outlets);
+  const aggregateItemWhere = [aggregateScope.whereSql];
+  const aggregateItemBindings = [...aggregateScope.bindings];
+  if (query) {
+    aggregateItemWhere.push("(p.product_id LIKE ? OR p.product_name LIKE ? OR p.product_line LIKE ?)");
+    const term = `%${query}%`;
+    aggregateItemBindings.push(term, term, term);
+  }
+  const result = await db.prepare(
+      `WITH grouped_items AS (
+         SELECT
+           p.product_id AS id,
+           MAX(p.platform) AS platform,
+           MAX(COALESCE(NULLIF(p.product_name, ''), NULLIF(p.product_line, ''), '')) AS product_name,
+           MAX(p.shop_name) AS shop_name,
+           COUNT(DISTINCT p.business_date) AS data_days,
+           GROUP_CONCAT(DISTINCT p.business_date) AS coverage_dates,
+           MIN(p.business_date) AS date_min,
+           MAX(p.business_date) AS date_max,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.spendCents}) AS spend_cents,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.netTransactionAmountCents}) AS net_transaction_amount_cents,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.grossTransactionAmountCents}) AS gross_transaction_amount_cents,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.impressions}) AS impressions,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.clicks}) AS clicks,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.netOrders}) AS net_orders,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.favorites}) AS favorites,
+           SUM(${PROMOTION_AGGREGATE_PRODUCT_FIELDS.cartQuantity}) AS cart_quantity
+         FROM netshop_promotion_product_daily p
+         ${PROMOTION_AGGREGATE_PRODUCT_READY_JOIN_SQL}
+         WHERE ${aggregateItemWhere.join(" AND ")}
+         GROUP BY p.platform, p.shop_name, p.product_id
+       )
+       SELECT grouped_items.*,
+         COUNT(*) OVER () AS total_items,
+         MAX(date_max) OVER () AS data_cutoff_date
+       FROM grouped_items
+       ORDER BY net_transaction_amount_cents DESC, spend_cents DESC, id ASC
+       LIMIT ? OFFSET ?`,
+    ).bind(...aggregateItemBindings, pageSize, offset).all<PromotionItemsQueryRow>();
+
+  let total = numberFromDailyMetric(result.results[0]?.total_items);
+  let dataCutoffDate = result.results[0]?.data_cutoff_date ?? null;
+  // A page beyond the final page has no window row from which to read total or
+  // cutoff. Recover only for that exceptional request, without JSON metrics.
+  if (result.results.length === 0 && page > 1) {
+    const fallback = await db.prepare(
+        `SELECT COUNT(DISTINCT p.platform || char(31) || p.shop_name || char(31) || p.product_id) AS total,
+           MAX(p.business_date) AS data_cutoff_date
+         FROM netshop_promotion_product_daily p
+         ${PROMOTION_AGGREGATE_PRODUCT_READY_JOIN_SQL}
+         WHERE ${aggregateItemWhere.join(" AND ")}`,
+      ).bind(...aggregateItemBindings).first<{ total: number | null; data_cutoff_date: string | null }>();
+    total = numberFromDailyMetric(fallback?.total);
+    dataCutoffDate = fallback?.data_cutoff_date ?? null;
+  }
+  await verifyPromotionAggregateScope(db, aggregateFence);
+
+  return {
+    snapshotToken: aggregateFence.snapshotToken,
+    monetaryUnit: "cents",
+    requestedPeriod: { startDate, endDate },
+    dataCutoffDate,
+    items: result.results.map((row) => {
+      const spendCents = numberFromDailyMetric(row.spend_cents);
+      const netTransactionAmountCents = numberFromDailyMetric(row.net_transaction_amount_cents);
+      const impressions = numberFromDailyMetric(row.impressions);
+      const clicks = numberFromDailyMetric(row.clicks);
+      return {
+        id: row.id,
+        platform: row.platform,
+        productName: row.product_name ?? "",
+        shopName: row.shop_name,
+        dateMin: row.date_min,
+        dateMax: row.date_max,
+        dates: [...new Set((row.coverage_dates ?? "").split(",").filter(isNetshopIsoDate))].sort(),
+        datesTruncated: !period && numberFromDailyMetric(row.data_days) > 0,
+        dataDays: numberFromDailyMetric(row.data_days),
+        spendCents,
+        netTransactionAmountCents,
+        grossTransactionAmountCents: numberFromDailyMetric(row.gross_transaction_amount_cents),
+        impressions,
+        clicks,
+        netOrders: numberFromDailyMetric(row.net_orders),
+        favorites: numberFromDailyMetric(row.favorites),
+        cartQuantity: numberFromDailyMetric(row.cart_quantity),
+        clickThroughRate: impressions > 0 ? clicks / impressions : null,
+        averageClickCostCents: clicks > 0 ? spendCents / clicks : null,
+        roas: spendCents > 0 ? netTransactionAmountCents / spendCents : null,
+      };
+    }),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      returned: result.results.length,
+      truncated: offset + result.results.length < total,
+    },
   };
 }

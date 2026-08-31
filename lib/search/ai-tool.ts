@@ -38,6 +38,8 @@ export async function searchSystemDataForAi(
     groups: result.groups,
     returned: result.returned,
     truncated: result.truncated,
+    deadlineExceeded: result.deadlineExceeded,
+    timedOutDomains: result.timedOutDomains,
     monetaryUnit: result.monetaryUnit,
     currency: result.currency,
     unavailableDomains: result.unavailableDomains,

@@ -23,6 +23,19 @@ import {
 const admin: AppPrincipal = { email: "admin@example.com", displayName: "Admin", role: "admin", scope: null };
 const viewer: AppPrincipal = { email: "viewer@example.com", displayName: "Viewer", role: "viewer", scope: null };
 
+const allSearchTables = [
+  "erp_product_master", "sales_order_lines", "netshop_rows", "inventory_stock_lines",
+  "market_ranking_entries", "market_price_snapshots", "market_master_identities", "erp_combo_items", "replenishment_plan_items",
+  "market_sku_annotations", "customer_service_conversations", "finance_lines", "finance_targets_scoped",
+  "workflow_tasks", "workflow_task_states", "workflow_operation_records", "erp_inventory_age_lines",
+  "sales_import_batches", "inventory_import_batches", "erp_reference_import_batches", "finance_import_batches",
+  "netshop_import_batches", "market_import_batches", "customer_service_import_batches",
+] as const;
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
 test("全局搜索校验关键词、分组和严格分页上限", () => {
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=一")), GlobalSearchRequestError);
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=sqlite_master")), /允许清单/);
@@ -95,6 +108,190 @@ test("LIKE 模式字符只作为字面量绑定", () => {
   assert.equal(escapeGlobalSearchLike("A%_\\B"), "%A\\%\\_\\\\B%");
 });
 
+test("网店商品搜索只读取各范围最新完成批次并跳过原始推广历史", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE netshop_import_batches (
+      id TEXT PRIMARY KEY, source TEXT NOT NULL, dataset TEXT NOT NULL,
+      platform TEXT NOT NULL, shop_name TEXT NOT NULL, status TEXT NOT NULL,
+      snapshot_date TEXT, date_max TEXT, completed_at TEXT NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE TABLE netshop_rows (
+      id INTEGER PRIMARY KEY, source TEXT NOT NULL, dataset TEXT NOT NULL,
+      platform TEXT NOT NULL, shop_name TEXT NOT NULL, last_import_batch_id TEXT NOT NULL,
+      sku_id TEXT NOT NULL DEFAULT '', spu_id TEXT NOT NULL DEFAULT '',
+      product_code TEXT NOT NULL DEFAULT '', product_name TEXT NOT NULL DEFAULT '',
+      business_date TEXT, snapshot_date TEXT, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX netshop_rows_lock_ownership_idx
+      ON netshop_rows (source, dataset, platform, shop_name, last_import_batch_id);
+    INSERT INTO netshop_import_batches VALUES
+      ('old', 'jd_sku_daily', 'sku_daily', '京东', '测试店', 'completed', '2026-08-01', '2026-08-01', '2026-08-01 10:00:00', '2026-08-01 09:00:00'),
+      ('current', 'jd_sku_daily', 'sku_daily', '京东', '测试店', 'completed', '2026-08-25', '2026-08-25', '2026-08-25 10:00:00', '2026-08-25 09:00:00'),
+      ('promotion', 'jd_promotion', 'ad', '京东', '测试店', 'completed', NULL, '2026-08-25', '2026-08-25 11:00:00', '2026-08-25 10:00:00'),
+      ('processing', 'tmall_product_daily', 'spu_daily', '天猫', '测试店', 'processing', NULL, '2026-08-25', '2026-08-25 11:00:00', '2026-08-25 10:00:00');
+    INSERT INTO netshop_rows VALUES
+      (1, 'jd_sku_daily', 'sku_daily', '京东', '测试店', 'old', 'OLD-SKU', '', '', '历史命中', '2026-08-01', '', '2026-08-01'),
+      (2, 'jd_sku_daily', 'sku_daily', '京东', '测试店', 'current', 'CURRENT-SKU', '', '', '当前命中', '2026-08-25', '', '2026-08-25'),
+      (3, 'jd_promotion', 'ad', '京东', '测试店', 'promotion', 'PROMOTION-SKU', '', '', '促销命中', '2026-08-25', '', '2026-08-25'),
+      (4, 'tmall_product_daily', 'spu_daily', '天猫', '测试店', 'processing', '', 'PROCESSING-SPU', '', '处理中命中', '2026-08-25', '', '2026-08-25');
+  `);
+  const businessCalls: Array<{ sql: string; values: unknown[] }> = [];
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() {
+          if (!sql.includes("sqlite_master")) businessCalls.push({ sql, values });
+          return { results: sqlite.prepare(sql).all(...values) as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=jd_products")),
+    admin,
+  );
+
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["CURRENT-SKU:测试店"]);
+  assert.equal(result.groups[0]?.available, true);
+  assert.equal(businessCalls.length, 1);
+  assert.match(businessCalls[0]?.sql ?? "", /ROW_NUMBER\(\) OVER[\s\S]*PARTITION BY source, dataset, platform, shop_name/);
+  assert.match(businessCalls[0]?.sql ?? "", /status = 'completed'[\s\S]*source NOT IN \('jd_promotion', 'tmall_promotion'\)/);
+  assert.match(businessCalls[0]?.sql ?? "", /last_import_batch_id = batch\.batch_id/);
+  sqlite.close();
+});
+
+test("库存搜索只读取当前完成快照并保持刷刷仓排除", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE inventory_import_batches (
+      id TEXT PRIMARY KEY, status TEXT NOT NULL, snapshot_date TEXT NOT NULL
+    );
+    CREATE TABLE inventory_stock_lines (
+      id INTEGER PRIMARY KEY, batch_id TEXT NOT NULL, product_code TEXT NOT NULL,
+      product_name TEXT NOT NULL, warehouse TEXT NOT NULL, warehouse_type TEXT NOT NULL,
+      specification TEXT NOT NULL DEFAULT '', brand TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '',
+      snapshot_date TEXT NOT NULL, available_quantity INTEGER NOT NULL, unit_cost_cents INTEGER NOT NULL
+    );
+    CREATE INDEX inventory_stock_lines_batch_idx ON inventory_stock_lines (batch_id);
+    INSERT INTO inventory_import_batches VALUES
+      ('old', 'completed', '2026-08-01'), ('current', 'completed', '2026-08-25');
+    INSERT INTO inventory_stock_lines VALUES
+      (1, 'old', 'OLD', '历史命中', '主仓', 'owned', '', '', '', '2026-08-01', 1, 100),
+      (2, 'current', 'CURRENT', '当前命中', '主仓', 'owned', '', '', '', '2026-08-25', 2, 200),
+      (3, 'current', 'EXCLUDED', '排除命中', '刷刷仓', 'other', '', '', '', '2026-08-25', 3, 300);
+  `);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=inventory")),
+    admin,
+  );
+
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["CURRENT:主仓"]);
+  sqlite.close();
+});
+
+test("库龄搜索只读取最新权威库龄批次并保持刷刷仓排除", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE erp_reference_import_batches (
+      id TEXT PRIMARY KEY, source_key TEXT NOT NULL, status TEXT NOT NULL,
+      snapshot_date TEXT, completed_at TEXT, created_at TEXT NOT NULL
+    );
+    CREATE TABLE erp_inventory_age_lines (
+      id INTEGER PRIMARY KEY, last_import_batch_id TEXT NOT NULL, snapshot_date TEXT NOT NULL,
+      product_code TEXT NOT NULL, product_name TEXT NOT NULL, specification TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT '', warehouse TEXT NOT NULL, inventory_age_days INTEGER,
+      available_quantity INTEGER NOT NULL, stock_value_cents INTEGER
+    );
+    CREATE INDEX erp_inventory_age_last_batch_idx ON erp_inventory_age_lines (last_import_batch_id);
+    INSERT INTO erp_reference_import_batches VALUES
+      ('old', 'inventory_age', 'completed', '2026-08-01', '2026-08-01 10:00:00', '2026-08-01 09:00:00'),
+      ('current', 'inventory_age', 'completed', '2026-08-25', '2026-08-25 10:00:00', '2026-08-25 09:00:00');
+    INSERT INTO erp_inventory_age_lines VALUES
+      (1, 'old', '2026-08-01', 'OLD', '历史命中', '', '', '主仓', 90, 1, 100),
+      (2, 'current', '2026-08-25', 'CURRENT', '当前命中', '', '', '主仓', 30, 2, 200),
+      (3, 'current', '2026-08-25', 'EXCLUDED', '排除命中', '', '', '刷刷仓', 10, 3, 300);
+  `);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=inventory_age")),
+    admin,
+  );
+
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["erp:2"]);
+  sqlite.close();
+});
+
+test("市场搜索复用最新身份投影而不扫描历史榜单", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE market_ranking_entries (
+      id INTEGER PRIMARY KEY, sku_code TEXT NOT NULL, product_name TEXT NOT NULL,
+      brand TEXT NOT NULL DEFAULT '', category TEXT NOT NULL, scope TEXT NOT NULL,
+      ranking_dimension TEXT NOT NULL, period_end TEXT NOT NULL, price_cents INTEGER, rank INTEGER
+    );
+    CREATE TABLE market_master_identities (
+      category TEXT NOT NULL, scope TEXT NOT NULL, ranking_dimension TEXT NOT NULL,
+      sku_code TEXT NOT NULL, latest_entry_id INTEGER NOT NULL,
+      PRIMARY KEY (category, scope, ranking_dimension, sku_code)
+    );
+    CREATE TABLE market_price_snapshots (
+      category TEXT NOT NULL, sku_code TEXT NOT NULL, ranking_dimension TEXT NOT NULL, month TEXT NOT NULL,
+      confirmed_market_price_cents INTEGER, source_price_cents INTEGER,
+      average_transaction_price_cents INTEGER, ai_image_price_cents INTEGER
+    );
+    INSERT INTO market_ranking_entries VALUES
+      (1, 'SKU-1', '历史命中', '', '类目', 'POP', 'SKU', '2026-07-31', 10000, 2),
+      (2, 'SKU-1', '当前命中', '', '类目', 'POP', 'SKU', '2026-08-31', 12000, 1);
+    INSERT INTO market_master_identities VALUES ('类目', 'POP', 'SKU', 'SKU-1', 2);
+    INSERT INTO market_price_snapshots VALUES ('类目', 'SKU-1', 'SKU', '2026-08', 12345, NULL, NULL, NULL);
+  `);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=market_skus")),
+    admin,
+  );
+
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["SKU-1:类目:POP"]);
+  assert.equal(result.groups[0]?.items[0]?.amountCents, 12345);
+  sqlite.close();
+});
+
 test("统一搜索只把关键词作为绑定参数并在数据库分页", async () => {
   const calls: Array<{ sql: string; values: unknown[] }> = [];
   const database = {
@@ -105,10 +302,10 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
         async all<T>() {
           calls.push({ sql, values });
           if (sql.includes("sqlite_master")) return { results: [{ name: "erp_product_master" }] as T[] };
-          return { results: [{
-            result_id: "SKU-1", title: "净水机", subtitle: "商用", detail: "净水设备",
-            updated_at: "2026-07-23", amount_cents: null, total_count: 7,
-          }] as T[] };
+          return { results: Array.from({ length: 3 }, (_, index) => ({
+            result_id: `SKU-${index + 1}`, title: "净水机", subtitle: "商用", detail: "净水设备",
+            updated_at: "2026-07-23", amount_cents: null,
+          })) as T[] };
         },
       };
     },
@@ -118,9 +315,13 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
   const businessCall = calls.find((call) => call.sql.includes("erp_product_master"));
   assert.ok(businessCall);
   assert.doesNotMatch(businessCall.sql, /OR 1=1--/);
-  assert.equal(businessCall.values.at(-2), 2);
+  assert.equal(businessCall.values.at(-2), 3);
   assert.equal(businessCall.values.at(-1), 2);
-  assert.equal(result.groups[0]?.total, 7);
+  assert.doesNotMatch(businessCall.sql, /COUNT\s*\(\s*\*\s*\)\s*OVER/i);
+  assert.equal(calls.length, 2);
+  assert.equal(result.groups[0]?.items.length, 2);
+  assert.equal(result.groups[0]?.total, 5);
+  assert.equal(result.groups[0]?.totalExact, false);
   assert.equal(result.groups[0]?.hasMore, true);
   assert.equal(result.filtersApplied.group, "products");
   assert.equal(result.truncated, true);
@@ -495,4 +696,202 @@ test("viewer cannot probe customer-service bodies or finance and scoped SQL bind
   assert.deepEqual(result.filtersApplied.dataScope, {
     mode: "restricted", warehouses: [], channels: ["线上"], platforms: ["京东"],
   });
+});
+
+test("multi-domain search caps database concurrency at three and performs one LIMIT+1 query per group", async () => {
+  const businessCalls: Array<{ sql: string; values: unknown[] }> = [];
+  let statementCount = 0;
+  let active = 0;
+  let peak = 0;
+  const database = {
+    prepare(sql: string) {
+      statementCount += 1;
+      let values: unknown[] = [];
+      return {
+        bind(...next: unknown[]) { values = next; return this; },
+        async all<T>() {
+          if (sql.includes("sqlite_master")) {
+            return { results: allSearchTables.map((name) => ({ name })) as T[] };
+          }
+          businessCalls.push({ sql, values });
+          active += 1;
+          peak = Math.max(peak, active);
+          try {
+            await wait(8);
+            return { results: [] as T[] };
+          } finally {
+            active -= 1;
+          }
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&limit=2")),
+    admin,
+  );
+
+  assert.equal(result.groups.length, 14);
+  assert.equal(result.deadlineExceeded, false);
+  assert.equal(peak, 3);
+  assert.ok(peak <= 3);
+  assert.equal(businessCalls.length, 14);
+  assert.equal(statementCount, 15);
+  assert.equal(businessCalls.every(({ values }) => values.at(-2) === 3 && values.at(-1) === 0), true);
+  assert.equal(businessCalls.some(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql)), false);
+  assert.equal(businessCalls.some(({ sql }) => sql.includes("messages_json")), false);
+});
+
+test("explicit group stays single-query and only explicit customer-service search scans messages_json", async () => {
+  const businessCalls: Array<{ sql: string; values: unknown[] }> = [];
+  let statementCount = 0;
+  const database = {
+    prepare(sql: string) {
+      statementCount += 1;
+      let values: unknown[] = [];
+      return {
+        bind(...next: unknown[]) { values = next; return this; },
+        async all<T>() {
+          if (sql.includes("sqlite_master")) {
+            return { results: [{ name: "customer_service_conversations" }] as T[] };
+          }
+          businessCalls.push({ sql, values });
+          return { results: [] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=客户消息")),
+    admin,
+  );
+  assert.equal(businessCalls.length, 1);
+  assert.doesNotMatch(businessCalls[0]?.sql ?? "", /messages_json/);
+
+  businessCalls.length = 0;
+  const explicit = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=客户消息&group=customer_service")),
+    admin,
+  );
+  assert.equal(businessCalls.length, 1);
+  assert.match(businessCalls[0]?.sql ?? "", /messages_json LIKE \?/);
+  assert.equal(businessCalls[0]?.values.at(-2), 5);
+  assert.equal(statementCount, 4);
+  assert.equal(explicit.groups.length, 1);
+  assert.equal(explicit.groups[0]?.key, "customer_service");
+});
+
+test("LIMIT+1 derives hasMore and marks a non-empty terminal page total as exact without a count query", async () => {
+  let businessQueryCount = 0;
+  let returnEmptyPage = false;
+  const database = {
+    prepare(sql: string) {
+      return {
+        bind() { return this; },
+        async all<T>() {
+          if (sql.includes("sqlite_master")) return { results: [{ name: "erp_product_master" }] as T[] };
+          businessQueryCount += 1;
+          if (returnEmptyPage) return { results: [] as T[] };
+          return { results: [{
+            result_id: "SKU-3", title: "净水机三号", subtitle: "", detail: "",
+            updated_at: "2026-08-25", amount_cents: null,
+          }] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=products&page=2&limit=2")),
+    admin,
+  );
+  assert.equal(businessQueryCount, 1);
+  assert.equal(result.groups[0]?.items.length, 1);
+  assert.equal(result.groups[0]?.hasMore, false);
+  assert.equal(result.groups[0]?.total, 3);
+  assert.equal(result.groups[0]?.totalExact, true);
+
+  returnEmptyPage = true;
+  const beforeEmptyPage = businessQueryCount;
+  const emptyPage = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=products&page=3&limit=2")),
+    admin,
+  );
+  assert.equal(businessQueryCount, beforeEmptyPage + 1);
+  assert.equal(emptyPage.groups[0]?.items.length, 0);
+  assert.equal(emptyPage.groups[0]?.hasMore, false);
+  assert.equal(emptyPage.groups[0]?.total, 0);
+  assert.equal(emptyPage.groups[0]?.totalExact, false);
+});
+
+test("one failed group is isolated and does not prevent another group from returning", async () => {
+  let businessQueryCount = 0;
+  const database = {
+    prepare(sql: string) {
+      return {
+        bind() { return this; },
+        async all<T>() {
+          if (sql.includes("sqlite_master")) {
+            return { results: [{ name: "erp_product_master" }, { name: "sales_order_lines" }] as T[] };
+          }
+          businessQueryCount += 1;
+          if (sql.includes("erp_product_master")) throw new Error("simulated product query failure");
+          return { results: [{
+            result_id: "ORDER-1", title: "ORDER-1", subtitle: "京东 · 测试店", detail: "净水机",
+            updated_at: "2026-08-25", amount_cents: 100,
+          }] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
+    admin,
+  );
+  assert.equal(businessQueryCount, 2);
+  assert.equal(result.groups.find((group) => group.key === "products")?.available, false);
+  assert.equal(result.groups.find((group) => group.key === "products")?.totalExact, false);
+  assert.equal(result.groups.find((group) => group.key === "orders")?.items[0]?.id, "ORDER-1");
+});
+
+test("group deadline returns a disclosed partial response and never starts queued groups afterward", async () => {
+  let businessStarts = 0;
+  const database = {
+    prepare(sql: string) {
+      return {
+        bind() { return this; },
+        async all<T>() {
+          if (sql.includes("sqlite_master")) {
+            return { results: allSearchTables.map((name) => ({ name })) as T[] };
+          }
+          businessStarts += 1;
+          await wait(60);
+          return { results: [] as T[] };
+        },
+      };
+    },
+  } as GlobalSearchDatabase;
+
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
+    admin,
+    { deadlineMs: 15 },
+  );
+  assert.equal(businessStarts, 3);
+  assert.equal(result.deadlineExceeded, true);
+  assert.equal(result.truncated, true);
+  assert.equal(result.timedOutDomains.length, 14);
+  assert.equal(result.groups.every((group) => group.totalExact === false), true);
+  await wait(70);
+  assert.equal(businessStarts, 3);
 });

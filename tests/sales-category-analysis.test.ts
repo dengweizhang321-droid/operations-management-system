@@ -283,10 +283,11 @@ test("net quantity and refund rate reuse the sales summary exclusions and amount
 });
 
 test("category API, UI, URL state, concurrency guard, and AI registry are wired to bounded authenticated contracts", async () => {
-  const [route, detailRoute, page, view, service, registry] = await Promise.all([
+  const [route, detailRoute, page, sales, view, service, registry] = await Promise.all([
     readFile(new URL("../app/api/sales/category-analysis/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/sales/category-analysis/detail/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/sales-category-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/sales/category-analysis.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
@@ -296,7 +297,7 @@ test("category API, UI, URL state, concurrency guard, and AI registry are wired 
   assert.match(route, /cache-control": "no-store/);
   assert.match(detailRoute, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
   assert.match(detailRoute, /getSalesCategoryOutletBreakdown/);
-  assert.match(page, />品类分析</);
+  assert.match(sales, />品类分析</);
   assert.match(page, /useModuleViewState/);
   assert.match(page, /sales: \(\{ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange \}\)/);
   assert.match(view, /requestGenerationRef/);
