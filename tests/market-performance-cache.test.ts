@@ -437,8 +437,9 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(view, /requestedView = activeSection === "overview" \? "full" : "ranking"/);
   assert.match(view, /controller\.abort\(\)/);
   assert.match(view, /signal: controller\.signal|load\(controller\.signal\)/);
-  assert.match(route, /parseMarketOverviewQuery\(params\)/);
-  assert.match(route, /getCachedMarketOverview/);
+  assert.match(route, /parseMarketOverviewQuery\([\s\S]*new URL\(request\.url\)\.searchParams/);
+  assert.match(route, /requestDjangoMarketService/);
+  assert.doesNotMatch(route, /getCachedMarketOverview|getD1Database|ensureMarketSchema/);
   assert.match(view, /prefetchMarketRankingOverview/);
   assert.match(view, /requestMarketOverview\(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS\)/);
   assert.match(view, /requestMarketOverview\(params\.toString\(\), signal, maximumCacheAgeMs\)/);
@@ -453,7 +454,8 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(view, /params\.set\("pageSize", String\(MARKET_RANKING_PAGE_SIZE\)\)/);
   assert.match(view, /加载更多（每批/);
   assert.match(view, /loadMoreController\.current\?\.abort\(\)/);
-  assert.match(route, /rankingPage: pagination\.page/);
+  assert.match(route, /page: pagination\.page/);
+  assert.match(route, /pageSize: pagination\.pageSize/);
   assert.match(database, /rankingOffset: \(rankingPage - 1\) \* rankingPageSize/);
   assert.match(database, /COUNT\(\*\) item_count/);
   assert.match(database, /pagination: \{/);
@@ -879,7 +881,7 @@ test("market filter options use a separate revision-aware cache", async () => {
   sqlite.close();
 });
 
-test("market response cache schema is available in runtime setup and migration", async () => {
+test("legacy market response cache schema remains migratable while the active route uses Django", async () => {
   const schema = marketBaseSchemaStatements.join("\n");
   const [migration, schemaCore, cacheSource, overviewRoute, databaseSource, adminSource] = await Promise.all([
     readFile(new URL("../drizzle/0050_market_overview_response_cache.sql", import.meta.url), "utf8"),
@@ -895,7 +897,9 @@ test("market response cache schema is available in runtime setup and migration",
   for (const sql of [migration, schemaCore]) assert.match(sql, /market_image_cache_updated_idx/);
   assert.match(cacheSource, /DELETE FROM market_overview_response_cache WHERE cache_key=\? AND revision_key=\?/);
   assert.match(cacheSource, /ORDER BY updated_at DESC, cache_key DESC LIMIT \?/);
-  assert.match(overviewRoute, /getCachedMarketOverview\([\s\S]*validateMarketOverviewCachePayload/);
+  assert.match(overviewRoute, /requestDjangoMarketService/);
+  assert.match(overviewRoute, /service: "reader"/);
+  assert.doesNotMatch(overviewRoute, /getCachedMarketOverview|validateMarketOverviewCachePayload|getD1Database/);
   assert.match(databaseSource, /getCachedMarketFilterOptions\([\s\S]*validateMarketFilterOptionsCachePayload/);
   assert.match(adminSource, /getCachedMarketSystemKpis\([\s\S]*validateMarketSystemKpiCachePayload/);
 });

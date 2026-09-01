@@ -17,6 +17,16 @@ type Journal = {
   entries: JournalEntry[];
 };
 
+const operatorOnlyMigrations = new Set([
+  "0092_sales_domain_retirement",
+  "0093_finance_write_authority",
+  "0094_netshop_write_authority",
+  "0095_market_netshop_projection",
+  "0096_netshop_domain_retirement",
+  "0097_market_write_authority",
+  "0098_market_domain_retirement",
+]);
+
 test("Drizzle journal registers normal migrations and excludes operator-only post-cutover DDL", async () => {
   const migrationDirectory = new URL("../drizzle/", import.meta.url);
   const [fileNames, journalText] = await Promise.all([
@@ -27,13 +37,7 @@ test("Drizzle journal registers normal migrations and excludes operator-only pos
     .filter((name) => name.endsWith(".sql"))
     .sort()
     .map((name) => name.slice(0, -4))
-    .filter((tag) => ![
-      "0092_sales_domain_retirement",
-      "0093_finance_write_authority",
-      "0094_netshop_write_authority",
-      "0095_market_netshop_projection",
-      "0096_netshop_domain_retirement",
-    ].includes(tag));
+    .filter((tag) => !operatorOnlyMigrations.has(tag));
   const journal = JSON.parse(journalText) as Journal;
 
   assert.equal(journal.dialect, "sqlite");
@@ -45,6 +49,8 @@ test("Drizzle journal registers normal migrations and excludes operator-only pos
     "0094_netshop_write_authority",
     "0095_market_netshop_projection",
     "0096_netshop_domain_retirement",
+    "0097_market_write_authority",
+    "0098_market_domain_retirement",
   ]) {
     assert.equal(fileNames.includes(`${tag}.sql`), true);
     assert.equal(journal.entries.some((entry) => entry.tag === tag), false);
@@ -81,7 +87,9 @@ test("Drizzle journal registers normal migrations and excludes operator-only pos
 
 test("an already-published 0066 database upgrades through every forward migration", async () => {
   const migrationDirectory = new URL("../drizzle/", import.meta.url);
-  const fileNames = (await readdir(migrationDirectory)).filter((name) => name.endsWith(".sql")).sort();
+  const fileNames = (await readdir(migrationDirectory))
+    .filter((name) => name.endsWith(".sql") && !operatorOnlyMigrations.has(name.slice(0, -4)))
+    .sort();
   assert.equal(fileNames[65], "0066_market_annotation_runnable_work.sql");
   assert.equal(fileNames[66], "0067_netshop_promotion_daily_aggregates.sql");
 

@@ -685,7 +685,7 @@ test("AI Space routes and UI preserve role, private-object, and six-workspace co
   assert.match(moduleView, /\["assistant", "agents", "memory", "sandbox", "space", "management"\]/);
   assert.match(catalog, /ai: \{ defaultView: "assistant", views: \["assistant", "agents", "memory", "sandbox", "space", "management"\] \}/);
   assert.match(worker, /runScheduledAiSpace\(\{ db, bucket: input\.aiSpaceBucket \}\)/);
-  assert.match(worker, /return \{ aiWorkflow, aiAgent, imageCache, annotations, aiSpace \}/);
+  assert.match(worker, /return \{ aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \}/);
 });
 
 function applyDrizzleMigration(sqlite: DatabaseSync, migration: string) {

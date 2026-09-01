@@ -23,7 +23,7 @@ from psycopg import sql
 
 
 VERSION = "teruisi-postgres-consistent-backup-v1"
-ALLOWED_TABLE_PREFIXES = ("sales_", "erp_", "finance_", "netshop_")
+ALLOWED_TABLE_PREFIXES = ("sales_", "erp_", "finance_", "netshop_", "market_")
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
 
@@ -103,6 +103,15 @@ def collect_evidence(
         netshop_tables = {name for name in tables if name.startswith("netshop_")}
         if netshop_tables:
             required.update(netshop_required)
+        market_required = {
+            "market_data_revisions",
+            "market_import_batches",
+            "market_ranking_entries",
+            "market_write_authority",
+        }
+        market_tables = {name for name in tables if name.startswith("market_")}
+        if market_tables:
+            required.update(market_required)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -197,6 +206,57 @@ def collect_evidence(
                 "migrationRunId": netshop_run,
             }
 
+        market_revisions: dict[str, dict[str, Any]] | None = None
+        market_authority: dict[str, str] | None = None
+        if market_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM market_data_revisions ORDER BY domain"
+            )
+            market_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = market_revisions.get("market")
+            if (
+                revision is None
+                or int(revision["revision"]) < 1
+                or re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+            ):
+                raise RuntimeError("market revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM market_write_authority WHERE id = 1"
+            )
+            market_authority_row = cursor.fetchone()
+            if market_authority_row is None:
+                raise RuntimeError("market write authority singleton is missing")
+            market_status, market_epoch, market_cutover, market_run = (
+                str(value or "") for value in market_authority_row
+            )
+            if market_status not in {"d1", "postgres"}:
+                raise RuntimeError("market write authority status is invalid")
+            if market_run and re.fullmatch(r"market-[0-9a-f]{24}", market_run) is None:
+                raise RuntimeError("market migration run evidence is invalid")
+            if market_status == "postgres":
+                if (
+                    re.fullmatch(r"[0-9a-fA-F-]{36}", market_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", market_cutover) is None
+                    or not market_run
+                ):
+                    raise RuntimeError("active market write authority evidence is incomplete")
+            elif market_epoch or market_cutover:
+                raise RuntimeError("inactive market write authority contains activation evidence")
+            market_authority = {
+                "status": market_status,
+                "authorityEpoch": market_epoch,
+                "cutoverId": market_cutover,
+                "migrationRunId": market_run,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -210,6 +270,9 @@ def collect_evidence(
     if netshop_revisions is not None and netshop_authority is not None:
         content["netshopRevisions"] = netshop_revisions
         content["netshopWriteAuthority"] = netshop_authority
+    if market_revisions is not None and market_authority is not None:
+        content["marketRevisions"] = market_revisions
+        content["marketWriteAuthority"] = market_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")

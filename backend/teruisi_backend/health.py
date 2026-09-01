@@ -180,6 +180,117 @@ NETSHOP_WRITER_AUTO_ID_TABLES = (
     "netshop_promotion_scope_revisions", "netshop_import_fingerprints",
     "netshop_asset_upload_chunks",
 )
+REQUIRED_MARKET_COLUMNS = {
+    "market_import_batches": {
+        "id", "source_type", "status", "raw_file_hash", "content_hash",
+        "scope_json", "published_state_token", "migration_generation",
+    },
+    "market_ranking_entries": {
+        "natural_key", "period_start", "period_end", "category", "scope",
+        "price_band_filter", "ranking_dimension", "sku_code", "gmv_cents",
+        "last_import_batch_id", "migration_generation",
+    },
+    "market_master_identities": {
+        "category", "scope", "ranking_dimension", "sku_code", "latest_entry_id",
+    },
+    "market_price_snapshots": {
+        "category", "scope", "sku_code", "ranking_dimension", "month",
+        "image_content_sha256", "confirmation_status",
+        "confirmed_market_price_cents", "migration_generation",
+    },
+    "market_image_cache": {
+        "source_url", "status", "object_key", "content_sha256", "migration_generation",
+    },
+    "market_annotation_jobs": {
+        "id", "category", "prompt_version_id", "status", "migration_generation",
+    },
+    "market_annotation_items": {
+        "id", "job_id", "category", "scope", "sku_code", "ranking_dimension",
+        "month", "image_content_sha256", "status", "version", "migration_generation",
+    },
+    "market_netshop_projection": {
+        "projection_revision", "projection_key", "kind", "business_date",
+        "sku_id", "spu_id", "transaction_amount_cents",
+    },
+    "market_netshop_projection_control": {
+        "id", "active_revision", "active_total", "syncing_revision",
+        "owner_token_hash", "lease_expires_at",
+    },
+    "market_data_revisions": {"domain", "revision", "source_digest"},
+}
+REQUIRED_MARKET_WRITER_COLUMNS = {
+    **REQUIRED_MARKET_COLUMNS,
+    "market_import_scope_heads": {
+        "scope_key", "state_token", "status", "owner_token", "generation",
+    },
+    "market_import_attempts": {"id", "scope_key", "outcome", "error_code"},
+    "market_import_fingerprints": {
+        "batch_id", "scope_key", "content_hash", "published_state_token",
+    },
+    "market_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+    "market_write_request_receipts": {
+        "request_id", "body_sha256", "query_sha256", "status", "response_payload",
+    },
+    "market_image_cache_jobs": {"id", "scope_key", "status", "lease_epoch"},
+    "market_image_cache_job_items": {"job_id", "source_url", "status"},
+    "market_image_cache_claims": {
+        "source_url", "job_id", "claim_token_hash", "job_epoch", "lease_expires_at",
+    },
+    "market_annotation_commit_receipts": {
+        "id", "job_item_id", "idempotency_key", "request_digest",
+    },
+}
+REQUIRED_MARKET_INDEXES = {
+    "mkt_entry_period_idx", "mkt_entry_category_idx", "mkt_entry_identity_idx",
+}
+MARKET_WRITER_TABLE_PRIVILEGES = {
+    "market_import_batches": ("SELECT", "INSERT", "UPDATE"),
+    "market_ranking_entries": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_master_identities": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_sku_gmv_totals": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_price_snapshots": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_data_revisions": ("SELECT", "INSERT", "UPDATE"),
+    "market_import_scope_heads": ("SELECT", "INSERT", "UPDATE"),
+    "market_import_attempts": ("SELECT", "INSERT", "UPDATE"),
+    "market_import_fingerprints": ("SELECT", "INSERT"),
+    "market_write_authority": ("SELECT",),
+    "market_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_image_cache": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_image_cache_jobs": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_image_cache_job_items": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_image_cache_claims": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_price_band_versions": ("SELECT", "INSERT", "UPDATE"),
+    "market_price_band_items": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_master_mapping_rules": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_subcategory_taxonomy": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_brand_suggestions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_brand_recognition_jobs": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_brand_seeds": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_download_configs": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_download_tasks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_master_audit_logs": ("SELECT", "INSERT"),
+    "market_annotation_prompt_versions": ("SELECT", "INSERT", "UPDATE"),
+    "market_annotation_jobs": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_annotation_items": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_sku_annotations": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_annotation_commit_receipts": ("SELECT", "INSERT"),
+    "market_annotation_validation_samples": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_annotation_validation_runs": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_annotation_validation_results": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_annotation_prompt_audits": ("SELECT", "INSERT"),
+    "market_annotation_local_agents": ("SELECT", "INSERT", "UPDATE"),
+    "market_annotation_concurrency_settings": ("SELECT", "INSERT", "UPDATE"),
+    "market_annotation_cloud_runs": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_netshop_projection": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_netshop_projection_control": ("SELECT", "INSERT", "UPDATE"),
+}
+MARKET_WRITER_AUTO_ID_TABLES = (
+    "market_ranking_entries", "market_master_identities", "market_import_fingerprints",
+    "market_image_cache_job_items", "market_annotation_concurrency_settings",
+    "market_netshop_projection",
+)
 REQUIRED_WRITER_COLUMNS = {
     "sales_order_lines": {
         "source_line_key",
@@ -508,6 +619,127 @@ def _validate_netshop_writer_permissions(cursor) -> None:
             cursor.execute("SELECT has_sequence_privilege(current_user, %s, 'USAGE')", [sequence])
             if cursor.fetchone()[0] is not True:
                 raise ReadinessError("netshop_writer_database_privilege_missing")
+
+
+def _validate_market_schema(cursor, *, writer: bool) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    expected = REQUIRED_MARKET_WRITER_COLUMNS if writer else REQUIRED_MARKET_COLUMNS
+    for table, expected_columns in expected.items():
+        if table not in tables:
+            raise ReadinessError(
+                "market_writer_schema_missing" if writer else "market_reader_schema_missing"
+            )
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError(
+                "market_writer_schema_incomplete" if writer else "market_reader_schema_incomplete"
+            )
+    constraints = connection.introspection.get_constraints(
+        cursor, "market_ranking_entries"
+    )
+    present_indexes = {
+        name for name, value in constraints.items() if value.get("index")
+    }
+    if not REQUIRED_MARKET_INDEXES.issubset(present_indexes):
+        raise ReadinessError("market_projection_indexes_incomplete")
+
+
+def _validate_market_revision(cursor) -> None:
+    cursor.execute(
+        "SELECT revision, source_digest FROM market_data_revisions WHERE domain='market'"
+    )
+    row = cursor.fetchone()
+    if row is None or int(row[0]) < 1 or not HEX_64.fullmatch(str(row[1] or "")):
+        raise ReadinessError("market_reader_revision_invalid")
+
+
+def _validate_market_writer_authority(cursor) -> None:
+    cursor.execute(
+        "SELECT status, authority_epoch, cutover_id "
+        "FROM market_write_authority WHERE id = 1"
+    )
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "postgres":
+        raise ReadinessError("market_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("market_writer_authority_invalid") from error
+    if (
+        epoch != settings.MARKET_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.MARKET_WRITE_CUTOVER_ID
+    ):
+        raise ReadinessError("market_writer_authority_mismatch")
+
+
+def _validate_market_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("market_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("market_writer_database_read_only")
+    cursor.execute("SELECT current_schema()")
+    application_schema = str(cursor.fetchone()[0])
+    cursor.execute(
+        "SELECT has_schema_privilege(current_user, current_schema(), 'CREATE'), "
+        "has_database_privilege(current_user, current_database(), 'CREATE')"
+    )
+    ddl_privileges = cursor.fetchone()
+    if bool(ddl_privileges[0]) or bool(ddl_privileges[1]):
+        raise ReadinessError("market_writer_database_privilege_excessive")
+    for table, privileges in MARKET_WRITER_TABLE_PRIVILEGES.items():
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user, %s, %s)",
+                [table, privilege],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("market_writer_database_privilege_missing")
+    cursor.execute(
+        "SELECT n.nspname,c.relname,"
+        "has_table_privilege(current_user,c.oid,'INSERT'),"
+        "has_table_privilege(current_user,c.oid,'UPDATE'),"
+        "has_table_privilege(current_user,c.oid,'DELETE'),"
+        "has_table_privilege(current_user,c.oid,'TRUNCATE'),"
+        "has_any_column_privilege(current_user,c.oid,'INSERT'),"
+        "has_any_column_privilege(current_user,c.oid,'UPDATE') "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE c.relkind IN ('r','p','v','m','f') "
+        "AND n.nspname <> 'information_schema' "
+        "AND n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'"
+    )
+    for row in cursor.fetchall():
+        schema_name, table_name = str(row[0]), str(row[1])
+        actual = {
+            "INSERT": bool(row[2]) or bool(row[6]),
+            "UPDATE": bool(row[3]) or bool(row[7]),
+            "DELETE": bool(row[4]),
+            "TRUNCATE": bool(row[5]),
+        }
+        allowed = (
+            set(MARKET_WRITER_TABLE_PRIVILEGES.get(table_name, ()))
+            if schema_name == application_schema
+            else set()
+        )
+        if any(
+            granted and privilege not in allowed
+            for privilege, granted in actual.items()
+        ):
+            raise ReadinessError("market_writer_database_privilege_excessive")
+    for table in MARKET_WRITER_AUTO_ID_TABLES:
+        cursor.execute("SELECT pg_get_serial_sequence(%s, 'id')", [table])
+        sequence = cursor.fetchone()[0]
+        if sequence:
+            cursor.execute(
+                "SELECT has_sequence_privilege(current_user, %s, 'USAGE')",
+                [sequence],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("market_writer_database_privilege_missing")
+
+
 def _validate_writer_authority(cursor) -> str:
     cursor.execute(
         "SELECT status, authority_epoch, cutover_id "
@@ -596,9 +828,25 @@ def ready(_request):
     finance_reader_process = settings.DJANGO_PROCESS_ROLE == "finance_reader"
     netshop_writer_process = settings.DJANGO_PROCESS_ROLE == "netshop_writer"
     netshop_reader_process = settings.DJANGO_PROCESS_ROLE == "netshop_reader"
+    market_writer_process = settings.DJANGO_PROCESS_ROLE == "market_writer"
+    market_reader_process = settings.DJANGO_PROCESS_ROLE == "market_reader"
     try:
         with connection.cursor() as cursor:
-            if netshop_writer_process:
+            if market_writer_process:
+                _validate_market_schema(cursor, writer=True)
+                _validate_market_revision(cursor)
+                _validate_market_writer_authority(cursor)
+                _validate_market_writer_permissions(cursor)
+            elif market_reader_process:
+                _validate_market_schema(cursor, writer=False)
+                _validate_market_revision(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
+            elif netshop_writer_process:
                 _validate_netshop_schema(cursor, writer=True)
                 _validate_netshop_revision(cursor)
                 _validate_netshop_writer_authority(cursor)
@@ -656,7 +904,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "finance_writer_unavailable"
+                    "market_writer_unavailable"
+                    if market_writer_process
+                    else "market_reader_unavailable"
+                    if market_reader_process
+                    else "finance_writer_unavailable"
                     if finance_writer_process
                     else "finance_reader_unavailable"
                     if finance_reader_process
@@ -681,7 +933,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "finance_writer_unavailable"
+                    "market_writer_unavailable"
+                    if market_writer_process
+                    else "market_reader_unavailable"
+                    if market_reader_process
+                    else "finance_writer_unavailable"
                     if finance_writer_process
                     else "finance_reader_unavailable"
                     if finance_reader_process
@@ -701,7 +957,11 @@ def ready(_request):
         "service": "teruisi-django",
         "database": "ready",
     }
-    if netshop_writer_process:
+    if market_writer_process:
+        payload["marketWriter"] = "ready"
+    elif market_reader_process:
+        payload["marketReader"] = "ready"
+    elif netshop_writer_process:
         payload["netshopWriter"] = "ready"
     elif netshop_reader_process:
         payload["netshopReader"] = "ready"

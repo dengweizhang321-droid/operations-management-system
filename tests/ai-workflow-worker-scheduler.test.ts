@@ -35,12 +35,15 @@ test("scheduled and protected local ticks run one isolated workflow and one form
 
   const workflowAt = maintenance.indexOf("const aiWorkflow = await runScheduledMarketTask");
   const agentAt = maintenance.indexOf("const aiAgent = await runScheduledMarketTask");
+  const netshopProjectionAt = maintenance.indexOf("const netshopProjection = await runScheduledMarketTask");
   const imageCacheAt = maintenance.indexOf("const imageCache = await runScheduledMarketTask");
   const aiSpaceAt = maintenance.indexOf("const aiSpace = await runScheduledMarketTask");
   const annotationsAt = maintenance.indexOf("const annotations = await runScheduledMarketTask");
-  assert.ok(workflowAt >= 0 && workflowAt < agentAt && agentAt < imageCacheAt, "workflow and Agent queues must not starve behind image work");
+  assert.ok(workflowAt >= 0 && workflowAt < agentAt && agentAt < netshopProjectionAt,
+    "workflow and Agent queues must not starve behind market projection work");
+  assert.ok(netshopProjectionAt < imageCacheAt, "the PostgreSQL market projection refresh must precede derived image work");
   assert.ok(imageCacheAt < aiSpaceAt && aiSpaceAt < annotationsAt, "existing runner order must remain stable");
-  assert.match(maintenance, /return \{ aiWorkflow, aiAgent, imageCache, annotations, aiSpace \};/);
+  assert.match(maintenance, /return \{ aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \};/);
 
   const localScheduled = source.slice(
     source.indexOf("if (url.pathname === localScheduledPath)"),
@@ -59,7 +62,7 @@ test("each scheduled runner remains failure-isolated", async () => {
     source.indexOf("function allowsLoopbackDevelopmentRequest"),
   );
 
-  for (const binding of ["aiWorkflow", "aiAgent", "imageCache", "aiSpace", "annotations"]) {
+  for (const binding of ["aiWorkflow", "aiAgent", "netshopProjection", "imageCache", "aiSpace", "annotations"]) {
     assert.match(
       maintenance,
       new RegExp(`const ${binding} = await runScheduledMarketTask\\(`),

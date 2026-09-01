@@ -19,6 +19,10 @@ import {
   NETSHOP_PRODUCTS_PATH,
   NETSHOP_PRODUCT_PERFORMANCE_PATH,
 } from "@/lib/django/netshop-service";
+import {
+  MARKET_QUERIES_PATH,
+  requestDjangoMarketService,
+} from "@/lib/django/market-service";
 import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
 
 /**
@@ -161,8 +165,8 @@ export type PageDataToolServices = {
     selections: MarketSelection[];
     startDate?: string;
     endDate?: string;
-  }): Promise<unknown>;
-  readMarketStatus(): Promise<unknown>;
+  }, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
+  readMarketStatus(principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readOperatingSettings(): Promise<unknown>;
 };
 
@@ -315,19 +319,35 @@ const defaultPageDataToolServices: PageDataToolServices = {
     const { listCustomerServiceBatches } = await import("@/lib/customer-service/database");
     return listCustomerServiceBatches(input);
   },
-  async readMarketComparison(input) {
-    const [{ getMarketDatabase }, { getMarketSkuComparison }] = await Promise.all([
-      import("@/lib/market/database"),
-      import("@/lib/market/admin-service"),
-    ]);
-    return getMarketSkuComparison(getMarketDatabase(), input);
+  async readMarketComparison(input, principal, signal) {
+    return (await requestDjangoMarketService<Record<string, unknown>>(
+      principal,
+      {
+        path: MARKET_QUERIES_PATH,
+        service: "reader",
+        payload: {
+          operation: "master",
+          view: "compare",
+          params: input,
+        },
+      },
+      { signal },
+    )).data;
   },
-  async readMarketStatus() {
-    const [{ getMarketDatabase }, { getMarketSettingsStatus }] = await Promise.all([
-      import("@/lib/market/database"),
-      import("@/lib/market/admin-service"),
-    ]);
-    return getMarketSettingsStatus(getMarketDatabase());
+  async readMarketStatus(principal, signal) {
+    return (await requestDjangoMarketService<Record<string, unknown>>(
+      principal,
+      {
+        path: MARKET_QUERIES_PATH,
+        service: "reader",
+        payload: {
+          operation: "master",
+          view: "settings_status",
+          params: {},
+        },
+      },
+      { signal },
+    )).data;
   },
   async readOperatingSettings() {
     const { readOperatingSettings } = await import("@/lib/settings/service");
@@ -1193,7 +1213,11 @@ export async function compareMarketItemsPageData(
   assertOnlyKeys(input, ["selections", "startDate", "endDate"]);
   const selections = parseMarketSelections(input.selections);
   const period = datePair(input, "startDate", "endDate");
-  const result = resultObject(await serviceSet(overrides).readMarketComparison({ selections, ...period }));
+  const result = resultObject(await serviceSet(overrides).readMarketComparison(
+    { selections, ...period },
+    principal,
+    context.signal,
+  ));
   return {
     page: "market.comparison",
     available: true,
@@ -1232,7 +1256,7 @@ export async function getMarketWorkspaceStatusPageData(
   requireUnrestrictedDataScope(principal, "市场数据状态");
   const input = inputObject(args);
   assertOnlyKeys(input, []);
-  const result = resultObject(await serviceSet(overrides).readMarketStatus());
+  const result = resultObject(await serviceSet(overrides).readMarketStatus(principal, context.signal));
   return {
     page: "market.status",
     available: true,

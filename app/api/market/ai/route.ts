@@ -5,9 +5,13 @@ import {
   resolveChatModel,
 } from "@/lib/ai/assistant-service";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import {
+  MARKET_QUERIES_PATH,
+  requestDjangoMarketService,
+} from "@/lib/django/market-service";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
-import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
-import { ensureMarketNetshopProjection } from "@/lib/market/netshop-projection";
+import { readBoundedJsonObject } from "@/lib/http/bounded-json";
+import { getD1Database } from "@/lib/database/d1";
 
 type MarketAiRequest = {
   question?: string;
@@ -28,6 +32,7 @@ const MARKET_AI_SYSTEM_PROMPT = [
   "本入口不提供工具调用，不要声称调用工具、查询其他系统数据或补全未提供的指标。",
   "金额单位为人民币分，转化率单位为基点（100 基点=1%）；回答时必须说明数据日期范围和统计口径。",
 ].join("\n");
+const MARKET_AI_BODY_BYTES_MAX = 64 * 1024;
 
 function safeList(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 20) : [];
@@ -42,23 +47,35 @@ export async function POST(request: Request) {
         { status: 403, headers: { "cache-control": "no-store" } },
       );
     }
-    const body = await request.json().catch(() => null) as MarketAiRequest | null;
-    if (!body) return Response.json({ error: "请求内容不是有效 JSON" }, { status: 400 });
-    const db = getMarketDatabase();
-    await ensureMarketSchema(db);
-    await ensureMarketNetshopProjection(db, principal, { signal: request.signal });
-    const overview = await getMarketOverview(db, principal, {
-      query: body.query?.trim() || undefined,
-      categories: safeList(body.categories),
-      scopes: safeList(body.scopes),
-      brands: safeList(body.brands),
-      rankingDimensions: safeList(body.rankingDimensions),
-      operationModes: safeList(body.operationModes),
-      subcategories: safeList(body.subcategories),
-      priceBands: safeList(body.priceBands),
-      startDate: /^\d{4}-\d{2}-\d{2}$/.test(body.startDate ?? "") ? body.startDate : undefined,
-      endDate: /^\d{4}-\d{2}-\d{2}$/.test(body.endDate ?? "") ? body.endDate : undefined,
-    });
+    const body = await readBoundedJsonObject(request, MARKET_AI_BODY_BYTES_MAX) as MarketAiRequest;
+    const db = getD1Database();
+    const market = await requestDjangoMarketService<{
+      summary: Record<string, number | null> & { productCount: number };
+      items: Array<Record<string, unknown>>;
+      dataRange: { startDate: string | null; endDate: string | null };
+    }>(principal, {
+      path: MARKET_QUERIES_PATH,
+      service: "reader",
+      payload: {
+        operation: "overview",
+        view: "full",
+        page: 1,
+        pageSize: 50,
+        filters: {
+          query: body.query?.trim().slice(0, 120) || "",
+          categories: safeList(body.categories),
+          scopes: safeList(body.scopes),
+          brands: safeList(body.brands),
+          rankingDimensions: safeList(body.rankingDimensions),
+          operationModes: safeList(body.operationModes),
+          subcategories: safeList(body.subcategories),
+          priceBands: safeList(body.priceBands),
+          startDate: /^\d{4}-\d{2}-\d{2}$/.test(body.startDate ?? "") ? body.startDate : null,
+          endDate: /^\d{4}-\d{2}-\d{2}$/.test(body.endDate ?? "") ? body.endDate : null,
+        },
+      },
+    }, { signal: request.signal });
+    const overview = market.data;
     if (!overview.summary.productCount) return Response.json({ error: "当前筛选范围没有市场数据，请先导入榜单或 SKU 数据" }, { status: 400 });
     const model = await resolveChatModel(db);
     if (!model) return Response.json({ error: "请先在 AI 助理中启用一个默认文本模型" }, { status: 409 });

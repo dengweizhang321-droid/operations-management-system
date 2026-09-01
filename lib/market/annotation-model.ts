@@ -63,13 +63,16 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 export async function runVisionAnnotation(input: {
   db: MarketDatabase; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
+  skipMarketCache?: boolean;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
   const startedAt = Date.now();
   const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
   try {
     const model = await getModel(input.db, input.modelId, "vision");
     const imageLoadStartedAt = Date.now();
-    const cachedImage = input.imageUrl ? await loadCachedAnnotationImage(input.db, input.imageUrl) : null;
+    const cachedImage = input.imageUrl && !input.skipMarketCache
+      ? await loadCachedAnnotationImage(input.db, input.imageUrl)
+      : null;
     const sourceImage = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
     timing.imageLoadMs = Date.now() - imageLoadStartedAt;
     if (sourceImage.kind !== "image") throw new Error(`主图获取失败：${sourceImage.message}`);

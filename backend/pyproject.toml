@@ -15,11 +15,11 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["teruisi_backend*", "sales*", "erp_reference*", "finance*", "netshop*"]
+include = ["teruisi_backend*", "sales*", "erp_reference*", "finance*", "netshop*", "market*"]
 
 [tool.coverage.run]
 branch = true
-source = ["sales", "erp_reference", "finance", "netshop"]
+source = ["sales", "erp_reference", "finance", "netshop", "market"]
 
 [tool.coverage.report]
 show_missing = true

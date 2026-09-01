@@ -480,14 +480,16 @@ test("API validation rejects ambiguous inputs and HTTP/UI/scheduled paths remain
     readFile(new URL("../lib/market/image-cache-state.ts", import.meta.url), "utf8"),
     readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(route, /try\s*\{\s*body = await request\.json\(\)/);
+  assert.match(route, /readBoundedJsonObject\(request, MARKET_IMAGE_CACHE_BODY_BYTES_MAX\)/);
   assert.match(route, /parseMarketImageCachePostBody/);
   assert.match(route, /parseMarketImageCacheGetQuery/);
   assert.doesNotMatch(route, /runScheduledMarketImageCacheBatch|cacheMarketImages/);
   assert.match(importService, /createOrResumeMarketImageCacheJob/);
   assert.doesNotMatch(importService, /cacheMarketImages|fetchAnnotationImage|SALES_IMPORT_FILES|readMarketImageCacheWorkStats/);
-  assert.match(masterExecute, /createOrResumeMarketImageCacheJob/);
-  assert.doesNotMatch(masterExecute, /cacheMarketImages|runScheduledMarketImageCacheBatch|readMarketImageCacheWorkStats/);
+  assert.match(masterExecute, /MARKET_IMPORTS_PATH/);
+  assert.match(masterExecute, /prepareDjangoMarketImport/);
+  assert.match(masterExecute, /imageCacheJob: imported\.data\.imageCacheJob \?\? null/);
+  assert.doesNotMatch(masterExecute, /cacheMarketImages|runScheduledMarketImageCacheBatch|readMarketImageCacheWorkStats|createOrResumeMarketImageCacheJob/);
 
   const uploadBody = marketView.slice(marketView.indexOf("const upload = async"), marketView.indexOf("return <section className=\"panel market-import-card\""));
   assert.match(uploadBody, /startImageCachePolling\(initialJob, importMessage\)/);
@@ -513,7 +515,7 @@ test("API validation rejects ambiguous inputs and HTTP/UI/scheduled paths remain
   assert.doesNotMatch(imageCacheState, /claim_job_id|claim_lease_expires_at|propagated_at/);
   assert.match(imageCacheState, /market_image_cache_claims/);
   assert.match(imageCacheState, /job_lease_token/);
-  assert.match(workerEntry, /runScheduledMarketImageCacheBatch\(\{ db \}\)/);
-  assert.ok(workerEntry.indexOf("runScheduledMarketImageCacheBatch({ db })")
-    < workerEntry.indexOf("runScheduledCloudAnnotations(db"));
+  assert.match(workerEntry, /runDjangoMarketImageCacheBatch\(\{ bucket: input\.aiSpaceBucket \}\)/);
+  assert.ok(workerEntry.indexOf("runDjangoMarketImageCacheBatch({ bucket: input.aiSpaceBucket })")
+    < workerEntry.indexOf("runScheduledDjangoMarketAnnotation({ db })"));
 });

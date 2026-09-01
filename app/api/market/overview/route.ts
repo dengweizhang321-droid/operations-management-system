@@ -1,14 +1,12 @@
-import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
-import { ensureMarketNetshopProjection } from "@/lib/market/netshop-projection";
-import { getCachedMarketOverview } from "@/lib/market/overview-response-cache";
-import { createDjangoSalesConsumerReader } from "@/lib/django/sales-consumer-reader";
-import { validateMarketOverviewCachePayload } from "@/lib/market/cache-payload-validators";
-import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import {
+  MARKET_QUERIES_PATH,
+  requestDjangoMarketService,
+} from "@/lib/django/market-service";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { parseMarketOverviewQuery } from "@/lib/market/query-contract";
 
@@ -16,32 +14,29 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "市场分析概览");
-    const params = new URL(request.url).searchParams;
-    const { view, pagination, filters } = parseMarketOverviewQuery(params);
-    const db = getMarketDatabase();
-    const salesReader = createDjangoSalesConsumerReader();
-    await Promise.all([
-      ensureMarketSchema(db),
-      ensureAnnotationSchema(db),
-    ]);
-    const [, salesFreshness] = await Promise.all([
-      ensureMarketNetshopProjection(db, principal, { signal: request.signal }),
-      salesReader.read(principal, { operation: "freshness" }, { signal: request.signal }),
-    ]);
-    const result = await getCachedMarketOverview(
-      db,
-      { view, filters, pagination, salesRevision: salesFreshness.revision },
-      () => getMarketOverview(db, principal, filters, {
-        view,
-        rankingPage: pagination.page,
-        rankingPageSize: pagination.pageSize,
-        salesReader,
-        expectedSalesRevision: salesFreshness.revision,
-      }),
-      (payload) => validateMarketOverviewCachePayload(payload, view),
+    const { view, pagination, filters } = parseMarketOverviewQuery(
+      new URL(request.url).searchParams,
     );
-    return Response.json(result.payload, {
-      headers: { "cache-control": "no-store", "x-market-overview-cache": result.status },
+    const result = await requestDjangoMarketService<Record<string, unknown>>(
+      principal,
+      {
+        path: MARKET_QUERIES_PATH,
+        service: "reader",
+        payload: {
+          operation: "overview",
+          view,
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          filters,
+        },
+      },
+      { signal: request.signal },
+    );
+    return Response.json(result.data, {
+      headers: {
+        "cache-control": "no-store",
+        "x-market-data-revision": result.revision,
+      },
     });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

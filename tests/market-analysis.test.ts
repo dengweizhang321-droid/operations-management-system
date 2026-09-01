@@ -126,9 +126,10 @@ test("市场上传入口声明支持 XLS、XLSX 和 CSV", async () => {
 });
 
 test("市场分析按商品榜单、行业汇报、竞品对比、系统和 AI 设置拆分为四个工作区", async () => {
-  const [view, masterRoute, styles] = await Promise.all([
+  const [view, masterRoute, backendAdmin, styles] = await Promise.all([
     marketUiSource(),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/admin.py", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   for (const label of ["商品榜单", "行业汇报", "竞品对比", "系统和 AI 设置"]) assert.match(view, new RegExp(label));
@@ -164,22 +165,25 @@ test("市场分析按商品榜单、行业汇报、竞品对比、系统和 AI �
   for (const label of ["市场商品身份", "待确认价格", "待 AI 标注总量", "已生成 AI 结果", "同图直接复用", "新图仅识别价格", "完整分类和价格", "暂不可自动识别"]) assert.match(view, new RegExp(label));
   assert.match(view, /四项合计与总量一致/);
   assert.match(styles, /\.market-image-cache-card\{grid-column:5;grid-row:1\/span 2\}/);
-  assert.match(masterRoute, /view === "system_kpis"/);
-  assert.match(masterRoute, /getMarketSystemKpis/);
+  assert.match(masterRoute, /payload: \{ operation: "master", view, params: queryParams\(params\) \}/);
+  assert.match(masterRoute, /service: "reader"/);
+  assert.match(backendAdmin, /if view == "system_kpis":[\s\S]+return system_kpis\(\)/);
 });
 
 test("SKU 数据库与 AI 标注使用最新身份缓存且页面不读取完整目录", async () => {
-  const [adminService, annotationService, annotationRoute, annotationView, migration] = await Promise.all([
+  const [adminService, annotationService, annotationRoute, backendAnnotations, annotationView, migration] = await Promise.all([
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/annotations/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/annotations.py", import.meta.url), "utf8"),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0038_market_master_identities.sql", import.meta.url), "utf8"),
   ]);
   assert.match(adminService, /JOIN market_ranking_entries source ON source\.id=identity\.latest_entry_id/);
   assert.match(annotationService, /FROM market_master_identities identity/);
-  assert.match(annotationRoute, /view === "review"/);
-  assert.match(annotationRoute, /view === "catalog"/);
+  assert.match(annotationRoute, /"candidate_counts", "review", "catalog"\]\.includes\(view\)/);
+  assert.match(backendAnnotations, /if view == "review":[\s\S]+return _review\(params\)/);
+  assert.match(backendAnnotations, /if view == "catalog":[\s\S]+return \{"catalog": _catalog\(params\)\}/);
   assert.match(annotationRoute, /includeCatalog: params\.get\("includeCatalog"\) === "1"/);
   assert.doesNotMatch(annotationView, /includeCatalog|IntersectionObserver|catalogRequested|view: "catalog"|完整市场 SKU 库检索/);
   assert.doesNotMatch(annotationView, /void load\(item\.id, search, searchPage, 1\)/);
@@ -306,11 +310,12 @@ test("an old market POST completion refreshes through the latest filter load clo
 });
 
 test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品类设置和概括时间筛选", async () => {
-  const [view, annotation, service, route, styles] = await Promise.all([
+  const [view, annotation, service, route, backendAdmin, styles] = await Promise.all([
     marketUiSource(),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/admin.py", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   for (const label of ["SKU 数据库与价格审核", "细分品类", "价格状态", "入库状态", "编辑 SKU 全部数据", "编辑 SKU 数据", "细分品类设置", "保存并刷新全部关联数据", "全局统计周期", "源表价格区间中位数兜底"]) assert.match(view, new RegExp(label));
@@ -354,14 +359,15 @@ test("SKU 数据库合并价格与 AI 入库，按需加载，并提供细分品
   assert.match(service, /updateMarketSkuMasterData/);
   assert.match(service, /saveMarketSubcategorySettings/);
   assert.match(service, /FROM market_subcategory_taxonomy t/);
-  assert.match(route, /workspaceModeParam/);
-  assert.match(route, /case "update_sku_master"/);
+  assert.match(route, /parseMarketMasterView\(params\)/);
+  assert.match(route, /domain: "master"/);
+  assert.match(backendAdmin, /if action == "update_sku_master":[\s\S]+return _update_sku_master\(payload, principal\)/);
   assert.match(styles, /\.annotation-review-table-wrap\s*\{[\s\S]*?overflow-x:\s*clip/);
   assert.match(styles, /\.annotation-review-table\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?table-layout:\s*fixed/);
   assert.match(styles, /\.annotation-job-list\s*\{[\s\S]*?max-height:\s*240px;[\s\S]*?display:\s*grid;[\s\S]*?overflow-y:\s*auto/);
   assert.match(styles, /\.annotation-task-setup\s*\{[\s\S]*?grid-template-columns:/);
   assert.match(styles, /\.annotation-current-run\s*\{[\s\S]*?grid-template-columns:/);
-  assert.match(route, /case "save_subcategory_settings"/);
+  assert.match(backendAdmin, /if action == "save_subcategory_settings"/);
 });
 
 test("视觉模型错误保留安全的供应商详情并给出状态码诊断", async () => {
@@ -634,9 +640,10 @@ test("京东商智月度 TOP SKU CSV 识别原图、商品链接和区间中位�
 });
 
 test("市场图片缓存使用受限京东抓取、R2、鉴权路由并接入标注目录", async () => {
-  const [cache, cacheRoute, imageRoute, schemaCore, database, view, annotation] = await Promise.all([
+  const [cache, cacheRoute, backendImages, imageRoute, schemaCore, database, view, annotation] = await Promise.all([
     readFile(new URL("../lib/market/image-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/images/cache/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/images.py", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/images/[hash]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/schema-core.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
@@ -650,7 +657,10 @@ test("市场图片缓存使用受限京东抓取、R2、鉴权路由并接入标
   assert.match(cache, /runScheduledMarketImageCacheBatch/);
   assert.match(cacheRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(cacheRoute, /export async function GET/);
-  assert.match(cacheRoute, /createOrResumeMarketImageCacheJob/);
+  assert.match(cacheRoute, /operation: "image_cache_job"/);
+  assert.match(cacheRoute, /action: "create_image_cache_job"/);
+  assert.match(cacheRoute, /requestDjangoMarketService/);
+  assert.match(backendImages, /if action == "create_image_cache_job"/);
   assert.doesNotMatch(cacheRoute, /runScheduledMarketImageCacheBatch|cacheMarketImages/);
   assert.match(imageRoute, /requireAppPrincipal\(\)/);
   assert.match(imageRoute, /x-content-type-options/);

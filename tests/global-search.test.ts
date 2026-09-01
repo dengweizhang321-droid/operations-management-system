@@ -589,7 +589,11 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const migrationDirectory = new URL("../drizzle/", import.meta.url);
   const migrations = (await readdir(migrationDirectory)).filter((name) => name.endsWith(".sql")).sort();
-  for (const migration of migrations) sqlite.exec(await readFile(new URL(migration, migrationDirectory), "utf8"));
+  for (const migration of migrations) {
+    const sql = await readFile(new URL(migration, migrationDirectory), "utf8");
+    if (/Operator-only terminal retirement/.test(sql)) continue;
+    sqlite.exec(sql);
+  }
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS customer_service_import_batches (
       id TEXT PRIMARY KEY, session_file_name TEXT NOT NULL, chat_file_name TEXT NOT NULL,

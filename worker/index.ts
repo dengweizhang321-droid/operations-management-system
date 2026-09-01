@@ -1,8 +1,9 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { runScheduledCloudAnnotations } from "../lib/market/annotation-service";
-import { runScheduledMarketImageCacheBatch } from "../lib/market/image-cache";
+import { runScheduledDjangoMarketAnnotation } from "../lib/market/django-annotation-scheduled";
+import { runDjangoMarketImageCacheBatch } from "../lib/market/django-image-cache-runner";
+import { runDjangoMarketNetshopProjectionSync } from "../lib/market/django-netshop-projection-runner";
 import { runScheduledAiSpace } from "../lib/ai/space";
 import { runNextAiWorkflowMicrostep } from "../lib/ai/agent-workflows";
 import { runNextFormalAiAgentMicrostep } from "../lib/ai/agent-executor";
@@ -73,10 +74,14 @@ async function runScheduledMarketMaintenance(
     "AI Agent scheduled runner failed",
     () => runNextFormalAiAgentMicrostep({ db }),
   );
+  const netshopProjection = await runScheduledMarketTask(
+    "market netshop projection scheduled runner failed",
+    () => runDjangoMarketNetshopProjectionSync(),
+  );
   // 图片缓存每次只处理一个有界批次；任一 runner 失败都不能阻塞其余独立队列。
   const imageCache = await runScheduledMarketTask(
     "market image cache scheduled runner failed",
-    () => runScheduledMarketImageCacheBatch({ db }),
+    () => runDjangoMarketImageCacheBatch({ bucket: input.aiSpaceBucket }),
   );
   const aiSpace = await runScheduledMarketTask(
     "AI space scheduled runner failed",
@@ -84,11 +89,9 @@ async function runScheduledMarketMaintenance(
   );
   const annotations = await runScheduledMarketTask(
     "market annotation scheduled runner failed",
-    () => runScheduledCloudAnnotations(db, input.annotationMaxRuntimeMs
-      ? { maxRuntimeMs: input.annotationMaxRuntimeMs }
-      : {}),
+    () => runScheduledDjangoMarketAnnotation({ db }),
   );
-  return { aiWorkflow, aiAgent, imageCache, annotations, aiSpace };
+  return { aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace };
 }
 
 function allowsLoopbackDevelopmentRequest(request: Request, env: Env) {

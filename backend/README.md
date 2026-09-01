@@ -1,6 +1,6 @@
 # Django 领域后端
 
-本目录承载按领域隔离的 Django 后端。当前本机销售域已经采用：销售事实、导入批次、导入幂等与尝试审计、上传/暂存元数据、查询和分析全部由 Django + PostgreSQL 单写并作为唯一权威来源。财务域代码和迁移门禁已经完成隔离演练，但尚未部署或切换本机正式流量，当前财务权威仍是 Worker/D1。
+本目录承载按领域隔离的 Django 后端。当前本机销售、财务和网店域已完成 Django/PostgreSQL 正式单写切换；市场域已完成候选实现与真实数据隔离演练，但尚未部署或正式切换，生产市场权威仍是 D1。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -27,7 +27,11 @@
 | `127.0.0.1:8001` | Django reader | `teruisi_sales_reader` |
 | `127.0.0.1:8002` | Django writer | `teruisi_sales_writer` |
 | `127.0.0.1:8011` | Django finance reader | `teruisi_finance_reader` |
-| `127.0.0.1:8012` | Django finance writer（authority 激活前保持停止） | `teruisi_finance_writer` |
+| `127.0.0.1:8012` | Django finance writer | `teruisi_finance_writer` |
+| `127.0.0.1:8021` | Django netshop reader | `teruisi_netshop_reader` |
+| `127.0.0.1:8022` | Django netshop writer | `teruisi_netshop_writer` |
+| `127.0.0.1:8031` | Django market reader（候选，正式切换前不启用） | `teruisi_market_reader` |
+| `127.0.0.1:8032` | Django market writer（候选，正式切换前不启用） | `teruisi_market_writer` |
 | 后台进程，无监听端口 | ERP bridge | `teruisi_erp_reference_sync` |
 
 三种运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
@@ -47,7 +51,7 @@ cd backend
 python -m pip install -r requirements.txt
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python manage.py test
+python manage.py test sales finance netshop market
 ```
 
 公开 Worker 与 Django 之间使用 HMAC principal 信封。浏览器传入的角色、scope、用户标识或内部签名头均不可信，必须由 Worker 重新生成并由 Django 验证时间窗、签名和规范化请求身份。
@@ -105,13 +109,21 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 公开 Worker 的 `GET /api/sales/data-health` 只复用 reader 上已有的有界 `freshness` consumer，面向无数据 scope 的 `operator/admin` 返回动态 revision、业务日期、覆盖区间和最近成功批次。它不授予 reader 新表权限、不读取本机监控/备份目录，也不把机械 lag 天数静默解释为业务过期结论。
 
-## 财务域待切换实现
+## 财务域正式单写实现
 
 财务域使用独立 `finance_reader` 与 `finance_writer` 进程角色、独立数据库角色和独立回环端点；不能复用销售 reader/writer 的 URL 或数据库凭据。reader 只开放财报分析、导入历史、目标读取和有界消费者查询，writer 只开放规范化财报导入和目标增删改。writer readiness 必须核验财务 schema、revision、激活的 authority epoch/cutover ID、财务表写权限，以及对销售事实和 authority 表的越权拒绝；reader 连接必须为只读事务。
 
-公开路径继续保持 `/api/imports/finance`、`/api/finance/analysis` 和 `/api/finance/targets`，Worker 只做鉴权、现有 Excel 解析、HMAC 和薄适配。内部 Django 路径为 `/api/finance/imports`、`/api/finance/analysis`、`/api/finance/targets` 和固定操作集合的 `/api/finance/consumers/query`。`TERUISI_DJANGO_FINANCE_MODE` 默认为 `legacy`；`shadow` 仅旁路比较读取并始终返回 legacy 响应，写入仍只进 D1；`django` 模式才把财务读写路由至两个独立 Django 进程，任何异常都失败关闭而不静默回退。
+公开路径继续保持 `/api/imports/finance`、`/api/finance/analysis` 和 `/api/finance/targets`，Worker 只做鉴权、现有 Excel 解析、HMAC 和薄适配。内部 Django 路径为 `/api/finance/imports`、`/api/finance/analysis`、`/api/finance/targets` 和固定操作集合的 `/api/finance/consumers/query`。当前 `TERUISI_DJANGO_FINANCE_MODE` 必须保持 `django`；`legacy`/`shadow` 不再是生产回退路径，任何异常都失败关闭。
 
-历史迁移和 D1 单写 authority 使用 `migrate_finance_from_d1`、`finance_write_authority` 与 operator-only `drizzle/0093_finance_write_authority.sql`；`tools/finance-analysis-parity.ts` 在只读财务副本和候选 reader 之间执行脱敏的逐字段响应对比。完整命令、真实隔离演练证据、上线顺序和 PNR 恢复边界见[财务后端迁移手册](../docs/DJANGO_FINANCE_MIGRATION.md)。该准备工作没有修改“销售分析 → 财务分析”页面模板，也没有改变当前销售、ERP 或其他模块的运行状态。
+历史迁移和 D1 单写 authority 使用 `migrate_finance_from_d1`、`finance_write_authority` 与 operator-only `drizzle/0093_finance_write_authority.sql`。正式切换已跨过 PNR，完整证据和恢复边界见[财务后端迁移手册](../docs/DJANGO_FINANCE_MIGRATION.md)。
+
+## 网店域正式单写实现
+
+网店 reader/writer 固定使用 `8021/8022` 和独立最小权限角色，PostgreSQL 是网店事实、批次、SKU/SPU、推广、上传、revision 和审计的唯一权威。旧 D1 网店路径不得作为读取、写入或回滚来源；市场只通过固定 Django consumer 获取有界投影。完整证据见[网店后端迁移手册](../docs/DJANGO_NETSHOP_MIGRATION.md)。
+
+## 市场域候选实现
+
+市场 app 位于 `backend/market/`，候选 reader/writer 固定为 `8031/8032`。现有 React 页面和同源公开 API 保留；Worker 负责真实 principal、解析、HMAC、体积/超时边界和需要 R2/模型的边缘执行，Django 负责市场事实、批次、幂等、任务、revision、authority 与查询。当前生产市场仍由 D1 承载，`market-service-enabled.json` 不得在正式 cutover 前创建。真实数据隔离演练、当前陈旧 processing 批次门禁、`0097/0098`、PNR 和恢复步骤见[市场后端迁移手册](../docs/DJANGO_MARKET_MIGRATION.md)。
 
 ## 当前本机终态记录
 

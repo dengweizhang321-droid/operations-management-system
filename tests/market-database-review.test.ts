@@ -1570,5 +1570,6 @@ test("market trend identity is exact in UI, API, service, and the central AI sch
   assert.match(trendTool, /scope: \{ type: "string", minLength: 1, maxLength: 120 \}/);
   assert.match(trendTool, /required: \["skuCode", "category", "scope", "rankingDimension"\]/);
   assert.match(aiTools, /scope = stringArg\(args\.scope, "scope", 120\)/);
-  assert.match(aiTools, /category,\s+scope,\s+rankingDimension: dimension/);
+  assert.match(aiTools, /path: MARKET_CONSUMER_QUERY_PATH/);
+  assert.match(aiTools, /operation: "sku_trend"[\s\S]*category,[\s\S]*scope,[\s\S]*rankingDimension/);
 });

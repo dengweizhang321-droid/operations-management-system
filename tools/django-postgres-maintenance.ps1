@@ -31,7 +31,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_finance_reader",
   "teruisi_finance_writer",
   "teruisi_netshop_reader",
-  "teruisi_netshop_writer"
+  "teruisi_netshop_writer",
+  "teruisi_market_reader",
+  "teruisi_market_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -235,12 +237,20 @@ function Assert-MaintenanceEvidence(
   if ($hasNetshopRevisions -ne $hasNetshopAuthority) {
     throw "PostgreSQL 网店证据字段不完整"
   }
+  $hasMarketRevisions = $null -ne $Evidence.PSObject.Properties["marketRevisions"]
+  $hasMarketAuthority = $null -ne $Evidence.PSObject.Properties["marketWriteAuthority"]
+  if ($hasMarketRevisions -ne $hasMarketAuthority) {
+    throw "PostgreSQL 市场证据字段不完整"
+  }
   $evidenceProperties = @(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
   )
   if ($hasNetshopRevisions) {
     $evidenceProperties += @("netshopRevisions", "netshopWriteAuthority")
+  }
+  if ($hasMarketRevisions) {
+    $evidenceProperties += @("marketRevisions", "marketWriteAuthority")
   }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
@@ -280,13 +290,19 @@ function Assert-MaintenanceEvidence(
       "netshop_rows", "netshop_write_authority"
     )
   }
+  if ($hasMarketRevisions) {
+    $requiredTables += @(
+      "market_data_revisions", "market_import_batches",
+      "market_ranking_entries", "market_write_authority"
+    )
+  }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
@@ -366,6 +382,48 @@ function Assert-MaintenanceEvidence(
     } elseif (-not [string]::IsNullOrEmpty($netshopEpoch) -or
               -not [string]::IsNullOrEmpty($netshopCutoverId)) {
       throw "未激活的网店写入权威包含激活证据"
+    }
+  }
+
+  if ($hasMarketRevisions) {
+    if ($Evidence.marketRevisions -isnot [pscustomobject] -or
+        $null -eq $Evidence.marketRevisions.PSObject.Properties["market"]) {
+      throw "PostgreSQL 市场 revision 证据不完整"
+    }
+    foreach ($property in $Evidence.marketRevisions.PSObject.Properties) {
+      if ($property.Name -cnotmatch "^[a-z][a-z0-9_-]{0,63}$") {
+        throw "PostgreSQL 市场 revision 身份无效"
+      }
+      Assert-MaintenanceExactPropertySet $property.Value @(
+        "revision", "sourceDigest"
+      ) "PostgreSQL 市场 revision 证据"
+      if (-not (Test-MaintenanceInteger $property.Value.revision) -or
+          [int64]$property.Value.revision -lt 1 -or
+          [string]$property.Value.sourceDigest -cnotmatch "^[0-9a-f]{64}$") {
+        throw "PostgreSQL 市场 revision 证据无效"
+      }
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.marketWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "市场写入权威证据"
+    $marketStatus = [string]$Evidence.marketWriteAuthority.status
+    $marketEpoch = [string]$Evidence.marketWriteAuthority.authorityEpoch
+    $marketCutoverId = [string]$Evidence.marketWriteAuthority.cutoverId
+    $marketRunId = [string]$Evidence.marketWriteAuthority.migrationRunId
+    if ($marketStatus -notin @("d1", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($marketRunId) -and
+          $marketRunId -cnotmatch "^market-[0-9a-f]{24}$")) {
+      throw "市场写入权威证据无效"
+    }
+    if ($marketStatus -ceq "postgres") {
+      if ($marketEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $marketCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $marketRunId -cnotmatch "^market-[0-9a-f]{24}$") {
+        throw "市场 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($marketEpoch) -or
+              -not [string]::IsNullOrEmpty($marketCutoverId)) {
+      throw "未激活的市场写入权威包含激活证据"
     }
   }
 }

@@ -13,10 +13,11 @@ function between(source: string, start: string, end: string) {
 }
 
 test("market master database first paint excludes deferred price, image, prompt, and model work", async () => {
-  const [panel, route, service] = await Promise.all([
+  const [panel, route, service, backendAdmin] = await Promise.all([
     readFile(new URL("../app/market-master-admin-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/admin.py", import.meta.url), "utf8"),
   ]);
 
   const primaryClientLoad = between(panel, "  const load = useCallback", "  const loadDatabaseFilters = useCallback");
@@ -41,11 +42,12 @@ test("market master database first paint excludes deferred price, image, prompt,
   assert.match(filterService, /market_subcategory_taxonomy/);
   assert.equal((filterService.match(/db\.prepare\(/g) ?? []).length, 2, "deferred filter view owns the two exact aggregates");
 
-  assert.match(route, /view === "database_primary"[\s\S]+getMarketMasterDatabasePrimary/);
-  assert.match(route, /view === "database_filters"[\s\S]+getMarketMasterDatabaseFilters/);
-  assert.match(route, /view === "database_secondary"[\s\S]+getMarketMasterDatabaseSecondary/);
-  assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf('view === "database_primary"'));
-  assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf('view === "database_filters"'));
+  assert.match(route, /const view = parseMarketMasterView\(params\)/);
+  assert.match(route, /payload: \{ operation: "master", view, params: queryParams\(params\) \}/);
+  assert.match(backendAdmin, /if view == "database_primary":[\s\S]+return \{"masterData": list_master\(params\)\}/);
+  assert.match(backendAdmin, /if view == "database_filters":/);
+  assert.match(backendAdmin, /if view == "database_secondary":/);
+  assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf("requestDjangoMarketService<JsonRecord>"));
 });
 
 test("market master filter aggregates start only after the paginated first paint and remain cancellable", async () => {
@@ -126,10 +128,11 @@ test("parallel market master channels cannot clear each other's errors or expose
 });
 
 test("market settings loads a lightweight truthful status instead of reusing ranking overview", async () => {
-  const [view, route, service] = await Promise.all([
+  const [view, route, service, backendAdmin] = await Promise.all([
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/master/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/admin-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/admin.py", import.meta.url), "utf8"),
   ]);
   const settingsEffect = between(view, "  useEffect(() => {\n    if (activeSection !== \"settings\")", "  const loadMore = useCallback");
   assert.match(settingsEffect, /view=settings_status/);
@@ -144,7 +147,8 @@ test("market settings loads a lightweight truthful status instead of reusing ran
   assert.match(view, /activeSection === "settings" && settingsStatusLoading && !settingsData/);
   assert.match(view, /shanghaiToday\(\)/);
   assert.doesNotMatch(view, /data\?\.dataRange\.startDate \?\? new Date\(\)\.toISOString/);
-  assert.match(route, /view === "settings_status"[\s\S]+getMarketSettingsStatus/);
+  assert.match(route, /parseMarketMasterView\(params\)/);
+  assert.match(backendAdmin, /if view == "settings_status":[\s\S]+return settings_status\(\)/);
   const statusService = between(service, "export async function getMarketSettingsStatus", "export async function confirmMarketPrice");
   assert.match(statusService, /MIN\(period_start\)[\s\S]*MAX\(period_end\)/);
   assert.match(statusService, /SELECT \$\{marketBatchColumns\}[\s\S]*FROM market_import_batches ORDER BY created_at DESC LIMIT 8/);

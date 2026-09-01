@@ -68,6 +68,14 @@ function netshopConfigurationUnavailable(): PublicApiError {
   );
 }
 
+function marketConfigurationUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 市场服务配置不完整。",
+  );
+}
+
 function parseBoundedInteger(
   value: string | undefined,
   fallback: number,
@@ -338,6 +346,55 @@ export async function createNetshopGatewayAuthHeaders(
 
   const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
   if (principalBytes.byteLength > 16_384) throw netshopConfigurationUnavailable();
+  const principal = base64Url(principalBytes);
+  const canonical = [
+    "v1",
+    String(input.timestamp),
+    input.requestId,
+    method,
+    input.path,
+    input.rawQuery,
+    bodySha256,
+    principal,
+  ].join("\n");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(input.secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = hex(await crypto.subtle.sign("HMAC", key, encoder.encode(canonical)));
+  return new Headers({
+    accept: "application/json",
+    "x-teruisi-content-sha256": bodySha256,
+    "x-teruisi-principal": principal,
+    "x-teruisi-request-id": input.requestId,
+    "x-teruisi-signature": `v1=${signature}`,
+    "x-teruisi-timestamp": String(input.timestamp),
+  });
+}
+
+/** Market is an independent Django authority. A domain-specific path guard
+ * prevents a valid market envelope from being replayed into another app. */
+export async function createMarketGatewayAuthHeaders(
+  input: SalesGatewaySignatureInput,
+): Promise<Headers> {
+  const method = input.method.toUpperCase();
+  if (method !== "POST" || !input.path.startsWith("/api/market/")) {
+    throw marketConfigurationUnavailable();
+  }
+  const bodySha256 = input.bodySha256?.trim().toLowerCase() ?? "";
+  if (!/^[a-f0-9]{64}$/.test(bodySha256)) throw marketConfigurationUnavailable();
+  if (!Number.isSafeInteger(input.timestamp) || input.timestamp <= 0) {
+    throw marketConfigurationUnavailable();
+  }
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(input.requestId)) {
+    throw marketConfigurationUnavailable();
+  }
+
+  const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
+  if (principalBytes.byteLength > 16_384) throw marketConfigurationUnavailable();
   const principal = base64Url(principalBytes);
   const canonical = [
     "v1",

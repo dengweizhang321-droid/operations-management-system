@@ -44,12 +44,14 @@ test("market overview pagination is strict decimal and facet selection has a sha
   assert.throws(() => parseMarketOverviewQuery(maximum), /合计不能超过 100/);
 });
 
-test("market route uses the strict contract before schema access and SQL list filters use bounded JSON bindings", async () => {
+test("market route validates before the Django gateway and retained migration SQL keeps bounded JSON bindings", async () => {
   const [route, database] = await Promise.all([
     readFile(new URL("../app/api/market/overview/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
   ]);
-  assert.ok(route.indexOf("parseMarketOverviewQuery(params)") < route.indexOf("ensureMarketSchema(db)"));
+  assert.ok(route.indexOf("parseMarketOverviewQuery(") < route.indexOf("const result = await requestDjangoMarketService"));
+  assert.match(route, /service: "reader"/);
+  assert.doesNotMatch(route, /ensureMarketSchema|getD1Database/);
   assert.match(route, /safeApiErrorResponse\(error,/);
   assert.match(database, /IN \(SELECT CAST\(value AS TEXT\) FROM json_each\(\?\)\)/);
   assert.doesNotMatch(database, /targetClauses\.push\(`\$\{column\} IN \(\$\{normalized\.map/);

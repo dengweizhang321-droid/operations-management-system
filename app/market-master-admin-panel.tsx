@@ -447,6 +447,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
     const saved = await post({ action: "update_sku_master", originalCategory: editingSku.category, category: skuDraft.category, scope: editingSku.scope,
       rankingDimension: editingSku.rankingDimension, skuCode: editingSku.skuCode, month: editingSku.month, productName: skuDraft.productName,
       brand: skuDraft.brand, operationMode: skuDraft.operationMode, subcategory: skuDraft.subcategory,
+      imageContentSha256: editingSku.imageContentSha256,
       priceCents: priceYuan === null ? null : Math.round(priceYuan * 100), priceType: skuDraft.priceType });
     if (saved) setEditingSku(null);
   };

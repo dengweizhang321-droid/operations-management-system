@@ -171,12 +171,15 @@ test("activation gate blocks overall, macro, and per-class regressions", () => {
 });
 
 test("annotation implementation wires real cloud images, idempotency, permissions, search, and local pull", async () => {
-  const [route, worker, workerEntry, viteConfig, service, model, imageCache, ui, marketUi, masterRoute, runner, migration, concurrencyMigration, cloudRunnerMigration] = await Promise.all([
+  const [route, worker, workerEntry, viteConfig, service, backendAnnotations, backendAdmin, djangoRunner, model, imageCache, ui, marketUi, masterRoute, runner, migration, concurrencyMigration, cloudRunnerMigration] = await Promise.all([
     readFile(new URL("../app/api/market/annotations/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/market/annotations/worker/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../vite.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/annotations.py", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/admin.py", import.meta.url), "utf8"),
+    readFile(new URL("../lib/market/django-annotation-runner.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/image-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/market-annotation-view.tsx", import.meta.url), "utf8"),
@@ -190,15 +193,15 @@ test("annotation implementation wires real cloud images, idempotency, permission
     readFile(new URL("../drizzle/0054_market_annotation_concurrency_settings.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0057_market_annotation_cloud_runner.sql", import.meta.url), "utf8"),
   ]);
-  assert.match(route, /adminActions.*commit.*activate_prompt.*delete_prompt.*delete_job.*create_agent/s);
-  assert.match(route, /case "run_batch".*runCloudAnnotationBatch/s);
-  assert.match(route, /case "set_cloud_run_state"/);
-  assert.match(route, /result = await setCloudAnnotationRunState\(db, \{ jobId: text\(parsed, "jobId"\), state \}, principal\)/);
+  assert.match(route, /const ADMIN_ACTIONS = new Set\(\[[\s\S]*"commit"[\s\S]*"activate_prompt"[\s\S]*"create_agent"/);
+  assert.match(route, /action === "run_next" \|\| action === "run_batch"[\s\S]*runClaimedDjangoMarketVisionTask/);
+  assert.match(backendAnnotations, /if action == "set_cloud_run_state":[\s\S]*return _set_cloud_run\(payload, principal\)/);
   assert.doesNotMatch(route, /runScheduledCloudAnnotations/);
-  assert.match(route, /case "set_concurrency".*setAnnotationConcurrency/s);
-  assert.match(route, /case "run_batch": result = await runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/);
-  assert.match(route, /requireAppPrincipal\(adminActions\.has\(action\)/);
-  assert.match(worker, /authenticateLocalAgent/);
+  assert.match(backendAnnotations, /if action == "set_concurrency":[\s\S]*return _set_concurrency\(payload, principal\)/);
+  assert.match(backendAnnotations, /if action in \{"claim_task", "run_next", "run_batch"\}/);
+  assert.match(route, /const principal = ADMIN_ACTIONS\.has\(action\)/);
+  assert.match(worker, /function agentToken\(request: Request\)/);
+  assert.match(worker, /requestDjangoMarketService/);
   assert.match(worker, /annotationAgentErrorResponse/);
   assert.doesNotMatch(worker, /error instanceof Error \? error\.message/);
   assert.match(service, /model_type IN \('vision','image'\)/);
@@ -211,7 +214,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /status<>'deleted'/);
   assert.match(service, /reuseAnnotationHistory/);
   assert.match(service, /fanOutInferenceUnitResult/);
-  assert.match(route, /getAnnotationJobProgress/);
+  assert.match(djangoRunner, /query<JsonRecord>\(input\.principal, "progress"/);
+  assert.match(backendAnnotations, /if view == "progress":/);
   assert.match(ui, /loadJobProgress/);
   assert.match(ui, /currentCloudRunHasUnfinishedItems/);
   assert.match(ui, /恢复剩余识别/);
@@ -231,7 +235,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(model, /Math\.min\(boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\), VISION_ANNOTATION_TIMEOUT_MAX_MS\)/);
   assert.match(imageCache, /getCachedMarketImageForAnnotation/);
   assert.match(imageCache, /annotationModelImageObjectKey/);
-  assert.match(masterRoute, /case "run_price_recognition_batch".*runCloudAnnotationBatch\(db, text\(parsed, "jobId"\), 1\)/s);
+  assert.match(masterRoute, /domain: "master"/);
+  assert.match(backendAdmin, /"run_price_recognition_batch"[\s\S]*claim\/complete/);
   assert.match(marketUi, /action: "run_price_recognition_batch"/);
   assert.match(marketUi, /PRICE_RECOGNITION_REQUEST_TIMEOUT_MS = 110_000/);
   assert.match(marketUi, /PRICE_RECOGNITION_CONCURRENCY = 2/);
@@ -257,7 +262,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /model_input_bytes=\?, image_load_ms=\?, image_prepare_ms=\?, model_call_ms=\?, total_inference_ms=\?/);
   assert.match(workerEntry, /async scheduled\(_controller: ScheduledController, env: Env, _ctx: ExecutionContext\)/);
   assert.match(workerEntry, /runScheduledMarketMaintenance\(env\.DB(?:,|\))/);
-  assert.match(workerEntry, /runScheduledCloudAnnotations\(db/);
+  assert.match(workerEntry, /runScheduledDjangoMarketAnnotation\(\{ db \}\)/);
   assert.match(workerEntry, /const aiSpace = await runScheduledMarketTask\([\s\S]*?const annotations = await runScheduledMarketTask\(/);
   assert.match(workerEntry, /\/_teruisi\/local\/market-annotation-scheduled/);
   assert.match(workerEntry, /TERUISI_RUNTIME_ENV === "development"/);
@@ -275,7 +280,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
   assert.match(ui, /MARKET_ANNOTATION_JOB_LIMITS\.maximum/);
   assert.match(ui, /单个任务最多 10,000 条/);
-  assert.match(route, /MARKET_ANNOTATION_JOB_LIMITS\.default/);
+  assert.match(backendAnnotations, /MAX_JOB_ITEMS = 10_000/);
   assert.match(service, /normalizeMarketAnnotationJobLimit/);
   assert.match(ui, /window\.setInterval\(\(\) => void tick\(\), 5_000\)/);
   assert.match(ui, /全部三级类目/);
@@ -298,10 +303,11 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /AI 标注识别来源/);
   assert.doesNotMatch(ui, /完整市场 SKU 库检索/);
   assert.match(route, /includeCatalog: params\.get\("includeCatalog"\) === "1"/);
-  assert.match(route, /view === "candidate_counts"/);
-  assert.match(route, /view === "workspace_fast" \? \{ \.\.\.workspaceInput, includeCandidateCounts: false \} : workspaceInput/);
-  assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf('view === "candidate_counts"'));
-  assert.ok(route.indexOf('view === "candidate_counts"') < route.indexOf("await Promise.all([ensureAiAssistantSchema"));
+  assert.match(route, /"candidate_counts", "review", "catalog"\]\.includes\(view\)/);
+  assert.match(backendAnnotations, /if view == "candidate_counts":[\s\S]*return candidate_counts\(\)/);
+  assert.match(backendAnnotations, /if view in \{"workspace", "workspace_fast"\}:[\s\S]*candidate_count=view == "workspace"/);
+  assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf("await marketQuery<JsonRecord>"));
+  assert.ok(route.indexOf("await marketQuery<JsonRecord>") < route.indexOf("const db = getD1Database()"));
   assert.match(ui, /view: deferCandidateCounts \? "workspace_fast" : "workspace"/);
   assert.match(ui, /await load\(jobId, itemPage, false, true\)/);
   assert.match(ui, /annotations\?view=candidate_counts/);
@@ -519,8 +525,10 @@ test("the cloud pump runner reuses the browser retry controller and the worker r
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
   assert.match(workerRoute, /action === "pump_cloud"/);
-  assert.match(workerRoute, /authenticateLocalAgent/);
-  assert.match(workerRoute, /runCloudAnnotationPump\(db, \{ jobId: jobId \|\| undefined \}\)/);
+  assert.match(workerRoute, /function agentToken\(request: Request\)/);
+  assert.match(workerRoute, /action: "agent_heartbeat", agentToken: token/);
+  assert.match(workerRoute, /runClaimedDjangoMarketVisionTask/);
+  assert.doesNotMatch(workerRoute, /runCloudAnnotationPump/);
   assert.match(runner, /AnnotationRunRetryController/);
   assert.match(runner, /activeRequestCount >= retry\.workerLimit/);
   assert.match(runner, /Array\.from\(\{ length: MARKET_ANNOTATION_CONCURRENCY_LIMITS\.maximum \}/);
