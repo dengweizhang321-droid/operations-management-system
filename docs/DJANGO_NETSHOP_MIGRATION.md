@@ -2,11 +2,11 @@
 
 ## 1. 当前结论与生产边界
 
-网店分析的 Django/PostgreSQL 后端候选实现、全量系统测试和隔离数据迁移/终态退役演练已于 2026-09-01 完成。2026-09-01 最终确认网店分析继续使用现有 React/Next.js 前端；前端仍由 `app/shop-module-view.tsx` 提供，只通过现有同源公开 API 读取数据，不直接连接 PostgreSQL，也不承担读写权威。公开 Worker 继续负责真实 principal、权限与 scope、Excel/ZIP/图片解析、HMAC 信封、请求体积和超时边界及薄边缘适配；Django 负责领域二次校验、事实发布、查询、revision、幂等、审计和写入所有权。
+2026-09-01，本机网店分析后端已完成 Django/PostgreSQL 正式单写切换、完整垂直链路验收和 D1 终态退役。PostgreSQL 现在是网店事实、批次、SKU/SPU、推广、上传、revision、幂等/尝试审计、scope head、查询和写入的唯一权威；`127.0.0.1:8021/8022` 已作为独立最小权限 reader/writer 加入现有受控开机启动链。切换已跨过 PNR，不再允许把旧 D1、旧 Worker 分支或 `legacy`/`shadow` 路由作为读取、写入、容灾或回滚路径。
 
-这次只完成源码与隔离镜像验证，**没有执行本机正式生产切换**：正式 D1、正式 PostgreSQL、正式 Worker effective head、`127.0.0.1:8021/8022` 和现有在线进程均未修改或重启。在受控正式切换及终态退役全部完成前，当前正式网店事实仍以既有 Worker/D1 路径为权威；不得把本文第 8 节的 rehearsal cutover ID、authority epoch 或 receipt 当作生产证据。
+网店分析继续使用现有 React/Next.js 前端；前端仍由 `app/shop-module-view.tsx` 提供，只通过现有同源公开 API 读取数据，没有改写为 Django template，不直接连接 PostgreSQL，也不承担读写权威。公开 Worker 继续负责真实 principal、权限与 scope、Excel/ZIP/图片解析、HMAC 信封、请求体积和超时边界及薄边缘适配；Django 负责领域二次校验、事实发布、查询、revision、幂等、审计和写入所有权。
 
-候选实现没有 `legacy`、`shadow` 或 D1 fallback。它只能在完整垂直切换中发布：若只部署 Worker 而没有先准备对应 Django 服务、PostgreSQL authority 和数据，网店 API 会失败关闭。
+旧 D1 网店对象已变为 15 个空 tombstone view，共享导入表安装 9 个永久网店域 guard；D1 只保留 retirement receipt、tombstone、guard 和来源固定为 Django consumer 的 `market_netshop_projection` 有界只读兼容投影。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。
 
 ## 2. 目标拓扑
 
@@ -52,7 +52,7 @@ reader、writer 必须使用不同 URL、不同最小权限数据库角色和不
 
 ## 4. 服务、凭据与最小权限
 
-正式候选端口固定为：
+正式端口固定为：
 
 | 服务 | 端口 | 数据库角色 | 主要边界 |
 | --- | ---: | --- | --- |
@@ -75,7 +75,7 @@ $netshop = "D:\teruisi-runtime\django-sales\app\tools\django-netshop-service.ps1
 
 ## 5. 历史数据迁移
 
-所有开发、演练和正式预检都必须先对权威 D1 创建一致、封存、无 `-wal/-shm` 的独立快照。不得把迁移命令直接指向在线 D1。对快照应用 `0094_netshop_write_authority.sql`；`0095_market_netshop_projection.sql` 只建立市场兼容投影结构。二者均为 operator-only，不进入普通 Drizzle journal，也不授权正式切换。
+所有开发、演练和正式预检都必须先对权威 D1 创建一致、封存、无 `-wal/-shm` 的独立快照。不得把迁移命令直接指向在线 D1。对快照应用 `0094_netshop_write_authority.sql`；`0095_market_netshop_projection.sql` 只建立市场兼容投影结构。二者均为 operator-only，不进入普通 Drizzle journal，也不授权正式切换。迁移 apply 前必须先让**同一封存快照**用精确 run/cutover 进入 `pending`；否则 apply 会拒绝。在线正式 D1 的 `0094 + prepare + activate` 是后续独立切换步骤，不能拿封存快照的 pending 状态冒充线上 authority。
 
 迁移命令省略模式为只读 plan；apply 和 verify-only 必须消费同一规范化快照推导出的精确 run ID：
 
@@ -83,6 +83,8 @@ $netshop = "D:\teruisi-runtime\django-sales\app\tools\django-netshop-service.ps1
 cd D:\teruisi-runtime\django-sales\app\backend
 
 python manage.py migrate_netshop_from_d1 --source <封存快照.sqlite>
+python manage.py netshop_write_authority --source <同一快照.sqlite> `
+  --prepare --approved-run-id <plan返回的netshop-run-id> --cutover-id <cutover-id>
 python manage.py migrate_netshop_from_d1 --source <同一快照.sqlite> `
   --apply --approved-run-id <plan返回的netshop-run-id>
 python manage.py migrate_netshop_from_d1 --source <同一快照.sqlite> `
@@ -97,16 +99,16 @@ python manage.py migrate_netshop_from_d1 --source <同一快照.sqlite> `
 
 正式切换必须覆盖浏览器/自动化、公开 Worker、reader/writer、PostgreSQL、市场兼容投影、客服、全局搜索、AI、部署启动和监控。推荐顺序如下：
 
-1. 冻结网店导入、分片续传、推广聚合和图片元数据写入；销售、财务、ERP 与其他模块继续运行。
+1. 冻结网店导入、分片续传、推广聚合和图片元数据写入，并停用会自动拉起旧 Worker 的启动入口；销售、财务、ERP 与其他模块继续运行。
 2. 生成并验证正式 PostgreSQL 备份、在线 D1 一致快照、源 SHA-256 和 Worker 候选构建 SHA-256。
-3. 部署 Django migrations、DPAPI 凭据和最小权限角色，只启动 `8021` reader；writer 不得提前接流量。
-4. 对最新封存快照重新 plan/apply/verify，并完成公开读、跨模块 consumer 和权限负向测试。
-5. 将 `0094_netshop_write_authority.sql` 受控应用到精确正式 D1，记录其 SHA-256；普通 Drizzle journal 不得自动消费 operator-only 迁移。
-6. 使用同一 run/cutover ID 执行 `--prepare`。此时 D1 拒绝新网店写入，但 PostgreSQL writer 尚未激活。
+3. 对最新封存快照应用 `0094`，重新 plan，并让**该封存快照**用精确 run/cutover 进入 `pending`；然后才可对 PostgreSQL 执行 apply/verify。
+4. 部署 Django migrations、DPAPI 凭据和最小权限角色，启动 `8021` reader；writer 不得提前接流量。完成公开读、跨模块 consumer 和权限负向测试。
+5. 将 `0094_netshop_write_authority.sql` 受控应用到精确在线正式 D1，记录其 SHA-256；普通 Drizzle journal 不得自动消费 operator-only 迁移。
+6. 对在线正式 D1 使用同一 run/cutover ID 执行 `--prepare`。此时 D1 拒绝新网店写入，但 PostgreSQL writer 尚未激活。
 7. 在 writer 未接请求且 PostgreSQL authority 仍为 `d1` 时，若门禁失败，可用 `--abort-pending` 恢复 D1 写入。
-8. 门禁全绿后执行 `--activate`，记录唯一 authority epoch；启动 `8022` writer并验证 readiness。
+8. 门禁全绿后执行 `--activate`，记录唯一 authority epoch；启动 `8022` writer 并验证 readiness。此后跨过 PNR，不再允许回到 D1。
 9. 构建并验证新的不可变 Worker successor，使所有网店公开 API 和 consumer 一次性指向 Django/`8021/8022`；现有 React 页面保持不变，生产 API 包中不存在旧 D1 领域分支或 fallback。
-10. 使用真实浏览器验证现有 React 页面、principal/scope、筛选、分页 snapshot、公开读写与落库回查，并完成客服/全局搜索/市场/AI 冒烟和旧路径拒绝证明，再恢复入口。
+10. 受控应用 `0095`，同步并原子激活当前 PostgreSQL revision 的市场兼容投影；使用真实浏览器验证现有 React 页面、principal/scope、筛选、分页 snapshot、公开读写与落库回查，并完成客服/全局搜索/市场/AI 冒烟和旧路径拒绝证明。
 11. 稳定观察及独立退役审批通过后，才执行第 7 节 D1 终态退役。
 
 authority 命令骨架：
@@ -150,7 +152,39 @@ python manage.py retire_netshop_d1 --source <同一D1> `
 
 提交后必须证明 15 个 tombstone view 全部为空、9 个共享表 guard 完整、`market_netshop_active_projection` 的 revision/行数/摘要未变、其他领域共享行的逐节摘要未变，并以同一 plan 重放得到 `duplicate`。终态退役不是可逆切换；D1 只保留 receipt、tombstone、guard 和市场兼容投影，不再是网店事实或恢复来源。
 
-## 8. 2026-09-01 隔离演练证据
+## 8. 2026-09-01 本机正式生产证据
+
+本次正式切换保留现有 React/Next.js 前端，只替换网店后端事实源和读写路径。冻结期间发现旧启动快捷方式曾重新拉起 predecessor Worker；最终封存回查因此比初始迁移多出 `5,781` 条事实和 `12` 个批次。该差异在 PNR 前被门禁捕获：旧 Worker 被受控停止并移除旧启动绑定，重新生成最终 D1 快照，只清空 PostgreSQL 中 17 张尚未取得 authority 的 `netshop_*` 暂存表后重新全量迁移。外键回查为 0，销售、财务、ERP 和其他域未被清空或修改；旧迁移 run 和旧备份作为审计保留，不作为正式数据水位。
+
+| 项目 | 正式结果 |
+| --- | --- |
+| cutover / authority epoch | `netshop-pg-20260901T013053Z-4977777cec32` / `82694b25-5036-47cd-90f4-4d822374e594` |
+| 最终迁移 run | `netshop-edb60eb6a0055d9a8b32a6dc` |
+| source / target 摘要 | `edb60eb6a0055d9a8b32a6dca8816f0326d79c4b18647a46979330d06c2a0282`，完全一致 |
+| 最终 D1 冻结快照 | `9,586,368,512` bytes；SHA-256 `5fb6d8638f58773ee5999ef16cb6114600804caab6a65f955e27e9cd5a7b8586`；`quick_check=ok` |
+| 网店事实 / typed projection / 批次 | `1,070,473` / `1,070,473` / `964` |
+| 指纹 / 尝试 / scope head | `795` / `989` / `38`；历史指纹确定性补建 `169` |
+| 推广商品 / 店铺日 / 聚合状态 | `45,956` / `287` / `287` |
+| 上传 / 完成结果 / 分片 | `4` / `4` / `0` |
+| Django revision | `1:edb60eb6a005` |
+| operator-only migration SHA-256 | `0094`：`9966ab22a37a10c48a53b1692bec8b1b8322b6028284581328e68f2e1cd5ecae`；`0095`：`0bc6a97504a233afe470419069c635b077df64d544179ade70b9e1f97f81a9d5`；`0096`：`6aec29e7d7e320401694c39bb82a60bbfeafdb4fbbf003e20c41b9f691625305` |
+| 最终 Worker source / release | commit `89b47202c8c552b878c85e7fbe6cd68b47ed3aad`；`20260901T045030Z-917076c7520e4f95` |
+| Worker manifest / entry | `76a290b322d740d99631bd00a09182ffbee0c831c7b9f54fe4b2aa2ef76303bb` / `04cdd6907c261633fd924a75457bcfcde8a0dea0624a3e5a87bd74c28390fc9b` |
+| Worker plan / successor / consumption / startup | `ed854d065c0f3e65e135bd4c58414bdc69de3d0f9f8cfb12548a7b986541ee7b` / `bc805674cb19d179374f048880b97340ef72247a88ded078bf6dd5ef02adee96` / `6d69f2df4be6de456d0e435943d82f9093a03f8c83ce2b86f0caa5fdfd512fe9` / `2fbf1775a2345c90bc68d8251051505ec369678f6c81a07d5bc36cf1ae60019b` |
+| 市场兼容投影 | revision `1:edb60eb6a005`，`115,341` 行；摘要 `7c5d3345eea046a2f34e8b9af53cc799b286c78b211b7380d70be38ab819c6b2` |
+| smoke receipt | SHA-256 `1250e682d7032b29d7e11f4373e6f341ce00672ef520b724ba70bc0907d60c73`；9 项完整垂直链路均通过 |
+| D1 retirement plan / audit | `b35a2f89eeb6a770a3563d663858842b05ff8043f663b4b4e0251efef5a1f6b7` / `51c589deb5de7b9e5d21aee7fec383d14aabed6558691afd7731bb1b924406e6` |
+| tombstone / guard / 重放 | `15` 个空 view；`9` 个永久 guard；三类共享表写入均返回 `netshop_domain_retired`；同一 plan 重放返回 `duplicate` |
+| 非网店共享行 | 指纹 `251`、尝试 `325`、scope head `7`；退役前后摘要 `b7eea733abd0d4aa313ce63f69375779cd5e7218154b2f2dce3de1b209030f10` 一致 |
+| 切换后 PostgreSQL 备份 | `daily-20260901T051159Z-d881cc7c9118`；manifest `20b4b0f10ecf57d2fb6b8cf25852179d10a10c5b7478acb0e6243476a5e015f4`；content `f7a792a7a8ae676e52f929987fd7b84dcc471d4af7b68e53feac2ebaad8ecfcf` |
+| 独立恢复演练 | `a17c4e9b20d6`，端口 `55432`；恢复摘要与备份完全一致，`productionDatabaseTouched=false`，临时数据已清理 |
+| 退役后系统检查 | Worker exact release / startup verified；`8021/8022` ready；网店概览、商品、推广、导入历史、市场、客服、全局搜索均 `200 no-store`；D1 `quick_check=ok` |
+
+市场首次全量投影在 D1 已完成激活时曾因 Miniflare 未返回 batch change metadata 而误报一次 503。生产回读证明 control row 已原子激活且数据完整；随后以前向修复 `89b47202` 增加 durable control-row readback，定向测试与 Vinext build 通过，并通过新的 immutable successor 发布。该修复不改变数据或 authority，只消除未来 revision 首请求的假失败。
+
+正式切换的 Django 测试为 `183/183`；最终 Worker/TypeScript 全量为 `1,695` 项中 `1,691` 通过、`4` 跳过、`0` 失败，渲染契约 `19/19`。activation readback 修复另通过定向 `4/4`、ESLint、Vinext build 和 immutable release 契约构建；现有 React 页面已用真实浏览器验证网店商品与推广视图。
+
+## 9. 2026-09-01 隔离演练证据
 
 演练从正式 D1 做只读一致快照，随后只在独立 worktree、独立 PostgreSQL 17.11 数据目录、`127.0.0.1:55432` 和临时 Django 端口运行。正式 D1、正式 PostgreSQL、正式 Worker和 `8021/8022` 均未改动。
 
@@ -177,7 +211,7 @@ python manage.py retire_netshop_d1 --source <同一D1> `
 
 reader/writer 最小权限、真实 HMAC、独立端点、PostgreSQL authority、旧 D1 写拒绝、公开 API、现有 React 页面契约、市场、客服和全局搜索均完成正向/负向检查。表中的 Worker entry SHA-256 和退役 plan/audit 只绑定当时的后端/数据演练构建，不能冒充正式不可变发布 receipt。正式切换时仍必须为当时的精确 immutable successor 重新生成 SHA-256、smoke receipt 与 retirement plan。该证据**不代表生产已经切换**。
 
-## 9. 正式验收清单
+## 10. 后续回归与运维门禁
 
 - 最新正式 D1 快照 SHA-256、source/target 逐节摘要、迁移 run 和 PostgreSQL 备份/恢复演练完整。
 - `8021/8022` 使用受保护 runtime、DPAPI 和最小权限角色；readiness 验证 schema、index、revision、authority、只读事务和进程身份。
@@ -186,6 +220,6 @@ reader/writer 最小权限、真实 HMAC、独立端点、PostgreSQL authority�
 - 重复、范围替换、并发 owner、迟到请求、HMAC/JSON/响应上限/超时和 reader/writer 错路由全部失败关闭。
 - 不可变 Worker effective head 的构建摘要与 smoke receipt 一致，生产包静态扫描不存在旧 D1 网店事实路径。
 - 旧 D1 写拒绝、终态 tombstone/guard、其他领域摘要、退役幂等和发布后只读/安全写冒烟均保存审计。
-- 确认生产切换跨过 PNR 后，文档、`README.md` 和 `AGENTS.md` 才能更新为“网店 PostgreSQL 唯一权威”。
+- 后续 release 必须继续证明 PostgreSQL 是网店唯一权威、D1 tombstone/guard 未被复活、市场投影只来自 Django consumer，且现有 React 前端契约没有被 Django template 替换。
 
-用户已明确授权在门禁通过后进行正式切换；在以上门禁实际通过之前，仍不得部署候选 Worker、激活生产 PostgreSQL authority、启用网店开机启动或执行正式 D1 退役。
+本机生产切换已跨过 PNR。后续故障不得恢复 D1 网店读写、旧 Worker 分支或反向迁移；只能使用上述正式备份/WAL/PITR、兼容修复或经审批的前向数据修复。
