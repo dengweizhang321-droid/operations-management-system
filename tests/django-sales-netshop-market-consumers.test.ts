@@ -131,3 +131,11 @@ test("netshop and market runtime paths have no D1 sales fallback", async () => {
   const responseCache = await readFile(new URL("../lib/market/overview-response-cache.ts", import.meta.url), "utf8");
   assert.match(responseCache, /django-sales:\$\{normalizedSalesRevision\(salesRevision\)\}/);
 });
+
+test("market netshop projection confirms the durable activation when D1 omits batch change metadata", async () => {
+  const projection = await readFile(new URL("../lib/market/netshop-projection.ts", import.meta.url), "utf8");
+  assert.match(
+    projection,
+    /if \(Number\(activation\[0\]\?\.meta\?\.changes \?\? 0\) !== 1\) \{[\s\S]*SELECT active_revision,active_total[\s\S]*activated\?\.active_revision !== revision[\s\S]*Number\(activated\.active_total\) !== total/,
+  );
+});

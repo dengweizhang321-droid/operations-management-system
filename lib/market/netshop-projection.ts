@@ -191,7 +191,17 @@ async function syncProjection(
         WHERE id=1 AND active_revision=? AND active_total=? AND owner_token=''
       )`).bind(revision, total),
     ]) as Array<{ meta?: { changes?: number } }>;
-    if (Number(activation[0]?.meta?.changes ?? 0) !== 1) throw unavailable("网店市场投影激活所有权已失效。");
+    if (Number(activation[0]?.meta?.changes ?? 0) !== 1) {
+      // Miniflare/D1 may commit the guarded update while omitting the first
+      // batch item's change count.  Treat the durable control row as the
+      // authority before reporting a lost owner; otherwise every successful
+      // first activation can surface a false 503 to the market page.
+      const activated = await db.prepare(`SELECT active_revision,active_total
+        FROM market_netshop_projection_control WHERE id=1`).first<ProjectionControl>();
+      if (activated?.active_revision !== revision || Number(activated.active_total) !== total) {
+        throw unavailable("网店市场投影激活所有权已失效。");
+      }
+    }
     await db.prepare("DELETE FROM market_netshop_projection WHERE projection_revision<>?")
       .bind(revision).run().catch(() => undefined);
     return revision;
