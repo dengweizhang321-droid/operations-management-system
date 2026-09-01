@@ -21,9 +21,10 @@ test("products runtime uses isolated endpoints, identities, and bounded bodies",
 });
 
 test("products roles enforce the same explicit least-privilege allowlist as readiness", async () => {
-  const [source, health] = await Promise.all([
+  const [source, health, writerFence] = await Promise.all([
     readFile(controllerUrl, "utf8"),
     readFile(healthUrl, "utf8"),
+    readFile(new URL("../backend/products/write_requests.py", import.meta.url), "utf8"),
   ]);
   assert.match(source, /sql\.Literal\(password\)/);
   assert.doesNotMatch(source, /PASSWORD %s/);
@@ -40,6 +41,11 @@ test("products roles enforce the same explicit least-privilege allowlist as read
   assert.match(source, /"erp_reference_sync_checkpoint"/);
   assert.match(source, /products writer DML escaped allowlist/);
   assert.match(source, /"product_write_authority": \("SELECT",\)/);
+  assert.match(writerFence, /ProductWriteAuthority\.objects\.get\(id=1\)/);
+  assert.doesNotMatch(
+    writerFence,
+    /ProductWriteAuthority\.objects\.select_for_update\(\)\.get\(id=1\)/,
+  );
   assert.match(health, /PRODUCTS_WRITER_TABLE_PRIVILEGES/);
   assert.match(health, /_validate_products_writer_permissions/);
   for (const table of [
