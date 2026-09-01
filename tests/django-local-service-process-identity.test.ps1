@@ -57,6 +57,43 @@ try {
   }
   if (-not $reuseRejected) { throw "tampered PID creation identity was accepted" }
   [IO.File]::WriteAllText($PidFile, $originalRecord, $Utf8NoBom)
+
+  # A receipt that is provably older than the current Windows boot cannot own
+  # a live process, even when that numeric PID has already been reused.  It is
+  # safe to remove the receipt, but never to terminate the reused process.
+  $previousBootRecord = $originalRecord | ConvertFrom-Json
+  $previousBootTime = (Get-SystemBootTimeUtc).AddMinutes(-5)
+  $previousBootTimestamp = $previousBootTime.ToString("o")
+  $previousBootRecord.creationDate = $previousBootTimestamp
+  $previousBootRecord.startedAt = $previousBootTimestamp
+  [IO.File]::WriteAllText(
+    $PidFile,
+    ($previousBootRecord | ConvertTo-Json -Depth 8),
+    $Utf8NoBom
+  )
+  $currentBootRewriteRejected = $false
+  try {
+    Resolve-OwnedProcess "identity-test" $PidFile $TestPython $Arguments $Fingerprint | Out-Null
+  } catch {
+    $currentBootRewriteRejected = $true
+  }
+  if (-not $currentBootRewriteRejected) {
+    throw "a receipt rewritten during the current boot was treated as previous-boot evidence"
+  }
+  [IO.File]::SetLastWriteTimeUtc($PidFile, $previousBootTime)
+  $reusedProcessBefore = Get-ProcessSnapshot ([int]$OwnedSnapshot.ProcessId) 1
+  if ($null -eq $reusedProcessBefore) { throw "identity-test process exited before reboot reuse simulation" }
+  $previousBootResolution = Resolve-OwnedProcess `
+    "identity-test" $PidFile $TestPython $Arguments $Fingerprint
+  if ($null -ne $previousBootResolution) { throw "previous-boot PID receipt was accepted" }
+  if (Test-Path -LiteralPath $PidFile) { throw "previous-boot PID receipt was not removed" }
+  $reusedProcessAfter = Get-ProcessSnapshot ([int]$OwnedSnapshot.ProcessId) 1
+  if ($null -eq $reusedProcessAfter -or
+      -not (Test-ProcessSnapshotIdentity $reusedProcessAfter $reusedProcessBefore)) {
+    throw "previous-boot cleanup terminated or changed the reused live process"
+  }
+
+  [IO.File]::WriteAllText($PidFile, $originalRecord, $Utf8NoBom)
   $DescendantSnapshots = @(Get-VerifiedProcessDescendants $OwnedSnapshot)
   Stop-OwnedProcess "identity-test" $PidFile $TestPython
   foreach ($snapshot in $DescendantSnapshots) {

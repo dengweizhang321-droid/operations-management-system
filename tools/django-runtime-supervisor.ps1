@@ -685,6 +685,10 @@ function Resolve-SupervisorProcess {
       [string]$snapshot.ExecutablePath -ine [string]$receipt.executablePath -or
       [string]$snapshot.CommandLine -cne [string]$receipt.commandLine -or
       -not (Test-CommandLineReferencesPath $snapshot.CommandLine $SupervisorScriptPath)) {
+    if (Remove-PreviousBootProcessRecordIfSafe `
+          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {
+      return $null
+    }
     throw "Django supervisor PID 已复用或进程身份不一致"
   }
   return $snapshot

@@ -11,6 +11,8 @@
 & "D:\运营管理系统\tools\worker-local-service.ps1" -Action Status
 ```
 
+正常登录启动由随 Django runtime 一同部署的受控 supervisor 持续监控。Windows 重启后，operator 只会清理能够由三项时间证据证明属于上一次开机的旧进程 receipt，不会接管或终止当前复用相同 PID 的进程；同一次开机内或证据不完整的身份冲突仍失败关闭。上面的显式 `Start` 继续作为受控维护与人工恢复入口，supervisor 状态和启用/回退步骤见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。
+
 `运行项目.bat` 只调用受控 Worker 启动器并打开浏览器，不能代替 Django 健康检查。正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
 
 隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；D1 降级只影响仍由 D1 承载的业务域，不得让已迁移的销售、财务、网店或市场请求回退 D1。

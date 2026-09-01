@@ -141,6 +141,13 @@ test("managed PID ownership survives venv launchers without weakening identity c
   assert.match(script, /Test-ProcessSnapshotIdentity \$currentParent \$parentSnapshot/);
   assert.match(script, /Get-ProcessCreation \$child/);
   assert.match(script, /root_pid_reused/);
+  assert.match(script, /function Get-SystemBootTimeUtc/);
+  assert.match(script, /recordFile\.LastWriteTimeUtc -lt \$bootTimeUtc/);
+  assert.match(script, /previous_boot_process_record_removed/);
+  assert.match(
+    script,
+    /Remove-PreviousBootProcessRecordIfSafe \$PidPath \$record\.creationDate \$record\.startedAt/,
+  );
   assert.doesNotMatch(script, /\$snapshot\.ExecutablePath -ieq \(Get-CanonicalPath \$ExpectedLauncher\)/);
 });
 
@@ -270,6 +277,10 @@ test("runtime deployment includes every finance cutover dependency", () => {
 test("runtime deployment includes the protected PostgreSQL backup operator", () => {
   assert.match(script, /tools\\django-postgres-maintenance\.ps1/);
   assert.match(script, /tools\\postgres-consistent-backup\.py/);
+});
+
+test("runtime deployment includes the persistent Django supervisor", () => {
+  assert.match(script, /tools\\django-runtime-supervisor\.ps1/);
 });
 
 test("configuration, deployment, and code rollback require a fully stopped stack", () => {

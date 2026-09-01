@@ -10,6 +10,13 @@ $UnsafeJunction = Join-Path $TestRoot "unsafe-junction"
 
 try {
   & $ServiceScript -Action DeployApp -RuntimeRoot $TestRoot | Out-Null
+  $deployedSupervisor = Join-Path $TestRoot "app\tools\django-runtime-supervisor.ps1"
+  $sourceSupervisor = Join-Path $WorkspaceRoot "tools\django-runtime-supervisor.ps1"
+  if (-not (Test-Path -LiteralPath $deployedSupervisor -PathType Leaf) -or
+      (Get-FileHash -LiteralPath $deployedSupervisor -Algorithm SHA256).Hash -cne
+        (Get-FileHash -LiteralPath $sourceSupervisor -Algorithm SHA256).Hash) {
+    throw "DeployApp did not include the exact Django runtime supervisor"
+  }
 
   New-Item -ItemType Directory -Path $TargetRoot -Force | Out-Null
   [IO.File]::WriteAllText(
@@ -73,7 +80,7 @@ try {
     throw "Wrangler smoke did not fail closed after runtime miniflare was removed"
   }
 
-  Write-Output "PASS: deployed Wrangler closure survived DeployApp/HardenAcl and rejected a missing dependency"
+  Write-Output "PASS: deployed supervisor and Wrangler closure survived DeployApp/HardenAcl and rejected a missing dependency"
 } finally {
   $canonicalTestRoot = [IO.Path]::GetFullPath($TestRoot)
   $canonicalPrefix = [IO.Path]::GetFullPath($TestPrefix)

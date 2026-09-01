@@ -96,6 +96,7 @@ test("supervisor process ownership and login replacement are fail-closed", async
   assert.match(script, /creationDate/);
   assert.match(script, /Test-CommandLineReferencesPath/);
   assert.match(script, /scriptPathSha256/);
+  assert.match(script, /Remove-PreviousBootProcessRecordIfSafe/);
   assert.match(script, /PID 已复用或进程身份不一致/);
   assert.match(script, /ConfirmedStartupReplacement/);
   assert.match(script, /只有整套 Django 服务已健康时才能安装 supervisor 登录启动项/);

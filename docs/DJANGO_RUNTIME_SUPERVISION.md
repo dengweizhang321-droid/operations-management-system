@@ -12,7 +12,7 @@
 以下状态只生成告警，不自动重启：
 
 - `5432/8001/8002` 被外来或无法核验身份的进程占用；
-- PID receipt 损坏、PID 复用、出现未登记 ERP bridge；
+- 当前 Windows 启动周期内的 PID receipt 损坏、PID 复用、身份变化，或出现未登记 ERP bridge；
 - runtime ACL 不符合契约；
 - PostgreSQL 仍监听但未 ready；
 - 进程都在运行，但 reader/writer readiness 失败；
@@ -20,6 +20,8 @@
 - 状态探针本身失败。
 
 允许恢复的失败必须连续出现两次，并在真正执行前再次探测；分类或 desired-state 发生变化立即取消。15 分钟窗口最多尝试 3 次，退避为 15、30、60 秒。守护只调用受控 `Start`，从不自动调用 `Stop`，也不绕过现有服务 mutex、进程所有权、authority、权限、migration 和 readiness 门禁。
+
+Windows 重启会终止全部本机进程，但旧 receipt 可能保留，而数值 PID 可能在登录启动期间被其他短进程复用。operator 只有在 receipt 中的进程创建时间、启动时间和 receipt 文件最后写入时间三项都严格早于 Windows 当前启动时间时，才把它认定为“上一次开机遗留记录”。此时只删除旧 receipt，绝不接管或终止当前占用该 PID 的进程；随后仍由端口、进程候选、authority 和 readiness 门禁重新判定是否可启动。任一时间证据缺失、无效、位于当前启动周期，或文件在本次开机后被改写时，继续按所有权异常失败关闭。
 
 ## 2. 显式期望状态与停止竞态
 
@@ -49,7 +51,7 @@ D:\teruisi-runtime\django-sales\monitoring\django-runtime\alerts\pending\
 
 ## 4. 受控启用
 
-仓库脚本必须先通过不可变部署进入 runtime。启用不会重启业务服务，但前置要求当前四个组件和两条 readiness 全部健康：
+仓库脚本必须先通过不可变部署进入 runtime；部署清单必须包含 `django-runtime-supervisor.ps1`，不能只部署 one-shot service operator。启用不会重启业务服务，但前置要求当前四个组件和两条 readiness 全部健康：
 
 ```powershell
 $supervisor = "D:\teruisi-runtime\django-sales\app\tools\django-runtime-supervisor.ps1"

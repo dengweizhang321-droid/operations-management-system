@@ -1332,6 +1332,7 @@ function Deploy-Application {
       "tools\sales-local-cutover-backup.ps1",
       "tools\sales-local-cutover-backup-prune.ps1",
       "tools\django-finance-cutover.ps1",
+      "tools\django-runtime-supervisor.ps1",
       "tools\django-netshop-service.ps1",
       "tools\django-market-service.ps1",
       "tools\django-postgres-maintenance.ps1",
@@ -1443,6 +1444,65 @@ function ConvertTo-CanonicalCreationDate([object]$Value) {
     throw "进程所有权记录 creationDate 不是规范 ISO 时间"
   }
   return $parsed.UtcDateTime.ToString("o")
+}
+
+function Get-SystemBootTimeUtc {
+  try {
+    $operatingSystem = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+  } catch {
+    throw "无法读取 Windows 当前启动时间"
+  }
+  if ($null -eq $operatingSystem -or $null -eq $operatingSystem.LastBootUpTime) {
+    throw "Windows 当前启动时间缺失"
+  }
+  try {
+    return ([datetime]$operatingSystem.LastBootUpTime).ToUniversalTime()
+  } catch {
+    throw "Windows 当前启动时间无效"
+  }
+}
+
+function Test-ProcessRecordFromPreviousBoot(
+  [string]$PidPath,
+  [object]$CreationDate,
+  [object]$StartedAt
+) {
+  try {
+    $bootTimeUtc = Get-SystemBootTimeUtc
+    $creationTimeUtc = [DateTimeOffset]::ParseExact(
+      (ConvertTo-CanonicalCreationDate $CreationDate),
+      "o",
+      [Globalization.CultureInfo]::InvariantCulture,
+      [Globalization.DateTimeStyles]::RoundtripKind
+    ).UtcDateTime
+    $startedTimeUtc = [DateTimeOffset]::ParseExact(
+      (ConvertTo-CanonicalCreationDate $StartedAt),
+      "o",
+      [Globalization.CultureInfo]::InvariantCulture,
+      [Globalization.DateTimeStyles]::RoundtripKind
+    ).UtcDateTime
+    $recordFile = Get-Item -LiteralPath $PidPath -ErrorAction Stop
+    return (
+      $creationTimeUtc -lt $bootTimeUtc -and
+      $startedTimeUtc -lt $bootTimeUtc -and
+      $recordFile.LastWriteTimeUtc -lt $bootTimeUtc
+    )
+  } catch {
+    return $false
+  }
+}
+
+function Remove-PreviousBootProcessRecordIfSafe(
+  [string]$PidPath,
+  [object]$CreationDate,
+  [object]$StartedAt
+) {
+  if (-not (Test-ProcessRecordFromPreviousBoot $PidPath $CreationDate $StartedAt)) {
+    return $false
+  }
+  Remove-Item -LiteralPath $PidPath -Force
+  Write-LauncherEvent "WARN" "previous_boot_process_record_removed" $PidPath
+  return $true
 }
 
 function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
@@ -1629,6 +1689,9 @@ function Resolve-OwnedProcess(
   if ($null -ne $ExpectedArguments) { $matches = $matches -and (Test-ExactStringArray $recordArguments $ExpectedArguments) }
   if ($ExpectedFingerprint) { $matches = $matches -and ([string]$record.configFingerprint -ceq $ExpectedFingerprint) }
   if (-not $matches) {
+    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {
+      return $null
+    }
     throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
   }
   return $snapshot
@@ -1739,11 +1802,19 @@ function Assert-DjangoSupervisorStopped([string]$Operation) {
       if ([string]$snapshot.CreationDate -cne $creation -or
           [string]$snapshot.ExecutablePath -ine [string]$receipt.executablePath -or
           [string]$snapshot.CommandLine -cne [string]$receipt.commandLine) {
-        throw "$Operation 发现 Django supervisor PID 复用或身份变化"
+        if (-not (Remove-PreviousBootProcessRecordIfSafe `
+              $DjangoSupervisorPidPath $receipt.creationDate $receipt.startedAt)) {
+          throw "$Operation 发现 Django supervisor PID 复用或身份变化"
+        }
+        $snapshot = $null
       }
-      throw "$Operation 前必须先 Disarm 并等待 Django supervisor 退出"
+      if ($null -ne $snapshot) {
+        throw "$Operation 前必须先 Disarm 并等待 Django supervisor 退出"
+      }
     }
-    Remove-Item -LiteralPath $DjangoSupervisorPidPath -Force
+    if (Test-Path -LiteralPath $DjangoSupervisorPidPath -PathType Leaf) {
+      Remove-Item -LiteralPath $DjangoSupervisorPidPath -Force
+    }
   }
   if (@(Get-DjangoSupervisorCandidates).Count -gt 0) {
     throw "$Operation 发现未登记的 Django supervisor；拒绝修改或自动终止"
