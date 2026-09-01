@@ -9,8 +9,11 @@ import {
   createDjangoSalesConsumerReader,
   type SalesConsumerReader,
 } from "@/lib/django/sales-consumer-reader";
+import {
+  createDjangoProductsConsumerReader,
+  type ProductsConsumerReader,
+} from "@/lib/django/products-consumer-reader";
 import { getInventoryOverview } from "@/lib/inventory/overview";
-import { getProductSummary } from "@/lib/products/summary";
 import {
   isSalesRange,
 } from "@/lib/sales/read-contract";
@@ -19,6 +22,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 
 type OperationsToolDependencies = {
   salesReader?: SalesConsumerReader;
+  productsReader?: ProductsConsumerReader;
   signal?: AbortSignal;
 };
 
@@ -61,6 +65,7 @@ export async function callOperationsTool(
 ): Promise<Record<string, unknown>> {
   const args = asRecord(rawArguments);
   const salesReader = dependencies.salesReader ?? createDjangoSalesConsumerReader();
+  const productsReader = dependencies.productsReader ?? createDjangoProductsConsumerReader();
 
   if (name === "get_data_freshness") {
     assertOnlyKeys(args, []);
@@ -152,30 +157,16 @@ export async function callOperationsTool(
     const sortBy = optionalEnum(args.sortBy, ["netSalesCents", "grossProfitCents", "grossMarginRate", "stockValueCents", "netQuantity"] as const) ?? "netSalesCents";
     const direction = optionalEnum(args.direction, ["asc", "desc"] as const) ?? "desc";
     const limit = integer(args.limit, 20, 1, 100);
-    const db = getInventoryDatabase();
-    await ensureInventorySchema(db);
-    const summary = await getProductSummary(db, principal, {
+    const summary = await productsReader.read(principal, {
+      operation: "product_performance",
       days,
-      page: 1,
-      pageSize: limit,
-      query,
-      categories: category ? [category] : [],
+      category: category ?? null,
+      query: query ?? null,
       sortBy,
       direction,
-      signal: dependencies.signal,
-    }, salesReader);
-    return {
-      sync: summary.sync,
-      metrics: summary.metrics,
-      days,
-      filtersApplied: { category, query: query ?? null, sortBy, direction },
-      totalMatched: summary.pagination.total,
-      returned: summary.pagination.returned,
-      truncated: summary.pagination.truncated,
-      items: summary.items,
-      currency: "CNY",
-      monetaryUnit: "cents",
-    };
+      limit,
+    }, { signal: dependencies.signal });
+    return summary.data;
   }
 
   if (name !== "list_replenishment_plans") throw new ToolInputError("工具未注册");

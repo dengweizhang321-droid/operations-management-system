@@ -30,7 +30,6 @@ registerHooks({
 const { ensureInventorySchema } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
 const { getInventoryOverview } = await import("../lib/inventory/overview");
-const { getProductSummary } = await import("../lib/products/summary");
 
 const principal: AppPrincipal = {
   email: "scoped@example.com",
@@ -130,7 +129,7 @@ function isUnavailable(error: unknown) {
     && error.code === "service_unavailable";
 }
 
-test("inventory and product consumers use fixed chunks, exclusive end dates, and the exact principal", async () => {
+test("inventory consumer uses fixed chunks, exclusive end dates, and the exact principal", async () => {
   const { sqlite, db } = await setupDatabase(1_001);
   const requests: Array<{ principal: AppPrincipal; request: SalesConsumerRequest }> = [];
   const reader = readerFrom((receivedPrincipal, request) => {
@@ -145,17 +144,6 @@ test("inventory and product consumers use fixed chunks, exclusive end dates, and
         truncated: false,
       },
     };
-    if (request.operation === "product_performance") return {
-      revision: "sales:9/erp:4",
-      data: {
-        dataStartDate: "2026-08-01",
-        dataCutoffDate: "2026-08-28",
-        latestBatch: freshness().data.latestBatch,
-        rows: [],
-        outletOptions: [],
-        truncated: false,
-      },
-    };
     throw new Error(`unexpected operation: ${request.operation}`);
   });
 
@@ -165,29 +153,12 @@ test("inventory and product consumers use fixed chunks, exclusive end dates, and
     page: 1,
     pageSize: 1,
   }, reader);
-  const summary = await getProductSummary(db, principal, {
-    range: "custom",
-    startDate: "2026-08-01",
-    endDate: "2026-08-28",
-    platforms: ["京东"],
-    shopKeys: ["京东\u001f测试店铺"],
-    page: 1,
-    pageSize: 1,
-  }, reader);
-
   assert.equal(overview.pagination.total, 1_001);
-  assert.equal(summary.pagination.total, 0);
   const inventoryRequests = requests.map((item) => item.request)
     .filter((request): request is Extract<SalesConsumerRequest, { operation: "inventory_demand" }> => request.operation === "inventory_demand");
-  const productRequests = requests.map((item) => item.request)
-    .filter((request): request is Extract<SalesConsumerRequest, { operation: "product_performance" }> => request.operation === "product_performance");
   assert.deepEqual(inventoryRequests.map((request) => request.productCodes?.length), [500, 500, 1]);
-  assert.deepEqual(productRequests.map((request) => request.productCodes?.length), [1_000, 1]);
   assert.ok(inventoryRequests.every((request) => request.limit === 10_000 && request.endDate === "2026-08-29"));
-  assert.ok(productRequests.every((request) => request.limit === 5_000 && request.endDate === "2026-08-29"));
   assert.ok(requests.every((item) => item.principal === principal));
-  assert.deepEqual(productRequests[0]?.platforms, ["京东"]);
-  assert.deepEqual(productRequests[0]?.outlets, [{ platform: "京东", shopName: "测试店铺" }]);
   sqlite.close();
 });
 
@@ -217,54 +188,7 @@ test("inventory consumer fails closed on truncated and out-of-request aggregate 
   }
 });
 
-test("product consumer fails closed on revision drift, batch drift, and duplicate product aggregates", async () => {
-  for (const mode of ["revision", "batch", "duplicate"] as const) {
-    const { sqlite, db } = await setupDatabase(1);
-    const reader = readerFrom((_receivedPrincipal, request) => {
-      if (request.operation === "freshness") return freshness();
-      if (request.operation !== "product_performance") throw new Error("unexpected operation");
-      const row = {
-        productCode: request.productCodes?.[0] ?? "",
-        productName: "货品",
-        specification: "",
-        category: "类目",
-        supplier: "",
-        netQuantity: 1,
-        grossSalesCents: 100,
-        refundAmountCents: 0,
-        netSalesCents: 100,
-        costCents: 50,
-        feeCents: 0,
-        grossProfitCents: 50,
-        absoluteQuantity: 1,
-        absoluteCostCents: 50,
-        outlets: [],
-      };
-      return {
-        revision: mode === "revision" ? "sales:10/erp:4" : "sales:9/erp:4",
-        data: {
-          dataStartDate: "2026-08-01",
-          dataCutoffDate: "2026-08-28",
-          latestBatch: mode === "batch" ? null : freshness().data.latestBatch,
-          rows: mode === "duplicate" ? [row, row] : [row],
-          outletOptions: [],
-          truncated: false,
-        },
-      };
-    });
-    await assert.rejects(
-      getProductSummary(db, principal, {
-        range: "custom",
-        startDate: "2026-08-01",
-        endDate: "2026-08-28",
-      }, reader),
-      isUnavailable,
-    );
-    sqlite.close();
-  }
-});
-
-test("inventory and product consumers fail closed on incomplete batch or outlet metadata", async () => {
+test("inventory consumer fails closed on incomplete batch metadata", async () => {
   {
     const { sqlite, db } = await setupDatabase(1);
     const incompleteFreshness = freshness() as unknown as {
@@ -275,34 +199,6 @@ test("inventory and product consumers fail closed on incomplete batch or outlet 
     const reader = readerFrom(() => incompleteFreshness);
     await assert.rejects(
       getInventoryOverview(db, principal, { page: 1, pageSize: 1 }, reader),
-      isUnavailable,
-    );
-    sqlite.close();
-  }
-
-  {
-    const { sqlite, db } = await setupDatabase(1);
-    const reader = readerFrom((_receivedPrincipal, request) => {
-      if (request.operation === "freshness") return freshness();
-      if (request.operation !== "product_performance") throw new Error("unexpected operation");
-      return {
-        revision: "sales:9/erp:4",
-        data: {
-          dataStartDate: "2026-08-01",
-          dataCutoffDate: "2026-08-28",
-          latestBatch: freshness().data.latestBatch,
-          rows: [],
-          outletOptions: [{ platform: "京东", shopName: "测试店铺", channel: 123 }],
-          truncated: false,
-        },
-      };
-    });
-    await assert.rejects(
-      getProductSummary(db, principal, {
-        range: "custom",
-        startDate: "2026-08-01",
-        endDate: "2026-08-28",
-      }, reader),
       isUnavailable,
     );
     sqlite.close();
@@ -330,5 +226,6 @@ test("inventory and product online paths contain no D1 sales dependency", async 
   const productRoute = await readFile(new URL("../app/api/products/summary/route.ts", import.meta.url), "utf8");
   assert.match(inventoryRoute, /getInventoryOverview\(db, principal,/);
   assert.match(replenishmentRoute, /getInventoryOverview\(db, principal,/);
-  assert.match(productRoute, /getProductSummary\(db, principal,/);
+  assert.match(productRoute, /getProductSummary\(principal,/);
+  assert.doesNotMatch(productRoute, /getInventoryDatabase|env\.DB/);
 });

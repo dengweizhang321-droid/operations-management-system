@@ -4,7 +4,7 @@
 
 本契约用于把现有 Worker/D1 业务域逐个迁移到 Django/PostgreSQL。它定义可复用的安全不变量，不要求所有业务域共享表、进程、锁或写入所有者。
 
-首个复用范围是月度财报。现有“销售分析 → 财务分析”前端模板和公开 API 契约保持不变，本批不重做页面结构。
+本契约最初用于月度财报，现已复用于网店、市场以及商品经营候选域。各域保留现有 React/Next.js 前端和公开 API 契约，不以迁移后端为由改写页面或形成第二套业务口径。
 
 ## 2. 固定组件边界
 
@@ -36,6 +36,8 @@
 财务写入故障不得阻断销售总览、渠道或品类查询。财务迁移不得改变销售 write authority、销售表、ERP bridge 或 D1 销售 retirement 对象。
 
 销售域的原始分片字节、owner、摘要和生命周期固定由 PostgreSQL 管理，生产代码不得读写 R2；这不授权删除市场图片、库存、工作流等其他领域仍使用的全局 R2 binding。
+
+商品经营是组合读模型，不拥有上游销售、ERP 或库存事实。其 PostgreSQL reader 只读销售/ERP 已有权威表；库存仍由 D1 单写，并在每次成功或 duplicate 库存导入后通过 owner-fenced、完整摘要校验的版本化投影同步。投影固定排除 `刷刷仓`，失败不得回查 D1 或阻断库存事实发布。SKU 快递费率、商品域批次、幂等、上传和 revision 才属于商品经营写侧。
 
 ## 4. 公开请求与内部鉴权
 
@@ -122,7 +124,9 @@ dry-run -> 人工批准精确 run ID -> apply -> verify-only
 
 PostgreSQL 接收第一笔新权威写入后，旧 D1 不再是无损回滚目标。恢复只能使用兼容应用版本、PostgreSQL 备份/WAL/PITR 或经审批的前向数据修复。D1 领域对象只有在稳定观察和独立退役审批后才能受控退役。
 
-## 11. 财务域本批边界
+## 11. 领域特例
+
+### 11.1 财务域
 
 本批迁移以下对象：
 
@@ -132,6 +136,19 @@ PostgreSQL 接收第一笔新权威写入后，旧 D1 不再是无损回滚目�
 - 与财报分析同一一致性边界内的经营目标、版本和删除审计。
 
 现有 Worker 财报解析器继续负责 Excel 模板解析；Django 接收有版本的规范化数据。公开 `/api/imports/finance`、`/api/finance/analysis` 和 `/api/finance/targets` 契约保持兼容。财务 reader/writer 的不可用不得影响非财务销售 API。
+
+### 11.2 商品经营候选域
+
+商品经营迁移以下对象：
+
+- SKU 快递费率批次、当前完整费率事实和历史导入记录；
+- 导入尝试、内容指纹、单一 scope head、写请求 receipt 和 product revision；
+- PostgreSQL 原始分片会话/字节和有界过期清理；
+- 最新库存完整投影及原子激活 control；
+- 商品汇总、AI 和全局搜索 consumer；
+- 历史迁移、双侧 authority、系统 smoke 和 D1 retirement receipt。
+
+Worker 继续解析 `SKU累计` XLSX，Django 接收 `product-shipping-rates-normalized-v1` 定点规范行。商品 reader/writer 使用 `8041/8042` 独立进程和数据库角色。D1 库存事实不在本次迁移范围；`0100` 只能退役商品快递费率表及其共享命名空间，必须保留库存表、库存上传和其他域共享行。完整门禁见 [`DJANGO_PRODUCTS_MIGRATION.md`](DJANGO_PRODUCTS_MIGRATION.md)。
 
 ## 12. 必测负向路径
 
@@ -145,3 +162,6 @@ PostgreSQL 接收第一笔新权威写入后，旧 D1 不再是无损回滚目�
 - 源材料在 dry-run 与 apply 之间变化；
 - 备份损坏、恢复目标指向正式数据库或清单被篡改；
 - 财务服务失败时销售总览、渠道和品类仍正常。
+- 商品 reader/writer 失败时销售、ERP 和库存权威不变，且商品路径不回查 D1；
+- 库存投影缺页、乱序、owner 过期、调用方伪造摘要和分页期间 revision 变化；
+- 商品 D1 退役保留库存域、其他共享导入行和既有 retirement receipt。

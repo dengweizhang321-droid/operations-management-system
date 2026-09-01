@@ -22,7 +22,6 @@ registerHooks({
 
 const { ensureInventorySchema } = await import("../lib/inventory/database");
 const { ensureErpReferenceSchema } = await import("../lib/erp-reference/database");
-const { getProductSummary: getProductSummaryCore } = await import("../lib/products/summary");
 const {
   getInventoryDashboardOverview: getInventoryDashboardOverviewCore,
   getInventoryFullOverview: getInventoryFullOverviewCore,
@@ -208,11 +207,6 @@ function fixtureContext(db: unknown) {
   return { sqlite, reader: salesReader(sqlite) };
 }
 
-function getProductSummary(db: unknown, input: Parameters<typeof getProductSummaryCore>[2]) {
-  const { reader } = fixtureContext(db);
-  return getProductSummaryCore(db as never, principal, input, reader);
-}
-
 function getInventoryDashboardOverview(db: unknown, input: Parameters<typeof getInventoryDashboardOverviewCore>[2] = {}) {
   const { reader } = fixtureContext(db);
   return getInventoryDashboardOverviewCore(db as never, principal, input, reader);
@@ -310,7 +304,7 @@ test("库存 overview 保留缺省 full 兼容并支持唯一受控投影", () =
   assert.throws(() => parseInventoryOverviewView(new URLSearchParams("view=unknown")), /full、dashboard、overview 或 plan/);
 });
 
-test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", async () => {
+test("库存真实 SQL 分页披露部分成本覆盖", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as never;
   testEnvironment.DB = db;
@@ -334,20 +328,6 @@ test("真实 SQL 分页保持稳定类目 facet，并披露部分成本覆盖", 
     id, source_batch_id, product_code, product_name, warehouse,
     suggested_quantity, planned_quantity, coverage_days_tenths, reason, status
   ) VALUES ('plan-a', 'inventory-batch', 'A', '货品A', '上海仓', 20, 12, 300, '真实 SQL 投影测试', 'draft')`).run();
-
-  const product = await getProductSummary(db, {
-    range: "custom",
-    startDate: "2026-08-18",
-    endDate: "2026-08-18",
-    categories: ["类目A"],
-    page: 1,
-    pageSize: 1,
-  });
-  assert.equal(product.pagination.total, 1);
-  assert.deepEqual(product.filters.categories, ["类目A", "类目B"], "选中类目后可选类目不应收缩");
-  assert.equal(product.items[0]?.stockValueCents, null);
-  assert.equal(product.items[0]?.knownStockValueCents, 1_000);
-  assert.equal(product.items[0]?.costCoverageRate, 0.01);
 
   const overview = await getInventoryOverview(db, {
     exactKey: `上海仓\u001fA`,

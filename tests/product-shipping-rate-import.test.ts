@@ -225,32 +225,38 @@ test("shipping-rate publication atomically replaces the complete specification s
   sqlite.close();
 });
 
-test("shipping-rate import contract keeps full-scope fingerprinting, fenced replacement, and readback", async () => {
-  const [service, database, migration, route, chunks, productSummary, productView] = await Promise.all([
+test("shipping-rate production contract uses Django fencing while legacy D1 stays isolated test material", async () => {
+  const [service, database, migration, authority, retirement, route, chunks, productSummary, productView] = await Promise.all([
     readFile(new URL("../lib/products/shipping-rate-import-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/shipping-rate-database.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0088_product_shipping_rates.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0099_product_write_authority.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0100_product_domain_retirement.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/api/imports/product-shipping-rates/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/imports/product-shipping-rates/chunks/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/product-module-view.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(service, /domain: IMPORT_DOMAIN/);
-  assert.match(service, /ignoredTopLevelKeys: \["sourceRowNumber"\]/);
-  assert.match(service, /reserveImportFingerprint/);
-  assert.match(service, /countProductShippingRatesOwnedByBatch/);
+  assert.match(service, /PRODUCT_SHIPPING_RATE_IMPORT_VERSION = "product-shipping-rates-normalized-v1"/);
+  assert.match(service, /shippingRatePpt/);
+  assert.match(service, /createDjangoProductsService/);
+  assert.match(service, /kind: "rejection"/);
   assert.match(database, /DELETE FROM product_shipping_rates[\s\S]*last_import_batch_id <> \?/);
   assert.match(database, /importReservationCommitFence/);
   assert.match(database, /db\.batch\(statements\)/);
   assert.match(migration, /product_shipping_rate_import_batches/);
   assert.match(migration, /product_shipping_rates/);
+  assert.match(authority, /product_write_authority_not_d1/);
+  assert.match(retirement, /products-domain-retirement-receipt-v1/);
+  assert.match(retirement, /product_domain_retired/);
   assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(route, /MAX_DIRECT_FILE_BYTES = 2 \* 1024 \* 1024/);
-  assert.match(chunks, /MAX_CHUNKED_INVENTORY_FILE_BYTES/);
-  assert.match(chunks, /UPLOAD_SCOPE_PREFIX = "sku-shipping-rates:"/);
-  assert.match(productSummary, /FROM product_shipping_rates/);
-  assert.match(productSummary, /const shipping = new Map\(shippingResult\.results/);
-  assert.match(productSummary, /shippingRate: row\.shipping_rate/);
+  assert.doesNotMatch(route, /shipping-rate-database/);
+  assert.match(chunks, /MAX_CHUNKED_PRODUCT_FILE_BYTES/);
+  assert.match(chunks, /beginProductUpload/);
+  assert.doesNotMatch(chunks, /inventory\/chunked-upload/);
+  assert.match(productSummary, /createDjangoProductsService/);
+  assert.doesNotMatch(productSummary, /FROM product_shipping_rates/);
   assert.match(productView, /<th>退货率<\/th><th>快递费率<\/th><th>操作<\/th>/);
   assert.doesNotMatch(productView, /<th>费用<\/th>/);
   assert.doesNotMatch(productView, /formatCurrencyFromCents\(item\.feeCents\)/);

@@ -83,13 +83,19 @@ test("backup evidence and archive are bound to one exported PostgreSQL snapshot"
   assert.match(helper, /market_write_authority/);
   assert.match(helper, /marketRevisions/);
   assert.match(helper, /marketWriteAuthority/);
+  assert.match(helper, /product_data_revisions/);
+  assert.match(helper, /product_write_authority/);
+  assert.match(helper, /productsRevisions/);
+  assert.match(helper, /productsWriteAuthority/);
   assert.match(helper, /django_migrations/);
   assert.match(helper, /startswith\(ALLOWED_TABLE_PREFIXES\)/);
-  assert.match(helper, /ALLOWED_TABLE_PREFIXES = \("sales_", "erp_", "finance_", "netshop_", "market_"\)/);
+  assert.match(helper, /"sales_", "erp_", "finance_", "netshop_", "market_", "product_"/);
   assert.match(operator, /PostgreSQL 网店 revision 证据/);
   assert.match(operator, /网店 PostgreSQL 写入权威证据/);
   assert.match(operator, /PostgreSQL 市场 revision 证据/);
   assert.match(operator, /市场 PostgreSQL 写入权威证据/);
+  assert.match(operator, /PostgreSQL 商品经营 revision 证据/);
+  assert.match(operator, /商品经营 PostgreSQL 写入权威证据/);
   assert.match(operator, /pg_restore\.exe/);
   assert.match(operator, /@\("--list", \$dumpPath\)/);
   assert.match(operator, /backup-manifest\.json\.sha256/);
@@ -165,6 +171,8 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
     "teruisi_netshop_writer",
     "teruisi_market_reader",
     "teruisi_market_writer",
+    "teruisi_products_reader",
+    "teruisi_products_writer",
   ]) {
     assert.match(script, new RegExp(`"${role}"`));
   }

@@ -1,6 +1,6 @@
 # Django 领域后端
 
-本目录承载按领域隔离的 Django 后端。当前本机销售、财务和网店域已完成 Django/PostgreSQL 正式单写切换；市场域已完成候选实现与真实数据隔离演练，但尚未部署或正式切换，生产市场权威仍是 D1。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界。
+本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店和市场域已完成 Django/PostgreSQL 正式单写切换；商品经营域已完成候选实现、真实数据隔离迁移和系统测试，但尚未部署或正式切换，生产商品经营权威仍是 D1。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -30,11 +30,13 @@
 | `127.0.0.1:8012` | Django finance writer | `teruisi_finance_writer` |
 | `127.0.0.1:8021` | Django netshop reader | `teruisi_netshop_reader` |
 | `127.0.0.1:8022` | Django netshop writer | `teruisi_netshop_writer` |
-| `127.0.0.1:8031` | Django market reader（候选，正式切换前不启用） | `teruisi_market_reader` |
-| `127.0.0.1:8032` | Django market writer（候选，正式切换前不启用） | `teruisi_market_writer` |
+| `127.0.0.1:8031` | Django market reader | `teruisi_market_reader` |
+| `127.0.0.1:8032` | Django market writer | `teruisi_market_writer` |
+| `127.0.0.1:8041` | Django products reader（候选，正式切换前不启用） | `teruisi_products_reader` |
+| `127.0.0.1:8042` | Django products writer（候选，正式切换前不启用） | `teruisi_products_writer` |
 | 后台进程，无监听端口 | ERP bridge | `teruisi_erp_reference_sync` |
 
-三种运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
+各运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
 
 - reader 只读销售查询所需对象和 ERP 参照副本；
 - writer 只写销售域对象，不得写 ERP 参照表或 ERP checkpoint；
@@ -51,14 +53,16 @@ cd backend
 python -m pip install -r requirements.txt
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python manage.py test sales finance netshop market
+python manage.py test sales finance netshop market products
 ```
 
 公开 Worker 与 Django 之间使用 HMAC principal 信封。浏览器传入的角色、scope、用户标识或内部签名头均不可信，必须由 Worker 重新生成并由 Django 验证时间窗、签名和规范化请求身份。
 
+商品经营候选架构、`8041/8042` 最小权限边界、隔离迁移证据和正式切换门禁见 [商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。该手册中的正式命令只能在批准的维护窗口从受保护 runtime 执行；隔离演练 run ID 不能用于生产。
+
 ## 本机服务管理
 
-受控脚本位于仓库 `tools/django-local-service.ps1`，部署副本位于运行目录 `D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1`。运行配置固定为 v3，并分别记录 reader、writer、PostgreSQL 与 ERP D1 来源。关键操作要求 reader、writer、ERP bridge 和 PostgreSQL 全部停止；脚本也会检查未登记的 ERP 同步进程并失败关闭。
+受控脚本位于仓库 `tools/django-local-service.ps1`，部署副本位于运行目录 `D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1`。运行配置固定为 v4，并分别记录 reader、writer、PostgreSQL 与 ERP D1 来源。关键操作要求 reader、writer、ERP bridge 和 PostgreSQL 全部停止；脚本也会检查未登记的 ERP 同步进程并失败关闭。
 
 首次准备的命令骨架如下。占位值必须由操作者在批准的变更窗口内填写，不能把密码、连接串或真实客户材料写入命令历史、文档、日志或 Git：
 
@@ -121,9 +125,13 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 网店 reader/writer 固定使用 `8021/8022` 和独立最小权限角色，PostgreSQL 是网店事实、批次、SKU/SPU、推广、上传、revision 和审计的唯一权威。旧 D1 网店路径不得作为读取、写入或回滚来源；市场只通过固定 Django consumer 获取有界投影。完整证据见[网店后端迁移手册](../docs/DJANGO_NETSHOP_MIGRATION.md)。
 
-## 市场域候选实现
+## 市场域正式单写实现
 
-市场 app 位于 `backend/market/`，候选 reader/writer 固定为 `8031/8032`。现有 React 页面和同源公开 API 保留；Worker 负责真实 principal、解析、HMAC、体积/超时边界和需要 R2/模型的边缘执行，Django 负责市场事实、批次、幂等、任务、revision、authority 与查询。当前生产市场仍由 D1 承载，`market-service-enabled.json` 不得在正式 cutover 前创建。真实数据隔离演练、当前陈旧 processing 批次门禁、`0097/0098`、PNR 和恢复步骤见[市场后端迁移手册](../docs/DJANGO_MARKET_MIGRATION.md)。
+市场 app 位于 `backend/market/`，reader/writer 固定为 `8031/8032`。现有 React 页面和同源公开 API 保留；Worker 负责真实 principal、解析、HMAC、体积/超时边界和需要 R2/模型的边缘执行，Django/PostgreSQL 是市场事实、批次、幂等、任务、revision、authority 与查询的唯一权威。切换已跨过 PNR，旧 D1 市场对象已终态退役；完整证据和恢复步骤见[市场后端迁移手册](../docs/DJANGO_MARKET_MIGRATION.md)。
+
+## 商品经营域候选实现
+
+商品经营 app 位于 `backend/products/`，候选 reader/writer 固定为 `8041/8042`。现有 React 页面、公开汇总和快递费率导入路径保留；商品查询复用 PostgreSQL 销售/ERP 权威，并消费 D1 库存导入后的版本化投影，库存域本身不迁移。当前生产商品经营仍由 D1 承载，`products-service-enabled.json` 不得在正式切换前创建。隔离真实数据迁移、系统测试、`0099/0100`、PNR 和退役 operator 见[商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。
 
 ## 当前本机终态记录
 

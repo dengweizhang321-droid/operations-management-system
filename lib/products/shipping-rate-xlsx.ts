@@ -33,6 +33,7 @@ export type ProductShippingRateIssue = {
   code: string;
   message: string;
   row?: number;
+  field?: string;
 };
 
 export type ProductShippingRateParseResult = {

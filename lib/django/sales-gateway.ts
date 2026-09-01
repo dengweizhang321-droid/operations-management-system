@@ -76,6 +76,14 @@ function marketConfigurationUnavailable(): PublicApiError {
   );
 }
 
+function productsConfigurationUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 商品经营服务配置不完整。",
+  );
+}
+
 function parseBoundedInteger(
   value: string | undefined,
   fallback: number,
@@ -395,6 +403,59 @@ export async function createMarketGatewayAuthHeaders(
 
   const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
   if (principalBytes.byteLength > 16_384) throw marketConfigurationUnavailable();
+  const principal = base64Url(principalBytes);
+  const canonical = [
+    "v1",
+    String(input.timestamp),
+    input.requestId,
+    method,
+    input.path,
+    input.rawQuery,
+    bodySha256,
+    principal,
+  ].join("\n");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(input.secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = hex(await crypto.subtle.sign("HMAC", key, encoder.encode(canonical)));
+  return new Headers({
+    accept: "application/json",
+    "x-teruisi-content-sha256": bodySha256,
+    "x-teruisi-principal": principal,
+    "x-teruisi-request-id": input.requestId,
+    "x-teruisi-signature": `v1=${signature}`,
+    "x-teruisi-timestamp": String(input.timestamp),
+  });
+}
+
+/** Product operations has isolated reader/writer processes and accepts both
+ * JSON and raw chunk requests. Keep its signature path guard domain-specific. */
+export async function createProductsGatewayAuthHeaders(
+  input: SalesGatewaySignatureInput,
+): Promise<Headers> {
+  const method = input.method.toUpperCase();
+  if (
+    !["GET", "POST", "PUT"].includes(method)
+    || !input.path.startsWith("/api/products/")
+  ) {
+    throw productsConfigurationUnavailable();
+  }
+  const bodySha256 = input.bodySha256?.trim().toLowerCase()
+    ?? (method === "GET" ? EMPTY_SHA256 : "");
+  if (!/^[a-f0-9]{64}$/.test(bodySha256)) throw productsConfigurationUnavailable();
+  if (!Number.isSafeInteger(input.timestamp) || input.timestamp <= 0) {
+    throw productsConfigurationUnavailable();
+  }
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(input.requestId)) {
+    throw productsConfigurationUnavailable();
+  }
+
+  const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
+  if (principalBytes.byteLength > 16_384) throw productsConfigurationUnavailable();
   const principal = base64Url(principalBytes);
   const canonical = [
     "v1",

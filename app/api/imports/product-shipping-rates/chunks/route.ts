@@ -1,13 +1,13 @@
 import {
-  INVENTORY_UPLOAD_CHUNK_BYTES,
-  MAX_CHUNKED_INVENTORY_FILE_BYTES,
-  assembleInventoryUpload,
-  beginInventoryUpload,
-  claimInventoryUpload,
-  finishInventoryUpload,
-  receiveInventoryUploadChunk,
-  releaseInventoryUpload,
-} from "@/lib/inventory/chunked-upload";
+  PRODUCT_UPLOAD_CHUNK_BYTES,
+  MAX_CHUNKED_PRODUCT_FILE_BYTES,
+  assembleProductUpload,
+  beginProductUpload,
+  claimProductUpload,
+  finishProductUpload,
+  receiveProductUploadChunk,
+  releaseProductUpload,
+} from "@/lib/products/chunked-upload";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -38,48 +38,49 @@ export async function POST(request: Request) {
     if (!body) return reject(400, "请求内容无效");
     if (body.action === "init") {
       const clientFingerprint = typeof body.fingerprint === "string" ? body.fingerprint.slice(0, 220) : "";
-      const upload = await beginInventoryUpload({
+      const upload = await beginProductUpload(principal, {
         fileName: typeof body.fileName === "string" ? body.fileName : "",
         fileSizeBytes: Number(body.fileSizeBytes),
         chunkCount: Number(body.chunkCount),
         fingerprint: `${UPLOAD_SCOPE_PREFIX}${clientFingerprint}`,
-      });
+      }, { signal: request.signal });
       return Response.json({
         ok: true,
         status: "ready",
         upload,
         limits: {
-          chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES,
-          maxFileSizeBytes: MAX_CHUNKED_INVENTORY_FILE_BYTES,
+          chunkSizeBytes: PRODUCT_UPLOAD_CHUNK_BYTES,
+          maxFileSizeBytes: MAX_CHUNKED_PRODUCT_FILE_BYTES,
         },
       }, { headers: { "cache-control": "no-store" } });
     }
     if (body.action === "complete") {
       const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
       if (!uploadId) return reject(400, "缺少上传会话标识");
-      const claim = await claimInventoryUpload(uploadId);
+      const claim = await claimProductUpload(principal, uploadId, { signal: request.signal });
       if (claim.kind === "completed") {
         return Response.json(claim.result, { headers: { "cache-control": "no-store" } });
       }
-      if (!claim.session.fingerprint.startsWith(UPLOAD_SCOPE_PREFIX)) {
-        await releaseInventoryUpload(uploadId).catch(() => undefined);
+      if (!claim.upload.fingerprint.startsWith(UPLOAD_SCOPE_PREFIX)) {
+        await releaseProductUpload(principal, claim, { signal: request.signal }).catch(() => undefined);
         return reject(409, "上传会话未绑定 SKU 快递费率数据集");
       }
       try {
-        const assembled = await assembleInventoryUpload(uploadId);
+        const bytes = await assembleProductUpload(principal, claim, { signal: request.signal });
         const result = await importProductShippingRateBytes({
-          bytes: assembled.bytes,
-          fileName: assembled.session.fileName,
-          fileSizeBytes: assembled.session.fileSizeBytes,
-          actor: principal.email,
+          bytes,
+          fileName: claim.upload.fileName,
+          fileSizeBytes: claim.upload.fileSizeBytes,
+          principal,
+          signal: request.signal,
         });
-        await finishInventoryUpload(uploadId, assembled.objectKeys, result);
+        await finishProductUpload(principal, claim, { ...result }, { signal: request.signal });
         return Response.json(result, {
           status: importExecutionHttpStatus(result),
           headers: { "cache-control": "no-store" },
         });
       } catch (error) {
-        await releaseInventoryUpload(uploadId).catch(() => undefined);
+        await releaseProductUpload(principal, claim, { signal: request.signal }).catch(() => undefined);
         throw error;
       }
     }
@@ -99,10 +100,10 @@ export async function PUT(request: Request) {
     const chunkIndex = headerNumber(request, "x-chunk-index");
     if (!uploadId || !Number.isSafeInteger(chunkIndex)) return reject(400, "缺少有效的分片上传标识");
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > INVENTORY_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 1MB");
+    if (contentLength > PRODUCT_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 1MB");
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
-    const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
+    const upload = await receiveProductUploadChunk(principal, { uploadId, chunkIndex, bytes }, { signal: request.signal });
     return Response.json({ ok: true, status: "uploading", upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

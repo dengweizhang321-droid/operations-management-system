@@ -1,11 +1,8 @@
-import { ensureInventorySchema, getInventoryDatabase } from "@/lib/inventory/database";
 import {
   getProductSummary,
   ProductSummaryRequestError,
   type ProductSummaryRange,
 } from "@/lib/products/summary";
-import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
-import { ensureProductShippingRateSchema } from "@/lib/products/shipping-rate-database";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -50,12 +47,6 @@ export async function GET(request: Request) {
     if (requestedView === null && expectedSnapshotToken !== undefined) {
       throw new ProductSummaryRequestError("完整汇总不接受 snapshotToken");
     }
-    const db = getInventoryDatabase();
-    await Promise.all([
-      ensureInventorySchema(db),
-      ensureErpReferenceSchema(db),
-      ensureProductShippingRateSchema(db),
-    ]);
     const requestedRange = searchParams.get("range");
     const allowedRanges = new Set<ProductSummaryRange>(["last30", "last90", "halfYear", "custom"]);
     if (requestedRange && !allowedRanges.has(requestedRange as ProductSummaryRange)) {
@@ -89,7 +80,7 @@ export async function GET(request: Request) {
     if (requestedDirection !== null && requestedDirection !== "asc" && requestedDirection !== "desc") {
       throw new ProductSummaryRequestError("商品排序方向必须是 asc 或 desc");
     }
-    const payload = await getProductSummary(db, principal, {
+    const payload = await getProductSummary(principal, {
       range: requestedRange ? requestedRange as ProductSummaryRange : undefined,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),

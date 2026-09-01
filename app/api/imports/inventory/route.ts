@@ -13,6 +13,7 @@ import {
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 import { importExecutionHttpStatus, parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
+import { syncLatestInventoryProjection } from "@/lib/products/inventory-projection-sync";
 
 const MAX_DIRECT_INVENTORY_FILE_BYTES = 1024 * 1024;
 
@@ -83,8 +84,11 @@ export async function POST(request: Request) {
       fileSizeBytes: entry.size,
       snapshotDateOverride: snapshotDate,
     });
-    return Response.json(payload, {
-      status: importExecutionHttpStatus(payload),
+    const result = payload.ok
+      ? { ...payload, inventoryProjection: await syncLatestInventoryProjection(principal, { signal: request.signal }) }
+      : payload;
+    return Response.json(result, {
+      status: importExecutionHttpStatus(result),
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {

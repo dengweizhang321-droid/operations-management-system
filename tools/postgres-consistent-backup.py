@@ -23,7 +23,9 @@ from psycopg import sql
 
 
 VERSION = "teruisi-postgres-consistent-backup-v1"
-ALLOWED_TABLE_PREFIXES = ("sales_", "erp_", "finance_", "netshop_", "market_")
+ALLOWED_TABLE_PREFIXES = (
+    "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
+)
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
 
@@ -112,6 +114,16 @@ def collect_evidence(
         market_tables = {name for name in tables if name.startswith("market_")}
         if market_tables:
             required.update(market_required)
+        products_required = {
+            "product_data_revisions",
+            "product_shipping_rate_import_batches",
+            "product_shipping_rates",
+            "product_inventory_projection",
+            "product_write_authority",
+        }
+        products_tables = {name for name in tables if name.startswith("product_")}
+        if products_tables:
+            required.update(products_required)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -257,6 +269,61 @@ def collect_evidence(
                 "migrationRunId": market_run,
             }
 
+        products_revisions: dict[str, dict[str, Any]] | None = None
+        products_authority: dict[str, str] | None = None
+        if products_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM product_data_revisions ORDER BY domain"
+            )
+            products_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = products_revisions.get("products")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("products revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM product_write_authority WHERE id = 1"
+            )
+            products_authority_row = cursor.fetchone()
+            if products_authority_row is None:
+                raise RuntimeError("products write authority singleton is missing")
+            products_status, products_epoch, products_cutover, products_run = (
+                str(value or "") for value in products_authority_row
+            )
+            if products_status not in {"d1", "postgres"}:
+                raise RuntimeError("products write authority status is invalid")
+            if products_run and re.fullmatch(r"products-apply-[0-9a-f]{32}", products_run) is None:
+                raise RuntimeError("products migration run evidence is invalid")
+            if products_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", products_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", products_cutover) is None
+                    or not products_run
+                ):
+                    raise RuntimeError("active products write authority evidence is incomplete")
+            elif products_epoch or products_cutover:
+                raise RuntimeError("inactive products write authority contains activation evidence")
+            products_authority = {
+                "status": products_status,
+                "authorityEpoch": products_epoch,
+                "cutoverId": products_cutover,
+                "migrationRunId": products_run,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -273,6 +340,9 @@ def collect_evidence(
     if market_revisions is not None and market_authority is not None:
         content["marketRevisions"] = market_revisions
         content["marketWriteAuthority"] = market_authority
+    if products_revisions is not None and products_authority is not None:
+        content["productsRevisions"] = products_revisions
+        content["productsWriteAuthority"] = products_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")

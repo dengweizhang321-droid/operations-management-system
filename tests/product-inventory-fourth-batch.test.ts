@@ -128,21 +128,24 @@ test("missing row-level age sales never becomes zero sales", () => {
 });
 
 test("product and inventory APIs expose real page contracts", async () => {
-  const [product, productRoute, inventory, age, erpDatabase, plans] = await Promise.all([
+  const [product, productBackend, productRoute, inventory, age, erpDatabase, plans] = await Promise.all([
     source("../lib/products/summary.ts"),
+    source("../backend/products/query.py"),
     source("../app/api/products/summary/route.ts"),
     source("../lib/inventory/overview.ts"),
     source("../lib/inventory/age-analysis.ts"),
     source("../lib/erp-reference/database.ts"),
     source("../lib/inventory/database.ts"),
   ]);
-  assert.match(product, /orderedRows\.slice\(pagination\.offset, pagination\.offset \+ pagination\.pageSize\)/);
-  assert.match(product, /pagination:/);
-  assert.match(product, /facetRows/);
-  assert.match(product, /known_stock_value_cents/);
-  assert.match(product, /priced_available_quantity/);
-  assert.match(product, /availableQuantity <= pricedAvailableQuantity/);
-  assert.match(product, /operation: "product_performance"/);
+  assert.match(product, /PRODUCTS_SUMMARY_PATH/);
+  assert.match(product, /rawQuery: summaryQuery\(options\)/);
+  assert.match(productBackend, /selected = filtered\[offset : offset \+ page_size\]/);
+  assert.match(productBackend, /"pagination": _pagination/);
+  assert.match(productBackend, /facet_rows/);
+  assert.match(productBackend, /known_stock_value_cents/);
+  assert.match(productBackend, /priced_available_quantity/);
+  assert.match(productBackend, /available <= priced/);
+  assert.match(productBackend, /"operation": "product_performance"/);
   assert.match(productRoute, /searchParams\.get\("page"\)/);
   assert.match(productRoute, /searchParams\.get\("pageSize"\)/);
   assert.match(productRoute, /parseProductSummaryPaginationParameter/);

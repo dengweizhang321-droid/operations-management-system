@@ -15,6 +15,7 @@ import {
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
 import { importExecutionHttpStatus, safeApiErrorResponse, type ImportExecutionLike } from "@/lib/http/api-error";
+import { syncLatestInventoryProjection } from "@/lib/products/inventory-projection-sync";
 
 function reject(status: number, message: string, extra: Record<string, unknown> = {}) {
   return Response.json({ ok: false, status: "rejected", message, ...extra }, { status, headers: { "cache-control": "no-store" } });
@@ -64,16 +65,23 @@ export async function POST(request: Request) {
         return reject(409, "上传会话绑定的库存快照日期与本次完成请求不一致");
       }
       if (claim.kind === "completed") {
-        return Response.json(claim.result, { status: importExecutionHttpStatus(claim.result as ImportExecutionLike), headers: { "cache-control": "no-store" } });
+        const projection = await syncLatestInventoryProjection(principal, { signal: request.signal });
+        const completed = claim.result && typeof claim.result === "object" && !Array.isArray(claim.result)
+          ? { ...claim.result, inventoryProjection: projection }
+          : claim.result;
+        return Response.json(completed, { status: importExecutionHttpStatus(completed as ImportExecutionLike), headers: { "cache-control": "no-store" } });
       }
       try {
         const assembled = await assembleInventoryUpload(uploadId);
-      const result = await importInventoryStockBytes({
+        const imported = await importInventoryStockBytes({
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
           snapshotDateOverride: snapshotDate,
         });
+        const result = imported.ok
+          ? { ...imported, inventoryProjection: await syncLatestInventoryProjection(principal, { signal: request.signal }) }
+          : imported;
         await finishInventoryUpload(uploadId, assembled.objectKeys, result);
         return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
       } catch (error) {

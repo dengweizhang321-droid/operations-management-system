@@ -33,7 +33,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_netshop_reader",
   "teruisi_netshop_writer",
   "teruisi_market_reader",
-  "teruisi_market_writer"
+  "teruisi_market_writer",
+  "teruisi_products_reader",
+  "teruisi_products_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -242,6 +244,11 @@ function Assert-MaintenanceEvidence(
   if ($hasMarketRevisions -ne $hasMarketAuthority) {
     throw "PostgreSQL 市场证据字段不完整"
   }
+  $hasProductsRevisions = $null -ne $Evidence.PSObject.Properties["productsRevisions"]
+  $hasProductsAuthority = $null -ne $Evidence.PSObject.Properties["productsWriteAuthority"]
+  if ($hasProductsRevisions -ne $hasProductsAuthority) {
+    throw "PostgreSQL 商品经营证据字段不完整"
+  }
   $evidenceProperties = @(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
@@ -251,6 +258,9 @@ function Assert-MaintenanceEvidence(
   }
   if ($hasMarketRevisions) {
     $evidenceProperties += @("marketRevisions", "marketWriteAuthority")
+  }
+  if ($hasProductsRevisions) {
+    $evidenceProperties += @("productsRevisions", "productsWriteAuthority")
   }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
@@ -296,13 +306,19 @@ function Assert-MaintenanceEvidence(
       "market_ranking_entries", "market_write_authority"
     )
   }
+  if ($hasProductsRevisions) {
+    $requiredTables += @(
+      "product_data_revisions", "product_shipping_rate_import_batches",
+      "product_shipping_rates", "product_inventory_projection", "product_write_authority"
+    )
+  }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
@@ -424,6 +440,50 @@ function Assert-MaintenanceEvidence(
     } elseif (-not [string]::IsNullOrEmpty($marketEpoch) -or
               -not [string]::IsNullOrEmpty($marketCutoverId)) {
       throw "未激活的市场写入权威包含激活证据"
+    }
+  }
+
+  if ($hasProductsRevisions) {
+    if ($Evidence.productsRevisions -isnot [pscustomobject] -or
+        $null -eq $Evidence.productsRevisions.PSObject.Properties["products"]) {
+      throw "PostgreSQL 商品经营 revision 证据不完整"
+    }
+    foreach ($property in $Evidence.productsRevisions.PSObject.Properties) {
+      if ($property.Name -cnotmatch "^[a-z][a-z0-9_-]{0,63}$") {
+        throw "PostgreSQL 商品经营 revision 身份无效"
+      }
+      Assert-MaintenanceExactPropertySet $property.Value @(
+        "revision", "sourceDigest"
+      ) "PostgreSQL 商品经营 revision 证据"
+      $productDigest = [string]$property.Value.sourceDigest
+      if (-not (Test-MaintenanceInteger $property.Value.revision) -or
+          [int64]$property.Value.revision -lt 0 -or
+          ([int64]$property.Value.revision -gt 0 -and $productDigest -cnotmatch "^[0-9a-f]{64}$")) {
+        throw "PostgreSQL 商品经营 revision 证据无效"
+      }
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.productsWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "商品经营写入权威证据"
+    $productsStatus = [string]$Evidence.productsWriteAuthority.status
+    $productsEpoch = [string]$Evidence.productsWriteAuthority.authorityEpoch
+    $productsCutoverId = [string]$Evidence.productsWriteAuthority.cutoverId
+    $productsRunId = [string]$Evidence.productsWriteAuthority.migrationRunId
+    if ($productsStatus -notin @("d1", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($productsRunId) -and
+          $productsRunId -cnotmatch "^products-apply-[0-9a-f]{32}$")) {
+      throw "商品经营写入权威证据无效"
+    }
+    if ($productsStatus -ceq "postgres") {
+      if ([int64]$Evidence.productsRevisions.products.revision -lt 1 -or
+          $productsEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $productsCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $productsRunId -cnotmatch "^products-apply-[0-9a-f]{32}$") {
+        throw "商品经营 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($productsEpoch) -or
+              -not [string]::IsNullOrEmpty($productsCutoverId)) {
+      throw "未激活的商品经营写入权威包含激活证据"
     }
   }
 }

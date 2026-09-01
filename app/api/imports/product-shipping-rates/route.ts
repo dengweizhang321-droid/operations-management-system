@@ -9,11 +9,13 @@ import {
   safeApiErrorResponse,
 } from "@/lib/http/api-error";
 import {
-  ensureProductShippingRateSchema,
-  getProductShippingRateDatabase,
-  listProductShippingRateBatches,
-} from "@/lib/products/shipping-rate-database";
-import { importProductShippingRateBytes } from "@/lib/products/shipping-rate-import-service";
+  createDjangoProductsService,
+  PRODUCTS_IMPORTS_PATH,
+} from "@/lib/django/products-service";
+import {
+  importProductShippingRateBytes,
+  type ProductShippingRateImportBatch,
+} from "@/lib/products/shipping-rate-import-service";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -31,10 +33,18 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const page = parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000);
     const pageSize = parsePositiveIntegerQuery(params.get("pageSize") ?? params.get("limit"), 50, "pageSize", 100);
-    const db = getProductShippingRateDatabase();
-    await ensureProductShippingRateSchema(db);
+    const rawQuery = new URLSearchParams({ page: String(page), pageSize: String(pageSize) }).toString();
+    const result = await createDjangoProductsService().requestJson<{
+      items: ProductShippingRateImportBatch[];
+      pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
+    }>(principal, {
+      method: "GET",
+      path: PRODUCTS_IMPORTS_PATH,
+      service: "reader",
+      rawQuery,
+    }, { signal: request.signal });
     return Response.json(
-      await listProductShippingRateBatches(db, { page, pageSize }),
+      result.data,
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {
@@ -66,7 +76,8 @@ export async function POST(request: Request) {
       bytes: new Uint8Array(await entry.arrayBuffer()),
       fileName: entry.name,
       fileSizeBytes: entry.size,
-      actor: principal.email,
+      principal,
+      signal: request.signal,
     });
     return Response.json(result, {
       status: importExecutionHttpStatus(result),

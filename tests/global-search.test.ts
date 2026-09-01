@@ -6,6 +6,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import type { FinanceConsumerReader } from "../lib/django/finance-consumer-reader";
 import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reader";
+import type { ProductsConsumerReader } from "../lib/django/products-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -122,6 +123,31 @@ function fakeNetshopSearchReader(input: {
         },
       };
     }) as NetshopConsumerReader["read"],
+  };
+}
+
+function fakeProductsSearchReader(input: {
+  imports?: Array<{ id: string; source: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): ProductsConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      if (request.operation !== "import_batch_search") {
+        throw new Error(`unexpected operation ${String(request.operation)}`);
+      }
+      const allItems = input.imports ?? [];
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "2:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as ProductsConsumerReader["read"],
   };
 }
 
@@ -502,7 +528,7 @@ test("Django 财务模式下财务科目和目标搜索不再读取 D1 财务表
   assert.equal(calls.some((sql) => /FROM\s+finance_(?:lines|targets_scoped)/i.test(sql)), false);
 });
 
-test("Django 财务批次在销售与其余 D1 批次之间保持精确跨源分页", async () => {
+test("Django 财务与商品批次在销售及其余 D1 批次之间保持精确跨源分页", async () => {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`CREATE TABLE inventory_import_batches (
     id TEXT PRIMARY KEY, file_name TEXT NOT NULL, source TEXT NOT NULL,
@@ -545,20 +571,40 @@ test("Django 财务批次在销售与其余 D1 批次之间保持精确跨源分
     createdAt: `2026-08-${18 + index}`,
     completedAt: `2026-08-${18 + index}`,
   }));
-  const result = await searchAllBusinessData(
+  const productImports = [1, 2].map((index) => ({
+    id: `products-${index}`,
+    source: "SKU 快递费率",
+    fileName: `商品净水机-${index}.xlsx`,
+    status: "completed",
+    rowCount: 10,
+    createdAt: `2026-08-${16 + index}`,
+    completedAt: `2026-08-${16 + index}`,
+  }));
+  const dependencies = {
+    salesReader: fakeSalesSearchReader({ imports: salesImports }),
+    financeReader: fakeFinanceSearchReader({ imports: financeImports }),
+    netshopReader: fakeNetshopSearchReader(),
+    productsReader: fakeProductsSearchReader({ imports: productImports }),
+    financeBackendMode: "django" as const,
+  };
+  const middle = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=imports&page=3&pageSize=2")),
     admin,
-    {
-      salesReader: fakeSalesSearchReader({ imports: salesImports }),
-      financeReader: fakeFinanceSearchReader({ imports: financeImports }),
-      netshopReader: fakeNetshopSearchReader(),
-      financeBackendMode: "django",
-    },
+    dependencies,
   );
-  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["finance-2", "inventory-1"]);
-  assert.equal(result.groups[0]?.total, 6);
-  assert.equal(result.groups[0]?.hasMore, false);
+  assert.deepEqual(middle.groups[0]?.items.map((item) => item.id), ["finance-2", "products-1"]);
+  assert.equal(middle.groups[0]?.total, 8);
+  assert.equal(middle.groups[0]?.hasMore, true);
+  const last = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=imports&page=4&pageSize=2")),
+    admin,
+    dependencies,
+  );
+  assert.deepEqual(last.groups[0]?.items.map((item) => item.id), ["products-2", "inventory-1"]);
+  assert.equal(last.groups[0]?.total, 8);
+  assert.equal(last.groups[0]?.hasMore, false);
   assert.equal(sqlCalls.some((sql) => /FROM\s+finance_import_batches/i.test(sql)), false);
   sqlite.close();
 });
@@ -625,6 +671,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
       salesReader: fakeSalesSearchReader(),
       financeReader: fakeFinanceSearchReader(),
       netshopReader: fakeNetshopSearchReader(),
+      productsReader: fakeProductsSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -937,6 +984,7 @@ test("multi-domain search caps database concurrency at three and performs one LI
       salesReader: fakeSalesSearchReader(),
       financeReader: fakeFinanceSearchReader(),
       netshopReader: fakeNetshopSearchReader(),
+      productsReader: fakeProductsSearchReader(),
       financeBackendMode: "django",
     },
   );

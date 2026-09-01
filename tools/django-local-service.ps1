@@ -31,6 +31,8 @@ $InstalledNetshopScriptPath = Join-Path $InstalledAppRoot "tools\django-netshop-
 $NetshopStartupEnabledPath = Join-Path $RuntimeRoot "netshop-service-enabled.json"
 $InstalledMarketScriptPath = Join-Path $InstalledAppRoot "tools\django-market-service.ps1"
 $MarketStartupEnabledPath = Join-Path $RuntimeRoot "market-service-enabled.json"
+$InstalledProductsScriptPath = Join-Path $InstalledAppRoot "tools\django-products-service.ps1"
+$ProductsStartupEnabledPath = Join-Path $RuntimeRoot "products-service-enabled.json"
 $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
 $ConfigPath = Join-Path $RuntimeRoot "service.json"
 $CredentialPath = Join-Path $RuntimeRoot "secrets\credentials.dpapi.json"
@@ -1335,6 +1337,7 @@ function Deploy-Application {
       "tools\django-runtime-supervisor.ps1",
       "tools\django-netshop-service.ps1",
       "tools\django-market-service.ps1",
+      "tools\django-products-service.ps1",
       "tools\django-postgres-maintenance.ps1",
       "tools\finance-d1-authority-install.py",
       "tools\finance_d1_rehearsal_snapshot.py",
@@ -1347,7 +1350,9 @@ function Deploy-Application {
       "drizzle\0095_market_netshop_projection.sql",
       "drizzle\0096_netshop_domain_retirement.sql",
       "drizzle\0097_market_write_authority.sql",
-      "drizzle\0098_market_domain_retirement.sql"
+      "drizzle\0098_market_domain_retirement.sql",
+      "drizzle\0099_product_write_authority.sql",
+      "drizzle\0100_product_domain_retirement.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -1831,7 +1836,9 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
     @(Get-PortListeners 8021).Count -gt 0 -or
     @(Get-PortListeners 8022).Count -gt 0 -or
     @(Get-PortListeners 8031).Count -gt 0 -or
-    @(Get-PortListeners 8032).Count -gt 0
+    @(Get-PortListeners 8032).Count -gt 0 -or
+    @(Get-PortListeners 8041).Count -gt 0 -or
+    @(Get-PortListeners 8042).Count -gt 0
   ) {
     throw "$Operation 前必须停止全部 Django 业务域 reader/writer"
   }
@@ -2243,6 +2250,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH", "TERUISI_DJANGO_FINANCE_CUTOVER_ID",
     "TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH", "TERUISI_DJANGO_NETSHOP_CUTOVER_ID",
     "TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH", "TERUISI_DJANGO_MARKET_CUTOVER_ID",
+    "TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH", "TERUISI_DJANGO_PRODUCTS_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -2268,6 +2276,8 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
     } elseif ($ProcessRole -eq "netshop_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
@@ -2277,6 +2287,8 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = $CutoverId
       $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
     } elseif ($ProcessRole -eq "market_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
@@ -2286,6 +2298,19 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = $CutoverId
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
+    } elseif ($ProcessRole -eq "products_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = $CutoverId
     } else {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = $CutoverId
@@ -2295,6 +2320,8 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
     }
     $env:TERUISI_DJANGO_LOG_LEVEL = "INFO"
     $env:TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS = "60"
@@ -3458,16 +3485,25 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
           }
           & $InstalledMarketScriptPath -Action Start -RuntimeRoot $RuntimeRoot
         }
+        if (Test-Path -LiteralPath $ProductsStartupEnabledPath -PathType Leaf) {
+          if (-not (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf)) {
+            throw "商品经营开机启动已启用，但受控商品经营服务脚本缺失"
+          }
+          & $InstalledProductsScriptPath -Action Start -RuntimeRoot $RuntimeRoot
+        }
       }
       "Stop" {
         Invoke-WithServiceMutex {
           Write-ServiceDesiredState "stopped" "explicit_stop"
         }
-        if (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf) {
-          & $InstalledNetshopScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
+        if (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf) {
+          & $InstalledProductsScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
         }
         if (Test-Path -LiteralPath $InstalledMarketScriptPath -PathType Leaf) {
           & $InstalledMarketScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
+        }
+        if (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf) {
+          & $InstalledNetshopScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
         }
         Invoke-WithServiceMutex {
           Stop-ServiceStack
