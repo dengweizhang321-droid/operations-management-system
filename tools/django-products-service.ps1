@@ -38,6 +38,7 @@ $ProductsWriterHealthUrl = "http://127.0.0.1:8042/health/ready"
 $ProductsStartupPath = Join-Path $RuntimeRoot "products-service-enabled.json"
 $ProductsReaderMaxBodyBytes = 1048576
 $ProductsWriterMaxBodyBytes = 33554432
+$MinimumPostgresConnectionsForProducts = 80
 
 function Assert-ProductsRuntimeEntry {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
@@ -315,14 +316,19 @@ function Get-ProductsWriteAuthority([object]$RuntimeSecrets, [object]$ProductsSe
     "teruisi_products_authority_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
+from django.db import connection
 from products.models import ProductWriteAuthority
 
 authority = ProductWriteAuthority.objects.filter(id=1).first()
+with connection.cursor() as cursor:
+    cursor.execute("SHOW max_connections")
+    max_connections = int(cursor.fetchone()[0])
 print(json.dumps({
     "status": authority.status if authority else "missing",
     "authorityEpoch": str(authority.authority_epoch) if authority and authority.authority_epoch else "",
     "cutoverId": authority.cutover_id if authority else "",
     "migrationRunId": authority.migration_verify_run_id if authority else "",
+    "maxConnections": max_connections,
 }, separators=(",", ":")))
 '@
   $launcher = ConvertTo-PythonBase64Launcher $code "products_authority_probe.py"
@@ -333,6 +339,14 @@ print(json.dumps({
       return ConvertFrom-UniqueNativeJson $nativeRun "读取 PostgreSQL 商品经营写入权威"
     }
   $writerUrl = $null
+  if (-not (Test-ExactObjectPropertyNames $payload @(
+        "status", "authorityEpoch", "cutoverId", "migrationRunId", "maxConnections"
+      ))) {
+    throw "PostgreSQL 商品经营写入权威探针结构无效"
+  }
+  if ([int]$payload.maxConnections -lt $MinimumPostgresConnectionsForProducts) {
+    throw "PostgreSQL max_connections 低于商品经营正式运行所需容量；拒绝启动商品经营服务"
+  }
   if ([string]$payload.status -cnotin @("d1", "postgres")) {
     throw "PostgreSQL 商品经营写入权威状态无效"
   }

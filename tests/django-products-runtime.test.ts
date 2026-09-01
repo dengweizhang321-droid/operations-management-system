@@ -16,6 +16,7 @@ test("products runtime uses isolated endpoints, identities, and bounded bodies",
   assert.match(source, /--listen=127\.0\.0\.1:8042/);
   assert.match(source, /\$ProductsReaderMaxBodyBytes = 1048576/);
   assert.match(source, /\$ProductsWriterMaxBodyBytes = 33554432/);
+  assert.match(source, /\$MinimumPostgresConnectionsForProducts = 80/);
   assert.match(source, /Stop-OwnedProcess "django-products-reader"/);
   assert.match(source, /Stop-OwnedProcess "django-products-writer"/);
 });
@@ -72,6 +73,9 @@ test("products readiness and writer startup fail closed on authority or dependen
   assert.match(source, /if \(\[string\]\$Authority\.status -cne "postgres"\)/);
   assert.match(source, /products-service-enabled\.json/);
   assert.match(source, /Test-ExactObjectPropertyNames \$startup/);
+  assert.match(source, /cursor\.execute\("SHOW max_connections"\)/);
+  assert.match(source, /\[int\]\$payload\.maxConnections -lt \$MinimumPostgresConnectionsForProducts/);
+  assert.match(source, /max_connections 低于商品经营正式运行所需容量/);
   assert.match(baseSource, /TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH/);
   assert.match(baseSource, /TERUISI_DJANGO_PRODUCTS_CUTOVER_ID/);
   assert.match(health, /_validate_products_writer_authority/);
