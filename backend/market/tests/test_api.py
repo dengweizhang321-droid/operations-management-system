@@ -274,6 +274,69 @@ class MarketApiContractTests(TestCase):
         self.assertTrue(item["isOwn"])
         self.assertEqual(response.json()["industryReport"]["definition"]["metricScope"], "当前 TOP 榜单覆盖市场")
 
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_ranking_overview_chunks_large_sales_product_sets(self) -> None:
+        MarketRankingEntry.objects.bulk_create(
+            [
+                MarketRankingEntry(
+                    natural_key=f"large-overview-{index}",
+                    source_row_number=index + 1,
+                    period_start="2026-08-01",
+                    period_end="2026-08-31",
+                    category="商用净饮水设备",
+                    scope="热销商品榜",
+                    ranking_dimension="SKU",
+                    rank=index + 1,
+                    sku_code=f"SKU-{index:04d}",
+                    product_name=f"商品 {index}",
+                    gmv_cents=100_000,
+                    quantity=1,
+                    last_import_batch_id="large-overview-batch",
+                )
+                for index in range(1_001)
+            ]
+        )
+        requests: list[dict[str, object]] = []
+
+        def sales_reader(_principal, payload):
+            requests.append(payload)
+            product_codes = payload["productCodes"]
+            self.assertLessEqual(len(product_codes), 1_000)
+            return (
+                {
+                    "rows": [
+                        {
+                            "productCode": product_code,
+                            "owned": False,
+                            "ownSalesCents": 0,
+                        }
+                        for product_code in product_codes
+                    ]
+                },
+                "11:7",
+            )
+
+        with patch("market.query.read_sales_consumer", side_effect=sales_reader):
+            response = self.post_query(
+                {
+                    "operation": "overview",
+                    "view": "ranking",
+                    "page": 1,
+                    "pageSize": 20,
+                    "filters": {
+                        "rankingDimensions": ["SKU"],
+                        "startDate": "2026-08-01",
+                        "endDate": "2026-08-31",
+                    },
+                },
+                "market-overview-large-product-set",
+                role="analyst",
+            )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["pagination"]["total"], 1_001)
+        self.assertEqual(sorted(len(item["productCodes"]) for item in requests), [1, 1_000])
+
     def create_industry_fixture(self, *, missing_month: str = "", invalid_price_month: str = "") -> None:
         MarketPriceBandVersion.objects.create(
             id="market-price-band-v1",

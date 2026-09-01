@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from datetime import date, timedelta
@@ -45,6 +46,9 @@ MAX_ANALYTICS_ROWS = 250_000
 MAX_PAGE = 10_000
 MAX_PAGE_SIZE = 100
 MAX_FILTER_VALUES = 100
+MAX_SAFE_INTEGER = 9_007_199_254_740_991
+MARKET_SALES_PRODUCT_CHUNK_SIZE = 1_000
+MARKET_SALES_DATE_CHUNK_DAYS = 730
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 UNCONFIRMED_PRICE = "未确认价格"
 FORMAL_OFFICIAL_PRICE_TYPES = {"标准售价", "到手价", "券后价"}
@@ -322,38 +326,88 @@ def _price_band(
 
 
 def _projection_metrics(rows: list[MarketRankingEntry]) -> tuple[dict[int, int], set[str]]:
+    if not rows:
+        return {}, set()
     control = MarketNetshopProjectionControl.objects.filter(id=1).first()
     if not control or not control.active_revision:
         return {}, set()
     sku_codes = {row.sku_code for row in rows if row.ranking_dimension != "SPU"}
     spu_codes = {row.sku_code for row in rows if row.ranking_dimension == "SPU"}
-    metrics_by_code_date: dict[tuple[str, str, str], int] = defaultdict(int)
     owned: set[str] = set()
     base = MarketNetshopProjection.objects.filter(projection_revision=control.active_revision)
-    for projection in base.filter(kind="identity").iterator(chunk_size=2_000):
-        if projection.sku_id in sku_codes or projection.spu_id in spu_codes or projection.product_code in sku_codes:
-            owned.update(item for item in (projection.sku_id, projection.spu_id, projection.product_code) if item)
-    for projection in base.filter(kind="metric", source="jd_sku_daily").iterator(chunk_size=2_000):
-        if projection.dataset == "sku_daily" and projection.sku_id in sku_codes:
-            metrics_by_code_date[("SKU", projection.sku_id, projection.business_date)] += int(
-                projection.transaction_amount_cents
-            )
-        elif projection.dataset == "spu_daily" and projection.spu_id in spu_codes:
-            metrics_by_code_date[("SPU", projection.spu_id, projection.business_date)] += int(
-                projection.transaction_amount_cents
-            )
+    for sku_id, spu_id, product_code in base.filter(kind="identity").values_list(
+        "sku_id", "spu_id", "product_code"
+    ).iterator(chunk_size=2_000):
+        if sku_id in sku_codes or spu_id in spu_codes or product_code in sku_codes:
+            owned.update(item for item in (sku_id, spu_id, product_code) if item)
+
+    metrics_by_code_date: dict[tuple[str, str, str], int] = defaultdict(int)
+    metric_rows = base.filter(
+        kind="metric",
+        source="jd_sku_daily",
+        business_date__gte=min(row.period_start for row in rows),
+        business_date__lte=max(row.period_end for row in rows),
+    ).values_list(
+        "dataset",
+        "sku_id",
+        "spu_id",
+        "business_date",
+        "transaction_amount_cents",
+    )
+    for dataset, sku_id, spu_id, business_date, amount in metric_rows.iterator(chunk_size=2_000):
+        if dataset == "sku_daily" and sku_id in sku_codes:
+            metrics_by_code_date[("SKU", sku_id, business_date)] += int(amount)
+        elif dataset == "spu_daily" and spu_id in spu_codes:
+            metrics_by_code_date[("SPU", spu_id, business_date)] += int(amount)
+
+    amounts_by_identity: dict[tuple[str, str], list[tuple[str, int]]] = defaultdict(list)
+    for (dimension, code, business_date), amount in metrics_by_code_date.items():
+        amounts_by_identity[(dimension, code)].append((business_date, amount))
+    series_by_identity: dict[tuple[str, str], tuple[list[str], list[int]]] = {}
+    for identity, values in amounts_by_identity.items():
+        ordered = sorted(values)
+        dates: list[str] = []
+        prefix = [0]
+        for business_date, amount in ordered:
+            dates.append(business_date)
+            prefix.append(prefix[-1] + amount)
+        series_by_identity[identity] = (dates, prefix)
+
     effective: dict[int, int] = {}
     for row in rows:
         dimension = "SPU" if row.ranking_dimension == "SPU" else "SKU"
-        real = sum(
-            amount
-            for (item_dimension, code, business_date), amount in metrics_by_code_date.items()
-            if item_dimension == dimension
-            and code == row.sku_code
-            and row.period_start <= business_date <= row.period_end
-        )
+        dates, prefix = series_by_identity.get((dimension, row.sku_code), ([], [0]))
+        start = bisect_left(dates, row.period_start)
+        end = bisect_right(dates, row.period_end)
+        real = prefix[end] - prefix[start]
         effective[row.id] = real if real > 0 else int(row.gmv_cents)
     return effective, owned
+
+
+def _sales_date_ranges(filters: dict[str, object]) -> list[tuple[str | None, str | None]]:
+    start_text = filters.get("startDate")
+    end_text = filters.get("endDate")
+    if start_text is None and end_text is None:
+        return [(None, None)]
+    if not isinstance(start_text, str) or not isinstance(end_text, str):
+        raise _error("市场销售周期必须同时提供开始和结束日期")
+    start = date.fromisoformat(start_text)
+    exclusive_end = date.fromisoformat(end_text) + timedelta(days=1)
+    ranges: list[tuple[str | None, str | None]] = []
+    cursor = start
+    while cursor < exclusive_end:
+        chunk_end = min(cursor + timedelta(days=MARKET_SALES_DATE_CHUNK_DAYS), exclusive_end)
+        ranges.append((cursor.isoformat(), chunk_end.isoformat()))
+        cursor = chunk_end
+    return ranges
+
+
+def _invalid_sales_metrics() -> MarketApiError:
+    return MarketApiError(
+        "Django 销售读取服务返回无效",
+        code="service_unavailable",
+        status=503,
+    )
 
 
 def _sales_metrics(
@@ -369,42 +423,62 @@ def _sales_metrics(
         )
     if not product_codes:
         return {}, "0:0"
-    request = {
-        "operation": "market_product_metrics",
-        "productCodes": product_codes,
-        "startDate": filters["startDate"],
-        "endDate": (
-            (date.fromisoformat(str(filters["endDate"])) + timedelta(days=1)).isoformat()
-            if filters["endDate"]
-            else None
-        ),
+    result: dict[str, dict[str, object]] = {
+        product_code: {"owned": False, "ownSalesCents": 0}
+        for product_code in product_codes
     }
-    try:
-        data, revision = (loader or read_sales_consumer)(principal, request)
-    except Exception as error:
-        raise MarketApiError(
-            "Django 销售读取服务暂时不可用",
-            code="service_unavailable",
-            status=503,
-        ) from error
-    values = data.get("rows")
-    if not isinstance(values, list) or len(values) != len(product_codes):
-        raise MarketApiError(
-            "Django 销售读取服务返回不完整",
-            code="service_unavailable",
-            status=503,
-        )
-    result: dict[str, dict[str, object]] = {}
-    for item in values:
-        if not isinstance(item, dict) or set(item) != {"productCode", "owned", "ownSalesCents"}:
-            raise MarketApiError("Django 销售读取服务返回无效", code="service_unavailable", status=503)
-        code = str(item["productCode"])
-        if code in result or not isinstance(item["owned"], bool) or not isinstance(item["ownSalesCents"], int):
-            raise MarketApiError("Django 销售读取服务返回无效", code="service_unavailable", status=503)
-        result[code] = item
-    if set(result) != set(product_codes):
-        raise MarketApiError("Django 销售读取服务返回无效", code="service_unavailable", status=503)
-    return result, revision
+    revision: str | None = None
+    date_ranges = _sales_date_ranges(filters)
+    for offset in range(0, len(product_codes), MARKET_SALES_PRODUCT_CHUNK_SIZE):
+        chunk = product_codes[offset : offset + MARKET_SALES_PRODUCT_CHUNK_SIZE]
+        expected_codes = set(chunk)
+        for start_date, end_date in date_ranges:
+            request = {
+                "operation": "market_product_metrics",
+                "productCodes": chunk,
+                "startDate": start_date,
+                "endDate": end_date,
+            }
+            try:
+                data, current_revision = (loader or read_sales_consumer)(principal, request)
+            except Exception as error:
+                raise MarketApiError(
+                    "Django 销售读取服务暂时不可用",
+                    code="service_unavailable",
+                    status=503,
+                ) from error
+            if revision is not None and current_revision != revision:
+                raise _invalid_sales_metrics()
+            revision = current_revision
+            values = data.get("rows") if isinstance(data, dict) else None
+            if not isinstance(values, list) or len(values) != len(chunk):
+                raise _invalid_sales_metrics()
+            returned_codes: set[str] = set()
+            for item in values:
+                if not isinstance(item, dict) or set(item) != {"productCode", "owned", "ownSalesCents"}:
+                    raise _invalid_sales_metrics()
+                code = item["productCode"]
+                owned = item["owned"]
+                own_sales_cents = item["ownSalesCents"]
+                if (
+                    not isinstance(code, str)
+                    or code not in expected_codes
+                    or code in returned_codes
+                    or type(owned) is not bool
+                    or type(own_sales_cents) is not int
+                    or abs(own_sales_cents) > MAX_SAFE_INTEGER
+                ):
+                    raise _invalid_sales_metrics()
+                returned_codes.add(code)
+                current = result[code]
+                combined_sales = int(current["ownSalesCents"]) + own_sales_cents
+                if abs(combined_sales) > MAX_SAFE_INTEGER:
+                    raise _invalid_sales_metrics()
+                current["owned"] = bool(current["owned"]) or owned
+                current["ownSalesCents"] = combined_sales
+            if returned_codes != expected_codes:
+                raise _invalid_sales_metrics()
+    return result, revision or "0:0"
 
 
 def _option(values: Iterable[str]) -> list[dict[str, object]]:
