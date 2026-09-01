@@ -31,6 +31,12 @@ test("products roles enforce the same explicit least-privilege allowlist as read
   assert.match(source, /NOINHERIT NOREPLICATION NOBYPASSRLS/);
   assert.match(source, /ALTER ROLE teruisi_products_reader SET default_transaction_read_only=on/);
   assert.match(source, /ALTER ROLE teruisi_products_writer RESET default_transaction_read_only/);
+  assert.match(
+    source,
+    /CREATE POLICY products_revision_reader ON sales_data_revisions[\s\S]*?FOR SELECT TO teruisi_products_reader[\s\S]*?USING \(domain IN \('sales', 'erp'\)\)/,
+  );
+  assert.match(source, /products reader revision RLS policy is invalid/);
+  assert.match(source, /FROM pg_policy p/);
   assert.match(source, /"erp_reference_sync_checkpoint"/);
   assert.match(source, /products writer DML escaped allowlist/);
   assert.match(source, /"product_write_authority": \("SELECT",\)/);

@@ -202,6 +202,17 @@ with connection.cursor() as cursor:
     cursor.execute(sql.SQL("GRANT SELECT ON {} TO teruisi_products_reader").format(
         sql.SQL(",").join(sql.Identifier(name) for name in reader_tables)
     ))
+    # sales_data_revisions is protected by RLS.  A table-level SELECT grant is
+    # intentionally insufficient: expose only the sales/ERP revision rows that
+    # products readiness and snapshot fencing consume.
+    cursor.execute(
+        "DROP POLICY IF EXISTS products_revision_reader ON sales_data_revisions"
+    )
+    cursor.execute(
+        "CREATE POLICY products_revision_reader ON sales_data_revisions "
+        "FOR SELECT TO teruisi_products_reader "
+        "USING (domain IN ('sales', 'erp'))"
+    )
     for table, privileges in writer_privileges.items():
         cursor.execute(sql.SQL("GRANT {} ON {} TO teruisi_products_writer").format(
             sql.SQL(",").join(sql.SQL(value) for value in privileges),
@@ -234,6 +245,25 @@ with connection.cursor() as cursor:
         )
         if any(cursor.fetchone()):
             raise RuntimeError("products runtime role retains DDL privileges")
+
+    cursor.execute(
+        "SELECT p.polcmd,r.rolname,pg_get_expr(p.polqual,p.polrelid) "
+        "FROM pg_policy p "
+        "JOIN pg_class c ON c.oid=p.polrelid "
+        "JOIN pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_roles r ON r.oid=ANY(p.polroles) "
+        "WHERE n.nspname='public' AND c.relname='sales_data_revisions' "
+        "AND p.polname='products_revision_reader'"
+    )
+    policy_rows = cursor.fetchall()
+    if (
+        len(policy_rows) != 1
+        or policy_rows[0][0] != "r"
+        or policy_rows[0][1] != "teruisi_products_reader"
+        or "sales" not in str(policy_rows[0][2])
+        or "erp" not in str(policy_rows[0][2])
+    ):
+        raise RuntimeError("products reader revision RLS policy is invalid")
 
     cursor.execute(
         "SELECT n.nspname,c.relname,"
