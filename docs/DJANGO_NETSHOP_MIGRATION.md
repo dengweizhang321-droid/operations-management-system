@@ -6,7 +6,7 @@
 
 网店分析继续使用现有 React/Next.js 前端；前端仍由 `app/shop-module-view.tsx` 提供，只通过现有同源公开 API 读取数据，没有改写为 Django template，不直接连接 PostgreSQL，也不承担读写权威。公开 Worker 继续负责真实 principal、权限与 scope、Excel/ZIP/图片解析、HMAC 信封、请求体积和超时边界及薄边缘适配；Django 负责领域二次校验、事实发布、查询、revision、幂等、审计和写入所有权。
 
-旧 D1 网店对象已变为 15 个空 tombstone view，共享导入表安装 9 个永久网店域 guard；D1 只保留 retirement receipt、tombstone、guard 和来源固定为 Django consumer 的 `market_netshop_projection` 有界只读兼容投影。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。
+旧 D1 网店对象已变为 15 个空 tombstone view，共享导入表安装 9 个永久网店域 guard；原先为当时尚未迁移的市场域保留的 `market_netshop_projection`，已在同日后续市场正式切换时由 `0098` 终态退役。当前市场兼容投影只由 Django netshop consumer 原子写入 PostgreSQL 市场表。D1 仅保留 retirement receipt、tombstone、guard 和审计材料；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。
 
 ## 2. 目标拓扑
 
@@ -28,9 +28,9 @@
 
 PostgreSQL netshop_*：唯一网店事实、批次、revision、审计和 authority
 
-市场分析仍以 D1 为自身权威
-  <- 仅保留 market_netshop_projection 的有界兼容投影
-  <- 来源固定为 Django netshop consumer，不是第二个网店事实源
+PostgreSQL market_*：市场域唯一权威
+  <- Django netshop consumer 的有界兼容投影
+  <- 来源固定、原子激活，不是第二个网店事实源
 ```
 
 reader、writer 必须使用不同 URL、不同最小权限数据库角色和不同请求体上限。网店服务故障只能使网店以及依赖其有界 consumer 的对应结果失败关闭，不得改变销售、财务、ERP、库存或市场自身的权威边界。
@@ -47,7 +47,7 @@ reader、writer 必须使用不同 URL、不同最小权限数据库角色和不
 - writer 只有在 `netshop_write_authority.status=postgres` 且进程环境中的 authority epoch/cutover ID 精确一致时才可接收权威写入。
 - reader 事务固定只读；writer 只能对明确网店表执行所需 DML，不能 DDL、不能更新 authority、不能写销售/财务/ERP 或其他领域。authority 只允许 migration owner 改变。
 - 客服商品主数据映射、全局搜索、AI 网店工具和市场投影只调用固定 consumer 操作，不接收任意 SQL、表名或排序表达式。
-- 市场兼容投影使用 `market_netshop_projection`、单行 control 和 `market_netshop_active_projection`；新 revision 只有在完整分页落库、行数回查和 owner fencing 通过后才原子激活。
+- 市场兼容投影由 PostgreSQL 市场域持有投影记录、单行 control 和 active revision；新 revision 只有在完整分页落库、行数回查和 owner fencing 通过后才原子激活。
 - 旧 D1 网店表终态退役后变为 15 个空 tombstone view；共享导入表保留其他领域数据，并安装 9 个永久网店 insert/update/delete guard。
 
 ## 4. 服务、凭据与最小权限

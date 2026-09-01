@@ -2,11 +2,11 @@
 
 ## 1. 当前结论与生产边界
 
-2026-09-01，市场分析已完成 Django/PostgreSQL 候选实现、全部公开市场路由的薄 Worker 改造、真实本机 D1 数据的隔离迁移演练、最小权限 reader/writer 系统测试和 D1 终态退役演练。现有 React/Next.js 市场页面保留，不改写为 Django template；浏览器不直接连接 PostgreSQL。
+2026-09-01，本机市场分析已完成 Django/PostgreSQL 正式单写切换、全部公开市场路由的薄 Worker 改造、真实数据迁移、最小权限 reader/writer 系统测试、受控启动链启用和 D1 终态退役。现有 React/Next.js 市场页面保留，不改写为 Django template；浏览器不直接连接 PostgreSQL。
 
-本次没有部署、停止、启动或修改生产服务，也没有修改生产 PostgreSQL、生产 D1、R2、Worker、n8n 或开机启动状态。**当前生产市场权威仍是 D1，不能把隔离演练写成正式生产切换。** 正式切换必须在新的受控维护窗口重新取得一致快照并完成本文全部门禁。
+PostgreSQL 现在是市场事实、批次、价格、标注、图片缓存元数据、任务、revision、幂等/尝试审计、scope owner、网店投影、查询和写入的唯一权威。`market_reader`/`market_writer` 固定监听 `127.0.0.1:8031/8032` 并由 authority 绑定的启动状态启用。公开 Worker 只保留真实 principal、权限、HMAC、边缘解析/图片能力、请求体积与超时边界和有界转发；超时、签名、revision、authority 或 Django 服务异常全部失败关闭，不得回查 D1。
 
-本次只读预检发现当前本机 D1 有 2 个分别始于 2026-08-12、2026-08-14 的历史 `processing` 市场导入批次，共有 8,000 条未发布 staging 行。它们没有活动 claim，但仍违反静默迁移契约。演练只在一次性副本中精确清理这两个批次，生产源未改动。正式切换前必须由操作者确认这些批次确属不可发布的陈旧状态，在维护窗口内受控处置，随后重新封存快照；迁移工具不会替操作者自动删除。
+切换前只读预检发现的两笔历史 `processing` 批次与 8,000 条未发布 staging 已在操作者确认后受控处置；保留失败尝试审计且未影响任何已发布事实。正式封存快照、迁移摘要、authority、Worker release、系统烟测、D1 retirement、切换后备份和隔离恢复证据均已完成并在第 9 节记录。切换已跨过 PNR，旧 D1 市场读写、`legacy`/`shadow` 和反向迁移永久禁止。
 
 ## 2. 目标拓扑
 
@@ -33,7 +33,7 @@ AI 配置域
   - 模型配置继续按自身现行权威读取，不成为市场事实的回退源
 ```
 
-公开市场路由不得读取 D1 市场事实、批次、价格、标注、缓存或主数据。超时、HMAC、JSON、revision、reader/writer、authority 或权限异常全部失败关闭，不得回查旧 D1。旧 TypeScript/D1 市场领域文件只允许作为正式切换前的 D1 当前实现、迁移源、测试夹具和退役审计材料存在；正式退役后不得进入可达生产路径。
+公开市场路由不得读取 D1 市场事实、批次、价格、标注、缓存或主数据。超时、HMAC、JSON、revision、reader/writer、authority 或权限异常全部失败关闭，不得回查旧 D1。旧 TypeScript/D1 市场领域文件只允许作为迁移/恢复工具、测试夹具和退役审计材料隔离保留，不得进入可达生产路径或运行包入口。
 
 ## 3. 已实现的 Django 契约
 
@@ -59,7 +59,7 @@ AI 配置域
 
 ## 5. 服务、凭据与最小权限
 
-正式候选端口固定为：
+正式端口固定为：
 
 | 服务 | 端口 | 数据库角色 | 边界 |
 | --- | ---: | --- | --- |
@@ -163,7 +163,28 @@ python manage.py retire_market_d1 --source <权威D1.sqlite> `
 
 机器可读的脱敏证据见 [`docs/evidence/market-django-rehearsal-20260901.json`](evidence/market-django-rehearsal-20260901.json)。该文件是隔离演练证据，不是生产 cutover receipt。
 
-## 9. 测试与运维门禁
+## 9. 2026-09-01 本机正式生产证据
+
+本次正式切换只改变本机市场域的后端权威、服务和运行路径；现有 React/Next.js 页面、销售、财务、网店、ERP、n8n 与其他域的 authority 均未改变。两笔遗留批次在 PNR 前按精确 ID 受控删除 2 个批次行和 8,000 条未发布 staging，已发布引用为 0，失败尝试审计继续保留。
+
+| 项目 | 正式结果 |
+| --- | --- |
+| 遗留批次处置 | `market-64066136c488c1d97a9cd3d90edf68fcae7e87017bfe685237a73cc966897476`、`market-ef27630ab07d0e60c56260e1bb4e563297e49b5781a2cc55060c84b8efa2237e`；2 个批次行、8,000 条未发布 staging；审计 `stale-batch-remediation-20260901T105741Z.json` |
+| 正式 D1 快照 | `pending-resume-20260901T131409Z-0b09e1abf8c8.sqlite`；9,586,368,512 bytes；SHA-256 `829d96fe551f9b1be968f2ac367cf41ec49ff3c0520b5be9d8e514eb18fd69fd`；`quick_check=ok` 且无相邻 WAL/SHM |
+| cutover / authority | `market-pg-20260901T112221Z-a687294e320f` / `c69ee84e-836d-40f6-b7b8-875ecca6f8c6`；已跨过 PNR |
+| 迁移 run / 摘要 | `market-4302d65ae56c1c17acb7e8c8`；源/目标 `4302d65ae56c1c17acb7e8c8d770c777b53aefdf650f3a5bc05a36534fc1c147`，完全一致 |
+| 不可变 Worker | effective release `20260901T125642Z-a80fe1339791d44c`；manifest/build SHA-256 `4ecb210b9ab39eda039cab975205087828a428b66082d85d43ebf064369a5ecb`；predecessor 已 activation-fence |
+| 正式系统烟测 | receipt `market-system-test-20260901T134121Z-685f954a5708.json`；SHA-256 `7da4d15c4226034a47a79cc758d1f4f0c0f5900f628018e8649f663226146b2f`；reader、writer 负向、overview、trend、annotations、master、image、scheduled maintenance、legacy D1 rejection 共 9/9 通过 |
+| D1 终态退役 | plan `5666b254519d94172f1bbccb9c14417e1943d2de36e5e2c7d8831feeabdee611`；audit `2db568875d81032c8d0bb82e00aa56013fff4e73c7b03b21f7c50d27c30731ad`；49 个空 tombstone view、9 个共享表 guard；重复执行返回 `duplicate` |
+| 共享表保护 | 非市场域摘要 `8f6b3be1bbee94b12beebd2a7261327e557845154fa8261c4f31916d04108145` 保持不变；事务探针把 `erp-reference` 行改写为 `market` 时被精确拒绝为 `market_domain_retired` 并回滚 |
+| 服务与启动 | `8031/8032` reader/writer ready；`market-service-enabled.json` SHA-256 `d5c4cec4ca0a68b22a6354ce63664c6e332434bba8c24f0f192a9a94f9d078b4`，cutover/epoch/run 均与 PostgreSQL authority 一致 |
+| 切换后备份 | `daily-20260901T141558Z-a68cc9120c95`；manifest `05cbd1d1534cd223ca5315d96eb51517d85a28c1110f9b48a208981db37a2eb9`；dump `dabe0317820b449627f054611575e23fd1cbfc0e25770202ef2d68d9e3637021`；content `6e04c466804c70865afc49344b07daea4f5a762e1c4f3bab3a9c6be1c51d8dc3` |
+| 独立恢复演练 | `c47a9e2d618f`，端口 `55439`；恢复摘要与备份完全一致，`productionDatabaseTouched=false`、`serviceStateChanged=false`、临时数据已清理 |
+| 最终验证 | 市场 Django `16/16`、退役回归 `1/1`、静态旧路径与安全测试 `9/9`；React 市场入口与“系统和 AI 设置”由真实浏览器只读回读，44,402 个市场商品身份、39,488 个已生成 AI 结果，浏览器无 warning/error |
+
+D1 retirement 后只保留固定退役标识的 tombstone、共享表永久 guard、retirement receipt、受控迁移/恢复工具和审计材料；它们不构成市场后端。R2 继续保存市场图片对象字节，但不承载市场事实或完成证明。机器可读的脱敏生产证据见 [`docs/evidence/market-django-cutover-20260901.json`](evidence/market-django-cutover-20260901.json)。
+
+## 10. 测试与运维门禁
 
 合并前至少执行：
 
@@ -179,4 +200,4 @@ npm run lint
 
 还必须验证 PowerShell 脚本可解析、`0097/0098` 不在普通 Drizzle journal、所有市场公开路由不导入旧 D1 市场服务、Worker 定时任务只调用 Django-backed 市场 runner、备份/恢复证据覆盖全部 `market_*` 表、market revision、migration run 和 authority。
 
-正式生产切换还需补齐：新的无陈旧 processing 状态快照、正式 cutover ID、正式 authority epoch、不可变 Worker build SHA、正式系统测试 receipt、D1 retirement plan/receipt、首次 PostgreSQL 全量备份及隔离恢复演练。任一证据缺失，不得宣称市场域迁移完成。
+本次正式生产切换已补齐无陈旧 processing 状态快照、正式 cutover ID、authority epoch、不可变 Worker build SHA、系统测试 receipt、D1 retirement plan/receipt、切换后 PostgreSQL 全量备份与隔离恢复演练。后续市场 release 仍须继续执行同等的静态旧路径、权限、authority、备份和真实部署回读门禁；任何未来证据缺失都不得覆盖本次 append-only 切换记录或恢复 D1 路径。
