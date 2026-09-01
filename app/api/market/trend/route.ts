@@ -1,5 +1,5 @@
 import { ensureMarketSchema, getMarketDatabase, getMarketItemTrend } from "@/lib/market/database";
-import { ensureNetshopSchema } from "@/lib/netshop/database";
+import { ensureMarketNetshopProjection } from "@/lib/market/netshop-projection";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
@@ -12,7 +12,8 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "市场单品趋势");
     const db = getMarketDatabase();
-    await Promise.all([ensureMarketSchema(db), ensureNetshopSchema(db)]);
+    await ensureMarketSchema(db);
+    await ensureMarketNetshopProjection(db, principal, { signal: request.signal });
     const params = new URL(request.url).searchParams;
     const dimension = params.get("dimension");
     if (dimension !== "SKU" && dimension !== "SPU") {

@@ -9,9 +9,16 @@ import {
   netshopPlatformsForPrincipal,
 } from "@/lib/netshop/access";
 import {
+  netshopOutletKey,
   normalizeNetshopOutletFilters,
   type NetshopOutletFilter,
 } from "@/lib/netshop/query-contract";
+import {
+  createDjangoNetshopService,
+  NETSHOP_IMPORTS_PATH,
+  NETSHOP_PRODUCTS_PATH,
+  NETSHOP_PRODUCT_PERFORMANCE_PATH,
+} from "@/lib/django/netshop-service";
 import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
 
 /**
@@ -140,7 +147,7 @@ export type PageDataToolServices = {
   readInventoryAge(input: InventoryAgeInput): Promise<unknown>;
   readInventoryInbound(input: InventoryInboundInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopCatalog(input: NetshopCatalogInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
-  readNetshopPerformance(input: NetshopPerformanceInput): Promise<unknown>;
+  readNetshopPerformance(input: NetshopPerformanceInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readWorkflowTasks(input: WorkflowTaskListInput): Promise<unknown>;
   readOperationRecords(input: OperationRecordListInput, principal: AppPrincipal): Promise<unknown>;
   readWorkflowTemplates(includeInactive: boolean): Promise<unknown>;
@@ -200,16 +207,39 @@ const defaultPageDataToolServices: PageDataToolServices = {
     return getInventoryInboundMonitor(db, principal, { ...input, signal });
   },
   async readNetshopCatalog(input, principal, signal) {
-    const { ensureNetshopSchema, getNetshopDatabase, getNetshopProductCatalog } = await import("@/lib/netshop/database");
-    const db = getNetshopDatabase();
-    await ensureNetshopSchema(db);
-    return getNetshopProductCatalog(db, principal, { ...input, signal });
+    const query = new URLSearchParams({
+      view: "full",
+      page: String(input.page),
+      pageSize: String(input.pageSize),
+    });
+    if (input.query) query.set("q", input.query);
+    for (const platform of input.platformNames) query.append("platform", platform);
+    for (const outlet of input.outlets) query.append("outlet", netshopOutletKey(outlet.platform, outlet.shopName));
+    if (input.salesStartDate) query.set("startDate", input.salesStartDate);
+    if (input.salesEndDate) query.set("endDate", input.salesEndDate);
+    return (await createDjangoNetshopService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: NETSHOP_PRODUCTS_PATH, query, service: "reader" },
+      { signal },
+    )).data;
   },
-  async readNetshopPerformance(input) {
-    const { ensureNetshopSchema, getNetshopDatabase, getNetshopProductPerformance } = await import("@/lib/netshop/database");
-    const db = getNetshopDatabase();
-    await ensureNetshopSchema(db);
-    return getNetshopProductPerformance(db, input);
+  async readNetshopPerformance(input, principal, signal) {
+    const query = new URLSearchParams({
+      dimension: input.dimension,
+      view: "full",
+      page: String(input.page),
+      pageSize: String(input.pageSize),
+    });
+    if (input.query) query.set("q", input.query);
+    for (const platform of input.platformNames) query.append("platform", platform);
+    for (const outlet of input.outlets) query.append("outlet", netshopOutletKey(outlet.platform, outlet.shopName));
+    if (input.startDate) query.set("startDate", input.startDate);
+    if (input.endDate) query.set("endDate", input.endDate);
+    return (await createDjangoNetshopService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: NETSHOP_PRODUCT_PERFORMANCE_PATH, query, service: "reader" },
+      { signal },
+    )).data;
   },
   async readWorkflowTasks(input) {
     const { listWorkflowTasksPage } = await import("@/lib/workflow/tasks");
@@ -271,14 +301,16 @@ const defaultPageDataToolServices: PageDataToolServices = {
       return listFinanceImportBatches(db, input);
     }
     if (source === "netshop") {
-      const { ensureNetshopSchema, getNetshopDatabase, listNetshopImportBatches } = await import("@/lib/netshop/database");
-      const db = getNetshopDatabase();
-      await ensureNetshopSchema(db);
-      return listNetshopImportBatches(db, {
-        page: input.page,
-        pageSize: input.pageSize,
-        platforms: input.platforms,
+      const query = new URLSearchParams({
+        page: String(input.page),
+        pageSize: String(input.pageSize),
       });
+      for (const platform of input.platforms) query.append("platform", platform);
+      return (await createDjangoNetshopService().request<Record<string, unknown>>(
+        principal,
+        { method: "GET", path: NETSHOP_IMPORTS_PATH, query, service: "reader" },
+        { signal },
+      )).data;
     }
     const { listCustomerServiceBatches } = await import("@/lib/customer-service/database");
     return listCustomerServiceBatches(input);
@@ -899,7 +931,11 @@ export async function getNetshopProductPerformancePageData(
     endDate: period.endDate,
     ...pagination(input),
   };
-  const result = resultObject(await serviceSet(overrides).readNetshopPerformance(filters));
+  const result = resultObject(await serviceSet(overrides).readNetshopPerformance(
+    filters,
+    principal,
+    context.signal,
+  ));
   const coverage = resultObject(result.coverage);
   return {
     page: "netshop.performance",

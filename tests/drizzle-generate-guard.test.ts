@@ -20,5 +20,8 @@ test("ordinary Drizzle generation fails closed after operator-only sales retirem
   assert.match(result.stderr, /Blocked: ordinary Drizzle migration generation is disabled/);
   assert.match(result.stderr, /0092_sales_domain_retirement\.sql is operator-only/);
   assert.match(result.stderr, /0093_finance_write_authority\.sql/);
+  assert.match(result.stderr, /0094_netshop_write_authority\.sql/);
+  assert.match(result.stderr, /0095_market_netshop_projection\.sql/);
+  assert.match(result.stderr, /0096_netshop_domain_retirement\.sql/);
   assert.equal(result.stdout, "");
 });

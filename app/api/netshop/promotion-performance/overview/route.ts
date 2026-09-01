@@ -1,10 +1,9 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
-  ensureNetshopSchema,
-  getNetshopDatabase,
-  getNetshopPromotionOverview,
-} from "@/lib/netshop/database";
+  createDjangoNetshopService,
+  NETSHOP_PROMOTION_OVERVIEW_PATH,
+} from "@/lib/django/netshop-service";
 import {
   NetshopQueryError,
   netshopQueryErrorPayload,
@@ -27,22 +26,18 @@ export async function GET(request: Request) {
     if (snapshotToken !== undefined && !/^[a-f0-9]{64}$/.test(snapshotToken)) {
       throw new NetshopQueryError("invalid_snapshot_token", "推广概览必须使用商品排行返回的有效数据版本");
     }
-    const platformNames = netshopPlatformsForPrincipal(principal, requestedPlatforms);
-    const outlets = netshopOutletsForPrincipal(
+    netshopPlatformsForPrincipal(principal, requestedPlatforms);
+    netshopOutletsForPrincipal(
       principal,
       readNetshopOutletFilters(params.getAll("outlet")),
       requestedPlatforms,
     );
-    const db = getNetshopDatabase();
-    await ensureNetshopSchema(db);
-    const payload = await getNetshopPromotionOverview(db, {
-      platformNames,
-      outlets,
-      startDate: period?.startDate,
-      endDate: period?.endDate,
-      expectedSnapshotToken: snapshotToken,
-    });
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const result = await createDjangoNetshopService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: NETSHOP_PROMOTION_OVERVIEW_PATH, query: params, service: "reader" },
+      { signal: request.signal },
+    );
+    return Response.json(result.data, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

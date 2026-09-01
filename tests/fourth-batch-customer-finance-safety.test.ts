@@ -5,6 +5,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 import * as XLSX from "xlsx";
 import type { AppPrincipal } from "../lib/auth/authorization";
+import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reader";
 import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import type { CustomerServiceParseResult } from "../lib/customer-service/import-service";
 
@@ -109,12 +110,27 @@ const emptySalesConsumerReader: SalesConsumerReader = {
   }) as SalesConsumerReader["read"],
 };
 
+const emptyNetshopConsumerReader: NetshopConsumerReader = {
+  read: (async (_principal: AppPrincipal, request: Record<string, unknown>) => {
+    if (request.operation !== "product_master_lookup") {
+      throw new Error(`unexpected netshop operation ${String(request.operation)}`);
+    }
+    return {
+      revision: "9:abcdef123456",
+      data: { rows: [], truncated: false },
+    };
+  }) as NetshopConsumerReader["read"],
+};
+
 const listCustomerServiceConversations = (
   options: Parameters<typeof listCustomerServiceConversationsBase>[0],
 ) => listCustomerServiceConversationsBase(
   options,
   unrestrictedAdmin,
-  { salesReader: emptySalesConsumerReader },
+  {
+    salesReader: emptySalesConsumerReader,
+    netshopReader: emptyNetshopConsumerReader,
+  },
 );
 
 const getFinanceTargetOptions = (

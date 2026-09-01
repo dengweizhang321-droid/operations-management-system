@@ -27,6 +27,8 @@ $ExecutionRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BackendRoot = Join-Path $ExecutionRoot "backend"
 $InstalledAppRoot = Join-Path $RuntimeRoot "app"
 $InstalledScriptPath = Join-Path $InstalledAppRoot "tools\django-local-service.ps1"
+$InstalledNetshopScriptPath = Join-Path $InstalledAppRoot "tools\django-netshop-service.ps1"
+$NetshopStartupEnabledPath = Join-Path $RuntimeRoot "netshop-service-enabled.json"
 $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
 $ConfigPath = Join-Path $RuntimeRoot "service.json"
 $CredentialPath = Join-Path $RuntimeRoot "secrets\credentials.dpapi.json"
@@ -1324,6 +1326,7 @@ function Deploy-Application {
       "tools\sales-local-cutover-backup.ps1",
       "tools\sales-local-cutover-backup-prune.ps1",
       "tools\django-finance-cutover.ps1",
+      "tools\django-netshop-service.ps1",
       "tools\django-postgres-maintenance.ps1",
       "tools\finance-d1-authority-install.py",
       "tools\finance_d1_rehearsal_snapshot.py",
@@ -1331,7 +1334,10 @@ function Deploy-Application {
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",
-      "drizzle\0093_finance_write_authority.sql"
+      "drizzle\0093_finance_write_authority.sql",
+      "drizzle\0094_netshop_write_authority.sql",
+      "drizzle\0095_market_netshop_projection.sql",
+      "drizzle\0096_netshop_domain_retirement.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -2139,6 +2145,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_DB_CONN_MAX_AGE", "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH",
     "TERUISI_DJANGO_SALES_CUTOVER_ID",
     "TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH", "TERUISI_DJANGO_FINANCE_CUTOVER_ID",
+    "TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH", "TERUISI_DJANGO_NETSHOP_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -2160,11 +2167,22 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = $CutoverId
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
+    } elseif ($ProcessRole -eq "netshop_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = $CutoverId
     } else {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = $CutoverId
       $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
     }
     $env:TERUISI_DJANGO_LOG_LEVEL = "INFO"
     $env:TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS = "60"
@@ -3316,10 +3334,21 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
             Start-ServiceStack
           }
         }
+        if (Test-Path -LiteralPath $NetshopStartupEnabledPath -PathType Leaf) {
+          if (-not (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf)) {
+            throw "网店开机启动已启用，但受控网店服务脚本缺失"
+          }
+          & $InstalledNetshopScriptPath -Action Start -RuntimeRoot $RuntimeRoot
+        }
       }
       "Stop" {
         Invoke-WithServiceMutex {
           Write-ServiceDesiredState "stopped" "explicit_stop"
+        }
+        if (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf) {
+          & $InstalledNetshopScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
+        }
+        Invoke-WithServiceMutex {
           Stop-ServiceStack
         }
       }

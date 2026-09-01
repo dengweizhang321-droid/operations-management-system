@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 import type { AppPrincipal } from "../lib/auth/authorization";
+import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reader";
 import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 
 const testEnvironment: { DB?: unknown } = {};
@@ -21,7 +22,6 @@ registerHooks({
 });
 
 const { ensureCustomerServiceSchema, listCustomerServiceConversations } = await import("../lib/customer-service/database");
-const { ensureNetshopSchema } = await import("../lib/netshop/database");
 const { ensureFinanceSchema, getFinanceTargetOptions } = await import("../lib/finance/database");
 const { callOperationsTool } = await import("../lib/ai/operations-tools");
 const { getSalesCategoryAnalysisForAi } = await import("../lib/sales/category-ai-tool");
@@ -81,25 +81,23 @@ function consumerReader(
   return { read: handler as unknown as SalesConsumerReader["read"] };
 }
 
-test("customer-service enriches and filters through real-principal Django sales reads without querying D1 sales tables", async () => {
+function netshopConsumerReader(
+  handler: (receivedPrincipal: AppPrincipal, request: Record<string, unknown>) => { revision: string; data: unknown },
+): NetshopConsumerReader {
+  return { read: handler as unknown as NetshopConsumerReader["read"] };
+}
+
+test("customer-service enriches through Django sales and netshop reads without querying retired D1 domains", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const queries: QueryRecord[] = [];
   const db = sqliteAdapter(sqlite, queries) as never;
   testEnvironment.DB = db;
   await ensureCustomerServiceSchema(db);
-  await ensureNetshopSchema(db);
   sqlite.prepare(`INSERT INTO customer_service_conversations (
     conversation_key, first_import_batch_id, last_import_batch_id, consulted_at,
     product_sku, product_name, match_status, match_confidence
   ) VALUES ('conversation-1', 'batch-1', 'batch-1', '2026-08-20 10:00:00',
     'SKU-1', '净水机', 'matched', 'exact')`).run();
-  sqlite.prepare(`INSERT INTO netshop_rows (
-    source_row_key, source_row_hash, first_import_batch_id, last_import_batch_id,
-    source_row_number, source, dataset, platform, shop_name, snapshot_date,
-    product_code, product_name, sku_id, spu_id, raw_json
-  ) VALUES ('master-1', 'hash-1', 'batch-1', 'batch-1', 1,
-    'jd_product_master', 'product_master', '京东', '测试店', '2026-08-20',
-    'SPU-1', '净水机', 'SKU-1', 'SPU-1', '{"商家SKU":"ONLINE-1","SPUID":"SPU-1"}')`).run();
   queries.length = 0;
   const calls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const salesReader = consumerReader((receivedPrincipal, request) => {
@@ -118,12 +116,30 @@ test("customer-service enriches and filters through real-principal Django sales 
       },
     };
   });
+  const netshopCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
+  const netshopReader = netshopConsumerReader((receivedPrincipal, request) => {
+    netshopCalls.push({ principal: receivedPrincipal, request });
+    assert.equal(request.operation, "product_master_lookup");
+    return {
+      revision: "13:abcdef123456",
+      data: {
+        rows: [{
+          skuId: "SKU-1",
+          spuId: "SPU-1",
+          productCode: "SPU-1",
+          onlineSpecCode: "ONLINE-1",
+          raw: { 商家SKU: "ONLINE-1", SPUID: "SPU-1" },
+        }],
+        truncated: false,
+      },
+    };
+  });
 
   const result = await listCustomerServiceConversations({
     categories: ["商用净水"],
     page: 1,
     pageSize: 20,
-  }, principal, { salesReader });
+  }, principal, { salesReader, netshopReader });
 
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0]?.erpProductCode, "ERP-1");
@@ -131,7 +147,12 @@ test("customer-service enriches and filters through real-principal Django sales 
   assert.deepEqual(result.categories, ["商用净水"]);
   assert.ok(calls.length >= 2);
   assert.ok(calls.every((call) => call.principal === principal));
-  assert.equal(queries.some((query) => /sales_order_lines|sales_import_batches/i.test(query.sql)), false);
+  assert.ok(netshopCalls.length >= 2);
+  assert.ok(netshopCalls.every((call) => call.principal === principal));
+  assert.equal(
+    queries.some((query) => /sales_order_lines|sales_import_batches|netshop_rows|netshop_import_batches/i.test(query.sql)),
+    false,
+  );
   sqlite.close();
 });
 
@@ -188,7 +209,6 @@ test("customer-service and finance fail closed on incomplete Django consumer pag
   const db = sqliteAdapter(sqlite, queries) as never;
   testEnvironment.DB = db;
   await ensureCustomerServiceSchema(db);
-  await ensureNetshopSchema(db);
   await ensureFinanceSchema(db);
   const truncatedReader = consumerReader((_receivedPrincipal, request) => {
     if (request.operation === "customer_service_products") {
@@ -206,11 +226,40 @@ test("customer-service and finance fail closed on incomplete Django consumer pag
     }),
     (error: unknown) => (error as { status?: number }).status === 503,
   );
+  const validSalesReader = consumerReader((_receivedPrincipal, request) => {
+    assert.equal(request.operation, "customer_service_products");
+    return {
+      revision: "11:2",
+      data: {
+        rows: [{
+          onlineSpecCode: "ONLINE-1",
+          productCode: "ERP-1",
+          category: "商用净水",
+          latestAt: "2026-08-20 10:00:00",
+        }],
+        truncated: false,
+      },
+    };
+  });
+  const truncatedNetshopReader = netshopConsumerReader(() => ({
+    revision: "13:abcdef123456",
+    data: { rows: [], truncated: true },
+  }));
+  await assert.rejects(
+    listCustomerServiceConversations({ categories: ["商用净水"], page: 1, pageSize: 20 }, principal, {
+      salesReader: validSalesReader,
+      netshopReader: truncatedNetshopReader,
+    }),
+    (error: unknown) => (error as { status?: number }).status === 503,
+  );
   await assert.rejects(
     getFinanceTargetOptions(db, principal, { salesReader: truncatedReader }),
     (error: unknown) => (error as { status?: number }).status === 503,
   );
-  assert.equal(queries.some((query) => /sales_order_lines|sales_import_batches/i.test(query.sql)), false);
+  assert.equal(
+    queries.some((query) => /sales_order_lines|sales_import_batches|netshop_rows|netshop_import_batches/i.test(query.sql)),
+    false,
+  );
   sqlite.close();
 });
 

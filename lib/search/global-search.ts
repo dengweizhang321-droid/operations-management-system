@@ -21,6 +21,11 @@ import {
   getFinanceBackendMode,
   type FinanceBackendMode,
 } from "@/lib/django/finance-service";
+import {
+  createDjangoNetshopConsumerReader,
+  type NetshopConsumerReader,
+  type NetshopConsumerResponseMap,
+} from "@/lib/django/netshop-consumer-reader";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -132,6 +137,7 @@ export type GlobalSearchExecutionOptions = {
   deadlineMs?: number;
   salesReader?: SalesConsumerReader;
   financeReader?: FinanceConsumerReader;
+  netshopReader?: NetshopConsumerReader;
   financeBackendMode?: FinanceBackendMode;
   signal?: AbortSignal;
 };
@@ -269,46 +275,11 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "京东 SKU / SPU / 网店商品",
     icon: "京",
     module: "shop",
-    requiredTables: ["netshop_rows", "netshop_import_batches"],
-    likeParameterCount: 7,
+    requiredTables: [],
+    likeParameterCount: 0,
     allowedRoles: allRoles,
     scopeKind: "platform",
-    sql: `
-      WITH ranked_batches AS (
-        SELECT id AS batch_id, source AS batch_source, dataset AS batch_dataset,
-          platform AS batch_platform, shop_name AS batch_shop_name,
-          ROW_NUMBER() OVER (
-            PARTITION BY source, dataset, platform, shop_name
-            ORDER BY COALESCE(NULLIF(snapshot_date, ''), NULLIF(date_max, ''), '') DESC,
-              completed_at DESC, created_at DESC, id DESC
-          ) AS scope_rank
-        FROM netshop_import_batches
-        WHERE status = 'completed' AND source NOT IN ('jd_promotion', 'tmall_promotion')
-      ), matched AS (
-        SELECT item.sku_id, item.spu_id, item.product_code, item.product_name, item.shop_name, item.platform,
-          MAX(item.dataset) AS dataset,
-          MAX(COALESCE(item.business_date, item.snapshot_date, item.updated_at)) AS latest_date
-        FROM ranked_batches batch
-        JOIN netshop_rows item
-          ON item.source = batch.batch_source
-         AND item.dataset = batch.batch_dataset
-         AND item.platform = batch.batch_platform
-         AND item.shop_name = batch.batch_shop_name
-         AND item.last_import_batch_id = batch.batch_id
-        WHERE batch.scope_rank = 1
-          AND (item.sku_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.spu_id LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR item.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR item.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.platform LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR item.dataset LIKE ? ESCAPE '\\' COLLATE NOCASE)
-          /*SCOPE*/
-        GROUP BY item.sku_id, item.spu_id, item.product_code, item.product_name, item.shop_name, item.platform
-      )
-      SELECT COALESCE(NULLIF(sku_id, ''), NULLIF(spu_id, ''), NULLIF(product_code, ''), product_name) || ':' || shop_name AS result_id,
-        COALESCE(NULLIF(product_name, ''), NULLIF(product_code, ''), NULLIF(sku_id, ''), NULLIF(spu_id, ''), '未命名商品') AS title,
-        TRIM(CASE WHEN sku_id <> '' THEN 'SKU ' || sku_id ELSE '' END || CASE WHEN spu_id <> '' THEN ' · SPU ' || spu_id ELSE '' END || CASE WHEN product_code <> '' THEN ' · ' || product_code ELSE '' END) AS subtitle,
-        COALESCE(platform, '') || CASE WHEN shop_name <> '' THEN ' · ' || shop_name ELSE '' END || CASE WHEN dataset <> '' THEN ' · ' || dataset ELSE '' END AS detail,
-        latest_date AS updated_at, NULL AS amount_cents
-      FROM matched ORDER BY latest_date DESC, result_id ASC LIMIT ? OFFSET ?`,
+    sql: "",
   },
   {
     key: "inventory",
@@ -539,7 +510,6 @@ const importSources = [
   { table: "product_shipping_rate_import_batches", source: "'SKU 快递费率'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "erp_reference_import_batches", source: "source_label", file: "file_name", searchable: ["id", "file_name", "source_key", "source_label", "status"] },
   { table: "finance_import_batches", source: "'月度财报'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
-  { table: "netshop_import_batches", source: "'网店 · ' || source", file: "file_name", searchable: ["id", "file_name", "source", "dataset", "platform", "shop_name", "status"] },
   { table: "market_import_batches", source: "'市场 · ' || source_type", file: "file_name", searchable: ["id", "file_name", "source_type", "status"] },
   { table: "customer_service_import_batches", source: "'客服会话'", file: "session_file_name || ' / ' || chat_file_name", searchable: ["id", "session_file_name", "chat_file_name", "status"] },
 ] as const;
@@ -973,6 +943,81 @@ async function querySalesOrderGroup(
   }
 }
 
+function validNetshopSearch(
+  value: unknown,
+): value is NetshopConsumerResponseMap["row_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string" && row.amountCents === null;
+    });
+}
+
+function validNetshopImportSearch(
+  value: unknown,
+): value is NetshopConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.dataset === "string" && typeof row.platform === "string"
+        && typeof row.shopName === "string" && typeof row.fileName === "string"
+        && typeof row.status === "string" && Number.isSafeInteger(row.rowCount)
+        && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
+async function queryNetshopSearchGroup(
+  netshopReader: NetshopConsumerReader,
+  definition: SearchGroupDefinition,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const offset = (request.page - 1) * request.groupLimit;
+    const result = await netshopReader.read(principal, {
+      operation: "row_search",
+      query: request.query,
+      offset,
+      limit: request.groupLimit,
+    }, { signal });
+    if (!result.revision || !validNetshopSearch(result.data)
+      || !validFinanceConsumerWindow(result.data, offset, request.groupLimit)) {
+      return emptyGroup(definition, false);
+    }
+    return mapSearchRows(
+      definition,
+      result.data.items.map((item) => ({
+        result_id: item.id,
+        title: item.title,
+        subtitle: item.subtitle,
+        detail: item.detail,
+        updated_at: item.updatedAt,
+        amount_cents: item.amountCents,
+      })),
+      request,
+      principal,
+      result.data.total,
+    );
+  } catch {
+    return emptyGroup(definition, false);
+  }
+}
+
 type FinanceSearchOperation = "line_search" | "target_search";
 
 function validFinanceSearch(
@@ -1096,6 +1141,7 @@ async function queryImportGroup(
   principal: AppPrincipal,
   salesReader: SalesConsumerReader,
   financeReader: FinanceConsumerReader,
+  netshopReader: NetshopConsumerReader,
   financeMode: FinanceBackendMode,
   signal?: AbortSignal,
 ) {
@@ -1127,6 +1173,18 @@ async function queryImportGroup(
       financeRevision = financeHead.revision;
       financeTotal = financeHead.data.total;
     }
+    const netshopHead = await netshopReader.read(principal, {
+      operation: "import_batch_search",
+      query: request.query,
+      offset: 0,
+      limit: 1,
+    }, { signal });
+    if (!netshopHead.revision || !validNetshopImportSearch(netshopHead.data)
+      || !validFinanceConsumerWindow(netshopHead.data, 0, 1)) {
+      return emptyGroup(importDefinition, false);
+    }
+    const netshopRevision = netshopHead.revision;
+    const netshopTotal = netshopHead.data.total;
     const globalOffset = (request.page - 1) * request.groupLimit;
     const salesTake = globalOffset < salesTotal ? Math.min(request.groupLimit, salesTotal - globalOffset) : 0;
     let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
@@ -1164,8 +1222,29 @@ async function queryImportGroup(
       }
       financeItems = financePage.data.items;
     }
-    const localTake = request.groupLimit - salesItems.length - financeItems.length;
-    const localOffset = Math.max(0, globalOffset - salesTotal - financeTotal);
+    const netshopOffset = Math.max(0, globalOffset - salesTotal - financeTotal);
+    const netshopTake = netshopOffset < netshopTotal
+      ? Math.min(request.groupLimit - salesItems.length - financeItems.length, netshopTotal - netshopOffset)
+      : 0;
+    let netshopItems: NetshopConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (netshopTake > 0) {
+      const netshopPage = await netshopReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: netshopOffset,
+        limit: netshopTake,
+      }, { signal });
+      if (netshopPage.revision !== netshopRevision
+        || !validNetshopImportSearch(netshopPage.data)
+        || !validFinanceConsumerWindow(netshopPage.data, netshopOffset, netshopTake)
+        || netshopPage.data.total !== netshopTotal
+        || netshopPage.data.items.length !== netshopTake) {
+        return emptyGroup(importDefinition, false);
+      }
+      netshopItems = netshopPage.data.items;
+    }
+    const localTake = request.groupLimit - salesItems.length - financeItems.length - netshopItems.length;
+    const localOffset = Math.max(0, globalOffset - salesTotal - financeTotal - netshopTotal);
     const local = await queryLocalImportRows(
       db,
       tables,
@@ -1174,7 +1253,7 @@ async function queryImportGroup(
       localOffset,
       financeMode !== "django",
     );
-    const combinedTotal = salesTotal + financeTotal + local.total;
+    const combinedTotal = salesTotal + financeTotal + netshopTotal + local.total;
     const rows: SearchRow[] = [
       ...salesItems.map((item) => ({
         result_id: item.id,
@@ -1188,6 +1267,14 @@ async function queryImportGroup(
         result_id: item.id,
         title: item.fileName,
         subtitle: item.source,
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...netshopItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: `网店 · ${item.platform} · ${item.source}`,
         detail: item.status,
         updated_at: item.completedAt ?? item.createdAt,
         amount_cents: null,
@@ -1293,6 +1380,7 @@ export async function searchAllBusinessData(
 ): Promise<GlobalSearchResponse> {
   const salesReader = options.salesReader ?? createDjangoSalesConsumerReader();
   const financeReader = options.financeReader ?? createDjangoFinanceConsumerReader();
+  const netshopReader = options.netshopReader ?? createDjangoNetshopConsumerReader();
   const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
@@ -1305,6 +1393,19 @@ export async function searchAllBusinessData(
         definition: salesOrderDefinition,
         available: true,
         run: () => querySalesOrderGroup(salesReader, request, principal, options.signal),
+      };
+    }
+    if (definition.key === "jd_products") {
+      return {
+        definition,
+        available: true,
+        run: () => queryNetshopSearchGroup(
+          netshopReader,
+          definition,
+          request,
+          principal,
+          options.signal,
+        ),
       };
     }
     if (financeMode === "django" && definition.key === "finance") {
@@ -1369,6 +1470,7 @@ export async function searchAllBusinessData(
         principal,
         salesReader,
         financeReader,
+        netshopReader,
         financeMode,
         options.signal,
       ),

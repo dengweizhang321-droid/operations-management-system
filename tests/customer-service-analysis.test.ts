@@ -104,7 +104,7 @@ test("customer-service list exposes SKUID, Jackyun number, and category with a u
   ]);
   assert.match(page, /SKUID \/ 吉客云编号/);
   assert.match(page, /吉客云编号 \{item\.erpProductCode\}/);
-  assert.match(database, /HAVING COUNT\(DISTINCT sku_id\) = 1/);
+  assert.match(database, /if \(skuIds\.size === 1\) result\.add\(onlineSpec\)/);
   assert.match(database, /matchedSkuId: matched\?\.matchedSkuId/);
   assert.match(mapping, /candidates\.length !== 1/);
 });

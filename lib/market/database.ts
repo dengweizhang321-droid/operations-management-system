@@ -246,29 +246,20 @@ function batchRows<T>(result: { results?: unknown[] } | undefined): T[] {
 const effectiveMetricsRefreshByDatabase = new WeakMap<object, Promise<void>>();
 const effectiveMetricsTriggersByDatabase = new WeakMap<object, Promise<void>>();
 
-const marketEffectiveMetricsNetshopRevisionSql = `SELECT COUNT(*) row_count, MAX(updated_at) updated_at
-  FROM netshop_rows
-  WHERE source='jd_sku_daily' AND dataset IN ('sku_daily','spu_daily')`;
+const marketEffectiveMetricsNetshopRevisionSql = `SELECT active_total row_count, active_revision updated_at
+  FROM market_netshop_projection_control WHERE id=1`;
 
 const marketEffectiveMetricsNetshopTriggerDropStatements = [
   `DROP TRIGGER IF EXISTS market_effective_cache_netshop_insert`,
   `DROP TRIGGER IF EXISTS market_effective_cache_netshop_update`,
   `DROP TRIGGER IF EXISTS market_effective_cache_netshop_delete`,
+  `DROP TRIGGER IF EXISTS market_effective_cache_netshop_projection`,
 ];
 
 const marketEffectiveMetricsNetshopTriggerStatements = [
-  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_insert
-    AFTER INSERT ON netshop_rows
-    WHEN NEW.source='jd_sku_daily' AND NEW.dataset IN ('sku_daily','spu_daily')
-    BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`,
-  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_update
-    AFTER UPDATE ON netshop_rows
-    WHEN (OLD.source='jd_sku_daily' AND OLD.dataset IN ('sku_daily','spu_daily'))
-      OR (NEW.source='jd_sku_daily' AND NEW.dataset IN ('sku_daily','spu_daily'))
-    BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`,
-  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_delete
-    AFTER DELETE ON netshop_rows
-    WHEN OLD.source='jd_sku_daily' AND OLD.dataset IN ('sku_daily','spu_daily')
+  `CREATE TRIGGER IF NOT EXISTS market_effective_cache_netshop_projection
+    AFTER UPDATE OF active_revision ON market_netshop_projection_control
+    WHEN OLD.active_revision IS NOT NEW.active_revision
     BEGIN DELETE FROM market_effective_metrics_cache_state WHERE id=1; END`,
 ];
 

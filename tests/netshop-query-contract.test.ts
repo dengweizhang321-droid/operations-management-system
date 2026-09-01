@@ -113,7 +113,7 @@ test("netshop query errors are public while unexpected database details are reda
   });
 });
 
-test("every netshop route maps schema-upgrade pending to a safe public response", async () => {
+test("every netshop route validates at the edge and delegates to the bounded Django reader", async () => {
   const queryRoutes = await Promise.all([
     "products",
     "product-performance",
@@ -134,12 +134,14 @@ test("every netshop route maps schema-upgrade pending to a safe public response"
     assert.doesNotMatch(source, /error instanceof Error \? error\.message/);
     assert.match(source, /cache-control["']?:?\s*["']no-store/);
   }
-  assert.match(queryRoutes[0]!, /salesChannels: principal\.scope === null \? null : principal\.scope\.channels/);
+  for (const source of queryRoutes) {
+    assert.match(source, /createDjangoNetshopService\(\)\.request/);
+    assert.doesNotMatch(source, /getNetshopDatabase|ensureNetshopSchema|netshop_rows/);
+  }
   assert.match(queryRoutes[0]!, /readNetshopProductCatalogView\(params\.getAll\("view"\)\)/);
-  assert.match(queryRoutes[0]!, /getNetshopProductCatalogPage/);
+  assert.match(queryRoutes[0]!, /NETSHOP_PRODUCTS_PATH/);
   assert.match(queryRoutes[1]!, /readNetshopProductPerformanceView\(params\.getAll\("view"\)\)/);
-  assert.match(queryRoutes[1]!, /getNetshopProductPerformanceSummary/);
-  assert.match(queryRoutes[1]!, /getNetshopProductPerformancePage/);
+  assert.match(queryRoutes[1]!, /NETSHOP_PRODUCT_PERFORMANCE_PATH/);
   for (const source of queryRoutes.slice(0, 2)) {
     assert.match(source, /readNetshopSnapshotToken\(params\.getAll\("snapshotToken"\), view === "page"\)/);
   }
@@ -156,10 +158,12 @@ test("every netshop route maps schema-upgrade pending to a safe public response"
     assert.match(source, /cache-control["']?:?\s*["']no-store/);
     assert.match(source, /if \(!period\).*invalid_date_range/);
     assert.match(source, /if \(!requestedPlatforms\.length\).*invalid_platform_filter/);
+    assert.match(source, /createDjangoNetshopService\(\)\.request/);
+    assert.doesNotMatch(source, /getNetshopDatabase|ensureNetshopSchema|netshop_rows/);
   }
   assert.doesNotMatch(promotionSplitRoutes[0]!, /readNetshopQueryInteger/);
   assert.match(promotionSplitRoutes[0]!, /params\.get\("snapshotToken"\)/);
-  assert.match(promotionSplitRoutes[0]!, /expectedSnapshotToken: snapshotToken/);
+  assert.match(promotionSplitRoutes[0]!, /NETSHOP_PROMOTION_OVERVIEW_PATH/);
   assert.match(promotionSplitRoutes[1]!, /params\.get\("pageSize"\), "pageSize", 20, 1, NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE/);
 });
 
@@ -210,10 +214,12 @@ test("netshop query indexes are identical in the forward migration and runtime u
   assert.match(runtime, /\.then\(\(\) => ensureDailyRowNaturalKeys\(db\)\)[\s\S]*?schemaReadyByDatabase\.delete\(key\)/);
 });
 
-test("netshop import-history route parses strict decimal pagination before listing", async () => {
+test("netshop import-history route parses strict decimal pagination before calling Django", async () => {
   const route = await readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8");
   assert.match(route, /readNetshopQueryInteger\(params\.get\("page"\)/);
   assert.match(route, /params\.get\("pageSize"\) \?\? params\.get\("limit"\)/);
-  assert.match(route, /listNetshopImportBatches\(db,\s*\{\s*page,\s*pageSize,/);
+  assert.match(route, /createDjangoNetshopService\(\)\.request/);
+  assert.match(route, /NETSHOP_IMPORTS_PATH/);
+  assert.doesNotMatch(route, /getNetshopDatabase|listNetshopImportBatches|netshop_rows/);
   assert.doesNotMatch(route, /Number\(params\.get\("(?:page|pageSize|limit)"\)/);
 });

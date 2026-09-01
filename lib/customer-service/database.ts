@@ -20,13 +20,17 @@ import {
   renewImportFingerprintReservation,
   reserveImportFingerprint,
 } from "@/lib/imports/content-fingerprint";
-import { ensureNetshopSchema, getNetshopDatabase } from "@/lib/netshop/database";
 import { requireUnrestrictedDataScope, type AppPrincipal } from "@/lib/auth/authorization";
 import {
   createDjangoSalesConsumerReader,
   type SalesConsumerReader,
   type SalesConsumerResponseMap,
 } from "@/lib/django/sales-consumer-reader";
+import {
+  createDjangoNetshopConsumerReader,
+  type NetshopConsumerReader,
+  type NetshopConsumerResponseMap,
+} from "@/lib/django/netshop-consumer-reader";
 import { PublicApiError } from "@/lib/http/api-error";
 import { customerServiceConversionStatuses, customerServiceProblemTypes, customerServiceRobotScopes, type CustomerServiceAnnotationInput, type CustomerServiceConversionStatus, type CustomerServiceProblemType, type CustomerServiceRobotScope } from "./contracts";
 import { buildCustomerServiceProductMappings, customerServiceOnlineSpecCodes, type CustomerServiceMasterProductRow, type CustomerServiceProductMapping, type CustomerServiceSalesProductRow } from "./product-mapping";
@@ -533,73 +537,52 @@ const conversationSummaryColumns = `
   CASE WHEN json_valid(messages_json) THEN json_array_length(messages_json) ELSE 0 END AS message_total_count
 `;
 
-const customerServiceProductLookupCtes = `WITH conversation_skus(lookup_code) AS MATERIALIZED (
-    SELECT DISTINCT product_sku
-    FROM customer_service_conversations
-    WHERE product_sku <> ''
-  ), direct_map AS MATERIALIZED (
-    SELECT DISTINCT n.sku_id AS lookup_code,
-      CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
-    FROM conversation_skus requested
-    CROSS JOIN netshop_rows n
-    WHERE n.source = 'jd_product_master'
-      AND n.dataset = 'product_master'
-      AND json_valid(n.raw_json)
-      AND n.sku_id = requested.lookup_code
-  ), reverse_candidates AS MATERIALIZED (
-    SELECT n.sku_id,
-      CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) AS online_spec_code
-    FROM conversation_skus requested
-    CROSS JOIN netshop_rows n
-    WHERE n.source = 'jd_product_master'
-      AND n.dataset = 'product_master'
-      AND json_valid(n.raw_json)
-      AND CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) = requested.lookup_code
-    GROUP BY n.sku_id, online_spec_code
-  ), reverse_map AS MATERIALIZED (
-    SELECT online_spec_code AS lookup_code, online_spec_code
-    FROM reverse_candidates
-    WHERE online_spec_code <> ''
-    GROUP BY online_spec_code
-    HAVING COUNT(DISTINCT sku_id) = 1
-  ), lookup_map(lookup_code, online_spec_code) AS MATERIALIZED (
-    SELECT lookup_code, online_spec_code FROM direct_map
-    UNION
-    SELECT lookup_code, online_spec_code FROM reverse_map
-  )`;
-
 async function loadCustomerServiceMasterRows(
-  db: CustomerServiceDatabase,
-  productSkus: readonly string[],
+  principal: AppPrincipal,
+  netshopReader: NetshopConsumerReader,
+  input: { lookupCodes?: readonly string[]; spuIds?: readonly string[]; limit: number; signal?: AbortSignal },
 ) {
-  if (!productSkus.length) return [] as CustomerServiceMasterProductRow[];
-  const serializedProductSkus = JSON.stringify(productSkus);
-  const directRows = await db.prepare(`WITH requested(lookup_code) AS MATERIALIZED (
-      SELECT CAST(value AS TEXT) FROM json_each(?)
-    )
-    SELECT n.sku_id, n.spu_id, n.product_code, n.raw_json
-    FROM requested
-    CROSS JOIN netshop_rows n
-    WHERE n.source = 'jd_product_master'
-      AND n.dataset = 'product_master'
-      AND json_valid(n.raw_json)
-      AND n.sku_id = requested.lookup_code
-    ORDER BY n.snapshot_date DESC, n.id DESC`).bind(serializedProductSkus).all<CustomerServiceMasterProductRow>();
-  const directMatches = new Set(directRows.results.map((row) => row.sku_id));
-  const reverseProductSkus = productSkus.filter((productSku) => !directMatches.has(productSku));
-  if (!reverseProductSkus.length) return directRows.results;
-  const reverseRows = await db.prepare(`WITH requested(lookup_code) AS MATERIALIZED (
-      SELECT CAST(value AS TEXT) FROM json_each(?)
-    )
-    SELECT n.sku_id, n.spu_id, n.product_code, n.raw_json
-    FROM requested
-    CROSS JOIN netshop_rows n
-    WHERE n.source = 'jd_product_master'
-      AND n.dataset = 'product_master'
-      AND json_valid(n.raw_json)
-      AND CAST(json_extract(n.raw_json, '$."商家SKU"') AS TEXT) = requested.lookup_code
-    ORDER BY n.snapshot_date DESC, n.id DESC`).bind(JSON.stringify(reverseProductSkus)).all<CustomerServiceMasterProductRow>();
-  return [...directRows.results, ...reverseRows.results];
+  const result = await netshopReader.read(principal, {
+    operation: "product_master_lookup",
+    lookupCodes: [...new Set(input.lookupCodes ?? [])],
+    spuIds: [...new Set(input.spuIds ?? [])],
+    limit: input.limit,
+  }, { signal: input.signal });
+  const data = result?.data as NetshopConsumerResponseMap["product_master_lookup"] | undefined;
+  if (!result?.revision || !data || !Array.isArray(data.rows) || typeof data.truncated !== "boolean"
+    || data.truncated || data.rows.length > input.limit || !data.rows.every((row) => (
+      row && typeof row === "object" && typeof row.skuId === "string" && row.skuId.length <= 200
+      && typeof row.spuId === "string" && row.spuId.length <= 200
+      && typeof row.productCode === "string" && row.productCode.length <= 200
+      && typeof row.onlineSpecCode === "string" && row.onlineSpecCode.length <= 200
+      && row.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
+    ))) {
+    throw new PublicApiError(503, "service_unavailable", "Django 网店读取服务返回了无效的货品映射。");
+  }
+  return data.rows.map<CustomerServiceMasterProductRow>((row) => ({
+    sku_id: row.skuId,
+    spu_id: row.spuId,
+    product_code: row.productCode,
+    raw_json: JSON.stringify(row.raw),
+  }));
+}
+
+function lookupCodesForOnlineSpecs(rows: CustomerServiceMasterProductRow[]) {
+  const byOnlineSpec = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const raw = safeJson<Record<string, unknown>>(row.raw_json, {});
+    const onlineSpec = String(raw["商家SKU"] ?? "").trim();
+    if (!onlineSpec) continue;
+    const skuIds = byOnlineSpec.get(onlineSpec) ?? new Set<string>();
+    if (row.sku_id) skuIds.add(row.sku_id);
+    byOnlineSpec.set(onlineSpec, skuIds);
+  }
+  const result = new Set<string>();
+  for (const [onlineSpec, skuIds] of byOnlineSpec) {
+    for (const skuId of skuIds) result.add(skuId);
+    if (skuIds.size === 1) result.add(onlineSpec);
+  }
+  return [...result];
 }
 
 function normalizeNaturalDate(value: string, label: string) {
@@ -623,6 +606,7 @@ function nextNaturalDate(value: string) {
 
 type CustomerServiceSalesOptions = {
   salesReader?: SalesConsumerReader;
+  netshopReader?: NetshopConsumerReader;
   signal?: AbortSignal;
 };
 
@@ -710,8 +694,8 @@ export async function listCustomerServiceConversations(
   );
   const categoryFilters = filterValues(filters.categories, filters.category, "品类筛选", 50, 120);
   const db = getCustomerServiceDatabase(); await ensureCustomerServiceSchema(db);
-  await ensureNetshopSchema(getNetshopDatabase());
   const salesReader = options.salesReader ?? createDjangoSalesConsumerReader();
+  const netshopReader = options.netshopReader ?? createDjangoNetshopConsumerReader();
   const conditions: string[] = []; const values: unknown[] = [];
   addInFilter(conditions, values, "shop_name", shopFilters);
   const startDate = filters.startDate ? normalizeNaturalDate(filters.startDate, "开始日期") : null;
@@ -733,16 +717,15 @@ export async function listCustomerServiceConversations(
     if (matchedOnlineSpecCodes.length === 0) {
       conditions.push("1 = 0");
     } else {
-      const mappedProductCodes = await db.prepare(`${customerServiceProductLookupCtes}
-      SELECT DISTINCT lookup_code
-      FROM lookup_map mapping
-      WHERE mapping.online_spec_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))
-      ORDER BY lookup_code
-      LIMIT 5001`).bind(JSON.stringify(matchedOnlineSpecCodes)).all<{ lookup_code: string }>();
-      if (mappedProductCodes.results.length > 5_000) throw salesConsumerUnavailable();
-      if (mappedProductCodes.results.length) {
+      const masterRows = await loadCustomerServiceMasterRows(principal, netshopReader, {
+        lookupCodes: matchedOnlineSpecCodes,
+        limit: 5_000,
+        signal: options.signal,
+      });
+      const mappedProductCodes = lookupCodesForOnlineSpecs(masterRows);
+      if (mappedProductCodes.length) {
         conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
-        values.push(JSON.stringify(mappedProductCodes.results.map((item) => item.lookup_code)));
+        values.push(JSON.stringify(mappedProductCodes));
       } else {
         conditions.push("1 = 0");
       }
@@ -759,13 +742,18 @@ export async function listCustomerServiceConversations(
   const spuIds = splitIds(filters.spuIds);
   if (skuIds.length) { conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))"); values.push(JSON.stringify(skuIds)); }
   if (spuIds.length) {
-    conditions.push(`EXISTS (SELECT 1 FROM netshop_rows n
-      WHERE n.source = 'jd_product_master'
-        AND (n.sku_id = customer_service_conversations.product_sku OR n.product_code = customer_service_conversations.product_sku)
-        AND (n.spu_id IN (SELECT CAST(value AS TEXT) FROM json_each(?))
-          OR n.product_code IN (SELECT CAST(value AS TEXT) FROM json_each(?))))`);
-    const serializedSpuIds = JSON.stringify(spuIds);
-    values.push(serializedSpuIds, serializedSpuIds);
+    const masterRows = await loadCustomerServiceMasterRows(principal, netshopReader, {
+      spuIds,
+      limit: 5_000,
+      signal: options.signal,
+    });
+    const matchedCodes = [...new Set(masterRows.flatMap((row) => [row.sku_id, row.product_code]).filter(Boolean))];
+    if (matchedCodes.length) {
+      conditions.push("product_sku IN (SELECT CAST(value AS TEXT) FROM json_each(?))");
+      values.push(JSON.stringify(matchedCodes));
+    } else {
+      conditions.push("1 = 0");
+    }
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const page = filters.page == null ? 1 : Number(filters.page);
@@ -773,7 +761,7 @@ export async function listCustomerServiceConversations(
   if (!Number.isSafeInteger(page) || page < 1 || page > 10_000) throw new PublicApiError(400, "invalid_request", "page 必须为 1 到 10000 的整数。");
   if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new PublicApiError(400, "invalid_request", "pageSize 必须为 1 到 100 的整数。");
   const includeOptions = filters.includeOptions !== false;
-  const [items, summaryResult, agents, shops, categories] = await Promise.all([
+  const [items, summaryResult, agents, shops, optionProducts] = await Promise.all([
     db.prepare(`SELECT ${conversationSummaryColumns} FROM customer_service_conversations ${where} ORDER BY consulted_at DESC, id DESC LIMIT ? OFFSET ?`).bind(...values, pageSize, (page - 1) * pageSize).all<Record<string, unknown>>(),
     db.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END) AS matched, SUM(CASE WHEN match_status = 'session_only' THEN 1 ELSE 0 END) AS session_only, SUM(CASE WHEN match_status = 'chat_only' THEN 1 ELSE 0 END) AS chat_only FROM customer_service_conversations ${where}`).bind(...values).first<Record<string, number | null>>(),
     includeOptions
@@ -782,18 +770,29 @@ export async function listCustomerServiceConversations(
     includeOptions
       ? db.prepare(`SELECT DISTINCT shop_name FROM customer_service_conversations WHERE shop_name <> '' ORDER BY shop_name COLLATE NOCASE ASC LIMIT 100`).all<{ shop_name: string }>()
       : Promise.resolve({ results: [] as Array<{ shop_name: string }> }),
-    includeOptions ? db.prepare(`${customerServiceProductLookupCtes}
-      SELECT DISTINCT online_spec_code
-      FROM lookup_map
-      WHERE online_spec_code <> ''
-      ORDER BY online_spec_code COLLATE NOCASE ASC
-      LIMIT 10001`).all<{ online_spec_code: string }>()
-      : Promise.resolve({ results: [] as Array<{ online_spec_code: string }> }),
+    includeOptions
+      ? db.prepare(`SELECT DISTINCT product_sku
+          FROM customer_service_conversations
+          WHERE product_sku <> ''
+          ORDER BY product_sku COLLATE NOCASE ASC LIMIT 5001`)
+        .all<{ product_sku: string }>()
+      : Promise.resolve({ results: [] as Array<{ product_sku: string }> }),
   ]);
-  if (categories.results.length > 10_000) throw salesConsumerUnavailable();
-  const categorySalesRows = includeOptions && categories.results.length > 0
+  if (optionProducts.results.length > 5_000) {
+    throw new PublicApiError(503, "service_unavailable", "客服商品筛选范围超过 5000 个有界映射上限。");
+  }
+  const optionProductCodes = optionProducts.results.map((item) => item.product_sku).filter(Boolean);
+  const categoryMasterRows = includeOptions && optionProductCodes.length > 0
+    ? await loadCustomerServiceMasterRows(principal, netshopReader, {
+      lookupCodes: optionProductCodes,
+      limit: 5_000,
+      signal: options.signal,
+    })
+    : [];
+  const categoryOnlineSpecCodes = customerServiceOnlineSpecCodes(categoryMasterRows);
+  const categorySalesRows = includeOptions && categoryOnlineSpecCodes.length > 0
     ? await readCustomerServiceSalesProducts(principal, salesReader, {
-      onlineSpecCodes: categories.results.map((item) => item.online_spec_code),
+      onlineSpecCodes: categoryOnlineSpecCodes,
       signal: options.signal,
     })
     : [];
@@ -804,7 +803,11 @@ export async function listCustomerServiceConversations(
   const productSkus = [...new Set(customerItems.map((item) => item.productSku).filter(Boolean))];
   let catalog = new Map<string, CustomerServiceProductMapping>();
   if (productSkus.length) {
-    const rows = await loadCustomerServiceMasterRows(db, productSkus);
+    const rows = await loadCustomerServiceMasterRows(principal, netshopReader, {
+      lookupCodes: productSkus,
+      limit: 5_000,
+      signal: options.signal,
+    });
     const onlineSpecCodes = customerServiceOnlineSpecCodes(rows);
     let salesRows: CustomerServiceSalesProductRow[] = [];
     if (onlineSpecCodes.length) {

@@ -1,5 +1,5 @@
 import { ensureMarketSchema, getMarketDatabase, getMarketOverview } from "@/lib/market/database";
-import { ensureNetshopSchema } from "@/lib/netshop/database";
+import { ensureMarketNetshopProjection } from "@/lib/market/netshop-projection";
 import { getCachedMarketOverview } from "@/lib/market/overview-response-cache";
 import { createDjangoSalesConsumerReader } from "@/lib/django/sales-consumer-reader";
 import { validateMarketOverviewCachePayload } from "@/lib/market/cache-payload-validators";
@@ -20,10 +20,12 @@ export async function GET(request: Request) {
     const { view, pagination, filters } = parseMarketOverviewQuery(params);
     const db = getMarketDatabase();
     const salesReader = createDjangoSalesConsumerReader();
-    const [, , , salesFreshness] = await Promise.all([
+    await Promise.all([
       ensureMarketSchema(db),
       ensureAnnotationSchema(db),
-      ensureNetshopSchema(db),
+    ]);
+    const [, salesFreshness] = await Promise.all([
+      ensureMarketNetshopProjection(db, principal, { signal: request.signal }),
       salesReader.read(principal, { operation: "freshness" }, { signal: request.signal }),
     ]);
     const result = await getCachedMarketOverview(

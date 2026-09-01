@@ -60,6 +60,14 @@ function financeConfigurationUnavailable(): PublicApiError {
   );
 }
 
+function netshopConfigurationUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django 网店服务配置不完整。",
+  );
+}
+
 function parseBoundedInteger(
   value: string | undefined,
   fallback: number,
@@ -276,6 +284,60 @@ export async function createFinanceGatewayAuthHeaders(
 
   const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
   if (principalBytes.byteLength > 16_384) throw financeConfigurationUnavailable();
+  const principal = base64Url(principalBytes);
+  const canonical = [
+    "v1",
+    String(input.timestamp),
+    input.requestId,
+    method,
+    input.path,
+    input.rawQuery,
+    bodySha256,
+    principal,
+  ].join("\n");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(input.secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = hex(await crypto.subtle.sign("HMAC", key, encoder.encode(canonical)));
+  return new Headers({
+    accept: "application/json",
+    "x-teruisi-content-sha256": bodySha256,
+    "x-teruisi-principal": principal,
+    "x-teruisi-request-id": input.requestId,
+    "x-teruisi-signature": `v1=${signature}`,
+    "x-teruisi-timestamp": String(input.timestamp),
+  });
+}
+
+/** Netshop has isolated reader/writer processes but shares the exact signed
+ * principal-envelope protocol. Keep the path guard domain-specific so a
+ * correctly signed request cannot be replayed into another Django app. */
+export async function createNetshopGatewayAuthHeaders(
+  input: SalesGatewaySignatureInput,
+): Promise<Headers> {
+  const method = input.method.toUpperCase();
+  if (
+    !["GET", "POST", "PUT"].includes(method)
+    || !input.path.startsWith("/api/netshop/")
+  ) {
+    throw netshopConfigurationUnavailable();
+  }
+  const bodySha256 = input.bodySha256?.trim().toLowerCase()
+    ?? (method === "GET" ? EMPTY_SHA256 : "");
+  if (!/^[a-f0-9]{64}$/.test(bodySha256)) throw netshopConfigurationUnavailable();
+  if (!Number.isSafeInteger(input.timestamp) || input.timestamp <= 0) {
+    throw netshopConfigurationUnavailable();
+  }
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(input.requestId)) {
+    throw netshopConfigurationUnavailable();
+  }
+
+  const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
+  if (principalBytes.byteLength > 16_384) throw netshopConfigurationUnavailable();
   const principal = base64Url(principalBytes);
   const canonical = [
     "v1",

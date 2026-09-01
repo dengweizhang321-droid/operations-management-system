@@ -1,9 +1,7 @@
 import {
-  ensureNetshopSchema,
-  getNetshopDatabase,
-  getNetshopProductCatalog,
-  getNetshopProductCatalogPage,
-} from "@/lib/netshop/database";
+  createDjangoNetshopService,
+  NETSHOP_PRODUCTS_PATH,
+} from "@/lib/django/netshop-service";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
@@ -23,37 +21,26 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal();
     const params = new URL(request.url).searchParams;
     const view = readNetshopProductCatalogView(params.getAll("view"));
-    const snapshotToken = readNetshopSnapshotToken(params.getAll("snapshotToken"), view === "page");
-    const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
-    const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
-    const salesPeriod = resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
+    readNetshopSnapshotToken(params.getAll("snapshotToken"), view === "page");
+    readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
+    readNetshopQueryInteger(params.get("pageSize"), "pageSize", 50, 1, NETSHOP_QUERY_MAX_PAGE_SIZE);
+    resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
     if (params.has("shop")) {
       throw new NetshopQueryError("invalid_outlet_filter", "店铺筛选必须使用 outlet 平台与店铺复合键");
     }
     const requestedPlatforms = params.getAll("platform");
-    const platformNames = netshopPlatformsForPrincipal(principal, requestedPlatforms);
-    const outlets = netshopOutletsForPrincipal(
+    netshopPlatformsForPrincipal(principal, requestedPlatforms);
+    netshopOutletsForPrincipal(
       principal,
       readNetshopOutletFilters(params.getAll("outlet")),
       requestedPlatforms,
     );
-    const db = getNetshopDatabase();
-    await ensureNetshopSchema(db);
-    const input = {
-      query: params.get("q") ?? undefined,
-      page,
-      pageSize,
-      outlets,
-      platformNames,
-      salesChannels: principal.scope === null ? null : principal.scope.channels,
-      salesStartDate: salesPeriod?.startDate,
-      salesEndDate: salesPeriod?.endDate,
-      signal: request.signal,
-    };
-    const payload = view === "page"
-      ? await getNetshopProductCatalogPage(db, principal, { ...input, snapshotToken: snapshotToken! })
-      : await getNetshopProductCatalog(db, principal, input);
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const result = await createDjangoNetshopService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: NETSHOP_PRODUCTS_PATH, query: params, service: "reader" },
+      { signal: request.signal },
+    );
+    return Response.json(result.data, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

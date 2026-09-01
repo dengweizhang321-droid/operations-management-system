@@ -1,10 +1,9 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
-  ensureNetshopSchema,
-  getNetshopDatabase,
-  getNetshopPromotionPerformance,
-} from "@/lib/netshop/database";
+  createDjangoNetshopService,
+  NETSHOP_PROMOTION_PERFORMANCE_PATH,
+} from "@/lib/django/netshop-service";
 import {
   NETSHOP_QUERY_MAX_PAGE,
   NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE,
@@ -19,31 +18,25 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
     const params = new URL(request.url).searchParams;
-    const page = readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
-    const pageSize = readNetshopQueryInteger(params.get("pageSize"), "pageSize", 20, 1, NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE);
-    const period = resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
+    readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
+    readNetshopQueryInteger(params.get("pageSize"), "pageSize", 20, 1, NETSHOP_PROMOTION_QUERY_MAX_PAGE_SIZE);
+    resolveNetshopQueryPeriod(params.get("startDate"), params.get("endDate"));
     if (params.has("shop")) {
       throw new NetshopQueryError("invalid_outlet_filter", "店铺筛选必须使用 outlet 平台与店铺复合键");
     }
     const requestedPlatforms = params.getAll("platform");
-    const platformNames = netshopPlatformsForPrincipal(principal, requestedPlatforms);
-    const outlets = netshopOutletsForPrincipal(
+    netshopPlatformsForPrincipal(principal, requestedPlatforms);
+    netshopOutletsForPrincipal(
       principal,
       readNetshopOutletFilters(params.getAll("outlet")),
       requestedPlatforms,
     );
-    const db = getNetshopDatabase();
-    await ensureNetshopSchema(db);
-    const payload = await getNetshopPromotionPerformance(db, {
-      query: params.get("q") ?? undefined,
-      page,
-      pageSize,
-      platformNames,
-      outlets,
-      startDate: period?.startDate,
-      endDate: period?.endDate,
-    });
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    const result = await createDjangoNetshopService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: NETSHOP_PROMOTION_PERFORMANCE_PATH, query: params, service: "reader" },
+      { signal: request.signal },
+    );
+    return Response.json(result.data, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

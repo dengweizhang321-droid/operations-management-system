@@ -13,8 +13,10 @@ export async function callMarketTool(
 ): Promise<Record<string, unknown>> {
   const { getMarketDatabase, getMarketItemTrend } = await import("@/lib/market/database");
   const { ensureMarketAdminSchema } = await import("@/lib/market/admin-service");
+  const { ensureMarketNetshopProjection } = await import("@/lib/market/netshop-projection");
   const db = getMarketDatabase();
   await ensureMarketAdminSchema(db);
+  await ensureMarketNetshopProjection(db, principal);
   if (name === "get_market_overview") return getMarketOverviewForAi(db, args, principal);
   if (name === "get_market_brand_analysis") return getMarketBrandAnalysisForAi(db, args, principal);
   if (name === "get_market_price_band_analysis") return getMarketPriceBandAnalysisForAi(db, args, principal);

@@ -9,7 +9,7 @@ test("market ranking limits candidate ids before expensive row enrichment", () =
   assert.match(sql, /top_ranked_ids AS MATERIALIZED/);
   assert.match(sql, /LIMIT 200/);
   assert.ok(sql.indexOf("LIMIT 200") < sql.indexOf("market_image_cache"));
-  assert.ok(sql.indexOf("LIMIT 200") < sql.indexOf("SELECT 1 FROM netshop_rows"));
+  assert.ok(sql.indexOf("LIMIT 200") < sql.indexOf("SELECT 1 FROM market_netshop_active_projection"));
   assert.doesNotMatch(sql, /market_effective_rows AS MATERIALIZED/);
 });
 
@@ -17,7 +17,7 @@ test("market ranking can page a small candidate window before expensive enrichme
   const sql = buildMarketRankingCtes({ rankingLimit: 20, rankingOffset: 40 });
   assert.match(sql, /LIMIT 20 OFFSET 40/);
   assert.ok(sql.indexOf("LIMIT 20 OFFSET 40") < sql.indexOf("market_image_cache"));
-  assert.ok(sql.indexOf("LIMIT 20 OFFSET 40") < sql.indexOf("SELECT 1 FROM netshop_rows"));
+  assert.ok(sql.indexOf("LIMIT 20 OFFSET 40") < sql.indexOf("SELECT 1 FROM market_netshop_active_projection"));
 });
 
 test("market price-band ranking still filters before the bounded enrichment stage", () => {
@@ -115,9 +115,9 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
   assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
   assert.match(customer, /listGenerationRef\.current === generation/);
   assert.match(customer, /listRequestKeyRef\.current === requestKey/);
-  assert.match(productView, /products\/summary\?\$\{params\}.*signal/s);
+  assert.match(productView, /products\/summary\?\$\{params\}[\s\S]*signal/);
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
-  assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}.*SELECT COUNT\(\*\) AS total, SUM/s);
+  assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}[\s\S]*SELECT COUNT\(\*\) AS total, SUM/);
   const aiConversationQuery = customerDatabase.slice(customerDatabase.indexOf("export async function getCustomerServiceConversationsForAi"));
   assert.match(aiConversationQuery, /listCustomerServiceConversations\(\{[\s\S]*?includeOptions: false \}, principal, options\)/);
   assert.match(sales, /def _period_metrics\([\s\S]*queryset\.aggregate\(\*\*aggregate_fields\)/);

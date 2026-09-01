@@ -127,6 +127,7 @@ INSTALLED_APPS = [
     "sales.apps.SalesConfig",
     "erp_reference.apps.ErpReferenceConfig",
     "finance.apps.FinanceConfig",
+    "netshop.apps.NetshopConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -178,6 +179,12 @@ FINANCE_WRITE_AUTHORITY_EPOCH = os.getenv(
 FINANCE_WRITE_CUTOVER_ID = os.getenv(
     "TERUISI_DJANGO_FINANCE_CUTOVER_ID", ""
 ).strip()
+NETSHOP_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH", ""
+).strip()
+NETSHOP_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_NETSHOP_CUTOVER_ID", ""
+).strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
@@ -185,9 +192,11 @@ if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "erp_reference_sync",
     "finance_reader",
     "finance_writer",
+    "netshop_reader",
+    "netshop_writer",
 }:
     raise RuntimeError(
-        "生产 Django 必须显式声明 reader、migration_writer、sales_writer、erp_reference_sync、finance_reader 或 finance_writer 进程角色"
+        "生产 Django 必须显式声明 reader、migration_writer、sales_writer、erp_reference_sync、finance_reader、finance_writer、netshop_reader 或 netshop_writer 进程角色"
     )
 if DJANGO_PROCESS_ROLE == "reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django reader 进程必须启用只读连接门禁")
@@ -199,6 +208,10 @@ if DJANGO_PROCESS_ROLE == "finance_reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django finance_reader 进程必须启用只读连接门禁")
 if DJANGO_PROCESS_ROLE == "finance_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django finance_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "netshop_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django netshop_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "netshop_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django netshop_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "sales_writer":
     try:
         uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
@@ -213,17 +226,25 @@ if DJANGO_PROCESS_ROLE == "finance_writer":
         raise RuntimeError("Django finance_writer 必须配置有效的财务 authority epoch") from error
     if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", FINANCE_WRITE_CUTOVER_ID):
         raise RuntimeError("Django finance_writer 必须配置有效的财务 cutover id")
+if DJANGO_PROCESS_ROLE == "netshop_writer":
+    try:
+        uuid.UUID(NETSHOP_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django netshop_writer 必须配置有效的网店 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", NETSHOP_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django netshop_writer 必须配置有效的网店 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )
 DJANGO_MAX_HEADER_BYTES = env_int("TERUISI_DJANGO_MAX_HEADER_BYTES", 32_768, 8_192, 65_536)
 DJANGO_MAX_BODY_BYTES = env_int(
     "TERUISI_DJANGO_MAX_BODY_BYTES",
-    16_777_216 if DJANGO_PROCESS_ROLE == "finance_writer"
+    67_108_864 if DJANGO_PROCESS_ROLE == "netshop_writer"
+    else 16_777_216 if DJANGO_PROCESS_ROLE == "finance_writer"
     else 8_388_608 if DJANGO_PROCESS_ROLE == "sales_writer"
     else 1_048_576,
     0,
-    16_777_216,
+    134_217_728,
 )
 CACHES = {
     "default": {

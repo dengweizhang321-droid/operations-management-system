@@ -865,7 +865,7 @@ function netshopBusinessContentRows(rows: readonly NetshopRowInput[]) {
   }));
 }
 
-type NetshopImportInput = {
+export type NetshopImportInput = {
   bytes: Uint8Array;
   fileName: string;
   fileSizeBytes: number;
@@ -1089,6 +1089,240 @@ export type NetshopImportFingerprintDependencies = Pick<
 export type NetshopProductAssetDependencies = {
   persistTmallProductAssetImages: typeof persistTmallProductAssetImages;
 };
+
+export type NormalizedNetshopImportPayload = {
+  schemaVersion: "netshop-normalized-v1";
+  disposition: "prepared" | "rejected";
+  fileName: string;
+  fileSizeBytes: number;
+  rawFileHash: string;
+  source: string;
+  platform: string;
+  shopName: string;
+  warnings: NetshopImportIssue[];
+  dataset?: string;
+  sheetName?: string;
+  note?: string;
+  snapshotDate?: string;
+  startDate?: string;
+  endDate?: string;
+  rows?: NetshopRowInput[];
+  errors?: NetshopImportIssue[];
+  message?: string;
+  parserTotals?: Record<string, number | string | null>;
+  imagePersistence?: { total: number; unique: number; verified: number } | Record<string, never>;
+};
+
+function normalizedNetshopRejection(
+  input: NetshopImportInput,
+  rawFileHash: string,
+  issue: NetshopImportIssue,
+  context: { platform?: string; shopName?: string } = {},
+): NormalizedNetshopImportPayload {
+  return {
+    schemaVersion: "netshop-normalized-v1",
+    disposition: "rejected",
+    fileName: safeFileName(input.fileName),
+    fileSizeBytes: input.fileSizeBytes,
+    rawFileHash,
+    source: input.source,
+    platform: context.platform ?? normalizeText(input.platform),
+    shopName: context.shopName ?? normalizeText(input.shopName),
+    warnings: [],
+    errors: [issue],
+    message: issue.message,
+  };
+}
+
+/**
+ * Parse and validate source bytes at the Worker boundary without reading or
+ * writing D1.  The Django writer treats this as untrusted input, revalidates
+ * every row and independently recomputes the content fingerprint before it
+ * can publish PostgreSQL facts.
+ */
+export async function prepareNormalizedNetshopImport(
+  input: NetshopImportInput,
+  productAssetDependencies: NetshopProductAssetDependencies = {
+    persistTmallProductAssetImages,
+  },
+): Promise<NormalizedNetshopImportPayload> {
+  const rawFileHash = toHex(await sha256(input.bytes));
+  let parsed: ParsedTable;
+  let assetImages: ReadonlyMap<number, TmallProductAssetImage> | undefined;
+  try {
+    if (input.source === "tmall_product_master" && !/\.xlsx$/i.test(input.fileName)) throw new Error("天猫货品主数据只接受 .xlsx 文件");
+    if (input.source === "tmall_product_assets" && !/\.xlsx$/i.test(input.fileName)) throw new Error("天猫 SPU 商品图只接受 .xlsx 文件");
+    if (input.source === "tmall_product_daily" && !/\.xls$/i.test(input.fileName)) throw new Error("生意参谋商品日数据只接受二进制 .xls 文件");
+    if (input.source === "tmall_promotion" && !/\.zip$/i.test(input.fileName)) throw new Error("天猫推广数据只接受包含单个 CSV 的 .zip 文件");
+    parsed = parseFile(input.bytes, input.fileName, input.source);
+    if (input.source === "tmall_product_assets") assetImages = await extractTmallProductAssetImages(input.bytes);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "文件解析失败";
+    return normalizedNetshopRejection(input, rawFileHash, { code: "PARSE_ERROR", message });
+  }
+
+  let header: ReturnType<typeof findHeader>;
+  try {
+    header = findTmallHeader(input.source, parsed);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "表头识别失败";
+    return normalizedNetshopRejection(input, rawFileHash, { code: "HEADER_NOT_FOUND", message });
+  }
+
+  let dataset: string;
+  try {
+    dataset = detectDataset(input.source, input.fileName, header.headers);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "数据集识别失败";
+    return normalizedNetshopRejection(input, rawFileHash, { code: "DATASET_HEADER_MISMATCH", message });
+  }
+  if (input.source === "jd_sku_daily" && input.expectedDataset && input.expectedDataset !== dataset) {
+    const message = `上传文件数据集为 ${dataset}，与预期 ${input.expectedDataset} 不一致`;
+    return normalizedNetshopRejection(input, rawFileHash, { code: "EXPECTED_DATASET_MISMATCH", message });
+  }
+
+  let platform: string;
+  let shopName: string;
+  try {
+    platform = isTmallSource(input.source) ? TMALL_PLATFORM : normalizeText(input.platform) || DEFAULT_PLATFORM;
+    shopName = isTmallSource(input.source)
+      ? resolveEnabledTmallShop(input.shopName).shopName
+      : normalizeText(input.shopName) || DEFAULT_SHOP_NAME;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "天猫店铺身份无效";
+    return normalizedNetshopRejection(input, rawFileHash, { code: "TMALL_SHOP_NOT_ALLOWED", message });
+  }
+  const snapshotDate = input.source === "tmall_product_master" || input.source === "tmall_product_assets"
+    ? isoDateFromValue(input.snapshotDate)
+    : isoDateFromValue(input.snapshotDate) || fileDate(input.fileName) || "";
+  const snapshotSource = usesSnapshotDate(input.source);
+  if (snapshotSource && !snapshotDate) {
+    const message = `${input.source} 快照导入必须提供有效 snapshot_date=YYYY-MM-DD`;
+    return normalizedNetshopRejection(
+      input,
+      rawFileHash,
+      { code: "MISSING_SNAPSHOT_DATE", message },
+      { platform, shopName },
+    );
+  }
+
+  const built = await buildNetshopRows(input, {
+    parsed,
+    header,
+    dataset,
+    platform,
+    shopName,
+    fileHash: rawFileHash,
+    snapshotDate,
+    assetImages,
+  });
+  const errors = built.sourceErrors.length > 0 ? [...built.sourceErrors] : validateRows(built.rows);
+  if (input.source === "tmall_promotion") {
+    for (const row of built.rawRows) {
+      if (normalizeText(row.raw["主体类型"]) !== "商品") {
+        errors.push({ row: row.rowNumber, field: "主体类型", code: "UNSUPPORTED_SUBJECT_TYPE", message: "推广导入当前只接受主体类型为“商品”的数据" });
+      }
+    }
+  }
+  if (input.source === "jd_sku_daily" || input.source === "tmall_product_daily" || input.source === "tmall_promotion") {
+    const coverage = dailyDateCoverage(
+      input.expectedStartDate,
+      input.expectedEndDate,
+      built.rows.map((row) => row.businessDate),
+    );
+    if (!coverage.validRange) {
+      errors.push({ code: "MISSING_EXPECTED_DATE_RANGE", message: "分天导入必须提供有效的目标起止日期" });
+    } else {
+      if (coverage.missingDates.length) errors.push({ code: "MISSING_EXPECTED_DATES", message: `目标区间缺少日期：${coverage.missingDates.join(", ")}` });
+      if (coverage.outOfRangeDates.length) errors.push({ code: "OUT_OF_RANGE_DATES", message: `文件包含目标区间外日期：${coverage.outOfRangeDates.join(", ")}` });
+    }
+  }
+  if (errors.length > 0) {
+    return {
+      ...normalizedNetshopRejection(
+        input,
+        rawFileHash,
+        errors[0],
+        { platform, shopName },
+      ),
+      errors: errors.slice(0, 200),
+      message: "文件校验未通过，未写入数据",
+    };
+  }
+
+  const missingSkuRows = input.source === "tmall_product_master"
+    ? built.rows.filter((row) => !row.skuId).length
+    : 0;
+  const missingSkuMerchantCodeRows = input.source === "tmall_product_master"
+    ? built.rows.filter((row) => !normalizeText(row.raw["SKU商家编码"])).length
+    : 0;
+  const merchantCodeCounts = new Map<string, number>();
+  if (input.source === "tmall_product_master") {
+    for (const row of built.rows) {
+      const value = normalizeText(row.raw["SKU商家编码"]);
+      if (value) merchantCodeCounts.set(value, (merchantCodeCounts.get(value) ?? 0) + 1);
+    }
+  }
+  const duplicateMerchantCodeRows = [...merchantCodeCounts.values()]
+    .filter((count) => count > 1)
+    .reduce((sum, count) => sum + count, 0);
+  const warnings: NetshopImportIssue[] = [
+    ...(missingSkuRows > 0 ? [{ code: "MISSING_SKU_ID", message: `${missingSkuRows} 行缺少 SKU ID，已使用商品ID、销售属性和源行号构造隔离键` }] : []),
+    ...(missingSkuMerchantCodeRows > 0 ? [{ code: "MISSING_MERCHANT_SKU_CODE", message: `${missingSkuMerchantCodeRows} 行缺少 SKU 商家编码；该字段仅保留作业务映射，不参与唯一键` }] : []),
+    ...(duplicateMerchantCodeRows > 0 ? [{ code: "DUPLICATE_MERCHANT_CODE", message: `${duplicateMerchantCodeRows} 行使用重复 SKU 商家编码；商家编码仅作映射，不作为主键` }] : []),
+  ];
+
+  let imagePersistence: { total: number; unique: number; verified: number } | Record<string, never> = {};
+  if (input.source === "tmall_product_assets") {
+    try {
+      imagePersistence = await productAssetDependencies.persistTmallProductAssetImages([
+        ...(assetImages?.values() ?? []),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "商品图片存储回查失败";
+      return normalizedNetshopRejection(
+        input,
+        rawFileHash,
+        { code: "PRODUCT_IMAGE_PERSIST_FAILED", message },
+        { platform, shopName },
+      );
+    }
+  }
+  const dates = built.rows.map((row) => row.businessDate).filter(Boolean).sort();
+  const sumMetric = (key: string) => built.rows.reduce((sum, row) => sum + Number(row.metrics[key] ?? 0), 0);
+  return {
+    schemaVersion: "netshop-normalized-v1",
+    disposition: "prepared",
+    fileName: safeFileName(input.fileName),
+    fileSizeBytes: input.fileSizeBytes,
+    rawFileHash,
+    source: input.source,
+    dataset,
+    platform,
+    shopName,
+    sheetName: parsed.sheetName,
+    note: normalizeText(input.note),
+    snapshotDate: snapshotSource ? snapshotDate : "",
+    startDate: input.expectedStartDate ?? (dates[0] ?? ""),
+    endDate: input.expectedEndDate ?? (dates[dates.length - 1] ?? ""),
+    rows: built.rows,
+    warnings,
+    parserTotals: {
+      sourceRowCount: built.rawRows.length,
+      rowCount: built.rows.length,
+      uniqueProductCount: new Set(built.rows.map((row) => row.spuId).filter(Boolean)).size,
+      uniqueSkuCount: new Set(built.rows.map((row) => row.skuId).filter(Boolean)).size,
+      dateMin: dates[0] ?? null,
+      dateMax: dates[dates.length - 1] ?? null,
+      inventoryQuantity: sumMetric("inventoryQuantity"),
+      transactionAmountCents: sumMetric("transactionAmountCents"),
+      refundAmountCents: sumMetric("refundAmountCents"),
+      spendCents: sumMetric("spendCents"),
+      netTransactionAmountCents: sumMetric("netTransactionAmountCents"),
+    },
+    imagePersistence,
+  };
+}
 
 export async function importNetshopBytes(
   input: NetshopImportInput,

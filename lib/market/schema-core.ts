@@ -18,6 +18,50 @@ const selfOperated = "\u81ea\u8425";
 const unknownMode = "\u672a\u77e5";
 const unknownPriceBand = "\u672a\u786e\u8ba4\u4ef7\u683c";
 
+export const marketNetshopProjectionStatements = [
+  `CREATE TABLE IF NOT EXISTS market_netshop_projection_control (
+    id INTEGER PRIMARY KEY NOT NULL CHECK (id=1),
+    active_revision TEXT NOT NULL DEFAULT '',
+    active_total INTEGER NOT NULL DEFAULT 0,
+    syncing_revision TEXT NOT NULL DEFAULT '',
+    owner_token TEXT NOT NULL DEFAULT '',
+    lease_expires_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `INSERT OR IGNORE INTO market_netshop_projection_control
+    (id,active_revision,active_total,syncing_revision,owner_token)
+    VALUES (1,'',0,'','')`,
+  `CREATE TABLE IF NOT EXISTS market_netshop_projection (
+    projection_revision TEXT NOT NULL,
+    projection_key TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('metric','identity','brand')),
+    source TEXT NOT NULL DEFAULT '',
+    dataset TEXT NOT NULL DEFAULT '',
+    platform TEXT NOT NULL DEFAULT '',
+    shop_name TEXT NOT NULL DEFAULT '',
+    business_date TEXT NOT NULL DEFAULT '',
+    sku_id TEXT NOT NULL DEFAULT '',
+    spu_id TEXT NOT NULL DEFAULT '',
+    product_code TEXT NOT NULL DEFAULT '',
+    transaction_amount_cents INTEGER NOT NULL DEFAULT 0,
+    brand TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (projection_revision,projection_key)
+  )`,
+  `CREATE INDEX IF NOT EXISTS market_netshop_projection_metric_idx
+    ON market_netshop_projection
+      (projection_revision,kind,source,dataset,business_date,sku_id,spu_id)`,
+  `CREATE INDEX IF NOT EXISTS market_netshop_projection_identity_idx
+    ON market_netshop_projection
+      (projection_revision,kind,sku_id,spu_id,product_code)`,
+  `CREATE INDEX IF NOT EXISTS market_netshop_projection_brand_idx
+    ON market_netshop_projection (projection_revision,kind,brand)`,
+  `CREATE VIEW IF NOT EXISTS market_netshop_active_projection AS
+    SELECT projection.* FROM market_netshop_projection projection
+    JOIN market_netshop_projection_control control
+      ON control.id=1 AND control.active_revision=projection.projection_revision`,
+] as const;
+
 const marketEffectiveMetricsCacheStatements = [
   `CREATE TABLE IF NOT EXISTS market_effective_metrics_cache (
     market_entry_id INTEGER PRIMARY KEY NOT NULL,
@@ -294,6 +338,7 @@ export const marketImportIdentityRefreshKeysTableStatement = `CREATE TABLE IF NO
 
 export const marketBaseSchemaStatements = [
   ...marketOverviewResponseCacheStatements,
+  ...marketNetshopProjectionStatements,
   `CREATE TABLE IF NOT EXISTS market_import_batches (
     id TEXT PRIMARY KEY NOT NULL,
     source_type TEXT NOT NULL,
@@ -1133,6 +1178,7 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
   await ensureMarketImageCacheJobSchema(db);
   const fastMarker = await hasMarketRuntimeSchemaMarker(db);
   if (fastMarker) {
+    for (const statement of marketNetshopProjectionStatements) await db.prepare(statement).run();
     for (const statement of marketEffectiveMetricsCacheStatements) await db.prepare(statement).run();
     for (const statement of marketMonthlySummaryCacheStatements) await db.prepare(statement).run();
     for (const statement of marketMonthlySummaryCacheIndexStatements) await db.prepare(statement).run();
@@ -1166,7 +1212,12 @@ export async function ensureMarketSchemaCore(db: MarketSchemaDatabase): Promise<
     await db.prepare(marketPublishedPriceBandUniqueIndexStatement).run();
     return;
   }
-  await db.batch(marketBaseSchemaStatements.map((statement) => db.prepare(statement)));
+  // D1/SQLite validates views and trigger dependencies when a statement is
+  // prepared. Preparing the whole fresh-schema list eagerly can therefore
+  // reference a table that has not run yet. The statements are idempotent, so
+  // install them in dependency order and let a later attempt safely continue
+  // if an infrastructure failure interrupts initialization.
+  for (const statement of marketBaseSchemaStatements) await db.prepare(statement).run();
   await db.prepare(marketSystemKpiCacheStateSeedStatement).run();
   await addMissingColumns(db, "market_system_kpi_cache_control", systemKpiCacheControlColumns);
   await db.prepare(marketSystemKpiCacheControlSeedStatement).run();

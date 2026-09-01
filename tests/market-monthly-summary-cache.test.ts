@@ -155,7 +155,7 @@ function insertMarketRow(sqlite: DatabaseSync, id: number, sku: string, gmv: num
     VALUES (?,?,0,0,10,?,200)`).run(id, gmv, Math.round(gmv / 10));
 }
 
-test("monthly summary invalidation ignores D1 sales and response cache follows Django revision", async () => {
+test("monthly summary invalidation follows atomic netshop projection and Django sales revisions", async () => {
   const sqlite = new DatabaseSync(":memory:");
   createSourceSchema(sqlite);
   await applyMonthlyCacheMigration(sqlite);
@@ -167,17 +167,20 @@ test("monthly summary invalidation ignores D1 sales and response cache follows D
   assert.equal((sqlite.prepare("SELECT month FROM market_monthly_summary_dirty_keys WHERE sku_code='SKU-1'").get() as { month: string }).month, "2026-06");
   sqlite.exec("INSERT INTO market_price_snapshots (id,category,scope,sku_code,ranking_dimension,month) VALUES ('p','家电','POP','SKU-1','SKU','2026-06')");
   sqlite.exec("INSERT INTO netshop_rows (id,sku_id) VALUES (1,'SKU-1')");
-  const afterNetshopInsert = revision();
+  const afterLegacyNetshopInsert = revision();
   sqlite.exec("UPDATE netshop_rows SET source_row_key='natural-key',updated_at='2026-07-30 12:00:00' WHERE id=1");
-  assert.equal(revision(), afterNetshopInsert);
-  sqlite.exec("UPDATE netshop_rows SET sku_id=sku_id WHERE id=1");
-  assert.equal(revision(), afterNetshopInsert);
-  sqlite.exec("UPDATE netshop_rows SET sku_id='SKU-2' WHERE id=1");
-  assert.ok(revision() > afterNetshopInsert);
-  const afterNetshopIdentity = revision();
-  sqlite.exec(`UPDATE netshop_rows SET metrics_json='{"transactionAmountCents":200}',business_date='2026-06-02' WHERE id=1`);
-  assert.ok(revision() > afterNetshopIdentity);
-  assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_products WHERE product_code='SKU-2'").get());
+  assert.equal(revision(), afterLegacyNetshopInsert);
+  sqlite.exec(`INSERT INTO market_netshop_projection
+    (projection_revision,projection_key,kind,source,dataset,business_date,sku_id,transaction_amount_cents)
+    VALUES ('1:aaaaaaaaaaaa','metric:SKU-1','metric','jd_sku_daily','sku_daily','2026-06-02','SKU-1',200)`);
+  assert.equal(revision(), afterLegacyNetshopInsert, "staging must not invalidate the active market view");
+  sqlite.exec(`UPDATE market_netshop_projection_control
+    SET active_revision='1:aaaaaaaaaaaa',active_total=1 WHERE id=1`);
+  assert.ok(revision() > afterLegacyNetshopInsert);
+  const afterProjectionActivation = revision();
+  sqlite.exec(`UPDATE market_netshop_projection_control
+    SET active_revision=active_revision WHERE id=1`);
+  assert.equal(revision(), afterProjectionActivation);
   const beforeSalesInsert = revision();
   sqlite.exec("INSERT INTO sales_order_lines (id,product_code,allocated_amount_cents,sales_time) VALUES (1,'SKU-1',100,'2026-06-01')");
   assert.equal(revision(), beforeSalesInsert);
@@ -197,13 +200,12 @@ test("monthly summary invalidation ignores D1 sales and response cache follows D
   sqlite.exec("UPDATE sales_order_lines SET product_code='SKU-2' WHERE id=1");
   assert.equal(revision(), beforeSalesInsert);
   sqlite.exec("UPDATE market_price_band_versions SET version=2 WHERE id='default-band'");
-  assert.ok(revision() >= initial + 5);
-  assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_products WHERE product_code='SKU-1'").get());
+  assert.ok(revision() >= initial + 4);
   assert.ok(sqlite.prepare("SELECT 1 FROM market_monthly_summary_dirty_scopes WHERE category='*'").get());
   sqlite.close();
 });
 
-test("runtime replaces the original broad update triggers on an existing database", async () => {
+test("runtime replaces legacy netshop-row triggers with one projection activation trigger", async () => {
   const sqlite = new DatabaseSync(":memory:");
   createSourceSchema(sqlite);
   await applyOriginalMonthlyCacheMigration(sqlite);
@@ -215,8 +217,12 @@ test("runtime replaces the original broad update triggers on an existing databas
   const after = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
   assert.equal(after, before);
   sqlite.exec(`UPDATE netshop_rows SET metrics_json='{"transactionAmountCents":300}' WHERE id=1`);
-  const afterMetrics = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
-  assert.ok(afterMetrics > after);
+  const afterLegacyMetrics = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
+  assert.equal(afterLegacyMetrics, after);
+  sqlite.exec(`UPDATE market_netshop_projection_control
+    SET active_revision='2:bbbbbbbbbbbb',active_total=0 WHERE id=1`);
+  const afterActivation = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
+  assert.ok(afterActivation > afterLegacyMetrics);
   sqlite.exec("INSERT INTO sales_order_lines (id,product_code,allocated_amount_cents,sales_time) VALUES (1,'SKU-1',100,'2026-06-01')");
   const beforeSalesCorrection = (sqlite.prepare("SELECT source_revision revision FROM market_monthly_summary_cache_state WHERE id=1").get() as { revision: number }).revision;
   sqlite.exec("UPDATE sales_order_lines SET allocated_amount_cents=999,sales_time='2026-06-02' WHERE id=1");
@@ -224,6 +230,8 @@ test("runtime replaces the original broad update triggers on an existing databas
   assert.equal(afterSalesCorrection, beforeSalesCorrection);
   assert.equal(sqlite.prepare(`SELECT COUNT(*) count FROM sqlite_master
     WHERE type='trigger' AND name LIKE 'market_monthly_summary_sales_%'`).get()?.count, 0);
+  assert.equal(sqlite.prepare(`SELECT COUNT(*) count FROM sqlite_master
+    WHERE type='trigger' AND name LIKE 'market_monthly_summary_netshop_%'`).get()?.count, 1);
   sqlite.close();
 });
 

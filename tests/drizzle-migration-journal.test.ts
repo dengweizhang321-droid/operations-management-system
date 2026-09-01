@@ -30,6 +30,9 @@ test("Drizzle journal registers normal migrations and excludes operator-only pos
     .filter((tag) => ![
       "0092_sales_domain_retirement",
       "0093_finance_write_authority",
+      "0094_netshop_write_authority",
+      "0095_market_netshop_projection",
+      "0096_netshop_domain_retirement",
     ].includes(tag));
   const journal = JSON.parse(journalText) as Journal;
 
@@ -38,6 +41,14 @@ test("Drizzle journal registers normal migrations and excludes operator-only pos
   assert.equal(journal.entries.some((entry) => entry.tag === "0092_sales_domain_retirement"), false);
   assert.equal(fileNames.includes("0093_finance_write_authority.sql"), true);
   assert.equal(journal.entries.some((entry) => entry.tag === "0093_finance_write_authority"), false);
+  for (const tag of [
+    "0094_netshop_write_authority",
+    "0095_market_netshop_projection",
+    "0096_netshop_domain_retirement",
+  ]) {
+    assert.equal(fileNames.includes(`${tag}.sql`), true);
+    assert.equal(journal.entries.some((entry) => entry.tag === tag), false);
+  }
   assert.deepEqual(journal.entries.map((entry) => entry.idx), sqlTags.map((_, index) => index));
   assert.deepEqual(journal.entries.map((entry) => entry.tag), sqlTags);
   assert.equal(new Set(journal.entries.map((entry) => entry.when)).size, journal.entries.length);

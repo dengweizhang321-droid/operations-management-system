@@ -1338,9 +1338,13 @@ test("overview analytics applies rank bounds and geometric interpolation between
       ('r1',1,'2026-06-01','2026-06-30','净水','pop','全部','SKU','POP',1,'A','A','甲',1000000,100,1000,'{"成交金额":"￥9000~￥1.1万"}','b'),
       ('r2',2,'2026-06-01','2026-06-30','净水','pop','全部','SKU','POP',2,'B','B','乙',600000,60,1000,'{"成交金额":"￥1000~￥9000"}','b'),
       ('r3',3,'2026-06-01','2026-06-30','净水','pop','全部','SKU','POP',3,'C','C','丙',100000,10,1000,'{"成交金额":"￥900~￥1100"}','b');
-    INSERT INTO netshop_rows VALUES
-      ('jd_sku_daily','sku_daily','2026-06-15','A','','','{"成交金额":10000}'),
-      ('jd_sku_daily','sku_daily','2026-06-15','C','','','{"成交金额":1000}');
+    INSERT INTO market_netshop_projection
+      (projection_revision,projection_key,kind,source,dataset,business_date,sku_id,transaction_amount_cents)
+    VALUES
+      ('1:aaaaaaaaaaaa','metric:A','metric','jd_sku_daily','sku_daily','2026-06-15','A',1000000),
+      ('1:aaaaaaaaaaaa','metric:C','metric','jd_sku_daily','sku_daily','2026-06-15','C',100000);
+    UPDATE market_netshop_projection_control
+      SET active_revision='1:aaaaaaaaaaaa',active_total=2 WHERE id=1;
   `);
   const analytics = readOverviewAnalytics(sqlite);
   const summary = JSON.parse(analytics.summary_json) as { gmv_cents: number };

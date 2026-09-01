@@ -55,7 +55,9 @@ test("machine-readable service status preserves the bounded root-only probe", as
 test("explicit Stop disarms before stopping and supervised Start is fenced under the service mutex", async () => {
   const service = await readFile(servicePath, "utf8");
   const dispatch = service.slice(service.indexOf("if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY"));
-  const stopBlock = dispatch.match(/"Stop" \{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
+  const stopBlock = dispatch.match(
+    /"Stop" \{([\s\S]*?)\r?\n\s*\}\r?\n\s*"Status"/,
+  )?.[1] ?? "";
   assert.ok(stopBlock.indexOf("Write-ServiceDesiredState \"stopped\"") >= 0);
   assert.ok(stopBlock.indexOf("Write-ServiceDesiredState \"stopped\"") < stopBlock.indexOf("Stop-ServiceStack"));
   assert.match(service, /SupervisorExpectedDesiredStateSha256/);

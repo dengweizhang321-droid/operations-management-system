@@ -7,19 +7,21 @@ const templateRoot = new URL("../", import.meta.url);
 test("build emits the operations console", async () => {
   const assetRoot = new URL("../dist/client/assets/", import.meta.url);
   const assetNames = await readdir(assetRoot);
-  const pageAsset = assetNames.find((name) => /^page-.*\.js$/.test(name));
+  const pageAssets = assetNames.filter((name) => /^page-.*\.js$/.test(name));
   const salesAsset = assetNames.find((name) => /^sales-module-view-.*\.js$/.test(name));
   const importAsset = assetNames.find((name) => /^import-module-view-.*\.js$/.test(name));
-  assert.ok(pageAsset, "client page bundle is missing");
+  assert.ok(pageAssets.length > 0, "client page bundle is missing");
   assert.ok(salesAsset, "lazy sales module bundle is missing");
   assert.ok(importAsset, "lazy import module bundle is missing");
 
-  const [server, page, sales, importModule] = await Promise.all([
+  const [server, pageChunks, sales, importModule] = await Promise.all([
     readFile(new URL("../dist/server/index.js", import.meta.url), "utf8"),
-    readFile(new URL(pageAsset, assetRoot), "utf8"),
+    Promise.all(pageAssets.map((name) => readFile(new URL(name, assetRoot), "utf8"))),
     readFile(new URL(salesAsset, assetRoot), "utf8"),
     readFile(new URL(importAsset, assetRoot), "utf8"),
   ]);
+  const page = pageChunks.find((chunk) => chunk.includes("我的工作台"));
+  assert.ok(page, "client page entry bundle is missing");
   assert.match(server, /api\/imports\/sales/);
   assert.match(server, /api\/sales\/summary/);
   assert.match(server, /api\/imports\/inventory/);
@@ -64,11 +66,15 @@ test("searches all allowlisted system data through the grouped authenticated sea
   assert.match(route, /searchAllBusinessData/);
   assert.match(route, /principal/);
   for (const domain of [
-    "erp_product_master", "netshop_rows", "inventory_stock_lines",
+    "erp_product_master", "inventory_stock_lines",
     "erp_inventory_age_lines", "inventory_age_metrics", "erp_combo_items", "replenishment_plan_items",
     "market_ranking_entries", "market_sku_annotations", "customer_service_conversations",
     "finance_lines", "finance_targets", "workflow_tasks",
   ]) assert.match(search, new RegExp(domain));
+  assert.match(search, /createDjangoNetshopConsumerReader/);
+  assert.match(search, /operation: "row_search"/);
+  assert.match(search, /netshopReader\.read/);
+  assert.doesNotMatch(search, /\b(?:FROM|JOIN)\s+netshop_rows\b/i);
   assert.match(search, /operation: "order_search"/);
   assert.match(search, /operation: "import_batch_search"/);
   assert.match(search, /scopeSql\(principal/);
@@ -456,11 +462,11 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
 });
 
 test("connects JD SPU daily workbooks to the netshop import API", async () => {
-  const [importModule, route, service, database, dailyContract] = await Promise.all([
+  const [importModule, route, service, models, dailyContract] = await Promise.all([
     readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/netshop/models.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/daily-contract.ts", import.meta.url), "utf8"),
   ]);
 
@@ -468,20 +474,24 @@ test("connects JD SPU daily workbooks to the netshop import API", async () => {
   assert.match(importModule, /京东商品 SPU 日数据/);
   assert.match(importModule, /formSource: "jd_sku_daily"/);
   assert.match(importModule, /dataset === "spu_daily"/);
-  assert.match(route, /importNetshopBytes/);
+  assert.match(route, /prepareNormalizedNetshopImport/);
+  assert.match(route, /createDjangoNetshopService/);
+  assert.match(route, /NETSHOP_IMPORTS_PATH/);
+  assert.match(route, /service: "writer"/);
   assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(service, /source === "jd_sku_daily"/);
   assert.match(dailyContract, /return "spu_daily"/);
   assert.match(service, /isDailyAggregateRow/);
   assert.match(service, /=== "合计"/);
-  assert.match(database, /spu_id/);
-  assert.match(database, /business_date/);
+  assert.match(models, /db_table = "netshop_rows"/);
+  assert.match(models, /spu_id = models\.TextField/);
+  assert.match(models, /business_date = models\.CharField/);
 });
 
 test("links imported JD SKU and SPU daily data to shop product analysis", async () => {
-  const [shopModule, database, route, access] = await Promise.all([
+  const [shopModule, query, route, access] = await Promise.all([
     readFile(new URL("../app/shop-module-view.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/netshop/query.py", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/product-performance/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/access.ts", import.meta.url), "utf8"),
   ]);
@@ -522,21 +532,22 @@ test("links imported JD SKU and SPU daily data to shop product analysis", async 
   assert.match(shopModule, /availableDateMin/);
   assert.match(shopModule, /全局统计周期/);
   assert.match(shopModule, /requestPerformance\("current", selectedPeriod, currentPerformanceScopeKey\)/);
-  assert.match(database, /getNetshopProductPerformance/);
-  assert.match(database, /dataset = input\.dimension === "sku" \? "sku_daily" : "spu_daily"/);
-  assert.match(database, /商品浏览量/);
-  assert.match(database, /搜索曝光次数/);
-  assert.match(database, /加购客户数/);
-  assert.match(database, /成交金额/);
-  assert.match(database, /GROUP_CONCAT\(DISTINCT NULLIF\(r\.shop_name/);
-  assert.match(database, /available_facts AS MATERIALIZED/);
-  assert.match(database, /coverageWhereParts/);
-  assert.match(database, /availableDateMin/);
+  assert.match(query, /def product_performance\(/);
+  assert.match(query, /identity_field = "sku_id" if dimension == "sku" else "spu_id"/);
+  assert.match(query, /date_min=Min\("business_date"\)/);
+  assert.match(query, /Count\("business_date", distinct=True\)/);
+  assert.match(query, /page_views/);
+  assert.match(query, /search_impressions/);
+  assert.match(query, /add_cart_customers/);
+  assert.match(query, /transaction_amount_cents/);
+  assert.match(query, /"availableDateMin"/);
   assert.match(route, /readDimension/);
   assert.match(route, /getAll\("platform"\)/);
   assert.match(route, /readNetshopOutletFilters\(params\.getAll\("outlet"\)\)/);
   assert.match(route, /params\.has\("shop"\)/);
-  assert.match(route, /netshopPlatformOptionsForPrincipal/);
+  assert.match(route, /netshopPlatformsForPrincipal/);
+  assert.match(route, /NETSHOP_PRODUCT_PERFORMANCE_PATH/);
+  assert.match(route, /service: "reader"/);
   assert.match(access, /NETSHOP_SUPPORTED_PLATFORMS = \["京东", "天猫"\]/);
   assert.match(access, /principal\.scope\.platforms/);
 });
@@ -589,7 +600,7 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
     readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/module-view-shared.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/netshop/query.py", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/products/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/product-performance/route.ts", import.meta.url), "utf8"),
@@ -620,10 +631,10 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
   assert.match(service, /if \(!verification\.verified\)/);
   assert.match(service, /批次、行数、店铺、数据集或日期覆盖回查不一致/);
   assert.match(service, /DUPLICATE_MERCHANT_CODE/);
-  assert.match(database, /replaceScope/);
-  assert.match(database, /getNetshopPromotionPerformance/);
-  assert.match(database, /spendCents/);
-  assert.match(database, /platformPaymentAmountCents/);
+  assert.match(database, /def product_catalog\(/);
+  assert.match(database, /def promotion_performance\(/);
+  assert.match(database, /"spendCents"/);
+  assert.match(database, /"platformPaymentAmountCents"/);
   assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(importRoute, /netshopPlatformsForPrincipal/);
   for (const route of [importRoute, productRoute, performanceRoute, promotionRoute]) {

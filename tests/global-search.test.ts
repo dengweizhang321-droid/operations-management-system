@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import type { FinanceConsumerReader } from "../lib/django/finance-consumer-reader";
+import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -101,6 +102,29 @@ function fakeFinanceSearchReader(input: {
   };
 }
 
+function fakeNetshopSearchReader(input: {
+  rows?: Array<{ id: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: null }>;
+  imports?: Array<{ id: string; source: string; dataset: string; platform: string; shopName: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): NetshopConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      const allItems = request.operation === "row_search" ? input.rows ?? [] : input.imports ?? [];
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "4:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as NetshopConsumerReader["read"],
+  };
+}
+
 test("全局搜索校验关键词、分组和严格分页上限", () => {
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=一")), GlobalSearchRequestError);
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=sqlite_master")), /允许清单/);
@@ -173,7 +197,7 @@ test("LIKE 模式字符只作为字面量绑定", () => {
   assert.equal(escapeGlobalSearchLike("A%_\\B"), "%A\\%\\_\\\\B%");
 });
 
-test("网店商品搜索只读取各范围最新完成批次并跳过原始推广历史", async () => {
+test("网店商品搜索只使用有界 Django 消费接口且不回查 D1 网店事实", async () => {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`
     CREATE TABLE netshop_import_batches (
@@ -219,14 +243,21 @@ test("网店商品搜索只读取各范围最新完成批次并跳过原始推�
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=jd_products")),
     admin,
+    {
+      netshopReader: fakeNetshopSearchReader({ rows: [{
+        id: "CURRENT-SKU:测试店",
+        title: "当前命中",
+        subtitle: "京东 · 测试店",
+        detail: "CURRENT-SKU",
+        updatedAt: "2026-08-25",
+        amountCents: null,
+      }] }),
+    },
   );
 
   assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["CURRENT-SKU:测试店"]);
   assert.equal(result.groups[0]?.available, true);
-  assert.equal(businessCalls.length, 1);
-  assert.match(businessCalls[0]?.sql ?? "", /ROW_NUMBER\(\) OVER[\s\S]*PARTITION BY source, dataset, platform, shop_name/);
-  assert.match(businessCalls[0]?.sql ?? "", /status = 'completed'[\s\S]*source NOT IN \('jd_promotion', 'tmall_promotion'\)/);
-  assert.match(businessCalls[0]?.sql ?? "", /last_import_batch_id = batch\.batch_id/);
+  assert.equal(businessCalls.length, 0);
   sqlite.close();
 });
 
@@ -521,6 +552,7 @@ test("Django 财务批次在销售与其余 D1 批次之间保持精确跨源分
     {
       salesReader: fakeSalesSearchReader({ imports: salesImports }),
       financeReader: fakeFinanceSearchReader({ imports: financeImports }),
+      netshopReader: fakeNetshopSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -585,7 +617,12 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机")),
     admin,
-    { salesReader: fakeSalesSearchReader() },
+    {
+      salesReader: fakeSalesSearchReader(),
+      financeReader: fakeFinanceSearchReader(),
+      netshopReader: fakeNetshopSearchReader(),
+      financeBackendMode: "django",
+    },
   );
   assert.equal(result.groups.length, 14);
   assert.equal(result.groups.every((group) => group.available), true);
@@ -892,15 +929,20 @@ test("multi-domain search caps database concurrency at three and performs one LI
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&limit=2")),
     admin,
-    { salesReader: fakeSalesSearchReader() },
+    {
+      salesReader: fakeSalesSearchReader(),
+      financeReader: fakeFinanceSearchReader(),
+      netshopReader: fakeNetshopSearchReader(),
+      financeBackendMode: "django",
+    },
   );
 
   assert.equal(result.groups.length, 14);
   assert.equal(result.deadlineExceeded, false);
   assert.equal(peak, 3);
   assert.ok(peak <= 3);
-  assert.equal(businessCalls.length, 14);
-  assert.equal(statementCount, 15);
+  assert.equal(businessCalls.length, 11);
+  assert.equal(statementCount, 12);
   const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
   assert.equal(businessCalls.filter((call) => !localImportCalls.includes(call))
     .every(({ values }) => values.at(-2) === 3 && values.at(-1) === 0), true);
@@ -1057,13 +1099,16 @@ test("group deadline returns a disclosed partial response and never starts queue
     {
       deadlineMs: 15,
       salesReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as SalesConsumerReader,
+      financeReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as FinanceConsumerReader,
+      netshopReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as NetshopConsumerReader,
+      financeBackendMode: "django",
     },
   );
-  assert.equal(businessStarts, 2);
+  assert.equal(businessStarts, 1);
   assert.equal(result.deadlineExceeded, true);
   assert.equal(result.truncated, true);
   assert.equal(result.timedOutDomains.length, 14);
   assert.equal(result.groups.every((group) => group.totalExact === false), true);
   await wait(70);
-  assert.equal(businessStarts, 2);
+  assert.equal(businessStarts, 1);
 });

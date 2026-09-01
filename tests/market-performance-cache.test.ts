@@ -7,6 +7,7 @@ import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import {
   ensureMarketSchemaCore,
   marketBaseSchemaStatements,
+  marketNetshopProjectionStatements,
   marketSystemKpiCacheControlTableStatement,
   marketSystemKpiCacheTriggerStatements,
   marketSystemKpiCacheTriggerDropStatements,
@@ -283,13 +284,13 @@ test("effective-metrics refresh updates the cache without deleting every persist
   assert.match(refresh, /SELECT DISTINCT category FROM market_ranking_entries ORDER BY category/);
   assert.match(refresh, /marketEffectiveFactsCtes\("WHERE m\.category=\?"\)/);
   assert.match(refresh, /MARKET_EFFECTIVE_METRICS_SOURCE_CHANGED/);
-  assert.match(database, /const marketEffectiveMetricsNetshopRevisionSql = `SELECT COUNT\(\*\) row_count, MAX\(updated_at\) updated_at\s+FROM netshop_rows\s+WHERE source='jd_sku_daily' AND dataset IN \('sku_daily','spu_daily'\)`/);
+  assert.match(database, /const marketEffectiveMetricsNetshopRevisionSql = `SELECT active_total row_count, active_revision updated_at\s+FROM market_netshop_projection_control WHERE id=1`/);
   assert.equal(
     (refresh.match(/db\.prepare\(marketEffectiveMetricsNetshopRevisionSql\)/g) ?? []).length,
     2,
-    "both the opening and closing revision fences must scan only the dependent JD daily rows",
+    "both the opening and closing fences must read the constant-time active projection receipt",
   );
-  assert.doesNotMatch(refresh, /SELECT COUNT\(\*\) row_count, MAX\(updated_at\) updated_at FROM netshop_rows/);
+  assert.doesNotMatch(refresh, /FROM netshop_rows/);
   const upsertPosition = refresh.indexOf("ON CONFLICT(market_entry_id)");
   assert.ok(
     upsertPosition >= 0
@@ -319,11 +320,10 @@ test("market and netshop mutations invalidate the persisted effective-metrics re
 });
 
 test("effective-metrics netshop invalidation is scoped identically in runtime and migration", async () => {
-  const [baseMigration, scopeMigration, databaseSource, journalSource] = await Promise.all([
+  const [baseMigration, projectionMigration, databaseSource] = await Promise.all([
     readFile(new URL("../drizzle/0046_market_effective_metrics_cache.sql", import.meta.url), "utf8"),
-    readFile(new URL("../drizzle/0080_market_effective_metrics_exact_netshop_scope.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0095_market_netshop_projection.sql", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
-    readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"),
   ]);
   const splitMigration = (source: string) => source
     .split("--> statement-breakpoint")
@@ -340,8 +340,8 @@ test("effective-metrics netshop invalidation is scoped identically in runtime an
   };
   const runtimeDrops = extractRuntimeStatements("marketEffectiveMetricsNetshopTriggerDropStatements");
   const runtimeCreates = extractRuntimeStatements("marketEffectiveMetricsNetshopTriggerStatements");
-  assert.equal(runtimeDrops.length, 3);
-  assert.equal(runtimeCreates.length, 3);
+  assert.equal(runtimeDrops.length, 4);
+  assert.equal(runtimeCreates.length, 1);
   const runtimeSetup = databaseSource.slice(
     databaseSource.indexOf("function ensureEffectiveMetricsInvalidationTriggers"),
     databaseSource.indexOf("function sameEffectiveMetricsRevision"),
@@ -359,6 +359,16 @@ test("effective-metrics netshop invalidation is scoped identically in runtime an
         dataset TEXT NOT NULL,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE market_monthly_summary_cache_state (
+        id INTEGER PRIMARY KEY,
+        source_revision INTEGER NOT NULL,
+        status TEXT NOT NULL
+      );
+      INSERT INTO market_monthly_summary_cache_state VALUES (1,1,'ready');
+      CREATE TABLE market_monthly_summary_dirty_scopes (
+        category TEXT PRIMARY KEY,
+        dirty_revision INTEGER NOT NULL
+      );
     `);
     for (const statement of splitMigration(baseMigration)) sqlite.exec(statement);
     return sqlite;
@@ -369,43 +379,27 @@ test("effective-metrics netshop invalidation is scoped identically in runtime an
   const hasState = (sqlite: DatabaseSync) => Boolean(
     sqlite.prepare("SELECT id FROM market_effective_metrics_cache_state WHERE id=1").get(),
   );
-  const assertScopedBehavior = (sqlite: DatabaseSync, surface: string) => {
+  const assertProjectionBehavior = (sqlite: DatabaseSync, surface: string) => {
     restoreState(sqlite);
     sqlite.exec("INSERT INTO netshop_rows (id,source,dataset) VALUES (1,'tmall_product_daily','spu_daily')");
-    assert.equal(hasState(sqlite), true, `${surface}: unrelated insert must preserve the cache`);
-    sqlite.exec("UPDATE netshop_rows SET dataset='promotion_daily' WHERE id=1");
-    assert.equal(hasState(sqlite), true, `${surface}: unrelated update must preserve the cache`);
+    assert.equal(hasState(sqlite), true, `${surface}: retired D1 fact insert must preserve the cache`);
+    sqlite.exec("UPDATE netshop_rows SET source='jd_sku_daily',dataset='sku_daily' WHERE id=1");
+    assert.equal(hasState(sqlite), true, `${surface}: retired D1 fact update must preserve the cache`);
     sqlite.exec("DELETE FROM netshop_rows WHERE id=1");
-    assert.equal(hasState(sqlite), true, `${surface}: unrelated delete must preserve the cache`);
+    assert.equal(hasState(sqlite), true, `${surface}: retired D1 fact delete must preserve the cache`);
 
-    sqlite.exec("INSERT INTO netshop_rows (id,source,dataset) VALUES (2,'jd_sku_daily','product_master')");
-    assert.equal(hasState(sqlite), true, `${surface}: the source alone must not invalidate`);
-    sqlite.exec("DELETE FROM netshop_rows WHERE id=2");
-    sqlite.exec("INSERT INTO netshop_rows (id,source,dataset) VALUES (3,'jd_product_master','sku_daily')");
-    assert.equal(hasState(sqlite), true, `${surface}: the dataset alone must not invalidate`);
-    sqlite.exec("DELETE FROM netshop_rows WHERE id=3");
-
-    sqlite.exec("INSERT INTO netshop_rows (id,source,dataset) VALUES (10,'jd_sku_daily','sku_daily')");
-    assert.equal(hasState(sqlite), false, `${surface}: a dependent SKU insert must invalidate`);
+    sqlite.exec(`INSERT INTO market_netshop_projection
+      (projection_revision,projection_key,kind,source,dataset,business_date,sku_id,transaction_amount_cents)
+      VALUES ('1:aaaaaaaaaaaa','metric:SKU-1','metric','jd_sku_daily','sku_daily','2026-08-25','SKU-1',100)`);
+    assert.equal(hasState(sqlite), true, `${surface}: staging must preserve the active cache`);
+    sqlite.exec(`UPDATE market_netshop_projection_control
+      SET active_revision='1:aaaaaaaaaaaa',active_total=1 WHERE id=1`);
+    assert.equal(hasState(sqlite), false, `${surface}: activation must invalidate`);
     restoreState(sqlite);
-    sqlite.exec("UPDATE netshop_rows SET updated_at='2026-08-25 03:00:00' WHERE id=10");
-    assert.equal(hasState(sqlite), false, `${surface}: a dependent row update must invalidate`);
-    restoreState(sqlite);
-    sqlite.exec("DELETE FROM netshop_rows WHERE id=10");
-    assert.equal(hasState(sqlite), false, `${surface}: a dependent row delete must invalidate`);
-
-    sqlite.exec("INSERT INTO netshop_rows (id,source,dataset) VALUES (11,'jd_sku_daily','spu_daily')");
-    restoreState(sqlite);
-    sqlite.exec("DELETE FROM netshop_rows WHERE id=11");
-    assert.equal(hasState(sqlite), false, `${surface}: a dependent SPU row must invalidate`);
-
-    sqlite.exec("INSERT INTO netshop_rows (id,source,dataset) VALUES (20,'jd_product_master','product_master')");
-    restoreState(sqlite);
-    sqlite.exec("UPDATE netshop_rows SET source='jd_sku_daily',dataset='sku_daily' WHERE id=20");
-    assert.equal(hasState(sqlite), false, `${surface}: a row entering the dependent scope must invalidate`);
-    restoreState(sqlite);
-    sqlite.exec("UPDATE netshop_rows SET source='jd_product_master',dataset='product_master' WHERE id=20");
-    assert.equal(hasState(sqlite), false, `${surface}: a row leaving the dependent scope must invalidate`);
+    sqlite.exec("UPDATE market_netshop_projection_control SET active_revision=active_revision WHERE id=1");
+    assert.equal(hasState(sqlite), true, `${surface}: an unchanged revision must not invalidate`);
+    sqlite.exec("UPDATE market_netshop_projection_control SET active_revision='2:bbbbbbbbbbbb',active_total=0 WHERE id=1");
+    assert.equal(hasState(sqlite), false, `${surface}: every successor activation must invalidate`);
   };
   const triggerDefinitions = (sqlite: DatabaseSync) => sqlite.prepare(`SELECT name,sql FROM sqlite_master
     WHERE type='trigger' AND name LIKE 'market_effective_cache_netshop_%' ORDER BY name`).all()
@@ -415,27 +409,21 @@ test("effective-metrics netshop invalidation is scoped identically in runtime an
     }));
 
   const runtimeSqlite = createFixture();
+  for (const statement of marketNetshopProjectionStatements) runtimeSqlite.exec(statement);
   for (const statement of [...runtimeDrops, ...runtimeCreates]) runtimeSqlite.exec(statement);
-  assertScopedBehavior(runtimeSqlite, "runtime");
+  assertProjectionBehavior(runtimeSqlite, "runtime");
   const runtimeDefinitions = triggerDefinitions(runtimeSqlite);
 
   const migrationSqlite = createFixture();
   restoreState(migrationSqlite);
-  for (const statement of splitMigration(scopeMigration)) migrationSqlite.exec(statement);
+  for (const statement of splitMigration(projectionMigration)) migrationSqlite.exec(statement);
   assert.equal(hasState(migrationSqlite), false, "the forward migration must fail closed and force one rebuild");
-  assertScopedBehavior(migrationSqlite, "migration");
+  assertProjectionBehavior(migrationSqlite, "migration");
   const migrationDefinitions = triggerDefinitions(migrationSqlite);
 
   assert.deepEqual(migrationDefinitions, runtimeDefinitions);
-  assert.match(scopeMigration, /WHEN \(OLD\.`source`='jd_sku_daily'[\s\S]*OR \(NEW\.`source`='jd_sku_daily'/);
-  assert.match(scopeMigration, /DELETE FROM `market_effective_metrics_cache_state` WHERE `id`=1;\s*$/);
-  const journal = JSON.parse(journalSource) as { entries?: Array<{ idx: number; tag: string }> };
-  assert.deepEqual(
-    journal.entries
-      ?.filter(({ idx, tag }) => idx === 79 || tag === "0080_market_effective_metrics_exact_netshop_scope")
-      .map(({ idx, tag }) => ({ idx, tag })),
-    [{ idx: 79, tag: "0080_market_effective_metrics_exact_netshop_scope" }],
-  );
+  assert.match(projectionMigration, /AFTER UPDATE OF `active_revision` ON `market_netshop_projection_control`/);
+  assert.match(projectionMigration, /deliberately absent from the normal Drizzle\s+-- journal/);
   runtimeSqlite.close();
   migrationSqlite.close();
 });

@@ -142,8 +142,8 @@ async function discoverSystemMarketBrandSeeds(db: MarketSchemaDatabase) {
     { table: "inventory_stock_lines", sql: "SELECT DISTINCT trim(brand) brand FROM inventory_stock_lines WHERE trim(brand)<>''", ref: "inventory_stock_lines" },
     { table: "market_ranking_entries", sql: "SELECT DISTINCT trim(brand) brand FROM market_ranking_entries WHERE trim(brand)<>''", ref: "market_confirmed_brand" },
     { table: "market_master_mapping_rules", sql: "SELECT DISTINCT trim(target_value) brand FROM market_master_mapping_rules WHERE kind IN ('brand_alias','brand_override') AND status='published' AND trim(target_value)<>''", ref: "market_brand_mapping" },
-    { table: "netshop_rows", sql: `SELECT DISTINCT trim(COALESCE(json_extract(raw_json, '$.品牌'), json_extract(raw_json, '$.品牌名称'), '')) brand
-      FROM netshop_rows WHERE dataset='product_master' AND trim(COALESCE(json_extract(raw_json, '$.品牌'), json_extract(raw_json, '$.品牌名称'), ''))<>''`, ref: "netshop_product_master" },
+    { table: "market_netshop_projection", sql: `SELECT DISTINCT trim(brand) brand
+      FROM market_netshop_active_projection WHERE kind='brand' AND trim(brand)<>''`, ref: "netshop_product_master" },
   ];
   for (const source of sources) {
     if (!await tableExists(db, source.table)) continue;

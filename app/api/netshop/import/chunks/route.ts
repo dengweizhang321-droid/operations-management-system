@@ -9,9 +9,13 @@ import {
   releaseNetshopAssetUpload,
 } from "@/lib/netshop/product-asset-upload";
 import {
-  importNetshopBytes,
+  prepareNormalizedNetshopImport,
   TMALL_PLATFORM,
 } from "@/lib/netshop/import-service";
+import {
+  createDjangoNetshopService,
+  NETSHOP_IMPORTS_PATH,
+} from "@/lib/django/netshop-service";
 import { resolveEnabledTmallShop } from "@/lib/netshop/tmall-store-catalog";
 import {
   authorizationErrorResponse,
@@ -59,14 +63,14 @@ export async function POST(request: Request) {
       const effectiveSnapshotDate = snapshotDate(body);
       if (!effectiveSnapshotDate) return reject(400, "天猫 SPU 商品图分片上传必须绑定有效快照日期");
       const shop = resolveEnabledTmallShop(bodyString(body, "shopName"));
-      const upload = await beginNetshopAssetUpload({
+      const upload = await beginNetshopAssetUpload(principal, {
         fileName: bodyString(body, "fileName"),
         fileSizeBytes: Number(body.fileSizeBytes),
         chunkCount: Number(body.chunkCount),
         clientFingerprint: bodyString(body, "fingerprint"),
         shopName: shop.shopName,
         snapshotDate: effectiveSnapshotDate,
-      });
+      }, request.signal);
       return Response.json({
         ok: true,
         status: "ready",
@@ -83,9 +87,9 @@ export async function POST(request: Request) {
       const effectiveSnapshotDate = snapshotDate(body);
       if (!uploadId || !effectiveSnapshotDate) return reject(400, "缺少上传会话标识或有效快照日期");
       const shop = resolveEnabledTmallShop(bodyString(body, "shopName"));
-      const claim = await claimNetshopAssetUpload(uploadId);
+      const claim = await claimNetshopAssetUpload(principal, uploadId, request.signal);
       if (claim.session.shopName !== shop.shopName || claim.session.snapshotDate !== effectiveSnapshotDate) {
-        if (claim.kind === "claimed") await releaseNetshopAssetUpload(uploadId, claim.ownerToken);
+        if (claim.kind === "claimed") await releaseNetshopAssetUpload(principal, claim, request.signal);
         return reject(409, "上传会话绑定的店铺或快照日期与本次请求不一致");
       }
       if (claim.kind === "completed") {
@@ -98,8 +102,8 @@ export async function POST(request: Request) {
         );
       }
       try {
-        const assembled = await assembleNetshopAssetUpload(uploadId, claim.ownerToken);
-        const result = await importNetshopBytes({
+        const assembled = await assembleNetshopAssetUpload(claim);
+        const normalized = await prepareNormalizedNetshopImport({
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
@@ -108,13 +112,30 @@ export async function POST(request: Request) {
           shopName: shop.shopName,
           snapshotDate: effectiveSnapshotDate,
         });
-        await finishNetshopAssetUpload(uploadId, claim.ownerToken, assembled.objectKeys, result);
-        return Response.json(result, {
-          status: importExecutionHttpStatus(result),
+        const django = await createDjangoNetshopService().request<Record<string, unknown>>(
+          principal,
+          {
+            method: "POST",
+            path: NETSHOP_IMPORTS_PATH,
+            payload: normalized as unknown as Record<string, unknown>,
+            service: "writer",
+            acceptedErrorStatuses: [422],
+          },
+          { signal: request.signal },
+        );
+        await finishNetshopAssetUpload(
+          principal,
+          claim,
+          assembled.objectKeys,
+          django.data,
+          request.signal,
+        );
+        return Response.json(django.data, {
+          status: django.status,
           headers: { "cache-control": "no-store" },
         });
       } catch (error) {
-        await releaseNetshopAssetUpload(uploadId, claim.ownerToken);
+        await releaseNetshopAssetUpload(principal, claim, request.signal).catch(() => undefined);
         throw error;
       }
     }
@@ -140,7 +161,11 @@ export async function PUT(request: Request) {
     if (contentLength > NETSHOP_ASSET_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 2MB");
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
-    const upload = await receiveNetshopAssetUploadChunk({ uploadId, chunkIndex, bytes });
+    const upload = await receiveNetshopAssetUploadChunk(
+      principal,
+      { uploadId, chunkIndex, bytes },
+      request.signal,
+    );
     return Response.json({ ok: true, status: "uploading", upload }, {
       headers: { "cache-control": "no-store" },
     });
