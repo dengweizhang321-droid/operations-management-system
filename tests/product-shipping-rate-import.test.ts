@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import test from "node:test";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 
 import {
@@ -97,6 +98,22 @@ function workbookBytes(input: {
   return new Uint8Array(XLSX.write(workbook, { type: "array", bookType: "xlsx", bookSST: true }));
 }
 
+function namespacePrefixedWorkbookBytes() {
+  const archive = unzipSync(workbookBytes());
+  for (const name of ["xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/sharedStrings.xml"]) {
+    const entry = archive[name];
+    assert.ok(entry, `${name} must exist in the XLSX fixture`);
+    const prefixed = strFromU8(entry)
+      .replace(
+        'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+        'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+      )
+      .replace(/<(\/?)([A-Za-z_][\w.-]*)(?=[\s/>])/g, "<$1x:$2");
+    archive[name] = strToU8(prefixed);
+  }
+  return zipSync(archive);
+}
+
 test("SKU累计 parser recalculates rates, collapses safe duplicates, and ignores repeated code headers", () => {
   const parsed = parseProductShippingRateXlsx(workbookBytes());
   assert.equal(parsed.sheetName, "SKU累计");
@@ -108,6 +125,14 @@ test("SKU累计 parser recalculates rates, collapses safe duplicates, and ignore
   ]);
   assert.ok(parsed.warnings.some((issue) => issue.code === "DUPLICATE_PRODUCT_CODES_COLLAPSED"));
   assert.ok(parsed.warnings.some((issue) => issue.code === "NEGATIVE_SHIPPING_RATES"));
+});
+
+test("SKU累计 parser accepts valid namespace-prefixed SpreadsheetML", () => {
+  const parsed = parseProductShippingRateXlsx(namespacePrefixedWorkbookBytes());
+  assert.deepEqual(parsed.rows.map((row) => ({ code: row.productCode, rate: row.shippingRate })), [
+    { code: "SKU-A", rate: 0.05 },
+    { code: "SKU-B", rate: -0.2 },
+  ]);
 });
 
 test("SKU累计 parser rejects stale cached rate values", () => {

@@ -178,14 +178,21 @@ function xmlAttribute(fragment: string, name: string) {
   return match ? decodeXml(match[1] ?? match[2] ?? "") : null;
 }
 
+function qualifiedElementName(name: string) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return `(?:[A-Za-z_][\\w.-]*:)?${escaped}`;
+}
+
 function xmlChildText(fragment: string, name: string) {
-  const match = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`).exec(fragment);
+  const qualifiedName = qualifiedElementName(name);
+  const match = new RegExp(`<${qualifiedName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${qualifiedName}>`).exec(fragment);
   return match ? decodeXml(match[1]) : null;
 }
 
 function createXmlElementConsumer(tagName: string, onElement: (element: string) => void) {
   const decoder = new TextDecoder("utf-8", { fatal: true });
-  const expression = new RegExp(`<${tagName}\\b[^>]*(?:\\/>|>[\\s\\S]*?<\\/${tagName}>)`, "g");
+  const qualifiedName = qualifiedElementName(tagName);
+  const expression = new RegExp(`<${qualifiedName}\\b[^>]*(?:\\/>|>[\\s\\S]*?<\\/${qualifiedName}>)`, "g");
   let buffer = "";
   return (data: Uint8Array, final: boolean) => {
     buffer += decoder.decode(data, { stream: !final });
@@ -199,7 +206,7 @@ function createXmlElementConsumer(tagName: string, onElement: (element: string) 
     if (buffer.length > MAX_XML_ELEMENT_BUFFER_CHARS) {
       throw new Error(`XLSX ${tagName} XML element exceeds the supported size`);
     }
-    if (final && new RegExp(`<${tagName}\\b`).test(buffer)) {
+    if (final && new RegExp(`<${qualifiedName}\\b`).test(buffer)) {
       throw new Error(`XLSX ${tagName} XML is truncated`);
     }
   };
@@ -208,7 +215,8 @@ function createXmlElementConsumer(tagName: string, onElement: (element: string) 
 function parseCell(fragment: string): RawCell {
   const openingEnd = fragment.indexOf(">");
   const opening = openingEnd >= 0 ? fragment.slice(0, openingEnd + 1) : fragment;
-  const inlineValue = [...fragment.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
+  const textName = qualifiedElementName("t");
+  const inlineValue = [...fragment.matchAll(new RegExp(`<${textName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${textName}>`, "g"))]
     .map((match) => decodeXml(match[1]))
     .join("");
   return {
@@ -241,7 +249,9 @@ function ratesEqual(left: number, right: number) {
 }
 
 function resolveSheetEntry(workbookXml: string, relationshipsXml: string) {
-  const sheetTags = [...workbookXml.matchAll(/<sheet\b[^>]*\/?>(?:<\/sheet>)?/g)].map((match) => match[0]);
+  const sheetName = qualifiedElementName("sheet");
+  const sheetTags = [...workbookXml.matchAll(new RegExp(`<${sheetName}\\b[^>]*\\/?>(?:<\\/${sheetName}>)?`, "g"))]
+    .map((match) => match[0]);
   const targetSheets = sheetTags.filter((tag) => xmlAttribute(tag, "name") === PRODUCT_SHIPPING_RATE_SHEET_NAME);
   if (targetSheets.length !== 1) {
     workbookError(
@@ -253,7 +263,9 @@ function resolveSheetEntry(workbookXml: string, relationshipsXml: string) {
   }
   const relationshipId = xmlAttribute(targetSheets[0], "r:id");
   if (!relationshipId) workbookError("INVALID_WORKBOOK_RELATIONSHIP", "SKU累计工作表缺少关系标识");
-  const relationshipTags = [...relationshipsXml.matchAll(/<Relationship\b[^>]*\/?>(?:<\/Relationship>)?/g)].map((match) => match[0]);
+  const relationshipName = qualifiedElementName("Relationship");
+  const relationshipTags = [...relationshipsXml.matchAll(new RegExp(`<${relationshipName}\\b[^>]*\\/?>(?:<\\/${relationshipName}>)?`, "g"))]
+    .map((match) => match[0]);
   const relationship = relationshipTags.find((tag) => xmlAttribute(tag, "Id") === relationshipId);
   const relationshipTarget = relationship ? xmlAttribute(relationship, "Target") : null;
   if (!relationshipTarget) workbookError("INVALID_WORKBOOK_RELATIONSHIP", "无法定位 SKU累计工作表内容");
@@ -311,7 +323,8 @@ export function parseProductShippingRateXlsx(bytes: Uint8Array): ProductShipping
   const consumeSharedString = createXmlElementConsumer("si", (fragment) => {
     sharedStringIndex += 1;
     if (!sharedStringIndexes.has(sharedStringIndex)) return;
-    const value = [...fragment.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
+    const textName = qualifiedElementName("t");
+    const value = [...fragment.matchAll(new RegExp(`<${textName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${textName}>`, "g"))]
       .map((match) => decodeXml(match[1]))
       .join("");
     sharedStrings.set(sharedStringIndex, value);
