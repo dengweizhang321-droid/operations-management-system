@@ -307,11 +307,12 @@ test("wires inventory health, synchronization, and replenishment", async () => {
 });
 
 test("wires product profitability to synchronized sales and inventory facts", async () => {
-  const [productModule, businessUiModule, route, summary, parser, inventoryDatabase, migration] = await Promise.all([
+  const [productModule, businessUiModule, route, summary, djangoQuery, parser, inventoryDatabase, migration] = await Promise.all([
     readFile(new URL("../app/product-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/module-view-business-ui.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/products/summary/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/products/query.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/imports/inventory-stock.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/inventory/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0008_young_sunspot.sql", import.meta.url), "utf8"),
@@ -338,15 +339,19 @@ test("wires product profitability to synchronized sales and inventory facts", as
   assert.match(route, /getProductSummary/);
   assert.match(route, /startDate/);
   assert.match(route, /endDate/);
-  assert.match(summary, /operation: "product_performance"/);
-  assert.doesNotMatch(summary, /sales_order_lines/);
-  assert.match(summary, /inventory_stock_lines/);
-  assert.match(summary, /gross_profit_cents/);
-  assert.match(summary, /refund_amount_cents/);
+  assert.match(summary, /createDjangoProductsService/);
+  assert.match(summary, /PRODUCTS_SUMMARY_PATH/);
+  assert.match(summary, /service: "reader"/);
+  assert.doesNotMatch(summary, /sales_order_lines|inventory_stock_lines|erp_product_master/);
+  assert.match(djangoQuery, /execute_consumer_query/);
+  assert.match(djangoQuery, /ProductInventoryProjection/);
+  assert.match(djangoQuery, /ProductShippingRate/);
+  assert.match(summary, /grossProfitCents/);
+  assert.match(summary, /refundAmountCents/);
   assert.match(summary, /marginBuckets/);
-  assert.match(summary, /supplier/);
-  assert.match(summary, /shopName/);
-  assert.match(summary, /MAX\(NULLIF\(brand/);
+  assert.match(summary, /supplierName/);
+  assert.match(summary, /outlets/);
+  assert.match(djangoQuery, /brand/);
   assert.match(parser, /品牌名称/);
   assert.match(inventoryDatabase, /syncInventoryStockDimensions/);
   assert.match(migration, /ADD `brand`/);
@@ -372,7 +377,7 @@ test("wires inventory age analysis and stale cleanup", async () => {
 });
 
 test("wires all five ERP imports and excludes 刷刷仓 from operating analysis", async () => {
-  const [importModule, schema, parser, service, route, chunkRoute, salesService, inventoryService, salesModels, inventoryOverview, productSummary, ageAnalysis, migration] = await Promise.all([
+  const [importModule, schema, parser, service, route, chunkRoute, salesService, inventoryService, salesModels, inventoryOverview, productSummary, productQuery, projectionSync, ageAnalysis, migration] = await Promise.all([
     readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/imports/erp-reference.ts", import.meta.url), "utf8"),
@@ -384,6 +389,8 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
     readFile(new URL("../backend/sales/models.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/products/query.py", import.meta.url), "utf8"),
+    readFile(new URL("../lib/products/inventory-projection-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0009_wonderful_blindfold.sql", import.meta.url), "utf8"),
   ]);
@@ -403,9 +410,11 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
   assert.match(chunkRoute, /assembleInventoryUpload/);
   assert.match(salesService, /isExcludedSalesWarehouse/);
   assert.match(inventoryService, /EXCLUDED_BRUSH_WAREHOUSE/);
-  for (const analysis of [salesModels, inventoryOverview, productSummary, ageAnalysis]) assert.match(analysis, /刷刷仓/);
+  for (const analysis of [salesModels, inventoryOverview, projectionSync, ageAnalysis]) assert.match(analysis, /刷刷仓/);
   assert.match(ageAnalysis, /erp_inventory_age_lines/);
-  assert.match(productSummary, /erp_product_master/);
+  assert.doesNotMatch(productSummary, /刷刷仓|erp_product_master|inventory_stock_lines/);
+  assert.match(productQuery, /ErpProductMaster/);
+  assert.match(productQuery, /ProductInventoryProjection/);
   assert.match(migration, /CREATE TABLE `erp_product_master`/);
   assert.match(migration, /CREATE TABLE `erp_inventory_age_lines`/);
   assert.match(migration, /CREATE TABLE `erp_combo_items`/);

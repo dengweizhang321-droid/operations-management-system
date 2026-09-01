@@ -15,7 +15,7 @@
 
 `运行项目.bat` 只调用受控 Worker 启动器并打开浏览器，不能代替 Django 健康检查。正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
 
-隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；D1 降级只影响仍由 D1 承载的业务域，不得让已迁移的销售、财务、网店或市场请求回退 D1。
+隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；D1 降级只影响仍由 D1 承载的业务域，不得让已迁移的销售、财务、网店、市场或商品经营请求回退 D1。
 
 本机 `.dev.vars` 同时显式设置 `TERUISI_LOCAL_DIRECT_ACCESS=true` 与 `TERUISI_RUNTIME_ENV=development` 时，AI 助理可直接使用本地管理员身份，无需登录；该能力还要求真实开发/受控本机构建，并由 Worker 与身份层双重限制在 `127.0.0.1`、`localhost` 或 IPv6 回环地址。生产构建、LAN 地址、任意域名、Host 伪装和 DNS rebinding 都不会获得匿名管理员权限。具体配置与验收方法见 [`docs/AI_ASSISTANT_SETUP.md`](docs/AI_ASSISTANT_SETUP.md)。
 
@@ -51,7 +51,7 @@
 - 2026-09-01，本机网店分析后端已完成 Django/PostgreSQL 正式单写切换与 D1 终态退役；PostgreSQL 现为网店事实、批次、推广、上传、revision、幂等/尝试审计和全部读写的唯一权威，`127.0.0.1:8021/8022` 已加入受控开机启动链。网店分析前端继续使用原有 React/Next.js `shop-module-view`，没有改写为 Django template；公开 Worker 只保留真实鉴权、签名、解析、allowlist 和有界转发。旧 D1 网店对象已变为 15 个空 tombstone view，并由 9 个共享表 guard 永久拒绝网店域复活；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。正式 cutover、备份恢复和退役证据见 [`docs/DJANGO_NETSHOP_MIGRATION.md`](docs/DJANGO_NETSHOP_MIGRATION.md)。
 - 指定历史推广日期时，只能从对应店铺的现有 n8n 工作流启动新的完整 `A→B→C→P→M` execution；受控 CLI 恢复可在启动该次 n8n execution 前设置 `TERUISI_TMALL_PLAN_START_DATE` 与 `TERUISI_TMALL_PLAN_END_DATE`，两者必须是同一个不晚于昨天的业务日。工作流仍逐日串行，C 先补齐并回查同日商品数据，P 再生成同日“商品报表”；内容一致返回 `duplicate`，内容变化则由导入事务精确删除并替换同店同日旧事实，落库回查成功后才进入下一天。禁止直接运行推广脚本或绕过 n8n 单独调用 P。
 - 所有导入接口统一按“业务域 + 精确业务范围 + 解析、清洗和业务过滤后的完整规范化内容”判重。文件名、原始行号、行顺序或工作簿元数据变化不会单独触发导入；通过校验的权威业务集合中任一业务字段、业务行或范围变化都会创建新批次并原子替换精确范围。原文件 SHA-256 仍用于签收和审计，但不单独决定 `duplicate`；签名、解析、表头或范围校验失败只记录拒绝尝试，不创建业务指纹、不抢占范围锁。空文件或清洗后零行业务文件保持失败关闭，不会被当成权威空集合清除既有事实。接口在确认成功前回查批次、行数、日期和关键范围。本地验证不等同于生产导入，生产迁移与数据导入仍需单独执行。
-- 2026-09-02，商品经营板块已完成 Django/PostgreSQL 候选重构、真实数据隔离迁移和端到端系统测试：现有 React 页面保留，商品汇总、SKU 快递费率、分片、AI 与全局搜索统一进入 `backend/products/`；库存仍以 D1 为权威，仅在每次库存导入成功后同步排除 `刷刷仓` 的版本化 PostgreSQL 投影。候选 reader/writer 固定为 `127.0.0.1:8041/8042`，但本次没有部署、启用或切换正式 authority，生产商品经营仍由 D1 承载。正式切换、PNR、D1 退役和镜像证据见 [`docs/DJANGO_PRODUCTS_MIGRATION.md`](docs/DJANGO_PRODUCTS_MIGRATION.md)。
+- 2026-09-02，本机商品经营板块已完成 Django/PostgreSQL 正式单写切换与 D1 终态退役，cutover ID 为 `products-pg-20260901T164758Z-1c636a3a0f564bc9`。PostgreSQL 是 SKU 快递费率、批次、幂等/尝试审计、原始分片、revision、库存只读投影和商品经营读写的唯一权威；现有 React 页面、公开 API、AI 与全局搜索契约保持不变，薄 Worker 将读写固定转发到 `127.0.0.1:8041/8042`。旧 D1 商品对象已变为 3 个空 tombstone view，18 个永久 guard 拒绝商品域复活；商品在线路径不再读写 R2，但全局 D1/R2 binding 仍供库存、ERP、市场图片及其他业务域使用。切换已跨过 PNR，恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。正式证据见 [`docs/DJANGO_PRODUCTS_MIGRATION.md`](docs/DJANGO_PRODUCTS_MIGRATION.md)。
 - 销售明细导入以表单提交的开始/结束日期作为权威替换边界，不查询运营库判断“缺哪一天”；即使新文件最后一天没有记录，也会清除该边界内已从新版本消失的旧行。默认仍把该日期范围内的销售台账视为完整业务集合；仅导入部分店铺时，调用方必须同时提交非空、去重、已纳入白名单的 `expectedChannels` JSON 字符串数组，文件中的渠道必须与声明范围完全一致，系统只原子替换“日期范围 + 精确渠道集合”，缺店、混入其他渠道或未注册渠道都会失败关闭。库存快照使用稳定的“仓库 + 货品”身份，单个文件出现重复身份时会拒绝导入，单纯调换行序不会新增库存事实。
 
 ## 说明
