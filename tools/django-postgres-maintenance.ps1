@@ -29,7 +29,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_sales_writer",
   "teruisi_erp_reference_sync",
   "teruisi_finance_reader",
-  "teruisi_finance_writer"
+  "teruisi_finance_writer",
+  "teruisi_netshop_reader",
+  "teruisi_netshop_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -228,10 +230,19 @@ function Assert-MaintenanceEvidence(
   [string]$ExpectedUser,
   [int]$ExpectedPort
 ) {
-  Assert-MaintenanceExactPropertySet $Evidence @(
+  $hasNetshopRevisions = $null -ne $Evidence.PSObject.Properties["netshopRevisions"]
+  $hasNetshopAuthority = $null -ne $Evidence.PSObject.Properties["netshopWriteAuthority"]
+  if ($hasNetshopRevisions -ne $hasNetshopAuthority) {
+    throw "PostgreSQL 网店证据字段不完整"
+  }
+  $evidenceProperties = @(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
-  ) "PostgreSQL 证据"
+  )
+  if ($hasNetshopRevisions) {
+    $evidenceProperties += @("netshopRevisions", "netshopWriteAuthority")
+  }
+  Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
     [string]$Evidence.contentSha256,
     [string]$Evidence.canonicalSha256
@@ -263,13 +274,19 @@ function Assert-MaintenanceEvidence(
     "django_migrations", "sales_data_revisions", "sales_import_batches",
     "sales_order_lines", "sales_write_authority", "erp_product_master"
   )
+  if ($hasNetshopRevisions) {
+    $requiredTables += @(
+      "netshop_data_revisions", "netshop_import_batches",
+      "netshop_rows", "netshop_write_authority"
+    )
+  }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
@@ -308,6 +325,48 @@ function Assert-MaintenanceEvidence(
       [string]$Evidence.writeAuthority.authorityEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
       [string]$Evidence.writeAuthority.cutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$") {
     throw "销售写入权威证据无效"
+  }
+
+  if ($hasNetshopRevisions) {
+    if ($Evidence.netshopRevisions -isnot [pscustomobject] -or
+        $null -eq $Evidence.netshopRevisions.PSObject.Properties["netshop"]) {
+      throw "PostgreSQL 网店 revision 证据不完整"
+    }
+    foreach ($property in $Evidence.netshopRevisions.PSObject.Properties) {
+      if ($property.Name -cnotmatch "^[a-z][a-z0-9_-]{0,63}$") {
+        throw "PostgreSQL 网店 revision 身份无效"
+      }
+      Assert-MaintenanceExactPropertySet $property.Value @(
+        "revision", "sourceDigest"
+      ) "PostgreSQL 网店 revision 证据"
+      if (-not (Test-MaintenanceInteger $property.Value.revision) -or
+          [int64]$property.Value.revision -lt 0 -or
+          [string]$property.Value.sourceDigest -cnotmatch "^[0-9a-f]{64}$") {
+        throw "PostgreSQL 网店 revision 证据无效"
+      }
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.netshopWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "网店写入权威证据"
+    $netshopStatus = [string]$Evidence.netshopWriteAuthority.status
+    $netshopEpoch = [string]$Evidence.netshopWriteAuthority.authorityEpoch
+    $netshopCutoverId = [string]$Evidence.netshopWriteAuthority.cutoverId
+    $netshopRunId = [string]$Evidence.netshopWriteAuthority.migrationRunId
+    if ($netshopStatus -notin @("d1", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($netshopRunId) -and
+          $netshopRunId -cnotmatch "^netshop-[0-9a-f]{24}$")) {
+      throw "网店写入权威证据无效"
+    }
+    if ($netshopStatus -ceq "postgres") {
+      if ($netshopEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $netshopCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $netshopRunId -cnotmatch "^netshop-[0-9a-f]{24}$") {
+        throw "网店 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($netshopEpoch) -or
+              -not [string]::IsNullOrEmpty($netshopCutoverId)) {
+      throw "未激活的网店写入权威包含激活证据"
+    }
   }
 }
 

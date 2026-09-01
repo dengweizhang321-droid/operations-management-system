@@ -1,11 +1,11 @@
 # Django/PostgreSQL 持续备份与隔离恢复
 
-本文定义本机 Django 销售权威库的日常逻辑备份、完整性复验、隔离恢复演练和保留策略。它补充一次性切换备份，不改变销售单写架构，也不为 D1 回退提供入口。
+本文定义本机 Django/PostgreSQL 共享权威库的日常逻辑备份、完整性复验、隔离恢复演练和保留策略。它补充各业务域的一次性切换备份，不改变销售、财务或已切换网店域的单写架构，也不为 D1 回退提供入口。
 
 ## 1. 不停服边界
 
 - 日常备份只连接已经运行且身份核验通过的 `127.0.0.1:5432/teruisi_sales`；不会启动、停止或重启 PostgreSQL、Django reader、Django writer、ERP bridge、Worker、n8n 或其他模块。
-- 备份使用 PostgreSQL exported snapshot，把表行数、Django migrations、动态 revision 和销售写入权威证据与同一个 `pg_dump` 快照绑定。备份期间的新写入不会造成半新半旧的归档。
+- 备份使用 PostgreSQL exported snapshot，把表行数、Django migrations、动态 revision 和写入权威证据与同一个 `pg_dump` 快照绑定。库中存在 `netshop_*` 结构时，证据必须同时覆盖全部网店表、网店 revision、迁移 run 和 authority；不存在网店结构的历史备份仍按旧证据读取。备份期间的新写入不会造成半新半旧的归档。
 - 恢复演练不在生产 PostgreSQL cluster 内创建、覆盖或删除数据库。它在 `55432–55999` 的显式空闲回环端口和独立数据目录启动临时 PostgreSQL 17，恢复完成后比较内容证据，再停止临时进程并删除该次临时数据目录，只保留脱敏结果和日志。
 - `Status`、`Verify` 和不带 `-Execute` 的 `Prune` 不创建备份、不删除数据，也不改变服务状态。
 - 权威库未运行、端口/进程/数据目录身份不符、归档或摘要变化、恢复内容不一致时全部失败关闭；维护工具不会为了完成任务而接管进程或切换数据源。
@@ -74,7 +74,7 @@ $manifestSha = "<64 位小写 manifest SHA-256>"
 1. 临时 PostgreSQL 只绑定批准的 `127.0.0.1:<RehearsalPort>`；
 2. 监听进程、PostgreSQL 可执行文件和 `-D` 数据目录属于本次演练；
 3. restore 使用 `--single-transaction --no-owner --no-privileges` 且最多运行 30 分钟；
-4. 恢复后的全部 `sales_*`、`erp_*`、`finance_*` 和 `django_migrations` 行数，migration 清单、revision 与 write authority 的内容摘要与备份快照完全相同；
+4. 恢复后的全部 `sales_*`、`erp_*`、`finance_*`、存在时的 `netshop_*` 和 `django_migrations` 行数，migration 清单、revision 与 write authority 的内容摘要与备份快照完全相同；
 5. 生产数据库和在线服务状态均未改变。
 
 脱敏结果保存在：
@@ -110,6 +110,6 @@ D:\teruisi-runtime\django-sales\rehearsals\postgres-restore\restore-<RehearsalId
 
 维护 operator 和 Python helper 属于 Django runtime app 的不可变部署内容。发布前必须通过 PowerShell 5 解析、专项单测和完整回归；发布时不得顺带启动、停止或重启服务。发布后先执行 `Status` 和一轮人工 `Backup → Verify → RestoreRehearsal`，确认无服务状态变化，再单独审批每日备份调度。
 
-代码回退只回退 operator/helper 版本，不删除已经生成的备份或演练审计。销售数据恢复仍是独立审批操作；本工具不会自动把备份覆盖回生产库。
+代码回退只回退 operator/helper 版本，不删除已经生成的备份或演练审计。生产数据恢复仍是独立审批操作；本工具不会自动把备份覆盖回生产库。
 
 进程崩溃恢复、desired-state fencing、主动 readiness 监控和本地告警 outbox 见 [`DJANGO_RUNTIME_SUPERVISION.md`](DJANGO_RUNTIME_SUPERVISION.md)。守护只处理本 Django runtime，不把备份失败或数据分歧转化为自动重启。

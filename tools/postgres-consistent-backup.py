@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -22,7 +23,7 @@ from psycopg import sql
 
 
 VERSION = "teruisi-postgres-consistent-backup-v1"
-ALLOWED_TABLE_PREFIXES = ("sales_", "erp_", "finance_")
+ALLOWED_TABLE_PREFIXES = ("sales_", "erp_", "finance_", "netshop_")
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
 
@@ -93,6 +94,15 @@ def collect_evidence(
             "sales_write_authority",
             "erp_product_master",
         }
+        netshop_required = {
+            "netshop_data_revisions",
+            "netshop_import_batches",
+            "netshop_rows",
+            "netshop_write_authority",
+        }
+        netshop_tables = {name for name in tables if name.startswith("netshop_")}
+        if netshop_tables:
+            required.update(netshop_required)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -136,6 +146,57 @@ def collect_evidence(
         if str(authority_status) != "active" or not str(authority_epoch) or not str(cutover_id):
             raise RuntimeError("sales write authority is not active")
 
+        netshop_revisions: dict[str, dict[str, Any]] | None = None
+        netshop_authority: dict[str, str] | None = None
+        if netshop_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM netshop_data_revisions ORDER BY domain"
+            )
+            netshop_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = netshop_revisions.get("netshop")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+            ):
+                raise RuntimeError("netshop revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM netshop_write_authority WHERE id = 1"
+            )
+            netshop_authority_row = cursor.fetchone()
+            if netshop_authority_row is None:
+                raise RuntimeError("netshop write authority singleton is missing")
+            netshop_status, netshop_epoch, netshop_cutover, netshop_run = (
+                str(value or "") for value in netshop_authority_row
+            )
+            if netshop_status not in {"d1", "postgres"}:
+                raise RuntimeError("netshop write authority status is invalid")
+            if netshop_run and re.fullmatch(r"netshop-[0-9a-f]{24}", netshop_run) is None:
+                raise RuntimeError("netshop migration run evidence is invalid")
+            if netshop_status == "postgres":
+                if (
+                    re.fullmatch(r"[0-9a-fA-F-]{36}", netshop_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", netshop_cutover) is None
+                    or not netshop_run
+                ):
+                    raise RuntimeError("active netshop write authority evidence is incomplete")
+            elif netshop_epoch or netshop_cutover:
+                raise RuntimeError("inactive netshop write authority contains activation evidence")
+            netshop_authority = {
+                "status": netshop_status,
+                "authorityEpoch": netshop_epoch,
+                "cutoverId": netshop_cutover,
+                "migrationRunId": netshop_run,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -146,6 +207,9 @@ def collect_evidence(
             "cutoverId": str(cutover_id),
         },
     }
+    if netshop_revisions is not None and netshop_authority is not None:
+        content["netshopRevisions"] = netshop_revisions
+        content["netshopWriteAuthority"] = netshop_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")
