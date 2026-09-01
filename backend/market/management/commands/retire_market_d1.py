@@ -198,7 +198,7 @@ def _shared_receipt(source: sqlite3.Connection) -> dict[str, object]:
             "SELECT * FROM import_scope_heads WHERE domain<>'market' ORDER BY domain,scope_key",
         ),
     }
-    counts, digests, digest = _snapshot(sections)
+    counts, digests, digest = _snapshot(sections.items())
     return {"counts": counts, "digests": digests, "digest": digest}
 
 
