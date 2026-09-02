@@ -92,7 +92,7 @@ PostgreSQL 尚未激活时可把同一 cutover 的 D1 `pending` 受控退回 `d1
 | plan | `inventory-plan-8578c8621ba94558b1b42c82b1e3f7d3` |
 | apply | `inventory-apply-664cda330623447982cd0258e0a752b5` |
 | 规范源/目标摘要 | `2249cc533aa898007e3fc882b454f7730604ffbd0d87feb6dc1e541996273390` |
-| 目标库（authority 前） | 1,168,932,864 bytes；SHA-256 `becdf67296568c275212aa971639f3c1bad9f281193c56468c9aa1974bb240d9` |
+| 目标 SQLite 镜像库（authority 前） | 1,168,932,864 bytes；SHA-256 `becdf67296568c275212aa971639f3c1bad9f281193c56468c9aa1974bb240d9` |
 | 事实与审计 | 库存 1,085,958；库龄 275,669；批次 111；指纹 53；attempt 58；备货计划 1 |
 | 数据截止 | 分仓库存和库龄均为 2026-09-01 |
 | 最新权威快照 | 分仓库存 22,586 行；库龄 5,539 行 |
@@ -103,9 +103,26 @@ PostgreSQL 尚未激活时可把同一 cutover 的 D1 `pending` 受控退回 `d1
 
 镜像 authority/retirement 演练使用 `inventory-mirror-final-20260902T1146`，成功生成 PostgreSQL authority epoch `a4178568-2f7f-47e7-9345-9b32f1250ff3`，并验证 D1 `pending` 阶段写入阻断、终态 tombstone/guard 和其他域共享行数量不变。这些 ID 只证明隔离演练，不得写入或冒充生产 cutover 证据。`0102` 当前 SHA-256 为 `66e4e70f4ad6677b0f67ed737d6409ce79b879df3fd5ed76995583873510c29b`。
 
-## 7. 目标数据系统冒烟
+### 6.1 PostgreSQL 17.11 独立复验
 
-最终迁移目标直接运行库存领域查询，结果为：
+在上述 SQLite 双侧 authority/retirement 演练之后，又从当前权威 D1 只读创建了一份新的在线一致性备份，并在独立数据目录、独立数据库和临时 `127.0.0.1:15432` 端口上完成 PostgreSQL 17.11 的全链 `migrate -> plan -> apply -> verify`。该集群不复用生产 `5432`、生产角色、生产凭据或生产存储；复验完成后已受控停止，未执行 authority、Worker 激活或 D1 退役。
+
+| 项目 | PostgreSQL 独立复验证据 |
+| --- | --- |
+| PostgreSQL | 17.11，x86_64-windows，独立 `inventory_mirror` 数据库 |
+| 新冻结 D1 | 9,586,368,512 bytes；SHA-256 `e5227ec28437835736de05d0c9bca0fd977d80f826a86122ebc9de4d4141c5c3`；`quick_check=ok` |
+| plan | `inventory-plan-1cbd023c50a946998725f7b8c2f50667` |
+| apply / verify | `inventory-apply-8f9dcdb102ca495b8b73f53d5bc8fd33`；最终状态 `verified` |
+| 源/目标规范摘要 | `2249cc533aa898007e3fc882b454f7730604ffbd0d87feb6dc1e541996273390` |
+| PostgreSQL 数据库大小 | 1,406,113,459 bytes |
+| 事实与审计 | 库存 1,085,958；库龄 275,669；批次 111；指纹 53；attempt 58；备货计划 1 |
+| inventory revision | `1`；source digest 与迁移摘要一致 |
+
+这次 PostgreSQL 复验使用迁移命令自身的独立源/目标摘要重建，不把 SQLite 目标结果当作 PostgreSQL 成功证据。它证明 Django 模型、索引、事务和批量迁移在正式目标数据库引擎上可执行；仍不代表生产 cutover 已获批或已发生。
+
+## 7. PostgreSQL 目标数据系统冒烟
+
+最终 PostgreSQL 迁移目标直接运行库存领域查询，结果为：
 
 | 查询 | 结果 |
 | --- | --- |
