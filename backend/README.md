@@ -139,9 +139,9 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 `backend/workflow/` 实现结构化新品项目、目标店铺、七阶段、元数据活动审计、revision、写请求回放防护和独立写 authority。reader 只开放新品列表/详情及固定 `launch_project_search` 消费查询；writer 只开放新品项目增删改和阶段更新。公开 Worker 继续负责真实 principal、无范围账号门禁、HMAC、请求/响应上限和读写端点隔离；React 页面不直连 Django 或 PostgreSQL。
 
-2026-09-02，本机该子域已完成正式切换：`TERUISI_DJANGO_WORKFLOW_MODE` 必须保持 `django`，reader/writer 固定为 `8061/8062`，`workflow-service-enabled.json` 绑定正式 authority 加入启动链。12 条旧 `workflow_operation_records.record_type='launch'` 数据已迁为 12 个项目、12 个目标、84 个阶段和 38 条活动；历史缺失内容以显式 gap 和 `not_applicable` 保留，没有补造不存在的阶段事实。D1 authority 已进入 `postgresql` 终态，旧新品列表、详情、活动与写入路径均排除或拒绝 `launch`。工作计划、巡店、评价和变量配置仍使用 D1，不受该子域切换影响。
+2026-09-03，本机该子域已完成正式切换与 D1/R2 终态退役：`TERUISI_DJANGO_WORKFLOW_MODE` 必须保持 `django`，reader/writer 固定为 `8061/8062`，`workflow-service-enabled.json` 绑定正式 authority 加入启动链。12 条旧 `workflow_operation_records.record_type='launch'` 数据已迁为 12 个项目、12 个目标、84 个阶段和 38 条活动；历史缺失内容以显式 gap 和 `not_applicable` 保留，没有补造不存在的阶段事实。operator-only `0104` 已清除旧 D1 新品记录与活动，将 authority 替换为 1 个空 tombstone view，并安装 3 个永久 guard；新品 R2 候选命名空间为空且生产代码不再可达。工作计划、巡店、评价、变量配置和运营事务附件仍使用各自现行 D1/R2 契约，不受该子域退役影响。
 
-切换已跨过 PNR，不支持改回 `legacy`、恢复 D1 新品读写或双写。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复；完整 cutover、备份、恢复演练和旧路径拒绝证据见[运营事务新品项目迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
+切换已跨过 PNR，不支持改回 `legacy`、恢复 D1/R2 新品路径或双写。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复；完整 cutover、退役、备份、恢复演练和旧路径拒绝证据见[运营事务新品项目迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
 
 ## 当前本机终态记录
 
