@@ -91,8 +91,8 @@ def _detail(value: object) -> dict[str, object]:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _source_snapshot(source: Path) -> dict[str, object]:
-    if Path(f"{source}-wal").exists() or Path(f"{source}-shm").exists():
+def _source_snapshot(source: Path, *, require_sealed: bool = True) -> dict[str, object]:
+    if require_sealed and (Path(f"{source}-wal").exists() or Path(f"{source}-shm").exists()):
         raise CommandError("D1 新品迁移源必须是无 WAL/SHM 的封存快照")
     try:
         connection = sqlite3.connect(f"file:{source.as_posix()}?mode=ro", uri=True)
