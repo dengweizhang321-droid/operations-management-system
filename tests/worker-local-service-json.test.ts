@@ -14,6 +14,62 @@ import {
 
 const shells = ["powershell.exe", "pwsh.exe"];
 
+test("Django Start capture returns when only an inherited descendant log handle remains", async () => {
+  const runtime = await mkdtemp(path.join(tmpdir(), "teruisi-django-start-capture-"));
+  try {
+    const servicePath = path.resolve("tools/worker-local-service.ps1");
+    const fixturePath = path.join(runtime, "django-start-fixture.ps1");
+    const childPidPath = path.join(runtime, "child.pid");
+    await writeFile(fixturePath, `
+param([string]$Action, [string]$RuntimeRoot)
+if ($Action -cne 'Start') { exit 2 }
+$child = Start-Process powershell.exe -NoNewWindow -PassThru -ArgumentList @(
+  '-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 8'
+)
+[System.IO.File]::WriteAllText((Join-Path $RuntimeRoot 'child.pid'), [string]$child.Id)
+Write-Output 'fixture started'
+exit 0
+`, "utf8");
+
+    const quote = (value: string) => value.replaceAll("'", "''");
+    const fixture = `
+. '${quote(servicePath)}' -FunctionsOnly -AllowTestRuntimeRoot -RuntimeRoot '${quote(runtime)}'
+$DjangoService = '${quote(fixturePath)}'
+$DjangoRuntimeTools = '${quote(runtime)}'
+$FixedDjangoRuntimeRoot = '${quote(runtime)}'
+$childPid = $null
+$timer = [System.Diagnostics.Stopwatch]::StartNew()
+try {
+  $result = Invoke-DjangoStartProcess
+  $timer.Stop()
+  $childPid = [int][System.IO.File]::ReadAllText('${quote(childPidPath)}')
+  $child = Get-CimInstance Win32_Process -Filter "ProcessId = $childPid"
+  if (-not $child -or [string]$child.CommandLine -notmatch 'Start-Sleep -Seconds 8') {
+    throw 'fixture descendant identity changed'
+  }
+  [ordered]@{
+    exitCode = [int]$result.ExitCode
+    elapsedMilliseconds = [int]$timer.ElapsedMilliseconds
+    descendantStillRunning = $true
+  } | ConvertTo-Json -Compress
+} finally {
+  if ($childPid) { Stop-Process -Id $childPid -Force -ErrorAction SilentlyContinue }
+}
+`;
+    const result = spawnSync("powershell.exe", [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", fixture,
+    ], { encoding: "utf8", windowsHide: true, timeout: 15_000 });
+    assert.equal(result.error, undefined, result.error?.message);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const output = JSON.parse(result.stdout.trim());
+    assert.equal(output.exitCode, 0);
+    assert.equal(output.descendantStillRunning, true);
+    assert.ok(output.elapsedMilliseconds < 4_000, JSON.stringify(output));
+  } finally {
+    await rm(runtime, { recursive: true, force: true });
+  }
+});
+
 test("PowerShell 5 and pwsh preserve ISO JSON strings and enforce canonical bytes", async () => {
   const servicePath = path.resolve("tools/worker-local-service.ps1");
   const escapedServicePath = servicePath.replaceAll("'", "''");

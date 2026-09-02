@@ -102,6 +102,24 @@ test("canonical start engine enforces Django readiness before Worker verificatio
   assert.match(workerService, /if \(Test-IsIsolatedTestRuntime\) \{ return \}/);
 });
 
+test("canonical engine waits only for the direct Django Start controller process", () => {
+  const invocationBlock = workerService.slice(
+    workerService.indexOf("function Invoke-DjangoStartProcess"),
+    workerService.indexOf("function Test-DjangoDomainReady"),
+  );
+  const readinessBlock = workerService.slice(
+    workerService.indexOf("function Ensure-DjangoSystemReady"),
+    workerService.indexOf("function Assert-NoReparsePath"),
+  );
+  assert.match(invocationBlock, /Start-Process -FilePath \(Get-DjangoControlPowerShell\)/);
+  assert.match(invocationBlock, /-RedirectStandardOutput \$stdoutPath/);
+  assert.match(invocationBlock, /-RedirectStandardError \$stderrPath/);
+  assert.match(invocationBlock, /\$process\.WaitForExit\(\)/);
+  assert.match(invocationBlock, /direct process exit code authoritative/);
+  assert.match(readinessBlock, /\$djangoStart = Invoke-DjangoStartProcess/);
+  assert.doesNotMatch(readinessBlock, /@\(& \(Get-DjangoControlPowerShell\)[^\n]+-Action Start/);
+});
+
 test("canonical engine clears only an exact validated stale receipt", () => {
   const startBlock = workerService.slice(
     workerService.indexOf('if ($Action -eq "Start")'),

@@ -121,6 +121,60 @@ function Invoke-DjangoStatusJson([string]$ScriptPath, [string]$StatusAction, [st
   catch { throw "$Label did not return valid JSON" }
 }
 
+function Invoke-DjangoStartProcess {
+  if (-not (Test-Path -LiteralPath $DjangoService -PathType Leaf)) {
+    throw "Missing installed Django controller: $DjangoService"
+  }
+
+  # Django Start creates durable PostgreSQL, Waitress, and ERP descendants.
+  # A native PowerShell pipeline can keep waiting on stdout/stderr handles that
+  # those descendants inherited after the direct controller has exited. Use
+  # file redirection and make the direct process exit code authoritative.
+  $invocationLogRoot = Join-Path $RuntimeRoot "logs"
+  [System.IO.Directory]::CreateDirectory($invocationLogRoot) | Out-Null
+  $invocationId = [Guid]::NewGuid().ToString("N")
+  $stdoutPath = Join-Path $invocationLogRoot "django-start-$invocationId.stdout.log"
+  $stderrPath = Join-Path $invocationLogRoot "django-start-$invocationId.stderr.log"
+  $arguments = @(
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    "-File", "`"$DjangoService`"", "-Action", "Start",
+    "-RuntimeRoot", "`"$FixedDjangoRuntimeRoot`""
+  )
+  $process = $null
+  $exitCode = $null
+  $stdoutTail = $null
+  $stderrTail = $null
+  try {
+    $process = Start-Process -FilePath (Get-DjangoControlPowerShell) -ArgumentList $arguments `
+      -WorkingDirectory $DjangoRuntimeTools -WindowStyle Hidden `
+      -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+    $process.WaitForExit()
+    $exitCode = [int]$process.ExitCode
+    $stdoutTail = Get-BoundedLogTail $stdoutPath 800
+    $stderrTail = Get-BoundedLogTail $stderrPath 800
+  } finally {
+    if ($process) { $process.Dispose() }
+    foreach ($temporaryLog in @($stdoutPath, $stderrPath)) {
+      if (-not (Test-Path -LiteralPath $temporaryLog -PathType Leaf)) { continue }
+      try {
+        [System.IO.File]::Delete($temporaryLog)
+      } catch [System.IO.IOException] {
+        # A durable descendant may still hold the redirected handle. Leaving
+        # this bounded diagnostic is safer than converting a successful Start
+        # into a false failure.
+      } catch [System.UnauthorizedAccessException] {
+        # Runtime ACLs can also keep best-effort diagnostic cleanup pending.
+      }
+    }
+  }
+
+  return [pscustomobject]@{
+    ExitCode = $exitCode
+    StdoutTail = $stdoutTail
+    StderrTail = $stderrTail
+  }
+}
+
 function Test-DjangoDomainReady(
   [object]$Status,
   [string]$ReaderProperty,
@@ -193,16 +247,17 @@ function Ensure-DjangoSystemReady {
   if (-not $Json) {
     Write-Host "Starting Django/PostgreSQL full stack; missing=$($readiness.Missing -join ',')"
   }
-  $djangoStartOutput = @(& (Get-DjangoControlPowerShell) -NoProfile -File $DjangoService -Action Start 2>&1)
-  $djangoStartExitCode = $LASTEXITCODE
-  if (-not $Json) {
-    $djangoStartOutput | ForEach-Object { Write-Host $_.ToString() }
+  $djangoStart = Invoke-DjangoStartProcess
+  $djangoStartExitCode = $djangoStart.ExitCode
+  $djangoStartText = (@(
+    [string]$djangoStart.StdoutTail,
+    [string]$djangoStart.StderrTail
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join "`n"
+  if (-not $Json -and -not [string]::IsNullOrWhiteSpace($djangoStartText)) {
+    Write-Host $djangoStartText
   }
   if ($djangoStartExitCode -ne 0) {
-    $djangoStartText = (($djangoStartOutput | ForEach-Object { $_.ToString() }) -join "`n").Trim()
-    if ($djangoStartText.Length -gt 800) {
-      $djangoStartText = $djangoStartText.Substring($djangoStartText.Length - 800, 800)
-    }
+    if ([string]::IsNullOrWhiteSpace($djangoStartText)) { $djangoStartText = "no readable diagnostic" }
     throw "Django/PostgreSQL full start failed: exit=$djangoStartExitCode; $djangoStartText"
   }
   $afterStart = Get-DjangoSystemReadiness

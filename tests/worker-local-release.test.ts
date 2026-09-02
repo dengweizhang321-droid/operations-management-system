@@ -1549,8 +1549,12 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
 
   const supervisor = await readFile("tools/worker-local-runtime-supervisor.mjs", "utf8");
   const service = await readFile("tools/worker-local-service.ps1", "utf8");
-  const fullPrelaunchVerifyAt = service.indexOf('[void](Invoke-ReleaseVerification $identity "stopped")');
-  const supervisorSpawnAt = service.indexOf("$process = Start-Process");
+  const serviceStartBlock = service.slice(
+    service.indexOf('if ($Action -eq "Start")'),
+    service.indexOf('if ($Action -eq "Stop")'),
+  );
+  const fullPrelaunchVerifyAt = serviceStartBlock.indexOf('[void](Invoke-ReleaseVerification $identity "stopped")');
+  const supervisorSpawnAt = serviceStartBlock.indexOf("$process = Start-Process");
   assert.ok(
     fullPrelaunchVerifyAt >= 0 && supervisorSpawnAt > fullPrelaunchVerifyAt,
     "the full stopped verifier must finish before the supervisor is spawned",
