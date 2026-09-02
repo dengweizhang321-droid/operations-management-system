@@ -46,7 +46,9 @@ test("controller checks every authoritative Django PostgreSQL domain", () => {
   assert.match(panel, /django-netshop-service\.ps1/);
   assert.match(panel, /django-market-service\.ps1/);
   assert.match(panel, /django-products-service\.ps1/);
-  for (const component of ["core", "finance", "netshop", "market", "products"]) {
+  assert.match(panel, /django-workflow-service\.ps1/);
+  assert.match(panel, /django-inventory-service\.ps1/);
+  for (const component of ["core", "finance", "netshop", "market", "products", "workflow", "inventory"]) {
     assert.match(panel, new RegExp(`${component} = Test-`));
   }
   assert.match(panel, /ErpReferenceSync -ceq "caught_up"/);
@@ -95,6 +97,8 @@ test("canonical start engine enforces Django readiness before Worker verificatio
   assert.match(workerService, /DjangoNetshopService/);
   assert.match(workerService, /DjangoMarketService/);
   assert.match(workerService, /DjangoProductsService/);
+  assert.match(workerService, /DjangoWorkflowService/);
+  assert.match(workerService, /DjangoInventoryService/);
   assert.match(workerService, /ErpReferenceSync -ceq "caught_up"/);
   assert.match(workerService, /RuntimeAclVerification -ceq "root_only_status"/);
   assert.match(workerService, /function Test-IsIsolatedTestRuntime/);

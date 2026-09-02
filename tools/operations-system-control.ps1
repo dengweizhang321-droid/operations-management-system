@@ -26,6 +26,7 @@ $DjangoNetshopService = Join-Path $DjangoRuntimeTools "django-netshop-service.ps
 $DjangoMarketService = Join-Path $DjangoRuntimeTools "django-market-service.ps1"
 $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.ps1"
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
+$DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
 $PowerShellCommand = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
 if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "pwsh" -ErrorAction SilentlyContinue }
 if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "powershell.exe" -ErrorAction SilentlyContinue }
@@ -94,7 +95,8 @@ function Assert-ControllerDependencies {
     $DjangoNetshopService,
     $DjangoMarketService,
     $DjangoProductsService,
-    $DjangoWorkflowService
+    $DjangoWorkflowService,
+    $DjangoInventoryService
   )) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
       throw "缺少受控启动依赖：$requiredPath"
@@ -259,6 +261,7 @@ function Get-DjangoAggregateState {
     $marketStatus = Invoke-JsonServiceAction -ScriptPath $DjangoMarketService -Arguments @("-Action", "Status") -Label "市场域状态检查"
     $productsStatus = Invoke-JsonServiceAction -ScriptPath $DjangoProductsService -Arguments @("-Action", "Status") -Label "商品经营域状态检查"
     $workflowStatus = Invoke-JsonServiceAction -ScriptPath $DjangoWorkflowService -Arguments @("-Action", "Status") -Label "运营事务新品域状态检查"
+    $inventoryStatus = Invoke-JsonServiceAction -ScriptPath $DjangoInventoryService -Arguments @("-Action", "Status") -Label "库存域状态检查"
 
     $componentReadiness = [ordered]@{
       core = Test-CoreDjangoReady -Status $coreStatus
@@ -267,6 +270,7 @@ function Get-DjangoAggregateState {
       market = Test-DjangoDomainReady -Status $marketStatus -ReaderProperty "MarketReader" -WriterProperty "MarketWriter"
       products = Test-DjangoDomainReady -Status $productsStatus -ReaderProperty "ProductsReader" -WriterProperty "ProductsWriter"
       workflow = Test-DjangoDomainReady -Status $workflowStatus -ReaderProperty "WorkflowReader" -WriterProperty "WorkflowWriter"
+      inventory = Test-DjangoDomainReady -Status $inventoryStatus -ReaderProperty "InventoryReader" -WriterProperty "InventoryWriter"
     }
     $notReadyComponents = @($componentReadiness.Keys | Where-Object { -not $componentReadiness[$_] })
     $aggregateState = [pscustomobject]@{

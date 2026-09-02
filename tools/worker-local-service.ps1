@@ -25,6 +25,8 @@ $DjangoService = Join-Path $DjangoRuntimeTools "django-local-service.ps1"
 $DjangoNetshopService = Join-Path $DjangoRuntimeTools "django-netshop-service.ps1"
 $DjangoMarketService = Join-Path $DjangoRuntimeTools "django-market-service.ps1"
 $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.ps1"
+$DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
+$DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
 $WorkerPort = 3000
 $WorkerHost = "127.0.0.1"
 $HelperPort = 5791
@@ -212,6 +214,8 @@ function Get-DjangoSystemReadiness {
   $netshopStatus = Invoke-DjangoStatusJson $DjangoNetshopService "Status" "Django netshop status"
   $marketStatus = Invoke-DjangoStatusJson $DjangoMarketService "Status" "Django market status"
   $productsStatus = Invoke-DjangoStatusJson $DjangoProductsService "Status" "Django products status"
+  $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
+  $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
 
   $checks = [ordered]@{
     core = (
@@ -228,6 +232,8 @@ function Get-DjangoSystemReadiness {
     netshop = Test-DjangoDomainReady $netshopStatus "NetshopReader" "NetshopWriter"
     market = Test-DjangoDomainReady $marketStatus "MarketReader" "MarketWriter"
     products = Test-DjangoDomainReady $productsStatus "ProductsReader" "ProductsWriter"
+    workflow = Test-DjangoDomainReady $workflowStatus "WorkflowReader" "WorkflowWriter"
+    inventory = Test-DjangoDomainReady $inventoryStatus "InventoryReader" "InventoryWriter"
   }
   $missing = @($checks.Keys | Where-Object { -not $checks[$_] })
   return [pscustomobject]@{
