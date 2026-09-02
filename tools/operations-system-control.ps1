@@ -159,10 +159,20 @@ function Invoke-VisibleServiceAction {
     $serviceProcess.WaitForExit()
     $serviceExitCode = [int]$serviceProcess.ExitCode
     if (Test-Path -LiteralPath $serviceStdoutPath -PathType Leaf) {
-      $serviceStdout = [System.IO.File]::ReadAllText($serviceStdoutPath)
+      try {
+        $serviceStdout = [System.IO.File]::ReadAllText($serviceStdoutPath)
+      } catch [System.IO.IOException] {
+        # A successful durable child may retain the redirected handle. The
+        # direct service exit code remains authoritative; output is optional.
+      }
     }
     if (Test-Path -LiteralPath $serviceStderrPath -PathType Leaf) {
-      $serviceStderr = [System.IO.File]::ReadAllText($serviceStderrPath)
+      try {
+        $serviceStderr = [System.IO.File]::ReadAllText($serviceStderrPath)
+      } catch [System.IO.IOException] {
+        # Preserve the direct exit result and fall back to its numeric code if
+        # a failed service also left an unreadable diagnostic handle.
+      }
     }
   } finally {
     if ($serviceProcess) { $serviceProcess.Dispose() }
