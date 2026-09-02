@@ -6,7 +6,6 @@ import {
 } from "@/lib/workflow/operations-records";
 import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { getWorkflowBackendMode } from "@/lib/django/workflow-service";
 
 function requestErrorResponse(error: unknown, fallback: string) {
   const authorization = authorizationErrorResponse(error);
@@ -27,10 +26,8 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     const params = new URL(request.url).searchParams;
-    const workflowMode = await getWorkflowBackendMode();
     const payload = await listOperationRecords({
       types: params.getAll("type"),
-      excludeTypes: workflowMode === "django" ? ["launch"] : [],
       statuses: params.getAll("status"),
       shopNames: params.getAll("shopName"),
       platforms: params.getAll("platform"),
@@ -57,7 +54,7 @@ export async function POST(request: Request) {
         headers: { "cache-control": "no-store" },
       });
     }
-    if (body.type === "launch" && await getWorkflowBackendMode() === "django") {
+    if ((body as { type?: unknown }).type === "launch") {
       return Response.json({ error: "新品上新已切换到结构化项目，请使用新品项目接口。", code: "conflict" }, {
         status: 409,
         headers: { "cache-control": "no-store" },

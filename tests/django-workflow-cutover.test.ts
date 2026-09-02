@@ -39,7 +39,9 @@ test("base runtime deploy, environment isolation and startup chain include workf
     "tools\\django-workflow-cutover.ps1",
     "tools\\workflow-d1-authority-install.py",
     "tools\\workflow-d1-snapshot.py",
+    "tools\\workflow-launch-r2-retirement-evidence.py",
     "drizzle\\0103_workflow_launch_write_authority.sql",
+    "drizzle\\0104_workflow_launch_domain_retirement.sql",
   ]) {
     assert.ok(base.includes(required), `missing controlled runtime file: ${required}`);
   }
@@ -49,6 +51,16 @@ test("base runtime deploy, environment isolation and startup chain include workf
   assert.match(base, /WorkflowStartupEnabledPath/);
   assert.match(base, /Get-PortListeners 8061/);
   assert.match(base, /Get-PortListeners 8062/);
+});
+
+test("terminal workflow retirement is stopped, evidence-bound and Django-only", () => {
+  assert.match(cutover, /R2RetirementEvidence/);
+  assert.match(cutover, /RetirePlan/);
+  assert.match(cutover, /RetireApply/);
+  assert.match(cutover, /retire_workflow_launch_d1/);
+  assert.match(cutover, /workflow-launch-r2-retirement-evidence\.py/);
+  assert.match(cutover, /Assert-WorkflowStackStopped "终态退役 D1\/R2 新品子域"/);
+  assert.match(cutover, /Assert-WorkflowWorkerStopped "终态退役 D1\/R2 新品子域"/);
 });
 
 

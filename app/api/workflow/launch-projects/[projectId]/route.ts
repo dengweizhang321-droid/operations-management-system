@@ -15,11 +15,7 @@ function projectPath(projectId: string) {
 }
 
 function requireDjangoMode() {
-  return getWorkflowBackendMode().then((mode) => {
-    if (mode !== "django") {
-      throw new PublicApiError(503, "service_unavailable", "结构化新品上新尚未完成 Django 受控切换。");
-    }
-  });
+  return getWorkflowBackendMode();
 }
 
 function requireObject(value: unknown): Record<string, unknown> {

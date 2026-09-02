@@ -49,9 +49,16 @@ function verifySignature(request: Request, path: string, query = "") {
   );
 }
 
-test("workflow backend mode is explicit and legacy-safe by default", () => {
-  assert.equal(workflowBackendModeFromEnvironment({}), "legacy");
+test("workflow backend mode is terminally Django and fails closed without exact config", () => {
+  assert.throws(
+    () => workflowBackendModeFromEnvironment({}),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
   assert.equal(workflowBackendModeFromEnvironment({ TERUISI_DJANGO_WORKFLOW_MODE: "django" }), "django");
+  assert.throws(
+    () => workflowBackendModeFromEnvironment({ TERUISI_DJANGO_WORKFLOW_MODE: "legacy" }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
   assert.throws(
     () => workflowBackendModeFromEnvironment({ TERUISI_DJANGO_WORKFLOW_MODE: "shadow" }),
     (error: unknown) => error instanceof PublicApiError && error.status === 503,

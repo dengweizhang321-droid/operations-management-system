@@ -40,10 +40,6 @@ import {
   createDjangoWorkflowConsumerReader,
   type WorkflowConsumerReader,
 } from "@/lib/django/workflow-consumer-reader";
-import {
-  getWorkflowBackendMode,
-  type WorkflowBackendMode,
-} from "@/lib/django/workflow-service";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -160,7 +156,8 @@ export type GlobalSearchExecutionOptions = {
   inventoryReader?: InventoryConsumerReader;
   financeBackendMode?: FinanceBackendMode;
   workflowReader?: WorkflowConsumerReader;
-  workflowBackendMode?: WorkflowBackendMode;
+  /** Test-only compatibility override; terminal production behavior is always Django. */
+  workflowBackendMode?: "django";
   signal?: AbortSignal;
 };
 
@@ -749,7 +746,6 @@ async function queryWorkflowGroup(
   like: string,
   principal: AppPrincipal,
   workflowReader: WorkflowConsumerReader,
-  workflowMode: WorkflowBackendMode,
   signal?: AbortSignal,
 ) {
   const source = await queryLegacyWorkflowSource(
@@ -757,16 +753,11 @@ async function queryWorkflowGroup(
     tables,
     like,
     principal,
-    workflowMode === "legacy",
-    workflowMode === "legacy" ? (request.page - 1) * request.groupLimit : 0,
-    workflowMode === "legacy" ? request.groupLimit + 1 : request.groupLimit,
-    workflowMode === "django",
+    false,
+    0,
+    request.groupLimit,
+    true,
   );
-  if (workflowMode === "legacy") {
-    if (!source.available) return emptyGroup(workflowDefinition);
-    if (!source.complete) return emptyGroup(workflowDefinition, false);
-    return mapSearchRows(workflowDefinition, source.rows, request, principal);
-  }
 
   // Structured launch projects are the first, stable segment of the workflow
   // group after cutover.  Tasks, inspections and reviews remain in their D1
@@ -1633,7 +1624,6 @@ export async function searchAllBusinessData(
   const inventoryReader = options.inventoryReader ?? createDjangoInventoryConsumerReader();
   const workflowReader = options.workflowReader ?? createDjangoWorkflowConsumerReader();
   const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
-  const workflowMode = options.workflowBackendMode ?? await getWorkflowBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
   const like = escapeGlobalSearchLike(request.query);
@@ -1726,7 +1716,7 @@ export async function searchAllBusinessData(
   if ((!request.group || request.group === "workflow") && allRoles.includes(principal.role)) {
     groupTasks.push({
       definition: workflowDefinition,
-      available: workflowMode === "django" && principal.scope === null
+      available: principal.scope === null
         || (tables.has("workflow_tasks") && principal.scope === null)
         || tables.has("workflow_operation_records"),
       run: () => queryWorkflowGroup(
@@ -1736,7 +1726,6 @@ export async function searchAllBusinessData(
         like,
         principal,
         workflowReader,
-        workflowMode,
         options.signal,
       ),
     });

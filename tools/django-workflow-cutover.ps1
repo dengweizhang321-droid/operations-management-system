@@ -3,13 +3,18 @@ param(
   [ValidateSet(
     "Snapshot", "MigratePlan", "MigrateApply", "MigrateVerify",
     "InstallD1Authority", "AuthorityStatus", "AuthorityPrepare",
-    "AuthorityAbort", "AuthorityActivate"
+    "AuthorityAbort", "AuthorityActivate", "R2RetirementEvidence",
+    "RetirePlan", "RetireApply"
   )]
   [string]$Action = "AuthorityStatus",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$WorkflowSource = "",
   [string]$ApprovedRunId = "",
-  [string]$WorkflowCutoverId = ""
+  [string]$WorkflowCutoverId = "",
+  [string]$SmokeReceipt = "",
+  [string]$R2Evidence = "",
+  [string]$ApprovedPlanId = "",
+  [string]$AuditOutput = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -239,6 +244,73 @@ function Invoke-WorkflowAuthority([string]$Mode) {
   Write-Output ($payload | ConvertTo-Json -Compress -Depth 8)
 }
 
+function Resolve-WorkflowAuditFile([string]$Value, [string]$Label) {
+  if ([string]::IsNullOrWhiteSpace($Value) -or -not (Test-FullyQualifiedPath $Value)) {
+    throw "$Label 必须是受控审计目录内的绝对文件路径"
+  }
+  $canonical = Get-CanonicalPath $Value
+  [void](Assert-RuntimeChildPath $canonical)
+  $auditRoot = Get-CanonicalPath $WorkflowAuditRoot
+  if (-not $canonical.StartsWith(
+      $auditRoot + [IO.Path]::DirectorySeparatorChar,
+      [StringComparison]::OrdinalIgnoreCase
+    )) {
+    throw "$Label 必须位于受保护的 workflow-cutover 审计目录"
+  }
+  return $canonical
+}
+
+function Invoke-WorkflowR2RetirementEvidence {
+  Assert-InstalledWorkflowOperator
+  Assert-WorkflowStackStopped "生成新品 R2 退役证据"
+  Assert-WorkflowWorkerStopped "生成新品 R2 退役证据"
+  $directory = Join-Path $WorkflowAuditRoot $RunId
+  New-Item -ItemType Directory -Path $directory -Force | Out-Null
+  $output = Join-Path $directory "workflow-launch-r2-retirement-evidence.json"
+  $liveD1 = Resolve-LiveWorkflowD1
+  $v3Root = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $liveD1))
+  $r2Root = Join-Path $v3Root "r2\miniflare-R2BucketObject"
+  $tool = Join-Path $InstalledAppRoot "tools\workflow-launch-r2-retirement-evidence.py"
+  $nativeRun = Invoke-BoundedNativeProcess $Python @(
+    $tool, "--r2-root", $r2Root, "--output", $output
+  ) $InstalledAppRoot
+  Write-NativeDiagnosticLog (Join-Path $LogDirectory "workflow-r2-retirement.$RunId.log") "workflow_r2_retirement" $nativeRun
+  $payload = ConvertFrom-UniqueNativeJson $nativeRun "prove workflow launch R2 retirement"
+  Write-Output ($payload | ConvertTo-Json -Compress -Depth 8)
+}
+
+function Invoke-WorkflowRetirement([bool]$Apply) {
+  Assert-InstalledWorkflowOperator
+  Assert-WorkflowStackStopped "终态退役 D1/R2 新品子域"
+  Assert-WorkflowWorkerStopped "终态退役 D1/R2 新品子域"
+  if ($ApprovedRunId -cnotmatch "^workflow-[0-9a-f]{32}$" -or
+      $WorkflowCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$") {
+    throw "Workflow retirement requires exact approved run and cutover ids"
+  }
+  $smoke = Resolve-WorkflowAuditFile $SmokeReceipt "新品系统测试 receipt"
+  $r2 = Resolve-WorkflowAuditFile $R2Evidence "新品 R2 退役证据"
+  if (-not (Test-Path -LiteralPath $smoke -PathType Leaf) -or -not (Test-Path -LiteralPath $r2 -PathType Leaf)) {
+    throw "Workflow retirement receipt/evidence file is missing"
+  }
+  $arguments = @(
+    "retire_workflow_launch_d1",
+    "--source", (Resolve-LiveWorkflowD1),
+    "--cutover-id", $WorkflowCutoverId,
+    "--approved-run-id", $ApprovedRunId,
+    "--smoke-receipt", $smoke,
+    "--r2-evidence", $r2
+  )
+  if ($Apply) {
+    if ($ApprovedPlanId -cnotmatch "^[0-9a-f]{64}$") { throw "Workflow retirement apply requires an exact approved plan id" }
+    $audit = Resolve-WorkflowAuditFile $AuditOutput "新品退役审计输出"
+    $arguments += @("--apply", "--approved-plan-id", $ApprovedPlanId, "--audit-output", $audit)
+  } elseif (-not [string]::IsNullOrWhiteSpace($ApprovedPlanId) -or -not [string]::IsNullOrWhiteSpace($AuditOutput)) {
+    throw "Workflow retirement plan does not accept apply-only arguments"
+  }
+  $payload = Invoke-WorkflowManagementCommand $arguments ($(if ($Apply) { "workflow_retirement_apply" } else { "workflow_retirement_plan" }))
+  Write-Output ($payload | ConvertTo-Json -Compress -Depth 10)
+}
+
 Invoke-WithServiceMutex {
   switch ($Action) {
     "Snapshot" { Invoke-WorkflowSnapshot }
@@ -250,5 +322,8 @@ Invoke-WithServiceMutex {
     "AuthorityPrepare" { Invoke-WorkflowAuthority "prepare" }
     "AuthorityAbort" { Invoke-WorkflowAuthority "abort" }
     "AuthorityActivate" { Invoke-WorkflowAuthority "activate" }
+    "R2RetirementEvidence" { Invoke-WorkflowR2RetirementEvidence }
+    "RetirePlan" { Invoke-WorkflowRetirement $false }
+    "RetireApply" { Invoke-WorkflowRetirement $true }
   }
 }

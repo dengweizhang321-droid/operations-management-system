@@ -29,7 +29,7 @@ const operator: AppPrincipal = {
   scope: null,
 };
 
-test("persists all three operation record types with bounded filters and metadata-only activity", async () => {
+test("persists the remaining D1 operation record types with bounded filters and metadata-only activity", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   const inspection = await createOperationRecord({
@@ -51,11 +51,10 @@ test("persists all three operation record types with bounded filters and metadat
     type: "review", title: "二星评价", status: "待回复", platform: "天猫", channel: "线上",
     shopName: "天猫-测试店", owner: "客服组", occurredAt: "2026-08-19", content: "包装有破损",
   }, operator, db);
-  await createOperationRecord({
+  await assert.rejects(createOperationRecord({
     type: "launch", title: "新品净水机", status: "待开始", platform: "京东", channel: "线上",
-    shopName: "京东-测试店", owner: "商品组", occurredAt: "2026-08-18", dueAt: "2026-08-25",
-    content: "资料准备", referenceCode: "SKU-NEW-1",
-  }, operator, db);
+    shopName: "京东-测试店", owner: "商品组", occurredAt: "2026-08-18",
+  }, operator, db), /类型无效/);
 
   const result = await listOperationRecords({
     types: ["inspection"], statuses: ["待处理"], query: "库存", page: 1, pageSize: 1,
@@ -69,11 +68,10 @@ test("persists all three operation record types with bounded filters and metadat
   assert.equal(result.items[0]?.dueAt, "2026-08-19T16:00:00.000Z");
   const ranged = await listOperationRecords({ from: "2026-08-20", to: "2026-08-21" }, admin, db);
   assert.equal(ranged.items.some((item) => item.id === inspection.id), true);
-  const afterStructuredCutover = await listOperationRecords({ excludeTypes: ["launch"] }, admin, db);
+  const afterStructuredCutover = await listOperationRecords({}, admin, db);
   assert.equal(afterStructuredCutover.pagination.total, 2);
   assert.equal(afterStructuredCutover.items.some((item) => item.type === "launch"), false);
-  const oldLaunchOnly = await listOperationRecords({ types: ["launch"], excludeTypes: ["launch"] }, admin, db);
-  assert.equal(oldLaunchOnly.pagination.total, 0);
+  await assert.rejects(listOperationRecords({ types: ["launch"] }, admin, db), /类型包含无效值/);
 
   const activity = await listOperationRecordActivities(inspection.id, {}, admin, db);
   assert.equal(activity.items.length, 1);
@@ -141,16 +139,16 @@ test("optimistic updates and soft deletion remain atomic and auditable", async (
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   const item = await createOperationRecord({
-    type: "launch", title: "新品项目", status: "待开始", platform: "京东", shopName: "京东-测试店",
-    owner: "商品组", occurredAt: "2026-08-20", dueAt: "2026-08-25", content: "等待资料",
+    type: "review", title: "评价项目", status: "待回复", platform: "京东", shopName: "京东-测试店",
+    owner: "客服组", occurredAt: "2026-08-20", dueAt: "2026-08-25", content: "等待资料",
   }, operator, db);
   await assert.rejects(updateOperationRecord(item.id, { title: "缺版本" }, operator, db), /预期版本不能为空/);
   await assert.rejects(updateOperationRecord(item.id, { expectedVersion: true, title: "布尔版本" }, operator, db), /预期版本/);
   const updated = await updateOperationRecord(item.id, {
-    expectedVersion: 1, status: "工作中", content: "资料审核中",
+    expectedVersion: 1, status: "处理中", content: "资料审核中",
   }, operator, db);
   assert.equal(updated.version, 2);
-  assert.equal(updated.status, "工作中");
+  assert.equal(updated.status, "处理中");
   await assert.rejects(updateOperationRecord(item.id, {
     expectedVersion: 1, owner: "旧请求",
   }, operator, db), /其他人更新/);
@@ -206,9 +204,7 @@ test("migration and API routes preserve schema, role and no-store contracts", as
   assert.match(collectionRoute, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(itemRoute, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(activityRoute, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
-  for (const route of [collectionRoute, itemRoute, activityRoute]) {
-    assert.match(route, /getWorkflowBackendMode/);
-  }
+  for (const route of [collectionRoute, itemRoute, activityRoute]) assert.doesNotMatch(route, /getWorkflowBackendMode/);
   for (const route of [collectionRoute, itemRoute, activityRoute]) assert.match(route, /cache-control[\s\S]*no-store/);
 });
 

@@ -17,25 +17,11 @@ function requireObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function djangoRequired(): never {
-  throw new PublicApiError(
-    503,
-    "service_unavailable",
-    "结构化新品上新尚未完成 Django 受控切换，当前写入仍保持旧运营记录权威。",
-  );
-}
-
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "新品上新");
-    const mode = await getWorkflowBackendMode();
-    if (mode === "legacy") {
-      return Response.json(
-        { structured: false, backendMode: "legacy" },
-        { headers: { "cache-control": "no-store" } },
-      );
-    }
+    await getWorkflowBackendMode();
     const params = new URL(request.url).searchParams;
     const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
       principal,
@@ -57,7 +43,7 @@ export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "新品上新", "修改");
-    if (await getWorkflowBackendMode() !== "django") djangoRequired();
+    await getWorkflowBackendMode();
     const payload = requireObject(await request.json().catch(() => null));
     const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
       principal,

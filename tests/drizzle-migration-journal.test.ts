@@ -30,6 +30,7 @@ const operatorOnlyMigrations = new Set([
   "0101_inventory_write_authority",
   "0102_inventory_domain_retirement",
   "0103_workflow_launch_write_authority",
+  "0104_workflow_launch_domain_retirement",
 ]);
 
 test("Drizzle journal registers normal migrations and excludes operator-only post-cutover DDL", async () => {
@@ -61,6 +62,7 @@ test("Drizzle journal registers normal migrations and excludes operator-only pos
     "0101_inventory_write_authority",
     "0102_inventory_domain_retirement",
     "0103_workflow_launch_write_authority",
+    "0104_workflow_launch_domain_retirement",
   ]) {
     assert.equal(fileNames.includes(`${tag}.sql`), true);
     assert.equal(journal.entries.some((entry) => entry.tag === tag), false);

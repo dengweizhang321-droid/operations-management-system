@@ -1355,6 +1355,7 @@ function Deploy-Application {
       "tools\finance_d1_rehearsal_snapshot.py",
       "tools\workflow-d1-authority-install.py",
       "tools\workflow-d1-snapshot.py",
+      "tools\workflow-launch-r2-retirement-evidence.py",
       "tools\inventory-d1-authority-install.py",
       "tools\inventory-r2-retirement-evidence.py",
       "tools\postgres-consistent-backup.py",
@@ -1371,7 +1372,8 @@ function Deploy-Application {
       "drizzle\0100_product_domain_retirement.sql",
       "drizzle\0101_inventory_write_authority.sql",
       "drizzle\0102_inventory_domain_retirement.sql",
-      "drizzle\0103_workflow_launch_write_authority.sql"
+      "drizzle\0103_workflow_launch_write_authority.sql",
+      "drizzle\0104_workflow_launch_domain_retirement.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {

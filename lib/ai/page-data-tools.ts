@@ -283,11 +283,7 @@ const defaultPageDataToolServices: PageDataToolServices = {
   },
   async readOperationRecords(input, principal) {
     const { listOperationRecords } = await import("@/lib/workflow/operations-records");
-    const { getWorkflowBackendMode } = await import("@/lib/django/workflow-service");
-    return listOperationRecords({
-      ...input,
-      excludeTypes: await getWorkflowBackendMode() === "django" ? ["launch"] : [],
-    }, principal);
+    return listOperationRecords(input, principal);
   },
   async readNewProductProjects(input, principal, signal) {
     const {
@@ -296,7 +292,6 @@ const defaultPageDataToolServices: PageDataToolServices = {
       WORKFLOW_LAUNCH_PROJECTS_PATH,
     } = await import("@/lib/django/workflow-service");
     const backendMode = await getWorkflowBackendMode();
-    if (backendMode !== "django") return { structured: false, backendMode };
     const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
     if (input.query) query.set("q", input.query);
     for (const value of input.statuses) query.append("status", value);

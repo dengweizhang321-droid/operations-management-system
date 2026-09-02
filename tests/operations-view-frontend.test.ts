@@ -266,7 +266,7 @@ test("new-product editor validates multi-store identity, dates, money and blocke
   assert.match(validateStageDraft({ status: "completed", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "ftp://invalid", evidenceLabel: "" }), /http/);
 });
 
-test("new-product workspace includes seven stages, matrix, kanban, evidence and a safe legacy fallback", async () => {
+test("new-product workspace includes seven stages, matrix, kanban, evidence and no legacy fallback", async () => {
   const [launch, operations, css] = await Promise.all([
     source("../app/new-product-launch-view.tsx"),
     source("../app/operations-view.tsx"),
@@ -278,8 +278,8 @@ test("new-product workspace includes seven stages, matrix, kanban, evidence and 
   for (const feature of ["阶段矩阵", "看板", "目标店铺", "阻塞原因", "有阻塞节点", "证据链接", "最近活动"]) {
     assert.match(launch, new RegExp(feature));
   }
-  assert.match(launch, /if \(structured === false\) return <>\{legacyFallback\}<\/>/);
-  assert.match(operations, /legacyFallback=\{<OperationsRecordWorkspace type="launch"/);
+  assert.doesNotMatch(launch, /legacyFallback|structured === false/);
+  assert.doesNotMatch(operations, /OperationsRecordWorkspace type="launch"/);
   assert.match(css, /\.launch-matrix-table/);
   assert.match(css, /\.launch-kanban/);
   assert.match(css, /\.launch-detail-stages/);
